@@ -66,7 +66,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Rotational kinematic equation",
         r"\theta",
         base_latex=r"\theta = \theta_0 + \omega_0 t + \frac{1}{2}\alpha t^2",
-        assumptions=("constant angular acceleration",),
+        assumptions=(
+            "constant angular acceleration",
+            "angular displacement is measured from zero",
+        ),
         variables=(
             var("ang_alpha", r"\alpha", "radian / second ** 2"),
             var("omega0", r"\omega_0", "radian / second"),
@@ -191,6 +194,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         solve_for=(("inertia", "I"), ("inertia_cm", "I_{cm}"), ("m", "M"), ("d", "d")),
         variables=(
             var("d", "d", "meter"),
+            var("inertia", "I", "kilogram * meter ** 2"),
             var("inertia_cm", "I_{cm}", "kilogram * meter ** 2"),
             var("m", "m", "kilogram"),
         ),

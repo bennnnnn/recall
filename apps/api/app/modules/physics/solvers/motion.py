@@ -86,6 +86,7 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
             raise SolveServiceError("speed requires a non-negative distance and positive time")
         value = distance / duration
         answer_unit = f"{distance_unit}/{time_unit}"
+        formula = r"v = \frac{d}{t}"
         working = (
             rf"v = \frac{{d}}{{t}} = "
             rf"\frac{{{_rate_number(distance)}\,\mathrm{{{distance_unit}}}}}"
@@ -110,6 +111,7 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
             raise SolveServiceError("speed and time units must use the same time scale")
         value = speed * duration
         answer_unit = distance_unit
+        formula = r"d = vt"
         working = (
             rf"d = vt = "
             rf"{_rate_number(speed)}\,\mathrm{{{speed_unit}}} \cdot "
@@ -133,6 +135,7 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
         if speed_distance_unit != distance_unit:
             raise SolveServiceError("distance and speed units must use the same length scale")
         value = distance / speed
+        formula = r"t = \frac{d}{v}"
         working = (
             rf"t = \frac{{d}}{{v}} = "
             rf"\frac{{{_rate_number(distance)}\,\mathrm{{{distance_unit}}}}}"
@@ -143,6 +146,7 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
         raise SolveServiceError(f"unsupported rate operation: {op}")
     return PhysicsResult(
         answer=working,
+        formulas=(formula,),
         quantities=(QuantityResult("", value, answer_unit, number_format=".12g"),),
         substitutions=(_rate_substitution(intent),),
     )
@@ -183,6 +187,11 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             raise SolveServiceError("no positive real time to ground")
         t_val = landed
         v0_sq = _latex_num(v0, square=True)
+        formula = r"t = \frac{v_0 + \sqrt{v_0^2 + 2 g h_0}}{g}"
+        substitution = (
+            rf"t = \frac{{{_latex_num(v0)} + \sqrt{{{v0_sq} + 2 \cdot {g:g} \cdot {h0:g}}}}}"
+            rf"{{{g:g}}}"
+        )
         answer_latex = (
             r"t = \frac{v_0 + \sqrt{v_0^2 + 2 g h_0}}{g} = "
             rf"\frac{{{_latex_num(v0)} + \sqrt{{{v0_sq} + 2 \cdot {g:g} \cdot {h0:g}}}}}"
@@ -206,6 +215,11 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             v_val = impact_magnitude if op == "speed" else -impact_magnitude
             symbol = "v" if op == "velocity" else r"v_{impact}"
             sign = "-" if op == "velocity" else ""
+            formula = rf"{symbol} = {sign}\sqrt{{v_0^2 + 2gh_0}}"
+            substitution = (
+                rf"{symbol} = {sign}\sqrt{{{_latex_num(v0, square=True)} + "
+                rf"2 \cdot {g:g} \cdot {h0:g}}}"
+            )
             answer_latex = (
                 rf"{symbol} = {sign}\sqrt{{v_0^2 + 2gh_0}} = "
                 rf"{sign}\sqrt{{{_latex_num(v0, square=True)} + 2 \cdot {g:g} \cdot {h0:g}}} "
@@ -213,12 +227,16 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             )
         elif op == "speed":
             v_val = abs(v_val)
+            formula = r"v = \lvert v_0 - g \cdot t\rvert"
+            substitution = rf"v = \lvert {_latex_num(v0)} - {g:g} \cdot {t_val:g}\rvert"
             answer_latex = (
                 rf"v = \lvert v_0 - g \cdot t\rvert = "
                 rf"\lvert {_latex_num(v0)} - {g:g} \cdot {t_val:g}\rvert "
                 rf"\approx {v_val:.2f} \text{{ m/s}}"
             )
         else:
+            formula = r"v = v_0 - g t"
+            substitution = rf"v = {_latex_num(v0)} - {g:g} \cdot {t_val:g}"
             answer_latex = (
                 rf"v = v_0 - g t = {_latex_num(v0)} - {g:g} \cdot {t_val:g} "
                 rf"\approx {v_val:.2f} \text{{ m/s}}"
@@ -230,6 +248,11 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             raise SolveServiceError("position requires a time t")
         t_val = float(t_param)
         h_val = float(h0 + v0 * t_val - 0.5 * g * t_val**2)
+        formula = r"h = h_0 + v_0 t - \frac{1}{2} g t^2"
+        substitution = (
+            rf"h = {h0:g} + {_latex_num(v0)} \cdot {t_val:g} - "
+            rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {_latex_num(t_val, square=True)}"
+        )
         answer_latex = (
             rf"h = h_0 + v_0 t - \frac{{1}}{{2}} g t^2 = "
             rf"{h0:g} + {_latex_num(v0)} \cdot {t_val:g} - "
@@ -241,6 +264,10 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         if v0 <= 0:
             raise SolveServiceError("maximum height for a vertical launch requires v0 > 0")
         h_val = h0 + v0**2 / (2 * g)
+        formula = r"h_{\max} = h_0 + \frac{v_0^2}{2g}"
+        substitution = (
+            rf"h_{{\max}} = {h0:g} + \frac{{{_latex_num(v0, square=True)}}}{{2 \cdot {g:g}}}"
+        )
         answer_latex = (
             r"h_{\max} = h_0 + \frac{v_0^2}{2g} = "
             rf"{h0:g} + \frac{{{_latex_num(v0, square=True)}}}{{2 \cdot {g:g}}} "
@@ -260,6 +287,8 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         answer_latex = rf"a = -g = -{g:g} \text{{ m/s}}^2"
         return PhysicsResult(
             answer=answer_latex,
+            formulas=(r"a = -g",),
+            substitutions=(rf"a = -{g:g} \text{{ m/s}}^2",),
             quantities=(QuantityResult("", -g, "m/s^2", number_format="g"),),
         )
     else:
@@ -276,7 +305,12 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         # from an unstated height, which is exactly the case h(t) cannot plot.
         # Only a zero-length window is degenerate.
         if t_val <= 0:
-            return PhysicsResult(answer=answer_latex, quantities=(quantity,))
+            return PhysicsResult(
+                answer=answer_latex,
+                formulas=(formula,),
+                substitutions=(substitution,),
+                quantities=(quantity,),
+            )
         t_max = t_val * 1.05
         dt = t_max / (n_points - 1)
         v_points: list[list[float]] = []
@@ -289,6 +323,8 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         is_speed = op == "speed"
         return PhysicsResult(
             answer=answer_latex,
+            formulas=(formula,),
+            substitutions=(substitution,),
             quantities=(quantity,),
             graph_specs=[
                 GraphBlockSpec(
@@ -311,7 +347,12 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     # be entirely below ground and clamp to a flat line at zero, which reads
     # as "it never moved". The answer is still exact.
     if h0 <= 0 and v0 == 0:
-        return PhysicsResult(answer=answer_latex, quantities=(quantity,))
+        return PhysicsResult(
+            answer=answer_latex,
+            formulas=(formula,),
+            substitutions=(substitution,),
+            quantities=(quantity,),
+        )
 
     t_max = t_val * 1.05  # small pad so the curve doesn't end exactly at ground
     dt = t_max / (n_points - 1)
@@ -339,6 +380,8 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     )
     return PhysicsResult(
         answer=answer_latex,
+        formulas=(formula,),
+        substitutions=(substitution,),
         quantities=(quantity,),
         graph_specs=[graph_spec],
     )
@@ -356,64 +399,82 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
 # ---------------------------------------------------------------------------
 
 
-def _suvat_velocity(p: dict[str, float]) -> tuple[float, str]:
+def _suvat_velocity(p: dict[str, float]) -> tuple[float, str, str, str]:
     u, a, t, d = p.get("u"), p.get("a"), p.get("t"), p.get("d")
     if u is not None and a is not None and t is not None:
-        return u + a * t, rf"v = u + at = {u:g} + {_latex_num(a)} \cdot {t:g}"
+        plugged = rf"{u:g} + {_latex_num(a)} \cdot {t:g}"
+        return u + a * t, rf"v = u + at = {plugged}", r"v = u + at", rf"v = {plugged}"
     if u is not None and a is not None and d is not None:
         square = u * u + 2 * a * d
         if square < 0:
             raise SolveServiceError("no real final velocity: the body stops before that distance")
+        plugged = rf"\sqrt{{{_latex_num(u, square=True)} + 2 \cdot {_latex_num(a)} \cdot {d:g}}}"
         return (
             math.sqrt(square),
-            rf"v = \sqrt{{u^2 + 2as}} = \sqrt{{{_latex_num(u, square=True)} + "
-            rf"2 \cdot {_latex_num(a)} \cdot {d:g}}}",
+            rf"v = \sqrt{{u^2 + 2as}} = {plugged}",
+            r"v = \sqrt{u^2 + 2as}",
+            rf"v = {plugged}",
         )
     if u is not None and d is not None and t is not None:
         if t == 0:
             raise SolveServiceError("time must be non-zero")
+        plugged = rf"\frac{{2 \cdot {d:g}}}{{{t:g}}} - {u:g}"
         return (
             2 * d / t - u,
-            rf"s = \tfrac{{1}}{{2}}(u + v)t \Rightarrow v = \frac{{2s}}{{t}} - u = "
-            rf"\frac{{2 \cdot {d:g}}}{{{t:g}}} - {u:g}",
+            rf"s = \tfrac{{1}}{{2}}(u + v)t \Rightarrow v = \frac{{2s}}{{t}} - u = {plugged}",
+            r"v = \frac{2s}{t} - u",
+            rf"v = {plugged}",
         )
     raise SolveServiceError("not enough givens for a final velocity")
 
 
-def _suvat_distance(p: dict[str, float]) -> tuple[float, str]:
+def _suvat_distance(p: dict[str, float]) -> tuple[float, str, str, str]:
     u, v, a, t = p.get("u"), p.get("v"), p.get("a"), p.get("t")
     if u is not None and a is not None and t is not None:
+        plugged = (
+            rf"{u:g} \cdot {t:g} + 0.5 \cdot {_latex_num(a)} \cdot {_latex_num(t, square=True)}"
+        )
         return (
             u * t + 0.5 * a * t * t,
-            rf"s = ut + \tfrac{{1}}{{2}}at^2 = {u:g} \cdot {t:g} + 0.5 \cdot "
-            rf"{_latex_num(a)} \cdot {_latex_num(t, square=True)}",
+            rf"s = ut + \tfrac{{1}}{{2}}at^2 = {plugged}",
+            r"s = ut + \tfrac{1}{2}at^2",
+            rf"s = {plugged}",
         )
     if u is not None and v is not None and a is not None:
         if a == 0:
             raise SolveServiceError("acceleration must be non-zero to find a distance this way")
+        plugged = (
+            rf"\frac{{{_latex_num(v, square=True)} - {_latex_num(u, square=True)}}}"
+            rf"{{2 \cdot {_latex_num(a)}}}"
+        )
         return (
             (v * v - u * u) / (2 * a),
-            rf"v^2 = u^2 + 2as \Rightarrow s = \frac{{v^2 - u^2}}{{2a}} = "
-            rf"\frac{{{_latex_num(v, square=True)} - {_latex_num(u, square=True)}}}"
-            rf"{{2 \cdot {_latex_num(a)}}}",
+            rf"v^2 = u^2 + 2as \Rightarrow s = \frac{{v^2 - u^2}}{{2a}} = {plugged}",
+            r"s = \frac{v^2 - u^2}{2a}",
+            rf"s = {plugged}",
         )
     if u is not None and v is not None and t is not None:
+        plugged = rf"0.5 \cdot ({u:g} + {v:g}) \cdot {t:g}"
         return (
             0.5 * (u + v) * t,
-            rf"s = \tfrac{{1}}{{2}}(u + v)t = 0.5 \cdot ({u:g} + {v:g}) \cdot {t:g}",
+            rf"s = \tfrac{{1}}{{2}}(u + v)t = {plugged}",
+            r"s = \tfrac{1}{2}(u + v)t",
+            rf"s = {plugged}",
         )
     raise SolveServiceError("not enough givens for a distance")
 
 
-def _suvat_time(p: dict[str, float]) -> tuple[float, str]:
+def _suvat_time(p: dict[str, float]) -> tuple[float, str, str, str]:
     u, v, a, d = p.get("u"), p.get("v"), p.get("a"), p.get("d")
     if u is not None and v is not None and a is not None:
         if a == 0:
             raise SolveServiceError("acceleration must be non-zero to find a time this way")
+        plugged = rf"\frac{{{v:g} - {u:g}}}{{{_latex_num(a)}}}"
         return (
             (v - u) / a,
-            rf"v = u + at \Rightarrow t = \frac{{v - u}}{{a}} = "
-            rf"\frac{{{v:g} - {u:g}}}{{{_latex_num(a)}}}",
+            rf"v = u + at \Rightarrow t = \frac{{v - u}}{{a}} = {plugged}",
+            r"t = \frac{v - u}{a}",
+            rf"t = {plugged}",
         )
     if u is not None and a is not None and d is not None:
         # ½at² + ut - s = 0. SymPy rather than the quadratic formula by hand,
@@ -423,48 +484,61 @@ def _suvat_time(p: dict[str, float]) -> tuple[float, str]:
         candidates = sorted(float(r) for r in roots if r.is_real and float(r) >= 0)
         if not candidates:
             raise SolveServiceError("the body never reaches that distance")
+        shown = rf"t = {d:g}"
         return (
             candidates[0],
             rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow 0.5 \cdot {_latex_num(a)} t^2 + "
             rf"{u:g}t = {d:g}",
+            shown,
+            shown,
         )
     if u is not None and v is not None and d is not None:
         if u + v == 0:
             raise SolveServiceError("average velocity is zero, so no time follows")
+        plugged = rf"\frac{{2 \cdot {d:g}}}{{{u:g} + {v:g}}}"
         return (
             2 * d / (u + v),
-            rf"s = \tfrac{{1}}{{2}}(u + v)t \Rightarrow t = \frac{{2s}}{{u + v}} = "
-            rf"\frac{{2 \cdot {d:g}}}{{{u:g} + {v:g}}}",
+            rf"s = \tfrac{{1}}{{2}}(u + v)t \Rightarrow t = \frac{{2s}}{{u + v}} = {plugged}",
+            r"t = \frac{2s}{u + v}",
+            rf"t = {plugged}",
         )
     raise SolveServiceError("not enough givens for a time")
 
 
-def _suvat_acceleration(p: dict[str, float]) -> tuple[float, str]:
+def _suvat_acceleration(p: dict[str, float]) -> tuple[float, str, str, str]:
     u, v, t, d = p.get("u"), p.get("v"), p.get("t"), p.get("d")
     if u is not None and v is not None and t is not None:
         if t == 0:
             raise SolveServiceError("time must be non-zero")
+        plugged = rf"\frac{{{v:g} - {u:g}}}{{{t:g}}}"
         return (
             (v - u) / t,
-            rf"v = u + at \Rightarrow a = \frac{{v - u}}{{t}} = "
-            rf"\frac{{{v:g} - {u:g}}}{{{t:g}}}",
+            rf"v = u + at \Rightarrow a = \frac{{v - u}}{{t}} = {plugged}",
+            r"a = \frac{v - u}{t}",
+            rf"a = {plugged}",
         )
     if u is not None and v is not None and d is not None:
         if d == 0:
             raise SolveServiceError("distance must be non-zero")
+        plugged = (
+            rf"\frac{{{_latex_num(v, square=True)} - {_latex_num(u, square=True)}}}"
+            rf"{{2 \cdot {d:g}}}"
+        )
         return (
             (v * v - u * u) / (2 * d),
-            rf"v^2 = u^2 + 2as \Rightarrow a = \frac{{v^2 - u^2}}{{2s}} = "
-            rf"\frac{{{_latex_num(v, square=True)} - {_latex_num(u, square=True)}}}"
-            rf"{{2 \cdot {d:g}}}",
+            rf"v^2 = u^2 + 2as \Rightarrow a = \frac{{v^2 - u^2}}{{2s}} = {plugged}",
+            r"a = \frac{v^2 - u^2}{2s}",
+            rf"a = {plugged}",
         )
     if u is not None and t is not None and d is not None:
         if t == 0:
             raise SolveServiceError("time must be non-zero")
+        plugged = rf"\frac{{2({d:g} - {u:g} \cdot {t:g})}}{{{_latex_num(t, square=True)}}}"
         return (
             2 * (d - u * t) / (t * t),
-            rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow a = \frac{{2(s - ut)}}{{t^2}} = "
-            rf"\frac{{2({d:g} - {u:g} \cdot {t:g})}}{{{_latex_num(t, square=True)}}}",
+            rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow a = \frac{{2(s - ut)}}{{t^2}} = {plugged}",
+            r"a = \frac{2(s - ut)}{t^2}",
+            rf"a = {plugged}",
         )
     raise SolveServiceError("not enough givens for an acceleration")
 
@@ -546,7 +620,7 @@ def solve_suvat(intent: PhysicsIntent) -> PhysicsResult:
         raise SolveServiceError(f"unsupported suvat op: {op}")
     compute, unit = entry
 
-    value, workings = compute(p)
+    value, workings, formula, substitution = compute(p)
     if not math.isfinite(value):
         raise SolveServiceError("suvat solution is not finite")
     # A negative time or distance means the givens describe no real motion —
@@ -558,6 +632,8 @@ def solve_suvat(intent: PhysicsIntent) -> PhysicsResult:
     graphs = _suvat_graph(op, p, {solved: value} if solved else {})
     return PhysicsResult(
         answer=rf"{workings} \approx {value:.2f} \text{{ {unit} }}",
+        formulas=(formula,),
+        substitutions=(substitution,),
         quantities=(QuantityResult("", value, unit, number_format=".2f"),),
         graph_specs=graphs,
     )
@@ -600,6 +676,11 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\tfrac{{1}}{{2}} \arcsin\!\left(\frac{{{r_target:g} \cdot {g:g}}}"
                 rf"{{{_latex_num(v0, square=True)}}}\right) \approx {deg_val:.2f}^\circ"
             ),
+            formulas=(r"\theta = \tfrac{1}{2} \arcsin\!\left(\frac{Rg}{v_0^2}\right)",),
+            substitutions=(
+                rf"\theta = \tfrac{{1}}{{2}} \arcsin\!\left(\frac{{{r_target:g} \cdot {g:g}}}"
+                rf"{{{_latex_num(v0, square=True)}}}\right)",
+            ),
             quantities=(QuantityResult("", deg_val, "deg", number_format=".2f"),),
         )
 
@@ -626,15 +707,19 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             r_val = v0**2 * math.sin(2 * theta) / g
         deg = math.degrees(theta)
         v0_sq = _latex_num(v0, square=True)
-        answer_latex = (
-            rf"R = \frac{{v_0^2 \sin(2\theta)}}{{g}} = "
-            rf"\frac{{{v0_sq} \cdot \sin({deg:.1f}^\circ \cdot 2)}}{{{g:g}}} "
-            rf"\approx {r_val:.2f} \text{{ m}}"
-            if h0 <= 0
-            else rf"R = v_0 \cos(\theta)\, t \approx {r_val:.2f} \text{{ m}}"
-        )
+        if h0 <= 0:
+            answer_latex = (
+                rf"R = \frac{{v_0^2 \sin(2\theta)}}{{g}} = "
+                rf"\frac{{{v0_sq} \cdot \sin({deg:.1f}^\circ \cdot 2)}}{{{g:g}}} "
+                rf"\approx {r_val:.2f} \text{{ m}}"
+            )
+            formulas = (r"R = \frac{v_0^2 \sin(2\theta)}{g}",)
+            substitutions = (rf"R = \frac{{{v0_sq} \cdot \sin({deg:.1f}^\circ \cdot 2)}}{{{g:g}}}",)
+        else:
+            answer_latex = rf"R = v_0 \cos(\theta)\, t \approx {r_val:.2f} \text{{ m}}"
+            formulas = (r"R = v_0 \cos(\theta)\, t",)
+            substitutions = formulas
         quantity = QuantityResult("", r_val, "m", number_format=".2f")
-        substitutions: tuple[str, ...] = ()
     elif op == "max_height":
         h_val = h0 + v0**2 * math.sin(theta) ** 2 / (2 * g)
         answer_latex = (
@@ -642,20 +727,30 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             rf"{h_val:.2f} \text{{ m}}"
         )
         quantity = QuantityResult("", h_val, "m", number_format=".2f")
+        formulas = (r"H = h_0 + \frac{v_0^2 \sin^2(\theta)}{2g}",)
         substitutions = (_projectile_max_height_substitution(intent),)
     elif op == "time_of_flight":
         # t_flight is already in hand — both branches above compute it to build
         # the trajectory, whatever the question asked for.
-        answer_latex = (
-            rf"t = \frac{{2 v_0 \sin(\theta)}}{{g}} = "
-            rf"\frac{{2 \cdot {v0:g} \cdot \sin({math.degrees(theta):.1f}^\circ)}}{{{g:g}}} "
-            rf"\approx {t_flight:.2f} \text{{ s}}"
-            if h0 <= 0
-            else rf"\tfrac{{1}}{{2}} g t^2 - v_0 \sin(\theta) t - h_0 = 0 "
-            rf"\Rightarrow t \approx {t_flight:.2f} \text{{ s}}"
-        )
+        if h0 <= 0:
+            answer_latex = (
+                rf"t = \frac{{2 v_0 \sin(\theta)}}{{g}} = "
+                rf"\frac{{2 \cdot {v0:g} \cdot \sin({math.degrees(theta):.1f}^\circ)}}{{{g:g}}} "
+                rf"\approx {t_flight:.2f} \text{{ s}}"
+            )
+            formulas = (r"t = \frac{2 v_0 \sin(\theta)}{g}",)
+            substitutions = (
+                rf"t_{{flight}} = \frac{{2 \cdot {v0:g} \cdot "
+                rf"\sin({math.degrees(theta):.1f}^\circ)}}{{{g:g}}}",
+            )
+        else:
+            answer_latex = (
+                rf"\tfrac{{1}}{{2}} g t^2 - v_0 \sin(\theta) t - h_0 = 0 "
+                rf"\Rightarrow t \approx {t_flight:.2f} \text{{ s}}"
+            )
+            formulas = (r"\tfrac{1}{2} g t^2 - v_0 \sin(\theta) t - h_0 = 0 \Rightarrow t",)
+            substitutions = formulas
         quantity = QuantityResult("", t_flight, "s", number_format=".2f")
-        substitutions = ()
     elif op == "impact_speed":
         v_x = v0 * math.cos(theta)
         v_y = v0 * math.sin(theta) - g * t_flight
@@ -666,7 +761,8 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             rf"\approx {speed_val:.2f} \text{{ m/s}}"
         )
         quantity = QuantityResult("", speed_val, "m/s", number_format=".2f")
-        substitutions = ()
+        formulas = (r"v = \sqrt{v_x^2 + v_y^2}",)
+        substitutions = (rf"v_{{impact}} = \sqrt{{{v_x:.2f}^2 + ({v_y:.2f})^2}}",)
     else:
         raise SolveServiceError(f"unsupported projectile op: {op}")
 
@@ -716,6 +812,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
     return PhysicsResult(
         answer=answer_latex,
         quantities=(quantity,),
+        formulas=formulas,
         substitutions=substitutions,
         graph_specs=[graph_spec],
         simulation_specs=[scene],

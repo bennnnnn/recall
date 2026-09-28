@@ -26,9 +26,12 @@ from app.modules.physics.solvers.common import (
     _SPEED_OF_LIGHT,
     _STEFAN_BOLTZMANN,
     _WIEN_B,
+    PhysicsResult,
+    QuantityResult,
     render_chip,
 )
-from app.modules.physics.working import result_symbol_for
+from app.modules.physics.working import attach_recorded_working, result_symbol_for
+from app.services.solving import SolveServiceError
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,
@@ -135,6 +138,55 @@ def test_bernoulli_with_height_selects_the_full_equation() -> None:
     )
     assert latex is not None and r"\rho gh_1" in latex
     assert assumptions == ("steady incompressible flow with no viscosity",)
+
+
+@pytest.mark.parametrize(
+    ("params", "expected", "unit"),
+    [
+        ({"inertia_cm": 2.0, "m": 3.0, "d": 4.0}, 2.0 + 3.0 * 16.0, "kg*m^2"),
+        ({"inertia": 50.0, "m": 3.0, "d": 4.0}, 50.0 - 3.0 * 16.0, "kg*m^2"),
+        ({"inertia": 50.0, "inertia_cm": 2.0, "d": 4.0}, (50.0 - 2.0) / 16.0, "kg"),
+        ({"inertia": 50.0, "inertia_cm": 2.0, "m": 3.0}, math.sqrt((50.0 - 2.0) / 3.0), "m"),
+    ],
+)
+def test_parallel_axis_rearranges_every_declared_variable(
+    params: dict[str, float], expected: float, unit: str
+) -> None:
+    intent = PhysicsIntent(kind="rotation", physics_op="parallel_axis", physics_params=params)
+    result = solve_physics(intent)
+    assert result.quantities[0].value == pytest.approx(expected)
+    assert result.quantities[0].unit == unit
+    assert result.formulas and result.substitutions
+
+
+def test_a_solver_must_store_formula_and_substitution_rows() -> None:
+    intent = PhysicsIntent(
+        kind="force", physics_op="net_force", physics_params={"m": 2.0, "a": 3.0}
+    )
+    bare = PhysicsResult(
+        answer=r"F = m \cdot a \approx 6",
+        quantities=(QuantityResult("", 6.0, "N"),),
+    )
+    with pytest.raises(SolveServiceError, match="net_force did not store"):
+        attach_recorded_working(bare, intent)
+
+
+def test_rotational_displacement_is_measured_from_zero() -> None:
+    with pytest.raises(ValidationError, match="rotational_theta does not declare theta0"):
+        PhysicsIntent(
+            kind="rotation",
+            physics_op="rotational_theta",
+            physics_params={"omega0": 1.0, "ang_alpha": 2.0, "t": 3.0, "theta0": 4.0},
+        )
+    intent = PhysicsIntent(
+        kind="rotation",
+        physics_op="rotational_theta",
+        physics_params={"omega0": 1.0, "ang_alpha": 2.0, "t": 3.0},
+    )
+    result = solve_physics(intent)
+    assert result.quantities[0].value == pytest.approx(1.0 * 3.0 + 0.5 * 2.0 * 9.0)
+    assert r"\theta_0" in result.formulas[0]
+    assert result.substitutions[0].startswith(r"\theta = 0 +")
 
 
 def test_rpm_converts_once_to_the_same_angular_speed() -> None:

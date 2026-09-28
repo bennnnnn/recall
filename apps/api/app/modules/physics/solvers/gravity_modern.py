@@ -40,6 +40,11 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\cdot {p['m2']:g}}}{{{_latex_num(r, square=True)}}} "
                 rf"\approx {f_val:.4g} \text{{ N}}"
             ),
+            formulas=(r"F = \frac{G m_1 m_2}{r^2}",),
+            substitutions=(
+                rf"F = \frac{{{_BIG_G:.5g} \cdot {p['m1']:g} \cdot {p['m2']:g}}}"
+                rf"{{{_latex_num(r, square=True)}}}",
+            ),
             quantities=(QuantityResult("", f_val, "N", number_format=".4g"),),
         )
 
@@ -53,6 +58,8 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
                 rf"v = \sqrt{{\frac{{GM}}{{r}}}} = \sqrt{{\frac{{{_BIG_G:.5g} \cdot "
                 rf"{p['M']:.4g}}}{{{r:.4g}}}}} \approx {v_val:.2f} \text{{ m/s}}"
             ),
+            formulas=(r"v = \sqrt{\frac{GM}{r}}",),
+            substitutions=(rf"v = \sqrt{{\frac{{{_BIG_G:.5g} \cdot {p['M']:.4g}}}{{{r:.4g}}}}}",),
             quantities=(QuantityResult("", v_val, "m/s", number_format=".2f"),),
             simulation_specs=[_orbit_scene(r)],
         )
@@ -67,6 +74,10 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
                 rf"v_e = \sqrt{{\frac{{2GM}}{{R}}}} = \sqrt{{\frac{{2 \cdot {_BIG_G:.5g} "
                 rf"\cdot {p['M']:.4g}}}{{{radius:.4g}}}}} \approx {v_val:.2f} \text{{ m/s}}"
             ),
+            formulas=(r"v_e = \sqrt{\frac{2GM}{R}}",),
+            substitutions=(
+                rf"v_e = \sqrt{{\frac{{2 \cdot {_BIG_G:.5g} \cdot {p['M']:.4g}}}{{{radius:.4g}}}}}",
+            ),
             quantities=(QuantityResult("", v_val, "m/s", number_format=".2f"),),
         )
 
@@ -80,6 +91,11 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
                 rf"g = \frac{{GM}}{{R^2}} = \frac{{{_BIG_G:.5g} \cdot {p['M']:.4g}}}"
                 rf"{{{_latex_num(radius, square=True)}}} \approx {g_val:.2f} "
                 rf"\text{{ m/s}}^2"
+            ),
+            formulas=(r"g = \frac{GM}{R^2}",),
+            substitutions=(
+                rf"g = \frac{{{_BIG_G:.5g} \cdot {p['M']:.4g}}}"
+                rf"{{{_latex_num(radius, square=True)}}}",
             ),
             quantities=(QuantityResult("", g_val, "m/s^2", number_format=".2f"),),
         )
@@ -103,6 +119,10 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                     rf"\frac{{1}}{{\sqrt{{1-({speed:g}/{_SPEED_OF_LIGHT:g})^2}}}} "
                     rf"\approx {gamma:.4g}"
                 ),
+                formulas=(r"\gamma = \frac{1}{\sqrt{1-v^2/c^2}}",),
+                substitutions=(
+                    rf"\gamma = \frac{{1}}{{\sqrt{{1-({speed:g}/{_SPEED_OF_LIGHT:g})^2}}}}",
+                ),
                 quantities=(QuantityResult("", gamma, "", number_format=".4g"),),
             )
         if op == "time_dilation":
@@ -112,6 +132,8 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                     rf"\Delta t = \gamma\Delta t_0 = {gamma:.4g} \cdot "
                     rf"{p['proper_time']:g} \approx {value:.4g} \text{{ s}}"
                 ),
+                formulas=(r"\Delta t = \gamma\Delta t_0",),
+                substitutions=(rf"\Delta t = {gamma:.4g} \cdot {p['proper_time']:g}",),
                 quantities=(QuantityResult("", value, "s", number_format=".4g"),),
             )
         value = p["proper_length"] / gamma
@@ -120,6 +142,8 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"L = \frac{{L_0}}{{\gamma}} = \frac{{{p['proper_length']:g}}}"
                 rf"{{{gamma:.4g}}} \approx {value:.4g} \text{{ m}}"
             ),
+            formulas=(r"L = \frac{L_0}{\gamma}",),
+            substitutions=(rf"L = \frac{{{p['proper_length']:g}}}{{{gamma:.4g}}}",),
             quantities=(QuantityResult("", value, "m", number_format=".4g"),),
         )
 
@@ -136,6 +160,10 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
             answer=(
                 rf"K_{{max}} = hf - \phi = {_PLANCK_H:.7g} \cdot {p['freq']:g} - "
                 rf"{p['work_function']:g} \approx {value:.4g} \text{{ J}}"
+            ),
+            formulas=(r"K_{max} = hf - \phi",),
+            substitutions=(
+                rf"K_{{max}} = {_PLANCK_H:.7g} \cdot {p['freq']:g} - {p['work_function']:g}",
             ),
             quantities=(
                 QuantityResult("", value, "J", number_format=".4g"),
@@ -154,6 +182,10 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{_HBAR:.7g}}}{{2 \cdot {p['uncertainty_x']:g}}} "
                 rf"\approx {value:.4g} \text{{ kg}}\cdot\text{{m/s}}"
             ),
+            formulas=(r"\Delta p_{min} = \frac{\hbar}{2\Delta x}",),
+            substitutions=(
+                rf"\Delta p_{{min}} = \frac{{{_HBAR:.7g}}}{{2 \cdot {p['uncertainty_x']:g}}}",
+            ),
             quantities=(QuantityResult("", value, "kg*m/s", number_format=".4g"),),
         )
 
@@ -169,6 +201,11 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{level:g}^2 \cdot ({_PLANCK_H:.7g})^2}}"
                 rf"{{8 \cdot {p['m']:g} \cdot {p['L']:g}^2}} "
                 rf"\approx {value:.4g} \text{{ J}}"
+            ),
+            formulas=(r"E_n = \frac{n^2h^2}{8mL^2}",),
+            substitutions=(
+                rf"E_n = \frac{{{level:g}^2 \cdot ({_PLANCK_H:.7g})^2}}{{8 \cdot {p['m']:g} \cdot "
+                rf"{p['L']:g}^2}}",
             ),
             quantities=(
                 QuantityResult("", value, "J", number_format=".4g"),
@@ -187,6 +224,8 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"E_n = -\frac{{13.6\ \text{{eV}}}}{{n^2}} = "
                 rf"-\frac{{13.6}}{{{level:g}^2}} \approx {value:.4g} \text{{ eV}}"
             ),
+            formulas=(r"E_n = -\frac{13.6\ \text{eV}}{n^2}",),
+            substitutions=(rf"E_n = -\frac{{13.6}}{{{level:g}^2}}",),
             quantities=(QuantityResult("", value, "eV", number_format=".4g"),),
         )
 
@@ -198,6 +237,11 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{_PLANCK_H:.7g}}}{{{_ELECTRON_MASS:.7g} \cdot {_SPEED_OF_LIGHT:g}}}"
                 rf"(1-\cos {math.degrees(p['angle']):g}^\circ) "
                 rf"\approx {value:.4g} \text{{ m}}"
+            ),
+            formulas=(r"\Delta\lambda = \frac{h}{m_ec}(1-\cos\theta)",),
+            substitutions=(
+                rf"\Delta\lambda = \frac{{{_PLANCK_H:.7g}}}{{{_ELECTRON_MASS:.7g} \cdot "
+                rf"{_SPEED_OF_LIGHT:g}}}(1-\cos {math.degrees(p['angle']):g}^\circ)",
             ),
             quantities=(QuantityResult("", value, "m", number_format=".4g"),),
         )
@@ -212,6 +256,8 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{_WIEN_B:.7g}}}{{{p['temp']:g}}} "
                 rf"\approx {value:.4g} \text{{ m}}"
             ),
+            formulas=(r"\lambda_{max} = \frac{b}{T}",),
+            substitutions=(rf"\lambda_{{max}} = \frac{{{_WIEN_B:.7g}}}{{{p['temp']:g}}}",),
             quantities=(QuantityResult("", value, "m", number_format=".4g"),),
         )
 
@@ -226,6 +272,11 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"P = \epsilon\sigma AT^4 = {p['emissivity']:g} \cdot "
                 rf"{_STEFAN_BOLTZMANN:.7g} \cdot {p['area']:g} \cdot {p['temp']:g}^4 "
                 rf"\approx {value:.4g} \text{{ W}}"
+            ),
+            formulas=(r"P = \epsilon\sigma AT^4",),
+            substitutions=(
+                rf"P = {p['emissivity']:g} \cdot {_STEFAN_BOLTZMANN:.7g} \cdot {p['area']:g} \cdot "
+                rf"{p['temp']:g}^4",
             ),
             quantities=(QuantityResult("", value, "W", number_format=".4g"),),
         )
@@ -273,6 +324,10 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\lambda = \frac{{h}}{{mv}} = \frac{{{_PLANCK_H:.5g}}}"
                 rf"{{{p['m']:.4g} \cdot {p['v']:.4g}}} \approx {value:.4g} \text{{ m}}"
             ),
+            formulas=(r"\lambda = \frac{h}{mv}",),
+            substitutions=(
+                rf"\lambda = \frac{{{_PLANCK_H:.5g}}}{{{p['m']:.4g} \cdot {p['v']:.4g}}}",
+            ),
             quantities=(QuantityResult("", value, "m", number_format=".4g"),),
         )
 
@@ -296,6 +351,8 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"N = \frac{{N_0}}{{2^n}} = \frac{{{given:g}}}{{2^{{{halves:g}}}}} "
                 rf"\approx {value:.4g} \text{{ {unit}}}"
             ),
+            formulas=(r"N = \frac{N_0}{2^n}",),
+            substitutions=(rf"N = \frac{{{given:g}}}{{2^{{{halves:g}}}}}",),
             quantities=(QuantityResult("", value, unit, number_format=".4g"),),
         )
 
@@ -306,6 +363,8 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"E = mc^2 = {p['m']:g} \cdot ({_SPEED_OF_LIGHT:.0f})^2 "
                 rf"\approx {value:.4g} \text{{ J}}"
             ),
+            formulas=(r"E = mc^2",),
+            substitutions=(rf"E = {p['m']:g} \cdot ({_SPEED_OF_LIGHT:.0f})^2",),
             quantities=(QuantityResult("", value, "J", number_format=".4g"),),
         )
 

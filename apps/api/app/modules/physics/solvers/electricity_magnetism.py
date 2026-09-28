@@ -43,6 +43,8 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{_EPSILON_0:.5g} \cdot {p['area']:g}}}{{{p['d']:g}}} "
                 rf"\approx {value:.4g} \text{{ F}}"
             ),
+            formulas=(r"C = \frac{\epsilon_0 A}{d}",),
+            substitutions=(rf"C = \frac{{{_EPSILON_0:.5g} \cdot {p['area']:g}}}{{{p['d']:g}}}",),
             quantities=(QuantityResult("", value, "F", number_format=".4g"),),
         )
 
@@ -56,6 +58,8 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
                 rf"{p['capacitance']:g} \cdot {p['V']:g}^2 "
                 rf"\approx {value:.4g} \text{{ J}}"
             ),
+            formulas=(r"U = \frac{1}{2}CV^2",),
+            substitutions=(rf"U = \frac{{1}}{{2}} \cdot {p['capacitance']:g} \cdot {p['V']:g}^2",),
             quantities=(QuantityResult("", value, "J", number_format=".4g"),),
         )
 
@@ -68,6 +72,8 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\tau = RC = {p['R']:g} \cdot {p['capacitance']:g} "
                 rf"\approx {value:.4g} \text{{ s}}"
             ),
+            formulas=(r"\tau = RC",),
+            substitutions=(rf"\tau = {p['R']:g} \cdot {p['capacitance']:g}",),
             quantities=(QuantityResult("", value, "s", number_format=".4g"),),
         )
 
@@ -83,6 +89,8 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
         if op == "series_resistance":
             total = sum(resistances)
             answer = rf"R = \sum R_i = {terms} \approx {total:.2f} \,\Omega"
+            formula = r"R = \sum R_i"
+            substitution = rf"R_s = {terms}"
         else:
             total = 1 / sum(1 / r for r in resistances)
             reciprocals = " + ".join(rf"\frac{{1}}{{{r:g}}}" for r in resistances)
@@ -90,14 +98,21 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{1}}{{R}} = {reciprocals} \Rightarrow R "
                 rf"\approx {total:.2f} \,\Omega"
             )
+            formula = rf"\frac{{1}}{{R}} = {reciprocals} \Rightarrow R"
+            substitution = formula
         return PhysicsResult(
-            answer=answer, quantities=(QuantityResult("", total, "ohm", number_format=".2f"),)
+            answer=answer,
+            formulas=(formula,),
+            substitutions=(substitution,),
+            quantities=(QuantityResult("", total, "ohm", number_format=".2f"),),
         )
 
     if op == "charge":
         q_val = p["I"] * p["t"]
         return PhysicsResult(
             answer=(rf"Q = I t = {p['I']:g} \cdot {p['t']:g} \approx {q_val:.2f} \text{{ C}}"),
+            formulas=(r"Q = I t",),
+            substitutions=(rf"Q = {p['I']:g} \cdot {p['t']:g}",),
             quantities=(QuantityResult("", q_val, "C", number_format=".2f"),),
         )
 
@@ -109,6 +124,8 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
                 rf"E = P t = {p['power']:g} \cdot {p['t']:g} \approx "
                 rf"{e_val:.2f} \text{{ J}} \; ({kwh:.2f} \text{{ kWh}})"
             ),
+            formulas=(r"E = P t",),
+            substitutions=(rf"E = {p['power']:g} \cdot {p['t']:g}",),
             quantities=(QuantityResult("", e_val, "J", number_format=".2f"),),
         )
 
@@ -121,6 +138,8 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
                 rf"C = \frac{{Q}}{{V}} = \frac{{{p['Q']:g}}}{{{p['V']:g}}} "
                 rf"\approx {c_val:.2f} \text{{ F}}"
             ),
+            formulas=(r"C = \frac{Q}{V}",),
+            substitutions=(rf"C = \frac{{{p['Q']:g}}}{{{p['V']:g}}}",),
             quantities=(QuantityResult("", c_val, "F", number_format=".2f"),),
         )
 
@@ -131,6 +150,8 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
                 rf"V = \varepsilon - I r = {p['E_emf']:g} - {p['I']:g} \cdot "
                 rf"{p['r_int']:g} \approx {v_val:.2f} \text{{ V}}"
             ),
+            formulas=(r"V = \varepsilon - I r",),
+            substitutions=(rf"V_{{terminal}} = {p['E_emf']:g} - {p['I']:g} \cdot {p['r_int']:g}",),
             quantities=(QuantityResult("", v_val, "V", number_format=".2f"),),
         )
 
@@ -138,24 +159,29 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
         if "V" in p and "I" in p:
             val = p["V"] * p["I"]
             answer = rf"P = VI = {p['V']:g} \cdot {p['I']:g} \approx {val:.2f} \text{{ W}}"
+            formula = r"P = VI"
+            substitution = rf"P = {p['V']:g} \cdot {p['I']:g}"
         elif "I" in p and "R" in p:
             val = p["I"] ** 2 * p["R"]
-            answer = (
-                rf"P = I^2 R = {_latex_num(p['I'], square=True)} \cdot {p['R']:g} "
-                rf"\approx {val:.2f} \text{{ W}}"
-            )
+            plugged = rf"{_latex_num(p['I'], square=True)} \cdot {p['R']:g}"
+            answer = rf"P = I^2 R = {plugged} \approx {val:.2f} \text{{ W}}"
+            formula = r"P = I^2 R"
+            substitution = rf"P = {plugged}"
         elif "V" in p and "R" in p:
             if p["R"] == 0:
                 raise SolveServiceError("resistance must be nonzero")
             val = p["V"] ** 2 / p["R"]
-            answer = (
-                rf"P = \frac{{V^2}}{{R}} = \frac{{{_latex_num(p['V'], square=True)}}}"
-                rf"{{{p['R']:g}}} \approx {val:.2f} \text{{ W}}"
-            )
+            plugged = rf"\frac{{{_latex_num(p['V'], square=True)}}}{{{p['R']:g}}}"
+            answer = rf"P = \frac{{V^2}}{{R}} = {plugged} \approx {val:.2f} \text{{ W}}"
+            formula = r"P = \frac{V^2}{R}"
+            substitution = rf"P = {plugged}"
         else:
             raise SolveServiceError("electrical power needs two of V, I, R")
         return PhysicsResult(
-            answer=answer, quantities=(QuantityResult("", val, "W", number_format=".2f"),)
+            answer=answer,
+            formulas=(formula,),
+            substitutions=(substitution,),
+            quantities=(QuantityResult("", val, "W", number_format=".2f"),),
         )
 
     if op == "current":
@@ -167,6 +193,8 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
                 rf"I = \frac{{V}}{{R}} = \frac{{{p['V']:g}}}{{{p['R']:g}}} "
                 rf"\approx {val:.2f} \text{{ A}}"
             ),
+            formulas=(r"I = \frac{V}{R}",),
+            substitutions=(rf"I = \frac{{{p['V']:g}}}{{{p['R']:g}}}",),
             quantities=(QuantityResult("", val, "A", number_format=".2f"),),
         )
 
@@ -174,6 +202,8 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
         val = p["I"] * p["R"]
         return PhysicsResult(
             answer=rf"V = IR = {p['I']:g} \cdot {p['R']:g} \approx {val:.2f} \text{{ V}}",
+            formulas=(r"V = IR",),
+            substitutions=(rf"V = {p['I']:g} \cdot {p['R']:g}",),
             quantities=(QuantityResult("", val, "V", number_format=".2f"),),
         )
 
@@ -186,6 +216,8 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
                 rf"R = \frac{{V}}{{I}} = \frac{{{p['V']:g}}}{{{p['I']:g}}} "
                 rf"\approx {val:.2f} \,\Omega"
             ),
+            formulas=(r"R = \frac{V}{I}",),
+            substitutions=(rf"R = \frac{{{p['V']:g}}}{{{p['I']:g}}}",),
             quantities=(QuantityResult("", val, "ohm", number_format=".2f"),),
         )
 
@@ -211,6 +243,10 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{\lvert {p['Q']:g}\rvert}}{{{p['r']:g}^2}} "
                 rf"\approx {value:.4g} \text{{ N/C}}"
             ),
+            formulas=(r"E = k_e\frac{\lvert Q\rvert}{r^2}",),
+            substitutions=(
+                rf"E = {_COULOMB_K:.7g} \cdot \frac{{\lvert {p['Q']:g}\rvert}}{{{p['r']:g}^2}}",
+            ),
             quantities=(QuantityResult("", value, "N/C", number_format=".4g"),),
         )
 
@@ -223,6 +259,8 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                 rf"V = k_e\frac{{Q}}{{r}} = {_COULOMB_K:.7g} \cdot "
                 rf"\frac{{{p['Q']:g}}}{{{p['r']:g}}} \approx {value:.4g} \text{{ V}}"
             ),
+            formulas=(r"V = k_e\frac{Q}{r}",),
+            substitutions=(rf"V = {_COULOMB_K:.7g} \cdot \frac{{{p['Q']:g}}}{{{p['r']:g}}}",),
             quantities=(QuantityResult("", value, "V", number_format=".4g"),),
         )
 
@@ -235,6 +273,10 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                 rf"U = k_e\frac{{q_1q_2}}{{r}} = {_COULOMB_K:.7g} \cdot "
                 rf"\frac{{{p['q1']:g} \cdot {p['q2']:g}}}{{{p['r']:g}}} "
                 rf"\approx {value:.4g} \text{{ J}}"
+            ),
+            formulas=(r"U = k_e\frac{q_1q_2}{r}",),
+            substitutions=(
+                rf"U = {_COULOMB_K:.7g} \cdot \frac{{{p['q1']:g} \cdot {p['q2']:g}}}{{{p['r']:g}}}",
             ),
             quantities=(QuantityResult("", value, "J", number_format=".4g"),),
         )
@@ -251,6 +293,11 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                 rf"{{{abs(p['Q']):g} \cdot {p['b_field']:g}}} "
                 rf"\approx {value:.4g} \text{{ m}}"
             ),
+            formulas=(r"r = \frac{mv}{\lvert q\rvert B}",),
+            substitutions=(
+                rf"r = \frac{{{p['m']:g} \cdot {p['v']:g}}}{{{abs(p['Q']):g} \cdot "
+                rf"{p['b_field']:g}}}",
+            ),
             quantities=(QuantityResult("", value, "m", number_format=".4g"),),
         )
 
@@ -260,6 +307,10 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
             answer=(
                 rf"\mathcal{{E}} = BLv = {p['b_field']:g} \cdot {p['wire_L']:g} "
                 rf"\cdot {p['v']:g} \approx {value:.4g} \text{{ V}}"
+            ),
+            formulas=(r"\mathcal{E} = BLv",),
+            substitutions=(
+                rf"\mathcal{{E}} = {p['b_field']:g} \cdot {p['wire_L']:g} \cdot {p['v']:g}",
             ),
             quantities=(QuantityResult("", value, "V", number_format=".4g"),),
         )
@@ -274,6 +325,8 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{_MU_0:.7g} \cdot {p['I']:g}}}{{2\pi \cdot {p['r']:g}}} "
                 rf"\approx {value:.4g} \text{{ T}}"
             ),
+            formulas=(r"B = \frac{\mu_0 I}{2\pi r}",),
+            substitutions=(rf"B = \frac{{{_MU_0:.7g} \cdot {p['I']:g}}}{{2\pi \cdot {p['r']:g}}}",),
             quantities=(QuantityResult("", value, "T", number_format=".4g"),),
         )
 
@@ -291,6 +344,12 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\rvert}}{{{_latex_num(separation, square=True)}}} "
                 rf"\approx {value:.4g} \text{{ N}}"
             ),
+            formulas=(r"F_e = k_e \frac{\lvert q_1q_2\rvert}{r^2}",),
+            substitutions=(
+                rf"F_e = {_latex_scientific(_COULOMB_K)} \cdot \frac{{\lvert "
+                rf"{_latex_scientific(p['q1'])} \cdot {_latex_scientific(p['q2'])}"
+                rf"\rvert}}{{{_latex_num(separation, square=True)}}}",
+            ),
             quantities=(QuantityResult("", value, "N", number_format=".4g"),),
         )
 
@@ -304,6 +363,11 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                     rf"{p['wire_L']:g} \cdot \sin({_angle_label(intent)}) "
                     rf"\approx {value:.4g} \text{{ N}}"
                 ),
+                formulas=(r"F = BIL\sin\theta",),
+                substitutions=(
+                    rf"F = {p['b_field']:g} \cdot {p['I']:g} \cdot {p['wire_L']:g} \cdot "
+                    rf"\sin({_angle_label(intent)})",
+                ),
                 quantities=(QuantityResult("", value, "N", number_format=".4g"),),
             )
         return PhysicsResult(
@@ -311,6 +375,8 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                 rf"F = BIL = {p['b_field']:g} \cdot {p['I']:g} \cdot {p['wire_L']:g} "
                 rf"\approx {value:.2f} \text{{ N}}"
             ),
+            formulas=(r"F = BIL",),
+            substitutions=(rf"F = {p['b_field']:g} \cdot {p['I']:g} \cdot {p['wire_L']:g}",),
             quantities=(QuantityResult("", value, "N", number_format=".2f"),),
         )
 
@@ -324,6 +390,11 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                     rf"{p['b_field']:g} \cdot \sin({_angle_label(intent)}) "
                     rf"\approx {value:.4g} \text{{ N}}"
                 ),
+                formulas=(r"F = qvB\sin\theta",),
+                substitutions=(
+                    rf"F = {p['Q']:g} \cdot {p['v']:g} \cdot {p['b_field']:g} \cdot "
+                    rf"\sin({_angle_label(intent)})",
+                ),
                 quantities=(QuantityResult("", value, "N", number_format=".4g"),),
             )
         number_format = ".4g" if 0 < abs(value) < 0.01 else ".2f"
@@ -332,6 +403,8 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                 rf"F = qvB = {p['Q']:g} \cdot {p['v']:g} \cdot {p['b_field']:g} "
                 rf"\approx {format(value, number_format)} \text{{ N}}"
             ),
+            formulas=(r"F = qvB",),
+            substitutions=(rf"F = {p['Q']:g} \cdot {p['v']:g} \cdot {p['b_field']:g}",),
             # The full form carries sin(theta); this is the perpendicular case.
             quantities=(
                 QuantityResult(
@@ -353,6 +426,11 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                     rf"\Phi = BA\cos\theta = {p['b_field']:g} \cdot {p['area']:g} "
                     rf"\cdot \cos({_angle_label(intent)}) \approx {value:.4g} \text{{ Wb}}"
                 ),
+                formulas=(r"\Phi = BA\cos\theta",),
+                substitutions=(
+                    rf"\Phi = {p['b_field']:g} \cdot {p['area']:g} \cdot "
+                    rf"\cos({_angle_label(intent)})",
+                ),
                 quantities=(QuantityResult("", value, "Wb", number_format=".4g"),),
             )
         return PhysicsResult(
@@ -360,6 +438,8 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\Phi = BA = {p['b_field']:g} \cdot {p['area']:g} "
                 rf"\approx {value:.4g} \text{{ Wb}}"
             ),
+            formulas=(r"\Phi = BA",),
+            substitutions=(rf"\Phi = {p['b_field']:g} \cdot {p['area']:g}",),
             quantities=(QuantityResult("", value, "Wb", number_format=".4g"),),
         )
 

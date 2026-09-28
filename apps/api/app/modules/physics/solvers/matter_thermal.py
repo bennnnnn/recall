@@ -32,6 +32,8 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"P = \frac{{1}}{{f}} = \frac{{1}}{{{p['focal']:g}}} "
                 rf"\approx {value:.4g} \text{{ D}}"
             ),
+            formulas=(r"P = \frac{1}{f}",),
+            substitutions=(rf"P = \frac{{1}}{{{p['focal']:g}}}",),
             quantities=(QuantityResult("", value, "D", number_format=".4g"),),
         )
 
@@ -44,6 +46,10 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\Delta y = \frac{{\lambda L}}{{d}} = "
                 rf"\frac{{{p['wavelength']:g} \cdot {p['L']:g}}}{{{p['d']:g}}} "
                 rf"\approx {value:.4g} \text{{ m}}"
+            ),
+            formulas=(r"\Delta y = \frac{\lambda L}{d}",),
+            substitutions=(
+                rf"\Delta y = \frac{{{p['wavelength']:g} \cdot {p['L']:g}}}{{{p['d']:g}}}",
             ),
             quantities=(QuantityResult("", value, "m", number_format=".4g"),),
         )
@@ -58,6 +64,10 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{2 \cdot {p['wavelength']:g} \cdot {p['L']:g}}}{{{p['d']:g}}} "
                 rf"\approx {value:.4g} \text{{ m}}"
             ),
+            formulas=(r"w = \frac{2\lambda L}{a}",),
+            substitutions=(
+                rf"w = \frac{{2 \cdot {p['wavelength']:g} \cdot {p['L']:g}}}{{{p['d']:g}}}",
+            ),
             quantities=(QuantityResult("", value, "m", number_format=".4g"),),
         )
 
@@ -68,6 +78,10 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"I = I_0\cos^2\theta = {p['intensity0']:g} \cdot "
                 rf"\cos^2({math.degrees(p['angle']):g}^\circ) "
                 rf"\approx {value:.4g} \text{{ W/m}}^2"
+            ),
+            formulas=(r"I = I_0\cos^2\theta",),
+            substitutions=(
+                rf"I = {p['intensity0']:g} \cdot \cos^2({math.degrees(p['angle']):g}^\circ)",
             ),
             quantities=(QuantityResult("", value, "W/m^2", number_format=".4g"),),
         )
@@ -82,6 +96,12 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\theta_B = \tan^{{-1}}\!\left(\frac{{{p['n2']:g}}}{{{p['n1']:g}}}\right) "
                 rf"\approx {value:.4g}^\circ"
             ),
+            formulas=(
+                rf"\theta_B = \tan^{{-1}}\!\left(\frac{{{p['n2']:g}}}{{{p['n1']:g}}}\right)",
+            ),
+            substitutions=(
+                rf"\theta_B = \tan^{{-1}}\!\left(\frac{{{p['n2']:g}}}{{{p['n1']:g}}}\right)",
+            ),
             quantities=(QuantityResult("", value, "deg", number_format=".4g"),),
         )
 
@@ -95,6 +115,8 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\theta_c = \arcsin\!\left(\frac{{1}}{{n}}\right) = "
                 rf"\arcsin\!\left(\frac{{1}}{{{n:g}}}\right) \approx {theta_c:.2f}^\circ"
             ),
+            formulas=(r"\theta_c = \arcsin\!\left(\frac{1}{n}\right)",),
+            substitutions=(rf"\theta_c = \arcsin\!\left(\frac{{1}}{{{n:g}}}\right)",),
             quantities=(QuantityResult("", theta_c, "deg", number_format=".2f"),),
         )
 
@@ -108,6 +130,8 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                     rf"n = \frac{{c}}{{v}} = \frac{{{_SPEED_OF_LIGHT:.0f}}}"
                     rf"{{{p['v_wave']:g}}} \approx {n:.3g}"
                 ),
+                formulas=(r"n = \frac{c}{v}",),
+                substitutions=(rf"n = \frac{{{_SPEED_OF_LIGHT:.0f}}}{{{p['v_wave']:g}}}",),
                 quantities=(QuantityResult("", n, "", number_format=".3g"),),
             )
         t1, t2 = p["angle"], p["angle2"]
@@ -119,6 +143,11 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"n = \frac{{\sin\theta_1}}{{\sin\theta_2}} = "
                 rf"\frac{{\sin({math.degrees(t1):.1f}^\circ)}}"
                 rf"{{\sin({math.degrees(t2):.1f}^\circ)}} \approx {n:.2f}"
+            ),
+            formulas=(r"n = \frac{\sin\theta_1}{\sin\theta_2}",),
+            substitutions=(
+                rf"n = \frac{{\sin({math.degrees(t1):.1f}^\circ)}}{{\sin({math.degrees(t2):.1f}"
+                rf"^\circ)}}",
             ),
             quantities=(QuantityResult("", n, "", number_format=".2f"),),
         )
@@ -132,6 +161,8 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"m = \frac{{h_i}}{{h_o}} = \frac{{{p['h_img']:g}}}{{{p['h_obj']:g}}} "
                 rf"\approx {m_val:.2f}"
             ),
+            formulas=(r"m = \frac{h_i}{h_o}",),
+            substitutions=(rf"m = \frac{{{p['h_img']:g}}}{{{p['h_obj']:g}}}",),
             quantities=(QuantityResult("", m_val, "", number_format=".2f"),),
         )
 
@@ -150,6 +181,8 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{uf}}{{u - f}} = \frac{{{obj:g} \cdot {focal:g}}}"
                 rf"{{{obj:g} - {focal:g}}} \approx {img:.4g} \text{{ m}}"
             ),
+            formulas=(r"v = \frac{uf}{u - f}",),
+            substitutions=(rf"v = \frac{{{obj:g} \cdot {focal:g}}}{{{obj:g} - {focal:g}}}",),
             quantities=(QuantityResult("", img, "m", number_format=".4g"),),
         )
 
@@ -171,6 +204,8 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{cold:g}}}{{{hot:g}}} \approx {value:.4g} "
                 rf"({value * 100:.4g}\%)"
             ),
+            formulas=(r"\eta_C = 1 - \frac{T_C}{T_H}",),
+            substitutions=(rf"\eta_C = 1 - \frac{{{cold:g}}}{{{hot:g}}}",),
             quantities=(
                 QuantityResult(
                     "",
@@ -192,6 +227,8 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{p['heat']:g}}}{{{p['temp']:g}}} "
                 rf"\approx {value:.4g} \text{{ J/K}}"
             ),
+            formulas=(r"\Delta S = \frac{Q_{rev}}{T}",),
+            substitutions=(rf"\Delta S = \frac{{{p['heat']:g}}}{{{p['temp']:g}}}",),
             quantities=(QuantityResult("", value, "J/K", number_format=".4g"),),
         )
 
@@ -206,6 +243,11 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{abs(p['delta_temp']):g}}}{{{p['L']:g}}} "
                 rf"\approx {value:.4g} \text{{ W}}"
             ),
+            formulas=(r"\frac{Q}{t} = kA\frac{\Delta T}{L}",),
+            substitutions=(
+                rf"Q/t = {p['thermal_conductivity']:g} \cdot {p['area']:g} \cdot "
+                rf"\frac{{{abs(p['delta_temp']):g}}}{{{p['L']:g}}}",
+            ),
             quantities=(QuantityResult("", value, "W", number_format=".4g"),),
         )
 
@@ -219,6 +261,10 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
                 rf"{p['L0']:g} \cdot {p['delta_temp']:g} "
                 rf"\approx {expansion:g} \text{{ m}}"
             ),
+            formulas=(r"\Delta L = \alpha L_0 \Delta T",),
+            substitutions=(
+                rf"\Delta L = {p['alpha']:g} \cdot {p['L0']:g} \cdot {p['delta_temp']:g}",
+            ),
             quantities=(QuantityResult("", expansion, "m", number_format="g"),),
         )
 
@@ -231,6 +277,8 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
                 rf"Q = mL = {p['m']:g} \cdot {p['latent_heat']:g} "
                 rf"\approx {heat:g} \text{{ J}}"
             ),
+            formulas=(r"Q = mL",),
+            substitutions=(rf"Q = {p['m']:g} \cdot {p['latent_heat']:g}",),
             quantities=(QuantityResult("", heat, "J", number_format="g"),),
         )
 
@@ -241,6 +289,8 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\Delta U = Q - W = {p['heat']:g} - {p['W']:g} "
                 rf"\approx {change:g} \text{{ J}}"
             ),
+            formulas=(r"\Delta U = Q - W",),
+            substitutions=(rf"\Delta U = {p['heat']:g} - {p['W']:g}",),
             quantities=(QuantityResult("", change, "J", number_format="g"),),
         )
 
@@ -251,6 +301,8 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
                 rf"Q = mc\Delta T = {p['m']:g} \cdot {p['c_heat']:g} \cdot "
                 rf"{p['delta_temp']:g} \approx {q_val:.2f} \text{{ J}}"
             ),
+            formulas=(r"Q = mc\Delta T",),
+            substitutions=(rf"Q = {p['m']:g} \cdot {p['c_heat']:g} \cdot {p['delta_temp']:g}",),
             quantities=(QuantityResult("", q_val, "J", number_format=".2f"),),
         )
 
@@ -266,6 +318,11 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
                 rf"P = \frac{{nRT}}{{V}} = \frac{{{p['moles']:g} \cdot {_GAS_CONSTANT:.4f} "
                 rf"\cdot {p['temp']:g}}}{{{volume:g}}} \approx {pressure:.2f} \text{{ Pa}}"
             ),
+            formulas=(r"P = \frac{nRT}{V}",),
+            substitutions=(
+                rf"P = \frac{{{p['moles']:g} \cdot {_GAS_CONSTANT:.4f} \cdot {p['temp']:g}}}"
+                rf"{{{volume:g}}}",
+            ),
             quantities=(QuantityResult("", pressure, "Pa", number_format=".2f"),),
         )
 
@@ -279,6 +336,8 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\eta = \frac{{W}}{{Q_{{in}}}} = \frac{{{p['W_out']:g}}}{{{supplied:g}}} "
                 rf"\approx {eta:.2f} \; ({eta * 100:.1f}\%)"
             ),
+            formulas=(r"\eta = \frac{W}{Q_{in}}",),
+            substitutions=(rf"\eta = \frac{{{p['W_out']:g}}}{{{supplied:g}}}",),
             quantities=(
                 QuantityResult(
                     "",
@@ -306,6 +365,8 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\dot{{m}} = \rho Av = {p['rho']:g} \cdot {p['area']:g} \cdot "
                 rf"{p['v']:g} \approx {value:.4g} \text{{ kg/s}}"
             ),
+            formulas=(r"\dot{m} = \rho Av",),
+            substitutions=(rf"\dot{{m}} = {p['rho']:g} \cdot {p['area']:g} \cdot {p['v']:g}",),
             quantities=(QuantityResult("", value, "kg/s", number_format=".4g"),),
         )
 
@@ -318,6 +379,8 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"v = \sqrt{{2gh}} = \sqrt{{2 \cdot {p['g']:g} \cdot {p['depth']:g}}} "
                 rf"\approx {value:.4g} \text{{ m/s}}"
             ),
+            formulas=(r"v = \sqrt{2gh}",),
+            substitutions=(rf"v = \sqrt{{2 \cdot {p['g']:g} \cdot {p['depth']:g}}}",),
             quantities=(QuantityResult("", value, "m/s", number_format=".4g"),),
         )
 
@@ -329,6 +392,10 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
             answer=(
                 rf"F_d = 6\pi\eta rv = 6\pi \cdot {p['viscosity']:g} \cdot "
                 rf"{p['r']:g} \cdot {p['v']:g} \approx {value:.4g} \text{{ N}}"
+            ),
+            formulas=(r"F_d = 6\pi\eta rv",),
+            substitutions=(
+                rf"F_d = 6\pi \cdot {p['viscosity']:g} \cdot {p['r']:g} \cdot {p['v']:g}",
             ),
             quantities=(QuantityResult("", value, "N", number_format=".4g"),),
         )
@@ -343,6 +410,11 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{p['rho']:g} \cdot {p['v']:g} \cdot {p['L']:g}}}"
                 rf"{{{p['viscosity']:g}}} \approx {value:.4g}"
             ),
+            formulas=(r"Re = \frac{\rho vL}{\eta}",),
+            substitutions=(
+                rf"Re = \frac{{{p['rho']:g} \cdot {p['v']:g} \cdot {p['L']:g}}}"
+                rf"{{{p['viscosity']:g}}}",
+            ),
             quantities=(QuantityResult("", value, "", number_format=".4g"),),
         )
 
@@ -355,6 +427,8 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\gamma = \frac{{F}}{{L}} = \frac{{{p['F']:g}}}{{{p['L']:g}}} "
                 rf"\approx {value:.4g} \text{{ N/m}}"
             ),
+            formulas=(r"\gamma = \frac{F}{L}",),
+            substitutions=(rf"\gamma = \frac{{{p['F']:g}}}{{{p['L']:g}}}",),
             quantities=(QuantityResult("", value, "N/m", number_format=".4g"),),
         )
 
@@ -367,12 +441,11 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
             if p["mode_factor"] == 4
             else r"\Delta P = \frac{2\gamma}{r}"
         )
+        plugged = rf"\frac{{{p['mode_factor']:g} \cdot {p['surface_tension']:g}}}{{{p['r']:g}}}"
         return PhysicsResult(
-            answer=(
-                symbolic + " = "
-                rf"\frac{{{p['mode_factor']:g} \cdot {p['surface_tension']:g}}}"
-                rf"{{{p['r']:g}}} \approx {value:.4g} \text{{ Pa}}"
-            ),
+            answer=rf"{symbolic} = {plugged} \approx {value:.4g} \text{{ Pa}}",
+            formulas=(symbolic,),
+            substitutions=(rf"\Delta P = {plugged}",),
             quantities=(QuantityResult("", value, "Pa", number_format=".4g"),),
         )
 
@@ -387,6 +460,8 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{p['F1']:g} \cdot {p['A2']:g}}}{{{p['A1']:g}}} "
                 rf"\approx {force:g} \text{{ N}}"
             ),
+            formulas=(r"F_2 = \frac{F_1A_2}{A_1}",),
+            substitutions=(rf"F_2 = \frac{{{p['F1']:g} \cdot {p['A2']:g}}}{{{p['A1']:g}}}",),
             quantities=(QuantityResult("", force, "N", number_format="g"),),
         )
 
@@ -408,6 +483,8 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                     r"\Rightarrow P_2 = P_1 + \frac{1}{2}\rho(v_1^2-v_2^2)"
                     rf" + \rho g(h_1-h_2) \approx {pressure:g} \text{{ Pa}}"
                 ),
+                formulas=(r"P_2 = P_1 + \frac{1}{2}\rho(v_1^2-v_2^2) + \rho g(h_1-h_2)",),
+                substitutions=(r"P_2 = P_1 + \frac{1}{2}\rho(v_1^2-v_2^2) + \rho g(h_1-h_2)",),
                 quantities=(QuantityResult("", pressure, "Pa", number_format="g"),),
             )
         return PhysicsResult(
@@ -417,6 +494,11 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"{p['pres1']:g} + \frac{{1}}{{2}} \cdot {p['rho']:g} "
                 rf"\cdot ({p['v1']:g}^2 - {p['v2']:g}^2) "
                 rf"\approx {pressure:g} \text{{ Pa}}"
+            ),
+            formulas=(r"P_2 = P_1 + \frac{1}{2}\rho(v_1^2-v_2^2)",),
+            substitutions=(
+                rf"P_2 = {p['pres1']:g} + \frac{{1}}{{2}} \cdot {p['rho']:g} \cdot ({p['v1']:g}^2 "
+                rf"- {p['v2']:g}^2)",
             ),
             quantities=(QuantityResult("", pressure, "Pa", number_format="g"),),
         )
@@ -431,6 +513,8 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"P = \frac{{F}}{{A}} = \frac{{{p['F']:g}}}{{{area:g}}} "
                 rf"\approx {pressure:.2f} \text{{ Pa}}"
             ),
+            formulas=(r"P = \frac{F}{A}",),
+            substitutions=(rf"P = \frac{{{p['F']:g}}}{{{area:g}}}",),
             quantities=(QuantityResult("", pressure, "Pa", number_format=".2f"),),
         )
 
@@ -441,6 +525,8 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"P = \rho g h = {p['rho']:g} \cdot {p.get('g', 9.81):g} \cdot "
                 rf"{p['depth']:g} \approx {pressure:.2f} \text{{ Pa}}"
             ),
+            formulas=(r"P = \rho g h",),
+            substitutions=(rf"P = {p['rho']:g} \cdot {p.get('g', 9.81):g} \cdot {p['depth']:g}",),
             # Gauge, and it says so: the absolute reading is this plus one
             # atmosphere, and which one is meant changes the number by 101 kPa.
             quantities=(QuantityResult("", pressure, "Pa", detail="gauge", number_format=".2f"),),
@@ -452,6 +538,10 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
             answer=(
                 rf"F_b = \rho V g = {p['rho']:g} \cdot {p['volume']:g} \cdot "
                 rf"{p.get('g', 9.81):g} \approx {force:.2f} \text{{ N}}"
+            ),
+            formulas=(r"F_b = \rho V g",),
+            substitutions=(
+                rf"F_b = {p['rho']:g} \cdot {p['volume']:g} \cdot {p.get('g', 9.81):g}",
             ),
             quantities=(QuantityResult("", force, "N", number_format=".2f"),),
             # The one fluids answer a free body actually draws: an upward
@@ -483,6 +573,8 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\rho = \frac{{m}}{{V}} = \frac{{{p['m']:g}}}{{{volume:g}}} "
                 rf"\approx {rho:.2f} \text{{ kg/m}}^3"
             ),
+            formulas=(r"\rho = \frac{m}{V}",),
+            substitutions=(rf"\rho = \frac{{{p['m']:g}}}{{{volume:g}}}",),
             quantities=(QuantityResult("", rho, "kg/m^3", number_format=".2f"),),
         )
 
@@ -496,6 +588,8 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"A_1 v_1 = A_2 v_2 \Rightarrow v_2 = \frac{{{p['A1']:g} \cdot "
                 rf"{p['v']:g}}}{{{a2:g}}} \approx {v2:.2f} \text{{ m/s}}"
             ),
+            formulas=(rf"v_2 = \frac{{{p['A1']:g} \cdot {p['v']:g}}}{{{a2:g}}}",),
+            substitutions=(rf"v_2 = \frac{{{p['A1']:g} \cdot {p['v']:g}}}{{{a2:g}}}",),
             quantities=(QuantityResult("", v2, "m/s", number_format=".2f"),),
         )
 
@@ -506,6 +600,8 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"Q = A v = {p['area']:g} \cdot {p['v']:g} \approx {flow:.4g} "
                 rf"\text{{ m}}^3\text{{/s}}"
             ),
+            formulas=(r"Q = A v",),
+            substitutions=(rf"Q = {p['area']:g} \cdot {p['v']:g}",),
             quantities=(QuantityResult("", flow, "m^3/s", number_format=".4g"),),
         )
 
@@ -526,6 +622,8 @@ def solve_materials(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\sigma = \frac{{F}}{{A}} = \frac{{{p['F']:g}}}{{{area:g}}} "
                 rf"\approx {value:.4g} \text{{ Pa}}"
             ),
+            formulas=(r"\sigma = \frac{F}{A}",),
+            substitutions=(rf"\sigma = \frac{{{p['F']:g}}}{{{area:g}}}",),
             quantities=(QuantityResult("", value, "Pa", number_format=".4g"),),
         )
 
@@ -539,6 +637,8 @@ def solve_materials(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\varepsilon = \frac{{\Delta L}}{{L_0}} = "
                 rf"\frac{{{p['dL']:g}}}{{{original:g}}} \approx {value:.4g}"
             ),
+            formulas=(r"\varepsilon = \frac{\Delta L}{L_0}",),
+            substitutions=(rf"\varepsilon = \frac{{{p['dL']:g}}}{{{original:g}}}",),
             quantities=(QuantityResult("", value, "", number_format=".4g"),),
         )
 
@@ -552,6 +652,8 @@ def solve_materials(intent: PhysicsIntent) -> PhysicsResult:
                 rf"E = \frac{{\sigma}}{{\varepsilon}} = "
                 rf"\frac{{{p['sigma']:g}}}{{{strain:g}}} \approx {value:.4g} \text{{ Pa}}"
             ),
+            formulas=(r"E = \frac{\sigma}{\varepsilon}",),
+            substitutions=(rf"E = \frac{{{p['sigma']:g}}}{{{strain:g}}}",),
             quantities=(QuantityResult("", value, "Pa", number_format=".4g"),),
         )
 
