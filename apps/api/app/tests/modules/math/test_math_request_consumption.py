@@ -105,6 +105,20 @@ def test_system_with_an_extra_inequality_constraint_fails_closed() -> None:
     assert extract_math_intent("Solve x+y=3, y=1, x>0") is None
 
 
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Solve x^2=4, x∈ℝ",
+        r"Solve x^2=4, x\in\mathbb{R}",
+        r"Solve x^2=4, x in \mathbb{R}",
+    ],
+)
+def test_explicit_real_domain_is_already_represented(question: str) -> None:
+    intent = extract_math_intent(question)
+    assert intent is not None
+    assert intent.kind == "equation"
+
+
 def test_z_score_input_labels_are_not_mistaken_for_requested_statistics() -> None:
     question = (
         "Find the z-score for x=88 where the population mean is 72 and standard deviation is 8"

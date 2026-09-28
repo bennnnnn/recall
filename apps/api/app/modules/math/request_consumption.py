@@ -56,9 +56,10 @@ _NAMED_RADICAL = re.compile(
 )
 _NUMBER_SET_DOMAIN = (
     r"(?:(?:integers?|natural\s+numbers?|rationals?(?:\s+numbers?)?|"
-    r"complex(?:\s+numbers?)?)\b|[\u2124\u2115\u211A\u2102\u211D]|"
-    r"\\mathbb\s*\{\s*[ZNQCR]\s*\})"
+    r"complex(?:\s+numbers?)?)\b|[\u2124\u2115\u211A\u2102]|"
+    r"\\mathbb\s*\{\s*[ZNQC]\s*\})"
 )
+_REAL_NUMBER_SET = r"(?:\u211D|\\mathbb\s*\{\s*R\s*\})"
 _DOMAIN_ADJECTIVE = (
     r"(?:positive|negative|non[-\s]?negative|non[-\s]?positive|non[-\s]?zero|"
     r"odd|even|prime|composite)"
@@ -70,7 +71,7 @@ _DOMAIN_CUE = (
 _EQUALITY_DOMAIN_CUE = r"(?:(?:where|assuming|given)\b|provided(?:\s+that)?\b|subject\s+to\b)"
 _NONDEFAULT_DOMAIN = re.compile(
     rf"\b(?:in|over)\s+(?:the\s+)?{_NUMBER_SET_DOMAIN}"
-    r"|[a-z]\s*(?:∈|\\in\b)"
+    rf"|[a-z]\s*(?:∈|\\in\b)\s*(?!{_REAL_NUMBER_SET}(?:$|[\s,;.:)\]]))"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+in\s*[\[(]"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s*(?:!=|≠|[<>≤≥])"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+(?:(?:must\s+(?:not\s+)?(?:be|equal)|is|are|"

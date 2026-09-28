@@ -148,6 +148,7 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         "Jane has 8 apples and receives 3 from Joe. How many does she have now?",
         "Marta had 12 blue beads and some red beads, lost 4 red beads, and has 15 left. "
         "How many red beads did she start with?",
+        "24 candies are shared equally among 6 children. How much will each child get?",
     ],
 )
 def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
