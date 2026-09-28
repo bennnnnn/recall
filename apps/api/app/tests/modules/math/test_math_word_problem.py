@@ -134,6 +134,8 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         PENCIL,
         "A number plus 7 is 19. What is the number?",
         "A number plus 7 is 19. What is it?",
+        "What number is 5 more than 7?",
+        "Which integer is 9 less than 20?",
         "The sum of two numbers is 30 and their difference is 6. What are the numbers?",
         "John has 5 more apples than Sam. Together they have 23 apples. How many does Sam have?",
         BOOKS,

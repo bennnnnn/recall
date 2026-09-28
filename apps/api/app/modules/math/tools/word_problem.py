@@ -52,6 +52,7 @@ _MATH_REQUEST = re.compile(
     r"|\bhow\s+much\s+(?:is|are|was|were)\s+each\b"
     rf"|\b(?:find|determine)\b[^.?!]{{0,50}}\b{_MATH_TARGET}\b"
     rf"|\bwhat\s+(?:is|are|was|were)\b[^.?!]{{0,50}}\b{_MATH_TARGET}\b"
+    rf"|\b(?:what|which)\s+{_MATH_TARGET}\s+(?:is|are|was|were)\b"
     r"|\bwhat\s+(?:does|did)\b[^.?!]{0,50}\b(?:cost|weigh|measure|equal)\b",
     re.IGNORECASE,
 )
