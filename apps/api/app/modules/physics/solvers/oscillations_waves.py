@@ -244,16 +244,27 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "doppler_frequency":
         source = p["v_src"]
+        observer = p.get("v_obs", 0.0)
         sound = p["v_sound"]
         freq = p["freq"]
-        if sound - source <= 0:
-            raise SolveServiceError("a source at or above the speed of sound has no Doppler shift")
-        observed = freq * sound / (sound - source)
-        motion = "approaching" if source > 0 else "receding"
+        if sound - source <= 0 or sound + observer <= 0:
+            raise SolveServiceError("that motion is at or beyond the speed of sound")
+        observed = freq * (sound + observer) / (sound - source)
+        if "v_obs" not in p:
+            motion = "approaching" if source > 0 else "receding"
+            return PhysicsResult(
+                answer=(
+                    rf"f' = f\,\frac{{v}}{{v - v_s}} = {freq:g} \cdot "
+                    rf"\frac{{{sound:g}}}{{{sound:g} - ({source:g})}} "
+                    rf"\approx {observed:.2f} \text{{ Hz}}"
+                ),
+                answer_value=f"{observed:.2f} Hz ({motion}, sound at {sound:g} m/s)",
+            )
+        motion = "approaching" if observed > freq else "receding"
         return PhysicsResult(
             answer=(
-                rf"f' = f\,\frac{{v}}{{v - v_s}} = {freq:g} \cdot "
-                rf"\frac{{{sound:g}}}{{{sound:g} - ({source:g})}} "
+                rf"f' = f\,\frac{{v + v_o}}{{v - v_s}} = {freq:g} \cdot "
+                rf"\frac{{{sound:g} + ({observer:g})}}{{{sound:g} - ({source:g})}} "
                 rf"\approx {observed:.2f} \text{{ Hz}}"
             ),
             answer_value=f"{observed:.2f} Hz ({motion}, sound at {sound:g} m/s)",

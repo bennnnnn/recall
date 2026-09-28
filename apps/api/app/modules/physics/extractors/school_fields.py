@@ -1,0 +1,128 @@
+"""Closed Gauss and Faraday templates."""
+
+from __future__ import annotations
+
+from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.extractors.common import (
+    _LENGTH_UNIT_PATTERN,
+    _ordered_values,
+)
+from app.modules.physics.extractors.school_common import (
+    _SECOND,
+    _TESLA,
+    _WEBER,
+    _intent,
+    _one,
+    _turns,
+)
+
+
+def extract_gauss(text: str, lower: str) -> PhysicsIntent | None:
+    if "gauss" not in lower:
+        return None
+    charge = _one(text, r"uC|µC|C|microcoulombs?|coulombs?")
+    radius = _one(text, _LENGTH_UNIT_PATTERN, ("radius", "shell"), require_keyword=True)
+    # "at" is not a distance cue: it sits next to almost every quantity.
+    distance = _one(
+        text,
+        _LENGTH_UNIT_PATTERN,
+        ("distance", "from the center"),
+        require_keyword=True,
+    )
+    if "infinite line" in lower or "line charge" in lower:
+        density = _one(text, r"C/m|uC/m|µC/m")
+        if density is None or distance is None:
+            return None
+        return _intent(
+            "magnetism",
+            "gauss_line",
+            {"lambda_line": density[0], "r": distance[0]},
+            {"lambda_line": density[1] or "C/m", "r": distance[1] or "m"},
+        )
+    plane = ("infinite plane", "infinite sheet", "nonconducting sheet")
+    if any(phrase in lower for phrase in plane):
+        density = _one(text, r"C/m\^?2|C/m2|uC/m\^?2")
+        if density is None:
+            return None
+        return _intent(
+            "magnetism",
+            "gauss_plane",
+            {"sigma_charge": density[0]},
+            {"sigma_charge": density[1] or "C/m^2"},
+        )
+    if charge is None or radius is None:
+        return None
+    if "inside" in lower and any(word in lower for word in ("shell", "hollow")):
+        if distance is None:
+            return None
+        return _intent(
+            "magnetism",
+            "gauss_inside_shell",
+            {"Q": charge[0], "r": distance[0], "radius_body": radius[0]},
+            {
+                "Q": charge[1] or "C",
+                "r": distance[1] or "m",
+                "radius_body": radius[1] or "m",
+            },
+        )
+    if "inside" in lower and "uniform" in lower:
+        if distance is None:
+            return None
+        return _intent(
+            "magnetism",
+            "gauss_inside_sphere",
+            {"Q": charge[0], "r": distance[0], "radius_body": radius[0]},
+            {
+                "Q": charge[1] or "C",
+                "r": distance[1] or "m",
+                "radius_body": radius[1] or "m",
+            },
+        )
+    if "outside" not in lower and "surface" not in lower:
+        return None
+    point = distance or radius
+    return _intent(
+        "magnetism",
+        "gauss_outside",
+        {"Q": abs(charge[0]), "r": point[0]},
+        {"Q": charge[1] or "C", "r": point[1] or "m"},
+    )
+
+
+def extract_faraday(text: str, lower: str) -> PhysicsIntent | None:
+    if "faraday" not in lower and "induced emf" not in lower and "flux changes" not in lower:
+        return None
+    turns = _turns(text, lower)
+    seconds = _one(text, _SECOND, ("in", "over", "during"), require_keyword=True)
+    if turns is None or seconds is None:
+        return None
+    flux = _one(text, _WEBER)
+    if flux is not None:
+        return _intent(
+            "magnetism",
+            "faraday_emf",
+            {"turns": turns, "delta_flux": flux[0], "dt": seconds[0]},
+            {"turns": "", "delta_flux": flux[1] or "Wb", "dt": seconds[1] or "s"},
+        )
+    area = _one(text, r"m\^?2|cm\^?2")
+    fields = _ordered_values(text, _TESLA)
+    if area is None or len(fields) != 2:
+        return None
+    return _intent(
+        "magnetism",
+        "faraday_emf",
+        {
+            "turns": turns,
+            "area": area[0],
+            "b1": fields[0][0],
+            "b2": fields[1][0],
+            "dt": seconds[0],
+        },
+        {
+            "turns": "",
+            "area": area[1] or "m^2",
+            "b1": fields[0][1] or "T",
+            "b2": fields[1][1] or "T",
+            "dt": seconds[1] or "s",
+        },
+    )

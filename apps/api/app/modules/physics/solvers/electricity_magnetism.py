@@ -20,6 +20,14 @@ from app.modules.physics.solvers.common import (
 from app.services.solving import SolveServiceError
 
 
+def _angle_label(intent: PhysicsIntent) -> str:
+    raw = (intent.physics_params or {}).get("angle", 0.0)
+    unit = (intent.physics_units or {}).get("angle", "deg")
+    if unit in {"rad", "radian", "radians"}:
+        return f"{raw:g}"
+    return rf"{raw:g}^\circ"
+
+
 def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "current"
@@ -284,6 +292,17 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "magnetic_force_wire":
         value = p["b_field"] * p["I"] * p["wire_L"]
+        if "angle" in p:
+            value *= math.sin(p["angle"])
+            shown = f"{value:.4g}"
+            return PhysicsResult(
+                answer=(
+                    rf"F = BIL\sin\theta = {p['b_field']:g} \cdot {p['I']:g} \cdot "
+                    rf"{p['wire_L']:g} \cdot \sin({_angle_label(intent)}) "
+                    rf"\approx {shown} \text{{ N}}"
+                ),
+                answer_value=f"{shown} N",
+            )
         return PhysicsResult(
             answer=(
                 rf"F = BIL = {p['b_field']:g} \cdot {p['I']:g} \cdot {p['wire_L']:g} "
@@ -294,19 +313,39 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "magnetic_force_charge":
         value = p["Q"] * p["v"] * p["b_field"]
+        if "angle" in p:
+            value *= math.sin(p["angle"])
+            shown = f"{value:.4g}"
+            return PhysicsResult(
+                answer=(
+                    rf"F = qvB\sin\theta = {p['Q']:g} \cdot {p['v']:g} \cdot "
+                    rf"{p['b_field']:g} \cdot \sin({_angle_label(intent)}) "
+                    rf"\approx {shown} \text{{ N}}"
+                ),
+                answer_value=f"{shown} N",
+            )
         display_value = f"{value:.4g}" if 0 < abs(value) < 0.01 else f"{value:.2f}"
         return PhysicsResult(
             answer=(
                 rf"F = qvB = {p['Q']:g} \cdot {p['v']:g} \cdot {p['b_field']:g} "
                 rf"\approx {display_value} \text{{ N}}"
             ),
-            # The full form carries sin(theta); this is the perpendicular case,
-            # which is the one every school question states.
+            # The full form carries sin(theta); this is the perpendicular case.
             answer_value=f"{display_value} N (field perpendicular to the motion)",
         )
 
     if op == "magnetic_flux":
         value = p["b_field"] * p["area"]
+        if "angle" in p:
+            value *= math.cos(p["angle"])
+            shown = f"{value:.4g}"
+            return PhysicsResult(
+                answer=(
+                    rf"\Phi = BA\cos\theta = {p['b_field']:g} \cdot {p['area']:g} "
+                    rf"\cdot \cos({_angle_label(intent)}) \approx {shown} \text{{ Wb}}"
+                ),
+                answer_value=f"{shown} Wb",
+            )
         return PhysicsResult(
             answer=(
                 rf"\Phi = BA = {p['b_field']:g} \cdot {p['area']:g} "

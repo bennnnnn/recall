@@ -52,4 +52,11 @@ def visible_assumptions(spec: FormulaSpec, params: dict[str, float]) -> tuple[st
         return ()
     if spec.id == "power" and ("angle" in params or "F" not in params or "v" not in params):
         return ()
+    if spec.id in {"magnetic_force_charge", "magnetic_force_wire", "magnetic_flux"}:
+        if "angle" in params:
+            return ()
+    if spec.id == "doppler_frequency" and "v_obs" in params:
+        return ("motion is along the line joining the source and the observer",)
+    if spec.id == "bernoulli_pressure" and "h1" in params:
+        return ("steady incompressible flow with no viscosity",)
     return spec.assumptions

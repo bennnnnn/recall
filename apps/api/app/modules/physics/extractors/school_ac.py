@@ -1,0 +1,119 @@
+"""Closed sinusoidal AC templates. Not a general network solver."""
+
+from __future__ import annotations
+
+import re
+
+from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.extractors.school_common import (
+    _AMP,
+    _FARAD,
+    _HENRY,
+    _HERTZ,
+    _NUMBER,
+    _OHM,
+    _henry_unit,
+    _intent,
+    _one,
+)
+
+
+def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
+    if "rms" in lower:
+        if "voltage" in lower or re.search(r"\bvolts?\b", lower):
+            peak = _one(text, r"V|volts?")
+            if peak is None:
+                return None
+            return _intent(
+                "circuit",
+                "rms_voltage",
+                {"V": peak[0]},
+                {"V": peak[1] or "V"},
+            )
+        peak = _one(text, _AMP)
+        if peak is None:
+            return None
+        return _intent("circuit", "rms_current", {"I": peak[0]}, {"I": peak[1] or "A"})
+    frequency = _one(text, _HERTZ)
+    inductance = _one(text, _HENRY)
+    capacitance = _one(text, _FARAD)
+    resistance = _one(text, _OHM, ("resistance", "resistor"))
+    if any(word in lower for word in ("resonant", "resonance")) and inductance and capacitance:
+        if "string" in lower or "pipe" in lower:
+            return None
+        return _intent(
+            "circuit",
+            "lc_resonance",
+            {"inductance": inductance[0], "capacitance": capacitance[0]},
+            {
+                "inductance": _henry_unit(inductance[1] or "H"),
+                "capacitance": capacitance[1] or "F",
+            },
+        )
+    inductive = re.search(
+        rf"inductive reactance(?:\s+of)?\s+({_NUMBER})\s*({_OHM})",
+        text,
+        re.IGNORECASE,
+    )
+    capacitive = re.search(
+        rf"capacitive reactance(?:\s+of)?\s+({_NUMBER})\s*({_OHM})",
+        text,
+        re.IGNORECASE,
+    )
+    if "impedance" in lower and resistance is not None:
+        if inductive is not None and capacitive is not None:
+            return _intent(
+                "circuit",
+                "series_impedance",
+                {
+                    "R": resistance[0],
+                    "reactance_l": float(inductive.group(1)),
+                    "reactance_c": float(capacitive.group(1)),
+                },
+                {"R": resistance[1] or "ohm", "reactance_l": "ohm", "reactance_c": "ohm"},
+            )
+        if inductance and capacitance and frequency:
+            return _intent(
+                "circuit",
+                "series_impedance",
+                {
+                    "R": resistance[0],
+                    "inductance": inductance[0],
+                    "capacitance": capacitance[0],
+                    "freq": frequency[0],
+                },
+                {
+                    "R": resistance[1] or "ohm",
+                    "inductance": _henry_unit(inductance[1] or "H"),
+                    "capacitance": capacitance[1] or "F",
+                    "freq": frequency[1] or "Hz",
+                },
+            )
+    if "inductive reactance" in lower and inductance and frequency:
+        return _intent(
+            "circuit",
+            "inductive_reactance",
+            {"inductance": inductance[0], "freq": frequency[0]},
+            {
+                "inductance": _henry_unit(inductance[1] or "H"),
+                "freq": frequency[1] or "Hz",
+            },
+        )
+    if "capacitive reactance" in lower and capacitance and frequency:
+        return _intent(
+            "circuit",
+            "capacitive_reactance",
+            {"capacitance": capacitance[0], "freq": frequency[0]},
+            {"capacitance": capacitance[1] or "F", "freq": frequency[1] or "Hz"},
+        )
+    if "average power" in lower and resistance is not None:
+        current = _one(text, _AMP)
+        if current is None:
+            return None
+        return _intent(
+            "circuit",
+            "ac_average_power",
+            {"I": current[0], "R": resistance[0]},
+            {"I": current[1] or "A", "R": resistance[1] or "ohm"},
+        )
+    return None
