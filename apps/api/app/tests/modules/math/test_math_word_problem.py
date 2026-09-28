@@ -155,6 +155,7 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
         "I got 3 cats and 2 dogs. What does that make me?",
         "I got 3 cats and 2 dogs. What is a good name for them?",
         "I got 3 cats and 2 dogs. Find names for them.",
+        "I bought 3 books and 2 games. How much did you enjoy them?",
         "solve 2x+3=11",
         "Find 2 + 2",
         "A ball is thrown straight up at 20 m/s. How high does it go in total?",
@@ -172,6 +173,7 @@ def test_candidate_declines(text: str) -> None:
         "I got 3 cats and 2 dogs. What does that make me?",
         "I got 3 cats and 2 dogs. What is a good name for them?",
         "I got 3 cats and 2 dogs. Find names for them.",
+        "I bought 3 books and 2 games. How much did you enjoy them?",
     ],
 )
 def test_non_math_possession_question_does_not_enter_math_pipeline(text: str) -> None:

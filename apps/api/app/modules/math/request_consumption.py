@@ -49,6 +49,11 @@ _ROOT_OUTPUT_REQUEST = re.compile(
     r"[^.?!]{0,40}\b(?:the|a|its)?\s*(?:root|zero)\b",
     re.IGNORECASE,
 )
+_NAMED_RADICAL = re.compile(
+    r"\b(?:square|cube|fourth|fifth|sixth|seventh|eighth|n(?:th)?|"
+    r"[2-9](?:nd|rd|th))\s+root\b",
+    re.IGNORECASE,
+)
 _NONDEFAULT_DOMAIN = re.compile(
     r"\b(?:in|over)\s+(?:the\s+)?(?:integers?|natural\s+numbers?|rationals?|"
     r"complex\s+numbers?)\b"
@@ -100,7 +105,8 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
     )
     if source_trig_calls > len(_TRIG_CALL.findall(intent_text)):
         leftovers.append("unconsumed trigonometric term")
-    if _GRAPH_REQUEST.search(text) and _ROOT_OUTPUT_REQUEST.search(text):
+    root_request_text = _NAMED_RADICAL.sub("", text)
+    if _GRAPH_REQUEST.search(text) and _ROOT_OUTPUT_REQUEST.search(root_request_text):
         # A graph intent has no typed roots result and a roots intent has no
         # graph result. Never certify whichever extractor happened to run first.
         leftovers.append("multiple requested function outputs")

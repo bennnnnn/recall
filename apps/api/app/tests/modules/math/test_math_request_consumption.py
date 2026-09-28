@@ -76,8 +76,15 @@ def test_z_score_input_labels_are_not_mistaken_for_requested_statistics() -> Non
     assert r"\frac{88 - 72}{8} = 2" in block.direct_reply
 
 
-def test_square_root_in_graph_expression_is_not_a_roots_request() -> None:
-    intent = extract_math_intent("Graph the square root of x")
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Graph the square root of x",
+        "Find the graph of the square root of x",
+    ],
+)
+def test_named_radical_in_graph_expression_is_not_a_roots_request(question: str) -> None:
+    intent = extract_math_intent(question)
     assert intent is not None
     assert intent.kind == "graph"
 

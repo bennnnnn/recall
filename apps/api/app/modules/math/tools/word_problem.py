@@ -40,9 +40,16 @@ _MATH_TARGET = (
     r"heights?|areas?|perimeters?|volumes?|speeds?|times?|rates?|percentages?|"
     r"shares?|counts?|weights?|masses?|coordinates?|solutions?|roots?)"
 )
+_HOW_MUCH_TARGET = (
+    r"(?:money|amount|total|cost|price|pay|paid|spend|spent|earn|earned|receive|"
+    r"received|left|remain|more|less|share|weight|mass|distance|time|length|"
+    r"width|height|area|perimeter|volume|speed|rate|percentage|percent)"
+)
 _MATH_REQUEST = re.compile(
     r"\b(?:calculate|compute|work\s+out)\b"
-    r"|\bhow\s+(?:many|much|old|long|far|fast|tall|wide)\b"
+    r"|\bhow\s+(?:many|old|long|far|fast|tall|wide)\b"
+    rf"|\bhow\s+much\b[^.?!]{{0,50}}\b{_HOW_MUCH_TARGET}\b"
+    r"|\bhow\s+much\s+(?:is|are|was|were)\s+each\b"
     rf"|\b(?:find|determine)\b[^.?!]{{0,50}}\b{_MATH_TARGET}\b"
     rf"|\bwhat\s+(?:is|are|was|were)\b[^.?!]{{0,50}}\b{_MATH_TARGET}\b"
     r"|\bwhat\s+(?:does|did)\b[^.?!]{0,50}\b(?:cost|weigh|measure|equal)\b",
