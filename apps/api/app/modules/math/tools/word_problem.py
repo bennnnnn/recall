@@ -47,13 +47,25 @@ _HOW_MUCH_TARGET = (
 )
 _MATH_REQUEST = re.compile(
     r"\b(?:calculate|compute|work\s+out)\b"
-    r"|\bhow\s+(?:many|old|long|far|fast|tall|wide)\b"
+    r"|\bhow\s+(?:old|long|far|fast|tall|wide)\b"
     rf"|\bhow\s+much\b[^.?!]{{0,50}}\b{_HOW_MUCH_TARGET}\b"
     r"|\bhow\s+much\s+(?:is|are|was|were)\s+each\b"
     rf"|\b(?:find|determine)\b[^.?!]{{0,50}}\b{_MATH_TARGET}\b"
     rf"|\bwhat\s+(?:is|are|was|were)\b[^.?!]{{0,50}}\b{_MATH_TARGET}\b"
     rf"|\b(?:what|which)\s+{_MATH_TARGET}\s+(?:is|are|was|were)\b"
     r"|\bwhat\s+(?:does|did)\b[^.?!]{0,50}\b(?:cost|weigh|measure|equal)\b",
+    re.IGNORECASE,
+)
+_HOW_MANY_REQUEST = re.compile(
+    r"\bhow\s+many\b(?!\s+(?:should|could|would|can|may|might)\b)",
+    re.IGNORECASE,
+)
+_HOW_MANY_MATH_CONTEXT = re.compile(
+    rf"\b{_MATH_TARGET}\b|\b(?:times\s+as|twice|double|triple|thrice|half|"
+    r"more\s+than|less\s+than|fewer\s+than|greater\s+than|sum|total|together|"
+    r"altogether|combined|difference|product|consecutive|each|per|equally|"
+    r"received|sold|lost|added|removed|gave|left|remain(?:s|ing)?|split|percent|"
+    r"there\s+(?:are|were))\b|%",
     re.IGNORECASE,
 )
 _PRONOUN_REQUEST = re.compile(
@@ -168,6 +180,10 @@ def word_problem_candidate(text: str) -> bool:
     if not _MIN_CHARS <= len(text) <= _MAX_CHARS or "=" in text:
         return False
     request = _MATH_REQUEST.search(text)
+    if request is None:
+        how_many = _HOW_MANY_REQUEST.search(text)
+        if how_many is not None and _HOW_MANY_MATH_CONTEXT.search(text) is not None:
+            request = how_many
     if request is None:
         pronoun = _PRONOUN_REQUEST.search(text)
         if pronoun is None or _PRONOUN_MATH_CONTEXT.search(text[: pronoun.start()]) is None:

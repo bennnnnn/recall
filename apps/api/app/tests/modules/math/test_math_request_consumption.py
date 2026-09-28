@@ -41,6 +41,8 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Solve x²=4 for x > 0",
         "Solve x^2=4 where x is positive",
         "Solve x^2=4 for x != -2",
+        "Solve x^2=4 for x>=0",
+        "Solve x^2=4 where x!= -2",
         "Solve x^2=4 for x ≠ -2",
         "Solve x^2=4 where x is not equal to -2",
         "Solve x^2=2 where x is an integer",

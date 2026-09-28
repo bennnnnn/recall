@@ -59,10 +59,11 @@ _NUMBER_SET_DOMAIN = (
 )
 _NONDEFAULT_DOMAIN = re.compile(
     rf"\b(?:in|over)\s+(?:the\s+)?{_NUMBER_SET_DOMAIN}\b"
+    r"|\b(?:for|where|also)\s+[a-z]\s*(?:!=|≠|[<>≤≥])"
     r"|\b(?:for|where|also)\s+[a-z]\s+"
     r"(?:(?:must\s+be|is|are|was|were)\s+)?"
-    rf"(?:positive|negative|nonnegative|nonpositive|!=|≠|not\s+equal\s+to|"
-    rf"[<>≤≥]|(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
+    rf"(?:positive|negative|nonnegative|nonpositive|not\s+equal\s+to|"
+    rf"(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
     re.IGNORECASE,
 )
 _DOMAIN_BLIND_KINDS = frozenset(

@@ -164,6 +164,7 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
         "I got 3 cats and 2 dogs. What is it?",
         "I got 3 cats and 2 dogs. Find them.",
         "I got 3 cats and 2 dogs. What does Ana have?",
+        "I got 3 cats and 2 dogs. How many should I adopt?",
         "solve 2x+3=11",
         "Find 2 + 2",
         "A ball is thrown straight up at 20 m/s. How high does it go in total?",
@@ -185,6 +186,7 @@ def test_candidate_declines(text: str) -> None:
         "I got 3 cats and 2 dogs. What is it?",
         "I got 3 cats and 2 dogs. Find them.",
         "I got 3 cats and 2 dogs. What does Ana have?",
+        "I got 3 cats and 2 dogs. How many should I adopt?",
     ],
 )
 def test_non_math_possession_question_does_not_enter_math_pipeline(text: str) -> None:
