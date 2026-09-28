@@ -23,6 +23,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Circular-motion equation",
         "a_c",
         variables=(
+            var("omega", r"\omega", "radian / second"),
             var("r", "r", "meter"),
             var("v", "v", "meter / second"),
         ),
@@ -33,6 +34,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Orbital-motion equation",
         "T",
         variables=(
+            var("omega", r"\omega", "radian / second"),
             var("r", "r", "meter"),
             var("v", "v", "meter / second"),
         ),

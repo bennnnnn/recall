@@ -104,7 +104,7 @@ def _work_energy(params: dict[str, float]) -> PhysicsResult:
         answer=answer,
         formulas=(r"v_1 = \sqrt{v_2^2 - \frac{2W_{net}}{m}}",),
         substitutions=(
-            rf"W_{{net}} = \sqrt{{{params['v2']:g}^2 - \frac{{2 \cdot {params['W']:g}}}"
+            rf"v_1 = \sqrt{{{params['v2']:g}^2 - \frac{{2 \cdot {params['W']:g}}}"
             rf"{{{params['m']:g}}}}}",
         ),
         quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
@@ -125,7 +125,10 @@ def _gravity(params: dict[str, float]) -> PhysicsResult:
         return PhysicsResult(
             answer=answer,
             formulas=(r"\frac{1}{2}v_1^2 + gh_1 = \frac{1}{2}v_2^2 + gh_2 \Rightarrow v_2",),
-            substitutions=(r"\frac{1}{2}v_1^2 + gh_1 = \frac{1}{2}v_2^2 + gh_2 \Rightarrow v_2",),
+            substitutions=(
+                rf"v_2 = \sqrt{{{params['v1']:g}^2 + 2 \cdot {gravity:g} \cdot "
+                rf"({params['h1']:g} - {params['h2']:g})}}",
+            ),
             quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
         )
     if unknown == "v1":
@@ -137,7 +140,10 @@ def _gravity(params: dict[str, float]) -> PhysicsResult:
         return PhysicsResult(
             answer=answer,
             formulas=(r"\frac{1}{2}v_1^2 + gh_1 = \frac{1}{2}v_2^2 + gh_2 \Rightarrow v_1",),
-            substitutions=(r"\frac{1}{2}v_1^2 + gh_1 = \frac{1}{2}v_2^2 + gh_2 \Rightarrow v_1",),
+            substitutions=(
+                rf"v_1 = \sqrt{{{params['v2']:g}^2 + 2 \cdot {gravity:g} \cdot "
+                rf"({params['h2']:g} - {params['h1']:g})}}",
+            ),
             quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
         )
     if unknown == "h2":
@@ -149,7 +155,10 @@ def _gravity(params: dict[str, float]) -> PhysicsResult:
         return PhysicsResult(
             answer=answer,
             formulas=(r"h_2 = h_1 + \frac{v_1^2 - v_2^2}{2g}",),
-            substitutions=(r"h_2 = h_1 + \frac{v_1^2 - v_2^2}{2g}",),
+            substitutions=(
+                rf"h_2 = {params['h1']:g} + \frac{{{params['v1']:g}^2 - {params['v2']:g}^2}}"
+                rf"{{2 \cdot {gravity:g}}}",
+            ),
             quantities=(QuantityResult("", height, "m", number_format=".2f"),),
         )
     height = params["h2"] + (params["v2"] ** 2 - params["v1"] ** 2) / (2 * gravity)
@@ -160,7 +169,10 @@ def _gravity(params: dict[str, float]) -> PhysicsResult:
     return PhysicsResult(
         answer=answer,
         formulas=(r"h_1 = h_2 + \frac{v_2^2 - v_1^2}{2g}",),
-        substitutions=(r"h_1 = h_2 + \frac{v_2^2 - v_1^2}{2g}",),
+        substitutions=(
+            rf"h_1 = {params['h2']:g} + \frac{{{params['v2']:g}^2 - {params['v1']:g}^2}}"
+            rf"{{2 \cdot {gravity:g}}}",
+        ),
         quantities=(QuantityResult("", height, "m", number_format=".2f"),),
     )
 
@@ -186,8 +198,8 @@ def _spring(params: dict[str, float]) -> PhysicsResult:
                 r"\Rightarrow v_2",
             ),
             substitutions=(
-                r"\frac{1}{2}mv_1^2 + \frac{1}{2}kx_1^2 = \frac{1}{2}mv_2^2 + \frac{1}{2}kx_2^2 "
-                r"\Rightarrow v_2",
+                rf"v_2 = \sqrt{{{params['v1']:g}^2 + \frac{{{stiffness:g}}}{{{mass:g}}}"
+                rf"({params['x1']:g}^2 - {params['x2']:g}^2)}}",
             ),
             quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
         )
@@ -205,8 +217,8 @@ def _spring(params: dict[str, float]) -> PhysicsResult:
                 r"\Rightarrow v_1",
             ),
             substitutions=(
-                r"\frac{1}{2}mv_1^2 + \frac{1}{2}kx_1^2 = \frac{1}{2}mv_2^2 + \frac{1}{2}kx_2^2 "
-                r"\Rightarrow v_1",
+                rf"v_1 = \sqrt{{{params['v2']:g}^2 + \frac{{{stiffness:g}}}{{{mass:g}}}"
+                rf"({params['x2']:g}^2 - {params['x1']:g}^2)}}",
             ),
             quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
         )
@@ -226,8 +238,8 @@ def _spring(params: dict[str, float]) -> PhysicsResult:
                 r"x_2",
             ),
             substitutions=(
-                r"\frac{1}{2}kx_2^2 = \frac{1}{2}kx_1^2 + \frac{1}{2}m(v_1^2 - v_2^2) \Rightarrow "
-                r"x_2",
+                rf"x_2 = \sqrt{{{params['x1']:g}^2 + \frac{{{mass:g}}}{{{stiffness:g}}}"
+                rf"({params['v1']:g}^2 - {params['v2']:g}^2)}}",
             ),
             quantities=(QuantityResult("", displacement, "m", number_format=".4g"),),
         )
@@ -245,7 +257,8 @@ def _spring(params: dict[str, float]) -> PhysicsResult:
             r"\frac{1}{2}kx_1^2 = \frac{1}{2}kx_2^2 + \frac{1}{2}m(v_2^2 - v_1^2) \Rightarrow x_1",
         ),
         substitutions=(
-            r"\frac{1}{2}kx_1^2 = \frac{1}{2}kx_2^2 + \frac{1}{2}m(v_2^2 - v_1^2) \Rightarrow x_1",
+            rf"x_1 = \sqrt{{{params['x2']:g}^2 + \frac{{{mass:g}}}{{{stiffness:g}}}"
+            rf"({params['v2']:g}^2 - {params['v1']:g}^2)}}",
         ),
         quantities=(QuantityResult("", displacement, "m", number_format=".4g"),),
     )

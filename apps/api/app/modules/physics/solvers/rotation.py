@@ -78,19 +78,34 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
         if v == 0:
             raise SolveServiceError("period needs a nonzero speed")
         t_val = 2 * math.pi * r / abs(v)
-        return PhysicsResult(
-            answer=(
-                rf"T = \frac{{2\pi r}}{{v}} = \frac{{2\pi \cdot {r:g}}}{{{v:g}}} "
+        if omega is not None and "v" not in p:
+            period_formula = r"T = \frac{2\pi}{\omega}"
+            period_substitution = rf"T = \frac{{2\pi}}{{{abs(omega):g}}}"
+            period_answer = (
+                rf"T = \frac{{2\pi}}{{\omega}} = \frac{{2\pi}}{{{abs(omega):g}}} "
                 rf"\approx {t_val:.2f} \text{{ s}}"
-            ),
-            formulas=(r"T = \frac{2\pi r}{v}",),
-            substitutions=(rf"T = \frac{{2\pi \cdot {r:g}}}{{{v:g}}}",),
+            )
+        else:
+            period_formula = r"T = \frac{2\pi r}{v}"
+            period_substitution = rf"T = \frac{{2\pi \cdot {r:g}}}{{{abs(v):g}}}"
+            period_answer = (
+                rf"T = \frac{{2\pi r}}{{v}} = \frac{{2\pi \cdot {r:g}}}{{{abs(v):g}}} "
+                rf"\approx {t_val:.2f} \text{{ s}}"
+            )
+        return PhysicsResult(
+            answer=period_answer,
+            formulas=(period_formula,),
+            substitutions=(period_substitution,),
             quantities=(QuantityResult("", t_val, "s", number_format=".2f"),),
             simulation_specs=scene,
         )
 
     if op == "angular_velocity":
-        omega_val = abs(omega) if omega is not None else abs(v) / r
+        if "v" not in p:
+            raise SolveServiceError(
+                "angular velocity needs a tangential speed and a radius, or rpm"
+            )
+        omega_val = abs(v) / r
         return PhysicsResult(
             answer=(
                 rf"\omega = \frac{{v}}{{r}} = \frac{{{abs(v):g}}}{{{r:g}}} "

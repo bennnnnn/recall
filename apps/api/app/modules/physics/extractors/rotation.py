@@ -211,6 +211,10 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
     if speed is not None:
         params["v"] = speed[0]
         units["v"] = speed[1] or "m/s"
+    elif op == "angular_velocity":
+        # ω = v/r and rpm are the families this operation solves. A supplied
+        # angular speed is already the answer, so it is not an input.
+        return None
     elif omega is not None:
         params["omega"] = float(omega.group(1))
         units["omega"] = "rad/s"

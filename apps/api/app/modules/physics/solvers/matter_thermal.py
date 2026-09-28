@@ -96,9 +96,7 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\theta_B = \tan^{{-1}}\!\left(\frac{{{p['n2']:g}}}{{{p['n1']:g}}}\right) "
                 rf"\approx {value:.4g}^\circ"
             ),
-            formulas=(
-                rf"\theta_B = \tan^{{-1}}\!\left(\frac{{{p['n2']:g}}}{{{p['n1']:g}}}\right)",
-            ),
+            formulas=(r"\theta_B = \tan^{-1}\!\left(\frac{n_2}{n_1}\right)",),
             substitutions=(
                 rf"\theta_B = \tan^{{-1}}\!\left(\frac{{{p['n2']:g}}}{{{p['n1']:g}}}\right)",
             ),
@@ -468,9 +466,10 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
     if op == "bernoulli_pressure":
         if p["rho"] <= 0 or p["pres1"] < 0:
             raise SolveServiceError("Bernoulli pressure needs positive density and valid pressure")
+        gravity = p.get("g", 9.81)
         pressure = p["pres1"] + 0.5 * p["rho"] * (p["v1"] ** 2 - p["v2"] ** 2)
         if "h1" in p and "h2" in p:
-            pressure += p["rho"] * p.get("g", 9.81) * (p["h1"] - p["h2"])
+            pressure += p["rho"] * gravity * (p["h1"] - p["h2"])
         if pressure < 0:
             raise SolveServiceError(
                 "the stated ideal-flow values imply a negative absolute pressure"
@@ -484,7 +483,11 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                     rf" + \rho g(h_1-h_2) \approx {pressure:g} \text{{ Pa}}"
                 ),
                 formulas=(r"P_2 = P_1 + \frac{1}{2}\rho(v_1^2-v_2^2) + \rho g(h_1-h_2)",),
-                substitutions=(r"P_2 = P_1 + \frac{1}{2}\rho(v_1^2-v_2^2) + \rho g(h_1-h_2)",),
+                substitutions=(
+                    rf"P_2 = {p['pres1']:g} + \frac{{1}}{{2}} \cdot {p['rho']:g} \cdot "
+                    rf"({p['v1']:g}^2 - {p['v2']:g}^2) + {p['rho']:g} \cdot {gravity:g} \cdot "
+                    rf"({p['h1']:g} - {p['h2']:g})",
+                ),
                 quantities=(QuantityResult("", pressure, "Pa", number_format="g"),),
             )
         return PhysicsResult(
@@ -588,7 +591,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
                 rf"A_1 v_1 = A_2 v_2 \Rightarrow v_2 = \frac{{{p['A1']:g} \cdot "
                 rf"{p['v']:g}}}{{{a2:g}}} \approx {v2:.2f} \text{{ m/s}}"
             ),
-            formulas=(rf"v_2 = \frac{{{p['A1']:g} \cdot {p['v']:g}}}{{{a2:g}}}",),
+            formulas=(r"v_2 = \frac{A_1 v_1}{A_2}",),
             substitutions=(rf"v_2 = \frac{{{p['A1']:g} \cdot {p['v']:g}}}{{{a2:g}}}",),
             quantities=(QuantityResult("", v2, "m/s", number_format=".2f"),),
         )

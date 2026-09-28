@@ -46,5 +46,10 @@ def test_verified_physics_block_is_not_wrapped_as_math() -> None:
     assert block is not None
     assert block.text.startswith("[BEGIN VERIFIED PHYSICS]")
     assert "[BEGIN VERIFIED MATH]" not in block.text
-    assert "2 s" in strip_verified_math_markers(block.text)
-    assert "[BEGIN VERIFIED PHYSICS]" not in strip_verified_math_markers(block.text)
+    stripped = strip_verified_math_markers(block.text)
+    assert "2 s" in stripped
+    assert "[BEGIN VERIFIED PHYSICS]" not in stripped
+    assert "Verified formula:" in stripped
+    assert "Verified substitution:" in stripped
+    assert "Verified result: 2 s" in stripped
+    assert "Verified answer:" not in stripped
