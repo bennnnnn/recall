@@ -12,7 +12,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "F_c",
         variables=(
             var("m", "m", "kilogram"),
-            var("omega", "omega", "radian / second"),
+            var("omega", r"\omega", "radian / second"),
             var("r", "r", "meter"),
             var("v", "v", "meter / second"),
         ),
@@ -44,7 +44,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "\\omega",
         variables=(
             var("r", "r", "meter"),
-            var("rpm", "rpm", dimensionless=True),
+            var("rpm", "n", "revolution / minute"),
             var("v", "v", "meter / second"),
         ),
     ),

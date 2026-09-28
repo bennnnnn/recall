@@ -299,8 +299,8 @@ def test_energy_kinetic() -> None:
     intent = PhysicsIntent(
         kind="energy",
         physics_op="kinetic_energy",
-        physics_params={"m": 2.0, "v": 10.0, "g": 9.81},
-        physics_units={"m": "kg", "v": "m/s", "g": "m/s^2"},
+        physics_params={"m": 2.0, "v": 10.0},
+        physics_units={"m": "kg", "v": "m/s"},
         operation="solve",
     )
     result = physics_solver.solve_energy(intent)
@@ -326,8 +326,8 @@ def test_energy_work() -> None:
     intent = PhysicsIntent(
         kind="energy",
         physics_op="work",
-        physics_params={"F": 10.0, "d": 4.0, "g": 9.81},
-        physics_units={"F": "N", "d": "m", "g": "m/s^2"},
+        physics_params={"F": 10.0, "d": 4.0},
+        physics_units={"F": "N", "d": "m"},
         operation="solve",
     )
     result = physics_solver.solve_energy(intent)

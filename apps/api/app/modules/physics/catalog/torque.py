@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula, var
+from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -23,6 +23,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Principle of moments",
         "d_2",
         base_latex="F_1d_1 = F_2d_2",
+        variants=(FormulaVariant(present=frozenset({"d2"}), result_symbol="F_2"),),
         variables=(
             var("F1", "F_1", "newton"),
             var("F2", "F_2", "newton"),
@@ -40,7 +41,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex="\\tau = Fd\\sin(\\theta)",
         variables=(
             var("F", "F", "newton"),
-            var("tau", "tau", "newton * meter"),
+            var("tau", r"\tau", "newton * meter"),
         ),
     ),
     formula(
@@ -49,9 +50,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Net-torque equation",
         "\\tau_{net}",
         variables=(
-            var("tau1", "tau_1", "newton * meter"),
-            var("tau2", "tau_2", "newton * meter"),
-            var("tau3", "tau_3", "newton * meter"),
+            var("tau1", r"\tau_1", "newton * meter"),
+            var("tau2", r"\tau_2", "newton * meter"),
+            var("tau3", r"\tau_3", "newton * meter"),
         ),
     ),
 )

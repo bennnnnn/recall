@@ -85,6 +85,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "W_{net}",
         base_latex=r"W_{net} = \Delta K",
         assumptions=("net work equals the change in kinetic energy",),
+        solve_for=(("W", "W_{net}"), ("m", "m"), ("v1", "v_1"), ("v2", "v_2")),
         variables=(
             var("W", "W", "joule"),
             var("m", "m", "kilogram"),
@@ -104,7 +105,9 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("h1", "h_1", "meter"),
             var("h2", "h_2", "meter"),
             var("v1", "v_1", "meter / second"),
+            var("v2", "v_2", "meter / second"),
         ),
+        solve_for=(("v1", "v_1"), ("h1", "h_1"), ("v2", "v_2"), ("h2", "h_2")),
     ),
     formula(
         "mechanical_energy_spring",
@@ -117,8 +120,10 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("k", "k", "newton / meter"),
             var("m", "m", "kilogram"),
             var("v1", "v_1", "meter / second"),
+            var("v2", "v_2", "meter / second"),
             var("x1", "x_1", "meter"),
             var("x2", "x_2", "meter"),
         ),
+        solve_for=(("v1", "v_1"), ("x1", "x_1"), ("v2", "v_2"), ("x2", "x_2")),
     ),
 )

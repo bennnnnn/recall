@@ -11,10 +11,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Radioactive-decay law",
         "N",
         variables=(
-            var("elapsed", "elapsed", "second"),
-            var("half_life", "half_life", "second"),
+            var("elapsed", "t", "second"),
+            var("half_life", r"T_{1/2}", "second"),
             var("m", "m", "kilogram"),
-            var("n_halves", "n_halves", dimensionless=True),
+            var("n_halves", "n", dimensionless=True),
         ),
     ),
     formula(
@@ -136,7 +136,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "P",
         base_latex="P = \\epsilon\\sigma AT^4",
         variables=(
-            var("area", "area", "meter ** 2"),
+            var("area", "A", "meter ** 2"),
             var("emissivity", r"\epsilon", dimensionless=True),
             var("temp", "T", "kelvin"),
         ),

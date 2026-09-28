@@ -52,7 +52,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "spring",
         "Simple-harmonic-motion equation",
         "f",
-        variables=(var("period", "period", "second"),),
+        variables=(var("period", "T", "second"),),
     ),
     formula(
         "shm_max_speed",
@@ -60,7 +60,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Simple-harmonic-motion equation",
         "v_{max}",
         variables=(
-            var("omega", "omega", "radian / second"),
+            var("omega", r"\omega", "radian / second"),
             var("x", "x", "meter"),
         ),
     ),

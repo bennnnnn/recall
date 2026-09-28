@@ -13,7 +13,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex="P = \\frac{F}{A}",
         variables=(
             var("F", "F", "newton"),
-            var("area", "area", "meter ** 2"),
+            var("area", "A", "meter ** 2"),
         ),
     ),
     formula(
@@ -23,7 +23,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "P",
         assumptions=("gauge pressure, not absolute",),
         variables=(
-            var("depth", "depth", "meter"),
+            var("depth", "h", "meter"),
             var("g", "g", "meter / second ** 2"),
             var("rho", r"\rho", "kilogram / meter ** 3"),
         ),
@@ -36,7 +36,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("g", "g", "meter / second ** 2"),
             var("rho", r"\rho", "kilogram / meter ** 3"),
-            var("volume", "volume", "meter ** 3"),
+            var("volume", "V", "meter ** 3"),
         ),
     ),
     formula(
@@ -47,7 +47,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex="\\rho = \\frac{m}{V}",
         variables=(
             var("m", "m", "kilogram"),
-            var("volume", "volume", "meter ** 3"),
+            var("volume", "V", "meter ** 3"),
         ),
     ),
     formula(
@@ -68,7 +68,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Volume-flow-rate formula",
         "Q",
         variables=(
-            var("area", "area", "meter ** 2"),
+            var("area", "A", "meter ** 2"),
             var("v", "v", "meter / second"),
         ),
     ),
@@ -93,7 +93,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         assumptions=("horizontal flow, so the height terms cancel",),
         variants=(
             FormulaVariant(
-                present=frozenset({"h1"}),
+                present=frozenset({"h1", "h2"}),
                 latex=(
                     r"P_1 + \frac{1}{2}\rho v_1^2 + \rho gh_1 = "
                     r"P_2 + \frac{1}{2}\rho v_2^2 + \rho gh_2"
@@ -120,7 +120,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         assumptions=("steady laminar flow in a straight pipe",),
         variables=(
             var("L", "L", "meter"),
-            var("delta_pressure", "delta_pressure", "pascal"),
+            var("delta_pressure", r"\Delta P", "pascal"),
             var("r", "r", "meter"),
             var("viscosity", r"\eta", "pascal * second"),
         ),
@@ -132,7 +132,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "\\dot{m}",
         base_latex="\\dot{m} = \\rho Av",
         variables=(
-            var("area", "area", "meter ** 2"),
+            var("area", "A", "meter ** 2"),
             var("rho", r"\rho", "kilogram / meter ** 3"),
             var("v", "v", "meter / second"),
         ),
@@ -144,7 +144,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "v",
         base_latex="v = \\sqrt{2gh}",
         variables=(
-            var("depth", "depth", "meter"),
+            var("depth", "h", "meter"),
             var("g", "g", "meter / second ** 2"),
         ),
     ),
@@ -197,7 +197,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
         ),
         variables=(
-            var("mode_factor", "mode_factor", dimensionless=True),
+            var("mode_factor", "mode_factor", dimensionless=True, visible=False),
             var("r", "r", "meter"),
             var("surface_tension", r"\gamma", "newton / meter"),
         ),

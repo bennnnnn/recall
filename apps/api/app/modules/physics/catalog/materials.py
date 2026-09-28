@@ -12,7 +12,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "\\sigma",
         variables=(
             var("F", "F", "newton"),
-            var("area", "area", "meter ** 2"),
+            var("area", "A", "meter ** 2"),
         ),
     ),
     formula(
@@ -22,7 +22,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "\\varepsilon",
         variables=(
             var("L0", "L_0", "meter"),
-            var("dL", "dL", "meter"),
+            var("dL", r"\Delta L", "meter"),
         ),
     ),
     formula(
@@ -31,8 +31,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Young's modulus formula",
         "E",
         variables=(
-            var("sigma", "sigma", "pascal"),
-            var("strain", "strain", dimensionless=True),
+            var("sigma", r"\sigma", "pascal"),
+            var("strain", r"\epsilon", dimensionless=True),
         ),
     ),
 )
