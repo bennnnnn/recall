@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from typing import Any
 
 
 def format_number(value: float, *, significant: int = 6) -> str:
@@ -30,3 +31,5 @@ class ChemistryResult:
     substitution: tuple[str, ...]
     answer: str
     answer_value: str
+    scene: dict[str, Any] | None = None
+    structure_smiles: str | None = None

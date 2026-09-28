@@ -59,6 +59,8 @@ class CoordinationComplex:
     oxidation_state: int
     coordination_number: int
     name: str
+    ligands: tuple[str, ...] = ()
+    ligand_charge: int = 0
 
 
 def _split_ligands(inside: str) -> list[tuple[str, int]] | None:
@@ -126,6 +128,7 @@ def parse_coordination(formula: str) -> CoordinationComplex | None:
     right_name, right_charge, _right_count = right
     complex_charge = -(left_charge + right_charge)
     ligand_charge = sum(table[token][1] * count for token, count in ligands)
+    ligand_names = tuple(token for token, _count in ligands)
     coordination = sum(table[token][2] * count for token, count in ligands)
     oxidation = complex_charge - ligand_charge
     parts = []
@@ -166,7 +169,36 @@ def parse_coordination(formula: str) -> CoordinationComplex | None:
         complex_name = f"{left[0]} {complex_name}"
     if right_name:
         complex_name = f"{complex_name} {right_name}"
-    return CoordinationComplex(metal, oxidation, coordination, complex_name)
+    return CoordinationComplex(
+        metal, oxidation, coordination, complex_name, ligand_names, ligand_charge
+    )
+
+
+_ION_SUFFIX = re.compile(r"^(?P<body>\[[^\]]+\])\^?(?P<digits>\d*)(?P<sign>[+-])$")
+
+
+def parse_complex_formula(formula: str) -> CoordinationComplex | None:
+    """Parse a complex, including an ion charge written after the brackets."""
+    text = formula.replace(" ", "")
+    suffix = _ION_SUFFIX.match(text)
+    charge: int | None = None
+    body = text
+    if suffix is not None:
+        body = suffix.group("body")
+        magnitude = int(suffix.group("digits") or "1")
+        charge = magnitude if suffix.group("sign") == "+" else -magnitude
+    parsed = parse_coordination(body if suffix is not None else text)
+    if parsed is None or charge is None:
+        return parsed
+    oxidation = charge - parsed.ligand_charge
+    return CoordinationComplex(
+        parsed.metal,
+        oxidation,
+        parsed.coordination_number,
+        parsed.name,
+        parsed.ligands,
+        parsed.ligand_charge,
+    )
 
 
 def _roman(value: int) -> str | None:

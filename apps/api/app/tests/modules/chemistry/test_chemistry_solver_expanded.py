@@ -431,13 +431,95 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
 ]
 
 
+# IUPAC names are a PubChem property. The local solver refuses them so a
+# missing lookup cannot be labeled verified.
+_LOCAL_OPS = set(get_args(ChemistryOp)) - {"iupac_name"}
+
+REMAINING_CASES = (
+    (
+        "Calculate the mass defect of H-2 when nuclear mass = 2 u",
+        "mass_defect",
+        "Δm = 0.0159414 u; E = 14.8493 MeV; E/A = 7.42465 MeV/nucleon",
+    ),
+    (
+        "Find the crystal field of K4[Fe(CN)6]",
+        "crystal_field",
+        "octahedral low-spin d6, 0 unpaired, μ = 0 BM",
+    ),
+    (
+        "Find the standard deviation of 2, 4, 4, 4, 5, 5, 7, 9",
+        "standard_deviation",
+        "s = 2.13809",
+    ),
+    (
+        "Find the standard error of 2, 4, 4, 4, 5, 5, 7, 9",
+        "standard_error",
+        "SE = 0.755929",
+    ),
+    (
+        "percent error experimental = 9.8 accepted = 10",
+        "percent_error",
+        "percent error = 2%",
+    ),
+    (
+        "relative uncertainty a = 10 da = 0.1 b = 4 db = 0.2",
+        "relative_uncertainty",
+        "relative uncertainty = 0.0509902",
+    ),
+    (
+        "retention factor spot = 2.4 solvent front = 8",
+        "chromatography_rf",
+        "Rf = 0.3",
+    ),
+    (
+        "Michaelis-Menten Vmax = 10 Km = 2 S = 2",
+        "michaelis_menten",
+        "v = 5",
+    ),
+    (
+        "bromine addition to SMILES C=C",
+        "named_reaction",
+        "product SMILES BrCCBr",
+    ),
+    (
+        "IR ranges for SMILES CCO",
+        "ir_ranges",
+        "alcohol O–H 3200–3600 cm⁻¹",
+    ),
+    (
+        "IR peak 1710",
+        "ir_peak",
+        "carboxylic acid, ketone",
+    ),
+    (
+        "NMR ranges for SMILES CCO",
+        "nmr_ranges",
+        "alcohol H–C–O 3.2–4.5 ppm",
+    ),
+    (
+        "NMR peak 9.5",
+        "nmr_peak",
+        "aldehyde",
+    ),
+    (
+        "NMR splitting neighbors = 2",
+        "nmr_splitting",
+        "n+1 = 3 (triplet)",
+    ),
+    (
+        "molecular ion of C2H6O",
+        "molecular_ion",
+        "M+ = 46.07",
+    ),
+)
+
+
 def test_pipeline_matrix_covers_every_typed_operation() -> None:
-    assert {operation for _question, operation, _answer in PIPELINE_CASES} == set(
-        get_args(ChemistryOp)
-    )
+    covered = {operation for _question, operation, _answer in (*PIPELINE_CASES, *REMAINING_CASES)}
+    assert covered == _LOCAL_OPS
 
 
-@pytest.mark.parametrize(("question", "operation", "answer"), PIPELINE_CASES)
+@pytest.mark.parametrize(("question", "operation", "answer"), (*PIPELINE_CASES, *REMAINING_CASES))
 def test_text_pipeline_matrix(question: str, operation: ChemistryOp, answer: str) -> None:
     assert is_chemistry_question(question)
     intent = extract_chemistry_intent(question)

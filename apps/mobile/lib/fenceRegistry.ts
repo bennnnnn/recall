@@ -35,6 +35,7 @@ export type FenceId =
   | "arithmetic"
   | "callout"
   | "chart"
+  | "chem_scene"
   | "chemistry"
   | "clock"
   | "collapsible"
@@ -196,6 +197,14 @@ export const FENCES: readonly FenceSpec[] = [
     fallback: "visual",
   },
   {
+    id: "chem_scene",
+    langs: ["chem_scene"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "server",
+    fallback: "visual",
+  },
+  {
     id: "chemistry",
     langs: ["smiles", "chemistry"],
     structured: true,
@@ -351,6 +360,7 @@ export function isVisualDiagramFenceLang(lang: string): boolean {
     id === "graph" ||
     id === "mermaid" ||
     id === "chemistry" ||
+    id === "chem_scene" ||
     id === "molecule" ||
     id === "molecule3d" ||
     id === "simulation"
@@ -365,6 +375,7 @@ export function isDiagramFenceId(id: FenceId | undefined): boolean {
     id === "chart" ||
     id === "mermaid" ||
     id === "chemistry" ||
+    id === "chem_scene" ||
     id === "molecule" ||
     id === "molecule3d" ||
     id === "simulation"
