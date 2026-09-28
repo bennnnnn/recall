@@ -19,6 +19,7 @@ from app.modules.math.match.scan import _NUM
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
 from app.modules.math.tools.extractors.fractions import extract_fraction_intent
+from app.modules.math.tools.extractors.teaching import extract_teaching_intent
 from app.modules.math.tools.helpers import math_expr_or_none, substituted_eval_expr
 from app.services.text_match import word_index
 
@@ -1351,6 +1352,7 @@ def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
 
 
 SCHOOL_EXTRACTORS: list[Callable[[str], MathIntent | None]] = [
+    extract_teaching_intent,
     _extract_unit_intent,
     _extract_coord_intent,
     _extract_vector_intent,
@@ -1364,18 +1366,51 @@ SCHOOL_EXTRACTORS: list[Callable[[str], MathIntent | None]] = [
 ]
 
 
+def _attach_picture(
+    block: VerifiedMathBlock,
+    spec: object,
+    intent: MathIntent,
+    *,
+    direct: bool,
+) -> VerifiedMathBlock:
+    from app.models.schemas.math.teaching import TeachingSpec
+    from app.modules.math.tools.direct_teaching import attach_teaching
+
+    if not isinstance(spec, TeachingSpec):
+        return block
+    return attach_teaching(block, spec, direct=direct, request_text=intent._request_text)
+
+
 def _verified_block_arithmetic(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
+    if intent.teaching_op and intent.teaching_payload:
+        from app.modules.math.solve.teaching import build_teaching
+
+        picture = build_teaching(intent.teaching_op, intent.teaching_payload)
+        if picture is None:
+            return None
+        lines.append(picture.speech)
+        return _attach_picture(
+            _finish_with_answer(lines, picture.answer), picture, intent, direct=True
+        )
     if intent.school_op and intent.school_op.startswith("fraction_"):
         from app.modules.math.solve.fractions import build_fraction_work
 
         fraction_work = build_fraction_work(intent)
         if fraction_work is not None:
+            from app.modules.math.solve.teaching_elementary import fraction_bar_spec
+
             lines.append("Verified fraction procedure:")
             lines.extend(step.explanation for step in fraction_work.steps)
             block = _finish_with_answer(lines, fraction_work.answer)
-            return replace(block, canonical_fences=[fraction_work.model_dump()])
+            block = replace(block, canonical_fences=[fraction_work.model_dump()])
+            bars = fraction_bar_spec(
+                fraction_work.operation, fraction_work.operands, fraction_work.answer
+            )
+            if bars is None:
+                return block
+            return _attach_picture(block, bars, intent, direct=False)
     if (
         intent.school_op
         in {
@@ -1396,6 +1431,14 @@ def _verified_block_arithmetic(
             request = mtm.written_arithmetic_request(f"calculate {intent.expr}")
             operands = list(request[:2]) if request is not None else None
         if operands is not None:
+            from app.modules.math.solve.teaching_elementary import written_picture
+
+            picture = written_picture(intent.school_op or "", operands)
+            if picture is not None:
+                lines.append(picture.speech)
+                return _attach_picture(
+                    _finish_with_answer(lines, picture.answer), picture, intent, direct=True
+                )
             arithmetic_work = build_written_arithmetic_operands(
                 operands,
                 intent.school_op,
@@ -1689,7 +1732,15 @@ def _verified_block_arithmetic(
             direct_reply=direct,
         )
     lines.append(f"Result: {answer}")
-    return _finish_with_answer(lines, answer)
+    block = _finish_with_answer(lines, answer)
+    if intent.school_op != "eval" or not intent.expr:
+        return block
+    from app.modules.math.solve.teaching_elementary import number_line_for_expr
+
+    move = number_line_for_expr(intent.expr, answer)
+    if move is None:
+        return block
+    return _attach_picture(block, move, intent, direct=True)
 
 
 def _verified_block_trig(
@@ -1843,6 +1894,19 @@ def _verified_block_trig(
             answer = latex(together(simplify(math_solve._parse_expression(intent.expr, []))))
         lines.append(f"{intent.school_op}({intent.percent_base:g}°) = {answer}")
         block = _finish_with_answer(lines, answer)
+        if intent.school_op in {"sin", "cos", "tan"} and float(intent.percent_base).is_integer():
+            from app.modules.math.solve.teaching_algebra import standard_degrees, unit_circle_spec
+
+            angle = int(intent.percent_base)
+            if standard_degrees(angle) is not None and abs(angle) <= 360:
+                circle = unit_circle_spec(angle, answer)
+                fields = (
+                    {"sin": circle.sine, "cos": circle.cosine, "tan": circle.tangent}
+                    if circle
+                    else {}
+                )
+                if circle is not None and fields.get(intent.school_op) == answer:
+                    return _attach_picture(block, circle, intent, direct=True)
         if intent.school_op in {"sin", "cos"} and float(intent.percent_base).is_integer():
             from sympy import cos, latex, pi, simplify, sin, together
 

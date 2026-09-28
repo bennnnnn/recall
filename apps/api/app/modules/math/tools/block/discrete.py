@@ -632,10 +632,19 @@ def _verified_block_statistics(
             answer = math_formulas.percentile(intent.stats_numbers, intent.combo_n)
     else:
         answer = result.labels["mean"]
-    return _finish_with_answer(
+    block = _finish_with_answer(
         lines,
         answer,
     )
+    if intent.stats_op == "quartiles" and intent.stats_numbers:
+        from app.modules.math.solve.teaching_data import box_plot_spec
+        from app.modules.math.tools.direct_teaching import attach_teaching
+
+        payload = ",".join(f"{value:.12g}" for value in intent.stats_numbers)
+        plot = box_plot_spec(payload, answer)
+        if plot is not None:
+            return attach_teaching(block, plot, direct=False, request_text=None)
+    return block
 
 
 def _format_number_theory_answer(result: NumberTheoryResult) -> str:

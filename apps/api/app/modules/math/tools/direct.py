@@ -871,11 +871,15 @@ def can_direct_verified_math_reply(
     ):
         return False
     if statistics_request or unit_request or solid_request or calculus_request:
+        from app.models.schemas.math.teaching import TEACHING_TYPES
+
         fences = _solver_fences(verified)
+        answers = [fence for fence in fences if fence.get("type") == "answer"]
+        pictures = [fence for fence in fences if fence.get("type") in TEACHING_TYPES]
         if (
-            len(fences) != 1
-            or fences[0].get("type") != "answer"
-            or fences[0].get("content") != verified.canonical_answer
+            len(answers) != 1
+            or answers[0].get("content") != verified.canonical_answer
+            or len(fences) != len(answers) + len(pictures)
         ):
             return False
     lower = user_text.lower()
@@ -902,10 +906,12 @@ def can_direct_verified_math_reply(
         return False
     if not answer or len(answer) > _MAX_DIRECT_ANSWER_CHARS:
         return False
+    from app.models.schemas.math.teaching import TEACHING_TYPES
+
     fences = _solver_fences(verified)
     if not fences:
         return True
-    return all(fence.get("type") == "answer" for fence in fences)
+    return all(fence.get("type") in {"answer", *TEACHING_TYPES} for fence in fences)
 
 
 def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -> str:
@@ -922,7 +928,11 @@ def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -
         return format_direct_written_arithmetic(written_arithmetic, user_text)
     fraction_work = fraction_work_spec(verified)
     if fraction_work is not None:
-        return format_direct_fraction(fraction_work, user_text)
+        from app.modules.math.tools.direct_teaching import prepend_teaching_fence
+
+        return prepend_teaching_fence(
+            format_direct_fraction(fraction_work, user_text), verified, user_text
+        )
     geometry_reply = _nonmeasurement_geometry_reply(verified, user_text)
     if geometry_reply is not None:
         return geometry_reply
@@ -994,7 +1004,11 @@ def _format_direct_math_body(
 
     solid_working = format_direct_solid_working(user_text, answer)
     prefix = f"{solid_working}\n\n" if solid_working else ""
-    return f"{prefix}```answer\n{display_answer}\n```\n"
+    from app.modules.math.tools.direct_teaching import prepend_teaching_fence
+
+    return prepend_teaching_fence(
+        f"{prefix}```answer\n{display_answer}\n```\n", verified, user_text
+    )
 
 
 def maybe_direct_math_reply(

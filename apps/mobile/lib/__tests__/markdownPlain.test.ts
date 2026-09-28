@@ -89,6 +89,14 @@ describe("markdownPlain", () => {
     expect(markdownToCopyText(src)).not.toContain("Pay rent");
   });
 
+  it("reads a teaching picture aloud and copies its sentence", () => {
+    const src =
+      '```arithmetic\n{"type":"ten_frame","answer":"12","speech":"7 plus 3 makes 10, and 2 remain."}\n```\n';
+    expect(markdownToSpeechText(src)).toContain("7 plus 3 makes 10");
+    expect(markdownToCopyText(src)).toContain("7 plus 3 makes 10");
+    expect(markdownToCopyText(src)).not.toContain("ten_frame");
+  });
+
   it("labels diagrams for speech and omits smiles JSON from Copy", () => {
     const src = 'Water\n\n```smiles\nO\n```\n';
     expect(markdownToCopyText(src)).toBe("Water");

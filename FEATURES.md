@@ -222,6 +222,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   operands stay exact and terminating division shows placeholder zeros. Mobile
   renders the canonical trace in a dedicated Computer Modern card; “show steps”
   and an adjacent “how?” reuse it, while answer-only and hint turns cannot leak it.
+- ✅ **Teaching pictures** — a closed request can draw place value and base-ten blocks,
+  a number bond, a ten frame, an equal-group array, fraction bars, a fraction number
+  line, an integer jump that starts negative, a decimal comparison, half-up rounding
+  to a named place, polynomial or synthetic division, the unit circle at a standard
+  angle, a quartile box plot, a frequency table, a stem-and-leaf plot, a short integer
+  histogram, stated scatter points, a fair coin or die tree, or a point translation,
+  reflection, rotation, or dilation. The picture is server-owned and the answer chip
+  stays the verified value. “Just the answer” hides the picture. Multi-digit sums keep
+  the column trace.
 - ✅ **Check my work** — “check my work”, “where did I go wrong” or a bare column of
   worked lines: each line is checked against line 1 with SymPy (one unknown,
   polynomial sides up to degree 2). The reply marks every line, names the first

@@ -223,6 +223,10 @@ def _extract_math_intent(text: str) -> MathIntent | None:
     cleaned = mtm.prepare(text)
     if not cleaned:
         return None
+    from app.modules.math.tools.extractors.teaching import closed_teaching_declined
+
+    if closed_teaching_declined(cleaned):
+        return None
     # Function analysis currently verifies the maximal real domain only.
     # Refuse the whole extraction before inequality/algebra fallbacks can
     # verify just the trailing restriction and silently ignore the actual ask.

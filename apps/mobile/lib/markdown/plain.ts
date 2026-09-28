@@ -8,6 +8,7 @@ import {
   isMathFenceLang,
   isVisualDiagramFenceLang,
 } from "@/lib/fenceRegistry";
+import { teachingSpeech } from "@/lib/math/teachingBlock";
 import { parseSimpleLatex, type MathSegment } from "@/lib/math/text";
 
 function mapFenceRegions(
@@ -307,6 +308,10 @@ function convertProse(prose: string, mode: "copy" | "speech"): string {
 function convertFence(lang: string, body: string, mode: "copy" | "speech"): string {
   const trimmed = body.replace(/\n$/, "").trim();
   if (isControlFenceLang(lang)) return "";
+  if (fenceIdForLang(lang) === "arithmetic") {
+    const spoken = teachingSpeech(trimmed);
+    if (spoken) return spoken;
+  }
   if (isChartFenceLang(lang)) return mode === "speech" ? "a chart" : "";
   if (isVisualDiagramFenceLang(lang)) return mode === "speech" ? "a diagram" : "";
   if (fenceIdForLang(lang) === "answer") {
