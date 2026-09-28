@@ -67,6 +67,8 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         )
         return PhysicsResult(
             answer=answer,
+            formulas=(r"T = 2\pi\sqrt{\frac{L}{g}}",),
+            substitutions=(rf"T = 2\pi\sqrt{{\frac{{{length:g}}}{{{g:g}}}}}",),
             quantities=(QuantityResult("", t_period, "s", number_format=".2f"),),
             graph_specs=[_oscillation_curve(t_period, p.get("x"))],
         )
@@ -83,6 +85,8 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
                 rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
                 rf"\approx {freq:.2f} \text{{ Hz}}"
             ),
+            formulas=(r"f = \frac{1}{T}",),
+            substitutions=(rf"f = \frac{{1}}{{{t_period:g}}}",),
             quantities=(QuantityResult("", freq, "Hz", number_format=".2f"),),
             graph_specs=[_oscillation_curve(t_period, p.get("x"))],
         )
@@ -98,6 +102,8 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
                 rf"v_{{max}} = A\omega = {amplitude:g} \cdot {omega:g} "
                 rf"\approx {v_max:.2f} \text{{ m/s}}"
             ),
+            formulas=(r"v_{max} = A\omega",),
+            substitutions=(rf"v_{{max}} = {amplitude:g} \cdot {omega:g}",),
             quantities=(QuantityResult("", v_max, "m/s", number_format=".2f"),),
             graph_specs=[_oscillation_curve(2 * math.pi / omega, amplitude)],
         )
@@ -111,6 +117,8 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         f_val = k * abs(x)
         return PhysicsResult(
             answer=(rf"F = kx = {k:g} \cdot {abs(x):g} \approx {f_val:.2f} \text{{ N}}"),
+            formulas=(r"F = kx",),
+            substitutions=(rf"F = {k:g} \cdot {abs(x):g}",),
             quantities=(QuantityResult("", f_val, "N", number_format=".2f"),),
         )
 
@@ -122,6 +130,8 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
                 rf"U = \tfrac{{1}}{{2}} k x^2 = 0.5 \cdot {k:g} \cdot "
                 rf"{_latex_num(x, square=True)} \approx {u_val:.2f} \text{{ J}}"
             ),
+            formulas=(r"U = \tfrac{1}{2} k x^2",),
+            substitutions=(rf"E_s = 0.5 \cdot {k:g} \cdot {_latex_num(x, square=True)}",),
             quantities=(QuantityResult("", u_val, "J", number_format=".2f"),),
         )
 
@@ -138,6 +148,8 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         spec = _oscillation_curve(t_period, p.get("x"))
         return PhysicsResult(
             answer=answer,
+            formulas=(r"T = 2\pi\sqrt{\frac{m}{k}}",),
+            substitutions=(rf"T = 2\pi\sqrt{{\frac{{{m:g}}}{{{k:g}}}}}",),
             quantities=(QuantityResult("", t_period, "s", number_format=".2f"),),
             graph_specs=[spec],
         )
@@ -168,6 +180,8 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\sqrt{{\frac{{{tension:g}}}{{{density:g}}}}} "
                 rf"\approx {value:.4g} \text{{ m/s}}"
             ),
+            formulas=(r"v = \sqrt{\frac{T}{\mu}}",),
+            substitutions=(rf"v = \sqrt{{\frac{{{tension:g}}}{{{density:g}}}}}",),
             quantities=(QuantityResult("", value, "m/s", number_format=".4g"),),
         )
 
@@ -184,12 +198,11 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
             raise SolveServiceError("a pipe closed at one end supports only odd harmonics")
         value = harmonic * speed / (mode_factor * length)
         symbolic = r"f_n = \frac{n v}{4L}" if mode_factor == 4.0 else r"f_n = \frac{n v}{2L}"
+        plugged = rf"\frac{{{harmonic:g} \cdot {speed:g}}}{{{mode_factor:g} \cdot {length:g}}}"
         return PhysicsResult(
-            answer=(
-                symbolic + " = "
-                rf"\frac{{{harmonic:g} \cdot {speed:g}}}"
-                rf"{{{mode_factor:g} \cdot {length:g}}} \approx {value:.4g} \text{{ Hz}}"
-            ),
+            answer=rf"{symbolic} = {plugged} \approx {value:.4g} \text{{ Hz}}",
+            formulas=(symbolic,),
+            substitutions=(rf"f_n = {plugged}",),
             quantities=(QuantityResult("", value, "Hz", number_format=".4g"),),
         )
 
@@ -205,6 +218,8 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{power:g}}}{{4\pi \cdot {radius:g}^2}} "
                 rf"\approx {value:.4g} \text{{ W/m}}^2"
             ),
+            formulas=(r"I = \frac{P}{4\pi r^2}",),
+            substitutions=(rf"I = \frac{{{power:g}}}{{4\pi \cdot {radius:g}^2}}",),
             quantities=(QuantityResult("", value, "W/m^2", number_format=".4g"),),
         )
 
@@ -218,6 +233,8 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"f_b = \lvert f_1 - f_2 \rvert = "
                 rf"\lvert {first:g} - {second:g} \rvert \approx {value:.4g} \text{{ Hz}}"
             ),
+            formulas=(r"f_b = \lvert f_1 - f_2 \rvert",),
+            substitutions=(rf"f_b = \lvert {first:g} - {second:g} \rvert",),
             quantities=(QuantityResult("", value, "Hz", number_format=".4g"),),
         )
 
@@ -231,6 +248,8 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
                 rf"\approx {freq:.2f} \text{{ Hz}}"
             ),
+            formulas=(r"f = \frac{1}{T}",),
+            substitutions=(rf"f = \frac{{1}}{{{t_period:g}}}",),
             quantities=(QuantityResult("", freq, "Hz", number_format=".2f"),),
         )
 
@@ -244,6 +263,8 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"T = \frac{{1}}{{f}} = \frac{{1}}{{{freq:g}}} "
                 rf"\approx {t_period:.4g} \text{{ s}}"
             ),
+            formulas=(r"T = \frac{1}{f}",),
+            substitutions=(rf"T = \frac{{1}}{{{freq:g}}}",),
             quantities=(QuantityResult("", t_period, "s", number_format=".4g"),),
         )
 
@@ -263,6 +284,10 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                     rf"\frac{{{sound:g}}}{{{sound:g} - ({source:g})}} "
                     rf"\approx {observed:.2f} \text{{ Hz}}"
                 ),
+                formulas=(r"f' = f\,\frac{v}{v - v_s}",),
+                substitutions=(
+                    rf"f' = {freq:g} \cdot \frac{{{sound:g}}}{{{sound:g} - ({source:g})}}",
+                ),
                 quantities=(
                     QuantityResult(
                         "",
@@ -279,6 +304,11 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"f' = f\,\frac{{v + v_o}}{{v - v_s}} = {freq:g} \cdot "
                 rf"\frac{{{sound:g} + ({observer:g})}}{{{sound:g} - ({source:g})}} "
                 rf"\approx {observed:.2f} \text{{ Hz}}"
+            ),
+            formulas=(r"f' = f\,\frac{v + v_o}{v - v_s}",),
+            substitutions=(
+                rf"f' = {freq:g} \cdot \frac{{{sound:g} + ({observer:g})}}{{{sound:g} - ({source:g}"
+                rf")}}",
             ),
             quantities=(
                 QuantityResult(
@@ -302,6 +332,8 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"v = f\lambda = {p['freq']:g} \cdot {p['wavelength']:g} "
                 rf"\approx {value:.2f} \text{{ m/s}}"
             ),
+            formulas=(r"v = f\lambda",),
+            substitutions=(rf"v = {p['freq']:g} \cdot {p['wavelength']:g}",),
             quantities=(QuantityResult("", value, "m/s", number_format=".2f"),),
         )
 
@@ -314,6 +346,8 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\lambda = \frac{{v}}{{f}} = \frac{{{p['v_wave']:g}}}{{{p['freq']:g}}} "
                 rf"\approx {value:.2f} \text{{ m}}"
             ),
+            formulas=(r"\lambda = \frac{v}{f}",),
+            substitutions=(rf"\lambda = \frac{{{p['v_wave']:g}}}{{{p['freq']:g}}}",),
             quantities=(QuantityResult("", value, "m", number_format=".2f"),),
         )
 
@@ -327,6 +361,8 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{p['v_wave']:g}}}{{{p['wavelength']:g}}} "
                 rf"\approx {value:.2f} \text{{ Hz}}"
             ),
+            formulas=(r"f = \frac{v}{\lambda}",),
+            substitutions=(rf"f = \frac{{{p['v_wave']:g}}}{{{p['wavelength']:g}}}",),
             quantities=(QuantityResult("", value, "Hz", number_format=".2f"),),
         )
 

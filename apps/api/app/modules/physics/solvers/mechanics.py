@@ -152,6 +152,8 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
                 rf"T = m(g + a) = {m:g}({g:g} + {_latex_num(a)}) "
                 rf"\approx {t_val:.2f} \text{{ N}}"
             ),
+            formulas=(r"T = m(g + a)",),
+            substitutions=(rf"T = {m:g}({g:g} + {_latex_num(a)})",),
             quantities=(QuantityResult("", t_val, "N", number_format=".2f"),),
             # Two arrows and a mass is the whole of this problem, and seeing
             # them is what makes T = m(g + a) rather than m*a obvious: the rope
@@ -195,6 +197,16 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
                 rf"{{{f1:g} + {f2:g}\cos({math.degrees(phi):g}^\circ)}} "
                 rf"\approx {theta:.2f}^\circ"
             ),
+            formulas=(
+                r"R = \sqrt{F_1^2 + F_2^2 + 2F_1F_2\cos\phi}",
+                r"\theta = \arctan\frac{F_2\sin\phi}{F_1 + F_2\cos\phi}",
+            ),
+            substitutions=(
+                rf"R = \sqrt{{{_latex_num(f1, square=True)} + {_latex_num(f2, square=True)} + 2 "
+                rf"\cdot {f1:g} \cdot {f2:g}\cos({math.degrees(phi):g}^\circ)}}",
+                rf"\theta = \arctan\frac{{{f2:g}\sin({math.degrees(phi):g}^\circ)}}{{{f1:g} + "
+                rf"{f2:g}\cos({math.degrees(phi):g}^\circ)}}",
+            ),
             quantities=(
                 QuantityResult(
                     "",
@@ -237,6 +249,11 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
                 rf"F_y = F\sin\theta = {f:g}\sin({math.degrees(theta):g}^\circ) "
                 rf"\approx {fy:.2f} \text{{ N}}"
             ),
+            formulas=(r"F_x = F\cos\theta", r"F_y = F\sin\theta"),
+            substitutions=(
+                rf"F_x = {f:g}\cos({math.degrees(theta):g}^\circ)",
+                rf"F_y = {f:g}\sin({math.degrees(theta):g}^\circ)",
+            ),
             quantities=(
                 QuantityResult(
                     "", fx, "N", detail="horizontally", number_format=".2f", detail_style="suffix"
@@ -270,6 +287,11 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{2 \cdot {m1:g} \cdot {m2:g} \cdot {g:g}}}{{{m1:g} + {m2:g}}} "
                 rf"\approx {t_val:.2f} \text{{ N}}"
             ),
+            formulas=(r"a = \frac{(m_1 - m_2)g}{m_1 + m_2}", r"T = \frac{2 m_1 m_2 g}{m_1 + m_2}"),
+            substitutions=(
+                rf"a = \frac{{({m1:g} - {m2:g}) \cdot {g:g}}}{{{m1:g} + {m2:g}}}",
+                rf"T = \frac{{2 \cdot {m1:g} \cdot {m2:g} \cdot {g:g}}}{{{m1:g} + {m2:g}}}",
+            ),
             quantities=(
                 QuantityResult("", a_val, "m/s^2", number_format=".2f"),
                 QuantityResult("", t_val, "N", number_format=".2f"),
@@ -279,24 +301,24 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
 
     if "F" in p and "m" in p and "a" not in p:
         a_val = p["F"] / p["m"]
-        answer_latex = (
-            rf"a = \frac{{F}}{{m}} = \frac{{{p['F']:g}}}{{{p['m']:g}}} "
-            rf"\approx {a_val:.2f} \text{{ m/s}}^2"
-        )
+        plugged = rf"\frac{{{p['F']:g}}}{{{p['m']:g}}}"
+        answer_latex = rf"a = \frac{{F}}{{m}} = {plugged} \approx {a_val:.2f} \text{{ m/s}}^2"
+        formula = r"a = \frac{F}{m}"
+        substitution = rf"a = {plugged}"
         quantity = QuantityResult("", a_val, "m/s^2", number_format=".2f")
     elif "F" in p and "a" in p and "m" not in p:
         m_val = p["F"] / p["a"]
-        answer_latex = (
-            rf"m = \frac{{F}}{{a}} = \frac{{{p['F']:g}}}{{{p['a']:g}}} "
-            rf"\approx {m_val:.2f} \text{{ kg}}"
-        )
+        plugged = rf"\frac{{{p['F']:g}}}{{{p['a']:g}}}"
+        answer_latex = rf"m = \frac{{F}}{{a}} = {plugged} \approx {m_val:.2f} \text{{ kg}}"
+        formula = r"m = \frac{F}{a}"
+        substitution = rf"m = {plugged}"
         quantity = QuantityResult("", m_val, "kg", number_format=".2f")
     elif "m" in p and "a" in p and "F" not in p:
         f_val = p["m"] * p["a"]
-        answer_latex = (
-            rf"F = m \cdot a = {p['m']:g} \cdot {p['a']:g} "
-            rf"\approx {f_val:.2f} \text{{ N}}"
-        )
+        plugged = rf"{p['m']:g} \cdot {p['a']:g}"
+        answer_latex = rf"F = m \cdot a = {plugged} \approx {f_val:.2f} \text{{ N}}"
+        formula = r"F = m \cdot a"
+        substitution = rf"F = {plugged}"
         quantity = QuantityResult("", f_val, "N", number_format=".2f")
     else:
         raise SolveServiceError("force solve needs exactly two of F, m, a")
@@ -315,7 +337,13 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
         ],
         label=f"{p['m']:g} kg" if "m" in p else None,
     )
-    return PhysicsResult(answer=answer_latex, quantities=(quantity,), simulation_specs=scene)
+    return PhysicsResult(
+        answer=answer_latex,
+        formulas=(formula,),
+        substitutions=(substitution,),
+        quantities=(quantity,),
+        simulation_specs=scene,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -344,42 +372,41 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         if supplied <= 0 or output < 0:
             raise SolveServiceError("efficiency needs positive input and nonnegative output")
         eta = output / supplied
-        answer_latex = (
-            rf"\eta = \frac{{E_{{out}}}}{{E_{{in}}}} = "
-            rf"\frac{{{output:g}}}{{{supplied:g}}} \approx {eta:.4g}"
-        )
+        plugged = rf"\frac{{{output:g}}}{{{supplied:g}}}"
+        answer_latex = rf"\eta = \frac{{E_{{out}}}}{{E_{{in}}}} = {plugged} \approx {eta:.4g}"
+        formula = r"\eta = \frac{E_{out}}{E_{in}}"
+        substitution = rf"\eta = {plugged}"
         quantity = QuantityResult("", eta, "", detail=f"{eta * 100:.4g}%", number_format=".4g")
     elif op == "kinetic_energy":
         ke_val = 0.5 * p["m"] * p["v"] ** 2
         v_sq = _latex_num(p["v"], square=True)
-        answer_latex = (
-            rf"KE = \frac{{1}}{{2}} m v^2 = \frac{{1}}{{2}} \cdot {p['m']:g} \cdot {v_sq} "
-            rf"\approx {ke_val:.2f} \text{{ J}}"
-        )
+        plugged = rf"\frac{{1}}{{2}} \cdot {p['m']:g} \cdot {v_sq}"
+        answer_latex = rf"KE = \frac{{1}}{{2}} m v^2 = {plugged} \approx {ke_val:.2f} \text{{ J}}"
+        formula = r"KE = \frac{1}{2} m v^2"
+        substitution = rf"KE = {plugged}"
         quantity = QuantityResult("", ke_val, "J", number_format=".2f")
     elif op == "potential_energy":
         pe_val = p["m"] * g * p["h"]
-        answer_latex = (
-            rf"PE = m g h = {p['m']:g} \cdot {g:g} \cdot {p['h']:g} "
-            rf"\approx {pe_val:.2f} \text{{ J}}"
-        )
+        plugged = rf"{p['m']:g} \cdot {g:g} \cdot {p['h']:g}"
+        answer_latex = rf"PE = m g h = {plugged} \approx {pe_val:.2f} \text{{ J}}"
+        formula = r"PE = m g h"
+        substitution = rf"PE = {plugged}"
         quantity = QuantityResult("", pe_val, "J", number_format=".2f")
     elif op == "work":
         theta = p.get("angle")
         if theta is None:
             w_val = p["F"] * p["d"]
-            answer_latex = (
-                rf"W = F \cdot d = {p['F']:g} \cdot {p['d']:g} "
-                rf"\approx {w_val:.2f} \text{{ J}}"
-            )
+            plugged = rf"{p['F']:g} \cdot {p['d']:g}"
+            answer_latex = rf"W = F \cdot d = {plugged} \approx {w_val:.2f} \text{{ J}}"
+            formula = r"W = F \cdot d"
         else:
             w_val = p["F"] * p["d"] * math.cos(theta)
             deg = math.degrees(theta)
-            answer_latex = (
-                rf"W = Fd\cos\theta = {p['F']:g} \cdot {p['d']:g} \cdot \cos({deg:g}^\circ) "
-                rf"\approx {w_val:.2f} \text{{ J}}"
-            )
+            plugged = rf"{p['F']:g} \cdot {p['d']:g} \cdot \cos({deg:g}^\circ)"
+            answer_latex = rf"W = Fd\cos\theta = {plugged} \approx {w_val:.2f} \text{{ J}}"
+            formula = r"W = Fd\cos\theta"
             work_direction = (math.cos(theta), math.sin(theta))
+        substitution = rf"W = {plugged}"
         quantity = QuantityResult("", w_val, "J", number_format=".2f")
     elif op == "power":
         if "W" in p and "t" in p and "angle" not in p:
@@ -388,25 +415,23 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
             if p["t"] == 0:
                 raise SolveServiceError("power needs a nonzero time")
             power_val = p["W"] / p["t"]
-            answer_latex = (
-                rf"P = \frac{{W}}{{t}} = \frac{{{p['W']:g}}}{{{p['t']:g}}} "
-                rf"\approx {power_val:.2f} \text{{ W}}"
-            )
+            plugged = rf"\frac{{{p['W']:g}}}{{{p['t']:g}}}"
+            answer_latex = rf"P = \frac{{W}}{{t}} = {plugged} \approx {power_val:.2f} \text{{ W}}"
+            formula = r"P = \frac{W}{t}"
         else:
             theta = p.get("angle")
             if theta is None:
                 power_val = p["F"] * p["v"]
-                answer_latex = (
-                    rf"P = F \cdot v = {p['F']:g} \cdot {p['v']:g} "
-                    rf"\approx {power_val:.2f} \text{{ W}}"
-                )
+                plugged = rf"{p['F']:g} \cdot {p['v']:g}"
+                answer_latex = rf"P = F \cdot v = {plugged} \approx {power_val:.2f} \text{{ W}}"
+                formula = r"P = F \cdot v"
             else:
                 power_val = p["F"] * p["v"] * math.cos(theta)
                 deg = math.degrees(theta)
-                answer_latex = (
-                    rf"P = Fv\cos\theta = {p['F']:g} \cdot {p['v']:g} \cdot \cos({deg:g}^\circ) "
-                    rf"\approx {power_val:.2f} \text{{ W}}"
-                )
+                plugged = rf"{p['F']:g} \cdot {p['v']:g} \cdot \cos({deg:g}^\circ)"
+                answer_latex = rf"P = Fv\cos\theta = {plugged} \approx {power_val:.2f} \text{{ W}}"
+                formula = r"P = Fv\cos\theta"
+        substitution = rf"P = {plugged}"
         quantity = QuantityResult("", power_val, "W", number_format=".2f")
     else:
         raise SolveServiceError(f"unsupported energy op: {op}")
@@ -456,7 +481,13 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
             ],
             ground=True,
         )
-    return PhysicsResult(answer=answer_latex, quantities=(quantity,), simulation_specs=scene)
+    return PhysicsResult(
+        answer=answer_latex,
+        formulas=(formula,),
+        substitutions=(substitution,),
+        quantities=(quantity,),
+        simulation_specs=scene,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -498,6 +529,11 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{p['m1']:g} \cdot {p['x1']:g} + {p['m2']:g} \cdot {p['x2']:g}}}"
                 rf"{{{p['m1']:g} + {p['m2']:g}}} \approx {center:.4g} \text{{ m}}"
             ),
+            formulas=(r"x_{cm} = \frac{m_1x_1 + m_2x_2}{m_1 + m_2}",),
+            substitutions=(
+                rf"x_{{cm}} = \frac{{{p['m1']:g} \cdot {p['x1']:g} + {p['m2']:g} \cdot "
+                rf"{p['x2']:g}}}{{{p['m1']:g} + {p['m2']:g}}}",
+            ),
             quantities=(QuantityResult("", center, "m", number_format=".4g"),),
         )
 
@@ -508,25 +544,30 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
                 rf"p = m v = {p['m']:g} \cdot {p['v']:g} "
                 rf"\approx {p_val:.2f} \text{{ kg}}\cdot\text{{m/s}}"
             ),
+            formulas=(r"p = m v",),
+            substitutions=(rf"p = {p['m']:g} \cdot {p['v']:g}",),
             quantities=(QuantityResult("", p_val, "kg*m/s", number_format=".2f"),),
         )
 
     if op == "impulse":
         if "F" in p and "dt" in p:
             j_val = p["F"] * p["dt"]
-            answer = (
-                rf"J = F \Delta t = {p['F']:g} \cdot {p['dt']:g} "
-                rf"\approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
-            )
+            plugged = rf"{p['F']:g} \cdot {p['dt']:g}"
+            answer = rf"J = F \Delta t = {plugged} \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
+            formula = r"J = F \Delta t"
+            substitution = rf"J = {plugged}"
         else:
             # J = Delta p. Same quantity, same units — N*s and kg*m/s are equal.
             j_val = p["m"] * (p["v2"] - p["v1"])
-            answer = (
-                rf"J = m \Delta v = {p['m']:g} \cdot "
-                rf"({p['v2']:g} - {p['v1']:g}) \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
-            )
+            plugged = rf"{p['m']:g} \cdot ({p['v2']:g} - {p['v1']:g})"
+            answer = rf"J = m \Delta v = {plugged} \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
+            formula = r"J = m \Delta v"
+            substitution = rf"J = {plugged}"
         return PhysicsResult(
-            answer=answer, quantities=(QuantityResult("", j_val, "N*s", number_format=".2f"),)
+            answer=answer,
+            formulas=(formula,),
+            substitutions=(substitution,),
+            quantities=(QuantityResult("", j_val, "N*s", number_format=".2f"),),
         )
 
     if op == "final_velocity":
@@ -549,6 +590,10 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
                 QuantityResult("", u2, "m/s", number_format=".2f"),
             )
             substitutions = _collision_substitutions(intent, elastic=True)
+            formulas = (
+                r"\text{Elastic: } v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2}",
+                rf"v_2' \approx {u2:.2f} \text{{ m/s}}",
+            )
         else:
             u1 = u2 = (m1 * v1 + m2 * v2) / total
             answer = (
@@ -558,9 +603,11 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
             )
             quantities = (QuantityResult("", u1, "m/s", number_format=".2f"),)
             substitutions = _collision_substitutions(intent, elastic=False)
+            formulas = (r"\text{Perfectly inelastic: } v = \frac{m_1 v_1 + m_2 v_2}{m_1 + m_2}",)
         return PhysicsResult(
             answer=answer,
             quantities=quantities,
+            formulas=formulas,
             substitutions=substitutions,
             simulation_specs=[_collision_scene(m1, m2, v1, v2, u1, u2)],
         )
@@ -658,14 +705,17 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "normal_force":
         if theta == 0:
-            answer = rf"N = m g = {m:g} \cdot {g:g} \approx {normal:.2f} \text{{ N}}"
+            plugged = rf"{m:g} \cdot {g:g}"
+            answer = rf"N = m g = {plugged} \approx {normal:.2f} \text{{ N}}"
+            formula = r"N = m g"
         else:
-            answer = (
-                rf"N = m g \cos\theta = {m:g} \cdot {g:g} \cdot \cos({deg:g}^\circ) "
-                rf"\approx {normal:.2f} \text{{ N}}"
-            )
+            plugged = rf"{m:g} \cdot {g:g} \cdot \cos({deg:g}^\circ)"
+            answer = rf"N = m g \cos\theta = {plugged} \approx {normal:.2f} \text{{ N}}"
+            formula = r"N = m g \cos\theta"
         return PhysicsResult(
             answer=answer,
+            formulas=(formula,),
+            substitutions=(rf"N = {plugged}",),
             quantities=(QuantityResult("", normal, "N", number_format=".2f"),),
             simulation_specs=_incline_scene(deg, mu=mu),
         )
@@ -675,6 +725,8 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
         answer = rf"f = \mu N = {mu:g} \cdot {normal:.2f} \approx {f_val:.2f} \text{{ N}}"
         return PhysicsResult(
             answer=answer,
+            formulas=(r"f = \mu N",),
+            substitutions=(rf"f = {mu:g} \cdot {normal:.2f}",),
             quantities=(QuantityResult("", f_val, "N", number_format=".2f"),),
             simulation_specs=_incline_scene(deg, mu=mu),
         )
@@ -690,6 +742,11 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
                     rf"\tan({deg:g}^\circ) \le \mu = {mu:g}, "
                     r"\text{so friction holds the block: } a = 0 \text{ m/s}^2"
                 ),
+                formulas=(
+                    rf"\tan({deg:g}^\circ) \le \mu = {mu:g}, "
+                    r"\text{so friction holds the block: } a",
+                ),
+                substitutions=(r"a = 0 \text{ m/s}^2",),
                 quantities=(QuantityResult("a", 0.0, "m/s^2", number_format=".2f"),),
                 # a = 0 is the answer, so the block stays put and the diagram
                 # is the free body that explains why.
@@ -702,6 +759,8 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
         )
         return PhysicsResult(
             answer=answer,
+            formulas=(r"a = g(\sin\theta - \mu\cos\theta)",),
+            substitutions=(rf"a = {g:g}(\sin({deg:g}^\circ) - {mu:g}\cos({deg:g}^\circ))",),
             quantities=(QuantityResult("", a_val, "m/s^2", number_format=".2f"),),
             simulation_specs=_incline_scene(deg, mu=mu, accel=a_val),
         )
@@ -710,6 +769,8 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
         mu_val = math.tan(theta)
         return PhysicsResult(
             answer=(rf"\mu = \tan(\theta) = \tan({deg:.1f}^\circ) \approx {mu_val:.2f}"),
+            formulas=(r"\mu = \tan(\theta)",),
+            substitutions=(rf"\mu = \tan({deg:.1f}^\circ)",),
             quantities=(QuantityResult("", mu_val, "", number_format=".2f"),),
             simulation_specs=_incline_scene(deg, mu=mu_val),
         )
@@ -721,6 +782,8 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
                 rf"F_{{min}} = \mu m g = {mu:g} \cdot {m:g} \cdot {g:g} "
                 rf"\approx {f_val:.2f} \text{{ N}}"
             ),
+            formulas=(r"F_{min} = \mu m g",),
+            substitutions=(rf"F_{{min}} = {mu:g} \cdot {m:g} \cdot {g:g}",),
             quantities=(QuantityResult("", f_val, "N", number_format=".2f"),),
         )
 
