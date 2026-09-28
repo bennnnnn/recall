@@ -258,8 +258,12 @@ async def build_math_augmentation(
         # to MathIntent (do not re-parse through the text regex, which mangles
         # unicode ops / abs bars a photographed problem can contain).
         intent: MathIntent | None = _intent_from_image_extract(image_math_extract)
-        if intent is not None and not _intent_preserves_request(user_content, intent):
-            intent = None
+        if intent is not None:
+            audit_sources = [user_content]
+            if image_math_extract.source_text:
+                audit_sources.append(image_math_extract.source_text)
+            if any(not _intent_preserves_request(source, intent) for source in audit_sources):
+                intent = None
     else:
         intent = extract_math_intent(user_content)
     if intent is None and has_image_attachment:

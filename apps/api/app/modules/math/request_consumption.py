@@ -55,14 +55,18 @@ _NAMED_RADICAL = re.compile(
     re.IGNORECASE,
 )
 _NUMBER_SET_DOMAIN = (
-    r"(?:integers?|natural\s+numbers?|rationals?(?:\s+numbers?)?|complex(?:\s+numbers?)?)"
+    r"(?:(?:integers?|natural\s+numbers?|rationals?(?:\s+numbers?)?|"
+    r"complex(?:\s+numbers?)?)\b|[\u2124\u2115\u211A\u2102\u211D]|"
+    r"\\mathbb\s*\{\s*[ZNQCR]\s*\})"
 )
 _DOMAIN_CUE = (
     r"(?:(?:for|where|also|with|and|assuming|given)\b|"
     r"provided(?:\s+that)?\b|subject\s+to\b|[,;])"
 )
 _NONDEFAULT_DOMAIN = re.compile(
-    rf"\b(?:in|over)\s+(?:the\s+)?{_NUMBER_SET_DOMAIN}\b"
+    rf"\b(?:in|over)\s+(?:the\s+)?{_NUMBER_SET_DOMAIN}"
+    r"|[a-z]\s*(?:∈|\\in\b)"
+    rf"|{_DOMAIN_CUE}\s+[a-z]\s+in\s*[\[(]"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s*(?:={1, 2}|!=|≠|[<>≤≥])"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+(?:(?:must\s+(?:not\s+)?(?:be|equal)|is|are|"
     r"was|were|equals?|cannot\s+(?:be|equal)|being|belongs?\s+to|lies?\s+in)\b)"

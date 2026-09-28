@@ -329,3 +329,25 @@ async def test_image_intent_with_nondefault_domain_is_dropped() -> None:
     )
     assert verified is None
     assert note is not None and "Do NOT claim SymPy verification" in note
+
+
+@pytest.mark.asyncio
+async def test_image_source_domain_is_audited_when_caption_has_no_constraint() -> None:
+    """A condition printed in the image cannot be lost by the OCR structure."""
+    from app.models.schemas.math import MathImageExtract
+
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve this",
+        _settings(),
+        has_image_attachment=True,
+        image_math_extract=MathImageExtract(
+            lhs="x^2",
+            rhs="2",
+            variables=["x"],
+            found=True,
+            source_text="x^2=2, x∈ℤ",
+        ),
+        needs_math=True,
+    )
+    assert verified is None
+    assert note is not None and "Do NOT claim SymPy verification" in note

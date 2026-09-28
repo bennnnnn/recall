@@ -68,6 +68,10 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Find the area, perimeter and diagonal of a 3×4 rectangle",
         "Find sin(30°), cos(60°), and tan(45°)",
         "Solve x²=4 in the integers",
+        "Solve x^2=2, x∈ℤ",
+        r"Solve x^2=2, x\in\mathbb{Z}",
+        "Solve x^2=4 for x in [0,∞)",
+        "Solve x^2=4 over ℤ",
     ],
 )
 def test_unsupported_multipart_request_fails_closed(question: str) -> None:

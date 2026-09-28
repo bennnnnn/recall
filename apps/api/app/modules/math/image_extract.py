@@ -16,6 +16,8 @@ logger = logging.getLogger(__name__)
 _EXTRACT_PROMPT = (
     "Extract the primary math problem from this image as a single JSON object "
     "(not an array). Always include found (boolean) and variables (array). "
+    "When found=true, always include source_text as an exact transcription of "
+    "the complete visible problem, including every domain, condition, and request. "
     "Use ASCII math (* / ** for multiply/divide/power). Never invent dimensions "
     "or freehand diagrams — only extract numbers/expressions printed on the page. "
     "kind is one of: equation, system, inequality, calculus, limit, graph, "
@@ -168,7 +170,13 @@ async def vision_extract_equation(
     if not data:
         return None
     if mock_llm.should_mock_llm(settings):
-        return MathImageExtract(lhs="2*x+3", rhs="7", variables=["x"], found=True)
+        return MathImageExtract(
+            lhs="2*x+3",
+            rhs="7",
+            variables=["x"],
+            found=True,
+            source_text="2*x+3=7",
+        )
 
     try:
         mime = content_type.split(";")[0].strip() or "image/jpeg"
@@ -208,6 +216,10 @@ async def vision_extract_equation(
             data_obj = data_obj[0]
         parsed = MathImageExtract.model_validate(data_obj)
         if not parsed.found:
+            return None
+        if not (parsed.source_text or "").strip():
+            # The exact transcription is the evidence used to audit whether
+            # the structured JSON dropped a printed restriction or subtask.
             return None
         return parsed
     except Exception:

@@ -52,7 +52,7 @@ class MathOcrResult:
 def extract_from_confirmed_reading(reading: str) -> MathImageExtract | None:
     """Parse a student-confirmed OCR line into a structured extract."""
     text = reading.strip()
-    if not text:
+    if not text or len(text) > 2000:
         return None
     pairs = try_extract_equations_from_text(text)
     if len(pairs) >= 2:
@@ -65,6 +65,7 @@ def extract_from_confirmed_reading(reading: str) -> MathImageExtract | None:
             equations=pairs[:4],
             variables=variables or ["x", "y"],
             found=True,
+            source_text=text,
         )
     inequality = try_extract_inequality_from_text(text)
     if inequality is not None:
@@ -77,6 +78,7 @@ def extract_from_confirmed_reading(reading: str) -> MathImageExtract | None:
             comparator=comparator,
             variables=variables or ["x"],
             found=True,
+            source_text=text,
         )
     equation = try_extract_equation_from_text(text)
     if equation is not None:
@@ -86,6 +88,7 @@ def extract_from_confirmed_reading(reading: str) -> MathImageExtract | None:
             rhs=equation.rhs,
             variables=equation.variables,
             found=True,
+            source_text=text,
         )
     return None
 
@@ -174,18 +177,36 @@ async def extract_math_from_image(
     if not data:
         return _empty()
     if mock_llm.should_mock_llm(settings):
-        extract = MathImageExtract(lhs="2*x+3", rhs="7", variables=["x"], found=True)
+        extract = MathImageExtract(
+            lhs="2*x+3",
+            rhs="7",
+            variables=["x"],
+            found=True,
+            source_text="2*x+3=7",
+        )
         return _from_extract(extract, source="vision")
 
     mathpix = await mathpix_gateway.ocr_image(settings, content_type=content_type, data=data)
     mathpix_text = ""
+    mathpix_source_text = ""
     confidence: float | None = None
     if mathpix is not None:
         mathpix_text = (mathpix.latex or mathpix.text).strip()
+        # Mathpix's styled LaTeX is best for the equation parser, while its
+        # plain text is the complete OCR reading and can contain prose or a
+        # domain that the equation-only LaTeX omits. Preserve both roles.
+        mathpix_source_text = (mathpix.text or mathpix.latex).strip()
         confidence = mathpix.confidence
-        parsed = _extract_from_mathpix_text(mathpix_text)
+        parsed = (
+            None
+            if transcription_needs_vision(mathpix_source_text)
+            else _extract_from_mathpix_text(mathpix_text)
+        )
         high_conf = confidence is None or confidence >= settings.mathpix_confidence_min
         if parsed is not None and parsed.found and high_conf:
+            if len(mathpix_source_text) > 2000:
+                return _empty(uncertain=True)
+            parsed = parsed.model_copy(update={"source_text": mathpix_source_text})
             return _from_extract(
                 parsed,
                 source="mathpix",
@@ -197,9 +218,17 @@ async def extract_math_from_image(
         settings,
         content_type=content_type,
         data=data,
-        ocr_hint=mathpix_text or None,
+        ocr_hint=mathpix_source_text or mathpix_text or None,
     )
     if vision is not None and vision.found:
+        source_text = (vision.source_text or mathpix_source_text or mathpix_text).strip()
+        if not source_text:
+            # A structured extract without the visible source cannot prove it
+            # retained every printed condition. Decline rather than certify a
+            # potentially partial reading.
+            return _empty(uncertain=True)
+        if vision.source_text != source_text:
+            vision = vision.model_copy(update={"source_text": source_text})
         uncertain = bool(
             mathpix_text and confidence is not None and confidence < settings.mathpix_confidence_min
         )
