@@ -9,7 +9,7 @@ import {
   isVisualDiagramFenceLang,
 } from "@/lib/fenceRegistry";
 import { teachingSpeech } from "@/lib/math/teachingBlock";
-import { parseSimpleLatex, type MathSegment } from "@/lib/math/text";
+import { parseSimpleLatex, segmentsToPlain, type MathSegment } from "@/lib/math/text";
 
 function mapFenceRegions(
   text: string,
@@ -219,6 +219,8 @@ function copyMathSegments(segments: MathSegment[], depth = 0): string {
       }
       case "cancel":
         return copyMathSegments(segment.body, depth + 1);
+      case "accent":
+        return segmentsToPlain([segment]);
     }
   }).join("");
 }

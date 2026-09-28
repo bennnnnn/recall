@@ -58,8 +58,8 @@ describe("improper integral absolute-value rendering", () => {
     const { toJSON, queryByText } = await render(<MarkdownContent content={IMPROPER_RESPONSE} streaming={streaming} />);
     const visible = visibleText(toJSON());
     const compact = visible.replace(/\s+/g, "");
-    expect(compact).toContain("ln|a|-ln|-1|");
-    expect(compact).toContain("ln|1|-ln|b|");
+    expect(compact).toContain("ln|a|−ln|−1|");
+    expect(compact).toContain("ln|1|−ln|b|");
     expect(compact).not.toContain("lnor");
     expect(visible).not.toContain("| ---");
     expect(queryByText(/\\ln|\\lim|\$/)).toBeNull();

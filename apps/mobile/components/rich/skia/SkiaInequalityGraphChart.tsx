@@ -41,7 +41,7 @@ export function SkiaInequalityGraphChart({
   accessibilityLabel,
 }: Props) {
   const font = useFont(
-    require("../../../assets/fonts/SpaceMono-Regular.ttf"),
+    require("../../../assets/fonts/KaTeX_Main-Regular.ttf"),
     TICK_FONT_SIZE,
   );
   const geometry = useMemo(() => clipInequalityRegion(spec), [spec]);

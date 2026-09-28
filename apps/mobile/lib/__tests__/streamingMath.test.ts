@@ -3,7 +3,16 @@ import { splitInlineMath } from "@/lib/markdown/inlineMath";
 import { parseSimpleLatex, restoreMathEscapes, segmentsToPlain } from "@/lib/math/text";
 
 describe("streaming math preview", () => {
-  it.each([String.raw`\fr`, String.raw`\frac{1}`, String.raw`\frac{1}{`, String.raw`\sqrt{3`, String.raw`\begin{cases}x`])(
+  it.each([
+    String.raw`\fr`,
+    String.raw`\frac{1}`,
+    String.raw`\frac{1}{`,
+    String.raw`\sqrt{3`,
+    String.raw`\sqrt[`,
+    String.raw`x^`,
+    String.raw`x_`,
+    String.raw`\begin{cases}x`,
+  ])(
     "holds incomplete syntax without inventing a finished answer: %s", (body) => {
       expect(hasIncompleteStreamingLatex(body)).toBe(true);
     },

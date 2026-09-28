@@ -85,15 +85,17 @@ function node(content: string, info?: string): FenceNode {
 
 describe("renderFence math dispatch", () => {
   it("routes an explicit ```math fence to MathBlock", async () => {
-    const { getByText } = await render(<>{renderFence(node("x^2 + 1", "math"))}</>);
-    expect(getByText("x² + 1")).toBeOnTheScreen();
+    const { getByTestId, getByText, queryByText } = await render(<>{renderFence(node("x^2 + 1", "math"))}</>);
+    expect(getByTestId("math-script")).toHaveTextContent("2");
+    expect(getByText(/\+ 1/)).toBeOnTheScreen();
+    expect(queryByText("x² + 1")).toBeNull();
   });
 
   it("routes ```latex / ```tex the same as ```math (settled path)", async () => {
     const latex = await render(<>{renderFence(node("x^2 + 1", "latex"))}</>);
-    expect(latex.getByText("x² + 1")).toBeOnTheScreen();
+    expect(latex.getByTestId("math-script")).toHaveTextContent("2");
     const tex = await render(<>{renderFence(node("x^2 + 1", "tex"))}</>);
-    expect(tex.getByText("x² + 1")).toBeOnTheScreen();
+    expect(tex.getByTestId("math-script")).toHaveTextContent("2");
   });
 
   it("routes an untagged fence that looks like LaTeX to MathBlock", async () => {
@@ -330,8 +332,9 @@ describe("renderFence edge cases", () => {
     // "2c^2" — without a lang guard at the call site, that same heuristic
     // started misrouting explicitly ```math-tagged content (e.g. "x^2 + 1",
     // a legitimate intermediate step) to AnswerBlock instead of MathBlock.
-    const { getByText } = await render(<>{renderFence(node("x^2 + 1", "math"))}</>);
-    expect(getByText("x² + 1")).toBeOnTheScreen();
+    const { getByTestId, queryByText } = await render(<>{renderFence(node("x^2 + 1", "math"))}</>);
+    expect(getByTestId("math-script")).toHaveTextContent("2");
+    expect(queryByText("x² + 1")).toBeNull();
   });
 
   it("BUG FIX regression: a multi-solution final ($x = 2$ or $x = -2$) in a ```copy fence routes to AnswerBlock, not the fallback Copy/Code box", async () => {

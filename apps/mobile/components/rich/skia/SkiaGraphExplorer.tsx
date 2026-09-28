@@ -39,7 +39,7 @@ import type { Theme } from "@/lib/theme";
 const MAX_SERIES_PATHS = 4;
 const AXIS_SLOTS = 16;
 const TICK_FONT_SIZE = 11;
-/** SpaceMono advance at 11pt — callout sizing without a font round-trip. */
+/** Conservative advance before KaTeX_Main has measured the tick (11pt). */
 const MONO_CHAR_PX = 6.7;
 const MARKER_RADIUS = 4;
 const SLOT_INDICES = Array.from({ length: AXIS_SLOTS }, (_, i) => i);
@@ -274,8 +274,11 @@ export function SkiaGraphCanvas({
   interactive?: boolean;
   testID?: string;
 }) {
+  // Project copy of katex/dist/fonts/KaTeX_Main-Regular.ttf. Skia reads a
+  // file, and Jest does not transform fonts inside node_modules. Keep this
+  // file in sync when the katex dependency changes.
   const font = useFont(
-    require("../../../assets/fonts/SpaceMono-Regular.ttf"),
+    require("../../../assets/fonts/KaTeX_Main-Regular.ttf"),
     TICK_FONT_SIZE,
   );
   const { bounds, gesture, traceActive, tracePos } = viewport;

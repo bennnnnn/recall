@@ -124,10 +124,12 @@ describe("MarkdownContent math rendering", () => {
   });
 
   it("keeps the exact H11 inline prose together and punctuation attached to its fraction", async () => {
-    const { getByText, queryByText, getByTestId } = await render(
+    const { getByText, queryByText, getByTestId, getAllByTestId } = await render(
       <MarkdownContent content={String.raw`Since $3^2 + 4^2 = 5^2$, it's a right triangle with legs 3 and 4, so area $= \tfrac{1}{2}(3)(4) = 6$.`} />,
     );
-    expect(getByText(/Since 3² \+ 4² = 5², it[’']s a right triangle/)).toBeOnTheScreen();
+    expect(getByText(/Since 3/)).toBeOnTheScreen();
+    expect(getByText(/right triangle/)).toBeOnTheScreen();
+    expect(getAllByTestId("math-script").length).toBeGreaterThanOrEqual(3);
     expect(getByText("(3)(4) = 6.")).toBeOnTheScreen();
     expect(queryByText(/^, it[’']s a right triangle/)).toBeNull();
     expect(queryByText(/^\.$/)).toBeNull();
@@ -139,7 +141,9 @@ describe("MarkdownContent math rendering", () => {
     const { getByText, queryByText, getByTestId } = await render(
       <MarkdownContent content={String.raw`Use $\sqrt{2}$, then compare $x^2$ with 4.`} />,
     );
-    expect(getByText(/then compare x² with 4\./)).toBeOnTheScreen();
+    expect(getByText(/then compare/)).toBeOnTheScreen();
+    expect(getByText(/with 4\./)).toBeOnTheScreen();
+    expect(getByTestId("math-script")).toHaveTextContent("2");
     expect(queryByText(/^, then compare/)).toBeNull();
     expect(getByTestId("md-math-inline-wrap")).toBeOnTheScreen();
   });
@@ -181,10 +185,11 @@ describe("MarkdownContent math rendering", () => {
   });
 
   it("typesets inline math inside a list item", async () => {
-    const { getByText } = await render(
+    const { getByTestId, getByText } = await render(
       <MarkdownContent content="- Let $x^2$ be the square." />,
     );
-    expect(getByText("x²")).toBeOnTheScreen();
+    expect(getByTestId("math-script")).toHaveTextContent("2");
+    expect(getByText(/square/)).toBeOnTheScreen();
   });
 
   it("keeps a bold math label and its value on one list line", async () => {
@@ -212,7 +217,7 @@ describe("MarkdownContent math rendering", () => {
     expect(getAllByTestId("md-math-inline-wrap").length).toBeGreaterThan(0);
     expect(getAllByTestId("math-frac").length).toBeGreaterThanOrEqual(4);
     expect(getByText("5+1")).toBeOnTheScreen();
-    expect(getByText("5-1")).toBeOnTheScreen();
+    expect(getByText("5−1")).toBeOnTheScreen();
     expect(queryByText(/\\frac/)).toBeNull();
   });
 
@@ -284,7 +289,7 @@ describe("MarkdownContent math rendering", () => {
     expect(queryByText(/18 - 21 \+ 3 = 0/)).toBeNull();
     expect(queryByText(/1\/2 - 7\/2 \+ 3 = 0/)).toBeNull();
     expect(getAllByText("= 0").length).toBeGreaterThanOrEqual(2);
-    expect(getAllByText("= 18 - 21 + 3").length).toBeGreaterThanOrEqual(1);
+    expect(getAllByText("= 18 − 21 + 3").length).toBeGreaterThanOrEqual(1);
   });
 
   it("keeps a lesson formula off the step label line", async () => {
