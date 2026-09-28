@@ -541,6 +541,16 @@ def test_energy_what_is_the_power_without_power_of() -> None:
     assert intent.physics_params["v"] == 3.0
 
 
+@pytest.mark.parametrize("subject", ["motor", "student"])
+def test_energy_power_routes_from_work_and_time_not_subject_noun(subject: str) -> None:
+    intent = _extract_energy_intent(
+        f"A {subject} does 100 J of work in 5 s. Determine the power of the {subject}."
+    )
+    assert intent is not None
+    assert intent.physics_op == "power"
+    assert intent.physics_params == {"W": 100.0, "t": 5.0}
+
+
 @pytest.mark.parametrize(
     "text, unit_prefix",
     [

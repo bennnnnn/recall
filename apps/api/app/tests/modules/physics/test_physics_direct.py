@@ -11,6 +11,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.physics.block import _format_visible_answer
 from app.modules.physics.direct import _expected_intent
+from app.modules.physics.fence import replace_unclosed_physics_fences_safe
 from app.modules.physics.prompt import build_physics_augmentation as build_math_augmentation
 from app.services.chat.stream_pipeline import stream_and_finalize
 from app.services.chat.turn_prep.context import StreamContext
@@ -64,6 +65,17 @@ def _verified(query: str) -> VerifiedPhysicsBlock:
     verified = build_verified_physics_block(intent, _SETTINGS)
     assert verified is not None
     return verified
+
+
+def test_physics_failure_recovery_never_uses_math_graph_semantics() -> None:
+    verified = _verified(_PROJECTILE.format("range"))
+    truncated = 'The trajectory is shown below.\n```simulation\n{"type":"projectile"'
+
+    recovered = replace_unclosed_physics_fences_safe(truncated, verified)
+
+    assert '{"type":"projectile"' not in recovered
+    assert f"```answer\n{verified.canonical_answer}\n```" in recovered
+    assert "```graph" in recovered
 
 
 def test_electric_force_uses_textbook_scientific_notation() -> None:

@@ -12,6 +12,7 @@ from app.modules.physics.extractors.common import (
     _detect_gravity,
     _find_value_with_specific_unit,
     _has_cue,
+    _has_cue_either_case,
     _ordered_values,
     _strip_param_assignments,
 )
@@ -649,7 +650,6 @@ _ENERGY_CUES = (
     "work is done",
     "how much work",
     "work of",
-    "power of",
     "what is the power",
     "what is its power",
     "what's the power",
@@ -672,7 +672,23 @@ _KE_ABBREV_RE = re.compile(r"\bk\.?\s?e\.?\s+of\b")
 
 _PE_ABBREV_RE = re.compile(r"\bp\.?\s?e\.?\s+of\b")
 
-_ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (_KE_ABBREV_RE, _PE_ABBREV_RE)
+# ``power`` is also ordinary exponent language. Route it to physics only when
+# the request contains a complete input pair for one of the supported laws:
+# P = W/t or P = Fv. This handles arbitrary subjects (motor, student, animal)
+# without maintaining a noun allowlist or stealing "the third power of 5".
+_SOLVABLE_POWER_DATA_RE = re.compile(
+    rf"(?is)(?=.*\bpower\b)(?:"
+    rf"(?=.*{_NUMBER}\s*(?:kilojoules?|joules?|kJ|J)\b)"
+    rf"(?=.*{_NUMBER}\s*(?:milliseconds?|ms|seconds?|secs?|sec|s|"
+    r"minutes?|mins?|min|hours?|hrs?|hr|h)\b)"
+    rf"|(?=.*{_NUMBER}\s*N\b)(?=.*{_NUMBER}\s*(?:{_VELOCITY_UNIT_PATTERN})\b))"
+)
+
+_ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (
+    _KE_ABBREV_RE,
+    _PE_ABBREV_RE,
+    _SOLVABLE_POWER_DATA_RE,
+)
 
 
 def _has_work_angle(text: str) -> bool:
@@ -683,7 +699,7 @@ def _has_work_angle(text: str) -> bool:
 
 def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _ENERGY_CUES, _ENERGY_CUE_RES):
+    if not _has_cue_either_case(cleaned, _ENERGY_CUES, _ENERGY_CUE_RES):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
         return None

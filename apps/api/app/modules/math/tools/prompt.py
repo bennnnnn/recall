@@ -13,6 +13,7 @@ from app.models.schemas.math import (
 )
 from app.modules.math import solve as math_solve
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.response_intent import (
     MathResponseIntent,
     classify_math_response_intent,
@@ -38,6 +39,16 @@ VERIFIED_MATH_REPLY_HINT = (
     "not a request to explain every step. "
     f"{MATH_REPLY_POLICY}"
 )
+
+
+def _intent_preserves_request(user_content: str, intent: MathIntent) -> bool:
+    """Apply whole-request guards to intents produced outside the regex seam."""
+    if not request_consumption_complete(user_content, intent):
+        return False
+    return not (
+        intent.kind == "equation"
+        and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
+    )
 
 
 def _withhold_hint_answer(
@@ -247,12 +258,14 @@ async def build_math_augmentation(
         # to MathIntent (do not re-parse through the text regex, which mangles
         # unicode ops / abs bars a photographed problem can contain).
         intent: MathIntent | None = _intent_from_image_extract(image_math_extract)
-        if (
-            intent is not None
-            and intent.kind == "equation"
-            and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
-        ):
-            intent = None
+        if intent is not None:
+            audit_sources = [user_content]
+            if image_math_extract.source_text:
+                audit_sources.append(image_math_extract.source_text)
+            if image_math_extract.alternate_source_text:
+                audit_sources.append(image_math_extract.alternate_source_text)
+            if any(not _intent_preserves_request(source, intent) for source in audit_sources):
+                intent = None
     else:
         intent = extract_math_intent(user_content)
     if intent is None and has_image_attachment:
@@ -307,11 +320,7 @@ async def build_math_augmentation(
         # Only this already-failing path pays — gate-miss and regex-hit turns
         # never make this call.
         intent = await llm_extract_math_intent(user_content, settings)
-        if (
-            intent is not None
-            and intent.kind == "equation"
-            and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
-        ):
+        if intent is not None and not _intent_preserves_request(user_content, intent):
             intent = None
 
     if intent is None:

@@ -140,7 +140,7 @@ async def llm_extract_math_intent(text: str, settings: Settings) -> MathIntent |
     try:
         parsed = await litellm_gateway.complete_structured(
             settings=settings,
-            model_alias="title-model",
+            model_alias="gemini-flash",
             messages=[
                 {"role": "system", "content": _EXTRACT_PROMPT},
                 {"role": "user", "content": cleaned[:_MAX_INPUT_CHARS]},
@@ -148,7 +148,8 @@ async def llm_extract_math_intent(text: str, settings: Settings) -> MathIntent |
             schema=LLMMathExtract,
             max_tokens=256,
             timeout_seconds=settings.math_llm_extract_timeout_seconds,
-            allow_fallback=False,
+            allow_fallback=True,
+            fallback_on_invalid=True,
         )
     except Exception:
         # complete_structured already swallows provider/parse failures; this is

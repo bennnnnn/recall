@@ -34,6 +34,74 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Simplify 8/12 and solve 2x=4",
         "Graph y=x^2 and solve 3x=9",
         "Find the mean and standard deviation of 1,2,3,4",
+        "Find the mean and median of 1,2,3,4",
+        "Find the median and mode of 1,1,2,3",
+        "Find median of 1,2,3 and z-score for x=88, mean 72, standard deviation 8",
+        "Solve 2x=4; also x must be positive",
+        "Solve x²=4 for x > 0",
+        "Solve x^2=4 where x is positive",
+        "Solve x^2=4 where x is non-negative",
+        "Solve x^2=4 where x is non-positive",
+        "Solve x^2=x where x is nonzero",
+        "Solve x^2=x where x is non-zero",
+        "Solve x^2=x where x is not zero",
+        "Solve x^2=x with x nonzero",
+        "Solve x^2=x, x > 0",
+        "Solve x^2=x subject to x is not zero",
+        "Solve x^2=x where x is odd",
+        "Solve x^2=x where x is even",
+        "Solve x^2=x where x is prime",
+        "Solve x^2=x given x = 1",
+        "Solve x^2=4 for x != -2",
+        "Solve x^2=4 for x>=0",
+        "Solve x^2=4 where x!= -2",
+        "Solve x^2=4 for x ≠ -2",
+        "Solve x^2=4 where x is not equal to -2",
+        "Solve x^2=2 where x is an integer",
+        "Solve x^2=2 where x is integer",
+        "Solve x+y=1, x-y=0 over the integers",
+        "Solve x^2 < 4 over the integers",
+        "Simplify sqrt(x^2) where x is positive",
+        "Differentiate x² and evaluate it at x=3",
+        "Find the derivative and second derivative of x³",
+        "Graph x² and tell me its roots",
+        "Find the area, perimeter and diagonal of a 3×4 rectangle",
+        "Find sin(30°), cos(60°), and tan(45°)",
+        "Solve x²=4 in the integers",
+        "Solve x^2=2, x∈ℤ",
+        r"Solve x^2=2, x\in\mathbb{Z}",
+        "Solve x^2=4 for x in [0,∞)",
+        "Solve x^2=4 over ℤ",
+        "Solve x^2=4 for positive x",
+        "Solve x^2=4 assuming nonnegative x",
+        "Solve x^2=2 for integer x",
+        "Solve x^2=4 given that x is positive",
+        "Solve x^2=4 provided that x is nonnegative",
+        "Solve x^2=4 if x is positive",
+        "Solve x^2=4, positive solutions only",
+        "Solve x^2=4. Give only the negative root",
+        "Solve x^2=4; solutions that are nonnegative",
+        "Solve x^2=4 such that x>0",
+        "Solve x^2=4 under the condition that x is negative",
+        "Assume x is positive. Solve x^2=4",
+        "Let x be positive. Solve x^2=4",
+        "Suppose that x is negative. Solve x^2=4",
+        "Take x to be nonnegative. Solve x^2=4",
+        "Solve x^2=4 where x has to be positive",
+        "Solve x^2=4 where x should be positive",
+        "Solve x^2=4 where x needs to be positive",
+        "Solve x^2=4 where x can only be positive",
+        "Solve x^2=4 where x must always be positive",
+        "Solve x^2=4 where x has to be greater than 0",
+        "Solve x^2=4 where x lies between 0 and 5",
+        "Solve x^2=4 where x has to be real and positive",
+        "Solve x^2=4 where x cannot be real",
+        "Solve x^2=4 where x must not be real",
+        "Solve x^2=4 where x should never be real",
+        "Solve x^2=4; the solutions must be positive",
+        "Solve x^2=4; the roots have to be positive",
+        "Solve x^2=4; the roots must be strictly positive",
+        "Solve x^2=4; the solutions are not negative",
     ],
 )
 def test_unsupported_multipart_request_fails_closed(question: str) -> None:
@@ -51,6 +119,74 @@ def test_supported_geometry_multipart_retains_both_requested_values() -> None:
     assert block.canonical_fence["area"] == 12
     assert block.canonical_fence["perimeter"] == 14
     assert maybe_direct_math_reply(block, question) is None
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Solve x+y=3, y=1",
+        "Solve x+y=3 given y=1",
+        "Solve x+y=3 where y=1",
+        "Let y=1. Solve x+y=3",
+    ],
+)
+def test_system_equation_is_not_mistaken_for_a_domain_constraint(question: str) -> None:
+    intent = extract_math_intent(question)
+    assert intent is not None
+    assert intent.kind == "system"
+    assert set(intent.system_equations or []) == {("x+y", "3"), ("y", "1")}
+
+
+def test_system_with_an_extra_inequality_constraint_fails_closed() -> None:
+    assert extract_math_intent("Solve x+y=3, y=1, x>0") is None
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Solve x^2=4, x∈ℝ",
+        r"Solve x^2=4, x\in\mathbb{R}",
+        r"Solve x^2=4, x in \mathbb{R}",
+        "Solve x^2=4 where x is real",
+        "Solve x^2=4 assuming x is a real number",
+        "Let x be real. Solve x^2=4",
+        "Solve x^2=4 where x has to be real",
+        "Solve x^2=4 where x can be any real number",
+    ],
+)
+def test_explicit_real_domain_is_already_represented(question: str) -> None:
+    intent = extract_math_intent(question)
+    assert intent is not None
+    assert intent.kind == "equation"
+
+
+def test_real_domain_plus_an_extra_sign_constraint_still_fails_closed() -> None:
+    assert extract_math_intent("Solve x^2=4 where x is real and positive") is None
+
+
+def test_z_score_input_labels_are_not_mistaken_for_requested_statistics() -> None:
+    question = (
+        "Find the z-score for x=88 where the population mean is 72 and standard deviation is 8"
+    )
+    intent = extract_math_intent(question)
+    assert intent is not None
+    assert intent.school_op == "z_score"
+    block = _build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None and block.direct_reply is not None
+    assert r"\frac{88 - 72}{8} = 2" in block.direct_reply
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Graph the square root of x",
+        "Find the graph of the square root of x",
+    ],
+)
+def test_named_radical_in_graph_expression_is_not_a_roots_request(question: str) -> None:
+    intent = extract_math_intent(question)
+    assert intent is not None
+    assert intent.kind == "graph"
 
 
 def test_named_rectangle_multipart_is_verified_and_rendered_atomically() -> None:

@@ -133,6 +133,12 @@ def solve_word_problem(setup: WordProblemSetup) -> WordSolution | None:
         left, right = pairs[0]
         if _needs_simplify(left_text, left, names) or _needs_simplify(right_text, right, names):
             steps.insert(0, KeyStep(label="Simplify", formula=f"{latex(left)} = {latex(right)}"))
+        # A teaching trace must visibly finish at the solved unknown instead
+        # of relying on the separate answer chip to imply the last algebraic
+        # line. Apply this to every one-unknown word problem, not one story.
+        final = f"{latex(symbols[0])} = {latex(solution[symbols[0]])}"
+        if not any(step.formula == final for step in steps):
+            steps.append(KeyStep(label="Result", formula=final))
     return WordSolution(
         # As the translation wrote them, so the setup reads like the problem.
         equations=tuple(student_tex(item.equation) for item in setup.equations),

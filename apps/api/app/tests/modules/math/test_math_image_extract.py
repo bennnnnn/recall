@@ -140,7 +140,7 @@ async def test_extract_equation_uses_dedicated_ocr_timeout_not_solve_timeout():
     async def _slow_completion(**_kwargs):
         await asyncio.sleep(0.2)
         message = MagicMock()
-        message.content = '{"lhs":"x","rhs":"1","variables":["x"],"found":true}'
+        message.content = '{"lhs":"x","rhs":"1","variables":["x"],"found":true,"source_text":"x=1"}'
         response = MagicMock()
         response.choices = [MagicMock(message=message)]
         return response
@@ -177,12 +177,14 @@ def _real_path_settings() -> Settings:
 @pytest.mark.parametrize(
     "raw_content",
     [
-        '{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true}',
+        '{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true,"source_text":"2*x+3=7"}',
         # Markdown-fenced with a "json" language tag — real vision models
         # routinely wrap JSON in a fence despite being asked for raw JSON.
-        '```json\n{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true}\n```',
+        '```json\n{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true,'
+        '"source_text":"2*x+3=7"}\n```',
         # Fenced without a language tag.
-        '```\n{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true}\n```',
+        '```\n{"lhs":"2*x+3","rhs":"7","variables":["x"],"found":true,'
+        '"source_text":"2*x+3=7"}\n```',
     ],
 )
 async def test_extract_equation_parses_well_formed_json(raw_content: str):
@@ -250,7 +252,7 @@ async def test_extract_equation_pydantic_validation_failure_returns_none():
 @pytest.mark.asyncio
 async def test_extract_equation_unwraps_single_element_list():
     """Models sometimes return [{...}] instead of {...}; accept that shape."""
-    raw = '[{"lhs":"x^2","rhs":"5","variables":["x"],"found":true}]'
+    raw = '[{"lhs":"x^2","rhs":"5","variables":["x"],"found":true,"source_text":"x^2=5"}]'
     with patch(
         "app.gateways.litellm_gateway.acompletion",
         AsyncMock(return_value=_fake_response(raw)),

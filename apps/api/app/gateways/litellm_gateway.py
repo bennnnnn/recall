@@ -810,6 +810,7 @@ async def complete_structured[T: BaseModel](
     max_tokens: int = 256,
     timeout_seconds: float | None = None,
     allow_fallback: bool = True,
+    fallback_on_invalid: bool = False,
 ) -> T | None:
     if mock_llm.should_mock_llm(settings):
         return None
@@ -826,7 +827,25 @@ async def complete_structured[T: BaseModel](
         )
         if result is not None:
             return result
-        return None  # output parse/validation failed — retrying won't help
+        if fallback is None or not fallback_on_invalid:
+            return None
+        logger.warning(
+            "Background LLM %s returned invalid structured output; retrying with fallback %s",
+            model_alias,
+            fallback,
+        )
+        try:
+            return await _complete_structured_once(
+                settings=settings,
+                model_alias=fallback,
+                messages=messages,
+                schema=schema,
+                max_tokens=max_tokens,
+                timeout_seconds=timeout_seconds,
+            )
+        except Exception:
+            logger.exception("Background LLM fallback %s also failed", fallback)
+            return None
     except Exception:
         if fallback is None:
             logger.exception("Background LLM %s failed and no fallback configured", model_alias)

@@ -240,6 +240,18 @@ async def run_llm_token_stream(
             result["fallback_used"] = "1"
 
 
+def _replace_failed_subject_fences(seams: Any, content: str, verified: Any) -> str:
+    """Keep exceptional fence recovery inside the subject that owns the data."""
+    from app.services.solving import VerifiedPhysicsBlock
+
+    if isinstance(verified, VerifiedPhysicsBlock):
+        from app.modules.physics.fence import replace_unclosed_physics_fences_safe
+
+        return replace_unclosed_physics_fences_safe(content, verified)
+    canonical = verified.canonical_fence if verified is not None else None
+    return seams.math_fence_service.replace_unclosed_graph_fence_safe(content, canonical)
+
+
 async def enrich_final_content(
     seams: Any,
     redis: Redis,
@@ -307,15 +319,13 @@ async def enrich_final_content(
                 )
         except TimeoutError:
             logger.warning("validate_math_fences timed out; keeping raw assistant text")
-            canonical = ctx.verified_math.canonical_fence if ctx.verified_math is not None else None
-            assistant_text = seams.math_fence_service.replace_unclosed_graph_fence_safe(
-                assistant_text, canonical
+            assistant_text = _replace_failed_subject_fences(
+                seams, assistant_text, ctx.verified_math
             )
         except Exception:
             logger.exception("validate_math_fences failed; keeping raw assistant text")
-            canonical = ctx.verified_math.canonical_fence if ctx.verified_math is not None else None
-            assistant_text = seams.math_fence_service.replace_unclosed_graph_fence_safe(
-                assistant_text, canonical
+            assistant_text = _replace_failed_subject_fences(
+                seams, assistant_text, ctx.verified_math
             )
 
         if ctx.subject_unverified == "math" or ctx.math_unverified is True:
