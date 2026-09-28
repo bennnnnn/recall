@@ -672,20 +672,22 @@ _KE_ABBREV_RE = re.compile(r"\bk\.?\s?e\.?\s+of\b")
 
 _PE_ABBREV_RE = re.compile(r"\bp\.?\s?e\.?\s+of\b")
 
-# ``power of`` is also ordinary exponent language.  Treat it as physics only
-# when its bounded object names a physical quantity or unit; broad keyword
-# matching used to steal requests such as "the third power of 5" from math.
-_PHYSICAL_POWER_OF_RE = re.compile(
-    r"(?i:\bpower\s+of\b)[^.?!]{0,80}\b(?:"
-    rf"(?i:force|work|energy|joules?|kilojoules?|watts?|newtons?|"
-    r"motors?|machines?|engines?|devices?|pumps?|cranes?|winches?|generators?)|"
-    rf"{_NUMBER}\s*(?:k?J|W|N))\b"
+# ``power`` is also ordinary exponent language. Route it to physics only when
+# the request contains a complete input pair for one of the supported laws:
+# P = W/t or P = Fv. This handles arbitrary subjects (motor, student, animal)
+# without maintaining a noun allowlist or stealing "the third power of 5".
+_SOLVABLE_POWER_DATA_RE = re.compile(
+    rf"(?is)(?=.*\bpower\b)(?:"
+    rf"(?=.*{_NUMBER}\s*(?:kilojoules?|joules?|kJ|J)\b)"
+    rf"(?=.*{_NUMBER}\s*(?:milliseconds?|ms|seconds?|secs?|sec|s|"
+    r"minutes?|mins?|min|hours?|hrs?|hr|h)\b)"
+    rf"|(?=.*{_NUMBER}\s*N\b)(?=.*{_NUMBER}\s*(?:{_VELOCITY_UNIT_PATTERN})\b))"
 )
 
 _ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (
     _KE_ABBREV_RE,
     _PE_ABBREV_RE,
-    _PHYSICAL_POWER_OF_RE,
+    _SOLVABLE_POWER_DATA_RE,
 )
 
 

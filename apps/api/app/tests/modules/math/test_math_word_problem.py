@@ -149,6 +149,7 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         "Marta had 12 blue beads and some red beads, lost 4 red beads, and has 15 left. "
         "How many red beads did she start with?",
         "24 candies are shared equally among 6 children. How much will each child get?",
+        "A number plus 5 equals 12. Solve for the number?",
     ],
 )
 def test_candidate_fires_for_algebra_word_problems(text: str) -> None:

@@ -106,6 +106,11 @@ VERIFIED: list[tuple[str, str, str]] = [
         "power",
         "20 W",
     ),
+    (
+        "A student does 100 J of work in 5 s. Determine the power of the student.",
+        "power",
+        "20 W",
+    ),
     # P = F v, the form that already worked — the W/t branch must not shadow it.
     ("power of a 10 N force moving at 3 m/s", "power", "30 W"),
 ]
