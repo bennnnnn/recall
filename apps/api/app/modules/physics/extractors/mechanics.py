@@ -666,6 +666,12 @@ _ENERGY_CUES = (
     "mechanical efficiency",
     "machine efficiency",
     "efficiency of a machine",
+    "net work",
+    "work-energy",
+    "work energy",
+    "conservation of energy",
+    "mechanical energy",
+    "energy is conserved",
 )
 
 _KE_ABBREV_RE = re.compile(r"\bk\.?\s?e\.?\s+of\b")
@@ -691,17 +697,43 @@ _ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (
 )
 
 
-def _has_work_angle(text: str) -> bool:
-    """True when work is at an angle (W = Fd cos θ) — unsupported."""
-    lower = text.lower()
-    return "degrees" in lower or "at an angle" in lower or "°" in text
+_RADIAN_ANGLE_RE = re.compile(
+    r"(?:at|angle(?:\s+of)?)\s+(-?\d+(?:\.\d+)?)\s*(?:radians?|rad)\b",
+    re.IGNORECASE,
+)
+
+
+def _stated_angle(text: str) -> tuple[float, str] | None:
+    match = _INCLINE_ANGLE_RE.search(text)
+    if match is not None:
+        return float(match.group(1)), "deg"
+    rad = _RADIAN_ANGLE_RE.search(text)
+    if rad is not None:
+        return float(rad.group(1)), "rad"
+    return None
+
+
+def _unstated_work_angle(text: str) -> bool:
+    """An angle is mentioned, but no number was given to put in cos θ."""
+    has_words = re.search(r"\bat an angle\b", text, re.IGNORECASE) is not None
+    return has_words and _stated_angle(text) is None
 
 
 def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
+    from app.modules.physics.extractors.energy_conservation import (
+        extract_closed_energy,
+        is_closed_energy_request,
+    )
+
     lower = cleaned.lower()
     if not _has_cue_either_case(cleaned, _ENERGY_CUES, _ENERGY_CUE_RES):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
+        return None
+    closed = extract_closed_energy(cleaned)
+    if closed is not None:
+        return closed
+    if is_closed_energy_request(lower):
         return None
 
     # A machine's useful energy output divided by its energy input. Thermal
@@ -836,12 +868,16 @@ def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
             return None
     elif "power" in lower:
         op = "power"
+        if _unstated_work_angle(cleaned):
+            return None
         # Either school form: P = F v, or P = W / t.
         if (force is None or velocity is None) and (work_done is None or elapsed is None):
             return None
+        # An angle belongs to F v cos θ, not to work divided by time.
+        if _stated_angle(cleaned) is not None and (force is None or velocity is None):
+            return None
     elif "work" in lower:
-        # W = Fd cos θ is unsupported — same refusal as friction/tension.
-        if _has_work_angle(cleaned):
+        if _unstated_work_angle(cleaned):
             return None
         op = "work"
         if force is None or distance is None:
@@ -853,7 +889,7 @@ def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
         elif mass is not None and height is not None:
             op = "potential_energy"
         elif force is not None and distance is not None:
-            if _has_work_angle(cleaned):
+            if _unstated_work_angle(cleaned):
                 return None
             op = "work"
         else:
@@ -885,6 +921,11 @@ def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
     if op == "work" and distance is not None:
         params["d"] = distance
         units["d"] = dist_unit or "m"
+    if op in ("work", "power"):
+        angle = _stated_angle(cleaned)
+        if angle is not None and "F" in params:
+            params["angle"] = angle[0]
+            units["angle"] = angle[1]
     if op == "potential_energy":
         params["g"] = _detect_gravity(cleaned)
         units["g"] = "m/s^2"

@@ -382,6 +382,14 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _SPRING_CUES, _SPRING_CUE_RES):
         return None
+    # Conservation and the work-energy theorem name a speed, not ½kx².
+    # The energy extractor owns those sentences.
+    if re.search(
+        r"\b(?:conservation of energy|mechanical energy|energy is conserved"
+        r"|work-energy|work energy theorem|net work)\b",
+        lower,
+    ):
+        return None
     # Strip "k = 200" before the algebra check: it is a known, not an equation
     # to solve. Without this the whole question is read as algebra — which is
     # what happened before this extractor existed.

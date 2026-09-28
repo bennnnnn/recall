@@ -250,13 +250,34 @@ _DIGIT_FREE_PHYSICS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Recognized as physics, then left unverified. Special relativity, entropy
+# change, and interference are solved operations and must stay off this list.
+# Faraday and general relativity are named so the docs and this pattern match.
+_UNVERIFIED_PHYSICS_PHRASES: tuple[str, ...] = (
+    "kirchhoff's laws",
+    "gauss's law",
+    "faraday's law",
+    "inductor",
+    "rl circuit",
+    "ac impedance",
+    "poiseuille",
+    "schrödinger equation",
+    "quantum harmonic oscillator",
+    "rydberg",
+    "planck distribution",
+    "binding energy",
+    "mass defect",
+    "general relativity",
+)
+
 _ADVANCED_PHYSICS_RE = re.compile(
     r"\b(?:schr[oö]dinger|hamilton(?:ian|'s equations?)?|lagrang(?:ian|e)|"
     r"maxwell(?:'s)? equations?|gauss(?:'s)? law|kirchhoff(?:'s)? laws?|"
+    r"faraday(?:'s)? law|general relativity|schwarzschild|"
     r"quantum harmonic oscillator|wave ?function|probability density|"
-    r"diffraction grating|poiseuille|capillary rise|inductor|rl circuit|"
+    r"diffraction grating|poiseuille|capillary rise|inductors?|rl circuits?|"
     r"ac circuit|impedance|reactance|transformer|nuclear reaction|binding energy|"
-    r"mass defect|rydberg|blackbody distribution|planck distribution|gear ratio)\b",
+    r"mass defect|rydberg|blackbody distribution|planck(?:'s)? distribution|gear ratio)\b",
     re.IGNORECASE,
 )
 

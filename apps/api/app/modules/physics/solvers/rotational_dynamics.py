@@ -1,0 +1,317 @@
+"""Constant-alpha rotation, rolling, and the parallel-axis theorem."""
+
+from __future__ import annotations
+
+import math
+
+from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.solvers.common import PhysicsResult, _latex_num, _params_in_si
+from app.services.solving import SolveServiceError
+
+
+def _unknown(params: dict[str, float], keys: tuple[str, ...]) -> str:
+    missing = [key for key in keys if key not in params]
+    if len(missing) != 1:
+        raise SolveServiceError("needs exactly one unknown")
+    return missing[0]
+
+
+def solve_rotational_dynamics(intent: PhysicsIntent) -> PhysicsResult:
+    params = _params_in_si(intent)
+    operation = intent.physics_op or ""
+    if operation == "rotational_omega":
+        return _omega(params)
+    if operation == "rotational_theta":
+        return _theta(params)
+    if operation == "rotational_alpha":
+        return _alpha(params)
+    if operation == "torque_inertia":
+        return _torque_inertia(params)
+    if operation == "torque_angular_impulse":
+        return _angular_impulse(params)
+    if operation == "angular_momentum_conservation":
+        return _angular_momentum(params)
+    if operation == "rolling_speed":
+        return _rolling_speed(params)
+    if operation == "rolling_acceleration":
+        return _rolling_acceleration(params)
+    if operation == "rolling_kinetic_energy":
+        return _rolling_energy(params)
+    if operation == "parallel_axis":
+        return _parallel_axis(params)
+    raise SolveServiceError(f"unsupported rotational op: {operation}")
+
+
+def _omega(params: dict[str, float]) -> PhysicsResult:
+    if {"omega0", "ang_alpha", "t"} <= params.keys():
+        value = params["omega0"] + params["ang_alpha"] * params["t"]
+        answer = (
+            rf"\omega = \omega_0 + \alpha t = {params['omega0']:g} + "
+            rf"{params['ang_alpha']:g} \cdot {params['t']:g} "
+            rf"\approx {value:.2f} \text{{ rad/s}}"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} rad/s")
+    if {"omega0", "ang_alpha", "theta"} <= params.keys():
+        disc = params["omega0"] ** 2 + 2 * params["ang_alpha"] * params["theta"]
+        if disc < 0:
+            raise SolveServiceError("those values do not give a real angular velocity")
+        value = math.sqrt(disc)
+        answer = (
+            r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta \Rightarrow "
+            rf"\omega \approx {value:.2f} \text{{ rad/s}}"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} rad/s")
+    raise SolveServiceError("angular velocity needs omega0, alpha, and time or angle")
+
+
+def _theta(params: dict[str, float]) -> PhysicsResult:
+    theta0 = params.get("theta0", 0.0)
+    if {"omega0", "ang_alpha", "t"} <= params.keys():
+        value = (
+            theta0 + params["omega0"] * params["t"] + 0.5 * params["ang_alpha"] * params["t"] ** 2
+        )
+        elapsed = _latex_num(params["t"], square=True)
+        answer = (
+            r"\theta = \theta_0 + \omega_0 t + \frac{1}{2}\alpha t^2 = "
+            rf"{theta0:g} + {params['omega0']:g} \cdot {params['t']:g} + "
+            rf"\frac{{1}}{{2}} \cdot {params['ang_alpha']:g} \cdot {elapsed} "
+            rf"\approx {value:.2f} \text{{ rad}}"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} rad")
+    if {"omega", "omega0", "ang_alpha"} <= params.keys():
+        if params["ang_alpha"] == 0:
+            raise SolveServiceError("angular acceleration must be nonzero to find the angle")
+        value = theta0 + (params["omega"] ** 2 - params["omega0"] ** 2) / (2 * params["ang_alpha"])
+        answer = (
+            r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta \Rightarrow "
+            rf"\theta \approx {value:.2f} \text{{ rad}}"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} rad")
+    raise SolveServiceError("angular displacement needs the constant-acceleration givens")
+
+
+def _alpha(params: dict[str, float]) -> PhysicsResult:
+    if {"omega", "omega0", "t"} <= params.keys():
+        if params["t"] == 0:
+            raise SolveServiceError("elapsed time must be nonzero")
+        value = (params["omega"] - params["omega0"]) / params["t"]
+        answer = (
+            r"\alpha = \frac{\omega - \omega_0}{t} = "
+            rf"\frac{{{params['omega']:g} - {params['omega0']:g}}}{{{params['t']:g}}} "
+            rf"\approx {value:.2f} \text{{ rad/s}}^2"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} rad/s^2")
+    if {"omega", "omega0", "theta"} <= params.keys():
+        if params["theta"] == 0:
+            raise SolveServiceError("angular displacement must be nonzero")
+        value = (params["omega"] ** 2 - params["omega0"] ** 2) / (2 * params["theta"])
+        answer = (
+            r"\alpha = \frac{\omega^2 - \omega_0^2}{2\Delta\theta} \approx "
+            rf"{value:.2f} \text{{ rad/s}}^2"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} rad/s^2")
+    raise SolveServiceError("angular acceleration needs two angular velocities and time or angle")
+
+
+def _torque_inertia(params: dict[str, float]) -> PhysicsResult:
+    unknown = _unknown(params, ("tau", "inertia", "ang_alpha"))
+    if unknown == "tau":
+        if params["inertia"] <= 0:
+            raise SolveServiceError("moment of inertia must be positive")
+        value = params["inertia"] * params["ang_alpha"]
+        answer = (
+            rf"\tau = I\alpha = {params['inertia']:g} \cdot {params['ang_alpha']:g} "
+            rf"\approx {value:.2f} \text{{ N}}\cdot\text{{m}}"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} N*m")
+    if unknown == "ang_alpha":
+        if params["inertia"] <= 0:
+            raise SolveServiceError("moment of inertia must be positive")
+        value = params["tau"] / params["inertia"]
+        answer = (
+            rf"\alpha = \frac{{\tau}}{{I}} = \frac{{{params['tau']:g}}}{{{params['inertia']:g}}} "
+            rf"\approx {value:.2f} \text{{ rad/s}}^2"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} rad/s^2")
+    if params["ang_alpha"] == 0:
+        raise SolveServiceError("angular acceleration must be nonzero")
+    value = params["tau"] / params["ang_alpha"]
+    if value <= 0:
+        raise SolveServiceError("moment of inertia must be positive")
+    answer = (
+        rf"I = \frac{{\tau}}{{\alpha}} = \frac{{{params['tau']:g}}}{{{params['ang_alpha']:g}}} "
+        rf"\approx {value:.2f} \text{{ kg}}\,\text{{m}}^2"
+    )
+    return PhysicsResult(answer=answer, answer_value=f"{value:.2f} kg*m^2")
+
+
+def _angular_impulse(params: dict[str, float]) -> PhysicsResult:
+    unknown = _unknown(params, ("tau", "L_i", "L_f", "t"))
+    if unknown != "t" and params["t"] == 0:
+        raise SolveServiceError("elapsed time must be nonzero")
+    if unknown == "tau":
+        value = (params["L_f"] - params["L_i"]) / params["t"]
+        answer = (
+            r"\tau = \frac{\Delta L}{\Delta t} = "
+            rf"\frac{{{params['L_f']:g} - {params['L_i']:g}}}{{{params['t']:g}}} "
+            rf"\approx {value:.2f} \text{{ N}}\cdot\text{{m}}"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} N*m")
+    if unknown == "L_f":
+        value = params["L_i"] + params["tau"] * params["t"]
+        answer = (
+            rf"L_f = L_i + \tau\Delta t \approx {value:.2f} "
+            r"\text{ kg}\,\text{m}^2\text{/s}"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} kg*m^2/s")
+    if unknown == "L_i":
+        value = params["L_f"] - params["tau"] * params["t"]
+        answer = (
+            rf"L_i = L_f - \tau\Delta t \approx {value:.2f} "
+            r"\text{ kg}\,\text{m}^2\text{/s}"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} kg*m^2/s")
+    if params["tau"] == 0:
+        raise SolveServiceError("a zero torque does not determine the time")
+    value = (params["L_f"] - params["L_i"]) / params["tau"]
+    answer = rf"\Delta t = \frac{{\Delta L}}{{\tau}} \approx {value:.2f} \text{{ s}}"
+    return PhysicsResult(answer=answer, answer_value=f"{value:.2f} s")
+
+
+def _angular_momentum(params: dict[str, float]) -> PhysicsResult:
+    unknown = _unknown(params, ("inertia_i", "omega_i", "inertia_f", "omega_f"))
+    for key in ("inertia_i", "inertia_f"):
+        if key != unknown and params[key] <= 0:
+            raise SolveServiceError("moment of inertia must be positive")
+    if unknown == "omega_f":
+        value = params["inertia_i"] * params["omega_i"] / params["inertia_f"]
+        shown = r"\omega_f"
+    elif unknown == "omega_i":
+        value = params["inertia_f"] * params["omega_f"] / params["inertia_i"]
+        shown = r"\omega_i"
+    elif unknown == "inertia_f":
+        if params["omega_f"] == 0:
+            raise SolveServiceError("final angular velocity must be nonzero")
+        value = params["inertia_i"] * params["omega_i"] / params["omega_f"]
+        shown = "I_f"
+    else:
+        if params["omega_i"] == 0:
+            raise SolveServiceError("initial angular velocity must be nonzero")
+        value = params["inertia_f"] * params["omega_f"] / params["omega_i"]
+        shown = "I_i"
+    if unknown.startswith("inertia") and value <= 0:
+        raise SolveServiceError("moment of inertia must be positive")
+    unit = r"\text{ rad/s}" if unknown.startswith("omega") else r"\text{ kg}\,\text{m}^2"
+    readable = "rad/s" if unknown.startswith("omega") else "kg*m^2"
+    answer = rf"I_i\omega_i = I_f\omega_f \Rightarrow {shown} \approx {value:.2f} {unit}"
+    return PhysicsResult(answer=answer, answer_value=f"{value:.2f} {readable}")
+
+
+def _rolling_speed(params: dict[str, float]) -> PhysicsResult:
+    unknown = _unknown(params, ("v", "omega", "r"))
+    if unknown != "r" and params["r"] <= 0:
+        raise SolveServiceError("radius must be positive")
+    if unknown == "v":
+        value = params["r"] * params["omega"]
+        answer = (
+            rf"v = R\omega = {params['r']:g} \cdot {params['omega']:g} "
+            rf"\approx {value:.2f} \text{{ m/s}}"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} m/s")
+    if unknown == "omega":
+        value = params["v"] / params["r"]
+        answer = (
+            rf"\omega = \frac{{v}}{{R}} = \frac{{{params['v']:g}}}{{{params['r']:g}}} "
+            rf"\approx {value:.2f} \text{{ rad/s}}"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} rad/s")
+    if params["omega"] == 0:
+        raise SolveServiceError("angular velocity must be nonzero to find the radius")
+    value = params["v"] / params["omega"]
+    if value <= 0:
+        raise SolveServiceError("radius must be positive")
+    answer = rf"R = \frac{{v}}{{\omega}} \approx {value:.2f} \text{{ m}}"
+    return PhysicsResult(answer=answer, answer_value=f"{value:.2f} m")
+
+
+def _rolling_acceleration(params: dict[str, float]) -> PhysicsResult:
+    unknown = _unknown(params, ("a", "ang_alpha", "r"))
+    if unknown != "r" and params["r"] <= 0:
+        raise SolveServiceError("radius must be positive")
+    if unknown == "a":
+        value = params["r"] * params["ang_alpha"]
+        answer = (
+            rf"a = R\alpha = {params['r']:g} \cdot {params['ang_alpha']:g} "
+            rf"\approx {value:.2f} \text{{ m/s}}^2"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} m/s^2")
+    if unknown == "ang_alpha":
+        value = params["a"] / params["r"]
+        answer = (
+            rf"\alpha = \frac{{a}}{{R}} = \frac{{{params['a']:g}}}{{{params['r']:g}}} "
+            rf"\approx {value:.2f} \text{{ rad/s}}^2"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} rad/s^2")
+    if params["ang_alpha"] == 0:
+        raise SolveServiceError("angular acceleration must be nonzero to find the radius")
+    value = params["a"] / params["ang_alpha"]
+    if value <= 0:
+        raise SolveServiceError("radius must be positive")
+    answer = rf"R = \frac{{a}}{{\alpha}} \approx {value:.2f} \text{{ m}}"
+    return PhysicsResult(answer=answer, answer_value=f"{value:.2f} m")
+
+
+def _rolling_energy(params: dict[str, float]) -> PhysicsResult:
+    if params["m"] <= 0 or params["inertia"] <= 0:
+        raise SolveServiceError("mass and moment of inertia must be positive")
+    speed = params.get("v")
+    omega = params.get("omega")
+    radius = params.get("r")
+    if speed is None and omega is not None and radius is not None:
+        if radius <= 0:
+            raise SolveServiceError("radius must be positive")
+        speed = radius * omega
+    elif omega is None and speed is not None and radius is not None:
+        if radius <= 0:
+            raise SolveServiceError("radius must be positive")
+        omega = speed / radius
+    if speed is None or omega is None:
+        raise SolveServiceError("rolling energy needs both speeds, or one speed and the radius")
+    value = 0.5 * params["m"] * speed**2 + 0.5 * params["inertia"] * omega**2
+    answer = (
+        r"K = \frac{1}{2}Mv^2 + \frac{1}{2}I\omega^2 \approx "
+        rf"{value:.2f} \text{{ J}}"
+    )
+    return PhysicsResult(answer=answer, answer_value=f"{value:.2f} J")
+
+
+def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
+    unknown = _unknown(params, ("inertia", "inertia_cm", "m", "d"))
+    if unknown != "m" and params["m"] <= 0:
+        raise SolveServiceError("mass must be positive")
+    if unknown == "inertia":
+        value = params["inertia_cm"] + params["m"] * params["d"] ** 2
+        answer = (
+            rf"I = I_{{cm}} + Md^2 = {params['inertia_cm']:g} + "
+            rf"{params['m']:g} \cdot {_latex_num(params['d'], square=True)} "
+            rf"\approx {value:.2f} \text{{ kg}}\,\text{{m}}^2"
+        )
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} kg*m^2")
+    if unknown == "inertia_cm":
+        value = params["inertia"] - params["m"] * params["d"] ** 2
+        answer = rf"I_{{cm}} = I - Md^2 \approx {value:.2f} \text{{ kg}}\,\text{{m}}^2"
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} kg*m^2")
+    if unknown == "m":
+        if params["d"] == 0:
+            raise SolveServiceError("a zero distance does not determine the mass")
+        value = (params["inertia"] - params["inertia_cm"]) / params["d"] ** 2
+        if value <= 0:
+            raise SolveServiceError("mass must be positive")
+        answer = rf"M = \frac{{I - I_{{cm}}}}{{d^2}} \approx {value:.2f} \text{{ kg}}"
+        return PhysicsResult(answer=answer, answer_value=f"{value:.2f} kg")
+    square = (params["inertia"] - params["inertia_cm"]) / params["m"]
+    if square < 0:
+        raise SolveServiceError("those values do not give a real distance")
+    value = math.sqrt(square)
+    answer = rf"d = \sqrt{{\frac{{I - I_{{cm}}}}{{M}}}} \approx {value:.2f} \text{{ m}}"
+    return PhysicsResult(answer=answer, answer_value=f"{value:.2f} m")

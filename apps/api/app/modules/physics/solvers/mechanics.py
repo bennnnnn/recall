@@ -304,9 +304,19 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
 
 
 def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
+    from app.modules.physics.solvers.energy_conservation import solve_energy_conservation
+
+    if intent.physics_op in {
+        "work_energy",
+        "mechanical_energy_gravity",
+        "mechanical_energy_spring",
+    }:
+        return solve_energy_conservation(intent)
+
     p = _params_in_si(intent)
     g = p.get("g", 9.81)
     op = intent.physics_op or "kinetic_energy"
+    work_direction = (1.0, 0.0)
 
     if op == "mechanical_efficiency":
         supplied = p["E_in"]
@@ -335,14 +345,24 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         )
         answer_value = f"{pe_val:.2f} J"
     elif op == "work":
-        w_val = p["F"] * p["d"]
-        answer_latex = (
-            rf"W = F \cdot d = {p['F']:g} \cdot {p['d']:g} "
-            rf"\approx {w_val:.2f} \text{{ J}}"
-        )
+        theta = p.get("angle")
+        if theta is None:
+            w_val = p["F"] * p["d"]
+            answer_latex = (
+                rf"W = F \cdot d = {p['F']:g} \cdot {p['d']:g} "
+                rf"\approx {w_val:.2f} \text{{ J}}"
+            )
+        else:
+            w_val = p["F"] * p["d"] * math.cos(theta)
+            deg = math.degrees(theta)
+            answer_latex = (
+                rf"W = Fd\cos\theta = {p['F']:g} \cdot {p['d']:g} \cdot \cos({deg:g}^\circ) "
+                rf"\approx {w_val:.2f} \text{{ J}}"
+            )
+            work_direction = (math.cos(theta), math.sin(theta))
         answer_value = f"{w_val:.2f} J"
     elif op == "power":
-        if "W" in p and "t" in p:
+        if "W" in p and "t" in p and "angle" not in p:
             # P = W / t — the other school form, when no force/velocity pair
             # was given ("100 J of work in 5 s").
             if p["t"] == 0:
@@ -353,11 +373,20 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\approx {power_val:.2f} \text{{ W}}"
             )
         else:
-            power_val = p["F"] * p["v"]
-            answer_latex = (
-                rf"P = F \cdot v = {p['F']:g} \cdot {p['v']:g} "
-                rf"\approx {power_val:.2f} \text{{ W}}"
-            )
+            theta = p.get("angle")
+            if theta is None:
+                power_val = p["F"] * p["v"]
+                answer_latex = (
+                    rf"P = F \cdot v = {p['F']:g} \cdot {p['v']:g} "
+                    rf"\approx {power_val:.2f} \text{{ W}}"
+                )
+            else:
+                power_val = p["F"] * p["v"] * math.cos(theta)
+                deg = math.degrees(theta)
+                answer_latex = (
+                    rf"P = Fv\cos\theta = {p['F']:g} \cdot {p['v']:g} \cdot \cos({deg:g}^\circ) "
+                    rf"\approx {power_val:.2f} \text{{ W}}"
+                )
         answer_value = f"{power_val:.2f} W"
     else:
         raise SolveServiceError(f"unsupported energy op: {op}")
@@ -391,7 +420,11 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         scene = _free_body_scene(
             [
                 SimulationVector(
-                    anchor=[0.0, 0.0], dx=1.0, dy=0.0, label=f"F = {p['F']:g} N", role="result"
+                    anchor=[0.0, 0.0],
+                    dx=work_direction[0],
+                    dy=work_direction[1],
+                    label=f"F = {p['F']:g} N",
+                    role="result",
                 ),
                 SimulationVector(
                     anchor=[0.0, -0.8],

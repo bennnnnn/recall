@@ -25,6 +25,10 @@ _ROTATION_CUES = (
     "angular momentum",
     "rotational kinetic energy",
     "angular acceleration",
+    "parallel-axis",
+    "parallel axis",
+    "without slipping",
+    "rolls without",
 )
 
 _INERTIA_PATTERN = r"kg\s*m\^?2|kg\s*\*\s*m\^?2|kilogram\s+met(?:er|re)\s+squared"
@@ -33,6 +37,10 @@ _ROTATION_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(rf"\d\s*(?:{_INERTIA_PATTERN})", re.IGNORECASE),
     re.compile(r"\bangular\s+(?:velocity|speed)\b.{0,80}?\d\s*(?:radians?|rad)\b", re.IGNORECASE),
     re.compile(r"\d\s*(?:radians?|rad)\b.{0,80}?\bangular\s+(?:velocity|speed)\b", re.IGNORECASE),
+    re.compile(
+        r"\brad(?:ians?)?\s*/\s*s(?:ec(?:ond)?s?)?\s*(?:\^?\s*2|squared)\b",
+        re.IGNORECASE,
+    ),
 )
 
 _INERTIA_SHAPES: dict[str, tuple[float, str]] = {
@@ -49,10 +57,20 @@ _INERTIA_SHAPES: dict[str, tuple[float, str]] = {
 
 
 def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
+    from app.modules.physics.extractors.rotational_dynamics import (
+        claims_rotational_dynamics,
+        extract_rotational_dynamics,
+    )
+
     lower = cleaned.lower()
     if not _has_cue(lower, _ROTATION_CUES, _ROTATION_CUE_RES):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
+        return None
+    dynamic = extract_rotational_dynamics(cleaned)
+    if dynamic is not None:
+        return dynamic
+    if claims_rotational_dynamics(cleaned):
         return None
 
     inertia = _find_value_with_specific_unit(cleaned, _INERTIA_PATTERN)
