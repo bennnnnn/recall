@@ -101,6 +101,10 @@ from app.modules.physics.extractors.rotation import (
     _extract_rotation_intent,
     _extract_torque_intent,
 )
+from app.modules.physics.extractors.school_extensions import (
+    _EXTENSION_CUES,
+    extract_school_extension,
+)
 from app.services.symbolic_text import normalize_symbolic_request
 
 __all__ = [
@@ -126,6 +130,9 @@ __all__ = [
 ]
 
 PHYSICS_EXTRACTORS: tuple[Callable[[str], PhysicsIntent | None], ...] = (
+    # Before circuit, fluids, thermal, and waves. A partial Kirchhoff, Gauss,
+    # Poiseuille, or ideal-gas reading must not fall through to Ohm's law.
+    extract_school_extension,
     extract_rate_intent,
     _extract_kinematics_intent,
     # After kinematics, not before: free fall is a constant acceleration too,
@@ -201,6 +208,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
             *_TORQUE_CUES,
             *_FORCE_CUES,
             *_ENERGY_CUES,
+            *_EXTENSION_CUES,
         )
     )
 )
@@ -250,17 +258,10 @@ _DIGIT_FREE_PHYSICS_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Recognized as physics, then left unverified. Special relativity, entropy
-# change, and interference are solved operations and must stay off this list.
-# Faraday and general relativity are named so the docs and this pattern match.
+# Recognized as physics, then left unverified. Closed school templates that
+# now have a solver stay off this list, including Kirchhoff, Gauss, Faraday,
+# inductors, RL, AC, and Poiseuille.
 _UNVERIFIED_PHYSICS_PHRASES: tuple[str, ...] = (
-    "kirchhoff's laws",
-    "gauss's law",
-    "faraday's law",
-    "inductor",
-    "rl circuit",
-    "ac impedance",
-    "poiseuille",
     "schrödinger equation",
     "quantum harmonic oscillator",
     "rydberg",
@@ -272,12 +273,11 @@ _UNVERIFIED_PHYSICS_PHRASES: tuple[str, ...] = (
 
 _ADVANCED_PHYSICS_RE = re.compile(
     r"\b(?:schr[oö]dinger|hamilton(?:ian|'s equations?)?|lagrang(?:ian|e)|"
-    r"maxwell(?:'s)? equations?|gauss(?:'s)? law|kirchhoff(?:'s)? laws?|"
-    r"faraday(?:'s)? law|general relativity|schwarzschild|"
+    r"maxwell(?:'s)? equations?|general relativity|schwarzschild|"
     r"quantum harmonic oscillator|wave ?function|probability density|"
-    r"diffraction grating|poiseuille|capillary rise|inductors?|rl circuits?|"
-    r"ac circuit|impedance|reactance|transformer|nuclear reaction|binding energy|"
-    r"mass defect|rydberg|blackbody distribution|planck(?:'s)? distribution|gear ratio)\b",
+    r"diffraction grating|capillary rise|transformer|nuclear reaction|"
+    r"binding energy|mass defect|rydberg|blackbody distribution|"
+    r"planck(?:'s)? distribution|gear ratio)\b",
     re.IGNORECASE,
 )
 

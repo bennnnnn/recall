@@ -254,16 +254,27 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`a_c`, `F_c`, period, RPM and `ω = v/r`), springs and SHM (`F = kx`, `U`, spring and
   pendulum periods, `f = 1/T`, `v_max = Aω`), torque and moment balance.
   Beyond mechanics: **circuits** (Ohm's law, power, n-resistor networks,
-  `Q = It`, `E = Pt`, `C = Q/V`, terminal voltage), **waves** (`v = fλ`,
-  `f = 1/T`, Doppler), **optics** (thin lens/mirror, speed-derived refractive
+  `Q = It`, `E = Pt`, `C = Q/V`, terminal voltage, one-junction Kirchhoff
+  and a one-battery series loop, inductor emf and energy, RL growth and decay,
+  sinusoidal RMS, reactance, series impedance, LC resonance, and average
+  resistor power), **waves** (`v = fλ`,
+  `f = 1/T`, Doppler for a moving source, and the school form when an observer
+  speed is stated too), **optics** (thin lens/mirror, speed-derived refractive
   index, magnification, Snell, critical
-  angle), **thermal** (`Q = mcΔT`, `PV = nRT`, efficiency), **gravitation**
-  (`F = GMm/r²`, orbital and escape velocity, surface gravity, with a named-body
-  table), **fluids** (`P = F/A`, `ρgh`, upthrust, density, continuity, flow
-  rate), **rotation** (`ω = θ/t`, moment of inertia, `L = Iω`, rotational KE,
+  angle), **thermal** (`Q = mcΔT`, `PV = nRT` for the missing pressure, volume,
+  amount, or temperature, monatomic `U = 3/2 nRT`, isobaric `W = PΔV`,
+  adiabatic `PV^γ` when gamma is stated, Carnot refrigerator and heat-pump
+  COP), **gravitation**
+  (`F = GMm/r²`, orbital and escape velocity, surface gravity, potential,
+  potential energy, orbital energy, and the circular Kepler period, with a
+  named-body table), **fluids** (`P = F/A`, `ρgh`, upthrust, density, continuity,
+  flow rate, horizontal Bernoulli, Bernoulli with both heights stated, and
+  Poiseuille), **rotation** (`ω = θ/t`, moment of inertia, `L = Iω`, rotational KE,
   constant-α kinematics, `τ = Iα`, `τ = ΔL/Δt`, isolated `Iω` conservation,
   rolling without slipping, and the parallel-axis theorem),
-  **magnetism** (`F = BIL`, `F = qvB`, `Φ = BA`), **materials** (`σ = F/A`,
+  **magnetism** (`F = BIL`, `F = qvB`, `Φ = BA`, and `sin θ` / `cos θ` when an
+  angle is stated; Gauss for a sphere, shell, line, and sheet; Faraday's
+  magnitude), **materials** (`σ = F/A`,
   `ε = ΔL/L`, `E = σ/ε`) and **modern** (`E = hf` or `hc/λ`, de Broglie, half-life,
   `E = mc²`).
   **What it refuses is the design.** An unstated collision type, a 2D collision,
@@ -271,18 +282,21 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   written as bare "degrees" (27 °C and 27 K differ elevenfold), efficiency from
   two temperatures (that is Carnot), a Doppler question with no stated
   direction, a moment of inertia for a "wheel" (the shape *is* the answer), a
-  planet described but not named, and buoyancy without a submerged volume — all
+  planet described but not named, buoyancy without a submerged volume, a
+  Bernoulli question with neither horizontal flow nor both heights, an adiabatic
+  process with no gamma, and a Kirchhoff loop that is not one battery plus
+  series resistors — all
   return no verified block rather than a plausible wrong number. Depth pressure
-  says "gauge"; the magnetic force on a charge says the velocity is perpendicular
-  to the field; a pendulum period states the small-angle approximation; a
+  says "gauge"; the magnetic force and flux state the perpendicular case when no
+  angle is given; a pendulum period states the small-angle approximation; a
   level-ground range states equal launch and landing height; work and power
-  state a parallel force when no angle is given. Those assumptions appear once,
+  state a parallel force when no angle is given; horizontal Bernoulli states
+  that the height terms cancel. Those assumptions appear once,
   in the Formula section. Special relativity (Lorentz factor, time dilation,
   length contraction), entropy change, double-slit interference, Malus, Brewster,
   the infinite square well, hydrogen levels, and the Heisenberg relation are in
   the catalog. Still unverified, and answered without a verified block:
-  Kirchhoff's laws, Gauss's law, Faraday's law, inductors, RL circuits, AC
-  impedance, Poiseuille flow, the Schrödinger equation and the quantum
+  the Schrödinger equation and the quantum
   harmonic oscillator, the Rydberg formula, Planck's distribution, nuclear binding
   energy, mass defect, and general relativity. A test keeps that list off the
   catalog. Every complete, single-request verified physics

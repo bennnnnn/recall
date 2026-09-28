@@ -16,6 +16,7 @@ from app.modules.physics.extractors.common import (
     _strip_param_assignments,
 )
 from app.modules.physics.extractors.mechanics import _INCLINE_ANGLE_RE, _MASS_UNITS
+from app.modules.physics.extractors.school_extensions import blocks_fluids, blocks_thermal
 from app.services.text_match import has_equation
 
 _OPTICS_CUES = (
@@ -335,6 +336,8 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _THERMAL_CUES, _THERMAL_CUE_RES):
         return None
+    if blocks_thermal(cleaned):
+        return None
     if has_equation(_strip_param_assignments(cleaned)):
         return None
 
@@ -612,6 +615,8 @@ def _extract_fluids_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _FLUIDS_CUES, _FLUIDS_CUE_RES):
         return None
+    if blocks_fluids(cleaned):
+        return None
     if any(word in lower for word in _STRESS_WORDS):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
@@ -780,14 +785,55 @@ def _extract_fluids_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
-    # --- Horizontal Bernoulli: P1 + rho v1^2/2 = P2 + rho v2^2/2 -----
+    # --- Bernoulli. Heights only when both are stated; otherwise horizontal.
     if "bernoulli" in lower:
-        # Height terms are intentionally not guessed. The horizontal qualifier
-        # makes the omitted rho*g*h terms exactly cancel.
-        if "horizontal" not in lower:
-            return None
+        # Height terms are not guessed. Both heights, or the word horizontal.
+        initial_height = _find_value_with_specific_unit(
+            cleaned,
+            _LENGTH_UNIT_PATTERN,
+            ("initial height", "starting height"),
+            require_keyword=True,
+        )
+        final_height = _find_value_with_specific_unit(
+            cleaned,
+            _LENGTH_UNIT_PATTERN,
+            ("final height", "ending height"),
+            require_keyword=True,
+        )
         pressure = _find_value_with_specific_unit(cleaned, _PRESSURE_PATTERN)
         rho = _fluid_density()
+        if (
+            initial_height is not None
+            and final_height is not None
+            and pressure is not None
+            and rho is not None
+            and len(speed) == 2
+        ):
+            return PhysicsIntent(
+                kind="fluids",
+                physics_op="bernoulli_pressure",
+                physics_params={
+                    "pres1": pressure[0],
+                    "rho": rho,
+                    "v1": speed[0][0],
+                    "v2": speed[1][0],
+                    "h1": initial_height[0],
+                    "h2": final_height[0],
+                    "g": _detect_gravity(cleaned),
+                },
+                physics_units={
+                    "pres1": pressure[1] or "Pa",
+                    "rho": density[1] if density is not None else "kg/m^3",
+                    "v1": speed[0][1] or "m/s",
+                    "v2": speed[1][1] or "m/s",
+                    "h1": initial_height[1] or "m",
+                    "h2": final_height[1] or "m",
+                    "g": "m/s^2",
+                },
+                operation="solve",
+            )
+        if "horizontal" not in lower:
+            return None
         if pressure is None or rho is None or len(speed) != 2:
             return None
         return PhysicsIntent(

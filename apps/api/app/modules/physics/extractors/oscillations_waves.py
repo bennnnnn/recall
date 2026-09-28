@@ -66,6 +66,32 @@ _RECEDING_RE = re.compile(
 
 _SPEED_OF_SOUND = 343.0
 
+_OBSERVER_ROLE_RE = re.compile(r"\b(?:observer|listener)\b", re.IGNORECASE)
+
+_ROLE_SPEED_RE = re.compile(
+    rf"\b(source|observer|listener)\b.{{0,60}}?({_NUMBER})\s*(?:{_VELOCITY_UNIT_PATTERN})\b",
+    re.IGNORECASE,
+)
+
+
+def _signed_role_speeds(cleaned: str) -> tuple[float, float] | None:
+    """Source and observer speeds. Positive means that party moves toward the other."""
+    found: dict[str, float] = {}
+    for match in _ROLE_SPEED_RE.finditer(cleaned):
+        role = "source" if match.group(1).lower() == "source" else "observer"
+        if role in found:
+            return None
+        window = cleaned[match.start() : match.end() + 32]
+        approaching = _APPROACHING_RE.search(window) is not None
+        receding = _RECEDING_RE.search(window) is not None
+        if approaching == receding:
+            return None
+        speed = float(match.group(2))
+        found[role] = speed if approaching else -speed
+    if "source" not in found or "observer" not in found:
+        return None
+    return found["source"], found["observer"]
+
 
 def _extract_waves_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
@@ -193,6 +219,28 @@ def _extract_waves_intent(cleaned: str) -> PhysicsIntent | None:
 
     moving_source = re.search(rf"\b(?:{_SOUND_SOURCE})\b", lower) is not None
     if "doppler" in lower or (freq is not None and speed is not None and moving_source):
+        if _OBSERVER_ROLE_RE.search(cleaned) is not None:
+            signed = _signed_role_speeds(cleaned)
+            if freq is None or signed is None:
+                return None
+            source_speed, observer_speed = signed
+            return PhysicsIntent(
+                kind="waves",
+                physics_op="doppler_frequency",
+                physics_params={
+                    "freq": freq[0],
+                    "v_src": source_speed,
+                    "v_obs": observer_speed,
+                    "v_sound": _SPEED_OF_SOUND,
+                },
+                physics_units={
+                    "freq": freq[1] or "Hz",
+                    "v_src": "m/s",
+                    "v_obs": "m/s",
+                    "v_sound": "m/s",
+                },
+                operation="solve",
+            )
         approaching = _APPROACHING_RE.search(cleaned) is not None
         receding = _RECEDING_RE.search(cleaned) is not None
         if freq is None or speed is None or approaching == receding:

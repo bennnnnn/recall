@@ -34,6 +34,15 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Bernoulli's equation",
         "P_2",
         base_latex="P_1 + \\frac{1}{2}\\rho v_1^2 = P_2 + \\frac{1}{2}\\rho v_2^2",
+        assumptions=("horizontal flow, so the height terms cancel",),
+    ),
+    formula(
+        "poiseuille_flow",
+        "fluids",
+        "Poiseuille's law",
+        "Q",
+        base_latex=r"Q = \frac{\pi r^4\Delta P}{8\eta L}",
+        assumptions=("steady laminar flow in a straight pipe",),
     ),
     formula(
         "mass_flow_rate",

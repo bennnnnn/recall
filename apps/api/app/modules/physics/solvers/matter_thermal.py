@@ -377,9 +377,21 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
         if p["rho"] <= 0 or p["pres1"] < 0:
             raise SolveServiceError("Bernoulli pressure needs positive density and valid pressure")
         pressure = p["pres1"] + 0.5 * p["rho"] * (p["v1"] ** 2 - p["v2"] ** 2)
+        if "h1" in p and "h2" in p:
+            pressure += p["rho"] * p.get("g", 9.81) * (p["h1"] - p["h2"])
         if pressure < 0:
             raise SolveServiceError(
                 "the stated ideal-flow values imply a negative absolute pressure"
+            )
+        if "h1" in p and "h2" in p:
+            return PhysicsResult(
+                answer=(
+                    r"P_1 + \frac{1}{2}\rho v_1^2 + \rho g h_1 = "
+                    r"P_2 + \frac{1}{2}\rho v_2^2 + \rho g h_2 "
+                    r"\Rightarrow P_2 = P_1 + \frac{1}{2}\rho(v_1^2-v_2^2)"
+                    rf" + \rho g(h_1-h_2) \approx {pressure:g} \text{{ Pa}}"
+                ),
+                answer_value=f"{pressure:g} Pa",
             )
         return PhysicsResult(
             answer=(
