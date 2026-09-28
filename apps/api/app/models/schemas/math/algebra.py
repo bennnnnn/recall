@@ -68,6 +68,10 @@ class MathImageExtract(BaseModel):
     # closed grammar; source_text preserves constraints (for example x in Z)
     # that the grammar cannot yet represent so they cannot be silently lost.
     source_text: str | None = Field(default=None, min_length=1, max_length=2000)
+    # A second independent OCR reading, when available. Disagreement is not
+    # resolved by choosing one provider: both readings pass through the same
+    # whole-request audit before any structured result can be certified.
+    alternate_source_text: str | None = Field(default=None, min_length=1, max_length=2000)
     # kind == "system": every equation in the system as (lhs, rhs) pairs,
     # INCLUDING the first (so this is self-contained — callers don't need
     # to merge it with lhs/rhs above).

@@ -140,3 +140,43 @@ async def test_extract_math_falls_back_to_vision_for_word_problem():
     assert "Sarah" in result.extract.source_text
     hint = vision.await_args.kwargs.get("ocr_hint") or ""
     assert "Sarah" in hint
+
+
+@pytest.mark.asyncio
+async def test_low_confidence_mathpix_reading_is_retained_beside_vision():
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="test-key",
+        mathpix_app_id="id",
+        mathpix_app_key="key",
+        mathpix_enabled=True,
+        mathpix_confidence_min=0.72,
+    )
+    vision_extract = MathImageExtract(
+        lhs="x^2",
+        rhs="2",
+        variables=["x"],
+        source_text="x^2=2",
+    )
+    with (
+        patch(
+            "app.gateways.mathpix_gateway.ocr_image",
+            AsyncMock(
+                return_value=MathpixOcrResult(
+                    text="x^2=2, x∈ℤ",
+                    latex="x^2=2",
+                    confidence=0.4,
+                )
+            ),
+        ),
+        patch(
+            "app.modules.math.image_extract.vision_extract_equation",
+            AsyncMock(return_value=vision_extract),
+        ),
+    ):
+        result = await math_ocr.extract_math_from_image(
+            settings, content_type="image/jpeg", data=b"fake"
+        )
+    assert result.extract is not None
+    assert result.extract.source_text == "x^2=2"
+    assert result.extract.alternate_source_text == "x^2=2, x∈ℤ"

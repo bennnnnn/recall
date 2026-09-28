@@ -107,6 +107,11 @@ def test_symbolic_power_steps_explain_the_exponent_before_the_answer() -> None:
     assert reply.rstrip().endswith("```answer\nx^{3}\n```")
 
 
+def test_physics_data_does_not_answer_a_separate_exponent_request() -> None:
+    text = "A motor does 100 J of work in 5 s. Find 2 raised to the third power."
+    assert extract_physics_intent(text) is None
+
+
 @pytest.mark.parametrize(
     "text",
     [

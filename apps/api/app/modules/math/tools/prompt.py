@@ -262,6 +262,8 @@ async def build_math_augmentation(
             audit_sources = [user_content]
             if image_math_extract.source_text:
                 audit_sources.append(image_math_extract.source_text)
+            if image_math_extract.alternate_source_text:
+                audit_sources.append(image_math_extract.alternate_source_text)
             if any(not _intent_preserves_request(source, intent) for source in audit_sources):
                 intent = None
     else:

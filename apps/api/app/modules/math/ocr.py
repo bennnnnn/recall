@@ -227,8 +227,21 @@ async def extract_math_from_image(
             # retained every printed condition. Decline rather than certify a
             # potentially partial reading.
             return _empty(uncertain=True)
-        if vision.source_text != source_text:
-            vision = vision.model_copy(update={"source_text": source_text})
+        alternate_source_text = vision.alternate_source_text
+        if mathpix_source_text and mathpix_source_text.strip() != source_text:
+            if len(mathpix_source_text) > 2000:
+                return _empty(uncertain=True)
+            alternate_source_text = mathpix_source_text.strip()
+        if (
+            vision.source_text != source_text
+            or vision.alternate_source_text != alternate_source_text
+        ):
+            vision = vision.model_copy(
+                update={
+                    "source_text": source_text,
+                    "alternate_source_text": alternate_source_text,
+                }
+            )
         uncertain = bool(
             mathpix_text and confidence is not None and confidence < settings.mathpix_confidence_min
         )

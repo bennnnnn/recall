@@ -351,3 +351,24 @@ async def test_image_source_domain_is_audited_when_caption_has_no_constraint() -
     )
     assert verified is None
     assert note is not None and "Do NOT claim SymPy verification" in note
+
+
+@pytest.mark.asyncio
+async def test_every_independent_image_reading_is_audited() -> None:
+    from app.models.schemas.math import MathImageExtract
+
+    note, verified = await math_prompt.build_math_augmentation(
+        "Solve this",
+        _settings(),
+        has_image_attachment=True,
+        image_math_extract=MathImageExtract(
+            lhs="x^2",
+            rhs="2",
+            variables=["x"],
+            source_text="x^2=2",
+            alternate_source_text="x^2=2, x∈ℤ",
+        ),
+        needs_math=True,
+    )
+    assert verified is None
+    assert note is not None and "Do NOT claim SymPy verification" in note
