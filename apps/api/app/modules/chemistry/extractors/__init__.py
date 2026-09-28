@@ -19,8 +19,10 @@ from app.modules.chemistry.extractors.physical import (
     _extract_kinetics_ext,
     _extract_thermo_ext,
 )
+from app.modules.chemistry.extractors.remaining import _extract_remaining
 
 EXTENDED_EXTRACTORS = (
+    _extract_remaining,
     _extract_formulas,
     _extract_mass_chain,
     _extract_acid,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.scene import attach_scene
 from app.modules.chemistry.solvers.acid import (
     solve_buffer_addition,
     solve_ka_kb,
@@ -30,6 +31,25 @@ from app.modules.chemistry.solvers.amounts_extended import (
     solve_solution_stoichiometry,
 )
 from app.modules.chemistry.solvers.cells_ext import solve_cell_potential, solve_galvanic_cell
+from app.modules.chemistry.solvers.closed_calc import (
+    solve_chromatography_rf,
+    solve_crystal_field,
+    solve_iupac_name,
+    solve_michaelis_menten,
+    solve_percent_error,
+    solve_relative_uncertainty,
+    solve_standard_deviation,
+    solve_standard_error,
+)
+from app.modules.chemistry.solvers.closed_org import (
+    solve_ir_peak,
+    solve_ir_ranges,
+    solve_molecular_ion,
+    solve_named_reaction,
+    solve_nmr_peak,
+    solve_nmr_ranges,
+    solve_nmr_splitting,
+)
 from app.modules.chemistry.solvers.equilibrium_ext import (
     solve_common_ion,
     solve_ice,
@@ -70,6 +90,7 @@ from app.modules.chemistry.solvers.kinetics_ext import (
     solve_zero_half_life,
     solve_zero_order,
 )
+from app.modules.chemistry.solvers.mass_defect import solve_mass_defect
 from app.modules.chemistry.solvers.nuclear_ext import (
     solve_decay_constant,
     solve_exponential_decay,
@@ -158,11 +179,73 @@ _EXTENDED = {
     "calibration": solve_calibration,
     "gravimetric": solve_gravimetric,
     "standard_addition": solve_standard_addition,
+    "mass_defect": solve_mass_defect,
+    "crystal_field": solve_crystal_field,
+    "standard_deviation": solve_standard_deviation,
+    "standard_error": solve_standard_error,
+    "percent_error": solve_percent_error,
+    "relative_uncertainty": solve_relative_uncertainty,
+    "chromatography_rf": solve_chromatography_rf,
+    "iupac_name": solve_iupac_name,
+    "named_reaction": solve_named_reaction,
+    "ir_ranges": solve_ir_ranges,
+    "ir_peak": solve_ir_peak,
+    "nmr_ranges": solve_nmr_ranges,
+    "nmr_peak": solve_nmr_peak,
+    "nmr_splitting": solve_nmr_splitting,
+    "molecular_ion": solve_molecular_ion,
+    "michaelis_menten": solve_michaelis_menten,
 }
+
+_DIRECT_OPS = frozenset(
+    {
+        "balance",
+        "molar_mass",
+        "mass_to_moles",
+        "moles_to_mass",
+        "moles_to_particles",
+        "particles_to_moles",
+        "percent_composition",
+        "percent_yield",
+        "stoichiometry",
+        "limiting_reagent",
+        "molarity",
+        "dilution",
+        "molality",
+        "mass_percent",
+        "ph_from_h",
+        "ph_from_poh",
+        "h_from_ph",
+        "poh_from_oh",
+        "buffer_ph",
+        "ideal_gas",
+        "heat",
+        "gibbs",
+        "equilibrium_constant",
+        "reaction_quotient",
+        "first_order_half_life",
+        "first_order_concentration",
+        "arrhenius",
+        "cell_gibbs",
+        "nernst",
+        "electrolysis_mass",
+        "radioactive_decay",
+        "beer_lambert",
+    }
+)
+
+
+def supported_operations() -> frozenset[str]:
+    """Every operation ``solve_chemistry`` can dispatch."""
+    return frozenset(_EXTENDED) | _DIRECT_OPS
 
 
 def solve_chemistry(intent: ChemistryIntent) -> ChemistryResult:
     """Dispatch a validated intent to its subject-grouped pure solver."""
+    return attach_scene(intent, _solve(intent))
+
+
+def _solve(intent: ChemistryIntent) -> ChemistryResult:
     extended = _EXTENDED.get(intent.chemistry_op)
     if extended is not None:
         return extended(intent)

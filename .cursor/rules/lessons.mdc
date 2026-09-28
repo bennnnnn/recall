@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Nuclear mass defect was answered as unverified physics.** The advanced-physics cue treats “mass defect” and “binding energy” as physics, so a supplied nuclear mass never reached chemistry. Skip that cue when the nuclear mass is written out; chemistry owns Δm and E/A only then.
+
 - **A θ-form rotational or SUVAT solve still opened on the time equation.** `select_formula` only knew each op’s base law, so the reply called `ω² = ω₀² + 2αΔθ` a rearrangement of `ω = ω₀ + αt` (and the same for `v² = u² + 2as`). The variant latex has to be the string the solver stores, and it must set `absent` for the variable that would have taken the earlier branch. `suvat_velocity` and `suvat_time` also have to declare `d`, or that branch never validates.
 
 - **Constant-α rotation and rolling energy were rejected after the catalog got strict.** The solvers already accepted `θ` for `ω` and `α`, `ω` for `θ`, and `ω` for rolling kinetic energy, but those names were missing from `FormulaSpec.variables`, so `PhysicsIntent` dropped the branch. Declare every real input. A substitution row is the same equation with the supplied numbers inserted; copying the symbolic formula is not one. The verified prompt lists those rows plus the chip, and leaves the dense `answer` chain off the model.

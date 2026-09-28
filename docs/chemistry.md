@@ -71,23 +71,30 @@ Pure solids and liquids are omitted from `Kc`, `Kp`, and solubility products onl
 | Equilibrium | homogeneous `Kc` and `Qc`; phase-aware `Kc`/`Kp`; `Kc` ↔ `Kp`; quadratic ICE solutions; `Ksp`, molar solubility, common-ion solubility, and `Qsp` versus `Ksp` |
 | Kinetics | zero-, first-, and second-order integrated laws and half-lives; integer order from two experiments; one-temperature and two-temperature Arrhenius |
 | Electrochemistry | `ΔG° = −nFE°`, Nernst potential, Faraday electrolysis mass, `E°cell = E°cathode − E°anode`, and a galvanic cell from the built-in reduction table |
-| Nuclear | half-life amount, decay constant, exponential decay, activity `A = λN`, and one-missing-product nuclear equations (alpha, beta, positron, electron capture) |
-| Spectroscopy | Beer–Lambert for any one of absorbance, molar absorptivity, path length, or concentration |
+| Nuclear | half-life amount, decay constant, exponential decay, activity `A = λN`, one-missing-product nuclear equations (alpha, beta, positron, electron capture), and mass defect / binding energy when the nuclear mass in u is supplied |
+| Spectroscopy | Beer–Lambert for any one of absorbance, molar absorptivity, path length, or concentration; IR and 1H NMR ranges for recognized functional groups; a peak lists every group whose range contains it; the n+1 rule when the neighbor count is stated; molecular ion equals molar mass |
 | Structure | school oxidation states, formal charge, and single-center VSEPR. The molecular angle is separate from the ideal electron-domain angle (water 104.5°, ammonia 107°). A single carbon is the center of an HCN-style formula. Identical terminals with unequal bonds are counted as resonance forms |
-| Organic | RDKit functional groups, CIP stereochemistry, and isomer class (identical, constitutional, or stereo) |
-| Inorganic | oxidation state, coordination number, and additive name for the built-in ligand table |
-| Analytical | linear calibration, gravimetric factor, and one-point standard addition |
+| Organic | RDKit functional groups, CIP stereochemistry, and isomer class (identical, constitutional, or stereo). A PubChem `IUPACName` is verified only when that property is returned. Five one-product reactions (HBr addition, bromine addition, acid hydration, primary-halide hydroxide substitution, esterification) return one SMILES |
+| Inorganic | oxidation state, coordination number, and additive name for the built-in ligand table. Crystal field for a first-row metal: coordination number 6 is octahedral and 4 is tetrahedral; CN− and CO make octahedral d4–d7 low-spin; every other case is high-spin; the answer includes unpaired electrons and `μ = √(n(n+2))` |
+| Analytical | linear calibration, gravimetric factor, one-point standard addition, sample standard deviation, standard error, percent error, relative uncertainty of a product or quotient, and chromatography `Rf` |
+| Biochemistry | Michaelis–Menten for any one of `v`, `Vmax`, `Km`, and `[S]` |
 
 Element lookup (including atomic number and configuration), molecular descriptors, and PubChem compound lookup are also verified context sources. A result is labelled verified only after extraction and solver success.
 
 The galvanic table is the common school set Na, Mg, Al, Zn, Fe, Ni, Pb, H, Cu, and Ag. Polyprotic pH uses the first dissociation only. Rate-law fitting needs the two experiments to change one concentration. VSEPR refuses a chain or a second central atom (`H2O2`, acetic acid), a formula whose center is not determined (`HOCl`), transition metals, and a Lewis structure whose formal charges do not sum to the charge. Lone-pair angles other than water and ammonia are reported as less than the ideal angle, not as one invented measurement. Sulfuric acid is refused as a strong monoprotic acid. Oxidation states that the school rules do not decide, such as `FeS`, are refused.
 
+## Teaching scenes
+
+A complete balance, stoichiometry chain, VSEPR, titration, ICE, or galvanic-cell
+answer appends one server-owned `chem_scene` fence. The phone only draws that
+JSON. The model prompt does not describe the fence.
+
 ## Deliberate model-only boundary
 
 The model may explain work outside the table, but must not call it verified. This
-includes organic reaction mechanisms and IUPAC naming, IR/NMR/MS/UV-vis interpretation,
-chromatography interpretation, crystal-field and molecular-orbital theory, nuclear
-mass defect and binding energy, and biochemical pathways (including Michaelis–Menten).
+includes curved-arrow reaction mechanisms, biochemical pathways, chromatogram
+images, a structure guessed from one spectral peak, and a nuclear mass that was
+not supplied. Coordination number 4 is drawn as tetrahedral, not square planar.
 
 ## Key files
 
@@ -97,6 +104,8 @@ mass defect and binding energy, and biochemical pathways (including Michaelis–
 | Gate / compound parsing | `apps/api/app/modules/chemistry/request.py` |
 | Text extraction | `apps/api/app/modules/chemistry/extract.py`, `extractors/` |
 | Typed solver dispatcher | `apps/api/app/modules/chemistry/solvers/solver.py` |
+| Formula catalog | `apps/api/app/modules/chemistry/catalog.py` |
+| Teaching scenes | `apps/api/app/modules/chemistry/scene.py` |
 | Grouped solvers | `apps/api/app/modules/chemistry/solvers/` |
 | Verified block / direct reply | `apps/api/app/modules/chemistry/block.py`, `direct.py` |
 | Turn integration | `apps/api/app/modules/chemistry/context.py` |
