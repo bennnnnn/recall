@@ -54,10 +54,12 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "centripetal_acceleration"
     if op == "angular_velocity" and "rpm" in p:
-        omega_val = p["rpm"] * 2 * math.pi / 60
+        # _params_in_si already turned revolutions per minute into rad/s.
+        raw_rpm = (intent.physics_params or {})["rpm"]
+        omega_val = p["rpm"]
         return PhysicsResult(
             answer=(
-                rf"\omega = n\frac{{2\pi}}{{60}} = {p['rpm']:g}\cdot\frac{{2\pi}}{{60}} "
+                rf"\omega = n\frac{{2\pi}}{{60}} = {raw_rpm:g}\cdot\frac{{2\pi}}{{60}} "
                 rf"\approx {omega_val:.2f} \text{{ rad/s}}"
             ),
             quantities=(QuantityResult("", omega_val, "rad/s", number_format=".2f"),),

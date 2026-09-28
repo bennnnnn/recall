@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula, var
+from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -45,6 +45,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "kinematics",
         "Constant-acceleration equation",
         "v",
+        variants=(FormulaVariant(absent=frozenset({"t"}), result_symbol="v_{impact}"),),
         variables=(
             var("g", "g", "meter / second ** 2"),
             var("h0", "h_0", "meter"),
@@ -71,6 +72,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"h_{\max} = h_0 + \frac{v_0^2}{2g}",
         variables=(
             var("g", "g", "meter / second ** 2"),
+            var("h0", "h_0", "meter"),
             var("v0", "v_0", "meter / second"),
         ),
     ),

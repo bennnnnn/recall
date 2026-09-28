@@ -205,14 +205,11 @@ def _ideal_gas(text: str) -> PhysicsIntent | None:
     }.get(missing or "")
     if operation is None:
         return None
-    return _intent(
-        "thermal",
-        operation,
-        {key: value[0] for key, value in present.items()},
-        {
-            "pres": "Pa",
-            "volume": (volume[1] if volume else None) or "m^3",
-            "moles": "mol",
-            "temp": "K",
-        },
-    )
+    params = {key: value[0] for key, value in present.items()}
+    units = {
+        "pres": "Pa",
+        "volume": (volume[1] if volume else None) or "m^3",
+        "moles": "mol",
+        "temp": "K",
+    }
+    return _intent("thermal", operation, params, {key: units[key] for key in params})

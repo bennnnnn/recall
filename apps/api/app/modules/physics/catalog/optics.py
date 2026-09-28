@@ -22,8 +22,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Magnification formula",
         "m",
         variables=(
-            var("h_img", "h_img", "meter"),
-            var("h_obj", "h_obj", "meter"),
+            var("h_img", "h_i", "meter"),
+            var("h_obj", "h_o", "meter"),
         ),
     ),
     formula(
@@ -33,7 +33,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "n",
         variables=(
             var("angle", r"\theta", dimensionless=True),
-            var("angle2", "angle_2", dimensionless=True),
+            var("angle2", r"\theta_2", dimensionless=True),
             var("v_wave", "v", "meter / second"),
         ),
     ),

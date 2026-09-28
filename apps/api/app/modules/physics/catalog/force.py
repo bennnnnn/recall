@@ -11,6 +11,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Newton's second law",
         "F",
         base_latex="F = ma",
+        solve_for=(("F", "F"), ("m", "m"), ("a", "a")),
         variables=(
             var("F", "F", "newton"),
             var("a", "a", "meter / second ** 2"),

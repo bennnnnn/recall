@@ -44,7 +44,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Frequency-period relation",
         "f",
         base_latex="f = \\frac{1}{T}",
-        variables=(var("period", "period", "second"),),
+        variables=(var("period", "T", "second"),),
     ),
     formula(
         "wave_period",
@@ -70,9 +70,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=(
             var("freq", "f", "hertz"),
-            var("v_obs", "v_obs", "meter / second"),
-            var("v_sound", "v_sound", "meter / second"),
-            var("v_src", "v_src", "meter / second"),
+            var("v_obs", r"v_{\mathrm{o}}", "meter / second"),
+            var("v_sound", "v", "meter / second"),
+            var("v_src", r"v_{\mathrm{s}}", "meter / second"),
         ),
     ),
     formula(
@@ -101,7 +101,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("L", "L", "meter"),
             var("harmonic", "n", dimensionless=True),
-            var("mode_factor", "mode_factor", dimensionless=True),
+            var("mode_factor", "mode_factor", dimensionless=True, visible=False),
             var("v_wave", "v", "meter / second"),
         ),
     ),

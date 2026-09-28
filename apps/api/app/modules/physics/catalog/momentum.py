@@ -22,7 +22,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "J",
         variables=(
             var("F", "F", "newton"),
-            var("dt", "dt", "second"),
+            var("dt", r"\Delta t", "second"),
             var("m", "m", "kilogram"),
             var("v1", "v_1", "meter / second"),
             var("v2", "v_2", "meter / second"),
@@ -36,6 +36,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         variants=(
             FormulaVariant(
                 equals=(("elastic", 1.0),),
+                result_symbol=r"v_1',\ v_2'",
                 lines=(
                     r"v_1' = \frac{(m_1-m_2)v_1 + 2m_2v_2}{m_1+m_2}",
                     r"v_2' = \frac{(m_2-m_1)v_2 + 2m_1v_1}{m_1+m_2}",
@@ -49,7 +50,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
         ),
         variables=(
-            var("elastic", "elastic", dimensionless=True),
+            var("elastic", "elastic", dimensionless=True, visible=False),
             var("m1", "m_1", "kilogram"),
             var("m2", "m_2", "kilogram"),
             var("v1", "v_1", "meter / second"),

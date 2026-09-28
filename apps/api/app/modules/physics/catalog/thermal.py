@@ -23,9 +23,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         "P",
         base_latex="PV = nRT",
         variables=(
-            var("moles", "moles", "mole"),
+            var("moles", "n", "mole"),
             var("temp", "T", "kelvin"),
-            var("volume", "volume", "meter ** 3"),
+            var("volume", "V", "meter ** 3"),
         ),
     ),
     formula(
@@ -35,8 +35,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "V",
         base_latex="PV = nRT",
         variables=(
-            var("moles", "moles", "mole"),
-            var("pres", "pres", "pascal"),
+            var("moles", "n", "mole"),
+            var("pres", "P", "pascal"),
             var("temp", "T", "kelvin"),
         ),
     ),
@@ -47,9 +47,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         "n",
         base_latex="PV = nRT",
         variables=(
-            var("pres", "pres", "pascal"),
+            var("pres", "P", "pascal"),
             var("temp", "T", "kelvin"),
-            var("volume", "volume", "meter ** 3"),
+            var("volume", "V", "meter ** 3"),
         ),
     ),
     formula(
@@ -59,9 +59,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         "T",
         base_latex="PV = nRT",
         variables=(
-            var("moles", "moles", "mole"),
-            var("pres", "pres", "pascal"),
-            var("volume", "volume", "meter ** 3"),
+            var("moles", "n", "mole"),
+            var("pres", "P", "pascal"),
+            var("volume", "V", "meter ** 3"),
         ),
     ),
     formula(
@@ -72,7 +72,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"U = \frac{3}{2}nRT",
         assumptions=("monatomic ideal gas",),
         variables=(
-            var("moles", "moles", "mole"),
+            var("moles", "n", "mole"),
             var("temp", "T", "kelvin"),
         ),
     ),
@@ -84,9 +84,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"W = P\Delta V",
         assumptions=("work done by the gas",),
         variables=(
-            var("pres", "pres", "pascal"),
-            var("vol1", "vol_1", "meter ** 3"),
-            var("vol2", "vol_2", "meter ** 3"),
+            var("pres", "P", "pascal"),
+            var("vol1", "V_1", "meter ** 3"),
+            var("vol2", "V_2", "meter ** 3"),
         ),
     ),
     formula(
@@ -99,8 +99,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("gamma_gas", r"\gamma", dimensionless=True),
             var("pres1", "P_1", "pascal"),
-            var("vol1", "vol_1", "meter ** 3"),
-            var("vol2", "vol_2", "meter ** 3"),
+            var("vol1", "V_1", "meter ** 3"),
+            var("vol2", "V_2", "meter ** 3"),
         ),
     ),
     formula(
@@ -113,8 +113,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("gamma_gas", r"\gamma", dimensionless=True),
             var("pres1", "P_1", "pascal"),
-            var("pres2", "pres_2", "pascal"),
-            var("vol1", "vol_1", "meter ** 3"),
+            var("pres2", "P_2", "pascal"),
+            var("vol1", "V_1", "meter ** 3"),
         ),
     ),
     formula(
@@ -147,8 +147,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Thermal-efficiency formula",
         "\\eta",
         variables=(
-            var("Q_in", "Q_in", "joule"),
-            var("W_out", "W_out", "joule"),
+            var("Q_in", r"Q_{\mathrm{in}}", "joule"),
+            var("W_out", r"W_{\mathrm{out}}", "joule"),
         ),
     ),
     formula(
@@ -215,7 +215,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex="\\frac{Q}{t} = kA\\frac{\\Delta T}{L}",
         variables=(
             var("L", "L", "meter"),
-            var("area", "area", "meter ** 2"),
+            var("area", "A", "meter ** 2"),
             var("delta_temp", r"\Delta T", "kelvin"),
             var("thermal_conductivity", "k", "watt / meter / kelvin"),
         ),

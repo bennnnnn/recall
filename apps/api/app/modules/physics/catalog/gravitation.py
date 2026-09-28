@@ -23,7 +23,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "v",
         variables=(
             var("M", "M", "kilogram"),
-            var("altitude", "altitude", "meter"),
+            var("altitude", "h", "meter"),
             var("radius_body", "R", "meter"),
         ),
     ),

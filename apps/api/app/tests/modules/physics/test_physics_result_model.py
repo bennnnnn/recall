@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import math
+import re
+
 import pytest
 from pydantic import ValidationError
 
@@ -25,10 +28,37 @@ from app.modules.physics.solvers.common import (
     _WIEN_B,
     render_chip,
 )
+from app.modules.physics.working import result_symbol_for
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,
 )
+
+
+def test_intent_rejects_a_parameter_the_operation_does_not_declare() -> None:
+    with pytest.raises(ValidationError, match="ideal_gas_pressure does not declare banana"):
+        PhysicsIntent(
+            kind="thermal",
+            physics_op="ideal_gas_pressure",
+            physics_params={"temp": 300.0, "banana": 42.0},
+        )
+
+
+def test_intent_rejects_a_unit_for_an_absent_parameter() -> None:
+    with pytest.raises(ValidationError, match="net_force units are not parameters: F"):
+        PhysicsIntent(
+            kind="force",
+            physics_op="net_force",
+            physics_params={"m": 2.0, "a": 3.0},
+            physics_units={"m": "kg", "F": "N"},
+        )
+
+
+def test_net_force_solve_for_names_the_missing_quantity() -> None:
+    intent = PhysicsIntent(
+        kind="force", physics_op="net_force", physics_params={"F": 10.0, "m": 2.0}
+    )
+    assert result_symbol_for(intent) == "a"
 
 
 def test_intent_rejects_an_operation_from_another_kind() -> None:
@@ -89,6 +119,15 @@ def test_work_at_an_angle_selects_the_angle_variant() -> None:
     assert assumptions == ()
 
 
+def test_bernoulli_with_one_height_keeps_the_horizontal_equation() -> None:
+    latex, _lines, assumptions = select_formula(
+        CATALOG["bernoulli_pressure"],
+        {"pres1": 100000.0, "rho": 1000.0, "v1": 2.0, "v2": 2.0, "h1": 5.0},
+    )
+    assert latex is not None and r"\rho gh_1" not in latex
+    assert assumptions == ("horizontal flow, so the height terms cancel",)
+
+
 def test_bernoulli_with_height_selects_the_full_equation() -> None:
     latex, _lines, assumptions = select_formula(
         CATALOG["bernoulli_pressure"],
@@ -96,6 +135,35 @@ def test_bernoulli_with_height_selects_the_full_equation() -> None:
     )
     assert latex is not None and r"\rho gh_1" in latex
     assert assumptions == ("steady incompressible flow with no viscosity",)
+
+
+def test_rpm_converts_once_to_the_same_angular_speed() -> None:
+    intent = PhysicsIntent(
+        kind="circular",
+        physics_op="angular_velocity",
+        physics_params={"rpm": 120.0},
+        physics_units={"rpm": "rpm"},
+    )
+    result = solve_physics(intent)
+    assert result.quantities[0].value == pytest.approx(120 * 2 * math.pi / 60)
+    assert result.answer_value.startswith("12.57")
+    assert r"120\cdot\frac{2\pi}{60}" in result.answer
+
+
+_VISIBLE_NAME = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+_SHORT_TOKEN = re.compile(r"^[A-Za-z](?:_[0-9A-Za-z])?$")
+
+
+def test_visible_symbols_are_notation() -> None:
+    leaks = [
+        f"{spec.id}.{variable.name}={variable.symbol}"
+        for spec in CATALOG.values()
+        for variable in spec.variables
+        if variable.visible
+        and _VISIBLE_NAME.fullmatch(variable.symbol)
+        and not _SHORT_TOKEN.fullmatch(variable.symbol)
+    ]
+    assert leaks == []
 
 
 def test_every_catalog_operation_has_one_solver() -> None:

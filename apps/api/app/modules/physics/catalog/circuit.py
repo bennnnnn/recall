@@ -88,7 +88,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Electrical-energy formula",
         "E",
         variables=(
-            var("power", "power", "watt"),
+            var("power", "P", "watt"),
             var("t", "t", "second"),
         ),
     ),
@@ -109,7 +109,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "C",
         base_latex="C = \\frac{\\epsilon_0A}{d}",
         variables=(
-            var("area", "area", "meter ** 2"),
+            var("area", "A", "meter ** 2"),
             var("d", "d", "meter"),
         ),
     ),
@@ -141,9 +141,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Terminal-voltage equation",
         "V_{terminal}",
         variables=(
-            var("E_emf", "E_emf", "volt"),
+            var("E_emf", r"\mathcal{E}", "volt"),
             var("I", "I", "ampere"),
-            var("r_int", "r_int", "ohm"),
+            var("r_int", "r", "ohm"),
         ),
     ),
     formula(
@@ -154,8 +154,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"\sum I_{\mathrm{in}} = \sum I_{\mathrm{out}}",
         assumptions=("one junction and steady current",),
         variables=(
-            var("i_enter", "i_enter", "ampere"),
-            var("i_leave", "i_leave", "ampere"),
+            var("i_enter", r"I_{\mathrm{in}}", "ampere"),
+            var("i_leave", r"I_{\mathrm{out}}", "ampere"),
         ),
     ),
     formula(
@@ -179,9 +179,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"|\mathcal{E}| = L\frac{|\Delta I|}{\Delta t}",
         assumptions=("magnitude; the minus sign is direction",),
         variables=(
-            var("delta_i", "delta_i", "ampere"),
-            var("dt", "dt", "second"),
-            var("inductance", "inductance", "henry"),
+            var("delta_i", r"\Delta I", "ampere"),
+            var("dt", r"\Delta t", "second"),
+            var("inductance", "L", "henry"),
         ),
     ),
     formula(
@@ -192,7 +192,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"U = \frac{1}{2}LI^2",
         variables=(
             var("I", "I", "ampere"),
-            var("inductance", "inductance", "henry"),
+            var("inductance", "L", "henry"),
         ),
     ),
     formula(
@@ -203,7 +203,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"\tau = \frac{L}{R}",
         variables=(
             var("R", "R", "ohm"),
-            var("inductance", "inductance", "henry"),
+            var("inductance", "L", "henry"),
         ),
     ),
     formula(
@@ -216,7 +216,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("R", "R", "ohm"),
             var("V", "V", "volt"),
-            var("inductance", "inductance", "henry"),
+            var("inductance", "L", "henry"),
             var("t", "t", "second"),
         ),
     ),
@@ -230,7 +230,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("I0", "I_0", "ampere"),
             var("R", "R", "ohm"),
-            var("inductance", "inductance", "henry"),
+            var("inductance", "L", "henry"),
             var("t", "t", "second"),
         ),
     ),
@@ -260,7 +260,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"X_L = 2\pi f L",
         variables=(
             var("freq", "f", "hertz"),
-            var("inductance", "inductance", "henry"),
+            var("inductance", "L", "henry"),
         ),
     ),
     formula(
@@ -295,7 +295,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"f = \frac{1}{2\pi\sqrt{LC}}",
         variables=(
             var("capacitance", "C", "farad"),
-            var("inductance", "inductance", "henry"),
+            var("inductance", "L", "henry"),
         ),
     ),
     formula(

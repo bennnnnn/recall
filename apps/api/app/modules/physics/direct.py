@@ -18,6 +18,7 @@ from app.modules.physics.catalog import (
     formula_spec,
     select_formula,
     symbol_for,
+    variable_for,
     visible_assumptions,
 )
 from app.modules.physics.extract import extract_physics_intent
@@ -164,10 +165,13 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     params = intent.physics_params or {}
     units = intent.physics_units or {}
     given_rows: list[str] = []
+    operation = intent.physics_op or ""
+    given_spec = formula_spec(operation)
     for name, value in params.items():
-        if name in {"elastic", "mode_factor"}:
+        variable = variable_for(given_spec, name) if given_spec is not None else None
+        if variable is not None and not variable.visible:
             continue
-        symbol = _parameter_symbol(name, intent.physics_op or "")
+        symbol = _parameter_symbol(name, operation)
         suffix = given_unit_suffix(units.get(name))
         given_rows.append(rf"${symbol} = {display_number(value)}{suffix}$")
 

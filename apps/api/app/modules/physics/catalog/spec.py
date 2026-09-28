@@ -21,6 +21,8 @@ class VariableSpec:
     symbol: str
     dimension: str | None = None
     dimensionless: bool = False
+    # Classifier flags such as elastic / mode_factor are inputs, not givens.
+    visible: bool = True
 
     def __post_init__(self) -> None:
         if self.dimensionless == (self.dimension is not None):
@@ -43,6 +45,8 @@ class FormulaVariant:
     absent: frozenset[str] = frozenset()
     positive: frozenset[str] = frozenset()
     equals: tuple[tuple[str, float], ...] = ()
+    # Find-line symbol when this case is the one that matched. None keeps the law's.
+    result_symbol: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,6 +63,8 @@ class FormulaSpec:
     variants: tuple[FormulaVariant, ...] = ()
     # Default assumptions are stated only when every one of these params was given.
     assumptions_require: frozenset[str] = frozenset()
+    # Exactly one of these may be absent. That one is the quantity being solved.
+    solve_for: tuple[tuple[str, str], ...] = ()
 
 
 def var(
@@ -67,12 +73,14 @@ def var(
     dimension: str | None = None,
     *,
     dimensionless: bool = False,
+    visible: bool = True,
 ) -> VariableSpec:
     return VariableSpec(
         name=name,
         symbol=symbol,
         dimension=dimension,
         dimensionless=dimensionless,
+        visible=visible,
     )
 
 
@@ -86,6 +94,7 @@ def formula(
     variables: tuple[VariableSpec, ...] = (),
     variants: tuple[FormulaVariant, ...] = (),
     assumptions_require: frozenset[str] = frozenset(),
+    solve_for: tuple[tuple[str, str], ...] = (),
 ) -> FormulaSpec:
     return FormulaSpec(
         id=operation,
@@ -97,7 +106,16 @@ def formula(
         variables=variables,
         variants=variants,
         assumptions_require=assumptions_require,
+        solve_for=solve_for,
     )
+
+
+def matching_variant(spec: FormulaSpec, params: dict[str, float]) -> FormulaVariant | None:
+    """The first variant whose givens match, if any."""
+    for variant in spec.variants:
+        if _variant_matches(variant, params):
+            return variant
+    return None
 
 
 def _variant_matches(variant: FormulaVariant, params: dict[str, float]) -> bool:
@@ -114,9 +132,8 @@ def select_formula(
     spec: FormulaSpec, params: dict[str, float]
 ) -> tuple[str | None, tuple[str, ...], tuple[str, ...]]:
     """Base equation, extra equation lines, and the assumptions that apply."""
-    for variant in spec.variants:
-        if not _variant_matches(variant, params):
-            continue
+    variant = matching_variant(spec, params)
+    if variant is not None:
         latex = spec.base_latex if variant.latex is None else variant.latex
         return latex, variant.lines, variant.assumptions
     assumptions = spec.assumptions
@@ -130,9 +147,15 @@ def visible_assumptions(spec: FormulaSpec, params: dict[str, float]) -> tuple[st
     return select_formula(spec, params)[2]
 
 
-def symbol_for(spec: FormulaSpec, name: str) -> str | None:
-    """Display symbol declared for this operation, or nothing."""
+def variable_for(spec: FormulaSpec, name: str) -> VariableSpec | None:
+    """The declared input with this parameter name, or nothing."""
     for variable in spec.variables:
         if variable.name == name:
-            return variable.symbol
+            return variable
     return None
+
+
+def symbol_for(spec: FormulaSpec, name: str) -> str | None:
+    """Display symbol declared for this operation, or nothing."""
+    variable = variable_for(spec, name)
+    return None if variable is None else variable.symbol

@@ -167,7 +167,7 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
             kind="circular",
             physics_op="angular_velocity",
             physics_params={"rpm": float(rpm_match.group(1))},
-            physics_units={"rpm": ""},
+            physics_units={"rpm": "rpm"},
             operation="solve",
         )
 

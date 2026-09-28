@@ -297,11 +297,11 @@ class PhysicsIntent(BaseModel):
         return self
 
     def _catalog_owns_operation(self) -> None:
-        """Reject a kind/op pair the formula catalog does not contain.
+        """Reject a kind, operation, or parameter the formula catalog does not contain.
 
-        The catalog is the only declaration of an operation. Importing it here
-        keeps the schema from becoming a second handwritten op list, and the
-        catalog does not import this module.
+        The catalog declares each operation and the variables it accepts. The
+        ``physics_op`` literal is the typed mirror of those ids; a test keeps
+        the two sets identical. The catalog does not import this module.
         """
         if self.physics_op is None:
             return
@@ -310,3 +310,13 @@ class PhysicsIntent(BaseModel):
         spec = CATALOG.get(self.physics_op)
         if spec is None or spec.kind != self.kind:
             raise ValueError(f"{self.kind} does not define {self.physics_op}")
+        allowed = {variable.name for variable in spec.variables}
+        params = set(self.physics_params or {})
+        unknown = params - allowed
+        if unknown:
+            names = ", ".join(sorted(unknown))
+            raise ValueError(f"{self.physics_op} does not declare {names}")
+        extra_units = set(self.physics_units or {}) - params
+        if extra_units:
+            names = ", ".join(sorted(extra_units))
+            raise ValueError(f"{self.physics_op} units are not parameters: {names}")

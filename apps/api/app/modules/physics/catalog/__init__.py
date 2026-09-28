@@ -25,8 +25,10 @@ from app.modules.physics.catalog.rotation import SPECS as ROTATION
 from app.modules.physics.catalog.spec import (
     FormulaSpec,
     formula,
+    matching_variant,
     select_formula,
     symbol_for,
+    variable_for,
     visible_assumptions,
 )
 from app.modules.physics.catalog.spring import SPECS as SPRING
@@ -40,8 +42,10 @@ __all__ = [
     "FormulaSpec",
     "formula",
     "formula_spec",
+    "matching_variant",
     "select_formula",
     "symbol_for",
+    "variable_for",
     "visible_assumptions",
 ]
 
