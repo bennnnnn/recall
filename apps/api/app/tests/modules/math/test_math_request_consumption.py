@@ -91,6 +91,17 @@ def test_supported_geometry_multipart_retains_both_requested_values() -> None:
     assert maybe_direct_math_reply(block, question) is None
 
 
+def test_system_equation_is_not_mistaken_for_a_domain_constraint() -> None:
+    intent = extract_math_intent("Solve x+y=3, y=1")
+    assert intent is not None
+    assert intent.kind == "system"
+    assert intent.system_equations == [("x+y", "3"), ("y", "1")]
+
+
+def test_system_with_an_extra_inequality_constraint_fails_closed() -> None:
+    assert extract_math_intent("Solve x+y=3, y=1, x>0") is None
+
+
 def test_z_score_input_labels_are_not_mistaken_for_requested_statistics() -> None:
     question = (
         "Find the z-score for x=88 where the population mean is 72 and standard deviation is 8"

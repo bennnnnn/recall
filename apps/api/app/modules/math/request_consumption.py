@@ -63,16 +63,21 @@ _DOMAIN_CUE = (
     r"(?:(?:for|where|also|with|and|assuming|given)\b|"
     r"provided(?:\s+that)?\b|subject\s+to\b|[,;])"
 )
+_EQUALITY_DOMAIN_CUE = r"(?:(?:where|assuming|given)\b|provided(?:\s+that)?\b|subject\s+to\b)"
 _NONDEFAULT_DOMAIN = re.compile(
     rf"\b(?:in|over)\s+(?:the\s+)?{_NUMBER_SET_DOMAIN}"
     r"|[a-z]\s*(?:∈|\\in\b)"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+in\s*[\[(]"
-    rf"|{_DOMAIN_CUE}\s+[a-z]\s*(?:={1, 2}|!=|≠|[<>≤≥])"
+    rf"|{_DOMAIN_CUE}\s+[a-z]\s*(?:!=|≠|[<>≤≥])"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+(?:(?:must\s+(?:not\s+)?(?:be|equal)|is|are|"
     r"was|were|equals?|cannot\s+(?:be|equal)|being|belongs?\s+to|lies?\s+in)\b)"
     rf"|{_DOMAIN_CUE}\s+[a-z]\s+"
     rf"(?:positive|negative|non[-\s]?negative|non[-\s]?positive|non[-\s]?zero|"
     rf"odd|even|prime|composite|(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
+    re.IGNORECASE,
+)
+_LINKED_EQUALITY_DOMAIN = re.compile(
+    rf"{_EQUALITY_DOMAIN_CUE}\s+[a-z]\s*={{1,2}}(?!=)",
     re.IGNORECASE,
 )
 _DOMAIN_BLIND_KINDS = frozenset(
@@ -127,7 +132,10 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         # A graph intent has no typed roots result and a roots intent has no
         # graph result. Never certify whichever extractor happened to run first.
         leftovers.append("multiple requested function outputs")
-    if intent.kind in _DOMAIN_BLIND_KINDS and _NONDEFAULT_DOMAIN.search(text):
+    has_unrepresented_domain = bool(_NONDEFAULT_DOMAIN.search(text))
+    if _LINKED_EQUALITY_DOMAIN.search(text):
+        has_unrepresented_domain = True
+    if intent.kind in _DOMAIN_BLIND_KINDS and has_unrepresented_domain:
         # These symbolic intents currently use their default real domain and
         # cannot encode an extra sign or number-set assumption. Never certify
         # a partial interpretation that silently discards that restriction.
