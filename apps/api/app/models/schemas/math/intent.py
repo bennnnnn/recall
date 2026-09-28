@@ -227,6 +227,33 @@ class MathIntent(BaseModel):
     wants_surface_area: bool = False
     # School extras (arithmetic / coord / vectors / probability / units).
     school_op: str | None = None
+    # Closed teaching representation. The payload is an internal encoding the
+    # solver rebuilds; it is not a second copy of the user's sentence.
+    teaching_op: (
+        Literal[
+            "place_value",
+            "number_bond",
+            "ten_frame",
+            "array",
+            "base_ten",
+            "number_line_move",
+            "fraction_line",
+            "decimal_compare",
+            "round_place",
+            "polynomial_division",
+            "synthetic_division",
+            "unit_circle",
+            "box_plot",
+            "frequency_table",
+            "stem_leaf",
+            "histogram",
+            "scatter",
+            "probability_tree",
+            "transformation",
+        ]
+        | None
+    ) = None
+    teaching_payload: str | None = None
     arithmetic_operands: list[str] | None = None
     division_answer_mode: (
         Literal["remainder", "fraction", "decimal", "round_up", "discard"] | None

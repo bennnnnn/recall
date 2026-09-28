@@ -345,4 +345,26 @@ describe("ArithmeticWorkBlock", () => {
     ).toBeOnTheScreen();
     expect(queryByText("29/4")).not.toBeOnTheScreen();
   });
+
+  it("draws a ten frame from a teaching picture instead of a column", async () => {
+    const content = JSON.stringify({
+      type: "ten_frame",
+      first: 7,
+      second: 5,
+      make_ten: true,
+      fill: 3,
+      leftover: 2,
+      total: 12,
+      answer: "12",
+      speech: "7 plus 3 makes 10, and 2 remain, so 10 plus 2 is 12.",
+    });
+    const { getAllByTestId, getByTestId, queryByTestId } = await render(
+      <ArithmeticWorkBlock content={content} />,
+    );
+
+    expect(getByTestId("teaching-ten_frame")).toBeOnTheScreen();
+    expect(getAllByTestId("ten-cell-first")).toHaveLength(7);
+    expect(getAllByTestId("ten-cell-fill")).toHaveLength(3);
+    expect(queryByTestId("arithmetic-work-inline")).toBeNull();
+  });
 });

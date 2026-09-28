@@ -3,8 +3,10 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { MathText } from "@/components/rich/MathText";
 import { StepList } from "@/components/rich/StepList";
+import { TeachingCard } from "@/components/rich/TeachingCard";
 import { MATH_FONT } from "@/lib/fonts";
 import { parseArithmeticWork, parseFractionWork } from "@/lib/math/arithmeticBlock";
+import { parseTeaching } from "@/lib/math/teachingBlock";
 import type { ArithmeticWorkSpec, FractionWorkSpec } from "@/lib/math/arithmeticBlock";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -308,6 +310,8 @@ function DivisionWork({ spec }: { spec: ArithmeticWorkSpec }) {
 }
 
 export function ArithmeticWorkBlock({ content }: { content: string }) {
+  const teaching = parseTeaching(content);
+  if (teaching) return <TeachingCard spec={teaching} />;
   const spec = parseArithmeticWork(content);
   if (!spec) {
     const fraction = parseFractionWork(content);

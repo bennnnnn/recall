@@ -433,9 +433,13 @@ def _canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
 
 
 def _spec_fence_kind(spec: dict[str, object]) -> str | None:
+    from app.models.schemas.math.teaching import TEACHING_TYPES
+
     spec_type = spec.get("type")
     if spec_type == "answer":
         return "answer"
+    if spec_type in TEACHING_TYPES:
+        return "teach"
     if spec_type == "arithmetic":
         return "arithmetic"
     if spec_type == "fraction":
@@ -767,6 +771,18 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
     graph = next((spec for spec in specs if _spec_fence_kind(spec) == "graph"), None)
     if graph is not None and not has_closed_fence(content, "graph"):
         extras.append(_markdown_fence("graph", json.dumps(graph, separators=(",", ":"))))
+    teaching = next((spec for spec in specs if _spec_fence_kind(spec) == "teach"), None)
+    answer_only = (
+        verified.response_intent is not None and verified.response_intent.mode == "answer_only"
+    )
+    withhold = verified.response_intent is not None and not verified.response_intent.reveal_answer
+    if (
+        teaching is not None
+        and not answer_only
+        and not withhold
+        and not has_closed_fence(content, "arithmetic")
+    ):
+        extras.append(_markdown_fence("arithmetic", json.dumps(teaching, separators=(",", ":"))))
     arithmetic = next((spec for spec in specs if _spec_fence_kind(spec) == "arithmetic"), None)
     show_working = bool(
         arithmetic is not None

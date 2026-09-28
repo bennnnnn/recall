@@ -16,6 +16,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 - **School E&M, fluids, and Doppler answered a narrower law than the sentence.** Perpendicular force, horizontal Bernoulli, and source-only Doppler are the special cases. Use the general form only when the angle, both heights, or observer motion is stated; otherwise decline. An incomplete Kirchhoff loop must return nothing so the circuit extractor cannot answer it as Ohm's law.
 
+- **Bare `2−6` / `-2-6` and `what is -1 + 0` grew a picture or lost `expr`.** The signed-move matcher claimed every leading minus, including subtraction and a zero step, and a unicode minus never entered written subtraction so the eval fallback drew a number line. Picture only a rightward jump that starts negative, keep `expr` on that intent, and let a jump that does not fit fall through to arithmetic. The answer fence leads the picture so `7*8` stays a chip.
+
+- **Single-digit addition drew a column, so a ten frame never appeared, and a picture stored as column arithmetic disappeared on an ordinary solve.** Column traces stay hidden unless the learner asks for steps. A teaching picture uses its own type and rides the direct reply; “just the answer” still omits it.
+
 - **Relations and blackboard bold fell back to the UI font.** `≠`, `∉`, `ℝ`, and `·` are not in KaTeX_Main or KaTeX_AMS. Routing every relation to AMS painted missing glyphs with the system face. Keep a glyph on the face that contains it: Main for `≤` `∈` and the not-slash overlay, AMS Latin capitals for `\mathbb`, U+22C5 for `\cdot`.
 
 - **Radical bars and overlines missed the ink, and superscripts fell back to the UI font.** Width was a flat 9px per character, and `\overline` / `^2` were Unicode combining marks and superscripts that KaTeX's faces do not contain. Measure from the layout tree (`lib/math/layout.ts`); draw rules from the child ink; raise KaTeX glyphs instead of Unicode scripts. Do not set a horizontal `ScrollView`'s width to the formula — `maxWidth: 100%` is the viewport, `minWidth` is the math.
