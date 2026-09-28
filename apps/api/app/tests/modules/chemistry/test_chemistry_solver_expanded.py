@@ -368,7 +368,8 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find the VSEPR shape of H2O",
         "vsepr",
-        "bent, 109.5°, polar, sp3, central formal charge 0",
+        "bent, 104.5°, polar, sp3, central formal charge 0; "
+        "electron geometry tetrahedral, ideal angle 109.5°",
     ),
     (
         "Find the formal charge when valence=4, nonbonding=0, bonding=8",

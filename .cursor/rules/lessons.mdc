@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Water's verified bond angle was the tetrahedral 109.5°, and HCN had no Lewis structure.** One angle was stored per steric number, so a lone pair never compressed it, and two unique non-hydrogen atoms were always refused. Keep the ideal electron-domain angle separate from the approximate molecular angle, center a single carbon when the other non-hydrogen atoms are terminal nonmetals, and drop a structure whose formal charges do not sum to the charge.
+
 - **RL decay was answered as an inductor emf, and a refrigerator COP used one temperature twice.** Keyword search was a substring, so `in` matched `inductor` and bound the only seconds value. Nearest-either-side then preferred `300 K` over the `250 K` that follows `cold`, because the earlier number is fewer characters away. School cues are whole words, and a named reservoir is the temperature after that word.
 
 - **School E&M, fluids, and Doppler answered a narrower law than the sentence.** Perpendicular force, horizontal Bernoulli, and source-only Doppler are the special cases. Use the general form only when the angle, both heights, or observer motion is stated; otherwise decline. An incomplete Kirchhoff loop must return nothing so the circuit extractor cannot answer it as Ohm's law.

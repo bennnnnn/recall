@@ -135,16 +135,25 @@ def test_ambiguous_oxidation_and_diprotic_strong_acid_are_refused() -> None:
 
 
 @pytest.mark.parametrize(
-    ("formula", "geometry", "polar", "hybrid", "bonds", "lone_pairs"),
+    ("formula", "geometry", "polar", "hybrid", "bonds", "lone_pairs", "angle", "electron"),
     [
-        ("CO2", "linear", False, "sp", (2, 2), 0),
-        ("H2O", "bent", True, "sp3", (1, 1), 2),
-        ("NH3", "trigonal pyramidal", True, "sp3", (1, 1, 1), 1),
-        ("CH4", "tetrahedral", False, "sp3", (1, 1, 1, 1), 0),
-        ("BF3", "trigonal planar", False, "sp2", (1, 1, 1), 0),
-        ("PCl5", "trigonal bipyramidal", False, "sp3d", (1, 1, 1, 1, 1), 0),
-        ("SF6", "octahedral", False, "sp3d2", (1, 1, 1, 1, 1, 1), 0),
-        ("SO2", "bent", True, "sp2", (2, 2), 1),
+        ("CO2", "linear", False, "sp", (2, 2), 0, "180°", "linear"),
+        ("H2O", "bent", True, "sp3", (1, 1), 2, "104.5°", "tetrahedral"),
+        ("NH3", "trigonal pyramidal", True, "sp3", (1, 1, 1), 1, "107°", "tetrahedral"),
+        ("CH4", "tetrahedral", False, "sp3", (1, 1, 1, 1), 0, "109.5°", "tetrahedral"),
+        ("BF3", "trigonal planar", False, "sp2", (1, 1, 1), 0, "120°", "trigonal planar"),
+        (
+            "PCl5",
+            "trigonal bipyramidal",
+            False,
+            "sp3d",
+            (1, 1, 1, 1, 1),
+            0,
+            "90° and 120°",
+            "trigonal bipyramidal",
+        ),
+        ("SF6", "octahedral", False, "sp3d2", (1, 1, 1, 1, 1, 1), 0, "90°", "octahedral"),
+        ("SO2", "bent", True, "sp2", (2, 2), 1, "less than 120°", "trigonal planar"),
     ],
 )
 def test_vsepr_for_a_unique_central_atom(
@@ -154,15 +163,20 @@ def test_vsepr_for_a_unique_central_atom(
     hybrid: str,
     bonds: tuple[int, ...],
     lone_pairs: int,
+    angle: str,
+    electron: str,
 ) -> None:
     structure = lewis_structure(formula)
     assert structure is not None
     assert structure.geometry == geometry
+    assert structure.bond_angle == angle
+    assert structure.electron_geometry == electron
     assert structure.polar is polar
     assert structure.hybridization == hybrid
     assert structure.bond_orders == bonds
     assert structure.central_lone_pairs == lone_pairs
     assert structure.central_formal_charge == 0
+    assert structure.resonance_forms == 1
 
 
 def test_stoichiometry_chain_converts_moles_and_particles_and_reports_excess() -> None:
@@ -194,8 +208,50 @@ def test_weak_base_titration_half_equivalence() -> None:
     assert solve_chemistry(intent).answer == "pH = 9.25527"
 
 
-def test_two_central_atoms_are_not_a_verified_lewis_structure() -> None:
-    assert lewis_structure("HCN") is None
+def test_hcn_is_carbon_centered_and_resonance_is_counted() -> None:
+    hydrogen_cyanide = lewis_structure("HCN")
+    assert hydrogen_cyanide is not None
+    assert hydrogen_cyanide.central == "C"
+    assert hydrogen_cyanide.terminal_elements == ("H", "N")
+    assert hydrogen_cyanide.bond_orders == (1, 3)
+    assert hydrogen_cyanide.geometry == "linear"
+    assert hydrogen_cyanide.bond_angle == "180°"
+    assert hydrogen_cyanide.electron_geometry == "linear"
+    assert hydrogen_cyanide.polar is True
+    assert hydrogen_cyanide.hybridization == "sp"
+    assert hydrogen_cyanide.central_formal_charge == 0
+    assert hydrogen_cyanide.resonance_forms == 1
+
+    formaldehyde = lewis_structure("H2CO")
+    assert formaldehyde is not None
+    assert formaldehyde.central == "C"
+    assert formaldehyde.geometry == "trigonal planar"
+    assert formaldehyde.bond_orders == (1, 1, 2)
+    assert formaldehyde.central_formal_charge == 0
+
+    thiocyanate = lewis_structure("SCN-")
+    assert thiocyanate is not None
+    assert thiocyanate.central == "C"
+    assert thiocyanate.bond_orders == (2, 2)
+    assert thiocyanate.geometry == "linear"
+    assert thiocyanate.resonance_forms == 1
+
+    carbonate = lewis_structure("CO3^2-")
+    ozone = lewis_structure("O3")
+    nitrate = lewis_structure("NO3-")
+    assert carbonate is not None and carbonate.resonance_forms == 3
+    assert carbonate.geometry == "trigonal planar"
+    assert ozone is not None and ozone.resonance_forms == 2
+    assert ozone.geometry == "bent"
+    assert ozone.bond_angle == "less than 120°"
+    assert nitrate is not None and nitrate.resonance_forms == 3
+
+
+def test_ambiguous_or_chained_structures_stay_unverified() -> None:
+    assert lewis_structure("HOCl") is None
+    assert lewis_structure("H2O2") is None
+    assert lewis_structure("CH3COOH") is None
+    assert lewis_structure("CO") is None
 
 
 def test_organic_facts_and_coordination_names() -> None:

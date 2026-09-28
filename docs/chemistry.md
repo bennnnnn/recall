@@ -73,14 +73,14 @@ Pure solids and liquids are omitted from `Kc`, `Kp`, and solubility products onl
 | Electrochemistry | `ΔG° = −nFE°`, Nernst potential, Faraday electrolysis mass, `E°cell = E°cathode − E°anode`, and a galvanic cell from the built-in reduction table |
 | Nuclear | half-life amount, decay constant, exponential decay, activity `A = λN`, and one-missing-product nuclear equations (alpha, beta, positron, electron capture) |
 | Spectroscopy | Beer–Lambert for any one of absorbance, molar absorptivity, path length, or concentration |
-| Structure | school oxidation states, formal charge, and VSEPR/hybridization/polarity for one unique central atom |
+| Structure | school oxidation states, formal charge, and single-center VSEPR. The molecular angle is separate from the ideal electron-domain angle (water 104.5°, ammonia 107°). A single carbon is the center of an HCN-style formula. Identical terminals with unequal bonds are counted as resonance forms |
 | Organic | RDKit functional groups, CIP stereochemistry, and isomer class (identical, constitutional, or stereo) |
 | Inorganic | oxidation state, coordination number, and additive name for the built-in ligand table |
 | Analytical | linear calibration, gravimetric factor, and one-point standard addition |
 
 Element lookup (including atomic number and configuration), molecular descriptors, and PubChem compound lookup are also verified context sources. A result is labelled verified only after extraction and solver success.
 
-The galvanic table is the common school set Na, Mg, Al, Zn, Fe, Ni, Pb, H, Cu, and Ag. Polyprotic pH uses the first dissociation only. Rate-law fitting needs the two experiments to change one concentration. VSEPR refuses two central atoms, transition metals, and ambiguous octet expansions. Sulfuric acid is refused as a strong monoprotic acid. Oxidation states that the school rules do not decide, such as `FeS`, are refused.
+The galvanic table is the common school set Na, Mg, Al, Zn, Fe, Ni, Pb, H, Cu, and Ag. Polyprotic pH uses the first dissociation only. Rate-law fitting needs the two experiments to change one concentration. VSEPR refuses a chain or a second central atom (`H2O2`, acetic acid), a formula whose center is not determined (`HOCl`), transition metals, and a Lewis structure whose formal charges do not sum to the charge. Lone-pair angles other than water and ammonia are reported as less than the ideal angle, not as one invented measurement. Sulfuric acid is refused as a strong monoprotic acid. Oxidation states that the school rules do not decide, such as `FeS`, are refused.
 
 ## Deliberate model-only boundary
 
@@ -102,7 +102,7 @@ mass defect and binding energy, and biochemical pathways (including Michaelis–
 | Turn integration | `apps/api/app/modules/chemistry/context.py` |
 | Balance / formula primitives | `apps/api/app/modules/chemistry/equations.py`, `stoichiometry.py` |
 | Species, elements, units | `species.py`, `elements.py`, `quantity.py` |
-| Structure / organic / nuclear | `structure.py`, `organic.py`, `coordination.py`, `nuclear.py` |
+| Structure / organic / nuclear | `structure.py`, `lewis.py`, `organic.py`, `coordination.py`, `nuclear.py` |
 | SMILES / 3D / post-stream | `apps/api/app/modules/chemistry/smiles.py`, `fence.py` |
 | PubChem | `apps/api/app/gateways/pubchem_gateway.py` |
 | Mobile parse / render | `apps/mobile/lib/chemistry/`, `apps/mobile/components/rich/` |

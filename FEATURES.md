@@ -321,7 +321,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Hess, formation, and bond enthalpy; phase-aware `Kc`/`Kp`, ICE, `Ksp`, and precipitation;
   zero/first/second-order kinetics and two-point Arrhenius; cell, Nernst, electrolysis, and
   a school galvanic cell; nuclear decay and one-missing-product nuclear equations;
-  Beer–Lambert; oxidation state, formal charge, and single-center VSEPR; RDKit functional
+  Beer–Lambert; oxidation state, formal charge, and single-center VSEPR
+  (water 104.5°, ammonia 107°, carbon-centered HCN, and resonance counts); RDKit functional
   groups, CIP stereochemistry, and isomer class; coordination names from a fixed ligand
   table; and calibration, gravimetric, and standard-addition arithmetic. Complete typed
   questions return the same compact Given / Find / named Formula / Substitution / Answer

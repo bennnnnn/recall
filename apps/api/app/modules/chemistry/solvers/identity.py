@@ -49,6 +49,16 @@ def solve_vsepr(intent: ChemistryIntent) -> ChemistryResult:
         f"{structure.geometry}, {structure.bond_angle}, {polarity}, "
         f"{structure.hybridization}, central formal charge {structure.central_formal_charge}"
     )
+    if (
+        structure.electron_geometry != structure.geometry
+        or structure.ideal_angle != structure.bond_angle
+    ):
+        shown += (
+            f"; electron geometry {structure.electron_geometry}, "
+            f"ideal angle {structure.ideal_angle}"
+        )
+    if structure.resonance_forms > 1:
+        shown += f"; {structure.resonance_forms} resonance forms"
     return verified(
         "Verified VSEPR",
         (formula, f"valence electrons = {structure.electrons}"),
