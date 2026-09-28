@@ -54,12 +54,14 @@ _NAMED_RADICAL = re.compile(
     r"[2-9](?:nd|rd|th))\s+root\b",
     re.IGNORECASE,
 )
+_NUMBER_SET_DOMAIN = (
+    r"(?:integers?|natural\s+numbers?|rationals?(?:\s+numbers?)?|complex(?:\s+numbers?)?)"
+)
 _NONDEFAULT_DOMAIN = re.compile(
-    r"\b(?:in|over)\s+(?:the\s+)?(?:integers?|natural\s+numbers?|rationals?|"
-    r"complex\s+numbers?)\b"
+    rf"\b(?:in|over)\s+(?:the\s+)?{_NUMBER_SET_DOMAIN}\b"
     r"|\b(?:for|where|also)\s+[a-z]\s+"
     r"(?:(?:must\s+be|is|are|was|were)\s+)?"
-    r"(?:positive|negative|nonnegative|nonpositive|[<>≤≥])",
+    rf"(?:positive|negative|nonnegative|nonpositive|[<>≤≥]|(?:an?\s+)?{_NUMBER_SET_DOMAIN})",
     re.IGNORECASE,
 )
 

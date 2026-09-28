@@ -13,6 +13,7 @@ from app.models.schemas.math import (
 )
 from app.modules.math import solve as math_solve
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.response_intent import (
     MathResponseIntent,
     classify_math_response_intent,
@@ -307,10 +308,14 @@ async def build_math_augmentation(
         # Only this already-failing path pays — gate-miss and regex-hit turns
         # never make this call.
         intent = await llm_extract_math_intent(user_content, settings)
-        if (
-            intent is not None
-            and intent.kind == "equation"
-            and trig_domain_would_be_dropped(f"{intent.lhs or ''} {intent.rhs or ''}", user_content)
+        if intent is not None and (
+            not request_consumption_complete(user_content, intent)
+            or (
+                intent.kind == "equation"
+                and trig_domain_would_be_dropped(
+                    f"{intent.lhs or ''} {intent.rhs or ''}", user_content
+                )
+            )
         ):
             intent = None
 

@@ -40,6 +40,8 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "Solve 2x=4; also x must be positive",
         "Solve x²=4 for x > 0",
         "Solve x^2=4 where x is positive",
+        "Solve x^2=2 where x is an integer",
+        "Solve x^2=2 where x is integer",
         "Solve x+y=1, x-y=0 over the integers",
         "Differentiate x² and evaluate it at x=3",
         "Find the derivative and second derivative of x³",

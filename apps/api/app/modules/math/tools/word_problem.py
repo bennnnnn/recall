@@ -57,7 +57,8 @@ _MATH_REQUEST = re.compile(
     re.IGNORECASE,
 )
 _PRONOUN_REQUEST = re.compile(
-    r"\bwhat\s+(?:is|are|was|were)\s+(?:it|that|this|they|those|these)\b",
+    r"\b(?:what\s+(?:is|are|was|were)\s+(?:it|that|this|they|those|these)"
+    r"|(?:find|determine)\s+(?:it|that|this|them|those|these))\b",
     re.IGNORECASE,
 )
 _PRONOUN_MATH_CONTEXT = re.compile(
