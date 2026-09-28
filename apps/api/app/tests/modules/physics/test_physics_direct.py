@@ -10,7 +10,6 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.physics.block import _format_visible_answer
-from app.modules.physics.direct import _expected_intent
 from app.modules.physics.fence import replace_unclosed_physics_fences_safe
 from app.modules.physics.prompt import build_physics_augmentation as build_math_augmentation
 from app.services.chat.stream_pipeline import stream_and_finalize
@@ -381,7 +380,8 @@ def test_teaching_suffix_uses_the_same_verified_physics_working(suffix: str) -> 
     ],
 )
 def test_extra_conditions_or_unsupported_literal_physics_decline(query: str) -> None:
-    assert _expected_intent(query) is None
+    verified = _verified(_DROP.format("velocity"))
+    assert maybe_direct_physics_reply(verified, query) is None
 
 
 @pytest.mark.parametrize(
@@ -397,7 +397,6 @@ def test_extra_conditions_or_unsupported_literal_physics_decline(query: str) -> 
     ],
 )
 def test_average_speed_requires_one_complete_distance_and_duration(query: str) -> None:
-    assert _expected_intent(query) is None
     assert maybe_direct_physics_reply(_verified(_CASES[-1][0]), query) is None
 
 

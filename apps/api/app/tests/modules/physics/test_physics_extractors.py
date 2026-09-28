@@ -95,7 +95,7 @@ def test_kinematics_vertical_launch_asks_for_maximum_height(text: str) -> None:
 
     assert intent is not None
     assert intent.kind == "kinematics"
-    assert intent.physics_op == "max_height"
+    assert intent.physics_op == "vertical_max_height"
     assert intent.physics_params is not None
     assert intent.physics_params["v0"] == 20.0
     assert intent.physics_params["g"] == 9.81

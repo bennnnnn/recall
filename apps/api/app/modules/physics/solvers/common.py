@@ -14,16 +14,93 @@ from app.models.schemas.physics import (
 from app.services.solving import SolveServiceError
 
 
+@dataclass(frozen=True, slots=True)
+class QuantityResult:
+    """One measured result. Notes such as gauge pressure live in ``detail``."""
+
+    symbol: str
+    value: float
+    unit: str = ""
+    detail: str | None = None
+    number_format: str = ".2f"
+    # "paren" -> "12 Pa (gauge)"; "suffix" -> "4 A leaving"; "at" -> "5 N at 30°".
+    detail_style: str = "paren"
+
+
+def render_quantity(item: QuantityResult) -> str:
+    shown = format(item.value, item.number_format)
+    if item.detail is None:
+        return f"{shown} {item.unit}".strip() if item.unit else shown
+    if item.detail_style == "suffix":
+        base = f"{shown} {item.unit}".strip()
+        return f"{base} {item.detail}".strip()
+    if item.detail_style == "at":
+        return f"{shown} {item.unit} at {item.detail}"
+    base = f"{shown} {item.unit}".strip() if item.unit else shown
+    return f"{base} ({item.detail})"
+
+
+def render_chip(items: tuple[QuantityResult, ...], joiner: str = " and ") -> str:
+    if not items:
+        raise ValueError("a physics result needs a quantity")
+    if joiner == "paren-second":
+        head = render_quantity(items[0])
+        rest = ", ".join(render_quantity(item) for item in items[1:])
+        return f"{head} ({rest})"
+    if joiner == "projectile":
+        return r";\quad ".join(
+            rf"{item.symbol} = {format(item.value, item.number_format)}\,\mathrm{{{item.unit}}}"
+            for item in items
+        )
+    if len(items) == 1:
+        return render_quantity(items[0])
+    return joiner.join(render_quantity(item) for item in items)
+
+
 @dataclass(frozen=True)
 class PhysicsResult:
-    """Result of a physics solve: a LaTeX answer + optional graph/scene specs."""
+    """Solver output. The chip is rendered from ``quantities``, never parsed back."""
 
-    answer: str  # LaTeX, e.g. r"t = \sqrt{2 \cdot 20 / 9.81} \approx 2.02 \text{ s}"
-    answer_value: str  # human-readable with units, e.g. "2.02 s"
+    answer: str
+    answer_value: str = ""
+    quantities: tuple[QuantityResult, ...] = ()
+    formulas: tuple[str, ...] = ()
+    substitutions: tuple[str, ...] = ()
+    joiner: str = " and "
     graph_specs: list[GraphBlockSpec] = field(default_factory=list)
     # A scene of moving bodies, where the graph is a plot of one. A solve may
     # emit both: the projectile's parabola *and* the ball flying along it.
     simulation_specs: list[SimulationBlockSpec] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if self.quantities:
+            object.__setattr__(self, "answer_value", render_chip(self.quantities, self.joiner))
+
+
+def solved(
+    *quantities: QuantityResult,
+    answer: str,
+    formula: str = "",
+    substitution: str = "",
+    formulas: tuple[str, ...] = (),
+    substitutions: tuple[str, ...] = (),
+    joiner: str = " and ",
+    graph_specs: list[GraphBlockSpec] | None = None,
+    simulation_specs: list[SimulationBlockSpec] | None = None,
+) -> PhysicsResult:
+    """Build the chip and keep the formula and the substitution unparsed."""
+    formula_rows = formulas or ((formula,) if formula else ())
+    substitution_rows = substitutions or ((substitution,) if substitution else ())
+    return PhysicsResult(
+        answer=answer,
+        answer_value=render_chip(quantities, joiner),
+        quantities=quantities,
+        formulas=formula_rows,
+        substitutions=substitution_rows,
+        joiner=joiner,
+        graph_specs=list(graph_specs or []),
+        simulation_specs=list(simulation_specs or []),
+    )
 
 
 def _latex_num(value: float, *, square: bool = False) -> str:
@@ -47,168 +124,26 @@ def _latex_scientific(value: float) -> str:
     return rf"{coefficient:.7g} \times 10^{{{exponent}}}"
 
 
-_PARAM_SI_DIMENSIONS: dict[str, str] = {
-    "h0": "meter",
-    "h": "meter",
-    "d": "meter",
-    "v0": "meter / second",
-    "v": "meter / second",
-    "m": "kilogram",
-    "F": "newton",
-    "t": "second",
-    "a": "meter / second ** 2",
-    "g": "meter / second ** 2",
-    "W": "joule",
-    "E_out": "joule",
-    "E_in": "joule",
-    # Momentum / impulse / 1D collisions.
-    "m1": "kilogram",
-    "m2": "kilogram",
-    "x1": "meter",
-    "x2": "meter",
-    "v1": "meter / second",
-    "v2": "meter / second",
-    "dt": "second",
-    "r": "meter",
-    "k": "newton / meter",
-    "x": "meter",
-    "V": "volt",
-    "I": "ampere",
-    "R": "ohm",
-    "R1": "ohm",
-    "R2": "ohm",
-    "R3": "ohm",
-    "R4": "ohm",
-    # Round 3 circuits. Single letters are taken (V is volt, I is ampere, R is
-    # ohm), so anything new here is spelled out.
-    "Q": "coulomb",
-    "capacitance": "farad",
-    "q1": "coulomb",
-    "q2": "coulomb",
-    "power": "watt",
-    "E_emf": "volt",
-    "r_int": "ohm",
-    # Round 3 SHM. "period" and "omega" spelled out: T is tesla to Pint and a
-    # temperature to thermodynamics, and a bare w is not a unit at all.
-    "period": "second",
-    "omega": "radian / second",
-    # Round 3 waves. Every key here is spelled out: Pint reads a bare "t" as a
-    # tonne, "c" as the speed of light and "pa" as a *petayear*, so a param
-    # without an entry in this table is not merely unvalidated - it can convert
-    # into the wrong dimension entirely and answer confidently.
-    "freq": "hertz",
-    "freq2": "hertz",
-    "wavelength": "meter",
-    "v_wave": "meter / second",
-    "v_src": "meter / second",
-    "v_obs": "meter / second",
-    "v_sound": "meter / second",
-    "tension": "newton",
-    "linear_density": "kilogram / meter",
-    "sound_power": "watt",
-    "harmonic": "dimensionless",
-    "mode_factor": "dimensionless",
-    # Round 3 optics. `u` is SUVAT's initial velocity and `f` is not a param,
-    # so the conventional letters are spelled out here too.
-    "focal": "meter",
-    "d_obj": "meter",
-    "d_img": "meter",
-    "h_obj": "meter",
-    "h_img": "meter",
-    # Round 3 thermal. "temp" is absolute and "delta_temp" is an interval -
-    # the same number in kelvin and celsius, which "temp" is not.
-    "temp": "kelvin",
-    "delta_temp": "kelvin",
-    "c_heat": "joule / kilogram / kelvin",
-    "alpha": "1 / kelvin",
-    "latent_heat": "joule / kilogram",
-    "heat": "joule",
-    "W_out": "joule",
-    "Q_in": "joule",
-    "pres": "pascal",
-    "pres1": "pascal",
-    "pres2": "pascal",
-    "volume": "meter ** 3",
-    "vol1": "meter ** 3",
-    "vol2": "meter ** 3",
-    "moles": "mole",
-    # Round 3 gravitation. "M" beside "m" is case-only, but it is how the
-    # formula is written and the pair always appears together.
-    "M": "kilogram",
-    "radius_body": "meter",
-    "altitude": "meter",
-    # Round 3 fluids.
-    "rho": "kilogram / meter ** 3",
-    "depth": "meter",
-    "area": "meter ** 2",
-    "A1": "meter ** 2",
-    "A2": "meter ** 2",
-    # Round 3 rotation. "I" is already the ampere.
-    "inertia": "kilogram * meter ** 2",
-    "theta": "radian",
-    # Round 3 magnetism. "B" is free; "T" is not, being the tesla to Pint and a
-    # temperature to thermodynamics.
-    "b_field": "tesla",
-    "wire_L": "meter",
-    "flux": "weber",
-    "viscosity": "pascal * second",
-    "surface_tension": "newton / meter",
-    "delta_pressure": "pascal",
-    "intensity": "watt / meter ** 2",
-    "intensity0": "watt / meter ** 2",
-    "proper_time": "second",
-    "proper_length": "meter",
-    "work_function": "joule",
-    "uncertainty_x": "meter",
-    "quantum_n": "dimensionless",
-    "emissivity": "dimensionless",
-    "temp_env": "kelvin",
-    "thermal_conductivity": "watt / meter / kelvin",
-    # Round 3 materials.
-    "sigma": "pascal",
-    "E_mod": "pascal",
-    "L0": "meter",
-    "dL": "meter",
-    "half_life": "second",
-    "elapsed": "second",
-    "F1": "newton",
-    "F2": "newton",
-    "d1": "meter",
-    "d2": "meter",
-    "tau": "newton * meter",
-    "omega0": "radian / second",
-    "ang_alpha": "radian / second ** 2",
-    "theta0": "radian",
-    "inertia_i": "kilogram * meter ** 2",
-    "inertia_f": "kilogram * meter ** 2",
-    "inertia_cm": "kilogram * meter ** 2",
-    "omega_i": "radian / second",
-    "omega_f": "radian / second",
-    "L_i": "kilogram * meter ** 2 / second",
-    "L_f": "kilogram * meter ** 2 / second",
-    "h1": "meter",
-    "h2": "meter",
-    # SUVAT initial velocity. "v" and "a" and "t" and "d" are already above.
-    "u": "meter / second",
-    # Pendulum length.
-    "L": "meter",
-    "i_enter": "ampere",
-    "i_leave": "ampere",
-    "inductance": "henry",
-    "delta_i": "ampere",
-    "I0": "ampere",
-    "turns": "dimensionless",
-    "delta_flux": "weber",
-    "b1": "tesla",
-    "b2": "tesla",
-    "lambda_line": "coulomb / meter",
-    "sigma_charge": "coulomb / meter ** 2",
-    "gamma_gas": "dimensionless",
-    "reactance_l": "ohm",
-    "reactance_c": "ohm",
-    # "mu" and "angle" are intentionally absent: mu is dimensionless and angle
-    # is converted by _params_in_si before any unit check runs.
-}
+def _dimensions_from_catalog() -> dict[str, str]:
+    """SI dimension of every declared variable. The catalog is the only list."""
+    from app.modules.physics.catalog import CATALOG
+
+    dims: dict[str, str] = {}
+    for spec in CATALOG.values():
+        for variable in spec.variables:
+            dimension = "dimensionless" if variable.dimensionless else variable.dimension
+            if not dimension:
+                raise RuntimeError(f"{spec.id}.{variable.name} has no dimension")
+            previous = dims.get(variable.name)
+            if previous is not None and previous != dimension:
+                raise RuntimeError(
+                    f"{variable.name} is {previous!r} and {dimension!r} on {spec.id}"
+                )
+            dims[variable.name] = dimension
+    return dims
+
+
+_PARAM_SI_DIMENSIONS: dict[str, str] = _dimensions_from_catalog()
 
 _UNIT_ALIASES = {
     "m/s2": "m/s**2",
@@ -339,20 +274,28 @@ _RESISTOR_KEY_RE = re.compile(r"R[1-9]")
 # than multiplied, and a *difference* in them is not the same as a value.
 _OFFSET_UNITS = frozenset({"degC", "degF", "celsius", "fahrenheit"})
 
-# CODATA, read from the unit registry rather than typed: a transposed digit in
-# a hand-written constant is a wrong answer nothing else would catch.
-_GAS_CONSTANT = 8.314462618153241
-_BIG_G = 6.67430e-11
-_PLANCK_H = 6.62607015e-34
-_SPEED_OF_LIGHT = 299792458.0
-_ELEMENTARY_CHARGE = 1.602176634e-19
-_COULOMB_K = 8.9875517923e9
-_EPSILON_0 = 8.8541878128e-12
-_MU_0 = 1.25663706212e-6
-_HBAR = 1.054571817e-34
-_ELECTRON_MASS = 9.1093837015e-31
-_STEFAN_BOLTZMANN = 5.670374419e-8
-_WIEN_B = 2.897771955e-3
+
+def _registry_constant(name: str) -> float:
+    """One CODATA magnitude from the shared unit registry, in SI base units."""
+    from app.services.units import get_unit_registry
+
+    quantity = get_unit_registry().Quantity(1, name)
+    return float(quantity.to_base_units().magnitude)
+
+
+# Loaded once. A test pins each magnitude so a Pint upgrade cannot move an answer.
+_GAS_CONSTANT = _registry_constant("molar_gas_constant")
+_BIG_G = _registry_constant("gravitational_constant")
+_PLANCK_H = _registry_constant("planck_constant")
+_SPEED_OF_LIGHT = _registry_constant("speed_of_light")
+_ELEMENTARY_CHARGE = _registry_constant("elementary_charge")
+_EPSILON_0 = _registry_constant("vacuum_permittivity")
+_MU_0 = _registry_constant("vacuum_permeability")
+_HBAR = _registry_constant("hbar")
+_ELECTRON_MASS = _registry_constant("electron_mass")
+_STEFAN_BOLTZMANN = _registry_constant("stefan_boltzmann_constant")
+_WIEN_B = _registry_constant("wien_wavelength_displacement_law_constant")
+_COULOMB_K = 1.0 / (4.0 * math.pi * _EPSILON_0)
 
 
 def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:

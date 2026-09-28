@@ -116,7 +116,7 @@ def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
     if turned is not None and elapsed is not None:
         return PhysicsIntent(
             kind="rotation",
-            physics_op="angular_velocity",
+            physics_op="angular_displacement_rate",
             physics_params={"theta": float(turned.group(1)), "t": elapsed[0]},
             physics_units={"theta": "rad", "t": elapsed[1] or "s"},
             operation="solve",

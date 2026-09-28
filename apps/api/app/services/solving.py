@@ -116,6 +116,8 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
     subject: Literal["physics"] = "physics"
     physics_intent: PhysicsIntent | None = None
     physics_working: str | None = None
+    physics_formulas: tuple[str, ...] = ()
+    physics_substitutions: tuple[str, ...] = ()
 
 
 # Compatibility for solver modules and downstream integrations while callers

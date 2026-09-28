@@ -61,7 +61,7 @@ def test_kinematics_time_to_ground_derivation_includes_initial_velocity() -> Non
 def test_kinematics_vertical_launch_maximum_height() -> None:
     intent = PhysicsIntent(
         kind="kinematics",
-        physics_op="max_height",
+        physics_op="vertical_max_height",
         physics_params={"h0": 0.0, "v0": 20.0, "g": 9.81},
         physics_units={"h0": "m", "v0": "m/s", "g": "m/s^2"},
         operation="solve",
@@ -393,7 +393,7 @@ def test_physics_block_logs_expected_solver_rejection(
 def test_physics_block_requires_multiline_worked_layout() -> None:
     intent = PhysicsIntent(
         kind="force",
-        physics_op="acceleration",
+        physics_op="net_force",
         physics_params={"F": 20.0, "m": 5.0},
         physics_units={"F": "N", "m": "kg"},
         operation="solve",

@@ -2,30 +2,150 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula
+from app.modules.physics.catalog.spec import FormulaSpec, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
-    formula("voltage", "circuit", "Ohm's law", "V", base_latex="V = IR"),
-    formula("current", "circuit", "Ohm's law", "I", base_latex="V = IR"),
-    formula("resistance", "circuit", "Ohm's law", "R", base_latex="V = IR"),
-    formula("electrical_power", "circuit", "Electrical-power formula", "P", base_latex="P = VI"),
-    formula("series_resistance", "circuit", "Series-resistance law", "R_s"),
-    formula("parallel_resistance", "circuit", "Parallel-resistance law", "R_p"),
-    formula("charge", "circuit", "Charge-current relation", "Q"),
-    formula("electrical_energy", "circuit", "Electrical-energy formula", "E"),
-    formula("capacitance", "circuit", "Capacitance formula", "C"),
+    formula(
+        "voltage",
+        "circuit",
+        "Ohm's law",
+        "V",
+        base_latex="V = IR",
+        variables=(
+            var("I", "I", "ampere"),
+            var("R", "R", "ohm"),
+        ),
+    ),
+    formula(
+        "current",
+        "circuit",
+        "Ohm's law",
+        "I",
+        base_latex="V = IR",
+        variables=(
+            var("R", "R", "ohm"),
+            var("V", "V", "volt"),
+        ),
+    ),
+    formula(
+        "resistance",
+        "circuit",
+        "Ohm's law",
+        "R",
+        base_latex="V = IR",
+        variables=(
+            var("I", "I", "ampere"),
+            var("V", "V", "volt"),
+        ),
+    ),
+    formula(
+        "electrical_power",
+        "circuit",
+        "Electrical-power formula",
+        "P",
+        base_latex="P = VI",
+        variables=(
+            var("I", "I", "ampere"),
+            var("R", "R", "ohm"),
+            var("V", "V", "volt"),
+        ),
+    ),
+    formula(
+        "series_resistance",
+        "circuit",
+        "Series-resistance law",
+        "R_s",
+        variables=(
+            var("R1", "R_1", "ohm"),
+            var("R2", "R_2", "ohm"),
+            var("R3", "R_3", "ohm"),
+        ),
+    ),
+    formula(
+        "parallel_resistance",
+        "circuit",
+        "Parallel-resistance law",
+        "R_p",
+        variables=(
+            var("R1", "R_1", "ohm"),
+            var("R2", "R_2", "ohm"),
+            var("R3", "R_3", "ohm"),
+        ),
+    ),
+    formula(
+        "charge",
+        "circuit",
+        "Charge-current relation",
+        "Q",
+        variables=(
+            var("I", "I", "ampere"),
+            var("t", "t", "second"),
+        ),
+    ),
+    formula(
+        "electrical_energy",
+        "circuit",
+        "Electrical-energy formula",
+        "E",
+        variables=(
+            var("power", "power", "watt"),
+            var("t", "t", "second"),
+        ),
+    ),
+    formula(
+        "capacitance",
+        "circuit",
+        "Capacitance formula",
+        "C",
+        variables=(
+            var("Q", "Q", "coulomb"),
+            var("V", "V", "volt"),
+        ),
+    ),
     formula(
         "parallel_plate_capacitance",
         "circuit",
         "Parallel-plate capacitance",
         "C",
         base_latex="C = \\frac{\\epsilon_0A}{d}",
+        variables=(
+            var("area", "area", "meter ** 2"),
+            var("d", "d", "meter"),
+        ),
     ),
     formula(
-        "capacitor_energy", "circuit", "Capacitor energy", "U", base_latex="U = \\frac{1}{2}CV^2"
+        "capacitor_energy",
+        "circuit",
+        "Capacitor energy",
+        "U",
+        base_latex="U = \\frac{1}{2}CV^2",
+        variables=(
+            var("V", "V", "volt"),
+            var("capacitance", "C", "farad"),
+        ),
     ),
-    formula("rc_time_constant", "circuit", "RC time constant", "\\tau", base_latex="\\tau = RC"),
-    formula("terminal_voltage", "circuit", "Terminal-voltage equation", "V_{terminal}"),
+    formula(
+        "rc_time_constant",
+        "circuit",
+        "RC time constant",
+        "\\tau",
+        base_latex="\\tau = RC",
+        variables=(
+            var("R", "R", "ohm"),
+            var("capacitance", "C", "farad"),
+        ),
+    ),
+    formula(
+        "terminal_voltage",
+        "circuit",
+        "Terminal-voltage equation",
+        "V_{terminal}",
+        variables=(
+            var("E_emf", "E_emf", "volt"),
+            var("I", "I", "ampere"),
+            var("r_int", "r_int", "ohm"),
+        ),
+    ),
     formula(
         "kirchhoff_junction",
         "circuit",
@@ -33,6 +153,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "I",
         base_latex=r"\sum I_{\mathrm{in}} = \sum I_{\mathrm{out}}",
         assumptions=("one junction and steady current",),
+        variables=(
+            var("i_enter", "i_enter", "ampere"),
+            var("i_leave", "i_leave", "ampere"),
+        ),
     ),
     formula(
         "kirchhoff_loop",
@@ -41,6 +165,11 @@ SPECS: tuple[FormulaSpec, ...] = (
         "I",
         base_latex=r"\sum \Delta V = 0",
         assumptions=("one battery and one series loop",),
+        variables=(
+            var("R1", "R_1", "ohm"),
+            var("R2", "R_2", "ohm"),
+            var("V", "V", "volt"),
+        ),
     ),
     formula(
         "inductor_emf",
@@ -49,6 +178,11 @@ SPECS: tuple[FormulaSpec, ...] = (
         r"|\mathcal{E}|",
         base_latex=r"|\mathcal{E}| = L\frac{|\Delta I|}{\Delta t}",
         assumptions=("magnitude; the minus sign is direction",),
+        variables=(
+            var("delta_i", "delta_i", "ampere"),
+            var("dt", "dt", "second"),
+            var("inductance", "inductance", "henry"),
+        ),
     ),
     formula(
         "inductor_energy",
@@ -56,6 +190,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Inductor energy",
         "U",
         base_latex=r"U = \frac{1}{2}LI^2",
+        variables=(
+            var("I", "I", "ampere"),
+            var("inductance", "inductance", "henry"),
+        ),
     ),
     formula(
         "rl_time_constant",
@@ -63,6 +201,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "RL time constant",
         r"\tau",
         base_latex=r"\tau = \frac{L}{R}",
+        variables=(
+            var("R", "R", "ohm"),
+            var("inductance", "inductance", "henry"),
+        ),
     ),
     formula(
         "rl_growth",
@@ -71,6 +213,12 @@ SPECS: tuple[FormulaSpec, ...] = (
         "I",
         base_latex=r"I = \frac{V}{R}(1-e^{-tR/L})",
         assumptions=("current is zero before the switch closes",),
+        variables=(
+            var("R", "R", "ohm"),
+            var("V", "V", "volt"),
+            var("inductance", "inductance", "henry"),
+            var("t", "t", "second"),
+        ),
     ),
     formula(
         "rl_decay",
@@ -79,6 +227,12 @@ SPECS: tuple[FormulaSpec, ...] = (
         "I",
         base_latex=r"I = I_0 e^{-Rt/L}",
         assumptions=("the source is removed at t = 0",),
+        variables=(
+            var("I0", "I_0", "ampere"),
+            var("R", "R", "ohm"),
+            var("inductance", "inductance", "henry"),
+            var("t", "t", "second"),
+        ),
     ),
     formula(
         "rms_voltage",
@@ -87,6 +241,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "V_{rms}",
         base_latex=r"V_{\mathrm{rms}} = \frac{V_0}{\sqrt{2}}",
         assumptions=("sinusoidal voltage",),
+        variables=(var("V", "V", "volt"),),
     ),
     formula(
         "rms_current",
@@ -95,6 +250,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "I_{rms}",
         base_latex=r"I_{\mathrm{rms}} = \frac{I_0}{\sqrt{2}}",
         assumptions=("sinusoidal current",),
+        variables=(var("I", "I", "ampere"),),
     ),
     formula(
         "inductive_reactance",
@@ -102,6 +258,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Inductive reactance",
         "X_L",
         base_latex=r"X_L = 2\pi f L",
+        variables=(
+            var("freq", "f", "hertz"),
+            var("inductance", "inductance", "henry"),
+        ),
     ),
     formula(
         "capacitive_reactance",
@@ -109,6 +269,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Capacitive reactance",
         "X_C",
         base_latex=r"X_C = \frac{1}{2\pi f C}",
+        variables=(
+            var("capacitance", "C", "farad"),
+            var("freq", "f", "hertz"),
+        ),
     ),
     formula(
         "series_impedance",
@@ -117,6 +281,11 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Z",
         base_latex=r"Z = \sqrt{R^2+(X_L-X_C)^2}",
         assumptions=("series RLC",),
+        variables=(
+            var("R", "R", "ohm"),
+            var("reactance_c", "X_C", "ohm"),
+            var("reactance_l", "X_L", "ohm"),
+        ),
     ),
     formula(
         "lc_resonance",
@@ -124,6 +293,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         "LC resonance",
         "f",
         base_latex=r"f = \frac{1}{2\pi\sqrt{LC}}",
+        variables=(
+            var("capacitance", "C", "farad"),
+            var("inductance", "inductance", "henry"),
+        ),
     ),
     formula(
         "ac_average_power",
@@ -132,5 +305,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         "P",
         base_latex="P = I^2 R",
         assumptions=("average power in the resistor",),
+        variables=(
+            var("I", "I", "ampere"),
+            var("R", "R", "ohm"),
+        ),
     ),
 )

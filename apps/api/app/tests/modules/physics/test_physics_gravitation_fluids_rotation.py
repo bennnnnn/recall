@@ -140,7 +140,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
     (
         "what is the angular velocity of a wheel turning 10 radians in 2 s",
         "rotation",
-        "angular_velocity",
+        "angular_displacement_rate",
         "5 rad/s",
     ),
     (

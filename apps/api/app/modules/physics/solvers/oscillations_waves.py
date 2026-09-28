@@ -10,6 +10,7 @@ from app.models.schemas.physics import (
 )
 from app.modules.physics.solvers.common import (
     PhysicsResult,
+    QuantityResult,
     _latex_num,
     _params_in_si,
 )
@@ -66,7 +67,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         )
         return PhysicsResult(
             answer=answer,
-            answer_value=f"{t_period:.2f} s",
+            quantities=(QuantityResult("", t_period, "s", number_format=".2f"),),
             graph_specs=[_oscillation_curve(t_period, p.get("x"))],
         )
 
@@ -82,7 +83,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
                 rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
                 rf"\approx {freq:.2f} \text{{ Hz}}"
             ),
-            answer_value=f"{freq:.2f} Hz",
+            quantities=(QuantityResult("", freq, "Hz", number_format=".2f"),),
             graph_specs=[_oscillation_curve(t_period, p.get("x"))],
         )
 
@@ -97,7 +98,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
                 rf"v_{{max}} = A\omega = {amplitude:g} \cdot {omega:g} "
                 rf"\approx {v_max:.2f} \text{{ m/s}}"
             ),
-            answer_value=f"{v_max:.2f} m/s",
+            quantities=(QuantityResult("", v_max, "m/s", number_format=".2f"),),
             graph_specs=[_oscillation_curve(2 * math.pi / omega, amplitude)],
         )
 
@@ -110,7 +111,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         f_val = k * abs(x)
         return PhysicsResult(
             answer=(rf"F = kx = {k:g} \cdot {abs(x):g} \approx {f_val:.2f} \text{{ N}}"),
-            answer_value=f"{f_val:.2f} N",
+            quantities=(QuantityResult("", f_val, "N", number_format=".2f"),),
         )
 
     if op == "spring_energy":
@@ -121,7 +122,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
                 rf"U = \tfrac{{1}}{{2}} k x^2 = 0.5 \cdot {k:g} \cdot "
                 rf"{_latex_num(x, square=True)} \approx {u_val:.2f} \text{{ J}}"
             ),
-            answer_value=f"{u_val:.2f} J",
+            quantities=(QuantityResult("", u_val, "J", number_format=".2f"),),
         )
 
     if op == "shm_period":
@@ -135,7 +136,11 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         )
 
         spec = _oscillation_curve(t_period, p.get("x"))
-        return PhysicsResult(answer=answer, answer_value=f"{t_period:.2f} s", graph_specs=[spec])
+        return PhysicsResult(
+            answer=answer,
+            quantities=(QuantityResult("", t_period, "s", number_format=".2f"),),
+            graph_specs=[spec],
+        )
 
     raise SolveServiceError(f"unsupported spring op: {op}")
 
@@ -163,7 +168,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\sqrt{{\frac{{{tension:g}}}{{{density:g}}}}} "
                 rf"\approx {value:.4g} \text{{ m/s}}"
             ),
-            answer_value=f"{value:.4g} m/s",
+            quantities=(QuantityResult("", value, "m/s", number_format=".4g"),),
         )
 
     if op == "resonance_frequency":
@@ -185,7 +190,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{harmonic:g} \cdot {speed:g}}}"
                 rf"{{{mode_factor:g} \cdot {length:g}}} \approx {value:.4g} \text{{ Hz}}"
             ),
-            answer_value=f"{value:.4g} Hz",
+            quantities=(QuantityResult("", value, "Hz", number_format=".4g"),),
         )
 
     if op == "sound_intensity":
@@ -200,7 +205,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{power:g}}}{{4\pi \cdot {radius:g}^2}} "
                 rf"\approx {value:.4g} \text{{ W/m}}^2"
             ),
-            answer_value=f"{value:.4g} W/m^2",
+            quantities=(QuantityResult("", value, "W/m^2", number_format=".4g"),),
         )
 
     if op == "beat_frequency":
@@ -213,7 +218,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"f_b = \lvert f_1 - f_2 \rvert = "
                 rf"\lvert {first:g} - {second:g} \rvert \approx {value:.4g} \text{{ Hz}}"
             ),
-            answer_value=f"{value:.4g} Hz",
+            quantities=(QuantityResult("", value, "Hz", number_format=".4g"),),
         )
 
     if op == "wave_frequency_from_period":
@@ -226,7 +231,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
                 rf"\approx {freq:.2f} \text{{ Hz}}"
             ),
-            answer_value=f"{freq:.2f} Hz",
+            quantities=(QuantityResult("", freq, "Hz", number_format=".2f"),),
         )
 
     if op == "wave_period":
@@ -239,7 +244,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"T = \frac{{1}}{{f}} = \frac{{1}}{{{freq:g}}} "
                 rf"\approx {t_period:.4g} \text{{ s}}"
             ),
-            answer_value=f"{t_period:.4g} s",
+            quantities=(QuantityResult("", t_period, "s", number_format=".4g"),),
         )
 
     if op == "doppler_frequency":
@@ -258,7 +263,15 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                     rf"\frac{{{sound:g}}}{{{sound:g} - ({source:g})}} "
                     rf"\approx {observed:.2f} \text{{ Hz}}"
                 ),
-                answer_value=f"{observed:.2f} Hz ({motion}, sound at {sound:g} m/s)",
+                quantities=(
+                    QuantityResult(
+                        "",
+                        observed,
+                        "Hz",
+                        detail=f"{motion}, sound at {sound:g} m/s",
+                        number_format=".2f",
+                    ),
+                ),
             )
         motion = "approaching" if observed > freq else "receding"
         return PhysicsResult(
@@ -267,7 +280,15 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{sound:g} + ({observer:g})}}{{{sound:g} - ({source:g})}} "
                 rf"\approx {observed:.2f} \text{{ Hz}}"
             ),
-            answer_value=f"{observed:.2f} Hz ({motion}, sound at {sound:g} m/s)",
+            quantities=(
+                QuantityResult(
+                    "",
+                    observed,
+                    "Hz",
+                    detail=f"{motion}, sound at {sound:g} m/s",
+                    number_format=".2f",
+                ),
+            ),
         )
 
     if op == "wave_speed":
@@ -281,7 +302,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"v = f\lambda = {p['freq']:g} \cdot {p['wavelength']:g} "
                 rf"\approx {value:.2f} \text{{ m/s}}"
             ),
-            answer_value=f"{value:.2f} m/s",
+            quantities=(QuantityResult("", value, "m/s", number_format=".2f"),),
         )
 
     if op == "wavelength":
@@ -293,7 +314,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\lambda = \frac{{v}}{{f}} = \frac{{{p['v_wave']:g}}}{{{p['freq']:g}}} "
                 rf"\approx {value:.2f} \text{{ m}}"
             ),
-            answer_value=f"{value:.2f} m",
+            quantities=(QuantityResult("", value, "m", number_format=".2f"),),
         )
 
     if op == "wave_frequency":
@@ -306,7 +327,7 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{p['v_wave']:g}}}{{{p['wavelength']:g}}} "
                 rf"\approx {value:.2f} \text{{ Hz}}"
             ),
-            answer_value=f"{value:.2f} Hz",
+            quantities=(QuantityResult("", value, "Hz", number_format=".2f"),),
         )
 
     raise SolveServiceError(f"unsupported waves op: {op}")

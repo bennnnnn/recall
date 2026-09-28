@@ -63,6 +63,7 @@ class PhysicsIntent(BaseModel):
             "rate_distance",
             "rate_time",
             "time_to_ground",
+            "vertical_max_height",
             "range",
             "max_height",
             # A projectile question that is not about distance. Before these
@@ -100,8 +101,7 @@ class PhysicsIntent(BaseModel):
             "centripetal_force",
             "centripetal_acceleration",
             "orbital_period",
-            # Round 3. Shared with the rotation kind: the same quantity in the
-            # same units, reached from a different given (v/r here).
+            # Circular motion: ω = v/r, or a spin rate in revolutions per minute.
             "angular_velocity",
             "spring_force",
             "spring_energy",
@@ -215,8 +215,8 @@ class PhysicsIntent(BaseModel):
             "reynolds_number",
             "surface_tension",
             "laplace_pressure",
-            # Round 3 rotation. "angular_velocity" is shared with the circular
-            # kind - the same quantity, reached from a different given.
+            # Rotation: ω = θ/t. A different measurement from circular v/r.
+            "angular_displacement_rate",
             "moment_of_inertia",
             "angular_momentum",
             "rotational_kinetic_energy",
@@ -293,4 +293,20 @@ class PhysicsIntent(BaseModel):
                 raise ValueError("multipart quantities must belong to the same projectile")
             if len(ops) < 2 or len(set(ops)) != len(ops):
                 raise ValueError("multipart quantities must contain two to four distinct requests")
+        self._catalog_owns_operation()
         return self
+
+    def _catalog_owns_operation(self) -> None:
+        """Reject a kind/op pair the formula catalog does not contain.
+
+        The catalog is the only declaration of an operation. Importing it here
+        keeps the schema from becoming a second handwritten op list, and the
+        catalog does not import this module.
+        """
+        if self.physics_op is None:
+            return
+        from app.modules.physics.catalog import CATALOG
+
+        spec = CATALOG.get(self.physics_op)
+        if spec is None or spec.kind != self.kind:
+            raise ValueError(f"{self.kind} does not define {self.physics_op}")

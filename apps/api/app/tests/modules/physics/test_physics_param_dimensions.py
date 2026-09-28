@@ -1,97 +1,90 @@
-"""Every physics param must declare its dimension.
+"""Every physics variable declares the dimension the unit check uses.
 
-`_PARAM_SI_DIMENSIONS` reads like documentation and is not: it is the only
-thing standing between a user's unit spelling and Pint's interpretation of it,
-and Pint's lowercase spellings are actively hostile. Measured:
-
-    "pa"  -> petayear      [time]
-    "t"   -> tonne         [mass]
-    "c"   -> speed of light
-    "k"   -> Boltzmann constant
-
-Every extractor regex in this package is IGNORECASE, so those spellings do
-arrive. With a dimension entry, "100 pa" for a pressure is refused. Without
-one, it converts to 0.0032 *seconds* and the solve proceeds to a confident
-wrong answer.
-
-So this walks every phrasing the physics suites claim to verify, collects the
-param keys those intents actually carry, and requires each to be declared.
-Adding a kind without touching the table fails here rather than in production.
+The catalog is that list. A param that reaches a solver without a declaration
+can be converted by Pint into the wrong dimension: lowercase ``pa`` is a
+petayear, ``t`` is a tonne, and ``c`` is the speed of light.
 """
 
 from __future__ import annotations
 
+import ast
+from pathlib import Path
+
 import pytest
 
 from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.catalog import CATALOG
 from app.modules.physics.solver import _PARAM_SI_DIMENSIONS
+from app.services.units import get_unit_registry
 from app.tests.modules.physics.support import extract_physics_intent
 
-# Genuinely dimensionless, or converted before `_to_si` ever sees them.
-# `angle`/`angle2` are turned from degrees into radians by `_params_in_si`.
-_DIMENSIONLESS = frozenset(
-    {
-        "mu",
-        "angle",
-        "angle2",
-        "elastic",
-        "n1",
-        "n2",
-    }
-)
+_TESTS = Path(__file__).resolve().parent
 
 
-def _verified_questions() -> list[str]:
-    """Every question the physics suites pin an answer for."""
-    from app.tests.modules.physics import (
-        test_physics_circuits,
-        test_physics_projectile,
-        test_physics_round3_gaps,
-        test_physics_waves_optics_thermal,
-    )
-
+def _pinned_questions() -> list[str]:
+    """Every string the physics suites pin, including the school-extension rows."""
     questions: list[str] = []
-    for module in (
-        test_physics_projectile,
-        test_physics_round3_gaps,
-        test_physics_waves_optics_thermal,
-        test_physics_circuits,
-    ):
-        for name in ("VERIFIED", "NEW_OPS", "NETWORKS", "UNIT_ONLY"):
-            for row in getattr(module, name, []):
-                questions.append(row[0])
+    for path in sorted(_TESTS.glob("test_physics_*.py")):
+        if path.name == Path(__file__).name:
+            continue
+        tree = ast.parse(path.read_text())
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and isinstance(node.value, str):
+                questions.append(node.value)
     return questions
 
 
-def test_the_corpus_is_not_empty() -> None:
-    """A silent import failure would make every assertion below vacuous."""
-    assert len(_verified_questions()) > 80
+def _solved_questions() -> list[str]:
+    solved: list[str] = []
+    for text in _pinned_questions():
+        intent = extract_physics_intent(text)
+        if isinstance(intent, PhysicsIntent) and intent.physics_op:
+            solved.append(text)
+    return solved
 
 
-@pytest.mark.parametrize("text", _verified_questions(), ids=lambda t: t[:44])
-def test_every_emitted_param_declares_a_dimension(text: str) -> None:
-    intent = extract_physics_intent(text)
-    assert isinstance(intent, PhysicsIntent), f"no intent for {text!r}"
-    undeclared = [
-        key
-        for key in (intent.physics_params or {})
-        if key not in _PARAM_SI_DIMENSIONS and key not in _DIMENSIONLESS
-    ]
-    assert not undeclared, (
-        f"{undeclared} carry units but have no _PARAM_SI_DIMENSIONS entry, so a "
-        f"lowercase unit spelling can convert them into the wrong dimension."
-    )
+def test_the_corpus_covers_the_school_extension_suites() -> None:
+    solved = _solved_questions()
+    assert len(solved) > 200
+    ops = set()
+    for text in solved:
+        intent = extract_physics_intent(text)
+        assert intent is not None and intent.physics_op is not None
+        ops.add(intent.physics_op)
+    assert "poiseuille_flow" in ops
+    assert "angular_displacement_rate" in ops
+    assert "angular_velocity" in ops
 
 
-def test_every_declared_dimension_is_a_real_unit() -> None:
-    """A typo in the table disables the check it exists to perform."""
-    from app.modules.math.school import get_unit_registry
-
+def test_every_catalog_variable_declares_a_real_dimension() -> None:
     ureg = get_unit_registry()
-    broken = []
-    for key, spec in _PARAM_SI_DIMENSIONS.items():
-        try:
-            ureg(spec)
-        except Exception:  # any parse failure is the bug
-            broken.append((key, spec))
+    broken: list[tuple[str, str]] = []
+    for spec in CATALOG.values():
+        assert spec.variables, f"{spec.id} declares no variables"
+        for variable in spec.variables:
+            if variable.dimensionless:
+                assert variable.dimension is None
+                continue
+            assert variable.dimension is not None
+            try:
+                ureg(variable.dimension)
+            except Exception:
+                broken.append((f"{spec.id}.{variable.name}", variable.dimension))
     assert not broken, f"unparseable dimension specs: {broken}"
+
+
+def test_unit_checks_read_dimensions_from_the_catalog() -> None:
+    for spec in CATALOG.values():
+        for variable in spec.variables:
+            dimension = "dimensionless" if variable.dimensionless else variable.dimension
+            assert _PARAM_SI_DIMENSIONS[variable.name] == dimension
+
+
+@pytest.mark.parametrize("text", _solved_questions())
+def test_solved_intent_params_are_declared_on_the_operation(text: str) -> None:
+    intent = extract_physics_intent(text)
+    assert isinstance(intent, PhysicsIntent)
+    assert intent.physics_op is not None
+    declared = {variable.name for variable in CATALOG[intent.physics_op].variables}
+    undeclared = [key for key in (intent.physics_params or {}) if key not in declared]
+    assert not undeclared, f"{intent.physics_op} does not declare {undeclared}"

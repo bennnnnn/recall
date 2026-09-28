@@ -1,4 +1,4 @@
-"""One verified physics operation: the law, its base equation, and its assumptions.
+"""One verified physics operation: the law, its variables, and its assumptions.
 
 Solvers still own word-problem procedure. This record owns the identity those
 procedures used to repeat in the direct-reply dictionaries.
@@ -7,6 +7,42 @@ procedures used to repeat in the direct-reply dictionaries.
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+
+@dataclass(frozen=True, slots=True)
+class VariableSpec:
+    """One named input of a formula.
+
+    ``dimension`` is a Pint unit expression. A quantity with no dimension sets
+    ``dimensionless`` instead of leaving the field blank.
+    """
+
+    name: str
+    symbol: str
+    dimension: str | None = None
+    dimensionless: bool = False
+
+    def __post_init__(self) -> None:
+        if self.dimensionless == (self.dimension is not None):
+            raise ValueError(f"{self.name} needs a dimension or an explicit dimensionless flag")
+
+
+@dataclass(frozen=True, slots=True)
+class FormulaVariant:
+    """A form of the law that is true only for some of its givens.
+
+    The first variant whose conditions match is the one the reply shows.
+    ``latex`` replaces the base equation. ``lines`` replaces it with several
+    equations. ``assumptions`` replaces the law's assumptions for that case.
+    """
+
+    latex: str | None = None
+    lines: tuple[str, ...] = ()
+    assumptions: tuple[str, ...] = ()
+    present: frozenset[str] = frozenset()
+    absent: frozenset[str] = frozenset()
+    positive: frozenset[str] = frozenset()
+    equals: tuple[tuple[str, float], ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -19,6 +55,25 @@ class FormulaSpec:
     result_symbol: str
     base_latex: str | None = None
     assumptions: tuple[str, ...] = ()
+    variables: tuple[VariableSpec, ...] = ()
+    variants: tuple[FormulaVariant, ...] = ()
+    # Default assumptions are stated only when every one of these params was given.
+    assumptions_require: frozenset[str] = frozenset()
+
+
+def var(
+    name: str,
+    symbol: str,
+    dimension: str | None = None,
+    *,
+    dimensionless: bool = False,
+) -> VariableSpec:
+    return VariableSpec(
+        name=name,
+        symbol=symbol,
+        dimension=dimension,
+        dimensionless=dimensionless,
+    )
 
 
 def formula(
@@ -28,6 +83,9 @@ def formula(
     result_symbol: str,
     base_latex: str | None = None,
     assumptions: tuple[str, ...] = (),
+    variables: tuple[VariableSpec, ...] = (),
+    variants: tuple[FormulaVariant, ...] = (),
+    assumptions_require: frozenset[str] = frozenset(),
 ) -> FormulaSpec:
     return FormulaSpec(
         id=operation,
@@ -36,27 +94,45 @@ def formula(
         result_symbol=result_symbol,
         base_latex=base_latex,
         assumptions=assumptions,
+        variables=variables,
+        variants=variants,
+        assumptions_require=assumptions_require,
     )
 
 
-def visible_assumptions(spec: FormulaSpec, params: dict[str, float]) -> tuple[str, ...]:
-    """Assumptions that are true for this solve, not merely printed on the law.
+def _variant_matches(variant: FormulaVariant, params: dict[str, float]) -> bool:
+    if not variant.present <= params.keys():
+        return False
+    if variant.absent & params.keys():
+        return False
+    if any(params.get(name, 0.0) <= 0 for name in variant.positive):
+        return False
+    return all(params.get(name) == value for name, value in variant.equals)
 
-    A level-ground range states the equal-height condition. An elevated launch
-    uses a different equation, so that sentence would be false. Work and power
-    state the parallel-force condition only when the angle was left out.
-    """
-    if spec.id == "range" and params.get("h0", 0.0) > 0:
-        return ()
-    if spec.id == "work" and "angle" in params:
-        return ()
-    if spec.id == "power" and ("angle" in params or "F" not in params or "v" not in params):
-        return ()
-    if spec.id in {"magnetic_force_charge", "magnetic_force_wire", "magnetic_flux"}:
-        if "angle" in params:
-            return ()
-    if spec.id == "doppler_frequency" and "v_obs" in params:
-        return ("motion is along the line joining the source and the observer",)
-    if spec.id == "bernoulli_pressure" and "h1" in params:
-        return ("steady incompressible flow with no viscosity",)
-    return spec.assumptions
+
+def select_formula(
+    spec: FormulaSpec, params: dict[str, float]
+) -> tuple[str | None, tuple[str, ...], tuple[str, ...]]:
+    """Base equation, extra equation lines, and the assumptions that apply."""
+    for variant in spec.variants:
+        if not _variant_matches(variant, params):
+            continue
+        latex = spec.base_latex if variant.latex is None else variant.latex
+        return latex, variant.lines, variant.assumptions
+    assumptions = spec.assumptions
+    if spec.assumptions_require and not spec.assumptions_require <= params.keys():
+        assumptions = ()
+    return spec.base_latex, (), assumptions
+
+
+def visible_assumptions(spec: FormulaSpec, params: dict[str, float]) -> tuple[str, ...]:
+    """Assumptions that are true for this solve, not merely printed on the law."""
+    return select_formula(spec, params)[2]
+
+
+def symbol_for(spec: FormulaSpec, name: str) -> str | None:
+    """Display symbol declared for this operation, or nothing."""
+    for variable in spec.variables:
+        if variable.name == name:
+            return variable.symbol
+    return None
