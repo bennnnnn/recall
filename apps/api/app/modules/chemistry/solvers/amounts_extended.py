@@ -23,7 +23,7 @@ def _integer_ratio(ratios: dict[str, float]) -> dict[str, int] | None:
     for multiplier in range(1, 9):
         scaled = {element: ratio * multiplier for element, ratio in ratios.items()}
         if all(abs(value - round(value)) <= 0.1 for value in scaled.values()):
-            return {element: int(round(value)) for element, value in scaled.items()}
+            return {element: round(value) for element, value in scaled.items()}
     return None
 
 
@@ -72,7 +72,7 @@ def solve_molecular(intent: ChemistryIntent) -> ChemistryResult:
     multiple = molar / empirical_mass
     if abs(multiple - round(multiple)) > 0.05:
         raise MathServiceError("molar mass is not an integer multiple of the empirical mass")
-    factor = int(round(multiple))
+    factor = round(multiple)
     molecular_counts = {element: count * factor for element, count in counts.items()}
     formula = _formula_from_counts(molecular_counts)
     return verified(
