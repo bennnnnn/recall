@@ -57,7 +57,8 @@ _NAMED_RADICAL = re.compile(
 _NONDEFAULT_DOMAIN = re.compile(
     r"\b(?:in|over)\s+(?:the\s+)?(?:integers?|natural\s+numbers?|rationals?|"
     r"complex\s+numbers?)\b"
-    r"|\b(?:for|where|also)\s+[a-z]\s+(?:must\s+be\s+)?"
+    r"|\b(?:for|where|also)\s+[a-z]\s+"
+    r"(?:(?:must\s+be|is|are|was|were)\s+)?"
     r"(?:positive|negative|nonnegative|nonpositive|[<>≤≥])",
     re.IGNORECASE,
 )
@@ -110,10 +111,10 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         # A graph intent has no typed roots result and a roots intent has no
         # graph result. Never certify whichever extractor happened to run first.
         leftovers.append("multiple requested function outputs")
-    if intent.kind == "equation" and _NONDEFAULT_DOMAIN.search(text):
-        # Equation intents currently solve over their default real domain.
+    if intent.kind in {"equation", "system"} and _NONDEFAULT_DOMAIN.search(text):
+        # Equation and system intents currently solve over their default real domain.
         # A sign or number-set restriction must not be silently discarded.
-        leftovers.append("unconsumed equation domain")
+        leftovers.append("unconsumed equation or system domain")
     return ConsumptionAudit(complete=not leftovers, leftovers=tuple(leftovers))
 
 
