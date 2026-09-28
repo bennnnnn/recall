@@ -22,6 +22,7 @@ import {
   LazySimulationBlock,
   LazyMolecule3DBlock,
 } from "@/components/rich/LazyHeavyRich";
+import { ChemistrySceneBlock } from "@/components/rich/ChemistrySceneBlock";
 import { MathBlock } from "@/components/rich/MathView";
 import { MessagePreview } from "@/components/rich/MessagePreview";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
@@ -112,6 +113,8 @@ export function renderRichFenceById(
     }
     case "mermaid":
       return <LazyMermaidBlock key={key} content={content} />;
+    case "chem_scene":
+      return <ChemistrySceneBlock key={key} content={content} />;
     case "chemistry":
       return <LazyChemistryBlock key={key} content={content} />;
     case "molecule":

@@ -297,8 +297,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the infinite square well, hydrogen levels, and the Heisenberg relation are in
   the catalog. Still unverified, and answered without a verified block:
   the Schrödinger equation and the quantum
-  harmonic oscillator, the Rydberg formula, Planck's distribution, nuclear binding
-  energy, mass defect, and general relativity. A test keeps that list off the
+  harmonic oscillator, the Rydberg formula, Planck's distribution, and general
+  relativity. Nuclear binding energy and mass defect are chemistry when the
+  nuclear mass is supplied. A test keeps that list off the
   catalog. Every complete, single-request verified physics
   answer returns directly with Given / Find / Formula / Substitution / Answer,
   without waiting on the language model. Trajectory ` ```graph ` fences only for
@@ -323,12 +324,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   a school galvanic cell; nuclear decay and one-missing-product nuclear equations;
   Beer–Lambert; oxidation state, formal charge, and single-center VSEPR
   (water 104.5°, ammonia 107°, carbon-centered HCN, and resonance counts); RDKit functional
-  groups, CIP stereochemistry, and isomer class; coordination names from a fixed ligand
-  table; and calibration, gravimetric, and standard-addition arithmetic. Complete typed
+  groups, CIP stereochemistry, and isomer class; a PubChem IUPAC name when that
+  property is returned; five one-product named reactions; coordination names and
+  first-row crystal-field spin and magnetic moment; calibration, gravimetric,
+  standard addition, sample standard deviation, standard error, percent error,
+  relative uncertainty, and chromatography Rf; IR and 1H NMR correlation ranges,
+  the n+1 rule, and the molecular ion; and Michaelis–Menten. Balance,
+  stoichiometry, VSEPR, titration, ICE, and galvanic answers also append a
+  server-owned `chem_scene` the phone only draws. Complete typed
   questions return the same compact Given / Find / named Formula / Substitution / Answer
-  layout as Physics, with no unnecessary trailing zeros. Mechanisms, IUPAC names,
-  IR/NMR/MS interpretation, crystal-field/MO theory, mass defect, and biochemical pathways
-  stay model-only. RDKit / SymPy + PubChem still verify structures, descriptors, elements,
+  layout as Physics, with no unnecessary trailing zeros. Curved-arrow mechanisms
+  and biochemical pathways stay model-only. RDKit / SymPy + PubChem still verify structures, descriptors, elements,
   and compounds. Structures use ` ```smiles ` (alias ` ```chemistry `); the server attaches
   ` ```molecule3d ` for the first two valid molecules. Chemically aware 2D layout remains
   smiles-drawer; interactive 3D renders on a native Skia canvas, with an SVG fallback for

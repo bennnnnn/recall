@@ -1,7 +1,8 @@
 """Nuclear equations from mass number and atomic number.
 
-Mass defect and binding energy stay unverified. A missing product is filled
-only when the missing (A, Z) is a known particle or a single nuclide.
+Mass defect uses a supplied nuclear mass; this module does not invent one.
+A missing product is filled only when the missing (A, Z) is a known particle
+or a single nuclide.
 """
 
 from __future__ import annotations

@@ -192,6 +192,31 @@ async def lookup_by_smiles(smiles: str) -> PubChemResult:
         return PubChemResult(error=f"PubChem response parse error: {exc}")
 
 
+async def lookup_iupac_name(smiles: str) -> str | None:
+    """Return PubChem's IUPACName property, or None when it is absent.
+
+    A common title is not a substitute. Callers must not label a missing
+    property as a verified IUPAC name.
+    """
+    smiles = smiles.strip()
+    if not smiles:
+        return None
+    url = f"{PUG_REST_URL}/compound/smiles/{quote(smiles, safe='')}/property/IUPACName/JSON"
+    data = await _pug_get(url, {})
+    if data is None:
+        return None
+    try:
+        props_list = data.get("PropertyTable", {}).get("Properties", [])
+        if not props_list:
+            return None
+        name = props_list[0].get("IUPACName")
+    except (AttributeError, TypeError):
+        return None
+    if not isinstance(name, str) or not name.strip():
+        return None
+    return name.strip()
+
+
 async def fetch_3d_sdf(cid: int) -> str | None:
     """Fetch the 3D SDF (MOL block) for a PubChem compound by CID.
 
