@@ -11,7 +11,7 @@ from app.modules.chemistry.reactions import named_product
 from app.modules.chemistry.solvers.common_chem import num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.stoichiometry import molar_mass
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 # Textbook correlation ranges. A peak lists every group that contains it.
 _IR: dict[str, tuple[tuple[str, int, int], ...]] = {
@@ -51,7 +51,7 @@ _SPLITTING = {
 def solve_named_reaction(intent: ChemistryIntent) -> ChemistryResult:
     product = named_product(intent.target or "", intent.formula or "", intent.equation)
     if product is None:
-        raise MathServiceError("the reaction did not give one product")
+        raise SolveServiceError("the reaction did not give one product")
     shown = f"product SMILES {product}"
     result = verified(
         "Verified named reaction",
@@ -90,7 +90,7 @@ def solve_nmr_splitting(intent: ChemistryIntent) -> ChemistryResult:
         or neighbors != int(neighbors)
         or int(neighbors) + 1 not in _SPLITTING
     ):
-        raise MathServiceError("NMR splitting needs a neighbor count from 0 to 6")
+        raise SolveServiceError("NMR splitting needs a neighbor count from 0 to 6")
     lines = int(neighbors) + 1
     shown = f"n+1 = {lines} ({_SPLITTING[lines]})"
     return verified(
@@ -109,8 +109,8 @@ def solve_molecular_ion(intent: ChemistryIntent) -> ChemistryResult:
     formula = intent.formula or ""
     try:
         mass = molar_mass(formula)
-    except (ValueError, MathServiceError) as exc:
-        raise MathServiceError("molecular ion needs a formula or SMILES") from exc
+    except (ValueError, SolveServiceError) as exc:
+        raise SolveServiceError("molecular ion needs a formula or SMILES") from exc
     shown = f"M+ = {num(mass)}"
     return verified(
         "Verified molecular ion",
@@ -127,10 +127,10 @@ def solve_molecular_ion(intent: ChemistryIntent) -> ChemistryResult:
 def _ranges(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
     facts = organic_facts(intent.formula or "")
     if facts is None or not facts.groups:
-        raise MathServiceError("no functional group recognized")
+        raise SolveServiceError("no functional group recognized")
     lines = _lines_for(facts.groups, kind=kind)
     if not lines:
-        raise MathServiceError("no correlation range for those groups")
+        raise SolveServiceError("no correlation range for those groups")
     shown = "; ".join(lines)
     title = "IR ranges" if kind == "ir" else "1H NMR ranges"
     return verified(
@@ -148,7 +148,7 @@ def _ranges(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
 def _peak(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
     value = intent.params.get("peak")
     if value is None:
-        raise MathServiceError("a peak position is required")
+        raise SolveServiceError("a peak position is required")
     groups = []
     if kind == "ir":
         for name, bands in _IR.items():
@@ -159,7 +159,7 @@ def _peak(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
             if low <= value <= high:
                 groups.append(name)
     if not groups:
-        raise MathServiceError("no functional group contains that peak")
+        raise SolveServiceError("no functional group contains that peak")
     shown = ", ".join(groups)
     unit = "cm⁻¹" if kind == "ir" else "ppm"
     return verified(

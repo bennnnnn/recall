@@ -16,6 +16,15 @@ from app.modules.math.tools.block.algebra import (
     _verified_block_numerical_method,
     _verified_block_system,
 )
+from app.modules.math.tools.block.canonical import (
+    _answer_canonical as _answer_canonical,
+)
+from app.modules.math.tools.block.canonical import (
+    _diagram_block as _diagram_block,
+)
+from app.modules.math.tools.block.canonical import (
+    _finish_with_answer as _finish_with_answer,
+)
 from app.modules.math.tools.block.common import (
     _format_equation_answer as _format_equation_answer,
 )
@@ -53,15 +62,6 @@ from app.modules.math.tools.block.word import _verified_block_word_problem
 from app.modules.math.tools.block.work import _verified_block_work_check
 from app.services.solving import (
     VerifiedMathBlock as VerifiedMathBlock,
-)
-from app.services.solving import (
-    _answer_canonical as _answer_canonical,
-)
-from app.services.solving import (
-    _diagram_block as _diagram_block,
-)
-from app.services.solving import (
-    _finish_with_answer as _finish_with_answer,
 )
 
 logger = logging.getLogger(__name__)

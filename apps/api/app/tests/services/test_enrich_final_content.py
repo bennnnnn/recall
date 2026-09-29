@@ -76,6 +76,25 @@ def _ctx(
     return ctx
 
 
+def test_exception_fallback_dispatches_to_chemistry_owner() -> None:
+    from app.modules.chemistry.block import build_verified_chemistry
+    from app.modules.chemistry.extract import extract_chemistry_intent
+
+    seams = _seams()
+    math_safe = MagicMock(return_value="math-safe")
+    seams.math_fence_service.replace_unclosed_graph_fence_safe = math_safe
+    intent = extract_chemistry_intent("Find pH when [H+] = 0.001")
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+
+    result = _replace_failed_subject_fences(seams, "```answer\n4\n```", verified)
+
+    assert "notation: chemistry\npH = 3" in result
+    assert "```answer\n4\n```" not in result
+    math_safe.assert_not_called()
+
+
 def test_exception_fallback_dispatches_to_physics_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -379,3 +398,42 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
         should_cancel=None,
     )
     assert persisted == ctx.instant_reply
+
+
+@pytest.mark.asyncio
+async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.chemistry.block import build_verified_chemistry
+    from app.modules.chemistry.extract import extract_chemistry_intent
+
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
+    seams = _seams()
+    seams.math_fence_service.validate_math_fences_worker = MagicMock(
+        side_effect=AssertionError("math fences must not rewrite chemistry")
+    )
+    question = "Find pH when [H+] = 0.001"
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    ctx = _ctx()
+    ctx.verified_subject = verified
+    ctx.user_message_content = question
+    invented = "The pH is 4.\n\n```answer\n4\n```\n\n```smiles\nCCO\n```"
+    persisted = await enrich_final_content(
+        seams,
+        MagicMock(),
+        Settings(chemistry_enabled=True),
+        ctx,
+        assistant_text=invented,
+        usage={"input": 1, "output": 2},
+        result={},
+        was_cancelled=False,
+        assistant_parts=[invented],
+        should_cancel=None,
+    )
+    assert persisted.count("```answer") == 1
+    assert "notation: chemistry\npH = 3" in persisted
+    assert "```smiles" not in persisted
+    assert "```answer\n4\n```" not in persisted

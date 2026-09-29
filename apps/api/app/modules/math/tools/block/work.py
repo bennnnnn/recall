@@ -12,7 +12,8 @@ from app.core.config import Settings
 from app.models.schemas.math import MathIntent
 from app.modules.math.solve.key_steps import KeyStep
 from app.modules.math.solve.work_check import WorkCheck, check_work
-from app.services.solving import VerifiedMathBlock, _answer_canonical
+from app.modules.math.tools.block.canonical import _answer_canonical
+from app.services.solving import VerifiedMathBlock
 
 
 def _verified_block_work_check(

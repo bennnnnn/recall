@@ -26,7 +26,7 @@ from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.solvers.solver import solve_chemistry, supported_operations
 from app.modules.physics.extract import needs_physics
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def test_catalog_matches_operations_and_solvers() -> None:
@@ -127,14 +127,14 @@ def test_high_spin_aqua_complex_and_refuses_a_second_row_metal() -> None:
     assert "high-spin" in solve_chemistry(aqua).answer
     platinum = extract_chemistry_intent("Find the crystal field of [Pt(NH3)6]Cl4")
     assert platinum is not None
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         solve_chemistry(platinum)
 
 
 def test_named_reaction_refuses_a_secondary_halide() -> None:
     intent = extract_chemistry_intent("hydroxide substitution of SMILES CC(Cl)C")
     assert intent is not None
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         solve_chemistry(intent)
 
 
@@ -160,14 +160,14 @@ def test_square_planar_d8_is_diamagnetic_and_bare_cn4_is_refused() -> None:
     assert "0 unpaired" in solve_chemistry(stated).answer
     ambiguous = extract_chemistry_intent("Find the crystal field of [Ni(CN)4]2-")
     assert ambiguous is not None
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         solve_chemistry(ambiguous)
 
 
 def test_michaelis_menten_refuses_a_velocity_above_vmax() -> None:
     intent = extract_chemistry_intent("Michaelis-Menten v = 12 Vmax = 10 S = 2")
     assert intent is not None
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         solve_chemistry(intent)
 
 
@@ -204,5 +204,5 @@ def test_local_iupac_solver_does_not_invent_a_name() -> None:
     assert intent is None
     from app.models.schemas.chemistry import ChemistryIntent
 
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         solve_chemistry(ChemistryIntent(kind="organic", chemistry_op="iupac_name", formula="CCO"))

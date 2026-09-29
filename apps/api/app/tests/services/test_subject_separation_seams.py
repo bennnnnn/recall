@@ -101,6 +101,13 @@ def test_subject_detection_routes_directly_to_one_peer(text: str, expected: str)
     assert detect_subject(text) == expected
 
 
+def test_neutral_solving_module_does_not_build_math_blocks() -> None:
+    source = (_APP_DIR / "services" / "solving.py").read_text()
+    assert "def _finish_with_answer" not in source
+    assert "def _diagram_block" not in source
+    assert "def _answer_canonical" not in source
+
+
 @pytest.mark.parametrize(
     "module",
     [

@@ -13,7 +13,7 @@ from app.modules.chemistry.solvers.common_chem import (
     water_vapor_mmhg,
 )
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 _GAS_UNIT = {"p1": "atm", "p2": "atm", "v1": "L", "v2": "L", "t1": "K", "t2": "K"}
 _PRESSURE_PINT = {
@@ -29,14 +29,14 @@ _PRESSURE_PINT = {
 def _missing(params: dict[str, float], keys: tuple[str, ...]) -> str:
     missing = [key for key in keys if key not in params]
     if len(missing) != 1:
-        raise MathServiceError("exactly one gas variable must be unknown")
+        raise SolveServiceError("exactly one gas variable must be unknown")
     return missing[0]
 
 
 def _positive(params: dict[str, float], key: str) -> float:
     value = params[key]
     if value <= 0:
-        raise MathServiceError(f"{key} must be positive")
+        raise SolveServiceError(f"{key} must be positive")
     return value
 
 
@@ -113,7 +113,7 @@ def solve_charles(intent: ChemistryIntent) -> ChemistryResult:
 
 def solve_dalton(intent: ChemistryIntent) -> ChemistryResult:
     if len(intent.species) < 2 or any(value < 0 for value in intent.species.values()):
-        raise MathServiceError("Dalton's law needs partial pressures")
+        raise SolveServiceError("Dalton's law needs partial pressures")
     total = sum(intent.species.values())
     unit = intent.units.get("pressure", "atm")
     shown = f"Ptotal = {num(total)} {unit}"
@@ -133,7 +133,7 @@ def solve_partial_pressure(intent: ChemistryIntent) -> ChemistryResult:
     fraction = intent.params.get("mole_fraction")
     total = intent.params.get("total_pressure")
     if fraction is None or total is None or not 0 <= fraction <= 1 or total < 0:
-        raise MathServiceError("partial pressure needs a mole fraction and a total pressure")
+        raise SolveServiceError("partial pressure needs a mole fraction and a total pressure")
     unit = intent.units.get("pressure", "atm")
     shown = f"Pi = {num(fraction * total)} {unit}"
     return verified(
@@ -152,19 +152,19 @@ def solve_gas_over_water(intent: ChemistryIntent) -> ChemistryResult:
     total = intent.params.get("total_pressure")
     temperature = intent.params.get("temperature_c")
     if total is None or temperature is None or total <= 0:
-        raise MathServiceError("gas over water needs total pressure and temperature")
+        raise SolveServiceError("gas over water needs total pressure and temperature")
     vapor = water_vapor_mmhg(temperature)
     if vapor is None:
-        raise MathServiceError("water vapor pressure is only tabulated from 0 to 100 °C")
+        raise SolveServiceError("water vapor pressure is only tabulated from 0 to 100 °C")
     unit = intent.units.get("pressure", "mmHg")
     try:
         pint = _PRESSURE_PINT[unit.strip().lower()]
     except KeyError as exc:
-        raise MathServiceError(f"unsupported pressure unit {unit}") from exc
+        raise SolveServiceError(f"unsupported pressure unit {unit}") from exc
     vapor_same = convert(vapor, "mmHg", pint)
     dry = total - vapor_same
     if dry <= 0:
-        raise MathServiceError("the dry-gas pressure is not positive")
+        raise SolveServiceError("the dry-gas pressure is not positive")
     shown = f"Pdry = {num(dry)} {unit}"
     return verified(
         "Verified gas collected over water",

@@ -7,7 +7,7 @@ import math
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 GAS_R_J = 8.31446261815324
 FARADAY = 96485.33212
@@ -19,7 +19,7 @@ def _required(intent: ChemistryIntent, *keys: str) -> list[float]:
         try:
             values.append(intent.params[key])
         except KeyError as exc:
-            raise MathServiceError(f"missing chemistry parameter: {key}") from exc
+            raise SolveServiceError(f"missing chemistry parameter: {key}") from exc
     return values
 
 
@@ -27,7 +27,7 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
     if intent.chemistry_op == "heat":
         mass, specific_heat, delta_t = _required(intent, "mass", "specific_heat", "delta_t")
         if mass <= 0 or specific_heat <= 0:
-            raise MathServiceError("mass and specific heat must be positive")
+            raise SolveServiceError("mass and specific heat must be positive")
         heat_j = mass * specific_heat * delta_t
         value = f"{format_number(heat_j)} J"
         substitution = (
@@ -50,7 +50,7 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
     if intent.chemistry_op == "gibbs":
         delta_h, delta_s, temperature = _required(intent, "delta_h", "delta_s", "temperature")
         if temperature <= 0:
-            raise MathServiceError("temperature must be positive Kelvin")
+            raise SolveServiceError("temperature must be positive Kelvin")
         # Extractors normalize both H and S to kJ-based units.
         delta_g = delta_h - temperature * delta_s
         value = f"{format_number(delta_g)} kJ/mol"
@@ -72,7 +72,7 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
             f"ΔG = {value}",
             value,
         )
-    raise MathServiceError(f"unsupported thermochemistry operation: {intent.chemistry_op}")
+    raise SolveServiceError(f"unsupported thermochemistry operation: {intent.chemistry_op}")
 
 
 def _stored_concentration(intent: ChemistryIntent, species: str) -> float | None:
@@ -91,12 +91,12 @@ def _equilibrium_expression(
 ) -> tuple[float, str, str]:
     equation = intent.equation
     if not equation or "->" not in equation.replace("→", "->"):
-        raise MathServiceError("a simple reaction equation is required")
+        raise SolveServiceError("a simple reaction equation is required")
     from app.modules.chemistry.equations import balance_equation
 
     balanced = balance_equation(equation)
     if not balanced.balanced:
-        raise MathServiceError(balanced.error or "reaction could not be balanced")
+        raise SolveServiceError(balanced.error or "reaction could not be balanced")
     from app.modules.chemistry.species import counts_in_mass_action
 
     numerator = 1.0
@@ -112,7 +112,7 @@ def _equilibrium_expression(
             return
         concentration = _stored_concentration(intent, species)
         if concentration is None or concentration <= 0:
-            raise MathServiceError(f"positive concentration required for {species}")
+            raise SolveServiceError(f"positive concentration required for {species}")
         label = f"P({species})" if pressure else f"[{species}]"
         if product:
             numerator *= concentration**coefficient
@@ -128,7 +128,7 @@ def _equilibrium_expression(
     for species, coefficient in balanced.reactants.items():
         _accumulate(species, coefficient, product=False)
     if not numerator_terms and not denominator_terms:
-        raise MathServiceError("the equilibrium expression has no concentration terms")
+        raise SolveServiceError("the equilibrium expression has no concentration terms")
     top = " × ".join(numerator_terms) if numerator_terms else "1"
     bottom = " × ".join(denominator_terms) if denominator_terms else "1"
     top_sub = " × ".join(substitutions_top) if substitutions_top else "1"
@@ -161,7 +161,7 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
     if op == "first_order_half_life":
         (rate_constant,) = _required(intent, "rate_constant")
         if rate_constant <= 0:
-            raise MathServiceError("rate constant must be positive")
+            raise SolveServiceError("rate constant must be positive")
         half_life = math.log(2) / rate_constant
         time_unit = intent.units.get("rate_constant_time", "s")
         value = f"{format_number(half_life)} {time_unit}"
@@ -178,7 +178,7 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
     if op == "first_order_concentration":
         initial, rate_constant, time = _required(intent, "initial", "rate_constant", "time")
         if initial < 0 or rate_constant < 0 or time < 0:
-            raise MathServiceError("concentration, rate constant, and time cannot be negative")
+            raise SolveServiceError("concentration, rate constant, and time cannot be negative")
         final = initial * math.exp(-rate_constant * time)
         value = f"{format_number(final)} mol/L"
         substitution = (
@@ -204,7 +204,7 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
             intent, "pre_exponential", "activation_energy", "temperature"
         )
         if pre_exponential <= 0 or activation_energy < 0 or temperature <= 0:
-            raise MathServiceError("Arrhenius inputs must be physically valid")
+            raise SolveServiceError("Arrhenius inputs must be physically valid")
         rate_constant = pre_exponential * math.exp(-activation_energy / (GAS_R_J * temperature))
         value = f"{format_number(rate_constant)} s⁻¹"
         substitution = (
@@ -225,7 +225,7 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
             f"k = {value}",
             value,
         )
-    raise MathServiceError(f"unsupported kinetics operation: {op}")
+    raise SolveServiceError(f"unsupported kinetics operation: {op}")
 
 
 def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
@@ -233,7 +233,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
     if op == "cell_gibbs":
         electrons, potential = _required(intent, "electrons", "potential")
         if electrons <= 0:
-            raise MathServiceError("electron count must be positive")
+            raise SolveServiceError("electron count must be positive")
         delta_g_kj = -electrons * FARADAY * potential / 1000
         value = f"{format_number(delta_g_kj)} kJ/mol"
         substitution = (
@@ -255,7 +255,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             intent, "standard_potential", "electrons", "quotient", "temperature"
         )
         if electrons <= 0 or quotient <= 0 or temperature <= 0:
-            raise MathServiceError("Nernst inputs must be positive where required")
+            raise SolveServiceError("Nernst inputs must be positive where required")
         potential = standard - (GAS_R_J * temperature / (electrons * FARADAY)) * math.log(quotient)
         value = f"{format_number(potential)} V"
         substitution = (
@@ -283,7 +283,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             intent, "molar_mass", "current", "time", "electrons"
         )
         if min(molar_mass, current, time, electrons) <= 0:
-            raise MathServiceError("electrolysis inputs must be positive")
+            raise SolveServiceError("electrolysis inputs must be positive")
         mass = molar_mass * current * time / (electrons * FARADAY)
         value = f"{format_number(mass)} g"
         substitution = (
@@ -306,13 +306,13 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             f"m = {value}",
             value,
         )
-    raise MathServiceError(f"unsupported electrochemistry operation: {op}")
+    raise SolveServiceError(f"unsupported electrochemistry operation: {op}")
 
 
 def solve_nuclear(intent: ChemistryIntent) -> ChemistryResult:
     initial, elapsed, half_life = _required(intent, "initial", "elapsed", "half_life")
     if initial < 0 or elapsed < 0 or half_life <= 0:
-        raise MathServiceError("decay inputs must be physically valid")
+        raise SolveServiceError("decay inputs must be physically valid")
     remaining = initial * (0.5 ** (elapsed / half_life))
     unit = intent.units.get("initial", "")
     value = f"{format_number(remaining)}{f' {unit}' if unit else ''}"

@@ -835,7 +835,7 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
 
 @pytest.mark.asyncio
 async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> None:
-    """Unit-bearing chemistry must not receive a second algebra answer fence."""
+    """Unit-bearing chemistry keeps one chemistry answer fence, not an algebra rewrite."""
     from app.modules.chemistry.block import build_verified_chemistry
     from app.modules.chemistry.extract import extract_chemistry_intent
 
@@ -913,9 +913,10 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
 
     assert bundle.verified_subject is verified_chemistry
     assert bundle.instant_reply is not None
-    assert "**ΔG = -10 kJ/mol** ✅" in bundle.instant_reply
+    assert bundle.instant_reply.count("```answer") == 1
+    assert "notation: chemistry\nΔG = -10 kJ/mol" in bundle.instant_reply
     assert "H = 2Sk/5" not in bundle.instant_reply
-    assert "```answer" not in bundle.instant_reply
+    assert "✅" not in bundle.instant_reply
 
 
 @pytest.mark.asyncio

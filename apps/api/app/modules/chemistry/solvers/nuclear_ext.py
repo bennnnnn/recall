@@ -12,13 +12,13 @@ from app.modules.chemistry.solvers.common_chem import (
     verified,
 )
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def solve_decay_constant(intent: ChemistryIntent) -> ChemistryResult:
     half_life = intent.params.get("half_life")
     if half_life is None or half_life <= 0:
-        raise MathServiceError("half-life must be positive")
+        raise SolveServiceError("half-life must be positive")
     unit = intent.units.get("time", "s")
     shown = f"λ = {num(math.log(2) / half_life)} {unit}⁻¹"
     return verified(
@@ -36,7 +36,7 @@ def solve_decay_constant(intent: ChemistryIntent) -> ChemistryResult:
 def _three(intent: ChemistryIntent, a: str, b: str, c: str) -> tuple[float, float, float]:
     values = [intent.params.get(a), intent.params.get(b), intent.params.get(c)]
     if any(value is None or value < 0 for value in values):
-        raise MathServiceError("decay inputs cannot be negative")
+        raise SolveServiceError("decay inputs cannot be negative")
     return float(values[0] or 0), float(values[1] or 0), float(values[2] or 0)
 
 
@@ -59,7 +59,7 @@ def solve_nuclear_activity(intent: ChemistryIntent) -> ChemistryResult:
     constant = intent.params.get("decay_constant")
     particles = intent.params.get("particles")
     if constant is None or particles is None or constant < 0 or particles < 0:
-        raise MathServiceError("activity needs λ and N")
+        raise SolveServiceError("activity needs λ and N")
     shown = f"A = {num(constant * particles)}"
     return verified(
         "Verified nuclear activity",
@@ -77,7 +77,7 @@ def solve_nuclear_equation(intent: ChemistryIntent) -> ChemistryResult:
     if intent.equation:
         balanced = balance_nuclear(intent.equation)
         if not balanced.balanced:
-            raise MathServiceError(balanced.error or "nuclear equation does not balance")
+            raise SolveServiceError(balanced.error or "nuclear equation does not balance")
         shown = format_nuclear(balanced)
     else:
         formula = intent.formula or ""
@@ -95,7 +95,7 @@ def solve_nuclear_equation(intent: ChemistryIntent) -> ChemistryResult:
         mass = int(mass_text) if mass_text else int(intent.params.get("mass") or 0)
         shown_value = decay_product(mass, symbol, mode)
         if not shown_value:
-            raise MathServiceError("that decay mode is not determined")
+            raise SolveServiceError("that decay mode is not determined")
         shown = shown_value
     return verified(
         "Verified nuclear equation",

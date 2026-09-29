@@ -13,7 +13,7 @@ from app.modules.chemistry.solvers.common_chem import num, verified
 from app.modules.chemistry.solvers.solutions import GAS_R
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.stoichiometry import molar_mass
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def _formula_from_counts(counts: dict[str, int]) -> str:
@@ -32,20 +32,20 @@ def _integer_ratio(ratios: dict[str, float]) -> dict[str, int] | None:
 
 def _empirical_counts(percents: dict[str, float]) -> dict[str, int]:
     if not percents or any(value <= 0 for value in percents.values()):
-        raise MathServiceError("percent composition must be positive")
+        raise SolveServiceError("percent composition must be positive")
     if abs(sum(percents.values()) - 100) > 1.5:
-        raise MathServiceError("percentages must add to about 100")
+        raise SolveServiceError("percentages must add to about 100")
     moles: dict[str, float] = {}
     for element, percent in percents.items():
         try:
             moles[element] = percent / molar_mass(element)
         except ValueError as exc:
-            raise MathServiceError(f"unknown element {element}") from exc
+            raise SolveServiceError(f"unknown element {element}") from exc
     smallest = min(moles.values())
     ratios = {element: value / smallest for element, value in moles.items()}
     counts = _integer_ratio(ratios)
     if counts is None:
-        raise MathServiceError("percentages do not form a simple integer ratio")
+        raise SolveServiceError("percentages do not form a simple integer ratio")
     return counts
 
 
@@ -68,13 +68,13 @@ def solve_empirical(intent: ChemistryIntent) -> ChemistryResult:
 def solve_molecular(intent: ChemistryIntent) -> ChemistryResult:
     molar = intent.params.get("molar_mass")
     if molar is None or molar <= 0:
-        raise MathServiceError("molecular molar mass must be positive")
+        raise SolveServiceError("molecular molar mass must be positive")
     counts = _empirical_counts(dict(intent.species))
     empirical = _formula_from_counts(counts)
     empirical_mass = molar_mass(empirical)
     multiple = molar / empirical_mass
     if abs(multiple - round(multiple)) > 0.05:
-        raise MathServiceError("molar mass is not an integer multiple of the empirical mass")
+        raise SolveServiceError("molar mass is not an integer multiple of the empirical mass")
     factor = round(multiple)
     molecular_counts = {element: count * factor for element, count in counts.items()}
     formula = _formula_from_counts(molecular_counts)
@@ -103,7 +103,7 @@ def _to_moles(
     params: dict[str, float],
 ) -> float:
     if amount < 0:
-        raise MathServiceError("amount cannot be negative")
+        raise SolveServiceError("amount cannot be negative")
     if unit == "mol":
         return amount
     if unit == "g":
@@ -114,14 +114,14 @@ def _to_moles(
         pressure = params.get("pressure")
         temperature = params.get("temperature")
         if pressure is None or temperature is None or pressure <= 0 or temperature <= 0:
-            raise MathServiceError("gas amount needs positive pressure and temperature")
+            raise SolveServiceError("gas amount needs positive pressure and temperature")
         return pressure * amount / (GAS_R * temperature)
     if unit == "solution":
         molarity = params.get("molarity")
         if molarity is None or molarity < 0:
-            raise MathServiceError("solution amount needs molarity")
+            raise SolveServiceError("solution amount needs molarity")
         return molarity * amount
-    raise MathServiceError(f"unsupported amount unit {unit}")
+    raise SolveServiceError(f"unsupported amount unit {unit}")
 
 
 def _from_moles(
@@ -137,22 +137,22 @@ def _from_moles(
         pressure = params.get("pressure")
         temperature = params.get("temperature")
         if pressure is None or temperature is None or pressure <= 0 or temperature <= 0:
-            raise MathServiceError("gas volume needs positive pressure and temperature")
+            raise SolveServiceError("gas volume needs positive pressure and temperature")
         return moles * GAS_R * temperature / pressure, "L"
-    raise MathServiceError(f"unsupported result unit {unit}")
+    raise SolveServiceError(f"unsupported result unit {unit}")
 
 
 def _ratio(intent: ChemistryIntent) -> tuple[str, str, int, int, str]:
     equation = intent.equation
     target = intent.target
     if not equation or not target or len(intent.species) != 1:
-        raise MathServiceError("one reactant, an equation, and a product are required")
+        raise SolveServiceError("one reactant, an equation, and a product are required")
     known = next(iter(intent.species))
     balanced = balance_equation(equation)
     if not balanced.balanced:
-        raise MathServiceError(balanced.error or "equation could not be balanced")
+        raise SolveServiceError(balanced.error or "equation could not be balanced")
     if known not in balanced.reactants or target not in balanced.products:
-        raise MathServiceError("reactant or product is not in the balanced equation")
+        raise SolveServiceError("reactant or product is not in the balanced equation")
     return known, target, balanced.reactants[known], balanced.products[target], equation
 
 
@@ -208,19 +208,19 @@ def solve_limiting_amounts(intent: ChemistryIntent, *, unit: str) -> ChemistryRe
     equation = intent.equation
     target = intent.target
     if not equation or not target or len(intent.species) < 2:
-        raise MathServiceError("two reactant amounts, an equation, and a product are required")
+        raise SolveServiceError("two reactant amounts, an equation, and a product are required")
     balanced = balance_equation(equation)
     if not balanced.balanced or target not in balanced.products:
-        raise MathServiceError("equation could not be balanced for that product")
+        raise SolveServiceError("equation could not be balanced for that product")
     moles: dict[str, float] = {}
     for formula, amount in intent.species.items():
         if formula not in balanced.reactants:
-            raise MathServiceError(f"{formula} is not a reactant")
+            raise SolveServiceError(f"{formula} is not a reactant")
         params = dict(intent.params)
         if unit == "solution":
             molarity = intent.params.get(formula)
             if molarity is None:
-                raise MathServiceError(f"missing molarity for {formula}")
+                raise SolveServiceError(f"missing molarity for {formula}")
             params["molarity"] = molarity
         moles[formula] = _to_moles(formula, amount, unit, params)
     product_coeff = balanced.products[target]

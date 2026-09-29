@@ -17,7 +17,8 @@ from app.core.config import Settings
 from app.models.schemas.math import MathIntent
 from app.models.schemas.math.word_problem import WordProblemSetup
 from app.modules.math.solve.word_problem import WordSolution, solve_word_problem
-from app.services.solving import VerifiedMathBlock, _answer_canonical
+from app.modules.math.tools.block.canonical import _answer_canonical
+from app.services.solving import VerifiedMathBlock
 
 _PLAIN = re.compile(r"[^A-Za-z0-9 ,.'()%/-]")
 _UNIT = re.compile(r"[^A-Za-z ]")

@@ -12,13 +12,13 @@ from app.modules.chemistry.solvers.common_chem import (
 )
 from app.modules.chemistry.solvers.physical import GAS_R_J
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def _three(intent: ChemistryIntent, a: str, b: str, c: str) -> tuple[float, float, float]:
     values = [intent.params.get(a), intent.params.get(b), intent.params.get(c)]
     if any(value is None or value < 0 for value in values):
-        raise MathServiceError("kinetics inputs cannot be negative")
+        raise SolveServiceError("kinetics inputs cannot be negative")
     return float(values[0] or 0), float(values[1] or 0), float(values[2] or 0)
 
 
@@ -26,14 +26,14 @@ def _two(intent: ChemistryIntent, a: str, b: str) -> tuple[float, float]:
     left = intent.params.get(a)
     right = intent.params.get(b)
     if left is None or right is None or left <= 0 or right <= 0:
-        raise MathServiceError("half-life inputs must be positive")
+        raise SolveServiceError("half-life inputs must be positive")
     return left, right
 
 
 def _four(intent: ChemistryIntent) -> tuple[float, float, float, float]:
     values = [intent.params.get(key) for key in ("a1", "rate1", "a2", "rate2")]
     if any(value is None for value in values):
-        raise MathServiceError("rate law needs two experiments")
+        raise SolveServiceError("rate law needs two experiments")
     return (
         float(values[0] or 0),
         float(values[1] or 0),
@@ -44,11 +44,11 @@ def _four(intent: ChemistryIntent) -> tuple[float, float, float, float]:
 
 def _order_from_change(rate1: float, rate2: float, left: float, right: float) -> int:
     if left <= 0 or right <= 0 or rate1 <= 0 or rate2 <= 0 or left == right:
-        raise MathServiceError("rate-law experiments need positive changing concentrations")
+        raise SolveServiceError("rate-law experiments need positive changing concentrations")
     order = math.log(rate2 / rate1) / math.log(right / left)
     rounded = round(order)
     if abs(order - rounded) > 0.05:
-        raise MathServiceError("reaction order is not an integer")
+        raise SolveServiceError("reaction order is not an integer")
     return int(rounded)
 
 
@@ -56,7 +56,7 @@ def solve_zero_order(intent: ChemistryIntent) -> ChemistryResult:
     initial, rate, time = _three(intent, "initial", "rate_constant", "time")
     final = initial - rate * time
     if final < 0:
-        raise MathServiceError("zero-order concentration would be negative")
+        raise SolveServiceError("zero-order concentration would be negative")
     shown = f"[A]ₜ = {num(final)} mol/L"
     return verified(
         "Verified zero-order concentration",
@@ -73,7 +73,7 @@ def solve_zero_order(intent: ChemistryIntent) -> ChemistryResult:
 def solve_second_order(intent: ChemistryIntent) -> ChemistryResult:
     initial, rate, time = _three(intent, "initial", "rate_constant", "time")
     if initial <= 0:
-        raise MathServiceError("initial concentration must be positive")
+        raise SolveServiceError("initial concentration must be positive")
     final = 1 / (1 / initial + rate * time)
     shown = f"[A]ₜ = {num(final)} mol/L"
     return verified(
@@ -123,14 +123,14 @@ def solve_rate_law(intent: ChemistryIntent) -> ChemistryResult:
     b1 = intent.params.get("b1")
     b2 = intent.params.get("b2")
     if b1 is not None and b2 is not None and abs(a1 - a2) > 1e-12 and abs(b1 - b2) > 1e-12:
-        raise MathServiceError("only one concentration may change between experiments")
+        raise SolveServiceError("only one concentration may change between experiments")
     if abs(a1 - a2) > 1e-12:
         order_a = _order_from_change(rate1, rate2, a1, a2)
         order_b = 0
     else:
         order_a = 0
         if b1 is None or b2 is None:
-            raise MathServiceError("the changing concentration is missing")
+            raise SolveServiceError("the changing concentration is missing")
         order_b = _order_from_change(rate1, rate2, b1, b2)
     denominator = a1**order_a * ((b1 or 1) ** order_b)
     constant = rate1 / denominator
@@ -164,7 +164,7 @@ def solve_arrhenius_two_point(intent: ChemistryIntent) -> ChemistryResult:
         intent.params.get("t2"),
     )
     if None in {k1, t1, k2, t2} or min(k1 or 0, k2 or 0, t1 or 0, t2 or 0) <= 0 or t1 == t2:
-        raise MathServiceError("two-point Arrhenius needs two positive rates and temperatures")
+        raise SolveServiceError("two-point Arrhenius needs two positive rates and temperatures")
     energy = -GAS_R_J * math.log((k2 or 1) / (k1 or 1)) / (1 / (t2 or 1) - 1 / (t1 or 1))
     shown = f"Ea = {num(energy / 1000)} kJ/mol"
     return verified(

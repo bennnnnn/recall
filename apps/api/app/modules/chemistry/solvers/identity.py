@@ -11,7 +11,7 @@ from app.modules.chemistry.solvers.solutions import GAS_R
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
 from app.modules.chemistry.structure import lewis_structure, oxidation_states
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def _signed(value: int) -> str:
@@ -25,7 +25,7 @@ def solve_oxidation_state(intent: ChemistryIntent) -> ChemistryResult:
     states = oxidation_states(formula)
     species = parse_species(formula, coefficient_already_removed=True)
     if states is None or species is None:
-        raise MathServiceError("oxidation states are ambiguous")
+        raise SolveServiceError("oxidation states are ambiguous")
     shown = ", ".join(f"{element} = {_signed(states[element])}" for element in species.composition)
     return verified(
         "Verified oxidation states",
@@ -43,7 +43,7 @@ def solve_vsepr(intent: ChemistryIntent) -> ChemistryResult:
     formula = intent.formula or ""
     structure = lewis_structure(formula)
     if structure is None:
-        raise MathServiceError("no unique central-atom VSEPR structure")
+        raise SolveServiceError("no unique central-atom VSEPR structure")
     polarity = "polar" if structure.polar else "nonpolar"
     shown = (
         f"{structure.geometry}, {structure.bond_angle}, {polarity}, "
@@ -76,9 +76,9 @@ def solve_formal_charge(intent: ChemistryIntent) -> ChemistryResult:
     nonbonding = intent.params.get("nonbonding")
     bonding = intent.params.get("bonding")
     if valence is None or nonbonding is None or bonding is None:
-        raise MathServiceError("formal charge needs valence, nonbonding, and bonding electrons")
+        raise SolveServiceError("formal charge needs valence, nonbonding, and bonding electrons")
     if bonding % 2:
-        raise MathServiceError("bonding electrons must be even")
+        raise SolveServiceError("bonding electrons must be even")
     value = valence - nonbonding - bonding / 2
     shown = f"FC = {num(value)}"
     return verified(
@@ -96,7 +96,7 @@ def solve_formal_charge(intent: ChemistryIntent) -> ChemistryResult:
 def solve_functional_groups(intent: ChemistryIntent) -> ChemistryResult:
     facts = organic_facts(intent.formula or "")
     if facts is None or not facts.groups:
-        raise MathServiceError("no functional group recognized")
+        raise SolveServiceError("no functional group recognized")
     shown = ", ".join(facts.groups)
     return verified(
         "Verified functional groups",
@@ -113,7 +113,7 @@ def solve_functional_groups(intent: ChemistryIntent) -> ChemistryResult:
 def solve_stereochemistry(intent: ChemistryIntent) -> ChemistryResult:
     facts = organic_facts(intent.formula or "")
     if facts is None:
-        raise MathServiceError("SMILES could not be read")
+        raise SolveServiceError("SMILES could not be read")
     parts = [*facts.chirality, *facts.double_bond_stereo]
     shown = ", ".join(parts) if parts else "no stereocenter"
     return verified(
@@ -131,7 +131,7 @@ def solve_stereochemistry(intent: ChemistryIntent) -> ChemistryResult:
 def solve_isomers(intent: ChemistryIntent) -> ChemistryResult:
     relationship = isomer_relationship(intent.formula or "", intent.target or "")
     if relationship is None:
-        raise MathServiceError("both structures must be valid SMILES")
+        raise SolveServiceError("both structures must be valid SMILES")
     return verified(
         "Verified isomer relationship",
         (intent.formula or "", intent.target or ""),
@@ -147,7 +147,7 @@ def solve_isomers(intent: ChemistryIntent) -> ChemistryResult:
 def solve_coordination(intent: ChemistryIntent) -> ChemistryResult:
     complex_ = parse_coordination(intent.formula or "")
     if complex_ is None:
-        raise MathServiceError("coordination formula was not recognized")
+        raise SolveServiceError("coordination formula was not recognized")
     shown = (
         f"{complex_.metal} oxidation state {_signed(complex_.oxidation_state)}, "
         f"coordination number {complex_.coordination_number}, {complex_.name}"
@@ -171,7 +171,7 @@ def _colligative(
     constant = intent.params.get(constant_name)
     molality = intent.params.get("molality")
     if factor is None or constant is None or molality is None or factor <= 0 or molality < 0:
-        raise MathServiceError("colligative inputs must be physically valid")
+        raise SolveServiceError("colligative inputs must be physically valid")
     value = factor * constant * molality
     shown = f"{symbol} = {num(value)} °C"
     return verified(
@@ -206,7 +206,7 @@ def solve_osmotic(intent: ChemistryIntent) -> ChemistryResult:
         or molarity < 0
         or temperature <= 0
     ):
-        raise MathServiceError("osmotic pressure inputs must be physically valid")
+        raise SolveServiceError("osmotic pressure inputs must be physically valid")
     value = factor * molarity * GAS_R * temperature
     shown = f"Π = {num(value)} atm"
     return verified(
@@ -225,7 +225,7 @@ def solve_raoult(intent: ChemistryIntent) -> ChemistryResult:
     fraction = intent.params.get("mole_fraction")
     pure = intent.params.get("pure_pressure")
     if fraction is None or pure is None or not 0 <= fraction <= 1 or pure < 0:
-        raise MathServiceError("Raoult's law needs a mole fraction and a pure pressure")
+        raise SolveServiceError("Raoult's law needs a mole fraction and a pure pressure")
     unit = intent.units.get("pressure", "")
     suffix = f" {unit}" if unit else ""
     shown = f"P = {num(fraction * pure)}{suffix}"
@@ -246,7 +246,7 @@ def solve_calibration(intent: ChemistryIntent) -> ChemistryResult:
     intercept = intent.params.get("intercept")
     signal = intent.params.get("signal")
     if slope is None or intercept is None or signal is None or slope == 0:
-        raise MathServiceError("calibration needs a nonzero slope, intercept, and signal")
+        raise SolveServiceError("calibration needs a nonzero slope, intercept, and signal")
     value = (signal - intercept) / slope
     shown = f"c = {num(value)}"
     return verified(
@@ -265,7 +265,7 @@ def solve_gravimetric(intent: ChemistryIntent) -> ChemistryResult:
     mass = intent.params.get("precipitate_mass")
     factor = intent.params.get("factor")
     if mass is None or factor is None or mass < 0 or factor <= 0:
-        raise MathServiceError("gravimetric analysis needs a precipitate mass and a factor")
+        raise SolveServiceError("gravimetric analysis needs a precipitate mass and a factor")
     shown = f"mass = {num(mass * factor)} g"
     return verified(
         "Verified gravimetric analysis",
@@ -290,7 +290,7 @@ def solve_standard_addition(intent: ChemistryIntent) -> ChemistryResult:
         or spiked == sample
         or (sample_volume or 0) <= 0
     ):
-        raise MathServiceError("standard addition inputs are incomplete")
+        raise SolveServiceError("standard addition inputs are incomplete")
     value = (
         ((sample or 0) / ((spiked or 0) - (sample or 0)))
         * (standard or 0)

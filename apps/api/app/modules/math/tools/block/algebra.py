@@ -26,15 +26,12 @@ from app.modules.math.solve.traces import (
     inequality_trace,
     system_trace,
 )
+from app.modules.math.tools.block.canonical import _diagram_block, _finish_with_answer
 from app.modules.math.tools.block.common import (
     _format_equation_answer,
     _format_system_answer,
 )
-from app.services.solving import (
-    VerifiedMathBlock,
-    _diagram_block,
-    _finish_with_answer,
-)
+from app.services.solving import VerifiedMathBlock
 
 
 def _number_line_interval_latex(spec: object) -> str | None:

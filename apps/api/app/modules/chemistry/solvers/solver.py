@@ -120,7 +120,7 @@ from app.modules.chemistry.solvers.thermo_ext import (
 )
 from app.modules.chemistry.solvers.titration import solve_titration_strong, solve_titration_weak
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "empirical_formula": solve_empirical,
@@ -245,5 +245,5 @@ def solve_chemistry(intent: ChemistryIntent) -> ChemistryResult:
 def _solve(intent: ChemistryIntent) -> ChemistryResult:
     solver = CHEMISTRY_SOLVERS.get(intent.chemistry_op)
     if solver is None:
-        raise MathServiceError(f"unsupported chemistry operation: {intent.chemistry_op}")
+        raise SolveServiceError(f"unsupported chemistry operation: {intent.chemistry_op}")
     return solver(intent)

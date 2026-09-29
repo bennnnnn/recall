@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { MathSvgView } from "@/components/rich/MathSvgView";
 import { MathText } from "@/components/rich/MathText";
+import { splitAnswerNotation } from "@/lib/answerNotation";
 import { splitAnswerBranches } from "@/lib/math/answerLayout";
 import {
   isHeavyInlineMath,
@@ -54,7 +55,32 @@ export function AnswerBlock({ content }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const text = normalizeAnswerContent(content);
+  const parsed = splitAnswerNotation(stripTrailingFenceCloser(content.trim()));
+  if (parsed.notation === "chemistry" && parsed.body) {
+    return (
+      <View
+        style={s.row}
+        accessibilityRole="text"
+        accessibilityLabel={t("rich.answer_a11y", { text: parsed.body })}
+      >
+        <View style={s.answerAndCheck}>
+          <View testID="answer-box" style={s.box}>
+            <Text testID="answer-literal" style={s.answer} selectable>
+              {parsed.body}
+            </Text>
+          </View>
+          <Icon
+            testID="answer-success-check"
+            name="check-circle-filled"
+            size={IconSize.md}
+            color={theme.success}
+            style={s.successCheck}
+          />
+        </View>
+      </View>
+    );
+  }
+  const text = normalizeAnswerContent(parsed.body);
   const parts = splitInlineMath(text);
   const hasInlineMath = parts.some((p) => p.type === "math");
   const useSvgMath = answerNeedsDisplayMath(text);

@@ -2,6 +2,7 @@
  * turn remaining rich fences into a short human label, never dump JSON. */
 
 import type { SearchSource } from "@/api/types";
+import { visibleAnswerBody } from "./answerNotation.ts";
 import { stripDraftFormSlots } from "./draftSanitize.ts";
 import { normalizeMarkdownTables, splitSwallowedCodeFenceTables } from "./markdownTables.ts";
 
@@ -239,8 +240,7 @@ function fallbackForFence(fence: Fence): string {
     );
   }
   if (ANSWER_LANGS.has(lang)) {
-    const body = fence.body.trim();
-    return body;
+    return visibleAnswerBody(fence.body);
   }
   if (lang in VISUAL_LABELS) {
     return visualFallback(lang, fence.body);

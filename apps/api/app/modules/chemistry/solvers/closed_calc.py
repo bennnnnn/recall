@@ -9,7 +9,7 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.solvers.common_chem import num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 _STRONG_FIELD = frozenset({"CN", "CO"})
 # Valence d+s count for the first-row metals. d electrons = this minus oxidation state.
@@ -30,14 +30,14 @@ _D_COUNT = {
 def solve_crystal_field(intent: ChemistryIntent) -> ChemistryResult:
     complex_ = parse_complex_formula(intent.formula or "")
     if complex_ is None:
-        raise MathServiceError("coordination formula was not recognized")
+        raise SolveServiceError("coordination formula was not recognized")
     valence = _D_COUNT.get(complex_.metal)
     if valence is None:
-        raise MathServiceError("crystal field is limited to the first-row metals")
+        raise SolveServiceError("crystal field is limited to the first-row metals")
     geometry = _crystal_geometry(complex_.coordination_number, intent.geometry)
     electrons = valence - complex_.oxidation_state
     if electrons < 0 or electrons > 10:
-        raise MathServiceError("d-electron count is outside 0 to 10")
+        raise SolveServiceError("d-electron count is outside 0 to 10")
     if geometry == "octahedral":
         strong = bool(complex_.ligands) and all(
             ligand in _STRONG_FIELD for ligand in complex_.ligands
@@ -104,7 +104,7 @@ def solve_percent_error(intent: ChemistryIntent) -> ChemistryResult:
     experimental = intent.params.get("experimental")
     accepted = intent.params.get("accepted")
     if experimental is None or accepted is None or accepted == 0:
-        raise MathServiceError(
+        raise SolveServiceError(
             "percent error needs an experimental value and a nonzero accepted value"
         )
     value = abs(experimental - accepted) / abs(accepted) * 100
@@ -134,7 +134,7 @@ def solve_relative_uncertainty(intent: ChemistryIntent) -> ChemistryResult:
         or left == 0
         or right == 0
     ):
-        raise MathServiceError(
+        raise SolveServiceError(
             "relative uncertainty needs both measurements and their uncertainties"
         )
     value = math.sqrt((left_uncertainty / left) ** 2 + (right_uncertainty / right) ** 2)
@@ -160,7 +160,7 @@ def solve_chromatography_rf(intent: ChemistryIntent) -> ChemistryResult:
     spot = intent.params.get("spot")
     front = intent.params.get("front")
     if spot is None or front is None or spot < 0 or front <= 0 or spot > front:
-        raise MathServiceError("Rf needs a spot distance that does not pass the solvent front")
+        raise SolveServiceError("Rf needs a spot distance that does not pass the solvent front")
     value = spot / front
     shown = f"Rf = {num(value)}"
     return verified(
@@ -188,32 +188,32 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
     }
     missing = [name for name, value in present.items() if value is None]
     if len(missing) != 1:
-        raise MathServiceError("Michaelis–Menten needs exactly one of v, Vmax, Km, and S missing")
+        raise SolveServiceError("Michaelis–Menten needs exactly one of v, Vmax, Km, and S missing")
     if any(value is not None and value < 0 for value in present.values()):
-        raise MathServiceError("Michaelis–Menten values cannot be negative")
+        raise SolveServiceError("Michaelis–Menten values cannot be negative")
     target = missing[0]
     if target == "v":
         if maximum is None or km is None or substrate is None or km + substrate == 0:
-            raise MathServiceError("Michaelis–Menten denominator is zero")
+            raise SolveServiceError("Michaelis–Menten denominator is zero")
         value = maximum * substrate / (km + substrate)
         shown = f"v = {num(value)}"
     elif target == "Vmax":
         if velocity is None or km is None or substrate is None or substrate == 0:
-            raise MathServiceError("Michaelis–Menten cannot solve Vmax from these values")
+            raise SolveServiceError("Michaelis–Menten cannot solve Vmax from these values")
         value = velocity * (km + substrate) / substrate
         shown = f"Vmax = {num(value)}"
     elif target == "Km":
         if velocity is None or maximum is None or substrate is None or velocity <= 0:
-            raise MathServiceError("Michaelis–Menten cannot solve Km from these values")
+            raise SolveServiceError("Michaelis–Menten cannot solve Km from these values")
         if not maximum > velocity:
-            raise MathServiceError("Michaelis–Menten needs Vmax greater than v")
+            raise SolveServiceError("Michaelis–Menten needs Vmax greater than v")
         value = substrate * (maximum - velocity) / velocity
         shown = f"Km = {num(value)}"
     else:
         if velocity is None or maximum is None or km is None or velocity <= 0:
-            raise MathServiceError("Michaelis–Menten cannot solve S from these values")
+            raise SolveServiceError("Michaelis–Menten cannot solve S from these values")
         if not maximum > velocity:
-            raise MathServiceError("Michaelis–Menten needs Vmax greater than v")
+            raise SolveServiceError("Michaelis–Menten needs Vmax greater than v")
         value = velocity * km / (maximum - velocity)
         shown = f"S = {num(value)}"
     given = tuple(
@@ -232,12 +232,12 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_iupac_name(_intent: ChemistryIntent) -> ChemistryResult:
-    raise MathServiceError("IUPAC names come from PubChem, not a local solver")
+    raise SolveServiceError("IUPAC names come from PubChem, not a local solver")
 
 
 def _samples(intent: ChemistryIntent) -> list[float]:
     if len(intent.samples) < 2:
-        raise MathServiceError("at least two measurements are required")
+        raise SolveServiceError("at least two measurements are required")
     return list(intent.samples)
 
 
@@ -256,16 +256,16 @@ def _crystal_geometry(coordination_number: int, stated: str | None) -> str:
     if coordination_number == 6:
         if stated in {None, "octahedral"}:
             return "octahedral"
-        raise MathServiceError("coordination number 6 is octahedral, not the stated geometry")
+        raise SolveServiceError("coordination number 6 is octahedral, not the stated geometry")
     if coordination_number == 4:
         if stated == "tetrahedral":
             return "tetrahedral"
         if stated == "square_planar":
             return "square_planar"
-        raise MathServiceError(
+        raise SolveServiceError(
             "coordination number 4 needs an explicit tetrahedral or square planar geometry"
         )
-    raise MathServiceError("crystal field needs coordination number 4 or 6")
+    raise SolveServiceError("crystal field needs coordination number 4 or 6")
 
 
 def _unpaired(electrons: int, *, low_spin: bool) -> int:

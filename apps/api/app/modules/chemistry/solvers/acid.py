@@ -8,7 +8,7 @@ import math
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.solvers.common_chem import KW, num, verified, weak_dissociation
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 _STRONG_ACIDS = frozenset({"HCl", "HBr", "HI", "HNO3", "HClO4", "HClO3"})
 _STRONG_BASES = {
@@ -31,21 +31,21 @@ def _ph(value: float) -> str:
 
 def _require_positive(value: float | None, name: str) -> float:
     if value is None or value <= 0:
-        raise MathServiceError(f"{name} must be positive")
+        raise SolveServiceError(f"{name} must be positive")
     return value
 
 
 def solve_strong_acid(intent: ChemistryIntent) -> ChemistryResult:
     formula = intent.formula or ""
     if formula == "H2SO4":
-        raise MathServiceError("H2SO4 is not a simple strong monoprotic acid")
+        raise SolveServiceError("H2SO4 is not a simple strong monoprotic acid")
     if formula not in _STRONG_ACIDS:
-        raise MathServiceError(
+        raise SolveServiceError(
             f"{formula or 'that acid'} is not a supported strong monoprotic acid"
         )
     concentration = _require_positive(intent.params.get("concentration"), "concentration")
     if concentration < _DILUTE:
-        raise MathServiceError("water's contribution is required for this dilute strong acid")
+        raise SolveServiceError("water's contribution is required for this dilute strong acid")
     ph = _ph(concentration)
     return verified(
         "Verified strong-acid pH",
@@ -63,11 +63,11 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
     formula = intent.formula or ""
     factor = _STRONG_BASES.get(formula)
     if factor is None:
-        raise MathServiceError(f"{formula or 'that base'} is not a supported strong base")
+        raise SolveServiceError(f"{formula or 'that base'} is not a supported strong base")
     concentration = _require_positive(intent.params.get("concentration"), "concentration")
     hydroxide = factor * concentration
     if hydroxide < _DILUTE:
-        raise MathServiceError("water's contribution is required for this dilute strong base")
+        raise SolveServiceError("water's contribution is required for this dilute strong base")
     poh = _ph(hydroxide)
     ph = num(14 + math.log10(hydroxide))
     return verified(
@@ -161,7 +161,7 @@ def solve_ka_kb(intent: ChemistryIntent) -> ChemistryResult:
         shown = f"pKb = {num(value)}"
         formula = "pKb = −log Kb"
     else:
-        raise MathServiceError("Ka/Kb conversion needs the matching constant and target")
+        raise SolveServiceError("Ka/Kb conversion needs the matching constant and target")
     return verified(
         "Verified Ka/Kb conversion",
         tuple(f"{key} = {num(item)}" for key, item in intent.params.items()),
@@ -180,9 +180,9 @@ def solve_buffer_addition(intent: ChemistryIntent) -> ChemistryResult:
     base = intent.params.get("a_moles")
     added = intent.params.get("added_moles")
     if pka is None or ha is None or base is None or added is None:
-        raise MathServiceError("buffer addition needs pKa, both amounts, and the added moles")
+        raise SolveServiceError("buffer addition needs pKa, both amounts, and the added moles")
     if ha <= 0 or base <= 0 or added < 0:
-        raise MathServiceError("buffer amounts must be positive")
+        raise SolveServiceError("buffer amounts must be positive")
     kind = (intent.target or "acid").lower()
     if kind == "acid":
         ha += added
@@ -191,9 +191,9 @@ def solve_buffer_addition(intent: ChemistryIntent) -> ChemistryResult:
         base += added
         ha -= added
     else:
-        raise MathServiceError("added reagent must be acid or base")
+        raise SolveServiceError("added reagent must be acid or base")
     if ha <= 0 or base <= 0:
-        raise MathServiceError("the addition left the buffer region")
+        raise SolveServiceError("the addition left the buffer region")
     ph = num(pka + math.log10(base / ha))
     return verified(
         "Verified buffer after addition",

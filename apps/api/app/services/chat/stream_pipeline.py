@@ -248,6 +248,10 @@ def _replace_failed_subject_fences(seams: Any, content: str, verified: Any) -> s
         from app.modules.physics.fence import replace_unclosed_physics_fences_safe
 
         return replace_unclosed_physics_fences_safe(content, verified)
+    if verified is not None and getattr(verified, "subject", None) == "chemistry":
+        from app.modules.chemistry.fence import replace_unclosed_chemistry_fences_safe
+
+        return replace_unclosed_chemistry_fences_safe(content, verified)
     canonical = verified.canonical_fence if verified is not None else None
     return seams.math_fence_service.replace_unclosed_graph_fence_safe(content, canonical)
 
@@ -296,9 +300,11 @@ async def enrich_final_content(
         try:
             verified = ctx.verified_subject
             if verified is not None and verified.subject == "chemistry":
-                # Chemistry owns its scene and SMILES fences. The math rewrite
-                # would treat those formulas as algebra.
-                pass
+                # Chemistry answer text is not algebra. Math fence rewrite would
+                # treat formulas and slash-units as expressions.
+                from app.modules.chemistry.fence import validate_chemistry_fences
+
+                assistant_text = validate_chemistry_fences(assistant_text, verified=verified)
             elif isinstance(verified, VerifiedPhysicsBlock):
                 from app.modules.physics.fence import validate_physics_fences
 
