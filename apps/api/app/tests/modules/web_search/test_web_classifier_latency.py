@@ -259,7 +259,7 @@ async def test_final_gate_reuses_both_prefetched_verdicts(verdict):
     [
         {"lightweight_turn": True},
         {"instant_reply": "Ready"},
-        {"verified_math": MagicMock()},
+        {"verified_subject": MagicMock()},
         {"search_sources": [MagicMock()]},
     ],
 )

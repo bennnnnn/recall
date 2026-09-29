@@ -327,9 +327,15 @@ async def fetch_web_and_tools(
             user_content,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
+            chemistry_enabled=settings.chemistry_enabled,
         )
     )
-    needs_subject = settings.math_tools_enabled and subject is not None
+    if subject == "chemistry":
+        needs_subject = settings.chemistry_enabled
+    elif subject in {"math", "physics"}:
+        needs_subject = settings.math_tools_enabled
+    else:
+        needs_subject = False
     if needs_subject and on_status is not None:
         await on_status("physics" if subject == "physics" else "calculating")
 
@@ -367,6 +373,7 @@ async def fetch_web_and_tools(
             prior_user_messages=prior_user_messages,
             response_intent_text=user_content if math_followup_problem is not None else None,
             detected_subject=subject,
+            redis=redis,
         ),
     )
     return web_block, subject_result.prompt_block, search_sources, subject_result.verified

@@ -53,7 +53,7 @@ async def test_complete_pair_preserves_both_curves_and_skips_tools_and_visible_m
         reserved_tokens=100,
         max_output_tokens=1000,
         instant_reply=reply,
-        verified_math=verified,
+        verified_subject=verified,
     )
     with (
         patch("app.services.chat.stream_pipeline.run_tool_loop_path", AsyncMock()) as tools,

@@ -211,7 +211,7 @@ async def test_tool_loop_path_skips_when_spend_capped():
     ctx = MagicMock()
     ctx.instant_reply = None
     ctx.lightweight_turn = False
-    ctx.verified_math = None
+    ctx.verified_subject = None
     ctx.user_message_content = "What's the latest news on SpaceX?"
     ctx.search_sources = []
     ctx.user = None
@@ -246,7 +246,7 @@ async def test_tool_loop_path_skips_when_heuristic_math_already_verified():
     ctx = MagicMock()
     ctx.instant_reply = None
     ctx.lightweight_turn = False
-    ctx.verified_math = MagicMock()  # heuristic already produced a verified block
+    ctx.verified_subject = MagicMock()  # heuristic already produced a verified block
     ctx.user_id = uuid4()
     ctx.chat_id = uuid4()
     ctx.prompt_messages = []
@@ -272,7 +272,7 @@ async def test_tool_loop_path_skips_ordinary_explain_turn():
     ctx = MagicMock()
     ctx.instant_reply = None
     ctx.lightweight_turn = False
-    ctx.verified_math = None
+    ctx.verified_subject = None
     ctx.user_message_content = "Explain photosynthesis in two sentences."
     ctx.search_sources = []
     ctx.user = None
@@ -301,7 +301,7 @@ async def test_tool_loop_path_does_not_dump_leftover_as_instant_reply():
     ctx = MagicMock()
     ctx.instant_reply = None
     ctx.lightweight_turn = False
-    ctx.verified_math = None
+    ctx.verified_subject = None
     ctx.user_message_content = "What's the latest news on SpaceX?"
     ctx.search_sources = []
     ctx.user = None

@@ -165,7 +165,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             fallback_models=[],
             lightweight=False,
             rich_context=True,
-            verified_math=None,
+            verified_subject=None,
         )
 
     with (
@@ -305,7 +305,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             fallback_models=[],
             lightweight=False,
             rich_context=True,
-            verified_math=None,
+            verified_subject=None,
         )
 
     with (
@@ -669,7 +669,7 @@ def _prompt_bundle() -> SimpleNamespace:
         fallback_models=[],
         lightweight=True,
         rich_context=False,
-        verified_math=None,
+        verified_subject=None,
     )
 
 

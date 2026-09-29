@@ -268,7 +268,7 @@ async def test_regenerate_acquires_chatprep_lock():
                     fallback_models=[],
                     geo=MagicMock(),
                     local_tz="UTC",
-                    verified_math=None,
+                    verified_subject=None,
                 )
             ),
         ),
