@@ -134,6 +134,7 @@ export function TriangleSidesDiagram({
           vertices={[p0, p1, p2]}
           color={theme.textSecondary}
           fill={theme.contentSurface}
+          degreeLabels={[labels.angle_b, labels.angle_c, labels.angle_a]}
         />
       ) : null}
       {showLabels ? (
@@ -147,18 +148,20 @@ export function TriangleSidesDiagram({
           <SvgText x={(p2.x + p0.x) / 2 - 8} y={(p2.y + p0.y) / 2} fill={theme.text} fontSize={13} fontWeight="600" textAnchor="end">
             {labels.c}
           </SvgText>
-          <SvgText
-            x={(p0.x + p1.x + p2.x) / 3}
-            y={Math.max(p0.y, p1.y) + 34}
-            fill={theme.textSecondary}
-            fontSize={12}
-            textAnchor="middle"
-            testID={spec.relative_lengths ? "sss-relative-label" : "sss-area-label"}
-          >
-            {spec.relative_lengths
-              ? i18n.t("rich.relative_side_lengths")
-              : `${i18n.t("rich.area")}\u00A0${labels.area}`}
-          </SvgText>
+          {spec.relative_lengths || labels.area ? (
+            <SvgText
+              x={(p0.x + p1.x + p2.x) / 3}
+              y={Math.max(p0.y, p1.y) + 34}
+              fill={theme.textSecondary}
+              fontSize={12}
+              textAnchor="middle"
+              testID={spec.relative_lengths ? "sss-relative-label" : "sss-area-label"}
+            >
+              {spec.relative_lengths
+                ? i18n.t("rich.relative_side_lengths")
+                : `${i18n.t("rich.area")}\u00A0${labels.area}`}
+            </SvgText>
+          ) : null}
         </>
       ) : null}
     </Svg>

@@ -70,9 +70,11 @@ export function TrapezoidDiagram({
             height={labels.height}
             theme={theme}
           />
-          <SvgText x={(bl.x + br.x) / 2} y={bl.y + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
-            {`${i18n.t("rich.area")}\u00A0${labels.area}`}
-          </SvgText>
+          {labels.area ? (
+            <SvgText x={(bl.x + br.x) / 2} y={bl.y + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+              {`${i18n.t("rich.area")}\u00A0${labels.area}`}
+            </SvgText>
+          ) : null}
         </>
       ) : null}
     </QuadrilateralFrame>

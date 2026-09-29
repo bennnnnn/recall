@@ -66,7 +66,12 @@ export function RightTriangleDiagram({
         strokeWidth={2}
       />
       {showAngle ? (
-        <InteriorAngleMarks vertices={verts} color={theme.textSecondary} fill={theme.contentSurface} />
+        <InteriorAngleMarks
+          vertices={verts}
+          color={theme.textSecondary}
+          fill={theme.contentSurface}
+          degreeLabels={[labels.angle, labels.angle_at_base, labels.angle_at_height]}
+        />
       ) : null}
       {showLabels ? (
         <>
@@ -90,7 +95,7 @@ export function RightTriangleDiagram({
           >
             {labels.height}
           </SvgText>
-          {showHyp ? (
+          {showHyp && labels.hypotenuse ? (
             <SvgText
               x={(verts[0].x + verts[1].x) / 2 + 8}
               y={(verts[2].y + verts[0].y) / 2 - 6}

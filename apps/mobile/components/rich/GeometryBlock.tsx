@@ -10,7 +10,7 @@ import { TrapezoidDiagram } from "@/components/rich/geometry/TrapezoidDiagram";
 import { TriangleDiagram } from "@/components/rich/geometry/TriangleDiagram";
 import { TriangleSidesDiagram } from "@/components/rich/geometry/TriangleSidesDiagram";
 import i18n from "@/lib/i18n";
-import { parseGeometrySpec } from "@/lib/math/geometryBlock";
+import { geometryFigureLabel, parseGeometrySpec } from "@/lib/math/geometryBlock";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -31,8 +31,14 @@ export function GeometryBlock({ content }: Props) {
     );
   }
 
+  const figureLabel = geometryFigureLabel(spec);
   return (
-    <View style={styles.wrap}>
+    <View
+      style={styles.wrap}
+      accessible={figureLabel.length > 0}
+      accessibilityRole={figureLabel.length > 0 ? "image" : undefined}
+      accessibilityLabel={figureLabel || undefined}
+    >
       {spec.type === "right_triangle" ? (
         <RightTriangleDiagram spec={spec} screenWidth={screenWidth} theme={theme} />
       ) : spec.type === "triangle" ? (

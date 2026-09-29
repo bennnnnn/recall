@@ -99,24 +99,28 @@ export function SectorDiagram({
               {labels.radius}
             </SvgText>
           ) : null}
-          <SvgText
-            x={svgW / 2}
-            y={plotBottom + 34}
-            fill={theme.textSecondary}
-            fontSize={12}
-            textAnchor="middle"
-          >
-            {`${i18n.t("rich.area")}\u00A0${labels.area}`}
-          </SvgText>
-          <SvgText
-            x={svgW / 2}
-            y={plotBottom + 50}
-            fill={theme.textSecondary}
-            fontSize={12}
-            textAnchor="middle"
-          >
-            {`${i18n.t("rich.arc_length")}\u00A0${labels.arc_length}`}
-          </SvgText>
+          {labels.area ? (
+            <SvgText
+              x={svgW / 2}
+              y={plotBottom + 34}
+              fill={theme.textSecondary}
+              fontSize={12}
+              textAnchor="middle"
+            >
+              {`${i18n.t("rich.area")}\u00A0${labels.area}`}
+            </SvgText>
+          ) : null}
+          {labels.arc_length ? (
+            <SvgText
+              x={svgW / 2}
+              y={plotBottom + (labels.area ? 50 : 34)}
+              fill={theme.textSecondary}
+              fontSize={12}
+              textAnchor="middle"
+            >
+              {`${i18n.t("rich.arc_length")}\u00A0${labels.arc_length}`}
+            </SvgText>
+          ) : null}
         </>
       ) : null}
     </Svg>

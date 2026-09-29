@@ -27,13 +27,17 @@ export function CircleDiagram({
   const cx = offsetX + r;
   const cy = offsetY + r;
   const svgW = r * 2 + offsetX * 2;
-  const extraLines = [
-    spec.show_diameter,
-    spec.show_area,
-    spec.show_circumference,
-  ].filter(Boolean).length;
+  const captions = [
+    spec.show_diameter && labels.diameter
+      ? `${i18n.t("rich.diameter")}\u00A0${labels.diameter}`
+      : "",
+    spec.show_area && labels.area ? `${i18n.t("rich.area")}\u00A0${labels.area}` : "",
+    spec.show_circumference && labels.circumference
+      ? `${i18n.t("rich.circumference")}\u00A0${labels.circumference}`
+      : "",
+  ].filter((line) => line.length > 0);
   const svgH =
-    r * 2 + offsetY * 2 + (extraLines > 0 ? 16 * extraLines + 20 : 0);
+    r * 2 + offsetY * 2 + (captions.length > 0 ? 16 * captions.length + 20 : 0);
   const showLabels = spec.show_labels !== false;
 
   return (
@@ -64,48 +68,21 @@ export function CircleDiagram({
           fontWeight="600"
           textAnchor="middle"
         >
-          {spec.show_diameter ? labels.diameter : labels.radius}
+          {spec.show_diameter && labels.diameter ? labels.diameter : labels.radius}
         </SvgText>
       ) : null}
-      {spec.show_diameter ? (
+      {captions.map((line, index) => (
         <SvgText
+          key={line}
           x={cx}
-          y={cy + r + 34}
+          y={cy + r + 34 + index * 16}
           fill={theme.textSecondary}
           fontSize={12}
           textAnchor="middle"
         >
-          {`${i18n.t("rich.diameter")}\u00A0${labels.diameter}`}
+          {line}
         </SvgText>
-      ) : null}
-      {spec.show_area ? (
-        <SvgText
-          x={cx}
-          y={cy + r + 34 + (spec.show_diameter ? 16 : 0)}
-          fill={theme.textSecondary}
-          fontSize={12}
-          textAnchor="middle"
-        >
-          {`${i18n.t("rich.area")}\u00A0${labels.area}`}
-        </SvgText>
-      ) : null}
-      {spec.show_circumference ? (
-        <SvgText
-          x={cx}
-          y={
-            cy +
-            r +
-            34 +
-            (spec.show_diameter ? 16 : 0) +
-            (spec.show_area ? 16 : 0)
-          }
-          fill={theme.textSecondary}
-          fontSize={12}
-          textAnchor="middle"
-        >
-          {`${i18n.t("rich.circumference")}\u00A0${labels.circumference}`}
-        </SvgText>
-      ) : null}
+      ))}
     </Svg>
   );
 }
