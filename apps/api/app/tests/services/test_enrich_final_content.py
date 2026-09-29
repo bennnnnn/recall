@@ -340,33 +340,27 @@ async def test_verified_math_markers_are_stripped_from_final_content(
 
 
 @pytest.mark.asyncio
-async def test_unverified_math_note_appended_to_final_content(
+async def test_declined_solve_does_not_append_an_unverified_sentence(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from app.modules.math import fence as math_fence_mod
-
     monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
-    seams = _seams()
-    seams.math_fence_service.append_unverified_math_note = (
-        math_fence_mod.append_unverified_math_note
-    )
     ctx = _ctx()
     ctx.solver_unverified = True
+    raw = "The mass is 12 kg."
     persisted = await enrich_final_content(
-        seams,
+        _seams(),
         MagicMock(),
         Settings(chemistry_enabled=False),
         ctx,
-        assistant_text="The mass is 12 kg.",
+        assistant_text=raw,
         usage={"input": 1, "output": 2},
         result={},
         was_cancelled=False,
-        assistant_parts=["The mass is 12 kg."],
+        assistant_parts=[raw],
         should_cancel=None,
     )
-    assert persisted.endswith("*I couldn't automatically verify this result.*")
-    assert "\n>" not in persisted
-    assert "```answer" not in persisted
+    assert "couldn't automatically verify" not in persisted.lower()
+    assert raw in persisted
 
 
 @pytest.mark.asyncio
