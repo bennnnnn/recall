@@ -222,6 +222,7 @@
   "chat.rename_failed": "No se pudo renombrar este chat.",
   "chat.rename_title": "Renombrar chat",
   "chat.renamed_toast": "Chat renombrado",
+  "chat.reply_ready": "Respuesta lista",
   "chat.restore_draft": "Recuperar borrador",
   "chat.restore_draft_blocked": "Envía o borra tu borrador actual y luego recupera este mensaje.",
   "chat.scroll_to_latest": "Ir a los mensajes más recientes",

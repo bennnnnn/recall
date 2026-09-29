@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A Pint pin rejected the unit pad's rpm, acre, and BTU.** Pint's `rpm` is angular (`2π/60`), its `acre` is the survey acre, and its `BTU` is `1055.056 J`. The frequency pad is cyclic (`1/minute`), the acre is `43560` international square feet, and the BTU factor has to be Pint's joule value or the preview drifts from a verified convert.
+
+- **Read-aloud smashed `\frac{x^{2}}{4}` into `fracx^24`.** `speakMath` matched fractions with `[^}]+`, so a superscript never matched and the brace strip ate the command. Copy already walked `MathSegment`. Speech has to use that same tree.
+
+- **A geometry diagram printed area and acute angles the server never sent.** Label helpers filled Heron, `πr²`, and hypotenuse when the fence omitted them, and vertex marks spoke atan of the drawn corners. Format a provided number or `labels` string; draw the arc without a degree when that string is missing.
+
 - **`3x=3` answered `x = 1` and “couldn't automatically verify”.** The numbered Given / divide lesson only ships from the SymPy worker. `sem_open` returned ENOSPC because the macOS POSIX semaphore table was full, so the process pool never started and the turn fell through to the model. When that pool cannot be created, verify in-process instead of dropping the lesson.
 
 - **A verified crystal-field answer treated every CN=4 complex as tetrahedral, and a bare `mass =` was used as a nuclear mass.** Coordination number 4 is also square planar, and an atomic mass is not the nucleus. Require tetrahedral or square planar before a CN=4 answer, and accept only `nuclear mass =`. Scene rows come from the solver’s numbers; do not parse the formatted substitution back into a table.

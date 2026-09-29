@@ -263,6 +263,8 @@ describe("ChatComposer math keyboard", () => {
 
     expect(getByTestId("composer-input-row")).toHaveStyle({ alignItems: "center" });
     expect(composerInput.props.placeholder).toBe("chat.placeholder");
+    expect(composerInput.props.accessibilityLabel).toBe("chat.placeholder");
+    expect(composerInput.props.maxFontSizeMultiplier).toBe(1.5);
 
     await fireEvent.changeText(composerInput, "\n");
     await fireEvent(composerInput, "contentSizeChange", {

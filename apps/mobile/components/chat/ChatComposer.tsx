@@ -60,7 +60,7 @@ import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
 
 function noopComposerInput(_text: string) {}
@@ -513,6 +513,8 @@ export const ChatComposer = memo(function ChatComposer({
                     ]}
                     placeholder={showMathPreview ? "" : t("chat.placeholder")}
                     placeholderTextColor={theme.textDisabled}
+                    accessibilityLabel={t("chat.placeholder")}
+                    maxFontSizeMultiplier={DYNAMIC_TYPE_MAX}
                     value={input}
                     // Messaging traits while the system keyboard is up. The math
                     // pad dismisses that keyboard before it takes the field, so

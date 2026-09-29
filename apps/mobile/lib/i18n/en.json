@@ -222,6 +222,7 @@
   "chat.rename_failed": "Could not rename this chat.",
   "chat.rename_title": "Rename chat",
   "chat.renamed_toast": "Chat renamed",
+  "chat.reply_ready": "Reply ready",
   "chat.restore_draft": "Restore draft",
   "chat.restore_draft_blocked": "Send or clear your current draft, then restore this message.",
   "chat.scroll_to_latest": "Scroll to latest messages",

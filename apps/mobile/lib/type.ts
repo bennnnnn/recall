@@ -1,10 +1,19 @@
 /**
  * Shared type roles — prefer these over one-off 13/14/15/16 mixes for the
  * same visual job. Colors stay on theme tokens; this file owns size/weight.
+ *
+ * Dynamic Type: roles keep the platform default (`allowFontScaling`), so
+ * body copy follows the reader. Math layout has its own scale. A control
+ * that shares a line with a 44pt target (the composer field) sets
+ * `maxFontSizeMultiplier` to `DYNAMIC_TYPE_MAX` so a very large size does
+ * not clip the caret or the send button.
  */
 import type { TextStyle } from "react-native";
 
 import { uiFontFamily } from "@/lib/uiFont";
+
+/** Cap for a control that shares a line with a 44pt target. Body copy stays uncapped. */
+export const DYNAMIC_TYPE_MAX = 1.5;
 
 function face(weight: "400" | "500" | "600" | "700"): Pick<TextStyle, "fontFamily" | "fontWeight"> {
   return { fontFamily: uiFontFamily(weight), fontWeight: weight };
