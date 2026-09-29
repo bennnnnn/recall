@@ -1,22 +1,20 @@
-"""Post-stream chemistry fence enrichment.
+"""Post-stream chemistry fences.
 
-Validates SMILES fences in the assistant's output using RDKit and
-enriches them with verified molecular properties (formula, weight,
-atom count). Invalid SMILES are stripped so the mobile renderer
-doesn't show a broken molecule card.
-
-This runs AFTER validate_math_fences (which handles geometry/graph/
-answer fences) and BEFORE the text is persisted. It must be fast
-and never raise into the stream — failures are logged and the raw
-text is kept.
+A verified chemistry turn replaces model answer, scene, and structure
+fences with the solver's copies before any math rewrite. SMILES
+enrichment runs after that, on whatever ```smiles fences remain, and
+must not raise into the stream.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 
+from app.models.schemas.chemistry.scene import dump_scene
 from app.modules import chemistry as chemistry_service
-from app.services.md_fence_scan import map_closed_fences
+from app.modules.chemistry.block import VerifiedChemistry
+from app.services.md_fence_scan import close_unclosed_fences, map_closed_fences, strip_closed_fences
 
 logger = logging.getLogger(__name__)
 
@@ -152,3 +150,79 @@ def enrich_chemistry_fences(content: str) -> str:
 def enrich_chemistry_fences_worker(content: str) -> str:
     """Picklable entry for the process pool (positional args only)."""
     return enrich_chemistry_fences(content)
+
+
+# First line of a server ```answer fence whose body is chemistry text, not LaTeX.
+CHEMISTRY_ANSWER_NOTATION = "notation: chemistry"
+
+# Fences the solver owns on a verified chemistry turn. A model copy is removed
+# and replaced from ChemistryResult so algebra finalization never rewrites it.
+_OWNED_FENCE_LANGS = (
+    "answer",
+    "result",
+    "final",
+    "chem_scene",
+    "smiles",
+    "chemistry",
+    "molecule",
+    "molecule3d",
+    "mol3d",
+    "3dmol",
+)
+
+
+def format_chemistry_answer_fence(answer: str) -> str:
+    """Answer fence the math renderer must not typeset as algebra."""
+    return f"```answer\n{CHEMISTRY_ANSWER_NOTATION}\n{answer.strip()}\n```"
+
+
+def _solver_fences(verified: VerifiedChemistry) -> list[str]:
+    result = verified.result
+    fences: list[str] = []
+    answer = result.answer.strip()
+    if answer:
+        fences.append(format_chemistry_answer_fence(answer))
+    if result.scene is not None:
+        payload = json.dumps(dump_scene(result.scene), ensure_ascii=False)
+        fences.append(f"```chem_scene\n{payload}\n```")
+    smiles = (result.structure_smiles or "").strip()
+    if smiles:
+        fences.append(f"```smiles\n{smiles}\n```")
+    return fences
+
+
+def _strip_owned_fences(content: str) -> str:
+    cleaned = content
+    for language in _OWNED_FENCE_LANGS:
+        cleaned = strip_closed_fences(cleaned, language)
+    return cleaned.strip()
+
+
+def assemble_chemistry_reply(prose: str, verified: VerifiedChemistry) -> str:
+    """Prose plus the solver's answer, scene, and structure. One blank line between."""
+    parts = [prose.strip(), *_solver_fences(verified)]
+    body = "\n\n".join(part for part in parts if part).strip()
+    return f"{body}\n" if body else ""
+
+
+def validate_chemistry_fences(content: str, verified: object | None = None) -> str:
+    """Drop model answer/scene/structure fences and append the solver's copies."""
+    if not isinstance(verified, VerifiedChemistry):
+        return content
+    return assemble_chemistry_reply(_strip_owned_fences(content), verified)
+
+
+def replace_unclosed_chemistry_fences_safe(content: str, verified: object | None) -> str:
+    """Chemistry-owned fallback. Never hand the turn to math graph recovery."""
+    closed = close_unclosed_fences(content)
+    try:
+        return validate_chemistry_fences(closed, verified=verified)
+    except Exception:
+        logger.exception("chemistry fence recovery failed")
+        cleaned = _strip_owned_fences(closed)
+        if isinstance(verified, VerifiedChemistry) and verified.result.answer.strip():
+            answer = format_chemistry_answer_fence(verified.result.answer)
+            parts = [cleaned, answer]
+            body = "\n\n".join(part for part in parts if part).strip()
+            return f"{body}\n" if body else ""
+        return cleaned

@@ -6,10 +6,8 @@ from app.core.config import Settings
 from app.models.schemas.math import GraphBlockSpec, GraphSampleInput, MathIntent
 from app.modules.math import solve as math_solve
 from app.modules.math.solve.inequality_graph import affine_inequality_graph_spec
-from app.services.solving import (
-    VerifiedMathBlock,
-    _diagram_block,
-)
+from app.modules.math.tools.block.canonical import _diagram_block
+from app.services.solving import VerifiedMathBlock
 
 
 def _padded_y_bounds(ys: list[float]) -> tuple[float, float]:

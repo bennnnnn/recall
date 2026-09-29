@@ -18,7 +18,7 @@ from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import is_chemistry_question
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.types import format_number
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     ("Balance H2 + O2 -> H2O", "balance", "2 H2 + O2 → 2 H2O"),
@@ -547,9 +547,10 @@ def test_direct_reply_has_scan_friendly_heading_order() -> None:
     positions = [reply.index(heading) for heading in headings]
     assert positions == sorted(positions)
     assert "pH = −log₁₀[H⁺] — Definition of pH" in reply
-    assert "**pH = 3** ✅" in reply
-    assert "```answer" not in reply
+    assert reply.count("```answer") == 1
+    assert "notation: chemistry\npH = 3" in reply
     assert "pH = 3.00" not in reply
+    assert "✅" not in reply
     assert maybe_direct_chemistry_reply(verified, has_image_attachment=False) == reply
     assert maybe_direct_chemistry_reply(verified, has_image_attachment=True) is None
     assert maybe_direct_chemistry_reply(None, has_image_attachment=False) is None
@@ -706,7 +707,7 @@ def test_beer_lambert_can_find_concentration() -> None:
     ],
 )
 def test_physically_invalid_inputs_are_rejected(intent: ChemistryIntent) -> None:
-    with pytest.raises(MathServiceError):
+    with pytest.raises(SolveServiceError):
         solve_chemistry(intent)
     assert build_verified_chemistry(intent) is None
 

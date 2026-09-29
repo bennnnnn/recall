@@ -71,10 +71,10 @@ def num(value: float) -> str:
 
 def weak_dissociation(constant: float, concentration: float) -> float:
     """Positive root of x² + Kx − KC = 0."""
-    from app.services.solving import MathServiceError
+    from app.services.solving import SolveServiceError
 
     if constant <= 0 or concentration <= 0:
-        raise MathServiceError("weak equilibrium inputs must be positive")
+        raise SolveServiceError("weak equilibrium inputs must be positive")
     discriminant = constant * constant + 4 * constant * concentration
     return (-constant + math.sqrt(discriminant)) / 2
 

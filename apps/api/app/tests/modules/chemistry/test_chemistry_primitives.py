@@ -15,7 +15,7 @@ from app.modules.chemistry.organic import isomer_relationship, organic_facts
 from app.modules.chemistry.quantity import to_atm, to_kelvin, to_liters
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.structure import lewis_structure, oxidation_states
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def test_periodic_table_has_every_element() -> None:
@@ -125,7 +125,7 @@ def test_beer_lambert_solves_absorptivity_and_path() -> None:
 def test_ambiguous_oxidation_and_diprotic_strong_acid_are_refused() -> None:
     assert oxidation_states("FeSO4") == {"Fe": 2, "S": 6, "O": -2}
     assert oxidation_states("FeS") is None
-    with pytest.raises(MathServiceError, match="ambiguous"):
+    with pytest.raises(SolveServiceError, match="ambiguous"):
         solve_chemistry(
             ChemistryIntent(kind="structure", chemistry_op="oxidation_state", formula="FeS")
         )

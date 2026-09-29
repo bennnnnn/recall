@@ -12,7 +12,7 @@ from app.modules.chemistry.stoichiometry import (
     molar_mass,
     stoichiometry,
 )
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 AVOGADRO = 6.02214076e23
 
@@ -21,22 +21,22 @@ def _positive(intent: ChemistryIntent, key: str, *, allow_zero: bool = False) ->
     try:
         value = intent.params[key]
     except KeyError as exc:
-        raise MathServiceError(f"missing chemistry parameter: {key}") from exc
+        raise SolveServiceError(f"missing chemistry parameter: {key}") from exc
     if value < 0 or (value == 0 and not allow_zero):
-        raise MathServiceError(f"{key} must be {'non-negative' if allow_zero else 'positive'}")
+        raise SolveServiceError(f"{key} must be {'non-negative' if allow_zero else 'positive'}")
     return value
 
 
 def _formula(intent: ChemistryIntent) -> str:
     if not intent.formula:
-        raise MathServiceError("a chemical formula is required")
+        raise SolveServiceError("a chemical formula is required")
     return intent.formula
 
 
 def _balanced_text(equation: str) -> str:
     balanced = balance_equation(equation)
     if not balanced.balanced:
-        raise MathServiceError(balanced.error or "equation could not be balanced")
+        raise SolveServiceError(balanced.error or "equation could not be balanced")
     left = " + ".join(
         f"{coefficient} {species}" if coefficient != 1 else species
         for species, coefficient in balanced.reactants.items()
@@ -51,7 +51,7 @@ def _balanced_text(equation: str) -> str:
 def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
     equation = intent.equation
     if not equation:
-        raise MathServiceError("an equation is required")
+        raise SolveServiceError("an equation is required")
     balanced = _balanced_text(equation)
     return ChemistryResult(
         title="Verified balanced equation",
@@ -150,19 +150,19 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             f"n({formula}) = {value}",
             value,
         )
-    raise MathServiceError(f"unsupported amount operation: {op}")
+    raise SolveServiceError(f"unsupported amount operation: {op}")
 
 
 def solve_percent_composition(intent: ChemistryIntent) -> ChemistryResult:
     formula = _formula(intent)
     element = intent.target
     if not element:
-        raise MathServiceError("an element is required")
+        raise SolveServiceError("an element is required")
     atoms = _parse_formula_atoms(formula)
     count = atoms.get(element)
     info = PERIODIC_TABLE.get(element)
     if count is None or info is None or not isinstance(info.get("mass"), int | float):
-        raise MathServiceError(f"{element} is not present in {formula}")
+        raise SolveServiceError(f"{element} is not present in {formula}")
     total = molar_mass(formula)
     contribution = count * float(info["mass"])
     percent = contribution / total * 100
@@ -207,17 +207,17 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
     equation = intent.equation
     target = intent.target
     if not equation or not target:
-        raise MathServiceError("equation and target product are required")
+        raise SolveServiceError("equation and target product are required")
     if intent.chemistry_op == "limiting_reagent":
         if len(intent.species) < 2:
-            raise MathServiceError("at least two reactant amounts are required")
+            raise SolveServiceError("at least two reactant amounts are required")
         limiting_result = limiting_reagent(equation, intent.species, target)
         if (
             limiting_result.error
             or limiting_result.limiting_reagent is None
             or limiting_result.product_amount is None
         ):
-            raise MathServiceError(limiting_result.error or "limiting reagent solve failed")
+            raise SolveServiceError(limiting_result.error or "limiting reagent solve failed")
         balanced = balance_equation(equation)
         product_coeff = balanced.products[target]
         ratios = tuple(
@@ -240,11 +240,11 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if len(intent.species) != 1:
-        raise MathServiceError("one known reactant amount is required")
+        raise SolveServiceError("one known reactant amount is required")
     known, amount = next(iter(intent.species.items()))
     stoich_result = stoichiometry(equation, known, amount, target)
     if stoich_result.error or stoich_result.product_amount is None:
-        raise MathServiceError(stoich_result.error or "stoichiometry solve failed")
+        raise SolveServiceError(stoich_result.error or "stoichiometry solve failed")
     balanced = balance_equation(equation)
     r_coeff = balanced.reactants[known]
     p_coeff = balanced.products[target]

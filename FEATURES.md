@@ -342,7 +342,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   stoichiometry, VSEPR, titration, ICE, and galvanic answers also append a
   server-owned `chem_scene` the phone only draws. Complete typed
   questions return the same compact Given / Find / named Formula / Substitution / Answer
-  layout as Physics, with no unnecessary trailing zeros. Curved-arrow mechanisms
+  layout as Physics. The answer is one server ` ```answer ` fence tagged
+  `notation: chemistry` so formulas and units are not typeset as algebra, with no
+  unnecessary trailing zeros. Curved-arrow mechanisms
   and biochemical pathways stay model-only. RDKit / SymPy + PubChem still verify structures, descriptors, elements,
   and compounds. Structures use ` ```smiles ` (alias ` ```chemistry `); the server attaches
   ` ```molecule3d ` for the first two valid molecules. Chemically aware 2D layout remains

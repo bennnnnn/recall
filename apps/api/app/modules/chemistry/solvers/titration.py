@@ -12,7 +12,7 @@ from app.models.schemas.chemistry.scene import TitrationAnchor, TitrationScene
 from app.modules.chemistry.solvers.acid import _ph, _require_positive
 from app.modules.chemistry.solvers.common_chem import KW, num, verified, weak_dissociation
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def _titration_moles(intent: ChemistryIntent) -> tuple[float, float, float, float | None]:
@@ -21,7 +21,7 @@ def _titration_moles(intent: ChemistryIntent) -> tuple[float, float, float, floa
     mb = _require_positive(intent.params.get("mb"), "Mb")
     vb = intent.params.get("vb_l")
     if vb is not None and vb < 0:
-        raise MathServiceError("Vb cannot be negative")
+        raise SolveServiceError("Vb cannot be negative")
     return ma, va, mb, vb
 
 
@@ -79,7 +79,7 @@ def solve_titration_weak(intent: ChemistryIntent) -> ChemistryResult:
     ma, va, mb, vb = _titration_moles(intent)
     ka = _require_positive(intent.params.get("ka"), "Ka")
     if vb is None:
-        raise MathServiceError("weak titration needs the added base volume")
+        raise SolveServiceError("weak titration needs the added base volume")
     acid_moles = ma * va
     base_moles = mb * vb
     total = va + vb
@@ -135,7 +135,7 @@ def _titration_weak_base(intent: ChemistryIntent) -> ChemistryResult:
     ma, va, mb, vb = _titration_moles(intent)
     kb = _require_positive(intent.params.get("kb"), "Kb")
     if vb is None:
-        raise MathServiceError("weak-base titration needs the base volume")
+        raise SolveServiceError("weak-base titration needs the base volume")
     acid_moles = ma * va
     base_moles = mb * vb
     total = va + vb
@@ -294,7 +294,7 @@ def _equivalence(intent: ChemistryIntent) -> TitrationAnchor | None:
 def _safe_ph(root: Callable[[], float], *, basic: bool = False) -> str | None:
     try:
         amount = root()
-    except MathServiceError:
+    except SolveServiceError:
         return None
     if amount <= 0:
         return None

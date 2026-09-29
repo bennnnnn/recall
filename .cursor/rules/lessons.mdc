@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A verified chemistry result could be replaced, or typeset as algebra.** ```answer always went through MathText, so chemistry kept the value in bold prose and the stream skipped chemistry finalization. Answer fences now start with `notation: chemistry` when the body is not LaTeX, and the chemistry finalizer replaces model answer, scene, and structure fences from the solver.
+
 - **`3x=3` answered `x = 1` and “couldn't automatically verify”.** The numbered Given / divide lesson only ships from the SymPy worker. `sem_open` returned ENOSPC because the macOS POSIX semaphore table was full, so the process pool never started and the turn fell through to the model. When that pool cannot be created, verify in-process instead of dropping the lesson.
 
 - **A verified crystal-field answer treated every CN=4 complex as tetrahedral, and a bare `mass =` was used as a nuclear mass.** Coordination number 4 is also square planar, and an atomic mass is not the nucleus. Require tetrahedral or square planar before a CN=4 answer, and accept only `nuclear mass =`. Scene rows come from the solver’s numbers; do not parse the formatted substitution back into a table.

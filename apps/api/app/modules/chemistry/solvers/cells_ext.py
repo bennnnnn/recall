@@ -14,14 +14,14 @@ from app.modules.chemistry.solvers.common_chem import (
     verified,
 )
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def solve_cell_potential(intent: ChemistryIntent) -> ChemistryResult:
     cathode = intent.params.get("cathode")
     anode = intent.params.get("anode")
     if cathode is None or anode is None:
-        raise MathServiceError("cell potential needs cathode and anode potentials")
+        raise SolveServiceError("cell potential needs cathode and anode potentials")
     value = cathode - anode
     shown = f"E°cell = {num(value)} V"
     return verified(
@@ -48,7 +48,7 @@ def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
     left = intent.formula or ""
     right = intent.target or ""
     if left not in STANDARD_REDUCTION or right not in STANDARD_REDUCTION or left == right:
-        raise MathServiceError("galvanic cell needs two different metals from the reduction table")
+        raise SolveServiceError("galvanic cell needs two different metals from the reduction table")
     e_left, n_left = STANDARD_REDUCTION[left]
     e_right, n_right = STANDARD_REDUCTION[right]
     if e_left >= e_right:
