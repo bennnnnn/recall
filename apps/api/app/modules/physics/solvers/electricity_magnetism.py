@@ -94,12 +94,15 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
         else:
             total = 1 / sum(1 / r for r in resistances)
             reciprocals = " + ".join(rf"\frac{{1}}{{{r:g}}}" for r in resistances)
+            symbols = " + ".join(
+                rf"\frac{{1}}{{R_{index}}}" for index in range(1, len(resistances) + 1)
+            )
             answer = (
                 rf"\frac{{1}}{{R}} = {reciprocals} \Rightarrow R "
                 rf"\approx {total:.2f} \,\Omega"
             )
-            formula = rf"\frac{{1}}{{R}} = {reciprocals} \Rightarrow R"
-            substitution = formula
+            formula = rf"\frac{{1}}{{R_p}} = {symbols}"
+            substitution = reciprocals
         return PhysicsResult(
             answer=answer,
             formulas=(formula,),

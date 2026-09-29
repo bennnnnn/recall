@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula, var
+from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -54,6 +54,14 @@ SPECS: tuple[FormulaSpec, ...] = (
         r"\omega",
         base_latex=r"\omega = \omega_0 + \alpha t",
         assumptions=("constant angular acceleration",),
+        variants=(
+            FormulaVariant(
+                latex=r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta \Rightarrow \omega",
+                present=frozenset({"theta"}),
+                absent=frozenset({"t"}),
+                assumptions=("constant angular acceleration",),
+            ),
+        ),
         variables=(
             var("ang_alpha", r"\alpha", "radian / second ** 2"),
             var("omega0", r"\omega_0", "radian / second"),
@@ -71,6 +79,19 @@ SPECS: tuple[FormulaSpec, ...] = (
             "constant angular acceleration",
             "angular displacement is measured from zero",
         ),
+        variants=(
+            # Displacement is the unknown, so the ω² branch is the one that
+            # supplies ω and omits t. θ itself is not an input of this op.
+            FormulaVariant(
+                latex=r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta \Rightarrow \theta",
+                present=frozenset({"omega"}),
+                absent=frozenset({"t"}),
+                assumptions=(
+                    "constant angular acceleration",
+                    "angular displacement is measured from zero",
+                ),
+            ),
+        ),
         variables=(
             var("ang_alpha", r"\alpha", "radian / second ** 2"),
             var("omega", r"\omega", "radian / second"),
@@ -85,6 +106,14 @@ SPECS: tuple[FormulaSpec, ...] = (
         r"\alpha",
         base_latex=r"\omega = \omega_0 + \alpha t",
         assumptions=("constant angular acceleration",),
+        variants=(
+            FormulaVariant(
+                latex=r"\alpha = \frac{\omega^2 - \omega_0^2}{2\Delta\theta}",
+                present=frozenset({"theta"}),
+                absent=frozenset({"t"}),
+                assumptions=("constant angular acceleration",),
+            ),
+        ),
         variables=(
             var("omega", r"\omega", "radian / second"),
             var("omega0", r"\omega_0", "radian / second"),

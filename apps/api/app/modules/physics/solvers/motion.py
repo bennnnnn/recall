@@ -30,6 +30,15 @@ def _rate_number(value: float) -> str:
     return f"{value:.12g}"
 
 
+def _shown_degrees(radians: float) -> str:
+    """Degree label for a launch angle that was supplied in degrees."""
+    deg = math.degrees(radians)
+    tenths = round(deg, 1)
+    if abs(tenths - round(tenths)) < 1e-9:
+        return f"{round(tenths):.0f}"
+    return f"{tenths:.1f}"
+
+
 def _projectile_max_height_substitution(intent: PhysicsIntent) -> str:
     """Peak height with the launch angle in degrees, not the SI radian."""
     from app.modules.physics.working import display_number
@@ -484,13 +493,12 @@ def _suvat_time(p: dict[str, float]) -> tuple[float, str, str, str]:
         candidates = sorted(float(r) for r in roots if r.is_real and float(r) >= 0)
         if not candidates:
             raise SolveServiceError("the body never reaches that distance")
-        shown = rf"t = {d:g}"
         return (
             candidates[0],
             rf"s = ut + \tfrac{{1}}{{2}}at^2 \Rightarrow 0.5 \cdot {_latex_num(a)} t^2 + "
             rf"{u:g}t = {d:g}",
-            shown,
-            shown,
+            r"\tfrac{1}{2}at^2 + ut - s = 0",
+            rf"\tfrac{{1}}{{2}} \cdot {_latex_num(a)} t^2 + {_latex_num(u)} t - {d:g} = 0",
         )
     if u is not None and v is not None and d is not None:
         if u + v == 0:
@@ -718,7 +726,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
         else:
             answer_latex = rf"R = v_0 \cos(\theta)\, t \approx {r_val:.2f} \text{{ m}}"
             formulas = (r"R = v_0 \cos(\theta)\, t",)
-            substitutions = formulas
+            substitutions = (rf"R = {v0:g}\cos({_shown_degrees(theta)}^\circ)\cdot {t_flight:.2f}",)
         quantity = QuantityResult("", r_val, "m", number_format=".2f")
     elif op == "max_height":
         h_val = h0 + v0**2 * math.sin(theta) ** 2 / (2 * g)
@@ -749,7 +757,10 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\Rightarrow t \approx {t_flight:.2f} \text{{ s}}"
             )
             formulas = (r"\tfrac{1}{2} g t^2 - v_0 \sin(\theta) t - h_0 = 0 \Rightarrow t",)
-            substitutions = formulas
+            substitutions = (
+                rf"\tfrac{{1}}{{2}} \cdot {g:g} t^2 - {v0:g}\sin({_shown_degrees(theta)}^\circ)"
+                rf" t - {h0:g} = 0",
+            )
         quantity = QuantityResult("", t_flight, "s", number_format=".2f")
     elif op == "impact_speed":
         v_x = v0 * math.cos(theta)

@@ -7,10 +7,12 @@ import re
 import pytest
 from pydantic import ValidationError
 
+from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.catalog import CATALOG
+from app.modules.physics.catalog import CATALOG, select_formula
+from app.modules.physics.direct import format_direct_physics_working
 from app.modules.physics.solver import solve_physics
-from app.tests.modules.physics.support import extract_physics_intent
+from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 # A constant result with no quantity to insert. Everything else must show a given.
 _NO_GIVEN_TO_INSERT = frozenset({"gauss_inside_shell"})
@@ -21,6 +23,21 @@ _NUMBER = re.compile(r"(?<![\d.])(-?\d+(?:\.\d+)?(?:e[+-]?\d+)?)(?![\d.])", re.I
 def _contains_given(text: str, value: float) -> bool:
     rendered = f"{value:g}"
     return rendered in set(_NUMBER.findall(text))
+
+
+# Fixed coefficients, squares, and subscripts belong to the law, not a plugged-in given.
+# A square is removed even after a subscript digit (`v_1^2`); a bare `t = 8` is not.
+_LAW_COEFFICIENT = re.compile(
+    r"\\t?frac\{1\}\{2\}"
+    r"|\^\{-1\}"
+    r"|\^(?:\{2\}|2)"
+    r"|_\{?\d+\}?"
+    r"|(?<![\d.])2(?=[A-Za-z\\(])"
+)
+
+
+def _without_law_coefficients(formula: str) -> str:
+    return _LAW_COEFFICIENT.sub("", formula)
 
 
 # One direct intent per solver key set. Phrasing is not involved.
@@ -94,6 +111,22 @@ _BRANCHES: tuple[tuple[str, str, dict[str, float]], ...] = (
     ("fluids", "continuity_velocity", {"A1": 0.05, "v": 3.0, "A2": 0.02}),
     ("circuit", "kirchhoff_junction", {"i_enter": 5.0, "i_leave": 2.0}),
     ("magnetism", "gauss_inside_shell", {"Q": 1e-6, "r": 0.2, "radius_body": 1.0}),
+    ("suvat", "suvat_velocity", {"u": 5.0, "a": 3.0, "t": 4.0}),
+    ("suvat", "suvat_velocity", {"u": 4.0, "a": 3.0, "d": 6.0}),
+    ("suvat", "suvat_velocity", {"u": 4.0, "d": 10.0, "t": 5.0}),
+    ("suvat", "suvat_distance", {"u": 5.0, "a": 3.0, "t": 4.0}),
+    ("suvat", "suvat_distance", {"u": 10.0, "v": 30.0, "a": 4.0}),
+    ("suvat", "suvat_distance", {"u": 12.0, "v": 0.0, "t": 4.0}),
+    ("suvat", "suvat_time", {"u": 5.0, "v": 20.0, "a": 3.0}),
+    ("suvat", "suvat_time", {"u": 4.0, "a": 3.0, "d": 10.0}),
+    ("suvat", "suvat_time", {"u": 4.0, "v": 6.0, "d": 20.0}),
+    ("suvat", "suvat_acceleration", {"u": 5.0, "v": 20.0, "t": 5.0}),
+    ("suvat", "suvat_acceleration", {"u": 20.0, "v": 0.0, "d": 100.0}),
+    ("suvat", "suvat_acceleration", {"u": 0.0, "t": 5.0, "d": 37.5}),
+    ("projectile", "range", {"v0": 20.0, "angle": 30.0, "h0": 10.0, "g": 9.81}),
+    ("projectile", "time_of_flight", {"v0": 20.0, "angle": 30.0, "h0": 10.0, "g": 9.81}),
+    ("circuit", "parallel_resistance", {"R1": 2.0, "R2": 3.0}),
+    ("circuit", "parallel_resistance", {"R1": 2.0, "R2": 3.0, "R3": 5.0}),
 )
 
 
@@ -108,15 +141,31 @@ def test_each_solver_branch_is_in_the_catalog_and_substitutes(
     result = solve_physics(intent)
     assert result.formulas
     assert result.substitutions
+    visible = {variable.name for variable in spec.variables if variable.visible}
+    formula_text = _without_law_coefficients(" ".join(result.formulas))
+    leaked = [
+        name
+        for name, value in params.items()
+        if name in visible and _contains_given(formula_text, value)
+    ]
+    assert leaked == [], formula_text
     if op in _NO_GIVEN_TO_INSERT:
         assert result.substitutions == ("E = 0",)
         return
     assert result.substitutions != result.formulas
-    visible = {variable.name for variable in spec.variables if variable.visible}
     text = " ".join(result.substitutions)
     assert any(_contains_given(text, value) for name, value in params.items() if name in visible)
     if op == "work_energy" and "v1" not in params:
         assert result.substitutions[0].startswith("v_1")
+
+
+def test_law_coefficient_strip_keeps_a_plugged_in_number() -> None:
+    assert _contains_given(_without_law_coefficients(r"t = 8"), 8.0)
+    plugged = _without_law_coefficients(r"\frac{1}{2} + \frac{1}{3} + \frac{1}{5}")
+    assert _contains_given(plugged, 3.0)
+    assert _contains_given(plugged, 5.0)
+    symbolic = _without_law_coefficients(r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta")
+    assert not _contains_given(symbolic, 2.0)
 
 
 def test_angular_velocity_rejects_a_supplied_omega() -> None:
@@ -173,6 +222,17 @@ def test_angular_velocity_phrasing_does_not_echo_a_supplied_omega() -> None:
             "orbital_period",
             {"r", "omega"},
         ),
+        (
+            "a car at 10 m/s accelerates at 2 m/s^2 over 8 m, what is its final speed",
+            "suvat_velocity",
+            {"u", "a", "d"},
+        ),
+        (
+            "A projectile is launched at 20 m/s at 30 degrees from a 10 m cliff. "
+            "What is its range?",
+            "range",
+            {"v0", "angle", "h0"},
+        ),
     ],
 )
 def test_alternate_parameter_sentences_validate_and_solve(
@@ -186,3 +246,159 @@ def test_alternate_parameter_sentences_validate_and_solve(
     assert result.quantities
     text_rows = " ".join(result.substitutions)
     assert any(_contains_given(text_rows, (intent.physics_params or {})[name]) for name in required)
+
+
+# (kind, op, params, displayed law, law that must not open the reply, assumptions)
+_ALTERNATE_FAMILIES: tuple[tuple[str, str, dict[str, float], str, str, tuple[str, ...]], ...] = (
+    (
+        "suvat",
+        "suvat_velocity",
+        {"u": 4.0, "a": 3.0, "d": 6.0},
+        r"v = \sqrt{u^2 + 2as}",
+        "v = u + at",
+        (),
+    ),
+    (
+        "suvat",
+        "suvat_velocity",
+        {"u": 4.0, "d": 10.0, "t": 5.0},
+        r"v = \frac{2s}{t} - u",
+        "v = u + at",
+        (),
+    ),
+    (
+        "suvat",
+        "suvat_distance",
+        {"u": 10.0, "v": 30.0, "a": 4.0},
+        r"s = \frac{v^2 - u^2}{2a}",
+        r"s = ut + \tfrac{1}{2}at^2",
+        (),
+    ),
+    (
+        "suvat",
+        "suvat_distance",
+        {"u": 12.0, "v": 0.0, "t": 4.0},
+        r"s = \tfrac{1}{2}(u + v)t",
+        r"s = ut + \tfrac{1}{2}at^2",
+        (),
+    ),
+    (
+        "suvat",
+        "suvat_time",
+        {"u": 4.0, "a": 3.0, "d": 10.0},
+        r"\tfrac{1}{2}at^2 + ut - s = 0",
+        "v = u + at",
+        (),
+    ),
+    (
+        "suvat",
+        "suvat_time",
+        {"u": 4.0, "v": 6.0, "d": 20.0},
+        r"t = \frac{2s}{u + v}",
+        "v = u + at",
+        (),
+    ),
+    (
+        "suvat",
+        "suvat_acceleration",
+        {"u": 20.0, "v": 0.0, "d": 100.0},
+        r"a = \frac{v^2 - u^2}{2s}",
+        "v = u + at",
+        (),
+    ),
+    (
+        "suvat",
+        "suvat_acceleration",
+        {"u": 0.0, "t": 5.0, "d": 37.5},
+        r"a = \frac{2(s - ut)}{t^2}",
+        "v = u + at",
+        (),
+    ),
+    (
+        "rotation",
+        "rotational_omega",
+        {"omega0": 5.0, "ang_alpha": 3.0, "theta": 8.0},
+        r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta \Rightarrow \omega",
+        r"\omega = \omega_0 + \alpha t",
+        ("constant angular acceleration",),
+    ),
+    (
+        "rotation",
+        "rotational_theta",
+        {"omega": 10.0, "omega0": 4.0, "ang_alpha": 3.0},
+        r"\omega^2 = \omega_0^2 + 2\alpha\Delta\theta \Rightarrow \theta",
+        r"\theta = \theta_0 + \omega_0 t + \frac{1}{2}\alpha t^2",
+        (
+            "constant angular acceleration",
+            "angular displacement is measured from zero",
+        ),
+    ),
+    (
+        "rotation",
+        "rotational_alpha",
+        {"omega": 10.0, "omega0": 4.0, "theta": 14.0},
+        r"\alpha = \frac{\omega^2 - \omega_0^2}{2\Delta\theta}",
+        r"\omega = \omega_0 + \alpha t",
+        ("constant angular acceleration",),
+    ),
+)
+
+
+@pytest.mark.parametrize(
+    ("kind", "op", "params", "law", "other", "assumptions"),
+    _ALTERNATE_FAMILIES,
+)
+def test_alternate_family_is_the_law_the_reply_opens_with(
+    kind: str,
+    op: str,
+    params: dict[str, float],
+    law: str,
+    other: str,
+    assumptions: tuple[str, ...],
+) -> None:
+    latex, lines, selected = select_formula(CATALOG[op], params)
+    assert lines == ()
+    assert latex == law
+    assert selected == assumptions
+    intent = PhysicsIntent(kind=kind, physics_op=op, physics_params=params)  # type: ignore[arg-type]
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    reply = format_direct_physics_working(block)
+    assert reply is not None
+    formula = reply.split("**Substitution**", 1)[0].split("**Formula**", 1)[1]
+    assert f"${law}$" in formula
+    assert other not in formula
+
+
+def test_time_branch_stays_when_both_families_were_given() -> None:
+    omega, _, _ = select_formula(
+        CATALOG["rotational_omega"],
+        {"omega0": 2.0, "ang_alpha": 3.0, "t": 4.0, "theta": 8.0},
+    )
+    assert omega == r"\omega = \omega_0 + \alpha t"
+    velocity, _, _ = select_formula(
+        CATALOG["suvat_velocity"],
+        {"u": 4.0, "a": 3.0, "t": 5.0, "d": 6.0},
+    )
+    assert velocity == "v = u + at"
+
+
+def test_parallel_resistance_formula_counts_each_resistor() -> None:
+    two = solve_physics(
+        PhysicsIntent(
+            kind="circuit",
+            physics_op="parallel_resistance",
+            physics_params={"R1": 2.0, "R2": 3.0},
+        )
+    )
+    three = solve_physics(
+        PhysicsIntent(
+            kind="circuit",
+            physics_op="parallel_resistance",
+            physics_params={"R1": 2.0, "R2": 3.0, "R3": 5.0},
+        )
+    )
+    assert two.formulas == (r"\frac{1}{R_p} = \frac{1}{R_1} + \frac{1}{R_2}",)
+    assert two.substitutions == (r"\frac{1}{2} + \frac{1}{3}",)
+    assert three.formulas == (r"\frac{1}{R_p} = \frac{1}{R_1} + \frac{1}{R_2} + \frac{1}{R_3}",)
+    assert three.substitutions == (r"\frac{1}{2} + \frac{1}{3} + \frac{1}{5}",)
