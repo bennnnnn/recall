@@ -1,4 +1,5 @@
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
+import { presentStreamTail } from "@/lib/markdown/presentation";
 
 export type StreamingPreprocessCache = {
   /** Raw byte length covered by `preparedStable`. */
@@ -288,7 +289,7 @@ export function preprocessMarkdownForStream(
 
   if (stableLen === 0) {
     return {
-      prepared: content,
+      prepared: presentStreamTail(content),
       cache: { rawStableLen: 0, preparedStable: "", scanState },
     };
   }
@@ -313,7 +314,7 @@ export function preprocessMarkdownForStream(
 
   const tail = content.slice(stableLen);
   return {
-    prepared: preparedStable + tail,
+    prepared: preparedStable + presentStreamTail(tail),
     cache: { rawStableLen: stableLen, preparedStable, scanState },
   };
 }

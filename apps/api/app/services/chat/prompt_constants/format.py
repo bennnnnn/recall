@@ -507,7 +507,7 @@ SHORT_RESPONSE_FORMAT_HINT = (
 
 # Compact baseline injected on ALL non-lightweight turns (short, day-plan, quiz).
 # Covers the artifacts that make output ugly regardless of turn type.
-UNIVERSAL_FORMAT_BASELINE = (
+_UNIVERSAL_FORMAT_CORE = (
     "Never put a colon on its own line — it strands as a lone punctuation mark. "
     "If a label introduces a formula, put the formula on the next line without a trailing colon. "
     "By default, keep paragraphs to 2-3 sentences; an explicitly requested prose length or "
@@ -524,6 +524,53 @@ UNIVERSAL_FORMAT_BASELINE = (
     "Use a pipe table for timetables, measurements, lookup grids, and X vs Y comparisons. "
     "Never open with a rhetorical hook (Ah, the eternal question; Great question; "
     "Let's break it down)."
+)
+
+MARKDOWN_BOUNDARY_CONTRACT = (
+    "Markdown spacing: put a normal word space outside inline delimiters. "
+    "Write at **40 km/h**, never at**40 km/h**. "
+    "Write **60 km/h** and **40 km/h**, never **60 km/h**and. "
+    "Keep punctuation on the delimiter: **48 km/h**. and **48 km/h**, and (**important**). "
+    "Bold a key value, constraint, term, or conclusion. Leave connective prose unbolded, "
+    "and do not bold a whole paragraph. "
+    "Do not change characters inside code, URLs, or math."
+)
+
+CALCULATION_LAYOUT_CONTRACT = (
+    "Calculation layout, every subject: one logical reasoning state per math row. "
+    "Keep one definition, one formula, one simple evaluation, or one relationship together, "
+    "including $12 + 8 = 20\\text{ km}$, $0.6 + 0.8 = 1.4\\text{ h}$, $20 \\div 4 = 5$, and "
+    "$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$ on a single row. "
+    "A wide formula may scroll; do not break inside a fraction, radical, or matrix. "
+    "Put a formula, its substitution, and its result on separate rows: "
+    "$v = \\frac{d}{t}$, then $v = \\frac{50}{10}$, then $v = 5$. "
+    "Put independent equations on separate rows, never $t_1 = d/60,\\quad t_2 = d/40$. "
+    "Trivial one-step arithmetic is one row and does not use Given, Find, Formula, "
+    "Substitution, and Answer. A word problem may use those short labels. "
+    "Do not force a line break with HTML."
+)
+
+CHEMISTRY_PRESENTATION_HINT = (
+    "This is a chemistry answer. Keep species, amounts, and units easy to scan. "
+    "When you calculate, follow the calculation layout: one reasoning state per row."
+)
+
+STATISTICS_PRESENTATION_HINT = (
+    "This is a statistics answer. Name the statistic and the values that enter it. "
+    "When you calculate, follow the calculation layout: one reasoning state per row."
+)
+
+BIOLOGY_PRESENTATION_HINT = (
+    "This is a quantitative biology answer. Keep the biological quantity and its units visible. "
+    "When you calculate, follow the calculation layout: one reasoning state per row."
+)
+
+UNIVERSAL_FORMAT_BASELINE = " ".join(
+    (
+        _UNIVERSAL_FORMAT_CORE,
+        MARKDOWN_BOUNDARY_CONTRACT,
+        CALCULATION_LAYOUT_CONTRACT,
+    )
 )
 
 # Slim/casual turns: ChatGPT-shaped, not a rich-fence pack.

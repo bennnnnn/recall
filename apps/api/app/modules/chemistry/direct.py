@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 
 from app.modules.chemistry.block import VerifiedChemistry
+from app.services.chat.presentation import present_assistant_markdown
 
 
 def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
@@ -22,6 +23,8 @@ def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
         f"**Substitution**\n\n{substitution}\n\n"
         f"**Answer**\n\n**{result.answer}** ✅\n"
     )
+    # Present the prose only. Scene and structure fences stay byte-for-byte.
+    presented = present_assistant_markdown(body)
     extras: list[str] = []
     if result.scene is not None:
         payload = json.dumps(result.scene, ensure_ascii=False)
@@ -29,8 +32,8 @@ def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
     if result.structure_smiles:
         extras.append(f"```smiles\n{result.structure_smiles}\n```")
     if not extras:
-        return body
-    return body + "\n" + "\n".join(extras) + "\n"
+        return presented
+    return presented + "\n" + "\n".join(extras) + "\n"
 
 
 def maybe_direct_chemistry_reply(

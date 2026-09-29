@@ -53,6 +53,8 @@ def _referenced_math_problem(
         return None
     # Four complete exchanges are enough for a natural clarification chain
     # without turning this into a search over stale chat history.
+    from app.modules.physics.extract import needs_physics
+
     cursor = len(recent) - 2
     checked = 0
     while cursor >= 0 and checked < 4:
@@ -67,6 +69,8 @@ def _referenced_math_problem(
         if not (
             isinstance(prior, str) and prior.strip() and isinstance(reply, str) and reply.strip()
         ):
+            return None
+        if needs_physics(prior):
             return None
         if needs_symbolic_math(prior):
             return prior

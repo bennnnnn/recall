@@ -14,7 +14,8 @@ PHYSICS_INTENT_HINT = (
     "  - A trajectory is only for kinematics, projectile motion, or spring and "
     "pendulum motion. Every other answer is a number with units.\n"
     "  - Outside the verified templates, say when you are unsure instead of "
-    "inventing a result."
+    "inventing a result.\n"
+    "  - Never join several transformations into one math row."
 )
 
 PHYSICS_SHORT_HINT = (
@@ -29,7 +30,8 @@ PHYSICS_SHORT_HINT = (
 PHYSICS_REPLY_POLICY = (
     "Physics reply policy for this request: For a concrete calculation, use "
     "Given, Find, Formula, Substitution, then the final Answer. Put each value "
-    "or equation on its own short line. Name the governing formula before "
+    "or equation on its own short line. One reasoning state per row; do not "
+    "chain several equals signs. Name the governing formula before "
     "substituting. Do not add a math lesson, tutorial bullets, or Note/Tip "
     "cards, and do not repeat the result. Copy verified numbers and units; do "
     "not recompute them. Honor SHORT by giving less, and DETAILED by showing "
