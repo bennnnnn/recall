@@ -220,6 +220,31 @@ async def test_fetch_3d_sdf_not_found() -> None:
 
 
 @pytest.mark.asyncio
+async def test_lookup_iupac_name_returns_only_that_property() -> None:
+    mock_resp = _mock_response(
+        200,
+        {"PropertyTable": {"Properties": [{"CID": 702, "IUPACName": "  ethanol  "}]}},
+    )
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=mock_resp)
+    with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
+        name = await pubchem_gateway.lookup_iupac_name("CCO")
+    assert name == "ethanol"
+    url = client.get.await_args.args[0]
+    assert url.endswith("/property/IUPACName/JSON")
+
+
+@pytest.mark.asyncio
+async def test_lookup_iupac_name_missing_is_not_a_common_name() -> None:
+    mock_resp = _mock_response(200, {"PropertyTable": {"Properties": [{"CID": 702}]}})
+    client = AsyncMock()
+    client.get = AsyncMock(return_value=mock_resp)
+    with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
+        assert await pubchem_gateway.lookup_iupac_name("CCO") is None
+    assert await pubchem_gateway.lookup_iupac_name("  ") is None
+
+
+@pytest.mark.asyncio
 async def test_fetch_3d_sdf_network_error() -> None:
     client = AsyncMock()
     client.get = AsyncMock(side_effect=Exception("network error"))

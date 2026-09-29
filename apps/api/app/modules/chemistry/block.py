@@ -56,3 +56,19 @@ def build_verified_chemistry(intent: ChemistryIntent) -> VerifiedChemistry | Non
         )
         return None
     return VerifiedChemistry(intent=intent, result=result, prompt_text=_prompt_text(result))
+
+
+def verified_iupac(smiles: str, iupac_name: str) -> VerifiedChemistry:
+    """A PubChem IUPACName that was actually returned. Not a local guess."""
+    intent = ChemistryIntent(kind="organic", chemistry_op="iupac_name", formula=smiles)
+    result = ChemistryResult(
+        title="Verified IUPAC name",
+        given=(smiles,),
+        find="IUPAC name",
+        formula_name="PubChem IUPACName",
+        formula="the IUPACName property for this SMILES",
+        substitution=(iupac_name,),
+        answer=iupac_name,
+        answer_value=iupac_name,
+    )
+    return VerifiedChemistry(intent=intent, result=result, prompt_text=_prompt_text(result))

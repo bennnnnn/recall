@@ -282,10 +282,20 @@ _ADVANCED_PHYSICS_RE = re.compile(
 )
 
 
+# A supplied nuclear mass is a chemistry mass-defect calculation. The same
+# words without that mass stay on the unverified physics path.
+_SUPPLIED_NUCLEAR_MASS_RE = re.compile(
+    r"\b(?:mass defect|binding energy)\b[\s\S]{0,80}\b(?:nuclear mass|mass)\s*=\s*-?(?:\d|\.\d)",
+    re.IGNORECASE,
+)
+
+
 def needs_physics(text: str) -> bool:
     """True for a verified template or an unmistakable physics-only request."""
     cleaned = normalize_symbolic_request(text)
     if not cleaned:
+        return False
+    if _SUPPLIED_NUCLEAR_MASS_RE.search(cleaned) is not None:
         return False
     if _ADVANCED_PHYSICS_RE.search(cleaned) is not None:
         return True

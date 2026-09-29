@@ -10,7 +10,7 @@ from redis.asyncio import Redis
 from app.core.config import Settings
 from app.gateways import pubchem_gateway
 from app.modules import chemistry as chemistry_service
-from app.modules.chemistry.block import VerifiedChemistry, build_verified_chemistry
+from app.modules.chemistry.block import VerifiedChemistry, build_verified_chemistry, verified_iupac
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import (
     EQUATION_RE,
@@ -30,6 +30,7 @@ _ELEMENT_CUE = re.compile(
     r"\b(?:atomic\s+mass|atomic\s+number|electronegativity|periodic\s+table|element)\b",
     re.IGNORECASE,
 )
+_IUPAC_SMILES = re.compile(r"\bIUPAC name\b[\s\S]{0,40}\bSMILES\s+(\S+)", re.IGNORECASE)
 _STOICH_CUE = re.compile(
     r"\b(?:how\s+much|how\s+many|amount\s+of|moles\s+of|grams?\s+of|limiting\s+reagent)\b",
     re.IGNORECASE,
@@ -148,11 +149,23 @@ async def build_chemistry_augmentation(
 ) -> tuple[str | None, VerifiedChemistry | None]:
     """Return prompt context plus the typed verified solve, when available."""
     _ = settings
+    iupac_smiles = _iupac_smiles(content)
+    if iupac_smiles is not None:
+        name = await pubchem_gateway.lookup_iupac_name(iupac_smiles)
+        if not name:
+            return (
+                "[Chemistry note]\n"
+                "No verified IUPAC name was returned for that SMILES. "
+                "Do not invent an IUPAC name.",
+                None,
+            )
+        verified = verified_iupac(iupac_smiles, name)
+        return verified.prompt_text, verified
     intent = extract_chemistry_intent(content)
     if intent is not None:
-        verified = build_verified_chemistry(intent)
-        if verified is not None:
-            return verified.prompt_text, verified
+        solved = build_verified_chemistry(intent)
+        if solved is not None:
+            return solved.prompt_text, solved
 
     for local_context in (
         _stoichiometry_ratio_hint(content),
@@ -185,6 +198,14 @@ async def build_chemistry_augmentation(
         ),
         None,
     )
+
+
+def _iupac_smiles(content: str) -> str | None:
+    match = _IUPAC_SMILES.search(content)
+    if match is None:
+        return None
+    token = match.group(1).rstrip("?.!,")
+    return token or None
 
 
 async def build_chemistry_context(

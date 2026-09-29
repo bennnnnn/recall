@@ -37,6 +37,11 @@ _CHEMISTRY_CUE = re.compile(
     r"weak acid|weak base|"
     r"strong acid|strong base|electron capture|boiling|freezing|osmotic|raoult|"
     r"combined gas|over water|precipitation|stereochemistry|kp|"
+    r"mass defect|binding energy|crystal field|magnetic moment|"
+    r"standard deviation|standard error|percent error|relative uncertainty|"
+    r"retention factor|\bRf\b|Michaelis[- ]Menten|IUPAC|"
+    r"IR ranges|IR peak|NMR ranges|NMR peak|NMR splitting|molecular ion|"
+    r"HBr addition|bromine addition|acid hydration|hydroxide substitution|esterification|"
     r"\bKa\b|\bKb\b|calorimeter constant)\b",
     re.IGNORECASE,
 )
