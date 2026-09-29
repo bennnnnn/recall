@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A closed `\(...\)` chain stayed one row until the stream settled.** The live tail skips full preprocess, so `\(` never became `$` before the row split, and a reply with no trailing newline kept that formula unstable. Fold a finished `\(...\)` into `$...$` inside the shared layout, and leave an opener with no closer literal so the pending tail still hides `\frac`.
+
 - **Nuclear mass defect was answered as unverified physics.** The advanced-physics cue treats “mass defect” and “binding energy” as physics, so a supplied nuclear mass never reached chemistry. Skip that cue when the nuclear mass is written out; chemistry owns Δm and E/A only then.
 
 - **A θ-form rotational or SUVAT solve still opened on the time equation.** `select_formula` only knew each op’s base law, so the reply called `ω² = ω₀² + 2αΔθ` a rearrangement of `ω = ω₀ + αt` (and the same for `v² = u² + 2as`). The variant latex has to be the string the solver stores, and it must set `absent` for the variable that would have taken the earlier branch. `suvat_velocity` and `suvat_time` also have to declare `d`, or that branch never validates.

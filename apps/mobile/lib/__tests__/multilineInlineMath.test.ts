@@ -8,6 +8,10 @@ import { markdownItInstance } from '@/lib/markdown/parser';
 const C04_RESPONSE = "The partial derivative of \\(x^2 y\\) with respect to \\(y\\) is:  \n**\\(x^2\\)**  \n\n### Explanation\n- When differentiating with respect to \\(y\\), treat \\(x\\) as a constant.  \n- The derivative of \\(y\\) (with respect to \\(y\\)) is 1, so:  \n  \\(\n  \\frac{\\partial}{\\partial y}(x^2 y) = x^2 \\cdot 1 = x^2.\n  \\)";
 
 const formula = String.raw`\frac{\partial}{\partial y}(x^2 y) = x^2 \cdot 1 = x^2.`;
+const formulaSteps = [
+  String.raw`\frac{\partial}{\partial y}(x^2 y) = x^2 \cdot 1`,
+  String.raw`\frac{\partial}{\partial y}(x^2 y) = x^2.`,
+];
 function parsedFormulae(text: string): string[] {
   return markdownItInstance.parse(text, {}).flatMap((token) =>
     token.type === 'inline' ? (token.children ?? []).flatMap((child) =>
@@ -16,7 +20,7 @@ function parsedFormulae(text: string): string[] {
 describe('multiline explicit inline math', () => {
   it('keeps the exact saved C04 derivative in one parseable math span inside the list', () => {
     const prepared = preprocessMarkdown(C04_RESPONSE);
-    expect(parsedFormulae(prepared)).toContain(formula);
+    for (const step of formulaSteps) expect(parsedFormulae(prepared)).toContain(step);
     expect(prepared).not.toContain('$\n');
   });
   it.each(['\n', '\r\n'])('folds source newlines, keeping TeX matrix row separators (%j)', (newline) => {
@@ -45,12 +49,14 @@ describe('multiline explicit inline math', () => {
         expect(tail.text).not.toMatch(/\\frac|\\partial|\$/);
       } else {
         expect(tail.pending).toBe(false);
-        expect(parsedFormulae(cache.preparedStable + tail.text)).toContain(formula);
+        for (const step of formulaSteps) {
+          expect(parsedFormulae(cache.preparedStable + tail.text)).toContain(step);
+        }
       }
     }
     const completed = preprocessMarkdownForStream(`${source}\n`, cache);
     expect(completed.prepared).toBe(preprocessMarkdown(`${source}\n`));
-    expect(parsedFormulae(completed.prepared)).toContain(formula);
+    for (const step of formulaSteps) expect(parsedFormulae(completed.prepared)).toContain(step);
   });
   it('leaves a multiline backticked source span literal in the live preview', () => {
     const source = '`\\(\n\\frac{1}{2}\n\\)`';
