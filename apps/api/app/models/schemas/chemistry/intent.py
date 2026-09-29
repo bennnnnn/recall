@@ -41,6 +41,14 @@ class ChemistryIntent(BaseModel):
     def finite_values(self) -> ChemistryIntent:
         if self.chemistry_op not in _OPS_BY_KIND[self.kind]:
             raise ValueError(f"{self.chemistry_op!r} is not a {self.kind!r} chemistry operation")
+        from app.modules.chemistry.catalog import formula_spec
+
+        spec = formula_spec(self.chemistry_op)
+        if spec is not None:
+            unknown = sorted(name for name in self.params if not spec.accepts_param(name))
+            if unknown:
+                names = ", ".join(unknown)
+                raise ValueError(f"{self.chemistry_op} does not declare {names}")
         values = (*self.params.values(), *self.species.values(), *self.samples)
         if any(not math.isfinite(value) for value in values):
             raise ValueError("chemistry values must be finite")

@@ -12,15 +12,47 @@ from dataclasses import dataclass
 
 
 @dataclass(frozen=True, slots=True)
+class VariableSpec:
+    """One numeric input a chemistry operation accepts."""
+
+    name: str
+    symbol: str
+    required: bool = False
+    # ``dh`` accepts ``dh1``, ``dh2``, and so on.
+    indexed: bool = False
+
+
+@dataclass(frozen=True, slots=True)
 class FormulaSpec:
     id: str
     kind: str
     law_name: str
     base_formula: str
+    assumptions: tuple[str, ...] = ()
+    variables: tuple[VariableSpec, ...] = ()
+    # Molarities keyed by the reactant formula, as in a limiting-solution problem.
+    formula_params: bool = False
+
+    def accepts_param(self, name: str) -> bool:
+        for variable in self.variables:
+            if variable.indexed:
+                suffix = name[len(variable.name) :]
+                if name.startswith(variable.name) and suffix.isdigit():
+                    return True
+            elif variable.name == name:
+                return True
+        return self.formula_params and bool(name) and name[0].isupper()
 
 
-def _spec(operation: str, kind: str, law_name: str, base_formula: str) -> FormulaSpec:
-    return FormulaSpec(operation, kind, law_name, base_formula)
+def _variables(operation: str) -> tuple[VariableSpec, ...]:
+    required = _REQUIRED.get(operation, frozenset())
+    specs = [
+        VariableSpec(name, name, required=name in required) for name in _INPUTS.get(operation, ())
+    ]
+    specs.extend(
+        VariableSpec(prefix, prefix, indexed=True) for prefix in _INDEXED.get(operation, ())
+    )
+    return tuple(specs)
 
 
 _ROWS: tuple[tuple[str, str, str, str], ...] = (
@@ -207,11 +239,135 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ("michaelis_menten", "biochemistry", "Michaelis–Menten equation", "v = Vmax[S] / (Km + [S])"),
 )
 
+# Names the extractors actually store. A name absent from this map is rejected
+# on the intent, including for operations that carry their data in formula,
+# equation, species, or samples instead of params.
+_INPUTS: dict[str, tuple[str, ...]] = {
+    "mass_to_moles": ("mass",),
+    "moles_to_mass": ("moles",),
+    "moles_to_particles": ("moles",),
+    "particles_to_moles": ("particles",),
+    "percent_yield": ("actual", "theoretical"),
+    "molecular_formula": ("molar_mass",),
+    "solution_stoichiometry": ("molarity",),
+    "gas_stoichiometry": ("pressure", "temperature"),
+    "molarity": ("moles", "volume_l"),
+    "dilution": ("m1", "v1", "m2", "v2"),
+    "molality": ("moles", "solvent_kg"),
+    "mass_percent": ("solute_mass", "solution_mass"),
+    "boiling_elevation": ("i", "kb", "molality"),
+    "freezing_depression": ("i", "kf", "molality"),
+    "osmotic_pressure": ("i", "molarity", "temperature"),
+    "raoult": ("mole_fraction", "pure_pressure"),
+    "ph_from_h": ("h",),
+    "ph_from_poh": ("poh",),
+    "h_from_ph": ("ph",),
+    "poh_from_oh": ("oh",),
+    "buffer_ph": ("pka", "base", "acid"),
+    "weak_acid_ph": ("concentration", "ka"),
+    "weak_base_ph": ("concentration", "kb"),
+    "polyprotic_ph": ("concentration", "ka1"),
+    "strong_acid_ph": ("concentration",),
+    "strong_base_ph": ("concentration",),
+    "ka_kb": ("ka", "kb"),
+    "titration_strong": ("ma", "va_l", "mb", "vb_l"),
+    "titration_weak": ("ma", "va_l", "mb", "vb_l", "ka", "kb"),
+    "buffer_addition": ("pka", "ha_moles", "a_moles", "added_moles"),
+    "ideal_gas": ("pressure", "volume", "moles", "temperature"),
+    "combined_gas": ("p1", "v1", "t1", "p2", "v2", "t2"),
+    "boyle": ("p1", "v1", "p2", "v2"),
+    "charles": ("v1", "t1", "v2", "t2"),
+    "partial_pressure": ("mole_fraction", "total_pressure"),
+    "gas_over_water": ("total_pressure", "temperature_c"),
+    "heat": ("mass", "specific_heat", "delta_t"),
+    "gibbs": ("delta_h", "delta_s", "temperature"),
+    "calorimetry": ("c_cal", "delta_t"),
+    "bond_enthalpy": ("broken", "formed"),
+    "equilibrium_constant": (),
+    "reaction_quotient": (),
+    "precipitation": ("qsp", "ksp"),
+    "common_ion": ("ksp",),
+    "ksp": ("ksp",),
+    "kc_kp": ("temperature", "kc", "kp", "delta_n"),
+    "ice_equilibrium": ("k",),
+    "first_order_half_life": ("rate_constant",),
+    "first_order_concentration": ("initial", "rate_constant", "time"),
+    "zero_order_half_life": ("initial", "rate_constant"),
+    "zero_order": ("initial", "rate_constant", "time"),
+    "second_order_half_life": ("initial", "rate_constant"),
+    "second_order": ("initial", "rate_constant", "time"),
+    "arrhenius": ("pre_exponential", "activation_energy", "temperature"),
+    "arrhenius_two_point": ("k1", "t1", "k2", "t2"),
+    "rate_law": ("a1", "rate1", "a2", "rate2", "b1", "b2"),
+    "cell_gibbs": ("electrons", "potential"),
+    "nernst": ("standard_potential", "electrons", "quotient", "temperature"),
+    "electrolysis_mass": ("molar_mass", "current", "time", "electrons"),
+    "cell_potential": ("cathode", "anode"),
+    "radioactive_decay": ("initial", "elapsed", "half_life"),
+    "decay_constant": ("half_life",),
+    "exponential_decay": ("initial", "decay_constant", "time"),
+    "nuclear_activity": ("decay_constant", "particles"),
+    "mass_defect": ("nuclear_mass",),
+    "formal_charge": ("valence", "nonbonding", "bonding"),
+    "beer_lambert": ("absorbance", "epsilon", "path", "concentration"),
+    "calibration": ("slope", "intercept", "signal"),
+    "gravimetric": ("precipitate_mass", "factor"),
+    "standard_addition": (
+        "sample_signal",
+        "spiked_signal",
+        "standard_concentration",
+        "standard_volume",
+        "sample_volume",
+    ),
+    "percent_error": ("experimental", "accepted"),
+    "relative_uncertainty": ("a", "da", "b", "db"),
+    "chromatography_rf": ("spot", "front"),
+    "ir_peak": ("peak",),
+    "nmr_peak": ("peak",),
+    "nmr_splitting": ("neighbors",),
+    "michaelis_menten": ("v", "vmax", "km", "substrate"),
+}
+_INDEXED: dict[str, tuple[str, ...]] = {"hess": ("dh", "m")}
+_FORMULA_PARAMS = frozenset({"limiting_solution"})
+_REQUIRED: dict[str, frozenset[str]] = {
+    "mass_to_moles": frozenset({"mass"}),
+    "moles_to_mass": frozenset({"moles"}),
+    "percent_yield": frozenset({"actual", "theoretical"}),
+    "molarity": frozenset({"moles", "volume_l"}),
+    "dilution": frozenset({"m1", "v1"}),
+    "gibbs": frozenset({"delta_h", "delta_s", "temperature"}),
+    "heat": frozenset({"mass", "specific_heat", "delta_t"}),
+    "buffer_ph": frozenset({"pka", "base", "acid"}),
+    "titration_strong": frozenset({"ma", "va_l", "mb"}),
+    "first_order_half_life": frozenset({"rate_constant"}),
+    "cell_gibbs": frozenset({"electrons", "potential"}),
+    "mass_defect": frozenset({"nuclear_mass"}),
+    "michaelis_menten": frozenset(),
+}
+_ASSUMPTIONS: dict[str, tuple[str, ...]] = {
+    "ideal_gas": ("the gas behaves ideally",),
+    "dilution": ("the amount of solute does not change",),
+    "gibbs": ("temperature is constant",),
+    "beer_lambert": ("absorptivity and path length stay constant",),
+    "hess": ("enthalpy depends only on the initial and final states",),
+    "first_order_concentration": ("the reaction is first order in one reactant",),
+    "radioactive_decay": ("the decay constant does not change",),
+    "molarity": ("volume is the volume of the solution",),
+}
+
 CATALOG: dict[str, FormulaSpec] = {}
 for _operation, _kind, _law, _formula in _ROWS:
     if _operation in CATALOG:
         raise RuntimeError(f"duplicate chemistry formula {_operation}")
-    CATALOG[_operation] = _spec(_operation, _kind, _law, _formula)
+    CATALOG[_operation] = FormulaSpec(
+        _operation,
+        _kind,
+        _law,
+        _formula,
+        assumptions=_ASSUMPTIONS.get(_operation, ()),
+        variables=_variables(_operation),
+        formula_params=_operation in _FORMULA_PARAMS,
+    )
 
 
 def formula_spec(operation: str) -> FormulaSpec | None:
