@@ -33,7 +33,6 @@ import multiprocessing as mp
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
-from concurrent.futures.process import BrokenProcessPool
 from typing import Any, TypeVar
 
 logger = logging.getLogger(__name__)
@@ -137,23 +136,16 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         if self._in_process:
             return
         self._in_process = True
-        self._ensure_thread_pool()
+        # Extra threads so one timed-out solve, which cannot be killed, does
+        # not occupy the only worker the next equation needs.
+        self._thread_pool = ThreadPoolExecutor(
+            max_workers=max(self._max_workers, 8),
+            thread_name_prefix="sympy-fallback",
+        )
         logger.warning(
             "sympy process pool cannot start (posix semaphore limit); "
             "verified math will run in-process until restart"
         )
-
-    def _ensure_thread_pool(self) -> ThreadPoolExecutor:
-        pool = self._thread_pool
-        if pool is None:
-            # Extra threads so one timed-out solve, which cannot be killed, does
-            # not occupy the only worker the next equation needs.
-            pool = ThreadPoolExecutor(
-                max_workers=max(self._max_workers, 8),
-                thread_name_prefix="sympy-fallback",
-            )
-            self._thread_pool = pool
-        return pool
 
     def _ensure_slot(self, slot: int) -> ProcessPoolExecutor:
         pool = self._slots[slot]
@@ -240,42 +232,29 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 if exc.errno != errno.ENOSPC or not self._in_process:
                     raise
                 return await self._run_in_process(fn, args, timeout)
-            try:
-                future = pool.submit(_sympy_worker, fn, *args)
-                t_spawn = time.monotonic()
-                while not future.running() and not future.done():
-                    if time.monotonic() - t_spawn >= _SPAWN_WAIT_SECONDS:
-                        logger.warning(
-                            "sympy worker failed to start after %.3fs", _SPAWN_WAIT_SECONDS
-                        )
-                        future.cancel()
-                        self._kill_slot(slot)
-                        raise TimeoutError("SymPy worker failed to start")
-                    await asyncio.sleep(_QUEUE_POLL_SECONDS)
-                t_start = time.monotonic()
-                afut = asyncio.wrap_future(future)
-                try:
-                    async with asyncio.timeout(timeout):
-                        result = await afut
-                except TimeoutError:
-                    logger.warning(
-                        "sympy worker timed out after %.3fs (queued %.3fs)",
-                        timeout,
-                        queue_s,
-                    )
+            future = pool.submit(_sympy_worker, fn, *args)
+            t_spawn = time.monotonic()
+            while not future.running() and not future.done():
+                if time.monotonic() - t_spawn >= _SPAWN_WAIT_SECONDS:
+                    logger.warning("sympy worker failed to start after %.3fs", _SPAWN_WAIT_SECONDS)
                     future.cancel()
                     self._kill_slot(slot)
-                    raise
-            except BrokenProcessPool:
-                # One dead worker must not drop a closed equation into the model.
-                # Retry this call in a thread. Later calls still get a fresh
-                # process slot, so a timeout can still be killed.
-                logger.warning("sympy worker pool broke; running this solve in-process")
-                if future is not None:
-                    future.cancel()
+                    raise TimeoutError("SymPy worker failed to start")
+                await asyncio.sleep(_QUEUE_POLL_SECONDS)
+            t_start = time.monotonic()
+            afut = asyncio.wrap_future(future)
+            try:
+                async with asyncio.timeout(timeout):
+                    result = await afut
+            except TimeoutError:
+                logger.warning(
+                    "sympy worker timed out after %.3fs (queued %.3fs)",
+                    timeout,
+                    queue_s,
+                )
+                future.cancel()
                 self._kill_slot(slot)
-                future = None
-                return await self._run_in_process(fn, args, timeout)
+                raise
             if queue_s >= 0.05:
                 logger.info(
                     "sympy queued=%.3fs ran=%.3fs",
@@ -301,7 +280,10 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         args: tuple[Any, ...],
         timeout: float,  # noqa: ASYNC109 - we IMPLEMENT the timeout, not consume it
     ) -> _T:
-        future = self._ensure_thread_pool().submit(fn, *args)
+        pool = self._thread_pool
+        if pool is None:
+            raise RuntimeError("sympy in-process fallback was not armed")
+        future = pool.submit(fn, *args)
         t_spawn = time.monotonic()
         while not future.running() and not future.done():
             if time.monotonic() - t_spawn >= _SPAWN_WAIT_SECONDS:

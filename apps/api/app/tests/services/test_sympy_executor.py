@@ -95,67 +95,6 @@ async def test_semaphore_exhaustion_still_runs_the_solve():
 
 
 @pytest.mark.asyncio
-async def test_broken_worker_still_runs_the_solve(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A dead process slot retries in-thread so ``3x+4=4`` keeps its lesson."""
-    from concurrent.futures.process import BrokenProcessPool
-
-    class _DeadPool:
-        def submit(self, *_args: object, **_kwargs: object) -> None:
-            raise BrokenProcessPool("worker died")
-
-        def shutdown(self, *_args: object, **_kwargs: object) -> None:
-            return None
-
-    monkeypatch.setattr(
-        "app.services.sympy_executor.ProcessPoolExecutor",
-        lambda *args, **kwargs: _DeadPool(),
-    )
-    executor = ProcessPoolSympyExecutor(max_workers=1)
-    set_sympy_executor(executor)
-    try:
-        assert await run_sympy(_add, 2, 3, timeout=5) == 5
-        assert executor._in_process is False
-    finally:
-        set_sympy_executor(None)
-
-
-@pytest.mark.asyncio
-async def test_broken_worker_still_renders_equation_steps(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    from concurrent.futures.process import BrokenProcessPool
-
-    from app.core.config import Settings
-    from app.modules.math.tools.direct import maybe_direct_math_reply
-    from app.modules.math.tools.prompt import build_math_augmentation
-
-    class _DeadPool:
-        def submit(self, *_args: object, **_kwargs: object) -> None:
-            raise BrokenProcessPool("worker died")
-
-        def shutdown(self, *_args: object, **_kwargs: object) -> None:
-            return None
-
-    monkeypatch.setattr(
-        "app.services.sympy_executor.ProcessPoolExecutor",
-        lambda *args, **kwargs: _DeadPool(),
-    )
-    set_sympy_executor(ProcessPoolSympyExecutor(max_workers=1))
-    text = "3x+4=4"
-    try:
-        _block, verified = await build_math_augmentation(text, Settings(math_tools_enabled=True))
-    finally:
-        set_sympy_executor(None)
-    assert verified is not None
-    reply = maybe_direct_math_reply(verified, text)
-    assert reply is not None
-    assert "Subtract 4 from both sides" in reply
-    assert "```answer" in reply
-    assert "x = 0" in reply
-    assert "couldn't automatically verify" not in reply
-
-
-@pytest.mark.asyncio
 async def test_run_sympy_returns_result():
     """A simple picklable callable runs in the subprocess and returns its
     result."""
