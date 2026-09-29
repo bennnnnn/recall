@@ -4,8 +4,16 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, PrivateAttr, model_validator
 
+from app.models.schemas.math.payloads import (
+    ArithmeticRequest,
+    ProbabilityRequest,
+    StatisticsOp,
+    StatisticsRequest,
+    TrigRequest,
+    UnitRequest,
+)
 from app.models.schemas.math.word_problem import WordProblemSetup
 
 
@@ -142,26 +150,7 @@ class MathIntent(BaseModel):
     given_diameter: bool = False
     # Statistics — one raw list for descriptive stats, or two equal-length lists
     # for correlation/covariance/simple linear regression.
-    stats_op: (
-        Literal[
-            "mean",
-            "median",
-            "mode",
-            "variance",
-            "stdev",
-            "sample_stdev",
-            "sample_variance",
-            "range",
-            "iqr",
-            "quartiles",
-            "percentile",
-            "correlation",
-            "covariance",
-            "sample_covariance",
-            "linear_regression",
-        ]
-        | None
-    ) = None
+    stats_op: StatisticsOp | None = None
     stats_numbers: list[float] | None = None
     stats_numbers_b: list[float] | None = None
     # Combinatorics — factorial (k unused) / combinations / permutations.
@@ -282,3 +271,87 @@ class MathIntent(BaseModel):
     # kind == "word_problem": the model's translation into unknowns and
     # equations, checked for numbers the problem never states before SymPy.
     word_problem: WordProblemSetup | None = None
+    # Filled from the flat fields above for the five closed kinds. Other kinds
+    # leave these empty, including an equation that stores a method in school_op.
+    arithmetic: ArithmeticRequest | None = None
+    probability: ProbabilityRequest | None = None
+    statistics: StatisticsRequest | None = None
+    trig: TrigRequest | None = None
+    units: UnitRequest | None = None
+
+    @model_validator(mode="after")
+    def fill_closed_kind(self) -> MathIntent:
+        self.arithmetic = None
+        self.probability = None
+        self.statistics = None
+        self.trig = None
+        self.units = None
+        if self.kind == "arithmetic":
+            operation = self.school_op or self.teaching_op
+            if operation is not None:
+                self.arithmetic = ArithmeticRequest.model_validate(
+                    {
+                        "operation": operation,
+                        "expr": self.expr,
+                        "arithmetic_operands": self.arithmetic_operands,
+                        "division_answer_mode": self.division_answer_mode,
+                        "fraction_operands": self.fraction_operands,
+                        "fraction_target": self.fraction_target,
+                        "percent_rate": self.percent_rate,
+                        "percent_base": self.percent_base,
+                        "point_x": self.point_x,
+                        "combo_n": self.combo_n,
+                        "teaching_payload": self.teaching_payload,
+                    }
+                )
+        elif self.kind == "probability" and self.school_op is not None:
+            self.probability = ProbabilityRequest.model_validate(
+                {
+                    "operation": self.school_op,
+                    "comparator": self.comparator,
+                    "combo_n": self.combo_n,
+                    "combo_k": self.combo_k,
+                    "percent_base": self.percent_base,
+                    "stats_numbers": self.stats_numbers,
+                    "stats_numbers_b": self.stats_numbers_b,
+                    "vec_a": self.vec_a,
+                }
+            )
+        elif self.kind == "statistics" and self.stats_op is not None:
+            self.statistics = StatisticsRequest.model_validate(
+                {
+                    "operation": self.stats_op,
+                    "stats_numbers": self.stats_numbers,
+                    "stats_numbers_b": self.stats_numbers_b,
+                    "combo_n": self.combo_n,
+                }
+            )
+        elif self.kind == "trig" and self.school_op is not None:
+            self.trig = TrigRequest.model_validate(
+                {
+                    "operation": self.school_op,
+                    "expr": self.expr,
+                    "lhs": self.lhs,
+                    "rhs": self.rhs,
+                    "variable": self.variable,
+                    "comparator": self.comparator,
+                    "comparator_upper": self.comparator_upper,
+                    "integral_lower": self.integral_lower,
+                    "integral_upper": self.integral_upper,
+                    "percent_base": self.percent_base,
+                    "percent_rate": self.percent_rate,
+                    "point_x": self.point_x,
+                }
+            )
+        elif self.kind == "unit" and self.school_op is not None:
+            self.units = UnitRequest.model_validate(
+                {
+                    "operation": self.school_op,
+                    "percent_base": self.percent_base,
+                    "unit_from": self.unit_from,
+                    "unit_to": self.unit_to,
+                    "temperature_compare_value": self.temperature_compare_value,
+                    "temperature_compare_unit": self.temperature_compare_unit,
+                }
+            )
+        return self
