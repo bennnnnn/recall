@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from typing import get_args
 from unittest.mock import AsyncMock, patch
 
@@ -38,7 +39,9 @@ def test_water_scene_keeps_the_molecular_angle() -> None:
     verified = build_verified_chemistry(intent)
     assert verified is not None
     reply = format_direct_chemistry_reply(verified)
-    assert "```chem_scene" in reply
+    fence = f"```chem_scene\n{json.dumps(result.scene, ensure_ascii=False)}\n```"
+    assert reply.endswith(fence + "\n")
+    assert "```chem_scene" not in reply[: reply.index(fence)]
     assert "104.5°" in reply
 
 
