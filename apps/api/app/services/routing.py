@@ -258,6 +258,7 @@ def _leading_followup_verb(lowered: str) -> bool:
 
 def _looks_like_smart_continuation(content: str) -> bool:
     """True when this line continues the prior hard turn, not a new topic."""
+    from app.services.chat.continuation_subject import is_pure_continuation
     from app.services.chat.prompt_constants.routing import (
         is_lightweight_chat_turn,
         is_personal_advice_question,
@@ -277,6 +278,8 @@ def _looks_like_smart_continuation(content: str) -> bool:
     if len(cleaned) > _FOLLOWUP_MAX_CHARS:
         return False
     lowered = cleaned.lower().rstrip(" .,!?:;")
+    if is_pure_continuation(content):
+        return True
     # These are lightweight as standalone chat, but after a hard answer they
     # explicitly ask for its reasoning. Keep them on the same strong lane.
     if lowered in {"how", "how so", "why", "why not", "show me how", "explain how"}:

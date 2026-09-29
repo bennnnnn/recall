@@ -1,8 +1,9 @@
 """Request-aware math presentation shared by heuristic and tool-result prompts."""
 
 MATH_REPLY_POLICY = (
-    "Math reply policy for this request: For a concrete calculation, use a compact worked "
-    "layout: Given, Find, Formula, Substitution, then the final Answer. Put each value or "
+    "Math reply policy for this request: For a multi-step word problem, use a compact worked "
+    "layout: Given, Find, Formula, Substitution, then the final Answer. Trivial one-step "
+    "arithmetic stays one math row and does not use those sections. Put each value or "
     "equation on its own short line and do not wrap the calculation in prose paragraphs. "
     "Name the governing formula and show its universal form before rearranging it for an "
     "unknown. Do not add tutorial bullets, examples, alternatives, Note/Tip cards, or repeat "

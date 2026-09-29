@@ -1,6 +1,6 @@
 """Presentation-only context for a short follow-up to the immediately prior math turn."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from app.modules.math.response_intent import (
@@ -35,6 +35,7 @@ def _referenced_math_problem(
     recent: Sequence[Any],
     *,
     working_only: bool,
+    blocked: Callable[[str], bool] | None = None,
 ) -> str | None:
     """Return the problem from an adjacent chain of math follow-ups.
 
@@ -68,6 +69,8 @@ def _referenced_math_problem(
             isinstance(prior, str) and prior.strip() and isinstance(reply, str) and reply.strip()
         ):
             return None
+        if blocked is not None and blocked(prior):
+            return None
         if needs_symbolic_math(prior):
             return prior
         if not classify_math_response_intent(prior).referential:
@@ -100,14 +103,24 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
     return None
 
 
-def is_math_followup(query: str | None, recent: Sequence[Any]) -> bool:
+def is_math_followup(
+    query: str | None,
+    recent: Sequence[Any],
+    *,
+    blocked: Callable[[str], bool] | None = None,
+) -> bool:
     """Require one complete adjacent user/assistant math exchange; never scan older topics."""
-    return _referenced_math_problem(query, recent, working_only=False) is not None
+    return _referenced_math_problem(query, recent, working_only=False, blocked=blocked) is not None
 
 
-def math_working_followup_problem(query: str | None, recent: Sequence[Any]) -> str | None:
+def math_working_followup_problem(
+    query: str | None,
+    recent: Sequence[Any],
+    *,
+    blocked: Callable[[str], bool] | None = None,
+) -> str | None:
     """Return the adjacent problem when a follow-up asks for its verified working."""
-    return _referenced_math_problem(query, recent, working_only=True)
+    return _referenced_math_problem(query, recent, working_only=True, blocked=blocked)
 
 
 def readable_standalone_answer(content: str) -> str | None:

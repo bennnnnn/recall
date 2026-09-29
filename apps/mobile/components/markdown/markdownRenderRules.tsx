@@ -633,7 +633,7 @@ function makeSharedRules(
                     )}
                   </View>
                 ) : null}
-                <MathText latex={step.formula} />
+                <MathText scrollOverflow latex={step.formula} />
               </View>
             ) : null}
           </View>

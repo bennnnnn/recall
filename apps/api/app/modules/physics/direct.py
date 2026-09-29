@@ -23,6 +23,7 @@ from app.modules.physics.catalog import (
 )
 from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.working import display_number, given_unit_suffix, result_symbol_for
+from app.services.chat.presentation import present_assistant_markdown
 from app.services.solving import VerifiedPhysicsBlock
 
 _EXTRA_REQUEST = re.compile(
@@ -236,5 +237,5 @@ def maybe_direct_physics_reply(
             "acceleration",
         }
     ):
-        return f"Upward is positive.\n\n{reply}"
-    return reply
+        return present_assistant_markdown(f"Upward is positive.\n\n{reply}")
+    return present_assistant_markdown(reply)
