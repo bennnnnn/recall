@@ -593,7 +593,6 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
     user.custom_instructions = None
 
     passed_chat = MagicMock()
-    passed_chat.project_id = None
     passed_chat.summary = None
     passed_chat.summary_message_count = 0
 
@@ -963,10 +962,10 @@ def test_social_turns_are_not_short_replies(text):
         ("what's my name", True),
         ("draft an email to my wife", True),
         ("don't forget my preference for tea", True),
-        ("What word did I learn today", True),
-        ("what words did I study", True),
-        ("how many words have I mastered", True),
-        ("what's my vocab progress", True),
+        ("What word did I learn today", False),
+        ("what words did I study", False),
+        ("how many words have I mastered", False),
+        ("what's my vocab progress", False),
         ("what's another word for happy", False),
         ("cuales son mis proyectos", True),
         ("escribeme un correo", True),
@@ -1206,7 +1205,6 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     user.timezone = "UTC"
     user.custom_instructions = None
     chat = MagicMock()
-    chat.project_id = None
 
     with (
         patch("app.repositories.messages.list_recent", return_value=[]),
@@ -1256,7 +1254,6 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     user.timezone = "UTC"
     user.custom_instructions = None
     chat = MagicMock()
-    chat.project_id = None
 
     with (
         patch("app.repositories.messages.list_recent", return_value=[]),
@@ -1484,8 +1481,6 @@ async def test_classify_turn_mode_hi_is_lightweight():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, "hi")
 
@@ -1500,8 +1495,6 @@ async def test_classify_turn_mode_yes_after_offer_is_not_lightweight():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
     prior = MagicMock()
     prior.content = "Want me to check the current result?"
     get_last = AsyncMock(return_value=prior)
@@ -1519,8 +1512,6 @@ async def test_classify_turn_mode_no_after_a_question_is_not_lightweight():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
     prior = MagicMock()
     prior.content = "Better late than never: it's good to act even after a delay. Understood?"
     get_last = AsyncMock(return_value=prior)
@@ -1538,8 +1529,6 @@ async def test_classify_turn_mode_hi_does_not_load_last_assistant():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
     get_last = AsyncMock(return_value=MagicMock())
 
     with patch("app.services.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
@@ -1555,8 +1544,6 @@ async def test_classify_turn_mode_eat_tonight_is_advice_memory():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, "what should I eat tonight")
 
@@ -1571,8 +1558,6 @@ async def test_classify_turn_mode_capabilities_overview_is_advice_memory():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(
         AsyncMock(),
@@ -1591,8 +1576,6 @@ async def test_classify_turn_mode_milk_preference_is_advice_memory():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, "What milk do I drink.")
 
@@ -1613,8 +1596,6 @@ async def test_classify_turn_mode_ordinary_advice_phrasing_loads_memory(text: st
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, text)
 
@@ -1629,8 +1610,6 @@ async def test_classify_turn_mode_day_plan_skips_advice_memory():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, "anything left tonight")
 

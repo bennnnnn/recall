@@ -129,7 +129,7 @@ async def test_prompt_keeps_the_message_pushed_out_by_the_current_turn():
         custom_instructions=None,
     )
     user.name = "Test User"
-    chat = MagicMock(id=chat_id, project_id=None, summary=None, summary_message_count=0)
+    chat = MagicMock(id=chat_id, summary=None, summary_message_count=0)
     current_id = uuid4()
     window = []
     for index in range(20):

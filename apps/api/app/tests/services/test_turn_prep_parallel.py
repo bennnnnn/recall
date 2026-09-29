@@ -46,8 +46,6 @@ def _make_chat() -> MagicMock:
     chat = MagicMock()
     chat.id = uuid4()
     chat.summary = None
-    chat.project_id = None
-    chat.quiz_mode = None
     return chat
 
 

@@ -30,8 +30,6 @@ def _pro_user() -> MagicMock:
 @contextmanager
 def _turn_load():
     chat = MagicMock()
-    chat.project_id = None
-    chat.quiz_mode = None
     chat.summary = None
     with (
         patch("app.services.chat.stream.chats_repo.get_by_id", AsyncMock(return_value=chat)),
@@ -246,8 +244,6 @@ async def test_stream_skips_count_when_recent_window_has_room():
         yield "ok"
 
     chat = MagicMock()
-    chat.project_id = None
-    chat.quiz_mode = None
     chat.summary = None
     with (
         patch("app.services.chat.stream.acquire_lock", AsyncMock(return_value="tok")),
@@ -297,8 +293,6 @@ async def test_stream_counts_when_recent_window_is_full():
         yield "ok"
 
     chat = MagicMock()
-    chat.project_id = None
-    chat.quiz_mode = None
     chat.summary = None
     with (
         patch("app.services.chat.stream.acquire_lock", AsyncMock(return_value="tok")),

@@ -42,7 +42,6 @@ def test_list_todos_returns_items():
     todo_mock.checked = False
     todo_mock.due_at = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -98,7 +97,6 @@ def test_create_todo():
     todo_mock.due_at = None
     todo_mock.sort_order = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -134,7 +132,6 @@ def test_create_todo_with_chat_id():
     todo_mock.due_at = None
     todo_mock.sort_order = None
     todo_mock.chat_id = cid
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -220,7 +217,6 @@ def test_update_todo():
     todo_mock.checked = True
     todo_mock.due_at = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -342,7 +338,6 @@ def test_create_todo_normalizes_naive_due_at_to_user_timezone():
     todo_mock.due_at = None
     todo_mock.sort_order = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -385,7 +380,6 @@ def test_create_todo_accepts_plain_undated_item():
     todo_mock.recurrence_rule = None
     todo_mock.sort_order = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
     user = _fake_user()
@@ -420,7 +414,6 @@ def test_update_todo_can_clear_due_at_and_repeat():
     todo_mock.recurrence_rule = "weekly"
     todo_mock.sort_order = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -435,7 +428,6 @@ def test_update_todo_can_clear_due_at_and_repeat():
     updated_mock.recurrence_rule = None
     updated_mock.sort_order = None
     updated_mock.chat_id = None
-    updated_mock.project_id = None
     updated_mock.created_at = now
     updated_mock.updated_at = now
     update_mock = AsyncMock(return_value=updated_mock)
@@ -468,7 +460,6 @@ def test_update_todo_normalizes_naive_due_at():
     todo_mock.checked = False
     todo_mock.due_at = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 

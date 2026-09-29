@@ -314,7 +314,7 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
         custom_instructions=None,
     )
     user.name = "Test User"
-    chat = MagicMock(id=chat_id, project_id=None, summary=None, summary_message_count=0)
+    chat = MagicMock(id=chat_id, summary=None, summary_message_count=0)
     probe = AsyncMock(return_value=has_chunks)
     # The gateway returns None after its foreground embedding timeout.
     embed = AsyncMock(return_value=query_vec)

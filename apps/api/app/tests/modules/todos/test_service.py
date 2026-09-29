@@ -134,7 +134,6 @@ async def test_create_todo_unique_violation_returns_existing():
             content="Call mom",
             topic="Reminders",
             chat_id=None,
-            project_id=None,
             due_at=due,
         )
     assert item is existing
