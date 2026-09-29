@@ -10,6 +10,7 @@ import {
 } from "@/lib/fenceRegistry";
 import { teachingSpeech } from "@/lib/math/teachingBlock";
 import { parseSimpleLatex, segmentsToPlain, type MathSegment } from "@/lib/math/text";
+import { speakMath } from "@/lib/markdown/speakMath";
 
 function mapFenceRegions(
   text: string,
@@ -177,18 +178,6 @@ function stripMarkdownChrome(text: string): string {
   out = unwrapWordEdgeMarker(out, "*");
   out = out.replace(/^(\s*)\*\s+/gm, "$1• ");
   return out;
-}
-
-function speakMath(latex: string): string {
-  return latex
-    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1 over $2")
-    .replace(/\\sqrt\{([^}]+)\}/g, "sqrt $1")
-    .replace(/\\times/g, " times ")
-    .replace(/\\cdot/g, " dot ")
-    .replace(/\\pm/g, " plus or minus ")
-    .replace(/[{}]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
 }
 
 /** Copy needs explicit grouping; visual fraction bars and radical overbars vanish. */

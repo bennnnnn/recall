@@ -69,6 +69,22 @@ describe("markdownPlain", () => {
     expect(copy).not.toContain("\\frac");
   });
 
+  it("speaks math from the parsed tree and keeps copy as the copy form", () => {
+    const src = "$v_f^2 = v_i^2 + 2a\\Delta x$";
+    const spoken = markdownToSpeechText(src);
+    const copy = markdownToCopyText(src);
+    expect(spoken).toBe("v sub f squared equals v sub i squared plus 2 a delta x");
+    expect(spoken).not.toMatch(/\\[a-zA-Z]+/);
+    expect(spoken).not.toContain("{");
+    expect(spoken).not.toContain("}");
+    expect(copy).not.toContain("sub f");
+    expect(copy).not.toMatch(/\\[a-zA-Z]+/);
+    const nested = markdownToSpeechText("$\\frac{\\frac{1}{2}}{3}$");
+    expect(nested).toContain("over");
+    expect(nested).not.toMatch(/\\[a-zA-Z]+/);
+    expect(nested).not.toContain("{");
+  });
+
   it("does not strip a numeric-only answer fence", () => {
     expect(markdownToCopyText("```answer\n42\n```")).toBe("42");
     expect(markdownToSpeechText("```answer\n42\n```")).toBe("42");
