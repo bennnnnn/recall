@@ -25,7 +25,7 @@ describe("parallelogram requested quantity footer", () => {
   });
 
   it.each([undefined, false, "true"])("preserves the area footer unless the canonical boolean is true (%s)", async (flag) => {
-    const content = JSON.stringify({ ...dimensions, show_perimeter: flag });
+    const content = JSON.stringify({ ...dimensions, area: 32, show_perimeter: flag });
     await render(<GeometryBlock content={content} />);
     const labels = mockSvgText.mock.calls.map(([props]) => props.children);
     expect(labels).toContain("Area:\u00A032 units²");
