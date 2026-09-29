@@ -1,0 +1,70 @@
+{
+  "solve": [
+    {
+      "id": "one-plus-one",
+      "text": "what is 1+1",
+      "subject": "math",
+      "direct": true,
+      "contains": "2"
+    },
+    {
+      "id": "physics-work",
+      "text": "find the work done by a force of 10 N over a distance of 3 m",
+      "subject": "physics",
+      "direct": true,
+      "contains": "30"
+    },
+    {
+      "id": "chemistry-gibbs",
+      "text": "Find Gibbs free energy when delta H=-40 kJ, delta S=-100 J and T=300 K",
+      "subject": "chemistry",
+      "direct": true,
+      "contains": "ΔG"
+    },
+    {
+      "id": "incomplete-molarity",
+      "text": "what is the molarity",
+      "direct": false
+    },
+    {
+      "id": "wrong-unit",
+      "text": "Find the average speed for 100 m in 20 bananas.",
+      "direct": false
+    },
+    {
+      "id": "extra-quantity",
+      "text": "Find the average speed for 100 m in 20 s and then 50 m in 10 s.",
+      "direct": false
+    },
+    {
+      "id": "ambiguous-slash",
+      "text": "9/9",
+      "direct": false
+    },
+    {
+      "id": "another",
+      "text": "Another",
+      "direct": false
+    },
+    {
+      "id": "how",
+      "text": "How?",
+      "direct": false
+    }
+  ],
+  "render": [
+    {
+      "id": "velocity-quantity",
+      "markdown": "$v_f^2 = v_i^2 + 2a\\Delta x$",
+      "speech": "v sub f squared equals v sub i squared plus 2 a delta x",
+      "copy_excludes": ["sub f", "\\Delta", "{", "}"]
+    },
+    {
+      "id": "nested-fraction",
+      "markdown": "$\\frac{\\frac{1}{2}}{3}$",
+      "speech_contains": ["the quantity 1 over 2", "over 3"],
+      "copy_contains": "1/2",
+      "copy_excludes": ["\\frac", "{", "}"]
+    }
+  ]
+}
