@@ -13,6 +13,21 @@ from app.services.chat.markdown_regions import leave_prose_line, read_fence_mark
 _MATH_FENCE_LANGS = {"math", "latex", "tex", "equation"}
 _TEXT_COMMANDS = {"text", "mathrm", "mathbf", "textrm", "operatorname", "textbf", "mbox"}
 _NUMERIC_COMMANDS = {"times", "cdot", "div", "left", "right", "pm", "mp", "cdotp", "quad", "qquad"}
+# A gap that names a new relationship is one step, not another value of the first side.
+_CHAIN_STOP_COMMANDS = {
+    "rightarrow",
+    "leftarrow",
+    "Rightarrow",
+    "Leftarrow",
+    "to",
+    "implies",
+    "iff",
+    "Leftrightarrow",
+    "mapsto",
+    "quad",
+    "qquad",
+}
+_CHAIN_STOP_WORDS = {"or", "and"}
 _TRAILING_PUNCT = set(".,;:!?")
 
 
@@ -146,6 +161,8 @@ def _equals_chain(expr: str) -> list[str] | None:
     segments.append(expr[start:])
     if any(not part.strip() for part in segments):
         return None
+    if any(_segment_blocks_chain(part) for part in segments[1:-1]):
+        return None
     if all(_is_simple_numeric(part) for part in segments):
         return None
     lhs = segments[0].strip()
@@ -154,6 +171,29 @@ def _equals_chain(expr: str) -> list[str] | None:
         op = r"\approx" if ops[index][0] == "approx" else "="
         rows.append(f"{lhs} {op} {rhs.strip()}")
     return rows
+
+
+def _segment_blocks_chain(segment: str) -> bool:
+    """True when this gap introduces another equation instead of the next value."""
+    index = 0
+    length = len(segment)
+    while index < length:
+        if segment[index] == "\\":
+            name, end = _command_end(segment, index)
+            if name in _CHAIN_STOP_COMMANDS:
+                return True
+            index = end
+            continue
+        if segment[index].isalpha():
+            start = index
+            index += 1
+            while index < length and segment[index].isalpha():
+                index += 1
+            if segment[start:index].lower() in _CHAIN_STOP_WORDS:
+                return True
+            continue
+        index += 1
+    return False
 
 
 def _is_simple_numeric(segment: str) -> bool:
@@ -377,8 +417,97 @@ def _layout_line(line: str) -> str:
     return "\n".join(prefix + row if index == 0 else pad + row for index, row in enumerate(rows))
 
 
+def _escaped(text: str, index: int) -> bool:
+    slashes = 0
+    cursor = index - 1
+    while cursor >= 0 and text[cursor] == "\\":
+        slashes += 1
+        cursor -= 1
+    return slashes % 2 == 1
+
+
+def _interior_line_blocks_fold(line: str) -> bool:
+    """A new block inside \\(...\\) is not one inline formula."""
+    if leave_prose_line(line):
+        return True
+    stripped = line.lstrip(" ")
+    if not stripped:
+        return False
+    if stripped.startswith(("|", "#", "```", "~~~", "- ", "* ", "+ ")):
+        return True
+    digits = 0
+    while digits < len(stripped) and stripped[digits].isdigit():
+        digits += 1
+    return 0 < digits <= 3 and stripped[digits : digits + 2] == ". "
+
+
+def _span_crosses_preserved_line(text: str, start: int, close: int) -> bool:
+    line_start = text.rfind("\n", 0, start) + 1
+    lines = text[line_start:close].split("\n")
+    if lines and leave_prose_line(lines[0]):
+        return True
+    return any(_interior_line_blocks_fold(line) for line in lines[1:])
+
+
+def _find_paren_closer(text: str, start: int) -> int | None:
+    index = start
+    length = len(text)
+    while index < length:
+        if text[index] == "`":
+            code_end = _read_code_end(text, index)
+            if code_end is not None:
+                index = code_end
+                continue
+        if text.startswith(r"\)", index) and not _escaped(text, index):
+            return index
+        index += 1
+    return None
+
+
+def _fold_closed_paren_math(text: str) -> str:
+    """Turn a finished \\(...\\) into ``$...$`` so a chain can split.
+
+    An opener with no closer stays literal. Streaming hides that tail until
+    the closer arrives, and this pass must not invent a ``$`` there.
+    """
+    if r"\(" not in text:
+        return text
+    out: list[str] = []
+    index = 0
+    length = len(text)
+    while index < length:
+        if text[index] == "`":
+            code_end = _read_code_end(text, index)
+            if code_end is not None:
+                out.append(text[index:code_end])
+                index = code_end
+                continue
+        if text.startswith(r"\(", index) and not _escaped(text, index):
+            close = _find_paren_closer(text, index + 2)
+            if close is None:
+                out.append(text[index:])
+                break
+            if _span_crosses_preserved_line(text, index, close):
+                out.append(text[index : close + 2])
+                index = close + 2
+                continue
+            raw = text[index + 2 : close]
+            if "\n" in raw or "\r" in raw:
+                raw = " ".join(part.strip() for part in raw.splitlines())
+            if not raw.strip():
+                out.append(text[index : close + 2])
+            else:
+                out.append(f"${raw}$")
+            index = close + 2
+            continue
+        out.append(text[index])
+        index += 1
+    return "".join(out)
+
+
 def _layout_prose(prose: str) -> str:
-    return "\n".join(_layout_line(line) for line in prose.split("\n"))
+    folded = _fold_closed_paren_math(prose)
+    return "\n".join(_layout_line(line) for line in folded.split("\n"))
 
 
 def _unwrap_math_line(line: str) -> str:

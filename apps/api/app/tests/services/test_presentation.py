@@ -85,6 +85,24 @@ def test_independent_equations_are_separate_rows() -> None:
     assert r"\quad" not in presented
 
 
+def test_closed_paren_math_splits_and_an_open_one_stays_literal() -> None:
+    source = "  \\(\n  v = d/t = 50/10 = 5\n  \\)"
+    assert present_assistant_markdown(source) == ("  $v = d/t$  \n  $v = 50/10$  \n  $v = 5$")
+    unfinished = "  \\(\n  \\frac{1}{2} = x"
+    assert present_assistant_markdown(unfinished) == unfinished
+    quoted = "> \\(v = d/t = 5\\)"
+    assert present_assistant_markdown(quoted) == quoted
+
+
+def test_one_relationship_with_or_or_an_arrow_stays_one_row() -> None:
+    roots = "$x = 2 or x = -2$"
+    step = r"$2x - 1 = 0 \rightarrow x = \frac{1}{2}$"
+    implied = r"$r^2 + 1 = \frac{17}{4}r \quad \Rightarrow \quad 4r^2 - 17r + 4 = 0$"
+    assert present_assistant_markdown(roots) == roots
+    assert present_assistant_markdown(step) == step
+    assert present_assistant_markdown(implied) == implied
+
+
 def test_atomic_and_wide_formulas_stay_one_row() -> None:
     atomic = r"$12 + 8 = 20\text{ km}$"
     quadratic = r"$x = \frac{-b\pm\sqrt{b^2-4ac}}{2a}$"

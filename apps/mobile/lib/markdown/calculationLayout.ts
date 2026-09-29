@@ -27,6 +27,20 @@ const NUMERIC_COMMANDS = new Set([
   "quad",
   "qquad",
 ]);
+const CHAIN_STOP_COMMANDS = new Set([
+  "rightarrow",
+  "leftarrow",
+  "Rightarrow",
+  "Leftarrow",
+  "to",
+  "implies",
+  "iff",
+  "Leftrightarrow",
+  "mapsto",
+  "quad",
+  "qquad",
+]);
+const CHAIN_STOP_WORDS = new Set(["or", "and"]);
 const TRAILING_PUNCT = new Set([...".,;:!?"]);
 
 type Tok = { kind: string; start: number; end: number; top: boolean };
@@ -116,6 +130,27 @@ function independentPieces(expr: string): string[] | null {
   return pieces;
 }
 
+function segmentBlocksChain(segment: string): boolean {
+  let index = 0;
+  while (index < segment.length) {
+    if (segment[index] === "\\") {
+      const { name, end } = commandEnd(segment, index);
+      if (CHAIN_STOP_COMMANDS.has(name)) return true;
+      index = end;
+      continue;
+    }
+    if (/[A-Za-z]/.test(segment[index])) {
+      const start = index;
+      index += 1;
+      while (index < segment.length && /[A-Za-z]/.test(segment[index])) index += 1;
+      if (CHAIN_STOP_WORDS.has(segment.slice(start, index).toLowerCase())) return true;
+      continue;
+    }
+    index += 1;
+  }
+  return false;
+}
+
 function isSimpleNumeric(segment: string): boolean {
   let index = 0;
   while (index < segment.length) {
@@ -148,6 +183,7 @@ function equalsChain(expr: string): string[] | null {
   }
   segments.push(expr.slice(start));
   if (segments.some((part) => !part.trim())) return null;
+  if (segments.slice(1, -1).some(segmentBlocksChain)) return null;
   if (segments.every(isSimpleNumeric)) return null;
   const lhs = segments[0].trim();
   return segments.slice(1).map((rhs, index) => {
@@ -367,8 +403,97 @@ function layoutLine(line: string): string {
     .join("\n");
 }
 
+function escapedAt(text: string, index: number): boolean {
+  let slashes = 0;
+  for (let cursor = index - 1; cursor >= 0 && text[cursor] === "\\"; cursor -= 1) slashes += 1;
+  return slashes % 2 === 1;
+}
+
+function interiorLineBlocksFold(line: string): boolean {
+  if (leaveProseLine(line)) return true;
+  const stripped = line.trimStart();
+  if (!stripped) return false;
+  if (
+    stripped.startsWith("|") ||
+    stripped.startsWith("#") ||
+    stripped.startsWith("```") ||
+    stripped.startsWith("~~~") ||
+    stripped.startsWith("- ") ||
+    stripped.startsWith("* ") ||
+    stripped.startsWith("+ ")
+  ) {
+    return true;
+  }
+  let digits = 0;
+  while (digits < stripped.length && /\d/.test(stripped[digits])) digits += 1;
+  return digits > 0 && digits <= 3 && stripped.slice(digits, digits + 2) === ". ";
+}
+
+function spanCrossesPreservedLine(text: string, start: number, close: number): boolean {
+  const lineStart = text.lastIndexOf("\n", start - 1) + 1;
+  const lines = text.slice(lineStart, close).split("\n");
+  if (lines[0] && leaveProseLine(lines[0])) return true;
+  return lines.slice(1).some(interiorLineBlocksFold);
+}
+
+function findParenCloser(text: string, start: number): number | null {
+  let index = start;
+  while (index < text.length) {
+    if (text[index] === "`") {
+      const codeEnd = readCodeEnd(text, index);
+      if (codeEnd != null) {
+        index = codeEnd;
+        continue;
+      }
+    }
+    if (text.startsWith("\\)", index) && !escapedAt(text, index)) return index;
+    index += 1;
+  }
+  return null;
+}
+
+/** Turn a finished \\(...\\) into `$...$` so a chain can split.
+ * An opener with no closer stays literal so a live tail does not gain `$`. */
+function foldClosedParenMath(text: string): string {
+  if (!text.includes("\\(")) return text;
+  let out = "";
+  let index = 0;
+  while (index < text.length) {
+    if (text[index] === "`") {
+      const codeEnd = readCodeEnd(text, index);
+      if (codeEnd != null) {
+        out += text.slice(index, codeEnd);
+        index = codeEnd;
+        continue;
+      }
+    }
+    if (text.startsWith("\\(", index) && !escapedAt(text, index)) {
+      const close = findParenCloser(text, index + 2);
+      if (close == null) {
+        out += text.slice(index);
+        break;
+      }
+      if (spanCrossesPreservedLine(text, index, close)) {
+        out += text.slice(index, close + 2);
+        index = close + 2;
+        continue;
+      }
+      let raw = text.slice(index + 2, close);
+      if (raw.includes("\n") || raw.includes("\r")) {
+        raw = raw.split(/\r?\n/).map((line) => line.trim()).join(" ");
+      }
+      out += raw.trim() ? `$${raw}$` : text.slice(index, close + 2);
+      index = close + 2;
+      continue;
+    }
+    out += text[index];
+    index += 1;
+  }
+  return out;
+}
+
 function layoutProse(prose: string): string {
-  return prose.split("\n").map(layoutLine).join("\n");
+  return foldClosedParenMath(prose).split("\n").map(layoutLine).join("\n");
 }
 
 function unwrapMathLine(line: string): string {

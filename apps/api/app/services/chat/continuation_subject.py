@@ -122,6 +122,13 @@ def classify_presentation_subject(text: str | None) -> str | None:
     return None
 
 
+def blocks_math_followup(text: str) -> bool:
+    """A physics problem is not replayed through the math solver."""
+    from app.modules.physics.extract import needs_physics
+
+    return needs_physics(text)
+
+
 def effective_presentation_subject(
     query: str | None,
     prior_messages: Sequence[tuple[str, str]] | None = None,

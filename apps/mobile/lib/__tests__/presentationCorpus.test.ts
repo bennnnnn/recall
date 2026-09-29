@@ -70,6 +70,10 @@ describe("presentation corpus", () => {
       "t_{\\text{total}} = 5d/120",
     ]);
     expect(presentAssistantMarkdown("$12 + 8 = 20\\text{ km}$")).toBe("$12 + 8 = 20\\text{ km}$");
+    expect(presentAssistantMarkdown("$x = 2 or x = -2$")).toBe("$x = 2 or x = -2$");
+    expect(presentAssistantMarkdown("$2x - 1 = 0 \\rightarrow x = 1/2$")).toBe(
+      "$2x - 1 = 0 \\rightarrow x = 1/2$",
+    );
     const quadratic = "$x = \\frac{-b\\pm\\sqrt{b^2-4ac}}{2a}$";
     expect(presentAssistantMarkdown(quadratic)).toBe(quadratic);
     expect(presentAssistantMarkdown("$4! = 4 \\times 3 \\times 2 \\times 1 = 24$")).toBe(
@@ -83,7 +87,8 @@ describe("presentation corpus", () => {
   });
 
   it("matches streaming and final output for closed prose and calculation rows", () => {
-    for (const source of [TRAIN, CYCLIST, ANSWER, "$v = d/t = 50/10 = 5$\n"]) {
+    const parenChain = "  \\(\n  v = d/t = 50/10 = 5\n  \\)";
+    for (const source of [TRAIN, CYCLIST, ANSWER, "$v = d/t = 50/10 = 5$\n", parenChain]) {
       const streamed = preprocessMarkdownForStream(source, null).prepared;
       expect(streamed).toBe(preprocessMarkdown(source));
     }

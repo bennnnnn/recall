@@ -56,7 +56,9 @@ describe("MarkdownContent math rendering", () => {
     expect(chain).toBeDefined();
     expect(chain).toHaveStyle({ maxWidth: "100%", flexShrink: 1 });
     expect(chain.props.horizontal).toBe(true);
-    expect(chain.props.accessibilityLabel).toMatch(/Slant Height.*= 5\./);
+    // The wide radical stays one formula. Each later simplification is its own row.
+    expect(chain.props.accessibilityLabel).toMatch(/Slant Height/);
+    expect(chain.props.accessibilityLabel).not.toMatch(/\\sqrt|\\frac|\\text/);
     expect(getByText(/Use the Pythagorean theorem/)).toBeOnTheScreen();
     expect(getByText(/= 5\./)).toBeOnTheScreen();
     expect(getByText(/Since there are four triangles/)).toBeOnTheScreen();
@@ -71,10 +73,11 @@ describe("MarkdownContent math rendering", () => {
     );
     expect(getByText("Convert angle:")).toBeOnTheScreen();
     expect(getByText("radians")).toBeOnTheScreen();
-    expect(getByText(/= 2π ≈ 6.28/)).toBeOnTheScreen();
-    // One π in the converted angle and two in the calculation line.
-    expect(getAllByText("π")).toHaveLength(3);
-    expect(getAllByTestId("math-frac")).toHaveLength(2);
+    expect(getByText(/= 2π/)).toBeOnTheScreen();
+    expect(getByText(/≈ 6.28/)).toBeOnTheScreen();
+    // The approximation repeats the fraction, so the angle's π is joined by both rows.
+    expect(getAllByText("π").length).toBeGreaterThanOrEqual(3);
+    expect(getAllByTestId("math-frac")).toHaveLength(3);
     expect(queryByText(/\(π\)|\\frac|\\pi/)).toBeNull();
   });
 

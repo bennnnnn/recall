@@ -32,7 +32,10 @@ from app.services import profile as profile_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
 from app.services.chat import tools as chat_tools_service
-from app.services.chat.continuation_subject import effective_presentation_subject
+from app.services.chat.continuation_subject import (
+    blocks_math_followup,
+    effective_presentation_subject,
+)
 from app.services.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
     BIOLOGY_PRESENTATION_HINT,
@@ -1160,7 +1163,7 @@ async def build_prompt_messages(
         and recent[-1].content == query_text
     ):
         followup_exchange = recent[:-1]
-    math_followup = is_math_followup(query_text, followup_exchange)
+    math_followup = is_math_followup(query_text, followup_exchange, blocked=blocks_math_followup)
     lesson = active_lesson_step(followup_exchange)
     chat_history_rag_block = ""
     # The context gather already attempted the history embed. None means no

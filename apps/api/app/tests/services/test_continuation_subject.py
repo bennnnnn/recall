@@ -7,6 +7,7 @@ from app.modules.math.followup import is_math_followup
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.physics.extract import needs_physics
 from app.services.chat.continuation_subject import (
+    blocks_math_followup,
     classify_presentation_subject,
     effective_presentation_subject,
     is_pure_continuation,
@@ -147,7 +148,7 @@ def test_how_after_physics_is_not_a_math_solver_replay() -> None:
         SimpleNamespace(id=uuid4(), role="user", content=CYCLIST),
         SimpleNamespace(id=uuid4(), role="assistant", content="48 km/h"),
     ]
-    assert is_math_followup("How?", recent) is False
+    assert is_math_followup("How?", recent, blocked=blocks_math_followup) is False
     math_recent = [
         SimpleNamespace(id=uuid4(), role="user", content=EQUATION),
         SimpleNamespace(id=uuid4(), role="assistant", content="```answer\nx = 4\n```"),

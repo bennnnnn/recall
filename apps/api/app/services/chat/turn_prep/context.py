@@ -32,6 +32,7 @@ from app.services import profile as profile_service
 from app.services import recurring_pay as recurring_pay_service
 from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
+from app.services.chat.continuation_subject import blocks_math_followup
 from app.services.chat.prompt_builder import (
     build_prompt_messages,
     fetch_web_and_tools,
@@ -475,7 +476,9 @@ async def build_stream_prompt_context(
         and prompt_messages[-1].get("content") == content
     ):
         followup_history = prompt_messages[:-1]
-    math_followup_problem = math_working_followup_problem(content, followup_history)
+    math_followup_problem = math_working_followup_problem(
+        content, followup_history, blocked=blocks_math_followup
+    )
 
     # Geo "location not set" fallback (independent of the LLM).
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
