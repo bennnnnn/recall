@@ -4,8 +4,10 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.models.schemas.chemistry.scene import CellScene
 from app.modules.chemistry.solvers.common_chem import (
     STANDARD_REDUCTION,
     num,
@@ -66,7 +68,7 @@ def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
         f"E°cell = {num(potential)} V; anode {anode}; cathode {cathode}; "
         f"n = {electrons}; {reaction}; {direction}"
     )
-    return verified(
+    result = verified(
         "Verified galvanic cell",
         (f"{left} E° = {num(e_left)} V", f"{right} E° = {num(e_right)} V"),
         "Cell potential, electrodes, and net reaction",
@@ -75,4 +77,14 @@ def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
         (shown,),
         shown,
         shown,
+    )
+    return replace(
+        result,
+        scene=CellScene(
+            title="Galvanic cell",
+            anode=anode,
+            cathode=cathode,
+            potential=f"{num(potential)} V",
+            electrons="anode to cathode",
+        ),
     )

@@ -6,10 +6,13 @@ Extractors do not calculate, and solvers do not guess what the user asked for.
 from __future__ import annotations
 
 import math
+from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
 from app.models.schemas.chemistry.ops import _OPS_BY_KIND, ChemistryKind, ChemistryOp
+
+CrystalGeometry = Literal["octahedral", "tetrahedral", "square_planar"]
 
 __all__ = ["ChemistryIntent", "ChemistryKind", "ChemistryOp"]
 
@@ -30,6 +33,7 @@ class ChemistryIntent(BaseModel):
     formula: str | None = None
     equation: str | None = None
     target: str | None = None
+    geometry: CrystalGeometry | None = None
     species: dict[str, float] = Field(default_factory=dict)
     samples: list[float] = Field(default_factory=list)
 

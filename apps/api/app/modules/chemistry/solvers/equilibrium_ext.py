@@ -4,9 +4,11 @@
 from __future__ import annotations
 
 import math
+from dataclasses import replace
 from typing import Any
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.models.schemas.chemistry.scene import EquilibriumRow, EquilibriumScene
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.solvers.common_chem import num, verified
 from app.modules.chemistry.solvers.physical import _equilibrium_expression
@@ -250,11 +252,15 @@ def solve_ice(intent: ChemistryIntent) -> ChemistryResult:
         raise MathServiceError("equilibrium extent is not unique")
     chosen = valid[0]
     lines = [f"x = {num(chosen)}"]
+    equilibrium: dict[str, str] = {}
     for species, expression in concentrations.items():
         amount = float(N(expression.subs(extent, chosen)))
-        lines.append(f"[{species}] = {num(amount)} mol/L")
+        shown = f"{num(amount)} mol/L"
+        lines.append(f"[{species}] = {shown}")
+        equilibrium[species] = shown
+    rows = _ice_rows(intent, balanced.reactants, balanced.products, equilibrium)
     answer = "; ".join(lines)
-    return verified(
+    result = verified(
         "Verified ICE equilibrium",
         (intent.equation, f"K = {num(constant)}"),
         "Equilibrium extent and concentrations",
@@ -264,3 +270,41 @@ def solve_ice(intent: ChemistryIntent) -> ChemistryResult:
         answer,
         num(chosen),
     )
+    return replace(result, scene=EquilibriumScene(title="ICE table", rows=rows))
+
+
+def _ice_change(coefficient: int, *, product: bool) -> str:
+    magnitude = "x" if coefficient == 1 else f"{coefficient}x"
+    return f"+{magnitude}" if product else f"−{magnitude}"
+
+
+def _ice_rows(
+    intent: ChemistryIntent,
+    reactants: dict[str, int],
+    products: dict[str, int],
+    equilibrium: dict[str, str],
+) -> list[EquilibriumRow]:
+    rows: list[EquilibriumRow] = []
+    for species, coefficient in reactants.items():
+        if not counts_in_mass_action(species):
+            continue
+        rows.append(
+            EquilibriumRow(
+                species=species,
+                initial=num(intent.species.get(species, 0.0)),
+                change=_ice_change(coefficient, product=False),
+                equilibrium=equilibrium.get(species, ""),
+            )
+        )
+    for species, coefficient in products.items():
+        if not counts_in_mass_action(species):
+            continue
+        rows.append(
+            EquilibriumRow(
+                species=species,
+                initial=num(intent.species.get(species, 0.0)),
+                change=_ice_change(coefficient, product=True),
+                equilibrium=equilibrium.get(species, ""),
+            )
+        )
+    return rows

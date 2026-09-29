@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from typing import Literal
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import _N, _floats, _search
@@ -44,7 +45,7 @@ def _mass_defect(text: str) -> ChemistryIntent | None:
     if not re.search(r"\b(?:mass defect|binding energy)\b", text, re.IGNORECASE):
         return None
     nuclide = re.search(rf"\b({_NUCLIDE})\b", text)
-    mass = _search(rf"(?:nuclear mass|mass)\s*=\s*({_N})", text)
+    mass = _search(rf"\bnuclear mass\s*=\s*({_N})", text)
     if nuclide is None or mass is None:
         return None
     return ChemistryIntent(
@@ -59,13 +60,27 @@ def _mass_defect(text: str) -> ChemistryIntent | None:
 def _crystal(text: str) -> ChemistryIntent | None:
     if not re.search(r"\b(?:crystal field|magnetic moment)\b", text, re.IGNORECASE):
         return None
-    formula = re.search(r"(?:crystal field|magnetic moment) of\s+(\S+)", text, re.IGNORECASE)
+    without_geometry = re.sub(
+        r"\b(?:square[- ]planar|tetrahedral|octahedral)\b",
+        " ",
+        text,
+        flags=re.IGNORECASE,
+    )
+    formula = re.search(
+        r"(?:crystal field|magnetic moment) of\s+(\S+)",
+        without_geometry,
+        re.IGNORECASE,
+    )
     if formula is None:
+        return None
+    stated = _stated_geometry(text)
+    if stated == "ambiguous":
         return None
     return ChemistryIntent(
         kind="inorganic",
         chemistry_op="crystal_field",
         formula=formula.group(1).rstrip("?.!,"),
+        geometry=None if stated is None else stated,
     )
 
 
@@ -126,10 +141,31 @@ def _michaelis(text: str) -> ChemistryIntent | None:
     return ChemistryIntent(kind="biochemistry", chemistry_op="michaelis_menten", params=present)
 
 
+def _stated_geometry(
+    text: str,
+) -> Literal["octahedral", "tetrahedral", "square_planar", "ambiguous"] | None:
+    square = re.search(r"\bsquare[- ]planar\b", text, re.IGNORECASE) is not None
+    tetrahedral = re.search(r"\btetrahedral\b", text, re.IGNORECASE) is not None
+    octahedral = re.search(r"\boctahedral\b", text, re.IGNORECASE) is not None
+    chosen = sum((square, tetrahedral, octahedral))
+    if chosen > 1:
+        return "ambiguous"
+    if square:
+        return "square_planar"
+    if tetrahedral:
+        return "tetrahedral"
+    if octahedral:
+        return "octahedral"
+    return None
+
+
 def _reaction(text: str) -> ChemistryIntent | None:
     lowered = text.lower()
     key = next((name for name in _REACTIONS if name in lowered), None)
     if key is None:
+        return None
+    # Peroxide/radical HBr is anti-Markovnikov. This path only verifies the ionic rule.
+    if _REACTIONS[key] == "hbr" and re.search(r"\b(?:peroxides?|radicals?|roor)\b", lowered):
         return None
     smiles = re.findall(r"\bSMILES\s+(\S+)", text, re.IGNORECASE)
     if not smiles:
