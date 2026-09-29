@@ -1887,7 +1887,7 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
         stack.enter_context(
             patch(
                 "app.services.chat.turn_prep.context.fetch_web_and_tools",
-                AsyncMock(return_value=(None, None, [], None)),
+                AsyncMock(return_value=(None, None, [], None, False)),
             )
         )
         stack.enter_context(
@@ -2082,7 +2082,7 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
     fake_last_user = MagicMock()
     fake_last_user.content = "Best restaurants near me"
 
-    fetch_web = AsyncMock(return_value=(None, None, [], None))
+    fetch_web = AsyncMock(return_value=(None, None, [], None, False))
 
     async def empty_stream(**kwargs):
         if False:

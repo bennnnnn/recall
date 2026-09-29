@@ -63,3 +63,59 @@ async def test_closed_chemistry_does_not_also_solve_as_math() -> None:
     assert reply.count("```answer") == 1
     assert "notation: chemistry\nΔG = -10 kJ/mol" in reply
     assert "✅" not in reply
+    assert result.unverified is False
+
+
+@pytest.mark.asyncio
+async def test_physics_decline_is_flagged_without_reading_the_prompt() -> None:
+    text = "binding energy of He-4, mass = 4.002603 u"
+    result = await build_subject_augmentation(text, Settings(math_tools_enabled=True))
+    assert result.subject == "physics"
+    assert result.verified is None
+    assert result.unverified is True
+    assert result.prompt_block is not None
+    assert result.prompt_block.startswith("Physics note:")
+
+
+@pytest.mark.asyncio
+async def test_chemistry_decline_is_flagged_and_element_context_is_not() -> None:
+    settings = Settings(chemistry_enabled=True)
+    declined = await build_subject_augmentation(
+        "hydroxide substitution of SMILES CC(Cl)C",
+        settings,
+    )
+    assert declined.verified is None
+    assert declined.unverified is True
+    assert declined.prompt_block is not None
+    assert declined.prompt_block.startswith("Chemistry note:")
+
+    element = await build_subject_augmentation(
+        "what is the atomic mass of Fe?",
+        settings,
+    )
+    assert element.verified is None
+    assert element.unverified is False
+    assert element.prompt_block is not None
+    assert "Verified element data" in element.prompt_block
+
+
+@pytest.mark.asyncio
+async def test_fetch_returns_the_adapter_decline_flag() -> None:
+    from app.services.chat.prompt_builder import fetch_web_and_tools
+    from app.services.subject_solving import SubjectAugmentation
+
+    settings = Settings(math_tools_enabled=True, web_search_enabled=False)
+    with patch(
+        "app.services.chat.prompt_builder.build_subject_augmentation",
+        AsyncMock(
+            return_value=SubjectAugmentation("physics", "Physics note: declined", None, True)
+        ),
+    ):
+        _web, block, _sources, verified, declined = await fetch_web_and_tools(
+            "binding energy of He-4, mass = 4.002603 u",
+            settings,
+            prompt_messages=[{"role": "user", "content": "q"}],
+        )
+    assert block == "Physics note: declined"
+    assert verified is None
+    assert declined is True

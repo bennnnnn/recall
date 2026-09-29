@@ -206,14 +206,16 @@ async def _augment_chemistry(
     from app.modules.chemistry.context import build_chemistry_augmentation
     from app.services.chat.prompt_constants.visuals import attach_chemistry_fence_hint
 
-    block, verified = await build_chemistry_augmentation(user_content, settings, redis=redis)
+    block, verified, declined = await build_chemistry_augmentation(
+        user_content, settings, redis=redis
+    )
     if block:
         block = attach_chemistry_fence_hint(block)
     return SubjectAugmentation(
         subject="chemistry" if block or verified else None,
         prompt_block=block,
         verified=verified,
-        unverified=False,
+        unverified=declined,
     )
 
 

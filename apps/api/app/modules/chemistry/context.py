@@ -142,12 +142,25 @@ def _element_context(content: str) -> str | None:
     return "\n".join(lines)
 
 
+def _unverified_chemistry_note() -> str:
+    return (
+        "Chemistry note: a chemistry calculation was detected, but no complete "
+        "verified result is available. Do not claim verification or invent the "
+        "missing value. Do not emit answer, smiles, or chem_scene fences."
+    )
+
+
 async def build_chemistry_augmentation(
     content: str,
     settings: Settings,
     redis: Redis | None = None,
-) -> tuple[str | None, VerifiedChemistry | None]:
-    """Return prompt context plus the typed verified solve, when available."""
+) -> tuple[str | None, VerifiedChemistry | None, bool]:
+    """Return prompt context, a typed solve, and whether that solve declined.
+
+    The third value is true only when a verification was attempted and nothing
+    verified replaced it. A PubChem record or element table is context, so it
+    stays false.
+    """
     _ = settings
     iupac_smiles = _iupac_smiles(content)
     if iupac_smiles is not None:
@@ -158,14 +171,15 @@ async def build_chemistry_augmentation(
                 "No verified IUPAC name was returned for that SMILES. "
                 "Do not invent an IUPAC name.",
                 None,
+                True,
             )
         verified = verified_iupac(iupac_smiles, name)
-        return verified.prompt_text, verified
+        return verified.prompt_text, verified, False
     intent = extract_chemistry_intent(content)
     if intent is not None:
         solved = build_verified_chemistry(intent)
         if solved is not None:
-            return solved.prompt_text, solved
+            return solved.prompt_text, solved, False
 
     for local_context in (
         _stoichiometry_ratio_hint(content),
@@ -173,17 +187,20 @@ async def build_chemistry_augmentation(
         _element_context(content),
     ):
         if local_context is not None:
-            return local_context, None
+            return local_context, None, False
+
+    if intent is not None:
+        return _unverified_chemistry_note(), None, True
 
     if not is_chemistry_question(content):
-        return None, None
+        return None, None, False
     name = extract_compound_name(content)
     if name is None:
-        return None, None
+        return None, None, False
     lookup = await pubchem_gateway.lookup_by_name(name, redis=redis)
     if lookup.error is not None or lookup.compound is None:
         logger.info("PubChem lookup failed for %r: %s", name, lookup.error)
-        return None, None
+        return None, None, False
     compound = lookup.compound
     return (
         "\n".join(
@@ -197,6 +214,7 @@ async def build_chemistry_augmentation(
             ]
         ),
         None,
+        False,
     )
 
 
@@ -214,7 +232,7 @@ async def build_chemistry_context(
     redis: Redis | None = None,
 ) -> str | None:
     """Backward-compatible context-only facade."""
-    block, _verified = await build_chemistry_augmentation(content, settings, redis=redis)
+    block, _verified, _declined = await build_chemistry_augmentation(content, settings, redis=redis)
     return block
 
 

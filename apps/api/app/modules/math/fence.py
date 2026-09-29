@@ -1014,9 +1014,10 @@ def _reply_contains_math(content: str) -> bool:
 
 
 def append_unverified_math_note(content: str) -> str:
-    """Honest label when camera/solver intent fired but SymPy produced nothing.
+    """Honest label when a subject solver declined.
 
-    Italic markdown in the reply body — not a banned assistant status chip.
+    One italic line in the reply body. A blockquote or answer fence would paint
+    a shaded card, and an assistant status chip is already banned.
 
     Skipped when the reply holds no math at all. The note is stamped whenever
     a math block was injected and SymPy returned nothing, so every extractor
