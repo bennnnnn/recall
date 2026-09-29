@@ -561,7 +561,6 @@ async def stream_regenerate_response(
             reserved_tokens=res.reserved_tokens,
             user=user,
             prior_count=prior_count,
-            chat_project_id=chat.project_id,
             timing=timing,
             run_title=False,
             skip_memory_jobs=False,

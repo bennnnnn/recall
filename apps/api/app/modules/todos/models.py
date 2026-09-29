@@ -25,7 +25,6 @@ class TodoItem(Base):
         Index("ix_todo_user_created", "user_id", "created_at"),
         Index("ix_todo_user_topic", "user_id", "topic"),
         Index("ix_todo_user_topic_sort", "user_id", "topic", "sort_order"),
-        Index("ix_todo_items_user_project", "user_id", "project_id"),
         # DB index (migration 0021) is actually a partial index:
         #   CREATE INDEX ix_todo_user_open_due ON todo_items (user_id, due_at)
         #   WHERE checked = false AND due_at IS NOT NULL
@@ -48,9 +47,6 @@ class TodoItem(Base):
     )
     chat_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("chats.id", ondelete="SET NULL"), nullable=True
-    )
-    project_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
     )
     content: Mapped[str] = mapped_column(Text, nullable=False)
     topic: Mapped[str] = mapped_column(String(200), nullable=False, default="General")

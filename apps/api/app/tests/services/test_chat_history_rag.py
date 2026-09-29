@@ -261,7 +261,6 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
             chat=None,
             query_text="which couch did we pick last year",
             recent_limit=20,
-            is_day_plan=False,
             slim_context=True,
             client_timezone=None,
             out=None,
@@ -325,10 +324,6 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
         patch("app.services.chat.history_rag.SessionLocal", _session_cm()),
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
         patch("app.services.chat.history_rag.chunks_repo.has_chunks_for_user", probe),
         patch("app.services.chat.history_rag.embedding_gateway.get_or_embed_query", embed),
         patch(

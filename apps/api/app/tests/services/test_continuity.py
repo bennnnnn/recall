@@ -95,10 +95,6 @@ async def test_prompt_includes_messages_between_summary_and_recent_window():
         ) as list_before,
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
     ):
         messages = await build_prompt_messages(
             user,
@@ -164,10 +160,6 @@ async def test_prompt_keeps_the_message_pushed_out_by_the_current_turn():
         ),
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
     ):
         messages = await build_prompt_messages(
             user,

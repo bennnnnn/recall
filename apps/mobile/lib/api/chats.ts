@@ -32,19 +32,10 @@ async function listMessages(
 }
 
 export const chatsApi = {
-  createChat: (
-    token: string,
-    model = "auto",
-    projectId?: string,
-    quizMode?: "exam" | "chat",
-  ) =>
+  createChat: (token: string, model = "auto") =>
     request<Chat>("/chats", token, {
       method: "POST",
-      body: JSON.stringify({
-        model,
-        ...(projectId ? { project_id: projectId } : {}),
-        ...(quizMode ? { quiz_mode: quizMode } : {}),
-      }),
+      body: JSON.stringify({ model }),
     }),
   getChat: (token: string, chatId: string) =>
     request<Chat>(`/chats/${chatId}`, token),

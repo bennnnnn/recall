@@ -12,7 +12,7 @@
       "bundleIdentifier": "com.recall.app",
       "usesAppleSignIn": true,
       "infoPlist": {
-        "NSUserNotificationsUsageDescription": "Recall sends reminders, learning nudges, and alerts from your connected email.",
+        "NSUserNotificationsUsageDescription": "Recall sends reminders and alerts from your connected email.",
         "NSLocationWhenInUseUsageDescription": "Recall uses your location for local time and to answer where you are.",
         "NSPhotoLibraryUsageDescription": "Recall needs access to your photos so you can attach images in chat.",
         "NSPhotoLibraryAddUsageDescription": "Recall saves generated and chat images to your photo library when you tap Download.",

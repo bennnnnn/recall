@@ -25,11 +25,10 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 “polish”, FEATURES grade-ups, or “parity” work.
 
 ## 3. No project filter chips on Schedule
-- Do **not** show a horizontal chip row to filter reminders by Learning project.
-- Do **not** show a folder / “Link to project” control on reminder rows — Learning
-  classes are not project destinations for reminders. The top filter bar must not return either.
+- Do **not** show a horizontal chip row to filter reminders by project.
+- Do **not** show a folder / “Link to project” control on reminder rows.
 - Do **not** show a “Linked to {{title}}” (or `todos.project_linked`) subtitle on
-  reminder rows. Schedule and Learning stay separate.
+  reminder rows.
 
 ## 4. No model-fallback / context-summarized chips on assistant messages
 - Do **not** show `chat.model_fallback`, “switched to …”, or “N earlier messages summarized”
@@ -38,7 +37,7 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
   must not surface them**.
 
 ## 5. No empty-state body / primary CTA when a FAB already adds
-- Learning and Schedule empty states: **icon + title only** (e.g. “No learning yet” / “Nothing scheduled”).
+- Schedule empty states: **icon + title only** (e.g. “Nothing scheduled”).
 - Do **not** add body copy or an “Add …” `Button` that duplicates the bottom (+) FAB.
 
 ## 6. No image-generation confirmation sheet
@@ -53,8 +52,7 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 ## 8. No Lists (shopping / packing checklists)
 - Do **not** add a drawer **Lists** row, list composer, `ListGroupsView`, or undated
   checklist UI. Chat must not create items without a due date.
-- **Schedule** (dated reminders) stays. Learning chapter `lists` are vocab word groups,
-  not this feature.
+- **Schedule** (dated reminders) stays.
 
 ## 9. No Gmail chips or reminder bell on chat
 - Do **not** show Gmail suggested-reminder chips in the composer (`SuggestedRemindersNudge`).
@@ -63,7 +61,7 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 
 ## 10. No Home dashboard chrome
 - Home is **greeting + two local starters + at most one dismissible overdue row**.
-- Do **not** show a Learning progress bar, due-soon stack, or “For you” personalized chips.
+- Do **not** show a progress bar, due-soon stack, or “For you” personalized chips.
 - Starters stay `welcomeStarters()` — ignore API `starters` / `project_highlight` on this surface.
 
 ## 11. No user-message edit / resend
@@ -75,11 +73,10 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 
 If a plan or FEATURES item asks for these, **push back and skip** — they are explicitly rejected.
 
-## 12. No bulk Learning vocabulary browser
-- Learning teaches **one entry at a time**: definition and examples, then a practice
-  question, feedback, and the next entry. The map may show groups and progress.
-- Do **not** add a searchable word catalog, page of vocabulary cards, or separate
-  Vocabulary browse button. Remove the route, component, and copy if replacing it.
+## 12. No language-learning product
+- Vocabulary classes, lesson maps, flashcards, practice sessions, and `/projects` are removed.
+- Do **not** restore a Learning drawer row, lesson screen, or vocabulary browser.
+- Conversational “teach me…” in ordinary chat stays.
 
 ## 13. No inline Settings choice expand
 - Appearance, style, tone, language, reminder lead, and daily goal open a
@@ -88,7 +85,5 @@ If a plan or FEATURES item asks for these, **push back and skip** — they are e
   “expand inline”. Do not revive PR #707’s in-list picker.
 
 ## 14. No in-chat A–D quiz chips
-- Study is the lesson window (`LessonQuizCards`). Chat must **not** render A–D
-  chips, intercept letter answers, or grade ```vocab_quiz.
-- Leftover fences in old messages are **strip for display** only. Do not parse
-  them back into chips, a quiz dock, or a second lesson path.
+- Chat must **not** render A–D chips or grade stored `vocab_quiz` fences.
+- Leftover `vocab_quiz`, `vocab_card`, and `learning_launch` fences in old messages are **strip for display** only. Do not parse them back into chips or a lesson path.

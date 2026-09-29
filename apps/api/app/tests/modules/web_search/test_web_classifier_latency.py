@@ -115,7 +115,6 @@ async def test_prefetch_overlaps_phase_b_and_preserves_negative_verdict(prompt_i
         reserved_tokens=100,
         user=user,
         prior_count=1,
-        chat_project_id=None,
     )
     assert ctx.web_search_classified is False
 

@@ -1,4 +1,4 @@
-"""Opt-in transactional email reminders (todo due + learning nudges).
+"""Opt-in transactional email reminders for dated to-dos.
 
 Runs on the worker scheduler only — never on the chat path. Welcome and Pro
 receipt emails stay on the Redis jobs stream and are not gated by
@@ -11,13 +11,11 @@ import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 
-from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.models.orm import TodoItem, User
-from app.modules.learning import collect_learning_nudge_picks
 from app.modules.notifications import transactional_email as tx_email
 from app.modules.todos import TodoEmailSnapshot, mark_email_sent_if_current
 from app.services.reminder_timing import (
@@ -30,8 +28,6 @@ from app.services.reminder_timing import (
 )
 
 logger = logging.getLogger(__name__)
-
-LEARNING_EMAIL_REDIS_PREFIX = "recall:email:learning"
 
 
 @dataclass(frozen=True)
@@ -118,53 +114,8 @@ async def process_todo_reminder_emails(
     return sent
 
 
-async def process_learning_nudge_emails(
-    session: AsyncSession,
-    redis: Redis,
-    settings: Settings,
-    *,
-    now: datetime | None = None,
-) -> int:
-    effective_now = now or datetime.now(UTC)
-    result = await session.execute(select(User).where(User.email_reminders_enabled.is_(True)))
-    users = [user for user in result.scalars().all() if not in_quiet_hours(user, now=effective_now)]
-    if not users:
-        return 0
-
-    picks = await collect_learning_nudge_picks(
-        session,
-        redis,
-        users,
-        learning_hour=settings.push_learning_hour,
-        redis_prefix=LEARNING_EMAIL_REDIS_PREFIX,
-        require_email=True,
-        now=effective_now,
-    )
-
-    sent = 0
-    for pick in picks:
-        try:
-            ok = await tx_email.send_learning_nudge(settings, pick.user, body=pick.body)
-            if ok:
-                sent += 1
-                await redis.set(pick.redis_key, "1", ex=86_400)
-            else:
-                await redis.delete(pick.redis_key)
-        except Exception:
-            logger.exception("Learning nudge email failed user_id=%s", pick.user.id)
-            try:
-                await redis.delete(pick.redis_key)
-            except Exception:
-                logger.exception("Failed to release learning email lock user_id=%s", pick.user.id)
-            continue
-
-    return sent
-
-
-async def run_email_reminder_cycle(session: AsyncSession, redis: Redis, settings: Settings) -> int:
+async def run_email_reminder_cycle(session: AsyncSession, settings: Settings) -> int:
     if not settings.email_enabled or not settings.email_reminders_scheduler_enabled:
         return 0
     now = datetime.now(UTC)
-    todo_count = await process_todo_reminder_emails(session, settings, now=now)
-    learning_count = await process_learning_nudge_emails(session, redis, settings, now=now)
-    return todo_count + learning_count
+    return await process_todo_reminder_emails(session, settings, now=now)

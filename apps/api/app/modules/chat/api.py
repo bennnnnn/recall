@@ -42,8 +42,6 @@ async def create_chat(
             session,
             user,
             model=body.model,
-            project_id=body.project_id,
-            quiz_mode=body.quiz_mode,
         )
     except chats_service.ChatsError as exc:
         raise _map_error(exc) from exc

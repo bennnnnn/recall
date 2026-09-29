@@ -70,7 +70,6 @@ async def create_todo(
             content=body.content,
             topic=body.topic,
             chat_id=body.chat_id,
-            project_id=body.project_id,
             due_at=body.due_at,
             recurrence_rule=body.recurrence_rule,
         )

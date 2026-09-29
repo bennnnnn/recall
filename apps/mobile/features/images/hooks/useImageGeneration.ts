@@ -23,9 +23,7 @@ import { uploadChatAttachment, type PendingAttachment } from "@/features/attachm
 
 type DraftChat = {
   prepareDraftChat: (
-    projectId?: string | null,
     model?: string,
-    quizMode?: import("@/lib/quizMode").QuizMode | null,
     opts?: { force?: boolean },
   ) => Promise<string | null>;
   skipLoadForChatIdRef: React.MutableRefObject<string | null>;
@@ -104,7 +102,7 @@ export function useImageGeneration({
     if (chatId) return chatId;
     creatingRef.current = true;
     try {
-      const id = await prepareDraftChat(undefined, selectedModel);
+      const id = await prepareDraftChat(selectedModel);
       if (!id) throw new Error("Could not create chat");
       skipLoadForChatIdRef.current = id;
       setChatTitle(null);

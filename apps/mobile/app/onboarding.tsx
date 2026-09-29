@@ -29,11 +29,6 @@ const FEATURES = [
     titleKey: "onboarding.remember_title",
     bodyKey: "onboarding.remember_body",
   },
-  {
-    icon: "graduation-cap",
-    titleKey: "onboarding.learn_title",
-    bodyKey: "onboarding.learn_body",
-  },
 ] as const;
 
 export default function Onboarding() {

@@ -104,12 +104,8 @@ _LETTER_ANSWER = re.compile(
 _MAX_LETTER_ANSWER_LEN = 24
 
 
-def is_vocab_quiz_answer(text: str, *, choices: tuple[tuple[str, str], ...] | None = None) -> bool:
-    """Letter-only A–D replies should not trigger web search.
-
-    Chat no longer grades these; leftover stored answers still look like this.
-    """
-    del choices
+def is_short_letter_answer(text: str) -> bool:
+    """Letter-only A–D replies should not trigger web search."""
     cleaned = text.strip()
     if not cleaned or len(cleaned) > _MAX_LETTER_ANSWER_LEN:
         return False

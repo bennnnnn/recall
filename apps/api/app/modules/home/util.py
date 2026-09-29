@@ -26,16 +26,6 @@ _USER_PREFIX = re.compile(
     r"^(?:the\s+)?user(?:'s|\s+is|\s+has|\s+wants\s+to|\s+is\s+trying\s+to|\s+is\s+working\s+on)\s+",
     re.IGNORECASE,
 )
-_LANGUAGE_LEARNING = re.compile(
-    r"\b("
-    r"learn(?:ing)?\s+english|english\s+(?:learner|learning|practice|vocabulary|vocab)|"
-    r"studying\s+english|improve\s+(?:my\s+)?english|"
-    r"learn(?:ing)?\s+(?:a\s+)?(?:new\s+)?language|language\s+learner|"
-    r"vocabulary\s+practice|practice\s+(?:my\s+)?english|"
-    r"vocabulary\s+learning|vocabular\w*"
-    r")\b",
-    re.IGNORECASE,
-)
 
 
 def resolve_home_tz(user: User, client_timezone: str | None = None) -> ZoneInfo:
@@ -69,10 +59,6 @@ def looks_internal(text: str) -> bool:
     if not clean:
         return True
     return bool(_INTERNAL_TEXT.match(clean))
-
-
-def looks_like_language_learning(text: str) -> bool:
-    return bool(_LANGUAGE_LEARNING.search(text.strip()))
 
 
 def short_phrase(text: str, *, limit: int = 36) -> str:

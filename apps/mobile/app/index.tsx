@@ -22,7 +22,6 @@ import { DrawerShell } from "@/components/DrawerShell";
 import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
 import { EmailDraftPersistProvider } from "@/features/integrations/context/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
-import { useProjects } from "@/features/learning/context/ProjectsContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useHome } from "@/features/home/context/HomeContext";
 import { shouldRefreshHomeOnChatFocus } from "@/lib/cache/contextRefresh";
@@ -34,7 +33,6 @@ import { useChatDraftWarmup } from "@/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/hooks/useChatMessageList";
 import { useChatSuggestions } from "@/features/suggestions/hooks/useChatSuggestions";
-import { useChatQuizContext } from "@/hooks/useChatQuizContext";
 import { useChatRegenerate } from "@/hooks/useChatRegenerate";
 import { useChatRouteLoader } from "@/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/hooks/useChatScroll";
@@ -48,14 +46,11 @@ import { useChatErrorHandlers, useChatErrorRecovery, useChatStreamLifecycle } fr
 import { useChatScreenBodyProps } from "@/hooks/useChatScreenBodyProps";
 import { useTodosOptional } from "@/features/todos/context/TodosContext";
 import { isComposerMenuOverlayOpen, CHAT_COMPOSER_MIN_BOTTOM_PAD } from "@/lib/chat/composerLogic";
-import { invalidateLearningDetail } from "@/features/learning/model/projectDetailCache";
-import { openLearningLesson } from "@/features/learning/model/lessonLaunch";
 import { useImageGeneration } from "@/features/images/hooks/useImageGeneration";
 import { useKeyboardInset } from "@/hooks/useKeyboardInset";
 
 function ChatScreen() {
   const { token, user, updateUser } = useAuth();
-  const { projects } = useProjects();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeChatScreenStyles(C), [C]);
@@ -68,10 +63,6 @@ function ChatScreen() {
 
   const [chatId, setChatId] = useState<string | null>(null);
   const draft = useDraftChat({ token, chatId });
-  const { resolveQuizProjectId } = useChatQuizContext({
-    projects,
-    draftProjectIdRef: draft.draftProjectIdRef,
-  });
   const { isPro, autoEnabled, modelEnabledSet, AUTO_MODEL_ID } = useModels();
   const { refresh: refreshHome, hasFetched: hasFetchedHome } = useHome();
   useFocusEffect(
@@ -468,15 +459,6 @@ function ChatScreen() {
     [handleSend],
   );
 
-  const onOpenLesson = useCallback(
-    (projectId: string) => {
-      if (!projectId) return;
-      invalidateLearningDetail(projectId);
-      openLearningLesson(router, { projectId });
-    },
-    [router],
-  );
-
   const { headerTitleLabel, renderItem } = useChatMessageList({
     messages: displayMessages,
     streaming,
@@ -492,8 +474,6 @@ function ChatScreen() {
     onSelectSuggestion,
     onDismissSuggestion: dismissSuggestion,
     imageGenerating: imageGen.generating,
-    lessonProjectId: resolveQuizProjectId(),
-    onOpenLesson,
     onRetryImageGen: imageGen.retry,
   });
 

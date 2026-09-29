@@ -28,10 +28,6 @@ async def test_build_prompt_includes_web_search_hint():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
-        patch(
             "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),

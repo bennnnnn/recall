@@ -76,7 +76,6 @@ async def create_todo(
     content: str,
     topic: str | None,
     chat_id: UUID | None,
-    project_id: UUID | None,
     due_at: datetime | None,
     recurrence_rule: RecurrenceRule | None = None,
 ) -> TodoItem:
@@ -84,8 +83,6 @@ async def create_todo(
         chat = await chats_repo.get_by_id(session, chat_id, user.id)
         if chat is None:
             raise TodosError("Chat not found", status_code=400)
-    if project_id is not None:
-        raise TodosError("To-dos cannot be linked to a Learning project", status_code=400)
     normalized_due = normalize_due_at(due_at, user.timezone)
     if normalized_due is not None and recurrence_rule:
         normalized_due = snap_first_due(normalized_due, recurrence_rule, timezone=user.timezone)
@@ -98,7 +95,6 @@ async def create_todo(
             content=content,
             topic=topic or todos_repo.DEFAULT_TOPIC,
             chat_id=chat_id,
-            project_id=project_id,
             due_at=normalized_due,
             recurrence_rule=recurrence_rule,
         )
@@ -136,8 +132,6 @@ async def update_todo(
     if not item:
         raise TodosError("Todo not found", status_code=404)
     patch = dict(fields)
-    if "project_id" in patch:
-        raise TodosError("To-dos cannot be linked to a Learning project", status_code=400)
     if "due_at" in patch:
         if patch["due_at"] is None:
             if is_recurrence_rule(patch.get("recurrence_rule")):

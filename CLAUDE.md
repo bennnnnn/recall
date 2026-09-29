@@ -23,7 +23,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 ## Service Overview
 
-**What it does:** authenticated users chat with LLMs; the app persists chats, auto-generates titles, injects structured personal memory, and layers productivity (todos, Learning, calendar/Gmail) plus rich rendering.
+**What it does:** authenticated users chat with LLMs; the app persists chats, auto-generates titles, injects structured personal memory, and layers productivity (todos, calendar/Gmail) plus rich rendering.
 
 **Domain concepts:**
 
@@ -36,7 +36,6 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **todo** — a lightweight task the user tracks; optionally linked to a chat.
 - **suggestion** — a proactive follow-up prompt generated from the user's recent activity (best-effort background job).
 - **search** — full-text lookup across the user's chats and messages.
-- **learning class** — a vocabulary class (`projects` table, HTTP `/projects`) with `project_items` and quiz progress (`quiz_miss_events`, SM-2 scheduling).
 - **attachment** — an uploaded image/file (R2 in production) with extracted text chunked into `attachment_chunks` for retrieval.
 - **integration** — a connected Google account: `user_calendar_connections` and `user_gmail_connections`, feeding calendar context and `suggested_reminders`.
 - **push token** — a registered Expo device token for reminder/nudge notifications.
@@ -129,7 +128,6 @@ What exists in code today. Product caveats: FEATURES.md.
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
 | Suggestions | `modules/suggestions/` (HTTP `/suggestions`) | `features/suggestions/`; follow-up chips |
 | Todos / reminders | `modules/todos/` (HTTP `/todos`) | `features/todos/`; `app/todos.tsx` route only |
-| Learning classes | `modules/learning/` (HTTP `/projects`) | `features/learning/`; `app/projects/` routes only |
 | Home starters | `modules/home/` (HTTP `/home`) | `features/home/`; chat empty canvas |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
@@ -148,7 +146,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned My Job, Learning, Math, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, and Speech APIs plus the legacy health, legal, auth, admin, webhooks, users, link_preview, chat_stream, models, analytics, and ws routers.
+**HTTP surfaces registered in** `main.py`: the module-owned My Job, Math, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, and Speech APIs plus the legacy health, legal, auth, admin, webhooks, users, link_preview, chat_stream, models, analytics, and ws routers.
 
 **Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, auth, tokens, …). New chat-loop code belongs in `services/chat/`; new external IO belongs in a gateway, not an API surface.
 
@@ -180,27 +178,27 @@ New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned
 1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
 2. Check + reserve daily quota (Redis)
 3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation
-4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, calendar/Gmail, web search, project/quiz context, SymPy pre-solve, chemistry context
+4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, calendar/Gmail, web search, SymPy pre-solve, chemistry context
 5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
 7. Post-stream math fence correction (`math/fence.py`) and chemistry fence enrich (`modules/chemistry/fence.py`)
 8. Persist assistant + usage in a finalize task
-9. `enqueue_post_turn_jobs` — topic, memory, todos, projects, compress, suggestions, attachment_index, message_index (best-effort; must not raise into the stream)
+9. `enqueue_post_turn_jobs` — topic, memory, todos, compress, suggestions, attachment_index, message_index (best-effort; must not raise into the stream)
 
 Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job.
 
-**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `todos`, `projects`, `language_path`, `compress`, `suggestions`, `gmail_sync`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
+**Jobs registered in** `background/handlers.py`: `topic`, `memory`, `memory_consolidate`, `memory_history_scan`, `todos`, `compress`, `suggestions`, `gmail_sync`, `transactional_email`, `attachment_index`, `message_index`, `storage_sweep`.
 
 **Worker** (`worker_main.py`): consumes that stream and runs schedulers (push, email reminders, Gmail periodic, attachment orphan reaper).
 
 ## Mobile map
 
-Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Learning (`projects/`), Settings (models, memory, preferences, integrations, learning, notifications, data-controls, about). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
+Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Settings (models, memory, preferences, integrations, notifications, data-controls, about). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
 
-- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,account,discover,connectivity,analytics,push,types}.ts` plus feature slices (`features/learning/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/home/api.ts`, `features/search/api.ts`, `features/suggestions/api.ts`, `features/job-search/api.ts`, `features/integrations/api.ts`, `features/attachments/api.ts`, `features/images/api.ts`, `features/speech/api.ts`)
+- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,account,discover,connectivity,analytics,push,types}.ts` plus feature slices (`features/memory/api.ts`, `features/todos/api.ts`, `features/home/api.ts`, `features/search/api.ts`, `features/suggestions/api.ts`, `features/job-search/api.ts`, `features/integrations/api.ts`, `features/attachments/api.ts`, `features/images/api.ts`, `features/speech/api.ts`)
 - Tokens: `expo-secure-store` only
 - Chat logic: `hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — screens stay thin
-- Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `projects/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
+- Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.
 - Messages: FlashList; markdown + `components/rich/*` + `components/markdown/*`
 - Fences: `lib/fenceRegistry.ts` is the lang/id table; `RichFence` renders
 - UI kit: `ui/` — controls (Button, Chip, SegmentedControl, TextField, HeaderButton), `list/` ListRow, `overlay/` (Menu, SelectMenu, `confirmDialog`/`alertDialog`, Sheet), `pickers/` (clock time, calendar date), `share/` ShareSheet, `icons/` (Lucide line icons + BrandMark). Catalog: `ui/README.md`; dev gallery at Settings → About → UI kit. Lint bans raw `Alert`/`Modal`/`Switch`, `@expo/vector-icons` and the native datetimepicker outside it.
@@ -309,7 +307,7 @@ Neon · Upstash Redis · LiteLLM (OpenRouter) · Google OAuth · Apple Sign-In �
 
 **Database — Neon (serverless Postgres), chosen over Supabase:** we run our own backend, auth (Google/JWT/Apple), and object storage (R2 in production), so we only need a database — not a BaaS bundle (auth/storage/realtime) we wouldn't use. Neon's usage-based pricing + scale-to-zero is cheaper at our scale, branching helps CI/preview, it's plain Postgres (portable, good for the future web client), and `pgvector` runs in the **same DB** for memory embeddings, attachment RAG, and chat-history RAG.
 
-**Shipped beyond the original MVP week:** Learning + quizzes, todos/reminders, Gmail/calendar, attachments + RAG, chat-history RAG, image gen, STT/TTS, live talk, web search, math/physics/geometry/graph, chemistry, rich fences, Pro/RevenueCat, push, Fly `api`/`worker` split, owned MCP tool loop (on by default), web slice 1. Full catalog: FEATURES.md.
+**Shipped beyond the original MVP week:** todos/reminders, Gmail/calendar, attachments + RAG, chat-history RAG, image gen, STT/TTS, live talk, web search, math/physics/geometry/graph, chemistry, rich fences, Pro/RevenueCat, push, Fly `api`/`worker` split, owned MCP tool loop (on by default), web slice 1. Full catalog: FEATURES.md. The dedicated language-learning product has been removed.
 
 **Later:** remaining web slices, user MCP servers, LiteLLM Proxy. Not “missing from CLAUDE.md” — deferred on purpose.
 

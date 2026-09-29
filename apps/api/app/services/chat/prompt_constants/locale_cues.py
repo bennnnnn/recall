@@ -2,8 +2,8 @@
 """Personal-data cue phrases for shipped locales (not user.locale-gated).
 
 English classifiers already cover en. These phrases catch code-switching and
-the other eight UI locales so projects / todos / calendar / email / memory /
-learning still opt into rich context.
+the other eight UI locales so projects / todos / calendar / email / memory
+still opt into rich context.
 
 Match with substring scans (no regex) on casefolded text.
 """
@@ -18,7 +18,6 @@ CueGroup = Literal[
     "calendar",
     "email",
     "memory",
-    "learning",
     "writing",
     "advice",
 ]
@@ -138,23 +137,6 @@ _CUES: dict[CueGroup, tuple[str, ...]] = {
         "ምን ታስታውሳለህ",
         "ስለ እኔ ምን ታውቃለህ",
     ),
-    "learning": (
-        "mi vocabulario",
-        "qué aprendí",
-        "que aprendi",
-        "mis palabras",
-        "mon vocabulaire",
-        "qu'ai-je appris",
-        "mein vokabular",
-        "il mio vocabolario",
-        "meu vocabulário",
-        "meu vocabulario",
-        "мой словарный запас",
-        "kelime dağarcığım",
-        "kelime dagarcigim",
-        "የእኔ ቃላት",
-        "ምን ተማርኩ",
-    ),
     "writing": (
         "escribeme un correo",
         "escríbeme un correo",
@@ -210,7 +192,6 @@ _ALL_GROUPS: tuple[CueGroup, ...] = (
     "calendar",
     "email",
     "memory",
-    "learning",
     "writing",
 )
 

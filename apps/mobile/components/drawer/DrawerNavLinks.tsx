@@ -14,7 +14,6 @@ type Props = {
   showIndicator: boolean;
   unseenCount: number;
   onMyJob: () => void;
-  onProjects: () => void;
   onReminders: () => void;
   onGallery: () => void;
 };
@@ -24,7 +23,6 @@ export function DrawerNavLinks({
   showIndicator,
   unseenCount,
   onMyJob,
-  onProjects,
   onReminders,
   onGallery,
 }: Props) {
@@ -39,16 +37,6 @@ export function DrawerNavLinks({
         onPress={() => {
           tap();
           onMyJob();
-        }}
-        style={s.navRow}
-      />
-      <ListRow
-        appearance="plain"
-        icon="graduation-cap"
-        title={t("drawer.projects")}
-        onPress={() => {
-          tap();
-          onProjects();
         }}
         style={s.navRow}
       />

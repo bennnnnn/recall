@@ -41,7 +41,7 @@ request client and are composed into the existing `lib/api.ts` public barrel.
 
 1. My Job (pilot) — migrated
 2. Todos — migrated; the mobile feature is a day-grouped To-do list with optional dates
-3. Learning — migrated
+3. Language learning — removed (do not restore `modules/learning/` or `/projects`)
 4. Memory — migrated
 5. Google Calendar and Gmail — migrated
 6. Images, attachments, and voice — migrated

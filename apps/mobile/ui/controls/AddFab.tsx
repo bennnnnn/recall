@@ -29,7 +29,7 @@ type Props = {
   wave?: boolean;
 };
 
-/** Bottom-right + FAB for Add learning / New list / Add reminder. */
+/** Bottom-right + FAB for Add reminder. */
 export function AddFab({ onPress, accessibilityLabel, wave = false }: Props) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();

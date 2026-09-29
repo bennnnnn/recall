@@ -170,32 +170,11 @@ _PERSONAL_CONTEXT_CUE = re.compile(
     r"name|email|preference|preferences|diet|routine|schedule|"
     r"calendar|wife|husband|kids?|dog|cat|job|work|boss|team|"
     r"project|projects|todo|todos|list|lists|reminder|reminders|"
-    r"allerg(?:y|ies)|favorite|usual|memory|memories|"
-    r"vocab(?:ulary)?|words?|learning"
+    r"allerg(?:y|ies)|favorite|usual|memory|memories"
     r")\b"
     r")",
     re.IGNORECASE,
 )
-
-# Progress / "what did I learn" — not dictionary lookups like "another word for".
-_LEARNING_PROGRESS_CUE = re.compile(
-    r"(?:"
-    r"\b(?:my|any|today'?s|this|the) (?:lessons?|reviews?|practice)\b|"
-    r"\b(?:lesson|review|practice) (?:progress|history|session)s?\b|"
-    r"\b(?:skip(?:ped)?|miss(?:ed)?) (?:my |the |a )?(?:lesson|review|practice)s?\b|"
-    r"\bvocab(?:ulary)?\b|"
-    r"\b(?:what|which) words?\b|"
-    r"\bwords? (?:did|have) i\b|"
-    r"\b(?:learn(?:ed|ing)?|studied|practiced|mastered) today\b|"
-    r"\btoday'?s (?:words?|vocab(?:ulary)?|lesson|quiz)\b|"
-    r"\bmy (?:vocab(?:ulary)?|words|learning)\b|"
-    r"\blearning (?:class|progress|path|topic)s?\b|"
-    r"\bhow many words\b|"
-    r"\bwords? (?:i|have i) (?:learn|learned|studied|mastered)\b"
-    r")",
-    re.IGNORECASE,
-)
-
 
 # Continuity asks that should still search earlier chats on a slim turn.
 # Phrase scan (not a regex) so a longer question cannot blow up matching.
@@ -269,21 +248,13 @@ def recalls_earlier_conversation(text: str) -> bool:
     )
 
 
-def is_learning_progress_question(text: str) -> bool:
-    """True when the user is asking about their Recall Learning words/progress."""
-    cleaned = collapse_ws(text)
-    if not cleaned:
-        return False
-    return bool(_LEARNING_PROGRESS_CUE.search(cleaned))
-
-
 def needs_rich_context(
     text: str,
     *,
     day_planning: bool = False,
     day_reflection: bool = False,
 ) -> bool:
-    """True when this turn should load personal context (memory/todos/projects).
+    """True when this turn should load personal context (memory/todos).
 
     Systemic default: casual chat is slim. Opt in via personal/retrieval cues
     or day-planning — not via an ever-growing greeting list.
@@ -303,14 +274,12 @@ def needs_rich_context(
     # path rather than loading the user's private context without a reason.
     if is_email_or_message_request(cleaned):
         return True
-    if is_learning_progress_question(cleaned):
-        return True
     if has_any_personal_locale_cue(cleaned):
         return True
     return bool(_PERSONAL_CONTEXT_CUE.search(cleaned))
 
 
-# Advice / recommendation — load memory only (not Calendar/Gmail/Learning).
+# Advice / recommendation — load memory only (not Calendar/Gmail).
 # Require a life-domain word so "what should I return" / "recommend a library"
 # stay slim. Day-planning is classified separately and supersedes this path.
 # Ordinary phrasing ("I need dinner", "plan a workout") must match too — not

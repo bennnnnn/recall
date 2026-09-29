@@ -16,7 +16,6 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
-import { LearningLaunchButton } from "@/features/learning/components/LearningLaunchButton";
 import { AssistantMessageScope } from "@/features/integrations/context/emailDraftPersist";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
@@ -54,8 +53,6 @@ type Props = {
   onFeedback?: (messageId: string, feedback: "up" | "down" | null) => void;
   highlighted?: boolean;
   isSending?: boolean;
-  lessonProjectId?: string | null;
-  onOpenLesson?: (projectId: string) => void;
   onRetryImageGen?: () => void;
 };
 
@@ -306,8 +303,6 @@ export const MessageBubble = React.memo(function MessageBubble({
   onFeedback,
   highlighted = false,
   isSending = false,
-  lessonProjectId = null,
-  onOpenLesson,
   onRetryImageGen,
 }: Props) {
   const theme = useTheme();
@@ -369,7 +364,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     searchSources,
     markdownStreamMode,
     markdownResetKey,
-    learningLaunch,
   } = assistant;
 
   const imageGenFailure = message.image_gen_failure;
@@ -475,20 +469,6 @@ export const MessageBubble = React.memo(function MessageBubble({
               <Text style={b.stoppedFooter}>{t("chat.generation_stopped")}</Text>
             ) : null}
             {showPlaces ? <PlacesListBlock places={places} /> : null}
-            {(() => {
-              const launchProjectId = learningLaunch?.projectId ?? lessonProjectId ?? "";
-              const showLessonCta =
-                !isStreaming &&
-                Boolean(onOpenLesson) &&
-                Boolean(launchProjectId) &&
-                learningLaunch != null;
-              return showLessonCta ? (
-                <LearningLaunchButton
-                  action={learningLaunch?.action}
-                  onPress={() => onOpenLesson?.(launchProjectId)}
-                />
-              ) : null;
-            })()}
             {showCalendarProposals
               ? calendarProposals.map((proposal, index) => (
                   <CalendarProposalCard

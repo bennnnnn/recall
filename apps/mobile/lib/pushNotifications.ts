@@ -6,7 +6,6 @@ import { api } from "@/lib/api";
 import i18n from "@/lib/i18n";
 import { getInstallationId } from "@/lib/installationId";
 import { trackProductEvent } from "@/lib/productAnalytics";
-import { lessonMapPath } from "@/features/learning/model/chapterAccess";
 import {
   ensureAndroidNotificationChannels,
   TONE_ANDROID_CHANNELS,
@@ -41,7 +40,6 @@ async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android" || androidChannelReady) return;
   await ensureAndroidNotificationChannels({
     reminders: i18n.t("notifications.reminders_channel"),
-    learning: i18n.t("notifications.learning_channel"),
     inbox: i18n.t("notifications.inbox_channel"),
   });
   androidChannelReady = true;
@@ -165,7 +163,6 @@ type PushData = {
   screen?: string;
   focus?: string;
   todo_id?: string;
-  project_id?: string;
   profile_id?: string;
   topic?: string;
   event_start?: string;
@@ -228,25 +225,9 @@ export async function handlePushNotificationResponse(
     return;
   }
 
-  if (
-    (data.type === "learning_review" ||
-      data.type === "learning_continue" ||
-      data.type === "learning_daily_goal") &&
-    data.project_id
-  ) {
-    // Straight to the lesson map — /projects/:id is just a redirect hop.
-    navigateToTarget(router, current, lessonMapPath(data.project_id));
-    return;
-  }
-
   // To-do renders pending Gmail suggestions with Add and Dismiss actions.
   if (data.type === "email_suggestion") {
     navigateToTarget(router, current, "/todos");
-    return;
-  }
-
-  if (data.project_id) {
-    navigateToTarget(router, current, lessonMapPath(data.project_id));
   }
 }
 

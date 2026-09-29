@@ -21,8 +21,6 @@ type Props = {
   onRegenerate: (model: string) => void;
   regenerating?: boolean;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
-  lessonProjectId?: string | null;
-  onOpenLesson?: (projectId: string) => void;
   onRetryImageGen?: () => void;
 };
 
@@ -37,8 +35,6 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   onRegenerate,
   regenerating = false,
   onFeedback,
-  lessonProjectId = null,
-  onOpenLesson,
   onRetryImageGen,
 }: Props) {
   const isLastAssistant = item.role === "assistant" && item.id === lastAssistantId;
@@ -66,8 +62,6 @@ export const ChatMessageRow = memo(function ChatMessageRow({
       onFeedback={onFeedback}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
-      lessonProjectId={lessonProjectId}
-      onOpenLesson={isLastAssistant ? onOpenLesson : undefined}
     />
   );
 });

@@ -256,7 +256,6 @@ class Settings(BaseSettings):
     image_search_fetch_timeout_seconds: float = 8.0
 
     push_enabled: bool = True
-    push_learning_hour: int = 9
     server_todo_push_enabled: bool = True  # server owns due-at; skip local when push is on
 
     revenuecat_secret_key: str = ""
@@ -271,7 +270,7 @@ class Settings(BaseSettings):
     # works with zero external setup. Sending is always best-effort via the
     # background jobs stream — it never blocks auth or the chat path.
     email_enabled: bool = True
-    # Opt-in todo-due / learning nudge emails (separate from welcome/receipt).
+    # Opt-in todo-due emails (separate from welcome/receipt).
     email_reminders_scheduler_enabled: bool = True
     resend_api_key: str = ""
     resend_api_url: str = "https://api.resend.com/emails"

@@ -389,7 +389,6 @@ async def _system_prompt(recent, query):
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
-        patch("app.modules.learning.load_learning_classes_for_prompt", AsyncMock(return_value="")),
         patch("app.repositories.messages.list_recent", AsyncMock(return_value=recent)),
     ):
         messages = await build_prompt_messages(

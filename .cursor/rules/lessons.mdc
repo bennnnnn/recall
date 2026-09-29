@@ -180,23 +180,6 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   never attached the plot. Unwrap `$`/`\\(...\\)` in `prepare`. `x=6` + graph
   cue is a vertical ```graph, not ```chart. `x=2y` stays y=x/2.
 
-- **Lesson loop felt like stacked pages.** Play keyed the whole `ScrollView` on
-  `item:kind`, remounting teach/quiz/complete so Reanimated exiting never ran.
-  Keep one ScrollView and slide the inner pane; Reduce Motion stays an instant swap.
-- **A successful old Learning job hid new catalog content.** Project-only dedupe
-  keys survived content updates; include the catalog revision and propagate seed
-  failures so the worker retries instead of recording false success.
-- **A correct partial lesson erased a separate chat miss that day.** Merge legacy
-  misses unless a wrong lesson event already mirrors them; only final correct
-  answers count as word completion.
-
-- **Learning retries double-counted progress or mislabeled a review as newly learned.**
-  A question save needs an owner-scoped attempt UUID and immutable completion outcome;
-  keep failed answers for same-UUID retry and use the server result for the summary.
-- **Reviewed words disappeared when opening a daily history row.** Mastery grouping
-  omits empty days, so event merges must create qualifying keys within the explicit
-  requested day window instead of requiring the key to already exist.
-
 - **Library thumbs vanished on slow or flaky radios.** A 20s `Image` timeout and `onError` called `onMissing`, which dropped the row as if the file were gone; the full viewer then spun forever. Keep the tile, show Retry, and drop only after `GET /attachments/{id}/url` returns 404.
 - **Second Google product connect failed (“no refresh token”).** Google omits
   `refresh_token` on incremental grants; `getCurrentUser().serverAuthCode` is
@@ -481,7 +464,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   send has empty user text (`defaultAttachmentPrompt` is `""`), so the
   Home-chip provisional title was null and the topic poll still ran. Use
   "Image" / "File" as a local overlay; still poll until the topic job lands.
-- **Back from Learning / Reminders still hit `GET /home`.** #1005 skipped
+- **Back from Reminders still hit `GET /home`.** #1005 skipped
   Home only while a thread was open, so empty Home refetched after the
   20s window went stale. Skip if login already fetched Home.
 - **First assistant bubble sat above the composer.** FlashList
@@ -493,7 +476,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   refetched. Skip if login already fetched Home. Empty-probe ran because
   `startNewChat` clears messages before the route effect — remember chats
   that already had an assistant.
-- **Lists / Learning / Reminders back reloaded the open thread.** Focus
+- **Reminders back reloaded the open thread.** Focus
   silent-refetched `GET …/messages` (20s TTL still fired). Do not refetch
   on in-app Back; App resume still recovers a truncated stream. Skip Home
   when a thread is open; reuse the message cache + drawer row on remount.
@@ -507,9 +490,6 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   route load always `GET` the chat row; composer focus fetched reminders.
   Warm `/chats` only before first paint; skip reopen if the list is loaded;
   reuse the drawer row; composer reads reminder cache only.
-- **Learning list open fetched every class detail plus `/home`.** Focus
-  refreshed Home and `prefetchProjectDetails` hit each `GET /projects/{id}`.
-  Cards only need `GET /projects`; detail loads when a class is opened.
 - **Help-me-think / STT still hit `/suggestions` three times.** User bubble
   lands before the socket (`pendingOutboundId`); stream-end flips busy off
   before `refreshKey` bumps — each was a fetch. Hold while turn-busy; fetch
@@ -529,9 +509,6 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 - **Assistant bubbles still wrapped a no-op Show more/less.** `CollapsibleMessageBody`
   with `collapsible={false}` is a passthrough and a second door to fold LLM
   replies. User-message folding stays; assistant body is unwrapped.
-- **Learning chats opened Neon to check a quiz letter.** Parse + `is_vocab_quiz_answer`
-  only need the already-loaded assistant fence. Open a session only when grading
-  a letter answer so ordinary class chat skips that checkout.
 - **Composer suggested-reminder chips refetched on every chat focus.** `fetchSuggestedReminders(..., { force: true })` bypassed the 20s cache that Lists already respect. Load without force; invalidate on add/dismiss/Gmail sync still busts.
 - **Drawer open, settings tab, and app resume re-hit chat/usage/gallery/home.** Silent
   refetch ignored the 20s stale window home/lists already use. Skip when fresh;
@@ -543,8 +520,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   linked to a message; on local `/file` miss, drop the row. Purge before
   deleting a replaced image-gen assistant so that path does not SET NULL.
 - **Every chat turn paid a serial Redis+Neon start plus lookups that cannot apply.**
-  Finalize wait ran before user/quota; quiz lookback hit chats with no Learning
-  project; prompt assembly re-opened Neon for user/chat already loaded; new chats
+  Finalize wait ran before user/quota; prompt assembly re-opened Neon for
+  user/chat already loaded; new chats
   probed attachment chunks; time/location opened a session. Overlap wait with
   user/seed on a *new* message (`gather` finishes before any message read). Do
   not overlap wait with last-message reads — regenerate would race the in-flight
@@ -560,7 +537,6 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
   fences off the prompt; store them on `canonical_*` and append in
   `validate_math_fences`.
 - **Hard physics word problems stayed on DeepSeek Chat, and free Auto threw away smart-chat.** `needs_symbolic` only flags solver-supported templates (digit + drop/projectile/F=ma/energy), so incline/momentum/escape-velocity never escalated. Separately, when Auto wanted `smart-chat` and the free pool had none, `_pick_smart_from_pool` fell through to cheapest (`free-chat`) instead of strongest (`glm-4-flash`). Keep the solver gate on `needs_symbolic`; add a routing-only physics-homework cue; when the preferred tier is missing pick strongest in-pool; sort `chat_fallback_models` by tier proximity to the primary, then price.
-- **Learning class detail 500s (`GET /projects/{id}`).** Two bugs stacked: path seed inserts `catalog_entry_id` for words the Python catalog added after the last vocab wipe-migration, so Postgres FK-fails; the handler swallows that, then `expire_all()` + `user.id` lazy-loads in async (`MissingGreenlet`). Snapshot `user_id` before expire; `ensure_catalog_rows()` upserts `vocab_decks`/`vocab_entries` (`ON CONFLICT DO NOTHING`) before creating items. Don't wipe-migrate to pick up new words.
 - **Live talk `POST /speech/live/speak` 502.** OpenAI `gpt-audio-mini` rejects `audio.format=wav` when `stream=true` (only `pcm16`) and only accepts `wav`/`mp3` input — Expo’s default m4a 400s. Stream pcm16 and wrap WAV; record LINEARPCM wav for live talk (composer mic can stay m4a for Whisper).
 - **Physics solver existed but free-fall stayed unverified; KE gained fake height.**
   The pre-stream gate had no physics cues, and a length regex matched `m` inside
@@ -679,15 +655,6 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 - **Dependabot on transitive npm (markdown-it@10, uuid@7).** Direct pins don't help — use `pnpm.overrides` + regenerate lock with `npx pnpm@9.15.9 install`. See security-alert-pitfalls skill.
 - **Raw LaTeX + smashed prose in math bubbles.** `normalizeImplicitMath` re-wrapped `(excluded values: $x …$)` / `(e.g., … like $x^4$)` as `$…$$`, inventing a trailing `$$` that stole the next display-math opener — equations showed raw and Wait—prose became a MathBlock (italic, no spaces). Fix: skip parens that already contain `$` or look like English prose (2+ letter-words).
 - **SecureStore Keychain “required entitlement isn’t present” on simulator.** Linker-signed/adhoc builds (`TeamIdentifier=not set`, no identities) get `errSecMissingEntitlement` (-34018) on `setItemAsync`. Don’t put non-secrets (list order) in SecureStore — use filesystem; catch SecureStore writes. Proper Keychain needs a local Apple signing identity + `expo run:ios` rebuild.
-- **Quiz wrong-answer UX: hint only, no re-render.** User rejected re-asking the same MCQ
-  after a miss. Prompts must not emit a new ```vocab_quiz on wrong; chips stay on the prior
-  quiz message (`findActiveQuizMessageId`). Grade against `get_last_quiz_assistant`, not the
-  hint-only last assistant.
-- **Quiz answers “don’t register” (Today stays 0/x).** Causes: (1) nested `session.commit()` in
-  `messages.create` / `apply_quiz_result` mid–turn_prep; (2) letter answer + missing `vocab_quiz`
-  fence → grade `None` and `skip_memory_jobs` blocked background sync; (3) My Learning 20s stale
-  cache. Fix: `commit=False` until one outer commit; don’t skip jobs when letter grade fails;
-  force-refresh projects list/detail on focus; invalidate home after grade.
 - **Unpushed local diffs cause real pain.** User runs other machines/simulators off `main` /
   remote — finish every change with commit + push (see `execution.mdc`); don't say done with
   local-only work.

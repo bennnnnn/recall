@@ -174,57 +174,7 @@ async def test_process_todo_reminder_emails_skips_quiet_hours():
 @pytest.mark.asyncio
 async def test_run_email_reminder_cycle_respects_kill_switch():
     session = AsyncMock()
-    redis = AsyncMock()
     count = await reminder_emails.run_email_reminder_cycle(
-        session, redis, _settings(email_reminders_scheduler_enabled=False)
+        session, _settings(email_reminders_scheduler_enabled=False)
     )
     assert count == 0
-
-
-@pytest.mark.asyncio
-async def test_process_learning_nudge_emails_sends_when_due():
-    user = _user()
-    session = AsyncMock()
-    result = MagicMock()
-    result.scalars.return_value.all.return_value = [user]
-    session.execute = AsyncMock(return_value=result)
-    redis = AsyncMock()
-    redis.set = AsyncMock(return_value=True)
-    redis.delete = AsyncMock()
-
-    project = MagicMock()
-    project.id = uuid4()
-    project.user_id = user.id
-    project.kind = "language"
-    project.title = "Spanish"
-
-    with (
-        patch(
-            "app.modules.learning.nudges.user_local_hour",
-            return_value=10,
-        ),
-        patch(
-            "app.modules.learning.nudges.learning_repo.list_for_users",
-            AsyncMock(return_value=[project]),
-        ),
-        patch(
-            "app.modules.learning.stats.count_stats_by_learning",
-            AsyncMock(
-                return_value={
-                    project.id: {
-                        "total": 5,
-                        "due_for_review": 2,
-                        "new_count": 0,
-                    }
-                }
-            ),
-        ),
-        patch(
-            "app.modules.notifications.reminder_email.tx_email.send_learning_nudge",
-            AsyncMock(return_value=True),
-        ) as send,
-    ):
-        count = await reminder_emails.process_learning_nudge_emails(session, redis, _settings())
-
-    assert count == 1
-    send.assert_awaited_once()

@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import JSON, DateTime, create_engine, select, update
+from sqlalchemy import JSON, DateTime, create_engine, update
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
@@ -192,28 +192,18 @@ async def test_failed_email_commit_recovers_session_and_continues_batch(email_sq
         session.commit.side_effect = commit
         return True
 
-    async def learning(*args, **kwargs):
-        # A subsequent worker using the same session can still query after the failure.
-        result = await session.execute(select(User))
-        assert len(result.scalars().all()) == 1
-        return 1
-
     with (
         patch.object(reminder_email.tx_email, "send_todo_reminder", AsyncMock(side_effect=send)),
-        patch.object(
-            reminder_email, "process_learning_nudge_emails", AsyncMock(side_effect=learning)
-        ) as learn,
         patch.object(reminder_email, "datetime", wraps=datetime) as clock,
     ):
         clock.now.return_value = NOW
         if run_cycle:
             settings = Settings(email_enabled=True, email_reminders_scheduler_enabled=True)
-            count = await reminder_email.run_email_reminder_cycle(session, AsyncMock(), settings)
-            learn.assert_awaited_once()
+            count = await reminder_email.run_email_reminder_cycle(session, settings)
         else:
             count = await reminder_email.process_todo_reminder_emails(session, Settings(), now=NOW)
     assert len(attempts) == 2
-    assert count == (2 if run_cycle else 1)
+    assert count == 1
     assert sync_session.is_active
     session.rollback.assert_awaited()
     for row in rows:

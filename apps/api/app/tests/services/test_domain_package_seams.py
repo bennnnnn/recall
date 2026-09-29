@@ -34,8 +34,11 @@ def test_retired_flat_modules_are_gone(legacy_name: str) -> None:
 
 def test_packaged_domains_expose_their_public_api() -> None:
     assert callable(importlib.import_module("app.modules.notifications.push").collect_push_outbound)
-    assert callable(importlib.import_module("app.modules.learning.spaced_repetition").apply_sm2)
-    assert callable(importlib.import_module("app.modules.learning.daily").start_of_today_utc)
+
+
+def test_language_learning_module_is_gone() -> None:
+    with pytest.raises(ModuleNotFoundError):
+        importlib.import_module("app.modules.learning")
 
 
 def test_chemistry_package_exposes_its_public_api() -> None:

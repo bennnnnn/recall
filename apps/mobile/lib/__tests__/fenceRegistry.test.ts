@@ -131,7 +131,6 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "result",
   "final",
   "arithmetic",
-  "learning_launch",
 ];
 
 describe("fence registry reproduces the legacy language sets", () => {
@@ -226,7 +225,6 @@ describe("fence registry lookups", () => {
       "geometry",
       "graph",
       "keyvalue",
-      "learning_launch",
       "math",
       "mermaid",
       "message",
@@ -294,7 +292,6 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
       message: "component",
       copy: "hidden",
       sources: "hidden",
-      learning_launch: "hidden",
     };
     for (const spec of FENCES) {
       expect(renderSlot[spec.id]).toBe(spec.structured ? "component" : "hidden");
@@ -308,7 +305,6 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
     expect(isVisualDiagramFenceLang("chart")).toBe(false);
     expect(isControlFenceLang("sources")).toBe(true);
     expect(isControlFenceLang("reminder")).toBe(true);
-    expect(isControlFenceLang("vocab_quiz")).toBe(true);
     expect(isControlFenceLang("python")).toBe(false);
     expect(isDiagramFenceId("mermaid")).toBe(true);
     expect(shouldLiftFenceOutOfList("latex")).toBe(true);

@@ -15,7 +15,6 @@ from app.core.db import SessionLocal
 from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
 from app.modules.integrations import rewrite_first_email_fence
-from app.modules.learning import get_owned_project
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
@@ -42,19 +41,11 @@ async def create_chat(
     user: User,
     *,
     model: str,
-    project_id: UUID | None,
-    quiz_mode: str | None,
 ) -> Chat:
-    if project_id is not None:
-        project = await get_owned_project(session, project_id, user.id)
-        if project is None:
-            raise ChatsError("Learning not found", status_code=400)
     return await chats_repo.create(
         session,
         user_id=user.id,
         model=model,
-        project_id=project_id,
-        quiz_mode=quiz_mode,
     )
 
 

@@ -26,8 +26,6 @@ from app.modules.home.integration_starters import (
 )
 from app.modules.home.memory_starters import (
     chat_starter,
-    continuity_anchors,
-    memory_blocked_by_completed_daily,
     memory_starter,
     memory_starter_if_distinct,
     memory_subtitle,
@@ -39,16 +37,11 @@ from app.modules.home.util import (
     MAX_STARTERS,
     day_seed,
     looks_internal,
-    looks_like_language_learning,
     resolve_home_tz,
     rotate_list,
     short_phrase,
     texts_overlap,
 )
-from app.modules.learning import LearningHomeContent
-from app.modules.learning import items_repository as learning_items_repo
-from app.modules.learning import load_learning_home_content as _load_learning_home_content_impl
-from app.modules.learning import repository as learning_repo
 from app.modules.suggestions import repository as suggestions_repo
 from app.modules.todos import repository as todos_repo
 from app.repositories import chats as chats_repo
@@ -57,18 +50,15 @@ from app.services import reminder_timing
 logger = logging.getLogger(__name__)
 
 # Patchable names used by build_home_screen (and underscore aliases for tests).
-load_learning_home_content = _load_learning_home_content_impl
 integration_starters = _integration_starters_impl
 _resolve_home_tz = resolve_home_tz
 _time_starters = time_starters
-_memory_blocked_by_completed_daily = memory_blocked_by_completed_daily
 _memory_starter = memory_starter
 _chat_starter = chat_starter
 _texts_overlap = texts_overlap
 _urgent_subtitle = urgent_subtitle
 _looks_internal = looks_internal
 _integration_starters = integration_starters
-_load_learning_home_content = load_learning_home_content
 
 
 async def build_home_screen(
@@ -89,16 +79,13 @@ async def build_home_screen(
 
     # These loads are independent and run concurrently — but an AsyncSession
     # can only run one operation at a time (asyncpg raises InterfaceError on
-    # overlap), so each loader gets its own short-lived session. The heaviest
-    # loader (project content, several sequential queries) keeps the request
-    # session so the gather uses it exactly once.
+    # overlap), so each loader gets its own short-lived session.
     async def load_urgent() -> list:
-        async with SessionLocal() as s:
-            return await todos_repo.list_due_soon(
-                s,
-                user.id,
-                before_utc=due_cutoff_utc,
-            )
+        return await todos_repo.list_due_soon(
+            session,
+            user.id,
+            before_utc=due_cutoff_utc,
+        )
 
     async def load_memories() -> list[Memory]:
         if not user.memory_enabled:
@@ -111,9 +98,6 @@ async def build_home_screen(
             recent = await chats_repo.list_for_user(s, user.id, limit=5)
             return [(c.title or "", c.id) for c in recent]
 
-    async def load_project_content() -> LearningHomeContent:
-        return await load_learning_home_content(session, user.id, home_tz=home_tz)
-
     async def load_integrations() -> list[HomeStarter]:
         async with SessionLocal() as s:
             return await integration_starters(s, user.id, settings, tz=home_tz)
@@ -122,28 +106,19 @@ async def build_home_screen(
         async with SessionLocal() as s:
             return await suggestions_repo.list_active(s, user.id)
 
-    # Learning highlight is the common path — load it with the always-needed
-    # loaders first, then only fetch memories/recent chats when there is no
-    # highlight (those starters are skipped when a highlight is present).
     (
         urgent_items,
-        project_content,
+        memories,
+        recent_chats,
         integration_chips,
         suggestion_items,
     ) = await asyncio.gather(
         load_urgent(),
-        load_project_content(),
+        load_memories(),
+        load_recent_titles(),
         load_integrations(),
         load_suggestions(),
     )
-
-    memories: list[Memory] = []
-    recent_chats: list[tuple[str, UUID]] = []
-    if project_content.highlight is None:
-        memories, recent_chats = await asyncio.gather(
-            load_memories(),
-            load_recent_titles(),
-        )
 
     urgent_todos: list[HomeUrgentTodo] = []
     for item in urgent_items:
@@ -163,14 +138,7 @@ async def build_home_screen(
             )
         )
 
-    has_language_project = project_content.has_language_project
-    home_memory: Memory | None = pick_home_memory(
-        memories, has_language_project=has_language_project
-    )
-    project_chips = project_content.starters
-    project_subtitle = project_content.subtitle
-    project_highlight = project_content.highlight
-    completed_daily = project_content.completed_daily
+    home_memory: Memory | None = pick_home_memory(memories)
 
     starters: list[HomeStarter] = []
     seen_prompts: set[str] = set()
@@ -186,15 +154,10 @@ async def build_home_screen(
         seen_prompts.add(key)
         starters.append(starter)
 
-    # No chats / learning / memory / urgents / calendar yet → don't ask
+    # No chats / memory / urgents / calendar yet → don't ask
     # "how did today go?" as if we already know the user.
     is_cold_home = (
-        project_highlight is None
-        and not project_chips
-        and not recent_chats
-        and home_memory is None
-        and not urgent_todos
-        and not integration_chips
+        not recent_chats and home_memory is None and not urgent_todos and not integration_chips
     )
     if is_cold_home:
         for item in welcome_starters():
@@ -207,42 +170,23 @@ async def build_home_screen(
     for item in integration_chips:
         add(item)
 
-    anchors = continuity_anchors(
-        project_starters=project_chips,
-        project_highlight=project_highlight,
-    )
-
-    if not project_highlight:
-        for item in project_chips:
-            add(item)
-
-    chat_skip = [
-        *anchors,
-        *(title for title, _kind in completed_daily),
-    ]
-    chat_match = (
-        None if project_highlight else chat_starter(recent_chats, skip_overlapping=chat_skip)
-    )
+    anchors: list[str] = []
+    chat_match = chat_starter(recent_chats, skip_overlapping=anchors)
     if chat_match:
         add(chat_match[0])
         anchors = [*anchors, chat_match[1]]
 
-    if home_memory and not project_highlight:
+    if home_memory:
         add(
             memory_starter_if_distinct(
                 home_memory,
                 skip_overlapping=anchors,
-                completed_daily=completed_daily,
-                has_language_project=has_language_project,
             )
         )
 
     for item in suggestion_items:
         text = item.text.strip()
         if not text or looks_internal(text):
-            continue
-        # Don't nudge English practice from stale LLM suggestions after class delete.
-        if looks_like_language_learning(text) and not has_language_project:
             continue
         add(
             HomeStarter(
@@ -262,12 +206,7 @@ async def build_home_screen(
             )
         )
 
-    if project_highlight:
-        subtitle = None
-    elif home_memory and not memory_blocked_by_completed_daily(home_memory, completed_daily):
-        subtitle = memory_subtitle(home_memory)
-    else:
-        subtitle = project_subtitle
+    subtitle = memory_subtitle(home_memory) if home_memory else None
     if urgent_todos and not subtitle:
         subtitle = urgent_subtitle(user, urgent_todos)
 
@@ -276,7 +215,6 @@ async def build_home_screen(
     return HomeScreenOut(
         greeting=greeting(user, home_tz),
         subtitle=subtitle,
-        project_highlight=project_highlight,
         urgent_todos=urgent_todos,
         starters=rotated[:MAX_STARTERS],
     )
@@ -350,7 +288,6 @@ async def get_home_screen_cached(
 
 __all__ = [
     "MAX_STARTERS",
-    "LearningHomeContent",
     "build_home_screen",
     "chats_repo",
     "get_home_screen_cached",
@@ -358,9 +295,6 @@ __all__ = [
     "greeting",
     "integration_starters",
     "invalidate_home_cache",
-    "learning_items_repo",
-    "learning_repo",
-    "load_learning_home_content",
     "memory_service",
     "suggestions_repo",
     "time_starters",

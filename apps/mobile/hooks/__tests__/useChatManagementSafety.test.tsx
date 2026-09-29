@@ -182,7 +182,7 @@ it("closes a rename editor when its conversation changes", async () => {
 
 it("restores the original dated project chat after a failed delete", async () => {
   const original = { id: "chat-1", title: "Old project", model: "free-chat", pinned: true,
-    archived: false, created_at: "2025-01-01", updated_at: "2025-02-01", project_id: "project", quiz_mode: "exam" } as Chat;
+    archived: false, created_at: "2025-01-01", updated_at: "2025-02-01" } as Chat;
   jest.mocked(getCachedChat).mockReturnValue(original);
   (api.deleteChat as jest.Mock).mockRejectedValue(new Error("offline"));
   await render(<Probe />);
@@ -193,7 +193,7 @@ it("restores the original dated project chat after a failed delete", async () =>
 });
 
 it("recovers real metadata after a failed delete when the chat was outside the cached list", async () => {
-  const original = { id: "chat-1", title: "Older than list", updated_at: "2025-02-01", project_id: "project" } as Chat;
+  const original = { id: "chat-1", title: "Older than list", updated_at: "2025-02-01" } as Chat;
   (api.deleteChat as jest.Mock).mockRejectedValue(new Error("offline"));
   (api.getChat as jest.Mock).mockResolvedValue(original);
   await render(<Probe />);

@@ -4,22 +4,6 @@ import type { SettingsProposal } from "@/lib/settingsProposal";
 import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
 import { stripReminderFences } from "@/features/todos/model/reminderFence";
 import type { SearchSource } from "@/lib/api";
-import {
-  hasVocabQuizFence,
-  isRenderableVocabQuiz,
-  parseVocabQuiz,
-  stripVocabQuizBlock,
-  stripVocabQuizPrologue,
-  stripVocabSessionMetadata,
-  type ParsedVocabQuiz,
-} from "@/features/learning/model/parseVocabQuiz";
-import { hasVocabCardFence, stripVocabCardBlock } from "@/features/learning/model/parseVocabCard";
-import {
-  hasLearningLaunchFence,
-  parseLearningLaunch,
-  stripLearningLaunchBlock,
-  type ParsedLearningLaunch,
-} from "@/features/learning/model/parseLearningLaunch";
 
 import { isLocationQuestion } from "@/lib/localPlacesQuery";
 import { resolvePlaces, stripPlacesContent, type PlaceItem } from "@/lib/placesList";
@@ -63,55 +47,34 @@ export type AssistantMessageContent = {
   showSearchSources: boolean;
   markdownStreamMode: boolean;
   markdownResetKey: string;
-  learningLaunch: ParsedLearningLaunch | null;
 };
+
+/** Stored chats may still contain language-learning fences. Drop the JSON. */
+const RETIRED_LEARNING_FENCE =
+  /```(?:vocab_quiz|vocab_card|learning_launch)\b[^\n]*\n[\s\S]*?```/g;
+
+function stripRetiredLearningFences(text: string): string {
+  if (!text.includes("```")) return text;
+  return text.replace(RETIRED_LEARNING_FENCE, "");
+}
 
 function buildMarkdownContent(options: {
   content: string;
-  hideCardFenceInMarkdown: boolean;
-  hideQuizFenceInMarkdown: boolean;
-  quizForStrip: ParsedVocabQuiz | null;
   showLiveClock: boolean;
-  showCalendarProposals: boolean;
-  showSettingsProposals: boolean;
   showPlaces: boolean;
   places: PlaceItem[];
 }): string {
-  const {
-    content,
-    hideCardFenceInMarkdown,
-    hideQuizFenceInMarkdown,
-    quizForStrip,
-    showLiveClock,
-    showPlaces,
-    places,
-  } = options;
+  const { content, showLiveClock, showPlaces, places } = options;
 
-  // The strips below are fence-scoped — a reply with no fences and no quiz
-  // (the common case) skips ~8 full-content regex passes per derive, keeping
-  // only the chain's whitespace normalization (trim + collapse 3+ newlines).
+  // Fence-scoped strips — a reply with no fences skips the regex passes and
+  // only normalizes whitespace.
   const hasFence = content.includes("```");
-  if (!hasFence && !quizForStrip) {
+  if (!hasFence) {
     return content.replace(/\n{3,}/g, "\n\n").trim();
   }
 
-  let text = hideCardFenceInMarkdown
-    ? stripVocabCardBlock(hideQuizFenceInMarkdown ? stripVocabQuizBlock(content) : content)
-    : hideQuizFenceInMarkdown
-      ? stripVocabQuizBlock(content)
-      : stripVocabSessionMetadata(content);
-
-  if (quizForStrip && isRenderableVocabQuiz(quizForStrip)) {
-    if (!hideQuizFenceInMarkdown) {
-      text = stripVocabQuizBlock(content);
-    }
-    text = stripVocabQuizPrologue(text, quizForStrip);
-  }
-
-  if (!hasFence) return text;
-
+  let text = stripRetiredLearningFences(content);
   if (showLiveClock) text = stripTimeAnswerFences(text);
-  text = stripLearningLaunchBlock(text);
   text = stripSearchSourcesFromContent(text);
   text = stripReminderFences(text);
   text = stripCalendarProposalFences(text);
@@ -141,20 +104,6 @@ export function deriveAssistantMessageContent(
   // Mount only after generation ends. While streaming, composer-gap pad holds
   // the same height so the prose does not move when icons appear (ChatGPT).
   const actionsReady = showActionSlot && !isGenerating;
-
-  // Defer the expensive quiz parse (its markdown fallback scans line-by-line)
-  // until the stream settles — the fence itself is still hidden mid-stream via
-  // hideQuizFenceInMarkdown; only the prologue strip waits for settle.
-  const quizForStrip =
-    isUser || !hasContent || isGenerating
-      ? null
-      : (() => {
-          const quiz = parseVocabQuiz(content);
-          return isRenderableVocabQuiz(quiz) ? quiz : null;
-        })();
-
-  const hideQuizFenceInMarkdown = hasVocabQuizFence(content) || Boolean(quizForStrip);
-  const hideCardFenceInMarkdown = hideQuizFenceInMarkdown || hasVocabCardFence(content);
 
   const showLiveClock =
     !isUser &&
@@ -194,12 +143,7 @@ export function deriveAssistantMessageContent(
 
   const markdownContent = buildMarkdownContent({
     content: proseWithoutImages,
-    hideCardFenceInMarkdown,
-    hideQuizFenceInMarkdown,
-    quizForStrip,
     showLiveClock,
-    showCalendarProposals,
-    showSettingsProposals,
     showPlaces,
     places,
   });
@@ -211,14 +155,8 @@ export function deriveAssistantMessageContent(
     searchSources.length > 0 &&
     !layoutFrozen &&
     !showLiveClock &&
-    !hideQuizFenceInMarkdown &&
     !showCalendarProposals &&
     !(priorUserText != null && isLocationQuestion(priorUserText));
-
-  const learningLaunch =
-    !isUser && !layoutFrozen && hasLearningLaunchFence(content)
-      ? parseLearningLaunch(content)
-      : null;
 
   return {
     hasContent,
@@ -240,6 +178,5 @@ export function deriveAssistantMessageContent(
     showSearchSources,
     markdownStreamMode: layoutFrozen || isGenerating,
     markdownResetKey: `${renderKey ?? messageId}:${markdownContent.length}`,
-    learningLaunch,
   };
 }

@@ -11,7 +11,6 @@ from types import ModuleType
 
 _LEGACY = "app.services.home"
 _CANONICAL = "app.modules.home"
-_LEARNING_STARTERS = f"{_LEGACY}.learning_starters"
 
 
 class _AliasLoader(importlib.abc.Loader):
@@ -36,10 +35,7 @@ class _AliasFinder(importlib.abc.MetaPathFinder):
             return None
         if fullname in sys.modules:
             return None
-        if fullname == _LEARNING_STARTERS:
-            canonical = "app.modules.learning.home_starters"
-        else:
-            canonical = _CANONICAL + fullname.removeprefix(_LEGACY)
+        canonical = _CANONICAL + fullname.removeprefix(_LEGACY)
         real = importlib.import_module(canonical)
         return importlib.util.spec_from_loader(fullname, _AliasLoader(real))
 

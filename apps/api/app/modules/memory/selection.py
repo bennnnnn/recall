@@ -45,13 +45,9 @@ def _eligible_memory(memory: Memory, settings: Settings) -> bool:
 def select_memories_for_prompt(
     memories: list[Memory],
     settings: Settings,
-    *,
-    omit_project_memory: bool = False,
 ) -> list[Memory]:
     """Non-semantic fallback: identity core + scored remaining facts."""
     filtered = [memory for memory in memories if _eligible_memory(memory, settings)]
-    if omit_project_memory:
-        filtered = [memory for memory in filtered if memory.type != "project"]
     core = identity_core(filtered)
     core_ids = {id(memory) for memory in core}
     rest = [memory for memory in filtered if id(memory) not in core_ids]
@@ -69,7 +65,6 @@ def select_memories_semantic(
     query_embedding: list[float],
     settings: Settings,
     *,
-    omit_project_memory: bool = False,
     query_text: str | None = None,
 ) -> list[Memory]:
     """Identity core always; remaining facts only above similarity.
@@ -79,8 +74,6 @@ def select_memories_semantic(
     from app.gateways.embedding_gateway import cosine_similarity, parse_embedding
 
     eligible = [memory for memory in memories if _eligible_memory(memory, settings)]
-    if omit_project_memory:
-        eligible = [memory for memory in eligible if memory.type != "project"]
     always = identity_core(eligible)
     always_ids = {id(memory) for memory in always}
     scored: list[tuple[float, Memory]] = []

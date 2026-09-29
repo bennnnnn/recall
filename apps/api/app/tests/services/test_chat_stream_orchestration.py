@@ -1862,7 +1862,7 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
         )
         stack.enter_context(
             patch(
-                "app.modules.web_search.is_vocab_quiz_answer",
+                "app.modules.web_search.is_short_letter_answer",
                 MagicMock(return_value=False),
             )
         )
@@ -2117,7 +2117,7 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         )
         stack.enter_context(
             patch(
-                "app.modules.web_search.is_vocab_quiz_answer",
+                "app.modules.web_search.is_short_letter_answer",
                 MagicMock(return_value=False),
             )
         )

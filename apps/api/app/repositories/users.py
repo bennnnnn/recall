@@ -8,8 +8,6 @@ from sqlalchemy.orm import object_session
 from app.models.orm import (
     Attachment,
     Chat,
-    Learning,
-    LearningItem,
     Memory,
     Message,
     PushToken,
@@ -121,7 +119,7 @@ async def delete_user(session: AsyncSession, user_id: UUID) -> None:
 
     Deletes every user-owned row explicitly before the user row so the delete
     succeeds even for tables whose FK to users.id has no ON DELETE CASCADE
-    (todos, projects, project_items, suggestions, messages, memories). Tables
+    (todos, suggestions, messages, memories). Tables
     that do cascade (attachments, push tokens, connections, suggested reminders)
     are deleted explicitly too — harmless if already cascaded,
     and keeps the operation correct regardless of migration state.
@@ -131,8 +129,6 @@ async def delete_user(session: AsyncSession, user_id: UUID) -> None:
     await session.execute(delete(Message).where(Message.user_id == user_id))
     await session.execute(delete(Memory).where(Memory.user_id == user_id))
     await session.execute(delete(UsageDaily).where(UsageDaily.user_id == user_id))
-    await session.execute(delete(LearningItem).where(LearningItem.user_id == user_id))
-    await session.execute(delete(Learning).where(Learning.user_id == user_id))
     await session.execute(delete(TodoItem).where(TodoItem.user_id == user_id))
     await session.execute(delete(Suggestion).where(Suggestion.user_id == user_id))
     await session.execute(delete(SuggestedReminder).where(SuggestedReminder.user_id == user_id))

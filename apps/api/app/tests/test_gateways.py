@@ -442,27 +442,6 @@ def test_mock_reply_does_not_emit_vocab_quiz_fences():
     assert "Tap another choice" not in reply
 
 
-@pytest.mark.asyncio
-async def test_mock_project_actions_create_project():
-    from app.gateways.mock_llm import mock_project_actions
-
-    transcript = "User: create project Spanish vocabulary\nAssistant: ok"
-    result = await mock_project_actions(transcript, {"projects": []})
-    assert result is not None
-    assert any(a.action == "create_project" for a in result.actions)
-
-
-@pytest.mark.asyncio
-async def test_mock_project_actions_delete_project():
-    from app.gateways.mock_llm import mock_project_actions
-
-    transcript = "User: delete my English project"
-    snapshot = {"projects": [{"title": "English", "kind": "language"}]}
-    result = await mock_project_actions(transcript, snapshot)
-    assert result is not None
-    assert any(a.action == "delete_project" for a in result.actions)
-
-
 # ── access JWT ──────────────────────────────────────────────────────────────────
 
 

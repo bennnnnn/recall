@@ -402,8 +402,6 @@ def test_select_memories_for_prompt_includes_project_fact_focus():
         "fact",
         "focus",
     ]
-    omitted = select_memories_for_prompt(memories, settings, omit_project_memory=True)
-    assert [m.type for m in omitted] == ["profile", "preference", "fact", "focus"]
 
 
 def test_select_memories_semantic_includes_unembedded_gated_facts():
@@ -526,20 +524,6 @@ def test_facts_need_consolidation_detects_exact_and_near_duplicates():
     assert facts_need_consolidation([a, unique]) is False
     assert facts_need_consolidation([a, b]) is True
     assert facts_need_consolidation([a, c]) is True
-
-
-def test_select_memories_omits_project_section_for_project_chats():
-    settings = Settings(memory_min_confidence=0.0, memory_inject_limit=5, memory_min_similarity=0.0)
-    profile = _memory("profile", "Name is Sam", 1.0)
-    project = _memory("project", "Building a rocket hobby app", 1.0)
-    project.embedding_json = "[1.0, 0.0, 0.0]"
-    selected = select_memories_semantic(
-        [profile, project],
-        [1.0, 0.0, 0.0],
-        settings,
-        omit_project_memory=True,
-    )
-    assert [m.type for m in selected] == ["profile"]
 
 
 @pytest.mark.asyncio

@@ -39,7 +39,6 @@ export function instantHomePlaceholder(now: Date = new Date()): HomeScreen {
   return {
     greeting: localGreeting(now),
     subtitle: null,
-    project_highlight: null,
     urgent_todos: [],
     starters: welcomeStarters(),
   };

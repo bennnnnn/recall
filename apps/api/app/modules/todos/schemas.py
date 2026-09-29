@@ -20,7 +20,6 @@ class TodoOut(BaseModel):
     recurrence_rule: RecurrenceRule | None = None
     sort_order: int | None = None
     chat_id: UUID | None = None
-    project_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -43,7 +42,6 @@ class TodoCreate(BaseModel):
     content: str = Field(min_length=1, max_length=1000)
     topic: str = Field(default="General", min_length=1, max_length=200)
     chat_id: UUID | None = None
-    project_id: UUID | None = None
     due_at: datetime | None = None
     recurrence_rule: RecurrenceRule | None = None
 
@@ -59,8 +57,6 @@ class TodoCreate(BaseModel):
     def recurrence_needs_due(self) -> Self:
         if self.recurrence_rule is not None and self.due_at is None:
             raise ValueError("recurrence_rule requires due_at")
-        if "project_id" in self.model_fields_set:
-            raise ValueError("To-dos cannot be linked to a Learning project")
         return self
 
 
@@ -73,7 +69,6 @@ class TodoUpdate(BaseModel):
     due_at: datetime | None = None
     recurrence_rule: RecurrenceRule | None = None
     sort_order: int | None = Field(default=None, ge=0)
-    project_id: UUID | None = None
 
     @field_validator("content", "topic", "checked")
     @classmethod
@@ -90,12 +85,6 @@ class TodoUpdate(BaseModel):
             if not value:
                 raise ValueError("content cannot be blank")
         return value
-
-    @model_validator(mode="after")
-    def reject_learning_project(self) -> Self:
-        if "project_id" in self.model_fields_set:
-            raise ValueError("To-dos cannot be linked to a Learning project")
-        return self
 
     @model_validator(mode="after")
     def recurrence_needs_due(self) -> Self:

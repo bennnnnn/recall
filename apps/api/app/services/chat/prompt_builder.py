@@ -13,7 +13,6 @@ from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.models.schemas.math import MathImageExtract
-from app.modules import learning as learning_service
 from app.modules import memory as memory_service
 from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
@@ -50,7 +49,6 @@ from app.services.chat.prompt_constants import (
     COMPARISON_FORMAT_HINT,
     CONFIRM_FOLLOW_THROUGH_HINT,
     COPY_DELIVERABLE_HINT,
-    DAY_LEARNING_SNAPSHOT_HINT,
     DAY_PLANNING_ANSWER_HINT,
     EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
@@ -96,7 +94,6 @@ from app.services.chat.prompt_constants import (
     is_email_or_message_request,
     is_howto_question,
     is_learning_plan_request,
-    is_learning_progress_question,
     is_mermaid_question,
     is_personal_disclosure_turn,
     is_quote_question,
@@ -485,7 +482,6 @@ class _PromptContextBlocks:
     memory_block: str
     todos_section: str | None
     gmail_todos_section: str | None
-    projects_block: str
     recent_all: list[Any]
     attachment_rag_block: str
     chat: Chat | None
@@ -500,7 +496,6 @@ async def _load_context_blocks(
     chat: Chat | None,
     query_text: str | None,
     recent_limit: int,
-    is_day_plan: bool,
     slim_context: bool,
     client_timezone: str | None,
     out: dict[str, object] | None,
@@ -508,7 +503,7 @@ async def _load_context_blocks(
     history_rag: bool = False,
     recent_messages: list[Any] | None = None,
 ) -> _PromptContextBlocks:
-    """Load memory/todos/projects/RAG + recent messages for the system prompt.
+    """Load memory/todos/RAG + recent messages for the system prompt.
 
     Each gather branch opens a short-lived session so external HTTP (RAG/memory
     embed) cannot pin a caller's connection across the concurrent load.
@@ -550,7 +545,6 @@ async def _load_context_blocks(
             memory_block="",
             todos_section=None,
             gmail_todos_section=None,
-            projects_block="",
             recent_all=recent_all,
             attachment_rag_block="",
             chat=chat,
@@ -571,7 +565,6 @@ async def _load_context_blocks(
                 user,
                 settings,
                 query_text=query_text,
-                chat_project_id=chat.project_id if chat is not None else None,
                 exclude_sensitive=memory_service.exclude_sensitive_for_query(query_text),
             )
 
@@ -588,7 +581,6 @@ async def _load_context_blocks(
             memory_block=_cap_slim_memory_block(memory_block),
             todos_section=None,
             gmail_todos_section=None,
-            projects_block="",
             recent_all=recent_all,
             attachment_rag_block="",
             chat=chat,
@@ -616,38 +608,6 @@ async def _load_context_blocks(
             return loaded, None
         return None, None
 
-    async def _projects_block() -> str:
-        async with db_slots, SessionLocal() as s:
-            if is_day_plan:
-                return await learning_service.load_daily_learning_summary_for_prompt(
-                    s,
-                    user,
-                    settings,
-                    client_timezone=client_timezone,
-                )
-            if chat and chat.project_id:
-                block = await learning_service.load_learning_for_prompt(
-                    s,
-                    user.id,
-                    chat.project_id,
-                    settings,
-                    quiz_mode=getattr(chat, "quiz_mode", None),
-                    client_timezone=client_timezone,
-                )
-            else:
-                block = await learning_service.load_learning_classes_for_prompt(
-                    s, user.id, settings
-                )
-            if query_text and is_learning_progress_question(query_text):
-                today = await learning_service.load_today_learning_words_for_prompt(
-                    s,
-                    user,
-                    settings,
-                    client_timezone=client_timezone,
-                )
-                return "\n\n".join(part for part in (block, today) if part)
-            return block
-
     async def _attachment_rag_block() -> str:
         # HTTP/embed-bound — do not hold a DB pool slot.
         if not settings.attachment_rag_enabled or not query_text:
@@ -672,14 +632,12 @@ async def _load_context_blocks(
     (
         memory_block,
         todos_payload,
-        projects_block,
         recent_all,
         attachment_rag_block,
         history_rag_query_vec,
     ) = await asyncio.gather(
         _memory_block(),
         _todos_section(),
-        _projects_block(),
         _load_recent(),
         _attachment_rag_block(),
         _history_rag_embed(),
@@ -698,7 +656,6 @@ async def _load_context_blocks(
         memory_block=memory_block,
         todos_section=todos_section,
         gmail_todos_section=gmail_todos_section,
-        projects_block=projects_block,
         recent_all=recent_all,
         attachment_rag_block=attachment_rag_block,
         chat=chat,
@@ -836,7 +793,6 @@ def _style_format_hints(
         parts.append(CONFIRM_FOLLOW_THROUGH_HINT)
     if query_text and is_day_planning_question(query_text):
         parts.append(DAY_PLANNING_ANSWER_HINT)
-        parts.append(DAY_LEARNING_SNAPSHOT_HINT)
         if is_day_reflection_question(query_text):
             parts.append(
                 "This is an end-of-day reflection — keep reminders, lists, calendar, and "
@@ -961,12 +917,10 @@ def _integration_hints(
     attachment_rag_block: str,
     todos_section: str | None,
     gmail_todos_section: str | None = None,
-    is_day_plan: bool,
-    projects_block: str,
     summary: str | None,
     chat_history_rag_block: str = "",
 ) -> list[str]:
-    """Time / web / calendar / gmail / memory / todos / projects / summary hints."""
+    """Time / web / calendar / gmail / memory / todos / summary hints."""
     parts: list[str] = [
         time_context_service.format_time_context(local_tz, user_locale, location_for_context)
     ]
@@ -992,10 +946,6 @@ def _integration_hints(
         parts.append(wrap_untrusted("schedule", todos_section, first_party=True))
     if gmail_todos_section:
         parts.append(wrap_untrusted("gmail reminders", gmail_todos_section))
-    if not is_day_plan:
-        parts.append(learning_service.LEARNING_HINT)
-    if projects_block:
-        parts.append(projects_block)
     if chat_history_rag_block:
         parts.append(chat_history_rag_block)
     return parts
@@ -1126,7 +1076,6 @@ async def build_prompt_messages(
         chat=chat,
         query_text=query_text,
         recent_limit=recent_limit,
-        is_day_plan=is_day_plan,
         slim_context=slim_context,
         load_memory=load_memory,
         client_timezone=client_timezone,
@@ -1279,8 +1228,6 @@ async def build_prompt_messages(
                 attachment_rag_block=blocks.attachment_rag_block,
                 todos_section=blocks.todos_section,
                 gmail_todos_section=blocks.gmail_todos_section,
-                is_day_plan=is_day_plan,
-                projects_block=blocks.projects_block,
                 summary=summary,
                 chat_history_rag_block=chat_history_rag_block,
             )

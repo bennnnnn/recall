@@ -140,7 +140,7 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.showSearchSources).toBe(false);
   });
 
-  it("strips markdown A–D quizzes instead of exposing tap chips", () => {
+  it("keeps ordinary multiple-choice prose in the reply", () => {
     const result = deriveAssistantMessageContent({
       ...base,
       content: [
@@ -157,11 +157,11 @@ describe("deriveAssistantMessageContent", () => {
       ].join("\n"),
     });
 
-    expect(result.markdownContent).not.toMatch(/^A\)/m);
-    expect(result.markdownContent).not.toContain("Reply with A");
+    expect(result.markdownContent).toContain("A) lasting forever");
+    expect(result.markdownContent).toContain("Reply with A, B, C, or D.");
   });
 
-  it("strips leftover vocab_quiz fences without exposing A–D chips", () => {
+  it("strips leftover vocab_quiz fences from stored replies", () => {
     const result = deriveAssistantMessageContent({
       ...base,
       content: [
@@ -223,21 +223,21 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownContent).toBe("I can switch that for you: Appearance → Dark.");
   });
 
-  it("exposes a learning_launch fence and hides the raw JSON", () => {
+  it("strips leftover learning_launch fences from stored replies", () => {
     const projectId = "11111111-1111-4111-8111-111111111111";
     const result = deriveAssistantMessageContent({
       ...base,
       content: [
-        "You have 3/10 Spanish words today. Open the lesson when you're ready.",
+        "You have 3/10 Spanish words today.",
         "```learning_launch",
         JSON.stringify({ project_id: projectId, action: "continue" }),
         "```",
       ].join("\n"),
     });
 
-    expect(result.learningLaunch).toEqual({ projectId, action: "continue" });
     expect(result.markdownContent).toContain("3/10 Spanish");
     expect(result.markdownContent).not.toContain("learning_launch");
     expect(result.markdownContent).not.toContain(projectId);
+    expect("learningLaunch" in result).toBe(false);
   });
 });

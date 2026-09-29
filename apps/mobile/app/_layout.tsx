@@ -16,7 +16,6 @@ import { AppearanceProvider } from "@/contexts/AppearanceContext";
 import { HomeProvider } from "@/features/home/context/HomeContext";
 import { ModelsProvider } from "@/contexts/ModelsContext";
 import { NetworkProvider, useNetwork } from "@/contexts/NetworkContext";
-import { ProjectsProvider } from "@/features/learning/context/ProjectsContext";
 import { TodosProvider } from "@/features/todos/context/TodosContext";
 import { PushNotificationBootstrap } from "@/components/PushNotificationBootstrap";
 import { OfflineBanner } from "@/components/OfflineBanner";
@@ -79,10 +78,6 @@ function RootNavigator() {
             ...stackBackOptions(),
           }}
         />
-        <Stack.Screen
-          name="projects"
-          options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
-        />
         {/* Nested-stack drawer hubs share one transition preset. */}
         <Stack.Screen
           name="my-job"
@@ -135,15 +130,13 @@ export default function RootLayout() {
           <AuthProvider>
             <ModelsProvider>
               <TodosProvider>
-                <ProjectsProvider>
-                  <HomeProvider>
-                    <NetworkProvider>
-                      <PushNotificationBootstrap />
-                      <RootNavigator />
-                      <DialogHost />
-                    </NetworkProvider>
-                  </HomeProvider>
-                </ProjectsProvider>
+                <HomeProvider>
+                  <NetworkProvider>
+                    <PushNotificationBootstrap />
+                    <RootNavigator />
+                    <DialogHost />
+                  </NetworkProvider>
+                </HomeProvider>
               </TodosProvider>
             </ModelsProvider>
           </AuthProvider>

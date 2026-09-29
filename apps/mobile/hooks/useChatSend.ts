@@ -489,7 +489,7 @@ export function useChatSend({
         creatingRef.current = true;
         setSendPhase("creating");
         try {
-          const id = await prepareDraftChat(undefined, selectedModel);
+          const id = await prepareDraftChat(selectedModel);
           if (!id) throw new Error("Could not create chat");
           if (!isCurrentView()) {
             if (draftChatIdRef.current === id) {

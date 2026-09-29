@@ -1,9 +1,9 @@
-"""Build and dispatch Expo push notifications for reminders, learning, and email.
+"""Build and dispatch Expo push notifications for reminders and email.
 
 Delivery semantics (do not conflate ticket accept with receipt polling):
 
 - **Delivered** — set when Expo accepts a push ticket (`status: ok` on send). That is
-  when we mark todos/suggestions as sent and keep the daily learning nudge lock.
+  when we mark todos/suggestions as sent.
 - **Receipt polling** — deferred (see ``RECEIPT_MIN_AGE_SECONDS``) and used only to
   prune invalid device tokens. A missing or slow receipt must never block delivery
   marking or cause a resend on the next scheduler cycle.
@@ -39,7 +39,6 @@ from app.modules.integrations import (
     format_calendar_nudge,
     nudge_ttl_seconds,
 )
-from app.modules.learning import collect_learning_nudge_picks
 from app.modules.todos import (
     TodoScheduleSnapshot,
     is_recurrence_rule,
@@ -62,8 +61,6 @@ from app.services.reminder_timing import (
 
 logger = logging.getLogger(__name__)
 
-LEARNING_REDIS_PREFIX = "recall:push:learning"
-LEARNING_DEDUPE_TTL_SECONDS = 86_400
 PUSH_DEDUPE_INFLIGHT_TTL_SECONDS = 15 * 60
 RECEIPT_PENDING_ZSET = "recall:push:receipts:pending"
 # Cap pending email-suggestion scan so one cycle cannot load the whole table.
@@ -79,7 +76,6 @@ class OutboundPush:
     message: dict[str, Any]
     todos: list[TodoItem] = field(default_factory=list)
     suggestions: list[SuggestedReminder] = field(default_factory=list)
-    learning_redis_key: str | None = None
     dedupe_redis_key: str | None = None
     dedupe_ttl_seconds: int | None = None
 
@@ -87,42 +83,34 @@ class OutboundPush:
 _PUSH_STRINGS: dict[str, dict[str, str]] = {
     "en": {
         "from_inbox": "From your inbox",
-        "time_to_learn": "Time to learn",
         "email_plural": "{count} reminders from your email — tap to review",
     },
     "es": {
         "from_inbox": "Desde tu bandeja",
-        "time_to_learn": "Hora de aprender",
         "email_plural": "{count} recordatorios de tu correo — toca para revisar",
     },
     "fr": {
         "from_inbox": "Depuis votre boîte",
-        "time_to_learn": "Temps d'apprendre",
         "email_plural": "{count} rappels de votre courriel — appuyez pour voir",
     },
     "de": {
         "from_inbox": "Aus deinem Postfach",
-        "time_to_learn": "Zeit zum Lernen",
         "email_plural": "{count} Erinnerungen aus deiner E-Mail — tippen zum Ansehen",
     },
     "it": {
         "from_inbox": "Dalla tua casella",
-        "time_to_learn": "Ora di imparare",
         "email_plural": "{count} promemoria dalla tua email — tocca per vedere",
     },
     "pt": {
         "from_inbox": "Da sua caixa de entrada",
-        "time_to_learn": "Hora de aprender",
         "email_plural": "{count} lembretes do seu e-mail — toque para ver",
     },
     "ru": {
         "from_inbox": "Из вашего ящика",
-        "time_to_learn": "Время учиться",
         "email_plural": "{count} напоминаний из почты — нажмите для просмотра",
     },
     "tr": {
         "from_inbox": "Gelen kutunuzdan",
-        "time_to_learn": "Öğrenme zamanı",
         "email_plural": "E-postanızdan {count} hatırlatma — görmek için dokunun",
     },
 }
@@ -218,7 +206,7 @@ async def poll_deferred_push_receipts(session: AsyncSession, redis: Redis) -> No
         await session.commit()
 
 
-# "split" installs created recall-reminders / learning / inbox. "tone" installs
+# "split" installs created recall-reminders / inbox. "tone" installs
 # created the v2 channels that play the bundled cue. Older builds only have
 # recall-notifications; Expo drops a channelId the device never created.
 SPLIT_ANDROID_CHANNELS = "split"
@@ -230,8 +218,6 @@ def android_channel_id(data: dict[str, Any], channels: str = SPLIT_ANDROID_CHANN
     """Match the Android channels created in the mobile app."""
     suffix = "-v2" if channels == TONE_ANDROID_CHANNELS else ""
     kind = data.get("type")
-    if kind in {"learning_review", "learning_continue", "learning_daily_goal"}:
-        return f"recall-learning{suffix}"
     if kind in {"email_suggestion", "job_search_ready"}:
         return f"recall-inbox{suffix}"
     return f"recall-reminders{suffix}"
@@ -256,7 +242,6 @@ def _append_outbound(
     data: dict[str, Any],
     todos: list[TodoItem] | None = None,
     suggestions: list[SuggestedReminder] | None = None,
-    learning_redis_key: str | None = None,
     dedupe_redis_key: str | None = None,
     dedupe_ttl_seconds: int | None = None,
 ) -> None:
@@ -280,7 +265,6 @@ def _append_outbound(
                 message=message,
                 todos=list(todos or []),
                 suggestions=list(suggestions or []),
-                learning_redis_key=learning_redis_key,
                 dedupe_redis_key=dedupe_redis_key,
                 dedupe_ttl_seconds=dedupe_ttl_seconds,
             )
@@ -475,64 +459,6 @@ async def process_email_suggestions(
     return messages
 
 
-async def process_learning_nudges(
-    session: AsyncSession,
-    redis: Redis,
-    settings: Settings,
-    *,
-    now: datetime | None = None,
-) -> list[OutboundPush]:
-    """Batched learning nudges via shared candidate collector + token fan-out."""
-    effective_now = now or datetime.now(UTC)
-    result = await session.execute(
-        select(User)
-        .join(PushToken, PushToken.user_id == User.id)
-        .where(User.push_notifications_enabled.is_(True))
-        .distinct()
-    )
-    users = [user for user in result.scalars().all() if not in_quiet_hours(user, now=effective_now)]
-    if not users:
-        return []
-
-    picks = await collect_learning_nudge_picks(
-        session,
-        redis,
-        users,
-        learning_hour=settings.push_learning_hour,
-        redis_prefix=LEARNING_REDIS_PREFIX,
-        now=effective_now,
-    )
-    if not picks:
-        return []
-
-    tokens = await push_repo.list_for_users(session, [pick.user.id for pick in picks])
-    tokens_by_user: dict[UUID, list[PushToken]] = {}
-    for token in tokens:
-        tokens_by_user.setdefault(token.user_id, []).append(token)
-
-    messages: list[OutboundPush] = []
-    for pick in picks:
-        try:
-            user_tokens = tokens_by_user.get(pick.user.id, [])
-            if not user_tokens:
-                await redis.delete(pick.redis_key)
-                continue
-            strings = _push_strings(getattr(pick.user, "locale", None))
-            _append_outbound(
-                messages,
-                user_tokens,
-                title=strings["time_to_learn"],
-                body=pick.body,
-                data=pick.payload,
-                learning_redis_key=pick.redis_key,
-            )
-        except Exception:
-            logger.exception("Learning nudge failed user_id=%s", pick.user.id)
-            continue
-
-    return messages
-
-
 async def process_calendar_nudges(
     session: AsyncSession,
     redis: Redis,
@@ -645,14 +571,10 @@ async def _finalize_push_deliveries(
 ) -> None:
     todos_marked: set[UUID] = set()
     suggestions_marked: set[UUID] = set()
-    learning_success: dict[str, bool] = {}
     dedupe_success: dict[str, bool] = {}
     dedupe_ttl: dict[str, int] = {}
 
     for item, ok in zip(outbound, delivered, strict=False):
-        if item.learning_redis_key is not None:
-            key = item.learning_redis_key
-            learning_success[key] = learning_success.get(key, False) or ok
         if item.dedupe_redis_key is not None:
             key = item.dedupe_redis_key
             dedupe_success[key] = dedupe_success.get(key, False) or ok
@@ -676,12 +598,6 @@ async def _finalize_push_deliveries(
             suggestion_row.notification_sent_at = now
             suggestion.notification_sent_at = now
             suggestions_marked.add(suggestion_id)
-
-    for key, had_success in learning_success.items():
-        if had_success:
-            await redis.set(key, "1", ex=LEARNING_DEDUPE_TTL_SECONDS)
-        else:
-            await redis.delete(key)
 
     for key, had_success in dedupe_success.items():
         if had_success:
@@ -717,9 +633,8 @@ async def collect_push_outbound(
     if settings.server_todo_push_enabled:
         todo_msgs = await process_todo_reminders(session, now=now)
     email_msgs = await process_email_suggestions(session, now=now)
-    learning_msgs = await process_learning_nudges(session, redis, settings, now=now)
     calendar_msgs = await process_calendar_nudges(session, redis, settings, now=now)
-    return todo_msgs + email_msgs + learning_msgs + calendar_msgs
+    return todo_msgs + email_msgs + calendar_msgs
 
 
 async def dispatch_expo(

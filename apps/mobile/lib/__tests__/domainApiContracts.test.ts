@@ -1,7 +1,6 @@
 import { attachmentRecordExists, attachmentsApi } from "@/features/attachments/api";
 import { request } from "@/lib/api/client";
 import { removeCachedAttachmentFiles } from "@/features/attachments/model/downloadChatAttachment";
-import { learningApi } from "@/features/learning/api";
 
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({
@@ -20,26 +19,6 @@ describe("domain API contracts", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockRequest.mockResolvedValue({});
-  });
-
-  it("encodes project detail list and timezone options", async () => {
-    await learningApi.getProject("token", "p 1", { includeLists: true });
-    expect(mockRequest).toHaveBeenCalledWith(
-      "/projects/p 1?client_timezone=America%2FLos_Angeles&include_lists=true",
-      "token",
-    );
-  });
-
-  it("encodes daily item paging and bucket options", async () => {
-    await learningApi.getProjectDailyItems("token", "p1", "2026-08-21", {
-      limit: 25,
-      offset: 50,
-      bucket: "missed",
-    });
-    expect(mockRequest).toHaveBeenCalledWith(
-      "/projects/p1/daily-items?activity_date=2026-08-21&limit=25&offset=50&bucket=missed&client_timezone=America%2FLos_Angeles",
-      "token",
-    );
   });
 
   it("encodes gallery filters and pagination", async () => {
@@ -91,17 +70,5 @@ describe("domain API contracts", () => {
 
     mockRequest.mockRejectedValue(new Error("offline"));
     await expect(attachmentRecordExists("token", "a")).resolves.toBeNull();
-  });
-
-  it("records an idempotent question outcome instead of directly changing mastery", async () => {
-    await learningApi.recordProjectPractice("token", "p1", "i1", {
-      attempt_id: "attempt",
-      was_correct: true,
-      completes_word: true,
-    });
-    expect(mockRequest).toHaveBeenCalledWith("/projects/p1/items/i1/practice", "token", {
-      method: "POST",
-      body: JSON.stringify({ attempt_id: "attempt", was_correct: true, completes_word: true }),
-    });
   });
 });

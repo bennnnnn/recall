@@ -87,7 +87,6 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   deleted chats. Saved history and title polling respect navigation and account changes.
 - 🔜 Chat-list pagination beyond the current 200-row limit; pins take priority within it.
 - 🔜 Folders.
-- ✅ **Learning-scoped chats** — chats created from a learning project carry `project_id` (see [§17](#17-projects-utility-workspaces)).
 
 ## 3. Messaging behaviour
 - ✅ **Streaming** — token-by-token over WebSocket; the reply appears as it's generated.
@@ -95,7 +94,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Status labels are reserved for real extra work: web search, files, calendar, inbox,
   math, and image gen. Turn start overlaps waiting for the previous reply to persist
   with user/quota load (regenerate still waits first so it does not miss that reply).
-  Learning quiz lookback and attachment-chunk probes run only when they can apply;
+  Attachment-chunk probes run only when they can apply;
   time/location answers skip a database checkout.
 - ✅ **Stop generation** — cancel mid-stream (send button becomes a stop button); the partial reply
   is kept and marked incomplete (same “Generation stopped.” footer as a provider
@@ -139,7 +138,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Per-message model** — the model used is recorded on each message.
 - ✅ **Web search** — when the user's question needs fresh facts, the backend runs Tavily (or
   DuckDuckGo fallback) and injects wrapped results; source links render under the reply (skipped on
-  vocab quiz turns). The default owned tool loop attaches the same source chips; if the model skips
+  short A–D replies). The default owned tool loop attaches the same source chips; if the model skips
   `web_search` on a turn that still needs live results (heuristic **or** classifier), the backend
   searches once. Empty hits inject a no-results instruction so the reply cannot look live from
   training data. One Tavily
@@ -549,7 +548,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and current values beneath row titles. Choice popups and field editors use matching
   surfaces and spacing. Overview icons are large outlines; overview explanations stay in accessibility hints.
   Sentence-case group labels; nested screens omit row icons except connected-app marks
-  and danger/status rows. Learning settings are not on this list (lesson map ⋯).
+  and danger/status rows.
   Choice rows (appearance, style, tone, language, reminder lead, daily goal) open a
   floating popup — they do **not** expand inside the gray card.
 - ✅ **Appearance** — System / Light / Dark (on-device), opening a floating popup directly
@@ -617,7 +616,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - User-message copy stays **long-press only** (with a "Long press to copy"
   accessibility hint); no visible copy button on user bubbles.
 - Onboarding keeps a single CTA.
-- Schedule/Learning secondary meta uses the shared `Type.caption` token — no new
+- Schedule secondary meta uses the shared `Type.caption` token — no new
   pill component.
 
 ## 12. Monetization
@@ -661,8 +660,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 14. Schedule & suggestions
 - ❌ **Lists** — removed. No shopping/packing checklists in the drawer or chat. Do not
-  reintroduce a Lists row, list composer, or undated checklist UI. (Learning chapter
-  `lists` are vocab word groups, not this feature.)
+  reintroduce a Lists row, list composer, or undated checklist UI.
 - ✅ **Schedule** — dated items (formerly Reminders) with optional repeat
   (`daily` / `weekdays` / `weekly` / `monthly`). New reminder Repeat is a single
   dropdown (not wrapping chips). Repeats fire a **device push** only
@@ -829,143 +827,9 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
 
 ---
 
-## 17. Projects (utility workspaces)
+## 17. Language learning (removed)
 
-Recall is evolving from chat-only into a **holistic AI utility app**. **Learning** is
-**English and Spanish vocabulary only** (one class per target language). Other UI locales
-stay in the app; they are not Learning class types. Trivia / general-knowledge quizzes
-were removed. Programming help lives in main chat.
-
-### v1 (shipped foundation)
-- ✅ **`projects` table** — title, description, `kind` (`language` only; `vocabulary` is
-  still coerced to `language` on write), archive flag. DB CHECK rejects `general` /
-  `trivia` / `learning` / `programming`. Class CEFR `level` is not in the API.
-- ✅ **REST API** — `GET/POST /projects`, `GET/PATCH/DELETE /projects/{id}` (Python modules
-  are `learning`; the wire path is unchanged). Practice is
-  `POST /projects/{id}/items/{item_id}/practice`. There is no item PATCH.
-- ✅ **Mobile** — drawer **Learning** → list → create → **lesson map** (detail redirects
-  there). Compact stats, daily goals, and PDF export live on the lesson map ⋯ menu.
-  Recall manages lesson content; there are no manual content edit/delete controls.
-- ✅ **Learning kinds** — create only offers `en` / `es` (English and Spanish vocab catalogs). Legacy kinds (`trivia`,
-  `programming`, `math`, …) are rejected on create. Other languages and Anki SM-2 due-queue UI are not shipped.
-
-### Phase 2 — Vocabulary (language learning)
-- ✅ **Decks / groups** — catalog chapters (domain → branch), not a user-editable deck UI.
-- ✅ **One entry at a time** — start a group from the lesson map, learn one entry
-  with its definition and examples, answer its practice question, then continue.
-  There is no bulk vocabulary browser or page of word cards.
-- ✅ **Vocab items** — term, definition, two or more example sentences, IPA where available,
-  part of speech, word/expression/phrasal-verb/idiom/proverb classification,
-  verb and noun subtypes, simple gloss, status (new / learning / mastered), SM-2 fields.
-- ✅ **Saved practice** — question attempts and completed words are recorded separately; compact stats summary (learned / this week / streak)
-  lives on the lesson map ⋯ menu, not the main lesson flow.
-- ✅ **AI tutor + quiz** — chat still sees Learning progress and can open a lesson via
-  `learning_launch` / home suggestions. Study runs in the lesson window: **teach first**
-  (word, pronunciation, meaning, examples) as a tap-to-hear dictionary card,
-  then four **lesson choice cards** that fill on select (no A–D letter badges).
-  Close sits above a thicker progress bar; a ⋮ menu toggles effect sounds, auto-reading
-  the word, and lesson type size. A small spark marks the bar tip when you advance.
-  Teach, the question, and group-complete swap with a short slide (instant with Reduce Motion).
-  Finishing a group plays a short woo (when effect sounds are on) with a larger confetti burst.
-  Cloze questions match whole words; naturally inflected examples use an intact-sentence
-  meaning check. A correct answer posts an idempotent practice event in the background
-  (no saving spinner). Continue is available as soon as the answer is right; only the
-  final check completes the word. Reopening a completed group is a scan: the correct
-  choice is already marked, and Continue records the review and updates its
-  schedule, retaining first mastery.
-  Wrong answers stay on device until the learner picks the right choice; they are not
-  saved and they do not demote a mastered word. No per-word illustration. The next group stays locked until every word in the
-  current chapter is mastered.   Chat must not render A–D quiz chips, `vocab_card` study
-  cards, or grade letter answers. Regular chat must not quiz in-bubble. New assistant
-  turns drop leftover `vocab_quiz` / `vocab_card` fences before persist; old stored
-  fences are stripped for display only. The backend no longer parses or grades them.
-  Chat tutor prompts
-  must not invent words.
-- ✅ **Lesson choice-card check after teaching** — restored `LessonQuizCards` (tappable
-  answer cards, no letter badges). Typed-answer lessons and chat MCQ chips are not the study path.
-- ❌ **Chat A–D quiz UI / `vocab_quiz` as the lesson product** — removed. Hidden
-  project-scoped chats no longer emit `vocab_quiz` / `vocab_card` for study. The lesson
-  window reuses the old choice-card UI; it is not a new in-card “What does this mean?”
-  quiz and it does not quiz before teaching.
-- ❌ **SM-2 review UI / Settings deck browse** — **not shipped.** SM-2 fields
-  (`ease_factor`, `interval_days`, `due_at`) are written on status changes.
-  There is no due-queue of old mastered words across groups. Reopening a
-  **completed** group on the map is a same-group scan (correct answers already
-  marked) that updates scheduling; it does not assemble a cross-group queue.
-  Settings has PDF export on the lesson map ⋯ menu, not a deck browser.
-- ❌ **Class CEFR level** — removed from the Learning API. Vocab is the full catalog
-  for everyone; the lesson map ⋯ menu has daily goal + PDF. Chat no longer extracts
-  `set_level`. A leftover `projects.level` column stays `level1` in the DB.
-- ✅ **Streak + inactive days** — home highlight and project hero show streak; push/email
-  nudges use actual study activity, including attempts and completed reviews. Partial
-  practice is not reported as a skipped day (streak count is not in notification text).
-- ✅ **Goal-aware learning nudges** — opt-in push/email prioritize finishing today's daily
-  batch and include mastered vocabulary due for review; delivery keeps timezone and
-  daily deduplication rules.
-- ✅ **Pronunciation and feedback** — lesson pronunciation uses device speech with
-  visit-owned cancellation. Right/wrong answers always play bundled sound cues; they
-  do not speak “correct” / “try again” and they do not change the global recording mode.
-  The shared pronunciation helper outside the lesson retains URL/cloud/device fallback.
-  Learning items do not carry `pronunciation_url`.
-- ✅ **Spaced repetition scheduling** — SM-2 fields (`ease_factor`, `interval_days`, `due_at`)
-  update on word completion. Due counts include learning items and mastered words
-  scheduled for review; a dedicated cross-group review queue remains deferred.
-- ✅ **Ordered learning path** — language projects store `learning_path` chapter titles
-  (decks). Create enqueues a `language_path` job that copies a curated catalog
-  (`vocab_decks` / `vocab_entries`: domain → branch tree). English classes use
-  four focused groups (40 entries): conversation expressions, phrasal verbs,
-  idioms, and proverbs. Spanish has idioms and proverbs (two groups, 20 entries).
-  Every entry has a full definition and at least two target-language examples.
-  The old beginner words, custom rows, and legacy groups are retired. Migration
-  `0080_retire_legacy_vocab` deletes their saved items and practice history;
-  retained new catalog IDs preserve progress, and class IDs/daily goals remain.
-  Runtime reconciliation and reads enforce the active catalog so old words cannot
-  reappear. Catalog jobs retry failures, run independently of AI spending limits,
-  and include the content revision in job deduplication. **Every class sees its
-  full path.** Create is a
-  full-screen flow: **language**, then **daily goal** (5/10/15). Create opens the
-  **lesson map** (not a tutor chat that invents words). Main chat gets a progress overview (class, daily
-  counts, actual last study, due reviews, path checkmarks) and today’s lemmas when asked —
-  not the full word dump. Ordinary questions also distinguish no class from an existing
-  class with no practice yet.
-  A project-linked tutor / quiz turn sees only the current `up_next` chapter’s
-  ○ / ◐ words. The model must not invent or add words. Progress is derived
-  (mastered/total; a chapter is complete when every word is mastered). English
-  groups are one map row per theme, with 10 entries each. The lesson map is a vertical
-  list with 52px circular nodes (theme icon, green check, or lock) plus title and
-  counts — not a winding path. The current node pulses; a group that just finished
-  springs to the check once. There is no duplicate “Next lesson” hero — tap the
-  unlocked row. Tap an unlocked group to open the word page; a completed group opens
-  as review.
-  Opening a group starts a **daily sitting** (5/10/15 words — the class daily
-  goal), not the full chapter. Map counts are chapter progress; the word page
-  header is chapter mastery (4 of 10), not “Today 1 of 10”. When today’s goal is
-  met, the map today bar uses the same success fill as the class list card.
-  The main flow is
-  Sidebar → My Learning list → Lesson map → Lesson page (no intermediate stats
-  screen). Compact stats, daily goals, and PDF export live on the lesson map ⋯ menu.
-  Recall manages lesson content; there are no manual content edit/delete controls.
-  Today’s progress sits above the path tree. Locked chapters stay
-  visible until the current one is complete. No generic `learning` kind, lesson
-  notes, certificates, or marketplace.
-
-### Phase 3 — Cross-linking
-- ✅ **`project_id` on chats** — conversations started from a project carry `project_id`; prompt
-  injection scopes to that one project (+ tutor hints) instead of all projects.
-- ❌ **Link todos to Learning** — optional `project_id` may exist on todo rows in the API.
-  Mobile must not show it (no “Linked to …”, no filter chips, no folder control). Schedule
-  and Learning stay separate.
-- ✅ **Home starters** — greeting + two local chips; at most one dismissible overdue
-  reminder. No Learning progress bar, due-soon stack, or personalized “For you” chips.
-
-### Phase 4 — More project types
-- ❌ **General knowledge (trivia)** — removed. Learning is language vocabulary only.
-- 🔜 **Learning (generic)** — lesson notes, spaced repetition beyond vocab, richer AI tutor mode.
-
-Chat + memory + todos + projects share one backend; the LLM orchestrates across them (no keys on
-device).
-
----
+The dedicated language-learning product (vocabulary classes, lesson maps, SM-2 practice, `/projects`, and the Learning drawer) has been removed. Chat still teaches math, physics, chemistry, and programming, including “teach me…” lessons and multi-day study roadmaps. Those stay in ordinary chat. There is no Learning screen, API, table, or background job.
 
 ## Deferred to upcoming version(s)
 A consolidated list of what's intentionally **not** (or only partially) in this version.
@@ -979,7 +843,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   indexing until chunks exist; wrapped inject includes filename.
 - ✅ **Camera math solver** — attach sheet “Solve math with camera” → live frame + torch / pinch-zoom / photos → captured photo with an adjustable crop → **Solve** → **I read this as** (`POST /math/scan/read`: Mathpix, then `vision-chat`, no solve). The student edits the reading if needed and taps **Solve**, which sends it as text through the full math pipeline, or **Send photo**, which sends the crop at once with the checked reading so the turn does not read it again. Physics and biology scans send the crop directly. Mathpix runs when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`) only when the reply contains math.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
-  (hidden on vocab quiz cards).
+  (hidden on short A–D replies).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
 - ✅ **Vision + Pro image gen** — image attachments route to vision models; a later
   plain-text follow-up in the same chat rehydrates the last image(s). If the file
@@ -1095,9 +959,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Messaging | Reactions, read receipts; full duplex live voice; music generation (composer send + compact inline player) |
 | Models | User-tunable routing rules; response-cache; NL daily-goal setting |
 | Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
-| Learning | Generic `learning` kind; other target languages; certificates; **SM-2 review-queue UI**; Settings deck browse; typed-answer lesson path |
 | Attachments | **User-wide attachment RAG** (chunks are per `chat_id`; later turns in that chat only) |
-| Todos↔Learning | API may still have `project_id` on todos; mobile link/filter/“Linked to” UI is **removed** (banned) |
 | Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
 | Platform | Web client; code execution beyond HTML sandbox; virus scan |
 | i18n | ~350 locale strings still English; legal privacy/terms bodies English-only |
@@ -1249,7 +1111,7 @@ A **web version that reuses this same API** — one backend, multiple clients. S
   CORS origin documented in `apps/api/.env.example` — cookie sessions need an explicit
   `CORS_ORIGINS` list (empty `*` disables cookies). Follows the mobile chat-ux-bans.
 - 🔜 **Later slices** — rich fences (math/charts/Mermaid/sandboxed HTML preview), Memory/
-  Learning/settings/attachments/image gen, `packages/api-types` extracted from
+  settings/attachments/image gen, `packages/api-types` extracted from
   `lib/api/types.ts`, Apple Sign-In on web, prod deploy.
 
 ---
@@ -1261,40 +1123,31 @@ Internal product snapshot for leadership, engineering, design, GTM, and App Stor
 
 ### Mission
 Recall is a **personal AI utility** — not a generic chatbot. It remembers who you are, helps you
-act (reminders, calendar, email), and supports **Learning** (English and Spanish
-vocabulary). One trusted assistant combining ChatGPT-grade conversation with durable memory and
-everyday productivity. **Programming help lives in main chat** (code blocks, previews) — not as a
-structured Learning topic type.
+act (reminders, calendar, email), and teaches in ordinary chat (math, physics, chemistry,
+programming, and “teach me…” lessons). One trusted assistant combining ChatGPT-grade conversation
+with durable memory and everyday productivity.
 
 ### Strategic pillars
 | Pillar | Meaning |
 |--------|---------|
 | Chat that feels fast | Streaming, stop/regenerate, rich answers, status while working |
 | Memory that compounds | User facts + past-chat RAG — the namesake |
-| Utility beyond chat | Schedule, Learning, integrations, home starters |
+| Utility beyond chat | Schedule, integrations, home starters |
 | Trust & control | Export, delete account, opt-in integrations, quota transparency |
 | Monetize fairly | Free tier with limits; Pro for power users |
 
 ### Release plan
 | Phase | Scope | Status |
 |-------|--------|--------|
-| MVP (mobile) | Chat + memory + Schedule + Learning + calendar/Gmail + attachments | ~95% code-complete |
+| MVP (mobile) | Chat + memory + Schedule + calendar/Gmail + attachments | ~95% code-complete |
 | Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | 🔜 Future (owner ops) |
-| v1.1 | Remaining web slices (rich fences, Memory/Learning/settings), locale prose, legal localization | 🔜 Future |
+| v1.1 | Remaining web slices (rich fences, Memory/settings), locale prose, legal localization | 🔜 Future |
 | Next (product) | — | Done (tool loop, scanned-PDF OCR, chat-history RAG) |
 | Later | Google Docs, GitHub, code execution, duplex voice, folders / family plans | 🔜 Future |
 
 Notes already on `main` (not waiting on v2): Fly api/worker split ✅, attachment RAG ✅,
 chat-history RAG ✅, LiteLLM tool loop **on by default** (ordinary chat skips the pre-stream round) ✅, structured profile ✅,
 drawer FTS search ✅.
-
-### Learning (not “programming projects”)
-| Shipped | Not done |
-|---------|----------|
-| Language (`language`) — **en/es catalog only**, teach-then-A/D lesson cards, SM-2 fields | Other target languages; trivia; Anki-style SM-2 due-queue UI |
-| Domain → branch lesson map; create opens the map | Review queue, Settings deck browse, typed answers |
-| Learning-scoped chats, home highlight (Learning only) | In-app code runner (later) |
-| ~~Programming curriculum kind~~ **removed** — use main chat for code help | ~~Hidden chat `vocab_quiz` as the lesson path~~ **removed** |
 
 ### Rich rendering (§4 summary)
 | Capability | Status |

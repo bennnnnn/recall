@@ -1,11 +1,6 @@
-"""Learning and Schedule models preserve their existing DB contracts."""
+"""Schedule models preserve their existing DB contracts."""
 
-from app.models.orm import Learning, LearningItem, TodoItem
-
-
-def test_learning_tablenames() -> None:
-    assert Learning.__tablename__ == "projects"
-    assert LearningItem.__tablename__ == "project_items"
+from app.models.orm import Chat, TodoItem
 
 
 def test_schedule_model_preserves_table_and_foreign_keys() -> None:
@@ -17,5 +12,7 @@ def test_schedule_model_preserves_table_and_foreign_keys() -> None:
     } == {
         "user_id": "users.id",
         "chat_id": "chats.id",
-        "project_id": "projects.id",
     }
+    assert "project_id" not in TodoItem.__table__.columns
+    assert "project_id" not in Chat.__table__.columns
+    assert "quiz_mode" not in Chat.__table__.columns
