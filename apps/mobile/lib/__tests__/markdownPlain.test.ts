@@ -69,6 +69,18 @@ describe("markdownPlain", () => {
     expect(copy).not.toContain("\\frac");
   });
 
+  it("speaks a superscripted fraction and a radical of a fraction", () => {
+    const fraction = markdownToSpeechText("The answer is $\\frac{x^{2}}{4}$.");
+    expect(fraction).toBe("The answer is x squared over 4.");
+    expect(fraction).not.toContain("\\frac");
+    expect(fraction).not.toContain("fracx");
+
+    const radical = markdownToSpeechText("$$\\sqrt{\\frac{a}{b}}$$");
+    expect(radical).toBe("the square root of a over b");
+    expect(radical).not.toContain("\\");
+    expect(radical).not.toContain("frac");
+  });
+
   it("does not strip a numeric-only answer fence", () => {
     expect(markdownToCopyText("```answer\n42\n```")).toBe("42");
     expect(markdownToSpeechText("```answer\n42\n```")).toBe("42");
