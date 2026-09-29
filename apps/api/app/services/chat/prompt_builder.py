@@ -135,7 +135,11 @@ from app.services.prompt_safety import (
     wrap_user_preferences,
 )
 from app.services.solving import VerifiedSolveBlock
-from app.services.subject_solving import build_subject_augmentation, detect_subject
+from app.services.subject_solving import (
+    SubjectAugmentation,
+    build_subject_augmentation,
+    detect_subject,
+)
 
 _PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places")
 _SLIM_MEMORY_MAX_CHARS = 1000
@@ -312,6 +316,7 @@ async def fetch_web_and_tools(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
+    prepared_subject: SubjectAugmentation | None = None,
 ) -> tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None]:
     """Fetch web-search and SymPy augmentation blocks WITHOUT mutating prompt_messages.
 
@@ -320,23 +325,26 @@ async def fetch_web_and_tools(
     is a separate step so this fetch can run concurrently with integration fetches.
     """
     math_user_content = math_followup_problem or user_content
-    subject = (
-        "math"
-        if math_followup_problem is not None
-        else detect_subject(
-            user_content,
-            has_image_attachment=has_image_attachment,
-            image_math_extract=image_math_extract,
-            chemistry_enabled=settings.chemistry_enabled,
+    if prepared_subject is not None:
+        subject = prepared_subject.subject
+    else:
+        subject = (
+            "math"
+            if math_followup_problem is not None
+            else detect_subject(
+                user_content,
+                has_image_attachment=has_image_attachment,
+                image_math_extract=image_math_extract,
+                chemistry_enabled=settings.chemistry_enabled,
+            )
         )
-    )
     if subject == "chemistry":
         needs_subject = settings.chemistry_enabled
     elif subject in {"math", "physics"}:
         needs_subject = settings.math_tools_enabled
     else:
         needs_subject = False
-    if needs_subject and on_status is not None:
+    if prepared_subject is None and needs_subject and on_status is not None:
         await on_status("physics" if subject == "physics" else "calculating")
 
     async def _web_for_turn() -> tuple[str | None, list[WebSearchHit]]:
@@ -360,6 +368,15 @@ async def fetch_web_and_tools(
             on_status=on_status,
             user=user,
             redis=redis,
+        )
+
+    if prepared_subject is not None:
+        web_block, search_sources = await _web_for_turn()
+        return (
+            web_block,
+            prepared_subject.prompt_block,
+            search_sources,
+            prepared_subject.verified,
         )
 
     (web_block, search_sources), subject_result = await asyncio.gather(

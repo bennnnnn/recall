@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import replace
 
 from app.core.config import Settings
@@ -65,10 +66,16 @@ async def build_physics_augmentation(
     detected = needs_physics(user_content) if needs_subject is None else needs_subject
     if not detected:
         return None, None
+    from app.services.chat.turn_timing import note_elapsed
+
+    extract_started = time.perf_counter()
     intent = extract_physics_intent(user_content)
+    note_elapsed("extract_ms", extract_started)
     if intent is None:
         return _unverified_physics_note(), None
+    solve_started = time.perf_counter()
     verified = await _build_verified_physics_block_async(intent, settings)
+    note_elapsed("solve_ms", solve_started)
     if verified is None:
         return _unverified_physics_note(), None
     return f"{verified.text}\n\n{PHYSICS_REPLY_POLICY}", verified
