@@ -282,10 +282,10 @@ _ADVANCED_PHYSICS_RE = re.compile(
 )
 
 
-# A supplied nuclear mass is a chemistry mass-defect calculation. The same
-# words without that mass stay on the unverified physics path.
+# A supplied nuclear mass is a chemistry mass-defect calculation. A bare
+# ``mass =`` is not that mass, so those words stay on the unverified physics path.
 _SUPPLIED_NUCLEAR_MASS_RE = re.compile(
-    r"\b(?:mass defect|binding energy)\b[\s\S]{0,80}\b(?:nuclear mass|mass)\s*=\s*-?(?:\d|\.\d)",
+    r"\b(?:mass defect|binding energy)\b[\s\S]{0,80}\bnuclear mass\s*=\s*-?(?:\d|\.\d)",
     re.IGNORECASE,
 )
 

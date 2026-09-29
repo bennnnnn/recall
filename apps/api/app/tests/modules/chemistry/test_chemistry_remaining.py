@@ -10,6 +10,15 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.chemistry import ChemistryKind, ChemistryOp
+from app.models.schemas.chemistry.scene import (
+    BalanceScene,
+    CellScene,
+    EquilibriumScene,
+    StoichScene,
+    TitrationScene,
+    VseprScene,
+    dump_scene,
+)
 from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.catalog import CATALOG
 from app.modules.chemistry.context import build_chemistry_augmentation
@@ -32,14 +41,14 @@ def test_water_scene_keeps_the_molecular_angle() -> None:
     intent = extract_chemistry_intent("VSEPR of H2O")
     assert intent is not None
     result = solve_chemistry(intent)
-    assert result.scene is not None
-    assert result.scene["bond_angle"] == "104.5°"
-    assert result.scene["ideal_angle"] == "109.5°"
-    assert result.scene["lone_pairs"] == 2
+    assert isinstance(result.scene, VseprScene)
+    assert result.scene.bond_angle == "104.5°"
+    assert result.scene.ideal_angle == "109.5°"
+    assert result.scene.lone_pairs == 2
     verified = build_verified_chemistry(intent)
     assert verified is not None
     reply = format_direct_chemistry_reply(verified)
-    fence = f"```chem_scene\n{json.dumps(result.scene, ensure_ascii=False)}\n```"
+    fence = f"```chem_scene\n{json.dumps(dump_scene(result.scene), ensure_ascii=False)}\n```"
     assert reply.endswith(fence + "\n")
     assert "```chem_scene" not in reply[: reply.index(fence)]
     assert "104.5°" in reply
@@ -49,11 +58,11 @@ def test_balance_scene_tallies_atoms() -> None:
     intent = extract_chemistry_intent("Balance H2 + O2 -> H2O")
     assert intent is not None
     scene = solve_chemistry(intent).scene
-    assert scene is not None
-    rows = {row["element"]: row for row in scene["rows"]}  # type: ignore[index]
+    assert isinstance(scene, BalanceScene)
+    rows = {row.element: row.model_dump() for row in scene.rows}
     assert rows["H"] == {"element": "H", "left": 4, "right": 4}
     assert rows["O"] == {"element": "O", "left": 2, "right": 2}
-    assert scene["charge"] == {"left": 0, "right": 0}
+    assert scene.charge.model_dump() == {"left": 0, "right": 0}
 
 
 def test_stoich_and_ice_scenes_are_tables_not_curves() -> None:
@@ -62,19 +71,19 @@ def test_stoich_and_ice_scenes_are_tables_not_curves() -> None:
     )
     assert stoich is not None
     chain = solve_chemistry(stoich).scene
-    assert chain is not None and chain["kind"] == "stoich"
-    assert len(chain["steps"]) >= 2  # type: ignore[arg-type]
+    assert isinstance(chain, StoichScene)
+    assert len(chain.steps) >= 2
 
     ice = extract_chemistry_intent(
         "Solve the ICE equilibrium for N2O4 -> NO2 when K=4 and [N2O4]=1"
     )
     assert ice is not None
     table = solve_chemistry(ice).scene
-    assert table is not None and table["kind"] == "equilibrium"
-    rows = {row["species"]: row for row in table["rows"]}  # type: ignore[index]
-    assert rows["N2O4"]["change"] == "−x"
-    assert rows["NO2"]["change"] == "+2x"
-    assert rows["N2O4"]["equilibrium"] == "0.381966 mol/L"
+    assert isinstance(table, EquilibriumScene)
+    rows = {row.species: row for row in table.rows}
+    assert rows["N2O4"].change == "−x"
+    assert rows["NO2"].change == "+2x"
+    assert rows["N2O4"].equilibrium == "0.381966 mol/L"
 
 
 def test_titration_scene_uses_labeled_anchors() -> None:
@@ -84,32 +93,32 @@ def test_titration_scene_uses_labeled_anchors() -> None:
     )
     assert weak is not None
     scene = solve_chemistry(weak).scene
-    assert scene is not None
-    labels = [anchor["label"] for anchor in scene["anchors"]]  # type: ignore[index]
+    assert isinstance(scene, TitrationScene)
+    labels = [anchor.label for anchor in scene.anchors]
     assert labels == ["start", "half-equivalence", "equivalence", "solved"]
-    half = scene["anchors"][1]  # type: ignore[index]
-    assert half["ph"] == "4.74473"
-    assert "volume" in scene["anchors"][2]  # type: ignore[operator]
+    half = scene.anchors[1]
+    assert half.ph == "4.74473"
+    assert scene.anchors[2].volume is not None
 
     strong = extract_chemistry_intent(
         "Strong acid strong base titration: Ma=0.10, Va=0.050 L, Mb=0.10, Vb=0.020 L, find pH"
     )
     assert strong is not None
     strong_scene = solve_chemistry(strong).scene
-    assert strong_scene is not None
-    strong_labels = [anchor["label"] for anchor in strong_scene["anchors"]]  # type: ignore[index]
+    assert isinstance(strong_scene, TitrationScene)
+    strong_labels = [anchor.label for anchor in strong_scene.anchors]
     assert strong_labels == ["start", "equivalence", "solved"]
-    assert strong_scene["anchors"][1]["ph"] == "7"  # type: ignore[index]
+    assert strong_scene.anchors[1].ph == "7"
 
 
 def test_galvanic_scene_points_electrons_at_the_cathode() -> None:
     intent = extract_chemistry_intent("Find the galvanic cell for Zn and Cu")
     assert intent is not None
     scene = solve_chemistry(intent).scene
-    assert scene is not None
-    assert scene["anode"] == "Zn"
-    assert scene["cathode"] == "Cu"
-    assert scene["electrons"] == "anode to cathode"
+    assert isinstance(scene, CellScene)
+    assert scene.anode == "Zn"
+    assert scene.cathode == "Cu"
+    assert scene.electrons == "anode to cathode"
 
 
 def test_high_spin_aqua_complex_and_refuses_a_second_row_metal() -> None:
@@ -137,6 +146,33 @@ def test_supplied_nuclear_mass_is_not_a_physics_question() -> None:
     question = "Calculate the mass defect of H-2 when nuclear mass = 2 u"
     assert needs_physics(question) is False
     assert extract_chemistry_intent(question) is not None
+
+
+def test_atomic_mass_is_not_treated_as_nuclear_mass() -> None:
+    question = "binding energy of He-4, mass = 4.002603 u"
+    assert extract_chemistry_intent(question) is None
+    assert needs_physics(question) is True
+
+
+def test_square_planar_d8_is_diamagnetic_and_bare_cn4_is_refused() -> None:
+    stated = extract_chemistry_intent("Find the crystal field of square planar [Ni(CN)4]2-")
+    assert stated is not None
+    assert "0 unpaired" in solve_chemistry(stated).answer
+    ambiguous = extract_chemistry_intent("Find the crystal field of [Ni(CN)4]2-")
+    assert ambiguous is not None
+    with pytest.raises(MathServiceError):
+        solve_chemistry(ambiguous)
+
+
+def test_michaelis_menten_refuses_a_velocity_above_vmax() -> None:
+    intent = extract_chemistry_intent("Michaelis-Menten v = 12 Vmax = 10 S = 2")
+    assert intent is not None
+    with pytest.raises(MathServiceError):
+        solve_chemistry(intent)
+
+
+def test_peroxide_hbr_addition_stays_unverified() -> None:
+    assert extract_chemistry_intent("HBr addition with peroxide of SMILES CC=C") is None
 
 
 @pytest.mark.asyncio
