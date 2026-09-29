@@ -1,4 +1,5 @@
 import React from "react";
+import { AccessibilityInfo } from "react-native";
 import { act, cleanup, render } from "@testing-library/react-native";
 import { useChat } from "@/hooks/useChat";
 import { streamChatMessageSse, streamChatRegenerateSse } from "@/lib/chat/sse";
@@ -838,6 +839,24 @@ describe("useChat transport lifecycle", () => {
     });
     expect(restore).toHaveBeenCalledWith({ text: "attachment second", attachment: null });
     expect(current.rejectedSend).toBeNull();
+  });
+
+  it("announces a finished reply once, not per token", async () => {
+    const announce = jest.spyOn(AccessibilityInfo, "announceForAccessibility").mockImplementation(() => {});
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await act(async () => {
+      await current.sendMessage("question");
+      socket.emit({ type: "start" });
+      socket.emit({ type: "token", content: "hello" });
+      socket.emit({ type: "token", content: " there" });
+    });
+    expect(announce).not.toHaveBeenCalled();
+    await act(async () => {
+      socket.emit({ type: "done", message_id: "saved", final_content: "hello there" });
+    });
+    expect(announce).toHaveBeenCalledTimes(1);
+    expect(announce).toHaveBeenCalledWith("chat.reply_ready");
   });
 
 });
