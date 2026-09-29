@@ -312,12 +312,13 @@ async def fetch_web_and_tools(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
-) -> tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None]:
-    """Fetch web-search and SymPy augmentation blocks WITHOUT mutating prompt_messages.
+) -> tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None, bool]:
+    """Fetch web-search and subject blocks WITHOUT mutating prompt_messages.
 
-    Web search (network) and SymPy (subprocess) are independent — gather both.
-    Returns ``(web_block, math_block, search_sources, verified_math)``; injection
-    is a separate step so this fetch can run concurrently with integration fetches.
+    Web search (network) and the subject solver are independent — gather both.
+    Returns ``(web_block, subject_block, search_sources, verified, solver_unverified)``.
+    ``solver_unverified`` is the adapter flag. Callers must not re-derive it from
+    the wording of the prompt block.
     """
     math_user_content = math_followup_problem or user_content
     subject = (
@@ -376,7 +377,13 @@ async def fetch_web_and_tools(
             redis=redis,
         ),
     )
-    return web_block, subject_result.prompt_block, search_sources, subject_result.verified
+    return (
+        web_block,
+        subject_result.prompt_block,
+        search_sources,
+        subject_result.verified,
+        subject_result.unverified,
+    )
 
 
 async def inject_web_and_tools(
@@ -436,7 +443,13 @@ async def _augment_web_and_tools(
     has_calendar_write: bool = False,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedSolveBlock | None]:
     """Backward-compatible fetch + inject (used by tests). Prefer the split pair."""
-    web_block, math_block, search_sources, verified_math = await fetch_web_and_tools(
+    (
+        web_block,
+        math_block,
+        search_sources,
+        verified_math,
+        _solver_unverified,
+    ) = await fetch_web_and_tools(
         user_content,
         settings,
         prompt_messages=prompt_messages,

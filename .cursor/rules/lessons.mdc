@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A physics decline never said it was unverified, and the check sniffed `Math note:`.** `SubjectAugmentation.unverified` was dropped in the web/tool fetch, then turn prep rebuilt the flag from that prefix, so only math reached the italic line. The fetch now returns the adapter flag. The line stays italic; a blockquote would paint a gray card.
+
 - **A verified chemistry result could be replaced, or typeset as algebra.** ```answer always went through MathText, so chemistry kept the value in bold prose and the stream skipped chemistry finalization. Answer fences now start with `notation: chemistry` when the body is not LaTeX, and the chemistry finalizer replaces model answer, scene, and structure fences from the solver.
 
 - **`3x=3` answered `x = 1` and “couldn't automatically verify”.** The numbered Given / divide lesson only ships from the SymPy worker. `sem_open` returned ENOSPC because the macOS POSIX semaphore table was full, so the process pool never started and the turn fell through to the model. When that pool cannot be created, verify in-process instead of dropping the lesson.

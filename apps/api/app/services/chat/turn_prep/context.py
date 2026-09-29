@@ -122,9 +122,8 @@ class StreamContext:
     fallback_models: list[str] = field(default_factory=list)
     # One verified solve for the subject that owns this turn.
     verified_subject: VerifiedSolveBlock | None = None
-    # Camera/solver fall-through: surface an honest "couldn't verify" note.
-    math_unverified: bool = False
-    subject_unverified: str | None = None
+    # A subject solver ran and declined. The reply gets one italic line, not a card.
+    solver_unverified: bool = False
     timing: TurnTimingTracker | None = None
     lightweight_turn: bool = False
     # False = casual chat (skip memory/todos/projects). Status theater
@@ -160,8 +159,7 @@ class TurnPromptBundle:
     geo: ClientGeoContext
     local_tz: str
     verified_subject: VerifiedSolveBlock | None = None
-    math_unverified: bool = False
-    subject_unverified: str | None = None
+    solver_unverified: bool = False
     web_search_classified: bool | None = None
 
 
@@ -211,8 +209,7 @@ def stream_context_from_bundle(
         regenerate_backup=regenerate_backup,
         fallback_models=bundle.fallback_models,
         verified_subject=bundle.verified_subject,
-        math_unverified=getattr(bundle, "math_unverified", False) is True,
-        subject_unverified=getattr(bundle, "subject_unverified", None),
+        solver_unverified=getattr(bundle, "solver_unverified", False) is True,
         timing=timing,
         # Trust turn-mode: re-running is_lightweight_chat_turn without the
         # prior assistant would mark "yes"/"go" as greetings again.
@@ -554,7 +551,7 @@ async def build_stream_prompt_context(
         Awaitable[
             tuple[
                 list[str],
-                tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None],
+                tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None, bool],
             ]
         ]
         | None
@@ -564,7 +561,7 @@ async def build_stream_prompt_context(
 
         async def _fetch_web_with_priors() -> tuple[
             list[str],
-            tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None],
+            tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None, bool],
         ]:
             priors = await _load_prior_user_messages(chat.id)
             result = await fetch_web_and_tools(
@@ -593,6 +590,7 @@ async def build_stream_prompt_context(
     web_search_classified: bool | None = None
     web_block: str | None = None
     math_block: str | None = None
+    solver_unverified = False
     fetch_jobs: list[Awaitable[Any]] = []
     fetch_keys: list[str] = []
     if integration_coro is not None:
@@ -648,9 +646,10 @@ async def build_stream_prompt_context(
         if "integration" in by_key:
             integration_blocks = by_key["integration"]
         if "web" in by_key:
-            prior_user_messages, (web_block, math_block, search_sources, verified_subject) = by_key[
-                "web"
-            ]
+            (
+                prior_user_messages,
+                (web_block, math_block, search_sources, verified_subject, solver_unverified),
+            ) = by_key["web"]
         if "cal_write" in by_key:
             has_calendar_write = by_key["cal_write"]
         if "classify" in by_key:
@@ -677,12 +676,6 @@ async def build_stream_prompt_context(
         timing.mark_phase("augment_done")
         timing.mark_prompt_ready()
 
-    math_unverified = (
-        math_block is not None and verified_subject is None and math_block.startswith("Math note:")
-    )
-    subject_unverified = (
-        detected_subject if math_block is not None and verified_subject is None else None
-    )
     if instant_reply is None and verified_subject is not None:
         instant_reply = maybe_direct_subject_reply(
             verified_subject,
@@ -704,7 +697,6 @@ async def build_stream_prompt_context(
         geo=geo,
         local_tz=local_tz,
         verified_subject=verified_subject,
-        math_unverified=math_unverified,
-        subject_unverified=subject_unverified,
+        solver_unverified=solver_unverified,
         web_search_classified=web_search_classified,
     )

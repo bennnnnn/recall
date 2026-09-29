@@ -1,7 +1,7 @@
 """The "couldn't verify" note only belongs on a reply that contains math.
 
-turn_prep marks a turn ``math_unverified`` whenever a math block was injected
-and SymPy then produced nothing, so *every* extractor false positive reaches
+turn_prep marks a turn ``solver_unverified`` when the subject adapter declined,
+so *every* extractor false positive reaches
 the stamp. Reported from the app: a chat about anatomy, the user typed "show
 me", and the reply ended with *Couldn't verify this with SymPy.*
 

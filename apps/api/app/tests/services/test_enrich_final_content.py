@@ -73,6 +73,7 @@ def _ctx(
     ctx.skip_memory_jobs = False
     ctx.instant_reply = None
     ctx.user_message_content = "what's the news"
+    ctx.solver_unverified = False
     return ctx
 
 
@@ -350,7 +351,7 @@ async def test_unverified_math_note_appended_to_final_content(
         math_fence_mod.append_unverified_math_note
     )
     ctx = _ctx()
-    ctx.math_unverified = True
+    ctx.solver_unverified = True
     persisted = await enrich_final_content(
         seams,
         MagicMock(),
@@ -363,7 +364,9 @@ async def test_unverified_math_note_appended_to_final_content(
         assistant_parts=["The mass is 12 kg."],
         should_cancel=None,
     )
-    assert "*I couldn't automatically verify this result.*" in persisted
+    assert persisted.endswith("*I couldn't automatically verify this result.*")
+    assert "\n>" not in persisted
+    assert "```answer" not in persisted
 
 
 @pytest.mark.asyncio
@@ -384,7 +387,7 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
         canonical_answer="x = 2",
     )
     ctx.user_message_content = "1+1=x"
-    ctx.math_unverified = False
+    ctx.solver_unverified = False
     persisted = await enrich_final_content(
         _seams(),
         MagicMock(),

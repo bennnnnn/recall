@@ -337,7 +337,8 @@ async def enrich_final_content(
                 seams, assistant_text, ctx.verified_subject
             )
 
-        if ctx.subject_unverified == "math" or ctx.math_unverified is True:
+        if ctx.solver_unverified is True:
+            # One italic sentence. A blockquote or answer fence would paint a card.
             assistant_text = seams.math_fence_service.append_unverified_math_note(assistant_text)
 
         # Prompt scaffolding must never survive into the reply. The model is
