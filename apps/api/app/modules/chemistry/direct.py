@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 
+from app.models.schemas.chemistry.scene import dump_scene
 from app.modules.chemistry.block import VerifiedChemistry
 
 
@@ -24,7 +25,7 @@ def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
     )
     extras: list[str] = []
     if result.scene is not None:
-        payload = json.dumps(result.scene, ensure_ascii=False)
+        payload = json.dumps(dump_scene(result.scene), ensure_ascii=False)
         extras.append(f"```chem_scene\n{payload}\n```")
     if result.structure_smiles:
         extras.append(f"```smiles\n{result.structure_smiles}\n```")

@@ -3,7 +3,10 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
+
 from app.models.schemas.chemistry import ChemistryIntent
+from app.models.schemas.chemistry.scene import StoichScene, StoichStep
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.solvers.amounts import AVOGADRO, _balanced_text
 from app.modules.chemistry.solvers.common_chem import num, verified
@@ -162,7 +165,9 @@ def solve_mass_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
     product_moles = moles * product_coeff / reactant_coeff
     value_num, unit = _from_moles(target, product_moles, find_unit, intent.params)
     value = f"{num(value_num)} {unit}"
-    return verified(
+    known_moles = f"{num(moles)} mol"
+    product_ratio = f"{num(moles)} × ({product_coeff} / {reactant_coeff})"
+    result = verified(
         "Verified stoichiometry chain",
         (
             f"Balanced equation: {_balanced_text(equation)}",
@@ -172,11 +177,22 @@ def solve_mass_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
         "Mass–mole–particle stoichiometry",
         f"n({target}) = n({known}) × ({product_coeff} / {reactant_coeff})",
         (
-            f"n({known}) = {num(moles)} mol",
-            f"n({target}) = {num(moles)} × ({product_coeff} / {reactant_coeff})",
+            f"n({known}) = {known_moles}",
+            f"n({target}) = {product_ratio}",
         ),
         f"{target} = {value}",
         value,
+    )
+    return replace(
+        result,
+        scene=StoichScene(
+            title="Stoichiometry chain",
+            steps=[
+                StoichStep(label=f"n({known})", value=known_moles),
+                StoichStep(label=f"n({target})", value=product_ratio),
+                StoichStep(label=target, value=value),
+            ],
+        ),
     )
 
 

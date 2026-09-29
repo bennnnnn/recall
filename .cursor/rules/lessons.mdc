@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A verified crystal-field answer treated every CN=4 complex as tetrahedral, and a bare `mass =` was used as a nuclear mass.** Coordination number 4 is also square planar, and an atomic mass is not the nucleus. Require tetrahedral or square planar before a CN=4 answer, and accept only `nuclear mass =`. Scene rows come from the solver’s numbers; do not parse the formatted substitution back into a table.
+
 - **Nuclear mass defect was answered as unverified physics.** The advanced-physics cue treats “mass defect” and “binding energy” as physics, so a supplied nuclear mass never reached chemistry. Skip that cue when the nuclear mass is written out; chemistry owns Δm and E/A only then.
 
 - **A θ-form rotational or SUVAT solve still opened on the time equation.** `select_formula` only knew each op’s base law, so the reply called `ω² = ω₀² + 2αΔθ` a rearrangement of `ω = ω₀ + αt` (and the same for `v² = u² + 2as`). The variant latex has to be the string the solver stores, and it must set `absent` for the variable that would have taken the earlier branch. `suvat_velocity` and `suvat_time` also have to declare `d`, or that branch never validates.

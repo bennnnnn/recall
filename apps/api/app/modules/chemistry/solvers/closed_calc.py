@@ -34,22 +34,28 @@ def solve_crystal_field(intent: ChemistryIntent) -> ChemistryResult:
     valence = _D_COUNT.get(complex_.metal)
     if valence is None:
         raise MathServiceError("crystal field is limited to the first-row metals")
-    if complex_.coordination_number == 6:
-        geometry = "octahedral"
-    elif complex_.coordination_number == 4:
-        geometry = "tetrahedral"
-    else:
-        raise MathServiceError("crystal field needs coordination number 4 or 6")
+    geometry = _crystal_geometry(complex_.coordination_number, intent.geometry)
     electrons = valence - complex_.oxidation_state
     if electrons < 0 or electrons > 10:
         raise MathServiceError("d-electron count is outside 0 to 10")
-    strong = bool(complex_.ligands) and all(ligand in _STRONG_FIELD for ligand in complex_.ligands)
-    low_spin = geometry == "octahedral" and strong and electrons in {4, 5, 6, 7}
-    unpaired = _unpaired(electrons, low_spin=low_spin)
+    if geometry == "octahedral":
+        strong = bool(complex_.ligands) and all(
+            ligand in _STRONG_FIELD for ligand in complex_.ligands
+        )
+        low_spin = strong and electrons in {4, 5, 6, 7}
+        unpaired = _unpaired(electrons, low_spin=low_spin)
+        spin = "low-spin" if low_spin else "high-spin"
+    elif geometry == "tetrahedral":
+        unpaired = _unpaired(electrons, low_spin=False)
+        spin = "high-spin"
+    else:
+        # Square planar uses the large dx2-y2 gap: pair below it before occupying it.
+        unpaired = _SQUARE_PLANAR_UNPAIRED[electrons]
+        spin = "low-spin"
     moment = math.sqrt(unpaired * (unpaired + 2))
-    spin = "low-spin" if low_spin else "high-spin"
-    shown = f"{geometry} {spin} d{electrons}, {unpaired} unpaired, μ = {num(moment)} BM"
-    note = "coordination number 4 is treated as tetrahedral"
+    label = "square planar" if geometry == "square_planar" else geometry
+    shown = f"{label} {spin} d{electrons}, {unpaired} unpaired, μ = {num(moment)} BM"
+    note = f"geometry = {label}"
     return verified(
         "Verified crystal field",
         (intent.formula or "", note),
@@ -197,15 +203,17 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
         value = velocity * (km + substrate) / substrate
         shown = f"Vmax = {num(value)}"
     elif target == "Km":
-        if velocity is None or maximum is None or substrate is None or velocity == 0:
+        if velocity is None or maximum is None or substrate is None or velocity <= 0:
             raise MathServiceError("Michaelis–Menten cannot solve Km from these values")
-        if maximum == velocity:
-            raise MathServiceError("Km is undefined when v equals Vmax")
+        if not maximum > velocity:
+            raise MathServiceError("Michaelis–Menten needs Vmax greater than v")
         value = substrate * (maximum - velocity) / velocity
         shown = f"Km = {num(value)}"
     else:
-        if velocity is None or maximum is None or km is None or maximum == velocity:
+        if velocity is None or maximum is None or km is None or velocity <= 0:
             raise MathServiceError("Michaelis–Menten cannot solve S from these values")
+        if not maximum > velocity:
+            raise MathServiceError("Michaelis–Menten needs Vmax greater than v")
         value = velocity * km / (maximum - velocity)
         shown = f"S = {num(value)}"
     given = tuple(
@@ -237,6 +245,27 @@ def _stdev(values: list[float]) -> float:
     mean = sum(values) / len(values)
     variance = sum((value - mean) ** 2 for value in values) / (len(values) - 1)
     return math.sqrt(variance)
+
+
+# Unpaired electrons for square planar filling:
+# dz2, then dxz/dyz, then dxy, then dx2-y2. d8 is diamagnetic.
+_SQUARE_PLANAR_UNPAIRED = (0, 1, 0, 1, 2, 1, 0, 1, 0, 1, 0)
+
+
+def _crystal_geometry(coordination_number: int, stated: str | None) -> str:
+    if coordination_number == 6:
+        if stated in {None, "octahedral"}:
+            return "octahedral"
+        raise MathServiceError("coordination number 6 is octahedral, not the stated geometry")
+    if coordination_number == 4:
+        if stated == "tetrahedral":
+            return "tetrahedral"
+        if stated == "square_planar":
+            return "square_planar"
+        raise MathServiceError(
+            "coordination number 4 needs an explicit tetrahedral or square planar geometry"
+        )
+    raise MathServiceError("crystal field needs coordination number 4 or 6")
 
 
 def _unpaired(electrons: int, *, low_spin: bool) -> int:

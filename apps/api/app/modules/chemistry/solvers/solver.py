@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.scene import attach_scene
 from app.modules.chemistry.solvers.acid import (
@@ -120,7 +122,7 @@ from app.modules.chemistry.solvers.titration import solve_titration_strong, solv
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import MathServiceError
 
-_EXTENDED = {
+CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "empirical_formula": solve_empirical,
     "molecular_formula": solve_molecular,
     "mass_stoichiometry": solve_mass_stoichiometry,
@@ -195,49 +197,44 @@ _EXTENDED = {
     "nmr_splitting": solve_nmr_splitting,
     "molecular_ion": solve_molecular_ion,
     "michaelis_menten": solve_michaelis_menten,
+    "balance": solve_equation,
+    "molar_mass": solve_molar_mass,
+    "mass_to_moles": solve_amount,
+    "moles_to_mass": solve_amount,
+    "moles_to_particles": solve_amount,
+    "particles_to_moles": solve_amount,
+    "percent_composition": solve_percent_composition,
+    "percent_yield": solve_percent_yield,
+    "stoichiometry": solve_stoichiometry,
+    "limiting_reagent": solve_stoichiometry,
+    "molarity": solve_solution,
+    "dilution": solve_solution,
+    "molality": solve_solution,
+    "mass_percent": solve_solution,
+    "ph_from_h": solve_acid_base,
+    "ph_from_poh": solve_acid_base,
+    "h_from_ph": solve_acid_base,
+    "poh_from_oh": solve_acid_base,
+    "buffer_ph": solve_acid_base,
+    "ideal_gas": solve_gas,
+    "heat": solve_thermochemistry,
+    "gibbs": solve_thermochemistry,
+    "equilibrium_constant": solve_equilibrium,
+    "reaction_quotient": solve_equilibrium,
+    "first_order_half_life": solve_kinetics,
+    "first_order_concentration": solve_kinetics,
+    "arrhenius": solve_kinetics,
+    "cell_gibbs": solve_electrochemistry,
+    "nernst": solve_electrochemistry,
+    "electrolysis_mass": solve_electrochemistry,
+    "radioactive_decay": solve_nuclear,
+    "beer_lambert": solve_beer_lambert,
 }
-
-_DIRECT_OPS = frozenset(
-    {
-        "balance",
-        "molar_mass",
-        "mass_to_moles",
-        "moles_to_mass",
-        "moles_to_particles",
-        "particles_to_moles",
-        "percent_composition",
-        "percent_yield",
-        "stoichiometry",
-        "limiting_reagent",
-        "molarity",
-        "dilution",
-        "molality",
-        "mass_percent",
-        "ph_from_h",
-        "ph_from_poh",
-        "h_from_ph",
-        "poh_from_oh",
-        "buffer_ph",
-        "ideal_gas",
-        "heat",
-        "gibbs",
-        "equilibrium_constant",
-        "reaction_quotient",
-        "first_order_half_life",
-        "first_order_concentration",
-        "arrhenius",
-        "cell_gibbs",
-        "nernst",
-        "electrolysis_mass",
-        "radioactive_decay",
-        "beer_lambert",
-    }
-)
 
 
 def supported_operations() -> frozenset[str]:
     """Every operation ``solve_chemistry`` can dispatch."""
-    return frozenset(_EXTENDED) | _DIRECT_OPS
+    return frozenset(CHEMISTRY_SOLVERS)
 
 
 def solve_chemistry(intent: ChemistryIntent) -> ChemistryResult:
@@ -246,38 +243,7 @@ def solve_chemistry(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def _solve(intent: ChemistryIntent) -> ChemistryResult:
-    extended = _EXTENDED.get(intent.chemistry_op)
-    if extended is not None:
-        return extended(intent)
-    op = intent.chemistry_op
-    if op == "balance":
-        return solve_equation(intent)
-    if op == "molar_mass":
-        return solve_molar_mass(intent)
-    if op in {"mass_to_moles", "moles_to_mass", "moles_to_particles", "particles_to_moles"}:
-        return solve_amount(intent)
-    if op == "percent_composition":
-        return solve_percent_composition(intent)
-    if op == "percent_yield":
-        return solve_percent_yield(intent)
-    if op in {"stoichiometry", "limiting_reagent"}:
-        return solve_stoichiometry(intent)
-    if op in {"molarity", "dilution", "molality", "mass_percent"}:
-        return solve_solution(intent)
-    if op in {"ph_from_h", "ph_from_poh", "h_from_ph", "poh_from_oh", "buffer_ph"}:
-        return solve_acid_base(intent)
-    if op == "ideal_gas":
-        return solve_gas(intent)
-    if op in {"heat", "gibbs"}:
-        return solve_thermochemistry(intent)
-    if op in {"equilibrium_constant", "reaction_quotient"}:
-        return solve_equilibrium(intent)
-    if op in {"first_order_half_life", "first_order_concentration", "arrhenius"}:
-        return solve_kinetics(intent)
-    if op in {"cell_gibbs", "nernst", "electrolysis_mass"}:
-        return solve_electrochemistry(intent)
-    if op == "radioactive_decay":
-        return solve_nuclear(intent)
-    if op == "beer_lambert":
-        return solve_beer_lambert(intent)
-    raise MathServiceError(f"unsupported chemistry operation: {op}")
+    solver = CHEMISTRY_SOLVERS.get(intent.chemistry_op)
+    if solver is None:
+        raise MathServiceError(f"unsupported chemistry operation: {intent.chemistry_op}")
+    return solver(intent)
