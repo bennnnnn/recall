@@ -35,6 +35,39 @@ def test_catalog_matches_operations_and_solvers() -> None:
     assert set(CATALOG) == literal == supported_operations()
     assert all(spec.kind in kinds for spec in CATALOG.values())
     assert all(spec.law_name and spec.base_formula for spec in CATALOG.values())
+    for spec in CATALOG.values():
+        names = {variable.name for variable in spec.variables}
+        assert {variable.name for variable in spec.variables if variable.required} <= names
+
+
+def test_chemistry_intent_rejects_an_undeclared_param() -> None:
+    from pydantic import ValidationError
+
+    from app.models.schemas.chemistry import ChemistryIntent
+
+    gibbs = CATALOG["gibbs"]
+    assert {variable.name for variable in gibbs.variables if variable.required} == {
+        "delta_h",
+        "delta_s",
+        "temperature",
+    }
+    assert gibbs.assumptions
+    ChemistryIntent(
+        kind="thermochemistry",
+        chemistry_op="gibbs",
+        params={"delta_h": -40, "delta_s": -0.1, "temperature": 300},
+    )
+    with pytest.raises(ValidationError, match="does not declare mass"):
+        ChemistryIntent(
+            kind="thermochemistry",
+            chemistry_op="gibbs",
+            params={"delta_h": -40, "delta_s": -0.1, "temperature": 300, "mass": 1},
+        )
+    assert CATALOG["hess"].accepts_param("dh2")
+    assert CATALOG["hess"].accepts_param("m1")
+    assert not CATALOG["hess"].accepts_param("mass")
+    assert CATALOG["limiting_solution"].accepts_param("HCl")
+    assert not CATALOG["limiting_solution"].accepts_param("m1")
 
 
 def test_water_scene_keeps_the_molecular_angle() -> None:
