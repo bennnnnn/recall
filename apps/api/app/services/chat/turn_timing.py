@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import logging
 import time
+from contextvars import ContextVar, Token
 from uuid import UUID
 
 logger = logging.getLogger(__name__)
+
+_active: ContextVar[TurnTimingTracker | None] = ContextVar("recall_turn_timing", default=None)
 
 
 class TurnTimingTracker:
@@ -23,6 +26,10 @@ class TurnTimingTracker:
 
     def mark_phase(self, phase: str) -> None:
         self._phases_ms[phase] = self._elapsed_ms()
+
+    def add_phase_ms(self, phase: str, duration_ms: float) -> None:
+        """Store a phase duration. Checkpoints from ``mark_phase`` stay cumulative."""
+        self._phases_ms[phase] = duration_ms
 
     def mark_prompt_ready(self) -> None:
         self._prompt_ready_ms = self._elapsed_ms()
@@ -73,3 +80,25 @@ class TurnTimingTracker:
             gateway_to_first_token,
             {phase: round(ms, 1) for phase, ms in self._phases_ms.items()},
         )
+
+
+def activate_turn_timing(tracker: TurnTimingTracker | None) -> Token[TurnTimingTracker | None]:
+    return _active.set(tracker)
+
+
+def reset_turn_timing(token: Token[TurnTimingTracker | None]) -> None:
+    _active.reset(token)
+
+
+def note_elapsed(phase: str, started: float) -> None:
+    tracker = _active.get()
+    if tracker is None:
+        return
+    tracker.add_phase_ms(phase, (time.perf_counter() - started) * 1000.0)
+
+
+def record_phase_ms(phase: str, duration_ms: float) -> None:
+    tracker = _active.get()
+    if tracker is None:
+        return
+    tracker.add_phase_ms(phase, duration_ms)

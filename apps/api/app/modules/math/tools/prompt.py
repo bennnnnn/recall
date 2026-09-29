@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from dataclasses import replace
 from typing import Literal, cast
 
@@ -253,6 +254,9 @@ async def build_math_augmentation(
     if not needs_math:
         return None, None
 
+    from app.services.chat.turn_timing import note_elapsed
+
+    extract_started = time.perf_counter()
     if image_math_extract is not None:
         # OCR already produced a Pydantic-validated extract — map it straight
         # to MathIntent (do not re-parse through the text regex, which mangles
@@ -277,6 +281,7 @@ async def build_math_augmentation(
             "Never invent measures.",
             MATH_REPLY_POLICY,
         ]
+        note_elapsed("extract_ms", extract_started)
         return "\n".join(lines), None
 
     if intent is None and image_math_extract is None:
@@ -286,6 +291,7 @@ async def build_math_augmentation(
             # An empty extract is also what a regex miss looks like. A chain
             # must not fall through to the LLM extractor, which can rewrite
             # ``a=b=c`` into one solvable equation.
+            note_elapsed("extract_ms", extract_started)
             return (
                 "The message chains equalities (a=b=c). Ask which single "
                 "equation to solve. Do not collapse the chain or claim a "
@@ -302,6 +308,7 @@ async def build_math_augmentation(
         # an evaluation request, but could not parse the requested expression.
         # Do not let a word-problem or LLM fallback certify only the easy
         # binding (for example x=-5) while silently dropping malformed x^2.
+        note_elapsed("extract_ms", extract_started)
         return (
             "The assignment was readable, but the expression to evaluate was not. "
             "Ask the user to rewrite the expression; do not solve only the given "
@@ -324,6 +331,7 @@ async def build_math_augmentation(
             intent = None
 
     if intent is None:
+        note_elapsed("extract_ms", extract_started)
         return (
             "No verified solver result is available for this request. "
             "Do not claim verification or invent missing measures.\n\n"
@@ -331,9 +339,12 @@ async def build_math_augmentation(
             None,
         )
 
+    note_elapsed("extract_ms", extract_started)
     from app.modules.math import tools as mt
 
+    solve_started = time.perf_counter()
     verified = await mt._build_verified_block_async(intent, settings)
+    note_elapsed("solve_ms", solve_started)
     if not verified:
         # Intent matched but SymPy timed out / rejected / had no builder result.
         # Inject honesty so the model does not reuse the same "verified" UX.

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 
 from redis.asyncio import Redis
 
@@ -149,6 +150,8 @@ async def build_chemistry_augmentation(
 ) -> tuple[str | None, VerifiedChemistry | None]:
     """Return prompt context plus the typed verified solve, when available."""
     _ = settings
+    from app.services.chat.turn_timing import note_elapsed
+
     iupac_smiles = _iupac_smiles(content)
     if iupac_smiles is not None:
         name = await pubchem_gateway.lookup_iupac_name(iupac_smiles)
@@ -161,9 +164,13 @@ async def build_chemistry_augmentation(
             )
         verified = verified_iupac(iupac_smiles, name)
         return verified.prompt_text, verified
+    extract_started = time.perf_counter()
     intent = extract_chemistry_intent(content)
+    note_elapsed("extract_ms", extract_started)
     if intent is not None:
+        solve_started = time.perf_counter()
         solved = build_verified_chemistry(intent)
+        note_elapsed("solve_ms", solve_started)
         if solved is not None:
             return solved.prompt_text, solved
 

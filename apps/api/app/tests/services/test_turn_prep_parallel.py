@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -19,6 +20,7 @@ import pytest
 from app.core.config import Settings
 from app.services.chat.turn_prep.context import build_stream_prompt_context
 from app.services.chat.turn_prep.mode import _TurnMode
+from app.services.subject_solving import SubjectAugmentation
 from app.services.time_context import format_date_answer, format_year_answer
 
 
@@ -753,6 +755,10 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
             AsyncMock(return_value=None),
         ),
         patch(
+            "app.services.chat.turn_prep.context.build_subject_augmentation",
+            AsyncMock(return_value=SubjectAugmentation("math", "MATH_BLOCK", verified)),
+        ),
+        patch(
             "app.services.chat.turn_prep.context.fetch_web_and_tools",
             AsyncMock(return_value=(None, "MATH_BLOCK", [], verified)),
         ),
@@ -846,29 +852,21 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
     assert intent is not None
     verified_chemistry = build_verified_chemistry(intent)
     assert verified_chemistry is not None
+    from app.services.chat.turn_timing import TurnTimingTracker
+
+    timing = TurnTimingTracker()
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
+    prompt = AsyncMock(return_value=list(messages))
+    web = AsyncMock(return_value=(None, verified_chemistry.prompt_text, [], verified_chemistry))
 
     with (
         patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
-        patch(
-            "app.services.chat.turn_prep.context.build_prompt_messages",
-            AsyncMock(return_value=list(messages)),
-        ),
+        patch("app.services.chat.turn_prep.context.build_prompt_messages", prompt),
         patch(
             "app.services.chat.turn_prep.context._resolve_instant_reply",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.services.chat.turn_prep.context.fetch_web_and_tools",
-            AsyncMock(
-                return_value=(
-                    None,
-                    verified_chemistry.prompt_text,
-                    [],
-                    verified_chemistry,
-                )
-            ),
-        ),
+        patch("app.services.chat.turn_prep.context.fetch_web_and_tools", web),
         patch(
             "app.services.chat.turn_prep.context.fetch_integration_blocks",
             AsyncMock(return_value=[]),
@@ -909,13 +907,121 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
             user=user,
             chat=chat,
             turn_mode=_slim_turn_mode(),
+            timing=timing,
         )
 
-    assert bundle.verified_subject is verified_chemistry
+    assert bundle.verified_subject is not None
+    assert bundle.verified_subject.subject == "chemistry"
     assert bundle.instant_reply is not None
     assert "**ΔG = -10 kJ/mol** ✅" in bundle.instant_reply
     assert "H = 2Sk/5" not in bundle.instant_reply
     assert "```answer" not in bundle.instant_reply
+    prompt.assert_not_awaited()
+    web.assert_not_awaited()
+    phases = timing._phases_ms
+    assert "subject_detect_ms" in phases
+    assert "extract_ms" in phases
+    assert "solve_ms" in phases
+    assert "direct_render_ms" in phases
+    assert phases["prompt_build_ms"] == 0.0
+
+
+async def _prompt_was_built(
+    fake_redis,
+    content: str,
+    *,
+    recent_messages: list[Any] | None = None,
+    has_image_attachment: bool = False,
+) -> AsyncMock:
+    user = _make_user()
+    chat = _make_chat()
+    messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
+    prompt = AsyncMock(return_value=list(messages))
+    with (
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.turn_prep.context.build_prompt_messages", prompt),
+        patch(
+            "app.services.chat.turn_prep.context._resolve_instant_reply",
+            AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_web_and_tools",
+            AsyncMock(return_value=(None, None, [], None)),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            AsyncMock(return_value=[]),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.extract_settings_changes",
+            return_value=[],
+        ),
+        patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
+        patch(
+            "app.services.chat.turn_prep.context.plan_service.chat_fallback_models",
+            return_value=[],
+        ),
+    ):
+        await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            content,
+            "free-chat",
+            Settings(
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=True,
+                chemistry_enabled=True,
+                web_search_enabled=True,
+                gmail_enabled=False,
+                google_calendar_enabled=False,
+            ),
+            fake_redis,
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+            recent_messages=recent_messages,
+            has_image_attachment=has_image_attachment,
+        )
+    return prompt
+
+
+@pytest.mark.asyncio
+async def test_working_followup_still_builds_the_prompt(fake_redis) -> None:
+    from types import SimpleNamespace
+
+    recent = [
+        SimpleNamespace(role="user", content="solve 2x + 3 = 11"),
+        SimpleNamespace(role="assistant", content="x = 4"),
+    ]
+    prompt = await _prompt_was_built(fake_redis, "How?", recent_messages=recent)
+    prompt.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_image_attachment_still_builds_the_prompt(fake_redis) -> None:
+    prompt = await _prompt_was_built(
+        fake_redis,
+        "Find Gibbs free energy when delta H=-40 kJ, delta S=-100 J and T=300 K",
+        has_image_attachment=True,
+    )
+    prompt.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_web_search_and_pubchem_still_build_the_prompt(fake_redis) -> None:
+    web = await _prompt_was_built(fake_redis, "search the web for caffeine")
+    pubchem = await _prompt_was_built(fake_redis, "IUPAC name of SMILES CCO")
+    web.assert_awaited()
+    pubchem.assert_awaited()
 
 
 @pytest.mark.asyncio
@@ -940,6 +1046,10 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
         patch(
             "app.services.chat.turn_prep.context._resolve_instant_reply",
             AsyncMock(return_value=None),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context.build_subject_augmentation",
+            AsyncMock(return_value=SubjectAugmentation("math", "MATH_BLOCK", verified)),
         ),
         patch(
             "app.services.chat.turn_prep.context.fetch_web_and_tools",

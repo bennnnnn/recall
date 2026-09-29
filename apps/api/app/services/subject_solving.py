@@ -40,7 +40,7 @@ class SubjectAdapter:
     direct_reply: Callable[..., str | None]
 
 
-def _closed_chemistry(text: str) -> bool:
+def closed_chemistry_request(text: str) -> bool:
     """A chemistry cue plus a complete extraction, before algebra can claim it."""
     from app.modules.chemistry.extract import extract_chemistry_intent
     from app.modules.chemistry.request import is_chemistry_question
@@ -68,7 +68,7 @@ def detect_subject(
         return "math"
     if needs_physics(text):
         return "physics"
-    if chemistry_enabled and _closed_chemistry(text):
+    if chemistry_enabled and closed_chemistry_request(text):
         return "chemistry"
     if needs_symbolic_math(text, has_image_attachment=has_image_attachment):
         return "math"
