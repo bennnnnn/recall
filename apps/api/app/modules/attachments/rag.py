@@ -302,7 +302,7 @@ async def retrieve_for_prompt(
     # check) had no catch anywhere in this call chain, so it propagated all
     # the way up and failed the whole chat turn instead of just proceeding
     # without attachment context — RAG is best-effort background context,
-    # same as memory/todos/projects, and must degrade the same way.
+    # same as memory and todos, and must degrade the same way.
     filenames: dict[UUID, str] = {}
     loaded_files: list[Attachment] = []
     try:
