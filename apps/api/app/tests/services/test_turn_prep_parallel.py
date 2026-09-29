@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import AsyncGenerator
+from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -929,7 +930,7 @@ async def _prompt_was_built(
     fake_redis,
     content: str,
     *,
-    recent_messages: list[object] | None = None,
+    recent_messages: list[Any] | None = None,
     has_image_attachment: bool = False,
 ) -> AsyncMock:
     user = _make_user()
