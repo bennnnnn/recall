@@ -69,9 +69,9 @@ describe("GeometryBlock", () => {
     expect(tree).toContain("3 cm");
     expect(tree).toContain("4 cm");
     expect(tree).toContain("5 cm");
-    expect(tree).toContain("90°");
-    expect(tree).toContain("36.9°");
-    expect(tree).toContain("53.1°");
+    expect(tree).not.toContain("90°");
+    expect(tree).not.toContain("36.9°");
+    expect(tree).not.toContain("53.1°");
   });
 
   it.each([false, true])(
@@ -188,7 +188,7 @@ describe("GeometryBlock", () => {
     const tree = JSON.stringify(toJSON());
     expect(tree).toContain("3 cm");
     expect(tree).toContain("4 cm");
-    expect(tree).toContain("6 cm²");
+    expect(tree).not.toContain("cm²");
     expect(tree).not.toContain("°");
     // Polygon renders as a native Path; no extra interior-angle arcs.
     expect((tree.match(/"RNSVGPath"/g) ?? []).length).toBe(1);
@@ -207,12 +207,27 @@ describe("GeometryBlock", () => {
     const { toJSON } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
     expect(tree).toContain("90°");
-    expect(tree).toContain("36.9°");
-    expect(tree).toContain("53.1°");
+    expect(tree).not.toContain("36.9°");
+    expect(tree).not.toContain("53.1°");
     expect(tree).toContain("3 cm");
     expect(tree).toContain("4 cm");
     expect(tree).toContain("RNSVGRect");
     expect(tree).not.toContain("right-angle-mark");
+  });
+
+  it("prints acute angles only from server labels", async () => {
+    const content = JSON.stringify({
+      type: "right_triangle",
+      base: 3,
+      height: 4,
+      unit: "cm",
+      show_angle: true,
+      labels: { angle_at_base: "53.1°", angle_at_height: "36.9°" },
+    });
+    const tree = JSON.stringify((await render(<GeometryBlock content={content} />)).toJSON());
+    expect(tree).toContain("90°");
+    expect(tree).toContain("53.1°");
+    expect(tree).toContain("36.9°");
   });
 
   it("draws leader lines when a skinny right triangle cannot fit 10° inside", async () => {
@@ -278,10 +293,12 @@ describe("GeometryBlock", () => {
       height: 5,
       unit: "cm",
     });
-    const { toJSON } = await render(<GeometryBlock content={content} />);
+    const { toJSON, getByLabelText } = await render(<GeometryBlock content={content} />);
     const tree = JSON.stringify(toJSON());
-    expect((tree.match(/4 cm/g) ?? []).length).toBe(2);
-    expect((tree.match(/5 cm/g) ?? []).length).toBe(2);
+    const drawn = tree.replace(/"accessibilityLabel":"[^"]*"/, "");
+    expect((drawn.match(/4 cm/g) ?? []).length).toBe(2);
+    expect((drawn.match(/5 cm/g) ?? []).length).toBe(2);
+    expect(getByLabelText("4 cm, 5 cm")).toBeOnTheScreen();
   });
 
   it("draws a requested diameter across the full circle", async () => {
@@ -368,10 +385,27 @@ describe("GeometryBlock", () => {
       b: 4,
       c: 5,
       unit: "cm",
+      area: 6,
     });
     const { getByTestId } = await render(<GeometryBlock content={content} />);
     const svg = getByTestId("sss-svg");
     const label = getByTestId("sss-area-label");
     expect(Number(label.props.y)).toBeLessThan(Number(svg.props.height));
+  });
+
+  it("reads server measurements as the diagram accessibility label", async () => {
+    const solved = JSON.stringify({
+      type: "circle",
+      radius: 5,
+      unit: "cm",
+      area: 78.54,
+    });
+    const { getByLabelText } = await render(<GeometryBlock content={solved} />);
+    expect(getByLabelText("5 cm, 78.54 cm²")).toBeOnTheScreen();
+
+    const given = JSON.stringify({ type: "rectangle", width: 6, height: 4, unit: "cm" });
+    const bare = await render(<GeometryBlock content={given} />);
+    expect(bare.getByLabelText("6 cm, 4 cm")).toBeOnTheScreen();
+    expect(bare.queryByLabelText(/cm²/)).toBeNull();
   });
 });

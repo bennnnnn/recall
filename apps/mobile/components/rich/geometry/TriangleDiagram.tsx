@@ -79,9 +79,11 @@ export function TriangleDiagram({ spec, screenWidth, theme }: { spec: TriangleSp
           >
             {labels.height}
           </SvgText>
-          <SvgText x={verts[2].x} y={verts[2].y - 8} fill={theme.textSecondary} fontSize={11} textAnchor="middle">
-            {labels.area}
-          </SvgText>
+          {labels.area ? (
+            <SvgText x={verts[2].x} y={verts[2].y - 8} fill={theme.textSecondary} fontSize={11} textAnchor="middle">
+              {labels.area}
+            </SvgText>
+          ) : null}
         </>
       ) : null}
     </Svg>

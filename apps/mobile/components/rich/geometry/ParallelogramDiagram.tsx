@@ -87,17 +87,19 @@ export function ParallelogramDiagram({
           >
             {labels.side}
           </SvgText>
-          <SvgText
-            x={(bl.x + br.x) / 2}
-            y={bl.y + 40}
-            fill={theme.textSecondary}
-            fontSize={12}
-            textAnchor="middle"
-          >
-            {spec.show_perimeter
-              ? `${i18n.t("rich.perimeter")}\u00A0${labels.perimeter}`
-              : `${i18n.t("rich.area")}\u00A0${labels.area}`}
-          </SvgText>
+          {(spec.show_perimeter ? labels.perimeter : labels.area) ? (
+            <SvgText
+              x={(bl.x + br.x) / 2}
+              y={bl.y + 40}
+              fill={theme.textSecondary}
+              fontSize={12}
+              textAnchor="middle"
+            >
+              {spec.show_perimeter
+                ? `${i18n.t("rich.perimeter")}\u00A0${labels.perimeter}`
+                : `${i18n.t("rich.area")}\u00A0${labels.area}`}
+            </SvgText>
+          ) : null}
         </>
       ) : null}
     </QuadrilateralFrame>

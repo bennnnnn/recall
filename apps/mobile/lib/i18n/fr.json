@@ -222,6 +222,7 @@
   "chat.rename_failed": "Impossible de renommer ce chat.",
   "chat.rename_title": "Renommer le chat",
   "chat.renamed_toast": "Chat renommé",
+  "chat.reply_ready": "Réponse prête",
   "chat.restore_draft": "Restaurer le brouillon",
   "chat.restore_draft_blocked": "Envoyez ou effacez votre brouillon actuel, puis restaurez ce message.",
   "chat.scroll_to_latest": "Aller aux derniers messages",

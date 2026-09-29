@@ -1,3 +1,10 @@
+/**
+ * Composer unit pad. This is a keystroke preview, not a verified solve.
+ * Pint (the API registry) owns verified conversion. Each non-temperature
+ * `toSi` is pinned to that registry in `test_unit_converter_pint.py`.
+ * Temperature uses an offset, so it stays out of that check. Display
+ * symbols and prompt tokens live here; do not generate this catalog from Pint.
+ */
 export const UNIT_CATEGORIES = [
   "length",
   "area",
@@ -127,7 +134,7 @@ export const UNITS_BY_CATEGORY: Record<UnitCategory, readonly UnitDef[]> = {
     u("wh", "Wh", "Watt-hour", "Wh", "energy", 3600),
     u("kwh", "kWh", "Kilowatt-hour", "kWh", "energy", 3.6e6),
     u("ev", "eV", "Electronvolt", "eV", "energy", 1.602176634e-19),
-    u("btu", "BTU", "British thermal unit", "BTU", "energy", 1055.05585262),
+    u("btu", "BTU", "British thermal unit", "BTU", "energy", 1055.056),
   ],
   pressure: [
     u("pa", "Pa", "Pascal", "Pa", "pressure", 1),

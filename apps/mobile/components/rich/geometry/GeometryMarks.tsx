@@ -46,10 +46,14 @@ export function InteriorAngleMarks({
   vertices,
   color,
   fill,
+  degreeLabels,
 }: {
   vertices: { x: number; y: number }[];
   color: string;
   fill: string;
+  /** Server-provided degree strings, one per vertex. Missing entries draw the
+   * arc or right-angle square without a number. */
+  degreeLabels?: readonly (string | undefined)[];
 }) {
   const n = vertices.length;
   const marks = polygonInteriorAngleMarks(vertices);
@@ -68,6 +72,7 @@ export function InteriorAngleMarks({
             c={c}
             color={color}
             fill={fill}
+            degreeText={degreeLabels?.[i] || undefined}
           />
         );
       })}
@@ -82,6 +87,7 @@ function VertexAngleGraphic({
   c,
   color,
   fill,
+  degreeText,
 }: {
   mark: VertexAngleMark;
   a: { x: number; y: number };
@@ -89,6 +95,7 @@ function VertexAngleGraphic({
   c: { x: number; y: number };
   color: string;
   fill: string;
+  degreeText?: string;
 }) {
   const right = isRightAngleDeg(mark.deg);
   const size = 14;
@@ -117,7 +124,7 @@ function VertexAngleGraphic({
           accessible={false}
         />
       )}
-      {mark.leader ? (
+      {degreeText && mark.leader ? (
         <Line
           x1={mark.leader.x1}
           y1={mark.leader.y1}
@@ -128,27 +135,31 @@ function VertexAngleGraphic({
           accessible={false}
         />
       ) : null}
-      <Rect
-        x={mark.labelX - mark.labelWidth / 2}
-        y={mark.labelY - mark.labelHeight / 2}
-        width={mark.labelWidth}
-        height={mark.labelHeight}
-        rx={3}
-        fill={fill}
-        accessible={false}
-      />
-      <SvgText
-        x={mark.labelX}
-        y={mark.labelY}
-        fill={color}
-        fontSize={11}
-        fontWeight="600"
-        textAnchor="middle"
-        alignmentBaseline="middle"
-        accessible={false}
-      >
-        {mark.text}
-      </SvgText>
+      {degreeText ? (
+        <Rect
+          x={mark.labelX - mark.labelWidth / 2}
+          y={mark.labelY - mark.labelHeight / 2}
+          width={mark.labelWidth}
+          height={mark.labelHeight}
+          rx={3}
+          fill={fill}
+          accessible={false}
+        />
+      ) : null}
+      {degreeText ? (
+        <SvgText
+          x={mark.labelX}
+          y={mark.labelY}
+          fill={color}
+          fontSize={11}
+          fontWeight="600"
+          textAnchor="middle"
+          alignmentBaseline="middle"
+          accessible={false}
+        >
+          {degreeText}
+        </SvgText>
+      ) : null}
     </>
   );
 }

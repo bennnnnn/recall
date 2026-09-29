@@ -9,7 +9,7 @@ import {
   isVisualDiagramFenceLang,
 } from "@/lib/fenceRegistry";
 import { teachingSpeech } from "@/lib/math/teachingBlock";
-import { parseSimpleLatex, segmentsToPlain, type MathSegment } from "@/lib/math/text";
+import { parseSimpleLatex, segmentsToPlain, type MathAccentKind, type MathSegment } from "@/lib/math/text";
 
 function mapFenceRegions(
   text: string,
@@ -179,16 +179,93 @@ function stripMarkdownChrome(text: string): string {
   return out;
 }
 
+const MAX_SPEAK_MATH_DEPTH = 12;
+
+const ACCENT_WORD: Record<MathAccentKind, string> = {
+  overline: "bar",
+  underline: "underlined",
+  hat: "hat",
+  tilde: "tilde",
+  vec: "vector",
+  vecLeft: "vector",
+  bar: "bar",
+  dot: "dot",
+  ddot: "double dot",
+};
+
+/** Spoken operators. The parser has already turned `\times` into `×`. */
+function speakPlainMath(value: string): string {
+  let out = value
+    .replaceAll("±", " plus or minus ")
+    .replaceAll("×", " times ")
+    .replaceAll("⋅", " dot ")
+    .replaceAll("·", " dot ");
+  if (out.includes("\\")) {
+    out = out
+      .replace(/\\frac\{([^{}]+)\}\{([^{}]+)\}/g, "$1 over $2")
+      .replace(/\\sqrt\{([^{}]+)\}/g, "the square root of $1")
+      .replace(/\\times(?![a-zA-Z])/g, " times ")
+      .replace(/\\cdot(?![a-zA-Z])/g, " dot ")
+      .replace(/\\pm(?![a-zA-Z])/g, " plus or minus ")
+      .replace(/\\[a-zA-Z]+/g, " ")
+      .replace(/[{}]/g, "");
+  }
+  return out;
+}
+
+function speakScript(value: string, depth: number, kind: "sup" | "sub"): string {
+  const spoken = (
+    depth >= MAX_SPEAK_MATH_DEPTH ? value : speakMathSegments(parseSimpleLatex(value), depth + 1)
+  ).trim();
+  if (!spoken) return "";
+  if (kind === "sub") return ` subscript ${spoken}`;
+  if (spoken === "2") return " squared";
+  if (spoken === "3") return " cubed";
+  return ` to the power of ${spoken}`;
+}
+
+/** Read-aloud walks the same segments as copy. A `[^}]+` fraction regex
+ * never matches `x^{2}`, and stripping the leftover braces speaks `fracx^24`. */
+function speakMathSegments(segments: MathSegment[], depth = 0): string {
+  if (depth > MAX_SPEAK_MATH_DEPTH) {
+    return segments.map((segment) => ("value" in segment ? segment.value : "")).join(" ");
+  }
+  return segments.map((segment) => {
+    switch (segment.type) {
+      case "text":
+      case "upright":
+        return speakPlainMath(segment.value);
+      case "sup":
+      case "sub":
+        return speakScript(segment.value, depth, segment.type);
+      case "frac": {
+        const num = speakMathSegments(segment.num, depth + 1).trim();
+        const den = speakMathSegments(segment.den, depth + 1).trim();
+        return `${num} over ${den}`;
+      }
+      case "sqrt": {
+        const body = speakMathSegments(segment.body, depth + 1).trim();
+        if (!segment.degree) return `the square root of ${body}`;
+        const degree = speakMathSegments(parseSimpleLatex(segment.degree), depth + 1).trim();
+        if (degree === "3") return `the cube root of ${body}`;
+        return `the ${degree} root of ${body}`;
+      }
+      case "cancel":
+        return speakMathSegments(segment.body, depth + 1);
+      case "accent": {
+        const body = speakMathSegments(segment.body, depth + 1).trim();
+        return `${body} ${ACCENT_WORD[segment.kind]}`;
+      }
+      default: {
+        const _exhaustive: never = segment;
+        return _exhaustive;
+      }
+    }
+  }).join("");
+}
+
 function speakMath(latex: string): string {
-  return latex
-    .replace(/\\frac\{([^}]+)\}\{([^}]+)\}/g, "$1 over $2")
-    .replace(/\\sqrt\{([^}]+)\}/g, "sqrt $1")
-    .replace(/\\times/g, " times ")
-    .replace(/\\cdot/g, " dot ")
-    .replace(/\\pm/g, " plus or minus ")
-    .replace(/[{}]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+  return speakMathSegments(parseSimpleLatex(latex)).replace(/\s+/g, " ").trim();
 }
 
 /** Copy needs explicit grouping; visual fraction bars and radical overbars vanish. */

@@ -222,6 +222,7 @@
   "chat.rename_failed": "Не удалось переименовать этот чат.",
   "chat.rename_title": "Переименовать чат",
   "chat.renamed_toast": "Чат переименован",
+  "chat.reply_ready": "Ответ готов",
   "chat.restore_draft": "Восстановить черновик",
   "chat.restore_draft_blocked": "Отправьте или очистите текущий черновик, затем восстановите это сообщение.",
   "chat.scroll_to_latest": "К последним сообщениям",

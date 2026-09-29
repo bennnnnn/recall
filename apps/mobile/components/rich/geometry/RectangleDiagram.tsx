@@ -173,7 +173,7 @@ export function RectangleDiagram({
       >
         {isSquare ? labels.side : labels.height}
       </SvgText>
-      {spec.show_diagonal ? (
+      {spec.show_diagonal && labels.diagonal ? (
         <SvgText
           x={x + w / 2 + 8}
           y={y + h / 2 - 6}
@@ -184,7 +184,7 @@ export function RectangleDiagram({
           {labels.diagonal}
         </SvgText>
       ) : null}
-      {showDiagonalAngleLabel ? (
+      {showDiagonalAngleLabel && labels.angle ? (
         // Diagonal-vs-base angle at the top-left (where TL→BR diagonal
         // meets the top edge) — NOT the rectangle's own 90° corner.
         // Arc + ∠ label; bracket is suppressed when the diagonal is drawn.
@@ -206,7 +206,7 @@ export function RectangleDiagram({
           </SvgText>
         </>
       ) : null}
-      {spec.show_area ? (
+      {spec.show_area && labels.area ? (
         <SvgText
           x={x + w / 2}
           y={y + h + 40}
@@ -217,7 +217,7 @@ export function RectangleDiagram({
           {`${i18n.t("rich.area")}\u00A0${labels.area}`}
         </SvgText>
       ) : null}
-      {spec.show_perimeter ? (
+      {spec.show_perimeter && labels.perimeter ? (
         <SvgText
           x={x + w / 2}
           y={y + h + (spec.show_area ? 56 : 40)}

@@ -222,6 +222,7 @@
   "chat.rename_failed": "Chat konnte nicht umbenannt werden.",
   "chat.rename_title": "Chat umbenennen",
   "chat.renamed_toast": "Chat umbenannt",
+  "chat.reply_ready": "Antwort bereit",
   "chat.restore_draft": "Entwurf wiederherstellen",
   "chat.restore_draft_blocked": "Sende oder lösche deinen aktuellen Entwurf und stelle dann diese Nachricht wieder her.",
   "chat.scroll_to_latest": "Zu neuesten Nachrichten scrollen",

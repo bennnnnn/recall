@@ -68,18 +68,28 @@ describe("geometryBlock", () => {
     }
   });
 
-  it("computes right triangle labels", () => {
-    const spec = parseGeometrySpec(
+  it("renders right-triangle measurements only when the server sent them", () => {
+    const bare = parseGeometrySpec(
       '{"type":"right_triangle","base":6,"height":4}',
     );
-    expect(spec?.type).toBe("right_triangle");
-    if (spec?.type === "right_triangle") {
-      const labels = computeRightTriangleLabels(spec);
+    expect(bare?.type).toBe("right_triangle");
+    if (bare?.type === "right_triangle") {
+      const labels = computeRightTriangleLabels(bare);
+      expect(labels.hypotenuse).toBe("");
+      expect(labels.area).toBe("");
+      expect(labels.angle).toBe("90°");
+      expect(labels.angle_at_base).toBe("");
+      expect(labels.angle_at_height).toBe("");
+    }
+    const solved = parseGeometrySpec(
+      '{"type":"right_triangle","base":6,"height":4,"hypotenuse":7.21,"area":12,"labels":{"angle_at_base":"33.7°","angle_at_height":"56.3°"}}',
+    );
+    if (solved?.type === "right_triangle") {
+      const labels = computeRightTriangleLabels(solved);
       expect(labels.hypotenuse).toContain("7.21");
       expect(labels.area).toContain("12");
-      expect(labels.angle).toBe("90°");
-      expect(labels.angle_at_base).toContain("33.7");
-      expect(labels.angle_at_height).toContain("56.3");
+      expect(labels.angle_at_base).toBe("33.7°");
+      expect(labels.angle_at_height).toBe("56.3°");
     }
   });
 
@@ -176,12 +186,16 @@ describe("geometryBlock", () => {
     }
   });
 
-  it("computes triangle labels", () => {
-    const spec = parseGeometrySpec('{"type":"triangle","base":8,"height":5}');
-    expect(spec?.type).toBe("triangle");
-    if (spec?.type === "triangle") {
-      const labels = computeTriangleLabels(spec);
-      expect(labels.area).toContain("20");
+  it("renders a triangle area only when the server sent it", () => {
+    const bare = parseGeometrySpec('{"type":"triangle","base":8,"height":5}');
+    expect(bare?.type).toBe("triangle");
+    if (bare?.type === "triangle") {
+      expect(computeTriangleLabels(bare).area).toBe("");
+      expect(computeTriangleLabels(bare).base).toContain("8");
+    }
+    const solved = parseGeometrySpec('{"type":"triangle","base":8,"height":5,"area":20}');
+    if (solved?.type === "triangle") {
+      expect(computeTriangleLabels(solved).area).toContain("20");
     }
   });
 
@@ -202,12 +216,15 @@ describe("geometryBlock", () => {
     }
   });
 
-  it("computes labels", () => {
+  it("renders a rectangle diagonal only when the server sent it", () => {
     const spec = parseGeometrySpec('{"type":"rectangle","width":8,"height":5}');
     expect(spec?.type).toBe("rectangle");
     if (spec?.type !== "rectangle") return;
-    const labels = computeRectangleLabels(spec);
-    expect(labels.diagonal).toContain("9.43");
+    expect(computeRectangleLabels(spec).diagonal).toBe("");
+    expect(computeRectangleLabels(spec).width).toContain("8");
+    const solved = parseGeometrySpec('{"type":"rectangle","width":8,"height":5,"diagonal":9.43}');
+    if (solved?.type !== "rectangle") return;
+    expect(computeRectangleLabels(solved).diagonal).toContain("9.43");
   });
 
   it("scales to fit width", () => {
@@ -254,14 +271,23 @@ describe("geometryBlock", () => {
     expect(spec.show_diameter).toBe(true);
   });
 
-  it("computes circle labels (radius, diameter, area, circumference)", () => {
+  it("renders circle measurements only when the server sent them", () => {
     const spec = parseGeometrySpec('{"type":"circle","radius":4}');
     expect(spec?.type).toBe("circle");
     if (spec?.type !== "circle") return;
     const labels = computeCircleLabels(spec);
-    expect(labels.diameter).toContain("8");
-    expect(labels.area).toContain((Math.PI * 16).toFixed(2));
-    expect(labels.circumference).toContain((8 * Math.PI).toFixed(2));
+    expect(labels.radius).toContain("4");
+    expect(labels.diameter).toBe("");
+    expect(labels.area).toBe("");
+    expect(labels.circumference).toBe("");
+    const solved = parseGeometrySpec(
+      `{"type":"circle","radius":4,"diameter":8,"area":${Math.PI * 16},"circumference":${8 * Math.PI}}`,
+    );
+    if (solved?.type !== "circle") return;
+    const solvedLabels = computeCircleLabels(solved);
+    expect(solvedLabels.diameter).toContain("8");
+    expect(solvedLabels.area).toContain((Math.PI * 16).toFixed(2));
+    expect(solvedLabels.circumference).toContain((8 * Math.PI).toFixed(2));
   });
 
   it("rejects a circle with a non-positive or oversized radius", () => {

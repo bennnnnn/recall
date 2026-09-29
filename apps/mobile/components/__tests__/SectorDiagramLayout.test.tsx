@@ -31,6 +31,7 @@ describe("sector canvas follows its actual swept bounds", () => {
   it.each([90, 180, 270, 360])("preserves the %i degree arc with readable labels and nearby footers", async (angle) => {
     const { toJSON } = await render(<GeometryBlock content={JSON.stringify({
       type: "sector", radius: 4, angle_deg: angle, unit: "units",
+      area: 1, arc_length: 1,
     })} />);
     const svg = nodesIn(toJSON()).find((node) => node.type === "RNSVGSvgView")!;
     const width = Number(svg.props?.width);
