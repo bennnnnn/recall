@@ -32,13 +32,16 @@ from app.services import profile as profile_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
 from app.services.chat import tools as chat_tools_service
+from app.services.chat.continuation_subject import effective_presentation_subject
 from app.services.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
+    BIOLOGY_PRESENTATION_HINT,
     BREVITY_REQUEST_HINT,
     BROAD_SELF_ANSWER_HINT,
     CALLOUT_FORMAT_HINT,
     CAPABILITIES_FORMAT_HINT,
     CHART_FORMAT_HINT,
+    CHEMISTRY_PRESENTATION_HINT,
     CLARIFICATION_HINT,
     COMPACT_RESPONSE_FORMAT_HINT,
     COMPARISON_FORMAT_HINT,
@@ -70,6 +73,7 @@ from app.services.chat.prompt_constants import (
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     SOCIAL_DRAFT_HINT,
+    STATISTICS_PRESENTATION_HINT,
     STYLE_HINTS,
     TEACHING_HINT,
     TEACHING_SHORT_NOTE,
@@ -744,6 +748,7 @@ def _style_format_hints(
     compact: bool = False,
     image_generation_enabled: bool = True,
     lesson: tuple[int, int] | None = None,
+    prior_messages: list[tuple[str, str]] | None = None,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
 
@@ -802,7 +807,8 @@ def _style_format_hints(
     )
     if query_text and writing is None:
         parts.append(NON_DRAFT_TURN_HINT)
-    subject, viz_intent = _subject_viz_intent(query_text)
+    _, viz_intent = _subject_viz_intent(query_text)
+    subject = effective_presentation_subject(query_text, prior_messages)
     if query_text and is_short_confirmation(query_text):
         parts.append(CONFIRM_FOLLOW_THROUGH_HINT)
     if query_text and is_day_planning_question(query_text):
@@ -878,6 +884,18 @@ def _style_format_hints(
             parts.append(MATH_SHORT_RESPONSE_HINT)
         else:
             parts.extend([MATH_INTENT_HINT, MATH_SOLVER_HINT, MATH_TUTORING_HINT])
+    elif subject == "chemistry":
+        parts.append(VERIFIED_SOLVE_SAFETY_HINT)
+        parts.append(CHEMISTRY_PRESENTATION_HINT)
+        parts.append(MATH_FENCE_SAFETY_HINT)
+    elif subject == "statistics":
+        parts.append(VERIFIED_SOLVE_SAFETY_HINT)
+        parts.append(STATISTICS_PRESENTATION_HINT)
+        parts.append(MATH_FENCE_SAFETY_HINT)
+    elif subject == "biology":
+        parts.append(VERIFIED_SOLVE_SAFETY_HINT)
+        parts.append(BIOLOGY_PRESENTATION_HINT)
+        parts.append(MATH_FENCE_SAFETY_HINT)
     else:
         parts.append(MATH_FENCE_SAFETY_HINT)
     if query_text and is_brevity_request(query_text):
@@ -1177,6 +1195,11 @@ async def build_prompt_messages(
         ),
         STYLE_HINTS["short"] if lightweight else STYLE_HINTS[style],
     ]
+    prior_messages = [
+        (message.role, message.content)
+        for message in followup_exchange
+        if message.role in {"user", "assistant"} and isinstance(message.content, str)
+    ]
     compact_format = bool(query_text and is_bare_writing_line(query_text))
     if query_text and is_short_confirmation(query_text) and not lightweight:
         compact_format = True
@@ -1200,6 +1223,7 @@ async def build_prompt_messages(
                 compact=compact_format,
                 image_generation_enabled=settings.image_generation_enabled,
                 lesson=lesson,
+                prior_messages=prior_messages,
             )
         )
     system_parts.append(response_tone_service.tone_hint(getattr(user, "response_tone", None)))
