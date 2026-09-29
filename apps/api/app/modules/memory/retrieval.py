@@ -271,9 +271,11 @@ async def get_memory_block(
             name="warm_semantic_memory_cache",
         )
         warm_task.add_done_callback(
-            lambda task: logger.debug("Semantic memory warm failed", exc_info=task.exception())
-            if not task.cancelled() and task.exception()
-            else None
+            lambda task: (
+                logger.debug("Semantic memory warm failed", exc_info=task.exception())
+                if not task.cancelled() and task.exception()
+                else None
+            )
         )
         return _log_inject(user.id, block)
 

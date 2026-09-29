@@ -271,7 +271,7 @@ class TestAugmentPromptMessagesForNewKinds:
         )
         text = "how many ways can you choose 2 from 5? use C(5,2)"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert "10" in verified.text
         assert verified.canonical_fence == {"type": "answer", "content": "10"}
@@ -313,7 +313,7 @@ class TestAugmentPromptMessagesForNewKinds:
         )
         text = "find the determinant of [[1,2],[3,4]]"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
-        updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
+        _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
         assert verified is not None
         assert "-2" in verified.text
         assert verified.canonical_fence == {"type": "answer", "content": "-2"}

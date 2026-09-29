@@ -70,7 +70,7 @@ async def test_seed_refreshes_existing_adds_group_and_is_idempotent(catalog_sql,
 @pytest.mark.asyncio
 async def test_seed_wrong_account_cannot_rewrite_project(catalog_sql, monkeypatch):
     sync, session = catalog_sql
-    user, project, item = _saved_item(sync, _deck())
+    _user, project, item = _saved_item(sync, _deck())
     invalidate = _seed_environment(monkeypatch, sync, session, [_deck("Changed")])
     await path_seed.seed_language_path(None, user_id=uuid4(), project_id=project.id)
     sync.refresh(item)

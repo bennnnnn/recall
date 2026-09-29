@@ -6,10 +6,10 @@ from pathlib import Path
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
-
 from alembic.migration import MigrationContext
 from alembic.operations import Operations
+from sqlalchemy import select
+
 from app.content.vocab_catalog import path_decks_for_language, word_id
 from app.models.orm import (
     Learning,
@@ -23,10 +23,13 @@ from app.models.orm import (
 from app.modules.learning.catalog_items import word_values
 from app.modules.learning.catalog_sync import ensure_catalog_rows
 
+_RETIREMENT_MIGRATION = (
+    Path(__file__).resolve().parents[4] / "alembic/versions/0080_retire_legacy_vocab.py"
+)
+
 
 async def run_retirement(session):
-    path = Path(__file__).resolve().parents[4] / "alembic/versions/0080_retire_legacy_vocab.py"
-    spec = importlib.util.spec_from_file_location("retirement_migration", path)
+    spec = importlib.util.spec_from_file_location("retirement_migration", _RETIREMENT_MIGRATION)
     assert spec is not None and spec.loader is not None
     migration = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(migration)

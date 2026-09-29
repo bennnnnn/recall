@@ -78,7 +78,7 @@ def test_replaces_truncated_unclosed_graph_fence_with_canonical() -> None:
     settings = get_settings()
     import asyncio
 
-    block, verified = asyncio.run(build_math_augmentation("Graph x^2", settings, needs_math=True))
+    _block, verified = asyncio.run(build_math_augmentation("Graph x^2", settings, needs_math=True))
     assert verified is not None and verified.canonical_fence is not None
     canonical = verified.canonical_fence
     assert canonical["type"] == "function"

@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
-from typing import Any, TypeVar
+from typing import Any
 
 from app.content.vocab_catalog import CatalogDeck, CatalogWord, word_id
 
@@ -36,10 +36,7 @@ def word_values(deck: CatalogDeck, word: CatalogWord) -> dict[str, Any]:
     }
 
 
-_Item = TypeVar("_Item")
-
-
-def active_catalog_items(decks: Sequence[CatalogDeck], items: Sequence[_Item]) -> list[_Item]:
+def active_catalog_items[Item](decks: Sequence[CatalogDeck], items: Sequence[Item]) -> list[Item]:
     """Only explicit current catalog identities survive content retirement."""
     active_ids = {word_id(deck, word) for deck in decks for word in deck.words}
     return [item for item in items if getattr(item, "catalog_entry_id", None) in active_ids]

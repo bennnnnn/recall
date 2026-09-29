@@ -157,7 +157,7 @@ async def test_runtime_retirement_cascades_only_retired_owned_language_history(
     from app.models.orm import LearningPracticeEvent
 
     user, project, current, deck = await _rows(db_session, monkeypatch)
-    other, other_project, other_item, _ = await _rows(db_session, monkeypatch)
+    other, _other_project, other_item, _ = await _rows(db_session, monkeypatch)
     retired = LearningItem(
         id=uuid4(),
         user_id=user.id,

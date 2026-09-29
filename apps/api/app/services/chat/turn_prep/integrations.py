@@ -1,7 +1,7 @@
 import asyncio
 import logging
 from collections.abc import Awaitable
-from typing import Any, TypeVar
+from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -19,10 +19,8 @@ logger = logging.getLogger(__name__)
 
 INTEGRATION_LOAD_TIMEOUT_SECONDS = 5.0
 
-_T = TypeVar("_T")
 
-
-async def _timed_integration_load(label: str, coro: Awaitable[_T]) -> _T | None:
+async def _timed_integration_load[T](label: str, coro: Awaitable[T]) -> T | None:
     try:
         return await asyncio.wait_for(coro, timeout=INTEGRATION_LOAD_TIMEOUT_SECONDS)
     except TimeoutError:

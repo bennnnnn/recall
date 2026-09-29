@@ -8,18 +8,15 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Awaitable, Callable, Mapping, Sequence
-from typing import TypeVar
 
 logger = logging.getLogger(__name__)
 
-TAction = TypeVar("TAction")
-TState = TypeVar("TState")
 
 # Handler mutates ``state`` as needed and returns how many mutations applied.
 type ActionHandler[TState, TAction] = Callable[[TState, TAction], Awaitable[int]]
 
 
-async def apply_action_batch(
+async def apply_action_batch[TAction, TState](
     *,
     actions: Sequence[TAction],
     state: TState,
