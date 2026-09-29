@@ -64,6 +64,37 @@ class _WarmupProbeExecutor(BoundedSympyExecutor):
 
 
 @pytest.mark.asyncio
+async def test_semaphore_exhaustion_still_runs_the_solve():
+    """A full POSIX semaphore table must not drop a verified equation lesson.
+
+    ``3x=3`` used to fall through to the model plus the unverified note
+    because ``ProcessPoolExecutor`` raised ``ENOSPC`` before a worker existed.
+    """
+    import errno
+    import os
+
+    constructions = 0
+
+    class _NoSemaphores:
+        def __init__(self, *args: object, **kwargs: object) -> None:
+            nonlocal constructions
+            constructions += 1
+            raise OSError(errno.ENOSPC, "No space left on device")
+
+    monkeypatch = pytest.MonkeyPatch()
+    monkeypatch.setattr("app.services.sympy_executor.ProcessPoolExecutor", _NoSemaphores)
+    executor = ProcessPoolSympyExecutor(max_workers=1)
+    set_sympy_executor(executor)
+    try:
+        assert await run_sympy(_add, 2, 3, timeout=5) == 5
+        assert await run_sympy(_echo_pid, timeout=5) == os.getpid()
+        assert constructions == 1
+    finally:
+        monkeypatch.undo()
+        set_sympy_executor(None)
+
+
+@pytest.mark.asyncio
 async def test_run_sympy_returns_result():
     """A simple picklable callable runs in the subprocess and returns its
     result."""

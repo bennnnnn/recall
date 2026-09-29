@@ -27,6 +27,7 @@ fresh worker; subsequent calls reuse that worker.
 from __future__ import annotations
 
 import asyncio
+import errno
 import logging
 import multiprocessing as mp
 import time
@@ -105,6 +106,11 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         self._queue_wait_seconds = queue_wait_seconds
         self._slots: list[ProcessPoolExecutor | None] = [None] * self._max_workers
         self._free: asyncio.Queue[int] | None = None
+        # macOS named semaphores leak until reboot. Once ``sem_open`` returns
+        # ENOSPC, every later process-pool attempt fails the same way, so the
+        # latch stays for this process.
+        self._in_process = False
+        self._thread_pool: ThreadPoolExecutor | None = None
 
     @property
     def max_workers(self) -> int:
@@ -119,10 +125,38 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
             self._free = q
         return q
 
+    def _arm_in_process_fallback(self) -> None:
+        """Keep verified lessons when the process pool cannot be created.
+
+        A full POSIX semaphore table makes ``ProcessPoolExecutor`` raise
+        ``OSError(ENOSPC)`` before any worker starts. Without this, a closed
+        equation such as ``3x=3`` falls through to the model and is stamped
+        unverified instead of the numbered Given / divide steps.
+        """
+        if self._in_process:
+            return
+        self._in_process = True
+        # Extra threads so one timed-out solve, which cannot be killed, does
+        # not occupy the only worker the next equation needs.
+        self._thread_pool = ThreadPoolExecutor(
+            max_workers=max(self._max_workers, 8),
+            thread_name_prefix="sympy-fallback",
+        )
+        logger.warning(
+            "sympy process pool cannot start (posix semaphore limit); "
+            "verified math will run in-process until restart"
+        )
+
     def _ensure_slot(self, slot: int) -> ProcessPoolExecutor:
         pool = self._slots[slot]
         if pool is None:
-            pool = ProcessPoolExecutor(max_workers=1, mp_context=_MP_CONTEXT)
+            try:
+                pool = ProcessPoolExecutor(max_workers=1, mp_context=_MP_CONTEXT)
+            except OSError as exc:
+                if exc.errno != errno.ENOSPC:
+                    raise
+                self._arm_in_process_fallback()
+                raise
             self._slots[slot] = pool
         return pool
 
@@ -190,7 +224,14 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 raise TimeoutError("SymPy worker slot wait timed out") from exc
 
             queue_s = time.monotonic() - t_submit
-            pool = self._ensure_slot(slot)
+            if self._in_process:
+                return await self._run_in_process(fn, args, timeout)
+            try:
+                pool = self._ensure_slot(slot)
+            except OSError as exc:
+                if exc.errno != errno.ENOSPC or not self._in_process:
+                    raise
+                return await self._run_in_process(fn, args, timeout)
             future = pool.submit(_sympy_worker, fn, *args)
             t_spawn = time.monotonic()
             while not future.running() and not future.done():
@@ -233,8 +274,32 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
             if slot is not None:
                 self._free_queue().put_nowait(slot)
 
+    async def _run_in_process(
+        self,
+        fn: Callable[..., _T],
+        args: tuple[Any, ...],
+        timeout: float,  # noqa: ASYNC109 - we IMPLEMENT the timeout, not consume it
+    ) -> _T:
+        pool = self._thread_pool
+        if pool is None:
+            raise RuntimeError("sympy in-process fallback was not armed")
+        future = pool.submit(fn, *args)
+        t_spawn = time.monotonic()
+        while not future.running() and not future.done():
+            if time.monotonic() - t_spawn >= _SPAWN_WAIT_SECONDS:
+                future.cancel()
+                raise TimeoutError("SymPy worker failed to start")
+            await asyncio.sleep(_QUEUE_POLL_SECONDS)
+        afut = asyncio.wrap_future(future)
+        async with asyncio.timeout(timeout):
+            return await afut
+
     def shutdown(self) -> None:
         self._kill_all_slots()
+        pool = self._thread_pool
+        self._thread_pool = None
+        if pool is not None:
+            pool.shutdown(wait=False, cancel_futures=True)
 
 
 class ThreadSympyExecutor(BoundedSympyExecutor):
