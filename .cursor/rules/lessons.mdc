@@ -14,11 +14,15 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 - **A verified crystal-field answer treated every CN=4 complex as tetrahedral, and a bare `mass =` was used as a nuclear mass.** Coordination number 4 is also square planar, and an atomic mass is not the nucleus. Require tetrahedral or square planar before a CN=4 answer, and accept only `nuclear mass =`. Scene rows come from the solver’s numbers; do not parse the formatted substitution back into a table.
 
+- **A closed `\(...\)` chain stayed one row until the stream settled.** The live tail skips full preprocess, so `\(` never became `$` before the row split, and a reply with no trailing newline kept that formula unstable. Fold a finished `\(...\)` into `$...$` inside the shared layout, and leave an opener with no closer literal so the pending tail still hides `\frac`.
+
 - **Nuclear mass defect was answered as unverified physics.** The advanced-physics cue treats “mass defect” and “binding energy” as physics, so a supplied nuclear mass never reached chemistry. Skip that cue when the nuclear mass is written out; chemistry owns Δm and E/A only then.
 
 - **A θ-form rotational or SUVAT solve still opened on the time equation.** `select_formula` only knew each op’s base law, so the reply called `ω² = ω₀² + 2αΔθ` a rearrangement of `ω = ω₀ + αt` (and the same for `v² = u² + 2as`). The variant latex has to be the string the solver stores, and it must set `absent` for the variable that would have taken the earlier branch. `suvat_velocity` and `suvat_time` also have to declare `d`, or that branch never validates.
 
 - **Constant-α rotation and rolling energy were rejected after the catalog got strict.** The solvers already accepted `θ` for `ω` and `α`, `ω` for `θ`, and `ω` for rolling kinetic energy, but those names were missing from `FormulaSpec.variables`, so `PhysicsIntent` dropped the branch. Declare every real input. A substitution row is the same equation with the supplied numbers inserted; copying the symbolic formula is not one. The verified prompt lists those rows plus the chip, and leaves the dense `answer` chain off the model.
+
+- **Follow-up “Another” glued `at**40 km/h**` and chained `v = d/t = 50/10 = 5`.** Subject hints were chosen from the current line, so a pure continuation dropped the calculation contract, and CommonMark kept the missing space the model omitted. Inherit the prior subject for an exact continuation, and repair closed inline delimiters outside code, URLs, and math.
 
 - **A reverse solve the solver supported was rejected, and the prompt line was still being split.** `parallel_axis` listed `inertia` in `solve_for` but omitted it from `variables`, so the strict validator never reached `I = I_cm + Md^2`. `rotational_theta` read `theta0` with a default the catalog does not declare; measure that angle from zero. Solvers store `formulas` and `substitutions` themselves — an empty row raises rather than being parsed back out of `answer`.
 

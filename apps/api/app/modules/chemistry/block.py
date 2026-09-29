@@ -19,9 +19,17 @@ class VerifiedChemistry:
     prompt_text: str
 
 
+def _bullet_rows(text: str) -> str:
+    from app.services.chat.calculation_layout import split_math_expression
+
+    rows = split_math_expression(text.strip())
+    items = rows or [text.strip()]
+    return "\n".join(f"- {item}" for item in items if item)
+
+
 def _prompt_text(result: ChemistryResult) -> str:
     given = "\n".join(f"- {item}" for item in result.given)
-    substitution = "\n".join(f"- {item}" for item in result.substitution)
+    substitution = "\n".join(_bullet_rows(item) for item in result.substitution)
     return (
         f"[{result.title}]\n"
         "Required visible layout: Given, Find, Formula, Substitution, Answer. "
@@ -29,9 +37,9 @@ def _prompt_text(result: ChemistryResult) -> str:
         "do not recalculate, and do not add trailing zeros to verified numbers.\n"
         f"Given:\n{given}\n"
         f"Find:\n- {result.find}\n"
-        f"Formula ({result.formula_name}):\n- {result.formula}\n"
+        f"Formula ({result.formula_name}):\n{_bullet_rows(result.formula)}\n"
         f"Substitution:\n{substitution}\n"
-        f"Verified answer:\n- {result.answer}\n"
+        f"Verified answer:\n{_bullet_rows(result.answer)}\n"
         "Use the verified answer verbatim."
     )
 
