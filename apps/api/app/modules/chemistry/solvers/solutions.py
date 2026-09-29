@@ -7,7 +7,7 @@ import math
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 GAS_R = 0.082057366080960  # L·atm·mol⁻¹·K⁻¹
 _VOLUME_TO_L = {"l": 1.0, "ml": 0.001}
@@ -17,9 +17,9 @@ def _value(intent: ChemistryIntent, key: str, *, positive: bool = False) -> floa
     try:
         value = intent.params[key]
     except KeyError as exc:
-        raise MathServiceError(f"missing chemistry parameter: {key}") from exc
+        raise SolveServiceError(f"missing chemistry parameter: {key}") from exc
     if positive and value <= 0:
-        raise MathServiceError(f"{key} must be positive")
+        raise SolveServiceError(f"{key} must be positive")
     return value
 
 
@@ -27,7 +27,7 @@ def _volume_in_l(value: float, unit: str) -> float:
     try:
         return value * _VOLUME_TO_L[unit.lower()]
     except KeyError as exc:
-        raise MathServiceError(f"unsupported dilution volume unit: {unit}") from exc
+        raise SolveServiceError(f"unsupported dilution volume unit: {unit}") from exc
 
 
 def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
@@ -54,10 +54,10 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
         v2 = intent.params.get("v2")
         v1_unit = intent.units.get("v1", "L")
         if (m2 is None) == (v2 is None):
-            raise MathServiceError("exactly one of M2 or V2 must be unknown")
+            raise SolveServiceError("exactly one of M2 or V2 must be unknown")
         if v2 is None:
             if m2 is None or m2 <= 0:
-                raise MathServiceError("M2 must be positive")
+                raise SolveServiceError("M2 must be positive")
             result = m1 * v1 / m2
             value = f"{format_number(result)} {v1_unit}"
             find = "Final volume, V2"
@@ -70,7 +70,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             )
         else:
             if v2 <= 0:
-                raise MathServiceError("V2 must be positive")
+                raise SolveServiceError("V2 must be positive")
             v2_unit = intent.units.get("v2", v1_unit)
             v1_l = _volume_in_l(v1, v1_unit)
             v2_l = _volume_in_l(v2, v2_unit)
@@ -118,7 +118,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
         solute = _value(intent, "solute_mass")
         solution = _value(intent, "solution_mass", positive=True)
         if solute < 0 or solute > solution:
-            raise MathServiceError("solute mass must be between zero and solution mass")
+            raise SolveServiceError("solute mass must be between zero and solution mass")
         result = solute / solution * 100
         value = f"{format_number(result)}%"
         return ChemistryResult(
@@ -134,7 +134,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             f"Mass percent = {value}",
             value,
         )
-    raise MathServiceError(f"unsupported solution operation: {op}")
+    raise SolveServiceError(f"unsupported solution operation: {op}")
 
 
 def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
@@ -215,7 +215,7 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
             f"pH = {value}",
             value,
         )
-    raise MathServiceError(f"unsupported acid-base operation: {op}")
+    raise SolveServiceError(f"unsupported acid-base operation: {op}")
 
 
 def solve_gas(intent: ChemistryIntent) -> ChemistryResult:
@@ -224,10 +224,10 @@ def solve_gas(intent: ChemistryIntent) -> ChemistryResult:
     }
     missing = [name for name, value in values.items() if value is None]
     if len(missing) != 1:
-        raise MathServiceError("exactly one gas-law variable must be unknown")
+        raise SolveServiceError("exactly one gas-law variable must be unknown")
     for name, value in values.items():
         if value is not None and value <= 0:
-            raise MathServiceError(f"{name} must be positive")
+            raise SolveServiceError(f"{name} must be positive")
     unknown = missing[0]
     p = values["pressure"]
     v = values["volume"]
@@ -309,12 +309,12 @@ def solve_beer_lambert(intent: ChemistryIntent) -> ChemistryResult:
         if value is None
     ]
     if len(missing) != 1:
-        raise MathServiceError("exactly one Beer–Lambert variable must be unknown")
+        raise SolveServiceError("exactly one Beer–Lambert variable must be unknown")
     known = [value for value in (epsilon, path, concentration, absorbance) if value is not None]
     if any(value < 0 for value in known) or any(
         value == 0 for value in (epsilon, path, concentration) if value is not None
     ):
-        raise MathServiceError("Beer–Lambert inputs must be physically valid")
+        raise SolveServiceError("Beer–Lambert inputs must be physically valid")
     unknown = missing[0]
     if unknown == "absorbance":
         epsilon = _value(intent, "epsilon", positive=True)

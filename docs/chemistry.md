@@ -14,10 +14,14 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
 3. **Solve** (`solvers/`) — grouped deterministic solvers return `ChemistryResult` with
    Given, Find, named universal Formula, Substitution, and Answer fields.
 4. **Respond** (`direct.py`) — a complete typed calculation returns the exact compact
-   five-section answer without waiting for model prose. Image questions remain on the
-   vision/model path because OCR text was not the typed extractor input.
-5. **Enrich** (`fence.py`) — closed `smiles` / `chemistry` fences are validated. The
-   server appends `molecule3d` SDF for the first two valid structures.
+   five-section answer without waiting for model prose. The value is a server
+   ` ```answer ` fence whose first line is `notation: chemistry`, so the client
+   draws it as text instead of LaTeX. Image questions remain on the vision/model
+   path because OCR text was not the typed extractor input.
+5. **Finalize** (`fence.py`) — a verified result drops model answer, scene, and
+   structure fences and appends the solver's copies. Closed `smiles` / `chemistry`
+   fences are then validated. The server appends `molecule3d` SDF for the first
+   two valid structures.
 6. **Render** — smiles-drawer retains chemically aware 2D layout inside its sandboxed
    WebView. The interactive 3D molecule projection uses a native Skia canvas, with the
    same projected SVG scene as a safe Expo Go / stale-client fallback. Adjacent 2D and

@@ -11,19 +11,19 @@ from app.modules.chemistry.solvers.common_chem import (
 )
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 
 def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
     delta_t = intent.params.get("delta_t")
     if delta_t is None:
-        raise MathServiceError("calorimetry needs ΔT")
+        raise SolveServiceError("calorimetry needs ΔT")
     calorimeter = intent.params.get("c_cal")
     given: tuple[str, ...]
     formula: str
     if calorimeter is not None:
         if calorimeter <= 0:
-            raise MathServiceError("calorimeter constant must be positive")
+            raise SolveServiceError("calorimeter constant must be positive")
         heat = -calorimeter * delta_t
         given = (f"Ccal = {num(calorimeter)} J/°C", f"ΔT = {num(delta_t)} °C")
         formula = "q_rxn = −Ccal ΔT"
@@ -31,7 +31,7 @@ def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
         mass = intent.params.get("mass")
         specific = intent.params.get("specific_heat")
         if mass is None or specific is None or mass <= 0 or specific <= 0:
-            raise MathServiceError("calorimetry needs Ccal or mass and specific heat")
+            raise SolveServiceError("calorimetry needs Ccal or mass and specific heat")
         heat = -mass * specific * delta_t
         given = (
             f"m = {num(mass)} g",
@@ -60,12 +60,12 @@ def solve_hess(intent: ChemistryIntent) -> ChemistryResult:
         enthalpy = intent.params[f"dh{index}"]
         multiplier = intent.params.get(f"m{index}")
         if multiplier is None:
-            raise MathServiceError(f"Hess step {index} needs a multiplier")
+            raise SolveServiceError(f"Hess step {index} needs a multiplier")
         total += multiplier * enthalpy
         lines.append(f"{num(multiplier)} × {num(enthalpy)}")
         index += 1
     if not lines:
-        raise MathServiceError("Hess's law needs at least one enthalpy step")
+        raise SolveServiceError("Hess's law needs at least one enthalpy step")
     shown = f"ΔH = {num(total)} kJ"
     return verified(
         "Verified Hess's law",
@@ -85,15 +85,15 @@ def _formation(label: str, table: dict[str, float]) -> float:
     species = parse_species(label, coefficient_already_removed=True)
     if species is not None and len(species.composition) == 1 and species.charge == 0:
         return 0.0
-    raise MathServiceError(f"missing formation enthalpy for {label}")
+    raise SolveServiceError(f"missing formation enthalpy for {label}")
 
 
 def solve_formation(intent: ChemistryIntent) -> ChemistryResult:
     if not intent.equation:
-        raise MathServiceError("a formation reaction is required")
+        raise SolveServiceError("a formation reaction is required")
     balanced = balance_equation(intent.equation)
     if not balanced.balanced:
-        raise MathServiceError(balanced.error or "equation could not be balanced")
+        raise SolveServiceError(balanced.error or "equation could not be balanced")
     products = sum(
         coefficient * _formation(species, intent.species)
         for species, coefficient in balanced.products.items()
@@ -123,7 +123,7 @@ def solve_bond_enthalpy(intent: ChemistryIntent) -> ChemistryResult:
     broken = intent.params.get("broken")
     formed = intent.params.get("formed")
     if broken is None or formed is None:
-        raise MathServiceError("bond enthalpy needs bonds broken and bonds formed")
+        raise SolveServiceError("bond enthalpy needs bonds broken and bonds formed")
     value = broken - formed
     shown = f"ΔH = {num(value)} kJ"
     return verified(

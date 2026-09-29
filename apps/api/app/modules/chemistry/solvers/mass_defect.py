@@ -9,7 +9,7 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.solvers.common_chem import num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError
 
 PROTON_U = 1.007276466621
 NEUTRON_U = 1.00866491595
@@ -22,11 +22,11 @@ def solve_mass_defect(intent: ChemistryIntent) -> ChemistryResult:
     mass = intent.params.get("nuclear_mass")
     parsed = _nuclide(label)
     if parsed is None or mass is None or mass <= 0:
-        raise MathServiceError("mass defect needs a nuclide and its nuclear mass in u")
+        raise SolveServiceError("mass defect needs a nuclide and its nuclear mass in u")
     symbol, mass_number, protons = parsed
     neutrons = mass_number - protons
     if neutrons < 0:
-        raise MathServiceError("mass number is smaller than the atomic number")
+        raise SolveServiceError("mass number is smaller than the atomic number")
     defect = protons * PROTON_U + neutrons * NEUTRON_U - mass
     energy = defect * MEV_PER_U
     per_nucleon = energy / mass_number

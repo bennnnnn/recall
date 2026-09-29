@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A verified chemistry result could be replaced, or typeset as algebra.** ```answer always went through MathText, so chemistry kept the value in bold prose and the stream skipped chemistry finalization. Answer fences now start with `notation: chemistry` when the body is not LaTeX, and the chemistry finalizer replaces model answer, scene, and structure fences from the solver.
+
 - **A Pint pin rejected the unit pad's rpm, acre, and BTU.** Pint's `rpm` is angular (`2π/60`), its `acre` is the survey acre, and its `BTU` is `1055.056 J`. The frequency pad is cyclic (`1/minute`), the acre is `43560` international square feet, and the BTU factor has to be Pint's joule value or the preview drifts from a verified convert.
 
 - **Read-aloud smashed `\frac{x^{2}}{4}` into `fracx^24`.** `speakMath` matched fractions with `[^}]+`, so a superscript never matched and the brace strip ate the command. Copy already walked `MathSegment`. Speech has to use that same tree.

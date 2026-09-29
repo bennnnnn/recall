@@ -18,11 +18,9 @@ from app.modules.math import solve as math_solve
 from app.modules.math.solve.derivative_steps import derivative_trace
 from app.modules.math.solve.integral_steps import integral_trace
 from app.modules.math.solve.key_steps import KeyStep
+from app.modules.math.tools.block.canonical import _finish_with_answer
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
-from app.services.solving import (
-    VerifiedMathBlock,
-    _finish_with_answer,
-)
+from app.services.solving import VerifiedMathBlock
 
 _FUNCTION_ANALYSIS_OPS = {
     "function_domain",

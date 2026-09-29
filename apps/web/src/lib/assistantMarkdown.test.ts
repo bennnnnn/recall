@@ -33,6 +33,23 @@ describe("prepareAssistantMarkdown molecule pair", () => {
   });
 });
 
+describe("prepareAssistantMarkdown answers", () => {
+  it("shows a chemistry answer without the notation line", () => {
+    const out = prepareAssistantMarkdown(
+      "```answer\nnotation: chemistry\nM(H2O) = 18.015 g/mol\n```",
+    );
+    assert.equal(out.includes("notation:"), false);
+    assert.equal(out.includes("```"), false);
+    assert.match(out, /M\(H2O\) = 18\.015 g\/mol/);
+  });
+
+  it("keeps a math answer body", () => {
+    const out = prepareAssistantMarkdown("```answer\nx = 2\n```");
+    assert.match(out, /x = 2/);
+    assert.equal(out.includes("notation:"), false);
+  });
+});
+
 describe("prepareAssistantMarkdown drafts and tables", () => {
   it("renders sms/social fences as sanitized cards not pre", () => {
     const out = prepareAssistantMarkdown(

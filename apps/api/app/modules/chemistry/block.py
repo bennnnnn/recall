@@ -47,7 +47,7 @@ def _prompt_text(result: ChemistryResult) -> str:
         f"Formula ({result.formula_name}):\n{_bullet_rows(result.formula)}\n"
         f"Substitution:\n{substitution}\n"
         f"Verified answer:\n{_bullet_rows(result.answer)}\n"
-        "Use the verified answer verbatim."
+        "Use the verified answer verbatim. Do not emit answer, smiles, or chem_scene fences."
     )
 
 
@@ -70,7 +70,12 @@ def build_verified_chemistry(intent: ChemistryIntent) -> VerifiedChemistry | Non
             exc_info=True,
         )
         return None
-    return VerifiedChemistry(text=_prompt_text(result), intent=intent, result=result)
+    return VerifiedChemistry(
+        text=_prompt_text(result),
+        intent=intent,
+        result=result,
+        canonical_answer=result.answer.strip(),
+    )
 
 
 def verified_iupac(smiles: str, iupac_name: str) -> VerifiedChemistry:
@@ -86,4 +91,9 @@ def verified_iupac(smiles: str, iupac_name: str) -> VerifiedChemistry:
         answer=iupac_name,
         answer_value=iupac_name,
     )
-    return VerifiedChemistry(text=_prompt_text(result), intent=intent, result=result)
+    return VerifiedChemistry(
+        text=_prompt_text(result),
+        intent=intent,
+        result=result,
+        canonical_answer=result.answer.strip(),
+    )

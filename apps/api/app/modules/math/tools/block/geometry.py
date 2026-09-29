@@ -30,12 +30,9 @@ from app.models.schemas.math import (
     TriangleSidesInput,
 )
 from app.modules.math import solve as math_solve
+from app.modules.math.tools.block.canonical import _diagram_block, _finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
-from app.services.solving import (
-    VerifiedMathBlock,
-    _diagram_block,
-    _finish_with_answer,
-)
+from app.services.solving import VerifiedMathBlock
 
 
 def _finish_geometry(
