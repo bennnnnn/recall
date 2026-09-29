@@ -1981,7 +1981,7 @@ async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_re
                 local_places=False,
             ),
             local_tz="UTC",
-            verified_math=None,
+            verified_subject=None,
         )
 
     async def empty_stream(**kwargs):

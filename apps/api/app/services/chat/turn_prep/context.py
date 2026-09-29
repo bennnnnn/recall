@@ -17,8 +17,6 @@ from app.models.orm import Chat, User
 from app.models.schemas.math import MathImageExtract
 from app.modules import web_search as web_search_service
 from app.modules.billing import plan as plan_service
-from app.modules.chemistry import context as chemistry_context_service
-from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.modules.math.followup import math_working_followup_problem
@@ -38,7 +36,6 @@ from app.services.chat.prompt_builder import (
     fetch_web_and_tools,
     inject_web_and_tools,
 )
-from app.services.chat.prompt_constants import attach_chemistry_fence_hint
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.tool_gate import should_classify_tool_web_search
 from app.services.chat.turn_prep.integrations import (
@@ -123,9 +120,8 @@ class StreamContext:
     chat_project_id: UUID | None = None
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
-    # Compatibility field name; the value is the neutral math-or-physics
-    # transport and subject ownership is carried by ``verified_math.subject``.
-    verified_math: VerifiedSolveBlock | None = None
+    # One verified solve for the subject that owns this turn.
+    verified_subject: VerifiedSolveBlock | None = None
     # Camera/solver fall-through: surface an honest "couldn't verify" note.
     math_unverified: bool = False
     subject_unverified: str | None = None
@@ -163,7 +159,7 @@ class TurnPromptBundle:
     rich_context: bool
     geo: ClientGeoContext
     local_tz: str
-    verified_math: VerifiedSolveBlock | None = None
+    verified_subject: VerifiedSolveBlock | None = None
     math_unverified: bool = False
     subject_unverified: str | None = None
     web_search_classified: bool | None = None
@@ -214,7 +210,7 @@ def stream_context_from_bundle(
         chat_project_id=chat_project_id,
         regenerate_backup=regenerate_backup,
         fallback_models=bundle.fallback_models,
-        verified_math=bundle.verified_math,
+        verified_subject=bundle.verified_subject,
         math_unverified=getattr(bundle, "math_unverified", False) is True,
         subject_unverified=getattr(bundle, "subject_unverified", None),
         timing=timing,
@@ -490,16 +486,17 @@ async def build_stream_prompt_context(
         content,
         has_image_attachment=has_image_attachment,
         image_math_extract=image_math_extract,
+        chemistry_enabled=settings.chemistry_enabled,
     )
     needs_math = settings.math_tools_enabled and (
-        detected_subject is not None or math_followup_problem is not None
+        detected_subject in {"math", "physics"} or math_followup_problem is not None
     )
     needs_search = web_search_service.needs_web_search(
         content,
         prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
         prior_assistant=last_assistant_content(prompt_messages),
     )
-    needs_chem = chemistry_context_service.is_chemistry_question(content)
+    needs_chem = settings.chemistry_enabled and detected_subject == "chemistry"
     augment = _should_augment_web_and_tools(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
@@ -531,7 +528,7 @@ async def build_stream_prompt_context(
 
     local_places = geo.local_places
     search_sources: list[WebSearchHit] = []
-    verified_math: VerifiedSolveBlock | None = None
+    verified_subject: VerifiedSolveBlock | None = None
 
     # Phase B: gather independent fetches. Priors only when augmenting (web
     # search subject). Calendar-write loads inside the integration gather
@@ -562,7 +559,6 @@ async def build_stream_prompt_context(
         ]
         | None
     ) = None
-    chem_coro: Awaitable[tuple[str | None, VerifiedChemistry | None]] | None = None
     write_coro: Awaitable[bool] | None = None
     if augment:
 
@@ -590,10 +586,6 @@ async def build_stream_prompt_context(
             return priors, result
 
         web_coro = _fetch_web_with_priors()
-        if settings.chemistry_enabled and needs_chem:
-            chem_coro = chemistry_context_service.build_chemistry_augmentation(
-                content, settings, redis=redis
-            )
         if settings.mcp_tools_enabled and calendar_service.is_calendar_create_request(content):
             write_coro = _load_has_calendar_write(user.id)
 
@@ -601,8 +593,6 @@ async def build_stream_prompt_context(
     web_search_classified: bool | None = None
     web_block: str | None = None
     math_block: str | None = None
-    chem_block: str | None = None
-    verified_chemistry: VerifiedChemistry | None = None
     fetch_jobs: list[Awaitable[Any]] = []
     fetch_keys: list[str] = []
     if integration_coro is not None:
@@ -611,15 +601,13 @@ async def build_stream_prompt_context(
     if web_coro is not None:
         fetch_jobs.append(web_coro)
         fetch_keys.append("web")
-    if chem_coro is not None:
-        fetch_jobs.append(chem_coro)
-        fetch_keys.append("chem")
     if write_coro is not None:
         fetch_jobs.append(write_coro)
         fetch_keys.append("cal_write")
     if (
         fetch_jobs
         and not needs_math
+        and not needs_chem
         and settings.web_search_classifier_enabled
         and should_classify_tool_web_search(
             content,
@@ -660,26 +648,15 @@ async def build_stream_prompt_context(
         if "integration" in by_key:
             integration_blocks = by_key["integration"]
         if "web" in by_key:
-            prior_user_messages, (web_block, math_block, search_sources, verified_math) = by_key[
+            prior_user_messages, (web_block, math_block, search_sources, verified_subject) = by_key[
                 "web"
             ]
-        if "chem" in by_key:
-            chem_block, verified_chemistry = by_key["chem"]
         if "cal_write" in by_key:
             has_calendar_write = by_key["cal_write"]
         if "classify" in by_key:
             web_search_classified = by_key["classify"]
 
-    # Chemistry notation such as ``ΔH=-40`` can look like a small algebra
-    # system to the generic math extractor. Once Chemistry has produced a
-    # complete typed result, that domain owns the turn: retaining the
-    # incidental math result would make finalization append a second, bogus
-    # answer fence beneath the verified Chemistry reply.
-    if verified_chemistry is not None:
-        math_block = None
-        verified_math = None
-
-    # Phase C: inject in the stable order (integration -> web -> math) so the
+    # Phase C: inject in the stable order (integration -> web -> subject) so the
     # final prompt is byte-identical to the prior serial pipeline.
     prompt_messages = inject_integration_blocks(prompt_messages, integration_blocks)
     if augment:
@@ -696,38 +673,23 @@ async def build_stream_prompt_context(
             has_calendar_write=has_calendar_write,
         )
 
-    # Chemistry context (PubChem compound lookup) — injected after math
-    # so the model has verified SMILES + properties when it emits a
-    # ```smiles fence.
-    if chem_block:
-        prompt_messages.append(
-            {"role": "system", "content": attach_chemistry_fence_hint(chem_block)}
-        )
-
     if timing is not None:
         timing.mark_phase("augment_done")
         timing.mark_prompt_ready()
 
     math_unverified = (
-        math_block is not None and verified_math is None and math_block.startswith("Math note:")
+        math_block is not None and verified_subject is None and math_block.startswith("Math note:")
     )
     subject_unverified = (
-        detected_subject if math_block is not None and verified_math is None else None
+        detected_subject if math_block is not None and verified_subject is None else None
     )
-    if instant_reply is None and verified_math is not None:
+    if instant_reply is None and verified_subject is not None:
         instant_reply = maybe_direct_subject_reply(
-            verified_math,
+            verified_subject,
             content,
             has_image_attachment=has_image_attachment,
             response_style=getattr(user, "response_style", None) or "balanced",
             verified_request_text=math_followup_problem,
-        )
-    if instant_reply is None and verified_chemistry is not None:
-        from app.modules.chemistry.direct import maybe_direct_chemistry_reply
-
-        instant_reply = maybe_direct_chemistry_reply(
-            verified_chemistry,
-            has_image_attachment=has_image_attachment,
         )
     return TurnPromptBundle(
         prompt_messages=prompt_messages,
@@ -741,7 +703,7 @@ async def build_stream_prompt_context(
         rich_context=mode.rich_context,
         geo=geo,
         local_tz=local_tz,
-        verified_math=verified_math,
+        verified_subject=verified_subject,
         math_unverified=math_unverified,
         subject_unverified=subject_unverified,
         web_search_classified=web_search_classified,

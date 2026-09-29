@@ -61,7 +61,7 @@ class VerifiedSolveBlock:
     backward compatibility."""
 
     text: str
-    subject: Literal["math", "physics"]
+    subject: Literal["math", "physics", "chemistry"]
     canonical_fence: dict[str, Any] | None = None
     canonical_answer: str | None = None
     # Optional user-facing spelling of the same verified value. Geometry uses

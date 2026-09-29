@@ -126,7 +126,7 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
         reserved_tokens=100,
         max_output_tokens=1000,
         instant_reply=reply,
-        verified_math=verified,
+        verified_subject=verified,
     )
     with (
         patch("app.services.chat.stream_pipeline.run_tool_loop_path", AsyncMock()) as tools,

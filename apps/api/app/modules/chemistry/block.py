@@ -4,19 +4,26 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from typing import Literal
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.solvers import ChemistryResult, solve_chemistry
-from app.services.solving import MathServiceError
+from app.services.solving import SolveServiceError, VerifiedSolveBlock
 
 logger = logging.getLogger(__name__)
 
 
-@dataclass(frozen=True)
-class VerifiedChemistry:
+@dataclass(frozen=True, kw_only=True)
+class VerifiedChemistry(VerifiedSolveBlock):
+    """Chemistry verified result on the same transport math and physics use."""
+
+    subject: Literal["chemistry"] = "chemistry"
     intent: ChemistryIntent
     result: ChemistryResult
-    prompt_text: str
+
+    @property
+    def prompt_text(self) -> str:
+        return self.text
 
 
 def _bullet_rows(text: str) -> str:
@@ -47,7 +54,7 @@ def _prompt_text(result: ChemistryResult) -> str:
 def build_verified_chemistry(intent: ChemistryIntent) -> VerifiedChemistry | None:
     try:
         result = solve_chemistry(intent)
-    except MathServiceError as exc:
+    except SolveServiceError as exc:
         logger.info(
             "chemistry verification skipped kind=%s op=%s reason=%s",
             intent.kind,
@@ -63,7 +70,7 @@ def build_verified_chemistry(intent: ChemistryIntent) -> VerifiedChemistry | Non
             exc_info=True,
         )
         return None
-    return VerifiedChemistry(intent=intent, result=result, prompt_text=_prompt_text(result))
+    return VerifiedChemistry(text=_prompt_text(result), intent=intent, result=result)
 
 
 def verified_iupac(smiles: str, iupac_name: str) -> VerifiedChemistry:
@@ -79,4 +86,4 @@ def verified_iupac(smiles: str, iupac_name: str) -> VerifiedChemistry:
         answer=iupac_name,
         answer_value=iupac_name,
     )
-    return VerifiedChemistry(intent=intent, result=result, prompt_text=_prompt_text(result))
+    return VerifiedChemistry(text=_prompt_text(result), intent=intent, result=result)

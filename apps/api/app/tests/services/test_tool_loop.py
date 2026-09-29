@@ -1106,7 +1106,7 @@ async def test_tool_loop_path_copies_tool_hits_onto_context():
     ctx = MagicMock()
     ctx.instant_reply = None
     ctx.lightweight_turn = False
-    ctx.verified_math = None
+    ctx.verified_subject = None
     ctx.user_message_content = "What's the latest news on SpaceX?"
     ctx.search_sources = []
     ctx.user = None
@@ -1141,7 +1141,7 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
     ctx = MagicMock()
     ctx.instant_reply = None
     ctx.lightweight_turn = False
-    ctx.verified_math = None
+    ctx.verified_subject = None
     ctx.user_message_content = "Who is the CEO of Anthropic?"
     ctx.search_sources = []
     ctx.user = None
@@ -1182,7 +1182,7 @@ async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
     ctx = MagicMock()
     ctx.instant_reply = None
     ctx.lightweight_turn = False
-    ctx.verified_math = None
+    ctx.verified_subject = None
     ctx.user_message_content = "What's the latest news on SpaceX?"
     ctx.search_sources = []
     ctx.user = None
@@ -1221,7 +1221,7 @@ async def test_tool_loop_path_skips_classifier_when_spend_capped():
     ctx = MagicMock()
     ctx.instant_reply = None
     ctx.lightweight_turn = False
-    ctx.verified_math = None
+    ctx.verified_subject = None
     ctx.user_message_content = "Who is the CEO of Anthropic?"
     ctx.search_sources = []
     ctx.user = None

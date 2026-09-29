@@ -57,7 +57,7 @@ async def test_literal_plot_preserves_canonical_data_and_reaches_first_token_wit
         reserved_tokens=100,
         max_output_tokens=1000,
         instant_reply=reply,
-        verified_math=verified,
+        verified_subject=verified,
     )
     with (
         patch("app.services.chat.stream_pipeline.run_tool_loop_path", AsyncMock()) as tools,

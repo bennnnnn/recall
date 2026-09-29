@@ -68,7 +68,7 @@ def _ctx(
     ctx.user_id = uuid4()
     ctx.chat_id = uuid4()
     ctx.search_sources = search_sources or []
-    ctx.verified_math = None
+    ctx.verified_subject = None
     ctx.local_places = local_places
     ctx.skip_memory_jobs = False
     ctx.instant_reply = None
@@ -359,7 +359,7 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
     monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _must_not_run)
     ctx = _ctx()
     ctx.instant_reply = "$x = 2$\n\n```answer\nx = 2\n```"
-    ctx.verified_math = VerifiedMathBlock(
+    ctx.verified_subject = VerifiedMathBlock(
         text="verified",
         canonical_fence={"type": "answer", "content": "x = 2"},
         canonical_answer="x = 2",

@@ -138,7 +138,7 @@ async def test_missing_scale_reply_skips_tool_selection_and_model_stream() -> No
         reserved_tokens=100,
         max_output_tokens=1000,
         instant_reply=reply,
-        verified_math=verified,
+        verified_subject=verified,
     )
     with (
         patch("app.services.chat.stream_pipeline.run_tool_loop_path", AsyncMock()) as tools,

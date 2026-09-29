@@ -76,7 +76,7 @@ async def run_tool_loop_path(
     sources = ctx.search_sources if isinstance(ctx.search_sources, list) else []
     lightweight = bool(ctx.lightweight_turn)
     has_instant = ctx.instant_reply is not None
-    has_verified = ctx.verified_math is not None
+    has_verified = ctx.verified_subject is not None
     has_sources = bool(sources)
     from app.modules.job_search.chat_intent import wants_job_search_turn
 
@@ -157,7 +157,7 @@ async def run_tool_loop_path(
         user_timezone=ctx.user_timezone,
     )
     if tool_verified is not None:
-        ctx.verified_math = tool_verified
+        ctx.verified_subject = tool_verified
     if terminal_image is not None:
         ctx.terminal_image_message_id = terminal_image.message_id
         ctx.terminal_image_content = terminal_image.final_content
@@ -294,38 +294,41 @@ async def enrich_final_content(
         from app.services.solving import VerifiedPhysicsBlock
 
         try:
-            if isinstance(ctx.verified_math, VerifiedPhysicsBlock):
+            verified = ctx.verified_subject
+            if verified is not None and verified.subject == "chemistry":
+                # Chemistry owns its scene and SMILES fences. The math rewrite
+                # would treat those formulas as algebra.
+                pass
+            elif isinstance(verified, VerifiedPhysicsBlock):
                 from app.modules.physics.fence import validate_physics_fences
 
                 assistant_text = validate_physics_fences(
                     assistant_text,
-                    verified=ctx.verified_math,
+                    verified=verified,
                 )
             # Direct verified replies already carry ```answer. Running that
             # rewrite on the SymPy pool can queue behind an integral for no
             # benefit — keep it in-process.
-            elif ctx.instant_reply is not None and ctx.verified_math is not None:
+            elif ctx.instant_reply is not None and verified is not None:
                 assistant_text = seams.math_fence_service.validate_math_fences_worker(
-                    assistant_text, ctx.verified_math
+                    assistant_text, verified
                 )
-            elif seams.math_fence_service.needs_math_fence_validate(
-                assistant_text, ctx.verified_math
-            ):
+            elif seams.math_fence_service.needs_math_fence_validate(assistant_text, verified):
                 assistant_text = await run_sympy(
                     seams.math_fence_service.validate_math_fences_worker,
                     assistant_text,
-                    ctx.verified_math,
+                    verified,
                     timeout=settings.math_solve_timeout_seconds,
                 )
         except TimeoutError:
             logger.warning("validate_math_fences timed out; keeping raw assistant text")
             assistant_text = _replace_failed_subject_fences(
-                seams, assistant_text, ctx.verified_math
+                seams, assistant_text, ctx.verified_subject
             )
         except Exception:
             logger.exception("validate_math_fences failed; keeping raw assistant text")
             assistant_text = _replace_failed_subject_fences(
-                seams, assistant_text, ctx.verified_math
+                seams, assistant_text, ctx.verified_subject
             )
 
         if ctx.subject_unverified == "math" or ctx.math_unverified is True:

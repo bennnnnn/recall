@@ -1,9 +1,17 @@
-"""Neutral chat integration for independent deterministic subject solvers."""
+"""Neutral chat integration for independent deterministic subject solvers.
+
+The registry lives here, with chat, so a subject package never decides which
+peer owns a turn. Adapters call the solvers that already exist. They do not
+reimplement extraction or presentation.
+"""
 
 from __future__ import annotations
 
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Literal
+
+from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.models.schemas.math import MathImageExtract
@@ -12,7 +20,7 @@ from app.modules.physics.extract import needs_physics
 from app.modules.physics.prompt import build_physics_augmentation
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock, VerifiedSolveBlock
 
-SubjectName = Literal["math", "physics"]
+SubjectName = Literal["math", "physics", "chemistry"]
 
 
 @dataclass(frozen=True)
@@ -23,20 +31,219 @@ class SubjectAugmentation:
     unverified: bool = False
 
 
+@dataclass(frozen=True)
+class SubjectAdapter:
+    """One subject's solve and direct-reply hooks. Detection order is separate."""
+
+    name: SubjectName
+    augment: Callable[..., Awaitable[SubjectAugmentation]]
+    direct_reply: Callable[..., str | None]
+
+
+def _closed_chemistry(text: str) -> bool:
+    """A chemistry cue plus a complete extraction, before algebra can claim it."""
+    from app.modules.chemistry.extract import extract_chemistry_intent
+    from app.modules.chemistry.request import is_chemistry_question
+
+    if not is_chemistry_question(text):
+        return False
+    return extract_chemistry_intent(text) is not None
+
+
 def detect_subject(
     text: str,
     *,
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
+    chemistry_enabled: bool = True,
 ) -> SubjectName | None:
-    """Choose one peer subject before extraction; physics never enters math."""
+    """Pick one subject for this line.
+
+    An image math extract is math. Otherwise physics wins over math. A closed
+    chemistry extraction wins over math, because molarity and Gibbs notation
+    look like algebra, and chemistry runs for a lookup only when neither peer
+    has claimed the line.
+    """
     if image_math_extract is not None:
         return "math"
     if needs_physics(text):
         return "physics"
+    if chemistry_enabled and _closed_chemistry(text):
+        return "chemistry"
     if needs_symbolic_math(text, has_image_attachment=has_image_attachment):
         return "math"
+    if not chemistry_enabled:
+        return None
+    from app.modules.chemistry.request import is_chemistry_question
+
+    if is_chemistry_question(text):
+        return "chemistry"
     return None
+
+
+async def _augment_physics(
+    user_content: str,
+    settings: Settings,
+    *,
+    math_user_content: str,
+    has_image_attachment: bool,
+    image_math_extract: MathImageExtract | None,
+    prior_user_messages: list[str] | None,
+    response_intent_text: str | None,
+    redis: Redis | None,
+) -> SubjectAugmentation:
+    del (
+        math_user_content,
+        has_image_attachment,
+        image_math_extract,
+        prior_user_messages,
+        response_intent_text,
+        redis,
+    )
+    block, physics_verified = await build_physics_augmentation(
+        user_content,
+        settings,
+        needs_subject=True,
+    )
+    return SubjectAugmentation(
+        subject="physics",
+        prompt_block=block,
+        verified=physics_verified,
+        unverified=block is not None and physics_verified is None,
+    )
+
+
+def _direct_physics(
+    verified: VerifiedSolveBlock,
+    user_text: str,
+    *,
+    has_image_attachment: bool,
+    response_style: str,
+    verified_request_text: str | None,
+) -> str | None:
+    del response_style, verified_request_text
+    if not isinstance(verified, VerifiedPhysicsBlock):
+        return None
+    from app.modules.physics.direct import maybe_direct_physics_reply
+
+    return maybe_direct_physics_reply(
+        verified,
+        user_text,
+        has_image_attachment=has_image_attachment,
+    )
+
+
+async def _augment_math(
+    user_content: str,
+    settings: Settings,
+    *,
+    math_user_content: str,
+    has_image_attachment: bool,
+    image_math_extract: MathImageExtract | None,
+    prior_user_messages: list[str] | None,
+    response_intent_text: str | None,
+    redis: Redis | None,
+) -> SubjectAugmentation:
+    del user_content, redis
+    block, math_verified = await build_math_augmentation(
+        math_user_content,
+        settings,
+        has_image_attachment=has_image_attachment,
+        image_math_extract=image_math_extract,
+        needs_math=True,
+        prior_user_messages=prior_user_messages,
+        response_intent_text=response_intent_text,
+    )
+    return SubjectAugmentation(
+        subject="math",
+        prompt_block=block,
+        verified=math_verified,
+        unverified=block is not None and math_verified is None,
+    )
+
+
+def _direct_math(
+    verified: VerifiedSolveBlock,
+    user_text: str,
+    *,
+    has_image_attachment: bool,
+    response_style: str,
+    verified_request_text: str | None,
+) -> str | None:
+    if not isinstance(verified, VerifiedMathBlock):
+        return None
+    from app.modules.math.tools.direct import maybe_direct_math_reply
+
+    return maybe_direct_math_reply(
+        verified,
+        user_text,
+        has_image_attachment=has_image_attachment,
+        response_style=response_style,
+        verified_request_text=verified_request_text,
+    )
+
+
+async def _augment_chemistry(
+    user_content: str,
+    settings: Settings,
+    *,
+    math_user_content: str,
+    has_image_attachment: bool,
+    image_math_extract: MathImageExtract | None,
+    prior_user_messages: list[str] | None,
+    response_intent_text: str | None,
+    redis: Redis | None,
+) -> SubjectAugmentation:
+    del (
+        math_user_content,
+        has_image_attachment,
+        image_math_extract,
+        prior_user_messages,
+        response_intent_text,
+    )
+    if not settings.chemistry_enabled:
+        return SubjectAugmentation(None, None, None)
+    from app.modules.chemistry.context import build_chemistry_augmentation
+    from app.services.chat.prompt_constants.visuals import attach_chemistry_fence_hint
+
+    block, verified = await build_chemistry_augmentation(user_content, settings, redis=redis)
+    if block:
+        block = attach_chemistry_fence_hint(block)
+    return SubjectAugmentation(
+        subject="chemistry" if block or verified else None,
+        prompt_block=block,
+        verified=verified,
+        unverified=False,
+    )
+
+
+def _direct_chemistry(
+    verified: VerifiedSolveBlock,
+    user_text: str,
+    *,
+    has_image_attachment: bool,
+    response_style: str,
+    verified_request_text: str | None,
+) -> str | None:
+    del user_text, response_style, verified_request_text
+    from app.modules.chemistry.block import VerifiedChemistry
+    from app.modules.chemistry.direct import maybe_direct_chemistry_reply
+
+    if not isinstance(verified, VerifiedChemistry):
+        return None
+    return maybe_direct_chemistry_reply(
+        verified,
+        has_image_attachment=has_image_attachment,
+    )
+
+
+# Dispatch table. Detection order is ``detect_subject``, not this dict's order:
+# physics still beats math, and a closed chemistry extraction beats algebra.
+SUBJECT_ADAPTERS: dict[SubjectName, SubjectAdapter] = {
+    "physics": SubjectAdapter("physics", _augment_physics, _direct_physics),
+    "math": SubjectAdapter("math", _augment_math, _direct_math),
+    "chemistry": SubjectAdapter("chemistry", _augment_chemistry, _direct_chemistry),
+}
 
 
 async def build_subject_augmentation(
@@ -49,44 +256,30 @@ async def build_subject_augmentation(
     prior_user_messages: list[str] | None = None,
     response_intent_text: str | None = None,
     detected_subject: SubjectName | None = None,
+    redis: Redis | None = None,
 ) -> SubjectAugmentation:
     math_text = math_user_content or user_content
     subject = detected_subject or detect_subject(
         user_content,
         has_image_attachment=has_image_attachment,
         image_math_extract=image_math_extract,
+        chemistry_enabled=settings.chemistry_enabled,
     )
     if subject is None and math_user_content is not None:
         subject = "math"
-    if subject == "physics":
-        block, physics_verified = await build_physics_augmentation(
-            user_content,
-            settings,
-            needs_subject=True,
-        )
-        return SubjectAugmentation(
-            subject="physics",
-            prompt_block=block,
-            verified=physics_verified,
-            unverified=block is not None and physics_verified is None,
-        )
-    if subject == "math":
-        block, math_verified = await build_math_augmentation(
-            math_text,
-            settings,
-            has_image_attachment=has_image_attachment,
-            image_math_extract=image_math_extract,
-            needs_math=True,
-            prior_user_messages=prior_user_messages,
-            response_intent_text=response_intent_text,
-        )
-        return SubjectAugmentation(
-            subject="math",
-            prompt_block=block,
-            verified=math_verified,
-            unverified=block is not None and math_verified is None,
-        )
-    return SubjectAugmentation(None, None, None)
+    adapter = SUBJECT_ADAPTERS.get(subject) if subject is not None else None
+    if adapter is None:
+        return SubjectAugmentation(None, None, None)
+    return await adapter.augment(
+        user_content,
+        settings,
+        math_user_content=math_text,
+        has_image_attachment=has_image_attachment,
+        image_math_extract=image_math_extract,
+        prior_user_messages=prior_user_messages,
+        response_intent_text=response_intent_text,
+        redis=redis,
+    )
 
 
 def maybe_direct_subject_reply(
@@ -97,22 +290,15 @@ def maybe_direct_subject_reply(
     response_style: str = "balanced",
     verified_request_text: str | None = None,
 ) -> str | None:
-    if isinstance(verified, VerifiedMathBlock):
-        from app.modules.math.tools.direct import maybe_direct_math_reply
-
-        return maybe_direct_math_reply(
-            verified,
-            user_text,
-            has_image_attachment=has_image_attachment,
-            response_style=response_style,
-            verified_request_text=verified_request_text,
-        )
-    if isinstance(verified, VerifiedPhysicsBlock):
-        from app.modules.physics.direct import maybe_direct_physics_reply
-
-        return maybe_direct_physics_reply(
-            verified,
-            user_text,
-            has_image_attachment=has_image_attachment,
-        )
-    return None
+    if verified is None:
+        return None
+    adapter = SUBJECT_ADAPTERS.get(verified.subject)
+    if adapter is None:
+        return None
+    return adapter.direct_reply(
+        verified,
+        user_text,
+        has_image_attachment=has_image_attachment,
+        response_style=response_style,
+        verified_request_text=verified_request_text,
+    )

@@ -797,7 +797,7 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
             turn_mode=_slim_turn_mode(),
         )
 
-    assert bundle.verified_math is verified
+    assert bundle.verified_subject is verified
     assert bundle.instant_reply is not None
     assert ("```graph" if graph else "```answer") in bundle.instant_reply
     if graph:
@@ -816,7 +816,7 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
         reserved_tokens=100,
         max_output_tokens=bundle.max_out,
         instant_reply=bundle.instant_reply,
-        verified_math=verified,
+        verified_subject=verified,
     )
     with (
         patch("app.services.chat.stream_pipeline.run_tool_loop_path", AsyncMock()) as tools,
@@ -838,7 +838,6 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
     """Unit-bearing chemistry must not receive a second algebra answer fence."""
     from app.modules.chemistry.block import build_verified_chemistry
     from app.modules.chemistry.extract import extract_chemistry_intent
-    from app.services.solving import VerifiedMathBlock
 
     user = _make_user()
     chat = _make_chat()
@@ -847,11 +846,6 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
     assert intent is not None
     verified_chemistry = build_verified_chemistry(intent)
     assert verified_chemistry is not None
-    incidental_math = VerifiedMathBlock(
-        text="incidental algebra",
-        canonical_fence={"type": "answer", "content": "H = 2Sk/5"},
-        canonical_answer="H = 2Sk/5",
-    )
     messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": content}]
 
     with (
@@ -866,12 +860,14 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
         ),
         patch(
             "app.services.chat.turn_prep.context.fetch_web_and_tools",
-            AsyncMock(return_value=(None, "MATH_BLOCK", [], incidental_math)),
-        ),
-        patch(
-            "app.services.chat.turn_prep.context.chemistry_context_service."
-            "build_chemistry_augmentation",
-            AsyncMock(return_value=(verified_chemistry.prompt_text, verified_chemistry)),
+            AsyncMock(
+                return_value=(
+                    None,
+                    verified_chemistry.prompt_text,
+                    [],
+                    verified_chemistry,
+                )
+            ),
         ),
         patch(
             "app.services.chat.turn_prep.context.fetch_integration_blocks",
@@ -915,7 +911,7 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
             turn_mode=_slim_turn_mode(),
         )
 
-    assert bundle.verified_math is None
+    assert bundle.verified_subject is verified_chemistry
     assert bundle.instant_reply is not None
     assert "**ΔG = -10 kJ/mol** ✅" in bundle.instant_reply
     assert "H = 2Sk/5" not in bundle.instant_reply
@@ -990,5 +986,5 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
             turn_mode=_slim_turn_mode(),
         )
 
-    assert bundle.verified_math is verified
+    assert bundle.verified_subject is verified
     assert bundle.instant_reply is None

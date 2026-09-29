@@ -228,7 +228,7 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
             current_user_message_id=current.id,
         )
 
-    assert bundle.verified_math is not None
+    assert bundle.verified_subject is not None
     assert bundle.instant_reply is not None
     assert bundle.instant_reply.startswith("**Given:**")
     assert "Subtract 3 from both sides" in bundle.instant_reply
