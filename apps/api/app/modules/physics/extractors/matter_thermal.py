@@ -16,7 +16,11 @@ from app.modules.physics.extractors.common import (
     _strip_param_assignments,
 )
 from app.modules.physics.extractors.mechanics import _INCLINE_ANGLE_RE, _MASS_UNITS
-from app.modules.physics.extractors.school_extensions import blocks_fluids, blocks_thermal
+from app.modules.physics.extractors.school_extensions import (
+    blocks_fluids,
+    blocks_heavy_piston,
+    blocks_thermal,
+)
 from app.services.text_match import has_equation
 
 _OPTICS_CUES = (
@@ -613,7 +617,7 @@ def _extract_fluids_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _FLUIDS_CUES, _FLUIDS_CUE_RES):
         return None
-    if blocks_fluids(cleaned):
+    if blocks_fluids(cleaned) or blocks_heavy_piston(cleaned):
         return None
     if any(word in lower for word in _STRESS_WORDS):
         return None
