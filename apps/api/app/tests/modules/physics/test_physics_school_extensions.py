@@ -86,6 +86,20 @@ VERIFIED: list[tuple[str, str, str]] = [
     ),
     ("What is the rms voltage for a peak of 10 V?", "rms_voltage", "7.071 V"),
     ("What is the rms current for a peak of 2 A?", "rms_current", "1.414 A"),
+    ("What is the peak voltage for an rms of 10 V?", "rms_voltage", "14.14 V"),
+    ("What is the peak current for an rms of 2 A?", "rms_current", "2.828 A"),
+    (
+        "Kirchhoff's loop rule for a single loop with a 12 V battery "
+        "and resistors of 4 ohm, 2 ohm and 6 ohm.",
+        "kirchhoff_loop",
+        "1 A",
+    ),
+    (
+        "Faraday's law for 100 turns of area 0.01 m^2 when the field changes "
+        "from 0 T to 0.2 T in 0.1 s.",
+        "faraday_emf",
+        "2 V",
+    ),
     (
         "Find the inductive reactance of a 0.2 H inductor at 50 Hz.",
         "inductive_reactance",
@@ -227,6 +241,7 @@ REFUSED = [
     "Use Poiseuille's law for a pipe of radius 0.001 m and length 0.1 m "
     "with pressure difference 1000 Pa.",
     "Use Gauss's law for a charge of 2e-6 C.",
+    "A gaussian of charge 2e-6 C and radius 0.2 m.",
     "Kirchhoff's junction rule with currents of 2 A, 3 A and 1 A.",
     "Kirchhoff's loop rule with batteries of 12 V and 6 V and resistors of 4 ohm and 2 ohm.",
     "An adiabatic expansion starts at 200000 Pa and volume 0.01 m^3 and ends at volume 0.02 m^3.",
@@ -255,6 +270,27 @@ def test_school_extension_is_verified(text: str, operation: str, answer: str) ->
 @pytest.mark.parametrize("text", REFUSED)
 def test_incomplete_school_template_is_not_answered(text: str) -> None:
     assert _answer(text) is None
+
+
+def test_series_impedance_from_henry_farad_and_hertz() -> None:
+    import math
+
+    text = (
+        "Find the series impedance for a resistance of 3 ohm, "
+        "an inductance of 1 H and a capacitance of 1e-6 F at 50 Hz."
+    )
+    intent = extract_physics_intent(text)
+    assert intent is not None
+    assert intent.physics_op == "series_impedance"
+    params = intent.physics_params
+    assert params["R"] == 3
+    assert params["inductance"] == 1
+    assert params["capacitance"] == 1e-6
+    assert params["freq"] == 50
+    inductive = 2 * math.pi * params["freq"] * params["inductance"]
+    capacitive = 1 / (2 * math.pi * params["freq"] * params["capacitance"])
+    expected = math.sqrt(params["R"] ** 2 + (inductive - capacitive) ** 2)
+    assert _answer(text) == f"{expected:.4g} ohm"
 
 
 def test_conceptual_gauss_is_not_forced_into_physics() -> None:

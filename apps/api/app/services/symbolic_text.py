@@ -5,6 +5,7 @@ from __future__ import annotations
 from app.services.text_normalize import collapse_ws
 
 _MAX_SYMBOLIC_REQUEST = 1000
+_MAX_PHYSICS_REQUEST = 20_000
 _SUP_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 _SUP_ASCII = "0123456789"
 _SUP_TABLE = str.maketrans(_SUP_GLYPHS, _SUP_ASCII)
@@ -80,9 +81,14 @@ def collapse_repeated_si_unit_powers(text: str) -> str:
     return "".join(out)
 
 
-def normalize_symbolic_request(text: str) -> str | None:
-    """Normalize bounded user text without applying subject semantics."""
+def normalize_symbolic_request(text: str, *, limit: int = _MAX_SYMBOLIC_REQUEST) -> str | None:
+    """Normalize bounded user text without applying subject semantics.
+
+    Math keeps the default 1,000-character cap. Physics passes a higher limit,
+    and that limit cannot exceed ``_MAX_PHYSICS_REQUEST``.
+    """
+    ceiling = min(max(limit, 1), _MAX_PHYSICS_REQUEST)
     cleaned = collapse_ws(strip_inline_math_delimiters(text))
-    if len(cleaned) > _MAX_SYMBOLIC_REQUEST:
+    if len(cleaned) > ceiling:
         return None
     return collapse_repeated_si_unit_powers(fold_numeric_superscripts(cleaned))

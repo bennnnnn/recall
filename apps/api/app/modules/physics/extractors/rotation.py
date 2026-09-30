@@ -17,7 +17,7 @@ from app.modules.physics.extractors.common import (
 )
 from app.modules.physics.extractors.mechanics import _INCLINE_ANGLE_RE, _MASS_UNITS
 from app.modules.physics.extractors.oscillations_waves import _ANGULAR_FREQ_RE
-from app.services.text_match import has_equation
+from app.services.text_match import has_equation, word_index
 
 _ROTATION_CUES = (
     "moment of inertia",
@@ -81,17 +81,24 @@ def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
     )
 
     if "moment of inertia" in lower or "rotational inertia" in lower:
-        shape = next(
-            ((k, name) for name, (k, _) in _INERTIA_SHAPES.items() if name in lower),
+        # Longest name first, and only as a whole word. ``ring`` sits inside
+        # ``during`` and ``disc`` sits inside ``discuss``.
+        shape_factor = next(
+            (
+                factor
+                for name, (factor, _) in sorted(
+                    _INERTIA_SHAPES.items(), key=lambda item: len(item[0]), reverse=True
+                )
+                if word_index(lower, name) != -1
+            ),
             None,
         )
-        formula = next((tex for name, (_, tex) in _INERTIA_SHAPES.items() if name in lower), None)
-        if shape is None or formula is None or mass is None or radius is None:
+        if shape_factor is None or mass is None or radius is None:
             return None
         return PhysicsIntent(
             kind="rotation",
             physics_op="moment_of_inertia",
-            physics_params={"m": mass[0], "r": radius[0], "shape_factor": shape[0]},
+            physics_params={"m": mass[0], "r": radius[0], "shape_factor": shape_factor},
             physics_units={"m": mass[1] or "kg", "r": radius[1] or "m", "shape_factor": ""},
             operation="solve",
         )
@@ -151,6 +158,14 @@ _CIRCULAR_CUE_RES: tuple[re.Pattern[str], ...] = (
         re.IGNORECASE,
     ),
     re.compile(r"\bomega\s*=?.{0,30}?\brad(?:ians?)?/s\b.{0,80}?\bradius\b", re.IGNORECASE),
+    re.compile(
+        r"\bangular\s+(?:velocity|speed|frequency)\b.{0,80}?\bperiod\b",
+        re.IGNORECASE,
+    ),
+    re.compile(
+        r"\bperiod\b.{0,80}?\bangular\s+(?:velocity|speed|frequency)\b",
+        re.IGNORECASE,
+    ),
 )
 
 
@@ -177,6 +192,27 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
     speed = _find_value_with_specific_unit(cleaned, _VELOCITY_UNIT_PATTERN)
     omega = _ANGULAR_FREQ_RE.search(cleaned)
     if radius is None or (speed is None and omega is None):
+        # ω = 2π/T needs a period and no tangential speed. Radius is not an input.
+        if (
+            _ANGULAR_ASK_RE.search(cleaned)
+            and speed is None
+            and omega is None
+            and "period" in lower
+        ):
+            period = _find_value_with_specific_unit(
+                cleaned,
+                r"seconds?|secs?|sec|s|minutes?|mins?|min",
+                ("period",),
+                require_keyword=True,
+            )
+            if period is not None:
+                return PhysicsIntent(
+                    kind="circular",
+                    physics_op="angular_velocity",
+                    physics_params={"period": period[0]},
+                    physics_units={"period": period[1] or "s"},
+                    operation="solve",
+                )
         return None
 
     mass = _find_value_with_specific_unit(

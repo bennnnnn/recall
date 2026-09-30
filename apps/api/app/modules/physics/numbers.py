@@ -11,6 +11,8 @@ import math
 import re
 from decimal import Decimal, InvalidOperation
 
+from app.services.symbolic_text import _MAX_PHYSICS_REQUEST
+
 _START = re.compile(r"(?<![\w.])(?=[+-]?(?:\d|\.\d))")
 _LITERAL = re.compile(r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?")
 _GROUPED_CANDIDATE = re.compile(r"(?<![\w.])[+-]?\d(?:[\d,]*\d)?(?:\.\d+)?(?:[eE][+-]?\d+)?")
@@ -18,7 +20,7 @@ _GROUPED_LITERAL = re.compile(r"[+-]?\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:[eE][+-]?\d+
 # Legacy keyword scanners inspect 40-character windows. Never expand a
 # literal beyond that window and thereby make a prefix look like the value.
 _MAX_LITERAL_CHARS = 36
-_MAX_INPUT_CHARS = 12_000
+_MAX_INPUT_CHARS = _MAX_PHYSICS_REQUEST
 
 
 _UNIT_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = (

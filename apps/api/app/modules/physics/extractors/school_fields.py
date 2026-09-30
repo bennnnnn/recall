@@ -15,10 +15,12 @@ from app.modules.physics.extractors.school_common import (
     _one,
     _turns,
 )
+from app.services.text_match import word_index
 
 
 def extract_gauss(text: str, lower: str) -> PhysicsIntent | None:
-    if "gauss" not in lower:
+    # ``gaussian`` contains the letters but is not Gauss's law.
+    if word_index(lower, "gauss") == -1:
         return None
     charge = _one(text, r"uC|µC|C|microcoulombs?|coulombs?")
     radius = _one(text, _LENGTH_UNIT_PATTERN, ("radius", "shell"), require_keyword=True)

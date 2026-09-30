@@ -45,6 +45,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Circular-motion equation",
         "\\omega",
         variables=(
+            var("period", "T", "second"),
             var("r", "r", "meter"),
             var("rpm", "n", "revolution / minute"),
             var("v", "v", "meter / second"),

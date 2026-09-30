@@ -146,6 +146,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"|\mathcal{E}| = N\frac{|\Delta\Phi|}{\Delta t}",
         assumptions=("magnitude; the minus sign is direction",),
         variables=(
+            var("area", "A", "meter ** 2"),
+            var("b1", "B_1", "tesla"),
+            var("b2", "B_2", "tesla"),
             var("delta_flux", r"\Delta\Phi", "weber"),
             var("dt", r"\Delta t", "second"),
             var("turns", "N", dimensionless=True),

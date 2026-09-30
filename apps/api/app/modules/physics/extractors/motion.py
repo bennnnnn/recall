@@ -8,6 +8,7 @@ from typing import Literal
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
+    _NUMBER,
     _T_ASSIGN_RE,
     _VELOCITY_UNIT_PATTERN,
     _detect_gravity,
@@ -118,6 +119,61 @@ def _asks_max_height(lower: str) -> bool:
 
 _STATED_ACCELERATION_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*m/s\^?2(?![0-9])", re.IGNORECASE)
 
+# The question has to ask for the acceleration. The bare word must not replace
+# a time, height, or speed question, and it must not drop that question.
+_ASKS_ACCELERATION_RE = re.compile(
+    r"\b(?:find|what(?:'s| is)|calculate|compute|determine)\b"
+    r"(?:(?!\b(?:time|height|speed|velocity|distance)\b).){0,60}\bacceleration\b",
+    re.IGNORECASE,
+)
+_ASKS_TIME_RE = re.compile(
+    r"\b(?:how long|time to|find the time|what is the time)\b",
+    re.IGNORECASE,
+)
+_DOWN_BEFORE_RE = re.compile(
+    r"\b(?:downward|downwards|thrown down|launched downward)\b",
+    re.IGNORECASE,
+)
+_UP_BEFORE_RE = re.compile(
+    r"\b(?:upward|upwards|thrown up|launched upward)\b",
+    re.IGNORECASE,
+)
+
+
+def _velocity_is_downward(text: str, value: float, unit: str) -> bool:
+    """True when downward sits on this velocity, not on a later question."""
+    if value <= 0 or not unit:
+        return False
+    pattern = re.compile(
+        rf"({_NUMBER})\s*{re.escape(unit)}(?![A-Za-z0-9/^])",
+        re.IGNORECASE,
+    )
+    for match in pattern.finditer(text):
+        if abs(float(match.group(1)) - value) > 1e-6:
+            continue
+        before = text[max(0, match.start() - 64) : match.start()]
+        after = text[match.end() : match.end() + 48]
+        earlier = before.rfind(".")
+        if earlier != -1:
+            before = before[earlier + 1 :]
+        later = after.find(".")
+        if later != -1:
+            after = after[:later]
+        after_lower = after.lower()
+        down_after = re.search(r"\b(?:downward|downwards)\b", after_lower)
+        if down_after is not None:
+            gap = after_lower[: down_after.start()]
+            if re.search(r"\b(?:after|find|what|when)\b", gap) is None:
+                return True
+        positions: list[tuple[int, str]] = []
+        for kind, rx in (("down", _DOWN_BEFORE_RE), ("up", _UP_BEFORE_RE)):
+            found = list(rx.finditer(before))
+            if found:
+                positions.append((found[-1].start(), kind))
+        if positions and max(positions)[1] == "down":
+            return True
+    return False
+
 
 def _states_a_non_gravity_acceleration(text: str) -> bool:
     """True when the question names an acceleration that is not the gravity in play.
@@ -207,20 +263,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         )
     if vu is not None:
         v0, v0_unit = vu
-    if v0 > 0 and (
-        any(
-            cue in lower
-            for cue in (
-                "thrown down",
-                "thrown downward",
-                "launched downward",
-                "velocity downward",
-                "speed downward",
-                "downward velocity",
-            )
-        )
-        or ("downward" in lower and ("initial velocity" in lower or "initial speed" in lower))
-    ):
+    if vu is not None and _velocity_is_downward(cleaned, v0, v0_unit):
         v0 = -v0
 
     # If we found no height and no nonzero velocity, this isn't a solvable
@@ -253,7 +296,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         if v0 <= 0:
             return None
         op = "vertical_max_height"
-    elif "acceleration" in lower:
+    elif _ASKS_ACCELERATION_RE.search(lower) is not None and _ASKS_TIME_RE.search(lower) is None:
         if not any(cue in lower for cue in _GRAVITY_MOTION_CUES):
             return None
         op = "acceleration"

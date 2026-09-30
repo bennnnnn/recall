@@ -330,6 +330,94 @@ def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, 
     return None
 
 
+_ENERGY_UNIT = r"kilojoules?|joules?|kJ|J"
+_WORK_WORDS = ("work",)
+_SUPPLIED_WORDS = ("supplied", "absorbed", "absorbs", "absorb", "input", "from")
+_REJECTED_WORDS = ("rejected", "rejects", "reject", "exhaust", "waste", "expelled")
+
+
+def _energy_joules(value: float, unit: str) -> float:
+    if unit.lower().startswith("k"):
+        return value * 1000.0
+    return value
+
+
+def _nearest_labeled_energy(
+    text: str, keywords: tuple[str, ...]
+) -> tuple[int, int, float, str] | None:
+    """The energy literal closest to one of ``keywords``, with its span."""
+    energies = list(
+        re.finditer(
+            rf"({_NUMBER})\s*({_ENERGY_UNIT})(?![A-Za-z0-9/^])",
+            text,
+            re.IGNORECASE,
+        )
+    )
+    if not energies:
+        return None
+    spans = [
+        (found.start(), found.end())
+        for keyword in keywords
+        for found in re.finditer(rf"\b{re.escape(keyword)}\b", text, re.IGNORECASE)
+    ]
+    if not spans:
+        return None
+
+    def distance(candidate: re.Match[str]) -> int:
+        best = 10**9
+        for start, end in spans:
+            if candidate.end() <= start:
+                best = min(best, start - candidate.end())
+            elif end <= candidate.start():
+                best = min(best, candidate.start() - end)
+            else:
+                return 0
+        return best
+
+    chosen = min(energies, key=distance)
+    return chosen.start(), chosen.end(), float(chosen.group(1)), chosen.group(2)
+
+
+def _efficiency_intent(
+    work: tuple[int, int, float, str] | None,
+    supplied: tuple[int, int, float, str] | None,
+    rejected: tuple[int, int, float, str] | None,
+) -> PhysicsIntent | None:
+    """Work over heat in, or heat in minus heat out. Unlabeled pairs are refused."""
+    same_span = (
+        work is not None
+        and supplied is not None
+        and (work[0], work[1]) == (supplied[0], supplied[1])
+    )
+    if work is not None and supplied is not None and not same_span:
+        work_j = _energy_joules(work[2], work[3])
+        heat_j = _energy_joules(supplied[2], supplied[3])
+        if work_j <= 0 or heat_j <= 0:
+            return None
+        params = {"W_out": work_j, "Q_in": heat_j}
+    elif (
+        work is None
+        and supplied is not None
+        and rejected is not None
+        and (supplied[0], supplied[1]) != (rejected[0], rejected[1])
+    ):
+        heat_j = _energy_joules(supplied[2], supplied[3])
+        rejected_j = _energy_joules(rejected[2], rejected[3])
+        work_j = heat_j - rejected_j
+        if heat_j <= 0 or work_j <= 0:
+            return None
+        params = {"W_out": work_j, "Q_in": heat_j}
+    else:
+        return None
+    return PhysicsIntent(
+        kind="thermal",
+        physics_op="thermal_efficiency",
+        physics_params=params,
+        physics_units={"W_out": "J", "Q_in": "J"},
+        operation="solve",
+    )
+
+
 def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _THERMAL_CUES, _THERMAL_CUE_RES):
@@ -477,20 +565,12 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
             # Machine/mechanical efficiency is handled by the energy
             # extractor, which runs later in the registry.
             return None
-        energies = _ordered_values(cleaned, r"kilojoules?|joules?|kJ|J")
-        if len(energies) != 2:
-            # Two temperatures is a Carnot question, which needs absolute
-            # temperatures and a different formula. Not solved here.
-            return None
-        work, supplied = sorted((energies[0][0], energies[1][0]))
-        if supplied <= 0:
-            return None
-        return PhysicsIntent(
-            kind="thermal",
-            physics_op="thermal_efficiency",
-            physics_params={"W_out": work, "Q_in": supplied},
-            physics_units={"W_out": "J", "Q_in": "J"},
-            operation="solve",
+        # Two temperatures is a Carnot question. Two unlabeled energies are
+        # not sorted into work and heat: that verifies the smaller number as work.
+        return _efficiency_intent(
+            _nearest_labeled_energy(cleaned, _WORK_WORDS),
+            _nearest_labeled_energy(cleaned, _SUPPLIED_WORDS),
+            _nearest_labeled_energy(cleaned, _REJECTED_WORDS),
         )
 
     # --- ideal gas: P V = n R T -----------------------------------------

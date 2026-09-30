@@ -105,7 +105,7 @@ from app.modules.physics.extractors.school_extensions import (
     _EXTENSION_CUES,
     extract_school_extension,
 )
-from app.services.symbolic_text import normalize_symbolic_request
+from app.services.symbolic_text import _MAX_PHYSICS_REQUEST, normalize_symbolic_request
 
 __all__ = [
     "PHYSICS_CUES",
@@ -292,7 +292,7 @@ _SUPPLIED_NUCLEAR_MASS_RE = re.compile(
 
 def needs_physics(text: str) -> bool:
     """True for a verified template or an unmistakable physics-only request."""
-    cleaned = normalize_symbolic_request(text)
+    cleaned = normalize_symbolic_request(text, limit=_MAX_PHYSICS_REQUEST)
     if not cleaned:
         return False
     if _SUPPLIED_NUCLEAR_MASS_RE.search(cleaned) is not None:
@@ -308,7 +308,7 @@ def extract_physics_intent(text: str) -> PhysicsIntent | None:
     """Extract one complete physics request without entering math dispatch."""
     from app.modules.physics.request import complete_physics_intent, prepare_physics_request
 
-    cleaned = normalize_symbolic_request(text)
+    cleaned = normalize_symbolic_request(text, limit=_MAX_PHYSICS_REQUEST)
     if not cleaned:
         return None
     request = prepare_physics_request(cleaned)

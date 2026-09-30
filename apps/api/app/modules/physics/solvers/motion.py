@@ -789,9 +789,11 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             yi = 0.0
         points.append([round(xi, 4), round(float(yi), 4)])
 
+    flat = f"x*tan({math.degrees(theta):.1f} deg) - g*x^2/(2*v0^2*cos^2(theta))"
+    expr = f"y(x) = {h0:g} + {flat}" if h0 > 0 else f"y(x) = {flat}"
     graph_spec = GraphBlockSpec(
         type="trajectory",
-        expr=f"y(x) = x*tan({math.degrees(theta):.1f} deg) - g*x^2/(2*v0^2*cos^2(theta))",
+        expr=expr,
         variable="x",
         x_min=0.0,
         x_max=points[-1][0] * 1.05,

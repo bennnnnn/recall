@@ -324,6 +324,13 @@ def test_a_temperature_rise_may_omit_its_scale() -> None:
     )
 
 
+def test_labeled_heat_sets_efficiency_and_an_unlabeled_pair_does_not() -> None:
+    absorbed = "What is the thermal efficiency of an engine that absorbs 1000 J and rejects 600 J?"
+    assert _verified_answer(absorbed) == "0.4 (40%)"
+    unlabeled = "what is the efficiency of a heat engine with 300 J and 1000 J"
+    assert extract_physics_intent(unlabeled) is None
+
+
 def test_an_absolute_temperature_still_may_not() -> None:
     """The relaxation above must not reach the ideal gas law.
 
