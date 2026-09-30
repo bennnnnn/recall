@@ -8,7 +8,12 @@ from dataclasses import dataclass
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.formula import parse_formula
-from app.modules.chemistry.smiles import element_counts, most_common_isotope, validate_smiles
+from app.modules.chemistry.smiles import (
+    element_counts,
+    most_common_isotope,
+    parse_mol,
+    validate_smiles,
+)
 
 __all__ = [
     "LimitingReagentResult",
@@ -87,11 +92,9 @@ def _closed_ring_smiles(raw: str) -> bool:
     (cyclohexane as C6, 72.07 instead of 84.16). Hill formulas such as ``C6H12O6`` or
     ``CO2`` are never valid SMILES, so they still take the formula route.
     """
-    if len(raw) > 500 or not any(ch.isdigit() for ch in raw):
+    if not any(ch.isdigit() for ch in raw):
         return False
-    from rdkit import Chem
-
-    return Chem.MolFromSmiles(raw) is not None
+    return parse_mol(raw, map_formulas=False) is not None
 
 
 def _prefer_smiles(raw: str) -> bool:

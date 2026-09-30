@@ -366,3 +366,55 @@ def test_limiting_reagent_unknown_reactant() -> None:
         target_product="H2O",
     )
     assert result.error is not None
+
+
+# ---------------------------------------------------------------------------
+# RDKit robustness: logging, determinism, size limits
+# ---------------------------------------------------------------------------
+
+
+def test_an_invalid_smiles_does_not_write_rdkit_errors_to_stderr(
+    capfd: pytest.CaptureFixture[str],
+) -> None:
+    for text in ("H2O!", "not_a_smiles", "C1CC", "Q"):
+        assert not chemistry_service.validate_smiles(text).valid
+    assert capfd.readouterr().err == ""
+
+
+def test_three_d_coordinates_are_reproducible() -> None:
+    first = chemistry_service.generate_3d_coordinates("CC(=O)Oc1ccccc1C(=O)O")
+    second = chemistry_service.generate_3d_coordinates("CC(=O)Oc1ccccc1C(=O)O")
+    assert first.sdf
+    assert first.sdf == second.sdf
+
+
+def test_a_molecule_too_large_for_the_phone_is_skipped_with_a_reason() -> None:
+    from app.modules.chemistry.smiles import MAX_3D_HEAVY_ATOMS
+
+    huge = chemistry_service.generate_3d_coordinates("C" * (MAX_3D_HEAVY_ATOMS + 1))
+    assert huge.sdf == ""
+    assert huge.error == "too large for a 3D view"
+
+
+def test_an_oversized_sdf_is_never_returned(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.modules.chemistry import smiles as smiles_module
+
+    monkeypatch.setattr(smiles_module, "MAX_SDF_CHARS", 100)
+    coords = chemistry_service.generate_3d_coordinates("CCCCCC")
+    assert coords.sdf == ""
+    assert coords.error == "3D structure is too large to send"
+
+
+def test_a_metal_without_mmff_parameters_still_gets_a_structure() -> None:
+    coords = chemistry_service.generate_3d_coordinates("[Fe](Cl)(Cl)Cl")
+    assert coords.error is None or coords.sdf == ""
+    if coords.sdf:
+        assert "M  END" in coords.sdf
+
+
+def test_a_formula_is_read_as_smiles_only_where_the_mapping_is_wanted() -> None:
+    from app.modules.chemistry.smiles import parse_mol
+
+    assert parse_mol("H2O") is not None
+    assert parse_mol("H2O", map_formulas=False) is None
+    assert parse_mol("C" * 501) is None

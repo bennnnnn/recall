@@ -13,7 +13,8 @@ import re
 
 import pytest
 
-from app.models.schemas.chemistry import ChemistryIntent
+from app.models.schemas.chemistry import ChemistryIntent, ChemistryKind, ChemistryOp
+from app.models.schemas.chemistry.scene import TitrationScene
 from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
@@ -457,7 +458,7 @@ def test_titration_regions_scale_with_the_amounts() -> None:
         "Weak acid strong base titration: Ma=0.001, Va=0.010 L, Mb=0.001, Vb=0.00905 L, "
         "Ka=1.8e-5, find pH"
     )
-    assert near.scene is not None
+    assert isinstance(near.scene, TitrationScene)
     assert near.scene.region == "buffer region"
 
 
@@ -820,7 +821,7 @@ def test_esterification_needs_an_alcohol_partner_not_an_acid() -> None:
     ],
 )
 def test_a_missing_input_is_refused_not_defaulted(
-    kind: str, operation: str, params: dict[str, float]
+    kind: ChemistryKind, operation: ChemistryOp, params: dict[str, float]
 ) -> None:
     intent = ChemistryIntent(kind=kind, chemistry_op=operation, params=params)
     with pytest.raises(SolveServiceError):

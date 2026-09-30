@@ -11,6 +11,7 @@ from pydantic import ValidationError
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry import context as chemistry_context
+from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import extract_compound_name, is_chemistry_question
 
@@ -20,8 +21,8 @@ _BUDGET_SECONDS = 0.25
 
 @pytest.fixture(scope="module", autouse=True)
 def _warm_lazy_imports() -> None:
-    """SymPy imports on first balance (~0.2 s); that is not what these tests time."""
-    extract_chemistry_intent("Balance H2 + O2 -> H2O")
+    """SymPy imports on the first balance (~0.3 s); that is not what these tests time."""
+    assert balance_equation("H2 + O2 -> H2O").balanced
 
 
 @pytest.mark.parametrize(
@@ -167,10 +168,8 @@ def test_a_bare_multiplication_is_not_scientific_notation() -> None:
 @pytest.mark.parametrize("field", ["formula", "equation", "target"])
 def test_intent_text_fields_are_bounded(field: str) -> None:
     with pytest.raises(ValidationError):
-        ChemistryIntent(
-            kind="organic",
-            chemistry_op="functional_groups",
-            **{field: "C" * 501},
+        ChemistryIntent.model_validate(
+            {"kind": "organic", "chemistry_op": "functional_groups", field: "C" * 501}
         )
 
 
@@ -202,3 +201,16 @@ async def test_slow_pubchem_does_not_hold_the_turn(monkeypatch: pytest.MonkeyPat
     )
     assert result == (None, None, False)
     assert time.perf_counter() - start < 1.0
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "What is the molar mass of " + "C" * 400 + "H" * 800,
+        "Balance " + "H2 + " * 300 + "O2 -> H2O",
+        "Identify functional groups in SMILES " + "C" * 600,
+    ],
+    ids=["formula", "equation", "smiles"],
+)
+def test_a_value_the_schema_refuses_declines_instead_of_raising(text: str) -> None:
+    assert extract_chemistry_intent(text) is None

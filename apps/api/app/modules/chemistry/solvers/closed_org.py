@@ -215,12 +215,11 @@ def _peak(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
                     working.append(f"{inp(value)} is within {name} {label} {low}–{high} {unit}")
                     break
     else:
-        for name, (label, low, high) in _NMR.items():
-            if low <= value <= high:
+        for name, (label, low_ppm, high_ppm) in _NMR.items():
+            if low_ppm <= value <= high_ppm:
                 groups.append(name)
-                working.append(
-                    f"{inp(value)} is within {name} {label} {num(low)}–{num(high)} {unit}"
-                )
+                span = f"{num(low_ppm)}–{num(high_ppm)}"
+                working.append(f"{inp(value)} is within {name} {label} {span} {unit}")
     if not groups:
         raise SolveServiceError("no functional group contains that peak")
     shown = "\n".join(groups)
