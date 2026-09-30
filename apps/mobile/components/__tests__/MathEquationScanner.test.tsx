@@ -38,7 +38,13 @@ jest.mock("@/components/mathScanner/LiveMathScannerCamera", () => {
     ) => {
       ReactNative.useImperativeHandle(ref, () => ({ takePictureAsync: mockTakePictureAsync }));
       ReactNative.useEffect(() => {
-        props.onReady?.();
+        let cancelled = false;
+        queueMicrotask(() => {
+          if (!cancelled) props.onReady?.();
+        });
+        return () => {
+          cancelled = true;
+        };
       }, [props.onReady]);
       return ReactNative.createElement(View, {
         testID: "mock-live-scanner-camera",
