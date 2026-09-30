@@ -10,14 +10,22 @@ import {
   View,
   useWindowDimensions,
 } from "react-native";
-import { CameraView, useCameraPermissions } from "expo-camera";
+import { useCameraPermissions } from "expo-camera";
 import * as ImageManipulator from "expo-image-manipulator";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { MathScannerChrome } from "@/components/mathScanner/MathScannerChrome";
-import { MathScannerCropOverlay } from "@/components/mathScanner/MathScannerCropOverlay";
+import {
+  MathScannerCropOverlay,
+  type LiveScanFrameStatus,
+} from "@/components/mathScanner/MathScannerCropOverlay";
+import {
+  LiveMathScannerCamera,
+  type LiveScannerCameraHandle,
+  type LiveScannerDetection,
+} from "@/components/mathScanner/LiveMathScannerCamera";
 import {
   ScanReadingReview,
   type ScanReadingState,
@@ -37,6 +45,7 @@ import { impactMedium, selection } from "@/lib/haptics";
 import { useReduceMotion } from "@/lib/motion";
 import {
   containedPhotoRegion,
+  defaultScanRegion,
   regionToContainedImageCrop,
   regionToImageCrop,
   scanChromeInset,
@@ -95,7 +104,7 @@ export function MathEquationScanner({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const reduceMotion = useReduceMotion();
   const [permission, requestPermission] = useCameraPermissions();
-  const cameraRef = useRef<CameraView>(null);
+  const cameraRef = useRef<LiveScannerCameraHandle>(null);
   const [hosted, setHosted] = useState(visible);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -110,12 +119,20 @@ export function MathEquationScanner({
   }, []);
   const [zoom, setZoom] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
+  const [liveRegion, setLiveRegion] = useState<ScanRegion | null>(null);
+  const [liveStatus, setLiveStatus] = useState<LiveScanFrameStatus>("idle");
+  const liveReadyRef = useRef(false);
   const capturePendingRef = useRef(false);
   const handleCameraReady = useCallback(() => setCameraReady(true), []);
   const inset = useMemo(
     () => scanChromeInset(windowWidth, windowHeight, insets),
     [windowWidth, windowHeight, insets],
   );
+  const handleRegionChange = useCallback((region: ScanRegion) => {
+    setLiveRegion(region);
+    setLiveStatus("idle");
+    liveReadyRef.current = false;
+  }, []);
   const crop = useMathScannerCrop({
     windowWidth,
     windowHeight,
@@ -123,7 +140,20 @@ export function MathEquationScanner({
     preview: Boolean(preview),
     reduceMotion,
     onZoom: setZoom,
+    onRegionChange: handleRegionChange,
   });
+  const scanRegion = liveRegion ?? defaultScanRegion(inset);
+
+  const handleLiveDetection = useCallback((detection: LiveScannerDetection) => {
+    const next: LiveScanFrameStatus = detection.stable
+      ? "ready"
+      : detection.hasText
+        ? "detecting"
+        : "idle";
+    setLiveStatus(next);
+    if (detection.stable && !liveReadyRef.current) selection();
+    liveReadyRef.current = detection.stable;
+  }, []);
 
   const previewFrame = useMemo(
     () => preview
@@ -143,6 +173,9 @@ export function MathEquationScanner({
       setReview(null);
       setError(null);
       setTorchOn(false);
+      setCameraReady(false);
+      setLiveStatus("idle");
+      liveReadyRef.current = false;
       crop.resetRegion();
       crop.resetZoom();
       return;
@@ -180,6 +213,8 @@ export function MathEquationScanner({
         stopReading();
         const controller = new AbortController();
         readAbortRef.current = controller;
+        setLiveStatus("idle");
+        liveReadyRef.current = false;
         setReview({ shot: cropped, state: { status: "reading" } });
         void onReadScan(cropped, controller.signal)
           .catch(() => null)
@@ -212,10 +247,7 @@ export function MathEquationScanner({
       impactMedium();
       setBusy(true);
       setError(null);
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.9,
-        shutterSound: true,
-      });
+      const photo = await cameraRef.current.takePictureAsync();
       if (!photo?.uri) {
         setError(t("chat.math_scan_failed"));
         return;
@@ -226,8 +258,12 @@ export function MathEquationScanner({
         fileName: `${subject}-scan-${Date.now()}.jpg`,
         kind: "image",
       };
-      const width = photo.width ?? 0;
-      const height = photo.height ?? 0;
+      const measured = await measureImageSize(photo.uri).catch(() => ({
+        width: photo.width ?? 0,
+        height: photo.height ?? 0,
+      }));
+      const width = measured.width;
+      const height = measured.height;
       if (width <= 0 || height <= 0) {
         await showShot(pending);
         return;
@@ -298,6 +334,8 @@ export function MathEquationScanner({
   const retakeFromReview = useCallback(() => {
     stopReading();
     setReview(null);
+    setLiveStatus("idle");
+    liveReadyRef.current = false;
     crop.resetRegion();
     setPreview(null);
     setError(null);
@@ -309,6 +347,8 @@ export function MathEquationScanner({
     const previousIndex = SCANNER_SUBJECTS.indexOf(subject);
     selection();
     void playScannerSwitchCue(currentIndex > previousIndex ? 1 : -1);
+    setLiveStatus("idle");
+    liveReadyRef.current = false;
     setSubject(next);
   }, [subject]);
 
@@ -319,7 +359,11 @@ export function MathEquationScanner({
     try {
       await scheduleIdlePromise();
       const picked = await pickImageDocument();
-      if (picked) await showShot(picked);
+      if (picked) {
+        setLiveStatus("idle");
+        liveReadyRef.current = false;
+        await showShot(picked);
+      }
     } catch (caught) {
       if (caught instanceof HeicUnsupportedError) {
         setError(t("chat.heic_unsupported_body"));
@@ -390,19 +434,15 @@ export function MathEquationScanner({
         ) : (
           <View style={StyleSheet.absoluteFill} collapsable={false}>
             {granted ? <View style={StyleSheet.absoluteFill} testID="math-scanner-camera" pointerEvents="none">
-              <CameraView
+              <LiveMathScannerCamera
                 ref={cameraRef}
-                style={StyleSheet.absoluteFill}
-                facing="back"
-                mode="picture"
-                zoom={zoom}
-                enableTorch={torchOn && !preview && !review && visible}
-                flash="off"
-                autofocus="off"
-                animateShutter={false}
                 active={!preview && !review && visible}
-                onCameraReady={handleCameraReady}
-                onMountError={() => setError(t("chat.math_scan_camera_unavailable"))}
+                torchOn={torchOn && !preview && !review && visible}
+                zoom={zoom}
+                scanRegion={scanRegion}
+                onReady={handleCameraReady}
+                onError={() => setError(t("chat.math_scan_camera_unavailable"))}
+                onDetectionChange={handleLiveDetection}
               />
             </View> : null}
             {granted && !preview && !review ? <ScannerSubjectGuide subject={subject} /> : null}
@@ -439,6 +479,7 @@ export function MathEquationScanner({
                 handleBLStyle={crop.handleBLStyle}
                 handleBRStyle={crop.handleBRStyle}
                 scanning={Boolean(preview) && !busy}
+                liveStatus={preview ? "idle" : liveStatus}
                 onGrow={crop.growRegion}
                 onShrink={crop.shrinkRegion}
               />
@@ -462,6 +503,8 @@ export function MathEquationScanner({
           onOpenLibrary={() => void openLibrary()}
           onCapture={() => void capture()}
           onRetake={() => {
+            setLiveStatus("idle");
+            liveReadyRef.current = false;
             crop.resetRegion();
             setPreview(null);
             setError(null);
