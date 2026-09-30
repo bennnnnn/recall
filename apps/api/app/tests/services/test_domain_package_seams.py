@@ -47,7 +47,8 @@ def test_chemistry_package_exposes_its_public_api() -> None:
     assert callable(chemistry.validate_smiles)
     assert callable(chemistry.balance_equation)
     assert callable(chemistry.stoichiometry)
-    assert callable(chemistry.molarity)
+    assert callable(chemistry.molar_mass)
+    assert callable(chemistry.solve_chemistry)
     assert callable(
         importlib.import_module("app.modules.chemistry.context").build_chemistry_context
     )
