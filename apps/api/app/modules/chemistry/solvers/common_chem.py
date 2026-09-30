@@ -7,8 +7,11 @@ import math
 from itertools import pairwise
 
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
+from app.services.solving import SolveServiceError
 
 KW = 1.0e-14
+# Below this an ion concentration is comparable to the 1e-7 M that water supplies itself.
+_DILUTE_ION = 1.0e-6
 # mmHg vapor pressure of water. Values between points are linearly interpolated.
 WATER_VAPOR_MMHG: tuple[tuple[float, float], ...] = (
     (0, 4.58),
@@ -30,16 +33,27 @@ WATER_VAPOR_MMHG: tuple[tuple[float, float], ...] = (
 )
 # Standard reduction potential and electrons for the common aqueous ion.
 STANDARD_REDUCTION: dict[str, tuple[float, int]] = {
+    "Li": (-3.04, 1),
+    "K": (-2.93, 1),
+    "Ba": (-2.91, 2),
+    "Ca": (-2.87, 2),
     "Na": (-2.71, 1),
     "Mg": (-2.37, 2),
     "Al": (-1.66, 3),
+    "Mn": (-1.18, 2),
     "Zn": (-0.76, 2),
+    "Cr": (-0.74, 3),
     "Fe": (-0.44, 2),
+    "Cd": (-0.40, 2),
+    "Co": (-0.28, 2),
     "Ni": (-0.25, 2),
+    "Sn": (-0.14, 2),
     "Pb": (-0.13, 2),
     "H": (0.0, 2),
     "Cu": (0.34, 2),
     "Ag": (0.80, 1),
+    "Hg": (0.85, 2),
+    "Au": (1.50, 3),
 }
 
 
@@ -71,22 +85,29 @@ def num(value: float) -> str:
 
 def weak_dissociation(constant: float, concentration: float) -> float:
     """Positive root of x² + Kx − KC = 0."""
-    from app.services.solving import SolveServiceError
-
     if constant <= 0 or concentration <= 0:
         raise SolveServiceError("weak equilibrium inputs must be positive")
     discriminant = constant * constant + 4 * constant * concentration
-    return (-constant + math.sqrt(discriminant)) / 2
+    amount = (-constant + math.sqrt(discriminant)) / 2
+    if amount < _DILUTE_ION:
+        # Water's own 1e-7 M is no longer negligible, so the quadratic is not the answer.
+        raise SolveServiceError("water's contribution is required for this very weak electrolyte")
+    return amount
 
 
 def water_vapor_mmhg(temperature_c: float) -> float | None:
+    """Vapor pressure of water. Exact at the table points, log-linear in 1/T between them.
+
+    ln P is close to linear in 1/T (Clausius–Clapeyron), so this is accurate between
+    points where a straight line in P would overshoot by 1–2 % (22 °C: 19.83 mmHg).
+    """
     points = WATER_VAPOR_MMHG
     if temperature_c < points[0][0] or temperature_c > points[-1][0]:
         return None
     for (left_t, left_p), (right_t, right_p) in pairwise(points):
         if left_t <= temperature_c <= right_t:
-            if right_t == left_t:
-                return left_p
-            span = (temperature_c - left_t) / (right_t - left_t)
-            return left_p + span * (right_p - left_p)
+            left_inv = 1 / (left_t + 273.15)
+            right_inv = 1 / (right_t + 273.15)
+            span = (1 / (temperature_c + 273.15) - left_inv) / (right_inv - left_inv)
+            return math.exp(math.log(left_p) + span * (math.log(right_p) - math.log(left_p)))
     return None

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from app.modules.chemistry import fence as chemistry_fence
 
 
@@ -140,3 +142,43 @@ def test_enrich_third_molecule_skips_3d() -> None:
     result = chemistry_fence.enrich_chemistry_fences(content)
     assert result.count("```smiles") == 3
     assert result.count("```molecule3d") == 2
+
+
+def test_enrich_accepts_a_smiles_prefix_in_any_case() -> None:
+    result = chemistry_fence.enrich_chemistry_fences("```smiles\nSMILES: CCO\n```")
+    assert "Could not render" not in result
+    assert "SMILES:" not in result
+    assert "CCO" in result
+
+
+@pytest.mark.parametrize(
+    ("formula", "canonical"),
+    [
+        ("H2O", "O"),
+        ("CO2", "O=C=O"),
+        ("NH3", "N"),
+        ("CH4", "C"),
+        ("HCl", "Cl"),
+        ("NaCl", "[Cl-].[Na+]"),
+    ],
+)
+def test_enrich_reads_a_formula_the_model_wrote_in_place_of_smiles(
+    formula: str, canonical: str
+) -> None:
+    result = chemistry_fence.enrich_chemistry_fences(f"```smiles\n{formula}\n```")
+    assert "Could not render" not in result
+    assert f"\n{canonical}\n```" in result
+
+
+def test_validate_chemistry_fences_closes_an_open_model_fence_before_appending() -> None:
+    from app.modules.chemistry.block import build_verified_chemistry
+    from app.modules.chemistry.extract import extract_chemistry_intent
+
+    intent = extract_chemistry_intent("Find the molar mass of H2SO4")
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    reply = chemistry_fence.validate_chemistry_fences("Sure:\n```smiles\nCCO", verified=verified)
+    assert reply.count("```") % 2 == 0
+    assert "CCO" not in reply
+    assert "```answer" in reply

@@ -4,9 +4,10 @@
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.modules.chemistry.coordination import parse_coordination
+from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.organic import isomer_relationship, organic_facts
 from app.modules.chemistry.solvers.common_chem import num, verified
+from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.solutions import GAS_R
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
@@ -145,7 +146,7 @@ def solve_isomers(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_coordination(intent: ChemistryIntent) -> ChemistryResult:
-    complex_ = parse_coordination(intent.formula or "")
+    complex_ = parse_complex_formula(intent.formula or "")
     if complex_ is None:
         raise SolveServiceError("coordination formula was not recognized")
     shown = (
@@ -280,29 +281,22 @@ def solve_gravimetric(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_standard_addition(intent: ChemistryIntent) -> ChemistryResult:
-    sample = intent.params.get("sample_signal")
-    spiked = intent.params.get("spiked_signal")
-    standard = intent.params.get("standard_concentration")
-    standard_volume = intent.params.get("standard_volume")
-    sample_volume = intent.params.get("sample_volume")
-    if (
-        None in {sample, spiked, standard, standard_volume, sample_volume}
-        or spiked == sample
-        or (sample_volume or 0) <= 0
-    ):
-        raise SolveServiceError("standard addition inputs are incomplete")
-    value = (
-        ((sample or 0) / ((spiked or 0) - (sample or 0)))
-        * (standard or 0)
-        * ((standard_volume or 0) / (sample_volume or 1))
-    )
+    message = "standard addition inputs are incomplete"
+    sample = require(intent, "sample_signal", message=message)
+    spiked = require(intent, "spiked_signal", message=message)
+    standard = require(intent, "standard_concentration", message=message)
+    standard_volume = require(intent, "standard_volume", message=message)
+    sample_volume = require(intent, "sample_volume", positive=True, message=message)
+    if spiked == sample:
+        raise SolveServiceError(message)
+    value = (sample / (spiked - sample)) * standard * (standard_volume / sample_volume)
     shown = f"c = {num(value)}"
     return verified(
         "Verified standard addition",
         (
-            f"Ix = {num(sample or 0)}",
-            f"Ispike = {num(spiked or 0)}",
-            f"Cstd = {num(standard or 0)}",
+            f"Ix = {num(sample)}",
+            f"Ispike = {num(spiked)}",
+            f"Cstd = {num(standard)}",
         ),
         "Sample concentration",
         "One-point standard addition",

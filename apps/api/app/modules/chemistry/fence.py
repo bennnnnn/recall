@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 
 from app.models.schemas.chemistry.scene import dump_scene
 from app.modules import chemistry as chemistry_service
@@ -18,6 +19,7 @@ from app.services.md_fence_scan import close_unclosed_fences, map_closed_fences,
 
 logger = logging.getLogger(__name__)
 
+_SMILES_PREFIX = re.compile(r"^smiles\s*:\s*", re.IGNORECASE)
 # Limit how many fences we process to bound the work.
 _MAX_SMILES_FENCES = 20
 # 3D embed is expensive; validate all fences first, then attach 3D to a few.
@@ -43,7 +45,7 @@ def _extract_smiles_from_fence(body: str) -> tuple[str | None, str]:
     if not lines:
         return None, ""
     for idx in range(len(lines) - 1, -1, -1):
-        raw = lines[idx].replace("smiles:", "", 1).strip()
+        raw = _SMILES_PREFIX.sub("", lines[idx], count=1).strip()
         if not raw or len(raw) > 500:
             continue
         try:
@@ -54,7 +56,7 @@ def _extract_smiles_from_fence(body: str) -> tuple[str | None, str]:
         if props.valid:
             caption = "\n".join(lines[:idx] + lines[idx + 1 :]).strip()
             return raw, caption
-    last = lines[-1].replace("smiles:", "", 1).strip()
+    last = _SMILES_PREFIX.sub("", lines[-1], count=1).strip()
     if not last or len(last) > 500:
         return None, ""
     caption = "\n".join(lines[:-1]).strip()
@@ -209,7 +211,8 @@ def validate_chemistry_fences(content: str, verified: object | None = None) -> s
     """Drop model answer/scene/structure fences and append the solver's copies."""
     if not isinstance(verified, VerifiedChemistry):
         return content
-    return assemble_chemistry_reply(_strip_owned_fences(content), verified)
+    # An unclosed model fence would swallow the solver fences appended below it.
+    return assemble_chemistry_reply(_strip_owned_fences(close_unclosed_fences(content)), verified)
 
 
 def replace_unclosed_chemistry_fences_safe(content: str, verified: object | None) -> str:

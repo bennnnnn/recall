@@ -260,7 +260,7 @@ def test_organic_facts_and_coordination_names() -> None:
     alanine = organic_facts("C[C@H](N)C(=O)O")
     assert ethanol is not None and ethanol.groups == ("alcohol",)
     assert acid is not None and acid.groups == ("carboxylic acid",)
-    assert alanine is not None and alanine.chirality == ("C1=S",)
+    assert alanine is not None and alanine.chirality == ("atom 2 (C): S",)
     assert isomer_relationship("CCO", "COC") == "constitutional isomers"
 
     cobalt = parse_coordination("[Co(NH3)6]Cl3")
@@ -278,4 +278,4 @@ def test_nuclear_equations_conserve_nucleons() -> None:
     assert format_nuclear(balance_nuclear("238U -> 234Th + ?")) == "238U → 234Th + 4He"
     assert decay_product(14, "C", "beta") == "14C → 14N + e-"
     assert decay_product(11, "C", "positron") == "11C → 11B + e+"
-    assert decay_product(7, "Be", "electron capture") == "7Be → 7Li"
+    assert decay_product(7, "Be", "electron capture") == "7Be + e- → 7Li"

@@ -11,9 +11,9 @@ from app.modules.chemistry.species import parse_species
 
 __all__ = ["LewisStructure", "lewis_structure", "oxidation_states"]
 
-_NONMETALS = frozenset(
-    {"B", "C", "N", "O", "F", "Si", "P", "S", "Cl", "Ge", "As", "Se", "Br", "Sb", "Te", "I"}
-)
+# H is minus one only next to elements clearly less electronegative than it (metals, B, Si,
+# Ge): NaBH4 and B2H6 have hydride, while PH3, AsH3 and H2Te keep the textbook plus one on H.
+_NONMETALS = frozenset({"C", "N", "O", "F", "P", "S", "Cl", "As", "Se", "Br", "Sb", "Te", "I"})
 _HALOGENS = frozenset({"Cl", "Br", "I"})
 # Common polyatomic ions, tried only after the element rules leave several unknowns.
 _POLYATOMIC: tuple[tuple[dict[str, int], int], ...] = (
@@ -72,9 +72,15 @@ def oxidation_states(formula: str) -> dict[str, int] | None:
     if "O" in unassigned() and len(unassigned()) > 1:
         assigned["O"] = -2
     if "O" not in composition and "F" not in composition:
-        for element in unassigned():
-            if element in _HALOGENS and len(unassigned()) > 1:
-                assigned[element] = -1
+        # Only the most electronegative halogen is minus one: in ICl it is Cl, not whichever
+        # element the formula happens to list first.
+        halogens = sorted(
+            (element for element in unassigned() if element in _HALOGENS),
+            key=lambda element: BY_SYMBOL[element].electronegativity or 0.0,
+            reverse=True,
+        )
+        if halogens and len(unassigned()) > 1:
+            assigned[halogens[0]] = -1
     remaining = unassigned()
     if len(remaining) > 1:
         return _polyatomic_oxidation(composition, charge)
@@ -88,7 +94,18 @@ def oxidation_states(formula: str) -> dict[str, int] | None:
     known = sum(assigned[element] * composition[element] for element in composition)
     if set(assigned) != set(composition) or known != charge:
         return None
+    if any(state > _highest_state(element) for element, state in assigned.items()):
+        # S2O8²⁻ would give S +7 and CrO5 Cr +10 because the peroxo O is minus one, not minus two.
+        return None
     return assigned
+
+
+def _highest_state(element: str) -> int:
+    """Largest oxidation number the group allows; f-block elements are not bounded."""
+    group = BY_SYMBOL[element].group
+    if group is None:
+        return 99
+    return group if group <= 12 else group - 10
 
 
 def _polyatomic_oxidation(composition: dict[str, int], charge: int) -> dict[str, int] | None:

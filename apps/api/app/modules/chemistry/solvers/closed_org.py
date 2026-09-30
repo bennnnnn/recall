@@ -10,7 +10,7 @@ from app.modules.chemistry.organic import organic_facts
 from app.modules.chemistry.reactions import named_product
 from app.modules.chemistry.solvers.common_chem import num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.modules.chemistry.stoichiometry import molar_mass
+from app.modules.chemistry.stoichiometry import monoisotopic_mass
 from app.services.solving import SolveServiceError
 
 # Textbook correlation ranges. A peak lists every group that contains it.
@@ -105,20 +105,35 @@ def solve_nmr_splitting(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+def _halogen_pattern(counts: dict[str, int]) -> str | None:
+    chlorine, bromine = counts.get("Cl", 0), counts.get("Br", 0)
+    if chlorine == 1 and not bromine:
+        return "one Cl adds an M+2 peak about a third the height of M+ (35Cl : 37Cl = 3 : 1)"
+    if bromine == 1 and not chlorine:
+        return "one Br adds an M+2 peak about as tall as M+ (79Br : 81Br = 1 : 1)"
+    if chlorine or bromine:
+        return "several Cl or Br atoms give M+2, M+4, ... peaks"
+    return None
+
+
 def solve_molecular_ion(intent: ChemistryIntent) -> ChemistryResult:
     formula = intent.formula or ""
     try:
-        mass = molar_mass(formula)
+        peak = monoisotopic_mass(formula)
     except (ValueError, SolveServiceError) as exc:
         raise SolveServiceError("molecular ion needs a formula or SMILES") from exc
-    shown = f"M+ = {num(mass)}"
+    shown = f"M+ = {peak.exact:.4f} (nominal m/z {peak.nominal})"
+    substitution = [shown]
+    pattern = _halogen_pattern(peak.counts)
+    if pattern is not None:
+        substitution.append(pattern)
     return verified(
         "Verified molecular ion",
         (formula,),
-        "Molecular ion mass",
+        "Molecular ion m/z",
         "Molecular ion",
-        "M+ equals the molar mass",
-        (shown,),
+        "M+ = sum of the most abundant isotope masses (not the average molar mass)",
+        substitution,
         shown,
         shown,
     )

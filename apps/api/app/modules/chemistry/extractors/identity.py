@@ -11,8 +11,10 @@ from app.modules.chemistry.extractors.parsing import (
     _search,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.solvers.common_chem import STANDARD_REDUCTION
 
-_METALS = ("Na", "Mg", "Al", "Zn", "Fe", "Ni", "Pb", "Cu", "Ag", "H")
+# "K" is left out on purpose: in "298 K" it is kelvin, not potassium.
+_METALS = tuple(symbol for symbol in STANDARD_REDUCTION if symbol != "K")
 
 
 def _extract_cells(text: str) -> ChemistryIntent | None:
@@ -125,7 +127,7 @@ def _extract_identity(text: str) -> ChemistryIntent | None:
         return ChemistryIntent(
             kind="inorganic",
             chemistry_op="coordination_complex",
-            formula=complex_match.group(1),
+            formula=complex_match.group(1).rstrip("?.,;"),
         )
     return None
 

@@ -118,7 +118,22 @@ def _extract_buffer_addition(text: str) -> ChemistryIntent | None:
     params = _floats(pka=pka, ha_moles=ha, a_moles=base, added_moles=added)
     if params is None:
         return None
-    target = "base" if re.search(r"\bbase\b", text, re.IGNORECASE) else "acid"
+    # "conjugate base A-" is not the reagent; only what is added counts.
+    added_kinds = {
+        kind.lower()
+        for kind in re.findall(
+            rf"\b(?:adding|added\s*=\s*{_N}\s*mol(?:\s+of)?)\s+(?:a\s+)?(?:strong\s+)?(acid|base)\b",
+            text,
+            re.IGNORECASE,
+        )
+    }
+    if re.search(r"\badding\s+(?:HCl|HBr|HNO3|HI)\b", text):
+        added_kinds.add("acid")
+    if re.search(r"\badding\s+(?:NaOH|KOH|LiOH)\b", text):
+        added_kinds.add("base")
+    if len(added_kinds) != 1:
+        return None
+    target = added_kinds.pop()
     return ChemistryIntent(
         kind="acid_base",
         chemistry_op="buffer_addition",

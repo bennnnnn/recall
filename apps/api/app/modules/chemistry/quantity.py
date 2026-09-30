@@ -24,6 +24,7 @@ _ALIASES = {
     "litre": "liter",
     "litres": "liter",
     "k": "kelvin",
+    "kelvin": "kelvin",
     "c": "degC",
     "°c": "degC",
     "degc": "degC",

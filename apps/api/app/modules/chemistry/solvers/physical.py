@@ -90,7 +90,7 @@ def _equilibrium_expression(
     intent: ChemistryIntent, *, pressure: bool = False
 ) -> tuple[float, str, str]:
     equation = intent.equation
-    if not equation or "->" not in equation.replace("→", "->"):
+    if not equation:
         raise SolveServiceError("a simple reaction equation is required")
     from app.modules.chemistry.equations import balance_equation
 
@@ -180,6 +180,7 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
         if initial < 0 or rate_constant < 0 or time < 0:
             raise SolveServiceError("concentration, rate constant, and time cannot be negative")
         final = initial * math.exp(-rate_constant * time)
+        time_unit = intent.units.get("time", "s")
         value = f"{format_number(final)} mol/L"
         substitution = (
             f"[A]ₜ = ({format_number(initial)})e^(−{format_number(rate_constant)}"
@@ -189,8 +190,8 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
             "Verified first-order concentration",
             (
                 f"[A]₀ = {format_number(initial)} mol/L",
-                f"k = {format_number(rate_constant)} s⁻¹",
-                f"t = {format_number(time)} s",
+                f"k = {format_number(rate_constant)} {time_unit}⁻¹",
+                f"t = {format_number(time)} {time_unit}",
             ),
             "Concentration at time t, [A]ₜ",
             "Integrated first-order rate law",
@@ -206,7 +207,10 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
         if pre_exponential <= 0 or activation_energy < 0 or temperature <= 0:
             raise SolveServiceError("Arrhenius inputs must be physically valid")
         rate_constant = pre_exponential * math.exp(-activation_energy / (GAS_R_J * temperature))
-        value = f"{format_number(rate_constant)} s⁻¹"
+        # k has the units of A. A question that gives A without a unit gets a bare number.
+        rate_unit = intent.units.get("frequency_factor_time")
+        suffix = f" {rate_unit}⁻¹" if rate_unit else ""
+        value = f"{format_number(rate_constant)}{suffix}"
         substitution = (
             f"k = ({format_number(pre_exponential)})e^[−{format_number(activation_energy)} / "
             f"({format_number(GAS_R_J)} × {format_number(temperature)})]"
@@ -214,7 +218,7 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
         return ChemistryResult(
             "Verified Arrhenius rate constant",
             (
-                f"A = {format_number(pre_exponential)} s⁻¹",
+                f"A = {format_number(pre_exponential)}{suffix}",
                 f"Eₐ = {format_number(activation_energy / 1000)} kJ/mol",
                 f"T = {format_number(temperature)} K",
             ),

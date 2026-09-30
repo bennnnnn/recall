@@ -387,3 +387,86 @@ async def test_build_chemistry_context_gas_law_zero_pressure_does_not_crash() ->
         MagicMock(),
     )
     assert block is None or "Verified gas law" not in block
+
+
+@pytest.mark.parametrize(
+    ("question", "names"),
+    [
+        ("What is the atomic number of gold?", ["Gold"]),
+        ("Tell me the electronegativity of caesium", ["Cesium"]),
+        ("What is the atomic mass of aluminium and sulphur?", ["Aluminum", "Sulfur"]),
+        ("What are the atomic masses of sodium and chlorine?", ["Sodium", "Chlorine"]),
+        ("Which element has atomic number 79?", ["Gold"]),
+        ("electron configuration of Fe", ["Iron"]),
+        ("what is the electronegativity of Cs?", ["Cesium"]),
+    ],
+)
+def test_element_context_names_every_element_asked_about(question: str, names: list[str]) -> None:
+    block = chemistry_context._element_context(question)
+    assert block is not None
+    for name in names:
+        assert f"[Verified element data for {name}]" in block
+    assert block.count("[Verified element data for") == len(names)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "What is the atomic mass of carbon dioxide?",
+        "atomic mass of sodium chloride",
+        "atomic mass of H2O",
+        "In group 1, which element has the highest electronegativity?",
+        "As a student, which element should I study first?",
+        "Which element is used as a semiconductor?",
+        "the hydrogen bond is an element of surprise",
+    ],
+)
+def test_element_context_ignores_compounds_and_stray_capitals(question: str) -> None:
+    assert chemistry_context._element_context(question) is None
+
+
+def test_element_context_prints_oxidation_states_and_configuration() -> None:
+    block = chemistry_context._element_context("oxidation states of Mn")
+    assert block is not None
+    assert "Common oxidation states: +2, +4, +7" in block
+    assert "Electron configuration: [Ar] 3d5 4s2" in block
+
+
+@pytest.mark.parametrize(
+    ("question", "smiles"),
+    [
+        ("Calculate the logP of CCO please", "CCO"),
+        ("What is the LogP of CC(=O)OC1=CC=CC=C1C(=O)O?", "CC(=O)Oc1ccccc1C(=O)O"),
+        ("Lipinski check for CC(C)Cc1ccc(cc1)C(C)C(=O)O.", "CC(C)Cc1ccc(C(C)C(=O)O)cc1"),
+    ],
+)
+def test_descriptor_context_finds_the_smiles_not_the_first_capitalised_word(
+    question: str, smiles: str
+) -> None:
+    block = chemistry_context._descriptor_context(question)
+    assert block is not None
+    assert f"[Verified molecular descriptors for {smiles}]" in block
+
+
+def test_descriptor_context_has_nothing_to_read_in_a_plain_sentence() -> None:
+    assert chemistry_context._descriptor_context("Calculate the logP for this drug") is None
+    assert "LogP: 0.0" in (chemistry_context._descriptor_context("logP of CCO") or "")
+
+
+async def test_logp_of_a_named_compound_uses_the_pubchem_smiles() -> None:
+    compound = MagicMock()
+    compound.smiles = "CC(=O)Oc1ccccc1C(=O)O"
+    compound.molecular_formula = "C9H8O4"
+    compound.molecular_weight = 180.16
+    compound.cid = 2244
+    result = MagicMock()
+    result.error = None
+    result.compound = compound
+    with patch.object(
+        chemistry_context.pubchem_gateway, "lookup_by_name", new_callable=AsyncMock
+    ) as mock_lookup:
+        mock_lookup.return_value = result
+        block = await chemistry_context.build_chemistry_context("logP of aspirin", MagicMock())
+    assert block is not None
+    assert "Canonical SMILES: CC(=O)Oc1ccccc1C(=O)O" in block
+    assert "LogP: 1.31" in block

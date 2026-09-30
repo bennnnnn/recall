@@ -73,25 +73,53 @@ def _formal_charge(element: str, lone_electrons: int, bonding_electrons: int) ->
     return valence - lone_electrons - bonding_electrons // 2
 
 
+# Atoms that can only be terminal (one bond). A hydrogen or halogen is never the center.
+_TERMINAL_ONLY = frozenset({"H", "F", "Cl", "Br", "I"})
+
+
+def _electronegativity(element: str) -> float:
+    value = BY_SYMBOL[element].electronegativity
+    return value if value is not None else 10.0
+
+
 def _central_atom(species: ChemicalSpecies) -> str | None:
+    composition = species.composition
     candidates = [
         element
-        for element, count in species.composition.items()
+        for element, count in composition.items()
         if element != "H" and count == 1 and valence_electrons(element) is not None
     ]
-    if len(candidates) == 1:
-        return candidates[0]
     # HCN has two unique non-hydrogen atoms. Carbon is the center only when
     # every other non-hydrogen atom is a terminal nonmetal. HOCl is not guessed.
-    if species.composition.get("C") == 1 and "C" in candidates:
-        others = [element for element in species.composition if element not in {"C", "H"}]
+    if composition.get("C") == 1 and "C" in candidates:
+        others = [element for element in composition if element not in {"C", "H"}]
         if others and all(element in _CARBON_TERMINALS for element in others):
             return "C"
+    if len(candidates) == 1:
+        center = candidates[0]
+        # A repeated atom that is less electronegative than the lone one is the real
+        # center (N-N-O in N2O, not O with two N). That is a chain, not one center.
+        for element, count in composition.items():
+            if element in _TERMINAL_ONLY or element == center or count < 2:
+                continue
+            if _electronegativity(element) <= _electronegativity(center):
+                return None
+        return center
+    # Several unique atoms (SOCl2, POCl3, XeOF4, NOCl): the least electronegative is the
+    # center. With hydrogen present the H may sit on any of them (HOCl), so do not guess.
+    if len(candidates) > 1 and "H" not in composition:
+        center = min(candidates, key=_electronegativity)
+        for element, count in composition.items():
+            if element in _TERMINAL_ONLY or element in candidates or count < 2:
+                continue
+            if _electronegativity(element) <= _electronegativity(center):
+                return None
+        return center
     # O3 is one element. H2O2 is a chain: repeated atoms plus hydrogen.
-    non_hydrogen = [element for element in species.composition if element != "H"]
+    non_hydrogen = [element for element in composition if element != "H"]
     if (
         len(non_hydrogen) == 1
-        and "H" not in species.composition
+        and "H" not in composition
         and valence_electrons(non_hydrogen[0]) is not None
     ):
         return non_hydrogen[0]
@@ -174,15 +202,24 @@ def lewis_structure(formula: str) -> LewisStructure | None:
             guard += 1
             donor = best_donor()
             if donor is None:
+                if period >= 3:
+                    break
                 return None
+            before = charge_total()
             lone_terminals[donor] -= 2
             bond_orders[donor] += 1
+            if period >= 3 and charge_total() >= before:
+                # AlCl3, SnCl2: a sextet or a lone pair beats a double bond that
+                # only moves charge around. Period-2 atoms still need their octet.
+                lone_terminals[donor] += 2
+                bond_orders[donor] -= 1
+                break
     if period >= 3 and central not in {"B", "Be"}:
         guard = 0
         while guard < 8:
             guard += 1
             donor = best_donor()
-            if donor is None or central_electrons() >= 12:
+            if donor is None:
                 break
             before = charge_total()
             lone_terminals[donor] -= 2
@@ -194,6 +231,14 @@ def lewis_structure(formula: str) -> LewisStructure | None:
     lone_pairs = central_lone // 2
     steric = len(terminals) + lone_pairs
     molecular = _MOLECULAR_GEOMETRY.get((steric, lone_pairs))
+    if (
+        molecular is not None
+        and (steric, lone_pairs) in {(4, 1), (4, 2)}
+        and not (period == 2 and set(terminals) == {"H"})
+    ):
+        # 104.5° and 107° are the water and ammonia values. H2S is about 92°, PCl3 about 100°,
+        # OF2 about 103°: only "smaller than tetrahedral" is true for all of them.
+        molecular = (molecular[0], "less than 109.5°")
     electron = _ELECTRON_GEOMETRY.get(steric)
     hybrid = _HYBRID.get(steric)
     if molecular is None or electron is None or hybrid is None or central_lone % 2:

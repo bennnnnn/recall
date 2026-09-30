@@ -17,6 +17,8 @@ from __future__ import annotations
 
 import re
 
+from app.modules.chemistry.species import ARROWS
+
 # Formula characters are case-sensitive on purpose. Under ``re.IGNORECASE`` a
 # lowercase word such as "sodium" splits into "so" + "di" + "um" in Fibonacci-many
 # ways, which made a 32-letter run cost seconds. Callers keep their own flags for
@@ -27,7 +29,7 @@ CHEMICAL_FORMULA = (
     r"(?:\^(?:\{\d*[+-]\}|\d*[+-])|\d*[+-])?"
     r"(?:\((?:aq|s|l|g)\))?)"
 )
-_ARROW = r"(?:<=>|<->|-->|->|→|⇌|⇋|⟶|=>)"
+_ARROW = "(?:" + "|".join(re.escape(arrow) for arrow in ARROWS) + ")"
 # Coefficients stop at two digits so a nuclide such as 238U is not "238 U".
 _TERM = rf"(?:\d{{1,2}}\s*)?{CHEMICAL_FORMULA}"
 # A match may not start inside a token ("CuSO4.5H2O" must not truncate to
@@ -97,7 +99,8 @@ _EXPLICIT_NAME_RE = re.compile(
     r"show(?:\s+me)?\s+(?:the\s+)?(?:lewis\s+)?structure\s+of|"
     r"draw\s+(?:the\s+)?molecule|show\s+me\s+(?:the\s+)?molecule|"
     r"describe(?:\s+the)?\s+molecule|smiles\s+for|smiles\s+of|"
-    r"chemical\s+structure\s+of|the\s+compound)\s*"
+    r"chemical\s+structure\s+of|the\s+compound|"
+    r"(?:log\s*p|tpsa|polar\s+surface\s+area|drug[-\s]?likeness)\s+(?:of|for))\s*"
     r"([a-zA-Z][a-zA-Z0-9\-\s]{2,40}?)"
     r"(?:\?|$|\.|,|\s+(?:and|or|with|in|at|for|to|is|are|the)\b)",
     re.IGNORECASE,

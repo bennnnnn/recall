@@ -223,6 +223,9 @@ def solve_limiting_amounts(intent: ChemistryIntent, *, unit: str) -> ChemistryRe
                 raise SolveServiceError(f"missing molarity for {formula}")
             params["molarity"] = molarity
         moles[formula] = _to_moles(formula, amount, unit, params)
+    missing = [name for name in balanced.reactants if name not in moles]
+    if missing:
+        raise SolveServiceError(f"an amount is needed for every reactant, missing {missing[0]}")
     product_coeff = balanced.products[target]
     best_name = ""
     best_units = float("inf")

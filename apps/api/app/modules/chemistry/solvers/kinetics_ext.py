@@ -10,16 +10,23 @@ from app.modules.chemistry.solvers.common_chem import (
     num,
     verified,
 )
+from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.physical import GAS_R_J
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
+_ARRHENIUS = ("k1", "t1", "k2", "t2")
+# The half-life question gives k without a time unit, so the answer is in that unit.
+_TIME_OF_K = " (in the time unit of k)"
+
 
 def _three(intent: ChemistryIntent, a: str, b: str, c: str) -> tuple[float, float, float]:
-    values = [intent.params.get(a), intent.params.get(b), intent.params.get(c)]
-    if any(value is None or value < 0 for value in values):
-        raise SolveServiceError("kinetics inputs cannot be negative")
-    return float(values[0] or 0), float(values[1] or 0), float(values[2] or 0)
+    message = "kinetics inputs are missing or negative"
+    return (
+        require(intent, a, non_negative=True, message=message),
+        require(intent, b, non_negative=True, message=message),
+        require(intent, c, non_negative=True, message=message),
+    )
 
 
 def _two(intent: ChemistryIntent, a: str, b: str) -> tuple[float, float]:
@@ -31,14 +38,12 @@ def _two(intent: ChemistryIntent, a: str, b: str) -> tuple[float, float]:
 
 
 def _four(intent: ChemistryIntent) -> tuple[float, float, float, float]:
-    values = [intent.params.get(key) for key in ("a1", "rate1", "a2", "rate2")]
-    if any(value is None for value in values):
-        raise SolveServiceError("rate law needs two experiments")
+    message = "rate law needs two experiments"
     return (
-        float(values[0] or 0),
-        float(values[1] or 0),
-        float(values[2] or 0),
-        float(values[3] or 0),
+        require(intent, "a1", message=message),
+        require(intent, "rate1", message=message),
+        require(intent, "a2", message=message),
+        require(intent, "rate2", message=message),
     )
 
 
@@ -90,7 +95,7 @@ def solve_second_order(intent: ChemistryIntent) -> ChemistryResult:
 
 def solve_zero_half_life(intent: ChemistryIntent) -> ChemistryResult:
     initial, rate = _two(intent, "initial", "rate_constant")
-    shown = f"t₁/₂ = {num(initial / (2 * rate))} s"
+    shown = f"t₁/₂ = {num(initial / (2 * rate))}{_TIME_OF_K}"
     return verified(
         "Verified zero-order half-life",
         (f"[A]₀ = {num(initial)}", f"k = {num(rate)}"),
@@ -105,7 +110,7 @@ def solve_zero_half_life(intent: ChemistryIntent) -> ChemistryResult:
 
 def solve_second_half_life(intent: ChemistryIntent) -> ChemistryResult:
     initial, rate = _two(intent, "initial", "rate_constant")
-    shown = f"t₁/₂ = {num(1 / (rate * initial))} s"
+    shown = f"t₁/₂ = {num(1 / (rate * initial))}{_TIME_OF_K}"
     return verified(
         "Verified second-order half-life",
         (f"[A]₀ = {num(initial)}", f"k = {num(rate)}"),
@@ -127,12 +132,14 @@ def solve_rate_law(intent: ChemistryIntent) -> ChemistryResult:
     if abs(a1 - a2) > 1e-12:
         order_a = _order_from_change(rate1, rate2, a1, a2)
         order_b = 0
+        b_factor = 1.0
     else:
         order_a = 0
         if b1 is None or b2 is None:
             raise SolveServiceError("the changing concentration is missing")
         order_b = _order_from_change(rate1, rate2, b1, b2)
-    denominator = a1**order_a * ((b1 or 1) ** order_b)
+        b_factor = b1**order_b
+    denominator = a1**order_a * b_factor
     constant = rate1 / denominator
     terms = []
     if order_a:
@@ -157,23 +164,19 @@ def solve_rate_law(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_arrhenius_two_point(intent: ChemistryIntent) -> ChemistryResult:
-    k1, t1, k2, t2 = (
-        intent.params.get("k1"),
-        intent.params.get("t1"),
-        intent.params.get("k2"),
-        intent.params.get("t2"),
-    )
-    if None in {k1, t1, k2, t2} or min(k1 or 0, k2 or 0, t1 or 0, t2 or 0) <= 0 or t1 == t2:
-        raise SolveServiceError("two-point Arrhenius needs two positive rates and temperatures")
-    energy = -GAS_R_J * math.log((k2 or 1) / (k1 or 1)) / (1 / (t2 or 1) - 1 / (t1 or 1))
+    message = "two-point Arrhenius needs two positive rates and temperatures"
+    k1, t1, k2, t2 = (require(intent, key, positive=True, message=message) for key in _ARRHENIUS)
+    if t1 == t2:
+        raise SolveServiceError(message)
+    energy = -GAS_R_J * math.log(k2 / k1) / (1 / t2 - 1 / t1)
     shown = f"Ea = {num(energy / 1000)} kJ/mol"
     return verified(
         "Verified two-temperature Arrhenius",
         (
-            f"k1 = {num(k1 or 0)}",
-            f"T1 = {num(t1 or 0)} K",
-            f"k2 = {num(k2 or 0)}",
-            f"T2 = {num(t2 or 0)} K",
+            f"k1 = {num(k1)}",
+            f"T1 = {num(t1)} K",
+            f"k2 = {num(k2)}",
+            f"T2 = {num(t2)} K",
         ),
         "Activation energy",
         "Two-point Arrhenius equation",

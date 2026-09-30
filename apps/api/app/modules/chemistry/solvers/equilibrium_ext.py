@@ -198,7 +198,7 @@ def solve_kc_kp(intent: ChemistryIntent) -> ChemistryResult:
         shown.split(" = ", 1)[0],
         "Concentration and pressure equilibrium constants",
         "Kp = Kc (RT)^Δn",
-        (f"RT = {num(GAS_R * temperature)} L·atm/(mol·K)", shown),
+        (f"RT = {num(GAS_R * temperature)} L·atm/mol", shown),
         shown,
         num(value),
     )
@@ -238,15 +238,21 @@ def solve_ice(intent: ChemistryIntent) -> ChemistryResult:
     if poly is None or poly.degree() > 2:
         raise SolveServiceError("equilibrium extent is higher than quadratic")
     roots = poly.nroots() if poly.degree() > 0 else []
+    # Tolerances follow the size of the concentrations, so a 1e-9 M problem is not
+    # judged by a 1e-6 M yardstick.
+    scale = max((abs(value) for value in intent.species.values()), default=0.0) or 1.0
     valid: list[float] = []
     for root in roots:
         numeric = complex(N(root))
-        if abs(numeric.imag) > 1e-7:
+        if abs(numeric.imag) > 1e-7 * scale:
             continue
         candidate = float(numeric.real)
-        if any(float(N(expr.subs(extent, candidate))) < -1e-8 for expr in concentrations.values()):
+        negative = -1e-8 * scale
+        if any(
+            float(N(expr.subs(extent, candidate))) < negative for expr in concentrations.values()
+        ):
             continue
-        if not any(abs(candidate - kept) <= 1e-6 for kept in valid):
+        if not any(abs(candidate - kept) <= 1e-6 * scale for kept in valid):
             valid.append(candidate)
     if len(valid) != 1:
         raise SolveServiceError("equilibrium extent is not unique")

@@ -79,12 +79,38 @@ def solve_hess(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+# Reference states: formula → phases that are the standard state (None = unlabeled).
+_GASEOUS_ELEMENTS = {"H2", "N2", "O2", "F2", "Cl2", "He", "Ne", "Ar", "Kr", "Xe", "Rn"}
+_SOLID_ALLOTROPES = {"S8", "P4"}
+
+
+def _is_standard_state(formula: str, atoms: int, phase: str | None) -> bool:
+    """True for the form ΔHf = 0 refers to: O2, not O3 or O(g); Br2(l), not Br2(g)."""
+    if formula in _GASEOUS_ELEMENTS:
+        return phase in {None, "g"}
+    if formula == "Br2":
+        return phase in {None, "l"}
+    if formula == "I2":
+        return phase in {None, "s"}
+    if formula == "Hg":
+        return phase in {None, "l"}
+    if formula in _SOLID_ALLOTROPES:
+        return phase in {None, "s"}
+    # Metals, graphite, red phosphorus, sulfur written as S: monatomic solid.
+    return atoms == 1 and phase in {None, "s"} and formula not in _GASEOUS_ELEMENTS
+
+
 def _formation(label: str, table: dict[str, float]) -> float:
     if label in table:
         return table[label]
     species = parse_species(label, coefficient_already_removed=True)
     if species is not None and len(species.composition) == 1 and species.charge == 0:
-        return 0.0
+        element, atoms = next(iter(species.composition.items()))
+        if _is_standard_state(species.formula, atoms, species.phase) and element:
+            return 0.0
+        raise SolveServiceError(
+            f"{label} is not the standard state of {element}; its formation enthalpy is needed"
+        )
     raise SolveServiceError(f"missing formation enthalpy for {label}")
 
 

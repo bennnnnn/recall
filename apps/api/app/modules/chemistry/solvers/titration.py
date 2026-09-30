@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001 -- textbook chemistry uses multiplication and minus signs.
+# ruff: noqa: RUF001, RUF003 -- textbook chemistry uses multiplication and minus signs.
 """Strong and weak titration regions."""
 
 from __future__ import annotations
@@ -44,17 +44,21 @@ def solve_titration_strong(intent: ChemistryIntent) -> ChemistryResult:
     acid_moles = ma * va
     base_moles = mb * vb
     total = va + vb
-    if abs(acid_moles - base_moles) <= 1e-9 * max(acid_moles, 1.0):
+    scale = max(acid_moles, base_moles)
+    # Net strong acid per litre (negative past equivalence). Solving [H+]² − net[H+] − Kw = 0
+    # keeps water's own ions in the answer, so pH 7 at equivalence and no absurd pH 7.7
+    # a hair before it.
+    net = (acid_moles - base_moles) / total
+    hydrogen = (net + math.sqrt(net * net + 4 * KW)) / 2
+    if abs(acid_moles - base_moles) <= 1e-9 * scale:
         ph = "7"
         detail = "equivalence: pH = 7 at 25 °C"
     elif acid_moles > base_moles:
-        hydrogen = (acid_moles - base_moles) / total
         ph = _ph(hydrogen)
         detail = f"before equivalence: [H+] = {num(hydrogen)}"
     else:
-        hydroxide = (base_moles - acid_moles) / total
-        ph = num(14 + math.log10(hydroxide))
-        detail = f"after equivalence: [OH−] = {num(hydroxide)}"
+        ph = _ph(hydrogen)
+        detail = f"after equivalence: [OH−] = {num(-net)}"
     return _done(
         intent,
         "Verified strong titration",
@@ -84,12 +88,12 @@ def solve_titration_weak(intent: ChemistryIntent) -> ChemistryResult:
     base_moles = mb * vb
     total = va + vb
     pka = -math.log10(ka)
-    scale = max(acid_moles, 1.0)
+    scale = max(acid_moles, base_moles)
     if abs(base_moles - acid_moles / 2) <= 1e-6 * scale:
         ph = num(pka)
         detail = "half-equivalence: pH = pKa"
         formula = "pH = pKa"
-    elif base_moles <= 1e-12:
+    elif base_moles == 0:
         amount = weak_dissociation(ka, ma)
         ph = num(-math.log10(amount))
         detail = f"before base is added: [H+] = {num(amount)}"
@@ -140,12 +144,12 @@ def _titration_weak_base(intent: ChemistryIntent) -> ChemistryResult:
     base_moles = mb * vb
     total = va + vb
     pkb = -math.log10(kb)
-    scale = max(base_moles, 1.0)
+    scale = max(acid_moles, base_moles)
     if abs(acid_moles - base_moles / 2) <= 1e-6 * scale:
         ph = num(14 - pkb)
         detail = "half-equivalence: pOH = pKb"
         formula = "pOH = pKb"
-    elif acid_moles <= 1e-12:
+    elif acid_moles == 0:
         hydroxide = weak_dissociation(kb, mb)
         ph = num(14 + math.log10(hydroxide))
         detail = f"before acid is added: [OH−] = {num(hydroxide)}"
