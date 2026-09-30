@@ -52,7 +52,6 @@ _EXTENSION_CUES = (
     "monatomic",
     "adiabatic",
     "isobaric",
-    "piston",
     "coefficient of performance",
     "heat pump",
     "refrigerator",
@@ -69,7 +68,7 @@ _FIELD_BLOCK = re.compile(
     re.IGNORECASE,
 )
 _THERMAL_BLOCK = re.compile(
-    r"\b(?:monatomic|adiabatic|isobaric|pistons?|refrigerators?|heat pumps?|"
+    r"\b(?:monatomic|adiabatic|isobaric|refrigerators?|heat pumps?|"
     r"coefficient of performance)\b",
     re.IGNORECASE,
 )
@@ -102,14 +101,6 @@ def blocks_fluids(text: str) -> bool:
 
 def blocks_thermal(text: str) -> bool:
     return _THERMAL_BLOCK.search(text) is not None
-
-
-def blocks_heavy_piston(text: str) -> bool:
-    """A thermodynamic piston is not a fluid-pressure template."""
-    return (
-        re.search(r"\bpistons?\b", text, re.IGNORECASE) is not None
-        and re.search(r"\b(?:ideal[-\s]gas|monatomic|isobaric)\b", text, re.IGNORECASE) is not None
-    )
 
 
 def extract_school_extension(cleaned: str) -> PhysicsIntent | None:

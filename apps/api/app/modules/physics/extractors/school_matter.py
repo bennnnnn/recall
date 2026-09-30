@@ -10,7 +10,6 @@ from app.modules.physics.extractors.common import (
     _NUMBER,
     _ordered_values,
 )
-from app.modules.physics.extractors.heavy_piston import extract_heavy_piston
 from app.modules.physics.extractors.school_common import (
     _PRESSURE,
     _VOLUME,
@@ -94,10 +93,6 @@ def extract_gravitation(text: str, lower: str) -> PhysicsIntent | None:
 
 
 def extract_thermal(text: str, lower: str) -> PhysicsIntent | None:
-    # "isobaric" used to claim a heavy piston and then decline, because the gas
-    # pressure is what the balance is supposed to find. Own that sentence here.
-    if re.search(r"\bpistons?\b", lower):
-        return extract_heavy_piston(text, lower)
     if "monatomic" in lower and "internal energy" in lower:
         moles = _one(text, r"mol|moles?")
         temp = _kelvin(text, ("temperature", "at"))
