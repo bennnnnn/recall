@@ -17,23 +17,37 @@ const mockTakePictureAsync = jest.fn(async () => ({
 }));
 const mockPermission = { granted: true, canAskAgain: true };
 
-jest.mock("expo-camera", () => {
+jest.mock("expo-camera", () => ({
+  useCameraPermissions: () => [mockPermission, jest.fn()],
+}));
+
+jest.mock("@/components/mathScanner/LiveMathScannerCamera", () => {
   const ReactNative = jest.requireActual<typeof import("react")>("react");
   const { View } = jest.requireActual<typeof import("react-native")>("react-native");
-  const CameraView = ReactNative.forwardRef(
-    (props: { onCameraReady?: () => void; style?: object }, ref: unknown) => {
+  const LiveMathScannerCamera = ReactNative.forwardRef(
+    (
+      props: {
+        onReady?: () => void;
+        onDetectionChange?: (detection: {
+          hasText: boolean;
+          stable: boolean;
+          text: string;
+        }) => void;
+      },
+      ref: unknown,
+    ) => {
       ReactNative.useImperativeHandle(ref, () => ({ takePictureAsync: mockTakePictureAsync }));
       ReactNative.useEffect(() => {
-        props.onCameraReady?.();
-      }, [props.onCameraReady]);
-      return ReactNative.createElement(View, { style: props.style });
+        props.onReady?.();
+      }, [props.onReady]);
+      return ReactNative.createElement(View, {
+        testID: "mock-live-scanner-camera",
+        onDetectionChange: props.onDetectionChange,
+      });
     },
   );
-  CameraView.displayName = "CameraView";
-  return {
-    CameraView,
-    useCameraPermissions: () => [mockPermission, jest.fn()],
-  };
+  LiveMathScannerCamera.displayName = "LiveMathScannerCamera";
+  return { LiveMathScannerCamera };
 });
 
 jest.mock("expo-image-manipulator", () => ({
@@ -128,7 +142,25 @@ describe("MathEquationScanner", () => {
       getByTestId("math-scanner-shutter").parent,
     );
     expect(getByTestId("math-scanner-camera")).toBeTruthy();
+    expect(getByTestId("mock-live-scanner-camera")).toBeTruthy();
+    expect(getByTestId("math-scanner-frame-idle")).toBeTruthy();
     expect(getByTestId("scanner-subject-guide-math")).toBeTruthy();
+  });
+
+  it("marks the live frame ready after stable on-device OCR", async () => {
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    const nativeCamera = view.getByTestId("mock-live-scanner-camera");
+    await act(async () => {
+      nativeCamera.props.onDetectionChange?.({
+        hasText: true,
+        stable: true,
+        text: "2x + 3 = 7",
+      });
+    });
+    expect(view.getByTestId("math-scanner-frame-ready")).toBeTruthy();
+    expect(selection).toHaveBeenCalled();
   });
 
   it("switches to physics with one directional sound and haptic cue", async () => {
