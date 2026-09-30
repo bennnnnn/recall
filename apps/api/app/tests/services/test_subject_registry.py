@@ -61,7 +61,7 @@ async def test_closed_chemistry_does_not_also_solve_as_math() -> None:
     reply = maybe_direct_subject_reply(result.verified, text)
     assert reply is not None
     assert reply.count("```answer") == 1
-    assert "notation: chemistry\nΔG = -10 kJ/mol" in reply
+    assert "notation: chemistry\nΔG = −10 kJ/mol" in reply
     assert "✅" not in reply
     assert result.unverified is False
 

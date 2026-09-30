@@ -66,7 +66,7 @@ def test_redox_balance_checks_atoms_and_charge() -> None:
     assert half.products == {"Fe3+": 1, "e-": 1}
     redox = extract_chemistry_intent("Balance Fe2+ -> Fe3+ + e-")
     assert redox is not None
-    assert solve_chemistry(redox).answer == "Fe2+ → Fe3+ + e-"
+    assert solve_chemistry(redox).answer == "Fe2+ -> Fe3+ + e-"
 
     permanganate = balance_equation("MnO4- + Fe2+ + H+ -> Mn2+ + Fe3+ + H2O")
     assert permanganate.balanced
@@ -190,8 +190,8 @@ def test_stoichiometry_chain_converts_moles_and_particles_and_reports_excess() -
     assert grams is not None and particles is not None and limiting is not None
     assert grams.chemistry_op == "mass_stoichiometry"
     assert particles.chemistry_op == "mass_stoichiometry"
-    assert solve_chemistry(grams).answer == "H2O = 36.04 g"
-    assert solve_chemistry(particles).answer == "H2O = 36.0392 g"
+    assert solve_chemistry(grams).answer == "m(H2O) = 36.04 g"
+    assert solve_chemistry(particles).answer == "m(H2O) = 36.04 g"
     limited = solve_chemistry(limiting)
     assert any(line.startswith("excess H2 =") for line in limited.substitution)
     moles = extract_chemistry_intent("How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?")
@@ -205,7 +205,7 @@ def test_weak_base_titration_half_equivalence() -> None:
     )
     assert intent is not None
     assert intent.chemistry_op == "titration_weak"
-    assert solve_chemistry(intent).answer == "pH = 9.25527"
+    assert solve_chemistry(intent).answer == "pH = 9.255"
 
 
 def test_hcn_is_carbon_centered_and_resonance_is_counted() -> None:

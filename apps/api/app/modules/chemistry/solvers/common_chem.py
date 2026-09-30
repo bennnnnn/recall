@@ -6,7 +6,13 @@ from __future__ import annotations
 import math
 from itertools import pairwise
 
-from app.modules.chemistry.solvers.types import ChemistryResult, format_number
+from app.modules.chemistry.solvers.types import (
+    INPUT_FIGURES,
+    ChemistryResult,
+    format_constant,
+    format_molar_mass,
+    format_number,
+)
 from app.services.solving import SolveServiceError
 
 KW = 1.0e-14
@@ -66,6 +72,8 @@ def verified(
     substitution: tuple[str, ...] | list[str],
     answer: str,
     value: str,
+    *,
+    verbatim: bool = False,
 ) -> ChemistryResult:
     return ChemistryResult(
         title,
@@ -76,11 +84,32 @@ def verified(
         tuple(substitution),
         answer,
         value,
+        verbatim=verbatim,
     )
 
 
 def num(value: float) -> str:
     return format_number(value)
+
+
+def inp(value: float) -> str:
+    """A value the user supplied, echoed without rounding it to answer precision (273.15 K)."""
+    return format_number(value, significant=INPUT_FIGURES)
+
+
+def const(value: float) -> str:
+    """A physical constant, one figure more precise than an answer."""
+    return format_constant(value)
+
+
+def molar_mass_text(value: float) -> str:
+    """A molar mass to two decimals."""
+    return format_molar_mass(value)
+
+
+def atomic_mass(value: float) -> str:
+    """A tabulated atomic mass exactly as the table gives it (1.008, 15.999, 196.967)."""
+    return format_number(value, significant=6)
 
 
 def weak_dissociation(constant: float, concentration: float) -> float:

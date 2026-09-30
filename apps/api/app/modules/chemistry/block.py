@@ -27,11 +27,9 @@ class VerifiedChemistry(VerifiedSolveBlock):
 
 
 def _bullet_rows(text: str) -> str:
-    from app.services.chat.calculation_layout import split_math_expression
-
-    rows = split_math_expression(text.strip())
-    items = rows or [text.strip()]
-    return "\n".join(f"- {item}" for item in items if item)
+    """One bullet per line. Chemistry rows are text, so the math splitter (which cuts at every
+    ``=`` and comma) is not used: it turned ``x = 0.6`` / ``[N2O4] = 0.4`` into fragments."""
+    return "\n".join(f"- {line.strip()}" for line in text.splitlines() if line.strip())
 
 
 def _prompt_text(result: ChemistryResult) -> str:
@@ -90,6 +88,7 @@ def verified_iupac(smiles: str, iupac_name: str) -> VerifiedChemistry:
         substitution=(iupac_name,),
         answer=iupac_name,
         answer_value=iupac_name,
+        verbatim=True,
     )
     return VerifiedChemistry(
         text=_prompt_text(result),

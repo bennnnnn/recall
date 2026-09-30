@@ -15,6 +15,7 @@ import re
 from app.models.schemas.chemistry.scene import dump_scene
 from app.modules import chemistry as chemistry_service
 from app.modules.chemistry.block import VerifiedChemistry
+from app.modules.chemistry.notation import typeset, typeset_json
 from app.services.md_fence_scan import close_unclosed_fences, map_closed_fences, strip_closed_fences
 
 logger = logging.getLogger(__name__)
@@ -77,7 +78,7 @@ def _canonicalize_smiles_fence(body: str) -> str:
         logger.info("replacing invalid SMILES fence: %r", smiles)
         return "*Could not render that structure.*\n"
     if not caption and props.formula and props.molecular_weight > 0:
-        caption = f"{props.formula} · {props.molecular_weight:.2f} g/mol"
+        caption = f"{typeset(props.formula)} · {props.molecular_weight:.2f} g/mol"
     if caption:
         return f"```smiles\n{caption}\n{props.smiles}\n```\n"
     return f"```smiles\n{props.smiles}\n```\n"
@@ -173,9 +174,14 @@ _OWNED_FENCE_LANGS = (
 )
 
 
-def format_chemistry_answer_fence(answer: str) -> str:
-    """Answer fence the math renderer must not typeset as algebra."""
-    return f"```answer\n{CHEMISTRY_ANSWER_NOTATION}\n{answer.strip()}\n```"
+def format_chemistry_answer_fence(answer: str, *, verbatim: bool = False) -> str:
+    """Answer fence the math renderer must not typeset as algebra.
+
+    The answer is ASCII from the solver; the reader sees it typeset (H₂O, Fe²⁺, →) unless
+    it carries SMILES or atom labels.
+    """
+    body = answer.strip() if verbatim else typeset(answer.strip())
+    return f"```answer\n{CHEMISTRY_ANSWER_NOTATION}\n{body}\n```"
 
 
 def _solver_fences(verified: VerifiedChemistry) -> list[str]:
@@ -183,9 +189,10 @@ def _solver_fences(verified: VerifiedChemistry) -> list[str]:
     fences: list[str] = []
     answer = result.answer.strip()
     if answer:
-        fences.append(format_chemistry_answer_fence(answer))
+        fences.append(format_chemistry_answer_fence(answer, verbatim=result.verbatim))
     if result.scene is not None:
-        payload = json.dumps(dump_scene(result.scene), ensure_ascii=False)
+        scene = dump_scene(result.scene)
+        payload = json.dumps(scene if result.verbatim else typeset_json(scene), ensure_ascii=False)
         fences.append(f"```chem_scene\n{payload}\n```")
     smiles = (result.structure_smiles or "").strip()
     if smiles:
@@ -224,7 +231,9 @@ def replace_unclosed_chemistry_fences_safe(content: str, verified: object | None
         logger.exception("chemistry fence recovery failed")
         cleaned = _strip_owned_fences(closed)
         if isinstance(verified, VerifiedChemistry) and verified.result.answer.strip():
-            answer = format_chemistry_answer_fence(verified.result.answer)
+            answer = format_chemistry_answer_fence(
+                verified.result.answer, verbatim=verified.result.verbatim
+            )
             parts = [cleaned, answer]
             body = "\n\n".join(part for part in parts if part).strip()
             return f"{body}\n" if body else ""

@@ -45,6 +45,11 @@ _GROUPS: tuple[tuple[str, str], ...] = (
 )
 
 
+def group_pattern(name: str) -> str | None:
+    """The SMARTS a functional group is matched with, for showing the working."""
+    return dict(_GROUPS).get(name)
+
+
 @dataclass(frozen=True)
 class OrganicFacts:
     """Verified structure facts. Mechanisms stay outside this result."""

@@ -5,8 +5,8 @@ from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.coordination import parse_complex_formula
-from app.modules.chemistry.organic import isomer_relationship, organic_facts
-from app.modules.chemistry.solvers.common_chem import num, verified
+from app.modules.chemistry.organic import group_pattern, isomer_relationship, organic_facts
+from app.modules.chemistry.solvers.common_chem import const, inp, num, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.solutions import GAS_R
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -27,14 +27,17 @@ def solve_oxidation_state(intent: ChemistryIntent) -> ChemistryResult:
     species = parse_species(formula, coefficient_already_removed=True)
     if states is None or species is None:
         raise SolveServiceError("oxidation states are ambiguous")
-    shown = ", ".join(f"{element} = {_signed(states[element])}" for element in species.composition)
+    shown = "\n".join(f"{element} = {_signed(states[element])}" for element in species.composition)
+    terms = " + ".join(
+        f"({_signed(states[element])})({count})" for element, count in species.composition.items()
+    )
     return verified(
         "Verified oxidation states",
         (formula,),
         "Oxidation states",
         "School oxidation-number rules",
         "the signed oxidation numbers sum to the charge",
-        (shown,),
+        (f"sum = {terms} = {species.charge}",),
         shown,
         shown,
     )
@@ -46,27 +49,36 @@ def solve_vsepr(intent: ChemistryIntent) -> ChemistryResult:
     if structure is None:
         raise SolveServiceError("no unique central-atom VSEPR structure")
     polarity = "polar" if structure.polar else "nonpolar"
-    shown = (
-        f"{structure.geometry}, {structure.bond_angle}, {polarity}, "
-        f"{structure.hybridization}, central formal charge {structure.central_formal_charge}"
-    )
+    bonded = len(structure.terminal_elements)
+    lone = structure.central_lone_pairs
+    lines = [
+        f"geometry: {structure.geometry}, {structure.bond_angle}",
+        f"polarity: {polarity}",
+        f"hybridization: {structure.hybridization}",
+        f"central formal charge: {structure.central_formal_charge}",
+    ]
     if (
         structure.electron_geometry != structure.geometry
         or structure.ideal_angle != structure.bond_angle
     ):
-        shown += (
-            f"; electron geometry {structure.electron_geometry}, "
-            f"ideal angle {structure.ideal_angle}"
+        lines.append(
+            f"electron geometry: {structure.electron_geometry}, ideal angle {structure.ideal_angle}"
         )
     if structure.resonance_forms > 1:
-        shown += f"; {structure.resonance_forms} resonance forms"
+        lines.append(f"resonance forms: {structure.resonance_forms}")
+    shown = "\n".join(lines)
     return verified(
         "Verified VSEPR",
         (formula, f"valence electrons = {structure.electrons}"),
         "Geometry, polarity, and hybridization",
         "VSEPR from the central-atom Lewis structure",
         "steric number = bonded atoms + lone pairs",
-        (shown,),
+        (
+            f"central atom {structure.central}: {bonded} bonded atoms, {lone} lone pairs",
+            f"steric number = {bonded} + {lone} = {bonded + lone}",
+            f"electron geometry {structure.electron_geometry}; "
+            f"molecular geometry {structure.geometry}",
+        ),
         shown,
         shown,
     )
@@ -84,11 +96,15 @@ def solve_formal_charge(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"FC = {num(value)}"
     return verified(
         "Verified formal charge",
-        (f"V = {num(valence)}", f"N = {num(nonbonding)}", f"B = {num(bonding)}"),
+        (
+            f"valence electrons V = {inp(valence)}",
+            f"nonbonding electrons N = {inp(nonbonding)}",
+            f"bonding electrons B = {inp(bonding)}",
+        ),
         "Formal charge",
         "Formal charge",
         "FC = V − N − B/2",
-        (shown,),
+        (f"FC = {inp(valence)} − {inp(nonbonding)} − {inp(bonding)}/2",),
         shown,
         shown,
     )
@@ -98,16 +114,17 @@ def solve_functional_groups(intent: ChemistryIntent) -> ChemistryResult:
     facts = organic_facts(intent.formula or "")
     if facts is None or not facts.groups:
         raise SolveServiceError("no functional group recognized")
-    shown = ", ".join(facts.groups)
+    shown = "\n".join(facts.groups)
     return verified(
         "Verified functional groups",
         (facts.canonical_smiles,),
         "Functional groups",
         "RDKit SMARTS groups",
-        "specific groups are matched before general ones",
-        (shown,),
+        "each group is a SMARTS pattern matched atom by atom",
+        tuple(f"{group}: {group_pattern(group)}" for group in facts.groups),
         shown,
         shown,
+        verbatim=True,
     )
 
 
@@ -116,32 +133,43 @@ def solve_stereochemistry(intent: ChemistryIntent) -> ChemistryResult:
     if facts is None:
         raise SolveServiceError("SMILES could not be read")
     parts = [*facts.chirality, *facts.double_bond_stereo]
-    shown = ", ".join(parts) if parts else "no stereocenter"
+    shown = "\n".join(parts) if parts else "no stereocenter"
     return verified(
         "Verified stereochemistry",
         (facts.canonical_smiles,),
         "CIP stereochemistry",
         "RDKit CIP labels",
         "R/S centers and E/Z double bonds",
-        (shown,),
+        (
+            f"{len(facts.chirality)} possible stereocenter(s) and "
+            f"{len(facts.double_bond_stereo)} stereo double bond(s) in {facts.canonical_smiles}",
+            "atoms are numbered from 1 in the order the SMILES is written",
+        ),
         shown,
         shown,
+        verbatim=True,
     )
 
 
 def solve_isomers(intent: ChemistryIntent) -> ChemistryResult:
-    relationship = isomer_relationship(intent.formula or "", intent.target or "")
-    if relationship is None:
+    left, right = intent.formula or "", intent.target or ""
+    relationship = isomer_relationship(left, right)
+    first, second = organic_facts(left), organic_facts(right)
+    if relationship is None or first is None or second is None:
         raise SolveServiceError("both structures must be valid SMILES")
     return verified(
         "Verified isomer relationship",
-        (intent.formula or "", intent.target or ""),
+        (left, right),
         "Isomer relationship",
         "Formula and canonical SMILES",
         "same formula, then isomeric versus non-isomeric SMILES",
-        (relationship,),
+        (
+            f"formula: {first.formula} and {second.formula}",
+            f"canonical SMILES: {first.canonical_smiles} and {second.canonical_smiles}",
+        ),
         relationship,
         relationship,
+        verbatim=True,
     )
 
 
@@ -149,9 +177,13 @@ def solve_coordination(intent: ChemistryIntent) -> ChemistryResult:
     complex_ = parse_complex_formula(intent.formula or "")
     if complex_ is None:
         raise SolveServiceError("coordination formula was not recognized")
-    shown = (
-        f"{complex_.metal} oxidation state {_signed(complex_.oxidation_state)}, "
-        f"coordination number {complex_.coordination_number}, {complex_.name}"
+    complex_charge = complex_.oxidation_state + complex_.ligand_charge
+    shown = "\n".join(
+        (
+            f"name: {complex_.name}",
+            f"{complex_.metal} oxidation state: {_signed(complex_.oxidation_state)}",
+            f"coordination number: {complex_.coordination_number}",
+        )
     )
     return verified(
         "Verified coordination complex",
@@ -159,14 +191,21 @@ def solve_coordination(intent: ChemistryIntent) -> ChemistryResult:
         "Oxidation state, coordination number, and name",
         "Additive coordination name",
         "oxidation state = complex charge − ligand charges",
-        (shown,),
+        (
+            f"complex charge = {_signed(complex_charge)}",
+            f"ligand charges = {_signed(complex_.ligand_charge)}",
+            f"{complex_.metal} = ({_signed(complex_charge)}) − ({_signed(complex_.ligand_charge)})"
+            f" = {_signed(complex_.oxidation_state)}",
+            f"coordination number = donor atoms of {' + '.join(complex_.ligands)} = "
+            f"{complex_.coordination_number}",
+        ),
         shown,
         shown,
     )
 
 
 def _colligative(
-    intent: ChemistryIntent, constant_name: str, symbol: str, title: str
+    intent: ChemistryIntent, constant_name: str, constant_label: str, symbol: str, title: str
 ) -> ChemistryResult:
     factor = intent.params.get("i")
     constant = intent.params.get(constant_name)
@@ -177,22 +216,26 @@ def _colligative(
     shown = f"{symbol} = {num(value)} °C"
     return verified(
         title,
-        (f"i = {num(factor)}", f"K = {num(constant)}", f"m = {num(molality)} mol/kg"),
+        (
+            f"i = {inp(factor)}",
+            f"{constant_label} = {inp(constant)} °C·kg/mol",
+            f"m = {inp(molality)} mol/kg",
+        ),
         symbol,
-        title.removeprefix("Verified "),
-        f"{symbol} = i K m",
-        (shown,),
+        title.removeprefix("Verified ").capitalize(),
+        f"{symbol} = i {constant_label} m",
+        (f"{symbol} = ({inp(factor)})({inp(constant)})({inp(molality)})",),
         shown,
         shown,
     )
 
 
 def solve_boiling(intent: ChemistryIntent) -> ChemistryResult:
-    return _colligative(intent, "kb", "ΔTb", "Verified boiling-point elevation")
+    return _colligative(intent, "kb", "Kb", "ΔTb", "Verified boiling-point elevation")
 
 
 def solve_freezing(intent: ChemistryIntent) -> ChemistryResult:
-    return _colligative(intent, "kf", "ΔTf", "Verified freezing-point depression")
+    return _colligative(intent, "kf", "Kf", "ΔTf", "Verified freezing-point depression")
 
 
 def solve_osmotic(intent: ChemistryIntent) -> ChemistryResult:
@@ -212,11 +255,11 @@ def solve_osmotic(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"Π = {num(value)} atm"
     return verified(
         "Verified osmotic pressure",
-        (f"i = {num(factor)}", f"M = {num(molarity)} mol/L", f"T = {num(temperature)} K"),
+        (f"i = {inp(factor)}", f"M = {inp(molarity)} mol/L", f"T = {inp(temperature)} K"),
         "Osmotic pressure",
         "van 't Hoff equation",
         "Π = iMRT",
-        (shown,),
+        (f"Π = ({inp(factor)})({inp(molarity)})({const(GAS_R)})({inp(temperature)})",),
         shown,
         shown,
     )
@@ -232,11 +275,11 @@ def solve_raoult(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"P = {num(fraction * pure)}{suffix}"
     return verified(
         "Verified Raoult's law",
-        (f"X = {num(fraction)}", f"P° = {num(pure)}{suffix}"),
+        (f"X = {inp(fraction)}", f"P° = {inp(pure)}{suffix}"),
         "Vapor pressure",
         "Raoult's law",
         "P = X P°",
-        (shown,),
+        (f"P = ({inp(fraction)})({inp(pure)})",),
         shown,
         shown,
     )
@@ -252,11 +295,11 @@ def solve_calibration(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"c = {num(value)}"
     return verified(
         "Verified calibration",
-        (f"slope = {num(slope)}", f"intercept = {num(intercept)}", f"signal = {num(signal)}"),
+        (f"slope = {inp(slope)}", f"intercept = {inp(intercept)}", f"signal = {inp(signal)}"),
         "Concentration",
         "Linear calibration",
         "c = (signal − intercept) / slope",
-        (shown,),
+        (f"c = ({inp(signal)} − {inp(intercept)}) / {inp(slope)}",),
         shown,
         shown,
     )
@@ -270,11 +313,11 @@ def solve_gravimetric(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"mass = {num(mass * factor)} g"
     return verified(
         "Verified gravimetric analysis",
-        (f"precipitate = {num(mass)} g", f"factor = {num(factor)}"),
+        (f"precipitate = {inp(mass)} g", f"factor = {inp(factor)}"),
         "Analyte mass",
         "Gravimetric factor",
         "mass = precipitate × factor",
-        (shown,),
+        (f"mass = ({inp(mass)})({inp(factor)})",),
         shown,
         shown,
     )
@@ -294,14 +337,19 @@ def solve_standard_addition(intent: ChemistryIntent) -> ChemistryResult:
     return verified(
         "Verified standard addition",
         (
-            f"Ix = {num(sample)}",
-            f"Ispike = {num(spiked)}",
-            f"Cstd = {num(standard)}",
+            f"Ix = {inp(sample)}",
+            f"Ispike = {inp(spiked)}",
+            f"Cstd = {inp(standard)}",
+            f"Vstd = {inp(standard_volume)}",
+            f"Vsample = {inp(sample_volume)}",
         ),
         "Sample concentration",
         "One-point standard addition",
         "C = (Ix / (Ispike − Ix)) × Cstd × Vstd / Vsample",
-        (shown,),
+        (
+            f"C = ({inp(sample)} / ({inp(spiked)} − {inp(sample)})) × {inp(standard)} × "
+            f"{inp(standard_volume)} / {inp(sample_volume)}",
+        ),
         shown,
         shown,
     )

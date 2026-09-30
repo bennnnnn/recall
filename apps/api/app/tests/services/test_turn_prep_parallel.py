@@ -913,7 +913,7 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
     assert bundle.verified_subject is verified_chemistry
     assert bundle.instant_reply is not None
     assert bundle.instant_reply.count("```answer") == 1
-    assert "notation: chemistry\nΔG = -10 kJ/mol" in bundle.instant_reply
+    assert "notation: chemistry\nΔG = −10 kJ/mol" in bundle.instant_reply
     assert "H = 2Sk/5" not in bundle.instant_reply
     assert "✅" not in bundle.instant_reply
 

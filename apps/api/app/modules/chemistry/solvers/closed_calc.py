@@ -7,7 +7,7 @@ import math
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.coordination import CoordinationComplex, parse_complex_formula
-from app.modules.chemistry.solvers.common_chem import num, verified
+from app.modules.chemistry.solvers.common_chem import inp, num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
@@ -42,68 +42,93 @@ def solve_crystal_field(intent: ChemistryIntent) -> ChemistryResult:
     if electrons < 0 or electrons > 10:
         raise SolveServiceError("d-electron count is outside 0 to 10")
     if geometry == "octahedral":
-        low_spin = _octahedral_low_spin(complex_, electrons)
+        low_spin, reason = _octahedral_low_spin(complex_, electrons)
         unpaired = _unpaired(electrons, low_spin=low_spin)
         spin = "low-spin" if low_spin else "high-spin"
     elif geometry == "tetrahedral":
         unpaired = _unpaired(electrons, low_spin=False)
         spin = "high-spin"
+        reason = "the tetrahedral splitting is small, so electrons stay unpaired"
     else:
         # Square planar uses the large dx2-y2 gap: pair below it before occupying it.
         unpaired = _SQUARE_PLANAR_UNPAIRED[electrons]
         spin = "low-spin"
+        reason = "square planar fills dz2, dxz/dyz and dxy before the high dx2-y2 orbital"
     moment = math.sqrt(unpaired * (unpaired + 2))
     label = "square planar" if geometry == "square_planar" else geometry
     shown = f"{label} {spin} d{electrons}, {unpaired} unpaired, μ = {num(moment)} BM"
     note = f"geometry = {label}"
+    working = (
+        f"{complex_.metal} oxidation state {complex_.oxidation_state:+d}, so "
+        f"d electrons = {valence} − ({complex_.oxidation_state}) = {electrons}",
+        f"coordination number {complex_.coordination_number} gives {label}; {reason}",
+        f"unpaired electrons n = {unpaired}",
+        f"μ = √({unpaired}({unpaired} + 2)) = {num(moment)} BM",
+    )
     return verified(
         "Verified crystal field",
         (intent.formula or "", note),
         "Spin state, unpaired electrons, and spin-only magnetic moment",
         "Crystal-field spin state",
-        "μ = √(n(n+2))",
-        (shown,),
+        "μ = √(n(n + 2))",
+        working,
         shown,
         shown,
     )
 
 
-def _octahedral_low_spin(complex_: CoordinationComplex, electrons: int) -> bool:
-    """Spin state of an octahedral d4–d7 complex, or a refusal when it is not decided.
+def _octahedral_low_spin(complex_: CoordinationComplex, electrons: int) -> tuple[bool, str]:
+    """Spin state of an octahedral d4–d7 complex and why, or a refusal when undecided.
 
     Only a ligand set that is all weak-field (halide, water, hydroxide) or all strong-field
     (CN⁻, CO) decides it. NH3, en and NO2⁻ sit in the middle: [Co(NH3)6]³⁺ is low-spin but
     [Fe(NH3)6]²⁺ is high-spin, so those need the metal, and everything else declines.
     """
     if electrons not in {4, 5, 6, 7}:
-        return False  # d1–d3 and d8–d10 have the same unpaired count in either spin state
+        # d1–d3 and d8–d10 have the same unpaired count in either spin state
+        return False, "the unpaired count is the same in a high- or low-spin complex"
     ligands = set(complex_.ligands)
     if not ligands:
         raise SolveServiceError("the ligands are needed to choose the spin state")
     if ligands <= _WEAK_FIELD:
-        return False
+        return False, f"{', '.join(sorted(ligands))} are weak-field ligands, so the gap is small"
     if ligands <= _STRONG_FIELD:
-        return True
+        return True, f"{', '.join(sorted(ligands))} are strong-field ligands, so the gap is large"
     if (
         complex_.metal == "Co"
         and complex_.oxidation_state == 3
         and ligands <= _STRONG_FIELD | _INTERMEDIATE_FIELD
     ):
-        return True
+        return True, "Co(III) with these ligands has a large gap"
     raise SolveServiceError("the spin state of that ligand set depends on the metal")
+
+
+def _spread(values: list[float]) -> tuple[float, float, float]:
+    """``(mean, sum of squared deviations, sample standard deviation)``."""
+    mean = sum(values) / len(values)
+    squares = sum((value - mean) ** 2 for value in values)
+    return mean, squares, math.sqrt(squares / (len(values) - 1))
+
+
+def _data_lines(values: list[float]) -> tuple[str, ...]:
+    return (f"data: {', '.join(inp(value) for value in values)}", f"n = {len(values)}")
 
 
 def solve_standard_deviation(intent: ChemistryIntent) -> ChemistryResult:
     values = _samples(intent)
-    deviation = _stdev(values)
+    mean, squares, deviation = _spread(values)
     shown = f"s = {num(deviation)}"
     return verified(
         "Verified sample standard deviation",
-        tuple(num(value) for value in values),
+        _data_lines(values),
         "Sample standard deviation",
         "Sample standard deviation",
-        "s = √(Σ(x − x̄)² / (n − 1))",
-        (shown,),
+        "s = √(Σ(x − x̄)^2 / (n − 1))",
+        (
+            f"x̄ = ({' + '.join(inp(value) for value in values)}) / {len(values)} = {num(mean)}",
+            f"Σ(x − x̄)^2 = {num(squares)}",
+            f"s = √({num(squares)} / {len(values) - 1})",
+        ),
         shown,
         shown,
     )
@@ -111,15 +136,20 @@ def solve_standard_deviation(intent: ChemistryIntent) -> ChemistryResult:
 
 def solve_standard_error(intent: ChemistryIntent) -> ChemistryResult:
     values = _samples(intent)
-    error = _stdev(values) / math.sqrt(len(values))
+    mean, squares, deviation = _spread(values)
+    error = deviation / math.sqrt(len(values))
     shown = f"SE = {num(error)}"
     return verified(
         "Verified standard error",
-        tuple(num(value) for value in values),
+        _data_lines(values),
         "Standard error of the mean",
         "Standard error",
         "SE = s / √n",
-        (shown,),
+        (
+            f"x̄ = {num(mean)}, Σ(x − x̄)^2 = {num(squares)}",
+            f"s = √({num(squares)} / {len(values) - 1}) = {num(deviation)}",
+            f"SE = {num(deviation)} / √{len(values)}",
+        ),
         shown,
         shown,
     )
@@ -136,11 +166,11 @@ def solve_percent_error(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"percent error = {num(value)}%"
     return verified(
         "Verified percent error",
-        (f"experimental = {num(experimental)}", f"accepted = {num(accepted)}"),
+        (f"experimental = {inp(experimental)}", f"accepted = {inp(accepted)}"),
         "Percent error",
         "Percent error",
         "|experimental − accepted| / |accepted| × 100",
-        (shown,),
+        (f"|{inp(experimental)} − {inp(accepted)}| / |{inp(accepted)}| × 100",),
         shown,
         shown,
     )
@@ -167,15 +197,18 @@ def solve_relative_uncertainty(intent: ChemistryIntent) -> ChemistryResult:
     return verified(
         "Verified relative uncertainty",
         (
-            f"a = {num(left)}",
-            f"Δa = {num(left_uncertainty)}",
-            f"b = {num(right)}",
-            f"Δb = {num(right_uncertainty)}",
+            f"a = {inp(left)}",
+            f"Δa = {inp(left_uncertainty)}",
+            f"b = {inp(right)}",
+            f"Δb = {inp(right_uncertainty)}",
         ),
         "Relative uncertainty of a product or quotient",
         "Uncertainty propagation",
-        "√((Δa/a)² + (Δb/b)²)",
-        (shown,),
+        "√((Δa/a)^2 + (Δb/b)^2)",
+        (
+            f"√(({inp(left_uncertainty)}/{inp(left)})^2 + "
+            f"({inp(right_uncertainty)}/{inp(right)})^2)",
+        ),
         shown,
         shown,
     )
@@ -190,11 +223,11 @@ def solve_chromatography_rf(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"Rf = {num(value)}"
     return verified(
         "Verified retention factor",
-        (f"spot = {num(spot)}", f"solvent front = {num(front)}"),
+        (f"spot distance = {inp(spot)}", f"solvent front = {inp(front)}"),
         "Retention factor",
         "Chromatography Rf",
         "Rf = spot distance / solvent front",
-        (shown,),
+        (f"Rf = {inp(spot)} / {inp(front)}",),
         shown,
         shown,
     )
@@ -222,11 +255,13 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
             raise SolveServiceError("Michaelis–Menten denominator is zero")
         value = maximum * substrate / (km + substrate)
         shown = f"v = {num(value)}"
+        working = f"v = ({inp(maximum)})({inp(substrate)}) / ({inp(km)} + {inp(substrate)})"
     elif target == "Vmax":
         if velocity is None or km is None or substrate is None or substrate == 0:
             raise SolveServiceError("Michaelis–Menten cannot solve Vmax from these values")
         value = velocity * (km + substrate) / substrate
         shown = f"Vmax = {num(value)}"
+        working = f"Vmax = ({inp(velocity)})({inp(km)} + {inp(substrate)}) / {inp(substrate)}"
     elif target == "Km":
         if velocity is None or maximum is None or substrate is None or velocity <= 0:
             raise SolveServiceError("Michaelis–Menten cannot solve Km from these values")
@@ -234,6 +269,7 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
             raise SolveServiceError("Michaelis–Menten needs Vmax greater than v")
         value = substrate * (maximum - velocity) / velocity
         shown = f"Km = {num(value)}"
+        working = f"Km = ({inp(substrate)})({inp(maximum)} − {inp(velocity)}) / {inp(velocity)}"
     else:
         if velocity is None or maximum is None or km is None or velocity <= 0:
             raise SolveServiceError("Michaelis–Menten cannot solve S from these values")
@@ -241,8 +277,9 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
             raise SolveServiceError("Michaelis–Menten needs Vmax greater than v")
         value = velocity * km / (maximum - velocity)
         shown = f"S = {num(value)}"
+        working = f"S = ({inp(velocity)})({inp(km)}) / ({inp(maximum)} − {inp(velocity)})"
     given = tuple(
-        f"{name} = {num(amount)}" for name, amount in present.items() if amount is not None
+        f"{name} = {inp(amount)}" for name, amount in present.items() if amount is not None
     )
     return verified(
         "Verified Michaelis–Menten",
@@ -250,7 +287,7 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
         target,
         "Michaelis–Menten equation",
         "v = Vmax[S] / (Km + [S])",
-        (shown,),
+        (working,),
         shown,
         shown,
     )
@@ -264,12 +301,6 @@ def _samples(intent: ChemistryIntent) -> list[float]:
     if len(intent.samples) < 2:
         raise SolveServiceError("at least two measurements are required")
     return list(intent.samples)
-
-
-def _stdev(values: list[float]) -> float:
-    mean = sum(values) / len(values)
-    variance = sum((value - mean) ** 2 for value in values) / (len(values) - 1)
-    return math.sqrt(variance)
 
 
 # Unpaired electrons for square planar filling:

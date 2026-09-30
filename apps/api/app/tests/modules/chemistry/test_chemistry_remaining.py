@@ -24,6 +24,7 @@ from app.modules.chemistry.catalog import CATALOG
 from app.modules.chemistry.context import build_chemistry_augmentation
 from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
+from app.modules.chemistry.notation import typeset_json
 from app.modules.chemistry.solvers.solver import solve_chemistry, supported_operations
 from app.modules.physics.extract import needs_physics
 from app.services.solving import SolveServiceError
@@ -48,7 +49,8 @@ def test_water_scene_keeps_the_molecular_angle() -> None:
     verified = build_verified_chemistry(intent)
     assert verified is not None
     reply = format_direct_chemistry_reply(verified)
-    fence = f"```chem_scene\n{json.dumps(dump_scene(result.scene), ensure_ascii=False)}\n```"
+    payload = json.dumps(typeset_json(dump_scene(result.scene)), ensure_ascii=False)
+    fence = f"```chem_scene\n{payload}\n```"
     assert reply.endswith(fence + "\n")
     assert "```chem_scene" not in reply[: reply.index(fence)]
     assert "104.5°" in reply
@@ -83,7 +85,7 @@ def test_stoich_and_ice_scenes_are_tables_not_curves() -> None:
     rows = {row.species: row for row in table.rows}
     assert rows["N2O4"].change == "−x"
     assert rows["NO2"].change == "+2x"
-    assert rows["N2O4"].equilibrium == "0.381966 mol/L"
+    assert rows["N2O4"].equilibrium == "0.382 mol/L"
 
 
 def test_titration_scene_uses_labeled_anchors() -> None:
@@ -97,7 +99,7 @@ def test_titration_scene_uses_labeled_anchors() -> None:
     labels = [anchor.label for anchor in scene.anchors]
     assert labels == ["start", "half-equivalence", "equivalence", "solved"]
     half = scene.anchors[1]
-    assert half.ph == "4.74473"
+    assert half.ph == "4.745"
     assert scene.anchors[2].volume is not None
 
     strong = extract_chemistry_intent(

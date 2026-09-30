@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001 -- textbook chemistry uses Greek nu in mass-action formulas.
+# ruff: noqa: RUF001, RUF002 -- textbook chemistry uses Greek nu and minus signs.
 """Solubility, Kp, and quadratic ICE equilibria."""
 
 from __future__ import annotations
@@ -10,7 +10,7 @@ from typing import Any
 from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import EquilibriumRow, EquilibriumScene
 from app.modules.chemistry.equations import balance_equation
-from app.modules.chemistry.solvers.common_chem import num, verified
+from app.modules.chemistry.solvers.common_chem import const, inp, num, verified
 from app.modules.chemistry.solvers.physical import _equilibrium_expression
 from app.modules.chemistry.solvers.solutions import GAS_R
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -41,6 +41,23 @@ def _solubility_power(ions: list[tuple[str, int]]) -> tuple[float, int]:
     return factor, power
 
 
+def _ion_product_text(ions: list[tuple[str, int]]) -> str:
+    """``Ksp = [Ca2+][OH-]^2 = (s)(2s)^2 = 4s^3`` for the ions of a salt with solubility s."""
+    factor, power = _solubility_power(ions)
+    bracketed = "".join(
+        f"[{species}]" + ("" if coefficient == 1 else f"^{coefficient}")
+        for species, coefficient in ions
+    )
+    in_s = "".join(
+        f"({'' if coefficient == 1 else coefficient}s)"
+        + ("" if coefficient == 1 else f"^{coefficient}")
+        for _species, coefficient in ions
+    )
+    collected = f"{num(factor)}s" if factor != 1 else "s"
+    collected += "" if power == 1 else f"^{power}"
+    return f"Ksp = {bracketed} = {in_s} = {collected}"
+
+
 def solve_ksp(intent: ChemistryIntent) -> ChemistryResult:
     if not intent.equation:
         raise SolveServiceError("a solubility equation is required")
@@ -48,18 +65,22 @@ def solve_ksp(intent: ChemistryIntent) -> ChemistryResult:
     factor, power = _solubility_power(ions)
     ksp = intent.params.get("ksp")
     solubility = intent.params.get("solubility")
+    lines = [_ion_product_text(ions)]
     if ksp is not None and solubility is None:
         if ksp <= 0:
             raise SolveServiceError("Ksp must be positive")
         value = (ksp / factor) ** (1 / power)
         shown = f"s = {num(value)} mol/L"
-        detail = f"Ksp = {num(ksp)}"
+        detail = f"Ksp = {inp(ksp)}"
+        divisor = "" if factor == 1 else f" / {num(factor)}"
+        lines.append(f"s = (Ksp{divisor})^(1/{power}) = (({inp(ksp)}){divisor})^(1/{power})")
     elif solubility is not None and ksp is None:
         if solubility <= 0:
             raise SolveServiceError("solubility must be positive")
         value = factor * solubility**power
         shown = f"Ksp = {num(value)}"
-        detail = f"s = {num(solubility)} mol/L"
+        detail = f"s = {inp(solubility)} mol/L"
+        lines.append(f"Ksp = ({num(factor)})({inp(solubility)})^{power}")
     else:
         raise SolveServiceError("give Ksp or the molar solubility, not both")
     return verified(
@@ -68,7 +89,7 @@ def solve_ksp(intent: ChemistryIntent) -> ChemistryResult:
         "Molar solubility" if ksp is not None else "Ksp",
         "Solubility product",
         "Ksp = Π (νᵢ s)^νᵢ",
-        (shown,),
+        lines,
         shown,
         num(value),
     )
@@ -87,11 +108,14 @@ def solve_precipitation(intent: ChemistryIntent) -> ChemistryResult:
         relation = "no precipitate (Qsp < Ksp)"
     return verified(
         "Verified precipitation check",
-        (f"Qsp = {num(qsp)}", f"Ksp = {num(ksp)}"),
+        (f"Qsp = {inp(qsp)}", f"Ksp = {inp(ksp)}"),
         "Whether a precipitate forms",
         "Ion product versus solubility product",
         "compare Qsp with Ksp",
-        (relation,),
+        (
+            f"Qsp = {inp(qsp)} {'=' if 'saturated' in relation else '>' if qsp > ksp else '<'} "
+            f"Ksp = {inp(ksp)}",
+        ),
         relation,
         relation,
     )
@@ -119,17 +143,36 @@ def solve_common_ion(intent: ChemistryIntent) -> ChemistryResult:
         known *= concentration**coefficient
     value = (ksp / known) ** (1 / power)
     shown = f"[{target}] = {num(value)} mol/L"
-    given = [f"Ksp = {num(ksp)}"]
-    given.extend(f"[{name}] = {num(amount)}" for name, amount in intent.species.items())
+    given = [f"Ksp = {inp(ksp)}"]
+    given.extend(f"[{name}] = {inp(amount)} mol/L" for name, amount in intent.species.items())
+    parts = [
+        f"({inp(intent.species[species])})" + ("" if coefficient == 1 else f"^{coefficient}")
+        for species, coefficient in ions
+        if species != target
+    ]
+    others = parts[0] if len(parts) == 1 else f"({' × '.join(parts)})"
+    root = "" if power == 1 else f"^(1/{power})"
+    working = f"[{target}] = (({inp(ksp)}) / {others}){root}"
     return verified(
         "Verified common-ion concentration",
         given,
         f"[{target}]",
         "Common-ion effect",
         "Ksp = Π [ion]^ν",
-        (shown,),
+        (
+            _ion_product_text_from_species(ions),
+            working,
+            f"molar solubility s = [{target}] / {power} = {num(value / power)} mol/L",
+        ),
         shown,
         num(value),
+    )
+
+
+def _ion_product_text_from_species(ions: list[tuple[str, int]]) -> str:
+    return "Ksp = " + "".join(
+        f"[{species}]" + ("" if coefficient == 1 else f"^{coefficient}")
+        for species, coefficient in ions
     )
 
 
@@ -139,7 +182,7 @@ def solve_kp(intent: ChemistryIntent) -> ChemistryResult:
     return verified(
         "Verified Kp",
         tuple(
-            f"P({species}) = {num(pressure)} atm" for species, pressure in intent.species.items()
+            f"P({species}) = {inp(pressure)} atm" for species, pressure in intent.species.items()
         ),
         "Kp",
         "Partial-pressure equilibrium constant",
@@ -183,22 +226,27 @@ def solve_kc_kp(intent: ChemistryIntent) -> ChemistryResult:
     if kc is not None and kp is None:
         value = kc * factor
         shown = f"Kp = {num(value)}"
-        given = f"Kc = {num(kc)}"
+        given = f"Kc = {inp(kc)}"
+        working = f"Kp = ({inp(kc)})({num(GAS_R * temperature)})^{delta_n}"
     elif kp is not None and kc is None:
         if factor == 0:
             raise SolveServiceError("cannot convert that Kp")
         value = kp / factor
         shown = f"Kc = {num(value)}"
-        given = f"Kp = {num(kp)}"
+        given = f"Kp = {inp(kp)}"
+        working = f"Kc = ({inp(kp)}) / ({num(GAS_R * temperature)})^{delta_n}"
     else:
         raise SolveServiceError("give Kc or Kp, not both")
     return verified(
         "Verified Kc/Kp conversion",
-        (given, f"T = {num(temperature)} K", f"Δn = {delta_n}"),
+        (given, f"T = {inp(temperature)} K", f"Δn = {delta_n}"),
         shown.split(" = ", 1)[0],
         "Concentration and pressure equilibrium constants",
         "Kp = Kc (RT)^Δn",
-        (f"RT = {num(GAS_R * temperature)} L·atm/mol", shown),
+        (
+            f"RT = ({const(GAS_R)})({inp(temperature)}) = {num(GAS_R * temperature)} L·atm/mol",
+            working,
+        ),
         shown,
         num(value),
     )
@@ -257,18 +305,26 @@ def solve_ice(intent: ChemistryIntent) -> ChemistryResult:
     if len(valid) != 1:
         raise SolveServiceError("equilibrium extent is not unique")
     chosen = valid[0]
-    lines = [f"x = {num(chosen)}"]
     equilibrium: dict[str, str] = {}
+    results: list[str] = []
     for species, expression in concentrations.items():
         amount = float(N(expression.subs(extent, chosen)))
         shown = f"{num(amount)} mol/L"
-        lines.append(f"[{species}] = {shown}")
+        results.append(f"[{species}] = {shown}")
         equilibrium[species] = shown
     rows = _ice_rows(intent, balanced.reactants, balanced.products, equilibrium)
-    answer = "; ".join(lines)
+    lines = [
+        *_ice_setup(intent, balanced.reactants, balanced.products, concentrations),
+        f"K = {_ice_expression(balanced.reactants, balanced.products, concentrations)} = "
+        f"{inp(constant)}",
+        f"K = {_ice_substituted(intent, balanced.reactants, balanced.products, concentrations)}",
+        f"{_polynomial_text(poly.all_coeffs())} = 0",
+        f"x = {num(chosen)} (the root that keeps every concentration non-negative)",
+    ]
+    answer = "\n".join([f"x = {num(chosen)}", *results])
     result = verified(
         "Verified ICE equilibrium",
-        (intent.equation, f"K = {num(constant)}"),
+        (intent.equation, f"K = {inp(constant)}"),
         "Equilibrium extent and concentrations",
         "ICE table, quadratic or linear",
         "K from the extent x",
@@ -277,6 +333,92 @@ def solve_ice(intent: ChemistryIntent) -> ChemistryResult:
         num(chosen),
     )
     return replace(result, scene=EquilibriumScene(title="ICE table", rows=rows))
+
+
+def _extent_text(initial: float, coefficient: int, *, product: bool) -> str:
+    """One species at equilibrium in terms of the extent x: ``2x``, ``1 − x``, ``0.1 + x``."""
+    change = "x" if coefficient == 1 else f"{coefficient}x"
+    if initial == 0 and product:
+        return change
+    return f"{inp(initial)} {'+' if product else '−'} {change}"
+
+
+def _ice_setup(
+    intent: ChemistryIntent,
+    reactants: dict[str, int],
+    products: dict[str, int],
+    concentrations: dict[str, Any],
+) -> list[str]:
+    """``[N2O4] = 1 − x`` for each species: initial concentration plus its change."""
+    lines = []
+    for side, product in ((reactants, False), (products, True)):
+        for species, coefficient in side.items():
+            if species in concentrations:
+                initial = intent.species.get(species, 0.0)
+                lines.append(f"[{species}] = {_extent_text(initial, coefficient, product=product)}")
+    return lines
+
+
+def _ice_expression(
+    reactants: dict[str, int], products: dict[str, int], concentrations: dict[str, Any]
+) -> str:
+    """The mass-action expression as written in the concentrations: ``[NO2]^2 / [N2O4]``."""
+
+    def side(terms: dict[str, int]) -> str:
+        parts = [
+            f"[{species}]" + ("" if coefficient == 1 else f"^{coefficient}")
+            for species, coefficient in terms.items()
+            if species in concentrations
+        ]
+        text = " × ".join(parts) or "1"
+        return f"({text})" if len(parts) > 1 else text
+
+    return f"{side(products)} / {side(reactants)}"
+
+
+def _ice_substituted(
+    intent: ChemistryIntent,
+    reactants: dict[str, int],
+    products: dict[str, int],
+    concentrations: dict[str, Any],
+) -> str:
+    """``(2x)^2 / (1 − x)``: each concentration replaced by its expression in x."""
+
+    def side(terms: dict[str, int], *, product: bool) -> str:
+        parts = []
+        for species, coefficient in terms.items():
+            if species not in concentrations:
+                continue
+            expression = _extent_text(
+                intent.species.get(species, 0.0), coefficient, product=product
+            )
+            parts.append(f"({expression})" + ("" if coefficient == 1 else f"^{coefficient}"))
+        text = " × ".join(parts) or "1"
+        return f"({text})" if len(parts) > 1 else text
+
+    return f"{side(products, product=True)} / {side(reactants, product=False)}"
+
+
+def _polynomial_text(coefficients: list[Any]) -> str:
+    """``4x^2 + 4x − 4`` from sympy's highest-degree-first coefficients."""
+    degree = len(coefficients) - 1
+    text = ""
+    for offset, coefficient in enumerate(coefficients):
+        value = float(coefficient)
+        if abs(value) < 1e-15:
+            continue
+        power = degree - offset
+        magnitude = num(abs(value))
+        term = magnitude if power == 0 else ("x" if power == 1 else f"x^{power}")
+        if power and abs(abs(value) - 1) < 1e-12:
+            body = term
+        elif power:
+            body = f"{magnitude}{term}"
+        else:
+            body = term
+        sign = "−" if value < 0 else "+"
+        text += f"−{body}" if not text and value < 0 else body if not text else f" {sign} {body}"
+    return text or "0"
 
 
 def _ice_change(coefficient: int, *, product: bool) -> str:
