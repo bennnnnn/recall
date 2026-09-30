@@ -203,7 +203,7 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "every group whose range contains the shift",
     ),
     ("nmr_splitting", "spectroscopy", "n+1 rule", "lines = neighbors + 1"),
-    ("molecular_ion", "spectroscopy", "Molecular ion", "M+ equals the molar mass"),
+    ("molecular_ion", "spectroscopy", "Molecular ion", "M+ = most abundant isotope masses"),
     ("michaelis_menten", "biochemistry", "Michaelis–Menten equation", "v = Vmax[S] / (Km + [S])"),
 )
 

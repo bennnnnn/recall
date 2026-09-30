@@ -12,13 +12,14 @@ from app.core.config import Settings
 from app.gateways import pubchem_gateway
 from app.modules import chemistry as chemistry_service
 from app.modules.chemistry.block import VerifiedChemistry, build_verified_chemistry, verified_iupac
+from app.modules.chemistry.elements import BY_NUMBER, ELEMENTS, Element
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import (
     EQUATION_RE,
     extract_compound_name,
     is_chemistry_question,
 )
-from app.modules.chemistry.stoichiometry import PERIODIC_TABLE
+from app.modules.chemistry.smiles import MAX_SMILES_LENGTH
 
 logger = logging.getLogger(__name__)
 
@@ -31,7 +32,9 @@ _DESCRIPTOR_CUE = re.compile(
     re.IGNORECASE,
 )
 _ELEMENT_CUE = re.compile(
-    r"\b(?:atomic\s+mass|atomic\s+number|electronegativity|periodic\s+table|element)\b",
+    r"\b(?:atomic\s+(?:mass(?:es)?|numbers?|weights?)|electronegativit(?:y|ies)|"
+    r"periodic\s+table|elements?|"
+    r"electron\s+configuration|oxidation\s+states?|valence\s+electrons?)\b",
     re.IGNORECASE,
 )
 _IUPAC_SMILES = re.compile(r"\bIUPAC name\b[\s\S]{0,40}\bSMILES\s+(\S+)", re.IGNORECASE)
@@ -39,13 +42,59 @@ _STOICH_CUE = re.compile(
     r"\b(?:how\s+much|how\s+many|amount\s+of|moles\s+of|grams?\s+of|limiting\s+reagent)\b",
     re.IGNORECASE,
 )
-_ELEMENT_NAMES = tuple(
-    sorted(
-        ((str(info["name"]).lower(), symbol) for symbol, info in PERIODIC_TABLE.items()),
-        key=lambda pair: len(pair[0]),
-        reverse=True,
-    )
+# British and IUPAC spellings the table (which follows the American ones) does not carry.
+_ELEMENT_SPELLINGS = {"aluminium": "Al", "caesium": "Cs", "sulphur": "S"}
+_ELEMENT_BY_NAME: dict[str, Element] = {
+    **{element.name.lower(): element for element in ELEMENTS},
+    **{
+        spelling: next(e for e in ELEMENTS if e.symbol == symbol)
+        for spelling, symbol in _ELEMENT_SPELLINGS.items()
+    },
+}
+_SYMBOL_BY_TEXT: dict[str, Element] = {element.symbol: element for element in ELEMENTS}
+# "carbon dioxide", "sodium chloride", "hydrogen bond": the element word names a compound or a
+# bond, not the element.
+_COMPOUND_FOLLOWERS = frozenset(
+    {
+        "oxide",
+        "dioxide",
+        "monoxide",
+        "trioxide",
+        "peroxide",
+        "hydroxide",
+        "chloride",
+        "bromide",
+        "iodide",
+        "fluoride",
+        "sulfide",
+        "sulphide",
+        "sulfate",
+        "sulphate",
+        "nitrate",
+        "nitrite",
+        "carbonate",
+        "phosphate",
+        "cyanide",
+        "acid",
+        "bond",
+        "bonds",
+        "bonding",
+        "hydride",
+    }
 )
+_WORD = re.compile(r"[A-Za-z]+")
+_ATOMIC_NUMBER = re.compile(
+    r"\b(?:atomic\s+number|element(?:\s+number)?)\s*(?:=|of|is)?\s*(\d{1,3})\b", re.IGNORECASE
+)
+# A bare symbol counts only where a symbol is being asked about ("mass of Fe", "symbol Cs"),
+# never as a stray capital: the pronoun "I", "In group 1", "As a student". A digit after it
+# ("of H2O") means a formula, not the element.
+_SYMBOL_AFTER_CUE = re.compile(r"\b(?i:of|for|symbol|element)\s+([A-Z][a-z]?)(?![A-Za-z0-9])")
+_MAX_ELEMENTS = 3
+# Lexically valid SMILES only, so a sentence's words never reach RDKit.
+_SMILES_TOKEN = re.compile(r"^(?:Cl|Br|[BCNOPSFI]|[bcnops]|\[[^\]\s]+\]|[=#$/\\()@+\-.%:]|\d)+$")
+_MIN_SMILES_TOKEN = 3
+_MAX_DESCRIPTOR_CANDIDATES = 8
 
 
 def _format_balanced(equation: str) -> str | None:
@@ -82,13 +131,7 @@ def _stoichiometry_ratio_hint(content: str) -> str | None:
     )
 
 
-def _descriptor_context(content: str) -> str | None:
-    if _DESCRIPTOR_CUE.search(content) is None:
-        return None
-    match = re.search(r"\b([A-Z][A-Za-z0-9@\[\]\(\)=#\\/\\.]{4,60})\b", content)
-    if match is None:
-        return None
-    smiles = match.group(1)
+def _descriptor_block(smiles: str) -> str | None:
     try:
         desc = chemistry_service.compute_descriptors(smiles)
     except Exception:
@@ -99,7 +142,7 @@ def _descriptor_context(content: str) -> str | None:
     return (
         f"[Verified molecular descriptors for {desc.smiles}]\n"
         f"MW: {desc.molecular_weight} g/mol\n"
-        f"LogP: {desc.log_p}\n"
+        f"LogP: {desc.log_p or 0.0}\n"
         f"TPSA: {desc.tpsa}\n"
         f"H-bond donors: {desc.h_bond_donors}\n"
         f"H-bond acceptors: {desc.h_bond_acceptors}\n"
@@ -109,39 +152,81 @@ def _descriptor_context(content: str) -> str | None:
     )
 
 
+def _smiles_candidates(content: str) -> list[str]:
+    """Tokens that read as SMILES, in order; a plain word never qualifies."""
+    tokens: list[str] = []
+    for raw in content.split():
+        token = raw.strip("?!,;'\"").rstrip(".")
+        if _MIN_SMILES_TOKEN <= len(token) <= MAX_SMILES_LENGTH and _SMILES_TOKEN.match(token):
+            tokens.append(token)
+        if len(tokens) == _MAX_DESCRIPTOR_CANDIDATES:
+            break
+    return tokens
+
+
+def _descriptor_context(content: str) -> str | None:
+    if _DESCRIPTOR_CUE.search(content) is None:
+        return None
+    for smiles in _smiles_candidates(content):
+        block = _descriptor_block(smiles)
+        if block is not None:
+            return block
+    return None
+
+
+def _named_elements(content: str) -> list[Element]:
+    """Every element the question names, by whole word, atomic number, or asked-about symbol."""
+    found: dict[int, Element] = {}
+    words = list(_WORD.finditer(content))
+    for index, match in enumerate(words):
+        element = _ELEMENT_BY_NAME.get(match.group(0).lower())
+        if element is None:
+            continue
+        if index + 1 < len(words):
+            following = words[index + 1]
+            between = content[match.end() : following.start()]
+            if between.isspace() and following.group(0).lower() in _COMPOUND_FOLLOWERS:
+                continue
+        found.setdefault(element.number, element)
+    for number in _ATOMIC_NUMBER.finditer(content):
+        element = BY_NUMBER.get(int(number.group(1)))
+        if element is not None:
+            found.setdefault(element.number, element)
+    for symbol in _SYMBOL_AFTER_CUE.finditer(content):
+        element = _SYMBOL_BY_TEXT.get(symbol.group(1))
+        if element is not None:
+            found.setdefault(element.number, element)
+    return list(found.values())[:_MAX_ELEMENTS]
+
+
+def _element_block(element: Element) -> list[str]:
+    lines = [f"[Verified element data for {element.name}]", f"Atomic mass: {element.mass} g/mol"]
+    if element.group is not None:
+        lines.append(f"Group: {element.group}")
+    lines.append(f"Period: {element.period}")
+    lines.append(f"Atomic number: {element.number}")
+    lines.append(f"Electron configuration: {element.configuration}")
+    if element.electronegativity is not None:
+        lines.append(f"Electronegativity: {element.electronegativity}")
+    if element.oxidation_states:
+        states = ", ".join(f"{state:+d}" for state in element.oxidation_states)
+        lines.append(f"Common oxidation states: {states}")
+    if element.mass_is_isotope:
+        lines.append("Mass note: mass number of a long-lived isotope")
+    return lines
+
+
 def _element_context(content: str) -> str | None:
     if _ELEMENT_CUE.search(content) is None:
         return None
-    lower = f" {content.lower()} "
-    info: dict[str, float | int | str] | None = None
-    for name, symbol in _ELEMENT_NAMES:
-        if f" {name} " in lower or lower.strip().endswith(name):
-            info = chemistry_service.get_element_info(symbol)
-            break
-    if info is None:
-        padded = f" {content} "
-        for symbol in PERIODIC_TABLE:
-            if f" {symbol} " in padded or f" {symbol}?" in padded:
-                info = chemistry_service.get_element_info(symbol)
-                break
-    if info is None:
+    elements = _named_elements(content)
+    if not elements:
         return None
-    element_name = str(info.get("name", "element"))
-    lines = [f"[Verified element data for {element_name}]"]
-    if "mass" in info:
-        lines.append(f"Atomic mass: {info['mass']} g/mol")
-    if "group" in info:
-        lines.append(f"Group: {info['group']}")
-    if "period" in info:
-        lines.append(f"Period: {info['period']}")
-    if "number" in info:
-        lines.append(f"Atomic number: {info['number']}")
-    if "configuration" in info:
-        lines.append(f"Electron configuration: {info['configuration']}")
-    if "electronegativity" in info:
-        lines.append(f"Electronegativity: {info['electronegativity']}")
-    if "mass_note" in info:
-        lines.append(f"Mass note: {info['mass_note']}")
+    lines: list[str] = []
+    for element in elements:
+        if lines:
+            lines.append("")
+        lines.extend(_element_block(element))
     lines.append("Use these values verbatim in your answer.")
     return "\n".join(lines)
 
@@ -218,20 +303,19 @@ async def build_chemistry_augmentation(
         logger.info("PubChem lookup failed for %r: %s", name, lookup.error)
         return None, None, False
     compound = lookup.compound
-    return (
-        "\n".join(
-            [
-                f"[Chemistry context for {name}]",
-                f"Canonical SMILES: {compound.smiles}",
-                f"Molecular formula: {compound.molecular_formula}",
-                f"Molecular weight: {compound.molecular_weight:.2f} g/mol",
-                f"PubChem CID: {compound.cid}",
-                "Use the SMILES above verbatim in a ```smiles fence if you show the structure.",
-            ]
-        ),
-        None,
-        False,
-    )
+    lines = [
+        f"[Chemistry context for {name}]",
+        f"Canonical SMILES: {compound.smiles}",
+        f"Molecular formula: {compound.molecular_formula}",
+        f"Molecular weight: {compound.molecular_weight:.2f} g/mol",
+        f"PubChem CID: {compound.cid}",
+        "Use the SMILES above verbatim in a ```smiles fence if you show the structure.",
+    ]
+    if _DESCRIPTOR_CUE.search(content) is not None:
+        descriptors = _descriptor_block(compound.smiles)
+        if descriptors is not None:
+            lines.extend(["", descriptors])
+    return "\n".join(lines), None, False
 
 
 def _iupac_smiles(content: str) -> str | None:

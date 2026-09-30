@@ -44,6 +44,16 @@ def _coeff(value: int) -> str:
     return "" if value == 1 else f"{value} "
 
 
+def _half(symbol: str, electrons: int) -> tuple[str, int, str, int, int]:
+    """One reduction half-reaction: ``(oxidized, count, reduced, count, electrons)``.
+
+    Hydrogen is ``2 H+ + 2 e- → H2``; every metal is ``Mⁿ⁺ + n e- → M``.
+    """
+    if symbol == "H":
+        return "H+", 2, "H2", 1, electrons
+    return _ion(symbol, electrons), 1, symbol, 1, electrons
+
+
 def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
     left = intent.formula or ""
     right = intent.target or ""
@@ -56,17 +66,20 @@ def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
     else:
         cathode, anode, ec, ea, nc, na = right, left, e_right, e_left, n_right, n_left
     electrons = math.lcm(nc, na)
-    anode_coeff = electrons // na
-    cathode_coeff = electrons // nc
+    anode_ion, anode_ions, anode_form, anode_forms, _ = _half(anode, na)
+    cathode_ion, cathode_ions, cathode_form, cathode_forms, _ = _half(cathode, nc)
+    anode_scale = electrons // na
+    cathode_scale = electrons // nc
     reaction = (
-        f"{_coeff(anode_coeff)}{anode} + {_coeff(cathode_coeff)}{_ion(cathode, nc)}"
-        f" → {_coeff(anode_coeff)}{_ion(anode, na)} + {_coeff(cathode_coeff)}{cathode}"
+        f"{_coeff(anode_forms * anode_scale)}{anode_form}"
+        f" + {_coeff(cathode_ions * cathode_scale)}{cathode_ion}"
+        f" → {_coeff(anode_ions * anode_scale)}{anode_ion}"
+        f" + {_coeff(cathode_forms * cathode_scale)}{cathode_form}"
     )
     potential = ec - ea
-    direction = "spontaneous" if potential > 0 else "not spontaneous"
     shown = (
         f"E°cell = {num(potential)} V; anode {anode}; cathode {cathode}; "
-        f"n = {electrons}; {reaction}; {direction}"
+        f"n = {electrons}; {reaction}; spontaneous"
     )
     result = verified(
         "Verified galvanic cell",

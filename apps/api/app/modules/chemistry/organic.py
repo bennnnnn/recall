@@ -7,31 +7,42 @@ compares formula and canonical SMILES. IUPAC names are not invented here.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from functools import cache
 from typing import Any
 
-# More specific groups come first so a carboxylic acid is not also a ketone.
+from app.modules.chemistry.smiles import parse_mol
+
+# Every pattern excludes what it is not on the atoms themselves, so one group never hides
+# another elsewhere in the molecule (pyruvic acid is an acid *and* a ketone).
+_CARBONYL_C = "[CX3;H1,$([CX3][#6])]"  # a carbonyl carbon carrying H or C, so not a carbonate/urea
 _GROUPS: tuple[tuple[str, str], ...] = (
-    ("carboxylic acid", "[CX3](=O)[OX2H1]"),
-    ("ester", "[#6][CX3](=O)[OX2H0][#6]"),
-    ("amide", "[NX3][CX3](=O)"),
-    ("aldehyde", "[CX3H1](=O)"),
+    ("carboxylic acid", f"{_CARBONYL_C}(=O)[OX2H1]"),
+    ("ester", f"{_CARBONYL_C}(=O)[OX2H0][#6;!$([CX3]=O)]"),
+    ("anhydride", "[CX3](=O)[OX2][CX3](=O)"),
+    ("acyl halide", f"{_CARBONYL_C}(=O)[F,Cl,Br,I]"),
+    ("amide", f"[NX3]{_CARBONYL_C}=O"),
+    ("aldehyde", "[$([CX3;H1](=O)[#6]),$([CX3;H2]=O)]"),
     ("ketone", "[#6][CX3](=O)[#6]"),
-    ("phenol", "[OX2H][c]"),
+    ("phenol", "[OX2H]c"),
     ("alcohol", "[OX2H][CX4]"),
-    ("amine", "[NX3;H2,H1;!$(NC=O)]"),
+    ("thiol", "[SX2H][#6]"),
+    (
+        "amine",
+        "[NX3;+0;H2,H1;!$(N=*);!$(N-C=[O,S,N]);!$(N-S=O);!$(N-[#7,#8]);$(N-[#6])]",
+    ),
+    (
+        "tertiary amine",
+        "[NX3;+0;H0;!$(N=*);!$(N-C=[O,S,N]);!$(N-S=O);!$(N-[#7,#8]);$(N-[#6])]",
+    ),
+    ("nitro", "[NX3+](=O)[O-]"),
     ("nitrile", "[CX2]#[NX1]"),
     ("alkyne", "[CX2]#[CX2]"),
     ("alkene", "[CX3;!a]=[CX3;!a]"),
-    ("ether", "[OD2]([#6])[#6]"),
+    ("ether", "[OD2]([#6;!$([CX3]=[O,S,N])])[#6;!$([CX3]=[O,S,N])]"),
     ("haloalkane", "[CX4][F,Cl,Br,I]"),
+    ("aryl halide", "c[F,Cl,Br,I]"),
     ("aromatic", "a"),
 )
-_SKIP_WHEN = {
-    "ketone": {"carboxylic acid", "ester", "amide", "aldehyde"},
-    "alcohol": {"carboxylic acid", "phenol"},
-    "alkene": {"aromatic"},
-    "amine": {"amide"},
-}
 
 
 @dataclass(frozen=True)
@@ -45,44 +56,55 @@ class OrganicFacts:
     canonical_smiles: str
 
 
-def _mol(smiles: str) -> Any:
+@cache
+def _queries() -> tuple[tuple[str, Any], ...]:
     from rdkit import Chem
 
-    molecule = Chem.MolFromSmiles(smiles.strip())
-    if molecule is None:
-        return None
-    return molecule
+    compiled = tuple((name, Chem.MolFromSmarts(smarts)) for name, smarts in _GROUPS)
+    broken = [name for name, query in compiled if query is None]
+    if broken:  # a typo in a pattern above, not a user error
+        raise RuntimeError(f"invalid SMARTS for {', '.join(broken)}")
+    return compiled
+
+
+def _stereo_facts(molecule: Any) -> tuple[tuple[str, ...], tuple[str, ...]]:
+    """R/S per stereocenter and E/Z per double bond, 1-based like the atoms in a drawing."""
+    from rdkit import Chem
+    from rdkit.Chem import rdCIPLabeler
+
+    rdCIPLabeler.AssignCIPLabels(molecule)
+    centers: list[str] = []
+    bonds: list[str] = []
+    for info in Chem.FindPotentialStereo(molecule):
+        specified = info.specified == Chem.StereoSpecified.Specified
+        if info.type == Chem.StereoType.Atom_Tetrahedral:
+            atom = molecule.GetAtomWithIdx(info.centeredOn)
+            label = atom.GetProp("_CIPCode") if specified and atom.HasProp("_CIPCode") else None
+            centers.append(
+                f"atom {atom.GetIdx() + 1} ({atom.GetSymbol()}): {label or 'unspecified'}"
+            )
+        elif info.type == Chem.StereoType.Bond_Double:
+            bond = molecule.GetBondWithIdx(info.centeredOn)
+            begin, end = bond.GetBeginAtom(), bond.GetEndAtom()
+            ends = f"{begin.GetSymbol()}{begin.GetIdx() + 1}={end.GetSymbol()}{end.GetIdx() + 1}"
+            label = bond.GetProp("_CIPCode") if specified and bond.HasProp("_CIPCode") else None
+            bonds.append(f"{ends}: {label or 'unspecified'}")
+    return tuple(centers), tuple(bonds)
 
 
 def organic_facts(smiles: str) -> OrganicFacts | None:
     from rdkit import Chem
     from rdkit.Chem import rdMolDescriptors
 
-    molecule = _mol(smiles)
+    molecule = parse_mol(smiles)
     if molecule is None:
         return None
-    found: list[str] = []
-    for name, smarts in _GROUPS:
-        if _SKIP_WHEN.get(name, set()) & set(found):
-            continue
-        query = Chem.MolFromSmarts(smarts)
-        if query is not None and molecule.HasSubstructMatch(query):
-            found.append(name)
-    centers = Chem.FindMolChiralCenters(molecule, includeUnassigned=True)
-    chirality = tuple(
-        f"{molecule.GetAtomWithIdx(index).GetSymbol()}{index}={label}" for index, label in centers
-    )
-    stereo: list[str] = []
-    for bond in molecule.GetBonds():
-        code = str(bond.GetStereo())
-        if code.endswith("STEREOZ"):
-            stereo.append(f"bond {bond.GetIdx()} Z")
-        elif code.endswith("STEREOE"):
-            stereo.append(f"bond {bond.GetIdx()} E")
+    found = [name for name, query in _queries() if molecule.HasSubstructMatch(query)]
+    chirality, stereo = _stereo_facts(molecule)
     return OrganicFacts(
         groups=tuple(found),
         chirality=chirality,
-        double_bond_stereo=tuple(stereo),
+        double_bond_stereo=stereo,
         formula=rdMolDescriptors.CalcMolFormula(molecule),
         canonical_smiles=Chem.MolToSmiles(molecule),
     )
@@ -93,8 +115,8 @@ def isomer_relationship(left: str, right: str) -> str | None:
     from rdkit import Chem
     from rdkit.Chem import rdMolDescriptors
 
-    first = _mol(left)
-    second = _mol(right)
+    first = parse_mol(left)
+    second = parse_mol(right)
     if first is None or second is None:
         return None
     if rdMolDescriptors.CalcMolFormula(first) != rdMolDescriptors.CalcMolFormula(second):

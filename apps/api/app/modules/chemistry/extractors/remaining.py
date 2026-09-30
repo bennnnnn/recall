@@ -130,10 +130,10 @@ def _michaelis(text: str) -> ChemistryIntent | None:
     if not re.search(r"\bMichaelis[- ]Menten\b", text, re.IGNORECASE):
         return None
     values = {
-        "v": _search(rf"\bv\s*=\s*({_N})", text),
+        "v": _search(rf"\bv\s*=\s*({_N})(?!\s*m?L\b)", text, flags=0),
         "vmax": _search(rf"\bVmax\s*=\s*({_N})", text, flags=0),
         "km": _search(rf"\bKm\s*=\s*({_N})", text, flags=0),
-        "substrate": _search(rf"\bS\s*=\s*({_N})", text, flags=0),
+        "substrate": _search(rf"(?:\bS|\[S\])\s*=\s*({_N})", text, flags=0),
     }
     present = {key: value for key, value in values.items() if value is not None}
     if len(present) != 3:
@@ -187,12 +187,12 @@ def _spectrum(text: str) -> ChemistryIntent | None:
         return ChemistryIntent(kind="spectroscopy", chemistry_op="ir_ranges", formula=formula)
     if re.search(r"\bNMR ranges\b", text, re.IGNORECASE) and formula:
         return ChemistryIntent(kind="spectroscopy", chemistry_op="nmr_ranges", formula=formula)
-    ir_peak = _search(rf"\bIR peak\s*=?\s*({_N})", text)
+    ir_peak = _search(rf"\bIR peak\s*(?:=|at)?\s*({_N})", text)
     if ir_peak is not None:
         return ChemistryIntent(
             kind="spectroscopy", chemistry_op="ir_peak", params={"peak": ir_peak}
         )
-    nmr_peak = _search(rf"\bNMR peak\s*=?\s*({_N})", text)
+    nmr_peak = _search(rf"\bNMR peak\s*(?:=|at)?\s*({_N})", text)
     if nmr_peak is not None:
         return ChemistryIntent(
             kind="spectroscopy", chemistry_op="nmr_peak", params={"peak": nmr_peak}
@@ -218,6 +218,21 @@ def _spectrum(text: str) -> ChemistryIntent | None:
 
 
 def _number_list(text: str) -> list[float]:
-    marker = re.search(r"\bof\b", text, re.IGNORECASE)
-    tail = text[marker.end() :] if marker else text
-    return [float(match.group(0)) for match in _NUMBERS.finditer(tail)]
+    """The delimited list of plain numbers after ``:`` or ``of``; empty if anything else is in it.
+
+    Counts and charges elsewhere in the sentence ("5 measurements", ``Cu2+``) are not data.
+    """
+    colon = text.find(":")
+    if colon >= 0:
+        tail = text[colon + 1 :]
+    else:
+        marker = re.search(r"\bof\b", text, re.IGNORECASE)
+        tail = text[marker.end() :] if marker else text
+    tokens = [
+        token
+        for token in re.split(r"[,;\s]+", tail.strip(" .?!"))
+        if token and token.lower() not in {"and", "&"}
+    ]
+    if not tokens or not all(re.fullmatch(_N, token) for token in tokens):
+        return []
+    return [float(token) for token in tokens]

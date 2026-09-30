@@ -88,10 +88,16 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
 
 def _weak_ph(constant: float, concentration: float, *, acid: bool) -> tuple[float, float, str]:
     amount = weak_dissociation(constant, concentration)
+    share = amount / concentration * 100
+    note = (
+        f"x/C = {num(share)}% > 5%, so the exact quadratic is used, not x ≈ √(KC)"
+        if share > 5
+        else ""
+    )
     if acid:
-        return amount, -math.log10(amount), "5% approximation would fail"
+        return amount, -math.log10(amount), note
     poh = -math.log10(amount)
-    return amount, 14 - poh, "5% approximation would fail"
+    return amount, 14 - poh, note
 
 
 def solve_weak_acid(intent: ChemistryIntent) -> ChemistryResult:
@@ -102,7 +108,7 @@ def solve_weak_acid(intent: ChemistryIntent) -> ChemistryResult:
         f"x² + ({num(constant)})x − ({num(constant)})({num(concentration)}) = 0",
         f"[H+] = {num(amount)}",
     ]
-    if amount / concentration > 0.05:
+    if note:
         lines.append(note)
     ph_text = num(ph)
     return verified(
@@ -125,7 +131,7 @@ def solve_weak_base(intent: ChemistryIntent) -> ChemistryResult:
         f"x² + ({num(constant)})x − ({num(constant)})({num(concentration)}) = 0",
         f"[OH−] = {num(amount)}",
     ]
-    if amount / concentration > 0.05:
+    if note:
         lines.append(note)
     ph_text = num(ph)
     return verified(

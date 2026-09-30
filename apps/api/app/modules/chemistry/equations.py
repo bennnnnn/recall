@@ -4,10 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from itertools import pairwise
 
 from app.modules.chemistry.species import ReactionTerm
 
 _HYDRATE_DOTS = frozenset({".", "\u00b7"})
+_PHASES = frozenset({"aq", "s", "l", "g"})
+_MAX_NESTING = 12
 
 
 @dataclass(frozen=True)
@@ -18,6 +21,7 @@ class BalancedEquation:
     products: dict[str, int]  # species → coefficient
     balanced: bool
     error: str | None = None
+    given_balanced: bool = False  # the coefficients the user wrote are already correct
 
 
 def _hydrate_fragments(formula: str) -> list[str]:
@@ -47,8 +51,10 @@ def _leading_multiplier(fragment: str) -> tuple[int, str]:
     return int(fragment[:i]), fragment[i:]
 
 
-def _parse_formula_body(s: str, multiplier: int, atoms: dict[str, int]) -> bool:
+def _parse_formula_body(s: str, multiplier: int, atoms: dict[str, int], nesting: int = 0) -> bool:
     """Walk one Hill-formula fragment. False when a leftover char cannot be parsed."""
+    if nesting > _MAX_NESTING:
+        return False
     i = 0
     n = len(s)
     while i < n:
@@ -77,11 +83,15 @@ def _parse_formula_body(s: str, multiplier: int, atoms: dict[str, int]) -> bool:
                 num_str += s[k]
                 k += 1
             inner_mult = int(num_str) if num_str else 1
-            # ``(aq)`` / ``(s)`` / ``(l)`` / ``(g)`` — skip, not atoms.
+            if num_str and inner_mult < 1:
+                return False
+            # ``(aq)`` / ``(s)`` / ``(l)`` / ``(g)`` — skip, not atoms. ``H(2)`` is not a formula.
             if not any(ch.isupper() for ch in inner):
+                if inner not in _PHASES:
+                    return False
                 i = k
                 continue
-            if not _parse_formula_body(inner, multiplier * inner_mult, atoms):
+            if not _parse_formula_body(inner, multiplier * inner_mult, atoms, nesting + 1):
                 return False
             i = k
             continue
@@ -96,6 +106,8 @@ def _parse_formula_body(s: str, multiplier: int, atoms: dict[str, int]) -> bool:
                 num_str += s[j]
                 j += 1
             count = int(num_str) if num_str else 1
+            if count < 1:
+                return False
             atoms[elem] = atoms.get(elem, 0) + count * multiplier
             i = j
             continue
@@ -113,9 +125,15 @@ def _parse_formula_atoms(formula: str) -> dict[str, int]:
     cleaned = formula.strip()
     if not cleaned:
         return {}
+    if cleaned[0] in _HYDRATE_DOTS or cleaned[-1] in _HYDRATE_DOTS:
+        return {}
+    if any(a in _HYDRATE_DOTS and b in _HYDRATE_DOTS for a, b in pairwise(cleaned)):
+        return {}
     atoms: dict[str, int] = {}
     for fragment in _hydrate_fragments(cleaned):
         count, body = _leading_multiplier(fragment)
+        if count < 1:
+            return {}
         if not body or not _parse_formula_body(body, count, atoms):
             return {}
     return atoms
@@ -206,4 +224,10 @@ def balance_equation(equation: str) -> BalancedEquation:
 
     reactant_coeffs = {labels[i]: coeffs[i] for i in range(n_reactants)}
     product_coeffs = {labels[n_reactants + i]: coeffs[n_reactants + i] for i in range(n_products)}
-    return BalancedEquation(reactants=reactant_coeffs, products=product_coeffs, balanced=True)
+    written = [term.coefficient for term in reactant_terms + product_terms]
+    return BalancedEquation(
+        reactants=reactant_coeffs,
+        products=product_coeffs,
+        balanced=True,
+        given_balanced=written == coeffs,
+    )

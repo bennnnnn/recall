@@ -6,11 +6,17 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.modules.chemistry.nuclear import balance_nuclear, decay_product, format_nuclear
+from app.modules.chemistry.nuclear import (
+    balance_nuclear,
+    decay_product,
+    format_nuclear,
+    parse_nuclide,
+)
 from app.modules.chemistry.solvers.common_chem import (
     num,
     verified,
 )
+from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
@@ -34,10 +40,12 @@ def solve_decay_constant(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def _three(intent: ChemistryIntent, a: str, b: str, c: str) -> tuple[float, float, float]:
-    values = [intent.params.get(a), intent.params.get(b), intent.params.get(c)]
-    if any(value is None or value < 0 for value in values):
-        raise SolveServiceError("decay inputs cannot be negative")
-    return float(values[0] or 0), float(values[1] or 0), float(values[2] or 0)
+    message = "decay inputs are missing or negative"
+    return (
+        require(intent, a, non_negative=True, message=message),
+        require(intent, b, non_negative=True, message=message),
+        require(intent, c, non_negative=True, message=message),
+    )
 
 
 def solve_exponential_decay(intent: ChemistryIntent) -> ChemistryResult:
@@ -80,20 +88,10 @@ def solve_nuclear_equation(intent: ChemistryIntent) -> ChemistryResult:
             raise SolveServiceError(balanced.error or "nuclear equation does not balance")
         shown = format_nuclear(balanced)
     else:
-        formula = intent.formula or ""
-        mode = intent.target or ""
-        mass_text = ""
-        symbol = formula
-        digits = ""
-        for char in formula:
-            if char.isdigit():
-                digits += char
-            else:
-                symbol = formula[len(digits) :]
-                break
-        mass_text = digits
-        mass = int(mass_text) if mass_text else int(intent.params.get("mass") or 0)
-        shown_value = decay_product(mass, symbol, mode)
+        parent = parse_nuclide(intent.formula or "")
+        if parent is None or parent.is_particle:
+            raise SolveServiceError("nuclear decay needs a nuclide such as 238U")
+        shown_value = decay_product(parent.mass_number, parent.symbol, intent.target or "")
         if not shown_value:
             raise SolveServiceError("that decay mode is not determined")
         shown = shown_value

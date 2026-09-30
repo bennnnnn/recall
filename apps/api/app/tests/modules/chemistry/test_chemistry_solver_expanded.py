@@ -42,7 +42,7 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find percent composition of O in H2O",
         "percent_composition",
-        "O in H2O = 88.7847%",
+        "O in H2O = 88.7902%",
     ),
     (
         "Find percent yield if actual yield = 8 g and theoretical yield = 10 g",
@@ -124,7 +124,7 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
         "[A]ₜ = 0.367879 mol/L",
     ),
     (
-        "Use Arrhenius equation with A=1e10, Ea=50 kJ, T=300 K",
+        "Use Arrhenius equation with A=1e10 s^-1, Ea=50 kJ, T=300 K",
         "arrhenius",
         "k = 19.6968 s⁻¹",
     ),
@@ -317,12 +317,12 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "For a zero-order reaction [A]0=1, k=0.1, find the half-life",
         "zero_order_half_life",
-        "t₁/₂ = 5 s",
+        "t₁/₂ = 5 (in the time unit of k)",
     ),
     (
         "For a second-order reaction [A]0=1, k=0.1, find the half-life",
         "second_order_half_life",
-        "t₁/₂ = 10 s",
+        "t₁/₂ = 10 (in the time unit of k)",
     ),
     (
         "Find the rate law from experiments a1=0.1, rate1=0.02, a2=0.2, rate2=0.08",
@@ -380,7 +380,7 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find the stereochemistry of SMILES C[C@H](N)C(=O)O",
         "stereochemistry",
-        "C1=S",
+        "atom 2 (C): S",
     ),
     (
         "What is the isomer relationship between SMILES CCO and COC?",
@@ -509,7 +509,7 @@ REMAINING_CASES = (
     (
         "molecular ion of C2H6O",
         "molecular_ion",
-        "M+ = 46.07",
+        "M+ = 46.0419 (nominal m/z 46)",
     ),
 )
 

@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass, field
+from functools import lru_cache
 from typing import Any
 
 logger = logging.getLogger(__name__)
 _rdkit_loaded = False
 
-_DIATOMIC_SMILES: dict[str, str] = {
+# Formulas a student types where SMILES belongs. RDKit cannot read them (it has no ``H`` outside
+# brackets and reads ``CO2`` as an unclosed ring), so the few molecules everyone draws are mapped.
+_FORMULA_SMILES: dict[str, str] = {
     "H-H": "[H][H]",
     "H2": "[H][H]",
     "O2": "O=O",
@@ -18,6 +21,12 @@ _DIATOMIC_SMILES: dict[str, str] = {
     "Cl2": "ClCl",
     "Br2": "BrBr",
     "I2": "II",
+    "H2O": "O",
+    "CO2": "O=C=O",
+    "NH3": "N",
+    "CH4": "C",
+    "HCl": "Cl",
+    "NaCl": "[Na+].[Cl-]",
 }
 
 
@@ -33,10 +42,24 @@ def _ensure_rdkit() -> None:
     _rdkit_loaded = True
 
 
+MAX_SMILES_LENGTH = 500
+
+
+def parse_mol(smiles: str) -> Any | None:
+    """An RDKit molecule from user SMILES, or None when empty, oversized or invalid."""
+    _ensure_rdkit()
+    from rdkit import Chem
+
+    cleaned = normalize_smiles_input(smiles)
+    if not cleaned or len(cleaned) > MAX_SMILES_LENGTH:
+        return None
+    return Chem.MolFromSmiles(cleaned)
+
+
 def normalize_smiles_input(raw: str) -> str:
-    """Map common diatomic formulas to SMILES RDKit can parse."""
+    """Map the few common formulas that are not SMILES to SMILES RDKit can parse."""
     key = raw.strip()
-    return _DIATOMIC_SMILES.get(key, key)
+    return _FORMULA_SMILES.get(key, key)
 
 
 @dataclass(frozen=True)
@@ -65,6 +88,7 @@ class MoleculeCoordinates:
     error: str | None = None
 
 
+@lru_cache(maxsize=512)
 def validate_smiles(smiles: str) -> MoleculeProperties:
     """Validate a SMILES string and compute molecular properties.
 
@@ -75,7 +99,7 @@ def validate_smiles(smiles: str) -> MoleculeProperties:
     from rdkit.Chem import Descriptors
 
     smiles = normalize_smiles_input(smiles.strip())
-    if not smiles or len(smiles) > 500:
+    if not smiles or len(smiles) > MAX_SMILES_LENGTH:
         return MoleculeProperties(
             smiles=smiles,
             formula="",
@@ -121,6 +145,38 @@ def validate_smiles(smiles: str) -> MoleculeProperties:
             valid=False,
             error=str(exc),
         )
+
+
+def element_counts(smiles: str) -> dict[str, int] | None:
+    """Atoms per element with implicit hydrogens; None for invalid or isotope-labelled SMILES."""
+    _ensure_rdkit()
+    from rdkit import Chem
+
+    cleaned = normalize_smiles_input(smiles.strip())
+    if not cleaned or len(cleaned) > MAX_SMILES_LENGTH:
+        return None
+    mol = Chem.MolFromSmiles(cleaned)
+    if mol is None:
+        return None
+    counts: dict[str, int] = {}
+    for atom in Chem.AddHs(mol).GetAtoms():
+        if atom.GetIsotope():
+            return None  # ``[13C]`` is not the most-common isotope this table assumes
+        counts[atom.GetSymbol()] = counts.get(atom.GetSymbol(), 0) + 1
+    return counts
+
+
+def most_common_isotope(symbol: str) -> tuple[float, int] | None:
+    """``(exact mass, mass number)`` of an element's most abundant isotope."""
+    _ensure_rdkit()
+    from rdkit import Chem
+
+    table = Chem.GetPeriodicTable()
+    try:
+        number = table.GetAtomicNumber(symbol)
+        return table.GetMostCommonIsotopeMass(number), table.GetMostCommonIsotope(number)
+    except (RuntimeError, ValueError):
+        return None
 
 
 def generate_2d_coordinates(smiles: str) -> MoleculeCoordinates:

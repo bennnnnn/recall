@@ -46,7 +46,13 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
     target = _target(text, equation)
     if target is None:
         return None
-    if re.search(r"\blimiting\b", text, re.IGNORECASE):
+    limiting = re.search(r"\blimiting\b", text, re.IGNORECASE) is not None
+    # The limiting-reagent answer is always a yield in grams; every other chain is
+    # answered in the unit the question head asks for. No head, no verified answer.
+    find_unit = _find_unit(text)
+    if find_unit is None and not limiting:
+        return None
+    if limiting:
         amounts = _gram_amounts(text)
         if len(amounts) >= 2:
             return ChemistryIntent(
@@ -80,7 +86,7 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
             equation=equation,
             target=target,
             species=grams,
-            units={"known": "g", "find": _find_unit(text)},
+            units={"known": "g", "find": find_unit or "g"},
         )
     solution = re.search(
         rf"({_N})\s*L\s+of\s+({_N})\s*M\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
@@ -95,7 +101,7 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
             target=target,
             species={solution.group(3): float(solution.group(1))},
             params={"molarity": float(solution.group(2))},
-            units={"known": "solution", "find": _find_unit(text)},
+            units={"known": "solution", "find": find_unit or "mol"},
         )
     gas = re.search(
         rf"({_N})\s*(mL|L)\s+of\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])\s+at\s+"
@@ -123,7 +129,7 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
     )
     if counted is not None:
         amount, formula = counted
-        return _chain(equation, target, formula, amount, "mol", _find_unit(text))
+        return _chain(equation, target, formula, amount, "mol", find_unit or "mol")
     counted = _one_amount(
         text,
         rf"({_N})\s*(?:molecules|particles|atoms)(?:\s+of)?\s+"
@@ -131,7 +137,7 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
     )
     if counted is not None:
         amount, formula = counted
-        return _chain(equation, target, formula, amount, "particles", _find_unit(text))
+        return _chain(equation, target, formula, amount, "particles", find_unit or "mol")
     return None
 
 

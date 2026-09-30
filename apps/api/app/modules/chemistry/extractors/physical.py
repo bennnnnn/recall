@@ -4,56 +4,68 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
+from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
 from app.modules.chemistry.extractors.parsing import (
+    _CANONICAL_PRESSURE,
     _N,
+    _PRESSURE_UNIT,
     _equation,
     _floats,
     _gas_state,
+    _partial_pressures,
     _pressure_species,
     _search,
+    k_time_unit_conflict,
+    timed,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
+
+_INTEGRATED_ORDERS: tuple[tuple[str, ChemistryOp, ChemistryOp], ...] = (
+    ("zero", "zero_order", "zero_order_half_life"),
+    ("second", "second_order", "second_order_half_life"),
+)
+
+
+def _gas_law(operation: ChemistryOp, names: tuple[str, ...], text: str) -> ChemistryIntent | None:
+    params = _gas_state(text, names)
+    if params is None:
+        return None
+    return ChemistryIntent(kind="gases", chemistry_op=operation, params=params)
 
 
 def _extract_gas_laws(text: str) -> ChemistryIntent | None:
     if re.search(r"\bcombined gas\b", text, re.IGNORECASE):
-        return ChemistryIntent(
-            kind="gases",
-            chemistry_op="combined_gas",
-            params=_gas_state(text, ("p1", "v1", "t1", "p2", "v2", "t2")),
-        )
+        return _gas_law("combined_gas", ("p1", "v1", "t1", "p2", "v2", "t2"), text)
     if re.search(r"\bBoyle\b", text):
-        return ChemistryIntent(
-            kind="gases", chemistry_op="boyle", params=_gas_state(text, ("p1", "v1", "p2", "v2"))
-        )
+        return _gas_law("boyle", ("p1", "v1", "p2", "v2"), text)
     if re.search(r"\bCharles\b", text):
-        return ChemistryIntent(
-            kind="gases", chemistry_op="charles", params=_gas_state(text, ("v1", "t1", "v2", "t2"))
-        )
+        return _gas_law("charles", ("v1", "t1", "v2", "t2"), text)
     if re.search(r"\bDalton\b", text):
-        partials = {
-            match.group(1): float(match.group(2))
-            for match in re.finditer(rf"P\(({CHEMICAL_FORMULA})\)\s*=\s*({_N})", text)
-        }
-        if len(partials) >= 2:
+        partials = _partial_pressures(text)
+        if partials is not None and len(partials[0]) >= 2:
             return ChemistryIntent(
-                kind="gases", chemistry_op="dalton", species=partials, units={"pressure": "atm"}
+                kind="gases",
+                chemistry_op="dalton",
+                species=partials[0],
+                units={"pressure": partials[1]},
             )
+        return None
     if re.search(r"\bpartial pressure\b", text, re.IGNORECASE):
         fraction = _search(rf"mole fraction\s*=\s*({_N})", text)
-        total = _search(rf"total pressure\s*=\s*({_N})", text)
+        total = re.search(
+            rf"total pressure\s*=\s*({_N})\s*({_PRESSURE_UNIT})(?![A-Za-z])", text, re.IGNORECASE
+        )
         if fraction is not None and total is not None:
             return ChemistryIntent(
                 kind="gases",
                 chemistry_op="partial_pressure",
-                params={"mole_fraction": fraction, "total_pressure": total},
-                units={"pressure": "atm"},
+                params={"mole_fraction": fraction, "total_pressure": float(total.group(1))},
+                units={"pressure": _CANONICAL_PRESSURE[total.group(2).lower()]},
             )
     if re.search(r"\bover water\b", text, re.IGNORECASE):
         total = _search(rf"total pressure\s*=\s*({_N})\s*(mmHg|atm|torr|kPa|bar)", text)
         unit = re.search(r"total pressure\s*=\s*" + _N + r"\s*(mmHg|atm|torr|kPa|bar)", text)
-        temperature = _search(rf"({_N})\s*C\b", text)
+        temperature = _search(rf"({_N})\s*(?:°\s*)?C\b", text)
         if total is not None and temperature is not None and unit is not None:
             return ChemistryIntent(
                 kind="gases",
@@ -66,7 +78,14 @@ def _extract_gas_laws(text: str) -> ChemistryIntent | None:
 
 def _extract_thermo_ext(text: str) -> ChemistryIntent | None:
     if re.search(r"\b(?:calorimeter constant|Ccal)\b", text, re.IGNORECASE):
-        constant = _search(rf"(?:Ccal|calorimeter constant)\s*=\s*({_N})", text)
+        match = re.search(
+            rf"(?:Ccal|calorimeter constant)\s*=\s*({_N})\s*(k?J)\s*/\s*(?:°\s*C|C|K)\b",
+            text,
+            re.IGNORECASE,
+        )
+        constant = None
+        if match is not None:
+            constant = float(match.group(1)) * (1000 if match.group(2).lower() == "kj" else 1)
         delta = _search(rf"(?:ΔT|delta\s*T)\s*=\s*({_N})", text)
         if constant is not None and delta is not None:
             return ChemistryIntent(
@@ -76,6 +95,15 @@ def _extract_thermo_ext(text: str) -> ChemistryIntent | None:
             )
     if re.search(r"\bHess\b", text):
         params: dict[str, float] = {}
+        steps = set(re.findall(r"ΔH(\d+)\s*=", text))
+        multipliers = set(re.findall(r"multiplier(\d+)\s*=", text))
+        if (
+            not steps
+            or len(steps) > 4
+            or steps != multipliers
+            or steps != {str(n) for n in range(1, len(steps) + 1)}
+        ):
+            return None  # a step without its multiplier would give a partial sum
         for index in range(1, 5):
             enthalpy = _search(rf"ΔH{index}\s*=\s*({_N})", text)
             multiplier = _search(rf"multiplier{index}\s*=\s*({_N})", text)
@@ -89,7 +117,7 @@ def _extract_thermo_ext(text: str) -> ChemistryIntent | None:
         equation = _equation(text)
         values = {
             match.group(1): float(match.group(2))
-            for match in re.finditer(rf"ΔHf\(({CHEMICAL_FORMULA})\)\s*=\s*({_N})", text)
+            for match in re.finditer(rf"ΔH(?:°f|f°?)\(({CHEMICAL_FORMULA})\)\s*=\s*({_N})", text)
         }
         if equation and values:
             return ChemistryIntent(
@@ -134,6 +162,16 @@ def _extract_equilibrium_ext(text: str) -> ChemistryIntent | None:
         return ChemistryIntent(
             kind="equilibrium", chemistry_op="ksp", equation=equation, params={"ksp": ksp}
         )
+    solubility = _search(
+        rf"(?:molar\s+)?solubility\s*(?:=|of|is)?\s*({_N})\s*(?:(?-i:M)(?![A-Za-z])|mol/L)", text
+    )
+    if solubility is not None and equation and re.search(r"\bKsp\b", text, flags=0):
+        return ChemistryIntent(
+            kind="equilibrium",
+            chemistry_op="ksp",
+            equation=equation,
+            params={"solubility": solubility},
+        )
     if re.search(r"\bKp\b", text, flags=0) and equation and re.search(r"\bFind Kp\b", text):
         return ChemistryIntent(
             kind="equilibrium",
@@ -156,7 +194,7 @@ def _extract_equilibrium_ext(text: str) -> ChemistryIntent | None:
             kind="equilibrium", chemistry_op="kc_kp", equation=equation, params=params
         )
     if re.search(r"\bICE equilibrium\b", text) and equation:
-        constant = _search(rf"\bK\s*=\s*({_N})", text, flags=0)
+        constant = _search(rf"\bK(?:c|eq)?\s*=\s*({_N})", text, flags=0)
         concentrations = {
             match.group(1): float(match.group(2))
             for match in re.finditer(rf"\[({CHEMICAL_FORMULA})\]\s*=\s*({_N})", text)
@@ -173,9 +211,13 @@ def _extract_equilibrium_ext(text: str) -> ChemistryIntent | None:
 
 
 def _extract_kinetics_ext(text: str) -> ChemistryIntent | None:
-    if re.search(r"\bzero[- ]order\b", text, re.IGNORECASE):
-        initial = _search(rf"\[A\]0\s*=\s*({_N})", text, flags=0)
+    for order, name, half_life_name in _INTEGRATED_ORDERS:
+        if not re.search(rf"\b{order}[- ]order\b", text, re.IGNORECASE):
+            continue
+        initial = _search(rf"\[A\](?:0|₀)\s*=\s*({_N})", text, flags=0)
         rate = _search(rf"\bk\s*=\s*({_N})", text)
+        if k_time_unit_conflict(text):
+            return None  # k per minute with t in seconds cannot be combined unchecked
         if (
             initial is not None
             and rate is not None
@@ -183,35 +225,16 @@ def _extract_kinetics_ext(text: str) -> ChemistryIntent | None:
         ):
             return ChemistryIntent(
                 kind="kinetics",
-                chemistry_op="zero_order_half_life",
+                chemistry_op=half_life_name,
                 params={"initial": initial, "rate_constant": rate},
             )
-        time = _search(rf"\bt\s*=\s*({_N})\s*s", text)
-        if initial is not None and rate is not None and time is not None:
+        elapsed = timed(text, r"\bt")
+        if initial is not None and rate is not None and elapsed is not None and elapsed[1] == "s":
             return ChemistryIntent(
                 kind="kinetics",
-                chemistry_op="zero_order",
-                params={"initial": initial, "rate_constant": rate, "time": time},
-            )
-    if re.search(r"\bsecond[- ]order\b", text, re.IGNORECASE):
-        initial = _search(rf"\[A\]0\s*=\s*({_N})", text, flags=0)
-        rate = _search(rf"\bk\s*=\s*({_N})", text)
-        if (
-            initial is not None
-            and rate is not None
-            and re.search(r"half[- ]life", text, re.IGNORECASE)
-        ):
-            return ChemistryIntent(
-                kind="kinetics",
-                chemistry_op="second_order_half_life",
-                params={"initial": initial, "rate_constant": rate},
-            )
-        time = _search(rf"\bt\s*=\s*({_N})\s*s", text)
-        if initial is not None and rate is not None and time is not None:
-            return ChemistryIntent(
-                kind="kinetics",
-                chemistry_op="second_order",
-                params={"initial": initial, "rate_constant": rate, "time": time},
+                chemistry_op=name,
+                params={"initial": initial, "rate_constant": rate, "time": elapsed[0]},
+                units={"time": "s"},
             )
     if re.search(r"\brate law\b", text, re.IGNORECASE):
         a1 = _search(rf"\ba1\s*=\s*({_N})", text)
@@ -219,8 +242,13 @@ def _extract_kinetics_ext(text: str) -> ChemistryIntent | None:
         a2 = _search(rf"\ba2\s*=\s*({_N})", text)
         rate2 = _search(rf"\brate2\s*=\s*({_N})", text)
         params = _floats(a1=a1, rate1=rate1, a2=a2, rate2=rate2)
+        second = _floats(
+            b1=_search(rf"\bb1\s*=\s*({_N})", text), b2=_search(rf"\bb2\s*=\s*({_N})", text)
+        )
         if params is not None:
-            return ChemistryIntent(kind="kinetics", chemistry_op="rate_law", params=params)
+            return ChemistryIntent(
+                kind="kinetics", chemistry_op="rate_law", params={**params, **(second or {})}
+            )
     if re.search(r"\btwo-temperature Arrhenius\b", text, re.IGNORECASE):
         params = _floats(
             k1=_search(rf"\bk1\s*=\s*({_N})", text),

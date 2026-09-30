@@ -18,7 +18,8 @@ from app.modules.chemistry.elements import BY_SYMBOL
 
 _PHASE_RE = re.compile(r"\s*\((aq|s|l|g)\)$", re.IGNORECASE)
 _CARET_CHARGE_RE = re.compile(r"\^(?:\{(\d*)([+-])\}|(\d*)([+-]))$")
-_ARROWS = ("->", "→", "=>", "⇌", "<=>", "↔")
+# Longest first: "<=>" contains "=>", and "-->" and "<->" contain "->".
+ARROWS = ("<=>", "<->", "-->", "->", "→", "⇌", "⇋", "⟶", "↔", "=>")
 _SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 _SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
 
@@ -96,11 +97,11 @@ def split_terms(side: str) -> list[str]:
     buf: list[str] = []
     depth = 0
     for index, char in enumerate(side):
-        if char in "([":
+        if char in "([{":
             depth += 1
             buf.append(char)
             continue
-        if char in ")]":
+        if char in ")]}":
             depth = max(0, depth - 1)
             buf.append(char)
             continue
@@ -131,7 +132,13 @@ def _strip_phase(body: str) -> tuple[str, str | None]:
     return body[: match.start()].strip(), match.group(1).lower()
 
 
-def _strip_charge(body: str) -> tuple[str, int]:
+def _strip_charge(body: str) -> tuple[str, int] | None:
+    """Split a trailing charge off ``body``.
+
+    ``None`` when the charge is ambiguous: ``SO42-`` could be SO4²⁻ or S O42 ⁻, and
+    guessing balances a different equation than the one the user meant. A caret
+    (``SO4^2-``) removes the ambiguity.
+    """
     caret = _CARET_CHARGE_RE.search(body)
     if caret:
         magnitude = caret.group(1) if caret.group(1) is not None else caret.group(3)
@@ -151,6 +158,8 @@ def _strip_charge(body: str) -> tuple[str, int]:
     stem = core[:index]
     if digits and stem in BY_SYMBOL:
         return stem, sign * int(digits)
+    if len(digits) > 1:
+        return None
     return core, sign
 
 
@@ -198,7 +207,10 @@ def parse_species(
         if body == "e":
             charge = -1
         return ChemicalSpecies("e", {}, charge, phase, electron=True)
-    body, charge = _strip_charge(body)
+    stripped = _strip_charge(body)
+    if stripped is None:
+        return None
+    body, charge = stripped
     if not body:
         return None
     composition = _parse_formula_atoms(body)
@@ -218,7 +230,7 @@ def parse_term(token: str) -> ReactionTerm | None:
 
 def split_equation(equation: str) -> tuple[str, str] | None:
     normalized = normalize_formula_text(equation)
-    for arrow in _ARROWS:
+    for arrow in ARROWS:
         if arrow in normalized:
             left, right = normalized.split(arrow, 1)
             return left, right

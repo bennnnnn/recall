@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 from app.modules.chemistry.elements import PERIODIC_TABLE, get_element_info
 from app.modules.chemistry.equations import _parse_formula_atoms, balance_equation
-from app.modules.chemistry.smiles import validate_smiles
+from app.modules.chemistry.smiles import element_counts, most_common_isotope, validate_smiles
 
 __all__ = [
     "PERIODIC_TABLE",
@@ -15,6 +16,7 @@ __all__ = [
     "get_element_info",
     "limiting_reagent",
     "molar_mass",
+    "monoisotopic_mass",
     "stoichiometry",
 ]
 
@@ -82,9 +84,25 @@ def _mass_from_hill(atoms: dict[str, int]) -> float | None:
     return round(total, 2)
 
 
+def _closed_ring_smiles(raw: str) -> bool:
+    """True when digits pair up as ring closures (``C1CCCCC1``) in a valid SMILES.
+
+    A Hill parse would read those digits as atom counts and drop the hydrogens
+    (cyclohexane as C6, 72.07 instead of 84.16). Hill formulas such as ``C6H12O6`` or
+    ``CO2`` are never valid SMILES, so they still take the formula route.
+    """
+    if len(raw) > 500 or not any(ch.isdigit() for ch in raw):
+        return False
+    from rdkit import Chem
+
+    return Chem.MolFromSmiles(raw) is not None
+
+
 def _prefer_smiles(raw: str) -> bool:
     """True for organic SMILES that a Hill parse would misread (``CCO`` → C₂O)."""
     if any(ch in _SMILES_ONLY_CHARS for ch in raw):
+        return True
+    if _closed_ring_smiles(raw):
         return True
     letters = sum(1 for ch in raw if ch.isalpha())
     if letters >= 3 and not any(ch.isdigit() for ch in raw):
@@ -123,6 +141,39 @@ def molar_mass(formula_or_smiles: str) -> float:
 
 
 @dataclass(frozen=True)
+class MonoisotopicMass:
+    """The mass-spectrometry molecular ion: every atom its most abundant isotope."""
+
+    exact: float
+    nominal: int
+    counts: dict[str, int]
+
+
+def monoisotopic_mass(formula_or_smiles: str) -> MonoisotopicMass:
+    """Exact and nominal mass of the most abundant isotopologue (M+ in a mass spectrum)."""
+    cleaned = formula_or_smiles.strip()
+    if not cleaned:
+        raise ValueError("cannot compute a mass for empty string")
+    hill_atoms = _parse_formula_atoms(cleaned)
+    counts: dict[str, int] | None = None
+    if hill_atoms and not _prefer_smiles(cleaned):
+        counts = hill_atoms
+    if counts is None:
+        counts = element_counts(cleaned) or hill_atoms or None
+    if not counts:
+        raise ValueError(f"cannot compute a mass for {formula_or_smiles}")
+    exact = 0.0
+    nominal = 0
+    for symbol, count in counts.items():
+        isotope = most_common_isotope(symbol)
+        if isotope is None:
+            raise ValueError(f"no isotope data for {symbol}")
+        exact += isotope[0] * count
+        nominal += isotope[1] * count
+    return MonoisotopicMass(exact, nominal, dict(counts))
+
+
+@dataclass(frozen=True)
 class LimitingReagentResult:
     """Result of a limiting reagent calculation."""
 
@@ -130,6 +181,7 @@ class LimitingReagentResult:
     limiting_reagent: str | None = None
     product_amount: float | None = None
     error: str | None = None
+    tied: tuple[str, ...] = ()  # other reactants that run out at exactly the same time
 
 
 def limiting_reagent(
@@ -139,7 +191,8 @@ def limiting_reagent(
 ) -> LimitingReagentResult:
     """Determine the limiting reagent and product yield.
 
-    reactant_amounts maps formula → moles available.
+    reactant_amounts maps formula → moles available. Every reactant must have an
+    amount: leaving one out would make another look limiting.
     """
     balanced = balance_equation(equation)
     if not balanced.balanced:
@@ -149,24 +202,29 @@ def limiting_reagent(
         target_product = next(iter(balanced.products))
     if target_product not in balanced.products:
         return LimitingReagentResult(answer="", error=f"{target_product} not found in products")
+    for reactant in reactant_amounts:
+        if reactant not in balanced.reactants:
+            return LimitingReagentResult(answer="", error=f"{reactant} not found in reactants")
+    missing = [name for name in balanced.reactants if name not in reactant_amounts]
+    if missing:
+        return LimitingReagentResult(
+            answer="", error=f"an amount is needed for every reactant, missing {missing[0]}"
+        )
 
     product_coeff = balanced.products[target_product]
     # For each reactant, compute how much product it could make.
-    best_reactant: str | None = None
-    best_product: float = float("inf")
-    for reactant, amount in reactant_amounts.items():
-        if reactant not in balanced.reactants:
-            return LimitingReagentResult(answer="", error=f"{reactant} not found in reactants")
-        r_coeff = balanced.reactants[reactant]
-        possible = amount * product_coeff / r_coeff
-        if possible < best_product:
-            best_product = possible
-            best_reactant = reactant
-
+    yields = {
+        reactant: amount * product_coeff / balanced.reactants[reactant]
+        for reactant, amount in reactant_amounts.items()
+    }
+    smallest = min(yields.values())
+    limiting = [name for name, value in yields.items() if math.isclose(value, smallest)]
+    best_reactant, *tied = limiting
     return LimitingReagentResult(
         answer=(
-            f"Limiting reagent: {best_reactant}. Product ({target_product}): {best_product:.4g} mol"
+            f"Limiting reagent: {best_reactant}. Product ({target_product}): {smallest:.4g} mol"
         ),
         limiting_reagent=best_reactant,
-        product_amount=round(best_product, 4),
+        product_amount=smallest,
+        tied=tuple(tied),
     )

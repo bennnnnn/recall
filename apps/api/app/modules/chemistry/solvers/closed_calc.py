@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001 -- textbook formulas use minus signs and multiplication signs.
+# ruff: noqa: RUF001, RUF002, RUF003 -- textbook formulas use minus signs, dashes and multiplication signs.
 """Crystal field, analytical uncertainty, and Michaelis-Menten."""
 
 from __future__ import annotations
@@ -6,12 +6,15 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.modules.chemistry.coordination import parse_complex_formula
+from app.modules.chemistry.coordination import CoordinationComplex, parse_complex_formula
 from app.modules.chemistry.solvers.common_chem import num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
+# Spectrochemical classes for octahedral d4–d7, where the spin state changes the answer.
+_WEAK_FIELD = frozenset({"F", "Cl", "Br", "I", "H2O", "OH"})
 _STRONG_FIELD = frozenset({"CN", "CO"})
+_INTERMEDIATE_FIELD = frozenset({"NH3", "en", "NO2", "ox", "py"})
 # Valence d+s count for the first-row metals. d electrons = this minus oxidation state.
 _D_COUNT = {
     "Sc": 3,
@@ -39,10 +42,7 @@ def solve_crystal_field(intent: ChemistryIntent) -> ChemistryResult:
     if electrons < 0 or electrons > 10:
         raise SolveServiceError("d-electron count is outside 0 to 10")
     if geometry == "octahedral":
-        strong = bool(complex_.ligands) and all(
-            ligand in _STRONG_FIELD for ligand in complex_.ligands
-        )
-        low_spin = strong and electrons in {4, 5, 6, 7}
+        low_spin = _octahedral_low_spin(complex_, electrons)
         unpaired = _unpaired(electrons, low_spin=low_spin)
         spin = "low-spin" if low_spin else "high-spin"
     elif geometry == "tetrahedral":
@@ -66,6 +66,31 @@ def solve_crystal_field(intent: ChemistryIntent) -> ChemistryResult:
         shown,
         shown,
     )
+
+
+def _octahedral_low_spin(complex_: CoordinationComplex, electrons: int) -> bool:
+    """Spin state of an octahedral d4–d7 complex, or a refusal when it is not decided.
+
+    Only a ligand set that is all weak-field (halide, water, hydroxide) or all strong-field
+    (CN⁻, CO) decides it. NH3, en and NO2⁻ sit in the middle: [Co(NH3)6]³⁺ is low-spin but
+    [Fe(NH3)6]²⁺ is high-spin, so those need the metal, and everything else declines.
+    """
+    if electrons not in {4, 5, 6, 7}:
+        return False  # d1–d3 and d8–d10 have the same unpaired count in either spin state
+    ligands = set(complex_.ligands)
+    if not ligands:
+        raise SolveServiceError("the ligands are needed to choose the spin state")
+    if ligands <= _WEAK_FIELD:
+        return False
+    if ligands <= _STRONG_FIELD:
+        return True
+    if (
+        complex_.metal == "Co"
+        and complex_.oxidation_state == 3
+        and ligands <= _STRONG_FIELD | _INTERMEDIATE_FIELD
+    ):
+        return True
+    raise SolveServiceError("the spin state of that ligand set depends on the metal")
 
 
 def solve_standard_deviation(intent: ChemistryIntent) -> ChemistryResult:
