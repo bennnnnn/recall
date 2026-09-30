@@ -175,6 +175,18 @@ def _decimal(value: float) -> str:
     return rendered or "0"
 
 
+def _agreed(pairs: list[tuple[float, str]]) -> tuple[float, str] | None:
+    """Repeated copies of one given are the same fact. A second value is not."""
+    if not pairs:
+        return None
+    value, unit = pairs[0]
+    key = unit.lower()
+    for other, other_unit in pairs[1:]:
+        if other != value or other_unit.lower() != key:
+            return None
+    return value, unit
+
+
 def _assignment(text: str, labels: str, unit: str, default: str) -> tuple[float, str] | None:
     found = list(
         re.finditer(
@@ -182,10 +194,7 @@ def _assignment(text: str, labels: str, unit: str, default: str) -> tuple[float,
             text,
         )
     )
-    if len(found) != 1:
-        return None
-    raw_unit = found[0].group(2)
-    return float(found[0].group(1)), raw_unit or default
+    return _agreed([(float(match.group(1)), match.group(2) or default) for match in found])
 
 
 def _sole(text: str, unit: str, default: str) -> tuple[float, str] | None:
@@ -196,9 +205,7 @@ def _sole(text: str, unit: str, default: str) -> tuple[float, str] | None:
             re.IGNORECASE,
         )
     )
-    if len(found) != 1:
-        return None
-    return float(found[0].group(1)), found[0].group(2) or default
+    return _agreed([(float(match.group(1)), match.group(2) or default) for match in found])
 
 
 def _prefer(
@@ -260,39 +267,65 @@ def _temperature(text: str) -> tuple[float, str] | None:
 
 def _first_pair(pattern: re.Pattern[str], text: str) -> tuple[float, str] | None:
     found = list(pattern.finditer(text))
-    if len(found) != 1:
-        return None
-    return float(found[0].group(1)), found[0].group(2)
+    return _agreed([(float(match.group(1)), match.group(2)) for match in found])
+
+
+def _accel_disagrees(text: str, value: float) -> bool:
+    found = re.finditer(
+        rf"({_NUMBER})\s*(?:{_ACCEL_UNIT})(?![A-Za-z0-9/^])",
+        text,
+        re.IGNORECASE,
+    )
+    return any(float(match.group(1)) != value for match in found)
 
 
 def _gravity(text: str) -> tuple[float, str] | None:
     labeled = list(_G_VALUE.finditer(text))
-    if re.search(r"\bg\s*=", text) is not None and len(labeled) != 1:
-        return None
-    if len(labeled) == 1:
-        unit = labeled[0].group("unit")
-        if unit is not None and unit not in {"m/s^2", "m/s2"}:
+    markers = list(re.finditer(r"\bg\s*=", text))
+    if markers:
+        if len(labeled) != len(markers):
             return None
-        return float(labeled[0].group(1)), "m/s^2"
+        pairs: list[tuple[float, str]] = []
+        for match in labeled:
+            unit = match.group("unit")
+            if unit is not None and unit not in {"m/s^2", "m/s2"}:
+                return None
+            pairs.append((float(match.group(1)), "m/s^2"))
+        agreed = _agreed(pairs)
+        if agreed is None or (len(pairs) > 1 and _accel_disagrees(text, agreed[0])):
+            return None
+        return agreed
     phrase = list(_GRAVITY.finditer(text))
-    if len(phrase) == 1:
-        return float(phrase[0].group(1)), "m/s^2"
+    if phrase:
+        agreed = _agreed([(float(match.group(1)), "m/s^2") for match in phrase])
+        if agreed is None or (len(phrase) > 1 and _accel_disagrees(text, agreed[0])):
+            return None
+        return agreed
     return _sole(text, _ACCEL_UNIT, "m/s^2")
 
 
 def _gas_constant(text: str) -> tuple[float | None, bool]:
-    if re.search(r"\bR\s*=", text) is None:
+    markers = list(re.finditer(r"\bR\s*=", text))
+    if not markers:
         return None, True
-    match = _R_VALUE.search(text)
-    if match is None:
+    matches = list(_R_VALUE.finditer(text))
+    if len(matches) != len(markers):
         return None, False
-    tail = match.group("tail") or ""
+    values: list[float] = []
+    for match in matches:
+        if not _gas_constant_tail(match.group("tail") or ""):
+            return None, False
+        values.append(float(match.group(1)))
+    if any(value != values[0] for value in values):
+        return None, False
+    return values[0], True
+
+
+def _gas_constant_tail(tail: str) -> bool:
     if tail and _R_OTHER.match(tail):
-        return None, False
+        return False
     word = re.match(r"[A-Za-z]", tail) is not None
-    if tail and word and not _R_JOULE.match(tail) and not _R_WORD.match(tail):
-        return None, False
-    return float(match.group(1)), True
+    return not (tail and word and not _R_JOULE.match(tail) and not _R_WORD.match(tail))
 
 
 def _heat_ratio(text: str, lower: str) -> tuple[float | None, bool]:

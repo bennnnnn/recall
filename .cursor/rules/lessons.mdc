@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A restated T₀ left the heavy piston to the model.** The flip sentence said the temperature was maintained at `T_0 = 300 K`, and the extractor required exactly one assignment, so the second copy declined the solve. The model then tried `P_3 = P_0 + Mg/A` before correcting it. Identical repeated labels are one given; a different second value still declines.
+
 - **A heavy piston flipped the inverted balance and checked 7479+4980 against 12465.** `isobaric` claimed the sentence and returned nothing, because the gas pressure was the unknown, and `C_V = 3/2` failed the fraction gate before extraction. `heavy_piston` reads the labeled givens, owns both equilibria and the isobaric heat, and runs before that decline.
 
 - **A physics decline never said it was unverified, and the check sniffed `Math note:`.** `SubjectAugmentation.unverified` was dropped in the web/tool fetch, then turn prep rebuilt the flag from that prefix, so only math reached the italic line. The fetch now returns the adapter flag. The line stays italic; a blockquote would paint a gray card.
