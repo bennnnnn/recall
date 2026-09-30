@@ -7,12 +7,13 @@ import math
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.solvers.common_chem import (
-    KW,
     inp,
     num,
     verified,
     weak_dissociation,
 )
+from app.modules.chemistry.solvers.constants import KW, PKW
+from app.modules.chemistry.solvers.params import positive, require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
@@ -31,14 +32,8 @@ _STRONG_BASES = {
 _DILUTE = 1e-6
 
 
-def _ph(value: float) -> str:
+def ph_text(value: float) -> str:
     return num(-math.log10(value))
-
-
-def _require_positive(value: float | None, name: str) -> float:
-    if value is None or value <= 0:
-        raise SolveServiceError(f"{name} must be positive")
-    return value
 
 
 def solve_strong_acid(intent: ChemistryIntent) -> ChemistryResult:
@@ -49,10 +44,10 @@ def solve_strong_acid(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError(
             f"{formula or 'that acid'} is not a supported strong monoprotic acid"
         )
-    concentration = _require_positive(intent.params.get("concentration"), "concentration")
+    concentration = require(intent, "concentration", positive=True)
     if concentration < _DILUTE:
         raise SolveServiceError("water's contribution is required for this dilute strong acid")
-    ph = _ph(concentration)
+    ph = ph_text(concentration)
     return verified(
         "Verified strong-acid pH",
         (f"{formula} = {inp(concentration)} mol/L",),
@@ -70,12 +65,12 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
     factor = _STRONG_BASES.get(formula)
     if factor is None:
         raise SolveServiceError(f"{formula or 'that base'} is not a supported strong base")
-    concentration = _require_positive(intent.params.get("concentration"), "concentration")
+    concentration = require(intent, "concentration", positive=True)
     hydroxide = factor * concentration
     if hydroxide < _DILUTE:
         raise SolveServiceError("water's contribution is required for this dilute strong base")
-    poh = _ph(hydroxide)
-    ph = num(14 + math.log10(hydroxide))
+    poh = ph_text(hydroxide)
+    ph = num(PKW + math.log10(hydroxide))
     return verified(
         "Verified strong-base pH",
         (f"{formula} = {inp(concentration)} mol/L",),
@@ -85,14 +80,14 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
         (
             f"[OH-] = {factor} × {inp(concentration)} = {num(hydroxide)} mol/L",
             f"pOH = −log10({num(hydroxide)}) = {poh}",
-            f"pH = 14 − {poh} = {ph}",
+            f"pH = {PKW} − {poh} = {ph}",
         ),
         f"pH = {ph}",
         ph,
     )
 
 
-def _weak_ph(constant: float, concentration: float, *, acid: bool) -> tuple[float, float, str]:
+def _weakph_text(constant: float, concentration: float, *, acid: bool) -> tuple[float, float, str]:
     amount = weak_dissociation(constant, concentration)
     share = amount / concentration * 100
     note = (
@@ -103,7 +98,7 @@ def _weak_ph(constant: float, concentration: float, *, acid: bool) -> tuple[floa
     if acid:
         return amount, -math.log10(amount), note
     poh = -math.log10(amount)
-    return amount, 14 - poh, note
+    return amount, PKW - poh, note
 
 
 def _quadratic_lines(constant: float, concentration: float, amount: float) -> list[str]:
@@ -116,9 +111,9 @@ def _quadratic_lines(constant: float, concentration: float, amount: float) -> li
 
 
 def solve_weak_acid(intent: ChemistryIntent) -> ChemistryResult:
-    concentration = _require_positive(intent.params.get("concentration"), "concentration")
-    constant = _require_positive(intent.params.get("ka"), "Ka")
-    amount, ph, note = _weak_ph(constant, concentration, acid=True)
+    concentration = require(intent, "concentration", positive=True)
+    constant = require(intent, "ka", positive=True)
+    amount, ph, note = _weakph_text(constant, concentration, acid=True)
     ph_text = num(ph)
     lines = [
         *_quadratic_lines(constant, concentration, amount),
@@ -140,9 +135,9 @@ def solve_weak_acid(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_weak_base(intent: ChemistryIntent) -> ChemistryResult:
-    concentration = _require_positive(intent.params.get("concentration"), "concentration")
-    constant = _require_positive(intent.params.get("kb"), "Kb")
-    amount, ph, note = _weak_ph(constant, concentration, acid=False)
+    concentration = require(intent, "concentration", positive=True)
+    constant = require(intent, "kb", positive=True)
+    amount, ph, note = _weakph_text(constant, concentration, acid=False)
     ph_text = num(ph)
     lines = [
         *_quadratic_lines(constant, concentration, amount),
@@ -151,7 +146,7 @@ def solve_weak_base(intent: ChemistryIntent) -> ChemistryResult:
     if note:
         lines.append(note)
     lines.append(f"pOH = −log10({num(amount)}) = {num(-math.log10(amount))}")
-    lines.append(f"pH = 14 − {num(-math.log10(amount))} = {ph_text}")
+    lines.append(f"pH = {PKW} − {num(-math.log10(amount))} = {ph_text}")
     return verified(
         "Verified weak-base pH",
         (f"C = {inp(concentration)} mol/L", f"Kb = {inp(constant)}"),
@@ -172,22 +167,22 @@ def solve_ka_kb(intent: ChemistryIntent) -> ChemistryResult:
     ka = intent.params.get("ka")
     kb = intent.params.get("kb")
     if target == "Kb" and ka is not None:
-        source = _require_positive(ka, "Ka")
+        source = positive(ka, "Ka")
         value = KW / source
         formula = "Kb = Kw / Ka"
         working = f"Kb = ({num(KW)}) / ({inp(source)})"
     elif target == "Ka" and kb is not None:
-        source = _require_positive(kb, "Kb")
+        source = positive(kb, "Kb")
         value = KW / source
         formula = "Ka = Kw / Kb"
         working = f"Ka = ({num(KW)}) / ({inp(source)})"
     elif target == "pKa" and ka is not None:
-        source = _require_positive(ka, "Ka")
+        source = positive(ka, "Ka")
         value = -math.log10(source)
         formula = "pKa = −log10 Ka"
         working = f"pKa = −log10({inp(source)})"
     elif target == "pKb" and kb is not None:
-        source = _require_positive(kb, "Kb")
+        source = positive(kb, "Kb")
         value = -math.log10(source)
         formula = "pKb = −log10 Kb"
         working = f"pKb = −log10({inp(source)})"
@@ -257,8 +252,8 @@ def solve_buffer_addition(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_polyprotic(intent: ChemistryIntent) -> ChemistryResult:
-    concentration = _require_positive(intent.params.get("concentration"), "concentration")
-    ka1 = _require_positive(intent.params.get("ka1"), "Ka1")
+    concentration = require(intent, "concentration", positive=True)
+    ka1 = require(intent, "ka1", positive=True)
     amount = weak_dissociation(ka1, concentration)
     ph = num(-math.log10(amount))
     return verified(

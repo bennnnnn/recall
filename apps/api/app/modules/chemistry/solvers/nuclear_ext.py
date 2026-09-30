@@ -6,19 +6,13 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.modules.chemistry.nuclear import (
-    balance_nuclear,
-    conservation_lines,
-    decay_equation,
-    format_nuclear,
-    parse_nuclide,
-)
+from app.modules.chemistry.nuclear import balance_nuclear, conservation_lines, format_nuclear
 from app.modules.chemistry.solvers.common_chem import (
     inp,
     num,
     verified,
 )
-from app.modules.chemistry.solvers.params import require
+from app.modules.chemistry.solvers.params import require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
@@ -41,17 +35,15 @@ def solve_decay_constant(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
-def _three(intent: ChemistryIntent, a: str, b: str, c: str) -> tuple[float, float, float]:
-    message = "decay inputs are missing or negative"
-    return (
-        require(intent, a, non_negative=True, message=message),
-        require(intent, b, non_negative=True, message=message),
-        require(intent, c, non_negative=True, message=message),
-    )
-
-
 def solve_exponential_decay(intent: ChemistryIntent) -> ChemistryResult:
-    initial, constant, time = _three(intent, "initial", "decay_constant", "time")
+    initial, constant, time = require_all(
+        intent,
+        "initial",
+        "decay_constant",
+        "time",
+        non_negative=True,
+        message="decay inputs are missing or negative",
+    )
     shown = f"N = {num(initial * math.exp(-constant * time))}"
     return verified(
         "Verified exponential decay",
@@ -84,22 +76,15 @@ def solve_nuclear_activity(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_nuclear_equation(intent: ChemistryIntent) -> ChemistryResult:
-    if intent.equation:
-        balanced = balance_nuclear(intent.equation)
-        if not balanced.balanced:
-            raise SolveServiceError(balanced.error or "nuclear equation does not balance")
-    else:
-        parent = parse_nuclide(intent.formula or "")
-        if parent is None or parent.is_particle:
-            raise SolveServiceError("nuclear decay needs a nuclide such as 238U")
-        decayed = decay_equation(parent.mass_number, parent.symbol, intent.target or "")
-        if decayed is None:
-            raise SolveServiceError("that decay mode is not determined")
-        balanced = decayed
+    if not intent.equation:
+        raise SolveServiceError("a nuclear equation is required")
+    balanced = balance_nuclear(intent.equation)
+    if not balanced.balanced:
+        raise SolveServiceError(balanced.error or "nuclear equation does not balance")
     shown = format_nuclear(balanced)
     return verified(
         "Verified nuclear equation",
-        (intent.equation or f"{intent.formula} {intent.target}",),
+        (intent.equation,),
         "Balanced nuclear equation",
         "Nucleon and charge balance",
         "sum of A and sum of Z are equal on both sides",

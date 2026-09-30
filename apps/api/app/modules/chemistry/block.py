@@ -8,6 +8,7 @@ from typing import Literal
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.solvers import ChemistryResult, solve_chemistry
+from app.modules.chemistry.solvers.common_chem import verified
 from app.services.solving import SolveServiceError, VerifiedSolveBlock
 
 logger = logging.getLogger(__name__)
@@ -79,15 +80,15 @@ def build_verified_chemistry(intent: ChemistryIntent) -> VerifiedChemistry | Non
 def verified_iupac(smiles: str, iupac_name: str) -> VerifiedChemistry:
     """A PubChem IUPACName that was actually returned. Not a local guess."""
     intent = ChemistryIntent(kind="organic", chemistry_op="iupac_name", formula=smiles)
-    result = ChemistryResult(
-        title="Verified IUPAC name",
-        given=(smiles,),
-        find="IUPAC name",
-        formula_name="PubChem IUPACName",
-        formula="the IUPACName property for this SMILES",
-        substitution=(iupac_name,),
-        answer=iupac_name,
-        answer_value=iupac_name,
+    result = verified(
+        "Verified IUPAC name",
+        (smiles,),
+        "IUPAC name",
+        "PubChem IUPACName",
+        "the IUPACName property for this SMILES",
+        (iupac_name,),
+        iupac_name,
+        iupac_name,
         verbatim=True,
     )
     return VerifiedChemistry(

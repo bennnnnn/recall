@@ -6,12 +6,9 @@ from __future__ import annotations
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.nuclear import parse_nuclide
 from app.modules.chemistry.solvers.common_chem import inp, num, verified
+from app.modules.chemistry.solvers.constants import MEV_PER_U, NEUTRON_U, PROTON_U
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
-
-PROTON_U = 1.007276466621
-NEUTRON_U = 1.00866491595
-MEV_PER_U = 931.494
 
 
 def solve_mass_defect(intent: ChemistryIntent) -> ChemistryResult:

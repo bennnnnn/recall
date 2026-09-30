@@ -103,20 +103,12 @@ async def test_build_chemistry_context_does_not_teach_molecule3d() -> None:
     fake_result.error = None
     fake_result.compound = fake_compound
 
-    with (
-        patch.object(
-            chemistry_context.pubchem_gateway,
-            "lookup_by_name",
-            new_callable=AsyncMock,
-        ) as mock_lookup,
-        patch.object(
-            chemistry_context.pubchem_gateway,
-            "fetch_3d_sdf",
-            new_callable=AsyncMock,
-        ) as mock_sdf,
-    ):
+    with patch.object(
+        chemistry_context.pubchem_gateway,
+        "lookup_by_name",
+        new_callable=AsyncMock,
+    ) as mock_lookup:
         mock_lookup.return_value = fake_result
-        mock_sdf.return_value = "fake SDF content with M  END"
         block = await chemistry_context.build_chemistry_context(
             "Show the molecular structure of ethanol. Include 2D and 3D.",
             MagicMock(),
@@ -124,7 +116,6 @@ async def test_build_chemistry_context_does_not_teach_molecule3d() -> None:
     assert block is not None
     assert "molecule3d" not in block
     assert "3D SDF" not in block
-    mock_sdf.assert_not_called()
 
 
 async def test_build_chemistry_context_pubchem_not_found() -> None:

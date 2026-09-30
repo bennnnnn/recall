@@ -13,6 +13,7 @@ from app.gateways import pubchem_gateway
 from app.modules import chemistry as chemistry_service
 from app.modules.chemistry.block import VerifiedChemistry, build_verified_chemistry, verified_iupac
 from app.modules.chemistry.elements import BY_NUMBER, ELEMENTS, Element
+from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import (
     EQUATION_RE,
@@ -97,19 +98,6 @@ _MIN_SMILES_TOKEN = 3
 _MAX_DESCRIPTOR_CANDIDATES = 8
 
 
-def _format_balanced(equation: str) -> str | None:
-    balanced = chemistry_service.balance_equation(equation)
-    if not balanced.balanced:
-        return None
-    reactants = " + ".join(
-        f"{coefficient} {species}" for species, coefficient in balanced.reactants.items()
-    )
-    products = " + ".join(
-        f"{coefficient} {species}" for species, coefficient in balanced.products.items()
-    )
-    return f"{reactants} -> {products}"
-
-
 def _stoichiometry_ratio_hint(content: str) -> str | None:
     """Preserve the useful verified ratio when a numeric amount is missing."""
     equation_match = EQUATION_RE.search(content)
@@ -117,12 +105,13 @@ def _stoichiometry_ratio_hint(content: str) -> str | None:
         return None
     equation = equation_match.group(1).strip()
     try:
-        balanced = _format_balanced(equation)
+        result = balance_equation(equation)
     except Exception:
         logger.info("stoichiometry ratio hint failed", exc_info=True)
         return None
-    if balanced is None:
+    if not result.balanced:
         return None
+    balanced = format_balanced(result)
     return (
         "[Verified stoichiometry]\n"
         f"Balanced equation: {balanced}\n"

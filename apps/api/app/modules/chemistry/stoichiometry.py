@@ -5,15 +5,14 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from app.modules.chemistry.elements import PERIODIC_TABLE, get_element_info
-from app.modules.chemistry.equations import _parse_formula_atoms, balance_equation
+from app.modules.chemistry.elements import BY_SYMBOL
+from app.modules.chemistry.equations import balance_equation
+from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.smiles import element_counts, most_common_isotope, validate_smiles
 
 __all__ = [
-    "PERIODIC_TABLE",
     "LimitingReagentResult",
     "StoichiometryResult",
-    "get_element_info",
     "limiting_reagent",
     "molar_mass",
     "monoisotopic_mass",
@@ -74,13 +73,10 @@ def _mass_from_hill(atoms: dict[str, int]) -> float | None:
     """Sum atomic masses. None when any symbol is missing from the table."""
     total = 0.0
     for elem, count in atoms.items():
-        info = PERIODIC_TABLE.get(elem)
-        if info is None:
+        element = BY_SYMBOL.get(elem)
+        if element is None:
             return None
-        mass = info.get("mass")
-        if not isinstance(mass, int | float):
-            return None
-        total += float(mass) * count
+        total += element.mass * count
     return round(total, 2)
 
 
@@ -106,7 +102,7 @@ def _prefer_smiles(raw: str) -> bool:
         return True
     letters = sum(1 for ch in raw if ch.isalpha())
     if letters >= 3 and not any(ch.isdigit() for ch in raw):
-        atoms = _parse_formula_atoms(raw)
+        atoms = parse_formula(raw)
         if atoms and all(len(elem) == 1 for elem in atoms):
             return True
     return False
@@ -123,7 +119,7 @@ def molar_mass(formula_or_smiles: str) -> float:
     if not cleaned:
         raise ValueError("cannot compute molar mass for empty string")
 
-    hill_atoms = _parse_formula_atoms(cleaned)
+    hill_atoms = parse_formula(cleaned)
     if hill_atoms and not _prefer_smiles(cleaned):
         mass = _mass_from_hill(hill_atoms)
         if mass is not None:
@@ -154,7 +150,7 @@ def monoisotopic_mass(formula_or_smiles: str) -> MonoisotopicMass:
     cleaned = formula_or_smiles.strip()
     if not cleaned:
         raise ValueError("cannot compute a mass for empty string")
-    hill_atoms = _parse_formula_atoms(cleaned)
+    hill_atoms = parse_formula(cleaned)
     counts: dict[str, int] | None = None
     if hill_atoms and not _prefer_smiles(cleaned):
         counts = hill_atoms

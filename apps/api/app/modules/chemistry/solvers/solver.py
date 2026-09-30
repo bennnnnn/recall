@@ -25,12 +25,10 @@ from app.modules.chemistry.solvers.amounts import (
 )
 from app.modules.chemistry.solvers.amounts_extended import (
     solve_empirical,
-    solve_gas_stoichiometry,
     solve_limiting_mass,
     solve_limiting_solution,
     solve_mass_stoichiometry,
     solve_molecular,
-    solve_solution_stoichiometry,
 )
 from app.modules.chemistry.solvers.cells_ext import solve_cell_potential, solve_galvanic_cell
 from app.modules.chemistry.solvers.closed_calc import (
@@ -126,8 +124,8 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "empirical_formula": solve_empirical,
     "molecular_formula": solve_molecular,
     "mass_stoichiometry": solve_mass_stoichiometry,
-    "solution_stoichiometry": solve_solution_stoichiometry,
-    "gas_stoichiometry": solve_gas_stoichiometry,
+    "solution_stoichiometry": solve_mass_stoichiometry,
+    "gas_stoichiometry": solve_mass_stoichiometry,
     "limiting_mass": solve_limiting_mass,
     "limiting_solution": solve_limiting_solution,
     "strong_acid_ph": solve_strong_acid,

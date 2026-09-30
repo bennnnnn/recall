@@ -7,8 +7,8 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.organic import group_pattern, isomer_relationship, organic_facts
 from app.modules.chemistry.solvers.common_chem import const, inp, num, verified
+from app.modules.chemistry.solvers.constants import GAS_R
 from app.modules.chemistry.solvers.params import require
-from app.modules.chemistry.solvers.solutions import GAS_R
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
 from app.modules.chemistry.structure import lewis_structure, oxidation_states

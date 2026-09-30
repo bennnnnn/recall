@@ -6,33 +6,22 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import const, inp, num
+from app.modules.chemistry.solvers.common_chem import const, inp, num, verified
+from app.modules.chemistry.solvers.constants import FARADAY, GAS_R_J
+from app.modules.chemistry.solvers.params import require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
-
-GAS_R_J = 8.31446261815324
-FARADAY = 96485.33212
-
-
-def _required(intent: ChemistryIntent, *keys: str) -> list[float]:
-    values: list[float] = []
-    for key in keys:
-        try:
-            values.append(intent.params[key])
-        except KeyError as exc:
-            raise SolveServiceError(f"missing chemistry parameter: {key}") from exc
-    return values
 
 
 def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
     if intent.chemistry_op == "heat":
-        mass, specific_heat, delta_t = _required(intent, "mass", "specific_heat", "delta_t")
+        mass, specific_heat, delta_t = require_all(intent, "mass", "specific_heat", "delta_t")
         if mass <= 0 or specific_heat <= 0:
             raise SolveServiceError("mass and specific heat must be positive")
         heat_j = mass * specific_heat * delta_t
         value = f"{num(heat_j)} J"
         substitution = f"q = ({inp(mass)})({inp(specific_heat)})({inp(delta_t)})"
-        return ChemistryResult(
+        return verified(
             "Verified heat calculation",
             (
                 f"m = {inp(mass)} g",
@@ -47,14 +36,14 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if intent.chemistry_op == "gibbs":
-        delta_h, delta_s, temperature = _required(intent, "delta_h", "delta_s", "temperature")
+        delta_h, delta_s, temperature = require_all(intent, "delta_h", "delta_s", "temperature")
         if temperature <= 0:
             raise SolveServiceError("temperature must be positive Kelvin")
         # Extractors normalize both H and S to kJ-based units.
         delta_g = delta_h - temperature * delta_s
         value = f"{num(delta_g)} kJ/mol"
         substitution = f"ΔG = {inp(delta_h)} − ({inp(temperature)})({inp(delta_s)})"
-        return ChemistryResult(
+        return verified(
             "Verified Gibbs free energy",
             (
                 f"ΔH = {inp(delta_h)} kJ/mol",
@@ -82,7 +71,7 @@ def _stored_concentration(intent: ChemistryIntent, species: str) -> float | None
     return None
 
 
-def _equilibrium_expression(
+def equilibrium_expression(
     intent: ChemistryIntent, *, pressure: bool = False
 ) -> tuple[float, str, str]:
     equation = intent.equation
@@ -146,11 +135,11 @@ def _fraction(top: list[str], bottom: list[str]) -> str:
 
 
 def solve_equilibrium(intent: ChemistryIntent) -> ChemistryResult:
-    value_num, expression, substitution = _equilibrium_expression(intent)
+    value_num, expression, substitution = equilibrium_expression(intent)
     symbol = "Kc" if intent.chemistry_op == "equilibrium_constant" else "Qc"
     title = "Verified equilibrium constant" if symbol == "Kc" else "Verified reaction quotient"
     value = num(value_num)
-    return ChemistryResult(
+    return verified(
         title,
         tuple(
             f"[{species}] = {inp(concentration)} mol/L"
@@ -168,13 +157,13 @@ def solve_equilibrium(intent: ChemistryIntent) -> ChemistryResult:
 def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
     op = intent.chemistry_op
     if op == "first_order_half_life":
-        (rate_constant,) = _required(intent, "rate_constant")
+        (rate_constant,) = require_all(intent, "rate_constant")
         if rate_constant <= 0:
             raise SolveServiceError("rate constant must be positive")
         half_life = math.log(2) / rate_constant
         time_unit = intent.units.get("rate_constant_time", "s")
         value = f"{num(half_life)} {time_unit}"
-        return ChemistryResult(
+        return verified(
             "Verified first-order half-life",
             (f"k = {inp(rate_constant)} {time_unit}⁻¹",),
             "Half-life, t₁/₂",
@@ -185,14 +174,14 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "first_order_concentration":
-        initial, rate_constant, time = _required(intent, "initial", "rate_constant", "time")
+        initial, rate_constant, time = require_all(intent, "initial", "rate_constant", "time")
         if initial < 0 or rate_constant < 0 or time < 0:
             raise SolveServiceError("concentration, rate constant, and time cannot be negative")
         final = initial * math.exp(-rate_constant * time)
         time_unit = intent.units.get("time", "s")
         value = f"{num(final)} mol/L"
         substitution = f"[A]ₜ = ({inp(initial)})e^(−({inp(rate_constant)})({inp(time)}))"
-        return ChemistryResult(
+        return verified(
             "Verified first-order concentration",
             (
                 f"[A]₀ = {inp(initial)} mol/L",
@@ -207,7 +196,7 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "arrhenius":
-        pre_exponential, activation_energy, temperature = _required(
+        pre_exponential, activation_energy, temperature = require_all(
             intent, "pre_exponential", "activation_energy", "temperature"
         )
         if pre_exponential <= 0 or activation_energy < 0 or temperature <= 0:
@@ -221,7 +210,7 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
             f"k = ({inp(pre_exponential)})e^[−{inp(activation_energy)} / "
             f"(({const(GAS_R_J)})({inp(temperature)}))]"
         )
-        return ChemistryResult(
+        return verified(
             "Verified Arrhenius rate constant",
             (
                 f"A = {inp(pre_exponential)}{suffix}",
@@ -241,13 +230,13 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
 def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
     op = intent.chemistry_op
     if op == "cell_gibbs":
-        electrons, potential = _required(intent, "electrons", "potential")
+        electrons, potential = require_all(intent, "electrons", "potential")
         if electrons <= 0:
             raise SolveServiceError("electron count must be positive")
         delta_g_kj = -electrons * FARADAY * potential / 1000
         value = f"{num(delta_g_kj)} kJ/mol"
         substitution = f"ΔG° = −({inp(electrons)})({const(FARADAY)})({inp(potential)}) / 1000"
-        return ChemistryResult(
+        return verified(
             "Verified electrochemical free energy",
             (f"n = {inp(electrons)} mol e-", f"E°cell = {inp(potential)} V"),
             "ΔG°",
@@ -258,7 +247,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "nernst":
-        standard, electrons, quotient, temperature = _required(
+        standard, electrons, quotient, temperature = require_all(
             intent, "standard_potential", "electrons", "quotient", "temperature"
         )
         if electrons <= 0 or quotient <= 0 or temperature <= 0:
@@ -269,7 +258,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             f"E = {inp(standard)} − [({const(GAS_R_J)})({inp(temperature)}) / "
             f"(({inp(electrons)})({const(FARADAY)}))]ln({inp(quotient)})"
         )
-        return ChemistryResult(
+        return verified(
             "Verified cell potential",
             (
                 f"E° = {inp(standard)} V",
@@ -285,7 +274,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "electrolysis_mass":
-        molar_mass, current, time, electrons = _required(
+        molar_mass, current, time, electrons = require_all(
             intent, "molar_mass", "current", "time", "electrons"
         )
         if min(molar_mass, current, time, electrons) <= 0:
@@ -296,7 +285,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             f"m = ({inp(molar_mass)})({inp(current)})({inp(time)}) / "
             f"[({inp(electrons)})({const(FARADAY)})]"
         )
-        return ChemistryResult(
+        return verified(
             "Verified electrolysis mass",
             (
                 f"M = {inp(molar_mass)} g/mol",
@@ -315,14 +304,14 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_nuclear(intent: ChemistryIntent) -> ChemistryResult:
-    initial, elapsed, half_life = _required(intent, "initial", "elapsed", "half_life")
+    initial, elapsed, half_life = require_all(intent, "initial", "elapsed", "half_life")
     if initial < 0 or elapsed < 0 or half_life <= 0:
         raise SolveServiceError("decay inputs must be physically valid")
     remaining = initial * (0.5 ** (elapsed / half_life))
     unit = intent.units.get("initial", "")
     value = f"{num(remaining)}{f' {unit}' if unit else ''}"
     substitution = f"N = {inp(initial)}(1/2)^({inp(elapsed)}/{inp(half_life)})"
-    return ChemistryResult(
+    return verified(
         "Verified radioactive decay",
         (
             f"N₀ = {inp(initial)}{f' {unit}' if unit else ''}",

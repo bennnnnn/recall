@@ -9,11 +9,11 @@ from dataclasses import replace
 from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import CellScene
 from app.modules.chemistry.solvers.common_chem import (
-    STANDARD_REDUCTION,
     inp,
     num,
     verified,
 )
+from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 

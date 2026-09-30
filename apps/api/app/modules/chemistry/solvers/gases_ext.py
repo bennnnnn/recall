@@ -3,8 +3,6 @@
 
 from __future__ import annotations
 
-import math
-
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.quantity import convert
 from app.modules.chemistry.solvers.common_chem import (
@@ -13,18 +11,12 @@ from app.modules.chemistry.solvers.common_chem import (
     verified,
     water_vapor_mmhg,
 )
+from app.modules.chemistry.solvers.params import require
+from app.modules.chemistry.solvers.relation import solve_paired
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
 _GAS_UNIT = {"p1": "atm", "p2": "atm", "v1": "L", "v2": "L", "t1": "K", "t2": "K"}
-_PRESSURE_PINT = {
-    "atm": "atm",
-    "mmhg": "mmHg",
-    "torr": "torr",
-    "kpa": "kilopascal",
-    "pa": "pascal",
-    "bar": "bar",
-}
 
 
 def _missing(params: dict[str, float], keys: tuple[str, ...]) -> str:
@@ -34,11 +26,9 @@ def _missing(params: dict[str, float], keys: tuple[str, ...]) -> str:
     return missing[0]
 
 
-def _positive(params: dict[str, float], key: str) -> float:
-    value = params[key]
-    if value <= 0:
-        raise SolveServiceError(f"{key} must be positive")
-    return value
+def _order(symbol: str) -> tuple[int, str]:
+    """Pressure, volume, then temperature: P1V1T2, not T2P1V1."""
+    return "PVT".index(symbol[0]), symbol[1:]
 
 
 def _gas_answer(name: str, value: float) -> str:
@@ -47,31 +37,6 @@ def _gas_answer(name: str, value: float) -> str:
 
 def _gas_given(known: dict[str, float]) -> tuple[str, ...]:
     return tuple(f"{key.upper()} = {inp(item)} {_GAS_UNIT[key]}" for key, item in known.items())
-
-
-def _paired_unknown(
-    known: dict[str, float], missing: str, left: set[str], right: set[str]
-) -> tuple[float, tuple[str, str]]:
-    """Solve ``product(left) = product(right)`` for the one missing name.
-
-    Returns the value and the rearranged and substituted expressions.
-    """
-
-    def order(keys: set[str]) -> list[str]:
-        return sorted(keys, key=lambda key: ("pvt".index(key[0]), key[1:]))
-
-    if missing in left:
-        top, bottom = order(right), order(left - {missing})
-    else:
-        top, bottom = order(left), order(right - {missing})
-    numerator = math.prod(known[key] for key in top)
-    denominator = math.prod(known[key] for key in bottom)
-    symbolic = f"{missing.upper()} = {''.join(k.upper() for k in top)}"
-    numbers = f"{missing.upper()} = {''.join(f'({inp(known[k])})' for k in top)}"
-    if bottom:
-        symbolic += f" / ({''.join(k.upper() for k in bottom)})"
-        numbers += f" / ({''.join(f'({inp(known[k])})' for k in bottom)})"
-    return numerator / denominator, (symbolic, numbers)
 
 
 def _solve_pair(
@@ -84,8 +49,14 @@ def _solve_pair(
     formula: str,
 ) -> ChemistryResult:
     missing = _missing(intent.params, keys)
-    known = {key: _positive(intent.params, key) for key in keys if key != missing}
-    value, working = _paired_unknown(known, missing, left, right)
+    known = {key: require(intent, key, positive=True) for key in keys if key != missing}
+    symbols = {key: key.upper() for key in keys}
+    value, *working = solve_paired(
+        {symbols[key]: amount for key, amount in known.items()},
+        symbols[missing],
+        sorted((symbols[key] for key in left), key=_order),
+        sorted((symbols[key] for key in right), key=_order),
+    )
     shown = _gas_answer(missing, value)
     return verified(title, _gas_given(known), missing.upper(), name, formula, working, shown, shown)
 
@@ -174,10 +145,9 @@ def solve_gas_over_water(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("water vapor pressure is only tabulated from 0 to 100 °C")
     unit = intent.units.get("pressure", "mmHg")
     try:
-        pint = _PRESSURE_PINT[unit.strip().lower()]
-    except KeyError as exc:
+        vapor_same = convert(vapor, "mmHg", unit)
+    except (ValueError, TypeError) as exc:
         raise SolveServiceError(f"unsupported pressure unit {unit}") from exc
-    vapor_same = convert(vapor, "mmHg", pint)
     dry = total - vapor_same
     if dry <= 0:
         raise SolveServiceError("the dry-gas pressure is not positive")
