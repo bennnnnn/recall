@@ -48,6 +48,7 @@ import {
   defaultScanRegion,
   regionToContainedImageCrop,
   regionToImageCrop,
+  regionsClose,
   scanChromeInset,
   type ScanRegion,
 } from "@/lib/math/scannerRegion";
@@ -126,10 +127,10 @@ export function MathEquationScanner({
   const handleCameraReady = useCallback(() => setCameraReady(true), []);
   const inset = useMemo(
     () => scanChromeInset(windowWidth, windowHeight, insets),
-    [windowWidth, windowHeight, insets],
+    [windowWidth, windowHeight, insets.top, insets.bottom],
   );
   const handleRegionChange = useCallback((region: ScanRegion) => {
-    setLiveRegion(region);
+    setLiveRegion((current) => (current && regionsClose(current, region) ? current : region));
     setLiveStatus("idle");
     liveReadyRef.current = false;
   }, []);
