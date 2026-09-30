@@ -258,10 +258,10 @@ export function MathEquationScanner({
         fileName: `${subject}-scan-${Date.now()}.jpg`,
         kind: "image",
       };
-      const measured = await measureImageSize(photo.uri).catch(() => ({
-        width: photo.width ?? 0,
-        height: photo.height ?? 0,
-      }));
+      const measured =
+        photo.width && photo.height
+          ? { width: photo.width, height: photo.height }
+          : await measureImageSize(photo.uri).catch(() => ({ width: 0, height: 0 }));
       const width = measured.width;
       const height = measured.height;
       if (width <= 0 || height <= 0) {
