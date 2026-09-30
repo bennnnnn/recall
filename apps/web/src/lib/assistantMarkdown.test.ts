@@ -76,3 +76,71 @@ describe("prepareAssistantMarkdown drafts and tables", () => {
     assert.match(out, /\| Lang \| Use \|/);
   });
 });
+
+describe("prepareAssistantMarkdown chemistry scenes", () => {
+  const scene = (json: object) => "```chem_scene\n" + JSON.stringify(json) + "\n```";
+
+  it("never shows a chem_scene as JSON", () => {
+    const out = prepareAssistantMarkdown(
+      scene({
+        kind: "balance",
+        title: "Atom tally",
+        rows: [
+          { element: "H", left: 4, right: 4 },
+          { element: "O", left: 2, right: 2 },
+        ],
+        charge: { left: 0, right: 0 },
+      }),
+    );
+    assert.equal(out.includes("{"), false);
+    assert.equal(out.includes("```"), false);
+    assert.equal(out.includes('"kind"'), false);
+    assert.match(out, /Atom tally/);
+    assert.match(out, /H: 4 → 4/);
+    assert.match(out, /charge: 0 → 0/);
+  });
+
+  it("summarises each scene kind as text", () => {
+    const vsepr = prepareAssistantMarkdown(
+      scene({
+        kind: "vsepr",
+        title: "H₂O",
+        central: "O",
+        terminals: ["H", "H"],
+        lone_pairs: 2,
+        geometry: "bent",
+        bond_angle: "104.5°",
+        electron_geometry: "tetrahedral",
+        ideal_angle: "109.5°",
+      }),
+    );
+    assert.match(vsepr, /bent, 104\.5°, 2 lone pair/);
+    const ice = prepareAssistantMarkdown(
+      scene({
+        kind: "equilibrium",
+        title: "ICE table",
+        rows: [{ species: "N₂O₄", initial: "1", change: "−x", equilibrium: "0.382 mol/L" }],
+      }),
+    );
+    assert.match(ice, /N₂O₄: 1 −x → 0\.382 mol\/L/);
+    const cell = prepareAssistantMarkdown(
+      scene({ kind: "cell", title: "Galvanic cell", anode: "Zn", cathode: "Cu", potential: "1.1 V", electrons: "anode to cathode" }),
+    );
+    assert.match(cell, /anode Zn/);
+    assert.match(cell, /1\.1 V/);
+  });
+
+  it("falls back to a label for an unreadable scene and never splits it as a table", () => {
+    const out = prepareAssistantMarkdown("```chem_scene\nnot json | a | b\n| - | - |\n```");
+    assert.equal(out.includes("not json"), false);
+    assert.match(out, /Chemistry diagram/);
+  });
+
+  it("does not dump arithmetic or simulation specs", () => {
+    const out = prepareAssistantMarkdown(
+      '```simulation\n{"kind":"projectile","title":"Ball toss"}\n```\n\n```arithmetic\n{"rows":[]}\n```',
+    );
+    assert.equal(out.includes('"kind"'), false);
+    assert.match(out, /Ball toss/);
+  });
+});

@@ -12,11 +12,11 @@ import {
 import {
   atomColor,
   atomLabelColor,
-  bondOffset,
+  bondStrokeWidth,
   layoutMolecule,
   MOLECULE_PREVIEW_HEIGHT,
   type MoleculeStyle,
-} from "@/components/rich/molecule3dLayout";
+} from "@/lib/chemistry/molecule3dLayout";
 import type { MolGeometry } from "@/lib/chemistry/molecule3dFence";
 import type { Theme } from "@/lib/theme";
 
@@ -36,77 +36,38 @@ function linePath(x1: number, y1: number, x2: number, y2: number) {
   return path;
 }
 
-export function SkiaMoleculeCanvas({
-  geom,
-  style,
-  theme,
-  yaw,
-  pitch,
-  width,
-}: Props) {
+export function SkiaMoleculeCanvas({ geom, style, theme, yaw, pitch, width }: Props) {
   const height = MOLECULE_PREVIEW_HEIGHT;
   const font = useFont(require("../../../assets/fonts/SpaceMono-Regular.ttf"), 12);
   const laidOut = useMemo(
     () => layoutMolecule(geom, yaw, pitch, width, height, style),
     [geom, height, pitch, style, width, yaw],
   );
-  const showBonds = style !== "spacefill";
-  const bondWidth = style === "wireframe" ? 1.6 : 3.4;
-  const bonds = useMemo(() => {
-    if (!showBonds) return [];
-    return geom.bonds.flatMap((bond, bondIndex) => {
-      const first = laidOut.atoms[bond.a]!;
-      const second = laidOut.atoms[bond.b]!;
-      const dx = second.x - first.x;
-      const dy = second.y - first.y;
-      const distance = Math.hypot(dx, dy) || 1;
-      const copies = Math.min(3, Math.max(1, bond.order));
-      const spread = copies === 1 ? 0 : copies === 2 ? 3.2 : 4.2;
-      return Array.from({ length: copies }, (_, copyIndex) => {
-        const offsetIndex =
-          copies === 1 ? 0 : (copyIndex - (copies - 1) / 2) * spread;
-        const offset = bondOffset(dx, dy, distance, offsetIndex);
-        return {
-          key: `${bondIndex}-${copyIndex}`,
-          path: linePath(
-            first.x + offset.x,
-            first.y + offset.y,
-            second.x + offset.x,
-            second.y + offset.y,
-          ),
-        };
-      });
-    });
-  }, [geom.bonds, laidOut.atoms, showBonds]);
+  const paths = useMemo(
+    () => laidOut.bonds.map((bond) => linePath(bond.x1, bond.y1, bond.x2, bond.y2)),
+    [laidOut.bonds],
+  );
 
   return (
     <Canvas testID="molecule-skia-canvas" style={{ width, height }}>
-      {bonds.map((bond) => (
-        <Path
-          key={bond.key}
-          path={bond.path}
-          color={theme.text}
-          style="stroke"
-          strokeWidth={bondWidth}
-          strokeCap="round"
-        />
-      ))}
-      {laidOut.depthOrder.map((index) => {
-        const atom = laidOut.atoms[index]!;
+      {laidOut.drawOrder.map((item) => {
+        if (item.kind === "bond") {
+          return (
+            <Path
+              key={`bond-${laidOut.bonds[item.index]!.key}`}
+              path={paths[item.index]!}
+              color={theme.text}
+              style="stroke"
+              strokeWidth={bondStrokeWidth(style)}
+              strokeCap="round"
+            />
+          );
+        }
+        const atom = laidOut.atoms[item.index]!;
         return (
-          <Group key={`atom-${index}`}>
-            <Circle
-              cx={atom.x}
-              cy={atom.y}
-              r={atom.radius + 1.75}
-              color="#1a1a1a"
-            />
-            <Circle
-              cx={atom.x}
-              cy={atom.y}
-              r={atom.radius}
-              color={atomColor(atom.element)}
-            />
+          <Group key={`atom-${atom.index}`}>
+            <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} color="#1a1a1a" />
+            <Circle cx={atom.x} cy={atom.y} r={atom.radius} color={atomColor(atom.element)} />
             {style !== "spacefill" && atom.radius >= 8 && font ? (
               <SkiaText
                 x={atom.x - font.measureText(atom.element).width / 2}

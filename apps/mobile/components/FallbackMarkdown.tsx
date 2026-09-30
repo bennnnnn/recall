@@ -71,6 +71,7 @@ function visualFallbackLabel(lang: string, t: (key: string) => string): string {
   if (id === "chart") return t("rich.chart");
   if (id === "mermaid") return t("rich.mermaid_diagram");
   if (id === "chemistry" || id === "molecule" || id === "molecule3d") return t("rich.chemistry_structure");
+  if (id === "chem_scene") return t("rich.chemistry_diagram");
   return t("rich.diagram");
 }
 

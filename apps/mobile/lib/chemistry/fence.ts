@@ -1,4 +1,5 @@
 /** Parse ```smiles / ```chemistry fence bodies into a SMILES string + optional caption. */
+import { applyOutsideFences, mapClosedFences } from "@/lib/mdFenceScan";
 
 export const MAX_SMILES_LENGTH = 500;
 
@@ -61,6 +62,17 @@ export type ChemistryFence = {
 };
 
 /**
+ * A SMILES the drawer may be handed: a `smiles:` label is dropped, and anything over the length
+ * cap or outside the SMILES character set is not one. Every path to the drawer goes through this.
+ */
+export function readSmiles(value: string): string | null {
+  const raw = value.replace(/^smiles:\s*/i, "").trim();
+  if (raw.length === 0 || raw.length > MAX_SMILES_LENGTH) return null;
+  if (!SMILES_LINE.test(raw)) return null;
+  return normalizeSmilesLine(raw);
+}
+
+/**
  * Extract a single SMILES line from fence content.
  * Supports an optional plain-text caption on preceding lines.
  */
@@ -69,27 +81,14 @@ export function parseChemistryFence(content: string): ChemistryFence | null {
     .split("\n")
     .map((line) => line.trim())
     .filter((line) => line.length > 0 && !line.startsWith("#"));
-  if (lines.length === 0) return null;
 
   for (let i = lines.length - 1; i >= 0; i -= 1) {
-    const raw = lines[i].replace(/^smiles:\s*/i, "").trim();
-    if (raw.length === 0 || raw.length > MAX_SMILES_LENGTH) continue;
-    if (!SMILES_LINE.test(raw)) continue;
-    const smiles = normalizeSmilesLine(raw);
-    const captionParts = lines.slice(0, i);
-    const caption = captionParts.length > 0 ? captionParts.join(" ").trim() : null;
+    const smiles = readSmiles(lines[i]!);
+    if (!smiles) continue;
+    const caption = lines.slice(0, i).join(" ").trim();
     return { smiles, caption: caption || null };
   }
-
-  // Last resort: first line only if it still looks SMILES-ish (no spaces,
-  // no prose, at least one bond/bracket/atom token). The drawer will reject
-  // truly invalid SMILES, but we avoid surfacing English prose as a molecule.
-  const fallback = lines[0].replace(/^smiles:\s*/i, "").trim();
-  if (!fallback || fallback.length > MAX_SMILES_LENGTH) return null;
-  if (/\s/.test(fallback)) return null;
-  if (/[A-Z][a-z]/.test(fallback) && !/[\[\]\(\)=#\\/.]/.test(fallback)) return null;
-  if (!SMILES_LINE.test(fallback)) return null;
-  return { smiles: normalizeSmilesLine(fallback), caption: null };
+  return null;
 }
 
 /**
@@ -127,50 +126,43 @@ export function normalizeMoleculeFormulaToSmiles(raw: string): string | null {
   return normalizeSmilesLine(s);
 }
 
+const WHOLE_LINE_MATH_RE = /^[ \t]*(?:\$\$([^$\n]+)\$\$|\$([^$\n]+)\$)[ \t]*$/gm;
+
+/** A math fence that holds only a structure formula (and maybe a caption), as a smiles fence. */
+function smilesFenceFromMath(info: string, body: string): string | null {
+  const tag = info.trim().toLowerCase();
+  // Only untagged, math, latex, or tex fences.
+  if (tag && tag !== "math" && tag !== "latex" && tag !== "tex") return null;
+  const lines = body
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0 || lines.length > 2) return null;
+
+  const smiles = normalizeMoleculeFormulaToSmiles(lines[lines.length - 1]!);
+  if (!smiles) return null;
+  if (lines.length === 1) return `\`\`\`smiles\n${smiles}\n\`\`\``;
+
+  // Optional plain caption on the preceding line (no math commands).
+  const caption = lines[0]!;
+  if (MATH_REJECT_RE.test(caption) || /[=#$\\]/.test(caption)) return null;
+  return `\`\`\`smiles\n${caption}\n${smiles}\n\`\`\``;
+}
+
 /**
  * Retag molecule-like ```math / bare fences and whole-line `$...$` / `$$...$$`
- * into ```smiles so O₂ and N₂ share the same Molecule card style.
+ * into ```smiles so O₂ and N₂ share the same Molecule card style. Code fences
+ * are left byte-for-byte: a `$O=O$` inside a Python string is not a molecule.
  */
 export function retagMoleculeMathToSmiles(content: string): string {
-  let out = content;
-
-  out = out.replace(
-    /```(math|latex|tex)?\s*\n([\s\S]*?)```/gi,
-    (full, lang: string | undefined, body: string) => {
-      const info = (lang ?? "").trim().toLowerCase();
-      // Only touch untagged, math, latex, or tex fences.
-      if (info && info !== "math" && info !== "latex" && info !== "tex") {
-        return full;
-      }
-      const trimmed = body.trim();
-      const lines = trimmed
-        .split("\n")
-        .map((line) => line.trim())
-        .filter((line) => line.length > 0);
-      if (lines.length === 0 || lines.length > 2) return full;
-
-      const smilesLine = normalizeMoleculeFormulaToSmiles(lines[lines.length - 1]);
-      if (!smilesLine) return full;
-
-      // Optional plain caption on the preceding line (no math cmds).
-      if (lines.length === 2) {
-        const caption = lines[0];
-        if (MATH_REJECT_RE.test(caption) || /[=#$\\]/.test(caption)) return full;
-        return `\`\`\`smiles\n${caption}\n${smilesLine}\n\`\`\``;
-      }
-      return `\`\`\`smiles\n${smilesLine}\n\`\`\``;
-    },
+  const fenced = mapClosedFences(
+    content,
+    (info, body, original) => smilesFenceFromMath(info, body) ?? original,
   );
-
-  // Whole-line display/inline math that is only a structure formula.
-  out = out.replace(
-    /^[ \t]*(?:\$\$([^$\n]+)\$\$|\$([^$\n]+)\$)[ \t]*$/gm,
-    (full, display: string | undefined, inline: string | undefined) => {
+  return applyOutsideFences(fenced, (prose) =>
+    prose.replace(WHOLE_LINE_MATH_RE, (line, display?: string, inline?: string) => {
       const smiles = normalizeMoleculeFormulaToSmiles((display ?? inline ?? "").trim());
-      if (!smiles) return full;
-      return `\`\`\`smiles\n${smiles}\n\`\`\``;
-    },
+      return smiles ? `\`\`\`smiles\n${smiles}\n\`\`\`` : line;
+    }),
   );
-
-  return out;
 }

@@ -1,5 +1,6 @@
 /** Copy vs speech conversion of assistant markdown (do not import printDocument). */
 
+import { splitAnswerNotation } from "@/lib/answerNotation";
 import { readFenceMarker } from "@/lib/mdFenceScan";
 import {
   fenceIdForLang,
@@ -392,9 +393,13 @@ function convertFence(lang: string, body: string, mode: "copy" | "speech"): stri
     if (spoken) return spoken;
   }
   if (isChartFenceLang(lang)) return mode === "speech" ? "a chart" : "";
+  const id = fenceIdForLang(lang);
   if (isVisualDiagramFenceLang(lang)) return mode === "speech" ? "a diagram" : "";
-  if (fenceIdForLang(lang) === "answer") {
-    return mode === "speech" ? speakMath(trimmed) : copyMath(trimmed);
+  if (id === "answer") {
+    // A chemistry answer is text (H₂O, Fe³⁺, →); the header line only tells the renderer so.
+    const { notation, body: answer } = splitAnswerNotation(trimmed);
+    if (notation === "chemistry") return answer;
+    return mode === "speech" ? speakMath(answer) : copyMath(answer);
   }
   if (isMathFenceLang(lang)) {
     return mode === "speech" ? speakMath(trimmed) : copyMath(trimmed);

@@ -129,3 +129,11 @@ describe("classifyFallbackFence", () => {
     expect(dumped).not.toContain("RDKit");
   });
 });
+
+describe("classifyFallbackFence chemistry answers", () => {
+  it("shows a chemistry answer without its notation header", () => {
+    expect(
+      classifyFallbackFence("answer", "notation: chemistry\nM(H₂O) = 18.02 g/mol\n"),
+    ).toEqual({ kind: "answer", body: "M(H₂O) = 18.02 g/mol" });
+  });
+});

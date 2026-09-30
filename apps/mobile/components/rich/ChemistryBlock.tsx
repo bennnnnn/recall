@@ -2,21 +2,26 @@
  * Chemistry structure — SMILES rendered via vendored SmilesDrawer in a
  * sandboxed WebView (same offline/CSP pattern as Mermaid).
  */
-import { useMemo, useState, useCallback } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/ui/icons/Icon";
 
 import { CopyButton } from "@/components/CopyButton";
+import { MoleculeCaption, MoleculeNote } from "@/components/rich/MoleculeChrome";
 import { VisualCard } from "@/components/rich/VisualCard";
 import { useDeferredWebViewMount } from "@/hooks/useDeferredWebViewMount";
 import { parseChemistryFence } from "@/lib/chemistry/fence";
+import {
+  buildSmilesDrawerHtml,
+  readSmilesDrawerError,
+  type SmilesDrawerError,
+} from "@/lib/chemistry/smilesDrawerHtml";
 import { CODE_FONT } from "@/lib/fonts";
-import { injectPreviewCsp, inlineScript } from "@/lib/previewSandbox";
-import { IconSize } from "@/ui/icons/sizes";
-import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
-import { SMILES_DRAWER_MIN_JS } from "@/lib/vendor/smilesDrawerMinJs";
+import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
+import { Icon } from "@/ui/icons/Icon";
+import { IconSize } from "@/ui/icons/sizes";
 import {
   getPreviewWebView,
   STATIC_HTML_ORIGIN_WHITELIST,
@@ -26,100 +31,23 @@ import {
 type Props = { content: string };
 
 const PREVIEW_HEIGHT = 160;
-const DRAW_WIDTH = 240;
-const DRAW_HEIGHT = 140;
 
-function escapeJsString(value: string): string {
-  return value
-    .replace(/\\/g, "\\\\")
-    .replace(/`/g, "\\`")
-    .replace(/\$/g, "\\$")
-    .replace(/<\/script>/gi, "<\\/script>");
-}
-
-function buildChemistryHtml(smiles: string, theme: Theme): string {
-  const safeSmiles = escapeJsString(smiles.trim());
-  const themeName = theme.isDark ? "dark" : "light";
-  // Concat (not template interpolate) so `${` inside the browserify bundle
-  // cannot break this file. Bundle returns require(); entry id is 1.
-  const loader =
-    "var __sdReq = " + SMILES_DRAWER_MIN_JS + "\nvar SmilesDrawer = __sdReq(1);\n";
-  // SmilesDrawer.Drawer.draw(..., infoOnly) incorrectly forwards infoOnly as
-  // SvgDrawer weights (weights.every throws). Use SvgDrawer on an <svg> target
-  // and omit weights/infoOnly so defaults apply.
-  const run =
-    "(function() {\n" +
-    "  var smiles = `" +
-    safeSmiles +
-    "`;\n" +
-    "  function reportError(msg) {\n" +
-    "    try { window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ kind: 'chemistry-error', message: msg })); } catch (e) {}\n" +
-    "    var err = document.getElementById('err');\n" +
-    "    root.style.display = 'none';\n" +
-    "    err.textContent = msg;\n" +
-    "    err.style.display = 'block';\n" +
-    "  }\n" +
-    "  var err = document.getElementById('err');\n" +
-    "  var root = document.getElementById('molecule');\n" +
-    "  if (!SmilesDrawer || typeof SmilesDrawer.SvgDrawer !== 'function' || typeof SmilesDrawer.parse !== 'function') {\n" +
-    "    reportError('Chemistry renderer unavailable.');\n" +
-    "    return;\n" +
-    "  }\n" +
-    "  var drawer = new SmilesDrawer.SvgDrawer({ width: " +
-    DRAW_WIDTH +
-    ", height: " +
-    DRAW_HEIGHT +
-    ", explicitHydrogens: true });\n" +
-    // Skeletal mode hides hydrogens (H2 is blank) and chain carbons (CO2
-    // looks like O=O). Mark every atom explicit so O2 and H2 both show.
-    "  var _processGraph = drawer.preprocessor.processGraph.bind(drawer.preprocessor);\n" +
-    "  drawer.preprocessor.processGraph = function() {\n" +
-    "    _processGraph();\n" +
-    "    var verts = drawer.preprocessor.graph.vertices;\n" +
-    "    for (var i = 0; i < verts.length; i++) {\n" +
-    "      if (verts[i].value) verts[i].value.drawExplicit = true;\n" +
-    "    }\n" +
-    "  };\n" +
-    "  SmilesDrawer.parse(smiles, function(tree) {\n" +
-    "    try { drawer.draw(tree, root, '" +
-    themeName +
-    "'); }\n" +
-    "    catch (e) { reportError('Could not render that structure.'); }\n" +
-    "  }, function() { reportError('Could not render that structure.'); });\n" +
-    "})();\n";
-  return injectPreviewCsp(
-    "<!DOCTYPE html>\n<html lang=\"en\"><head><meta charset=\"UTF-8\">" +
-      '<meta name="viewport" content="width=device-width, initial-scale=1.0">' +
-      "<style>body{margin:0;padding:4px;background:" +
-      theme.bg +
-      ";display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:" +
-      DRAW_HEIGHT +
-      "px}" +
-      "svg{max-width:100%;height:auto;display:block}" +
-      "#err{color:" +
-      theme.danger +
-      ";font-size:12px;display:none;white-space:pre-wrap;padding:8px;text-align:center}</style>" +
-      "</head><body>" +
-      '<svg id="molecule" xmlns="http://www.w3.org/2000/svg" width="' +
-      DRAW_WIDTH +
-      '" height="' +
-      DRAW_HEIGHT +
-      '"></svg><div id="err"></div>' +
-      "<script>" +
-      inlineScript(loader + run) +
-      "</script></body></html>",
-  );
-}
+const ERROR_KEY: Record<SmilesDrawerError, string> = {
+  unavailable: "rich.chemistry_renderer_unavailable",
+  render: "rich.chemistry_invalid",
+};
 
 /** 2D SMILES preview without card chrome — used by ChemistryBlock and MoleculeCard. */
 export function Chemistry2DView({ smiles }: { smiles: string }) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [renderError, setRenderError] = useState<string | null>(null);
+  // Keyed by the SMILES it failed on, so a new structure starts clean without an effect.
+  const [failure, setFailure] = useState<{ smiles: string; code: SmilesDrawerError } | null>(null);
+  const renderError = failure?.smiles === smiles ? failure.code : null;
 
   const html = useMemo(
-    () => (smiles ? buildChemistryHtml(smiles, theme) : ""),
+    () => (smiles ? buildSmilesDrawerHtml(smiles, theme) : ""),
     [smiles, theme],
   );
   const webSource = useMemo(() => ({ html }), [html]);
@@ -129,22 +57,19 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
   const { canMount, onLoaded } = useDeferredWebViewMount(Boolean(WebView) && canRenderInline);
   const onShouldStartLoadWithRequest = useStaticOnlyNavigation(html);
 
-  const handleWebViewMessage = useCallback((event: { nativeEvent: { data?: string } }) => {
-    try {
-      const data = JSON.parse(event.nativeEvent.data ?? "{}");
-      if (data && data.kind === "chemistry-error") setRenderError(data.message ?? t("rich.chemistry_invalid"));
-    } catch {
-      setRenderError(t("rich.chemistry_invalid"));
-    }
-  }, [t]);
+  const handleWebViewMessage = useCallback(
+    (event: { nativeEvent: { data?: string } }) => {
+      const code = readSmilesDrawerError(event.nativeEvent.data);
+      if (code) setFailure({ smiles, code });
+    },
+    [smiles],
+  );
 
   if (renderError) {
     return (
       <View style={s.previewBox}>
         <Icon name="alert-circle" size={IconSize.sm} color={theme.danger} />
-        <Text style={[s.previewText, { color: theme.danger }]}>
-          {renderError}
-        </Text>
+        <Text style={[s.previewText, { color: theme.danger }]}>{t(ERROR_KEY[renderError])}</Text>
       </View>
     );
   }
@@ -181,9 +106,7 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
 }
 
 export function ChemistryBlock({ content }: Props) {
-  const theme = useTheme();
   const { t } = useTranslation();
-  const s = useMemo(() => makeStyles(theme), [theme]);
 
   const parsed = useMemo(() => parseChemistryFence(content), [content]);
   const smiles = parsed?.smiles ?? "";
@@ -192,9 +115,7 @@ export function ChemistryBlock({ content }: Props) {
   if (!parsed) {
     return (
       <VisualCard label={t("rich.chemistry_structure")} icon="flask">
-        <View style={s.previewBox}>
-          <Text style={s.fallbackHint}>{t("rich.chemistry_invalid")}</Text>
-        </View>
+        <MoleculeNote text={t("rich.chemistry_invalid")} />
       </VisualCard>
     );
   }
@@ -203,13 +124,9 @@ export function ChemistryBlock({ content }: Props) {
     <VisualCard
       label={t("rich.chemistry_structure")}
       icon="flask"
-      actions={<CopyButton text={smiles} />}
+      actions={<CopyButton text={smiles} accessibilityLabel={t("rich.chemistry_copy_smiles")} />}
     >
-      {caption ? (
-        <View style={s.captionBox}>
-          <Text style={s.captionText}>{caption}</Text>
-        </View>
-      ) : null}
+      {caption ? <MoleculeCaption text={caption} /> : null}
 
       <Chemistry2DView smiles={smiles} />
     </VisualCard>
@@ -218,13 +135,6 @@ export function ChemistryBlock({ content }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    captionBox: {
-      paddingHorizontal: 14,
-      paddingTop: Space.xs,
-      paddingBottom: 0,
-      backgroundColor: t.bg,
-    },
-    captionText: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
     webWrap: { height: PREVIEW_HEIGHT, backgroundColor: t.bg },
     webview: { flex: 1, backgroundColor: "transparent" },
     loadingWrap: {
@@ -234,13 +144,13 @@ function makeStyles(t: Theme) {
       justifyContent: "center",
     },
     previewBox: {
-      paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingHorizontal: Space.sm + 2,
+      paddingVertical: Space.xs + 2,
       backgroundColor: t.contentSurface,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
-    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: Space.xs },
+    previewText: { fontFamily: CODE_FONT, ...Type.meta, lineHeight: 17, color: t.textSecondary },
+    fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: Space.xs },
   });
 }

@@ -2,8 +2,15 @@
 
 export const MAX_SDF_LENGTH = 50000;
 
+/**
+ * V2000 counts line: "  9  9  0  0  0  0  0  0  0  0999 V2000". Only digits and blanks sit
+ * before the version tag; the fields are fixed-width, so they can run together.
+ * V3000 blocks are not read: the native viewer only draws V2000.
+ */
+const COUNTS_LINE_RE = /^\s*\d[\d ]*V2000\s*$/;
+
 export type Molecule3DFence = {
-  /** SDF (MOL block) string for 3Dmol.js rendering. */
+  /** SDF (MOL block) string the native viewer reads. */
   sdf: string;
   caption: string | null;
 };
@@ -34,27 +41,13 @@ export function parseMolecule3DFence(content: string): Molecule3DFence | null {
   const lines = block.split("\n");
   // The counts line is the 4th line in a MOL block (1-indexed: title,
   // program/timestamp, comment, counts). But the model may not include
-  // all 3 header lines. Find the counts line by pattern.
-  let countsLineIdx = -1;
-  for (let i = 0; i < lines.length; i++) {
-    // V2000 counts line: "  9  9  0  0  0  0  0  0  0  0999 V2000"
-    // 11 integer fields + version. Be lenient on spacing/field count.
-    if (/^\s*\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+V2000/.test(lines[i])) {
-      countsLineIdx = i;
-      break;
-    }
-    // V3000 counts line: "M  V30 BEGIN CTAB"
-    if (/^M\s+V30\s+BEGIN\s+CTAB/.test(lines[i])) {
-      countsLineIdx = i;
-      break;
-    }
-  }
-
+  // all 3 header lines, so find it by pattern.
+  const countsLineIdx = lines.findIndex((line) => COUNTS_LINE_RE.test(line));
   if (countsLineIdx < 0) return null;
 
   // A V2000 MOL block has exactly 3 header lines before the counts line.
   // The backend used to prepend the formula (`O2\n` + RDKit molblock), which
-  // shifted counts off line 4 and 3Dmol.js parsed 0 atoms — blank viewer.
+  // shifted counts off line 4 and the viewer parsed 0 atoms — blank viewer.
   const headerStart = Math.max(0, countsLineIdx - 3);
   const prefix = lines
     .slice(0, headerStart)
@@ -79,31 +72,36 @@ export type MolGeometry = { atoms: MolAtom[]; bonds: MolBond[] };
 
 const ATOM_LINE_RE =
   /^\s*(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+(-?\d+\.\d+)\s+([A-Z][a-z]?)/;
-const BOND_LINE_RE = /^\s*(\d+)\s+(\d+)\s+(\d+)/;
 const MAX_ATOMS = 400;
+const FIELD_WIDTH = 3;
+
+/**
+ * Integer fields of a counts or bond line. MOL writes them as `%3d`, so "173172" is 173 and
+ * 172 and " 1101" is 1 and 101; a hand-typed block separates them with blanks instead. A first
+ * token wider than one field can only be fields that ran together.
+ */
+function readFields(line: string, count: number): number[] | null {
+  const tokens = line.trim().split(/\s+/);
+  const glued = (tokens[0] ?? "").length > FIELD_WIDTH;
+  const fields = Array.from({ length: count }, (_, i) =>
+    glued ? line.slice(i * FIELD_WIDTH, (i + 1) * FIELD_WIDTH).trim() : (tokens[i] ?? ""),
+  );
+  if (!fields.every((field) => /^\d+$/.test(field))) return null;
+  return fields.map(Number);
+}
 
 /**
  * Read 3D atom positions and bonds from a V2000 MOL/SDF block.
- * Used by the native SVG viewer (WebGL/3Dmol.js is unreliable in WKWebView).
+ * Used by the native SVG viewer (WebGL is unreliable in WKWebView).
  */
 export function parseMolGeometry(sdf: string): MolGeometry | null {
   const lines = sdf.split("\n");
-  let countsIdx = -1;
-  for (let i = 0; i < lines.length; i++) {
-    if (
-      /V2000/.test(lines[i]!) &&
-      /^\s*\d+\s+\d+/.test(lines[i]!)
-    ) {
-      countsIdx = i;
-      break;
-    }
-  }
+  const countsIdx = lines.findIndex((line) => COUNTS_LINE_RE.test(line));
   if (countsIdx < 0) return null;
-  const parts = lines[countsIdx]!.trim().split(/\s+/);
-  const nAtoms = Number.parseInt(parts[0] ?? "", 10);
-  const nBonds = Number.parseInt(parts[1] ?? "", 10);
-  if (!Number.isFinite(nAtoms) || nAtoms < 1 || nAtoms > MAX_ATOMS) return null;
-  if (!Number.isFinite(nBonds) || nBonds < 0) return null;
+  const counts = readFields(lines[countsIdx]!, 2);
+  if (!counts) return null;
+  const [nAtoms, nBonds] = counts as [number, number];
+  if (nAtoms < 1 || nAtoms > MAX_ATOMS) return null;
 
   const atoms: MolAtom[] = [];
   for (let i = 0; i < nAtoms; i++) {
@@ -118,11 +116,11 @@ export function parseMolGeometry(sdf: string): MolGeometry | null {
   for (let i = 0; i < nBonds; i++) {
     const line = lines[countsIdx + 1 + nAtoms + i];
     if (!line) break;
-    const m = line.match(BOND_LINE_RE);
-    if (!m) continue;
-    const a = Number(m[1]) - 1;
-    const b = Number(m[2]) - 1;
-    const order = Number(m[3]) || 1;
+    const fields = readFields(line, 3);
+    if (!fields) continue;
+    const a = fields[0]! - 1;
+    const b = fields[1]! - 1;
+    const order = fields[2] || 1;
     if (a >= 0 && b >= 0 && a < nAtoms && b < nAtoms && a !== b) {
       bonds.push({ a, b, order });
     }

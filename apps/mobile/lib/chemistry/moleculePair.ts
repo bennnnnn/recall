@@ -5,18 +5,11 @@
  * ```smiles). The markdown preprocessor collapses an adjacent closed pair
  * into one ```molecule JSON fence so the UI mounts a single card.
  */
-import { parseChemistryFence } from "@/lib/chemistry/fence";
+import { parseChemistryFence, readSmiles } from "@/lib/chemistry/fence";
+import { scanFences, type FenceSpan } from "@/lib/mdFenceScan";
 
 const CHEM_LANGS = new Set(["smiles", "chemistry"]);
 const MOL3D_LANGS = new Set(["molecule3d", "mol3d", "3dmol"]);
-
-type Fence = {
-  lang: string;
-  body: string;
-  start: number;
-  end: number;
-  closed: boolean;
-};
 
 export type MoleculeFence = {
   smiles: string;
@@ -24,55 +17,15 @@ export type MoleculeFence = {
   sdf: string | null;
 };
 
+type Fence = FenceSpan & { lang: string };
+
+/** The language token of a fence's info string, lower-cased. */
 function fenceLang(info: string): string {
-  const stripped = info.trim();
-  if (!stripped) return "";
-  const space = stripped.indexOf(" ");
-  const token = space < 0 ? stripped : stripped.slice(0, space);
-  return token.toLowerCase();
+  return (info.split(/\s+/, 1)[0] ?? "").toLowerCase();
 }
 
 function iterFences(text: string): Fence[] {
-  const fences: Fence[] = [];
-  let index = 0;
-  const length = text.length;
-  while (true) {
-    const start = text.indexOf("```", index);
-    if (start < 0) break;
-    const langStart = start + 3;
-    const newline = text.indexOf("\n", langStart);
-    if (newline < 0) {
-      fences.push({
-        lang: fenceLang(text.slice(langStart)),
-        body: "",
-        start,
-        end: length,
-        closed: false,
-      });
-      break;
-    }
-    const lang = fenceLang(text.slice(langStart, newline));
-    const close = text.indexOf("```", newline + 1);
-    if (close < 0) {
-      fences.push({
-        lang,
-        body: text.slice(newline + 1),
-        start,
-        end: length,
-        closed: false,
-      });
-      break;
-    }
-    fences.push({
-      lang,
-      body: text.slice(newline + 1, close),
-      start,
-      end: close + 3,
-      closed: true,
-    });
-    index = close + 3;
-  }
-  return fences;
+  return scanFences(text).map((fence) => ({ ...fence, lang: fenceLang(fence.info) }));
 }
 
 function isChemLang(lang: string): boolean {
@@ -160,22 +113,20 @@ export function dropRedundantMolecule3dFences(text: string): string {
 export function parseMoleculeFence(content: string): MoleculeFence | null {
   const trimmed = content.trim();
   if (trimmed.startsWith("{")) {
+    let parsed: unknown;
     try {
-      const parsed: unknown = JSON.parse(trimmed);
-      if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return null;
-      }
-      const row = parsed as Record<string, unknown>;
-      const smiles = typeof row.smiles === "string" ? row.smiles.trim() : "";
-      if (!smiles) return null;
-      const captionRaw = typeof row.caption === "string" ? row.caption.trim() : "";
-      const sdfRaw = typeof row.sdf === "string" ? row.sdf.trim() : "";
-      const result: MoleculeFence = { smiles, caption: captionRaw || null, sdf: null };
-      if (sdfRaw) result.sdf = sdfRaw;
-      return result;
+      parsed = JSON.parse(trimmed);
     } catch {
       return null;
     }
+    if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) return null;
+    const row = parsed as Record<string, unknown>;
+    // The same gate a ```smiles fence goes through: this string reaches the drawer too.
+    const smiles = typeof row.smiles === "string" ? readSmiles(row.smiles) : null;
+    if (!smiles) return null;
+    const caption = typeof row.caption === "string" ? row.caption.trim() : "";
+    const sdf = typeof row.sdf === "string" ? row.sdf.trim() : "";
+    return { smiles, caption: caption || null, sdf: sdf || null };
   }
   const chem = parseChemistryFence(content);
   if (!chem) return null;

@@ -3,6 +3,7 @@
 
 import type { SearchSource } from "@/api/types";
 import { visibleAnswerBody } from "./answerNotation.ts";
+import { chemSceneMarkdown } from "./chemScene.ts";
 import { stripDraftFormSlots } from "./draftSanitize.ts";
 import { normalizeMarkdownTables, splitSwallowedCodeFenceTables } from "./markdownTables.ts";
 
@@ -29,6 +30,9 @@ const VISUAL_LABELS: Record<string, string> = {
   molecule3d: "Chemical structure",
   mol3d: "Chemical structure",
   "3dmol": "Chemical structure",
+  chem_scene: "Chemistry diagram",
+  arithmetic: "Calculation",
+  simulation: "Simulation",
 };
 
 const CHEM_VISUAL_LANGS = new Set(["smiles", "chemistry"]);
@@ -215,6 +219,7 @@ function markdownLinkList(items: { title: string; url?: string }[]): string {
 }
 
 function visualFallback(lang: string, body: string): string {
+  if (lang === "chem_scene") return chemSceneMarkdown(body);
   const label = VISUAL_LABELS[lang] ?? "Diagram";
   const title = jsonTitle(body) || (body.trim().startsWith("{") ? "" : clipSnippet(firstNonEmptyLine(body)));
   return title ? `*${label}: ${title}*` : `*${label}*`;
