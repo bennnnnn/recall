@@ -115,6 +115,8 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
     the strong acid that is added.
     """
     ma, va, mb, vb = _titration_moles(intent)
+    if vb is None:
+        raise SolveServiceError("weak titration needs the added volume")
     if acid:
         constant = require(intent, "ka", positive=True)
         symbol, weak, conj, titrant = "Ka", "HA", "A-", "OH-"
@@ -129,8 +131,6 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         analyte_name = f"n(B) = MbVb = ({inp(mb)})({inp(vb)})"
         titrant_name = f"n(H+) = MaVa = ({inp(ma)})({inp(va)})"
         analyte_conc = mb
-    if vb is None:
-        raise SolveServiceError("weak titration needs the added volume")
     total = va + vb
     p_constant = -math.log10(constant)
     p_name = "pKa" if acid else "pKb"

@@ -63,14 +63,14 @@ def _extract_gas_laws(text: str) -> ChemistryIntent | None:
                 units={"pressure": _CANONICAL_PRESSURE[total.group(2).lower()]},
             )
     if re.search(r"\bover water\b", text, re.IGNORECASE):
-        total = _search(rf"total pressure\s*=\s*({_N})\s*(mmHg|atm|torr|kPa|bar)", text)
+        wet = _search(rf"total pressure\s*=\s*({_N})\s*(mmHg|atm|torr|kPa|bar)", text)
         unit = re.search(r"total pressure\s*=\s*" + _N + r"\s*(mmHg|atm|torr|kPa|bar)", text)
         temperature = _search(rf"({_N})\s*(?:°\s*)?C\b", text)
-        if total is not None and temperature is not None and unit is not None:
+        if wet is not None and temperature is not None and unit is not None:
             return ChemistryIntent(
                 kind="gases",
                 chemistry_op="gas_over_water",
-                params={"total_pressure": total, "temperature_c": temperature},
+                params={"total_pressure": wet, "temperature_c": temperature},
                 units={"pressure": unit.group(1)},
             )
     return None

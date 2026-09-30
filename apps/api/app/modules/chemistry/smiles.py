@@ -1,14 +1,25 @@
-"""SMILES validation, molecular properties, and coordinates."""
+"""SMILES validation, molecular properties, and coordinates.
+
+Every RDKit call in the chemistry package starts here (``parse_mol``), so the size cap and
+the formula mapping apply once and RDKit's own stderr logging is silenced once.
+"""
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from functools import lru_cache
+from functools import cache, lru_cache
 from typing import Any
 
 logger = logging.getLogger(__name__)
-_rdkit_loaded = False
+
+MAX_SMILES_LENGTH = 500
+# Three-dimensional embedding is O(atoms^2) or worse and its SDF must fit what the phone accepts
+# (``MAX_SDF_LENGTH`` in ``apps/mobile/lib/chemistry/molecule3dFence.ts``), so a molecule past
+# either limit is skipped here instead of being silently dropped by the client.
+MAX_3D_HEAVY_ATOMS = 120
+MAX_SDF_CHARS = 50_000
+_EMBED_SEED = 0xF00D  # the same molecule gives the same picture on every turn
 
 # Formulas a student types where SMILES belongs. RDKit cannot read them (it has no ``H`` outside
 # brackets and reads ``CO2`` as an unclosed ring), so the few molecules everyone draws are mapped.
@@ -30,27 +41,25 @@ _FORMULA_SMILES: dict[str, str] = {
 }
 
 
-def _ensure_rdkit() -> None:
-    global _rdkit_loaded
-    if _rdkit_loaded:
-        return
-    # Importing RDKit modules triggers the load.
-    from rdkit import Chem
-    from rdkit.Chem import AllChem, Descriptors
+@cache
+def _load_rdkit() -> None:
+    """Silence RDKit's own logging. An unparsable SMILES is an ordinary answer here, and RDKit
+    writes a multi-line error to stderr for every one (``H2O`` alone prints four lines)."""
+    from rdkit import rdBase
 
-    _ = Chem, AllChem, Descriptors  # keep refs for mypy
-    _rdkit_loaded = True
+    rdBase.DisableLog("rdApp.*")
 
 
-MAX_SMILES_LENGTH = 500
+def parse_mol(smiles: str, *, map_formulas: bool = True) -> Any | None:
+    """An RDKit molecule from user SMILES, or None when empty, oversized or invalid.
 
-
-def parse_mol(smiles: str) -> Any | None:
-    """An RDKit molecule from user SMILES, or None when empty, oversized or invalid."""
-    _ensure_rdkit()
+    ``map_formulas=False`` reads the text strictly as SMILES: ``H2O`` is then invalid instead of
+    being mapped to water.
+    """
+    _load_rdkit()
     from rdkit import Chem
 
-    cleaned = normalize_smiles_input(smiles)
+    cleaned = normalize_smiles_input(smiles) if map_formulas else smiles.strip()
     if not cleaned or len(cleaned) > MAX_SMILES_LENGTH:
         return None
     return Chem.MolFromSmiles(cleaned)
@@ -74,6 +83,10 @@ class MoleculeProperties:
     valid: bool = True
     error: str | None = None
 
+    @classmethod
+    def failure(cls, smiles: str, error: str) -> MoleculeProperties:
+        return cls(smiles, "", 0.0, 0, 0, valid=False, error=error)
+
 
 @dataclass(frozen=True)
 class MoleculeCoordinates:
@@ -83,132 +96,6 @@ class MoleculeCoordinates:
     # Empty when coordinates could not be generated.
     sdf: str = ""
     error: str | None = None
-
-
-@lru_cache(maxsize=512)
-def validate_smiles(smiles: str) -> MoleculeProperties:
-    """Validate a SMILES string and compute molecular properties.
-
-    Returns MoleculeProperties with valid=False if the SMILES is invalid.
-    """
-    _ensure_rdkit()
-    from rdkit import Chem
-    from rdkit.Chem import Descriptors
-
-    smiles = normalize_smiles_input(smiles.strip())
-    if not smiles or len(smiles) > MAX_SMILES_LENGTH:
-        return MoleculeProperties(
-            smiles=smiles,
-            formula="",
-            molecular_weight=0.0,
-            atom_count=0,
-            bond_count=0,
-            valid=False,
-            error="SMILES too long or empty",
-        )
-
-    try:
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return MoleculeProperties(
-                smiles=smiles,
-                formula="",
-                molecular_weight=0.0,
-                atom_count=0,
-                bond_count=0,
-                valid=False,
-                error="invalid SMILES",
-            )
-        canonical = Chem.MolToSmiles(mol)
-        formula = Chem.rdMolDescriptors.CalcMolFormula(mol)
-        weight = Descriptors.MolWt(mol)  # type: ignore[attr-defined]
-        atom_count = mol.GetNumAtoms()
-        bond_count = mol.GetNumBonds()
-        return MoleculeProperties(
-            smiles=canonical,
-            formula=formula,
-            molecular_weight=round(weight, 2),
-            atom_count=atom_count,
-            bond_count=bond_count,
-        )
-    except Exception as exc:
-        logger.info("RDKit validate failed for %r: %s", smiles, exc)
-        return MoleculeProperties(
-            smiles=smiles,
-            formula="",
-            molecular_weight=0.0,
-            atom_count=0,
-            bond_count=0,
-            valid=False,
-            error=str(exc),
-        )
-
-
-def element_counts(smiles: str) -> dict[str, int] | None:
-    """Atoms per element with implicit hydrogens; None for invalid or isotope-labelled SMILES."""
-    _ensure_rdkit()
-    from rdkit import Chem
-
-    cleaned = normalize_smiles_input(smiles.strip())
-    if not cleaned or len(cleaned) > MAX_SMILES_LENGTH:
-        return None
-    mol = Chem.MolFromSmiles(cleaned)
-    if mol is None:
-        return None
-    counts: dict[str, int] = {}
-    for atom in Chem.AddHs(mol).GetAtoms():
-        if atom.GetIsotope():
-            return None  # ``[13C]`` is not the most-common isotope this table assumes
-        counts[atom.GetSymbol()] = counts.get(atom.GetSymbol(), 0) + 1
-    return counts
-
-
-def most_common_isotope(symbol: str) -> tuple[float, int] | None:
-    """``(exact mass, mass number)`` of an element's most abundant isotope."""
-    _ensure_rdkit()
-    from rdkit import Chem
-
-    table = Chem.GetPeriodicTable()
-    try:
-        number = table.GetAtomicNumber(symbol)
-        return table.GetMostCommonIsotopeMass(number), table.GetMostCommonIsotope(number)
-    except (RuntimeError, ValueError):
-        return None
-
-
-def generate_3d_coordinates(smiles: str) -> MoleculeCoordinates:
-    """Generate 3D coordinates as an SDF string for the molecule card.
-
-    Uses RDKit's ETKDG method for 3D conformer generation. Returns
-    MoleculeCoordinates with empty sdf on failure.
-    """
-    _ensure_rdkit()
-    from rdkit import Chem
-    from rdkit.Chem import AllChem
-
-    smiles = normalize_smiles_input(smiles.strip())
-    try:
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return MoleculeCoordinates(smiles=smiles, error="invalid SMILES")
-        canonical = Chem.MolToSmiles(mol)
-        mol = Chem.AddHs(mol)
-        params = AllChem.ETKDGv3()  # type: ignore[attr-defined]
-        params.numThreads = 0
-        params.useRandomCoords = False
-        result = AllChem.EmbedMolecule(mol, params)  # type: ignore[attr-defined]
-        if result != 0:
-            # Fallback to the older ETKDG if v3 fails.
-            result = AllChem.EmbedMolecule(mol, AllChem.ETKDG())  # type: ignore[attr-defined]
-        if result != 0:
-            return MoleculeCoordinates(smiles=canonical, error="3D embedding failed")
-        AllChem.MMFFOptimizeMolecule(mol)  # type: ignore[attr-defined]
-        # Keep explicit H — RemoveHs made water a lone oxygen in the 3D card.
-        sdf = Chem.MolToMolBlock(mol)
-        return MoleculeCoordinates(smiles=canonical, sdf=sdf)
-    except Exception as exc:
-        logger.info("RDKit 3D coords failed for %r: %s", smiles, exc)
-        return MoleculeCoordinates(smiles=smiles, error=str(exc))
 
 
 @dataclass(frozen=True)
@@ -225,51 +112,128 @@ class MolecularDescriptors:
     ring_count: int
     error: str | None = None
 
+    @classmethod
+    def failure(cls, smiles: str, error: str) -> MolecularDescriptors:
+        return cls(smiles, 0, 0, 0, 0, 0, 0, 0, error=error)
+
+
+@lru_cache(maxsize=512)
+def validate_smiles(smiles: str) -> MoleculeProperties:
+    """Validate a SMILES string and compute molecular properties.
+
+    Returns MoleculeProperties with valid=False if the SMILES is invalid.
+    """
+    from rdkit import Chem
+    from rdkit.Chem import rdMolDescriptors
+
+    cleaned = normalize_smiles_input(smiles)
+    if not cleaned or len(cleaned) > MAX_SMILES_LENGTH:
+        return MoleculeProperties.failure(cleaned, "SMILES too long or empty")
+    try:
+        mol = parse_mol(cleaned)
+        if mol is None:
+            return MoleculeProperties.failure(cleaned, "invalid SMILES")
+        return MoleculeProperties(
+            smiles=Chem.MolToSmiles(mol),
+            formula=rdMolDescriptors.CalcMolFormula(mol),
+            molecular_weight=round(rdMolDescriptors._CalcMolWt(mol), 2),
+            atom_count=mol.GetNumAtoms(),
+            bond_count=mol.GetNumBonds(),
+        )
+    except Exception as exc:
+        logger.info("RDKit validate failed for %r: %s", cleaned, exc)
+        return MoleculeProperties.failure(cleaned, str(exc))
+
+
+def element_counts(smiles: str) -> dict[str, int] | None:
+    """Atoms per element with implicit hydrogens; None for invalid or isotope-labelled SMILES."""
+    from rdkit import Chem
+
+    mol = parse_mol(smiles)
+    if mol is None:
+        return None
+    counts: dict[str, int] = {}
+    for atom in Chem.AddHs(mol).GetAtoms():
+        if atom.GetIsotope():
+            return None  # ``[13C]`` is not the most-common isotope this table assumes
+        counts[atom.GetSymbol()] = counts.get(atom.GetSymbol(), 0) + 1
+    return counts
+
+
+def most_common_isotope(symbol: str) -> tuple[float, int] | None:
+    """``(exact mass, mass number)`` of an element's most abundant isotope."""
+    from rdkit import Chem
+
+    table = Chem.GetPeriodicTable()
+    try:
+        number = table.GetAtomicNumber(symbol)
+        return table.GetMostCommonIsotopeMass(number), table.GetMostCommonIsotope(number)
+    except (RuntimeError, ValueError):
+        return None
+
+
+def generate_3d_coordinates(smiles: str) -> MoleculeCoordinates:
+    """Generate 3D coordinates as an SDF string for the molecule card.
+
+    ETKDG embedding with a fixed seed and one thread (this runs in a worker pool, where
+    ``numThreads=0`` would take every core), a random-coordinate retry for the molecules the
+    default start cannot place, and a UFF fallback where MMFF has no parameters (metals,
+    unusual valences). Returns MoleculeCoordinates with empty sdf on failure or when the
+    molecule or its SDF is too large for the phone.
+    """
+    from rdkit import Chem
+    from rdkit.Chem import rdDistGeom, rdForceFieldHelpers
+
+    parsed = parse_mol(smiles)
+    if parsed is None:
+        return MoleculeCoordinates(smiles=normalize_smiles_input(smiles), error="invalid SMILES")
+    canonical = Chem.MolToSmiles(parsed)
+    if parsed.GetNumHeavyAtoms() > MAX_3D_HEAVY_ATOMS:
+        return MoleculeCoordinates(smiles=canonical, error="too large for a 3D view")
+    try:
+        mol = Chem.AddHs(parsed)
+        params: Any = rdDistGeom.ETKDGv3()  # the stubs mistype its attributes
+        params.randomSeed = _EMBED_SEED
+        params.numThreads = 1
+        if rdDistGeom.EmbedMolecule(mol, params) != 0:
+            params.useRandomCoords = True
+            if rdDistGeom.EmbedMolecule(mol, params) != 0:
+                return MoleculeCoordinates(smiles=canonical, error="3D embedding failed")
+        # -1 means MMFF has no parameters for an atom; UFF covers the periodic table.
+        if rdForceFieldHelpers.MMFFOptimizeMolecule(mol) == -1:
+            rdForceFieldHelpers.UFFOptimizeMolecule(mol)
+        # Keep explicit H: RemoveHs made water a lone oxygen in the 3D card.
+        sdf = Chem.MolToMolBlock(mol)
+    except Exception as exc:
+        logger.info("RDKit 3D coords failed for %r: %s", canonical, exc)
+        return MoleculeCoordinates(smiles=canonical, error=str(exc))
+    if len(sdf) > MAX_SDF_CHARS:
+        return MoleculeCoordinates(smiles=canonical, error="3D structure is too large to send")
+    return MoleculeCoordinates(smiles=canonical, sdf=sdf)
+
 
 def compute_descriptors(smiles: str) -> MolecularDescriptors:
     """Compute molecular descriptors for a SMILES using RDKit.
 
     Returns MolecularDescriptors with error set on failure.
     """
-    _ensure_rdkit()
     from rdkit import Chem
-    from rdkit.Chem import Crippen, Descriptors, Lipinski, rdMolDescriptors
+    from rdkit.Chem import rdMolDescriptors
 
-    smiles = normalize_smiles_input(smiles.strip())
+    cleaned = normalize_smiles_input(smiles)
     try:
-        mol = Chem.MolFromSmiles(smiles)
+        mol = parse_mol(cleaned)
         if mol is None:
-            return MolecularDescriptors(
-                smiles=smiles,
-                molecular_weight=0,
-                log_p=0,
-                tpsa=0,
-                h_bond_donors=0,
-                h_bond_acceptors=0,
-                rotatable_bonds=0,
-                ring_count=0,
-                error="invalid SMILES",
-            )
-        canonical = Chem.MolToSmiles(mol)
+            return MolecularDescriptors.failure(cleaned, "invalid SMILES")
         return MolecularDescriptors(
-            smiles=canonical,
-            molecular_weight=round(float(Descriptors.MolWt(mol)), 2),  # type: ignore[attr-defined]
-            log_p=round(float(Crippen.MolLogP(mol)), 2),  # type: ignore[attr-defined]
-            tpsa=round(float(Descriptors.TPSA(mol)), 2),  # type: ignore[attr-defined]
-            h_bond_donors=int(Lipinski.NumHDonors(mol)),  # type: ignore[attr-defined]
-            h_bond_acceptors=int(Lipinski.NumHAcceptors(mol)),  # type: ignore[attr-defined]
-            rotatable_bonds=int(Lipinski.NumRotatableBonds(mol)),  # type: ignore[attr-defined]
+            smiles=Chem.MolToSmiles(mol),
+            molecular_weight=round(float(rdMolDescriptors._CalcMolWt(mol)), 2),
+            log_p=round(float(rdMolDescriptors.CalcCrippenDescriptors(mol)[0]), 2),
+            tpsa=round(float(rdMolDescriptors.CalcTPSA(mol)), 2),
+            h_bond_donors=int(rdMolDescriptors.CalcNumHBD(mol)),
+            h_bond_acceptors=int(rdMolDescriptors.CalcNumHBA(mol)),
+            rotatable_bonds=int(rdMolDescriptors.CalcNumRotatableBonds(mol)),
             ring_count=int(rdMolDescriptors.CalcNumRings(mol)),
         )
     except Exception as exc:
-        return MolecularDescriptors(
-            smiles=smiles,
-            molecular_weight=0,
-            log_p=0,
-            tpsa=0,
-            h_bond_donors=0,
-            h_bond_acceptors=0,
-            rotatable_bonds=0,
-            ring_count=0,
-            error=str(exc),
-        )
+        return MolecularDescriptors.failure(cleaned, str(exc))

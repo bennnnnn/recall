@@ -9,6 +9,8 @@ from __future__ import annotations
 
 import re
 
+from pydantic import ValidationError
+
 from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extractors import EXTENDED_EXTRACTORS
@@ -580,7 +582,12 @@ def extract_chemistry_intent(text: str) -> ChemistryIntent | None:
         return None
     text = normalize_scientific_notation(text)
     for extractor in EXTRACTORS:
-        intent = extractor(text)
+        try:
+            intent = extractor(text)
+        except ValidationError:
+            # A captured value the intent schema refuses, such as a 900-character "formula":
+            # fail closed and leave the question to the model.
+            return None
         if intent is not None:
             return intent
     return None

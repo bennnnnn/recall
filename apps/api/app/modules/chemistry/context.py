@@ -244,7 +244,7 @@ async def build_chemistry_augmentation(
     if iupac_smiles is not None:
         try:
             name = await asyncio.wait_for(
-                pubchem_gateway.lookup_iupac_name(iupac_smiles), PUBCHEM_BUDGET_SECONDS
+                pubchem_gateway.lookup_iupac_name(iupac_smiles, redis=redis), PUBCHEM_BUDGET_SECONDS
             )
         except TimeoutError:
             logger.info("PubChem IUPAC lookup timed out")
