@@ -396,16 +396,16 @@ export function MathEquationScanner({
                 facing="back"
                 mode="picture"
                 zoom={zoom}
-                enableTorch={torchOn && !preview && visible}
+                enableTorch={torchOn && !preview && !review && visible}
                 flash="off"
                 autofocus="off"
                 animateShutter={false}
-                active={!preview && visible}
+                active={!preview && !review && visible}
                 onCameraReady={handleCameraReady}
                 onMountError={() => setError(t("chat.math_scan_camera_unavailable"))}
               />
             </View> : null}
-            {granted && !preview ? <ScannerSubjectGuide subject={subject} /> : null}
+            {granted && !preview && !review ? <ScannerSubjectGuide subject={subject} /> : null}
             {preview ? (
               <View style={[StyleSheet.absoluteFill, { backgroundColor: theme.mediaScrim }]}>
                 <Image
@@ -422,7 +422,7 @@ export function MathEquationScanner({
                 />
               </View>
             ) : null}
-            {preview || granted ? (
+            {preview || (granted && !review) ? (
               <MathScannerCropOverlay
                 regionGesture={crop.regionGesture}
                 cornerTL={crop.cornerTL}
