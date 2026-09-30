@@ -96,6 +96,7 @@ jest.mock("@/lib/reduceMotion", () => ({
 describe("MathEquationScanner", () => {
   beforeEach(() => {
     mockTakePictureAsync.mockClear();
+    jest.mocked(ImageManipulator.manipulateAsync).mockClear();
     mockPermission.granted = true;
     mockPermission.canAskAgain = true;
   });
@@ -113,15 +114,16 @@ describe("MathEquationScanner", () => {
     ).toBeTruthy();
   });
 
-  it("shows an unobstructed camera with the selector and torch beside the shutter", async () => {
-    const { getByTestId, getByLabelText, queryByLabelText } = await render(
+  it("shows a live crop frame with the selector and torch beside the shutter", async () => {
+    const { getByTestId, getByLabelText, queryByLabelText, queryByTestId } = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
     );
     expect(getByTestId("math-scanner-photos")).toBeTruthy();
     expect(getByLabelText("chat.math_scan_capture_a11y")).toBeTruthy();
     expect(queryByLabelText("chat.math_scan_reset_frame")).toBeNull();
     expect(getByTestId("scanner-subject-switcher")).toBeTruthy();
-    expect(queryByLabelText("chat.math_scan_frame_a11y")).toBeNull();
+    expect(getByLabelText("chat.math_scan_frame_a11y")).toBeTruthy();
+    expect(queryByTestId("math-scanner-shimmer")).toBeNull();
     expect(getByTestId("math-scanner-torch").parent?.parent).toBe(
       getByTestId("math-scanner-shutter").parent,
     );
@@ -151,28 +153,17 @@ describe("MathEquationScanner", () => {
     expect(getByTestId("scanner-subject-guide-biology")).toBeTruthy();
   });
 
-  it("pulses the torch control after a dark camera exposure sample", async () => {
+  it("does not take hidden camera photos while the scanner is idle", async () => {
     jest.useFakeTimers();
-    mockTakePictureAsync.mockResolvedValueOnce({
-      uri: "file:///light-sample.jpg",
-      width: 80,
-      height: 120,
-      exif: { BrightnessValue: 0.2 },
-    });
     const view = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
     );
     try {
       await act(async () => {
-        jest.advanceTimersByTime(1_300);
-        await Promise.resolve();
+        jest.advanceTimersByTime(15_000);
         await Promise.resolve();
       });
-      expect(view.getByTestId("math-scanner-low-light")).toBeTruthy();
-      await act(async () => {
-        fireEvent.press(view.getByTestId("math-scanner-torch"));
-      });
-      expect(view.queryByTestId("math-scanner-low-light")).toBeNull();
+      expect(mockTakePictureAsync).not.toHaveBeenCalled();
     } finally {
       view.unmount();
       jest.useRealTimers();
@@ -188,19 +179,54 @@ describe("MathEquationScanner", () => {
     expect(getByLabelText("chat.math_scan_allow_camera")).toBeTruthy();
   });
 
-  it("keeps CameraView mounted after capture so retake does not remount", async () => {
+  it("crops the live camera frame immediately instead of requiring a second Solve tap", async () => {
+    const onCaptured = jest.fn();
     const { getByTestId, getByLabelText, queryByTestId } = await render(
-      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={onCaptured} />,
     );
     await act(async () => {
       fireEvent.press(getByLabelText("chat.math_scan_capture_a11y"));
     });
-    expect(mockTakePictureAsync).toHaveBeenCalled();
+    expect(mockTakePictureAsync).toHaveBeenCalledTimes(1);
+    expect(ImageManipulator.manipulateAsync).toHaveBeenCalledWith(
+      "file:///shot.jpg",
+      [{ crop: expect.objectContaining({ width: expect.any(Number), height: expect.any(Number) }) }],
+      { compress: 0.9, format: "jpeg" },
+    );
+    expect(onCaptured).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "math",
+    );
     expect(getByTestId("math-scanner-camera")).toBeTruthy();
-    expect(getByLabelText("chat.math_scan_retake")).toBeTruthy();
-    expect(getByLabelText("chat.math_scan_frame_a11y")).toBeTruthy();
-    expect(getByTestId("math-scanner-shimmer")).toBeTruthy();
-    expect(queryByTestId("scanner-subject-guide-math")).toBeNull();
+    expect(queryByTestId("math-scanner-preview")).toBeNull();
+  });
+
+  it("starts math OCR review immediately after a camera capture", async () => {
+    const read = jest.fn(async () => ({
+      reading: "2x + 3 = 7",
+      uncertain: false,
+      source: "mathpix" as const,
+    }));
+    const view = await render(
+      <MathEquationScanner
+        visible
+        onClose={jest.fn()}
+        onCaptured={jest.fn()}
+        onReadScan={read}
+        onSolveReading={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_capture_a11y"));
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    expect(read).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      expect.anything(),
+    );
+    expect(view.getByTestId("math-scan-review")).toBeTruthy();
+    expect(view.queryByTestId("math-scanner-preview")).toBeNull();
   });
 });
 
@@ -360,13 +386,14 @@ describe("imported math scanner photos", () => {
     );
   });
 
-  it("shows the full captured camera photo before the user crops it", async () => {
-    const { getByLabelText, getByTestId } = await render(
+  it("keeps manual crop for imported photos while camera captures use the live frame", async () => {
+    const view = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
     );
     await act(async () => {
-      fireEvent.press(getByLabelText("chat.math_scan_capture_a11y"));
+      fireEvent.press(view.getByLabelText("chat.math_scan_photos_a11y"));
     });
-    expect(getByTestId("math-scanner-preview").props.resizeMode).toBe("contain");
+    expect(view.getByTestId("math-scanner-preview").props.resizeMode).toBe("contain");
+    expect(view.getByLabelText("chat.math_scan_frame_a11y")).toBeTruthy();
   });
 });
