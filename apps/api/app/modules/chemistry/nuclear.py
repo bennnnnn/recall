@@ -235,7 +235,25 @@ def format_nuclear(equation: NuclearEquation) -> str:
     return f"{_format(equation.reactants)} → {_format(equation.products)}"
 
 
-def decay_product(mass_number: int, symbol: str, mode: str) -> str | None:
+def conservation_lines(equation: NuclearEquation) -> tuple[str, ...]:
+    """``A: 238 = 234 + 4`` and ``Z: 92 = 90 + 2``: what each side adds up to."""
+
+    def side(nuclides: tuple[Nuclide, ...], value: str) -> str:
+        parts = []
+        for nuclide in nuclides:
+            amount = nuclide.coefficient * (
+                nuclide.mass_number if value == "A" else nuclide.protons
+            )
+            parts.append(f"({amount})" if amount < 0 else str(amount))
+        return " + ".join(parts)
+
+    return (
+        f"A: {side(equation.reactants, 'A')} = {side(equation.products, 'A')}",
+        f"Z: {side(equation.reactants, 'Z')} = {side(equation.products, 'Z')}",
+    )
+
+
+def decay_equation(mass_number: int, symbol: str, mode: str) -> NuclearEquation | None:
     """Alpha, beta, positron, or electron-capture daughter equation."""
     element = BY_SYMBOL.get(symbol)
     if element is None:
@@ -264,6 +282,10 @@ def decay_product(mass_number: int, symbol: str, mode: str) -> str | None:
     else:
         return None
     balanced = balance_nuclear(equation)
-    if not balanced.balanced:
-        return None
-    return format_nuclear(balanced)
+    return balanced if balanced.balanced else None
+
+
+def decay_product(mass_number: int, symbol: str, mode: str) -> str | None:
+    """The decay equation as text, or None when the mode does not apply."""
+    equation = decay_equation(mass_number, symbol, mode)
+    return None if equation is None else format_nuclear(equation)

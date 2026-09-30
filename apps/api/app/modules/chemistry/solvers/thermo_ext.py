@@ -6,6 +6,7 @@ from __future__ import annotations
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.solvers.common_chem import (
+    inp,
     num,
     verified,
 )
@@ -21,12 +22,14 @@ def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
     calorimeter = intent.params.get("c_cal")
     given: tuple[str, ...]
     formula: str
+    working: str
     if calorimeter is not None:
         if calorimeter <= 0:
             raise SolveServiceError("calorimeter constant must be positive")
         heat = -calorimeter * delta_t
-        given = (f"Ccal = {num(calorimeter)} J/°C", f"ΔT = {num(delta_t)} °C")
+        given = (f"Ccal = {inp(calorimeter)} J/°C", f"ΔT = {inp(delta_t)} °C")
         formula = "q_rxn = −Ccal ΔT"
+        working = f"q_rxn = −({inp(calorimeter)})({inp(delta_t)})"
     else:
         mass = intent.params.get("mass")
         specific = intent.params.get("specific_heat")
@@ -34,11 +37,12 @@ def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
             raise SolveServiceError("calorimetry needs Ccal or mass and specific heat")
         heat = -mass * specific * delta_t
         given = (
-            f"m = {num(mass)} g",
-            f"c = {num(specific)} J/(g·°C)",
-            f"ΔT = {num(delta_t)} °C",
+            f"m = {inp(mass)} g",
+            f"c = {inp(specific)} J/(g·°C)",
+            f"ΔT = {inp(delta_t)} °C",
         )
         formula = "q_rxn = −mcΔT"
+        working = f"q_rxn = −({inp(mass)})({inp(specific)})({inp(delta_t)})"
     shown = f"q_rxn = {num(heat)} J"
     return verified(
         "Verified calorimetry",
@@ -46,7 +50,7 @@ def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
         "Reaction heat",
         "Calorimetry",
         formula,
-        ("q_system + q_surroundings = 0", shown),
+        ("q_system + q_surroundings = 0, so q_rxn = −q_system", working),
         shown,
         shown,
     )
@@ -54,7 +58,8 @@ def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
 
 def solve_hess(intent: ChemistryIntent) -> ChemistryResult:
     total = 0.0
-    lines: list[str] = []
+    given: list[str] = []
+    terms: list[str] = []
     index = 1
     while f"dh{index}" in intent.params:
         enthalpy = intent.params[f"dh{index}"]
@@ -62,18 +67,19 @@ def solve_hess(intent: ChemistryIntent) -> ChemistryResult:
         if multiplier is None:
             raise SolveServiceError(f"Hess step {index} needs a multiplier")
         total += multiplier * enthalpy
-        lines.append(f"{num(multiplier)} × {num(enthalpy)}")
+        given.append(f"ΔH{index} = {inp(enthalpy)} kJ, multiplied by {inp(multiplier)}")
+        terms.append(f"({inp(multiplier)})({inp(enthalpy)})")
         index += 1
-    if not lines:
+    if not terms:
         raise SolveServiceError("Hess's law needs at least one enthalpy step")
     shown = f"ΔH = {num(total)} kJ"
     return verified(
         "Verified Hess's law",
-        tuple(lines),
+        given,
         "Overall enthalpy",
         "Hess's law",
         "ΔH = Σ mi ΔHi",
-        (shown,),
+        (f"ΔH = {' + '.join(terms)}",),
         shown,
         shown,
     )
@@ -120,26 +126,33 @@ def solve_formation(intent: ChemistryIntent) -> ChemistryResult:
     balanced = balance_equation(intent.equation)
     if not balanced.balanced:
         raise SolveServiceError(balanced.error or "equation could not be balanced")
-    products = sum(
-        coefficient * _formation(species, intent.species)
+    product_terms = [
+        (coefficient, _formation(species, intent.species))
         for species, coefficient in balanced.products.items()
-    )
-    reactants = sum(
-        coefficient * _formation(species, intent.species)
+    ]
+    reactant_terms = [
+        (coefficient, _formation(species, intent.species))
         for species, coefficient in balanced.reactants.items()
-    )
+    ]
+    products = sum(coefficient * value for coefficient, value in product_terms)
+    reactants = sum(coefficient * value for coefficient, value in reactant_terms)
     value = products - reactants
+
+    def side(terms: list[tuple[int, float]]) -> str:
+        return " + ".join(f"({coefficient})({inp(item)})" for coefficient, item in terms)
+
     shown = f"ΔH° = {num(value)} kJ/mol"
     return verified(
         "Verified formation enthalpy",
         (
             intent.equation,
-            *(f"ΔHf({name}) = {num(amount)}" for name, amount in intent.species.items()),
+            *(f"ΔHf({name}) = {inp(amount)} kJ/mol" for name, amount in intent.species.items()),
+            "ΔHf = 0 for an element in its standard state",
         ),
         "Standard reaction enthalpy",
         "Formation enthalpies",
         "ΔH°rxn = Σ n ΔHf°(products) − Σ n ΔHf°(reactants)",
-        (shown,),
+        (f"ΔH° = [{side(product_terms)}] − [{side(reactant_terms)}]",),
         shown,
         shown,
     )
@@ -154,11 +167,11 @@ def solve_bond_enthalpy(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"ΔH = {num(value)} kJ"
     return verified(
         "Verified bond enthalpy",
-        (f"bonds broken = {num(broken)} kJ", f"bonds formed = {num(formed)} kJ"),
+        (f"bonds broken = {inp(broken)} kJ", f"bonds formed = {inp(formed)} kJ"),
         "Reaction enthalpy",
         "Bond enthalpies",
         "ΔH ≈ Σ broken − Σ formed",
-        (shown,),
+        (f"ΔH = {inp(broken)} − {inp(formed)}",),
         shown,
         shown,
     )

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from itertools import pairwise
 
 from app.modules.chemistry.species import ReactionTerm
@@ -22,6 +22,9 @@ class BalancedEquation:
     balanced: bool
     error: str | None = None
     given_balanced: bool = False  # the coefficients the user wrote are already correct
+    # The coefficients as the user typed them (1 when omitted), for a balance check.
+    written_reactants: dict[str, int] = field(default_factory=dict)
+    written_products: dict[str, int] = field(default_factory=dict)
 
 
 def _hydrate_fragments(formula: str) -> list[str]:
@@ -230,4 +233,8 @@ def balance_equation(equation: str) -> BalancedEquation:
         products=product_coeffs,
         balanced=True,
         given_balanced=written == coeffs,
+        written_reactants={labels[i]: reactant_terms[i].coefficient for i in range(n_reactants)},
+        written_products={
+            labels[n_reactants + i]: product_terms[i].coefficient for i in range(n_products)
+        },
     )

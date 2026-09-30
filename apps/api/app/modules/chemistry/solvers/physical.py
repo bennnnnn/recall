@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001 -- textbook formulas intentionally use Unicode math notation.
+# ruff: noqa: RUF001, RUF002 -- textbook formulas intentionally use Unicode math notation.
 """Thermochemistry, equilibrium, kinetics, electrochemistry, and nuclear solves."""
 
 from __future__ import annotations
@@ -6,7 +6,8 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.modules.chemistry.solvers.types import ChemistryResult, format_number
+from app.modules.chemistry.solvers.common_chem import const, inp, num
+from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
 GAS_R_J = 8.31446261815324
@@ -29,16 +30,14 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
         if mass <= 0 or specific_heat <= 0:
             raise SolveServiceError("mass and specific heat must be positive")
         heat_j = mass * specific_heat * delta_t
-        value = f"{format_number(heat_j)} J"
-        substitution = (
-            f"q = ({format_number(mass)})({format_number(specific_heat)})({format_number(delta_t)})"
-        )
+        value = f"{num(heat_j)} J"
+        substitution = f"q = ({inp(mass)})({inp(specific_heat)})({inp(delta_t)})"
         return ChemistryResult(
             "Verified heat calculation",
             (
-                f"m = {format_number(mass)} g",
-                f"c = {format_number(specific_heat)} J/(g·°C)",
-                f"ΔT = {format_number(delta_t)} °C",
+                f"m = {inp(mass)} g",
+                f"c = {inp(specific_heat)} J/(g·°C)",
+                f"ΔT = {inp(delta_t)} °C",
             ),
             "Heat transferred, q",
             "Specific-heat equation",
@@ -53,17 +52,14 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
             raise SolveServiceError("temperature must be positive Kelvin")
         # Extractors normalize both H and S to kJ-based units.
         delta_g = delta_h - temperature * delta_s
-        value = f"{format_number(delta_g)} kJ/mol"
-        substitution = (
-            f"ΔG = {format_number(delta_h)} − ({format_number(temperature)})"
-            f"({format_number(delta_s)})"
-        )
+        value = f"{num(delta_g)} kJ/mol"
+        substitution = f"ΔG = {inp(delta_h)} − ({inp(temperature)})({inp(delta_s)})"
         return ChemistryResult(
             "Verified Gibbs free energy",
             (
-                f"ΔH = {format_number(delta_h)} kJ/mol",
-                f"ΔS = {format_number(delta_s)} kJ/(mol·K)",
-                f"T = {format_number(temperature)} K",
+                f"ΔH = {inp(delta_h)} kJ/mol",
+                f"ΔS = {inp(delta_s)} kJ/(mol·K)",
+                f"T = {inp(temperature)} K",
             ),
             "Gibbs free-energy change, ΔG",
             "Gibbs equation",
@@ -114,14 +110,15 @@ def _equilibrium_expression(
         if concentration is None or concentration <= 0:
             raise SolveServiceError(f"positive concentration required for {species}")
         label = f"P({species})" if pressure else f"[{species}]"
+        power = "" if coefficient == 1 else f"^{coefficient}"
         if product:
             numerator *= concentration**coefficient
-            numerator_terms.append(f"{label}^{coefficient}")
-            substitutions_top.append(f"({format_number(concentration)})^{coefficient}")
+            numerator_terms.append(f"{label}{power}")
+            substitutions_top.append(f"({inp(concentration)}){power}")
         else:
             denominator *= concentration**coefficient
-            denominator_terms.append(f"{label}^{coefficient}")
-            substitutions_bottom.append(f"({format_number(concentration)})^{coefficient}")
+            denominator_terms.append(f"{label}{power}")
+            substitutions_bottom.append(f"({inp(concentration)}){power}")
 
     for species, coefficient in balanced.products.items():
         _accumulate(species, coefficient, product=True)
@@ -129,22 +126,34 @@ def _equilibrium_expression(
         _accumulate(species, coefficient, product=False)
     if not numerator_terms and not denominator_terms:
         raise SolveServiceError("the equilibrium expression has no concentration terms")
-    top = " × ".join(numerator_terms) if numerator_terms else "1"
-    bottom = " × ".join(denominator_terms) if denominator_terms else "1"
-    top_sub = " × ".join(substitutions_top) if substitutions_top else "1"
-    bottom_sub = " × ".join(substitutions_bottom) if substitutions_bottom else "1"
-    return numerator / denominator, f"({top}) / ({bottom})", f"({top_sub}) / ({bottom_sub})"
+    return (
+        numerator / denominator,
+        _fraction(numerator_terms, denominator_terms),
+        _fraction(substitutions_top, substitutions_bottom),
+    )
+
+
+def _fraction(top: list[str], bottom: list[str]) -> str:
+    """``[HI]^2 / ([H2] × [I2])``: parentheses only around a product; a pure solid drops out."""
+
+    def side(parts: list[str]) -> str:
+        text = " × ".join(parts) or "1"
+        return f"({text})" if len(parts) > 1 else text
+
+    if not bottom:
+        return side(top)
+    return f"{side(top)} / {side(bottom)}"
 
 
 def solve_equilibrium(intent: ChemistryIntent) -> ChemistryResult:
     value_num, expression, substitution = _equilibrium_expression(intent)
     symbol = "Kc" if intent.chemistry_op == "equilibrium_constant" else "Qc"
     title = "Verified equilibrium constant" if symbol == "Kc" else "Verified reaction quotient"
-    value = format_number(value_num)
+    value = num(value_num)
     return ChemistryResult(
         title,
         tuple(
-            f"[{species}] = {format_number(concentration)} mol/L"
+            f"[{species}] = {inp(concentration)} mol/L"
             for species, concentration in intent.species.items()
         ),
         symbol,
@@ -164,14 +173,14 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
             raise SolveServiceError("rate constant must be positive")
         half_life = math.log(2) / rate_constant
         time_unit = intent.units.get("rate_constant_time", "s")
-        value = f"{format_number(half_life)} {time_unit}"
+        value = f"{num(half_life)} {time_unit}"
         return ChemistryResult(
             "Verified first-order half-life",
-            (f"k = {format_number(rate_constant)} {time_unit}⁻¹",),
+            (f"k = {inp(rate_constant)} {time_unit}⁻¹",),
             "Half-life, t₁/₂",
             "First-order half-life",
             "t₁/₂ = ln(2) / k",
-            (f"t₁/₂ = {format_number(math.log(2))} / {format_number(rate_constant)}",),
+            (f"t₁/₂ = {num(math.log(2))} / {inp(rate_constant)}",),
             f"t₁/₂ = {value}",
             value,
         )
@@ -181,21 +190,18 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
             raise SolveServiceError("concentration, rate constant, and time cannot be negative")
         final = initial * math.exp(-rate_constant * time)
         time_unit = intent.units.get("time", "s")
-        value = f"{format_number(final)} mol/L"
-        substitution = (
-            f"[A]ₜ = ({format_number(initial)})e^(−{format_number(rate_constant)}"
-            f" × {format_number(time)})"
-        )
+        value = f"{num(final)} mol/L"
+        substitution = f"[A]ₜ = ({inp(initial)})e^(−({inp(rate_constant)})({inp(time)}))"
         return ChemistryResult(
             "Verified first-order concentration",
             (
-                f"[A]₀ = {format_number(initial)} mol/L",
-                f"k = {format_number(rate_constant)} {time_unit}⁻¹",
-                f"t = {format_number(time)} {time_unit}",
+                f"[A]₀ = {inp(initial)} mol/L",
+                f"k = {inp(rate_constant)} {time_unit}⁻¹",
+                f"t = {inp(time)} {time_unit}",
             ),
             "Concentration at time t, [A]ₜ",
             "Integrated first-order rate law",
-            "[A]ₜ = [A]₀e⁻ᵏᵗ",
+            "[A]ₜ = [A]₀e^(−kt)",
             (substitution,),
             f"[A]ₜ = {value}",
             value,
@@ -210,21 +216,21 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
         # k has the units of A. A question that gives A without a unit gets a bare number.
         rate_unit = intent.units.get("frequency_factor_time")
         suffix = f" {rate_unit}⁻¹" if rate_unit else ""
-        value = f"{format_number(rate_constant)}{suffix}"
+        value = f"{num(rate_constant)}{suffix}"
         substitution = (
-            f"k = ({format_number(pre_exponential)})e^[−{format_number(activation_energy)} / "
-            f"({format_number(GAS_R_J)} × {format_number(temperature)})]"
+            f"k = ({inp(pre_exponential)})e^[−{inp(activation_energy)} / "
+            f"(({const(GAS_R_J)})({inp(temperature)}))]"
         )
         return ChemistryResult(
             "Verified Arrhenius rate constant",
             (
-                f"A = {format_number(pre_exponential)}{suffix}",
-                f"Eₐ = {format_number(activation_energy / 1000)} kJ/mol",
-                f"T = {format_number(temperature)} K",
+                f"A = {inp(pre_exponential)}{suffix}",
+                f"Eₐ = {inp(activation_energy / 1000)} kJ/mol ({inp(activation_energy)} J/mol)",
+                f"T = {inp(temperature)} K",
             ),
             "Rate constant, k",
             "Arrhenius equation",
-            "k = Ae^(−Eₐ/RT)",
+            "k = Ae^(−Eₐ/(RT))",
             (substitution,),
             f"k = {value}",
             value,
@@ -239,14 +245,11 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
         if electrons <= 0:
             raise SolveServiceError("electron count must be positive")
         delta_g_kj = -electrons * FARADAY * potential / 1000
-        value = f"{format_number(delta_g_kj)} kJ/mol"
-        substitution = (
-            f"ΔG° = −({format_number(electrons)})({format_number(FARADAY)})"
-            f"({format_number(potential)}) / 1000"
-        )
+        value = f"{num(delta_g_kj)} kJ/mol"
+        substitution = f"ΔG° = −({inp(electrons)})({const(FARADAY)})({inp(potential)}) / 1000"
         return ChemistryResult(
             "Verified electrochemical free energy",
-            (f"n = {format_number(electrons)} mol e⁻", f"E°cell = {format_number(potential)} V"),
+            (f"n = {inp(electrons)} mol e-", f"E°cell = {inp(potential)} V"),
             "ΔG°",
             "Electrochemical Gibbs relation",
             "ΔG° = −nFE°cell",
@@ -261,19 +264,18 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
         if electrons <= 0 or quotient <= 0 or temperature <= 0:
             raise SolveServiceError("Nernst inputs must be positive where required")
         potential = standard - (GAS_R_J * temperature / (electrons * FARADAY)) * math.log(quotient)
-        value = f"{format_number(potential)} V"
+        value = f"{num(potential)} V"
         substitution = (
-            f"E = {format_number(standard)} − [({format_number(GAS_R_J)})"
-            f"({format_number(temperature)}) / ({format_number(electrons)} × "
-            f"{format_number(FARADAY)})]ln({format_number(quotient)})"
+            f"E = {inp(standard)} − [({const(GAS_R_J)})({inp(temperature)}) / "
+            f"(({inp(electrons)})({const(FARADAY)}))]ln({inp(quotient)})"
         )
         return ChemistryResult(
             "Verified cell potential",
             (
-                f"E° = {format_number(standard)} V",
-                f"n = {format_number(electrons)}",
-                f"Q = {format_number(quotient)}",
-                f"T = {format_number(temperature)} K",
+                f"E° = {inp(standard)} V",
+                f"n = {inp(electrons)}",
+                f"Q = {inp(quotient)}",
+                f"T = {inp(temperature)} K",
             ),
             "Cell potential, E",
             "Nernst equation",
@@ -289,19 +291,18 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
         if min(molar_mass, current, time, electrons) <= 0:
             raise SolveServiceError("electrolysis inputs must be positive")
         mass = molar_mass * current * time / (electrons * FARADAY)
-        value = f"{format_number(mass)} g"
+        value = f"{num(mass)} g"
         substitution = (
-            f"m = ({format_number(molar_mass)})({format_number(current)})"
-            f"({format_number(time)}) / [({format_number(electrons)})"
-            f"({format_number(FARADAY)})]"
+            f"m = ({inp(molar_mass)})({inp(current)})({inp(time)}) / "
+            f"[({inp(electrons)})({const(FARADAY)})]"
         )
         return ChemistryResult(
             "Verified electrolysis mass",
             (
-                f"M = {format_number(molar_mass)} g/mol",
-                f"I = {format_number(current)} A",
-                f"t = {format_number(time)} s",
-                f"n = {format_number(electrons)}",
+                f"M = {inp(molar_mass)} g/mol",
+                f"I = {inp(current)} A",
+                f"t = {inp(time)} s",
+                f"n = {inp(electrons)}",
             ),
             "Deposited mass, m",
             "Faraday's law of electrolysis",
@@ -319,16 +320,14 @@ def solve_nuclear(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("decay inputs must be physically valid")
     remaining = initial * (0.5 ** (elapsed / half_life))
     unit = intent.units.get("initial", "")
-    value = f"{format_number(remaining)}{f' {unit}' if unit else ''}"
-    substitution = (
-        f"N = {format_number(initial)}(1/2)^({format_number(elapsed)}/{format_number(half_life)})"
-    )
+    value = f"{num(remaining)}{f' {unit}' if unit else ''}"
+    substitution = f"N = {inp(initial)}(1/2)^({inp(elapsed)}/{inp(half_life)})"
     return ChemistryResult(
         "Verified radioactive decay",
         (
-            f"N₀ = {format_number(initial)}{f' {unit}' if unit else ''}",
-            f"t = {format_number(elapsed)} {intent.units.get('time', 's')}",
-            f"t₁/₂ = {format_number(half_life)} {intent.units.get('time', 's')}",
+            f"N₀ = {inp(initial)}{f' {unit}' if unit else ''}",
+            f"t = {inp(elapsed)} {intent.units.get('time', 's')}",
+            f"t₁/₂ = {inp(half_life)} {intent.units.get('time', 's')}",
         ),
         "Remaining amount, N",
         "Radioactive decay law",

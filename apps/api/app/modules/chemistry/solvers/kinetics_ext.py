@@ -7,6 +7,8 @@ import math
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.solvers.common_chem import (
+    const,
+    inp,
     num,
     verified,
 )
@@ -65,11 +67,11 @@ def solve_zero_order(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"[A]ₜ = {num(final)} mol/L"
     return verified(
         "Verified zero-order concentration",
-        (f"[A]₀ = {num(initial)}", f"k = {num(rate)}", f"t = {num(time)}"),
+        (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}", f"t = {inp(time)}"),
         "[A]ₜ",
         "Integrated zero-order rate law",
         "[A]ₜ = [A]₀ − kt",
-        (shown,),
+        (f"[A]ₜ = {inp(initial)} − ({inp(rate)})({inp(time)})",),
         shown,
         shown,
     )
@@ -79,15 +81,19 @@ def solve_second_order(intent: ChemistryIntent) -> ChemistryResult:
     initial, rate, time = _three(intent, "initial", "rate_constant", "time")
     if initial <= 0:
         raise SolveServiceError("initial concentration must be positive")
-    final = 1 / (1 / initial + rate * time)
+    reciprocal = 1 / initial + rate * time
+    final = 1 / reciprocal
     shown = f"[A]ₜ = {num(final)} mol/L"
     return verified(
         "Verified second-order concentration",
-        (f"[A]₀ = {num(initial)}", f"k = {num(rate)}", f"t = {num(time)}"),
+        (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}", f"t = {inp(time)}"),
         "[A]ₜ",
         "Integrated second-order rate law",
         "1/[A]ₜ = 1/[A]₀ + kt",
-        (shown,),
+        (
+            f"1/[A]ₜ = 1/({inp(initial)}) + ({inp(rate)})({inp(time)}) = {num(reciprocal)}",
+            f"[A]ₜ = 1 / {num(reciprocal)}",
+        ),
         shown,
         shown,
     )
@@ -98,11 +104,11 @@ def solve_zero_half_life(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"t₁/₂ = {num(initial / (2 * rate))}{_TIME_OF_K}"
     return verified(
         "Verified zero-order half-life",
-        (f"[A]₀ = {num(initial)}", f"k = {num(rate)}"),
+        (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}"),
         "Half-life",
         "Zero-order half-life",
         "t₁/₂ = [A]₀ / (2k)",
-        (shown,),
+        (f"t₁/₂ = {inp(initial)} / (2({inp(rate)}))",),
         shown,
         shown,
     )
@@ -113,11 +119,11 @@ def solve_second_half_life(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"t₁/₂ = {num(1 / (rate * initial))}{_TIME_OF_K}"
     return verified(
         "Verified second-order half-life",
-        (f"[A]₀ = {num(initial)}", f"k = {num(rate)}"),
+        (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}"),
         "Half-life",
         "Second-order half-life",
         "t₁/₂ = 1 / (k[A]₀)",
-        (shown,),
+        (f"t₁/₂ = 1 / (({inp(rate)})({inp(initial)}))",),
         shown,
         shown,
     )
@@ -133,12 +139,15 @@ def solve_rate_law(intent: ChemistryIntent) -> ChemistryResult:
         order_a = _order_from_change(rate1, rate2, a1, a2)
         order_b = 0
         b_factor = 1.0
+        changing, first, second = "A", a1, a2
     else:
         order_a = 0
         if b1 is None or b2 is None:
             raise SolveServiceError("the changing concentration is missing")
         order_b = _order_from_change(rate1, rate2, b1, b2)
         b_factor = b1**order_b
+        changing, first, second = "B", b1, b2
+    order = order_a or order_b
     denominator = a1**order_a * b_factor
     constant = rate1 / denominator
     terms = []
@@ -148,16 +157,22 @@ def solve_rate_law(intent: ChemistryIntent) -> ChemistryResult:
         terms.append("[B]" if order_b == 1 else f"[B]^{order_b}")
     body = " ".join(terms)
     shown = f"rate = {num(constant)} {body}".rstrip()
+    held = first if changing == "A" else a1
+    power = "" if order == 1 else f"^{order}"
     return verified(
         "Verified rate law",
         (
-            f"experiment 1: [A] = {num(a1)}, rate = {num(rate1)}",
-            f"experiment 2: [A] = {num(a2)}, rate = {num(rate2)}",
+            f"experiment 1: [A] = {inp(a1)}, rate = {inp(rate1)}",
+            f"experiment 2: [A] = {inp(a2)}, rate = {inp(rate2)}",
         ),
         "Rate law",
         "Order from two experiments",
         "order = log(rate2/rate1) / log(conc2/conc1)",
-        (shown,),
+        (
+            f"order in {changing} = log({inp(rate2)} / {inp(rate1)}) / log({inp(second)} / "
+            f"{inp(first)}) = {order}",
+            f"k = rate1 / [A]{power} = {inp(rate1)} / ({inp(held)}){power} = {num(constant)}",
+        ),
         shown,
         shown,
     )
@@ -173,15 +188,18 @@ def solve_arrhenius_two_point(intent: ChemistryIntent) -> ChemistryResult:
     return verified(
         "Verified two-temperature Arrhenius",
         (
-            f"k1 = {num(k1)}",
-            f"T1 = {num(t1)} K",
-            f"k2 = {num(k2)}",
-            f"T2 = {num(t2)} K",
+            f"k1 = {inp(k1)}",
+            f"T1 = {inp(t1)} K",
+            f"k2 = {inp(k2)}",
+            f"T2 = {inp(t2)} K",
         ),
         "Activation energy",
         "Two-point Arrhenius equation",
         "ln(k2/k1) = −(Ea/R)(1/T2 − 1/T1)",
-        (shown,),
+        (
+            f"Ea = −({const(GAS_R_J)})ln({inp(k2)} / {inp(k1)}) / (1/{inp(t2)} − 1/{inp(t1)})"
+            f" = {num(energy)} J/mol",
+        ),
         shown,
         shown,
     )

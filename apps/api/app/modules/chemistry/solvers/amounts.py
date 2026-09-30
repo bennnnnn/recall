@@ -1,11 +1,19 @@
-# ruff: noqa: RUF001 -- textbook formulas intentionally use multiplication symbols.
+# ruff: noqa: RUF001, RUF002 -- textbook formulas intentionally use multiplication symbols.
 """Chemical amounts, composition, yield, and equation calculations."""
 
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.equations import _parse_formula_atoms, balance_equation
-from app.modules.chemistry.solvers.types import ChemistryResult, format_number
+from app.modules.chemistry.solvers.common_chem import (
+    atomic_mass,
+    const,
+    inp,
+    molar_mass_text,
+    num,
+)
+from app.modules.chemistry.solvers.types import ChemistryResult
+from app.modules.chemistry.species import parse_species
 from app.modules.chemistry.stoichiometry import (
     PERIODIC_TABLE,
     limiting_reagent,
@@ -52,7 +60,54 @@ def _balanced_text(equation: str) -> str:
         f"{coefficient} {species}" if coefficient != 1 else species
         for species, coefficient in balanced.products.items()
     )
-    return f"{left} → {right}"
+    return f"{left} -> {right}"
+
+
+def _tally_lines(equation: str, *, written: bool = False) -> tuple[str, ...]:
+    """One line per element (and one for charge): coefficient × atoms summed on each side.
+
+    ``written`` tallies the coefficients the user typed instead of the balanced ones.
+    """
+    balanced = balance_equation(equation)
+    left_side = balanced.written_reactants if written else balanced.reactants
+    right_side = balanced.written_products if written else balanced.products
+    parsed = {
+        label: parse_species(label, coefficient_already_removed=True)
+        for label in (*balanced.reactants, *balanced.products)
+    }
+    if any(species is None for species in parsed.values()):
+        return ()
+    elements = list(
+        dict.fromkeys(
+            element
+            for species in parsed.values()
+            if species is not None
+            for element in species.composition
+        )
+    )
+
+    def side_text(side: dict[str, int], element: str | None) -> str:
+        terms = []
+        for label, coefficient in side.items():
+            species = parsed[label]
+            if species is None:
+                continue
+            count = species.charge if element is None else species.composition.get(element, 0)
+            if count:
+                terms.append((coefficient, count))
+        total = sum(coefficient * count for coefficient, count in terms)
+        shown = " + ".join(f"{coefficient}({count})" for coefficient, count in terms)
+        return f"{shown} = {total}" if terms else "0"
+
+    lines = [
+        f"{element}: left {side_text(left_side, element)}; right {side_text(right_side, element)}"
+        for element in elements
+    ]
+    if any(species is not None and species.charge for species in parsed.values()):
+        lines.append(
+            f"charge: left {side_text(left_side, None)}; right {side_text(right_side, None)}"
+        )
+    return tuple(lines)
 
 
 def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
@@ -73,7 +128,8 @@ def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
             find="Whether the written coefficients balance",
             formula_name="Law of conservation of mass",
             formula="Atoms of each element on reactant side = atoms on product side",
-            substitution=(f"Count atoms and charge on each side of: {equation}",),
+            substitution=_tally_lines(equation, written=True)
+            or (f"Count atoms and charge on each side of: {equation}",),
             answer=verdict,
             answer_value=verdict,
         )
@@ -83,7 +139,7 @@ def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
         find="Smallest whole-number coefficients",
         formula_name="Law of conservation of mass",
         formula="Atoms of each element on reactant side = atoms on product side",
-        substitution=(f"Balance element counts: {equation}",),
+        substitution=_tally_lines(equation) or (f"Balance element counts: {equation}",),
         answer=balanced,
         answer_value=balanced,
     )
@@ -99,9 +155,9 @@ def solve_molar_mass(intent: ChemistryIntent) -> ChemistryResult:
             info = PERIODIC_TABLE.get(symbol)
             if info is None or not isinstance(info.get("mass"), int | float):
                 continue
-            terms.append(f"{count}({format_number(float(info['mass']))})")
+            terms.append(f"{count}({atomic_mass(float(info['mass']))})")
     substitution = " + ".join(terms) if terms else f"RDKit molecular mass for {formula}"
-    result = f"{format_number(mass)} g/mol"
+    result = f"{molar_mass_text(mass)} g/mol"
     return ChemistryResult(
         title="Verified molar mass",
         given=(f"Formula = {formula}",),
@@ -132,28 +188,28 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
     if op == "mass_to_moles":
         mass = _positive(intent, "mass", allow_zero=True)
         moles = mass / molar
-        value = f"{format_number(moles)} mol"
+        value = f"{num(moles)} mol"
         return ChemistryResult(
             "Verified amount of substance",
-            (f"mass = {format_number(mass)} g", f"M({formula}) = {format_number(molar)} g/mol"),
+            (f"mass = {inp(mass)} g", f"M({formula}) = {molar_mass_text(molar)} g/mol"),
             "Amount, n",
             "Mass–mole relation",
             "n = m / M",
-            (f"n = {format_number(mass)} / {format_number(molar)}",),
+            (f"n = {inp(mass)} / {molar_mass_text(molar)}",),
             f"n({formula}) = {value}",
             value,
         )
     if op == "moles_to_mass":
         moles = _positive(intent, "moles", allow_zero=True)
         mass = moles * molar
-        value = f"{format_number(mass)} g"
+        value = f"{num(mass)} g"
         return ChemistryResult(
             "Verified mass",
-            (f"n = {format_number(moles)} mol", f"M({formula}) = {format_number(molar)} g/mol"),
+            (f"n = {inp(moles)} mol", f"M({formula}) = {molar_mass_text(molar)} g/mol"),
             "Mass, m",
             "Mass–mole relation",
             "m = nM",
-            (f"m = ({format_number(moles)})({format_number(molar)})",),
+            (f"m = ({inp(moles)})({molar_mass_text(molar)})",),
             f"m({formula}) = {value}",
             value,
         )
@@ -161,15 +217,15 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
     if op == "moles_to_particles":
         moles = _positive(intent, "moles", allow_zero=True)
         particles = moles * AVOGADRO * per_formula
-        value = f"{format_number(particles)} {noun}"
+        value = f"{num(particles)} {noun}"
         return ChemistryResult(
             "Verified particle count",
-            (f"n = {format_number(moles)} mol", f"Nₐ = {format_number(AVOGADRO)} mol⁻¹"),
+            (f"n = {inp(moles)} mol", f"Nₐ = {const(AVOGADRO)} mol⁻¹"),
             f"Number of {noun}, N",
             "Avogadro relation",
             "N = nNₐ" if per_formula == 1 else "N = n Nₐ × (atoms per formula unit)",
             (
-                f"N = ({format_number(moles)})({format_number(AVOGADRO)})"
+                f"N = ({inp(moles)})({const(AVOGADRO)})"
                 + ("" if per_formula == 1 else f"({per_formula})"),
             ),
             f"N({formula}) = {value}",
@@ -178,15 +234,15 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
     if op == "particles_to_moles":
         particles = _positive(intent, "particles", allow_zero=True)
         moles = particles / AVOGADRO / per_formula
-        value = f"{format_number(moles)} mol"
+        value = f"{num(moles)} mol"
         return ChemistryResult(
             "Verified amount of substance",
-            (f"N = {format_number(particles)} {noun}", f"Nₐ = {format_number(AVOGADRO)} mol⁻¹"),
+            (f"N = {inp(particles)} {noun}", f"Nₐ = {const(AVOGADRO)} mol⁻¹"),
             "Amount, n",
             "Avogadro relation",
             "n = N / Nₐ" if per_formula == 1 else "n = N / (Nₐ × atoms per formula unit)",
             (
-                f"n = {format_number(particles)} / {format_number(AVOGADRO)}"
+                f"n = {inp(particles)} / {const(AVOGADRO)}"
                 + ("" if per_formula == 1 else f" / {per_formula}"),
             ),
             f"n({formula}) = {value}",
@@ -209,18 +265,18 @@ def solve_percent_composition(intent: ChemistryIntent) -> ChemistryResult:
     # Rounded like the molar mass so the shown fraction is one convention: 16 / 18.02.
     contribution = round(count * float(info["mass"]), 2)
     percent = contribution / total * 100
-    value = f"{format_number(percent)}%"
+    value = f"{num(percent)}%"
     return ChemistryResult(
         "Verified percent composition",
         (
             f"Formula = {formula}",
             f"{element} atoms per formula unit = {count}",
-            f"M({formula}) = {format_number(total)} g/mol",
+            f"M({formula}) = {molar_mass_text(total)} g/mol",
         ),
         f"Mass percent of {element}",
         "Percent composition",
         "% element = (mass of element in 1 mol compound / molar mass) × 100",
-        (f"% {element} = ({format_number(contribution)} / {format_number(total)}) × 100",),
+        (f"% {element} = ({molar_mass_text(contribution)} / {molar_mass_text(total)}) × 100",),
         f"{element} in {formula} = {value}",
         value,
     )
@@ -230,17 +286,17 @@ def solve_percent_yield(intent: ChemistryIntent) -> ChemistryResult:
     actual = _positive(intent, "actual", allow_zero=True)
     theoretical = _positive(intent, "theoretical")
     percent = actual / theoretical * 100
-    value = f"{format_number(percent)}%"
+    value = f"{num(percent)}%"
     return ChemistryResult(
         "Verified percent yield",
         (
-            f"actual yield = {format_number(actual)} g",
-            f"theoretical yield = {format_number(theoretical)} g",
+            f"actual yield = {inp(actual)} g",
+            f"theoretical yield = {inp(theoretical)} g",
         ),
         "Percent yield",
         "Percent yield formula",
         "% yield = (actual yield / theoretical yield) × 100",
-        (f"% yield = ({format_number(actual)} / {format_number(theoretical)}) × 100",),
+        (f"% yield = ({inp(actual)} / {inp(theoretical)}) × 100",),
         f"Percent yield = {value}",
         value,
     )
@@ -264,18 +320,15 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
         balanced = balance_equation(equation)
         product_coeff = balanced.products[target]
         ratios = tuple(
-            f"{name}: {format_number(amount)} / {balanced.reactants[name]} = "
-            f"{format_number(amount / balanced.reactants[name])} reaction units"
+            f"{name}: {inp(amount)} / {balanced.reactants[name]} = "
+            f"{num(amount / balanced.reactants[name])} reaction units"
             for name, amount in intent.species.items()
         )
-        value = f"{format_number(limiting_result.product_amount)} mol {target}"
+        value = f"{num(limiting_result.product_amount)} mol {target}"
         limiting_names = " and ".join((limiting_result.limiting_reagent, *limiting_result.tied))
         return ChemistryResult(
             "Verified limiting reagent",
-            tuple(
-                f"n({name}) = {format_number(amount)} mol"
-                for name, amount in intent.species.items()
-            ),
+            tuple(f"n({name}) = {inp(amount)} mol" for name, amount in intent.species.items()),
             f"Limiting reagent and moles of {target}",
             "Stoichiometric limiting-reagent comparison",
             "reaction units = available moles / stoichiometric coefficient",
@@ -292,17 +345,17 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
     balanced = balance_equation(equation)
     r_coeff = balanced.reactants[known]
     p_coeff = balanced.products[target]
-    value = f"{format_number(stoich_result.product_amount)} mol {target}"
+    value = f"{num(stoich_result.product_amount)} mol {target}"
     return ChemistryResult(
         "Verified stoichiometry",
         (
             f"Balanced equation: {_balanced_text(equation)}",
-            f"n({known}) = {format_number(amount)} mol",
+            f"n({known}) = {inp(amount)} mol",
         ),
         f"Moles of {target}",
         "Stoichiometric mole ratio",
         f"n({target}) = n({known}) × ({p_coeff} / {r_coeff})",
-        (f"n({target}) = {format_number(amount)} × ({p_coeff} / {r_coeff})",),
+        (f"n({target}) = {inp(amount)} × ({p_coeff} / {r_coeff})",),
         f"n({target}) = {value}",
         value,
     )

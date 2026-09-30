@@ -8,6 +8,7 @@ import math
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.quantity import convert
 from app.modules.chemistry.solvers.common_chem import (
+    inp,
     num,
     verified,
     water_vapor_mmhg,
@@ -41,73 +42,87 @@ def _positive(params: dict[str, float], key: str) -> float:
 
 
 def _gas_answer(name: str, value: float) -> str:
-    return f"{name} = {num(value)} {_GAS_UNIT[name]}"
+    return f"{name.upper()} = {num(value)} {_GAS_UNIT[name]}"
+
+
+def _gas_given(known: dict[str, float]) -> tuple[str, ...]:
+    return tuple(f"{key.upper()} = {inp(item)} {_GAS_UNIT[key]}" for key, item in known.items())
 
 
 def _paired_unknown(
     known: dict[str, float], missing: str, left: set[str], right: set[str]
-) -> float:
-    """Solve ``product(left) = product(right)`` for the one missing name."""
+) -> tuple[float, tuple[str, str]]:
+    """Solve ``product(left) = product(right)`` for the one missing name.
+
+    Returns the value and the rearranged and substituted expressions.
+    """
+
+    def order(keys: set[str]) -> list[str]:
+        return sorted(keys, key=lambda key: ("pvt".index(key[0]), key[1:]))
+
     if missing in left:
-        numerator = math.prod(known[key] for key in right)
-        denominator = math.prod(known[key] for key in left - {missing})
+        top, bottom = order(right), order(left - {missing})
     else:
-        numerator = math.prod(known[key] for key in left)
-        denominator = math.prod(known[key] for key in right - {missing})
-    return numerator / denominator
+        top, bottom = order(left), order(right - {missing})
+    numerator = math.prod(known[key] for key in top)
+    denominator = math.prod(known[key] for key in bottom)
+    symbolic = f"{missing.upper()} = {''.join(k.upper() for k in top)}"
+    numbers = f"{missing.upper()} = {''.join(f'({inp(known[k])})' for k in top)}"
+    if bottom:
+        symbolic += f" / ({''.join(k.upper() for k in bottom)})"
+        numbers += f" / ({''.join(f'({inp(known[k])})' for k in bottom)})"
+    return numerator / denominator, (symbolic, numbers)
+
+
+def _solve_pair(
+    intent: ChemistryIntent,
+    keys: tuple[str, ...],
+    left: set[str],
+    right: set[str],
+    title: str,
+    name: str,
+    formula: str,
+) -> ChemistryResult:
+    missing = _missing(intent.params, keys)
+    known = {key: _positive(intent.params, key) for key in keys if key != missing}
+    value, working = _paired_unknown(known, missing, left, right)
+    shown = _gas_answer(missing, value)
+    return verified(title, _gas_given(known), missing.upper(), name, formula, working, shown, shown)
 
 
 def solve_combined_gas(intent: ChemistryIntent) -> ChemistryResult:
-    keys = ("p1", "v1", "t1", "p2", "v2", "t2")
-    missing = _missing(intent.params, keys)
-    known = {key: _positive(intent.params, key) for key in keys if key != missing}
-    value = _paired_unknown(known, missing, {"p1", "v1", "t2"}, {"p2", "v2", "t1"})
-    shown = _gas_answer(missing, value)
-    return verified(
+    return _solve_pair(
+        intent,
+        ("p1", "v1", "t1", "p2", "v2", "t2"),
+        {"p1", "v1", "t2"},
+        {"p2", "v2", "t1"},
         "Verified combined gas law",
-        tuple(f"{key} = {num(item)} {_GAS_UNIT[key]}" for key, item in known.items()),
-        missing,
         "Combined gas law",
         "P1V1 / T1 = P2V2 / T2",
-        (shown,),
-        shown,
-        shown,
     )
 
 
 def solve_boyle(intent: ChemistryIntent) -> ChemistryResult:
-    keys = ("p1", "v1", "p2", "v2")
-    missing = _missing(intent.params, keys)
-    known = {key: _positive(intent.params, key) for key in keys if key != missing}
-    value = _paired_unknown(known, missing, {"p1", "v1"}, {"p2", "v2"})
-    shown = _gas_answer(missing, value)
-    return verified(
+    return _solve_pair(
+        intent,
+        ("p1", "v1", "p2", "v2"),
+        {"p1", "v1"},
+        {"p2", "v2"},
         "Verified Boyle's law",
-        tuple(f"{key} = {num(item)} {_GAS_UNIT[key]}" for key, item in known.items()),
-        missing,
         "Boyle's law",
         "P1V1 = P2V2",
-        (shown,),
-        shown,
-        shown,
     )
 
 
 def solve_charles(intent: ChemistryIntent) -> ChemistryResult:
-    keys = ("v1", "t1", "v2", "t2")
-    missing = _missing(intent.params, keys)
-    known = {key: _positive(intent.params, key) for key in keys if key != missing}
-    value = _paired_unknown(known, missing, {"v1", "t2"}, {"v2", "t1"})
-    shown = _gas_answer(missing, value)
-    return verified(
+    return _solve_pair(
+        intent,
+        ("v1", "t1", "v2", "t2"),
+        {"v1", "t2"},
+        {"v2", "t1"},
         "Verified Charles's law",
-        tuple(f"{key} = {num(item)} {_GAS_UNIT[key]}" for key, item in known.items()),
-        missing,
         "Charles's law",
         "V1 / T1 = V2 / T2",
-        (shown,),
-        shown,
-        shown,
     )
 
 
@@ -117,13 +132,14 @@ def solve_dalton(intent: ChemistryIntent) -> ChemistryResult:
     total = sum(intent.species.values())
     unit = intent.units.get("pressure", "atm")
     shown = f"Ptotal = {num(total)} {unit}"
+    terms = " + ".join(inp(value) for value in intent.species.values())
     return verified(
         "Verified Dalton's law",
-        tuple(f"P({name}) = {num(value)} {unit}" for name, value in intent.species.items()),
+        tuple(f"P({name}) = {inp(value)} {unit}" for name, value in intent.species.items()),
         "Total pressure",
         "Dalton's law",
         "Ptotal = Σ Pi",
-        (shown,),
+        (f"Ptotal = {terms}",),
         shown,
         shown,
     )
@@ -138,11 +154,11 @@ def solve_partial_pressure(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"Pi = {num(fraction * total)} {unit}"
     return verified(
         "Verified partial pressure",
-        (f"Xi = {num(fraction)}", f"Ptotal = {num(total)} {unit}"),
+        (f"Xi = {inp(fraction)}", f"Ptotal = {inp(total)} {unit}"),
         "Partial pressure",
         "Mole fraction",
         "Pi = Xi Ptotal",
-        (shown,),
+        (f"Pi = ({inp(fraction)})({inp(total)})",),
         shown,
         shown,
     )
@@ -168,11 +184,14 @@ def solve_gas_over_water(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"Pdry = {num(dry)} {unit}"
     return verified(
         "Verified gas collected over water",
-        (f"Ptotal = {num(total)} {unit}", f"T = {num(temperature)} °C"),
+        (f"Ptotal = {inp(total)} {unit}", f"T = {inp(temperature)} °C"),
         "Dry-gas pressure",
         "Dalton's law with water vapor",
         "Pdry = Ptotal − Pwater",
-        (f"Pwater = {num(vapor_same)} {unit}", shown),
+        (
+            f"Pwater = {num(vapor_same)} {unit} at {inp(temperature)} °C",
+            f"Pdry = {inp(total)} − {num(vapor_same)}",
+        ),
         shown,
         shown,
     )

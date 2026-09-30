@@ -8,11 +8,13 @@ import math
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.nuclear import (
     balance_nuclear,
-    decay_product,
+    conservation_lines,
+    decay_equation,
     format_nuclear,
     parse_nuclide,
 )
 from app.modules.chemistry.solvers.common_chem import (
+    inp,
     num,
     verified,
 )
@@ -29,11 +31,11 @@ def solve_decay_constant(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"λ = {num(math.log(2) / half_life)} {unit}⁻¹"
     return verified(
         "Verified decay constant",
-        (f"t₁/₂ = {num(half_life)} {unit}",),
+        (f"t₁/₂ = {inp(half_life)} {unit}",),
         "Decay constant",
         "Decay constant",
         "λ = ln(2) / t₁/₂",
-        (shown,),
+        (f"λ = {num(math.log(2))} / {inp(half_life)}",),
         shown,
         shown,
     )
@@ -53,11 +55,11 @@ def solve_exponential_decay(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"N = {num(initial * math.exp(-constant * time))}"
     return verified(
         "Verified exponential decay",
-        (f"N₀ = {num(initial)}", f"λ = {num(constant)}", f"t = {num(time)}"),
+        (f"N₀ = {inp(initial)}", f"λ = {inp(constant)}", f"t = {inp(time)}"),
         "Amount remaining",
         "Exponential decay",
         "N = N₀e^(−λt)",
-        (shown,),
+        (f"N = ({inp(initial)})e^(−({inp(constant)})({inp(time)}))",),
         shown,
         shown,
     )
@@ -71,11 +73,11 @@ def solve_nuclear_activity(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"A = {num(constant * particles)}"
     return verified(
         "Verified nuclear activity",
-        (f"λ = {num(constant)}", f"N = {num(particles)}"),
+        (f"λ = {inp(constant)}", f"N = {inp(particles)}"),
         "Activity",
         "Activity",
         "A = λN",
-        (shown,),
+        (f"A = ({inp(constant)})({inp(particles)})",),
         shown,
         shown,
     )
@@ -86,22 +88,22 @@ def solve_nuclear_equation(intent: ChemistryIntent) -> ChemistryResult:
         balanced = balance_nuclear(intent.equation)
         if not balanced.balanced:
             raise SolveServiceError(balanced.error or "nuclear equation does not balance")
-        shown = format_nuclear(balanced)
     else:
         parent = parse_nuclide(intent.formula or "")
         if parent is None or parent.is_particle:
             raise SolveServiceError("nuclear decay needs a nuclide such as 238U")
-        shown_value = decay_product(parent.mass_number, parent.symbol, intent.target or "")
-        if not shown_value:
+        decayed = decay_equation(parent.mass_number, parent.symbol, intent.target or "")
+        if decayed is None:
             raise SolveServiceError("that decay mode is not determined")
-        shown = shown_value
+        balanced = decayed
+    shown = format_nuclear(balanced)
     return verified(
         "Verified nuclear equation",
         (intent.equation or f"{intent.formula} {intent.target}",),
         "Balanced nuclear equation",
         "Nucleon and charge balance",
-        "ΔA = 0 and ΔZ = 0",
-        (shown,),
+        "sum of A and sum of Z are equal on both sides",
+        conservation_lines(balanced),
         shown,
         shown,
     )

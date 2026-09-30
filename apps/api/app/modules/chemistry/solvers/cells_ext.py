@@ -10,6 +10,7 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import CellScene
 from app.modules.chemistry.solvers.common_chem import (
     STANDARD_REDUCTION,
+    inp,
     num,
     verified,
 )
@@ -26,11 +27,11 @@ def solve_cell_potential(intent: ChemistryIntent) -> ChemistryResult:
     shown = f"E°cell = {num(value)} V"
     return verified(
         "Verified cell potential",
-        (f"E°cathode = {num(cathode)} V", f"E°anode = {num(anode)} V"),
+        (f"E°cathode = {inp(cathode)} V", f"E°anode = {inp(anode)} V"),
         "Standard cell potential",
         "Galvanic cell potential",
         "E°cell = E°cathode − E°anode",
-        (shown,),
+        (f"E°cell = {inp(cathode)} − ({inp(anode)})",),
         shown,
         shown,
     )
@@ -73,21 +74,38 @@ def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
     reaction = (
         f"{_coeff(anode_forms * anode_scale)}{anode_form}"
         f" + {_coeff(cathode_ions * cathode_scale)}{cathode_ion}"
-        f" → {_coeff(anode_ions * anode_scale)}{anode_ion}"
+        f" -> {_coeff(anode_ions * anode_scale)}{anode_ion}"
         f" + {_coeff(cathode_forms * cathode_scale)}{cathode_form}"
     )
     potential = ec - ea
-    shown = (
-        f"E°cell = {num(potential)} V; anode {anode}; cathode {cathode}; "
-        f"n = {electrons}; {reaction}; spontaneous"
+    shown = "\n".join(
+        (
+            f"E°cell = {num(potential)} V",
+            f"anode: {anode}",
+            f"cathode: {cathode}",
+            f"n = {electrons} electrons transferred",
+            reaction,
+            "spontaneous (E°cell > 0)",
+        )
     )
+    working = [
+        f"oxidation at the anode: {anode_form} -> {_coeff(anode_ions)}{anode_ion} + {na} e-",
+        f"reduction at the cathode: {_coeff(cathode_ions)}{cathode_ion} + {nc} e- -> "
+        f"{cathode_form}",
+    ]
+    if anode_scale != 1 or cathode_scale != 1:
+        working.append(
+            f"multiply the anode half by {anode_scale} and the cathode half by "
+            f"{cathode_scale} so {electrons} e- cancel"
+        )
+    working.append(f"E°cell = {num(ec)} − ({num(ea)})")
     result = verified(
         "Verified galvanic cell",
         (f"{left} E° = {num(e_left)} V", f"{right} E° = {num(e_right)} V"),
         "Cell potential, electrodes, and net reaction",
         "Standard reduction potentials",
         "E°cell = E°cathode − E°anode",
-        (shown,),
+        working,
         shown,
         shown,
     )

@@ -8,7 +8,8 @@ from dataclasses import replace
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.organic import organic_facts
 from app.modules.chemistry.reactions import named_product
-from app.modules.chemistry.solvers.common_chem import num, verified
+from app.modules.chemistry.smiles import most_common_isotope
+from app.modules.chemistry.solvers.common_chem import inp, num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.stoichiometry import monoisotopic_mass
 from app.services.solving import SolveServiceError
@@ -48,20 +49,49 @@ _SPLITTING = {
 }
 
 
+_REACTIONS = {
+    "bromine": (
+        "bromine addition across the C=C",
+        "Br adds to both carbons of the double bond",
+    ),
+    "hbr": (
+        "HBr addition to the C=C (Markovnikov)",
+        "H goes to the carbon with more hydrogens, Br to the more substituted carbon",
+    ),
+    "hydration": (
+        "acid-catalysed hydration of the C=C (Markovnikov)",
+        "H goes to the carbon with more hydrogens, OH to the more substituted carbon",
+    ),
+    "hydroxide": (
+        "hydroxide substitution (SN2)",
+        "OH- replaces the halogen on a primary sp3 carbon",
+    ),
+    "esterification": (
+        "Fischer esterification",
+        "the acid's OH and the alcohol's H leave as water; the acyl carbon bonds to the alcohol O",
+    ),
+}
+
+
 def solve_named_reaction(intent: ChemistryIntent) -> ChemistryResult:
     product = named_product(intent.target or "", intent.formula or "", intent.equation)
     if product is None:
         raise SolveServiceError("the reaction did not give one product")
+    name, rule = _REACTIONS.get(intent.target or "", (intent.target or "reaction", ""))
     shown = f"product SMILES {product}"
+    given = [f"reaction: {name}", f"substrate SMILES: {intent.formula or ''}"]
+    if intent.equation:
+        given.append(f"partner SMILES: {intent.equation}")
     result = verified(
         "Verified named reaction",
-        (intent.target or "", intent.formula or ""),
+        given,
         "Product",
         "One-product reaction table",
         "one SMARTS or atom change with a single product",
-        (shown,),
+        (rule, f"only one product results: {product}") if rule else (shown,),
         shown,
         shown,
+        verbatim=True,
     )
     return replace(result, structure_smiles=product)
 
@@ -99,7 +129,7 @@ def solve_nmr_splitting(intent: ChemistryIntent) -> ChemistryResult:
         "Splitting",
         "n+1 rule",
         "lines = neighbors + 1",
-        (shown,),
+        (f"lines = {int(neighbors)} + 1 = {lines}",),
         shown,
         shown,
     )
@@ -123,7 +153,15 @@ def solve_molecular_ion(intent: ChemistryIntent) -> ChemistryResult:
     except (ValueError, SolveServiceError) as exc:
         raise SolveServiceError("molecular ion needs a formula or SMILES") from exc
     shown = f"M+ = {peak.exact:.4f} (nominal m/z {peak.nominal})"
-    substitution = [shown]
+    substitution = []
+    for symbol, count in peak.counts.items():
+        isotope = most_common_isotope(symbol)
+        if isotope is not None:
+            exact, number = isotope
+            substitution.append(
+                f"{symbol}: {count} × {exact:.4f} = {count * exact:.4f} (nominal {count * number})"
+            )
+    substitution.append(f"M+ = {peak.exact:.4f}, nominal m/z = {peak.nominal}")
     pattern = _halogen_pattern(peak.counts)
     if pattern is not None:
         substitution.append(pattern)
@@ -136,6 +174,7 @@ def solve_molecular_ion(intent: ChemistryIntent) -> ChemistryResult:
         substitution,
         shown,
         shown,
+        verbatim=True,
     )
 
 
@@ -146,7 +185,7 @@ def _ranges(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
     lines = _lines_for(facts.groups, kind=kind)
     if not lines:
         raise SolveServiceError("no correlation range for those groups")
-    shown = "; ".join(lines)
+    shown = "\n".join(lines)
     title = "IR ranges" if kind == "ir" else "1H NMR ranges"
     return verified(
         f"Verified {title}",
@@ -154,9 +193,10 @@ def _ranges(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
         title,
         "Functional-group correlation",
         "each recognized group maps to a textbook range",
-        tuple(lines),
+        (f"groups found: {', '.join(facts.groups)}", "look up each group's textbook range"),
         shown,
         shown,
+        verbatim=True,
     )
 
 
@@ -165,27 +205,35 @@ def _peak(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
     if value is None:
         raise SolveServiceError("a peak position is required")
     groups = []
+    working = []
+    unit = "cm⁻¹" if kind == "ir" else "ppm"
     if kind == "ir":
         for name, bands in _IR.items():
-            if any(low <= value <= high for _label, low, high in bands):
-                groups.append(name)
+            for label, low, high in bands:
+                if low <= value <= high:
+                    groups.append(name)
+                    working.append(f"{inp(value)} is within {name} {label} {low}–{high} {unit}")
+                    break
     else:
-        for name, (_label, low, high) in _NMR.items():
+        for name, (label, low, high) in _NMR.items():
             if low <= value <= high:
                 groups.append(name)
+                working.append(
+                    f"{inp(value)} is within {name} {label} {num(low)}–{num(high)} {unit}"
+                )
     if not groups:
         raise SolveServiceError("no functional group contains that peak")
-    shown = ", ".join(groups)
-    unit = "cm⁻¹" if kind == "ir" else "ppm"
+    shown = "\n".join(groups)
     return verified(
         "Verified peak groups",
-        (f"peak = {num(value)} {unit}",),
+        (f"peak = {inp(value)} {unit}",),
         "Groups whose range contains the peak",
         "Functional-group correlation",
         "list every group that contains the peak; do not choose a structure",
-        (shown,),
+        working,
         shown,
         shown,
+        verbatim=True,
     )
 
 

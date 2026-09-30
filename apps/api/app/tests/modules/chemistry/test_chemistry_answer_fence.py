@@ -9,6 +9,7 @@ from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.fence import validate_chemistry_fences
+from app.modules.chemistry.notation import typeset_json
 from app.services.chat.presentation import present_assistant_markdown
 
 
@@ -58,7 +59,8 @@ def test_solver_scene_survives_and_is_not_duplicated() -> None:
     reply = format_direct_chemistry_reply(verified)
     scene = verified.result.scene
     assert scene is not None
-    fence = f"```chem_scene\n{json.dumps(dump_scene(scene), ensure_ascii=False)}\n```"
+    payload = json.dumps(typeset_json(dump_scene(scene)), ensure_ascii=False)
+    fence = f"```chem_scene\n{payload}\n```"
     assert reply.count("```chem_scene") == 1
     assert reply.rstrip().endswith(fence)
     assert validate_chemistry_fences(reply, verified=verified) == reply
