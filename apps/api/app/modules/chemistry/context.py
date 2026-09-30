@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import re
 
@@ -20,6 +21,9 @@ from app.modules.chemistry.request import (
 from app.modules.chemistry.stoichiometry import PERIODIC_TABLE
 
 logger = logging.getLogger(__name__)
+
+# PubChem is context, not a dependency: a slow lookup must not delay first token.
+PUBCHEM_BUDGET_SECONDS = 2.0
 
 _DESCRIPTOR_CUE = re.compile(
     r"\b(?:logp|log\s*p|tpsa|polar\s+surface\s+area|drug[-\s]?likeness|"
@@ -164,7 +168,13 @@ async def build_chemistry_augmentation(
     _ = settings
     iupac_smiles = _iupac_smiles(content)
     if iupac_smiles is not None:
-        name = await pubchem_gateway.lookup_iupac_name(iupac_smiles)
+        try:
+            name = await asyncio.wait_for(
+                pubchem_gateway.lookup_iupac_name(iupac_smiles), PUBCHEM_BUDGET_SECONDS
+            )
+        except TimeoutError:
+            logger.info("PubChem IUPAC lookup timed out")
+            name = None
         if not name:
             return (
                 "[Chemistry note]\n"
@@ -197,7 +207,13 @@ async def build_chemistry_augmentation(
     name = extract_compound_name(content)
     if name is None:
         return None, None, False
-    lookup = await pubchem_gateway.lookup_by_name(name, redis=redis)
+    try:
+        lookup = await asyncio.wait_for(
+            pubchem_gateway.lookup_by_name(name, redis=redis), PUBCHEM_BUDGET_SECONDS
+        )
+    except TimeoutError:
+        logger.info("PubChem lookup timed out for %r", name)
+        return None, None, False
     if lookup.error is not None or lookup.compound is None:
         logger.info("PubChem lookup failed for %r: %s", name, lookup.error)
         return None, None, False

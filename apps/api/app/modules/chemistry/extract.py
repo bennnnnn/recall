@@ -12,9 +12,11 @@ import re
 from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extractors import EXTENDED_EXTRACTORS
+from app.modules.chemistry.extractors.parsing import normalize_scientific_notation
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 
 _N = r"-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?"
+_MAX_TEXT_LENGTH = 4000
 _TIME_UNIT_PATTERN = r"(?:seconds?|minutes?|hours?|days?|years?|min|h|s)"
 _TIME_UNITS: dict[str, tuple[str, float]] = {
     "s": ("s", 1),
@@ -83,7 +85,7 @@ def _target_product(text: str, equation: str) -> str | None:
 
 def _extract_equations(text: str) -> ChemistryIntent | None:
     match = EQUATION_RE.search(text)
-    if match is None:
+    if match is None or re.search(r"\bnuclear\b", text, re.IGNORECASE):
         return None
     equation = match.group(1).strip()
     if re.search(r"\b(?:balance|balanced|coefficient)\b", text, re.IGNORECASE):
@@ -576,8 +578,9 @@ EXTRACTORS = (
 
 def extract_chemistry_intent(text: str) -> ChemistryIntent | None:
     """Return the first complete supported calculation, otherwise ``None``."""
-    if not text.strip() or len(text) > 4000:
+    if not text.strip() or len(text) > _MAX_TEXT_LENGTH:
         return None
+    text = normalize_scientific_notation(text)
     for extractor in EXTRACTORS:
         intent = extractor(text)
         if intent is not None:
