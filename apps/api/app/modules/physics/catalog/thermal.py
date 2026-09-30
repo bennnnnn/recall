@@ -2,34 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
-
-# Shared with the solver so the direct-reply lines and the stored formulas stay the same.
-HEAVY_PISTON_EQUATIONS: tuple[str, ...] = (
-    r"P_1 = P_0 + \frac{Mg}{A}",
-    r"V_1 = \frac{nRT_0}{P_1}",
-    r"T_2 = T_0 \frac{V_2}{V_1}",
-    r"W = nR(T_2 - T_0)",
-    r"Q = nC_P(T_2 - T_0)",
-    r"P_3 = P_0 - \frac{Mg}{A}",
-    r"V_3 = \frac{nRT_0}{P_3}",
-)
-_PISTON_REST = ("frictionless piston",)
-_PISTON_HEAT = ("frictionless piston", "quasi-static isobaric heating")
-_PISTON_FLIP = (
-    "frictionless piston",
-    "inverted equilibrium is at the original temperature",
-)
-_PISTON_BOTH = (
-    "frictionless piston",
-    "quasi-static isobaric heating",
-    "inverted equilibrium is at the original temperature",
-)
-
-
-def _piston_lines(*indexes: int) -> tuple[str, ...]:
-    return tuple(HEAVY_PISTON_EQUATIONS[index] for index in indexes)
-
+from app.modules.physics.catalog.spec import FormulaSpec, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -114,81 +87,6 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("pres", "P", "pascal"),
             var("vol1", "V_1", "meter ** 3"),
             var("vol2", "V_2", "meter ** 3"),
-        ),
-    ),
-    formula(
-        "heavy_piston",
-        "thermal",
-        "Heavy-piston equilibrium",
-        "P_1",
-        base_latex=HEAVY_PISTON_EQUATIONS[0],
-        assumptions=_PISTON_REST,
-        variants=(
-            FormulaVariant(
-                lines=HEAVY_PISTON_EQUATIONS,
-                present=frozenset({"upright", "expand_ratio", "cv_over_r", "flip"}),
-                equals=(("expand_ratio", 2.0),),
-                assumptions=_PISTON_BOTH,
-                result_symbol=r"P_1,\ V_1,\ T_2,\ W,\ Q,\ P_3,\ V_3",
-            ),
-            FormulaVariant(
-                lines=HEAVY_PISTON_EQUATIONS[:5],
-                present=frozenset({"upright", "expand_ratio", "cv_over_r"}),
-                absent=frozenset({"flip"}),
-                equals=(("expand_ratio", 2.0),),
-                assumptions=_PISTON_HEAT,
-                result_symbol=r"P_1,\ V_1,\ T_2,\ W,\ Q",
-            ),
-            FormulaVariant(
-                lines=_piston_lines(0, 1, 2, 3, 5, 6),
-                present=frozenset({"upright", "expand_ratio", "flip"}),
-                absent=frozenset({"cv_over_r"}),
-                equals=(("expand_ratio", 2.0),),
-                assumptions=_PISTON_BOTH,
-                result_symbol=r"P_1,\ V_1,\ T_2,\ W,\ P_3,\ V_3",
-            ),
-            FormulaVariant(
-                lines=HEAVY_PISTON_EQUATIONS[:4],
-                present=frozenset({"upright", "expand_ratio"}),
-                absent=frozenset({"cv_over_r", "flip"}),
-                equals=(("expand_ratio", 2.0),),
-                assumptions=_PISTON_HEAT,
-                result_symbol=r"P_1,\ V_1,\ T_2,\ W",
-            ),
-            FormulaVariant(
-                lines=_piston_lines(0, 1, 5, 6),
-                present=frozenset({"upright", "flip"}),
-                absent=frozenset({"expand_ratio"}),
-                assumptions=_PISTON_FLIP,
-                result_symbol=r"P_1,\ V_1,\ P_3,\ V_3",
-            ),
-            FormulaVariant(
-                lines=HEAVY_PISTON_EQUATIONS[:2],
-                present=frozenset({"upright"}),
-                absent=frozenset({"expand_ratio", "flip"}),
-                assumptions=_PISTON_REST,
-                result_symbol=r"P_1,\ V_1",
-            ),
-            FormulaVariant(
-                lines=HEAVY_PISTON_EQUATIONS[5:],
-                present=frozenset({"flip"}),
-                absent=frozenset({"upright"}),
-                assumptions=_PISTON_FLIP,
-                result_symbol=r"P_3,\ V_3",
-            ),
-        ),
-        variables=(
-            var("moles", "n", "mole"),
-            var("M", "M", "kilogram"),
-            var("area", "A", "meter ** 2"),
-            var("p_atm", "P_0", "pascal"),
-            var("temp", "T_0", "kelvin"),
-            var("g", "g", "meter / second ** 2"),
-            var("gas_r", "R", "joule / mole / kelvin"),
-            var("expand_ratio", "V_2/V_1", dimensionless=True, visible=False),
-            var("cv_over_r", "C_V/R", dimensionless=True, visible=False),
-            var("upright", "upright", dimensionless=True, visible=False),
-            var("flip", "flip", dimensionless=True, visible=False),
         ),
     ),
     formula(

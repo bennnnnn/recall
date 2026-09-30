@@ -191,36 +191,12 @@ def _projectile_parts(text: str) -> tuple[ProjectileQuantity, ...] | None:
     return tuple(ops)
 
 
-_PISTON_WORD = re.compile(r"\bpistons?\b", re.IGNORECASE)
-# ``3/2`` fails the shared fraction gate. On a piston that ratio is Cv/R or Cp/R.
-_PISTON_HEAT_RATIOS: tuple[tuple[re.Pattern[str], str], ...] = (
-    (re.compile(r"\\frac\{\s*3\s*\}\{\s*2\s*\}"), "1.5"),
-    (re.compile(r"\\frac\{\s*5\s*\}\{\s*2\s*\}"), "2.5"),
-    (re.compile(r"(?<![\d.])3\s*/\s*2(?![\d.])"), "1.5"),
-    (re.compile(r"(?<![\d.])5\s*/\s*2(?![\d.])"), "2.5"),
-)
-
-
-def _fold_piston_heat_ratios(text: str) -> str:
-    """Keep a piston heat capacity from being read as an ambiguous fraction.
-
-    ``normalize_physics_numbers`` rejects ``3/2`` so a date cannot become a
-    quotient. ``C_V = 3/2 R`` is the monatomic ratio, and rejecting it dropped
-    the whole piston problem before an extractor could run.
-    """
-    if _PISTON_WORD.search(text) is None:
-        return text
-    for pattern, replacement in _PISTON_HEAT_RATIOS:
-        text = pattern.sub(replacement, text)
-    return text
-
-
 def prepare_physics_request(text: str) -> PhysicsRequest:
     """Preflight at the dispatch boundary so refusals cannot fall into algebra."""
     unit_normalized = normalize_physics_units(text)
     if not has_supported_physics_cue(unit_normalized):
         return PhysicsRequest(unit_normalized)
-    normalized = normalize_physics_numbers(_fold_piston_heat_ratios(unit_normalized))
+    normalized = normalize_physics_numbers(unit_normalized)
     if normalized is None:
         return PhysicsRequest(text, rejected=True)
     if _MATH_POWER_REQUEST.search(normalized):
