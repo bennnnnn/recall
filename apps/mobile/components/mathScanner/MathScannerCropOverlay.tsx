@@ -20,6 +20,8 @@ import { Theme, useTheme, withAlpha } from "@/lib/theme";
 type AnimStyle = AnimatedStyle<Record<string, unknown>>;
 type DetectorGesture = ComponentProps<typeof GestureDetector>["gesture"];
 
+export type LiveScanFrameStatus = "idle" | "detecting" | "ready";
+
 type Props = {
   regionGesture: DetectorGesture;
   cornerTL: DetectorGesture;
@@ -36,6 +38,7 @@ type Props = {
   handleBLStyle: AnimStyle;
   handleBRStyle: AnimStyle;
   scanning: boolean;
+  liveStatus?: LiveScanFrameStatus;
   onGrow: () => void;
   onShrink: () => void;
 };
@@ -56,6 +59,7 @@ export function MathScannerCropOverlay({
   handleBLStyle,
   handleBRStyle,
   scanning,
+  liveStatus = "idle",
   onGrow,
   onShrink,
 }: Props) {
@@ -97,7 +101,13 @@ export function MathScannerCropOverlay({
       </View>
       <GestureDetector gesture={regionGesture}>
         <Animated.View
-          style={[s.region, regionStyle]}
+          testID={`math-scanner-frame-${liveStatus}`}
+          style={[
+            s.region,
+            liveStatus === "detecting" ? s.regionDetecting : null,
+            liveStatus === "ready" ? s.regionReady : null,
+            regionStyle,
+          ]}
           collapsable={false}
           accessible
           accessibilityRole="adjustable"
@@ -189,6 +199,13 @@ function makeStyles(theme: Theme) {
       backgroundColor: "transparent",
       zIndex: 4,
       ...shadowElevated(theme, "fab"),
+    },
+    regionDetecting: {
+      borderColor: withAlpha(theme.primary, 0.72),
+    },
+    regionReady: {
+      borderColor: theme.primary,
+      borderWidth: 3,
     },
     shimmerClip: {
       ...StyleSheet.absoluteFill,
