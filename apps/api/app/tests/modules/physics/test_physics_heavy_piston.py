@@ -82,6 +82,21 @@ _FLIP_ONLY = (
     "T_0 = 300 K, g = 10 m/s^2, R = 8.31 J/mol/K."
 )
 
+# The flip sentence repeats the original temperature. That restatement is one given.
+_REPEATED_TEMPERATURE = (
+    "A vertical cylinder is closed by a piston of mass M = 40 kg and area A = 0.01 m^2. "
+    "It contains n = 2 mol of a monatomic ideal gas with C_V = 3/2 R. "
+    "Atmospheric pressure is P_0 = 1.0 \\times 10^5 Pa. The gas temperature is T_0 = 300 K. "
+    "Take g = 10 m/s^2 and R = 8.31 J/(mol·K). "
+    "The piston rests on the gas. Find the equilibrium pressure P_1 and volume V_1. "
+    "The gas is heated slowly until V_2 = 2V_1. "
+    "Find the temperature, the work done by the gas, and the heat supplied. "
+    "The cylinder is suddenly turned completely upside down. The piston cannot fall out. "
+    "Assuming the gas temperature is momentarily maintained at T_0 = 300 K during this "
+    "quick flip, find the new mechanical equilibrium pressure P_3 and volume V_3 "
+    "once it stabilizes. Show the step-by-step breakdown."
+)
+
 VERIFIED = [
     (_PISTON, _ANSWER),
     (_PISTON_UNICODE, _ANSWER),
@@ -92,6 +107,15 @@ VERIFIED = [
     (_HEAT_FROM_CP, "140000 Pa; 0.0356143 m^3; 600 K; 4986 J; 12465 J"),
     (_WORK_ONLY, "140000 Pa; 0.0356143 m^3; 600 K; 4986 J"),
     (_FLIP_ONLY, "60000 Pa; 0.0831 m^3"),
+    (_REPEATED_TEMPERATURE, _ANSWER),
+    (
+        _UPRIGHT.replace("g = 10 m/s^2", "g = 10 m/s^2. Again, g = 10 m/s^2"),
+        "140000 Pa; 0.0356143 m^3",
+    ),
+    (
+        _UPRIGHT.replace("R = 8.31 J/mol/K.", "R = 8.31 J/mol/K. Use R = 8.31 J/mol/K."),
+        "140000 Pa; 0.0356143 m^3",
+    ),
 ]
 
 REFUSED = [
@@ -128,6 +152,21 @@ REFUSED = [
         "A vertical piston traps n = 2 mol of monatomic ideal gas. The cylinder is "
         "turned upside down adiabatically. M = 40 kg, A = 0.01 m^2, "
         "P0 = 100000 Pa, T0 = 300 K, g = 10 m/s^2, R = 8.31 J/mol/K."
+    ),
+    (
+        "A vertical cylinder holds n = 2 mol of monatomic ideal gas under a piston. "
+        "M = 40 kg, A = 0.01 m^2, P0 = 100000 Pa, T_0 = 300 K, T_0 = 290 K, "
+        "g = 10 m/s^2, R = 8.31 J/mol/K."
+    ),
+    (
+        "A vertical cylinder holds n = 2 mol of monatomic ideal gas under a piston. "
+        "M = 40 kg, A = 0.01 m^2, P0 = 100000 Pa, T0 = 300 K, g = 10 m/s^2, "
+        "R = 8.31 J/mol/K, R = 8.314 J/mol/K."
+    ),
+    (
+        "A vertical cylinder holds n = 2 mol of monatomic ideal gas under a piston. "
+        "M = 40 kg, A = 0.01 m^2, P0 = 100000 Pa, T0 = 300 K, g = 10 m/s^2, "
+        "g = 9.81 m/s^2, R = 8.31 J/mol/K."
     ),
 ]
 
@@ -214,3 +253,18 @@ def test_direct_reply_keeps_the_inverted_balance_and_exact_work() -> None:
     assert "12459" not in reply
     stepped = _PISTON + " Show the step-by-step breakdown."
     assert maybe_direct_physics_reply(block, stepped) is not None
+
+
+def test_repeated_temperature_stays_direct_beside_another_kelvin() -> None:
+    text = _REPEATED_TEMPERATURE + " The wall is at 290 K."
+    intent = extract_physics_intent(text)
+    assert intent is not None
+    assert intent.physics_params is not None
+    assert intent.physics_params["temp"] == 300
+    assert _answer(text) == _ANSWER
+    block = build_verified_physics_block(intent, _SETTINGS)
+    assert block is not None
+    reply = maybe_direct_physics_reply(block, text)
+    assert reply is not None
+    assert r"P_3 = P_0 - \frac{Mg}{A}" in reply
+    assert "Let's go step-by-step" not in reply
