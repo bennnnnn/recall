@@ -93,28 +93,6 @@ def test_build_todo_reminder_strips_newlines_from_subject():
     assert "\n" not in subject
 
 
-def test_build_learning_nudge_includes_body():
-    user = _user(name="Ada", locale="en")
-    subject, html, text = tx_email.build_learning_nudge(
-        user, body='2 words ready to review in "Spanish"'
-    )
-    assert subject == "Time to learn"
-    assert "Spanish" in text
-    assert "Ada" in html
-
-
-def test_build_learning_nudge_escapes_html_body():
-    """A learning project title (embedded in the nudge body) is user-entered
-    and must be escaped in the html variant — same bug class as todo_reminder."""
-    user = _user(name="Ada", locale="en")
-    _, html, text = tx_email.build_learning_nudge(
-        user, body='Keep going with "<img src=x onerror=alert(1)>"'
-    )
-    assert "<img" not in html
-    assert "&lt;img" in html
-    assert "<img src=x onerror=alert(1)>" in text
-
-
 def test_build_receipt_includes_event_and_optional_fields():
     user = _user(name="Bo", locale="en")
     subject, html, text = tx_email.build_receipt(

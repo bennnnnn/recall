@@ -125,7 +125,6 @@ export function renderRichFenceById(
       return <LazyChartBlock key={key} content={content} />;
     case "copy":
     case "sources":
-    case "learning_launch":
       return null;
     default: {
       const _exhaustive: never = id;

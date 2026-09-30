@@ -40,8 +40,7 @@ type Props = {
 
 /**
  * The app's button: a pill in five variants and three sizes, with an optional
- * leading icon. Leave specialized controls alone (send circle, branded auth,
- * the soft LearningContinueCta).
+ * leading icon. Leave specialized controls alone (send circle, branded auth).
  */
 export function Button({
   title,

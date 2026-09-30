@@ -10,7 +10,7 @@ describe("todo reminder push helpers", () => {
       todoIdFromNotificationData({ type: "todo_reminder", todo_id: "abc" }),
     ).toBe("abc");
     expect(todoIdFromNotificationData({ type: "todo_due", todo_id: "abc" })).toBe("abc");
-    expect(todoIdFromNotificationData({ type: "learning_nudge", todo_id: "abc" })).toBe(
+    expect(todoIdFromNotificationData({ type: "email_suggestion", todo_id: "abc" })).toBe(
       null,
     );
     expect(todoIdFromNotificationData({ type: "todo_reminder" })).toBe(null);

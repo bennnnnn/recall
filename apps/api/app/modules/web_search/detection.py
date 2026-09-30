@@ -7,7 +7,7 @@ import re
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
-from app.modules.web_search.geo_intent import is_geo_query, is_vocab_quiz_answer
+from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answer
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _EXPLICIT_SEARCH,
@@ -88,7 +88,7 @@ def web_search_skip(
     # Only a yes to an offer may search; "no" / "got it" never do, question or not.
     if not confirming and is_lightweight_chat_turn(cleaned):
         return True
-    if is_vocab_quiz_answer(cleaned):
+    if is_short_letter_answer(cleaned):
         return True
     if is_personal_disclosure_turn(cleaned):
         return True

@@ -29,9 +29,7 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type DraftChat = {
   prepareDraftChat: (
-    projectId?: string | null,
     model?: string,
-    quizMode?: import("@/lib/quizMode").QuizMode | null,
     opts?: { force?: boolean },
   ) => Promise<string | null>;
   skipLoadForChatIdRef: React.MutableRefObject<string | null>;
@@ -126,7 +124,7 @@ export function useLiveTalk({
     if (chatId) return chatId;
     creatingRef.current = true;
     try {
-      const id = await prepareDraftChat(undefined, selectedModel);
+      const id = await prepareDraftChat(selectedModel);
       if (!id) return null;
       skipLoadForChatIdRef.current = id;
       setChatTitle(null);

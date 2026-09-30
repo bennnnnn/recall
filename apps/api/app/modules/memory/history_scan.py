@@ -79,12 +79,12 @@ async def request_history_scan(redis: Redis, user: User) -> bool:
 
 
 async def _recent_chat_ids(user_id: UUID) -> list[UUID]:
-    """The most recently used chats with user lines, newest first (no quizzes)."""
+    """The most recently used chats with user lines, newest first."""
     has_user_lines = exists().where(Message.chat_id == Chat.id, Message.role == "user")
     async with SessionLocal() as session:
         result = await session.execute(
             select(Chat.id)
-            .where(Chat.user_id == user_id, Chat.quiz_mode.is_(None), has_user_lines)
+            .where(Chat.user_id == user_id, has_user_lines)
             .order_by(Chat.updated_at.desc())
             .limit(HISTORY_SCAN_CHATS)
         )

@@ -26,8 +26,6 @@ ResponseTone = Literal["funny", "professional", "casual", "soft"]
 
 MessageFeedback = Literal["up", "down"]
 
-QuizMode = Literal["exam", "chat"]
-
 
 class UsageOut(BaseModel):
     date: str

@@ -146,7 +146,7 @@ async def test_inactive_or_absent_current_image_has_no_database_or_storage_work(
 async def test_regenerate_actual_entry_retains_image_routing_reserve_and_backup(with_image):
     owner, chat_id, uid = uuid4(), uuid4(), uuid4()
     user = User(id=owner, email="test@example.com", name="Test")
-    chat = Chat(id=chat_id, user_id=owner, project_id=None)
+    chat = Chat(id=chat_id, user_id=owner)
     caption = (
         "Solve the math problem in this image step by step."
         if with_image

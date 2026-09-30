@@ -122,12 +122,12 @@ async def _chats_with_lines(session, user, count: int) -> list[Chat]:
 
 
 @pytest.mark.asyncio
-async def test_scan_reads_recent_chats_once_and_skips_quizzes(db_session, scan_env):
+async def test_scan_reads_recent_chats_with_user_lines_once(db_session, scan_env):
     user = await _make_user(db_session)
     talk = Chat(user_id=user.id, title="Recall app")
-    quiz = Chat(user_id=user.id, title="Spanish quiz", quiz_mode="exam")
+    other = Chat(user_id=user.id, title="Spanish notes")
     empty = Chat(user_id=user.id, title="Nothing yet")
-    db_session.add_all([talk, quiz, empty])
+    db_session.add_all([talk, other, empty])
     await db_session.flush()
     db_session.add_all(
         [
@@ -138,7 +138,7 @@ async def test_scan_reads_recent_chats_once_and_skips_quizzes(db_session, scan_e
                 content="I'm building Recall with Expo",
             ),
             Message(chat_id=talk.id, user_id=user.id, role="assistant", content="Nice!"),
-            Message(chat_id=quiz.id, user_id=user.id, role="user", content="hola"),
+            Message(chat_id=other.id, user_id=user.id, role="user", content="hola"),
         ]
     )
     await db_session.flush()
@@ -148,8 +148,8 @@ async def test_scan_reads_recent_chats_once_and_skips_quizzes(db_session, scan_e
         await history_scan.scan_recent_chats(Settings(), user_id=user.id)
         await history_scan.scan_recent_chats(Settings(), user_id=user.id)
 
-    extract.assert_awaited_once()
-    assert extract.await_args.kwargs["chat_id"] == talk.id
+    assert {call.kwargs["chat_id"] for call in extract.await_args_list} == {talk.id, other.id}
+    assert extract.await_count == 2
     await db_session.refresh(user)
     assert user.memory_history_scanned_at is not None
     assert await scan_env.keys("memory:history_scan*") == []

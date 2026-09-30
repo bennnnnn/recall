@@ -45,7 +45,6 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
-    fake_chat.project_id = None
 
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
@@ -102,7 +101,6 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
-    fake_chat.project_id = None
 
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
@@ -179,7 +177,6 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
-    fake_chat.project_id = None
 
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
@@ -244,7 +241,6 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
-    fake_chat.project_id = None
 
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
@@ -312,7 +308,6 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
-    fake_chat.project_id = None
 
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
@@ -373,7 +368,6 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
-    fake_chat.project_id = None
 
     with (
         patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
@@ -1650,7 +1644,6 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
     fake_chat = MagicMock()
     fake_chat.model = "free-chat"
     fake_chat.summary = None
-    fake_chat.project_id = None
 
     finalize = AsyncMock()
 
@@ -1862,7 +1855,7 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
         )
         stack.enter_context(
             patch(
-                "app.modules.web_search.is_vocab_quiz_answer",
+                "app.modules.web_search.is_short_letter_answer",
                 MagicMock(return_value=False),
             )
         )
@@ -2117,7 +2110,7 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         )
         stack.enter_context(
             patch(
-                "app.modules.web_search.is_vocab_quiz_answer",
+                "app.modules.web_search.is_short_letter_answer",
                 MagicMock(return_value=False),
             )
         )

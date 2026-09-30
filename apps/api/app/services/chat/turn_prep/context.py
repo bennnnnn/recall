@@ -117,7 +117,6 @@ class StreamContext:
     local_places: bool = False
     skip_memory_jobs: bool = False
     prior_count: int = 0
-    chat_project_id: UUID | None = None
     regenerate_backup: RegenerateBackup | None = None
     fallback_models: list[str] = field(default_factory=list)
     # One verified solve for the subject that owns this turn.
@@ -126,7 +125,7 @@ class StreamContext:
     solver_unverified: bool = False
     timing: TurnTimingTracker | None = None
     lightweight_turn: bool = False
-    # False = casual chat (skip memory/todos/projects). Status theater
+    # False = casual chat (skip memory/todos). Status theater
     # (preparing/remembering/thinking/composing) is never shown; activity
     # chips remain for search, files, calendar, inbox, math, image gen.
     rich_context_turn: bool = True
@@ -173,7 +172,6 @@ def stream_context_from_bundle(
     reserved_tokens: int,
     user: User,
     prior_count: int,
-    chat_project_id: UUID | None,
     timing: TurnTimingTracker | None = None,
     run_title: bool | None = None,
     skip_memory_jobs: bool | None = None,
@@ -205,7 +203,6 @@ def stream_context_from_bundle(
         local_places=bundle.local_places,
         skip_memory_jobs=skip_memory_jobs,
         prior_count=prior_count,
-        chat_project_id=chat_project_id,
         regenerate_backup=regenerate_backup,
         fallback_models=bundle.fallback_models,
         verified_subject=bundle.verified_subject,
@@ -288,7 +285,6 @@ async def build_stream_prompt_context(
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
     on_status: StreamStatusFn | None = None,
-    quiz_mode: str | None = None,
     user: User | None = None,
     chat: Chat | None = None,
     timing: TurnTimingTracker | None = None,

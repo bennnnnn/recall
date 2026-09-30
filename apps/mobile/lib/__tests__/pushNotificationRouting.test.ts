@@ -53,21 +53,11 @@ describe("handlePushNotificationResponse: job_search_ready", () => {
   });
 });
 
-describe("handlePushNotificationResponse: learning + suggestions", () => {
-  it("sends learning pushes straight to the lesson map", async () => {
-    const router = fakeRouter();
-    await handlePushNotificationResponse(router, {
-      type: "learning_review",
-      project_id: "p1",
-    });
-    expect(router.push).toHaveBeenCalledWith("/projects/p1/lesson");
-  });
-
-  it("routes email suggestions to To-do even when a project id is present", async () => {
+describe("handlePushNotificationResponse: suggestions", () => {
+  it("routes email suggestions to To-do", async () => {
     const router = fakeRouter();
     await handlePushNotificationResponse(router, {
       type: "email_suggestion",
-      project_id: "p1",
     });
     expect(router.push).toHaveBeenCalledWith("/todos");
   });

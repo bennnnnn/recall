@@ -10,7 +10,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core import jobs
 from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
-from app.modules import learning as learning_service
 from app.modules import todos as todos_service
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.memory import is_explicit_memory_command, memory_extract_user_text
@@ -22,7 +21,6 @@ from app.services import quota as quota_service
 from app.services.chat.finalize_registry import clear_pending_finalize
 from app.services.chat.turn_prep import RegenerateBackup, StreamContext
 from app.services.context_window import estimate_tokens
-from app.services.day_planning import is_day_planning_question
 from app.services.quota import utc_today
 from app.services.text_normalize import cap_text_head_tail
 
@@ -359,29 +357,6 @@ async def enqueue_post_turn_jobs(
                     "transcript": todo_transcript,
                 },
                 f"todosync:{ctx.chat_id}:{turn_key}",
-            ),
-        )
-    # Day-plan snapshots *list* Learning progress (e.g. "vocabulary quiz 0/10").
-    # That must not enqueue a Learning extract job — this turn is a read of
-    # Schedule + Learning, not a write.
-    if (
-        not spend_capped
-        and not ctx.skip_memory_jobs
-        and not is_day_planning_question(ctx.user_message_content)
-        and learning_service.transcript_implies_learning_sync(
-            transcript,
-            chat_project_id=ctx.chat_project_id,
-        )
-    ):
-        job_specs.append(
-            (
-                "projects",
-                {
-                    "user_id": str(ctx.user_id),
-                    "chat_id": str(ctx.chat_id),
-                    "transcript": transcript,
-                },
-                f"projectsync:{ctx.chat_id}:{turn_key}",
             ),
         )
     if ctx.run_title:

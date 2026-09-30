@@ -19,8 +19,6 @@ type Props = {
   onRegenerate: (model: string) => void;
   regenerating?: boolean;
   onFeedback: (messageId: string, next: "up" | "down" | null) => void;
-  lessonProjectId?: string | null;
-  onOpenLesson?: (projectId: string) => void;
   onRetryImageGen?: () => void;
 };
 
@@ -36,8 +34,6 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   onRegenerate,
   regenerating = false,
   onFeedback,
-  lessonProjectId = null,
-  onOpenLesson,
   onRetryImageGen,
 }: Props) {
   // Already throttled once at the store→UI boundary (useStreamingDraft) —
@@ -69,8 +65,6 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
       onFeedback={onFeedback}
       highlighted={item.id === highlightedMessageId}
       isSending={item.id === sendingMessageId}
-      lessonProjectId={lessonProjectId}
-      onOpenLesson={isLastAssistant ? onOpenLesson : undefined}
     />
   );
 });

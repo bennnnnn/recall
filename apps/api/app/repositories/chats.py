@@ -36,10 +36,8 @@ async def create(
     *,
     user_id: UUID,
     model: str,
-    project_id: UUID | None = None,
-    quiz_mode: str | None = None,
 ) -> Chat:
-    chat = Chat(user_id=user_id, model=model, project_id=project_id, quiz_mode=quiz_mode)
+    chat = Chat(user_id=user_id, model=model)
     session.add(chat)
     await session.commit()
     await session.refresh(chat)
@@ -48,8 +46,6 @@ async def create(
             id=chat.id,
             user_id=chat.user_id,
             model=chat.model,
-            project_id=chat.project_id,
-            quiz_mode=chat.quiz_mode,
         )
     )
     return chat

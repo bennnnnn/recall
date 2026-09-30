@@ -20,7 +20,6 @@ describe("optimisticTodo", () => {
       due_at: null,
       sort_order: 2,
       chat_id: null,
-      project_id: null,
     });
   });
 

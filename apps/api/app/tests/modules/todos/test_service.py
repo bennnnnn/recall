@@ -4,7 +4,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.models.schemas import TodoActionItem
@@ -52,18 +51,13 @@ def test_todo_create_accepts_plain_undated_item():
     assert body.recurrence_rule is None
 
 
-def test_todo_create_rejects_project_id():
-    with pytest.raises(ValidationError):
-        TodoCreate(
-            content="Call mom",
-            due_at=datetime.now(UTC),
-            project_id=uuid4(),
-        )
-
-
-def test_todo_update_rejects_project_id():
-    with pytest.raises(ValidationError):
-        TodoUpdate(project_id=uuid4())
+def test_todo_schemas_have_no_project_id():
+    assert "project_id" not in TodoCreate.model_fields
+    assert "project_id" not in TodoUpdate.model_fields
+    created = TodoCreate.model_validate({"content": "Call mom", "project_id": str(uuid4())})
+    assert "project_id" not in created.model_dump()
+    updated = TodoUpdate.model_validate({"project_id": str(uuid4())})
+    assert updated.model_dump(exclude_unset=True) == {}
 
 
 def test_todo_update_accepts_cleared_due_at():
@@ -107,25 +101,6 @@ async def test_update_todo_rejects_recurrence_without_due():
 
 
 @pytest.mark.asyncio
-async def test_create_todo_rejects_project_id():
-    session = AsyncMock()
-    user = MagicMock()
-    user.id = uuid4()
-    user.timezone = "UTC"
-    with pytest.raises(todos_crud.TodosError) as exc:
-        await todos_crud.create_todo(
-            session,
-            user,
-            content="Study",
-            topic="Reminders",
-            chat_id=None,
-            project_id=uuid4(),
-            due_at=datetime.now(UTC),
-        )
-    assert exc.value.status_code == 400
-
-
-@pytest.mark.asyncio
 async def test_create_todo_unique_violation_returns_existing():
     from sqlalchemy.exc import IntegrityError
 
@@ -159,7 +134,6 @@ async def test_create_todo_unique_violation_returns_existing():
             content="Call mom",
             topic="Reminders",
             chat_id=None,
-            project_id=None,
             due_at=due,
         )
     assert item is existing

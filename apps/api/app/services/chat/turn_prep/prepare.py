@@ -105,12 +105,9 @@ async def prepare_chat_turn(
     model = resolved_model
     indexable_attachment_ids: list[str] = []
     persist_task: asyncio.Task[list[str]] | None = None
-    chat_project_id: UUID | None = chat.project_id if chat is not None else None
-    quiz_mode = getattr(chat, "quiz_mode", None) if chat is not None else None
 
     async def _persist_user_message() -> list[str]:
         nonlocal user, chat, model, prior_count, turn_mode
-        nonlocal chat_project_id, quiz_mode
         indexable: list[str] = []
         if timing is not None:
             timing.mark_phase("persist_start")
@@ -142,8 +139,6 @@ async def prepare_chat_turn(
                 model = "vision-chat"
             if prior_count is None:
                 prior_count = await messages_repo.count_for_chat(session, chat_id)
-            chat_project_id = chat.project_id
-            quiz_mode = getattr(chat, "quiz_mode", None)
             if turn_mode is None:
                 turn_mode = await _classify_turn_mode(session, chat, content)
             user_message = await messages_repo.create(
@@ -241,7 +236,6 @@ async def prepare_chat_turn(
                 has_image_attachment=has_image_attachment,
                 image_math_extract=image_math_extract,
                 on_status=on_status,
-                quiz_mode=quiz_mode,
                 user=user,
                 chat=chat,
                 timing=timing,
@@ -282,7 +276,6 @@ async def prepare_chat_turn(
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
             on_status=on_status,
-            quiz_mode=quiz_mode,
             user=user,
             chat=chat,
             timing=timing,
@@ -346,7 +339,6 @@ async def prepare_chat_turn(
         reserved_tokens=reserved_tokens,
         user=user,
         prior_count=prior_count,
-        chat_project_id=chat_project_id,
         timing=timing,
         indexable_attachment_ids=indexable_attachment_ids,
         user_message_persist=persist_task,

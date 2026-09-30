@@ -1,7 +1,6 @@
 """SQLAlchemy mapped models. Prefer `from app.models.orm import User`.
 
-Learning classes map to the `projects` / `project_items` tables. Schedule
-exports `TodoItem`. Database table and column names are unchanged.
+Schedule exports `TodoItem`. Database table and column names are unchanged.
 """
 
 from app.models.orm.attachments import MessageChunk
@@ -16,14 +15,6 @@ from app.modules.integrations.models import (
     UserGmailConnection,
 )
 from app.modules.job_search.models import JobMatch, JobSearchProfile
-from app.modules.learning.models import (
-    Learning,
-    LearningItem,
-    LearningPracticeEvent,
-    QuizMissEvent,
-    VocabDeck,
-    VocabEntry,
-)
 from app.modules.memory.models import Memory, MemoryArea
 from app.modules.suggestions.models import Suggestion
 from app.modules.todos.models import TodoItem
@@ -34,16 +25,12 @@ __all__ = [
     "Chat",
     "JobMatch",
     "JobSearchProfile",
-    "Learning",
-    "LearningItem",
-    "LearningPracticeEvent",
     "Memory",
     "MemoryArea",
     "Message",
     "MessageChunk",
     "ProductEvent",
     "PushToken",
-    "QuizMissEvent",
     "SuggestedReminder",
     "Suggestion",
     "TodoItem",
@@ -51,6 +38,4 @@ __all__ = [
     "User",
     "UserCalendarConnection",
     "UserGmailConnection",
-    "VocabDeck",
-    "VocabEntry",
 ]

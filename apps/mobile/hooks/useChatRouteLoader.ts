@@ -77,7 +77,6 @@ export function useChatRouteLoader({
 }: Options) {
   const {
     draftChatIdRef,
-    draftProjectIdRef,
     skipLoadForChatIdRef,
     creatingRef,
     discardEmptyChat,
@@ -129,8 +128,7 @@ export function useChatRouteLoader({
     setChatTitle(chat.title);
     setPinned(chat.pinned);
     setArchived(Boolean(chat.archived));
-    draftProjectIdRef.current = chat.project_id ?? null;
-  }, [draftProjectIdRef]);
+  }, []);
   const olderRequestRef = useRef<object | null>(null);
   useEffect(() => () => {
     viewRef.current.version += 1;

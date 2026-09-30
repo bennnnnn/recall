@@ -29,7 +29,6 @@ class Chat(Base):
     __tablename__ = "chats"
     __table_args__ = (
         Index("ix_chats_user_updated", "user_id", "updated_at"),
-        Index("ix_chats_user_project", "user_id", "project_id"),
         Index("ix_chats_user_archived", "user_id", "archived"),
         # DB index (migration 0021) is actually:
         #   CREATE INDEX ix_chats_title_trgm ON chats USING gin (title gin_trgm_ops)
@@ -38,20 +37,12 @@ class Chat(Base):
         # declared on `title` so autogenerate knows an index with this name exists
         # here and won't propose dropping it.
         Index("ix_chats_title_trgm", "title"),
-        CheckConstraint(
-            "quiz_mode IS NULL OR quiz_mode IN ('exam', 'chat')",
-            name="ck_chats_quiz_mode",
-        ),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    project_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("projects.id", ondelete="SET NULL"), nullable=True
-    )
-    quiz_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
     title: Mapped[str | None] = mapped_column(String)
     model: Mapped[str] = mapped_column(String, default="free-chat")
     pinned: Mapped[bool] = mapped_column(Boolean, default=False)

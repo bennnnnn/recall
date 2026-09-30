@@ -571,8 +571,6 @@ def test_integration_hints_wraps_todos_section():
         memory_block="",
         attachment_rag_block="",
         todos_section="User Schedule\n### Today\n- ○ Milk at 09:00 (open, topic: Reminders)",
-        is_day_plan=False,
-        projects_block="",
         summary=None,
     )
     joined = "\n".join(parts)
@@ -599,8 +597,6 @@ def test_integration_hints_wraps_gmail_reminders_as_third_party():
         attachment_rag_block="",
         todos_section="User Schedule\n### Today\n- ○ Milk at 09:00 (open, topic: Reminders)",
         gmail_todos_section="### Today\n- ○ Pay invoice at 09:00 (open, topic: Reminders)",
-        is_day_plan=False,
-        projects_block="",
         summary=None,
     )
     joined = "\n".join(parts)

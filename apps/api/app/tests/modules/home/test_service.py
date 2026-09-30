@@ -9,12 +9,6 @@ from app.core.config import Settings
 from app.modules import home as home_service
 
 
-@pytest.fixture(autouse=True)
-def _empty_practice_history():
-    with patch("app.modules.learning.practice_repository.list_events", AsyncMock(return_value=[])):
-        yield
-
-
 def _user(**kwargs):
     u = MagicMock()
     u.id = kwargs.get("id", uuid4())
@@ -33,27 +27,6 @@ def _todo(content: str, *, minutes_from_now: int, topic: str = "Work"):
     item.due_at = due
     item.checked = False
     return item
-
-
-def _project(title: str = "Learning English", *, total: int = 5, daily_goal: int = 5):
-    project = MagicMock()
-    project.id = uuid4()
-    project.title = title
-    project.description = None
-    project.kind = "language"
-    project.level = "level2"
-    project.daily_goal = daily_goal
-    return project
-
-
-def _general_project(title: str = "General knowledge"):
-    project = MagicMock()
-    project.id = uuid4()
-    project.title = title
-    project.description = None
-    project.kind = "research"
-    project.level = None
-    return project
 
 
 def _fake_session_local():
@@ -77,28 +50,11 @@ def _home_patches(**overrides):
         "list_for_user_chats": [],
         "list_active_suggestions": [],
         "load_relevant_memories": [],
-        "list_projects": [],
         # Unpatched calendar/gmail AsyncMocks look "connected" and emit chips,
         # which incorrectly marks a cold account as warm.
         "integration_starters": [],
-        "count_learning_stats": {
-            "total": 0,
-            "new_count": 0,
-            "learning_count": 0,
-            "mastered_count": 0,
-            "added_this_week": 0,
-            "due_for_review": 0,
-            "mastered_today": 0,
-            "missed_today": 0,
-            "pending_today": 0,
-            "last_mastery_at": None,
-        },
     }
     defaults.update(overrides)
-    stats_payload = defaults["count_learning_stats"]
-
-    async def _count_stats_by_learning(_session, project_ids, *, timezone_by_project=None):
-        return {pid: stats_payload for pid in project_ids}
 
     with (
         patch.object(home_service, "SessionLocal", _fake_session_local()),
@@ -123,25 +79,6 @@ def _home_patches(**overrides):
             AsyncMock(return_value=defaults["load_relevant_memories"]),
         ),
         patch.object(
-            home_service.learning_repo,
-            "list_for_user",
-            AsyncMock(return_value=defaults["list_projects"]),
-        ),
-        patch.object(
-            home_service.learning_items_repo,
-            "list_for_learning",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
-            "app.modules.learning.stats.stats_from_items",
-            MagicMock(return_value=stats_payload),
-        ),
-        patch.object(
-            home_service.learning_items_repo,
-            "list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch.object(
             home_service,
             "integration_starters",
             AsyncMock(return_value=defaults["integration_starters"]),
@@ -153,8 +90,7 @@ def _home_patches(**overrides):
 @pytest.mark.asyncio
 async def test_build_home_screen_never_overlaps_ops_on_one_session():
     """Core home loaders run concurrently; each concurrent loader must use its
-    own session (asyncpg raises InterfaceError on overlap). Memories/chats load
-    only when there is no project highlight — still on separate sessions.
+    own session (asyncpg raises InterfaceError on overlap).
     """
     import asyncio
 
@@ -175,7 +111,6 @@ async def test_build_home_screen_never_overlaps_ops_on_one_session():
 
         return impl
 
-    empty_project_content = home_service.LearningHomeContent([], None, None, [], False)
     memories_mock = AsyncMock(side_effect=tracked("memories", []))
     chats_mock = AsyncMock(side_effect=tracked("chats", []))
     with (
@@ -202,11 +137,6 @@ async def test_build_home_screen_never_overlaps_ops_on_one_session():
         ),
         patch.object(
             home_service,
-            "load_learning_home_content",
-            AsyncMock(side_effect=tracked("projects", empty_project_content)),
-        ),
-        patch.object(
-            home_service,
             "integration_starters",
             AsyncMock(side_effect=tracked("integrations", [])),
         ),
@@ -217,48 +147,6 @@ async def test_build_home_screen_never_overlaps_ops_on_one_session():
     assert screen.greeting
     memories_mock.assert_awaited()
     chats_mock.assert_awaited()
-
-
-@pytest.mark.asyncio
-async def test_build_home_skips_memories_when_highlight_present():
-    session = AsyncMock()
-    user = _user()
-    project = _project()
-    memories_mock = AsyncMock(return_value=[])
-    chats_mock = AsyncMock(return_value=[])
-
-    with (
-        _home_patches(
-            list_projects=[project],
-            count_learning_stats={
-                "total": 5,
-                "new_count": 2,
-                "learning_count": 1,
-                "mastered_count": 0,
-                "added_this_week": 0,
-                "due_for_review": 2,
-                "mastered_today": 0,
-                "missed_today": 0,
-                "pending_today": 0,
-                "last_mastery_at": None,
-            },
-        ),
-        patch.object(
-            home_service.memory_service,
-            "load_relevant_memories",
-            memories_mock,
-        ),
-        patch.object(
-            home_service.chats_repo,
-            "list_for_user",
-            chats_mock,
-        ),
-    ):
-        screen = await home_service.build_home_screen(session, user, Settings())
-
-    assert screen.project_highlight is not None
-    memories_mock.assert_not_awaited()
-    chats_mock.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -333,237 +221,6 @@ async def test_build_home_greeting_uses_name():
     assert len(screen.starters) >= 2
 
 
-@pytest.mark.asyncio
-async def test_build_home_language_project_starters():
-    session = AsyncMock()
-    user = _user()
-    project = _project()
-
-    with _home_patches(
-        list_projects=[project],
-        count_learning_stats={
-            "total": 3,
-            "new_count": 2,
-            "learning_count": 1,
-            "mastered_count": 0,
-            "added_this_week": 0,
-            "due_for_review": 2,
-        },
-    ):
-        screen = await home_service.build_home_screen(session, user, Settings())
-
-    kinds = {s.kind for s in screen.starters}
-    starter_texts = {s.text for s in screen.starters}
-    assert screen.project_highlight is not None
-    assert screen.project_highlight.title == "Learning English"
-    assert screen.project_highlight.kind == "language"
-    assert screen.project_highlight.daily_goal == 5
-    assert screen.project_highlight.cue == "not_started_today"
-    assert "Review Learning English" not in starter_texts
-    assert "Start Learning English" not in starter_texts
-    assert "chat" not in kinds
-    assert "memory" not in kinds
-    assert screen.subtitle is None
-
-
-@pytest.mark.asyncio
-async def test_build_home_highlight_skips_duplicate_starters():
-    session = AsyncMock()
-    user = _user()
-    project = _project()
-    chat = MagicMock()
-    chat.id = uuid4()
-    chat.title = "English vocabulary practice"
-    memory = MagicMock()
-    memory.type = "project"
-    memory.text = "User is actively engaged in vocabulary expansion"
-
-    with _home_patches(
-        list_projects=[project],
-        list_for_user_chats=[chat],
-        load_relevant_memories=[memory],
-        count_learning_stats={
-            "total": 10,
-            "new_count": 3,
-            "learning_count": 4,
-            "mastered_count": 3,
-            "added_this_week": 1,
-            "due_for_review": 7,
-        },
-    ):
-        screen = await home_service.build_home_screen(session, user, Settings())
-
-    assert screen.project_highlight is not None
-    starter_texts = {s.text for s in screen.starters}
-    assert "Pick up where we left off" not in starter_texts
-    assert "Keep building" not in starter_texts
-    assert "Practice English" not in starter_texts
-
-
-@pytest.mark.asyncio
-async def test_build_home_language_review_chip_when_due():
-    session = AsyncMock()
-    user = _user()
-    project = _project()
-
-    with _home_patches(
-        list_projects=[project],
-        count_learning_stats={
-            "total": 10,
-            "new_count": 2,
-            "learning_count": 4,
-            "mastered_count": 3,
-            "added_this_week": 1,
-            "due_for_review": 4,
-            "mastered_today": 2,
-        },
-    ):
-        screen = await home_service.build_home_screen(session, user, Settings())
-
-    assert screen.project_highlight is not None
-    assert screen.project_highlight.cue == "continue"
-    assert screen.project_highlight.mastered_today == 2
-    assert screen.project_highlight.missed_today == 0
-    starter_texts = {s.text for s in screen.starters}
-    assert "Review Learning English" not in starter_texts
-    assert "Continue Learning English" not in starter_texts
-
-
-@pytest.mark.asyncio
-async def test_build_home_hides_vocab_card_when_daily_goal_met():
-    session = AsyncMock()
-    user = _user()
-    project = _project(daily_goal=5)
-    memory = MagicMock()
-    memory.type = "project"
-    memory.text = (
-        "User initiated an 'English · Beginner' vocabulary learning project with a "
-        "daily goal of mastering 5 new high-frequency words per session."
-    )
-
-    with _home_patches(
-        list_projects=[project],
-        load_relevant_memories=[memory],
-        count_learning_stats={
-            "total": 12,
-            "new_count": 2,
-            "learning_count": 0,
-            "mastered_count": 10,
-            "added_this_week": 5,
-            "due_for_review": 3,
-            "mastered_today": 5,
-            "pending_today": 0,
-            "last_mastery_at": datetime.now(UTC).isoformat(),
-        },
-    ):
-        screen = await home_service.build_home_screen(session, user, Settings())
-
-    assert screen.project_highlight is None
-    starter_texts = {s.text for s in screen.starters}
-    assert "Review Learning English" not in starter_texts
-    assert "Practice Learning English" not in starter_texts
-    assert "Keep building" not in starter_texts
-    assert "Practice English" not in starter_texts
-
-
-@pytest.mark.asyncio
-async def test_build_home_batches_daily_learning_stats():
-    session = AsyncMock()
-    user = _user()
-    language = _project()
-    spanish = _project("Learning Spanish")
-    spanish.target_language = "es"
-
-    with (
-        patch.object(home_service, "SessionLocal", _fake_session_local()),
-        patch.object(
-            home_service.todos_repo,
-            "list_due_soon",
-            AsyncMock(return_value=[]),
-        ),
-        patch.object(
-            home_service.chats_repo,
-            "list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch.object(
-            home_service.suggestions_repo,
-            "list_active",
-            AsyncMock(return_value=[]),
-        ),
-        patch.object(
-            home_service.memory_service,
-            "load_relevant_memories",
-            AsyncMock(return_value=[]),
-        ),
-        patch.object(
-            home_service.learning_repo,
-            "list_for_user",
-            AsyncMock(return_value=[spanish, language]),
-        ),
-        patch.object(
-            home_service.learning_items_repo,
-            "list_for_learning",
-            AsyncMock(return_value=[]),
-        ) as items_mock,
-        patch(
-            "app.modules.learning.stats.stats_from_items",
-            MagicMock(
-                return_value={
-                    "total": 3,
-                    "new_count": 2,
-                    "learning_count": 1,
-                    "mastered_count": 0,
-                    "added_this_week": 0,
-                    "due_for_review": 1,
-                    "mastered_today": 0,
-                    "missed_today": 0,
-                    "pending_today": 0,
-                    "last_mastery_at": None,
-                }
-            ),
-        ),
-    ):
-        await home_service.build_home_screen(session, user, Settings())
-
-    items_mock.assert_awaited_once()
-    assert set(items_mock.await_args.args[1]) == {language.id, spanish.id}
-
-
-@pytest.mark.asyncio
-async def test_build_home_ignores_legacy_non_daily_projects():
-    """Legacy programming/general projects must not become FOR YOU chips."""
-    session = AsyncMock()
-    user = _user()
-    project = _general_project(title="TypeScript · Programming")
-    chat = MagicMock()
-    chat.id = uuid4()
-    chat.title = "TypeScript chapter 1"
-    memory = MagicMock()
-    memory.type = "project"
-    memory.text = "User is learning TypeScript"
-
-    with _home_patches(
-        list_projects=[project],
-        list_for_user_chats=[chat],
-        load_relevant_memories=[memory],
-        count_learning_stats={
-            "total": 0,
-            "new_count": 0,
-            "learning_count": 0,
-            "mastered_count": 0,
-            "added_this_week": 0,
-            "due_for_review": 0,
-        },
-    ):
-        screen = await home_service.build_home_screen(session, user, Settings())
-
-    starter_texts = {s.text for s in screen.starters}
-    assert "Start TypeScript · Programming" not in starter_texts
-    assert "Continue TypeScript · Programming" not in starter_texts
-    assert not any("TypeScript" in t for t in starter_texts)
-
-
 def test_time_starters_vary_by_hour():
     user = _user()
     tz = home_service._resolve_home_tz(user, "UTC")
@@ -631,17 +288,6 @@ def test_client_timezone_overrides_profile():
     assert str(tz) == "America/New_York"
 
 
-def test_memory_blocked_when_language_daily_goal_met():
-    memory = MagicMock()
-    memory.type = "project"
-    memory.text = (
-        "User initiated an 'English · Beginner' vocabulary learning project with a "
-        "daily goal of mastering 5 new words per session."
-    )
-    completed = [("English · Beginner", "language")]
-    assert home_service._memory_blocked_by_completed_daily(memory, completed) is True
-
-
 def test_memory_starter_skips_profile_name_facts():
     memory = MagicMock()
     memory.type = "profile"
@@ -665,50 +311,6 @@ def test_pick_home_memory_skips_sensitive_sections():
     project.text = "Building a recipe app"
     picked = home_service.pick_home_memory([allergy, project])
     assert picked is project
-
-
-def test_memory_starter_english_learning_uses_specific_label():
-    memory = MagicMock()
-    memory.type = "focus"
-    memory.text = "User is learning English"
-    starter = home_service._memory_starter(memory)
-    assert starter is not None
-    assert starter.text == "Practice English"
-    assert "English learning" in starter.prompt
-
-
-def test_memory_starter_profile_english_learning():
-    memory = MagicMock()
-    memory.type = "profile"
-    memory.text = "User is learning English vocabulary"
-    starter = home_service._memory_starter(memory)
-    assert starter is not None
-    assert starter.text == "Practice English"
-
-
-@pytest.mark.asyncio
-async def test_build_home_hides_practice_english_without_language_project():
-    """Stale English memories must not show Practice English after class delete."""
-    session = AsyncMock()
-    user = _user()
-    memory = MagicMock()
-    memory.type = "focus"
-    memory.text = "User is learning English vocabulary"
-    suggestion = MagicMock()
-    suggestion.id = uuid4()
-    suggestion.text = "Practice English vocabulary for 10 minutes"
-
-    with _home_patches(
-        load_relevant_memories=[memory],
-        list_active_suggestions=[suggestion],
-        list_projects=[],
-    ):
-        screen = await home_service.build_home_screen(session, user, Settings())
-
-    starter_texts = {s.text for s in screen.starters}
-    assert "Practice English" not in starter_texts
-    assert not any("English" in s.text for s in screen.starters)
-    assert not any("vocabulary" in (s.prompt or "").lower() for s in screen.starters)
 
 
 def test_chat_starter_uses_friendly_label():
@@ -784,8 +386,25 @@ def test_looks_internal_filters_user_facts():
     assert not home_service._looks_internal("Building the Recall app")
 
 
-def test_looks_internal_allows_learning_facts():
+def test_looks_internal_allows_ordinary_facts():
     assert not home_service._looks_internal("User is learning English")
+
+
+def test_memory_starter_focus_uses_progress_label():
+    memory = MagicMock()
+    memory.type = "focus"
+    memory.text = "User is learning English"
+    starter = home_service._memory_starter(memory)
+    assert starter is not None
+    assert starter.text == "Make some progress"
+    assert "learning English" in starter.prompt
+
+
+def test_memory_starter_profile_is_not_a_chip():
+    memory = MagicMock()
+    memory.type = "profile"
+    memory.text = "User is learning English vocabulary"
+    assert home_service._memory_starter(memory) is None
 
 
 @pytest.mark.asyncio
@@ -796,7 +415,6 @@ async def test_get_home_screen_cached_reuses_redis(fake_redis):
     screen = home_service.HomeScreenOut(
         greeting="Hi",
         subtitle=None,
-        project_highlight=None,
         urgent_todos=[],
         starters=[],
     )
@@ -841,7 +459,6 @@ async def test_get_home_screen_cached_rebuilds_after_invalidate(fake_redis):
     screen = home_service.HomeScreenOut(
         greeting="Hi",
         subtitle=None,
-        project_highlight=None,
         urgent_todos=[],
         starters=[],
     )

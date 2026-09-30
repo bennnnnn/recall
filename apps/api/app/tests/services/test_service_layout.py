@@ -3,7 +3,7 @@
 Every split this repo has had started the same way — a domain got a package,
 then the next module landed next to it as `services/<domain>_<thing>.py`
 because that was one line cheaper than moving in. Math reached three sibling
-packages and six loose files that way; chemistry, learning and notifications
+packages and six loose files that way; chemistry and notifications
 each grew a second copy of themselves as compatibility aliases.
 
 These tests fail on the first module that starts it again.
@@ -22,7 +22,7 @@ PREFIX_ALIASES = {
     "attachments": ("attachment",),
     "images": ("image",),
     # "reminder" is deliberately absent: reminder_timing.py is shared by
-    # notifications/, home/ and learning/, so it belongs at services/ root.
+    # notifications/ and home/, so it belongs at services/ root.
     "notifications": ("notification", "push"),
     "physics": ("physic",),
 }

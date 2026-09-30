@@ -89,8 +89,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 5.6 | Relevant detail from an older chat is recalled on an ordinary turn | ☐ | ☐ | User should not need to say “remember” or “last time” |
 | 5.7 | Correction and forget commands update recall | ☐ | ☐ | New employer supersedes old; explicit forget removes the fact from future prompts |
 | 5.8 | Todos CRUD + reminders | ☐ | ☐ | |
-| 5.9 | Learning project — vocab quiz flow | ☐ | ☐ | |
-| 5.10 | Trivia project quiz | ☐ | ☐ | |
+| 5.9 | Teach-me chat lesson advances one step | ☐ | ☐ | Ordinary chat, not a Learning screen |
 | 5.11 | Home suggestions load | ☐ | ☐ | |
 
 ---
@@ -110,7 +109,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|
 | 7.1 | Push permission + token registration | ☐ | ☐ | Dev build |
-| 7.2 | Learning reminder push (scheduled) | ☐ | ☐ | Worker process must run |
+| 7.2 | Reminder push (scheduled) | ☐ | ☐ | Worker process must run |
 | 7.3 | RevenueCat paywall + Pro unlock | ☐ | ☐ | Sandbox purchases |
 | 7.4 | Pro quota (500k) reflected in Settings | ☐ | ☐ | |
 
@@ -196,8 +195,8 @@ These were explicitly removed. If any reappears, it's a regression.
 | 14.2 | Show more / Show less on assistant message bodies | ☐ | ☐ | Code-block fold is OK; assistant body stays unfolded |
 | 14.3 | `chat.model_fallback` / "switched to…" / "summarized" chips | ☐ | ☐ | Backend may send; UI must not surface |
 | 14.4 | Image-gen prompt sheet / attach-menu "Generate image" | ☐ | ☐ | Composer-only; no second intercept |
-| 14.5 | Project filter chips / "Link to project" on reminders | ☐ | ☐ | Schedule and Learning stay separate |
-| 14.6 | Empty-state body / "Add" button duplicating the FAB | ☐ | ☐ | Learning + Schedule empty: icon + title only |
+| 14.5 | Project filter chips / "Link to project" on reminders | ☐ | ☐ | Schedule has no Learning link |
+| 14.6 | Empty-state body / "Add" button duplicating the FAB | ☐ | ☐ | Schedule empty: icon + title only |
 | 14.7 | Drawer Lists row / shopping checklist UI | ☐ | ☐ | Lists feature removed; do not reintroduce |
 | 14.8 | User-message edit / resend (pencil, truncated re-run) | ☐ | ☐ | Long-press on a user bubble is copy only |
 

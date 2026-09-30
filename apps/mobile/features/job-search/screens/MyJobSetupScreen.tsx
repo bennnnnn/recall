@@ -16,8 +16,8 @@ export default function MyJobSetupScreen() {
   return <MyJobSetupView key={owner.key} isCurrent={owner.isCurrent} />;
 }
 
-/** Multi-step job-search setup as a pushed screen (matches Learning create:
- *  multi-step forms are screens, short forms are sheets). */
+/** Multi-step job-search setup as a pushed screen. Multi-step forms are
+ *  screens; short forms are sheets. */
 function MyJobSetupView({ isCurrent }: { isCurrent: () => boolean }) {
   const { token } = useAuth();
   const { t } = useTranslation();

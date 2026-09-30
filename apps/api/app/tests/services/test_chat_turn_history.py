@@ -17,7 +17,7 @@ from app.tests.services.chat_test_support import FakeSessionCM
 async def test_next_turn_history_includes_pending_assistant_after_finalize():
     user = MagicMock(id=uuid4(), plan="free")
     chat_id = uuid4()
-    chat = MagicMock(project_id=None, quiz_mode=None)
+    chat = MagicMock(project_id=None)
     committed = False
     recent = [
         SimpleNamespace(id=uuid4(), role="user", content="Name a city", model="free-chat"),

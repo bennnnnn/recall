@@ -28,8 +28,6 @@ type Options = {
   suggestions?: Suggestion[];
   onSelectSuggestion?: (prompt: string) => void;
   onDismissSuggestion?: (id: string) => void;
-  lessonProjectId?: string | null;
-  onOpenLesson?: (projectId: string) => void;
   imageGenerating?: boolean;
   onRetryImageGen?: () => void;
 };
@@ -48,8 +46,6 @@ export function useChatMessageList({
   suggestions = [],
   onSelectSuggestion,
   onDismissSuggestion,
-  lessonProjectId = null,
-  onOpenLesson,
   imageGenerating = false,
   onRetryImageGen,
 }: Options) {
@@ -99,8 +95,6 @@ export function useChatMessageList({
       sendingMessageId,
       onRegenerate: regenerateResponse,
       onFeedback: handleFeedback,
-      lessonProjectId,
-      onOpenLesson,
       onRetryImageGen,
     }),
     [
@@ -110,8 +104,6 @@ export function useChatMessageList({
       sendingMessageId,
       regenerateResponse,
       handleFeedback,
-      lessonProjectId,
-      onOpenLesson,
       onRetryImageGen,
     ],
   );

@@ -29,7 +29,6 @@ from app.core.redis import get_redis_client
 from app.modules.attachments import jobs as attachment_indexing
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.integrations import jobs as gmail_sync
-from app.modules.learning import jobs as learning_jobs
 from app.modules.memory import consolidation_workflow as memory_consolidation
 from app.modules.memory import extraction_workflow as memory_extraction
 from app.modules.memory import history_scan as memory_history_scan
@@ -182,28 +181,6 @@ async def _handle_todos(settings: Settings, payload: dict[str, Any]) -> None:
     )
 
 
-async def _handle_projects(settings: Settings, payload: dict[str, Any]) -> None:
-    if await _spend_capped(settings):
-        return
-    await learning_jobs.sync_learning_from_chat(
-        settings,
-        user_id=UUID(payload["user_id"]),
-        chat_id=UUID(payload["chat_id"]),
-        transcript=payload["transcript"],
-    )
-
-
-async def _handle_language_path(settings: Settings, payload: dict[str, Any]) -> None:
-    # Curated catalog reconciliation has no provider calls or AI spending.
-    from app.modules.learning.path_seed import seed_language_path
-
-    await seed_language_path(
-        settings,
-        user_id=UUID(payload["user_id"]),
-        project_id=UUID(payload["project_id"]),
-    )
-
-
 async def _handle_compress(settings: Settings, payload: dict[str, Any]) -> None:
     if await _spend_capped(settings):
         return
@@ -292,8 +269,6 @@ def register_all() -> None:
     register("memory_consolidate", _handle_memory_consolidate)
     register(memory_history_scan.HISTORY_SCAN_JOB, _handle_memory_history_scan)
     register("todos", _handle_todos)
-    register("projects", _handle_projects)
-    register("language_path", _handle_language_path)
     register("compress", _handle_compress)
     register("suggestions", _handle_suggestions)
     register("gmail_sync", _handle_gmail_sync)

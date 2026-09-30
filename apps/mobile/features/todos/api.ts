@@ -28,7 +28,6 @@ export const todosApi = {
     topic = "General",
     options?: {
       chatId?: string;
-      projectId?: string | null;
       dueAt?: string | null;
       recurrenceRule?: Todo["recurrence_rule"];
     },
@@ -39,7 +38,6 @@ export const todosApi = {
         content,
         topic,
         chat_id: options?.chatId ?? null,
-        project_id: options?.projectId ?? undefined,
         due_at: options?.dueAt ?? undefined,
         recurrence_rule: options?.recurrenceRule ?? undefined,
       }),
@@ -56,7 +54,6 @@ export const todosApi = {
         | "due_at"
         | "recurrence_rule"
         | "sort_order"
-        | "project_id"
       >
     >,
   ) =>

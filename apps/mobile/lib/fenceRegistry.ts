@@ -26,7 +26,7 @@
  * preview, and preprocess — freeze the set unless the user-visible object is
  * truly new.
  *
- * Calendar / reminder / settings / vocab-quiz control fences are parsed
+ * Calendar / reminder / settings control fences are parsed
  * outside this registry (see assistantMessageContent.ts).
  */
 
@@ -45,7 +45,6 @@ export type FenceId =
   | "geometry"
   | "graph"
   | "keyvalue"
-  | "learning_launch"
   | "math"
   | "mermaid"
   | "message"
@@ -288,13 +287,6 @@ export const FENCES: readonly FenceSpec[] = [
     owner: "server",
     fallback: "sources",
   },
-  {
-    id: "learning_launch",
-    langs: ["learning_launch"],
-    structured: false,
-    neverCodeBlock: true,
-    owner: "server",
-  },
 ];
 
 const BY_LANG = new Map<string, FenceSpec>();
@@ -385,14 +377,9 @@ export function isDiagramFenceId(id: FenceId | undefined): boolean {
 /** Prompt-control JSON plus registry transport fences — never copy or speak. */
 export function isControlFenceLang(lang: string): boolean {
   const id = fenceIdForLang(lang);
-  if (id === "sources" || id === "places" || id === "learning_launch") return true;
+  if (id === "sources" || id === "places") return true;
   const l = normalize(lang);
-  return (
-    l === "reminder" ||
-    l === "calendar_proposal" ||
-    l === "settings_proposal" ||
-    l === "vocab_quiz"
-  );
+  return l === "reminder" || l === "calendar_proposal" || l === "settings_proposal";
 }
 
 /** Lift these out of list items so CommonMark treats them as real fences. */

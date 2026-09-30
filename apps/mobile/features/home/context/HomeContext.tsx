@@ -111,7 +111,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
     void refresh({ silent: true });
   }, [refresh, token, userName]);
 
-  // Focus refresh lives on chat / Learning screens — this provider wraps the
+  // Focus refresh lives on the chat screen — this provider wraps the
   // whole stack and must not refetch on every route change.
   useEffect(() => {
     if (!token) return;

@@ -42,7 +42,6 @@ def test_list_todos_returns_items():
     todo_mock.checked = False
     todo_mock.due_at = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -98,7 +97,6 @@ def test_create_todo():
     todo_mock.due_at = None
     todo_mock.sort_order = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -134,7 +132,6 @@ def test_create_todo_with_chat_id():
     todo_mock.due_at = None
     todo_mock.sort_order = None
     todo_mock.chat_id = cid
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -208,36 +205,6 @@ def test_create_todo_with_unowned_chat_id_404s():
     assert r.status_code == 400
 
 
-def test_create_todo_with_project_id():
-    from fastapi.testclient import TestClient
-
-    pid = uuid4()
-    user = _fake_user()
-    app = _app_with_user(user)
-    client = TestClient(app)
-    r = client.post(
-        "/todos",
-        headers={"Authorization": "Bearer tok"},
-        json={"content": "Study vocab", "project_id": str(pid), "due_at": _DUE_AT},
-    )
-    assert r.status_code == 422
-
-
-def test_create_todo_with_other_users_project_id_rejected():
-    from fastapi.testclient import TestClient
-
-    pid = uuid4()
-    user = _fake_user()
-    app = _app_with_user(user)
-    client = TestClient(app)
-    r = client.post(
-        "/todos",
-        headers={"Authorization": "Bearer tok"},
-        json={"content": "x", "project_id": str(pid), "due_at": _DUE_AT},
-    )
-    assert r.status_code == 422
-
-
 def test_update_todo():
     from fastapi.testclient import TestClient
 
@@ -250,7 +217,6 @@ def test_update_todo():
     todo_mock.checked = True
     todo_mock.due_at = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -268,22 +234,6 @@ def test_update_todo():
         )
     assert r.status_code == 200
     assert r.json()["checked"] is True
-
-
-def test_update_todo_project_id():
-    from fastapi.testclient import TestClient
-
-    tid = uuid4()
-    pid = uuid4()
-    user = _fake_user()
-    app = _app_with_user(user)
-    client = TestClient(app)
-    r = client.patch(
-        f"/todos/{tid}",
-        headers={"Authorization": "Bearer tok"},
-        json={"project_id": str(pid)},
-    )
-    assert r.status_code == 422
 
 
 def test_update_todo_not_found():
@@ -388,7 +338,6 @@ def test_create_todo_normalizes_naive_due_at_to_user_timezone():
     todo_mock.due_at = None
     todo_mock.sort_order = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -431,7 +380,6 @@ def test_create_todo_accepts_plain_undated_item():
     todo_mock.recurrence_rule = None
     todo_mock.sort_order = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
     user = _fake_user()
@@ -466,7 +414,6 @@ def test_update_todo_can_clear_due_at_and_repeat():
     todo_mock.recurrence_rule = "weekly"
     todo_mock.sort_order = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -481,7 +428,6 @@ def test_update_todo_can_clear_due_at_and_repeat():
     updated_mock.recurrence_rule = None
     updated_mock.sort_order = None
     updated_mock.chat_id = None
-    updated_mock.project_id = None
     updated_mock.created_at = now
     updated_mock.updated_at = now
     update_mock = AsyncMock(return_value=updated_mock)
@@ -514,7 +460,6 @@ def test_update_todo_normalizes_naive_due_at():
     todo_mock.checked = False
     todo_mock.due_at = None
     todo_mock.chat_id = None
-    todo_mock.project_id = None
     todo_mock.created_at = now
     todo_mock.updated_at = now
 
@@ -541,56 +486,14 @@ def test_update_todo_normalizes_naive_due_at():
     assert due_at.hour == 0
 
 
-# ── projects router ─────────────────────────────────────────────────────────
-
-
-def test_list_projects_empty():
+def test_projects_routes_are_gone():
     from fastapi.testclient import TestClient
 
-    user = _fake_user()
-    app = _app_with_user(user)
-    with patch("app.modules.learning.api.learning_repo.list_for_user", AsyncMock(return_value=[])):
-        client = TestClient(app)
-        r = client.get("/projects", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 200
-    assert r.json() == []
+    from app.main import app
 
-
-def test_create_project():
-    from fastapi.testclient import TestClient
-
-    user = _fake_user()
-    app = _app_with_user(user)
-    project_id = uuid4()
-    now = datetime.now(UTC)
-    fake = MagicMock()
-    fake.id = project_id
-    fake.title = "Learning English"
-    fake.description = "Daily vocab"
-    fake.kind = "language"
-    fake.target_language = "en"
-    fake.native_language = None
-    fake.level = "level1"
-    fake.archived = False
-    fake.created_at = now
-    fake.updated_at = now
-
-    with (
-        patch("app.modules.learning.api.learning_repo.create", AsyncMock(return_value=fake)),
-        patch(
-            "app.modules.learning.api.learning_repo.find_language_by_target",
-            AsyncMock(return_value=None),
-        ),
-    ):
-        client = TestClient(app)
-        r = client.post(
-            "/projects",
-            headers={"Authorization": "Bearer tok"},
-            json={"title": "Learning English", "kind": "vocabulary"},
-        )
-    assert r.status_code == 201
-    assert r.json()["title"] == "Learning English"
-    assert r.json()["kind"] == "language"
+    client = TestClient(app)
+    assert client.get("/projects").status_code == 404
+    assert client.post("/projects", json={"title": "Spanish"}).status_code == 404
 
 
 # ── search router ───────────────────────────────────────────────────────────

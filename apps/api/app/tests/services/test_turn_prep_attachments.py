@@ -126,8 +126,6 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
     user.id = user_id
     chat = MagicMock()
     chat.id = chat_id
-    chat.project_id = None
-    chat.quiz_mode = None
 
     row = MagicMock()
     row.message_id = None
@@ -269,8 +267,6 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
     user.id = user_id
     chat = MagicMock()
     chat.id = chat_id
-    chat.project_id = None
-    chat.quiz_mode = None
 
     row = MagicMock()
     row.message_id = None
@@ -693,8 +689,6 @@ async def test_prepare_overlap_returns_before_persist_commit():
     user.id = uuid4()
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
     chat.summary = None
     mode = _TurnMode(
         lightweight=True,

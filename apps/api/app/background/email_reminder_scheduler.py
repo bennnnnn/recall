@@ -1,4 +1,4 @@
-"""Periodic email reminder scheduler — todo due + learning nudges (opt-in)."""
+"""Periodic email reminder scheduler — dated to-do reminders (opt-in)."""
 
 from __future__ import annotations
 
@@ -13,7 +13,6 @@ from app.background.periodic import (
 )
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.redis import get_redis_client
 from app.modules.notifications import reminder_email as reminder_emails
 
 logger = logging.getLogger(__name__)
@@ -29,9 +28,8 @@ def _email_reminders_enabled(settings: Settings) -> bool:
 
 
 async def _email_cycle(settings: Settings, _lock: CycleLock) -> None:
-    redis = get_redis_client()
     async with SessionLocal() as session:
-        count = await reminder_emails.run_email_reminder_cycle(session, redis, settings)
+        count = await reminder_emails.run_email_reminder_cycle(session, settings)
         if count:
             logger.info("Email reminder cycle sent count=%s", count)
 

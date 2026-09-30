@@ -13,7 +13,6 @@ from app.services.chat.prompt_builder import (
 )
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
-    is_learning_progress_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
     is_writing_deliverable_request,
@@ -98,10 +97,6 @@ async def test_build_prompt_includes_email_draft_hint_for_email_request():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
-        patch(
             "app.repositories.messages.list_recent",
             AsyncMock(return_value=[]),
         ),
@@ -140,10 +135,6 @@ async def test_build_prompt_includes_comparison_table_hint():
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
-            AsyncMock(return_value=""),
-        ),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -191,10 +182,6 @@ async def test_build_prompt_includes_chart_vega_hint():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
-        patch(
             "app.repositories.messages.list_recent",
             AsyncMock(return_value=[]),
         ),
@@ -237,10 +224,6 @@ async def test_build_prompt_includes_mermaid_layout_hint():
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
-            AsyncMock(return_value=""),
-        ),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -541,10 +524,6 @@ async def test_build_prompt_injects_custom_instructions():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
-        patch(
             "app.repositories.messages.list_recent",
             AsyncMock(return_value=[]),
         ),
@@ -585,7 +564,6 @@ async def test_build_prompt_strips_solver_fences_from_recent_assistant():
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=None)),
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value="")),
-        patch("app.modules.learning.load_learning_classes_for_prompt", AsyncMock(return_value="")),
         patch("app.repositories.messages.list_recent", AsyncMock(return_value=recent)),
     ):
         messages = await build_prompt_messages(
@@ -615,7 +593,6 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
     user.custom_instructions = None
 
     passed_chat = MagicMock()
-    passed_chat.project_id = None
     passed_chat.summary = None
     passed_chat.summary_message_count = 0
 
@@ -629,10 +606,6 @@ async def test_build_prompt_reuses_passed_chat_without_db_fetch():
         ),
         patch(
             "app.modules.todos.build_todos_system_section",
-            AsyncMock(return_value=""),
-        ),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
             AsyncMock(return_value=""),
         ),
         patch(
@@ -674,10 +647,6 @@ async def test_build_prompt_omits_custom_instructions_block_when_empty():
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
-        patch(
             "app.repositories.messages.list_recent",
             AsyncMock(return_value=[]),
         ),
@@ -716,10 +685,6 @@ async def test_build_prompt_includes_memory_and_style():
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
         ),
         patch(
             "app.repositories.chats.get_by_id",
@@ -777,10 +742,6 @@ async def test_build_prompt_recalled_count_counts_section_headers():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
-        patch(
             "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
@@ -820,10 +781,6 @@ async def test_build_prompt_recalled_count_zero_when_no_memory():
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
-        patch(
             "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
@@ -859,10 +816,6 @@ async def test_build_prompt_includes_response_tone():
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
         ),
         patch(
             "app.repositories.chats.get_by_id",
@@ -902,10 +855,6 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
         ),
         patch(
             "app.repositories.chats.get_by_id",
@@ -1013,10 +962,10 @@ def test_social_turns_are_not_short_replies(text):
         ("what's my name", True),
         ("draft an email to my wife", True),
         ("don't forget my preference for tea", True),
-        ("What word did I learn today", True),
-        ("what words did I study", True),
-        ("how many words have I mastered", True),
-        ("what's my vocab progress", True),
+        ("What word did I learn today", False),
+        ("what words did I study", False),
+        ("how many words have I mastered", False),
+        ("what's my vocab progress", False),
         ("what's another word for happy", False),
         ("cuales son mis proyectos", True),
         ("escribeme un correo", True),
@@ -1069,22 +1018,6 @@ def test_needs_rich_context(text, expected):
 )
 def test_is_personal_advice_question(text, expected):
     assert is_personal_advice_question(text) is expected
-
-
-@pytest.mark.parametrize(
-    "text, expected",
-    [
-        ("What word did I learn today", True),
-        ("what words did I study", True),
-        ("how many words have I mastered", True),
-        ("today's lesson", True),
-        ("what's another word for happy", False),
-        ("tell me a joke", False),
-        ("explain photosynthesis", False),
-    ],
-)
-def test_is_learning_progress_question(text, expected):
-    assert is_learning_progress_question(text) is expected
 
 
 @pytest.mark.asyncio
@@ -1259,7 +1192,7 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
 
 @pytest.mark.asyncio
 async def test_build_prompt_advice_loads_memory_not_integrations():
-    """Dinner recs retrieve memory without Calendar/Gmail/Schedule/Learning."""
+    """Dinner recs retrieve memory without Calendar, Gmail, or Schedule."""
     user = MagicMock()
     user.name = "Dev User"
     user.email = "dev@example.com"
@@ -1272,7 +1205,6 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     user.timezone = "UTC"
     user.custom_instructions = None
     chat = MagicMock()
-    chat.project_id = None
 
     with (
         patch("app.repositories.messages.list_recent", return_value=[]),
@@ -1284,10 +1216,6 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
         ) as todos_mock,
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value="PROJECTS SHOULD NOT LOAD"),
-        ) as projects_mock,
     ):
         messages = await build_prompt_messages(
             user,
@@ -1303,13 +1231,11 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     memory_mock.assert_awaited()
     assert memory_mock.await_args.kwargs["exclude_sensitive"] is True
     todos_mock.assert_not_awaited()
-    projects_mock.assert_not_awaited()
     system = messages[0]["content"]
     assert "Prefers vegetarian food" in system
     assert "[BEGIN UNTRUSTED CONTENT — memory]" in system
     assert "personal recommendation" in system
     assert "TODOS SHOULD NOT LOAD" not in system
-    assert "PROJECTS SHOULD NOT LOAD" not in system
     assert "The user may have Google Calendar connected" not in system
     assert "The user may have Gmail" not in system
 
@@ -1328,7 +1254,6 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     user.timezone = "UTC"
     user.custom_instructions = None
     chat = MagicMock()
-    chat.project_id = None
 
     with (
         patch("app.repositories.messages.list_recent", return_value=[]),
@@ -1340,10 +1265,6 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
         ) as todos_mock,
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value="PROJECTS SHOULD NOT LOAD"),
-        ) as projects_mock,
     ):
         messages = await build_prompt_messages(
             user,
@@ -1358,7 +1279,6 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
 
     memory_mock.assert_awaited()
     todos_mock.assert_not_awaited()
-    projects_mock.assert_not_awaited()
     system = messages[0]["content"]
     assert "Building Recall" in system
     assert "capabilities overview" in system.lower()
@@ -1420,10 +1340,6 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
-        patch(
             "app.modules.attachments.chunks_repository.has_chunks_for_chat",
             AsyncMock(return_value=True),
         ),
@@ -1481,10 +1397,6 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
         patch(
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
         ),
         patch(
             "app.modules.attachments.chunks_repository.has_chunks_for_chat",
@@ -1546,10 +1458,6 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
             "app.modules.todos.build_todos_system_section",
             AsyncMock(return_value=None),
         ),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
     ):
         messages = await build_prompt_messages(
             user,
@@ -1568,140 +1476,11 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
 
 
 @pytest.mark.asyncio
-async def test_build_prompt_day_planning_injects_daily_learning():
-    user = MagicMock()
-    user.id = uuid4()
-    user.name = "Dev User"
-    user.email = "dev@example.com"
-    user.location = None
-    user.location_enabled = False
-    user.response_style = "balanced"
-    user.response_tone = "casual"
-    user.memory_enabled = False
-    user.locale = "en"
-    user.timezone = "America/Los_Angeles"
-    user.custom_instructions = None
-
-    learning_block = (
-        "Today's learning progress (local calendar day, authoritative):\n"
-        "- English · Beginner (vocabulary quiz): 0/5 words mastered today "
-        "(not started — 5 left for today's vocabulary quiz)"
-    )
-
-    with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
-        patch(
-            "app.modules.memory.get_memory_block",
-            AsyncMock(return_value=""),
-        ),
-        patch(
-            "app.modules.todos.build_todos_system_section",
-            AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.modules.learning.load_daily_learning_summary_for_prompt",
-            AsyncMock(return_value=learning_block),
-        ) as daily_mock,
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value="SHOULD NOT USE"),
-        ),
-        patch(
-            "app.repositories.chats.get_by_id",
-            AsyncMock(return_value=None),
-        ),
-    ):
-        messages = await build_prompt_messages(
-            user,
-            uuid4(),
-            Settings(attachment_rag_enabled=False),
-            query_text="What's still open for me to finish tonight?",
-            client_timezone="America/Los_Angeles",
-        )
-
-    daily_mock.assert_awaited_once()
-    system = messages[0]["content"]
-    assert learning_block in system
-    assert "vocabulary quiz" in system
-    assert "Never reuse yesterday's scores from memory" in system
-    assert "SHOULD NOT USE" not in system
-    assert "Always mention both Calendar and Gmail" not in system
-    assert "Skip a product with no block" in system
-    assert "Only mention Calendar or Gmail" in system
-    assert "ordinary markdown prose" in system
-    assert "Never a card" in system
-    assert "quote card" in system
-    assert "Settings → Google Calendar" in system
-    assert "Settings → Gmail" in system
-
-
-@pytest.mark.asyncio
-async def test_build_prompt_learning_progress_injects_today_words():
-    user = MagicMock()
-    user.id = uuid4()
-    user.name = "Dev User"
-    user.email = "dev@example.com"
-    user.location = None
-    user.location_enabled = False
-    user.response_style = "balanced"
-    user.response_tone = "casual"
-    user.memory_enabled = False
-    user.locale = "en"
-    user.timezone = "America/Los_Angeles"
-    user.custom_instructions = None
-
-    today_block = (
-        "Words from today's session (authoritative):\n"
-        "You ARE connected to the user's Recall Learning class.\n"
-        "- English: learned/mastered: apple, book"
-    )
-
-    with (
-        patch("app.repositories.messages.list_recent", return_value=[]),
-        patch(
-            "app.modules.memory.get_memory_block",
-            AsyncMock(return_value=""),
-        ),
-        patch(
-            "app.modules.todos.build_todos_system_section",
-            AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value="User learning topics:\n### English"),
-        ),
-        patch(
-            "app.modules.learning.load_today_learning_words_for_prompt",
-            AsyncMock(return_value=today_block),
-        ) as today_mock,
-        patch(
-            "app.repositories.chats.get_by_id",
-            AsyncMock(return_value=None),
-        ),
-    ):
-        messages = await build_prompt_messages(
-            user,
-            uuid4(),
-            Settings(attachment_rag_enabled=False),
-            query_text="What word did I learn today",
-            client_timezone="America/Los_Angeles",
-        )
-
-    today_mock.assert_awaited_once()
-    system = messages[0]["content"]
-    assert "apple, book" in system
-    assert "You ARE connected" in system
-    assert "not connected to their learning" in system.lower() or "ARE connected" in system
-
-
-@pytest.mark.asyncio
 async def test_classify_turn_mode_hi_is_lightweight():
     from app.services.chat.turn_prep.mode import _classify_turn_mode
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, "hi")
 
@@ -1716,8 +1495,6 @@ async def test_classify_turn_mode_yes_after_offer_is_not_lightweight():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
     prior = MagicMock()
     prior.content = "Want me to check the current result?"
     get_last = AsyncMock(return_value=prior)
@@ -1735,8 +1512,6 @@ async def test_classify_turn_mode_no_after_a_question_is_not_lightweight():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
     prior = MagicMock()
     prior.content = "Better late than never: it's good to act even after a delay. Understood?"
     get_last = AsyncMock(return_value=prior)
@@ -1754,8 +1529,6 @@ async def test_classify_turn_mode_hi_does_not_load_last_assistant():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
     get_last = AsyncMock(return_value=MagicMock())
 
     with patch("app.services.chat.turn_prep.mode.messages_repo.get_last_assistant", get_last):
@@ -1771,8 +1544,6 @@ async def test_classify_turn_mode_eat_tonight_is_advice_memory():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, "what should I eat tonight")
 
@@ -1787,8 +1558,6 @@ async def test_classify_turn_mode_capabilities_overview_is_advice_memory():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(
         AsyncMock(),
@@ -1807,8 +1576,6 @@ async def test_classify_turn_mode_milk_preference_is_advice_memory():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, "What milk do I drink.")
 
@@ -1829,8 +1596,6 @@ async def test_classify_turn_mode_ordinary_advice_phrasing_loads_memory(text: st
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, text)
 
@@ -1845,8 +1610,6 @@ async def test_classify_turn_mode_day_plan_skips_advice_memory():
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     mode = await _classify_turn_mode(AsyncMock(), chat, "anything left tonight")
 
@@ -1959,10 +1722,6 @@ async def test_build_prompt_passes_client_timezone():
             load_todos,
         ),
         patch(
-            "app.modules.learning.load_learning_classes_for_prompt",
-            AsyncMock(return_value=""),
-        ),
-        patch(
             "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None),
         ),
@@ -1983,43 +1742,13 @@ async def test_build_prompt_passes_client_timezone():
     format_time.assert_called_once_with("America/New_York", "en", None)
 
 
-def test_is_vocab_quiz_answer():
-    from app.modules.web_search import is_vocab_quiz_answer
+def test_is_short_letter_answer():
+    from app.modules.web_search import is_short_letter_answer
 
-    assert is_vocab_quiz_answer("B") is True
-    assert is_vocab_quiz_answer("c.") is True
-    assert is_vocab_quiz_answer("Is it a?") is True
-    assert is_vocab_quiz_answer("hello") is False
-
-
-def test_strip_vocab_session_metadata():
-    from app.modules.learning.fences import strip_learning_chat_fences
-
-    content = (
-        "You've mastered all 5 words today.\n\n"
-        "```json\n"
-        '{"session_complete":true,"words_learned":5,"streak":1}\n'
-        "```"
-    )
-    assert strip_learning_chat_fences(content) == "You've mastered all 5 words today."
-    keep = '```json\n{"foo": 1}\n```'
-    assert strip_learning_chat_fences(keep) == keep.strip()
-
-
-def test_strip_learning_chat_fences_drops_vocab_quiz():
-    from app.modules.learning.fences import strip_learning_chat_fences
-
-    content = (
-        "Let's check this word.\n\n"
-        "```vocab_quiz\n"
-        '{"word":"hola","correct":"A","choices":['
-        '{"letter":"A","text":"hello"},{"letter":"B","text":"bye"},'
-        '{"letter":"C","text":"please"},{"letter":"D","text":"thanks"}]}\n'
-        "```"
-    )
-    assert strip_learning_chat_fences(content) == "Let's check this word."
-    partial = 'Great — try this one:\n\n```vocab_quiz\n{"word":"slow"'
-    assert strip_learning_chat_fences(partial) == "Great — try this one:"
+    assert is_short_letter_answer("B") is True
+    assert is_short_letter_answer("c.") is True
+    assert is_short_letter_answer("Is it a?") is True
+    assert is_short_letter_answer("hello") is False
 
 
 def test_format_user_profile_block_includes_fields():

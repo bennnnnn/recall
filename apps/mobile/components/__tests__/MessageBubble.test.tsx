@@ -78,9 +78,6 @@ jest.mock("@/components/MarkdownErrorBoundary", () => ({
 jest.mock("@/components/RecallTypingIndicator", () => ({
   RecallTypingIndicator: () => null,
 }));
-jest.mock("@/features/learning/components/LearningLaunchButton", () => ({
-  LearningLaunchButton: () => null,
-}));
 jest.mock("@/features/integrations/context/emailDraftPersist", () => ({
   AssistantMessageScope: ({ children }: { children: React.ReactNode }) => children,
 }));
@@ -115,7 +112,6 @@ jest.mock("@/hooks/useAssistantMessageContent", () => ({
     searchSources: [],
     markdownStreamMode: false,
     markdownResetKey: "test",
-    learningLaunch: null,
   }),
 }));
 jest.mock("@/lib/haptics", () => ({

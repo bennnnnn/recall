@@ -5,13 +5,11 @@ from uuid import UUID
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.core.validation import normalize_stored_chat_title, validate_user_alias
-from app.models.schemas.common import MessageFeedback, MessageRole, QuizMode
+from app.models.schemas.common import MessageFeedback, MessageRole
 
 
 class ChatCreate(BaseModel):
     model: str = "auto"
-    project_id: UUID | None = None
-    quiz_mode: QuizMode | None = None
 
     @field_validator("model")
     @classmethod
@@ -60,8 +58,6 @@ class ChatOut(BaseModel):
     model: str
     pinned: bool = False
     archived: bool = False
-    project_id: UUID | None = None
-    quiz_mode: QuizMode | None = None
     created_at: datetime
     updated_at: datetime
 

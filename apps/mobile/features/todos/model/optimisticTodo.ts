@@ -26,7 +26,6 @@ export function buildOptimisticTodo(fields: {
     recurrence_rule: fields.recurrenceRule ?? null,
     sort_order: fields.sortOrder ?? null,
     chat_id: null,
-    project_id: null,
     created_at: now,
     updated_at: now,
   };

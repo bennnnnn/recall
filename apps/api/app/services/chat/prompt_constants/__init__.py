@@ -1,6 +1,6 @@
 """Chat prompt strings and turn classifiers.
 
-Split by domain (math, learning, format, …). Import from this package the
+Split by domain (math, format, teaching, …). Import from this package the
 same way as the old ``prompt_constants`` module.
 """
 
@@ -40,7 +40,6 @@ from app.services.chat.prompt_constants.format import (
     is_sequence_diagram_question,
     is_structured_comparison_question,
 )
-from app.services.chat.prompt_constants.learning import DAY_LEARNING_SNAPSHOT_HINT
 from app.services.chat.prompt_constants.math import (
     GRAPH_NO_SUBSTITUTE_CLAUSE,
     MATH_FENCE_SAFETY_HINT,
@@ -68,7 +67,6 @@ from app.services.chat.prompt_constants.routing import (
     PERSONAL_DISCLOSURE_HINT,
     is_broad_self_question,
     is_email_or_message_request,
-    is_learning_progress_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
     is_personal_disclosure_turn,
@@ -131,7 +129,6 @@ __all__ = [
     "COMPARISON_FORMAT_HINT",
     "CONFIRM_FOLLOW_THROUGH_HINT",
     "COPY_DELIVERABLE_HINT",
-    "DAY_LEARNING_SNAPSHOT_HINT",
     "DAY_PLANNING_ANSWER_HINT",
     "EMAIL_ASK_PURPOSE_HINT",
     "EMAIL_DRAFT_HINT",
@@ -187,7 +184,6 @@ __all__ = [
     "is_html_ui_question",
     "is_image_generation_mention",
     "is_learning_plan_request",
-    "is_learning_progress_question",
     "is_lightweight_chat_turn",
     "is_mermaid_question",
     "is_personal_advice_question",

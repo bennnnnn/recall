@@ -27,7 +27,6 @@ async def semantic_memories_from_vec(
     settings: Settings,
     query_vec: list[float],
     *,
-    omit_project_memory: bool = False,
     query_text: str | None = None,
 ) -> list[Memory]:
     from app.modules.memory import repository as memories_repo
@@ -37,7 +36,6 @@ async def semantic_memories_from_vec(
         all_memories,
         query_vec,
         settings,
-        omit_project_memory=omit_project_memory,
         query_text=query_text,
     )
     if semantic:
@@ -46,9 +44,7 @@ async def semantic_memories_from_vec(
         "Semantic memory ranking empty; using type-priority fallback user_id=%s",
         user.id,
     )
-    return seams.select_memories_for_prompt(
-        all_memories, settings, omit_project_memory=omit_project_memory
-    )
+    return seams.select_memories_for_prompt(all_memories, settings)
 
 
 async def load_relevant_memories(
@@ -59,7 +55,6 @@ async def load_relevant_memories(
     *,
     query_text: str | None = None,
     query_vec: list[float] | None = None,
-    omit_project_memory: bool = False,
 ) -> list[Memory]:
     if not user.memory_enabled:
         return []
@@ -72,13 +67,10 @@ async def load_relevant_memories(
                 user,
                 settings,
                 query_vec,
-                omit_project_memory=omit_project_memory,
                 query_text=query_text,
             )
         all_memories = await memories_repo.list_for_user(session, user.id)
-        return seams.select_memories_for_prompt(
-            all_memories, settings, omit_project_memory=omit_project_memory
-        )
+        return seams.select_memories_for_prompt(all_memories, settings)
     except Exception:
         logger.warning("Memory retrieval failed for user_id=%s", user.id, exc_info=True)
         return []
@@ -114,7 +106,6 @@ async def semantic_block_from_vec(
     settings: Settings,
     query_vec: list[float],
     *,
-    omit_project_memory: bool,
     exclude_sensitive: bool,
     query_text: str | None = None,
 ) -> str:
@@ -124,7 +115,6 @@ async def semantic_block_from_vec(
         settings,
         query_vec=query_vec,
         query_text=query_text,
-        omit_project_memory=omit_project_memory,
     )
     memories = filter_surface_memories(
         seams,
@@ -140,8 +130,6 @@ async def warm_semantic_memory_cache(
     settings: Settings,
     user_id: UUID,
     query_text: str,
-    *,
-    omit_project_memory: bool = False,
 ) -> None:
     from app.core.db import SessionLocal
     from app.gateways import embedding_gateway
@@ -165,7 +153,6 @@ async def warm_semantic_memory_cache(
                 user,
                 settings,
                 query_vec,
-                omit_project_memory=omit_project_memory,
                 exclude_sensitive=False,
             )
             gen_after = await redis.get(seams._memory_generation_key(user_id))
@@ -175,7 +162,6 @@ async def warm_semantic_memory_cache(
                 user_id,
                 gen_before,
                 cleaned,
-                omit_project_memory=omit_project_memory,
                 exclude_sensitive=False,
             )
             await seams._write_query_block_cache(query_key, block, settings)
@@ -190,14 +176,12 @@ async def get_memory_block(
     settings: Settings,
     *,
     query_text: str | None = None,
-    chat_project_id: UUID | None = None,
     exclude_sensitive: bool = False,
 ) -> str:
     """Return the scoped prompt memory block, using semantic cache when enabled."""
     if not user.memory_enabled:
         return ""
 
-    omit_project_memory = chat_project_id is not None
     max_chars = settings.memory_inject_max_chars
     key = seams._memory_block_key(user.id)
     if query_text and settings.semantic_memory_enabled:
@@ -212,7 +196,6 @@ async def get_memory_block(
             user.id,
             generation,
             q,
-            omit_project_memory=omit_project_memory,
             exclude_sensitive=exclude_sensitive,
         )
         try:
@@ -236,7 +219,6 @@ async def get_memory_block(
                 user,
                 settings,
                 query_vec,
-                omit_project_memory=omit_project_memory,
                 exclude_sensitive=exclude_sensitive,
                 query_text=q,
             )
@@ -251,7 +233,6 @@ async def get_memory_block(
             session,
             user,
             settings,
-            omit_project_memory=omit_project_memory,
         )
         memories = filter_surface_memories(
             seams,
@@ -266,7 +247,6 @@ async def get_memory_block(
                 settings,
                 user.id,
                 q,
-                omit_project_memory=omit_project_memory,
             ),
             name="warm_semantic_memory_cache",
         )
@@ -280,12 +260,7 @@ async def get_memory_block(
         return _log_inject(user.id, block)
 
     redis = seams.get_redis_client()
-    parts = [key]
-    if omit_project_memory:
-        parts.append("p")
-    if exclude_sensitive:
-        parts.append("x")
-    cache_key = ":".join(parts)
+    cache_key = f"{key}:x" if exclude_sensitive else key
     try:
         cached = await redis.get(cache_key)
         if cached is not None:
@@ -297,7 +272,6 @@ async def get_memory_block(
         session,
         user,
         settings,
-        omit_project_memory=omit_project_memory,
     )
     memories = filter_surface_memories(seams, memories, exclude_sensitive=exclude_sensitive)
     block = seams.format_memory_block(memories, max_chars=max_chars)

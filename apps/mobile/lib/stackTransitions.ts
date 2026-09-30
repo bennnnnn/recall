@@ -19,7 +19,7 @@ function withoutMotion(base: StackTransitionPreset): StackTransitionPreset {
   return { ...base, animation: "none", animationDuration: 0 };
 }
 
-/** Hierarchical push (settings drill-down, projects, memory, todos). */
+/** Hierarchical push (settings drill-down, memory, todos). */
 export function stackPushTransition(reduceMotion = false): StackTransitionPreset {
   const preset: StackTransitionPreset = {
     animation: Platform.OS === "ios" ? "default" : "slide_from_right",

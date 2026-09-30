@@ -32,8 +32,6 @@ async def test_history_load_overlaps_account_and_chat_load() -> None:
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     async def load_recent(_session, _chat_id, *, limit):
         _ = limit
@@ -117,8 +115,6 @@ async def test_user_and_chat_ownership_loads_overlap() -> None:
 
     chat = MagicMock()
     chat.id = chat_id
-    chat.project_id = None
-    chat.quiz_mode = None
 
     async def load_user(_session, _user_id):
         user_started.set()
@@ -214,8 +210,6 @@ async def test_short_reply_loads_the_recent_window(
 
     chat = MagicMock()
     chat.id = uuid4()
-    chat.project_id = None
-    chat.quiz_mode = None
 
     prior = MagicMock()
     prior.content = "It's good to act even after a delay. Understood?"

@@ -31,8 +31,6 @@ def _user() -> MagicMock:
 
 def _chat() -> MagicMock:
     chat = MagicMock()
-    chat.project_id = None
-    chat.quiz_mode = None
     chat.summary = None
     return chat
 
@@ -207,7 +205,6 @@ async def test_regenerate_acquires_chatprep_lock():
     release = AsyncMock()
 
     fake_chat = MagicMock()
-    fake_chat.project_id = None
     fake_last = MagicMock()
     fake_last.role = "assistant"
     fake_last.id = uuid4()

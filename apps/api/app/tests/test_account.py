@@ -38,14 +38,6 @@ def _empty_product_events_for_exports():
         yield list_events
 
 
-@pytest.fixture(autouse=True)
-def _empty_learning_practice_for_exports():
-    with patch(
-        "app.services.export_service.learning_export_repo.list_page", AsyncMock(return_value=[])
-    ) as list_events:
-        yield list_events
-
-
 def test_delete_account_returns_204():
     user = _fake_user()
     app = _app_with_user(user)
@@ -210,13 +202,13 @@ async def test_delete_user_deletes_children_then_user():
     session.get = AsyncMock(return_value=MagicMock())
     await users_repo.delete_user(session, uuid4())
     # Every user-owned table is purged before the user row itself, so the delete
-    # never fails on an FK to users.id without ON DELETE CASCADE. 13 tables are
-    # cleared explicitly (messages, memories, usage, project_items, projects,
-    # todos, suggestions, suggested_reminders, push_tokens,
-    # attachments, calendar connections, gmail connections, chats).
-    # The account lock precedes every child delete to match memory writers.
+    # never fails on an FK to users.id without ON DELETE CASCADE. 11 tables are
+    # cleared explicitly (messages, memories, usage, todos, suggestions,
+    # suggested_reminders, push_tokens, attachments, calendar connections,
+    # gmail connections, chats). The account lock precedes every child delete
+    # to match memory writers.
     statements = [call.args[0] for call in session.execute.await_args_list]
-    assert len(statements) == 14
+    assert len(statements) == 12
     assert statements[0].is_select
     assert str(statements[0]).endswith("FOR UPDATE")
     assert all(statement.is_delete for statement in statements[1:])
@@ -225,9 +217,7 @@ async def test_delete_user_deletes_children_then_user():
 
 
 @pytest.mark.asyncio
-async def test_build_export_structure(
-    _empty_product_events_for_exports, _empty_learning_practice_for_exports
-):
+async def test_build_export_structure(_empty_product_events_for_exports):
     from app.services import export_service
 
     session = AsyncMock()
@@ -255,47 +245,9 @@ async def test_build_export_structure(
     todo.checked = False
     todo.due_at = None
     todo.chat_id = None
-    todo.project_id = None
     todo.sort_order = 1
     todo.created_at = datetime(2024, 1, 1)
     todo.updated_at = datetime(2024, 1, 1)
-
-    project = MagicMock()
-    project.id = uuid4()
-    project.title = "Spanish"
-    project.description = None
-    project.kind = "language"
-    project.target_language = "es"
-    project.native_language = "en"
-    project.level = "level1"
-    project.daily_goal = 5
-    project.archived = False
-    project.created_at = datetime(2024, 1, 1)
-    project.updated_at = datetime(2024, 1, 1)
-
-    item = MagicMock()
-    item.id = uuid4()
-    item.project_id = project.id
-    item.list_title = "General"
-    item.content = "hola"
-    item.note = None
-    item.definition = "hello"
-    item.example_sentence = None
-    item.ipa = None
-    item.part_of_speech = "interjection"
-    item.vocabulary_kind = "word"
-    item.verb_kind = None
-    item.noun_kind = None
-    item.last_completed_at = datetime(2024, 1, 2)
-    item.simple_gloss = None
-    item.status = "new"
-    item.mastered = False
-    item.mastered_at = None
-    item.review_count = 0
-    item.quiz_attempts = 0
-    item.quiz_correct = 0
-    item.created_at = datetime(2024, 1, 1)
-    item.updated_at = datetime(2024, 1, 1)
 
     event = MagicMock()
     event.name = "paywall_viewed"
@@ -306,17 +258,6 @@ async def test_build_export_structure(
     event.client_at = datetime(2024, 1, 2)
     event.recorded_at = datetime(2024, 1, 2)
     _empty_product_events_for_exports.return_value = [event]
-    practice = MagicMock(
-        id=uuid4(),
-        attempt_id=uuid4(),
-        project_id=project.id,
-        item_id=item.id,
-        was_correct=True,
-        completes_word=True,
-        newly_mastered=True,
-        occurred_at=datetime(2024, 1, 2),
-    )
-    _empty_learning_practice_for_exports.return_value = [practice]
 
     with (
         patch(
@@ -336,14 +277,6 @@ async def test_build_export_structure(
             AsyncMock(return_value=[todo]),
         ),
         patch(
-            "app.services.export_service.learning_repo.list_for_user",
-            AsyncMock(return_value=[project]),
-        ),
-        patch(
-            "app.services.export_service.learning_items_repo.list_for_learning",
-            AsyncMock(return_value=[item]),
-        ),
-        patch(
             "app.services.export_service.attachments_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
@@ -355,28 +288,10 @@ async def test_build_export_structure(
     assert data["chats"][0]["messages"][0]["content"] == "hi"
     assert len(data["memories"]) == 1
     assert data["todos"][0]["content"] == "buy milk"
-    assert data["projects"][0]["title"] == "Spanish"
-    assert data["projects"][0]["items"][0]["content"] == "hola"
+    assert "project_id" not in data["todos"][0]
+    assert "projects" not in data
+    assert "learning_practice_events" not in data
     assert data["attachments"] == []
-    assert data["projects"][0]["items"][0]["vocabulary_kind"] == "word"
-    assert data["projects"][0]["items"][0]["last_completed_at"] == "2024-01-02T00:00:00"
-    assert data["learning_practice_events"] == [
-        {
-            "id": str(practice.id),
-            "attempt_id": str(practice.attempt_id),
-            "project_id": str(project.id),
-            "item_id": str(item.id),
-            "was_correct": True,
-            "completes_word": True,
-            "newly_mastered": True,
-            "occurred_at": "2024-01-02T00:00:00",
-        }
-    ]
-    assert _empty_learning_practice_for_exports.await_args.args[1] == user.id
-    assert (
-        data["export_limits"]["max_learning_practice_events"]
-        == export_service.EXPORT_MAX_LEARNING_PRACTICE_EVENTS
-    )
     assert data["product_events"][0]["name"] == "paywall_viewed"
     assert data["product_events"][0]["properties"] == {"source": "settings"}
     assert data["export_limits"]["max_chats"] == export_service.EXPORT_MAX_CHATS
@@ -386,7 +301,7 @@ async def test_build_export_structure(
     )
     assert data["export_limits"]["max_todos"] == export_service.EXPORT_MAX_TODOS
     assert data["export_limits"]["max_memories"] == export_service.EXPORT_MAX_MEMORIES
-    assert data["export_limits"]["max_projects"] == export_service.EXPORT_MAX_PROJECTS
+    assert "max_projects" not in data["export_limits"]
     assert data["export_limits"]["max_attachments"] == export_service.EXPORT_MAX_ATTACHMENTS
 
 
@@ -425,10 +340,6 @@ async def test_build_export_includes_archived_chats():
         ),
         patch(
             "app.services.export_service.todos_repo.list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
-            "app.services.export_service.learning_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -498,10 +409,6 @@ async def test_build_export_pages_messages_per_chat():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.export_service.learning_repo.list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
             "app.services.export_service.attachments_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
@@ -548,10 +455,6 @@ async def test_build_export_pages_memories():
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.services.export_service.learning_repo.list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
             "app.services.export_service.attachments_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
@@ -594,10 +497,6 @@ async def test_build_export_caps_memories():
         ),
         patch(
             "app.services.export_service.todos_repo.list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
-            "app.services.export_service.learning_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
@@ -647,10 +546,6 @@ async def test_build_export_includes_attachment_with_presigned_url():
         ),
         patch(
             "app.services.export_service.todos_repo.list_for_user",
-            AsyncMock(return_value=[]),
-        ),
-        patch(
-            "app.services.export_service.learning_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(

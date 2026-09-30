@@ -11,7 +11,6 @@ function todo(id: string, dueAt: string | null, checked = false): Todo {
     recurrence_rule: null,
     sort_order: null,
     chat_id: null,
-    project_id: null,
     created_at: `2026-09-0${id.length}T08:00:00.000Z`,
     updated_at: `2026-09-0${id.length}T09:00:00.000Z`,
   };

@@ -871,7 +871,7 @@ async def test_stream_chat_response_quota_exceeded(used: int) -> None:
         patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock()),
         patch(
             "app.services.chat.stream.chats_repo.get_by_id",
-            AsyncMock(return_value=MagicMock(project_id=None, quiz_mode=None, summary=None)),
+            AsyncMock(return_value=MagicMock(summary=None)),
         ),
         patch("app.services.chat.stream.messages_repo.list_recent", AsyncMock(return_value=[])),
         patch("app.services.quota.has_daily_usage_key", AsyncMock(return_value=True)),

@@ -198,7 +198,6 @@ async def _prompt(
         memory_block="",
         todos_section=None,
         gmail_todos_section=None,
-        projects_block="",
         recent_all=recent,
         attachment_rag_block="",
         chat=None,

@@ -31,7 +31,7 @@ from app.modules.web_search.geo_intent import (
     is_local_places_query,
     is_places_list_query,
     is_proximity_query,
-    is_vocab_quiz_answer,
+    is_short_letter_answer,
 )
 from app.modules.web_search.query_builders import build_search_queries, build_search_query
 from app.modules.web_search.search_cache import run_cached_search
@@ -61,7 +61,7 @@ __all__ = [
     "is_local_places_query",
     "is_places_list_query",
     "is_proximity_query",
-    "is_vocab_quiz_answer",
+    "is_short_letter_answer",
     "needs_web_search",
     "needs_web_search_heuristic",
     "places_payload_from_hits",

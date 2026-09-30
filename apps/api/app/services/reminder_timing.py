@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
 
 from app.models.orm import User
 from app.services import time_context as time_context_service
@@ -41,9 +40,6 @@ def should_notify_todo(
     return due_at <= now + timedelta(minutes=lead)
 
 
-# BUG FIX (nit): user_local_hour/user_day_key/learning_dedupe_key were
-# copy-pasted between push_notifications.py and reminder_emails.py with only
-# the Redis key prefix differing. Shared here so the two can't drift apart.
 def in_quiet_hours(user: User, now: datetime | None = None) -> bool:
     """True when the user has quiet hours on and ``now`` is inside the window.
 
@@ -65,22 +61,6 @@ def in_quiet_hours(user: User, now: datetime | None = None) -> bool:
     if start < end:
         return start <= minute < end
     return minute >= start or minute < end
-
-
-def user_local_hour(user: User, *, now: datetime | None = None) -> int:
-    tz = time_context_service.resolve_timezone(user.timezone)
-    instant = now.astimezone(tz) if now is not None else datetime.now(tz)
-    return instant.hour
-
-
-def user_day_key(user: User, *, now: datetime | None = None) -> str:
-    tz = time_context_service.resolve_timezone(user.timezone)
-    instant = now.astimezone(tz) if now is not None else datetime.now(tz)
-    return instant.strftime("%Y-%m-%d")
-
-
-def learning_dedupe_key(prefix: str, user_id: UUID, day_key: str) -> str:
-    return f"{prefix}:{user_id}:{day_key}"
 
 
 # BUG FIX: reminder_emails.py used to hardcode "Reminder"/"Overdue reminder" in

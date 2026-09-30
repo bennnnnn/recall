@@ -135,14 +135,12 @@ def _memory_query_scoped_key(
     generation: bytes | str | None,
     query_text: str,
     *,
-    omit_project_memory: bool,
     exclude_sensitive: bool,
 ) -> str:
     return _cache.memory_query_scoped_key(
         user_id,
         generation,
         query_text,
-        omit_project_memory=omit_project_memory,
         exclude_sensitive=exclude_sensitive,
     )
 
@@ -169,7 +167,6 @@ async def _semantic_memories_from_vec(
     settings: Settings,
     query_vec: list[float],
     *,
-    omit_project_memory: bool = False,
     query_text: str | None = None,
 ) -> list[Memory]:
     return await _retrieval.semantic_memories_from_vec(
@@ -178,7 +175,6 @@ async def _semantic_memories_from_vec(
         user,
         settings,
         query_vec,
-        omit_project_memory=omit_project_memory,
         query_text=query_text,
     )
 
@@ -190,7 +186,6 @@ async def load_relevant_memories(
     *,
     query_text: str | None = None,
     query_vec: list[float] | None = None,
-    omit_project_memory: bool = False,
 ) -> list[Memory]:
     return await _retrieval.load_relevant_memories(
         _seams(),
@@ -199,7 +194,6 @@ async def load_relevant_memories(
         settings,
         query_text=query_text,
         query_vec=query_vec,
-        omit_project_memory=omit_project_memory,
     )
 
 
@@ -209,7 +203,6 @@ async def _semantic_block_from_vec(
     settings: Settings,
     query_vec: list[float],
     *,
-    omit_project_memory: bool,
     exclude_sensitive: bool,
     query_text: str | None = None,
 ) -> str:
@@ -219,7 +212,6 @@ async def _semantic_block_from_vec(
         user,
         settings,
         query_vec,
-        omit_project_memory=omit_project_memory,
         exclude_sensitive=exclude_sensitive,
         query_text=query_text,
     )
@@ -229,15 +221,12 @@ async def _warm_semantic_memory_cache(
     settings: Settings,
     user_id: UUID,
     query_text: str,
-    *,
-    omit_project_memory: bool = False,
 ) -> None:
     await _retrieval.warm_semantic_memory_cache(
         _seams(),
         settings,
         user_id,
         query_text,
-        omit_project_memory=omit_project_memory,
     )
 
 
@@ -247,7 +236,6 @@ async def get_memory_block(
     settings: Settings,
     *,
     query_text: str | None = None,
-    chat_project_id: UUID | None = None,
     exclude_sensitive: bool = False,
 ) -> str:
     return await _retrieval.get_memory_block(
@@ -256,7 +244,6 @@ async def get_memory_block(
         user,
         settings,
         query_text=query_text,
-        chat_project_id=chat_project_id,
         exclude_sensitive=exclude_sensitive,
     )
 

@@ -45,8 +45,7 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             "text": (
                 "Hi {name},\n\n"
                 "Welcome to Recall — your personal AI chat that remembers what "
-                "matters to you. Ask it anything, jot down reminders, or start a "
-                "learning project.\n\n"
+                "matters to you. Ask it anything, or jot down reminders.\n\n"
                 "A few things to try first:\n"
                 "  - Connect your calendar or Gmail in Settings to surface events "
                 "and email reminders.\n"
@@ -57,8 +56,7 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             "html": (
                 "<p>Hi {name},</p>"
                 "<p>Welcome to <strong>Recall</strong> — your personal AI chat that "
-                "remembers what matters to you. Ask it anything, jot down reminders, "
-                "or start a learning project.</p>"
+                "remembers what matters to you. Ask it anything, or jot down reminders.</p>"
                 "<p>A few things to try first:</p>"
                 "<ul>"
                 "<li>Connect your calendar or Gmail in Settings to surface events "
@@ -424,14 +422,6 @@ _TEMPLATES["todo_reminder"] = {
     },
 }
 
-_TEMPLATES["learning_nudge"] = {
-    "en": {
-        "subject": "Time to learn",
-        "text": ("Hi {name},\n\n{body}\n\nOpen Recall to continue.\n\n— Recall"),
-        "html": ("<p>Hi {name},</p><p>{body}</p><p>Open Recall to continue.</p><p>— Recall</p>"),
-    },
-}
-
 
 def _template(kind: str, locale: str) -> dict[str, str]:
     bundle = _TEMPLATES.get(kind, {})
@@ -450,7 +440,7 @@ def _esc(value: object) -> str:
 
     BUG FIX (was silent): _render() used to interpolate values into the html
     template exactly like the text one — no escaping. name/title/content/body
-    are all user-entered (todo content, learning project titles, display
+    are all user-entered (todo content, display
     name) and event_type/store/product_id come from RevenueCat webhook data.
     Unescaped, a todo titled e.g. `<img src=x onerror=...>` renders as live
     markup in the recipient's HTML email client. Never call this on values
@@ -539,17 +529,6 @@ def build_todo_reminder(user: User, *, title: str, content: str) -> tuple[str, s
     )
 
 
-def build_learning_nudge(user: User, *, body: str) -> tuple[str, str, str]:
-    locale = _locale_for(user)
-    tpl = _template("learning_nudge", locale)
-    name = _display_name(user)
-    return (
-        tpl["subject"],
-        _render(tpl["html"], name=_esc(name), body=_esc(body)),
-        _render(tpl["text"], name=name, body=body),
-    )
-
-
 # ── dispatch ────────────────────────────────────────────────────────────────
 
 
@@ -583,13 +562,6 @@ async def send_purchase_receipt(
 
 async def send_todo_reminder(settings: Settings, user: User, *, title: str, content: str) -> bool:
     subject, html, text = build_todo_reminder(user, title=title, content=content)
-    return await email_gateway.send_email(
-        settings, to=user.email, subject=subject, html=html, text=text
-    )
-
-
-async def send_learning_nudge(settings: Settings, user: User, *, body: str) -> bool:
-    subject, html, text = build_learning_nudge(user, body=body)
     return await email_gateway.send_email(
         settings, to=user.email, subject=subject, html=html, text=text
     )

@@ -185,11 +185,6 @@ export function ConversationList() {
     router.push("/todos");
   }, [router]);
 
-  const openProjects = useCallback(() => {
-    closeDrawer();
-    router.push("/projects");
-  }, [router]);
-
   const openGallery = useCallback(() => {
     if (token) prefetchGallery(token);
     closeDrawer();
@@ -229,7 +224,7 @@ export function ConversationList() {
     if (chatId) enterSelectionMode(chatId);
   }, [menuChat?.id, closeMenu, closeSearch, enterSelectionMode]);
 
-  // Only the logo / search row is fixed; Learning/To-do scroll with titles.
+  // Only the logo / search row is fixed; To-do scrolls with titles.
   const topInset = insets.top + 8 + TOP_CHROME;
   const bottomInset = insets.bottom + 8 + FOOTER_CHROME;
   const topFadeHeight = topInset + FADE_EXTRA;
@@ -251,7 +246,6 @@ export function ConversationList() {
           showIndicator={showIndicator}
           unseenCount={unseenCount}
           onMyJob={openMyJob}
-          onProjects={openProjects}
           onReminders={openReminders}
           onGallery={openGallery}
         />
@@ -274,7 +268,6 @@ export function ConversationList() {
       showIndicator,
       unseenCount,
       openMyJob,
-      openProjects,
       openReminders,
       openGallery,
       loading,

@@ -7,7 +7,6 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat
-from app.modules import learning as learning_service
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.modules.memory import is_food_or_diet_query
@@ -113,10 +112,6 @@ def _turn_needs_rich_context(
         return True
     if todos_service.query_implies_todos(content):
         return True
-    # Do not pass chat.project_id — that helper treats any linked project as
-    # "always sync", which would force memory theater on casual chitchat.
-    if learning_service.transcript_implies_learning_sync(content):
-        return True
     return False
 
 
@@ -126,10 +121,6 @@ async def _classify_turn_mode(
     content: str,
 ) -> _TurnMode:
     """Classify lightweight/rich-context/day-planning modes for a turn.
-
-    Study checks live on the lesson screen. Chat never grades A-D or continues
-    an in-chat vocab quiz, so this skips the assistant quiz lookback even when
-    a Learning project is linked.
 
     Short replies (yes / no / got it) load the last assistant only when
     needed so ``hi`` / ``thanks`` never pay that round trip.

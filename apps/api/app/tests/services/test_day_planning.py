@@ -19,7 +19,7 @@ from app.modules.integrations.inbox import (
 )
 from app.modules.todos.prompt_context import should_inject_todos_prompt
 from app.services.chat.prompt_builder import _integration_hints, _style_format_hints
-from app.services.chat.prompt_constants import DAY_LEARNING_SNAPSHOT_HINT, DAY_PLANNING_ANSWER_HINT
+from app.services.chat.prompt_constants import DAY_PLANNING_ANSWER_HINT
 from app.services.chat.turn_prep.integrations import _inject_integration_blocks
 from app.services.day_planning import (
     is_day_planning_question,
@@ -114,7 +114,7 @@ def test_day_planning_answer_hint_uses_plain_markdown_not_callout_cards():
     assert "Google Calendar" in DAY_PLANNING_ANSWER_HINT
     assert "Reminders" in DAY_PLANNING_ANSWER_HINT
     assert "Gmail" in DAY_PLANNING_ANSWER_HINT
-    assert "Today's learning progress" in DAY_PLANNING_ANSWER_HINT
+    assert "Today's learning progress" not in DAY_PLANNING_ANSWER_HINT
     assert "Surface this as `> Warning:" not in DAY_PLANNING_ANSWER_HINT
     assert "Surface this as `> Tip:" not in DAY_PLANNING_ANSWER_HINT
 
@@ -127,7 +127,6 @@ def test_day_plan_style_hints_include_snapshot_and_override_format_contract_call
         minimal_personal_context=False,
     )
     assert DAY_PLANNING_ANSWER_HINT in parts
-    assert DAY_LEARNING_SNAPSHOT_HINT in parts
     joined = "\n".join(parts)
     assert "Callouts: a blockquote starting with Tip:" in joined
     assert "Never a card" in joined
@@ -191,8 +190,6 @@ def test_integration_hints_include_calendar_and_gmail_when_enabled():
         memory_block="",
         attachment_rag_block="",
         todos_section=None,
-        is_day_plan=True,
-        projects_block="",
         summary=None,
     )
     assert CALENDAR_HINT in parts

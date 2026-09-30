@@ -38,8 +38,6 @@ export type Chat = {
   model: string;
   pinned: boolean;
   archived?: boolean;
-  project_id?: string | null;
-  quiz_mode?: "exam" | "chat" | null;
   created_at: string;
   updated_at: string;
 };
@@ -100,107 +98,8 @@ export type Todo = {
   recurrence_rule?: RecurrenceRule | null;
   sort_order: number | null;
   chat_id: string | null;
-  project_id?: string | null;
   created_at: string;
   updated_at: string;
-};
-
-/** Product learning kinds: one class per target language. */
-export type LearningKind = "language";
-export type VocabStatus = "new" | "learning" | "mastered";
-
-export type PathChapterProgress = {
-  title: string;
-  domain?: string;
-  mastered: number;
-  total: number;
-  complete: boolean;
-};
-
-export type Learning = {
-  id: string;
-  title: string;
-  description: string | null;
-  kind: LearningKind;
-  target_language: string;
-  native_language: string | null;
-  daily_goal: number | null;
-  archived: boolean;
-  created_at: string;
-  updated_at: string;
-  learning_path?: string[];
-  /** Present on list responses for language projects. */
-  stats?: LearningStats;
-};
-
-export type LearningItem = {
-  id: string;
-  list_title: string;
-  content: string;
-  note: string | null;
-  definition: string | null;
-  example_sentence: string | null;
-  example_sentences?: string[];
-  vocabulary_kind?: "word" | "expression" | "phrasal_verb" | "idiom" | "proverb" | null;
-  verb_kind?: "action" | "state" | "auxiliary" | "modal" | null;
-  noun_kind?: "common" | "proper" | "abstract" | "collective" | null;
-  ipa?: string | null;
-  part_of_speech?: string | null;
-  simple_gloss?: string | null;
-  status: VocabStatus;
-  mastered: boolean;
-  mastered_at: string | null;
-  last_reviewed_at: string | null;
-  last_incorrect_at?: string | null;
-  review_count: number;
-  created_at: string;
-};
-
-export type LearningStats = {
-  total: number;
-  new_count: number;
-  learning_count: number;
-  mastered_count: number;
-  added_this_week: number;
-  due_for_review: number;
-  mastered_today: number;
-  completed_today?: number;
-  attempted_today?: number;
-  newly_mastered_today?: number;
-  last_study_at?: string | null;
-  missed_today?: number;
-  pending_today: number;
-  last_mastery_at?: string | null;
-  streak_days?: number;
-  days_inactive?: number | null;
-  quiz_accuracy_pct?: number | null;
-};
-
-export type LearningDailyHistoryDay = {
-  date: string;
-  weekday: number;
-  mastered_count: number;
-  missed_count: number;
-  daily_goal: number;
-  goal_met: boolean;
-  status: "complete" | "partial" | "skipped" | "today" | "inactive";
-};
-
-export type LearningListGroup = {
-  list_title: string;
-  items: LearningItem[];
-};
-
-export type LearningDetail = Learning & {
-  mastered_count: number;
-  total_count: number;
-  stats: LearningStats;
-  daily_history: LearningDailyHistoryDay[];
-  daily_items_by_date: Record<string, LearningItem[]>;
-  daily_missed_by_date?: Record<string, LearningItem[]>;
-  lists: LearningListGroup[];
-  path_progress?: PathChapterProgress[];
-  up_next?: string | null;
 };
 
 export type SearchResult = {
@@ -233,30 +132,13 @@ export type HomeStarter = {
   id?: string;
   text: string;
   prompt: string;
-  kind: "time" | "memory" | "chat" | "general" | "todo" | "project";
+  kind: "time" | "memory" | "chat" | "general" | "todo";
   chat_id?: string;
-};
-
-export type HomeProjectHighlight = {
-  project_id: string;
-  title: string;
-  kind: "language";
-  target_language?: string;
-  daily_goal: number;
-  mastered_today: number;
-  completed_today?: number;
-  attempted_today?: number;
-  missed_today?: number;
-  cue: "start" | "continue" | "not_started_today" | "missed_yesterday" | "finish_pending";
-  streak_days?: number;
-  days_inactive?: number | null;
-  due_for_review?: number;
 };
 
 export type HomeScreen = {
   greeting: string;
   subtitle: string | null;
-  project_highlight: HomeProjectHighlight | null;
   urgent_todos: HomeUrgentTodo[];
   starters: HomeStarter[];
 };
