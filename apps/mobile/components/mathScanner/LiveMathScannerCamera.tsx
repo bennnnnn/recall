@@ -133,6 +133,8 @@ export const LiveMathScannerCamera = forwardRef<LiveScannerCameraHandle, Props>(
     const frameOutput = useFrameOutput({
       targetResolution: CommonResolutions.VGA_16_9,
       pixelFormat: "yuv",
+      dropFramesWhileBusy: true,
+      onFrameDropped: () => undefined,
       onFrame(frame) {
         "worklet";
         try {
@@ -148,7 +150,7 @@ export const LiveMathScannerCamera = forwardRef<LiveScannerCameraHandle, Props>(
       () => [photoOutput, frameOutput],
       [frameOutput, photoOutput],
     );
-    const constraints = useMemo(() => [{ fps: 12 }], []);
+    const constraints = useMemo(() => [{ fps: 30 }], []);
 
     const cameraZoom = useMemo(() => {
       if (!device) return 1;
@@ -166,7 +168,7 @@ export const LiveMathScannerCamera = forwardRef<LiveScannerCameraHandle, Props>(
             {
               flashMode: "off",
               enableShutterSound: true,
-              enableDistortionCorrection: true,
+              enableDistortionCorrection: device.supportsDistortionCorrection,
             },
             {},
           );
