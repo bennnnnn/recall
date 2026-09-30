@@ -283,6 +283,17 @@ def test_questions_outside_the_solved_shape_are_refused(text: str) -> None:
     assert _verified_answer(text) is None
 
 
+def test_a_modern_cue_with_only_a_mass_is_not_mass_energy() -> None:
+    named = extract_physics_intent("Find the mass energy of 0.002 kg using E = mc^2.")
+    assert named is not None and named.physics_op == "mass_energy"
+    incomplete = "Using special relativity, an electron has a mass of 9.11e-31 kg. Find the speed."
+    intent = extract_physics_intent(incomplete)
+    assert intent is None or intent.physics_op != "mass_energy"
+    photoelectric = "A photoelectric experiment mentions an electron mass of 9.11e-31 kg."
+    photo = extract_physics_intent(photoelectric)
+    assert photo is None or photo.physics_op != "mass_energy"
+
+
 NOT_PHYSICS = [
     "she has a magnetic personality, 10 out of 10",
     "the field has 3 open roles",

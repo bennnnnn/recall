@@ -318,6 +318,25 @@ def test_displacing_states_the_submerged_volume() -> None:
     )
 
 
+def test_during_and_discuss_do_not_change_a_solid_sphere() -> None:
+    plain = "what is the moment of inertia of a 5 kg solid sphere of radius 2 m"
+    noisy = f"{plain} during a discussion"
+    assert _verified_answer(noisy) == _verified_answer(plain)
+    intent = extract_physics_intent(noisy)
+    assert intent is not None
+    assert intent.physics_params["shape_factor"] == 0.4
+
+
+def test_angular_velocity_from_a_period_needs_no_radius() -> None:
+    text = "what angular velocity gives a period of 2 s"
+    intent = extract_physics_intent(text)
+    assert intent is not None
+    assert intent.physics_op == "angular_velocity"
+    assert "r" not in intent.physics_params
+    assert intent.physics_params["period"] == 2
+    assert _verified_answer(text) == "3.14 rad/s"
+
+
 def test_a_narrowing_pipe_writes_its_unit_once() -> None:
     """ "from 0.04 to 0.01 m^2" puts the unit on the second area only.
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula, var
+from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -168,6 +168,8 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("R1", "R_1", "ohm"),
             var("R2", "R_2", "ohm"),
+            var("R3", "R_3", "ohm"),
+            var("R4", "R_4", "ohm"),
             var("V", "V", "volt"),
         ),
     ),
@@ -241,7 +243,17 @@ SPECS: tuple[FormulaSpec, ...] = (
         "V_{rms}",
         base_latex=r"V_{\mathrm{rms}} = \frac{V_0}{\sqrt{2}}",
         assumptions=("sinusoidal voltage",),
-        variables=(var("V", "V", "volt"),),
+        variables=(
+            var("V", "V", "volt"),
+            var("to_peak", "to_peak", dimensionless=True, visible=False),
+        ),
+        variants=(
+            FormulaVariant(
+                present=frozenset({"to_peak"}),
+                latex=r"V_0 = V_{\mathrm{rms}}\sqrt{2}",
+                result_symbol="V_0",
+            ),
+        ),
     ),
     formula(
         "rms_current",
@@ -250,7 +262,17 @@ SPECS: tuple[FormulaSpec, ...] = (
         "I_{rms}",
         base_latex=r"I_{\mathrm{rms}} = \frac{I_0}{\sqrt{2}}",
         assumptions=("sinusoidal current",),
-        variables=(var("I", "I", "ampere"),),
+        variables=(
+            var("I", "I", "ampere"),
+            var("to_peak", "to_peak", dimensionless=True, visible=False),
+        ),
+        variants=(
+            FormulaVariant(
+                present=frozenset({"to_peak"}),
+                latex=r"I_0 = I_{\mathrm{rms}}\sqrt{2}",
+                result_symbol="I_0",
+            ),
+        ),
     ),
     formula(
         "inductive_reactance",
@@ -283,6 +305,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         assumptions=("series RLC",),
         variables=(
             var("R", "R", "ohm"),
+            var("capacitance", "C", "farad"),
+            var("freq", "f", "hertz"),
+            var("inductance", "L", "henry"),
             var("reactance_c", "X_C", "ohm"),
             var("reactance_l", "X_L", "ohm"),
         ),

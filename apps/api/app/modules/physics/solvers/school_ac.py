@@ -9,14 +9,22 @@ from app.modules.physics.solvers.school_common import positive, result
 
 
 def _rms_voltage(params: dict[str, float]) -> PhysicsResult:
-    value = params["V"] / math.sqrt(2)
-    numeric = rf"\frac{{{params['V']:g}}}{{\sqrt{{2}}}}"
+    given = params["V"]
+    if params.get("to_peak"):
+        value = given * math.sqrt(2)
+        return result("V_0", r"V_{\mathrm{rms}}\sqrt{2}", rf"{given:g}\sqrt{{2}}", value, "V")
+    value = given / math.sqrt(2)
+    numeric = rf"\frac{{{given:g}}}{{\sqrt{{2}}}}"
     return result("V_{rms}", r"\frac{V_0}{\sqrt{2}}", numeric, value, "V")
 
 
 def _rms_current(params: dict[str, float]) -> PhysicsResult:
-    value = params["I"] / math.sqrt(2)
-    numeric = rf"\frac{{{params['I']:g}}}{{\sqrt{{2}}}}"
+    given = params["I"]
+    if params.get("to_peak"):
+        value = given * math.sqrt(2)
+        return result("I_0", r"I_{\mathrm{rms}}\sqrt{2}", rf"{given:g}\sqrt{{2}}", value, "A")
+    value = given / math.sqrt(2)
+    numeric = rf"\frac{{{given:g}}}{{\sqrt{{2}}}}"
     return result("I_{rms}", r"\frac{I_0}{\sqrt{2}}", numeric, value, "A")
 
 

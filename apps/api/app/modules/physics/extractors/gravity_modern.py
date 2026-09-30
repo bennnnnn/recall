@@ -464,6 +464,18 @@ def _extract_modern_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
+    # A leftover modern cue plus a mass is not E = mc^2. The sentence has to
+    # name that energy, or write the equation.
+    if (
+        re.search(
+            r"\b(?:mass energy|rest energy|energy equivalent)\b"
+            r"|\bE\s*=\s*m\s*c(?:\^?2|²)\b",
+            cleaned,
+            re.IGNORECASE,
+        )
+        is None
+    ):
+        return None
     mass = _find_value_with_specific_unit(cleaned, r"kg|grams?|g", ("mass", "of"))
     if mass is None:
         return None

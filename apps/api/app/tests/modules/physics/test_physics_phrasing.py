@@ -290,3 +290,75 @@ def test_every_verified_op_has_at_least_three_phrasings() -> None:
         "work",
         "power",
     }, "the twelve verified ops are the contract — add the phrasings, not an exception"
+
+
+def test_physics_accepts_1500_characters_and_math_does_not() -> None:
+    """Physics questions reach the templates up to 20,000 characters.
+
+    Math ``prepare()`` keeps the 1,000-character cap. A sentence past 20,000
+    is refused by both the symbolic gate and the physics number gate.
+    """
+    from app.modules.math.match.scan import prepare
+    from app.tests.modules.physics.support import needs_physics
+
+    base = "A ball is dropped from a height of 20 m. Find the time to ground. Use g=10. "
+    filler = "The notes continue without another quantity. "
+    medium = base
+    while len(medium) < 1500:
+        medium += filler
+    assert 1500 <= len(medium) < 12_000
+    assert needs_physics(medium)
+    medium_intent = extract_physics_intent(medium)
+    assert medium_intent is not None and medium_intent.physics_op == "time_to_ground"
+
+    longer = base
+    while len(longer) < 15_000:
+        longer += filler
+    assert 12_000 < len(longer) < 20_000
+    longer_intent = extract_physics_intent(longer)
+    assert longer_intent is not None and longer_intent.physics_op == "time_to_ground"
+
+    huge = base + filler * 800
+    assert len(huge) > 20_000
+    assert needs_physics(huge) is False
+    assert extract_physics_intent(huge) is None
+    assert prepare("x" * 1500) is None
+
+
+def test_downward_on_the_velocity_is_negative_and_a_later_question_is_not() -> None:
+    launched = extract_physics_intent(
+        "A ball is dropped at 5 m/s downward from 20 m. Find the time to ground. Use g=10."
+    )
+    assert launched is not None
+    assert launched.physics_params["v0"] == -5
+
+    later = extract_physics_intent(
+        "A ball is thrown upward at 20 m/s from 20 m. "
+        "Find the downward velocity after 1 s. Use g=10."
+    )
+    assert later is not None
+    assert later.physics_params["v0"] == 20
+
+
+def test_the_word_acceleration_does_not_drop_a_time_question() -> None:
+    text = "How long to reach the ground from 20 m if the lesson mentions acceleration. Use g=10."
+    intent = extract_physics_intent(text)
+    assert intent is not None
+    assert intent.physics_op == "time_to_ground"
+    assert _verified_answer(text) == "2 s"
+
+
+def test_cliff_max_height_builds_and_solves() -> None:
+    from app.modules.physics.solver import solve_physics
+
+    text = (
+        "A ball is launched from a 20 m cliff at 20 m/s at 30 degrees. "
+        "Find the maximum height. Use g=10."
+    )
+    intent = extract_physics_intent(text)
+    assert intent is not None
+    assert intent.physics_op == "max_height"
+    assert intent.physics_params["h0"] == 20
+    result = solve_physics(intent)
+    assert result.graph_specs[0].expr.startswith("y(x) = 20 + ")
+    assert _verified_answer(text) == "25 m"

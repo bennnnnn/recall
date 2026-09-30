@@ -66,6 +66,20 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(rf"\omega = {raw_rpm:g}\cdot\frac{{2\pi}}{{60}}",),
             quantities=(QuantityResult("", omega_val, "rad/s", number_format=".2f"),),
         )
+    if op == "angular_velocity" and "period" in p and "v" not in p:
+        period = p["period"]
+        if period <= 0:
+            raise SolveServiceError("period must be positive")
+        omega_val = 2 * math.pi / period
+        return PhysicsResult(
+            answer=(
+                rf"\omega = \frac{{2\pi}}{{T}} = \frac{{2\pi}}{{{period:g}}} "
+                rf"\approx {omega_val:.2f} \text{{ rad/s}}"
+            ),
+            formulas=(r"\omega = \frac{2\pi}{T}",),
+            substitutions=(rf"\omega = \frac{{2\pi}}{{{period:g}}}",),
+            quantities=(QuantityResult("", omega_val, "rad/s", number_format=".2f"),),
+        )
     r = p["r"]
     omega = p.get("omega")
     v = p.get("v", abs(omega) * r if omega is not None else 0.0)

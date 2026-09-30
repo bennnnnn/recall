@@ -27,6 +27,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("angle", r"\theta", dimensionless=True),
             var("g", "g", "meter / second ** 2"),
+            var("h0", "h_0", "meter"),
             var("v0", "v_0", "meter / second"),
         ),
     ),
