@@ -11,7 +11,6 @@ import {
   useWindowDimensions,
 } from "react-native";
 import { CameraView, useCameraPermissions } from "expo-camera";
-import { File } from "expo-file-system";
 import * as ImageManipulator from "expo-image-manipulator";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -43,7 +42,6 @@ import {
   scanChromeInset,
   type ScanRegion,
 } from "@/lib/math/scannerRegion";
-import { isLowLightExif } from "@/lib/scanner/lowLight";
 import {
   playScannerSwitchCue,
   stopScannerSwitchCue,
@@ -76,13 +74,12 @@ type Review = { shot: PendingAttachment; state: ScanReadingState };
 type ScanShot = PendingAttachment & { width: number; height: number };
 
 const ANDROID_DISMISS_MS = 400;
-const FIRST_LIGHT_CHECK_MS = 1_300;
-const LIGHT_RECHECK_MS = 10_000;
 
 /**
- * Capture the unobstructed camera frame, then let the user crop the still.
- * A math crop is read back ("I read this as") so a misread digit can be
- * fixed before solving; the photo can still be sent without waiting.
+ * Keep the crop frame live over the camera so the student aims before capture.
+ * Camera shots are cropped immediately from that live region; imported photos
+ * still get an adjustable still-image crop. A math crop is then read back
+ * ("I read this as") so a misread digit can be fixed before solving.
  */
 export function MathEquationScanner({
   visible,
@@ -104,7 +101,6 @@ export function MathEquationScanner({
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ScanShot | null>(null);
   const [torchOn, setTorchOn] = useState(false);
-  const [lowLight, setLowLight] = useState(false);
   const [subject, setSubject] = useState<ScannerSubject>("math");
   const [review, setReview] = useState<Review | null>(null);
   const readAbortRef = useRef<AbortController | null>(null);
@@ -114,7 +110,6 @@ export function MathEquationScanner({
   }, []);
   const [zoom, setZoom] = useState(0);
   const [cameraReady, setCameraReady] = useState(false);
-  const lightSampleRef = useRef<Promise<void> | null>(null);
   const capturePendingRef = useRef(false);
   const handleCameraReady = useCallback(() => setCameraReady(true), []);
   const inset = useMemo(
@@ -148,7 +143,6 @@ export function MathEquationScanner({
       setReview(null);
       setError(null);
       setTorchOn(false);
-      setLowLight(false);
       crop.resetRegion();
       crop.resetZoom();
       return;
@@ -167,54 +161,6 @@ export function MathEquationScanner({
   }, [stopReading, visible]);
   useEffect(() => stopReading, [stopReading]);
 
-  useEffect(() => {
-    if (!visible || preview || !cameraReady || busy || torchOn) {
-      if (torchOn) setLowLight(false);
-      return;
-    }
-
-    let cancelled = false;
-    const sampleLight = () => {
-      if (!cameraRef.current || lightSampleRef.current || capturePendingRef.current) return;
-      let sampleUri: string | undefined;
-      const sample = (async () => {
-        try {
-          const photo = await cameraRef.current?.takePictureAsync({
-            quality: 0.05,
-            exif: true,
-            shutterSound: false,
-          });
-          sampleUri = photo?.uri;
-          const reading = isLowLightExif(photo?.exif);
-          if (!cancelled && reading !== null) setLowLight(reading);
-        } catch {
-          // Some camera devices omit exposure metadata; leave the control neutral.
-        } finally {
-          if (sampleUri) {
-            try {
-              const sampleFile = new File(sampleUri);
-              if (sampleFile.exists) sampleFile.delete();
-            } catch {
-              // Temporary camera samples are also reclaimed by the OS cache.
-            }
-          }
-        }
-      })();
-      lightSampleRef.current = sample;
-      void sample.finally(() => {
-        if (lightSampleRef.current === sample) lightSampleRef.current = null;
-      });
-    };
-
-    const firstCheck = setTimeout(sampleLight, FIRST_LIGHT_CHECK_MS);
-    const repeatedCheck = setInterval(sampleLight, LIGHT_RECHECK_MS);
-    return () => {
-      cancelled = true;
-      clearTimeout(firstCheck);
-      clearInterval(repeatedCheck);
-    };
-  }, [busy, cameraReady, preview, torchOn, visible]);
-
   const showShot = useCallback(
     async (pending: PendingAttachment, width = 0, height = 0) => {
       try {
@@ -228,48 +174,8 @@ export function MathEquationScanner({
     [t],
   );
 
-  const capture = useCallback(async () => {
-    if (!cameraRef.current || busy || preview || !cameraReady || capturePendingRef.current) return;
-    capturePendingRef.current = true;
-    try {
-      if (lightSampleRef.current) await lightSampleRef.current;
-      if (!cameraRef.current || busy || preview || !cameraReady) return;
-      impactMedium();
-      setBusy(true);
-      setError(null);
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.9,
-        shutterSound: true,
-        exif: true,
-      });
-      if (!photo?.uri) {
-        setError(t("chat.math_scan_failed"));
-        return;
-      }
-      await showShot(
-        {
-          localUri: photo.uri,
-          contentType: "image/jpeg",
-          fileName: `${subject}-scan-${Date.now()}.jpg`,
-          kind: "image",
-        },
-        photo.width ?? 0,
-        photo.height ?? 0,
-      );
-    } catch {
-      setError(t("chat.math_scan_failed"));
-    } finally {
-      setBusy(false);
-      capturePendingRef.current = false;
-    }
-  }, [busy, cameraReady, preview, showShot, subject, t]);
-
-  const confirmPreview = useCallback(async () => {
-    if (!preview || busy) return;
-    setBusy(true);
-    setError(null);
-    try {
-      const cropped = await cropShotToRegion(preview, crop.readRegion(), windowWidth, windowHeight, previewFrame);
+  const handleCroppedShot = useCallback(
+    (cropped: PendingAttachment) => {
       if (subject === "math" && onReadScan && onSolveReading) {
         stopReading();
         const controller = new AbortController();
@@ -294,6 +200,86 @@ export function MathEquationScanner({
         return;
       }
       onCaptured(cropped, subject);
+    },
+    [onCaptured, onReadScan, onSolveReading, stopReading, subject],
+  );
+
+  const capture = useCallback(async () => {
+    if (!cameraRef.current || busy || preview || !cameraReady || capturePendingRef.current) return;
+    capturePendingRef.current = true;
+    try {
+      if (!cameraRef.current || busy || preview || !cameraReady) return;
+      impactMedium();
+      setBusy(true);
+      setError(null);
+      const photo = await cameraRef.current.takePictureAsync({
+        quality: 0.9,
+        shutterSound: true,
+        exif: true,
+      });
+      if (!photo?.uri) {
+        setError(t("chat.math_scan_failed"));
+        return;
+      }
+      const pending: PendingAttachment = {
+        localUri: photo.uri,
+        contentType: "image/jpeg",
+        fileName: `${subject}-scan-${Date.now()}.jpg`,
+        kind: "image",
+      };
+      const width = photo.width ?? 0;
+      const height = photo.height ?? 0;
+      if (width <= 0 || height <= 0) {
+        await showShot(pending);
+        return;
+      }
+
+      const shot: ScanShot = { ...pending, width, height };
+      try {
+        const cropped = await cropShotToRegion(
+          shot,
+          crop.readRegion(),
+          windowWidth,
+          windowHeight,
+          null,
+        );
+        handleCroppedShot(cropped);
+      } catch {
+        // Keep a recoverable path if a device reports unexpected camera geometry.
+        await showShot(pending, width, height);
+      }
+    } catch {
+      setError(t("chat.math_scan_failed"));
+    } finally {
+      setBusy(false);
+      capturePendingRef.current = false;
+    }
+  }, [
+    busy,
+    cameraReady,
+    crop,
+    handleCroppedShot,
+    preview,
+    showShot,
+    subject,
+    t,
+    windowHeight,
+    windowWidth,
+  ]);
+
+  const confirmPreview = useCallback(async () => {
+    if (!preview || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const cropped = await cropShotToRegion(
+        preview,
+        crop.readRegion(),
+        windowWidth,
+        windowHeight,
+        previewFrame,
+      );
+      handleCroppedShot(cropped);
     } catch {
       setError(t("chat.math_scan_failed"));
     } finally {
@@ -302,13 +288,9 @@ export function MathEquationScanner({
   }, [
     busy,
     crop,
-    onCaptured,
-    onReadScan,
-    onSolveReading,
+    handleCroppedShot,
     preview,
     previewFrame,
-    stopReading,
-    subject,
     t,
     windowWidth,
     windowHeight,
@@ -336,7 +318,6 @@ export function MathEquationScanner({
     setBusy(true);
     setError(null);
     try {
-      if (lightSampleRef.current) await lightSampleRef.current;
       await scheduleIdlePromise();
       const picked = await pickImageDocument();
       if (picked) await showShot(picked);
@@ -442,7 +423,7 @@ export function MathEquationScanner({
                 />
               </View>
             ) : null}
-            {preview ? (
+            {preview || granted ? (
               <MathScannerCropOverlay
                 regionGesture={crop.regionGesture}
                 cornerTL={crop.cornerTL}
@@ -458,7 +439,7 @@ export function MathEquationScanner({
                 handleTRStyle={crop.handleTRStyle}
                 handleBLStyle={crop.handleBLStyle}
                 handleBRStyle={crop.handleBRStyle}
-                scanning={!busy}
+                scanning={Boolean(preview) && !busy}
                 onGrow={crop.growRegion}
                 onShrink={crop.shrinkRegion}
               />
@@ -471,7 +452,6 @@ export function MathEquationScanner({
           preview={Boolean(preview)}
           busy={busy}
           torchOn={torchOn}
-          lowLight={lowLight}
           subject={subject}
           error={error}
           onClose={onClose}
