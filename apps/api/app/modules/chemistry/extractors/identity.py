@@ -11,7 +11,7 @@ from app.modules.chemistry.extractors.parsing import (
     _search,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
-from app.modules.chemistry.solvers.common_chem import STANDARD_REDUCTION
+from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
 
 # "K" is left out on purpose: in "298 K" it is kelvin, not potassium.
 _METALS = tuple(symbol for symbol in STANDARD_REDUCTION if symbol != "K")

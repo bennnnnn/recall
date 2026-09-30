@@ -11,8 +11,8 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import EquilibriumRow, EquilibriumScene
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.solvers.common_chem import const, inp, num, verified
-from app.modules.chemistry.solvers.physical import _equilibrium_expression
-from app.modules.chemistry.solvers.solutions import GAS_R
+from app.modules.chemistry.solvers.constants import GAS_R
+from app.modules.chemistry.solvers.physical import equilibrium_expression
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import counts_in_mass_action, parse_species
 from app.services.solving import SolveServiceError
@@ -177,7 +177,7 @@ def _ion_product_text_from_species(ions: list[tuple[str, int]]) -> str:
 
 
 def solve_kp(intent: ChemistryIntent) -> ChemistryResult:
-    value_num, expression, substitution = _equilibrium_expression(intent, pressure=True)
+    value_num, expression, substitution = equilibrium_expression(intent, pressure=True)
     value = num(value_num)
     return verified(
         "Verified Kp",

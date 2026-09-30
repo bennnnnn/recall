@@ -6,39 +6,30 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import const, inp, num
+from app.modules.chemistry.quantity import to_liters
+from app.modules.chemistry.solvers.common_chem import inp, num, verified
+from app.modules.chemistry.solvers.constants import GAS_R, PKW
+from app.modules.chemistry.solvers.params import require
+from app.modules.chemistry.solvers.relation import solve_paired
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
-
-GAS_R = 0.082057366080960  # L·atm·mol⁻¹·K⁻¹
-_VOLUME_TO_L = {"l": 1.0, "ml": 0.001}
-
-
-def _value(intent: ChemistryIntent, key: str, *, positive: bool = False) -> float:
-    try:
-        value = intent.params[key]
-    except KeyError as exc:
-        raise SolveServiceError(f"missing chemistry parameter: {key}") from exc
-    if positive and value <= 0:
-        raise SolveServiceError(f"{key} must be positive")
-    return value
 
 
 def _volume_in_l(value: float, unit: str) -> float:
     try:
-        return value * _VOLUME_TO_L[unit.lower()]
-    except KeyError as exc:
+        return to_liters(value, unit)
+    except (ValueError, TypeError) as exc:
         raise SolveServiceError(f"unsupported dilution volume unit: {unit}") from exc
 
 
 def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
     op = intent.chemistry_op
     if op == "molarity":
-        moles = _value(intent, "moles")
-        volume = _value(intent, "volume_l", positive=True)
+        moles = require(intent, "moles")
+        volume = require(intent, "volume_l", positive=True)
         molarity = moles / volume
         value = f"{num(molarity)} mol/L"
-        return ChemistryResult(
+        return verified(
             "Verified molarity",
             (f"n = {inp(moles)} mol", f"V = {inp(volume)} L"),
             "Molarity, c",
@@ -49,8 +40,8 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "dilution":
-        m1 = _value(intent, "m1", positive=True)
-        v1 = _value(intent, "v1", positive=True)
+        m1 = require(intent, "m1", positive=True)
+        v1 = require(intent, "v1", positive=True)
         m2 = intent.params.get("m2")
         v2 = intent.params.get("v2")
         v1_unit = intent.units.get("v1", "L")
@@ -85,7 +76,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
                 f"V1 = {inp(v1)} {v1_unit}",
                 f"V2 = {inp(v2)} {v2_unit}",
             )
-        return ChemistryResult(
+        return verified(
             "Verified dilution",
             given,
             find,
@@ -96,11 +87,11 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "molality":
-        moles = _value(intent, "moles")
-        solvent_kg = _value(intent, "solvent_kg", positive=True)
+        moles = require(intent, "moles")
+        solvent_kg = require(intent, "solvent_kg", positive=True)
         result = moles / solvent_kg
         value = f"{num(result)} mol/kg"
-        return ChemistryResult(
+        return verified(
             "Verified molality",
             (
                 f"solute = {inp(moles)} mol",
@@ -114,13 +105,13 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "mass_percent":
-        solute = _value(intent, "solute_mass")
-        solution = _value(intent, "solution_mass", positive=True)
+        solute = require(intent, "solute_mass")
+        solution = require(intent, "solution_mass", positive=True)
         if solute < 0 or solute > solution:
             raise SolveServiceError("solute mass must be between zero and solution mass")
         result = solute / solution * 100
         value = f"{num(result)}%"
-        return ChemistryResult(
+        return verified(
             "Verified mass percent",
             (
                 f"solute mass = {inp(solute)} g",
@@ -139,10 +130,10 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
 def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
     op = intent.chemistry_op
     if op == "ph_from_h":
-        concentration = _value(intent, "h", positive=True)
+        concentration = require(intent, "h", positive=True)
         ph = -math.log10(concentration)
         value = num(ph)
-        return ChemistryResult(
+        return verified(
             "Verified pH calculation",
             (f"[H+] = {inp(concentration)} mol/L",),
             "pH",
@@ -153,24 +144,24 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "ph_from_poh":
-        poh = _value(intent, "poh")
-        ph = 14 - poh
+        poh = require(intent, "poh")
+        ph = PKW - poh
         value = num(ph)
-        return ChemistryResult(
+        return verified(
             "Verified pH calculation",
-            (f"pOH = {inp(poh)}", "pKw = 14 at 25 °C"),
+            (f"pOH = {inp(poh)}", f"pKw = {PKW} at 25 °C"),
             "pH",
             "Water ion-product relation",
-            "pH + pOH = 14",
-            (f"pH = 14 − {inp(poh)}",),
+            f"pH + pOH = {PKW}",
+            (f"pH = {PKW} − {inp(poh)}",),
             f"pH = {value}",
             value,
         )
     if op == "h_from_ph":
-        ph = _value(intent, "ph")
+        ph = require(intent, "ph")
         concentration = 10 ** (-ph)
         value = f"{num(concentration)} mol/L"
-        return ChemistryResult(
+        return verified(
             "Verified pH calculation",
             (f"pH = {inp(ph)}",),
             "[H+]",
@@ -181,10 +172,10 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "poh_from_oh":
-        concentration = _value(intent, "oh", positive=True)
+        concentration = require(intent, "oh", positive=True)
         poh = -math.log10(concentration)
         value = num(poh)
-        return ChemistryResult(
+        return verified(
             "Verified pOH calculation",
             (f"[OH-] = {inp(concentration)} mol/L",),
             "pOH",
@@ -195,12 +186,12 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "buffer_ph":
-        pka = _value(intent, "pka")
-        base = _value(intent, "base", positive=True)
-        acid = _value(intent, "acid", positive=True)
+        pka = require(intent, "pka")
+        base = require(intent, "base", positive=True)
+        acid = require(intent, "acid", positive=True)
         ph = pka + math.log10(base / acid)
         value = num(ph)
-        return ChemistryResult(
+        return verified(
             "Verified buffer pH",
             (
                 f"pKa = {inp(pka)}",
@@ -217,10 +208,16 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
     raise SolveServiceError(f"unsupported acid-base operation: {op}")
 
 
+_GAS = {
+    "pressure": ("P", "atm"),
+    "volume": ("V", "L"),
+    "moles": ("n", "mol"),
+    "temperature": ("T", "K"),
+}
+
+
 def solve_gas(intent: ChemistryIntent) -> ChemistryResult:
-    values = {
-        name: intent.params.get(name) for name in ("pressure", "volume", "moles", "temperature")
-    }
+    values = {name: intent.params.get(name) for name in _GAS}
     missing = [name for name, value in values.items() if value is None]
     if len(missing) != 1:
         raise SolveServiceError("exactly one gas-law variable must be unknown")
@@ -228,47 +225,18 @@ def solve_gas(intent: ChemistryIntent) -> ChemistryResult:
         if value is not None and value <= 0:
             raise SolveServiceError(f"{name} must be positive")
     unknown = missing[0]
-    p = values["pressure"]
-    v = values["volume"]
-    n = values["moles"]
-    t = values["temperature"]
-    if unknown == "pressure":
-        v = _value(intent, "volume", positive=True)
-        n = _value(intent, "moles", positive=True)
-        t = _value(intent, "temperature", positive=True)
-        result = n * GAS_R * t / v
-        symbol, unit, rearranged = "P", "atm", "P = nRT / V"
-        substitution = f"P = ({inp(n)})({const(GAS_R)})({inp(t)}) / {inp(v)}"
-    elif unknown == "volume":
-        p = _value(intent, "pressure", positive=True)
-        n = _value(intent, "moles", positive=True)
-        t = _value(intent, "temperature", positive=True)
-        result = n * GAS_R * t / p
-        symbol, unit, rearranged = "V", "L", "V = nRT / P"
-        substitution = f"V = ({inp(n)})({const(GAS_R)})({inp(t)}) / {inp(p)}"
-    elif unknown == "moles":
-        p = _value(intent, "pressure", positive=True)
-        v = _value(intent, "volume", positive=True)
-        t = _value(intent, "temperature", positive=True)
-        result = p * v / (GAS_R * t)
-        symbol, unit, rearranged = "n", "mol", "n = PV / RT"
-        substitution = f"n = ({inp(p)})({inp(v)}) / [({const(GAS_R)})({inp(t)})]"
-    else:
-        p = _value(intent, "pressure", positive=True)
-        v = _value(intent, "volume", positive=True)
-        n = _value(intent, "moles", positive=True)
-        result = p * v / (n * GAS_R)
-        symbol, unit, rearranged = "T", "K", "T = PV / nR"
-        substitution = f"T = ({inp(p)})({inp(v)}) / [({inp(n)})({const(GAS_R)})]"
-    given_labels = {"pressure": "P", "volume": "V", "moles": "n", "temperature": "T"}
-    given_units = {"pressure": "atm", "volume": "L", "moles": "mol", "temperature": "K"}
+    symbol, unit = _GAS[unknown]
+    known = {_GAS[name][0]: value for name, value in values.items() if value is not None}
+    result, rearranged, substitution = solve_paired(
+        known, symbol, ["P", "V"], ["n", "R", "T"], {"R": GAS_R}
+    )
     given = tuple(
-        f"{given_labels[name]} = {inp(value)} {given_units[name]}"
+        f"{_GAS[name][0]} = {inp(value)} {_GAS[name][1]}"
         for name, value in values.items()
         if value is not None
     )
     value_text = f"{num(result)} {unit}"
-    return ChemistryResult(
+    return verified(
         "Verified gas law",
         given,
         f"{symbol} ({unknown})",
@@ -280,76 +248,39 @@ def solve_gas(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+_BEER = {
+    "absorbance": ("A", "", "A = {}"),
+    "epsilon": ("ε", "L/(mol·cm)", "ε = {} L/(mol·cm)"),
+    "path": ("b", "cm", "b = {} cm"),
+    "concentration": ("c", "mol/L", "c = {} mol/L"),
+}
+
+
 def solve_beer_lambert(intent: ChemistryIntent) -> ChemistryResult:
-    epsilon = intent.params.get("epsilon")
-    path = intent.params.get("path")
-    concentration = intent.params.get("concentration")
-    absorbance = intent.params.get("absorbance")
-    missing = [
-        name
-        for name, value in (
-            ("epsilon", epsilon),
-            ("path", path),
-            ("concentration", concentration),
-            ("absorbance", absorbance),
-        )
-        if value is None
-    ]
+    values = {name: intent.params.get(name) for name in _BEER}
+    missing = [name for name, value in values.items() if value is None]
     if len(missing) != 1:
         raise SolveServiceError("exactly one Beer–Lambert variable must be unknown")
-    known = [value for value in (epsilon, path, concentration, absorbance) if value is not None]
-    if any(value < 0 for value in known) or any(
-        value == 0 for value in (epsilon, path, concentration) if value is not None
+    known_values = [value for value in values.values() if value is not None]
+    if any(value < 0 for value in known_values) or any(
+        values[name] == 0 for name in ("epsilon", "path", "concentration")
     ):
         raise SolveServiceError("Beer–Lambert inputs must be physically valid")
     unknown = missing[0]
-    if unknown == "absorbance":
-        epsilon = _value(intent, "epsilon", positive=True)
-        path = _value(intent, "path", positive=True)
-        concentration = _value(intent, "concentration", positive=True)
-        result = epsilon * path * concentration
-        answer, unit = "A", ""
-        rearranged = "A = εbc"
-        substitution = f"A = ({inp(epsilon)})({inp(path)})({inp(concentration)})"
-    elif unknown == "concentration":
-        absorbance = _value(intent, "absorbance")
-        epsilon = _value(intent, "epsilon", positive=True)
-        path = _value(intent, "path", positive=True)
-        result = absorbance / (epsilon * path)
-        answer, unit = "c", "mol/L"
-        rearranged = "c = A / (εb)"
-        substitution = f"c = {inp(absorbance)} / [({inp(epsilon)})({inp(path)})]"
-    elif unknown == "epsilon":
-        absorbance = _value(intent, "absorbance")
-        path = _value(intent, "path", positive=True)
-        concentration = _value(intent, "concentration", positive=True)
-        result = absorbance / (path * concentration)
-        answer, unit = "ε", "L/(mol·cm)"
-        rearranged = "ε = A / (bc)"
-        substitution = f"ε = {inp(absorbance)} / [({inp(path)})({inp(concentration)})]"
-    else:
-        absorbance = _value(intent, "absorbance")
-        epsilon = _value(intent, "epsilon", positive=True)
-        concentration = _value(intent, "concentration", positive=True)
-        result = absorbance / (epsilon * concentration)
-        answer, unit = "b", "cm"
-        rearranged = "b = A / (εc)"
-        substitution = f"b = {inp(absorbance)} / [({inp(epsilon)})({inp(concentration)})]"
+    symbol, unit, _ = _BEER[unknown]
+    known = {_BEER[name][0]: value for name, value in values.items() if value is not None}
+    result, rearranged, substitution = solve_paired(known, symbol, ["A"], ["ε", "b", "c"])
     value = f"{num(result)}{f' {unit}' if unit else ''}"
-    given_names = {
-        "epsilon": "ε = {} L/(mol·cm)",
-        "path": "b = {} cm",
-        "concentration": "c = {} mol/L",
-        "absorbance": "A = {}",
-    }
-    given = tuple(given_names[key].format(inp(val)) for key, val in intent.params.items())
-    return ChemistryResult(
+    given = tuple(
+        _BEER[name][2].format(inp(amount)) for name, amount in values.items() if amount is not None
+    )
+    return verified(
         "Verified Beer–Lambert calculation",
         given,
-        answer,
+        symbol,
         "Beer–Lambert law",
         "A = εbc",
         (rearranged, substitution),
-        f"{answer} = {value}",
+        f"{symbol} = {value}",
         value,
     )

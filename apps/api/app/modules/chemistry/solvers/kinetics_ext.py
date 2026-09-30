@@ -12,41 +12,16 @@ from app.modules.chemistry.solvers.common_chem import (
     num,
     verified,
 )
-from app.modules.chemistry.solvers.params import require
-from app.modules.chemistry.solvers.physical import GAS_R_J
+from app.modules.chemistry.solvers.constants import GAS_R_J
+from app.modules.chemistry.solvers.params import require, require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
 _ARRHENIUS = ("k1", "t1", "k2", "t2")
+_NEGATIVE = "kinetics inputs are missing or negative"
+_HALF_LIFE_INPUTS = "half-life inputs must be positive"
 # The half-life question gives k without a time unit, so the answer is in that unit.
 _TIME_OF_K = " (in the time unit of k)"
-
-
-def _three(intent: ChemistryIntent, a: str, b: str, c: str) -> tuple[float, float, float]:
-    message = "kinetics inputs are missing or negative"
-    return (
-        require(intent, a, non_negative=True, message=message),
-        require(intent, b, non_negative=True, message=message),
-        require(intent, c, non_negative=True, message=message),
-    )
-
-
-def _two(intent: ChemistryIntent, a: str, b: str) -> tuple[float, float]:
-    left = intent.params.get(a)
-    right = intent.params.get(b)
-    if left is None or right is None or left <= 0 or right <= 0:
-        raise SolveServiceError("half-life inputs must be positive")
-    return left, right
-
-
-def _four(intent: ChemistryIntent) -> tuple[float, float, float, float]:
-    message = "rate law needs two experiments"
-    return (
-        require(intent, "a1", message=message),
-        require(intent, "rate1", message=message),
-        require(intent, "a2", message=message),
-        require(intent, "rate2", message=message),
-    )
 
 
 def _order_from_change(rate1: float, rate2: float, left: float, right: float) -> int:
@@ -60,7 +35,9 @@ def _order_from_change(rate1: float, rate2: float, left: float, right: float) ->
 
 
 def solve_zero_order(intent: ChemistryIntent) -> ChemistryResult:
-    initial, rate, time = _three(intent, "initial", "rate_constant", "time")
+    initial, rate, time = require_all(
+        intent, "initial", "rate_constant", "time", non_negative=True, message=_NEGATIVE
+    )
     final = initial - rate * time
     if final < 0:
         raise SolveServiceError("zero-order concentration would be negative")
@@ -78,7 +55,9 @@ def solve_zero_order(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_second_order(intent: ChemistryIntent) -> ChemistryResult:
-    initial, rate, time = _three(intent, "initial", "rate_constant", "time")
+    initial, rate, time = require_all(
+        intent, "initial", "rate_constant", "time", non_negative=True, message=_NEGATIVE
+    )
     if initial <= 0:
         raise SolveServiceError("initial concentration must be positive")
     reciprocal = 1 / initial + rate * time
@@ -100,7 +79,13 @@ def solve_second_order(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_zero_half_life(intent: ChemistryIntent) -> ChemistryResult:
-    initial, rate = _two(intent, "initial", "rate_constant")
+    initial, rate = require_all(
+        intent,
+        "initial",
+        "rate_constant",
+        positive=True,
+        message="half-life inputs must be positive",
+    )
     shown = f"t₁/₂ = {num(initial / (2 * rate))}{_TIME_OF_K}"
     return verified(
         "Verified zero-order half-life",
@@ -115,7 +100,13 @@ def solve_zero_half_life(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_second_half_life(intent: ChemistryIntent) -> ChemistryResult:
-    initial, rate = _two(intent, "initial", "rate_constant")
+    initial, rate = require_all(
+        intent,
+        "initial",
+        "rate_constant",
+        positive=True,
+        message="half-life inputs must be positive",
+    )
     shown = f"t₁/₂ = {num(1 / (rate * initial))}{_TIME_OF_K}"
     return verified(
         "Verified second-order half-life",
@@ -130,7 +121,9 @@ def solve_second_half_life(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_rate_law(intent: ChemistryIntent) -> ChemistryResult:
-    a1, rate1, a2, rate2 = _four(intent)
+    a1, rate1, a2, rate2 = require_all(
+        intent, "a1", "rate1", "a2", "rate2", message="rate law needs two experiments"
+    )
     b1 = intent.params.get("b1")
     b2 = intent.params.get("b2")
     if b1 is not None and b2 is not None and abs(a1 - a2) > 1e-12 and abs(b1 - b2) > 1e-12:

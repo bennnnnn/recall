@@ -64,42 +64,49 @@ def _extract_smiles_from_fence(body: str) -> tuple[str | None, str]:
     return last, caption
 
 
-def _canonicalize_smiles_fence(body: str) -> str:
-    """Validate and rewrite a fence body. Never generate 3D."""
+_UNRENDERABLE = "*Could not render that structure.*\n"
+
+
+def _smiles_fence(smiles: str, caption: str = "") -> str:
+    """One ```smiles fence: an optional caption line, then the SMILES."""
+    body = f"{caption}\n{smiles}" if caption else smiles
+    return f"```smiles\n{body}\n```"
+
+
+def _read_fence(body: str) -> tuple[chemistry_service.MoleculeProperties | None, str]:
+    """The validated molecule in a fence body and its caption; None when it cannot be read."""
     smiles, caption = _extract_smiles_from_fence(body)
     if smiles is None:
-        return f"```smiles\n{body}```\n"
+        return None, caption
     try:
         props = chemistry_service.validate_smiles(smiles)
     except Exception:
         logger.info("chemistry fence validation failed for %r", smiles, exc_info=True)
-        return "*Could not render that structure.*\n"
+        return None, caption
     if not props.valid:
         logger.info("replacing invalid SMILES fence: %r", smiles)
-        return "*Could not render that structure.*\n"
+        return None, caption
+    return props, caption
+
+
+def _canonicalize_smiles_fence(body: str) -> str:
+    """Validate and rewrite a fence body. Never generate 3D."""
+    if _extract_smiles_from_fence(body)[0] is None:
+        return f"```smiles\n{body}```\n"  # nothing to validate: leave the fence as written
+    props, caption = _read_fence(body)
+    if props is None:
+        return _UNRENDERABLE
     if not caption and props.formula and props.molecular_weight > 0:
         caption = f"{typeset(props.formula)} · {props.molecular_weight:.2f} g/mol"
-    if caption:
-        return f"```smiles\n{caption}\n{props.smiles}\n```\n"
-    return f"```smiles\n{props.smiles}\n```\n"
+    return _smiles_fence(props.smiles, caption) + "\n"
 
 
 def _attach_molecule3d(body: str) -> tuple[str, bool]:
     """Return (```smiles fence + optional molecule3d, whether 3D was attached)."""
-    smiles, caption = _extract_smiles_from_fence(body)
-    if smiles is None:
+    props, caption = _read_fence(body)
+    if props is None:
         return f"```smiles\n{body}```\n", False
-    try:
-        props = chemistry_service.validate_smiles(smiles)
-    except Exception:
-        logger.info("chemistry fence validation failed for %r", smiles, exc_info=True)
-        return "*Could not render that structure.*\n", False
-    if not props.valid:
-        return f"```smiles\n{body}```\n", False
-    if caption:
-        smiles_fence = f"```smiles\n{caption}\n{props.smiles}\n```"
-    else:
-        smiles_fence = f"```smiles\n{props.smiles}\n```"
+    smiles_fence = _smiles_fence(props.smiles, caption)
     try:
         coords = chemistry_service.generate_3d_coordinates(props.smiles)
         if coords.sdf:
@@ -196,7 +203,7 @@ def _solver_fences(verified: VerifiedChemistry) -> list[str]:
         fences.append(f"```chem_scene\n{payload}\n```")
     smiles = (result.structure_smiles or "").strip()
     if smiles:
-        fences.append(f"```smiles\n{smiles}\n```")
+        fences.append(_smiles_fence(smiles))
     return fences
 
 

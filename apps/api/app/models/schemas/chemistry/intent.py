@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.models.schemas.chemistry.ops import _OPS_BY_KIND, ChemistryKind, ChemistryOp
+from app.models.schemas.chemistry.ops import OPS_BY_KIND, ChemistryKind, ChemistryOp
 
 CrystalGeometry = Literal["octahedral", "tetrahedral", "square_planar"]
 
@@ -45,7 +45,7 @@ class ChemistryIntent(BaseModel):
 
     @model_validator(mode="after")
     def finite_values(self) -> ChemistryIntent:
-        if self.chemistry_op not in _OPS_BY_KIND[self.kind]:
+        if self.chemistry_op not in OPS_BY_KIND[self.kind]:
             raise ValueError(f"{self.chemistry_op!r} is not a {self.kind!r} chemistry operation")
         if (
             len(self.species) > MAX_SPECIES

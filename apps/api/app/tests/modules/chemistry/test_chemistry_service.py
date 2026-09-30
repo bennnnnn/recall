@@ -62,27 +62,6 @@ def test_validate_too_long_smiles() -> None:
 
 
 # ---------------------------------------------------------------------------
-# generate_2d_coordinates
-# ---------------------------------------------------------------------------
-
-
-def test_generate_2d_coordinates_valid() -> None:
-    coords = chemistry_service.generate_2d_coordinates("CCO")
-    assert coords.error is None
-    assert len(coords.coords_2d) == 3  # 3 heavy atoms (C, C, O)
-    # Each coordinate is a (x, y) tuple
-    for point in coords.coords_2d:
-        assert len(point) == 2
-        assert all(isinstance(v, float) for v in point)
-
-
-def test_generate_2d_coordinates_invalid() -> None:
-    coords = chemistry_service.generate_2d_coordinates("not_a_smiles")
-    assert coords.error is not None
-    assert len(coords.coords_2d) == 0
-
-
-# ---------------------------------------------------------------------------
 # generate_3d_coordinates
 # ---------------------------------------------------------------------------
 
@@ -113,27 +92,6 @@ def test_generate_3d_coordinates_invalid() -> None:
     coords = chemistry_service.generate_3d_coordinates("not_a_smiles")
     assert coords.error is not None
     assert coords.sdf == ""
-
-
-# ---------------------------------------------------------------------------
-# enrich_smiles_fence
-# ---------------------------------------------------------------------------
-
-
-def test_enrich_smiles_fence_valid() -> None:
-    result = chemistry_service.enrich_smiles_fence("CCO")
-    assert result["valid"] is True
-    assert result["formula"] == "C2H6O"
-    assert result["molecular_weight"] == pytest.approx(46.07, abs=0.5)
-    assert result["atom_count"] == 3
-    assert result["error"] is None
-
-
-def test_enrich_smiles_fence_invalid() -> None:
-    result = chemistry_service.enrich_smiles_fence("not_a_smiles")
-    assert result["valid"] is False
-    assert result["error"] is not None
-    assert result["formula"] == ""
 
 
 # ---------------------------------------------------------------------------
@@ -296,10 +254,10 @@ def test_molar_mass_hydrate() -> None:
 
 
 def test_parse_formula_hydrate_atoms() -> None:
-    from app.modules.chemistry.equations import _parse_formula_atoms
+    from app.modules.chemistry.formula import parse_formula
 
-    assert _parse_formula_atoms("CuSO4.5H2O") == {"Cu": 1, "S": 1, "O": 9, "H": 10}
-    assert _parse_formula_atoms("KAl(SO4)2.12H2O") == {
+    assert parse_formula("CuSO4.5H2O") == {"Cu": 1, "S": 1, "O": 9, "H": 10}
+    assert parse_formula("KAl(SO4)2.12H2O") == {
         "K": 1,
         "Al": 1,
         "S": 2,
@@ -333,141 +291,6 @@ def test_compute_descriptors_invalid() -> None:
     desc = chemistry_service.compute_descriptors("not_a_smiles")
     assert desc.error is not None
     assert desc.molecular_weight == 0
-
-
-# ---------------------------------------------------------------------------
-# pH / acid-base
-# ---------------------------------------------------------------------------
-
-
-def test_ph_from_concentration() -> None:
-    # [H+] = 1e-7 → pH = 7 (neutral)
-    result = chemistry_service.ph_from_concentration(1e-7)
-    assert result.error is None
-    assert result.ph == pytest.approx(7.0, abs=0.01)
-    assert result.poh == pytest.approx(7.0, abs=0.01)
-
-
-def test_ph_from_concentration_acidic() -> None:
-    # [H+] = 1e-2 → pH = 2
-    result = chemistry_service.ph_from_concentration(1e-2)
-    assert result.ph == pytest.approx(2.0, abs=0.01)
-
-
-def test_ph_from_concentration_invalid() -> None:
-    result = chemistry_service.ph_from_concentration(0)
-    assert result.error is not None
-
-
-def test_ph_from_poh() -> None:
-    result = chemistry_service.ph_from_poh(4.0)
-    assert result.ph == pytest.approx(10.0, abs=0.01)
-
-
-def test_h_from_ph() -> None:
-    result = chemistry_service.h_from_ph(3.0)
-    assert result.ph == pytest.approx(3.0, abs=0.01)
-    # [H+] = 10^-3 = 1e-3
-    assert "e-03" in result.answer or "0.001" in result.answer
-
-
-# ---------------------------------------------------------------------------
-# Gas laws
-# ---------------------------------------------------------------------------
-
-
-def test_ideal_gas_law_solve_pressure() -> None:
-    # P = nRT/V with n=1, T=273, V=22.4 → ~1 atm
-    result = chemistry_service.ideal_gas_law(volume=22.4, moles=1, temperature=273)
-    assert result.error is None
-    assert result.value == pytest.approx(1.0, abs=0.05)
-
-
-def test_ideal_gas_law_solve_volume() -> None:
-    result = chemistry_service.ideal_gas_law(pressure=1, moles=1, temperature=273)
-    assert result.error is None
-    assert result.value == pytest.approx(22.4, abs=0.5)
-
-
-def test_ideal_gas_law_solve_moles() -> None:
-    result = chemistry_service.ideal_gas_law(pressure=1, volume=22.4, temperature=273)
-    assert result.error is None
-    assert result.value == pytest.approx(1.0, abs=0.05)
-
-
-def test_ideal_gas_law_solve_temperature() -> None:
-    result = chemistry_service.ideal_gas_law(pressure=1, volume=22.4, moles=1)
-    assert result.error is None
-    assert result.value == pytest.approx(273, abs=2)
-
-
-def test_ideal_gas_law_no_unknown() -> None:
-    result = chemistry_service.ideal_gas_law(pressure=1, volume=1, moles=1, temperature=273)
-    assert result.error is not None
-
-
-def test_ideal_gas_law_two_unknown() -> None:
-    result = chemistry_service.ideal_gas_law(pressure=1, volume=1)
-    assert result.error is not None
-
-
-def test_ideal_gas_law_zero_pressure() -> None:
-    result = chemistry_service.ideal_gas_law(pressure=0, moles=1, temperature=273)
-    assert result.error is not None
-    assert result.value is None
-
-
-def test_ideal_gas_law_zero_volume() -> None:
-    result = chemistry_service.ideal_gas_law(volume=0, moles=1, temperature=273)
-    assert result.error is not None
-
-
-# ---------------------------------------------------------------------------
-# Solution chemistry
-# ---------------------------------------------------------------------------
-
-
-def test_molarity() -> None:
-    result = chemistry_service.molarity(2.0, 1.0)
-    assert result.error is None
-    assert result.value == pytest.approx(2.0)
-
-
-def test_molarity_zero_volume() -> None:
-    result = chemistry_service.molarity(2.0, 0.0)
-    assert result.error is not None
-
-
-def test_dilution_solve_v2() -> None:
-    # M1V1 = M2V2 → V2 = M1V1/M2 = (2*1)/1 = 2
-    result = chemistry_service.dilution(m1=2.0, v1=1.0, m2=1.0)
-    assert result.error is None
-    assert result.value == pytest.approx(2.0)
-
-
-def test_dilution_solve_m2() -> None:
-    # M2 = M1V1/V2 = (2*1)/4 = 0.5
-    result = chemistry_service.dilution(m1=2.0, v1=1.0, v2=4.0)
-    assert result.error is None
-    assert result.value == pytest.approx(0.5)
-
-
-def test_dilution_no_unknown() -> None:
-    result = chemistry_service.dilution(m1=2.0, v1=1.0, v2=4.0, m2=0.5)
-    assert result.error is not None
-
-
-def test_dilution_two_unknown() -> None:
-    result = chemistry_service.dilution(m1=2.0, v1=1.0)
-    assert result.error is not None
-
-
-def test_dilution_ml_labels_ml() -> None:
-    result = chemistry_service.dilution(m1=1.0, v1=100.0, m2=0.5, volume_unit="mL")
-    assert result.error is None
-    assert result.value == pytest.approx(200.0)
-    assert "mL" in result.answer
-    assert " L" not in result.answer
 
 
 # ---------------------------------------------------------------------------

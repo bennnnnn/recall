@@ -49,11 +49,11 @@ def _pint_unit(unit: str) -> str:
 
 
 def convert(value: float, unit: str, target: str) -> float:
-    """Convert ``value`` from a chemistry alias into ``target`` Pint units."""
+    """Convert ``value`` from one chemistry alias (``mmHg``, ``mL``, ``°C``) to another."""
     registry = get_unit_registry()
     # Offset units such as degC cannot be multiplied; Quantity handles 25 °C → K.
     quantity = registry.Quantity(value, _pint_unit(unit))
-    return float(quantity.to(target).magnitude)
+    return float(quantity.to(_pint_unit(target)).magnitude)
 
 
 def to_atm(value: float, unit: str) -> float:

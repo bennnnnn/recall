@@ -889,7 +889,6 @@ def test_chemistry_runtime_code_has_one_owner() -> None:
         "fence.py",
         "request.py",
         "smiles.py",
-        "solutions.py",
         "stoichiometry.py",
     }
     assert expected <= {path.name for path in module_root.glob("*.py")}

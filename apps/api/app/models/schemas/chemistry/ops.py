@@ -133,7 +133,7 @@ ChemistryOp = Literal[
     "michaelis_menten",
 ]
 
-_OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
+OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
     "equations": frozenset({"balance"}),
     "amounts": frozenset(
         {

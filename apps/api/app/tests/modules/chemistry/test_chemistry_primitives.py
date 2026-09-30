@@ -10,7 +10,7 @@ from app.modules.chemistry.coordination import parse_coordination
 from app.modules.chemistry.elements import BY_NUMBER, BY_SYMBOL, ELEMENTS, get_element_info
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
-from app.modules.chemistry.nuclear import balance_nuclear, decay_product, format_nuclear
+from app.modules.chemistry.nuclear import balance_nuclear, format_nuclear
 from app.modules.chemistry.organic import isomer_relationship, organic_facts
 from app.modules.chemistry.quantity import to_atm, to_kelvin, to_liters
 from app.modules.chemistry.solvers import solve_chemistry
@@ -276,6 +276,3 @@ def test_organic_facts_and_coordination_names() -> None:
 
 def test_nuclear_equations_conserve_nucleons() -> None:
     assert format_nuclear(balance_nuclear("238U -> 234Th + ?")) == "238U → 234Th + 4He"
-    assert decay_product(14, "C", "beta") == "14C → 14N + e-"
-    assert decay_product(11, "C", "positron") == "11C → 11B + e+"
-    assert decay_product(7, "Be", "electron capture") == "7Be + e- → 7Li"

@@ -4,35 +4,27 @@
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.modules.chemistry.equations import _parse_formula_atoms, balance_equation
+from app.modules.chemistry.elements import BY_SYMBOL
+from app.modules.chemistry.equations import balance_equation, format_balanced
+from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.solvers.common_chem import (
     atomic_mass,
     const,
     inp,
     molar_mass_text,
     num,
+    verified,
 )
+from app.modules.chemistry.solvers.constants import AVOGADRO
+from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
 from app.modules.chemistry.stoichiometry import (
-    PERIODIC_TABLE,
     limiting_reagent,
     molar_mass,
     stoichiometry,
 )
 from app.services.solving import SolveServiceError
-
-AVOGADRO = 6.02214076e23
-
-
-def _positive(intent: ChemistryIntent, key: str, *, allow_zero: bool = False) -> float:
-    try:
-        value = intent.params[key]
-    except KeyError as exc:
-        raise SolveServiceError(f"missing chemistry parameter: {key}") from exc
-    if value < 0 or (value == 0 and not allow_zero):
-        raise SolveServiceError(f"{key} must be {'non-negative' if allow_zero else 'positive'}")
-    return value
 
 
 def _molar_mass(formula: str) -> float:
@@ -48,19 +40,12 @@ def _formula(intent: ChemistryIntent) -> str:
     return intent.formula
 
 
-def _balanced_text(equation: str) -> str:
+def balanced_text(equation: str) -> str:
+    """The balanced equation as text, or a refusal when it does not balance."""
     balanced = balance_equation(equation)
     if not balanced.balanced:
         raise SolveServiceError(balanced.error or "equation could not be balanced")
-    left = " + ".join(
-        f"{coefficient} {species}" if coefficient != 1 else species
-        for species, coefficient in balanced.reactants.items()
-    )
-    right = " + ".join(
-        f"{coefficient} {species}" if coefficient != 1 else species
-        for species, coefficient in balanced.products.items()
-    )
-    return f"{left} -> {right}"
+    return format_balanced(balanced)
 
 
 def _tally_lines(equation: str, *, written: bool = False) -> tuple[str, ...]:
@@ -114,7 +99,7 @@ def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
     equation = intent.equation
     if not equation:
         raise SolveServiceError("an equation is required")
-    balanced = _balanced_text(equation)
+    balanced = balanced_text(equation)
     if intent.target == "check":
         already = balance_equation(equation).given_balanced
         verdict = (
@@ -122,7 +107,7 @@ def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
             if already
             else f"No, it is not balanced. Balanced: {balanced}"
         )
-        return ChemistryResult(
+        return verified(
             title="Verified balance check",
             given=(f"Equation: {equation}",),
             find="Whether the written coefficients balance",
@@ -131,9 +116,9 @@ def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
             substitution=_tally_lines(equation, written=True)
             or (f"Count atoms and charge on each side of: {equation}",),
             answer=verdict,
-            answer_value=verdict,
+            value=verdict,
         )
-    return ChemistryResult(
+    return verified(
         title="Verified balanced equation",
         given=(f"Unbalanced equation: {equation}",),
         find="Smallest whole-number coefficients",
@@ -141,24 +126,23 @@ def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
         formula="Atoms of each element on reactant side = atoms on product side",
         substitution=_tally_lines(equation) or (f"Balance element counts: {equation}",),
         answer=balanced,
-        answer_value=balanced,
+        value=balanced,
     )
 
 
 def solve_molar_mass(intent: ChemistryIntent) -> ChemistryResult:
     formula = _formula(intent)
-    atoms = _parse_formula_atoms(formula)
+    atoms = parse_formula(formula)
     mass = _molar_mass(formula)
     terms: list[str] = []
     if atoms:
         for symbol, count in atoms.items():
-            info = PERIODIC_TABLE.get(symbol)
-            if info is None or not isinstance(info.get("mass"), int | float):
-                continue
-            terms.append(f"{count}({atomic_mass(float(info['mass']))})")
+            known = BY_SYMBOL.get(symbol)
+            if known is not None:
+                terms.append(f"{count}({atomic_mass(known.mass)})")
     substitution = " + ".join(terms) if terms else f"RDKit molecular mass for {formula}"
     result = f"{molar_mass_text(mass)} g/mol"
-    return ChemistryResult(
+    return verified(
         title="Verified molar mass",
         given=(f"Formula = {formula}",),
         find="Molar mass, M",
@@ -166,7 +150,7 @@ def solve_molar_mass(intent: ChemistryIntent) -> ChemistryResult:
         formula="M = Σ(nᵢ × atomic massᵢ)",
         substitution=(f"M = {substitution}",),
         answer=f"M({formula}) = {result}",
-        answer_value=result,
+        value=result,
     )
 
 
@@ -175,7 +159,7 @@ def _particles_per_formula(intent: ChemistryIntent, formula: str) -> tuple[int, 
     noun = intent.units.get("particle", "particles")
     if noun != "atoms":
         return 1, "particles"
-    atoms = _parse_formula_atoms(formula)
+    atoms = parse_formula(formula)
     if not atoms:
         raise SolveServiceError(f"cannot count the atoms in {formula}")
     return sum(atoms.values()), "atoms"
@@ -186,10 +170,10 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
     formula = _formula(intent)
     molar = _molar_mass(formula)
     if op == "mass_to_moles":
-        mass = _positive(intent, "mass", allow_zero=True)
+        mass = require(intent, "mass", non_negative=True)
         moles = mass / molar
         value = f"{num(moles)} mol"
-        return ChemistryResult(
+        return verified(
             "Verified amount of substance",
             (f"mass = {inp(mass)} g", f"M({formula}) = {molar_mass_text(molar)} g/mol"),
             "Amount, n",
@@ -200,10 +184,10 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "moles_to_mass":
-        moles = _positive(intent, "moles", allow_zero=True)
+        moles = require(intent, "moles", non_negative=True)
         mass = moles * molar
         value = f"{num(mass)} g"
-        return ChemistryResult(
+        return verified(
             "Verified mass",
             (f"n = {inp(moles)} mol", f"M({formula}) = {molar_mass_text(molar)} g/mol"),
             "Mass, m",
@@ -215,10 +199,10 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
         )
     per_formula, noun = _particles_per_formula(intent, formula)
     if op == "moles_to_particles":
-        moles = _positive(intent, "moles", allow_zero=True)
+        moles = require(intent, "moles", non_negative=True)
         particles = moles * AVOGADRO * per_formula
         value = f"{num(particles)} {noun}"
-        return ChemistryResult(
+        return verified(
             "Verified particle count",
             (f"n = {inp(moles)} mol", f"Nₐ = {const(AVOGADRO)} mol⁻¹"),
             f"Number of {noun}, N",
@@ -232,10 +216,10 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "particles_to_moles":
-        particles = _positive(intent, "particles", allow_zero=True)
+        particles = require(intent, "particles", non_negative=True)
         moles = particles / AVOGADRO / per_formula
         value = f"{num(moles)} mol"
-        return ChemistryResult(
+        return verified(
             "Verified amount of substance",
             (f"N = {inp(particles)} {noun}", f"Nₐ = {const(AVOGADRO)} mol⁻¹"),
             "Amount, n",
@@ -256,17 +240,17 @@ def solve_percent_composition(intent: ChemistryIntent) -> ChemistryResult:
     element = intent.target
     if not element:
         raise SolveServiceError("an element is required")
-    atoms = _parse_formula_atoms(formula)
+    atoms = parse_formula(formula)
     count = atoms.get(element)
-    info = PERIODIC_TABLE.get(element)
-    if count is None or info is None or not isinstance(info.get("mass"), int | float):
+    known = BY_SYMBOL.get(element)
+    if count is None or known is None:
         raise SolveServiceError(f"{element} is not present in {formula}")
     total = _molar_mass(formula)
     # Rounded like the molar mass so the shown fraction is one convention: 16 / 18.02.
-    contribution = round(count * float(info["mass"]), 2)
+    contribution = round(count * known.mass, 2)
     percent = contribution / total * 100
     value = f"{num(percent)}%"
-    return ChemistryResult(
+    return verified(
         "Verified percent composition",
         (
             f"Formula = {formula}",
@@ -283,11 +267,11 @@ def solve_percent_composition(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_percent_yield(intent: ChemistryIntent) -> ChemistryResult:
-    actual = _positive(intent, "actual", allow_zero=True)
-    theoretical = _positive(intent, "theoretical")
+    actual = require(intent, "actual", non_negative=True)
+    theoretical = require(intent, "theoretical", positive=True)
     percent = actual / theoretical * 100
     value = f"{num(percent)}%"
-    return ChemistryResult(
+    return verified(
         "Verified percent yield",
         (
             f"actual yield = {inp(actual)} g",
@@ -326,7 +310,7 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
         )
         value = f"{num(limiting_result.product_amount)} mol {target}"
         limiting_names = " and ".join((limiting_result.limiting_reagent, *limiting_result.tied))
-        return ChemistryResult(
+        return verified(
             "Verified limiting reagent",
             tuple(f"n({name}) = {inp(amount)} mol" for name, amount in intent.species.items()),
             f"Limiting reagent and moles of {target}",
@@ -346,10 +330,10 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
     r_coeff = balanced.reactants[known]
     p_coeff = balanced.products[target]
     value = f"{num(stoich_result.product_amount)} mol {target}"
-    return ChemistryResult(
+    return verified(
         "Verified stoichiometry",
         (
-            f"Balanced equation: {_balanced_text(equation)}",
+            f"Balanced equation: {balanced_text(equation)}",
             f"n({known}) = {inp(amount)} mol",
         ),
         f"Moles of {target}",

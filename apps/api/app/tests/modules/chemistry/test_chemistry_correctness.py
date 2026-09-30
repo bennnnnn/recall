@@ -15,12 +15,12 @@ import pytest
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.coordination import parse_complex_formula
-from app.modules.chemistry.equations import _parse_formula_atoms as parse_formula_atoms
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.extractors.parsing import _percents
+from app.modules.chemistry.formula import parse_formula as parse_formula_atoms
 from app.modules.chemistry.lewis import lewis_structure
-from app.modules.chemistry.nuclear import balance_nuclear, decay_product, format_nuclear
+from app.modules.chemistry.nuclear import balance_nuclear, format_nuclear
 from app.modules.chemistry.organic import organic_facts
 from app.modules.chemistry.reactions import named_product
 from app.modules.chemistry.request import EQUATION_RE
@@ -683,7 +683,9 @@ def test_nuclear_equations_accept_written_particles(equation: str, shown: str) -
 
 
 def test_electron_capture_keeps_the_captured_electron() -> None:
-    assert decay_product(7, "Be", "electron capture") == "7Be + e- → 7Li"
+    captured = balance_nuclear("7Be -> 7Li")
+    assert not captured.balanced  # a nucleon count alone cannot balance the charge
+    assert format_nuclear(balance_nuclear("7Be + e- -> 7Li")) == "7Be + e- → 7Li"
 
 
 @pytest.mark.parametrize(

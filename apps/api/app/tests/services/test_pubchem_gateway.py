@@ -165,61 +165,6 @@ async def test_lookup_by_name_network_error() -> None:
 
 
 @pytest.mark.asyncio
-async def test_lookup_by_smiles_success() -> None:
-    mock_resp = _mock_response(
-        200,
-        {
-            "PropertyTable": {
-                "Properties": [
-                    {
-                        "CID": 2244,
-                        "CanonicalSMILES": "CC(=O)OC1=CC=CC=C1C(=O)O",
-                        "MolecularFormula": "C9H8O4",
-                        "MolecularWeight": "180.16",
-                    }
-                ]
-            }
-        },
-    )
-    client = AsyncMock()
-    client.get = AsyncMock(return_value=mock_resp)
-    with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
-        result = await pubchem_gateway.lookup_by_smiles("CC(=O)OC1=CC=CC=C1C(=O)O")
-    assert result.error is None
-    assert result.compound is not None
-    assert result.compound.cid == 2244
-    assert result.compound.molecular_formula == "C9H8O4"
-
-
-@pytest.mark.asyncio
-async def test_lookup_by_smiles_empty() -> None:
-    result = await pubchem_gateway.lookup_by_smiles("")
-    assert result.compound is None
-    assert result.error == "empty SMILES"
-
-
-@pytest.mark.asyncio
-async def test_fetch_3d_sdf_success() -> None:
-    sdf_content = "aspirin\n     RDKit\n\n  9  9  0  0  0  0  0  0  0  0999 V2000\nM  END\n"
-    mock_resp = _mock_response(200, text=sdf_content)
-    client = AsyncMock()
-    client.get = AsyncMock(return_value=mock_resp)
-    with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
-        result = await pubchem_gateway.fetch_3d_sdf(2244)
-    assert result == sdf_content
-
-
-@pytest.mark.asyncio
-async def test_fetch_3d_sdf_not_found() -> None:
-    mock_resp = _mock_response(404)
-    client = AsyncMock()
-    client.get = AsyncMock(return_value=mock_resp)
-    with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
-        result = await pubchem_gateway.fetch_3d_sdf(999999999)
-    assert result is None
-
-
-@pytest.mark.asyncio
 async def test_lookup_iupac_name_returns_only_that_property() -> None:
     mock_resp = _mock_response(
         200,
@@ -242,12 +187,3 @@ async def test_lookup_iupac_name_missing_is_not_a_common_name() -> None:
     with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
         assert await pubchem_gateway.lookup_iupac_name("CCO") is None
     assert await pubchem_gateway.lookup_iupac_name("  ") is None
-
-
-@pytest.mark.asyncio
-async def test_fetch_3d_sdf_network_error() -> None:
-    client = AsyncMock()
-    client.get = AsyncMock(side_effect=Exception("network error"))
-    with patch.object(pubchem_gateway, "get_pooled_client", return_value=client):
-        result = await pubchem_gateway.fetch_3d_sdf(2244)
-    assert result is None

@@ -15,6 +15,7 @@ import re
 from dataclasses import dataclass
 
 from app.modules.chemistry.elements import BY_SYMBOL
+from app.modules.chemistry.formula import parse_formula
 
 _PHASE_RE = re.compile(r"\s*\((aq|s|l|g)\)$", re.IGNORECASE)
 _CARET_CHARGE_RE = re.compile(r"\^(?:\{(\d*)([+-])\}|(\d*)([+-]))$")
@@ -189,8 +190,6 @@ def parse_species(
     token: str, *, coefficient_already_removed: bool = False
 ) -> ChemicalSpecies | None:
     """Parse one term. None when the formula is not a complete species."""
-    from app.modules.chemistry.equations import _parse_formula_atoms
-
     text = normalize_formula_text(token).strip()
     if not text:
         return None
@@ -202,18 +201,15 @@ def parse_species(
     if coefficient < 1 or not body:
         return None
     body, phase = _strip_phase(body)
-    if body in {"e", "e-"} or body.rstrip("+-") == "e":
-        charge = -1 if body.endswith("-") or body == "e" else 1 if body.endswith("+") else -1
-        if body == "e":
-            charge = -1
-        return ChemicalSpecies("e", {}, charge, phase, electron=True)
+    if body.rstrip("+-") == "e":
+        return ChemicalSpecies("e", {}, 1 if body.endswith("+") else -1, phase, electron=True)
     stripped = _strip_charge(body)
     if stripped is None:
         return None
     body, charge = stripped
     if not body:
         return None
-    composition = _parse_formula_atoms(body)
+    composition = parse_formula(body)
     if not composition or any(symbol not in BY_SYMBOL for symbol in composition):
         return None
     return ChemicalSpecies(body, composition, charge, phase, electron=False)

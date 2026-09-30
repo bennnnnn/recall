@@ -10,7 +10,7 @@ from app.models.schemas.chemistry.scene import StoichScene, StoichStep
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.formula import hill_formula
-from app.modules.chemistry.solvers.amounts import AVOGADRO, _balanced_text
+from app.modules.chemistry.solvers.amounts import balanced_text
 from app.modules.chemistry.solvers.common_chem import (
     atomic_mass,
     const,
@@ -19,7 +19,7 @@ from app.modules.chemistry.solvers.common_chem import (
     num,
     verified,
 )
-from app.modules.chemistry.solvers.solutions import GAS_R
+from app.modules.chemistry.solvers.constants import AVOGADRO, GAS_R
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.stoichiometry import molar_mass
 from app.services.solving import SolveServiceError
@@ -236,7 +236,7 @@ def solve_mass_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
     result = verified(
         "Verified stoichiometry chain",
         (
-            f"Balanced equation: {_balanced_text(equation)}",
+            f"Balanced equation: {balanced_text(equation)}",
             *_known_lines(known, amount, known_unit, intent.params),
         ),
         f"Amount of {target}",
@@ -266,14 +266,6 @@ def solve_mass_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
             ],
         ),
     )
-
-
-def solve_solution_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
-    return solve_mass_stoichiometry(intent)
-
-
-def solve_gas_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
-    return solve_mass_stoichiometry(intent)
 
 
 def solve_limiting_amounts(intent: ChemistryIntent, *, unit: str) -> ChemistryResult:

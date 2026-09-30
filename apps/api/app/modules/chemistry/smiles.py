@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from functools import lru_cache
 from typing import Any
 
@@ -77,14 +77,11 @@ class MoleculeProperties:
 
 @dataclass(frozen=True)
 class MoleculeCoordinates:
-    """2D or 3D coordinates for visualization."""
+    """3D coordinates of a molecule as an SDF (MOL block) for the phone's molecule card."""
 
     smiles: str
-    # SDF (structure-data file) format for 3Dmol.js rendering.
     # Empty when coordinates could not be generated.
     sdf: str = ""
-    # 2D coordinates as a list of (x, y) pairs per atom (for SVG rendering).
-    coords_2d: list[tuple[float, float]] = field(default_factory=list)
     error: str | None = None
 
 
@@ -179,35 +176,8 @@ def most_common_isotope(symbol: str) -> tuple[float, int] | None:
         return None
 
 
-def generate_2d_coordinates(smiles: str) -> MoleculeCoordinates:
-    """Generate 2D coordinates for SVG rendering.
-
-    Returns MoleculeCoordinates with empty coords_2d on failure.
-    """
-    _ensure_rdkit()
-    from rdkit import Chem
-    from rdkit.Chem import AllChem
-
-    smiles = normalize_smiles_input(smiles.strip())
-    try:
-        mol = Chem.MolFromSmiles(smiles)
-        if mol is None:
-            return MoleculeCoordinates(smiles=smiles, error="invalid SMILES")
-        canonical = Chem.MolToSmiles(mol)
-        AllChem.Compute2DCoords(mol)  # type: ignore[attr-defined]
-        coords = mol.GetConformer()
-        coords_2d = [
-            (round(coords.GetAtomPosition(i).x, 4), round(coords.GetAtomPosition(i).y, 4))
-            for i in range(mol.GetNumAtoms())
-        ]
-        return MoleculeCoordinates(smiles=canonical, coords_2d=coords_2d)
-    except Exception as exc:
-        logger.info("RDKit 2D coords failed for %r: %s", smiles, exc)
-        return MoleculeCoordinates(smiles=smiles, error=str(exc))
-
-
 def generate_3d_coordinates(smiles: str) -> MoleculeCoordinates:
-    """Generate 3D coordinates as an SDF string for 3Dmol.js rendering.
+    """Generate 3D coordinates as an SDF string for the molecule card.
 
     Uses RDKit's ETKDG method for 3D conformer generation. Returns
     MoleculeCoordinates with empty sdf on failure.
@@ -239,28 +209,6 @@ def generate_3d_coordinates(smiles: str) -> MoleculeCoordinates:
     except Exception as exc:
         logger.info("RDKit 3D coords failed for %r: %s", smiles, exc)
         return MoleculeCoordinates(smiles=smiles, error=str(exc))
-
-
-def enrich_smiles_fence(smiles: str) -> dict[str, Any]:
-    """Validate a SMILES and return enriched metadata for the fence.
-
-    Returns a dict with:
-    - smiles: canonical SMILES
-    - valid: bool
-    - formula: molecular formula (or "")
-    - molecular_weight: float (or 0)
-    - atom_count: int (or 0)
-    - error: str | None
-    """
-    props = validate_smiles(smiles)
-    return {
-        "smiles": props.smiles,
-        "valid": props.valid,
-        "formula": props.formula,
-        "molecular_weight": props.molecular_weight,
-        "atom_count": props.atom_count,
-        "error": props.error,
-    }
 
 
 @dataclass(frozen=True)

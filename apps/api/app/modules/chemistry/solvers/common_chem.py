@@ -15,7 +15,6 @@ from app.modules.chemistry.solvers.types import (
 )
 from app.services.solving import SolveServiceError
 
-KW = 1.0e-14
 # Below this an ion concentration is comparable to the 1e-7 M that water supplies itself.
 _DILUTE_ION = 1.0e-6
 # mmHg vapor pressure of water. Values between points are linearly interpolated.
@@ -37,30 +36,6 @@ WATER_VAPOR_MMHG: tuple[tuple[float, float], ...] = (
     (90, 525.8),
     (100, 760.0),
 )
-# Standard reduction potential and electrons for the common aqueous ion.
-STANDARD_REDUCTION: dict[str, tuple[float, int]] = {
-    "Li": (-3.04, 1),
-    "K": (-2.93, 1),
-    "Ba": (-2.91, 2),
-    "Ca": (-2.87, 2),
-    "Na": (-2.71, 1),
-    "Mg": (-2.37, 2),
-    "Al": (-1.66, 3),
-    "Mn": (-1.18, 2),
-    "Zn": (-0.76, 2),
-    "Cr": (-0.74, 3),
-    "Fe": (-0.44, 2),
-    "Cd": (-0.40, 2),
-    "Co": (-0.28, 2),
-    "Ni": (-0.25, 2),
-    "Sn": (-0.14, 2),
-    "Pb": (-0.13, 2),
-    "H": (0.0, 2),
-    "Cu": (0.34, 2),
-    "Ag": (0.80, 1),
-    "Hg": (0.85, 2),
-    "Au": (1.50, 3),
-}
 
 
 def verified(
