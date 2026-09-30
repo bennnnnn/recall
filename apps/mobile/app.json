@@ -17,7 +17,12 @@
         "NSPhotoLibraryUsageDescription": "Recall needs access to your photos so you can attach images in chat.",
         "NSPhotoLibraryAddUsageDescription": "Recall saves generated and chat images to your photo library when you tap Download.",
         "NSCameraUsageDescription": "Recall uses the camera so you can take photos to attach in chat.",
-        "LSApplicationQueriesSchemes": ["googlegmail", "gmail", "mailto", "https"]
+        "LSApplicationQueriesSchemes": [
+          "googlegmail",
+          "gmail",
+          "mailto",
+          "https"
+        ]
       }
     },
     "android": {
@@ -57,7 +62,9 @@
         {
           "icon": "./assets/images/icon.png",
           "color": "#4F56E5",
-          "sounds": ["./assets/audio/recall_notify.wav"]
+          "sounds": [
+            "./assets/audio/recall_notify.wav"
+          ]
         }
       ],
       [
@@ -87,6 +94,17 @@
           "cameraPermission": "Recall uses the camera to scan math problems from your notes or worksheets.",
           "microphonePermission": false,
           "recordAudioAndroid": false
+        }
+      ],
+      [
+        "react-native-vision-camera-mlkit",
+        {
+          "textRecognition": true,
+          "textRecognitionChinese": false,
+          "textRecognitionDevanagari": false,
+          "textRecognitionJapanese": false,
+          "textRecognitionKorean": false,
+          "barcodeScanning": false
         }
       ],
       [
