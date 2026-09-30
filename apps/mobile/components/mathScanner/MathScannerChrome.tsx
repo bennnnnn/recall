@@ -1,5 +1,5 @@
 /* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -9,10 +9,8 @@ import {
 } from "react-native";
 import { Pressable as GHPressable } from "react-native-gesture-handler";
 import Animated, {
-  cancelAnimation,
   useAnimatedStyle,
   useSharedValue,
-  withRepeat,
   withTiming,
 } from "react-native-reanimated";
 import type { EdgeInsets } from "react-native-safe-area-context";
@@ -39,7 +37,6 @@ type Props = {
   preview: boolean;
   busy: boolean;
   torchOn: boolean;
-  lowLight: boolean;
   subject: ScannerSubject;
   error: string | null;
   onClose: () => void;
@@ -57,7 +54,6 @@ export function MathScannerChrome({
   preview,
   busy,
   torchOn,
-  lowLight,
   subject,
   error,
   onClose,
@@ -73,28 +69,10 @@ export function MathScannerChrome({
   const reduceMotion = useReduceMotion();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const shutterScale = useSharedValue(1);
-  const torchPulse = useSharedValue(0);
   const pressMs = motionMs(Motion.duration.press, reduceMotion);
 
   const shutterStyle = useAnimatedStyle(() => ({
     transform: [{ scale: shutterScale.value }],
-  }));
-
-  useEffect(() => {
-    cancelAnimation(torchPulse);
-    torchPulse.value = 0;
-    if (!lowLight || torchOn || reduceMotion) return;
-    torchPulse.value = withRepeat(
-      withTiming(1, { duration: 720 }),
-      -1,
-      true,
-    );
-    return () => cancelAnimation(torchPulse);
-  }, [lowLight, reduceMotion, torchOn, torchPulse]);
-
-  const torchPulseStyle = useAnimatedStyle(() => ({
-    opacity: 0.3 + torchPulse.value * 0.55,
-    transform: [{ scale: 1 + torchPulse.value * 0.22 }],
   }));
 
   const bottomPad = Math.max(insets.bottom, Space.md) + Space.sm;
@@ -189,13 +167,6 @@ export function MathScannerChrome({
               </Animated.View>
             </GHPressable>
             <View style={s.sideSlot}>
-              {lowLight && !torchOn ? (
-                <Animated.View
-                  pointerEvents="none"
-                  testID="math-scanner-low-light"
-                  style={[s.torchPulse, torchPulseStyle]}
-                />
-              ) : null}
               <GHPressable
                 style={[s.sideControl, torchOn ? s.torchOn : null]}
                 onPress={onToggleTorch}
@@ -306,15 +277,6 @@ function makeStyles(theme: Theme) {
       height: 52,
       alignItems: "center",
       justifyContent: "center",
-    },
-    torchPulse: {
-      position: "absolute",
-      width: 56,
-      height: 56,
-      borderRadius: Radius.full,
-      borderWidth: 2,
-      borderColor: theme.primary,
-      backgroundColor: withAlpha(theme.primary, 0.18),
     },
     shutter: {
       width: SCANNER_SHUTTER_PX,
