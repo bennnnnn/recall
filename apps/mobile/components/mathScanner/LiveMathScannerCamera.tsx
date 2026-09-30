@@ -30,8 +30,8 @@ export type LiveScannerDetection = {
 export type LiveScannerCameraHandle = {
   takePictureAsync: () => Promise<{
     uri: string;
-    width: number;
-    height: number;
+    width?: number;
+    height?: number;
   } | null>;
 };
 
@@ -152,7 +152,7 @@ export const LiveMathScannerCamera = forwardRef<LiveScannerCameraHandle, Props>(
 
     const cameraZoom = useMemo(() => {
       if (!device) return 1;
-      const neutral = Math.max(device.minZoom, device.neutralZoom);
+      const neutral = Math.min(device.maxZoom, Math.max(device.minZoom, 1));
       const max = Math.max(neutral, Math.min(device.maxZoom, MAX_SCANNER_ZOOM));
       return neutral + Math.min(1, Math.max(0, zoom)) * (max - neutral);
     }, [device, zoom]);
@@ -172,8 +172,6 @@ export const LiveMathScannerCamera = forwardRef<LiveScannerCameraHandle, Props>(
           );
           return {
             uri: `file://${photo.filePath}`,
-            width: photo.width,
-            height: photo.height,
           };
         },
       }),
