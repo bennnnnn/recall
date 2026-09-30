@@ -211,8 +211,9 @@ export const FENCES: readonly FenceSpec[] = [
     owner: "model",
     fallback: "visual",
   },
-  // Display-only: preprocessor collapses adjacent smiles + molecule3d.
-  // The model/server must not emit this tag; persist still stores both fences.
+  // Display-only: the client preprocessor collapses an adjacent smiles + molecule3d pair into
+  // this. Neither the model nor the server writes it — a stored reply holds only the two
+  // source fences — so `owner` names the fence that supplies its content.
   {
     id: "molecule",
     langs: ["molecule"],

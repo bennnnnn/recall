@@ -291,6 +291,9 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\longleftrightarrow(?![a-zA-Z])/g, "⟷"],
   [/\\leftrightarrow(?![a-zA-Z])/g, "↔"],
   [/\\Longleftrightarrow(?![a-zA-Z])/g, "⟺"],
+  // Equilibrium arrows: chemistry writes these between species, and the word leaked otherwise.
+  [/\\rightleftharpoons(?![a-zA-Z])/g, "⇌"],
+  [/\\leftrightharpoons(?![a-zA-Z])/g, "⇋"],
   [/\\Leftrightarrow(?![a-zA-Z])/g, "⇔"],
   [/\\implies(?![a-zA-Z])/g, "⇒"],
   [/\\iff(?![a-zA-Z])/g, "⇔"],

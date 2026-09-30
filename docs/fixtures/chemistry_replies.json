@@ -1,0 +1,25 @@
+{
+  "answer_notation": "notation: chemistry",
+  "replies": {
+    "ph_from_hydrogen": {
+      "question": "Find pH when [H+] = 0.001",
+      "reply": "**Given**\n\n- [H⁺] = 0.001 mol/L\n\n**Find**\n\npH\n\n**Formula**\n\npH = −log₁₀[H⁺] — Definition of pH\n\n**Substitution**\n\npH = −log₁₀(0.001)\n\n**Answer**\n\n```answer\nnotation: chemistry\npH = 3\n```\n"
+    },
+    "molar_mass_water": {
+      "question": "What is the molar mass of H2O?",
+      "reply": "**Given**\n\n- Formula = H₂O\n\n**Find**\n\nMolar mass, M\n\n**Formula**\n\nM = Σ(nᵢ × atomic massᵢ) — Molar mass from atomic masses\n\n**Substitution**\n\nM = 2(1.008) + 1(15.999)\n\n**Answer**\n\n```answer\nnotation: chemistry\nM(H₂O) = 18.02 g/mol\n```\n"
+    },
+    "balance_ammonia": {
+      "question": "Balance N2 + H2 -> NH3",
+      "reply": "**Given**\n\n- Unbalanced equation: N₂ + H₂ → NH₃\n\n**Find**\n\nSmallest whole-number coefficients\n\n**Formula**\n\nAtoms of each element on reactant side = atoms on product side — Law of conservation of mass\n\n**Substitution**\n\nN: left 1(2) = 2; right 2(1) = 2\nH: left 3(2) = 6; right 2(3) = 6\n\n**Answer**\n\n```answer\nnotation: chemistry\nN₂ + 3 H₂ → 2 NH₃\n```\n\n```chem_scene\n{\"kind\": \"balance\", \"title\": \"Atom tally\", \"rows\": [{\"element\": \"N\", \"left\": 2, \"right\": 2}, {\"element\": \"H\", \"left\": 6, \"right\": 6}], \"charge\": {\"left\": 0, \"right\": 0}}\n```\n"
+    },
+    "vsepr_water": {
+      "question": "VSEPR of H2O",
+      "reply": "**Given**\n\n- H₂O\n- valence electrons = 8\n\n**Find**\n\nGeometry, polarity, and hybridization\n\n**Formula**\n\nsteric number = bonded atoms + lone pairs — VSEPR from the central-atom Lewis structure\n\n**Substitution**\n\ncentral atom O: 2 bonded atoms, 2 lone pairs\nsteric number = 2 + 2 = 4\nelectron geometry tetrahedral; molecular geometry bent\n\n**Answer**\n\n```answer\nnotation: chemistry\ngeometry: bent, 104.5°\npolarity: polar\nhybridization: sp3\ncentral formal charge: 0\nelectron geometry: tetrahedral, ideal angle 109.5°\n```\n\n```chem_scene\n{\"kind\": \"vsepr\", \"title\": \"H₂O\", \"central\": \"O\", \"terminals\": [\"H\", \"H\"], \"lone_pairs\": 2, \"geometry\": \"bent\", \"bond_angle\": \"104.5°\", \"electron_geometry\": \"tetrahedral\", \"ideal_angle\": \"109.5°\"}\n```\n"
+    },
+    "galvanic_zn_cu": {
+      "question": "Galvanic cell with Zn and Cu, find the cell potential",
+      "reply": "**Given**\n\n- Zn E° = −0.76 V\n- Cu E° = 0.34 V\n\n**Find**\n\nCell potential, electrodes, and net reaction\n\n**Formula**\n\nE°cell = E°cathode − E°anode — Standard reduction potentials\n\n**Substitution**\n\noxidation at the anode: Zn → Zn²⁺ + 2 e⁻\nreduction at the cathode: Cu²⁺ + 2 e⁻ → Cu\nE°cell = 0.34 − (−0.76)\n\n**Answer**\n\n```answer\nnotation: chemistry\nE°cell = 1.1 V\nanode: Zn\ncathode: Cu\nn = 2 electrons transferred\nZn + Cu²⁺ → Zn²⁺ + Cu\nspontaneous (E°cell > 0)\n```\n\n```chem_scene\n{\"kind\": \"cell\", \"title\": \"Galvanic cell\", \"anode\": \"Zn\", \"cathode\": \"Cu\", \"potential\": \"1.1 V\", \"electrons\": \"anode to cathode\"}\n```\n"
+    }
+  }
+}

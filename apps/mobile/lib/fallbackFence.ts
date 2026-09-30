@@ -6,6 +6,7 @@
  * SVG renderers. Server transport (sources/answer), model places, and heavy visuals
  * degrade to a short human summary — never raw JSON or SDF dumps.
  */
+import { splitAnswerNotation } from "@/lib/answerNotation";
 import { parseGraphSpec } from "@/lib/math/graphBlock";
 import { parseGeometrySpec } from "@/lib/math/geometryBlock";
 import { fenceIdForLang, fallbackKindForLang } from "@/lib/fenceRegistry";
@@ -110,7 +111,7 @@ export function classifyFallbackFence(
     case "graph":
       return { kind: "graph", body };
     case "answer":
-      return { kind: "answer", body };
+      return { kind: "answer", body: splitAnswerNotation(body).body };
     case "sources": {
       const items = parseSearchSourcesJson(body).map((row) => {
         const item: FallbackNamedItem = { title: row.title || row.url };

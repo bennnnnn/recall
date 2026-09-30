@@ -184,3 +184,19 @@ describe("markdownToStructuredPrintHtml", () => {
     expect(html).toContain("<td>1</td>");
   });
 });
+
+describe("markdownPlain chemistry", () => {
+  const chemistryAnswer = "```answer\nnotation: chemistry\nM(H₂O) = 18.02 g/mol\n```";
+
+  it("copies and speaks a chemistry answer without its notation header", () => {
+    expect(markdownToCopyText(chemistryAnswer)).toBe("M(H₂O) = 18.02 g/mol");
+    expect(markdownToSpeechText(chemistryAnswer)).toBe("M(H₂O) = 18.02 g/mol");
+    expect(markdownToPlainText(chemistryAnswer)).not.toContain("notation");
+  });
+
+  it("does not copy the JSON of a drawn scene, and names it when read aloud", () => {
+    const scene = '```chem_scene\n{"kind":"cell","title":"Galvanic cell"}\n```';
+    expect(markdownToCopyText(scene)).not.toContain("{");
+    expect(markdownToSpeechText(scene)).not.toContain("{");
+  });
+});

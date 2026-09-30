@@ -226,6 +226,61 @@ export function mapClosedFences(
   return out.join("\n");
 }
 
+/** One fence and where it sits in the text. */
+export type FenceSpan = {
+  /** The opener's info string, e.g. `smiles` or `js title="x"`. */
+  info: string;
+  /** Everything between the opener and closer lines, without the final newline. */
+  body: string;
+  /** Offset of the opener line's first character. */
+  start: number;
+  /** Offset just past the closer line's last character (the end of the text if unclosed). */
+  end: number;
+  closed: boolean;
+};
+
+/**
+ * Every fence in reading order, by CommonMark rules: an opener is 3+ backticks or tildes, a
+ * closer repeats the marker at least as long with no info string. An opener with no closer runs
+ * to the end of the text, which is what a streaming reply looks like mid-fence.
+ */
+export function scanFences(text: string): FenceSpan[] {
+  const lines = text.split("\n");
+  const starts: number[] = [];
+  let offset = 0;
+  for (const line of lines) {
+    starts.push(offset);
+    offset += line.length + 1;
+  }
+  const spans: FenceSpan[] = [];
+  let i = 0;
+  while (i < lines.length) {
+    const marker = readFenceMarker(lines[i]!);
+    if (!marker || marker.info.includes("|")) {
+      i += 1;
+      continue;
+    }
+    let close = -1;
+    for (let j = i + 1; j < lines.length; j += 1) {
+      const inner = readFenceMarker(lines[j]!);
+      if (inner && inner.char === marker.char && inner.len >= marker.len && inner.info === "") {
+        close = j;
+        break;
+      }
+    }
+    const last = close < 0 ? lines.length - 1 : close;
+    spans.push({
+      info: marker.info,
+      body: lines.slice(i + 1, close < 0 ? lines.length : close).join("\n"),
+      start: starts[i]!,
+      end: starts[last]! + lines[last]!.length,
+      closed: close >= 0,
+    });
+    i = last + 1;
+  }
+  return spans;
+}
+
 /** Closed fences whose opener is bare ``` (no language tag). */
 export function mapUnlabeledClosedFences(
   text: string,

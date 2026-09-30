@@ -94,4 +94,39 @@ describe("parseMoleculeFence", () => {
     expect(parseMoleculeFence("")).toBeNull();
     expect(parseMoleculeFence(JSON.stringify({ sdf: SDF }))).toBeNull();
   });
+
+  it("holds a JSON SMILES to the same rules as a smiles fence", () => {
+    // The string reaches the SmilesDrawer page, so the JSON path may not skip the gate.
+    expect(parseMoleculeFence(JSON.stringify({ smiles: "C`C" }))).toBeNull();
+    expect(parseMoleculeFence(JSON.stringify({ smiles: "C</script>" }))).toBeNull();
+    expect(parseMoleculeFence(JSON.stringify({ smiles: "C".repeat(501) }))).toBeNull();
+    expect(parseMoleculeFence(JSON.stringify({ smiles: "smiles: CCO" }))?.smiles).toBe("CCO");
+    expect(parseMoleculeFence(JSON.stringify({ smiles: "O2" }))?.smiles).toBe("O=O");
+  });
+});
+
+describe("fence syntax the pairing has to understand", () => {
+  it("pairs fences written with longer backtick runs", () => {
+    const input = "````smiles\nCCO\n````\n\n````molecule3d\n" + SDF + "\n````";
+    const out = collapseAdjacentMoleculeFences(input);
+    expect(out).toContain("```molecule\n");
+    expect(out).not.toContain("````");
+  });
+
+  it("pairs fences written with tildes", () => {
+    const input = "~~~smiles\nCCO\n~~~\n~~~molecule3d\n" + SDF + "\n~~~";
+    expect(collapseAdjacentMoleculeFences(input)).toContain("```molecule\n");
+  });
+
+  it("does not pair a smiles fence quoted inside another fence", () => {
+    const input =
+      "````md\n```smiles\nCCO\n```\n\n```molecule3d\n" + SDF + "\n```\n````";
+    expect(collapseAdjacentMoleculeFences(input)).toBe(input);
+  });
+
+  it("drops a leftover molecule3d written with tildes", () => {
+    const combined = "```molecule\n" + JSON.stringify({ smiles: "CCO", sdf: SDF }) + "\n```";
+    const out = dropRedundantMolecule3dFences(combined + "\n\n~~~molecule3d\nnot a real sdf\n~~~");
+    expect(out).not.toContain("molecule3d");
+  });
 });

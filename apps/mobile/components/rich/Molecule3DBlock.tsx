@@ -1,33 +1,35 @@
 /**
  * 3D molecule viewer — native-first Skia ball-and-stick from SDF coordinates.
- * WKWebView + 3Dmol.js WebGL stays blank (CSP / zero-size canvas), so we
+ * A WebView WebGL viewer stays blank in WKWebView (CSP / zero-size canvas), so we
  * project the same 3D coords that RDKit already computed. Expo Go and stale
  * native clients safely use the matching SVG renderer.
  */
 import { lazy, Suspense, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
+import { PanResponder, StyleSheet, View } from "react-native";
 import Svg, { Circle, G, Line, Text as SvgText } from "react-native-svg";
 
 import { CopyButton } from "@/components/CopyButton";
+import { MoleculeCaption, MoleculeNote } from "@/components/rich/MoleculeChrome";
 import {
   atomColor,
   atomLabelColor,
-  bondOffset,
+  bondStrokeWidth,
   layoutMolecule,
   MOLECULE_PREVIEW_HEIGHT,
   type MoleculeStyle,
-} from "@/components/rich/molecule3dLayout";
+} from "@/lib/chemistry/molecule3dLayout";
 import { VisualCard } from "@/components/rich/VisualCard";
 import {
   parseMolGeometry,
   parseMolecule3DFence,
   type MolGeometry,
 } from "@/lib/chemistry/molecule3dFence";
+import { CODE_FONT } from "@/lib/fonts";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
-import { Theme, useTheme } from "@/lib/theme";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { Theme, useTheme } from "@/lib/theme";
+import { SegmentedControl } from "@/ui/controls/SegmentedControl";
 
 type Props = { content: string };
 
@@ -46,87 +48,48 @@ type MoleculeCanvasProps = {
   width: number;
 };
 
-function SvgMoleculeCanvas({
-  geom,
-  style,
-  theme,
-  yaw,
-  pitch,
-  width,
-}: MoleculeCanvasProps) {
+function SvgMoleculeCanvas({ geom, style, theme, yaw, pitch, width }: MoleculeCanvasProps) {
+  const { t } = useTranslation();
   const height = MOLECULE_PREVIEW_HEIGHT;
   const laidOut = useMemo(
     () => layoutMolecule(geom, yaw, pitch, width, height, style),
     [geom, height, pitch, style, width, yaw],
   );
-  const showBonds = style !== "spacefill";
-  const bondWidth = style === "wireframe" ? 1.6 : 3.4;
-  const bonds = useMemo(() => {
-    if (!showBonds) return [];
-    return geom.bonds.flatMap((bond, bondIndex) => {
-      const first = laidOut.atoms[bond.a]!;
-      const second = laidOut.atoms[bond.b]!;
-      const dx = second.x - first.x;
-      const dy = second.y - first.y;
-      const distance = Math.hypot(dx, dy) || 1;
-      const copies = Math.min(3, Math.max(1, bond.order));
-      const spread = copies === 1 ? 0 : copies === 2 ? 3.2 : 4.2;
-      return Array.from({ length: copies }, (_, copyIndex) => {
-        const offsetIndex =
-          copies === 1 ? 0 : (copyIndex - (copies - 1) / 2) * spread;
-        const offset = bondOffset(dx, dy, distance, offsetIndex);
-        return {
-          key: `${bondIndex}-${copyIndex}`,
-          x1: first.x + offset.x,
-          y1: first.y + offset.y,
-          x2: second.x + offset.x,
-          y2: second.y + offset.y,
-        };
-      });
-    });
-  }, [geom.bonds, laidOut.atoms, showBonds]);
 
   return (
     <Svg
       testID="molecule-svg-fallback"
       width={width}
       height={height}
-      accessibilityLabel="Interactive 3D molecule"
+      accessibilityLabel={t("rich.chemistry_3d_a11y")}
     >
-      {bonds.map((bond) => (
-        <Line
-          key={bond.key}
-          x1={bond.x1}
-          y1={bond.y1}
-          x2={bond.x2}
-          y2={bond.y2}
-          stroke={theme.text}
-          strokeWidth={bondWidth}
-          strokeLinecap="round"
-        />
-      ))}
-      {laidOut.depthOrder.map((index) => {
-        const atom = laidOut.atoms[index]!;
+      {laidOut.drawOrder.map((item) => {
+        if (item.kind === "bond") {
+          const bond = laidOut.bonds[item.index]!;
+          return (
+            <Line
+              key={`bond-${bond.key}`}
+              x1={bond.x1}
+              y1={bond.y1}
+              x2={bond.x2}
+              y2={bond.y2}
+              stroke={theme.text}
+              strokeWidth={bondStrokeWidth(style)}
+              strokeLinecap="round"
+            />
+          );
+        }
+        const atom = laidOut.atoms[item.index]!;
         return (
-          <G key={`atom-${index}`}>
-            <Circle
-              cx={atom.x}
-              cy={atom.y}
-              r={atom.radius + 1.75}
-              fill="#1a1a1a"
-            />
-            <Circle
-              cx={atom.x}
-              cy={atom.y}
-              r={atom.radius}
-              fill={atomColor(atom.element)}
-            />
+          <G key={`atom-${atom.index}`}>
+            <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} fill="#1a1a1a" />
+            <Circle cx={atom.x} cy={atom.y} r={atom.radius} fill={atomColor(atom.element)} />
             {style !== "spacefill" && atom.radius >= 8 ? (
               <SvgText
                 x={atom.x}
                 y={atom.y + 4}
                 fill={atomLabelColor(atom.element)}
-                fontFamily="SpaceMono-Regular"
+                fontFamily={CODE_FONT}
                 fontSize={12}
                 textAnchor="middle"
               >
@@ -149,9 +112,10 @@ function MoleculeCanvas(props: MoleculeCanvasProps) {
   );
 }
 
-/** 3D canvas + style chips without card chrome — used by Molecule3DBlock and MoleculeCard. */
-export function Molecule3DView({ sdf }: { sdf: string }) {
+/** 3D canvas + style picker without card chrome — used by Molecule3DBlock and MoleculeCard. */
+export function Molecule3DView({ geom }: { geom: MolGeometry }) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const [style, setStyle] = useState<MoleculeStyle>("ball-stick");
   const [canvasWidth, setCanvasWidth] = useState(320);
@@ -164,13 +128,10 @@ export function Molecule3DView({ sdf }: { sdf: string }) {
   yawRef.current = yaw;
   pitchRef.current = pitch;
 
-  const geom = useMemo(() => parseMolGeometry(sdf), [sdf]);
-
   const pan = useMemo(
     () =>
       PanResponder.create({
-        onMoveShouldSetPanResponder: (_e, g) =>
-          Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
+        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
         onPanResponderGrant: () => {
           startYaw.current = yawRef.current;
           startPitch.current = pitchRef.current;
@@ -183,7 +144,14 @@ export function Molecule3DView({ sdf }: { sdf: string }) {
     [],
   );
 
-  if (!geom) return null;
+  const styles = useMemo(
+    () => [
+      { key: "ball-stick" as const, label: t("rich.chemistry_style_ball") },
+      { key: "spacefill" as const, label: t("rich.chemistry_style_sphere") },
+      { key: "wireframe" as const, label: t("rich.chemistry_style_wire") },
+    ],
+    [t],
+  );
 
   return (
     <>
@@ -201,20 +169,14 @@ export function Molecule3DView({ sdf }: { sdf: string }) {
           width={canvasWidth}
         />
       </View>
-      <View style={s.styleRowWrap}>
-        <View style={s.styleRow}>
-          {(["ball-stick", "spacefill", "wireframe"] as const).map((st) => (
-            <Pressable
-              key={st}
-              style={[s.styleBtn, style === st && s.styleBtnActive]}
-              onPress={() => setStyle(st)}
-            >
-              <Text style={[s.styleBtnText, style === st && s.styleBtnTextActive]}>
-                {st === "ball-stick" ? "Ball" : st === "spacefill" ? "Sphere" : "Wire"}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
+      <View style={s.styleRow}>
+        <SegmentedControl
+          segments={styles}
+          value={style}
+          onChange={setStyle}
+          accessibilityLabel={t("rich.chemistry_style_a11y")}
+          testID="molecule-style"
+        />
       </View>
     </>
   );
@@ -233,9 +195,7 @@ export function Molecule3DBlock({ content }: Props) {
   if (!parsed || !geom) {
     return (
       <VisualCard label={t("rich.chemistry_structure")} icon="flask">
-        <View style={s.previewBox}>
-          <Text style={s.fallbackHint}>{t("rich.chemistry_invalid")}</Text>
-        </View>
+        <MoleculeNote text={t("rich.chemistry_invalid")} />
       </VisualCard>
     );
   }
@@ -251,56 +211,23 @@ export function Molecule3DBlock({ content }: Props) {
         </>
       }
     >
-      {caption ? (
-        <View style={s.captionBox}>
-          <Text style={s.captionText}>{caption}</Text>
-        </View>
-      ) : null}
+      {caption ? <MoleculeCaption text={caption} /> : null}
 
-      <Molecule3DView sdf={sdf} />
+      <Molecule3DView geom={geom} />
     </VisualCard>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    captionBox: {
-      paddingHorizontal: 14,
-      paddingTop: Space.xs,
-      paddingBottom: 0,
-      backgroundColor: t.bg,
-    },
-    captionText: { fontSize: 13, fontWeight: "600", color: t.textSecondary },
     stage: {
       height: MOLECULE_PREVIEW_HEIGHT,
       backgroundColor: t.contentSurface,
     },
-    previewBox: {
-      paddingHorizontal: 14,
-      paddingVertical: Space.lg,
-      backgroundColor: t.contentSurface,
-      alignItems: "center",
-    },
-    fallbackHint: { fontSize: 13, color: t.textTertiary, textAlign: "center" },
     spacer: { flex: 1 },
-    styleRowWrap: {
-      paddingHorizontal: 14,
-      paddingTop: 10,
+    styleRow: {
+      paddingHorizontal: Space.sm + 2,
+      paddingTop: Space.xs + 2,
     },
-    styleRow: { flexDirection: "row", gap: 6 },
-    styleBtn: {
-      paddingHorizontal: 10,
-      paddingVertical: 5,
-      borderRadius: Radius.xs,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      backgroundColor: t.surface,
-    },
-    styleBtnActive: {
-      backgroundColor: t.primary,
-      borderColor: t.primary,
-    },
-    styleBtnText: { fontSize: 11, fontWeight: "600", color: t.textSecondary },
-    styleBtnTextActive: { color: t.onPrimary },
   });
 }

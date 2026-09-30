@@ -32,6 +32,15 @@ describe("math render corpus (preprocess → typeset, never raw \\cmd)", () => {
     expect(readableLatexFallback(spans[0])).not.toMatch(BACKSLASH_CMD);
   });
 
+  it("reads the equilibrium arrows chemistry writes between species", () => {
+    const equilibrium = readableLatexFallback("N_2 + 3H_2 \\rightleftharpoons 2NH_3");
+    expect(equilibrium).toContain("⇌");
+    expect(equilibrium).not.toMatch(BACKSLASH_CMD);
+    expect(equilibrium).not.toContain("rightleftharpoons");
+    expect(readableLatexFallback("A \\leftrightharpoons B")).toContain("⇋");
+    expect(readableLatexFallback("A \\leftrightarrow B")).toContain("↔");
+  });
+
   it("converts $$ display math into a ```math fence", () => {
     const out = preprocessMarkdown("The area is $$\\pi r^2$$ for a circle.");
     expect(out).toContain("```math");

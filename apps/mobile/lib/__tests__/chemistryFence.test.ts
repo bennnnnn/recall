@@ -103,6 +103,32 @@ describe("retagMoleculeMathToSmiles", () => {
   });
 });
 
+describe("retagMoleculeMathToSmiles leaves code alone", () => {
+  it("does not retag a formula inside a code fence", () => {
+    const python = "```python\nprint(\"\"\"\n$O=O$\n\"\"\")\n```";
+    expect(retagMoleculeMathToSmiles(python)).toBe(python);
+  });
+
+  it("does not pair one fence's closer with the next fence's opener", () => {
+    // A fence between two math fences must not be rewritten because the regex once
+    // matched from the first closer to the second opener.
+    const input = "```js\nconst a = 1;\n```\n\n```math\nO=O\n```\n\n```js\nconst b = 2;\n```";
+    expect(retagMoleculeMathToSmiles(input)).toBe(
+      "```js\nconst a = 1;\n```\n\n```smiles\nO=O\n```\n\n```js\nconst b = 2;\n```",
+    );
+  });
+
+  it("does not retag a math fence quoted inside a longer fence", () => {
+    const quoted = "````md\n```math\nO=O\n```\n````";
+    expect(retagMoleculeMathToSmiles(quoted)).toBe(quoted);
+  });
+
+  it("does not retag a tilde-fenced formula", () => {
+    const input = "~~~text\n$O=O$\n~~~";
+    expect(retagMoleculeMathToSmiles(input)).toBe(input);
+  });
+});
+
 describe("a physics formula is not a molecule", () => {
   // Found in the app: "How much work did the student do on the box?" rendered
   // a **Molecule** card reading "Could not render that structure" where the

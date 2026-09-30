@@ -29,21 +29,10 @@ jest.mock("@/components/CopyButton", () => ({
   CopyButton: () => null,
 }));
 
-jest.mock("@/lib/theme", () => ({
-  useTheme: () => ({
-    isDark: false,
-    primary: "#007AFF",
-    bg: "#fff",
-    surface: "#f5f5f5",
-    contentSurface: "#fafafa",
-    border: "#ddd",
-    text: "#000",
-    textSecondary: "#666",
-    textTertiary: "#999",
-    onPrimary: "#FFFFFF",
-    danger: "#ff3b30",
-  }),
-}));
+jest.mock("@/lib/theme", () => {
+  const actual = jest.requireActual("@/lib/theme");
+  return { ...actual, useTheme: () => actual.lightTheme };
+});
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -74,8 +63,9 @@ describe("Molecule3DBlock", () => {
       <Molecule3DBlock content={VALID_SDF} />,
     );
     expect(getByText("rich.chemistry_structure")).toBeTruthy();
-    expect(getByText("Ball")).toBeTruthy();
-    expect(getByText("Sphere")).toBeTruthy();
+    expect(getByText("rich.chemistry_style_ball")).toBeTruthy();
+    expect(getByText("rich.chemistry_style_sphere")).toBeTruthy();
+    expect(getByText("rich.chemistry_style_wire")).toBeTruthy();
     await waitFor(() => expect(getByTestId("molecule-skia-canvas")).toBeTruthy());
     expect(queryByText(/V2000/)).toBeNull();
   });
