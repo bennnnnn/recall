@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A heavy piston flipped the inverted balance and checked 7479+4980 against 12465.** `isobaric` claimed the sentence and returned nothing, because the gas pressure was the unknown, and `C_V = 3/2` failed the fraction gate before extraction. `heavy_piston` reads the labeled givens, owns both equilibria and the isobaric heat, and runs before that decline.
+
 - **A physics decline never said it was unverified, and the check sniffed `Math note:`.** `SubjectAugmentation.unverified` was dropped in the web/tool fetch, then turn prep rebuilt the flag from that prefix, so only math reached the italic line. The fetch now returns the adapter flag. The line stays italic; a blockquote would paint a gray card.
 
 - **A verified chemistry result could be replaced, or typeset as algebra.** ```answer always went through MathText, so chemistry kept the value in bold prose and the stream skipped chemistry finalization. Answer fences now start with `notation: chemistry` when the body is not LaTeX, and the chemistry finalizer replaces model answer, scene, and structure fences from the solver.

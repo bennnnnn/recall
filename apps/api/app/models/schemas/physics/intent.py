@@ -184,6 +184,7 @@ class PhysicsIntent(BaseModel):
             "ideal_gas_temperature",
             "monatomic_energy",
             "isobaric_work",
+            "heavy_piston",
             "adiabatic_pressure",
             "adiabatic_volume",
             "refrigerator_cop",

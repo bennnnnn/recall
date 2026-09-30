@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import math
 
-from app.modules.physics.solvers.common import _BIG_G, _GAS_CONSTANT, PhysicsResult
+from app.modules.physics.catalog.thermal import HEAVY_PISTON_EQUATIONS
+from app.modules.physics.solvers.common import (
+    _BIG_G,
+    _GAS_CONSTANT,
+    PhysicsResult,
+    QuantityResult,
+    solved,
+)
 from app.modules.physics.solvers.school_common import positive, result
 from app.services.solving import SolveServiceError
 
@@ -131,6 +138,95 @@ def _cop(kind: str, params: dict[str, float]) -> PhysicsResult:
     return result("COP", r"\frac{T_C}{T_H-T_C}", numeric, value, "")
 
 
+def _heavy_piston(params: dict[str, float]) -> PhysicsResult:
+    positive(params, "moles", "M", "area", "p_atm", "temp", "g")
+    gas_r = params["gas_r"] if "gas_r" in params else _GAS_CONSTANT
+    if gas_r <= 0:
+        raise SolveServiceError("gas constant must be positive")
+    moles, mass, area = params["moles"], params["M"], params["area"]
+    p0, temp, gravity = params["p_atm"], params["temp"], params["g"]
+    load = mass * gravity / area
+    p_eq, v_eq, t_hot, work_eq, heat_eq, p_flip, v_flip = HEAVY_PISTON_EQUATIONS
+    formulas: list[str] = []
+    substitutions: list[str] = []
+    quantities: list[QuantityResult] = []
+
+    def push(equation: str, numeric: str, value: float, unit: str) -> None:
+        symbol = equation.split(" = ", 1)[0]
+        formulas.append(equation)
+        substitutions.append(f"{symbol} = {numeric}")
+        quantities.append(QuantityResult(symbol, value, unit, number_format=".6g"))
+
+    if "upright" in params:
+        pressure = p0 + load
+        volume = moles * gas_r * temp / pressure
+        push(
+            p_eq,
+            rf"{p0:g} + \frac{{{mass:g} \cdot {gravity:g}}}{{{area:g}}}",
+            pressure,
+            "Pa",
+        )
+        push(
+            v_eq,
+            rf"\frac{{{moles:g} \cdot {gas_r:g} \cdot {temp:g}}}{{{pressure:g}}}",
+            volume,
+            "m^3",
+        )
+        if "expand_ratio" in params:
+            ratio = params["expand_ratio"]
+            if ratio <= 1:
+                raise SolveServiceError("expansion ratio must be greater than 1")
+            final_t = temp * ratio
+            work = moles * gas_r * temp * (ratio - 1)
+            push(t_hot, rf"{temp:g} \cdot {ratio:g}", final_t, "K")
+            push(
+                work_eq,
+                rf"{moles:g} \cdot {gas_r:g} \cdot {temp:g} \cdot ({ratio:g} - 1)",
+                work,
+                "J",
+            )
+            if "cv_over_r" in params:
+                cv = params["cv_over_r"]
+                if cv <= 0:
+                    raise SolveServiceError("heat capacity must be positive")
+                delta_t = final_t - temp
+                heat = moles * (cv + 1) * gas_r * delta_t
+                cp_tex = r"\frac{5}{2}" if cv + 1 == 2.5 else f"{cv + 1:g}"
+                push(
+                    heat_eq,
+                    rf"{moles:g} \cdot {cp_tex} \cdot {gas_r:g} \cdot {delta_t:g}",
+                    heat,
+                    "J",
+                )
+    if "flip" in params:
+        # The inverted equilibrium is held at the original temperature.
+        flipped = p0 - load
+        if flipped <= 0:
+            raise SolveServiceError("inverted piston is not supported by the atmosphere")
+        volume = moles * gas_r * temp / flipped
+        push(
+            p_flip,
+            rf"{p0:g} - \frac{{{mass:g} \cdot {gravity:g}}}{{{area:g}}}",
+            flipped,
+            "Pa",
+        )
+        push(
+            v_flip,
+            rf"\frac{{{moles:g} \cdot {gas_r:g} \cdot {temp:g}}}{{{flipped:g}}}",
+            volume,
+            "m^3",
+        )
+    if not quantities:
+        raise SolveServiceError("heavy piston needs an upright or inverted equilibrium")
+    return solved(
+        *quantities,
+        answer="heavy piston",
+        formulas=tuple(formulas),
+        substitutions=tuple(substitutions),
+        joiner="; ",
+    )
+
+
 def _ideal_volume(params: dict[str, float]) -> PhysicsResult:
     positive(params, "pres", "moles", "temp")
     value = params["moles"] * _GAS_CONSTANT * params["temp"] / params["pres"]
@@ -169,6 +265,7 @@ MATTER_SOLVERS = {
     "kepler_period": _kepler,
     "monatomic_energy": _monatomic,
     "isobaric_work": _isobaric,
+    "heavy_piston": _heavy_piston,
     "adiabatic_pressure": _adiabatic_pressure,
     "adiabatic_volume": _adiabatic_volume,
     "refrigerator_cop": _refrigerator,
