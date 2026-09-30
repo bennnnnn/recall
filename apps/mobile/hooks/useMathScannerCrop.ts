@@ -37,6 +37,7 @@ type Args = {
   preview: boolean;
   reduceMotion: boolean;
   onZoom: (zoom: number) => void;
+  onRegionChange?: (region: ScanRegion) => void;
 };
 
 export function useMathScannerCrop({
@@ -46,6 +47,7 @@ export function useMathScannerCrop({
   preview,
   reduceMotion,
   onZoom,
+  onRegionChange,
 }: Args) {
   const region = useSharedValue<ScanRegion>(defaultScanRegion(inset));
   const dragging = useSharedValue(0);
@@ -62,14 +64,20 @@ export function useMathScannerCrop({
 
   useEffect(() => {
     insetSv.value = inset;
-    region.value = clampScanRegion(region.value, inset);
-  }, [inset, insetSv, region]);
+    const next = clampScanRegion(region.value, inset);
+    region.value = next;
+    onRegionChange?.(next);
+  }, [inset, insetSv, onRegionChange, region]);
 
   useEffect(() => {
     previewSv.value = preview;
   }, [preview, previewSv]);
 
   const dragDuration = motionMs(Motion.duration.standard, reduceMotion);
+  const pushRegion = useCallback(
+    (next: ScanRegion) => onRegionChange?.(next),
+    [onRegionChange],
+  );
 
   useAnimatedReaction(
     () => zoomSv.value,
@@ -98,9 +106,21 @@ export function useMathScannerCrop({
         })
         .onEnd(() => {
           dragging.value = withTiming(0, { duration: dragDuration });
-          runOnJS(onZoom)(zoomSv.value);
+          if (previewSv.value) runOnJS(pushRegion)(region.value);
+          else runOnJS(onZoom)(zoomSv.value);
         }),
-    [dragDuration, dragging, insetSv, pinchStartRegion, pinchStartZoom, previewSv, region, zoomSv, onZoom],
+    [
+      dragDuration,
+      dragging,
+      insetSv,
+      onZoom,
+      pinchStartRegion,
+      pinchStartZoom,
+      previewSv,
+      pushRegion,
+      region,
+      zoomSv,
+    ],
   );
 
   const panGesture = useMemo(
@@ -122,8 +142,20 @@ export function useMathScannerCrop({
         })
         .onEnd(() => {
           dragging.value = withTiming(0, { duration: dragDuration });
+          runOnJS(pushRegion)(region.value);
         }),
-    [dragDuration, dragging, insetSv, panBase, panOriginX, panOriginY, region, windowHeight, windowWidth],
+    [
+      dragDuration,
+      dragging,
+      insetSv,
+      panBase,
+      panOriginX,
+      panOriginY,
+      pushRegion,
+      region,
+      windowHeight,
+      windowWidth,
+    ],
   );
 
   const makeCornerGesture = useCallback(
@@ -151,8 +183,20 @@ export function useMathScannerCrop({
         })
         .onEnd(() => {
           dragging.value = withTiming(0, { duration: dragDuration });
+          runOnJS(pushRegion)(region.value);
         }),
-    [cornerBase, dragDuration, dragging, insetSv, panOriginX, panOriginY, region, windowHeight, windowWidth],
+    [
+      cornerBase,
+      dragDuration,
+      dragging,
+      insetSv,
+      panOriginX,
+      panOriginY,
+      pushRegion,
+      region,
+      windowHeight,
+      windowWidth,
+    ],
   );
 
   const cornerTL = useMemo(() => makeCornerGesture("tl"), [makeCornerGesture]);
@@ -248,7 +292,7 @@ export function useMathScannerCrop({
 
   const resetRegion = useCallback((next?: ScanRegion) => {
     runOnUI((requested?: ScanRegion) => {
-      region.value = clampScanRegion(
+      const nextRegion = clampScanRegion(
         requested ?? {
           x: (1 - DEFAULT_REGION_WIDTH) / 2,
           y: (1 - DEFAULT_REGION_HEIGHT) / 2,
@@ -257,20 +301,26 @@ export function useMathScannerCrop({
         },
         insetSv.value,
       );
+      region.value = nextRegion;
+      runOnJS(pushRegion)(nextRegion);
     })(next);
-  }, [insetSv, region]);
+  }, [insetSv, pushRegion, region]);
 
   const growRegion = useCallback(() => {
     runOnUI(() => {
-      region.value = scaleScanRegion(region.value, 1.08, insetSv.value);
+      const next = scaleScanRegion(region.value, 1.08, insetSv.value);
+      region.value = next;
+      runOnJS(pushRegion)(next);
     })();
-  }, [insetSv, region]);
+  }, [insetSv, pushRegion, region]);
 
   const shrinkRegion = useCallback(() => {
     runOnUI(() => {
-      region.value = scaleScanRegion(region.value, 0.92, insetSv.value);
+      const next = scaleScanRegion(region.value, 0.92, insetSv.value);
+      region.value = next;
+      runOnJS(pushRegion)(next);
     })();
-  }, [insetSv, region]);
+  }, [insetSv, pushRegion, region]);
 
   const readRegion = useCallback((): ScanRegion => region.value, [region]);
 
