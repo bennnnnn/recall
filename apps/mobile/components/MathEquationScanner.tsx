@@ -215,7 +215,6 @@ export function MathEquationScanner({
       const photo = await cameraRef.current.takePictureAsync({
         quality: 0.9,
         shutterSound: true,
-        exif: true,
       });
       if (!photo?.uri) {
         setError(t("chat.math_scan_failed"));
