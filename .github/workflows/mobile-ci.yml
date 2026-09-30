@@ -1,4 +1,5 @@
 name: Mobile CI
+# Temporary lock refresh for VisionCamera dependencies.
 
 on:
   push:
