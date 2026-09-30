@@ -5,6 +5,9 @@ from __future__ import annotations
 from app.services.text_normalize import collapse_ws
 
 _MAX_SYMBOLIC_REQUEST = 1000
+# A multi-part worksheet can exceed the shared ceiling. Callers opt in;
+# the default stays 1000 so a long essay cannot enter the math scanner.
+_MAX_EXTENDED_SYMBOLIC_REQUEST = 4000
 _SUP_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 _SUP_ASCII = "0123456789"
 _SUP_TABLE = str.maketrans(_SUP_GLYPHS, _SUP_ASCII)
@@ -80,9 +83,10 @@ def collapse_repeated_si_unit_powers(text: str) -> str:
     return "".join(out)
 
 
-def normalize_symbolic_request(text: str) -> str | None:
+def normalize_symbolic_request(text: str, *, limit: int = _MAX_SYMBOLIC_REQUEST) -> str | None:
     """Normalize bounded user text without applying subject semantics."""
     cleaned = collapse_ws(strip_inline_math_delimiters(text))
-    if len(cleaned) > _MAX_SYMBOLIC_REQUEST:
+    bounded = min(max(limit, 0), _MAX_EXTENDED_SYMBOLIC_REQUEST)
+    if len(cleaned) > bounded:
         return None
     return collapse_repeated_si_unit_powers(fold_numeric_superscripts(cleaned))

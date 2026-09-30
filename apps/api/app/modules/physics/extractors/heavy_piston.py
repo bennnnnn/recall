@@ -40,8 +40,11 @@ _HEAT_ASK = re.compile(
     re.IGNORECASE,
 )
 _FLIP = re.compile(r"\b(?:upside\s+down|inverted|turned\s+over)\b", re.IGNORECASE)
+_FLIP_ADIABATIC = re.compile(r"\badiabatic\w*\b", re.IGNORECASE)
+# "Find the new temperature" before the flip is the isobaric unknown. Only a
+# temperature change stated with the flip itself is outside this solver.
 _FLIP_OTHER_TEMP = re.compile(
-    r"\badiabatic\w*\b|\bnew temperature\b|\btemperature changes\b|\bat\s+t_?2\b",
+    r"\bnew temperature\b|\btemperature changes\b|\bat\s+t_?2\b",
     re.IGNORECASE,
 )
 _UPRIGHT = re.compile(
@@ -364,8 +367,11 @@ def _process_flags(text: str, lower: str) -> dict[str, float] | None:
 
 
 def _orientation(lower: str) -> dict[str, float] | None:
-    flip = _FLIP.search(lower) is not None
-    if flip and _FLIP_OTHER_TEMP.search(lower) is not None:
+    flip_at = _FLIP.search(lower)
+    flip = flip_at is not None
+    if _FLIP_ADIABATIC.search(lower) is not None:
+        return None
+    if flip_at is not None and _FLIP_OTHER_TEMP.search(lower, flip_at.start()) is not None:
         return None
     flags: dict[str, float] = {}
     if _UPRIGHT.search(lower) is not None or not flip:

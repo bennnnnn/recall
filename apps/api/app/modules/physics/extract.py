@@ -105,7 +105,6 @@ from app.modules.physics.extractors.school_extensions import (
     _EXTENSION_CUES,
     extract_school_extension,
 )
-from app.services.symbolic_text import normalize_symbolic_request
 
 __all__ = [
     "PHYSICS_CUES",
@@ -292,11 +291,15 @@ _SUPPLIED_NUCLEAR_MASS_RE = re.compile(
 
 def needs_physics(text: str) -> bool:
     """True for a verified template or an unmistakable physics-only request."""
-    cleaned = normalize_symbolic_request(text)
+    from app.modules.physics.request import physics_symbolic_text
+
+    cleaned, piston_worksheet = physics_symbolic_text(text)
     if not cleaned:
         return False
     if _SUPPLIED_NUCLEAR_MASS_RE.search(cleaned) is not None:
         return False
+    if piston_worksheet:
+        return True
     if _ADVANCED_PHYSICS_RE.search(cleaned) is not None:
         return True
     if not any(char.isdigit() for char in cleaned):
@@ -306,14 +309,24 @@ def needs_physics(text: str) -> bool:
 
 def extract_physics_intent(text: str) -> PhysicsIntent | None:
     """Extract one complete physics request without entering math dispatch."""
-    from app.modules.physics.request import complete_physics_intent, prepare_physics_request
+    from app.modules.physics.extractors.heavy_piston import extract_heavy_piston
+    from app.modules.physics.request import (
+        complete_physics_intent,
+        physics_symbolic_text,
+        prepare_physics_request,
+    )
 
-    cleaned = normalize_symbolic_request(text)
+    cleaned, piston_worksheet = physics_symbolic_text(text)
     if not cleaned:
         return None
     request = prepare_physics_request(cleaned)
     if request.rejected:
         return None
+    if piston_worksheet:
+        intent = extract_heavy_piston(request.text, request.text.lower())
+        if intent is None:
+            return None
+        return complete_physics_intent(intent, request)
     if request.collision is not None:
         return request.collision
     for extractor in PHYSICS_EXTRACTORS:

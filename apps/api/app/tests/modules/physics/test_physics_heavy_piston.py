@@ -154,6 +154,12 @@ REFUSED = [
         "P0 = 100000 Pa, T0 = 300 K, g = 10 m/s^2, R = 8.31 J/mol/K."
     ),
     (
+        "A vertical piston traps n = 2 mol of monatomic ideal gas. "
+        "The cylinder is turned upside down. Find the new temperature. "
+        "M = 40 kg, A = 0.01 m^2, P0 = 100000 Pa, T0 = 300 K, "
+        "g = 10 m/s^2, R = 8.31 J/mol/K."
+    ),
+    (
         "A vertical cylinder holds n = 2 mol of monatomic ideal gas under a piston. "
         "M = 40 kg, A = 0.01 m^2, P0 = 100000 Pa, T_0 = 300 K, T_0 = 290 K, "
         "g = 10 m/s^2, R = 8.31 J/mol/K."
@@ -253,6 +259,63 @@ def test_direct_reply_keeps_the_inverted_balance_and_exact_work() -> None:
     assert "12459" not in reply
     stepped = _PISTON + " Show the step-by-step breakdown."
     assert maybe_direct_physics_reply(block, stepped) is not None
+
+
+_WORKSHEET = (
+    "A cylinder with a movable piston contains n = 2 mol of a monatomic ideal gas. "
+    "The molar heat capacity at constant volume is C_V = 3/2 R. "
+    "The piston has mass M = 40 kg and cross-sectional area A = 0.01 m^2. "
+    "The atmospheric pressure is P_0 = 1.0 \\times 10^5 Pa. "
+    "Initially the gas temperature is T_0 = 300 K. "
+    "Take g = 10 m/s^2 and R = 8.31 J/(mol·K). The piston cannot fall out. "
+    "(1) Initial equilibrium. The cylinder stands upright, so the piston rests on "
+    "top of the gas with the atmosphere above it. Find the equilibrium pressure "
+    "P_1 of the gas and the volume V_1. "
+    "(2) Isobaric expansion. The gas is heated slowly until the volume doubles, "
+    "V_2 = 2 V_1, while the pressure stays constant. Find the new temperature T_2, "
+    "the work W done by the gas, and the heat Q supplied to the gas. "
+    "(3) The cylinder is suddenly turned completely upside down. The piston cannot "
+    "fall out. Assuming the gas temperature is momentarily maintained at T_0 = 300 K "
+    "during this quick flip, find the new mechanical equilibrium pressure P_3 and "
+    "volume V_3 once it stabilizes. Show the step-by-step breakdown."
+)
+
+
+def test_worksheet_longer_than_the_shared_cap_is_verified() -> None:
+    assert len(_WORKSHEET) > 1000
+    assert needs_physics(_WORKSHEET)
+    assert _answer(_WORKSHEET) == _ANSWER
+    intent = extract_physics_intent(_WORKSHEET)
+    assert intent is not None
+    block = build_verified_physics_block(intent, _SETTINGS)
+    assert block is not None
+    reply = maybe_direct_physics_reply(block, _WORKSHEET)
+    assert reply is not None
+    assert r"P_3 = P_0 - \frac{Mg}{A}" in reply
+    assert "0.0356143 m^3" in reply
+    assert "3.56" not in reply
+
+
+def test_long_non_piston_stays_outside_physics() -> None:
+    short = "A 5 kg block is pulled with a force of 20 N. Find the acceleration."
+    assert needs_physics(short)
+    padded = short + (" The surface is level." * 80)
+    assert len(padded) > 1000
+    assert needs_physics(padded) is False
+    assert extract_physics_intent(padded) is None
+
+
+def test_worksheet_past_the_piston_ceiling_is_not_physics() -> None:
+    padded = _WORKSHEET + (" Restate the givens." * 400)
+    assert len(padded) > 4000
+    assert needs_physics(padded) is False
+    assert extract_physics_intent(padded) is None
+
+
+def test_incomplete_long_piston_is_not_another_operation() -> None:
+    text = _WORKSHEET.replace("g = 10 m/s^2 and ", "")
+    assert len(text) > 1000
+    assert extract_physics_intent(text) is None
 
 
 def test_repeated_temperature_stays_direct_beside_another_kelvin() -> None:

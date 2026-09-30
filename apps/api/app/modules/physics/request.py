@@ -27,6 +27,10 @@ from app.modules.physics.numbers import (
     normalize_physics_units,
     numeric_spans,
 )
+from app.services.symbolic_text import (
+    _MAX_EXTENDED_SYMBOLIC_REQUEST,
+    normalize_symbolic_request,
+)
 
 _MASS = re.compile(rf"({_NUMBER})\s*({_MASS_UNITS})(?![A-Za-z0-9/^])", re.IGNORECASE)
 _SPEED = re.compile(rf"({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)
@@ -192,6 +196,7 @@ def _projectile_parts(text: str) -> tuple[ProjectileQuantity, ...] | None:
 
 
 _PISTON_WORD = re.compile(r"\bpistons?\b", re.IGNORECASE)
+_PISTON_GAS = re.compile(r"\b(?:ideal[-\s]gas|monatomic)\b", re.IGNORECASE)
 # ``3/2`` fails the shared fraction gate. On a piston that ratio is Cv/R or Cp/R.
 _PISTON_HEAT_RATIOS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\\frac\{\s*3\s*\}\{\s*2\s*\}"), "1.5"),
@@ -213,6 +218,24 @@ def _fold_piston_heat_ratios(text: str) -> str:
     for pattern, replacement in _PISTON_HEAT_RATIOS:
         text = pattern.sub(replacement, text)
     return text
+
+
+def physics_symbolic_text(text: str) -> tuple[str | None, bool]:
+    """Normalized text, and whether only the heavy-piston ceiling applied.
+
+    The shared symbolic ceiling is 1000 characters. A three-part piston
+    worksheet is longer than that, so that wording alone may use the extended
+    ceiling. Other requests stay on the shared cap.
+    """
+    cleaned = normalize_symbolic_request(text)
+    if cleaned is not None:
+        return cleaned, False
+    extended = normalize_symbolic_request(text, limit=_MAX_EXTENDED_SYMBOLIC_REQUEST)
+    if extended is None:
+        return None, False
+    if _PISTON_WORD.search(extended) is None or _PISTON_GAS.search(extended) is None:
+        return None, False
+    return extended, True
 
 
 def prepare_physics_request(text: str) -> PhysicsRequest:
