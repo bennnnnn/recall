@@ -184,6 +184,11 @@ def test_extract_equation_sin_pi_x_still_solves_for_x() -> None:
         ("the meeting = 3pm", False),
         ("What's the weather?", False),
         ("let x = the reason I'm late, it doesn't matter", False),
+        ("[File: quiz.pdf]\nx^2 - 5x + 6 = 0", True),
+        ("[File: quiz.pdf]\nx^2 - 5x + 6 = 0\nShow your work.", True),
+        ("[File: /attachments/abc/file]\n[File (application/pdf)]\n2x+3=7", True),
+        ("Summarize this file.\n\n2x+3=7", True),
+        ("Summarize this file.\n\n[File: notes.pdf]\nNo equation here.", False),
     ],
 )
 def test_needs_symbolic_math_bare_equation(text: str, expected: bool) -> None:

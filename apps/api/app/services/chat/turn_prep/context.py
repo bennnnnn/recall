@@ -19,7 +19,7 @@ from app.modules import web_search as web_search_service
 from app.modules.billing import plan as plan_service
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
-from app.modules.math.followup import math_working_followup_problem
+from app.modules.math.followup import math_working_followup_problem, offered_equation_problem
 from app.modules.web_search.subject import (
     _prior_user_messages as _prompt_prior_user_messages,
 )
@@ -468,6 +468,10 @@ async def build_stream_prompt_context(
     math_followup_problem = math_working_followup_problem(
         content, followup_history, blocked=blocks_math_followup
     )
+    # "Do it" after the assistant wrote a new equation is not a request to
+    # re-solve the user's earlier line. Solve the offered equation instead.
+    if math_followup_problem is None:
+        math_followup_problem = offered_equation_problem(content, followup_history)
 
     # Geo "location not set" fallback (independent of the LLM).
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:

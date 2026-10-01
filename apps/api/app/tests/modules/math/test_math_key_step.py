@@ -341,6 +341,8 @@ def test_linear_lesson_is_short_and_cancels_on_divide() -> None:
     before_chip, _, _ = reply.partition("```answer")
     assert "Add 3 to both sides" in before_chip
     assert "Divide both sides by 3" in before_chip
+    assert "**Answer**" in before_chip
+    assert before_chip.index("Divide both sides by 3") < before_chip.index("**Answer**")
     assert "—" not in before_chip
     assert "cancels" not in before_chip
     assert "undoes" not in before_chip
@@ -368,6 +370,97 @@ def test_format_omits_reasons_unless_asked() -> None:
     long = format_equation_lesson_reply(verified, include_reasons=True)
     assert "—" not in short.split("```answer")[0]
     assert "—" in long.split("```answer")[0]
+
+
+def test_glued_plain_power_is_an_exponent() -> None:
+    """`3x2+4=4` is `3x^2+4=4`. Splitting `x2` into `x*2` solved `6x+4=4`."""
+    from app.modules.math.solve.parse import _normalize_expr
+
+    assert _normalize_expr("3x2+4") == "3*x**2+4"
+    assert _normalize_expr("x^2") == "x**2"
+    assert _normalize_expr("2x") == "2*x"
+    assert _normalize_expr("x0+1") == "x0+1"
+    assert _normalize_expr("x1+1") == "x1+1"
+    assert _normalize_expr("sin2") == "sin2"
+    assert _normalize_expr("log2(8)") == "log2(8)"
+    assert _normalize_expr("x2^3") == "x2**3"
+
+    block = _block("3x2+4=4")
+    assert block is not None
+    assert block.given_latex is not None
+    assert "x^{2}" in block.given_latex
+    assert "6" not in block.given_latex
+    assert block.canonical_answer is not None
+    assert "0" in block.canonical_answer
+
+
+def test_scanner_caption_solves_the_confirmed_line() -> None:
+    text = "Solve the math problem in this image step by step.\n\nI read this as: x^2 - 5x + 6 = 0"
+    block = _block(text)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "2" in block.canonical_answer
+    assert "3" in block.canonical_answer
+
+    glued = "Solve the math problem in this image step by step.\n\nI read this as: 3x2+4=4"
+    block = _block(glued)
+    assert block is not None
+    assert block.given_latex is not None
+    assert "x^{2}" in block.given_latex
+    assert "6" not in block.given_latex
+
+
+def test_confirmed_scan_of_glued_power_uses_the_solver() -> None:
+    from app.modules.math.ocr import extract_from_confirmed_reading
+    from app.modules.math.tools.prompt import _intent_from_image_extract
+
+    extracted = extract_from_confirmed_reading("3x2+4=4")
+    assert extracted is not None
+    intent = _intent_from_image_extract(extracted)
+    assert intent is not None
+    block = _build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    assert block.given_latex is not None
+    assert "x^{2}" in block.given_latex
+    assert "6" not in block.given_latex
+
+
+def test_file_caption_period_still_verifies() -> None:
+    text = "Solve the math problem in this file.\n\n3x^2 + 4 = 4"
+    block = _block(text)
+    assert block is not None
+    assert block.given_latex is not None
+    assert "x^{2}" in block.given_latex
+    assert ". " not in (block.given_latex or "")
+    assert block.canonical_answer is not None
+    assert "0" in block.canonical_answer
+
+
+def test_file_excerpt_with_caption_and_trailing_prose_solves() -> None:
+    shown = "[File: quiz.pdf]\nx^2 - 5x + 6 = 0\nShow your work."
+    block = _block(shown)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "2" in block.canonical_answer
+    assert "3" in block.canonical_answer
+
+    caption = "Summarize this file.\n\n[File: /attachments/abc/file]\n2x+3=7"
+    block = _block(caption)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "2" in block.canonical_answer
+
+
+def test_file_marker_bare_equation_reaches_sympy() -> None:
+    from app.modules.math.tools import needs_symbolic_math
+
+    text = "[File: quiz.pdf]\nx^2 - 5x + 6 = 0"
+    assert needs_symbolic_math(text) is True
+    block = _block(text)
+    assert block is not None
+    assert block.canonical_answer is not None
+    assert "2" in block.canonical_answer
+    assert "3" in block.canonical_answer
 
 
 def test_divide_cancels_the_variable_coeff_not_the_constant() -> None:

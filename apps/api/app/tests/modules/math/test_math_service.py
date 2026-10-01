@@ -714,6 +714,13 @@ def test_try_extract_equations_strips_trailing_sentence_period() -> None:
     assert pairs == [("1/2 + 1/3", "x")]
 
 
+def test_try_extract_equations_stops_at_a_sentence_period() -> None:
+    pairs = math_solve.try_extract_equations_from_text(
+        "Solve the math problem in this file.\n\n3x^2 + 4 = 4"
+    )
+    assert pairs == [("3x^2 + 4", "4")]
+
+
 def test_try_extract_equations_from_text_single_equation_unaffected() -> None:
     assert math_solve.try_extract_equations_from_text("x + 4 = 10") == [("x + 4", "10")]
 

@@ -79,6 +79,15 @@ def _english_before(s: str, i: int) -> bool:
     return _english_run_len(s, start) > 0
 
 
+def _sentence_period(text: str, index: int) -> bool:
+    """A `.` that ends a word, not a decimal point (`3.14`, `.5`, `3.`)."""
+    if index < 0 or index >= len(text) or text[index] != ".":
+        return False
+    prev = text[index - 1] if index else ""
+    nxt = text[index + 1] if index + 1 < len(text) else ""
+    return not prev.isdigit() and not nxt.isdigit()
+
+
 def _is_equation_side(s: str) -> bool:
     stripped = s.strip()
     if not stripped or len(stripped) > 120:
@@ -188,11 +197,12 @@ def try_extract_equations_from_text(text: str) -> list[tuple[str, str]]:
     return pairs
 
 
-def _equation_pairs(text: str) -> list[tuple[str, str]]:
+def _equation_spans(text: str) -> list[tuple[int, int, str, str]]:
+    """``(lhs_index, rhs_end, lhs, rhs)`` for every equation the walker accepts."""
     # Expand LaTeX first so ``\frac{1}{2}x = 3`` survives the ASCII-only
     # side walker (which rejects ``\`` / ``{}``).
     cleaned = _normalize_latex_to_sympy(_strip_leading_filler(text))
-    pairs: list[tuple[str, str]] = []
+    spans: list[tuple[int, int, str, str]] = []
     start = 0
     while start < len(cleaned):
         eq = cleaned.find("=", start)
@@ -203,11 +213,15 @@ def _equation_pairs(text: str) -> list[tuple[str, str]]:
             continue
         left = eq
         while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
+            if _sentence_period(cleaned, left - 1):
+                break
             if cleaned[left - 1] == " " and _english_before(cleaned, left - 1):
                 break
             left -= 1
         right = eq + 1
         while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
+            if _sentence_period(cleaned, right):
+                break
             if _english_after(cleaned, right):
                 break
             # `=0 (2x-1)(x-3)=0` — next parenthetical is another equation,
@@ -225,9 +239,77 @@ def _equation_pairs(text: str) -> list[tuple[str, str]]:
         lhs = _strip_side_punct(peel_edge_english(cleaned[left:eq].strip()))
         rhs = _strip_side_punct(peel_edge_english(cleaned[eq + 1 : right].strip()))
         if _is_equation_side(lhs) and _is_equation_side(rhs):
-            pairs.append((lhs, rhs))
+            spans.append((left, right, lhs, rhs))
         start = right if right > eq + 1 else eq + 1
-    return pairs
+    return spans
+
+
+def _equation_pairs(text: str) -> list[tuple[str, str]]:
+    return [(lhs, rhs) for _left, _right, lhs, rhs in _equation_spans(text)]
+
+
+# ``let x = 5`` is a bare equation. ``and`` / ``if`` are not: those glue a
+# formula into a sentence (``the area if 2x=4``) and must stay with the model.
+_CLAUSE_LEADINS = frozenset({"let", "set", "given"})
+
+
+def _clause_start(text: str, index: int) -> bool:
+    """The equation is its own clause, not ``says x=5`` inside a sentence.
+
+    A file label ends at ``]``, and a caption ends at a period, so those are
+    free. The word ``let`` / ``solve`` may sit directly against the lhs.
+    """
+    k = index
+    while k > 0 and text[k - 1] == " ":
+        k -= 1
+    if k == 0:
+        return True
+    prev = text[k - 1]
+    if not prev.isalnum():
+        return True
+    end = k
+    start = end - 1
+    while start > 0 and text[start - 1].isalpha():
+        start -= 1
+    return text[start:end].lower() in _CLAUSE_LEADINS
+
+
+def _has_standalone_letter(side: str) -> bool:
+    i = 0
+    n = len(side)
+    while i < n:
+        if side[i].isalpha():
+            if (i == 0 or not side[i - 1].isalpha()) and (i + 1 == n or not side[i + 1].isalpha()):
+                return True
+            while i < n and side[i].isalpha():
+                i += 1
+            continue
+        i += 1
+    return False
+
+
+def free_standing_equation(text: str) -> tuple[str, str, str] | None:
+    """``(prose before, "lhs = rhs", prose after)`` when the equation starts a clause.
+
+    ``x^2 = 0 Show your work`` qualifies. ``the answer key says x=5`` does
+    not: the lhs is glued to the previous word. An ``a=b=c`` chain is not one
+    equation.
+    """
+    spans = _equation_spans(text)
+    if _is_equal_chain([(lhs, rhs) for _left, _right, lhs, rhs in spans]):
+        return None
+    cleaned = _normalize_latex_to_sympy(_strip_leading_filler(text))
+    for left, right, lhs, rhs in spans:
+        if left > len(cleaned) or right > len(cleaned) or not _clause_start(cleaned, left):
+            continue
+        if not (_has_standalone_letter(lhs) or _has_standalone_letter(rhs)):
+            continue
+        return cleaned[:left], f"{lhs} = {rhs}", cleaned[right:].strip()
+    return None
+
+
+def has_free_standing_equation(text: str) -> bool:
+    return free_standing_equation(text) is not None
 
 
 def _is_equal_chain(pairs: list[tuple[str, str]]) -> bool:
@@ -310,11 +392,15 @@ def try_extract_compound_inequality_from_text(
     for a, b in pairwise(hits):
         left = a[0]
         while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
+            if _sentence_period(cleaned, left - 1):
+                break
             left -= 1
         low = cleaned[left : a[0]].strip()
         mid = cleaned[a[1] : b[0]].strip()
         right = b[1]
         while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
+            if _sentence_period(cleaned, right):
+                break
             right += 1
         high = cleaned[b[1] : right].strip()
         if not (
@@ -339,9 +425,13 @@ def try_extract_inequality_from_text(text: str) -> tuple[str, str, str] | None:
     for start, after, canon in _find_inequality_ops(cleaned):
         left = start
         while left > 0 and cleaned[left - 1] in _EQUATION_SIDE_CHARS:
+            if _sentence_period(cleaned, left - 1):
+                break
             left -= 1
         right = after
         while right < len(cleaned) and cleaned[right] in _EQUATION_SIDE_CHARS:
+            if _sentence_period(cleaned, right):
+                break
             right += 1
         lhs = cleaned[left:start].strip()
         rhs = cleaned[after:right].strip()
