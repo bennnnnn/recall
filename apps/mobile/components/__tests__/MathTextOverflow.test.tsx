@@ -72,9 +72,10 @@ describe("inline tall math overflow", () => {
     expect(getByText("1")).toHaveStyle({ fontSize: 14, lineHeight: 18 });
   });
 
-  it("does not change ordinary prose/script wrapping or other math hosts", async () => {
+  it("raises a short power in a View without opening a scroller", async () => {
     const { rerender, queryByTestId, getByTestId } = await render(<MathText latex="x^2 + 1" scrollOverflow />);
     expect(queryByTestId("math-text-scroll")).toBeNull();
+    expect(getByTestId("math-text-tall")).toBeOnTheScreen();
     expect(getByTestId("math-script")).toHaveTextContent("2");
     await rerender(<MathText latex={slantHeight} />);
     expect(queryByTestId("math-text-scroll")).toBeNull();

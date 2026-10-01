@@ -136,9 +136,10 @@ function lessonStepParts(
 }
 
 /**
- * Stacked frac/sqrt is a sized View. A Text ancestor on iOS gives that View a
- * 0×0 text attachment, so the numerator paints over the line above. Use a
- * wrapping row instead; keep Text when the run is only prose/scripts.
+ * Stacked frac/sqrt and raised scripts are sized Views. A Text ancestor on
+ * iOS gives that View a 0×0 text attachment, and it also drops translateY
+ * on a nested Text, so an exponent sits on the baseline. Use a wrapping
+ * row instead; keep Text when the run is only prose.
  */
 function wrapInlineChildren(
   node: AstNode,

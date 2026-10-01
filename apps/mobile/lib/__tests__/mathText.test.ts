@@ -13,9 +13,10 @@ import {
 } from "@/lib/math/text";
 
 describe("parseSimpleLatex", () => {
-  it("puts fractional exponents in a View-capable host", () => {
+  it("puts exponents in a View-capable host so the power can rise", () => {
     expect(latexHasNestedMathView("x^{1/6}")).toBe(true);
-    expect(latexHasNestedMathView("x^2")).toBe(false);
+    expect(latexHasNestedMathView("x^2")).toBe(true);
+    expect(latexHasNestedMathView("x + 1")).toBe(false);
   });
   it("parses superscripts", () => {
     const segs = parseSimpleLatex("x^2 + 2 = 6");

@@ -130,18 +130,18 @@ describe("MarkdownContent math rendering", () => {
     const { getByText, queryByText, getByTestId, getAllByTestId } = await render(
       <MarkdownContent content={String.raw`Since $3^2 + 4^2 = 5^2$, it's a right triangle with legs 3 and 4, so area $= \tfrac{1}{2}(3)(4) = 6$.`} />,
     );
-    expect(getByText(/Since 3/)).toBeOnTheScreen();
+    expect(getByText(/Since/)).toBeOnTheScreen();
     expect(getByText(/right triangle/)).toBeOnTheScreen();
     expect(getAllByTestId("math-script").length).toBeGreaterThanOrEqual(3);
     expect(getByText("(3)(4) = 6.")).toBeOnTheScreen();
     expect(queryByText(/^, it[’']s a right triangle/)).toBeNull();
     expect(queryByText(/^\.$/)).toBeNull();
-    expect(getByTestId("md-math-inline-wrap")).toBeOnTheScreen();
+    expect(getAllByTestId("md-math-inline-wrap").length).toBeGreaterThan(0);
     expect(getByTestId("math-frac")).toBeOnTheScreen();
   });
 
   it("attaches a root's comma while retaining following prose and simple math", async () => {
-    const { getByText, queryByText, getByTestId } = await render(
+    const { getByText, queryByText, getByTestId, getAllByTestId } = await render(
       <MarkdownContent content={String.raw`Use $\sqrt{2}$, then compare $x^2$ with 4.`} />,
     );
     expect(getByText(/then compare/)).toBeOnTheScreen();
@@ -149,6 +149,7 @@ describe("MarkdownContent math rendering", () => {
     expect(getByTestId("math-script")).toHaveTextContent("2");
     expect(queryByText(/^, then compare/)).toBeNull();
     expect(getByTestId("md-math-inline-wrap")).toBeOnTheScreen();
+    expect(getAllByTestId("math-text-tall").length).toBeGreaterThanOrEqual(2);
   });
 
   it("typesets the exact cube-root callout note without raw LaTeX", async () => {
