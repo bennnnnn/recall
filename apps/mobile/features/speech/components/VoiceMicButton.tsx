@@ -74,18 +74,19 @@ export function VoiceMicButton({ recording, transcribing, disabled, onPress }: P
           />
         ) : null}
         <View
+          testID="voice-mic-surface"
           style={[
             styles.btn,
             {
-              borderColor: recording ? theme.primary : theme.border,
-              backgroundColor: recording ? theme.primary : theme.surface,
+              borderColor: recording ? theme.primary : "transparent",
+              backgroundColor: recording ? theme.primary : "transparent",
             },
           ]}
         >
           <Icon
             name={recording ? "stop" : "mic"}
             size={recording ? IconSize.xs : IconSize.md}
-            color={recording ? theme.onPrimary : theme.primary}
+            color={recording ? theme.onPrimary : theme.text}
           />
         </View>
       </View>
