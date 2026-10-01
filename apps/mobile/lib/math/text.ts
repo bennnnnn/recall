@@ -151,17 +151,19 @@ export function attachScripts(segments: MathSegment[]): ScriptAttachment[] {
   return out;
 }
 
-export function hasSimultaneousScripts(segments: MathSegment[]): boolean {
-  return attachScripts(segments).some((atom) => atom.sup != null && atom.sub != null);
-}
-
 export function latexHasNestedMathView(latex: string): boolean {
   const source = restoreMathEscapes(latex);
-  return latexHasStackedFrac(source)
+  if (
+    latexHasStackedFrac(source)
     || /\\(?:sqrt|xcancel|bcancel|cancel|overline|underline|widehat|widetilde|overrightarrow|overleftarrow|hat|vec|bar|ddot|dot|tilde)(?![A-Za-z])|\^\{[^{}]*\/[^{}]*\}/.test(
       source,
     )
-    || hasSimultaneousScripts(parseSimpleLatex(source));
+  ) {
+    return true;
+  }
+  // Superscripts and subscripts shift with translateY. That shift is ignored
+  // on a Text nested in Text, so the host has to be a View or `x^2` draws as x2.
+  return parseSimpleLatex(source).some((seg) => seg.type === "sup" || seg.type === "sub");
 }
 
 const CMD_REPLACEMENTS: [RegExp, string][] = [

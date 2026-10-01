@@ -86,6 +86,12 @@ describe("MathText", () => {
       fontSize: script.fontSize,
       transform: [{ translateY: -(script.raise ?? 0) }],
     });
+    // The exponent only rises when its Text is a child of a View. Nested in
+    // another Text, iOS ignores translateY and `x^2` draws as x2.
+    expect(getByTestId("math-text-tall")).toHaveStyle({
+      height: layout.height,
+      paddingTop: layout.padTop,
+    });
     expect(queryByText("x²")).toBeNull();
     expect(queryByText("²")).toBeNull();
   });

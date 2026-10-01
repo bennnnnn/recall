@@ -27,7 +27,6 @@ import {
 } from "@/lib/math/glyphs";
 import {
   attachScripts,
-  hasSimultaneousScripts,
   parseSimpleLatex,
   readableLatexFallback,
   type MathSegment,
@@ -196,16 +195,23 @@ function isFractionalScript(seg: MathSegment): boolean {
   return slash > 0 && slash < seg.value.length - 1 && !seg.value.includes(" ");
 }
 
+function hasRaisedScript(segments: MathSegment[]): boolean {
+  return segments.some((seg) => seg.type === "sup" || seg.type === "sub");
+}
+
+function hasStackedMath(segments: MathSegment[]): boolean {
+  return segments.some((seg) => (
+    seg.type === "frac" || seg.type === "sqrt" || seg.type === "cancel"
+    || seg.type === "accent" || isFractionalScript(seg)
+  ));
+}
+
 function hasTallMath(segments: MathSegment[]): boolean {
-  for (const seg of segments) {
-    if (
-      seg.type === "frac" || seg.type === "sqrt" || seg.type === "cancel"
-      || seg.type === "accent" || isFractionalScript(seg)
-    ) {
-      return true;
-    }
-  }
-  return hasSimultaneousScripts(segments);
+  // A lone `x^2` used to stay inside Text, and iOS ignores translateY there,
+  // so the exponent sat on the baseline and read as x2. The shift only
+  // sticks when the script is a child of a View, which is how the fraction
+  // in a divide step already draws it.
+  return hasStackedMath(segments) || hasRaisedScript(segments);
 }
 
 type RenderCtx = {
@@ -618,6 +624,7 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16, scr
   );
   const layout = useMemo(() => layoutMath(segments, fontSize), [segments, fontSize]);
   const tall = useMemo(() => hasTallMath(segments), [segments]);
+  const stacked = useMemo(() => hasStackedMath(segments), [segments]);
   const ctx: RenderCtx = { styles, color, fontScale, em: fontSize };
 
   if (!latex.trim()) return null;
@@ -625,12 +632,19 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16, scr
   const contentWidth = scaled(layout.width, fontScale);
   const contentHeight = scaled(layout.height, fontScale);
   const label = readableLatexFallback(latex);
-  const scroll = scrollOverflow && (tall || inlineMathNeedsScroll(contentWidth, windowWidth));
+  // A short power stays a View so the exponent can rise, without the
+  // horizontal scroller that stacked fractions use even when they fit.
+  const scroll = scrollOverflow && (stacked || inlineMathNeedsScroll(contentWidth, windowWidth));
   const runs = renderSegments(segments, layout.children, "m", ctx);
 
   // Stacked structures are a View root. Text > Text > View is what iOS lays
   // out as 0×0 and paints over the next line.
   if (tall) {
+    // The measured height already includes the script raise. Padding keeps
+    // that room inside the box so translateY lifts the exponent into it
+    // instead of painting past the top, where a ScrollView would clip it.
+    const padTop = scaled(layout.padTop ?? 0, fontScale);
+    const padBottom = scaled(layout.padBottom ?? 0, fontScale);
     const content = (
       <View
         testID="math-text-tall"
@@ -638,6 +652,8 @@ export function MathText({ latex, textColor, compact = false, fontSize = 16, scr
         style={[styles.tallRoot, {
           ...(scroll ? { minWidth: contentWidth } : { width: contentWidth }),
           height: contentHeight,
+          ...(padTop > 0 ? { paddingTop: padTop } : null),
+          ...(padBottom > 0 ? { paddingBottom: padBottom } : null),
         }]}
       >
         {runs}
