@@ -57,7 +57,7 @@ import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
 import { Radius } from "@/lib/radius";
-import { shadowElevated } from "@/lib/shadow";
+import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
@@ -72,9 +72,11 @@ function gapFadeColors(bg: string): [string, string] {
   return [withAlpha(bg, 0.92), bg];
 }
 
-export const COMPOSER_HEIGHT = 88;
-export const COMPOSER_IMAGE_PREVIEW_EXTRA = 84;
-export const COMPOSER_FILE_PREVIEW_EXTRA = 44;
+// Base floating surface: 48 pt primary action + 10 pt vertical padding + 6 pt shell air.
+export const COMPOSER_HEIGHT = 80;
+// Attachment extras mirror the rendered preview sizes instead of under-reserving the thread.
+export const COMPOSER_IMAGE_PREVIEW_EXTRA = 120;
+export const COMPOSER_FILE_PREVIEW_EXTRA = 56;
 const MATH_KEYBOARD_CHIP_HEIGHT = 44;
 /** Space above the floating keypad so message action icons are not flush with it. */
 const MATH_KEYBOARD_CHIP_GAP = Space.sm;
@@ -200,7 +202,8 @@ export const ChatComposer = memo(function ChatComposer({
         : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
     (scanHint ? 40 : 0) +
-    (showTokenHint ? COMPOSER_TOKEN_HINT_HEIGHT : 0);
+    (showTokenHint ? COMPOSER_TOKEN_HINT_HEIGHT : 0) +
+    (sendStatus ? COMPOSER_TOKEN_HINT_HEIGHT : 0);
 
   useEffect(() => {
     onMathChromeHeightChange?.(visible ? mathChromeHeight : 0);
@@ -211,6 +214,13 @@ export const ChatComposer = memo(function ChatComposer({
     const id = requestAnimationFrame(() => inputRef.current?.focus());
     return () => cancelAnimationFrame(id);
   }, [math.mathBarOpen]);
+
+  // Scanner/expanded chrome belongs to the active draft, not the mounted screen.
+  // Switching threads can keep ChatComposer mounted, so clear transient UI explicitly.
+  useEffect(() => {
+    setScanHint(false);
+    setComposerExpanded(false);
+  }, [draft?.revision]);
 
   useEffect(() => {
     // iOS can retain the last multiline content size after a controlled
@@ -389,6 +399,7 @@ export const ChatComposer = memo(function ChatComposer({
             ]}
           >
           <View
+            testID="composer-surface"
             style={[
               s.inputWrap,
               showLiveTalkSideChrome ? s.inputWrapFlex : null,
@@ -432,6 +443,7 @@ export const ChatComposer = memo(function ChatComposer({
               ]}
             >
               <Pressable
+                testID="composer-attachment-button"
                 style={[s.attachBtn, attachmentDisabled && s.controlDisabled]}
                 onPress={() => {
                   liveTalkChrome?.onYield();
@@ -447,12 +459,12 @@ export const ChatComposer = memo(function ChatComposer({
                 }}
               >
                 {attachPicking ? (
-                  <ActivityIndicator size="small" color={theme.primary} />
+                  <ActivityIndicator size="small" color={theme.text} />
                 ) : (
                   <Icon
                     name="plus"
                     size={IconSize.md}
-                    color={theme.primary}
+                    color={theme.text}
                     testID="composer-attachment-add-icon"
                   />
                 )}
@@ -698,16 +710,16 @@ function makeStyles(theme: Theme) {
       zIndex: 110,
       overflow: "visible",
       backgroundColor: "transparent",
-      paddingHorizontal: Space.sm,
-      paddingTop: 2,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.xxs,
     },
     mathHitHost: { top: 0 },
     outsideDismiss: { flex: 1, marginHorizontal: -Space.sm },
     composerDocked: {
       overflow: "visible",
       backgroundColor: "transparent",
-      paddingHorizontal: Space.sm,
-      paddingTop: 2,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.xxs,
     },
     composerBlockExpanded: {
       zIndex: 200,
@@ -716,8 +728,8 @@ function makeStyles(theme: Theme) {
     expandedFill: { flex: 1, minHeight: 0 },
     bottomFade: {
       position: "absolute",
-      left: -Space.sm,
-      right: -Space.sm,
+      left: -Space.md,
+      right: -Space.md,
       zIndex: 0,
     },
     composerAnchor: { position: "relative", overflow: "visible", zIndex: 1 },
@@ -729,14 +741,16 @@ function makeStyles(theme: Theme) {
       gap: Space.xs,
     },
     inputWrap: {
-      backgroundColor: theme.inputBg,
-      borderRadius: Radius.composer,
-      paddingHorizontal: Space.sm,
-      paddingTop: Space.xs,
-      paddingBottom: Space.xs,
+      // One calm floating surface: attachments and the input row live inside
+      // the same rounded card, matching the reference layout without copying its palette.
+      backgroundColor: theme.elevated,
+      borderRadius: Radius.sheet,
+      paddingHorizontal: Space.md,
+      paddingTop: 10,
+      paddingBottom: 10,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.composerBorder,
-      ...shadowElevated(theme, "fab"),
+      ...shadowRaised(theme),
     },
     inputWrapFlex: { flex: 1, minWidth: 0 },
     inputWrapExpanded: { flex: 1, minHeight: 0 },
@@ -787,9 +801,10 @@ function makeStyles(theme: Theme) {
       width: Space.minTouch,
       height: Space.minTouch,
       borderRadius: Space.minTouch / 2,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-      backgroundColor: theme.surface,
+      // Keep the + as quiet chrome inside the shared composer surface.
+      borderWidth: 0,
+      borderColor: "transparent",
+      backgroundColor: "transparent",
       alignItems: "center",
       justifyContent: "center",
       marginBottom: 0,
@@ -835,8 +850,8 @@ function makeStyles(theme: Theme) {
       flex: 0,
     },
     sendBtn: {
-      width: Space.minTouch,
-      height: Space.minTouch,
+      width: 48,
+      height: 48,
       borderRadius: Radius.full,
       backgroundColor: theme.primary,
       alignItems: "center",
@@ -846,8 +861,8 @@ function makeStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "flex-end",
-      gap: 6,
-      minHeight: Space.minTouch,
+      gap: Space.xxs,
+      minHeight: 48,
     },
     sendBtnDisabled: { backgroundColor: theme.border },
     scanHint: {
