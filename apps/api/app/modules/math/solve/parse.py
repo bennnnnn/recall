@@ -504,9 +504,50 @@ def _normalize_latex_to_sympy(expr: str) -> str:
     return s
 
 
+# A glued exponent ends the token. `^` is absent so `x2^3` is left for
+# implicit multiplication (`x*2**3`), and `(` is absent so `log2(8)` stays a name.
+_GLUED_EXPONENT_END = frozenset("+-*/=<>),] \t\n")
+
+
+def _lift_glued_exponents(text: str) -> str:
+    """`3x2+4` is `3x**2+4`, not `3*x*2`.
+
+    Homework and OCR write `x2` for `x^2`. Implicit multiplication would
+    otherwise split that into `x*2` and solve a different equation (`6x`).
+    `x0` / `x1` stay names, and a digit run after another letter (`sin2`,
+    `log2`) is not an exponent.
+    """
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        ch = text[i]
+        prev = text[i - 1] if i else ""
+        if ch.isalpha() and not prev.isalpha() and prev != "\\":
+            j = i + 1
+            if j < n and text[j].isdigit():
+                k = j + 1
+                while k < n and text[k].isdigit():
+                    k += 1
+                digits = text[j:k]
+                nxt = text[k] if k < n else ""
+                if digits not in {"0", "1"} and (k == n or nxt in _GLUED_EXPONENT_END):
+                    out.append(ch)
+                    out.append("**")
+                    out.append(digits)
+                    i = k
+                    continue
+        out.append(ch)
+        i += 1
+    return "".join(out)
+
+
 def _normalize_expr(text: str) -> str:
     s = text.strip()
     s = _normalize_latex_to_sympy(s)
+    # Lift `x2` before `^` becomes `**`, so a real caret (`x2^3`) is not
+    # reread as a glued exponent.
+    s = _lift_glued_exponents(s)
     s = s.replace("^", "**")
     # Python tokenizes 0x as the start of a hexadecimal literal before
     # SymPy's implicit-multiplication transform can see it. Explicitly mark

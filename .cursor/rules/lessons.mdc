@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A scanner caption `I read this as: x^2 - 5x + 6 = 0` never verified.** The English prefix failed the consumption check, so the equation on the confirmed line was dropped. Extract that line before the rest of the caption.
+
+- **`3x2+4=4` solved as `6x+4=4`, a bare equation after `[File:]` never reached SymPy, and “Do it” answered the offered equation with the model.** Implicit multiplication split `x2` into `x*2`. The algebraic gate judged the file label, not the equation after it. A sentence period in “this file.” stuck to the left side, so the verified block was dropped. “Do it” only reread earlier user lines. Lift a single letter plus exponent digits in `_normalize_expr` (`x0`, `x1`, `sin2`, and `log2(` stay names), ignore a file label or one caption sentence when the equation is its own line, stop the walker at a non-decimal period, and solve the one equation in the previous assistant message.
+
 - **`x^2` drew as `x2` except inside a cancelled fraction.** iOS ignores `translateY` on a `Text` nested in `Text`, so the smaller exponent sat on the baseline. A fraction is already a `View`, which is why only that step looked raised. Host any superscript or subscript in a `View` (`hasTallMath` and `latexHasNestedMathView`); keep the measured raise as padding so the shift stays inside the box.
 
 - **A catalog variable the extractor sends but the spec does not declare raises out of the turn, and `in` verified the wrong inertia.** `PhysicsIntent` raises when a key is missing from `FormulaSpec.variables`, and turn prep does not catch it, so a cliff height, a Faraday area, a third resistor, or an impedance from L, C, and f failed the chat. Declare every input the solver already reads. A shape matched with `name in text` treated "ring" inside "during" and "disc" inside "discuss" as the object; match with `word_index`, longest name first.

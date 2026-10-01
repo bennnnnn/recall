@@ -12,6 +12,7 @@ from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
     math_working_followup_problem,
+    offered_equation_problem,
     open_math_problem,
     readable_standalone_answer,
 )
@@ -333,3 +334,41 @@ async def test_current_turn_id_with_changed_content_does_not_hijack_previous_mat
     recent = [*_exchange(), _message("user", "how do I cook rice?")]
     prepared = await _prompt("how", recent, current_user_message_id=recent[-1].id)
     assert MATH_FOLLOWUP_HINT not in prepared[0]["content"]
+
+
+def test_do_it_solves_the_equation_the_assistant_just_offered() -> None:
+    offered = (
+        "Sure! Here's another similar quadratic equation to solve:\n\n"
+        "5x^2 \u2212 3 = \u22123\n\n"
+        "Let me know if you'd like the step-by-step solution."
+    )
+    recent = [
+        _message("user", "3x^2+4=4"),
+        _message("assistant", "x = 0\n```answer\nx = 0\n```"),
+        _message("user", "Create another one"),
+        _message("assistant", offered),
+    ]
+    assert offered_equation_problem("Do it", recent) == "5x^2 - 3 = -3"
+    assert offered_equation_problem("yes", recent) == "5x^2 - 3 = -3"
+    # The finished lesson is not offered again.
+    assert offered_equation_problem("Do it", recent[:2]) is None
+    assert (
+        offered_equation_problem(
+            "Do it",
+            [
+                _message("user", "draw a dog"),
+                _message("assistant", "Here is a dog."),
+            ],
+        )
+        is None
+    )
+    assert (
+        offered_equation_problem(
+            "Do it",
+            [
+                _message("user", "solve"),
+                _message("assistant", "3x^2+4=4\n3x^2=0\nx=0"),
+            ],
+        )
+        is None
+    )

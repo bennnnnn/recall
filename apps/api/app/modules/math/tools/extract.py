@@ -155,6 +155,17 @@ def extract_math_intent(text: str) -> MathIntent | None:
     if work is not None:
         work._request_text = text.strip()
         return work
+    # The scanner caption is English plus a confirmed line. Solving the whole
+    # caption leaves "I read this as" unconsumed, so a bare equation never
+    # verifies. The line after the prefix is the problem.
+    from app.modules.math.image_extract import confirmed_math_reading
+
+    reading = confirmed_math_reading(normalized)
+    if reading and reading.strip() != normalized.strip():
+        intent = _extract_math_intent(reading)
+        if intent is not None and request_consumption_complete(reading, intent):
+            intent._request_text = text.strip()
+            return intent
     intent = _extract_math_intent(normalized)
     if intent is not None and request_consumption_complete(normalized, intent):
         intent._request_text = text.strip()
@@ -175,11 +186,42 @@ def extract_math_intent(text: str) -> MathIntent | None:
     from app.modules.math.tools.lesson import lesson_math_text
 
     stripped = lesson_math_text(normalized)
-    if not stripped or stripped == normalized.strip() or not _bare_math_request(stripped):
+    if stripped and stripped != normalized.strip() and _bare_math_request(stripped):
+        intent = _extract_math_intent(stripped)
+        if intent is not None and request_consumption_complete(stripped, intent):
+            intent._request_text = text.strip()
+            return intent
+    recovered = _intent_from_free_standing_equation(normalized)
+    if recovered is not None:
+        recovered._request_text = text.strip()
+        return recovered
+    return None
+
+
+def _intent_from_free_standing_equation(text: str) -> MathIntent | None:
+    """Solve the one equation in a file excerpt or a one-sentence caption.
+
+    The caption and a trailing "Show your work" are not part of the equation.
+    A prefix that is itself a math ask (``solve``, ``area of the circle``)
+    keeps the normal extractors.
+    """
+    from app.modules.math.match.scan import _without_attachment_markers, has_math_keyword
+    from app.modules.math.solve.extract_eq import free_standing_equation
+
+    marked = any(head in text for head in ("[File:", "[Image:", "[File attached:", "[File ("))
+    found = free_standing_equation(_without_attachment_markers(text))
+    if found is None:
         return None
-    intent = _extract_math_intent(stripped)
-    if intent is not None and request_consumption_complete(stripped, intent):
-        intent._request_text = text.strip()
+    prefix, problem, suffix = found
+    # ``Solve x^2=4 where x is positive`` must stay unverified. A file
+    # excerpt may keep a trailing "Show your work". A caption with nothing
+    # after the equation is the equation.
+    if not marked and suffix.strip(" .!?"):
+        return None
+    if has_math_keyword(prefix.lower()):
+        return None
+    intent = _extract_math_intent(problem)
+    if intent is not None and request_consumption_complete(problem, intent):
         return intent
     return None
 

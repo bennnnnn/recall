@@ -980,18 +980,51 @@ def _math_equation_side(side: str) -> bool:
     return looks_like_math_expr(s)
 
 
+_ATTACHMENT_MARKER_HEADS = ("[File:", "[Image:", "[File attached:", "[File (")
+
+
+def _without_attachment_markers(text: str) -> str:
+    """Drop ``[File: …]`` / ``[Image: …]`` labels. Linear scan, no regex."""
+    out: list[str] = []
+    i = 0
+    n = len(text)
+    while i < n:
+        if any(text.startswith(head, i) for head in _ATTACHMENT_MARKER_HEADS):
+            end = text.find("]", i)
+            if end != -1:
+                i = end + 1
+                continue
+        out.append(text[i])
+        i += 1
+    return "".join(out)
+
+
 def has_algebraic_equation(text: str) -> bool:
     """An equation that contains a standalone single-letter variable.
 
     Used to trigger SymPy for bare ``2x+3=7`` (no "solve"/"find" keyword)
     without dragging in prose that happens to contain an ``=``.
+
+    A ``[File:]`` / ``[Image:]`` label is removed first. The equation itself
+    has to start a clause, so ``x^2 = 0`` followed by "Show your work" still
+    qualifies and ``the answer key says x=5`` does not.
     """
     if not has_equation(text):
         return False
     if not _STANDALONE_VAR_RE.search(text):
         return False
-    eq = text.find("=")
-    return _math_equation_side(text[:eq]) and _math_equation_side(text[eq + 1 :])
+    from app.modules.math.solve.extract_eq import free_standing_equation
+
+    body = _without_attachment_markers(text)
+    found = free_standing_equation(body)
+    if found is None:
+        return False
+    _prefix, _problem, suffix = found
+    # A file label may be followed by "Show your work". Anywhere else, a
+    # trailing clause (``where x is positive``) is not a bare equation.
+    if body != text:
+        return True
+    return not suffix.strip(" .!?")
 
 
 def inequality_signal(cleaned: str) -> bool:

@@ -123,6 +123,82 @@ def math_working_followup_problem(
     return _referenced_math_problem(query, recent, working_only=True, blocked=blocked)
 
 
+# A short go-ahead after the assistant wrote an equation. These are not
+# "do it again" (that re-solves the user's earlier problem).
+_PROCEED_PHRASES = frozenset(
+    {
+        "do it",
+        "do that",
+        "do this",
+        "solve it",
+        "solve this",
+        "solve that",
+        "show the steps",
+        "show steps",
+        "show me",
+        "work it out",
+        "go ahead",
+        "yes",
+        "yeah",
+        "yep",
+        "ok",
+        "okay",
+        "please",
+        "sure",
+    }
+)
+
+
+def _proceed_phrase(query: str) -> bool:
+    cleaned = " ".join(query.casefold().split())
+    while cleaned and cleaned[-1] in ".!?":
+        cleaned = cleaned[:-1].rstrip()
+    return cleaned in _PROCEED_PHRASES
+
+
+def _last_assistant_text(recent: Sequence[Any]) -> str | None:
+    for message in reversed(recent):
+        if _message_field(message, "role") != "assistant":
+            continue
+        content = _message_field(message, "content")
+        if isinstance(content, str) and content.strip():
+            return content
+    return None
+
+
+def offered_equation_problem(query: str | None, recent: Sequence[Any]) -> str | None:
+    """Solve the one equation the assistant just offered.
+
+    ``Do it`` after ``5x^2 - 3 = -3`` has no equation of its own, and walking
+    back to the previous user line re-solves the problem already finished.
+    The offered line is the previous assistant message. A verified lesson
+    (an ``answer`` fence) and a message with several different equations stay
+    with the model.
+    """
+    if not query or not recent or not _proceed_phrase(query):
+        return None
+    if needs_symbolic_math(query):
+        return None
+    assistant = _last_assistant_text(recent)
+    if assistant is None or "```answer" in assistant:
+        return None
+    from app.modules.math.solve.extract_eq import try_extract_equations_from_text
+
+    pairs = try_extract_equations_from_text(assistant)
+    if not pairs:
+        return None
+    unique = {(lhs.strip(), rhs.strip()) for lhs, rhs in pairs}
+    if len(unique) != 1:
+        return None
+    lhs, rhs = next(iter(unique))
+    if not lhs or not rhs:
+        return None
+    problem = f"{lhs} = {rhs}"
+    if not needs_symbolic_math(problem):
+        return None
+    return problem
+
+
 def readable_standalone_answer(content: str) -> str | None:
     """Keep only a complete, standalone owned answer as math, never fenced payloads.
 
