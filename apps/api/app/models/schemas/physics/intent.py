@@ -62,6 +62,7 @@ class PhysicsIntent(BaseModel):
             "rate_speed",
             "rate_distance",
             "rate_time",
+            "stopping_distance",
             "time_to_ground",
             "vertical_max_height",
             "range",

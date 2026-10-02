@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A reaction-plus-braking stop was answered by the model, and “slows to a stop, how far” became `d = vt`.** The two-time sentence never matched a cue. The one-time sentence matched `rate_distance` first, so 15 m/s for 3 s while stopping was 45 m. Own that shape as `stopping_distance` before the rate extractor, and make rate refuse “to a stop” / brake wording so SUVAT can answer 22.5 m.
+
 - **A scanner caption `I read this as: x^2 - 5x + 6 = 0` never verified.** The English prefix failed the consumption check, so the equation on the confirmed line was dropped. Extract that line before the rest of the caption.
 
 - **`3x2+4=4` solved as `6x+4=4`, a bare equation after `[File:]` never reached SymPy, and “Do it” answered the offered equation with the model.** Implicit multiplication split `x2` into `x*2`. The algebraic gate judged the file label, not the equation after it. A sentence period in “this file.” stuck to the left side, so the verified block was dropped. “Do it” only reread earlier user lines. Lift a single letter plus exponent digits in `_normalize_expr` (`x0`, `x1`, `sin2`, and `log2(` stay names), ignore a file label or one caption sentence when the equation is its own line, stop the walker at a non-decimal period, and solve the one equation in the previous assistant message.
