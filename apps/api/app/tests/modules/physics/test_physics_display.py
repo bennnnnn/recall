@@ -112,7 +112,7 @@ def test_a_unit_written_in_words_shows_its_symbol(unit: str, shown: str) -> None
 
 
 def test_every_unit_the_scanner_reads_in_words_has_a_symbol() -> None:
-    from app.modules.physics.givens import _SYMBOLS, _WORDS
+    from app.modules.physics.given_units import _SYMBOLS, _WORDS
 
     for spelling in (*_WORDS, *_SYMBOLS):
         if " " in spelling:

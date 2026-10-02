@@ -13,20 +13,19 @@ from dataclasses import dataclass
 
 from app.models.schemas.physics import PhysicsIntent
 from app.models.schemas.physics.intent import ProjectileQuantity
-from app.modules.physics.extract import (
-    _COLLISION_SUBJECT_RE,
+from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
     _NUMBER,
-    _TWO_DIMENSIONAL_RE,
     _VELOCITY_UNIT_PATTERN,
-    has_supported_physics_cue,
 )
+from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE, _TWO_DIMENSIONAL_RE
 from app.modules.physics.numbers import (
     normalize_physics_numbers,
     normalize_physics_units,
     numeric_spans,
 )
+from app.modules.physics.registry import has_supported_physics_cue
 
 _MASS = re.compile(rf"({_NUMBER})\s*({_MASS_UNITS})(?![A-Za-z0-9/^])", re.IGNORECASE)
 _SPEED = re.compile(rf"({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)

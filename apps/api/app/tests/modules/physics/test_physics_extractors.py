@@ -5,14 +5,11 @@ from __future__ import annotations
 import pytest
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.extract import (
-    _VALUE_UNIT_RE,
-    _detect_gravity,
-    _extract_energy_intent,
-    _extract_force_intent,
-    _extract_kinematics_intent,
-    _extract_projectile_intent,
-)
+from app.modules.physics.extractors.common import _VALUE_UNIT_RE, _detect_gravity
+from app.modules.physics.extractors.energy import _extract_energy_intent
+from app.modules.physics.extractors.forces import _extract_force_intent
+from app.modules.physics.extractors.kinematics import _extract_kinematics_intent
+from app.modules.physics.extractors.projectile import _extract_projectile_intent
 
 # ---------------------------------------------------------------------------
 # Kinematics
@@ -383,8 +380,6 @@ def test_projectile_without_wall_still_verifies() -> None:
 
 
 def test_miles_per_hour_is_not_parsed_as_metres() -> None:
-    from app.modules.physics.extract import _VALUE_UNIT_RE
-
     hit = _VALUE_UNIT_RE.match("5 miles per hour")
     if hit is not None:
         assert (hit.group(2) or "").lower() != "m"
