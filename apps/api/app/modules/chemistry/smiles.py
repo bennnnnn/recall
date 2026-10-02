@@ -136,7 +136,7 @@ def validate_smiles(smiles: str) -> MoleculeProperties:
         return MoleculeProperties(
             smiles=Chem.MolToSmiles(mol),
             formula=rdMolDescriptors.CalcMolFormula(mol),
-            molecular_weight=round(rdMolDescriptors._CalcMolWt(mol), 2),
+            molecular_weight=float(rdMolDescriptors._CalcMolWt(mol)),
             atom_count=mol.GetNumAtoms(),
             bond_count=mol.GetNumBonds(),
         )

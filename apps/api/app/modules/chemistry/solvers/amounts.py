@@ -13,6 +13,7 @@ from app.modules.chemistry.solvers.common_chem import (
     const,
     inp,
     molar_mass_text,
+    molar_mass_working,
     num,
     verified,
 )
@@ -132,17 +133,20 @@ def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+def _mass_terms(formula: str) -> str | None:
+    """Each element's atom count times its atomic mass: ``2(1.008) + 1(15.999)``."""
+    terms = [
+        f"{count}({atomic_mass(known.mass)})"
+        for symbol, count in (formula_atoms(formula) or {}).items()
+        if (known := BY_SYMBOL.get(symbol)) is not None
+    ]
+    return " + ".join(terms) or None
+
+
 def solve_molar_mass(intent: ChemistryIntent) -> ChemistryResult:
     formula = _formula(intent)
-    atoms = formula_atoms(formula) or {}
     mass = _molar_mass(formula)
-    terms: list[str] = []
-    if atoms:
-        for symbol, count in atoms.items():
-            known = BY_SYMBOL.get(symbol)
-            if known is not None:
-                terms.append(f"{count}({atomic_mass(known.mass)})")
-    substitution = " + ".join(terms) if terms else f"RDKit molecular mass for {formula}"
+    substitution = _mass_terms(formula) or f"RDKit molecular mass for {formula}"
     result = f"{molar_mass_text(mass)} g/mol"
     return verified(
         title="Verified molar mass",
@@ -177,10 +181,10 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
         value = f"{num(moles)} mol"
         return verified(
             "Verified amount of substance",
-            (f"mass = {inp(mass)} g", f"M({formula}) = {molar_mass_text(molar)} g/mol"),
+            (f"mass = {inp(mass)} g", f"M({formula}) = {molar_mass_working(molar)} g/mol"),
             "Amount, n",
             *stated("mass_to_moles"),
-            (f"n = {inp(mass)} / {molar_mass_text(molar)}",),
+            (f"n = {inp(mass)} / {molar_mass_working(molar)}",),
             f"n({formula}) = {value}",
             value,
         )
@@ -190,10 +194,10 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
         value = f"{num(mass)} g"
         return verified(
             "Verified mass",
-            (f"n = {inp(moles)} mol", f"M({formula}) = {molar_mass_text(molar)} g/mol"),
+            (f"n = {inp(moles)} mol", f"M({formula}) = {molar_mass_working(molar)} g/mol"),
             "Mass, m",
             *stated("moles_to_mass"),
-            (f"m = ({inp(moles)})({molar_mass_text(molar)})",),
+            (f"m = ({inp(moles)})({molar_mass_working(molar)})",),
             f"m({formula}) = {value}",
             value,
         )
@@ -254,20 +258,19 @@ def solve_percent_composition(intent: ChemistryIntent) -> ChemistryResult:
     if count is None or known is None:
         raise SolveServiceError(f"{element} is not present in {formula}")
     total = _molar_mass(formula)
-    # Rounded like the molar mass so the shown fraction is one convention: 16 / 18.02.
-    contribution = round(count * known.mass, 2)
-    percent = contribution / total * 100
+    percent = count * known.mass / total * 100
     value = f"{num(percent)}%"
+    whole = molar_mass_working(total)
+    terms = _mass_terms(formula)
     return verified(
         "Verified percent composition",
-        (
-            f"Formula = {formula}",
-            f"{element} atoms per formula unit = {count}",
-            f"M({formula}) = {molar_mass_text(total)} g/mol",
-        ),
+        (f"Formula = {formula}", f"{element} atoms per formula unit = {count}"),
         f"Mass percent of {element}",
         *stated("percent_composition"),
-        (f"% {element} = ({molar_mass_text(contribution)} / {molar_mass_text(total)}) × 100",),
+        (
+            f"M({formula}) = {f'{terms} = ' if terms else ''}{whole} g/mol",
+            f"% {element} = {count} × {atomic_mass(known.mass)} / {whole} × 100",
+        ),
         f"{element} in {formula} = {value}",
         value,
     )

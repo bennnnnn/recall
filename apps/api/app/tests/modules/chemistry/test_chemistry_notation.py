@@ -218,7 +218,7 @@ def test_the_catalog_names_each_law_as_the_answer_prints_it(
 def test_a_strong_base_prints_how_many_hydroxides_it_releases() -> None:
     sodium = _solve("Find the strong base pH of 0.010 M NaOH")
     assert sodium.formula == "[OH-] = C"
-    assert sodium.answer == "pH = 12"
+    assert sodium.answer == "pH = 12.00"
     calcium = _solve("Find the strong base pH of 0.010 M Ca(OH)2")
     assert calcium.formula == "[OH-] = 2C"
     assert calcium.answer.startswith("pH = ")
@@ -232,7 +232,7 @@ def test_an_ice_formula_is_products_over_reactants() -> None:
 def test_stoichiometry_prints_this_reaction_ratio() -> None:
     result = _solve("How many moles of NH3 from 2 mol N2 in N2 + 3 H2 -> NH3?")
     assert result.formula == "n(NH3) = n(N2) × (2 / 1)"
-    assert result.answer == "n(NH3) = 4 mol NH3"
+    assert result.answer == "n(NH3) = 4.0 mol NH3"
 
 
 def test_the_model_prompt_keeps_each_answer_line_and_working_row_whole() -> None:
@@ -241,11 +241,11 @@ def test_the_model_prompt_keeps_each_answer_line_and_working_row_whole() -> None
     verified = build_verified_chemistry(intent)
     assert verified is not None
     prompt = verified.prompt_text
-    assert "- E°cell = 1.1 V\n- anode: Zn\n- cathode: Cu" in prompt
+    assert "- E°cell = 1.10 V\n- anode: Zn\n- cathode: Cu" in prompt
     assert "- Zn + Cu2+ -> Zn2+ + Cu" in prompt
     assert "->" in prompt and "→" not in prompt.split("Formula")[1]
     intent = extract_chemistry_intent("How many moles are in 36 g of H2O?")
     assert intent is not None
     verified = build_verified_chemistry(intent)
     assert verified is not None
-    assert "- n = 36 / 18.02" in verified.prompt_text
+    assert "- n = 36 / 18.015" in verified.prompt_text

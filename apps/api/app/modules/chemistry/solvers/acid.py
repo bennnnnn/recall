@@ -10,6 +10,7 @@ from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.solvers.common_chem import (
     inp,
     num,
+    p_value,
     verified,
     weak_dissociation,
 )
@@ -34,7 +35,7 @@ _DILUTE = 1e-6
 
 
 def ph_text(value: float) -> str:
-    return num(-math.log10(value))
+    return p_value(-math.log10(value))
 
 
 def solve_strong_acid(intent: ChemistryIntent) -> ChemistryResult:
@@ -70,7 +71,7 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
     if hydroxide < _DILUTE:
         raise SolveServiceError("water's contribution is required for this dilute strong base")
     poh = ph_text(hydroxide)
-    ph = num(PKW + math.log10(hydroxide))
+    ph = p_value(PKW + math.log10(hydroxide))
     hydroxide_law = "[OH-] = C" if factor == 1 else f"[OH-] = {factor}C"
     return verified(
         "Verified strong-base pH",
@@ -115,7 +116,7 @@ def solve_weak_acid(intent: ChemistryIntent) -> ChemistryResult:
     concentration = require(intent, "concentration", positive=True)
     constant = require(intent, "ka", positive=True)
     amount, ph, note = _weakph_text(constant, concentration, acid=True)
-    ph_text = num(ph)
+    ph_text = p_value(ph)
     lines = [
         *_quadratic_lines(constant, concentration, amount),
         f"[H+] = x = {num(amount)} mol/L",
@@ -138,15 +139,15 @@ def solve_weak_base(intent: ChemistryIntent) -> ChemistryResult:
     concentration = require(intent, "concentration", positive=True)
     constant = require(intent, "kb", positive=True)
     amount, ph, note = _weakph_text(constant, concentration, acid=False)
-    ph_text = num(ph)
+    ph_text = p_value(ph)
     lines = [
         *_quadratic_lines(constant, concentration, amount),
         f"[OH-] = x = {num(amount)} mol/L",
     ]
     if note:
         lines.append(note)
-    lines.append(f"pOH = −log10({num(amount)}) = {num(-math.log10(amount))}")
-    lines.append(f"pH = {PKW} − {num(-math.log10(amount))} = {ph_text}")
+    lines.append(f"pOH = −log10({num(amount)}) = {p_value(-math.log10(amount))}")
+    lines.append(f"pH = {PKW} − {p_value(-math.log10(amount))} = {ph_text}")
     return verified(
         "Verified weak-base pH",
         (f"C = {inp(concentration)} mol/L", f"Kb = {inp(constant)}"),
@@ -188,7 +189,7 @@ def solve_ka_kb(intent: ChemistryIntent) -> ChemistryResult:
         working = f"pKb = −log10({inp(source)})"
     else:
         raise SolveServiceError("Ka/Kb conversion needs the matching constant and target")
-    shown = f"{target} = {num(value)}"
+    shown = f"{target} = {p_value(value) if target.startswith('p') else num(value)}"
     uses_kw = target in {"Ka", "Kb"}
     return verified(
         "Verified Ka/Kb conversion",
@@ -233,7 +234,7 @@ def solve_buffer_addition(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("added reagent must be acid or base")
     if ha <= 0 or base <= 0:
         raise SolveServiceError("the addition left the buffer region")
-    ph = num(pka + math.log10(base / ha))
+    ph = p_value(pka + math.log10(base / ha))
     return verified(
         "Verified buffer after addition",
         (
@@ -254,7 +255,7 @@ def solve_polyprotic(intent: ChemistryIntent) -> ChemistryResult:
     concentration = require(intent, "concentration", positive=True)
     ka1 = require(intent, "ka1", positive=True)
     amount = weak_dissociation(ka1, concentration)
-    ph = num(-math.log10(amount))
+    ph = p_value(-math.log10(amount))
     return verified(
         "Verified polyprotic pH",
         (f"C = {inp(concentration)} mol/L", f"Ka1 = {inp(ka1)}"),

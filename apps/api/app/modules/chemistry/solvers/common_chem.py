@@ -6,6 +6,7 @@ from __future__ import annotations
 import math
 from itertools import pairwise
 
+from app.modules.chemistry import sig_figs
 from app.modules.chemistry.solvers.types import (
     INPUT_FIGURES,
     ChemistryResult,
@@ -63,12 +64,36 @@ def verified(
     )
 
 
+def _fixed(value: float, places: int) -> str:
+    """A value to fixed decimal places, never a negative zero (−0.00)."""
+    text = f"{value:.{places}f}"
+    return text.removeprefix("-") if float(text) == 0 else text
+
+
 def num(value: float) -> str:
+    """A computed value, to the significant figures the question's data carry."""
+    written = sig_figs.current()
+    if written is not None and written.additive and written.decimals is not None:
+        return _fixed(value, written.decimals)
+    if written is not None and written.figures is not None:
+        return format_number(value, significant=written.figures, keep_zeros=True)
     return format_number(value)
 
 
+def p_value(value: float) -> str:
+    """A pH, pOH or pK: a logarithm, so its precision is decimal places (pH 3.49)."""
+    written = sig_figs.current()
+    if written is not None and written.decimals is not None:
+        return _fixed(value, written.decimals)
+    return num(value)
+
+
 def inp(value: float) -> str:
-    """A value the user supplied, echoed without rounding it to answer precision (273.15 K)."""
+    """A value the user supplied, echoed as typed (1.10 V) or, if derived, unrounded (273.15 K)."""
+    written = sig_figs.current()
+    typed = None if written is None else written.written.get(repr(value))
+    if typed is not None:
+        return sig_figs.as_written(typed)
     return format_number(value, significant=INPUT_FIGURES)
 
 
@@ -78,8 +103,17 @@ def const(value: float) -> str:
 
 
 def molar_mass_text(value: float) -> str:
-    """A molar mass to two decimals."""
+    """A molar mass that is the answer, to two decimals by convention (98.07 g/mol)."""
     return format_molar_mass(value)
+
+
+def molar_mass_working(value: float) -> str:
+    """A molar mass inside a calculation, to the element table's precision (18.015).
+
+    Two decimals there would not reproduce the answer: 4 / 2.02 × 18.02 is 35.68 g, while
+    4 g of H2 makes 35.74 g of water.
+    """
+    return f"{value:.3f}"
 
 
 def atomic_mass(value: float) -> str:

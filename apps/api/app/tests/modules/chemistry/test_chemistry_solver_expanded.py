@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import math
+import re
 from typing import get_args
 
 import pytest
@@ -26,23 +27,23 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "How many moles are in 36 g of H2O?",
         "mass_to_moles",
-        "n(H2O) = 1.998 mol",
+        "n(H2O) = 2.0 mol",
     ),
-    ("Find the mass of 2 mol of H2O", "moles_to_mass", "m(H2O) = 36.04 g"),
+    ("Find the mass of 2 mol of H2O", "moles_to_mass", "m(H2O) = 36 g"),
     (
         "How many molecules are in 2 mol of H2O?",
         "moles_to_particles",
-        "N(H2O) = 1.204 × 10^24 particles",
+        "N(H2O) = 1.2 × 10^24 particles",
     ),
     (
         "How many moles are in 6.022e23 molecules of H2O?",
         "particles_to_moles",
-        "n(H2O) = 1 mol",
+        "n(H2O) = 1.000 mol",
     ),
     (
         "Find percent composition of O in H2O",
         "percent_composition",
-        "O in H2O = 88.79%",
+        "O in H2O = 88.81%",
     ),
     (
         "Find percent yield if actual yield = 8 g and theoretical yield = 10 g",
@@ -52,12 +53,12 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?",
         "stoichiometry",
-        "n(H2O) = 4 mol H2O",
+        "n(H2O) = 4.0 mol H2O",
     ),
     (
         "Find the limiting reagent and moles of H2O from 4 mol H2 and 1 mol O2 in H2 + O2 -> H2O",
         "limiting_reagent",
-        "Limiting reagent = O2; 2 mol H2O",
+        "Limiting reagent = O2; 2.0 mol H2O",
     ),
     (
         "Find molarity of 0.5 mol in 2 L solution",
@@ -72,31 +73,31 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find molality for 2 mol solute in 4 kg solvent",
         "molality",
-        "b = 0.5 mol/kg",
+        "b = 0.50 mol/kg",
     ),
     (
         "Find mass percent for 5 g solute in 20 g solution",
         "mass_percent",
         "Mass percent = 25%",
     ),
-    ("Find pH when [H+] = 0.001", "ph_from_h", "pH = 3"),
+    ("Find pH when [H+] = 0.001", "ph_from_h", "pH = 3.00"),
     ("Find pH when pOH = 3", "ph_from_poh", "pH = 11"),
-    ("Find [H+] when pH = 4", "h_from_ph", "[H+] = 1 × 10^-4 mol/L"),
-    ("Find pOH when [OH-] = 0.01", "poh_from_oh", "pOH = 2"),
+    ("Find [H+] when pH = 4", "h_from_ph", "[H+] = 1.0 × 10^-4 mol/L"),
+    ("Find pOH when [OH-] = 0.01", "poh_from_oh", "pOH = 2.00"),
     (
         "Find buffer pH with pKa=4.76, [A-]=0.2 and [HA]=0.1",
         "buffer_ph",
-        "pH = 5.061",
+        "pH = 5.06",
     ),
     (
         "Use ideal gas law PV=nRT: P=2 atm, n=1 mol, T=300 K, find volume",
         "ideal_gas",
-        "V = 12.31 L",
+        "V = 12 L",
     ),
     (
         "Find heat transferred using q=mcΔT: mass=10 g, specific heat=4.18 J/(g C), ΔT=5 C",
         "heat",
-        "q = 209 J",
+        "q = 210 J",
     ),
     (
         "Find Gibbs ΔG when ΔH=-40 kJ, ΔS=-100 J and T=300 K",
@@ -116,33 +117,33 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find first-order half-life when k=0.2 s^-1",
         "first_order_half_life",
-        "t₁/₂ = 3.466 s",
+        "t₁/₂ = 3.5 s",
     ),
     (
         "For a first-order reaction [A]0=1, k=0.1, t=10 s, find [A]",
         "first_order_concentration",
-        "[A]ₜ = 0.3679 mol/L",
+        "[A]ₜ = 0.37 mol/L",
     ),
     (
         "Use Arrhenius equation with A=1e10 s^-1, Ea=50 kJ, T=300 K",
         "arrhenius",
-        "k = 19.7 s⁻¹",
+        "k = 20 s⁻¹",
     ),
     (
         "Find electrochemical Gibbs ΔG for a cell with n=2 and E°=1.1 V",
         "cell_gibbs",
-        "ΔG° = -212.3 kJ/mol",
+        "ΔG° = -210 kJ/mol",
     ),
     (
         "Use Nernst equation with E°=1.1 V, n=2, Q=10, T=298 K",
         "nernst",
-        "E = 1.07 V",
+        "E = 1.1 V",
     ),
     (
         "Find mass deposited by electrolysis when molar mass=63.55 g/mol, "
         "current=2 A, time=3600 s, n=2",
         "electrolysis_mass",
-        "m = 2.371 g",
+        "m = 2.4 g",
     ),
     (
         "A radioactive sample has initial mass=100 g, half-life=5 years, "
@@ -154,7 +155,7 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
         "Use Beer-Lambert law: epsilon=100, path length=1 cm, "
         "concentration=0.02 M, find absorbance",
         "beer_lambert",
-        "A = 2",
+        "A = 2.0",
     ),
     (
         "Find the empirical formula from 40.0% C, 6.7% H, and 53.3% O",
@@ -169,95 +170,95 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "10 g of H2 reacts with excess O2 in H2 + O2 -> H2O. How many grams of H2O form?",
         "mass_stoichiometry",
-        "m(H2O) = 89.21 g",
+        "m(H2O) = 89 g",
     ),
     (
         "0.50 L of 0.20 M HCl reacts with excess NaOH in HCl + NaOH -> NaCl + H2O. "
         "How many moles of NaCl form?",
         "solution_stoichiometry",
-        "n(NaCl) = 0.1 mol",
+        "n(NaCl) = 0.10 mol",
     ),
     (
         "Chemistry: 2.0 L of H2 at 1 atm and 273.15 K reacts with excess O2 in "
         "H2 + O2 -> H2O. How many liters of H2O gas form?",
         "gas_stoichiometry",
-        "V(H2O) = 2 L",
+        "V(H2O) = 2.0 L",
     ),
     (
         "How many grams of H2O from 22.4 L of H2 at 1 atm and 0 C in 2H2 + O2 -> 2H2O",
         "gas_stoichiometry",
-        "m(H2O) = 18.01 g",
+        "m(H2O) = 18 g",
     ),
     (
         "Find the limiting reagent from masses 10 g H2 and 10 g O2 in H2 + O2 -> H2O",
         "limiting_mass",
-        "Limiting reagent = O2; 11.26 g H2O",
+        "Limiting reagent = O2; 11 g H2O",
     ),
     (
         "Find the limiting solution reagent and grams of NaCl: HCl=0.050 L (0.10 M) and "
         "NaOH=0.020 L (0.10 M) in HCl + NaOH -> NaCl + H2O",
         "limiting_solution",
-        "Limiting reagent = NaOH; 0.1169 g NaCl",
+        "Limiting reagent = NaOH; 0.12 g NaCl",
     ),
-    ("Find the strong acid pH of 0.010 M HCl", "strong_acid_ph", "pH = 2"),
-    ("Find the strong base pH of 0.010 M NaOH", "strong_base_ph", "pH = 12"),
+    ("Find the strong acid pH of 0.010 M HCl", "strong_acid_ph", "pH = 2.00"),
+    ("Find the strong base pH of 0.010 M NaOH", "strong_base_ph", "pH = 12.00"),
     (
         "Find the weak acid pH of 0.10 M HA when Ka=1.8e-5",
         "weak_acid_ph",
-        "pH = 2.875",
+        "pH = 2.88",
     ),
     (
         "Find the weak base pH of 0.10 M B when Kb=1.8e-5",
         "weak_base_ph",
         "pH = 11.12",
     ),
-    ("Find Kb from Ka=1.8e-5", "ka_kb", "Kb = 5.556 × 10^-10"),
+    ("Find Kb from Ka=1.8e-5", "ka_kb", "Kb = 5.6 × 10^-10"),
     (
         "Strong acid strong base titration: Ma=0.10, Va=0.050 L, Mb=0.10, Vb=0.020 L, find pH",
         "titration_strong",
-        "pH = 1.368",
+        "pH = 1.37",
     ),
     (
         "Weak acid strong base titration: Ma=0.10, Va=0.050 L, Mb=0.10, Vb=0.025 L, "
         "Ka=1.8e-5, find pH",
         "titration_weak",
-        "pH = 4.745",
+        "pH = 4.74",
     ),
     (
         "Buffer after adding acid: pKa=4.76, HA=0.10 mol, A-=0.10 mol, added=0.02 mol acid",
         "buffer_addition",
-        "pH = 4.584",
+        "pH = 4.58",
     ),
     (
         "Find the polyprotic pH of 0.10 M HA when Ka1=4.3e-7",
         "polyprotic_ph",
-        "pH = 3.684",
+        "pH = 3.68",
     ),
     (
         "Use the combined gas law: P1=1 atm, V1=2 L, T1=300 K, V2=4 L, T2=300 K, find P2",
         "combined_gas",
-        "P2 = 0.5 atm",
+        "P2 = 0.50 atm",
     ),
-    ("Use Boyle's law: P1=2 atm, V1=3 L, V2=6 L, find P2", "boyle", "P2 = 1 atm"),
+    ("Use Boyle's law: P1=2 atm, V1=3 L, V2=6 L, find P2", "boyle", "P2 = 1.0 atm"),
     (
         "Use Charles's law: V1=2 L, T1=300 K, T2=600 K, find V2",
         "charles",
-        "V2 = 4 L",
+        "V2 = 4.0 L",
     ),
     (
         "Use Dalton's law: P(N2)=0.8 atm and P(O2)=0.2 atm",
         "dalton",
-        "Ptotal = 1 atm",
+        "Ptotal = 1.0 atm",
     ),
     (
         "Find the partial pressure when mole fraction=0.25 and total pressure=2 atm",
         "partial_pressure",
-        "Pi = 0.5 atm",
+        "Pi = 0.50 atm",
     ),
     (
         "Gas collected over water at 25 C with total pressure=760 mmHg",
         "gas_over_water",
-        "Pdry = 736.2 mmHg",
+        "Pdry = 736 mmHg",
     ),
     (
         "Find calorimetry heat when calorimeter constant Ccal=200 J/C and ΔT=2 C",
@@ -282,7 +283,7 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find the molar solubility from Ksp=1.8e-10 for AgCl(s) -> Ag+ + Cl-",
         "ksp",
-        "s = 1.342 × 10^-5 mol/L",
+        "s = 1.3 × 10^-5 mol/L",
     ),
     (
         "Compare precipitation when Qsp=2e-10 and Ksp=1.8e-10",
@@ -297,32 +298,32 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find Kp for CaCO3(s) -> CaO(s) + CO2(g) when P(CO2)=0.2 atm",
         "kp",
-        "Kp = 0.2",
+        "Kp = 0.20",
     ),
     (
         "Convert Kc to Kp: Kc=0.5 at T=298 K for N2 + H2 -> NH3",
         "kc_kp",
-        "Kp = 8.362 × 10^-4",
+        "Kp = 8.4 × 10^-4",
     ),
     (
         "Solve the ICE equilibrium for N2O4 -> NO2 when K=4 and [N2O4]=1",
         "ice_equilibrium",
-        "x = 0.618\n[N2O4] = 0.382 mol/L\n[NO2] = 1.236 mol/L",
+        "x = 0.62\n[N2O4] = 0.38 mol/L\n[NO2] = 1.2 mol/L",
     ),
     (
         "For a zero-order reaction [A]0=1, k=0.1, t=2 s, find [A]",
         "zero_order",
-        "[A]ₜ = 0.8 mol/L",
+        "[A]ₜ = 0.80 mol/L",
     ),
     (
         "For a second-order reaction [A]0=1, k=0.1, t=10 s, find [A]",
         "second_order",
-        "[A]ₜ = 0.5 mol/L",
+        "[A]ₜ = 0.50 mol/L",
     ),
     (
         "For a zero-order reaction [A]0=1, k=0.1, find the half-life",
         "zero_order_half_life",
-        "t₁/₂ = 5 (in the time unit of k)",
+        "t₁/₂ = 5.0 (in the time unit of k)",
     ),
     (
         "For a second-order reaction [A]0=1, k=0.1, find the half-life",
@@ -332,28 +333,28 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find the rate law from experiments a1=0.1, rate1=0.02, a2=0.2, rate2=0.08",
         "rate_law",
-        "rate = 2 [A]^2",
+        "rate = 2.0 [A]^2",
     ),
     (
         "Use the two-temperature Arrhenius equation with k1=0.1, T1=300 K, k2=0.4, T2=320 K",
         "arrhenius_two_point",
-        "Ea = 55.33 kJ/mol",
+        "Ea = 55 kJ/mol",
     ),
     (
         "Find the cell potential when cathode=0.34 V and anode=-0.76 V",
         "cell_potential",
-        "E°cell = 1.1 V",
+        "E°cell = 1.10 V",
     ),
     (
         "Find the galvanic cell for Zn and Cu",
         "galvanic_cell",
-        "E°cell = 1.1 V\nanode: Zn\ncathode: Cu\nn = 2 electrons transferred\nZn + Cu2+ -> Zn2+ + Cu\nspontaneous (E°cell > 0)",
+        "E°cell = 1.10 V\nanode: Zn\ncathode: Cu\nn = 2 electrons transferred\nZn + Cu2+ -> Zn2+ + Cu\nspontaneous (E°cell > 0)",
     ),
-    ("Find the decay constant when half-life=5 s", "decay_constant", "λ = 0.1386 s⁻¹"),
+    ("Find the decay constant when half-life=5 s", "decay_constant", "λ = 0.14 s⁻¹"),
     (
         "Find the exponential decay when N0=100, decay constant=0.1, and t=10 s",
         "exponential_decay",
-        "N = 36.79",
+        "N = 37",
     ),
     (
         "Find the nuclear activity when decay constant=0.1 and N=1000",
@@ -400,7 +401,7 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find the boiling point elevation when i=1, Kb=0.512, and molality=0.5",
         "boiling_elevation",
-        "ΔTb = 0.256 °C",
+        "ΔTb = 0.26 °C",
     ),
     (
         "Find the freezing point depression when i=1, Kf=1.86, and molality=0.5",
@@ -410,7 +411,7 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find the osmotic pressure when i=1, molarity=0.1, and T=298 K",
         "osmotic_pressure",
-        "Π = 2.445 atm",
+        "Π = 2.4 atm",
     ),
     (
         "Use Raoult's law when mole fraction=0.8 and pure pressure=100",
@@ -420,18 +421,18 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Use the calibration curve slope=2, intercept=0.1, signal=1.1, find concentration",
         "calibration",
-        "c = 0.5",
+        "c = 0.50",
     ),
     (
         "Gravimetric analysis: precipitate mass=0.5 g and factor=0.2",
         "gravimetric",
-        "mass = 0.1 g",
+        "mass = 0.10 g",
     ),
     (
         "Standard addition: sample signal=0.2, spiked signal=0.6, "
         "standard concentration=0.01, standard volume=0.001 L, sample volume=0.01 L",
         "standard_addition",
-        "c = 5 × 10^-4",
+        "c = 5.0 × 10^-4",
     ),
 ]
 
@@ -444,7 +445,7 @@ REMAINING_CASES = (
     (
         "Calculate the mass defect of H-2 when nuclear mass = 2 u",
         "mass_defect",
-        "Δm = 0.01594 u\nE = 14.85 MeV\nE/A = 7.425 MeV/nucleon",
+        "Δm = 0.016 u\nE = 15 MeV\nE/A = 7.4 MeV/nucleon",
     ),
     (
         "Find the crystal field of K4[Fe(CN)6]",
@@ -454,32 +455,32 @@ REMAINING_CASES = (
     (
         "Find the standard deviation of 2, 4, 4, 4, 5, 5, 7, 9",
         "standard_deviation",
-        "s = 2.138",
+        "s = 2.1",
     ),
     (
         "Find the standard error of 2, 4, 4, 4, 5, 5, 7, 9",
         "standard_error",
-        "SE = 0.7559",
+        "SE = 0.76",
     ),
     (
         "percent error experimental = 9.8 accepted = 10",
         "percent_error",
-        "percent error = 2%",
+        "percent error = 2.0%",
     ),
     (
         "relative uncertainty a = 10 da = 0.1 b = 4 db = 0.2",
         "relative_uncertainty",
-        "relative uncertainty = 0.05099",
+        "relative uncertainty = 0.051",
     ),
     (
         "retention factor spot = 2.4 solvent front = 8",
         "chromatography_rf",
-        "Rf = 0.3",
+        "Rf = 0.30",
     ),
     (
         "Michaelis-Menten Vmax = 10 Km = 2 S = 2",
         "michaelis_menten",
-        "v = 5",
+        "v = 5.0",
     ),
     (
         "bromine addition to SMILES C=C",
@@ -533,7 +534,8 @@ def test_text_pipeline_matrix(question: str, operation: ChemistryOp, answer: str
 
     result = solve_chemistry(intent)
     assert result.answer == answer
-    assert ".00" not in result.answer
+    # A trailing zero is a significant figure now; what must never show is float noise.
+    assert not re.search(r"\d\.\d{5,}", result.answer)
     assert result.given
     assert result.find
     assert result.formula_name
@@ -553,8 +555,7 @@ def test_direct_reply_has_scan_friendly_heading_order() -> None:
     assert positions == sorted(positions)
     assert "pH = −log₁₀[H⁺] — Definition of pH" in reply
     assert reply.count("```answer") == 1
-    assert "notation: chemistry\npH = 3" in reply
-    assert "pH = 3.00" not in reply
+    assert "notation: chemistry\npH = 3.00\n" in reply
     assert "✅" not in reply
     assert maybe_direct_chemistry_reply(verified, has_image_attachment=False) == reply
     assert maybe_direct_chemistry_reply(verified, has_image_attachment=True) is None
@@ -645,7 +646,7 @@ def test_explicit_zero_nernst_temperature_is_not_defaulted() -> None:
             30,
             120,
             "min",
-            "N = 67.27 g",
+            "N = 67 g",
         ),
     ],
 )

@@ -3,7 +3,7 @@
   "replies": {
     "ph_from_hydrogen": {
       "question": "Find pH when [H+] = 0.001",
-      "reply": "**Given**\n\n- [H⁺] = 0.001 mol/L\n\n**Find**\n\npH\n\n**Formula**\n\npH = −log₁₀[H⁺] — Definition of pH\n\n**Substitution**\n\npH = −log₁₀(0.001)\n\n**Answer**\n\n```answer\nnotation: chemistry\npH = 3\n```\n"
+      "reply": "**Given**\n\n- [H⁺] = 0.001 mol/L\n\n**Find**\n\npH\n\n**Formula**\n\npH = −log₁₀[H⁺] — Definition of pH\n\n**Substitution**\n\npH = −log₁₀(0.001)\n\n**Answer**\n\n```answer\nnotation: chemistry\npH = 3.00\n```\n"
     },
     "molar_mass_water": {
       "question": "What is the molar mass of H2O?",
@@ -19,7 +19,7 @@
     },
     "galvanic_zn_cu": {
       "question": "Galvanic cell with Zn and Cu, find the cell potential",
-      "reply": "**Given**\n\n- Zn E° = −0.76 V\n- Cu E° = 0.34 V\n\n**Find**\n\nCell potential, electrodes, and net reaction\n\n**Formula**\n\nE°cell = E°cathode − E°anode — Standard reduction potentials\n\n**Substitution**\n\noxidation at the anode: Zn → Zn²⁺ + 2 e⁻\nreduction at the cathode: Cu²⁺ + 2 e⁻ → Cu\nE°cell = 0.34 − (−0.76)\n\n**Answer**\n\n```answer\nnotation: chemistry\nE°cell = 1.1 V\nanode: Zn\ncathode: Cu\nn = 2 electrons transferred\nZn + Cu²⁺ → Zn²⁺ + Cu\nspontaneous (E°cell > 0)\n```\n\n```chem_scene\n{\"kind\": \"cell\", \"title\": \"Galvanic cell\", \"anode\": \"Zn\", \"cathode\": \"Cu\", \"potential\": \"1.1 V\", \"electrons\": \"anode to cathode\"}\n```\n"
+      "reply": "**Given**\n\n- Zn E° = −0.76 V\n- Cu E° = 0.34 V\n\n**Find**\n\nCell potential, electrodes, and net reaction\n\n**Formula**\n\nE°cell = E°cathode − E°anode — Standard reduction potentials\n\n**Substitution**\n\noxidation at the anode: Zn → Zn²⁺ + 2 e⁻\nreduction at the cathode: Cu²⁺ + 2 e⁻ → Cu\nE°cell = 0.34 − (−0.76)\n\n**Answer**\n\n```answer\nnotation: chemistry\nE°cell = 1.10 V\nanode: Zn\ncathode: Cu\nn = 2 electrons transferred\nZn + Cu²⁺ → Zn²⁺ + Cu\nspontaneous (E°cell > 0)\n```\n\n```chem_scene\n{\"kind\": \"cell\", \"title\": \"Galvanic cell\", \"anode\": \"Zn\", \"cathode\": \"Cu\", \"potential\": \"1.10 V\", \"electrons\": \"anode to cathode\"}\n```\n"
     }
   }
 }

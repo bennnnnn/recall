@@ -11,7 +11,7 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import TitrationAnchor, TitrationScene
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.solvers.acid import ph_text
-from app.modules.chemistry.solvers.common_chem import inp, num, verified, weak_dissociation
+from app.modules.chemistry.solvers.common_chem import inp, num, p_value, verified, weak_dissociation
 from app.modules.chemistry.solvers.constants import KW, PKW
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -67,7 +67,7 @@ def solve_titration_strong(intent: ChemistryIntent) -> ChemistryResult:
         f"V = Va + Vb = {inp(va)} + {inp(vb)} = {num(total)} L",
     ]
     if abs(acid_moles - base_moles) <= _TOLERANCE * scale:
-        ph = "7"
+        ph = p_value(7.0)
         region = "equivalence"
         detail = "equivalence: pH = 7 at 25 °C"
         lines.append("n(H+) = n(OH-), only water's own ions remain, so pH = 7 at 25 °C")
@@ -151,21 +151,18 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         ion = "H+" if acid else "OH-"
         k_name = "Ka" if acid else "Kb"
         region = "half-equivalence"
-        lines.append(f"{p_name} = −log10({inp(constant)}) = {num(p_constant)}")
+        lines.append(f"{p_name} = −log10({inp(constant)}) = {p_value(p_constant)}")
         if approximate:
-            ph = num(ph_of_p(p_constant))
+            ph = p_value(ph_of_p(p_constant))
             detail = f"half-equivalence: {'pH = pKa' if acid else 'pOH = pKb'}"
             formula = "pH = pKa" if acid else "pOH = pKb"
+            pkb = p_value(p_constant)
             lines.append(
                 f"n({titrant}) = n({weak}) / 2, so {conj} = {weak} and "
-                + (
-                    f"pH = pKa = {ph}"
-                    if acid
-                    else f"pOH = pKb = {num(p_constant)}, pH = {PKW} − {num(p_constant)} = {ph}"
-                )
+                + (f"pH = pKa = {ph}" if acid else f"pOH = pKb = {pkb}, pH = {PKW} − {pkb} = {ph}")
             )
         else:
-            ph = num(ph_of_p(-math.log10(amount)))
+            ph = p_value(ph_of_p(-math.log10(amount)))
             detail = f"half-equivalence: [{ion}] from charge balance"
             partner = "OH−" if acid else "H+"
             formula = (
@@ -176,7 +173,7 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
             if acid:
                 lines.append(f"pH = −log10({num(amount)}) = {ph}")
             else:
-                poh = num(-math.log10(amount))
+                poh = p_value(-math.log10(amount))
                 lines.append(f"pOH = −log10({num(amount)}) = {poh}")
                 lines.append(f"pH = {PKW} − {poh} = {ph}")
     elif titrant_moles == 0:
@@ -184,7 +181,7 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         governing = "H+" if acid else "OH-"
         lines.append(f"{symbol} = x^2 / (C − x), C = {inp(analyte_conc)} mol/L")
         lines.append(f"[{governing}] = x = {num(amount)} mol/L")
-        ph = num(-math.log10(amount) if acid else PKW + math.log10(amount))
+        ph = p_value(-math.log10(amount) if acid else PKW + math.log10(amount))
         region = "start"
         detail = f"before titrant is added: [{governing}] = {num(amount)}"
         formula = f"{symbol} = x^2 / (C − x)"
@@ -192,7 +189,7 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         remaining = analyte_moles - titrant_moles
         offset = math.log10(titrant_moles / remaining)
         ph_value = p_constant + offset
-        ph = num(ph_value if acid else PKW - ph_value)
+        ph = p_value(ph_value if acid else PKW - ph_value)
         region = "buffer region"
         detail = f"buffer: [{conj}]/[{weak}] = {num(titrant_moles)} / {num(remaining)}"
         formula = (
@@ -200,17 +197,17 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
             if acid
             else (f"pOH = pKb + log10([{conj}]/[{weak}])")
         )
-        lines.append(f"{p_name} = −log10({inp(constant)}) = {num(p_constant)}")
+        lines.append(f"{p_name} = −log10({inp(constant)}) = {p_value(p_constant)}")
         lines.append(f"n({conj}) = n({titrant}) = {num(titrant_moles)} mol")
         lines.append(
             f"n({weak}) = {num(analyte_moles)} − {num(titrant_moles)} = {num(remaining)} mol"
         )
         ratio = f"{num(titrant_moles)} / {num(remaining)}"
         if acid:
-            lines.append(f"pH = {num(p_constant)} + log10({ratio}) = {ph}")
+            lines.append(f"pH = {p_value(p_constant)} + log10({ratio}) = {ph}")
         else:
-            lines.append(f"pOH = {num(p_constant)} + log10({ratio}) = {num(ph_value)}")
-            lines.append(f"pH = {PKW} − {num(ph_value)} = {ph}")
+            lines.append(f"pOH = {p_value(p_constant)} + log10({ratio}) = {p_value(ph_value)}")
+            lines.append(f"pH = {PKW} − {p_value(ph_value)} = {ph}")
     elif abs(titrant_moles - analyte_moles) <= _TOLERANCE * scale:
         salt = analyte_moles / total
         conj_constant = KW / constant
@@ -222,7 +219,7 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         lines.append(f"{conj_symbol} = Kw / {symbol} = ({num(KW)}) / ({inp(constant)}) = {k_conj}")
         lines.append(f"x^2 + ({k_conj})x − ({k_conj})({num(salt)}) = 0")
         lines.append(f"[{produced}] = x = {num(amount)} mol/L")
-        ph = num(PKW + math.log10(amount) if acid else -math.log10(amount))
+        ph = p_value(PKW + math.log10(amount) if acid else -math.log10(amount))
         region = "equivalence"
         detail = f"equivalence: [{conj}] = {num(salt)}, {conj_symbol} = Kw/{symbol}"
         formula = f"{conj_symbol} = Kw / {symbol}"
@@ -324,7 +321,7 @@ def _start(intent: ChemistryIntent) -> TitrationAnchor | None:
     elif kb is not None and kb > 0:
         ph = _safeph_text(lambda: weak_dissociation(kb, mb), basic=True)
     else:
-        ph = num(-math.log10(ma))
+        ph = p_value(-math.log10(ma))
     return TitrationAnchor(label="start", ph=ph, volume="0 L") if ph else None
 
 
@@ -358,7 +355,7 @@ def _half_equivalence_ph(constant: float, concentration: float, *, basic: bool) 
         value = PKW + math.log10(constant) if basic else -math.log10(constant)
     else:
         value = PKW + math.log10(amount) if basic else -math.log10(amount)
-    return num(value)
+    return p_value(value)
 
 
 def _half(intent: ChemistryIntent) -> TitrationAnchor | None:
@@ -408,7 +405,7 @@ def _equivalence(intent: ChemistryIntent) -> TitrationAnchor | None:
             salt = (ma * va) / (va + titrant)
             ph = _safeph_text(lambda: weak_dissociation(KW / ka, salt), basic=True)
         else:
-            ph = "7"
+            ph = p_value(7.0)
     if ph is None:
         return None
     return TitrationAnchor(label="equivalence", ph=ph, volume=f"{num(titrant)} L")
@@ -422,4 +419,4 @@ def _safeph_text(root: Callable[[], float], *, basic: bool = False) -> str | Non
     if amount <= 0:
         return None
     value = PKW + math.log10(amount) if basic else -math.log10(amount)
-    return num(value)
+    return p_value(value)

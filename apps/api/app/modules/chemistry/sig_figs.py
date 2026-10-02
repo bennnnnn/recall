@@ -1,0 +1,139 @@
+# ruff: noqa: RUF001, RUF002 -- answers write the multiplication sign of scientific notation.
+"""How a question wrote its numbers, so the answer keeps that precision.
+
+A chemistry answer carries as many significant figures as the least precise value the
+question measured, the rule a chemistry class grades, kept between two and four. A value the
+student typed is echoed as typed, trailing zeros included: 1.10 V is not 1.1 V. A pH or a pK is
+a logarithm, so its precision is its decimal places: as many as the concentration it came from
+has significant figures, or as many as a typed pH, pOH or pK has decimals. A sum or difference of
+the givens (a cell potential, Hess's law) keeps the fewest decimal places instead: 0.34 V and
+−0.76 V make 1.10 V.
+"""
+
+from __future__ import annotations
+
+import re
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass, field
+
+from app.models.schemas.chemistry import ChemistryIntent
+from app.models.schemas.chemistry.intent import MAX_DECIMALS, MAX_WRITTEN
+
+MIN_FIGURES = 2
+MAX_FIGURES = 4
+# Counts, not measurements: an electron count or a van 't Hoff factor never limits an answer.
+EXACT_KEYS = frozenset({"i", "valence", "electrons", "bonding", "nonbonding", "neighbors"})
+# Exact only in one operation: Hess's law multiplies each step by a whole number (m1, m2).
+_EXACT_IN_OP = {"hess": re.compile(r"m\d+")}
+# Given as logarithms: their precision is their decimal places.
+LOG_KEYS = frozenset({"ph", "poh", "pka", "pkb"})
+# A Celsius reading, whose precision is that of the kelvin value it becomes.
+CELSIUS_KEYS = frozenset({"temperature_c"})
+# Answers that only add and subtract the givens, so decimal places limit them, not figures.
+ADDITIVE_OPS = frozenset(
+    {"bond_enthalpy", "cell_potential", "dalton", "formation_enthalpy", "hess"}
+)
+
+# A number as the extracted text writes it ("1.10", "0.0050", "1.8e-5"); a digit inside a
+# formula ("H2O") follows a letter and is not one.
+_LITERAL = re.compile(r"(?<![\w.])-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?(?![\d.])")
+
+
+def figures_of(literal: str) -> int:
+    """Significant figures of a typed number: 0.0050 has 2, 1.10 has 3, 200 has 3."""
+    mantissa = re.split(r"[eE]", literal.lstrip("+-"))[0]
+    return max(len(mantissa.replace(".", "").lstrip("0")), 1)
+
+
+def decimals_of(literal: str) -> int:
+    """Decimal places of a typed number: 4.50 has 2."""
+    mantissa = re.split(r"[eE]", literal)[0]
+    return len(mantissa.split(".", 1)[1]) if "." in mantissa else 0
+
+
+def as_written(literal: str) -> str:
+    """A typed literal for display: ``1.80e-5`` is shown as ``1.80 × 10^-5``."""
+    mantissa, _, exponent = literal.partition("e") if "e" in literal else literal.partition("E")
+    return f"{mantissa} × 10^{int(exponent)}" if exponent else literal
+
+
+def _exact(op: str, key: str) -> bool:
+    pattern = _EXACT_IN_OP.get(op)
+    return key in EXACT_KEYS or (pattern is not None and pattern.fullmatch(key) is not None)
+
+
+def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
+    """The intent with its givens' precision read from the text it was extracted from."""
+    literals: dict[float, str] = {}
+    for match in _LITERAL.finditer(text):
+        literals.setdefault(float(match.group()), match.group())
+    written: dict[str, str] = {}
+    figures: list[int] = []
+    log_places: list[int] = []
+    places: list[int] = []
+    measured = [
+        *intent.params.items(),
+        *(("species", value) for value in intent.species.values()),
+        *(("sample", value) for value in intent.samples),
+    ]
+    for key, value in measured:
+        typed = literals.get(value)
+        if typed is None or len(typed) > MAX_WRITTEN:
+            continue
+        written[repr(value)] = typed
+        if _exact(intent.chemistry_op, key):
+            continue
+        typed_places = min(decimals_of(typed), MAX_DECIMALS)
+        places.append(typed_places)
+        if key in LOG_KEYS:
+            log_places.append(typed_places)
+        elif key in CELSIUS_KEYS:
+            # 25 °C is 298 K: adding 273.15 keeps the decimal places, not the figures.
+            figures.append(figures_of(f"{value + 273.15:.{decimals_of(typed)}f}"))
+        else:
+            figures.append(figures_of(typed))
+    # A concentration from a typed pH has as many figures as the pH has decimals.
+    measured_figures = figures or log_places
+    answer = min(max(min(measured_figures), MIN_FIGURES), MAX_FIGURES) if measured_figures else None
+    if intent.chemistry_op in ADDITIVE_OPS:
+        decimals = min(places, default=None)
+    else:
+        # Every given limits a pH: pKa 4.756 + log10(0.20 / 0.10) keeps the ratio's two places.
+        limits = [*log_places, *([answer] if figures and answer is not None else [])]
+        decimals = min(limits) if limits else answer
+    return intent.model_copy(update={"figures": answer, "decimals": decimals, "written": written})
+
+
+@dataclass(frozen=True, slots=True)
+class WrittenNumbers:
+    figures: int | None = None
+    decimals: int | None = None
+    written: dict[str, str] = field(default_factory=dict)
+    # Every number of the answer is a sum of givens, so it keeps ``decimals`` places.
+    additive: bool = False
+
+
+_CURRENT: ContextVar[WrittenNumbers | None] = ContextVar("chemistry_written_numbers", default=None)
+
+
+@contextmanager
+def numbers_as_written(intent: ChemistryIntent) -> Iterator[None]:
+    """Format every number of one solve to the precision its question was written in."""
+    token = _CURRENT.set(
+        WrittenNumbers(
+            intent.figures,
+            intent.decimals,
+            intent.written,
+            additive=intent.chemistry_op in ADDITIVE_OPS,
+        )
+    )
+    try:
+        yield
+    finally:
+        _CURRENT.reset(token)
+
+
+def current() -> WrittenNumbers | None:
+    return _CURRENT.get()

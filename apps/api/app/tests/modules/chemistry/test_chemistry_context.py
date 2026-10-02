@@ -222,8 +222,8 @@ async def test_build_chemistry_context_ph() -> None:
     )
     assert block is not None
     assert "Verified pH calculation" in block
-    assert "pH = 3" in block
-    assert "3.00" not in block
+    # 0.001 has one significant figure, raised to the two-figure floor: two decimals.
+    assert "pH = 3.00" in block
 
 
 # ---------------------------------------------------------------------------
@@ -247,7 +247,8 @@ async def test_build_chemistry_context_gas_law_verified() -> None:
     )
     assert block is not None
     assert "Verified gas law" in block
-    assert "22.4" in block
+    # 1 atm and 1 mol carry one significant figure, so 22.4 L shows the two-figure floor.
+    assert "V = 22 L" in block
 
 
 async def test_build_chemistry_context_gas_law_does_not_steal_pubchem() -> None:
