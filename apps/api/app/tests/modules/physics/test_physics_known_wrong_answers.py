@@ -114,6 +114,24 @@ def test_a_rebound_reverses_the_velocity() -> None:
     ) == ("3.6 N·s (opposite to the initial motion)")
 
 
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # A force has no "initial motion": the impulse keeps its sign.
+        ("A force of -10 N acts on a cart for 2 s. Find the impulse.", "-20 N·s"),
+        # Slowing from -2 to -5 m/s is along the motion, not opposite it.
+        ("A 0.5 kg ball's velocity changes from -2 m/s to -5 m/s. Find the impulse.", "1.5 N·s"),
+        ("A 0.5 kg ball's velocity changes from 2 m/s to 5 m/s. Find the impulse.", "1.5 N·s"),
+        # From rest there is no initial motion either: the sign is the direction.
+        ("A 0.5 kg ball's velocity changes from 0 m/s to -4 m/s. Find the impulse.", "-2 N·s"),
+    ],
+)
+def test_an_impulse_direction_is_only_relative_to_a_real_initial_motion(
+    text: str, answer: str
+) -> None:
+    assert _answer(text) == answer
+
+
 def test_both_launch_angles_are_answers() -> None:
     assert _answer("At what angle must a projectile be launched at 20 m/s to land 30 m away?") == (
         "23.69 deg or 66.31 deg"
@@ -124,8 +142,18 @@ def test_both_launch_angles_are_answers() -> None:
     "text",
     [
         "Find the kinetic energy of a 2 kg object moving at 3 m/s and at 4 m/s.",
+        # 4 - 7 = -3 is a coincidence: the 3 m/s it "derives" is itself stated.
+        "Find the kinetic energy of a 2 kg object moving at 3 m/s, 4 m/s, and 7 m/s.",
         "A 5 kg mass is nearby. A force of 20 N acts on a 3 kg cart. What is the acceleration?",
     ],
 )
 def test_a_skipped_given_declines(text: str) -> None:
     assert _answer(text) is None
+
+
+def test_a_value_derived_from_givens_still_accounts_for_them() -> None:
+    # 2 A + 3 A is the 5 A it binds; no given states 5 A, so it is derived.
+    assert (
+        _answer("Currents of 2 A and 3 A enter a junction. Find the current leaving the junction.")
+        == "5 A leaving"
+    )

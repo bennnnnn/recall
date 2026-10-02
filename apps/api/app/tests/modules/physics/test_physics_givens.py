@@ -42,6 +42,14 @@ def test_scan_givens_skips_what_is_not_a_quantity(text: str, values: list[float]
     assert [given.value for given in scan_givens(text)] == values
 
 
+@pytest.mark.parametrize("spelling", ["Pa*s", "Pa·s", "Pa s"])
+def test_a_viscosity_is_one_unit_not_a_pressure(spelling: str) -> None:
+    # Read as "0.001 Pa" it competed with the 1000 Pa pressure difference.
+    givens = scan_givens(f"pressure difference 1000 Pa and viscosity 0.001 {spelling}.")
+    assert [(given.value, given.unit) for given in givens] == [(1000.0, "Pa"), (0.001, spelling)]
+    assert givens[0].dimension != givens[1].dimension
+
+
 def test_scan_givens_never_reads_prose_as_units() -> None:
     givens = scan_givens("walk 3 at a time, 4 in a row, 5 a day")
     assert [given.dimension for given in givens] == [None, None, None]
