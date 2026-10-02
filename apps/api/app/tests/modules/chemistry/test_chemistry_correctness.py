@@ -483,6 +483,16 @@ def test_strong_titration_keeps_water_next_to_equivalence() -> None:
     assert 6.0 < _first_number(near.answer) < 7.0
 
 
+def test_weak_titration_past_equivalence_keeps_water() -> None:
+    """A 1e-8 M excess of strong base used to print pH 6 from 14 + log10(excess)."""
+    past = _solve(
+        "Weak acid strong base titration: Ma=0.10, Va=0.050 L, Mb=0.10, Vb=0.05000001 L, "
+        "Ka=1.8e-5, find pH"
+    )
+    assert 7.0 < _first_number(past.answer) < 7.1
+    assert any("water's ions included" in line for line in past.substitution)
+
+
 def test_a_very_weak_acid_is_declined_instead_of_reporting_pH_7() -> None:
     with pytest.raises(SolveServiceError):
         _solve("Find the weak acid pH of 0.01 M HA when Ka=1e-12")
