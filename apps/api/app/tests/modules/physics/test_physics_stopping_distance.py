@@ -51,7 +51,7 @@ def test_reaction_braking_stop_is_verified() -> None:
     assert "22.5" in reply
     assert "37.5" in reply
     assert "-5" in reply
-    assert "```answer\n37.5 m\n```" in reply
+    assert "```answer\n37.5\\,\\mathrm{m}\n```" in reply
 
 
 def test_brake_to_stop_is_not_constant_speed() -> None:

@@ -47,16 +47,16 @@ VERIFIED: list[tuple[str, str, str]] = [
     ("how much force is needed to accelerate a 5 kg box at 2 m/s^2", "net_force", "10 N"),
     ("calculate the force on a 5 kg object accelerating at 2 m/s^2", "net_force", "10 N"),
     ("a 5 kg trolley accelerates at 2 m/s^2. find F", "net_force", "10 N"),
-    ("if a 20 N force acts on a 5 kg mass what is the acceleration", "net_force", "4 m/s^2"),
+    ("if a 20 N force acts on a 5 kg mass what is the acceleration", "net_force", "4 m/s²"),
     (
         "a 20 N force gives an object an acceleration of 4 m/s^2, find the mass",
         "net_force",
         "5 kg",
     ),
     # Projectile: recognized by speed + angle, whatever verb throws it.
-    ("projectile launched at 20 m/s at 30 degrees find the range", "range", "35.31 m"),
-    ("a ball is thrown at 20 m/s at 30 degrees, what is the range?", "range", "35.31 m"),
-    ("how far does a ball go if thrown at 20 m/s at 30 degrees", "range", "35.31 m"),
+    ("projectile launched at 20 m/s at 30 degrees find the range", "range", "35.3 m"),
+    ("a ball is thrown at 20 m/s at 30 degrees, what is the range?", "range", "35.3 m"),
+    ("how far does a ball go if thrown at 20 m/s at 30 degrees", "range", "35.3 m"),
     ("a ball is kicked at 20 m/s at 30 degrees, how high does it go", "max_height", "5.1 m"),
     (
         "what is the maximum height of a projectile launched at 20 m/s at 30 degrees",
@@ -76,13 +76,13 @@ VERIFIED: list[tuple[str, str, str]] = [
     ("a ball is thrown up at 15 m/s, what is its velocity after 2 s", "velocity", "-4.62 m/s"),
     ("what is the velocity of a ball thrown up at 15 m/s after 2 s", "velocity", "-4.62 m/s"),
     ("a ball is thrown up at 15 m/s. find v after 2 s", "velocity", "-4.62 m/s"),
-    ("a ball is dropped from 50 m, what is its height after 2 s", "position", "30.38 m"),
-    ("a ball is dropped from 50 m, what is its position after 2 s", "position", "30.38 m"),
-    ("a ball is dropped from 50 m. find its height after 2 s", "position", "30.38 m"),
+    ("a ball is dropped from 50 m, what is its height after 2 s", "position", "30.4 m"),
+    ("a ball is dropped from 50 m, what is its position after 2 s", "position", "30.4 m"),
+    ("a ball is dropped from 50 m. find its height after 2 s", "position", "30.4 m"),
     # Free-fall acceleration is a constant, so it carries no graph.
-    ("a ball is dropped from 20 m, what is the acceleration", "acceleration", "-9.81 m/s^2"),
-    ("what is the acceleration of a ball in free fall from 20 m", "acceleration", "-9.81 m/s^2"),
-    ("a rock falls from a 20 m cliff, what is its acceleration", "acceleration", "-9.81 m/s^2"),
+    ("a ball is dropped from 20 m, what is the acceleration", "acceleration", "-9.81 m/s²"),
+    ("what is the acceleration of a ball in free fall from 20 m", "acceleration", "-9.81 m/s²"),
+    ("a rock falls from a 20 m cliff, what is its acceleration", "acceleration", "-9.81 m/s²"),
     # Energy, including the KE abbreviation and both school forms of power.
     ("kinetic energy of a 2 kg mass at 3 m/s", "kinetic_energy", "9 J"),
     ("how much kinetic energy does a 2 kg ball have at 3 m/s", "kinetic_energy", "9 J"),
@@ -192,7 +192,7 @@ def test_the_p2_example_is_the_one_p16_solves() -> None:
     rather than quietly disappearing from the file.
     """
     assert _verified_answer("Find the tension supporting a 5 kg mass accelerating at 2 m/s^2.") == (
-        "59.05 N"
+        "59.1 N"
     )
 
 
@@ -244,7 +244,7 @@ def test_a_height_ask_still_plots_height() -> None:
     assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
-    assert result.answer_value == "30.38 m"
+    assert result.answer_value == "30.4 m"
     assert len(result.graph_specs) == 1
     assert result.graph_specs[0].trajectory_type == "position_vs_time"
 

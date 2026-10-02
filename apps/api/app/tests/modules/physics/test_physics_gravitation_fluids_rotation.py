@@ -70,35 +70,35 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the gravitational force between two 1000 kg masses 10 m apart",
         "gravitation",
         "gravitational_force",
-        "6.674e-07 N",
+        "6.67 × 10⁻⁷ N",
     ),
     (
         "what is the gravitational force between two 5000 kg spheres 2 m apart",
         "gravitation",
         "gravitational_force",
-        "0.0004171 N",
+        "4.17 × 10⁻⁴ N",
     ),
     (
         "what is the orbital velocity at 400 km above the earth",
         "gravitation",
         "orbital_velocity",
-        "7672.62 m/s",
+        "7670 m/s",
     ),
     (
         "what is the orbital velocity of a satellite 300 km above the earth",
         "gravitation",
         "orbital_velocity",
-        "7729.91 m/s",
+        "7730 m/s",
     ),
-    ("what is the escape velocity from earth", "gravitation", "escape_velocity", "11186.17 m/s"),
-    ("what is the escape velocity from the moon", "gravitation", "escape_velocity", "2375.06 m/s"),
+    ("what is the escape velocity from earth", "gravitation", "escape_velocity", "11200 m/s"),
+    ("what is the escape velocity from the moon", "gravitation", "escape_velocity", "2380 m/s"),
     (
         "what is g on a planet of mass 6e24 kg and radius 6.4e6 m",
         "gravitation",
         "surface_gravity",
-        "9.78 m/s^2",
+        "9.78 m/s²",
     ),
-    ("what is the surface gravity of mars", "gravitation", "surface_gravity", "3.73 m/s^2"),
+    ("what is the surface gravity of mars", "gravitation", "surface_gravity", "3.73 m/s²"),
     # --- fluids -----------------------------------------------------------
     (
         "what is the pressure of a 200 N force over 0.01 m^2",
@@ -110,19 +110,19 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the pressure at 3 m depth in water",
         "fluids",
         "pressure_at_depth",
-        "29430 Pa (gauge)",
+        "29400 Pa (gauge)",
     ),
     (
         "what is the density of a 12 kg block of volume 0.004 m^3",
         "fluids",
         "density",
-        "3000 kg/m^3",
+        "3000 kg/m³",
     ),
     (
         "what is the upthrust on a 0.002 m^3 object fully submerged in water",
         "fluids",
         "upthrust",
-        "19.62 N",
+        "19.6 N",
     ),
     (
         "what is the velocity in a pipe narrowing from 0.04 m^2 to 0.01 m^2 at 2 m/s",
@@ -134,7 +134,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the flow rate through a 0.02 m^2 pipe at 3 m/s",
         "fluids",
         "flow_rate",
-        "0.06 m^3/s",
+        "0.06 m³/s",
     ),
     # --- rotation ---------------------------------------------------------
     (
@@ -147,25 +147,25 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the moment of inertia of a 5 kg disc of radius 2 m",
         "rotation",
         "moment_of_inertia",
-        "10 kg·m^2",
+        "10 kg·m²",
     ),
     (
         "what is the moment of inertia of a 5 kg solid sphere of radius 2 m",
         "rotation",
         "moment_of_inertia",
-        "8 kg·m^2",
+        "8 kg·m²",
     ),
     (
         "what is the moment of inertia of a 3 kg hoop of radius 2 m",
         "rotation",
         "moment_of_inertia",
-        "12 kg·m^2",
+        "12 kg·m²",
     ),
     (
         "what is the angular momentum of a 4 kg m^2 disc at 3 rad/s",
         "rotation",
         "angular_momentum",
-        "12 kg·m^2/s",
+        "12 kg·m²/s",
     ),
     (
         "what is the rotational kinetic energy of a 4 kg m^2 disc at 3 rad/s",
@@ -194,7 +194,7 @@ def test_round_three_second_wave_phrasings(text: str, kind: str, op: str, answer
 def test_scientific_notation_is_read_as_written() -> None:
     """6e24 kg matched as 24 kg, and the answer was 0 m/s^2."""
     assert (
-        _verified_answer("what is g on a planet of mass 6e24 kg and radius 6.4e6 m") == "9.78 m/s^2"
+        _verified_answer("what is g on a planet of mass 6e24 kg and radius 6.4e6 m") == "9.78 m/s²"
     )
 
 
@@ -208,13 +208,13 @@ def test_an_altitude_is_converted_before_it_is_added_to_a_radius() -> None:
     high = _verified_answer("what is the orbital velocity at 400 km above the earth")
     assert surface is not None and high is not None
     assert float(high.split()[0]) < float(surface.split()[0])
-    assert high == "7672.62 m/s"
+    assert high == "7670 m/s"
 
 
 def test_a_question_with_no_digits_still_reaches_the_solver() -> None:
     """The numbers are the body's own, so the pre-filter's digit rule missed it."""
     assert needs_physics("what is the escape velocity from earth")
-    assert _verified_answer("what is the escape velocity from earth") == "11186.17 m/s"
+    assert _verified_answer("what is the escape velocity from earth") == "11200 m/s"
 
 
 # ---------------------------------------------------------------------------
@@ -314,7 +314,7 @@ def test_displacing_states_the_submerged_volume() -> None:
     """ "displacing 2 m^3 of water" says it as plainly as "submerged" does."""
     assert (
         _verified_answer("what is the buoyant force on a body displacing 2 m^3 of water")
-        == "19620 N"
+        == "19600 N"
     )
 
 

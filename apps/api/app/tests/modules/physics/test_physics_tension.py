@@ -51,29 +51,29 @@ def _verified_answer(text: str) -> str | None:
 
 VERIFIED: list[tuple[str, str, str]] = [
     # T = m(g + a) — the rope pulls up harder than the weight alone.
-    ("what is the tension in a rope lifting a 5 kg mass at 2 m/s^2", "tension", "59.05 N"),
-    ("the tension supporting a 5 kg mass accelerating at 2 m/s^2", "tension", "59.05 N"),
-    ("find the tension in a cable hoisting a 5 kg mass at 2 m/s^2", "tension", "59.05 N"),
+    ("what is the tension in a rope lifting a 5 kg mass at 2 m/s^2", "tension", "59.1 N"),
+    ("the tension supporting a 5 kg mass accelerating at 2 m/s^2", "tension", "59.1 N"),
+    ("find the tension in a cable hoisting a 5 kg mass at 2 m/s^2", "tension", "59.1 N"),
     # a = 0: the rope holds the weight and nothing more.
-    ("find the tension in a cable holding a 5 kg mass", "tension", "49.05 N"),
-    ("what is the tension in a rope suspending a 5 kg mass", "tension", "49.05 N"),
+    ("find the tension in a cable holding a 5 kg mass", "tension", "49.1 N"),
+    ("what is the tension in a rope suspending a 5 kg mass", "tension", "49.1 N"),
     # T = m(g - a) — lowering, so the rope takes less than the full weight.
-    ("what is the tension in a rope lowering a 5 kg mass at 2 m/s^2", "tension", "39.05 N"),
+    ("what is the tension in a rope lowering a 5 kg mass at 2 m/s^2", "tension", "39.1 N"),
     # Atwood: one answer carrying both quantities, as the 1D collision does.
     (
         "an atwood machine with masses 3 kg and 5 kg, what is the acceleration",
         "atwood",
-        "2.45 m/s^2 and 36.79 N",
+        "2.45 m/s² and 36.8 N",
     ),
     (
         "two masses 3 kg and 5 kg over a pulley, find the tension",
         "atwood",
-        "2.45 m/s^2 and 36.79 N",
+        "2.45 m/s² and 36.8 N",
     ),
     (
         "a pulley has a 5 kg mass on one side and a 3 kg mass on the other, find the acceleration",
         "atwood",
-        "2.45 m/s^2 and 36.79 N",
+        "2.45 m/s² and 36.8 N",
     ),
 ]
 
@@ -110,7 +110,7 @@ def test_the_answer_p2_refused_is_the_answer_p16_gives() -> None:
     answer = _verified_answer("the tension supporting a 5 kg mass accelerating at 2 m/s^2")
 
     assert answer is not None
-    assert float(answer.split()[0]) == pytest.approx(5 * (9.81 + 2), abs=0.01)
+    assert float(answer.split()[0]) == pytest.approx(5 * (9.81 + 2), rel=5e-3)
     assert float(answer.split()[0]) != pytest.approx(10.0)
 
 
@@ -130,7 +130,7 @@ def test_direction_changes_the_answer_in_the_right_direction() -> None:
 
     assert down_n < still_n < up_n
     # Holding is exactly the weight, and the two moving cases straddle it evenly.
-    assert still_n == pytest.approx(5 * 9.81, abs=0.01)
+    assert still_n == pytest.approx(5 * 9.81, rel=5e-3)
     assert up_n - still_n == pytest.approx(still_n - down_n, abs=0.01)
 
 
@@ -141,7 +141,7 @@ def test_an_atwood_pair_returns_both_quantities() -> None:
     )
 
     assert answer is not None
-    assert "m/s^2" in answer and "N" in answer
+    assert "m/s²" in answer and "N" in answer
 
 
 def test_the_atwood_tension_sits_between_the_two_weights() -> None:
@@ -169,7 +169,7 @@ def test_equal_masses_do_not_move() -> None:
     accel, tension = answer.split(" and ")
 
     assert float(accel.split()[0]) == pytest.approx(0.0, abs=0.01)
-    assert float(tension.split()[0]) == pytest.approx(4 * 9.81, abs=0.01)
+    assert float(tension.split()[0]) == pytest.approx(4 * 9.81, rel=5e-3)
 
 
 def test_written_order_of_the_masses_does_not_change_the_answer() -> None:

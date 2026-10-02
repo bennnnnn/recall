@@ -95,34 +95,34 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "Find the electric force.",
         "magnetism",
         "electric_force",
-        "0.2157 N",
+        "0.216 N",
     ),
     # --- materials --------------------------------------------------------
     (
         "what is the stress on a wire from a 200 N force over 0.01 m^2",
         "materials",
         "stress",
-        "2e+04 Pa",
+        "20000 Pa",
     ),
     ("what is the strain if a 2 m wire extends by 4 mm", "materials", "strain", "0.002"),
     (
         "what is the young modulus for a stress of 2e7 Pa and strain of 0.001",
         "materials",
         "youngs_modulus",
-        "2e+10 Pa",
+        "2 × 10¹⁰ Pa",
     ),
     # --- modern -----------------------------------------------------------
     (
         "what is the energy of a photon of frequency 5e14 Hz",
         "modern",
         "photon_energy",
-        "3.313e-19 J (2.07 eV)",
+        "3.31 × 10⁻¹⁹ J (2.07 eV)",
     ),
     (
         "what is the de broglie wavelength of an electron at 1e6 m/s",
         "modern",
         "de_broglie_wavelength",
-        "7.274e-10 m",
+        "7.27 × 10⁻¹⁰ m",
     ),
     (
         "how much is left after 3 half lives of a 80 g sample",
@@ -146,7 +146,7 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the energy equivalent of 2 kg of mass",
         "modern",
         "mass_energy",
-        "1.798e+17 J",
+        "1.8 × 10¹⁷ J",
     ),
 ]
 
@@ -179,7 +179,7 @@ def test_stress_and_pressure_are_the_same_arithmetic_and_different_kinds() -> No
     assert pressure.kind == "fluids"
     # Same number, arrived at twice.
     assert _verified_answer("what is the stress on a wire from a 200 N force over 0.01 m^2") == (
-        "2e+04 Pa"
+        "20000 Pa"
     )
     assert _verified_answer("what is the pressure of a 200 N force over 0.01 m^2") == ("20000 Pa")
 
@@ -224,11 +224,11 @@ def test_each_half_life_halves_what_is_left() -> None:
     [
         (
             "Find the Coulomb force between charges -2 uC and 3 uC separated by 50 cm.",
-            "0.2157 N",
+            "0.216 N",
         ),
         (
             "Two charges of 1 microcoulomb each are 1 m apart. Find the electric force.",
-            "0.008988 N",
+            "0.00899 N",
         ),
     ],
 )
@@ -247,7 +247,8 @@ def test_electric_force_obeys_inverse_square_law() -> None:
         "Two point charges of 2 uC and 3 uC are separated by 1 m. Find the electric force."
     )
     assert near is not None and far is not None
-    assert float(near.split()[0]) == pytest.approx(4 * float(far.split()[0]), rel=0.001)
+    # Three figures each: the ratio holds to the rounding, and 2x would miss by 50%.
+    assert float(near.split()[0]) == pytest.approx(4 * float(far.split()[0]), rel=1e-2)
 
 
 def test_electric_force_refuses_three_body_partial_answer() -> None:

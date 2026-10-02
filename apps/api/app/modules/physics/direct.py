@@ -1,3 +1,4 @@
+# ruff: noqa: RUF002 -- docstrings show the multiplication sign the reader sees.
 """Complete literal physics requests may display their existing verified result.
 
 The stored intent is checked against a fresh extraction of the user text.
@@ -21,10 +22,12 @@ from app.modules.physics.catalog import (
     variable_for,
     visible_assumptions,
 )
+from app.modules.physics.display import latex_given, latex_unit, si_symbol
 from app.modules.physics.extract import extract_physics_intent
-from app.modules.physics.working import display_number, given_unit_suffix, result_symbol_for
+from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
+from app.modules.physics.working import result_symbol_for
 from app.services.chat.presentation import present_assistant_markdown
-from app.services.solving import VerifiedPhysicsBlock
+from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
 
 _EXTRA_REQUEST = re.compile(
     r"\b(?:hint|air resistance|(?<!stokes )(?<!stokes' )drag|wind|"
@@ -61,7 +64,8 @@ def can_direct_physics(
     intent = verified.physics_intent
     if intent is None:
         return False
-    answer = verified.canonical_answer
+    # The answer fence carries the typeset card; the plain answer is for guards.
+    answer = verified.display_answer or verified.canonical_answer
     # P14 attaches a scene alongside the trajectory graph, so a projectile
     # carries two fences where the rule below expects one. A scene is not a
     # second answer — it is an illustration of the same one, server-owned and
@@ -150,6 +154,32 @@ def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
     return rows
 
 
+def _given_value(name: str, value: float, unit: str, substitution: str) -> str:
+    """The value as written and, when that is not SI, the value the solver used.
+
+    A substitution in SI numbers needs the step that produced them first:
+    500 nm = 5 × 10⁻⁷ m. A solver that works in the written units (150 km in
+    2 h) needs none, and neither do angles or rpm, whose formula converts.
+    """
+    written = f"{latex_given(value)}{latex_unit(unit)}"
+    dimension = _PARAM_SI_DIMENSIONS.get(name)
+    if (
+        not unit
+        or dimension in (None, "dimensionless", "revolution / minute")
+        or name.startswith("angle")
+        or written in substitution
+    ):
+        return written
+    try:
+        si_value = _to_si(value, unit, expected_key=name)
+    except SolveServiceError:
+        return written
+    si_unit = si_symbol(dimension)
+    if latex_unit(si_unit) == latex_unit(unit) and math.isclose(si_value, value):
+        return written
+    return f"{written} = {latex_given(si_value)}{latex_unit(si_unit)}"
+
+
 def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     """Five-section worked layout for a solver-verified instant reply.
 
@@ -166,6 +196,7 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     params = intent.physics_params or {}
     units = intent.physics_units or {}
     given_rows: list[str] = []
+    substitution_text = " ".join(verified.physics_substitutions)
     operation = intent.physics_op or ""
     given_spec = formula_spec(operation)
     for name, value in params.items():
@@ -173,8 +204,8 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
         if variable is not None and not variable.visible:
             continue
         symbol = _parameter_symbol(name, operation)
-        suffix = given_unit_suffix(units.get(name))
-        given_rows.append(rf"${symbol} = {display_number(value)}{suffix}$")
+        shown = _given_value(name, value, units.get(name, ""), substitution_text)
+        given_rows.append(f"${symbol} = {shown}$")
 
     formulas = list(verified.physics_formulas)
     substitutions = list(verified.physics_substitutions)

@@ -38,37 +38,37 @@ def _verified_answer(text: str) -> str | None:
 
 VERIFIED: list[tuple[str, str, str]] = [
     # f = mu N, level ground: 0.2 * 10 * 9.81
-    ("friction force on a 10 kg block with coefficient 0.2", "friction_force", "19.62 N"),
+    ("friction force on a 10 kg block with coefficient 0.2", "friction_force", "19.6 N"),
     (
         "what is the friction force on a 10 kg box with a coefficient of friction of 0.2",
         "friction_force",
-        "19.62 N",
+        "19.6 N",
     ),
     (
         "calculate the frictional force for a 10 kg crate and mu = 0.2",
         "friction_force",
-        "19.62 N",
+        "19.6 N",
     ),
     # N = m g, and N = m g cos(theta) on a slope
     ("normal force on a 10 kg block on level ground", "normal_force", "98.1 N"),
     ("what is the normal force on a 10 kg box resting on a table", "normal_force", "98.1 N"),
-    ("find the normal force for a 10 kg mass on a 30 degree incline", "normal_force", "84.96 N"),
+    ("find the normal force for a 10 kg mass on a 30 degree incline", "normal_force", "85 N"),
     # a = g(sin(theta) - mu cos(theta))
     (
         "a 10 kg block on a 30 degree incline with coefficient of friction 0.2, "
         "what is the acceleration",
         "incline_acceleration",
-        "3.21 m/s^2",
+        "3.21 m/s²",
     ),
     (
         "what is the acceleration of a block on a frictionless 30 degree incline",
         "incline_acceleration",
-        "4.9 m/s^2",
+        "4.9 m/s²",
     ),
     (
         "a crate slides down a 30 degree ramp with mu = 0.2, find the acceleration",
         "incline_acceleration",
-        "3.21 m/s^2",
+        "3.21 m/s²",
     ),
 ]
 
@@ -108,7 +108,7 @@ def test_incline_acceleration_does_not_depend_on_mass() -> None:
         "what is the acceleration of a 250 kg block on a frictionless 30 degree incline"
     )
 
-    assert without == "4.9 m/s^2"
+    assert without == "4.9 m/s²"
     assert with_mass == without
 
 
@@ -123,7 +123,7 @@ def test_a_block_that_cannot_slide_is_reported_as_stationary() -> None:
             "a block on a 10 degree incline with coefficient of friction 0.5, "
             "what is the acceleration"
         )
-        == "0 m/s^2"
+        == "0 m/s²"
     )
 
 

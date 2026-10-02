@@ -45,29 +45,29 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "centripetal force on a 2 kg mass at 4 m/s in a circle of radius 3 m",
         "centripetal_force",
-        "10.67 N",
+        "10.7 N",
     ),
     (
         "what is the centripetal force for a 2 kg object moving at 4 m/s around a 3 m radius",
         "centripetal_force",
-        "10.67 N",
+        "10.7 N",
     ),
     (
         "find the centripetal force on a 2 kg ball at 4 m/s with radius 3 m",
         "centripetal_force",
-        "10.67 N",
+        "10.7 N",
     ),
-    ("centripetal acceleration at 4 m/s with radius 3 m", "centripetal_acceleration", "5.33 m/s^2"),
+    ("centripetal acceleration at 4 m/s with radius 3 m", "centripetal_acceleration", "5.33 m/s²"),
     (
         "what is the centripetal acceleration of an object moving at 4 m/s "
         "in a circle of radius 3 m",
         "centripetal_acceleration",
-        "5.33 m/s^2",
+        "5.33 m/s²",
     ),
     (
         "find the centripetal acceleration for a 3 m radius at 4 m/s",
         "centripetal_acceleration",
-        "5.33 m/s^2",
+        "5.33 m/s²",
     ),
     ("period of an object moving at 4 m/s in a circle of radius 3 m", "orbital_period", "4.71 s"),
     ("what is the orbital period for radius 3 m at 4 m/s", "orbital_period", "4.71 s"),
@@ -102,7 +102,7 @@ def test_centripetal_acceleration_and_period_do_not_need_a_mass() -> None:
     Only `F = m v^2 / r` does, so only that one may require it — the same
     distinction P5 drew for the incline.
     """
-    assert _verified_answer("centripetal acceleration at 4 m/s with radius 3 m") == "5.33 m/s^2"
+    assert _verified_answer("centripetal acceleration at 4 m/s with radius 3 m") == "5.33 m/s²"
     assert _verified_answer("what is the orbital period for radius 3 m at 4 m/s") == "4.71 s"
     # …and the force question without a mass is refused rather than guessed.
     assert _verified_answer("centripetal force at 4 m/s with radius 3 m") is None
@@ -114,7 +114,8 @@ def test_force_is_mass_times_the_acceleration() -> None:
     f_c = _verified_answer("centripetal force on a 2 kg mass at 4 m/s in a circle of radius 3 m")
 
     assert a_c is not None and f_c is not None
-    assert float(f_c.split()[0]) == pytest.approx(2 * float(a_c.split()[0]), abs=0.01)
+    # Each is shown to three figures, so the pair agrees to within that rounding.
+    assert float(f_c.split()[0]) == pytest.approx(2 * float(a_c.split()[0]), rel=5e-3)
 
 
 def test_a_tighter_circle_needs_more_acceleration() -> None:

@@ -192,7 +192,7 @@ def test_moment_of_inertia_is_not_confused_with_torque() -> None:
     assert intent is not None
     assert intent.kind == "rotation"
     assert intent.physics_op == "moment_of_inertia"
-    assert _verified_answer(text) == "10 kg·m^2"
+    assert _verified_answer(text) == "10 kg·m²"
 
 
 def test_a_shapeless_moment_of_inertia_is_still_refused() -> None:

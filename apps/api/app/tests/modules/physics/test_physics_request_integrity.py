@@ -258,7 +258,7 @@ def test_pipeline_all_projectile_answers_share_one_visual() -> None:
     assert intent.requested_ops == ["time_of_flight", "max_height", "range"]
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None and block.canonical_answer is not None
-    for value in ("2.04", "5.1", "35.35"):
+    for value in ("2.04", "5.1", "35.3"):
         assert value in block.canonical_answer
     fences = [block.canonical_fence, *block.canonical_fences]
     assert sum(f is not None and f.get("type") == "trajectory" for f in fences) == 1

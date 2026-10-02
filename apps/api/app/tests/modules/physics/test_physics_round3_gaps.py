@@ -112,38 +112,38 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the coefficient of friction if a block slides at 30 degrees",
         "friction",
         "friction_coefficient",
-        "0.58",
+        "0.577",
     ),
     (
         "a block starts to slide on a 25 degree incline, what is the coefficient of friction",
         "friction",
         "friction_coefficient",
-        "0.47",
+        "0.466",
     ),
     (
         "find the coefficient of static friction if slipping begins at 20 degrees",
         "friction",
         "friction_coefficient",
-        "0.36",
+        "0.364",
     ),
     # --- friction: F_min = mu m g ------------------------------------
     (
         "what is the minimum force to move a 5 kg block with friction coefficient 0.4",
         "friction",
         "minimum_force",
-        "19.62 N",
+        "19.6 N",
     ),
     (
         "what force is needed to start a 10 kg crate moving if the coefficient of friction is 0.3",
         "friction",
         "minimum_force",
-        "29.43 N",
+        "29.4 N",
     ),
     (
         "minimum force to push a 4 kg box with a coefficient of friction of 0.5",
         "friction",
         "minimum_force",
-        "19.62 N",
+        "19.6 N",
     ),
 ]
 

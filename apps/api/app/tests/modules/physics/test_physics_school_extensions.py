@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
+from app.modules.physics.display import plain_number
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,
@@ -28,7 +29,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Use Gauss's law to find the field outside a sphere of charge 2e-6 C and radius 0.2 m.",
         "gauss_outside",
-        "4.494e+05 N/C",
+        "4.49 × 10⁵ N/C",
     ),
     (
         "Use Gauss's law for a point inside a hollow shell of charge 2e-6 C "
@@ -40,17 +41,17 @@ VERIFIED: list[tuple[str, str, str]] = [
         "Use Gauss's law inside a uniform sphere of charge 2e-6 C "
         "with radius 0.5 m and a distance of 0.2 m from the center.",
         "gauss_inside_sphere",
-        "2.876e+04 N/C",
+        "28800 N/C",
     ),
     (
         "Use Gauss's law for an infinite line charge of 2e-6 C/m at a distance of 0.05 m.",
         "gauss_line",
-        "7.19e+05 N/C",
+        "7.19 × 10⁵ N/C",
     ),
     (
         "Use Gauss's law for an infinite nonconducting sheet of charge density 2e-6 C/m^2.",
         "gauss_plane",
-        "1.129e+05 N/C",
+        "1.13 × 10⁵ N/C",
     ),
     (
         "Faraday's law for 100 turns when the flux changes by 0.02 Wb in 0.1 s.",
@@ -76,18 +77,18 @@ VERIFIED: list[tuple[str, str, str]] = [
         "An RL circuit with a 12 V battery, a 4 ohm resistor and a 2 H inductor "
         "is closed. Find the current after 0.5 s as it grows.",
         "rl_growth",
-        "1.896 A",
+        "1.9 A",
     ),
     (
         "An RL circuit with a 4 ohm resistor and a 2 H inductor is opened. "
         "The current of 3 A decays. Find the current after 0.5 s.",
         "rl_decay",
-        "1.104 A",
+        "1.1 A",
     ),
-    ("What is the rms voltage for a peak of 10 V?", "rms_voltage", "7.071 V"),
-    ("What is the rms current for a peak of 2 A?", "rms_current", "1.414 A"),
-    ("What is the peak voltage for an rms of 10 V?", "rms_voltage", "14.14 V"),
-    ("What is the peak current for an rms of 2 A?", "rms_current", "2.828 A"),
+    ("What is the rms voltage for a peak of 10 V?", "rms_voltage", "7.07 V"),
+    ("What is the rms current for a peak of 2 A?", "rms_current", "1.41 A"),
+    ("What is the peak voltage for an rms of 10 V?", "rms_voltage", "14.1 V"),
+    ("What is the peak current for an rms of 2 A?", "rms_current", "2.83 A"),
     (
         "Kirchhoff's loop rule for a single loop with a 12 V battery "
         "and resistors of 4 ohm, 2 ohm and 6 ohm.",
@@ -103,23 +104,23 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "Find the inductive reactance of a 0.2 H inductor at 50 Hz.",
         "inductive_reactance",
-        "62.83 ohm",
+        "62.8 Ω",
     ),
     (
         "Find the capacitive reactance of a 1e-4 F capacitor at 50 Hz.",
         "capacitive_reactance",
-        "31.83 ohm",
+        "31.8 Ω",
     ),
     (
         "Find the series impedance for a resistance of 30 ohm, "
         "inductive reactance of 40 ohm and capacitive reactance of 10 ohm.",
         "series_impedance",
-        "42.43 ohm",
+        "42.4 Ω",
     ),
     (
         "Find the resonant frequency of an LC circuit with inductance 1 H and capacitance 1e-6 F.",
         "lc_resonance",
-        "159.2 Hz",
+        "159 Hz",
     ),
     (
         "Find the average power of an AC current of 2 A through a resistance of 5 ohm.",
@@ -130,39 +131,39 @@ VERIFIED: list[tuple[str, str, str]] = [
         "Use Poiseuille's law for a pipe of radius 0.001 m and length 0.1 m "
         "with pressure difference 1000 Pa and viscosity 0.001 Pa*s.",
         "poiseuille_flow",
-        "3.927e-06 m^3/s",
+        "3.93 × 10⁻⁶ m³/s",
     ),
     (
         "Use Bernoulli for water flow with initial height of 5 m and final height of 1 m. "
         "P1 is 100000 Pa, density 1000 kg/m^3, v1 is 2 m/s and v2 is 2 m/s. Find P2.",
         "bernoulli_pressure",
-        "139240 Pa",
+        "1.39 × 10⁵ Pa",
     ),
     (
         "Find the gravitational potential of a 6e24 kg mass at a distance of 6e6 m.",
         "gravitational_potential",
-        "-6.674e+07 J/kg",
+        "-6.67 × 10⁷ J/kg",
     ),
     (
         "Find the gravitational potential energy of a 6e24 kg mass and a 1 kg mass "
         "separated by a distance of 6e6 m.",
         "gravitational_potential_energy",
-        "-6.674e+07 J",
+        "-6.67 × 10⁷ J",
     ),
     (
         "Find the orbital energy of a 6e24 kg mass and a 1 kg mass at a distance of 6e6 m.",
         "orbital_energy",
-        "-3.337e+07 J",
+        "-3.34 × 10⁷ J",
     ),
     (
         "Use Kepler's law for a 6e24 kg mass and an orbital radius of 6e6 m. Find the period.",
         "kepler_period",
-        "4615 s",
+        "4610 s",
     ),
     (
         "Find the internal energy of 2 mol of monatomic ideal gas at 300 K.",
         "monatomic_energy",
-        "7483 J",
+        "7480 J",
     ),
     (
         "An isobaric expansion at a pressure of 100000 Pa changes volume "
@@ -174,13 +175,13 @@ VERIFIED: list[tuple[str, str, str]] = [
         "An adiabatic expansion with gamma of 1.4 starts at 200000 Pa and volume 0.01 m^3 "
         "and ends at volume 0.02 m^3. Find the final pressure.",
         "adiabatic_pressure",
-        "7.579e+04 Pa",
+        "75800 Pa",
     ),
     (
         "An adiabatic process with gamma of 1.4 starts at 200000 Pa and volume 0.01 m^3 "
         "and ends at 100000 Pa. Find the final volume.",
         "adiabatic_volume",
-        "0.01641 m^3",
+        "0.0164 m³",
     ),
     (
         "Find the coefficient of performance of a refrigerator with a hot reservoir "
@@ -197,19 +198,19 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "What is the volume of 2 mol of ideal gas at 300 K and a pressure of 101325 Pa?",
         "ideal_gas_volume",
-        "0.04923 m^3",
+        "0.0492 m³",
     ),
     (
         "How many moles of ideal gas are in a volume of 0.05 m^3 at a pressure of 101325 Pa "
         "and a temperature of 300 K?",
         "ideal_gas_amount",
-        "2.031 mol",
+        "2.03 mol",
     ),
     (
         "What is the temperature of 2 mol of ideal gas in a volume of 0.05 m^3 "
         "at a pressure of 101325 Pa?",
         "ideal_gas_temperature",
-        "304.7 K",
+        "305 K",
     ),
     (
         "what is the force on a charge of 2 C moving at 10 m/s "
@@ -231,7 +232,7 @@ VERIFIED: list[tuple[str, str, str]] = [
         "Doppler effect: the source approaches at 30 m/s and the observer approaches "
         "at 10 m/s. The frequency is 500 Hz.",
         "doppler_frequency",
-        "563.9 Hz (approaching, sound at 343 m/s)",
+        "564 Hz (approaching, sound at 343 m/s)",
     ),
 ]
 
@@ -290,7 +291,7 @@ def test_series_impedance_from_henry_farad_and_hertz() -> None:
     inductive = 2 * math.pi * params["freq"] * params["inductance"]
     capacitive = 1 / (2 * math.pi * params["freq"] * params["capacitance"])
     expected = math.sqrt(params["R"] ** 2 + (inductive - capacitive) ** 2)
-    assert _answer(text) == f"{expected:.4g} ohm"
+    assert _answer(text) == f"{plain_number(expected)} Ω"
 
 
 def test_conceptual_gauss_is_not_forced_into_physics() -> None:

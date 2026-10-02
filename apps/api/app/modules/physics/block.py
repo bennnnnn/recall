@@ -8,14 +8,15 @@ optional trajectory graph Recall attaches after the stream.
 from __future__ import annotations
 
 import logging
+import math
 import re
 from collections.abc import Callable
 from dataclasses import replace
-from typing import Any
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.ask import result_dimension
+from app.modules.physics.ask import result_dimension, result_reading
+from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.common import QuantityResult
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
@@ -29,24 +30,6 @@ _PROJECTILE_LABELS = {
     "range": "R",
     "impact_speed": r"v_{\mathrm{impact}}",
 }
-
-_DECIMAL_VALUE = re.compile(r"(?<![\d.])([+-]?\d+\.\d+)(?![\d.])")
-
-
-def _format_visible_answer(answer: str) -> str:
-    """Remove display-only solver artifacts from a verified final answer."""
-    answer = _DECIMAL_VALUE.sub(lambda match: match.group(1).rstrip("0").rstrip("."), answer)
-    # Keep compound units readable in every renderer and accessibility output.
-    return answer.replace("*", "·")
-
-
-def _format_simulation_labels(spec: dict[str, Any]) -> dict[str, Any]:
-    """Apply answer-number formatting to text rendered on the native canvas."""
-    for item in (*spec.get("bodies", []), *spec.get("vectors", [])):
-        label = item.get("label")
-        if isinstance(label, str):
-            item["label"] = _format_visible_answer(label)
-    return spec
 
 
 def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
@@ -77,7 +60,6 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
                 _PROJECTILE_LABELS[op],
                 item.value,
                 item.unit,
-                number_format=item.number_format,
             )
         )
         results.append(result)
@@ -91,6 +73,38 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
         graph_specs=first.graph_specs,
         simulation_specs=first.simulation_specs,
     )
+
+
+def _in_the_asked_unit(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsResult:
+    """Each result of the asked unit's kind, shown in that unit ("in kWh")."""
+    expression = unit_expression(intent.asked_unit) if intent.asked_unit else None
+    target = unit_dimension(expression) if expression else None
+    if target is None or intent.asked_unit is None:
+        return result
+    quantities = []
+    for item in result.quantities:
+        reading = result_reading(item.unit)
+        if reading is None or reading[0] != target[0]:
+            quantities.append(item)
+            continue
+        si = item.value * reading[1] + reading[2]
+        # A note that only restated the value in this unit ("2.48 eV") is now the value.
+        restated = item.detail is not None and re.fullmatch(
+            rf"\s*-?[\d.]+(?:[eE][-+]?\d+)?\s*{re.escape(intent.asked_unit)}\s*", item.detail
+        )
+        shown = replace(
+            item,
+            value=(si - target[2]) / target[1],
+            unit=intent.asked_unit,
+            detail=None if restated else item.detail,
+        )
+        # A result given twice ("J (eV)") is one result once both are in eV.
+        if not any(
+            other.unit == shown.unit and math.isclose(other.value, shown.value)
+            for other in quantities
+        ):
+            quantities.append(shown)
+    return replace(result, quantities=tuple(quantities))
 
 
 def _answers_the_question(intent: PhysicsIntent, result: PhysicsResult) -> bool:
@@ -131,6 +145,7 @@ def _build_physics_block(
             exc_info=True,
         )
         return None
+    result = _in_the_asked_unit(intent, result)
     if not _answers_the_question(intent, result):
         logger.info(
             "physics verification skipped kind=%s op=%s reason=answers a different quantity",
@@ -162,7 +177,8 @@ def _build_physics_block(
             "embed, or provide an animation or diagram. Do not discuss how the visual is attached "
             "and do not emit a simulation fence yourself."
         )
-    visible_answer = _format_visible_answer(result.answer_value)
+    # Plain text for guards and readers without math; LaTeX for the card.
+    answer, card = result.answer_value, result.answer_latex
     # The model sees the same rows the direct reply formats. The combined
     # solver chain stays on result.answer for internal checks.
     verified_lines = [
@@ -170,7 +186,7 @@ def _build_physics_block(
         *(f"${row}$" for row in result.formulas),
         "Verified substitution:",
         *(f"${row}$" for row in result.substitutions),
-        f"Verified result: {visible_answer}",
+        f"Verified result: ${card}$",
     ]
     lines.extend(verified_lines)
     structured_working = "\n".join(verified_lines)
@@ -179,16 +195,14 @@ def _build_physics_block(
     # the ball flying along it. `canonical_fences` is what carries more than one
     # fence through `validate_math_fences`, so every spec goes there and the
     # primary stays first for the callers that read `canonical_fence` alone.
-    specs = [
-        _format_simulation_labels(spec.model_dump())
-        for spec in (*result.graph_specs, *result.simulation_specs)
-    ]
+    specs = [spec.model_dump() for spec in (*result.graph_specs, *result.simulation_specs)]
     if not specs:
         return VerifiedPhysicsBlock(
             text="\n".join(lines),
             subject="physics",
-            canonical_fence={"type": "answer", "content": visible_answer},
-            canonical_answer=visible_answer,
+            canonical_fence={"type": "answer", "content": card},
+            canonical_answer=answer,
+            display_answer=card,
             allow_direct=False,
             physics_intent=intent.model_copy(deep=True),
             physics_working=structured_working,
@@ -203,7 +217,8 @@ def _build_physics_block(
             text="\n".join(lines),
             subject="physics",
             canonical_fence=specs[0],
-            canonical_answer=visible_answer,
+            canonical_answer=answer,
+            display_answer=card,
             physics_intent=intent.model_copy(deep=True),
             physics_working=structured_working,
             physics_formulas=result.formulas,
@@ -217,8 +232,9 @@ def _build_physics_block(
         block = VerifiedPhysicsBlock(
             text="\n".join(lines),
             subject="physics",
-            canonical_fence={"type": "answer", "content": visible_answer},
-            canonical_answer=visible_answer,
+            canonical_fence={"type": "answer", "content": card},
+            canonical_answer=answer,
+            display_answer=card,
             allow_direct=False,
             physics_intent=intent.model_copy(deep=True),
             physics_working=structured_working,

@@ -9,7 +9,6 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.physics.block import _format_visible_answer
 from app.modules.physics.fence import replace_unclosed_physics_fences_safe
 from app.modules.physics.prompt import build_physics_augmentation as build_math_augmentation
 from app.services.chat.stream_pipeline import stream_and_finalize
@@ -37,11 +36,11 @@ _CASES = [
     (_DROP.format("velocity"), "-10 m/s", True),
     (_DROP.format("speed"), "10 m/s", True),
     (_DROP.format("height"), "15 m", True),
-    ("A ball is in free fall from 20 m. Find its acceleration. Use g=10.", "-10 m/s^2", False),
+    ("A ball is in free fall from 20 m. Find its acceleration. Use g=10.", "-10 m/s²", False),
     (_PROJECTILE.format("range"), "40 m", True),
     (_PROJECTILE.format("maximum height"), "10 m", True),
     ("Find the force on a 5 kg object with acceleration 2 m/s^2.", "10 N", False),
-    ("Find the acceleration of a 5 kg object under a force of 20 N.", "4 m/s^2", False),
+    ("Find the acceleration of a 5 kg object under a force of 20 N.", "4 m/s²", False),
     ("Find the mass of an object with force 20 N and acceleration 4 m/s^2.", "5 kg", False),
     ("Find the kinetic energy of a 2 kg object moving at 3 m/s.", "9 J", False),
     ("Find the potential energy of a 2 kg object at height 5 m. Use g=10.", "100 J", False),
@@ -49,7 +48,7 @@ _CASES = [
     ("What is the power of a force of 10 N moving at 3 m/s?", "30 W", False),
     ("A machine does 1,200 J of work in 30 seconds. What is its power?", "40 W", False),
     (_AVERAGE_SPEED, "5 m/s", False),
-    (_ELECTRIC_FORCE, "0.2157 N", False),
+    (_ELECTRIC_FORCE, "0.216 N", False),
     (
         "A car travels 180 meters in 12 seconds. What is its average speed?",
         "15 m/s",
@@ -73,7 +72,7 @@ def test_physics_failure_recovery_never_uses_math_graph_semantics() -> None:
     recovered = replace_unclosed_physics_fences_safe(truncated, verified)
 
     assert '{"type":"projectile"' not in recovered
-    assert f"```answer\n{verified.canonical_answer}\n```" in recovered
+    assert f"```answer\n{verified.display_answer}\n```" in recovered
     assert "```graph" in recovered
 
 
@@ -81,7 +80,7 @@ def test_electric_force_uses_textbook_scientific_notation() -> None:
     verified = _verified(_ELECTRIC_FORCE)
     reply = maybe_direct_physics_reply(verified, _ELECTRIC_FORCE)
     assert reply is not None
-    assert r"8.987552 \times 10^{9}" in reply
+    assert r"8.98755 \times 10^{9}" in reply
     assert r"2 \times 10^{-6}" in reply
     assert "e+09" not in reply
 
@@ -98,7 +97,7 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
     assert reply.count("```answer") == 1
-    assert f"```answer\n{answer}\n```\n" in reply
+    assert f"```answer\n{verified.display_answer}\n```\n" in reply
     assert reply.count("```graph") == int(graph)
     assert reply.endswith("```\n")
     if verified.physics_intent is not None:
@@ -148,10 +147,10 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
         ("A ball is dropped from 2000 cm. Find the time to ground. Use g=10.", "2 s"),
         ("A ball is dropped from 20 m. Find its speed after 500 ms. Use g=10.", "5 m/s"),
         ("A ball is dropped from 20 m. Find the time to ground.", "2.02 s"),
-        ("A ball is in free fall from 20 m. Find its acceleration. Use g=1.62.", "-1.62 m/s^2"),
-        ("A projectile is launched at 72 km/h at 30 degrees. Find its range. Use g=10.", "34.64 m"),
+        ("A ball is in free fall from 20 m. Find its acceleration. Use g=1.62.", "-1.62 m/s²"),
+        ("A projectile is launched at 72 km/h at 30 degrees. Find its range. Use g=10.", "34.6 m"),
         ("Find the force on a 500 g object with acceleration -2 m/s^2.", "-1 N"),
-        ("Find the acceleration of a 2 kg object under a force of -5 N.", "-2.5 m/s^2"),
+        ("Find the acceleration of a 2 kg object under a force of -5 N.", "-2.5 m/s²"),
         ("Find the mass of an object with force -20 N and acceleration -4 m/s^2.", "5 kg"),
         ("Find the kinetic energy of a 500 g object moving at -4 m/s.", "4 J"),
         ("Find the potential energy of a 0.5 kg object at height 200 cm. Use g=10.", "10 J"),
@@ -165,22 +164,7 @@ def test_other_quantities_units_signs_and_existing_precision(query: str, answer:
     verified = _verified(query)
     assert verified.canonical_answer == answer
     reply = maybe_direct_physics_reply(verified, query)
-    assert reply is not None and f"```answer\n{answer}\n```" in reply
-
-
-@pytest.mark.parametrize(
-    "raw,visible",
-    [
-        ("20.20 N", "20.2 N"),
-        ("20.00 N", "20 N"),
-        ("-2.50 m/s^2", "-2.5 m/s^2"),
-        ("50.05 J", "50.05 J"),
-        ("3.204e-14 N", "3.204e-14 N"),
-        ("21.00 kg*m/s", "21 kg·m/s"),
-    ],
-)
-def test_visible_physics_values_drop_only_redundant_decimal_zeros(raw: str, visible: str) -> None:
-    assert _format_visible_answer(raw) == visible
+    assert reply is not None and f"```answer\n{verified.display_answer}\n```" in reply
 
 
 def test_projectile_working_substitutes_givens_without_redundant_zeros() -> None:
@@ -193,7 +177,7 @@ def test_projectile_working_substitutes_givens_without_redundant_zeros() -> None
         "**Substitution**\n\n"
         r"$H_{max} = 0 + \frac{20^2 \sin^2(30^\circ)}{2 \cdot 9.81}$"
     ) in working
-    assert "```answer\n5.1 m\n```" in reply
+    assert "```answer\n5.1\\,\\mathrm{m}\n```" in reply
 
 
 def test_collision_hides_the_internal_elasticity_switch_from_given() -> None:
@@ -309,7 +293,7 @@ def test_speed_law_uses_its_universal_formula_before_any_rearrangement(
     if rearranged is not None:
         assert rearranged in reply
     assert f"**Substitution**\n\n{substitution}" in reply
-    assert f"```answer\n{answer}\n```" in reply
+    assert f"```answer\n{verified.display_answer}\n```" in reply
 
 
 @pytest.mark.parametrize("index", [1, 4])
@@ -491,7 +475,10 @@ def test_scalar_requires_its_one_canonical_answer() -> None:
         verified.allow_direct is False
     )  # No general permission for unlabeled physical quantities.
     assert maybe_direct_physics_reply(verified, query) is not None
-    assert maybe_direct_physics_reply(replace(verified, canonical_answer="999 N"), query) is None
+    assert (
+        maybe_direct_physics_reply(replace(verified, display_answer="999\\,\\mathrm{N}"), query)
+        is None
+    )
     assert maybe_direct_physics_reply(replace(verified, canonical_fence=None), query) is None
 
 

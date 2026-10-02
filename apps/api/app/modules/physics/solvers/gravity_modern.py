@@ -45,7 +45,7 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
                 rf"F = \frac{{{_BIG_G:.5g} \cdot {p['m1']:g} \cdot {p['m2']:g}}}"
                 rf"{{{_latex_num(r, square=True)}}}",
             ),
-            quantities=(QuantityResult("", f_val, "N", number_format=".4g"),),
+            quantities=(QuantityResult("", f_val, "N"),),
         )
 
     if op == "orbital_velocity":
@@ -60,7 +60,7 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"v = \sqrt{\frac{GM}{r}}",),
             substitutions=(rf"v = \sqrt{{\frac{{{_BIG_G:.5g} \cdot {p['M']:.4g}}}{{{r:.4g}}}}}",),
-            quantities=(QuantityResult("", v_val, "m/s", number_format=".2f"),),
+            quantities=(QuantityResult("", v_val, "m/s"),),
             simulation_specs=[_orbit_scene(r)],
         )
 
@@ -78,7 +78,7 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(
                 rf"v_e = \sqrt{{\frac{{2 \cdot {_BIG_G:.5g} \cdot {p['M']:.4g}}}{{{radius:.4g}}}}}",
             ),
-            quantities=(QuantityResult("", v_val, "m/s", number_format=".2f"),),
+            quantities=(QuantityResult("", v_val, "m/s"),),
         )
 
     if op == "surface_gravity":
@@ -97,7 +97,7 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
                 rf"g = \frac{{{_BIG_G:.5g} \cdot {p['M']:.4g}}}"
                 rf"{{{_latex_num(radius, square=True)}}}",
             ),
-            quantities=(QuantityResult("", g_val, "m/s^2", number_format=".2f"),),
+            quantities=(QuantityResult("", g_val, "m/s^2"),),
         )
 
     raise SolveServiceError(f"unsupported gravitation op: {op}")
@@ -123,7 +123,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 substitutions=(
                     rf"\gamma = \frac{{1}}{{\sqrt{{1-({speed:g}/{_SPEED_OF_LIGHT:g})^2}}}}",
                 ),
-                quantities=(QuantityResult("", gamma, "", number_format=".4g"),),
+                quantities=(QuantityResult("", gamma, ""),),
             )
         if op == "time_dilation":
             value = gamma * p["proper_time"]
@@ -134,7 +134,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 ),
                 formulas=(r"\Delta t = \gamma\Delta t_0",),
                 substitutions=(rf"\Delta t = {gamma:.4g} \cdot {p['proper_time']:g}",),
-                quantities=(QuantityResult("", value, "s", number_format=".4g"),),
+                quantities=(QuantityResult("", value, "s"),),
             )
         value = p["proper_length"] / gamma
         return PhysicsResult(
@@ -144,7 +144,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"L = \frac{L_0}{\gamma}",),
             substitutions=(rf"L = \frac{{{p['proper_length']:g}}}{{{gamma:.4g}}}",),
-            quantities=(QuantityResult("", value, "m", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "m"),),
         )
 
     if op == "photoelectric_kinetic_energy":
@@ -166,8 +166,8 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"K_{{max}} = {_PLANCK_H:.7g} \cdot {p['freq']:g} - {p['work_function']:g}",
             ),
             quantities=(
-                QuantityResult("", value, "J", number_format=".4g"),
-                QuantityResult("", ev, "eV", number_format=".4g"),
+                QuantityResult("", value, "J"),
+                QuantityResult("", ev, "eV"),
             ),
             joiner="paren-second",
         )
@@ -186,7 +186,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(
                 rf"\Delta p_{{min}} = \frac{{{_HBAR:.7g}}}{{2 \cdot {p['uncertainty_x']:g}}}",
             ),
-            quantities=(QuantityResult("", value, "kg*m/s", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "kg*m/s"),),
         )
 
     if op == "particle_box_energy":
@@ -208,8 +208,8 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"{p['L']:g}^2}}",
             ),
             quantities=(
-                QuantityResult("", value, "J", number_format=".4g"),
-                QuantityResult("", ev, "eV", number_format=".4g"),
+                QuantityResult("", value, "J"),
+                QuantityResult("", ev, "eV"),
             ),
             joiner="paren-second",
         )
@@ -226,7 +226,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"E_n = -\frac{13.6\ \text{eV}}{n^2}",),
             substitutions=(rf"E_n = -\frac{{13.6}}{{{level:g}^2}}",),
-            quantities=(QuantityResult("", value, "eV", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "eV"),),
         )
 
     if op == "compton_shift":
@@ -243,7 +243,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\Delta\lambda = \frac{{{_PLANCK_H:.7g}}}{{{_ELECTRON_MASS:.7g} \cdot "
                 rf"{_SPEED_OF_LIGHT:g}}}(1-\cos {math.degrees(p['angle']):g}^\circ)",
             ),
-            quantities=(QuantityResult("", value, "m", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "m"),),
         )
 
     if op == "wien_peak":
@@ -258,7 +258,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"\lambda_{max} = \frac{b}{T}",),
             substitutions=(rf"\lambda_{{max}} = \frac{{{_WIEN_B:.7g}}}{{{p['temp']:g}}}",),
-            quantities=(QuantityResult("", value, "m", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "m"),),
         )
 
     if op == "stefan_boltzmann_power":
@@ -278,7 +278,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"P = {p['emissivity']:g} \cdot {_STEFAN_BOLTZMANN:.7g} \cdot {p['area']:g} \cdot "
                 rf"{p['temp']:g}^4",
             ),
-            quantities=(QuantityResult("", value, "W", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "W"),),
         )
 
     if op == "photon_energy":
@@ -306,8 +306,8 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\approx {value:.4g} \text{{ J}}"
             ),
             quantities=(
-                QuantityResult("", value, "J", number_format=".4g"),
-                QuantityResult("", ev, "eV", number_format=".2f"),
+                QuantityResult("", value, "J"),
+                QuantityResult("", ev, "eV"),
             ),
             joiner="paren-second",
             formulas=(formula,),
@@ -328,7 +328,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(
                 rf"\lambda = \frac{{{_PLANCK_H:.5g}}}{{{p['m']:.4g} \cdot {p['v']:.4g}}}",
             ),
-            quantities=(QuantityResult("", value, "m", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "m"),),
         )
 
     if op == "half_life_remaining":
@@ -353,7 +353,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"N = \frac{N_0}{2^n}",),
             substitutions=(rf"N = \frac{{{given:g}}}{{2^{{{halves:g}}}}}",),
-            quantities=(QuantityResult("", value, unit, number_format=".4g"),),
+            quantities=(QuantityResult("", value, unit),),
         )
 
     if op == "mass_energy":
@@ -365,7 +365,7 @@ def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"E = mc^2",),
             substitutions=(rf"E = {p['m']:g} \cdot ({_SPEED_OF_LIGHT:.0f})^2",),
-            quantities=(QuantityResult("", value, "J", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "J"),),
         )
 
     raise SolveServiceError(f"unsupported modern op: {op}")

@@ -11,50 +11,24 @@ from app.models.schemas.physics import (
     PhysicsIntent,
     SimulationBlockSpec,
 )
+from app.modules.physics.solvers.chip import render_chip, render_chip_latex
 from app.services.solving import SolveServiceError
 
 
 @dataclass(frozen=True, slots=True)
 class QuantityResult:
-    """One measured result. Notes such as gauge pressure live in ``detail``."""
+    """One measured result. Notes such as gauge pressure live in ``detail``.
+
+    The value is shown to three significant figures (``physics.display``);
+    a solver never chooses its own number format.
+    """
 
     symbol: str
     value: float
     unit: str = ""
     detail: str | None = None
-    number_format: str = ".2f"
     # "paren" -> "12 Pa (gauge)"; "suffix" -> "4 A leaving"; "at" -> "5 N at 30°".
     detail_style: str = "paren"
-
-
-def render_quantity(item: QuantityResult) -> str:
-    shown = format(item.value, item.number_format)
-    if item.detail is None:
-        return f"{shown} {item.unit}".strip() if item.unit else shown
-    if item.detail_style == "suffix":
-        base = f"{shown} {item.unit}".strip()
-        return f"{base} {item.detail}".strip()
-    if item.detail_style == "at":
-        return f"{shown} {item.unit} at {item.detail}"
-    base = f"{shown} {item.unit}".strip() if item.unit else shown
-    return f"{base} ({item.detail})"
-
-
-def render_chip(items: tuple[QuantityResult, ...], joiner: str = " and ") -> str:
-    if not items:
-        raise ValueError("a physics result needs a quantity")
-    if joiner == "paren-second":
-        head = render_quantity(items[0])
-        rest = ", ".join(render_quantity(item) for item in items[1:])
-        return f"{head} ({rest})"
-    if joiner == "projectile":
-        return r";\quad ".join(
-            rf"{item.symbol} = {format(item.value, item.number_format)}\,\mathrm{{{item.unit}}}"
-            for item in items
-        )
-    if len(items) == 1:
-        return render_quantity(items[0])
-    return joiner.join(render_quantity(item) for item in items)
 
 
 @dataclass(frozen=True)
@@ -63,6 +37,7 @@ class PhysicsResult:
 
     answer: str
     answer_value: str = ""
+    answer_latex: str = ""
     quantities: tuple[QuantityResult, ...] = ()
     formulas: tuple[str, ...] = ()
     substitutions: tuple[str, ...] = ()
@@ -75,6 +50,9 @@ class PhysicsResult:
     def __post_init__(self) -> None:
         if self.quantities:
             object.__setattr__(self, "answer_value", render_chip(self.quantities, self.joiner))
+            object.__setattr__(
+                self, "answer_latex", render_chip_latex(self.quantities, self.joiner)
+            )
 
 
 def solved(
@@ -93,7 +71,6 @@ def solved(
     substitution_rows = substitutions or ((substitution,) if substitution else ())
     return PhysicsResult(
         answer=answer,
-        answer_value=render_chip(quantities, joiner),
         quantities=quantities,
         formulas=formula_rows,
         substitutions=substitution_rows,
@@ -128,17 +105,6 @@ def _latex_num(value: float, *, square: bool = False) -> str:
     if square:
         return f"{text}^{{2}}"
     return text
-
-
-def _latex_scientific(value: float) -> str:
-    """Use textbook scientific notation instead of calculator-style ``e`` text."""
-    if value == 0:
-        return "0"
-    exponent = math.floor(math.log10(abs(value)))
-    if -3 <= exponent <= 3:
-        return f"{value:g}"
-    coefficient = value / (10**exponent)
-    return rf"{coefficient:.7g} \times 10^{{{exponent}}}"
 
 
 def _dimensions_from_catalog() -> dict[str, str]:

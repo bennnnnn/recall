@@ -112,22 +112,22 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "at what angle should a ball be thrown at 20 m/s to travel 35 m",
         "launch_angle",
-        "29.57 deg or 60.43 deg",
+        "29.6° or 60.4°",
     ),
     (
         "what launch angle gives a range of 35 m at 20 m/s",
         "launch_angle",
-        "29.57 deg or 60.43 deg",
+        "29.6° or 60.4°",
     ),
     (
         "what angle is needed for a 20 m/s throw to reach 35 m",
         "launch_angle",
-        "29.57 deg or 60.43 deg",
+        "29.6° or 60.4°",
     ),
     # --- the two ops that already worked, so the table cannot regress ----
-    ("a ball is thrown at 20 m/s at 30 degrees, what is the range?", "range", "35.31 m"),
-    ("how far does a ball go if thrown at 20 m/s at 30 degrees", "range", "35.31 m"),
-    ("projectile launched at 20 m/s at 30 degrees find the range", "range", "35.31 m"),
+    ("a ball is thrown at 20 m/s at 30 degrees, what is the range?", "range", "35.3 m"),
+    ("how far does a ball go if thrown at 20 m/s at 30 degrees", "range", "35.3 m"),
+    ("projectile launched at 20 m/s at 30 degrees find the range", "range", "35.3 m"),
     (
         "a ball is kicked at 20 m/s at 30 degrees, how high does it go",
         "max_height",
@@ -192,7 +192,7 @@ def test_a_launch_height_raises_the_impact_speed() -> None:
         _verified_answer(
             "a ball is thrown at 20 m/s at 30 degrees from a 10 m cliff, how fast does it land"
         )
-        == "24.42 m/s"
+        == "24.4 m/s"
     )
 
 
@@ -224,7 +224,7 @@ def test_a_non_range_question_is_never_answered_with_the_range(text: str) -> Non
     """35.31 m is the range of this throw. It was the answer to all four."""
     answer = _verified_answer(text)
     assert answer is not None
-    assert answer != "35.31 m"
+    assert answer != "35.3 m"
     assert not answer.endswith(" m")
 
 

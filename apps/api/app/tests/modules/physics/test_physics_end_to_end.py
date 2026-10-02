@@ -12,6 +12,7 @@ import pytest
 
 from app.core.config import Settings
 from app.tests.modules.physics.support import (
+    answer_number,
     build_verified_physics_block,
     extract_physics_intent,
     maybe_direct_physics_reply,
@@ -22,7 +23,7 @@ _SETTINGS = Settings(math_tools_enabled=True)
 
 
 def _answer_number(answer: str) -> float:
-    return float(answer.split()[0])
+    return answer_number(answer)
 
 
 @pytest.mark.parametrize(
@@ -173,7 +174,8 @@ def test_physics_gate_extract_block_answer(
     if expected_value is None:
         assert abs(got - 48.04) < 0.05
     else:
-        assert abs(got - expected_value) < 0.02
+        # Three significant figures: the shown value is within 0.5% of the true one.
+        assert abs(got - expected_value) <= 0.005 * abs(expected_value)
 
 
 def test_car_acceleration_is_not_verified_minus_g() -> None:
@@ -201,4 +203,4 @@ def test_force_direct_reply_uses_the_structured_verified_layout() -> None:
     assert "**Formula**" in reply
     assert "**Substitution**" in reply
     assert "**Answer**" in reply
-    assert "5 m/s^2" in reply
+    assert "```answer\n5\\,\\mathrm{m/s²}\n```" in reply

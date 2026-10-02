@@ -104,7 +104,7 @@ def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:
         (
             "How much work is done by a 10 N force at an angle of 30 degrees over 4 m?",
             "work",
-            "34.64 J",
+            "34.6 J",
         ),
         (
             "A force of 10 N at 60 degrees moves an object at 4 m/s. What is the power?",
@@ -126,7 +126,7 @@ def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:
             "Using conservation of energy, an object starts from rest at an initial height "
             "of 20 m. Find its speed at a final height of 5 m.",
             "mechanical_energy_gravity",
-            "17.16 m/s",
+            "17.2 m/s",
         ),
         (
             "Using conservation of energy, a 0.4 kg mass on a spring of constant 100 N/m "
@@ -151,13 +151,13 @@ def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:
             "Angular velocity increases from 4 rad/s to 10 rad/s in 2 s. "
             "Find the angular acceleration.",
             "rotational_alpha",
-            "3 rad/s^2",
+            "3 rad/s²",
         ),
         (
             "A torque of 6 N m acts on a moment of inertia of 2 kg m^2. "
             "Find the angular acceleration.",
             "torque_inertia",
-            "3 rad/s^2",
+            "3 rad/s²",
         ),
         (
             "Angular momentum changes from 4 to 10 kg m^2/s in 3 s. Find the torque.",
@@ -179,7 +179,7 @@ def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:
             "A wheel of radius 0.25 m rolls without slipping with acceleration 2 m/s^2. "
             "Find the angular acceleration.",
             "rolling_acceleration",
-            "8 rad/s^2",
+            "8 rad/s²",
         ),
         (
             "A 3 kg solid cylinder of radius 0.2 m rolls without slipping at 4 m/s. "
@@ -192,7 +192,7 @@ def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:
             "Its mass is 4 kg and the axis is 0.5 m away. "
             "Find the moment of inertia by the parallel-axis theorem.",
             "parallel_axis",
-            "3 kg·m^2",
+            "3 kg·m²",
         ),
     ],
 )

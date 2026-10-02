@@ -16,7 +16,7 @@ def result(symbol: str, formula: str, numeric: str, value: float, unit: str) -> 
     shown = f"{value:.4g}"
     unit_text = rf" \text{{ {unit}}}" if unit else ""
     return solved(
-        QuantityResult(symbol, value, unit, number_format=".4g"),
+        QuantityResult(symbol, value, unit),
         formula=f"{symbol} = {formula}",
         substitution=f"{symbol} = {numeric}",
         answer=rf"{symbol} = {formula} = {numeric} \approx {shown}{unit_text}",

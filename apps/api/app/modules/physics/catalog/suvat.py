@@ -25,7 +25,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=(
             var("a", "a", "meter / second ** 2"),
-            var("d", "d", "meter"),
+            var("d", "s", "meter"),
             var("t", "t", "second"),
             var("u", "u", "meter / second"),
         ),
@@ -75,7 +75,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=(
             var("a", "a", "meter / second ** 2"),
-            var("d", "d", "meter"),
+            var("d", "s", "meter"),
             var("u", "u", "meter / second"),
             var("v", "v", "meter / second"),
         ),
@@ -99,7 +99,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
         ),
         variables=(
-            var("d", "d", "meter"),
+            var("d", "s", "meter"),
             var("t", "t", "second"),
             var("u", "u", "meter / second"),
             var("v", "v", "meter / second"),

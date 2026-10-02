@@ -305,6 +305,11 @@ def _canonical(powers: dict[str, float]) -> str:
     return " * ".join(f"{name}^{power:g}" for name, power in sorted(powers.items()))
 
 
+def unit_expression(spelling: str) -> str | None:
+    """The Pint expression of one spelling from the unit table."""
+    return _SYMBOLS.get(spelling) or _WORDS.get(spelling.lower())
+
+
 def unit_at(text: str, end: int) -> tuple[str, str] | None:
     """The unit written right after a number: (spelling, Pint expression)."""
     word = _WORD_RE.match(text, end)

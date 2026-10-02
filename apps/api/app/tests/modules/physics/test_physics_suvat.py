@@ -113,12 +113,12 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "a car goes from rest to 30 m/s in 10 s, what is the acceleration",
         "suvat_acceleration",
-        "3 m/s^2",
+        "3 m/s²",
     ),
     (
         "a train slows down from 20 m/s to rest over 100 m, what is the deceleration",
         "suvat_acceleration",
-        "-2 m/s^2",
+        "-2 m/s²",
     ),
 ]
 

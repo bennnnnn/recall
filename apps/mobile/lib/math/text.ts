@@ -837,9 +837,12 @@ function parseAccent(
   };
 }
 
+/** What `^\circ` parses to: a raised ring, which in a superscript is a degree sign. */
+export const DEGREE_RING = "∘";
+
 function segmentToPlain(seg: MathSegment): string {
   if (seg.type === "text" || seg.type === "upright") return seg.value;
-  if (seg.type === "sup") return `^${seg.value}`;
+  if (seg.type === "sup") return seg.value === DEGREE_RING ? "°" : `^${seg.value}`;
   if (seg.type === "sub") return `_${seg.value}`;
   if (seg.type === "cancel") return segmentsToPlain(seg.body);
   if (seg.type === "accent") {
