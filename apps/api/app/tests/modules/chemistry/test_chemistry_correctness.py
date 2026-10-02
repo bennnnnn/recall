@@ -457,6 +457,16 @@ def test_solubility_gives_ksp() -> None:
     assert _first_number(result.answer) == pytest.approx(1.69e-10, rel=1e-3)
 
 
+def test_rate_law_refuses_a_held_second_reactant() -> None:
+    with pytest.raises(SolveServiceError, match="order in B"):
+        _solve("Find the rate law: a1=1, rate1=2, a2=2, rate2=4, b1=3, b2=3")
+
+
+def test_rate_law_with_only_a_is_first_order() -> None:
+    result = _solve("Find the rate law: a1=1, rate1=2, a2=2, rate2=4")
+    assert result.answer == "rate = 2 [A]"
+
+
 def test_rate_law_can_change_the_second_reactant() -> None:
     result = _solve("Find the rate law: a1=1, rate1=2, a2=1, rate2=8, b1=1, b2=2")
     assert result.answer == "rate = 2 [B]^2"
