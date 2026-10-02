@@ -9,7 +9,9 @@ from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.bodies import named_body
 from app.modules.physics.extractors.common import (
     _ELECTRON_MASS,
+    _INCLINE_ANGLE_RE,
     _LENGTH_UNIT_PATTERN,
+    _MASS_UNITS,
     _NUMBER,
     _VELOCITY_UNIT_PATTERN,
     _find_value_with_specific_unit,
@@ -17,13 +19,9 @@ from app.modules.physics.extractors.common import (
     _ordered_values,
     _strip_param_assignments,
 )
-from app.modules.physics.extractors.matter_thermal import (
-    _AREA_PATTERN,
-    _INCLINE_ANGLE_RE,
-    _temperature_value,
-)
-from app.modules.physics.extractors.mechanics import _MASS_UNITS
+from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
 from app.modules.physics.extractors.oscillations_waves import _HERTZ_PATTERN
+from app.modules.physics.extractors.thermal_readings import _temperature_value
 from app.services.text_match import has_equation
 
 _GRAVITATION_CUES = (

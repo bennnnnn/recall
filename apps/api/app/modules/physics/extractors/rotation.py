@@ -7,7 +7,9 @@ from typing import Literal
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
+    _INCLINE_ANGLE_RE,
     _LENGTH_UNIT_PATTERN,
+    _MASS_UNITS,
     _NUMBER,
     _VELOCITY_UNIT_PATTERN,
     _find_value_with_specific_unit,
@@ -15,7 +17,6 @@ from app.modules.physics.extractors.common import (
     _positioned_values,
     _strip_param_assignments,
 )
-from app.modules.physics.extractors.mechanics import _INCLINE_ANGLE_RE, _MASS_UNITS
 from app.modules.physics.extractors.oscillations_waves import _ANGULAR_FREQ_RE
 from app.services.text_match import has_equation, word_index
 

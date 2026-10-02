@@ -9,14 +9,15 @@ from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _ELEMENTARY_CHARGE,
     _LENGTH_UNIT_PATTERN,
+    _MASS_UNITS,
     _VELOCITY_UNIT_PATTERN,
     _find_value_with_specific_unit,
     _has_cue_either_case,
     _ordered_values,
+    _stated_angle,
     _strip_param_assignments,
 )
-from app.modules.physics.extractors.matter_thermal import _AREA_PATTERN
-from app.modules.physics.extractors.mechanics import _MASS_UNITS, _stated_angle
+from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_circuit, blocks_field
 from app.services.text_match import has_equation
 

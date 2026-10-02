@@ -1,0 +1,171 @@
+"""Friction extractors: f = muN, inclines, the slipping angle, minimum force."""
+
+from __future__ import annotations
+
+import re
+from typing import Literal
+
+from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.extractors.common import (
+    _INCLINE_ANGLE_RE,
+    _detect_gravity,
+    _find_value_with_specific_unit,
+    _has_cue,
+    _strip_param_assignments,
+)
+from app.services.text_match import has_equation
+
+_FRICTION_CUES = (
+    "normal force",
+    "frictionless",
+)
+
+_FRICTION_SUBJECT = r"friction|frictional|incline|inclined|ramp"
+
+_FRICTION_GIVEN = (
+    r"coefficient|\bmu\s*(?:=|is)|\u03bc\s*(?:=|is)|(?<!\d)\d+\s*(?:degrees?|deg|\u00b0)"
+)
+
+_FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(rf"(?:{_FRICTION_SUBJECT}).{{0,80}}?(?:{_FRICTION_GIVEN})", re.IGNORECASE),
+    re.compile(rf"(?:{_FRICTION_GIVEN}).{{0,80}}?(?:{_FRICTION_SUBJECT})", re.IGNORECASE),
+    re.compile(
+        r"\b(?:minimum|least|smallest)\s+(?:horizontal\s+)?force\b.{0,100}?"
+        r"\b(?:mu|μ)\s*(?:=|is)\s*\d",
+        re.IGNORECASE,
+    ),
+)
+
+_FRICTION_FORCE_ASK_RE = re.compile(
+    r"friction(?:al)?\s+force|force\s+of\s+friction"
+    r"|(?:find|calculate|determine|compute|what\s+is)\s+the\s+friction\b",
+    re.IGNORECASE,
+)
+
+_MU_RE = re.compile(
+    r"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\s*(?:of|=|is)?\s*"
+    r"|coefficient\s*(?:of|=|is)?\s*"
+    r"|\bmu\s+is\s+|\bmu\s*=\s*|\u03bc\s+is\s+|\u03bc\s*=\s*)"
+    r"(-?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
+_MU_ASK_RE = re.compile(
+    r"(?:what|find|calculate|determine|compute)\b[^.?!]{0,40}?"
+    r"\bcoefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\b"
+    r"|\bcoefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\s*\?",
+    re.IGNORECASE,
+)
+
+_SLIPPING_RE = re.compile(
+    r"\bstarts?\s+to\s+(?:slide|slip|move)\b|\bbegins?\s+to\s+(?:slide|slip|move)\b"
+    r"|\bslipping\s+begins?\b|\bjust\s+(?:slides?|slips?|begins)\b"
+    r"|\bslides?\s+(?:at|when|down\s+a)\b|\bon\s+the\s+point\s+of\b"
+    r"|\bjust\s+prevents?\s+(?:it\s+from\s+)?slid(?:e|ing)\b",
+    re.IGNORECASE,
+)
+
+_MIN_FORCE_ASK_RE = re.compile(
+    r"\bminimum\s+force\b|\bleast\s+force\b|\bsmallest\s+force\b"
+    r"|\bforce\s+(?:is\s+)?(?:needed|required)\s+to\s+(?:start|move|push|pull|budge)\b"
+    r"|\bforce\s+to\s+(?:start|move|push|pull|budge)\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
+    lower = cleaned.lower()
+    if not _has_cue(lower, _FRICTION_CUES, _FRICTION_CUE_RES):
+        return None
+    if "net force" in lower:
+        # A different quantity. The force extractor refuses it via
+        # _UNSUPPORTED_FORCE_CONTEXT rather than guessing, which is right.
+        return None
+    if has_equation(_strip_param_assignments(_MU_RE.sub("", cleaned))):
+        return None
+
+    mass = _find_value_with_specific_unit(
+        cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "block", "box", "crate", "object", "body")
+    )
+
+    frictionless = "frictionless" in lower
+    mu_match = _MU_RE.search(cleaned)
+    mu = 0.0 if frictionless else (float(mu_match.group(1)) if mu_match else None)
+
+    angle_match = _INCLINE_ANGLE_RE.search(cleaned)
+    angle = float(angle_match.group(1)) if angle_match else 0.0
+
+    wants_normal = "normal force" in lower
+    wants_acceleration = "acceleration" in lower or "accelerate" in lower
+    wants_friction = _FRICTION_FORCE_ASK_RE.search(cleaned) is not None and not frictionless
+    wants_coefficient = _MU_ASK_RE.search(cleaned) is not None
+    wants_min_force = _MIN_FORCE_ASK_RE.search(cleaned) is not None
+
+    op: Literal[
+        "friction_force",
+        "normal_force",
+        "incline_acceleration",
+        "friction_coefficient",
+        "minimum_force",
+    ]
+    if wants_coefficient:
+        # mu = tan(theta) holds only at the angle where it *starts* to slide.
+        # On any other incline the angle says nothing about mu, so the slipping
+        # wording is required rather than assumed.
+        op = "friction_coefficient"
+        if angle == 0.0 or mu is not None or not _SLIPPING_RE.search(cleaned):
+            return None
+    elif wants_min_force:
+        op = "minimum_force"
+        if mass is None or mu is None:
+            return None
+        if angle != 0.0:
+            # On a slope the minimum force is mu*m*g*cos(t) + m*g*sin(t), a
+            # different formula. Not solved here, so not guessed at either.
+            return None
+    elif wants_acceleration:
+        op = "incline_acceleration"
+        # No mass requirement here, and that is the point: a = g(sin t - mu cos t)
+        # is mass-independent, which is the whole reason the incline result is
+        # worth teaching. Demanding a mass would reject the textbook phrasing
+        # ("a block on a frictionless 30 degree incline") that omits it.
+        if mu is None:
+            # Without a coefficient this is only solvable if it is stated to be
+            # frictionless — otherwise the answer needs a number nobody gave.
+            return None
+        if angle == 0.0:
+            # "acceleration" with no incline angle is an F = ma question, not
+            # this one. Leave it for the force extractor.
+            return None
+    elif wants_normal:
+        op = "normal_force"
+        if mass is None:
+            return None
+        mu = mu if mu is not None else 0.0
+    elif wants_friction:
+        op = "friction_force"
+        if mass is None or mu is None:
+            return None
+    else:
+        return None
+
+    params: dict[str, float] = {"angle": angle, "g": _detect_gravity(cleaned)}
+    units: dict[str, str] = {
+        "angle": "rad" if re.search(r"\b(?:rad|radians)\b", lower) else "deg",
+        "g": "m/s^2",
+    }
+    # For `friction_coefficient` mu is the answer, not a given, so there is
+    # none to pass. Every other op has already refused a missing one above.
+    if mu is not None:
+        params["mu"] = mu
+        units["mu"] = ""
+    if mass is not None:
+        params["m"] = mass[0]
+        units["m"] = mass[1] or "kg"
+    return PhysicsIntent(
+        kind="friction",
+        physics_op=op,
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
