@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Canvas,
   Circle,
@@ -15,6 +16,7 @@ import {
   bondStrokeWidth,
   layoutMolecule,
   MOLECULE_PREVIEW_HEIGHT,
+  showsAtomLabel,
   type MoleculeStyle,
 } from "@/lib/chemistry/molecule3dLayout";
 import type { MolGeometry } from "@/lib/chemistry/molecule3dFence";
@@ -37,6 +39,7 @@ function linePath(x1: number, y1: number, x2: number, y2: number) {
 }
 
 export function SkiaMoleculeCanvas({ geom, style, theme, yaw, pitch, width }: Props) {
+  const { t } = useTranslation();
   const height = MOLECULE_PREVIEW_HEIGHT;
   const font = useFont(require("../../../assets/fonts/SpaceMono-Regular.ttf"), 12);
   const laidOut = useMemo(
@@ -49,7 +52,11 @@ export function SkiaMoleculeCanvas({ geom, style, theme, yaw, pitch, width }: Pr
   );
 
   return (
-    <Canvas testID="molecule-skia-canvas" style={{ width, height }}>
+    <Canvas
+      testID="molecule-skia-canvas"
+      accessibilityLabel={t("rich.chemistry_3d_a11y")}
+      style={{ width, height }}
+    >
       {laidOut.drawOrder.map((item) => {
         if (item.kind === "bond") {
           return (
@@ -68,7 +75,7 @@ export function SkiaMoleculeCanvas({ geom, style, theme, yaw, pitch, width }: Pr
           <Group key={`atom-${atom.index}`}>
             <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} color="#1a1a1a" />
             <Circle cx={atom.x} cy={atom.y} r={atom.radius} color={atomColor(atom.element)} />
-            {style !== "spacefill" && atom.radius >= 8 && font ? (
+            {showsAtomLabel(style) && font ? (
               <SkiaText
                 x={atom.x - font.measureText(atom.element).width / 2}
                 y={atom.y + 4}
