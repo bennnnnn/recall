@@ -60,8 +60,12 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   },
 }));
 const mockReadMathScan = jest.fn();
+const mockReadChemistryScan = jest.fn();
 jest.mock("@/lib/api", () => ({
-  api: { readMathScan: (...args: unknown[]) => mockReadMathScan(...args) },
+  api: {
+    readMathScan: (...args: unknown[]) => mockReadMathScan(...args),
+    readChemistryScan: (...args: unknown[]) => mockReadChemistryScan(...args),
+  },
 }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
@@ -860,6 +864,31 @@ describe("useChatSend math scans", () => {
     await expect(current.readMathScan(scan, controller.signal)).resolves.toEqual({
       error: "Image too large",
     });
+  });
+
+  it("names a chemistry rate limit and an unavailable reader", async () => {
+    await act(async () => {
+      render(<Probe chatId="chat-1" />);
+    });
+    const controller = new AbortController();
+    mockReadChemistryScan.mockRejectedValueOnce(
+      new ApiRequestError(429, JSON.stringify({ detail: "Too many scans in a row. Try again in a few minutes." })),
+    );
+    await expect(current.readChemistryScan(scan, controller.signal)).resolves.toEqual({
+      error: "chat.chemistry_scan_rate_limit",
+    });
+    mockReadChemistryScan.mockRejectedValueOnce(
+      new ApiRequestError(404, JSON.stringify({ detail: "Not available" })),
+    );
+    await expect(current.readChemistryScan(scan, controller.signal)).resolves.toEqual({
+      error: "chat.chemistry_scan_unavailable",
+    });
+    mockReadChemistryScan.mockRejectedValueOnce(new Error("offline"));
+    await expect(current.readChemistryScan(scan, controller.signal)).resolves.toBeNull();
+    mockReadChemistryScan.mockRejectedValueOnce(
+      new ApiRequestError(500, JSON.stringify({ detail: "vision failed" })),
+    );
+    await expect(current.readChemistryScan(scan, controller.signal)).resolves.toBeNull();
   });
 });
 

@@ -12,6 +12,10 @@ import type { useChatScroll } from "@/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
 import type { MathScanReading, Message } from "@/lib/api";
 import {
+  chemistryScanFailureDetail,
+  chemistryScanFailureMessageKey,
+} from "@/lib/chemistry/scanReadError";
+import {
   chemistryScanSolveMessage,
   composerTextAfterChemistryScanConfirm,
 } from "@/lib/chemistry/scanSolve";
@@ -723,16 +727,22 @@ export function useChatSend({
   );
 
   const readChemistryScan = useCallback(
-    async (scan: PendingAttachment, signal: AbortSignal): Promise<MathScanReading | null> => {
+    async (
+      scan: PendingAttachment,
+      signal: AbortSignal,
+    ): Promise<MathScanReading | MathScanReadFailure | null> => {
       if (!token) return null;
       try {
         const { api } = await import("@/lib/api");
         return await api.readChemistryScan(token, scan, signal);
-      } catch {
-        return null;
+      } catch (error) {
+        const detail = chemistryScanFailureDetail(error);
+        if (!detail) return null;
+        const key = chemistryScanFailureMessageKey(detail);
+        return { error: key ? t(key) : detail };
       }
     },
-    [token],
+    [t, token],
   );
 
   const handleMathScanSolve = useCallback((reading: string, subject: ScannerSubject = "math") => {
