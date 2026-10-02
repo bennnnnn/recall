@@ -115,6 +115,7 @@ export interface ChatScreenSheetsProps {
     confirmedReading?: string,
   ) => void;
   onReadMathScan: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
+  onReadChemistryScan: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
   onMathScanSolve: (reading: string) => void;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
@@ -304,6 +305,7 @@ const ChatOverlays = memo(function ChatOverlays({
         onClose={sheets.onCloseMathScanner}
         onCaptured={sheets.onMathScanCaptured}
         onReadScan={sheets.onReadMathScan}
+        onReadChemistryScan={sheets.onReadChemistryScan}
         onSolveReading={sheets.onMathScanSolve}
       />
 

@@ -11,6 +11,7 @@ from app.core.security_headers import SecurityHeadersMiddleware
 from app.modules.attachments import api as attachments
 from app.modules.billing import api as webhooks
 from app.modules.chat import api as chats
+from app.modules.chemistry import api as chemistry_api
 from app.modules.home import api as home
 from app.modules.images import api as images
 from app.modules.integrations import api as integrations
@@ -103,6 +104,7 @@ def create_app() -> FastAPI:
     app.include_router(models.router)
     app.include_router(todos.router)
     app.include_router(math_api.router)
+    app.include_router(chemistry_api.router)
     app.include_router(job_search.router)
     app.include_router(search.router)
     app.include_router(suggestions.router)

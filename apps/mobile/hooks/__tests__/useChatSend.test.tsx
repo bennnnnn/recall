@@ -773,6 +773,19 @@ describe("useChatSend math scans", () => {
     expect(current.mathScannerOpen).toBe(false);
   });
 
+  it("solves a confirmed chemistry reading as the text alone", async () => {
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      current.handleMathScanSolve("Find the molar mass of H2O", "chemistry");
+      await settle();
+    });
+    expect(sendMessage).toHaveBeenCalledWith("Find the molar mass of H2O", expect.anything());
+    expect(uploadAttachment).not.toHaveBeenCalled();
+  });
+
   it("keeps a typed draft after the scan's text", async () => {
     inputRef.current = "please explain";
     const sendMessage = jest.fn();
