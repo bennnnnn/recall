@@ -23,7 +23,7 @@ from itertools import combinations, product
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import _NUMBER
-from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension
+from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
 from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
 from app.services.solving import SolveServiceError
 
@@ -44,6 +44,8 @@ class _Param:
     dimension: str
     raw: float
     si: float | None
+    # SI units per written unit; a difference ignores any offset (°C is 1 K).
+    scale: float | None
 
 
 def _same(left: float, right: float) -> bool:
@@ -68,22 +70,46 @@ def _params(intent: PhysicsIntent) -> list[_Param]:
         if dimension is None:
             continue
         unit = units.get(key, "")
-        si: float | None
-        if dimension == ANGLE:
-            si = value if unit.lower().startswith("rad") else math.radians(value)
-        else:
-            try:
-                si = _to_si(value, unit, expected_key=key)
-            except SolveServiceError:
-                si = None
-        params.append(_Param(dimension, value, si))
+        params.append(
+            _Param(
+                dimension, value, _in_si(value, dimension, key, unit), _scale(dimension, key, unit)
+            )
+        )
     return params
+
+
+def _in_si(value: float, dimension: str, key: str, unit: str) -> float | None:
+    if dimension == ANGLE:
+        return value if unit.lower().startswith("rad") else math.radians(value)
+    try:
+        return _to_si(value, unit, expected_key=key)
+    except SolveServiceError:
+        return None
+
+
+def _scale(dimension: str, key: str, unit: str) -> float | None:
+    one, zero = _in_si(1.0, dimension, key, unit), _in_si(0.0, dimension, key, unit)
+    return None if one is None or zero is None else one - zero
+
+
+def _given_scale(given: Given) -> float | None:
+    expression = unit_expression(given.unit)
+    reading = None if expression is None else unit_dimension(expression)
+    return None if reading is None else reading[1]
+
+
+def _same_scale(given: Given, param: _Param) -> bool:
+    """Whether the two values are written in units of one size: 3 km/h is not 3 m/s."""
+    scale = _given_scale(given)
+    return scale is None or param.scale is None or _same(scale, param.scale)
 
 
 def _bound(given: Given, params: list[_Param]) -> bool:
     # Magnitudes: extractors carry direction as a sign ("5 m/s downward" is -5).
+    # The written numbers may match only in units of one size; otherwise the
+    # SI values must, or "3 km/h and 3 m/s" would bind both with one value.
     return any(
-        _same(abs(given.value), abs(param.raw))
+        (_same_scale(given, param) and _same(abs(given.value), abs(param.raw)))
         or (given.si is not None and param.si is not None and _same(abs(given.si), abs(param.si)))
         for param in params
     )
