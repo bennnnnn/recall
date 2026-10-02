@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Iterator
 from unittest.mock import MagicMock
 
 import pytest
@@ -11,6 +12,7 @@ from pydantic import ValidationError
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry import context as chemistry_context
+from app.modules.chemistry import extract as chemistry_extract
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import extract_compound_name, is_chemistry_question
@@ -35,6 +37,9 @@ def _warm_lazy_imports() -> None:
         "[" + "A" * 40 + "] = 1 Kc",
         "H2 + O2 -> " + "H2O + " * 500,
         "mole " * 4_000,
+        # Was 575 ms: a number pattern retried from every digit of the run.
+        "Find the empirical formula of a compound with " + "1" * 3_800,
+        "Find the empirical formula of a compound with " + ".5" * 1_900,
     ],
     ids=[
         "uppercase-run",
@@ -44,6 +49,8 @@ def _warm_lazy_imports() -> None:
         "bracket-letter-run",
         "long-term-list",
         "repeated-cue",
+        "digit-run",
+        "decimal-run",
     ],
 )
 def test_hostile_input_returns_quickly(text: str) -> None:
@@ -221,6 +228,15 @@ def test_a_value_the_schema_refuses_declines_instead_of_raising(text: str) -> No
     assert extract_chemistry_intent(text) is None
 
 
+@pytest.fixture
+def fresh_extraction() -> Iterator[None]:
+    """A patched extractor list must not read, or leave behind, a cached answer."""
+    chemistry_extract._extract_chemistry_intent.cache_clear()
+    yield
+    chemistry_extract._extract_chemistry_intent.cache_clear()
+
+
+@pytest.mark.usefixtures("fresh_extraction")
 def test_an_extractor_exception_declines(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
@@ -233,6 +249,7 @@ def test_an_extractor_exception_declines(
     assert "chemistry extractor broken failed" in caplog.text
 
 
+@pytest.mark.usefixtures("fresh_extraction")
 def test_an_extractor_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
     def cancelled(_text: str) -> None:
         raise asyncio.CancelledError()
@@ -240,3 +257,22 @@ def test_an_extractor_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setattr("app.modules.chemistry.extract.EXTRACTORS", (cancelled,))
     with pytest.raises(asyncio.CancelledError):
         extract_chemistry_intent("Find the molar mass of water")
+
+
+@pytest.mark.usefixtures("fresh_extraction")
+def test_one_line_is_extracted_once_and_each_caller_gets_its_own_copy(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    calls: list[str] = []
+
+    def counting(text: str) -> ChemistryIntent:
+        calls.append(text)
+        return ChemistryIntent(kind="amounts", chemistry_op="molar_mass", formula="H2O")
+
+    monkeypatch.setattr("app.modules.chemistry.extract.EXTRACTORS", (counting,))
+    first = extract_chemistry_intent("Find the molar mass of H2O")
+    second = extract_chemistry_intent("Find the molar mass of H2O")
+    assert len(calls) == 1
+    assert first is not None and second is not None and first is not second
+    first.formula = "CO2"
+    assert second.formula == "H2O"
