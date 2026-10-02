@@ -181,6 +181,31 @@ describe("MathEquationScanner", () => {
     expect(getByTestId("scanner-subject-guide-physics")).toBeTruthy();
   });
 
+  it("sends a chemistry photo without reading it as math", async () => {
+    const onCaptured = jest.fn();
+    const onReadScan = jest.fn(async () => null);
+    const { getByTestId, getByLabelText } = await render(
+      <MathEquationScanner
+        visible
+        onClose={jest.fn()}
+        onCaptured={onCaptured}
+        onReadScan={onReadScan}
+        onSolveReading={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      fireEvent.press(getByTestId("scanner-subject-chemistry"));
+    });
+    await act(async () => {
+      fireEvent.press(getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    expect(onReadScan).not.toHaveBeenCalled();
+    expect(onCaptured).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "chemistry",
+    );
+  });
+
   it("shows the biology guide when biology is selected", async () => {
     const { getByTestId } = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,

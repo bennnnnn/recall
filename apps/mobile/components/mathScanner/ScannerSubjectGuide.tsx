@@ -21,6 +21,7 @@ type Props = {
 const LABEL_KEYS: Record<ScannerSubject, string> = {
   math: "chat.math_scan_subject_math",
   physics: "chat.math_scan_subject_physics",
+  chemistry: "chat.math_scan_subject_chemistry",
   biology: "chat.math_scan_subject_biology",
 };
 
@@ -93,6 +94,22 @@ function SubjectMark({ subject, primary, ink }: Props & { primary: string; ink: 
         <Circle cx={56} cy={32} r={2.8} fill={primary} />
         <Circle cx={20} cy={10.5} r={2.8} fill={primary} />
         <Circle cx={20} cy={53.5} r={2.8} fill={primary} />
+      </Svg>
+    );
+  }
+
+  if (subject === "chemistry") {
+    return (
+      <Svg width={62} height={62} viewBox="0 0 64 64">
+        <Path
+          d="M26 8h12M28 8v16L16 52a6 6 0 0 0 5 8h22a6 6 0 0 0 5-8L36 24V8"
+          fill="none"
+          stroke={ink}
+          strokeWidth={3}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <Path d="M20 42h24" stroke={primary} strokeWidth={3} strokeLinecap="round" />
       </Svg>
     );
   }
