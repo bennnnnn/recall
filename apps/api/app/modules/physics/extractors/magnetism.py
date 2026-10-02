@@ -5,9 +5,7 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.extractors.angles import (
-    _stated_angle,
-)
+from app.modules.physics.extractors.angles import _stated_angle
 from app.modules.physics.extractors.circuit_patterns import _AMP_PATTERN, _COULOMB_PATTERN
 from app.modules.physics.extractors.common import (
     _ELEMENTARY_CHARGE,

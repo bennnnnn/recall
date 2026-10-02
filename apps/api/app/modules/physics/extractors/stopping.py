@@ -5,10 +5,7 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.extractors.common import (
-    _NUMBER,
-    _VELOCITY_UNIT_PATTERN,
-)
+from app.modules.physics.extractors.common import _NUMBER, _VELOCITY_UNIT_PATTERN
 from app.modules.physics.extractors.suvat import _SUVAT_TIME_UNITS
 from app.services.unit_text import TIME_UNITS
 

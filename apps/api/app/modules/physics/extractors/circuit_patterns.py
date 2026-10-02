@@ -4,9 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _ordered_values,
-)
+from app.modules.physics.extractors.common import _ordered_values
 
 _CIRCUIT_CUES = (
     "ohm",

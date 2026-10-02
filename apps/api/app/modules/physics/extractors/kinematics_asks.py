@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import (
-    _NUMBER,
-    _detect_gravity,
-)
+from app.modules.physics.extractors.common import _NUMBER, _detect_gravity
 
 _H0_KEYWORDS = (
     "from",

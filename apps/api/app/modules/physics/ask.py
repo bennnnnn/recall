@@ -299,7 +299,7 @@ def asked_dimensions(text: str) -> tuple[str, ...]:
 
 def result_reading(unit: str) -> tuple[str, float, float] | None:
     """(dimension, scale, offset) of a solver's result unit; None when unreadable."""
-    from app.modules.physics.solvers.common import _UNIT_ALIASES
+    from app.modules.physics.solvers.unit_aliases import _UNIT_ALIASES
 
     spelled = unit.strip()
     if not spelled or spelled == "%":

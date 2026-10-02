@@ -6,9 +6,7 @@ import re
 from typing import Literal
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.extractors.angles import (
-    _INCLINE_ANGLE_RE,
-)
+from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
 from app.modules.physics.extractors.common import (
     _detect_gravity,
     _find_value_with_specific_unit,

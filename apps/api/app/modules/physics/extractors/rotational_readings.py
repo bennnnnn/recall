@@ -5,10 +5,7 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.extractors.common import (
-    _NUMBER,
-    _find_value_with_specific_unit,
-)
+from app.modules.physics.extractors.common import _NUMBER, _find_value_with_specific_unit
 
 _INERTIA_PATTERN = r"kg\s*m\^?2|kg\s*\*\s*m\^?2|kilogram\s+met(?:er|re)\s+squared"
 _OMEGA_UNIT = r"rad(?:ians?)?\s*/\s*s(?:ec(?:ond)?s?)?(?!\s*(?:\^?\s*2|squared))"
