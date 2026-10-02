@@ -42,7 +42,14 @@ from app.modules.physics.binding_words import (
 )
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.catalog.spec import FormulaSpec, VariableSpec
-from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
+from app.modules.physics.givens import (
+    ANGLE,
+    FRACTION_OF_C,
+    Given,
+    scan_givens,
+    unit_dimension,
+    unit_expression,
+)
 
 _DIMENSIONLESS = "dimensionless"
 _ANGULAR = "angular "
@@ -50,8 +57,6 @@ _ANGULAR = "angular "
 _RANGE_LINK = re.compile(r"\s*(?:to|-|\u2013|and|or)\s*", re.IGNORECASE)
 # Only a conjunction between two values: they share the words before the first.
 _LIST_LINK = re.compile(r"\s*(?:,|and|,\s*and)\s*", re.IGNORECASE)
-# A speed written as a fraction of c, the c on the number: "0.8c".
-_FRACTION_OF_C = re.compile(r"\dc(?![a-z0-9])")
 # A school question states a handful of values; a paste full of numbers is
 # not one law's inputs, and reading it all would cost every chat turn.
 _MAX_GIVENS = 16
@@ -84,7 +89,7 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
         return None
     lower = text.lower()
     # "0.8c" is a speed of light: the phrase relativity's cues are written as.
-    cue_text = f"{lower} speed of light" if _FRACTION_OF_C.search(lower) else lower
+    cue_text = f"{lower} speed of light" if FRACTION_OF_C.search(lower) else lower
     asked_clause = clause.lower()
     named = [
         (spec, strength)
