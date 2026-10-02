@@ -477,13 +477,24 @@ def test_rate_law_can_change_the_second_reactant() -> None:
     assert shifted.given[0] == "experiment 1: [A] = 3, [B] = 2, rate = 8"
 
 
+def test_half_equivalence_uses_charge_balance_when_ka_is_not_small() -> None:
+    result = _solve(
+        "Weak acid strong base titration: Ma=0.01, Va=1 L, Mb=0.01, Vb=0.5 L, Ka=0.1, find pH"
+    )
+    assert _first_number(result.answer) == pytest.approx(2.504, abs=0.001)
+    assert any("charge balance" in line or "C − [H+]" in line for line in result.substitution)
+
+
 def test_titration_regions_scale_with_the_amounts() -> None:
     """A 1e-5 mol titration used to be judged by an absolute 1e-6 mol tolerance."""
     half = _solve(
         "Weak acid strong base titration: Ma=0.001, Va=0.010 L, Mb=0.001, Vb=0.005 L, "
         "Ka=1.8e-5, find pH"
     )
-    assert _first_number(half.answer) == pytest.approx(-math.log10(1.8e-5), abs=1e-3)
+    # Ka is about 5% of this buffer, so half-equivalence is the charge-balance root, not pKa.
+    assert isinstance(half.scene, TitrationScene)
+    assert half.scene.region == "half-equivalence"
+    assert _first_number(half.answer) == pytest.approx(4.787, abs=0.001)
     near = _solve(
         "Weak acid strong base titration: Ma=0.001, Va=0.010 L, Mb=0.001, Vb=0.00905 L, "
         "Ka=1.8e-5, find pH"

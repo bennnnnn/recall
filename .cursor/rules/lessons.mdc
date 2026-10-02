@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Half-equivalence always verified pH = pKa.** That holds only while Ka is under 5% of the buffer concentration. A Ka of 0.1 at 0.00333 mol/L is pH 2.50, not 1. Solve the charge-balance root in that case.
+
 - **A rate law with `[B]` held verified as order 0 in B.** Two points only measure the reactant that changed. If both concentrations are supplied and one is constant, refuse instead of writing `rate = k[A]`.
 
 - **`H + Cl -> HCl` verified ΔH° as −92.3 kJ/mol.** The monatomic fallback treated every one-atom formula with no phase as a metal, so H, O, N, F, Cl, Br, and I got ΔH°f = 0. Those elements are standard as molecules. Return false for the free atom; H₂ + Cl₂ stays −184.6.
