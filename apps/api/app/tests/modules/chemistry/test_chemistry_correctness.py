@@ -905,6 +905,21 @@ def test_named_reactions_refuse_an_ambiguous_product(
     assert named_product(reaction, smiles) == product
 
 
+def test_molarity_and_molality_refuse_a_negative_amount() -> None:
+    with pytest.raises(SolveServiceError):
+        _solve("Find the molarity of -2 mol in 1 L")
+    with pytest.raises(SolveServiceError):
+        _solve("Find the molality of -2 mol in 1 kg")
+
+
+def test_standard_addition_refuses_a_spiked_signal_below_the_sample() -> None:
+    with pytest.raises(SolveServiceError):
+        _solve(
+            "Standard addition: sample signal=5, spiked signal=2, "
+            "standard concentration=1, standard volume=1, sample volume=1"
+        )
+
+
 def test_esterification_needs_an_alcohol_partner_not_an_acid() -> None:
     assert named_product("esterification", "CC(=O)O", "CCO") == "CCOC(C)=O"
     assert named_product("esterification", "CC(=O)O", "OC(=O)C") is None
