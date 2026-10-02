@@ -111,7 +111,7 @@ async def test_fetch_returns_the_adapter_decline_flag() -> None:
             return_value=SubjectAugmentation("physics", "Physics note: declined", None, True)
         ),
     ):
-        _web, block, _sources, verified, declined = await fetch_web_and_tools(
+        _web, block, _sources, verified, declined, unverified_subject = await fetch_web_and_tools(
             "binding energy of He-4, mass = 4.002603 u",
             settings,
             prompt_messages=[{"role": "user", "content": "q"}],
@@ -119,3 +119,4 @@ async def test_fetch_returns_the_adapter_decline_flag() -> None:
     assert block == "Physics note: declined"
     assert verified is None
     assert declined is True
+    assert unverified_subject == "physics"
