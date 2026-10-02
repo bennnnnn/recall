@@ -48,9 +48,9 @@ describe("Icon", () => {
     const large = await render(<Icon name="check" size={24} testID="b" />);
     const stroke = (tree: unknown) =>
       (tree as { children: { props: { strokeWidth: number } }[] }).children[0].props.strokeWidth;
-    // 2pt on screen: 2 * 24 / size in the 24-unit drawing.
-    expect(stroke(small.toJSON())).toBeCloseTo(2.4);
-    expect(stroke(large.toJSON())).toBeCloseTo(2);
+    // 1.5pt on screen: 1.5 * 24 / size in the 24-unit drawing.
+    expect(stroke(small.toJSON())).toBeCloseTo(1.8);
+    expect(stroke(large.toJSON())).toBeCloseTo(1.5);
   });
 
   it("renders the app-only glyphs", async () => {

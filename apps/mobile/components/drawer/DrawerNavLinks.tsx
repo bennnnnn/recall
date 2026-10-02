@@ -62,7 +62,7 @@ export function DrawerNavLinks({
       />
       <ListRow
         appearance="plain"
-        icon="images"
+        icon="image"
         title={t("drawer.gallery")}
         onPress={() => {
           tap();

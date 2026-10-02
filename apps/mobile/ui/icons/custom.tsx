@@ -43,8 +43,8 @@ function knockout(shape: ReactNode, mark: ReactNode, { color, maskId }: CustomGl
 export const CUSTOM_GLYPHS = {
   menu: ({ color, strokeWidth }) => (
     <>
-      <Path d="M3.5 8.5h17" stroke={color} strokeWidth={strokeWidth * 1.1} />
-      <Path d="M3.5 15.5h10.5" stroke={color} strokeWidth={strokeWidth * 1.1} />
+      <Path d="M3.5 8.5h17" stroke={color} strokeWidth={strokeWidth} />
+      <Path d="M3.5 15.5h10.5" stroke={color} strokeWidth={strokeWidth} />
     </>
   ),
   "check-circle-filled": (props) =>
