@@ -29,6 +29,7 @@ type Props = {
   yaw: number;
   pitch: number;
   width: number;
+  height?: number;
 };
 
 function linePath(x1: number, y1: number, x2: number, y2: number) {
@@ -38,9 +39,16 @@ function linePath(x1: number, y1: number, x2: number, y2: number) {
   return path;
 }
 
-export function SkiaMoleculeCanvas({ geom, style, theme, yaw, pitch, width }: Props) {
+export function SkiaMoleculeCanvas({
+  geom,
+  style,
+  theme,
+  yaw,
+  pitch,
+  width,
+  height = MOLECULE_PREVIEW_HEIGHT,
+}: Props) {
   const { t } = useTranslation();
-  const height = MOLECULE_PREVIEW_HEIGHT;
   const font = useFont(require("../../../assets/fonts/SpaceMono-Regular.ttf"), 12);
   const laidOut = useMemo(
     () => layoutMolecule(geom, yaw, pitch, width, height, style),
