@@ -36,9 +36,15 @@ class VariableSpec:
     # Words before the value that make it negative: "decelerates at 2 m/s²".
     negating: tuple[str, ...] = ()
     # Where an unstated value comes from: "gravity" (9.81, or the named body's),
-    # "body_mass" (the mass of the planet or star the question names) or
-    # "particle_charge" (the electron, proton or alpha particle it names).
+    # "body_mass" or "body_radius" (of the planet or star the question names),
+    # "particle_charge" or "particle_mass" (of the particle it names),
+    # "water_specific_heat" or "water_density" (when water is the only
+    # substance named), or "sea_level_pressure".
     fallback: str | None = None
+    # The value must be named by one of ``words``, before or after it, even
+    # when it is the only input of its kind: an object's density is not the
+    # fluid's, and a tube's diameter is not its radius.
+    needs_words: bool = False
 
     def __post_init__(self) -> None:
         if self.dimensionless == (self.dimension is not None):
@@ -98,6 +104,11 @@ class Binding:
     result_words: tuple[str, ...] = ()
     # A negative result is not an answer (a time, a height, a power).
     nonnegative: bool = False
+    # A result above this is not an answer: a floating fraction above 1 sinks.
+    at_most: float | None = None
+    # The unit the answer is printed in when it is not the SI spelling of
+    # ``result[0]``: an activity in Bq, not 1/s.
+    shown_unit: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -133,6 +144,7 @@ def var(
     implied: tuple[tuple[str, float], ...] = (),
     negating: tuple[str, ...] = (),
     fallback: str | None = None,
+    needs_words: bool = False,
 ) -> VariableSpec:
     return VariableSpec(
         name=name,
@@ -144,6 +156,7 @@ def var(
         implied=implied,
         negating=negating,
         fallback=fallback,
+        needs_words=needs_words,
     )
 
 

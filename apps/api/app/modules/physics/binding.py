@@ -30,6 +30,7 @@ from functools import lru_cache
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.ask import ask_clause, asked_dimensions, asked_unit
+from app.modules.physics.binding_values import fallback_value, largest_first, si_unit, value_end
 from app.modules.physics.binding_words import (
     ask_strength,
     choose,
@@ -39,16 +40,18 @@ from app.modules.physics.binding_words import (
     words_after,
     words_before,
 )
-from app.modules.physics.bodies import named_body, named_particle_charge
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.catalog.spec import FormulaSpec, VariableSpec
-from app.modules.physics.display import si_symbol
-from app.modules.physics.extractors.common import _detect_gravity
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
 
 _DIMENSIONLESS = "dimensionless"
+_ANGULAR = "angular "
 # "from 0 to 27 m/s": a bare number shares the unit of the value it runs to.
 _RANGE_LINK = re.compile(r"\s*(?:to|-|\u2013|and|or)\s*", re.IGNORECASE)
+# Only a conjunction between two values: they share the words before the first.
+_LIST_LINK = re.compile(r"\s*(?:,|and|,\s*and)\s*", re.IGNORECASE)
+# A speed written as a fraction of c, the c on the number: "0.8c".
+_FRACTION_OF_C = re.compile(r"\dc(?![a-z0-9])")
 # A school question states a handful of values; a paste full of numbers is
 # not one law's inputs, and reading it all would cost every chat turn.
 _MAX_GIVENS = 16
@@ -80,6 +83,8 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     if clause is None or _SECOND_REQUEST.search(text):
         return None
     lower = text.lower()
+    # "0.8c" is a speed of light: the phrase relativity's cues are written as.
+    cue_text = f"{lower} speed of light" if _FRACTION_OF_C.search(lower) else lower
     asked_clause = clause.lower()
     named = [
         (spec, strength)
@@ -87,10 +92,10 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
         if spec.binding is not None
         and (
             not spec.binding.cues
-            or any(word_pattern(cue).search(lower) for cue in spec.binding.cues)
+            or any(word_pattern(cue).search(cue_text) for cue in spec.binding.cues)
         )
         and not any(word_pattern(word).search(lower) for word in spec.binding.excludes)
-        and (strength := ask_strength(asked_clause, spec.binding.asks))
+        and (strength := ask_strength(asked_clause, spec.binding.asks, spec.binding.result))
     ]
     if not named:
         return None
@@ -98,12 +103,14 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     if len(givens) > _MAX_GIVENS:
         return None
     asked = set(asked_dimensions(text))
+    asked_from = lower.rfind(asked_clause)
     unit = asked_unit(text)
     asked_in = _dimension(unit_expression(unit) or "") if unit else None
     fits = [
         fit
         for spec, strength in named
-        if (fit := _fit(spec, strength, text, lower, givens, asked, asked_in)) is not None
+        if (fit := _fit(spec, strength, text, lower, givens, asked, asked_in, asked_from))
+        is not None
     ]
     if not fits:
         return None
@@ -163,17 +170,38 @@ def _variable_kind(variable: VariableSpec) -> str | None:
         return ANGLE
     if variable.dimensionless:
         return _DIMENSIONLESS
-    return _dimension(variable.dimension or "")
+    kind = _dimension(variable.dimension or "")
+    return _ANGULAR + kind if kind and _angular(variable.dimension or "") else kind
 
 
-def _given_kind(given: Given) -> str | None:
+def _given_dimension(given: Given) -> str | None:
     if given.dimension is not None:
         return given.dimension
     return _DIMENSIONLESS if not given.unit else None
 
 
+def _given_kind(given: Given) -> str | None:
+    """The input kind a value can fill: its dimension, with angular rates apart.
+
+    A frequency in Hz and an angular velocity in rad/s share a dimension, but
+    50 Hz is not 50 rad/s: each fills only its own kind of input.
+    """
+    dimension = _given_dimension(given)
+    if dimension is not None and _angular(unit_expression(given.unit) or ""):
+        return _ANGULAR + dimension
+    return dimension
+
+
+def _angular(expression: str) -> bool:
+    return expression.startswith(("radian /", "revolution /"))
+
+
 def _other_sense(
-    lower: str, asks: tuple[str, ...], givens: list[Given], produced: set[str | None]
+    lower: str,
+    asks: tuple[str, ...],
+    givens: list[Given],
+    produced: set[str | None],
+    asked_from: int,
 ) -> bool:
     """The asked word labels a value of another kind: "my weight is 70 kg".
 
@@ -181,33 +209,18 @@ def _other_sense(
     sense (a force) would answer something it did not ask.
     """
     for given in givens:
-        kind = _given_kind(given)
+        kind = _given_dimension(given)
         if kind is None or kind in produced:
             continue
         before = lower[max(0, given.start - 40) : given.start]
+        # In the asked clause "of" is belonging, not a value: "find the
+        # internal energy of 2 mol of gas" asks for the energy of the gas.
+        links = r"(?:=|is|:|was)?" if given.start >= asked_from else r"(?:of|=|is|:|was)?"
         for phrase in asks:
-            label = re.search(rf"{re.escape(phrase)}\s*(?:of|=|is|:|was)?\s*$", before)
+            label = re.search(rf"{re.escape(phrase)}\s*{links}\s*$", before)
             if label is not None:
                 return True
     return False
-
-
-def _fallback(variable: VariableSpec, text: str, lower: str) -> float | None:
-    """A setting an unstated input takes: g, the named planet's mass, an electron's charge."""
-    if variable.fallback == "gravity":
-        return _detect_gravity(text)
-    if variable.fallback == "body_mass":
-        body = named_body(lower)
-        return None if body is None else body[0]
-    if variable.fallback == "particle_charge":
-        return named_particle_charge(lower)
-    return None
-
-
-def _si_unit(variable: VariableSpec) -> str:
-    if variable.name.startswith("angle"):
-        return "deg"
-    return si_symbol(variable.dimension) if variable.dimension else ""
 
 
 def _fit(
@@ -218,6 +231,7 @@ def _fit(
     givens: list[Given],
     asked: set[str],
     asked_in: str | None,
+    asked_from: int,
 ) -> _Fit | None:
     binding = spec.binding
     if binding is None:
@@ -225,7 +239,7 @@ def _fit(
     produced = {_dimension(unit) for unit in binding.result}
     if (asked and not asked <= produced) or (asked_in is not None and asked_in not in produced):
         return None
-    if _other_sense(lower, binding.asks, givens, produced):
+    if _other_sense(lower, binding.asks, givens, produced, asked_from):
         return None
     variables = [variable for variable in spec.variables if variable.visible]
     params: dict[str, float] = {}
@@ -237,9 +251,10 @@ def _fit(
         implied = implied_value(variable, lower)
         if implied is not None:
             params[variable.name] = implied
-            units[variable.name] = _si_unit(variable)
+            units[variable.name] = si_unit(variable)
     listed = word_pattern("respectively").search(lower) is not None
     previous = 0
+    earlier = ""
     for index, given in enumerate(givens):
         kind = _given_kind(given)
         options = [
@@ -250,44 +265,29 @@ def _fit(
         if not options:
             return None
         before = words_before(lower, previous, given.start)
+        # "at 100 kPa and 300 K": the words before a list name every value in it.
+        if _LIST_LINK.fullmatch(before):
+            before = earlier
+        earlier = before
         following = givens[index + 1].start if index + 1 < len(givens) else len(lower)
         after = words_after(lower, given.end, following)
-        choice = choose(options, before, after, binding, kind in produced, listed=listed)
+        choice = choose(
+            options, before, after, binding, _given_dimension(given) in produced, listed=listed
+        )
         if choice is None:
             return None
         negative = last_said(before, choice.negating) >= 0
         params[choice.name] = -given.value if negative else given.value
         units[choice.name] = given.unit
-        previous = given.end
-    _largest_first(params, units, binding.descending)
+        previous = value_end(lower, given)
+    largest_first(params, units, binding.descending)
     for variable in variables:
         if variable.name in params:
             continue
-        value = _fallback(variable, text, lower)
+        value = fallback_value(variable, text, lower)
         if value is not None:
             params[variable.name] = value
-            units[variable.name] = _si_unit(variable)
+            units[variable.name] = si_unit(variable)
     if frozenset(params) not in binding.inputs:
         return None
     return _Fit(spec, params, units, strength)
-
-
-def _largest_first(params: dict[str, float], units: dict[str, str], names: tuple[str, ...]) -> None:
-    """Refill a symmetric pair largest first: the heavier Atwood mass is m₁.
-
-    Values are compared in SI and move with their units: 5 kg outweighs 3000 g.
-    """
-    present = [name for name in names if name in params]
-    pairs = sorted(
-        ((params[name], units[name]) for name in present),
-        key=lambda pair: _in_si(*pair),
-        reverse=True,
-    )
-    for name, (value, unit) in zip(present, pairs, strict=True):
-        params[name] = value
-        units[name] = unit
-
-
-def _in_si(value: float, unit: str) -> float:
-    reading = unit_dimension(unit_expression(unit) or "") if unit else None
-    return value if reading is None else value * reading[1] + reading[2]

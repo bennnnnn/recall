@@ -7,6 +7,7 @@ identical.
 
 from __future__ import annotations
 
+from app.modules.physics.catalog.buoyancy import SPECS as BUOYANCY
 from app.modules.physics.catalog.capacitors import SPECS as CAPACITORS
 from app.modules.physics.catalog.circuit import SPECS as CIRCUIT
 from app.modules.physics.catalog.circular import SPECS as CIRCULAR
@@ -15,15 +16,20 @@ from app.modules.physics.catalog.energy import SPECS as ENERGY
 from app.modules.physics.catalog.fluids import SPECS as FLUIDS
 from app.modules.physics.catalog.force import SPECS as FORCE
 from app.modules.physics.catalog.friction import SPECS as FRICTION
+from app.modules.physics.catalog.gas_laws import SPECS as GAS_LAWS
 from app.modules.physics.catalog.gravitation import SPECS as GRAVITATION
+from app.modules.physics.catalog.heat import SPECS as HEAT
 from app.modules.physics.catalog.inductance_ac import SPECS as INDUCTANCE_AC
 from app.modules.physics.catalog.kinematics import SPECS as KINEMATICS
 from app.modules.physics.catalog.magnetism import SPECS as MAGNETISM
 from app.modules.physics.catalog.materials import SPECS as MATERIALS
 from app.modules.physics.catalog.modern import SPECS as MODERN
 from app.modules.physics.catalog.momentum import SPECS as MOMENTUM
+from app.modules.physics.catalog.nuclear import SPECS as NUCLEAR
 from app.modules.physics.catalog.optics import SPECS as OPTICS
 from app.modules.physics.catalog.projectile import SPECS as PROJECTILE
+from app.modules.physics.catalog.quantum import SPECS as QUANTUM
+from app.modules.physics.catalog.relativity import SPECS as RELATIVITY
 from app.modules.physics.catalog.rotation import SPECS as ROTATION
 from app.modules.physics.catalog.spec import (
     FormulaSpec,
@@ -81,12 +87,18 @@ CATALOG: dict[str, FormulaSpec] = _register(
     WAVES,
     OPTICS,
     THERMAL,
+    GAS_LAWS,
+    HEAT,
     GRAVITATION,
     FLUIDS,
+    BUOYANCY,
     MAGNETISM,
     ELECTRIC_FIELD,
     MATERIALS,
     MODERN,
+    NUCLEAR,
+    QUANTUM,
+    RELATIVITY,
 )
 
 

@@ -15,6 +15,7 @@ from app.modules.physics.catalog import CATALOG
 from app.modules.physics.direct import maybe_direct_physics_reply
 from app.modules.physics.display import si_symbol
 from app.modules.physics.givens import unit_dimension
+from app.tests.modules.physics.binding_samples import SAMPLES
 
 _SETTINGS = Settings(math_tools_enabled=True)
 
@@ -137,8 +138,7 @@ def test_a_stated_law_is_read_and_verified(text: str, operation: str, answer: st
         # No horizontal launch: the angle is not stated, so it is not a horizontal throw.
         "A ball is thrown at 15 m/s from a cliff 20 m high. How far does it land?",
         # A height above the surface is not Kepler's r: 400 km gave 79.6 s.
-        "Find the period of a satellite orbiting 400 km above Earth.",
-        "Find the period of a satellite orbiting at an altitude of 400 km around Earth.",
+        # A bare "at 400 km" says neither radius nor height: either misleads.
         "A satellite orbits Earth at 400 km. Find its period.",
         # Jupiter has no school value of g, and Earth's would answer another planet.
         "What is the weight of a 70 kg astronaut on Jupiter?",
@@ -189,60 +189,7 @@ def test_an_asked_phrase_that_labels_a_given_is_not_the_ask() -> None:
 
 
 def _sample(name: str) -> float:
-    return {
-        "u": 10.0,
-        "v": 20.0,
-        "a": 2.0,
-        "t": 3.0,
-        "d": 50.0,
-        "m": 5.0,
-        "g": 9.81,
-        "F": 100.0,
-        "mu": 0.2,
-        "h": 3.0,
-        "h0": 20.0,
-        "v0": 15.0,
-        "angle": 0.0,
-        "m1": 5.0,
-        "m2": 3.0,
-        "M": 5.9722e24,
-        "r": 7.0e6,
-        "weight": 600.0,
-        "inertia": 4.0,
-        "omega": 10.0,
-        "I": 2.0,
-        "L": 0.5,
-        "Q": 0.01,
-        "R": 1000.0,
-        "V": 12.0,
-        "area": 1.0e-6,
-        "c1": 4.0e-6,
-        "c2": 6.0e-6,
-        "capacitance": 1.0e-4,
-        "d_img": 0.6,
-        "d_obj": 0.3,
-        "e_field": 5000.0,
-        "focal": 0.25,
-        "freq": 500.0,
-        "harmonic": 1.0,
-        "line_density": 3.0e5,
-        "mode_factor": 2.0,
-        "n1": 1.0,
-        "n2": 1.5,
-        "order": 1.0,
-        "radius_curvature": 0.4,
-        "resistivity": 1.7e-8,
-        "turns": 500.0,
-        "turns_primary": 100.0,
-        "turns_secondary": 500.0,
-        "v_obs": 10.0,
-        "v_primary": 230.0,
-        "v_sound": 340.0,
-        "v_src": 20.0,
-        "v_supply": 12.0,
-        "v_wave": 150.0,
-        "wavelength": 6.0e-7,
-    }[name]
+    return SAMPLES[name]
 
 
 def _bindings() -> list[tuple[str, frozenset[str]]]:

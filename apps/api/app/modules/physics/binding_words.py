@@ -12,10 +12,14 @@ import re
 from functools import lru_cache
 
 from app.modules.physics.catalog.spec import Binding, VariableSpec
+from app.modules.physics.givens import unit_at, unit_dimension
 
 _SENTENCE_BREAK = re.compile(r"[.;?!](?:\s|$)")
+_CONNECTOR = re.compile(
+    r"[,;:]|\b(?:and|but|while|then|is|are|was|were|it|its|to|from|at|by|into|until)\b"
+)
 # An asked phrase followed by its own value labels a given: "an acceleration of 2".
-_LABELLED = re.compile(r"\s*(?:of|=|is|:|was)?\s*[-+]?\.?\d")
+_LABELLED = re.compile(r"\s*(?:of|=|is|:|was)?\s*[-+]?\.?\d[\d.]*(?:[eE][-+]?\d+)?")
 
 
 @lru_cache(maxsize=1024)
@@ -43,19 +47,45 @@ def words_before(lower: str, start: int, end: int) -> str:
 
 
 def words_after(lower: str, start: int, end: int) -> str:
-    """The words after a value, up to the next value or the end of its sentence."""
+    """The words after a value that still describe it: "100 turns on the primary".
+
+    They end at the sentence, the next value, or the first connector: in
+    "300 K is heated to 450 K", "to" names 450 K, not 300 K.
+    """
     stop = _SENTENCE_BREAK.search(lower, start, end)
-    return lower[start : stop.start() if stop is not None else end]
+    after = lower[start : stop.start() if stop is not None else end]
+    link = _CONNECTOR.search(after)
+    return after[: link.start()] if link is not None else after
 
 
-def ask_strength(clause: str, asks: tuple[str, ...]) -> int:
+def ask_strength(clause: str, asks: tuple[str, ...], result: tuple[str, ...]) -> int:
     """The longest asked phrase this clause names, not counting a given's label."""
     strength = 0
     for phrase in asks:
         for match in word_pattern(phrase).finditer(clause):
-            if not _LABELLED.match(clause, match.end()):
+            label = _LABELLED.match(clause, match.end())
+            if label is None or not _labels(clause, label.end(), result):
                 strength = max(strength, len(phrase))
     return strength
+
+
+def _labels(clause: str, end: int, result: tuple[str, ...]) -> bool:
+    """A value right after the asked phrase is its label when it is of that kind.
+
+    "an acceleration of 2 m/s²" states an acceleration; "the internal energy
+    of 2 mol of gas" asks for an energy of an amount. A bare number labels.
+    """
+    unit = unit_at(clause, end)
+    if unit is None:
+        return True
+    reading = unit_dimension(unit[1])
+    return reading is None or reading[0] in _result_kinds(result)
+
+
+@lru_cache(maxsize=256)
+def _result_kinds(result: tuple[str, ...]) -> frozenset[str]:
+    readings = (unit_dimension(unit) for unit in result)
+    return frozenset(reading[0] for reading in readings if reading is not None)
 
 
 def choose(
@@ -72,8 +102,28 @@ def choose(
     The words just before a value name it ("from 10 m/s"); when none do, the
     words just after it can ("100 turns on the primary"). In a list read
     "respectively", the words before the first value name every value, so
-    only inputs the law fills in stated order can take them.
+    only inputs the law fills in stated order can take them. An input that
+    ``needs_words`` takes a value only when its words name it.
     """
+    choice = _pick(options, before, after, binding, is_result_kind, listed=listed)
+    if choice is not None and choice.needs_words and not _named(choice, before, after):
+        return None
+    return choice
+
+
+def _named(variable: VariableSpec, before: str, after: str) -> bool:
+    return last_said(before, variable.words) >= 0 or first_said(after, variable.words) >= 0
+
+
+def _pick(
+    options: list[VariableSpec],
+    before: str,
+    after: str,
+    binding: Binding,
+    is_result_kind: bool,
+    *,
+    listed: bool,
+) -> VariableSpec | None:
     ordered = all(
         option.name in (*binding.descending, *binding.interchangeable) for option in options
     )

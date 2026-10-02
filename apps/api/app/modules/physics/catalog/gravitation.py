@@ -107,4 +107,32 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # "400 km above Earth": the orbit's radius is the planet's plus that height.
+    formula(
+        "kepler_period_altitude",
+        "gravitation",
+        "Kepler's third law",
+        "T",
+        base_latex=r"T = 2\pi\sqrt{\frac{(R + h)^3}{GM}}",
+        assumptions=("circular orbit around a fixed central mass",),
+        expression="2*pi*sqrt((radius_body + altitude)**3/(G_grav*M))",
+        variables=(
+            var("M", "M", "kilogram", fallback="body_mass"),
+            var(
+                "altitude",
+                "h",
+                "meter",
+                words=("above", "altitude", "height"),
+                needs_words=True,
+            ),
+            var("radius_body", "R", "meter", fallback="body_radius"),
+        ),
+        binding=Binding(
+            asks=("orbital period", "period"),
+            result=("second",),
+            inputs=(frozenset({"M", "altitude", "radius_body"}),),
+            cues=("orbit",),
+            nonnegative=True,
+        ),
+    ),
 )

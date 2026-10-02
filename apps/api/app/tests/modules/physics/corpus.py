@@ -13,24 +13,10 @@ question that must decline because any single answer to it would mislead.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-
-
-@dataclass(frozen=True, slots=True)
-class Case:
-    question: str
-    # (value, unit) per answered quantity, in the solver's order; None = must decline.
-    expected: tuple[tuple[float, str], ...] | None
-    rel: float = 0.01
-
-
-def _q(question: str, *expected: tuple[float, str], rel: float = 0.01) -> Case:
-    return Case(question, expected, rel)
-
-
-def _decline(question: str) -> Case:
-    return Case(question, None)
-
+from app.tests.modules.physics import corpus_thermal_modern
+from app.tests.modules.physics.corpus_case import Case
+from app.tests.modules.physics.corpus_case import decline as _decline
+from app.tests.modules.physics.corpus_case import q as _q
 
 MECHANICS: tuple[Case, ...] = (
     _q(
@@ -427,6 +413,7 @@ MUST_DECLINE: tuple[Case, ...] = (
         "An object is 30 cm from a lens and forms a virtual image 60 cm from the lens. "
         "Find the magnification."
     ),
+    *corpus_thermal_modern.TRAPS,
 )
 
 NOT_PHYSICS: tuple[str, ...] = (
@@ -449,7 +436,8 @@ ANSWERABLE: tuple[Case, ...] = (
     *WAVES_AND_OPTICS,
     *ELECTRICITY,
     *THERMAL_FLUIDS_MODERN,
+    *corpus_thermal_modern.CASES,
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 112
+COVERAGE_FLOOR = 131

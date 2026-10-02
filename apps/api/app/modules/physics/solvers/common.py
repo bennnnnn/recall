@@ -254,11 +254,18 @@ _RESISTOR_KEY_RE = re.compile(r"R[1-9]")
 
 
 # Words that count rather than measure: a dimensionless input written with one.
-_COUNT_UNITS = frozenset({"turns", "turn", "lines"})
+_COUNT_UNITS = frozenset({"turns", "turn", "lines", "nuclei", "atoms", "microstates"})
 
 # Units whose zero is not zero. These must be constructed as a Quantity rather
-# than multiplied, and a *difference* in them is not the same as a value.
+# than multiplied, and a *difference* in them is not the same as a value: a
+# rise of 50 °C is 50 K, not 323.15 K. A `delta_` input is a difference.
 _OFFSET_UNITS = frozenset({"degC", "degF", "celsius", "fahrenheit"})
+_OFFSET_DIFFERENCES = {
+    "degC": "delta_degC",
+    "celsius": "delta_degC",
+    "degF": "delta_degF",
+    "fahrenheit": "delta_degF",
+}
 
 
 def _registry_constant(name: str) -> float:
@@ -281,6 +288,9 @@ _HBAR = _registry_constant("hbar")
 _ELECTRON_MASS = _registry_constant("electron_mass")
 _STEFAN_BOLTZMANN = _registry_constant("stefan_boltzmann_constant")
 _WIEN_B = _registry_constant("wien_wavelength_displacement_law_constant")
+_BOLTZMANN = _registry_constant("boltzmann_constant")
+_RYDBERG = _registry_constant("rydberg_constant")
+_BOHR_RADIUS = _registry_constant("bohr_radius")
 _COULOMB_K = 1.0 / (4.0 * math.pi * _EPSILON_0)
 
 
@@ -301,7 +311,8 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
     from app.services.units import get_unit_registry
 
     ureg = get_unit_registry()
-    alias = _UNIT_ALIASES.get(unit.lower(), unit)
+    # "0.8c" is the speed of light; the lowercased alias table reads c as C.
+    alias = "speed_of_light" if unit == "c" else _UNIT_ALIASES.get(unit.lower(), unit)
     # A spelling Pint cannot read ("lines per mm") is still one the givens
     # scanner names; its unit is the second reading.
     readings = [alias, *([table] if (table := unit_expression(unit)) not in (None, alias) else [])]
@@ -310,7 +321,10 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
             if reading in _OFFSET_UNITS:
                 # Celsius is an offset unit, not a scale factor: `value * ureg(
                 # "degC")` raises OffsetUnitCalculusError rather than converting.
-                quantity = ureg.Quantity(value, reading)
+                difference = (expected_key or "").startswith("delta_")
+                quantity = ureg.Quantity(
+                    value, _OFFSET_DIFFERENCES[reading] if difference else reading
+                )
             else:
                 quantity = value * ureg(reading)
         except Exception as exc:

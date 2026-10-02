@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, bind, formula, var
+
+_GAS = ("gas",)
+# A temperature change is named: "heated by 50 K". A lone "at 20 °C" is a
+# temperature, and reading it as the change would answer another question.
+_RISE = ("by", "rise", "change", "increase", "raised", "heated", "cooled", "difference")
+_DELTA_TEMP = var("delta_temp", r"\Delta T", "kelvin", words=_RISE, needs_words=True)
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -11,12 +17,21 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Specific-heat equation",
         "Q",
         variables=(
-            var("c_heat", "c", "joule / kilogram / kelvin"),
-            var("delta_temp", r"\Delta T", "kelvin"),
+            var("c_heat", "c", "joule / kilogram / kelvin", fallback="water_specific_heat"),
+            _DELTA_TEMP,
             var("m", "m", "kilogram"),
             # "from 20 °C to 80 °C": both readings, so the working shows ΔT.
-            var("temp_initial", "T_1", "kelvin"),
-            var("temp_final", "T_2", "kelvin"),
+            var("temp_initial", "T_1", "kelvin", words=("from", "initially", "starting at")),
+            var("temp_final", "T_2", "kelvin", words=("to", "until", "reaches", "final")),
+        ),
+        binding=Binding(
+            asks=("heat energy", "thermal energy", "energy", "heat"),
+            result=("joule",),
+            inputs=(
+                frozenset({"c_heat", "delta_temp", "m"}),
+                frozenset({"c_heat", "m", "temp_initial", "temp_final"}),
+            ),
+            excludes=("melt", "boil", "freez", "evaporat", "condens", "latent"),
         ),
     ),
     formula(
@@ -30,6 +45,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("temp", "T", "kelvin"),
             var("volume", "V", "meter ** 3"),
         ),
+        binding=bind(("pressure",), "pascal", "moles", "temp", "volume", cues=_GAS),
     ),
     formula(
         "ideal_gas_volume",
@@ -42,6 +58,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("pres", "P", "pascal"),
             var("temp", "T", "kelvin"),
         ),
+        binding=bind(("volume",), "meter ** 3", "moles", "pres", "temp", cues=_GAS),
     ),
     formula(
         "ideal_gas_amount",
@@ -53,6 +70,14 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("pres", "P", "pascal"),
             var("temp", "T", "kelvin"),
             var("volume", "V", "meter ** 3"),
+        ),
+        binding=bind(
+            ("number of moles", "amount of gas", "amount of substance", "moles", "amount"),
+            "mole",
+            "pres",
+            "temp",
+            "volume",
+            cues=_GAS,
         ),
     ),
     formula(
@@ -66,6 +91,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("pres", "P", "pascal"),
             var("volume", "V", "meter ** 3"),
         ),
+        binding=bind(("temperature",), "kelvin", "moles", "pres", "volume", cues=_GAS),
     ),
     formula(
         "monatomic_energy",
@@ -163,7 +189,18 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("L0", "L_0", "meter"),
             var("alpha", r"\alpha", "1 / kelvin"),
-            var("delta_temp", r"\Delta T", "kelvin"),
+            _DELTA_TEMP,
+        ),
+        binding=Binding(
+            asks=(
+                "change in length",
+                "increase in length",
+                "expansion",
+                "extension",
+                "how much longer",
+            ),
+            result=("meter",),
+            inputs=(frozenset({"L0", "alpha", "delta_temp"}),),
         ),
     ),
     formula(
@@ -175,6 +212,13 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("latent_heat", "L", "joule / kilogram"),
             var("m", "m", "kilogram"),
+        ),
+        binding=bind(
+            ("heat energy", "energy", "heat"),
+            "joule",
+            "latent_heat",
+            "m",
+            cues=("melt", "boil", "freez", "evaporat", "vapori", "condens", "latent", "solidif"),
         ),
     ),
     formula(

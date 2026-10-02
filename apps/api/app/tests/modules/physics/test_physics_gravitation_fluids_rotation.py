@@ -261,8 +261,6 @@ REFUSED = [
     "what is the moment of inertia of a 5 kg flywheel of radius 2 m",
     # A floating body displaces its weight, a submerged one its volume.
     "what is the upthrust on a 0.002 m^3 object floating in water",
-    # Absolute pressure is this plus an atmosphere.
-    "what is the absolute pressure at 3 m depth in water",
     # An unnamed liquid has no density to use.
     "what is the pressure at 3 m depth in a liquid",
 ]

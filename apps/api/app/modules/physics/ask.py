@@ -304,11 +304,16 @@ def result_reading(unit: str) -> tuple[str, float, float] | None:
     spelled = unit.strip()
     if not spelled or spelled == "%":
         return _DIMENSIONLESS, 1.0, 0.0
-    alias = _UNIT_ALIASES.get(spelled.lower(), spelled).replace("·", "*").replace("^", "**")
+    # "0.85 c" is the speed of light; the lowercased alias table reads c as C.
+    alias = "speed_of_light" if spelled == "c" else _UNIT_ALIASES.get(spelled.lower(), spelled)
+    alias = alias.replace("·", "*").replace("^", "**")
     if alias in {"deg", "°"}:
         alias = "degree"
     if alias in {"D", "dioptre", "diopter", "dioptres", "diopters"}:
         alias = "1 / meter"
+    if alias in {"Bq", "becquerel"}:
+        # Pint counts decays; an activity is a rate, per second.
+        alias = "1 / second"
     return unit_dimension("radian" if alias == "rad" else alias)
 
 

@@ -275,11 +275,10 @@ _DIGIT_FREE_PHYSICS_RE = re.compile(
 
 # Recognized as physics, then left unverified. Closed school templates that
 # now have a solver stay off this list, including Kirchhoff, Gauss, Faraday,
-# inductors, RL, AC, and Poiseuille.
+# inductors, RL, AC, Poiseuille, the quantum oscillator's levels and the
+# Rydberg formula.
 _UNVERIFIED_PHYSICS_PHRASES: tuple[str, ...] = (
     "schrödinger equation",
-    "quantum harmonic oscillator",
-    "rydberg",
     "planck distribution",
     "binding energy",
     "mass defect",

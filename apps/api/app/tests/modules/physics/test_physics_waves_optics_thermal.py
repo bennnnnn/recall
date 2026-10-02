@@ -267,8 +267,6 @@ REFUSED = [
     "what is the critical angle for a medium of refractive index 0.8",
     # Thermal: an absolute temperature with no scale could be either.
     "what is the pressure of 2 moles of ideal gas at 300 degrees in 0.05 m^3",
-    # Celsius is not absolute, and PV = nRT needs one.
-    "what is the pressure of 2 moles of ideal gas at 27 °C in 0.05 m^3",
     # No named substance and no stated capacity: c would be a guess.
     "how much heat to raise 2 kg of iron by 20 K",
     # Two temperatures is Carnot, a different formula.

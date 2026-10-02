@@ -48,11 +48,15 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
         raise SolveServiceError(f"{spec.id} answer is not finite")
     if spec.binding.nonnegative and value < 0:
         raise SolveServiceError(f"{spec.id} gives a negative {symbol} for these givens")
+    if spec.binding.at_most is not None and value > spec.binding.at_most:
+        raise SolveServiceError(f"{spec.id} gives {symbol} above {spec.binding.at_most:g}")
     symbols = {variable.name: variable.symbol for variable in spec.variables}
     formula = f"{symbol} = {to_latex(expression, symbols)}"
     substitution = f"{symbol} = {to_latex(expression, symbols, params)}"
     result_unit = spec.binding.result[0]
-    unit = "" if result_unit == "dimensionless" else si_symbol(result_unit)
+    unit = spec.binding.shown_unit or (
+        "" if result_unit == "dimensionless" else si_symbol(result_unit)
+    )
     shown = _in_the_givens_unit(spec, intent, result_unit, value)
     return solved(
         QuantityResult("", *(shown or (value, unit))),
@@ -69,26 +73,28 @@ def _in_the_givens_unit(
 
     A textbook answers two capacitances in µF in µF, and a radius in cm with a
     focal length in cm. Givens of the result's kind in different units, or
-    none, leave the answer in SI.
+    none, leave the answer in SI. Temperatures in °C give a temperature in
+    °C, and a change of temperature stays a change: a rise of 10 K is a rise of 10 °C.
     """
     target = unit_dimension(result_unit)
     if target is None:
         return None
     units = intent.physics_units or {}
     alike = {
-        units[variable.name]
+        variable.name: units[variable.name]
         for variable in spec.variables
         if variable.dimension is not None
         and variable.name in units
         and (kind := unit_dimension(variable.dimension)) is not None
         and kind[0] == target[0]
     }
-    if len(alike) != 1:
+    if len(set(alike.values())) != 1:
         return None
-    unit = alike.pop()
+    unit = next(iter(alike.values()))
     expression = unit_expression(unit)
     reading = unit_dimension(expression) if expression else None
-    # An offset unit (°C) converts a value, not a difference: leave it in SI.
-    if reading is None or reading[0] != target[0] or reading[2] != 0.0:
+    if reading is None or reading[0] != target[0]:
         return None
-    return value / reading[1], unit
+    difference = any(name.startswith("delta_") for name in alike)
+    offset = 0.0 if difference else reading[2]
+    return (value - offset) / reading[1], unit
