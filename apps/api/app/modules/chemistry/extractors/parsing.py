@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF002, RUF003 -- users type × and a true minus sign.
+# ruff: noqa: RUF003 -- users type × and a true minus sign.
 """Shared text helpers for the extended chemistry extractors."""
 
 from __future__ import annotations
@@ -12,35 +12,10 @@ from app.modules.chemistry.quantity import to_atm, to_kelvin, to_liters
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 from app.modules.chemistry.species import counts_in_mass_action
 
-_N = r"-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?"
-
-_SUPERSCRIPT_DIGITS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻⁺", "0123456789-+")
-_TIMES = r"(?:×|x|\*|·|⋅|\\times|\\cdot)"
-# "1.8 × 10^-5", "1.8x10^{-5}", "1.8·10⁻⁵". A caret, a star pair or a superscript is
-# required: "3 x 10" alone is multiplication, not an exponent.
-_MANTISSA_TIMES_POWER = re.compile(
-    rf"(?<![\w.])(?P<mantissa>-?(?:\d+(?:\.\d+)?|\.\d+))\s*{_TIMES}\s*10\s*"
-    r"(?:(?:\^|\*\*)\s*\{?\s*(?P<sign>[-−+]?)\s*(?P<exp>\d+)\s*\}?"
-    r"|(?P<sup>[⁻⁺]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+))"
-)
-_BARE_POWER_OF_TEN = re.compile(
-    r"(?<![\w.^])10\s*(?:\^|\*\*)\s*\{?\s*(?P<sign>[-−+]?)\s*(?P<exp>\d+)\s*\}?(?![\w.])"
-)
-
-
-def _power_text(match: re.Match[str]) -> str:
-    if match.groupdict().get("sup"):
-        return match.group("sup").translate(_SUPERSCRIPT_DIGITS)
-    sign = match.group("sign").replace("−", "-")
-    return f"{'' if sign == '+' else sign}{match.group('exp')}"
-
-
-def normalize_scientific_notation(text: str) -> str:
-    """Rewrite ``1.8 × 10^-5`` as ``1.8e-5`` so ``_N`` cannot read only the mantissa."""
-    text = _MANTISSA_TIMES_POWER.sub(
-        lambda match: f"{match.group('mantissa')}e{_power_text(match)}", text
-    )
-    return _BARE_POWER_OF_TEN.sub(lambda match: f"1e{_power_text(match)}", text)
+# A number starts where its digit run starts. Without the lookbehind, a search retries
+# from every digit of a long run and backtracks the rest of it each time (575 ms for
+# 3,800 digits); a match that starts mid-run is only ever a suffix of the real one.
+_N = r"-?(?<![\d.])(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?"
 
 
 TIME_UNIT_PATTERN = r"(?:seconds?|minutes?|hours?|days?|years?|sec|min|hr|yr|h|d|s)"

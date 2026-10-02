@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import logging
 import re
+from functools import lru_cache
 
 from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
 from app.modules.chemistry.equations import balance_equation
@@ -19,13 +20,13 @@ from app.modules.chemistry.extractors.parsing import (
     TIME_UNITS,
     _search,
     _target,
-    normalize_scientific_notation,
     rate_constant,
     seconds_per,
     temperature_kelvin,
     timed,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.services.number_text import read_scientific_numbers
 
 _MAX_TEXT_LENGTH = 4000
 logger = logging.getLogger(__name__)
@@ -574,13 +575,24 @@ EXTRACTORS = (
 )
 
 
+# Detection, turn prep and the direct reply each ask about the same line, so one turn
+# extracts once. Callers get their own copy, so none can change what the next one reads.
+_CACHE_SIZE = 128
+
+
 def extract_chemistry_intent(text: str) -> ChemistryIntent | None:
     """Return the first complete supported calculation, otherwise ``None``."""
+    intent = _extract_chemistry_intent(text)
+    return None if intent is None else intent.model_copy(deep=True)
+
+
+@lru_cache(maxsize=_CACHE_SIZE)
+def _extract_chemistry_intent(text: str) -> ChemistryIntent | None:
     if not text.strip() or len(text) > _MAX_TEXT_LENGTH:
         return None
     if _UNSUPPORTED_UNIT.search(text):
         return None
-    text = normalize_scientific_notation(text)
+    text = read_scientific_numbers(text)
     for extractor in EXTRACTORS:
         try:
             intent = extractor(text)
