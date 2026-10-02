@@ -370,22 +370,27 @@ def test_format_number_rounds_before_it_chooses_a_form(value: float, text: str) 
 
 
 @pytest.mark.parametrize(
-    ("formula", "mass"),
+    ("formula", "mass", "substitution", "atom_count"),
     [
-        ("C1CCCCC1", 84.16),
-        ("C1CC1", 42.08),
-        ("OC1CCCCC1", 100.16),
-        ("C6H12O6", 180.16),
-        ("CO2", 44.01),
-        ("CO", 28.01),
-        ("CCO", 46.07),
-        ("N2", 28.01),
+        ("C1CCCCC1", 84.16, "M = 6(12.011) + 12(1.008)", 18),
+        ("C1CC1", 42.08, "M = 3(12.011) + 6(1.008)", 9),
+        ("OC1CCCCC1", 100.16, "M = 1(15.999) + 6(12.011) + 12(1.008)", 19),
+        ("C6H12O6", 180.16, "M = 6(12.011) + 12(1.008) + 6(15.999)", 24),
+        ("CO2", 44.01, "M = 1(12.011) + 2(15.999)", 3),
+        ("CO", 28.01, "M = 1(12.011) + 1(15.999)", 2),
+        ("CCO", 46.07, "M = 2(12.011) + 1(15.999) + 6(1.008)", 9),
+        ("N2", 28.01, "M = 2(14.007)", 2),
     ],
 )
 def test_molar_mass_keeps_hydrogens_of_ring_smiles_and_formulas_apart(
-    formula: str, mass: float
+    formula: str, mass: float, substitution: str, atom_count: int
 ) -> None:
     assert molar_mass(formula) == pytest.approx(mass, abs=0.01)
+    weighed = _solve(f"molar mass of {formula}")
+    assert weighed.answer == f"M({formula}) = {mass:.2f} g/mol"
+    assert weighed.substitution == (substitution,)
+    counted = _solve(f"how many atoms in 1 mol of {formula}")
+    assert counted.substitution == (f"N = (1)(6.0221 × 10^23)({atom_count})",)
 
 
 def test_limiting_reagent_keeps_micromole_yields() -> None:
