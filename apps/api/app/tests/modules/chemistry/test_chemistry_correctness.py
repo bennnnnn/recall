@@ -493,6 +493,17 @@ def test_weak_titration_past_equivalence_keeps_water() -> None:
     assert any("water's ions included" in line for line in past.substitution)
 
 
+def test_a_missing_ice_reactant_is_declined() -> None:
+    with pytest.raises(SolveServiceError, match="I2"):
+        _solve("Solve the ICE equilibrium for H2 + I2 -> 2HI when K=50 and [H2]=1")
+
+
+def test_an_omitted_ice_product_stays_zero() -> None:
+    result = _solve("Solve the ICE equilibrium for N2O4 <=> 2NO2 when K=0.2 and [N2O4]=0.5")
+    assert "x = 0.1351" in result.answer
+    assert "[NO2] = 0.2702 mol/L" in result.answer
+
+
 def test_a_very_weak_acid_is_declined_instead_of_reporting_pH_7() -> None:
     with pytest.raises(SolveServiceError):
         _solve("Find the weak acid pH of 0.01 M HA when Ka=1e-12")
