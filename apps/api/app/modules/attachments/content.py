@@ -31,9 +31,11 @@ PDF_EXTRACT_MAX_PAGES = 25
 PDF_INDEX_MAX_PAGES = 500
 VISION_REHYDRATE_LIMIT = 2
 
+_IMAGE_REAL_NOTE = "These images are real. Do not call them placeholders or a failed generation."
 _IMAGE_UNAVAILABLE_NOTE = (
     "The earlier image is not available to look at again. "
-    "Do not guess from a prior description; say you cannot see it."
+    "Do not guess from a prior description; say you cannot see it. "
+    "Do not call it a placeholder or a failed generation."
 )
 _ATTACH_ID_PREFIX = "/attachments/"
 _ATTACH_ID_SUFFIX = "/file"
@@ -802,6 +804,8 @@ async def inject_vision_content(
 
     if not any(part.get("type") == "image_url" for part in parts):
         return False
+
+    parts[0]["text"] = f"{parts[0]['text']}\n\n{_IMAGE_REAL_NOTE}"
 
     for idx in range(len(prompt_messages) - 1, -1, -1):
         if prompt_messages[idx].get("role") == "user":
