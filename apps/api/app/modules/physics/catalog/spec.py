@@ -147,6 +147,24 @@ def var(
     )
 
 
+def bind(
+    asks: tuple[str, ...],
+    result: str,
+    *inputs: str,
+    cues: tuple[str, ...] = (),
+    excludes: tuple[str, ...] = (),
+) -> Binding:
+    """A binding with one input set and a result that is never negative."""
+    return Binding(
+        asks=asks,
+        result=(result,),
+        inputs=(frozenset(inputs),),
+        cues=cues,
+        excludes=excludes,
+        nonnegative=True,
+    )
+
+
 def formula(
     operation: str,
     kind: str,

@@ -7,13 +7,16 @@ identical.
 
 from __future__ import annotations
 
+from app.modules.physics.catalog.capacitors import SPECS as CAPACITORS
 from app.modules.physics.catalog.circuit import SPECS as CIRCUIT
 from app.modules.physics.catalog.circular import SPECS as CIRCULAR
+from app.modules.physics.catalog.electric_field import SPECS as ELECTRIC_FIELD
 from app.modules.physics.catalog.energy import SPECS as ENERGY
 from app.modules.physics.catalog.fluids import SPECS as FLUIDS
 from app.modules.physics.catalog.force import SPECS as FORCE
 from app.modules.physics.catalog.friction import SPECS as FRICTION
 from app.modules.physics.catalog.gravitation import SPECS as GRAVITATION
+from app.modules.physics.catalog.inductance_ac import SPECS as INDUCTANCE_AC
 from app.modules.physics.catalog.kinematics import SPECS as KINEMATICS
 from app.modules.physics.catalog.magnetism import SPECS as MAGNETISM
 from app.modules.physics.catalog.materials import SPECS as MATERIALS
@@ -73,12 +76,15 @@ CATALOG: dict[str, FormulaSpec] = _register(
     TORQUE,
     ROTATION,
     CIRCUIT,
+    CAPACITORS,
+    INDUCTANCE_AC,
     WAVES,
     OPTICS,
     THERMAL,
     GRAVITATION,
     FLUIDS,
     MAGNETISM,
+    ELECTRIC_FIELD,
     MATERIALS,
     MODERN,
 )

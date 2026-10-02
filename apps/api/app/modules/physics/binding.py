@@ -30,9 +30,18 @@ from functools import lru_cache
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.ask import ask_clause, asked_dimensions, asked_unit
+from app.modules.physics.binding_words import (
+    ask_strength,
+    choose,
+    implied_value,
+    last_said,
+    word_pattern,
+    words_after,
+    words_before,
+)
 from app.modules.physics.bodies import named_body, named_particle_charge
 from app.modules.physics.catalog import CATALOG
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, VariableSpec
+from app.modules.physics.catalog.spec import FormulaSpec, VariableSpec
 from app.modules.physics.display import si_symbol
 from app.modules.physics.extractors.common import _detect_gravity
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
@@ -40,9 +49,6 @@ from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension
 _DIMENSIONLESS = "dimensionless"
 # "from 0 to 27 m/s": a bare number shares the unit of the value it runs to.
 _RANGE_LINK = re.compile(r"\s*(?:to|-|\u2013|and|or)\s*", re.IGNORECASE)
-_SENTENCE_BREAK = re.compile(r"[.;?!](?:\s|$)")
-# An asked phrase followed by its own value labels a given: "an acceleration of 2".
-_LABELLED = re.compile(r"\s*(?:of|=|is|:|was)?\s*[-+]?\.?\d")
 # A school question states a handful of values; a paste full of numbers is
 # not one law's inputs, and reading it all would cost every chat turn.
 _MAX_GIVENS = 16
@@ -79,9 +85,12 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
         (spec, strength)
         for spec in _bindable()
         if spec.binding is not None
-        and (not spec.binding.cues or any(_phrase(cue).search(lower) for cue in spec.binding.cues))
-        and not any(_phrase(word).search(lower) for word in spec.binding.excludes)
-        and (strength := _ask_strength(asked_clause, spec.binding.asks))
+        and (
+            not spec.binding.cues
+            or any(word_pattern(cue).search(lower) for cue in spec.binding.cues)
+        )
+        and not any(word_pattern(word).search(lower) for word in spec.binding.excludes)
+        and (strength := ask_strength(asked_clause, spec.binding.asks))
     ]
     if not named:
         return None
@@ -163,34 +172,6 @@ def _given_kind(given: Given) -> str | None:
     return _DIMENSIONLESS if not given.unit else None
 
 
-@lru_cache(maxsize=1024)
-def _phrase(phrase: str) -> re.Pattern[str]:
-    # A leading word boundary only: "climb" names "climbs", "accelerat" both forms.
-    return re.compile(rf"(?<![\w]){re.escape(phrase)}")
-
-
-def _last_said(window: str, words: tuple[str, ...]) -> int:
-    """Where the last of these words ends in the window; -1 when none is there."""
-    ends = [match.end() for word in words for match in _phrase(word).finditer(window)]
-    return max(ends, default=-1)
-
-
-def _ask_strength(clause: str, asks: tuple[str, ...]) -> int:
-    """The longest asked phrase this clause names, not counting a given's label."""
-    strength = 0
-    for phrase in asks:
-        for match in _phrase(phrase).finditer(clause):
-            if not _LABELLED.match(clause, match.end()):
-                strength = max(strength, len(phrase))
-    return strength
-
-
-def _after(lower: str, start: int, end: int) -> str:
-    """The words after a value, up to the next value or the end of its sentence."""
-    stop = _SENTENCE_BREAK.search(lower, start, end)
-    return lower[start : stop.start() if stop is not None else end]
-
-
 def _other_sense(
     lower: str, asks: tuple[str, ...], givens: list[Given], produced: set[str | None]
 ) -> bool:
@@ -209,60 +190,6 @@ def _other_sense(
             if label is not None:
                 return True
     return False
-
-
-def _window(lower: str, start: int, end: int) -> str:
-    """The words before a value, back to the previous value or sentence."""
-    breaks = [match.end() for match in _SENTENCE_BREAK.finditer(lower, start, end)]
-    return lower[max([start, *breaks]) : end]
-
-
-def _first_said(window: str, words: tuple[str, ...]) -> int:
-    """Where the first of these words starts in the window; -1 when none is there."""
-    starts = [match.start() for word in words for match in _phrase(word).finditer(window)]
-    return min(starts, default=-1)
-
-
-def _choose(
-    options: list[VariableSpec],
-    before: str,
-    after: str,
-    binding: Binding,
-    is_result_kind: bool,
-) -> VariableSpec | None:
-    """The input this value fills, or None when the words do not say.
-
-    The words just before a value name it ("from 10 m/s"); when none do, the
-    words just after it can ("100 turns on the primary").
-    """
-    said = [(_last_said(before, option.words), option) for option in options]
-    latest = max(position for position, _ in said)
-    if is_result_kind and _last_said(before, binding.result_words) > latest:
-        # "reaches 18 m/s" while the final speed is asked: that is the answer.
-        return None
-    if latest >= 0:
-        named = [option for position, option in said if position == latest]
-        return named[0] if len(named) == 1 else None
-    if len(options) > 1:
-        later = [(_first_said(after, option.words), option) for option in options]
-        found = [(position, option) for position, option in later if position >= 0]
-        if found:
-            nearest = min(position for position, _ in found)
-            named = [option for position, option in found if position == nearest]
-            return named[0] if len(named) == 1 else None
-    if len(options) == 1:
-        return options[0]
-    if all(option.name in (*binding.descending, *binding.interchangeable) for option in options):
-        return options[0]
-    return None
-
-
-def _implied(variable: VariableSpec, lower: str) -> float | None:
-    """A value the words state without a number: "from rest", "horizontally"."""
-    for phrase, value in variable.implied:
-        if _phrase(phrase).search(lower):
-            return value
-    return None
 
 
 def _fallback(variable: VariableSpec, text: str, lower: str) -> float | None:
@@ -307,7 +234,7 @@ def _fit(
     # so its one stated speed is the final one. Hidden classifier inputs are
     # words too: "string" sets the mode factor of a resonance.
     for variable in spec.variables:
-        implied = _implied(variable, lower)
+        implied = implied_value(variable, lower)
         if implied is not None:
             params[variable.name] = implied
             units[variable.name] = _si_unit(variable)
@@ -321,13 +248,13 @@ def _fit(
         ]
         if not options:
             return None
-        before = _window(lower, previous, given.start)
+        before = words_before(lower, previous, given.start)
         following = givens[index + 1].start if index + 1 < len(givens) else len(lower)
-        after = _after(lower, given.end, following)
-        choice = _choose(options, before, after, binding, kind in produced)
+        after = words_after(lower, given.end, following)
+        choice = choose(options, before, after, binding, kind in produced)
         if choice is None:
             return None
-        negative = _last_said(before, choice.negating) >= 0
+        negative = last_said(before, choice.negating) >= 0
         params[choice.name] = -given.value if negative else given.value
         units[choice.name] = given.unit
         previous = given.end
