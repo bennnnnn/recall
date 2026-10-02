@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.models.schemas.math import MathImageExtract
 from app.modules.math import image_extract as mie
 from app.modules.math.tools import needs_symbolic_math
+from app.services.subject_scan import SCAN_CONFIRMED_PREFIX
 
 
 def _ts_exported_string(source: str, name: str) -> str:
@@ -30,34 +31,13 @@ def test_math_camera_prompt_matches_mobile_constant():
     ts_path = Path(__file__).resolve().parents[5] / "mobile" / "lib" / "math" / "cameraPrompt.ts"
     source = ts_path.read_text(encoding="utf-8")
     assert mie.MATH_CAMERA_PROMPT == _ts_exported_string(source, "MATH_CAMERA_PROMPT")
-    assert mie.MATH_CAMERA_CONFIRMED_PREFIX == _ts_exported_string(
-        source, "MATH_CAMERA_CONFIRMED_PREFIX"
-    )
 
 
 def test_is_math_camera_prompt():
     assert mie.is_math_camera_prompt(mie.MATH_CAMERA_PROMPT)
     assert mie.is_math_camera_prompt(mie.MATH_CAMERA_PROMPT.upper())
-    assert mie.is_math_camera_prompt(
-        f"{mie.MATH_CAMERA_PROMPT}\n\n{mie.MATH_CAMERA_CONFIRMED_PREFIX} 2x+7=15"
-    )
+    assert mie.is_math_camera_prompt(f"{mie.MATH_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} 2x+7=15")
     assert not mie.is_math_camera_prompt("What's in this image?")
-
-
-def test_confirmed_math_reading():
-    assert mie.confirmed_math_reading(mie.MATH_CAMERA_PROMPT) is None
-    assert (
-        mie.confirmed_math_reading(
-            f"{mie.MATH_CAMERA_PROMPT}\n\n{mie.MATH_CAMERA_CONFIRMED_PREFIX} 2*x+7 = 15"
-        )
-        == "2*x+7 = 15"
-    )
-    assert (
-        mie.confirmed_math_reading(
-            f"{mie.MATH_CAMERA_PROMPT}\n\n{mie.MATH_CAMERA_CONFIRMED_PREFIX} 2x=1\n\n[Image: x]"
-        )
-        == "2x=1"
-    )
 
 
 def test_camera_math_display_text():

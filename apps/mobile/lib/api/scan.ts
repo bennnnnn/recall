@@ -2,10 +2,11 @@ import { readAsStringAsync } from "expo-file-system/legacy";
 
 import { request } from "@/lib/api/client";
 import { getSessionGeneration, requireTokenSession, SessionChangedError } from "@/lib/auth";
+import type { ReadBackSubject } from "@/lib/scanner/readBack";
 
 /** What the scanner read, for the student to confirm or edit before solving. */
-export type MathScanReading = {
-  /** Plain editable math ("2x + 3 = 7"); empty when nothing was legible. */
+export type ScanReading = {
+  /** Plain editable text ("2x + 3 = 7"); empty when nothing was legible. */
   reading: string;
   /** Hard to read: the review asks the student to check it closely. */
   uncertain: boolean;
@@ -15,20 +16,22 @@ export type MathScanReading = {
 const SCAN_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 /**
- * OCR a cropped scan without solving it. The file is base64-encoded natively
- * (a JS-thread encode of a full photo froze the scanner once before).
+ * Read a cropped scan back without solving it, through the subject's own
+ * reader. The file is base64-encoded natively (a JS-thread encode of a full
+ * photo froze the scanner once before).
  */
-export async function readMathScan(
+export async function readScan(
   token: string,
+  subject: ReadBackSubject,
   scan: { localUri: string; contentType: string },
   signal?: AbortSignal,
-): Promise<MathScanReading> {
+): Promise<ScanReading> {
   requireTokenSession(token);
   const generation = getSessionGeneration();
   const imageBase64 = await readAsStringAsync(scan.localUri, { encoding: "base64" });
   if (generation !== getSessionGeneration()) throw new SessionChangedError();
-  return request<MathScanReading>(
-    "/math/scan/read",
+  return request<ScanReading>(
+    `/${subject}/scan/read`,
     token,
     {
       method: "POST",
@@ -43,6 +46,6 @@ export async function readMathScan(
   );
 }
 
-export const mathApi = {
-  readMathScan,
+export const scanApi = {
+  readScan,
 };

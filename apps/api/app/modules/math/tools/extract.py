@@ -159,9 +159,9 @@ def extract_math_intent(text: str) -> MathIntent | None:
     # The scanner caption is English plus a confirmed line. Solving the whole
     # caption leaves "I read this as" unconsumed, so a bare equation never
     # verifies. The line after the prefix is the problem.
-    from app.modules.math.image_extract import confirmed_math_reading
+    from app.services.subject_scan import confirmed_scan_reading
 
-    reading = confirmed_math_reading(normalized)
+    reading = confirmed_scan_reading(normalized)
     if reading and reading.strip() != normalized.strip():
         intent = _extract_math_intent(reading)
         if intent is not None and request_consumption_complete(reading, intent):

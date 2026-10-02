@@ -6,10 +6,8 @@ import {
   isImageOnlyAssistantContent,
   subjectFromImageGenUserMessage,
 } from "@/features/images/model/imageGenIntent";
-import {
-  MATH_CAMERA_PROMPT,
-  composerTextAfterMathScanConfirm,
-} from "@/lib/math/cameraPrompt";
+import { MATH_CAMERA_PROMPT } from "@/lib/math/cameraPrompt";
+import { composerTextAfterScanConfirm } from "@/lib/scanner/readBack";
 import {
   BIOLOGY_CAMERA_PROMPT,
   PHYSICS_CAMERA_PROMPT,
@@ -61,7 +59,10 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt(MATH_CAMERA_PROMPT)).toBeNull();
     expect(extractImageGenPrompt(PHYSICS_CAMERA_PROMPT)).toBeNull();
     expect(extractImageGenPrompt(BIOLOGY_CAMERA_PROMPT)).toBeNull();
-    expect(extractImageGenPrompt(composerTextAfterMathScanConfirm("x=2"))).toBeNull();
+    expect(extractImageGenPrompt(composerTextAfterScanConfirm("x=2", "math"))).toBeNull();
+    expect(
+      extractImageGenPrompt(composerTextAfterScanConfirm("A ball is dropped from 20 m.", "physics")),
+    ).toBeNull();
   });
 
   it("returns null for create-a-todo style app actions", () => {

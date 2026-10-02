@@ -16,9 +16,9 @@ import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { StreamingDraftProvider } from "@/contexts/StreamingDraftContext";
 import { useTranslation } from "react-i18next";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
-import type { MathScanReading, Message } from "@/lib/api";
-import type { MathScanReadFailure } from "@/lib/math/scanReadError";
+import type { Message, ScanReading } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
+import type { ReadBackSubject } from "@/lib/scanner/readBack";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
 import type { IconName } from "@/ui/icons/names";
@@ -115,12 +115,12 @@ export interface ChatScreenSheetsProps {
     subject: ScannerSubject,
     confirmedReading?: string,
   ) => void;
-  onReadMathScan: (
+  onReadScan: (
     scan: PendingAttachment,
+    subject: ReadBackSubject,
     signal: AbortSignal,
-  ) => Promise<MathScanReading | MathScanReadFailure | null>;
-  onReadChemistryScan: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
-  onMathScanSolve: (reading: string) => void;
+  ) => Promise<ScanReading | { error: string } | null>;
+  onMathScanSolve: (reading: string, subject: ScannerSubject) => void;
   upgradeVisible: boolean;
   onCloseUpgrade: () => void;
 }
@@ -308,8 +308,7 @@ const ChatOverlays = memo(function ChatOverlays({
         visible={sheets.mathScannerOpen}
         onClose={sheets.onCloseMathScanner}
         onCaptured={sheets.onMathScanCaptured}
-        onReadScan={sheets.onReadMathScan}
-        onReadChemistryScan={sheets.onReadChemistryScan}
+        onReadScan={sheets.onReadScan}
         onSolveReading={sheets.onMathScanSolve}
       />
 

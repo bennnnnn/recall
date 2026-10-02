@@ -10,15 +10,11 @@ import type { AttachmentSource } from "@/features/attachments/components/Attachm
 import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
-import type { MathScanReading, Message } from "@/lib/api";
+import type { Message, ScanReading } from "@/lib/api";
 import {
   chemistryScanFailureDetail,
   chemistryScanFailureMessageKey,
 } from "@/lib/chemistry/scanReadError";
-import {
-  chemistryScanSolveMessage,
-  composerTextAfterChemistryScanConfirm,
-} from "@/lib/chemistry/scanSolve";
 import { mathScanFailureDetail, type MathScanReadFailure } from "@/lib/math/scanReadError";
 import { clearPendingChatTtft } from "@/lib/chat/latency";
 import { notifyWarning, tap } from "@/lib/haptics";
@@ -57,9 +53,10 @@ import {
   type PendingAttachment,
 } from "@/features/attachments/model/attachments";
 import {
-  composerTextAfterMathScanConfirm,
-  mathScanSolveMessage,
-} from "@/lib/math/cameraPrompt";
+  composerTextAfterScanConfirm,
+  type ReadBackSubject,
+  scanSolveMessage,
+} from "@/lib/scanner/readBack";
 import {
   composerTextAfterSubjectScan,
   type ScannerSubject,
@@ -691,55 +688,40 @@ export function useChatSend({
     setPendingAttachment(pending);
     // A checked reading rides with the photo so the API solves what the
     // student confirmed instead of reading the photo again.
-    const confirmed =
-      subject === "math"
-        ? composerTextAfterMathScanConfirm
-        : subject === "chemistry"
-          ? composerTextAfterChemistryScanConfirm
-          : null;
-    const text = confirmed && confirmedReading
-      ? withComposerDraft(confirmed(confirmedReading), inputRef.current)
+    const text = confirmedReading
+      ? withComposerDraft(composerTextAfterScanConfirm(confirmedReading, subject), inputRef.current)
       : composerTextAfterSubjectScan(inputRef.current, subject);
     setInput(text);
     setMathScannerOpen(false);
     void handleSend(text);
   }, [handleSend, setInput, setPendingAttachment, inputRef]);
 
-  const readMathScan = useCallback(
+  const readScan = useCallback(
     async (
       scan: PendingAttachment,
+      subject: ReadBackSubject,
       signal: AbortSignal,
-    ): Promise<MathScanReading | MathScanReadFailure | null> => {
+    ): Promise<ScanReading | MathScanReadFailure | null> => {
       if (!token) return null;
       try {
         // Loaded on use: the API barrel pulls in native file-system modules
         // this hook otherwise never touches.
         const { api } = await import("@/lib/api");
-        return await api.readMathScan(token, scan, signal);
+        return await api.readScan(token, subject, scan, signal);
       } catch (error) {
-        // A rate limit or an oversized photo names itself. Anything else,
-        // including a dropped connection, stays the generic read failure.
-        const detail = mathScanFailureDetail(error);
-        return detail ? { error: detail } : null;
-      }
-    },
-    [token],
-  );
-
-  const readChemistryScan = useCallback(
-    async (
-      scan: PendingAttachment,
-      signal: AbortSignal,
-    ): Promise<MathScanReading | MathScanReadFailure | null> => {
-      if (!token) return null;
-      try {
-        const { api } = await import("@/lib/api");
-        return await api.readChemistryScan(token, scan, signal);
-      } catch (error) {
-        const detail = chemistryScanFailureDetail(error);
-        if (!detail) return null;
-        const key = chemistryScanFailureMessageKey(detail);
-        return { error: key ? t(key) : detail };
+        // Math names a rate limit and an oversized photo. Chemistry names a
+        // rate limit and a missing reader. Anything else stays generic.
+        if (subject === "chemistry") {
+          const detail = chemistryScanFailureDetail(error);
+          if (!detail) return null;
+          const key = chemistryScanFailureMessageKey(detail);
+          return { error: key ? t(key) : detail };
+        }
+        if (subject === "math") {
+          const detail = mathScanFailureDetail(error);
+          return detail ? { error: detail } : null;
+        }
+        return null;
       }
     },
     [t, token],
@@ -747,8 +729,7 @@ export function useChatSend({
 
   const handleMathScanSolve = useCallback((reading: string, subject: ScannerSubject = "math") => {
     setMathScannerOpen(false);
-    const message =
-      subject === "chemistry" ? chemistryScanSolveMessage(reading) : mathScanSolveMessage(reading);
+    const message = scanSolveMessage(reading, subject);
     if (!message) return;
     const text = withComposerDraft(message, inputRef.current);
     setInput(text);
@@ -771,8 +752,7 @@ export function useChatSend({
     handlePickAttachment,
     handleAttachmentSheetSelect,
     handleMathScanCaptured,
-    readMathScan,
-    readChemistryScan,
+    readScan,
     handleMathScanSolve,
     creatingRef,
     pendingOutboundId,

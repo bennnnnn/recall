@@ -59,13 +59,9 @@ jest.mock("@/features/attachments/model/attachments", () => ({
     needsSettings = false;
   },
 }));
-const mockReadMathScan = jest.fn();
-const mockReadChemistryScan = jest.fn();
+const mockReadScan = jest.fn();
 jest.mock("@/lib/api", () => ({
-  api: {
-    readMathScan: (...args: unknown[]) => mockReadMathScan(...args),
-    readChemistryScan: (...args: unknown[]) => mockReadChemistryScan(...args),
-  },
+  api: { readScan: (...args: unknown[]) => mockReadScan(...args) },
 }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
@@ -778,16 +774,19 @@ describe("useChatSend math scans", () => {
     expect(current.mathScannerOpen).toBe(false);
   });
 
-  it("solves a confirmed chemistry reading as the text alone", async () => {
+  it.each([
+    ["chemistry", "Find the molar mass of H2O"],
+    ["physics", "A ball is dropped from 80 m. Find its speed just before it hits the ground."],
+  ] as const)("solves a confirmed %s reading as the text alone", async (subject, reading) => {
     const sendMessage = jest.fn();
     await act(async () => {
       render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
     });
     await act(async () => {
-      current.handleMathScanSolve("Find the molar mass of H2O", "chemistry");
+      current.handleMathScanSolve(reading, subject);
       await settle();
     });
-    expect(sendMessage).toHaveBeenCalledWith("Find the molar mass of H2O", expect.anything());
+    expect(sendMessage).toHaveBeenCalledWith(reading, expect.anything());
     expect(uploadAttachment).not.toHaveBeenCalled();
   });
 
@@ -821,6 +820,22 @@ describe("useChatSend math scans", () => {
     );
   });
 
+  it("sends a physics photo with its checked reading under the physics line", async () => {
+    uploadAttachment.mockResolvedValue("att-1");
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      current.handleMathScanCaptured(scan, "physics", "A ball is dropped from 20 m.");
+      await settle();
+    });
+    expect(sendMessage).toHaveBeenCalledWith(
+      "Solve the physics problem in this image step by step.\n\nI read this as: A ball is dropped from 20 m.",
+      expect.anything(),
+    );
+  });
+
   it("sends a chemistry photo with the reading the student checked", async () => {
     uploadAttachment.mockResolvedValue("att-1");
     const sendMessage = jest.fn();
@@ -843,52 +858,47 @@ describe("useChatSend math scans", () => {
       render(<Probe chatId="chat-1" />);
     });
     const controller = new AbortController();
-    mockReadMathScan.mockResolvedValueOnce({ reading: "2x = 4", uncertain: false, source: "mathpix" });
-    await expect(current.readMathScan(scan, controller.signal)).resolves.toEqual({
+    mockReadScan.mockResolvedValueOnce({ reading: "2x = 4", uncertain: false, source: "mathpix" });
+    await expect(current.readScan(scan, "math", controller.signal)).resolves.toEqual({
       reading: "2x = 4",
       uncertain: false,
       source: "mathpix",
     });
-    expect(mockReadMathScan).toHaveBeenCalledWith("token", scan, controller.signal);
-    mockReadMathScan.mockRejectedValueOnce(new Error("offline"));
-    await expect(current.readMathScan(scan, controller.signal)).resolves.toBeNull();
-    mockReadMathScan.mockRejectedValueOnce(
+    expect(mockReadScan).toHaveBeenCalledWith("token", "math", scan, controller.signal);
+    await current.readScan(scan, "physics", controller.signal);
+    expect(mockReadScan).toHaveBeenLastCalledWith("token", "physics", scan, controller.signal);
+    mockReadScan.mockRejectedValueOnce(new Error("offline"));
+    await expect(current.readScan(scan, "math", controller.signal)).resolves.toBeNull();
+    mockReadScan.mockRejectedValueOnce(
       new ApiRequestError(429, JSON.stringify({ detail: "Too many scans in a row. Try again in a few minutes." })),
     );
-    await expect(current.readMathScan(scan, controller.signal)).resolves.toEqual({
+    await expect(current.readScan(scan, "math", controller.signal)).resolves.toEqual({
       error: "Too many scans in a row. Try again in a few minutes.",
     });
-    mockReadMathScan.mockRejectedValueOnce(
+    mockReadScan.mockRejectedValueOnce(
       new ApiRequestError(413, JSON.stringify({ detail: "Image too large" })),
     );
-    await expect(current.readMathScan(scan, controller.signal)).resolves.toEqual({
+    await expect(current.readScan(scan, "math", controller.signal)).resolves.toEqual({
       error: "Image too large",
     });
-  });
-
-  it("names a chemistry rate limit and an unavailable reader", async () => {
-    await act(async () => {
-      render(<Probe chatId="chat-1" />);
-    });
-    const controller = new AbortController();
-    mockReadChemistryScan.mockRejectedValueOnce(
+    mockReadScan.mockRejectedValueOnce(
       new ApiRequestError(429, JSON.stringify({ detail: "Too many scans in a row. Try again in a few minutes." })),
     );
-    await expect(current.readChemistryScan(scan, controller.signal)).resolves.toEqual({
+    await expect(current.readScan(scan, "chemistry", controller.signal)).resolves.toEqual({
       error: "chat.chemistry_scan_rate_limit",
     });
-    mockReadChemistryScan.mockRejectedValueOnce(
+    mockReadScan.mockRejectedValueOnce(
       new ApiRequestError(404, JSON.stringify({ detail: "Not available" })),
     );
-    await expect(current.readChemistryScan(scan, controller.signal)).resolves.toEqual({
+    await expect(current.readScan(scan, "chemistry", controller.signal)).resolves.toEqual({
       error: "chat.chemistry_scan_unavailable",
     });
-    mockReadChemistryScan.mockRejectedValueOnce(new Error("offline"));
-    await expect(current.readChemistryScan(scan, controller.signal)).resolves.toBeNull();
-    mockReadChemistryScan.mockRejectedValueOnce(
+    mockReadScan.mockRejectedValueOnce(new Error("offline"));
+    await expect(current.readScan(scan, "chemistry", controller.signal)).resolves.toBeNull();
+    mockReadScan.mockRejectedValueOnce(
       new ApiRequestError(500, JSON.stringify({ detail: "vision failed" })),
     );
-    await expect(current.readChemistryScan(scan, controller.signal)).resolves.toBeNull();
+    await expect(current.readScan(scan, "chemistry", controller.signal)).resolves.toBeNull();
   });
 });
 

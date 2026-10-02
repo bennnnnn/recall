@@ -1,7 +1,7 @@
 import { readAsStringAsync } from "expo-file-system/legacy";
 
 import { request } from "@/lib/api/client";
-import { readMathScan } from "@/lib/api/math";
+import { readScan } from "@/lib/api/scan";
 
 jest.mock("expo-file-system/legacy", () => ({
   readAsStringAsync: jest.fn(async () => "aGVsbG8="),
@@ -15,11 +15,14 @@ jest.mock("@/lib/auth", () => ({
   SessionChangedError: class extends Error {},
 }));
 
-describe("readMathScan", () => {
+describe("readScan", () => {
   beforeEach(() => jest.clearAllMocks());
 
   it("posts the crop natively encoded and returns the reading", async () => {
-    const reading = await readMathScan("tok", { localUri: "file:///crop.jpg", contentType: "image/jpeg" });
+    const reading = await readScan("tok", "math", {
+      localUri: "file:///crop.jpg",
+      contentType: "image/jpeg",
+    });
     expect(readAsStringAsync).toHaveBeenCalledWith("file:///crop.jpg", { encoding: "base64" });
     expect(reading.reading).toBe("2x + 3 = 7");
     const [path, token, init] = jest.mocked(request).mock.calls[0]!;
@@ -31,8 +34,13 @@ describe("readMathScan", () => {
     });
   });
 
+  it.each(["physics", "chemistry"] as const)("reads a %s crop through its own reader", async (subject) => {
+    await readScan("tok", subject, { localUri: "file:///crop.jpg", contentType: "image/jpeg" });
+    expect(jest.mocked(request).mock.calls[0]![0]).toBe(`/${subject}/scan/read`);
+  });
+
   it("labels an unsupported type as JPEG, the scanner's crop format", async () => {
-    await readMathScan("tok", { localUri: "file:///crop.heic", contentType: "image/heic" });
+    await readScan("tok", "math", { localUri: "file:///crop.heic", contentType: "image/heic" });
     const init = jest.mocked(request).mock.calls[0]![2];
     expect(JSON.parse(String(init?.body)).content_type).toBe("image/jpeg");
   });

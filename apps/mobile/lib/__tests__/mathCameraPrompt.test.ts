@@ -1,11 +1,10 @@
 import {
-  MATH_CAMERA_CONFIRMED_PREFIX,
   MATH_CAMERA_PROMPT,
   composerTextAfterMathScan,
-  composerTextAfterMathScanConfirm,
   isMathCameraPrompt,
   mathScanSolveMessage,
 } from "@/lib/math/cameraPrompt";
+import { composerTextAfterScanConfirm } from "@/lib/scanner/readBack";
 
 describe("composerTextAfterMathScan", () => {
   it("uses the scan prompt when the composer is empty", () => {
@@ -23,24 +22,10 @@ describe("isMathCameraPrompt", () => {
   it("matches the protocol caption and confirmed-reading follow-on", () => {
     expect(isMathCameraPrompt(MATH_CAMERA_PROMPT)).toBe(true);
     expect(isMathCameraPrompt(MATH_CAMERA_PROMPT.toUpperCase())).toBe(true);
-    expect(isMathCameraPrompt(composerTextAfterMathScanConfirm("2x + 7 = 15"))).toBe(true);
+    expect(isMathCameraPrompt(composerTextAfterScanConfirm("2x + 7 = 15", "math"))).toBe(true);
     expect(isMathCameraPrompt("What's in this image?")).toBe(false);
   });
 });
-
-describe("composerTextAfterMathScanConfirm", () => {
-  it("keeps the camera prompt when the reading is empty", () => {
-    expect(composerTextAfterMathScanConfirm("")).toBe(MATH_CAMERA_PROMPT);
-    expect(composerTextAfterMathScanConfirm("   ")).toBe(MATH_CAMERA_PROMPT);
-  });
-
-  it("appends the confirmed-reading protocol line", () => {
-    expect(composerTextAfterMathScanConfirm("2x + 7 = 15")).toBe(
-      `${MATH_CAMERA_PROMPT}\n\n${MATH_CAMERA_CONFIRMED_PREFIX} 2x + 7 = 15`,
-    );
-  });
-});
-
 
 describe("mathScanSolveMessage", () => {
   it("asks for steps on the confirmed reading", () => {

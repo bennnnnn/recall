@@ -33,8 +33,8 @@ import {
 import { ScannerSubjectGuide } from "@/components/mathScanner/ScannerSubjectGuide";
 import { useMathScannerCrop } from "@/hooks/useMathScannerCrop";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
-import type { MathScanReading } from "@/lib/api";
-import type { MathScanReadFailure } from "@/lib/math/scanReadError";
+import type { ScanReading } from "@/lib/api";
+import { type ReadBackSubject, readsBack } from "@/lib/scanner/readBack";
 import {
   HeicUnsupportedError,
   NativePickerBusyError,
@@ -74,17 +74,13 @@ type Props = {
     subject: ScannerSubject,
     confirmedReading?: string,
   ) => void;
-  /** Math only: read the crop back before solving. Null means it failed. */
+  /** Read the crop back through the subject's reader. Null means it failed. */
   onReadScan?: (
     scan: PendingAttachment,
+    subject: ReadBackSubject,
     signal: AbortSignal,
-  ) => Promise<MathScanReading | MathScanReadFailure | null>;
-  /** Chemistry: read the written problem as plain text. Null is a generic failure. */
-  onReadChemistryScan?: (
-    scan: PendingAttachment,
-    signal: AbortSignal,
-  ) => Promise<MathScanReading | MathScanReadFailure | null>;
-  /** Solve the confirmed reading as typed text. Chemistry sends that text alone. */
+  ) => Promise<ScanReading | { error: string } | null>;
+  /** Solve the confirmed reading as typed text (math asks for steps). */
   onSolveReading?: (reading: string, subject: ScannerSubject) => void;
 };
 
@@ -97,15 +93,15 @@ const ANDROID_DISMISS_MS = 400;
 /**
  * Keep the crop frame live over the camera so the student aims before capture.
  * Camera shots are cropped immediately from that live region; imported photos
- * still get an adjustable still-image crop. A math crop is then read back
- * ("I read this as") so a misread digit can be fixed before solving.
+ * still get an adjustable still-image crop. A math, physics or chemistry crop
+ * is then read back ("I read this as") so a misread digit can be fixed before
+ * solving.
  */
 export function MathEquationScanner({
   visible,
   onClose,
   onCaptured,
   onReadScan,
-  onReadChemistryScan,
   onSolveReading,
 }: Props) {
   const { t } = useTranslation();
@@ -220,15 +216,14 @@ export function MathEquationScanner({
 
   const handleCroppedShot = useCallback(
     (cropped: PendingAttachment) => {
-      const reader = subject === "chemistry" ? onReadChemistryScan : onReadScan;
-      if ((subject === "math" || subject === "chemistry") && reader && onSolveReading) {
+      if (readsBack(subject) && onReadScan && onSolveReading) {
         stopReading();
         const controller = new AbortController();
         readAbortRef.current = controller;
         setLiveStatus("idle");
         liveReadyRef.current = false;
         setReview({ shot: cropped, state: { status: "reading" } });
-        void reader(cropped, controller.signal)
+        void onReadScan(cropped, subject, controller.signal)
           .catch(() => null)
           .then((result) => {
             if (controller.signal.aborted) return;
@@ -256,7 +251,7 @@ export function MathEquationScanner({
       }
       onCaptured(cropped, subject);
     },
-    [onCaptured, onReadChemistryScan, onReadScan, onSolveReading, stopReading, subject],
+    [onCaptured, onReadScan, onSolveReading, stopReading, subject],
   );
 
   const capture = useCallback(async () => {
@@ -543,11 +538,13 @@ export function MathEquationScanner({
             }}
             onSendPhoto={(reading) => {
               stopReading();
+              // Chemistry solves a photo from the photo; math and physics
+              // carry the checked reading so the API solves that.
               if (subject === "chemistry") {
                 onCaptured(review.shot, "chemistry", reading || undefined);
                 return;
               }
-              onCaptured(review.shot, "math", reading || undefined);
+              onCaptured(review.shot, subject, reading || undefined);
             }}
             onRetake={retakeFromReview}
           />

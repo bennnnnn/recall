@@ -1,4 +1,9 @@
-"""Chemistry HTTP surface: read a scanned problem before it is solved."""
+"""Physics HTTP surface: read a scanned problem back before it is solved.
+
+``POST /physics/scan/read`` returns the problem as plain text for the student
+to confirm or edit. The confirmed text is then sent as an ordinary message,
+so a photographed problem is verified like a typed one.
+"""
 
 from __future__ import annotations
 
@@ -8,26 +13,28 @@ from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.models.orm import User
 from app.models.schemas.scan import ScanReadingOut
-from app.modules.chemistry.read import read_chemistry_problem
+from app.modules.physics.read import read_physics_problem
 from app.services.scan_read import ScanPhoto, read_scan
 
-router = APIRouter(prefix="/chemistry", tags=["chemistry"])
+router = APIRouter(prefix="/physics", tags=["physics"])
 
 
 @router.post("/scan/read", response_model=ScanReadingOut)
-async def read_chemistry_scan(
+async def read_physics_scan(
     request: Request,
     user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
 ) -> ScanReadingOut:
-    if not settings.chemistry_enabled:
+    # Physics is verified only while math tools are on; a reading the chat
+    # cannot verify would only add a step before the same unverified answer.
+    if not settings.math_tools_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
 
     async def read(photo: ScanPhoto) -> str:
-        return await read_chemistry_problem(
+        return await read_physics_problem(
             settings, content_type=photo.content_type, data=photo.data
         )
 
-    reading = await read_scan(request, user=user, settings=settings, subject="chemistry", read=read)
+    reading = await read_scan(request, user=user, settings=settings, subject="physics", read=read)
     text = (reading or "").strip()
     return ScanReadingOut(reading=text, uncertain=not text, source="vision" if text else "none")
