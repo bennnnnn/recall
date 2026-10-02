@@ -172,3 +172,19 @@ def test_a_value_derived_from_givens_still_accounts_for_them() -> None:
 )
 def test_a_body_without_a_school_g_does_not_get_earths(text: str) -> None:
     assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Was 4190 J: "J/g°C" was not read, so water's 4186 J/(kg·K) replaced the stated c.
+        (
+            "How much heat is needed to raise the temperature of 100 g of water by 10 °C? "
+            "c = 4.18 J/g°C",
+            "4180 J",
+        ),
+        ("How much heat is needed to raise 50 g of copper by 30 °C? c = 0.385 J/g°C", "578 J"),
+    ],
+)
+def test_a_specific_heat_per_gram_is_read(text: str, answer: str) -> None:
+    assert _answer(text) == answer

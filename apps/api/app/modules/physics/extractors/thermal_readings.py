@@ -20,9 +20,10 @@ _WATER_SPECIFIC_HEAT = WATER_SPECIFIC_HEAT
 
 # Every way a specific heat capacity is written: J/kg/K, J/(kg·K), J/kg°C,
 # J kg^-1 K^-1, and the same in kJ.
+# Per kilogram or per gram: "4.18 J/g°C" is 4180 J/(kg·K), never water's default.
 _SPECIFIC_HEAT_UNIT = (
-    r"k?J\s*/\s*kg\s*/\s*(?:K|°\s*C)|k?J\s*/\s*\(\s*kg\s*[·*]?\s*(?:K|°?\s*C)\s*\)"
-    r"|k?J\s*/\s*kg\s*[·*]?\s*(?:K|°\s*C)|k?J\s*kg\^?-1\s*(?:K|°\s*C)\^?-1"
+    r"k?J\s*/\s*k?g\s*/\s*(?:K|°\s*C)|k?J\s*/\s*\(\s*k?g\s*[·*]?\s*(?:K|°?\s*C)\s*\)"
+    r"|k?J\s*/\s*k?g\s*[·*]?\s*(?:K|°\s*C)|k?J\s*k?g\^?-1\s*(?:K|°\s*C)\^?-1"
 )
 
 # "from 20 °C to 80 °C": two readings, scale written on both or on the second.
