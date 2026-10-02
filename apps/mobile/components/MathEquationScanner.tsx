@@ -518,6 +518,7 @@ export function MathEquationScanner({
             setError(null);
           }}
           onSolve={() => void confirmPreview()}
+          reviewing={review !== null}
         />
         {review ? (
           <ScanReadingReview

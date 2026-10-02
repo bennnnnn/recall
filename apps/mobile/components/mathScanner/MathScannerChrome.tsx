@@ -39,6 +39,8 @@ type Props = {
   torchOn: boolean;
   subject: ScannerSubject;
   error: string | null;
+  /** The reading review is open, so capture controls must not sit on top of it. */
+  reviewing?: boolean;
   onClose: () => void;
   onSubjectChange: (subject: ScannerSubject) => void;
   onToggleTorch: () => void;
@@ -56,6 +58,7 @@ export function MathScannerChrome({
   torchOn,
   subject,
   error,
+  reviewing = false,
   onClose,
   onSubjectChange,
   onToggleTorch,
@@ -78,21 +81,31 @@ export function MathScannerChrome({
   const bottomPad = Math.max(insets.bottom, Space.md) + Space.sm;
   const errorBottom = bottomPad + SCANNER_SHUTTER_PX + SCANNER_SUBJECT_SWITCHER_PX + Space.xl;
 
+  const closeButton = (
+    <Pressable
+      style={s.topBtn}
+      onPress={onClose}
+      hitSlop={20}
+      testID="math-scanner-close"
+      accessibilityRole="button"
+      accessibilityLabel={t("common.close")}
+    >
+      <Icon name="close" size={IconSize.md} color={theme.onMedia} />
+    </Pressable>
+  );
+
+  if (reviewing) {
+    return (
+      <View style={s.closeLayer} pointerEvents="box-none">
+        <View style={[s.topBar, { paddingTop: insets.top + Space.xs }]}>{closeButton}</View>
+      </View>
+    );
+  }
+
   return (
     <View style={s.root} pointerEvents="box-none">
       {!preview ? (
-        <View style={[s.topBar, { paddingTop: insets.top + Space.xs }]}>
-          <Pressable
-            style={s.topBtn}
-            onPress={onClose}
-            hitSlop={20}
-            testID="math-scanner-close"
-            accessibilityRole="button"
-            accessibilityLabel={t("common.close")}
-          >
-            <Icon name="close" size={IconSize.md} color={theme.onMedia} />
-          </Pressable>
-        </View>
+        <View style={[s.topBar, { paddingTop: insets.top + Space.xs }]}>{closeButton}</View>
       ) : null}
 
       {error ? (
@@ -113,6 +126,7 @@ export function MathScannerChrome({
             disabled={busy}
             accessibilityRole="button"
             accessibilityState={{ disabled: busy }}
+            testID="math-scanner-preview-retake"
             accessibilityLabel={t("chat.math_scan_retake")}
           >
             <Text style={s.previewSecondaryText}>{t("chat.math_scan_retake")}</Text>
@@ -123,6 +137,7 @@ export function MathScannerChrome({
             disabled={busy}
             accessibilityRole="button"
             accessibilityState={{ disabled: busy, busy }}
+            testID="math-scanner-preview-solve"
             accessibilityLabel={t("chat.math_scan_solve")}
           >
             {busy ? (
@@ -198,6 +213,10 @@ function makeStyles(theme: Theme) {
     root: {
       ...StyleSheet.absoluteFill,
       zIndex: 40,
+    },
+    closeLayer: {
+      ...StyleSheet.absoluteFill,
+      zIndex: 60,
     },
     topBar: {
       position: "absolute",
