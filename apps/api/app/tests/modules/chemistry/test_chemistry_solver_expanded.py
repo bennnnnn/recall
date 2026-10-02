@@ -184,6 +184,11 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
         "V(H2O) = 2 L",
     ),
     (
+        "How many grams of H2O from 22.4 L of H2 at 1 atm and 0 C in 2H2 + O2 -> 2H2O",
+        "gas_stoichiometry",
+        "m(H2O) = 18.01 g",
+    ),
+    (
         "Find the limiting reagent from masses 10 g H2 and 10 g O2 in H2 + O2 -> H2O",
         "limiting_mass",
         "Limiting reagent = O2; 11.26 g H2O",
