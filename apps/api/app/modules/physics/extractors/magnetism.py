@@ -6,15 +6,21 @@ import re
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.angles import _stated_angle
-from app.modules.physics.extractors.circuit_patterns import _AMP_PATTERN, _COULOMB_PATTERN
+from app.modules.physics.extractors.circuit_patterns import (
+    _COULOMB_PATTERN,
+)
 from app.modules.physics.extractors.common import (
+    _AMP_PATTERN,
     _ELEMENTARY_CHARGE,
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
+    _TESLA_PATTERN,
     _VELOCITY_UNIT_PATTERN,
     _find_value_with_specific_unit,
-    _has_cue_either_case,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue_either_case,
 )
 from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_field
@@ -29,8 +35,6 @@ _MAGNETISM_CUES = (
     "magnetic radius",
     "charged particle radius",
 )
-
-_TESLA_PATTERN = r"T|tesla|teslas|mT|millitesla"
 
 _MAGNETISM_CUE_RES: tuple[re.Pattern[str], ...] = (
     # A tesla value beside a current or a charge is the signature itself.

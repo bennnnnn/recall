@@ -5,11 +5,11 @@ from __future__ import annotations
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
+    _TESLA_PATTERN,
     _ordered_values,
 )
 from app.modules.physics.extractors.school_common import (
     _SECOND,
-    _TESLA,
     _WEBER,
     _intent,
     _one,
@@ -107,7 +107,7 @@ def extract_faraday(text: str, lower: str) -> PhysicsIntent | None:
             {"turns": "", "delta_flux": flux[1] or "Wb", "dt": seconds[1] or "s"},
         )
     area = _one(text, r"m\^?2|cm\^?2")
-    fields = _ordered_values(text, _TESLA)
+    fields = _ordered_values(text, _TESLA_PATTERN)
     if area is None or len(fields) != 2:
         return None
     return _intent(

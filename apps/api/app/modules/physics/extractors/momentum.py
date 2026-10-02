@@ -8,9 +8,11 @@ from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _MASS_UNITS,
     _VELOCITY_UNIT_PATTERN,
-    _has_cue,
     _ordered_values,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue,
 )
 from app.services.text_match import has_equation
 

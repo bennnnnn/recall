@@ -8,8 +8,10 @@ from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _MASS_UNITS,
     _detect_gravity,
-    _has_cue,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue,
 )
 from app.modules.physics.extractors.fluid_laws import NAMED_FLUID_LAWS
 from app.modules.physics.extractors.fluid_readings import (

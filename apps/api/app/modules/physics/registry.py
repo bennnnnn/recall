@@ -17,7 +17,7 @@ from app.modules.physics.extractors.circular import (
     _CIRCULAR_CUES,
     _extract_circular_intent,
 )
-from app.modules.physics.extractors.common import (
+from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
 from app.modules.physics.extractors.electrostatics import (

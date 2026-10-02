@@ -9,8 +9,10 @@ from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
     _find_value_with_specific_unit,
-    _has_cue,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue,
 )
 from app.modules.physics.extractors.oscillations import _ANGULAR_FREQ_RE
 from app.modules.physics.extractors.rotational_dynamics import (

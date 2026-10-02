@@ -5,15 +5,17 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.extractors.common import _NUMBER
+from app.modules.physics.extractors.common import (
+    _AMP_PATTERN,
+    _NUMBER,
+    _find_value_with_specific_unit,
+    _keyword_spans,
+)
 
-_OHM = r"ohms?|\u03a9"
-_AMP = r"A|amps?|amperes?"
 _HENRY = r"mH|millihenrys?|millihenries|H|henrys?|henries"
 _FARAD = r"mF|uF|µF|nF|pF|F|farads?|microfarads?"
 _HERTZ = r"Hz|hertz|kHz|kilohertz"
 _WEBER = r"Wb|webers?"
-_TESLA = r"T|tesla|teslas|mT|millitesla"
 # A following viscosity unit is not a pressure. ``Pa*s`` must not bind as pascals.
 _PRESSURE = r"Pa(?!\s*[*·]?\s*s)|pascals?|kPa|kilopascals?|MPa|megapascals?"
 _SECOND = r"seconds?|secs?|s"
@@ -44,12 +46,12 @@ def _numbers_before(pattern: str, text: str) -> list[float]:
 
 def _sum_directed(text: str, verb: str, label: str) -> float | None:
     grouped = _numbers_before(
-        rf"((?:{_NUMBER}\s*(?:{_AMP})(?:\s*(?:,|and)\s*)?)+)\s*(?:{verb})",
+        rf"((?:{_NUMBER}\s*(?:{_AMP_PATTERN})(?:\s*(?:,|and)\s*)?)+)\s*(?:{verb})",
         text,
     )
     labeled = _numbers_before(
         rf"\b{label}(?:\s+currents?)?(?:\s+of)?\s+"
-        rf"((?:{_NUMBER}\s*(?:{_AMP})(?:\s*(?:,|and)\s*)?)+)",
+        rf"((?:{_NUMBER}\s*(?:{_AMP_PATTERN})(?:\s*(?:,|and)\s*)?)+)",
         text,
     )
     values = grouped or labeled
@@ -64,18 +66,6 @@ def _henry_unit(raw: str) -> str:
     return "henry"
 
 
-def _keyword_spans(text: str, keywords: tuple[str, ...]) -> list[tuple[int, int]]:
-    """Whole-word hits only. ``in`` must not match the start of ``inductor``."""
-    lower = text.lower()
-    spans: list[tuple[int, int]] = []
-    for keyword in keywords:
-        spans.extend(
-            (found.start(), found.end())
-            for found in re.finditer(rf"\b{re.escape(keyword.lower())}\b", lower)
-        )
-    return spans
-
-
 def _one(
     text: str,
     unit: str,
@@ -83,34 +73,10 @@ def _one(
     *,
     require_keyword: bool = False,
 ) -> tuple[float, str] | None:
-    matches = list(
-        re.finditer(
-            rf"({_NUMBER})\s*({unit})(?![A-Za-z0-9/^])",
-            text,
-            re.IGNORECASE,
-        )
+    """The value in this unit nearest a keyword, matched only as a whole word."""
+    return _find_value_with_specific_unit(
+        text, unit, keywords, require_keyword=require_keyword, whole_words=True
     )
-    if not matches:
-        return None
-    spans = _keyword_spans(text, keywords)
-    if keywords and require_keyword and not spans:
-        return None
-    match = matches[0]
-    if spans:
-
-        def distance(candidate: re.Match[str]) -> int:
-            distances: list[int] = []
-            for start, end in spans:
-                if candidate.end() <= start:
-                    distances.append(start - candidate.end())
-                elif end <= candidate.start():
-                    distances.append(candidate.start() - end)
-                else:
-                    distances.append(0)
-            return min(distances)
-
-        match = min(matches, key=distance)
-    return float(match.group(1)), match.group(2)
 
 
 def _has_word(text: str, words: tuple[str, ...]) -> bool:

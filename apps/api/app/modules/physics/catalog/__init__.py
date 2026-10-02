@@ -1,11 +1,13 @@
 """Canonical registry of verified physics operations.
 
 Law name, base equation, result symbol, and assumptions are read from here.
-``PhysicsIntent.physics_op`` stays the schema mirror; a test keeps the two sets
-identical.
+``PhysicsIntent.physics_op`` is a catalog id, and ``check_intent`` is the one
+place that decides which ids, kinds and parameters exist.
 """
 
 from __future__ import annotations
+
+from collections.abc import Iterable
 
 from app.modules.physics.catalog.buoyancy import SPECS as BUOYANCY
 from app.modules.physics.catalog.capacitors import SPECS as CAPACITORS
@@ -49,6 +51,7 @@ from app.modules.physics.catalog.waves import SPECS as WAVES
 __all__ = [
     "CATALOG",
     "FormulaSpec",
+    "check_intent",
     "formula",
     "formula_spec",
     "matching_variant",
@@ -104,3 +107,24 @@ CATALOG: dict[str, FormulaSpec] = _register(
 
 def formula_spec(operation: str) -> FormulaSpec | None:
     return CATALOG.get(operation)
+
+
+def check_intent(kind: str, operation: str, params: Iterable[str], units: Iterable[str]) -> None:
+    """Refuse a kind, operation, or parameter the formula catalog does not contain.
+
+    The intent schema calls this for every intent it validates; a ValueError
+    here is that intent's validation error.
+    """
+    spec = CATALOG.get(operation)
+    if spec is None or spec.kind != kind:
+        raise ValueError(f"{kind} does not define {operation}")
+    allowed = {variable.name for variable in spec.variables}
+    given = set(params)
+    unknown = given - allowed
+    if unknown:
+        names = ", ".join(sorted(unknown))
+        raise ValueError(f"{operation} does not declare {names}")
+    extra_units = set(units) - given
+    if extra_units:
+        names = ", ".join(sorted(extra_units))
+        raise ValueError(f"{operation} units are not parameters: {names}")
