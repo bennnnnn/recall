@@ -411,6 +411,21 @@ describe("FunctionGraphBlock", () => {
     expect(getByTestId("graph-remove-1")).toBeOnTheScreen();
   });
 
+  it("says when an added expression cannot be plotted", async () => {
+    const content = JSON.stringify({
+      type: "function",
+      expr: "x**2",
+      points: Array.from({ length: 97 }, (_, i) => {
+        const x = -6 + (12 * i) / 96;
+        return [x, x * x];
+      }),
+    });
+    const { getByTestId, getByText } = await render(<FunctionGraphBlock content={content} />);
+    await fireEvent.press(getByTestId("graph-add-function"));
+    await fireEvent.changeText(getByTestId("graph-expr-input-1"), "banana");
+    expect(getByText("rich.graph_invalid")).toBeOnTheScreen();
+  });
+
   it("plots an added inequality such as y < 2x", async () => {
     const content = JSON.stringify({
       type: "function",
