@@ -71,11 +71,13 @@ from app.modules.physics.extractors.motion import (
     _KINEMATICS_CUES,
     _PROJECTILE_CUE_RES,
     _PROJECTILE_CUES,
+    _STOPPING_CUE_RES,
     _SUVAT_CUE_RES,
     _SUVAT_CUES,
     _extract_kinematics_intent,
     _extract_projectile_intent,
     _extract_suvat_intent,
+    extract_stopping_distance,
 )
 from app.modules.physics.extractors.oscillations_waves import (
     _PENDULUM_CUE_RES,
@@ -133,6 +135,9 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], PhysicsIntent | None], ...] = (
     # Before circuit, fluids, thermal, and waves. A partial Kirchhoff, Gauss,
     # Poiseuille, or ideal-gas reading must not fall through to Ohm's law.
     extract_school_extension,
+    # Before the constant-speed rate law. A reaction interval plus a later
+    # brake-to-stop is not d = vt, and the rate extractor only sees two numbers.
+    extract_stopping_distance,
     extract_rate_intent,
     _extract_kinematics_intent,
     # After kinematics, not before: free fall is a constant acceleration too,
@@ -216,6 +221,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
 PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_KINEMATICS_CUE_RES,
     *_SUVAT_CUE_RES,
+    *_STOPPING_CUE_RES,
     *_PROJECTILE_CUE_RES,
     *_FRICTION_CUE_RES,
     *_CIRCULAR_CUE_RES,

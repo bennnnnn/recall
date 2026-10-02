@@ -120,4 +120,30 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("v", "v", "meter / second"),
         ),
     ),
+    formula(
+        "stopping_distance",
+        "kinematics",
+        "Stopping distance",
+        "d",
+        variants=(
+            FormulaVariant(
+                lines=(
+                    r"d_r = v t_r",
+                    r"d_b = \frac{v t_b}{2}",
+                    r"d = d_r + d_b",
+                    r"a = -\frac{v}{t_b}",
+                ),
+                assumptions=(
+                    "Constant speed while reacting",
+                    "Constant deceleration while braking",
+                    "Final speed is zero",
+                ),
+            ),
+        ),
+        variables=(
+            var("t_brake", "t_b", "second"),
+            var("t_react", "t_r", "second"),
+            var("v", "v", "meter / second"),
+        ),
+    ),
 )

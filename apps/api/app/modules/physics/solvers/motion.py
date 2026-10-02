@@ -161,9 +161,64 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
     )
 
 
+def _solve_stopping_distance(intent: PhysicsIntent) -> PhysicsResult:
+    """Reaction distance, braking distance, total, and the braking deceleration.
+
+    The chip is the total distance. The other three results stay on the
+    substitution rows the direct reply prints.
+    """
+    from app.modules.physics.working import display_number
+
+    params = _params_in_si(intent)
+    speed = params.get("v")
+    reaction_time = params.get("t_react")
+    brake_time = params.get("t_brake")
+    if (
+        speed is None
+        or reaction_time is None
+        or brake_time is None
+        or not math.isfinite(speed)
+        or not math.isfinite(reaction_time)
+        or not math.isfinite(brake_time)
+        or speed <= 0
+        or reaction_time < 0
+        or brake_time <= 0
+    ):
+        raise SolveServiceError("stopping distance needs a positive speed and a braking time")
+    reaction = speed * reaction_time
+    braking = speed * brake_time / 2.0
+    total = reaction + braking
+    acceleration = -speed / brake_time
+    if not all(math.isfinite(item) for item in (reaction, braking, total, acceleration)):
+        raise SolveServiceError("stopping distance is not finite")
+    speed_text = display_number(speed)
+    react_text = display_number(reaction_time)
+    brake_text = display_number(brake_time)
+    formulas = (
+        r"d_r = v t_r",
+        r"d_b = \frac{v t_b}{2}",
+        r"d = d_r + d_b",
+        r"a = -\frac{v}{t_b}",
+    )
+    substitutions = (
+        rf"d_r = {speed_text} \cdot {react_text} = {display_number(reaction)}",
+        rf"d_b = \frac{{{speed_text} \cdot {brake_text}}}{{2}} = {display_number(braking)}",
+        rf"d = {display_number(reaction)} + {display_number(braking)} = {display_number(total)}",
+        rf"a = -\frac{{{speed_text}}}{{{brake_text}}} = {display_number(acceleration)}",
+    )
+    return PhysicsResult(
+        answer=rf"d = {display_number(total)}\,\mathrm{{m}}",
+        formulas=formulas,
+        substitutions=substitutions,
+        quantities=(QuantityResult("", total, "m", number_format=".4g"),),
+    )
+
+
 def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     if intent.physics_op in _RATE_OPERATIONS:
         return _solve_distance_speed_time(intent)
+    if intent.physics_op == "stopping_distance":
+        return _solve_stopping_distance(intent)
     p = _params_in_si(intent)
     g = p.get("g", 9.81)
     h0 = p.get("h0", 0.0)

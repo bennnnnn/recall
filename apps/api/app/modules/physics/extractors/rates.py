@@ -16,9 +16,18 @@ _RATE_CUES = (
     "how long does it take",
 )
 
+# A stop is not constant speed. "15 m/s ... to a stop in 3 s, how far" is
+# braking distance, and d = vt would answer 45 m instead of 22.5 m.
+_STOP_OR_BRAKE_RE = re.compile(
+    r"\b(?:to\s+(?:a\s+)?(?:stop|rest|halt)|brak(?:e|es|ing))\b",
+    re.IGNORECASE,
+)
+
 
 def extract_rate_intent(cleaned: str) -> PhysicsIntent | None:
     """Extract exactly two compatible givens and one requested rate quantity."""
+    if _STOP_OR_BRAKE_RE.search(cleaned):
+        return None
     lower = cleaned.lower()
     if not any(word in lower for word in ("speed", "velocity", "distance", "how far", "how long")):
         return None
