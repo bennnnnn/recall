@@ -14,6 +14,9 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("c_heat", "c", "joule / kilogram / kelvin"),
             var("delta_temp", r"\Delta T", "kelvin"),
             var("m", "m", "kilogram"),
+            # "from 20 °C to 80 °C": both readings, so the working shows ΔT.
+            var("temp_initial", "T_1", "kelvin"),
+            var("temp_final", "T_2", "kelvin"),
         ),
     ),
     formula(

@@ -13,6 +13,7 @@ from app.modules.physics.extractors.common import (
     _find_value_with_specific_unit,
     _has_cue,
     _ordered_values,
+    _positioned_values,
     _strip_param_assignments,
 )
 from app.modules.physics.extractors.mechanics import _INCLINE_ANGLE_RE, _MASS_UNITS
@@ -309,6 +310,19 @@ _THERMAL_CUE_RES: tuple[re.Pattern[str], ...] = (
 
 _WATER_SPECIFIC_HEAT = 4186.0
 
+# Every way a specific heat capacity is written: J/kg/K, J/(kg·K), J/kg°C,
+# J kg^-1 K^-1, and the same in kJ.
+_SPECIFIC_HEAT_UNIT = (
+    r"k?J\s*/\s*kg\s*/\s*(?:K|°\s*C)|k?J\s*/\s*\(\s*kg\s*[·*]?\s*(?:K|°?\s*C)\s*\)"
+    r"|k?J\s*/\s*kg\s*[·*]?\s*(?:K|°\s*C)|k?J\s*kg\^?-1\s*(?:K|°\s*C)\^?-1"
+)
+
+# "from 20 °C to 80 °C": two readings, scale written on both or on the second.
+_TEMPERATURE_SPAN = re.compile(
+    rf"\bfrom\s+({_NUMBER})\s*(°\s*C|K)?\s*(?:up\s+|down\s+)?(?:to|until)\s+"
+    rf"({_NUMBER})\s*(°\s*C|K)(?![A-Za-z])",
+)
+
 
 def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
     """A temperature with an explicit scale, or nothing.
@@ -328,6 +342,36 @@ def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, 
     if match is not None:
         return float(match.group(1)), "degC"
     return None
+
+
+def _reservoir_temperatures(
+    cleaned: str,
+) -> tuple[tuple[float, str], tuple[float, str]] | None:
+    """(hot, cold) reservoir readings, each with its scale.
+
+    Labels decide when they are written. "Between 500 K and 300 K" names no
+    reservoir, and the hot one is the hotter: reading each label's nearest
+    value there gave 500 K twice.
+    """
+    readings = sorted(
+        [(start, value, "K") for start, value, _ in _positioned_values(cleaned, _KELVIN_PATTERN)]
+        + [
+            (start, value, "degC")
+            for start, value, _ in _positioned_values(cleaned, r"°\s*C|degrees?\s+celsius")
+        ]
+    )
+    lower = cleaned.lower()
+    if any(word in lower for word in ("hot", "cold", "source", "sink")):
+        hot = _temperature_value(cleaned, ("hot reservoir", "hot", "source"))
+        cold = _temperature_value(cleaned, ("cold reservoir", "cold", "sink"))
+        if hot is None or cold is None or hot == cold or len(readings) != 2:
+            return None
+        return hot, cold
+    if len(readings) != 2:
+        return None
+    first, second = ((value, unit) for _, value, unit in readings)
+    in_kelvin = [value + (273.15 if unit == "degC" else 0.0) for value, unit in (first, second)]
+    return (first, second) if in_kelvin[0] > in_kelvin[1] else (second, first)
 
 
 _ENERGY_UNIT = r"kilojoules?|joules?|kJ|J"
@@ -428,15 +472,15 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
         return None
 
     if "carnot" in lower:
-        hot = _temperature_value(cleaned, ("hot reservoir", "hot", "source"))
-        cold = _temperature_value(cleaned, ("cold reservoir", "cold", "sink"))
-        if hot is None or cold is None or hot[1] != "K" or cold[1] != "K":
+        reservoirs = _reservoir_temperatures(cleaned)
+        if reservoirs is None:
             return None
+        (hot, hot_unit), (cold, cold_unit) = reservoirs
         return PhysicsIntent(
             kind="thermal",
             physics_op="carnot_efficiency",
-            physics_params={"temp": hot[0], "temp_env": cold[0]},
-            physics_units={"temp": "K", "temp_env": "K"},
+            physics_params={"temp": hot, "temp_env": cold},
+            physics_units={"temp": hot_unit, "temp_env": cold_unit},
             operation="solve",
         )
 
@@ -598,8 +642,9 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
 
     # --- Q = m c dT ------------------------------------------------------
     mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
-    rise = _temperature_value(cleaned, ("by", "rise", "raise", "change"))
-    if rise is None:
+    readings = _TEMPERATURE_SPAN.search(cleaned)
+    rise = None if readings else _temperature_value(cleaned, ("by", "rise", "raise", "change"))
+    if rise is None and readings is None:
         # A temperature *difference* is the same number in kelvin and celsius,
         # so a bare "by 10 degrees" is unambiguous here in a way an absolute
         # "at 300 degrees" is not. Only the interval may be loose.
@@ -611,29 +656,44 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
         )
         if bare is not None:
             rise = (float(bare.group(1)), "K")
-    if mass is None or rise is None:
+    if mass is None or (rise is None and readings is None):
         return None
     capacity = _find_value_with_specific_unit(
-        cleaned,
-        r"J/kg/K|J/\(kg\s*(?:K|°?C)\)|J/kgK|J/(?:kg\s*[·*]\s*(?:K|°?C))",
-        ("specific heat", "capacity", "c =", "c is"),
+        cleaned, _SPECIFIC_HEAT_UNIT, ("specific heat", "capacity", "c =", "c is")
     )
     if capacity is not None:
         c_value = capacity[0]
+        c_unit = "kJ/kg/K" if capacity[1].lstrip().lower().startswith("k") else "J/kg/K"
     elif "water" in lower:
-        c_value = _WATER_SPECIFIC_HEAT
+        c_value, c_unit = _WATER_SPECIFIC_HEAT, "J/kg/K"
     else:
         # No capacity and no named substance: the answer would be a guess.
         return None
-    # A temperature *difference* is the same number in kelvin and celsius, so
-    # this one does not need the scale the absolute reading above does.
+    params = {"m": mass[0], "c_heat": c_value}
+    units = {"m": mass[1] or "kg", "c_heat": c_unit}
+    if readings is not None:
+        scale = readings.group(4)
+        first_scale = readings.group(2) or scale
+        params.update(temp_initial=float(readings.group(1)), temp_final=float(readings.group(3)))
+        units.update(
+            temp_initial=_temperature_unit(first_scale), temp_final=_temperature_unit(scale)
+        )
+    elif rise is not None:
+        # A temperature *difference* is the same number in kelvin and celsius,
+        # so this one does not need the scale an absolute reading does.
+        params["delta_temp"] = rise[0]
+        units["delta_temp"] = "K"
     return PhysicsIntent(
         kind="thermal",
         physics_op="heat_energy",
-        physics_params={"m": mass[0], "c_heat": c_value, "delta_temp": rise[0]},
-        physics_units={"m": mass[1] or "kg", "c_heat": "J/kg/K", "delta_temp": "K"},
+        physics_params=params,
+        physics_units=units,
         operation="solve",
     )
+
+
+def _temperature_unit(scale: str) -> str:
+    return "K" if scale.strip().upper() == "K" else "degC"
 
 
 _FLUIDS_CUES = (

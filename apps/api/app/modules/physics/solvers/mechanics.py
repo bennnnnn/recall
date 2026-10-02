@@ -559,15 +559,24 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
         else:
             # J = Delta p. Same quantity, same units — N*s and kg*m/s are equal.
             j_val = p["m"] * (p["v2"] - p["v1"])
-            plugged = rf"{p['m']:g} \cdot ({p['v2']:g} - {p['v1']:g})"
+            plugged = rf"{p['m']:g} \cdot ({_latex_num(p['v2'])} - {_latex_num(p['v1'])})"
             answer = rf"J = m \Delta v = {plugged} \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
-            formula = r"J = m \Delta v"
+            formula = r"J = m(v_2 - v_1)"
             substitution = rf"J = {plugged}"
+        # The size of the impulse, and its direction when it opposes the start.
         return PhysicsResult(
             answer=answer,
             formulas=(formula,),
             substitutions=(substitution,),
-            quantities=(QuantityResult("", j_val, "N*s", number_format=".2f"),),
+            quantities=(
+                QuantityResult(
+                    "",
+                    abs(j_val),
+                    "N*s",
+                    detail="opposite to the initial motion" if j_val < 0 else None,
+                    number_format=".2f",
+                ),
+            ),
         )
 
     if op == "final_velocity":

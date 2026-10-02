@@ -285,6 +285,9 @@ class PhysicsIntent(BaseModel):
     physics_units: dict[str, str] | None = None
     # One launch, with every requested output retained in presentation order.
     requested_ops: list[ProjectileQuantity] = Field(default_factory=list, max_length=4)
+    # Dimensions the question asks for, read independently of the extractor.
+    # Empty when the ask could not be read; then no result is refused for it.
+    asked: tuple[str, ...] = Field(default=(), max_length=4)
 
     @model_validator(mode="after")
     def coherent_requested_ops(self) -> PhysicsIntent:
