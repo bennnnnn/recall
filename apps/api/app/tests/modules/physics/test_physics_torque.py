@@ -183,7 +183,7 @@ def test_moment_of_inertia_is_not_confused_with_torque() -> None:
     assertion is no longer "nobody answers this" - it is "torque does not, and
     whoever does calls it by the right name".
     """
-    from app.modules.physics.extract import _extract_torque_intent
+    from app.modules.physics.extractors.torque import _extract_torque_intent
 
     text = "what is the moment of inertia of a 5 kg disc of radius 2 m"
     assert _extract_torque_intent(text) is None

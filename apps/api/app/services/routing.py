@@ -65,7 +65,7 @@ _SMART_TRIGGERS = (
 # inject fake verified fences; Auto still escalates so a weak model isn't
 # left to invent F=ma on an incline. Bare "physics" must not match.
 #
-# Deliberately a separate list from `services.physics.extract.PHYSICS_CUES` /
+# Deliberately a separate list from `modules.physics.registry.PHYSICS_CUES` /
 # `has_supported_physics_cue`, not a duplicate of it: that one gates "the
 # solver's extractors might handle this text," which has grown to twenty
 # kinds. This one gates "escalate Auto to the smarter model," which some

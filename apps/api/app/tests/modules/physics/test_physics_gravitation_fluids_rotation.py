@@ -277,7 +277,7 @@ def test_torque_still_refuses_the_quantity_rotation_now_answers() -> None:
     It is what stops *torque* claiming a moment of inertia. Rotation runs after
     it and picks up the fall-through, so the two never compete.
     """
-    from app.modules.physics.extract import _extract_torque_intent
+    from app.modules.physics.extractors.torque import _extract_torque_intent
 
     assert (
         _extract_torque_intent("what is the moment of inertia of a 5 kg disc of radius 2 m") is None
