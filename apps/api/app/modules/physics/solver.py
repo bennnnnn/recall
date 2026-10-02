@@ -27,6 +27,7 @@ from app.modules.physics.solvers.mechanics import (
 )
 from app.modules.physics.solvers.motion import solve_kinematics, solve_projectile, solve_suvat
 from app.modules.physics.solvers.oscillations_waves import solve_spring, solve_waves
+from app.modules.physics.solvers.relation import solve_expression
 from app.modules.physics.solvers.rotation import solve_circular, solve_rotation, solve_torque
 from app.modules.physics.solvers.school_extensions import SCHOOL_SOLVERS
 from app.services.solving import SolveServiceError
@@ -103,6 +104,10 @@ def _claim_solvers() -> dict[str, Callable[[PhysicsIntent], PhysicsResult]]:
             raise RuntimeError(f"two physics solvers claim {operation}")
         claimed[operation] = fn
 
+    # A law the catalog writes as arithmetic needs no solver of its own.
+    for spec in CATALOG.values():
+        if spec.expression is not None:
+            claim(spec.id, solve_expression)
     for operation, fn in SCHOOL_SOLVERS.items():
         claim(operation, _accepts_si_params(fn))
     for spec in CATALOG.values():

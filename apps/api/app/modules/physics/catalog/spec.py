@@ -2,6 +2,11 @@
 
 Solvers still own word-problem procedure. This record owns the identity those
 procedures used to repeat in the direct-reply dictionaries.
+
+An operation with a ``binding`` can also be read straight from a question by
+``physics.binding``: the binding says how a question asks for the result, and
+each variable says how a question names it. An operation with an
+``expression`` needs no solver of its own; ``physics.expression`` evaluates it.
 """
 
 from __future__ import annotations
@@ -23,6 +28,16 @@ class VariableSpec:
     dimensionless: bool = False
     # Classifier flags such as elastic / mode_factor are inputs, not givens.
     visible: bool = True
+    # Words written just before this input's value: "initial", "from", "reaches".
+    # Only needed where two inputs share a dimension (u and v).
+    words: tuple[str, ...] = ()
+    # Phrases that state the value without a number: ("from rest", 0.0).
+    implied: tuple[tuple[str, float], ...] = ()
+    # Words before the value that make it negative: "decelerates at 2 m/s²".
+    negating: tuple[str, ...] = ()
+    # Where an unstated value comes from: "gravity" (9.81, or the named body's)
+    # or "body_mass" (the mass of the planet or star the question names).
+    fallback: str | None = None
 
     def __post_init__(self) -> None:
         if self.dimensionless == (self.dimension is not None):
@@ -47,6 +62,36 @@ class FormulaVariant:
     equals: tuple[tuple[str, float], ...] = ()
     # Find-line symbol when this case is the one that matched. None keeps the law's.
     result_symbol: str | None = None
+    # The arithmetic of this case for an expression operation (``u = v - a*t``'s
+    # right-hand side), in the names of the variables.
+    expression: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class Binding:
+    """How a question asks for this operation, so the binder can read it.
+
+    ``asks`` are phrases that name the result in the asked clause ("initial
+    velocity", "how long"). ``result`` holds the Pint unit of each result, in
+    order. ``inputs`` lists every set of givens the solver answers from; a
+    question that binds to any other set is not this operation. One of
+    ``cues`` must appear in the question when the law needs a situation the
+    numbers cannot show ("horizontally", "pulley"). ``descending`` names
+    same-dimension inputs filled largest first (the heavier Atwood mass).
+    A contract test solves every input set with sample values, so a binding
+    never promises a set its solver refuses.
+    """
+
+    asks: tuple[str, ...]
+    result: tuple[str, ...]
+    inputs: tuple[frozenset[str], ...]
+    cues: tuple[str, ...] = ()
+    descending: tuple[str, ...] = ()
+    # Words before a value that say it is the result itself ("reaches" for a
+    # final speed): such a question already states what this operation finds.
+    result_words: tuple[str, ...] = ()
+    # A negative result is not an answer (a time, a height, a power).
+    nonnegative: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +110,10 @@ class FormulaSpec:
     assumptions_require: frozenset[str] = frozenset()
     # Exactly one of these may be absent. That one is the quantity being solved.
     solve_for: tuple[tuple[str, str], ...] = ()
+    binding: Binding | None = None
+    # The arithmetic of the law for an expression operation; a variant's
+    # expression replaces it for that variant's givens.
+    expression: str | None = None
 
 
 def var(
@@ -74,6 +123,10 @@ def var(
     *,
     dimensionless: bool = False,
     visible: bool = True,
+    words: tuple[str, ...] = (),
+    implied: tuple[tuple[str, float], ...] = (),
+    negating: tuple[str, ...] = (),
+    fallback: str | None = None,
 ) -> VariableSpec:
     return VariableSpec(
         name=name,
@@ -81,6 +134,10 @@ def var(
         dimension=dimension,
         dimensionless=dimensionless,
         visible=visible,
+        words=words,
+        implied=implied,
+        negating=negating,
+        fallback=fallback,
     )
 
 
@@ -95,6 +152,8 @@ def formula(
     variants: tuple[FormulaVariant, ...] = (),
     assumptions_require: frozenset[str] = frozenset(),
     solve_for: tuple[tuple[str, str], ...] = (),
+    binding: Binding | None = None,
+    expression: str | None = None,
 ) -> FormulaSpec:
     return FormulaSpec(
         id=operation,
@@ -107,6 +166,8 @@ def formula(
         variants=variants,
         assumptions_require=assumptions_require,
         solve_for=solve_for,
+        binding=binding,
+        expression=expression,
     )
 
 

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -97,6 +97,12 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("d", "d", "meter"),
             var("t", "t", "second"),
         ),
+        binding=Binding(
+            asks=("average speed", "speed", "how fast"),
+            result=("meter / second",),
+            inputs=(frozenset({"d", "t"}),),
+            nonnegative=True,
+        ),
     ),
     formula(
         "rate_distance",
@@ -108,6 +114,12 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("t", "t", "second"),
             var("v", "v", "meter / second"),
         ),
+        binding=Binding(
+            asks=("how far", "distance"),
+            result=("meter",),
+            inputs=(frozenset({"t", "v"}),),
+            nonnegative=True,
+        ),
     ),
     formula(
         "rate_time",
@@ -118,6 +130,12 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("d", "d", "meter"),
             var("v", "v", "meter / second"),
+        ),
+        binding=Binding(
+            asks=("how long", "time taken", "time"),
+            result=("second",),
+            inputs=(frozenset({"d", "v"}),),
+            nonnegative=True,
         ),
     ),
     formula(
@@ -144,6 +162,27 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("t_brake", "t_b", "second"),
             var("t_react", "t_r", "second"),
             var("v", "v", "meter / second"),
+        ),
+    ),
+    # How far a dropped body falls in a time: h = ½gt² from rest.
+    formula(
+        "drop_height",
+        "kinematics",
+        "Free-fall equation",
+        "h",
+        base_latex=r"h = \tfrac{1}{2}gt^2",
+        assumptions=("released from rest", "no air resistance"),
+        expression="g*t**2/2",
+        variables=(
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("t", "t", "second"),
+        ),
+        binding=Binding(
+            asks=("how high", "how deep", "how far", "height", "depth", "distance"),
+            result=("meter",),
+            inputs=(frozenset({"g", "t"}),),
+            cues=("dropped", "drops", "falls", "free fall", "released", "freely"),
+            nonnegative=True,
         ),
     ),
 )

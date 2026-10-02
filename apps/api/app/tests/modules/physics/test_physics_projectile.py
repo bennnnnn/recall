@@ -286,7 +286,6 @@ NOT_PHYSICS = [
     "what is the range of the function f(x) = x^2",
     "find the range of 3, 7, 9, 12",
     "Pick a number in the range 2-6",
-    "how long does it take to drive 120 km at 60 km/h",
     "at what angle should I hold the camera",
     "how long is a piece of string",
 ]

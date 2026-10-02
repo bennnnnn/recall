@@ -22,6 +22,13 @@ from app.services.solving import SolveServiceError
 _RATE_OPERATIONS = {"average_speed", "rate_speed", "rate_distance", "rate_time"}
 
 
+def _same_unit(left: str, right: str) -> bool:
+    """One unit however it is spelled: "hours" is the "h" of "km/h"."""
+    from app.modules.physics.givens import unit_expression
+
+    return (unit_expression(left) or left) == (unit_expression(right) or right)
+
+
 def _rate_number(value: float) -> str:
     """Format a checked scalar without inventing presentation precision."""
     if not math.isfinite(value):
@@ -115,7 +122,7 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
         ):
             raise SolveServiceError("distance requires a non-negative speed and time")
         distance_unit, speed_time_unit = speed_unit.split("/", 1)
-        if speed_time_unit != time_unit:
+        if not _same_unit(speed_time_unit, time_unit):
             raise SolveServiceError("speed and time units must use the same time scale")
         value = speed * duration
         answer_unit = distance_unit
@@ -140,7 +147,7 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
         ):
             raise SolveServiceError("time requires a non-negative distance and positive speed")
         speed_distance_unit, answer_unit = speed_unit.split("/", 1)
-        if speed_distance_unit != distance_unit:
+        if not _same_unit(speed_distance_unit, distance_unit):
             raise SolveServiceError("distance and speed units must use the same length scale")
         value = distance / speed
         formula = r"t = \frac{d}{v}"

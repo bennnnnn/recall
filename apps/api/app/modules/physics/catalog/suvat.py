@@ -2,13 +2,60 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
+from app.modules.physics.catalog.spec import (
+    Binding,
+    FormulaSpec,
+    FormulaVariant,
+    VariableSpec,
+    formula,
+    var,
+)
+
+_LAW = "SUVAT constant-acceleration equation"
+_SPEED = "meter / second"
+_ACCELERATION = "meter / second ** 2"
+
+# The word just before a speed says which one it is: "from 10 m/s to 30 m/s".
+_INITIAL = (
+    "initial",
+    "initially",
+    "from",
+    "starts at",
+    "starting at",
+    "at first",
+    "moving at",
+    "travelling at",
+    "traveling at",
+)
+_FINAL = ("final", "finally", "to", "reaches", "reaching", "until", "up to", "becomes", "ends at")
+_SLOWING = ("decelerat", "retard", "slows down at", "brakes at", "braking at")
+
+_U = var("u", "u", _SPEED, words=_INITIAL, implied=(("from rest", 0.0),))
+_V = var(
+    "v",
+    "v",
+    _SPEED,
+    words=_FINAL,
+    implied=(("to rest", 0.0), ("to a stop", 0.0), ("to a halt", 0.0)),
+)
+_A = var("a", "a", _ACCELERATION, negating=_SLOWING)
+_D = var("d", "s", "meter")
+_T = var("t", "t", "second")
+
+
+def _inputs(*sets: str) -> tuple[frozenset[str], ...]:
+    return tuple(frozenset(given) for given in sets)
+
+
+def _with(*variables: VariableSpec) -> tuple[VariableSpec, ...]:
+    return tuple(sorted(variables, key=lambda variable: variable.name))
+
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "suvat_velocity",
         "suvat",
-        "SUVAT constant-acceleration equation",
+        _LAW,
         "v",
         base_latex="v = u + at",
         variants=(
@@ -23,17 +70,18 @@ SPECS: tuple[FormulaSpec, ...] = (
                 absent=frozenset({"a"}),
             ),
         ),
-        variables=(
-            var("a", "a", "meter / second ** 2"),
-            var("d", "s", "meter"),
-            var("t", "t", "second"),
-            var("u", "u", "meter / second"),
+        variables=_with(_A, _D, _T, _U),
+        binding=Binding(
+            asks=("final velocity", "final speed", "velocity", "speed", "how fast"),
+            result=(_SPEED,),
+            inputs=_inputs("uat", "uad", "udt"),
+            result_words=_FINAL,
         ),
     ),
     formula(
         "suvat_distance",
         "suvat",
-        "SUVAT constant-acceleration equation",
+        _LAW,
         "s",
         base_latex=r"s = ut + \tfrac{1}{2}at^2",
         variants=(
@@ -48,17 +96,17 @@ SPECS: tuple[FormulaSpec, ...] = (
                 absent=frozenset({"a"}),
             ),
         ),
-        variables=(
-            var("a", "a", "meter / second ** 2"),
-            var("t", "t", "second"),
-            var("u", "u", "meter / second"),
-            var("v", "v", "meter / second"),
+        variables=_with(_A, _T, _U, _V),
+        binding=Binding(
+            asks=("displacement", "distance", "how far"),
+            result=("meter",),
+            inputs=_inputs("uat", "uva", "uvt"),
         ),
     ),
     formula(
         "suvat_time",
         "suvat",
-        "SUVAT constant-acceleration equation",
+        _LAW,
         "t",
         base_latex="v = u + at",
         variants=(
@@ -73,17 +121,17 @@ SPECS: tuple[FormulaSpec, ...] = (
                 absent=frozenset({"a"}),
             ),
         ),
-        variables=(
-            var("a", "a", "meter / second ** 2"),
-            var("d", "s", "meter"),
-            var("u", "u", "meter / second"),
-            var("v", "v", "meter / second"),
+        variables=_with(_A, _D, _U, _V),
+        binding=Binding(
+            asks=("how long", "time taken", "time"),
+            result=("second",),
+            inputs=_inputs("uva", "uad", "uvd"),
         ),
     ),
     formula(
         "suvat_acceleration",
         "suvat",
-        "SUVAT constant-acceleration equation",
+        _LAW,
         "a",
         base_latex="v = u + at",
         variants=(
@@ -98,11 +146,44 @@ SPECS: tuple[FormulaSpec, ...] = (
                 absent=frozenset({"v"}),
             ),
         ),
-        variables=(
-            var("d", "s", "meter"),
-            var("t", "t", "second"),
-            var("u", "u", "meter / second"),
-            var("v", "v", "meter / second"),
+        variables=_with(_D, _T, _U, _V),
+        binding=Binding(
+            asks=("acceleration", "deceleration", "retardation"),
+            result=(_ACCELERATION,),
+            inputs=_inputs("uvt", "uvd", "udt"),
+        ),
+    ),
+    # The starting speed, which no other operation solves for.
+    formula(
+        "suvat_initial_velocity",
+        "suvat",
+        _LAW,
+        "u",
+        base_latex="v = u + at",
+        expression="v - a*t",
+        variants=(
+            FormulaVariant(
+                latex=r"v^2 = u^2 + 2as",
+                present=frozenset({"v", "a", "d"}),
+                expression="sqrt(v**2 - 2*a*d)",
+            ),
+            FormulaVariant(
+                latex=r"s = \tfrac{1}{2}(u + v)t",
+                present=frozenset({"v", "d", "t"}),
+                expression="2*d/t - v",
+            ),
+            FormulaVariant(
+                latex=r"s = ut + \tfrac{1}{2}at^2",
+                present=frozenset({"a", "d", "t"}),
+                expression="d/t - a*t/2",
+            ),
+        ),
+        variables=_with(_A, _D, _T, _V),
+        binding=Binding(
+            asks=("initial velocity", "initial speed", "starting speed", "starting velocity"),
+            result=(_SPEED,),
+            inputs=_inputs("vat", "vad", "vdt", "adt"),
+            result_words=_INITIAL,
         ),
     ),
 )

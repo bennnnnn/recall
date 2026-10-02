@@ -118,3 +118,16 @@ def test_every_unit_the_scanner_reads_in_words_has_a_symbol() -> None:
         if " " in spelling:
             shown = plain_unit(spelling)
             assert " " not in shown and "per" not in shown, (spelling, shown)
+
+
+@pytest.mark.parametrize(
+    ("row", "typeset"),
+    [
+        (r"T = 2\pi\sqrt{\frac{7e+06^3}{GM}}", r"T = 2\pi\sqrt{\frac{(7 \times 10^{6})^3}{GM}}"),
+        (r"F = \frac{k q}{5e-07^{2}}", r"F = \frac{k q}{(5 \times 10^{-7})^{2}}"),
+        # Not raised, or not a product: no brackets.
+        (r"E = 6.6261e-34 \cdot f", r"E = 6.6261 \times 10^{-34} \cdot f"),
+    ],
+)
+def test_a_typeset_number_raised_to_a_power_keeps_its_brackets(row: str, typeset: str) -> None:
+    assert typeset_numbers(row) == typeset

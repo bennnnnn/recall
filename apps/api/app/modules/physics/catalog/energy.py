@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -125,5 +125,28 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("x2", "x_2", "meter"),
         ),
         solve_for=(("v1", "v_1"), ("x1", "x_1"), ("v2", "v_2"), ("x2", "x_2")),
+    ),
+    # Raising a weight through a height in a time: the work mgh over t.
+    formula(
+        "lifting_power",
+        "energy",
+        "Power equation",
+        "P",
+        base_latex=r"P = \frac{mgh}{t}",
+        assumptions=("constant speed, so all the work goes into height",),
+        expression="m*g*h/t",
+        variables=(
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("h", "h", "meter"),
+            var("m", "m", "kilogram"),
+            var("t", "t", "second"),
+        ),
+        binding=Binding(
+            asks=("power output", "average power", "power"),
+            result=("watt",),
+            inputs=(frozenset({"g", "h", "m", "t"}),),
+            cues=("climb", "lift", "raise", "stair", "hoist", "ascend"),
+            nonnegative=True,
+        ),
     ),
 )

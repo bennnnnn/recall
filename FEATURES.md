@@ -259,7 +259,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   three significant figures and upright units, in the unit the question asks for
   ("in kWh"); scientific notation is read whole (`2 × 10^-6 C`); a solve that skips
   a stated value of a kind it uses, or answers a different quantity than the one
-  asked, is declined. Mechanics:
+  asked, is declined. A question the phrase extractors miss is read straight into a
+  catalog law when it states the law's inputs and asks for its result (SUVAT for any
+  unknown including u, d = vt in the written units, a dropped body's height, a
+  horizontal launch, weight, Atwood, a pull against friction, lifting power, Kepler
+  around a named planet, rotational KE); see "Adding a law" in docs/physics.md. Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar
   F=ma with resultants and components, KE / PE / work / power (including

@@ -260,7 +260,9 @@ _WORD_RE = re.compile(rf"[ \t]?(?P<unit>{_alternation(list(_WORDS))}){_END}", re
 
 # Not quantities: "to 3 s.f.", "2 decimal places", "the 2nd ball", "m/s^2".
 _NOT_A_GIVEN_AFTER = re.compile(
-    r"\s*(?:s\.?\s?f\.?|sig(?:nificant)?\.?\s*fig(?:ure)?s?|d\.?\s?p\.?\b|decimal\s+places?"
+    # "s.f." must end there: "in 5 s. Find" is five seconds, then a sentence.
+    r"\s*(?:s\.?\s?f\.?(?![a-z])|sig(?:nificant)?\.?\s*fig(?:ure)?s?|d\.?\s?p\.?\b"
+    r"|decimal\s+places?"
     r"|(?:st|nd|rd|th)\b)",
     re.IGNORECASE,
 )

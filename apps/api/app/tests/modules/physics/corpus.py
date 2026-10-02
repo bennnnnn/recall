@@ -357,6 +357,12 @@ MUST_DECLINE: tuple[Case, ...] = (
     ),
     # Asked for an energy, but the only template here answers a time.
     _decline("A ball is dropped from 20 m. How much energy does it have when it lands?"),
+    # It "reaches 18 m/s": that speed is stated. Read as the start, it gave 30 m/s.
+    _decline("A cyclist accelerates at 2 m/s^2 for 6 s and reaches 18 m/s. What is its speed?"),
+    # "weight" in kg is the everyday mass; W = mg would answer a force.
+    _decline("My weight is 70 kg. What is my weight in pounds?"),
+    # Two speeds and nothing to say which is the start.
+    _decline("A car has speeds 10 m/s and 30 m/s over 5 s. Find its acceleration."),
 )
 
 NOT_PHYSICS: tuple[str, ...] = (
@@ -382,4 +388,4 @@ ANSWERABLE: tuple[Case, ...] = (
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 74
+COVERAGE_FLOOR = 88

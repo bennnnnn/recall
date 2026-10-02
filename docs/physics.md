@@ -41,6 +41,20 @@ flowchart LR
 3. **Extract** (`extract.py`, `extractors/`). An ordered chain of extractors runs; the first
    to match returns a `PhysicsIntent`. The order is load-bearing and commented in place.
    Extraction reads at most 4,000 characters, and the result is cached per text.
+   When every extractor declines, the **binder** (`binding.py`) reads the question straight
+   into a catalog operation:
+   - every stated value fills one input of its dimension. Two inputs of one dimension (u
+     and v) are told apart by the word just before the value ("from", "to", "initial",
+     "reaches");
+   - unstated inputs come from phrases ("from rest" is u = 0, "horizontally" is θ = 0) or
+     settings (g, or the mass of the planet the question names);
+   - the filled inputs must be exactly a set the operation's solver answers from.
+
+   Anything short of one operation with one way to fill it declines. That includes a value
+   no input takes, two values for one input with no word to tell them apart, a value the
+   words mark as the asked result ("reaches 18 m/s" when the speed is asked), and an asked
+   word that labels a value of another kind ("my weight is 70 kg"). A binding fit is also a
+   physics cue for the gate.
 4. **Complete** (`request.complete_physics_intent`). Every intent passes two checks before it
    is solved:
    - **Numeric accountability** (`accounting.py`). `givens.py` lists every stated number with
@@ -69,6 +83,22 @@ flowchart LR
    model path.
 8. **Finalize** (`fence.py`). The model's answer and visual fences are dropped, and the
    solver's are appended.
+
+## Adding a law
+
+A law the binder can read needs one catalog entry (`catalog/`) and no extractor:
+- `variables`, with `words`, `implied` phrases or a `fallback` where the question may name a
+  value without a number;
+- a `Binding`: the phrases that ask for the result, the result's unit, every set of inputs
+  the solver answers from, and cue words when the numbers alone cannot show the situation
+  ("horizontally", "pulley");
+- for a law that is plain arithmetic, an `expression` (`"(F - mu*m*g)/m"`), with a variant
+  per other input set. `expression.py` evaluates it by walking a checked tree, and prints
+  the rearranged formula and the substitution from that same tree. Nothing is executed,
+  and nothing calls SymPy.
+
+`test_physics_binding.py` solves every promised input set with sample values and checks the
+result units the binding promised, so a binding cannot promise what its solver refuses.
 
 ## Numbers and units
 
