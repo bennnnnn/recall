@@ -521,14 +521,17 @@ def test_galvanic_cell_does_not_read_kelvin_as_potassium() -> None:
     assert "anode: Zn\ncathode: Cu" in result.answer
 
 
-@pytest.mark.parametrize("element", ["O3", "O(g)", "Br2(g)", "Cl(g)", "H(g)", "I2(g)", "Na(g)"])
+@pytest.mark.parametrize(
+    "element", ["O3", "O(g)", "Br2(g)", "Cl(g)", "H(g)", "I2(g)", "Na(g)", "P", "S", "P(s)", "S(s)"]
+)
 def test_formation_enthalpy_is_zero_only_for_a_standard_state(element: str) -> None:
     with pytest.raises(SolveServiceError):
         _formation(element, {})
 
 
 @pytest.mark.parametrize(
-    "element", ["H2", "O2", "N2", "Cl2", "Br2(l)", "I2(s)", "Hg(l)", "C(s)", "Fe(s)", "Na", "He"]
+    "element",
+    ["H2", "O2", "N2", "Cl2", "Br2(l)", "I2(s)", "Hg(l)", "C(s)", "Fe(s)", "Na", "He", "S8", "P4"],
 )
 def test_formation_enthalpy_of_a_standard_state_is_zero(element: str) -> None:
     assert _formation(element, {}) == 0.0
