@@ -41,6 +41,8 @@ export function useVoiceInput({
   const maxTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const finishRecordingRef = useRef<() => Promise<string | null>>(async () => null);
   const speechSamplesRef = useRef(0);
+  const captureGenRef = useRef(0);
+  const transcribeAbortRef = useRef<AbortController | null>(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const [meterLevel, setMeterLevel] = useState(0.12);
@@ -116,9 +118,11 @@ export function useVoiceInput({
 
   const finishRecording = useCallback(async (): Promise<string | null> => {
     if (!token) return null;
+    const gen = captureGenRef.current;
     setTranscribing(true);
     const heardSpeech = speechSamplesRef.current >= VOICE_MIN_SPEECH_SAMPLES;
     const uri = await stopRecording();
+    if (gen !== captureGenRef.current) return null;
     if (!uri || !heardSpeech) {
       setTranscribing(false);
       onTranscribeError?.("empty");
@@ -127,11 +131,15 @@ export function useVoiceInput({
       }
       return null;
     }
+    const controller = new AbortController();
+    transcribeAbortRef.current = controller;
     try {
-      const text = await transcribeSpeech(token, uri);
+      const text = await transcribeSpeech(token, uri, controller.signal);
+      if (gen !== captureGenRef.current) return null;
       onTranscript(text);
       return text;
     } catch (error) {
+      if (gen !== captureGenRef.current) return null;
       const message = error instanceof Error ? error.message : "";
       const reason: TranscribeFail =
         /network request failed|failed to fetch|timeout|timed out|could not reach/i.test(
@@ -155,11 +163,20 @@ export function useVoiceInput({
       }
       return null;
     } finally {
-      setTranscribing(false);
+      if (transcribeAbortRef.current === controller) transcribeAbortRef.current = null;
+      if (gen === captureGenRef.current) setTranscribing(false);
     }
   }, [token, stopRecording, onTranscript, onTranscribeError, feedback, t]);
 
   finishRecordingRef.current = finishRecording;
+
+  const cancelVoiceInput = useCallback(() => {
+    captureGenRef.current += 1;
+    transcribeAbortRef.current?.abort();
+    transcribeAbortRef.current = null;
+    void stopRecording();
+    setTranscribing(false);
+  }, [stopRecording]);
 
   const toggleRecording = useCallback(async () => {
     if (transcribing) return;
@@ -205,6 +222,7 @@ export function useVoiceInput({
     toggleVoiceInput: toggleRecording,
     startRecording,
     finishRecording,
+    cancelVoiceInput,
     cancelRecording: stopRecording,
   };
 }

@@ -1041,16 +1041,11 @@ describe("ChatComposer math keyboard", () => {
     });
   });
 
-  it("hides the draft token hint for a short message", async () => {
-    const { queryByTestId } = await render(<ChatComposer {...baseProps} input="hi" />);
-    expect(queryByTestId("composer-token-hint")).toBeNull();
-  });
-
-  it("shows the draft token hint when the estimate is large", async () => {
-    const { getByTestId } = await render(
+  it("does not show a token count under a long draft", async () => {
+    const { queryByText } = await render(
       <ChatComposer {...baseProps} input={"a".repeat(400)} />,
     );
-    expect(getByTestId("composer-token-hint")).toBeTruthy();
+    expect(queryByText(/tokens/i)).toBeNull();
   });
 
   it("shows live talk when a handler is provided", async () => {
@@ -1089,6 +1084,26 @@ describe("ChatComposer math keyboard", () => {
     expect(getByTestId("chat-composer-input")).toBeTruthy();
     expect(getByLabelText("chat.attach_a11y")).toBeTruthy();
     expect(getByTestId("composer-attachment-add-icon").props.name).toBe("plus");
+  });
+
+  it.each([true, false])("replaces attach with cancel while voice is active (recording: %s)", async (recording) => {
+    const onCancelVoice = jest.fn();
+    const onPickAttachment = jest.fn();
+    const { getByLabelText, getByTestId, queryByTestId } = await render(
+      <ChatComposer
+        {...baseProps}
+        voiceRecording={recording}
+        voiceTranscribing={!recording}
+        onCancelVoice={onCancelVoice}
+        onPickAttachment={onPickAttachment}
+      />,
+    );
+
+    expect(queryByTestId("composer-attachment-add-icon")).toBeNull();
+    expect(getByTestId("composer-voice-cancel-icon").props.name).toBe("close");
+    fireEvent.press(getByLabelText("chat.voice_cancel_a11y"));
+    expect(onCancelVoice).toHaveBeenCalledTimes(1);
+    expect(onPickAttachment).not.toHaveBeenCalled();
   });
 
   it("hides mute and close while the user is typing in live talk", async () => {
@@ -1131,7 +1146,7 @@ describe("ChatComposer math keyboard", () => {
 
 describe("ChatComposer at a larger text size", () => {
   it.each([
-    [1.5, 36, 4],
+    [1.5, 36, 0],
     [2, 48, 0],
   ])("keeps one line level with the buttons at %sx", async (scale, line, spaceBelow) => {
     windowFontScale = scale;
@@ -1174,6 +1189,6 @@ describe("ChatComposer at a larger text size", () => {
       <ChatComposer {...baseProps} onInputFrameExtraChange={onInputFrameExtraChange} />,
     );
 
-    expect(onInputFrameExtraChange).toHaveBeenLastCalledWith(4);
+    expect(onInputFrameExtraChange).toHaveBeenLastCalledWith(12);
   });
 });

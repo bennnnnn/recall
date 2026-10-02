@@ -84,6 +84,10 @@ If a plan or FEATURES item asks for these, **push back and skip** — they are e
   the gray card (`inlineOptionWell` / accordion). FEATURES must not say
   “expand inline”. Do not revive PR #707’s in-list picker.
 
-## 14. No in-chat A–D quiz chips
+## 14. No draft token count on the composer
+- Do **not** show “~N tokens” (or `chat.draft_tokens`) under the composer.
+- Do **not** restore `estimateTokens` / `shouldShowDraftTokenHint` just to paint that label.
+
+## 15. No in-chat A–D quiz chips
 - Chat must **not** render A–D chips or grade stored `vocab_quiz` fences.
 - Leftover `vocab_quiz`, `vocab_card`, and `learning_launch` fences in old messages are **strip for display** only. Do not parse them back into chips or a lesson path.

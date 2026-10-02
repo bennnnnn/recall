@@ -2,6 +2,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 import { useTranslation } from "react-i18next";
 
+import { COMPOSER_CONTROL_SIZE } from "@/lib/chat/composerLogic";
 import { useTheme } from "@/lib/theme";
 
 type Props = {
@@ -42,26 +43,31 @@ export function LiveTalkButton({ disabled, onPress }: Props) {
       style={[styles.hit, disabled && styles.dim]}
       onPress={onPress}
       disabled={disabled}
-      hitSlop={6}
+      hitSlop={8}
       accessibilityRole="button"
       accessibilityLabel={t("chat.live_talk_a11y")}
       testID="live-talk-button"
     >
-      <View style={[styles.btn, { backgroundColor: theme.primary }]}>
-        <LiveTalkWaveformIcon size={18} color={theme.onPrimary} />
+      <View style={styles.btn}>
+        <LiveTalkWaveformIcon size={24} color={theme.text} />
       </View>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  hit: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
-  dim: { opacity: 0.55 },
-  btn: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+  hit: {
+    width: COMPOSER_CONTROL_SIZE,
+    height: COMPOSER_CONTROL_SIZE,
     alignItems: "center",
     justifyContent: "center",
+  },
+  dim: { opacity: 0.55 },
+  btn: {
+    width: COMPOSER_CONTROL_SIZE,
+    height: COMPOSER_CONTROL_SIZE,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "transparent",
   },
 });

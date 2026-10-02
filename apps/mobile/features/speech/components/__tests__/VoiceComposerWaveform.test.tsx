@@ -1,6 +1,8 @@
+import { StyleSheet } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import { VoiceComposerWaveform } from "@/features/speech/components/VoiceComposerWaveform";
+import { lightTheme } from "@/lib/theme";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -37,5 +39,16 @@ describe("VoiceComposerWaveform", () => {
     );
     expect(getByText("chat.voice_transcribing")).toBeOnTheScreen();
     expect(queryByText("chat.voice_listening")).toBeNull();
+  });
+
+  it("draws the bars in the same ink as the composer icons", async () => {
+    const { getAllByTestId } = await render(
+      <VoiceComposerWaveform recording meterLevel={0.4} transcribing={false} />,
+    );
+    const bars = getAllByTestId("voice-waveform-bar");
+    expect(bars.length).toBeGreaterThan(0);
+    expect(
+      bars.every((node) => StyleSheet.flatten(node.props.style).backgroundColor === lightTheme.text),
+    ).toBe(true);
   });
 });

@@ -43,6 +43,7 @@ import {
   COMPOSER_GAP_FADE_OVERLAP,
   COMPOSER_INPUT_LINE_HEIGHT,
   COMPOSER_INPUT_MAX_HEIGHT,
+  COMPOSER_CONTROL_SIZE,
   COMPOSER_INPUT_MIN_HEIGHT,
   composerInputFrameHeight,
   composerInputMetrics,
@@ -53,11 +54,9 @@ import {
   composerShowsSend,
 } from "@/lib/chat/composerLogic";
 import { liveTalkShowsSideChrome } from "@/features/speech/model/liveTalkLogic";
-import { estimateTokens, shouldShowDraftTokenHint } from "@/lib/estimateTokens";
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
 import { Radius } from "@/lib/radius";
-import { shadowRaised } from "@/lib/shadow";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
@@ -72,15 +71,15 @@ function gapFadeColors(bg: string): [string, string] {
   return [withAlpha(bg, 0.92), bg];
 }
 
-// Base floating surface: 48 pt primary action + 10 pt vertical padding + 6 pt shell air.
-export const COMPOSER_HEIGHT = 80;
+// 36 pt row + 4 pt card padding above and below + 6 pt shell air above and below.
+export const COMPOSER_HEIGHT = 56;
 // Attachment extras mirror the rendered preview sizes instead of under-reserving the thread.
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 120;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 56;
 const MATH_KEYBOARD_CHIP_HEIGHT = 44;
 /** Space above the floating keypad so message action icons are not flush with it. */
 const MATH_KEYBOARD_CHIP_GAP = Space.sm;
-export const COMPOSER_TOKEN_HINT_HEIGHT = 18;
+const COMPOSER_STATUS_LINE_HEIGHT = 18;
 
 export function composerAttachmentExtra(attachment: PendingAttachment | null): number {
   if (!attachment) return 0;
@@ -112,6 +111,8 @@ type Props = {
   voiceTranscribing?: boolean;
   voiceMeterLevel?: number;
   onVoicePress?: () => void;
+  /** Drops the open mic take, including a transcription already in flight. */
+  onCancelVoice?: () => void;
   onLiveTalkPress?: () => void;
   /** Mic mute + close beside the real composer while live talk is open. */
   liveTalkChrome?: {
@@ -154,6 +155,7 @@ export const ChatComposer = memo(function ChatComposer({
   voiceTranscribing = false,
   voiceMeterLevel = 0.12,
   onVoicePress,
+  onCancelVoice,
   onLiveTalkPress,
   liveTalkChrome = null,
   docked = false,
@@ -192,8 +194,6 @@ export const ChatComposer = memo(function ChatComposer({
   const toggleMathBar = math.toggleMathBar;
   const showMathChip =
     !mathBarOpen && (mathContext || textLooksLikeMath(input));
-  const draftTokens = estimateTokens(input);
-  const showTokenHint = shouldShowDraftTokenHint(draftTokens);
   const mathChromeHeight =
     (math.mathBarOpen
       ? math.padHeight
@@ -202,8 +202,7 @@ export const ChatComposer = memo(function ChatComposer({
         : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
     (scanHint ? 40 : 0) +
-    (showTokenHint ? COMPOSER_TOKEN_HINT_HEIGHT : 0) +
-    (sendStatus ? COMPOSER_TOKEN_HINT_HEIGHT : 0);
+    (sendStatus ? COMPOSER_STATUS_LINE_HEIGHT : 0);
 
   useEffect(() => {
     onMathChromeHeightChange?.(visible ? mathChromeHeight : 0);
@@ -293,6 +292,7 @@ export const ChatComposer = memo(function ChatComposer({
     voiceTranscribing,
     hasSendableContent,
   });
+  const voiceActive = voiceRecording || voiceTranscribing;
   const showSend = composerShowsSend({
     voiceRecording,
     voiceTranscribing,
@@ -444,21 +444,32 @@ export const ChatComposer = memo(function ChatComposer({
             >
               <Pressable
                 testID="composer-attachment-button"
-                style={[s.attachBtn, attachmentDisabled && s.controlDisabled]}
+                style={[s.attachBtn, !voiceActive && attachmentDisabled && s.controlDisabled]}
                 onPress={() => {
+                  if (voiceActive) {
+                    onCancelVoice?.();
+                    return;
+                  }
                   liveTalkChrome?.onYield();
                   onPickAttachment();
                 }}
-                disabled={attachmentDisabled}
+                disabled={!voiceActive && attachmentDisabled}
                 hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
                 accessibilityRole="button"
-                accessibilityLabel={t("chat.attach_a11y")}
+                accessibilityLabel={t(voiceActive ? "chat.voice_cancel_a11y" : "chat.attach_a11y")}
                 accessibilityState={{
-                  disabled: attachmentDisabled,
-                  busy: attachPicking,
+                  disabled: !voiceActive && attachmentDisabled,
+                  busy: !voiceActive && attachPicking,
                 }}
               >
-                {attachPicking ? (
+                {voiceActive ? (
+                  <Icon
+                    name="close"
+                    size={IconSize.md}
+                    color={theme.text}
+                    testID="composer-voice-cancel-icon"
+                  />
+                ) : attachPicking ? (
                   <ActivityIndicator size="small" color={theme.text} />
                 ) : (
                   <Icon
@@ -647,15 +658,6 @@ export const ChatComposer = memo(function ChatComposer({
                 )}
               </View>
             </View>
-            {showTokenHint ? (
-              <Text
-                style={s.tokenHint}
-                testID="composer-token-hint"
-                accessibilityRole="text"
-              >
-                {t("chat.draft_tokens", { count: draftTokens })}
-              </Text>
-            ) : null}
             {sendStatus ? (
               <Text
                 style={s.sendStatus}
@@ -741,25 +743,17 @@ function makeStyles(theme: Theme) {
       gap: Space.xs,
     },
     inputWrap: {
-      // One calm floating surface: attachments and the input row live inside
-      // the same rounded card, matching the reference layout without copying its palette.
-      backgroundColor: theme.elevated,
+      // Attachments and the input row live inside the same rounded card.
+      backgroundColor: theme.control,
       borderRadius: Radius.sheet,
       paddingHorizontal: Space.md,
-      paddingTop: 10,
-      paddingBottom: 10,
+      paddingTop: Space.xxs,
+      paddingBottom: Space.xxs,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.composerBorder,
-      ...shadowRaised(theme),
     },
     inputWrapFlex: { flex: 1, minWidth: 0 },
     inputWrapExpanded: { flex: 1, minHeight: 0 },
-    tokenHint: {
-      marginTop: Space.xxs,
-      marginLeft: 40,
-      ...Type.meta,
-      color: theme.textTertiary,
-    },
     sendStatus: {
       marginTop: Space.xxs,
       marginLeft: 40,
@@ -798,9 +792,9 @@ function makeStyles(theme: Theme) {
       zIndex: 2,
     },
     attachBtn: {
-      width: Space.minTouch,
-      height: Space.minTouch,
-      borderRadius: Space.minTouch / 2,
+      width: COMPOSER_CONTROL_SIZE,
+      height: COMPOSER_CONTROL_SIZE,
+      borderRadius: COMPOSER_CONTROL_SIZE / 2,
       // Keep the + as quiet chrome inside the shared composer surface.
       borderWidth: 0,
       borderColor: "transparent",
@@ -850,8 +844,8 @@ function makeStyles(theme: Theme) {
       flex: 0,
     },
     sendBtn: {
-      width: 48,
-      height: 48,
+      width: COMPOSER_CONTROL_SIZE,
+      height: COMPOSER_CONTROL_SIZE,
       borderRadius: Radius.full,
       backgroundColor: theme.primary,
       alignItems: "center",
@@ -862,7 +856,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       justifyContent: "flex-end",
       gap: Space.xxs,
-      minHeight: 48,
+      minHeight: COMPOSER_CONTROL_SIZE,
     },
     sendBtnDisabled: { backgroundColor: theme.border },
     scanHint: {

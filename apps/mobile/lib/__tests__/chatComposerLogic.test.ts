@@ -77,12 +77,12 @@ describe("composerInputFrameHeight", () => {
       max: COMPOSER_INPUT_MAX_HEIGHT,
       slack: COMPOSER_INPUT_MIN_HEIGHT - COMPOSER_INPUT_LINE_HEIGHT,
     });
-    // 1.5x: a 36 pt line still fits the 44 pt buttons, 4 pt above and below.
-    expect(composerInputMetrics(1.5)).toEqual({ line: 36, min: 44, max: 224, slack: 8 });
-    expect(composerInputFrameHeight("", 0, 0, 1.5).height).toBe(44);
-    expect(composerInputTextBoxHeight(44, 1.5)).toBe(36);
-    expect(composerInputFrameHeight("\n", 0, 0, 1.5).height).toBe(80);
-    expect(composerInputTextBoxHeight(80, 1.5)).toBe(72);
+    // 1.5x: the line fills the row, so there is no centering slack.
+    expect(composerInputMetrics(1.5)).toEqual({ line: 36, min: 36, max: 216, slack: 0 });
+    expect(composerInputFrameHeight("", 0, 0, 1.5).height).toBe(36);
+    expect(composerInputTextBoxHeight(36, 1.5)).toBe(36);
+    expect(composerInputFrameHeight("\n", 0, 0, 1.5).height).toBe(72);
+    expect(composerInputTextBoxHeight(72, 1.5)).toBe(72);
     // 2x: one line is taller than the buttons.
     expect(composerInputFrameHeight("", 0, 0, 2).height).toBe(48);
     expect(composerInputTextBoxHeight(48, 2)).toBe(48);
@@ -103,7 +103,7 @@ describe("composerInputFrameHeight", () => {
   it("wraps sooner at a larger text size", () => {
     expect(composerSoftWrapLineCount("a".repeat(20), 200)).toBe(1);
     expect(composerSoftWrapLineCount("a".repeat(20), 200, 1.5)).toBe(2);
-    expect(composerInputFrameHeight("a".repeat(20), 0, 200, 1.5).height).toBe(80);
+    expect(composerInputFrameHeight("a".repeat(20), 0, 200, 1.5).height).toBe(72);
   });
 
   it("covers the home-indicator gap under the pill", () => {

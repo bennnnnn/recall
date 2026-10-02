@@ -72,6 +72,7 @@ export interface ChatScreenComposerProps {
   voiceTranscribing: boolean;
   voiceMeterLevel: number;
   onVoicePress?: () => void;
+  onCancelVoice?: () => void;
   onLiveTalkPress?: () => void;
   liveTalkSession?: {
     muted: boolean;
@@ -217,6 +218,7 @@ export const ChatScreenBody = memo(function ChatScreenBody({
         voiceTranscribing={composer.voiceTranscribing}
         voiceMeterLevel={composer.voiceMeterLevel}
         onVoicePress={composer.onVoicePress}
+        onCancelVoice={composer.onCancelVoice}
         onLiveTalkPress={composer.onLiveTalkPress}
         liveTalkChrome={composer.liveTalkSession}
         onOpenMathScanner={composer.onOpenMathScanner}
