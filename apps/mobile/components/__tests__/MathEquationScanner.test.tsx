@@ -485,7 +485,7 @@ describe("imported math scanner photos", () => {
         visible
         onClose={jest.fn()}
         onCaptured={onCaptured}
-        onReadChemistryScan={jest.fn(async () => ({
+        onReadScan={jest.fn(async () => ({
           reading: "Find the molar mass of H2O",
           uncertain: false,
           source: "vision" as const,

@@ -98,7 +98,6 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
                     abs(j_val) if relative else j_val,
                     "N*s",
                     detail="opposite to the initial motion" if j_val * v1 < 0 else None,
-                    number_format=".2f",
                 ),
             ),
         )
