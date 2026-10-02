@@ -243,20 +243,31 @@ def _dimension(phrase: str, text: str) -> str | None:
     return None if reading is None else reading[0]
 
 
+def ask_clause(text: str) -> str | None:
+    """The last question's asked part: from its verb to the end of its sentence.
+
+    "How long" and the like name the quantity themselves, so they are kept.
+    None when the text asks nothing.
+    """
+    asks = list(_ASK.finditer(text))
+    if not asks:
+        return None
+    ask = asks[-1]
+    self_naming = re.sub(r"\s+", " ", ask.group().lower()).startswith(_SELF_NAMING)
+    start = ask.start() if self_naming else ask.end()
+    end_match = _SENTENCE_END.search(text, start)
+    return text[start : end_match.start() if end_match else len(text)]
+
+
 def asked_phrases(text: str) -> tuple[str, ...]:
     """The quantities the last question asks for, lowercased, in order.
 
     "Find the time of flight, the maximum height and the range" asks for three.
     Empty when no asked quantity follows the question's verb closely.
     """
-    asks = list(_ASK.finditer(text))
-    if not asks:
+    clause = ask_clause(text)
+    if clause is None:
         return ()
-    ask = asks[-1]
-    self_naming = re.sub(r"\s+", " ", ask.group().lower()).startswith(_SELF_NAMING)
-    start = ask.start() if self_naming else ask.end()
-    end_match = _SENTENCE_END.search(text, start)
-    clause = text[start : end_match.start() if end_match else len(text)]
     nouns = [noun for noun in _QUANTITY.finditer(clause) if not _labels_a_value(clause, noun, text)]
     if not nouns or nouns[0].start() > _ASK_REACH:
         return ()

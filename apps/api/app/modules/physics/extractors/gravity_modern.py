@@ -6,6 +6,7 @@ import re
 from typing import Literal
 
 from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.bodies import named_body
 from app.modules.physics.extractors.common import (
     _ELECTRON_MASS,
     _LENGTH_UNIT_PATTERN,
@@ -23,7 +24,7 @@ from app.modules.physics.extractors.matter_thermal import (
 )
 from app.modules.physics.extractors.mechanics import _MASS_UNITS
 from app.modules.physics.extractors.oscillations_waves import _HERTZ_PATTERN
-from app.services.text_match import has_equation, word_index
+from app.services.text_match import has_equation
 
 _GRAVITATION_CUES = (
     "gravitational force",
@@ -45,26 +46,11 @@ _GRAVITATION_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bg\s+on\s+a\s+planet\b", re.IGNORECASE),
 )
 
-_BODY_PROPERTIES: dict[str, tuple[float, float]] = {
-    "earth": (5.9722e24, 6.371e6),
-    "moon": (7.342e22, 1.7374e6),
-    "mars": (6.4171e23, 3.3895e6),
-    "jupiter": (1.8982e27, 6.9911e7),
-    "sun": (1.9885e30, 6.957e8),
-}
-
 _IDENTICAL_PAIR_RE = re.compile(
     r"\b(?:two|a\s+pair\s+of|both)\b[^.?!]{0,40}?"
     r"\b(?:masses|spheres|balls|objects|bodies|blocks|stars|planets|satellites)\b",
     re.IGNORECASE,
 )
-
-
-def _named_body(lower: str) -> tuple[float, float] | None:
-    for name, properties in _BODY_PROPERTIES.items():
-        if word_index(lower, name) != -1:
-            return properties
-    return None
 
 
 def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
@@ -74,7 +60,7 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
     if has_equation(_strip_param_assignments(cleaned)):
         return None
 
-    body = _named_body(lower)
+    body = named_body(lower)
     masses = _ordered_values(cleaned, r"kg|tonnes?|tons?")
     radius = _find_value_with_specific_unit(
         cleaned, _LENGTH_UNIT_PATTERN, ("radius", "radii"), require_keyword=True

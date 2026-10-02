@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -45,6 +45,12 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("inertia", "I", "kilogram * meter ** 2"),
             var("omega", r"\omega", "radian / second"),
+        ),
+        binding=Binding(
+            asks=("rotational kinetic energy", "rotational energy", "kinetic energy"),
+            result=("joule",),
+            inputs=(frozenset({"inertia", "omega"}),),
+            nonnegative=True,
         ),
     ),
     formula(

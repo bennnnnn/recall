@@ -50,6 +50,15 @@ def test_a_viscosity_is_one_unit_not_a_pressure(spelling: str) -> None:
     assert givens[0].dimension != givens[1].dimension
 
 
+def test_a_time_before_a_sentence_is_not_significant_figures() -> None:
+    givens = scan_givens("from 10 m/s to 30 m/s in 5 s. Find its acceleration to 3 s.f.")
+    assert [(given.value, given.unit) for given in givens] == [
+        (10.0, "m/s"),
+        (30.0, "m/s"),
+        (5.0, "s"),
+    ]
+
+
 def test_scan_givens_never_reads_prose_as_units() -> None:
     givens = scan_givens("walk 3 at a time, 4 in a row, 5 a day")
     assert [given.dimension for given in givens] == [None, None, None]

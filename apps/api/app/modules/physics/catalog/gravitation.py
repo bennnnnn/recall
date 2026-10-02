@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -93,8 +93,15 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"T = 2\pi\sqrt{\frac{r^3}{GM}}",
         assumptions=("circular orbit around a fixed central mass",),
         variables=(
-            var("M", "M", "kilogram"),
+            var("M", "M", "kilogram", fallback="body_mass"),
             var("r", "r", "meter"),
+        ),
+        binding=Binding(
+            asks=("orbital period", "period"),
+            result=("second",),
+            inputs=(frozenset({"M", "r"}),),
+            cues=("orbit",),
+            nonnegative=True,
         ),
     ),
 )

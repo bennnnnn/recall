@@ -1,0 +1,244 @@
+"""Questions read straight into a catalog operation, and the ones that must not be."""
+
+from __future__ import annotations
+
+import math
+
+import pytest
+
+from app.core.config import Settings
+from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics import build_verified_physics_block, extract_physics_intent, solve_physics
+from app.modules.physics.ask import result_dimension
+from app.modules.physics.binding import bind_physics_intent
+from app.modules.physics.catalog import CATALOG
+from app.modules.physics.direct import maybe_direct_physics_reply
+from app.modules.physics.display import si_symbol
+from app.modules.physics.givens import unit_dimension
+
+_SETTINGS = Settings(math_tools_enabled=True)
+
+
+def _answer(text: str) -> str | None:
+    intent = extract_physics_intent(text)
+    if intent is None:
+        return None
+    block = build_verified_physics_block(intent, _SETTINGS)
+    return None if block is None else block.canonical_answer
+
+
+# Each answer worked by hand: g = 9.81 m/s², G·M(Earth) from CODATA.
+@pytest.mark.parametrize(
+    ("text", "operation", "answer"),
+    [
+        (
+            "A car accelerates uniformly from 10 m/s to 30 m/s in 5 s. Find its acceleration.",
+            "suvat_acceleration",
+            "4 m/s²",  # (30 - 10) / 5
+        ),
+        (
+            "A cyclist accelerates at 2 m/s^2 for 6 s and reaches 18 m/s. "
+            "What was the initial velocity?",
+            "suvat_initial_velocity",
+            "6 m/s",  # 18 - 2·6
+        ),
+        (
+            "An object moves with initial velocity 5 m/s and acceleration 2 m/s^2. "
+            "Find its displacement after 4 s.",
+            "suvat_distance",
+            "36 m",  # 5·4 + ½·2·16
+        ),
+        (
+            "How long does it take a car to accelerate from 0 to 27 m/s at 4.5 m/s^2?",
+            "suvat_time",
+            "6 s",  # 27 / 4.5; the bare 0 takes the m/s it runs to
+        ),
+        (
+            "A car moving at 30 m/s decelerates at 5 m/s^2. How long does it take to come to rest?",
+            "suvat_time",
+            "6 s",  # (0 - 30) / -5
+        ),
+        ("How far does a plane travel in 3 hours at 800 km/h?", "rate_distance", "2400 km"),
+        (
+            "A stone is dropped from a bridge and hits the water 3 s later. "
+            "How high is the bridge?",
+            "drop_height",
+            "44.1 m",  # ½·9.81·9
+        ),
+        (
+            "A ball is thrown horizontally at 15 m/s from a cliff 20 m high. "
+            "How far from the base of the cliff does it land?",
+            "range",
+            "30.3 m",  # 15·√(2·20/9.81)
+        ),
+        (
+            "A ball is thrown horizontally from a 45 m tall building at 12 m/s. "
+            "Find the time of flight.",
+            "time_of_flight",
+            "3.03 s",  # √(2·45/9.81)
+        ),
+        ("What is the weight of a 70 kg person on Earth?", "weight", "687 N"),
+        ("What is the weight of a 70 kg astronaut on the Moon?", "weight", "113 N"),  # 70·1.62
+        (
+            "Two masses of 3 kg and 5 kg hang over a frictionless pulley. "
+            "Find the acceleration and the tension.",
+            "atwood",
+            "2.45 m/s² and 36.8 N",  # 2·9.81/8; 2·15·9.81/8
+        ),
+        (
+            "A 20 kg crate is pulled across a floor with a force of 100 N. "
+            "The coefficient of friction is 0.25. Find the acceleration.",
+            "applied_friction_acceleration",
+            "2.55 m/s²",  # (100 - 0.25·20·9.81) / 20
+        ),
+        (
+            "A 60 kg person climbs 3 m of stairs in 4 s. What is their power output?",
+            "lifting_power",
+            "441 W",  # 60·9.81·3 / 4
+        ),
+        (
+            "Find the period of a satellite orbiting at a radius of 7000 km around Earth.",
+            "kepler_period",
+            "5830 s",  # 2π√(r³/GM)
+        ),
+        (
+            "A flywheel with moment of inertia 4 kg m^2 spins at 10 rad/s. "
+            "Find its rotational kinetic energy.",
+            "rotational_kinetic_energy",
+            "200 J",  # ½·4·100
+        ),
+    ],
+)
+def test_a_stated_law_is_read_and_verified(text: str, operation: str, answer: str) -> None:
+    intent = extract_physics_intent(text)
+    assert intent is not None and intent.physics_op == operation
+    assert _answer(text) == answer
+    block = build_verified_physics_block(intent, _SETTINGS)
+    assert block is not None and maybe_direct_physics_reply(block, text) is not None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Two speeds and no word saying which is the start: either guess misleads.
+        "A car has speeds 10 m/s and 30 m/s over 5 s. Find its acceleration.",
+        # "reaches 18 m/s" is the final speed, so a question for "the speed" is answered.
+        "A cyclist accelerates at 2 m/s^2 for 6 s and reaches 18 m/s. What is its speed?",
+        # A value no input of the law takes: the mass is not part of SUVAT.
+        "A 2 kg car with initial velocity 5 m/s accelerates at 2 m/s^2. "
+        "Find its displacement after 4 s.",
+        # "weight" here is the everyday mass, not a force.
+        "My weight is 70 kg. What is my weight in pounds?",
+        # A second request is not something the verified answer finishes.
+        "A stone is dropped and falls for 3 s. Find how far it falls and explain it to me.",
+        # A pull weaker than friction leaves the crate at rest.
+        "A 20 kg crate is pulled with a force of 10 N. The coefficient of friction is 0.25. "
+        "Find the acceleration.",
+        # No horizontal launch: the angle is not stated, so it is not a horizontal throw.
+        "A ball is thrown at 15 m/s from a cliff 20 m high. How far does it land?",
+    ],
+)
+def test_a_question_the_catalog_cannot_read_exactly_declines(text: str) -> None:
+    assert _answer(text) is None
+
+
+def test_a_paste_with_more_values_than_a_question_is_not_bound() -> None:
+    log = " ".join(f"lap {n} took {n + 10} s" for n in range(1, 10))
+    assert bind_physics_intent(f"{log}. A runner covers 400 m in 50 s. Find the speed.") is None
+    assert bind_physics_intent("A runner covers 400 m in 50 s. Find the speed.") is not None
+
+
+def test_an_asked_phrase_that_labels_a_given_is_not_the_ask() -> None:
+    # "an acceleration of 2 m/s²" is a given; the ask is the time.
+    intent = bind_physics_intent(
+        "How long does a car with an acceleration of 2 m/s^2 take to go from 0 to 20 m/s?"
+    )
+    assert intent is not None and intent.physics_op == "suvat_time"
+
+
+def _sample(name: str) -> float:
+    return {
+        "u": 10.0,
+        "v": 20.0,
+        "a": 2.0,
+        "t": 3.0,
+        "d": 50.0,
+        "m": 5.0,
+        "g": 9.81,
+        "F": 100.0,
+        "mu": 0.2,
+        "h": 3.0,
+        "h0": 20.0,
+        "v0": 15.0,
+        "angle": 0.0,
+        "m1": 5.0,
+        "m2": 3.0,
+        "M": 5.9722e24,
+        "r": 7.0e6,
+        "weight": 600.0,
+        "inertia": 4.0,
+        "omega": 10.0,
+    }[name]
+
+
+def _bindings() -> list[tuple[str, frozenset[str]]]:
+    return [
+        (spec.id, inputs)
+        for spec in CATALOG.values()
+        if spec.binding is not None
+        for inputs in spec.binding.inputs
+    ]
+
+
+@pytest.mark.parametrize(("operation", "inputs"), _bindings())
+def test_every_promised_input_set_solves_to_the_promised_results(
+    operation: str, inputs: frozenset[str]
+) -> None:
+    spec = CATALOG[operation]
+    assert spec.binding is not None
+    variables = {variable.name: variable for variable in spec.variables}
+    units = {
+        name: "deg" if name.startswith("angle") else si_symbol(variables[name].dimension or "")
+        for name in inputs
+    }
+    intent = PhysicsIntent(
+        kind=spec.kind,  # type: ignore[arg-type]
+        physics_op=operation,
+        physics_params={name: _sample(name) for name in sorted(inputs)},
+        physics_units=units,
+    )
+    result = solve_physics(intent)
+    promised = [unit_dimension(unit)[0] for unit in spec.binding.result]  # type: ignore[index]
+    assert [result_dimension(item.unit) for item in result.quantities] == promised
+
+
+@pytest.mark.parametrize(
+    ("given", "values"),
+    [
+        ({"v": 20.0, "a": 2.0, "t": 3.0}, None),
+        ({"v": 20.0, "a": 2.0, "d": 50.0}, None),
+        ({"v": 20.0, "d": 50.0, "t": 3.0}, None),
+        ({"a": 2.0, "d": 50.0, "t": 3.0}, None),
+    ],
+)
+def test_the_initial_velocity_satisfies_every_suvat_equation(
+    given: dict[str, float], values: None
+) -> None:
+    del values
+    intent = PhysicsIntent(
+        kind="suvat",
+        physics_op="suvat_initial_velocity",
+        physics_params=given,
+        physics_units={
+            name: {"v": "m/s", "a": "m/s^2", "d": "m", "t": "s"}[name] for name in given
+        },
+    )
+    u = solve_physics(intent).quantities[0].value
+    a, t, d, v = given.get("a"), given.get("t"), given.get("d"), given.get("v")
+    if a is not None and t is not None:
+        v = u + a * t if v is None else v
+        assert math.isclose(v, u + a * t)
+    if d is not None and t is not None and v is not None:
+        assert math.isclose(d, (u + v) * t / 2)
+    if a is not None and d is not None and v is not None:
+        assert math.isclose(v * v, u * u + 2 * a * d)

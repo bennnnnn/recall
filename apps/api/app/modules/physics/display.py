@@ -252,7 +252,15 @@ def typeset_numbers(row: str) -> str:
 
     ``6.6261e-34`` becomes ``6.6261 \\times 10^{-34}``; a decimal that floating
     point stretched past six figures (``0.30000000000000004``) is cut back.
-    Integers and the user's own decimals are left as written.
+    Integers and the user's own decimals are left as written. A number raised
+    to a power keeps its brackets once it is a product: ``7e+06^3`` is
+    ``(7 \\times 10^{6})^3``, not a double superscript.
     """
-    row = _E_NOTATION.sub(lambda match: latex_number(float(match.group(0)), GIVEN_FIGURES), row)
+
+    def scientific(match: re.Match[str]) -> str:
+        shown = latex_number(float(match.group(0)), GIVEN_FIGURES)
+        raised = match.string.startswith("^", match.end())
+        return f"({shown})" if raised and r"\times" in shown else shown
+
+    row = _E_NOTATION.sub(scientific, row)
     return _LONG_DECIMAL.sub(lambda match: latex_number(float(match.group(1)), GIVEN_FIGURES), row)

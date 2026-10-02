@@ -472,6 +472,14 @@ _AT_REST_START_RE = re.compile(
     re.IGNORECASE,
 )
 
+# A lone speed the question says it ends at: "accelerates ... and reaches 18 m/s".
+# That is v, and a question for v that states it has nothing left to solve.
+_FINAL_SPEED_RE = re.compile(
+    r"\b(?:reach(?:es|ed|ing)?|final\s+(?:speed|velocity)(?:\s+(?:of|is))?|up\s+to|until\s+it\s+reaches)"
+    rf"\s+(?:a\s+(?:speed|velocity)\s+of\s+)?{_NUMBER}\s*(?:{_VELOCITY_UNIT_PATTERN})",
+    re.IGNORECASE,
+)
+
 _AT_REST_END_RE = re.compile(
     r"\bto\s+(?:rest|a\s+(?:stop|halt))\b|\b(?:stops?|stopping|halts?)\b"
     r"|\bcomes?\s+to\s+(?:rest|a\s+(?:stop|halt))\b",
@@ -550,6 +558,8 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
         params["v"], units["v"] = 0.0, "m/s"
         if velocities:
             params["u"], units["u"] = velocities[0]
+    elif len(velocities) == 1 and _FINAL_SPEED_RE.search(cleaned):
+        params["v"], units["v"] = velocities[0]
     elif velocities:
         params["u"], units["u"] = velocities[0]
         if len(velocities) > 1:

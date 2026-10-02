@@ -19,6 +19,8 @@ from app.modules.physics import build_verified_physics_block, extract_physics_in
         ("average speed 0.5 m in 2 s", "0.25 m/s"),
         ("average speed 1.5 m in .5 s", "3 m/s"),
         ("average speed +.5 m in 2 s", "0.25 m/s"),
+        # Asked for in another unit, it is converted rather than declined.
+        ("Find the average speed for 100 m in 20 s in km/h.", "18 km/h"),
     ],
 )
 def test_rate_answer_retains_supplied_units(prompt: str, answer: str) -> None:
@@ -36,7 +38,6 @@ def test_rate_answer_retains_supplied_units(prompt: str, answer: str) -> None:
         "Find the average speed for 100 m/s in 20 s.",
         "Find the average speed for 100 m in 20 s and then 50 m in 10 s.",
         "Find the average speed for 100 m in 20 s and tell me a joke.",
-        "Find the average speed for 100 m in 20 s in km/h.",
         "average speed .5 m in -.5 s",
         "average speed -.5 m in 2 s",
     ],

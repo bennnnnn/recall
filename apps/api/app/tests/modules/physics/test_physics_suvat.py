@@ -406,7 +406,6 @@ NOT_PHYSICS = [
     "the project accelerated from 3 to 5 people",
     "I need a rest from 3 hours of meetings",
     "how far is 5 km in miles",
-    "how long does it take to drive 120 km at 60 km/h",
 ]
 
 

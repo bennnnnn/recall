@@ -138,7 +138,6 @@ NOT_PHYSICS = [
     "how far is 5 km in miles",
     "how high is 200 cm in feet",
     "how fast is 60 km/h in m/s",
-    "how long does it take to drive 120 km at 60 km/h",
     "the police force on duty numbered 30 officers in 2024",
     "I have PE at 3pm and 2 free periods",
     "integrate 2x from 0 to 3",
@@ -150,6 +149,15 @@ NOT_PHYSICS = [
 def test_widened_cues_do_not_steal_other_subjects(text: str) -> None:
     intent = extract_physics_intent(text)
     assert intent is None or intent.kind not in PHYSICS_KINDS
+
+
+def test_a_trip_time_physics_already_claims_is_now_verified() -> None:
+    # Physics detection owned this before the binder; it used to get the
+    # unverified note, and now gets t = d/v in the units it was asked in.
+    intent = extract_physics_intent("how long does it take to drive 120 km at 60 km/h")
+    assert intent is not None and intent.physics_op == "rate_time"
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None and block.canonical_answer == "2 h"
 
 
 def test_solve_for_x_still_routes_to_the_equation_extractor() -> None:

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -61,6 +61,31 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("g", "g", "meter / second ** 2"),
             var("m", "m", "kilogram"),
             var("mu", r"\mu", dimensionless=True),
+        ),
+    ),
+    # Pulled along a level floor against kinetic friction.
+    formula(
+        "applied_friction_acceleration",
+        "friction",
+        "Newton's second law with friction",
+        "a",
+        base_latex=r"F - \mu mg = ma",
+        assumptions=("a horizontal pull on a level surface", "kinetic friction"),
+        expression="(F - mu*m*g)/m",
+        variables=(
+            var("F", "F", "newton"),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("m", "m", "kilogram"),
+            var("mu", r"\mu", dimensionless=True),
+        ),
+        binding=Binding(
+            asks=("acceleration",),
+            result=("meter / second ** 2",),
+            inputs=(frozenset({"F", "g", "m", "mu"}),),
+            cues=("friction",),
+            # Friction stronger than the pull leaves the body at rest, not
+            # accelerating backwards.
+            nonnegative=True,
         ),
     ),
 )

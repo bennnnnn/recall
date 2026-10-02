@@ -70,11 +70,13 @@ def _literal_values(annotation: object) -> set[str]:
     return {arg for arg in get_args(annotation) if isinstance(arg, str)}
 
 
-def test_catalog_ids_match_the_physics_op_literal() -> None:
-    literal = _literal_values(PhysicsIntent.model_fields["physics_op"].annotation)
+def test_the_schema_takes_only_operations_the_catalog_declares() -> None:
     kinds = _literal_values(PhysicsIntent.model_fields["kind"].annotation)
-    assert literal == set(CATALOG)
     assert all(spec.kind in kinds for spec in CATALOG.values())
+    with pytest.raises(ValueError, match="does not define"):
+        PhysicsIntent(kind="force", physics_op="warp_drive", physics_params={"m": 1.0})
+    with pytest.raises(ValueError, match="does not define"):
+        PhysicsIntent(kind="optics", physics_op="weight", physics_params={"m": 1.0})
     assert all(
         spec.law_name.strip() and spec.law_name != "Physics formula" for spec in CATALOG.values()
     )

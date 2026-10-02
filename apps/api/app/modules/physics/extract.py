@@ -329,7 +329,13 @@ def needs_physics(text: str) -> bool:
         return True
     if not any(char.isdigit() for char in cleaned):
         return _DIGIT_FREE_PHYSICS_RE.search(cleaned) is not None
-    return has_supported_physics_cue(cleaned)
+    if has_supported_physics_cue(cleaned):
+        return True
+    # The catalog is a cue too: a question that states one law's inputs and
+    # asks for its result exactly ("the weight of a 70 kg person") is physics.
+    from app.modules.physics.binding import bind_physics_intent
+
+    return bind_physics_intent(cleaned) is not None
 
 
 def extract_physics_intent(text: str) -> PhysicsIntent | None:
@@ -357,4 +363,13 @@ def _extract_physics_intent(text: str) -> PhysicsIntent | None:
         intent = extractor(request.text)
         if intent is not None:
             return complete_physics_intent(intent, request)
-    return None
+    # Last: a question the extractors declined may still state a catalog law's
+    # inputs plainly and ask for its result. Only one exact fit is answered,
+    # and only for text the physics gate calls physics, so the binder adds
+    # answers to physics questions and never takes a question from math.
+    if not needs_physics(text):
+        return None
+    from app.modules.physics.binding import bind_physics_intent
+
+    bound = bind_physics_intent(request.text)
+    return None if bound is None else complete_physics_intent(bound, request)
