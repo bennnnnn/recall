@@ -342,14 +342,27 @@ def unit_expression(spelling: str) -> str | None:
     return _SYMBOLS.get(spelling) or _WORDS.get(spelling.lower())
 
 
-# "0.8c": the speed of light, only when the c is written onto the number. A
-# spaced "2 c" is as likely a part label ("question 2 c)") as a speed.
+# A speed written as a fraction of c. Written onto the number ("0.8c"), any
+# number is one. With a space, only a decimal below 1 is ("0.8 c"): "question
+# 2 c" and "part c)" label a part of the question, not a speed.
+FRACTION_OF_C = re.compile(r"\dc(?![A-Za-z0-9])|(?<![\d.])0?\.\d+[ \t]c(?![A-Za-z0-9)])")
 _LIGHT_SPEED_RE = re.compile(r"c(?![A-Za-z0-9])")
+_SPACED_LIGHT_SPEED_RE = re.compile(r"[ \t]c(?![A-Za-z0-9)])")
+_FRACTION_BEFORE_RE = re.compile(r"(?<![\d.])0?\.\d+\Z")
+
+
+def _speed_of_light_at(text: str, end: int) -> bool:
+    if _LIGHT_SPEED_RE.match(text, end):
+        return True
+    if not _SPACED_LIGHT_SPEED_RE.match(text, end):
+        return False
+    # A number is short; the window keeps this check constant-time.
+    return _FRACTION_BEFORE_RE.search(text[max(0, end - 32) : end]) is not None
 
 
 def unit_at(text: str, end: int) -> tuple[str, str] | None:
     """The unit written right after a number: (spelling, Pint expression)."""
-    if _LIGHT_SPEED_RE.match(text, end):
+    if _speed_of_light_at(text, end):
         return "c", "speed_of_light"
     word = _WORD_RE.match(text, end)
     symbol = _SYMBOL_RE.match(text, end)

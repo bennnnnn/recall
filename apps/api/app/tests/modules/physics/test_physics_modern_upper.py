@@ -111,6 +111,17 @@ def _answer(text: str) -> str | None:
             "2.05 × 10⁻¹⁴ J",  # (1.25 - 1)·mc²
         ),
         (
+            # A space before c is still a fraction of the speed of light.
+            "A proton moves at 0.8 c. Find its relativistic momentum.",
+            "relativistic_momentum",
+            "6.69 × 10⁻¹⁹ kg·m/s",
+        ),
+        (
+            "An electron moves at 0.6 c. Find its total energy.",
+            "relativistic_total_energy",
+            "1.02 × 10⁻¹³ J",  # 1.25·mc²
+        ),
+        (
             "A spaceship moving at 0.6c fires a probe forward at 0.5c relative to the ship. "
             "Find the speed of the probe relative to Earth.",
             "relativistic_velocity_addition",
@@ -180,7 +191,10 @@ def test_a_slow_car_is_not_answered_with_relativity() -> None:
     ("text", "unit"),
     [
         ("moves at 0.8c", "c"),  # written onto the number: the speed of light
+        ("moves at 0.8 c.", "c"),  # a decimal below 1, then c: still a speed
         ("question 2 c) a car", ""),  # a part label, not a speed
+        ("part 2 c. A car", ""),  # a whole number before a spaced c is a label
+        ("mu is 0.3 c) Find", ""),  # "c)" labels a part even after a fraction
         ("12e-6 /°C", "/°C"),
         ("2e20 nuclei", "nuclei"),
         ("3.7e10 Bq", "Bq"),
