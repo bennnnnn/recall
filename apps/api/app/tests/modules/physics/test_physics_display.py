@@ -93,3 +93,28 @@ def test_a_note_escapes_latex_specials() -> None:
     item = QuantityResult("", 0.39988, "", detail="39.988%")
     assert render_chip((item,)) == "0.4 (40%)"
     assert render_chip_latex((item,)) == r"0.4\ (\text{40\%})"
+
+
+@pytest.mark.parametrize(
+    ("unit", "shown"),
+    [
+        ("miles per hour", "mph"),
+        ("ohm m", "Ω·m"),
+        ("per K", "K⁻¹"),
+        ("degrees celsius", "°C"),
+        ("J/(kg K)", "J/(kg·K)"),
+        ("N m", "N·m"),
+    ],
+)
+def test_a_unit_written_in_words_shows_its_symbol(unit: str, shown: str) -> None:
+    assert plain_unit(unit) == shown
+    assert latex_unit(unit) == rf"\,\mathrm{{{shown}}}"
+
+
+def test_every_unit_the_scanner_reads_in_words_has_a_symbol() -> None:
+    from app.modules.physics.givens import _SYMBOLS, _WORDS
+
+    for spelling in (*_WORDS, *_SYMBOLS):
+        if " " in spelling:
+            shown = plain_unit(spelling)
+            assert " " not in shown and "per" not in shown, (spelling, shown)

@@ -125,9 +125,35 @@ _LATEX_SYMBOLS = {
 }
 _POWER = re.compile(r"\^\{?(-?\d+)\}?")
 
+# A unit written in words, by the unit it means: "miles per hour" is mph, and
+# "ohm m" is Ω·m. Spelling it back out would print "miles·per·hour".
+_WORD_UNIT_SYMBOLS = {
+    "pascal * second": "Pa·s",
+    "degC": "°C",
+    "joule / kilogram / kelvin": "J/(kg·K)",
+    "kilogram * meter / second": "kg·m/s",
+    "kilogram * meter ** 2": "kg·m²",
+    "meter / second ** 2": "m/s²",
+    "mile / hour": "mph",
+    "newton * meter": "N·m",
+    "newton * second": "N·s",
+    "ohm * meter": "Ω·m",
+    "1 / kelvin": "K⁻¹",
+}
+
 
 def _symbol(unit: str) -> str:
     return _SPELLED.get(unit, _SPELLED.get(unit.lower(), unit)) if unit else unit
+
+
+def _written_in_words(unit: str) -> str | None:
+    """The symbol for a unit written as words ("miles per hour"), if it is one."""
+    if " " not in unit.strip():
+        return None
+    from app.modules.physics.givens import unit_expression
+
+    expression = unit_expression(unit.strip())
+    return None if expression is None else _WORD_UNIT_SYMBOLS.get(expression)
 
 
 def plain_unit(unit: str) -> str:
@@ -135,6 +161,9 @@ def plain_unit(unit: str) -> str:
     unit = _symbol(unit)
     if unit in _PLAIN_SYMBOLS:
         return _PLAIN_SYMBOLS[unit]
+    words = _written_in_words(unit)
+    if words is not None:
+        return words
     spelled = _grouped_denominator(unit).replace("*", "·").replace(" ", "·")
     return _POWER.sub(lambda match: match.group(1).translate(_SUPERSCRIPT), spelled)
 
