@@ -111,13 +111,23 @@ SPECS: tuple[FormulaSpec, ...] = (
                     ("third harmonic", 3.0),
                 ),
             ),
-            # A string or an open pipe is n·v/2L; a pipe closed at one end n·v/4L.
+            # A string or an open pipe is n·v/2L; one closed or free end n·v/4L.
             var(
                 "mode_factor",
                 "mode_factor",
                 dimensionless=True,
                 visible=False,
-                implied=(("closed at one end", 4.0), ("string", 2.0), ("open at both ends", 2.0)),
+                # One open or free end makes a quarter-wave resonator, and it
+                # is read before "string" so a fixed-free string is one.
+                implied=(
+                    ("closed at one end", 4.0),
+                    ("open at one end", 4.0),
+                    ("free at", 4.0),
+                    ("free end", 4.0),
+                    ("closed at both ends", 2.0),
+                    ("string", 2.0),
+                    ("open at both ends", 2.0),
+                ),
             ),
             var("v_wave", "v", "meter / second"),
         ),
