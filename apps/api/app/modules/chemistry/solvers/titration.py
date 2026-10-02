@@ -205,15 +205,24 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
         formula = f"{conj_symbol} = Kw / {symbol}"
     else:
         excess = (titrant_moles - analyte_moles) / total
-        ph = num(PKW + math.log10(excess) if acid else -math.log10(excess))
+        # Excess strong titrant is the net strong ion. The water quadratic
+        # keeps a 1e-8 M excess near pH 7.
+        net = -excess if acid else excess
+        hydrogen = (net + math.sqrt(net * net + 4 * KW)) / 2
+        ph = ph_text(hydrogen)
         region = "after equivalence"
         ion = "OH-" if acid else "H+"
         detail = f"after equivalence: [{ion}] = {num(excess)}"
-        formula = f"[{ion}] = excess {'base' if acid else 'acid'} / total volume"
+        formula = "[H+] = [net + √(net^2 + 4Kw)] / 2"
         lines.append(
             f"[{ion}] = ({num(titrant_moles)} − {num(analyte_moles)}) / {num(total)} = "
             f"{num(excess)} mol/L"
         )
+        lines.append(
+            f"[H+] = [net + √(net^2 + 4Kw)] / 2 = {num(hydrogen)} mol/L "
+            "(water's ions included)"
+        )
+        lines.append(f"pH = −log10({num(hydrogen)}) = {ph}")
     return _done(
         intent,
         "Verified weak titration" if acid else "Verified weak-base titration",
