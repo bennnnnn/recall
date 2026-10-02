@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`O2-` was parsed as oxide, charge −2.** Digits before a trailing sign are the charge only for a metal such as `Fe2+`. H, N, O, F, Cl, Br, and I keep the subscript, so `O2-` is superoxide and `H2+` is H₂⁺. `O2^2-` stays peroxide.
+
 - **Negative moles verified as `c = -2 mol/L`, and a spiked signal below the sample verified as `c = -1.667`.** Molarity and molality require a non-negative amount. Standard addition requires the spiked signal to be greater than the sample signal.
 
 - **Half-equivalence always verified pH = pKa.** That holds only while Ka is under 5% of the buffer concentration. A Ka of 0.1 at 0.00333 mol/L is pH 2.50, not 1. Solve the charge-balance root in that case.

@@ -327,6 +327,14 @@ def test_polyatomic_ion_charge_needs_a_caret_when_a_digit_precedes_the_sign() ->
     assert nitrate is not None and nitrate.charge == -1 and nitrate.composition == {"N": 1, "O": 3}
     iron = parse_species("Fe2+")
     assert iron is not None and iron.composition == {"Fe": 1} and iron.charge == 2
+    copper = parse_species("Cu2+")
+    assert copper is not None and copper.composition == {"Cu": 1} and copper.charge == 2
+    superoxide = parse_species("O2-")
+    assert superoxide is not None and superoxide.composition == {"O": 2} and superoxide.charge == -1
+    peroxide = parse_species("O2^2-")
+    assert peroxide is not None and peroxide.composition == {"O": 2} and peroxide.charge == -2
+    hydrogen = parse_species("H2+")
+    assert hydrogen is not None and hydrogen.composition == {"H": 2} and hydrogen.charge == 1
 
 
 def test_dichromate_without_a_caret_is_refused_not_balanced_to_nonsense() -> None:
