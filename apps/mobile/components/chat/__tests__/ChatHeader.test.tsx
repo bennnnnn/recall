@@ -99,7 +99,8 @@ describe("ChatHeader", () => {
     });
     expect(StyleSheet.flatten(getByText("Trip").props.style)).toMatchObject({
       fontSize: 17,
-      fontWeight: "700",
+      fontWeight: "400",
+      fontFamily: "SourceSans3-Bold",
     });
 
     const layout = { nativeEvent: { layout: { x: 0, y: 0, width: 390, height: 118 } } };

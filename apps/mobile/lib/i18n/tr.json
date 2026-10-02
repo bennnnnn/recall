@@ -660,6 +660,7 @@
   "reminders.badge_accessibility": "Yapılacaklar, bugün süresi dolan veya gecikmiş {{count}} öğe",
   "reminders.dismiss_failed": "Öneri kapatılamadı. Tekrar deneyin.",
   "rich.answer_a11y": "Yanıt: {{text}}",
+  "rich.answer_label": "Yanıt",
   "rich.arc_length": "Yay uzunluğu:",
   "rich.area": "Alan:",
   "rich.callout_important": "Önemli",

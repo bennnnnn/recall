@@ -55,11 +55,13 @@ describe("markdown render rules", () => {
     const styles = makeMdStyles(lightTheme);
     expect(StyleSheet.flatten(styles.heading3)).toMatchObject({
       fontSize: 17,
-      fontWeight: "700",
+      fontWeight: "400",
+      fontFamily: "SourceSans3-Bold",
     });
     expect(StyleSheet.flatten(styles.heading4)).toMatchObject({
       fontSize: 16,
-      fontWeight: "700",
+      fontWeight: "400",
+      fontFamily: "SourceSans3-Bold",
     });
     expect(StyleSheet.flatten(styles.heading5)).toMatchObject({ fontSize: 16 });
     expect(StyleSheet.flatten(styles.heading6)).toMatchObject({ fontSize: 16 });
@@ -68,7 +70,7 @@ describe("markdown render rules", () => {
   it("colors ordered-list markers and gives them a fixed rail", () => {
     const styles = makeMdStyles(lightTheme);
     expect(StyleSheet.flatten(styles.ordered_list_icon)).toMatchObject({
-      color: lightTheme.textSecondary,
+      color: lightTheme.text,
       minWidth: 22,
       textAlign: "right",
     });
@@ -80,12 +82,22 @@ describe("markdown render rules", () => {
     expect(inline).toMatchObject({
       borderWidth: 0,
       padding: 0,
-      backgroundColor: lightTheme.surfaceAlt,
+      backgroundColor: "transparent",
       fontSize: 14,
-      paddingHorizontal: 4,
+      paddingHorizontal: 0,
     });
     expect(inline.lineHeight).toBeUndefined();
     expect(inline.padding).not.toBe(10);
+  });
+
+  it("renders a teaching snippet in monospace without a gray chip", async () => {
+    const { getByText } = await render(
+      <MarkdownContent content={'Set `name = "john"` then continue.'} />,
+    );
+    const snippet = getByText('name = "john"');
+    const flat = StyleSheet.flatten(snippet.props.style);
+    expect(flat.backgroundColor).toBe("transparent");
+    expect(flat.fontFamily).toBe("SpaceMono");
   });
 
   it("forwards strong children even when the node text contains math", () => {

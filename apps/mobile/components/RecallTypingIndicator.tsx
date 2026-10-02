@@ -11,10 +11,9 @@ import Animated, {
 import { useTranslation } from "react-i18next";
 
 import { Motion, useReduceMotion } from "@/lib/motion";
+import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
 import { PULSE_PROFILES, typingPulseKindForPhase } from "@/lib/typingPulse";
-import { Radius } from "@/lib/radius";
-import { Space } from "@/lib/space";
 
 type Props = {
   /** Live `streamStatus` phase from the chat socket (preparing, searching, …). */
@@ -80,16 +79,15 @@ export function RecallTypingIndicator({ phase }: Props) {
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
-      width: 36,
-      height: 36,
-      alignItems: "center",
-      justifyContent: "center",
-      paddingVertical: Space.xxs,
-    },
-    disc: {
       width: 28,
       height: 28,
-      borderRadius: Radius.lg,
+      alignItems: "center",
+      justifyContent: "center",
+    },
+    disc: {
+      width: 18,
+      height: 18,
+      borderRadius: Radius.full,
       backgroundColor: t.accent,
     },
   });

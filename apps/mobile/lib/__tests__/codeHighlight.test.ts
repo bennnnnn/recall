@@ -1,4 +1,6 @@
 import {
+  codeLanguageLabel,
+  fenceUsesSyntaxColor,
   groupTokensByLine,
   isHtmlFenceLang,
   looksLikeHtmlPage,
@@ -14,6 +16,28 @@ describe("parseFenceLang", () => {
     expect(parseFenceLang("TypeScript")).toBe("typescript");
     expect(parseFenceLang("js {highlight}")).toBe("js");
     expect(parseFenceLang("  ")).toBe("");
+  });
+});
+
+describe("codeLanguageLabel", () => {
+  it("names a tagged fence and hides teaching fences", () => {
+    expect(codeLanguageLabel("python")).toBe("Python");
+    expect(codeLanguageLabel("js")).toBe("JavaScript");
+    expect(codeLanguageLabel("c++")).toBe("C++");
+    expect(codeLanguageLabel("")).toBeNull();
+    expect(codeLanguageLabel("text")).toBeNull();
+    expect(codeLanguageLabel("plaintext")).toBeNull();
+    expect(codeLanguageLabel("code")).toBeNull();
+  });
+});
+
+describe("fenceUsesSyntaxColor", () => {
+  it("colors only an explicit language we highlight", () => {
+    expect(fenceUsesSyntaxColor("python")).toBe(true);
+    expect(fenceUsesSyntaxColor("py")).toBe(true);
+    expect(fenceUsesSyntaxColor("")).toBe(false);
+    expect(fenceUsesSyntaxColor("text")).toBe(false);
+    expect(fenceUsesSyntaxColor("cobol")).toBe(false);
   });
 });
 

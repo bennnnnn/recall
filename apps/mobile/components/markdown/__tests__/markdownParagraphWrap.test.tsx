@@ -48,8 +48,9 @@ const LIST = [
 ].join("\n");
 
 describe("markdown paragraph wrap", () => {
-  it("uses the theme accent for standard list bullets", () => {
-    expect(makeMdMath(lightTheme).listBullet.backgroundColor).toBe(lightTheme.primary);
+  it("uses body ink for standard list bullets", () => {
+    expect(makeMdMath(lightTheme).listBullet.backgroundColor).toBe(lightTheme.text);
+    expect(makeMdMath(lightTheme).listBullet.width).toBe(6);
   });
 
   it("renders a list paragraph as Text, not a View", () => {

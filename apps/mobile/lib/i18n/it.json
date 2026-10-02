@@ -660,6 +660,7 @@
   "reminders.badge_accessibility": "Attività, {{count}} in scadenza oggi o scadute",
   "reminders.dismiss_failed": "Impossibile chiudere il suggerimento. Riprova.",
   "rich.answer_a11y": "Risposta: {{text}}",
+  "rich.answer_label": "Risposta",
   "rich.arc_length": "Lunghezza dell’arco:",
   "rich.area": "Area:",
   "rich.callout_important": "Importante",

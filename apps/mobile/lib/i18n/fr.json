@@ -660,6 +660,7 @@
   "reminders.badge_accessibility": "Tâches, {{count}} pour aujourd’hui ou en retard",
   "reminders.dismiss_failed": "Impossible de masquer la suggestion. Réessayez.",
   "rich.answer_a11y": "Réponse : {{text}}",
+  "rich.answer_label": "Réponse",
   "rich.arc_length": "Longueur de l’arc :",
   "rich.area": "Aire :",
   "rich.callout_important": "Important",

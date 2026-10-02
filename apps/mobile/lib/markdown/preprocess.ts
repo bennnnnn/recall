@@ -3,6 +3,7 @@ import {
   collapseAdjacentMoleculeFences,
   dropRedundantMolecule3dFences,
 } from "@/lib/chemistry/moleculePair";
+import { attachAnswerHeadingToFence } from "@/lib/markdown/attachAnswerHeading";
 import { flattenIntegrationConnectNotes } from "@/lib/markdown/flattenIntegrationConnectNotes";
 import {
   convertCalloutBlocks,
@@ -142,5 +143,7 @@ export function preprocessMarkdown(
   // Some math normalizers rebuild the surrounding prose while preserving the
   // model's original delimiter padding. Make this the final prose cleanup so
   // malformed bold closers can never reach markdown-it as literal `**`.
-  return presentAssistantMarkdown(trimBoldDelimiterWhitespace(out));
+  return attachAnswerHeadingToFence(
+    presentAssistantMarkdown(trimBoldDelimiterWhitespace(out)),
+  );
 }

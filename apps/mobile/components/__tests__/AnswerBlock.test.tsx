@@ -18,16 +18,33 @@ jest.mock("react-native-safe-area-context", () => ({
 }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
-    t: (key: string, opts?: { text?: string }) =>
-      key === "rich.answer_a11y" && opts?.text != null
-        ? `Answer: ${opts.text}`
-        : key,
+    t: (key: string, opts?: { text?: string }) => {
+      if (key === "rich.answer_a11y" && opts?.text != null) return `Answer: ${opts.text}`;
+      if (key === "rich.answer_label") return "Answer";
+      return key;
+    },
   }),
 }));
 
 describe("AnswerBlock", () => {
   beforeEach(() => {
     mockFormula.mockClear();
+  });
+
+  it("draws Answer on the same row as the equation", async () => {
+    const { getByTestId, getByText } = await render(
+      <AnswerBlock content={"label: answer\nx = 0"} />,
+    );
+    expect(getByText("Answer")).toBeOnTheScreen();
+    const row = getByTestId("answer-and-check");
+    const rowStyle = StyleSheet.flatten(row.props.style);
+    expect(rowStyle).toMatchObject({
+      flexDirection: "row",
+      alignItems: "center",
+      justifyContent: "flex-start",
+    });
+    expect(getByTestId("answer-label")).toBeOnTheScreen();
+    expect(getByTestId("answer-success-check")).toBeOnTheScreen();
   });
 
   it("keeps light finals on MathText (no display-math renderer)", async () => {

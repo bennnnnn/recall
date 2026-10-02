@@ -35,13 +35,27 @@ async function renderBlock(props: Partial<Parameters<typeof CodeBlock>[0]> = {})
 }
 
 describe("CodeBlock", () => {
-  it("shows the code with a floating copy button and no language label", async () => {
-    const { getByText, queryByText, getByLabelText, getByTestId } = await renderBlock();
+  it("shows the code, a Python corner label, and a floating copy button", async () => {
+    const { getByText, getByLabelText, getByTestId } = await renderBlock();
 
     expect(getByText(CODE)).toBeOnTheScreen();
-    expect(queryByText("python")).toBeNull();
+    expect(getByTestId("code-block-lang")).toHaveTextContent("Python");
+    expect(getByTestId("code-block-lines")).toHaveStyle({ paddingTop: 8 });
     expect(getByTestId("code-block-actions")).toContainElement(getByLabelText("common.copy"));
     expect(getByTestId("code-block-scroll").props.horizontal).toBe(true);
+  });
+
+  it("leaves a teaching fence unlabeled", async () => {
+    const untagged = await renderBlock({ lang: "" });
+    expect(untagged.queryByTestId("code-block-lang")).toBeNull();
+
+    const plain = await renderBlock({ lang: "text" });
+    expect(plain.queryByTestId("code-block-lang")).toBeNull();
+  });
+
+  it("names JavaScript fences in the corner", async () => {
+    const { getByTestId } = await renderBlock({ lang: "js" });
+    expect(getByTestId("code-block-lang")).toHaveTextContent("JavaScript");
   });
 
   it("puts extra actions in the same corner", async () => {

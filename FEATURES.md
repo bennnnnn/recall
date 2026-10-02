@@ -176,10 +176,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   offline tests cannot establish echo quality or interruption timing.
 
 ## 4. Formatting & rendering
-- ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists, blockquotes, links,
-  inline code, horizontal rules.
-- ✅ **Code blocks** — a clean rounded card with the copy button floating in its
-  corner (no header bar or language label), syntax colors, horizontal scroll.
+- ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists (ink-colored
+  markers), blockquotes, links, inline code (monospace, no gray chip), horizontal rules.
+- ✅ **Code blocks** — a rounded card. A language-tagged fence shows that language
+  in the top corner (Python, JavaScript). An untagged fence is a teaching snippet
+  (`name = "john"`) and has no label and no guessed keyword colors. Copy floats in
+  the opposite corner. Syntax colors mark keywords, strings, and numbers; names
+  stay in the body ink. Horizontal scroll.
   Fenced bodies stay opaque to math/table beautification (`$$` in a Python string,
   a quoted GFM table, ASCII boxes in ` ```text `).
 - ✅ **Syntax highlighting** — **Prism.js** token coloring for 40+ languages (comments, strings,

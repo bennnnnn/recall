@@ -1,8 +1,9 @@
 import { useMemo } from "react";
-import { marked } from "marked";
+import { Marked } from "marked";
 import DOMPurify from "dompurify";
 
 import { prepareAssistantMarkdown } from "@/lib/assistantMarkdown";
+import { renderFencedCodeHtml } from "@/lib/codeFenceHtml";
 
 // Plain markdown rendering for assistant text (slice 1). No KaTeX, Mermaid,
 // Vega, or HTML iframe — those rich fences come in a later slice. Known JSON
@@ -11,7 +12,14 @@ import { prepareAssistantMarkdown } from "@/lib/assistantMarkdown";
 //
 // chat-ux-bans: assistant bodies are NOT folded (no Show more / Show less).
 // The full body is rendered inline.
-marked.setOptions({ breaks: true, gfm: true });
+const parser = new Marked({ breaks: true, gfm: true });
+parser.use({
+  renderer: {
+    code(token) {
+      return renderFencedCodeHtml(token.text, token.lang);
+    },
+  },
+});
 
 const SANITIZE_CONFIG = {
   ALLOWED_TAGS: [
@@ -64,7 +72,7 @@ if (typeof window !== "undefined") {
 
 function renderMarkdown(markdown: string): string {
   const prepared = prepareAssistantMarkdown(markdown);
-  const rawHtml = marked.parse(prepared, { async: false }) as string;
+  const rawHtml = parser.parse(prepared, { async: false }) as string;
   return DOMPurify.sanitize(rawHtml, SANITIZE_CONFIG) as unknown as string;
 }
 

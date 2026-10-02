@@ -51,6 +51,27 @@ describe("looksLikeJava / looksLikeC", () => {
 });
 
 describe("tokenize", () => {
+  it("keeps a tagged python solution scannable", () => {
+    const code = [
+      "def two_sum(nums, target):",
+      "    for i, num in enumerate(nums):",
+      "        if num in seen:",
+      "            return [seen[num], i]",
+      "    return []",
+    ].join("\n");
+    const tokens = tokenize(code, "python");
+    expect(tokens.map((t) => t.text).join("")).toBe(code);
+    const color = (word: string) => tokens.find((t) => t.text === word)?.color;
+    expect(color("def")).toBe(TOKEN_COLORS.keyword);
+    expect(color("for")).toBe(TOKEN_COLORS.keyword);
+    expect(color("if")).toBe(TOKEN_COLORS.keyword);
+    expect(color("in")).toBe(TOKEN_COLORS.keyword);
+    expect(color("return")).toBe(TOKEN_COLORS.keyword);
+    // Names stay in the body ink, even when punctuation shares their run.
+    expect(tokens.find((t) => t.text.includes("nums"))?.color).toBe(TOKEN_COLORS.plain);
+    expect(tokens.find((t) => t.text.includes("target"))?.color).toBe(TOKEN_COLORS.plain);
+  });
+
   it("returns colored tokens for a known language", () => {
     const tokens = tokenize("const x = 1;", "javascript");
     expect(tokens.length).toBeGreaterThan(0);
@@ -72,6 +93,15 @@ describe("highlightPlainChunk", () => {
     const text = `${"x".repeat(MAX_PLAIN_HIGHLIGHT_CHARS + 1)} const y = 1;`;
     const tokens = highlightPlainChunk(text, "javascript");
     expect(tokens).toEqual([{ text, color: TOKEN_COLORS.plain }]);
+  });
+
+  it("colors python keywords and leaves names in the body ink", () => {
+    const text = 'flag = True\nname = "john"\n';
+    const tokens = highlightPlainChunk(text, "python");
+    expect(tokens.find((t) => t.text === "True")?.color).toBe(TOKEN_COLORS.keyword);
+    expect(tokens.find((t) => t.text.includes("john"))?.color).toBe(TOKEN_COLORS.string);
+    expect(tokens.find((t) => t.text.includes("name"))?.color).toBe(TOKEN_COLORS.plain);
+    expect(tokens.find((t) => t.text.includes("flag"))?.color).toBe(TOKEN_COLORS.plain);
   });
 
   it("still highlights keywords on medium-sized input under the cap", () => {

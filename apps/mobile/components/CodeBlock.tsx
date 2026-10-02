@@ -2,7 +2,14 @@ import { ReactNode, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { groupTokensByLine, parseFenceLang, resolveTokenColor, TOKEN_COLORS } from "@/lib/codeHighlight";
+import {
+  codeLanguageLabel,
+  fenceUsesSyntaxColor,
+  groupTokensByLine,
+  parseFenceLang,
+  resolveTokenColor,
+  TOKEN_COLORS,
+} from "@/lib/codeHighlight";
 import type * as CodeTokenizeModule from "@/lib/codeTokenize";
 import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
@@ -11,6 +18,7 @@ import { CopyButton } from "@/components/CopyButton";
 
 import { CODE_FONT } from "@/lib/fonts";
 import { Space } from "@/lib/space";
+import { Type, Weight } from "@/lib/type";
 const CODE_FONT_SIZE = 13;
 const CODE_LINE_HEIGHT = 20;
 
@@ -84,17 +92,21 @@ export function CodeBlock({
   // so the line gutter follows the measured width, not one button's.
   const [actionsWidth, setActionsWidth] = useState(0);
   const fenceLang = parseFenceLang(lang);
-  const tokenizer = useCodeTokenizer(!streaming);
+  const languageLabel = codeLanguageLabel(lang);
+  const colorSyntax = fenceUsesSyntaxColor(lang);
+  const tokenizer = useCodeTokenizer(!streaming && colorSyntax);
   const tokens = useMemo(() => {
     // While the fence is still open, skip Prism — retokenizing a growing
     // body every ~48ms is the jank the open-fence stream path avoids.
-    if (streaming || !tokenizer) return [{ text: code, color: TOKEN_COLORS.plain }];
+    // Untagged / teaching fences stay plain too: guessing a grammar paints
+    // random words and there is no language to name.
+    if (streaming || !colorSyntax || !tokenizer) return [{ text: code, color: TOKEN_COLORS.plain }];
     try {
       return tokenizer.tokenize(code, fenceLang);
     } catch {
       return [{ text: code, color: TOKEN_COLORS.plain }];
     }
-  }, [streaming, tokenizer, code, fenceLang]);
+  }, [streaming, colorSyntax, tokenizer, code, fenceLang]);
   const lines = useMemo(() => groupTokensByLine(tokens), [tokens]);
   const lineCount = code.split("\n").length;
   const collapsible = !streaming && lineCount >= CODE_COLLAPSE_MIN_LINES;
@@ -107,9 +119,21 @@ export function CodeBlock({
   const colorFor = (c: string) => resolveTokenColor(c, t.isDark);
 
   return (
-    // A clean card: code first, copy floating in the corner, no header bar
-    // or language label (the code says what it is).
+    // Tagged fences name the language in the top corner. Teaching fences
+    // (no language, or ```text) stay a plain card — copy only.
     <View style={s.wrap}>
+      {languageLabel ? (
+        <Text
+          style={[
+            s.lang,
+            hasActions && { paddingRight: Space.md + (actionsWidth || ACTIONS_GUTTER) },
+          ]}
+          testID="code-block-lang"
+          numberOfLines={1}
+        >
+          {languageLabel}
+        </Text>
+      ) : null}
       <View
         style={[
           s.codeBody,
@@ -131,6 +155,7 @@ export function CodeBlock({
             testID="code-block-lines"
             style={[
               s.codeLines,
+              languageLabel != null && { paddingTop: Space.xs },
               hasActions && { paddingRight: Space.md + (actionsWidth || ACTIONS_GUTTER) },
             ]}
           >
@@ -190,10 +215,19 @@ function makeStyles(t: Theme) {
       marginTop: 0,
       marginBottom: 10,
     },
+    lang: {
+      ...Type.meta,
+      ...Weight.semibold,
+      color: t.codeLang,
+      paddingTop: Space.xs,
+      paddingLeft: Space.md,
+      paddingRight: Space.md,
+    },
     actions: {
       position: "absolute",
       top: Space.xs,
       right: Space.xs,
+      zIndex: 3,
       flexDirection: "row",
       alignItems: "center",
       gap: 6,

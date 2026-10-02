@@ -71,9 +71,11 @@ const PRISM_THEME: Record<string, string> = {
   prolog: TOKEN_COLORS.comment,
   doctype: TOKEN_COLORS.comment,
   cdata: TOKEN_COLORS.comment,
-  punctuation: TOKEN_COLORS.operator,
-  operator: TOKEN_COLORS.operator,
-  property: TOKEN_COLORS.variable,
+  // Punctuation and names stay the body color. A second gray/gold on
+  // every symbol reads as a random wash over the keywords that matter.
+  punctuation: TOKEN_COLORS.plain,
+  operator: TOKEN_COLORS.plain,
+  property: TOKEN_COLORS.plain,
   tag: TOKEN_COLORS.tag,
   boolean: TOKEN_COLORS.number,
   number: TOKEN_COLORS.number,
@@ -86,9 +88,9 @@ const PRISM_THEME: Record<string, string> = {
   char: TOKEN_COLORS.string,
   builtin: TOKEN_COLORS.builtin,
   inserted: TOKEN_COLORS.className,
-  entity: TOKEN_COLORS.variable,
+  entity: TOKEN_COLORS.plain,
   url: TOKEN_COLORS.number,
-  variable: TOKEN_COLORS.variable,
+  variable: TOKEN_COLORS.plain,
   atrule: TOKEN_COLORS.keyword,
   "attr-value": TOKEN_COLORS.string,
   function: TOKEN_COLORS.function,
@@ -101,12 +103,12 @@ const PRISM_THEME: Record<string, string> = {
   italic: TOKEN_COLORS.plain,
   namespace: TOKEN_COLORS.className,
   "maybe-class-name": TOKEN_COLORS.className,
-  parameter: TOKEN_COLORS.variable,
+  parameter: TOKEN_COLORS.plain,
   decorator: TOKEN_COLORS.className,
   "template-string": TOKEN_COLORS.string,
   "template-punctuation": TOKEN_COLORS.operator,
   interpolation: TOKEN_COLORS.builtin,
-  "literal-property": TOKEN_COLORS.variable,
+  "literal-property": TOKEN_COLORS.plain,
   "constant-variable": TOKEN_COLORS.number,
   module: TOKEN_COLORS.className,
   scalar: TOKEN_COLORS.number,
@@ -418,17 +420,20 @@ export function highlightPlainChunk(
   const keywordRe = LANGUAGE_KEYWORDS[kwKey];
 
   type Rule = { re: RegExp; color: string };
+  // Keywords before the call heuristic, so `True` / `return` stay keywords
+  // and a capitalized word is not painted as a class by accident.
   const rules: Rule[] = [
     ...commentRulesFor(kwKey),
     {
       re: /"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`/g,
       color: TOKEN_COLORS.string,
     },
-    { re: /\b0x[\da-fA-F]+\b|\b\d+\.?\d*\b/g, color: TOKEN_COLORS.number },
-    { re: /\b[A-Z][a-zA-Z0-9_]*\b/g, color: TOKEN_COLORS.className },
-    { re: /\b[a-zA-Z_]\w*(?=\s*\()/g, color: TOKEN_COLORS.function },
   ];
   if (keywordRe) rules.push({ re: keywordRe, color: TOKEN_COLORS.keyword });
+  rules.push(
+    { re: /\b0x[\da-fA-F]+\b|\b\d+\.?\d*\b/g, color: TOKEN_COLORS.number },
+    { re: /\b[a-zA-Z_]\w*(?=\s*\()/g, color: TOKEN_COLORS.function },
+  );
 
   const out: HighlightToken[] = [];
   let i = 0;

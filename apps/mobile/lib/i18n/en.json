@@ -660,6 +660,7 @@
   "reminders.badge_accessibility": "To-do, {{count}} due today or overdue",
   "reminders.dismiss_failed": "Could not dismiss suggestion. Try again.",
   "rich.answer_a11y": "Answer: {{text}}",
+  "rich.answer_label": "Answer",
   "rich.arc_length": "Arc length:",
   "rich.area": "Area:",
   "rich.callout_important": "Important",

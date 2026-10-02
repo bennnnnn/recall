@@ -4,7 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { MathText } from "@/components/rich/MathText";
 import { StepList } from "@/components/rich/StepList";
 import { TeachingCard } from "@/components/rich/TeachingCard";
-import { MATH_FONT } from "@/lib/fonts";
+import { MATH_FONT, mathFace } from "@/lib/fonts";
 import { parseArithmeticWork, parseFractionWork } from "@/lib/math/arithmeticBlock";
 import { parseTeaching } from "@/lib/math/teachingBlock";
 import type { ArithmeticWorkSpec, FractionWorkSpec } from "@/lib/math/arithmeticBlock";
@@ -382,14 +382,14 @@ function makeStyles(t: Theme) {
     operator: {
       ...Type.h1,
       width: CELL_WIDTH,
-      fontFamily: MATH_FONT,
+      ...mathFace(MATH_FONT),
       color: t.text,
       textAlign: "center",
     },
     digit: {
       ...Type.h1,
       width: CELL_WIDTH,
-      fontFamily: MATH_FONT,
+      ...mathFace(MATH_FONT),
       lineHeight: 30,
       color: t.text,
       textAlign: "center",
@@ -399,7 +399,7 @@ function makeStyles(t: Theme) {
     annotation: {
       ...Type.secondary,
       width: CELL_WIDTH,
-      fontFamily: MATH_FONT,
+      ...mathFace(MATH_FONT),
       lineHeight: 19,
       color: t.primary,
       textAlign: "center",
@@ -416,14 +416,14 @@ function makeStyles(t: Theme) {
       ...Type.h1,
       minWidth: 52,
       opacity: 0,
-      fontFamily: MATH_FONT,
+      ...mathFace(MATH_FONT),
       paddingHorizontal: Space.xs,
     },
     dividendRow: { flexDirection: "row", alignItems: "flex-start" },
     divisor: {
       ...Type.h1,
       minWidth: 52,
-      fontFamily: MATH_FONT,
+      ...mathFace(MATH_FONT),
       lineHeight: 34,
       color: t.text,
       textAlign: "right",

@@ -660,6 +660,7 @@
   "reminders.badge_accessibility": "Tarefas, {{count}} para hoje ou atrasadas",
   "reminders.dismiss_failed": "Não foi possível dispensar a sugestão. Tente novamente.",
   "rich.answer_a11y": "Resposta: {{text}}",
+  "rich.answer_label": "Resposta",
   "rich.arc_length": "Comprimento do arco:",
   "rich.area": "Área:",
   "rich.callout_important": "Importante",

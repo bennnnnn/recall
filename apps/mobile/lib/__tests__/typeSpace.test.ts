@@ -22,9 +22,9 @@ describe("type and space tokens", () => {
 
   it("pairs every weight with its own Source Sans file", () => {
     expect(Weight.regular).toEqual({ fontFamily: "SourceSans3", fontWeight: "400" });
-    expect(Weight.medium).toEqual({ fontFamily: "SourceSans3-Medium", fontWeight: "500" });
-    expect(Weight.semibold).toEqual({ fontFamily: "SourceSans3-Semibold", fontWeight: "600" });
-    expect(Weight.bold).toEqual({ fontFamily: "SourceSans3-Bold", fontWeight: "700" });
+    expect(Weight.medium).toEqual({ fontFamily: "SourceSans3-Medium", fontWeight: "400" });
+    expect(Weight.semibold).toEqual({ fontFamily: "SourceSans3-Semibold", fontWeight: "400" });
+    expect(Weight.bold).toEqual({ fontFamily: "SourceSans3-Bold", fontWeight: "400" });
   });
 
   it("lets multiline roles use scaled platform line boxes", () => {

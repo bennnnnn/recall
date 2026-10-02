@@ -660,6 +660,7 @@
   "reminders.badge_accessibility": "Задачи, {{count}} на сегодня или просрочено",
   "reminders.dismiss_failed": "Не удалось скрыть предложение. Попробуйте снова.",
   "rich.answer_a11y": "Ответ: {{text}}",
+  "rich.answer_label": "Ответ",
   "rich.arc_length": "Длина дуги:",
   "rich.area": "Площадь:",
   "rich.callout_important": "Важно",
