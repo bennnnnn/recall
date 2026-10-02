@@ -608,9 +608,9 @@ def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> 
         for index in range(1, order + 1):
             current = diff(current, sym)
             derivative_tex = (
-                rf"\frac{{dy}}{{d{latex(sym)}}}"
+                rf"\frac{{d}}{{d{latex(sym)}}}"
                 if index == 1
-                else rf"\frac{{d^{{{index}}}y}}{{d{latex(sym)}^{{{index}}}}}"
+                else rf"\frac{{d^{{{index}}}}}{{d{latex(sym)}^{{{index}}}}}"
             )
             steps.append(f"**{ordinals[index]} derivative**\n${derivative_tex} = {latex(current)}$")
     return MathExprResult(
