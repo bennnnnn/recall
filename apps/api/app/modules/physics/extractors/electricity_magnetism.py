@@ -266,12 +266,16 @@ _CIRCUIT_CUE_RES: tuple[re.Pattern[str], ...] = (
     _ELECTRICAL_ENERGY_RE,
 )
 
+_MAX_NETWORK_RESISTORS = 4
+
+# At most one value past the limit, which is enough to refuse a longer network.
+# An unbounded list made every number of a pasted CSV restart the whole scan:
+# seconds of backtracking at 20,000 characters.
 _RESISTOR_LIST_RE = re.compile(
-    r"(\d+(?:\.\d+)?(?:\s*(?:,|and)\s*\d+(?:\.\d+)?)+)\s*(?:ohms?|\u03a9)",
+    r"((?<!\d)\d+(?:\.\d+)?(?:\s*(?:,|and)\s*\d+(?:\.\d+)?)"
+    rf"{{1,{_MAX_NETWORK_RESISTORS}}})\s*(?:ohms?|\u03a9)",
     re.IGNORECASE,
 )
-
-_MAX_NETWORK_RESISTORS = 4
 
 
 def _resistor_values(text: str) -> list[float]:

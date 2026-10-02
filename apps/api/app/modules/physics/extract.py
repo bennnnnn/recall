@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Callable
+from functools import lru_cache
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
@@ -107,7 +108,12 @@ from app.modules.physics.extractors.school_extensions import (
     _EXTENSION_CUES,
     extract_school_extension,
 )
-from app.services.symbolic_text import _MAX_PHYSICS_REQUEST, normalize_symbolic_request
+from app.services.symbolic_text import (
+    _MAX_PHYSICS_REQUEST,
+    _MAX_SUBJECT_TEXT,
+    normalize_symbolic_request,
+)
+from app.services.text_normalize import cap_text_head_tail
 
 __all__ = [
     "PHYSICS_CUES",
@@ -296,11 +302,24 @@ _SUPPLIED_NUCLEAR_MASS_RE = re.compile(
 )
 
 
+# Detection reads the head and tail of a long message, where the question sits
+# in a paste. It runs on every chat turn, so its cost must not grow with the
+# paste; the extractors still read the whole request, up to their own cap.
+_DETECTION_WINDOW = 4_000
+
+# Detection and extraction are pure functions of the text, and one chat turn
+# asks both questions of the same line from turn prep, routing, the prompt
+# builder, and the direct reply. Each turn pays once.
+_CACHE_SIZE = 128
+
+
+@lru_cache(maxsize=_CACHE_SIZE)
 def needs_physics(text: str) -> bool:
     """True for a verified template or an unmistakable physics-only request."""
-    cleaned = normalize_symbolic_request(text, limit=_MAX_PHYSICS_REQUEST)
-    if not cleaned:
+    normalized = normalize_symbolic_request(text, limit=_MAX_SUBJECT_TEXT)
+    if not normalized:
         return False
+    cleaned = cap_text_head_tail(normalized, _DETECTION_WINDOW)
     if _SUPPLIED_NUCLEAR_MASS_RE.search(cleaned) is not None:
         return False
     if _ADVANCED_PHYSICS_RE.search(cleaned) is not None:
@@ -311,7 +330,16 @@ def needs_physics(text: str) -> bool:
 
 
 def extract_physics_intent(text: str) -> PhysicsIntent | None:
-    """Extract one complete physics request without entering math dispatch."""
+    """Extract one complete physics request without entering math dispatch.
+
+    Callers get their own copy, so none can change what the next one reads.
+    """
+    intent = _extract_physics_intent(text)
+    return None if intent is None else intent.model_copy(deep=True)
+
+
+@lru_cache(maxsize=_CACHE_SIZE)
+def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     from app.modules.physics.request import complete_physics_intent, prepare_physics_request
 
     cleaned = normalize_symbolic_request(text, limit=_MAX_PHYSICS_REQUEST)

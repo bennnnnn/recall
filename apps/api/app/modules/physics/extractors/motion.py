@@ -118,7 +118,7 @@ def _asks_max_height(lower: str) -> bool:
     )
 
 
-_STATED_ACCELERATION_RE = re.compile(r"(-?\d+(?:\.\d+)?)\s*m/s\^?2(?![0-9])", re.IGNORECASE)
+_STATED_ACCELERATION_RE = re.compile(r"(-?(?<!\d)\d+(?:\.\d+)?)\s*m/s\^?2(?![0-9])", re.IGNORECASE)
 
 # The question has to ask for the acceleration. The bare word must not replace
 # a time, height, or speed question, and it must not drop that question.
@@ -683,7 +683,7 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     v0: float | None = None
     v0_unit = "m/s"
     speed_m = re.search(
-        r"(-?\d+(?:\.\d+)?)\s*(m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour)",
+        r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour)",
         cleaned,
         re.IGNORECASE,
     )
@@ -714,7 +714,7 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     if angle_m is None:
         # After stripping ``angle = 30``, only ``30 deg`` remains.
         angle_m = re.search(
-            r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|°|deg|radians?|rad)(?![A-Za-z0-9])",
+            r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:degrees?|°|deg|radians?|rad)(?![A-Za-z0-9])",
             lower,
         )
     if angle_m:
