@@ -41,7 +41,7 @@ export function ChemistrySceneBlock({ content }: Props) {
 
   if (!scene) {
     return (
-      <VisualCard label={t("rich.chemistry_structure")} icon="flask">
+      <VisualCard label={t("rich.chemistry_diagram")} icon="flask">
         <Text style={s.muted}>{t("rich.chemistry_scene_invalid")}</Text>
       </VisualCard>
     );

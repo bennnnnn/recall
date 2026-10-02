@@ -138,7 +138,9 @@ describe("ChemistrySceneBlock", () => {
   });
 
   it("shows a diagram error for invalid JSON", async () => {
-    const { getByText } = await render(<ChemistrySceneBlock content="{" />);
+    const { getByText, queryByText } = await render(<ChemistrySceneBlock content="{" />);
+    expect(getByText("Chemistry diagram")).toBeTruthy();
     expect(getByText("Could not render that diagram.")).toBeTruthy();
+    expect(queryByText("Molecule")).toBeNull();
   });
 });
