@@ -701,6 +701,14 @@ def test_crystal_field_refuses_when_the_spin_depends_on_the_metal() -> None:
     assert intent is not None
     with pytest.raises(SolveServiceError):
         solve_chemistry(intent)
+    oxalate = extract_chemistry_intent("Find the crystal field of [Co(ox)3]3-")
+    assert oxalate is not None
+    with pytest.raises(SolveServiceError, match="depends on the metal"):
+        solve_chemistry(oxalate)
+    pyridine = extract_chemistry_intent("Find the crystal field of [Co(py)6]3+")
+    assert pyridine is not None
+    with pytest.raises(SolveServiceError, match="depends on the metal"):
+        solve_chemistry(pyridine)
 
 
 def test_the_coordination_name_question_accepts_a_charged_ion_and_trailing_punctuation() -> None:
