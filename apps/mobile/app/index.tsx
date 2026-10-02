@@ -338,7 +338,7 @@ function ChatScreen() {
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput,
-    cancelRecording,
+    cancelVoiceInput,
   } = useVoiceInput({
     token,
     onTranscript: (text) => {
@@ -349,8 +349,8 @@ function ChatScreen() {
   });
 
   useLayoutEffect(() => {
-    void cancelRecording();
-  }, [routeChatId, cancelRecording]);
+    cancelVoiceInput();
+  }, [routeChatId, cancelVoiceInput]);
 
   const handleToggleVoiceInput = useCallback(() => {
     if (!voiceRecording && !voiceTranscribing) {
@@ -564,6 +564,7 @@ function ChatScreen() {
       voiceTranscribing,
       voiceMeterLevel,
       toggleVoiceInput: handleToggleVoiceInput,
+      cancelVoiceInput,
       onLiveTalkPress: liveTalk.open,
     },
     liveTalkSession: liveTalk.visible

@@ -48,7 +48,9 @@ function WaveBar({ index, meter, phase, processing, color }: BarProps) {
     };
   });
 
-  return <Animated.View style={[styles.bar, { backgroundColor: color }, style]} />;
+  return (
+    <Animated.View testID="voice-waveform-bar" style={[styles.bar, { backgroundColor: color }, style]} />
+  );
 }
 
 type Props = {
@@ -99,7 +101,7 @@ export function VoiceComposerWaveform({
 
   const indices = useMemo(() => Array.from({ length: BAR_COUNT }, (_, i) => i), []);
   const label = transcribing ? t("chat.voice_transcribing") : t("chat.voice_listening");
-  const barColor = transcribing ? theme.textSecondary : theme.primary;
+  const barColor = theme.text;
 
   return (
     <View

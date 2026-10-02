@@ -129,6 +129,7 @@ export type UseChatScreenBodyPropsParams = {
     voiceTranscribing: boolean;
     voiceMeterLevel: number;
     toggleVoiceInput: () => void | Promise<void>;
+    cancelVoiceInput?: () => void;
     onLiveTalkPress?: () => void;
   };
   liveTalkSession?: {
@@ -211,6 +212,7 @@ export function useChatScreenBodyProps({
     voiceTranscribing,
     voiceMeterLevel,
     toggleVoiceInput,
+    cancelVoiceInput,
     onLiveTalkPress,
   },
   liveTalkSession = null,
@@ -420,6 +422,7 @@ export function useChatScreenBodyProps({
       voiceTranscribing,
       voiceMeterLevel,
       onVoicePress,
+      onCancelVoice: cancelVoiceInput,
       onLiveTalkPress,
       liveTalkSession: stableLiveTalkSession,
     }),
@@ -444,6 +447,7 @@ export function useChatScreenBodyProps({
       voiceTranscribing,
       voiceMeterLevel,
       onVoicePress,
+      cancelVoiceInput,
       onLiveTalkPress,
       stableLiveTalkSession,
     ],

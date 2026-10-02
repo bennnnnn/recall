@@ -56,7 +56,11 @@ function speechLanguageHint(): string | undefined {
   return language.split("-")[0] || undefined;
 }
 
-export async function transcribeSpeech(token: string, fileUri: string): Promise<string> {
+export async function transcribeSpeech(
+  token: string,
+  fileUri: string,
+  signal?: AbortSignal,
+): Promise<string> {
   const upload = speechUploadFromUri(fileUri);
   const audioBase64 = await readRecordingBase64(fileUri);
   if (!audioBase64) {
@@ -68,6 +72,7 @@ export async function transcribeSpeech(token: string, fileUri: string): Promise<
       token,
       {
         method: "POST",
+        signal,
         body: JSON.stringify({
           audio_base64: audioBase64,
           filename: upload.name,

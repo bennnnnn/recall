@@ -9,8 +9,13 @@ const CHAT_HEADER_TITLE_VERTICAL_AIR = 8;
 export const CHAT_ACTION_ROW_HEIGHT = 44;
 export const CHAT_KEYBOARD_LIFT_EXTRA = 0;
 export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
-/** Matches the + / send controls so the placeholder shares their midline. */
-export const COMPOSER_INPUT_MIN_HEIGHT = Space.minTouch;
+/**
+ * One-line composer row. Shorter than the 44 pt touch minimum; the buttons
+ * add hitSlop so the placeholder, +, mic, and live talk stay on one line.
+ */
+export const COMPOSER_CONTROL_SIZE = 36;
+/** Matches the + / mic / live controls so the placeholder shares their midline. */
+export const COMPOSER_INPUT_MIN_HEIGHT = COMPOSER_CONTROL_SIZE;
 /** Extra Returns grow by one text line, not another full control. */
 export const COMPOSER_INPUT_LINE_HEIGHT = Space.lg;
 export const COMPOSER_INPUT_MAX_HEIGHT =
