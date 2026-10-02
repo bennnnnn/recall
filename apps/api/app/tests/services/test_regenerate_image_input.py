@@ -66,7 +66,10 @@ async def test_saved_scanner_image_rehydrates_actual_bytes_and_preserves_safe_ca
     parts = messages[-1]["content"]
     assert parts[0] == {
         "type": "text",
-        "text": "Solve step by step.\n\n<untrusted>file excerpt</untrusted>",
+        "text": (
+            "Solve step by step.\n\n<untrusted>file excerpt</untrusted>\n\n"
+            "These images are real. Do not call them placeholders or a failed generation."
+        ),
     }
     assert parts[1] == {
         "type": "image_url",
