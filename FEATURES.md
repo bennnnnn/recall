@@ -253,8 +253,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   calendar calculator, not a chat model or web search. The reply shows complete
   periods, remainder days, payment dates, the today-is-a-payday alternative, and
   daily proration so the counting assumption is never hidden.
-- ✅ **Physics (twenty kinds)** — server-side SymPy. Verified operations are the
-  formula catalog, one entry per `physics_op`, not twenty formulas. Mechanics:
+- ✅ **Physics (twenty kinds)** — server-side extractors and pure solvers (see
+  [docs/physics.md](./docs/physics.md)). Verified operations are the
+  formula catalog, one entry per `physics_op`, not twenty formulas. Answers have
+  three significant figures and upright units, in the unit the question asks for
+  ("in kWh"); scientific notation is read whole (`2 × 10^-6 C`); a solve that skips
+  a stated value of a kind it uses, or answers a different quantity than the one
+  asked, is declined. Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar
   F=ma with resultants and components, KE / PE / work / power (including
@@ -322,7 +327,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Reduce Motion keeps the static curve. The solver gate is the union of those extractor cues, and every
   param declares an SI dimension (Pint reads a bare `pa` as a *petayear*, so a
   missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
-  whole-token match (`marsh` stays Earth). See [docs/math.md](./docs/math.md).
+  whole-token match (`marsh` stays Earth). See [docs/physics.md](./docs/physics.md).
 - ✅ **Chemistry (typed verified pipeline)** — `ChemistryIntent` extraction plus grouped
   deterministic solvers share one species model: formula, composition, charge, and phase.
   The local table is all 118 elements. Verified work covers atom-and-charge balancing

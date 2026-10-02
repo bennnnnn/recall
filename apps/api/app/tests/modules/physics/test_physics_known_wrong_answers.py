@@ -32,7 +32,7 @@ def _answer(text: str) -> str | None:
             "Two charges of 2 × 10^-6 C and 3 × 10^-6 C are 0.5 m apart. "
             "Find the electric force between them.",
             "1.294e+12 N",
-            "0.2157 N",
+            "0.216 N",
         ),
         (
             "Light travels at 2 × 10^8 m/s in a medium. Find the refractive index.",
@@ -42,12 +42,12 @@ def _answer(text: str) -> str | None:
         (
             "Find the energy of a photon of frequency 5 × 10^14 Hz.",
             "9.276e-33 J (0 eV)",
-            "3.313e-19 J (2.07 eV)",
+            "3.31 × 10⁻¹⁹ J (2.07 eV)",
         ),
         (
             "Find the de Broglie wavelength of an electron moving at 3 × 10^6 m/s.",
             "0.0001212 m",
-            "2.425e-10 m",
+            "2.42 × 10⁻¹⁰ m",
         ),
     ],
 )
@@ -59,7 +59,7 @@ def test_a_free_fall_speed_question_gets_a_speed_not_a_time() -> None:
     # Was 4.04 s: the ask fell through to the time-to-ground default.
     assert _answer(
         "A ball is dropped from 80 m. What is its speed just before it hits the ground?"
-    ) == ("39.62 m/s")
+    ) == ("39.6 m/s")
 
 
 def test_a_block_refuses_a_result_of_another_dimension() -> None:
@@ -81,7 +81,7 @@ def test_heat_uses_both_readings_and_the_stated_capacity() -> None:
         "How much energy is needed to heat 2 kg of water from 20 °C to 80 °C? "
         "The specific heat capacity is 4200 J/kg°C."
     )
-    assert _answer(text) == "504000 J"
+    assert _answer(text) == "5.04 × 10⁵ J"
     intent = extract_physics_intent(text)
     assert intent is not None
     formulas = _solve_requested_quantities(intent).formulas
@@ -90,7 +90,7 @@ def test_heat_uses_both_readings_and_the_stated_capacity() -> None:
 
 def test_cooling_releases_heat() -> None:
     assert _answer("How much heat is released when 3 kg of water cools from 90 °C to 40 °C?") == (
-        "627900 J (released)"
+        "6.28 × 10⁵ J (released)"
     )
 
 
@@ -100,7 +100,7 @@ def test_cooling_releases_heat() -> None:
         # Was declined: the unlabelled 500 K was read as both reservoirs.
         ("Find the efficiency of a Carnot engine operating between 500 K and 300 K.", "0.4 (40%)"),
         ("Find the efficiency of a Carnot engine operating between 300 K and 500 K.", "0.4 (40%)"),
-        ("A Carnot engine works between 227 °C and 27 °C. Find its efficiency.", "0.3999 (39.99%)"),
+        ("A Carnot engine works between 227 °C and 27 °C. Find its efficiency.", "0.4 (40%)"),
     ],
 )
 def test_carnot_reads_both_reservoirs(text: str, answer: str) -> None:
@@ -134,7 +134,7 @@ def test_an_impulse_direction_is_only_relative_to_a_real_initial_motion(
 
 def test_both_launch_angles_are_answers() -> None:
     assert _answer("At what angle must a projectile be launched at 20 m/s to land 30 m away?") == (
-        "23.69 deg or 66.31 deg"
+        "23.7° or 66.3°"
     )
 
 

@@ -70,9 +70,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=(
             var("freq", "f", "hertz"),
-            var("v_obs", r"v_{\mathrm{o}}", "meter / second"),
+            var("v_obs", "v_o", "meter / second"),
             var("v_sound", "v", "meter / second"),
-            var("v_src", r"v_{\mathrm{s}}", "meter / second"),
+            var("v_src", "v_s", "meter / second"),
         ),
     ),
     formula(

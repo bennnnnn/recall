@@ -255,7 +255,7 @@ def test_negative_wavelength_is_never_verified() -> None:
     [
         (
             "A proton moves at 2e6 m/s perpendicular to a 0.1 T magnetic field. Find the force.",
-            "3.204e-14 N (field perpendicular to the motion)",
+            "3.2 × 10⁻¹⁴ N (field perpendicular to the motion)",
         ),
         (
             "A charge of 5 microcoulombs moves at 1000 m/s perpendicular to a 0.2 T magnetic field. Find the force.",
@@ -363,5 +363,5 @@ def test_impact_speed_uses_height_formula_and_scientific_givens_stay_readable() 
     assert planet_verified is not None
     planet_reply = maybe_direct_physics_reply(planet_verified, planet)
     assert planet_reply is not None
-    assert r"$M = 5.97e+24\,\mathrm{kg}$" in planet_reply
+    assert r"$M = 5.97 \times 10^{24}\,\mathrm{kg}$" in planet_reply
     assert "5970000000000000281018368" not in planet_reply

@@ -72,7 +72,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex="w = \\frac{2\\lambda L}{a}",
         variables=(
             var("L", "L", "meter"),
-            var("d", "d", "meter"),
+            var("d", "a", "meter"),
             var("wavelength", r"\lambda", "meter"),
         ),
     ),

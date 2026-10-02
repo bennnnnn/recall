@@ -288,6 +288,8 @@ class PhysicsIntent(BaseModel):
     # Dimensions the question asks for, read independently of the extractor.
     # Empty when the ask could not be read; then no result is refused for it.
     asked: tuple[str, ...] = Field(default=(), max_length=4)
+    # "in kWh": the unit the answer is shown in, as the question spelled it.
+    asked_unit: str | None = Field(default=None, max_length=32)
 
     @model_validator(mode="after")
     def coherent_requested_ops(self) -> PhysicsIntent:

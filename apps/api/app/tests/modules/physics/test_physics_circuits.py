@@ -58,24 +58,24 @@ VERIFIED: list[tuple[str, str, str]] = [
     ("find the voltage with current 3 A and resistance 4 ohms", "voltage", "12 V"),
     ("what is the voltage across a 4 ohm resistor carrying 3 A", "voltage", "12 V"),
     ("calculate the voltage for 3 amps through 4 ohms", "voltage", "12 V"),
-    ("resistance when voltage is 12 V and current is 3 A", "resistance", "4 ohm"),
+    ("resistance when voltage is 12 V and current is 3 A", "resistance", "4 Ω"),
     (
         "what is the resistance of a resistor with 12 V across it and 3 A through it",
         "resistance",
-        "4 ohm",
+        "4 Ω",
     ),
-    ("find the resistance for 12 volts and 3 amps", "resistance", "4 ohm"),
+    ("find the resistance for 12 volts and 3 amps", "resistance", "4 Ω"),
     ("power dissipated by a 4 ohm resistor carrying 3 A", "electrical_power", "36 W"),
     ("what is the electrical power for 12 V and 3 A", "electrical_power", "36 W"),
     (
         "two resistors of 4 ohms and 6 ohms in series, what is the total resistance",
         "series_resistance",
-        "10 ohm",
+        "10 Ω",
     ),
     (
         "two resistors of 4 ohms and 6 ohms in parallel, what is the total resistance",
         "parallel_resistance",
-        "2.4 ohm",
+        "2.4 Ω",
     ),
 ]
 
@@ -237,7 +237,7 @@ def _reaches_the_tool_path(text: str) -> bool:
 
 UNIT_ONLY = [
     ("what is the electrical power for 12 V and 3 A", "electrical_power", "36 W"),
-    ("a 12 V battery with 4 A of current, what is the resistance", "resistance", "3 ohm"),
+    ("a 12 V battery with 4 A of current, what is the resistance", "resistance", "3 Ω"),
     ("what is the current for 12 V and 4 ohms", "current", "3 A"),
 ]
 
@@ -282,39 +282,39 @@ NETWORKS: list[tuple[str, str, str]] = [
     (
         "what is the total resistance of 2 ohms, 3 ohms and 5 ohms in series",
         "series_resistance",
-        "10 ohm",
+        "10 Ω",
     ),
     (
         "what is the total resistance of 4 ohms, 6 ohms and 12 ohms in parallel",
         "parallel_resistance",
-        "2 ohm",
+        "2 Ω",
     ),
     (
         "three resistors of 2 ohms, 3 ohms and 6 ohms in parallel, what is the total",
         "parallel_resistance",
-        "1 ohm",
+        "1 Ω",
     ),
     # One unit for the whole list: these returned nothing at all.
     (
         "two resistors of 4 and 6 ohms in series, what is the total resistance",
         "series_resistance",
-        "10 ohm",
+        "10 Ω",
     ),
     (
         "three resistors of 2, 3 and 6 ohms in parallel, what is the total resistance",
         "parallel_resistance",
-        "1 ohm",
+        "1 Ω",
     ),
     # A unit each, two resistors: the shape that already worked.
     (
         "what is the combined resistance of 4 ohms and 6 ohms in parallel",
         "parallel_resistance",
-        "2.4 ohm",
+        "2.4 Ω",
     ),
     (
         "what is the total resistance of a 4 ohm and 6 ohm resistor in series",
         "series_resistance",
-        "10 ohm",
+        "10 Ω",
     ),
 ]
 
@@ -336,9 +336,9 @@ NEW_OPS: list[tuple[str, str, str]] = [
     ("what is the charge if a current of 3 A flows for 5 s", "charge", "15 C"),
     ("how much charge passes when 2 A flows for 10 s", "charge", "20 C"),
     ("what charge is delivered by 4 A over 3 s", "charge", "12 C"),
-    ("what is the energy used by a 2000 W heater in 3 hours", "electrical_energy", "21600000 J"),
-    ("how much energy does a 100 W bulb use in 10 hours", "electrical_energy", "3600000 J"),
-    ("energy consumed by a 500 W device in 2 hours", "electrical_energy", "3600000 J"),
+    ("what is the energy used by a 2000 W heater in 3 hours", "electrical_energy", "2.16 × 10⁷ J"),
+    ("how much energy does a 100 W bulb use in 10 hours", "electrical_energy", "3.6 × 10⁶ J"),
+    ("energy consumed by a 500 W device in 2 hours", "electrical_energy", "3.6 × 10⁶ J"),
     ("what is the capacitance storing 6 C at 3 V", "capacitance", "2 F"),
     ("a capacitor holds 12 C at 4 V, what is the capacitance", "capacitance", "3 F"),
     ("find the capacitance of a capacitor with 10 C at 5 V", "capacitance", "2 F"),

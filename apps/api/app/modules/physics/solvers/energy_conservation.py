@@ -56,7 +56,7 @@ def _work_energy(params: dict[str, float]) -> PhysicsResult:
                 rf"W_{{net}} = \frac{{1}}{{2}} \cdot {params['m']:g} \cdot ({params['v2']:g}^2 - "
                 rf"{params['v1']:g}^2)",
             ),
-            quantities=(QuantityResult("", work, "J", number_format=".2f"),),
+            quantities=(QuantityResult("", work, "J"),),
         )
     if unknown == "m":
         change = params["v2"] ** 2 - params["v1"] ** 2
@@ -76,7 +76,7 @@ def _work_energy(params: dict[str, float]) -> PhysicsResult:
             substitutions=(
                 rf"m = \frac{{2 \cdot {params['W']:g}}}{{{params['v2']:g}^2 - {params['v1']:g}^2}}",
             ),
-            quantities=(QuantityResult("", mass, "kg", number_format=".2f"),),
+            quantities=(QuantityResult("", mass, "kg"),),
         )
     if unknown == "v2":
         speed = _positive_speed(params["v1"] ** 2 + 2 * params["W"] / params["m"])
@@ -92,7 +92,7 @@ def _work_energy(params: dict[str, float]) -> PhysicsResult:
                 rf"v_2 = \sqrt{{{params['v1']:g}^2 + \frac{{2 \cdot {params['W']:g}}}"
                 rf"{{{params['m']:g}}}}}",
             ),
-            quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
+            quantities=(QuantityResult("", speed, "m/s"),),
         )
     speed = _positive_speed(params["v2"] ** 2 - 2 * params["W"] / params["m"])
     answer = (
@@ -107,7 +107,7 @@ def _work_energy(params: dict[str, float]) -> PhysicsResult:
             rf"v_1 = \sqrt{{{params['v2']:g}^2 - \frac{{2 \cdot {params['W']:g}}}"
             rf"{{{params['m']:g}}}}}",
         ),
-        quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
+        quantities=(QuantityResult("", speed, "m/s"),),
     )
 
 
@@ -129,7 +129,7 @@ def _gravity(params: dict[str, float]) -> PhysicsResult:
                 rf"v_2 = \sqrt{{{params['v1']:g}^2 + 2 \cdot {gravity:g} \cdot "
                 rf"({params['h1']:g} - {params['h2']:g})}}",
             ),
-            quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
+            quantities=(QuantityResult("", speed, "m/s"),),
         )
     if unknown == "v1":
         speed = _positive_speed(params["v2"] ** 2 + 2 * gravity * (params["h2"] - params["h1"]))
@@ -144,7 +144,7 @@ def _gravity(params: dict[str, float]) -> PhysicsResult:
                 rf"v_1 = \sqrt{{{params['v2']:g}^2 + 2 \cdot {gravity:g} \cdot "
                 rf"({params['h2']:g} - {params['h1']:g})}}",
             ),
-            quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
+            quantities=(QuantityResult("", speed, "m/s"),),
         )
     if unknown == "h2":
         height = params["h1"] + (params["v1"] ** 2 - params["v2"] ** 2) / (2 * gravity)
@@ -159,7 +159,7 @@ def _gravity(params: dict[str, float]) -> PhysicsResult:
                 rf"h_2 = {params['h1']:g} + \frac{{{params['v1']:g}^2 - {params['v2']:g}^2}}"
                 rf"{{2 \cdot {gravity:g}}}",
             ),
-            quantities=(QuantityResult("", height, "m", number_format=".2f"),),
+            quantities=(QuantityResult("", height, "m"),),
         )
     height = params["h2"] + (params["v2"] ** 2 - params["v1"] ** 2) / (2 * gravity)
     answer = (
@@ -173,7 +173,7 @@ def _gravity(params: dict[str, float]) -> PhysicsResult:
             rf"h_1 = {params['h2']:g} + \frac{{{params['v2']:g}^2 - {params['v1']:g}^2}}"
             rf"{{2 \cdot {gravity:g}}}",
         ),
-        quantities=(QuantityResult("", height, "m", number_format=".2f"),),
+        quantities=(QuantityResult("", height, "m"),),
     )
 
 
@@ -201,7 +201,7 @@ def _spring(params: dict[str, float]) -> PhysicsResult:
                 rf"v_2 = \sqrt{{{params['v1']:g}^2 + \frac{{{stiffness:g}}}{{{mass:g}}}"
                 rf"({params['x1']:g}^2 - {params['x2']:g}^2)}}",
             ),
-            quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
+            quantities=(QuantityResult("", speed, "m/s"),),
         )
     if unknown == "v1":
         speed = _positive_speed(params["v2"] ** 2 + ratio * (params["x2"] ** 2 - params["x1"] ** 2))
@@ -220,7 +220,7 @@ def _spring(params: dict[str, float]) -> PhysicsResult:
                 rf"v_1 = \sqrt{{{params['v2']:g}^2 + \frac{{{stiffness:g}}}{{{mass:g}}}"
                 rf"({params['x2']:g}^2 - {params['x1']:g}^2)}}",
             ),
-            quantities=(QuantityResult("", speed, "m/s", number_format=".2f"),),
+            quantities=(QuantityResult("", speed, "m/s"),),
         )
     if unknown == "x2":
         square = params["x1"] ** 2 + (mass / stiffness) * (params["v1"] ** 2 - params["v2"] ** 2)
@@ -241,7 +241,7 @@ def _spring(params: dict[str, float]) -> PhysicsResult:
                 rf"x_2 = \sqrt{{{params['x1']:g}^2 + \frac{{{mass:g}}}{{{stiffness:g}}}"
                 rf"({params['v1']:g}^2 - {params['v2']:g}^2)}}",
             ),
-            quantities=(QuantityResult("", displacement, "m", number_format=".4g"),),
+            quantities=(QuantityResult("", displacement, "m"),),
         )
     square = params["x2"] ** 2 + (mass / stiffness) * (params["v2"] ** 2 - params["v1"] ** 2)
     if square < 0:
@@ -260,5 +260,5 @@ def _spring(params: dict[str, float]) -> PhysicsResult:
             rf"x_1 = \sqrt{{{params['x2']:g}^2 + \frac{{{mass:g}}}{{{stiffness:g}}}"
             rf"({params['v2']:g}^2 - {params['v1']:g}^2)}}",
         ),
-        quantities=(QuantityResult("", displacement, "m", number_format=".4g"),),
+        quantities=(QuantityResult("", displacement, "m"),),
     )

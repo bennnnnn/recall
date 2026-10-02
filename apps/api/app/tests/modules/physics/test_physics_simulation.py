@@ -479,7 +479,7 @@ def test_a_block_friction_holds_does_not_move() -> None:
 
     Showing it slide would contradict the answer directly.
     """
-    assert _verified_answer(HELD_Q) == "0 m/s^2"
+    assert _verified_answer(HELD_Q) == "0 m/s²"
     path = _scene(HELD_Q).bodies[0].path
 
     assert all(point == path[0] for point in path)
@@ -652,14 +652,16 @@ def test_tension_is_drawn_against_the_weight_it_carries() -> None:
 
     assert rope.dy > 0 and weight.dy < 0
     assert rope.role == "result"
-    assert "59.05 N" in (rope.label or "")
-    assert "49.05 N" in (weight.label or "")
+    assert "59.1 N" in (rope.label or "")
+    assert "49.1 N" in (weight.label or "")
 
 
 def test_the_labels_carry_the_numbers_the_answer_carries() -> None:
     """Otherwise the picture and the pill could drift apart."""
     answer = _verified_answer(TENSION_Q)
-    labels = " ".join(v.label or "" for v in _scene(TENSION_Q).vectors)
+    body = _fence_body(TENSION_Q)
+    assert body is not None
+    labels = " ".join(vector.get("label") or "" for vector in body["vectors"])
 
     assert answer is not None
     assert answer.split()[0] in labels
@@ -771,7 +773,7 @@ def test_potential_energy_shows_the_height_it_multiplies() -> None:
     weight, height = scene.vectors
 
     assert scene.ground is True
-    assert weight.dy < 0 and "19.62 N" in (weight.label or "")
+    assert weight.dy < 0 and "19.6 N" in (weight.label or "")
     assert height.role == "measure"
     assert height.dy == pytest.approx(5.0)
     assert "5 m" in (height.label or "")

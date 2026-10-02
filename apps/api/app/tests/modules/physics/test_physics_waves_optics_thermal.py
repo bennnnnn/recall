@@ -27,6 +27,7 @@ import pytest
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
 from app.tests.modules.physics.support import (
+    answer_number,
     build_verified_physics_block,
     extract_physics_intent,
     needs_physics,
@@ -103,19 +104,19 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the observed frequency if a 400 Hz siren approaches at 30 m/s",
         "waves",
         "doppler_frequency",
-        "438.34 Hz (approaching, sound at 343 m/s)",
+        "438 Hz (approaching, sound at 343 m/s)",
     ),
     (
         "a 400 Hz siren moves away from you at 30 m/s, what frequency do you hear",
         "waves",
         "doppler_frequency",
-        "367.83 Hz (receding, sound at 343 m/s)",
+        "368 Hz (receding, sound at 343 m/s)",
     ),
     (
         "an ambulance horn at 500 Hz is approaching at 20 m/s, what is the doppler frequency",
         "waves",
         "doppler_frequency",
-        "530.96 Hz (approaching, sound at 343 m/s)",
+        "531 Hz (approaching, sound at 343 m/s)",
     ),
     # --- optics ----------------------------------------------------------
     (
@@ -134,13 +135,13 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the critical angle for a medium of refractive index 1.5",
         "optics",
         "critical_angle",
-        "41.81 deg",
+        "41.8°",
     ),
     (
         "find the critical angle for a refractive index of 2",
         "optics",
         "critical_angle",
-        "30 deg",
+        "30°",
     ),
     (
         "what is the refractive index if light bends from 30 to 20 degrees",
@@ -155,18 +156,18 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "3",
     ),
     # --- thermal ---------------------------------------------------------
-    ("how much heat to raise 2 kg of water by 20 K", "thermal", "heat_energy", "167440 J"),
+    ("how much heat to raise 2 kg of water by 20 K", "thermal", "heat_energy", "1.67 × 10⁵ J"),
     (
         "how much heat is needed to warm 0.5 kg of water by 10 K",
         "thermal",
         "heat_energy",
-        "20930 J",
+        "20900 J",
     ),
     (
         "what is the pressure of 2 moles of ideal gas at 300 K in 0.05 m^3",
         "thermal",
         "ideal_gas_pressure",
-        "99773.55 Pa",
+        "99800 Pa",
     ),
     (
         "what is the efficiency of an engine doing 300 J of work from 1000 J",
@@ -242,14 +243,14 @@ def test_wavelength_and_frequency_are_reciprocal_at_fixed_speed() -> None:
     low = _verified_answer("what is the wavelength of a 50 Hz wave travelling at 340 m/s")
     high = _verified_answer("what is the wavelength of a 100 Hz wave travelling at 340 m/s")
     assert low is not None and high is not None
-    assert float(low.split()[0]) == pytest.approx(2 * float(high.split()[0]), abs=0.01)
+    assert answer_number(low) == pytest.approx(2 * answer_number(high), rel=5e-3)
 
 
 def test_heat_scales_with_mass() -> None:
     light = _verified_answer("how much heat to raise 1 kg of water by 20 K")
     heavy = _verified_answer("how much heat to raise 2 kg of water by 20 K")
     assert light is not None and heavy is not None
-    assert float(heavy.split()[0]) == pytest.approx(2 * float(light.split()[0]), abs=0.01)
+    assert answer_number(heavy) == pytest.approx(2 * answer_number(light), rel=5e-3)
 
 
 # ---------------------------------------------------------------------------
@@ -320,7 +321,7 @@ def test_a_temperature_rise_may_omit_its_scale() -> None:
     water by 10 degrees" is answerable where "at 300 degrees" is not.
     """
     assert _verified_answer("how much heat is needed to raise 2 kg of water by 10 degrees") == (
-        "83720 J"
+        "83700 J"
     )
 
 
@@ -347,7 +348,7 @@ def test_a_mole_count_beside_a_temperature_is_its_own_signature() -> None:
     """ "the pressure of 2 moles of gas at 300 K" names no thermal word."""
     assert needs_physics("what is the pressure of 2 moles of gas at 300 K in 0.05 m^3")
     assert _verified_answer("what is the pressure of 2 moles of gas at 300 K in 0.05 m^3") == (
-        "99773.55 Pa"
+        "99800 Pa"
     )
 
 

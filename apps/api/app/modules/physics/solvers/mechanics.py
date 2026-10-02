@@ -10,6 +10,7 @@ from app.models.schemas.physics import (
     SimulationBody,
     SimulationVector,
 )
+from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
@@ -76,13 +77,13 @@ def _atwood_scene(m1: float, m2: float, accel: float, tension: float) -> list[Si
                 SimulationBody(
                     path=heavy,
                     radius=0.3 * (m1 ** (1 / 3)),
-                    label=f"{m1:g} kg",
+                    label=f"{plain_number(m1, GIVEN_FIGURES)} kg",
                     role="primary",
                 ),
                 SimulationBody(
                     path=light,
                     radius=0.3 * (m2 ** (1 / 3)),
-                    label=f"{m2:g} kg",
+                    label=f"{plain_number(m2, GIVEN_FIGURES)} kg",
                     role="secondary",
                 ),
             ],
@@ -91,7 +92,7 @@ def _atwood_scene(m1: float, m2: float, accel: float, tension: float) -> list[Si
                     anchor=[0.0, reach + 0.55],
                     dx=0.0,
                     dy=-1.0,
-                    label=f"T = {tension:.2f} N",
+                    label=f"T = {plain_number(tension)} N",
                     role="result",
                 )
             ],
@@ -154,7 +155,7 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"T = m(g + a)",),
             substitutions=(rf"T = {m:g}({g:g} + {_latex_num(a)})",),
-            quantities=(QuantityResult("", t_val, "N", number_format=".2f"),),
+            quantities=(QuantityResult("", t_val, "N"),),
             # Two arrows and a mass is the whole of this problem, and seeing
             # them is what makes T = m(g + a) rather than m*a obvious: the rope
             # carries the weight *and* the acceleration.
@@ -164,17 +165,17 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
                         anchor=[0.0, 0.0],
                         dx=0.0,
                         dy=1.0,
-                        label=f"T = {t_val:.2f} N",
+                        label=f"T = {plain_number(t_val)} N",
                         role="result",
                     ),
                     SimulationVector(
                         anchor=[0.0, 0.0],
                         dx=0.0,
                         dy=-1.0,
-                        label=f"W = {m * g:.2f} N",
+                        label=f"W = {plain_number(m * g)} N",
                     ),
                 ],
-                label=f"{m:g} kg",
+                label=f"{plain_number(m, GIVEN_FIGURES)} kg",
             ),
         )
 
@@ -213,25 +214,29 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
                     r_val,
                     "N",
                     detail=f"{theta:.2f}°",
-                    number_format=".2f",
                     detail_style="at",
                 ),
             ),
             simulation_specs=_vector_sum_scene(
                 [
-                    SimulationVector(anchor=[0.0, 0.0], dx=f1, dy=0.0, label=f"{f1:g} N"),
+                    SimulationVector(
+                        anchor=[0.0, 0.0],
+                        dx=f1,
+                        dy=0.0,
+                        label=f"{plain_number(f1, GIVEN_FIGURES)} N",
+                    ),
                     SimulationVector(
                         anchor=[0.0, 0.0],
                         dx=f2 * math.cos(phi),
                         dy=f2 * math.sin(phi),
-                        label=f"{f2:g} N",
+                        label=f"{plain_number(f2, GIVEN_FIGURES)} N",
                     ),
                 ],
                 SimulationVector(
                     anchor=[0.0, 0.0],
                     dx=r_val * math.cos(math.radians(theta)),
                     dy=r_val * math.sin(math.radians(theta)),
-                    label=f"{r_val:.2f} N",
+                    label=f"{plain_number(r_val)} N",
                     role="result",
                 ),
             ),
@@ -255,19 +260,25 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
                 rf"F_y = {f:g}\sin({math.degrees(theta):g}^\circ)",
             ),
             quantities=(
-                QuantityResult(
-                    "", fx, "N", detail="horizontally", number_format=".2f", detail_style="suffix"
-                ),
-                QuantityResult(
-                    "", fy, "N", detail="vertically", number_format=".2f", detail_style="suffix"
-                ),
+                QuantityResult("", fx, "N", detail="horizontally", detail_style="suffix"),
+                QuantityResult("", fy, "N", detail="vertically", detail_style="suffix"),
             ),
             simulation_specs=_vector_sum_scene(
                 [
-                    SimulationVector(anchor=[0.0, 0.0], dx=fx, dy=0.0, label=f"{fx:.2f} N"),
-                    SimulationVector(anchor=[fx, 0.0], dx=0.0, dy=fy, label=f"{fy:.2f} N"),
+                    SimulationVector(
+                        anchor=[0.0, 0.0], dx=fx, dy=0.0, label=f"{plain_number(fx)} N"
+                    ),
+                    SimulationVector(
+                        anchor=[fx, 0.0], dx=0.0, dy=fy, label=f"{plain_number(fy)} N"
+                    ),
                 ],
-                SimulationVector(anchor=[0.0, 0.0], dx=fx, dy=fy, label=f"{f:g} N", role="result"),
+                SimulationVector(
+                    anchor=[0.0, 0.0],
+                    dx=fx,
+                    dy=fy,
+                    label=f"{plain_number(f, GIVEN_FIGURES)} N",
+                    role="result",
+                ),
             ),
         )
 
@@ -293,8 +304,8 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
                 rf"T = \frac{{2 \cdot {m1:g} \cdot {m2:g} \cdot {g:g}}}{{{m1:g} + {m2:g}}}",
             ),
             quantities=(
-                QuantityResult("", a_val, "m/s^2", number_format=".2f"),
-                QuantityResult("", t_val, "N", number_format=".2f"),
+                QuantityResult("", a_val, "m/s^2"),
+                QuantityResult("", t_val, "N"),
             ),
             simulation_specs=_atwood_scene(m1, m2, a_val, t_val),
         )
@@ -305,21 +316,21 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
         answer_latex = rf"a = \frac{{F}}{{m}} = {plugged} \approx {a_val:.2f} \text{{ m/s}}^2"
         formula = r"a = \frac{F}{m}"
         substitution = rf"a = {plugged}"
-        quantity = QuantityResult("", a_val, "m/s^2", number_format=".2f")
+        quantity = QuantityResult("", a_val, "m/s^2")
     elif "F" in p and "a" in p and "m" not in p:
         m_val = p["F"] / p["a"]
         plugged = rf"\frac{{{p['F']:g}}}{{{p['a']:g}}}"
         answer_latex = rf"m = \frac{{F}}{{a}} = {plugged} \approx {m_val:.2f} \text{{ kg}}"
         formula = r"m = \frac{F}{a}"
         substitution = rf"m = {plugged}"
-        quantity = QuantityResult("", m_val, "kg", number_format=".2f")
+        quantity = QuantityResult("", m_val, "kg")
     elif "m" in p and "a" in p and "F" not in p:
         f_val = p["m"] * p["a"]
         plugged = rf"{p['m']:g} \cdot {p['a']:g}"
         answer_latex = rf"F = m \cdot a = {plugged} \approx {f_val:.2f} \text{{ N}}"
         formula = r"F = m \cdot a"
         substitution = rf"F = {plugged}"
-        quantity = QuantityResult("", f_val, "N", number_format=".2f")
+        quantity = QuantityResult("", f_val, "N")
     else:
         raise SolveServiceError("force solve needs exactly two of F, m, a")
 
@@ -331,11 +342,17 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
     scene = _free_body_scene(
         [
             SimulationVector(
-                anchor=[0.0, 0.0], dx=1.0, dy=0.0, label=f"F = {force:.2f} N", role="result"
+                anchor=[0.0, 0.0],
+                dx=1.0,
+                dy=0.0,
+                label=f"F = {plain_number(force)} N",
+                role="result",
             ),
-            SimulationVector(anchor=[0.0, -0.9], dx=1.0, dy=0.0, label=f"a = {accel:.2f} m/s²"),
+            SimulationVector(
+                anchor=[0.0, -0.9], dx=1.0, dy=0.0, label=f"a = {plain_number(accel)} m/s²"
+            ),
         ],
-        label=f"{p['m']:g} kg" if "m" in p else None,
+        label=f"{plain_number(p['m'], GIVEN_FIGURES)} kg" if "m" in p else None,
     )
     return PhysicsResult(
         answer=answer_latex,
@@ -376,7 +393,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         answer_latex = rf"\eta = \frac{{E_{{out}}}}{{E_{{in}}}} = {plugged} \approx {eta:.4g}"
         formula = r"\eta = \frac{E_{out}}{E_{in}}"
         substitution = rf"\eta = {plugged}"
-        quantity = QuantityResult("", eta, "", detail=f"{eta * 100:.4g}%", number_format=".4g")
+        quantity = QuantityResult("", eta, "", detail=f"{eta * 100:.4g}%")
     elif op == "kinetic_energy":
         ke_val = 0.5 * p["m"] * p["v"] ** 2
         v_sq = _latex_num(p["v"], square=True)
@@ -384,14 +401,14 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         answer_latex = rf"KE = \frac{{1}}{{2}} m v^2 = {plugged} \approx {ke_val:.2f} \text{{ J}}"
         formula = r"KE = \frac{1}{2} m v^2"
         substitution = rf"KE = {plugged}"
-        quantity = QuantityResult("", ke_val, "J", number_format=".2f")
+        quantity = QuantityResult("", ke_val, "J")
     elif op == "potential_energy":
         pe_val = p["m"] * g * p["h"]
         plugged = rf"{p['m']:g} \cdot {g:g} \cdot {p['h']:g}"
         answer_latex = rf"PE = m g h = {plugged} \approx {pe_val:.2f} \text{{ J}}"
         formula = r"PE = m g h"
         substitution = rf"PE = {plugged}"
-        quantity = QuantityResult("", pe_val, "J", number_format=".2f")
+        quantity = QuantityResult("", pe_val, "J")
     elif op == "work":
         theta = p.get("angle")
         if theta is None:
@@ -407,7 +424,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
             formula = r"W = Fd\cos\theta"
             work_direction = (math.cos(theta), math.sin(theta))
         substitution = rf"W = {plugged}"
-        quantity = QuantityResult("", w_val, "J", number_format=".2f")
+        quantity = QuantityResult("", w_val, "J")
     elif op == "power":
         if "W" in p and "t" in p and "angle" not in p:
             # P = W / t — the other school form, when no force/velocity pair
@@ -432,7 +449,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
                 answer_latex = rf"P = Fv\cos\theta = {plugged} \approx {power_val:.2f} \text{{ W}}"
                 formula = r"P = Fv\cos\theta"
         substitution = rf"P = {plugged}"
-        quantity = QuantityResult("", power_val, "W", number_format=".2f")
+        quantity = QuantityResult("", power_val, "W")
     else:
         raise SolveServiceError(f"unsupported energy op: {op}")
 
@@ -447,17 +464,17 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         scene = _free_body_scene(
             [
                 SimulationVector(
-                    anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label=f"W = {p['m'] * g:.2f} N"
+                    anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label=f"W = {plain_number(p['m'] * g)} N"
                 ),
                 SimulationVector(
                     anchor=[-0.9, -height],
                     dx=0.0,
                     dy=height,
-                    label=f"h = {height:g} m",
+                    label=f"h = {plain_number(height, GIVEN_FIGURES)} m",
                     role="measure",
                 ),
             ],
-            label=f"{p['m']:g} kg",
+            label=f"{plain_number(p['m'], GIVEN_FIGURES)} kg",
             ground=True,
         )
     elif op == "work":
@@ -468,14 +485,14 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
                     anchor=[0.0, 0.0],
                     dx=work_direction[0],
                     dy=work_direction[1],
-                    label=f"F = {p['F']:g} N",
+                    label=f"F = {plain_number(p['F'], GIVEN_FIGURES)} N",
                     role="result",
                 ),
                 SimulationVector(
                     anchor=[0.0, -0.8],
                     dx=distance,
                     dy=0.0,
-                    label=f"d = {distance:g} m",
+                    label=f"d = {plain_number(distance, GIVEN_FIGURES)} m",
                     role="measure",
                 ),
             ],
@@ -499,13 +516,13 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
 
 def _collision_substitutions(intent: PhysicsIntent, *, elastic: bool) -> tuple[str, ...]:
     """Numeric collision rows. The reply reads these; it does not rebuild them."""
-    from app.modules.physics.working import display_number
+    from app.modules.physics.display import latex_given
 
     params = intent.physics_params or {}
-    m1 = display_number(params["m1"])
-    m2 = display_number(params["m2"])
-    v1 = display_number(params["v1"])
-    v2 = display_number(params["v2"])
+    m1 = latex_given(params["m1"])
+    m2 = latex_given(params["m2"])
+    v1 = latex_given(params["v1"])
+    v2 = latex_given(params["v2"])
     if elastic:
         return (
             rf"v_1' = \frac{{({m1}-{m2})\cdot {v1} + 2\cdot {m2}\cdot {v2}}}{{{m1}+{m2}}}",
@@ -534,7 +551,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
                 rf"x_{{cm}} = \frac{{{p['m1']:g} \cdot {p['x1']:g} + {p['m2']:g} \cdot "
                 rf"{p['x2']:g}}}{{{p['m1']:g} + {p['m2']:g}}}",
             ),
-            quantities=(QuantityResult("", center, "m", number_format=".4g"),),
+            quantities=(QuantityResult("", center, "m"),),
         )
 
     if op == "momentum":
@@ -546,7 +563,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"p = m v",),
             substitutions=(rf"p = {p['m']:g} \cdot {p['v']:g}",),
-            quantities=(QuantityResult("", p_val, "kg*m/s", number_format=".2f"),),
+            quantities=(QuantityResult("", p_val, "kg*m/s"),),
         )
 
     if op == "impulse":
@@ -600,13 +617,13 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\approx {u1:.2f} \text{{ m/s}}, \quad v_2' \approx {u2:.2f} \text{{ m/s}}"
             )
             quantities = (
-                QuantityResult("", u1, "m/s", number_format=".2f"),
-                QuantityResult("", u2, "m/s", number_format=".2f"),
+                QuantityResult("", u1, "m/s"),
+                QuantityResult("", u2, "m/s"),
             )
             substitutions = _collision_substitutions(intent, elastic=True)
             formulas = (
                 r"\text{Elastic: } v_1' = \frac{(m_1-m_2)v_1 + 2 m_2 v_2}{m_1+m_2}",
-                rf"v_2' \approx {u2:.2f} \text{{ m/s}}",
+                r"v_2' = \frac{(m_2-m_1)v_2 + 2 m_1 v_1}{m_1+m_2}",
             )
         else:
             u1 = u2 = (m1 * v1 + m2 * v2) / total
@@ -615,7 +632,7 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\frac{{{m1:g} \cdot {v1:g} + {m2:g} \cdot {v2:g}}}{{{total:g}}} "
                 rf"\approx {u1:.2f} \text{{ m/s}}"
             )
-            quantities = (QuantityResult("", u1, "m/s", number_format=".2f"),)
+            quantities = (QuantityResult("", u1, "m/s"),)
             substitutions = _collision_substitutions(intent, elastic=False)
             formulas = (r"\text{Perfectly inelastic: } v = \frac{m_1 v_1 + m_2 v_2}{m_1 + m_2}",)
         return PhysicsResult(
@@ -679,8 +696,15 @@ def _collision_scene(
         type="collision",
         title="Collision",
         bodies=[
-            SimulationBody(path=path1, radius=r1, label=f"{m1:g} kg", role="primary"),
-            SimulationBody(path=path2, radius=r2, label=f"{m2:g} kg", role="secondary"),
+            SimulationBody(
+                path=path1, radius=r1, label=f"{plain_number(m1, GIVEN_FIGURES)} kg", role="primary"
+            ),
+            SimulationBody(
+                path=path2,
+                radius=r2,
+                label=f"{plain_number(m2, GIVEN_FIGURES)} kg",
+                role="secondary",
+            ),
         ],
         x_min=lo,
         x_max=hi,
@@ -730,7 +754,7 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             answer=answer,
             formulas=(formula,),
             substitutions=(rf"N = {plugged}",),
-            quantities=(QuantityResult("", normal, "N", number_format=".2f"),),
+            quantities=(QuantityResult("", normal, "N"),),
             simulation_specs=_incline_scene(deg, mu=mu),
         )
 
@@ -741,7 +765,7 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             answer=answer,
             formulas=(r"f = \mu N",),
             substitutions=(rf"f = {mu:g} \cdot {normal:.2f}",),
-            quantities=(QuantityResult("", f_val, "N", number_format=".2f"),),
+            quantities=(QuantityResult("", f_val, "N"),),
             simulation_specs=_incline_scene(deg, mu=mu),
         )
 
@@ -761,7 +785,7 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
                     r"\text{so friction holds the block: } a",
                 ),
                 substitutions=(r"a = 0 \text{ m/s}^2",),
-                quantities=(QuantityResult("a", 0.0, "m/s^2", number_format=".2f"),),
+                quantities=(QuantityResult("a", 0.0, "m/s^2"),),
                 # a = 0 is the answer, so the block stays put and the diagram
                 # is the free body that explains why.
                 simulation_specs=_incline_scene(deg, mu=mu),
@@ -775,7 +799,7 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             answer=answer,
             formulas=(r"a = g(\sin\theta - \mu\cos\theta)",),
             substitutions=(rf"a = {g:g}(\sin({deg:g}^\circ) - {mu:g}\cos({deg:g}^\circ))",),
-            quantities=(QuantityResult("", a_val, "m/s^2", number_format=".2f"),),
+            quantities=(QuantityResult("", a_val, "m/s^2"),),
             simulation_specs=_incline_scene(deg, mu=mu, accel=a_val),
         )
 
@@ -785,7 +809,7 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             answer=(rf"\mu = \tan(\theta) = \tan({deg:.1f}^\circ) \approx {mu_val:.2f}"),
             formulas=(r"\mu = \tan(\theta)",),
             substitutions=(rf"\mu = \tan({deg:.1f}^\circ)",),
-            quantities=(QuantityResult("", mu_val, "", number_format=".2f"),),
+            quantities=(QuantityResult("", mu_val, ""),),
             simulation_specs=_incline_scene(deg, mu=mu_val),
         )
 
@@ -798,7 +822,7 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"F_{min} = \mu m g",),
             substitutions=(rf"F_{{min}} = {mu:g} \cdot {m:g} \cdot {g:g}",),
-            quantities=(QuantityResult("", f_val, "N", number_format=".2f"),),
+            quantities=(QuantityResult("", f_val, "N"),),
         )
 
     raise SolveServiceError(f"unsupported friction op: {op}")

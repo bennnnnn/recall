@@ -41,7 +41,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
         ),
         variables=(
-            var("Q", "Q", "coulomb"),
+            var("Q", "q", "coulomb"),
             var("angle", r"\theta", dimensionless=True),
             var("b_field", "B", "tesla"),
             var("v", "v", "meter / second"),
@@ -195,7 +195,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "r",
         base_latex="r = \\frac{mv}{\\lvert q\\rvert B}",
         variables=(
-            var("Q", "Q", "coulomb"),
+            var("Q", "q", "coulomb"),
             var("b_field", "B", "tesla"),
             var("m", "m", "kilogram"),
             var("v", "v", "meter / second"),

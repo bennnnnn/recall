@@ -7,6 +7,7 @@ import math
 from app.models.schemas.physics import (
     PhysicsIntent,
 )
+from app.modules.physics.display import latex_given
 from app.modules.physics.solvers.common import (
     _COULOMB_K,
     _EPSILON_0,
@@ -15,7 +16,6 @@ from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
     _latex_num,
-    _latex_scientific,
     _params_in_si,
 )
 from app.services.solving import SolveServiceError
@@ -45,7 +45,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"C = \frac{\epsilon_0 A}{d}",),
             substitutions=(rf"C = \frac{{{_EPSILON_0:.5g} \cdot {p['area']:g}}}{{{p['d']:g}}}",),
-            quantities=(QuantityResult("", value, "F", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "F"),),
         )
 
     if op == "capacitor_energy":
@@ -60,7 +60,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"U = \frac{1}{2}CV^2",),
             substitutions=(rf"U = \frac{{1}}{{2}} \cdot {p['capacitance']:g} \cdot {p['V']:g}^2",),
-            quantities=(QuantityResult("", value, "J", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "J"),),
         )
 
     if op == "rc_time_constant":
@@ -74,7 +74,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"\tau = RC",),
             substitutions=(rf"\tau = {p['R']:g} \cdot {p['capacitance']:g}",),
-            quantities=(QuantityResult("", value, "s", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "s"),),
         )
 
     if op in ("series_resistance", "parallel_resistance"):
@@ -107,7 +107,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             answer=answer,
             formulas=(formula,),
             substitutions=(substitution,),
-            quantities=(QuantityResult("", total, "ohm", number_format=".2f"),),
+            quantities=(QuantityResult("", total, "ohm"),),
         )
 
     if op == "charge":
@@ -116,7 +116,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             answer=(rf"Q = I t = {p['I']:g} \cdot {p['t']:g} \approx {q_val:.2f} \text{{ C}}"),
             formulas=(r"Q = I t",),
             substitutions=(rf"Q = {p['I']:g} \cdot {p['t']:g}",),
-            quantities=(QuantityResult("", q_val, "C", number_format=".2f"),),
+            quantities=(QuantityResult("", q_val, "C"),),
         )
 
     if op == "electrical_energy":
@@ -129,7 +129,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"E = P t",),
             substitutions=(rf"E = {p['power']:g} \cdot {p['t']:g}",),
-            quantities=(QuantityResult("", e_val, "J", number_format=".2f"),),
+            quantities=(QuantityResult("", e_val, "J"),),
         )
 
     if op == "capacitance":
@@ -143,7 +143,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"C = \frac{Q}{V}",),
             substitutions=(rf"C = \frac{{{p['Q']:g}}}{{{p['V']:g}}}",),
-            quantities=(QuantityResult("", c_val, "F", number_format=".2f"),),
+            quantities=(QuantityResult("", c_val, "F"),),
         )
 
     if op == "terminal_voltage":
@@ -155,7 +155,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"V = \varepsilon - I r",),
             substitutions=(rf"V_{{terminal}} = {p['E_emf']:g} - {p['I']:g} \cdot {p['r_int']:g}",),
-            quantities=(QuantityResult("", v_val, "V", number_format=".2f"),),
+            quantities=(QuantityResult("", v_val, "V"),),
         )
 
     if op == "electrical_power":
@@ -184,7 +184,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             answer=answer,
             formulas=(formula,),
             substitutions=(substitution,),
-            quantities=(QuantityResult("", val, "W", number_format=".2f"),),
+            quantities=(QuantityResult("", val, "W"),),
         )
 
     if op == "current":
@@ -198,7 +198,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"I = \frac{V}{R}",),
             substitutions=(rf"I = \frac{{{p['V']:g}}}{{{p['R']:g}}}",),
-            quantities=(QuantityResult("", val, "A", number_format=".2f"),),
+            quantities=(QuantityResult("", val, "A"),),
         )
 
     if op == "voltage":
@@ -207,7 +207,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             answer=rf"V = IR = {p['I']:g} \cdot {p['R']:g} \approx {val:.2f} \text{{ V}}",
             formulas=(r"V = IR",),
             substitutions=(rf"V = {p['I']:g} \cdot {p['R']:g}",),
-            quantities=(QuantityResult("", val, "V", number_format=".2f"),),
+            quantities=(QuantityResult("", val, "V"),),
         )
 
     if op == "resistance":
@@ -221,7 +221,7 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"R = \frac{V}{I}",),
             substitutions=(rf"R = \frac{{{p['V']:g}}}{{{p['I']:g}}}",),
-            quantities=(QuantityResult("", val, "ohm", number_format=".2f"),),
+            quantities=(QuantityResult("", val, "ohm"),),
         )
 
     raise SolveServiceError(f"unsupported circuit op: {op}")
@@ -250,7 +250,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(
                 rf"E = {_COULOMB_K:.7g} \cdot \frac{{\lvert {p['Q']:g}\rvert}}{{{p['r']:g}^2}}",
             ),
-            quantities=(QuantityResult("", value, "N/C", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "N/C"),),
         )
 
     if op == "electric_potential":
@@ -264,7 +264,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"V = k_e\frac{Q}{r}",),
             substitutions=(rf"V = {_COULOMB_K:.7g} \cdot \frac{{{p['Q']:g}}}{{{p['r']:g}}}",),
-            quantities=(QuantityResult("", value, "V", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "V"),),
         )
 
     if op == "electric_potential_energy":
@@ -281,7 +281,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(
                 rf"U = {_COULOMB_K:.7g} \cdot \frac{{{p['q1']:g} \cdot {p['q2']:g}}}{{{p['r']:g}}}",
             ),
-            quantities=(QuantityResult("", value, "J", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "J"),),
         )
 
     if op == "charged_particle_radius":
@@ -301,7 +301,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                 rf"r = \frac{{{p['m']:g} \cdot {p['v']:g}}}{{{abs(p['Q']):g} \cdot "
                 rf"{p['b_field']:g}}}",
             ),
-            quantities=(QuantityResult("", value, "m", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "m"),),
         )
 
     if op == "motional_emf":
@@ -315,7 +315,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(
                 rf"\mathcal{{E}} = {p['b_field']:g} \cdot {p['wire_L']:g} \cdot {p['v']:g}",
             ),
-            quantities=(QuantityResult("", value, "V", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "V"),),
         )
 
     if op == "magnetic_field_wire":
@@ -330,7 +330,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"B = \frac{\mu_0 I}{2\pi r}",),
             substitutions=(rf"B = \frac{{{_MU_0:.7g} \cdot {p['I']:g}}}{{2\pi \cdot {p['r']:g}}}",),
-            quantities=(QuantityResult("", value, "T", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "T"),),
         )
 
     if op == "electric_force":
@@ -341,19 +341,19 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
         return PhysicsResult(
             answer=(
                 rf"F_e = k_e \frac{{\lvert q_1q_2\rvert}}{{r^2}} = "
-                rf"{_latex_scientific(_COULOMB_K)} \cdot "
-                rf"\frac{{\lvert {_latex_scientific(p['q1'])} \cdot "
-                rf"{_latex_scientific(p['q2'])}"
+                rf"{latex_given(_COULOMB_K)} \cdot "
+                rf"\frac{{\lvert {latex_given(p['q1'])} \cdot "
+                rf"{latex_given(p['q2'])}"
                 rf"\rvert}}{{{_latex_num(separation, square=True)}}} "
                 rf"\approx {value:.4g} \text{{ N}}"
             ),
             formulas=(r"F_e = k_e \frac{\lvert q_1q_2\rvert}{r^2}",),
             substitutions=(
-                rf"F_e = {_latex_scientific(_COULOMB_K)} \cdot \frac{{\lvert "
-                rf"{_latex_scientific(p['q1'])} \cdot {_latex_scientific(p['q2'])}"
+                rf"F_e = {latex_given(_COULOMB_K)} \cdot \frac{{\lvert "
+                rf"{latex_given(p['q1'])} \cdot {latex_given(p['q2'])}"
                 rf"\rvert}}{{{_latex_num(separation, square=True)}}}",
             ),
-            quantities=(QuantityResult("", value, "N", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "N"),),
         )
 
     if op == "magnetic_force_wire":
@@ -371,7 +371,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                     rf"F = {p['b_field']:g} \cdot {p['I']:g} \cdot {p['wire_L']:g} \cdot "
                     rf"\sin({_angle_label(intent)})",
                 ),
-                quantities=(QuantityResult("", value, "N", number_format=".4g"),),
+                quantities=(QuantityResult("", value, "N"),),
             )
         return PhysicsResult(
             answer=(
@@ -380,7 +380,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"F = BIL",),
             substitutions=(rf"F = {p['b_field']:g} \cdot {p['I']:g} \cdot {p['wire_L']:g}",),
-            quantities=(QuantityResult("", value, "N", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "N"),),
         )
 
     if op == "magnetic_force_charge":
@@ -398,7 +398,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                     rf"F = {p['Q']:g} \cdot {p['v']:g} \cdot {p['b_field']:g} \cdot "
                     rf"\sin({_angle_label(intent)})",
                 ),
-                quantities=(QuantityResult("", value, "N", number_format=".4g"),),
+                quantities=(QuantityResult("", value, "N"),),
             )
         number_format = ".4g" if 0 < abs(value) < 0.01 else ".2f"
         return PhysicsResult(
@@ -415,7 +415,6 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                     value,
                     "N",
                     detail="field perpendicular to the motion",
-                    number_format=number_format,
                 ),
             ),
         )
@@ -434,7 +433,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
                     rf"\Phi = {p['b_field']:g} \cdot {p['area']:g} \cdot "
                     rf"\cos({_angle_label(intent)})",
                 ),
-                quantities=(QuantityResult("", value, "Wb", number_format=".4g"),),
+                quantities=(QuantityResult("", value, "Wb"),),
             )
         return PhysicsResult(
             answer=(
@@ -443,7 +442,7 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"\Phi = BA",),
             substitutions=(rf"\Phi = {p['b_field']:g} \cdot {p['area']:g}",),
-            quantities=(QuantityResult("", value, "Wb", number_format=".4g"),),
+            quantities=(QuantityResult("", value, "Wb"),),
         )
 
     raise SolveServiceError(f"unsupported magnetism op: {op}")

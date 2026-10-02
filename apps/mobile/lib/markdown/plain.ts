@@ -10,7 +10,13 @@ import {
   isVisualDiagramFenceLang,
 } from "@/lib/fenceRegistry";
 import { teachingSpeech } from "@/lib/math/teachingBlock";
-import { parseSimpleLatex, segmentsToPlain, type MathAccentKind, type MathSegment } from "@/lib/math/text";
+import {
+  DEGREE_RING,
+  parseSimpleLatex,
+  segmentsToPlain,
+  type MathAccentKind,
+  type MathSegment,
+} from "@/lib/math/text";
 
 function mapFenceRegions(
   text: string,
@@ -220,6 +226,8 @@ function speakScript(value: string, depth: number, kind: "sup" | "sub"): string 
   ).trim();
   if (!spoken) return "";
   if (kind === "sub") return ` subscript ${spoken}`;
+  // `30^\circ` is thirty degrees, never a power.
+  if (spoken === DEGREE_RING) return " degrees";
   if (spoken === "2") return " squared";
   if (spoken === "3") return " cubed";
   return ` to the power of ${spoken}`;
@@ -283,6 +291,7 @@ function copyMathSegments(segments: MathSegment[], depth = 0): string {
       case "upright": return segment.value;
       case "sup":
       case "sub": {
+        if (segment.type === "sup" && segment.value === DEGREE_RING) return "°";
         const value = depth >= 12 ? segment.value : copyMathSegments(parseSimpleLatex(segment.value), depth + 1);
         return `${segment.type === "sup" ? "^" : "_"}${value.length === 1 ? value : `{${value}}`}`;
       }

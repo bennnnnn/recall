@@ -73,7 +73,7 @@ CASES: list[tuple[str, str, str, str, str]] = [
         "Find the sound intensity 2 m from a 10 W point source.",
         "waves",
         "sound_intensity",
-        "0.1989 W/m^2",
+        "0.199 W/m²",
         "Spherical-wave intensity:",
     ),
     (
@@ -104,7 +104,7 @@ CASES: list[tuple[str, str, str, str, str]] = [
         "Find the latent heat energy for 2 kg with latent heat 334000 J/kg.",
         "thermal",
         "latent_heat",
-        "668000 J",
+        "6.68 × 10⁵ J",
         "Latent-heat equation:",
     ),
     (
@@ -159,7 +159,7 @@ def test_new_catalog_problem_is_verified_and_explained(
         ),
         (
             "Find the sound intensity 200 cm from a 10 W point source.",
-            "0.1989 W/m^2",
+            "0.199 W/m²",
         ),
         (
             "A hydraulic press has input force 100 N, piston areas 100 cm^2 "
@@ -168,7 +168,7 @@ def test_new_catalog_problem_is_verified_and_explained(
         ),
         (
             "Find the latent heat energy for 2 kg with latent heat 334 kJ/kg.",
-            "668000 J",
+            "6.68 × 10⁵ J",
         ),
         (
             "Using the first law of thermodynamics, heat added is 0.5 kJ and "

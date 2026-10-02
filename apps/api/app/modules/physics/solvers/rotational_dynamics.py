@@ -61,7 +61,7 @@ def _omega(params: dict[str, float]) -> PhysicsResult:
             substitutions=(
                 rf"\omega = {params['omega0']:g} + {params['ang_alpha']:g} \cdot {params['t']:g}",
             ),
-            quantities=(QuantityResult("", value, "rad/s", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "rad/s"),),
         )
     if {"omega0", "ang_alpha", "theta"} <= params.keys():
         disc = params["omega0"] ** 2 + 2 * params["ang_alpha"] * params["theta"]
@@ -79,7 +79,7 @@ def _omega(params: dict[str, float]) -> PhysicsResult:
                 rf"\omega = \sqrt{{{params['omega0']:g}^2 + 2 \cdot {params['ang_alpha']:g}"
                 rf" \cdot {params['theta']:g}}}",
             ),
-            quantities=(QuantityResult("", value, "rad/s", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "rad/s"),),
         )
     raise SolveServiceError("angular velocity needs omega0, alpha, and time or angle")
 
@@ -105,7 +105,7 @@ def _theta(params: dict[str, float]) -> PhysicsResult:
                 rf"\theta = {theta0:g} + {params['omega0']:g} \cdot {params['t']:g} + "
                 rf"\frac{{1}}{{2}} \cdot {params['ang_alpha']:g} \cdot {elapsed}",
             ),
-            quantities=(QuantityResult("", value, "rad", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "rad"),),
         )
     if {"omega", "omega0", "ang_alpha"} <= params.keys():
         if params["ang_alpha"] == 0:
@@ -122,7 +122,7 @@ def _theta(params: dict[str, float]) -> PhysicsResult:
                 rf"\theta = \frac{{{params['omega']:g}^2 - {params['omega0']:g}^2}}"
                 rf"{{2 \cdot {params['ang_alpha']:g}}}",
             ),
-            quantities=(QuantityResult("", value, "rad", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "rad"),),
         )
     raise SolveServiceError("angular displacement needs the constant-acceleration givens")
 
@@ -143,7 +143,7 @@ def _alpha(params: dict[str, float]) -> PhysicsResult:
             substitutions=(
                 rf"\alpha = \frac{{{params['omega']:g} - {params['omega0']:g}}}{{{params['t']:g}}}",
             ),
-            quantities=(QuantityResult("", value, "rad/s^2", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "rad/s^2"),),
         )
     if {"omega", "omega0", "theta"} <= params.keys():
         if params["theta"] == 0:
@@ -160,7 +160,7 @@ def _alpha(params: dict[str, float]) -> PhysicsResult:
                 rf"\alpha = \frac{{{params['omega']:g}^2 - {params['omega0']:g}^2}}"
                 rf"{{2 \cdot {params['theta']:g}}}",
             ),
-            quantities=(QuantityResult("", value, "rad/s^2", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "rad/s^2"),),
         )
     raise SolveServiceError("angular acceleration needs two angular velocities and time or angle")
 
@@ -179,7 +179,7 @@ def _torque_inertia(params: dict[str, float]) -> PhysicsResult:
             answer=answer,
             formulas=(r"\tau = I\alpha",),
             substitutions=(rf"\tau = {params['inertia']:g} \cdot {params['ang_alpha']:g}",),
-            quantities=(QuantityResult("", value, "N*m", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "N*m"),),
         )
     if unknown == "ang_alpha":
         if params["inertia"] <= 0:
@@ -193,7 +193,7 @@ def _torque_inertia(params: dict[str, float]) -> PhysicsResult:
             answer=answer,
             formulas=(r"\alpha = \frac{\tau}{I}",),
             substitutions=(rf"\alpha = \frac{{{params['tau']:g}}}{{{params['inertia']:g}}}",),
-            quantities=(QuantityResult("", value, "rad/s^2", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "rad/s^2"),),
         )
     if params["ang_alpha"] == 0:
         raise SolveServiceError("angular acceleration must be nonzero")
@@ -208,7 +208,7 @@ def _torque_inertia(params: dict[str, float]) -> PhysicsResult:
         answer=answer,
         formulas=(r"I = \frac{\tau}{\alpha}",),
         substitutions=(rf"I = \frac{{{params['tau']:g}}}{{{params['ang_alpha']:g}}}",),
-        quantities=(QuantityResult("", value, "kg*m^2", number_format=".2f"),),
+        quantities=(QuantityResult("", value, "kg*m^2"),),
     )
 
 
@@ -229,7 +229,7 @@ def _angular_impulse(params: dict[str, float]) -> PhysicsResult:
             substitutions=(
                 rf"\tau = \frac{{{params['L_f']:g} - {params['L_i']:g}}}{{{params['t']:g}}}",
             ),
-            quantities=(QuantityResult("", value, "N*m", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "N*m"),),
         )
     if unknown == "L_f":
         value = params["L_i"] + params["tau"] * params["t"]
@@ -241,7 +241,7 @@ def _angular_impulse(params: dict[str, float]) -> PhysicsResult:
             answer=answer,
             formulas=(r"L_f = L_i + \tau\Delta t",),
             substitutions=(rf"L_f = {params['L_i']:g} + {params['tau']:g} \cdot {params['t']:g}",),
-            quantities=(QuantityResult("", value, "kg*m^2/s", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "kg*m^2/s"),),
         )
     if unknown == "L_i":
         value = params["L_f"] - params["tau"] * params["t"]
@@ -253,7 +253,7 @@ def _angular_impulse(params: dict[str, float]) -> PhysicsResult:
             answer=answer,
             formulas=(r"L_i = L_f - \tau\Delta t",),
             substitutions=(rf"L_i = {params['L_f']:g} - {params['tau']:g} \cdot {params['t']:g}",),
-            quantities=(QuantityResult("", value, "kg*m^2/s", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "kg*m^2/s"),),
         )
     if params["tau"] == 0:
         raise SolveServiceError("a zero torque does not determine the time")
@@ -265,7 +265,7 @@ def _angular_impulse(params: dict[str, float]) -> PhysicsResult:
         substitutions=(
             rf"\Delta t = \frac{{{params['L_f']:g} - {params['L_i']:g}}}{{{params['tau']:g}}}",
         ),
-        quantities=(QuantityResult("", value, "s", number_format=".2f"),),
+        quantities=(QuantityResult("", value, "s"),),
     )
 
 
@@ -315,7 +315,7 @@ def _angular_momentum(params: dict[str, float]) -> PhysicsResult:
         answer=answer,
         formulas=(rf"I_i\omega_i = I_f\omega_f \Rightarrow {shown}",),
         substitutions=(plugged,),
-        quantities=(QuantityResult("", value, readable, number_format=".2f"),),
+        quantities=(QuantityResult("", value, readable),),
     )
 
 
@@ -333,7 +333,7 @@ def _rolling_speed(params: dict[str, float]) -> PhysicsResult:
             answer=answer,
             formulas=(r"v = R\omega",),
             substitutions=(rf"v = {params['r']:g} \cdot {params['omega']:g}",),
-            quantities=(QuantityResult("", value, "m/s", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "m/s"),),
         )
     if unknown == "omega":
         value = params["v"] / params["r"]
@@ -345,7 +345,7 @@ def _rolling_speed(params: dict[str, float]) -> PhysicsResult:
             answer=answer,
             formulas=(r"\omega = \frac{v}{R}",),
             substitutions=(rf"\omega = \frac{{{params['v']:g}}}{{{params['r']:g}}}",),
-            quantities=(QuantityResult("", value, "rad/s", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "rad/s"),),
         )
     if params["omega"] == 0:
         raise SolveServiceError("angular velocity must be nonzero to find the radius")
@@ -357,7 +357,7 @@ def _rolling_speed(params: dict[str, float]) -> PhysicsResult:
         answer=answer,
         formulas=(r"R = \frac{v}{\omega}",),
         substitutions=(rf"R = \frac{{{params['v']:g}}}{{{params['omega']:g}}}",),
-        quantities=(QuantityResult("", value, "m", number_format=".2f"),),
+        quantities=(QuantityResult("", value, "m"),),
     )
 
 
@@ -375,7 +375,7 @@ def _rolling_acceleration(params: dict[str, float]) -> PhysicsResult:
             answer=answer,
             formulas=(r"a = R\alpha",),
             substitutions=(rf"a = {params['r']:g} \cdot {params['ang_alpha']:g}",),
-            quantities=(QuantityResult("", value, "m/s^2", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "m/s^2"),),
         )
     if unknown == "ang_alpha":
         value = params["a"] / params["r"]
@@ -387,7 +387,7 @@ def _rolling_acceleration(params: dict[str, float]) -> PhysicsResult:
             answer=answer,
             formulas=(r"\alpha = \frac{a}{R}",),
             substitutions=(rf"\alpha = \frac{{{params['a']:g}}}{{{params['r']:g}}}",),
-            quantities=(QuantityResult("", value, "rad/s^2", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "rad/s^2"),),
         )
     if params["ang_alpha"] == 0:
         raise SolveServiceError("angular acceleration must be nonzero to find the radius")
@@ -399,7 +399,7 @@ def _rolling_acceleration(params: dict[str, float]) -> PhysicsResult:
         answer=answer,
         formulas=(r"R = \frac{a}{\alpha}",),
         substitutions=(rf"R = \frac{{{params['a']:g}}}{{{params['ang_alpha']:g}}}",),
-        quantities=(QuantityResult("", value, "m", number_format=".2f"),),
+        quantities=(QuantityResult("", value, "m"),),
     )
 
 
@@ -431,7 +431,7 @@ def _rolling_energy(params: dict[str, float]) -> PhysicsResult:
             rf"K = \frac{{1}}{{2}} \cdot {params['m']:g} \cdot {speed:g}^2 + "
             rf"\frac{{1}}{{2}} \cdot {params['inertia']:g} \cdot {omega:g}^2",
         ),
-        quantities=(QuantityResult("", value, "J", number_format=".2f"),),
+        quantities=(QuantityResult("", value, "J"),),
     )
 
 
@@ -453,7 +453,7 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
                 rf"I = {params['inertia_cm']:g} + {params['m']:g} \cdot "
                 rf"{_latex_num(params['d'], square=True)}",
             ),
-            quantities=(QuantityResult("", value, "kg*m^2", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "kg*m^2"),),
         )
     if unknown == "inertia_cm":
         value = params["inertia"] - params["m"] * params["d"] ** 2
@@ -465,7 +465,7 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
                 rf"I_{{cm}} = {params['inertia']:g} - {params['m']:g} \cdot "
                 rf"{_latex_num(params['d'], square=True)}",
             ),
-            quantities=(QuantityResult("", value, "kg*m^2", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "kg*m^2"),),
         )
     if unknown == "m":
         if params["d"] == 0:
@@ -481,7 +481,7 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
                 rf"M = \frac{{{params['inertia']:g} - {params['inertia_cm']:g}}}"
                 rf"{{{_latex_num(params['d'], square=True)}}}",
             ),
-            quantities=(QuantityResult("", value, "kg", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "kg"),),
         )
     square = (params["inertia"] - params["inertia_cm"]) / params["m"]
     if square < 0:
@@ -495,5 +495,5 @@ def _parallel_axis(params: dict[str, float]) -> PhysicsResult:
             rf"d = \sqrt{{\frac{{{params['inertia']:g} - {params['inertia_cm']:g}}}"
             rf"{{{params['m']:g}}}}}",
         ),
-        quantities=(QuantityResult("", value, "m", number_format=".2f"),),
+        quantities=(QuantityResult("", value, "m"),),
     )

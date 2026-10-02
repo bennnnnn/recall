@@ -29,7 +29,7 @@ def test_kinematics_time_to_ground() -> None:
     result = physics_solver.solve_kinematics(intent)
     # t = sqrt(2*20/9.81) ≈ 2.02 s
     expected = math.sqrt(2 * 20 / 9.81)
-    assert abs(float(result.answer_value.split()[0]) - expected) < 0.01
+    assert abs(result.quantities[0].value - expected) < 0.01
     assert len(result.graph_specs) == 1
     spec = result.graph_specs[0]
     assert spec.type == "trajectory"
@@ -52,7 +52,7 @@ def test_kinematics_time_to_ground_derivation_includes_initial_velocity() -> Non
     )
     result = physics_solver.solve_kinematics(intent)
 
-    assert abs(float(result.answer_value.split()[0]) - (2 * 15.0 / 9.81)) < 0.01
+    assert abs(result.quantities[0].value - (2 * 15.0 / 9.81)) < 0.01
     assert "v_0" in result.answer
     assert "h_0" in result.answer
     assert r"\sqrt{\frac{2 \cdot 0}{9.81}}" not in result.answer
@@ -69,7 +69,7 @@ def test_kinematics_vertical_launch_maximum_height() -> None:
 
     result = physics_solver.solve_kinematics(intent)
 
-    assert result.answer_value == "20.39 m"
+    assert result.answer_value == "20.4 m"
     assert r"h_{\max}" in result.answer
     assert r"\frac{20^{2}}{2 \cdot 9.81}" in result.answer
     assert len(result.graph_specs) == 1
@@ -86,7 +86,7 @@ def test_kinematics_velocity_op() -> None:
     )
     result = physics_solver.solve_kinematics(intent)
     # v = v0 - g*t = 0 - 9.81*1 = -9.81 m/s
-    assert abs(float(result.answer_value.split()[0]) - (-9.81)) < 0.01
+    assert abs(result.quantities[0].value - (-9.81)) < 0.01
 
 
 def test_kinematics_speed_op_is_magnitude() -> None:
@@ -98,8 +98,8 @@ def test_kinematics_speed_op_is_magnitude() -> None:
         operation="solve",
     )
     result = physics_solver.solve_kinematics(intent)
-    assert abs(float(result.answer_value.split()[0]) - 9.81) < 0.01
-    assert float(result.answer_value.split()[0]) > 0
+    assert abs(result.quantities[0].value - 9.81) < 0.01
+    assert result.quantities[0].value > 0
     assert r"\lvert v_0 - g \cdot t\rvert" in result.answer
 
 
@@ -114,7 +114,7 @@ def test_kinematics_thrown_down_latex_parenthesises_negative_v0() -> None:
     result = physics_solver.solve_kinematics(intent)
     assert r"(-5)^{2}" in result.answer
     assert "-5^2" not in result.answer
-    assert abs(float(result.answer_value.split()[0]) - 1.57) < 0.02
+    assert abs(result.quantities[0].value - 1.57) < 0.02
 
 
 def test_params_in_si_rejects_length_as_velocity() -> None:
@@ -140,7 +140,7 @@ def test_kinematics_position_op_uses_requested_time() -> None:
     result = physics_solver.solve_kinematics(intent)
 
     expected = 20.0 + 5.0 * 2.0 - 0.5 * 9.81 * 2.0**2
-    assert abs(float(result.answer_value.split()[0]) - expected) < 0.01
+    assert abs(result.quantities[0].value - expected) < 0.01
 
 
 def test_kinematics_position_past_impact_is_not_verified() -> None:
@@ -199,7 +199,7 @@ def test_projectile_range_45_degrees() -> None:
     result = physics_solver.solve_projectile(intent)
     # R = v0^2 * sin(2*45) / g = 225 * 1 / 9.81 ≈ 22.94 m
     expected = 15.0**2 * math.sin(math.radians(90)) / 9.81
-    assert abs(float(result.answer_value.split()[0]) - expected) < 0.01
+    assert abs(result.quantities[0].value - expected) < 0.01
     assert len(result.graph_specs) == 1
     spec = result.graph_specs[0]
     assert spec.type == "trajectory"
@@ -221,7 +221,7 @@ def test_projectile_range_from_cliff_uses_quadratic_tof() -> None:
         operation="solve",
     )
     result = physics_solver.solve_projectile(intent)
-    range_m = float(result.answer_value.split()[0])
+    range_m = result.quantities[0].value
     # Vacuum formula is ~35.31 m; cliff quadratic TOF is ~48 m.
     assert range_m > 40.0
     assert abs(range_m - 48.0) < 1.5
@@ -240,7 +240,7 @@ def test_projectile_max_height() -> None:
     result = physics_solver.solve_projectile(intent)
     # H = v0^2 * sin^2(30) / (2*g) = 400 * 0.25 / 19.62 ≈ 5.10 m
     expected = 20.0**2 * math.sin(math.radians(30)) ** 2 / (2 * 9.81)
-    assert abs(float(result.answer_value.split()[0]) - expected) < 0.01
+    assert abs(result.quantities[0].value - expected) < 0.01
 
 
 # ---------------------------------------------------------------------------
@@ -258,7 +258,7 @@ def test_force_solve_acceleration() -> None:
     )
     result = physics_solver.solve_force(intent)
     # a = F/m = 20/5 = 4 m/s^2
-    assert abs(float(result.answer_value.split()[0]) - 4.0) < 0.01
+    assert abs(result.quantities[0].value - 4.0) < 0.01
 
 
 def test_force_solve_force() -> None:
@@ -271,7 +271,7 @@ def test_force_solve_force() -> None:
     )
     result = physics_solver.solve_force(intent)
     # F = m*a = 5*2 = 10 N
-    assert abs(float(result.answer_value.split()[0]) - 10.0) < 0.01
+    assert abs(result.quantities[0].value - 10.0) < 0.01
 
 
 def test_force_missing_two_knowns_raises() -> None:
@@ -305,7 +305,7 @@ def test_energy_kinetic() -> None:
     )
     result = physics_solver.solve_energy(intent)
     # KE = 0.5 * 2 * 10^2 = 100 J
-    assert abs(float(result.answer_value.split()[0]) - 100.0) < 0.01
+    assert abs(result.quantities[0].value - 100.0) < 0.01
 
 
 def test_energy_potential() -> None:
@@ -319,7 +319,7 @@ def test_energy_potential() -> None:
     result = physics_solver.solve_energy(intent)
     # PE = m*g*h = 3*9.81*5 = 147.15 J
     expected = 3.0 * 9.81 * 5.0
-    assert abs(float(result.answer_value.split()[0]) - expected) < 0.01
+    assert abs(result.quantities[0].value - expected) < 0.01
 
 
 def test_energy_work() -> None:
@@ -332,7 +332,7 @@ def test_energy_work() -> None:
     )
     result = physics_solver.solve_energy(intent)
     # W = F*d = 10*4 = 40 J
-    assert abs(float(result.answer_value.split()[0]) - 40.0) < 0.01
+    assert abs(result.quantities[0].value - 40.0) < 0.01
 
 
 # ---------------------------------------------------------------------------

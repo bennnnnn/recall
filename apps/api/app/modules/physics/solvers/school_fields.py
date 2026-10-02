@@ -25,7 +25,7 @@ def _gauss_shell(params: dict[str, float]) -> PhysicsResult:
         raise SolveServiceError("the point is not inside the shell")
     return PhysicsResult(
         answer=r"E = 0 \text{ inside a charged spherical shell}",
-        quantities=(QuantityResult("E", 0.0, "N/C", number_format=".4g"),),
+        quantities=(QuantityResult("E", 0.0, "N/C"),),
         formulas=(r"E = 0",),
         substitutions=(r"E = 0",),
     )

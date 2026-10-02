@@ -56,29 +56,29 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "a 3 N force east and a 4 N force north, what is the resultant",
         "resultant_force",
-        "5 N at 53.13°",
+        "5 N at 53.1°",
     ),
     (
         "what is the resultant of a 3 N and a 4 N force at right angles",
         "resultant_force",
-        "5 N at 53.13°",
+        "5 N at 53.1°",
     ),
     (
         "find the resultant of a 3 N horizontal force and a 4 N vertical force",
         "resultant_force",
-        "5 N at 53.13°",
+        "5 N at 53.1°",
     ),
     (
         "Two forces act on an object: 3 N east and 4 N north. "
         "Find the resultant magnitude and direction.",
         "resultant_force",
-        "5 N at 53.13°",
+        "5 N at 53.1°",
     ),
     # Not perpendicular: the general parallelogram law.
     (
         "what is the resultant of a 3 N and a 4 N force at 60 degrees to each other",
         "resultant_force",
-        "6.08 N at 34.72°",
+        "6.08 N at 34.7°",
     ),
     (
         "resolve a 10 N force at 30 degrees into components",
@@ -134,7 +134,7 @@ def test_perpendicular_is_the_general_law_at_ninety_degrees() -> None:
         "what is the resultant of a 3 N and a 4 N force at 90 degrees to each other"
     )
 
-    assert perpendicular == stated == "5 N at 53.13°"
+    assert perpendicular == stated == "5 N at 53.1°"
 
 
 def test_the_components_rebuild_the_force_they_came_from() -> None:
@@ -165,8 +165,8 @@ def test_the_bearing_is_measured_from_the_first_force() -> None:
     assert answer is not None
     bearing = float(answer.split(" at ")[1].rstrip("°"))
 
-    assert bearing == pytest.approx(math.degrees(math.atan2(4, 3)), abs=0.01)
-    assert bearing != pytest.approx(math.degrees(math.atan2(3, 4)), abs=0.01)
+    assert bearing == pytest.approx(math.degrees(math.atan2(4, 3)), rel=5e-3)
+    assert bearing != pytest.approx(math.degrees(math.atan2(3, 4)), rel=5e-3)
 
 
 def test_two_forces_in_line_simply_add() -> None:

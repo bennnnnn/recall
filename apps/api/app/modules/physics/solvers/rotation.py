@@ -64,7 +64,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"\omega = n\frac{2\pi}{60}",),
             substitutions=(rf"\omega = {raw_rpm:g}\cdot\frac{{2\pi}}{{60}}",),
-            quantities=(QuantityResult("", omega_val, "rad/s", number_format=".2f"),),
+            quantities=(QuantityResult("", omega_val, "rad/s"),),
         )
     if op == "angular_velocity" and "period" in p and "v" not in p:
         period = p["period"]
@@ -78,7 +78,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"\omega = \frac{2\pi}{T}",),
             substitutions=(rf"\omega = \frac{{2\pi}}{{{period:g}}}",),
-            quantities=(QuantityResult("", omega_val, "rad/s", number_format=".2f"),),
+            quantities=(QuantityResult("", omega_val, "rad/s"),),
         )
     r = p["r"]
     omega = p.get("omega")
@@ -110,7 +110,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
             answer=period_answer,
             formulas=(period_formula,),
             substitutions=(period_substitution,),
-            quantities=(QuantityResult("", t_val, "s", number_format=".2f"),),
+            quantities=(QuantityResult("", t_val, "s"),),
             simulation_specs=scene,
         )
 
@@ -127,7 +127,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"\omega = \frac{v}{r}",),
             substitutions=(rf"\omega = \frac{{{abs(v):g}}}{{{r:g}}}",),
-            quantities=(QuantityResult("", omega_val, "rad/s", number_format=".2f"),),
+            quantities=(QuantityResult("", omega_val, "rad/s"),),
             simulation_specs=scene,
         )
 
@@ -143,7 +143,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
             answer=rf"{law} = {plugged} \approx {a_c:.2f} \text{{ m/s}}^2",
             formulas=(law,),
             substitutions=(rf"a_c = {plugged}",),
-            quantities=(QuantityResult("", a_c, "m/s^2", number_format=".2f"),),
+            quantities=(QuantityResult("", a_c, "m/s^2"),),
             simulation_specs=scene,
         )
 
@@ -161,7 +161,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
             answer=rf"{law} = {plugged} \approx {f_val:.2f} \text{{ N}}",
             formulas=(law,),
             substitutions=(rf"F_c = {plugged}",),
-            quantities=(QuantityResult("", f_val, "N", number_format=".2f"),),
+            quantities=(QuantityResult("", f_val, "N"),),
             simulation_specs=scene,
         )
 
@@ -234,7 +234,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
                 ),
                 formulas=(r"F_2 = \frac{F_1 d_1}{d_2}",),
                 substitutions=(rf"F_2 = \frac{{{f1:g} \cdot {d1:g}}}{{{d2:g}}}",),
-                quantities=(QuantityResult("", f2, "N", number_format=".2f"),),
+                quantities=(QuantityResult("", f2, "N"),),
                 simulation_specs=_lever_scene(
                     [
                         (-d1, f1, f"{f1:g} N at {d1:g} m", False),
@@ -261,7 +261,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(formula,),
             substitutions=(substitution,),
-            quantities=(QuantityResult("", d2, "m", number_format=".2f"),),
+            quantities=(QuantityResult("", d2, "m"),),
             # The known load on the left, the one whose arm was the question on
             # the right, so the answer is the arm you can see.
             simulation_specs=_lever_scene(
@@ -284,7 +284,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"d = \frac{\tau}{F}",),
             substitutions=(rf"d = \frac{{{p['tau']:g}}}{{{force:g}}}",),
-            quantities=(QuantityResult("", distance, "m", number_format=".2f"),),
+            quantities=(QuantityResult("", distance, "m"),),
             simulation_specs=_lever_scene(
                 [(distance, force, f"{force:g} N at {distance:.2f} m", True)]
             ),
@@ -310,7 +310,6 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
                     abs(net),
                     "N*m",
                     detail=net_direction,
-                    number_format=".2f",
                 ),
             ),
         )
@@ -347,7 +346,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
             answer=answer,
             formulas=(formula,),
             substitutions=(substitution,),
-            quantities=(QuantityResult("", tau, "N*m", number_format=".2f"),),
+            quantities=(QuantityResult("", tau, "N*m"),),
             simulation_specs=scene,
         )
 
@@ -392,7 +391,7 @@ def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(
                 rf"I = {factor:g} \cdot {p['m']:g} \cdot {_latex_num(p['r'], square=True)}",
             ),
-            quantities=(QuantityResult("", value, "kg*m^2", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "kg*m^2"),),
         )
 
     if op == "angular_momentum":
@@ -404,7 +403,7 @@ def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"L = I\omega",),
             substitutions=(rf"L = {p['inertia']:g} \cdot {p['omega']:g}",),
-            quantities=(QuantityResult("", value, "kg*m^2/s", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "kg*m^2/s"),),
         )
 
     if op == "rotational_kinetic_energy":
@@ -418,7 +417,7 @@ def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(
                 rf"E_k = 0.5 \cdot {p['inertia']:g} \cdot {_latex_num(p['omega'], square=True)}",
             ),
-            quantities=(QuantityResult("", value, "J", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "J"),),
         )
 
     if op == "angular_displacement_rate":
@@ -433,7 +432,7 @@ def solve_rotation(intent: PhysicsIntent) -> PhysicsResult:
             ),
             formulas=(r"\omega = \frac{\theta}{t}",),
             substitutions=(rf"\omega = \frac{{{p['theta']:g}}}{{{elapsed:g}}}",),
-            quantities=(QuantityResult("", value, "rad/s", number_format=".2f"),),
+            quantities=(QuantityResult("", value, "rad/s"),),
         )
 
     raise SolveServiceError(f"unsupported rotation op: {op}")

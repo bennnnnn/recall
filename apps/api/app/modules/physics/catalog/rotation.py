@@ -184,7 +184,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         solve_for=(("v", "v"), ("omega", r"\omega"), ("r", "R")),
         variables=(
             var("omega", r"\omega", "radian / second"),
-            var("r", "r", "meter"),
+            var("r", "R", "meter"),
             var("v", "v", "meter / second"),
         ),
     ),
@@ -199,7 +199,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("a", "a", "meter / second ** 2"),
             var("ang_alpha", r"\alpha", "radian / second ** 2"),
-            var("r", "r", "meter"),
+            var("r", "R", "meter"),
         ),
     ),
     formula(
@@ -211,9 +211,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         assumptions=("rolling without slipping",),
         variables=(
             var("inertia", "I", "kilogram * meter ** 2"),
-            var("m", "m", "kilogram"),
+            var("m", "M", "kilogram"),
             var("omega", r"\omega", "radian / second"),
-            var("r", "r", "meter"),
+            var("r", "R", "meter"),
             var("v", "v", "meter / second"),
         ),
     ),

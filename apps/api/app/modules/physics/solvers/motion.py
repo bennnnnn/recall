@@ -40,38 +40,38 @@ def _shown_degrees(radians: float) -> str:
 
 def _projectile_max_height_substitution(intent: PhysicsIntent) -> str:
     """Peak height with the launch angle in degrees, not the SI radian."""
-    from app.modules.physics.working import display_number
+    from app.modules.physics.display import latex_given
 
     params = intent.physics_params or {}
-    h0 = display_number(params.get("h0", 0.0))
+    h0 = latex_given(params.get("h0", 0.0))
     return (
         rf"H_{{max}} = {h0} + "
-        rf"\frac{{{display_number(params['v0'])}^2 "
-        rf"\sin^2({display_number(params['angle'])}^\circ)}}"
-        rf"{{2 \cdot {display_number(params['g'])}}}"
+        rf"\frac{{{latex_given(params['v0'])}^2 "
+        rf"\sin^2({latex_given(params['angle'])}^\circ)}}"
+        rf"{{2 \cdot {latex_given(params['g'])}}}"
     )
 
 
 def _rate_substitution(intent: PhysicsIntent) -> str:
     """Plugged-in rate row, with the units the question used."""
-    from app.modules.physics.working import display_number, given_unit_suffix
+    from app.modules.physics.display import latex_given, latex_unit
 
     params = intent.physics_params or {}
     units = intent.physics_units or {}
     op = intent.physics_op
     if op in {"average_speed", "rate_speed"}:
         return (
-            rf"v = \frac{{{display_number(params['d'])}{given_unit_suffix(units.get('d'))}}}"
-            rf"{{{display_number(params['t'])}{given_unit_suffix(units.get('t'))}}}"
+            rf"v = \frac{{{latex_given(params['d'])}{latex_unit(units.get('d', ''))}}}"
+            rf"{{{latex_given(params['t'])}{latex_unit(units.get('t', ''))}}}"
         )
     if op == "rate_distance":
         return (
-            rf"d = {display_number(params['v'])}{given_unit_suffix(units.get('v'))} \cdot "
-            rf"{display_number(params['t'])}{given_unit_suffix(units.get('t'))}"
+            rf"d = {latex_given(params['v'])}{latex_unit(units.get('v', ''))} \cdot "
+            rf"{latex_given(params['t'])}{latex_unit(units.get('t', ''))}"
         )
     return (
-        rf"t = \frac{{{display_number(params['d'])}{given_unit_suffix(units.get('d'))}}}"
-        rf"{{{display_number(params['v'])}{given_unit_suffix(units.get('v'))}}}"
+        rf"t = \frac{{{latex_given(params['d'])}{latex_unit(units.get('d', ''))}}}"
+        rf"{{{latex_given(params['v'])}{latex_unit(units.get('v', ''))}}}"
     )
 
 
@@ -155,7 +155,7 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
     return PhysicsResult(
         answer=working,
         formulas=(formula,),
-        quantities=(QuantityResult("", value, answer_unit, number_format=".12g"),),
+        quantities=(QuantityResult("", value, answer_unit),),
         substitutions=(_rate_substitution(intent),),
     )
 
@@ -166,7 +166,7 @@ def _solve_stopping_distance(intent: PhysicsIntent) -> PhysicsResult:
     The chip is the total distance. The other three results stay on the
     substitution rows the direct reply prints.
     """
-    from app.modules.physics.working import display_number
+    from app.modules.physics.display import latex_given
 
     params = _params_in_si(intent)
     speed = params.get("v")
@@ -190,9 +190,9 @@ def _solve_stopping_distance(intent: PhysicsIntent) -> PhysicsResult:
     acceleration = -speed / brake_time
     if not all(math.isfinite(item) for item in (reaction, braking, total, acceleration)):
         raise SolveServiceError("stopping distance is not finite")
-    speed_text = display_number(speed)
-    react_text = display_number(reaction_time)
-    brake_text = display_number(brake_time)
+    speed_text = latex_given(speed)
+    react_text = latex_given(reaction_time)
+    brake_text = latex_given(brake_time)
     formulas = (
         r"d_r = v t_r",
         r"d_b = \frac{v t_b}{2}",
@@ -200,16 +200,16 @@ def _solve_stopping_distance(intent: PhysicsIntent) -> PhysicsResult:
         r"a = -\frac{v}{t_b}",
     )
     substitutions = (
-        rf"d_r = {speed_text} \cdot {react_text} = {display_number(reaction)}",
-        rf"d_b = \frac{{{speed_text} \cdot {brake_text}}}{{2}} = {display_number(braking)}",
-        rf"d = {display_number(reaction)} + {display_number(braking)} = {display_number(total)}",
-        rf"a = -\frac{{{speed_text}}}{{{brake_text}}} = {display_number(acceleration)}",
+        rf"d_r = {speed_text} \cdot {react_text} = {latex_given(reaction)}",
+        rf"d_b = \frac{{{speed_text} \cdot {brake_text}}}{{2}} = {latex_given(braking)}",
+        rf"d = {latex_given(reaction)} + {latex_given(braking)} = {latex_given(total)}",
+        rf"a = -\frac{{{speed_text}}}{{{brake_text}}} = {latex_given(acceleration)}",
     )
     return PhysicsResult(
-        answer=rf"d = {display_number(total)}\,\mathrm{{m}}",
+        answer=rf"d = {latex_given(total)}\,\mathrm{{m}}",
         formulas=formulas,
         substitutions=substitutions,
-        quantities=(QuantityResult("", total, "m", number_format=".4g"),),
+        quantities=(QuantityResult("", total, "m"),),
     )
 
 
@@ -256,7 +256,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             rf"{{{g:g}}} "
             rf"\approx {t_val:.2f} \text{{ s}}"
         )
-        quantity = QuantityResult("", t_val, "s", number_format=".2f")
+        quantity = QuantityResult("", t_val, "s")
     elif op in ("velocity", "speed"):
         # Need a time — look for a time param, else use time_to_ground.
         t_param = p.get("t")
@@ -299,7 +299,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
                 rf"v = v_0 - g t = {_latex_num(v0)} - {g:g} \cdot {t_val:g} "
                 rf"\approx {v_val:.2f} \text{{ m/s}}"
             )
-        quantity = QuantityResult("", v_val, "m/s", number_format=".2f")
+        quantity = QuantityResult("", v_val, "m/s")
     elif op == "position":
         t_param = p.get("t")
         if t_param is None:
@@ -317,7 +317,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {_latex_num(t_val, square=True)} "
             rf"\approx {h_val:.2f} \text{{ m}}"
         )
-        quantity = QuantityResult("", h_val, "m", number_format=".2f")
+        quantity = QuantityResult("", h_val, "m")
     elif op == "vertical_max_height":
         if v0 <= 0:
             raise SolveServiceError("maximum height for a vertical launch requires v0 > 0")
@@ -331,7 +331,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             rf"{h0:g} + \frac{{{_latex_num(v0, square=True)}}}{{2 \cdot {g:g}}} "
             rf"\approx {h_val:.2f} \text{{ m}}"
         )
-        quantity = QuantityResult("", h_val, "m", number_format=".2f")
+        quantity = QuantityResult("", h_val, "m")
         # The visual shows the complete trip back to the landing plane while
         # the scalar answer remains the requested peak height.
         landed = _time_to_ground()
@@ -347,7 +347,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             answer=answer_latex,
             formulas=(r"a = -g",),
             substitutions=(rf"a = -{g:g} \text{{ m/s}}^2",),
-            quantities=(QuantityResult("", -g, "m/s^2", number_format="g"),),
+            quantities=(QuantityResult("", -g, "m/s^2"),),
         )
     else:
         raise SolveServiceError(f"unsupported kinematics op: {op}")
@@ -688,7 +688,7 @@ def solve_suvat(intent: PhysicsIntent) -> PhysicsResult:
         answer=rf"{workings} \approx {value:.2f} \text{{ {unit} }}",
         formulas=(formula,),
         substitutions=(substitution,),
-        quantities=(QuantityResult("", value, unit, number_format=".2f"),),
+        quantities=(QuantityResult("", value, unit),),
         graph_specs=graphs,
     )
 
@@ -741,9 +741,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\theta = \tfrac{{1}}{{2}} \arcsin\!\left(\frac{{{r_target:g} \cdot {g:g}}}"
                 rf"{{{_latex_num(v0, square=True)}}}\right)",
             ),
-            quantities=tuple(
-                QuantityResult("", angle, "deg", number_format=".2f") for angle in angles
-            ),
+            quantities=tuple(QuantityResult("", angle, "deg") for angle in angles),
             joiner=" or ",
         )
 
@@ -782,14 +780,14 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             answer_latex = rf"R = v_0 \cos(\theta)\, t \approx {r_val:.2f} \text{{ m}}"
             formulas = (r"R = v_0 \cos(\theta)\, t",)
             substitutions = (rf"R = {v0:g}\cos({_shown_degrees(theta)}^\circ)\cdot {t_flight:.2f}",)
-        quantity = QuantityResult("", r_val, "m", number_format=".2f")
+        quantity = QuantityResult("", r_val, "m")
     elif op == "max_height":
         h_val = h0 + v0**2 * math.sin(theta) ** 2 / (2 * g)
         answer_latex = (
             rf"H = h_0 + \frac{{v_0^2 \sin^2(\theta)}}{{2g}} = "
             rf"{h_val:.2f} \text{{ m}}"
         )
-        quantity = QuantityResult("", h_val, "m", number_format=".2f")
+        quantity = QuantityResult("", h_val, "m")
         formulas = (r"H = h_0 + \frac{v_0^2 \sin^2(\theta)}{2g}",)
         substitutions = (_projectile_max_height_substitution(intent),)
     elif op == "time_of_flight":
@@ -816,7 +814,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
                 rf"\tfrac{{1}}{{2}} \cdot {g:g} t^2 - {v0:g}\sin({_shown_degrees(theta)}^\circ)"
                 rf" t - {h0:g} = 0",
             )
-        quantity = QuantityResult("", t_flight, "s", number_format=".2f")
+        quantity = QuantityResult("", t_flight, "s")
     elif op == "impact_speed":
         v_x = v0 * math.cos(theta)
         v_y = v0 * math.sin(theta) - g * t_flight
@@ -826,7 +824,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             rf"\sqrt{{{v_x:.2f}^2 + ({v_y:.2f})^2}} "
             rf"\approx {speed_val:.2f} \text{{ m/s}}"
         )
-        quantity = QuantityResult("", speed_val, "m/s", number_format=".2f")
+        quantity = QuantityResult("", speed_val, "m/s")
         formulas = (r"v = \sqrt{v_x^2 + v_y^2}",)
         substitutions = (rf"v_{{impact}} = \sqrt{{{v_x:.2f}^2 + ({v_y:.2f})^2}}",)
     else:

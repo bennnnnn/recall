@@ -110,7 +110,7 @@ def test_multipart_projectile_reads_each_quantity() -> None:
     assert result.answer_value == render_chip(result.quantities, "projectile")
     block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
     assert block is not None and block.canonical_answer is not None
-    for value in ("2.04", "5.1", "35.35"):
+    for value in ("2.04", "5.1", "35.3"):
         assert value in block.canonical_answer
 
 
@@ -198,7 +198,7 @@ def test_rpm_converts_once_to_the_same_angular_speed() -> None:
     )
     result = solve_physics(intent)
     assert result.quantities[0].value == pytest.approx(120 * 2 * math.pi / 60)
-    assert result.answer_value.startswith("12.57")
+    assert result.answer_value.startswith("12.6")
     assert r"120\cdot\frac{2\pi}{60}" in result.answer
 
 

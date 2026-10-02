@@ -152,7 +152,7 @@ Camera OCR is a **subset** of the kinds below (no square / trapezoid / matrix / 
 | Stats (descriptive + bivariate) | mean, median, mode, variance, stdev, range, quartiles, IQR, percentile. Correlation, covariance (sample/population), linear regression — only with two explicit equal-length lists. Weighted data cannot silently become a different calculation. | `statistics` |
 | Discrete (intro) | n!, nCr, nPr; gcd/lcm/primes/mod; modular inverse, totient, two-congruence CRT | `combinatorics`, `number_theory` |
 
-**Physics is a peer subsystem.** Its verified kinds, direct presentation, units, and trajectory/simulation rules are owned and tested under `modules/physics/`; see [SUBJECT_SEPARATION_TICKETS.md](./SUBJECT_SEPARATION_TICKETS.md) and [FEATURES.md](../FEATURES.md) §4.
+**Physics is a peer subsystem.** Its verified kinds, direct presentation, units, and trajectory/simulation rules are owned and tested under `modules/physics/`; see [physics.md](./physics.md), [SUBJECT_SEPARATION_TICKETS.md](./SUBJECT_SEPARATION_TICKETS.md) and [FEATURES.md](../FEATURES.md) §4.
 
 ```mermaid
 flowchart TB

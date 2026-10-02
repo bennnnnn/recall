@@ -278,19 +278,40 @@ def asked_dimensions(text: str) -> tuple[str, ...]:
     return tuple(dict.fromkeys(dimension for dimension in dimensions if dimension is not None))
 
 
-def result_dimension(unit: str) -> str | None:
-    """Dimension of a solver's result unit; None when it cannot be read."""
+def result_reading(unit: str) -> tuple[str, float, float] | None:
+    """(dimension, scale, offset) of a solver's result unit; None when unreadable."""
     from app.modules.physics.solvers.common import _UNIT_ALIASES
 
     spelled = unit.strip()
     if not spelled or spelled == "%":
-        return _DIMENSIONLESS
+        return _DIMENSIONLESS, 1.0, 0.0
     alias = _UNIT_ALIASES.get(spelled.lower(), spelled).replace("·", "*").replace("^", "**")
-    if alias in {"deg", "degree", "radian", "rad"}:
-        return ANGLE
+    if alias in {"deg", "°"}:
+        alias = "degree"
     if alias in {"D", "dioptre", "diopter", "dioptres", "diopters"}:
         alias = "1 / meter"
-    reading = unit_dimension(alias)
-    if reading is None:
-        return None
-    return _DIMENSIONLESS if reading[0] == "dimensionless" else reading[0]
+    return unit_dimension("radian" if alias == "rad" else alias)
+
+
+def result_dimension(unit: str) -> str | None:
+    """Dimension of a solver's result unit; None when it cannot be read."""
+    reading = result_reading(unit)
+    return None if reading is None else reading[0]
+
+
+# "How much energy does it use in kWh?", "what is its speed in km/h".
+_IN_UNIT = re.compile(r"\b(?:in|into)\s+(?:units?\s+of\s+)?", re.IGNORECASE)
+_CLAUSE_END = re.compile(r"\s*(?:[?.!,;)]|$)")
+
+
+def asked_unit(text: str) -> str | None:
+    """The unit the question wants its answer in, as written; None when unsaid."""
+    found: str | None = None
+    for match in _IN_UNIT.finditer(text):
+        unit = unit_at(text, match.end())
+        if unit is None:
+            continue
+        end = match.end() + len(unit[0]) + (1 if text[match.end() : match.end() + 1] == " " else 0)
+        if _CLAUSE_END.match(text, end):
+            found = unit[0]
+    return found

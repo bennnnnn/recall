@@ -34,7 +34,6 @@ def _junction(params: dict[str, float]) -> PhysicsResult:
                 value,
                 "A",
                 detail=side,
-                number_format=".4g",
                 detail_style="suffix",
             ),
         ),

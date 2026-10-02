@@ -128,7 +128,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"COP = \frac{T_C}{T_H - T_C}",
         assumptions=("Carnot refrigerator, absolute temperatures",),
         variables=(
-            var("temp", "T", "kelvin"),
+            var("temp", "T_H", "kelvin"),
             var("temp_env", "T_C", "kelvin"),
         ),
     ),
@@ -140,7 +140,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"COP = \frac{T_H}{T_H - T_C}",
         assumptions=("Carnot heat pump, absolute temperatures",),
         variables=(
-            var("temp", "T", "kelvin"),
+            var("temp", "T_H", "kelvin"),
             var("temp_env", "T_C", "kelvin"),
         ),
     ),

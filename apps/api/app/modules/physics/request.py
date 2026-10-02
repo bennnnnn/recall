@@ -219,7 +219,7 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
     different question.
     """
     from app.modules.physics.accounting import competing_given
-    from app.modules.physics.ask import asked_dimensions
+    from app.modules.physics.ask import asked_dimensions, asked_unit
 
     if any(
         value < 0
@@ -230,6 +230,7 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
     if competing_given(intent, request.text) is not None:
         return None
     asked = asked_dimensions(request.text)
+    unit = asked_unit(request.text)
     if request.projectile_ops:
         if intent.kind != "projectile":
             return None
@@ -239,6 +240,7 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
                 "physics_op": request.projectile_ops[0],
                 "requested_ops": list(request.projectile_ops),
                 "asked": asked,
+                "asked_unit": unit,
             }
         )
-    return intent.model_copy(update={"asked": asked})
+    return intent.model_copy(update={"asked": asked, "asked_unit": unit})
