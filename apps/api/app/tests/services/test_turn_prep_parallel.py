@@ -989,3 +989,71 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
 
     assert bundle.verified_subject is verified
     assert bundle.instant_reply is None
+
+
+async def _graph_it_bundle(fake_redis, priors: list[str]):
+    user = _make_user()
+    chat = _make_chat()
+    content = "graph it"
+    messages = [{"role": "user", "content": prior} for prior in priors] + [
+        {"role": "user", "content": content}
+    ]
+    with (
+        patch("app.services.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
+        patch(
+            "app.services.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=messages),
+        ),
+        patch(
+            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            AsyncMock(return_value=priors),
+        ),
+        patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
+        patch(
+            "app.services.chat.turn_prep.context.plan_service.chat_fallback_models",
+            return_value=[],
+        ),
+    ):
+        return await build_stream_prompt_context(
+            user.id,
+            chat.id,
+            content,
+            "free-chat",
+            Settings(
+                mcp_tool_loop_enabled=False,
+                mcp_tools_enabled=False,
+                math_tools_enabled=True,
+                chemistry_enabled=False,
+                web_search_enabled=False,
+                gmail_enabled=False,
+                google_calendar_enabled=False,
+            ),
+            fake_redis,
+            client_timezone=None,
+            client_location=None,
+            client_latitude=None,
+            client_longitude=None,
+            user=user,
+            chat=chat,
+            turn_mode=_slim_turn_mode(),
+        )
+
+
+@pytest.mark.asyncio
+async def test_graph_it_after_a_quadratic_reaches_the_solver(fake_redis) -> None:
+    bundle = await _graph_it_bundle(fake_redis, ["solve x^2 - 5x + 6 = 0"])
+
+    assert bundle.solver_unverified is False
+    rendered = "\n".join(message["content"] for message in bundle.prompt_messages)
+    assert "x^2" in rendered or (
+        bundle.verified_subject is not None and "x^2" in (bundle.verified_subject.text or "")
+    )
+
+
+@pytest.mark.asyncio
+async def test_graph_it_with_no_equation_does_not_stamp_unverified(fake_redis) -> None:
+    bundle = await _graph_it_bundle(fake_redis, ["what is a vagina"])
+
+    assert bundle.solver_unverified is False
+    rendered = "\n".join(message["content"] for message in bundle.prompt_messages)
+    assert "Couldn't verify" not in rendered

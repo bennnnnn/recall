@@ -24,6 +24,7 @@ from app.modules.math.followup import (
     readable_standalone_answer,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.tools.extract import is_graph_followup
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import locale as locale_service
@@ -325,7 +326,7 @@ async def fetch_web_and_tools(
     math_user_content = math_followup_problem or user_content
     subject_user_content = user_content
     subject: SubjectName | None
-    if math_followup_problem is not None:
+    if math_followup_problem is not None or is_graph_followup(user_content):
         subject = "math"
     elif chemistry_followup_problem is not None:
         subject = "chemistry"
