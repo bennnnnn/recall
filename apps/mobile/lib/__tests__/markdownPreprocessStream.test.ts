@@ -188,6 +188,12 @@ describe("markdownPreprocessStream", () => {
     simulateStreamingAndCrossCheck(content, 6);
   });
 
+  it("a dollar inside a code fence does not hold a later formula", () => {
+    const input = "```python\nprice = \"$5\"\n```\n\nThen $x^2$.\n";
+    expect(findStableMarkdownPrefixLen(input)).toBe(input.length);
+    simulateStreamingAndCrossCheck(input, 5);
+  });
+
   it("BUG FIX regression: excludes an unclosed $...$ inline-math span from the stable prefix", () => {
     // Without tracking single-`$` parity, a prefix cut mid-`$x^2 +` would
     // be treated as stable and preprocessed with a dangling `$`.
