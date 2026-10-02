@@ -550,7 +550,9 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     if op == "impulse":
+        v1 = p.get("v1", 0.0)
         if "F" in p and "dt" in p:
+            v1 = 0.0
             j_val = p["F"] * p["dt"]
             plugged = rf"{p['F']:g} \cdot {p['dt']:g}"
             answer = rf"J = F \Delta t = {plugged} \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
@@ -563,7 +565,9 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
             answer = rf"J = m \Delta v = {plugged} \approx {j_val:.2f} \text{{ N}}\cdot\text{{s}}"
             formula = r"J = m(v_2 - v_1)"
             substitution = rf"J = {plugged}"
-        # The size of the impulse, and its direction when it opposes the start.
+        # Against a real initial motion, the size and whether it opposes it.
+        # Without one (a force, or a start from rest) the sign is the direction.
+        relative = v1 != 0.0
         return PhysicsResult(
             answer=answer,
             formulas=(formula,),
@@ -571,9 +575,9 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
             quantities=(
                 QuantityResult(
                     "",
-                    abs(j_val),
+                    abs(j_val) if relative else j_val,
                     "N*s",
-                    detail="opposite to the initial motion" if j_val < 0 else None,
+                    detail="opposite to the initial motion" if j_val * v1 < 0 else None,
                     number_format=".2f",
                 ),
             ),
