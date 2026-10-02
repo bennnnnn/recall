@@ -14,7 +14,7 @@ from app.services.solving import SolveServiceError
 # Spectrochemical classes for octahedral d4–d7, where the spin state changes the answer.
 _WEAK_FIELD = frozenset({"F", "Cl", "Br", "I", "H2O", "OH"})
 _STRONG_FIELD = frozenset({"CN", "CO"})
-_INTERMEDIATE_FIELD = frozenset({"NH3", "en", "NO2", "ox", "py"})
+_INTERMEDIATE_FIELD = frozenset({"NH3", "en", "NO2"})
 # Valence d+s count for the first-row metals. d electrons = this minus oxidation state.
 _D_COUNT = {
     "Sc": 3,

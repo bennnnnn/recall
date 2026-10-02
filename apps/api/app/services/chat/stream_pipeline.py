@@ -156,7 +156,7 @@ async def run_tool_loop_path(
         web_search=web_search_flag,
         user_timezone=ctx.user_timezone,
     )
-    if tool_verified is not None:
+    if tool_verified is not None and getattr(ctx.verified_subject, "subject", None) != "chemistry":
         ctx.verified_subject = tool_verified
     if terminal_image is not None:
         ctx.terminal_image_message_id = terminal_image.message_id
@@ -338,8 +338,15 @@ async def enrich_final_content(
             )
 
         if ctx.solver_unverified is True:
-            # One italic sentence. A blockquote or answer fence would paint a card.
-            assistant_text = seams.math_fence_service.append_unverified_math_note(assistant_text)
+            # One note. A blockquote or answer fence would paint a card.
+            if ctx.unverified_subject == "chemistry":
+                from app.modules.chemistry.context import append_unverified_chemistry_note
+
+                assistant_text = append_unverified_chemistry_note(assistant_text)
+            else:
+                assistant_text = seams.math_fence_service.append_unverified_math_note(
+                    assistant_text
+                )
 
         # Prompt scaffolding must never survive into the reply. The model is
         # told not to mention a system block, but instruction is not

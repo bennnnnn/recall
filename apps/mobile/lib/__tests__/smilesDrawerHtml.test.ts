@@ -59,6 +59,7 @@ describe("buildSmilesDrawerHtml", () => {
     expect(html).toContain(`kind: '${SMILES_DRAWER_ERROR_KIND}'`);
     expect(html).toContain("reportError('render')");
     expect(html).toContain("reportError('unavailable')");
+    expect(html).toContain("try {\n  var drawer = new SmilesDrawer.SvgDrawer");
     expect(html).not.toContain("Could not render");
   });
 });

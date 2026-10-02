@@ -75,8 +75,13 @@ type Props = {
   ) => void;
   /** Math only: read the crop back before solving. Null means it failed. */
   onReadScan?: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
-  /** Math only: solve the confirmed reading as typed text. */
-  onSolveReading?: (reading: string) => void;
+  /** Chemistry: read the written problem as plain text. Null means it failed. */
+  onReadChemistryScan?: (
+    scan: PendingAttachment,
+    signal: AbortSignal,
+  ) => Promise<MathScanReading | null>;
+  /** Solve the confirmed reading as typed text. Chemistry sends that text alone. */
+  onSolveReading?: (reading: string, subject: ScannerSubject) => void;
 };
 
 type Review = { shot: PendingAttachment; state: ScanReadingState };
@@ -96,6 +101,7 @@ export function MathEquationScanner({
   onClose,
   onCaptured,
   onReadScan,
+  onReadChemistryScan,
   onSolveReading,
 }: Props) {
   const { t } = useTranslation();
@@ -210,14 +216,15 @@ export function MathEquationScanner({
 
   const handleCroppedShot = useCallback(
     (cropped: PendingAttachment) => {
-      if (subject === "math" && onReadScan && onSolveReading) {
+      const reader = subject === "chemistry" ? onReadChemistryScan : onReadScan;
+      if ((subject === "math" || subject === "chemistry") && reader && onSolveReading) {
         stopReading();
         const controller = new AbortController();
         readAbortRef.current = controller;
         setLiveStatus("idle");
         liveReadyRef.current = false;
         setReview({ shot: cropped, state: { status: "reading" } });
-        void onReadScan(cropped, controller.signal)
+        void reader(cropped, controller.signal)
           .catch(() => null)
           .then((result) => {
             if (controller.signal.aborted) return;
@@ -237,7 +244,7 @@ export function MathEquationScanner({
       }
       onCaptured(cropped, subject);
     },
-    [onCaptured, onReadScan, onSolveReading, stopReading, subject],
+    [onCaptured, onReadChemistryScan, onReadScan, onSolveReading, stopReading, subject],
   );
 
   const capture = useCallback(async () => {
@@ -519,10 +526,14 @@ export function MathEquationScanner({
             insets={insets}
             onSolve={(reading) => {
               stopReading();
-              onSolveReading?.(reading);
+              onSolveReading?.(reading, subject);
             }}
             onSendPhoto={(reading) => {
               stopReading();
+              if (subject === "chemistry") {
+                onCaptured(review.shot, "chemistry");
+                return;
+              }
               onCaptured(review.shot, "math", reading || undefined);
             }}
             onRetake={retakeFromReview}

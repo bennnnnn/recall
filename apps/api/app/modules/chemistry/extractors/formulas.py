@@ -121,7 +121,7 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
                     float(gas.group(6)), "celsius" if gas.group(7).upper() == "C" else gas.group(7)
                 ),
             },
-            units={"known": "L", "find": "L"},
+            units={"known": "L", "find": find_unit or "L"},
         )
     counted = _one_amount(
         text,

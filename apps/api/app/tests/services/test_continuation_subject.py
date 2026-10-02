@@ -8,6 +8,7 @@ from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.physics.extract import needs_physics
 from app.services.chat.continuation_subject import (
     blocks_math_followup,
+    chemistry_working_followup_problem,
     classify_presentation_subject,
     effective_presentation_subject,
     is_pure_continuation,
@@ -155,6 +156,26 @@ def test_how_after_physics_is_not_a_math_solver_replay() -> None:
     ]
     assert is_math_followup("How?", math_recent) is True
     assert is_math_followup("Another", math_recent) is False
+
+
+def test_how_after_chemistry_resolves_the_prior_problem() -> None:
+    recent = [
+        SimpleNamespace(id=uuid4(), role="user", content=CHEMISTRY),
+        SimpleNamespace(id=uuid4(), role="assistant", content="2 H2O"),
+    ]
+    assert is_math_followup("How?", recent, blocked=blocks_math_followup) is False
+    assert chemistry_working_followup_problem("how?", recent) == CHEMISTRY
+    assert chemistry_working_followup_problem("why?", recent) == CHEMISTRY
+    assert chemistry_working_followup_problem(EQUATION, recent) is None
+    assert chemistry_working_followup_problem(CYCLIST, recent) is None
+    assert chemistry_working_followup_problem("How?", math_recent_for_chemistry()) is None
+
+
+def math_recent_for_chemistry() -> list[SimpleNamespace]:
+    return [
+        SimpleNamespace(id=uuid4(), role="user", content=EQUATION),
+        SimpleNamespace(id=uuid4(), role="assistant", content="x = 4"),
+    ]
 
 
 def test_another_inherits_the_strong_model_after_a_hard_turn() -> None:

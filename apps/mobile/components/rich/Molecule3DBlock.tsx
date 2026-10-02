@@ -4,18 +4,20 @@
  * project the same 3D coords that RDKit already computed. Expo Go and stale
  * native clients safely use the matching SVG renderer.
  */
-import { lazy, Suspense, useMemo, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { PanResponder, StyleSheet, View } from "react-native";
+import { Pressable, StyleSheet, View } from "react-native";
 import Svg, { Circle, G, Line, Text as SvgText } from "react-native-svg";
 
 import { CopyButton } from "@/components/CopyButton";
 import { MoleculeCaption, MoleculeNote } from "@/components/rich/MoleculeChrome";
+import { MoleculeRotateModal } from "@/components/rich/MoleculeRotateModal";
 import {
   atomColor,
   atomLabelColor,
   bondStrokeWidth,
   layoutMolecule,
+  showsAtomLabel,
   MOLECULE_PREVIEW_HEIGHT,
   type MoleculeStyle,
 } from "@/lib/chemistry/molecule3dLayout";
@@ -30,6 +32,8 @@ import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { SegmentedControl } from "@/ui/controls/SegmentedControl";
+import { Icon } from "@/ui/icons/Icon";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { content: string };
 
@@ -46,11 +50,22 @@ type MoleculeCanvasProps = {
   yaw: number;
   pitch: number;
   width: number;
+  height?: number;
 };
 
-function SvgMoleculeCanvas({ geom, style, theme, yaw, pitch, width }: MoleculeCanvasProps) {
+const ROTATE_PER_PX = 0.012;
+const PITCH_LIMIT = 1.2;
+
+function SvgMoleculeCanvas({
+  geom,
+  style,
+  theme,
+  yaw,
+  pitch,
+  width,
+  height = MOLECULE_PREVIEW_HEIGHT,
+}: MoleculeCanvasProps) {
   const { t } = useTranslation();
-  const height = MOLECULE_PREVIEW_HEIGHT;
   const laidOut = useMemo(
     () => layoutMolecule(geom, yaw, pitch, width, height, style),
     [geom, height, pitch, style, width, yaw],
@@ -84,7 +99,7 @@ function SvgMoleculeCanvas({ geom, style, theme, yaw, pitch, width }: MoleculeCa
           <G key={`atom-${atom.index}`}>
             <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} fill="#1a1a1a" />
             <Circle cx={atom.x} cy={atom.y} r={atom.radius} fill={atomColor(atom.element)} />
-            {style !== "spacefill" && atom.radius >= 8 ? (
+            {showsAtomLabel(style) ? (
               <SvgText
                 x={atom.x}
                 y={atom.y + 4}
@@ -121,6 +136,7 @@ export function Molecule3DView({ geom }: { geom: MolGeometry }) {
   const [canvasWidth, setCanvasWidth] = useState(320);
   const [yaw, setYaw] = useState(0.7);
   const [pitch, setPitch] = useState(0.35);
+  const [open, setOpen] = useState(false);
   const yawRef = useRef(0.7);
   const pitchRef = useRef(0.35);
   const startYaw = useRef(0.7);
@@ -128,21 +144,19 @@ export function Molecule3DView({ geom }: { geom: MolGeometry }) {
   yawRef.current = yaw;
   pitchRef.current = pitch;
 
-  const pan = useMemo(
-    () =>
-      PanResponder.create({
-        onMoveShouldSetPanResponder: (_e, g) => Math.abs(g.dx) > 3 || Math.abs(g.dy) > 3,
-        onPanResponderGrant: () => {
-          startYaw.current = yawRef.current;
-          startPitch.current = pitchRef.current;
-        },
-        onPanResponderMove: (_e, g) => {
-          setYaw(startYaw.current + g.dx * 0.012);
-          setPitch(Math.max(-1.2, Math.min(1.2, startPitch.current + g.dy * 0.012)));
-        },
-      }),
-    [],
-  );
+  const onGrant = useCallback(() => {
+    startYaw.current = yawRef.current;
+    startPitch.current = pitchRef.current;
+  }, []);
+  const onMove = useCallback((translationX: number, translationY: number) => {
+    setYaw(startYaw.current + translationX * ROTATE_PER_PX);
+    setPitch(
+      Math.max(
+        -PITCH_LIMIT,
+        Math.min(PITCH_LIMIT, startPitch.current + translationY * ROTATE_PER_PX),
+      ),
+    );
+  }, []);
 
   const styles = useMemo(
     () => [
@@ -155,10 +169,13 @@ export function Molecule3DView({ geom }: { geom: MolGeometry }) {
 
   return (
     <>
-      <View
+      <Pressable
         style={s.stage}
         onLayout={(event) => setCanvasWidth(Math.max(1, event.nativeEvent.layout.width))}
-        {...pan.panHandlers}
+        onPress={() => setOpen(true)}
+        testID="molecule-expand"
+        accessibilityRole="button"
+        accessibilityLabel={t("rich.expand")}
       >
         <MoleculeCanvas
           geom={geom}
@@ -168,7 +185,23 @@ export function Molecule3DView({ geom }: { geom: MolGeometry }) {
           pitch={pitch}
           width={canvasWidth}
         />
-      </View>
+        <View style={s.expandBadge} pointerEvents="none" testID="molecule-expand-cue">
+          <Icon name="expand" size={IconSize.xs} color={theme.textSecondary} />
+        </View>
+      </Pressable>
+      <MoleculeRotateModal visible={open} onClose={() => setOpen(false)} onGrant={onGrant} onMove={onMove}>
+        {(size) => (
+          <MoleculeCanvas
+            geom={geom}
+            style={style}
+            theme={theme}
+            yaw={yaw}
+            pitch={pitch}
+            width={size.width}
+            height={size.height}
+          />
+        )}
+      </MoleculeRotateModal>
       <View style={s.styleRow}>
         <SegmentedControl
           segments={styles}
@@ -207,7 +240,7 @@ export function Molecule3DBlock({ content }: Props) {
       actions={
         <>
           <View style={s.spacer} />
-          <CopyButton text={sdf} />
+          <CopyButton text={sdf} accessibilityLabel={t("rich.chemistry_copy_structure")} />
         </>
       }
     >
@@ -223,6 +256,15 @@ function makeStyles(t: Theme) {
     stage: {
       height: MOLECULE_PREVIEW_HEIGHT,
       backgroundColor: t.contentSurface,
+    },
+    expandBadge: {
+      position: "absolute",
+      bottom: 8,
+      right: 8,
+      width: 28,
+      height: 28,
+      alignItems: "center",
+      justifyContent: "center",
     },
     spacer: { flex: 1 },
     styleRow: {
