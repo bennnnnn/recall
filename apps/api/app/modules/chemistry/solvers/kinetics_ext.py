@@ -150,21 +150,34 @@ def solve_rate_law(intent: ChemistryIntent) -> ChemistryResult:
         terms.append("[B]" if order_b == 1 else f"[B]^{order_b}")
     body = " ".join(terms)
     shown = f"rate = {num(constant)} {body}".rstrip()
-    held = first if changing == "A" else a1
+    if changing == "B":
+        if b1 is None:
+            raise SolveServiceError("the changing concentration is missing")
+        held = b1
+    else:
+        held = first
     power = "" if order == 1 else f"^{order}"
-    return verified(
-        "Verified rate law",
-        (
+    if b1 is not None and b2 is not None:
+        given = (
+            f"experiment 1: [A] = {inp(a1)}, [B] = {inp(b1)}, rate = {inp(rate1)}",
+            f"experiment 2: [A] = {inp(a2)}, [B] = {inp(b2)}, rate = {inp(rate2)}",
+        )
+    else:
+        given = (
             f"experiment 1: [A] = {inp(a1)}, rate = {inp(rate1)}",
             f"experiment 2: [A] = {inp(a2)}, rate = {inp(rate2)}",
-        ),
+        )
+    return verified(
+        "Verified rate law",
+        given,
         "Rate law",
         "Order from two experiments",
         "order = log(rate2/rate1) / log(conc2/conc1)",
         (
             f"order in {changing} = log({inp(rate2)} / {inp(rate1)}) / log({inp(second)} / "
             f"{inp(first)}) = {order}",
-            f"k = rate1 / [A]{power} = {inp(rate1)} / ({inp(held)}){power} = {num(constant)}",
+            f"k = rate1 / [{changing}]{power} = {inp(rate1)} / ({inp(held)}){power} = "
+            f"{num(constant)}",
         ),
         shown,
         shown,
