@@ -38,8 +38,11 @@ flowchart LR
    `2 \times 10^{-6}` are all one number, folded to `2e-6` before anything scans the text.
    Without that, "2 × 10^-6 C" was a charge of −6 C. `numbers.py` then expands every literal
    to a plain decimal, or refuses a malformed one.
-3. **Extract** (`extract.py`, `extractors/`). An ordered chain of extractors runs; the first
-   to match returns a `PhysicsIntent`. The order is load-bearing and commented in place.
+3. **Extract** (`extract.py`, `registry.py`, `extractors/`). An ordered chain of extractors
+   (`registry.PHYSICS_EXTRACTORS`) runs; the first to match returns a `PhysicsIntent`. The
+   order is load-bearing and commented in place. Each extractor module reads one topic; a
+   topic with several named laws keeps them in a table tried in a fixed order
+   (`fluid_laws.py`, `thermal_laws.py`, `modern.py`).
    Extraction reads at most 4,000 characters, and the result is cached per text.
    When every extractor declines, the **binder** (`binding.py`) reads the question straight
    into a catalog operation:
@@ -80,8 +83,8 @@ flowchart LR
    - **Asked quantity** (`ask.py`). The question's ask is read independently of the
      extractor, as dimensions, and kept on `PhysicsIntent.asked`. So is the unit the answer
      is wanted in ("in kWh"), kept on `asked_unit`.
-5. **Solve** (`solver.py`, `solvers/`). Pure arithmetic in SI, through Pint
-   (`_params_in_si`). Quadratics use the cancellation-free closed form; there is no SymPy on
+5. **Solve** (`solver.py`, `solvers/`, one module per topic). Pure arithmetic in SI, through
+   Pint (`_params_in_si`). Quadratics use the cancellation-free closed form; there is no SymPy on
    the request path.
 6. **Block** (`block.py`). The block refuses a result unless every asked dimension is among
    the results: a time is never the answer to "what is its speed". It converts results to
@@ -100,7 +103,9 @@ flowchart LR
 
 ## Adding a law
 
-A law the binder can read needs one catalog entry (`catalog/`) and no extractor:
+A law the binder can read needs one catalog entry (`catalog/`) and no extractor. The
+catalog is also the one list of operations: every `PhysicsIntent` is checked against it
+(`catalog.check_intent`) when it is built.
 - `variables`, with `words`, `implied` phrases or a `fallback` where the question may name a
   value without a number;
 - a `Binding`: the phrases that ask for the result, the result's unit, every set of inputs
