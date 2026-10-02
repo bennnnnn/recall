@@ -8,7 +8,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
+from app.models.schemas.math import MathImageExtract, MathIntent
 from app.modules.math import tools as math_tools
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.prompt import build_physics_augmentation
@@ -47,6 +47,18 @@ def test_needs_symbolic_math_rejects_oversize_before_prefix_stripping(
 
     monkeypatch.setattr(lesson, "strip_lesson_prefixes", fail_if_called)
     assert math_tools.needs_symbolic_math("show work " * 3201) is False
+
+
+def test_a_buried_solve_word_is_not_an_equation() -> None:
+    assert math_tools.extract_math_intent("I resolved x=1") is None
+    solved = math_tools.extract_math_intent("I solved 2x+3=7")
+    assert solved is not None
+    assert solved.kind == "equation"
+    intent = math_tools.extract_math_intent("solve x=1")
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.lhs == "x"
+    assert intent.rhs == "1"
 
 
 def test_extract_equation_intent() -> None:
@@ -371,6 +383,29 @@ def test_symbolic_calculus_still_extracts() -> None:
 def test_english_roots_of_does_not_solve_a_equals_zero() -> None:
     intent = math_tools.extract_math_intent("roots of my hair are 2 inches long")
     assert intent is None
+
+
+def test_system_longer_than_four_equations_is_not_verified() -> None:
+    """Five equations used to be sliced to four and verified as that smaller system."""
+    text = "solve a+b=1, a+c=2, a+d=3, b+c=4, b+d=5"
+    assert math_tools.extract_math_intent(text) is None
+
+
+def test_photo_system_longer_than_four_equations_is_not_verified() -> None:
+    from app.modules.math.tools.prompt import _intent_from_image_extract
+
+    equations = [(f"a+{name}", "1") for name in ("b", "c", "d", "e", "f")]
+    extracted = MathImageExtract(kind="system", equations=equations, variables=["a", "b"])
+    assert _intent_from_image_extract(extracted) is None
+
+
+def test_system_of_four_equations_still_extracts() -> None:
+    text = "solve a+b=1, a+c=2, a+d=3, b+c=4"
+    intent = math_tools.extract_math_intent(text)
+    assert intent is not None
+    assert intent.kind == "system"
+    assert intent.system_equations is not None
+    assert len(intent.system_equations) == 4
 
 
 def test_extract_system_intent_for_multiple_equations() -> None:

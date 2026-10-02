@@ -289,6 +289,15 @@ def test_derivative_trace_ends_on_the_verified_answer(expr):
     assert steps[-1].formula.endswith(differentiate_expression(expr).latex)
 
 
+def test_a_negative_first_derivative_term_keeps_its_sign():
+    from app.modules.math.solve.derivative_steps import derivative_key_steps
+
+    steps = derivative_key_steps(sympify("-x - 1"), "x")
+    split = steps[0].formula
+    assert split.startswith(r"\frac{d}{dx}\left(- x - 1\right) = - ")
+    assert split.index("- ") < split.rindex("- ")
+
+
 def test_derivative_trace_is_empty_for_an_unknown_rule():
     from app.modules.math.solve.derivative_steps import derivative_key_steps
 
@@ -313,6 +322,27 @@ def test_a_one_rule_derivative_shows_verified_working_at_every_style():
     detailed = _reply("differentiate x^2 sin(x)", "detailed")
     assert detailed is not None
     assert "Product rule" in detailed
+
+
+def test_integral_of_one_over_x_uses_absolute_value():
+    from sympy import Abs, Symbol, diff, log, simplify
+
+    from app.modules.math.solve.integral_steps import integral_key_steps
+
+    steps, antiderivative = integral_key_steps(sympify("1/x"), "x")
+    assert r"\ln |x|" in steps[0].formula
+    assert antiderivative == log(Abs(Symbol("x")))
+    positive = Symbol("x", positive=True)
+    assert simplify(diff(antiderivative.subs(Symbol("x"), positive), positive) - 1 / positive) == 0
+
+
+def test_a_negative_first_integral_term_keeps_its_sign():
+    from app.modules.math.solve.integral_steps import integral_key_steps
+
+    steps, _ = integral_key_steps(sympify("-x - 1"), "x")
+    split = steps[0].formula
+    assert r"= - \int" in split
+    assert split.count(r"- \int") == 2
 
 
 @pytest.mark.parametrize(

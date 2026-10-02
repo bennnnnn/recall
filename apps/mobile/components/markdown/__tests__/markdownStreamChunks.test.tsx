@@ -19,4 +19,13 @@ describe("MarkdownContent streaming chunks", () => {
     expect(view.getByText(/Settled prose/)).toBeOnTheScreen();
     expect(view.getByText(/The live tail/)).toBeOnTheScreen();
   });
+
+  it("holds the success check until the answer fence closes", async () => {
+    const open = "```answer\nx =\n";
+    const view = await render(<MarkdownContent content={open} streaming />);
+    expect(view.getByText("x =")).toBeOnTheScreen();
+    expect(view.queryByTestId("answer-success-check")).toBeNull();
+    await view.rerender(<MarkdownContent content={`${open}\`\`\`\n`} streaming />);
+    expect(view.getByTestId("answer-success-check")).toBeOnTheScreen();
+  });
 });

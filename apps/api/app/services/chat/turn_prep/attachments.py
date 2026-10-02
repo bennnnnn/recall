@@ -258,6 +258,10 @@ async def _process_attachment_inputs(
         and math_match.has_math_keyword(caption.lower())
     )
     confirmed_reading = math_image_extract_service.confirmed_math_reading(content)
+    # A chemistry photo uses the same "I read this as" line. That reading is
+    # chemistry text, so the math vision path must not claim it.
+    if scan_subject == "chemistry":
+        confirmed_reading = None
     if (
         has_image_attachment
         and image_attachments

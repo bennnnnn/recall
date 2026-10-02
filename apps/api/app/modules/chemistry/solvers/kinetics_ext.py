@@ -126,8 +126,11 @@ def solve_rate_law(intent: ChemistryIntent) -> ChemistryResult:
     )
     b1 = intent.params.get("b1")
     b2 = intent.params.get("b2")
-    if b1 is not None and b2 is not None and abs(a1 - a2) > 1e-12 and abs(b1 - b2) > 1e-12:
-        raise SolveServiceError("only one concentration may change between experiments")
+    if b1 is not None and b2 is not None and abs(a1 - a2) > 1e-12:
+        if abs(b1 - b2) > 1e-12:
+            raise SolveServiceError("only one concentration may change between experiments")
+        # Two points with [B] held do not measure the order in B.
+        raise SolveServiceError("the order in B was not measured")
     if abs(a1 - a2) > 1e-12:
         order_a = _order_from_change(rate1, rate2, a1, a2)
         order_b = 0

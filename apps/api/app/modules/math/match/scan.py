@@ -800,14 +800,16 @@ def division_answer_mode(
 
     Ordinary division means the ordinary numerical quotient.  Remainder form
     is a distinct interpretation and is selected only when the learner asks
-    for it or explicitly asks to use school long division with whole numbers.
+    for it, or asks for school long division, and both operands are whole
+    numbers. A decimal stays a decimal quotient.
     Whether the working is displayed is decided later by response intent.
     """
     lower = collapse_ws(text).lower()
+    whole = "." not in left and "." not in right
     for phrase, mode in _DIVISION_MODE_PHRASES:
-        if phrase in lower:
+        if phrase in lower and (mode != "remainder" or whole):
             return cast(Literal["remainder", "fraction", "decimal", "round_up", "discard"], mode)
-    if "long division" in lower and "." not in left and "." not in right:
+    if "long division" in lower and whole:
         return "remainder"
     return "decimal"
 
@@ -901,6 +903,68 @@ def has_draw_shape(lower: str, shape: str) -> bool:
     return any(v in lower for v in ("draw ", "show ", "sketch ", "visualize ", "visualise "))
 
 
+# Whole words only. ``solve`` inside ``resolved`` and ``factor`` inside
+# ``factorial`` are not commands. Inflections are listed themselves so
+# ``solved`` still matches and a longer word does not.
+_MATH_COMMAND_WORDS = (
+    "solve",
+    "solved",
+    "simplify",
+    "simplified",
+    "factor",
+    "factored",
+    "factoring",
+    "expand",
+    "expanded",
+    "expanding",
+    "differentiate",
+    "differentiated",
+    "derivative",
+    "derivatives",
+    "integrate",
+    "integrated",
+    "integral",
+    "integrals",
+    "equation",
+    "equations",
+    "algebra",
+    "quadratic",
+    "quadratics",
+    "polynomial",
+    "polynomials",
+    "diagonal",
+    "diagonals",
+    "rectangle",
+    "rectangles",
+    "triangle",
+    "triangles",
+    "circle",
+    "circles",
+    "geometry",
+    "radius",
+    "diameter",
+    "diameters",
+    "circumference",
+    "circumferences",
+    "function",
+    "functions",
+    "sqrt",
+)
+_MATH_COMMAND_PHRASES = ("find the angle", "square root")
+
+
+def _word_starts(lower: str, stem: str) -> bool:
+    """True when ``stem`` begins a word, so ``pythagorean`` still matches."""
+    start = 0
+    while True:
+        idx = lower.find(stem, start)
+        if idx == -1:
+            return False
+        if idx == 0 or not lower[idx - 1].isalpha():
+            return True
+        start = idx + 1
+
+
 def has_math_keyword(lower: str) -> bool:
     compact = lower.replace(" ", "")
     # Bare ``y=x^2`` is a math ask. ``tell me about y=x^2`` is prose that
@@ -912,36 +976,11 @@ def has_math_keyword(lower: str) -> bool:
     # ``draw`` stay out of this gate so "show me the weather" is not math.
     if _text_has_command(lower, _GLUEABLE_VIZ, _GLUEABLE_VIZ):
         return True
-    for phrase in (
-        "solve",
-        "simplify",
-        "factor",
-        "expand",
-        "differentiate",
-        "derivative",
-        "integrate",
-        "integral",
-        "equation",
-        "algebra",
-        "quadratic",
-        "polynomial",
-        "find the angle",
-        "diagonal",
-        "rectangle",
-        "triangle",
-        "circle",
-        "geometry",
-        "radius",
-        "diameter",
-        "circumference",
-        "function",
-        "sqrt",
-        "square root",
-        "pythagor",
-    ):
-        if phrase in lower:
-            return True
-    return False
+    if any(word_index(lower, word) != -1 for word in _MATH_COMMAND_WORDS):
+        return True
+    if any(phrase in lower for phrase in _MATH_COMMAND_PHRASES):
+        return True
+    return _word_starts(lower, "pythagor")
 
 
 # A standalone single-letter variable (not part of a longer word) is a strong

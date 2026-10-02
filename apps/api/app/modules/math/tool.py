@@ -484,7 +484,10 @@ class SympyAdapter:
         x_min = float(args.get("x_min") or -10)
         x_max = float(args.get("x_max") or 10)
         n = self.settings.math_graph_max_points
-        expr = str(args.get("expr") or "x**2")
+        raw_expr = args.get("expr")
+        if not isinstance(raw_expr, str) or not raw_expr.strip():
+            return ToolResult(name=self.name, content="Math error: graph requires an expression.")
+        expr = raw_expr.strip()
 
         # Axis-aligned circle/ellipse relations — parametric sample (not y=f(x)).
         # Shared with the heuristic _verified_block_graph so the sampling and

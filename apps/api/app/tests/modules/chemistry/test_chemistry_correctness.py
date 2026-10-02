@@ -327,6 +327,14 @@ def test_polyatomic_ion_charge_needs_a_caret_when_a_digit_precedes_the_sign() ->
     assert nitrate is not None and nitrate.charge == -1 and nitrate.composition == {"N": 1, "O": 3}
     iron = parse_species("Fe2+")
     assert iron is not None and iron.composition == {"Fe": 1} and iron.charge == 2
+    copper = parse_species("Cu2+")
+    assert copper is not None and copper.composition == {"Cu": 1} and copper.charge == 2
+    superoxide = parse_species("O2-")
+    assert superoxide is not None and superoxide.composition == {"O": 2} and superoxide.charge == -1
+    peroxide = parse_species("O2^2-")
+    assert peroxide is not None and peroxide.composition == {"O": 2} and peroxide.charge == -2
+    hydrogen = parse_species("H2+")
+    assert hydrogen is not None and hydrogen.composition == {"H": 2} and hydrogen.charge == 1
 
 
 def test_dichromate_without_a_caret_is_refused_not_balanced_to_nonsense() -> None:
@@ -457,6 +465,16 @@ def test_solubility_gives_ksp() -> None:
     assert _first_number(result.answer) == pytest.approx(1.69e-10, rel=1e-3)
 
 
+def test_rate_law_refuses_a_held_second_reactant() -> None:
+    with pytest.raises(SolveServiceError, match="order in B"):
+        _solve("Find the rate law: a1=1, rate1=2, a2=2, rate2=4, b1=3, b2=3")
+
+
+def test_rate_law_with_only_a_is_first_order() -> None:
+    result = _solve("Find the rate law: a1=1, rate1=2, a2=2, rate2=4")
+    assert result.answer == "rate = 2 [A]"
+
+
 def test_rate_law_can_change_the_second_reactant() -> None:
     result = _solve("Find the rate law: a1=1, rate1=2, a2=1, rate2=8, b1=1, b2=2")
     assert result.answer == "rate = 2 [B]^2"
@@ -467,13 +485,24 @@ def test_rate_law_can_change_the_second_reactant() -> None:
     assert shifted.given[0] == "experiment 1: [A] = 3, [B] = 2, rate = 8"
 
 
+def test_half_equivalence_uses_charge_balance_when_ka_is_not_small() -> None:
+    result = _solve(
+        "Weak acid strong base titration: Ma=0.01, Va=1 L, Mb=0.01, Vb=0.5 L, Ka=0.1, find pH"
+    )
+    assert _first_number(result.answer) == pytest.approx(2.504, abs=0.001)
+    assert any("charge balance" in line or "C − [H+]" in line for line in result.substitution)
+
+
 def test_titration_regions_scale_with_the_amounts() -> None:
     """A 1e-5 mol titration used to be judged by an absolute 1e-6 mol tolerance."""
     half = _solve(
         "Weak acid strong base titration: Ma=0.001, Va=0.010 L, Mb=0.001, Vb=0.005 L, "
         "Ka=1.8e-5, find pH"
     )
-    assert _first_number(half.answer) == pytest.approx(-math.log10(1.8e-5), abs=1e-3)
+    # Ka is about 5% of this buffer, so half-equivalence is the charge-balance root, not pKa.
+    assert isinstance(half.scene, TitrationScene)
+    assert half.scene.region == "half-equivalence"
+    assert _first_number(half.answer) == pytest.approx(4.787, abs=0.001)
     near = _solve(
         "Weak acid strong base titration: Ma=0.001, Va=0.010 L, Mb=0.001, Vb=0.00905 L, "
         "Ka=1.8e-5, find pH"
@@ -548,7 +577,27 @@ def test_galvanic_cell_accepts_potassium_paired_with_another_metal() -> None:
 
 
 @pytest.mark.parametrize(
-    "element", ["O3", "O(g)", "Br2(g)", "Cl(g)", "H(g)", "I2(g)", "Na(g)", "P", "S", "P(s)", "S(s)"]
+    "element",
+    [
+        "O3",
+        "O(g)",
+        "Br2(g)",
+        "Cl(g)",
+        "H(g)",
+        "I2(g)",
+        "Na(g)",
+        "P",
+        "S",
+        "P(s)",
+        "S(s)",
+        "H",
+        "N",
+        "O",
+        "F",
+        "Cl",
+        "Br",
+        "I",
+    ],
 )
 def test_formation_enthalpy_is_zero_only_for_a_standard_state(element: str) -> None:
     with pytest.raises(SolveServiceError):
@@ -568,6 +617,16 @@ def test_formation_enthalpy_accepts_standard_state_elements() -> None:
     assert _first_number(result.answer) == pytest.approx(-393.5)
     liquid = _solve("Find the formation enthalpy for H2 + Br2(l) -> HBr when ΔHf(HBr)=-36.3 kJ/mol")
     assert _first_number(liquid.answer) == pytest.approx(2 * -36.3)
+
+
+def test_formation_enthalpy_refuses_free_atoms() -> None:
+    with pytest.raises(SolveServiceError):
+        _solve("Find the formation enthalpy for H + Cl -> HCl when ΔHf(HCl)=-92.3 kJ/mol")
+
+
+def test_formation_enthalpy_of_hydrogen_chloride_uses_the_molecular_elements() -> None:
+    result = _solve("Find the formation enthalpy for H2 + Cl2 -> 2HCl when ΔHf(HCl)=-92.3 kJ/mol")
+    assert _first_number(result.answer) == pytest.approx(-184.6)
 
 
 def test_water_vapor_pressure_is_accurate_between_table_points() -> None:
@@ -842,7 +901,9 @@ def test_an_oversized_smiles_is_not_parsed() -> None:
         ("hbr", "CCC=CC", None),  # 2-pentene: two products, none preferred
         ("hbr", "C=COC", None),  # the ether oxygen, not alkyl count, directs the addition
         ("bromine", "CC=CC", "CC(Br)C(C)Br"),
+        ("hydroxide", "CCl", "CO"),  # methyl
         ("hydroxide", "CCCl", "CCO"),
+        ("hydroxide", "CC(Cl)C", None),  # secondary
         ("hydroxide", "C=CCl", None),  # a vinyl halide is not an SN2 substrate
         ("hydroxide", "CC(Br)CBr", None),  # a second halogen makes the site ambiguous
         ("hydroxide", "Clc1ccccc1", None),
@@ -852,6 +913,55 @@ def test_named_reactions_refuse_an_ambiguous_product(
     reaction: str, smiles: str, product: str | None
 ) -> None:
     assert named_product(reaction, smiles) == product
+
+
+def test_molarity_and_molality_refuse_a_negative_amount() -> None:
+    with pytest.raises(SolveServiceError):
+        _solve("Find the molarity of -2 mol in 1 L")
+    with pytest.raises(SolveServiceError):
+        _solve("Find the molality of -2 mol in 1 kg")
+
+
+def test_standard_addition_refuses_a_spiked_signal_below_the_sample() -> None:
+    with pytest.raises(SolveServiceError):
+        _solve(
+            "Standard addition: sample signal=5, spiked signal=2, "
+            "standard concentration=1, standard volume=1, sample volume=1"
+        )
+
+
+@pytest.mark.parametrize(
+    ("capital", "lower"),
+    [
+        (
+            "Use Hess's law: ΔH1=-200 kJ, multiplier1=1, ΔH2=50 kJ, multiplier2=2",
+            "Use hess's law: ΔH1=-200 kJ, multiplier1=1, ΔH2=50 kJ, multiplier2=2",
+        ),
+        (
+            "Find Kp for CaCO3(s) -> CaO(s) + CO2(g) when P(CO2)=0.2 atm",
+            "find kp for CaCO3(s) -> CaO(s) + CO2(g) when P(CO2)=0.2 atm",
+        ),
+        (
+            "Convert Kc to Kp: Kc=0.5 at T=298 K for N2 + H2 -> NH3",
+            "convert kc to kp: Kc=0.5 at T=298 K for N2 + H2 -> NH3",
+        ),
+        (
+            "Solve the ICE equilibrium for N2O4 -> NO2 when K=4 and [N2O4]=1",
+            "solve the ice equilibrium for N2O4 -> NO2 when K=4 and [N2O4]=1",
+        ),
+    ],
+)
+def test_lowercase_cues_extract_the_same_operation(capital: str, lower: str) -> None:
+    expected = extract_chemistry_intent(capital)
+    actual = extract_chemistry_intent(lower)
+    assert expected is not None and actual is not None
+    assert actual.chemistry_op == expected.chemistry_op
+
+
+def test_nmr_methyl_region_is_not_labeled_amine_alone() -> None:
+    result = _solve("NMR peak 1.2")
+    assert "alkyl" in result.answer
+    assert result.answer != "amine"
 
 
 def test_esterification_needs_an_alcohol_partner_not_an_acid() -> None:

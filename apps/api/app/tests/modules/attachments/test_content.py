@@ -350,6 +350,9 @@ async def test_inject_vision_content_uses_bytes_by_key_cache():
     gateway.read_bytes.assert_not_awaited()
     content = prompt_messages[0]["content"]
     assert any(part.get("type") == "image_url" for part in content)
+    text = next(part["text"] for part in content if part.get("type") == "text")
+    assert "These images are real" in text
+    assert "placeholders" in text
 
 
 @pytest.mark.asyncio
@@ -415,6 +418,17 @@ async def test_inject_vision_content_noop_when_no_images_readable():
     await inject_vision_content(prompt_messages, gateway, images)
 
     assert prompt_messages[0]["content"] == "hi"
+
+
+def test_unavailable_image_note_forbids_a_placeholder_story():
+    from app.modules.attachments.content import append_image_unavailable_note
+
+    prompt_messages = [{"role": "user", "content": "What?"}]
+    append_image_unavailable_note(prompt_messages)
+    note = prompt_messages[0]["content"]
+    assert "cannot see it" in note
+    assert "placeholder" in note
+    assert "failed generation" in note
 
 
 # ── verify_uploaded_bytes: declared size enforcement ──────────────────────

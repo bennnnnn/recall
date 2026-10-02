@@ -21,7 +21,7 @@ import { TextField } from "@/ui/controls/TextField";
 export type ScanReadingState =
   | { status: "reading" }
   | { status: "ready"; reading: string; uncertain: boolean }
-  | { status: "failed" };
+  | { status: "failed"; message?: string };
 
 type Props = {
   photoUri: string;
@@ -59,10 +59,13 @@ export function ScanReadingReview({
   }, [readingText]);
 
   const canSolve = state.status === "ready" && draft.trim().length > 0;
+  // An emptied ready reading must not go out as "no reading": the parent
+  // treats "" as no confirmation and the server reads the photo again.
+  const canSendPhoto = state.status !== "ready" || draft.trim().length > 0;
 
   return (
     <KeyboardAvoidingView
-      style={StyleSheet.absoluteFill}
+      style={[StyleSheet.absoluteFill, s.layer]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       testID="math-scan-review"
     >
@@ -83,7 +86,7 @@ export function ScanReadingReview({
         ) : null}
         {state.status === "failed" ? (
           <Text style={s.note} accessibilityLiveRegion="polite">
-            {t("chat.math_scan_read_failed")}
+            {state.message ?? t("chat.math_scan_read_failed")}
           </Text>
         ) : null}
         {state.status === "ready" ? (
@@ -116,7 +119,11 @@ export function ScanReadingReview({
             />
             <Button
               title={t("chat.math_scan_send_photo")}
-              onPress={() => onSendPhoto(state.status === "ready" ? draft.trim() : "")}
+              onPress={() => {
+                if (!canSendPhoto) return;
+                onSendPhoto(state.status === "ready" ? draft.trim() : "");
+              }}
+              disabled={!canSendPhoto}
               variant="outline"
               style={s.fill}
             />
@@ -129,6 +136,9 @@ export function ScanReadingReview({
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    layer: {
+      zIndex: 50,
+    },
     photoArea: {
       flex: 1,
       paddingHorizontal: Space.gutter,

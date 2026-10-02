@@ -67,6 +67,25 @@ async def test_closed_chemistry_does_not_also_solve_as_math() -> None:
 
 
 @pytest.mark.asyncio
+async def test_no_subject_does_not_force_the_math_solver() -> None:
+    text = "What should I cook for dinner tonight"
+    with patch(
+        "app.services.subject_solving.build_math_augmentation",
+        AsyncMock(side_effect=AssertionError("math must not run")),
+    ):
+        result = await build_subject_augmentation(
+            text,
+            Settings(math_tools_enabled=True),
+            math_user_content=text,
+            detected_subject=None,
+        )
+    assert result.subject is None
+    assert result.prompt_block is None
+    assert result.verified is None
+    assert result.unverified is False
+
+
+@pytest.mark.asyncio
 async def test_physics_decline_is_flagged_without_reading_the_prompt() -> None:
     text = "binding energy of He-4, mass = 4.002603 u"
     result = await build_subject_augmentation(text, Settings(math_tools_enabled=True))

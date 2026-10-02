@@ -119,9 +119,11 @@ def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:
     """Map a vision extract onto an existing MathIntent kind (no second parser)."""
     variable = extract.variables[0]
     if extract.kind == "system" and extract.equations:
+        if len(extract.equations) > 4:
+            return None
         return MathIntent(
             kind="system",
-            system_equations=extract.equations[:4],
+            system_equations=extract.equations,
             system_variables=extract.variables,
             operation="solve",
         )

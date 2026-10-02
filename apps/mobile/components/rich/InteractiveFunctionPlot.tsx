@@ -52,6 +52,7 @@ import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { IconSize } from "@/ui/icons/sizes";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Space } from "@/lib/space";
+import { Type } from "@/lib/type";
 import { Theme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
@@ -560,22 +561,29 @@ function SeriesRow({
   return (
     <View style={styles.row}>
       <View style={[styles.swatch, { backgroundColor: row.color, opacity: row.visible ? 1 : 0.35 }]} />
-      <TextInput
-        value={row.expr}
-        onChangeText={onChangeExpr}
-        autoCapitalize="none"
-        autoCorrect={false}
-        spellCheck={false}
-        accessibilityLabel={t("rich.graph_expr_a11y")}
-        testID={inputId}
-        placeholder={t("rich.graph_expr_placeholder")}
-        placeholderTextColor={theme.textSecondary}
-        style={[
-          styles.input,
-          row.invalid && styles.inputInvalid,
-          !row.visible && styles.dim,
-        ]}
-      />
+      <View style={styles.expr}>
+        <TextInput
+          value={row.expr}
+          onChangeText={onChangeExpr}
+          autoCapitalize="none"
+          autoCorrect={false}
+          spellCheck={false}
+          accessibilityLabel={t("rich.graph_expr_a11y")}
+          testID={inputId}
+          placeholder={t("rich.graph_expr_placeholder")}
+          placeholderTextColor={theme.textSecondary}
+          style={[
+            styles.input,
+            row.invalid && styles.inputInvalid,
+            !row.visible && styles.dim,
+          ]}
+        />
+        {row.invalid ? (
+          <Text style={styles.invalidNote} accessibilityLiveRegion="polite">
+            {t("rich.graph_invalid")}
+          </Text>
+        ) : null}
+      </View>
       {row.locked ? null : (
         <>
           <Pressable
@@ -706,8 +714,10 @@ const makeExplorerStyles = (theme: Theme) =>
       height: 8,
       borderRadius: 4,
     },
-    input: {
+    expr: {
       flex: 1,
+    },
+    input: {
       margin: 0,
       paddingVertical: 2,
       fontFamily: CODE_FONT,
@@ -716,6 +726,10 @@ const makeExplorerStyles = (theme: Theme) =>
       color: theme.text,
     },
     inputInvalid: {
+      color: theme.danger,
+    },
+    invalidNote: {
+      ...Type.caption,
       color: theme.danger,
     },
     dim: {

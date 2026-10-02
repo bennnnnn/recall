@@ -202,6 +202,14 @@ def test_division_interpretations_are_explicit_and_preserve_the_invariant() -> N
         assert 437 == 6 * int(spec.quotient or "0") + int(spec.remainder or "0")
 
 
+def test_remainder_phrase_on_a_decimal_keeps_the_decimal_quotient() -> None:
+    _intent, _block, spec = _work("1.5 ÷ 2 with a remainder")
+
+    assert spec.answer_mode == "decimal"
+    assert spec.answer == "0.75"
+    assert "R" not in spec.answer
+
+
 @pytest.mark.parametrize(
     "question, working_operands, answer",
     [

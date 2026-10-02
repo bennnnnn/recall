@@ -353,7 +353,7 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
           testID="trajectory-control"
           accessibilityRole="button"
           accessibilityLabel={t(
-            isPlaying ? "rich.simulation_pause_a11y" : "rich.simulation_play_a11y",
+            isPlaying ? "rich.simulation_pause_a11y" : "rich.graph_play_a11y",
           )}
           onPress={isPlaying ? pause : play}
           style={({ pressed }) => [

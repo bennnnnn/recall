@@ -6,7 +6,8 @@ character is space, end, or another plus (``Fe2+ + Ce4+``, ``Fe2++Ce4+``).
 ``H2+O2`` and ``H2 + O2`` stay term separators. Polyatomic ions with |charge|
 greater than 1 keep an explicit caret (``SO4^2-``). A bare trailing sign on a
 polyatomic formula is charge ±1 (``MnO4-``). Digits before the sign are the
-charge only for a single element (``Fe2+``, ``O2-``).
+charge only for a single element (``Fe2+``). H, N, O, F, Cl, Br, and I
+keep those digits as a subscript and take charge ±1 (``O2-``, ``H2+``).
 """
 
 from __future__ import annotations
@@ -18,6 +19,8 @@ from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula import parse_formula
 
 _PHASE_RE = re.compile(r"\s*\((aq|s|l|g)\)$", re.IGNORECASE)
+# These elements are written as molecules. ``O2-`` is superoxide, not oxide.
+_DIATOMIC_ELEMENTS = frozenset({"H", "N", "O", "F", "Cl", "Br", "I"})
 _CARET_CHARGE_RE = re.compile(r"\^(?:\{(\d*)([+-])\}|(\d*)([+-]))$")
 # Longest first: "<=>" contains "=>", and "-->" and "<->" contain "->".
 ARROWS = ("<=>", "<->", "-->", "->", "→", "⇌", "⇋", "⟶", "↔", "=>")
@@ -158,6 +161,8 @@ def _strip_charge(body: str) -> tuple[str, int] | None:
     digits = core[index:]
     stem = core[:index]
     if digits and stem in BY_SYMBOL:
+        if stem in _DIATOMIC_ELEMENTS:
+            return f"{stem}{digits}", sign
         return stem, sign * int(digits)
     if len(digits) > 1:
         return None

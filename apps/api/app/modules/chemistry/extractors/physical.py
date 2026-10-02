@@ -93,7 +93,7 @@ def _extract_thermo_ext(text: str) -> ChemistryIntent | None:
                 chemistry_op="calorimetry",
                 params={"c_cal": constant, "delta_t": delta},
             )
-    if re.search(r"\bHess\b", text):
+    if re.search(r"\bHess\b", text, re.IGNORECASE):
         params: dict[str, float] = {}
         steps = set(re.findall(r"ΔH(\d+)\s*=", text))
         multipliers = set(re.findall(r"multiplier(\d+)\s*=", text))
@@ -172,14 +172,18 @@ def _extract_equilibrium_ext(text: str) -> ChemistryIntent | None:
             equation=equation,
             params={"solubility": solubility},
         )
-    if re.search(r"\bKp\b", text, flags=0) and equation and re.search(r"\bFind Kp\b", text):
+    if (
+        re.search(r"\bKp\b", text, re.IGNORECASE)
+        and equation
+        and re.search(r"\bFind Kp\b", text, re.IGNORECASE)
+    ):
         return ChemistryIntent(
             kind="equilibrium",
             chemistry_op="kp",
             equation=equation,
             species=_pressure_species(text, equation),
         )
-    if re.search(r"\b(?:Kc to Kp|Kp to Kc)\b", text) and equation:
+    if re.search(r"\b(?:Kc to Kp|Kp to Kc)\b", text, re.IGNORECASE) and equation:
         temperature = _search(rf"\bT\s*=\s*({_N})\s*K", text, flags=0)
         kc = _search(rf"\bKc\s*=\s*({_N})", text, flags=0)
         kp = _search(rf"\bKp\s*=\s*({_N})", text, flags=0)
@@ -193,7 +197,7 @@ def _extract_equilibrium_ext(text: str) -> ChemistryIntent | None:
         return ChemistryIntent(
             kind="equilibrium", chemistry_op="kc_kp", equation=equation, params=params
         )
-    if re.search(r"\bICE equilibrium\b", text) and equation:
+    if re.search(r"\bICE equilibrium\b", text, re.IGNORECASE) and equation:
         constant = _search(rf"\bK(?:c|eq)?\s*=\s*({_N})", text, flags=0)
         concentrations = {
             match.group(1): float(match.group(2))

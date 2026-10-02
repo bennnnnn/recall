@@ -18,6 +18,9 @@ from app.services.solving import SolveServiceError
 
 # Volumes and moles are typed decimals, so equal amounts differ only by float noise.
 _TOLERANCE = 1e-9
+# pH = pKa only while [H+] = Ka is a small fraction of the buffer concentration.
+_HALF_EQ_ION_FRACTION = 0.05
+_ION_SEARCH_STEPS = 80
 
 
 def _titration_moles(intent: ChemistryIntent) -> tuple[float, float, float, float | None]:
@@ -143,19 +146,39 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
     ]
     ph_of_p = (lambda p: p) if acid else (lambda p: PKW - p)  # pH from pKa, or from pKb via pOH
     if abs(titrant_moles - analyte_moles / 2) <= _TOLERANCE * scale:
-        ph = num(ph_of_p(p_constant))
+        buffer = (analyte_moles / 2) / total
+        amount, approximate = _half_equivalence_ion(constant, buffer)
+        ion = "H+" if acid else "OH-"
+        k_name = "Ka" if acid else "Kb"
         region = "half-equivalence"
-        detail = f"half-equivalence: {'pH = pKa' if acid else 'pOH = pKb'}"
-        formula = "pH = pKa" if acid else "pOH = pKb"
         lines.append(f"{p_name} = −log10({inp(constant)}) = {num(p_constant)}")
-        lines.append(
-            f"n({titrant}) = n({weak}) / 2, so {conj} = {weak} and "
-            + (
-                f"pH = pKa = {ph}"
-                if acid
-                else f"pOH = pKb = {num(p_constant)}, pH = {PKW} − {num(p_constant)} = {ph}"
+        if approximate:
+            ph = num(ph_of_p(p_constant))
+            detail = f"half-equivalence: {'pH = pKa' if acid else 'pOH = pKb'}"
+            formula = "pH = pKa" if acid else "pOH = pKb"
+            lines.append(
+                f"n({titrant}) = n({weak}) / 2, so {conj} = {weak} and "
+                + (
+                    f"pH = pKa = {ph}"
+                    if acid
+                    else f"pOH = pKb = {num(p_constant)}, pH = {PKW} − {num(p_constant)} = {ph}"
+                )
             )
-        )
+        else:
+            ph = num(ph_of_p(-math.log10(amount)))
+            detail = f"half-equivalence: [{ion}] from charge balance"
+            partner = "OH−" if acid else "H+"
+            formula = (
+                f"[{ion}] = {k_name} (C − [{ion}] + [{partner}]) / (C + [{ion}] − [{partner}])"
+            )
+            lines.append(f"n({titrant}) = n({weak}) / 2, so {conj} = {weak} = {num(buffer)} mol/L")
+            lines.append(f"{formula} = {num(amount)} mol/L")
+            if acid:
+                lines.append(f"pH = −log10({num(amount)}) = {ph}")
+            else:
+                poh = num(-math.log10(amount))
+                lines.append(f"pOH = −log10({num(amount)}) = {poh}")
+                lines.append(f"pH = {PKW} − {poh} = {ph}")
     elif titrant_moles == 0:
         amount = weak_dissociation(constant, analyte_conc)
         governing = "H+" if acid else "OH-"
@@ -305,6 +328,39 @@ def _start(intent: ChemistryIntent) -> TitrationAnchor | None:
     return TitrationAnchor(label="start", ph=ph, volume="0 L") if ph else None
 
 
+def _half_equivalence_ion(constant: float, concentration: float) -> tuple[float, bool]:
+    """The ion at half-equivalence, and whether pH = pKa (or pOH = pKb) still holds.
+
+    The second value is true when that ion is under 5% of the buffer concentration.
+    Otherwise the root is the charge-balance form of that equality.
+    """
+    if concentration <= 0 or constant <= 0:
+        raise SolveServiceError("half-equivalence needs a positive buffer concentration")
+    if constant < _HALF_EQ_ION_FRACTION * concentration:
+        return constant, True
+    lo = min(constant, concentration) * 1e-6
+    hi = max(constant, concentration)
+    for _ in range(_ION_SEARCH_STEPS):
+        ion = (lo + hi) / 2
+        other = KW / ion
+        left = ion * (concentration + ion - other)
+        right = constant * (concentration - ion + other)
+        if left > right:
+            hi = ion
+        else:
+            lo = ion
+    return (lo + hi) / 2, False
+
+
+def _half_equivalence_ph(constant: float, concentration: float, *, basic: bool) -> str:
+    amount, approximate = _half_equivalence_ion(constant, concentration)
+    if approximate:
+        value = PKW + math.log10(constant) if basic else -math.log10(constant)
+    else:
+        value = PKW + math.log10(amount) if basic else -math.log10(amount)
+    return num(value)
+
+
 def _half(intent: ChemistryIntent) -> TitrationAnchor | None:
     amounts = _amounts(intent)
     ka = intent.params.get("ka")
@@ -313,17 +369,21 @@ def _half(intent: ChemistryIntent) -> TitrationAnchor | None:
         return None
     ma, va, mb = amounts
     if ka is not None and ka > 0:
+        half_volume = ma * va / (2 * mb)
+        buffer = (ma * va / 2) / (va + half_volume)
         return TitrationAnchor(
             label="half-equivalence",
-            ph=num(-math.log10(ka)),
-            volume=f"{num(ma * va / (2 * mb))} L",
+            ph=_half_equivalence_ph(ka, buffer, basic=False),
+            volume=f"{num(half_volume)} L",
         )
     base_volume = intent.params.get("vb_l")
     if kb is not None and kb > 0 and base_volume is not None and base_volume > 0:
+        half_volume = mb * base_volume / (2 * ma)
+        buffer = (mb * base_volume / 2) / (base_volume + half_volume)
         return TitrationAnchor(
             label="half-equivalence",
-            ph=num(PKW + math.log10(kb)),
-            volume=f"{num(mb * base_volume / (2 * ma))} L",
+            ph=_half_equivalence_ph(kb, buffer, basic=True),
+            volume=f"{num(half_volume)} L",
         )
     return None
 

@@ -330,7 +330,7 @@ def solve_standard_addition(intent: ChemistryIntent) -> ChemistryResult:
     standard = require(intent, "standard_concentration", message=message)
     standard_volume = require(intent, "standard_volume", message=message)
     sample_volume = require(intent, "sample_volume", positive=True, message=message)
-    if spiked == sample:
+    if spiked <= sample:
         raise SolveServiceError(message)
     value = (sample / (spiked - sample)) * standard * (standard_volume / sample_volume)
     shown = f"c = {num(value)}"
