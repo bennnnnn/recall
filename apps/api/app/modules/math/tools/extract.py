@@ -10,6 +10,7 @@ from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.tools.extractors.algebra import (
     ALGEBRA_EXTRACTORS,
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,
+    oversized_system,
 )
 from app.modules.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
 from app.modules.math.tools.extractors.calculus_applications import (
@@ -191,6 +192,10 @@ def extract_math_intent(text: str) -> MathIntent | None:
         if intent is not None and request_consumption_complete(stripped, intent):
             intent._request_text = text.strip()
             return intent
+    # A system longer than the solver allows must not fall through to the
+    # first free-standing equation and certify that one clause.
+    if oversized_system(normalized):
+        return None
     recovered = _intent_from_free_standing_equation(normalized)
     if recovered is not None:
         recovered._request_text = text.strip()
@@ -268,6 +273,8 @@ def _extract_math_intent(text: str) -> MathIntent | None:
     from app.modules.math.tools.extractors.teaching import closed_teaching_declined
 
     if closed_teaching_declined(cleaned):
+        return None
+    if oversized_system(cleaned):
         return None
     # Function analysis currently verifies the maximal real domain only.
     # Refuse the whole extraction before inequality/algebra fallbacks can
