@@ -11,6 +11,7 @@ import { todosApi } from "@/features/todos/api";
 import { accountApi } from "@/lib/api/account";
 import { analyticsApi } from "@/lib/api/analytics";
 import { chatsApi } from "@/lib/api/chats";
+import { chemistryApi } from "@/lib/api/chemistry";
 import { discoverApi } from "@/lib/api/discover";
 import { mathApi } from "@/lib/api/math";
 import { pushApi } from "@/lib/api/push";
@@ -18,6 +19,7 @@ import { pushApi } from "@/lib/api/push";
 export type * from "@/lib/api/types";
 export type { ProductEventName } from "@/lib/api/analytics";
 export type { MathScanReading } from "@/lib/api/math";
+export type { ChemistryScanReading } from "@/lib/api/chemistry";
 export type * from "@/features/job-search/api";
 export { attachmentRecordExists } from "@/features/attachments/api";
 export type { AttachmentListItem } from "@/features/attachments/types";
@@ -51,4 +53,5 @@ export const api = {
   ...speechApi,
   ...jobSearchApi,
   ...mathApi,
+  ...chemistryApi,
 };

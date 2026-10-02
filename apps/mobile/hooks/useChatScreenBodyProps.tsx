@@ -107,7 +107,8 @@ export type UseChatScreenBodyPropsParams = {
       confirmedReading?: string,
     ) => void;
     readMathScan: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
-    handleMathScanSolve: (reading: string) => void;
+    readChemistryScan: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
+    handleMathScanSolve: (reading: string, subject?: ScannerSubject) => void;
     onOpenMathScanner?: () => void;
     onMathChromeHeightChange?: (height: number) => void;
     onInputFrameExtraChange?: (extra: number) => void;
@@ -190,6 +191,7 @@ export function useChatScreenBodyProps({
     closeMathScanner,
     handleMathScanCaptured,
     readMathScan,
+    readChemistryScan,
     handleMathScanSolve,
     onOpenMathScanner,
     onMathChromeHeightChange,
@@ -499,6 +501,7 @@ export function useChatScreenBodyProps({
       onCloseMathScanner: closeMathScanner,
       onMathScanCaptured: handleMathScanCaptured,
       onReadMathScan: readMathScan,
+      onReadChemistryScan: readChemistryScan,
       onMathScanSolve: handleMathScanSolve,
       upgradeVisible,
       onCloseUpgrade,
@@ -511,6 +514,7 @@ export function useChatScreenBodyProps({
       closeMathScanner,
       handleMathScanCaptured,
       readMathScan,
+      readChemistryScan,
       handleMathScanSolve,
       upgradeVisible,
       onCloseUpgrade,

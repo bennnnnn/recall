@@ -11,6 +11,7 @@ import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
 import type { MathScanReading, Message } from "@/lib/api";
+import { chemistryScanSolveMessage } from "@/lib/chemistry/scanSolve";
 import { clearPendingChatTtft } from "@/lib/chat/latency";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
@@ -706,9 +707,23 @@ export function useChatSend({
     [token],
   );
 
-  const handleMathScanSolve = useCallback((reading: string) => {
+  const readChemistryScan = useCallback(
+    async (scan: PendingAttachment, signal: AbortSignal): Promise<MathScanReading | null> => {
+      if (!token) return null;
+      try {
+        const { api } = await import("@/lib/api");
+        return await api.readChemistryScan(token, scan, signal);
+      } catch {
+        return null;
+      }
+    },
+    [token],
+  );
+
+  const handleMathScanSolve = useCallback((reading: string, subject: ScannerSubject = "math") => {
     setMathScannerOpen(false);
-    const message = mathScanSolveMessage(reading);
+    const message =
+      subject === "chemistry" ? chemistryScanSolveMessage(reading) : mathScanSolveMessage(reading);
     if (!message) return;
     const text = withComposerDraft(message, inputRef.current);
     setInput(text);
@@ -732,6 +747,7 @@ export function useChatSend({
     handleAttachmentSheetSelect,
     handleMathScanCaptured,
     readMathScan,
+    readChemistryScan,
     handleMathScanSolve,
     creatingRef,
     pendingOutboundId,
