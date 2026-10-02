@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 ScannerSubject = Literal["math", "physics", "chemistry", "biology"]
@@ -13,6 +14,7 @@ BIOLOGY_CAMERA_PROMPT = "Solve the biology problem in this image step by step."
 
 # The line a photo carries after the student confirmed what the scanner read.
 SCAN_CONFIRMED_PREFIX = "I read this as:"
+_BLANK_LINE = re.compile(r"\n[ \t]*\n")
 
 SCANNER_CAMERA_PROMPTS: dict[ScannerSubject, str] = {
     "math": MATH_CAMERA_PROMPT,
@@ -39,14 +41,16 @@ def is_scanner_camera_prompt(text: str) -> bool:
 def confirmed_scan_reading(text: str) -> str | None:
     """The reading the student confirmed in the scanner, from a photo caption.
 
-    The text after the prefix, up to the first blank line. Linear scan.
+    The text after the prefix, up to the first blank line. The app writes the
+    reading with its lines but none blank (``composerTextAfterScanConfirm``),
+    so that line is where a typed draft or an attachment note begins. Linear.
     """
     needle = SCAN_CONFIRMED_PREFIX.casefold()
     idx = text.casefold().find(needle)
     if idx < 0:
         return None
     rest = text[idx + len(SCAN_CONFIRMED_PREFIX) :].strip()
-    blank = rest.find("\n\n")
-    if blank >= 0:
-        rest = rest[:blank]
+    blank = _BLANK_LINE.search(rest)
+    if blank is not None:
+        rest = rest[: blank.start()]
     return rest.strip() or None

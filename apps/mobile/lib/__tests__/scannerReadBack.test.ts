@@ -29,6 +29,16 @@ describe("composerTextAfterScanConfirm", () => {
   });
 });
 
+describe("composerTextAfterScanConfirm with an edited reading", () => {
+  it("keeps every line of a reading but never a blank one, which ends it on the API", () => {
+    expect(
+      composerTextAfterScanConfirm("A ball is dropped from 80 m.\n\n  \nFind its speed.\n", "physics"),
+    ).toBe(
+      `${PHYSICS_CAMERA_PROMPT}\n\n${SCAN_CONFIRMED_PREFIX} A ball is dropped from 80 m.\nFind its speed.`,
+    );
+  });
+});
+
 describe("scanSolveMessage", () => {
   it("asks math for steps", () => {
     expect(scanSolveMessage("2x + 3 = 11", "math")).toBe("Show steps: 2x + 3 = 11");

@@ -60,6 +60,11 @@ def test_confirmed_scan_reading() -> None:
         == "2x=1"
     )
     assert confirmed_scan_reading(f"{PHYSICS_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX}   ") is None
+    # Lines are kept; a line of only spaces is a blank line, and ends the reading.
+    assert (
+        confirmed_scan_reading(f"{SCAN_CONFIRMED_PREFIX} first line\nsecond line\n  \nmy draft")
+        == "first line\nsecond line"
+    )
 
 
 def test_chemistry_camera_caption_is_not_math() -> None:
