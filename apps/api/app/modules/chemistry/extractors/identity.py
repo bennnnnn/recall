@@ -155,7 +155,7 @@ def _extract_colligative(text: str) -> ChemistryIntent | None:
         params = _floats(i=factor, molarity=molarity, temperature=temperature)
         if params is not None:
             return ChemistryIntent(kind="solutions", chemistry_op="osmotic_pressure", params=params)
-    if re.search(r"\bRaoult\b", text):
+    if re.search(r"\bRaoult\b", text, re.IGNORECASE):
         fraction = _search(rf"mole fraction\s*=\s*({_N})", text)
         pure = _search(rf"pure pressure\s*=\s*({_N})", text)
         if fraction is not None and pure is not None:
@@ -175,7 +175,7 @@ def _extract_analytical(text: str) -> ChemistryIntent | None:
         params = _floats(slope=slope, intercept=intercept, signal=signal)
         if params is not None:
             return ChemistryIntent(kind="analytical", chemistry_op="calibration", params=params)
-    if re.search(r"\bGravimetric\b", text):
+    if re.search(r"\bGravimetric\b", text, re.IGNORECASE):
         mass = _search(rf"precipitate mass\s*=\s*({_N})", text)
         factor = _search(rf"\bfactor\s*=\s*({_N})", text)
         if mass is not None and factor is not None:
@@ -184,7 +184,7 @@ def _extract_analytical(text: str) -> ChemistryIntent | None:
                 chemistry_op="gravimetric",
                 params={"precipitate_mass": mass, "factor": factor},
             )
-    if re.search(r"\bStandard addition\b", text):
+    if re.search(r"\bStandard addition\b", text, re.IGNORECASE):
         params = _floats(
             sample_signal=_search(rf"sample signal\s*=\s*({_N})", text),
             spiked_signal=_search(rf"spiked signal\s*=\s*({_N})", text),

@@ -62,6 +62,16 @@ def test_charles_law_converts_celsius_to_kelvin() -> None:
     assert _first_number(result.answer) == pytest.approx(2 * 323.15 / 298.15, rel=1e-3)
 
 
+def test_boyle_matches_the_gate_regardless_of_case() -> None:
+    titled = "Use Boyle's law: P1 = 2 atm, V1 = 3 L, V2 = 6 L, find P2"
+    lower = "Use boyle's law: P1 = 2 atm, V1 = 3 L, V2 = 6 L, find P2"
+    titled_intent = extract_chemistry_intent(titled)
+    lower_intent = extract_chemistry_intent(lower)
+    assert titled_intent is not None and lower_intent is not None
+    assert lower_intent.chemistry_op == "boyle"
+    assert lower_intent.params == titled_intent.params
+
+
 def test_boyle_law_converts_pressure_units() -> None:
     result = _solve("Use Boyle's law: P1 = 760 mmHg, V1 = 2 L, P2 = 380 mmHg, find V2")
     assert _first_number(result.answer) == pytest.approx(4.0)
