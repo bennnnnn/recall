@@ -7,6 +7,13 @@ from collections.abc import Callable
 from functools import lru_cache
 
 from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.extractors.circuit_patterns import _CIRCUIT_CUE_RES, _CIRCUIT_CUES
+from app.modules.physics.extractors.circuits import _extract_circuit_intent
+from app.modules.physics.extractors.circular import (
+    _CIRCULAR_CUE_RES,
+    _CIRCULAR_CUES,
+    _extract_circular_intent,
+)
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
@@ -16,16 +23,10 @@ from app.modules.physics.extractors.common import (
     _detect_gravity,
     _has_cue_either_case,
 )
-from app.modules.physics.extractors.electricity_magnetism import (
-    _CIRCUIT_CUE_RES,
-    _CIRCUIT_CUES,
+from app.modules.physics.extractors.electrostatics import (
     _ELECTROSTATICS_CUE_RES,
     _ELECTROSTATICS_CUES,
-    _MAGNETISM_CUE_RES,
-    _MAGNETISM_CUES,
-    _extract_circuit_intent,
     _extract_electrostatics_intent,
-    _extract_magnetism_intent,
 )
 from app.modules.physics.extractors.energy import (
     _ENERGY_CUE_RES,
@@ -43,18 +44,30 @@ from app.modules.physics.extractors.friction import (
     _FRICTION_CUES,
     _extract_friction_intent,
 )
-from app.modules.physics.extractors.gravity_modern import (
+from app.modules.physics.extractors.gravitation import (
     _GRAVITATION_CUE_RES,
     _GRAVITATION_CUES,
-    _MODERN_CUE_RES,
-    _MODERN_CUES,
     _extract_gravitation_intent,
-    _extract_modern_intent,
+)
+from app.modules.physics.extractors.kinematics import (
+    _KINEMATICS_CUE_RES,
+    _KINEMATICS_CUES,
+    _extract_kinematics_intent,
+)
+from app.modules.physics.extractors.magnetism import (
+    _MAGNETISM_CUE_RES,
+    _MAGNETISM_CUES,
+    _extract_magnetism_intent,
 )
 from app.modules.physics.extractors.materials import (
     _MATERIALS_CUE_RES,
     _MATERIALS_CUES,
     _extract_materials_intent,
+)
+from app.modules.physics.extractors.modern import (
+    _MODERN_CUE_RES,
+    _MODERN_CUES,
+    _extract_modern_intent,
 )
 from app.modules.physics.extractors.momentum import (
     _COLLISION_SUBJECT_RE,
@@ -63,48 +76,33 @@ from app.modules.physics.extractors.momentum import (
     _TWO_DIMENSIONAL_RE,
     _extract_momentum_intent,
 )
-from app.modules.physics.extractors.motion import (
-    _KINEMATICS_CUE_RES,
-    _KINEMATICS_CUES,
-    _PROJECTILE_CUE_RES,
-    _PROJECTILE_CUES,
-    _STOPPING_CUE_RES,
-    _SUVAT_CUE_RES,
-    _SUVAT_CUES,
-    _extract_kinematics_intent,
-    _extract_projectile_intent,
-    _extract_suvat_intent,
-    extract_stopping_distance,
-)
 from app.modules.physics.extractors.optics import _OPTICS_CUES, _extract_optics_intent
-from app.modules.physics.extractors.oscillations_waves import (
+from app.modules.physics.extractors.oscillations import (
     _PENDULUM_CUE_RES,
     _SHM_CUE_RES,
     _SPRING_CUE_RES,
     _SPRING_CUES,
-    _WAVE_CUE_RES,
-    _WAVE_CUES,
     _extract_pendulum_intent,
     _extract_shm_intent,
     _extract_spring_intent,
-    _extract_waves_intent,
+)
+from app.modules.physics.extractors.projectile import (
+    _PROJECTILE_CUE_RES,
+    _PROJECTILE_CUES,
+    _extract_projectile_intent,
 )
 from app.modules.physics.extractors.rates import _RATE_CUES, extract_rate_intent
 from app.modules.physics.extractors.rotation import (
-    _CIRCULAR_CUE_RES,
-    _CIRCULAR_CUES,
     _ROTATION_CUE_RES,
     _ROTATION_CUES,
-    _TORQUE_CUE_RES,
-    _TORQUE_CUES,
-    _extract_circular_intent,
     _extract_rotation_intent,
-    _extract_torque_intent,
 )
 from app.modules.physics.extractors.school_extensions import (
     _EXTENSION_CUES,
     extract_school_extension,
 )
+from app.modules.physics.extractors.stopping import _STOPPING_CUE_RES, extract_stopping_distance
+from app.modules.physics.extractors.suvat import _SUVAT_CUE_RES, _SUVAT_CUES, _extract_suvat_intent
 from app.modules.physics.extractors.tension import (
     _TENSION_CUE_RES,
     _VECTOR_FORCE_CUE_RES,
@@ -116,6 +114,12 @@ from app.modules.physics.extractors.thermal import (
     _THERMAL_CUES,
     _extract_thermal_intent,
 )
+from app.modules.physics.extractors.torque import (
+    _TORQUE_CUE_RES,
+    _TORQUE_CUES,
+    _extract_torque_intent,
+)
+from app.modules.physics.extractors.waves import _WAVE_CUE_RES, _WAVE_CUES, _extract_waves_intent
 from app.services.number_text import read_scientific_numbers
 from app.services.symbolic_text import (
     _MAX_PHYSICS_REQUEST,
