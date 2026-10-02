@@ -1,6 +1,6 @@
 # CLAUDE.md — Recall (Personal AI Chat)
 
-A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md) (tutoring roadmap: [docs/MATH_TUTORING_TICKETS.md](./docs/MATH_TUTORING_TICKETS.md)). Physics: [docs/physics.md](./docs/physics.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (S1-S4, S7-S10 shipped: `PhysicsIntent` split from `MathIntent`; S5-S6 open). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
+A personal mobile AI chat app that remembers the user's preferences, projects, and context across chats. Mobile = Expo React Native. Backend = FastAPI. Models routed via LiteLLM. This file is the **engineering map** (rules, layers, catalog, seams). Product status lives in [FEATURES.md](./FEATURES.md). Architecture migration: [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md). Math: [docs/math.md](./docs/math.md) (tutoring roadmap: [docs/MATH_TUTORING_TICKETS.md](./docs/MATH_TUTORING_TICKETS.md)). Physics: [docs/physics.md](./docs/physics.md). Chemistry: [docs/chemistry.md](./docs/chemistry.md). Making math/physics/chemistry true peer subjects at the type level: [docs/SUBJECT_SEPARATION_TICKETS.md](./docs/SUBJECT_SEPARATION_TICKETS.md) (complete: `PhysicsIntent` is a peer of `MathIntent`). Launch: [docs/PRODUCTION.md](./docs/PRODUCTION.md), [docs/QA_MATRIX.md](./docs/QA_MATRIX.md), [docs/ROLLBACK.md](./docs/ROLLBACK.md). Security: [SECURITY.md](./SECURITY.md).
 
 **This is not a week-one MVP.** Approximate size (app code, excluding generated/`node_modules`):
 
@@ -136,7 +136,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `modules/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `modules/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`; HTTP `/math/scan/read`). Lessons, check my work (`work_check`), word problems (`word_problem`) | `MathText` / `MathView` / `geometry` / `graph`; scanner review `components/mathScanner/` |
-| Physics (20 verified kinds) | `modules/physics/` (`extract.py`, `solver.py`, `block.py`, `direct.py`; HTTP `/physics/scan/read`) | same fences; `simulation` scenes; scanner read-back |
+| Physics | `modules/physics/` (`catalog/`, `extractors/`, `solvers/`, `extract.py`, `solver.py`, `block.py`, `direct.py`; HTTP `/physics/scan/read`) | same fences; `simulation` scenes; scanner read-back |
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/`, `models/schemas/chemistry/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Calendar / Gmail | `modules/integrations/` (HTTP `/integrations/google-calendar`, `/integrations/google-gmail`) | `features/integrations/`; `app/settings/integrations.tsx` route only |
 | Push / email out | `modules/notifications/`, `background/*scheduler*` | notification settings |
@@ -178,10 +178,10 @@ New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned
 1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
 2. Check + reserve daily quota (Redis)
 3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation
-4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, calendar/Gmail, web search, SymPy pre-solve, chemistry context
+4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, calendar/Gmail, web search, SymPy pre-solve, physics and chemistry context
 5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
-7. Post-stream math fence correction (`math/fence.py`) and chemistry fence enrich (`modules/chemistry/fence.py`)
+7. Post-stream fence finalization: math (`math/fence.py`), physics (`modules/physics/fence.py`), chemistry (`modules/chemistry/fence.py`)
 8. Persist assistant + usage in a finalize task
 9. `enqueue_post_turn_jobs` — topic, memory, todos, compress, suggestions, attachment_index, message_index (best-effort; must not raise into the stream)
 

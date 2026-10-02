@@ -253,9 +253,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   calendar calculator, not a chat model or web search. The reply shows complete
   periods, remainder days, payment dates, the today-is-a-payday alternative, and
   daily proration so the counting assumption is never hidden.
-- ✅ **Physics (twenty kinds)** — server-side extractors and pure solvers (see
+- ✅ **Physics** — server-side extractors and pure solvers (see
   [docs/physics.md](./docs/physics.md)). Verified operations are the
-  formula catalog, one entry per `physics_op`, not twenty formulas. Answers have
+  formula catalog, one entry per `physics_op`. Answers have
   three significant figures and upright units, in the unit the question asks for
   ("in kWh"); scientific notation is read whole (`2 × 10^-6 C`); a solve that skips
   a stated value of a kind it uses, or answers a different quantity than the one
@@ -395,8 +395,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   set (`copy` / drafts, `mermaid`, `chart`, `math`, chemistry source). Server attaches
   verified `answer` / `graph` / `geometry`, `sources`, and `places`. Layout fences
   (`steps`, `comparison`, `keyvalue`, `collapsible`, `quote`, `clock`, `callout`)
-  still render for history; the prompt must not choose them. Calendar / reminder /
-  settings / vocab-quiz control fences stay outside the registry.
+  still render for history; the prompt must not choose them. Calendar and reminder
+  control fences stay outside the registry. Leftover `vocab_quiz` fences in old
+  messages are stripped for display.
 - ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +
   copy + Mermaid Live link; Expo Go shows source + external editor hint.
 - ✅ **PDF attachments** — uploaded PDFs show a file card + inline first-page preview (pdf.js in

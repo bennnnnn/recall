@@ -89,7 +89,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 - **Symbol toolbar** (`MathKeyboardBar` / `mathKeyboardSymbols.ts`) inserts LaTeX snippets (`$...$` when the caret is outside math).
 - **Ordinary typing and native paste** preserve the exact input and native caret. Autocorrect and spellcheck stay disabled so notation such as `sqrt` and assignment expressions cannot be rewritten while typing.
 - **Explicit math keypad / Paste controls** opt into formatted math editing. `mathPasteNormalize.ts` maps pasted Unicode math glyphs to LaTeX (the same glyph set spirit as `_UNICODE_OP_SUBS` in `math/solve/parse.py`). The in-app Paste button reads clipboard text only; it does not import an image. Use Scan Math or a photo attachment for image input.
-- **Scan Math** captures a camera frame or imports a photo. Imported photos fit inside the preview so the initial crop contains the full image; camera previews retain their fill/crop behavior. For maths, Solve crops and opens **I read this as** (`components/mathScanner/ScanReadingReview.tsx`): the reading arrives in an editable field, **Solve** sends the checked text, **Send photo** sends the crop at once without waiting, and **Retake** returns to the camera. Physics and biology scans still send the crop immediately.
+- **Scan Math** captures a camera frame or imports a photo. Imported photos fit inside the preview so the initial crop contains the full image; camera previews retain their fill/crop behavior. For math, physics, and chemistry, Solve crops and opens **I read this as** (`components/mathScanner/ScanReadingReview.tsx`): the reading arrives in an editable field, **Solve** sends the checked text, **Send photo** sends the crop at once without waiting, and **Retake** returns to the camera. Biology still sends the crop immediately, with no read-back.
 - Backslashes, `_`, and `*` inside math are protected during Markdown preprocessing and restored at the native/MathJax-SVG parser boundary, so Markdown cannot consume math escapes or reinterpret subscripts/multiplication as emphasis.
 
 ## Key files
@@ -98,7 +98,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 |-------|------|
 | Neutral subject dispatch | `apps/api/app/services/subject_solving.py`, `services/solving.py` |
 | SymPy core | `apps/api/app/modules/math/solve/` |
-| Physics (peer subject) | `apps/api/app/modules/physics/` — `solver.py`, `extract.py`, `direct.py`, `block.py` |
+| Physics (peer subject) | `apps/api/app/modules/physics/` — `catalog/`, `extractors/`, `solvers/`, plus `extract.py`, `solver.py`, `direct.py`, `block.py` |
 | Pre-stream inject | `apps/api/app/modules/math/tools/` |
 | Whole-request integrity | `apps/api/app/modules/math/request_consumption.py` |
 | Post-stream fences | `apps/api/app/modules/math/fence.py` |

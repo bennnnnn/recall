@@ -68,7 +68,8 @@ without Google — useful for local dev without a configured OAuth client.
 ## Later slices (not yet)
 
 - Rich fences (math, charts, Mermaid, sandboxed HTML preview)
-- Memory, Lists, Learning, settings, attachments, image gen
+- Memory, settings, attachments, image gen
+- Lists and the language-learning product are not coming back (see chat-ux-bans)
 - `packages/api-types` extracted from `lib/api/types.ts`
 - Apple Sign-In on web (separate Services ID)
 - Prod deploy (Cloudflare Pages or Fly)
