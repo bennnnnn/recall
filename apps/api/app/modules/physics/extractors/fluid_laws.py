@@ -10,10 +10,7 @@ from app.modules.physics.extractors.common import (
     _detect_gravity,
     _find_value_with_specific_unit,
 )
-from app.modules.physics.extractors.fluid_readings import (
-    _PRESSURE_PATTERN,
-    FluidReading,
-)
+from app.modules.physics.extractors.fluid_readings import _PRESSURE_PATTERN, FluidReading
 
 
 def _stokes(f: FluidReading) -> PhysicsIntent | None:

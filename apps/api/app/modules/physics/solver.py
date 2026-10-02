@@ -5,31 +5,34 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.solvers.circuits import solve_circuit
+from app.modules.physics.solvers.circular import solve_circular
 from app.modules.physics.solvers.common import (
     _PARAM_SI_DIMENSIONS,
     PhysicsResult,
     _params_in_si,
     _to_si,
 )
-from app.modules.physics.solvers.electricity_magnetism import solve_circuit, solve_magnetism
-from app.modules.physics.solvers.gravity_modern import solve_gravitation, solve_modern
-from app.modules.physics.solvers.matter_thermal import (
-    solve_fluids,
-    solve_materials,
-    solve_optics,
-    solve_thermal,
-)
-from app.modules.physics.solvers.mechanics import (
-    solve_energy,
-    solve_force,
-    solve_friction,
-    solve_momentum,
-)
-from app.modules.physics.solvers.motion import solve_kinematics, solve_projectile, solve_suvat
-from app.modules.physics.solvers.oscillations_waves import solve_spring, solve_waves
+from app.modules.physics.solvers.energy import solve_energy
+from app.modules.physics.solvers.fluids import solve_fluids
+from app.modules.physics.solvers.forces import solve_force
+from app.modules.physics.solvers.friction import solve_friction
+from app.modules.physics.solvers.gravitation import solve_gravitation
+from app.modules.physics.solvers.kinematics import solve_kinematics
+from app.modules.physics.solvers.magnetism import solve_magnetism
+from app.modules.physics.solvers.materials import solve_materials
+from app.modules.physics.solvers.modern import solve_modern
+from app.modules.physics.solvers.momentum import solve_momentum
+from app.modules.physics.solvers.optics import solve_optics
+from app.modules.physics.solvers.oscillations import solve_spring
+from app.modules.physics.solvers.projectile import solve_projectile
 from app.modules.physics.solvers.relation import solve_expression
-from app.modules.physics.solvers.rotation import solve_circular, solve_rotation, solve_torque
+from app.modules.physics.solvers.rotation import solve_rotation
 from app.modules.physics.solvers.school_extensions import SCHOOL_SOLVERS
+from app.modules.physics.solvers.suvat import solve_suvat
+from app.modules.physics.solvers.thermal import solve_thermal
+from app.modules.physics.solvers.torque import solve_torque
+from app.modules.physics.solvers.waves import solve_waves
 from app.services.solving import SolveServiceError
 
 __all__ = [

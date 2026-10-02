@@ -5,9 +5,7 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.extractors.angles import (
-    _INCLINE_ANGLE_RE,
-)
+from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,

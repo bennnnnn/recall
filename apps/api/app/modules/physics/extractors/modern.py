@@ -7,10 +7,7 @@ import re
 from collections.abc import Callable
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.extractors.common import (
-    _has_cue,
-    _strip_param_assignments,
-)
+from app.modules.physics.extractors.common import _has_cue, _strip_param_assignments
 from app.modules.physics.extractors.modern_laws import (
     _half_life,
     _mass_energy,

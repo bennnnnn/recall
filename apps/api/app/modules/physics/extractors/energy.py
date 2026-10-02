@@ -6,9 +6,7 @@ import re
 from typing import Literal
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.extractors.angles import (
-    _stated_angle,
-)
+from app.modules.physics.extractors.angles import _stated_angle
 from app.modules.physics.extractors.common import (
     _NUMBER,
     _VELOCITY_UNIT_PATTERN,
