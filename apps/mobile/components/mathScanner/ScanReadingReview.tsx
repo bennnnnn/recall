@@ -59,6 +59,9 @@ export function ScanReadingReview({
   }, [readingText]);
 
   const canSolve = state.status === "ready" && draft.trim().length > 0;
+  // An emptied ready reading must not go out as "no reading": the parent
+  // treats "" as no confirmation and the server reads the photo again.
+  const canSendPhoto = state.status !== "ready" || draft.trim().length > 0;
 
   return (
     <KeyboardAvoidingView
@@ -116,7 +119,11 @@ export function ScanReadingReview({
             />
             <Button
               title={t("chat.math_scan_send_photo")}
-              onPress={() => onSendPhoto(state.status === "ready" ? draft.trim() : "")}
+              onPress={() => {
+                if (!canSendPhoto) return;
+                onSendPhoto(state.status === "ready" ? draft.trim() : "");
+              }}
+              disabled={!canSendPhoto}
               variant="outline"
               style={s.fill}
             />

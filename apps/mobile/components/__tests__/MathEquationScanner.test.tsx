@@ -410,6 +410,21 @@ describe("imported math scanner photos", () => {
     expect(view.queryByText("chat.math_scan_read_failed")).toBeNull();
   });
 
+  it("does not send a ready reading the student wiped", async () => {
+    const read = jest.fn(async () => ({ reading: "2x = 4", uncertain: false, source: "mathpix" as const }));
+    const view = await cropForReview(read);
+    const review = within(view.getByTestId("math-scan-review"));
+    await act(async () => {
+      fireEvent.changeText(review.getByTestId("math-scan-reading"), "   ");
+    });
+    const send = review.getByText("chat.math_scan_send_photo");
+    expect(send).toBeDisabled();
+    await act(async () => {
+      fireEvent.press(send);
+    });
+    expect(view.onCaptured).not.toHaveBeenCalled();
+  });
+
   it("falls back to the photo when the read fails", async () => {
     const read = jest.fn(async () => null);
     const view = await cropForReview(read);
