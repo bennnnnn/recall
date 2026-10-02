@@ -324,6 +324,18 @@ def test_a_one_rule_derivative_shows_verified_working_at_every_style():
     assert "Product rule" in detailed
 
 
+def test_integral_of_one_over_x_uses_absolute_value():
+    from sympy import Abs, Symbol, diff, log, simplify
+
+    from app.modules.math.solve.integral_steps import integral_key_steps
+
+    steps, antiderivative = integral_key_steps(sympify("1/x"), "x")
+    assert r"\ln |x|" in steps[0].formula
+    assert antiderivative == log(Abs(Symbol("x")))
+    positive = Symbol("x", positive=True)
+    assert simplify(diff(antiderivative.subs(Symbol("x"), positive), positive) - 1 / positive) == 0
+
+
 def test_a_negative_first_integral_term_keeps_its_sign():
     from app.modules.math.solve.integral_steps import integral_key_steps
 
