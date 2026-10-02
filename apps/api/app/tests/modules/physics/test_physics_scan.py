@@ -190,6 +190,17 @@ async def test_a_photo_with_a_confirmed_reading_is_verified_from_that_reading() 
 
 
 @pytest.mark.asyncio
+async def test_a_reading_edited_into_lines_is_verified_whole() -> None:
+    # The app writes the reading's lines with no blank line between them; a
+    # typed draft after the first blank line is not part of the problem.
+    reading = "A ball is dropped from 80 m.\nWhat is its speed just before it hits the ground?"
+    caption = f"{PHYSICS_CAMERA_PROMPT}\n\n{SCAN_CONFIRMED_PREFIX} {reading}\n\nplease explain"
+    augmentation = await build_subject_augmentation(caption, _SETTINGS, has_image_attachment=True)
+    assert augmentation.verified is not None
+    assert augmentation.verified.canonical_answer == "39.6 m/s"
+
+
+@pytest.mark.asyncio
 async def test_a_photo_without_a_reading_gets_the_physics_note_not_math() -> None:
     augmentation = await build_subject_augmentation(
         PHYSICS_CAMERA_PROMPT, _SETTINGS, has_image_attachment=True

@@ -18,11 +18,18 @@ export const SCAN_CONFIRMED_PREFIX = "I read this as:";
  * Caption for a photo sent from the review: the subject's camera line, then
  * the reading the student checked, so the API solves that instead of reading
  * the photo again. With no reading, the camera line alone.
+ *
+ * The API ends the reading at the first blank line, where a typed draft or an
+ * attachment note follows. The reading keeps its lines, but never a blank one,
+ * so a reading edited into paragraphs still arrives whole.
  */
 export function composerTextAfterScanConfirm(reading: string, subject: ScannerSubject): string {
   const prompt = scannerCameraPrompt(subject);
-  const trimmed = reading.trim();
-  return trimmed ? `${prompt}\n\n${SCAN_CONFIRMED_PREFIX} ${trimmed}` : prompt;
+  const lines = reading
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.length ? `${prompt}\n\n${SCAN_CONFIRMED_PREFIX} ${lines.join("\n")}` : prompt;
 }
 
 /**
