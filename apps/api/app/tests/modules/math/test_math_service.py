@@ -582,6 +582,10 @@ def test_differentiate_expression_second_order() -> None:
     # SymPy may leave 12x^{2}-6 or factor as 6(2x^{2}-1).
     assert "x^{3}" not in result.latex
     assert "2 x^{2}" in result.latex or "12" in result.latex
+    assert r"\frac{d}{dx}" in result.steps[0]
+    assert r"\frac{d^{2}}{dx^{2}}" in result.steps[1]
+    assert "dy" not in result.steps[0]
+    assert "d^{2}y" not in result.steps[1]
 
 
 def test_integrate_expression_marks_closed_form_result_as_solved() -> None:
