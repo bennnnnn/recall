@@ -118,6 +118,14 @@ def _leftover_prose_blocks_solve(cleaned: str, lhs: str, rhs: str) -> bool:
     s = _blank_extracted_equation(core, lhs, rhs)
     words = [w.lower().strip(".,?!:;") for w in s.split() if w.strip(".,?!=:;")]
     english = [w for w in words if len(w) >= 3 and w.isalpha() and w not in _TRAILING_OK_WORDS]
+    # One leftover word is glue (``please`` is already ignored). A word that
+    # only contains a command, such as ``resolved``, is not a command, so the
+    # equation is not solved.
+    if english:
+        from app.modules.math.match.scan import has_math_keyword
+
+        if not has_math_keyword(cleaned.lower()):
+            return True
     return len(english) >= 2
 
 
@@ -292,6 +300,20 @@ def _primary_equation_pair(eq_pairs: list[tuple[str, str]]) -> tuple[str, str]:
     return max(pool, key=lambda pair: (pair[0].count("^"), len(pair[0])))
 
 
+# SystemOfEquationsInput allows at most four equations. A longer system
+# must be declined whole; slicing to four verifies a different problem.
+_MAX_SYSTEM_EQUATIONS = 4
+
+
+def oversized_system(text: str) -> bool:
+    """True when the text is a multi-variable system longer than the solver allows."""
+    eq_pairs = math_solve.try_extract_equations_from_text(text)
+    if len(eq_pairs) <= _MAX_SYSTEM_EQUATIONS:
+        return False
+    all_text = " ".join(f"{lhs} {rhs}" for lhs, rhs in eq_pairs)
+    return len(math_solve.guess_variables(all_text)) >= 2
+
+
 def _extract_system_intent(cleaned: str) -> MathIntent | None:
     eq_pairs = math_solve.try_extract_equations_from_text(cleaned)
     if len(eq_pairs) < 2:
@@ -308,9 +330,11 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
     # attaches ```answer no solution while the quadratic is solved.
     if len(variables) < 2:
         return None
+    if len(eq_pairs) > _MAX_SYSTEM_EQUATIONS:
+        return None
     return MathIntent(
         kind="system",
-        system_equations=eq_pairs[:4],
+        system_equations=eq_pairs,
         system_variables=variables,
         operation="solve",
     )

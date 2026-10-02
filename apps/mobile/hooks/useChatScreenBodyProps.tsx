@@ -29,6 +29,7 @@ import type {
 import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
 import type { MathScanReading, Message } from "@/lib/api";
+import type { MathScanReadFailure } from "@/lib/math/scanReadError";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
@@ -106,7 +107,10 @@ export type UseChatScreenBodyPropsParams = {
       subject: ScannerSubject,
       confirmedReading?: string,
     ) => void;
-    readMathScan: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
+    readMathScan: (
+      scan: PendingAttachment,
+      signal: AbortSignal,
+    ) => Promise<MathScanReading | MathScanReadFailure | null>;
     readChemistryScan: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
     handleMathScanSolve: (reading: string, subject?: ScannerSubject) => void;
     onOpenMathScanner?: () => void;

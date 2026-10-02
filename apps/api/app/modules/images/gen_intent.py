@@ -169,6 +169,12 @@ _NON_IMAGE_WORDS = frozenset(
         "tricks",
         "stages",
         "phases",
+        # "create music" is a chat ask, not a picture of an instrument.
+        "music",
+        "song",
+        "songs",
+        "playlist",
+        "playlists",
     },
 )
 
@@ -338,19 +344,14 @@ def _match_draw_me(tokens: list[str]) -> str | None:
 
 
 def _match_short_create(tokens: list[str]) -> str | None:
-    """draw/paint/illustrate [me] [a/an] SUBJECT — short subjects only.
+    """Short ``draw a dog`` or ``create a cat`` — the whole message is the subject.
 
-    ``make`` / ``create`` / ``generate`` (etc.) are *not* matched here — they
-    need an explicit image noun via the other matchers, so chat asks like
-    ``make your own example`` stay in the normal LLM turn.
+    Chat asks such as ``make your own example`` still fail ``_has_non_image_subject``.
     """
     if len(tokens) < 2:
         return None
     verb = tokens[0].lower()
-    # Ambiguous verbs need "… pic/image/photo" (see _match_verb_*).
-    if verb in _VERBS_IMAGE:
-        return None
-    if verb not in _VERBS_DRAW:
+    if verb not in _VERBS_DRAW and verb not in _VERBS_IMAGE:
         return None
     i = 1
     if i < len(tokens) and tokens[i].lower() == "me":
@@ -527,17 +528,36 @@ def prior_user_contents_for_image_gen(messages: list[Any], current: str) -> list
     return out
 
 
+_DEICTIC_SUBJECTS = frozenset({"that", "this", "it", "them"})
+
+
+def _is_deictic_subject(subject: str) -> bool:
+    first = _fold_token(subject.split()[0]) if subject.split() else ""
+    return first in _DEICTIC_SUBJECTS
+
+
+def _resolve_deictic_subject(direct: str, prior_user_contents: list[str]) -> str:
+    if not _is_deictic_subject(direct):
+        return direct
+    for prior in reversed(prior_user_contents):
+        subject = extract_image_gen_prompt(prior)
+        if subject and not _is_deictic_subject(subject):
+            return subject
+    return direct
+
+
 def extract_image_gen_prompt_from_thread(
     text: str,
     prior_user_contents: list[str],
 ) -> str | None:
     """Same as ``extract_image_gen_prompt``, plus 'Dog' then 'Image' follow-ups.
 
+    A picture of "that car" uses the previous concrete subject.
     Mirrors mobile ``extractImageGenPromptFromThread``.
     """
     direct = extract_image_gen_prompt(text)
     if direct:
-        return direct
+        return _resolve_deictic_subject(direct, prior_user_contents)
     if is_image_noun_only_message(text):
         for prior in reversed(prior_user_contents):
             subject = _thread_subject_from_user(prior)
@@ -565,6 +585,57 @@ def _subject_from_active_image_exchange(prior_user_contents: list[str]) -> str |
             return _thread_subject_from_user(prior)
         return None
     return None
+
+
+_REACTION_WORDS = frozenset(
+    {
+        "nice",
+        "cool",
+        "great",
+        "love",
+        "wow",
+        "beautiful",
+        "awesome",
+        "perfect",
+        "cute",
+    }
+)
+_REACTION_PHRASES = frozenset(
+    {
+        "looks good",
+        "looks great",
+        "looks nice",
+        "love it",
+        "love this",
+        "so cool",
+        "so nice",
+        "well done",
+        "nice one",
+    }
+)
+
+
+def _is_reaction(text: str) -> bool:
+    collapsed = " ".join(text.strip().lower().split()).rstrip(".!?").strip()
+    if collapsed.startswith("please "):
+        collapsed = collapsed[len("please ") :].strip()
+    if not collapsed:
+        return False
+    if collapsed in _REACTION_PHRASES:
+        return True
+    return collapsed.split()[0] in _REACTION_WORDS
+
+
+def _has_edit_lead_in(tokens: list[str]) -> bool:
+    i = 0
+    n = len(tokens)
+    if i < n and tokens[i].lower() == "please":
+        i += 1
+    if i + 1 < n and tokens[i].lower() == "make" and tokens[i + 1].lower() in {"it", "them"}:
+        return True
+    if i + 1 < n and tokens[i].lower() == "change" and tokens[i + 1].lower() in {"it", "them"}:
+        return True
+    return i < n and tokens[i].lower() in {"now", "again", "instead", "try"}
 
 
 _NON_REVISION = frozenset(
@@ -716,6 +787,8 @@ def extract_image_revision_prompt(
         return None
     trimmed = text.strip()
     if not trimmed or len(trimmed) > 120:
+        return None
+    if not _has_edit_lead_in(_tokens(trimmed)) and _is_reaction(trimmed):
         return None
 
     tokens = _strip_revision_lead_in(_tokens(trimmed))

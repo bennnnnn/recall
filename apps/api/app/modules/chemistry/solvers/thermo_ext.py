@@ -88,6 +88,8 @@ def solve_hess(intent: ChemistryIntent) -> ChemistryResult:
 # Reference states: formula → phases that are the standard state (None = unlabeled).
 _GASEOUS_ELEMENTS = {"H2", "N2", "O2", "F2", "Cl2", "He", "Ne", "Ar", "Kr", "Xe", "Rn"}
 _SOLID_ALLOTROPES = {"S8", "P4"}
+# These elements are standard as molecules (H2, Br2, I2), not as the free atom.
+_MOLECULAR_ELEMENT_ATOMS = {"H", "N", "O", "F", "Cl", "Br", "I"}
 
 
 def _is_standard_state(formula: str, atoms: int, phase: str | None) -> bool:
@@ -103,7 +105,8 @@ def _is_standard_state(formula: str, atoms: int, phase: str | None) -> bool:
     if formula in _SOLID_ALLOTROPES:
         return phase in {None, "s"}
     # S8 and P4 are the standard allotropes. Bare P and S are not, same as O3.
-    if formula in {"P", "S"}:
+    # H, N, O, F, Cl, Br, and I are not metals: an unlabeled atom is not ΔHf = 0.
+    if formula in {"P", "S"} or formula in _MOLECULAR_ELEMENT_ATOMS:
         return False
     # Metals and graphite: a monatomic solid.
     return atoms == 1 and phase in {None, "s"} and formula not in _GASEOUS_ELEMENTS

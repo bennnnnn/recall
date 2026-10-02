@@ -37,6 +37,44 @@ const REVISION_LEAD_IN =
 const NON_REVISION =
   /^(?:ok|okay|thanks|thank you|yes|no|sure|cool|nice|lol|great|got it|perfect)$/i;
 
+const REACTION_WORDS = new Set([
+  "nice",
+  "cool",
+  "great",
+  "love",
+  "wow",
+  "beautiful",
+  "awesome",
+  "perfect",
+  "cute",
+]);
+
+const REACTION_PHRASES = new Set([
+  "looks good",
+  "looks great",
+  "looks nice",
+  "love it",
+  "love this",
+  "so cool",
+  "so nice",
+  "well done",
+  "nice one",
+]);
+
+function isReaction(text: string): boolean {
+  const collapsed = text
+    .trim()
+    .replace(/^(?:please\s+)/i, "")
+    .replace(/[.!?]+$/g, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  if (!collapsed) return false;
+  if (REACTION_PHRASES.has(collapsed)) return true;
+  const first = collapsed.split(" ")[0] ?? "";
+  return REACTION_WORDS.has(first);
+}
+
 const SHOW_IMAGE_REVISION =
   /^show\s+(?:it|them|more|less|another\b|an?\s+|the\s+(?!steps?\b|work(?:ing|out)?\b|answer\b|solution\b|calculation\b|long\s+division\b)).+/i;
 
@@ -101,6 +139,7 @@ export function extractImageRevisionPrompt(
   if (lead) {
     revision = trimmed.slice(lead[0].length).trim();
   }
+  if (!lead && isReaction(trimmed)) return null;
   if (!revision || revision.split(/\s+/).length > 8) return null;
   if (trimmed.includes("?")) return null;
   const first = revision.split(/\s+/)[0]?.toLowerCase().replace(/[.!,]+$/, "") ?? "";
@@ -186,13 +225,19 @@ const DRAW_ME = new RegExp(
 );
 
 /**
- * Short "draw/paint a dog" without an image noun. Anchored full-message only.
- * ``make`` / ``create`` / ``generate`` need an explicit image noun (matchers
- * above) so chat asks like "make your own example" stay in the LLM turn.
+ * Short "draw a dog" or "create a cat" without an image noun. Anchored
+ * full-message only. "make your own example" still fails the non-image list.
  */
 const SHORT_DRAW_SUBJECT = new RegExp(
   String.raw`^(?:please\s+)?(?:can you\s+)?` +
     String.raw`(?:draw|paint|illustrate)\s+` +
+    String.raw`(?:me\s+)?(?:an?\s+)?(.+)$`,
+  "i",
+);
+
+const SHORT_CREATE_SUBJECT = new RegExp(
+  String.raw`^(?:please\s+)?(?:can you\s+)?` +
+    String.raw`(?:create|generate|make|design|render|produce)\s+` +
     String.raw`(?:me\s+)?(?:an?\s+)?(.+)$`,
   "i",
 );
@@ -278,6 +323,10 @@ const NON_IMAGE_SUBJECT = new RegExp(
       "tricks?",
       "stages?",
       "phases?",
+      // "create music" is a chat ask, not a picture of an instrument.
+      "music",
+      "songs?",
+      "playlists?",
     ].join("|") +
     String.raw`)\b`,
   "i",
@@ -297,15 +346,23 @@ function isNonImageSubject(subject: string): boolean {
   return NON_IMAGE_SUBJECT.test(subject) || NON_IMAGE_DRAW.test(subject);
 }
 
-function extractShortDrawSubject(trimmed: string): string | null {
+function extractShortVerbSubject(trimmed: string, pattern: RegExp): string | null {
   if (trimmed.length > 80) return null;
-  const match = trimmed.match(SHORT_DRAW_SUBJECT);
+  const match = trimmed.match(pattern);
   if (!match?.[1]) return null;
   const subject = match[1].trim();
   if (subject.split(/\s+/).length > 8) return null;
   if (/^(?:it|them|this|that)\b/i.test(subject)) return null;
   if (isNonImageSubject(subject)) return null;
   return cleanPrompt(subject);
+}
+
+function extractShortDrawSubject(trimmed: string): string | null {
+  return extractShortVerbSubject(trimmed, SHORT_DRAW_SUBJECT);
+}
+
+function extractShortCreateSubject(trimmed: string): string | null {
+  return extractShortVerbSubject(trimmed, SHORT_CREATE_SUBJECT);
 }
 
 export function extractImageGenPrompt(text: string): string | null {
@@ -336,6 +393,9 @@ export function extractImageGenPrompt(text: string): string | null {
 
   const shortDraw = extractShortDrawSubject(trimmed);
   if (shortDraw) return shortDraw;
+
+  const shortCreate = extractShortCreateSubject(trimmed);
+  if (shortCreate) return shortCreate;
 
   // Short colloquial: "cat pic" / "sunset photo" as full message
   if (trimmed.length <= 80 && IMAGE_NOUN.test(trimmed)) {
@@ -391,6 +451,8 @@ const NOT_THREAD_SUBJECT = new Set([
   "makes sense",
   "understood",
 ]);
+
+const DEICTIC_SUBJECT = /^(?:that|this|it|them)\b/i;
 
 const GENERATE_NOW_EXACT = new Set([
   "that works",
@@ -463,8 +525,18 @@ function threadSubjectFromUser(text: string): string | null {
   return cleaned;
 }
 
+function resolveDeicticSubject(direct: string, priors: readonly string[]): string {
+  if (!DEICTIC_SUBJECT.test(direct)) return direct;
+  for (let i = priors.length - 1; i >= 0; i -= 1) {
+    const subject = extractImageGenPrompt(priors[i] ?? "");
+    if (subject && !DEICTIC_SUBJECT.test(subject)) return subject;
+  }
+  return direct;
+}
+
 /**
  * Current line plus prior user bubbles: "Dog" then "Image" / "that works".
+ * A picture of "that car" uses the previous concrete subject.
  * Mirrors API ``extract_image_gen_prompt_from_thread``.
  */
 export function extractImageGenPromptFromThread(
@@ -472,7 +544,6 @@ export function extractImageGenPromptFromThread(
   messages: ReadonlyArray<{ id: string; role: string; content: string; model?: string | null }>,
 ): string | null {
   const direct = extractImageGenPrompt(text);
-  if (direct) return direct;
   const priors: string[] = [];
   for (const row of messages) {
     if (skipImageGenHistoryRow(row)) continue;
@@ -481,6 +552,7 @@ export function extractImageGenPromptFromThread(
   if (priors.length && priors[priors.length - 1]?.trim() === text.trim()) {
     priors.pop();
   }
+  if (direct) return resolveDeicticSubject(direct, priors);
   if (isImageNounOnlyMessage(text)) {
     for (let i = priors.length - 1; i >= 0; i -= 1) {
       const subject = threadSubjectFromUser(priors[i] ?? "");

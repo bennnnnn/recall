@@ -52,23 +52,57 @@ export function findStableMarkdownPrefixLen(content: string): number {
   return 0;
 }
 
+function isFenceDelimiter(line: string): boolean {
+  return line.startsWith("```") || line.startsWith("~~~");
+}
+
+/** `$`, `$$`, `\[`, and `\(` inside a code fence are code, not math. */
+function mathMarkersOutsideFences(text: string): {
+  blockDollar: number;
+  inlineDollar: number;
+  brackets: number;
+  parens: number;
+} {
+  let fenceOpen = false;
+  let blockDollar = 0;
+  let inlineDollar = 0;
+  let brackets = 0;
+  let parens = 0;
+  let pos = 0;
+  while (pos < text.length) {
+    const nl = text.indexOf("\n", pos);
+    const lineEnd = nl === -1 ? text.length : nl;
+    const line = text.slice(pos, lineEnd);
+    const fenceLine = isFenceDelimiter(line);
+    if (!fenceOpen && !fenceLine) {
+      const blocks = countOccurrences(line, "$$");
+      blockDollar += blocks;
+      inlineDollar += countOccurrences(line, "$") - 2 * blocks;
+      brackets += countOccurrences(line, "\\[") - countOccurrences(line, "\\]");
+      parens += countOccurrences(line, "\\(") - countOccurrences(line, "\\)");
+    }
+    if (fenceLine) fenceOpen = !fenceOpen;
+    if (nl === -1) break;
+    pos = nl + 1;
+  }
+  return { blockDollar, inlineDollar, brackets, parens };
+}
+
 function hasUnclosedStreamingStructure(text: string): boolean {
-  if (countOccurrences(text, "$$") % 2 !== 0) return true;
-  // Odd total `$` (after removing `$$` pairs) means an unclosed `$...$`
-  // inline-math span — without this, a prefix cut mid-`$x^2 +` would be
-  // treated as stable and preprocessed with a dangling `$`.
-  const totalDollar = countOccurrences(text, "$");
-  const blockDollarPairs = countOccurrences(text, "$$");
-  if ((totalDollar - 2 * blockDollarPairs) % 2 !== 0) return true;
+  const math = mathMarkersOutsideFences(text);
+  if (math.blockDollar % 2 !== 0) return true;
+  // Odd `$` outside a fence means an unclosed `$...$` span — without this,
+  // a prefix cut mid-`$x^2 +` would be treated as stable.
+  if (math.inlineDollar % 2 !== 0) return true;
   if (countFenceMarkers(text) % 2 !== 0) return true;
   // \[...\] is the other block-math delimiter preprocessMarkdown converts
   // (BLOCK_MATH_BRACKET_RE, alongside $$...$$) — without tracking it here
   // too, an unclosed \[ mid-stream gets folded into the "stable" prefix and
   // preprocessed while still open, leaving a raw dangling "\[" visible until
   // the closing \] finally arrives.
-  if (countOccurrences(text, "\\[") !== countOccurrences(text, "\\]")) return true;
+  if (math.brackets !== 0) return true;
   // \(...\) inline math — same risk as $...$ above.
-  if (countOccurrences(text, "\\(") !== countOccurrences(text, "\\)")) return true;
+  if (math.parens !== 0) return true;
   if (endsWithOpenCallout(text)) return true;
   if (endsWithOpenPipeTable(text)) return true;
   return false;
@@ -227,15 +261,18 @@ function scanStableMarkdownPrefix(
     // them as equivalent fence markers, so a ~~~-opened fence must keep the
     // scanner from treating its body as stable (otherwise the streaming
     // preprocessor would cut mid-fence and render a half-open fence).
-    if (line.startsWith("```") || line.startsWith("~~~")) fenceOpen = !fenceOpen;
-    const blockDollarCount = countOccurrences(line, "$$");
-    if (blockDollarCount % 2 !== 0) dollarOpen = !dollarOpen;
-    // Track single-`$` inline math: total `$` minus the ones consumed by `$$` pairs.
-    const totalDollar = countOccurrences(line, "$");
-    const inlineDollarCount = totalDollar - 2 * blockDollarCount;
-    if (inlineDollarCount % 2 !== 0) inlineDollarOpen = !inlineDollarOpen;
-    bracketDepth += countOccurrences(line, "\\[") - countOccurrences(line, "\\]");
-    parenDepth += countOccurrences(line, "\\(") - countOccurrences(line, "\\)");
+    const fenceLine = isFenceDelimiter(line);
+    if (!fenceOpen && !fenceLine) {
+      const blockDollarCount = countOccurrences(line, "$$");
+      if (blockDollarCount % 2 !== 0) dollarOpen = !dollarOpen;
+      // Track single-`$` inline math: total `$` minus the ones consumed by `$$` pairs.
+      const totalDollar = countOccurrences(line, "$");
+      const inlineDollarCount = totalDollar - 2 * blockDollarCount;
+      if (inlineDollarCount % 2 !== 0) inlineDollarOpen = !inlineDollarOpen;
+      bracketDepth += countOccurrences(line, "\\[") - countOccurrences(line, "\\]");
+      parenDepth += countOccurrences(line, "\\(") - countOccurrences(line, "\\)");
+    }
+    if (fenceLine) fenceOpen = !fenceOpen;
     // A callout chain continues as long as each new line still starts with
     // ">" (matching the original regex's permissive continuation pattern);
     // otherwise it only (re)starts on a proper `> [!type]` marker line — and

@@ -378,6 +378,10 @@ describe("imported math scanner photos", () => {
     });
     expect(view.onSolveReading).toHaveBeenCalledWith("2x + 3 = 11", "math");
     expect(view.onCaptured).not.toHaveBeenCalled();
+    expect(view.queryByTestId("math-scanner-shutter")).toBeNull();
+    expect(view.queryByTestId("math-scanner-preview-retake")).toBeNull();
+    expect(view.queryByTestId("math-scanner-preview-solve")).toBeNull();
+    expect(view.getByTestId("math-scanner-close")).toBeTruthy();
   });
 
   it("sends the photo with the reading the student checked", async () => {
@@ -393,6 +397,32 @@ describe("imported math scanner photos", () => {
       "math",
       "x^2 = 9",
     );
+  });
+
+  it("shows a rate limit instead of the generic read failure", async () => {
+    const read = jest.fn(async () => ({ error: "Too many scans in a row. Try again in a few minutes." }));
+    const view = await cropForReview(read);
+    expect(
+      within(view.getByTestId("math-scan-review")).getByText(
+        "Too many scans in a row. Try again in a few minutes.",
+      ),
+    ).toBeTruthy();
+    expect(view.queryByText("chat.math_scan_read_failed")).toBeNull();
+  });
+
+  it("does not send a ready reading the student wiped", async () => {
+    const read = jest.fn(async () => ({ reading: "2x = 4", uncertain: false, source: "mathpix" as const }));
+    const view = await cropForReview(read);
+    const review = within(view.getByTestId("math-scan-review"));
+    await act(async () => {
+      fireEvent.changeText(review.getByTestId("math-scan-reading"), "   ");
+    });
+    const send = review.getByText("chat.math_scan_send_photo");
+    expect(send).toBeDisabled();
+    await act(async () => {
+      fireEvent.press(send);
+    });
+    expect(view.onCaptured).not.toHaveBeenCalled();
   });
 
   it("falls back to the photo when the read fails", async () => {
@@ -448,6 +478,41 @@ describe("imported math scanner photos", () => {
     expect(onCaptured).not.toHaveBeenCalled();
   });
 
+  it("sends the chemistry photo with the reading the student checked", async () => {
+    const onCaptured = jest.fn();
+    const view = await render(
+      <MathEquationScanner
+        visible
+        onClose={jest.fn()}
+        onCaptured={onCaptured}
+        onReadChemistryScan={jest.fn(async () => ({
+          reading: "Find the molar mass of H2O",
+          uncertain: false,
+          source: "vision" as const,
+        }))}
+        onSolveReading={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByTestId("scanner-subject-chemistry"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_photos_a11y"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    const review = within(view.getByTestId("math-scan-review"));
+    await act(async () => {
+      fireEvent.press(review.getByText("chat.math_scan_send_photo"));
+    });
+    expect(onCaptured).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "chemistry",
+      "Find the molar mass of H2O",
+    );
+  });
+
   it("sends the chemistry photo when the read fails", async () => {
     const onCaptured = jest.fn();
     const view = await render(
@@ -477,6 +542,7 @@ describe("imported math scanner photos", () => {
     expect(onCaptured).toHaveBeenCalledWith(
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
       "chemistry",
+      undefined,
     );
   });
 

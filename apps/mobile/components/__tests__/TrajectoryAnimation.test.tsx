@@ -68,7 +68,7 @@ describe("native trajectory playback", () => {
 
     await fireEvent.press(getByLabelText("rich.simulation_pause_a11y"));
     expect(getByTestId("trajectory-play-symbol").props.name).toBe("play");
-    await fireEvent.press(getByLabelText("rich.simulation_play_a11y"));
+    await fireEvent.press(getByLabelText("rich.graph_play_a11y"));
     expect(getByTestId("trajectory-stop-symbol").props.name).toBe("pause");
   });
 

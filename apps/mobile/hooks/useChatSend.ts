@@ -11,7 +11,11 @@ import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
 import type { MathScanReading, Message } from "@/lib/api";
-import { chemistryScanSolveMessage } from "@/lib/chemistry/scanSolve";
+import {
+  chemistryScanSolveMessage,
+  composerTextAfterChemistryScanConfirm,
+} from "@/lib/chemistry/scanSolve";
+import { mathScanFailureDetail, type MathScanReadFailure } from "@/lib/math/scanReadError";
 import { clearPendingChatTtft } from "@/lib/chat/latency";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
@@ -683,8 +687,14 @@ export function useChatSend({
     setPendingAttachment(pending);
     // A checked reading rides with the photo so the API solves what the
     // student confirmed instead of reading the photo again.
-    const text = subject === "math" && confirmedReading
-      ? withComposerDraft(composerTextAfterMathScanConfirm(confirmedReading), inputRef.current)
+    const confirmed =
+      subject === "math"
+        ? composerTextAfterMathScanConfirm
+        : subject === "chemistry"
+          ? composerTextAfterChemistryScanConfirm
+          : null;
+    const text = confirmed && confirmedReading
+      ? withComposerDraft(confirmed(confirmedReading), inputRef.current)
       : composerTextAfterSubjectScan(inputRef.current, subject);
     setInput(text);
     setMathScannerOpen(false);
@@ -692,16 +702,21 @@ export function useChatSend({
   }, [handleSend, setInput, setPendingAttachment, inputRef]);
 
   const readMathScan = useCallback(
-    async (scan: PendingAttachment, signal: AbortSignal): Promise<MathScanReading | null> => {
+    async (
+      scan: PendingAttachment,
+      signal: AbortSignal,
+    ): Promise<MathScanReading | MathScanReadFailure | null> => {
       if (!token) return null;
       try {
         // Loaded on use: the API barrel pulls in native file-system modules
         // this hook otherwise never touches.
         const { api } = await import("@/lib/api");
         return await api.readMathScan(token, scan, signal);
-      } catch {
-        // The review offers "Send photo" when the read fails.
-        return null;
+      } catch (error) {
+        // A rate limit or an oversized photo names itself. Anything else,
+        // including a dropped connection, stays the generic read failure.
+        const detail = mathScanFailureDetail(error);
+        return detail ? { error: detail } : null;
       }
     },
     [token],

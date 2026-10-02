@@ -102,7 +102,7 @@ def _attach(molecule: Any, index: int, symbol: str) -> None:
 
 
 def _substitute_primary_halide(molecule: Any) -> str | None:
-    """SN2 by hydroxide, only when exactly one halogen is on the molecule and it is primary sp3."""
+    """SN2 by hydroxide, only when exactly one halogen is on a methyl or primary sp3 carbon."""
     from rdkit import Chem
 
     halogens = [atom for atom in molecule.GetAtoms() if atom.GetSymbol() in _HALOGENS]
@@ -115,7 +115,8 @@ def _substitute_primary_halide(molecule: Any) -> str | None:
     carbon = neighbors[0]
     if carbon.GetSymbol() != "C" or carbon.GetHybridization() != Chem.HybridizationType.SP3:
         return None
-    if sum(1 for atom in carbon.GetNeighbors() if atom.GetSymbol() == "C") != 1:
+    # Methyl has no carbon neighbor. Two or more is secondary or tertiary.
+    if sum(1 for atom in carbon.GetNeighbors() if atom.GetSymbol() == "C") > 1:
         return None
     edited = Chem.RWMol(molecule)
     edited.GetAtomWithIdx(halogen.GetIdx()).SetAtomicNum(8)

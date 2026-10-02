@@ -13,6 +13,7 @@ from __future__ import annotations
 from typing import Any
 
 from sympy import (
+    Abs,
     Add,
     Dummy,
     Poly,
@@ -54,8 +55,13 @@ def _differential(value: Any, var: Any) -> str:
 
 
 def split_sum(parts: list[str], negatives: list[bool]) -> str:
-    """``A + B - C`` from rendered parts, a minus instead of ``+ -``."""
-    text = parts[0]
+    """``A + B - C`` from rendered parts, a minus instead of ``+ -``.
+
+    Callers strip the minus off every negative term, including the first, so
+    the sign has to be put back here. Leaving the first term unsigned turns
+    ``-x - 1`` into a positive split.
+    """
+    text = f"- {parts[0]}" if negatives and negatives[0] else parts[0]
     for part, negative in zip(parts[1:], negatives[1:], strict=True):
         text += f" - {part}" if negative else f" + {part}"
     return text
@@ -70,6 +76,28 @@ def _antiderivative_of(candidate: Any, integrand: Any, var: Any) -> bool:
         return bool(simplify(diff(candidate, var) - integrand) == 0)
     except Exception:
         return False
+
+
+def _antiderivative_on_positives(candidate: Any, integrand: Any, var: Any) -> bool:
+    """``ln|x|`` differentiates to ``1/x`` for ``x > 0``. The unrestricted
+    derivative is a piecewise that the ordinary check rejects."""
+    if getattr(var, "is_positive", None):
+        return _antiderivative_of(candidate, integrand, var)
+    positive = Symbol(str(var), positive=True)
+    return _antiderivative_of(
+        candidate.subs(var, positive),
+        integrand.subs(var, positive),
+        positive,
+    )
+
+
+def _ln_abs_latex(coefficient: Any, var: Any) -> str:
+    body = rf"\ln |{latex(var)}|"
+    if coefficient == 1:
+        return body
+    if coefficient == -1:
+        return rf"-{body}"
+    return rf"{latex(coefficient)}{body}"
 
 
 def _power_step(term: Any, var: Any) -> tuple[KeyStep, Any] | None:
@@ -105,8 +133,18 @@ _STANDARD = {
 def _standard_step(term: Any, var: Any) -> tuple[KeyStep, Any] | None:
     coefficient, rest = term.as_coeff_Mul() if term.is_Mul else (1, term)
     if rest == 1 / var:
-        result = coefficient * log(var)
-        reason = r"$\int \frac{1}{x}\,dx = \ln x$"
+        result = coefficient * log(Abs(var))
+        reason = r"$\int \frac{1}{x}\,dx = \ln |x|$"
+        if not _antiderivative_on_positives(result, term, var):
+            return None
+        return (
+            KeyStep(
+                label=f"Standard integral of ${latex(rest)}$",
+                formula=f"{_int(term, var)} = {_ln_abs_latex(coefficient, var)}",
+                reason=reason,
+            ),
+            result,
+        )
     else:
         func: Any = getattr(rest, "func", None)
         if func is None or func not in _STANDARD or rest.args != (var,):
@@ -315,7 +353,9 @@ def integral_key_steps(expr: Any, variable: str) -> tuple[list[KeyStep], Any | N
         steps.extend(term_steps)
         parts.append(antiderivative)
     total = Add(*parts)
-    if not _antiderivative_of(total, expr, var):
+    if not _antiderivative_of(total, expr, var) and not (
+        total.has(Abs) and _antiderivative_on_positives(total, expr, var)
+    ):
         return [], None
     if len(terms) > 1:
         steps.append(
@@ -347,4 +387,5 @@ def integral_trace(expr: str, variable: str) -> tuple[list[KeyStep], str | None,
     if not steps or antiderivative is None or len(steps) < 2:
         return [], None, None
     var = next((s for s in parsed.free_symbols if str(s) == variable), Symbol(variable))
-    return steps, _int(parsed, var), f"{latex(antiderivative)} + C"
+    answer = _ln_abs_latex(1, var) if antiderivative == log(Abs(var)) else latex(antiderivative)
+    return steps, _int(parsed, var), f"{answer} + C"

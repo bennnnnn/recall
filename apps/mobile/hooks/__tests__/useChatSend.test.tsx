@@ -1,3 +1,4 @@
+import { ApiRequestError } from "@/lib/api/client";
 import { getSessionGeneration } from "@/lib/auth";
 import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
@@ -816,6 +817,23 @@ describe("useChatSend math scans", () => {
     );
   });
 
+  it("sends a chemistry photo with the reading the student checked", async () => {
+    uploadAttachment.mockResolvedValue("att-1");
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      current.handleMathScanCaptured(scan, "chemistry", "Find the molar mass of H2O");
+      await settle();
+    });
+    expect(uploadAttachment).toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledWith(
+      "Solve the chemistry problem in this image step by step.\n\nI read this as: Find the molar mass of H2O",
+      expect.anything(),
+    );
+  });
+
   it("reads a scan through the API and turns a failure into null", async () => {
     await act(async () => {
       render(<Probe chatId="chat-1" />);
@@ -830,6 +848,18 @@ describe("useChatSend math scans", () => {
     expect(mockReadMathScan).toHaveBeenCalledWith("token", scan, controller.signal);
     mockReadMathScan.mockRejectedValueOnce(new Error("offline"));
     await expect(current.readMathScan(scan, controller.signal)).resolves.toBeNull();
+    mockReadMathScan.mockRejectedValueOnce(
+      new ApiRequestError(429, JSON.stringify({ detail: "Too many scans in a row. Try again in a few minutes." })),
+    );
+    await expect(current.readMathScan(scan, controller.signal)).resolves.toEqual({
+      error: "Too many scans in a row. Try again in a few minutes.",
+    });
+    mockReadMathScan.mockRejectedValueOnce(
+      new ApiRequestError(413, JSON.stringify({ detail: "Image too large" })),
+    );
+    await expect(current.readMathScan(scan, controller.signal)).resolves.toEqual({
+      error: "Image too large",
+    });
   });
 });
 

@@ -22,7 +22,11 @@ import { Type, Weight } from "@/lib/type";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
-type Props = { content: string };
+type Props = {
+  content: string;
+  /** A closed fence. An open stream must not show the success check yet. */
+  settled?: boolean;
+};
 
 // Match standalone KaTeX and the answer text role, including nested native math.
 const ANSWER_FONT_SIZE = 20;
@@ -52,7 +56,7 @@ function answerNeedsDisplayMath(text: string): boolean {
  * box — never `compact` + centered zero-width wrap, which used to collapse
  * into a thin vertical sliver / tall pill inside this box.
  */
-export function AnswerBlock({ content }: Props) {
+export function AnswerBlock({ content, settled = true }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -79,13 +83,15 @@ export function AnswerBlock({ content }: Props) {
               {parsed.body}
             </Text>
           </View>
-          <Icon
-            testID="answer-success-check"
-            name="check-circle-filled"
-            size={IconSize.md}
-            color={theme.success}
-            style={s.successCheck}
-          />
+          {settled ? (
+            <Icon
+              testID="answer-success-check"
+              name="check-circle-filled"
+              size={IconSize.md}
+              color={theme.success}
+              style={s.successCheck}
+            />
+          ) : null}
         </View>
       </View>
     );
@@ -183,7 +189,7 @@ export function AnswerBlock({ content }: Props) {
                         fontSize={ANSWER_FONT_SIZE}
                       />
                     )}
-                    {lineIndex === nativeLines.length - 1 ? (
+                    {settled && lineIndex === nativeLines.length - 1 ? (
                       <Icon
                         testID="answer-success-check"
                         name="check-circle-filled"
@@ -223,7 +229,7 @@ export function AnswerBlock({ content }: Props) {
             </Text>
           )}
         </View>
-        {!hasNestedView ? (
+        {settled && !hasNestedView ? (
           <Icon
             testID="answer-success-check"
             name="check-circle-filled"

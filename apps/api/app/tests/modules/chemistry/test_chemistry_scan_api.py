@@ -86,6 +86,40 @@ def test_scan_read_returns_the_written_problem() -> None:
     assert read.await_args.kwargs["content_type"] == "image/jpeg"
 
 
+def test_a_confirmed_reading_solves_with_the_photo() -> None:
+    from pathlib import Path
+
+    from app.modules.chemistry.reading import (
+        CHEMISTRY_CAMERA_CONFIRMED_PREFIX,
+        chemistry_text_for_solve,
+        confirmed_chemistry_reading,
+    )
+    from app.services.subject_scan import CHEMISTRY_CAMERA_PROMPT
+
+    source = (
+        Path(__file__).resolve().parents[5] / "mobile" / "lib" / "chemistry" / "scanSolve.ts"
+    ).read_text(encoding="utf-8")
+    marker = 'export const CHEMISTRY_CAMERA_CONFIRMED_PREFIX = "'
+    start = source.find(marker)
+    assert start >= 0
+    end = source.find('"', start + len(marker))
+    assert source[start + len(marker) : end] == CHEMISTRY_CAMERA_CONFIRMED_PREFIX
+
+    caption = CHEMISTRY_CAMERA_PROMPT
+    confirmed = f"{caption}\n\n{CHEMISTRY_CAMERA_CONFIRMED_PREFIX} Find the molar mass of H2O"
+    assert confirmed_chemistry_reading(caption) is None
+    assert chemistry_text_for_solve(confirmed) == "Find the molar mass of H2O"
+    intent = extract_chemistry_intent(chemistry_text_for_solve(confirmed))
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    reply = maybe_direct_chemistry_reply(verified, has_image_attachment=True, user_text=confirmed)
+    assert reply is not None
+    assert "18.02" in reply
+    assert (
+        maybe_direct_chemistry_reply(verified, has_image_attachment=True, user_text=caption) is None
+    )
+
+
 def test_a_confirmed_reading_solves_as_typed_text_without_the_photo() -> None:
     reading = "Find the molar mass of H2O"
     assert not reading.startswith("Show steps:")

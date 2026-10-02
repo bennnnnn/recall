@@ -46,13 +46,23 @@ def test_to_math_intent_maps_calculus_with_definite_bounds() -> None:
     assert intent.integral_upper == "3"
 
 
-def test_to_math_intent_maps_system_capped_at_four() -> None:
-    eqs = [(f"x+{i}", str(i)) for i in range(6)]
+def test_to_math_intent_maps_system_of_four() -> None:
+    eqs = [(f"x+{i}", str(i)) for i in range(4)]
     intent = to_math_intent(
         LLMMathExtract(found=True, kind="system", equations=eqs, variables=["x", "y"])
     )
     assert intent is not None
-    assert intent.system_equations is not None and len(intent.system_equations) == 4
+    assert intent.system_equations == eqs
+
+
+def test_to_math_intent_rejects_system_longer_than_four() -> None:
+    eqs = [(f"x+{i}", str(i)) for i in range(6)]
+    assert (
+        to_math_intent(
+            LLMMathExtract(found=True, kind="system", equations=eqs, variables=["x", "y"])
+        )
+        is None
+    )
 
 
 @pytest.mark.parametrize(

@@ -298,10 +298,10 @@ async def build_chemistry_augmentation(
         )
     except TimeoutError:
         logger.info("PubChem lookup timed out for %r", name)
-        return None, None, False
+        return unverified_chemistry_note(), None, True
     if lookup.error is not None or lookup.compound is None:
         logger.info("PubChem lookup failed for %r: %s", name, lookup.error)
-        return None, None, False
+        return unverified_chemistry_note(), None, True
     compound = lookup.compound
     lines = [
         f"[Chemistry context for {name}]",

@@ -20,6 +20,7 @@ from app.modules.billing import plan as plan_service
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.modules.math.followup import math_working_followup_problem, offered_equation_problem
+from app.modules.math.tools.extract import is_graph_followup
 from app.modules.web_search.subject import (
     _prior_user_messages as _prompt_prior_user_messages,
 )
@@ -495,7 +496,9 @@ async def build_stream_prompt_context(
         chemistry_enabled=settings.chemistry_enabled,
     )
     needs_math = settings.math_tools_enabled and (
-        detected_subject in {"math", "physics"} or math_followup_problem is not None
+        detected_subject in {"math", "physics"}
+        or math_followup_problem is not None
+        or is_graph_followup(content)
     )
     needs_search = web_search_service.needs_web_search(
         content,

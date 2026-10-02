@@ -41,7 +41,7 @@ describe("comparison graph series", () => {
         .find((props) => props.stroke === color);
       expect(marker).toBeTruthy();
     }
-    const tree = getByDisplayValue("y = x^2").parent;
+    const tree = getByDisplayValue("y = x^2").parent?.parent;
     expect(tree).toBeTruthy();
     const swatch = tree?.children.find(
       (child) => typeof child !== "string" && StyleSheet.flatten(child.props.style)?.backgroundColor,
