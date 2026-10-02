@@ -118,6 +118,14 @@ def _leftover_prose_blocks_solve(cleaned: str, lhs: str, rhs: str) -> bool:
     s = _blank_extracted_equation(core, lhs, rhs)
     words = [w.lower().strip(".,?!:;") for w in s.split() if w.strip(".,?!=:;")]
     english = [w for w in words if len(w) >= 3 and w.isalpha() and w not in _TRAILING_OK_WORDS]
+    # One leftover word is glue (``please`` is already ignored). A word that
+    # only contains a command, such as ``resolved``, is not a command, so the
+    # equation is not solved.
+    if english:
+        from app.modules.math.match.scan import has_math_keyword
+
+        if not has_math_keyword(cleaned.lower()):
+            return True
     return len(english) >= 2
 
 

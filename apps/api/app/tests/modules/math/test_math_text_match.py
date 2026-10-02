@@ -422,6 +422,13 @@ class TestGluedVizCommands:
     def test_glued_graph_is_a_math_keyword(self):
         assert mtm.has_math_keyword("x=6graph")
 
+    def test_command_words_are_whole_words(self):
+        assert not mtm.has_math_keyword("i resolved x=1")
+        assert not mtm.has_math_keyword("factorial of 5")
+        assert mtm.has_math_keyword("solve x=1")
+        assert mtm.has_math_keyword("i solved 2x+3=7")
+        assert mtm.has_math_keyword("pythagorean theorem")
+
     def test_has_viz_command_whole_run_not_substring(self):
         from app.modules.math.match.scan import has_viz_command, peel_edge_english
 
