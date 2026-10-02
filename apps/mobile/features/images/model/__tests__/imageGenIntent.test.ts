@@ -25,9 +25,14 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("draw a mermaid")).toBe("mermaid");
   });
 
-  it("does not treat bare make/create as image gen (needs pic/image/photo)", () => {
-    expect(extractImageGenPrompt("Create cat")).toBeNull();
-    expect(extractImageGenPrompt("create a cat")).toBeNull();
+  it("generates a short create/make subject without an image noun", () => {
+    expect(extractImageGenPrompt("Create cat")).toBe("cat");
+    expect(extractImageGenPrompt("create a cat")).toBe("cat");
+    expect(extractImageGenPrompt("Create a car from the 1950s on NW road")).toBe(
+      "car from the 1950s on NW road",
+    );
+    expect(extractImageGenPrompt("create music")).toBeNull();
+    expect(extractImageGenPrompt("create a song")).toBeNull();
     expect(extractImageGenPrompt("make your own example")).toBeNull();
     expect(extractImageGenPrompt("make an example")).toBeNull();
     expect(extractImageGenPrompt("create a math problem")).toBeNull();
@@ -141,6 +146,17 @@ describe("image revision follow-ups", () => {
         previousSubject: "black cat",
       }),
     ).toBe("black cat, blue");
+  });
+
+  it("does not redraw when the follow-up is praise", () => {
+    const context = {
+      lastAssistantIsImageOnly: true,
+      previousSubject: "that car",
+    };
+    expect(extractImageRevisionPrompt("Nice car.", context)).toBeNull();
+    expect(extractImageRevisionPrompt("looks good", context)).toBeNull();
+    expect(extractImageRevisionPrompt("love it", context)).toBeNull();
+    expect(extractImageRevisionPrompt("make it nicer", context)).toBe("that car, nicer");
   });
 
   it("does not treat thanks / normal chat as a revision", () => {
@@ -268,6 +284,14 @@ describe("extractImageGenPromptFromThread", () => {
 
   it("keeps a one-shot create-a-pic ask", () => {
     expect(extractImageGenPromptFromThread("create a cat pic", [user("u1", "Dog")])).toBe("cat");
+  });
+
+  it("uses the earlier car when the picture ask only says that car", () => {
+    const prior = user("u1", "Create a car from the 1950s on NW road");
+    expect(extractImageGenPromptFromThread("Create a picture of that car", [prior])).toBe(
+      "car from the 1950s on NW road",
+    );
+    expect(extractImageGenPromptFromThread("Create a picture of that car", [])).toBe("that car");
   });
 
   it("generates after that works / do it when the thread already asked for an image", () => {

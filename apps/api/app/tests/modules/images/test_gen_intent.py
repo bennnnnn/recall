@@ -29,6 +29,9 @@ from app.services.subject_scan import (
         ("Generate image: milk", "milk"),
         ("make a red sports car photo", "red sports car"),
         ("draw a mermaid", "mermaid"),
+        ("create a cat", "cat"),
+        ("Create cat", "cat"),
+        ("Create a car from the 1950s on NW road", "car from the 1950s on NW road"),
     ],
 )
 def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
@@ -45,9 +48,9 @@ def test_extract_image_gen_prompt_matches(text: str, expected: str) -> None:
         "create an image compression script",
         "draw a conclusion from this",
         "make it blue",  # revision follow-up, not "create a picture of it blue"
-        # Ambiguous make/create without an image noun — stay in chat.
-        "Create cat",
-        "create a cat",
+        "create music",
+        "create a song",
+        "make a playlist",
         "make your own example",
         "make an example",
         "create a math problem",
@@ -88,6 +91,14 @@ def test_extract_image_gen_prompt_from_thread_keeps_direct_asks() -> None:
     assert extract_image_gen_prompt_from_thread("create a cat pic", ["Dog"]) == "cat"
 
 
+def test_picture_of_that_car_uses_the_earlier_subject() -> None:
+    prior = "Create a car from the 1950s on NW road"
+    assert extract_image_gen_prompt_from_thread("Create a picture of that car", [prior]) == (
+        "car from the 1950s on NW road"
+    )
+    assert extract_image_gen_prompt_from_thread("Create a picture of that car", []) == "that car"
+
+
 def test_extract_image_gen_prompt_from_thread_confirm_after_scene() -> None:
     priors = ["Dog", "Image", "U pick"]
     assert extract_image_gen_prompt_from_thread("That works", priors) == "Dog"
@@ -125,6 +136,34 @@ def test_extract_image_revision_prompt_white_case() -> None:
         )
         == "black cat, blue"
     )
+
+
+def test_extract_image_revision_prompt_rejects_praise() -> None:
+    assert (
+        extract_image_revision_prompt(
+            "Nice car.",
+            last_assistant_is_image_only=True,
+            previous_subject="that car",
+        )
+        is None
+    )
+    assert (
+        extract_image_revision_prompt(
+            "looks good",
+            last_assistant_is_image_only=True,
+            previous_subject="that car",
+        )
+        is None
+    )
+    assert (
+        extract_image_revision_prompt(
+            "make it nicer",
+            last_assistant_is_image_only=True,
+            previous_subject="that car",
+        )
+        == "that car, nicer"
+    )
+    assert could_be_image_revision("Nice car.") is False
 
 
 def test_extract_image_revision_prompt_rejects_thanks_and_non_image() -> None:
