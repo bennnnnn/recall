@@ -36,11 +36,11 @@ def _gas_law(operation: ChemistryOp, names: tuple[str, ...], text: str) -> Chemi
 def _extract_gas_laws(text: str) -> ChemistryIntent | None:
     if re.search(r"\bcombined gas\b", text, re.IGNORECASE):
         return _gas_law("combined_gas", ("p1", "v1", "t1", "p2", "v2", "t2"), text)
-    if re.search(r"\bBoyle\b", text):
+    if re.search(r"\bBoyle\b", text, re.IGNORECASE):
         return _gas_law("boyle", ("p1", "v1", "p2", "v2"), text)
-    if re.search(r"\bCharles\b", text):
+    if re.search(r"\bCharles\b", text, re.IGNORECASE):
         return _gas_law("charles", ("v1", "t1", "v2", "t2"), text)
-    if re.search(r"\bDalton\b", text):
+    if re.search(r"\bDalton\b", text, re.IGNORECASE):
         partials = _partial_pressures(text)
         if partials is not None and len(partials[0]) >= 2:
             return ChemistryIntent(
