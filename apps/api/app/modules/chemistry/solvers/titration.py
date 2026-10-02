@@ -219,8 +219,7 @@ def _weak_titration(intent: ChemistryIntent, *, acid: bool) -> ChemistryResult:
             f"{num(excess)} mol/L"
         )
         lines.append(
-            f"[H+] = [net + √(net^2 + 4Kw)] / 2 = {num(hydrogen)} mol/L "
-            "(water's ions included)"
+            f"[H+] = [net + √(net^2 + 4Kw)] / 2 = {num(hydrogen)} mol/L (water's ions included)"
         )
         lines.append(f"pH = −log10({num(hydrogen)}) = {ph}")
     return _done(
