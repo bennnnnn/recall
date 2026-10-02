@@ -1,3 +1,4 @@
+import { ApiRequestError } from "@/lib/api/client";
 import { getSessionGeneration } from "@/lib/auth";
 import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
@@ -830,6 +831,18 @@ describe("useChatSend math scans", () => {
     expect(mockReadMathScan).toHaveBeenCalledWith("token", scan, controller.signal);
     mockReadMathScan.mockRejectedValueOnce(new Error("offline"));
     await expect(current.readMathScan(scan, controller.signal)).resolves.toBeNull();
+    mockReadMathScan.mockRejectedValueOnce(
+      new ApiRequestError(429, JSON.stringify({ detail: "Too many scans in a row. Try again in a few minutes." })),
+    );
+    await expect(current.readMathScan(scan, controller.signal)).resolves.toEqual({
+      error: "Too many scans in a row. Try again in a few minutes.",
+    });
+    mockReadMathScan.mockRejectedValueOnce(
+      new ApiRequestError(413, JSON.stringify({ detail: "Image too large" })),
+    );
+    await expect(current.readMathScan(scan, controller.signal)).resolves.toEqual({
+      error: "Image too large",
+    });
   });
 });
 
