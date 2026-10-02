@@ -544,7 +544,7 @@ export function MathEquationScanner({
             onSendPhoto={(reading) => {
               stopReading();
               if (subject === "chemistry") {
-                onCaptured(review.shot, "chemistry");
+                onCaptured(review.shot, "chemistry", reading || undefined);
                 return;
               }
               onCaptured(review.shot, "math", reading || undefined);

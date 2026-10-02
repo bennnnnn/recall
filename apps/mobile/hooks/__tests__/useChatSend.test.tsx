@@ -817,6 +817,23 @@ describe("useChatSend math scans", () => {
     );
   });
 
+  it("sends a chemistry photo with the reading the student checked", async () => {
+    uploadAttachment.mockResolvedValue("att-1");
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      current.handleMathScanCaptured(scan, "chemistry", "Find the molar mass of H2O");
+      await settle();
+    });
+    expect(uploadAttachment).toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledWith(
+      "Solve the chemistry problem in this image step by step.\n\nI read this as: Find the molar mass of H2O",
+      expect.anything(),
+    );
+  });
+
   it("reads a scan through the API and turns a failure into null", async () => {
     await act(async () => {
       render(<Probe chatId="chat-1" />);

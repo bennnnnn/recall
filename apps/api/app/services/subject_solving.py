@@ -210,10 +210,11 @@ async def _augment_chemistry(
     if not settings.chemistry_enabled:
         return SubjectAugmentation(None, None, None)
     from app.modules.chemistry.context import build_chemistry_augmentation
+    from app.modules.chemistry.reading import chemistry_text_for_solve
     from app.services.chat.prompt_constants.visuals import attach_chemistry_fence_hint
 
     block, verified, declined = await build_chemistry_augmentation(
-        user_content, settings, redis=redis
+        chemistry_text_for_solve(user_content), settings, redis=redis
     )
     if block:
         block = attach_chemistry_fence_hint(block)
@@ -233,7 +234,7 @@ def _direct_chemistry(
     response_style: str,
     verified_request_text: str | None,
 ) -> str | None:
-    del user_text, response_style, verified_request_text
+    del response_style, verified_request_text
     from app.modules.chemistry.block import VerifiedChemistry
     from app.modules.chemistry.direct import maybe_direct_chemistry_reply
 
@@ -242,6 +243,7 @@ def _direct_chemistry(
     return maybe_direct_chemistry_reply(
         verified,
         has_image_attachment=has_image_attachment,
+        user_text=user_text,
     )
 
 
