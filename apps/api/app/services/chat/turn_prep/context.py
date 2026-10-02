@@ -30,7 +30,10 @@ from app.services import profile as profile_service
 from app.services import recurring_pay as recurring_pay_service
 from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
-from app.services.chat.continuation_subject import blocks_math_followup
+from app.services.chat.continuation_subject import (
+    blocks_math_followup,
+    chemistry_working_followup_problem,
+)
 from app.services.chat.prompt_builder import (
     build_prompt_messages,
     fetch_web_and_tools,
@@ -475,6 +478,9 @@ async def build_stream_prompt_context(
     # re-solve the user's earlier line. Solve the offered equation instead.
     if math_followup_problem is None:
         math_followup_problem = offered_equation_problem(content, followup_history)
+    chemistry_followup_problem = None
+    if math_followup_problem is None:
+        chemistry_followup_problem = chemistry_working_followup_problem(content, followup_history)
 
     # Geo "location not set" fallback (independent of the LLM).
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
@@ -496,7 +502,9 @@ async def build_stream_prompt_context(
         prior_user_messages=_prompt_prior_user_messages(prompt_messages, content) or None,
         prior_assistant=last_assistant_content(prompt_messages),
     )
-    needs_chem = settings.chemistry_enabled and detected_subject == "chemistry"
+    needs_chem = settings.chemistry_enabled and (
+        detected_subject == "chemistry" or chemistry_followup_problem is not None
+    )
     augment = _should_augment_web_and_tools(
         instant_reply=instant_reply,
         lightweight=mode.lightweight,
@@ -593,6 +601,7 @@ async def build_stream_prompt_context(
                 has_image_attachment=has_image_attachment,
                 image_math_extract=image_math_extract,
                 math_followup_problem=math_followup_problem,
+                chemistry_followup_problem=chemistry_followup_problem,
                 on_status=on_status,
                 user=user,
                 redis=redis,

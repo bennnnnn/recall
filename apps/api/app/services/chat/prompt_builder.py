@@ -132,7 +132,11 @@ from app.services.prompt_safety import (
     wrap_user_preferences,
 )
 from app.services.solving import VerifiedSolveBlock
-from app.services.subject_solving import build_subject_augmentation, detect_subject
+from app.services.subject_solving import (
+    SubjectName,
+    build_subject_augmentation,
+    detect_subject,
+)
 
 _PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places")
 _SLIM_MEMORY_MAX_CHARS = 1000
@@ -306,6 +310,7 @@ async def fetch_web_and_tools(
     has_image_attachment: bool = False,
     image_math_extract: MathImageExtract | None = None,
     math_followup_problem: str | None = None,
+    chemistry_followup_problem: str | None = None,
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
@@ -318,16 +323,20 @@ async def fetch_web_and_tools(
     the wording of the prompt block. ``unverified_subject`` is set only when that flag is true.
     """
     math_user_content = math_followup_problem or user_content
-    subject = (
-        "math"
-        if math_followup_problem is not None
-        else detect_subject(
+    subject_user_content = user_content
+    subject: SubjectName | None
+    if math_followup_problem is not None:
+        subject = "math"
+    elif chemistry_followup_problem is not None:
+        subject = "chemistry"
+        subject_user_content = chemistry_followup_problem
+    else:
+        subject = detect_subject(
             user_content,
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
             chemistry_enabled=settings.chemistry_enabled,
         )
-    )
     if subject == "chemistry":
         needs_subject = settings.chemistry_enabled
     elif subject in {"math", "physics"}:
@@ -363,7 +372,7 @@ async def fetch_web_and_tools(
     (web_block, search_sources), subject_result = await asyncio.gather(
         _web_for_turn(),
         build_subject_augmentation(
-            user_content,
+            subject_user_content,
             settings,
             math_user_content=math_user_content,
             has_image_attachment=has_image_attachment,
