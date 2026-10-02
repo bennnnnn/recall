@@ -17,10 +17,13 @@ from app.modules.physics.givens import ANGLE, unit_at, unit_dimension
 
 _DIMENSIONLESS = "dimensionless"
 _UNKNOWN = ""
+# A price is no physical result: a question for the cost of running a heater
+# is not answered by its energy in joules.
+_MONEY = "money"
 
-# Asked phrase -> Pint expression. ANGLE and dimensionless stand for themselves;
-# an empty string marks a phrase that is a quantity of no single dimension, so
-# the reading is abandoned rather than guessed.
+# Asked phrase -> Pint expression. ANGLE, dimensionless and money stand for
+# themselves; an empty string marks a phrase that is a quantity of no single
+# dimension, so the reading is abandoned rather than guessed.
 _QUANTITIES: dict[str, str] = {
     # Time
     "how long": "second",
@@ -171,6 +174,9 @@ _QUANTITIES: dict[str, str] = {
     "fraction": _DIMENSIONLESS,
     "ratio": _DIMENSIONLESS,
     "strain": _DIMENSIONLESS,
+    "cost": _MONEY,
+    "price": _MONEY,
+    "bill": _MONEY,
     # Quantities of no single dimension: stop reading rather than guess.
     "field strength": _UNKNOWN,
     "field": _UNKNOWN,
@@ -235,7 +241,7 @@ def _dimension(phrase: str, text: str) -> str | None:
     expression = _QUANTITIES[phrase.lower()]
     if expression == "watt" and _LENS.search(text):
         return None
-    if expression in {ANGLE, _DIMENSIONLESS}:
+    if expression in {ANGLE, _DIMENSIONLESS, _MONEY}:
         return expression
     if expression == _UNKNOWN:
         return None

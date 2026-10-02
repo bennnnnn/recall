@@ -263,7 +263,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   catalog law when it states the law's inputs and asks for its result (SUVAT for any
   unknown including u, d = vt in the written units, a dropped body's height, a
   horizontal launch, weight, Atwood, a pull against friction, lifting power, Kepler
-  around a named planet, rotational KE); see "Adding a law" in docs/physics.md. Mechanics:
+  around a named planet, rotational KE; `Q = It` for I, `Q = CV` for any unknown,
+  resistivity, `τ = RC`, RC charging and discharging, capacitors in series and parallel,
+  an ideal transformer, `E = V/d`, `F = qE`, `W = qV` for a named electron or proton,
+  a solenoid's field, a string or pipe's resonance, Snell for θ₂, a diffraction
+  grating's angle, lens power, `f = R/2`, `m = −v/u`); see "Adding a law" in
+  docs/physics.md. An answer is in the unit its like givens share (two µF capacitors
+  give µF). Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar
   F=ma with resultants and components, KE / PE / work / power (including
@@ -278,8 +284,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and a one-battery series loop, inductor emf and energy, RL growth and decay,
   sinusoidal RMS, reactance, series impedance, LC resonance, and average
   resistor power), **waves** (`v = fλ`,
-  `f = 1/T`, Doppler for a moving source, and the school form when an observer
-  speed is stated too), **optics** (thin lens/mirror, speed-derived refractive
+  `f = 1/T`, Doppler for a moving source or a moving observer of a stationary
+  source, with a stated speed of sound and either party's speed in any unit, and the
+  school form when both speeds are stated), **optics** (thin lens/mirror, speed-derived refractive
   index, magnification, Snell, critical
   angle), **thermal** (`Q = mcΔT`, `PV = nRT` for the missing pressure, volume,
   amount, or temperature, monatomic `U = 3/2 nRT`, isobaric `W = PΔV`,
@@ -301,7 +308,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   a diverging lens (the sign conventions disagree), an absolute temperature
   written as bare "degrees" (27 °C and 27 K differ elevenfold), efficiency from
   two temperatures (that is Carnot), a Doppler question with no stated
-  direction, a moment of inertia for a "wheel" (the shape *is* the answer), a
+  direction, a price ("find the cost"), a magnification from a virtual image's
+  distance, a moment of inertia for a "wheel" (the shape *is* the answer), a
   planet described but not named, buoyancy without a submerged volume, a
   Bernoulli question with neither horizontal flow nor both heights, an adiabatic
   process with no gamma, and a Kirchhoff loop that is not one battery plus

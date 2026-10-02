@@ -9,10 +9,12 @@ expression, so the working is the computation.
 from __future__ import annotations
 
 import math
+from typing import TYPE_CHECKING
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.display import si_symbol
 from app.modules.physics.expression import evaluate, to_latex
+from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
@@ -20,6 +22,9 @@ from app.modules.physics.solvers.common import (
     solved,
 )
 from app.services.solving import SolveServiceError
+
+if TYPE_CHECKING:
+    from app.modules.physics.catalog.spec import FormulaSpec
 
 
 def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
@@ -46,9 +51,44 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
     symbols = {variable.name: variable.symbol for variable in spec.variables}
     formula = f"{symbol} = {to_latex(expression, symbols)}"
     substitution = f"{symbol} = {to_latex(expression, symbols, params)}"
+    result_unit = spec.binding.result[0]
+    unit = "" if result_unit == "dimensionless" else si_symbol(result_unit)
+    shown = _in_the_givens_unit(spec, intent, result_unit, value)
     return solved(
-        QuantityResult("", value, si_symbol(spec.binding.result[0])),
+        QuantityResult("", *(shown or (value, unit))),
         answer=substitution,
         formula=formula,
         substitution=substitution,
     )
+
+
+def _in_the_givens_unit(
+    spec: FormulaSpec, intent: PhysicsIntent, result_unit: str, value: float
+) -> tuple[float, str] | None:
+    """The result in the one unit its like givens share: 4 µF and 6 µF give µF.
+
+    A textbook answers two capacitances in µF in µF, and a radius in cm with a
+    focal length in cm. Givens of the result's kind in different units, or
+    none, leave the answer in SI.
+    """
+    target = unit_dimension(result_unit)
+    if target is None:
+        return None
+    units = intent.physics_units or {}
+    alike = {
+        units[variable.name]
+        for variable in spec.variables
+        if variable.dimension is not None
+        and variable.name in units
+        and (kind := unit_dimension(variable.dimension)) is not None
+        and kind[0] == target[0]
+    }
+    if len(alike) != 1:
+        return None
+    unit = alike.pop()
+    expression = unit_expression(unit)
+    reading = unit_dimension(expression) if expression else None
+    # An offset unit (°C) converts a value, not a difference: leave it in SI.
+    if reading is None or reading[0] != target[0] or reading[2] != 0.0:
+        return None
+    return value / reading[1], unit

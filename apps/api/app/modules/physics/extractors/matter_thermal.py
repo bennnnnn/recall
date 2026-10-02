@@ -41,6 +41,7 @@ _OPTICS_CUES = (
     "brewster",
 )
 
+_HEIGHT_RE = re.compile(r"\b(?:tall|high|height)\b")
 _DIVERGING_RE = re.compile(
     r"\bdiverging\b|\bconcave\s+lens\b|\bvirtual\s+image\b|\bnegative\s+focal\b",
     re.IGNORECASE,
@@ -240,10 +241,12 @@ def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
         )
     )
     if "magnification" in lower:
+        # Heights only: "the image forms 60 cm from the lens" is a distance,
+        # and m = -v/u (the catalog binder) answers that one.
         img = _find_value_with_specific_unit(
             cleaned, _LENGTH_UNIT_PATTERN, ("image",), require_keyword=True
         )
-        if img is None or obj is None:
+        if img is None or obj is None or _HEIGHT_RE.search(lower) is None:
             return None
         return PhysicsIntent(
             kind="optics",

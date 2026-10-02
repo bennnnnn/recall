@@ -35,8 +35,9 @@ class VariableSpec:
     implied: tuple[tuple[str, float], ...] = ()
     # Words before the value that make it negative: "decelerates at 2 m/s²".
     negating: tuple[str, ...] = ()
-    # Where an unstated value comes from: "gravity" (9.81, or the named body's)
-    # or "body_mass" (the mass of the planet or star the question names).
+    # Where an unstated value comes from: "gravity" (9.81, or the named body's),
+    # "body_mass" (the mass of the planet or star the question names) or
+    # "particle_charge" (the electron, proton or alpha particle it names).
     fallback: str | None = None
 
     def __post_init__(self) -> None:
@@ -77,7 +78,9 @@ class Binding:
     question that binds to any other set is not this operation. One of
     ``cues`` must appear in the question when the law needs a situation the
     numbers cannot show ("horizontally", "pulley"). ``descending`` names
-    same-dimension inputs filled largest first (the heavier Atwood mass).
+    same-dimension inputs filled largest first (the heavier Atwood mass);
+    ``interchangeable`` names inputs that play the same part and are filled
+    in the order stated (two capacitors in series).
     A contract test solves every input set with sample values, so a binding
     never promises a set its solver refuses.
     """
@@ -89,6 +92,7 @@ class Binding:
     # Words that rule the operation out: a discharge is not a charging.
     excludes: tuple[str, ...] = ()
     descending: tuple[str, ...] = ()
+    interchangeable: tuple[str, ...] = ()
     # Words before a value that say it is the result itself ("reaches" for a
     # final speed): such a question already states what this operation finds.
     result_words: tuple[str, ...] = ()

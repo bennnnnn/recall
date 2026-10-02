@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -222,6 +222,83 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("I", "I", "ampere"),
             var("r", "r", "meter"),
+        ),
+    ),
+    # The uniform field between parallel plates.
+    formula(
+        "plate_field",
+        "magnetism",
+        "Uniform electric field",
+        "E",
+        base_latex=r"E = \frac{V}{d}",
+        assumptions=("a uniform field between parallel plates",),
+        expression="V/d",
+        variables=(var("V", "V", "volt"), var("d", "d", "meter")),
+        binding=Binding(
+            asks=("electric field strength", "field strength", "electric field"),
+            result=("volt / meter",),
+            inputs=(frozenset({"V", "d"}),),
+            cues=("plate",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "field_force_on_charge",
+        "magnetism",
+        "Electric force on a charge",
+        "F",
+        base_latex="F = qE",
+        expression="Q*e_field",
+        variables=(
+            var("Q", "q", "coulomb", fallback="particle_charge"),
+            var("e_field", "E", "volt / meter"),
+        ),
+        binding=Binding(
+            asks=("force",),
+            result=("newton",),
+            inputs=(frozenset({"Q", "e_field"}),),
+            cues=("field",),
+        ),
+    ),
+    formula(
+        "charge_energy",
+        "magnetism",
+        "Energy of a charge through a potential difference",
+        "W",
+        base_latex="W = qV",
+        expression="Q*V",
+        variables=(var("Q", "q", "coulomb", fallback="particle_charge"), var("V", "V", "volt")),
+        binding=Binding(
+            asks=("kinetic energy", "work done", "energy", "work"),
+            result=("joule",),
+            inputs=(frozenset({"Q", "V"}),),
+            cues=(
+                "accelerated through",
+                "moved through",
+                "through a potential",
+                "potential difference",
+            ),
+        ),
+    ),
+    formula(
+        "solenoid_field",
+        "magnetism",
+        "Solenoid field",
+        "B",
+        base_latex=r"B = \frac{\mu_0 N I}{L}",
+        assumptions=("a long solenoid, field inside it",),
+        expression="mu_0*turns*I/L",
+        variables=(
+            var("I", "I", "ampere"),
+            var("L", "L", "meter"),
+            var("turns", "N", dimensionless=True),
+        ),
+        binding=Binding(
+            asks=("magnetic flux density", "magnetic field", "flux density", "field strength"),
+            result=("tesla",),
+            inputs=(frozenset({"I", "L", "turns"}),),
+            cues=("solenoid",),
+            nonnegative=True,
         ),
     ),
 )

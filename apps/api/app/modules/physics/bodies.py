@@ -1,4 +1,4 @@
-"""Planets and stars a question may name instead of giving their numbers."""
+"""Planets, stars and particles a question may name instead of giving their numbers."""
 
 from __future__ import annotations
 
@@ -33,3 +33,18 @@ def names_body_without_school_gravity(lower: str) -> bool:
     return any(
         word_index(lower, name) != -1 for name in BODY_PROPERTIES if name not in SCHOOL_GRAVITY
     )
+
+
+# Charge magnitude (C) of each particle a question names; e is exact in SI.
+ELEMENTARY_CHARGE = 1.602176634e-19
+PARTICLE_CHARGES: dict[str, float] = {
+    "electron": ELEMENTARY_CHARGE,
+    "proton": ELEMENTARY_CHARGE,
+    "alpha particle": 2 * ELEMENTARY_CHARGE,
+}
+
+
+def named_particle_charge(lower: str) -> float | None:
+    """The charge magnitude of the one particle named in lowercased text."""
+    named = [charge for name, charge in PARTICLE_CHARGES.items() if word_index(lower, name) != -1]
+    return named[0] if len(named) == 1 else None
