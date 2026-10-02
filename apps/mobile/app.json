@@ -89,6 +89,63 @@
         }
       ],
       [
+        "expo-font",
+        {
+          "android": {
+            "fonts": [
+              {
+                "fontFamily": "KaTeX_Main",
+                "fontDefinitions": [
+                  { "path": "./assets/fonts/KaTeX_Main-Regular.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "KaTeX_MathItalic",
+                "fontDefinitions": [
+                  { "path": "./assets/fonts/KaTeX_Math-Italic.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "KaTeX_AMS",
+                "fontDefinitions": [
+                  { "path": "./assets/fonts/KaTeX_AMS-Regular.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "SpaceMono",
+                "fontDefinitions": [
+                  { "path": "./assets/fonts/SpaceMono-Regular.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "SourceSans3",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/source-sans-3/400Regular/SourceSans3_400Regular.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "SourceSans3-Medium",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/source-sans-3/500Medium/SourceSans3_500Medium.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "SourceSans3-Semibold",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/source-sans-3/600SemiBold/SourceSans3_600SemiBold.ttf", "weight": 400 }
+                ]
+              },
+              {
+                "fontFamily": "SourceSans3-Bold",
+                "fontDefinitions": [
+                  { "path": "./node_modules/@expo-google-fonts/source-sans-3/700Bold/SourceSans3_700Bold.ttf", "weight": 400 }
+                ]
+              }
+            ]
+          }
+        }
+      ],
+      [
         "expo-camera",
         {
           "cameraPermission": "Recall uses the camera to scan math problems from your notes or worksheets.",

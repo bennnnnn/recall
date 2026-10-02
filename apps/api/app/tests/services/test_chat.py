@@ -422,6 +422,10 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "quoted italic paragraph" in FORMAT_CONTRACT
     assert "```email" in FORMAT_CONTRACT
     assert "```python" in FORMAT_CONTRACT
+    assert 'name = "john"' in FORMAT_CONTRACT
+    assert "An untagged fence has no language label" in FORMAT_CONTRACT
+    assert "Do not backtick a phrase" in FORMAT_CONTRACT
+    assert "$O(n)$" in FORMAT_CONTRACT
     assert "Bullets are for parallel unordered items" in FORMAT_CONTRACT
     assert "Numbers are only for steps, rankings" in FORMAT_CONTRACT
     assert "Letters are for alternatives/answer choices" in FORMAT_CONTRACT

@@ -660,6 +660,7 @@
   "reminders.badge_accessibility": "Tareas, {{count}} para hoy o vencidas",
   "reminders.dismiss_failed": "No se pudo descartar la sugerencia. Inténtalo de nuevo.",
   "rich.answer_a11y": "Respuesta: {{text}}",
+  "rich.answer_label": "Respuesta",
   "rich.arc_length": "Longitud de arco:",
   "rich.area": "Área:",
   "rich.callout_important": "Importante",

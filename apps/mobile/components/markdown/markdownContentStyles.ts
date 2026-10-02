@@ -16,13 +16,15 @@ export function inlineCodeTextStyle(t: Theme): TextStyle {
     ...Type.secondary,
     fontFamily: CODE_FONT,
     color: t.text,
-    backgroundColor: t.surfaceAlt,
+    // No gray chip. backgroundColor on nested Text paints a box that does
+    // not follow the word, so backticks look like a random highlighter.
+    // Teaching snippets (`name = "john"`) stay monospace in the sentence.
+    backgroundColor: "transparent",
     borderWidth: 0,
     borderColor: "transparent",
     padding: 0,
-    paddingHorizontal: Space.xxs,
+    paddingHorizontal: 0,
     paddingVertical: 0,
-    borderRadius: 4,
   };
 }
 
@@ -71,13 +73,13 @@ export function makeMdMath(t: Theme) {
       alignItems: "center",
       alignSelf: "stretch",
     },
-    // Filled disc (ChatGPT-style). iOS used to render U+00B7 middle-dot,
-    // which is a hairline glyph at body size and reads as "no bullet".
+    // Filled disc in the body ink. A colored or gray dot reads as decoration
+    // instead of a list marker. iOS used to render U+00B7, a hairline glyph.
     listBullet: {
-      width: 7,
-      height: 7,
-      borderRadius: 4,
-      backgroundColor: t.primary,
+      width: 6,
+      height: 6,
+      borderRadius: Radius.full,
+      backgroundColor: t.text,
       // Body is 16/22 — center the disc on the first line.
       marginTop: Space.xs,
       marginRight: 10,
@@ -125,7 +127,7 @@ export function makeMdStyles(t: Theme) {
     list_item: { marginBottom: 6 },
     ordered_list_icon: {
       ...Type.body,
-      color: t.textSecondary,
+      color: t.text,
       minWidth: 22,
       textAlign: "right",
       marginLeft: 0,

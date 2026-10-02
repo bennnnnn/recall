@@ -13,6 +13,7 @@ import { useTranslation } from "react-i18next";
 import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles";
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
 import { GeometryBlock } from "@/components/rich/GeometryBlock";
+import { codeLanguageLabel } from "@/lib/codeHighlight";
 import { CODE_FONT } from "@/lib/fonts";
 import { markdownItInstance } from "@/lib/markdown/parser";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
@@ -138,9 +139,10 @@ function renderFallbackFence(
     );
   }
   if (!classified.code) return null;
+  const languageLabel = codeLanguageLabel(classified.lang);
   return (
     <View key={node.key} style={fenceStyles.codeWrap}>
-      {classified.lang ? <Text style={fenceStyles.lang}>{classified.lang}</Text> : null}
+      {languageLabel ? <Text style={fenceStyles.lang}>{languageLabel}</Text> : null}
       <Text style={fenceStyles.code} selectable>
         {classified.code}
       </Text>
@@ -181,11 +183,9 @@ function makeFenceStyles(t: Theme) {
       overflow: "hidden",
     },
     lang: {
-      ...Type.overline,
+      ...Type.meta,
       ...Weight.semibold,
-      letterSpacing: 0,
       color: t.codeLang,
-      textTransform: "lowercase",
       paddingHorizontal: Space.sm,
       paddingTop: Space.xs,
     },

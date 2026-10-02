@@ -16,7 +16,13 @@ import { uiFontFamily } from "@/lib/uiFont";
 export const DYNAMIC_TYPE_MAX = 1.5;
 
 function face(weight: "400" | "500" | "600" | "700"): Pick<TextStyle, "fontFamily" | "fontWeight"> {
-  return { fontFamily: uiFontFamily(weight), fontWeight: weight };
+  return {
+    fontFamily: uiFontFamily(weight),
+    // The file is already this weight. Android registers it as the regular
+    // face; a 700 weight looks up a bold slot that was never loaded and draws
+    // Roboto. iOS would faux-bold that same file. Ask both for the regular slot.
+    fontWeight: "400",
+  };
 }
 
 export const Type = {
@@ -100,10 +106,9 @@ export const Type = {
 
 /**
  * Weight changes on top of a role: `{ ...Type.body, ...Weight.bold }`.
- * Each entry sets the matching Source Sans 3 file together with fontWeight.
- * A bare `fontWeight` keeps the role's Regular file, which Android draws as a
- * synthesized (fake) bold while iOS swaps to the real face — so weights looked
- * different per platform. Lint bans raw `fontWeight`; use this instead.
+ * Each entry sets the matching Source Sans 3 file and asks for the regular
+ * slot. A 700 weight makes Android drop the file and draw Roboto. Lint bans
+ * raw `fontWeight`; use this instead.
  */
 export const Weight = {
   regular: face("400"),

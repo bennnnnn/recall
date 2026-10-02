@@ -660,6 +660,7 @@
   "reminders.badge_accessibility": "Aufgaben, {{count}} heute fällig oder überfällig",
   "reminders.dismiss_failed": "Vorschlag konnte nicht verworfen werden. Bitte erneut versuchen.",
   "rich.answer_a11y": "Antwort: {{text}}",
+  "rich.answer_label": "Antwort",
   "rich.arc_length": "Bogenlänge:",
   "rich.area": "Fläche:",
   "rich.callout_important": "Wichtig",

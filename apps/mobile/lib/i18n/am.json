@@ -660,6 +660,7 @@
   "reminders.badge_accessibility": "የሚደረጉ፣ {{count}} ዛሬ የሚደርሱ ወይም ያለፉ",
   "reminders.dismiss_failed": "ጥቆማን ማሰናበት አልተቻለም። እንደገና ይሞክሩ።",
   "rich.answer_a11y": "መልስ፦ {{text}}",
+  "rich.answer_label": "መልስ",
   "rich.arc_length": "የቅስት ርዝመት፦",
   "rich.area": "ስፋት፦",
   "rich.callout_important": "አስፈላጊ",

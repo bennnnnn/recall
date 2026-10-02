@@ -2,7 +2,7 @@ import { useMemo, type ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
-import { MATH_FONT, MATH_SYMBOL_FONT, MATH_VARIABLE_FONT } from "@/lib/fonts";
+import { MATH_FONT, MATH_SYMBOL_FONT, MATH_VARIABLE_FONT, mathFace } from "@/lib/fonts";
 import {
   BODY_LINE_AT_16,
   FRAC_LINE_AT_16,
@@ -291,7 +291,7 @@ function scriptTextStyle(node: MathLayout | undefined, ctx: RenderCtx, placed = 
     ? 0
     : ((node?.raise ?? 0) > 0 ? -(node?.raise ?? 0) : (node?.drop ?? 0)) * ctx.fontScale;
   return {
-    fontFamily: MATH_FONT,
+    ...mathFace(MATH_FONT),
     fontSize,
     lineHeight: node?.lineHeight ?? fontSize * 1.15,
     color: ctx.color,
@@ -419,7 +419,7 @@ function renderOneSegment(
         const scriptSize = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
         const raise = node?.raise ?? ctx.em * 0.42;
         const scriptStyle = {
-          fontFamily: MATH_FONT,
+          ...mathFace(MATH_FONT),
           fontSize: scriptSize,
           lineHeight: scriptSize * 1.1,
           color: ctx.color,
@@ -720,18 +720,16 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
   const layoutScale = scale * fontScale;
   return StyleSheet.create({
     base: {
-      fontFamily: MATH_FONT,
+      ...mathFace(MATH_FONT),
       fontSize,
       // Match body rhythm. 28 made nested `$m$` / `$y=mx+b$` Text
       // wrap onto its own line inside list items ("Slope (" / "m" / "): 3").
       lineHeight: (compact ? SQRT_LINE_AT_16 : BODY_LINE_AT_16) * scale,
       color,
     },
-    glyph: {
-      fontFamily: MATH_SYMBOL_FONT,
-    },
+    glyph: mathFace(MATH_SYMBOL_FONT),
     variable: {
-      fontFamily: MATH_VARIABLE_FONT,
+      ...mathFace(MATH_VARIABLE_FONT),
       color,
     },
     inlineViewport: {
@@ -757,7 +755,7 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       alignItems: "center",
     },
     fracPart: {
-      fontFamily: MATH_FONT,
+      ...mathFace(MATH_FONT),
       fontSize: 14 * scale,
       lineHeight: FRAC_LINE_AT_16 * scale,
       color,
@@ -774,13 +772,13 @@ const makeStyles = (theme: Theme, textColor?: string, compact = false, fontSize 
       position: "absolute",
       left: 0,
       top: 0,
-      fontFamily: MATH_FONT,
+      ...mathFace(MATH_FONT),
       fontSize: 12 * scale,
       lineHeight: 14 * scale,
       color,
     },
     sqrtBody: {
-      fontFamily: MATH_FONT,
+      ...mathFace(MATH_FONT),
       fontSize,
       lineHeight: SQRT_LINE_AT_16 * scale,
       color,

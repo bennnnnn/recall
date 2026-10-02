@@ -18,6 +18,7 @@ import { stripTrailingFenceCloser } from "@/lib/streamingOpenFence";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { Type, Weight } from "@/lib/type";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
 
@@ -56,15 +57,24 @@ export function AnswerBlock({ content }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const parsed = splitAnswerNotation(stripTrailingFenceCloser(content.trim()));
+  const answerLabel = parsed.labeled ? (
+    <Text testID="answer-label" style={s.label}>
+      {t("rich.answer_label")}
+    </Text>
+  ) : null;
   if (parsed.notation === "chemistry" && parsed.body) {
     return (
       <View
-        style={s.row}
+        style={[s.row, parsed.labeled ? s.rowLabeled : null]}
         accessibilityRole="text"
         accessibilityLabel={t("rich.answer_a11y", { text: parsed.body })}
       >
-        <View style={s.answerAndCheck}>
-          <View testID="answer-box" style={s.box}>
+        <View
+          testID="answer-and-check"
+          style={[s.answerAndCheck, parsed.labeled ? s.answerAndCheckLabeled : null]}
+        >
+          {answerLabel}
+          <View testID="answer-box" style={[s.box, parsed.labeled ? s.boxLabeled : null]}>
             <Text testID="answer-literal" style={s.answer} selectable>
               {parsed.body}
             </Text>
@@ -107,21 +117,28 @@ export function AnswerBlock({ content }: Props) {
 
   return (
     <View
-      style={s.row}
+      style={[s.row, parsed.labeled ? s.rowLabeled : null]}
       accessibilityRole="text"
       accessibilityLabel={t("rich.answer_a11y", {
         text: readableLatexFallback(text),
       })}
     >
       <View
+        testID="answer-and-check"
         style={[
           s.answerAndCheck,
           useSvgMath || hasNestedView ? s.answerAndCheckStretch : null,
+          parsed.labeled ? s.answerAndCheckLabeled : null,
         ]}
       >
+        {answerLabel}
         <View
           testID="answer-box"
-          style={[s.box, useSvgMath || hasNestedView ? s.boxStretch : null]}
+          style={[
+            s.box,
+            useSvgMath || hasNestedView ? s.boxStretch : null,
+            parsed.labeled ? s.boxLabeled : null,
+          ]}
         >
           {useSvgMath ? (
             <MathSvgView latex={text} textColor={theme.text} minHeight={48} />
@@ -227,11 +244,24 @@ const makeStyles = (t: Theme) =>
       alignItems: "center",
       marginVertical: 10,
     },
+    rowLabeled: {
+      alignItems: "flex-start",
+    },
+    label: {
+      ...Type.body,
+      ...Weight.semibold,
+      color: t.text,
+      marginRight: Space.sm,
+    },
     answerAndCheck: {
       maxWidth: "100%",
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
+    },
+    answerAndCheckLabeled: {
+      alignSelf: "flex-start",
+      justifyContent: "flex-start",
     },
     answerAndCheckStretch: {
       alignSelf: "stretch",
@@ -248,6 +278,11 @@ const makeStyles = (t: Theme) =>
     },
     // Full-width chrome so the MathJax-SVG view gets a real layout width
     // (compact + alignSelf:center was the thin-sliver bug).
+    boxLabeled: {
+      alignSelf: "auto",
+      paddingLeft: 0,
+      paddingVertical: 0,
+    },
     boxStretch: {
       flex: 1,
       alignItems: "stretch",

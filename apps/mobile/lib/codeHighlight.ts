@@ -168,6 +168,120 @@ export function parseFenceLang(info: string): string {
   return first.replace(/[{:[].*$/, "").toLowerCase();
 }
 
+/**
+ * Fences with no real language. These are teaching snippets (`name = "john"`)
+ * and must not grow a corner label or guessed keyword colors.
+ */
+const TEACHING_FENCE_LANGS = new Set([
+  "text",
+  "txt",
+  "plaintext",
+  "plain",
+  "code",
+  "none",
+  "output",
+  "example",
+]);
+
+/** Corner label for a tagged fence. Acronyms and aliases that title-case gets wrong. */
+const LANG_LABELS: Record<string, string> = {
+  python: "Python",
+  py: "Python",
+  javascript: "JavaScript",
+  js: "JavaScript",
+  jsx: "JavaScript",
+  typescript: "TypeScript",
+  ts: "TypeScript",
+  tsx: "TypeScript",
+  react: "JavaScript",
+  "react-native": "JavaScript",
+  rn: "JavaScript",
+  node: "JavaScript",
+  expo: "JavaScript",
+  express: "JavaScript",
+  bash: "Shell",
+  sh: "Shell",
+  shell: "Shell",
+  zsh: "Shell",
+  terminal: "Shell",
+  shellsession: "Shell",
+  console: "Shell",
+  cmd: "Shell",
+  prompt: "Shell",
+  json: "JSON",
+  sql: "SQL",
+  go: "Go",
+  golang: "Go",
+  rust: "Rust",
+  rs: "Rust",
+  java: "Java",
+  css: "CSS",
+  scss: "SCSS",
+  html: "HTML",
+  htm: "HTML",
+  xml: "XML",
+  svg: "SVG",
+  yaml: "YAML",
+  yml: "YAML",
+  markdown: "Markdown",
+  md: "Markdown",
+  ruby: "Ruby",
+  rb: "Ruby",
+  swift: "Swift",
+  kotlin: "Kotlin",
+  kt: "Kotlin",
+  kts: "Kotlin",
+  c: "C",
+  cpp: "C++",
+  "c++": "C++",
+  csharp: "C#",
+  "c#": "C#",
+  cs: "C#",
+  php: "PHP",
+  objectivec: "Objective-C",
+  objc: "Objective-C",
+  "objective-c": "Objective-C",
+  graphql: "GraphQL",
+  gql: "GraphQL",
+  dockerfile: "Docker",
+  docker: "Docker",
+  powershell: "PowerShell",
+  ps1: "PowerShell",
+  pwsh: "PowerShell",
+  terraform: "Terraform",
+  tf: "Terraform",
+  hcl: "Terraform",
+  protobuf: "Protobuf",
+  proto: "Protobuf",
+  latex: "LaTeX",
+  tex: "LaTeX",
+};
+
+function titleLang(raw: string): string {
+  const mapped = LANG_LABELS[raw];
+  if (mapped) return mapped;
+  if (raw.length <= 2) return raw.toUpperCase();
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
+
+/**
+ * Language name for the corner of a code card.
+ * Empty and teaching tags (`text`, bare ``` ) return null — those snippets
+ * are not a language.
+ */
+export function codeLanguageLabel(info: string): string | null {
+  const raw = parseFenceLang(info);
+  if (!raw || TEACHING_FENCE_LANGS.has(raw)) return null;
+  return titleLang(raw);
+}
+
+/** Syntax colors only for an explicit language we actually highlight. */
+export function fenceUsesSyntaxColor(info: string): boolean {
+  const raw = parseFenceLang(info);
+  if (!raw || TEACHING_FENCE_LANGS.has(raw)) return false;
+  return Boolean(LANG_TO_PRISM[raw]);
+}
+
 export function normalizeLang(lang: string): string {
   const raw = parseFenceLang(lang);
   if (!raw) return "";
