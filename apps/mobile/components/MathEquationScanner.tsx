@@ -79,11 +79,11 @@ type Props = {
     scan: PendingAttachment,
     signal: AbortSignal,
   ) => Promise<MathScanReading | MathScanReadFailure | null>;
-  /** Chemistry: read the written problem as plain text. Null means it failed. */
+  /** Chemistry: read the written problem as plain text. Null is a generic failure. */
   onReadChemistryScan?: (
     scan: PendingAttachment,
     signal: AbortSignal,
-  ) => Promise<MathScanReading | null>;
+  ) => Promise<MathScanReading | MathScanReadFailure | null>;
   /** Solve the confirmed reading as typed text. Chemistry sends that text alone. */
   onSolveReading?: (reading: string, subject: ScannerSubject) => void;
 };

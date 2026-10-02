@@ -111,7 +111,10 @@ export type UseChatScreenBodyPropsParams = {
       scan: PendingAttachment,
       signal: AbortSignal,
     ) => Promise<MathScanReading | MathScanReadFailure | null>;
-    readChemistryScan: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
+    readChemistryScan: (
+      scan: PendingAttachment,
+      signal: AbortSignal,
+    ) => Promise<MathScanReading | MathScanReadFailure | null>;
     handleMathScanSolve: (reading: string, subject?: ScannerSubject) => void;
     onOpenMathScanner?: () => void;
     onMathChromeHeightChange?: (height: number) => void;
