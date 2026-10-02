@@ -29,6 +29,7 @@ _IR: dict[str, tuple[tuple[str, int, int], ...]] = {
     "amine": (("N–H", 3300, 3500),),
 }
 _NMR: dict[str, tuple[str, float, float]] = {
+    "alkyl": ("C–H", 0.7, 1.3),
     "alcohol": ("H–C–O", 3.2, 4.5),
     "ether": ("H–C–O", 3.2, 4.5),
     "ester": ("H–C–O", 3.2, 4.5),
