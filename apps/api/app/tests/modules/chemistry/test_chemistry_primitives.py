@@ -84,7 +84,7 @@ def test_explicit_phases_drop_out_of_the_equilibrium_expression() -> None:
     assert intent is not None
     assert intent.chemistry_op == "equilibrium_constant"
     assert intent.species == {"CO2(g)": 0.2}
-    assert solve_chemistry(intent).answer == "Kc = 0.2"
+    assert solve_chemistry(intent).answer == "Kc = 0.20"
 
 
 def test_ideal_gas_extractor_normalizes_school_units() -> None:
@@ -119,7 +119,7 @@ def test_beer_lambert_solves_absorptivity_and_path() -> None:
     )
     assert epsilon is not None and path is not None
     assert solve_chemistry(epsilon).answer == "ε = 100 L/(mol·cm)"
-    assert solve_chemistry(path).answer == "b = 1 cm"
+    assert solve_chemistry(path).answer == "b = 1.0 cm"
 
 
 def test_ambiguous_oxidation_and_diprotic_strong_acid_are_refused() -> None:
@@ -190,8 +190,9 @@ def test_stoichiometry_chain_converts_moles_and_particles_and_reports_excess() -
     assert grams is not None and particles is not None and limiting is not None
     assert grams.chemistry_op == "mass_stoichiometry"
     assert particles.chemistry_op == "mass_stoichiometry"
-    assert solve_chemistry(grams).answer == "m(H2O) = 36.04 g"
-    assert solve_chemistry(particles).answer == "m(H2O) = 36.04 g"
+    # 2 mol limits the answer to two figures; 1.2044e24 molecules carry four (1.99995 mol).
+    assert solve_chemistry(grams).answer == "m(H2O) = 36 g"
+    assert solve_chemistry(particles).answer == "m(H2O) = 36.03 g"
     limited = solve_chemistry(limiting)
     assert any(line.startswith("excess H2 =") for line in limited.substitution)
     moles = extract_chemistry_intent("How many moles of H2O from 4 mol H2 in H2 + O2 -> H2O?")
@@ -205,7 +206,8 @@ def test_weak_base_titration_half_equivalence() -> None:
     )
     assert intent is not None
     assert intent.chemistry_op == "titration_weak"
-    assert solve_chemistry(intent).answer == "pH = 9.255"
+    # Kb = 1.8e-5 has two figures, so pOH = 4.74 and pH = 9.26 keep two decimals.
+    assert solve_chemistry(intent).answer == "pH = 9.26"
 
 
 def test_hcn_is_carbon_centered_and_resonance_is_counted() -> None:

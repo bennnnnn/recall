@@ -37,6 +37,14 @@ def solve_cell_potential(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+def _volts(value: float) -> str:
+    """A potential from the reduction table, which lists hundredths of a volt: 1.10 V, not 1.1 V.
+
+    The cell potential is a difference of two table values, so it keeps their two decimals.
+    """
+    return f"{value:.2f}"
+
+
 def _ion(symbol: str, electrons: int) -> str:
     return f"{symbol}+" if electrons == 1 else f"{symbol}{electrons}+"
 
@@ -80,7 +88,7 @@ def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
     potential = ec - ea
     shown = "\n".join(
         (
-            f"E°cell = {num(potential)} V",
+            f"E°cell = {_volts(potential)} V",
             f"anode: {anode}",
             f"cathode: {cathode}",
             f"n = {electrons} electrons transferred",
@@ -98,10 +106,10 @@ def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
             f"multiply the anode half by {anode_scale} and the cathode half by "
             f"{cathode_scale} so {electrons} e- cancel"
         )
-    working.append(f"E°cell = {num(ec)} − ({num(ea)})")
+    working.append(f"E°cell = {_volts(ec)} − ({_volts(ea)})")
     result = verified(
         "Verified galvanic cell",
-        (f"{left} E° = {num(e_left)} V", f"{right} E° = {num(e_right)} V"),
+        (f"{left} E° = {_volts(e_left)} V", f"{right} E° = {_volts(e_right)} V"),
         "Cell potential, electrodes, and net reaction",
         *stated("galvanic_cell"),
         working,
@@ -114,7 +122,7 @@ def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
             title="Galvanic cell",
             anode=anode,
             cathode=cathode,
-            potential=f"{num(potential)} V",
+            potential=f"{_volts(potential)} V",
             electrons="anode to cathode",
         ),
     )

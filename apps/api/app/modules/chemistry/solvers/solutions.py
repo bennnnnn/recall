@@ -8,7 +8,7 @@ import math
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import to_liters
-from app.modules.chemistry.solvers.common_chem import inp, num, verified
+from app.modules.chemistry.solvers.common_chem import inp, num, p_value, verified
 from app.modules.chemistry.solvers.constants import GAS_R, PKW
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.relation import solve_paired
@@ -129,7 +129,7 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
     if op == "ph_from_h":
         concentration = require(intent, "h", positive=True)
         ph = -math.log10(concentration)
-        value = num(ph)
+        value = p_value(ph)
         return verified(
             "Verified pH calculation",
             (f"[H+] = {inp(concentration)} mol/L",),
@@ -142,7 +142,7 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
     if op == "ph_from_poh":
         poh = require(intent, "poh")
         ph = PKW - poh
-        value = num(ph)
+        value = p_value(ph)
         return verified(
             "Verified pH calculation",
             (f"pOH = {inp(poh)}", f"pKw = {PKW} at 25 °C"),
@@ -168,7 +168,7 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
     if op == "poh_from_oh":
         concentration = require(intent, "oh", positive=True)
         poh = -math.log10(concentration)
-        value = num(poh)
+        value = p_value(poh)
         return verified(
             "Verified pOH calculation",
             (f"[OH-] = {inp(concentration)} mol/L",),
@@ -183,7 +183,7 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
         base = require(intent, "base", positive=True)
         acid = require(intent, "acid", positive=True)
         ph = pka + math.log10(base / acid)
-        value = num(ph)
+        value = p_value(ph)
         return verified(
             "Verified buffer pH",
             (

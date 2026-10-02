@@ -83,7 +83,9 @@ def _mass_from_hill(atoms: dict[str, int]) -> float | None:
         if element is None:
             return None
         total += element.mass * count
-    return round(total, 2)
+    # Full precision: a molar mass is rounded where it is shown, never before the arithmetic
+    # (4 g of H2 is 1.984 mol, not 4 / 2.02 = 1.980).
+    return total
 
 
 def _closed_ring_smiles(raw: str) -> bool:

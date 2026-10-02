@@ -85,7 +85,7 @@ def test_stoich_and_ice_scenes_are_tables_not_curves() -> None:
     rows = {row.species: row for row in table.rows}
     assert rows["N2O4"].change == "−x"
     assert rows["NO2"].change == "+2x"
-    assert rows["N2O4"].equilibrium == "0.382 mol/L"
+    assert rows["N2O4"].equilibrium == "0.38 mol/L"
 
 
 def test_titration_scene_uses_labeled_anchors() -> None:
@@ -99,7 +99,7 @@ def test_titration_scene_uses_labeled_anchors() -> None:
     labels = [anchor.label for anchor in scene.anchors]
     assert labels == ["start", "half-equivalence", "equivalence", "solved"]
     half = scene.anchors[1]
-    assert half.ph == "4.745"
+    assert half.ph == "4.74"
     assert scene.anchors[2].volume is not None
 
     strong = extract_chemistry_intent(
@@ -110,7 +110,7 @@ def test_titration_scene_uses_labeled_anchors() -> None:
     assert isinstance(strong_scene, TitrationScene)
     strong_labels = [anchor.label for anchor in strong_scene.anchors]
     assert strong_labels == ["start", "equivalence", "solved"]
-    assert strong_scene.anchors[1].ph == "7"
+    assert strong_scene.anchors[1].ph == "7.00"
 
 
 def test_galvanic_scene_points_electrons_at_the_cathode() -> None:

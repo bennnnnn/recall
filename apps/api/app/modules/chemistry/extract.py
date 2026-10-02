@@ -26,6 +26,7 @@ from app.modules.chemistry.extractors.parsing import (
     timed,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.modules.chemistry.sig_figs import written_numbers
 from app.services.number_text import read_scientific_numbers
 
 _MAX_TEXT_LENGTH = 4000
@@ -605,5 +606,5 @@ def _extract_chemistry_intent(text: str) -> ChemistryIntent | None:
             )
             return None
         if intent is not None:
-            return intent
+            return written_numbers(text, intent)
     return None

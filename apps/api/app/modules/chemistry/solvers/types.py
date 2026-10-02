@@ -28,7 +28,9 @@ def _trim(text: str) -> str:
     return text.rstrip("0").rstrip(".") if "." in text else text
 
 
-def format_number(value: float, *, significant: int = SIGNIFICANT_FIGURES) -> str:
+def format_number(
+    value: float, *, significant: int = SIGNIFICANT_FIGURES, keep_zeros: bool = False
+) -> str:
     """Human-readable value without calculator ``e`` or trailing zero noise.
 
     Rounds to significant digits *first*, then chooses plain or scientific form, so
@@ -41,10 +43,12 @@ def format_number(value: float, *, significant: int = SIGNIFICANT_FIGURES) -> st
     if not math.isfinite(value):
         return str(value)
     mantissa, exponent = _round_significant(value, significant)
+    # A trailing zero is a significant figure once the answer's figures come from the data.
+    tidy = (lambda text: text) if keep_zeros else _trim
     if exponent < -3 or exponent >= 6:
-        return f"{_trim(f'{mantissa:.{significant - 1}f}')} × 10^{exponent}"
+        return f"{tidy(f'{mantissa:.{significant - 1}f}')} × 10^{exponent}"
     decimals = max(significant - 1 - exponent, 0)
-    return _trim(f"{float(f'{value:.{significant - 1}e}'):.{decimals}f}")
+    return tidy(f"{float(f'{value:.{significant - 1}e}'):.{decimals}f}")
 
 
 def format_constant(value: float) -> str:

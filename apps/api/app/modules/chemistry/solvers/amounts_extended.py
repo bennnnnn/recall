@@ -16,7 +16,7 @@ from app.modules.chemistry.solvers.common_chem import (
     atomic_mass,
     const,
     inp,
-    molar_mass_text,
+    molar_mass_working,
     num,
     verified,
 )
@@ -98,14 +98,14 @@ def solve_molecular(intent: ChemistryIntent) -> ChemistryResult:
         "Verified molecular formula",
         (
             *[f"{element} = {inp(percent)}%" for element, percent in intent.species.items()],
-            f"M = {molar_mass_text(molar)} g/mol",
+            f"M = {molar_mass_working(molar)} g/mol",
         ),
         "Molecular formula",
         *stated("molecular_formula"),
         (
             *working,
-            f"empirical formula = {empirical}, M = {molar_mass_text(empirical_mass)} g/mol",
-            f"n = {molar_mass_text(molar)} / {molar_mass_text(empirical_mass)} = {factor}",
+            f"empirical formula = {empirical}, M = {molar_mass_working(empirical_mass)} g/mol",
+            f"n = {molar_mass_working(molar)} / {molar_mass_working(empirical_mass)} = {factor}",
             f"molecular formula = ({empirical}){factor} = {formula}",
         ),
         formula,
@@ -162,7 +162,7 @@ def _to_moles(
         return amount, None
     if unit == "g":
         molar = molar_mass(formula)
-        return amount / molar, f"{inp(amount)} / {molar_mass_text(molar)}"
+        return amount / molar, f"{inp(amount)} / {molar_mass_working(molar)}"
     if unit == "particles":
         return amount / AVOGADRO, f"{inp(amount)} / {const(AVOGADRO)}"
     if unit == "L":
@@ -187,7 +187,7 @@ def _from_moles(
         return moles, "mol", None
     if unit == "g":
         molar = molar_mass(formula)
-        return moles * molar, "g", f"{num(moles)} × {molar_mass_text(molar)}"
+        return moles * molar, "g", f"{num(moles)} × {molar_mass_working(molar)}"
     if unit == "particles":
         return moles * AVOGADRO, "particles", f"{num(moles)} × {const(AVOGADRO)}"
     if unit == "L":
@@ -313,7 +313,7 @@ def solve_limiting_amounts(intent: ChemistryIntent, *, unit: str) -> ChemistryRe
     steps.append(f"limiting reagent = {' and '.join(limiting)} (fewest reaction units)")
     steps.append(f"n({target}) = {num(fewest)} × {product_coeff} = {num(product_moles)} mol")
     steps.append(
-        f"m({target}) = {num(product_moles)} × {molar_mass_text(product_molar)} "
+        f"m({target}) = {num(product_moles)} × {molar_mass_working(product_molar)} "
         f"= {num(product_mass)} g"
     )
     for formula, amount in moles.items():
@@ -324,7 +324,7 @@ def solve_limiting_amounts(intent: ChemistryIntent, *, unit: str) -> ChemistryRe
         if unit == "g":
             molar = molar_mass(formula)
             steps.append(
-                f"excess {formula} = ({num(amount)} − {num(used)}) × {molar_mass_text(molar)} "
+                f"excess {formula} = ({num(amount)} − {num(used)}) × {molar_mass_working(molar)} "
                 f"= {num(leftover * molar)} g"
             )
         else:

@@ -6,6 +6,7 @@ from collections.abc import Callable
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.scene import attach_scene
+from app.modules.chemistry.sig_figs import numbers_as_written
 from app.modules.chemistry.solvers.acid import (
     solve_buffer_addition,
     solve_ka_kb,
@@ -237,7 +238,8 @@ def supported_operations() -> frozenset[str]:
 
 def solve_chemistry(intent: ChemistryIntent) -> ChemistryResult:
     """Dispatch a validated intent to its subject-grouped pure solver."""
-    return attach_scene(intent, _solve(intent))
+    with numbers_as_written(intent):
+        return attach_scene(intent, _solve(intent))
 
 
 def _solve(intent: ChemistryIntent) -> ChemistryResult:
