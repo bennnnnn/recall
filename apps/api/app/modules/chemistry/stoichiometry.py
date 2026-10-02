@@ -18,6 +18,7 @@ from app.modules.chemistry.smiles import (
 __all__ = [
     "LimitingReagentResult",
     "StoichiometryResult",
+    "formula_atoms",
     "limiting_reagent",
     "molar_mass",
     "monoisotopic_mass",
@@ -109,6 +110,25 @@ def _prefer_smiles(raw: str) -> bool:
         if atoms and all(len(elem) == 1 for elem in atoms):
             return True
     return False
+
+
+def formula_atoms(formula_or_smiles: str) -> dict[str, int] | None:
+    """Element counts behind :func:`molar_mass`, including SMILES hydrogens.
+
+    A Hill parse of ``CCO`` is C₂O and drops the six hydrogens RDKit counts.
+    A substitution or an atom tally has to use this, not ``parse_formula`` alone,
+    or the printed working will not add up to the mass.
+    """
+    cleaned = formula_or_smiles.strip()
+    if not cleaned:
+        return None
+    hill_atoms = parse_formula(cleaned)
+    if hill_atoms and not _prefer_smiles(cleaned):
+        return hill_atoms
+    counted = element_counts(cleaned)
+    if counted:
+        return counted
+    return hill_atoms or None
 
 
 def molar_mass(formula_or_smiles: str) -> float:

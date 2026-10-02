@@ -65,6 +65,10 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
     [smiles],
   );
 
+  const handleWebViewFailure = useCallback(() => {
+    setFailure({ smiles, code: "render" });
+  }, [smiles]);
+
   if (renderError) {
     return (
       <View style={s.previewBox}>
@@ -91,6 +95,8 @@ export function Chemistry2DView({ smiles }: { smiles: string }) {
           javaScriptEnabled
           domStorageEnabled={false}
           onLoadEnd={onLoaded}
+          onError={handleWebViewFailure}
+          onRenderProcessGone={handleWebViewFailure}
           onMessage={handleWebViewMessage}
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         />

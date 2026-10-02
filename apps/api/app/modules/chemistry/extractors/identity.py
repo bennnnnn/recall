@@ -13,8 +13,10 @@ from app.modules.chemistry.extractors.parsing import (
 from app.modules.chemistry.request import CHEMICAL_FORMULA
 from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
 
-# "K" is left out on purpose: in "298 K" it is kelvin, not potassium.
+# Other metals match as tokens. Potassium is added only after a trailing "298 K"
+# is removed, so kelvin is not a second electrode.
 _METALS = tuple(symbol for symbol in STANDARD_REDUCTION if symbol != "K")
+_KELVIN_UNIT = re.compile(r"\d\s*K\b")
 
 
 def _extract_cells(text: str) -> ChemistryIntent | None:
@@ -28,7 +30,8 @@ def _extract_cells(text: str) -> ChemistryIntent | None:
                 params={"cathode": cathode, "anode": anode},
             )
     if re.search(r"\bgalvanic cell\b", text, re.IGNORECASE):
-        found = re.findall(r"\b(" + "|".join(_METALS) + r")\b", text)
+        without_kelvin = _KELVIN_UNIT.sub(" ", text)
+        found = re.findall(r"\b(" + "|".join(_METALS) + r"|K)\b", without_kelvin)
         unique: list[str] = []
         for symbol in found:
             if symbol not in unique:
@@ -155,7 +158,7 @@ def _extract_colligative(text: str) -> ChemistryIntent | None:
         params = _floats(i=factor, molarity=molarity, temperature=temperature)
         if params is not None:
             return ChemistryIntent(kind="solutions", chemistry_op="osmotic_pressure", params=params)
-    if re.search(r"\bRaoult\b", text):
+    if re.search(r"\bRaoult\b", text, re.IGNORECASE):
         fraction = _search(rf"mole fraction\s*=\s*({_N})", text)
         pure = _search(rf"pure pressure\s*=\s*({_N})", text)
         if fraction is not None and pure is not None:
@@ -175,7 +178,7 @@ def _extract_analytical(text: str) -> ChemistryIntent | None:
         params = _floats(slope=slope, intercept=intercept, signal=signal)
         if params is not None:
             return ChemistryIntent(kind="analytical", chemistry_op="calibration", params=params)
-    if re.search(r"\bGravimetric\b", text):
+    if re.search(r"\bGravimetric\b", text, re.IGNORECASE):
         mass = _search(rf"precipitate mass\s*=\s*({_N})", text)
         factor = _search(rf"\bfactor\s*=\s*({_N})", text)
         if mass is not None and factor is not None:
@@ -184,7 +187,7 @@ def _extract_analytical(text: str) -> ChemistryIntent | None:
                 chemistry_op="gravimetric",
                 params={"precipitate_mass": mass, "factor": factor},
             )
-    if re.search(r"\bStandard addition\b", text):
+    if re.search(r"\bStandard addition\b", text, re.IGNORECASE):
         params = _floats(
             sample_signal=_search(rf"sample signal\s*=\s*({_N})", text),
             spiked_signal=_search(rf"spiked signal\s*=\s*({_N})", text),

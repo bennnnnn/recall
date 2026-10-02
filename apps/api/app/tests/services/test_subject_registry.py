@@ -111,7 +111,7 @@ async def test_fetch_returns_the_adapter_decline_flag() -> None:
             return_value=SubjectAugmentation("physics", "Physics note: declined", None, True)
         ),
     ):
-        _web, block, _sources, verified, declined = await fetch_web_and_tools(
+        _web, block, _sources, verified, declined, unverified_subject = await fetch_web_and_tools(
             "binding energy of He-4, mass = 4.002603 u",
             settings,
             prompt_messages=[{"role": "user", "content": "q"}],
@@ -119,3 +119,22 @@ async def test_fetch_returns_the_adapter_decline_flag() -> None:
     assert block == "Physics note: declined"
     assert verified is None
     assert declined is True
+    assert unverified_subject == "physics"
+
+
+@pytest.mark.asyncio
+async def test_chemistry_followup_solves_the_prior_problem() -> None:
+    from app.services.chat.prompt_builder import fetch_web_and_tools
+
+    settings = Settings(chemistry_enabled=True, web_search_enabled=False, math_tools_enabled=True)
+    prior = "Find the molar mass of H2O"
+    _web, _block, _sources, verified, declined, _subject = await fetch_web_and_tools(
+        "how?",
+        settings,
+        prompt_messages=[{"role": "user", "content": "how?"}],
+        chemistry_followup_problem=prior,
+    )
+    assert declined is False
+    assert verified is not None
+    assert verified.subject == "chemistry"
+    assert "18.02" in verified.text

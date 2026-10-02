@@ -214,3 +214,24 @@ async def test_slow_pubchem_does_not_hold_the_turn(monkeypatch: pytest.MonkeyPat
 )
 def test_a_value_the_schema_refuses_declines_instead_of_raising(text: str) -> None:
     assert extract_chemistry_intent(text) is None
+
+
+def test_an_extractor_exception_declines(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    def broken(_text: str) -> None:
+        raise RuntimeError("balance failed")
+
+    monkeypatch.setattr("app.modules.chemistry.extract.EXTRACTORS", (broken,))
+    with caplog.at_level("ERROR"):
+        assert extract_chemistry_intent("Find the molar mass of water") is None
+    assert "chemistry extractor broken failed" in caplog.text
+
+
+def test_an_extractor_cancellation_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+    def cancelled(_text: str) -> None:
+        raise asyncio.CancelledError()
+
+    monkeypatch.setattr("app.modules.chemistry.extract.EXTRACTORS", (cancelled,))
+    with pytest.raises(asyncio.CancelledError):
+        extract_chemistry_intent("Find the molar mass of water")

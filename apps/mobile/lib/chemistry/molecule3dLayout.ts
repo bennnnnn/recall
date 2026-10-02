@@ -61,6 +61,11 @@ export function bondStrokeWidth(style: MoleculeStyle): number {
   return style === "wireframe" ? 1.6 : 3.4;
 }
 
+/** Ball-and-stick and wire always name the atom. Sphere style stays unlabeled. */
+export function showsAtomLabel(style: MoleculeStyle): boolean {
+  return style !== "spacefill";
+}
+
 function rotate(atom: MolAtom, center: Point3, yaw: number, pitch: number): Point3 {
   const ax = atom.x - center.x;
   const ay = atom.y - center.y;
@@ -174,7 +179,10 @@ export function layoutMolecule(
 ): MoleculeLayout {
   const atomScale = style === "spacefill" ? 0.72 : style === "wireframe" ? 0.2 : 0.32;
   const { center, radius: reach } = fitSphere(geometry, atomScale);
-  const scale = (Math.min(width, height) - VIEW_PAD * 2) / (2 * reach);
+  const span = Math.min(width, height) - VIEW_PAD * 2;
+  // The padding is 36px on each side. A stage narrower than 72px has no positive scale.
+  if (!(span > 0)) return { atoms: [], bonds: [], drawOrder: [] };
+  const scale = span / (2 * reach);
   const atoms: LaidOutAtom[] = geometry.atoms.map((atom, index) => {
     const point = rotate(atom, center, yaw, pitch);
     return {

@@ -34,7 +34,7 @@ def prompt_io():
         for target, value in [
             ("build_prompt_messages", [{"role": "user", "content": QUESTION}]),
             ("fetch_integration_blocks", []),
-            ("fetch_web_and_tools", (None, None, [], None, False)),
+            ("fetch_web_and_tools", (None, None, [], None, False, None)),
             ("_load_prior_user_messages", []),
             ("_load_has_calendar_write", False),
         ]:

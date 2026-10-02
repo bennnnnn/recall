@@ -251,7 +251,7 @@ async def test_fetches_run_concurrently_not_serially():
 
     async def slow_web(*_a, **_kw):
         await asyncio.sleep(0.30)
-        return (None, None, [], None, False)
+        return (None, None, [], None, False, None)
 
     async def fast_inject(*_a, **_kw):
         return list(base_messages)
@@ -356,7 +356,7 @@ async def test_injects_in_stable_order_integration_then_web_then_math():
         ),
         patch(
             "app.services.chat.turn_prep.context.fetch_web_and_tools",
-            AsyncMock(return_value=("WEB_BLOCK", "MATH_BLOCK", [], None, False)),
+            AsyncMock(return_value=("WEB_BLOCK", "MATH_BLOCK", [], None, False, None)),
         ),
         patch(
             "app.services.chat.turn_prep.context._load_prior_user_messages",
@@ -412,7 +412,7 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
     chat = _make_chat()
     base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
     fetch_integration = AsyncMock(return_value=[])
-    fetch_web = AsyncMock(return_value=(None, None, [], None, False))
+    fetch_web = AsyncMock(return_value=(None, None, [], None, False, None))
     load_prior = AsyncMock(return_value=[])
     load_cal_write = AsyncMock(return_value=False)
 
@@ -484,7 +484,7 @@ async def test_calendar_question_skips_prior_messages():
     chat = _make_chat()
     base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
     fetch_integration = AsyncMock(return_value=[])
-    fetch_web = AsyncMock(return_value=(None, None, [], None, False))
+    fetch_web = AsyncMock(return_value=(None, None, [], None, False, None))
     load_prior = AsyncMock(return_value=["earlier question"])
     load_cal_write = AsyncMock(return_value=False)
 
@@ -574,7 +574,7 @@ async def test_web_augment_loads_priors_without_preloading_calendar_write():
         ),
         patch(
             "app.services.chat.turn_prep.context.fetch_web_and_tools",
-            AsyncMock(return_value=(None, None, [], None, False)),
+            AsyncMock(return_value=(None, None, [], None, False, None)),
         ),
         patch(
             "app.services.chat.turn_prep.context._load_prior_user_messages",
@@ -752,7 +752,7 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
         ),
         patch(
             "app.services.chat.turn_prep.context.fetch_web_and_tools",
-            AsyncMock(return_value=(None, "MATH_BLOCK", [], verified, False)),
+            AsyncMock(return_value=(None, "MATH_BLOCK", [], verified, False, None)),
         ),
         patch(
             "app.services.chat.turn_prep.context.fetch_integration_blocks",
@@ -865,6 +865,7 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
                     [],
                     verified_chemistry,
                     False,
+                    None,
                 )
             ),
         ),
@@ -943,7 +944,7 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
         ),
         patch(
             "app.services.chat.turn_prep.context.fetch_web_and_tools",
-            AsyncMock(return_value=(None, "MATH_BLOCK", [], verified, False)),
+            AsyncMock(return_value=(None, "MATH_BLOCK", [], verified, False, None)),
         ),
         patch(
             "app.services.chat.turn_prep.context.fetch_integration_blocks",

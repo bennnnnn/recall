@@ -20,6 +20,7 @@ import {
 import { scheduleOnRN } from "react-native-worklets";
 
 import type { ScanRegion } from "@/lib/math/scannerRegion";
+import { hasUsefulScannerText, normalizeLiveText } from "@/lib/scanner/liveText";
 
 export type LiveScannerDetection = {
   hasText: boolean;
@@ -47,18 +48,6 @@ type Props = {
 
 const STABLE_FRAMES = 3;
 const MAX_SCANNER_ZOOM = 6;
-const MATH_SIGNAL = /[0-9=+\-*/^<>≤≥√∫π%()]/;
-const MATH_WORD = /\b(?:sin|cos|tan|log|ln|sqrt|lim|dx|dy|area|solve|find)\b/i;
-
-function normalizeLiveText(text: string): string {
-  return text.replace(/\s+/g, " ").trim().toLowerCase();
-}
-
-function hasUsefulScannerText(text: string): boolean {
-  const trimmed = text.trim();
-  if (trimmed.length < 2) return false;
-  return MATH_SIGNAL.test(trimmed) || MATH_WORD.test(trimmed) || /\d/.test(trimmed);
-}
 
 /**
  * Native VisionCamera preview + low-resolution ML Kit frame OCR.

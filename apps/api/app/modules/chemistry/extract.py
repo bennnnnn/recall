@@ -7,9 +7,8 @@ labels are never produced from guessed values.
 
 from __future__ import annotations
 
+import logging
 import re
-
-from pydantic import ValidationError
 
 from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
 from app.modules.chemistry.equations import balance_equation
@@ -29,6 +28,7 @@ from app.modules.chemistry.extractors.parsing import (
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 
 _MAX_TEXT_LENGTH = 4000
+logger = logging.getLogger(__name__)
 # Units the solvers do not convert. Reading "5 mM" as 5 M or kcal as kJ would be a
 # wrong verified answer, so the whole question stays on the model path.
 _UNSUPPORTED_UNIT = re.compile(
@@ -584,9 +584,13 @@ def extract_chemistry_intent(text: str) -> ChemistryIntent | None:
     for extractor in EXTRACTORS:
         try:
             intent = extractor(text)
-        except ValidationError:
-            # A captured value the intent schema refuses, such as a 900-character "formula":
-            # fail closed and leave the question to the model.
+        except Exception:
+            # A solver call during extract, such as balancing, must not escape into the turn.
+            # CancelledError is a BaseException and still propagates.
+            logger.exception(
+                "chemistry extractor %s failed",
+                getattr(extractor, "__name__", extractor),
+            )
             return None
         if intent is not None:
             return intent

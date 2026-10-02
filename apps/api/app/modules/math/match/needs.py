@@ -52,9 +52,12 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if not cleaned and not has_image_attachment:
         return False
     from app.modules.math.image_extract import is_math_camera_prompt
+    from app.services.subject_scan import scanner_camera_subject
 
     if has_image_attachment and is_math_camera_prompt(cleaned):
         return True
+    if scanner_camera_subject(cleaned) == "chemistry":
+        return False
     lower = cleaned.lower()
     if parse_named_rectangle_request(cleaned) is not None:
         return True

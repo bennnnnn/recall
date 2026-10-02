@@ -66,6 +66,12 @@ def detect_subject(
     """
     if image_math_extract is not None:
         return "math"
+    from app.services.subject_scan import scanner_camera_subject
+
+    # The chemistry camera caption says "solve", which the math work-request
+    # parser would claim. It is a photo plus a caption, not a math problem.
+    if scanner_camera_subject(text) == "chemistry":
+        return "chemistry" if chemistry_enabled else None
     if needs_physics(text):
         return "physics"
     if chemistry_enabled and _closed_chemistry(text):

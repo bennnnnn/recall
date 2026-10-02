@@ -181,6 +181,31 @@ describe("MathEquationScanner", () => {
     expect(getByTestId("scanner-subject-guide-physics")).toBeTruthy();
   });
 
+  it("sends a chemistry photo without reading it as math", async () => {
+    const onCaptured = jest.fn();
+    const onReadScan = jest.fn(async () => null);
+    const { getByTestId, getByLabelText } = await render(
+      <MathEquationScanner
+        visible
+        onClose={jest.fn()}
+        onCaptured={onCaptured}
+        onReadScan={onReadScan}
+        onSolveReading={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      fireEvent.press(getByTestId("scanner-subject-chemistry"));
+    });
+    await act(async () => {
+      fireEvent.press(getByLabelText("chat.math_scan_capture_a11y"));
+    });
+    expect(onReadScan).not.toHaveBeenCalled();
+    expect(onCaptured).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "chemistry",
+    );
+  });
+
   it("shows the biology guide when biology is selected", async () => {
     const { getByTestId } = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
@@ -351,7 +376,7 @@ describe("imported math scanner photos", () => {
     await act(async () => {
       fireEvent.press(review.getByText("chat.math_scan_solve"));
     });
-    expect(view.onSolveReading).toHaveBeenCalledWith("2x + 3 = 11");
+    expect(view.onSolveReading).toHaveBeenCalledWith("2x + 3 = 11", "math");
     expect(view.onCaptured).not.toHaveBeenCalled();
   });
 
@@ -382,6 +407,76 @@ describe("imported math scanner photos", () => {
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
       "math",
       undefined,
+    );
+  });
+
+  it("reads a chemistry crop as text and solves that text alone", async () => {
+    const onReadScan = jest.fn();
+    const onReadChemistryScan = jest.fn(async () => ({
+      reading: "Find the molar mass of H2O",
+      uncertain: false,
+      source: "vision" as const,
+    }));
+    const onCaptured = jest.fn();
+    const onSolveReading = jest.fn();
+    const view = await render(
+      <MathEquationScanner
+        visible
+        onClose={jest.fn()}
+        onCaptured={onCaptured}
+        onReadScan={onReadScan}
+        onReadChemistryScan={onReadChemistryScan}
+        onSolveReading={onSolveReading}
+      />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByTestId("scanner-subject-chemistry"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_photos_a11y"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    expect(onReadScan).not.toHaveBeenCalled();
+    expect(onReadChemistryScan).toHaveBeenCalledTimes(1);
+    const review = within(view.getByTestId("math-scan-review"));
+    await act(async () => {
+      fireEvent.press(review.getByText("chat.math_scan_solve"));
+    });
+    expect(onSolveReading).toHaveBeenCalledWith("Find the molar mass of H2O", "chemistry");
+    expect(onCaptured).not.toHaveBeenCalled();
+  });
+
+  it("sends the chemistry photo when the read fails", async () => {
+    const onCaptured = jest.fn();
+    const view = await render(
+      <MathEquationScanner
+        visible
+        onClose={jest.fn()}
+        onCaptured={onCaptured}
+        onReadChemistryScan={jest.fn(async () => null)}
+        onSolveReading={jest.fn()}
+      />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByTestId("scanner-subject-chemistry"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_photos_a11y"));
+    });
+    await act(async () => {
+      fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
+    });
+    const review = within(view.getByTestId("math-scan-review"));
+    expect(review.getByText("chat.math_scan_read_failed")).toBeTruthy();
+    await act(async () => {
+      fireEvent.press(review.getByText("chat.math_scan_send_photo"));
+    });
+    expect(onCaptured).toHaveBeenCalledTimes(1);
+    expect(onCaptured).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "chemistry",
     );
   });
 

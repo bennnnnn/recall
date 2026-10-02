@@ -62,6 +62,16 @@ def test_charles_law_converts_celsius_to_kelvin() -> None:
     assert _first_number(result.answer) == pytest.approx(2 * 323.15 / 298.15, rel=1e-3)
 
 
+def test_boyle_matches_the_gate_regardless_of_case() -> None:
+    titled = "Use Boyle's law: P1 = 2 atm, V1 = 3 L, V2 = 6 L, find P2"
+    lower = "Use boyle's law: P1 = 2 atm, V1 = 3 L, V2 = 6 L, find P2"
+    titled_intent = extract_chemistry_intent(titled)
+    lower_intent = extract_chemistry_intent(lower)
+    assert titled_intent is not None and lower_intent is not None
+    assert lower_intent.chemistry_op == "boyle"
+    assert lower_intent.params == titled_intent.params
+
+
 def test_boyle_law_converts_pressure_units() -> None:
     result = _solve("Use Boyle's law: P1 = 760 mmHg, V1 = 2 L, P2 = 380 mmHg, find V2")
     assert _first_number(result.answer) == pytest.approx(4.0)
@@ -370,22 +380,27 @@ def test_format_number_rounds_before_it_chooses_a_form(value: float, text: str) 
 
 
 @pytest.mark.parametrize(
-    ("formula", "mass"),
+    ("formula", "mass", "substitution", "atom_count"),
     [
-        ("C1CCCCC1", 84.16),
-        ("C1CC1", 42.08),
-        ("OC1CCCCC1", 100.16),
-        ("C6H12O6", 180.16),
-        ("CO2", 44.01),
-        ("CO", 28.01),
-        ("CCO", 46.07),
-        ("N2", 28.01),
+        ("C1CCCCC1", 84.16, "M = 6(12.011) + 12(1.008)", 18),
+        ("C1CC1", 42.08, "M = 3(12.011) + 6(1.008)", 9),
+        ("OC1CCCCC1", 100.16, "M = 1(15.999) + 6(12.011) + 12(1.008)", 19),
+        ("C6H12O6", 180.16, "M = 6(12.011) + 12(1.008) + 6(15.999)", 24),
+        ("CO2", 44.01, "M = 1(12.011) + 2(15.999)", 3),
+        ("CO", 28.01, "M = 1(12.011) + 1(15.999)", 2),
+        ("CCO", 46.07, "M = 2(12.011) + 1(15.999) + 6(1.008)", 9),
+        ("N2", 28.01, "M = 2(14.007)", 2),
     ],
 )
 def test_molar_mass_keeps_hydrogens_of_ring_smiles_and_formulas_apart(
-    formula: str, mass: float
+    formula: str, mass: float, substitution: str, atom_count: int
 ) -> None:
     assert molar_mass(formula) == pytest.approx(mass, abs=0.01)
+    weighed = _solve(f"molar mass of {formula}")
+    assert weighed.answer == f"M({formula}) = {mass:.2f} g/mol"
+    assert weighed.substitution == (substitution,)
+    counted = _solve(f"how many atoms in 1 mol of {formula}")
+    assert counted.substitution == (f"N = (1)(6.0221 × 10^23)({atom_count})",)
 
 
 def test_limiting_reagent_keeps_micromole_yields() -> None:
@@ -445,6 +460,11 @@ def test_solubility_gives_ksp() -> None:
 def test_rate_law_can_change_the_second_reactant() -> None:
     result = _solve("Find the rate law: a1=1, rate1=2, a2=1, rate2=8, b1=1, b2=2")
     assert result.answer == "rate = 2 [B]^2"
+    # [A] stays 3 while [B] doubles twice, so k is rate1 / [B]^2, not rate1 / [A]^2.
+    shifted = _solve("Find the rate law: a1=3, rate1=8, a2=3, rate2=32, b1=2, b2=4")
+    assert shifted.answer == "rate = 2 [B]^2"
+    assert shifted.substitution[-1] == "k = rate1 / [B]^2 = 8 / (2)^2 = 2"
+    assert shifted.given[0] == "experiment 1: [A] = 3, [B] = 2, rate = 8"
 
 
 def test_titration_regions_scale_with_the_amounts() -> None:
@@ -471,6 +491,27 @@ def test_strong_titration_keeps_water_next_to_equivalence() -> None:
         "Strong acid strong base titration: Ma=0.10, Va=0.050 L, Mb=0.10, Vb=0.04999999 L, find pH"
     )
     assert 6.0 < _first_number(near.answer) < 7.0
+
+
+def test_weak_titration_past_equivalence_keeps_water() -> None:
+    """A 1e-8 M excess of strong base used to print pH 6 from 14 + log10(excess)."""
+    past = _solve(
+        "Weak acid strong base titration: Ma=0.10, Va=0.050 L, Mb=0.10, Vb=0.05000001 L, "
+        "Ka=1.8e-5, find pH"
+    )
+    assert 7.0 < _first_number(past.answer) < 7.1
+    assert any("water's ions included" in line for line in past.substitution)
+
+
+def test_a_missing_ice_reactant_is_declined() -> None:
+    with pytest.raises(SolveServiceError, match="I2"):
+        _solve("Solve the ICE equilibrium for H2 + I2 -> 2HI when K=50 and [H2]=1")
+
+
+def test_an_omitted_ice_product_stays_zero() -> None:
+    result = _solve("Solve the ICE equilibrium for N2O4 <=> 2NO2 when K=0.2 and [N2O4]=0.5")
+    assert "x = 0.1351" in result.answer
+    assert "[NO2] = 0.2702 mol/L" in result.answer
 
 
 def test_a_very_weak_acid_is_declined_instead_of_reporting_pH_7() -> None:
@@ -501,14 +542,22 @@ def test_galvanic_cell_does_not_read_kelvin_as_potassium() -> None:
     assert "anode: Zn\ncathode: Cu" in result.answer
 
 
-@pytest.mark.parametrize("element", ["O3", "O(g)", "Br2(g)", "Cl(g)", "H(g)", "I2(g)", "Na(g)"])
+def test_galvanic_cell_accepts_potassium_paired_with_another_metal() -> None:
+    result = _solve("Find the galvanic cell for K and Cu")
+    assert "anode: K\ncathode: Cu" in result.answer
+
+
+@pytest.mark.parametrize(
+    "element", ["O3", "O(g)", "Br2(g)", "Cl(g)", "H(g)", "I2(g)", "Na(g)", "P", "S", "P(s)", "S(s)"]
+)
 def test_formation_enthalpy_is_zero_only_for_a_standard_state(element: str) -> None:
     with pytest.raises(SolveServiceError):
         _formation(element, {})
 
 
 @pytest.mark.parametrize(
-    "element", ["H2", "O2", "N2", "Cl2", "Br2(l)", "I2(s)", "Hg(l)", "C(s)", "Fe(s)", "Na", "He"]
+    "element",
+    ["H2", "O2", "N2", "Cl2", "Br2(l)", "I2(s)", "Hg(l)", "C(s)", "Fe(s)", "Na", "He", "S8", "P4"],
 )
 def test_formation_enthalpy_of_a_standard_state_is_zero(element: str) -> None:
     assert _formation(element, {}) == 0.0
@@ -652,6 +701,14 @@ def test_crystal_field_refuses_when_the_spin_depends_on_the_metal() -> None:
     assert intent is not None
     with pytest.raises(SolveServiceError):
         solve_chemistry(intent)
+    oxalate = extract_chemistry_intent("Find the crystal field of [Co(ox)3]3-")
+    assert oxalate is not None
+    with pytest.raises(SolveServiceError, match="depends on the metal"):
+        solve_chemistry(oxalate)
+    pyridine = extract_chemistry_intent("Find the crystal field of [Co(py)6]3+")
+    assert pyridine is not None
+    with pytest.raises(SolveServiceError, match="depends on the metal"):
+        solve_chemistry(pyridine)
 
 
 def test_the_coordination_name_question_accepts_a_charged_ion_and_trailing_punctuation() -> None:

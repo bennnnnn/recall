@@ -267,7 +267,9 @@ def solve_ice(intent: ChemistryIntent) -> ChemistryResult:
     concentrations: dict[str, Any] = {}
     for species, coefficient in balanced.reactants.items():
         if counts_in_mass_action(species):
-            concentrations[species] = intent.species.get(species, 0.0) - coefficient * extent
+            if species not in intent.species:
+                raise SolveServiceError(f"the starting concentration of {species} is missing")
+            concentrations[species] = intent.species[species] - coefficient * extent
     for species, coefficient in balanced.products.items():
         if counts_in_mass_action(species):
             concentrations[species] = intent.species.get(species, 0.0) + coefficient * extent

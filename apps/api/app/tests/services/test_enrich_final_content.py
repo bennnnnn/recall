@@ -74,6 +74,7 @@ def _ctx(
     ctx.instant_reply = None
     ctx.user_message_content = "what's the news"
     ctx.solver_unverified = False
+    ctx.unverified_subject = None
     return ctx
 
 
@@ -367,6 +368,32 @@ async def test_unverified_math_note_appended_to_final_content(
     assert persisted.endswith("*I couldn't automatically verify this result.*")
     assert "\n>" not in persisted
     assert "```answer" not in persisted
+
+
+@pytest.mark.asyncio
+async def test_unverified_chemistry_uses_the_chemistry_note(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.chemistry.context import unverified_chemistry_note
+
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
+    ctx = _ctx()
+    ctx.solver_unverified = True
+    ctx.unverified_subject = "chemistry"
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=True),
+        ctx,
+        assistant_text="The pH is about 6.",
+        usage={"input": 1, "output": 2},
+        result={},
+        was_cancelled=False,
+        assistant_parts=["The pH is about 6."],
+        should_cancel=None,
+    )
+    assert unverified_chemistry_note() in persisted
+    assert "*I couldn't automatically verify this result.*" not in persisted
 
 
 @pytest.mark.asyncio

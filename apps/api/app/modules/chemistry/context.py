@@ -220,12 +220,23 @@ def _element_context(content: str) -> str | None:
     return "\n".join(lines)
 
 
-def _unverified_chemistry_note() -> str:
+def unverified_chemistry_note() -> str:
     return (
         "Chemistry note: a chemistry calculation was detected, but no complete "
         "verified result is available. Do not claim verification or invent the "
         "missing value. Do not emit answer, smiles, or chem_scene fences."
     )
+
+
+def append_unverified_chemistry_note(content: str) -> str:
+    """User-visible decline line. This is the chemistry note, not the math sentence."""
+    note = unverified_chemistry_note()
+    if note in content:
+        return content
+    stripped = content.rstrip()
+    if not stripped:
+        return note
+    return f"{stripped}\n\n{note}"
 
 
 async def build_chemistry_augmentation(
@@ -274,7 +285,7 @@ async def build_chemistry_augmentation(
             return local_context, None, False
 
     if intent is not None:
-        return _unverified_chemistry_note(), None, True
+        return unverified_chemistry_note(), None, True
 
     if not is_chemistry_question(content):
         return None, None, False
