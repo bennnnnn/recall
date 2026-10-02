@@ -119,7 +119,7 @@ async def test_build_chemistry_context_does_not_teach_molecule3d() -> None:
 
 
 async def test_build_chemistry_context_pubchem_not_found() -> None:
-    """When PubChem returns an error, no context block is produced."""
+    """A named lookup that errors declines with the chemistry note."""
     fake_result = MagicMock()
     fake_result.error = "not found"
     fake_result.compound = None
@@ -128,8 +128,11 @@ async def test_build_chemistry_context_pubchem_not_found() -> None:
         chemistry_context.pubchem_gateway, "lookup_by_name", new_callable=AsyncMock
     ) as mock_lookup:
         mock_lookup.return_value = fake_result
-        block = await chemistry_context.build_chemistry_context("what is xyzcompound?", MagicMock())
-    assert block is None
+        block, _verified, declined = await chemistry_context.build_chemistry_augmentation(
+            "structure of caffeine", MagicMock()
+        )
+    assert declined is True
+    assert block == chemistry_context.unverified_chemistry_note()
 
 
 async def test_build_chemistry_context_non_chemistry() -> None:
