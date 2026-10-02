@@ -6,7 +6,6 @@ from typing import Literal
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.circuit_patterns import (
-    _AMP_PATTERN,
     _CHARGE_FLOW_RE,
     _CIRCUIT_CUE_RES,
     _CIRCUIT_CUES,
@@ -15,18 +14,21 @@ from app.modules.physics.extractors.circuit_patterns import (
     _ELECTRICAL_ENERGY_RE,
     _FARAD_PATTERN,
     _MAX_NETWORK_RESISTORS,
-    _OHM_PATTERN,
     _TERMINAL_ASK_RE,
     _VOLT_PATTERN,
     _WATT_PATTERN,
     _resistor_values,
 )
 from app.modules.physics.extractors.common import (
+    _AMP_PATTERN,
     _LENGTH_UNIT_PATTERN,
+    _OHM_PATTERN,
     _find_value_with_specific_unit,
-    _has_cue_either_case,
     _ordered_values,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue_either_case,
 )
 from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_circuit

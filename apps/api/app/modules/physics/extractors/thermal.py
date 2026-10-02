@@ -9,8 +9,10 @@ from app.modules.physics.extractors.common import (
     _MASS_UNITS,
     _NUMBER,
     _find_value_with_specific_unit,
-    _has_cue,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue,
 )
 from app.modules.physics.extractors.school_extensions import blocks_thermal
 from app.modules.physics.extractors.thermal_laws import NAMED_THERMAL_LAWS

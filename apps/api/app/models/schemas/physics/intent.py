@@ -78,25 +78,15 @@ class PhysicsIntent(BaseModel):
         return self
 
     def _catalog_owns_operation(self) -> None:
-        """Reject a kind, operation, or parameter the formula catalog does not contain.
+        """The formula catalog decides which operations and parameters exist.
 
-        The catalog declares each operation and the variables it accepts. The
-        catalog does not import this module.
+        The catalog owns those rules and the schema only asks, so every intent
+        is checked however it was built. The catalog does not import this module.
         """
         if self.physics_op is None:
             return
-        from app.modules.physics.catalog import CATALOG
+        from app.modules.physics.catalog import check_intent
 
-        spec = CATALOG.get(self.physics_op)
-        if spec is None or spec.kind != self.kind:
-            raise ValueError(f"{self.kind} does not define {self.physics_op}")
-        allowed = {variable.name for variable in spec.variables}
-        params = set(self.physics_params or {})
-        unknown = params - allowed
-        if unknown:
-            names = ", ".join(sorted(unknown))
-            raise ValueError(f"{self.physics_op} does not declare {names}")
-        extra_units = set(self.physics_units or {}) - params
-        if extra_units:
-            names = ", ".join(sorted(extra_units))
-            raise ValueError(f"{self.physics_op} units are not parameters: {names}")
+        check_intent(
+            self.kind, self.physics_op, self.physics_params or {}, self.physics_units or {}
+        )

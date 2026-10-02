@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import _ordered_values
+from app.modules.physics.extractors.common import (
+    _AMP_PATTERN,
+    _OHM_PATTERN,
+    _ordered_values,
+)
 
 _CIRCUIT_CUES = (
     "ohm",
@@ -27,10 +31,6 @@ _CIRCUIT_CUES = (
 )
 
 _VOLT_PATTERN = r"V|volts?"
-
-_AMP_PATTERN = r"A|amps?|amperes?"
-
-_OHM_PATTERN = r"ohms?|\u03a9"
 
 _VOLT_CUE = r"V|[Vv]olts?"
 

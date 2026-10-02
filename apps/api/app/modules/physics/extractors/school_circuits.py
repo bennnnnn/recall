@@ -5,11 +5,13 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.extractors.common import _ordered_values
+from app.modules.physics.extractors.common import (
+    _AMP_PATTERN,
+    _OHM_PATTERN,
+    _ordered_values,
+)
 from app.modules.physics.extractors.school_common import (
-    _AMP,
     _HENRY,
-    _OHM,
     _SECOND,
     _has_word,
     _henry_unit,
@@ -40,7 +42,7 @@ def extract_loop(text: str, lower: str) -> PhysicsIntent | None:
     if "loop" not in lower:
         return None
     volts = _ordered_values(text, r"V|volts?")
-    resistors = [value for value, _unit in _ordered_values(text, _OHM)]
+    resistors = [value for value, _unit in _ordered_values(text, _OHM_PATTERN)]
     if len(volts) != 1 or not 2 <= len(resistors) <= 4:
         return None
     params = {"V": volts[0][0]}
@@ -59,7 +61,7 @@ def extract_inductor(text: str, lower: str) -> PhysicsIntent | None:
         return None
     henry = _henry_unit(inductance[1] or "H")
     if "energy" in lower:
-        current = _one(text, _AMP)
+        current = _one(text, _AMP_PATTERN)
         if current is None:
             return None
         return _intent(
@@ -68,7 +70,7 @@ def extract_inductor(text: str, lower: str) -> PhysicsIntent | None:
             {"inductance": inductance[0], "I": current[0]},
             {"inductance": henry, "I": current[1] or "A"},
         )
-    amps = _ordered_values(text, _AMP)
+    amps = _ordered_values(text, _AMP_PATTERN)
     seconds = _one(text, _SECOND, ("in", "over", "during"), require_keyword=True)
     if seconds is None or not amps:
         return None
@@ -90,7 +92,7 @@ def extract_rl(text: str, lower: str) -> PhysicsIntent | None:
     if re.search(r"\brl\b", lower) is None and "inductor" not in lower:
         return None
     inductance = _one(text, _HENRY)
-    resistance = _one(text, _OHM)
+    resistance = _one(text, _OHM_PATTERN)
     if inductance is None or resistance is None:
         return None
     henry = _henry_unit(inductance[1] or "H")
@@ -102,7 +104,7 @@ def extract_rl(text: str, lower: str) -> PhysicsIntent | None:
             {"inductance": henry, "R": resistance[1] or "ohm"},
         )
     volts = _ordered_values(text, r"V|volts?")
-    amps = _ordered_values(text, _AMP)
+    amps = _ordered_values(text, _AMP_PATTERN)
     seconds = _one(text, _SECOND, ("after", "in", "at"), require_keyword=True)
     if seconds is None:
         return None

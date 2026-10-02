@@ -9,9 +9,11 @@ from app.modules.physics.extractors.circuit_patterns import _COULOMB_PATTERN
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _find_value_with_specific_unit,
-    _has_cue_either_case,
     _ordered_values,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue_either_case,
 )
 from app.modules.physics.extractors.school_extensions import blocks_field
 from app.services.text_match import has_equation

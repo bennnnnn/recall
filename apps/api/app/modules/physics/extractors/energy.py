@@ -12,9 +12,11 @@ from app.modules.physics.extractors.common import (
     _VELOCITY_UNIT_PATTERN,
     _detect_gravity,
     _find_value_with_specific_unit,
-    _has_cue_either_case,
     _ordered_values,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue_either_case,
 )
 from app.services.text_match import has_equation
 

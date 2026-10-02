@@ -25,6 +25,12 @@ _LENGTH_UNIT_PATTERN = (
 
 _VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour"
 
+_AMP_PATTERN = r"A|amps?|amperes?"
+
+_OHM_PATTERN = r"ohms?|\u03a9"
+
+_TESLA_PATTERN = r"T|tesla|teslas|mT|millitesla"
+
 _G_DEFAULT = 9.81
 
 _ELECTRON_MASS = ELECTRON_MASS
@@ -45,46 +51,6 @@ _VALUE_UNIT_RE = re.compile(
     r"(?![A-Za-z0-9/^])",
     re.IGNORECASE,
 )
-
-
-def _has_cue_either_case(
-    cleaned: str,
-    cues: tuple[str, ...],
-    regexes: tuple[re.Pattern[str], ...] = (),
-) -> bool:
-    """`_has_cue`, but the regexes see the text as written as well as lowered.
-
-    A few cue regexes mean the SI symbols `V` and `A` and are case-sensitive on
-    purpose - "12 V and 3 A" is a circuit, "12 v cards and 3 a piece" is not.
-    Handing them only lowercased text silently disables them, which is exactly
-    what the pre-filter did: `needs_symbolic` dropped questions the extractor
-    would have answered, because the extractor saw the original casing and the
-    pre-filter did not. The two have to see the same thing.
-
-    A case-insensitive regex finds the same thing in both, so it reads once.
-    """
-    lower = cleaned.lower()
-    if any(cue in lower for cue in cues):
-        return True
-    return any(
-        rx.search(cleaned) or (not rx.flags & re.IGNORECASE and rx.search(lower)) for rx in regexes
-    )
-
-
-def _has_cue(
-    lower: str,
-    cues: tuple[str, ...],
-    regexes: tuple[re.Pattern[str], ...] = (),
-) -> bool:
-    """Cue match: plain substrings, plus regexes for cues that need a boundary.
-
-    Most cues are safe as substrings ("net force"). A few are not: "find f"
-    sits inside "find factors", and "KE" inside "take". Those are expressed as
-    regexes instead of widening the tuple.
-    """
-    if any(cue in lower for cue in cues):
-        return True
-    return any(rx.search(lower) for rx in regexes)
 
 
 def _find_value_with_unit(text: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
@@ -133,12 +99,33 @@ def _find_value_after_keyword(text: str, keywords: tuple[str, ...]) -> tuple[flo
     return None
 
 
+def _keyword_spans(
+    text: str, keywords: tuple[str, ...], *, whole_words: bool = True
+) -> list[tuple[int, int]]:
+    """Where each keyword appears, as a whole word or anywhere in a word."""
+    lower = text.lower()
+    spans: list[tuple[int, int]] = []
+    for keyword in keywords:
+        if whole_words:
+            spans.extend(
+                (found.start(), found.end())
+                for found in re.finditer(rf"\b{re.escape(keyword.lower())}\b", lower)
+            )
+            continue
+        start = 0
+        while (idx := lower.find(keyword.lower(), start)) != -1:
+            spans.append((idx, idx + len(keyword)))
+            start = idx + len(keyword)
+    return spans
+
+
 def _find_value_with_specific_unit(
     text: str,
     unit_pattern: str,
     keywords: tuple[str, ...] = (),
     *,
     require_keyword: bool = False,
+    whole_words: bool = False,
 ) -> tuple[float, str] | None:
     """Find a number followed by a specific unit (e.g. "20 N", "5 kg").
 
@@ -149,6 +136,9 @@ def _find_value_with_specific_unit(
     ``require_keyword`` (projectile h0): if none of the keywords appear, return
     None instead of the first unlabeled length (``wall is 15 m away``).
     Kinematics unlabeled ``free fall 20 m`` still binds.
+
+    ``whole_words`` matches a keyword only as a word: ``in`` is not the start of
+    ``inductor``.
     """
     matches = list(
         re.finditer(
@@ -162,13 +152,7 @@ def _find_value_with_specific_unit(
 
     match = matches[0]
     if keywords:
-        lower = text.lower()
-        keyword_spans: list[tuple[int, int]] = []
-        for keyword in keywords:
-            start = 0
-            while (idx := lower.find(keyword.lower(), start)) != -1:
-                keyword_spans.append((idx, idx + len(keyword)))
-                start = idx + len(keyword)
+        keyword_spans = _keyword_spans(text, keywords, whole_words=whole_words)
         if require_keyword and not keyword_spans:
             return None
         if keyword_spans:

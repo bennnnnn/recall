@@ -10,9 +10,11 @@ from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
     _NUMBER,
-    _has_cue,
     _positioned_values,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue,
 )
 from app.services.text_match import has_equation
 

@@ -14,8 +14,10 @@ from app.modules.physics.extractors.common import (
     _detect_gravity,
     _find_value_after_keyword,
     _find_value_with_specific_unit,
-    _has_cue,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue,
 )
 from app.modules.physics.extractors.kinematics_asks import (
     _ASKS_ACCELERATION_RE,

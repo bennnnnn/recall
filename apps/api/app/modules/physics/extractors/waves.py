@@ -10,9 +10,11 @@ from app.modules.physics.extractors.common import (
     _NUMBER,
     _VELOCITY_UNIT_PATTERN,
     _find_value_with_specific_unit,
-    _has_cue,
     _ordered_values,
     _strip_param_assignments,
+)
+from app.modules.physics.extractors.cues import (
+    _has_cue,
 )
 from app.modules.physics.extractors.doppler import SOUND_SOURCE, doppler_intent
 from app.modules.physics.extractors.oscillations import _SHM_TIME_UNITS
