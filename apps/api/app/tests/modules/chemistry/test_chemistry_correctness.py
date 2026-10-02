@@ -928,6 +928,12 @@ def test_standard_addition_refuses_a_spiked_signal_below_the_sample() -> None:
         )
 
 
+def test_nmr_methyl_region_is_not_labeled_amine_alone() -> None:
+    result = _solve("NMR peak 1.2")
+    assert "alkyl" in result.answer
+    assert result.answer != "amine"
+
+
 def test_esterification_needs_an_alcohol_partner_not_an_acid() -> None:
     assert named_product("esterification", "CC(=O)O", "CCO") == "CCOC(C)=O"
     assert named_product("esterification", "CC(=O)O", "OC(=O)C") is None
