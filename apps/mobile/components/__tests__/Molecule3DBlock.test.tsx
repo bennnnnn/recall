@@ -25,9 +25,14 @@ jest.mock("@/ui/icons/Icon", () => ({
   Icon: () => null,
 }));
 
-jest.mock("@/components/CopyButton", () => ({
-  CopyButton: () => null,
-}));
+jest.mock("@/components/CopyButton", () => {
+  const { Text } = jest.requireActual("react-native");
+  return {
+    CopyButton: ({ accessibilityLabel }: { accessibilityLabel?: string }) => (
+      <Text>{accessibilityLabel}</Text>
+    ),
+  };
+});
 
 jest.mock("@/lib/theme", () => {
   const actual = jest.requireActual("@/lib/theme");
@@ -59,7 +64,7 @@ describe("Molecule3DBlock", () => {
   });
 
   it("uses the native Skia renderer when the module is available", async () => {
-    const { getByText, getByTestId, queryByText } = await render(
+    const { getByText, getByTestId, getByLabelText, queryByText } = await render(
       <Molecule3DBlock content={VALID_SDF} />,
     );
     expect(getByText("rich.chemistry_structure")).toBeTruthy();
@@ -67,6 +72,8 @@ describe("Molecule3DBlock", () => {
     expect(getByText("rich.chemistry_style_sphere")).toBeTruthy();
     expect(getByText("rich.chemistry_style_wire")).toBeTruthy();
     await waitFor(() => expect(getByTestId("molecule-skia-canvas")).toBeTruthy());
+    expect(getByLabelText("rich.chemistry_3d_a11y")).toBeTruthy();
+    expect(getByText("rich.chemistry_copy_structure")).toBeTruthy();
     expect(queryByText(/V2000/)).toBeNull();
   });
 
@@ -88,6 +95,7 @@ describe("Molecule3DBlock", () => {
         ).length === 2,
     );
     expect(atomGroups).toHaveLength(3);
+    expect(nodesIn(toJSON()).filter((node) => node.type === "RNSVGText")).toHaveLength(3);
     atomGroups.forEach((group) => {
       expect(nodesIn(group).filter((node) => node.type === "RNSVGCircle")).toHaveLength(2);
     });

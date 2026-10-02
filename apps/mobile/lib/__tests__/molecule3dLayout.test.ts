@@ -3,6 +3,7 @@ import {
   atomLabelColor,
   bondStrokeWidth,
   layoutMolecule,
+  showsAtomLabel,
   type MoleculeStyle,
 } from "@/lib/chemistry/molecule3dLayout";
 import type { MolGeometry } from "@/lib/chemistry/molecule3dFence";
@@ -125,6 +126,15 @@ describe("layoutMolecule drawing", () => {
   it("draws wireframe bonds thinner than ball-and-stick", () => {
     expect(bondStrokeWidth("wireframe")).toBeLessThan(bondStrokeWidth("ball-stick"));
   });
+
+  it("refuses a stage narrower than the 72px padding", () => {
+    const narrow = layoutMolecule(CHAIN, 0, 0, 71, H, "ball-stick");
+    expect(narrow.atoms).toEqual([]);
+    expect(narrow.bonds).toEqual([]);
+    expect(narrow.drawOrder).toEqual([]);
+    const edge = layoutMolecule(CHAIN, 0, 0, 72, H, "wireframe");
+    expect(edge.atoms).toEqual([]);
+  });
 });
 
 describe("how an element looks", () => {
@@ -133,6 +143,12 @@ describe("how an element looks", () => {
     for (const element of ["Li", "B", "Na", "Mg", "Al", "Si", "K", "Ca", "Fe", "Cu", "Zn", "Se"]) {
       expect(atomColor(element)).not.toBe(fallback);
     }
+  });
+
+  it("names atoms in ball-and-stick and wire, and leaves the sphere unlabeled", () => {
+    expect(showsAtomLabel("ball-stick")).toBe(true);
+    expect(showsAtomLabel("wireframe")).toBe(true);
+    expect(showsAtomLabel("spacefill")).toBe(false);
   });
 
   it("uses a dark label on a light atom and a white one on a dark atom", () => {

@@ -16,6 +16,7 @@ import {
   atomLabelColor,
   bondStrokeWidth,
   layoutMolecule,
+  showsAtomLabel,
   MOLECULE_PREVIEW_HEIGHT,
   type MoleculeStyle,
 } from "@/lib/chemistry/molecule3dLayout";
@@ -84,7 +85,7 @@ function SvgMoleculeCanvas({ geom, style, theme, yaw, pitch, width }: MoleculeCa
           <G key={`atom-${atom.index}`}>
             <Circle cx={atom.x} cy={atom.y} r={atom.radius + 1.75} fill="#1a1a1a" />
             <Circle cx={atom.x} cy={atom.y} r={atom.radius} fill={atomColor(atom.element)} />
-            {style !== "spacefill" && atom.radius >= 8 ? (
+            {showsAtomLabel(style) ? (
               <SvgText
                 x={atom.x}
                 y={atom.y + 4}
@@ -207,7 +208,7 @@ export function Molecule3DBlock({ content }: Props) {
       actions={
         <>
           <View style={s.spacer} />
-          <CopyButton text={sdf} />
+          <CopyButton text={sdf} accessibilityLabel={t("rich.chemistry_copy_structure")} />
         </>
       }
     >
