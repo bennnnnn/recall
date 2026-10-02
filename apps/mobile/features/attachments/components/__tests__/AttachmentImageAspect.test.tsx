@@ -1,5 +1,6 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 import { type ImageProps, StyleSheet } from "react-native";
+import * as Reanimated from "react-native-reanimated";
 
 import { ChatMessageImage } from "@/components/ChatMessageImage";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
@@ -28,7 +29,7 @@ jest.mock("react-native-reanimated", () => {
     Easing: { out: (value: unknown) => value, ease: "ease" },
     useAnimatedStyle: (fn: () => unknown) => fn(),
     useSharedValue: (value: number) => ({ value }),
-    withTiming: (value: number) => value,
+    withTiming: jest.fn((value: number) => value),
   };
 });
 
@@ -92,6 +93,21 @@ describe("decoded attachment frame proportions", () => {
     expect(layers.every((layer) => layer.props.contentFit === "cover")).toBe(true);
     await fireEvent(layers[1], "load", load(1200, 300));
     expect(view.getByTestId("chat-image-frame")).toHaveStyle({ width: 148, height: 189 });
+  });
+
+  it("starts the reveal when the blurred layer loads, and only once", async () => {
+    const withTiming = Reanimated.withTiming as jest.Mock;
+    withTiming.mockClear();
+    const view = await render(<ChatMessageImage path="https://images.test/generated.jpg" width={148} height={189} />);
+    const layers = view.getAllByTestId("animated-image");
+    const blur = layers.find((layer) => layer.props.blurRadius === 16);
+    const sharp = layers.find((layer) => layer.props.blurRadius == null);
+    expect(blur).toBeTruthy();
+    await fireEvent(blur!, "load", load(1200, 300));
+    expect(withTiming).toHaveBeenCalledTimes(1);
+    expect(withTiming).toHaveBeenCalledWith(1, expect.objectContaining({ duration: 280 }));
+    await fireEvent(sharp!, "load", load(1200, 300));
+    expect(withTiming).toHaveBeenCalledTimes(1);
   });
 
   it("re-fits a loaded image if its available bounds change", async () => {
