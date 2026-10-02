@@ -20,3 +20,16 @@ def named_body(lower: str) -> tuple[float, float] | None:
         if word_index(lower, name) != -1:
             return properties
     return None
+
+
+# The surface gravity (m/s²) a school question takes for a body it names.
+# Jupiter and the Sun have no agreed school value (it turns on the radius
+# quoted), so a solve that needs g there declines instead of using Earth's.
+SCHOOL_GRAVITY: dict[str, float] = {"earth": 9.81, "moon": 1.62, "mars": 3.71}
+
+
+def names_body_without_school_gravity(lower: str) -> bool:
+    """True when lowercased text names a body whose surface g has no school value."""
+    return any(
+        word_index(lower, name) != -1 for name in BODY_PROPERTIES if name not in SCHOOL_GRAVITY
+    )

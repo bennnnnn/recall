@@ -6,6 +6,7 @@ import logging
 import re
 from bisect import bisect_left, bisect_right
 
+from app.modules.physics.bodies import SCHOOL_GRAVITY
 from app.services.text_match import word_index
 
 logger = logging.getLogger(__name__)
@@ -197,20 +198,27 @@ def _find_value_with_specific_unit(
     return float(match.group(1)), match.group(2)
 
 
-def _detect_gravity(text: str) -> float:
-    """If the user named a gravity value, use it; else default 9.81 m/s^2."""
+def stated_gravity(text: str) -> float | None:
+    """A gravity value the user wrote: "g = 1.6", "gravity = 1.62", "g = 1.6 m/s^2"."""
     lower = text.lower()
-    # "g = 1.6", "gravity = 1.62", "g = 1.6 m/s^2"
     m = re.search(r"\bg\s*=\s*(-?\d+(?:\.\d+)?)", lower)
     if m:
         return float(m.group(1))
     m = re.search(r"\bgravity\s*(?:of|is|=)?\s*(-?\d+(?:\.\d+)?)", lower)
     if m:
         return float(m.group(1))
-    if word_index(lower, "moon") != -1:
-        return 1.62
-    if word_index(lower, "mars") != -1:
-        return 3.71
+    return None
+
+
+def _detect_gravity(text: str) -> float:
+    """If the user named a gravity value, use it; else the named body's, else 9.81 m/s^2."""
+    stated = stated_gravity(text)
+    if stated is not None:
+        return stated
+    lower = text.lower()
+    for body in ("moon", "mars"):
+        if word_index(lower, body) != -1:
+            return SCHOOL_GRAVITY[body]
     return _G_DEFAULT
 
 

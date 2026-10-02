@@ -96,11 +96,14 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("M", "M", "kilogram", fallback="body_mass"),
             var("r", "r", "meter"),
         ),
+        # Kepler's r is measured from the centre: "400 km above Earth" is a
+        # height, and reading it as r would answer an orbit inside the planet.
         binding=Binding(
             asks=("orbital period", "period"),
             result=("second",),
             inputs=(frozenset({"M", "r"}),),
-            cues=("orbit",),
+            cues=("radius", "from the centre", "from the center"),
+            excludes=("above", "altitude", "height"),
             nonnegative=True,
         ),
     ),

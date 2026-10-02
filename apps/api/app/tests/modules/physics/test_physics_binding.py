@@ -136,10 +136,42 @@ def test_a_stated_law_is_read_and_verified(text: str, operation: str, answer: st
         "Find the acceleration.",
         # No horizontal launch: the angle is not stated, so it is not a horizontal throw.
         "A ball is thrown at 15 m/s from a cliff 20 m high. How far does it land?",
+        # A height above the surface is not Kepler's r: 400 km gave 79.6 s.
+        "Find the period of a satellite orbiting 400 km above Earth.",
+        "Find the period of a satellite orbiting at an altitude of 400 km around Earth.",
+        "A satellite orbits Earth at 400 km. Find its period.",
+        # Jupiter has no school value of g, and Earth's would answer another planet.
+        "What is the weight of a 70 kg astronaut on Jupiter?",
+        "A stone is dropped on the Sun and hits the ground 3 s later. How high was it dropped from?",
     ],
 )
 def test_a_question_the_catalog_cannot_read_exactly_declines(text: str) -> None:
     assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Two masses of 5 kg and 3000 g hang over a frictionless pulley. "
+        "Find the acceleration and the tension.",
+        "Two masses of 3000 g and 5 kg hang over a frictionless pulley. "
+        "Find the acceleration and the tension.",
+    ],
+)
+def test_a_largest_first_pair_compares_in_si_and_keeps_its_units(text: str) -> None:
+    # 5 kg is the heavier mass; 3000 g was once read as 3000 kg.
+    intent = extract_physics_intent(text)
+    assert intent is not None
+    assert intent.physics_params == {"m1": 5.0, "m2": 3000.0}
+    assert intent.physics_units == {"m1": "kg", "m2": "g"}
+    assert _answer(text) == "2.45 m/s² and 36.8 N"
+
+
+def test_a_stated_g_answers_for_a_body_without_a_school_value() -> None:
+    assert (
+        _answer("What is the weight of a 70 kg astronaut on Jupiter where gravity is 24.8 m/s^2?")
+        == "1740 N"
+    )
 
 
 def test_a_paste_with_more_values_than_a_question_is_not_bound() -> None:
