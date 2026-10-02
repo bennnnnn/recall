@@ -800,14 +800,16 @@ def division_answer_mode(
 
     Ordinary division means the ordinary numerical quotient.  Remainder form
     is a distinct interpretation and is selected only when the learner asks
-    for it or explicitly asks to use school long division with whole numbers.
+    for it, or asks for school long division, and both operands are whole
+    numbers. A decimal stays a decimal quotient.
     Whether the working is displayed is decided later by response intent.
     """
     lower = collapse_ws(text).lower()
+    whole = "." not in left and "." not in right
     for phrase, mode in _DIVISION_MODE_PHRASES:
-        if phrase in lower:
+        if phrase in lower and (mode != "remainder" or whole):
             return cast(Literal["remainder", "fraction", "decimal", "round_up", "discard"], mode)
-    if "long division" in lower and "." not in left and "." not in right:
+    if "long division" in lower and whole:
         return "remainder"
     return "decimal"
 
