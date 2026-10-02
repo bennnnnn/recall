@@ -202,7 +202,7 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "ice_equilibrium",
         "equilibrium",
         "ICE table, quadratic or linear",
-        "K = Π (initial ± νx)^ν",
+        "K = Π (initial + νx)^ν / Π (initial − νx)^ν",
     ),
     ("zero_order", "kinetics", "Integrated zero-order rate law", "[A]ₜ = [A]₀ − kt"),
     ("second_order", "kinetics", "Integrated second-order rate law", "1/[A]ₜ = 1/[A]₀ + kt"),
