@@ -185,12 +185,13 @@ def test_a_smiles_result_is_never_typeset() -> None:
 
 
 # Ops whose printed formula is built from this problem (a mole ratio, Kc in the user's
-# species, or [OH-] = C versus 2C). A weak titration also changes the law name.
+# species, an ICE quotient, or [OH-] = C versus 2C). A weak titration also changes the law name.
 _CASE_FORMULA = frozenset(
     {
         "equilibrium_constant",
         "reaction_quotient",
         "kp",
+        "ice_equilibrium",
         "stoichiometry",
         "mass_stoichiometry",
         "solution_stoichiometry",
@@ -221,6 +222,11 @@ def test_a_strong_base_prints_how_many_hydroxides_it_releases() -> None:
     calcium = _solve("Find the strong base pH of 0.010 M Ca(OH)2")
     assert calcium.formula == "[OH-] = 2C"
     assert calcium.answer.startswith("pH = ")
+
+
+def test_an_ice_formula_is_products_over_reactants() -> None:
+    result = _solve("Solve the ICE equilibrium for N2O4 -> NO2 when K=4 and [N2O4]=1")
+    assert result.formula == "K = (2x)^2 / (1 − x)"
 
 
 def test_stoichiometry_prints_this_reaction_ratio() -> None:

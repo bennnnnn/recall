@@ -321,11 +321,13 @@ def solve_ice(intent: ChemistryIntent) -> ChemistryResult:
         f"x = {num(chosen)} (the root that keeps every concentration non-negative)",
     ]
     answer = "\n".join([f"x = {num(chosen)}", *results])
+    quotient = _ice_substituted(intent, balanced.reactants, balanced.products, concentrations)
     result = verified(
         "Verified ICE equilibrium",
         (intent.equation, f"K = {inp(constant)}"),
         "Equilibrium extent and concentrations",
-        *stated("ice_equilibrium"),
+        stated("ice_equilibrium")[0],
+        f"K = {quotient}",
         lines,
         answer,
         num(chosen),
