@@ -6,6 +6,9 @@ import re
 from typing import Literal
 
 from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.extractors.angles import (
+    _stated_angle,
+)
 from app.modules.physics.extractors.common import (
     _NUMBER,
     _VELOCITY_UNIT_PATTERN,
@@ -13,7 +16,6 @@ from app.modules.physics.extractors.common import (
     _find_value_with_specific_unit,
     _has_cue_either_case,
     _ordered_values,
-    _stated_angle,
     _strip_param_assignments,
 )
 from app.services.text_match import has_equation

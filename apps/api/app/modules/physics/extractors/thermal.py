@@ -6,27 +6,20 @@ import re
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
-    _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
     _NUMBER,
     _find_value_with_specific_unit,
     _has_cue,
     _strip_param_assignments,
 )
-from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_thermal
+from app.modules.physics.extractors.thermal_laws import NAMED_THERMAL_LAWS
 from app.modules.physics.extractors.thermal_readings import (
     _CELSIUS_PATTERN,
     _KELVIN_PATTERN,
-    _REJECTED_WORDS,
     _SPECIFIC_HEAT_UNIT,
-    _SUPPLIED_WORDS,
     _TEMPERATURE_SPAN,
     _WATER_SPECIFIC_HEAT,
-    _WORK_WORDS,
-    _efficiency_intent,
-    _nearest_labeled_energy,
-    _reservoir_temperatures,
     _temperature_change,
     _temperature_value,
 )
@@ -82,176 +75,43 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
     if has_equation(_strip_param_assignments(cleaned)):
         return None
 
-    if "carnot" in lower:
-        reservoirs = _reservoir_temperatures(cleaned)
-        if reservoirs is None:
-            return None
-        (hot, hot_unit), (cold, cold_unit) = reservoirs
-        return PhysicsIntent(
-            kind="thermal",
-            physics_op="carnot_efficiency",
-            physics_params={"temp": hot, "temp_env": cold},
-            physics_units={"temp": hot_unit, "temp_env": cold_unit},
-            operation="solve",
-        )
+    for names, law in NAMED_THERMAL_LAWS:
+        if any(name in lower for name in names):
+            return law(cleaned)
 
-    if "entropy" in lower:
-        heat = _find_value_with_specific_unit(
-            cleaned, r"kilojoules?|joules?|kJ|J", ("heat", "energy")
-        )
-        temp = _temperature_value(cleaned, ("temperature", "at"))
-        if heat is None or temp is None or temp[1] != "K":
-            return None
-        return PhysicsIntent(
-            kind="thermal",
-            physics_op="entropy_change",
-            physics_params={"heat": heat[0], "temp": temp[0]},
-            physics_units={"heat": heat[1] or "J", "temp": "K"},
-            operation="solve",
-        )
-
-    if "heat conduction" in lower or "thermal conductivity" in lower:
-        conductivity = _find_value_with_specific_unit(
-            cleaned,
-            r"W/m/K|W/\(m\s*K\)|watts?\s+per\s+met(?:er|re)\s+per\s+kelvin",
-            ("thermal conductivity", "conductivity"),
-        )
-        area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN, ("area",))
-        thickness = _find_value_with_specific_unit(
-            cleaned, _LENGTH_UNIT_PATTERN, ("thickness", "length"), require_keyword=True
-        )
-        rise = _temperature_change(cleaned, ("temperature difference", "difference", "delta t"))
-        if conductivity is None or area is None or thickness is None or rise is None:
-            return None
-        return PhysicsIntent(
-            kind="thermal",
-            physics_op="heat_conduction_rate",
-            physics_params={
-                "thermal_conductivity": conductivity[0],
-                "area": area[0],
-                "delta_temp": rise[0],
-                "L": thickness[0],
-            },
-            physics_units={
-                "thermal_conductivity": conductivity[1] or "W/m/K",
-                "area": area[1] or "m^2",
-                "delta_temp": "K",
-                "L": thickness[1] or "m",
-            },
-            operation="solve",
-        )
-
-    # --- linear thermal expansion: dL = alpha L0 dT --------------------
-    if "expansion" in lower:
-        length = _find_value_with_specific_unit(
-            cleaned, _LENGTH_UNIT_PATTERN, ("rod", "wire", "length", "long")
-        )
-        alpha_match = re.search(
-            rf"(?:coefficient(?:\s+of\s+linear\s+expansion)?|alpha|\u03b1)\s*"
-            rf"(?:of|is|=|:)?\s*({_NUMBER})\s*(1/K|/K|K\^?-?1|1/°C|/°C)",
-            cleaned,
-            re.IGNORECASE,
-        )
-        rise = _temperature_change(cleaned, ("heated by", "temperature change", "change", "by"))
-        if length is None or alpha_match is None or rise is None:
-            return None
-        return PhysicsIntent(
-            kind="thermal",
-            physics_op="linear_expansion",
-            physics_params={
-                "L0": length[0],
-                "alpha": float(alpha_match.group(1)),
-                "delta_temp": rise[0],
-            },
-            physics_units={
-                "L0": length[1] or "m",
-                "alpha": alpha_match.group(2),
-                "delta_temp": "K",
-            },
-            operation="solve",
-        )
-
-    # --- phase change: Q = m L -----------------------------------------
-    if "latent heat" in lower:
-        mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
-        latent = _find_value_with_specific_unit(
-            cleaned,
-            r"J/kg|kJ/kg|joules?\s+per\s+kilogram|kilojoules?\s+per\s+kilogram",
-            ("latent heat",),
-        )
-        if mass is None or latent is None:
-            return None
-        return PhysicsIntent(
-            kind="thermal",
-            physics_op="latent_heat",
-            physics_params={"m": mass[0], "latent_heat": latent[0]},
-            physics_units={"m": mass[1] or "kg", "latent_heat": latent[1] or "J/kg"},
-            operation="solve",
-        )
-
-    # --- first law: dU = Q - W (work done by the system is positive) ----
-    if "first law" in lower or "internal energy" in lower:
-        heat_match = re.search(
-            rf"(?:heat|energy)\s+(?:added|absorbed|supplied)\D{{0,20}}?({_NUMBER})\s*"
-            r"(kilojoules?|joules?|kJ|J)",
-            cleaned,
-            re.IGNORECASE,
-        )
-        work_match = re.search(
-            rf"work\s+(?:done\s+)?by\s+(?:the\s+)?(?:system|gas)\D{{0,20}}?({_NUMBER})\s*"
-            r"(kilojoules?|joules?|kJ|J)",
-            cleaned,
-            re.IGNORECASE,
-        )
-        if heat_match is None or work_match is None:
-            # Refuse ambiguous sign conventions such as bare "work = 200 J".
-            return None
-        return PhysicsIntent(
-            kind="thermal",
-            physics_op="first_law_internal_energy",
-            physics_params={"heat": float(heat_match.group(1)), "W": float(work_match.group(1))},
-            physics_units={"heat": heat_match.group(2), "W": work_match.group(2)},
-            operation="solve",
-        )
-
-    # --- efficiency: only from two energies -----------------------------
-    if "efficiency" in lower:
-        if not any(word in lower for word in ("engine", "thermal", "heat")):
-            # Machine/mechanical efficiency is handled by the energy
-            # extractor, which runs later in the registry.
-            return None
-        # Two temperatures is a Carnot question. Two unlabeled energies are
-        # not sorted into work and heat: that verifies the smaller number as work.
-        return _efficiency_intent(
-            _nearest_labeled_energy(cleaned, _WORK_WORDS),
-            _nearest_labeled_energy(cleaned, _SUPPLIED_WORDS),
-            _nearest_labeled_energy(cleaned, _REJECTED_WORDS),
-        )
-
-    # --- ideal gas: P V = n R T -----------------------------------------
+    # A stated amount of gas is PV = nRT; anything else left is Q = mc dT.
     moles = _find_value_with_specific_unit(cleaned, r"mol|moles?")
     if moles is not None or "ideal gas" in lower:
-        volume = _find_value_with_specific_unit(cleaned, r"m\^?3|cm\^?3|litres?|liters?|l|ml")
-        temp = _temperature_value(cleaned, ("temperature", "at"))
-        if moles is None or volume is None or temp is None:
-            return None
-        if temp[1] != "K":
-            # PV = nRT needs an absolute temperature. Celsius would be wrong by
-            # 273 and look plausible.
-            return None
-        return PhysicsIntent(
-            kind="thermal",
-            physics_op="ideal_gas_pressure",
-            physics_params={"moles": moles[0], "volume": volume[0], "temp": temp[0]},
-            physics_units={
-                "moles": "mol",
-                "volume": volume[1] or "m^3",
-                "temp": "K",
-            },
-            operation="solve",
-        )
+        return _ideal_gas(cleaned, moles)
+    return _heat_energy(cleaned)
 
-    # --- Q = m c dT ------------------------------------------------------
+
+def _ideal_gas(cleaned: str, moles: tuple[float, str] | None) -> PhysicsIntent | None:
+    """PV = nRT for the pressure, from moles, a volume and an absolute temperature."""
+    volume = _find_value_with_specific_unit(cleaned, r"m\^?3|cm\^?3|litres?|liters?|l|ml")
+    temp = _temperature_value(cleaned, ("temperature", "at"))
+    if moles is None or volume is None or temp is None:
+        return None
+    if temp[1] != "K":
+        # PV = nRT needs an absolute temperature. Celsius would be wrong by
+        # 273 and look plausible.
+        return None
+    return PhysicsIntent(
+        kind="thermal",
+        physics_op="ideal_gas_pressure",
+        physics_params={"moles": moles[0], "volume": volume[0], "temp": temp[0]},
+        physics_units={
+            "moles": "mol",
+            "volume": volume[1] or "m^3",
+            "temp": "K",
+        },
+        operation="solve",
+    )
+
+
+def _heat_energy(cleaned: str) -> PhysicsIntent | None:
+    """Q = mc dT, from a stated change or two readings, and a stated or water's c."""
+    lower = cleaned.lower()
     mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
     readings = _TEMPERATURE_SPAN.search(cleaned)
     rise = None if readings else _temperature_change(cleaned, ("by", "rise", "raise", "change"))

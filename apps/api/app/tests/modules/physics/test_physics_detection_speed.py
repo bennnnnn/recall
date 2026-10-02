@@ -18,8 +18,8 @@ import pytest
 
 import app.modules.physics as physics_package
 from app.modules.physics import extract
+from app.modules.physics.extractors.circuit_patterns import _resistor_values
 from app.modules.physics.extractors.common import _find_value_with_specific_unit
-from app.modules.physics.extractors.electricity_magnetism import _resistor_values
 from app.modules.physics.solvers.common import quadratic_roots
 from app.services.symbolic_text import _MAX_PHYSICS_REQUEST, _MAX_SUBJECT_TEXT
 
