@@ -13,6 +13,7 @@ from app.modules.physics.solvers.common import (
     _SPEED_OF_LIGHT,
     PhysicsResult,
     QuantityResult,
+    _latex_num,
     _params_in_si,
 )
 from app.modules.physics.solvers.mechanics import _free_body_scene
@@ -187,6 +188,37 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
     raise SolveServiceError(f"unsupported optics op: {op}")
 
 
+def _temperature_change(intent: PhysicsIntent, p: dict[str, float]) -> tuple[float, str | None]:
+    """ΔT in kelvin, and the row that shows it when two readings were given."""
+    if "temp_initial" not in p or "temp_final" not in p:
+        return p["delta_temp"], None
+    change = p["temp_final"] - p["temp_initial"]
+    raw = intent.physics_params or {}
+    units = intent.physics_units or {}
+    same_scale = units.get("temp_initial") == units.get("temp_final")
+    first = raw["temp_initial"] if same_scale else p["temp_initial"]
+    second = raw["temp_final"] if same_scale else p["temp_final"]
+    return change, rf"\Delta T = T_2 - T_1 = {second:g} - {first:g} = {change:g}"
+
+
+def _heat_energy(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    """Q = mcΔT. Cooling releases heat: the answer is its size, marked released."""
+    change, change_row = _temperature_change(intent, p)
+    q_val = p["m"] * p["c_heat"] * change
+    plugged = rf"{p['m']:g} \cdot {p['c_heat']:g} \cdot {_latex_num(change)}"
+    rows = (change_row,) if change_row else ()
+    return PhysicsResult(
+        answer=rf"Q = mc\Delta T = {plugged} \approx {q_val:.2f} \text{{ J}}",
+        formulas=(*rows, r"Q = mc\Delta T"),
+        substitutions=(rf"Q = {plugged}",),
+        quantities=(
+            QuantityResult(
+                "", abs(q_val), "J", detail="released" if q_val < 0 else None, number_format=".2f"
+            ),
+        ),
+    )
+
+
 def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
@@ -293,16 +325,7 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     if op == "heat_energy":
-        q_val = p["m"] * p["c_heat"] * p["delta_temp"]
-        return PhysicsResult(
-            answer=(
-                rf"Q = mc\Delta T = {p['m']:g} \cdot {p['c_heat']:g} \cdot "
-                rf"{p['delta_temp']:g} \approx {q_val:.2f} \text{{ J}}"
-            ),
-            formulas=(r"Q = mc\Delta T",),
-            substitutions=(rf"Q = {p['m']:g} \cdot {p['c_heat']:g} \cdot {p['delta_temp']:g}",),
-            quantities=(QuantityResult("", q_val, "J", number_format=".2f"),),
-        )
+        return _heat_energy(intent, p)
 
     if op == "ideal_gas_pressure":
         volume = p["volume"]

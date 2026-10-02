@@ -108,21 +108,21 @@ VERIFIED: list[tuple[str, str, str]] = [
         "impact_speed",
         "20 m/s",
     ),
-    # --- launch angle: theta = 1/2 arcsin(R g / v0^2) --------------------
+    # --- launch angle: theta = 1/2 arcsin(R g / v0^2), and 90 deg - theta ---------
     (
         "at what angle should a ball be thrown at 20 m/s to travel 35 m",
         "launch_angle",
-        "29.57 deg",
+        "29.57 deg or 60.43 deg",
     ),
     (
         "what launch angle gives a range of 35 m at 20 m/s",
         "launch_angle",
-        "29.57 deg",
+        "29.57 deg or 60.43 deg",
     ),
     (
         "what angle is needed for a 20 m/s throw to reach 35 m",
         "launch_angle",
-        "29.57 deg",
+        "29.57 deg or 60.43 deg",
     ),
     # --- the two ops that already worked, so the table cannot regress ----
     ("a ball is thrown at 20 m/s at 30 degrees, what is the range?", "range", "35.31 m"),

@@ -212,13 +212,24 @@ def prepare_physics_request(text: str) -> PhysicsRequest:
 
 
 def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> PhysicsIntent | None:
-    """Attach every requested projectile quantity, or refuse a different solve."""
+    """Attach every requested projectile quantity, or refuse a different solve.
+
+    A solve that skipped a stated quantity of a kind it uses is refused too.
+    The asked dimensions ride along so the block can refuse an answer to a
+    different question.
+    """
+    from app.modules.physics.accounting import competing_given
+    from app.modules.physics.ask import asked_dimensions
+
     if any(
         value < 0
         for key, value in (intent.physics_params or {}).items()
         if key in {"m", "m1", "m2"}
     ):
         return None
+    if competing_given(intent, request.text) is not None:
+        return None
+    asked = asked_dimensions(request.text)
     if request.projectile_ops:
         if intent.kind != "projectile":
             return None
@@ -227,6 +238,7 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
                 **intent.model_dump(),
                 "physics_op": request.projectile_ops[0],
                 "requested_ops": list(request.projectile_ops),
+                "asked": asked,
             }
         )
-    return intent
+    return intent.model_copy(update={"asked": asked})

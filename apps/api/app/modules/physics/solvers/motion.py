@@ -715,27 +715,36 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
     if op == "launch_angle":
         # The one op whose unknown is the angle, so it is answered before the
         # angle is read: R = v0² sin(2θ)/g inverted. Two angles give the same
-        # range (theta and 90 deg - theta); the low one is what people mean.
+        # range, θ and 90° - θ, and both are answers; at the maximum range
+        # they coincide at 45°.
         if v0 <= 0:
             raise SolveServiceError("launch speed must be positive")
         r_target = p["d"]
         ratio = r_target * g / (v0 * v0)
         if not -1.0 <= ratio <= 1.0:
             raise SolveServiceError("that range is out of reach at this speed")
-        theta_val = 0.5 * math.asin(ratio)
-        deg_val = math.degrees(theta_val)
+        deg_val = math.degrees(0.5 * math.asin(ratio))
+        steep = 90.0 - deg_val
+        angles = (deg_val,) if math.isclose(deg_val, steep) else (deg_val, steep)
+        shown = r" \text{ or } ".join(rf"{angle:.2f}^\circ" for angle in angles)
         return PhysicsResult(
             answer=(
                 rf"\theta = \tfrac{{1}}{{2}} \arcsin\!\left(\frac{{Rg}}{{v_0^2}}\right) = "
                 rf"\tfrac{{1}}{{2}} \arcsin\!\left(\frac{{{r_target:g} \cdot {g:g}}}"
-                rf"{{{_latex_num(v0, square=True)}}}\right) \approx {deg_val:.2f}^\circ"
+                rf"{{{_latex_num(v0, square=True)}}}\right) \approx {shown}"
             ),
-            formulas=(r"\theta = \tfrac{1}{2} \arcsin\!\left(\frac{Rg}{v_0^2}\right)",),
+            formulas=(
+                r"\theta = \tfrac{1}{2} \arcsin\!\left(\frac{Rg}{v_0^2}\right)",
+                r"\theta' = 90^\circ - \theta",
+            ),
             substitutions=(
                 rf"\theta = \tfrac{{1}}{{2}} \arcsin\!\left(\frac{{{r_target:g} \cdot {g:g}}}"
                 rf"{{{_latex_num(v0, square=True)}}}\right)",
             ),
-            quantities=(QuantityResult("", deg_val, "deg", number_format=".2f"),),
+            quantities=tuple(
+                QuantityResult("", angle, "deg", number_format=".2f") for angle in angles
+            ),
+            joiner=" or ",
         )
 
     theta = p["angle"]  # radians (converted by _params_in_si)

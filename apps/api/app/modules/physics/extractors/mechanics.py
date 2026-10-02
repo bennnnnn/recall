@@ -19,18 +19,22 @@ from app.modules.physics.extractors.common import (
 from app.services.text_match import has_equation
 
 _MOMENTUM_CUES = (
-    "momentum",
-    "impulse",
     "center of mass",
     "centre of mass",
-    "collision",
-    "collide",
-    "collides",
     "elastically",
     "inelastically",
-    "recoil",
     "stick together",
     "sticks together",
+)
+
+# "The stock has momentum, up 12 percent" and "a three-car collision" are
+# English. These words mean mechanics beside a mass, a velocity or a force.
+_MOMENTUM_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\A(?=.*\b(?:momentum|impulse|collisions?|collid(?:e|es|ed|ing)|recoil(?:s|ed)?)\b)"
+        r"(?=.*\d\s*(?:kg|g|grams?|m/s|km/h|mph|cm/s|N|newtons?|N\s*[·*]?\s*s)(?![A-Za-z0-9/]))",
+        re.IGNORECASE | re.DOTALL,
+    ),
 )
 
 _LANDING_TARGET = r"ground|floor|water|sea|surface|deck|earth|soil|sand|roof"
@@ -61,10 +65,19 @@ _MASS_UNITS = r"kg|mg|g|lb|lbs|oz"
 
 _MOMENTUM_TIME_UNITS = r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
 
+# The second speed points back the way the body came: "hits a wall at 10 m/s
+# and rebounds at 8 m/s" is +10 then -8. Read as two forward speeds, the
+# impulse came out -0.4 N·s instead of 3.6 N·s.
+_REVERSAL_RE = re.compile(
+    r"\b(?:rebound(?:s|ed|ing)?|bounc(?:es|ed|ing|e)\s+(?:back|off)|reverses?|reversed"
+    r"|opposite\s+direction|comes?\s+back|returns?\s+at|back\s+at)\b",
+    re.IGNORECASE,
+)
+
 
 def _extract_momentum_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
-    if not _has_cue(lower, _MOMENTUM_CUES):
+    if not _has_cue(lower, _MOMENTUM_CUES, _MOMENTUM_CUE_RES):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
         return None
@@ -160,6 +173,8 @@ def _extract_momentum_intent(cleaned: str) -> PhysicsIntent | None:
             m, m_unit = masses[0]
             v1, v1_unit = velocities[0]
             v2, v2_unit = velocities[1]
+            if _REVERSAL_RE.search(cleaned) and v1 * v2 > 0:
+                v2 = -v2
             return PhysicsIntent(
                 kind="momentum",
                 physics_op="impulse",
