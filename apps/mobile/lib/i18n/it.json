@@ -675,6 +675,7 @@
   "rich.chemistry_3d": "3D",
   "rich.chemistry_dev_build": "Compila l’app per vedere le strutture in linea.",
   "rich.chemistry_invalid": "Impossibile visualizzare quella struttura.",
+  "rich.chemistry_scene_invalid": "Impossibile visualizzare quel diagramma.",
   "rich.chemistry_structure": "Molecola",
   "rich.chemistry_scene_balance": "Bilancio degli atomi",
   "rich.chemistry_scene_stoich": "Catena stechiometrica",

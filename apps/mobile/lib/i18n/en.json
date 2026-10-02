@@ -675,6 +675,7 @@
   "rich.chemistry_3d": "3D",
   "rich.chemistry_dev_build": "Build the app to preview structures inline.",
   "rich.chemistry_invalid": "Could not render that structure.",
+  "rich.chemistry_scene_invalid": "Could not render that diagram.",
   "rich.chemistry_structure": "Molecule",
   "rich.chemistry_scene_balance": "Atom tally",
   "rich.chemistry_scene_stoich": "Stoichiometry chain",
