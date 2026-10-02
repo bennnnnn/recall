@@ -48,6 +48,7 @@ export function buildSmilesDrawerHtml(smiles: string, theme: SmilesDrawerTheme):
     "    reportError('unavailable');\n" +
     "    return;\n" +
     "  }\n" +
+    "  try {\n" +
     "  var drawer = new SmilesDrawer.SvgDrawer({ width: " +
     DRAW_WIDTH +
     ", height: " +
@@ -69,6 +70,7 @@ export function buildSmilesDrawerHtml(smiles: string, theme: SmilesDrawerTheme):
     "'); }\n" +
     "    catch (e) { reportError('render'); }\n" +
     "  }, function() { reportError('render'); });\n" +
+    "  } catch (e) { reportError('render'); }\n" +
     "})();\n";
   return injectPreviewCsp(
     '<!DOCTYPE html>\n<html lang="en"><head><meta charset="UTF-8">' +

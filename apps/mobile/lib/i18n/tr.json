@@ -675,6 +675,7 @@
   "rich.chemistry_3d": "3D",
   "rich.chemistry_dev_build": "Yapıları görmek için uygulamayı derleyin.",
   "rich.chemistry_invalid": "Bu yapı gösterilemedi.",
+  "rich.chemistry_scene_invalid": "Bu diyagram gösterilemedi.",
   "rich.chemistry_structure": "Molekül",
   "rich.chemistry_scene_balance": "Atom sayımı",
   "rich.chemistry_scene_stoich": "Stokiyometri zinciri",

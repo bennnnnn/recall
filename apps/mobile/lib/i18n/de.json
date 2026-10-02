@@ -675,6 +675,7 @@
   "rich.chemistry_3d": "3D",
   "rich.chemistry_dev_build": "App bauen, um Strukturen inline anzuzeigen.",
   "rich.chemistry_invalid": "Struktur konnte nicht dargestellt werden.",
+  "rich.chemistry_scene_invalid": "Diagramm konnte nicht dargestellt werden.",
   "rich.chemistry_structure": "Molekül",
   "rich.chemistry_scene_balance": "Atombilanz",
   "rich.chemistry_scene_stoich": "Stöchiometrie-Kette",

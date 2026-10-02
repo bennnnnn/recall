@@ -675,6 +675,7 @@
   "rich.chemistry_3d": "3D",
   "rich.chemistry_dev_build": "Соберите приложение, чтобы видеть структуры.",
   "rich.chemistry_invalid": "Не удалось отобразить эту структуру.",
+  "rich.chemistry_scene_invalid": "Не удалось отобразить эту схему.",
   "rich.chemistry_structure": "Молекула",
   "rich.chemistry_scene_balance": "Баланс атомов",
   "rich.chemistry_scene_stoich": "Цепочка стехиометрии",

@@ -137,8 +137,8 @@ describe("ChemistrySceneBlock", () => {
     expect(getByText("Electrons: anode to cathode")).toBeTruthy();
   });
 
-  it("shows the chemistry error note for invalid JSON", async () => {
+  it("shows a diagram error for invalid JSON", async () => {
     const { getByText } = await render(<ChemistrySceneBlock content="{" />);
-    expect(getByText("Could not render that structure.")).toBeTruthy();
+    expect(getByText("Could not render that diagram.")).toBeTruthy();
   });
 });
