@@ -542,6 +542,11 @@ def test_galvanic_cell_does_not_read_kelvin_as_potassium() -> None:
     assert "anode: Zn\ncathode: Cu" in result.answer
 
 
+def test_galvanic_cell_accepts_potassium_paired_with_another_metal() -> None:
+    result = _solve("Find the galvanic cell for K and Cu")
+    assert "anode: K\ncathode: Cu" in result.answer
+
+
 @pytest.mark.parametrize(
     "element", ["O3", "O(g)", "Br2(g)", "Cl(g)", "H(g)", "I2(g)", "Na(g)", "P", "S", "P(s)", "S(s)"]
 )

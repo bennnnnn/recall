@@ -13,8 +13,10 @@ from app.modules.chemistry.extractors.parsing import (
 from app.modules.chemistry.request import CHEMICAL_FORMULA
 from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
 
-# "K" is left out on purpose: in "298 K" it is kelvin, not potassium.
+# Other metals match as tokens. Potassium is added only after a trailing "298 K"
+# is removed, so kelvin is not a second electrode.
 _METALS = tuple(symbol for symbol in STANDARD_REDUCTION if symbol != "K")
+_KELVIN_UNIT = re.compile(r"\d\s*K\b")
 
 
 def _extract_cells(text: str) -> ChemistryIntent | None:
@@ -28,7 +30,8 @@ def _extract_cells(text: str) -> ChemistryIntent | None:
                 params={"cathode": cathode, "anode": anode},
             )
     if re.search(r"\bgalvanic cell\b", text, re.IGNORECASE):
-        found = re.findall(r"\b(" + "|".join(_METALS) + r")\b", text)
+        without_kelvin = _KELVIN_UNIT.sub(" ", text)
+        found = re.findall(r"\b(" + "|".join(_METALS) + r"|K)\b", without_kelvin)
         unique: list[str] = []
         for symbol in found:
             if symbol not in unique:
