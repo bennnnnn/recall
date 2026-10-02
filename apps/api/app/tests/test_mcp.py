@@ -511,6 +511,15 @@ async def test_sympy_adapter_graph_includes_canonical_fence():
 
 
 @pytest.mark.asyncio
+async def test_sympy_graph_without_an_expression_does_not_sample_a_parabola():
+    adapter = SympyAdapter(Settings())
+    result = await adapter.invoke({"action": "graph"})
+    assert result.data is None
+    assert "x**2" not in result.content
+    assert "expression" in result.content.lower()
+
+
+@pytest.mark.asyncio
 async def test_sympy_adapter_solve_includes_canonical_fence():
     adapter = SympyAdapter(Settings())
     result = await adapter.invoke(
