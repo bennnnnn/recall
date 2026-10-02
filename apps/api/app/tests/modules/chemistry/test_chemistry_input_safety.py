@@ -199,8 +199,13 @@ async def test_slow_pubchem_does_not_hold_the_turn(monkeypatch: pytest.MonkeyPat
     result = await chemistry_context.build_chemistry_augmentation(
         "what is the structure of aspirin?", MagicMock()
     )
-    assert result == (None, None, False)
+    assert result == (chemistry_context.unverified_chemistry_note(), None, True)
     assert time.perf_counter() - start < 1.0
+
+
+async def test_a_non_chemistry_sentence_is_untouched_when_pubchem_would_fail() -> None:
+    result = await chemistry_context.build_chemistry_augmentation("what is 2 + 2?", MagicMock())
+    assert result == (None, None, False)
 
 
 @pytest.mark.parametrize(

@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A PubChem timeout left the reply with no chemistry note.** The name lookup returned `(None, None, False)`, so the turn never declined. When a compound name was found, a timeout or lookup error returns the unverified note. A sentence that is not chemistry stays untouched.
+
 - **`hess's law` and `find kp` matched the chemistry gate and then extracted nothing.** Those cues were case-sensitive, so a lowercase template never became an intent and never got the unverified note. Match Hess, ICE equilibrium, Find Kp, and Kc/Kp conversion without case.
 
 - **Hydroxide on chloromethane returned nothing.** SN2 required exactly one carbon neighbor, which excludes methyl. Allow zero carbon neighbors and still refuse secondary and tertiary halides.
