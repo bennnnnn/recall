@@ -48,7 +48,12 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "Percent yield formula",
         "% yield = (actual yield / theoretical yield) × 100",
     ),
-    ("stoichiometry", "stoichiometry", "Stoichiometric mole ratio", "n(H2O) = n(H2) × (2 / 2)"),
+    (
+        "stoichiometry",
+        "stoichiometry",
+        "Stoichiometric mole ratio",
+        "n(product) = n(reactant) × (product coefficient / reactant coefficient)",
+    ),
     (
         "limiting_reagent",
         "stoichiometry",
@@ -76,9 +81,14 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "equilibrium_constant",
         "equilibrium",
         "Law of mass action",
-        "Kc from equilibrium concentrations",
+        "Kc = Π [products]^ν / Π [reactants]^ν",
     ),
-    ("reaction_quotient", "equilibrium", "Law of mass action", "Qc with the same form as Kc"),
+    (
+        "reaction_quotient",
+        "equilibrium",
+        "Law of mass action",
+        "Qc = Π [products]^ν / Π [reactants]^ν",
+    ),
     ("first_order_half_life", "kinetics", "First-order half-life", "t₁/₂ = ln(2) / k"),
     (
         "first_order_concentration",
@@ -96,7 +106,7 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "empirical_formula",
         "amounts",
         "Empirical formula from percent composition",
-        "percent -> grams -> moles -> divide by smallest -> integer ratio",
+        "n = (percent / atomic mass) / smallest",
     ),
     (
         "molecular_formula",
@@ -108,19 +118,19 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "mass_stoichiometry",
         "stoichiometry",
         "Mass–mole–particle stoichiometry",
-        "n(H2O) = n(H2) × (2 / 2)",
+        "n(product) = n(reactant) × (product coefficient / reactant coefficient)",
     ),
     (
         "solution_stoichiometry",
         "stoichiometry",
         "Mass–mole–particle stoichiometry",
-        "n(NaCl) = n(HCl) × (1 / 1)",
+        "n(product) = n(reactant) × (product coefficient / reactant coefficient)",
     ),
     (
         "gas_stoichiometry",
         "stoichiometry",
         "Mass–mole–particle stoichiometry",
-        "n(H2O) = n(H2) × (2 / 2)",
+        "n(product) = n(reactant) × (product coefficient / reactant coefficient)",
     ),
     (
         "limiting_mass",
@@ -135,7 +145,7 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "reaction units = available moles / coefficient",
     ),
     ("strong_acid_ph", "acid_base", "Strong monoprotic acid", "[H+] = C"),
-    ("strong_base_ph", "acid_base", "Strong base", "[OH-] = (hydroxide factor) × C"),
+    ("strong_base_ph", "acid_base", "Strong base", "[OH-] = nC"),
     ("weak_acid_ph", "acid_base", "Weak-acid quadratic", "Ka = x^2 / (C − x)"),
     ("weak_base_ph", "acid_base", "Weak-base quadratic", "Kb = x^2 / (C − x)"),
     ("ka_kb", "acid_base", "Water autoionization link", "Kb = Kw / Ka"),
@@ -173,17 +183,27 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "ΔH°rxn = Σ n ΔHf°(products) − Σ n ΔHf°(reactants)",
     ),
     ("bond_enthalpy", "thermochemistry", "Bond enthalpies", "ΔH ≈ Σ broken − Σ formed"),
-    ("ksp", "equilibrium", "Solubility product", "Ksp from the dissolved ions"),
+    ("ksp", "equilibrium", "Solubility product", "Ksp = Π (νᵢ s)^νᵢ"),
     (
         "precipitation",
         "equilibrium",
         "Ion product versus solubility product",
-        "compare Qsp with Ksp",
+        "precipitate forms when Qsp > Ksp",
     ),
-    ("common_ion", "equilibrium", "Common-ion effect", "Ksp with the shared ion already present"),
-    ("kp", "equilibrium", "Partial-pressure equilibrium constant", "Kp from partial pressures"),
+    ("common_ion", "equilibrium", "Common-ion effect", "Ksp = Π [ion]^ν"),
+    (
+        "kp",
+        "equilibrium",
+        "Partial-pressure equilibrium constant",
+        "Kp = Π P(products)^ν / Π P(reactants)^ν",
+    ),
     ("kc_kp", "equilibrium", "Concentration and pressure equilibrium constants", "Kp = Kc (RT)^Δn"),
-    ("ice_equilibrium", "equilibrium", "ICE table, quadratic or linear", "K from the extent x"),
+    (
+        "ice_equilibrium",
+        "equilibrium",
+        "ICE table, quadratic or linear",
+        "K = Π (initial ± νx)^ν",
+    ),
     ("zero_order", "kinetics", "Integrated zero-order rate law", "[A]ₜ = [A]₀ − kt"),
     ("second_order", "kinetics", "Integrated second-order rate law", "1/[A]ₜ = 1/[A]₀ + kt"),
     ("zero_order_half_life", "kinetics", "Zero-order half-life", "t₁/₂ = [A]₀ / (2k)"),
@@ -219,13 +239,13 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "nuclear_equation",
         "nuclear",
         "Nucleon and charge balance",
-        "sum of A and sum of Z are equal on both sides",
+        "ΣA(reactants) = ΣA(products) and ΣZ(reactants) = ΣZ(products)",
     ),
     (
         "oxidation_state",
         "structure",
         "School oxidation-number rules",
-        "the signed oxidation numbers sum to the charge",
+        "Σ (oxidation number × atoms) = charge",
     ),
     (
         "vsepr",
@@ -278,9 +298,14 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "percent_error",
         "analytical",
         "Percent error",
-        "|experimental − accepted| / |accepted| × 100",
+        "% error = |experimental − accepted| / |accepted| × 100",
     ),
-    ("relative_uncertainty", "analytical", "Uncertainty propagation", "√((Δa/a)^2 + (Δb/b)^2)"),
+    (
+        "relative_uncertainty",
+        "analytical",
+        "Uncertainty propagation",
+        "Δz/z = √((Δa/a)^2 + (Δb/b)^2)",
+    ),
     ("chromatography_rf", "analytical", "Chromatography Rf", "Rf = spot distance / solvent front"),
     ("iupac_name", "organic", "IUPAC name", "PubChem IUPACName for a valid SMILES"),
     (
@@ -336,7 +361,12 @@ def formula_spec(operation: str) -> FormulaSpec | None:
 
 def law_name(operation: str) -> str:
     """The law an operation's answer names, e.g. ``Dilution equation`` for ``dilution``."""
-    spec = CATALOG.get(operation)
+    return stated(operation)[0]
+
+
+def stated(operation: str) -> tuple[str, str]:
+    """Law name and base formula printed for an operation whose formula does not change."""
+    spec = formula_spec(operation)
     if spec is None:
         raise KeyError(operation)
-    return spec.law_name
+    return spec.law_name, spec.base_formula

@@ -8,6 +8,7 @@ from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import CellScene
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.solvers.common_chem import (
     inp,
     num,
@@ -29,8 +30,7 @@ def solve_cell_potential(intent: ChemistryIntent) -> ChemistryResult:
         "Verified cell potential",
         (f"E°cathode = {inp(cathode)} V", f"E°anode = {inp(anode)} V"),
         "Standard cell potential",
-        "Galvanic cell potential",
-        "E°cell = E°cathode − E°anode",
+        *stated("cell_potential"),
         (f"E°cell = {inp(cathode)} − ({inp(anode)})",),
         shown,
         shown,
@@ -103,8 +103,7 @@ def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
         "Verified galvanic cell",
         (f"{left} E° = {num(e_left)} V", f"{right} E° = {num(e_right)} V"),
         "Cell potential, electrodes, and net reaction",
-        "Standard reduction potentials",
-        "E°cell = E°cathode − E°anode",
+        *stated("galvanic_cell"),
         working,
         shown,
         shown,

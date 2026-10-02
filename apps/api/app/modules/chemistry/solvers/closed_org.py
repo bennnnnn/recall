@@ -6,6 +6,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.organic import organic_facts
 from app.modules.chemistry.reactions import named_product
 from app.modules.chemistry.smiles import most_common_isotope
@@ -87,8 +88,7 @@ def solve_named_reaction(intent: ChemistryIntent) -> ChemistryResult:
         "Verified named reaction",
         given,
         "Product",
-        "One-product reaction table",
-        "one SMARTS or atom change with a single product",
+        *stated("named_reaction"),
         (rule, f"only one product results: {product}") if rule else (shown,),
         shown,
         shown,
@@ -98,19 +98,19 @@ def solve_named_reaction(intent: ChemistryIntent) -> ChemistryResult:
 
 
 def solve_ir_ranges(intent: ChemistryIntent) -> ChemistryResult:
-    return _ranges(intent, kind="ir")
+    return _ranges(intent, kind="ir", operation="ir_ranges")
 
 
 def solve_nmr_ranges(intent: ChemistryIntent) -> ChemistryResult:
-    return _ranges(intent, kind="nmr")
+    return _ranges(intent, kind="nmr", operation="nmr_ranges")
 
 
 def solve_ir_peak(intent: ChemistryIntent) -> ChemistryResult:
-    return _peak(intent, kind="ir")
+    return _peak(intent, kind="ir", operation="ir_peak")
 
 
 def solve_nmr_peak(intent: ChemistryIntent) -> ChemistryResult:
-    return _peak(intent, kind="nmr")
+    return _peak(intent, kind="nmr", operation="nmr_peak")
 
 
 def solve_nmr_splitting(intent: ChemistryIntent) -> ChemistryResult:
@@ -128,8 +128,7 @@ def solve_nmr_splitting(intent: ChemistryIntent) -> ChemistryResult:
         "Verified NMR splitting",
         (f"neighbors = {int(neighbors)}",),
         "Splitting",
-        "n+1 rule",
-        "lines = neighbors + 1",
+        *stated("nmr_splitting"),
         (f"lines = {int(neighbors)} + 1 = {lines}",),
         shown,
         shown,
@@ -170,8 +169,7 @@ def solve_molecular_ion(intent: ChemistryIntent) -> ChemistryResult:
         "Verified molecular ion",
         (formula,),
         "Molecular ion m/z",
-        "Molecular ion",
-        "M+ = sum of the most abundant isotope masses (not the average molar mass)",
+        *stated("molecular_ion"),
         substitution,
         shown,
         shown,
@@ -179,7 +177,7 @@ def solve_molecular_ion(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
-def _ranges(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
+def _ranges(intent: ChemistryIntent, *, kind: str, operation: str) -> ChemistryResult:
     facts = organic_facts(intent.formula or "")
     if facts is None or not facts.groups:
         raise SolveServiceError("no functional group recognized")
@@ -192,8 +190,7 @@ def _ranges(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
         f"Verified {title}",
         (facts.canonical_smiles,),
         title,
-        "Functional-group correlation",
-        "each recognized group maps to a textbook range",
+        *stated(operation),
         (f"groups found: {', '.join(facts.groups)}", "look up each group's textbook range"),
         shown,
         shown,
@@ -201,7 +198,7 @@ def _ranges(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
     )
 
 
-def _peak(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
+def _peak(intent: ChemistryIntent, *, kind: str, operation: str) -> ChemistryResult:
     value = intent.params.get("peak")
     if value is None:
         raise SolveServiceError("a peak position is required")
@@ -228,8 +225,7 @@ def _peak(intent: ChemistryIntent, *, kind: str) -> ChemistryResult:
         "Verified peak groups",
         (f"peak = {inp(value)} {unit}",),
         "Groups whose range contains the peak",
-        "Functional-group correlation",
-        "list every group that contains the peak; do not choose a structure",
+        *stated(operation),
         working,
         shown,
         shown,

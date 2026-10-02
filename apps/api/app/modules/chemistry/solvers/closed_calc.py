@@ -6,6 +6,7 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.coordination import CoordinationComplex, parse_complex_formula
 from app.modules.chemistry.solvers.common_chem import inp, num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -69,8 +70,7 @@ def solve_crystal_field(intent: ChemistryIntent) -> ChemistryResult:
         "Verified crystal field",
         (intent.formula or "", note),
         "Spin state, unpaired electrons, and spin-only magnetic moment",
-        "Crystal-field spin state",
-        "μ = √(n(n + 2))",
+        *stated("crystal_field"),
         working,
         shown,
         shown,
@@ -122,8 +122,7 @@ def solve_standard_deviation(intent: ChemistryIntent) -> ChemistryResult:
         "Verified sample standard deviation",
         _data_lines(values),
         "Sample standard deviation",
-        "Sample standard deviation",
-        "s = √(Σ(x − x̄)^2 / (n − 1))",
+        *stated("standard_deviation"),
         (
             f"x̄ = ({' + '.join(inp(value) for value in values)}) / {len(values)} = {num(mean)}",
             f"Σ(x − x̄)^2 = {num(squares)}",
@@ -143,8 +142,7 @@ def solve_standard_error(intent: ChemistryIntent) -> ChemistryResult:
         "Verified standard error",
         _data_lines(values),
         "Standard error of the mean",
-        "Standard error",
-        "SE = s / √n",
+        *stated("standard_error"),
         (
             f"x̄ = {num(mean)}, Σ(x − x̄)^2 = {num(squares)}",
             f"s = √({num(squares)} / {len(values) - 1}) = {num(deviation)}",
@@ -168,8 +166,7 @@ def solve_percent_error(intent: ChemistryIntent) -> ChemistryResult:
         "Verified percent error",
         (f"experimental = {inp(experimental)}", f"accepted = {inp(accepted)}"),
         "Percent error",
-        "Percent error",
-        "|experimental − accepted| / |accepted| × 100",
+        *stated("percent_error"),
         (f"|{inp(experimental)} − {inp(accepted)}| / |{inp(accepted)}| × 100",),
         shown,
         shown,
@@ -203,8 +200,7 @@ def solve_relative_uncertainty(intent: ChemistryIntent) -> ChemistryResult:
             f"Δb = {inp(right_uncertainty)}",
         ),
         "Relative uncertainty of a product or quotient",
-        "Uncertainty propagation",
-        "√((Δa/a)^2 + (Δb/b)^2)",
+        *stated("relative_uncertainty"),
         (
             f"√(({inp(left_uncertainty)}/{inp(left)})^2 + "
             f"({inp(right_uncertainty)}/{inp(right)})^2)",
@@ -225,8 +221,7 @@ def solve_chromatography_rf(intent: ChemistryIntent) -> ChemistryResult:
         "Verified retention factor",
         (f"spot distance = {inp(spot)}", f"solvent front = {inp(front)}"),
         "Retention factor",
-        "Chromatography Rf",
-        "Rf = spot distance / solvent front",
+        *stated("chromatography_rf"),
         (f"Rf = {inp(spot)} / {inp(front)}",),
         shown,
         shown,
@@ -285,8 +280,7 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
         "Verified Michaelis–Menten",
         given,
         target,
-        "Michaelis–Menten equation",
-        "v = Vmax[S] / (Km + [S])",
+        *stated("michaelis_menten"),
         (working,),
         shown,
         shown,

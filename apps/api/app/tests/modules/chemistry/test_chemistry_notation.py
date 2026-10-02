@@ -184,10 +184,19 @@ def test_a_smiles_result_is_never_typeset() -> None:
     assert "C₁" not in reply
 
 
-# Ops whose formula is written in the user's own species (Kc = [HI]^2 / ([H2][I2])) or whose
-# law changes with the case (a weak acid or a weak base titration).
+# Ops whose printed formula is built from this problem (a mole ratio, Kc in the user's
+# species, or [OH-] = C versus 2C). A weak titration also changes the law name.
 _CASE_FORMULA = frozenset(
-    {"equilibrium_constant", "reaction_quotient", "kp", "ice_equilibrium", "ksp", "common_ion"}
+    {
+        "equilibrium_constant",
+        "reaction_quotient",
+        "kp",
+        "stoichiometry",
+        "mass_stoichiometry",
+        "solution_stoichiometry",
+        "gas_stoichiometry",
+        "strong_base_ph",
+    }
 )
 _CASE_LAW = frozenset({"titration_weak"})
 
@@ -203,6 +212,21 @@ def test_the_catalog_names_each_law_as_the_answer_prints_it(
         assert result.formula_name == spec.law_name
     if operation not in _CASE_FORMULA:
         assert result.formula == spec.base_formula
+
+
+def test_a_strong_base_prints_how_many_hydroxides_it_releases() -> None:
+    sodium = _solve("Find the strong base pH of 0.010 M NaOH")
+    assert sodium.formula == "[OH-] = C"
+    assert sodium.answer == "pH = 12"
+    calcium = _solve("Find the strong base pH of 0.010 M Ca(OH)2")
+    assert calcium.formula == "[OH-] = 2C"
+    assert calcium.answer.startswith("pH = ")
+
+
+def test_stoichiometry_prints_this_reaction_ratio() -> None:
+    result = _solve("How many moles of NH3 from 2 mol N2 in N2 + 3 H2 -> NH3?")
+    assert result.formula == "n(NH3) = n(N2) × (2 / 1)"
+    assert result.answer == "n(NH3) = 4 mol NH3"
 
 
 def test_the_model_prompt_keeps_each_answer_line_and_working_row_whole() -> None:
