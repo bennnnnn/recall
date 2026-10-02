@@ -11,7 +11,10 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    are chemistry only in company (`acid`, `base`, `boiling`, `nuclear`, `mole`,
    `compound`, `bond`): those need a second cue or a chemical formula. Symbols such as
    `Ka`, `pH`, and `Rf` match only with that capitalization (not “KB” or “Ph.D.”), and
-   a scientist's name needs “law” (Charles's law, not Charles Darwin). The gate reads
+   a scientist's name needs “law” (Charles's law, not Charles Darwin). “Chemistry” is
+   the subject except in the idiom for getting along (“great chemistry”, “the chemistry
+   between them”), and a half-life needs a number, a nuclide or a decay word (not a phone
+   battery's). The gate reads
    the first and last 2,000 characters and its formula pattern is linear-time, so a
    long paste cannot stall the event loop. PubChem lookups on the turn path give up
    after 2 seconds.
@@ -19,7 +22,9 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    validated `ChemistryIntent`. Missing or conflicting values return `None`; the
    extractor never invents a value. A number that carries a unit is converted, and a
    unit the registry cannot convert declines the problem instead of being read as the
-   default unit. `1.8 × 10^-5` is read whole, never as `1.8`. Extraction is
+   default unit. `1.8 × 10^-5` is read whole, never as `1.8`, by the shared
+   `services/number_text` reader. One line is extracted once per turn: the result is
+   cached per text and each caller gets its own copy. Extraction is
    template-driven: it recognises a fixed set of phrasings, and a problem outside them
    goes to the model, unverified.
 3. **Solve** (`solvers/`) — grouped deterministic solvers return `ChemistryResult` with
@@ -112,9 +117,27 @@ and nothing else, and a result marked `verbatim` (organic and SMILES spectroscop
 results, IUPAC names) is never typeset. The model is told to write species with
 Unicode sub- and superscripts and `→` / `⇌` arrows, not LaTeX.
 
-Numbers are shown to 4 significant figures. A value the user typed is echoed to 6, a
-physical constant to 5 (`R = 0.08206`), and a molar mass to 2 decimals. Intermediate
-math keeps full precision.
+Numbers keep the precision the question was written in (`sig_figs.py`). Extraction
+records how each given was typed, and the solve formats every number from that record:
+
+- **Answers** take the fewest significant figures among the measured givens, kept between
+  2 and 4: `4 g` of H₂ makes `36 g` of water, `4.000 g` makes `35.74 g`. A count (an electron
+  number, a van 't Hoff factor, a Hess's-law multiplier) never limits the answer, and a
+  Celsius reading counts the figures of its kelvin value (`25 °C` is `298 K`, three).
+- **Trailing zeros are significant**: `pH = 3.00`, `n = 2.0 mol`. The model prompt tells the
+  model to copy each verified number exactly, neither adding nor dropping a zero.
+- **Typed values are echoed as typed**: `E° = 1.10 V` stays `1.10 V`, `Kc = 0.02370` keeps its zero.
+- **A pH, pOH or pK** is a logarithm, so it has as many decimals as its data have
+  figures: `[H+] = 2.5 × 10^-4` gives `pH = 3.60`. A concentration from a typed pH has as
+  many figures as the pH has decimals (`pH = 4.50` gives `3.2 × 10^-5`).
+- **A sum of givens** (cell potential, Hess's law, formation or bond enthalpy, Dalton) keeps
+  the fewest decimal places instead: `0.34 − (−0.76) = 1.10 V`, `2(−92.3) = −184.6 kJ/mol`.
+  A galvanic-table potential is a hundredth of a volt.
+- **Molar masses** stay at full precision inside the arithmetic. A working row shows them
+  to the table's three decimals (`18.015`), and only a molar-mass answer rounds to two
+  (`98.07 g/mol`). Rounding first moved answers: 4 g of H₂ gave 35.68 g of water, not 35.74.
+- A physical constant is shown to 5 figures (`R = 0.08206`), and intermediate rows show
+  the answer's figures while the arithmetic keeps full precision.
 
 ## Teaching scenes
 
@@ -151,12 +174,13 @@ not supplied. Coordination number 4 is drawn as tetrahedral, not square planar.
 | Turn integration | `apps/api/app/modules/chemistry/context.py` |
 | Balance / formula primitives | `apps/api/app/modules/chemistry/equations.py`, `stoichiometry.py` |
 | Species, elements, units | `species.py`, `formula.py`, `elements.py`, `quantity.py` |
-| Notation / number format | `notation.py`, `solvers/types.py`, `solvers/common_chem.py`, `solvers/constants.py`, `solvers/params.py` |
+| Notation / number format | `notation.py`, `sig_figs.py`, `solvers/types.py`, `solvers/common_chem.py`, `solvers/constants.py`, `solvers/params.py` |
 | Structure / organic / nuclear | `structure.py`, `lewis.py`, `organic.py`, `coordination.py`, `nuclear.py` |
 | SMILES / 3D / post-stream | `apps/api/app/modules/chemistry/smiles.py`, `fence.py` |
 | PubChem | `apps/api/app/gateways/pubchem_gateway.py` |
 | Mobile parse / render | `apps/mobile/lib/chemistry/` (fence parsing, `smilesDrawerHtml.ts`, `molecule3dLayout.ts`), `apps/mobile/components/rich/` |
 | Web render | `apps/web/src/lib/chemScene.ts`, `assistantMarkdown.ts` |
 | Client contract | `docs/fixtures/chemistry_replies.json` |
+| QA corpus | `apps/api/app/tests/modules/chemistry/corpus.py`, `corpus_physical.py` (hand-worked school questions; no verified answer may be wrong, coverage floor only rises) |
 
 Feature flag: `chemistry_enabled` (on by default).
