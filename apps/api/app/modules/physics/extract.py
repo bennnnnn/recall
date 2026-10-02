@@ -56,6 +56,7 @@ from app.modules.physics.extractors.mechanics import (
     _FRICTION_CUE_RES,
     _FRICTION_CUES,
     _MASS_UNITS,
+    _MOMENTUM_CUE_RES,
     _MOMENTUM_CUES,
     _TENSION_CUE_RES,
     _TWO_DIMENSIONAL_RE,
@@ -108,6 +109,7 @@ from app.modules.physics.extractors.school_extensions import (
     _EXTENSION_CUES,
     extract_school_extension,
 )
+from app.services.number_text import read_scientific_numbers
 from app.services.symbolic_text import (
     _MAX_PHYSICS_REQUEST,
     _MAX_SUBJECT_TEXT,
@@ -226,6 +228,7 @@ PHYSICS_CUES: tuple[str, ...] = tuple(
 
 PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_KINEMATICS_CUE_RES,
+    *_MOMENTUM_CUE_RES,
     *_SUVAT_CUE_RES,
     *_STOPPING_CUE_RES,
     *_PROJECTILE_CUE_RES,
@@ -316,7 +319,7 @@ _CACHE_SIZE = 128
 @lru_cache(maxsize=_CACHE_SIZE)
 def needs_physics(text: str) -> bool:
     """True for a verified template or an unmistakable physics-only request."""
-    normalized = normalize_symbolic_request(text, limit=_MAX_SUBJECT_TEXT)
+    normalized = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_SUBJECT_TEXT)
     if not normalized:
         return False
     cleaned = cap_text_head_tail(normalized, _DETECTION_WINDOW)
@@ -342,14 +345,14 @@ def extract_physics_intent(text: str) -> PhysicsIntent | None:
 def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     from app.modules.physics.request import complete_physics_intent, prepare_physics_request
 
-    cleaned = normalize_symbolic_request(text, limit=_MAX_PHYSICS_REQUEST)
+    cleaned = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_PHYSICS_REQUEST)
     if not cleaned:
         return None
     request = prepare_physics_request(cleaned)
     if request.rejected:
         return None
     if request.collision is not None:
-        return request.collision
+        return complete_physics_intent(request.collision, request)
     for extractor in PHYSICS_EXTRACTORS:
         intent = extractor(request.text)
         if intent is not None:

@@ -6,6 +6,7 @@ import re
 from typing import Literal
 
 from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.ask import asked_phrases
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _NUMBER,
@@ -77,17 +78,26 @@ _H0_KEYWORDS = (
 )
 
 
-def _asks_speed(lower: str) -> bool:
+# The moment of landing, said the ways people say it. With no time given,
+# a speed asked at this moment is the impact speed.
+_IMPACT_RE = re.compile(
+    r"\bimpact\b|\b(?:hits?|strikes?|reach(?:es)?|lands?|hitting|striking|reaching|landing)\s+"
+    r"(?:the\s+)?(?:ground|floor|water|bottom|surface)\b",
+    re.IGNORECASE,
+)
+
+
+def _asks_speed(lower: str, asked: tuple[str, ...]) -> bool:
     if any(
         cue in lower for cue in ("speed after", "speed when", "impact speed", "speed at impact")
     ):
         return True
     # "how fast is it going after 2 s" is the spoken form of "speed after".
-    return "how fast" in lower
+    return "how fast" in lower or asked == ("speed",)
 
 
-def _asks_velocity(lower: str) -> bool:
-    if "velocity after" in lower or "velocity when" in lower:
+def _asks_velocity(lower: str, asked: tuple[str, ...]) -> bool:
+    if asked == ("velocity",) or "velocity after" in lower or "velocity when" in lower:
         return True
     if "what is its velocity" in lower or "what is the velocity" in lower:
         return True
@@ -220,8 +230,9 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # at call time.)
     if any(rx.search(lower) for rx in _PROJECTILE_CUE_RES):
         return None
-    asks_speed = _asks_speed(lower)
-    asks_velocity = _asks_velocity(lower)
+    asked = asked_phrases(cleaned)
+    asks_speed = _asks_speed(lower, asked)
+    asks_velocity = _asks_velocity(lower, asked)
     asks_position = _asks_position(lower)
     asks_max_height = _asks_max_height(lower)
     # Defer to the equation extractor if there's an explicit "=" equation —
@@ -309,8 +320,8 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
             cleaned,
             r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h",
         )
-        impact_speed = op == "speed" and ("impact speed" in lower or "speed at impact" in lower)
-        if time_match is None and not impact_speed:
+        at_impact = op in ("speed", "velocity") and _IMPACT_RE.search(cleaned) is not None
+        if time_match is None and not at_impact:
             # "velocity after" / "height after" without a duration is
             # ambiguous; do not silently answer with impact time.
             return None

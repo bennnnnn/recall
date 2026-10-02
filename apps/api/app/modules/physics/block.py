@@ -15,6 +15,7 @@ from typing import Any
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.ask import result_dimension
 from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.common import QuantityResult
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
@@ -92,6 +93,21 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
     )
 
 
+def _answers_the_question(intent: PhysicsIntent, result: PhysicsResult) -> bool:
+    """Every quantity the question asked for is among the results.
+
+    A solver may answer more (an Atwood pair gives acceleration and tension),
+    never something else. A result unit that cannot be read leaves the decision
+    to the solver.
+    """
+    if not intent.asked:
+        return True
+    produced = [result_dimension(item.unit) for item in result.quantities]
+    if not produced or None in produced:
+        return True
+    return set(intent.asked) <= set(produced)
+
+
 def _build_physics_block(
     intent: PhysicsIntent, settings: Settings, lines: list[str]
 ) -> VerifiedPhysicsBlock | None:
@@ -113,6 +129,13 @@ def _build_physics_block(
             intent.kind,
             intent.physics_op,
             exc_info=True,
+        )
+        return None
+    if not _answers_the_question(intent, result):
+        logger.info(
+            "physics verification skipped kind=%s op=%s reason=answers a different quantity",
+            intent.kind,
+            intent.physics_op,
         )
         return None
 

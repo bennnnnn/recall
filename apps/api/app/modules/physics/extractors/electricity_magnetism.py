@@ -188,11 +188,7 @@ _CIRCUIT_CUES = (
     "voltage",
     "volts",
     "resistor",
-    "resistance",
     "ampere",
-    "amps",
-    "circuit",
-    "battery",
     # Round 3. Each of these is electrical vocabulary and nothing else -
     # unlike "charge" (a card is charged) and "current" (the current date),
     # which stay out and are reached by co-occurrence below.
@@ -257,7 +253,19 @@ _TERMINAL_ASK_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Everyday words first: a phone battery at 20 percent, circuit training three
+# times a week, a resistance band. Each is a circuit only beside an electrical
+# value; "amps" is a word, not the inside of "lamps".
+_EVERYDAY_CIRCUIT_RE = re.compile(
+    r"\A(?=.*\b(?:batter(?:y|ies)|circuits?|resistances?)\b)"
+    rf"(?=.*\d\s*(?:k|m|M)?(?:{_VOLT_CUE}|{_AMP_CUE}|{_OHM_CUE}|W|[Ww]atts?)(?![A-Za-z0-9]))",
+    re.DOTALL,
+)
+_AMPS_WORD_RE = re.compile(r"\bamps\b", re.IGNORECASE)
+
 _CIRCUIT_CUE_RES: tuple[re.Pattern[str], ...] = (
+    _EVERYDAY_CIRCUIT_RE,
+    _AMPS_WORD_RE,
     _circuit_pair(_VOLT_CUE, rf"{_AMP_CUE}|{_OHM_CUE}"),
     _circuit_pair(rf"{_AMP_CUE}|{_OHM_CUE}", _VOLT_CUE),
     _circuit_pair(_AMP_CUE, _OHM_CUE),
