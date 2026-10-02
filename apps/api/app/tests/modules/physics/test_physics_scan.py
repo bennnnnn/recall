@@ -154,7 +154,7 @@ def test_scan_read_is_off_without_math_tools() -> None:
 @pytest.mark.asyncio
 async def test_the_mock_reading_is_a_problem_physics_verifies() -> None:
     reading = await read_physics_problem(
-        Settings(math_tools_enabled=True, mock_llm_enabled=True),
+        Settings(math_tools_enabled=True, mock_llm_enabled=True, openrouter_api_key=""),
         content_type="image/jpeg",
         data=b"photo",
     )

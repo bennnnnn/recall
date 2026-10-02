@@ -1,29 +1,15 @@
-"""Confirmed chemistry scanner line, parallel to the math camera protocol."""
+"""Confirmed chemistry scanner line, using the shared scan protocol."""
 
 from __future__ import annotations
 
-CHEMISTRY_CAMERA_CONFIRMED_PREFIX = "I read this as:"
+from app.services.subject_scan import confirmed_scan_reading, scanner_camera_subject
 
 
 def confirmed_chemistry_reading(text: str) -> str | None:
     """The line the student checked, when the chemistry camera caption is present."""
-    from app.services.subject_scan import scanner_camera_subject
-
     if scanner_camera_subject(text) != "chemistry":
         return None
-    needle = CHEMISTRY_CAMERA_CONFIRMED_PREFIX.casefold()
-    folded = text.casefold()
-    idx = folded.find(needle)
-    if idx < 0:
-        return None
-    rest = text[idx + len(CHEMISTRY_CAMERA_CONFIRMED_PREFIX) :].strip()
-    if not rest:
-        return None
-    blank = rest.find("\n\n")
-    if blank >= 0:
-        rest = rest[:blank]
-    reading = rest.strip()
-    return reading or None
+    return confirmed_scan_reading(text)
 
 
 def chemistry_text_for_solve(text: str) -> str:
