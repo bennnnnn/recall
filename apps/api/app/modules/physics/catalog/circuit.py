@@ -2,28 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
-
-_CHARGE = var("Q", "Q", "coulomb")
-_CAPACITANCE = var("capacitance", "C", "farad")
-
-
-def _bind(
-    asks: tuple[str, ...],
-    result: str,
-    *inputs: str,
-    cues: tuple[str, ...] = (),
-    excludes: tuple[str, ...] = (),
-) -> Binding:
-    return Binding(
-        asks=asks,
-        result=(result,),
-        inputs=(frozenset(inputs),),
-        cues=cues,
-        excludes=excludes,
-        nonnegative=True,
-    )
-
+from app.modules.physics.catalog.spec import FormulaSpec, bind, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -102,7 +81,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("I", "I", "ampere"),
             var("t", "t", "second"),
         ),
-        binding=_bind(("charge",), "coulomb", "I", "t"),
+        binding=bind(("charge",), "coulomb", "I", "t"),
     ),
     formula(
         "electrical_energy",
@@ -113,51 +92,6 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("power", "P", "watt"),
             var("t", "t", "second"),
         ),
-    ),
-    formula(
-        "capacitance",
-        "circuit",
-        "Capacitance formula",
-        "C",
-        variables=(
-            var("Q", "Q", "coulomb"),
-            var("V", "V", "volt"),
-        ),
-        binding=_bind(("capacitance",), "farad", "Q", "V"),
-    ),
-    formula(
-        "parallel_plate_capacitance",
-        "circuit",
-        "Parallel-plate capacitance",
-        "C",
-        base_latex="C = \\frac{\\epsilon_0A}{d}",
-        variables=(
-            var("area", "A", "meter ** 2"),
-            var("d", "d", "meter"),
-        ),
-    ),
-    formula(
-        "capacitor_energy",
-        "circuit",
-        "Capacitor energy",
-        "U",
-        base_latex="U = \\frac{1}{2}CV^2",
-        variables=(
-            var("V", "V", "volt"),
-            var("capacitance", "C", "farad"),
-        ),
-    ),
-    formula(
-        "rc_time_constant",
-        "circuit",
-        "RC time constant",
-        "\\tau",
-        base_latex="\\tau = RC",
-        variables=(
-            var("R", "R", "ohm"),
-            var("capacitance", "C", "farad"),
-        ),
-        binding=_bind(("time constant",), "second", "R", "capacitance"),
     ),
     formula(
         "terminal_voltage",
@@ -198,200 +132,14 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
     ),
     formula(
-        "inductor_emf",
-        "circuit",
-        "Inductor emf",
-        r"|\mathcal{E}|",
-        base_latex=r"|\mathcal{E}| = L\frac{|\Delta I|}{\Delta t}",
-        assumptions=("magnitude; the minus sign is direction",),
-        variables=(
-            var("delta_i", r"\Delta I", "ampere"),
-            var("dt", r"\Delta t", "second"),
-            var("inductance", "L", "henry"),
-        ),
-    ),
-    formula(
-        "inductor_energy",
-        "circuit",
-        "Inductor energy",
-        "U",
-        base_latex=r"U = \frac{1}{2}LI^2",
-        variables=(
-            var("I", "I", "ampere"),
-            var("inductance", "L", "henry"),
-        ),
-    ),
-    formula(
-        "rl_time_constant",
-        "circuit",
-        "RL time constant",
-        r"\tau",
-        base_latex=r"\tau = \frac{L}{R}",
-        variables=(
-            var("R", "R", "ohm"),
-            var("inductance", "L", "henry"),
-        ),
-    ),
-    formula(
-        "rl_growth",
-        "circuit",
-        "RL current growth",
-        "I",
-        base_latex=r"I = \frac{V}{R}(1-e^{-tR/L})",
-        assumptions=("current is zero before the switch closes",),
-        variables=(
-            var("R", "R", "ohm"),
-            var("V", "V", "volt"),
-            var("inductance", "L", "henry"),
-            var("t", "t", "second"),
-        ),
-    ),
-    formula(
-        "rl_decay",
-        "circuit",
-        "RL current decay",
-        "I",
-        base_latex=r"I = I_0 e^{-Rt/L}",
-        assumptions=("the source is removed at t = 0",),
-        variables=(
-            var("I0", "I_0", "ampere"),
-            var("R", "R", "ohm"),
-            var("inductance", "L", "henry"),
-            var("t", "t", "second"),
-        ),
-    ),
-    formula(
-        "rms_voltage",
-        "circuit",
-        "RMS voltage",
-        "V_{rms}",
-        base_latex=r"V_{\mathrm{rms}} = \frac{V_0}{\sqrt{2}}",
-        assumptions=("sinusoidal voltage",),
-        variables=(
-            var("V", "V", "volt"),
-            var("to_peak", "to_peak", dimensionless=True, visible=False),
-        ),
-        variants=(
-            FormulaVariant(
-                present=frozenset({"to_peak"}),
-                latex=r"V_0 = V_{\mathrm{rms}}\sqrt{2}",
-                result_symbol="V_0",
-            ),
-        ),
-    ),
-    formula(
-        "rms_current",
-        "circuit",
-        "RMS current",
-        "I_{rms}",
-        base_latex=r"I_{\mathrm{rms}} = \frac{I_0}{\sqrt{2}}",
-        assumptions=("sinusoidal current",),
-        variables=(
-            var("I", "I", "ampere"),
-            var("to_peak", "to_peak", dimensionless=True, visible=False),
-        ),
-        variants=(
-            FormulaVariant(
-                present=frozenset({"to_peak"}),
-                latex=r"I_0 = I_{\mathrm{rms}}\sqrt{2}",
-                result_symbol="I_0",
-            ),
-        ),
-    ),
-    formula(
-        "inductive_reactance",
-        "circuit",
-        "Inductive reactance",
-        "X_L",
-        base_latex=r"X_L = 2\pi f L",
-        variables=(
-            var("freq", "f", "hertz"),
-            var("inductance", "L", "henry"),
-        ),
-    ),
-    formula(
-        "capacitive_reactance",
-        "circuit",
-        "Capacitive reactance",
-        "X_C",
-        base_latex=r"X_C = \frac{1}{2\pi f C}",
-        variables=(
-            var("capacitance", "C", "farad"),
-            var("freq", "f", "hertz"),
-        ),
-    ),
-    formula(
-        "series_impedance",
-        "circuit",
-        "Series impedance",
-        "Z",
-        base_latex=r"Z = \sqrt{R^2+(X_L-X_C)^2}",
-        assumptions=("series RLC",),
-        variables=(
-            var("R", "R", "ohm"),
-            var("capacitance", "C", "farad"),
-            var("freq", "f", "hertz"),
-            var("inductance", "L", "henry"),
-            var("reactance_c", "X_C", "ohm"),
-            var("reactance_l", "X_L", "ohm"),
-        ),
-    ),
-    formula(
-        "lc_resonance",
-        "circuit",
-        "LC resonance",
-        "f",
-        base_latex=r"f = \frac{1}{2\pi\sqrt{LC}}",
-        variables=(
-            var("capacitance", "C", "farad"),
-            var("inductance", "L", "henry"),
-        ),
-    ),
-    formula(
-        "ac_average_power",
-        "circuit",
-        "Average AC power",
-        "P",
-        base_latex="P = I^2 R",
-        assumptions=("average power in the resistor",),
-        variables=(
-            var("I", "I", "ampere"),
-            var("R", "R", "ohm"),
-        ),
-    ),
-    formula(
         "current_from_charge",
         "circuit",
         "Charge-current relation",
         "I",
         base_latex="Q = It",
         expression="Q/t",
-        variables=(_CHARGE, var("t", "t", "second")),
-        binding=_bind(("current",), "ampere", "Q", "t"),
-    ),
-    formula(
-        "capacitor_charge",
-        "circuit",
-        "Capacitance formula",
-        "Q",
-        base_latex="Q = CV",
-        expression="capacitance*V",
-        variables=(_CAPACITANCE, var("V", "V", "volt")),
-        binding=_bind(
-            ("charge stored", "charge"), "coulomb", "capacitance", "V", cues=("capacitor",)
-        ),
-    ),
-    formula(
-        "capacitor_voltage",
-        "circuit",
-        "Capacitance formula",
-        "V",
-        base_latex="Q = CV",
-        expression="Q/capacitance",
-        variables=(_CAPACITANCE, _CHARGE),
-        binding=_bind(
-            ("potential difference", "voltage"), "volt", "Q", "capacitance", cues=("capacitor",)
-        ),
+        variables=(var("Q", "Q", "coulomb"), var("t", "t", "second")),
+        binding=bind(("current",), "ampere", "Q", "t"),
     ),
     formula(
         "resistivity_resistance",
@@ -406,100 +154,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("area", "A", "meter ** 2"),
             var("resistivity", r"\rho", "ohm * meter"),
         ),
-        binding=_bind(("resistance",), "ohm", "L", "area", "resistivity"),
-    ),
-    formula(
-        "capacitors_series",
-        "circuit",
-        "Capacitors in series",
-        "C",
-        base_latex=r"\frac{1}{C} = \frac{1}{C_1} + \frac{1}{C_2}",
-        expression="c1*c2/(c1 + c2)",
-        variables=(var("c1", "C_1", "farad"), var("c2", "C_2", "farad")),
-        binding=Binding(
-            asks=(
-                "total capacitance",
-                "combined capacitance",
-                "equivalent capacitance",
-                "capacitance",
-            ),
-            result=("farad",),
-            inputs=(frozenset({"c1", "c2"}),),
-            cues=("series",),
-            interchangeable=("c1", "c2"),
-            nonnegative=True,
-        ),
-    ),
-    formula(
-        "capacitors_parallel",
-        "circuit",
-        "Capacitors in parallel",
-        "C",
-        base_latex="C = C_1 + C_2",
-        expression="c1 + c2",
-        variables=(var("c1", "C_1", "farad"), var("c2", "C_2", "farad")),
-        binding=Binding(
-            asks=(
-                "total capacitance",
-                "combined capacitance",
-                "equivalent capacitance",
-                "capacitance",
-            ),
-            result=("farad",),
-            inputs=(frozenset({"c1", "c2"}),),
-            cues=("parallel",),
-            interchangeable=("c1", "c2"),
-            nonnegative=True,
-        ),
-    ),
-    # A capacitor charging or discharging through a resistor, after a time.
-    formula(
-        "capacitor_charging_voltage",
-        "circuit",
-        "RC charging equation",
-        "V",
-        base_latex=r"V = V_0\left(1 - e^{-t/RC}\right)",
-        assumptions=("the capacitor starts uncharged",),
-        expression="v_supply*(1 - exp(-t/(R*capacitance)))",
-        variables=(
-            var("R", "R", "ohm"),
-            _CAPACITANCE,
-            var("t", "t", "second"),
-            var("v_supply", "V_0", "volt"),
-        ),
-        binding=_bind(
-            ("potential difference", "voltage"),
-            "volt",
-            "R",
-            "capacitance",
-            "t",
-            "v_supply",
-            cues=("charging", "charges", "being charged", "is charged"),
-            excludes=("discharg",),
-        ),
-    ),
-    formula(
-        "capacitor_discharge_voltage",
-        "circuit",
-        "RC discharge equation",
-        "V",
-        base_latex=r"V = V_0 e^{-t/RC}",
-        expression="v_supply*exp(-t/(R*capacitance))",
-        variables=(
-            var("R", "R", "ohm"),
-            _CAPACITANCE,
-            var("t", "t", "second"),
-            var("v_supply", "V_0", "volt"),
-        ),
-        binding=_bind(
-            ("potential difference", "voltage"),
-            "volt",
-            "R",
-            "capacitance",
-            "t",
-            "v_supply",
-            cues=("discharg",),
-        ),
+        binding=bind(("resistance",), "ohm", "L", "area", "resistivity"),
     ),
     formula(
         "transformer_voltage",
@@ -514,7 +169,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("turns_secondary", "N_s", dimensionless=True, words=("secondary",)),
             var("v_primary", "V_p", "volt"),
         ),
-        binding=_bind(
+        binding=bind(
             ("secondary voltage", "output voltage", "voltage"),
             "volt",
             "turns_primary",
