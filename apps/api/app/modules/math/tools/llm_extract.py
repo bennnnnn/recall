@@ -88,9 +88,11 @@ def to_math_intent(extract: LLMMathExtract) -> MathIntent | None:
             variable=extract.variable,
         )
     if extract.kind == "system" and extract.equations and extract.variables:
+        if len(extract.equations) > 4:
+            return None
         return MathIntent(
             kind="system",
-            system_equations=extract.equations[:4],
+            system_equations=extract.equations,
             system_variables=extract.variables[:4],
             operation="solve",
         )
