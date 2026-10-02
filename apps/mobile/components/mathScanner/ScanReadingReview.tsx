@@ -21,7 +21,7 @@ import { TextField } from "@/ui/controls/TextField";
 export type ScanReadingState =
   | { status: "reading" }
   | { status: "ready"; reading: string; uncertain: boolean }
-  | { status: "failed" };
+  | { status: "failed"; message?: string };
 
 type Props = {
   photoUri: string;
@@ -83,7 +83,7 @@ export function ScanReadingReview({
         ) : null}
         {state.status === "failed" ? (
           <Text style={s.note} accessibilityLiveRegion="polite">
-            {t("chat.math_scan_read_failed")}
+            {state.message ?? t("chat.math_scan_read_failed")}
           </Text>
         ) : null}
         {state.status === "ready" ? (

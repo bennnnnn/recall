@@ -399,6 +399,17 @@ describe("imported math scanner photos", () => {
     );
   });
 
+  it("shows a rate limit instead of the generic read failure", async () => {
+    const read = jest.fn(async () => ({ error: "Too many scans in a row. Try again in a few minutes." }));
+    const view = await cropForReview(read);
+    expect(
+      within(view.getByTestId("math-scan-review")).getByText(
+        "Too many scans in a row. Try again in a few minutes.",
+      ),
+    ).toBeTruthy();
+    expect(view.queryByText("chat.math_scan_read_failed")).toBeNull();
+  });
+
   it("falls back to the photo when the read fails", async () => {
     const read = jest.fn(async () => null);
     const view = await cropForReview(read);

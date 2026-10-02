@@ -34,6 +34,7 @@ import { ScannerSubjectGuide } from "@/components/mathScanner/ScannerSubjectGuid
 import { useMathScannerCrop } from "@/hooks/useMathScannerCrop";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { MathScanReading } from "@/lib/api";
+import type { MathScanReadFailure } from "@/lib/math/scanReadError";
 import {
   HeicUnsupportedError,
   NativePickerBusyError,
@@ -74,7 +75,10 @@ type Props = {
     confirmedReading?: string,
   ) => void;
   /** Math only: read the crop back before solving. Null means it failed. */
-  onReadScan?: (scan: PendingAttachment, signal: AbortSignal) => Promise<MathScanReading | null>;
+  onReadScan?: (
+    scan: PendingAttachment,
+    signal: AbortSignal,
+  ) => Promise<MathScanReading | MathScanReadFailure | null>;
   /** Chemistry: read the written problem as plain text. Null means it failed. */
   onReadChemistryScan?: (
     scan: PendingAttachment,
@@ -231,12 +235,20 @@ export function MathEquationScanner({
             readAbortRef.current = null;
             setReview((current) => {
               if (!current || current.shot !== cropped) return current;
-              const reading = result?.reading.trim() ?? "";
+              if (result && "reading" in result && result.reading.trim()) {
+                return {
+                  shot: cropped,
+                  state: {
+                    status: "ready",
+                    reading: result.reading.trim(),
+                    uncertain: result.uncertain,
+                  },
+                };
+              }
+              const message = result && "error" in result ? result.error : "";
               return {
                 shot: cropped,
-                state: reading
-                  ? { status: "ready", reading, uncertain: Boolean(result?.uncertain) }
-                  : { status: "failed" },
+                state: { status: "failed", ...(message ? { message } : {}) },
               };
             });
           });
