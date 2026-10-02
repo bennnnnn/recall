@@ -450,6 +450,11 @@ def test_solubility_gives_ksp() -> None:
 def test_rate_law_can_change_the_second_reactant() -> None:
     result = _solve("Find the rate law: a1=1, rate1=2, a2=1, rate2=8, b1=1, b2=2")
     assert result.answer == "rate = 2 [B]^2"
+    # [A] stays 3 while [B] doubles twice, so k is rate1 / [B]^2, not rate1 / [A]^2.
+    shifted = _solve("Find the rate law: a1=3, rate1=8, a2=3, rate2=32, b1=2, b2=4")
+    assert shifted.answer == "rate = 2 [B]^2"
+    assert shifted.substitution[-1] == "k = rate1 / [B]^2 = 8 / (2)^2 = 2"
+    assert shifted.given[0] == "experiment 1: [A] = 3, [B] = 2, rate = 8"
 
 
 def test_titration_regions_scale_with_the_amounts() -> None:
