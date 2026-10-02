@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Pressable,
   StyleSheet,
@@ -74,10 +74,13 @@ function RevealingImage({
   previewFit,
 }: RevealingImageProps) {
   const reveal = useSharedValue(reduceMotion ? 1 : 0);
+  const started = useRef(false);
   const sharpStyle = useAnimatedStyle(() => ({ opacity: reveal.value }));
   const blurStyle = useAnimatedStyle(() => ({ opacity: 1 - reveal.value }));
 
   const handleLoad = (event: ImageLoadEventData) => {
+    if (started.current) return;
+    started.current = true;
     onLoad(event);
     // Reanimated shared values are designed to be mutated from any JS-thread
     // callback, including a plain event handler like this one — this isn't
@@ -114,6 +117,7 @@ function RevealingImage({
         contentFit={previewFit}
         cachePolicy="memory-disk"
         blurRadius={REVEAL_BLUR_RADIUS}
+        onLoad={handleLoad}
       />
       <AnimatedImage
         source={source}
