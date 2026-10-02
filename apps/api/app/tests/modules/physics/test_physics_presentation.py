@@ -45,6 +45,20 @@ def test_the_answer_is_in_the_asked_unit(text: str, answer: str) -> None:
     assert _verified(text).canonical_answer == answer
 
 
+def test_two_results_that_share_a_value_both_stay() -> None:
+    # 45° components are equal; "in N" used to keep only the horizontal one.
+    text = "Resolve a force of 10 N at 45 degrees into horizontal and vertical components in N."
+    assert _verified(text).canonical_answer == "7.07 N horizontally and 7.07 N vertically"
+
+
+def test_one_result_given_in_two_units_is_one_result_in_the_asked_unit() -> None:
+    text = (
+        "Find maximum photoelectric kinetic energy for frequency 1e15 Hz "
+        "and work function 2 eV in eV."
+    )
+    assert _verified(text).canonical_answer == "2.14 eV"
+
+
 def test_a_unit_of_another_kind_is_not_the_asked_unit() -> None:
     text = "A force of 40 N pushes a box 5 m. How much work is done in a factory?"
     assert _verified(text).canonical_answer == "200 J"

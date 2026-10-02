@@ -81,11 +81,14 @@ def _in_the_asked_unit(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsR
     target = unit_dimension(expression) if expression else None
     if target is None or intent.asked_unit is None:
         return result
-    quantities = []
+    quantities: list[QuantityResult] = []
+    # The unit each kept result was solved in, to tell a restatement from a twin.
+    solved_in: list[str] = []
     for item in result.quantities:
         reading = result_reading(item.unit)
         if reading is None or reading[0] != target[0]:
             quantities.append(item)
+            solved_in.append(item.unit)
             continue
         si = item.value * reading[1] + reading[2]
         # A note that only restated the value in this unit ("2.48 eV") is now the value.
@@ -98,12 +101,18 @@ def _in_the_asked_unit(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsR
             unit=intent.asked_unit,
             detail=None if restated else item.detail,
         )
-        # A result given twice ("J (eV)") is one result once both are in eV.
+        # One result given in two units ("J (eV)") is one result once both are
+        # in eV. Two results that only share a value (45° components) stay two.
         if not any(
-            other.unit == shown.unit and math.isclose(other.value, shown.value)
-            for other in quantities
+            unit != item.unit
+            and other.symbol == shown.symbol
+            and other.detail == shown.detail
+            and other.unit == shown.unit
+            and math.isclose(other.value, shown.value)
+            for other, unit in zip(quantities, solved_in, strict=True)
         ):
             quantities.append(shown)
+            solved_in.append(item.unit)
     return replace(result, quantities=tuple(quantities))
 
 
