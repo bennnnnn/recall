@@ -122,7 +122,7 @@ A complete balance, stoichiometry chain, VSEPR, titration, ICE, or galvanic-cell
 answer appends one server-owned `chem_scene` fence. The phone only draws that
 JSON: card titles, column headings, and labels come from the app's i18n strings, the
 atom tally and ICE table are drawn as tables, and the web shows a text summary. The
-model prompt does not describe the fence.
+model prompt names `answer`, `smiles`, and `chem_scene` so the model does not emit them.
 
 `docs/fixtures/chemistry_replies.json` holds real server replies. The server test
 proves the server still writes exactly those replies, and the mobile and web tests read

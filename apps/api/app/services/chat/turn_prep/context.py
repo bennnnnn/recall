@@ -121,8 +121,9 @@ class StreamContext:
     fallback_models: list[str] = field(default_factory=list)
     # One verified solve for the subject that owns this turn.
     verified_subject: VerifiedSolveBlock | None = None
-    # A subject solver ran and declined. The reply gets one italic line, not a card.
+    # A subject solver ran and declined. The reply gets one note, not a card.
     solver_unverified: bool = False
+    unverified_subject: str | None = None
     timing: TurnTimingTracker | None = None
     lightweight_turn: bool = False
     # False = casual chat (skip memory/todos). Status theater
@@ -159,6 +160,7 @@ class TurnPromptBundle:
     local_tz: str
     verified_subject: VerifiedSolveBlock | None = None
     solver_unverified: bool = False
+    unverified_subject: str | None = None
     web_search_classified: bool | None = None
 
 
@@ -207,6 +209,7 @@ def stream_context_from_bundle(
         fallback_models=bundle.fallback_models,
         verified_subject=bundle.verified_subject,
         solver_unverified=getattr(bundle, "solver_unverified", False) is True,
+        unverified_subject=getattr(bundle, "unverified_subject", None),
         timing=timing,
         # Trust turn-mode: re-running is_lightweight_chat_turn without the
         # prior assistant would mark "yes"/"go" as greetings again.
@@ -551,7 +554,14 @@ async def build_stream_prompt_context(
         Awaitable[
             tuple[
                 list[str],
-                tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None, bool],
+                tuple[
+                    str | None,
+                    str | None,
+                    list[WebSearchHit],
+                    VerifiedSolveBlock | None,
+                    bool,
+                    str | None,
+                ],
             ]
         ]
         | None
@@ -561,7 +571,14 @@ async def build_stream_prompt_context(
 
         async def _fetch_web_with_priors() -> tuple[
             list[str],
-            tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None, bool],
+            tuple[
+                str | None,
+                str | None,
+                list[WebSearchHit],
+                VerifiedSolveBlock | None,
+                bool,
+                str | None,
+            ],
         ]:
             priors = await _load_prior_user_messages(chat.id)
             result = await fetch_web_and_tools(
@@ -591,6 +608,7 @@ async def build_stream_prompt_context(
     web_block: str | None = None
     math_block: str | None = None
     solver_unverified = False
+    unverified_subject: str | None = None
     fetch_jobs: list[Awaitable[Any]] = []
     fetch_keys: list[str] = []
     if integration_coro is not None:
@@ -648,7 +666,14 @@ async def build_stream_prompt_context(
         if "web" in by_key:
             (
                 prior_user_messages,
-                (web_block, math_block, search_sources, verified_subject, solver_unverified),
+                (
+                    web_block,
+                    math_block,
+                    search_sources,
+                    verified_subject,
+                    solver_unverified,
+                    unverified_subject,
+                ),
             ) = by_key["web"]
         if "cal_write" in by_key:
             has_calendar_write = by_key["cal_write"]
@@ -698,5 +723,6 @@ async def build_stream_prompt_context(
         local_tz=local_tz,
         verified_subject=verified_subject,
         solver_unverified=solver_unverified,
+        unverified_subject=unverified_subject,
         web_search_classified=web_search_classified,
     )
