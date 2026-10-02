@@ -242,6 +242,26 @@ WAVES_AND_OPTICS: tuple[Case, ...] = (
         "Find the angle of the first order maximum.",
         (10.37, "deg"),
     ),
+    _q(
+        "A siren of 500 Hz moves away from a stationary observer at 20 m/s. "
+        "The speed of sound is 340 m/s. Find the frequency heard.",
+        (472.22, "Hz"),
+    ),
+    _q(
+        "An observer moves at 10 m/s toward a stationary siren of 500 Hz. "
+        "The speed of sound is 340 m/s. Find the frequency heard.",
+        (514.71, "Hz"),
+    ),
+    _q(
+        "A train whistle of 400 Hz approaches at 72 km/h. Find the observed frequency.",
+        (424.77, "Hz"),
+    ),
+    _q("A concave mirror has a radius of curvature of 40 cm. Find its focal length.", (0.2, "m")),
+    _q(
+        "An object is placed 30 cm from a lens and the image forms 60 cm from the lens. "
+        "Find the magnification.",
+        (-2, ""),
+    ),
 )
 
 ELECTRICITY: tuple[Case, ...] = (
@@ -289,6 +309,36 @@ ELECTRICITY: tuple[Case, ...] = (
         "Two parallel plates 2 cm apart have a potential difference of 100 V. "
         "Find the electric field strength.",
         (5000, "V/m"),
+    ),
+    _q("Find the total capacitance of a 4 µF and a 6 µF capacitor in series.", (2.4e-6, "F")),
+    _q("Find the total capacitance of a 4 µF and a 6 µF capacitor in parallel.", (1e-5, "F")),
+    _q(
+        "A capacitor of 50 µF stores a charge of 1 mC. Find the potential difference across it.",
+        (20, "V"),
+    ),
+    _q(
+        "A 100 µF capacitor is charging through a 10 kΩ resistor from a 12 V supply. "
+        "Find the voltage after 1 s.",
+        (7.5854, "V"),
+    ),
+    _q(
+        "A 100 µF capacitor is discharged through a 10 kΩ resistor after being charged to 12 V. "
+        "Find the voltage after 1 s.",
+        (4.4146, "V"),
+    ),
+    _q(
+        "A charge of 2 × 10^-6 C is in an electric field of 5000 N/C. Find the force on the charge.",
+        (0.01, "N"),
+    ),
+    _q(
+        "An electron is accelerated through a potential difference of 100 V. "
+        "Find the energy gained.",
+        (1.6022e-17, "J"),
+    ),
+    _q(
+        "A solenoid of length 0.25 m has 500 turns and carries a current of 2 A. "
+        "Find the magnetic field inside it.",
+        (5.0265e-3, "T"),
     ),
 )
 
@@ -363,6 +413,20 @@ MUST_DECLINE: tuple[Case, ...] = (
     _decline("My weight is 70 kg. What is my weight in pounds?"),
     # Two speeds and nothing to say which is the start.
     _decline("A car has speeds 10 m/s and 30 m/s over 5 s. Find its acceleration."),
+    # Asked for a price; the energy in joules was answered as the cost.
+    _decline("A 2 kW heater runs for 3 hours. Electricity costs 15p per kWh. Find the cost."),
+    # A source speed with no direction: toward and away disagree.
+    _decline(
+        "A siren of 500 Hz moves at 20 m/s. The speed of sound is 340 m/s. "
+        "Find the frequency heard."
+    ),
+    # Series or parallel is not said.
+    _decline("Find the total capacitance of a 4 µF and a 6 µF capacitor."),
+    # A virtual image's distance carries the other sign.
+    _decline(
+        "An object is 30 cm from a lens and forms a virtual image 60 cm from the lens. "
+        "Find the magnification."
+    ),
 )
 
 NOT_PHYSICS: tuple[str, ...] = (
@@ -388,4 +452,4 @@ ANSWERABLE: tuple[Case, ...] = (
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 88
+COVERAGE_FLOOR = 112

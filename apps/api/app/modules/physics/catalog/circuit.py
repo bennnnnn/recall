@@ -2,7 +2,28 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+
+_CHARGE = var("Q", "Q", "coulomb")
+_CAPACITANCE = var("capacitance", "C", "farad")
+
+
+def _bind(
+    asks: tuple[str, ...],
+    result: str,
+    *inputs: str,
+    cues: tuple[str, ...] = (),
+    excludes: tuple[str, ...] = (),
+) -> Binding:
+    return Binding(
+        asks=asks,
+        result=(result,),
+        inputs=(frozenset(inputs),),
+        cues=cues,
+        excludes=excludes,
+        nonnegative=True,
+    )
+
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -81,6 +102,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("I", "I", "ampere"),
             var("t", "t", "second"),
         ),
+        binding=_bind(("charge",), "coulomb", "I", "t"),
     ),
     formula(
         "electrical_energy",
@@ -101,6 +123,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("Q", "Q", "coulomb"),
             var("V", "V", "volt"),
         ),
+        binding=_bind(("capacitance",), "farad", "Q", "V"),
     ),
     formula(
         "parallel_plate_capacitance",
@@ -134,6 +157,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("R", "R", "ohm"),
             var("capacitance", "C", "farad"),
         ),
+        binding=_bind(("time constant",), "second", "R", "capacitance"),
     ),
     formula(
         "terminal_voltage",
@@ -333,6 +357,170 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("I", "I", "ampere"),
             var("R", "R", "ohm"),
+        ),
+    ),
+    formula(
+        "current_from_charge",
+        "circuit",
+        "Charge-current relation",
+        "I",
+        base_latex="Q = It",
+        expression="Q/t",
+        variables=(_CHARGE, var("t", "t", "second")),
+        binding=_bind(("current",), "ampere", "Q", "t"),
+    ),
+    formula(
+        "capacitor_charge",
+        "circuit",
+        "Capacitance formula",
+        "Q",
+        base_latex="Q = CV",
+        expression="capacitance*V",
+        variables=(_CAPACITANCE, var("V", "V", "volt")),
+        binding=_bind(
+            ("charge stored", "charge"), "coulomb", "capacitance", "V", cues=("capacitor",)
+        ),
+    ),
+    formula(
+        "capacitor_voltage",
+        "circuit",
+        "Capacitance formula",
+        "V",
+        base_latex="Q = CV",
+        expression="Q/capacitance",
+        variables=(_CAPACITANCE, _CHARGE),
+        binding=_bind(
+            ("potential difference", "voltage"), "volt", "Q", "capacitance", cues=("capacitor",)
+        ),
+    ),
+    formula(
+        "resistivity_resistance",
+        "circuit",
+        "Resistivity equation",
+        "R",
+        base_latex=r"R = \frac{\rho L}{A}",
+        assumptions=("a uniform conductor",),
+        expression="resistivity*L/area",
+        variables=(
+            var("L", "L", "meter"),
+            var("area", "A", "meter ** 2"),
+            var("resistivity", r"\rho", "ohm * meter"),
+        ),
+        binding=_bind(("resistance",), "ohm", "L", "area", "resistivity"),
+    ),
+    formula(
+        "capacitors_series",
+        "circuit",
+        "Capacitors in series",
+        "C",
+        base_latex=r"\frac{1}{C} = \frac{1}{C_1} + \frac{1}{C_2}",
+        expression="c1*c2/(c1 + c2)",
+        variables=(var("c1", "C_1", "farad"), var("c2", "C_2", "farad")),
+        binding=Binding(
+            asks=(
+                "total capacitance",
+                "combined capacitance",
+                "equivalent capacitance",
+                "capacitance",
+            ),
+            result=("farad",),
+            inputs=(frozenset({"c1", "c2"}),),
+            cues=("series",),
+            interchangeable=("c1", "c2"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "capacitors_parallel",
+        "circuit",
+        "Capacitors in parallel",
+        "C",
+        base_latex="C = C_1 + C_2",
+        expression="c1 + c2",
+        variables=(var("c1", "C_1", "farad"), var("c2", "C_2", "farad")),
+        binding=Binding(
+            asks=(
+                "total capacitance",
+                "combined capacitance",
+                "equivalent capacitance",
+                "capacitance",
+            ),
+            result=("farad",),
+            inputs=(frozenset({"c1", "c2"}),),
+            cues=("parallel",),
+            interchangeable=("c1", "c2"),
+            nonnegative=True,
+        ),
+    ),
+    # A capacitor charging or discharging through a resistor, after a time.
+    formula(
+        "capacitor_charging_voltage",
+        "circuit",
+        "RC charging equation",
+        "V",
+        base_latex=r"V = V_0\left(1 - e^{-t/RC}\right)",
+        assumptions=("the capacitor starts uncharged",),
+        expression="v_supply*(1 - exp(-t/(R*capacitance)))",
+        variables=(
+            var("R", "R", "ohm"),
+            _CAPACITANCE,
+            var("t", "t", "second"),
+            var("v_supply", "V_0", "volt"),
+        ),
+        binding=_bind(
+            ("potential difference", "voltage"),
+            "volt",
+            "R",
+            "capacitance",
+            "t",
+            "v_supply",
+            cues=("charging", "charges", "being charged", "is charged"),
+            excludes=("discharg",),
+        ),
+    ),
+    formula(
+        "capacitor_discharge_voltage",
+        "circuit",
+        "RC discharge equation",
+        "V",
+        base_latex=r"V = V_0 e^{-t/RC}",
+        expression="v_supply*exp(-t/(R*capacitance))",
+        variables=(
+            var("R", "R", "ohm"),
+            _CAPACITANCE,
+            var("t", "t", "second"),
+            var("v_supply", "V_0", "volt"),
+        ),
+        binding=_bind(
+            ("potential difference", "voltage"),
+            "volt",
+            "R",
+            "capacitance",
+            "t",
+            "v_supply",
+            cues=("discharg",),
+        ),
+    ),
+    formula(
+        "transformer_voltage",
+        "circuit",
+        "Ideal transformer equation",
+        "V_s",
+        base_latex=r"\frac{V_s}{V_p} = \frac{N_s}{N_p}",
+        assumptions=("an ideal transformer",),
+        expression="v_primary*turns_secondary/turns_primary",
+        variables=(
+            var("turns_primary", "N_p", dimensionless=True, words=("primary",)),
+            var("turns_secondary", "N_s", dimensionless=True, words=("secondary",)),
+            var("v_primary", "V_p", "volt"),
+        ),
+        binding=_bind(
+            ("secondary voltage", "output voltage", "voltage"),
+            "volt",
+            "turns_primary",
+            "turns_secondary",
+            "v_primary",
+            cues=("transformer",),
         ),
     ),
 )

@@ -8,7 +8,8 @@ reads every stated value with its dimension (``givens``) and the asked clause
 
 - every stated value fills one input of its dimension. Two inputs of one
   dimension are told apart by the word just before the value ("from", "to",
-  "initial", "reaches"), or filled largest first where the law says so;
+  "initial", "reaches") or just after it ("on the primary"), or filled in
+  order (largest first where the law says so);
 - a value the words mark as the result itself ("reaches 18 m/s" when the
   final speed is asked) means this is not the operation;
 - unstated inputs come from phrases ("from rest" is u = 0) or settings (g,
@@ -29,7 +30,7 @@ from functools import lru_cache
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.ask import ask_clause, asked_dimensions, asked_unit
-from app.modules.physics.bodies import named_body
+from app.modules.physics.bodies import named_body, named_particle_charge
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.catalog.spec import Binding, FormulaSpec, VariableSpec
 from app.modules.physics.display import si_symbol
@@ -184,6 +185,12 @@ def _ask_strength(clause: str, asks: tuple[str, ...]) -> int:
     return strength
 
 
+def _after(lower: str, start: int, end: int) -> str:
+    """The words after a value, up to the next value or the end of its sentence."""
+    stop = _SENTENCE_BREAK.search(lower, start, end)
+    return lower[start : stop.start() if stop is not None else end]
+
+
 def _other_sense(
     lower: str, asks: tuple[str, ...], givens: list[Given], produced: set[str | None]
 ) -> bool:
@@ -210,34 +217,63 @@ def _window(lower: str, start: int, end: int) -> str:
     return lower[max([start, *breaks]) : end]
 
 
+def _first_said(window: str, words: tuple[str, ...]) -> int:
+    """Where the first of these words starts in the window; -1 when none is there."""
+    starts = [match.start() for word in words for match in _phrase(word).finditer(window)]
+    return min(starts, default=-1)
+
+
 def _choose(
-    options: list[VariableSpec], window: str, binding: Binding, is_result_kind: bool
+    options: list[VariableSpec],
+    before: str,
+    after: str,
+    binding: Binding,
+    is_result_kind: bool,
 ) -> VariableSpec | None:
-    """The input this value fills, or None when the words do not say."""
-    said = [(_last_said(window, option.words), option) for option in options]
+    """The input this value fills, or None when the words do not say.
+
+    The words just before a value name it ("from 10 m/s"); when none do, the
+    words just after it can ("100 turns on the primary").
+    """
+    said = [(_last_said(before, option.words), option) for option in options]
     latest = max(position for position, _ in said)
-    if is_result_kind and _last_said(window, binding.result_words) > latest:
+    if is_result_kind and _last_said(before, binding.result_words) > latest:
         # "reaches 18 m/s" while the final speed is asked: that is the answer.
         return None
     if latest >= 0:
         named = [option for position, option in said if position == latest]
         return named[0] if len(named) == 1 else None
+    if len(options) > 1:
+        later = [(_first_said(after, option.words), option) for option in options]
+        found = [(position, option) for position, option in later if position >= 0]
+        if found:
+            nearest = min(position for position, _ in found)
+            named = [option for position, option in found if position == nearest]
+            return named[0] if len(named) == 1 else None
     if len(options) == 1:
         return options[0]
-    if all(option.name in binding.descending for option in options):
+    if all(option.name in (*binding.descending, *binding.interchangeable) for option in options):
         return options[0]
     return None
 
 
-def _unstated(variable: VariableSpec, text: str, lower: str) -> float | None:
+def _implied(variable: VariableSpec, lower: str) -> float | None:
+    """A value the words state without a number: "from rest", "horizontally"."""
     for phrase, value in variable.implied:
         if _phrase(phrase).search(lower):
             return value
+    return None
+
+
+def _fallback(variable: VariableSpec, text: str, lower: str) -> float | None:
+    """A setting an unstated input takes: g, the named planet's mass, an electron's charge."""
     if variable.fallback == "gravity":
         return _detect_gravity(text)
     if variable.fallback == "body_mass":
         body = named_body(lower)
         return None if body is None else body[0]
+    if variable.fallback == "particle_charge":
+        return named_particle_charge(lower)
     return None
 
 
@@ -267,8 +303,16 @@ def _fit(
     variables = [variable for variable in spec.variables if variable.visible]
     params: dict[str, float] = {}
     units: dict[str, str] = {}
+    # What the words state comes first: a car that starts "from rest" has u = 0,
+    # so its one stated speed is the final one. Hidden classifier inputs are
+    # words too: "string" sets the mode factor of a resonance.
+    for variable in spec.variables:
+        implied = _implied(variable, lower)
+        if implied is not None:
+            params[variable.name] = implied
+            units[variable.name] = _si_unit(variable)
     previous = 0
-    for given in givens:
+    for index, given in enumerate(givens):
         kind = _given_kind(given)
         options = [
             variable
@@ -277,11 +321,13 @@ def _fit(
         ]
         if not options:
             return None
-        window = _window(lower, previous, given.start)
-        choice = _choose(options, window, binding, kind in produced)
+        before = _window(lower, previous, given.start)
+        following = givens[index + 1].start if index + 1 < len(givens) else len(lower)
+        after = _after(lower, given.end, following)
+        choice = _choose(options, before, after, binding, kind in produced)
         if choice is None:
             return None
-        negative = _last_said(window, choice.negating) >= 0
+        negative = _last_said(before, choice.negating) >= 0
         params[choice.name] = -given.value if negative else given.value
         units[choice.name] = given.unit
         previous = given.end
@@ -289,7 +335,7 @@ def _fit(
     for variable in variables:
         if variable.name in params:
             continue
-        value = _unstated(variable, text, lower)
+        value = _fallback(variable, text, lower)
         if value is not None:
             params[variable.name] = value
             units[variable.name] = _si_unit(variable)

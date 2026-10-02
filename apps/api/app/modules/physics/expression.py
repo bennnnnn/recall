@@ -17,6 +17,15 @@ from collections.abc import Callable, Mapping
 from functools import lru_cache
 
 from app.modules.physics.display import latex_given
+from app.modules.physics.solvers.common import (
+    _BIG_G,
+    _COULOMB_K,
+    _ELEMENTARY_CHARGE,
+    _EPSILON_0,
+    _MU_0,
+    _PLANCK_H,
+    _SPEED_OF_LIGHT,
+)
 
 _FUNCTIONS: dict[str, Callable[[float], float]] = {
     "sqrt": math.sqrt,
@@ -38,7 +47,18 @@ _FUNCTION_LATEX = {
     "atan": r"\arctan",
     "log": r"\ln",
 }
-_CONSTANTS = {"pi": (math.pi, r"\pi")}
+# Physical constants by the name an expression uses, with the symbol the
+# formula shows. The values are the solvers' own (CODATA via Pint).
+_CONSTANTS = {
+    "pi": (math.pi, r"\pi"),
+    "mu_0": (_MU_0, r"\mu_0"),
+    "epsilon_0": (_EPSILON_0, r"\varepsilon_0"),
+    "k_e": (_COULOMB_K, "k_e"),
+    "G_grav": (_BIG_G, "G"),
+    "h_planck": (_PLANCK_H, "h"),
+    "c_light": (_SPEED_OF_LIGHT, "c"),
+    "e_charge": (_ELEMENTARY_CHARGE, "e"),
+}
 _BINARY = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow)
 _UNARY = (ast.USub, ast.UAdd)
 
@@ -159,9 +179,9 @@ def _precedence(node: ast.expr) -> int:
 
 
 def _plugged(node: ast.expr, values: Mapping[str, float] | None) -> bool:
-    """A leaf shown as a number: a constant, or a variable with a value."""
+    """A leaf shown as a number: a literal, or a name with a value plugged in."""
     return isinstance(node, ast.Constant) or (
-        isinstance(node, ast.Name) and values is not None and node.id not in _CONSTANTS
+        isinstance(node, ast.Name) and values is not None and node.id != "pi"
     )
 
 
@@ -197,7 +217,9 @@ def _latex(
         return latex_given(_number(node))
     if isinstance(node, ast.Name):
         if node.id in _CONSTANTS:
-            return _CONSTANTS[node.id][1]
+            value, symbol = _CONSTANTS[node.id]
+            # A substitution shows a constant's value, as every solver row does; π stays π.
+            return latex_given(value) if values is not None and node.id != "pi" else symbol
         if values is not None:
             return latex_given(values[node.id])
         return symbols.get(node.id, node.id)

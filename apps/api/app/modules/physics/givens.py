@@ -67,6 +67,10 @@ _SYMBOLS: dict[str, str] = {
     "kPa": "kilopascal",
     "MPa": "megapascal",
     "GPa": "gigapascal",
+    # Field strength: a newton per coulomb is a volt per metre.
+    "N/C": "newton / coulomb",
+    "V/m": "volt / meter",
+    "kV/m": "kilovolt / meter",
     # Viscosity, not a pressure: "0.001 Pa*s" is one unit.
     "Pa*s": "pascal * second",
     "Pa·s": "pascal * second",
@@ -243,6 +247,17 @@ _WORDS: dict[str, str] = {
     "radian": "radian",
     "rad": "radian",
     "percent": "percent",
+    # A count of coil windings: a pure number with a name.
+    "turns": "dimensionless",
+    "turn": "dimensionless",
+    # A grating's ruling, as a line density.
+    "lines per mm": "1 / millimeter",
+    "lines/mm": "1 / millimeter",
+    "lines per cm": "1 / centimeter",
+    "lines/cm": "1 / centimeter",
+    "lines per metre": "1 / meter",
+    "lines per meter": "1 / meter",
+    "lines/m": "1 / meter",
 }
 
 _ANGLE_UNITS = frozenset({"degree", "radian"})

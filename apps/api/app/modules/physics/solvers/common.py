@@ -253,6 +253,9 @@ _UNIT_ALIASES = {
 _RESISTOR_KEY_RE = re.compile(r"R[1-9]")
 
 
+# Words that count rather than measure: a dimensionless input written with one.
+_COUNT_UNITS = frozenset({"turns", "turn", "lines"})
+
 # Units whose zero is not zero. These must be constructed as a Quantity rather
 # than multiplied, and a *difference* in them is not the same as a value.
 _OFFSET_UNITS = frozenset({"degC", "degF", "celsius", "fahrenheit"})
@@ -289,28 +292,37 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
     """
     if not unit:
         return value
+    dim_spec = _PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
+    # A count is a number with a name. Pint reads "turns" as the angle unit
+    # (2π rad each), which made 500 solenoid turns 3142.
+    if dim_spec == "dimensionless" and unit.strip().lower() in _COUNT_UNITS:
+        return value
+    from app.modules.physics.givens import unit_expression
     from app.services.units import get_unit_registry
 
     ureg = get_unit_registry()
     alias = _UNIT_ALIASES.get(unit.lower(), unit)
-    try:
-        if alias in _OFFSET_UNITS:
-            # Celsius is an offset unit, not a scale factor: `value * ureg(
-            # "degC")` raises OffsetUnitCalculusError rather than converting.
-            quantity = ureg.Quantity(value, alias)
-        else:
-            quantity = value * ureg(alias)
-        dim_spec = _PARAM_SI_DIMENSIONS.get(expected_key) if expected_key else None
+    # A spelling Pint cannot read ("lines per mm") is still one the givens
+    # scanner names; its unit is the second reading.
+    readings = [alias, *([table] if (table := unit_expression(unit)) not in (None, alias) else [])]
+    for index, reading in enumerate(readings):
+        try:
+            if reading in _OFFSET_UNITS:
+                # Celsius is an offset unit, not a scale factor: `value * ureg(
+                # "degC")` raises OffsetUnitCalculusError rather than converting.
+                quantity = ureg.Quantity(value, reading)
+            else:
+                quantity = value * ureg(reading)
+        except Exception as exc:
+            if index + 1 < len(readings):
+                continue
+            raise SolveServiceError(f"unsupported unit: {unit}") from exc
         if dim_spec is not None and quantity.dimensionality != ureg(dim_spec).dimensionality:
             raise SolveServiceError(
                 f"unit {unit} does not match expected dimension for {expected_key}"
             )
-        base = quantity.to_base_units()
-        return float(base.magnitude)
-    except SolveServiceError:
-        raise
-    except Exception as exc:
-        raise SolveServiceError(f"unsupported unit: {unit}") from exc
+        return float(quantity.to_base_units().magnitude)
+    raise SolveServiceError(f"unsupported unit: {unit}")
 
 
 def _params_in_si(intent: PhysicsIntent) -> dict[str, float]:

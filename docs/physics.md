@@ -45,9 +45,13 @@ flowchart LR
    into a catalog operation:
    - every stated value fills one input of its dimension. Two inputs of one dimension (u
      and v) are told apart by the word just before the value ("from", "to", "initial",
-     "reaches");
-   - unstated inputs come from phrases ("from rest" is u = 0, "horizontally" is θ = 0) or
-     settings (g, or the mass of the planet the question names);
+     "reaches") or just after it ("100 turns on the primary"). Inputs that play the same
+     part (two capacitors in series) are filled in the order stated;
+   - unstated inputs come from phrases ("from rest" is u = 0, "horizontally" is θ = 0,
+     "string" makes a resonance n·v/2L) or settings (g, the mass of the planet the question
+     names, the charge of the electron, proton or alpha particle it names). A stated value
+     always beats a setting;
+   - an operation's `excludes` words rule it out: a discharge is not a charging;
    - the filled inputs must be exactly a set the operation's solver answers from.
 
    Anything short of one operation with one way to fill it declines. That includes a value
@@ -99,6 +103,23 @@ A law the binder can read needs one catalog entry (`catalog/`) and no extractor:
 
 `test_physics_binding.py` solves every promised input set with sample values and checks the
 result units the binding promised, so a binding cannot promise what its solver refuses.
+
+An expression's answer is in SI unless every given of the result's kind shares one unit:
+4 µF and 6 µF in series are 2.4 µF, and a 40 cm radius of curvature gives a 20 cm focal
+length. A law whose inputs are roles rather than kinds stays an extractor: Doppler
+(`extractors/doppler.py`) reads who moves, toward whom, and a stated speed of sound.
+
+## Coverage
+
+The binder reads these laws, beside the extractors' own:
+
+| Area | Laws |
+|------|------|
+| Motion | SUVAT for v, s, t, a and u; d = vt in any units; fall height; horizontal launch |
+| Forces and energy | W = mg on a named body; Atwood; applied force with friction; P = mgh/t; energy-conservation speed; Kepler period; rotational KE |
+| Circuits | Q = It for I; Q = CV for Q, C and V; R = ρL/A; τ = RC; RC charging and discharging; capacitors in series and parallel; ideal transformer |
+| Fields | E = V/d between plates; F = qE; W = qV (eV with "in eV"); solenoid B = μ₀NI/L |
+| Waves and optics | resonance of a string or pipe; Snell for θ₂; diffraction grating angle; lens power; mirror f = R/2; magnification m = −v/u |
 
 ## Numbers and units
 
@@ -162,6 +183,9 @@ pipeline refuses:
 - a question longer than 4,000 characters (it still gets the physics note);
 - a number it cannot read whole;
 - a stated value of a kind the solve uses, left unbound;
-- a result whose kind is not the asked one;
+- a result whose kind is not the asked one, and a price ("find the cost"), which no law
+  answers;
+- a Doppler speed with no direction, or one speed when both parties move;
+- a magnification from a virtual image's distance, whose sign the conventions disagree on;
 - every refusal listed under Physics in `FEATURES.md` (an unstated collision type, a
   diverging lens, an absolute temperature written as bare "degrees", and the rest).

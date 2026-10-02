@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -51,6 +51,12 @@ SPECS: tuple[FormulaSpec, ...] = (
         "P",
         base_latex="P = \\frac{1}{f}",
         variables=(var("focal", "f", "meter"),),
+        binding=Binding(
+            asks=("power",),
+            result=("1 / meter",),
+            inputs=(frozenset({"focal"}),),
+            cues=("lens",),
+        ),
     ),
     formula(
         "double_slit_fringe_spacing",
@@ -96,6 +102,111 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("n1", "n_1", dimensionless=True),
             var("n2", "n_2", dimensionless=True),
+        ),
+    ),
+    formula(
+        "snell_refraction_angle",
+        "optics",
+        "Snell's law",
+        r"\theta_2",
+        base_latex=r"n_1 \sin\theta_1 = n_2 \sin\theta_2",
+        expression="asin(n1*sin(angle)/n2)*180/pi",
+        variables=(
+            var("angle", r"\theta_1", dimensionless=True),
+            var(
+                "n1",
+                "n_1",
+                dimensionless=True,
+                words=("from", "leaves", "travelling in", "traveling in"),
+                implied=(("from air", 1.0), ("in air", 1.0), ("from a vacuum", 1.0)),
+            ),
+            var("n2", "n_2", dimensionless=True, words=("into", "enters", "entering")),
+        ),
+        binding=Binding(
+            asks=("angle of refraction", "refraction angle", "refracted angle"),
+            result=("degree",),
+            inputs=(frozenset({"angle", "n1", "n2"}),),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "grating_angle",
+        "optics",
+        "Diffraction-grating equation",
+        r"\theta",
+        base_latex=r"d\sin\theta = n\lambda",
+        expression="asin(order*wavelength*line_density)*180/pi",
+        variants=(
+            FormulaVariant(
+                present=frozenset({"d"}),
+                expression="asin(order*wavelength/d)*180/pi",
+            ),
+        ),
+        variables=(
+            var("d", "d", "meter", words=("spacing", "separation", "lines are")),
+            var("line_density", "N", "1 / meter"),
+            var(
+                "order",
+                "n",
+                dimensionless=True,
+                words=("order",),
+                implied=(
+                    ("first order", 1.0),
+                    ("first-order", 1.0),
+                    ("second order", 2.0),
+                    ("second-order", 2.0),
+                    ("third order", 3.0),
+                    ("third-order", 3.0),
+                ),
+            ),
+            var("wavelength", r"\lambda", "meter", words=("wavelength",)),
+        ),
+        binding=Binding(
+            asks=("angle",),
+            result=("degree",),
+            inputs=(
+                frozenset({"line_density", "order", "wavelength"}),
+                frozenset({"d", "order", "wavelength"}),
+            ),
+            cues=("grating",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "mirror_focal_length",
+        "optics",
+        "Spherical-mirror focal length",
+        "f",
+        base_latex=r"f = \frac{R}{2}",
+        assumptions=("a spherical mirror, rays near the axis",),
+        expression="radius_curvature/2",
+        variables=(var("radius_curvature", "R", "meter"),),
+        binding=Binding(
+            asks=("focal length",),
+            result=("meter",),
+            inputs=(frozenset({"radius_curvature"}),),
+            cues=("mirror",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "magnification_distances",
+        "optics",
+        "Magnification equation",
+        "m",
+        base_latex=r"m = -\frac{v}{u}",
+        assumptions=("real distances are positive; a negative m is an inverted image",),
+        expression="-d_img/d_obj",
+        variables=(
+            var("d_img", "v", "meter", words=("image",)),
+            var("d_obj", "u", "meter", words=("object",)),
+        ),
+        binding=Binding(
+            asks=("magnification",),
+            result=("dimensionless",),
+            inputs=(frozenset({"d_img", "d_obj"}),),
+            # A virtual image's distance carries the other sign.
+            excludes=("virtual",),
         ),
     ),
 )

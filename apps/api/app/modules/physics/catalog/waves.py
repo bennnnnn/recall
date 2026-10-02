@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import FormulaSpec, FormulaVariant, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -100,9 +100,33 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=(
             var("L", "L", "meter"),
-            var("harmonic", "n", dimensionless=True),
-            var("mode_factor", "mode_factor", dimensionless=True, visible=False),
+            var(
+                "harmonic",
+                "n",
+                dimensionless=True,
+                implied=(
+                    ("fundamental", 1.0),
+                    ("first harmonic", 1.0),
+                    ("second harmonic", 2.0),
+                    ("third harmonic", 3.0),
+                ),
+            ),
+            # A string or an open pipe is n·v/2L; a pipe closed at one end n·v/4L.
+            var(
+                "mode_factor",
+                "mode_factor",
+                dimensionless=True,
+                visible=False,
+                implied=(("closed at one end", 4.0), ("string", 2.0), ("open at both ends", 2.0)),
+            ),
             var("v_wave", "v", "meter / second"),
+        ),
+        binding=Binding(
+            asks=("fundamental frequency", "frequency"),
+            result=("hertz",),
+            inputs=(frozenset({"L", "harmonic", "mode_factor", "v_wave"}),),
+            cues=("string", "pipe"),
+            nonnegative=True,
         ),
     ),
     formula(
