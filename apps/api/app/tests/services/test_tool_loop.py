@@ -1133,6 +1133,56 @@ async def test_tool_loop_path_copies_tool_hits_onto_context():
 
 
 @pytest.mark.asyncio
+async def test_tool_loop_keeps_a_chemistry_verified_block():
+    from uuid import uuid4
+
+    from app.modules.chemistry.block import build_verified_chemistry
+    from app.modules.chemistry.extract import extract_chemistry_intent
+    from app.services.chat.stream import _run_tool_loop_path
+    from app.services.solving import VerifiedMathBlock
+
+    intent = extract_chemistry_intent("Find the molar mass of H2O")
+    assert intent is not None
+    chemistry = build_verified_chemistry(intent)
+    assert chemistry is not None
+    tool_math = VerifiedMathBlock(
+        text="verified",
+        canonical_fence={"type": "answer", "content": "x = 2"},
+        canonical_answer="x = 2",
+    )
+    ctx = MagicMock()
+    ctx.instant_reply = None
+    ctx.lightweight_turn = False
+    ctx.verified_subject = chemistry
+    ctx.user_message_content = "Find the molar mass of H2O"
+    ctx.search_sources = []
+    ctx.user = None
+    ctx.user_id = uuid4()
+    ctx.chat_id = uuid4()
+    ctx.prompt_messages = [{"role": "user", "content": ctx.user_message_content}]
+    ctx.model = "free-chat"
+    ctx.web_search_classified = None
+    ctx.user_timezone = None
+    with (
+        patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False)),
+        patch("app.services.tool_loop.turn_needs_tool_loop", return_value=True),
+        patch(
+            "app.services.tool_loop.run_tool_rounds",
+            AsyncMock(return_value=(ctx.prompt_messages, tool_math, None, [])),
+        ),
+    ):
+        await _run_tool_loop_path(
+            AsyncMock(),
+            _settings(mcp_tool_loop_enabled=True),
+            ctx,
+            usage={},
+            on_status=None,
+            should_cancel=None,
+        )
+    assert ctx.verified_subject is chemistry
+
+
+@pytest.mark.asyncio
 async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
     from uuid import uuid4
 

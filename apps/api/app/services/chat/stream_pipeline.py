@@ -156,7 +156,7 @@ async def run_tool_loop_path(
         web_search=web_search_flag,
         user_timezone=ctx.user_timezone,
     )
-    if tool_verified is not None:
+    if tool_verified is not None and getattr(ctx.verified_subject, "subject", None) != "chemistry":
         ctx.verified_subject = tool_verified
     if terminal_image is not None:
         ctx.terminal_image_message_id = terminal_image.message_id
