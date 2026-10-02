@@ -930,6 +930,34 @@ def test_standard_addition_refuses_a_spiked_signal_below_the_sample() -> None:
         )
 
 
+@pytest.mark.parametrize(
+    ("capital", "lower"),
+    [
+        (
+            "Use Hess's law: ΔH1=-200 kJ, multiplier1=1, ΔH2=50 kJ, multiplier2=2",
+            "Use hess's law: ΔH1=-200 kJ, multiplier1=1, ΔH2=50 kJ, multiplier2=2",
+        ),
+        (
+            "Find Kp for CaCO3(s) -> CaO(s) + CO2(g) when P(CO2)=0.2 atm",
+            "find kp for CaCO3(s) -> CaO(s) + CO2(g) when P(CO2)=0.2 atm",
+        ),
+        (
+            "Convert Kc to Kp: Kc=0.5 at T=298 K for N2 + H2 -> NH3",
+            "convert kc to kp: Kc=0.5 at T=298 K for N2 + H2 -> NH3",
+        ),
+        (
+            "Solve the ICE equilibrium for N2O4 -> NO2 when K=4 and [N2O4]=1",
+            "solve the ice equilibrium for N2O4 -> NO2 when K=4 and [N2O4]=1",
+        ),
+    ],
+)
+def test_lowercase_cues_extract_the_same_operation(capital: str, lower: str) -> None:
+    expected = extract_chemistry_intent(capital)
+    actual = extract_chemistry_intent(lower)
+    assert expected is not None and actual is not None
+    assert actual.chemistry_op == expected.chemistry_op
+
+
 def test_nmr_methyl_region_is_not_labeled_amine_alone() -> None:
     result = _solve("NMR peak 1.2")
     assert "alkyl" in result.answer
