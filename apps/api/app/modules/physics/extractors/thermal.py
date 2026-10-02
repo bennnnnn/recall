@@ -136,7 +136,7 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
     )
     if capacity is not None:
         c_value = capacity[0]
-        c_unit = "kJ/kg/K" if capacity[1].lstrip().lower().startswith("k") else "J/kg/K"
+        c_unit = _capacity_unit(capacity[1])
     elif "water" in lower:
         c_value, c_unit = _WATER_SPECIFIC_HEAT, "J/kg/K"
     else:
@@ -167,3 +167,11 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
 
 def _temperature_unit(scale: str) -> str:
     return "K" if scale.strip().upper() == "K" else "degC"
+
+
+def _capacity_unit(spelled: str) -> str:
+    """The specific heat's unit as written: per kilogram or per gram, in J or kJ."""
+    compact = re.sub(r"[\s()·*°^]", "", spelled.lower())
+    energy = "kJ" if compact.startswith("kj") else "J"
+    per_gram = re.search(r"(?<!k)g", compact.removeprefix("kj").removeprefix("j")) is not None
+    return f"{energy}/{'g' if per_gram else 'kg'}/K"
