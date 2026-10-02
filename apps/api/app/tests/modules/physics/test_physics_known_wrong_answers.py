@@ -145,6 +145,10 @@ def test_both_launch_angles_are_answers() -> None:
         # 4 - 7 = -3 is a coincidence: the 3 m/s it "derives" is itself stated.
         "Find the kinetic energy of a 2 kg object moving at 3 m/s, 4 m/s, and 7 m/s.",
         "A 5 kg mass is nearby. A force of 20 N acts on a 3 kg cart. What is the acceleration?",
+        # One number in two units is two speeds: 3 km/h does not account for 3 m/s.
+        "Find the kinetic energy of a 2 kg object at 3 km/h and at 3 m/s.",
+        # Was 1.4 m: the extractor bound "1 radian" as 1 degree.
+        "A projectile is launched at 20 m/s at 1 radian. Find its range. Use g=10.",
     ],
 )
 def test_a_skipped_given_declines(text: str) -> None:
