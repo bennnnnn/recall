@@ -9,6 +9,7 @@ from functools import lru_cache
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
+    _MASS_UNITS,
     _NUMBER,
     _VALUE_UNIT_RE,
     _VELOCITY_UNIT_PATTERN,
@@ -26,6 +27,22 @@ from app.modules.physics.extractors.electricity_magnetism import (
     _extract_electrostatics_intent,
     _extract_magnetism_intent,
 )
+from app.modules.physics.extractors.energy import (
+    _ENERGY_CUE_RES,
+    _ENERGY_CUES,
+    _extract_energy_intent,
+)
+from app.modules.physics.extractors.fluids import (
+    _FLUIDS_CUE_RES,
+    _FLUIDS_CUES,
+    _extract_fluids_intent,
+)
+from app.modules.physics.extractors.forces import _FORCE_CUE_RES, _FORCE_CUES, _extract_force_intent
+from app.modules.physics.extractors.friction import (
+    _FRICTION_CUE_RES,
+    _FRICTION_CUES,
+    _extract_friction_intent,
+)
 from app.modules.physics.extractors.gravity_modern import (
     _GRAVITATION_CUE_RES,
     _GRAVITATION_CUES,
@@ -34,39 +51,17 @@ from app.modules.physics.extractors.gravity_modern import (
     _extract_gravitation_intent,
     _extract_modern_intent,
 )
-from app.modules.physics.extractors.matter_thermal import (
-    _FLUIDS_CUE_RES,
-    _FLUIDS_CUES,
+from app.modules.physics.extractors.materials import (
     _MATERIALS_CUE_RES,
     _MATERIALS_CUES,
-    _OPTICS_CUES,
-    _THERMAL_CUE_RES,
-    _THERMAL_CUES,
-    _extract_fluids_intent,
     _extract_materials_intent,
-    _extract_optics_intent,
-    _extract_thermal_intent,
 )
-from app.modules.physics.extractors.mechanics import (
+from app.modules.physics.extractors.momentum import (
     _COLLISION_SUBJECT_RE,
-    _ENERGY_CUE_RES,
-    _ENERGY_CUES,
-    _FORCE_CUE_RES,
-    _FORCE_CUES,
-    _FRICTION_CUE_RES,
-    _FRICTION_CUES,
-    _MASS_UNITS,
     _MOMENTUM_CUE_RES,
     _MOMENTUM_CUES,
-    _TENSION_CUE_RES,
     _TWO_DIMENSIONAL_RE,
-    _VECTOR_FORCE_CUE_RES,
-    _extract_energy_intent,
-    _extract_force_intent,
-    _extract_friction_intent,
     _extract_momentum_intent,
-    _extract_tension_intent,
-    _extract_vector_force_intent,
 )
 from app.modules.physics.extractors.motion import (
     _KINEMATICS_CUE_RES,
@@ -81,6 +76,7 @@ from app.modules.physics.extractors.motion import (
     _extract_suvat_intent,
     extract_stopping_distance,
 )
+from app.modules.physics.extractors.optics import _OPTICS_CUES, _extract_optics_intent
 from app.modules.physics.extractors.oscillations_waves import (
     _PENDULUM_CUE_RES,
     _SHM_CUE_RES,
@@ -108,6 +104,17 @@ from app.modules.physics.extractors.rotation import (
 from app.modules.physics.extractors.school_extensions import (
     _EXTENSION_CUES,
     extract_school_extension,
+)
+from app.modules.physics.extractors.tension import (
+    _TENSION_CUE_RES,
+    _VECTOR_FORCE_CUE_RES,
+    _extract_tension_intent,
+    _extract_vector_force_intent,
+)
+from app.modules.physics.extractors.thermal import (
+    _THERMAL_CUE_RES,
+    _THERMAL_CUES,
+    _extract_thermal_intent,
 )
 from app.services.number_text import read_scientific_numbers
 from app.services.symbolic_text import (

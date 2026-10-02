@@ -20,7 +20,7 @@ from app.modules.physics.extractors.common import (
     _ordered_values,
     _strip_param_assignments,
 )
-from app.modules.physics.extractors.mechanics import _COLLISION_SUBJECT_RE
+from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE
 from app.services.text_match import has_equation
 from app.services.unit_text import TIME_UNITS
 
