@@ -186,6 +186,9 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter",),
             inputs=(frozenset({"radius_curvature"}),),
             cues=("mirror",),
+            # A convex mirror's focal length is negative; its sign is the
+            # convention the question has not stated.
+            excludes=("convex", "diverging"),
             nonnegative=True,
         ),
     ),

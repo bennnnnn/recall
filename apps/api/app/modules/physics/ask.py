@@ -176,7 +176,9 @@ _QUANTITIES: dict[str, str] = {
     "strain": _DIMENSIONLESS,
     "cost": _MONEY,
     "price": _MONEY,
-    "bill": _MONEY,
+    # Not a bare "bill": that is also a name ("Bill's weight").
+    "electricity bill": _MONEY,
+    "energy bill": _MONEY,
     # Quantities of no single dimension: stop reading rather than guess.
     "field strength": _UNKNOWN,
     "field": _UNKNOWN,

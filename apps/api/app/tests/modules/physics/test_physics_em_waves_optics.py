@@ -175,6 +175,12 @@ def test_a_stated_law_is_read_and_verified(text: str, operation: str, answer: st
         # A price is not an energy.
         "A 2 kW heater runs for 3 hours. Electricity costs 15p per kWh. Find the cost.",
         "A 2 kW heater runs for 3 hours at 15p per kWh. How much does it cost to run?",
+        "A 2 kW heater runs for 3 hours. What is the electricity bill at 15p per kWh?",
+        # "Respectively": the role words before the list name both counts (was 46 V).
+        "A transformer has primary and secondary coils with 100 and 500 turns respectively. "
+        "The primary voltage is 230 V. Find the secondary voltage.",
+        # A convex mirror's focal length is negative, by a convention not stated.
+        "A convex mirror has a radius of curvature of 40 cm. Find its focal length.",
     ],
 )
 def test_a_question_the_catalog_cannot_read_exactly_declines(text: str) -> None:
@@ -283,3 +289,30 @@ def test_givens_in_different_units_answer_in_si() -> None:
         _answer("Find the total capacitance of a 4 µF and a 6 nF capacitor in parallel.")
         == "4.01 × 10⁻⁶ F"
     )
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # One free end is a quarter-wave resonator: v/4L, not v/2L (was 150 Hz).
+        (
+            "A string fixed at one end and free at the other is 0.5 m long. "
+            "Waves travel along it at 150 m/s. Find the fundamental frequency.",
+            "75 Hz",
+        ),
+        (
+            "A pipe open at one end is 0.5 m long. Sound travels at 340 m/s. "
+            "Find the fundamental frequency.",
+            "170 Hz",
+        ),
+        # An interchangeable list read "respectively" keeps its order.
+        (
+            "Find the total capacitance of a 4 µF and a 6 µF capacitor respectively in series.",
+            "2.4 µF",
+        ),
+        # "Bill" is a name here, not a price.
+        ("Bill has a mass of 70 kg. What is Bill's weight?", "687 N"),
+    ],
+)
+def test_review_cases_answer_the_question_asked(text: str, answer: str) -> None:
+    assert _answer(text) == answer

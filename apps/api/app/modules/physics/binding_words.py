@@ -64,12 +64,21 @@ def choose(
     after: str,
     binding: Binding,
     is_result_kind: bool,
+    *,
+    listed: bool = False,
 ) -> VariableSpec | None:
     """The input this value fills, or None when the words do not say.
 
     The words just before a value name it ("from 10 m/s"); when none do, the
-    words just after it can ("100 turns on the primary").
+    words just after it can ("100 turns on the primary"). In a list read
+    "respectively", the words before the first value name every value, so
+    only inputs the law fills in stated order can take them.
     """
+    ordered = all(
+        option.name in (*binding.descending, *binding.interchangeable) for option in options
+    )
+    if listed and len(options) > 1:
+        return options[0] if ordered else None
     said = [(last_said(before, option.words), option) for option in options]
     latest = max(position for position, _ in said)
     if is_result_kind and last_said(before, binding.result_words) > latest:
@@ -85,9 +94,7 @@ def choose(
             nearest = min(position for position, _ in found)
             named = [option for position, option in found if position == nearest]
             return named[0] if len(named) == 1 else None
-    if len(options) == 1:
-        return options[0]
-    if all(option.name in (*binding.descending, *binding.interchangeable) for option in options):
+    if len(options) == 1 or ordered:
         return options[0]
     return None
 

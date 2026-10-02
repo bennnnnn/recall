@@ -238,6 +238,7 @@ def _fit(
         if implied is not None:
             params[variable.name] = implied
             units[variable.name] = _si_unit(variable)
+    listed = word_pattern("respectively").search(lower) is not None
     previous = 0
     for index, given in enumerate(givens):
         kind = _given_kind(given)
@@ -251,7 +252,7 @@ def _fit(
         before = words_before(lower, previous, given.start)
         following = givens[index + 1].start if index + 1 < len(givens) else len(lower)
         after = words_after(lower, given.end, following)
-        choice = choose(options, before, after, binding, kind in produced)
+        choice = choose(options, before, after, binding, kind in produced, listed=listed)
         if choice is None:
             return None
         negative = last_said(before, choice.negating) >= 0

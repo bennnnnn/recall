@@ -186,6 +186,9 @@ pipeline refuses:
 - a result whose kind is not the asked one, and a price ("find the cost"), which no law
   answers;
 - a Doppler speed with no direction, or one speed when both parties move;
-- a magnification from a virtual image's distance, whose sign the conventions disagree on;
+- a magnification from a virtual image's distance, or a convex mirror's focal length, whose
+  sign the conventions disagree on;
+- values listed "respectively" for inputs told apart by words ("primary and secondary coils
+  with 100 and 500 turns respectively"); a list the law fills in order still binds;
 - every refusal listed under Physics in `FEATURES.md` (an unstated collision type, a
   diverging lens, an absolute temperature written as bare "degrees", and the rest).
