@@ -87,6 +87,12 @@ def test_hostile_input_returns_quickly(text: str) -> None:
         "the freezing weather today",
         "precipitation tomorrow in Seattle",
         "buffer overflow in my C code",
+        "my team has great chemistry",
+        "we have good chemistry together",
+        "the chemistry between them",
+        "they have zero chemistry on screen",
+        "the half-life of my phone battery",
+        "the half life of my motivation",
     ],
 )
 def test_everyday_language_is_not_a_chemistry_question(text: str) -> None:
@@ -113,6 +119,12 @@ def test_everyday_language_is_not_a_chemistry_question(text: str) -> None:
         "Lewis structure of CO2",
         "oxidation state of Mn in KMnO4",
         "coordination number of [Co(NH3)6]Cl3",
+        "chemistry homework help",
+        "What is chemistry?",
+        "a good chemistry textbook for beginners",
+        "half-life of carbon-14",
+        "What is the half-life of a radioactive isotope?",
+        "Find the half-life when k = 0.2 s^-1",
     ],
 )
 def test_real_chemistry_language_still_passes_the_gate(text: str) -> None:

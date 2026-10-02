@@ -46,12 +46,12 @@ EQUATION_RE = re.compile(
 _GATE_WINDOW = 2000
 
 _STRONG_CUE = re.compile(
-    r"\b(?:chemistry|stoichiometr\w*|molar\s+(?:mass|volume|absorptivity|concentration)|"
+    r"\b(?:stoichiometr\w*|molar\s+(?:mass|volume|absorptivity|concentration)|"
     r"molarity|molality|formula\s+units?|M1V1|mass\s+percent|pOH|"
     r"thermochem\w*|enthalpy|specific\s+heat|calorimet\w*|"
     r"reaction\s+quotient|equilibrium\s+(?:constant|expression)|ice\s+(?:table|equilibrium)|"
     r"rate\s+(?:constant|law)|first[- ]order|second[- ]order|zero[- ]order|arrhenius|"
-    r"half[- ]life|electrochem\w*|nernst|electrolysis|cell\s+potential|faraday'?s?\s+law|"
+    r"electrochem\w*|nernst|electrolysis|cell\s+potential|faraday'?s?\s+law|"
     r"galvanic|radioactive|nuclear\s+(?:equation|mass|activity)|decay\s+constant|"
     r"exponential\s+decay|mass\s+defect|binding\s+energy|electron\s+capture|"
     r"beer[- ]lambert|absorbance|percent\s+(?:yield|composition|error)|avogadro|"
@@ -71,6 +71,23 @@ _STRONG_CUE = re.compile(
     r"HBr\s+addition|bromine\s+addition|acid\s+hydration|hydroxide\s+substitution|"
     r"esterification|calibration\s+curve|gravimetric|standard\s+addition|"
     r"calorimeter\s+constant|gibbs\s+(?:free\s+)?energy|Δ[GHS]|delta\s*[GHS](?=\s*=))\b",
+    re.IGNORECASE,
+)
+# "Chemistry" names the subject, except in the idiom for getting along ("great chemistry").
+_SUBJECT_CUE = re.compile(r"\bchemistry\b", re.IGNORECASE)
+_CHEMISTRY_IDIOM = re.compile(
+    r"\b(?:great|good|bad|no|real|instant|amazing|natural|undeniable|zero|romantic|"
+    r"on-?screen|team|special|incredible)\s+chemistry\b(?!\s+(?:textbook|book|teacher|"
+    r"class|course|homework|question|problem|tutor|lab|notes?|exam|test|lesson)s?\b)|"
+    r"\bchemistry\s+(?:between|together)\b|"
+    r"\bchemistry\s+with\s+(?:him|her|them|you|me|us|each\s+other|someone)\b",
+    re.IGNORECASE,
+)
+# A battery or a habit has a half-life too: chemistry's has a number, a nuclide or a decay.
+_HALF_LIFE = re.compile(r"\bhalf[- ]life\b", re.IGNORECASE)
+_DECAY_CONTEXT = re.compile(
+    r"\d|\b(?:decay\w*|radioactiv\w*|isotopes?|nuclides?|first[- ]order|reaction|"
+    r"sample|rate\s+constant)\b",
     re.IGNORECASE,
 )
 # "Ka", "Kb", "pH", "Rf" and "Kp" are words in lowercase ("kb" file size, "ph.d.").
@@ -291,6 +308,10 @@ def is_chemistry_question(content: str) -> bool:
     if not cleaned:
         return False
     if _STRONG_CUE.search(cleaned) or _SYMBOL_CUE.search(cleaned):
+        return True
+    if _SUBJECT_CUE.search(cleaned) and not _CHEMISTRY_IDIOM.search(cleaned):
+        return True
+    if _HALF_LIFE.search(cleaned) and _DECAY_CONTEXT.search(cleaned):
         return True
     weak = {match.group(0).lower() for match in _WEAK_CUE.finditer(cleaned)}
     if len(weak) >= 2 or (weak and _FORMULA_HINT.search(cleaned)):
