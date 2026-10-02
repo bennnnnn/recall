@@ -1,4 +1,4 @@
-import { splitInlineMath } from "@/lib/markdown/inlineMath";
+import { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/inlineMath";
 import { parseRichMathText } from "@/lib/markdown/richMathText";
 
 describe("rich math text", () => {
@@ -49,5 +49,11 @@ describe("rich math text", () => {
       { type: "math", value: "x=2" },
       { type: "text", value: "." },
     ]);
+  });
+
+  it("lifts only delimited exponents out of a text run", () => {
+    expect(markdownHasNestedMathView("$x^2$")).toBe(true);
+    expect(markdownHasNestedMathView("a^2(1+9+81)")).toBe(false);
+    expect(markdownHasNestedMathView("`__init__` vs `__new__`")).toBe(false);
   });
 });

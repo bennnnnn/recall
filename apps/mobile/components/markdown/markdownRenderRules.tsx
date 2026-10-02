@@ -49,7 +49,7 @@ import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
-import { splitInlineMath } from "@/lib/markdown/preprocess";
+import { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/preprocess";
 import { parseQuoteAttribution } from "@/lib/richBlocks";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import {
@@ -147,7 +147,7 @@ function wrapInlineChildren(
   textStyle: StyleProp<TextStyle>,
   wrapStyle: StyleProp<ViewStyle>,
 ): React.ReactElement {
-  if (latexHasNestedMathView(astText(node)) || isHeavyInlineMath(astText(node))) {
+  if (markdownHasNestedMathView(astText(node)) || isHeavyInlineMath(astText(node))) {
     return (
       <View key={node.key} testID="md-math-inline-wrap" style={wrapStyle}>
         {children}
@@ -185,7 +185,7 @@ function renderTextWithMath(
   const trailingTick = TRAILING_CHECK_TICK_RE.exec(content);
   if (trailingTick) {
     const withoutTick = content.slice(0, trailingTick.index).trimEnd();
-    if (latexHasNestedMathView(withoutTick)) {
+    if (markdownHasNestedMathView(withoutTick)) {
       content = `${trailingTick[1]} ${withoutTick}`;
     }
   }

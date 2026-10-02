@@ -49,7 +49,7 @@ import { applyOutsideFences } from "@/lib/mdFenceScan";
 import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
 import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 
-export { splitInlineMath } from "@/lib/markdown/inlineMath";
+export { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/inlineMath";
 export {
   promoteCalloutBlockquotes,
   promoteQuotedAttributions,
