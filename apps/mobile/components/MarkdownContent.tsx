@@ -216,7 +216,7 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
         {openRegion.kind === "fence" ? (
           fencePreview === "answer" ? (
             openRegion.body.trim() ? (
-              <AnswerBlock content={openRegion.body} />
+              <AnswerBlock content={openRegion.body} settled={false} />
             ) : null
           ) : fencePreview === "math" ? (
             <StreamingMathPreview body={openRegion.body} />
