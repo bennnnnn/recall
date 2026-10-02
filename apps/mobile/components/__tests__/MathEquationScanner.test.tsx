@@ -181,14 +181,13 @@ describe("MathEquationScanner", () => {
     expect(getByTestId("scanner-subject-guide-physics")).toBeTruthy();
   });
 
-  it("sends a chemistry photo without reading it as math", async () => {
-    const onCaptured = jest.fn();
+  it("reads a chemistry photo through the chemistry reader, not as math", async () => {
     const onReadScan = jest.fn(async () => null);
     const { getByTestId, getByLabelText } = await render(
       <MathEquationScanner
         visible
         onClose={jest.fn()}
-        onCaptured={onCaptured}
+        onCaptured={jest.fn()}
         onReadScan={onReadScan}
         onSolveReading={jest.fn()}
       />,
@@ -199,10 +198,11 @@ describe("MathEquationScanner", () => {
     await act(async () => {
       fireEvent.press(getByLabelText("chat.math_scan_capture_a11y"));
     });
-    expect(onReadScan).not.toHaveBeenCalled();
-    expect(onCaptured).toHaveBeenCalledWith(
+    expect(onReadScan).toHaveBeenCalledTimes(1);
+    expect(onReadScan).toHaveBeenCalledWith(
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
       "chemistry",
+      expect.anything(),
     );
   });
 
@@ -286,6 +286,7 @@ describe("MathEquationScanner", () => {
     });
     expect(read).toHaveBeenCalledWith(
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "math",
       expect.anything(),
     );
     expect(view.getByTestId("math-scan-review")).toBeTruthy();
@@ -367,6 +368,7 @@ describe("imported math scanner photos", () => {
     const view = await cropForReview(read);
     expect(read).toHaveBeenCalledWith(
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "math",
       expect.anything(),
     );
     const review = within(view.getByTestId("math-scan-review"));
@@ -441,8 +443,7 @@ describe("imported math scanner photos", () => {
   });
 
   it("reads a chemistry crop as text and solves that text alone", async () => {
-    const onReadScan = jest.fn();
-    const onReadChemistryScan = jest.fn(async () => ({
+    const onReadScan = jest.fn(async () => ({
       reading: "Find the molar mass of H2O",
       uncertain: false,
       source: "vision" as const,
@@ -455,7 +456,6 @@ describe("imported math scanner photos", () => {
         onClose={jest.fn()}
         onCaptured={onCaptured}
         onReadScan={onReadScan}
-        onReadChemistryScan={onReadChemistryScan}
         onSolveReading={onSolveReading}
       />,
     );
@@ -468,8 +468,8 @@ describe("imported math scanner photos", () => {
     await act(async () => {
       fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
     });
-    expect(onReadScan).not.toHaveBeenCalled();
-    expect(onReadChemistryScan).toHaveBeenCalledTimes(1);
+    expect(onReadScan).toHaveBeenCalledTimes(1);
+    expect(onReadScan).toHaveBeenCalledWith(expect.anything(), "chemistry", expect.anything());
     const review = within(view.getByTestId("math-scan-review"));
     await act(async () => {
       fireEvent.press(review.getByText("chat.math_scan_solve"));
@@ -520,7 +520,7 @@ describe("imported math scanner photos", () => {
         visible
         onClose={jest.fn()}
         onCaptured={onCaptured}
-        onReadChemistryScan={jest.fn(async () => null)}
+        onReadScan={jest.fn(async () => null)}
         onSolveReading={jest.fn()}
       />,
     );
@@ -557,20 +557,20 @@ describe("imported math scanner photos", () => {
     expect(view.onCaptured).not.toHaveBeenCalled();
   });
 
-  it("sends physics photos straight through without a read", async () => {
-    const read = jest.fn(async () => ({ reading: "v = 3", uncertain: false, source: "mathpix" }));
+  async function scanSubject(subject: string, read: jest.Mock) {
     const onCaptured = jest.fn();
+    const onSolveReading = jest.fn();
     const view = await render(
       <MathEquationScanner
         visible
         onClose={jest.fn()}
         onCaptured={onCaptured}
         onReadScan={read}
-        onSolveReading={jest.fn()}
+        onSolveReading={onSolveReading}
       />,
     );
     await act(async () => {
-      fireEvent.press(view.getByTestId("scanner-subject-physics"));
+      fireEvent.press(view.getByTestId(`scanner-subject-${subject}`));
     });
     await act(async () => {
       fireEvent.press(view.getByLabelText("chat.math_scan_photos_a11y"));
@@ -578,10 +578,43 @@ describe("imported math scanner photos", () => {
     await act(async () => {
       fireEvent.press(view.getByLabelText("chat.math_scan_solve"));
     });
-    expect(read).not.toHaveBeenCalled();
-    expect(onCaptured).toHaveBeenCalledWith(
+    return { ...view, onCaptured, onSolveReading };
+  }
+
+  const PHYSICS_READING = "A ball is dropped from 80 m. Find its speed just before it hits the ground.";
+
+  it("reads a physics crop back and solves the confirmed text", async () => {
+    const read = jest.fn(async () => ({ reading: PHYSICS_READING, uncertain: false, source: "vision" }));
+    const view = await scanSubject("physics", read);
+    expect(read).toHaveBeenCalledWith(expect.anything(), "physics", expect.anything());
+    const review = within(view.getByTestId("math-scan-review"));
+    await act(async () => {
+      fireEvent.press(review.getByText("chat.math_scan_solve"));
+    });
+    expect(view.onSolveReading).toHaveBeenCalledWith(PHYSICS_READING, "physics");
+    expect(view.onCaptured).not.toHaveBeenCalled();
+  });
+
+  it("sends the physics photo with the reading the student checked", async () => {
+    const read = jest.fn(async () => ({ reading: PHYSICS_READING, uncertain: false, source: "vision" }));
+    const view = await scanSubject("physics", read);
+    await act(async () => {
+      fireEvent.press(within(view.getByTestId("math-scan-review")).getByText("chat.math_scan_send_photo"));
+    });
+    expect(view.onCaptured).toHaveBeenCalledWith(
       expect.objectContaining({ localUri: "file:///cropped.jpg" }),
       "physics",
+      PHYSICS_READING,
+    );
+  });
+
+  it("sends biology photos straight through without a read", async () => {
+    const read = jest.fn(async () => ({ reading: "cell", uncertain: false, source: "vision" }));
+    const view = await scanSubject("biology", read);
+    expect(read).not.toHaveBeenCalled();
+    expect(view.onCaptured).toHaveBeenCalledWith(
+      expect.objectContaining({ localUri: "file:///cropped.jpg" }),
+      "biology",
     );
   });
 

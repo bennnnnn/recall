@@ -68,10 +68,13 @@ def detect_subject(
         return "math"
     from app.services.subject_scan import scanner_camera_subject
 
-    # The chemistry camera caption says "solve", which the math work-request
+    # A subject's camera caption says "solve", which the math work-request
     # parser would claim. It is a photo plus a caption, not a math problem.
-    if scanner_camera_subject(text) == "chemistry":
+    scanned = scanner_camera_subject(text)
+    if scanned == "chemistry":
         return "chemistry" if chemistry_enabled else None
+    if scanned == "physics":
+        return "physics"
     if needs_physics(text):
         return "physics"
     if chemistry_enabled and _closed_chemistry(text):
@@ -85,6 +88,20 @@ def detect_subject(
     if is_chemistry_question(text):
         return "chemistry"
     return None
+
+
+def _physics_request_text(user_content: str) -> str:
+    """The problem a physics turn verifies.
+
+    A scanned photo's caption is a protocol line. When the student confirmed
+    what the scanner read, that reading is the problem; without one, the
+    caption alone gets the unverified physics note.
+    """
+    from app.services.subject_scan import confirmed_scan_reading, scanner_camera_subject
+
+    if scanner_camera_subject(user_content) != "physics":
+        return user_content
+    return confirmed_scan_reading(user_content) or user_content
 
 
 async def _augment_physics(
@@ -107,7 +124,7 @@ async def _augment_physics(
         redis,
     )
     block, physics_verified = await build_physics_augmentation(
-        user_content,
+        _physics_request_text(user_content),
         settings,
         needs_subject=True,
     )

@@ -56,7 +56,8 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
 
     if has_image_attachment and is_math_camera_prompt(cleaned):
         return True
-    if scanner_camera_subject(cleaned) == "chemistry":
+    # The raw text: prepare() folds the newline that ends a camera caption.
+    if scanner_camera_subject(text) not in (None, "math"):
         return False
     lower = cleaned.lower()
     if parse_named_rectangle_request(cleaned) is not None:

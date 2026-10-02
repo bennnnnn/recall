@@ -57,8 +57,6 @@ _EXTRACT_PROMPT = (
     'If nothing extractable, set found=false and use lhs/rhs of "0".'
 )
 
-MATH_CAMERA_CONFIRMED_PREFIX = "I read this as:"
-
 _SOLVE_KINDS = frozenset({"equation", "system", "inequality"})
 _OCR_HINT_MAX = 2000
 
@@ -68,23 +66,6 @@ def is_math_camera_prompt(text: str) -> bool:
     folded = stripped.casefold()
     prompt = MATH_CAMERA_PROMPT.casefold()
     return folded == prompt or folded.startswith(prompt + "\n")
-
-
-def confirmed_math_reading(text: str) -> str | None:
-    """User-confirmed OCR line from the scanner caption. Linear scan."""
-    needle = MATH_CAMERA_CONFIRMED_PREFIX.casefold()
-    folded = text.casefold()
-    idx = folded.find(needle)
-    if idx < 0:
-        return None
-    rest = text[idx + len(MATH_CAMERA_CONFIRMED_PREFIX) :].strip()
-    if not rest:
-        return None
-    blank = rest.find("\n\n")
-    if blank >= 0:
-        rest = rest[:blank]
-    reading = rest.strip()
-    return reading or None
 
 
 def camera_math_user_suffix(extracted: MathImageExtract) -> str | None:

@@ -15,9 +15,9 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.main import create_app
 from app.models.orm import User
 from app.models.schemas.math import MathImageExtract
+from app.models.schemas.scan import SCAN_MAX_IMAGE_BYTES
 from app.modules.math.api import readable_reading
 from app.modules.math.ocr import MathOcrResult
-from app.modules.math.schemas import SCAN_MAX_IMAGE_BYTES
 
 _IMAGE = base64.b64encode(b"\xff\xd8\xff fake jpeg").decode()
 
@@ -33,16 +33,16 @@ def _client(settings: Settings | None = None) -> TestClient:
 
 def _redis(*, spend_exceeded: bool = False, allowed: bool = True) -> Any:
     return (
-        patch("app.modules.math.api.get_redis_client", return_value=MagicMock()),
+        patch("app.services.scan_read.get_redis_client", return_value=MagicMock()),
         patch(
-            "app.modules.math.api.quota_service.global_spend_exceeded",
+            "app.services.scan_read.quota_service.global_spend_exceeded",
             AsyncMock(return_value=spend_exceeded),
         ),
         patch(
-            "app.modules.math.api.quota_service.record_global_spend",
+            "app.services.scan_read.quota_service.record_global_spend",
             AsyncMock(return_value=0),
         ),
-        patch("app.modules.math.api.allow_request_fail_closed", AsyncMock(return_value=allowed)),
+        patch("app.services.scan_read.allow_request_fail_closed", AsyncMock(return_value=allowed)),
     )
 
 

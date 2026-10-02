@@ -96,6 +96,26 @@ carries. Three tests read the file:
 - The mobile test (`physicsReplyContract.test.ts`) proves copy and read-aloud carry the
   answer, and that `30^\circ` reads as thirty degrees.
 
+## Scanner
+
+A photographed problem goes through the same pipeline as a typed one.
+
+1. The camera's physics tab sends the crop to `POST /physics/scan/read` (`api.py`). The shared
+   guard in `services/scan_read.py` checks the payload, the vision spend cap and the per-user
+   rate, as it does for math and chemistry.
+2. `read.py` asks `vision-chat` for the problem as written, then turns any LaTeX into the text
+   a student would type: `2 \times 10^{-6}\,\mathrm{C}` becomes `2 × 10^-6 C`, `30^{\circ}`
+   becomes `30°`, and `\mu` is µ before a unit and μ elsewhere.
+3. The student checks the reading under **I read this as**, then chooses:
+   - **Solve** sends the text alone, so it gets the verified Given / Find / Formula /
+     Substitution / Answer reply of a typed question;
+   - **Send photo** sends the crop with `I read this as: …`. The turn verifies that reading
+     (`subject_solving._physics_request_text`), and the model writes the reply, since the
+     photo may hold a diagram the text does not.
+
+A physics caption is physics, never math: math neither OCRs the photo nor claims the
+confirmed reading. A photo with no reading gets the unverified physics note.
+
 ## Quality bar
 
 `app/tests/modules/physics/corpus.py` holds school questions with hand-worked answers

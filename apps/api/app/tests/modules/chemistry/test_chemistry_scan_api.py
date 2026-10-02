@@ -16,7 +16,8 @@ from app.models.orm import User
 from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.direct import maybe_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
-from app.modules.chemistry.read import CHEMISTRY_READ_PROMPT, reading_from_vision
+from app.modules.chemistry.read import CHEMISTRY_READ_PROMPT
+from app.services.scan_text import reading_from_vision
 
 _IMAGE = base64.b64encode(b"\xff\xd8\xff fake jpeg").decode()
 
@@ -32,16 +33,16 @@ def _client() -> TestClient:
 
 def _redis() -> Any:
     return (
-        patch("app.modules.chemistry.api.get_redis_client", return_value=MagicMock()),
+        patch("app.services.scan_read.get_redis_client", return_value=MagicMock()),
         patch(
-            "app.modules.chemistry.api.quota_service.global_spend_exceeded",
+            "app.services.scan_read.quota_service.global_spend_exceeded",
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.modules.chemistry.api.quota_service.record_global_spend",
+            "app.services.scan_read.quota_service.record_global_spend",
             AsyncMock(return_value=0),
         ),
-        patch("app.modules.chemistry.api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch("app.services.scan_read.allow_request_fail_closed", AsyncMock(return_value=True)),
     )
 
 

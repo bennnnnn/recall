@@ -235,7 +235,7 @@ async def _process_attachment_inputs(
     # Camera math solver: vision-extract equation so SymPy can verify.
     from app.modules.math import image_extract as math_image_extract_service
     from app.modules.math import match as math_match
-    from app.services.subject_scan import scanner_camera_subject
+    from app.services.subject_scan import confirmed_scan_reading, scanner_camera_subject
 
     # BUG FIX: this used to require the sent text to be BYTE-FOR-BYTE
     # identical to the preset camera caption — the composer pre-fills that
@@ -257,11 +257,9 @@ async def _process_attachment_inputs(
         and bool(caption)
         and math_match.has_math_keyword(caption.lower())
     )
-    confirmed_reading = math_image_extract_service.confirmed_math_reading(content)
-    # A chemistry photo uses the same "I read this as" line. That reading is
-    # chemistry text, so the math vision path must not claim it.
-    if scan_subject == "chemistry":
-        confirmed_reading = None
+    # A physics or chemistry photo carries its confirmed reading too, but that
+    # reading is the subject's request text, not an equation for math OCR.
+    confirmed_reading = confirmed_scan_reading(content) if scan_subject in (None, "math") else None
     if (
         has_image_attachment
         and image_attachments

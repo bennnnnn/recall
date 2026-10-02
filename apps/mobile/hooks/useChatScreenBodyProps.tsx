@@ -28,8 +28,7 @@ import type {
 } from "@/components/chat/ChatScreenBody";
 import type { ChatScreenStyles } from "@/components/chat/chatScreenStyles";
 import type { AttachmentSource } from "@/features/attachments/components/AttachmentSourceSheet";
-import type { MathScanReading, Message } from "@/lib/api";
-import type { MathScanReadFailure } from "@/lib/math/scanReadError";
+import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/lib/chat/errorMessage";
@@ -107,14 +106,7 @@ export type UseChatScreenBodyPropsParams = {
       subject: ScannerSubject,
       confirmedReading?: string,
     ) => void;
-    readMathScan: (
-      scan: PendingAttachment,
-      signal: AbortSignal,
-    ) => Promise<MathScanReading | MathScanReadFailure | null>;
-    readChemistryScan: (
-      scan: PendingAttachment,
-      signal: AbortSignal,
-    ) => Promise<MathScanReading | MathScanReadFailure | null>;
+    readScan: ChatScreenSheetsProps["onReadScan"];
     handleMathScanSolve: (reading: string, subject?: ScannerSubject) => void;
     onOpenMathScanner?: () => void;
     onMathChromeHeightChange?: (height: number) => void;
@@ -197,8 +189,7 @@ export function useChatScreenBodyProps({
     mathScannerOpen,
     closeMathScanner,
     handleMathScanCaptured,
-    readMathScan,
-    readChemistryScan,
+    readScan,
     handleMathScanSolve,
     onOpenMathScanner,
     onMathChromeHeightChange,
@@ -507,8 +498,7 @@ export function useChatScreenBodyProps({
       mathScannerOpen,
       onCloseMathScanner: closeMathScanner,
       onMathScanCaptured: handleMathScanCaptured,
-      onReadMathScan: readMathScan,
-      onReadChemistryScan: readChemistryScan,
+      onReadScan: readScan,
       onMathScanSolve: handleMathScanSolve,
       upgradeVisible,
       onCloseUpgrade,
@@ -520,8 +510,7 @@ export function useChatScreenBodyProps({
       mathScannerOpen,
       closeMathScanner,
       handleMathScanCaptured,
-      readMathScan,
-      readChemistryScan,
+      readScan,
       handleMathScanSolve,
       upgradeVisible,
       onCloseUpgrade,

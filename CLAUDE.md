@@ -136,7 +136,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `modules/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `modules/math/` (`match/`, `tools/`, `solve/`, `fence.py`, `sympy_executor.py`; HTTP `/math/scan/read`). Lessons, check my work (`work_check`), word problems (`word_problem`) | `MathText` / `MathView` / `geometry` / `graph`; scanner review `components/mathScanner/` |
-| Physics (20 verified kinds) | `modules/physics/` (`extract.py`, `solver.py`, `block.py`, `direct.py`) | same fences; `simulation` scenes |
+| Physics (20 verified kinds) | `modules/physics/` (`extract.py`, `solver.py`, `block.py`, `direct.py`; HTTP `/physics/scan/read`) | same fences; `simulation` scenes; scanner read-back |
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/`, `models/schemas/chemistry/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Calendar / Gmail | `modules/integrations/` (HTTP `/integrations/google-calendar`, `/integrations/google-gmail`) | `features/integrations/`; `app/settings/integrations.tsx` route only |
 | Push / email out | `modules/notifications/`, `background/*scheduler*` | notification settings |
@@ -146,7 +146,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned My Job, Math, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, and Speech APIs plus the legacy health, legal, auth, admin, webhooks, users, link_preview, chat_stream, models, analytics, and ws routers.
+**HTTP surfaces registered in** `main.py`: the module-owned My Job, Math, Physics, Chemistry, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, and Speech APIs plus the legacy health, legal, auth, admin, webhooks, users, link_preview, chat_stream, models, analytics, and ws routers.
 
 **Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, auth, tokens, …). New chat-loop code belongs in `services/chat/`; new external IO belongs in a gateway, not an API surface.
 
