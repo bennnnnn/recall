@@ -49,6 +49,18 @@ def test_needs_symbolic_math_rejects_oversize_before_prefix_stripping(
     assert math_tools.needs_symbolic_math("show work " * 3201) is False
 
 
+def test_a_buried_solve_word_is_not_an_equation() -> None:
+    assert math_tools.extract_math_intent("I resolved x=1") is None
+    solved = math_tools.extract_math_intent("I solved 2x+3=7")
+    assert solved is not None
+    assert solved.kind == "equation"
+    intent = math_tools.extract_math_intent("solve x=1")
+    assert intent is not None
+    assert intent.kind == "equation"
+    assert intent.lhs == "x"
+    assert intent.rhs == "1"
+
+
 def test_extract_equation_intent() -> None:
     intent = math_tools.extract_math_intent("Solve x^2 + 2 = 6")
     assert intent is not None
