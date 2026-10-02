@@ -548,7 +548,27 @@ def test_galvanic_cell_accepts_potassium_paired_with_another_metal() -> None:
 
 
 @pytest.mark.parametrize(
-    "element", ["O3", "O(g)", "Br2(g)", "Cl(g)", "H(g)", "I2(g)", "Na(g)", "P", "S", "P(s)", "S(s)"]
+    "element",
+    [
+        "O3",
+        "O(g)",
+        "Br2(g)",
+        "Cl(g)",
+        "H(g)",
+        "I2(g)",
+        "Na(g)",
+        "P",
+        "S",
+        "P(s)",
+        "S(s)",
+        "H",
+        "N",
+        "O",
+        "F",
+        "Cl",
+        "Br",
+        "I",
+    ],
 )
 def test_formation_enthalpy_is_zero_only_for_a_standard_state(element: str) -> None:
     with pytest.raises(SolveServiceError):
@@ -568,6 +588,16 @@ def test_formation_enthalpy_accepts_standard_state_elements() -> None:
     assert _first_number(result.answer) == pytest.approx(-393.5)
     liquid = _solve("Find the formation enthalpy for H2 + Br2(l) -> HBr when ΔHf(HBr)=-36.3 kJ/mol")
     assert _first_number(liquid.answer) == pytest.approx(2 * -36.3)
+
+
+def test_formation_enthalpy_refuses_free_atoms() -> None:
+    with pytest.raises(SolveServiceError):
+        _solve("Find the formation enthalpy for H + Cl -> HCl when ΔHf(HCl)=-92.3 kJ/mol")
+
+
+def test_formation_enthalpy_of_hydrogen_chloride_uses_the_molecular_elements() -> None:
+    result = _solve("Find the formation enthalpy for H2 + Cl2 -> 2HCl when ΔHf(HCl)=-92.3 kJ/mol")
+    assert _first_number(result.answer) == pytest.approx(-184.6)
 
 
 def test_water_vapor_pressure_is_accurate_between_table_points() -> None:

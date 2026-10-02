@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`H + Cl -> HCl` verified ΔH° as −92.3 kJ/mol.** The monatomic fallback treated every one-atom formula with no phase as a metal, so H, O, N, F, Cl, Br, and I got ΔH°f = 0. Those elements are standard as molecules. Return false for the free atom; H₂ + Cl₂ stays −184.6.
+
 - **A reaction-plus-braking stop was answered by the model, and “slows to a stop, how far” became `d = vt`.** The two-time sentence never matched a cue. The one-time sentence matched `rate_distance` first, so 15 m/s for 3 s while stopping was 45 m. Own that shape as `stopping_distance` before the rate extractor, and make rate refuse “to a stop” / brake wording so SUVAT can answer 22.5 m.
 
 - **A scanner caption `I read this as: x^2 - 5x + 6 = 0` never verified.** The English prefix failed the consumption check, so the equation on the confirmed line was dropped. Extract that line before the rest of the caption.
