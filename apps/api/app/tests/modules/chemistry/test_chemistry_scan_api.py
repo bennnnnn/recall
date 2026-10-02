@@ -82,6 +82,7 @@ def test_scan_read_returns_the_written_problem() -> None:
         "uncertain": False,
         "source": "vision",
     }
+    assert read.await_args is not None
     assert read.await_args.kwargs["content_type"] == "image/jpeg"
 
 
