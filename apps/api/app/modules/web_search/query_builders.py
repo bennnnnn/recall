@@ -76,20 +76,49 @@ def is_news_today_request(text: str) -> bool:
     )
 
 
+def _today_date_markers(now: datetime) -> set[str]:
+    """Padded and unpadded labels. `_today_label` emits `October 01 2026`."""
+    raw = (
+        now.strftime("%Y-%m-%d"),
+        now.strftime("%B %d, %Y"),
+        now.strftime("%B %d %Y"),
+        now.strftime("%B %d"),
+        now.strftime("%b %d, %Y"),
+        now.strftime("%b %d"),
+    )
+    markers: set[str] = set()
+    for item in raw:
+        folded = item.casefold()
+        markers.add(folded)
+        markers.add(folded.replace(" 0", " "))
+    return markers
+
+
+def _blob_has_date_marker(blob: str, marker: str) -> bool:
+    """`October 1` must not match `October 15`."""
+    start = 0
+    while True:
+        at = blob.find(marker, start)
+        if at < 0:
+            return False
+        end = at + len(marker)
+        if end >= len(blob) or not blob[end].isdigit():
+            return True
+        start = at + 1
+
+
 def filter_hits_to_today(hits: list[WebSearchHit], user_timezone: str | None) -> list[WebSearchHit]:
     """Keep only current-news hits that explicitly name today's local date."""
     tz = time_context_service.resolve_timezone(user_timezone)
     now = datetime.now(tz)
-    markers = {
-        now.strftime("%Y-%m-%d").casefold(),
-        now.strftime("%B %d, %Y").replace(" 0", " ").casefold(),
-        now.strftime("%B %d").replace(" 0", " ").casefold(),
-        now.strftime("%b %d").replace(" 0", " ").casefold(),
-    }
+    markers = _today_date_markers(now)
     return [
         hit
         for hit in hits
-        if any(marker in f"{hit.title} {hit.snippet}".casefold() for marker in markers)
+        if any(
+            _blob_has_date_marker(f"{hit.title} {hit.snippet}".casefold(), marker)
+            for marker in markers
+        )
     ]
 
 

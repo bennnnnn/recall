@@ -326,6 +326,32 @@ def test_filter_hits_to_today_removes_other_dates():
     assert filter_hits_to_today(hits, "America/Los_Angeles") == [hits[0]]
 
 
+def test_filter_hits_to_today_matches_a_zero_padded_first(monkeypatch):
+    from datetime import datetime as real_datetime
+    from datetime import tzinfo
+
+    from app.modules.web_search import query_builders
+
+    class _Clock:
+        @staticmethod
+        def now(tz: tzinfo | None = None) -> real_datetime:
+            return real_datetime(2026, 10, 1, 15, tzinfo=tz)
+
+    monkeypatch.setattr(query_builders, "datetime", _Clock)
+    today = WebSearchHit(
+        title="Verified today",
+        url="https://example.com/today",
+        snippet="Published October 01 2026.",
+    )
+    later = WebSearchHit(
+        title="Later in the month",
+        url="https://example.com/later",
+        snippet="Published October 15, 2026.",
+    )
+
+    assert query_builders.filter_hits_to_today([today, later], "America/Los_Angeles") == [today]
+
+
 def test_ai_developments_today_is_treated_as_same_day_news():
     from app.modules.web_search.query_builders import (
         is_current_news_request,

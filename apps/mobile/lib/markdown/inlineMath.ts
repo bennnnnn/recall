@@ -1,4 +1,4 @@
-import { restoreMathEscapes } from "@/lib/math/text";
+import { latexHasNestedMathView, latexHasStackedFrac, restoreMathEscapes } from "@/lib/math/text";
 
 export type InlineMathPart = { type: "text" | "math"; value: string };
 
@@ -67,4 +67,19 @@ export function splitInlineMath(text: string): InlineMathPart[] {
   }
   if (last < text.length) parts.push({ type: "text", value: text.slice(last) });
   return parts.length ? parts : [{ type: "text", value: text }];
+}
+
+const NESTED_MATH_COMMAND_RE =
+  /\\(?:sqrt|xcancel|bcancel|cancel|overline|underline|widehat|widetilde|overrightarrow|overleftarrow|hat|vec|bar|ddot|dot|tilde)(?![A-Za-z])|\^\{[^{}]*\/[^{}]*\}/;
+
+/**
+ * A markdown run needs a View host when a math span draws a nested View.
+ * Prose carets (`a^2`) and dunder names (`__init__`) stay in Text.
+ */
+export function markdownHasNestedMathView(text: string): boolean {
+  const source = restoreMathEscapes(text);
+  if (latexHasStackedFrac(source) || NESTED_MATH_COMMAND_RE.test(source)) return true;
+  return splitInlineMath(source).some(
+    (part) => part.type === "math" && latexHasNestedMathView(part.value),
+  );
 }

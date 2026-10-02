@@ -94,7 +94,12 @@ def format_equation_lesson_reply(
     body = "\n\n".join(chunks)
     # The same verified value; an inequality spells it as its clean last line.
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
-    reply = f"{body}\n\n```answer\n{answer}\n```\n" if body else f"```answer\n{answer}\n```\n"
+    # A lesson names the final line. A bare chip (no steps) stays unlabeled.
+    reply = (
+        f"{body}\n\n**Answer**\n\n```answer\n{answer}\n```\n"
+        if body
+        else f"```answer\n{answer}\n```\n"
+    )
     fence = verified.canonical_fence
     if isinstance(fence, dict) and fence.get("type") == "number_line":
         # An inequality lesson keeps its solution set on the number line.
