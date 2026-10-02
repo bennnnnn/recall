@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Send photo dropped a confirmed chemistry reading.** The scanner sent only the caption, and a photo always skipped the verified reply. Put `I read this as:` after the chemistry caption and solve that line even when the photo is attached. A caption with no reading still does not direct-reply.
+
 - **A PubChem timeout left the reply with no chemistry note.** The name lookup returned `(None, None, False)`, so the turn never declined. When a compound name was found, a timeout or lookup error returns the unverified note. A sentence that is not chemistry stays untouched.
 
 - **`hess's law` and `find kp` matched the chemistry gate and then extracted nothing.** Those cues were case-sensitive, so a lowercase template never became an intent and never got the unverified note. Match Hess, ICE equilibrium, Find Kp, and Kc/Kp conversion without case.

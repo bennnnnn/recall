@@ -31,8 +31,14 @@ def maybe_direct_chemistry_reply(
     verified: VerifiedChemistry | None,
     *,
     has_image_attachment: bool,
+    user_text: str = "",
 ) -> str | None:
-    """Use exact output only when extraction came from the user's typed text."""
-    if verified is None or has_image_attachment:
+    """Use exact output for typed text, and for a photo whose reading was confirmed."""
+    if verified is None:
         return None
+    if has_image_attachment:
+        from app.modules.chemistry.reading import confirmed_chemistry_reading
+
+        if confirmed_chemistry_reading(user_text) is None:
+            return None
     return format_direct_chemistry_reply(verified)
