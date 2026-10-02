@@ -273,8 +273,6 @@ async def build_subject_augmentation(
         image_math_extract=image_math_extract,
         chemistry_enabled=settings.chemistry_enabled,
     )
-    if subject is None and math_user_content is not None:
-        subject = "math"
     adapter = SUBJECT_ADAPTERS.get(subject) if subject is not None else None
     if adapter is None:
         return SubjectAugmentation(None, None, None)
