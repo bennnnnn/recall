@@ -20,6 +20,7 @@ from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
 from app.modules.chemistry.stoichiometry import (
+    formula_atoms,
     limiting_reagent,
     molar_mass,
     stoichiometry,
@@ -132,7 +133,7 @@ def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
 
 def solve_molar_mass(intent: ChemistryIntent) -> ChemistryResult:
     formula = _formula(intent)
-    atoms = parse_formula(formula)
+    atoms = formula_atoms(formula) or {}
     mass = _molar_mass(formula)
     terms: list[str] = []
     if atoms:
@@ -159,7 +160,7 @@ def _particles_per_formula(intent: ChemistryIntent, formula: str) -> tuple[int, 
     noun = intent.units.get("particle", "particles")
     if noun != "atoms":
         return 1, "particles"
-    atoms = parse_formula(formula)
+    atoms = formula_atoms(formula)
     if not atoms:
         raise SolveServiceError(f"cannot count the atoms in {formula}")
     return sum(atoms.values()), "atoms"
