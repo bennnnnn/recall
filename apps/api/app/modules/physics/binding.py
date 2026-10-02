@@ -79,6 +79,7 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
         for spec in _bindable()
         if spec.binding is not None
         and (not spec.binding.cues or any(_phrase(cue).search(lower) for cue in spec.binding.cues))
+        and not any(_phrase(word).search(lower) for word in spec.binding.excludes)
         and (strength := _ask_strength(asked_clause, spec.binding.asks))
     ]
     if not named:
@@ -284,7 +285,7 @@ def _fit(
         params[choice.name] = -given.value if negative else given.value
         units[choice.name] = given.unit
         previous = given.end
-    _largest_first(params, binding.descending)
+    _largest_first(params, units, binding.descending)
     for variable in variables:
         if variable.name in params:
             continue
@@ -297,9 +298,22 @@ def _fit(
     return _Fit(spec, params, units, strength)
 
 
-def _largest_first(params: dict[str, float], names: tuple[str, ...]) -> None:
-    """Refill a symmetric pair largest first: the heavier Atwood mass is m₁."""
+def _largest_first(params: dict[str, float], units: dict[str, str], names: tuple[str, ...]) -> None:
+    """Refill a symmetric pair largest first: the heavier Atwood mass is m₁.
+
+    Values are compared in SI and move with their units: 5 kg outweighs 3000 g.
+    """
     present = [name for name in names if name in params]
-    values = sorted((params[name] for name in present), reverse=True)
-    for name, value in zip(present, values, strict=True):
+    pairs = sorted(
+        ((params[name], units[name]) for name in present),
+        key=lambda pair: _in_si(*pair),
+        reverse=True,
+    )
+    for name, (value, unit) in zip(present, pairs, strict=True):
         params[name] = value
+        units[name] = unit
+
+
+def _in_si(value: float, unit: str) -> float:
+    reading = unit_dimension(unit_expression(unit) or "") if unit else None
+    return value if reading is None else value * reading[1] + reading[2]

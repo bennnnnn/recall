@@ -220,11 +220,17 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
     """
     from app.modules.physics.accounting import competing_given
     from app.modules.physics.ask import asked_dimensions, asked_unit
+    from app.modules.physics.bodies import names_body_without_school_gravity
+    from app.modules.physics.extractors.common import stated_gravity
 
-    if any(
-        value < 0
-        for key, value in (intent.physics_params or {}).items()
-        if key in {"m", "m1", "m2"}
+    params = intent.physics_params or {}
+    if any(value < 0 for key, value in params.items() if key in {"m", "m1", "m2"}):
+        return None
+    # "On Jupiter" with no g written: Earth's 9.81 would answer another planet.
+    if (
+        "g" in params
+        and stated_gravity(request.text) is None
+        and names_body_without_school_gravity(request.text.lower())
     ):
         return None
     if competing_given(intent, request.text) is not None:

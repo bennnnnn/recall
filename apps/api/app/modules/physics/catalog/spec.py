@@ -86,6 +86,8 @@ class Binding:
     result: tuple[str, ...]
     inputs: tuple[frozenset[str], ...]
     cues: tuple[str, ...] = ()
+    # Words that rule the operation out: a discharge is not a charging.
+    excludes: tuple[str, ...] = ()
     descending: tuple[str, ...] = ()
     # Words before a value that say it is the result itself ("reaches" for a
     # final speed): such a question already states what this operation finds.

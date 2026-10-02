@@ -157,3 +157,14 @@ def test_a_value_derived_from_givens_still_accounts_for_them() -> None:
         _answer("Currents of 2 A and 3 A enter a junction. Find the current leaving the junction.")
         == "5 A leaving"
     )
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A ball is dropped from 20 m on Jupiter. How long does it take to hit the ground?",  # 2.02 s
+        "A 5 kg box rests on the floor on Jupiter. Find its weight.",  # 49.1 N
+    ],
+)
+def test_a_body_without_a_school_g_does_not_get_earths(text: str) -> None:
+    assert _answer(text) is None
