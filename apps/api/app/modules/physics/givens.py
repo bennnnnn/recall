@@ -67,6 +67,10 @@ _SYMBOLS: dict[str, str] = {
     "kPa": "kilopascal",
     "MPa": "megapascal",
     "GPa": "gigapascal",
+    # Viscosity, not a pressure: "0.001 Pa*s" is one unit.
+    "Pa*s": "pascal * second",
+    "Pa·s": "pascal * second",
+    "Pa s": "pascal * second",
     "Hz": "hertz",
     "kHz": "kilohertz",
     "MHz": "megahertz",

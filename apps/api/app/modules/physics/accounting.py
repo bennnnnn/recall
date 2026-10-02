@@ -9,7 +9,8 @@ A quantity of a kind the formula never uses is a distractor and stays
 allowed: a ball's mass does not change its fall time. A value the extractor
 derived by adding or subtracting givens accounts for them: currents of 2 A
 and 3 A entering a junction are the 5 A it binds, and 80 °C and 20 °C are
-the 60 K it heats by.
+the 60 K it heats by. A value that a given states outright is read, not
+derived, so it accounts for no other given.
 """
 
 from __future__ import annotations
@@ -127,7 +128,12 @@ def competing_given(intent: PhysicsIntent, text: str) -> Given | None:
         others = [
             other for other in givens if other is not given and other.dimension == given.dimension
         ]
-        if _derived(given, others, same_kind):
+        # Only a value no given states can be a derivation. Otherwise 4 - 7
+        # "derives" a stated 3 m/s by coincidence and the 4 and 7 go unasked.
+        derived = [
+            param for param in same_kind if not any(_bound(other, [param]) for other in others)
+        ]
+        if _derived(given, others, derived):
             continue
         logger.info(
             "physics solve declined: %s %s left unbound by op=%s",
