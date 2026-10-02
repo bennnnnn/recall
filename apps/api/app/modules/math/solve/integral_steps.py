@@ -54,8 +54,13 @@ def _differential(value: Any, var: Any) -> str:
 
 
 def split_sum(parts: list[str], negatives: list[bool]) -> str:
-    """``A + B - C`` from rendered parts, a minus instead of ``+ -``."""
-    text = parts[0]
+    """``A + B - C`` from rendered parts, a minus instead of ``+ -``.
+
+    Callers strip the minus off every negative term, including the first, so
+    the sign has to be put back here. Leaving the first term unsigned turns
+    ``-x - 1`` into a positive split.
+    """
+    text = f"- {parts[0]}" if negatives and negatives[0] else parts[0]
     for part, negative in zip(parts[1:], negatives[1:], strict=True):
         text += f" - {part}" if negative else f" + {part}"
     return text
