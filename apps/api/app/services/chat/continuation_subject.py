@@ -7,7 +7,8 @@ continuation. A new topic does not inherit that subject.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
 from app.services.chat.prompt_constants.routing import (
     is_lightweight_chat_turn,
@@ -123,10 +124,36 @@ def classify_presentation_subject(text: str | None) -> str | None:
 
 
 def blocks_math_followup(text: str) -> bool:
-    """A physics problem is not replayed through the math solver."""
+    """Physics and chemistry problems are not replayed through the math solver."""
+    from app.modules.chemistry.request import is_chemistry_question
     from app.modules.physics.extract import needs_physics
 
-    return needs_physics(text)
+    return needs_physics(text) or is_chemistry_question(text)
+
+
+def chemistry_working_followup_problem(query: str | None, recent: Sequence[Any]) -> str | None:
+    """Re-solve the adjacent chemistry problem when this line only continues it.
+
+    A later math or physics question is its own text, so it does not come back here.
+    """
+    if not is_pure_continuation(query):
+        return None
+    own = classify_presentation_subject(query)
+    if own in {"math", "physics"}:
+        return None
+    if len(recent) < 2:
+        return None
+    role, prior = _role_content(recent[-2])
+    answer_role, answer = _role_content(recent[-1])
+    if role != "user" or answer_role != "assistant":
+        return None
+    if not prior or not prior.strip() or not answer or not answer.strip():
+        return None
+    from app.modules.chemistry.request import is_chemistry_question
+
+    if not is_chemistry_question(prior):
+        return None
+    return prior
 
 
 def effective_presentation_subject(
@@ -142,6 +169,18 @@ def effective_presentation_subject(
     if not is_pure_continuation(query):
         return None
     return _continuation_subject(prior_messages or ())
+
+
+def _role_content(message: Any) -> tuple[str | None, str | None]:
+    if isinstance(message, Mapping):
+        role = message.get("role")
+        content = message.get("content")
+    else:
+        role = getattr(message, "role", None)
+        content = getattr(message, "content", None)
+    if not isinstance(role, str) or not isinstance(content, str):
+        return None, None
+    return role, content
 
 
 def _phrase(text: str) -> str:
