@@ -199,7 +199,7 @@ function Gallery() {
               detailStyle="pill"
               onPress={() => setPicker("time")}
             />
-            <ListRow appearance="plain" icon="images" title="Library" accessory="chevron" onPress={() => undefined} />
+            <ListRow appearance="plain" icon="image" title="Library" accessory="chevron" onPress={() => undefined} />
           </View>
         </Section>
 

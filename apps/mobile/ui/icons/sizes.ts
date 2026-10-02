@@ -21,9 +21,9 @@ export const IconSize = {
 
 /**
  * On-screen stroke in points. Every row and chrome icon draws the same line
- * weight whatever its size (ChatGPT-style), instead of thinning as it shrinks.
- * Tiny and hero icons use a slightly lighter line so they don't look heavy.
+ * weight whatever its size, instead of thinning as it shrinks. 1.5 matches a
+ * light line icon; tiny and hero sizes step down so they do not look heavy.
  */
 export function iconStroke(size: number): number {
-  return size <= IconSize.xs || size >= IconSize.xl ? 1.75 : 2;
+  return size <= IconSize.xs || size >= IconSize.xl ? 1.25 : 1.5;
 }

@@ -191,7 +191,7 @@ export default function GalleryScreen() {
           ListEmptyComponent={
             <StateView
               variant="empty"
-              icon="images"
+              icon="image"
               title={t(galleryEmptyKey(filter, searchQuery))}
               message={
                 searchQuery.trim()
