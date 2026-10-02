@@ -7,6 +7,7 @@ from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import StoichScene, StoichStep
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.formula import hill_formula
@@ -73,8 +74,7 @@ def solve_empirical(intent: ChemistryIntent) -> ChemistryResult:
         "Verified empirical formula",
         (*given, "assume a 100 g sample, so each percent is grams"),
         "Empirical formula",
-        "Empirical formula from percent composition",
-        "percent -> grams -> moles -> divide by smallest -> integer ratio",
+        *stated("empirical_formula"),
         working,
         formula,
         formula,
@@ -101,8 +101,7 @@ def solve_molecular(intent: ChemistryIntent) -> ChemistryResult:
             f"M = {molar_mass_text(molar)} g/mol",
         ),
         "Molecular formula",
-        "Molecular formula from the empirical formula",
-        "n = M_molecular / M_empirical",
+        *stated("molecular_formula"),
         (
             *working,
             f"empirical formula = {empirical}, M = {molar_mass_text(empirical_mass)} g/mol",
@@ -240,7 +239,7 @@ def solve_mass_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
             *_known_lines(known, amount, known_unit, intent.params),
         ),
         f"Amount of {target}",
-        "Mass–mole–particle stoichiometry",
+        stated(intent.chemistry_op)[0],
         f"n({target}) = n({known}) × ({product_coeff} / {reactant_coeff})",
         steps,
         f"{_symbol(find_unit, target)} = {value}",
@@ -335,8 +334,7 @@ def solve_limiting_amounts(intent: ChemistryIntent, *, unit: str) -> ChemistryRe
         "Verified limiting reagent",
         given,
         f"Limiting reagent, theoretical yield of {target}, and excess",
-        "Limiting reagent from amounts",
-        "reaction units = available moles / coefficient",
+        *stated(intent.chemistry_op),
         steps,
         f"Limiting reagent = {' and '.join(limiting)}; {value}",
         value,

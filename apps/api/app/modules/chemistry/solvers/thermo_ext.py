@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.solvers.common_chem import (
     inp,
@@ -21,14 +22,14 @@ def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("calorimetry needs ΔT")
     calorimeter = intent.params.get("c_cal")
     given: tuple[str, ...]
-    formula: str
+    law_name, base_formula = stated("calorimetry")
+    formula = base_formula
     working: str
     if calorimeter is not None:
         if calorimeter <= 0:
             raise SolveServiceError("calorimeter constant must be positive")
         heat = -calorimeter * delta_t
         given = (f"Ccal = {inp(calorimeter)} J/°C", f"ΔT = {inp(delta_t)} °C")
-        formula = "q_rxn = −Ccal ΔT"
         working = f"q_rxn = −({inp(calorimeter)})({inp(delta_t)})"
     else:
         mass = intent.params.get("mass")
@@ -48,7 +49,7 @@ def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
         "Verified calorimetry",
         given,
         "Reaction heat",
-        "Calorimetry",
+        law_name,
         formula,
         ("q_system + q_surroundings = 0, so q_rxn = −q_system", working),
         shown,
@@ -77,8 +78,7 @@ def solve_hess(intent: ChemistryIntent) -> ChemistryResult:
         "Verified Hess's law",
         given,
         "Overall enthalpy",
-        "Hess's law",
-        "ΔH = Σ mi ΔHi",
+        *stated("hess"),
         (f"ΔH = {' + '.join(terms)}",),
         shown,
         shown,
@@ -156,8 +156,7 @@ def solve_formation(intent: ChemistryIntent) -> ChemistryResult:
             "ΔHf = 0 for an element in its standard state",
         ),
         "Standard reaction enthalpy",
-        "Formation enthalpies",
-        "ΔH°rxn = Σ n ΔHf°(products) − Σ n ΔHf°(reactants)",
+        *stated("formation_enthalpy"),
         (f"ΔH° = [{side(product_terms)}] − [{side(reactant_terms)}]",),
         shown,
         shown,
@@ -175,8 +174,7 @@ def solve_bond_enthalpy(intent: ChemistryIntent) -> ChemistryResult:
         "Verified bond enthalpy",
         (f"bonds broken = {inp(broken)} kJ", f"bonds formed = {inp(formed)} kJ"),
         "Reaction enthalpy",
-        "Bond enthalpies",
-        "ΔH ≈ Σ broken − Σ formed",
+        *stated("bond_enthalpy"),
         (f"ΔH = {inp(broken)} − {inp(formed)}",),
         shown,
         shown,

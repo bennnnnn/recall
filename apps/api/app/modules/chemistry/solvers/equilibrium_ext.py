@@ -9,6 +9,7 @@ from typing import Any
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import EquilibriumRow, EquilibriumScene
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.solvers.common_chem import const, inp, num, verified
 from app.modules.chemistry.solvers.constants import GAS_R
@@ -87,8 +88,7 @@ def solve_ksp(intent: ChemistryIntent) -> ChemistryResult:
         "Verified solubility product",
         (intent.equation, detail),
         "Molar solubility" if ksp is not None else "Ksp",
-        "Solubility product",
-        "Ksp = Π (νᵢ s)^νᵢ",
+        *stated("ksp"),
         lines,
         shown,
         num(value),
@@ -110,8 +110,7 @@ def solve_precipitation(intent: ChemistryIntent) -> ChemistryResult:
         "Verified precipitation check",
         (f"Qsp = {inp(qsp)}", f"Ksp = {inp(ksp)}"),
         "Whether a precipitate forms",
-        "Ion product versus solubility product",
-        "compare Qsp with Ksp",
+        *stated("precipitation"),
         (
             f"Qsp = {inp(qsp)} {'=' if 'saturated' in relation else '>' if qsp > ksp else '<'} "
             f"Ksp = {inp(ksp)}",
@@ -157,8 +156,7 @@ def solve_common_ion(intent: ChemistryIntent) -> ChemistryResult:
         "Verified common-ion concentration",
         given,
         f"[{target}]",
-        "Common-ion effect",
-        "Ksp = Π [ion]^ν",
+        *stated("common_ion"),
         (
             _ion_product_text_from_species(ions),
             working,
@@ -185,7 +183,7 @@ def solve_kp(intent: ChemistryIntent) -> ChemistryResult:
             f"P({species}) = {inp(pressure)} atm" for species, pressure in intent.species.items()
         ),
         "Kp",
-        "Partial-pressure equilibrium constant",
+        stated("kp")[0],
         f"Kp = {expression}",
         (f"Kp = {substitution}",),
         f"Kp = {value}",
@@ -241,8 +239,7 @@ def solve_kc_kp(intent: ChemistryIntent) -> ChemistryResult:
         "Verified Kc/Kp conversion",
         (given, f"T = {inp(temperature)} K", f"Δn = {delta_n}"),
         shown.split(" = ", 1)[0],
-        "Concentration and pressure equilibrium constants",
-        "Kp = Kc (RT)^Δn",
+        *stated("kc_kp"),
         (
             f"RT = ({const(GAS_R)})({inp(temperature)}) = {num(GAS_R * temperature)} L·atm/mol",
             working,
@@ -328,8 +325,7 @@ def solve_ice(intent: ChemistryIntent) -> ChemistryResult:
         "Verified ICE equilibrium",
         (intent.equation, f"K = {inp(constant)}"),
         "Equilibrium extent and concentrations",
-        "ICE table, quadratic or linear",
-        "K from the extent x",
+        *stated("ice_equilibrium"),
         lines,
         answer,
         num(chosen),

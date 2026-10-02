@@ -264,7 +264,7 @@ function DivisionWork({ spec }: { spec: ArithmeticWorkSpec }) {
         </View>
       </View>
       <View style={s.divisionSteps}>
-        <View style={s.divisorSpacer} />
+        <Text style={s.divisorSpacer}>{divisor}</Text>
         <View style={s.divisionStepDigits}>
           {spec.division_steps.map((step) => {
             const productEnd = displayColumnEnd(dividend, step.column_end);

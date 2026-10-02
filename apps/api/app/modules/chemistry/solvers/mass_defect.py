@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.nuclear import parse_nuclide
 from app.modules.chemistry.solvers.common_chem import inp, num, verified
 from app.modules.chemistry.solvers.constants import MEV_PER_U, NEUTRON_U, PROTON_U
@@ -37,8 +38,7 @@ def solve_mass_defect(intent: ChemistryIntent) -> ChemistryResult:
             f"nuclear mass = {inp(mass)} u",
         ),
         "Mass defect, binding energy, and binding energy per nucleon",
-        "Nuclear mass defect",
-        "Δm = Z m_p + (A − Z) m_n − m",
+        *stated("mass_defect"),
         (
             f"Δm = {protons}({inp(PROTON_U)}) + {neutrons}({inp(NEUTRON_U)}) − {inp(mass)} "
             f"= {num(defect)} u",

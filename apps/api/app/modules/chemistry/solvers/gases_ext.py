@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert
 from app.modules.chemistry.solvers.common_chem import (
     inp,
@@ -68,8 +69,7 @@ def solve_combined_gas(intent: ChemistryIntent) -> ChemistryResult:
         {"p1", "v1", "t2"},
         {"p2", "v2", "t1"},
         "Verified combined gas law",
-        "Combined gas law",
-        "P1V1 / T1 = P2V2 / T2",
+        *stated("combined_gas"),
     )
 
 
@@ -80,8 +80,7 @@ def solve_boyle(intent: ChemistryIntent) -> ChemistryResult:
         {"p1", "v1"},
         {"p2", "v2"},
         "Verified Boyle's law",
-        "Boyle's law",
-        "P1V1 = P2V2",
+        *stated("boyle"),
     )
 
 
@@ -92,8 +91,7 @@ def solve_charles(intent: ChemistryIntent) -> ChemistryResult:
         {"v1", "t2"},
         {"v2", "t1"},
         "Verified Charles's law",
-        "Charles's law",
-        "V1 / T1 = V2 / T2",
+        *stated("charles"),
     )
 
 
@@ -108,8 +106,7 @@ def solve_dalton(intent: ChemistryIntent) -> ChemistryResult:
         "Verified Dalton's law",
         tuple(f"P({name}) = {inp(value)} {unit}" for name, value in intent.species.items()),
         "Total pressure",
-        "Dalton's law",
-        "Ptotal = Σ Pi",
+        *stated("dalton"),
         (f"Ptotal = {terms}",),
         shown,
         shown,
@@ -127,8 +124,7 @@ def solve_partial_pressure(intent: ChemistryIntent) -> ChemistryResult:
         "Verified partial pressure",
         (f"Xi = {inp(fraction)}", f"Ptotal = {inp(total)} {unit}"),
         "Partial pressure",
-        "Mole fraction",
-        "Pi = Xi Ptotal",
+        *stated("partial_pressure"),
         (f"Pi = ({inp(fraction)})({inp(total)})",),
         shown,
         shown,
@@ -156,8 +152,7 @@ def solve_gas_over_water(intent: ChemistryIntent) -> ChemistryResult:
         "Verified gas collected over water",
         (f"Ptotal = {inp(total)} {unit}", f"T = {inp(temperature)} °C"),
         "Dry-gas pressure",
-        "Dalton's law with water vapor",
-        "Pdry = Ptotal − Pwater",
+        *stated("gas_over_water"),
         (
             f"Pwater = {num(vapor_same)} {unit} at {inp(temperature)} °C",
             f"Pdry = {inp(total)} − {num(vapor_same)}",

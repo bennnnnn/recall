@@ -6,6 +6,7 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.nuclear import balance_nuclear, conservation_lines, format_nuclear
 from app.modules.chemistry.solvers.common_chem import (
     inp,
@@ -27,8 +28,7 @@ def solve_decay_constant(intent: ChemistryIntent) -> ChemistryResult:
         "Verified decay constant",
         (f"t₁/₂ = {inp(half_life)} {unit}",),
         "Decay constant",
-        "Decay constant",
-        "λ = ln(2) / t₁/₂",
+        *stated("decay_constant"),
         (f"λ = {num(math.log(2))} / {inp(half_life)}",),
         shown,
         shown,
@@ -49,8 +49,7 @@ def solve_exponential_decay(intent: ChemistryIntent) -> ChemistryResult:
         "Verified exponential decay",
         (f"N₀ = {inp(initial)}", f"λ = {inp(constant)}", f"t = {inp(time)}"),
         "Amount remaining",
-        "Exponential decay",
-        "N = N₀e^(−λt)",
+        *stated("exponential_decay"),
         (f"N = ({inp(initial)})e^(−({inp(constant)})({inp(time)}))",),
         shown,
         shown,
@@ -67,8 +66,7 @@ def solve_nuclear_activity(intent: ChemistryIntent) -> ChemistryResult:
         "Verified nuclear activity",
         (f"λ = {inp(constant)}", f"N = {inp(particles)}"),
         "Activity",
-        "Activity",
-        "A = λN",
+        *stated("nuclear_activity"),
         (f"A = ({inp(constant)})({inp(particles)})",),
         shown,
         shown,
@@ -86,8 +84,7 @@ def solve_nuclear_equation(intent: ChemistryIntent) -> ChemistryResult:
         "Verified nuclear equation",
         (intent.equation,),
         "Balanced nuclear equation",
-        "Nucleon and charge balance",
-        "sum of A and sum of Z are equal on both sides",
+        *stated("nuclear_equation"),
         conservation_lines(balanced),
         shown,
         shown,

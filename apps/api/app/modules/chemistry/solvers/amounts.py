@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.formula import parse_formula
@@ -112,8 +113,8 @@ def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
             title="Verified balance check",
             given=(f"Equation: {equation}",),
             find="Whether the written coefficients balance",
-            formula_name="Law of conservation of mass",
-            formula="Atoms of each element on reactant side = atoms on product side",
+            formula_name=stated("balance")[0],
+            formula=stated("balance")[1],
             substitution=_tally_lines(equation, written=True)
             or (f"Count atoms and charge on each side of: {equation}",),
             answer=verdict,
@@ -123,8 +124,8 @@ def solve_equation(intent: ChemistryIntent) -> ChemistryResult:
         title="Verified balanced equation",
         given=(f"Unbalanced equation: {equation}",),
         find="Smallest whole-number coefficients",
-        formula_name="Law of conservation of mass",
-        formula="Atoms of each element on reactant side = atoms on product side",
+        formula_name=stated("balance")[0],
+        formula=stated("balance")[1],
         substitution=_tally_lines(equation) or (f"Balance element counts: {equation}",),
         answer=balanced,
         value=balanced,
@@ -147,8 +148,8 @@ def solve_molar_mass(intent: ChemistryIntent) -> ChemistryResult:
         title="Verified molar mass",
         given=(f"Formula = {formula}",),
         find="Molar mass, M",
-        formula_name="Molar mass from atomic masses",
-        formula="M = Σ(nᵢ × atomic massᵢ)",
+        formula_name=stated("molar_mass")[0],
+        formula=stated("molar_mass")[1],
         substitution=(f"M = {substitution}",),
         answer=f"M({formula}) = {result}",
         value=result,
@@ -178,8 +179,7 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             "Verified amount of substance",
             (f"mass = {inp(mass)} g", f"M({formula}) = {molar_mass_text(molar)} g/mol"),
             "Amount, n",
-            "Mass–mole relation",
-            "n = m / M",
+            *stated("mass_to_moles"),
             (f"n = {inp(mass)} / {molar_mass_text(molar)}",),
             f"n({formula}) = {value}",
             value,
@@ -192,8 +192,7 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             "Verified mass",
             (f"n = {inp(moles)} mol", f"M({formula}) = {molar_mass_text(molar)} g/mol"),
             "Mass, m",
-            "Mass–mole relation",
-            "m = nM",
+            *stated("moles_to_mass"),
             (f"m = ({inp(moles)})({molar_mass_text(molar)})",),
             f"m({formula}) = {value}",
             value,
@@ -203,12 +202,16 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
         moles = require(intent, "moles", non_negative=True)
         particles = moles * AVOGADRO * per_formula
         value = f"{num(particles)} {noun}"
+        law_name, base_formula = stated("moles_to_particles")
+        particle_formula = (
+            base_formula if per_formula == 1 else "N = n Nₐ × (atoms per formula unit)"
+        )
         return verified(
             "Verified particle count",
             (f"n = {inp(moles)} mol", f"Nₐ = {const(AVOGADRO)} mol⁻¹"),
             f"Number of {noun}, N",
-            "Avogadro relation",
-            "N = nNₐ" if per_formula == 1 else "N = n Nₐ × (atoms per formula unit)",
+            law_name,
+            particle_formula,
             (
                 f"N = ({inp(moles)})({const(AVOGADRO)})"
                 + ("" if per_formula == 1 else f"({per_formula})"),
@@ -220,12 +223,16 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
         particles = require(intent, "particles", non_negative=True)
         moles = particles / AVOGADRO / per_formula
         value = f"{num(moles)} mol"
+        law_name, base_formula = stated("particles_to_moles")
+        amount_formula = (
+            base_formula if per_formula == 1 else "n = N / (Nₐ × atoms per formula unit)"
+        )
         return verified(
             "Verified amount of substance",
             (f"N = {inp(particles)} {noun}", f"Nₐ = {const(AVOGADRO)} mol⁻¹"),
             "Amount, n",
-            "Avogadro relation",
-            "n = N / Nₐ" if per_formula == 1 else "n = N / (Nₐ × atoms per formula unit)",
+            law_name,
+            amount_formula,
             (
                 f"n = {inp(particles)} / {const(AVOGADRO)}"
                 + ("" if per_formula == 1 else f" / {per_formula}"),
@@ -259,8 +266,7 @@ def solve_percent_composition(intent: ChemistryIntent) -> ChemistryResult:
             f"M({formula}) = {molar_mass_text(total)} g/mol",
         ),
         f"Mass percent of {element}",
-        "Percent composition",
-        "% element = (mass of element in 1 mol compound / molar mass) × 100",
+        *stated("percent_composition"),
         (f"% {element} = ({molar_mass_text(contribution)} / {molar_mass_text(total)}) × 100",),
         f"{element} in {formula} = {value}",
         value,
@@ -279,8 +285,7 @@ def solve_percent_yield(intent: ChemistryIntent) -> ChemistryResult:
             f"theoretical yield = {inp(theoretical)} g",
         ),
         "Percent yield",
-        "Percent yield formula",
-        "% yield = (actual yield / theoretical yield) × 100",
+        *stated("percent_yield"),
         (f"% yield = ({inp(actual)} / {inp(theoretical)}) × 100",),
         f"Percent yield = {value}",
         value,
@@ -315,8 +320,7 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
             "Verified limiting reagent",
             tuple(f"n({name}) = {inp(amount)} mol" for name, amount in intent.species.items()),
             f"Limiting reagent and moles of {target}",
-            "Stoichiometric limiting-reagent comparison",
-            "reaction units = available moles / stoichiometric coefficient",
+            *stated("limiting_reagent"),
             (*ratios, f"n({target}) = smallest reaction units × {product_coeff}"),
             f"Limiting reagent = {limiting_names}; {value}",
             value,
@@ -338,7 +342,7 @@ def solve_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
             f"n({known}) = {inp(amount)} mol",
         ),
         f"Moles of {target}",
-        "Stoichiometric mole ratio",
+        stated("stoichiometry")[0],
         f"n({target}) = n({known}) × ({p_coeff} / {r_coeff})",
         (f"n({target}) = {inp(amount)} × ({p_coeff} / {r_coeff})",),
         f"n({target}) = {value}",

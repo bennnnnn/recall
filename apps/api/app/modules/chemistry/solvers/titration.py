@@ -9,6 +9,7 @@ from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import TitrationAnchor, TitrationScene
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.solvers.acid import ph_text
 from app.modules.chemistry.solvers.common_chem import inp, num, verified, weak_dissociation
 from app.modules.chemistry.solvers.constants import KW, PKW
@@ -94,8 +95,7 @@ def solve_titration_strong(intent: ChemistryIntent) -> ChemistryResult:
             f"Vb = {inp(vb)} L",
         ),
         "pH",
-        "Strong acid–strong base titration",
-        "[H+] = (n(H+) − n(OH-)) / (Va + Vb)",
+        *stated("titration_strong"),
         lines,
         f"pH = {ph}",
         ph,

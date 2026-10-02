@@ -6,6 +6,7 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.solvers.common_chem import (
     const,
     inp,
@@ -46,8 +47,7 @@ def solve_zero_order(intent: ChemistryIntent) -> ChemistryResult:
         "Verified zero-order concentration",
         (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}", f"t = {inp(time)}"),
         "[A]ₜ",
-        "Integrated zero-order rate law",
-        "[A]ₜ = [A]₀ − kt",
+        *stated("zero_order"),
         (f"[A]ₜ = {inp(initial)} − ({inp(rate)})({inp(time)})",),
         shown,
         shown,
@@ -67,8 +67,7 @@ def solve_second_order(intent: ChemistryIntent) -> ChemistryResult:
         "Verified second-order concentration",
         (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}", f"t = {inp(time)}"),
         "[A]ₜ",
-        "Integrated second-order rate law",
-        "1/[A]ₜ = 1/[A]₀ + kt",
+        *stated("second_order"),
         (
             f"1/[A]ₜ = 1/({inp(initial)}) + ({inp(rate)})({inp(time)}) = {num(reciprocal)}",
             f"[A]ₜ = 1 / {num(reciprocal)}",
@@ -91,8 +90,7 @@ def solve_zero_half_life(intent: ChemistryIntent) -> ChemistryResult:
         "Verified zero-order half-life",
         (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}"),
         "Half-life",
-        "Zero-order half-life",
-        "t₁/₂ = [A]₀ / (2k)",
+        *stated("zero_order_half_life"),
         (f"t₁/₂ = {inp(initial)} / (2({inp(rate)}))",),
         shown,
         shown,
@@ -112,8 +110,7 @@ def solve_second_half_life(intent: ChemistryIntent) -> ChemistryResult:
         "Verified second-order half-life",
         (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}"),
         "Half-life",
-        "Second-order half-life",
-        "t₁/₂ = 1 / (k[A]₀)",
+        *stated("second_order_half_life"),
         (f"t₁/₂ = 1 / (({inp(rate)})({inp(initial)}))",),
         shown,
         shown,
@@ -174,8 +171,7 @@ def solve_rate_law(intent: ChemistryIntent) -> ChemistryResult:
         "Verified rate law",
         given,
         "Rate law",
-        "Order from two experiments",
-        "order = log(rate2/rate1) / log(conc2/conc1)",
+        *stated("rate_law"),
         (
             f"order in {changing} = log({inp(rate2)} / {inp(rate1)}) / log({inp(second)} / "
             f"{inp(first)}) = {order}",
@@ -203,8 +199,7 @@ def solve_arrhenius_two_point(intent: ChemistryIntent) -> ChemistryResult:
             f"T2 = {inp(t2)} K",
         ),
         "Activation energy",
-        "Two-point Arrhenius equation",
-        "ln(k2/k1) = −(Ea/R)(1/T2 − 1/T1)",
+        *stated("arrhenius_two_point"),
         (
             f"Ea = −({const(GAS_R_J)})ln({inp(k2)} / {inp(k1)}) / (1/{inp(t2)} − 1/{inp(t1)})"
             f" = {num(energy)} J/mol",
