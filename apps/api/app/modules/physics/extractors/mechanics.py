@@ -191,7 +191,9 @@ _FRICTION_CUES = (
 
 _FRICTION_SUBJECT = r"friction|frictional|incline|inclined|ramp"
 
-_FRICTION_GIVEN = r"coefficient|\bmu\s*(?:=|is)|\u03bc\s*(?:=|is)|\d+\s*(?:degrees?|deg|\u00b0)"
+_FRICTION_GIVEN = (
+    r"coefficient|\bmu\s*(?:=|is)|\u03bc\s*(?:=|is)|(?<!\d)\d+\s*(?:degrees?|deg|\u00b0)"
+)
 
 _FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(rf"(?:{_FRICTION_SUBJECT}).{{0,80}}?(?:{_FRICTION_GIVEN})", re.IGNORECASE),
@@ -240,7 +242,7 @@ _MIN_FORCE_ASK_RE = re.compile(
 )
 
 _INCLINE_ANGLE_RE = re.compile(
-    r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)(?![A-Za-z0-9])", re.IGNORECASE
+    r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)(?![A-Za-z0-9])", re.IGNORECASE
 )
 
 
@@ -344,7 +346,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
 
 _TENSION_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(
-        r"(?=.*\btension\b)(?=.*\d\s*(?:kg|lbs?|oz)\b)"
+        r"\A(?=.*\btension\b)(?=.*\d\s*(?:kg|lbs?|oz)\b)"
         r"(?=.*(?:lift|rais|hoist|hang|suspend|hold|support|lower|descend|elevator))",
         re.IGNORECASE | re.DOTALL,
     ),
@@ -463,7 +465,7 @@ _VECTOR_FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bresultant\b.{0,80}?\d\s*N\b", re.IGNORECASE),
     re.compile(r"\d\s*N\b.{0,80}?\bresultant\b", re.IGNORECASE),
     re.compile(
-        r"(?=.*\b(?:resolv\w*|components?)\b)(?=.*\d\s*N\b)(?=.*\d\s*(?:degrees?|deg|°))",
+        r"\A(?=.*\b(?:resolv\w*|components?)\b)(?=.*\d\s*N\b)(?=.*\d\s*(?:degrees?|deg|°))",
         re.IGNORECASE | re.DOTALL,
     ),
 )
@@ -476,13 +478,13 @@ _PERPENDICULAR_RE = re.compile(
 )
 
 _ANGLE_BETWEEN_RE = re.compile(
-    r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|°)(?:[^.]{0,40}?"
+    r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:degrees?|deg|°)(?:[^.]{0,40}?"
     r"(?:to each other|between them|apart|to one another))",
     re.IGNORECASE,
 )
 
 _ANGLE_VALUE_RE = re.compile(
-    r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|°)(?![A-Za-z0-9])", re.IGNORECASE
+    r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:degrees?|deg|°)(?![A-Za-z0-9])", re.IGNORECASE
 )
 
 _RESOLVE_RE = re.compile(r"\bresolv\w*\b|\bcomponents?\b", re.IGNORECASE)
@@ -683,7 +685,7 @@ _PE_ABBREV_RE = re.compile(r"\bp\.?\s?e\.?\s+of\b")
 # P = W/t or P = Fv. This handles arbitrary subjects (motor, student, animal)
 # without maintaining a noun allowlist or stealing "the third power of 5".
 _SOLVABLE_POWER_DATA_RE = re.compile(
-    rf"(?is)(?=.*\bpower\b)(?:"
+    rf"(?is)\A(?=.*\bpower\b)(?:"
     rf"(?=.*{_NUMBER}\s*(?:kilojoules?|joules?|kJ|J)\b)"
     rf"(?=.*{_NUMBER}\s*(?:milliseconds?|ms|seconds?|secs?|sec|s|"
     r"minutes?|mins?|min|hours?|hrs?|hr|h)\b)"

@@ -293,10 +293,11 @@ def test_every_verified_op_has_at_least_three_phrasings() -> None:
 
 
 def test_physics_accepts_1500_characters_and_math_does_not() -> None:
-    """Physics questions reach the templates up to 20,000 characters.
+    """Physics questions reach the templates up to 4,000 characters.
 
-    Math ``prepare()`` keeps the 1,000-character cap. A sentence past 20,000
-    is refused by both the symbolic gate and the physics number gate.
+    Math ``prepare()`` keeps the 1,000-character cap. A longer message is
+    still recognised as physics from its head and tail, up to 20,000, and
+    answered without a verified block. Past 20,000 it is not physics at all.
     """
     from app.modules.math.match.scan import prepare
     from app.tests.modules.physics.support import needs_physics
@@ -304,9 +305,9 @@ def test_physics_accepts_1500_characters_and_math_does_not() -> None:
     base = "A ball is dropped from a height of 20 m. Find the time to ground. Use g=10. "
     filler = "The notes continue without another quantity. "
     medium = base
-    while len(medium) < 1500:
+    while len(medium) < 3_900:
         medium += filler
-    assert 1500 <= len(medium) < 12_000
+    assert 3_900 <= len(medium) <= 4_000
     assert needs_physics(medium)
     medium_intent = extract_physics_intent(medium)
     assert medium_intent is not None and medium_intent.physics_op == "time_to_ground"
@@ -315,8 +316,9 @@ def test_physics_accepts_1500_characters_and_math_does_not() -> None:
     while len(longer) < 15_000:
         longer += filler
     assert 12_000 < len(longer) < 20_000
-    longer_intent = extract_physics_intent(longer)
-    assert longer_intent is not None and longer_intent.physics_op == "time_to_ground"
+    assert needs_physics(longer)
+    assert needs_physics(longer[len(base) :] + base)
+    assert extract_physics_intent(longer) is None
 
     huge = base + filler * 800
     assert len(huge) > 20_000

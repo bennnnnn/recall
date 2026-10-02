@@ -348,3 +348,53 @@ def test_explicit_weak_pick_does_not_escalate() -> None:
         )
         == "free-chat"
     )
+
+
+_VERIFIED_PHYSICS = "calculate the momentum of a 5kg object moving at 12 m/s"
+
+
+def test_physics_route_declines_when_the_solver_raises(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    """A solver bug is a decline to the strong model, never a failed turn."""
+    import app.modules.physics as physics
+
+    def broken(_intent: object) -> object:
+        raise ZeroDivisionError("solver bug")
+
+    monkeypatch.setattr(physics, "solve_physics", broken)
+    routing._physics_solves.cache_clear()
+    try:
+        assert route_chat_model(_VERIFIED_PHYSICS) == "smart-chat"
+    finally:
+        routing._physics_solves.cache_clear()
+    assert "physics routing solve failed" in caplog.text
+
+
+def test_physics_route_solves_each_line_once(monkeypatch: pytest.MonkeyPatch) -> None:
+    import app.modules.physics as physics
+
+    calls = 0
+    real = physics.solve_physics
+
+    def counting(intent: object) -> object:
+        nonlocal calls
+        calls += 1
+        return real(intent)  # type: ignore[arg-type]
+
+    monkeypatch.setattr(physics, "solve_physics", counting)
+    routing._physics_solves.cache_clear()
+    try:
+        for _ in range(3):
+            assert route_chat_model(_VERIFIED_PHYSICS) == "gemini-flash"
+            assert (
+                route_chat_model(
+                    "and its kinetic energy?",
+                    prior_user=_VERIFIED_PHYSICS,
+                    prior_model="smart-chat",
+                )
+                is not None
+            )
+    finally:
+        routing._physics_solves.cache_clear()
+    assert calls == 1

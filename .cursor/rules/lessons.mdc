@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A pasted 3,000-character report stalled every chat turn by 0.7 s, and 12,000 characters by 11.5 s.** Physics detection runs 5–7 times a turn on the event loop, and 21 of its regexes were quadratic: `-?\d+…\s*unit` retried a digit run from every digit, whole-text `(?=.*…)` cues retried from every position, and an unbounded `(?:, \d+)+` list re-scanned a CSV from every number. Start numbers with `-?(?<!\d)\d+`, anchor lookahead-only cues with `\A`, bound repeats, read only the head and tail of long messages, and cache detection per text. `test_physics_detection_speed.py` scans every module-level physics pattern on adversarial text.
+
 - **A chemistry scan rate limit said the photo could not be read.** `readChemistryScan` turned every error into null, so 429 and 404 used the bad-photo line. Those two statuses show their API detail. A network or vision failure stays on that line.
 
 - **Send photo dropped a confirmed chemistry reading.** The scanner sent only the caption, and a photo always skipped the verified reply. Put `I read this as:` after the chemistry caption and solve that line even when the photo is attached. A caption with no reading still does not direct-reply.
