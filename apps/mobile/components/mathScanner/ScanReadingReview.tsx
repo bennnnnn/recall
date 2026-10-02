@@ -62,7 +62,7 @@ export function ScanReadingReview({
 
   return (
     <KeyboardAvoidingView
-      style={StyleSheet.absoluteFill}
+      style={[StyleSheet.absoluteFill, s.layer]}
       behavior={Platform.OS === "ios" ? "padding" : undefined}
       testID="math-scan-review"
     >
@@ -129,6 +129,9 @@ export function ScanReadingReview({
 
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
+    layer: {
+      zIndex: 50,
+    },
     photoArea: {
       flex: 1,
       paddingHorizontal: Space.gutter,

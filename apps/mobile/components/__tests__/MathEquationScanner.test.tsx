@@ -378,6 +378,10 @@ describe("imported math scanner photos", () => {
     });
     expect(view.onSolveReading).toHaveBeenCalledWith("2x + 3 = 11", "math");
     expect(view.onCaptured).not.toHaveBeenCalled();
+    expect(view.queryByTestId("math-scanner-shutter")).toBeNull();
+    expect(view.queryByTestId("math-scanner-preview-retake")).toBeNull();
+    expect(view.queryByTestId("math-scanner-preview-solve")).toBeNull();
+    expect(view.getByTestId("math-scanner-close")).toBeTruthy();
   });
 
   it("sends the photo with the reading the student checked", async () => {
