@@ -25,7 +25,7 @@ def _volume_in_l(value: float, unit: str) -> float:
 def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
     op = intent.chemistry_op
     if op == "molarity":
-        moles = require(intent, "moles")
+        moles = require(intent, "moles", non_negative=True)
         volume = require(intent, "volume_l", positive=True)
         molarity = moles / volume
         value = f"{num(molarity)} mol/L"
@@ -87,7 +87,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     if op == "molality":
-        moles = require(intent, "moles")
+        moles = require(intent, "moles", non_negative=True)
         solvent_kg = require(intent, "solvent_kg", positive=True)
         result = moles / solvent_kg
         value = f"{num(result)} mol/kg"
