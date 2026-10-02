@@ -9,11 +9,15 @@ Routing always respects the caller's allowed model pool (plan + enabled toggles)
 
 from __future__ import annotations
 
+import logging
 import re
+from functools import lru_cache
 from typing import Any
 
 from app.core.config import Settings
 from app.services import model_catalog
+
+logger = logging.getLogger(__name__)
 
 # Hard triggers only — broad words like "why/explain" route too often to the
 # strong model. "compare" alone is too broad (it fires on "compare these two
@@ -396,13 +400,31 @@ def route_chat_model(
     return preferred
 
 
-def _physics_intent_solves(intent: Any) -> bool:
-    from app.modules.physics import solve_physics
+@lru_cache(maxsize=128)
+def _physics_solves(content: str) -> bool:
+    """Whether the verified solver finishes this line's physics template.
+
+    Routing asks this of the current line and again of a prior one, every
+    turn; the answer only depends on the text. Any failure is a decline: the
+    strong model answers it, and the turn never fails for a routing hint.
+    """
+    from app.modules.physics import extract_physics_intent, solve_physics
     from app.services.solving import SolveServiceError
 
+    intent = extract_physics_intent(content)
+    if intent is None:
+        return False
     try:
         solve_physics(intent)
     except SolveServiceError:
+        return False
+    except Exception:
+        logger.warning(
+            "physics routing solve failed kind=%s op=%s",
+            intent.kind,
+            intent.physics_op,
+            exc_info=True,
+        )
         return False
     return True
 
@@ -424,17 +446,10 @@ def _physics_route(
 
     if not homework and not needs_physics(content):
         return None
-    from app.models.schemas.physics.intent import PhysicsIntent
-
-    intent = extract_physics_intent(content)
-    if isinstance(intent, PhysicsIntent):
-        tools_on = settings is None or settings.math_tools_enabled
-        if tools_on and _physics_intent_solves(intent):
-            return fast
-        return smart
-    if homework:
-        return smart
-    return None
+    if extract_physics_intent(content) is None:
+        return smart if homework else None
+    tools_on = settings is None or settings.math_tools_enabled
+    return fast if tools_on and _physics_solves(content) else smart
 
 
 def _verified_math_stays_fast(content: str) -> bool:

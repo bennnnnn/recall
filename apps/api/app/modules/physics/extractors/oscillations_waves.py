@@ -310,8 +310,8 @@ _SPRING_CUES = (
 )
 
 _SPRING_CUE_RES: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\bspring\b.{0,80}?(?:\d+\s*N/m|\bk\s*=)", re.IGNORECASE),
-    re.compile(r"(?:\d+\s*N/m|\bk\s*=).{0,80}?\bspring\b", re.IGNORECASE),
+    re.compile(r"\bspring\b.{0,80}?(?:(?<!\d)\d+\s*N/m|\bk\s*=)", re.IGNORECASE),
+    re.compile(r"(?:(?<!\d)\d+\s*N/m|\bk\s*=).{0,80}?\bspring\b", re.IGNORECASE),
 )
 
 _SPRING_K_RE = re.compile(r"\bk\s*=\s*(-?\d+(?:\.\d+)?)", re.IGNORECASE)
@@ -381,7 +381,7 @@ _SHM_CUE_RES: tuple[re.Pattern[str], ...] = (_SHM_FREQUENCY_RE, _SHM_MAX_SPEED_R
 _SHM_TIME_UNITS = r"seconds?|secs?|sec|s|milliseconds?|ms|minutes?|mins?|min"
 
 _ANGULAR_FREQ_RE = re.compile(
-    r"(-?\d+(?:\.\d+)?)\s*(?:rad(?:ians?)?\s*(?:/|per)\s*s(?:ec(?:ond)?s?)?)",
+    r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:rad(?:ians?)?\s*(?:/|per)\s*s(?:ec(?:ond)?s?)?)",
     re.IGNORECASE,
 )
 

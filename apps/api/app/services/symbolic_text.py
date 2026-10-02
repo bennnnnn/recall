@@ -5,7 +5,13 @@ from __future__ import annotations
 from app.services.text_normalize import collapse_ws
 
 _MAX_SYMBOLIC_REQUEST = 1000
-_MAX_PHYSICS_REQUEST = 20_000
+# A physics problem and its givens fit in a few hundred characters. Four
+# thousand leaves room for a worksheet problem pasted whole, and keeps the
+# extractor chain, which scans the text dozens of times, inside a turn's budget.
+_MAX_PHYSICS_REQUEST = 4_000
+# The longest message a subject gate reads at all. Past this it is a document,
+# and only its head and tail are worth looking at.
+_MAX_SUBJECT_TEXT = 20_000
 _SUP_GLYPHS = "⁰¹²³⁴⁵⁶⁷⁸⁹"
 _SUP_ASCII = "0123456789"
 _SUP_TABLE = str.maketrans(_SUP_GLYPHS, _SUP_ASCII)
@@ -25,6 +31,8 @@ def strip_inline_math_delimiters(text: str) -> str:
 
 def fold_numeric_superscripts(text: str) -> str:
     """Normalize Unicode and braced numeric powers to caret notation."""
+    if "^{" not in text and not any(glyph in text for glyph in _SUP_GLYPHS):
+        return text
     out: list[str] = []
     index = 0
     while index < len(text):
@@ -51,6 +59,8 @@ def fold_numeric_superscripts(text: str) -> str:
 
 def collapse_repeated_si_unit_powers(text: str) -> str:
     """Collapse repeated keyboard inserts such as ``m/s^2^2.^2``."""
+    if "m/s^" not in text:
+        return text
     out: list[str] = []
     index = 0
     while index < len(text):
@@ -85,9 +95,9 @@ def normalize_symbolic_request(text: str, *, limit: int = _MAX_SYMBOLIC_REQUEST)
     """Normalize bounded user text without applying subject semantics.
 
     Math keeps the default 1,000-character cap. Physics passes a higher limit,
-    and that limit cannot exceed ``_MAX_PHYSICS_REQUEST``.
+    and no limit can exceed ``_MAX_SUBJECT_TEXT``.
     """
-    ceiling = min(max(limit, 1), _MAX_PHYSICS_REQUEST)
+    ceiling = min(max(limit, 1), _MAX_SUBJECT_TEXT)
     cleaned = collapse_ws(strip_inline_math_delimiters(text))
     if len(cleaned) > ceiling:
         return None

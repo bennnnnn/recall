@@ -4,12 +4,17 @@ from __future__ import annotations
 
 import logging
 import re
+from bisect import bisect_left, bisect_right
 
 from app.services.text_match import word_index
 
 logger = logging.getLogger(__name__)
 
-_NUMBER = r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+# A number starts where its digit run starts. Without the lookbehind, `search`
+# retries `\d+` from every digit of a long run and each retry backtracks the
+# rest of it, so one pasted 3,000-digit line cost a second per pattern. A match
+# that starts mid-run is only ever a suffix of the one that starts at the run.
+_NUMBER = r"-?(?<!\d)\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
 
 _LENGTH_UNIT_PATTERN = (
     r"kilometers?|km|centimeters?|cm|millimeters?|mm|"
@@ -54,11 +59,15 @@ def _has_cue_either_case(
     what the pre-filter did: `needs_symbolic` dropped questions the extractor
     would have answered, because the extractor saw the original casing and the
     pre-filter did not. The two have to see the same thing.
+
+    A case-insensitive regex finds the same thing in both, so it reads once.
     """
     lower = cleaned.lower()
     if any(cue in lower for cue in cues):
         return True
-    return any(rx.search(cleaned) or rx.search(lower) for rx in regexes)
+    return any(
+        rx.search(cleaned) or (not rx.flags & re.IGNORECASE and rx.search(lower)) for rx in regexes
+    )
 
 
 def _has_cue(
@@ -162,16 +171,23 @@ def _find_value_with_specific_unit(
         if require_keyword and not keyword_spans:
             return None
         if keyword_spans:
+            starts = sorted(start for start, _ in keyword_spans)
+            ends = sorted(end for _, end in keyword_spans)
 
             def distance_to_keyword(candidate: re.Match[str]) -> int:
-                distances: list[int] = []
-                for start, end in keyword_spans:
-                    if candidate.end() <= start:
-                        distances.append(start - candidate.end())
-                    elif end <= candidate.start():
-                        distances.append(candidate.start() - end)
-                    else:
-                        distances.append(0)
+                # Every span lies wholly after the value, wholly before it, or
+                # overlaps it. Sorted ends and starts give the nearest of the
+                # first two in log time, where comparing every pair grew with
+                # the square of a long question's values and keywords.
+                after = bisect_left(starts, candidate.end())
+                before = bisect_right(ends, candidate.start())
+                if before + len(starts) - after < len(starts):
+                    return 0
+                distances = []
+                if after < len(starts):
+                    distances.append(starts[after] - candidate.end())
+                if before:
+                    distances.append(candidate.start() - ends[before - 1])
                 return min(distances)
 
             match = min(matches, key=distance_to_keyword)

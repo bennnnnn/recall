@@ -4,8 +4,6 @@ from __future__ import annotations
 
 import math
 
-from sympy import Eq, Symbol, solve
-
 from app.models.schemas.math import GraphBlockSpec
 from app.models.schemas.physics import (
     PhysicsIntent,
@@ -17,6 +15,7 @@ from app.modules.physics.solvers.common import (
     QuantityResult,
     _latex_num,
     _params_in_si,
+    quadratic_roots,
 )
 from app.services.solving import SolveServiceError
 
@@ -227,15 +226,10 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     if g <= 0:
         raise SolveServiceError("gravity must be positive")
 
-    t = Symbol("t", positive=True, real=True)
-    h_sym = h0 + v0 * t - 0.5 * g * t**2
-
     def _time_to_ground() -> float | None:
-        solutions = solve(Eq(h_sym, 0), t)
-        valid = [s for s in solutions if s.is_real and s > 0] if solutions else []
-        if not valid:
-            return None
-        return float(valid[0])
+        # h0 + v0·t - ½g·t² = 0; the first moment after release it is 0.
+        valid = [root for root in quadratic_roots(-0.5 * g, v0, h0) if root > 0]
+        return valid[0] if valid else None
 
     # Past impact, h(t) is negative and v(t) is still "in air" — not a fact.
     if op in ("position", "velocity", "speed"):
@@ -541,11 +535,8 @@ def _suvat_time(p: dict[str, float]) -> tuple[float, str, str, str]:
             rf"t = {plugged}",
         )
     if u is not None and a is not None and d is not None:
-        # ½at² + ut - s = 0. SymPy rather than the quadratic formula by hand,
-        # and the earliest non-negative root is the physical one.
-        t_sym = Symbol("t", real=True)
-        roots = solve(Eq(0.5 * a * t_sym**2 + u * t_sym, d), t_sym)
-        candidates = sorted(float(r) for r in roots if r.is_real and float(r) >= 0)
+        # ½at² + ut - s = 0; the earliest non-negative root is the physical one.
+        candidates = [root for root in quadratic_roots(0.5 * a, u, -d) if root >= 0]
         if not candidates:
             raise SolveServiceError("the body never reaches that distance")
         return (

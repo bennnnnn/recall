@@ -169,7 +169,7 @@ def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
         # so the scan above sees one number where the question gave two.
         pair = re.search(
             r"from\s+(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)?\s*to\s+"
-            r"(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)",
+            r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)",
             cleaned,
             re.IGNORECASE,
         )
@@ -321,7 +321,7 @@ def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, 
     if kelvin is not None:
         return kelvin[0], "K"
     match = re.search(
-        rf"(-?\d+(?:\.\d+)?)\s*(?:{_CELSIUS_PATTERN})",
+        rf"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:{_CELSIUS_PATTERN})",
         cleaned,
         re.IGNORECASE,
     )
@@ -674,7 +674,7 @@ _FLUIDS_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bpressure\b.{0,80}?\bdepth\b", re.IGNORECASE),
     re.compile(rf"\bdensity\b.{{0,80}}?\d\s*(?:{_VOLUME_PATTERN})\b", re.IGNORECASE),
     re.compile(
-        rf"(?=.*\bdensity\b)(?=.*\d\s*(?:{_MASS_UNITS})\b)"
+        rf"\A(?=.*\bdensity\b)(?=.*\d\s*(?:{_MASS_UNITS})\b)"
         rf"(?=.*\d\s*(?:{_VOLUME_PATTERN})\b)",
         re.IGNORECASE | re.DOTALL,
     ),
