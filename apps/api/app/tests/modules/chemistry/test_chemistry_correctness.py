@@ -901,7 +901,9 @@ def test_an_oversized_smiles_is_not_parsed() -> None:
         ("hbr", "CCC=CC", None),  # 2-pentene: two products, none preferred
         ("hbr", "C=COC", None),  # the ether oxygen, not alkyl count, directs the addition
         ("bromine", "CC=CC", "CC(Br)C(C)Br"),
+        ("hydroxide", "CCl", "CO"),  # methyl
         ("hydroxide", "CCCl", "CCO"),
+        ("hydroxide", "CC(Cl)C", None),  # secondary
         ("hydroxide", "C=CCl", None),  # a vinyl halide is not an SN2 substrate
         ("hydroxide", "CC(Br)CBr", None),  # a second halogen makes the site ambiguous
         ("hydroxide", "Clc1ccccc1", None),
