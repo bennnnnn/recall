@@ -63,9 +63,10 @@ flowchart LR
    - `display_answer`: LaTeX with upright units (`3.97 \times 10^{-19}\,\mathrm{J}`), for
      the answer card.
 7. **Respond** (`direct.py`). A complete verified request returns Given / Find / Formula /
-   Substitution / Answer without waiting for the model. A given not in SI shows the value
-   the substitution uses (`λ = 500 nm = 5 × 10⁻⁷ m`). A solver that works in the written
-   units (150 km in 2 h) gets no conversion row. Image questions stay on the model path.
+   Substitution / Answer without waiting for the model. A given not in SI is followed by the
+   value the substitution uses (`λ = 500 nm`, then `λ = 5 × 10⁻⁷ m`). A solver that works
+   in the written units (150 km in 2 h) gets no conversion row. Image questions stay on the
+   model path.
 8. **Finalize** (`fence.py`). The model's answer and visual fences are dropped, and the
    solver's are appended.
 
