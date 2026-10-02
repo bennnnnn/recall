@@ -48,9 +48,19 @@ flowchart LR
      "reaches") or just after it ("100 turns on the primary"). Inputs that play the same
      part (two capacitors in series) are filled in the order stated;
    - unstated inputs come from phrases ("from rest" is u = 0, "horizontally" is θ = 0,
-     "string" makes a resonance n·v/2L) or settings (g, the mass of the planet the question
-     names, the charge of the electron, proton or alpha particle it names). A stated value
-     always beats a setting;
+     "string" makes a resonance n·v/2L) or settings (g; the mass or radius of the planet the
+     question names; the charge or mass of the particle it names; water's c and density
+     when water is the only substance named; sea-level pressure). A stated value always
+     beats a setting;
+   - an input that `needs_words` takes a value only when its words name it: an object's
+     density is not the fluid's, a tube's diameter is not its radius, and "at 20 °C" is
+     not a temperature change;
+   - values listed after "and" share the words before the list ("at 100 kPa and 300 K"),
+     and the words after a value stop at the first connector ("300 K is heated to 450 K"
+     names 450 K, not 300 K). A rate in rad/s or rpm fills only an angular input, never a
+     frequency in Hz;
+   - a speed written onto c ("0.8c") is the speed of light, so relativity binds without
+     the word "relativistic", and a car at 20 m/s never gets a Lorentz factor;
    - an operation's `excludes` words rule it out: a discharge is not a charging;
    - the filled inputs must be exactly a set the operation's solver answers from.
 
@@ -106,7 +116,9 @@ result units the binding promised, so a binding cannot promise what its solver r
 
 An expression's answer is in SI unless every given of the result's kind shares one unit:
 4 µF and 6 µF in series are 2.4 µF, and a 40 cm radius of curvature gives a 20 cm focal
-length. A law whose inputs are roles rather than kinds stays an extractor: Doppler
+length. Temperatures in °C give a temperature in °C (two waters mixed at 80 °C and 20 °C
+reach 44 °C), and a change of temperature stays a change: a rise of 50 °C is 50 K, never
+323 K. A law whose inputs are roles rather than kinds stays an extractor: Doppler
 (`extractors/doppler.py`) reads who moves, toward whom, and a stated speed of sound.
 
 ## Coverage
@@ -120,6 +132,10 @@ The binder reads these laws, beside the extractors' own:
 | Circuits | Q = It for I; Q = CV for Q, C and V; R = ρL/A; τ = RC; RC charging and discharging; capacitors in series and parallel; ideal transformer |
 | Fields | E = V/d between plates; F = qE; W = qV (eV with "in eV"); solenoid B = μ₀NI/L |
 | Waves and optics | resonance of a string or pipe; Snell for θ₂; diffraction grating angle; lens power; mirror f = R/2; magnification m = −v/u |
+| Thermal | PV = nRT for any unknown; Boyle, Charles, Gay-Lussac and the combined law; Q = mcΔT for any unknown; water mixtures; latent heat; linear expansion; v_rms, mean and most probable speed; ⟨E_k⟩ = 3/2 kT; diatomic U = 5/2 nRT |
+| Fluids | absolute pressure; apparent weight when submerged; floating fraction; capillary rise |
+| Modern | photon momentum; threshold frequency and wavelength; stopping potential; photoelectric KE; fraction and mass remaining; decay constant; activity; mean life |
+| Upper level | hydrogen transitions (λ and ΔE); Bohr radius; quantum-oscillator levels; relativistic p, E and K; E² = (pc)² + (mc²)²; velocity addition; Schwarzschild radius; Boltzmann ratio; S = k ln Ω; energy-time uncertainty; an orbit's period from its height |
 
 ## Numbers and units
 

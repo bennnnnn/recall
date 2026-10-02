@@ -156,9 +156,19 @@ _WORDS: dict[str, str] = {
     "m3": "meter ** 3",
     "cm^3": "centimeter ** 3",
     "cm3": "centimeter ** 3",
+    # An expansion coefficient: per degree of change, so per °C is per K.
     "per k": "1 / kelvin",
     "/k": "1 / kelvin",
+    "k^-1": "1 / kelvin",
+    "k⁻¹": "1 / kelvin",
     "per °c": "1 / kelvin",
+    "/°c": "1 / kelvin",
+    "°c^-1": "1 / kelvin",
+    "°c⁻¹": "1 / kelvin",
+    "g/mol": "gram / mole",
+    "kg/mol": "kilogram / mole",
+    "mmhg": "millimeter_Hg",
+    "bq": "1 / second",
     "°c": "degC",
     "degc": "degC",
     "celsius": "degC",
@@ -247,9 +257,12 @@ _WORDS: dict[str, str] = {
     "radian": "radian",
     "rad": "radian",
     "percent": "percent",
-    # A count of coil windings: a pure number with a name.
+    # Counts: a pure number with a name (coil windings, nuclei, microstates).
     "turns": "dimensionless",
     "turn": "dimensionless",
+    "nuclei": "dimensionless",
+    "atoms": "dimensionless",
+    "microstates": "dimensionless",
     # A grating's ruling, as a line density.
     "lines per mm": "1 / millimeter",
     "lines/mm": "1 / millimeter",
@@ -324,11 +337,20 @@ def _canonical(powers: dict[str, float]) -> str:
 
 def unit_expression(spelling: str) -> str | None:
     """The Pint expression of one spelling from the unit table."""
+    if spelling == "c":
+        return "speed_of_light"
     return _SYMBOLS.get(spelling) or _WORDS.get(spelling.lower())
+
+
+# "0.8c": the speed of light, only when the c is written onto the number. A
+# spaced "2 c" is as likely a part label ("question 2 c)") as a speed.
+_LIGHT_SPEED_RE = re.compile(r"c(?![A-Za-z0-9])")
 
 
 def unit_at(text: str, end: int) -> tuple[str, str] | None:
     """The unit written right after a number: (spelling, Pint expression)."""
+    if _LIGHT_SPEED_RE.match(text, end):
+        return "c", "speed_of_light"
     word = _WORD_RE.match(text, end)
     symbol = _SYMBOL_RE.match(text, end)
     # The longer spelling wins: "m/s" over "m", "kg" over "g", "ms" over "m".

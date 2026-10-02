@@ -19,11 +19,16 @@ from functools import lru_cache
 from app.modules.physics.display import latex_given
 from app.modules.physics.solvers.common import (
     _BIG_G,
+    _BOHR_RADIUS,
+    _BOLTZMANN,
     _COULOMB_K,
     _ELEMENTARY_CHARGE,
     _EPSILON_0,
+    _GAS_CONSTANT,
+    _HBAR,
     _MU_0,
     _PLANCK_H,
+    _RYDBERG,
     _SPEED_OF_LIGHT,
 )
 
@@ -58,6 +63,11 @@ _CONSTANTS = {
     "h_planck": (_PLANCK_H, "h"),
     "c_light": (_SPEED_OF_LIGHT, "c"),
     "e_charge": (_ELEMENTARY_CHARGE, "e"),
+    "R_gas": (_GAS_CONSTANT, "R"),
+    "k_B": (_BOLTZMANN, "k_B"),
+    "hbar": (_HBAR, r"\hbar"),
+    "R_inf": (_RYDBERG, r"R_\infty"),
+    "a_0": (_BOHR_RADIUS, "a_0"),
 }
 _BINARY = (ast.Add, ast.Sub, ast.Mult, ast.Div, ast.Pow)
 _UNARY = (ast.USub, ast.UAdd)

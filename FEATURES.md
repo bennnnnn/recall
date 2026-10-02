@@ -267,7 +267,16 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   resistivity, `τ = RC`, RC charging and discharging, capacitors in series and parallel,
   an ideal transformer, `E = V/d`, `F = qE`, `W = qV` for a named electron or proton,
   a solenoid's field, a string or pipe's resonance, Snell for θ₂, a diffraction
-  grating's angle, lens power, `f = R/2`, `m = −v/u`); see "Adding a law" in
+  grating's angle, lens power, `f = R/2`, `m = −v/u`; the ideal-gas law for any
+  unknown, Boyle, Charles, Gay-Lussac and the combined gas law, `Q = mcΔT` for any
+  unknown, water mixtures, latent heat, expansion, kinetic theory (`v_rms`, mean and
+  most probable speed, `⟨E_k⟩ = 3/2 kT`), a diatomic gas's `U`, absolute pressure,
+  apparent weight, a floating fraction, capillary rise; photon momentum, threshold
+  frequency and wavelength, stopping potential, decay constant, activity, mean life,
+  the fraction remaining; hydrogen transitions, the Bohr radius, quantum-oscillator
+  levels, relativistic momentum and energy, `E² = (pc)² + (mc²)²`, velocity addition,
+  the Schwarzschild radius, the Boltzmann ratio and `S = k ln Ω`, energy-time
+  uncertainty, and an orbit's period from its height); see "Adding a law" in
   docs/physics.md. An answer is in the unit its like givens share (two µF capacitors
   give µF). Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
@@ -324,9 +333,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   length contraction), entropy change, double-slit interference, Malus, Brewster,
   the infinite square well, hydrogen levels, and the Heisenberg relation are in
   the catalog. Still unverified, and answered without a verified block:
-  the Schrödinger equation and the quantum
-  harmonic oscillator, the Rydberg formula, Planck's distribution, and general
-  relativity. Nuclear binding energy and mass defect are chemistry when the
+  the Schrödinger equation (wave functions), Planck's distribution, and general
+  relativity beyond the Schwarzschild radius. Nuclear binding energy and mass defect are chemistry when the
   nuclear mass is supplied. A test keeps that list off the
   catalog. Every complete, single-request verified physics
   answer returns directly with Given / Find / Formula / Substitution / Answer,

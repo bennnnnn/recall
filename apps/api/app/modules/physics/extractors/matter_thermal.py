@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.bodies import WATER_DENSITY, WATER_SPECIFIC_HEAT
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _NUMBER,
@@ -311,7 +312,7 @@ _THERMAL_CUE_RES: tuple[re.Pattern[str], ...] = (
     ),
 )
 
-_WATER_SPECIFIC_HEAT = 4186.0
+_WATER_SPECIFIC_HEAT = WATER_SPECIFIC_HEAT
 
 # Every way a specific heat capacity is written: J/kg/K, J/(kg·K), J/kg°C,
 # J kg^-1 K^-1, and the same in kJ.
@@ -325,6 +326,28 @@ _TEMPERATURE_SPAN = re.compile(
     rf"\bfrom\s+({_NUMBER})\s*(°\s*C|K)?\s*(?:up\s+|down\s+)?(?:to|until)\s+"
     rf"({_NUMBER})\s*(°\s*C|K)(?![A-Za-z])",
 )
+
+
+# A change of temperature reads the same in K and °C; it is named as a change.
+_TEMPERATURE_READING = re.compile(
+    rf"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})(?![A-Za-z])",
+    re.IGNORECASE,
+)
+_CHANGE_REACH = 30
+
+
+def _temperature_change(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
+    """A temperature change the words name ("heated by 10 °C"), in kelvin.
+
+    A lone "at 20 °C" is a temperature, not a change: reading it as one
+    verified "heat 2 kg of water at 20 °C" as 167 kJ.
+    """
+    lower = cleaned.lower()
+    for match in _TEMPERATURE_READING.finditer(cleaned):
+        before = lower[max(0, match.start() - _CHANGE_REACH) : match.start()]
+        if any(keyword in before for keyword in keywords):
+            return float(match.group(1)), "K"
+    return None
 
 
 def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, str] | None:
@@ -512,7 +535,7 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
         thickness = _find_value_with_specific_unit(
             cleaned, _LENGTH_UNIT_PATTERN, ("thickness", "length"), require_keyword=True
         )
-        rise = _temperature_value(cleaned, ("temperature difference", "difference", "delta t"))
+        rise = _temperature_change(cleaned, ("temperature difference", "difference", "delta t"))
         if conductivity is None or area is None or thickness is None or rise is None:
             return None
         return PhysicsIntent(
@@ -544,7 +567,7 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
             cleaned,
             re.IGNORECASE,
         )
-        rise = _temperature_value(cleaned, ("heated by", "temperature change", "change", "by"))
+        rise = _temperature_change(cleaned, ("heated by", "temperature change", "change", "by"))
         if length is None or alpha_match is None or rise is None:
             return None
         return PhysicsIntent(
@@ -646,7 +669,7 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
     # --- Q = m c dT ------------------------------------------------------
     mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
     readings = _TEMPERATURE_SPAN.search(cleaned)
-    rise = None if readings else _temperature_value(cleaned, ("by", "rise", "raise", "change"))
+    rise = None if readings else _temperature_change(cleaned, ("by", "rise", "raise", "change"))
     if rise is None and readings is None:
         # A temperature *difference* is the same number in kelvin and celsius,
         # so a bare "by 10 degrees" is unambiguous here in a way an absolute
@@ -749,7 +772,7 @@ _STRESS_WORDS = ("stress", "strain", "young", "modulus", "tensile")
 
 _ABSOLUTE_PRESSURE_RE = re.compile(r"\babsolute\b|\batmospheric\b", re.IGNORECASE)
 
-_WATER_DENSITY = 1000.0
+_WATER_DENSITY = WATER_DENSITY
 
 
 def _extract_fluids_intent(cleaned: str) -> PhysicsIntent | None:

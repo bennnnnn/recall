@@ -292,13 +292,15 @@ def _extract_modern_intent(cleaned: str) -> PhysicsIntent | None:
         )
 
     if "hydrogen" in lower and "energy" in lower:
-        level = re.search(r"\bn\s*(?:=|is)\s*(\d+)\b", cleaned, re.IGNORECASE)
-        if level is None:
+        # One level is its energy; two ("falls from n = 3 to n = 2") are a
+        # transition, whose photon the level formula would misreport as E₃.
+        levels = re.findall(r"\bn\s*(?:=|is)\s*(\d+)\b", cleaned, re.IGNORECASE)
+        if len(levels) != 1:
             return None
         return PhysicsIntent(
             kind="modern",
             physics_op="hydrogen_energy_level",
-            physics_params={"quantum_n": float(level.group(1))},
+            physics_params={"quantum_n": float(levels[0])},
             physics_units={"quantum_n": ""},
             operation="solve",
         )
@@ -365,7 +367,8 @@ def _extract_modern_intent(cleaned: str) -> PhysicsIntent | None:
             operation="solve",
         )
 
-    if "photon" in lower or "planck" in lower:
+    # A photon's momentum is not its energy: that law is the catalog binder's.
+    if ("photon" in lower or "planck" in lower) and "momentum" not in lower:
         freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
         wavelength = _find_value_with_specific_unit(
             cleaned,

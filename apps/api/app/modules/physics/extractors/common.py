@@ -6,7 +6,7 @@ import logging
 import re
 from bisect import bisect_left, bisect_right
 
-from app.modules.physics.bodies import ELEMENTARY_CHARGE, SCHOOL_GRAVITY
+from app.modules.physics.bodies import ELECTRON_MASS, ELEMENTARY_CHARGE, SCHOOL_GRAVITY
 from app.services.text_match import word_index
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ _VELOCITY_UNIT_PATTERN = r"m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour"
 
 _G_DEFAULT = 9.81
 
-_ELECTRON_MASS = 9.1093837015e-31
+_ELECTRON_MASS = ELECTRON_MASS
 
 _ELEMENTARY_CHARGE = ELEMENTARY_CHARGE
 

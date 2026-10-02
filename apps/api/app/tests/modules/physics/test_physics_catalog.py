@@ -22,8 +22,6 @@ _SETTINGS = Settings(math_tools_enabled=True)
 
 _FEATURES_MARKERS = (
     "Schrödinger",
-    "quantum harmonic oscillator",
-    "Rydberg",
     "Planck's distribution",
     "binding energy",
     "mass defect",
