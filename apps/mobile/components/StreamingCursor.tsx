@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { StyleSheet, View } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 import Animated, {
   cancelAnimation,
   useAnimatedStyle,
@@ -30,8 +30,16 @@ export function withStreamCaret(markdown: string): string {
   return body + STREAM_CARET + markdown.slice(end);
 }
 
-/** Blinking caret shown while assistant text is streaming in. */
-export function StreamingCursor() {
+const AnimatedText = Animated.createAnimatedComponent(Text);
+
+/** Thin bar that can live inside a React Native Text run. */
+const INLINE_CARET = "\u258F";
+
+/**
+ * Blinking caret shown while assistant text is streaming in.
+ * `inline` is a Text glyph. A View inside Text lays out at 0×0 on iOS.
+ */
+export function StreamingCursor({ inline = false }: { inline?: boolean }) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const reduceMotion = useReduceMotion();
@@ -64,6 +72,19 @@ export function StreamingCursor() {
     opacity: opacity.value,
   }));
 
+  if (inline) {
+    return (
+      <AnimatedText
+        testID="stream-caret"
+        style={[s.inlineCaret, caretStyle]}
+        accessibilityElementsHidden
+        importantForAccessibility="no"
+      >
+        {INLINE_CARET}
+      </AnimatedText>
+    );
+  }
+
   return (
     <View
       testID="stream-caret"
@@ -89,6 +110,10 @@ function makeStyles(t: Theme) {
       height: 16,
       borderRadius: 1,
       backgroundColor: t.accent,
+    },
+    inlineCaret: {
+      color: t.accent,
+      fontSize: 16,
     },
   });
 }

@@ -207,16 +207,16 @@ function renderTextWithMath(
     runHeight != null && { lineHeight: runHeight },
   ];
   let caretLeft = marked.caret;
-  const takeCaret = (): ReactNode => {
+  const takeCaret = (inText = false): ReactNode => {
     if (!caretLeft) return null;
     caretLeft = false;
-    return <StreamingCursor key={`${node.key}-caret`} />;
+    return <StreamingCursor key={`${node.key}-caret`} inline={inText} />;
   };
 
   if (!content && marked.caret) {
     return (
       <Text key={node.key} style={base} selectable>
-        {takeCaret()}
+        {takeCaret(true)}
       </Text>
     );
   }
@@ -225,7 +225,7 @@ function renderTextWithMath(
     return (
       <Text key={node.key} style={base} selectable>
         {withGreenTicks(content, tickColor, node.key)}
-        {takeCaret()}
+        {takeCaret(true)}
       </Text>
     );
   }
@@ -239,7 +239,10 @@ function renderTextWithMath(
     const flushInline = (final = false) => {
       if (!inline.length) return;
       const key = `${node.key}-inline-${runs.length}`;
-      const caret = final ? takeCaret() : null;
+      const inText = !inline.some(
+        (part) => part.type === "math" && latexHasNestedMathView(part.value),
+      );
+      const caret = final ? takeCaret(inText) : null;
       const children = inline.map((part, i) => part.type === "math"
         ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} />
         : <Text key={`${key}-${i}`} style={base} selectable>{withGreenTicks(part.value, tickColor, key)}</Text>);
@@ -304,7 +307,7 @@ function renderTextWithMath(
           {inline.map((part, i) => part.type === "math"
             ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} />
             : withGreenTicks(part.value, tickColor, `${key}-${i}`))}
-          {final ? takeCaret() : null}
+          {final ? takeCaret(true) : null}
         </Text>,
       );
       inline = [];
@@ -343,7 +346,7 @@ function renderTextWithMath(
           withGreenTicks(part.value, tickColor, `${node.key}-t-${i}`)
         ),
       )}
-      {takeCaret()}
+      {takeCaret(true)}
     </Text>
   );
 }

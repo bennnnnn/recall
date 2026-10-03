@@ -47,6 +47,7 @@ describe("streaming caret", () => {
     expect(view.getByText(/The answer is/)).toBeOnTheScreen();
     expect(view.queryByText(/\\frac/)).toBeNull();
     const caret = view.getByTestId("stream-caret", { includeHiddenElements: true });
+    expect(caret.type).toBe("Text");
     expect(caret.parent?.type).toBe("Text");
   });
 
@@ -77,6 +78,7 @@ describe("streaming caret", () => {
     expect(view.queryByText(/segment/)).toBeNull();
     const caret = view.getByTestId("stream-caret", { includeHiddenElements: true });
     expect(view.getByText(/A triangle/)).toBeOnTheScreen();
+    expect(caret.type).toBe("Text");
     expect(caret.parent?.type).toBe("Text");
   });
 });
