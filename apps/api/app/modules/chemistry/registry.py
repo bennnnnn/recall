@@ -3,9 +3,9 @@
 The first extractor that returns an intent wins, so the order is load-bearing. The labelled
 templates of the original catalog read first. The closed calculations and the topic readers
 added after them follow, in an order that never takes an operation the templates answer.
-Readers of the substances a question names (Graham's law, an element's mass, isotopes,
-an electron configuration) run last: they need no stated value, so they would otherwise claim
-a question a value-reading template answers.
+Readers that take their inputs from the substances a question names (Graham's law, an
+element's mass, isotopes, an electron configuration) run last, after every reader of the
+values it states.
 """
 
 from __future__ import annotations
