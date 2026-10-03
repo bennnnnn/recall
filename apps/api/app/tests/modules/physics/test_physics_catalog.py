@@ -155,6 +155,12 @@ def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:
             "9 rad",
         ),
         (
+            "Angular velocity increases from 4 rad/s to 10 rad/s in 3 s. "
+            "Find the angular displacement.",
+            "rotational_theta",
+            "21 rad",
+        ),
+        (
             "Angular velocity increases from 4 rad/s to 10 rad/s in 2 s. "
             "Find the angular acceleration.",
             "rotational_alpha",
@@ -208,6 +214,16 @@ def test_new_mechanics_operations_verify(text: str, op: str, answer: str) -> Non
     assert intent is not None
     assert intent.physics_op == op
     assert _answer(text) == answer
+
+
+def test_a_reversed_rotation_is_not_an_angular_displacement() -> None:
+    text = (
+        "Angular velocity changes from 4 rad/s to -2 rad/s in 3 s. "
+        "Find the angular displacement."
+    )
+    intent = extract_physics_intent(text)
+    assert intent is not None and intent.physics_op == "rotational_theta"
+    assert _answer(text) is None
 
 
 @pytest.mark.parametrize(

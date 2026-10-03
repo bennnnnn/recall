@@ -67,6 +67,12 @@ def extract_rotational_dynamics(cleaned: str) -> PhysicsIntent | None:
             return _torque_inertia(cleaned)
     if re.search(_ALPHA_UNIT, cleaned, re.I) or "angular acceleration" in lower:
         return _kinematics(cleaned)
+    if (
+        "angular displacement" in lower
+        and _omega_pair(cleaned) is not None
+        and _time(cleaned) is not None
+    ):
+        return _kinematics(cleaned)
     return None
 
 
@@ -122,11 +128,11 @@ def _kinematics(cleaned: str) -> PhysicsIntent | None:
         return None
     if asks_theta:
         params.pop("theta", None)
-        if {"omega0", "ang_alpha", "t"} <= params.keys() or {
-            "omega",
-            "omega0",
-            "ang_alpha",
-        } <= params.keys():
+        if (
+            {"omega0", "ang_alpha", "t"} <= params.keys()
+            or {"omega", "omega0", "ang_alpha"} <= params.keys()
+            or {"omega", "omega0", "t"} <= params.keys()
+        ):
             return _intent("rotational_theta", params, units)
         return None
     if asks_omega or (

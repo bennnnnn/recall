@@ -307,7 +307,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   named-body table), **fluids** (`P = F/A`, `ρgh`, upthrust, density, continuity,
   flow rate, horizontal Bernoulli, Bernoulli with both heights stated, and
   Poiseuille), **rotation** (`ω = θ/t`, moment of inertia, `L = Iω`, rotational KE,
-  constant-α kinematics, `τ = Iα`, `τ = ΔL/Δt`, isolated `Iω` conservation,
+  constant-α kinematics including θ = (ω₀+ω)t/2, `τ = Iα`, `τ = ΔL/Δt`, isolated `Iω` conservation,
   rolling without slipping, the parallel-axis theorem, and a two-gear train),
   **magnetism** (`F = BIL`, `F = qvB`, `Φ = BA`, and `sin θ` / `cos θ` when an
   angle is stated; Gauss for a sphere, shell, line, and sheet; Faraday's

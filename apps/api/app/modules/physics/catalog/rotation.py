@@ -97,6 +97,15 @@ SPECS: tuple[FormulaSpec, ...] = (
                     "angular displacement is measured from zero",
                 ),
             ),
+            FormulaVariant(
+                latex=r"\theta = \frac{\omega_0 + \omega}{2} t",
+                present=frozenset({"omega", "omega0", "t"}),
+                absent=frozenset({"ang_alpha"}),
+                assumptions=(
+                    "constant angular acceleration",
+                    "angular displacement is measured from zero",
+                ),
+            ),
         ),
         variables=(
             var("ang_alpha", r"\alpha", "radian / second ** 2"),
