@@ -17,6 +17,7 @@ from app.modules.job_search.posting import (
     _SALARY_NUMBER,
     _SENIOR_TERMS,
     _SPONSORSHIP_AVAILABLE,
+    _clean_posting_title,
     _extract_company_logo_url,
     _extract_experience,
     _extract_location,
@@ -516,6 +517,8 @@ def _fallback_rank(
         ):
             continue
         title, company = _verified_fallback_identity(candidate)
+        if title is None:
+            title = _clean_posting_title(candidate.title.strip()) or "Job opening"
         if company == "Unknown employer":
             continue
         experience = _extract_experience(candidate)

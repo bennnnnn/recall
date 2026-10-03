@@ -186,6 +186,14 @@ def test_posting_fact_fallbacks_extract_salary_and_experience() -> None:
     assert _extract_experience(candidate) == "3+ years of experience"
 
 
+def test_a_named_bonus_does_not_replace_the_salary_range() -> None:
+    candidate = _candidate(
+        "Backend Engineer",
+        "Salary $120,000-$140,000 per year. Signing bonus of 10,000 USD.",
+    )
+    assert _extract_salary(candidate) == "$120,000-$140,000 per year"
+
+
 def test_experience_fallback_does_not_treat_manager_title_as_senior() -> None:
     assert _extract_experience(_candidate("Account Manager", "Client services role")) is None
 
@@ -506,6 +514,9 @@ def test_title_and_company_never_names_the_board_as_employer() -> None:
     # A company's own career site still derives a readable name.
     _, company = _title_and_company("Registered Nurse ICU", "charite.de")
     assert company == "Charite"
+    # job-boards.greenhouse.io is the ATS, not an employer named Job Boards.
+    _, company = _title_and_company("Backend Engineer", "job-boards.greenhouse.io")
+    assert company == "Unknown employer"
 
 
 def _rank_settings() -> MagicMock:
@@ -531,6 +542,41 @@ async def test_rank_keeps_exact_grounded_posting_title(monkeypatch: pytest.Monke
     assert len(accepted) == 1
     assert accepted[0].title == "Intensivpfleger (m/w/d) Intensivstation"
     assert accepted[0].company == "Charité"
+
+
+async def test_rank_keeps_grounded_title_pay_and_employer_without_a_heading(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    candidate = replace(
+        _candidate("Backend Engineer jobs", "Python APIs"),
+        source="job-boards.greenhouse.io",
+        url="https://job-boards.greenhouse.io/acme/jobs/1",
+        canonical_url="https://job-boards.greenhouse.io/acme/jobs/1",
+        page_text=(
+            "Backend Engineer. Full time. "
+            "Salary $120,000-$140,000 per year. "
+            "Signing bonus of 10,000 USD."
+        ),
+    )
+
+    async def fake_structured(**kwargs: object) -> _RankedPayload:
+        return _RankedPayload(
+            jobs=[
+                _RankedJob(
+                    candidate_id=0,
+                    title="Backend Engineer",
+                    company="Acme",
+                    salary="$120,000-$140,000 per year",
+                )
+            ]
+        )
+
+    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
+    accepted = await _rank_candidates(_rank_settings(), _profile(), [candidate])
+    assert len(accepted) == 1
+    assert accepted[0].title == "Backend Engineer"
+    assert accepted[0].company == "Acme"
+    assert accepted[0].salary == "$120,000-$140,000 per year"
 
 
 async def test_rank_rejects_composed_title_in_favor_of_page_headline(

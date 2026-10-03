@@ -245,6 +245,14 @@ _HOST_SUFFIXES = frozenset(
 )
 
 
+def _is_career_host_label(label: str) -> bool:
+    """A careers token, including a compound such as ``job-boards``."""
+    if label in _CAREER_HOST_LABELS:
+        return True
+    parts = [part for part in label.split("-") if part]
+    return len(parts) > 1 and all(part in _CAREER_HOST_LABELS for part in parts)
+
+
 def _employer_from_host(source: str) -> str:
     """Employer from a career hostname, skipping the jobs/careers label.
 
@@ -252,18 +260,19 @@ def _employer_from_host(source: str) -> str:
     employer, so it stays unknown until the page names a company.
     """
     labels = [part for part in source.casefold().split(".") if part and part not in _HOST_SUFFIXES]
-    while labels and labels[0] in _CAREER_HOST_LABELS:
+    while labels and _is_career_host_label(labels[0]):
         del labels[0]
     if not labels or labels[0] in _ATS_HOST_LABELS or labels[0] in _BOARD_NAMES:
         return "Unknown employer"
     return labels[0].replace("-", " ").title()[:180]
 
 
-def _verified_fallback_identity(candidate: _Candidate) -> tuple[str, str]:
+def _verified_fallback_identity(candidate: _Candidate) -> tuple[str | None, str]:
     """Extract an honest title/employer from a fetched posting page.
 
-    ATS search titles are inconsistent and ranking providers can occasionally
-    return an empty structured payload. The page heading and logo alt text are
+    The title is only a real ``#`` heading. A page with no heading returns
+    ``None`` so a grounded ranker title is not replaced by the search result.
+    ATS search titles are inconsistent. The page heading and logo alt text are
     stronger evidence than deriving an employer from a hostname like
     ``apply.workable.com``.
     """
@@ -275,14 +284,16 @@ def _verified_fallback_identity(candidate: _Candidate) -> tuple[str, str]:
         page,
         re.IGNORECASE,
     )
-    title = heading_match.group(1).strip() if heading_match else candidate.title.strip()
-    title = re.sub(r"\s+#+\s*$", "", title).strip()
-    title = re.sub(
-        r"^\(remote\)\s*[-\u2013\u2014:]\s*",
-        "",
-        title,
-        flags=re.IGNORECASE,
-    )
+    title = heading_match.group(1).strip() if heading_match else None
+    if title is not None:
+        title = re.sub(r"\s+#+\s*$", "", title).strip()
+        title = re.sub(
+            r"^\(remote\)\s*[-\u2013\u2014:]\s*",
+            "",
+            title,
+            flags=re.IGNORECASE,
+        )
+        title = _clean_posting_title(title) or None
 
     company_match = re.search(
         r"Image\s+\d+\s*:\s*([^\]]{2,100})\]",
@@ -304,8 +315,8 @@ def _verified_fallback_identity(candidate: _Candidate) -> tuple[str, str]:
         company = company_match.group(1).strip()
     else:
         _, company = _title_and_company(candidate.title, candidate.source)
-    title = _clean_posting_title(title)
-    return title[:240] or "Job opening", company[:180]
+    shown = title[:240] if title else None
+    return shown or None, company[:180]
 
 
 def _clean_posting_title(title: str) -> str:
@@ -417,25 +428,55 @@ _EXPERIENCE_TEXT = re.compile(
 )
 
 
-def _extract_salary(candidate: _Candidate) -> str | None:
-    text = f"{candidate.title} {candidate.snippet} {candidate.page_text or ''}"
-    # A named base range ("132,000 USD - 170,000 USD") is the salary. A later
-    # "$7,200" 401k match is a benefit, so it must not win when the range exists.
-    named = _NAMED_CURRENCY_PAY.search(text)
-    if named is not None:
-        return " ".join(named.group("pay").split())[:160]
+_SALARY_CONTEXT = re.compile(
+    r"\b(?:salary|compensation|wage|base pay|pay range)\b",
+    re.IGNORECASE,
+)
+_PAY_RANGE = re.compile(r"(?:-|\u2013|\u2014|\bto\b)", re.IGNORECASE)
+
+
+def _currency_salary(text: str) -> str | None:
+    """A ``$`` amount or a pay cadence. A bare number is not pay."""
     for match in _PAY_TEXT.finditer(text):
         value = " ".join(match.group("pay").split()).strip(" ,.;:()")
-        # Bare numbers and ranges could be dates, IDs, or required years.
         has_currency_or_cadence = re.search(
             r"[$€£]|\b(?:per|/)\s*(?:hour|hr|year|yr|month|annum|week)\b",
             value,
             re.IGNORECASE,
         )
-        if not has_currency_or_cadence:
-            continue
-        return value[:160]
+        if has_currency_or_cadence:
+            return value[:160]
     return None
+
+
+def _named_salary(text: str) -> str | None:
+    """A named-currency amount that is the salary, not a bonus or benefit.
+
+    ``132,000 USD - 170,000 USD`` is a range. ``10,000 USD`` does not replace
+    a ``$120,000`` salary, and it counts only when the nearby words call it pay.
+    """
+    for match in _NAMED_CURRENCY_PAY.finditer(text):
+        pay = match.group("pay")
+        if _PAY_RANGE.search(pay):
+            return " ".join(pay.split())[:160]
+    if _currency_salary(text) is not None:
+        return None
+    for match in _NAMED_CURRENCY_PAY.finditer(text):
+        pay = match.group("pay")
+        window = text[max(0, match.start() - 40) : match.end() + 20]
+        if _SALARY_CONTEXT.search(window):
+            return " ".join(pay.split())[:160]
+    return None
+
+
+def _extract_salary(candidate: _Candidate) -> str | None:
+    text = f"{candidate.title} {candidate.snippet} {candidate.page_text or ''}"
+    # A named base range ("132,000 USD - 170,000 USD") is the salary. A later
+    # "$7,200" 401k match, or a bare "10,000 USD" bonus, must not win instead.
+    named = _named_salary(text)
+    if named is not None:
+        return named
+    return _currency_salary(text)
 
 
 def _extract_experience(candidate: _Candidate) -> str | None:
