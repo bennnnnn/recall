@@ -133,8 +133,33 @@ def solve_equilibrium(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+# A rate per day or per year, not per "days".
+_PER_TIME = {"days": "day", "years": "yr"}
+
+
+def _first_order_rate_constant(intent: ChemistryIntent) -> ChemistryResult:
+    """k = ln(2) / t₁/₂, per the time unit the half-life is written in."""
+    (half_life,) = require_all(intent, "half_life")
+    if half_life <= 0:
+        raise SolveServiceError("half-life must be positive")
+    time_unit = intent.units.get("half_life_time", "s")
+    per = _PER_TIME.get(time_unit, time_unit)
+    value = f"{num(math.log(2) / half_life)} {per}⁻¹"
+    return verified(
+        "Verified first-order rate constant",
+        (f"t₁/₂ = {inp(half_life)} {time_unit}",),
+        "Rate constant, k",
+        *stated("first_order_half_life"),
+        (f"k = ln(2) / t₁/₂ = {num(math.log(2))} / {inp(half_life)}",),
+        f"k = {value}",
+        value,
+    )
+
+
 def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
     op = intent.chemistry_op
+    if op == "first_order_half_life" and "half_life" in intent.params:
+        return _first_order_rate_constant(intent)
     if op == "first_order_half_life":
         (rate_constant,) = require_all(intent, "rate_constant")
         if rate_constant <= 0:

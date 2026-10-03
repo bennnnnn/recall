@@ -20,6 +20,7 @@ from app.modules.chemistry.request import is_chemistry_question
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.types import format_number
 from app.services.solving import SolveServiceError
+from app.tests.modules.chemistry.new_law_cases import NEW_LAW_CASES
 
 PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     ("Balance H2 + O2 -> H2O", "balance", "2 H2 + O2 -> 2 H2O"),
@@ -122,7 +123,8 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
     (
         "Find electrochemical Gibbs ΔG for a cell with n=2 and E°=1.1 V",
         "cell_gibbs",
-        "ΔG° = -210 kJ/mol",
+        # -212 kJ to the two figures of 1.1 V: the hidden 2 is written as a power of ten.
+        "ΔG° = -2.1 × 10^2 kJ/mol",
     ),
     (
         "Use Nernst equation with E°=1.1 V, n=2, Q=10, T=298 K",
@@ -483,11 +485,16 @@ REMAINING_CASES = (
 
 
 def test_pipeline_matrix_covers_every_typed_operation() -> None:
-    covered = {operation for _question, operation, _answer in (*PIPELINE_CASES, *REMAINING_CASES)}
+    covered = {
+        operation
+        for _question, operation, _answer in (*PIPELINE_CASES, *REMAINING_CASES, *NEW_LAW_CASES)
+    }
     assert covered == _LOCAL_OPS
 
 
-@pytest.mark.parametrize(("question", "operation", "answer"), (*PIPELINE_CASES, *REMAINING_CASES))
+@pytest.mark.parametrize(
+    ("question", "operation", "answer"), (*PIPELINE_CASES, *REMAINING_CASES, *NEW_LAW_CASES)
+)
 def test_text_pipeline_matrix(question: str, operation: ChemistryOp, answer: str) -> None:
     assert is_chemistry_question(question)
     intent = extract_chemistry_intent(question)

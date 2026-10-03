@@ -13,6 +13,12 @@ from app.modules.chemistry.extractors.identity import (
     _extract_identity,
     _extract_nuclear_ext,
 )
+from app.modules.chemistry.extractors.named import (
+    _extract_average_atomic_mass,
+    _extract_electron_configuration,
+    _extract_element_mass,
+    _extract_graham,
+)
 from app.modules.chemistry.extractors.physical import (
     _extract_equilibrium_ext,
     _extract_gas_laws,
@@ -37,4 +43,8 @@ EXTENDED_EXTRACTORS = (
     _extract_identity,
     _extract_colligative,
     _extract_analytical,
+    _extract_graham,
+    _extract_element_mass,
+    _extract_average_atomic_mass,
+    _extract_electron_configuration,
 )

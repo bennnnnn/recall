@@ -17,7 +17,9 @@ from app.modules.chemistry.extractors.parsing import (
     k_time_unit_conflict,
     timed,
 )
+from app.modules.chemistry.quantity import to_atm
 from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.species_facts import dissolution_equation, named_species
 
 _INTEGRATED_ORDERS: tuple[tuple[str, ChemistryOp, ChemistryOp], ...] = (
     ("zero", "zero_order", "zero_order_half_life"),
@@ -25,9 +27,37 @@ _INTEGRATED_ORDERS: tuple[tuple[str, ChemistryOp, ChemistryOp], ...] = (
 )
 
 
+_PRESSURE = re.compile(rf"({_N})\s*({_PRESSURE_UNIT})(?![A-Za-z])", re.IGNORECASE)
+_LISTED_PARTIALS = re.compile(r"\bpartial\s+pressures\b", re.IGNORECASE)
+
+
+def _listed_partials(text: str) -> tuple[dict[str, float], str] | None:
+    """ "The partial pressures are 0.3 atm, 0.5 atm and 0.2 atm": every pressure the question
+    states is one gas's, numbered in order. A stated total would be a different question."""
+    if not re.search(r"\btotal\s+pressure\b", text, re.IGNORECASE):
+        return None
+    rows = [(float(match.group(1)), match.group(2)) for match in _PRESSURE.finditer(text)]
+    if len(rows) < 2 or re.search(rf"\btotal\s+pressure\s+(?:=|is|of)\s*{_N}", text, re.I):
+        return None
+    units = {_CANONICAL_PRESSURE[unit.lower()] for _value, unit in rows}
+    if len(units) == 1:
+        unit = units.pop()
+        return {str(index): value for index, (value, _) in enumerate(rows, 1)}, unit
+    return {str(index): to_atm(value, unit) for index, (value, unit) in enumerate(rows, 1)}, "atm"
+
+
 def _extract_gas_laws(text: str) -> ChemistryIntent | None:
     # Boyle, Charles and the combined and ideal gas laws are physics' (physics/catalog/gas_laws.py),
     # answered in L and atm when the question is written in them.
+    if _LISTED_PARTIALS.search(text) and not re.search(r"\bP\(", text):
+        listed = _listed_partials(text)
+        if listed is not None:
+            return ChemistryIntent(
+                kind="gases",
+                chemistry_op="dalton",
+                species=listed[0],
+                units={"pressure": listed[1]},
+            )
     if re.search(r"\bDalton\b", text, re.IGNORECASE):
         partials = _partial_pressures(text)
         if partials is not None and len(partials[0]) >= 2:
@@ -126,6 +156,10 @@ def _extract_thermo_ext(text: str) -> ChemistryIntent | None:
     return None
 
 
+_ICE_ASK = re.compile(r"\bICE equilibrium\b|\bequilibrium\s+concentrations?\b", re.IGNORECASE)
+_CONCENTRATION_CHAIN = re.compile(rf"((?:\[{CHEMICAL_FORMULA}\]\s*=\s*)+)({_N})")
+
+
 def _extract_equilibrium_ext(text: str) -> ChemistryIntent | None:
     qsp = _search(rf"\bQsp\s*=\s*({_N})", text, flags=0)
     ksp = _search(rf"\bKsp\s*=\s*({_N})", text, flags=0)
@@ -160,6 +194,9 @@ def _extract_equilibrium_ext(text: str) -> ChemistryIntent | None:
             equation=equation,
             params={"solubility": solubility},
         )
+    salt = None if equation else _salt_solubility(text)
+    if salt is not None:
+        return salt
     if (
         re.search(r"\bKp\b", text, re.IGNORECASE)
         and equation
@@ -195,11 +232,13 @@ def _extract_equilibrium_ext(text: str) -> ChemistryIntent | None:
         return ChemistryIntent(
             kind="equilibrium", chemistry_op="kc_kp", equation=equation, params=params
         )
-    if re.search(r"\bICE equilibrium\b", text, re.IGNORECASE) and equation:
+    if _ICE_ASK.search(text) and equation:
         constant = _search(rf"\bK(?:c|eq)?\s*=\s*({_N})", text, flags=0)
+        # "[H2] = [I2] = 1.0 M" gives both the one value.
         concentrations = {
-            match.group(1): float(match.group(2))
-            for match in re.finditer(rf"\[({CHEMICAL_FORMULA})\]\s*=\s*({_N})", text)
+            name: float(match.group(2))
+            for match in _CONCENTRATION_CHAIN.finditer(text)
+            for name in re.findall(rf"\[({CHEMICAL_FORMULA})\]", match.group(1))
         }
         if constant is not None and concentrations:
             return ChemistryIntent(
@@ -263,3 +302,36 @@ def _extract_kinetics_ext(text: str) -> ChemistryIntent | None:
                 kind="kinetics", chemistry_op="arrhenius_two_point", params=params
             )
     return None
+
+
+_KSP_OF = re.compile(
+    rf"\bKsp\s*(?:\(\s*({CHEMICAL_FORMULA})\s*\)|(?:value\s+)?(?:of|for)\s+({CHEMICAL_FORMULA}))?"
+    rf"\s*(?:=|is|:)\s*({_N})"
+)
+_SOLUBILITY_OF = re.compile(
+    rf"\bsolubility\s+(?:of\s+({CHEMICAL_FORMULA})\s+)?(?:=|is)\s*({_N})\s*"
+    r"(?:(?-i:M)(?![A-Za-z])|mol\s*/\s*L)",
+    re.IGNORECASE,
+)
+
+
+def _salt_solubility(text: str) -> ChemistryIntent | None:
+    """A salt named by its formula instead of its dissolution equation.
+
+    "The Ksp of AgCl is 1.8e-10. Find its molar solubility." The equation is the salt's ions
+    (``dissolution_equation``); the other direction gives the solubility and asks for Ksp.
+    """
+    ksp = _KSP_OF.search(text)
+    solubility = _SOLUBILITY_OF.search(text)
+    if ksp is not None and solubility is None and re.search(r"\bsolubility\b", text, re.I):
+        stated, params = ksp.group(1) or ksp.group(2), {"ksp": float(ksp.group(3))}
+    elif solubility is not None and ksp is None and re.search(r"(?<![A-Za-z])Ksp\b", text):
+        stated, params = solubility.group(1), {"solubility": float(solubility.group(2))}
+    else:
+        return None
+    salts = [stated] if stated else [f for f in named_species(text) if dissolution_equation(f)]
+    if len(salts) != 1 or (equation := dissolution_equation(salts[0])) is None:
+        return None
+    return ChemistryIntent(
+        kind="equilibrium", chemistry_op="ksp", equation=equation, formula=salts[0], params=params
+    )

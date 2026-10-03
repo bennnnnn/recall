@@ -58,7 +58,8 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
         "" if result_unit == "dimensionless" else si_symbol(result_unit)
     )
     shown = _in_the_givens_unit(spec, intent, result_unit, value)
-    if shown is None or shown[1] == unit:
+    if shown is None or shown[1] == unit or math.isclose(shown[0], value):
+        # No step to show: the same unit, or only its spelling ("J/kg°C" for J/(kg·K)).
         rows: tuple[str, ...] = (substitution,)
     else:
         # The arithmetic is in SI; the step to the givens' unit is part of the working.

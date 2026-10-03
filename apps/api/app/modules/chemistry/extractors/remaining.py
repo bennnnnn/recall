@@ -29,7 +29,7 @@ def _extract_remaining(text: str) -> ChemistryIntent | None:
     stats = _statistics(text)
     if stats is not None:
         return stats
-    kinetics = _michaelis(text)
+    kinetics = _extract_michaelis(text)
     if kinetics is not None:
         return kinetics
     reaction = _reaction(text)
@@ -126,19 +126,67 @@ def _statistics(text: str) -> ChemistryIntent | None:
     return None
 
 
-def _michaelis(text: str) -> ChemistryIntent | None:
-    if not re.search(r"\bMichaelis[- ]Menten\b", text, re.IGNORECASE):
+# Concentrations a Km and an [S] are written in, in mol/L.
+_CONCENTRATION = {
+    "M": 1.0,
+    "mol/L": 1.0,
+    "mM": 1e-3,
+    "mmol/L": 1e-3,
+    "µM": 1e-6,
+    "μM": 1e-6,
+    "uM": 1e-6,
+    "nM": 1e-9,
+}
+_CONCENTRATION_UNIT = "|".join(re.escape(unit) for unit in sorted(_CONCENTRATION, key=len)[::-1])
+# A rate: an amount or a concentration per unit time ("10 μmol/min", "0.5 mM/s").
+_RATE_UNIT = r"(?:[µμun]?mol|[mµμun]?M)\s*/\s*(?:s|min|h)\b"
+
+
+def _michaelis_value(label: str, text: str, unit: str) -> tuple[float, str | None] | None:
+    """``Km = 2 mM`` as (2.0, "mM"); a bare ``Km = 2`` as (2.0, None)."""
+    match = re.search(rf"{label}\s*=\s*({_N})(?:\s*({unit})(?![A-Za-z]))?", text)
+    if match is None:
         return None
-    values = {
-        "v": _search(rf"\bv\s*=\s*({_N})(?!\s*m?L\b)", text, flags=0),
-        "vmax": _search(rf"\bVmax\s*=\s*({_N})", text, flags=0),
-        "km": _search(rf"\bKm\s*=\s*({_N})", text, flags=0),
-        "substrate": _search(rf"(?:\bS|\[S\])\s*=\s*({_N})", text, flags=0),
+    return float(match.group(1)), match.group(2)
+
+
+def _extract_michaelis(text: str) -> ChemistryIntent | None:
+    """Michaelis-Menten, named or recognized by its Vmax and Km, in the units it is written in.
+
+    Km and [S] share one concentration unit (or are both bare); a mixed pair is converted to
+    mol/L. The rate keeps the unit of the Vmax or v it is written with.
+    """
+    named = re.search(r"\bMichaelis[- ]Menten\b", text, re.IGNORECASE)
+    if not named and not (re.search(r"\bVmax\b", text) and re.search(r"\bKm\b", text)):
+        return None
+    read = {
+        "v": _michaelis_value(r"\bv(?!\s*=\s*[\d.]+\s*m?L\b)", text, _RATE_UNIT),
+        "vmax": _michaelis_value(r"\bVmax", text, _RATE_UNIT),
+        "km": _michaelis_value(r"\bKm", text, _CONCENTRATION_UNIT),
+        "substrate": _michaelis_value(r"(?:\bS|\[S\])", text, _CONCENTRATION_UNIT),
     }
-    present = {key: value for key, value in values.items() if value is not None}
+    present = {key: value for key, value in read.items() if value is not None}
     if len(present) != 3:
         return None
-    return ChemistryIntent(kind="biochemistry", chemistry_op="michaelis_menten", params=present)
+    rate_units = {present[key][1] for key in ("v", "vmax") if key in present}
+    concentration_units = {present[key][1] for key in ("km", "substrate") if key in present}
+    if len(rate_units) != 1 or (None in concentration_units and len(concentration_units) > 1):
+        return None
+    params = {key: value for key, (value, _unit) in present.items()}
+    concentration = next(iter(concentration_units))
+    if len(concentration_units) > 1:
+        for key in ("km", "substrate"):
+            if key in present:
+                params[key] = present[key][0] * _CONCENTRATION[present[key][1] or "M"]
+        concentration = "mol/L"
+    units = {
+        name: unit
+        for name, unit in (("rate", next(iter(rate_units))), ("concentration", concentration))
+        if unit is not None
+    }
+    return ChemistryIntent(
+        kind="biochemistry", chemistry_op="michaelis_menten", params=params, units=units
+    )
 
 
 def _stated_geometry(

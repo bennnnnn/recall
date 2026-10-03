@@ -11,6 +11,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from app.modules.chemistry.formula_laws import FORMULA_LAWS
+
 
 @dataclass(frozen=True, slots=True)
 class FormulaSpec:
@@ -337,10 +339,27 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "M+ = sum of the most abundant isotope masses (not the average molar mass)",
     ),
     ("michaelis_menten", "biochemistry", "Michaelis–Menten equation", "v = Vmax[S] / (Km + [S])"),
+    (
+        "average_atomic_mass",
+        "amounts",
+        "Average atomic mass",
+        "A = Σ mᵢ × (abundanceᵢ / 100)",
+    ),
+    (
+        "electron_configuration",
+        "structure",
+        "Aufbau principle",
+        "fill 1s 2s 2p 3s 3p 4s 3d 4p 5s 4d 5p 6s 4f 5d 6p; the table keeps exceptions (Cr, Cu)",
+    ),
+)
+
+# A one-line law declares its identity with its arithmetic (formula_laws), once.
+_FORMULA_ROWS = tuple(
+    (law.op, law.kind, law.law_name, law.formula) for law in FORMULA_LAWS.values()
 )
 
 CATALOG: dict[str, FormulaSpec] = {}
-for _operation, _kind, _law, _formula in _ROWS:
+for _operation, _kind, _law, _formula in (*_ROWS, *_FORMULA_ROWS):
     if _operation in CATALOG:
         raise RuntimeError(f"duplicate chemistry formula {_operation}")
     CATALOG[_operation] = _spec(_operation, _kind, _law, _formula)

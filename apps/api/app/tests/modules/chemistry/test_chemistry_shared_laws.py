@@ -60,6 +60,16 @@ def _physics_answer(question: str) -> str | None:
             "4180 J",
         ),
         ("A 100 g sample has a half-life of 5 years. How much remains after 15 years?", "12.5 g"),
+        # A latent heat per gram, labelled as a chemistry class labels it.
+        ("How much heat is needed to melt 50 g of ice? ΔHfus = 334 J/g", "16700 J"),
+        ("How much heat is needed to boil 20 g of water? ΔHvap = 2260 J/g", "45200 J"),
+        # Calorimetry: the heat the water gains is the heat the metal loses. In grams and °C
+        # the specific heat is per gram and degree.
+        (
+            "A 50 g piece of metal at 100 °C is dropped into 100 g of water at 20 °C. "
+            "The final temperature is 25 °C. Find the specific heat of the metal.",
+            "0.558 J/(g·°C)",
+        ),
     ],
 )
 def test_a_shared_law_is_physics_and_answers_in_the_questions_units(
@@ -139,3 +149,26 @@ def test_a_given_keeps_its_si_step_when_an_answer_ends_in_the_same_digits() -> N
     reply = maybe_direct_physics_reply(_physics_block(question), question)
     assert reply is not None
     assert r"$C_1 = 4\,\mathrm{µF}$  " + "\n" + r"$C_1 = 4 \times 10^{-6}\,\mathrm{F}$" in reply
+
+
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        # In kilograms the same law answers per kilogram and kelvin.
+        (
+            "A 0.2 kg block of copper at 90 °C is placed in 0.5 kg of water at 20 °C. "
+            "The equilibrium temperature is 22.4 °C. Find the specific heat capacity of copper.",
+            "372 J/(kg·K)",
+        ),
+        (
+            "A 2 kg block absorbs 1000 J and its temperature rises by 10 °C. Find the specific heat.",
+            "50 J/(kg·K)",
+        ),
+        (
+            "A 200 g block absorbs 1000 J and its temperature rises by 10 °C. Find the specific heat.",
+            "0.5 J/(g·°C)",
+        ),
+    ],
+)
+def test_a_specific_heat_is_per_gram_only_when_the_data_are(question: str, answer: str) -> None:
+    assert _physics_answer(question) == answer

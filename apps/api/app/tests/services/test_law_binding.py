@@ -147,3 +147,15 @@ def test_pi_is_every_subjects_constant() -> None:
 def test_an_expression_is_never_executed() -> None:
     with pytest.raises(ExpressionError):
         evaluate("__import__('os')", {}, _GAS_NOTATION)
+
+
+def test_an_asked_phrase_reads_the_unit_after_it_as_written() -> None:
+    """ "pH of 5 mM": a concentration, so the 5 is not the pH's label; "5 mm" would be a length."""
+    from app.services.law_binding.words import ask_strength
+
+    table = UnitTable({"mM": "millimole / liter", "mm": "millimeter"}, {})
+    # A concentration after the ask is a value of another kind: the phrase is asked.
+    assert ask_strength(" the pH of 5 mM HCl", ("ph",), ("dimensionless",), table) == 2
+    # A label of the asked kind is not an ask; the phrase is matched without case.
+    assert ask_strength(" the length of 5 mm", ("length",), ("meter",), table) == 0
+    assert ask_strength(" the Length of the rod", ("length",), ("meter",), table) == 6

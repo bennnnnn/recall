@@ -55,6 +55,13 @@ def _bound(question: str) -> ChemistryIntent:
             None,
         ),
         (
+            # A metal named without its ion takes the galvanic table's school ion, Cu2+.
+            "How many grams of copper are deposited by a current of 2 A for 1 hour?",
+            "electrolysis_mass",
+            {"molar_mass": 63.546, "current": 2.0, "time": 3600.0, "electrons": 2.0},
+            None,
+        ),
+        (
             "Calculate ΔG at 298 K if ΔH = -100 kJ/mol and ΔS = -200 J/mol·K.",
             "gibbs",
             {"delta_h": -100.0, "delta_s": -0.2, "temperature": 298.0},
@@ -103,8 +110,6 @@ def test_a_volume_keeps_the_unit_the_dilution_was_written_in() -> None:
         "What is the pH of 0.01 M HCl and explain why it is acidic?",
         # A weak acid's pH needs its Ka.
         "What is the pH of 0.1 M acetic acid?",
-        # Electrolysis of a metal whose charge the question never gives.
-        "How many grams of copper are deposited by a current of 2 A for 1 hour?",
         # A value no input takes: two times for one electrolysis.
         "How many grams of Cu are deposited by 2 A for 1 hour and 30 min from Cu2+?",
     ],
@@ -202,6 +207,24 @@ _SAMPLES: dict[str, tuple[dict[str, float], str | None, dict[str, str]]] = {
     "beer_lambert_epsilon": ({"absorbance": 0.5, "path": 1.0, "concentration": 0.005}, None, {}),
     "percent_error": ({"experimental": 9.8, "accepted": 10.0}, None, {}),
     "chromatography_rf": ({"spot": 3.0, "front": 6.0}, None, {}),
+    "solution_mass": ({"concentration": 0.2, "volume_l": 0.5, "molar_mass": 58.44}, "NaCl", {}),
+    "molality_from_mass": (
+        {"solute_mass": 18.0, "molar_mass": 180.16, "solvent_kg": 0.5},
+        "C6H12O6",
+        {},
+    ),
+    "mass_percent_solvent": ({"solute_mass": 5.0, "solvent_mass": 95.0}, None, {}),
+    "particles_to_mass": ({"particles": 3.01e23, "molar_mass": 18.015}, "H2O", {}),
+    "mole_fraction": ({"moles_a": 1.0, "moles_b": 9.0}, None, {}),
+    "gas_density": ({"pressure": 1.0, "molar_mass": 44.01, "temperature": 273.0}, "CO2", {}),
+    "molar_mass_from_density": ({"density": 1.25, "temperature": 273.0, "pressure": 1.0}, None, {}),
+    "percent_ionization": ({"concentration": 0.1, "ka": 1.8e-5}, "CH3COOH", {}),
+    "reaction_heat": ({"moles": 2.0, "enthalpy": -890.0}, None, {}),
+    "electrolysis_time": (
+        {"mass": 10.0, "electrons": 2.0, "current": 2.0, "molar_mass": 63.546},
+        None,
+        {},
+    ),
 }
 
 

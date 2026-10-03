@@ -66,9 +66,7 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
         )
         and not any(word_pattern(word).search(lower) for word in spec.binding.excludes)
         and (
-            strength := ask_strength(
-                asked_clause, spec.binding.asks, spec.binding.result, PHYSICS_UNITS
-            )
+            strength := ask_strength(clause, spec.binding.asks, spec.binding.result, PHYSICS_UNITS)
         )
     ]
     if not named:

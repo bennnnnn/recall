@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.scene import attach_scene
 from app.modules.chemistry.sig_figs import numbers_as_written
 from app.modules.chemistry.solvers.acid import (
@@ -51,6 +52,10 @@ from app.modules.chemistry.solvers.closed_org import (
     solve_nmr_ranges,
     solve_nmr_splitting,
 )
+from app.modules.chemistry.solvers.elements import (
+    solve_average_atomic_mass,
+    solve_electron_configuration,
+)
 from app.modules.chemistry.solvers.equilibrium_ext import (
     solve_common_ion,
     solve_ice,
@@ -59,6 +64,7 @@ from app.modules.chemistry.solvers.equilibrium_ext import (
     solve_ksp,
     solve_precipitation,
 )
+from app.modules.chemistry.solvers.formula import solve_formula_law
 from app.modules.chemistry.solvers.gases_ext import (
     solve_dalton,
     solve_gas_over_water,
@@ -182,6 +188,8 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "nmr_splitting": solve_nmr_splitting,
     "molecular_ion": solve_molecular_ion,
     "michaelis_menten": solve_michaelis_menten,
+    "average_atomic_mass": solve_average_atomic_mass,
+    "electron_configuration": solve_electron_configuration,
     "balance": solve_equation,
     "molar_mass": solve_molar_mass,
     "mass_to_moles": solve_amount,
@@ -211,6 +219,7 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "nernst": solve_electrochemistry,
     "electrolysis_mass": solve_electrochemistry,
     "beer_lambert": solve_beer_lambert,
+    **dict.fromkeys(FORMULA_LAWS, solve_formula_law),
 }
 
 

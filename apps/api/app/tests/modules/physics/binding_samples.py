@@ -67,6 +67,11 @@ SAMPLES: dict[str, float] = {
     "temp_final": 353.0,
     "temp_a": 353.0,
     "temp_b": 293.0,
+    # A hot object dropped into water that ends at temp_final.
+    "temp_object": 373.0,
+    "temp_water": 293.0,
+    "m_water": 0.1,
+    "c_water": 4186.0,
     "temp": 300.0,
     "moles": 2.0,
     "volume": 0.002,
