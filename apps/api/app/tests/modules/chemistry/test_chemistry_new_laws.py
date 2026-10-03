@@ -151,6 +151,19 @@ def test_an_average_atomic_mass_weights_isotope_masses(question: str, answer: st
     assert _answer(question) == answer
 
 
+@pytest.mark.parametrize(
+    "question",
+    [
+        # 1 + 1 -> 1 is not the balanced equation.
+        "What is the atom economy of H2 + O2 -> H2O?",
+        # Two products, and the question does not say which mass is desired.
+        "What is the atom economy of CH3COOH + CH3OH -> CH3COOCH3 + H2O?",
+    ],
+)
+def test_atom_economy_declines_an_unbalanced_or_unnamed_product(question: str) -> None:
+    assert extract_chemistry_intent(question) is None
+
+
 def test_an_ions_electron_configuration_is_not_the_atoms() -> None:
     assert _answer("What is the electron configuration of copper?") == "Cu: [Ar] 3d10 4s1"
     assert extract_chemistry_intent("Write the electron configuration of Fe3+.") is None

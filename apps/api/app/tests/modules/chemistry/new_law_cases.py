@@ -50,6 +50,11 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "Mass/volume percent = 2.00%",
     ),
     (
+        "What is the atom economy of CH3COOCH3 in CH3COOH + CH3OH -> CH3COOCH3 + H2O?",
+        "atom_economy",
+        "Atom economy of CH3COOCH3 = 80.44%",
+    ),
+    (
         "Find the mole fraction of NaCl when 1.0 mol of NaCl is dissolved in 9.0 mol of water.",
         "mole_fraction",
         "χ = 0.10",

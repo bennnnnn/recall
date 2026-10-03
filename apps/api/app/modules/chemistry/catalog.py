@@ -75,6 +75,12 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "% yield = (actual yield / theoretical yield) × 100",
     ),
     (
+        "atom_economy",
+        "amounts",
+        "Atom economy",
+        "% atom economy = M(desired product) / Σ M(reactants) × 100",
+    ),
+    (
         "stoichiometry",
         "stoichiometry",
         "Stoichiometric mole ratio",
