@@ -46,6 +46,7 @@ _BRANCHES: tuple[tuple[str, str, dict[str, float]], ...] = (
     ("rotation", "rotational_omega", {"omega0": 2.0, "ang_alpha": 3.0, "theta": 8.0}),
     ("rotation", "rotational_theta", {"omega0": 1.0, "ang_alpha": 2.0, "t": 3.0}),
     ("rotation", "rotational_theta", {"omega": 10.0, "omega0": 4.0, "ang_alpha": 3.0}),
+    ("rotation", "rotational_theta", {"omega": 10.0, "omega0": 4.0, "t": 3.0}),
     ("rotation", "rotational_alpha", {"omega": 10.0, "omega0": 4.0, "t": 2.0}),
     ("rotation", "rotational_alpha", {"omega": 10.0, "omega0": 4.0, "theta": 14.0}),
     ("rotation", "torque_inertia", {"inertia": 2.0, "ang_alpha": 3.0}),
@@ -200,6 +201,12 @@ def test_angular_velocity_phrasing_does_not_echo_a_supplied_omega() -> None:
             "of 3 rad/s^2. Find the angular displacement.",
             "rotational_theta",
             {"omega", "omega0", "ang_alpha"},
+        ),
+        (
+            "Angular velocity increases from 4 rad/s to 10 rad/s in 3 s. "
+            "Find the angular displacement.",
+            "rotational_theta",
+            {"omega", "omega0", "t"},
         ),
         (
             "Angular velocity increases from 4 rad/s to 10 rad/s through an angular "
