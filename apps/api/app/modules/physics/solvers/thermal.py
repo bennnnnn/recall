@@ -1,12 +1,11 @@
 """Thermal solvers: Q = mc dT, Carnot and engine efficiency, entropy, conduction, expansion,
-latent heat, the first law and PV = nRT.
+latent heat and the first law.
 """
 
 from __future__ import annotations
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.solvers.common import (
-    _GAS_CONSTANT,
     PhysicsResult,
     QuantityResult,
     _latex_num,
@@ -148,26 +147,6 @@ def solve_thermal(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "heat_energy":
         return _heat_energy(intent, p)
-
-    if op == "ideal_gas_pressure":
-        volume = p["volume"]
-        if volume <= 0:
-            raise SolveServiceError("volume must be positive")
-        if p["temp"] <= 0:
-            raise SolveServiceError("an absolute temperature must be positive")
-        pressure = p["moles"] * _GAS_CONSTANT * p["temp"] / volume
-        return PhysicsResult(
-            answer=(
-                rf"P = \frac{{nRT}}{{V}} = \frac{{{p['moles']:g} \cdot {_GAS_CONSTANT:.4f} "
-                rf"\cdot {p['temp']:g}}}{{{volume:g}}} \approx {pressure:.2f} \text{{ Pa}}"
-            ),
-            formulas=(r"P = \frac{nRT}{V}",),
-            substitutions=(
-                rf"P = \frac{{{p['moles']:g} \cdot {_GAS_CONSTANT:.4f} \cdot {p['temp']:g}}}"
-                rf"{{{volume:g}}}",
-            ),
-            quantities=(QuantityResult("", pressure, "Pa"),),
-        )
 
     if op == "thermal_efficiency":
         supplied = p["Q_in"]
