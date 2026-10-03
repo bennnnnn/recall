@@ -2,7 +2,7 @@ import { Dimensions, StyleSheet } from "react-native";
 import { render, screen } from "@testing-library/react-native";
 
 import { MathText } from "@/components/rich/MathText";
-import { findLayouts, layoutMath, layoutProblems } from "@/lib/math/layout";
+import { findLayouts, FRAC_SIZE_RATIO, layoutMath, layoutProblems, SCRIPT_RATIO } from "@/lib/math/layout";
 import { fixImplicitExponents } from "@/lib/math/normalizeImplicit";
 import { parseSimpleLatex } from "@/lib/math/text";
 import { lightTheme } from "@/lib/theme";
@@ -114,6 +114,15 @@ describe("MathText", () => {
     for (const slash of getAllByTestId("math-cancel-slash")) {
       expect(StyleSheet.flatten(slash.props.style).backgroundColor).toBe(lightTheme.danger);
     }
+  });
+
+  it("paints a fraction inside an exponent at the script size", async () => {
+    const { getByText } = await render(
+      <MathText latex={String.raw`x^{\frac{1}{2}}`} />,
+    );
+    expect(getByText("1")).toHaveStyle({
+      fontSize: 16 * SCRIPT_RATIO * FRAC_SIZE_RATIO,
+    });
   });
 
   it("renders a simple fraction as a stacked vinculum (num / bar / den)", async () => {

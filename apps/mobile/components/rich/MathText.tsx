@@ -229,6 +229,16 @@ function runStyle(ctx: RenderCtx): object {
   return ctx.inFrac ? ctx.styles.fracPart : ctx.styles.base;
 }
 
+/** Face at `em`, used when a script is smaller than the stylesheet's 16px sizes. */
+function faceAt(ctx: RenderCtx, em: number, lineOverFont: number): object {
+  return {
+    ...mathFace(MATH_FONT),
+    fontSize: em,
+    lineHeight: em * lineOverFont,
+    color: ctx.color,
+  };
+}
+
 function renderFracSide(
   segments: MathSegment[],
   layout: MathLayout | undefined,
@@ -236,7 +246,16 @@ function renderFracSide(
   ctx: RenderCtx,
 ): ReactNode {
   const { styles } = ctx;
-  const sideCtx = { ...ctx, inFrac: true, em: ctx.inFrac ? ctx.em : ctx.em * FRAC_SIZE_RATIO };
+  const sideEm = ctx.inFrac ? ctx.em : ctx.em * FRAC_SIZE_RATIO;
+  const sized = ctx.textStyle
+    ? { ...faceAt(ctx, sideEm, FRAC_LINE_AT_16 / 14), textAlign: "center" as const }
+    : null;
+  const sideCtx = {
+    ...ctx,
+    inFrac: true,
+    em: sideEm,
+    textStyle: sized ?? ctx.textStyle,
+  };
   // Nested fraction OR a radical: keep real Views. Flattening a radicand
   // to combining overlines made the minus look like `=` and inflated the bar.
   if (hasTallMath(segments)) {
@@ -247,7 +266,7 @@ function renderFracSide(
     );
   }
   return (
-    <Text style={styles.fracPart}>
+    <Text style={sized ?? styles.fracPart}>
       {renderSegments(segments, layout?.children ?? [], keyPrefix, sideCtx)}
     </Text>
   );
@@ -267,20 +286,22 @@ function renderRadicand(
 ): ReactNode {
   const { styles } = ctx;
   const nested = hasTallMath(segments);
+  const bodyStyle = ctx.textStyle
+    ? faceAt(ctx, ctx.em, (ctx.inFrac ? FRAC_LINE_AT_16 / 14 : SQRT_LINE_AT_16 / 16))
+    : ctx.inFrac
+      ? styles.fracPart
+      : styles.sqrtBody;
+  const bodyCtx = { ...ctx, textStyle: bodyStyle };
   if (nested) {
     return (
       <View style={styles.fracSideRow}>
-        {renderSegments(segments, layout?.children ?? [], keyPrefix, ctx)}
+        {renderSegments(segments, layout?.children ?? [], keyPrefix, bodyCtx)}
       </View>
     );
   }
-  const bodyStyle = ctx.inFrac ? styles.fracPart : styles.sqrtBody;
   return (
     <Text style={bodyStyle}>
-      {renderSegments(segments, layout?.children ?? [], keyPrefix, {
-        ...ctx,
-        textStyle: bodyStyle,
-      })}
+      {renderSegments(segments, layout?.children ?? [], keyPrefix, bodyCtx)}
     </Text>
   );
 }
@@ -419,6 +440,7 @@ function renderOneSegment(
         const shift = placed
           ? 0
           : ((node?.raise ?? 0) > 0 ? -(node?.raise ?? 0) : (node?.drop ?? 0)) * ctx.fontScale;
+        const inner = node?.children[0];
         return (
           <View
             key={key}
@@ -426,12 +448,15 @@ function renderOneSegment(
             style={{
               width: scaled(node?.width ?? 0, ctx.fontScale),
               height: scaled(node?.height ?? 0, ctx.fontScale),
+              paddingTop: scaled(inner?.padTop ?? 0, ctx.fontScale),
+              paddingBottom: scaled(inner?.padBottom ?? 0, ctx.fontScale),
               transform: [{ translateY: shift }],
             }}
           >
-            {renderSegments(seg.body, node?.children[0]?.children ?? [], `${key}-b`, {
+            {renderSegments(seg.body, inner?.children ?? [], `${key}-b`, {
               ...ctx,
               em: scriptEm,
+              textStyle: faceAt(ctx, scriptEm, 1.15),
             })}
           </View>
         );
@@ -572,6 +597,7 @@ function renderOneSegment(
               {renderSegments(seg.index, node.children[1]?.children ?? [], `${key}-i`, {
                 ...ctx,
                 em: node.index.fontSize,
+                textStyle: faceAt(ctx, node.index.fontSize, 1.15),
               })}
             </View>
           ) : seg.degree && node.index ? (

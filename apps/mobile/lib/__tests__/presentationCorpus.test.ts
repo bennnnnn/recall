@@ -106,6 +106,10 @@ describe("presentation corpus", () => {
     expect(openFence).toContain("```\n\\frac{1}{2}\n");
     expect(openFence).not.toContain("$\\frac");
     expect(preprocessMarkdownForStream(String.raw`half is \frac{1}{2}`, null).prepared).toBe(wrapped);
+    const openDollar = presentStreamTail(String.raw`$\frac{1}{2}`);
+    expect(openDollar).toBe(String.raw`$\frac{1}{2}`);
+    expect(openDollar).not.toContain("$$");
+    expect(presentStreamTail(String.raw`see \(\frac{1}`)).toBe(String.raw`see \(\frac{1}`);
   });
 
   it("keeps units, signs, statistics, and adjacent tokens readable", () => {
