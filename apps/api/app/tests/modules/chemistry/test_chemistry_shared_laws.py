@@ -13,9 +13,18 @@ from app.core.config import Settings
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.solvers.solver import supported_operations
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
+from app.modules.physics.direct import maybe_direct_physics_reply
+from app.services.solving import VerifiedPhysicsBlock
 from app.services.subject_solving import detect_subject
 
 _SETTINGS = Settings(math_tools_enabled=True)
+
+
+def _physics_block(question: str) -> VerifiedPhysicsBlock:
+    intent = extract_physics_intent(question)
+    block = None if intent is None else build_verified_physics_block(intent, _SETTINGS)
+    assert block is not None, question
+    return block
 
 
 def _physics_answer(question: str) -> str | None:
@@ -93,3 +102,40 @@ def test_chemistry_keeps_no_second_copy_of_a_shared_law() -> None:
     }
     assert not shared & supported_operations()
     assert {"dalton", "partial_pressure", "gas_over_water"} <= supported_operations()
+
+
+@pytest.mark.parametrize(
+    ("question", "row"),
+    [
+        # The law answers in the givens' litres; its arithmetic is in SI.
+        (
+            "Boyle's law: P1 = 100 kPa, V1 = 2 L, P2 = 50 kPa. Find V2.",
+            r"V_2 = 0.004\,\mathrm{m³} = 4\,\mathrm{L}",
+        ),
+        (
+            "Find the total capacitance of a 4 µF and a 6 µF capacitor in parallel.",
+            r"C = 1 \times 10^{-5}\,\mathrm{F} = 10\,\mathrm{µF}",
+        ),
+        # A row for a converted answer names its symbol, never a bare "= …".
+        (
+            "A radioactive isotope has a half-life of 5 days. Find the decay constant.",
+            r"\lambda = 1.6 \times 10^{-6}\,\mathrm{1/s} = 0.139\,\mathrm{1/day}",
+        ),
+    ],
+)
+def test_the_working_reaches_the_unit_the_answer_is_shown_in(question: str, row: str) -> None:
+    assert _physics_block(question).physics_substitutions[-1] == row
+
+
+@pytest.mark.parametrize("spelling", ["h", "hr", "hrs", "hours"])
+def test_every_spelling_of_a_time_unit_gives_one_rate_unit(spelling: str) -> None:
+    question = f"A radioactive isotope has a half-life of 5 {spelling}. Find the decay constant."
+    assert _physics_answer(question) == "0.139 1/h"
+
+
+def test_a_given_keeps_its_si_step_when_an_answer_ends_in_the_same_digits() -> None:
+    # "4 µF" is not written into the arithmetic: "2.4 µF" only ends with it.
+    question = "Find the total capacitance of a 4 µF and a 6 µF capacitor in series."
+    reply = maybe_direct_physics_reply(_physics_block(question), question)
+    assert reply is not None
+    assert r"$C_1 = 4\,\mathrm{µF}$  " + "\n" + r"$C_1 = 4 \times 10^{-6}\,\mathrm{F}$" in reply

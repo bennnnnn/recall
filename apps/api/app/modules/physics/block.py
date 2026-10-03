@@ -18,7 +18,7 @@ from app.modules.physics.answer_checks import (
     _in_context_units,
     _in_the_asked_unit,
 )
-from app.modules.physics.display import latex_number, latex_unit
+from app.modules.physics.display import conversion_row
 from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.common import QuantityResult
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
@@ -84,9 +84,12 @@ def _with_conversions(solved: PhysicsResult, shown: PhysicsResult) -> PhysicsRes
     """
     if len(solved.quantities) != len(shown.quantities):
         return shown
+    # A catalog law's quantity has no label; its substitution row starts with the symbol.
+    named = shown.substitutions[-1].split(" = ", 1)[0] if shown.substitutions else ""
     rows = tuple(
-        f"{after.symbol} = {latex_number(before.value)}{latex_unit(before.unit)} "
-        f"= {latex_number(after.value)}{latex_unit(after.unit)}"
+        conversion_row(
+            after.symbol or named, (before.value, before.unit), (after.value, after.unit)
+        )
         for before, after in zip(solved.quantities, shown.quantities, strict=True)
         if before.unit != after.unit
     )

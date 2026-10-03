@@ -267,3 +267,14 @@ def typeset_numbers(row: str) -> str:
 
     row = _E_NOTATION.sub(scientific, row)
     return _LONG_DECIMAL.sub(lambda match: latex_number(float(match.group(1)), GIVEN_FIGURES), row)
+
+
+def conversion_row(symbol: str, before: tuple[float, str], after: tuple[float, str]) -> str:
+    """The step from the SI value the substitution gives to the unit the answer is shown in.
+
+    "V = 0.0492 m³ = 49.2 L": the working reaches the answer the reply states.
+    """
+    return (
+        f"{symbol} = {latex_number(before[0])}{latex_unit(before[1])} "
+        f"= {latex_number(after[0])}{latex_unit(after[1])}"
+    )

@@ -89,20 +89,9 @@ def _in_context_units(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsRe
 
 
 # A rate from a half-life in years is per year: 1.21e-4 1/yr, not 3.83e-12 1/s.
-_SHORT_TIME = {
-    "years": "yr",
-    "year": "yr",
-    "yr": "yr",
-    "minutes": "min",
-    "minute": "min",
-    "min": "min",
-    "hours": "h",
-    "hour": "h",
-    "h": "h",
-    "hr": "h",
-    "days": "day",
-    "day": "day",
-}
+# The per-time unit a rate takes from the time its givens share, by Pint expression, so every
+# spelling the unit table reads ("hrs", "hours", "h") gives one answer unit.
+_SHORT_TIME = {"year": "yr", "day": "day", "hour": "h", "minute": "min"}
 _TIME = "[time]^1"
 
 
@@ -115,7 +104,7 @@ def _per_time_of_givens(intent: PhysicsIntent, result: PhysicsResult) -> Physics
         for unit in (intent.physics_units or {}).values()
         if (reading := unit_dimension(unit_expression(unit) or "")) and reading[0] == _TIME
     }
-    short = {_SHORT_TIME.get(unit.lower()) for unit in spellings}
+    short = {_SHORT_TIME.get(unit_expression(unit) or "") for unit in spellings}
     if len(spellings) == 0 or len(short) != 1 or None in short:
         return result
     unit = short.pop()

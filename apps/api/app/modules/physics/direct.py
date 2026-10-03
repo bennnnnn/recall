@@ -167,7 +167,8 @@ def _given_value(name: str, value: float, unit: str, substitution: str) -> str:
         not unit
         or dimension in (None, "dimensionless", "revolution / minute")
         or name.startswith("angle")
-        or written in substitution
+        # Written into the arithmetic as typed: "4 µF", not the "4 µF" ending "2.4 µF".
+        or re.search(rf"(?<![\d.]){re.escape(written)}", substitution) is not None
     ):
         return written
     try:
