@@ -1,6 +1,6 @@
 ---
-description: Hard-won lessons & gotchas — read before debugging; append when you solve something tricky
-alwaysApply: true
+description: Hard-won lessons (symptom, cause, fix). Read this when a bug looks familiar — races, cache, network, streaming, or a math, physics, or chemistry answer — and append a new entry when you solve one.
+alwaysApply: false
 ---
 
 # Lessons learned (don't relearn the hard way)
