@@ -103,6 +103,12 @@ VERIFIED: list[tuple[str, str, str]] = [
         "suvat_distance",
         "24 m",
     ),
+    # s = vt - (1/2)at^2: final speed, acceleration, and time, no initial speed
+    (
+        "a car reaches 20 m/s after accelerating at 2 m/s^2 for 4 s, how far does it travel",
+        "suvat_distance",
+        "64 m",
+    ),
     # solving for t
     (
         "a car accelerates from rest at 3 m/s^2, how long to reach 15 m/s",

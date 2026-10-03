@@ -279,7 +279,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   uncertainty, and an orbit's period from its height); see "Adding a law" in
   docs/physics.md. An answer is in the unit its like givens share (two µF capacitors
   give µF). Mechanics:
-  1D gravity kinematics, SUVAT in all four rearrangements, projectile (range,
+  1D gravity kinematics, SUVAT in all four rearrangements plus s = vt − ½at², projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar
   F=ma with resultants and components, KE / PE / work / power (including
   `W = Fd cos θ` and `P = Fv cos θ` when an angle is stated, the work-energy

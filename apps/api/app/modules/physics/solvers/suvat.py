@@ -1,8 +1,9 @@
 """SUVAT solvers: motion under any constant acceleration.
 
-v = u + at, s = ut + at^2/2, v^2 = u^2 + 2as, s = (u + v)t/2.
+v = u + at, s = ut + at^2/2, v^2 = u^2 + 2as, s = (u + v)t/2,
+s = vt - at^2/2.
 
-The four equations each omit one variable, so the givens choose the equation
+Each equation omits one variable, so the givens choose the equation
 rather than the wording choosing it: the same "read the question from its
 givens" shape Ohm's law uses, and the reason four sets of phrasing rules were
 not needed.
@@ -84,6 +85,17 @@ def _suvat_distance(p: dict[str, float]) -> tuple[float, str, str, str]:
             0.5 * (u + v) * t,
             rf"s = \tfrac{{1}}{{2}}(u + v)t = {plugged}",
             r"s = \tfrac{1}{2}(u + v)t",
+            rf"s = {plugged}",
+        )
+    # s = vt - (1/2)at^2 is the same constant-acceleration law with u eliminated.
+    if v is not None and a is not None and t is not None:
+        plugged = (
+            rf"{v:g} \cdot {t:g} - 0.5 \cdot {_latex_num(a)} \cdot {_latex_num(t, square=True)}"
+        )
+        return (
+            v * t - 0.5 * a * t * t,
+            rf"s = vt - \tfrac{{1}}{{2}}at^2 = {plugged}",
+            r"s = vt - \tfrac{1}{2}at^2",
             rf"s = {plugged}",
         )
     raise SolveServiceError("not enough givens for a distance")
@@ -189,6 +201,11 @@ def _suvat_graph(op: str, p: dict[str, float], solved: dict[str, float]) -> list
     """
     known = {**p, **solved}
     u, a, t_end = known.get("u"), known.get("a"), known.get("t")
+    # s = vt - (1/2)at^2 states the final speed instead of u. The curve still
+    # needs the starting speed, and v = u + at recovers it.
+    final_speed = known.get("v")
+    if u is None and final_speed is not None and a is not None and t_end is not None:
+        u = final_speed - a * t_end
     if u is None or a is None or t_end is None or t_end <= 0:
         return []
 

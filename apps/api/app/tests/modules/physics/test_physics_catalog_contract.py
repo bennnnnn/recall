@@ -117,6 +117,7 @@ _BRANCHES: tuple[tuple[str, str, dict[str, float]], ...] = (
     ("suvat", "suvat_distance", {"u": 5.0, "a": 3.0, "t": 4.0}),
     ("suvat", "suvat_distance", {"u": 10.0, "v": 30.0, "a": 4.0}),
     ("suvat", "suvat_distance", {"u": 12.0, "v": 0.0, "t": 4.0}),
+    ("suvat", "suvat_distance", {"v": 20.0, "a": 2.0, "t": 4.0}),
     ("suvat", "suvat_time", {"u": 5.0, "v": 20.0, "a": 3.0}),
     ("suvat", "suvat_time", {"u": 4.0, "a": 3.0, "d": 10.0}),
     ("suvat", "suvat_time", {"u": 4.0, "v": 6.0, "d": 20.0}),
