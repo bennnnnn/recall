@@ -690,6 +690,11 @@ http.createClient = function(options) {
         }
 
         // add new cookie
+        if(cookie.name === '__proto__' || cookie.name === 'constructor' ||
+          cookie.name === 'prototype' || cookie.path === '__proto__' ||
+          cookie.path === 'constructor' || cookie.path === 'prototype') {
+          return false;
+        }
         if(!(cookie.name in client.cookies)) {
           client.cookies[cookie.name] = {};
         }
@@ -798,7 +803,23 @@ http.createClient = function(options) {
  * @return the trimmed string.
  */
 var _trimString = function(str) {
-  return str.replace(/^\s*/, '').replace(/\s*$/, '');
+  var start = 0;
+  var end = str.length;
+  while(start < end && _isHttpSpace(str.charCodeAt(start))) {
+    start++;
+  }
+  while(end > start && _isHttpSpace(str.charCodeAt(end - 1))) {
+    end--;
+  }
+  return start === 0 && end === str.length ? str : str.slice(start, end);
+};
+
+var _isHttpSpace = function(code) {
+  return code === 9 || code === 10 || code === 11 || code === 12 ||
+    code === 13 || code === 32 || code === 160 || code === 0x1680 ||
+    (code >= 0x2000 && code <= 0x200a) || code === 0x2028 ||
+    code === 0x2029 || code === 0x202f || code === 0x205f ||
+    code === 0x3000 || code === 0xfeff;
 };
 
 /**

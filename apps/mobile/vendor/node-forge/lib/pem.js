@@ -94,21 +94,58 @@ pem.encode = function(msg, options) {
  */
 pem.decode = function(str) {
   var rval = [];
+  var searchFrom = 0;
 
-  // split string into PEM messages (be lenient w/EOF on BEGIN line)
-  var rMessage = /\s*-----BEGIN ([A-Z0-9- ]+)-----\r?\n?([\x21-\x7e\s]+?(?:\r?\n\r?\n))?([:A-Za-z0-9+\/=\s]+?)-----END \1-----/g;
-  var rHeader = /([\x21-\x7e]+):\s*([\x21-\x7e\s^:]+)/;
-  var rCRLF = /\r?\n/;
-  var match;
-  while(true) {
-    match = rMessage.exec(str);
-    if(!match) {
+  while(searchFrom < str.length) {
+    var begin = str.indexOf('-----BEGIN ', searchFrom);
+    if(begin === -1) {
       break;
+    }
+    var typeStart = begin + 11;
+    var typeEnd = typeStart;
+    while(typeEnd < str.length && _isPemTypeChar(str.charCodeAt(typeEnd))) {
+      if(str.charCodeAt(typeEnd) === 45 &&
+        str.slice(typeEnd, typeEnd + 5) === '-----') {
+        break;
+      }
+      typeEnd++;
+    }
+    if(typeEnd === typeStart || str.slice(typeEnd, typeEnd + 5) !== '-----') {
+      searchFrom = begin + 11;
+      continue;
+    }
+
+    var cursor = typeEnd + 5;
+    if(cursor < str.length && str.charCodeAt(cursor) === 13) {
+      cursor++;
+    }
+    if(cursor < str.length && str.charCodeAt(cursor) === 10) {
+      cursor++;
+    }
+
+    var type = str.slice(typeStart, typeEnd);
+    var endMark = '-----END ' + type + '-----';
+    var end = str.indexOf(endMark, cursor);
+    if(end === -1) {
+      searchFrom = begin + 11;
+      continue;
+    }
+
+    var middle = str.slice(cursor, end);
+    var headerText = '';
+    var bodyText = middle;
+    var blank = _findBlankLine(middle);
+    if(blank) {
+      headerText = middle.slice(0, blank.bodyStart);
+      bodyText = middle.slice(blank.bodyStart);
+    }
+    if(!_isPemBody(bodyText)) {
+      searchFrom = begin + 11;
+      continue;
     }
 
     // accept "NEW CERTIFICATE REQUEST" as "CERTIFICATE REQUEST"
     // https://datatracker.ietf.org/doc/html/rfc7468#section-7
-    var type = match[1];
     if(type === 'NEW CERTIFICATE REQUEST') {
       type = 'CERTIFICATE REQUEST';
     }
@@ -119,26 +156,28 @@ pem.decode = function(str) {
       contentDomain: null,
       dekInfo: null,
       headers: [],
-      body: forge.util.decode64(match[3])
+      body: forge.util.decode64(bodyText)
     };
     rval.push(msg);
+    searchFrom = end + endMark.length;
 
     // no headers
-    if(!match[2]) {
+    if(!headerText) {
       continue;
     }
 
     // parse headers
-    var lines = match[2].split(rCRLF);
+    var lines = _splitPemLines(headerText);
     var li = 0;
-    while(match && li < lines.length) {
+    var parsed = true;
+    while(parsed && li < lines.length) {
       // get line, trim any rhs whitespace
-      var line = lines[li].replace(/\s+$/, '');
+      var line = _trimRightWs(lines[li]);
 
       // RFC2822 unfold any following folded lines
       for(var nl = li + 1; nl < lines.length; ++nl) {
         var next = lines[nl];
-        if(!/\s/.test(next[0])) {
+        if(!next || !_isPemSpace(next.charCodeAt(0))) {
           break;
         }
         line += next;
@@ -146,10 +185,11 @@ pem.decode = function(str) {
       }
 
       // parse header
-      match = line.match(rHeader);
-      if(match) {
-        var header = {name: match[1], values: []};
-        var values = match[2].split(',');
+      var headerParts = _parsePemHeader(line);
+      parsed = headerParts;
+      if(headerParts) {
+        var header = {name: headerParts.name, values: []};
+        var values = headerParts.value.split(',');
         for(var vi = 0; vi < values.length; ++vi) {
           header.values.push(ltrim(values[vi]));
         }
@@ -233,5 +273,130 @@ function foldHeader(header) {
 }
 
 function ltrim(str) {
-  return str.replace(/^\s+/, '');
+  var start = 0;
+  while(start < str.length && _isPemSpace(str.charCodeAt(start))) {
+    start++;
+  }
+  return start === 0 ? str : str.slice(start);
+}
+
+function _isPemSpace(code) {
+  return code === 9 || code === 10 || code === 11 || code === 12 ||
+    code === 13 || code === 32 || code === 160 || code === 0x1680 ||
+    (code >= 0x2000 && code <= 0x200a) || code === 0x2028 ||
+    code === 0x2029 || code === 0x202f || code === 0x205f ||
+    code === 0x3000 || code === 0xfeff;
+}
+
+function _isPemTypeChar(code) {
+  return (code >= 48 && code <= 57) || (code >= 65 && code <= 90) ||
+    code === 45 || code === 32;
+}
+
+function _isPemBody(str) {
+  if(!str) {
+    return false;
+  }
+  for(var i = 0; i < str.length; ++i) {
+    var code = str.charCodeAt(i);
+    var digit = code >= 48 && code <= 57;
+    var upper = code >= 65 && code <= 90;
+    var lower = code >= 97 && code <= 122;
+    if(!_isPemSpace(code) && code !== 43 && code !== 47 && code !== 58 &&
+      code !== 61 && !digit && !upper && !lower) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function _findBlankLine(str) {
+  for(var i = 0; i < str.length; ++i) {
+    var code = str.charCodeAt(i);
+    if(code !== 10 && code !== 13) {
+      continue;
+    }
+    var j = i;
+    if(str.charCodeAt(j) === 13) {
+      j++;
+    }
+    if(j < str.length && str.charCodeAt(j) === 10) {
+      j++;
+    }
+    if(j < str.length && (str.charCodeAt(j) === 10 || str.charCodeAt(j) === 13)) {
+      if(str.charCodeAt(j) === 13) {
+        j++;
+      }
+      if(j < str.length && str.charCodeAt(j) === 10) {
+        j++;
+      }
+      return {bodyStart: j};
+    }
+  }
+  return null;
+}
+
+function _splitPemLines(str) {
+  var lines = [];
+  var start = 0;
+  for(var i = 0; i < str.length; ++i) {
+    var code = str.charCodeAt(i);
+    if(code !== 10 && code !== 13) {
+      continue;
+    }
+    var end = i;
+    if(code === 10 && end > start && str.charCodeAt(end - 1) === 13) {
+      end--;
+    }
+    lines.push(str.slice(start, end));
+    if(code === 13 && i + 1 < str.length && str.charCodeAt(i + 1) === 10) {
+      i++;
+    }
+    start = i + 1;
+  }
+  if(start < str.length || str.length === 0) {
+    lines.push(str.slice(start));
+  } else {
+    lines.push('');
+  }
+  return lines;
+}
+
+function _trimRightWs(str) {
+  var end = str.length;
+  while(end > 0 && _isPemSpace(str.charCodeAt(end - 1))) {
+    end--;
+  }
+  return end === str.length ? str : str.slice(0, end);
+}
+
+function _parsePemHeader(line) {
+  var colon = -1;
+  for(var i = 0; i < line.length; ++i) {
+    var code = line.charCodeAt(i);
+    if(code === 58) {
+      colon = i;
+      break;
+    }
+    if(code < 33 || code > 126) {
+      return null;
+    }
+  }
+  if(colon <= 0 || colon + 1 >= line.length) {
+    return null;
+  }
+  var valueStart = colon + 1;
+  while(valueStart < line.length && _isPemSpace(line.charCodeAt(valueStart))) {
+    valueStart++;
+  }
+  if(valueStart >= line.length) {
+    return null;
+  }
+  for(var k = valueStart; k < line.length; ++k) {
+    var valueCode = line.charCodeAt(k);
+    if((valueCode < 33 || valueCode > 126) && !_isPemSpace(valueCode)) {
+      return null;
+    }
+  }
+  return {name: line.slice(0, colon), value: line.slice(valueStart)};
 }
