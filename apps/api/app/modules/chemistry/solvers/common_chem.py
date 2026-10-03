@@ -97,6 +97,93 @@ def inp(value: float) -> str:
     return format_number(value, significant=INPUT_FIGURES)
 
 
+def with_unit(value: str, unit: str) -> str:
+    """A number and its unit as a substitution writes them: "0.500 L", "40.0%", "2" bare."""
+    if not unit:
+        return value
+    return f"{value}{unit}" if unit == "%" else f"{value} {unit}"
+
+
+def qty(value: float, unit: str) -> str:
+    """A given with its unit, as typed: "36 g", "0.500 L"."""
+    return with_unit(inp(value), unit)
+
+
+def _typed_literal(value: float) -> str | None:
+    written = sig_figs.current()
+    return None if written is None else written.converted.get(repr(value))
+
+
+_CELSIUS_OFFSET = 273.15
+
+
+def used(value: float) -> str:
+    """A given as the arithmetic uses it.
+
+    Typed in the solver's unit, it is echoed as typed. Converted, it keeps what was typed:
+    a Celsius reading its decimal places (25 °C is 298 K), and a unit change its figures
+    (500 mL is 0.500 L) without rounding away the conversion's own digits (1 h is 3600 s).
+    """
+    literal = _typed_literal(value)
+    if literal is None:
+        return inp(value)
+    if math.isclose(value - float(literal), _CELSIUS_OFFSET, abs_tol=1e-9):
+        # The offset is exact, so the working shows the kelvin it adds: 37 °C is 310.15 K.
+        return f"{value:.{max(sig_figs.decimals_of(literal), 2)}f}"
+    return converted(value, literal)
+
+
+# A unit change whose result has at most this many significant digits terminated (1 h is
+# 3600 s, 10 kcal is 41.84 kJ). One that repeats (700 mmHg is 0.92105… atm) fills all twelve.
+_EXACT_DIGITS = 6
+
+
+def converted(value: float, literal: str) -> str:
+    """A value a unit change made from a typed literal: 500 mL is 0.500 L, 1 h is 3600 s.
+
+    It keeps the literal's figures. An exact conversion also keeps its own digits (3600, not
+    4 × 10^3); a repeating one has none to keep, so 700 mmHg is 0.921 atm.
+    """
+    digits = f"{abs(value):.12g}".split("e")[0].replace(".", "").strip("0")
+    exact = len(digits) if len(digits) <= _EXACT_DIGITS else 0
+    figures = max(sig_figs.figures_of(literal), exact, 1)
+    return format_number(value, significant=figures, keep_zeros=True)
+
+
+def converted_from(value: float, typed: float) -> str:
+    """``converted`` for a solver's own unit change, from the typed value it started from."""
+    written = sig_figs.current()
+    literal = None if written is None else written.written.get(repr(typed))
+    return converted(value, literal or inp(typed))
+
+
+def typed_unit(value: float, sizes: tuple[tuple[str, float], ...]) -> str | None:
+    """The unit a converted given was typed in, from the factor its literal was scaled by.
+
+    ``sizes`` pairs each unit a reader converts from with its size in the unit the solver
+    uses: ``("kcal/mol", 4.184)`` for kJ/mol. None when no listed unit explains the factor.
+    """
+    literal = _typed_literal(value)
+    if literal is None or float(literal) == 0:
+        return None
+    factor = value / float(literal)
+    return next((unit for unit, size in sizes if math.isclose(factor, size, rel_tol=1e-9)), None)
+
+
+def given_row(symbol: str, value: float, unit: str, typed_unit: str | None) -> str:
+    """A given as typed and, when an extractor converted it, as used: "t = 1 h = 3600 s".
+
+    ``typed_unit`` is the unit a converted value was typed in (``typed_unit()`` reads it from
+    the conversion, and °C is the one offset). Unknown, the row shows only the value used:
+    never an equality between a typed number and a unit it was not typed in.
+    """
+    literal = _typed_literal(value)
+    if literal is None or typed_unit is None:
+        return f"{symbol} = {with_unit(used(value), unit)}"
+    typed = with_unit(sig_figs.as_written(literal), typed_unit)
+    return f"{symbol} = {typed} = {with_unit(used(value), unit)}"
+
+
 def const(value: float) -> str:
     """A physical constant, one figure more precise than an answer."""
     return format_constant(value)

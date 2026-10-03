@@ -373,7 +373,7 @@ def test_molar_mass_keeps_hydrogens_of_ring_smiles_and_formulas_apart(
     assert weighed.answer == f"M({formula}) = {mass:.2f} g/mol"
     assert weighed.substitution == (substitution,)
     counted = _solve(f"how many atoms in 1 mol of {formula}")
-    assert counted.substitution == (f"N = (1)(6.0221 × 10^23)({atom_count})",)
+    assert counted.substitution == (f"N = (1 mol)(6.0221 × 10^23 mol⁻¹)({atom_count})",)
 
 
 def test_limiting_reagent_keeps_micromole_yields() -> None:

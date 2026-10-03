@@ -54,6 +54,9 @@ class ChemistryIntent(BaseModel):
     figures: int | None = Field(default=None, ge=1, le=6)
     decimals: int | None = Field(default=None, ge=0, le=MAX_DECIMALS)
     written: dict[str, str] = Field(default_factory=dict)
+    # A given an extractor converted (500 mL stored as 0.5 L), keyed by the stored value's repr:
+    # the literal as typed, so the answer can echo it and keep its figures.
+    converted: dict[str, str] = Field(default_factory=dict)
 
     @model_validator(mode="after")
     def finite_values(self) -> ChemistryIntent:
@@ -64,10 +67,15 @@ class ChemistryIntent(BaseModel):
             or len(self.samples) > MAX_SAMPLES
             or len(self.params) > MAX_PARAMS
             or len(self.written) > MAX_PARAMS + MAX_SPECIES + MAX_SAMPLES
-            or any(len(text) > MAX_WRITTEN for text in self.written.values())
+            or len(self.converted) > MAX_PARAMS + MAX_SPECIES + MAX_SAMPLES
+            or any(
+                len(text) > MAX_WRITTEN
+                for text in (*self.written.values(), *self.converted.values())
+            )
         ):
             raise ValueError("chemistry intent is larger than any supported calculation")
-        if not all(_NUMBER_LITERAL.fullmatch(text) for text in self.written.values()):
+        typed = (*self.written.values(), *self.converted.values())
+        if not all(_NUMBER_LITERAL.fullmatch(text) for text in typed):
             raise ValueError("a written chemistry value must be a number as typed")
         values = (*self.params.values(), *self.species.values(), *self.samples)
         if any(not math.isfinite(value) for value in values):

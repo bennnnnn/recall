@@ -36,16 +36,18 @@ def _bullet_rows(text: str) -> str:
 def _prompt_text(result: ChemistryResult) -> str:
     given = "\n".join(f"- {item}" for item in result.given)
     substitution = "\n".join(_bullet_rows(item) for item in result.substitution)
+    # A procedure (balancing, a table lookup) has a rule, not an equation: it is the Method.
+    law, rows = ("Method", "Working") if result.method else ("Formula", "Substitution")
     return (
         f"[{result.title}]\n"
-        "Required visible layout: Given, Find, Formula, Substitution, Answer. "
+        f"Required visible layout: Given, Find, {law}, {rows}, Answer. "
         "Each heading and equation must be on its own line. Do not write a prose wall, "
         "do not recalculate, and copy every verified number exactly: its trailing zeros are "
         "significant figures, so never add or drop one.\n"
         f"Given:\n{given}\n"
         f"Find:\n- {result.find}\n"
-        f"Formula ({result.formula_name}):\n{_bullet_rows(result.formula)}\n"
-        f"Substitution:\n{substitution}\n"
+        f"{law} ({result.formula_name}):\n{_bullet_rows(result.formula)}\n"
+        f"{rows}:\n{substitution}\n"
         f"Verified answer:\n{_bullet_rows(result.answer)}\n"
         "Use the verified answer verbatim. Do not emit answer, smiles, or chem_scene fences."
     )

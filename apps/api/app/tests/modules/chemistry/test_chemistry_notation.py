@@ -141,7 +141,8 @@ def test_every_numeric_given_is_used_in_the_working(
             continue
         if "=" not in line:
             continue
-        value = line.split("=", 1)[1]
+        # A converted given ("V = 500 mL = 0.500 L") is used as its last value.
+        value = line.rsplit("=", 1)[1]
         for number in _NUMBER.findall(value):
             assert number in working, f"{operation}: {line!r} is not used in {working!r}"
 
@@ -249,4 +250,4 @@ def test_the_model_prompt_keeps_each_answer_line_and_working_row_whole() -> None
     assert intent is not None
     verified = build_verified_chemistry(intent)
     assert verified is not None
-    assert "- n = 36 / 18.015" in verified.prompt_text
+    assert "- n = 36 g / 18.015 g/mol" in verified.prompt_text

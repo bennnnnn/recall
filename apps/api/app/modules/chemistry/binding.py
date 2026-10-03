@@ -27,6 +27,7 @@ from functools import lru_cache, partial
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.elements import BY_SYMBOL
+from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.laws import LAWS, ChemistryLaw
 from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
@@ -224,6 +225,9 @@ def _converted(law: ChemistryLaw, filled: Fit) -> tuple[dict[str, float], dict[s
         except Exception:
             return None
         params[variable.name] = float(quantity.magnitude)
+        if law.op in FORMULA_LAWS:
+            # The formula solver echoes the given as typed before the converted value.
+            units[variable.name] = written
     units.update(dict(law.labels))
     return params, units
 

@@ -104,7 +104,9 @@ def test_grahams_law_declines_a_time_or_an_unclear_direction(question: str) -> N
 def test_a_particle_count_divides_by_avogadros_number_as_one_quantity() -> None:
     intent = extract_chemistry_intent("How many grams do 3.01 × 10^23 molecules of H2O weigh?")
     assert intent is not None
-    assert solve_chemistry(intent).substitution[0] == "n = 3.01 × 10^23 / (6.022 × 10^23)"
+    assert solve_chemistry(intent).substitution == (
+        "m = [3.01 × 10^23 / (6.022 × 10^23 mol⁻¹)](18.015 g/mol)",
+    )
 
 
 def test_grahams_law_with_a_stated_rate_declines() -> None:
