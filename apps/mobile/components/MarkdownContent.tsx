@@ -2,17 +2,11 @@
 import React, { useEffect, useMemo, useRef } from "react";
 import { View } from "react-native";
 import Markdown from "react-native-markdown-display";
-import Animated, {
-  cancelAnimation,
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withTiming,
-} from "react-native-reanimated";
 
 import { CodeBlock } from "@/components/CodeBlock";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { MathText } from "@/components/rich/MathText";
+import { StreamingCursor, withStreamCaret } from "@/components/StreamingCursor";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { markdownItInstance } from "@/lib/markdown/parser";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
@@ -25,17 +19,15 @@ import {
   type StreamBlocksState,
 } from "@/lib/markdown/streamBlocks";
 import { classifyOpenStreamTail } from "@/lib/streamingOpenFence";
-import { classifyOpenFencePreview } from "@/lib/fenceDispatch";
-import { hasIncompleteStreamingLatex, prepareStreamingMathText } from "@/lib/math/streaming";
+import { classifyOpenFencePreview, type OpenFencePreviewKind } from "@/lib/fenceDispatch";
+import { completeStreamingLatex, prepareStreamingMathText } from "@/lib/math/streaming";
 import {
   advancePreviewFilesScan,
   type PreviewScanState,
 } from "@/lib/htmlPreviewBundle";
 import { HtmlPreviewFilesProvider } from "@/lib/htmlPreviewFiles";
 import { draftFenceProseText } from "@/lib/copyBlock";
-import { useReduceMotion } from "@/lib/reduceMotion";
 import { useTheme } from "@/lib/theme";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
 type Props = { content: string; streaming?: boolean; mathFormat?: (expr: string) => string };
@@ -63,72 +55,39 @@ const MarkdownStreamChunk = React.memo(function MarkdownStreamChunk({
   );
 });
 
-/** Pulsing placeholder for open math/diagram fences during streaming. */
-const StreamingPlaceholder = React.memo(function StreamingPlaceholder({
-  height,
-}: {
-  height: number;
-}) {
-  const theme = useTheme();
-  const reduceMotion = useReduceMotion();
-  const opacity = useSharedValue(0.5);
-  useEffect(() => {
-    cancelAnimation(opacity);
-    if (reduceMotion) {
-      opacity.value = 0.75;
-      return;
-    }
-    opacity.value = withRepeat(withTiming(1, { duration: 1200 }), -1, true);
-    return () => cancelAnimation(opacity);
-  }, [opacity, reduceMotion]);
-  const pulseStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
-  return (
-    <View style={{ marginVertical: Space.xs }}>
-      <Animated.View
-        style={[
-          {
-            width: "100%",
-            height,
-            borderRadius: Radius.sm,
-            backgroundColor: theme.border,
-          },
-          pulseStyle,
-        ]}
-      />
-    </View>
-  );
-});
-
-/** Open $$ / \[ body — native MathText until the closer arrives (no KaTeX WebView). */
+/** Open $$ / \[ body — native MathText until the closer arrives (no KaTeX WebView).
+ * An unfinished command stays blank. A closed prefix still draws. */
 const StreamingMathPreview = React.memo(function StreamingMathPreview({
   body,
 }: {
   body: string;
 }) {
   const theme = useTheme();
-  const trimmed = body.trim();
-  if (!trimmed) {
-    return <View style={{ height: 8 }} />;
-  }
-  // A \begin{matrix}/\begin{cases}/\begin{aligned} environment that hasn't
-  // closed yet renders as a broken partial via MathText (the ENV_RE in
-  // mathText.ts requires both \begin and \end), then snaps to the correct
-  // layout when \end{…} arrives — a visible blank-then-jump. Hold a quiet
-  // box until the environment closes, matching StreamingDiagramPlaceholder.
-  if (hasIncompleteStreamingLatex(trimmed)) {
-    return <StreamingPlaceholder height={48} />;
-  }
+  const drawable = completeStreamingLatex(body);
+  if (!drawable) return null;
   return (
     <View style={{ marginVertical: Space.xxs }}>
-      <MathText latex={trimmed} textColor={theme.text} />
+      <MathText latex={drawable} textColor={theme.text} />
     </View>
   );
 });
 
-/** Open ```geometry / ```graph — hold a quiet box, never dump JSON into Codeblock. */
-const StreamingDiagramPlaceholder = React.memo(function StreamingDiagramPlaceholder() {
-  return <StreamingPlaceholder height={96} />;
-});
+const mathTailRow = {
+  flexDirection: "row" as const,
+  flexWrap: "wrap" as const,
+  alignItems: "flex-end" as const,
+};
+
+function acceptsStreamCaret(markdown: string): boolean {
+  const body = markdown.replace(/\s+$/, "");
+  return Boolean(body) && !/(?:```|~~~)\s*$/.test(body);
+}
+
+function tailPaintsBlock(kind: "fence" | "math" | "other", preview: OpenFencePreviewKind | null): boolean {
+  if (kind === "math") return true;
+  if (kind !== "fence" || preview == null) return false;
+  return preview === "answer" || preview === "math" || preview === "code";
+}
 
 export function MarkdownContent({ content, streaming = false, mathFormat }: Props) {
   const t = useTheme();
@@ -198,6 +157,21 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
       chunkOffset += chunk.length;
     }
 
+    const proseTail =
+      openRegion.kind === "fence" && fencePreview === "prose"
+        ? draftFenceProseText(openRegion.body)
+        : (liveText?.text ?? "");
+    const paintsBlock = tailPaintsBlock(openRegion.kind, fencePreview);
+    let caretHost: "prose" | "unsettled" | "after" = "after";
+    if (proseTail.trim() && acceptsStreamCaret(proseTail)) caretHost = "prose";
+    else if (!paintsBlock && acceptsStreamCaret(unsettledStable)) caretHost = "unsettled";
+    const proseShown = caretHost === "prose" ? withStreamCaret(proseTail) : proseTail;
+    const unsettledShown =
+      caretHost === "unsettled" ? withStreamCaret(unsettledStable) : unsettledStable;
+    const caretOnMath =
+      caretHost === "after" &&
+      (openRegion.kind === "math" || fencePreview === "math");
+
     return (
       <HtmlPreviewFilesProvider files={previewFiles}>
         {blocks.chunks.map((chunk, index) => (
@@ -208,9 +182,9 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
             mdStyles={mdStyles}
           />
         ))}
-        {unsettledStable ? (
+        {unsettledShown ? (
           <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
-            {unsettledStable}
+            {unsettledShown}
           </Markdown>
         ) : null}
         {openRegion.kind === "fence" ? (
@@ -219,28 +193,30 @@ export function MarkdownContent({ content, streaming = false, mathFormat }: Prop
               <AnswerBlock content={openRegion.body} settled={false} />
             ) : null
           ) : fencePreview === "math" ? (
-            <StreamingMathPreview body={openRegion.body} />
+            <View style={mathTailRow}>
+              <StreamingMathPreview body={openRegion.body} />
+              {caretOnMath ? <StreamingCursor /> : null}
+            </View>
           ) : fencePreview === "prose" ? (
-            draftFenceProseText(openRegion.body) ? (
+            proseShown.trim() ? (
               <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
-                {draftFenceProseText(openRegion.body)}
+                {proseShown}
               </Markdown>
             ) : null
-          ) : fencePreview === "hide" ? null : fencePreview === "diagram" ? (
-            <StreamingDiagramPlaceholder />
-          ) : (
+          ) : fencePreview === "hide" || fencePreview === "diagram" ? null : (
             <CodeBlock code={openRegion.body} lang={openRegion.lang} streaming />
           )
         ) : openRegion.kind === "math" ? (
-          <StreamingMathPreview body={openRegion.body} />
-        ) : liveText ? (
-          <>
-            {liveText.text ? <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
-              {liveText.text}
-            </Markdown> : null}
-            {liveText.pending ? <StreamingPlaceholder height={32} /> : null}
-          </>
+          <View style={mathTailRow}>
+            <StreamingMathPreview body={openRegion.body} />
+            {caretOnMath ? <StreamingCursor /> : null}
+          </View>
+        ) : proseShown.trim() ? (
+          <Markdown style={mdStyles} rules={rules as never} markdownit={markdownItInstance}>
+            {proseShown}
+          </Markdown>
         ) : null}
+        {caretHost === "after" && !caretOnMath ? <StreamingCursor /> : null}
       </HtmlPreviewFilesProvider>
     );
   }

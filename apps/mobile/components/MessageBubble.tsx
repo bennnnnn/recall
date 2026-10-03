@@ -13,7 +13,6 @@ import { ActionShimmer } from "@/ui/feedback/ActionShimmer";
 import { SearchSourcesStack } from "@/components/SearchSourcesStack";
 import { LazyCircularClockBlock } from "@/components/rich/LazyHeavyRich";
 import { MarkdownContent } from "@/components/MarkdownContent";
-import { StreamingCursor } from "@/components/StreamingCursor";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
 import { AssistantMessageScope } from "@/features/integrations/context/emailDraftPersist";
@@ -461,7 +460,6 @@ export const MessageBubble = React.memo(function MessageBubble({
                     streaming={markdownStreamMode}
                     mathFormat={formatAssistantMathExpr}
                   />
-                  {isStreaming && hasMarkdown ? <StreamingCursor /> : null}
                 </MarkdownErrorBoundary>
               </AssistantMessageScope>
             ) : null}
