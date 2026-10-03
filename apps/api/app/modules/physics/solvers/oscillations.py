@@ -13,6 +13,7 @@ from app.modules.physics.solvers.common import (
     QuantityResult,
     _latex_num,
     _params_in_si,
+    gravity_of,
 )
 from app.services.solving import SolveServiceError
 
@@ -57,7 +58,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         length = p["L"]
         if length <= 0:
             raise SolveServiceError("pendulum length must be positive")
-        g = p.get("g", 9.81)
+        g = gravity_of(p)
         if g <= 0:
             raise SolveServiceError("gravity must be positive")
         t_period = 2 * math.pi * math.sqrt(length / g)

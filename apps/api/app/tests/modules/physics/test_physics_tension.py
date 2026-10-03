@@ -134,6 +134,32 @@ def test_direction_changes_the_answer_in_the_right_direction() -> None:
     assert up_n - still_n == pytest.approx(still_n - down_n, abs=0.01)
 
 
+def test_a_missing_g_on_the_moon_or_mars_is_that_body() -> None:
+    """Tension and Atwood never stored g, so the solver used to keep Earth's."""
+    moon = _verified_answer(
+        "an atwood machine on the moon with masses 3 kg and 5 kg, what is the acceleration"
+    )
+    mars = _verified_answer("find the tension in a cable holding a 5 kg mass on mars")
+    earth = _verified_answer("find the tension in a cable holding a 5 kg mass")
+
+    assert moon is not None and mars is not None and earth is not None
+    moon_accel = float(moon.split(" and ")[0].split()[0])
+    mars_tension = float(mars.split()[0])
+    earth_tension = float(earth.split()[0])
+    assert moon_accel == pytest.approx((5 - 3) * 1.62 / (5 + 3), rel=5e-3)
+    assert mars_tension == pytest.approx(5 * 3.71, rel=5e-3)
+    assert earth_tension == pytest.approx(5 * 9.81, rel=5e-3)
+
+
+def test_an_atwood_machine_on_jupiter_declines() -> None:
+    assert (
+        _verified_answer(
+            "an atwood machine on jupiter with masses 3 kg and 5 kg, what is the acceleration"
+        )
+        is None
+    )
+
+
 def test_an_atwood_pair_returns_both_quantities() -> None:
     """The ticket's acceptance clause: acceleration *and* tension."""
     answer = _verified_answer(

@@ -9,7 +9,12 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.common import (
+    PhysicsResult,
+    QuantityResult,
+    _params_in_si,
+    gravity_of,
+)
 from app.services.solving import SolveServiceError
 
 
@@ -113,7 +118,7 @@ def _work_energy(params: dict[str, float]) -> PhysicsResult:
 
 def _gravity(params: dict[str, float]) -> PhysicsResult:
     unknown = _unknown(params, ("v1", "h1", "v2", "h2"))
-    gravity = params.get("g", 9.81)
+    gravity = gravity_of(params)
     if gravity <= 0:
         raise SolveServiceError("gravity must be positive")
     if unknown == "v2":
