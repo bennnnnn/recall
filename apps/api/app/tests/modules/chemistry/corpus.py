@@ -236,16 +236,29 @@ EQUILIBRIUM: tuple[Case, ...] = (
 )
 
 
+EQUATIONS: tuple[Case, ...] = (
+    says(
+        "Balance the half-reaction MnO4- -> Mn2+ in acidic solution.",
+        "MnO4- + 8 H+ + 5 e- -> Mn2+ + 4 H2O",
+    ),
+)
+
+
 ANSWERABLE: tuple[Case, ...] = (
     *AMOUNTS,
     *STOICHIOMETRY,
     *SOLUTIONS,
     *ACIDS_AND_BASES,
     *EQUILIBRIUM,
+    *EQUATIONS,
     *corpus_physical.CASES,
 )
 
 MUST_DECLINE: tuple[str, ...] = (
+    # Fe and S can share the oxidation numbers more than one way.
+    "Balance FeS -> Fe2+ in acidic solution.",
+    # Two redox pairs are a full equation, not one half-reaction to complete.
+    "Balance MnO4- + Fe2+ -> Mn2+ + Fe3+ in acidic solution.",
     # The second proton of H2SO4 is only partly lost (Ka2 ≈ 0.012): pH 1.0 would be wrong.
     "What is the pH of a 0.05 M H2SO4 solution?",
     # No time unit for k.
@@ -281,4 +294,4 @@ NOT_CHEMISTRY: tuple[str, ...] = (
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 91
+COVERAGE_FLOOR = 92

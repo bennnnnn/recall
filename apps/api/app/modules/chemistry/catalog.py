@@ -29,6 +29,7 @@ class FormulaSpec:
 METHODS = frozenset(
     {
         "balance",
+        "half_reaction",
         "precipitation",
         "functional_groups",
         "stereochemistry",
@@ -56,6 +57,13 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "Conservation of atoms and charge",
         "count each element's atoms on both sides; the smallest whole-number coefficients that "
         "make every count, and the charge, equal",
+    ),
+    (
+        "half_reaction",
+        "equations",
+        "Half-reaction method",
+        "balance the redox pair, add H2O for oxygen, add H+ or OH- for the stated medium, "
+        "then add e- to balance the charge",
     ),
     ("molar_mass", "amounts", "Molar mass from atomic masses", "M = Σ(nᵢ × atomic massᵢ)"),
     ("mass_to_moles", "amounts", "Mass–mole relation", "n = m / M"),
