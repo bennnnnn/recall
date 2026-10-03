@@ -18,6 +18,8 @@ from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extractors import EXTENDED_EXTRACTORS
 from app.modules.chemistry.extractors.parsing import (
     _N,
+    TIME_UNIT_PATTERN,
+    TIME_UNITS,
     _search,
     _target,
     rate_constant,
@@ -25,6 +27,7 @@ from app.modules.chemistry.extractors.parsing import (
     temperature_kelvin,
     timed,
 )
+from app.modules.chemistry.extractors.remaining import _extract_michaelis
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 from app.modules.chemistry.sig_figs import written_numbers
 from app.modules.chemistry.species_facts import ELEMENT_NAMES
@@ -32,9 +35,10 @@ from app.services.number_text import read_scientific_numbers
 
 _MAX_TEXT_LENGTH = 4000
 logger = logging.getLogger(__name__)
-# Units the solvers do not convert. Reading "5 mM" as 5 M or kcal as kJ would be a
-# wrong verified answer, so the whole question stays on the model path.
-_UNSUPPORTED_UNIT = re.compile(
+# Units the labelled templates do not read: they would take "5 mM" as 5 M or kcal as kJ.
+# A question written in one is read only by the readers that convert units (the
+# Michaelis-Menten reader and the binder, through Pint).
+_TEMPLATE_UNREAD_UNIT = re.compile(
     r"(?<![A-Za-z])(?:mM|µM|μM|uM|nM|pM|mmol/L)(?![A-Za-z])|(?i:\bk?cal(?:orie)?s?\b)"
 )
 
@@ -269,7 +273,39 @@ def _extract_acid_base(text: str) -> ChemistryIntent | None:
     return None
 
 
+# "What volume of 6 M HCl is needed to make 500 mL of 1.5 M HCl?": the stock volume V1.
+_MOLAR_VALUE = r"\s*(?-i:M)(?![A-Za-z])"
+_STOCK_VOLUME = re.compile(
+    r"\b(?:what\s+volume|how\s+(?:many|much)\s+(?P<asked>mL|L|milliliters?|millilitres?|"
+    r"liters?|litres?))\s+of\s+(?:(?:the|a|an)\s+)?(?:stock\s+)?"
+    rf"(?P<m1>{_N}){_MOLAR_VALUE}[^.?]{{0,80}}?\b(?:make|prepare|produce|obtain)\s+(?:an?\s+)?"
+    rf"(?P<v2>{_N})\s*(?P<v2_unit>mL|L)\s+of\s+(?:an?\s+)?(?P<m2>{_N}){_MOLAR_VALUE}",
+    re.IGNORECASE,
+)
+
+
+def _stock_volume(text: str) -> ChemistryIntent | None:
+    match = _STOCK_VOLUME.search(text)
+    if match is None:
+        return None
+    asked = (match.group("asked") or match.group("v2_unit")).lower()
+    v1_unit = "mL" if asked.startswith(("ml", "milli")) else "L"
+    return ChemistryIntent(
+        kind="solutions",
+        chemistry_op="dilution",
+        params={
+            "m1": float(match.group("m1")),
+            "m2": float(match.group("m2")),
+            "v2": float(match.group("v2")),
+        },
+        units={"v1": v1_unit, "v2": match.group("v2_unit")},
+    )
+
+
 def _extract_solutions(text: str) -> ChemistryIntent | None:
+    stock = _stock_volume(text)
+    if stock is not None:
+        return stock
     if re.search(r"\b(?:dilut|M1V1)\w*", text, re.IGNORECASE):
         m1 = _search(rf"\bM1\s*=\s*({_N})", text)
         m2 = _search(rf"\bM2\s*=\s*({_N})", text)
@@ -337,6 +373,17 @@ def _extract_thermo(text: str) -> ChemistryIntent | None:
     return None
 
 
+_HALF_LIFE_VALUE = re.compile(
+    rf"\bhalf[- ]life\b[^.\d]{{0,60}}?(?:=|is|of|was)\s*({_N})\s*({TIME_UNIT_PATTERN})\b",
+    re.IGNORECASE,
+)
+_ASKS_RATE_CONSTANT = re.compile(
+    r"\b(?:find|calculate|compute|determine|what\s+is)\s+(?:the\s+|its\s+)?"
+    r"(?:(?:first[- ]order\s+)?rate\s+constant|(?-i:k))\b",
+    re.IGNORECASE,
+)
+
+
 def _extract_kinetics(text: str) -> ChemistryIntent | None:
     if re.search(r"\bfirst[- ]order\b", text, re.IGNORECASE) and re.search(
         r"half[- ]life", text, re.IGNORECASE
@@ -349,6 +396,15 @@ def _extract_kinetics(text: str) -> ChemistryIntent | None:
                 chemistry_op="first_order_half_life",
                 params={"rate_constant": rate[0]},
                 units={"rate_constant_time": rate[1]},
+            )
+        # "The half-life of a first-order reaction is 20 min. Find k."
+        half_life = _HALF_LIFE_VALUE.search(text)
+        if rate is None and half_life is not None and _ASKS_RATE_CONSTANT.search(text):
+            return ChemistryIntent(
+                kind="kinetics",
+                chemistry_op="first_order_half_life",
+                params={"half_life": float(half_life.group(1))},
+                units={"half_life_time": TIME_UNITS[half_life.group(2).lower()][0]},
             )
     if re.search(r"\bfirst[- ]order\b", text, re.IGNORECASE):
         initial = _search(rf"\[A\](?:0|₀)\s*=\s*({_N})", text, flags=0)
@@ -478,6 +534,7 @@ EXTRACTORS = (
     _extract_amounts,
     *EXTENDED_EXTRACTORS,
 )
+UNIT_AWARE_EXTRACTORS = (_extract_michaelis,)
 
 
 # Detection, turn prep and the direct reply each ask about the same line, so one turn
@@ -495,10 +552,9 @@ def extract_chemistry_intent(text: str) -> ChemistryIntent | None:
 def _extract_chemistry_intent(text: str) -> ChemistryIntent | None:
     if not text.strip() or len(text) > _MAX_TEXT_LENGTH:
         return None
-    if _UNSUPPORTED_UNIT.search(text):
-        return None
+    readers = UNIT_AWARE_EXTRACTORS if _TEMPLATE_UNREAD_UNIT.search(text) else EXTRACTORS
     text = read_scientific_numbers(text)
-    for extractor in EXTRACTORS:
+    for extractor in readers:
         try:
             intent = extractor(text)
         except Exception:

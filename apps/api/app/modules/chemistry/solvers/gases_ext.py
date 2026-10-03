@@ -1,5 +1,5 @@
 # ruff: noqa: RUF001 -- textbook chemistry uses multiplication and minus signs.
-"""Combined, Boyle, Charles, Dalton, and wet-gas solvers."""
+"""Dalton, partial-pressure and wet-gas solvers: the gas laws physics does not own."""
 
 from __future__ import annotations
 
@@ -15,6 +15,13 @@ from app.modules.chemistry.solvers.common_chem import (
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
+_SUBSCRIPT = str.maketrans("0123456789", "₀₁₂₃₄₅₆₇₈₉")
+
+
+def _partial(name: str) -> str:
+    """P(N2) for a named gas; P₁, P₂ for gases a question only numbers by their order."""
+    return f"P{name.translate(_SUBSCRIPT)}" if name.isdigit() else f"P({name})"
+
 
 def solve_dalton(intent: ChemistryIntent) -> ChemistryResult:
     if len(intent.species) < 2 or any(value < 0 for value in intent.species.values()):
@@ -25,7 +32,7 @@ def solve_dalton(intent: ChemistryIntent) -> ChemistryResult:
     terms = " + ".join(inp(value) for value in intent.species.values())
     return verified(
         "Verified Dalton's law",
-        tuple(f"P({name}) = {inp(value)} {unit}" for name, value in intent.species.items()),
+        tuple(f"{_partial(name)} = {inp(value)} {unit}" for name, value in intent.species.items()),
         "Total pressure",
         *stated("dalton"),
         (f"Ptotal = {terms}",),

@@ -135,6 +135,9 @@ _WORDS: dict[str, str] = {
     "j g^-1 k^-1": "joule / gram / kelvin",
     "kj/kg": "kilojoule / kilogram",
     "j/kg": "joule / kilogram",
+    # A latent heat per gram, as a chemistry class writes ΔHfus = 334 J/g.
+    "kj/g": "kilojoule / gram",
+    "j/g": "joule / gram",
     "w/m^2": "watt / meter ** 2",
     "w/m/k": "watt / meter / kelvin",
     "ohm m": "ohm * meter",

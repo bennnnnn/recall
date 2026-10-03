@@ -14,6 +14,8 @@ from app.modules.chemistry.extractors.parsing import (
 from app.modules.chemistry.request import CHEMICAL_FORMULA
 from app.modules.chemistry.species_facts import (
     NAMED_COMPOUNDS,
+    NEUTRALIZING_ACIDS,
+    NEUTRALIZING_BASES,
     STRONG_ACIDS,
     STRONG_BASES,
     WEAK_ACIDS,
@@ -93,7 +95,7 @@ def _extract_acid(text: str) -> ChemistryIntent | None:
 
 
 def _extract_titration(text: str) -> ChemistryIntent | None:
-    if not re.search(r"\btitrat\w*", text, re.IGNORECASE):
+    if not re.search(r"\b(?:titrat|neutrali[sz])\w*", text, re.IGNORECASE):
         return None
     ma = _search(rf"\bMa\s*=\s*({_N})", text)
     va = _search(rf"\bVa\s*=\s*({_N})\s*L", text)
@@ -157,6 +159,10 @@ _SOLUTION = re.compile(
     rf"(?:({_N})\s*(mL|L)\s+of\s+(?:an?\s+|the\s+)?)?({_N})\s*M\s+({_SPECIES})(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
+# "25.0 mL of NaOH is neutralized by...": a volume whose concentration is the unknown.
+_VOLUME_OF = re.compile(
+    rf"({_N})\s*(mL|L)\s+of\s+(?:an?\s+|the\s+)?({_SPECIES})(?![A-Za-z0-9])", re.IGNORECASE
+)
 # "after adding 10 mL of NaOH": the titrant's volume.
 _ADDED = re.compile(
     rf"\b(?:adding|added|addition\s+of)\s+({_N})\s*(mL|L)\b"
@@ -181,8 +187,6 @@ def _titration_in_words(text: str) -> ChemistryIntent | None:
     NaOH": HCl has 25 mL at 0.1 M, NaOH 0.1 M, and the 10 mL added is NaOH's. A volume no
     phrase ties to one solution declines rather than guess.
     """
-    if not re.search(r"\bpH\b", text):
-        return None
     concentration: dict[str, float] = {}
     volume: dict[str, float] = {}
     # Where each solution phrase states its volume: "adding 10 mL of 0.1 M NaOH" is read
@@ -201,6 +205,10 @@ def _titration_in_words(text: str) -> ChemistryIntent | None:
                 return None
             volume[formula] = stated
             stated_at.add(match.start(1))
+    if len(concentration) == 1 and re.search(r"\b(?:concentration|molarity)\b", text, re.I):
+        return _unknown_concentration(text, concentration, volume)
+    if not re.search(r"\bpH\b", text):
+        return None
     acids = [
         formula for formula in concentration if formula in STRONG_ACIDS or formula in WEAK_ACIDS
     ]
@@ -244,3 +252,39 @@ def _titration_in_words(text: str) -> ChemistryIntent | None:
             kind="acid_base", chemistry_op="titration_weak", params={**params, "kb": kb}
         )
     return None
+
+
+def _unknown_concentration(
+    text: str, concentration: dict[str, float], volume: dict[str, float]
+) -> ChemistryIntent | None:
+    """The concentration a neutralization finds: C₂ = C₁V₁ · ratio / V₂.
+
+    One solution is known by its concentration and volume, the other by its volume alone
+    ("25.0 mL of NaOH is neutralized by 20.0 mL of 0.100 M HCl"). The ratio counts protons
+    and hydroxides: H2SO4 neutralizes two NaOH.
+    """
+    known = next(iter(concentration))
+    volumes = {
+        formula: _liters(match.group(1), match.group(2))
+        for match in _VOLUME_OF.finditer(text)
+        if (formula := _species(match.group(3))) is not None
+    }
+    unknown = [formula for formula in volumes if formula != known]
+    if len(unknown) != 1 or known not in volume:
+        return None
+    other = unknown[0]
+    acid, base = (known, other) if known in NEUTRALIZING_ACIDS else (other, known)
+    if acid not in NEUTRALIZING_ACIDS or base not in NEUTRALIZING_BASES:
+        return None
+    equivalents = {acid: NEUTRALIZING_ACIDS[acid], base: NEUTRALIZING_BASES[base]}
+    return ChemistryIntent(
+        kind="acid_base",
+        chemistry_op="titration_concentration",
+        formula=other,
+        params={
+            "known_concentration": concentration[known],
+            "known_volume": volume[known],
+            "unknown_volume": volumes[other],
+            "ratio": equivalents[known] / equivalents[other],
+        },
+    )

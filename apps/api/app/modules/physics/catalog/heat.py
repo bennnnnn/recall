@@ -12,6 +12,24 @@ _C = var("c_heat", "c", "joule / kilogram / kelvin", fallback="water_specific_he
 _DELTA_TEMP = var("delta_temp", r"\Delta T", "kelvin", words=_RISE, needs_words=True)
 _LATENT = var("latent_heat", "L", "joule / kilogram")
 _PHASE_CHANGE = ("melt", "boil", "freez", "evaporat", "vapori", "condens", "latent", "solidif")
+# What a calorimetry question drops into the water.
+_OBJECT = (
+    "metal",
+    "piece",
+    "block",
+    "sample",
+    "ball",
+    "object",
+    "copper",
+    "iron",
+    "aluminium",
+    "aluminum",
+    "lead",
+    "brass",
+    "steel",
+    "dropped",
+    "heated to",
+)
 
 
 def _heat_law(
@@ -155,6 +173,46 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "specific heat",
             ),
             interchangeable=("m1", "m2", "temp_a", "temp_b"),
+            nonnegative=True,
+        ),
+    ),
+    # A hot object dropped into water: the heat the water gains is the heat the object loses,
+    # m_w c_w (T_f - T_w) = m c (T - T_f), solved for the object's c.
+    formula(
+        "calorimetry_specific_heat",
+        "thermal",
+        "Calorimetry (heat lost = heat gained)",
+        "c",
+        base_latex=r"m c (T - T_f) = m_w c_w (T_f - T_w)",
+        assumptions=("no heat is lost to the surroundings or the container",),
+        expression="m_water*c_water*(temp_final - temp_water)/(m*(temp_object - temp_final))",
+        variables=(
+            var("m", "m", "kilogram", words=_OBJECT, needs_words=True),
+            var("temp_object", "T", "kelvin", words=_OBJECT, needs_words=True),
+            var("m_water", "m_w", "kilogram", words=("water",), needs_words=True),
+            var("temp_water", "T_w", "kelvin", words=("water",), needs_words=True),
+            var(
+                "temp_final",
+                "T_f",
+                "kelvin",
+                words=("final", "equilibrium", "reaches", "settles", "mixture"),
+                needs_words=True,
+            ),
+            var("c_water", "c_w", "joule / kilogram / kelvin", fallback="calorimeter_water"),
+        ),
+        binding=Binding(
+            asks=(
+                "specific heat capacity of the metal",
+                "specific heat of the metal",
+                "specific heat capacity",
+                "specific heat",
+            ),
+            result=("joule / kilogram / kelvin",),
+            inputs=(
+                frozenset({"m", "temp_object", "m_water", "temp_water", "temp_final", "c_water"}),
+            ),
+            cues=("water",),
+            excludes=("ice", "steam"),
             nonnegative=True,
         ),
     ),

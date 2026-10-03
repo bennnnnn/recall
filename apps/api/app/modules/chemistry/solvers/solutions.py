@@ -7,7 +7,7 @@ import math
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
-from app.modules.chemistry.quantity import to_liters
+from app.modules.chemistry.quantity import convert, to_liters
 from app.modules.chemistry.solvers.common_chem import inp, num, p_value, verified
 from app.modules.chemistry.solvers.constants import PKW
 from app.modules.chemistry.solvers.params import require
@@ -21,6 +21,35 @@ def _volume_in_l(value: float, unit: str) -> float:
         return to_liters(value, unit)
     except (ValueError, TypeError) as exc:
         raise SolveServiceError(f"unsupported dilution volume unit: {unit}") from exc
+
+
+def _stock_volume(intent: ChemistryIntent) -> ChemistryResult:
+    """V1 = M2V2 / M1: the stock a dilution starts from, in the unit asked or V2's."""
+    m1 = require(intent, "m1", positive=True)
+    m2 = require(intent, "m2", positive=True)
+    v2 = require(intent, "v2", positive=True)
+    if m2 > m1:
+        raise SolveServiceError("a dilution cannot make a solution stronger than its stock")
+    v2_unit = intent.units.get("v2", "L")
+    v1_unit = intent.units.get("v1", v2_unit)
+    in_v2_unit = m2 * v2 / m1
+    try:
+        volume = convert(in_v2_unit, v2_unit, v1_unit)
+    except ValueError as exc:
+        raise SolveServiceError(f"unsupported dilution volume unit: {v1_unit}") from exc
+    value = f"{num(volume)} {v1_unit}"
+    rows = [f"V1 = ({inp(m2)})({inp(v2)} {v2_unit}) / {inp(m1)}"]
+    if v1_unit != v2_unit:
+        rows.append(f"V1 = {num(in_v2_unit)} {v2_unit} = {value}")
+    return verified(
+        "Verified dilution",
+        (f"M1 = {inp(m1)} mol/L", f"M2 = {inp(m2)} mol/L", f"V2 = {inp(v2)} {v2_unit}"),
+        "Volume of the stock solution, V1",
+        *stated("dilution"),
+        tuple(rows),
+        f"V1 = {value}",
+        value,
+    )
 
 
 def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
@@ -39,6 +68,8 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             f"c = {value}",
             value,
         )
+    if op == "dilution" and "v1" not in intent.params:
+        return _stock_volume(intent)
     if op == "dilution":
         m1 = require(intent, "m1", positive=True)
         v1 = require(intent, "v1", positive=True)

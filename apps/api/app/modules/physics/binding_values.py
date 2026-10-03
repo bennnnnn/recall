@@ -18,6 +18,7 @@ from app.modules.physics.bodies import (
 from app.modules.physics.display import si_symbol
 from app.modules.physics.extractors.common import _detect_gravity
 from app.services.law_binding.spec import VariableSpec
+from app.services.text_match import word_index
 
 
 def fallback_value(variable: VariableSpec, text: str, lower: str) -> float | None:
@@ -32,6 +33,9 @@ def fallback_value(variable: VariableSpec, text: str, lower: str) -> float | Non
         return named_particle_charge(lower)
     if fallback == "particle_mass":
         return named_particle_mass(lower)
+    if fallback == "calorimeter_water":
+        # The water a hot object is dropped into: its c, whatever else the question names.
+        return WATER_SPECIFIC_HEAT if word_index(lower, "water") != -1 else None
     if fallback in {"water_specific_heat", "water_density"}:
         if not names_only_water(lower):
             return None

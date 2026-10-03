@@ -71,8 +71,12 @@ STRONG_BASES: dict[str, int] = {
     "Ba(OH)2": 2,
 }
 # Weak electrolytes: a pH needs the stated Ka or Kb.
+
 WEAK_ACIDS = frozenset({"CH3COOH", "HCOOH", "HF", "HNO2", "HCN", "HClO", "C6H5COOH"})
 WEAK_BASES = frozenset({"NH3", "CH3NH2", "C5H5N", "C6H5NH2"})
+# Protons an acid gives up, and hydroxides a base takes them with, in a full neutralization.
+NEUTRALIZING_ACIDS: dict[str, int] = {**STRONG_ACIDS, "H2SO4": 2, **dict.fromkeys(WEAK_ACIDS, 1)}
+NEUTRALIZING_BASES: dict[str, int] = {**STRONG_BASES, **dict.fromkeys(WEAK_BASES, 1)}
 # The conjugate base of a weak acid, as the salt a buffer is made with.
 CONJUGATE_SALTS = frozenset({"CH3COONa", "CH3COOK", "HCOONa", "NaF", "NaNO2", "NaCN"})
 # Particles one dissolved formula unit gives, for an ideal colligative property.
@@ -115,9 +119,14 @@ def _name_pattern() -> re.Pattern[str]:
 
 
 def is_formula(token: str) -> bool:
-    """A compound formula: two or more real elements ("HCl", "NH3"), never "Find" or "Kf"."""
+    """A formula of real elements: a compound ("HCl", "NH3") or a molecule of one ("O2").
+
+    Never "Find" or "Kf", and never a bare symbol ("C", "K"): that is an element or a unit.
+    """
     atoms = parse_formula(token)
-    return len(atoms) >= 2 and all(symbol in BY_SYMBOL for symbol in atoms)
+    if not atoms or not all(symbol in BY_SYMBOL for symbol in atoms):
+        return False
+    return len(atoms) >= 2 or next(iter(atoms.values())) >= 2
 
 
 def named_species(text: str) -> tuple[str, ...]:
@@ -159,3 +168,70 @@ def formula_spans(text: str) -> list[tuple[int, int]]:
     spans = [match.span(1) for match in _FORMULA_TOKEN.finditer(text) if is_formula(match.group(1))]
     spans.extend(match.span() for match in _ION.finditer(text) if match.group(1) in BY_SYMBOL)
     return sorted(spans)
+
+
+# Anions a sparingly soluble salt releases, with their charge.
+_SALT_ANIONS: dict[str, int] = {
+    "F": -1,
+    "Cl": -1,
+    "Br": -1,
+    "I": -1,
+    "OH": -1,
+    "IO3": -1,
+    "O": -2,
+    "S": -2,
+    "SO4": -2,
+    "SO3": -2,
+    "CO3": -2,
+    "CrO4": -2,
+    "C2O4": -2,
+    "PO4": -3,
+    "AsO4": -3,
+}
+_NONMETALS = frozenset({"H", "B", "C", "N", "O", "F", "Si", "P", "S", "Cl", "Se", "Br", "I"})
+# A salt as cation then anion: "AgCl", "CaF2", "Ag2CrO4", "Ca3(PO4)2".
+_SALT = re.compile(
+    r"(?P<cation>[A-Z][a-z]?)(?P<cations>\d*)"
+    r"(?:\((?P<group>[A-Za-z0-9]+)\)(?P<groups>\d+)|(?P<anion>[A-Z][A-Za-z0-9]*))"
+)
+_MONATOMIC = re.compile(r"(?P<symbol>[A-Z][a-z]?)(?P<count>\d*)")
+
+
+def _ion_label(symbol: str, charge: int) -> str:
+    """ "Ca2+", "F-", "SO4^2-": an anion of charge two or more keeps a caret ("O2-" is O₂⁻)."""
+    sign = "+" if charge > 0 else "-"
+    size = abs(charge)
+    if size == 1:
+        return f"{symbol}{sign}"
+    return f"{symbol}{size}{sign}" if charge > 0 else f"{symbol}^{size}{sign}"
+
+
+def dissolution_equation(formula: str) -> str | None:
+    """How a sparingly soluble salt dissolves: "CaF2" is "CaF2(s) -> Ca2+ + F-".
+
+    The cation's charge is the one that makes the salt neutral, so "Fe(OH)3" is Fe3+.
+    None for anything that is not a metal cation with one known anion.
+    """
+    match = _SALT.fullmatch(formula)
+    if match is None or match.group("cation") not in BY_SYMBOL:
+        return None
+    cation = match.group("cation")
+    if cation in _NONMETALS:
+        return None
+    cations = int(match.group("cations") or 1)
+    if match.group("group") is not None:
+        anion, anions = match.group("group"), int(match.group("groups"))
+    elif match.group("anion") in _SALT_ANIONS:
+        anion, anions = match.group("anion"), 1
+    else:
+        single = _MONATOMIC.fullmatch(match.group("anion"))
+        if single is None:
+            return None
+        anion, anions = single.group("symbol"), int(single.group("count") or 1)
+    charge = _SALT_ANIONS.get(anion)
+    if charge is None or (anions * -charge) % cations:
+        return None
+    cation_charge = anions * -charge // cations
+    if not 1 <= cation_charge <= 4:
+        return None
+    return f"{formula}(s) -> {_ion_label(cation, cation_charge)} + {_ion_label(anion, charge)}"
