@@ -1,6 +1,6 @@
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import { preprocessMarkdownForStream } from "@/lib/markdown/preprocessStream";
-import { presentAssistantMarkdown } from "@/lib/markdown/presentation";
+import { presentAssistantMarkdown, presentStreamTail } from "@/lib/markdown/presentation";
 import { splitMathExpression } from "@/lib/markdown/calculationLayout";
 
 const TRAIN = "A train travels at**60 km/h** and returns at**40 km/h**.";
@@ -95,6 +95,17 @@ describe("presentation corpus", () => {
     const partial = preprocessMarkdownForStream("at**40", null).prepared;
     expect(partial).toBe("at**40");
     expect(partial).toBe(presentAssistantMarkdown("at**40"));
+  });
+
+  it("wraps a bare fraction on the streaming tail and leaves an open fence alone", () => {
+    const wrapped = presentStreamTail(String.raw`half is \frac{1}{2}`);
+    expect(wrapped).toContain(String.raw`$\frac{1}{2}$`);
+    expect(wrapped).not.toMatch(/(?:^|[^$])\\frac/);
+    const openFence = presentStreamTail(String.raw`see` + "\n```\n\\frac{1}{2}\n");
+    expect(openFence.startsWith("see")).toBe(true);
+    expect(openFence).toContain("```\n\\frac{1}{2}\n");
+    expect(openFence).not.toContain("$\\frac");
+    expect(preprocessMarkdownForStream(String.raw`half is \frac{1}{2}`, null).prepared).toBe(wrapped);
   });
 
   it("keeps units, signs, statistics, and adjacent tokens readable", () => {

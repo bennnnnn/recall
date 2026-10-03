@@ -339,25 +339,51 @@ describe("MathText", () => {
     expect(queryByText(/√\[9\]/)).toBeNull();
   });
 
-  it.each(["9^{1/6}", String.raw`9^{\frac{1}{6}}`])(
-    "keeps fractional exponent %s readable and raised in a sized native View",
-    async (latex) => {
-      const { getByTestId, getByText, queryByText } = await render(<MathText latex={latex} />);
-      const { layout, problems } = laidOut(latex);
-      const script = findLayouts(layout, "script")[0];
-      expect(problems).toEqual([]);
-      expect(queryByText("1/6")).toBeNull();
-      expect(getByText("1")).toBeOnTheScreen();
-      expect(getByText("6")).toBeOnTheScreen();
-      expect(getByTestId("math-script-bar")).toBeOnTheScreen();
-      expect(getByTestId("math-fractional-sup")).toHaveStyle({
-        height: script.height,
-        paddingBottom: script.raise,
-      });
-      expect(getByTestId("math-text-tall")).toHaveStyle({ height: layout.height });
-      expect(queryByText("¹⁄⁶")).toBeNull();
-    },
-  );
+  it("keeps a slash exponent readable and raised in a sized native View", async () => {
+    const latex = "9^{1/6}";
+    const { getByTestId, getByText, queryByText } = await render(<MathText latex={latex} />);
+    const { layout, problems } = laidOut(latex);
+    const script = findLayouts(layout, "script")[0];
+    expect(problems).toEqual([]);
+    expect(queryByText("1/6")).toBeNull();
+    expect(getByText("1")).toBeOnTheScreen();
+    expect(getByText("6")).toBeOnTheScreen();
+    expect(getByTestId("math-script-bar")).toBeOnTheScreen();
+    expect(getByTestId("math-fractional-sup")).toHaveStyle({
+      height: script.height,
+      paddingBottom: script.raise,
+    });
+    expect(getByTestId("math-text-tall")).toHaveStyle({ height: layout.height });
+    expect(queryByText("¹⁄⁶")).toBeNull();
+  });
+
+  it("draws a fraction and a radical inside an exponent", async () => {
+    const frac = String.raw`x^{\frac{1}{2}}`;
+    const root = String.raw`x^{\sqrt{2}}`;
+    const { getByTestId, queryByText, getAllByText } = await render(<MathText latex={frac} />);
+    expect(laidOut(frac).problems).toEqual([]);
+    expect(queryByText(/\\frac/)).toBeNull();
+    expect(queryByText("1/2")).toBeNull();
+    expect(getByTestId("math-frac")).toBeOnTheScreen();
+    expect(getAllByText("1").length).toBeGreaterThan(0);
+    expect(getAllByText("2").length).toBeGreaterThan(0);
+
+    const rooted = await render(<MathText latex={root} />);
+    expect(laidOut(root).problems).toEqual([]);
+    expect(rooted.queryByText(/\\sqrt/)).toBeNull();
+    expect(rooted.getByTestId("math-sqrt")).toBeOnTheScreen();
+    expect(rooted.getByText("2")).toBeOnTheScreen();
+  });
+
+  it("draws a fraction root index instead of the characters \\frac", async () => {
+    const latex = String.raw`\sqrt[\frac{1}{2}]{x}`;
+    const { getByTestId, queryByText, getByText } = await render(<MathText latex={latex} />);
+    expect(laidOut(latex).problems).toEqual([]);
+    expect(queryByText(/\\frac/)).toBeNull();
+    expect(getByTestId("math-sqrt-index")).toBeOnTheScreen();
+    expect(getByTestId("math-frac")).toBeOnTheScreen();
+    expect(getByText("x")).toBeOnTheScreen();
+  });
 
   it("preserves scripts in fraction sides instead of flattening to literal carets", async () => {
     const { queryByText, getByText, getAllByTestId } = await render(

@@ -109,6 +109,30 @@ describe("parseSimpleLatex", () => {
     expect(parseSimpleLatex(String.raw`\cfrac{a}{b}`).some((s) => s.type === "frac")).toBe(true);
   });
 
+  it("keeps a nested root index and braced scripts as segments", () => {
+    const root = parseSimpleLatex(String.raw`\sqrt[\frac{1}{2}]{x}`).find((seg) => seg.type === "sqrt");
+    expect(root?.type).toBe("sqrt");
+    if (root?.type !== "sqrt") return;
+    expect(root.index?.[0]?.type).toBe("frac");
+    expect(root.degree).toBeUndefined();
+
+    const exponent = parseSimpleLatex(String.raw`x^{\sqrt{2}}`).find((seg) => seg.type === "sup");
+    expect(exponent?.type).toBe("sup");
+    if (exponent?.type !== "sup") return;
+    expect(exponent.body?.[0]?.type).toBe("sqrt");
+
+    const fraction = parseSimpleLatex(String.raw`x^{\frac{1}{2}}`).find((seg) => seg.type === "sup");
+    expect(fraction?.type).toBe("sup");
+    if (fraction?.type !== "sup") return;
+    expect(fraction.body?.[0]?.type).toBe("frac");
+
+    const slash = parseSimpleLatex("3^{2/3}").find((seg) => seg.type === "sup");
+    expect(slash?.type).toBe("sup");
+    if (slash?.type !== "sup") return;
+    expect(slash.body).toBeUndefined();
+    expect(slash.value).toBe("2/3");
+  });
+
   it("BUG FIX regression: nth-root \\sqrt[n]{x} renders as √[n] with an overlined radicand, not raw", () => {
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\sqrt[3]{8}`))).toBe("√[3]8̅");
   });

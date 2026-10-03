@@ -245,8 +245,12 @@ function speakMathSegments(segments: MathSegment[], depth = 0): string {
       case "upright":
         return speakPlainMath(segment.value);
       case "sup":
-      case "sub":
-        return speakScript(segment.value, depth, segment.type);
+      case "sub": {
+        const spoken = segment.body
+          ? speakMathSegments(segment.body, depth + 1).trim()
+          : segment.value;
+        return speakScript(spoken, depth, segment.type);
+      }
       case "frac": {
         const num = speakMathSegments(segment.num, depth + 1).trim();
         const den = speakMathSegments(segment.den, depth + 1).trim();
@@ -254,8 +258,12 @@ function speakMathSegments(segments: MathSegment[], depth = 0): string {
       }
       case "sqrt": {
         const body = speakMathSegments(segment.body, depth + 1).trim();
-        if (!segment.degree) return `the square root of ${body}`;
-        const degree = speakMathSegments(parseSimpleLatex(segment.degree), depth + 1).trim();
+        const degree = segment.index
+          ? speakMathSegments(segment.index, depth + 1).trim()
+          : segment.degree
+            ? speakMathSegments(parseSimpleLatex(segment.degree), depth + 1).trim()
+            : "";
+        if (!degree) return `the square root of ${body}`;
         if (degree === "3") return `the cube root of ${body}`;
         return `the ${degree} root of ${body}`;
       }
@@ -291,8 +299,12 @@ function copyMathSegments(segments: MathSegment[], depth = 0): string {
       case "upright": return segment.value;
       case "sup":
       case "sub": {
-        if (segment.type === "sup" && segment.value === DEGREE_RING) return "°";
-        const value = depth >= 12 ? segment.value : copyMathSegments(parseSimpleLatex(segment.value), depth + 1);
+        if (segment.type === "sup" && !segment.body && segment.value === DEGREE_RING) return "°";
+        const value = segment.body
+          ? copyMathSegments(segment.body, depth + 1)
+          : depth >= 12
+            ? segment.value
+            : copyMathSegments(parseSimpleLatex(segment.value), depth + 1);
         return `${segment.type === "sup" ? "^" : "_"}${value.length === 1 ? value : `{${value}}`}`;
       }
       case "frac": {
@@ -301,7 +313,11 @@ function copyMathSegments(segments: MathSegment[], depth = 0): string {
         return next?.type === "sup" || next?.type === "sub" ? `(${fraction})` : fraction;
       }
       case "sqrt": {
-        const index = segment.degree ? `[${copyMathSegments(parseSimpleLatex(segment.degree), depth + 1)}]` : "";
+        const index = segment.index
+          ? `[${copyMathSegments(segment.index, depth + 1)}]`
+          : segment.degree
+            ? `[${copyMathSegments(parseSimpleLatex(segment.degree), depth + 1)}]`
+            : "";
         return `√${index}(${copyMathSegments(segment.body, depth + 1)})`;
       }
       case "cancel":
