@@ -56,7 +56,12 @@ _PENDULUM_PERIOD_RE = re.compile(
 
 
 def _extract_pendulum_intent(cleaned: str) -> PhysicsIntent | None:
-    if not _has_cue(cleaned.lower(), (), _PENDULUM_CUE_RES):
+    lower = cleaned.lower()
+    # A physical or conical pendulum is a different formula. Leaving it here
+    # would answer with the simple-pendulum length.
+    if "physical pendulum" in lower or "conical pendulum" in lower or "compound pendulum" in lower:
+        return None
+    if not _has_cue(lower, (), _PENDULUM_CUE_RES):
         return None
     if not _PENDULUM_PERIOD_RE.search(cleaned):
         return None

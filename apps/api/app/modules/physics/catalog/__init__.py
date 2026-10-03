@@ -28,6 +28,7 @@ from app.modules.physics.catalog.materials import SPECS as MATERIALS
 from app.modules.physics.catalog.modern import SPECS as MODERN
 from app.modules.physics.catalog.momentum import SPECS as MOMENTUM
 from app.modules.physics.catalog.nuclear import SPECS as NUCLEAR
+from app.modules.physics.catalog.one_step import SPECS as ONE_STEP
 from app.modules.physics.catalog.optics import SPECS as OPTICS
 from app.modules.physics.catalog.projectile import SPECS as PROJECTILE
 from app.modules.physics.catalog.quantum import SPECS as QUANTUM
@@ -100,6 +101,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     MATERIALS,
     MODERN,
     NUCLEAR,
+    ONE_STEP,
     QUANTUM,
     RELATIVITY,
 )

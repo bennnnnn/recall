@@ -130,7 +130,7 @@ def result_reading(unit: str) -> tuple[str, float, float] | None:
     from app.modules.physics.solvers.unit_aliases import _UNIT_ALIASES
 
     spelled = unit.strip()
-    if not spelled or spelled == "%":
+    if not spelled or spelled == "%" or spelled.lower() in {"db", "decibel", "decibels"}:
         return _DIMENSIONLESS, 1.0, 0.0
     # "0.85 c" is the speed of light; the lowercased alias table reads c as C.
     alias = "speed_of_light" if spelled == "c" else _UNIT_ALIASES.get(spelled.lower(), spelled)
