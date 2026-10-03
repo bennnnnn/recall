@@ -20,12 +20,9 @@ from app.modules.physics.extractors.common import (
     _VELOCITY_UNIT_PATTERN,
 )
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE, _TWO_DIMENSIONAL_RE
-from app.modules.physics.numbers import (
-    normalize_physics_numbers,
-    normalize_physics_units,
-    numeric_spans,
-)
+from app.modules.physics.numbers import normalize_physics_numbers, normalize_physics_units
 from app.modules.physics.registry import has_supported_physics_cue
+from app.services.number_text import numeric_spans
 
 _MASS = re.compile(rf"({_NUMBER})\s*({_MASS_UNITS})(?![A-Za-z0-9/^])", re.IGNORECASE)
 _SPEED = re.compile(rf"({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)

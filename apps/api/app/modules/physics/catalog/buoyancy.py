@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 _FLUID_WORDS = ("water", "liquid", "fluid", "oil", "sea", "mercury", "alcohol")
 # The fluid's density, named as the fluid's: "a block of density 2700 kg/m³"
