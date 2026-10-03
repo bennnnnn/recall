@@ -62,6 +62,9 @@ def dimension_of(expression: str) -> str | None:
 
 
 def _alternation(spellings: list[str]) -> str:
+    """The spellings longest first; an empty table matches nothing, not an empty unit."""
+    if not spellings:
+        return "(?!)"
     return "|".join(re.escape(spelling) for spelling in sorted(spellings, key=len, reverse=True))
 
 
