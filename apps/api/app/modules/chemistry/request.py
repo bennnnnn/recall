@@ -49,6 +49,8 @@ _GATE_WINDOW = 2000
 _STRONG_CUE = re.compile(
     r"\b(?:stoichiometr\w*|molar\s+(?:mass|volume|absorptivity|concentration)|"
     r"molarity|molality|formula\s+units?|M1V1|mass\s+percent|pOH|"
+    r"parts\s+per\s+(?:million|billion)|(?:ppm|ppb)(?=\s+of\b)|"
+    r"volume\s+percent|percent\s+by\s+volume|mass/volume\s+percent|"
     r"thermochem\w*|enthalpy|specific\s+heat|calorimet\w*|"
     r"reaction\s+quotient|equilibrium\s+(?:constant|expression)|ice\s+(?:table|equilibrium)|"
     r"rate\s+(?:constant|law)|first[- ]order|second[- ]order|zero[- ]order|arrhenius|"

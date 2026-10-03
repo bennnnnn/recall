@@ -122,6 +122,26 @@ SOLUTIONS: tuple[Case, ...] = (
     q("Find the osmotic pressure of 0.1 M glucose at 25 °C.", 0.1 * R_ATM * 298.15, "atm"),
     q("Find the mass percent of 5 g of sugar dissolved in 95 g of water.", 5 / (5 + 95) * 100, "%"),
     q(
+        "What is the ppm of 2.50 mg of solute in 1.00 kg of solution?",
+        2.50e-3 / 1000 * 1e6,
+        "ppm",
+    ),
+    q(
+        "What is the ppb of 2.50 mg of solute in 1.00 kg of solution?",
+        2.50e-3 / 1000 * 1e9,
+        "ppb",
+    ),
+    q(
+        "What is the volume percent of 25.0 mL of solute in 500.0 mL of solution?",
+        25.0 / 500.0 * 100,
+        "%",
+    ),
+    q(
+        "What is the mass/volume percent of 5.00 g of solute in 250 mL of solution?",
+        5.00 / 250 * 100,
+        "%",
+    ),
+    q(
         "Find the mole fraction of ethanol in a solution of 2 mol ethanol and 8 mol water.",
         2 / (2 + 8),
     ),
@@ -212,6 +232,8 @@ NOT_CHEMISTRY: tuple[str, ...] = (
     "precipitation tomorrow in Seattle",
     "kinetic energy of a 2 kg ball",
     "what is compound interest",
+    # ppm of a price or a stock is not a concentration.
+    "the stock rose 3 ppm",
     # A capital M after a number is a molarity only before a real formula.
     "3 M Company stock rose 2% today.",
     "We sold 5 M units in 2024.",
@@ -220,4 +242,4 @@ NOT_CHEMISTRY: tuple[str, ...] = (
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 81
+COVERAGE_FLOOR = 85
