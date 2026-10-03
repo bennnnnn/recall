@@ -269,6 +269,16 @@ def typeset_numbers(row: str) -> str:
     return _LONG_DECIMAL.sub(lambda match: latex_number(float(match.group(1)), GIVEN_FIGURES), row)
 
 
+# One value as ``latex_number`` and ``latex_unit`` print it: "2 \\times 10^{-10}\\,\\mathrm{m}".
+_QUANTITY = r"-?\d[\d.]*(?: \\times 10\^\{-?\d+\})?(?:\\,\S+)?"
+_CONVERSION_ROW = re.compile(rf"[^=]+ = {_QUANTITY} = {_QUANTITY}")
+
+
+def is_conversion_row(row: str) -> bool:
+    """A row ``conversion_row`` wrote: one value restated in another unit, no arithmetic."""
+    return _CONVERSION_ROW.fullmatch(row) is not None
+
+
 def conversion_row(symbol: str, before: tuple[float, str], after: tuple[float, str]) -> str:
     """The step from the SI value the substitution gives to the unit the answer is shown in.
 

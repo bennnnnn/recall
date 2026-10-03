@@ -22,7 +22,7 @@ from app.modules.physics.catalog import (
     variable_for,
     visible_assumptions,
 )
-from app.modules.physics.display import latex_given, latex_unit, si_symbol
+from app.modules.physics.display import is_conversion_row, latex_given, latex_unit, si_symbol
 from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
 from app.modules.physics.working import result_symbol_for
@@ -197,7 +197,11 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     params = intent.physics_params or {}
     units = intent.physics_units or {}
     given_rows: list[str] = []
-    substitution_text = " ".join(verified.physics_substitutions)
+    # The arithmetic only: a conversion row restates the answer, and an answer equal to a
+    # given (λ = d in Bragg's law at 30°) would read as that given written into the working.
+    arithmetic = " ".join(
+        row for row in verified.physics_substitutions if not is_conversion_row(row)
+    )
     operation = intent.physics_op or ""
     given_spec = formula_spec(operation)
     for name, value in params.items():
@@ -205,7 +209,7 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
         if variable is not None and not variable.visible:
             continue
         symbol = _parameter_symbol(name, operation)
-        shown = _given_value(name, value, units.get(name, ""), substitution_text)
+        shown = _given_value(name, value, units.get(name, ""), arithmetic)
         given_rows.append(f"${symbol} = {shown}$")
 
     formulas = list(verified.physics_formulas)
