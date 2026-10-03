@@ -18,7 +18,9 @@ overrides:
   undici: 6.28.1
   nanoid@3: 3.3.18
   shell-quote: 1.9.0
+  braces: file:vendor/braces
   image-size: file:vendor/image-size
+  node-forge: file:vendor/node-forge
   browserslist: 4.28.7
   decode-uri-component: 0.5.0
 
@@ -2360,8 +2362,8 @@ packages:
     resolution: {integrity: sha512-YovQ3rzhaLMIrDjNDMkNS01tea93qhEhG5xy8f6+R0l+dw3Ki+5sCoIoI942iuLZTHWogWktgwVDhU09iNEimQ==}
     engines: {node: 20 || >=22}
 
-  braces@3.0.3:
-    resolution: {integrity: sha512-yQbXgO/OSZVD2IsiLlro+7Hf6Q18EJrKSEsdoMzKePKXct3gvD8oLcOQdIzGupr5Fj+EDe8gO/lxc1BzfMpxvA==}
+  braces@file:vendor/braces:
+    resolution: {directory: vendor/braces, type: directory}
     engines: {node: '>=8'}
 
   browserslist@4.28.7:
@@ -4366,8 +4368,8 @@ packages:
       encoding:
         optional: true
 
-  node-forge@1.4.0:
-    resolution: {integrity: sha512-LarFH0+6VfriEhqMMcLX2F7SwSXeWwnEAJEsYm5QKWchiVYVvJyV9v7UDvUv+w5HO23ZpQTXDv/GxdDdMyOuoQ==}
+  node-forge@file:vendor/node-forge:
+    resolution: {directory: vendor/node-forge, type: directory}
     engines: {node: '>= 6.13.0'}
 
   node-int64@0.4.0:
@@ -6358,7 +6360,7 @@ snapshots:
       glob: 13.0.6
       lan-network: 0.2.1
       multitars: 1.0.0
-      node-forge: 1.4.0
+      node-forge: file:vendor/node-forge
       npm-package-arg: 11.0.3
       ora: 3.4.0
       picomatch: 4.0.4
@@ -6394,7 +6396,7 @@ snapshots:
 
   '@expo/code-signing-certificates@0.0.6':
     dependencies:
-      node-forge: 1.4.0
+      node-forge: file:vendor/node-forge
 
   '@expo/config-plugins@57.0.5(typescript@6.0.3)':
     dependencies:
@@ -8333,7 +8335,7 @@ snapshots:
     dependencies:
       balanced-match: 4.0.4
 
-  braces@3.0.3:
+  braces@file:vendor/braces:
     dependencies:
       fill-range: 7.1.1
 
@@ -10720,7 +10722,7 @@ snapshots:
 
   micromatch@4.0.8:
     dependencies:
-      braces: 3.0.3
+      braces: file:vendor/braces
       picomatch: 2.3.2
 
   mime-db@1.52.0: {}
@@ -10802,7 +10804,7 @@ snapshots:
     dependencies:
       whatwg-url: 5.0.0
 
-  node-forge@1.4.0: {}
+  node-forge@file:vendor/node-forge: {}
 
   node-int64@0.4.0: {}
 

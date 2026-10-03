@@ -1,0 +1,28 @@
+{
+  "name": "node-forge",
+  "description": "node-forge 1.4.0 with the nested DigestAlgorithm length check (vendored; upstream unpatched through 1.4.0)",
+  "homepage": "https://github.com/digitalbazaar/forge",
+  "author": {
+    "name": "Digital Bazaar, Inc.",
+    "email": "support@digitalbazaar.com",
+    "url": "http://digitalbazaar.com/"
+  },
+  "license": "(BSD-3-Clause OR GPL-2.0)",
+  "main": "lib/index.js",
+  "engines": {
+    "node": ">= 6.13.0"
+  },
+  "browser": {
+    "buffer": false,
+    "crypto": false,
+    "process": false
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/digitalbazaar/forge"
+  },
+  "version": "1.4.1",
+  "files": [
+    "lib"
+  ]
+}
