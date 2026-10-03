@@ -152,10 +152,9 @@ _OFFSET_DIFFERENCES = {
 
 def _registry_constant(name: str) -> float:
     """One CODATA magnitude from the shared unit registry, in SI base units."""
-    from app.services.units import get_unit_registry
+    from app.services.units import constant
 
-    quantity = get_unit_registry().Quantity(1, name)
-    return float(quantity.to_base_units().magnitude)
+    return constant(name)
 
 
 # Loaded once. A test pins each magnitude so a Pint upgrade cannot move an answer.

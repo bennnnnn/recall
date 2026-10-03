@@ -96,10 +96,11 @@ def test_a_missing_or_out_of_range_parameter_is_a_refusal_never_a_default() -> N
     "literal",
     [r"0\.0820573", r"8\.3144626", r"96485\.33", r"6\.022140", r"1\.0072764", r"931\.494"],
 )
-def test_every_physical_constant_has_one_home(literal: str) -> None:
-    homes = [
-        path.name
-        for path in _SOLVER_DIR.glob("*.py")
+def test_no_chemistry_module_types_a_physical_constant(literal: str) -> None:
+    # The values come from the shared unit registry (solvers/constants.py), never a literal.
+    typed = [
+        str(path.relative_to(_SOLVER_DIR.parent))
+        for path in _SOLVER_DIR.parent.rglob("*.py")
         if re.search(literal, path.read_text(encoding="utf-8"))
     ]
-    assert homes == ["constants.py"]
+    assert typed == []

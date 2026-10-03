@@ -13,12 +13,14 @@ import re
 
 import pytest
 
-from app.models.schemas.chemistry import ChemistryIntent, ChemistryKind, ChemistryOp
+from app.models.schemas.chemistry import ChemistryIntent, ChemistryKind
 from app.models.schemas.chemistry.scene import TitrationScene
 from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
-from app.modules.chemistry.extractors.parsing import _percents
+from app.modules.chemistry.extractors.amounts import (
+    _percents,
+)
 from app.modules.chemistry.formula import parse_formula as parse_formula_atoms
 from app.modules.chemistry.lewis import lewis_structure
 from app.modules.chemistry.nuclear import balance_nuclear, format_nuclear
@@ -26,7 +28,9 @@ from app.modules.chemistry.organic import organic_facts
 from app.modules.chemistry.reactions import named_product
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.solvers import solve_chemistry
-from app.modules.chemistry.solvers.thermo_ext import _formation
+from app.modules.chemistry.solvers.thermochemistry import (
+    _formation,
+)
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.modules.chemistry.species import parse_species, split_terms
 from app.modules.chemistry.stoichiometry import limiting_reagent, molar_mass
@@ -956,7 +960,7 @@ def test_esterification_needs_an_alcohol_partner_not_an_acid() -> None:
     ],
 )
 def test_a_missing_input_is_refused_not_defaulted(
-    kind: ChemistryKind, operation: ChemistryOp, params: dict[str, float]
+    kind: ChemistryKind, operation: str, params: dict[str, float]
 ) -> None:
     intent = ChemistryIntent(kind=kind, chemistry_op=operation, params=params)
     with pytest.raises(SolveServiceError):

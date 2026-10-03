@@ -6,15 +6,21 @@ different values of the same constant.
 
 from __future__ import annotations
 
-GAS_R = 0.082057366080960  # L·atm/(mol·K)
-GAS_R_J = 8.31446261815324  # J/(mol·K)
-FARADAY = 96485.33212  # C/mol
-AVOGADRO = 6.02214076e23  # 1/mol
-KW = 1.0e-14  # water ion product at 25 °C
+from app.services.units import constant
+
+# CODATA values from the shared unit registry, in the units chemistry works in. A test pins
+# each, so a Pint upgrade cannot move an answer.
+GAS_R = constant("molar_gas_constant", "L * atm / (mol * K)")
+GAS_R_J = constant("molar_gas_constant", "J / (mol * K)")
+FARADAY = constant("faraday_constant", "C / mol")
+AVOGADRO = constant("avogadro_constant", "1 / mol")
+PROTON_U = constant("proton_mass", "u")
+NEUTRON_U = constant("neutron_mass", "u")
+# The energy equivalent of 1 u.
+MEV_PER_U = constant("atomic_mass_constant * speed_of_light ** 2", "MeV")
+# Water's ion product at 25 °C is a tabulated value, not a constant of nature.
+KW = 1.0e-14
 PKW = 14  # -log10(KW), so pH + pOH
-PROTON_U = 1.007276466621  # proton mass in u
-NEUTRON_U = 1.00866491595  # neutron mass in u
-MEV_PER_U = 931.494  # energy equivalent of 1 u
 
 # Standard reduction potential and electrons for the common aqueous ion.
 STANDARD_REDUCTION: dict[str, tuple[float, int]] = {
