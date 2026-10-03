@@ -8,7 +8,8 @@ Each answer was checked by hand to the figures the question's data carry:
 - 75.77% × 34.969 u + 24.23% × 36.966 u = 35.45 u;
 - 2.50 mg / 1.00 kg = 2.50 ppm = 2500 ppb;
 - 25.0 mL / 500.0 mL × 100 = 5.00%;
-- 5.00 g / 250 mL × 100 = 2.00 g/100 mL.
+- 5.00 g / 250 mL × 100 = 2.00 g/100 mL;
+- 0.400 × 0.800 atm + 0.600 × 0.400 atm = 0.560 atm.
 """
 
 from __future__ import annotations
@@ -53,6 +54,13 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "What is the atom economy of CH3COOCH3 in CH3COOH + CH3OH -> CH3COOCH3 + H2O?",
         "atom_economy",
         "Atom economy of CH3COOCH3 = 80.44%",
+    ),
+    (
+        "What is the total vapor pressure if the mole fraction of A is 0.400, "
+        "the vapor pressure of A is 0.800 atm, the mole fraction of B is 0.600, "
+        "and the vapor pressure of B is 0.400 atm?",
+        "binary_vapor_pressure",
+        "P = 0.560 atm",
     ),
     (
         "Find the mole fraction of NaCl when 1.0 mol of NaCl is dissolved in 9.0 mol of water.",

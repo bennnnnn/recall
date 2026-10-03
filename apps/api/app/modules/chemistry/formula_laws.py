@@ -162,6 +162,22 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
             "χA = {moles_a} / ({moles_a} + {moles_b})",
         ),
         _law(
+            "binary_vapor_pressure",
+            "solutions",
+            "Ideal binary vapor pressure",
+            "P = X_A P_A° + X_B P_B°",
+            "Total vapor pressure, P",
+            ("P", "atm"),
+            "mole_fraction_a*pressure_a + mole_fraction_b*pressure_b",
+            (
+                ("mole_fraction_a", "X(A)", ""),
+                ("pressure_a", "P°(A)", "atm"),
+                ("mole_fraction_b", "X(B)", ""),
+                ("pressure_b", "P°(B)", "atm"),
+            ),
+            "P = {mole_fraction_a.value} × {pressure_a} + {mole_fraction_b.value} × {pressure_b}",
+        ),
+        _law(
             "gas_density",
             "gases",
             "Ideal gas density",
