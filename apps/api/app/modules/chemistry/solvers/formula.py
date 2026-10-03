@@ -90,6 +90,14 @@ def _as_typed(value: float, unit: str, typed_unit: str | None) -> tuple[str, str
     return _with_unit(sig_figs.as_written(literal), typed_unit), converted(value, literal)
 
 
+def _binary_fractions(fraction_a: float, fraction_b: float) -> None:
+    """An ideal binary solution's mole fractions lie on [0, 1] and sum to 1."""
+    if not 0 <= fraction_a <= 1 or not 0 <= fraction_b <= 1:
+        raise SolveServiceError("each mole fraction must be between 0 and 1")
+    if not math.isclose(fraction_a + fraction_b, 1, abs_tol=1e-6):
+        raise SolveServiceError("the two mole fractions must sum to 1")
+
+
 def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
     law = FORMULA_LAWS.get(intent.chemistry_op)
     if law is None:
@@ -99,9 +107,16 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
         value = intent.params.get(name)
         if value is None:
             raise SolveServiceError(f"{law.law_name} needs {name}")
-        if value <= 0 and name not in law.signed:
+        if value < 0 and name not in law.signed:
+            raise SolveServiceError(f"{name} must be positive")
+        if value == 0 and name not in law.signed and name not in law.non_negative:
             raise SolveServiceError(f"{name} must be positive")
         values[name] = value
+    for smaller, ceiling in law.not_above:
+        if values[smaller] > values[ceiling]:
+            raise SolveServiceError("solute mass must be between zero and solution mass")
+    if law.op == "binary_vapor_pressure":
+        _binary_fractions(values["mole_fraction_a"], values["mole_fraction_b"])
     try:
         result = evaluate(law.expression, values, CHEMISTRY_NOTATION)
     except (ValueError, ZeroDivisionError, OverflowError) as exc:

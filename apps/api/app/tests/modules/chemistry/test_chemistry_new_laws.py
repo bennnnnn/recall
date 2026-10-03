@@ -164,6 +164,47 @@ def test_atom_economy_declines_an_unbalanced_or_unnamed_product(question: str) -
     assert extract_chemistry_intent(question) is None
 
 
+def test_atom_economy_prints_each_coefficient() -> None:
+    question = "What is the atom economy of NH3 in N2 + 3 H2 -> 2 NH3?"
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    result = solve_chemistry(intent)
+    assert result.answer == "Atom economy of NH3 = 100%"
+    assert result.formula == "% atom economy = 2 M(NH3) / (M(N2) + 3 M(H2)) × 100"
+
+
+def test_atom_economy_names_a_product_without_its_phase() -> None:
+    question = "What is the atom economy of CaO in CaCO3(s) -> CaO(s) + CO2(g)?"
+    intent = extract_chemistry_intent(question)
+    assert intent is not None and intent.target == "CaO(s)"
+    assert solve_chemistry(intent).answer.startswith("Atom economy of CaO(s) = ")
+
+
+def test_atom_economy_accepts_a_common_multiple_of_the_coefficients() -> None:
+    question = "What is the atom economy of H2O in 4 H2 + 2 O2 -> 4 H2O?"
+    assert _answer(question) == "Atom economy of H2O = 100%"
+
+
+def test_ppm_allows_no_solute_and_rejects_a_solute_heavier_than_the_solution() -> None:
+    assert _answer("What is the ppm of 0 mg of solute in 1.00 kg of solution?") == "ppm = 0 ppm"
+    heavier = extract_chemistry_intent("What is the ppm of 2 kg of solute in 1 kg of solution?")
+    assert heavier is not None
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(heavier)
+
+
+def test_binary_vapor_pressure_rejects_fractions_that_do_not_sum_to_one() -> None:
+    question = (
+        "What is the total vapor pressure if the mole fraction of A is 0.400, "
+        "the vapor pressure of A is 0.800 atm, the mole fraction of B is 0.700, "
+        "and the vapor pressure of B is 0.400 atm?"
+    )
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(intent)
+
+
 def test_binary_vapor_pressure_declines_when_only_one_pressure_is_stated() -> None:
     question = (
         "What is the total vapor pressure if the mole fraction of A is 0.400, "

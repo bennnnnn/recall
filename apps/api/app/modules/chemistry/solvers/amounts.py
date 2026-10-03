@@ -158,22 +158,42 @@ def _weighted(coefficient: int, molar: str) -> str:
     return molar if coefficient == 1 else f"{coefficient} × {molar}"
 
 
+def _mass_symbol(coefficient: int, label: str) -> str:
+    mass = f"M({label})"
+    return mass if coefficient == 1 else f"{coefficient} {mass}"
+
+
 def solve_atom_economy(intent: ChemistryIntent) -> ChemistryResult:
     """Percent of reactant mass that ends in one product of an already balanced equation."""
-    from app.modules.chemistry.equations import balance_equation
-    from app.modules.chemistry.species import ReactionTerm, parse_reaction
+    from app.modules.chemistry.equations import written_is_balanced
+    from app.modules.chemistry.species import ReactionTerm, parse_reaction, parse_species
 
     equation = intent.equation
     target = intent.target
-    if not equation or not target:
+    if not equation or not target or not written_is_balanced(equation):
         raise SolveServiceError("atom economy needs a balanced equation and its desired product")
     reaction = parse_reaction(equation)
-    balanced = balance_equation(equation)
-    if reaction is None or not balanced.balanced or not balanced.given_balanced:
-        raise SolveServiceError("the equation must already be balanced")
-    product = next((term for term in reaction.products if term.species.label == target), None)
-    if product is None:
+    if reaction is None:
+        raise SolveServiceError("atom economy needs a balanced equation and its desired product")
+    named: str = target
+
+    def same_product(label: str) -> bool:
+        if label == named:
+            return True
+        written = parse_species(label, coefficient_already_removed=True)
+        asked = parse_species(named, coefficient_already_removed=True)
+        return (
+            written is not None
+            and asked is not None
+            and written.formula == asked.formula
+            and written.charge == asked.charge
+        )
+
+    matches = [term for term in reaction.products if same_product(term.species.label)]
+    if len(matches) != 1:
         raise SolveServiceError(f"{target} is not a product of the equation")
+    product = matches[0]
+    target = product.species.label
 
     def mass_of(term: ReactionTerm) -> tuple[str, float]:
         molar = _molar_mass(term.species.formula)
@@ -186,6 +206,12 @@ def solve_atom_economy(intent: ChemistryIntent) -> ChemistryResult:
     reactant_sum = " + ".join(
         _weighted(term.coefficient, text) for term, text, _mass in reactant_rows
     )
+    reactant_symbols = " + ".join(
+        _mass_symbol(term.coefficient, term.species.label) for term in reaction.reactants
+    )
+    formula = (
+        f"% atom economy = {_mass_symbol(product.coefficient, target)} / ({reactant_symbols}) × 100"
+    )
     return verified(
         "Verified atom economy",
         (
@@ -197,7 +223,8 @@ def solve_atom_economy(intent: ChemistryIntent) -> ChemistryResult:
             ),
         ),
         "Atom economy",
-        *stated("atom_economy"),
+        stated("atom_economy")[0],
+        formula,
         (
             "% atom economy = "
             f"{_weighted(product.coefficient, product_text)} / ({reactant_sum}) × 100",
