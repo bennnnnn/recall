@@ -180,6 +180,16 @@ def test_atom_economy_names_a_product_without_its_phase() -> None:
     assert solve_chemistry(intent).answer.startswith("Atom economy of CaO(s) = ")
 
 
+def test_atom_economy_declines_a_spectator_or_a_charge_the_question_did_not_name() -> None:
+    spectator = "What is the atom economy of H2O in Pt + 2 H2 + O2 -> Pt + 2 H2O?"
+    neutral = "What is the atom economy of NH4 in NH4Cl -> NH4+ + Cl-?"
+    assert extract_chemistry_intent(spectator) is None
+    assert extract_chemistry_intent(neutral) is None
+    ion = "What is the atom economy of NH4+ in NH4Cl -> NH4+ + Cl-?"
+    intent = extract_chemistry_intent(ion)
+    assert intent is not None and intent.target == "NH4+"
+
+
 def test_atom_economy_accepts_a_common_multiple_of_the_coefficients() -> None:
     question = "What is the atom economy of H2O in 4 H2 + 2 O2 -> 4 H2O?"
     assert _answer(question) == "Atom economy of H2O = 100%"

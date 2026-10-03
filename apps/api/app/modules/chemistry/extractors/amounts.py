@@ -17,7 +17,6 @@ from app.modules.chemistry.extractors.parsing import (
 from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.isotopes import ISOTOPE_MASSES
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
-from app.modules.chemistry.species import parse_species
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
     NAMED_COMPOUNDS,
@@ -25,13 +24,13 @@ from app.modules.chemistry.species_facts import (
 )
 from app.modules.chemistry.stoichiometry import molar_mass
 
+_PHASE_SUFFIX = re.compile(r"\((?:aq|s|l|g)\)$")
+
 
 def _bare_formula(label: str) -> str | None:
-    """The formula without a phase, so ``CaO`` names the product ``CaO(s)``."""
-    species = parse_species(label, coefficient_already_removed=True)
-    if species is None or species.formula == label:
-        return None
-    return species.formula
+    """The label without a phase. Charge stays, so ``NH4`` does not name ``NH4+``."""
+    bare = _PHASE_SUFFIX.sub("", label)
+    return None if bare == label else bare
 
 
 def _named_outside(text: str, label: str) -> bool:

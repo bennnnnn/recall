@@ -51,6 +51,10 @@ def written_is_balanced(equation: str) -> bool:
     reaction = parse_reaction(equation)
     if reaction is None or not reaction.reactants or not reaction.products:
         return False
+    # A species written on both sides is a spectator, not a balanced reaction to weigh.
+    labels = [term.species.label for term in (*reaction.reactants, *reaction.products)]
+    if len(labels) != len(set(labels)):
+        return False
     left = _counted(reaction.reactants, [term.coefficient for term in reaction.reactants])
     right = _counted(reaction.products, [term.coefficient for term in reaction.products])
     return left is not None and left == right
