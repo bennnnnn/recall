@@ -88,7 +88,14 @@ def _suvat_distance(p: dict[str, float]) -> tuple[float, str, str, str]:
             rf"s = {plugged}",
         )
     # s = vt - (1/2)at^2 is the same constant-acceleration law with u eliminated.
+    # Opposite signs mean the body reversed, so the expression is the
+    # displacement and not the distance traveled.
     if v is not None and a is not None and t is not None:
+        initial = v - a * t
+        if initial * v < 0:
+            raise SolveServiceError(
+                "the body reverses direction, so this is not the distance traveled"
+            )
         plugged = (
             rf"{v:g} \cdot {t:g} - 0.5 \cdot {_latex_num(a)} \cdot {_latex_num(t, square=True)}"
         )
