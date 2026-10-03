@@ -82,6 +82,18 @@ def test_a_special_reader_and_an_exact_spelling_extend_the_table() -> None:
     assert table.at("40 L", 2) == ("L", "liter")
 
 
+@pytest.mark.parametrize(
+    "table",
+    [UnitTable({"L": "liter"}, {}), UnitTable({}, {"liter": "liter"}), UnitTable({}, {})],
+)
+def test_a_table_with_no_symbols_or_no_words_still_reads_a_bare_number(table: UnitTable) -> None:
+    assert table.at("2", 1) is None
+    assert [(given.value, given.unit) for given in scan_givens("2 and 3", table)] == [
+        (2.0, ""),
+        (3.0, ""),
+    ]
+
+
 def test_a_law_is_filled_from_a_question_in_its_own_units() -> None:
     filled = fit(
         _PRESSURE, 8, _question("What is the pressure of 2 mol of gas in 10 L at 300 K?"), _GASES
