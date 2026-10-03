@@ -12,29 +12,6 @@ _DELTA_TEMP = var("delta_temp", r"\Delta T", "kelvin", words=_RISE, needs_words=
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
-        "heat_energy",
-        "thermal",
-        "Specific-heat equation",
-        "Q",
-        variables=(
-            var("c_heat", "c", "joule / kilogram / kelvin", fallback="water_specific_heat"),
-            _DELTA_TEMP,
-            var("m", "m", "kilogram"),
-            # "from 20 °C to 80 °C": both readings, so the working shows ΔT.
-            var("temp_initial", "T_1", "kelvin", words=("from", "initially", "starting at")),
-            var("temp_final", "T_2", "kelvin", words=("to", "until", "reaches", "final")),
-        ),
-        binding=Binding(
-            asks=("heat energy", "thermal energy", "energy", "heat"),
-            result=("joule",),
-            inputs=(
-                frozenset({"c_heat", "delta_temp", "m"}),
-                frozenset({"c_heat", "m", "temp_initial", "temp_final"}),
-            ),
-            excludes=("melt", "boil", "freez", "evaporat", "condens", "latent"),
-        ),
-    ),
-    formula(
         "ideal_gas_pressure",
         "thermal",
         "Ideal-gas law",

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, formula, var
+from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 _LAW = "Specific-heat equation"
 _RISE = ("by", "rise", "change", "increase", "raised", "heated", "cooled", "difference")
@@ -42,6 +42,37 @@ def _heat_law(
 
 
 SPECS: tuple[FormulaSpec, ...] = (
+    formula(
+        "heat_energy",
+        "thermal",
+        _LAW,
+        "Q",
+        base_latex=r"Q = mc\Delta T",
+        expression="m*c_heat*delta_temp",
+        variants=(
+            FormulaVariant(
+                present=frozenset({"temp_initial", "temp_final"}),
+                expression="m*c_heat*(temp_final-temp_initial)",
+            ),
+        ),
+        variables=(
+            _C,
+            _DELTA_TEMP,
+            _MASS,
+            var("temp_initial", "T_1", "kelvin", words=("from", "initially", "starting at")),
+            var("temp_final", "T_2", "kelvin", words=("to", "until", "reaches", "final")),
+        ),
+        binding=Binding(
+            asks=("heat energy", "thermal energy", "energy", "heat"),
+            result=("joule",),
+            inputs=(
+                frozenset({"c_heat", "delta_temp", "m"}),
+                frozenset({"c_heat", "m", "temp_initial", "temp_final"}),
+            ),
+            excludes=("melt", "boil", "freez", "evaporat", "condens", "latent"),
+            negative_detail="released",
+        ),
+    ),
     _heat_law(
         "specific_heat_from_energy",
         "c",
