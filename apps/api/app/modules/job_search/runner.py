@@ -20,7 +20,6 @@ from app.models.orm import User
 from app.modules.job_search import notifications as job_search_notifications
 from app.modules.job_search.models import JobMatch, JobSearchProfile
 from app.modules.job_search.posting import (
-    _NAMED_CURRENCY_PAY,
     _POSTING_EXTRACT_CHARS,
     _canonical_url_hash,
     _clean_posting_title,
@@ -38,6 +37,7 @@ from app.modules.job_search.posting import (
     _is_generic_employer,
     _is_listing_page,
     _is_listing_title,
+    _named_salary,
     _source_for_url,
     _title_and_company,
     _title_company_key,
@@ -214,7 +214,7 @@ async def _rank_candidates(
         place_mode = _explicit_place_mode(candidate.page_text or "")
         work_mode = place_mode or item.work_mode or _extract_work_mode(candidate)
         location = _extract_location(candidate) or item.location
-        if _NAMED_CURRENCY_PAY.search(candidate.page_text or ""):
+        if _named_salary(candidate.page_text or ""):
             salary = _extract_salary(candidate)
         else:
             salary = item.salary or _extract_salary(candidate)
