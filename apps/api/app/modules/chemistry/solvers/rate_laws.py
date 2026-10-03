@@ -1,5 +1,5 @@
-# ruff: noqa: RUF001 -- textbook chemistry uses multiplication and minus signs.
-"""Zero-order, second-order, rate-law, and two-point Arrhenius solvers."""
+# ruff: noqa: RUF001, RUF002
+"""Rates from data: a rate law from initial rates, two-point Arrhenius, Michaelis–Menten."""
 
 from __future__ import annotations
 
@@ -19,10 +19,6 @@ from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
 _ARRHENIUS = ("k1", "t1", "k2", "t2")
-_NEGATIVE = "kinetics inputs are missing or negative"
-_HALF_LIFE_INPUTS = "half-life inputs must be positive"
-# The half-life question gives k without a time unit, so the answer is in that unit.
-_TIME_OF_K = " (in the time unit of k)"
 
 
 def _order_from_change(rate1: float, rate2: float, left: float, right: float) -> int:
@@ -33,88 +29,6 @@ def _order_from_change(rate1: float, rate2: float, left: float, right: float) ->
     if abs(order - rounded) > 0.05:
         raise SolveServiceError("reaction order is not an integer")
     return int(rounded)
-
-
-def solve_zero_order(intent: ChemistryIntent) -> ChemistryResult:
-    initial, rate, time = require_all(
-        intent, "initial", "rate_constant", "time", non_negative=True, message=_NEGATIVE
-    )
-    final = initial - rate * time
-    if final < 0:
-        raise SolveServiceError("zero-order concentration would be negative")
-    shown = f"[A]ₜ = {num(final)} mol/L"
-    return verified(
-        "Verified zero-order concentration",
-        (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}", f"t = {inp(time)}"),
-        "[A]ₜ",
-        *stated("zero_order"),
-        (f"[A]ₜ = {inp(initial)} − ({inp(rate)})({inp(time)})",),
-        shown,
-        shown,
-    )
-
-
-def solve_second_order(intent: ChemistryIntent) -> ChemistryResult:
-    initial, rate, time = require_all(
-        intent, "initial", "rate_constant", "time", non_negative=True, message=_NEGATIVE
-    )
-    if initial <= 0:
-        raise SolveServiceError("initial concentration must be positive")
-    reciprocal = 1 / initial + rate * time
-    final = 1 / reciprocal
-    shown = f"[A]ₜ = {num(final)} mol/L"
-    return verified(
-        "Verified second-order concentration",
-        (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}", f"t = {inp(time)}"),
-        "[A]ₜ",
-        *stated("second_order"),
-        (
-            f"1/[A]ₜ = 1/({inp(initial)}) + ({inp(rate)})({inp(time)}) = {num(reciprocal)}",
-            f"[A]ₜ = 1 / {num(reciprocal)}",
-        ),
-        shown,
-        shown,
-    )
-
-
-def solve_zero_half_life(intent: ChemistryIntent) -> ChemistryResult:
-    initial, rate = require_all(
-        intent,
-        "initial",
-        "rate_constant",
-        positive=True,
-        message="half-life inputs must be positive",
-    )
-    shown = f"t₁/₂ = {num(initial / (2 * rate))}{_TIME_OF_K}"
-    return verified(
-        "Verified zero-order half-life",
-        (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}"),
-        "Half-life",
-        *stated("zero_order_half_life"),
-        (f"t₁/₂ = {inp(initial)} / (2({inp(rate)}))",),
-        shown,
-        shown,
-    )
-
-
-def solve_second_half_life(intent: ChemistryIntent) -> ChemistryResult:
-    initial, rate = require_all(
-        intent,
-        "initial",
-        "rate_constant",
-        positive=True,
-        message="half-life inputs must be positive",
-    )
-    shown = f"t₁/₂ = {num(1 / (rate * initial))}{_TIME_OF_K}"
-    return verified(
-        "Verified second-order half-life",
-        (f"[A]₀ = {inp(initial)} mol/L", f"k = {inp(rate)}"),
-        "Half-life",
-        *stated("second_order_half_life"),
-        (f"t₁/₂ = 1 / (({inp(rate)})({inp(initial)}))",),
-        shown,
-        shown,
-    )
 
 
 def solve_rate_law(intent: ChemistryIntent) -> ChemistryResult:
@@ -204,6 +118,73 @@ def solve_arrhenius_two_point(intent: ChemistryIntent) -> ChemistryResult:
             f"Ea = −({const(GAS_R_J)})ln({inp(k2)} / {inp(k1)}) / (1/{inp(t2)} − 1/{inp(t1)})"
             f" = {num(energy)} J/mol",
         ),
+        shown,
+        shown,
+    )
+
+
+def _with(value: str, unit: str) -> str:
+    return f"{value} {unit}" if unit else value
+
+
+def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
+    velocity = intent.params.get("v")
+    maximum = intent.params.get("vmax")
+    km = intent.params.get("km")
+    substrate = intent.params.get("substrate")
+    present = {
+        "v": velocity,
+        "Vmax": maximum,
+        "Km": km,
+        "S": substrate,
+    }
+    missing = [name for name, value in present.items() if value is None]
+    if len(missing) != 1:
+        raise SolveServiceError("Michaelis–Menten needs exactly one of v, Vmax, Km, and S missing")
+    if any(value is not None and value < 0 for value in present.values()):
+        raise SolveServiceError("Michaelis–Menten values cannot be negative")
+    target = missing[0]
+    rate = intent.units.get("rate", "")
+    concentration = intent.units.get("concentration", "")
+    if target == "v":
+        if maximum is None or km is None or substrate is None or km + substrate == 0:
+            raise SolveServiceError("Michaelis–Menten denominator is zero")
+        value = maximum * substrate / (km + substrate)
+        shown = f"v = {_with(num(value), rate)}"
+        working = f"v = ({inp(maximum)})({inp(substrate)}) / ({inp(km)} + {inp(substrate)})"
+    elif target == "Vmax":
+        if velocity is None or km is None or substrate is None or substrate == 0:
+            raise SolveServiceError("Michaelis–Menten cannot solve Vmax from these values")
+        value = velocity * (km + substrate) / substrate
+        shown = f"Vmax = {_with(num(value), rate)}"
+        working = f"Vmax = ({inp(velocity)})({inp(km)} + {inp(substrate)}) / {inp(substrate)}"
+    elif target == "Km":
+        if velocity is None or maximum is None or substrate is None or velocity <= 0:
+            raise SolveServiceError("Michaelis–Menten cannot solve Km from these values")
+        if not maximum > velocity:
+            raise SolveServiceError("Michaelis–Menten needs Vmax greater than v")
+        value = substrate * (maximum - velocity) / velocity
+        shown = f"Km = {_with(num(value), concentration)}"
+        working = f"Km = ({inp(substrate)})({inp(maximum)} − {inp(velocity)}) / {inp(velocity)}"
+    else:
+        if velocity is None or maximum is None or km is None or velocity <= 0:
+            raise SolveServiceError("Michaelis–Menten cannot solve S from these values")
+        if not maximum > velocity:
+            raise SolveServiceError("Michaelis–Menten needs Vmax greater than v")
+        value = velocity * km / (maximum - velocity)
+        shown = f"S = {_with(num(value), concentration)}"
+        working = f"S = ({inp(velocity)})({inp(km)}) / ({inp(maximum)} − {inp(velocity)})"
+    given = tuple(
+        f"{name} = {_with(inp(amount), rate if name in {'v', 'Vmax'} else concentration)}"
+        for name, amount in present.items()
+        if amount is not None
+    )
+    return verified(
+        "Verified Michaelis–Menten",
+        given,
+        target,
+        *stated("michaelis_menten"),
+        (working,),
         shown,
         shown,
     )

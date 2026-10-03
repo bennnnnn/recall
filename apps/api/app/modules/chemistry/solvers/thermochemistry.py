@@ -1,5 +1,5 @@
-# ruff: noqa: RUF001 -- textbook chemistry uses multiplication and minus signs.
-"""Calorimetry, Hess's law, formation enthalpy, and bond enthalpy."""
+# ruff: noqa: RUF001
+"""Thermochemistry: Gibbs energy, calorimetry, Hess's law, formation and bond enthalpies."""
 
 from __future__ import annotations
 
@@ -7,13 +7,44 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.solvers.common_chem import (
+    given_row,
     inp,
     num,
+    used,
     verified,
 )
+from app.modules.chemistry.solvers.params import require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
 from app.services.solving import SolveServiceError
+
+
+def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
+    if intent.chemistry_op == "gibbs":
+        delta_h, delta_s, temperature = require_all(intent, "delta_h", "delta_s", "temperature")
+        if temperature <= 0:
+            raise SolveServiceError("temperature must be positive Kelvin")
+        # Extractors normalize both H and S to kJ-based units; a value typed in J (or °C) is
+        # echoed as typed before the value the arithmetic uses.
+        delta_g = delta_h - temperature * delta_s
+        value = f"{num(delta_g)} kJ/mol"
+        substitution = (
+            f"ΔG = {used(delta_h)} kJ/mol − ({used(temperature)} K)({used(delta_s)} kJ/(mol·K))"
+        )
+        return verified(
+            "Verified Gibbs free energy",
+            (
+                given_row("ΔH", delta_h, "kJ/mol", "J/mol"),
+                given_row("ΔS", delta_s, "kJ/(mol·K)", "J/(mol·K)"),
+                given_row("T", temperature, "K", "°C"),
+            ),
+            "Gibbs free-energy change, ΔG",
+            *stated("gibbs"),
+            (substitution,),
+            f"ΔG = {value}",
+            value,
+        )
+    raise SolveServiceError(f"unsupported thermochemistry operation: {intent.chemistry_op}")
 
 
 def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
@@ -87,7 +118,11 @@ def solve_hess(intent: ChemistryIntent) -> ChemistryResult:
 
 # Reference states: formula → phases that are the standard state (None = unlabeled).
 _GASEOUS_ELEMENTS = {"H2", "N2", "O2", "F2", "Cl2", "He", "Ne", "Ar", "Kr", "Xe", "Rn"}
+
+
 _SOLID_ALLOTROPES = {"S8", "P4"}
+
+
 # These elements are standard as molecules (H2, Br2, I2), not as the free atom.
 _MOLECULAR_ELEMENT_ATOMS = {"H", "N", "O", "F", "Cl", "Br", "I"}
 

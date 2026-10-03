@@ -26,7 +26,9 @@ from app.modules.chemistry.organic import organic_facts
 from app.modules.chemistry.reactions import named_product
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.solvers import solve_chemistry
-from app.modules.chemistry.solvers.thermo_ext import _formation
+from app.modules.chemistry.solvers.thermochemistry import (
+    _formation,
+)
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.modules.chemistry.species import parse_species, split_terms
 from app.modules.chemistry.stoichiometry import limiting_reagent, molar_mass

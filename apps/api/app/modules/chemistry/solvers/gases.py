@@ -1,5 +1,5 @@
-# ruff: noqa: RUF001 -- textbook chemistry uses multiplication and minus signs.
-"""Dalton, partial-pressure and wet-gas solvers: the gas laws physics does not own."""
+# ruff: noqa: RUF001
+"""Gas mixtures: Dalton's law, partial pressures, and a gas collected over water."""
 
 from __future__ import annotations
 

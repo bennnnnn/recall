@@ -1,5 +1,5 @@
-# ruff: noqa: RUF001 -- textbook chemistry uses multiplication and minus signs.
-"""Cell potential and the school galvanic-cell table."""
+# ruff: noqa: RUF001
+"""Electrochemistry: cell potentials, ΔG from E°, the Nernst equation, and electrolysis."""
 
 from __future__ import annotations
 
@@ -8,15 +8,116 @@ from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import CellScene
+from app.modules.chemistry import sig_figs
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.solvers.common_chem import (
+    const,
+    given_row,
     inp,
+    molar_mass_working,
     num,
+    qty,
+    used,
     verified,
 )
-from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
+from app.modules.chemistry.solvers.constants import FARADAY, GAS_R_J, STANDARD_REDUCTION
+from app.modules.chemistry.solvers.params import require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
+
+
+def _time_unit(seconds: float) -> str:
+    """The unit a converted time was typed in, from the factor its literal was scaled by."""
+    written = sig_figs.current()
+    literal = None if written is None else written.converted.get(repr(seconds))
+    if literal is None or float(literal) == 0:
+        return "s"
+    factor = seconds / float(literal)
+    return next(
+        (unit for unit, size in _TIME_SIZES if math.isclose(factor, size, rel_tol=1e-9)), "s"
+    )
+
+
+_TIME_SIZES = (("min", 60.0), ("h", 3600.0), ("day", 86400.0))
+
+
+def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
+    op = intent.chemistry_op
+    if op == "cell_gibbs":
+        electrons, potential = require_all(intent, "electrons", "potential")
+        if electrons <= 0:
+            raise SolveServiceError("electron count must be positive")
+        delta_g_j = -electrons * FARADAY * potential
+        delta_g_kj = delta_g_j / 1000
+        value = f"{num(delta_g_kj)} kJ/mol"
+        rows = (
+            f"ΔG° = −({inp(electrons)})({const(FARADAY)} C/mol)({qty(potential, 'V')})"
+            f" = {num(delta_g_j)} J/mol",
+            # A coulomb-volt is a joule; the answer is quoted per kilojoule.
+            f"ΔG° = {num(delta_g_j)} J/mol = {value}",
+        )
+        return verified(
+            "Verified electrochemical free energy",
+            (f"n = {inp(electrons)} mol e-", f"E°cell = {inp(potential)} V"),
+            "ΔG°",
+            *stated("cell_gibbs"),
+            rows,
+            f"ΔG° = {value}",
+            value,
+        )
+    if op == "nernst":
+        standard, electrons, quotient, temperature = require_all(
+            intent, "standard_potential", "electrons", "quotient", "temperature"
+        )
+        if electrons <= 0 or quotient <= 0 or temperature <= 0:
+            raise SolveServiceError("Nernst inputs must be positive where required")
+        potential = standard - (GAS_R_J * temperature / (electrons * FARADAY)) * math.log(quotient)
+        value = f"{num(potential)} V"
+        substitution = (
+            f"E = {qty(standard, 'V')} − [({const(GAS_R_J)} J/(mol·K))({used(temperature)} K) / "
+            f"(({inp(electrons)})({const(FARADAY)} C/mol))]ln({inp(quotient)})"
+        )
+        return verified(
+            "Verified cell potential",
+            (
+                f"E° = {inp(standard)} V",
+                f"n = {inp(electrons)}",
+                f"Q = {inp(quotient)}",
+                given_row("T", temperature, "K", "°C"),
+            ),
+            "Cell potential, E",
+            *stated("nernst"),
+            (substitution,),
+            f"E = {value}",
+            value,
+        )
+    if op == "electrolysis_mass":
+        molar_mass, current, time, electrons = require_all(
+            intent, "molar_mass", "current", "time", "electrons"
+        )
+        if min(molar_mass, current, time, electrons) <= 0:
+            raise SolveServiceError("electrolysis inputs must be positive")
+        mass = molar_mass * current * time / (electrons * FARADAY)
+        value = f"{num(mass)} g"
+        substitution = (
+            f"m = ({molar_mass_working(molar_mass)} g/mol)({qty(current, 'A')})"
+            f"({used(time)} s) / [({inp(electrons)})({const(FARADAY)} C/mol)]"
+        )
+        return verified(
+            "Verified electrolysis mass",
+            (
+                f"M = {molar_mass_working(molar_mass)} g/mol",
+                f"I = {inp(current)} A",
+                given_row("t", time, "s", _time_unit(time)),
+                f"n = {inp(electrons)}",
+            ),
+            "Deposited mass, m",
+            *stated("electrolysis_mass"),
+            (substitution,),
+            f"m = {value}",
+            value,
+        )
+    raise SolveServiceError(f"unsupported electrochemistry operation: {op}")
 
 
 def solve_cell_potential(intent: ChemistryIntent) -> ChemistryResult:

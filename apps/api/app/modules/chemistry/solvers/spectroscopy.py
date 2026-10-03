@@ -1,19 +1,58 @@
-# ruff: noqa: RUF001 -- spectral ranges use minus signs and superscripts.
-"""Named reactions, spectral ranges, and the molecular ion."""
+# ruff: noqa: RUF001, RUF002
+"""Spectroscopy: Beer–Lambert, IR and NMR tables, splitting, and the molecular ion."""
 
 from __future__ import annotations
-
-from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.organic import organic_facts
-from app.modules.chemistry.reactions import named_product
 from app.modules.chemistry.smiles import most_common_isotope
-from app.modules.chemistry.solvers.common_chem import inp, num, verified
+from app.modules.chemistry.solvers.common_chem import (
+    inp,
+    num,
+    verified,
+)
+from app.modules.chemistry.solvers.relation import solve_paired
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.stoichiometry import monoisotopic_mass
 from app.services.solving import SolveServiceError
+
+_BEER = {
+    "absorbance": ("A", "", "A = {}"),
+    "epsilon": ("ε", "L/(mol·cm)", "ε = {} L/(mol·cm)"),
+    "path": ("b", "cm", "b = {} cm"),
+    "concentration": ("c", "mol/L", "c = {} mol/L"),
+}
+
+
+def solve_beer_lambert(intent: ChemistryIntent) -> ChemistryResult:
+    values = {name: intent.params.get(name) for name in _BEER}
+    missing = [name for name, value in values.items() if value is None]
+    if len(missing) != 1:
+        raise SolveServiceError("exactly one Beer–Lambert variable must be unknown")
+    known_values = [value for value in values.values() if value is not None]
+    if any(value < 0 for value in known_values) or any(
+        values[name] == 0 for name in ("epsilon", "path", "concentration")
+    ):
+        raise SolveServiceError("Beer–Lambert inputs must be physically valid")
+    unknown = missing[0]
+    symbol, unit, _ = _BEER[unknown]
+    known = {_BEER[name][0]: value for name, value in values.items() if value is not None}
+    result, rearranged, substitution = solve_paired(known, symbol, ["A"], ["ε", "b", "c"])
+    value = f"{num(result)}{f' {unit}' if unit else ''}"
+    given = tuple(
+        _BEER[name][2].format(inp(amount)) for name, amount in values.items() if amount is not None
+    )
+    return verified(
+        "Verified Beer–Lambert calculation",
+        given,
+        symbol,
+        *stated("beer_lambert"),
+        (rearranged, substitution),
+        f"{symbol} = {value}",
+        value,
+    )
+
 
 # Textbook correlation ranges. A peak lists every group that contains it.
 _IR: dict[str, tuple[tuple[str, int, int], ...]] = {
@@ -29,6 +68,8 @@ _IR: dict[str, tuple[tuple[str, int, int], ...]] = {
     "nitrile": (("C≡N", 2210, 2260),),
     "amine": (("N–H", 3300, 3500),),
 }
+
+
 _NMR: dict[str, tuple[str, float, float]] = {
     "alkyl": ("C–H", 0.7, 1.3),
     "alcohol": ("H–C–O", 3.2, 4.5),
@@ -40,6 +81,8 @@ _NMR: dict[str, tuple[str, float, float]] = {
     "carboxylic acid": ("COOH", 10.0, 13.0),
     "amine": ("N–H", 0.5, 5.0),
 }
+
+
 _SPLITTING = {
     1: "singlet",
     2: "doublet",
@@ -49,52 +92,6 @@ _SPLITTING = {
     6: "sextet",
     7: "septet",
 }
-
-
-_REACTIONS = {
-    "bromine": (
-        "bromine addition across the C=C",
-        "Br adds to both carbons of the double bond",
-    ),
-    "hbr": (
-        "HBr addition to the C=C (Markovnikov)",
-        "H goes to the carbon with more hydrogens, Br to the more substituted carbon",
-    ),
-    "hydration": (
-        "acid-catalysed hydration of the C=C (Markovnikov)",
-        "H goes to the carbon with more hydrogens, OH to the more substituted carbon",
-    ),
-    "hydroxide": (
-        "hydroxide substitution (SN2)",
-        "OH- replaces the halogen on a primary sp3 carbon",
-    ),
-    "esterification": (
-        "Fischer esterification",
-        "the acid's OH and the alcohol's H leave as water; the acyl carbon bonds to the alcohol O",
-    ),
-}
-
-
-def solve_named_reaction(intent: ChemistryIntent) -> ChemistryResult:
-    product = named_product(intent.target or "", intent.formula or "", intent.equation)
-    if product is None:
-        raise SolveServiceError("the reaction did not give one product")
-    name, rule = _REACTIONS.get(intent.target or "", (intent.target or "reaction", ""))
-    shown = f"product SMILES {product}"
-    given = [f"reaction: {name}", f"substrate SMILES: {intent.formula or ''}"]
-    if intent.equation:
-        given.append(f"partner SMILES: {intent.equation}")
-    result = verified(
-        "Verified named reaction",
-        given,
-        "Product",
-        *stated("named_reaction"),
-        (rule, f"only one product results: {product}") if rule else (shown,),
-        shown,
-        shown,
-        verbatim=True,
-    )
-    return replace(result, structure_smiles=product)
 
 
 def solve_ir_ranges(intent: ChemistryIntent) -> ChemistryResult:

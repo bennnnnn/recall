@@ -1,15 +1,42 @@
-# ruff: noqa: RUF001 -- textbook formulas use minus signs and multiplication signs.
-"""Nuclear mass defect from a user-supplied nuclear mass."""
+# ruff: noqa: RUF001
+"""Nuclear chemistry: balanced nuclear equations and binding energy from the mass defect."""
 
 from __future__ import annotations
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
-from app.modules.chemistry.nuclear import parse_nuclide
-from app.modules.chemistry.solvers.common_chem import inp, num, verified
+from app.modules.chemistry.nuclear import (
+    balance_nuclear,
+    conservation_lines,
+    format_nuclear,
+    parse_nuclide,
+)
+from app.modules.chemistry.solvers.common_chem import (
+    inp,
+    num,
+    verified,
+)
 from app.modules.chemistry.solvers.constants import MEV_PER_U, NEUTRON_U, PROTON_U
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
+
+
+def solve_nuclear_equation(intent: ChemistryIntent) -> ChemistryResult:
+    if not intent.equation:
+        raise SolveServiceError("a nuclear equation is required")
+    balanced = balance_nuclear(intent.equation)
+    if not balanced.balanced:
+        raise SolveServiceError(balanced.error or "nuclear equation does not balance")
+    shown = format_nuclear(balanced)
+    return verified(
+        "Verified nuclear equation",
+        (intent.equation,),
+        "Balanced nuclear equation",
+        *stated("nuclear_equation"),
+        conservation_lines(balanced),
+        shown,
+        shown,
+    )
 
 
 def solve_mass_defect(intent: ChemistryIntent) -> ChemistryResult:

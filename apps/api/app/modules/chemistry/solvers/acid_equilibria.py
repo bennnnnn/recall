@@ -1,5 +1,5 @@
-# ruff: noqa: RUF001 -- textbook chemistry uses multiplication and minus signs.
-"""Strong and weak acids, titrations, and buffers."""
+# ruff: noqa: RUF001
+"""Weak acids and bases: the quadratic for [H+], polyprotic acids, a buffer after added acid."""
 
 from __future__ import annotations
 
@@ -14,69 +14,10 @@ from app.modules.chemistry.solvers.common_chem import (
     verified,
     weak_dissociation,
 )
-from app.modules.chemistry.solvers.constants import KW, PKW
-from app.modules.chemistry.solvers.params import positive, require
+from app.modules.chemistry.solvers.constants import PKW
+from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.modules.chemistry.species_facts import STRONG_ACIDS, STRONG_BASES
 from app.services.solving import SolveServiceError
-
-# Below this, water's own ions are no longer a small correction.
-_DILUTE = 1e-6
-
-
-def ph_text(value: float) -> str:
-    return p_value(-math.log10(value))
-
-
-def solve_strong_acid(intent: ChemistryIntent) -> ChemistryResult:
-    formula = intent.formula or ""
-    if formula == "H2SO4":
-        raise SolveServiceError("H2SO4 is not a simple strong monoprotic acid")
-    if formula not in STRONG_ACIDS:
-        raise SolveServiceError(
-            f"{formula or 'that acid'} is not a supported strong monoprotic acid"
-        )
-    concentration = require(intent, "concentration", positive=True)
-    if concentration < _DILUTE:
-        raise SolveServiceError("water's contribution is required for this dilute strong acid")
-    ph = ph_text(concentration)
-    return verified(
-        "Verified strong-acid pH",
-        (f"{formula} = {inp(concentration)} mol/L",),
-        "pH",
-        *stated("strong_acid_ph"),
-        (f"[H+] = {inp(concentration)} mol/L", f"pH = −log10({inp(concentration)})"),
-        f"pH = {ph}",
-        ph,
-    )
-
-
-def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
-    formula = intent.formula or ""
-    factor = STRONG_BASES.get(formula)
-    if factor is None:
-        raise SolveServiceError(f"{formula or 'that base'} is not a supported strong base")
-    concentration = require(intent, "concentration", positive=True)
-    hydroxide = factor * concentration
-    if hydroxide < _DILUTE:
-        raise SolveServiceError("water's contribution is required for this dilute strong base")
-    poh = ph_text(hydroxide)
-    ph = p_value(PKW + math.log10(hydroxide))
-    hydroxide_law = "[OH-] = C" if factor == 1 else f"[OH-] = {factor}C"
-    return verified(
-        "Verified strong-base pH",
-        (f"{formula} = {inp(concentration)} mol/L",),
-        "pH",
-        stated("strong_base_ph")[0],
-        hydroxide_law,
-        (
-            f"[OH-] = {factor} × {inp(concentration)} = {num(hydroxide)} mol/L",
-            f"pOH = −log10({num(hydroxide)}) = {poh}",
-            f"pH = {PKW} − {poh} = {ph}",
-        ),
-        f"pH = {ph}",
-        ph,
-    )
 
 
 def _weakph_text(constant: float, concentration: float, *, acid: bool) -> tuple[float, float, str]:
@@ -146,52 +87,6 @@ def solve_weak_base(intent: ChemistryIntent) -> ChemistryResult:
         lines,
         f"pH = {ph_text}",
         ph_text,
-    )
-
-
-_CONSTANT_LABELS = {"ka": "Ka", "kb": "Kb", "pka": "pKa", "pkb": "pKb"}
-
-
-def solve_ka_kb(intent: ChemistryIntent) -> ChemistryResult:
-    target = (intent.target or "Kb").strip()
-    ka = intent.params.get("ka")
-    kb = intent.params.get("kb")
-    law_name, base_formula = stated("ka_kb")
-    if target == "Kb" and ka is not None:
-        source = positive(ka, "Ka")
-        value = KW / source
-        formula = base_formula
-        working = f"Kb = ({num(KW)}) / ({inp(source)})"
-    elif target == "Ka" and kb is not None:
-        source = positive(kb, "Kb")
-        value = KW / source
-        formula = "Ka = Kw / Kb"
-        working = f"Ka = ({num(KW)}) / ({inp(source)})"
-    elif target == "pKa" and ka is not None:
-        source = positive(ka, "Ka")
-        value = -math.log10(source)
-        formula = "pKa = −log10 Ka"
-        working = f"pKa = −log10({inp(source)})"
-    elif target == "pKb" and kb is not None:
-        source = positive(kb, "Kb")
-        value = -math.log10(source)
-        formula = "pKb = −log10 Kb"
-        working = f"pKb = −log10({inp(source)})"
-    else:
-        raise SolveServiceError("Ka/Kb conversion needs the matching constant and target")
-    shown = f"{target} = {p_value(value) if target.startswith('p') else num(value)}"
-    uses_kw = target in {"Ka", "Kb"}
-    return verified(
-        "Verified Ka/Kb conversion",
-        tuple(
-            f"{_CONSTANT_LABELS.get(key, key)} = {inp(item)}" for key, item in intent.params.items()
-        ),
-        target,
-        law_name,
-        formula,
-        (f"Kw = {num(KW)} at 25 °C", working) if uses_kw else (working,),
-        shown,
-        num(value),
     )
 
 
