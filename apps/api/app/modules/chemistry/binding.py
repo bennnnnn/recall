@@ -88,10 +88,22 @@ _SYMBOLS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     )
 )
 _FORMULA_TOKEN = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])")
+# Subscript digits a typeset answer copies back (K₂, T₁) beside the ASCII labels.
+_SUBSCRIPT_DIGITS = "\u2081\u2082"
+_SUBSCRIPT_TO_ASCII = str.maketrans(_SUBSCRIPT_DIGITS, "12")
+_INDEXED_LABEL = re.compile(
+    rf"(?<![A-Za-z])([KT])([12{_SUBSCRIPT_DIGITS}])(?![A-Za-z0-9{_SUBSCRIPT_DIGITS}])"
+)
 _ION = re.compile(r"(?<![A-Za-z0-9])([A-Z][a-z]?)(\d?)\+")
 _ELEMENT_SYMBOL = re.compile(r"(?<![A-Za-z0-9])([A-Z][a-z]?)(?![A-Za-z0-9])")
 # Metals a deposition can plate, from the galvanic table (not H, and not K: kelvin).
 _METALS = frozenset(STANDARD_REDUCTION) - {"H", "K"}
+
+
+def _spell_indexed_label(match: re.Match[str]) -> str:
+    """Spell K1/K2 and T1/T2, including subscript digits, before formula roles."""
+    digit = match.group(2).translate(_SUBSCRIPT_TO_ASCII)
+    return f" {match.group(1).lower()}{digit} "
 
 
 def role(formula: str) -> str:
@@ -136,7 +148,8 @@ def prepare(text: str) -> Prepared:
     )
     # K1 and K2 are the two equilibrium constants in a van 't Hoff question. K2 is also
     # a formula (K₂), so spell them out before formulas are replaced by their roles.
-    prepared = re.sub(r"(?<![A-Za-z])K([12])(?![A-Za-z0-9])", r" k\1 ", prepared)
+    # A typeset answer copies the same labels back with subscript digits (K₁, T₁).
+    prepared = _INDEXED_LABEL.sub(_spell_indexed_label, prepared)
     prepared = _ION.sub(lambda match: f" ion_{match.group(1).lower()} ", prepared)
     prepared = _FORMULA_TOKEN.sub(
         lambda match: substance(match.group(1)) if is_formula(match.group(1)) else match.group(0),

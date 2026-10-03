@@ -236,6 +236,52 @@ def test_van_t_hoff_declines_without_both_temperatures_and_the_known_constant() 
     assert extract_chemistry_intent(question) is None
 
 
+@pytest.mark.parametrize(
+    "question",
+    [
+        # The closed apostrophe is the common spelling; the gate already accepts it.
+        "Use van't Hoff: K1 = 1.0, T1 = 300 K, T2 = 350 K, ΔH = 50 kJ/mol; find K2",
+        # Typeset working copies K2 and T1 back as K₂ and T₁.
+        "Use van't Hoff: K₁ = 1.0, T₁ = 300 K, T₂ = 350 K, ΔH = 50 kJ/mol; find K₂",
+    ],
+)
+def test_van_t_hoff_accepts_the_closed_apostrophe_and_subscripted_labels(question: str) -> None:
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    assert intent.chemistry_op == "vant_hoff_constant"
+    assert intent.params == pytest.approx({"k1": 1.0, "t1": 300.0, "t2": 350.0, "enthalpy": 50.0})
+
+
+def test_subscripted_van_t_hoff_labels_keep_the_hand_worked_answers() -> None:
+    constant = (
+        "Use the van 't Hoff equation. K₁ = 1.00, T₁ = 300 K, T₂ = 350 K, "
+        "and ΔH = 50.0 kJ/mol. What is K₂?"
+    )
+    enthalpy = (
+        "Use the van 't Hoff equation. K₁ = 0.10, T₁ = 300 K, K₂ = 0.50, "
+        "and T₂ = 350 K. What is ΔH?"
+    )
+    assert _answer(constant) == "K2 = 17.5"
+    assert _answer(enthalpy) == "ΔH° = 28 kJ/mol"
+
+
+def test_gibbs_and_vant_hoff_enthalpy_show_the_joule_to_kilojoule_step() -> None:
+    gibbs = extract_chemistry_intent("K = 10 at 298.15 K. What is ΔG°?")
+    enthalpy = extract_chemistry_intent(
+        "Use the van 't Hoff equation. K1 = 0.10, T1 = 300 K, K2 = 0.50, "
+        "and T2 = 350 K. What is ΔH?"
+    )
+    assert gibbs is not None and enthalpy is not None
+    assert solve_chemistry(gibbs).substitution == (
+        "ΔG° = −(8.314 J/(mol·K))(298.15) ln(10) / 1000",
+    )
+    assert solve_chemistry(enthalpy).substitution == (
+        "ΔH° = [−(8.314 J/(mol·K)) ln(0.50/0.10) / (1/350 − 1/300)] / 1000",
+    )
+    assert solve_chemistry(gibbs).answer == "ΔG° = -5.7 kJ/mol"
+    assert solve_chemistry(enthalpy).answer == "ΔH° = 28 kJ/mol"
+
+
 def test_binary_vapor_pressure_declines_when_only_one_pressure_is_stated() -> None:
     question = (
         "What is the total vapor pressure if the mole fraction of A is 0.400, "
