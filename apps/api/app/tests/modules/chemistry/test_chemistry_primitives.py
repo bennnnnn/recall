@@ -87,27 +87,11 @@ def test_explicit_phases_drop_out_of_the_equilibrium_expression() -> None:
     assert solve_chemistry(intent).answer == "Kc = 0.20"
 
 
-def test_ideal_gas_extractor_normalizes_school_units() -> None:
+def test_school_units_convert_to_the_solvers_units() -> None:
     assert to_kelvin(25, "C") == 298.15
     assert to_liters(500, "mL") == 0.5
     assert to_atm(101.3, "kPa") == pytest.approx(1, rel=1e-3)
     assert to_atm(750, "mmHg") == pytest.approx(750 / 760)
-
-    celsius = extract_chemistry_intent(
-        "Use ideal gas law PV=nRT: P=101.3 kPa, n=1 mol, T=25 C, find volume"
-    )
-    assert celsius is not None
-    assert celsius.chemistry_op == "ideal_gas"
-    assert celsius.params["temperature"] == pytest.approx(298.15)
-    assert celsius.params["pressure"] == pytest.approx(1, rel=1e-3)
-    assert "volume" not in celsius.params
-
-    mixed = extract_chemistry_intent(
-        "Use ideal gas law PV=nRT: P=750 mmHg, V=500 mL, n=1 mol, find temperature"
-    )
-    assert mixed is not None
-    assert mixed.params["pressure"] == pytest.approx(750 / 760)
-    assert mixed.params["volume"] == 0.5
 
 
 def test_beer_lambert_solves_absorptivity_and_path() -> None:

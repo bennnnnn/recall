@@ -18,8 +18,6 @@ from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extractors import EXTENDED_EXTRACTORS
 from app.modules.chemistry.extractors.parsing import (
     _N,
-    TIME_UNIT_PATTERN,
-    TIME_UNITS,
     _search,
     _target,
     rate_constant,
@@ -322,70 +320,7 @@ def _extract_solutions(text: str) -> ChemistryIntent | None:
     return None
 
 
-def _gas_pressure(text: str) -> float | None:
-    from app.modules.chemistry.quantity import to_atm
-
-    matches = re.findall(rf"({_N})\s*(kPa|Pa|mmHg|torr|atm|bar)\b", text, re.IGNORECASE)
-    if len(matches) != 1:
-        return None
-    value, unit = matches[0]
-    return to_atm(float(value), unit)
-
-
-def _gas_volume(text: str) -> float | None:
-    from app.modules.chemistry.quantity import to_liters
-
-    matches = re.findall(rf"({_N})\s*(mL|liters?|litres?|L)\b", text, re.IGNORECASE)
-    if len(matches) != 1:
-        return None
-    value, unit = matches[0]
-    return to_liters(float(value), unit)
-
-
-def _gas_temperature(text: str) -> float | None:
-    from app.modules.chemistry.quantity import to_kelvin
-
-    matches = re.findall(rf"({_N})\s*(°C|degC|celsius|K|C)\b", text)
-    if len(matches) != 1:
-        return None
-    value, unit = matches[0]
-    normalized = "celsius" if unit.lower() in {"celsius", "c"} else unit
-    return to_kelvin(float(value), normalized)
-
-
-def _extract_gas(text: str) -> ChemistryIntent | None:
-    if not re.search(r"\b(?:PV\s*=\s*nRT|ideal gas|gas law)\b", text, re.IGNORECASE):
-        return None
-    values = {
-        "pressure": _gas_pressure(text),
-        "volume": _gas_volume(text),
-        "moles": _search(rf"({_N})\s*mol(?:e|es)?\b", text),
-        "temperature": _gas_temperature(text),
-    }
-    if sum(value is None for value in values.values()) != 1:
-        return None
-    return ChemistryIntent(
-        kind="gases",
-        chemistry_op="ideal_gas",
-        params={key: value for key, value in values.items() if value is not None},
-    )
-
-
 def _extract_thermo(text: str) -> ChemistryIntent | None:
-    if re.search(
-        r"\b(?:specific heat|q\s*=\s*mc|heat transferred|calorimetr)\b", text, re.IGNORECASE
-    ):
-        mass = _search(rf"\b(?:mass|m)\b\s*(?:=|of)?\s*({_N})\s*g\b", text)
-        specific = _search(rf"\b(?:specific heat|c)\b\s*(?:=|of)?\s*({_N})\s*J\s*/?\s*\(?g", text)
-        delta_t = _search(
-            rf"(?:ΔT|delta\s*T|temperature change)\s*(?:=|of)?\s*({_N})\s*(?:°?C|K)", text
-        )
-        if mass is not None and specific is not None and delta_t is not None:
-            return ChemistryIntent(
-                kind="thermochemistry",
-                chemistry_op="heat",
-                params={"mass": mass, "specific_heat": specific, "delta_t": delta_t},
-            )
     if re.search(r"\b(?:Gibbs|\u0394G|delta\s*G)\b", text, re.IGNORECASE):
         delta_h = _search(rf"(?:ΔH|delta\s*H)\s*=\s*({_N})\s*kJ", text)
         delta_s = _search(rf"(?:ΔS|delta\s*S)\s*=\s*({_N})\s*(k?J)", text)
@@ -508,41 +443,6 @@ def _extract_electrochem(text: str) -> ChemistryIntent | None:
     return None
 
 
-def _extract_nuclear(text: str) -> ChemistryIntent | None:
-    if not re.search(r"\b(?:radioactive|nuclear|half[- ]life|decay)\b", text, re.IGNORECASE):
-        return None
-    initial_match = re.search(
-        rf"(?:initial(?: amount| mass)?|N0|N₀)\s*(?:=|of)?\s*({_N})\s*(g|mg|kg|mol|atoms?)?",
-        text,
-        re.IGNORECASE,
-    )
-    elapsed_match = re.search(
-        rf"(?:elapsed(?: time)?|after|\bt\s*=)\s*({_N})\s*({TIME_UNIT_PATTERN})\b",
-        text,
-        re.IGNORECASE,
-    )
-    half_match = re.search(
-        rf"half[- ]life\s*(?:=|of|is)?\s*({_N})\s*({TIME_UNIT_PATTERN})\b",
-        text,
-        re.IGNORECASE,
-    )
-    if not initial_match or not elapsed_match or not half_match:
-        return None
-    elapsed_unit, elapsed_scale = TIME_UNITS[elapsed_match.group(2).lower()]
-    _half_unit, half_scale = TIME_UNITS[half_match.group(2).lower()]
-    half_life = float(half_match.group(1)) * half_scale / elapsed_scale
-    return ChemistryIntent(
-        kind="nuclear",
-        chemistry_op="radioactive_decay",
-        params={
-            "initial": float(initial_match.group(1)),
-            "elapsed": float(elapsed_match.group(1)),
-            "half_life": half_life,
-        },
-        units={"initial": initial_match.group(2) or "", "time": elapsed_unit},
-    )
-
-
 def _extract_spectroscopy(text: str) -> ChemistryIntent | None:
     if not re.search(r"\b(?:Beer[- ]Lambert|absorbance)\b", text, re.IGNORECASE):
         return None
@@ -573,10 +473,8 @@ EXTRACTORS = (
     _extract_thermo,
     _extract_kinetics,
     _extract_electrochem,
-    _extract_nuclear,
     _extract_spectroscopy,
     _extract_solutions,
-    _extract_gas,
     _extract_amounts,
     *EXTENDED_EXTRACTORS,
 )

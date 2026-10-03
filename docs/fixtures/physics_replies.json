@@ -23,7 +23,7 @@
     "heater_energy": {
       "question": "A 2 kW heater runs for 3 hours. How much energy does it use in kWh?",
       "answer": "6 kWh",
-      "reply": "**Given**\n\n$P = 2\\,\\mathrm{kW}$  \n$P = 2000\\,\\mathrm{W}$\n\n$t = 3\\,\\mathrm{h}$  \n$t = 10800\\,\\mathrm{s}$\n\n**Find**\n\n$E$\n\n**Formula**\n\nElectrical-energy formula:\n\n$E = P t$\n\n**Substitution**\n\n$E = 2000 \\cdot 10800$\n\n**Answer**\n\n```answer\n6\\,\\mathrm{kWh}\n```\n"
+      "reply": "**Given**\n\n$P = 2\\,\\mathrm{kW}$  \n$P = 2000\\,\\mathrm{W}$\n\n$t = 3\\,\\mathrm{h}$  \n$t = 10800\\,\\mathrm{s}$\n\n**Find**\n\n$E$\n\n**Formula**\n\nElectrical-energy formula:\n\n$E = P t$\n\n**Substitution**\n\n$E = 2000 \\cdot 10800$\n\n$E = 2.16 \\times 10^{7}\\,\\mathrm{J}$  \n$E = 6\\,\\mathrm{kWh}$\n\n**Answer**\n\n```answer\n6\\,\\mathrm{kWh}\n```\n"
     },
     "projectile_parts": {
       "question": "A projectile is launched at 20 m/s at 30 degrees. Find the time of flight, the maximum height and the range.",

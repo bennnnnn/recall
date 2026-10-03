@@ -59,10 +59,10 @@ def detect_subject(
 ) -> SubjectName | None:
     """Pick one subject for this line.
 
-    An image math extract is math. Otherwise physics wins over math. A closed
-    chemistry extraction wins over math, because molarity and Gibbs notation
-    look like algebra, and chemistry runs for a lookup only when neither peer
-    has claimed the line.
+    An image math extract is math. A closed chemistry extraction wins over physics and
+    math: molarity and Gibbs notation look like algebra, and a mass percent has masses
+    physics would read. Otherwise physics wins over math, and chemistry runs for a lookup
+    only when neither peer has claimed the line.
     """
     if image_math_extract is not None:
         return "math"
@@ -75,10 +75,14 @@ def detect_subject(
         return "chemistry" if chemistry_enabled else None
     if scanned == "physics":
         return "physics"
-    if needs_physics(text):
-        return "physics"
+    # A closed chemistry calculation is chemistry's before physics claims its numbers:
+    # "the mass percent of 5 g of sugar in 95 g of water" has masses physics would read.
+    # The laws both subjects use (gases, Q = mcΔT, half-lives) are physics' alone, so
+    # chemistry never closes on one.
     if chemistry_enabled and _closed_chemistry(text):
         return "chemistry"
+    if needs_physics(text):
+        return "physics"
     if needs_symbolic_math(text, has_image_attachment=has_image_attachment):
         return "math"
     if not chemistry_enabled:

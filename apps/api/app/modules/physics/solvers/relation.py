@@ -12,7 +12,7 @@ import math
 from typing import TYPE_CHECKING
 
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.display import si_symbol
+from app.modules.physics.display import conversion_row, si_symbol
 from app.modules.physics.expression import evaluate, to_latex
 from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.solvers.common import (
@@ -63,11 +63,16 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
         "" if result_unit == "dimensionless" else si_symbol(result_unit)
     )
     shown = _in_the_givens_unit(spec, intent, result_unit, value)
+    if shown is None or shown[1] == unit:
+        rows: tuple[str, ...] = (substitution,)
+    else:
+        # The arithmetic is in SI; the step to the givens' unit is part of the working.
+        rows = (substitution, conversion_row(symbol, (value, unit), shown))
     return solved(
         QuantityResult("", *(shown or (value, unit)), detail=detail),
         answer=substitution,
         formulas=((difference, formula) if difference else (formula,)),
-        substitution=substitution,
+        substitutions=rows,
     )
 
 

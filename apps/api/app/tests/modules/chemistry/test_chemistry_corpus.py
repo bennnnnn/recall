@@ -6,10 +6,13 @@ import re
 
 import pytest
 
+from app.core.config import Settings
 from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import is_chemistry_question
 from app.modules.chemistry.sig_figs import decimals_of
+from app.modules.physics import build_verified_physics_block, extract_physics_intent
+from app.services.subject_solving import detect_subject
 from app.tests.modules.chemistry.corpus import (
     ANSWERABLE,
     COVERAGE_FLOOR,
@@ -23,11 +26,36 @@ _NUMBER = r"(?<![\w.])(-?\d+(?:\.\d+)?)(?:\s*×\s*10\^(-?\d+))?"
 _SLACK = 1e-4
 
 
+_SETTINGS = Settings(math_tools_enabled=True)
+
+
 def _answer(question: str) -> str | None:
-    """The verified answer, or None when the question declines."""
+    """The verified answer of the subject the question routes to, or None when it declines.
+
+    A gas law, Q = mcΔT or a half-life is physics' law (one implementation), answered in a
+    chemistry question's own units: 49.2 L, not 0.0492 m³.
+    """
+    subject = detect_subject(question)
+    if subject == "physics":
+        physics = extract_physics_intent(question)
+        verified = None if physics is None else build_verified_physics_block(physics, _SETTINGS)
+        return None if verified is None else verified.canonical_answer
+    if subject != "chemistry":
+        return None
     intent = extract_chemistry_intent(question)
     block = None if intent is None else build_verified_chemistry(intent)
     return None if block is None else block.canonical_answer
+
+
+_SUPERSCRIPT = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
+
+
+def _plain(answer: str) -> str:
+    """Physics writes ``10⁻⁴``; chemistry writes ``10^-4``. Read both as the latter."""
+    text = answer.replace("−", "-")
+    return re.sub(
+        r"10([⁻]?[⁰¹²³⁴⁵⁶⁷⁸⁹]+)", lambda m: "10^" + m.group(1).translate(_SUPERSCRIPT), text
+    )
 
 
 def _shown(case: Case, answer: str) -> tuple[float, float] | None:
@@ -38,7 +66,7 @@ def _shown(case: Case, answer: str) -> tuple[float, float] | None:
         pattern = rf"{_NUMBER}\s*{re.escape(case.unit)}(?![\w/])"
     else:
         pattern = rf"=\s*{_NUMBER}"
-    match = re.search(pattern, answer.replace("−", "-"))
+    match = re.search(pattern, _plain(answer))
     if match is None:
         return None
     mantissa, exponent = match.group(1), int(match.group(2) or 0)
