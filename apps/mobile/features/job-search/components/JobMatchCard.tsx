@@ -122,6 +122,11 @@ export function JobMatchCard({
           <JobFitBadge score={match.match_score} />
         </View>
         <JobMatchMetaChips match={match} />
+        {match.summary ? (
+          <Text style={s.summary} numberOfLines={3}>
+            {match.summary}
+          </Text>
+        ) : null}
       </Pressable>
       <JobMatchReasons match={match} maxReasons={3} />
 
@@ -165,6 +170,7 @@ function makeStyles(C: Theme) {
       marginTop: 2,
     },
     company: { ...Type.secondary, color: C.textSecondary, flexShrink: 1 },
+    summary: { ...Type.secondary, color: C.text },
     divider: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: C.border,

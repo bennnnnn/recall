@@ -22,6 +22,11 @@ from app.models.orm import User
 from app.modules.attachments.service import OwnedDocumentError, read_verified_document
 from app.modules.billing import is_pro
 from app.modules.job_search.models import JobMatch, JobSearchProfile
+from app.modules.job_search.ranking import (
+    _profile_from_rows,
+    _profile_independent_model_reasons,
+    _strategic_match_assessment,
+)
 from app.modules.job_search.schemas import (
     CoverLetterOut,
     JobMatchOut,
@@ -290,14 +295,8 @@ def match_out(
     match_reasons = list(match.match_reasons)
     gap = match.gap
     if profile_snapshot is not None:
-        # Import lazily because the search runner imports this package's notification
-        # module. Stored matches created before evidence-based comparisons shipped
-        # are upgraded in the response without mutating the user's application data.
-        from app.modules.job_search.runner import (
-            _profile_independent_model_reasons,
-            _strategic_match_assessment,
-        )
-
+        # Stored matches created before evidence-based comparisons shipped are
+        # upgraded in the response without mutating the user's application data.
         strategic_reasons, strategic_gap = _strategic_match_assessment(
             profile_snapshot,
             required_skills=list(match.required_skills),
@@ -365,8 +364,6 @@ async def get_dashboard(
             )
         ).all()
     )
-    from app.modules.job_search.runner import _profile_from_rows
-
     profile_snapshot = _profile_from_rows(profile, user)
     return JobSearchDashboardOut(
         profile=profile_out(profile),
