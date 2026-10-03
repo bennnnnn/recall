@@ -153,6 +153,25 @@ describe("mathFenceRetag", () => {
     expect(looksLikeLatexFence(long)).toBe(false);
   });
 
+  it("treats a long untagged fence of LaTeX commands as math", () => {
+    const body = String.raw`\frac{1}{2}`.repeat(80);
+    expect(body.length).toBeGreaterThan(400);
+    expect(looksLikeLatexFence(body)).toBe(true);
+    const retagged = retagMathAndDiagramFences("```\n" + body + "\n```");
+    expect(retagged).toContain("```math\n");
+    expect(retagged).toContain(String.raw`\frac{1}{2}`);
+
+    const code = Array.from({ length: 40 }, (_, i) => `value_${i} = compute(${i});`).join("\n");
+    expect(code.length).toBeGreaterThan(400);
+    expect(looksLikeLatexFence(code)).toBe(false);
+    expect(retagMathAndDiagramFences("```\n" + code + "\n```")).not.toContain("```math");
+
+    const explicit = "```math\n" + body + "\n```";
+    const kept = retagMathAndDiagramFences(explicit);
+    expect(kept).toContain("```math\n");
+    expect(kept).toContain(String.raw`\frac{1}{2}`);
+  });
+
   it("BUG FIX regression: detects \\pi as a LaTeX command", () => {
     // \pi was missing from LATEX_CMD_RE entirely — one of the most common
     // LaTeX commands — so a formula like the circle area general form

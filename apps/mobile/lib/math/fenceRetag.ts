@@ -40,7 +40,7 @@ function looksLikeAlgebraLine(line: string): boolean {
 /** Plain ``` or ```math body that should render as math, not a code block. */
 export function looksLikeMathFenceBody(content: string): boolean {
   const raw = content.trim();
-  if (!raw || raw.length > 400) return false;
+  if (!raw) return false;
   if (raw.startsWith("{")) return false;
 
   // A body that's ENTIRELY wrapped in a redundant $...$/$$...$$ (the model
@@ -51,20 +51,22 @@ export function looksLikeMathFenceBody(content: string): boolean {
   // character class) and falls through to a plain code block.
   const s = stripRedundantDollarWrap(raw);
 
-  // An unambiguous LaTeX command (\times, \begin, \text{, ...) is a strong
-  // enough signal on its own — it must not be gated by the line-count cap
-  // below, or a multi-step \begin{aligned}...\end{aligned} derivation
-  // (routinely 5+ lines for anything beyond a trivial 2-step solve) gets
-  // rejected before this check even runs and falls back to a plain code
-  // block. The line cap is only a safety net for the much weaker "every
-  // line looks like bare algebra" heuristic further below, which has no
-  // such explicit signal to lean on.
+  // An unambiguous LaTeX command (\times, \begin, \frac, \text{, ...) is a
+  // strong enough signal on its own. It must not be gated by the length or
+  // line-count caps below: a long untagged fence of \frac, or a multi-step
+  // \begin{aligned} derivation, is still math. Those caps only protect the
+  // weaker "every line looks like bare algebra" heuristic, which has no
+  // command to lean on and would otherwise accept a long code-like body.
   if (LATEX_CMD_RE.test(s)) return true;
   if (/\\text\{/.test(s)) return true;
   // Spacing-only arithmetic (e.g. `20 \;-\; 10 \;=\; 10`) has no named
   // command from LATEX_CMD_RE — without this, the `;` inside `\;` made the
   // algebra heuristic reject it as "code" and the Copy box showed raw LaTeX.
   if (LATEX_SPACING_RE.test(s) && /=/.test(s) && /[\d]/.test(s)) return true;
+
+  // Bare algebra has no command. Keep the length cap here so a long
+  // code-like body does not become a math card.
+  if (s.length > 400) return false;
 
   const lines = s.split("\n").filter((line) => line.trim());
   // A multi-step derivation written as bare algebra (one equation per line,
