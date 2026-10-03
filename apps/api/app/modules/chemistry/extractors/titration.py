@@ -1,4 +1,4 @@
-"""Acid, base, titration, and buffer-addition extractors."""
+"""Titrations, labelled or in words, and acid or base added to a buffer."""
 
 from __future__ import annotations
 
@@ -8,7 +8,6 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _floats,
-    _molar_formula,
     _search,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
@@ -22,76 +21,6 @@ from app.modules.chemistry.species_facts import (
     WEAK_BASES,
     is_formula,
 )
-
-
-def _extract_acid(text: str) -> ChemistryIntent | None:
-    if re.search(r"\bweak acid\b", text, re.IGNORECASE):
-        pair = _molar_formula(text)
-        ka = _search(rf"\bKa\s*=\s*({_N})", text, flags=0)
-        if pair and ka is not None:
-            return ChemistryIntent(
-                kind="acid_base",
-                chemistry_op="weak_acid_ph",
-                formula=pair[1],
-                params={"concentration": pair[0], "ka": ka},
-            )
-    if re.search(r"\bweak base\b", text, re.IGNORECASE):
-        pair = _molar_formula(text)
-        kb = _search(rf"\bKb\s*=\s*({_N})", text, flags=0)
-        if pair and kb is not None:
-            return ChemistryIntent(
-                kind="acid_base",
-                chemistry_op="weak_base_ph",
-                formula=pair[1],
-                params={"concentration": pair[0], "kb": kb},
-            )
-    if re.search(r"\bpolyprotic\b", text, re.IGNORECASE):
-        pair = _molar_formula(text)
-        ka1 = _search(rf"\bKa1\s*=\s*({_N})", text, flags=0)
-        if pair and ka1 is not None:
-            return ChemistryIntent(
-                kind="acid_base",
-                chemistry_op="polyprotic_ph",
-                formula=pair[1],
-                params={"concentration": pair[0], "ka1": ka1},
-            )
-    if re.search(r"\bstrong acid\b", text, re.IGNORECASE):
-        pair = _molar_formula(text)
-        if pair:
-            return ChemistryIntent(
-                kind="acid_base",
-                chemistry_op="strong_acid_ph",
-                formula=pair[1],
-                params={"concentration": pair[0]},
-            )
-    if re.search(r"\bstrong base\b", text, re.IGNORECASE):
-        pair = _molar_formula(text)
-        if pair:
-            return ChemistryIntent(
-                kind="acid_base",
-                chemistry_op="strong_base_ph",
-                formula=pair[1],
-                params={"concentration": pair[0]},
-            )
-    ka = _search(rf"\bKa\s*=\s*({_N})", text, flags=0)
-    kb = _search(rf"\bKb\s*=\s*({_N})", text, flags=0)
-    if ka is not None and re.search(r"\bpKa\b", text):
-        return ChemistryIntent(
-            kind="acid_base", chemistry_op="ka_kb", target="pKa", params={"ka": ka}
-        )
-    if kb is not None and re.search(r"\bpKb\b", text):
-        return ChemistryIntent(
-            kind="acid_base", chemistry_op="ka_kb", target="pKb", params={"kb": kb}
-        )
-    if ka is not None and re.search(r"\bKb\b", text, flags=0):
-        return ChemistryIntent(
-            kind="acid_base", chemistry_op="ka_kb", target="Kb", params={"ka": ka}
-        )
-    if kb is not None and re.search(r"\bKa\b", text, flags=0):
-        return ChemistryIntent(
-            kind="acid_base", chemistry_op="ka_kb", target="Ka", params={"kb": kb}
-        )
-    return None
 
 
 def _extract_titration(text: str) -> ChemistryIntent | None:
@@ -154,15 +83,21 @@ def _extract_buffer_addition(text: str) -> ChemistryIntent | None:
 
 
 _SPECIES = rf"(?:{'|'.join(re.escape(name) for name in NAMED_COMPOUNDS)}|{CHEMICAL_FORMULA})"
+
+
 # "25 mL of 0.10 M HCl", or a titrant named by concentration alone: "0.10 M NaOH".
 _SOLUTION = re.compile(
     rf"(?:({_N})\s*(mL|L)\s+of\s+(?:an?\s+|the\s+)?)?({_N})\s*M\s+({_SPECIES})(?![A-Za-z0-9])",
     re.IGNORECASE,
 )
+
+
 # "25.0 mL of NaOH is neutralized by...": a volume whose concentration is the unknown.
 _VOLUME_OF = re.compile(
     rf"({_N})\s*(mL|L)\s+of\s+(?:an?\s+|the\s+)?({_SPECIES})(?![A-Za-z0-9])", re.IGNORECASE
 )
+
+
 # "after adding 10 mL of NaOH": the titrant's volume.
 _ADDED = re.compile(
     rf"\b(?:adding|added|addition\s+of)\s+({_N})\s*(mL|L)\b"

@@ -1,5 +1,5 @@
 # ruff: noqa: RUF002 -- textbook formulas use a proper minus sign.
-"""Shared numbers and display helper for the extended chemistry solvers."""
+"""Shared numbers and display helpers for the chemistry solvers."""
 
 from __future__ import annotations
 

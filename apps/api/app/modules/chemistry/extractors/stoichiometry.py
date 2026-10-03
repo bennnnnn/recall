@@ -1,4 +1,4 @@
-"""Empirical, molecular, and multi-step stoichiometry extractors."""
+"""Multi-step stoichiometry: grams, solution volumes or gas volumes through a balanced equation."""
 
 from __future__ import annotations
 
@@ -8,33 +8,11 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _equation,
-    _find_unit,
-    _gram_amounts,
-    _percents,
-    _search,
     _target,
+    asked_quantity,
 )
 from app.modules.chemistry.quantity import to_atm, to_kelvin, to_liters
 from app.modules.chemistry.request import CHEMICAL_FORMULA
-
-
-def _extract_formulas(text: str) -> ChemistryIntent | None:
-    percents = _percents(text)
-    if len(percents) < 2:
-        return None
-    if re.search(r"\bmolecular formula\b", text, re.IGNORECASE):
-        molar = _search(rf"(?:molar mass|M)\s*=\s*({_N})", text)
-        if molar is None:
-            return None
-        return ChemistryIntent(
-            kind="amounts",
-            chemistry_op="molecular_formula",
-            params={"molar_mass": molar},
-            species=percents,
-        )
-    if re.search(r"\bempirical formula\b", text, re.IGNORECASE):
-        return ChemistryIntent(kind="amounts", chemistry_op="empirical_formula", species=percents)
-    return None
 
 
 def _extract_mass_chain(text: str) -> ChemistryIntent | None:
@@ -165,3 +143,22 @@ def _chain(
         species={formula: amount},
         units={"known": known, "find": find},
     )
+
+
+def _find_unit(text: str) -> str | None:
+    """Unit of the requested quantity; ``mol`` when only a species is named."""
+    asked = asked_quantity(text)
+    if asked is None:
+        return None
+    return asked.unit or "mol"
+
+
+def _gram_amounts(text: str) -> dict[str, float]:
+    return {
+        match.group(2): float(match.group(1))
+        for match in re.finditer(
+            rf"({_N})\s*g(?:rams?)?(?:\s+of)?\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+            text,
+            re.IGNORECASE,
+        )
+    }

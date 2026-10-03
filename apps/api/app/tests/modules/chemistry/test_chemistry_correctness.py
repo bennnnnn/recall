@@ -18,7 +18,9 @@ from app.models.schemas.chemistry.scene import TitrationScene
 from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
-from app.modules.chemistry.extractors.parsing import _percents
+from app.modules.chemistry.extractors.amounts import (
+    _percents,
+)
 from app.modules.chemistry.formula import parse_formula as parse_formula_atoms
 from app.modules.chemistry.lewis import lewis_structure
 from app.modules.chemistry.nuclear import balance_nuclear, format_nuclear
