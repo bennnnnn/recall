@@ -511,6 +511,42 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         ),
     ),
     _law(
+        "binary_vapor_pressure",
+        "solutions",
+        ("total vapor pressure",),
+        "atmosphere",
+        (
+            var(
+                "mole_fraction_a",
+                "XA",
+                dimensionless=True,
+                words=("mole fraction of a", "xa"),
+                needs_words=True,
+            ),
+            var(
+                "pressure_a",
+                "PA",
+                "atmosphere",
+                words=("vapor pressure of a", "pa"),
+                needs_words=True,
+            ),
+            var(
+                "mole_fraction_b",
+                "XB",
+                dimensionless=True,
+                words=("mole fraction of b", "xb"),
+                needs_words=True,
+            ),
+            var(
+                "pressure_b",
+                "PB",
+                "atmosphere",
+                words=("vapor pressure of b", "pb"),
+                needs_words=True,
+            ),
+        ),
+    ),
+    _law(
         "gas_density",
         "gases",
         ("density",),

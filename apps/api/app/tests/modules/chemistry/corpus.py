@@ -64,6 +64,13 @@ AMOUNTS: tuple[Case, ...] = (
         (3 * C + 6 * H + 2 * O) / ((2 * C + 4 * H + 2 * O) + (C + 4 * H + O)) * 100,
         "%",
     ),
+    q(
+        "What is the total vapor pressure if the mole fraction of A is 0.400, "
+        "the vapor pressure of A is 0.800 atm, the mole fraction of B is 0.600, "
+        "and the vapor pressure of B is 0.400 atm?",
+        0.400 * 0.800 + 0.600 * 0.400,
+        "atm",
+    ),
     q("How many atoms are in 2 mol of He?", 2 * AVOGADRO, "atoms"),
     q("How many grams are in 3.01 × 10^23 molecules of O2?", 3.01e23 / AVOGADRO * O2, "g"),
     q("How many grams of oxygen are in 10 g of H2O?", 10 * O / H2O, "g"),
@@ -248,4 +255,4 @@ NOT_CHEMISTRY: tuple[str, ...] = (
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 86
+COVERAGE_FLOOR = 87

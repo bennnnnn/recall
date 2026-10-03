@@ -164,6 +164,14 @@ def test_atom_economy_declines_an_unbalanced_or_unnamed_product(question: str) -
     assert extract_chemistry_intent(question) is None
 
 
+def test_binary_vapor_pressure_declines_when_only_one_pressure_is_stated() -> None:
+    question = (
+        "What is the total vapor pressure if the mole fraction of A is 0.400, "
+        "the vapor pressure of A is 0.800 atm, and the mole fraction of B is 0.600?"
+    )
+    assert extract_chemistry_intent(question) is None
+
+
 def test_an_ions_electron_configuration_is_not_the_atoms() -> None:
     assert _answer("What is the electron configuration of copper?") == "Cu: [Ar] 3d10 4s1"
     assert extract_chemistry_intent("Write the electron configuration of Fe3+.") is None

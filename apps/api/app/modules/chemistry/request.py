@@ -69,6 +69,7 @@ _STRONG_CUE = re.compile(
     r"coordination\s+(?:complex|compound|number)|polyprotic|common[- ]ion|"
     r"bond\s+enthalpy|formation\s+enthalpy|weak\s+(?:acid|base)|strong\s+(?:acid|base)|"
     r"boiling[- ]point\s+elevation|freezing[- ]point\s+depression|osmotic\s+pressure|raoult|"
+    r"total\s+vapor\s+pressure|"
     r"gas\s+collected\s+over\s+water|precipitation\s+reaction|stereochemistry|"
     r"crystal\s+field|magnetic\s+moment|standard\s+deviation|standard\s+error|"
     r"relative\s+uncertainty|retention\s+factor|Michaelis[- ]Menten|IUPAC|"

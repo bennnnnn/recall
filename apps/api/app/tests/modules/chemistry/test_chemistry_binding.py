@@ -220,6 +220,11 @@ _SAMPLES: dict[str, tuple[dict[str, float], str | None, dict[str, str]]] = {
     "mass_volume_percent": ({"solute_mass": 5.0, "solution_volume": 250.0}, None, {}),
     "particles_to_mass": ({"particles": 3.01e23, "molar_mass": 18.015}, "H2O", {}),
     "mole_fraction": ({"moles_a": 1.0, "moles_b": 9.0}, None, {}),
+    "binary_vapor_pressure": (
+        {"mole_fraction_a": 0.4, "pressure_a": 0.8, "mole_fraction_b": 0.6, "pressure_b": 0.4},
+        None,
+        {},
+    ),
     "gas_density": ({"pressure": 1.0, "molar_mass": 44.01, "temperature": 273.0}, "CO2", {}),
     "molar_mass_from_density": ({"density": 1.25, "temperature": 273.0, "pressure": 1.0}, None, {}),
     "percent_ionization": ({"concentration": 0.1, "ka": 1.8e-5}, "CH3COOH", {}),
