@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(

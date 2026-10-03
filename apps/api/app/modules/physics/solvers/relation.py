@@ -24,7 +24,7 @@ from app.modules.physics.solvers.common import (
 from app.services.solving import SolveServiceError
 
 if TYPE_CHECKING:
-    from app.modules.physics.catalog.spec import FormulaSpec
+    from app.services.law_binding.spec import FormulaSpec
 
 
 def solve_expression(intent: PhysicsIntent) -> PhysicsResult:

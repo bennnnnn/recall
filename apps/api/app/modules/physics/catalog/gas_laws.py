@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 # The state before and the state after: "occupies 4 L at 2 atm", "is
 # compressed to 2 L". The words before each value say which state it is.

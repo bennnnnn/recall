@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from app.modules.physics.catalog.modern import ELAPSED, HALF_LIFE, HALF_LIFE_CUES
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 _LAW = "Radioactive-decay law"
 

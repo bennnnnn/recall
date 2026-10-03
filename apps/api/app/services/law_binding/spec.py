@@ -1,12 +1,12 @@
-"""One verified physics operation: the law, its variables, and its assumptions.
+"""One verified operation of a subject: the law, its variables, and its assumptions.
 
-Solvers still own word-problem procedure. This record owns the identity those
-procedures used to repeat in the direct-reply dictionaries.
+A subject's solvers own word-problem procedure. This record owns the identity those
+procedures would otherwise repeat in their direct replies.
 
 An operation with a ``binding`` can also be read straight from a question by
-``physics.binding``: the binding says how a question asks for the result, and
+``law_binding.fit``: the binding says how a question asks for the result, and
 each variable says how a question names it. An operation with an
-``expression`` needs no solver of its own; ``physics.expression`` evaluates it.
+``expression`` needs no solver of its own; ``law_binding.expression`` evaluates it.
 """
 
 from __future__ import annotations
@@ -113,7 +113,7 @@ class Binding:
 
 @dataclass(frozen=True, slots=True)
 class FormulaSpec:
-    """Identity of one ``physics_op``."""
+    """Identity of one operation (a ``physics_op``)."""
 
     id: str
     kind: str
