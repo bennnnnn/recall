@@ -21,6 +21,7 @@ SAMPLES: dict[str, float] = {
     "h0": 20.0,
     "v0": 15.0,
     "angle": 0.0,
+    "angle_bragg": 30.0,
     "m1": 5.0,
     "m2": 3.0,
     "M": 5.9722e24,
