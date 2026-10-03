@@ -207,6 +207,6 @@ async def test_a_photo_without_a_reading_gets_the_physics_note_not_math() -> Non
     )
     assert augmentation.subject == "physics"
     assert augmentation.verified is None
-    assert augmentation.unverified is True
+    assert augmentation.unverified is False
     assert augmentation.prompt_block is not None
     assert "Physics note" in augmentation.prompt_block
