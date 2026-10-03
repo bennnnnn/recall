@@ -121,8 +121,9 @@ def test_partial_pressure_keeps_its_unit() -> None:
 
 
 def test_kp_converts_partial_pressures_to_atm() -> None:
+    # 152 mmHg has three figures, so Kp does too.
     result = _solve("Find Kp for CaCO3(s) -> CaO(s) + CO2(g) when P(CO2)=152 mmHg")
-    assert result.answer == "Kp = 0.2"
+    assert result.answer == "Kp = 0.200"
 
 
 def test_kp_without_a_pressure_unit_is_not_verified() -> None:
