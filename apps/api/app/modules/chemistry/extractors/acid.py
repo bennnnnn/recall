@@ -185,6 +185,9 @@ def _titration_in_words(text: str) -> ChemistryIntent | None:
         return None
     concentration: dict[str, float] = {}
     volume: dict[str, float] = {}
+    # Where each solution phrase states its volume: "adding 10 mL of 0.1 M NaOH" is read
+    # once, as the NaOH solution, not again as an added volume.
+    stated_at: set[int] = set()
     for match in _SOLUTION.finditer(text):
         formula = _species(match.group(4))
         if formula is None or concentration.get(formula, float(match.group(3))) != float(
@@ -193,7 +196,11 @@ def _titration_in_words(text: str) -> ChemistryIntent | None:
             return None
         concentration[formula] = float(match.group(3))
         if match.group(1) is not None:
-            volume[formula] = _liters(match.group(1), match.group(2))
+            stated = _liters(match.group(1), match.group(2))
+            if volume.get(formula, stated) != stated:
+                return None
+            volume[formula] = stated
+            stated_at.add(match.start(1))
     acids = [
         formula for formula in concentration if formula in STRONG_ACIDS or formula in WEAK_ACIDS
     ]
@@ -203,12 +210,19 @@ def _titration_in_words(text: str) -> ChemistryIntent | None:
     if len(acids) != 1 or len(bases) != 1 or len(concentration) != 2:
         return None
     acid, base = acids[0], bases[0]
+    # The solvers count one OH- per formula unit: 0.1 M Ca(OH)2 is 0.2 M OH-, not 0.1.
+    if STRONG_BASES.get(base, 1) != 1:
+        return None
     for match in _ADDED.finditer(text):
+        if match.start(1) in stated_at:
+            continue
         named = _species(match.group(3)) if match.group(3) else None
         titrant = named or next((f for f in (acid, base) if f not in volume), None)
-        if titrant not in (acid, base) or titrant in volume:
+        added = _liters(match.group(1), match.group(2))
+        # The same volume said twice is one statement; two different ones are ambiguous.
+        if titrant not in (acid, base) or volume.get(titrant, added) != added:
             return None
-        volume[titrant] = _liters(match.group(1), match.group(2))
+        volume[titrant] = added
     if acid not in volume or base not in volume:
         return None
     params = {

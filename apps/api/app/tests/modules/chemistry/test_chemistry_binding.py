@@ -125,6 +125,11 @@ def test_a_formulas_digits_are_never_read_as_numbers() -> None:
         "25 mL of 0.1 M HCl is titrated with 0.1 M NaOH. Find the pH after adding 10 mL of NaOH.",
         # The same titration, written titrant first.
         "10 mL of 0.1 M NaOH is added to 25 mL of 0.1 M HCl in a titration. Find the pH.",
+        # The added solution's own phrase states its volume once, not twice.
+        "25 mL of 0.1 M HCl is titrated by adding 10 mL of 0.1 M NaOH. Find the pH.",
+        # The same volume said again is the same statement.
+        "25 mL of 0.1 M HCl is titrated with 10 mL of 0.1 M NaOH. "
+        "Find the pH after adding 10 mL of NaOH.",
     ],
 )
 def test_each_titration_volume_belongs_to_the_solution_it_is_of(question: str) -> None:
@@ -134,11 +139,21 @@ def test_each_titration_volume_belongs_to_the_solution_it_is_of(question: str) -
     assert intent.params == pytest.approx({"ma": 0.1, "va_l": 0.025, "mb": 0.1, "vb_l": 0.01})
 
 
-def test_a_titration_volume_no_phrase_ties_to_a_solution_declines() -> None:
-    assert (
-        extract_chemistry_intent("25 mL of 0.1 M HCl is titrated with 0.1 M NaOH. Find the pH.")
-        is None
-    )
+@pytest.mark.parametrize(
+    "question",
+    [
+        # No phrase ties the only volume to the titrant.
+        "25 mL of 0.1 M HCl is titrated with 0.1 M NaOH. Find the pH.",
+        # Two different volumes for one titrant.
+        "25 mL of 0.1 M HCl is titrated with 10 mL of 0.1 M NaOH. "
+        "Find the pH after adding 20 mL of NaOH.",
+        # 0.1 M Ca(OH)2 is 0.2 M OH-; the titration solvers count one OH- per formula unit.
+        "25 mL of 0.1 M HCl is titrated with 0.1 M Ca(OH)2. "
+        "Find the pH after adding 10 mL of Ca(OH)2.",
+    ],
+)
+def test_a_titration_the_reader_cannot_pair_one_way_declines(question: str) -> None:
+    assert extract_chemistry_intent(question) is None
 
 
 def test_a_law_fit_is_a_chemistry_cue() -> None:
