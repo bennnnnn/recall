@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "hooks": {
+    "stop": [
+      {
+        "command": ".cursor/hooks/review-change.py",
+        "loop_limit": 1
+      }
+    ]
+  }
+}
