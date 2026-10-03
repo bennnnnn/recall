@@ -18,6 +18,7 @@ from __future__ import annotations
 import re
 
 from app.modules.chemistry.species import ARROWS
+from app.modules.chemistry.species_facts import is_formula
 
 # Formula characters are case-sensitive on purpose. Under ``re.IGNORECASE`` a
 # lowercase word such as "sodium" splits into "so" + "di" + "um" in Fibonacci-many
@@ -88,6 +89,11 @@ _HALF_LIFE = re.compile(r"\bhalf[- ]life\b", re.IGNORECASE)
 _DECAY_CONTEXT = re.compile(
     r"\d|\b(?:decay\w*|radioactiv\w*|isotopes?|nuclides?|first[- ]order|reaction|"
     r"sample|rate\s+constant)\b",
+    re.IGNORECASE,
+)
+# "the shape of NH3": a shape is chemistry's only when what it is of is a real formula.
+_SHAPE_OF = re.compile(
+    r"\b(?:shape|geometry)\s+of\s+(?:an?\s+|the\s+)?([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])",
     re.IGNORECASE,
 )
 # "Ka", "Kb", "pH", "Rf" and "Kp" are words in lowercase ("kb" file size, "ph.d.").
@@ -312,6 +318,9 @@ def is_chemistry_question(content: str) -> bool:
     if _SUBJECT_CUE.search(cleaned) and not _CHEMISTRY_IDIOM.search(cleaned):
         return True
     if _HALF_LIFE.search(cleaned) and _DECAY_CONTEXT.search(cleaned):
+        return True
+    shape = _SHAPE_OF.search(cleaned)
+    if shape is not None and is_formula(shape.group(1)):
         return True
     weak = {match.group(0).lower() for match in _WEAK_CUE.finditer(cleaned)}
     if len(weak) >= 2 or (weak and _FORMULA_HINT.search(cleaned)):

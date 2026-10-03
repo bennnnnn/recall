@@ -90,16 +90,6 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
         "pH = 5.06",
     ),
     (
-        "Use ideal gas law PV=nRT: P=2 atm, n=1 mol, T=300 K, find volume",
-        "ideal_gas",
-        "V = 12 L",
-    ),
-    (
-        "Find heat transferred using q=mcΔT: mass=10 g, specific heat=4.18 J/(g C), ΔT=5 C",
-        "heat",
-        "q = 210 J",
-    ),
-    (
         "Find Gibbs ΔG when ΔH=-40 kJ, ΔS=-100 J and T=300 K",
         "gibbs",
         "ΔG = -10 kJ/mol",
@@ -144,12 +134,6 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
         "current=2 A, time=3600 s, n=2",
         "electrolysis_mass",
         "m = 2.4 g",
-    ),
-    (
-        "A radioactive sample has initial mass=100 g, half-life=5 years, "
-        "after 10 years find remaining amount",
-        "radioactive_decay",
-        "N = 25 g",
     ),
     (
         "Use Beer-Lambert law: epsilon=100, path length=1 cm, "
@@ -233,17 +217,6 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
         "Find the polyprotic pH of 0.10 M HA when Ka1=4.3e-7",
         "polyprotic_ph",
         "pH = 3.68",
-    ),
-    (
-        "Use the combined gas law: P1=1 atm, V1=2 L, T1=300 K, V2=4 L, T2=300 K, find P2",
-        "combined_gas",
-        "P2 = 0.50 atm",
-    ),
-    ("Use Boyle's law: P1=2 atm, V1=3 L, V2=6 L, find P2", "boyle", "P2 = 1.0 atm"),
-    (
-        "Use Charles's law: V1=2 L, T1=300 K, T2=600 K, find V2",
-        "charles",
-        "V2 = 4.0 L",
     ),
     (
         "Use Dalton's law: P(N2)=0.8 atm and P(O2)=0.2 atm",
@@ -349,17 +322,6 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
         "Find the galvanic cell for Zn and Cu",
         "galvanic_cell",
         "E°cell = 1.10 V\nanode: Zn\ncathode: Cu\nn = 2 electrons transferred\nZn + Cu2+ -> Zn2+ + Cu\nspontaneous (E°cell > 0)",
-    ),
-    ("Find the decay constant when half-life=5 s", "decay_constant", "λ = 0.14 s⁻¹"),
-    (
-        "Find the exponential decay when N0=100, decay constant=0.1, and t=10 s",
-        "exponential_decay",
-        "N = 37",
-    ),
-    (
-        "Find the nuclear activity when decay constant=0.1 and N=1000",
-        "nuclear_activity",
-        "A = 100",
     ),
     (
         "Balance the nuclear equation 238U -> 234Th + ?",
@@ -577,19 +539,6 @@ def test_incomplete_or_non_calculation_text_stays_on_model_path(question: str) -
     assert extract_chemistry_intent(question) is None
 
 
-@pytest.mark.parametrize(
-    ("params", "answer"),
-    [
-        ({"volume": 10, "moles": 1, "temperature": 300}, "P = 2.462 atm"),
-        ({"pressure": 1, "volume": 24.6172, "temperature": 300}, "n = 1 mol"),
-        ({"pressure": 1, "volume": 24.6172, "moles": 1}, "T = 300 K"),
-    ],
-)
-def test_ideal_gas_supports_every_rearrangement(params: dict[str, float], answer: str) -> None:
-    result = solve_chemistry(ChemistryIntent(kind="gases", chemistry_op="ideal_gas", params=params))
-    assert result.answer == answer
-
-
 def test_dilution_can_find_final_concentration() -> None:
     result = solve_chemistry(
         ChemistryIntent(
@@ -629,42 +578,6 @@ def test_explicit_zero_nernst_temperature_is_not_defaulted() -> None:
     assert build_verified_chemistry(intent) is None
 
 
-@pytest.mark.parametrize(
-    ("question", "elapsed", "half_life", "unit", "answer"),
-    [
-        (
-            "A radioactive sample has initial mass=100 g, half-life=1 year, "
-            "after 2 years find remaining amount",
-            2,
-            1,
-            "years",
-            "N = 25 g",
-        ),
-        (
-            "A radioactive sample has initial mass=80 g, half-life=2 hours, "
-            "after 30 min find remaining amount",
-            30,
-            120,
-            "min",
-            "N = 67 g",
-        ),
-    ],
-)
-def test_decay_normalizes_time_aliases_and_scales(
-    question: str,
-    elapsed: float,
-    half_life: float,
-    unit: str,
-    answer: str,
-) -> None:
-    intent = extract_chemistry_intent(question)
-    assert intent is not None
-    assert intent.params["elapsed"] == elapsed
-    assert intent.params["half_life"] == half_life
-    assert intent.units["time"] == unit
-    assert solve_chemistry(intent).answer == answer
-
-
 def test_beer_lambert_can_find_concentration() -> None:
     result = solve_chemistry(
         ChemistryIntent(
@@ -686,11 +599,6 @@ def test_beer_lambert_can_find_concentration() -> None:
             params={"solute_mass": 6, "solution_mass": 5},
         ),
         ChemistryIntent(
-            kind="gases",
-            chemistry_op="ideal_gas",
-            params={"pressure": -1, "moles": 1, "temperature": 300},
-        ),
-        ChemistryIntent(
             kind="kinetics",
             chemistry_op="first_order_half_life",
             params={"rate_constant": 0},
@@ -704,11 +612,6 @@ def test_beer_lambert_can_find_concentration() -> None:
                 "quotient": 1,
                 "temperature": 298,
             },
-        ),
-        ChemistryIntent(
-            kind="nuclear",
-            chemistry_op="radioactive_decay",
-            params={"initial": 1, "elapsed": 1, "half_life": 0},
         ),
     ],
 )

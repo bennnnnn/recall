@@ -44,8 +44,6 @@ ChemistryOp = Literal[
     "h_from_ph",
     "poh_from_oh",
     "buffer_ph",
-    "ideal_gas",
-    "heat",
     "gibbs",
     "equilibrium_constant",
     "reaction_quotient",
@@ -55,7 +53,6 @@ ChemistryOp = Literal[
     "cell_gibbs",
     "nernst",
     "electrolysis_mass",
-    "radioactive_decay",
     "beer_lambert",
     "empirical_formula",
     "molecular_formula",
@@ -73,9 +70,6 @@ ChemistryOp = Literal[
     "titration_weak",
     "buffer_addition",
     "polyprotic_ph",
-    "combined_gas",
-    "boyle",
-    "charles",
     "dalton",
     "partial_pressure",
     "gas_over_water",
@@ -97,9 +91,6 @@ ChemistryOp = Literal[
     "arrhenius_two_point",
     "cell_potential",
     "galvanic_cell",
-    "decay_constant",
-    "exponential_decay",
-    "nuclear_activity",
     "nuclear_equation",
     "oxidation_state",
     "vsepr",
@@ -191,17 +182,13 @@ OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
     ),
     "gases": frozenset(
         {
-            "ideal_gas",
-            "combined_gas",
-            "boyle",
-            "charles",
             "dalton",
             "partial_pressure",
             "gas_over_water",
         }
     ),
     "thermochemistry": frozenset(
-        {"heat", "gibbs", "calorimetry", "hess", "formation_enthalpy", "bond_enthalpy"}
+        {"gibbs", "calorimetry", "hess", "formation_enthalpy", "bond_enthalpy"}
     ),
     "equilibrium": frozenset(
         {
@@ -233,10 +220,6 @@ OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
     ),
     "nuclear": frozenset(
         {
-            "radioactive_decay",
-            "decay_constant",
-            "exponential_decay",
-            "nuclear_activity",
             "nuclear_equation",
             "mass_defect",
         }

@@ -59,50 +59,7 @@ def _shown(value: float, figures: int) -> object:
     return pytest.approx(float(f"{value:.{figures}g}"), rel=1e-9, abs=0)
 
 
-# --- gas laws: units are converted, never assumed ---------------------------------------
-
-
-def test_charles_law_converts_celsius_to_kelvin() -> None:
-    result = _solve("Use Charles's law: V1 = 2 L, T1 = 25 °C, T2 = 50 °C, find V2")
-    # 2 L has one significant figure, so the answer shows the two-figure floor.
-    assert _first_number(result.answer) == _shown(2 * 323.15 / 298.15, 2)
-    assert result.substitution[-1] == "V2 = (2)(323.15) / 298.15"
-
-
-def test_boyle_matches_the_gate_regardless_of_case() -> None:
-    titled = "Use Boyle's law: P1 = 2 atm, V1 = 3 L, V2 = 6 L, find P2"
-    lower = "Use boyle's law: P1 = 2 atm, V1 = 3 L, V2 = 6 L, find P2"
-    titled_intent = extract_chemistry_intent(titled)
-    lower_intent = extract_chemistry_intent(lower)
-    assert titled_intent is not None and lower_intent is not None
-    assert lower_intent.chemistry_op == "boyle"
-    assert lower_intent.params == titled_intent.params
-
-
-def test_boyle_law_converts_pressure_units() -> None:
-    result = _solve("Use Boyle's law: P1 = 760 mmHg, V1 = 2 L, P2 = 380 mmHg, find V2")
-    assert _first_number(result.answer) == pytest.approx(4.0)
-    assert result.answer.endswith(" L")
-
-
-def test_combined_gas_law_mixes_units() -> None:
-    result = _solve(
-        "Use the combined gas law: P1 = 1 atm, V1 = 2 L, T1 = 27 °C, "
-        "P2 = 202.65 kPa, T2 = 327 °C, find V2"
-    )
-    assert _first_number(result.answer) == pytest.approx(2 * 600.15 / 300.15 / 2, rel=1e-3)
-
-
-@pytest.mark.parametrize(
-    "question",
-    [
-        "Use Boyle's law: P1 = 2, V1 = 3, V2 = 6, find P2",
-        "Use Boyle's law: P1 = 2 psi, V1 = 3 L, V2 = 6 L, find P2",
-        "Use Charles's law: V1 = 2 L, T1 = 300, T2 = 600 K, find V2",
-    ],
-)
-def test_gas_law_without_a_usable_unit_is_not_verified(question: str) -> None:
-    assert extract_chemistry_intent(question) is None
+# --- gas mixtures: units are converted, never assumed -----------------------------------
 
 
 def test_dalton_keeps_the_pressure_unit_it_was_given() -> None:
@@ -293,9 +250,9 @@ def test_a_solver_error_is_a_refusal_not_a_crash() -> None:
     with pytest.raises(SolveServiceError):
         solve_chemistry(
             ChemistryIntent(
-                kind="gases",
-                chemistry_op="boyle",
-                params={"p1": 1.0, "v1": 2.0, "p2": 0.0},
+                kind="solutions",
+                chemistry_op="dilution",
+                params={"m1": 1.0, "v1": 2.0, "m2": 0.0},
             )
         )
 
@@ -985,7 +942,6 @@ def test_esterification_needs_an_alcohol_partner_not_an_acid() -> None:
     [
         ("kinetics", "arrhenius_two_point", {"k1": 0.1, "t1": 300.0, "k2": 0.4}),
         ("kinetics", "rate_law", {"a1": 0.1, "rate1": 0.02, "a2": 0.2}),
-        ("nuclear", "exponential_decay", {"initial": 10.0, "decay_constant": 0.1}),
         (
             "analytical",
             "standard_addition",

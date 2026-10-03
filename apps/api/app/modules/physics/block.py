@@ -13,7 +13,12 @@ from dataclasses import replace
 
 from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
-from app.modules.physics.answer_checks import _answers_the_question, _in_the_asked_unit
+from app.modules.physics.answer_checks import (
+    _answers_the_question,
+    _in_context_units,
+    _in_the_asked_unit,
+)
+from app.modules.physics.display import latex_number, latex_unit
 from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.common import QuantityResult
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
@@ -72,6 +77,22 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
     )
 
 
+def _with_conversions(solved: PhysicsResult, shown: PhysicsResult) -> PhysicsResult:
+    """The shown result, with a row for each value it shows in another unit.
+
+    The substitution works in SI, so "49.2 L" needs the step from the 0.0492 m³ it gives.
+    """
+    if len(solved.quantities) != len(shown.quantities):
+        return shown
+    rows = tuple(
+        f"{after.symbol} = {latex_number(before.value)}{latex_unit(before.unit)} "
+        f"= {latex_number(after.value)}{latex_unit(after.unit)}"
+        for before, after in zip(solved.quantities, shown.quantities, strict=True)
+        if before.unit != after.unit
+    )
+    return replace(shown, substitutions=(*shown.substitutions, *rows)) if rows else shown
+
+
 def _build_physics_block(
     intent: PhysicsIntent, settings: Settings, lines: list[str]
 ) -> VerifiedPhysicsBlock | None:
@@ -95,7 +116,9 @@ def _build_physics_block(
             exc_info=True,
         )
         return None
-    result = _in_the_asked_unit(intent, result)
+    result = _with_conversions(
+        result, _in_context_units(intent, _in_the_asked_unit(intent, result))
+    )
     if not _answers_the_question(intent, result):
         logger.info(
             "physics verification skipped kind=%s op=%s reason=answers a different quantity",

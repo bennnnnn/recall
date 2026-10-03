@@ -126,7 +126,11 @@ An expression's answer is in SI unless every given of the result's kind shares o
 4 µF and 6 µF in series are 2.4 µF, and a 40 cm radius of curvature gives a 20 cm focal
 length. Temperatures in °C give a temperature in °C (two waters mixed at 80 °C and 20 °C
 reach 44 °C), and a change of temperature stays a change: a rise of 50 °C is 50 K, never
-323 K. A law whose inputs are roles rather than kinds stays an extractor: Doppler
+323 K. A question's units also carry over by context (`answer_checks._in_context_units`).
+A gas stated in litres or atmospheres, a chemistry class's units, gives a volume in L and a
+pressure in atm. A rate from times that share one unit is per that unit: a 5-day half-life
+gives 0.139 1/day. The conversion is the last substitution row, as for an asked unit ("in
+kWh"). A number written onto an element is an isotope's label, not a given ("carbon-14"). A law whose inputs are roles rather than kinds stays an extractor: Doppler
 (`extractors/doppler.py`) reads who moves, toward whom, and a stated speed of sound.
 
 ## Coverage

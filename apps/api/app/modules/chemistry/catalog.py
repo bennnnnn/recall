@@ -74,8 +74,6 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ("h_from_ph", "acid_base", "Inverse pH relation", "[H+] = 10^(-pH)"),
     ("poh_from_oh", "acid_base", "Definition of pOH", "pOH = −log10[OH-]"),
     ("buffer_ph", "acid_base", "Henderson–Hasselbalch equation", "pH = pKa + log10([A-]/[HA])"),
-    ("ideal_gas", "gases", "Ideal gas law", "PV = nRT"),
-    ("heat", "thermochemistry", "Specific-heat equation", "q = mcΔT"),
     ("gibbs", "thermochemistry", "Gibbs equation", "ΔG = ΔH − TΔS"),
     (
         "equilibrium_constant",
@@ -100,7 +98,6 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ("cell_gibbs", "electrochemistry", "Electrochemical Gibbs relation", "ΔG° = −nFE°cell"),
     ("nernst", "electrochemistry", "Nernst equation", "E = E° − (RT/nF)ln Q"),
     ("electrolysis_mass", "electrochemistry", "Faraday's law of electrolysis", "m = MIt / nF"),
-    ("radioactive_decay", "nuclear", "Radioactive decay law", "N = N₀(1/2)^(t/t₁/₂)"),
     ("beer_lambert", "spectroscopy", "Beer–Lambert law", "A = εbc"),
     (
         "empirical_formula",
@@ -168,9 +165,6 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "First dissociation of a polyprotic acid",
         "Ka1 = x^2 / (C − x)",
     ),
-    ("combined_gas", "gases", "Combined gas law", "P1V1 / T1 = P2V2 / T2"),
-    ("boyle", "gases", "Boyle's law", "P1V1 = P2V2"),
-    ("charles", "gases", "Charles's law", "V1 / T1 = V2 / T2"),
     ("dalton", "gases", "Dalton's law", "Ptotal = Σ Pi"),
     ("partial_pressure", "gases", "Mole fraction", "Pi = Xi Ptotal"),
     ("gas_over_water", "gases", "Dalton's law with water vapor", "Pdry = Ptotal − Pwater"),
@@ -232,9 +226,6 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "Standard reduction potentials",
         "E°cell = E°cathode − E°anode",
     ),
-    ("decay_constant", "nuclear", "Decay constant", "λ = ln(2) / t₁/₂"),
-    ("exponential_decay", "nuclear", "Exponential decay", "N = N₀e^(−λt)"),
-    ("nuclear_activity", "nuclear", "Activity", "A = λN"),
     (
         "nuclear_equation",
         "nuclear",

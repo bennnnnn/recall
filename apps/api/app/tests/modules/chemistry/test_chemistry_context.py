@@ -240,17 +240,6 @@ async def test_build_chemistry_context_gas_law() -> None:
     assert block is None
 
 
-async def test_build_chemistry_context_gas_law_verified() -> None:
-    block = await chemistry_context.build_chemistry_context(
-        "A gas at 1 atm and 273 K with 1 mol occupies what volume? PV=nRT",
-        MagicMock(),
-    )
-    assert block is not None
-    assert "Verified gas law" in block
-    # 1 atm and 1 mol carry one significant figure, so 22.4 L shows the two-figure floor.
-    assert "V = 22 L" in block
-
-
 async def test_build_chemistry_context_gas_law_does_not_steal_pubchem() -> None:
     fake_compound = MagicMock()
     fake_compound.smiles = "CC(=O)Oc1ccccc1C(=O)O"

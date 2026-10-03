@@ -64,7 +64,8 @@ def _answer(text: str) -> str | None:
         (
             "A radioactive isotope has a half-life of 5 days. Find the decay constant.",
             "decay_constant",
-            "1.6 × 10⁻⁶ 1/s",  # ln 2 / 432000 s
+            # ln 2 / 5 days, per the day the half-life was given in (1.6e-6 1/s).
+            "0.139 1/day",
         ),
         (
             "A sample contains 2 × 10^20 nuclei with a half-life of 5 days. Find its activity.",

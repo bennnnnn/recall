@@ -11,7 +11,6 @@ from app.modules.chemistry.extractors.parsing import (
     _PRESSURE_UNIT,
     _equation,
     _floats,
-    _gas_state,
     _partial_pressures,
     _pressure_species,
     _search,
@@ -26,20 +25,9 @@ _INTEGRATED_ORDERS: tuple[tuple[str, ChemistryOp, ChemistryOp], ...] = (
 )
 
 
-def _gas_law(operation: ChemistryOp, names: tuple[str, ...], text: str) -> ChemistryIntent | None:
-    params = _gas_state(text, names)
-    if params is None:
-        return None
-    return ChemistryIntent(kind="gases", chemistry_op=operation, params=params)
-
-
 def _extract_gas_laws(text: str) -> ChemistryIntent | None:
-    if re.search(r"\bcombined gas\b", text, re.IGNORECASE):
-        return _gas_law("combined_gas", ("p1", "v1", "t1", "p2", "v2", "t2"), text)
-    if re.search(r"\bBoyle\b", text, re.IGNORECASE):
-        return _gas_law("boyle", ("p1", "v1", "p2", "v2"), text)
-    if re.search(r"\bCharles\b", text, re.IGNORECASE):
-        return _gas_law("charles", ("v1", "t1", "v2", "t2"), text)
+    # Boyle, Charles and the combined and ideal gas laws are physics' (physics/catalog/gas_laws.py),
+    # answered in L and atm when the question is written in them.
     if re.search(r"\bDalton\b", text, re.IGNORECASE):
         partials = _partial_pressures(text)
         if partials is not None and len(partials[0]) >= 2:

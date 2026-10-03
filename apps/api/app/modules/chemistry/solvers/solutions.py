@@ -9,7 +9,7 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import to_liters
 from app.modules.chemistry.solvers.common_chem import inp, num, p_value, verified
-from app.modules.chemistry.solvers.constants import GAS_R, PKW
+from app.modules.chemistry.solvers.constants import PKW
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.relation import solve_paired
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -198,45 +198,6 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     raise SolveServiceError(f"unsupported acid-base operation: {op}")
-
-
-_GAS = {
-    "pressure": ("P", "atm"),
-    "volume": ("V", "L"),
-    "moles": ("n", "mol"),
-    "temperature": ("T", "K"),
-}
-
-
-def solve_gas(intent: ChemistryIntent) -> ChemistryResult:
-    values = {name: intent.params.get(name) for name in _GAS}
-    missing = [name for name, value in values.items() if value is None]
-    if len(missing) != 1:
-        raise SolveServiceError("exactly one gas-law variable must be unknown")
-    for name, value in values.items():
-        if value is not None and value <= 0:
-            raise SolveServiceError(f"{name} must be positive")
-    unknown = missing[0]
-    symbol, unit = _GAS[unknown]
-    known = {_GAS[name][0]: value for name, value in values.items() if value is not None}
-    result, rearranged, substitution = solve_paired(
-        known, symbol, ["P", "V"], ["n", "R", "T"], {"R": GAS_R}
-    )
-    given = tuple(
-        f"{_GAS[name][0]} = {inp(value)} {_GAS[name][1]}"
-        for name, value in values.items()
-        if value is not None
-    )
-    value_text = f"{num(result)} {unit}"
-    return verified(
-        "Verified gas law",
-        given,
-        f"{symbol} ({unknown})",
-        *stated("ideal_gas"),
-        (rearranged, substitution),
-        f"{symbol} = {value_text}",
-        value_text,
-    )
 
 
 _BEER = {
