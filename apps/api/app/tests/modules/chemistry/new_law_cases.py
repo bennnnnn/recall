@@ -3,7 +3,7 @@
 
 Each answer was checked by hand to the figures the question's data carry:
 - 0.200 M × 0.500 L × 58.44 g/mol = 5.84 g;
-- 3.01 × 10^23 / 6.022 × 10^23 × 18.02 g/mol = 9.00 g;
+- 3.01 × 10^23 / (6.022 × 10^23) × 18.02 g/mol = 9.00 g;
 - √(32.00 / 2.016) = 3.984;
 - 75.77% × 34.969 u + 24.23% × 36.966 u = 35.45 u.
 """

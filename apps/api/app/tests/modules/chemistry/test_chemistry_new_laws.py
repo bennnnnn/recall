@@ -81,10 +81,30 @@ def test_a_stated_total_is_not_a_partial_pressure() -> None:
             "How many times faster does helium effuse than oxygen?",
             "rate(He) / rate(O2) = 2.827",
         ),
+        # "Times slower" asks how many times the second gas outpaces the first.
+        ("How many times slower does O2 effuse than H2?", "rate(H2) / rate(O2) = 3.984"),
     ],
 )
 def test_grahams_law_compares_two_named_gases(question: str, answer: str) -> None:
     assert _answer(question) == answer
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "How many times longer does it take O2 to effuse than H2?",
+        "Which gas effuses faster and which slower, H2 or O2?",
+    ],
+)
+def test_grahams_law_declines_a_time_or_an_unclear_direction(question: str) -> None:
+    # A time ratio is the inverse of the rate ratio; asked both ways, the direction is unclear.
+    assert extract_chemistry_intent(question) is None
+
+
+def test_a_particle_count_divides_by_avogadros_number_as_one_quantity() -> None:
+    intent = extract_chemistry_intent("How many grams do 3.01 × 10^23 molecules of H2O weigh?")
+    assert intent is not None
+    assert solve_chemistry(intent).substitution[0] == "n = 3.01 × 10^23 / (6.022 × 10^23)"
 
 
 def test_grahams_law_with_a_stated_rate_declines() -> None:
