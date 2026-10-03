@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **"ΔH = -10 kcal/mol" was echoed as "-10 J/mol = -41.84 kJ/mol", a year of electrolysis as "1 s", and 700 mmHg as 0.921052762798 atm.** The Gibbs row named the unit its template converts from, but the binder converts others. The time table lacked years. And a converted value kept every digit of its float, which is right for 3600 s and wrong for a repeating decimal. Read the typed unit from the conversion factor, over a table of the units the readers accept, and when no unit fits, show only the value used. A conversion keeps its own digits only when they terminate (six or fewer); otherwise it keeps the typed figures.
+
 - **Moving chemistry's readers into topic modules left `_ELEMENT_BY_NAME.update(...)` behind, so the old file named a dict that now lived elsewhere.** A move that takes definitions (functions, classes, assignments) misses a module-level statement that changes one of them. Before a verbatim move, list a file's top-level statements that are not definitions, and move each with what it changes. Then hold the move to a byte-identical golden dump; ruff's F821 caught this one only because the dict was gone.
 
 - **"How many times slower does O2 effuse than H2?" answered 0.251, and a substitution printed `n = N / 6.022 × 10^23`.** The Graham reader took the gases in the order the question named them, which is right for "faster" and backwards for "slower". A time ratio is the rate ratio inverted. The working wrote a power-of-ten constant as a divisor without brackets, which reads as `(N / 6.022) × 10^23`. A comparison word sets the direction: swap on "slower", and decline a time or both directions. Bracket a divisor written as a product.

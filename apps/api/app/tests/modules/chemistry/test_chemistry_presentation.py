@@ -123,6 +123,31 @@ def test_a_converted_given_is_shown_as_typed_then_as_used(question: str, row: st
     assert row in _solve(question).given
 
 
+@pytest.mark.parametrize(
+    ("question", "row"),
+    [
+        # The unit is the one typed, not the one the template usually converts from (J).
+        (
+            "Calculate ΔG at 298 K if ΔH = -10 kcal/mol and ΔS = -200 J/mol·K.",
+            "ΔH = -10 kcal/mol = -41.84 kJ/mol",
+        ),
+        (
+            "How many grams of Cu are deposited by a current of 2 A for 1 year from Cu2+?",
+            "t = 1 yr = 3.15576 × 10^7 s",
+        ),
+        # A conversion that does not terminate keeps the typed figures: 700 mmHg has three.
+        ("Find the density of CO2 gas at 700 mmHg and 298 K.", "P = 700 mmHg = 0.921 atm"),
+    ],
+)
+def test_a_converted_given_names_the_unit_it_was_typed_in(question: str, row: str) -> None:
+    assert row in _solve(question).given
+
+
+def test_a_repeating_conversion_is_substituted_to_the_typed_figures() -> None:
+    result = _solve("Find the density of CO2 gas at 700 mmHg and 298 K.")
+    assert result.substitution[0].startswith("d = (0.921 atm)(44.009 g/mol)")
+
+
 def test_a_value_two_typed_numbers_explain_is_not_echoed_as_either() -> None:
     # 1800 s is 30 min, and also 0.50 × 3600: neither literal is claimed as the time.
     result = _solve("How many grams of Cu are deposited by 0.50 A for 30 min from Cu2+?")

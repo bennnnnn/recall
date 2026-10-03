@@ -8,8 +8,8 @@ from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.models.schemas.chemistry.scene import CellScene
-from app.modules.chemistry import sig_figs
 from app.modules.chemistry.catalog import stated
+from app.modules.chemistry.extractors.parsing import seconds_per
 from app.modules.chemistry.solvers.common_chem import (
     const,
     given_row,
@@ -17,6 +17,7 @@ from app.modules.chemistry.solvers.common_chem import (
     molar_mass_working,
     num,
     qty,
+    typed_unit,
     used,
     verified,
 )
@@ -25,20 +26,11 @@ from app.modules.chemistry.solvers.params import require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
-
-def _time_unit(seconds: float) -> str:
-    """The unit a converted time was typed in, from the factor its literal was scaled by."""
-    written = sig_figs.current()
-    literal = None if written is None else written.converted.get(repr(seconds))
-    if literal is None or float(literal) == 0:
-        return "s"
-    factor = seconds / float(literal)
-    return next(
-        (unit for unit, size in _TIME_SIZES if math.isclose(factor, size, rel_tol=1e-9)), "s"
-    )
-
-
-_TIME_SIZES = (("min", 60.0), ("h", 3600.0), ("day", 86400.0))
+# The times a reader converts to seconds, by their size in seconds.
+_TIME_SIZES = tuple(
+    (shown, float(seconds_per(unit)))
+    for shown, unit in (("min", "min"), ("h", "h"), ("day", "days"), ("yr", "years"))
+)
 
 
 def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
@@ -108,7 +100,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             (
                 f"M = {molar_mass_working(molar_mass)} g/mol",
                 f"I = {inp(current)} A",
-                given_row("t", time, "s", _time_unit(time)),
+                given_row("t", time, "s", typed_unit(time, _TIME_SIZES)),
                 f"n = {inp(electrons)}",
             ),
             "Deposited mass, m",

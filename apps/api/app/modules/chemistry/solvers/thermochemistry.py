@@ -10,6 +10,7 @@ from app.modules.chemistry.solvers.common_chem import (
     given_row,
     inp,
     num,
+    typed_unit,
     used,
     verified,
 )
@@ -17,6 +18,10 @@ from app.modules.chemistry.solvers.params import require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
 from app.services.solving import SolveServiceError
+
+# The energies a Gibbs reader converts to kJ, by their size in kJ (a calorie is 4.184 J).
+_PER_MOL = (("J/mol", 1e-3), ("kcal/mol", 4.184), ("cal/mol", 4.184e-3))
+_PER_MOL_K = (("J/(mol·K)", 1e-3), ("kcal/(mol·K)", 4.184), ("cal/(mol·K)", 4.184e-3))
 
 
 def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
@@ -34,8 +39,8 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
         return verified(
             "Verified Gibbs free energy",
             (
-                given_row("ΔH", delta_h, "kJ/mol", "J/mol"),
-                given_row("ΔS", delta_s, "kJ/(mol·K)", "J/(mol·K)"),
+                given_row("ΔH", delta_h, "kJ/mol", typed_unit(delta_h, _PER_MOL)),
+                given_row("ΔS", delta_s, "kJ/(mol·K)", typed_unit(delta_s, _PER_MOL_K)),
                 given_row("T", temperature, "K", "°C"),
             ),
             "Gibbs free-energy change, ΔG",
