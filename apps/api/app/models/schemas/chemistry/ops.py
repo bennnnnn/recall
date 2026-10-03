@@ -79,10 +79,12 @@ ChemistryOp = Literal[
     "dalton",
     "partial_pressure",
     "gas_over_water",
+    "graham",
     "calorimetry",
     "hess",
     "formation_enthalpy",
     "bond_enthalpy",
+    "clausius_clapeyron",
     "ksp",
     "precipitation",
     "common_ion",
@@ -112,6 +114,7 @@ ChemistryOp = Literal[
     "freezing_depression",
     "osmotic_pressure",
     "raoult",
+    "henry",
     "calibration",
     "gravimetric",
     "standard_addition",
@@ -169,6 +172,7 @@ OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
             "freezing_depression",
             "osmotic_pressure",
             "raoult",
+            "henry",
         }
     ),
     "acid_base": frozenset(
@@ -198,10 +202,19 @@ OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
             "dalton",
             "partial_pressure",
             "gas_over_water",
+            "graham",
         }
     ),
     "thermochemistry": frozenset(
-        {"heat", "gibbs", "calorimetry", "hess", "formation_enthalpy", "bond_enthalpy"}
+        {
+            "heat",
+            "gibbs",
+            "calorimetry",
+            "hess",
+            "formation_enthalpy",
+            "bond_enthalpy",
+            "clausius_clapeyron",
+        }
     ),
     "equilibrium": frozenset(
         {
