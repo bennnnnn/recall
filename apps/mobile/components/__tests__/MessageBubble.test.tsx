@@ -68,9 +68,6 @@ jest.mock("@/components/rich/LazyHeavyRich", () => ({
     return <MockText testID="lazy-message-clock">{content}</MockText>;
   },
 }));
-jest.mock("@/components/StreamingCursor", () => ({
-  StreamingCursor: () => null,
-}));
 jest.mock("@/components/MarkdownErrorBoundary", () => ({
   MarkdownErrorBoundary: ({ children }: { children: React.ReactNode }) =>
     children,

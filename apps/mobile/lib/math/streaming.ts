@@ -40,6 +40,22 @@ export function hasIncompleteStreamingLatex(body: string): boolean {
   return false;
 }
 
+const MAX_INCOMPLETE_LATEX_TRIM = 800;
+
+/**
+ * Longest closed prefix of a display-math tail. An unfinished command stays
+ * blank instead of a placeholder bar; a finished formula before it still draws.
+ */
+export function completeStreamingLatex(body: string): string {
+  let source = body.trim();
+  if (!source || !hasIncompleteStreamingLatex(source)) return source;
+  for (let trimmed = 0; trimmed < MAX_INCOMPLETE_LATEX_TRIM && source; trimmed += 1) {
+    source = source.slice(0, -1).trimEnd();
+    if (source && !hasIncompleteStreamingLatex(source)) return source.trim();
+  }
+  return "";
+}
+
 /** Protect complete inline math in the live tail, holding only an unfinished
  * explicit formula. Ordinary dollars and backticked source remain visible. */
 export function prepareStreamingMathText(text: string): { text: string; pending: boolean } {

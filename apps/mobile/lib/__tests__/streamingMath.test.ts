@@ -1,4 +1,8 @@
-import { hasIncompleteStreamingLatex, prepareStreamingMathText } from "@/lib/math/streaming";
+import {
+  completeStreamingLatex,
+  hasIncompleteStreamingLatex,
+  prepareStreamingMathText,
+} from "@/lib/math/streaming";
 import { splitInlineMath } from "@/lib/markdown/inlineMath";
 import { parseSimpleLatex, restoreMathEscapes, segmentsToPlain } from "@/lib/math/text";
 
@@ -43,6 +47,13 @@ describe("streaming math preview", () => {
     expect(restoreMathEscapes(math[0].value)).toBe(formula);
     expect(result.pending).toBe(false);
   });
+  it("draws a closed fraction and leaves an unfinished one blank", () => {
+    expect(completeStreamingLatex(String.raw`\frac{1}{2}`)).toBe(String.raw`\frac{1}{2}`);
+    expect(completeStreamingLatex(String.raw`\frac{1}{2} + \frac{3`)).toBe(String.raw`\frac{1}{2} +`);
+    expect(completeStreamingLatex(String.raw`\frac{1`)).toBe("");
+    expect(completeStreamingLatex(String.raw`\begin{aligned} x &= 1`)).toBe("");
+  });
+
   it.each(["Price: $5 and $10.", "It costs $5 for x^2 copies", String.raw`Price: \$5`, "Budget: ($$)", 'Type `$\\frac` in LaTeX.']) (
     "preserves code and currency: %s", (text) => {
       expect(prepareStreamingMathText(text)).toEqual({ text, pending: false });

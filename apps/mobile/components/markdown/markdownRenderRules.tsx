@@ -4,6 +4,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
+import { splitStreamCaret, StreamingCursor } from "@/components/StreamingCursor";
 import { MathText } from "@/components/rich/MathText";
 import { MathBlock } from "@/components/rich/MathView";
 import {
@@ -174,7 +175,8 @@ function renderTextWithMath(
   // "leads to the next line" marker. It strands as a lone "two dots" between
   // a label and the formula on the next line. Drop it for all content, not
   // just nested-math paragraphs.
-  let content = replaceHtmlBreaks(node.content)
+  const marked = splitStreamCaret(node.content);
+  let content = replaceHtmlBreaks(marked.text)
     .split("\n")
     .filter((line) => line.trim() !== ":")
     .join("\n");
@@ -204,11 +206,26 @@ function renderTextWithMath(
     inTableHeader(parent) && mdTable.headerText,
     runHeight != null && { lineHeight: runHeight },
   ];
+  let caretLeft = marked.caret;
+  const takeCaret = (): ReactNode => {
+    if (!caretLeft) return null;
+    caretLeft = false;
+    return <StreamingCursor key={`${node.key}-caret`} />;
+  };
+
+  if (!content && marked.caret) {
+    return (
+      <Text key={node.key} style={base} selectable>
+        {takeCaret()}
+      </Text>
+    );
+  }
 
   if (parts.length === 1 && parts[0].type === "text") {
     return (
       <Text key={node.key} style={base} selectable>
         {withGreenTicks(content, tickColor, node.key)}
+        {takeCaret()}
       </Text>
     );
   }
@@ -219,15 +236,16 @@ function renderTextWithMath(
   if (hasHeavy) {
     const runs: ReactNode[] = [];
     let inline: typeof parts = [];
-    const flushInline = () => {
+    const flushInline = (final = false) => {
       if (!inline.length) return;
       const key = `${node.key}-inline-${runs.length}`;
+      const caret = final ? takeCaret() : null;
       const children = inline.map((part, i) => part.type === "math"
         ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} />
         : <Text key={`${key}-${i}`} style={base} selectable>{withGreenTicks(part.value, tickColor, key)}</Text>);
       runs.push(inline.some((part) => part.type === "math" && latexHasNestedMathView(part.value))
-        ? <View key={key} style={_mdMath.inlineWrap}>{children}</View>
-        : <Text key={key} style={base} selectable>{children}</Text>);
+        ? <View key={key} style={_mdMath.inlineWrap}>{children}{caret}</View>
+        : <Text key={key} style={base} selectable>{children}{caret}</Text>);
       inline = [];
     };
     for (let i = 0; i < parts.length; i += 1) {
@@ -252,7 +270,8 @@ function renderTextWithMath(
         i += 1;
       }
     }
-    flushInline();
+    flushInline(true);
+    if (caretLeft) runs.push(takeCaret());
     return (
       <View key={node.key} testID="md-heavy-math-run" style={{ width: "100%" }}>
         {runs}
@@ -277,7 +296,7 @@ function renderTextWithMath(
     });
     const runs: ReactNode[] = [];
     let inline: typeof parts = [];
-    const flushInline = () => {
+    const flushInline = (final = false) => {
       if (!inline.length) return;
       const key = `${node.key}-inline-${runs.length}`;
       runs.push(
@@ -285,6 +304,7 @@ function renderTextWithMath(
           {inline.map((part, i) => part.type === "math"
             ? <MathText scrollOverflow key={`${key}-${i}`} latex={part.value} />
             : withGreenTicks(part.value, tickColor, `${key}-${i}`))}
+          {final ? takeCaret() : null}
         </Text>,
       );
       inline = [];
@@ -309,7 +329,8 @@ function renderTextWithMath(
         i += 1;
       }
     }
-    flushInline();
+    flushInline(true);
+    if (caretLeft) runs.push(takeCaret());
     return <Fragment key={node.key}>{runs}</Fragment>;
   }
 
@@ -322,6 +343,7 @@ function renderTextWithMath(
           withGreenTicks(part.value, tickColor, `${node.key}-t-${i}`)
         ),
       )}
+      {takeCaret()}
     </Text>
   );
 }

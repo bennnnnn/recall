@@ -11,7 +11,24 @@ import Animated, {
 
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
-import { Space } from "@/lib/space";
+
+/** Private-use mark so the caret can sit inside the last streaming text run. */
+export const STREAM_CARET = "\uE010";
+
+export function splitStreamCaret(content: string): { text: string; caret: boolean } {
+  if (!content.includes(STREAM_CARET)) return { text: content, caret: false };
+  return { text: content.split(STREAM_CARET).join(""), caret: true };
+}
+
+/** Append the caret mark to the last prose line, not after a trailing break. */
+export function withStreamCaret(markdown: string): string {
+  if (!markdown.trim() || markdown.includes(STREAM_CARET)) return markdown;
+  const trailing = /\n*$/.exec(markdown);
+  const end = trailing?.index ?? markdown.length;
+  const body = markdown.slice(0, end);
+  if (!body.trim()) return markdown;
+  return body + STREAM_CARET + markdown.slice(end);
+}
 
 /** Blinking caret shown while assistant text is streaming in. */
 export function StreamingCursor() {
@@ -48,7 +65,12 @@ export function StreamingCursor() {
   }));
 
   return (
-    <View style={s.wrap} accessibilityElementsHidden importantForAccessibility="no">
+    <View
+      testID="stream-caret"
+      style={s.inlineWrap}
+      accessibilityElementsHidden
+      importantForAccessibility="no"
+    >
       <Animated.View style={[s.caret, caretStyle]} />
     </View>
   );
@@ -56,15 +78,15 @@ export function StreamingCursor() {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: {
-      alignSelf: "flex-start",
-      marginTop: -2,
-      marginBottom: Space.xxs,
-      paddingLeft: 1,
+    inlineWrap: {
+      width: 7,
+      height: 18,
+      justifyContent: "center",
+      marginLeft: 1,
     },
     caret: {
       width: 2,
-      height: 18,
+      height: 16,
       borderRadius: 1,
       backgroundColor: t.accent,
     },
