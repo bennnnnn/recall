@@ -582,7 +582,8 @@ def test_dilution_normalizes_each_supplied_volume_unit() -> None:
 
     result = solve_chemistry(intent)
     assert result.given == ("M1 = 1 mol/L", "V1 = 500 mL", "V2 = 2 L")
-    assert result.substitution == ("M2 = (1)(0.5 L) / (2 L)",)
+    # Two volume units meet in litres, and the step to them is a row of its own.
+    assert result.substitution == ("V1 = 500 mL = 0.500 L", "M2 = (1 mol/L)(0.500 L) / 2 L")
     assert result.answer == "M2 = 0.25 mol/L"
 
     implicit_unit = extract_chemistry_intent(

@@ -12,9 +12,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **"ΔH = -10 kcal/mol" was echoed as "-10 J/mol = -41.84 kJ/mol", a year of electrolysis as "1 s", and 700 mmHg as 0.921052762798 atm.** The Gibbs row named the unit its template converts from, but the binder converts others. The time table lacked years. And a converted value kept every digit of its float, which is right for 3600 s and wrong for a repeating decimal. Read the typed unit from the conversion factor, over a table of the units the readers accept, and when no unit fits, show only the value used. A conversion keeps its own digits only when they terminate (six or fewer); otherwise it keeps the typed figures.
+
 - **Bragg's law with d = 0.200 nm lost the given's SI step, though the substitution used 2 × 10⁻¹⁰.** A given's SI row is skipped when its written value appears in the working, meaning the solver worked in the typed unit. The answer's conversion row ("λ = 2 × 10⁻¹⁰ m = 0.2 nm") was searched too, and at 30° λ equals d. Look for a given only in the arithmetic rows, never in a row that restates the answer.
 
 - **"How many times slower does O2 effuse than H2?" answered 0.251, and a substitution printed `n = N / 6.022 × 10^23`.** The Graham reader took the gases in the order the question named them, which is right for "faster" and backwards for "slower". A time ratio is the rate ratio inverted. The working wrote a power-of-ten constant as a divisor without brackets, which reads as `(N / 6.022) × 10^23`. A comparison word sets the direction: swap on "slower", and decline a time or both directions. Bracket a divisor written as a product.
+
+- **"0.50 A for 30 min" echoed its time as "t = 0.50 h = 1800 s".** A converted value was traced to its typed literal by the first literal that some unit factor maps onto it, and 0.50 × 3600 is 1800 just as 30 × 60 is. A reverse lookup by value must collect every candidate: two candidates mean the value is ambiguous, so it limits precision by both and is echoed as neither.
 
 - **"What is the pH of 5 mM HCl?" declined though the binder read 5 mM as 0.005 mol/L.** The asked phrase was found in a lowercased copy of the question, and the unit after a value was read from that copy too: "5 mM" became "5 mm", a length, so the 5 looked like the pH's label and the law was never named. "0.005 M" only worked because lowercase "m" is molal. Read a unit from the text as written and match the words without case; a case-sensitive symbol table is meaningless on lowercased text.
 

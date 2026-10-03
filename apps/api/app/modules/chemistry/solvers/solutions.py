@@ -8,7 +8,14 @@ import math
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert, to_liters
-from app.modules.chemistry.solvers.common_chem import inp, num, p_value, verified
+from app.modules.chemistry.solvers.common_chem import (
+    converted_from,
+    inp,
+    num,
+    p_value,
+    qty,
+    verified,
+)
 from app.modules.chemistry.solvers.constants import PKW
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.relation import solve_paired
@@ -38,7 +45,7 @@ def _stock_volume(intent: ChemistryIntent) -> ChemistryResult:
     except ValueError as exc:
         raise SolveServiceError(f"unsupported dilution volume unit: {v1_unit}") from exc
     value = f"{num(volume)} {v1_unit}"
-    rows = [f"V1 = ({inp(m2)})({inp(v2)} {v2_unit}) / {inp(m1)}"]
+    rows = [f"V1 = ({qty(m2, 'mol/L')})({qty(v2, v2_unit)}) / {qty(m1, 'mol/L')}"]
     if v1_unit != v2_unit:
         rows.append(f"V1 = {num(in_v2_unit)} {v2_unit} = {value}")
     return verified(
@@ -64,7 +71,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             (f"n = {inp(moles)} mol", f"V = {inp(volume)} L"),
             "Molarity, c",
             *stated("molarity"),
-            (f"c = {inp(moles)} / {inp(volume)}",),
+            (f"c = {qty(moles, 'mol')} / {qty(volume, 'L')}",),
             f"c = {value}",
             value,
         )
@@ -84,7 +91,9 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             result = m1 * v1 / m2
             value = f"{num(result)} {v1_unit}"
             find = "Final volume, V2"
-            substitution = f"V2 = ({inp(m1)})({inp(v1)}) / {inp(m2)}"
+            substitution: tuple[str, ...] = (
+                f"V2 = ({qty(m1, 'mol/L')})({qty(v1, v1_unit)}) / {qty(m2, 'mol/L')}",
+            )
             answer = f"V2 = {value}"
             given = (
                 f"M1 = {inp(m1)} mol/L",
@@ -100,7 +109,22 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             result = m1 * v1_l / v2_l
             value = f"{num(result)} mol/L"
             find = "Final concentration, M2"
-            substitution = f"M2 = ({inp(m1)})({inp(v1_l)} L) / ({inp(v2_l)} L)"
+            # M1V1 = M2V2 holds in any one volume unit; two different ones meet in litres.
+            if v1_unit == v2_unit:
+                substitution = (
+                    f"M2 = ({qty(m1, 'mol/L')})({qty(v1, v1_unit)}) / {qty(v2, v2_unit)}",
+                )
+            else:
+                litres = {"V1": converted_from(v1_l, v1), "V2": converted_from(v2_l, v2)}
+                in_litres = tuple(
+                    f"{name} = {qty(volume, unit)} = {litres[name]} L"
+                    for name, volume, unit in (("V1", v1, v1_unit), ("V2", v2, v2_unit))
+                    if unit != "L"
+                )
+                substitution = (
+                    *in_litres,
+                    f"M2 = ({qty(m1, 'mol/L')})({litres['V1']} L) / {litres['V2']} L",
+                )
             answer = f"M2 = {value}"
             given = (
                 f"M1 = {inp(m1)} mol/L",
@@ -112,7 +136,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             given,
             find,
             *stated("dilution"),
-            (substitution,),
+            substitution,
             answer,
             value,
         )
@@ -129,7 +153,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             ),
             "Molality, b",
             *stated("molality"),
-            (f"b = {inp(moles)} / {inp(solvent_kg)}",),
+            (f"b = {qty(moles, 'mol')} / {qty(solvent_kg, 'kg')}",),
             f"b = {value}",
             value,
         )
@@ -148,7 +172,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             ),
             "Mass percent",
             *stated("mass_percent"),
-            (f"mass % = ({inp(solute)} / {inp(solution)}) × 100",),
+            (f"mass % = ({qty(solute, 'g')} / {qty(solution, 'g')}) × 100",),
             f"Mass percent = {value}",
             value,
         )

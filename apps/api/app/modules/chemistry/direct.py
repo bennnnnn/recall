@@ -2,9 +2,19 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.chemistry.fence import assemble_chemistry_reply
 from app.modules.chemistry.notation import typeset
+from app.modules.chemistry.solvers.types import ChemistryResult
+
+
+def _law_section(result: ChemistryResult, show: Callable[[str], str]) -> str:
+    """A law's equation under **Formula**; a procedure's rule under **Method**."""
+    if result.method:
+        return f"**Method**\n\n{result.formula_name}: {show(result.formula)}"
+    return f"**Formula**\n\n{show(result.formula)} — {result.formula_name}"
 
 
 def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
@@ -20,8 +30,9 @@ def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
     body = (
         f"**Given**\n\n{given}\n\n"
         f"**Find**\n\n{show(result.find)}\n\n"
-        f"**Formula**\n\n{show(result.formula)} — {result.formula_name}\n\n"
-        f"**Substitution**\n\n{substitution}\n\n"
+        f"{_law_section(result, show)}\n\n"
+        # A procedure's rows check its rule (an atom tally, a range); they substitute nothing.
+        f"**{'Working' if result.method else 'Substitution'}**\n\n{substitution}\n\n"
         f"**Answer**"
     )
     return assemble_chemistry_reply(body, verified)
