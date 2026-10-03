@@ -199,6 +199,7 @@ _CASE_FORMULA = frozenset(
         "solution_stoichiometry",
         "gas_stoichiometry",
         "strong_base_ph",
+        "atom_economy",
     }
 )
 _CASE_LAW = frozenset({"titration_weak"})

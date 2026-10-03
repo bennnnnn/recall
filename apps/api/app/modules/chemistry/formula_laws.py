@@ -32,6 +32,10 @@ class FormulaLaw:
     substitution: tuple[str, ...]
     # Givens that may be negative (an enthalpy); every other one must be positive.
     signed: frozenset[str] = frozenset()
+    # Givens that may be zero (an empty solute) but not negative.
+    non_negative: frozenset[str] = frozenset()
+    # (value, ceiling): the value may not exceed the ceiling.
+    not_above: tuple[tuple[str, str], ...] = ()
 
 
 def _law(
@@ -45,9 +49,22 @@ def _law(
     given: tuple[tuple[str, str, str], ...],
     *substitution: str,
     signed: frozenset[str] = frozenset(),
+    non_negative: frozenset[str] = frozenset(),
+    not_above: tuple[tuple[str, str], ...] = (),
 ) -> FormulaLaw:
     return FormulaLaw(
-        op, kind, law_name, formula, find, *result, expression, given, substitution, signed
+        op,
+        kind,
+        law_name,
+        formula,
+        find,
+        *result,
+        expression,
+        given,
+        substitution,
+        signed,
+        non_negative,
+        not_above,
     )
 
 
@@ -105,6 +122,8 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
             "solute_mass/solution_mass*1e6",
             (("solute_mass", "m(solute)", "g"), ("solution_mass", "m(solution)", "g")),
             "ppm = {solute_mass} / {solution_mass} × 10^6",
+            non_negative=frozenset({"solute_mass"}),
+            not_above=(("solute_mass", "solution_mass"),),
         ),
         _law(
             "parts_per_billion",
@@ -116,6 +135,8 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
             "solute_mass/solution_mass*1e9",
             (("solute_mass", "m(solute)", "g"), ("solution_mass", "m(solution)", "g")),
             "ppb = {solute_mass} / {solution_mass} × 10^9",
+            non_negative=frozenset({"solute_mass"}),
+            not_above=(("solute_mass", "solution_mass"),),
         ),
         _law(
             "volume_percent",
@@ -176,6 +197,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
                 ("pressure_b", "P°(B)", "atm"),
             ),
             "P = {mole_fraction_a.value} × {pressure_a} + {mole_fraction_b.value} × {pressure_b}",
+            non_negative=frozenset({"mole_fraction_a", "mole_fraction_b"}),
         ),
         _law(
             "gas_density",

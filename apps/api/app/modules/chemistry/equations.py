@@ -40,6 +40,22 @@ def _counted(
     return totals, charge
 
 
+def written_is_balanced(equation: str) -> bool:
+    """The coefficients as written conserve atoms and charge.
+
+    A common multiple counts: ``4 H2 + 2 O2 -> 4 H2O`` is balanced, not only the
+    smallest integers ``2 H2 + O2 -> 2 H2O``.
+    """
+    from app.modules.chemistry.species import parse_reaction
+
+    reaction = parse_reaction(equation)
+    if reaction is None or not reaction.reactants or not reaction.products:
+        return False
+    left = _counted(reaction.reactants, [term.coefficient for term in reaction.reactants])
+    right = _counted(reaction.products, [term.coefficient for term in reaction.products])
+    return left is not None and left == right
+
+
 def format_balanced(balanced: BalancedEquation) -> str:
     """``2 H2 + O2 -> 2 H2O``: coefficients of 1 are left out."""
 

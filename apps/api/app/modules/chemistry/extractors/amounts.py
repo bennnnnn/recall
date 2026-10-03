@@ -7,7 +7,7 @@ import re
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.elements import BY_SYMBOL, ELEMENTS
-from app.modules.chemistry.equations import balance_equation
+from app.modules.chemistry.equations import written_is_balanced
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _element,
@@ -17,6 +17,7 @@ from app.modules.chemistry.extractors.parsing import (
 from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.isotopes import ISOTOPE_MASSES
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.modules.chemistry.species import parse_species
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
     NAMED_COMPOUNDS,
@@ -25,14 +26,30 @@ from app.modules.chemistry.species_facts import (
 from app.modules.chemistry.stoichiometry import molar_mass
 
 
-def _desired_product(text: str, products: dict[str, int]) -> str | None:
-    """The one product the question names, or the only product when it names none."""
+def _bare_formula(label: str) -> str | None:
+    """The formula without a phase, so ``CaO`` names the product ``CaO(s)``."""
+    species = parse_species(label, coefficient_already_removed=True)
+    if species is None or species.formula == label:
+        return None
+    return species.formula
+
+
+def _named_outside(text: str, label: str) -> bool:
     outside = EQUATION_RE.sub(" ", text)
-    mentioned = [
-        product
-        for product in products
-        if re.search(rf"(?<![A-Za-z0-9]){re.escape(product)}(?![A-Za-z0-9])", outside)
-    ]
+    tokens = [label]
+    bare = _bare_formula(label)
+    if bare is not None:
+        tokens.append(bare)
+    pattern = r"(?<![A-Za-z0-9]){}(?![A-Za-z0-9])"
+    return any(re.search(pattern.format(re.escape(token)), outside) for token in tokens)
+
+
+def _desired_product(text: str, products: dict[str, int]) -> str | None:
+    """The one product the question names, or the only product when it names none.
+
+    The returned label is the one written in the equation, phase included.
+    """
+    mentioned = [product for product in products if _named_outside(text, product)]
     if len(mentioned) == 1:
         return mentioned[0]
     if len(products) == 1:
@@ -44,12 +61,15 @@ def _extract_atom_economy(text: str) -> ChemistryIntent | None:
     if re.search(r"\batom economy\b", text, re.IGNORECASE) is None:
         return None
     equation = _equation(text)
-    if equation is None:
+    if equation is None or not written_is_balanced(equation):
         return None
-    balanced = balance_equation(equation)
-    if not balanced.balanced or not balanced.given_balanced:
+    from app.modules.chemistry.species import parse_reaction
+
+    reaction = parse_reaction(equation)
+    if reaction is None:
         return None
-    target = _desired_product(text, balanced.written_products)
+    products = {term.species.label: term.coefficient for term in reaction.products}
+    target = _desired_product(text, products)
     if target is None:
         return None
     return ChemistryIntent(
