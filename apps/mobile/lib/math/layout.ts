@@ -253,10 +253,42 @@ function sideMargin(em: number): number {
   return px(3, em);
 }
 
+function measureStructuredScript(segments: MathSegment[], em: number, sup: boolean): MathLayout {
+  const fontSize = em * SCRIPT_RATIO;
+  const inner = measureSegments(segments, fontSize, "body", false, false);
+  return {
+    kind: "script",
+    width: Math.max(inner.width, fontSize * 0.35),
+    height: inner.height,
+    outer: 0,
+    inkWidth: inner.inkWidth,
+    children: [inner],
+    raise: sup ? em * SCRIPT_RAISE_RATIO : 0,
+    drop: sup ? 0 : em * SCRIPT_DROP_RATIO,
+    fontSize,
+    lineHeight: inner.height,
+    stackedScript: true,
+    containedShift: false,
+  };
+}
+
+function measureSupSub(
+  seg: Extract<MathSegment, { type: "sup" }> | Extract<MathSegment, { type: "sub" }>,
+  em: number,
+): MathLayout {
+  const sup = seg.type === "sup";
+  if (seg.body) return measureStructuredScript(seg.body, em, sup);
+  return measureScript(seg.value, em, sup);
+}
+
 /** Subscript and superscript share one column beside the base. */
-function measureScriptColumn(supValue: string, subValue: string, em: number): MathLayout {
-  const supNode = measureScript(supValue, em, true);
-  const subNode = measureScript(subValue, em, false);
+function measureScriptColumn(
+  sup: Extract<MathSegment, { type: "sup" }>,
+  sub: Extract<MathSegment, { type: "sub" }>,
+  em: number,
+): MathLayout {
+  const supNode = measureSupSub(sup, em);
+  const subNode = measureSupSub(sub, em);
   const width = Math.max(supNode.width, subNode.width, em * 0.35);
   const supBlock = Math.max(supNode.height, supNode.lineHeight ?? 0);
   const subBlock = Math.max(subNode.height, subNode.lineHeight ?? 0);
@@ -305,7 +337,7 @@ function measureSegments(
   for (const atom of attachScripts(segments)) {
     pushChild(measureSegment(atom.segment, em, inFrac, leadingAtom));
     if (atom.sup && atom.sub) {
-      pushChild(measureScriptColumn(atom.sup.value, atom.sub.value, em));
+      pushChild(measureScriptColumn(atom.sup, atom.sub, em));
     }
     leadingAtom = true;
   }
@@ -363,18 +395,26 @@ function measureSegment(
     const scripts = scriptExtent(seg.body);
     const indexFont = em * 0.55;
     const indexLine = indexFont * 1.15;
-    const indexWidth = seg.degree ? measureTextWidth(seg.degree, indexFont) : 0;
+    const indexLayout = seg.index
+      ? measureSegments(seg.index, indexFont, "body", false, false)
+      : null;
+    const indexWidth = indexLayout
+      ? indexLayout.width
+      : seg.degree
+        ? measureTextWidth(seg.degree, indexFont)
+        : 0;
     const lead = Math.max(em * RADICAL_LEAD_RATIO, indexWidth + em * 0.42);
     const content = Math.max(body.inkWidth, em * 0.45);
     const inset = body.children.length === 1 ? body.children[0].outer / 2 : 0;
     const overhang = em * RADICAL_OVERHANG_RATIO;
     const barStart = lead + inset - em * 0.04;
     const barEnd = barStart + em * 0.04 + content + overhang;
-    const indexHead = seg.degree ? indexLine : 0;
+    const indexHead = indexLayout ? indexLayout.height : seg.degree ? indexLine : 0;
     const bodyTop = indexHead + em * 0.16 + em * scripts.raise;
     const scriptFoot = em * scripts.drop;
     const height = Math.max(px(SQRT_LINE_AT_16, em), body.height + bodyTop + scriptFoot);
-    const left = seg.degree ? px(2, em) : px(6, em);
+    const hasIndex = Boolean(seg.degree || seg.index);
+    const left = hasIndex ? px(2, em) : px(6, em);
     const right = px(2, em);
     const slot = Math.max(body.width, barEnd - lead);
     return {
@@ -383,7 +423,7 @@ function measureSegment(
       height,
       outer: left + right,
       inkWidth: content,
-      children: [body],
+      children: indexLayout ? [body, indexLayout] : [body],
       lead,
       barStart,
       barEnd,
@@ -393,13 +433,13 @@ function measureSegment(
       padLeft: left,
       padBottom: scriptFoot,
       em,
-      index: seg.degree
+      index: hasIndex
         ? {
             left: em * 0.04,
             top: 0,
             width: indexWidth,
             fontSize: indexFont,
-            lineHeight: indexLine,
+            lineHeight: indexLayout ? indexLayout.height : indexLine,
           }
         : undefined,
     };
@@ -443,7 +483,7 @@ function measureSegment(
     };
   }
   if (seg.type === "sup" || seg.type === "sub") {
-    return measureScript(seg.value, em, seg.type === "sup");
+    return measureSupSub(seg, em);
   }
   const width = measureRunWidth(seg.value, em, leadingAtom);
   const height = lineHeight(em, inFrac ? "frac" : "body");

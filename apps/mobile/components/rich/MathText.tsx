@@ -414,6 +414,28 @@ function renderOneSegment(
 ): ReactNode {
   const { styles } = ctx;
   if (seg.type === "sup" || seg.type === "sub") {
+      if (seg.body) {
+        const scriptEm = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
+        const shift = placed
+          ? 0
+          : ((node?.raise ?? 0) > 0 ? -(node?.raise ?? 0) : (node?.drop ?? 0)) * ctx.fontScale;
+        return (
+          <View
+            key={key}
+            testID="math-script"
+            style={{
+              width: scaled(node?.width ?? 0, ctx.fontScale),
+              height: scaled(node?.height ?? 0, ctx.fontScale),
+              transform: [{ translateY: shift }],
+            }}
+          >
+            {renderSegments(seg.body, node?.children[0]?.children ?? [], `${key}-b`, {
+              ...ctx,
+              em: scriptEm,
+            })}
+          </View>
+        );
+      }
       if (seg.type === "sup" && isFractionalScript(seg)) {
         const slash = seg.value.indexOf("/");
         const scriptSize = node?.fontSize ?? ctx.em * SCRIPT_RATIO;
@@ -536,7 +558,23 @@ function renderOneSegment(
               strokeLinejoin="round"
             />
           </Svg>
-          {seg.degree && node.index ? (
+          {seg.index && node.index ? (
+            <View
+              testID="math-sqrt-index"
+              style={{
+                position: "absolute",
+                left: scaled(node.index.left, ctx.fontScale),
+                top: scaled(node.index.top, ctx.fontScale),
+                width: scaled(node.index.width, ctx.fontScale),
+                height: scaled(node.index.lineHeight, ctx.fontScale),
+              }}
+            >
+              {renderSegments(seg.index, node.children[1]?.children ?? [], `${key}-i`, {
+                ...ctx,
+                em: node.index.fontSize,
+              })}
+            </View>
+          ) : seg.degree && node.index ? (
             <Text
               style={[styles.sqrtIndex, {
                 left: scaled(node.index.left, ctx.fontScale),

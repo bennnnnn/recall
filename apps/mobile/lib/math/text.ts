@@ -17,10 +17,10 @@ export type MathAccentKind =
 export type MathSegment =
   | { type: "text"; value: string }
   | { type: "upright"; value: string }
-  | { type: "sup"; value: string }
-  | { type: "sub"; value: string }
+  | { type: "sup"; value: string; body?: MathSegment[] }
+  | { type: "sub"; value: string; body?: MathSegment[] }
   | { type: "frac"; num: MathSegment[]; den: MathSegment[] }
-  | { type: "sqrt"; body: MathSegment[]; degree?: string }
+  | { type: "sqrt"; body: MathSegment[]; degree?: string; index?: MathSegment[] }
   | { type: "cancel"; body: MathSegment[] }
   | { type: "accent"; kind: MathAccentKind; body: MathSegment[]; span?: boolean };
 
@@ -727,6 +727,13 @@ function preprocessLatex(latex: string): string {
   return s;
 }
 
+/** Braced scripts and root indexes that are only letters stay strings.
+ * A fraction, radical, or nested script keeps its segments. */
+function plainScriptPieces(segments: MathSegment[]): string | null {
+  if (segments.some((seg) => seg.type !== "text" && seg.type !== "upright")) return null;
+  return segments.map((seg) => (seg.type === "text" || seg.type === "upright" ? seg.value : "")).join("");
+}
+
 function parseFrac(
   input: string,
   start: number,
@@ -767,24 +774,29 @@ function parseSqrt(
   if (!input.startsWith("\\sqrt", start)) return null;
   let i = start + 5;
   let degree: string | undefined;
+  let index: MathSegment[] | undefined;
   if (input[i] === "[") {
     const close = input.indexOf("]", i);
     if (close === -1) return null;
-    degree = input.slice(i + 1, close);
+    const raw = input.slice(i + 1, close);
+    const parsed = parseSimpleLatex(raw, depth + 1);
+    const plain = plainScriptPieces(parsed);
+    if (plain == null) index = parsed;
+    else degree = plain;
     i = close + 1;
   }
   while (input[i] === " ") i += 1;
   const group = readGroup(input, i);
   if (group) {
     return {
-      seg: { type: "sqrt", body: parseSimpleLatex(group.value, depth + 1), degree },
+      seg: { type: "sqrt", body: parseSimpleLatex(group.value, depth + 1), degree, index },
       next: group.next,
     };
   }
   // \sqrt without braces (\sqrt4, \sqrt 4) — bare single-token radicand.
   const bare = input.slice(i).match(/^[0-9a-zA-Z]+/)?.[0];
   if (bare) {
-    return { seg: { type: "sqrt", body: [{ type: "text", value: bare }], degree }, next: i + bare.length };
+    return { seg: { type: "sqrt", body: [{ type: "text", value: bare }], degree, index }, next: i + bare.length };
   }
   return null;
 }
@@ -842,8 +854,14 @@ export const DEGREE_RING = "∘";
 
 function segmentToPlain(seg: MathSegment): string {
   if (seg.type === "text" || seg.type === "upright") return seg.value;
-  if (seg.type === "sup") return seg.value === DEGREE_RING ? "°" : `^${seg.value}`;
-  if (seg.type === "sub") return `_${seg.value}`;
+  if (seg.type === "sup" || seg.type === "sub") {
+    if (seg.body) {
+      const inner = segmentsToPlain(seg.body);
+      return seg.type === "sup" ? `^${inner}` : `_${inner}`;
+    }
+    if (seg.type === "sup" && seg.value === DEGREE_RING) return "°";
+    return seg.type === "sup" ? `^${seg.value}` : `_${seg.value}`;
+  }
   if (seg.type === "cancel") return segmentsToPlain(seg.body);
   if (seg.type === "accent") {
     return markEachChar(segmentsToPlain(seg.body), ACCENT_MARK[seg.kind]);
@@ -854,7 +872,8 @@ function segmentToPlain(seg: MathSegment): string {
     // on paper. Nested content (a fraction, superscript, …) is flattened
     // to plain text first since there's no way to draw it under a bar too.
     const body = markEachChar(segmentsToPlain(seg.body), "̅");
-    return seg.degree ? `√[${seg.degree}]${body}` : `√${body}`;
+    const indexText = seg.index ? segmentsToPlain(seg.index) : seg.degree;
+    return indexText ? `√[${indexText}]${body}` : `√${body}`;
   }
   return `${segmentsToPlain(seg.num)}/${segmentsToPlain(seg.den)}`;
 }
@@ -989,10 +1008,11 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
       if (input[i] === "{") {
         const group = readGroup(input, i);
         if (group) {
-          out.push({
-            type: "sup",
-            value: parseSimpleLatex(group.value, depth + 1).map(segmentToPlain).join(""),
-          });
+          const inner = parseSimpleLatex(group.value, depth + 1);
+          const plain = plainScriptPieces(inner);
+          out.push(plain == null
+            ? { type: "sup", value: "", body: inner }
+            : { type: "sup", value: plain });
           i = group.next;
           continue;
         }
@@ -1008,10 +1028,11 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
       if (input[i] === "{") {
         const group = readGroup(input, i);
         if (group) {
-          out.push({
-            type: "sub",
-            value: parseSimpleLatex(group.value, depth + 1).map(segmentToPlain).join(""),
-          });
+          const inner = parseSimpleLatex(group.value, depth + 1);
+          const plain = plainScriptPieces(inner);
+          out.push(plain == null
+            ? { type: "sub", value: "", body: inner }
+            : { type: "sub", value: plain });
           i = group.next;
           continue;
         }
