@@ -20,6 +20,7 @@ from app.modules.physics.extractors.circular import (
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
+from app.modules.physics.extractors.drag import _DRAG_CUES, extract_drag_intent
 from app.modules.physics.extractors.electrostatics import (
     _ELECTROSTATICS_CUE_RES,
     _ELECTROSTATICS_CUES,
@@ -117,6 +118,8 @@ from app.modules.physics.extractors.torque import (
 from app.modules.physics.extractors.waves import _WAVE_CUE_RES, _WAVE_CUES, _extract_waves_intent
 
 PHYSICS_EXTRACTORS: tuple[Callable[[str], PhysicsIntent | None], ...] = (
+    # Before kinematics: a drop that states F = -kv is not free fall.
+    extract_drag_intent,
     # Before circuit, fluids, thermal, and waves. A partial Kirchhoff, Gauss,
     # Poiseuille, or ideal-gas reading must not fall through to Ohm's law.
     extract_school_extension,
@@ -176,6 +179,7 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], PhysicsIntent | None], ...] = (
 PHYSICS_CUES: tuple[str, ...] = tuple(
     dict.fromkeys(
         (
+            *_DRAG_CUES,
             *_KINEMATICS_CUES,
             *_RATE_CUES,
             *_SUVAT_CUES,

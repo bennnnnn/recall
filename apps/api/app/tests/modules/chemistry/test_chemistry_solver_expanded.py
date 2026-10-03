@@ -479,6 +479,21 @@ REMAINING_CASES = (
         "molecular_ion",
         "M+ = 46.0419 (nominal m/z 46)",
     ),
+    (
+        "Use Graham's law when r1=2, M1=4, and M2=16. Find r2.",
+        "graham",
+        "rate2 = 1.0",
+    ),
+    (
+        "Clausius-Clapeyron: P1=1, T1=300, P2=2, T2=350. Find the enthalpy.",
+        "clausius_clapeyron",
+        "ΔHvap = 12 kJ/mol",
+    ),
+    (
+        "Use Henry's law when kH=0.034 and P=2. Find the concentration.",
+        "henry",
+        "C = 0.068",
+    ),
 )
 
 

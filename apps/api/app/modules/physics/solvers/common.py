@@ -11,6 +11,7 @@ from app.models.schemas.physics import (
     PhysicsIntent,
     SimulationBlockSpec,
 )
+from app.modules.physics.bodies import ELECTRON_MASS, ELEMENTARY_CHARGE, SCHOOL_GRAVITY
 from app.modules.physics.solvers.chip import render_chip, render_chip_latex
 from app.modules.physics.solvers.unit_aliases import _UNIT_ALIASES
 from app.services.solving import SolveServiceError
@@ -158,21 +159,27 @@ def _registry_constant(name: str) -> float:
 
 
 # Loaded once. A test pins each magnitude so a Pint upgrade cannot move an answer.
+# Charge and the electron mass are the bodies.py values, not a second Pint copy.
+_ELEMENTARY_CHARGE = ELEMENTARY_CHARGE
+_ELECTRON_MASS = ELECTRON_MASS
 _GAS_CONSTANT = _registry_constant("molar_gas_constant")
 _BIG_G = _registry_constant("gravitational_constant")
 _PLANCK_H = _registry_constant("planck_constant")
 _SPEED_OF_LIGHT = _registry_constant("speed_of_light")
-_ELEMENTARY_CHARGE = _registry_constant("elementary_charge")
 _EPSILON_0 = _registry_constant("vacuum_permittivity")
 _MU_0 = _registry_constant("vacuum_permeability")
 _HBAR = _registry_constant("hbar")
-_ELECTRON_MASS = _registry_constant("electron_mass")
 _STEFAN_BOLTZMANN = _registry_constant("stefan_boltzmann_constant")
 _WIEN_B = _registry_constant("wien_wavelength_displacement_law_constant")
 _BOLTZMANN = _registry_constant("boltzmann_constant")
 _RYDBERG = _registry_constant("rydberg_constant")
 _BOHR_RADIUS = _registry_constant("bohr_radius")
 _COULOMB_K = 1.0 / (4.0 * math.pi * _EPSILON_0)
+
+
+def gravity_of(params: dict[str, float]) -> float:
+    """The g a solver uses: the one in the intent, or Earth's school value."""
+    return params["g"] if "g" in params else SCHOOL_GRAVITY["earth"]
 
 
 def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float:
