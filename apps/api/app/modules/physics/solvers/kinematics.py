@@ -13,6 +13,7 @@ from app.modules.physics.solvers.common import (
     QuantityResult,
     _latex_num,
     _params_in_si,
+    gravity_of,
     quadratic_roots,
 )
 from app.modules.physics.solvers.rates import _RATE_OPERATIONS, _solve_distance_speed_time
@@ -26,7 +27,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     if intent.physics_op == "stopping_distance":
         return _solve_stopping_distance(intent)
     p = _params_in_si(intent)
-    g = p.get("g", 9.81)
+    g = gravity_of(p)
     h0 = p.get("h0", 0.0)
     v0 = p.get("v0", 0.0)
     op = intent.physics_op or "time_to_ground"

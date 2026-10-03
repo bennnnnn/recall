@@ -11,6 +11,7 @@ from app.modules.physics.solvers.common import (
     QuantityResult,
     _latex_num,
     _params_in_si,
+    gravity_of,
 )
 from app.modules.physics.solvers.force_scenes import (
     _atwood_scene,
@@ -31,7 +32,7 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
         m = p["m"]
         if m <= 0:
             raise SolveServiceError("mass must be positive")
-        g = p.get("g", 9.81)
+        g = gravity_of(p)
         a = p.get("a", 0.0)
         if a <= -g:
             raise SolveServiceError("the rope goes slack at or beyond free fall")
@@ -174,7 +175,7 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
         m1, m2 = p["m1"], p["m2"]
         if m1 <= 0 or m2 <= 0:
             raise SolveServiceError("masses must be positive")
-        g = p.get("g", 9.81)
+        g = gravity_of(p)
         a_val = (m1 - m2) * g / (m1 + m2)
         t_val = 2 * m1 * m2 * g / (m1 + m2)
         return PhysicsResult(
