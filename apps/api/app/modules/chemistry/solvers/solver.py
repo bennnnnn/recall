@@ -10,113 +10,128 @@ from app.modules.chemistry.catalog import formula_spec
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.scene import attach_scene
 from app.modules.chemistry.sig_figs import numbers_as_written
-from app.modules.chemistry.solvers.acid import (
-    solve_buffer_addition,
+from app.modules.chemistry.solvers.acid_base import (
+    solve_acid_base,
     solve_ka_kb,
-    solve_polyprotic,
     solve_strong_acid,
     solve_strong_base,
+)
+from app.modules.chemistry.solvers.acid_equilibria import (
+    solve_buffer_addition,
+    solve_polyprotic,
     solve_weak_acid,
     solve_weak_base,
 )
 from app.modules.chemistry.solvers.amounts import (
     solve_amount,
-    solve_equation,
+    solve_average_atomic_mass,
     solve_molar_mass,
     solve_percent_composition,
-    solve_percent_yield,
-    solve_stoichiometry,
 )
-from app.modules.chemistry.solvers.amounts_extended import (
-    solve_empirical,
-    solve_limiting_mass,
-    solve_limiting_solution,
-    solve_mass_stoichiometry,
-    solve_molecular,
-)
-from app.modules.chemistry.solvers.cells_ext import solve_cell_potential, solve_galvanic_cell
-from app.modules.chemistry.solvers.closed_calc import (
+from app.modules.chemistry.solvers.analytical import (
+    solve_calibration,
     solve_chromatography_rf,
-    solve_crystal_field,
-    solve_iupac_name,
-    solve_michaelis_menten,
+    solve_gravimetric,
     solve_percent_error,
     solve_relative_uncertainty,
+    solve_standard_addition,
     solve_standard_deviation,
     solve_standard_error,
 )
-from app.modules.chemistry.solvers.closed_org import (
-    solve_ir_peak,
-    solve_ir_ranges,
-    solve_molecular_ion,
-    solve_named_reaction,
-    solve_nmr_peak,
-    solve_nmr_ranges,
-    solve_nmr_splitting,
+from app.modules.chemistry.solvers.electrochemistry import (
+    solve_cell_potential,
+    solve_electrochemistry,
+    solve_galvanic_cell,
 )
-from app.modules.chemistry.solvers.elements import (
-    solve_average_atomic_mass,
-    solve_electron_configuration,
+from app.modules.chemistry.solvers.empirical import (
+    solve_empirical,
+    solve_molecular,
 )
-from app.modules.chemistry.solvers.equilibrium_ext import (
-    solve_common_ion,
-    solve_ice,
+from app.modules.chemistry.solvers.equilibrium import (
+    solve_equilibrium,
     solve_kc_kp,
     solve_kp,
-    solve_ksp,
-    solve_precipitation,
 )
 from app.modules.chemistry.solvers.formula import solve_formula_law
-from app.modules.chemistry.solvers.formula_laws import solve_clausius, solve_graham, solve_henry
-from app.modules.chemistry.solvers.gases_ext import (
+from app.modules.chemistry.solvers.gases import (
     solve_dalton,
     solve_gas_over_water,
+    solve_graham,
+    solve_henry,
     solve_partial_pressure,
 )
-from app.modules.chemistry.solvers.identity import (
-    solve_boiling,
-    solve_calibration,
-    solve_coordination,
-    solve_formal_charge,
-    solve_freezing,
-    solve_functional_groups,
-    solve_gravimetric,
-    solve_isomers,
-    solve_osmotic,
-    solve_oxidation_state,
-    solve_raoult,
-    solve_standard_addition,
-    solve_stereochemistry,
-    solve_vsepr,
+from app.modules.chemistry.solvers.ice_table import (
+    solve_ice,
 )
-from app.modules.chemistry.solvers.kinetics_ext import (
-    solve_arrhenius_two_point,
-    solve_rate_law,
+from app.modules.chemistry.solvers.kinetics import (
+    solve_kinetics,
     solve_second_half_life,
     solve_second_order,
     solve_zero_half_life,
     solve_zero_order,
 )
-from app.modules.chemistry.solvers.mass_defect import solve_mass_defect
-from app.modules.chemistry.solvers.nuclear_ext import (
+from app.modules.chemistry.solvers.mass_stoichiometry import (
+    solve_limiting_mass,
+    solve_limiting_solution,
+    solve_mass_stoichiometry,
+)
+from app.modules.chemistry.solvers.nuclear import (
+    solve_mass_defect,
     solve_nuclear_equation,
 )
-from app.modules.chemistry.solvers.physical import (
-    solve_electrochemistry,
-    solve_equilibrium,
-    solve_kinetics,
-    solve_thermochemistry,
+from app.modules.chemistry.solvers.organic import (
+    solve_functional_groups,
+    solve_isomers,
+    solve_iupac_name,
+    solve_named_reaction,
+    solve_stereochemistry,
+)
+from app.modules.chemistry.solvers.rate_laws import (
+    solve_arrhenius_two_point,
+    solve_michaelis_menten,
+    solve_rate_law,
+)
+from app.modules.chemistry.solvers.solubility import (
+    solve_common_ion,
+    solve_ksp,
+    solve_precipitation,
 )
 from app.modules.chemistry.solvers.solutions import (
-    solve_acid_base,
-    solve_beer_lambert,
+    solve_boiling,
+    solve_freezing,
+    solve_osmotic,
+    solve_raoult,
     solve_solution,
 )
-from app.modules.chemistry.solvers.thermo_ext import (
+from app.modules.chemistry.solvers.spectroscopy import (
+    solve_beer_lambert,
+    solve_ir_peak,
+    solve_ir_ranges,
+    solve_molecular_ion,
+    solve_nmr_peak,
+    solve_nmr_ranges,
+    solve_nmr_splitting,
+)
+from app.modules.chemistry.solvers.stoichiometry import (
+    solve_equation,
+    solve_percent_yield,
+    solve_stoichiometry,
+)
+from app.modules.chemistry.solvers.structure import (
+    solve_coordination,
+    solve_crystal_field,
+    solve_electron_configuration,
+    solve_formal_charge,
+    solve_oxidation_state,
+    solve_vsepr,
+)
+from app.modules.chemistry.solvers.thermochemistry import (
     solve_bond_enthalpy,
     solve_calorimetry,
+    solve_clausius,
     solve_formation,
     solve_hess,
+    solve_thermochemistry,
 )
 from app.modules.chemistry.solvers.titration import solve_titration_strong, solve_titration_weak
 from app.modules.chemistry.solvers.types import ChemistryResult

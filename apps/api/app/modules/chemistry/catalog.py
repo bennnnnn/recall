@@ -2,9 +2,10 @@
 """One FormulaSpec per chemistry operation.
 
 The catalog is the identity of each operation: the law's name and its formula exactly as an
-answer prints them. Solvers keep region-specific working, such as a titration before or
-after equivalence. Tests fail when the catalog drifts from ``ChemistryOp``, from the solver
-map, or from what a solver prints.
+answer prints them, and the one list of operations: ``ChemistryIntent`` refuses an operation
+the catalog does not declare. Solvers keep region-specific working, such as a titration
+before or after equivalence. Tests fail when the catalog drifts from the solver map or from
+what a solver prints.
 """
 
 from __future__ import annotations
@@ -402,6 +403,15 @@ for _operation, _kind, _law, _formula in (*_ROWS, *_FORMULA_ROWS):
     if _operation in CATALOG:
         raise RuntimeError(f"duplicate chemistry formula {_operation}")
     CATALOG[_operation] = _spec(_operation, _kind, _law, _formula)
+
+
+def check_operation(kind: str, operation: str) -> None:
+    """Refuse an operation the catalog does not declare, or one it files under another kind."""
+    spec = CATALOG.get(operation)
+    if spec is None:
+        raise ValueError(f"{operation!r} is not a chemistry operation")
+    if spec.kind != kind:
+        raise ValueError(f"{operation!r} is not a {kind!r} chemistry operation")
 
 
 def formula_spec(operation: str) -> FormulaSpec | None:

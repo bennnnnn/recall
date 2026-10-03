@@ -1,16 +1,19 @@
 # ruff: noqa: RUF003 -- users type × and a true minus sign.
-"""Shared text helpers for the extended chemistry extractors."""
+"""Shared text helpers for the chemistry extractors: numbers, units, asked quantities."""
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass
 
-from app.modules.chemistry.elements import BY_SYMBOL, ELEMENTS
+from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.equations import balance_equation
-from app.modules.chemistry.quantity import to_atm, to_kelvin, to_liters
+from app.modules.chemistry.quantity import to_atm, to_kelvin
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 from app.modules.chemistry.species import counts_in_mass_action
+from app.modules.chemistry.species_facts import (
+    ELEMENT_NAMES,
+)
 
 # A number starts where its digit run starts. Without the lookbehind, a search retries
 # from every digit of a long run and backtracks the rest of it each time (575 ms for
@@ -194,47 +197,6 @@ def _target(text: str, equation: str) -> str | None:
     return None
 
 
-def _find_unit(text: str) -> str | None:
-    """Unit of the requested quantity; ``mol`` when only a species is named."""
-    asked = asked_quantity(text)
-    if asked is None:
-        return None
-    return asked.unit or "mol"
-
-
-_ELEMENT_BY_NAME = {element.name.lower(): element.symbol for element in ELEMENTS}
-_ELEMENT_BY_NAME.update({"aluminium": "Al", "caesium": "Cs", "sulphur": "S"})
-
-
-def _percents(text: str) -> dict[str, float]:
-    """``40% C`` or ``40% carbon`` by element. A word that is no element is skipped."""
-    found: dict[str, float] = {}
-    for match in re.finditer(rf"({_N})\s*%\s*([A-Za-z]+)(?![A-Za-z])", text):
-        word = match.group(2)
-        symbol = word if word in BY_SYMBOL else _ELEMENT_BY_NAME.get(word.lower())
-        if symbol is not None:
-            found[symbol] = float(match.group(1))
-    return found
-
-
-def _gram_amounts(text: str) -> dict[str, float]:
-    return {
-        match.group(2): float(match.group(1))
-        for match in re.finditer(
-            rf"({_N})\s*g(?:rams?)?(?:\s+of)?\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
-            text,
-            re.IGNORECASE,
-        )
-    }
-
-
-def _molar_formula(text: str) -> tuple[float, str] | None:
-    match = re.search(rf"({_N})\s*M\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])", text)
-    if match is None:
-        return None
-    return float(match.group(1)), match.group(2)
-
-
 _PRESSURE_UNIT = r"(?:kPa|Pa|mmHg|torr|atm|bar)"
 _VOLUME_UNIT = r"(?:mL|liters?|litres?|L)"
 _TEMPERATURE_UNIT = r"(?:°\s*C|deg\s*C|celsius|(?-i:K)|(?-i:C))"
@@ -250,34 +212,6 @@ _CANONICAL_PRESSURE = {
 
 def _celsius(unit: str) -> bool:
     return unit.lower().replace(" ", "") in {"c", "°c", "degc", "celsius"}
-
-
-def _gas_state(text: str, names: tuple[str, ...]) -> dict[str, float] | None:
-    """``P1 = 760 mmHg`` style values in atm, L and K.
-
-    ``None`` when a labelled value has no unit or an unsupported one: reading
-    ``T1 = 25 °C`` as 25 K, or 760 mmHg as atm, would be a wrong verified answer.
-    """
-    found: dict[str, float] = {}
-    for name in names:
-        kind = name[0]
-        unit_pattern = {"p": _PRESSURE_UNIT, "v": _VOLUME_UNIT, "t": _TEMPERATURE_UNIT}[kind]
-        labelled = re.search(rf"\b{name}\s*=\s*({_N})", text, re.IGNORECASE)
-        if labelled is None:
-            continue
-        match = re.compile(
-            rf"\b{name}\s*=\s*({_N})\s*({unit_pattern})(?![A-Za-z])", re.IGNORECASE
-        ).search(text)
-        if match is None:
-            return None
-        value, unit = float(match.group(1)), match.group(2)
-        if kind == "p":
-            found[name] = to_atm(value, unit)
-        elif kind == "v":
-            found[name] = to_liters(value, unit)
-        else:
-            found[name] = to_kelvin(value, "celsius" if _celsius(unit) else "kelvin")
-    return found
 
 
 def _partial_pressures(text: str) -> tuple[dict[str, float], str] | None:
@@ -319,3 +253,22 @@ def _pressure_species(text: str, equation: str) -> dict[str, float]:
         if bare in raw:
             mapped[species] = raw[bare]
     return mapped
+
+
+def _element(token: str) -> str | None:
+    """An element named by symbol ("O", case as written) or in words ("oxygen")."""
+    if token in BY_SYMBOL:
+        return token
+    return ELEMENT_NAMES.get(token.lower())
+
+
+_NUCLIDE = r"(?:[A-Z][a-z]?-\d+|\d+[A-Z][a-z]?)"
+
+
+def _labeled(text: str, labels: tuple[tuple[str, str], ...]) -> dict[str, float]:
+    found: dict[str, float] = {}
+    for key, pattern in labels:
+        value = _search(pattern, text)
+        if value is not None:
+            found[key] = value
+    return found

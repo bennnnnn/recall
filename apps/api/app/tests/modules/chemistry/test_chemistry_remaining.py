@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.chemistry import ChemistryKind, ChemistryOp
+from app.models.schemas.chemistry import ChemistryIntent, ChemistryKind
 from app.models.schemas.chemistry.scene import (
     BalanceScene,
     CellScene,
@@ -31,11 +31,29 @@ from app.services.solving import SolveServiceError
 
 
 def test_catalog_matches_operations_and_solvers() -> None:
-    literal = set(get_args(ChemistryOp))
     kinds = set(get_args(ChemistryKind))
-    assert set(CATALOG) == literal == supported_operations()
+    assert set(CATALOG) == supported_operations()
     assert all(spec.kind in kinds for spec in CATALOG.values())
     assert all(spec.law_name and spec.base_formula for spec in CATALOG.values())
+
+
+@pytest.mark.parametrize(
+    ("kind", "operation"),
+    [
+        # Not an operation the catalog declares.
+        ("amounts", "moles_to_moons"),
+        # Declared, but under another kind.
+        ("gases", "molar_mass"),
+    ],
+)
+def test_an_intent_names_only_a_catalog_operation_of_its_kind(kind: str, operation: str) -> None:
+    with pytest.raises(ValueError, match="chemistry operation"):
+        ChemistryIntent.model_validate({"kind": kind, "chemistry_op": operation})
+
+
+def test_every_catalog_operation_is_a_valid_intent_of_its_kind() -> None:
+    for operation, spec in CATALOG.items():
+        assert ChemistryIntent.model_validate({"kind": spec.kind, "chemistry_op": operation})
 
 
 def test_water_scene_keeps_the_molecular_angle() -> None:
