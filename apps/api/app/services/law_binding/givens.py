@@ -23,6 +23,9 @@ _NOT_A_GIVEN_AFTER = re.compile(
 )
 
 
+_ISOTOPE_LABEL = re.compile(r"[A-Za-z]-\Z")
+
+
 @dataclass(frozen=True, slots=True)
 class Given:
     """One stated number. ``dimension`` is None when it carries no known unit."""
@@ -42,6 +45,9 @@ def scan_givens(text: str, units: UnitTable) -> list[Given]:
         if text[max(0, start - 1) : start] == "^" or text[max(0, start - 2) : start] == "**":
             continue
         if _NOT_A_GIVEN_AFTER.match(text, end):
+            continue
+        # "carbon-14", "U-238": a mass number written onto its element names it.
+        if _ISOTOPE_LABEL.search(text, max(0, start - 2), start):
             continue
         try:
             value = float(text[start:end])

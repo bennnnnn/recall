@@ -102,7 +102,7 @@ KINETICS_AND_NUCLEAR: tuple[Case, ...] = (
     q(
         "Find the decay constant of carbon-14 if its half-life is 5730 years.",
         math.log(2) / 5730,
-        label="λ",
+        "1/yr",
     ),
     q(
         "Vmax = 10 μmol/min, Km = 2 mM and [S] = 2 mM. Find the reaction rate.",

@@ -61,9 +61,6 @@ from app.modules.chemistry.solvers.equilibrium_ext import (
 )
 from app.modules.chemistry.solvers.formula_laws import solve_clausius, solve_graham, solve_henry
 from app.modules.chemistry.solvers.gases_ext import (
-    solve_boyle,
-    solve_charles,
-    solve_combined_gas,
     solve_dalton,
     solve_gas_over_water,
     solve_partial_pressure,
@@ -94,22 +91,17 @@ from app.modules.chemistry.solvers.kinetics_ext import (
 )
 from app.modules.chemistry.solvers.mass_defect import solve_mass_defect
 from app.modules.chemistry.solvers.nuclear_ext import (
-    solve_decay_constant,
-    solve_exponential_decay,
-    solve_nuclear_activity,
     solve_nuclear_equation,
 )
 from app.modules.chemistry.solvers.physical import (
     solve_electrochemistry,
     solve_equilibrium,
     solve_kinetics,
-    solve_nuclear,
     solve_thermochemistry,
 )
 from app.modules.chemistry.solvers.solutions import (
     solve_acid_base,
     solve_beer_lambert,
-    solve_gas,
     solve_solution,
 )
 from app.modules.chemistry.solvers.thermo_ext import (
@@ -139,9 +131,6 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "titration_weak": solve_titration_weak,
     "buffer_addition": solve_buffer_addition,
     "polyprotic_ph": solve_polyprotic,
-    "combined_gas": solve_combined_gas,
-    "boyle": solve_boyle,
-    "charles": solve_charles,
     "dalton": solve_dalton,
     "partial_pressure": solve_partial_pressure,
     "gas_over_water": solve_gas_over_water,
@@ -165,9 +154,6 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "arrhenius_two_point": solve_arrhenius_two_point,
     "cell_potential": solve_cell_potential,
     "galvanic_cell": solve_galvanic_cell,
-    "decay_constant": solve_decay_constant,
-    "exponential_decay": solve_exponential_decay,
-    "nuclear_activity": solve_nuclear_activity,
     "nuclear_equation": solve_nuclear_equation,
     "oxidation_state": solve_oxidation_state,
     "vsepr": solve_vsepr,
@@ -219,8 +205,6 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "h_from_ph": solve_acid_base,
     "poh_from_oh": solve_acid_base,
     "buffer_ph": solve_acid_base,
-    "ideal_gas": solve_gas,
-    "heat": solve_thermochemistry,
     "gibbs": solve_thermochemistry,
     "equilibrium_constant": solve_equilibrium,
     "reaction_quotient": solve_equilibrium,
@@ -230,7 +214,6 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "cell_gibbs": solve_electrochemistry,
     "nernst": solve_electrochemistry,
     "electrolysis_mass": solve_electrochemistry,
-    "radioactive_decay": solve_nuclear,
     "beer_lambert": solve_beer_lambert,
 }
 

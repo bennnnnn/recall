@@ -7,6 +7,9 @@ from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 # The state before and the state after: "occupies 4 L at 2 atm", "is
 # compressed to 2 L". The words before each value say which state it is.
 _BEFORE = ("initially", "initial", "originally", "at first", "from", "occupies", "at")
+# A chemistry class labels the two states with subscripts: "P1 = 2 atm, V2 = 6 L".
+_FIRST = {"pres1": ("p1",), "vol1": ("v1",), "temp_initial": ("t1",)}
+_SECOND = {"pres2": ("p2",), "vol2": ("v2",), "temp_final": ("t2",)}
 _AFTER = (
     "to",
     "new",
@@ -22,12 +25,12 @@ _AFTER = (
     "raised to",
     "changed to",
 )
-_P1 = var("pres1", "P_1", "pascal", words=_BEFORE)
-_P2 = var("pres2", "P_2", "pascal", words=_AFTER)
-_V1 = var("vol1", "V_1", "meter ** 3", words=_BEFORE)
-_V2 = var("vol2", "V_2", "meter ** 3", words=_AFTER)
-_T1 = var("temp_initial", "T_1", "kelvin", words=_BEFORE)
-_T2 = var("temp_final", "T_2", "kelvin", words=_AFTER)
+_P1 = var("pres1", "P_1", "pascal", words=(*_FIRST["pres1"], *_BEFORE))
+_P2 = var("pres2", "P_2", "pascal", words=(*_SECOND["pres2"], *_AFTER))
+_V1 = var("vol1", "V_1", "meter ** 3", words=(*_FIRST["vol1"], *_BEFORE))
+_V2 = var("vol2", "V_2", "meter ** 3", words=(*_SECOND["vol2"], *_AFTER))
+_T1 = var("temp_initial", "T_1", "kelvin", words=(*_FIRST["temp_initial"], *_BEFORE))
+_T2 = var("temp_final", "T_2", "kelvin", words=(*_SECOND["temp_final"], *_AFTER))
 _SAME_TEMPERATURE = (
     "constant temperature",
     "temperature is constant",
@@ -52,9 +55,9 @@ _SAME_VOLUME = (
     "gay-lussac",
     "gay lussac",
 )
-_NEW_VOLUME = ("new volume", "final volume", "volume")
-_NEW_PRESSURE = ("new pressure", "final pressure", "pressure")
-_NEW_TEMPERATURE = ("new temperature", "final temperature", "temperature")
+_NEW_VOLUME = ("new volume", "final volume", "volume", "v2")
+_NEW_PRESSURE = ("new pressure", "final pressure", "pressure", "p2")
+_NEW_TEMPERATURE = ("new temperature", "final temperature", "temperature", "t2")
 _TEMPERATURE = var("temp", "T", "kelvin")
 _MOLAR_MASS = var("molar_mass", "M", "kilogram / mole")
 _MOLECULE = ("molecule", "gas", "particle", "atom")
@@ -168,6 +171,17 @@ SPECS: tuple[FormulaSpec, ...] = (
         _NEW_VOLUME,
         "meter ** 3",
         ("pres1", "pres2", "temp_final", "temp_initial", "vol1"),
+        ("gas",),
+    ),
+    _state_law(
+        "combined_gas_pressure",
+        "Combined gas law",
+        "P_2",
+        r"\frac{P_1 V_1}{T_1} = \frac{P_2 V_2}{T_2}",
+        "pres1*vol1*temp_final/(temp_initial*vol2)",
+        _NEW_PRESSURE,
+        "pascal",
+        ("pres1", "temp_final", "temp_initial", "vol1", "vol2"),
         ("gas",),
     ),
     formula(
