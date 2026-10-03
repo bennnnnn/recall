@@ -149,6 +149,8 @@ function JobMatchDetailView({
 
           <JobMatchMetaChips match={match} maxSkills={8} />
 
+          {match.summary ? <Text style={s.summary}>{match.summary}</Text> : null}
+
           <JobMatchReasons match={match} />
 
           <Text style={s.source}>
@@ -313,6 +315,7 @@ function makeStyles(C: Theme) {
     headingCopy: { flex: 1, minWidth: 0 },
     title: { ...Type.navTitle, color: C.text, ...Weight.bold },
     company: { ...Type.body, color: C.textSecondary, marginTop: 2 },
+    summary: { ...Type.secondary, color: C.text },
     sectionTitle: { ...Type.label, color: C.text },
     source: { ...Type.caption, color: C.textTertiary },
     actions: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
