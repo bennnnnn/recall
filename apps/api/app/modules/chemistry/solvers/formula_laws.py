@@ -153,9 +153,7 @@ def _clausius_pressure(intent: ChemistryIntent, message: str, *, unknown: str) -
     label = "P2" if unknown == "p2" else "P1"
     other = "P1" if unknown == "p2" else "P2"
     shown = f"{label} = {num(solved)}"
-    factor = (
-        f"exp[−({inp(enthalpy)}) / ({const(GAS_R_J)}) × (1/{inp(t2)} − 1/{inp(t1)})]"
-    )
+    factor = f"exp[−({inp(enthalpy)}) / ({const(GAS_R_J)}) × (1/{inp(t2)} − 1/{inp(t1)})]"
     relation = "×" if unknown == "p2" else "/"
     return verified(
         "Verified two-point Clausius-Clapeyron",
@@ -197,9 +195,7 @@ def solve_henry(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
-def _henry_unknown(
-    missing: str, values: dict[str, float]
-) -> tuple[float, float, float, str, str]:
+def _henry_unknown(missing: str, values: dict[str, float]) -> tuple[float, float, float, str, str]:
     if missing == "concentration":
         concentration = values["henry_constant"] * values["pressure"]
         working = (
