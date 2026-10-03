@@ -102,6 +102,12 @@ def test_a_converted_given_keeps_the_figures_it_was_typed_with(question: str, an
     assert _solve(question).answer == answer
 
 
+def test_a_number_that_ends_a_sentence_keeps_its_figures() -> None:
+    # "1.8e-10." is 1.8e-10 and a full stop, not 1.8 and a stray "e-10".
+    result = _solve("Ksp = 1.8e-10. Find the molar solubility for AgCl(s) -> Ag+ + Cl-.")
+    assert result.answer == "s = 1.3 × 10^-5 mol/L"
+
+
 def test_one_value_typed_two_ways_is_limited_by_both() -> None:
     intent = extract_chemistry_intent("Cell potential: cathode = 0.80 V, anode = 0.8 V")
     assert intent is not None
