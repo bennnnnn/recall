@@ -113,6 +113,11 @@ def _claim_solvers() -> dict[str, Callable[[PhysicsIntent], PhysicsResult]]:
             claim(spec.id, solve_expression)
     for operation, fn in SCHOOL_SOLVERS.items():
         claim(operation, _accepts_si_params(fn))
+    # Intent callables. The fluids and circular kind solvers do not know these ops.
+    from app.modules.physics.solvers.drag import DRAG_SOLVERS
+
+    for operation, fn in DRAG_SOLVERS.items():
+        claim(operation, fn)
     for spec in CATALOG.values():
         if spec.id in claimed:
             continue
