@@ -33,7 +33,77 @@ def _gas_law(operation: ChemistryOp, names: tuple[str, ...], text: str) -> Chemi
     return ChemistryIntent(kind="gases", chemistry_op=operation, params=params)
 
 
+def _labeled(text: str, labels: tuple[tuple[str, str], ...]) -> dict[str, float]:
+    found: dict[str, float] = {}
+    for key, pattern in labels:
+        value = _search(pattern, text)
+        if value is not None:
+            found[key] = value
+    return found
+
+
+def _extract_graham(text: str) -> ChemistryIntent | None:
+    if not re.search(r"\bGraham\b", text, re.IGNORECASE):
+        return None
+    found = _labeled(
+        text,
+        (
+            ("rate1", rf"\br1\s*=\s*({_N})"),
+            ("rate2", rf"\br2\s*=\s*({_N})"),
+            ("molar1", rf"\bM1\s*=\s*({_N})"),
+            ("molar2", rf"\bM2\s*=\s*({_N})"),
+        ),
+    )
+    if len(found) != 3:
+        return None
+    return ChemistryIntent(kind="gases", chemistry_op="graham", params=found)
+
+
+def _extract_clausius(text: str) -> ChemistryIntent | None:
+    if not re.search(r"\bClausius\b", text, re.IGNORECASE):
+        return None
+    found = _labeled(
+        text,
+        (
+            ("p1", rf"\bP1\s*=\s*({_N})"),
+            ("t1", rf"\bT1\s*=\s*({_N})"),
+            ("p2", rf"\bP2\s*=\s*({_N})"),
+            ("t2", rf"\bT2\s*=\s*({_N})"),
+            ("delta_h", rf"\bdH\s*=\s*({_N})"),
+        ),
+    )
+    points = {"p1", "t1", "p2", "t2"}
+    pressure = {"p1", "t1", "t2", "delta_h"} <= set(found) or {"p2", "t1", "t2", "delta_h"} <= set(
+        found
+    )
+    complete = set(found) == points or (pressure and "delta_h" in found and len(found) == 4)
+    if complete:
+        return ChemistryIntent(
+            kind="thermochemistry", chemistry_op="clausius_clapeyron", params=found
+        )
+    return None
+
+
+def _extract_henry(text: str) -> ChemistryIntent | None:
+    if not re.search(r"\bHenry'?s?\s+law\b", text, re.IGNORECASE):
+        return None
+    found = _labeled(
+        text,
+        (
+            ("concentration", rf"\bC\s*=\s*({_N})"),
+            ("henry_constant", rf"\bkH\s*=\s*({_N})"),
+            ("pressure", rf"\bP\s*=\s*({_N})"),
+        ),
+    )
+    if len(found) != 2:
+        return None
+    return ChemistryIntent(kind="solutions", chemistry_op="henry", params=found)
+
+
 def _extract_gas_laws(text: str) -> ChemistryIntent | None:
+    graham = _extract_graham(text)
+    if graham is not None:
+        return graham
     if re.search(r"\bcombined gas\b", text, re.IGNORECASE):
         return _gas_law("combined_gas", ("p1", "v1", "t1", "p2", "v2", "t2"), text)
     if re.search(r"\bBoyle\b", text, re.IGNORECASE):
@@ -77,6 +147,9 @@ def _extract_gas_laws(text: str) -> ChemistryIntent | None:
 
 
 def _extract_thermo_ext(text: str) -> ChemistryIntent | None:
+    clausius = _extract_clausius(text)
+    if clausius is not None:
+        return clausius
     if re.search(r"\b(?:calorimeter constant|Ccal)\b", text, re.IGNORECASE):
         match = re.search(
             rf"(?:Ccal|calorimeter constant)\s*=\s*({_N})\s*(k?J)\s*/\s*(?:°\s*C|C|K)\b",

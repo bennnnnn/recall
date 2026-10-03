@@ -15,6 +15,7 @@ from app.modules.physics.solvers.common import (
     QuantityResult,
     _latex_num,
     _params_in_si,
+    gravity_of,
 )
 from app.services.solving import SolveServiceError
 
@@ -44,7 +45,7 @@ def _projectile_max_height_substitution(intent: PhysicsIntent) -> str:
 
 def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
-    g = p.get("g", 9.81)
+    g = gravity_of(p)
     v0 = p["v0"]
     # No default. The extractor's `range` initializer was one half of the bug
     # this fixes; leaving the other half here would keep an opless intent

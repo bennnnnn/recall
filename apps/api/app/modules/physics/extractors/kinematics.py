@@ -80,6 +80,11 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # Must have a kinematics cue AND at least one number.
     if not _has_cue(lower, _KINEMATICS_CUES, _KINEMATICS_CUE_RES):
         return None
+    # A drop with F = -kv is not v = gt. The drag extractor owns that law.
+    from app.modules.physics.extractors.drag import states_velocity_drag
+
+    if states_velocity_drag(cleaned):
+        return None
     # rad/s is not a linear speed. "Find the angular velocity" shares the
     # word velocity with free fall, and answering it as v = v0 + gt is wrong.
     if re.search(r"\bangular\b|\brad(?:ians?)?\s*/\s*s", cleaned, re.IGNORECASE):

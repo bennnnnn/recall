@@ -46,24 +46,42 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
         raise SolveServiceError(f"{spec.id} has no real answer for these givens") from exc
     if not math.isfinite(value):
         raise SolveServiceError(f"{spec.id} answer is not finite")
-    if spec.binding.nonnegative and value < 0:
+    detail = None
+    if spec.binding.negative_detail and value < 0:
+        value = abs(value)
+        detail = spec.binding.negative_detail
+    elif spec.binding.nonnegative and value < 0:
         raise SolveServiceError(f"{spec.id} gives a negative {symbol} for these givens")
     if spec.binding.at_most is not None and value > spec.binding.at_most:
         raise SolveServiceError(f"{spec.id} gives {symbol} above {spec.binding.at_most:g}")
     symbols = {variable.name: variable.symbol for variable in spec.variables}
     formula = f"{symbol} = {to_latex(expression, symbols)}"
     substitution = f"{symbol} = {to_latex(expression, symbols, params)}"
+    difference = _stated_temperature_change(intent, params) if spec.id == "heat_energy" else None
     result_unit = spec.binding.result[0]
     unit = spec.binding.shown_unit or (
         "" if result_unit == "dimensionless" else si_symbol(result_unit)
     )
     shown = _in_the_givens_unit(spec, intent, result_unit, value)
     return solved(
-        QuantityResult("", *(shown or (value, unit))),
+        QuantityResult("", *(shown or (value, unit)), detail=detail),
         answer=substitution,
-        formula=formula,
+        formulas=((difference, formula) if difference else (formula,)),
         substitution=substitution,
     )
+
+
+def _stated_temperature_change(intent: PhysicsIntent, params: dict[str, float]) -> str | None:
+    """The ΔT row when a question gave two readings: ``80 - 20 = 60``."""
+    if "temp_initial" not in params or "temp_final" not in params:
+        return None
+    change = params["temp_final"] - params["temp_initial"]
+    raw = intent.physics_params or {}
+    units = intent.physics_units or {}
+    same_scale = units.get("temp_initial") == units.get("temp_final")
+    first = raw["temp_initial"] if same_scale else params["temp_initial"]
+    second = raw["temp_final"] if same_scale else params["temp_final"]
+    return rf"\Delta T = T_2 - T_1 = {second:g} - {first:g} = {change:g}"
 
 
 def _in_the_givens_unit(

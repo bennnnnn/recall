@@ -16,6 +16,7 @@ from app.modules.chemistry.extractors.identity import (
 from app.modules.chemistry.extractors.physical import (
     _extract_equilibrium_ext,
     _extract_gas_laws,
+    _extract_henry,
     _extract_kinetics_ext,
     _extract_thermo_ext,
 )
@@ -28,6 +29,7 @@ EXTENDED_EXTRACTORS = (
     _extract_acid,
     _extract_titration,
     _extract_buffer_addition,
+    _extract_henry,
     _extract_gas_laws,
     _extract_thermo_ext,
     _extract_equilibrium_ext,

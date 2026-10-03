@@ -123,7 +123,7 @@ async def _augment_physics(
         response_intent_text,
         redis,
     )
-    block, physics_verified = await build_physics_augmentation(
+    block, physics_verified, solve_failed = await build_physics_augmentation(
         _physics_request_text(user_content),
         settings,
         needs_subject=True,
@@ -132,7 +132,10 @@ async def _augment_physics(
         subject="physics",
         prompt_block=block,
         verified=physics_verified,
-        unverified=block is not None and physics_verified is None,
+        # No matching template is not a failed check. The prompt note still
+        # tells the model not to claim verification; the user does not see
+        # "I couldn't automatically verify this result."
+        unverified=solve_failed,
     )
 
 
