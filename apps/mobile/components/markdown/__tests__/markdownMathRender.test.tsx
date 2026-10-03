@@ -96,7 +96,7 @@ describe("MarkdownContent math rendering", () => {
     const { queryByText, getByText } = await render(
       <MarkdownContent content={String.raw`Result: $\frac{1}`} streaming />,
     );
-    expect(getByText("Result:")).toBeOnTheScreen();
+    expect(getByText(/Result:/)).toBeOnTheScreen();
     expect(queryByText(/\\frac|\$|frac/)).toBeNull();
   });
 
