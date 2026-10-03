@@ -166,6 +166,14 @@ describe("mathFenceRetag", () => {
     expect(looksLikeLatexFence(code)).toBe(false);
     expect(retagMathAndDiagramFences("```\n" + code + "\n```")).not.toContain("```math");
 
+    const mentioned = [
+      'formula = r"\\frac{1}{2}"',
+      ...Array.from({ length: 40 }, (_, i) => `value_${i} = compute(${i})`),
+    ].join("\n");
+    expect(mentioned.length).toBeGreaterThan(400);
+    expect(looksLikeLatexFence(mentioned)).toBe(false);
+    expect(retagMathAndDiagramFences("```\n" + mentioned + "\n```")).not.toContain("```math");
+
     const explicit = "```math\n" + body + "\n```";
     const kept = retagMathAndDiagramFences(explicit);
     expect(kept).toContain("```math\n");

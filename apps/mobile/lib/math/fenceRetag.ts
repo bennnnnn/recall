@@ -15,6 +15,54 @@ function stripLatexSpacing(s: string): string {
   return s.replace(LATEX_SPACING_RE, " ");
 }
 
+function hasNamedLatexCommand(s: string): boolean {
+  return LATEX_CMD_RE.test(s) || /\\text\{/.test(s);
+}
+
+/** Drop `"..."` / `'...'` so a command that only lives in a string is not math. */
+function stripQuoted(s: string): string {
+  let out = "";
+  let i = 0;
+  while (i < s.length) {
+    const quote = s[i];
+    if (quote === "\"" || quote === "'") {
+      i += 1;
+      while (i < s.length && s[i] !== quote) {
+        if (s[i] === "\\") i += 1;
+        i += 1;
+      }
+      if (i < s.length) i += 1;
+      continue;
+    }
+    out += s[i];
+    i += 1;
+  }
+  return out;
+}
+
+function hasCodeSyntax(s: string): boolean {
+  const forCode = stripLatexSpacing(s);
+  if (/;|console\.|print\(|=>/.test(forCode)) return true;
+  return /(^|\n)\s*(?:def |class |import |from |function |const |let |var |return )/i.test(s);
+}
+
+/**
+ * A long untagged body is math when LaTeX commands are the body, not one
+ * token inside a program. A majority of lines must carry a command, and a
+ * command that only appears inside quotes does not count.
+ */
+function lineHasMathCommand(line: string): boolean {
+  return hasNamedLatexCommand(line) || (LATEX_SPACING_RE.test(line) && /=/.test(line) && /\d/.test(line));
+}
+
+function consistentlyLatex(s: string, lines: string[]): boolean {
+  const outside = stripQuoted(s);
+  if (!lineHasMathCommand(outside)) return false;
+  if (hasCodeSyntax(s)) return false;
+  const hits = lines.filter((line) => lineHasMathCommand(line.trim())).length;
+  return lines.length > 0 && hits / lines.length >= 0.5;
+}
+
 function looksLikeAlgebraLine(line: string): boolean {
   if (!line || line.length > 120) return false;
   if (/^(def |class |import |function |const |let |var |if |for |while )/i.test(line)) {
@@ -51,30 +99,33 @@ export function looksLikeMathFenceBody(content: string): boolean {
   // character class) and falls through to a plain code block.
   const s = stripRedundantDollarWrap(raw);
 
+  const lines = s.split("\n").filter((line) => line.trim());
+  const longBody = s.length > 400 || lines.length > 12;
+
   // An unambiguous LaTeX command (\times, \begin, \frac, \text{, ...) is a
-  // strong enough signal on its own. It must not be gated by the length or
-  // line-count caps below: a long untagged fence of \frac, or a multi-step
-  // \begin{aligned} derivation, is still math. Those caps only protect the
-  // weaker "every line looks like bare algebra" heuristic, which has no
-  // command to lean on and would otherwise accept a long code-like body.
-  if (LATEX_CMD_RE.test(s)) return true;
-  if (/\\text\{/.test(s)) return true;
+  // strong enough signal on a short fence. A long fence stays math only when
+  // the body is consistently LaTeX — one `\frac` inside a Python string is
+  // still code. The length and line caps below still protect bare algebra,
+  // which has no command to lean on.
+  if (longBody) {
+    if (consistentlyLatex(s, lines)) return true;
+  } else if (hasNamedLatexCommand(s)) {
+    return true;
+  }
   // Spacing-only arithmetic (e.g. `20 \;-\; 10 \;=\; 10`) has no named
   // command from LATEX_CMD_RE — without this, the `;` inside `\;` made the
   // algebra heuristic reject it as "code" and the Copy box showed raw LaTeX.
-  if (LATEX_SPACING_RE.test(s) && /=/.test(s) && /[\d]/.test(s)) return true;
+  if (!longBody && LATEX_SPACING_RE.test(s) && /=/.test(s) && /[\d]/.test(s)) return true;
 
   // Bare algebra has no command. Keep the length cap here so a long
   // code-like body does not become a math card.
   if (s.length > 400) return false;
-
-  const lines = s.split("\n").filter((line) => line.trim());
   // A multi-step derivation written as bare algebra (one equation per line,
   // no LaTeX commands) routinely runs 5+ lines — e.g. a 5-step solve or a
   // system of 3 equations. The old cap of 4 rejected those and fell through
   // to a plain code block. Raise the cap to 12 for the algebra-only path;
-  // the LATEX_CMD_RE check above already handles command-bearing bodies of
-  // any length, so this only affects the weaker "every line is bare algebra"
+  // a long command-bearing body is handled above only when it is consistently
+  // LaTeX, so this only affects the weaker "every line is bare algebra"
   // heuristic, where 12 is still a reasonable safety net against prose.
   if (lines.length > 12) return false;
 
