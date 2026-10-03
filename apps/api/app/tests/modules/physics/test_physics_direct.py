@@ -91,7 +91,7 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
     query: str, answer: str, graph: bool
 ) -> None:
     assert needs_physics(query)
-    _, verified = await build_math_augmentation(query, _SETTINGS)
+    _, verified, _solve_failed = await build_math_augmentation(query, _SETTINGS)
     assert verified is not None
     assert verified.canonical_answer == answer
     reply = maybe_direct_physics_reply(verified, query)
