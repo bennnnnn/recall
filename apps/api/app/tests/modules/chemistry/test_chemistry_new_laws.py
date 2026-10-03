@@ -231,6 +231,11 @@ def test_binary_vapor_pressure_rejects_fractions_that_do_not_sum_to_one() -> Non
         solve_chemistry(intent)
 
 
+def test_van_t_hoff_declines_without_both_temperatures_and_the_known_constant() -> None:
+    question = "Use the van 't Hoff equation. K1 = 1.00 and T1 = 300 K. What is K2?"
+    assert extract_chemistry_intent(question) is None
+
+
 def test_binary_vapor_pressure_declines_when_only_one_pressure_is_stated() -> None:
     question = (
         "What is the total vapor pressure if the mole fraction of A is 0.400, "

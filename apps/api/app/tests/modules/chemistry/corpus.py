@@ -23,6 +23,7 @@ from app.tests.modules.chemistry.corpus_case import (
     NACL,
     O2,
     R_ATM,
+    R_GAS,
     C,
     Case,
     H,
@@ -211,11 +212,36 @@ ACIDS_AND_BASES: tuple[Case, ...] = (
     ),
 )
 
+EQUILIBRIUM: tuple[Case, ...] = (
+    q(
+        "Use the van 't Hoff equation. K1 = 1.00, T1 = 300 K, T2 = 350 K, "
+        "and ΔH = 50.0 kJ/mol. What is K2?",
+        1.00 * math.exp(-50.0e3 / R_GAS * (1 / 350 - 1 / 300)),
+    ),
+    q(
+        "Use the van 't Hoff equation. K1 = 0.10, T1 = 300 K, K2 = 0.50, "
+        "and T2 = 350 K. What is ΔH?",
+        -(R_GAS * math.log(0.50 / 0.10) / (1 / 350 - 1 / 300)) / 1000,
+        "kJ/mol",
+    ),
+    q(
+        "K = 10 at 298.15 K. What is ΔG°?",
+        -(R_GAS * 298.15 * math.log(10)) / 1000,
+        "kJ/mol",
+    ),
+    q(
+        "ΔG° = -5.708 kJ/mol at 298.15 K. What is the equilibrium constant?",
+        math.exp(5.708e3 / (R_GAS * 298.15)),
+    ),
+)
+
+
 ANSWERABLE: tuple[Case, ...] = (
     *AMOUNTS,
     *STOICHIOMETRY,
     *SOLUTIONS,
     *ACIDS_AND_BASES,
+    *EQUILIBRIUM,
     *corpus_physical.CASES,
 )
 
@@ -255,4 +281,4 @@ NOT_CHEMISTRY: tuple[str, ...] = (
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 87
+COVERAGE_FLOOR = 91
