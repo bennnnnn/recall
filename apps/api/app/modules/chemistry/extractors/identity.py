@@ -50,33 +50,7 @@ def _extract_cells(text: str) -> ChemistryIntent | None:
 
 
 def _extract_nuclear_ext(text: str) -> ChemistryIntent | None:
-    if re.search(r"\bdecay constant\b", text, re.IGNORECASE) and re.search(
-        r"\bhalf[- ]life\b", text, re.IGNORECASE
-    ):
-        half = _search(rf"half[- ]life\s*=\s*({_N})\s*s", text)
-        if half is not None:
-            return ChemistryIntent(
-                kind="nuclear",
-                chemistry_op="decay_constant",
-                params={"half_life": half},
-                units={"time": "s"},
-            )
-    if re.search(r"\bexponential decay\b", text, re.IGNORECASE):
-        initial = _search(rf"\bN0\s*=\s*({_N})", text, flags=0)
-        constant = _search(rf"decay constant\s*=\s*({_N})", text)
-        time = _search(rf"\bt\s*=\s*({_N})\s*s", text)
-        params = _floats(initial=initial, decay_constant=constant, time=time)
-        if params is not None:
-            return ChemistryIntent(kind="nuclear", chemistry_op="exponential_decay", params=params)
-    if re.search(r"\bnuclear activity\b", text, re.IGNORECASE):
-        constant = _search(rf"decay constant\s*=\s*({_N})", text)
-        particles = _search(rf"\bN\s*=\s*({_N})", text, flags=0)
-        if constant is not None and particles is not None:
-            return ChemistryIntent(
-                kind="nuclear",
-                chemistry_op="nuclear_activity",
-                params={"decay_constant": constant, "particles": particles},
-            )
+    # Half-lives, decay constants and activities are physics' laws (physics/catalog/nuclear.py).
     match = re.search(r"nuclear equation\s*:?\s+(.+)$", text, re.IGNORECASE)
     if match:
         return ChemistryIntent(

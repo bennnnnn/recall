@@ -54,6 +54,74 @@ def _in_the_asked_unit(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsR
     return replace(result, quantities=tuple(quantities))
 
 
+# A gas stated in litres or atmospheres is a chemistry class's question, and its answer reads
+# in those units too: 49.2 L, not 0.0492 m³. A gas stated in m³ or Pa keeps SI.
+_CHEMISTRY_GAS = frozenset({"atm", "mmhg", "torr", "l", "ml", "liter", "liters", "litre", "litres"})
+_SI_GAS = frozenset({"m^3", "m³", "pa", "kpa", "mpa", "cm^3", "cm³"})
+_CHEMISTRY_RESULTS = {"m^3": "L", "m³": "L", "Pa": "atm"}
+
+
+def _in_context_units(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsResult:
+    """A volume or pressure left in SI, shown in L or atm when the givens are chemistry's."""
+    if intent.asked_unit is not None:
+        return result
+    result = _per_time_of_givens(intent, result)
+    written = {unit.lower() for unit in (intent.physics_units or {}).values()}
+    if not written & _CHEMISTRY_GAS or written & _SI_GAS:
+        return result
+    for unit in {
+        _CHEMISTRY_RESULTS[item.unit]
+        for item in result.quantities
+        if item.unit in _CHEMISTRY_RESULTS
+    }:
+        target = intent.model_copy(update={"asked_unit": unit})
+        converted = _in_the_asked_unit(target, result)
+        result = replace(
+            result,
+            quantities=tuple(
+                new
+                if old.unit in _CHEMISTRY_RESULTS and _CHEMISTRY_RESULTS[old.unit] == unit
+                else old
+                for old, new in zip(result.quantities, converted.quantities, strict=True)
+            ),
+        )
+    return result
+
+
+# A rate from a half-life in years is per year: 1.21e-4 1/yr, not 3.83e-12 1/s.
+# The per-time unit a rate takes from the time its givens share, by Pint expression, so every
+# spelling the unit table reads ("hrs", "hours", "h") gives one answer unit.
+_SHORT_TIME = {"year": "yr", "day": "day", "hour": "h", "minute": "min"}
+_TIME = "[time]^1"
+
+
+def _per_time_of_givens(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsResult:
+    """A per-second result, per the one time unit every time given shares."""
+    if intent.asked_unit is not None:
+        return result
+    spellings = {
+        unit
+        for unit in (intent.physics_units or {}).values()
+        if (reading := unit_dimension(unit_expression(unit) or "")) and reading[0] == _TIME
+    }
+    short = {_SHORT_TIME.get(unit_expression(unit) or "") for unit in spellings}
+    if len(spellings) == 0 or len(short) != 1 or None in short:
+        return result
+    unit = short.pop()
+    reading = unit_dimension(unit_expression(next(iter(spellings))) or "")
+    if unit is None or reading is None:
+        return result
+    return replace(
+        result,
+        quantities=tuple(
+            replace(item, value=item.value * reading[1], unit=f"1/{unit}")
+            if item.unit == "1/s"
+            else item
+            for item in result.quantities
+        ),
+    )
+
+
 def _answers_the_question(intent: PhysicsIntent, result: PhysicsResult) -> bool:
     """Every quantity the question asked for is among the results.
 

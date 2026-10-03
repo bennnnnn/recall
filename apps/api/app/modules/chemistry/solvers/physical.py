@@ -15,26 +15,6 @@ from app.services.solving import SolveServiceError
 
 
 def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
-    if intent.chemistry_op == "heat":
-        mass, specific_heat, delta_t = require_all(intent, "mass", "specific_heat", "delta_t")
-        if mass <= 0 or specific_heat <= 0:
-            raise SolveServiceError("mass and specific heat must be positive")
-        heat_j = mass * specific_heat * delta_t
-        value = f"{num(heat_j)} J"
-        substitution = f"q = ({inp(mass)})({inp(specific_heat)})({inp(delta_t)})"
-        return verified(
-            "Verified heat calculation",
-            (
-                f"m = {inp(mass)} g",
-                f"c = {inp(specific_heat)} J/(g·°C)",
-                f"ΔT = {inp(delta_t)} °C",
-            ),
-            "Heat transferred, q",
-            *stated("heat"),
-            (substitution,),
-            f"q = {value}",
-            value,
-        )
     if intent.chemistry_op == "gibbs":
         delta_h, delta_s, temperature = require_all(intent, "delta_h", "delta_s", "temperature")
         if temperature <= 0:
@@ -294,26 +274,3 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             value,
         )
     raise SolveServiceError(f"unsupported electrochemistry operation: {op}")
-
-
-def solve_nuclear(intent: ChemistryIntent) -> ChemistryResult:
-    initial, elapsed, half_life = require_all(intent, "initial", "elapsed", "half_life")
-    if initial < 0 or elapsed < 0 or half_life <= 0:
-        raise SolveServiceError("decay inputs must be physically valid")
-    remaining = initial * (0.5 ** (elapsed / half_life))
-    unit = intent.units.get("initial", "")
-    value = f"{num(remaining)}{f' {unit}' if unit else ''}"
-    substitution = f"N = {inp(initial)}(1/2)^({inp(elapsed)}/{inp(half_life)})"
-    return verified(
-        "Verified radioactive decay",
-        (
-            f"N₀ = {inp(initial)}{f' {unit}' if unit else ''}",
-            f"t = {inp(elapsed)} {intent.units.get('time', 's')}",
-            f"t₁/₂ = {inp(half_life)} {intent.units.get('time', 's')}",
-        ),
-        "Remaining amount, N",
-        *stated("radioactive_decay"),
-        (substitution,),
-        f"N = {value}",
-        value,
-    )
