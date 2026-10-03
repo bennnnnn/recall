@@ -90,6 +90,36 @@ def test_a_celsius_reading_has_the_figures_of_its_kelvin_value() -> None:
 @pytest.mark.parametrize(
     ("question", "answer"),
     [
+        # 50.00 kJ is stored as 50000 J and 25 °C as 298.15 K: the kelvin reading's three
+        # figures still limit the answer, not just the 1.000e10 that matched as typed.
+        ("Arrhenius: A = 1.000e10 s^-1, Ea = 50.00 kJ/mol, T = 25 °C. Find k.", "k = 17.4 s⁻¹"),
+        ("Arrhenius: A = 1.000e10 s^-1, Ea = 50.00 kJ/mol, T = 298.0 K. Find k.", "k = 17.22 s⁻¹"),
+        # 152 mmHg is stored in atm; its three figures carry over.
+        ("Find Kp for CaCO3(s) -> CaO(s) + CO2(g) when P(CO2)=152 mmHg", "Kp = 0.200"),
+    ],
+)
+def test_a_converted_given_keeps_the_figures_it_was_typed_with(question: str, answer: str) -> None:
+    assert _solve(question).answer == answer
+
+
+def test_one_value_typed_two_ways_is_limited_by_both() -> None:
+    intent = extract_chemistry_intent("Cell potential: cathode = 0.80 V, anode = 0.8 V")
+    assert intent is not None
+    # The anode's one decimal place limits the difference; neither 0.8 is echoed as the other.
+    assert intent.decimals == 1
+    assert intent.written == {}
+    assert solve_chemistry(intent).answer == "E°cell = 0.0 V"
+
+
+def test_a_coefficient_never_limits_a_measured_value_equal_to_it() -> None:
+    # The equation's 2s are counts; the 2.00 g of hydrogen has three figures.
+    result = _solve("2 H2 + O2 -> 2 H2O. How many grams of water form from 2.00 g of H2?")
+    assert result.answer == "m(H2O) = 17.9 g"
+
+
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
         ("Find pH when [H+] = 2.5 × 10^-4", "pH = 3.60"),
         ("Find the strong acid pH of 0.0010 M HCl", "pH = 3.00"),
         ("Find the strong base pH of 0.010 M NaOH", "pH = 12.00"),
