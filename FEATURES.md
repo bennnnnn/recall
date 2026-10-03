@@ -348,30 +348,39 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   param declares an SI dimension (Pint reads a bare `pa` as a *petayear*, so a
   missing entry is a wrong answer, not a missing check). Moon/Mars gravity is a
   whole-token match (`marsh` stays Earth). See [docs/physics.md](./docs/physics.md).
-- ✅ **Chemistry (typed verified pipeline)** — `ChemistryIntent` extraction plus grouped
-  deterministic solvers share one species model: formula, composition, charge, and phase.
-  The local table is all 118 elements. Verified work covers atom-and-charge balancing
-  (including redox half-equations); amount conversions; empirical and molecular formulas;
-  mass, solution, and gas stoichiometry with limiting reagent; solution concentration and
-  colligative properties; strong/weak acid–base pH, `Ka`/`Kb`, buffers after addition, and
-  titration regions; ideal, combined, Boyle, Charles, Dalton, and wet-gas laws; calorimetry,
-  Hess, formation, and bond enthalpy; phase-aware `Kc`/`Kp`, ICE, `Ksp`, and precipitation;
-  zero/first/second-order kinetics and two-point Arrhenius; cell, Nernst, electrolysis, and
-  a school galvanic cell; nuclear decay and one-missing-product nuclear equations;
-  Beer–Lambert; oxidation state, formal charge, and single-center VSEPR
+- ✅ **Chemistry (typed verified pipeline)** — `ChemistryIntent` extraction and deterministic
+  solvers, one module per topic for each, share one species model: formula, composition,
+  charge, and phase. The catalog (`catalog.py`) is the one list of operations. Labelled
+  templates read first; a question in its own words is read by the binder, on the law engine
+  physics shares (`services/law_binding/`). The local table is all 118 elements. Verified
+  work covers atom-and-charge balancing (including redox half-equations); amount conversions,
+  an element's mass in a sample, average atomic mass from isotopes, and empirical and
+  molecular formulas; mass, solution, and gas stoichiometry with limiting reagent; solution
+  concentration, dilution with the stock volume, mole fraction, and colligative properties;
+  strong/weak acid–base pH, `Ka`/`Kb`, percent ionization, buffers after addition, titration
+  regions, and a neutralization's unknown concentration; Dalton, wet gases, gas density, and
+  Graham's law; calorimetry, `q = nΔH`, Hess, formation, and bond enthalpy; phase-aware
+  `Kc`/`Kp`, ICE, `Ksp` from a salt's formula, and precipitation; zero/first/second-order
+  kinetics and two-point Arrhenius; cell, Nernst, electrolysis mass and time, and a school
+  galvanic cell; one-missing-product nuclear equations and mass defect; Beer–Lambert;
+  electron configuration, oxidation state, formal charge, and single-center VSEPR
   (water 104.5°, ammonia 107°, carbon-centered HCN, and resonance counts); RDKit functional
   groups, CIP stereochemistry, and isomer class; a PubChem IUPAC name when that
   property is returned; five one-product named reactions; coordination names and
   first-row crystal-field spin and magnetic moment; calibration, gravimetric,
   standard addition, sample standard deviation, standard error, percent error,
   relative uncertainty, and chromatography Rf; IR and 1H NMR correlation ranges,
-  the n+1 rule, and the molecular ion; and Michaelis–Menten. Balance,
-  stoichiometry, VSEPR, titration, ICE, and galvanic answers also append a
-  server-owned `chem_scene` the phone only draws. Complete typed
-  questions return the same compact Given / Find / named Formula / Substitution / Answer
-  layout as Physics. The answer is one server ` ```answer ` fence tagged
-  `notation: chemistry` so formulas and units are not typeset as algebra, with no
-  unnecessary trailing zeros. Curved-arrow mechanisms
+  the n+1 rule, and the molecular ion; and Michaelis–Menten. The gas laws, `Q = mcΔT`, and
+  decay are physics' laws, answered in L, atm, kJ, and °C when a chemistry question asks
+  them. mM, µM, nM, and kcal are read through Pint. Answers keep the precision the question
+  was written in: the fewest significant figures among the measured givens (2–4), typed
+  values echoed as typed. Balance, stoichiometry, VSEPR, titration, ICE, and galvanic
+  answers also append a server-owned `chem_scene` the phone only draws. Complete typed
+  questions return a textbook worked solution: Given / Find / named Formula / Substitution
+  (with units, each conversion its own row) / Answer; a procedure (balancing, a table
+  lookup, a configuration) shows its rule under Method and checks it under Working. The
+  answer is one server ` ```answer ` fence tagged `notation: chemistry` so formulas and
+  units are not typeset as algebra. Curved-arrow mechanisms
   and biochemical pathways stay model-only. RDKit / SymPy + PubChem still verify structures, descriptors, elements,
   and compounds. Structures use ` ```smiles ` (alias ` ```chemistry `); the server attaches
   ` ```molecule3d ` for the first two valid molecules. Chemically aware 2D layout remains
@@ -870,7 +879,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
   indexing until chunks exist; wrapped inject includes filename.
-- ✅ **Camera math solver** — attach sheet “Solve math with camera” → VisionCamera live frame + adjustable crop + torch / pinch-zoom / photos. On-device ML Kit text recognition runs only inside the live crop and marks the frame ready after repeated stable reads; live frames never hit a paid OCR endpoint. Camera shots are cropped from the live frame immediately (no second crop/Solve step); imported photos retain the adjustable still-image crop. Math then shows **I read this as** (`POST /math/scan/read`: Mathpix, then `vision-chat`, no solve). The student edits the reading if needed and taps **Solve**, which sends it as text through the full math pipeline, or **Send photo**, which sends the crop at once with the checked reading so the turn does not read it again. Physics and chemistry read back the same way through their own readers (`POST /physics/scan/read`, `POST /chemistry/scan/read`: `vision-chat` plain text, no Mathpix kinds); physics turns OCR LaTeX into typed text (`2 × 10^-6 C`, `30°`), and **Solve** sends that text alone, so a photographed physics problem gets the same verified instant reply as a typed one. A physics photo sent with its reading is verified from that reading; one without gets the physics note, never math hints. The three readers share one guard (`services/scan_read.py`: payload limits, spend cap, per-user rate). Biology camera scans send the live crop directly. Mathpix runs only on the captured math crop when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`) only when the reply contains math.
+- ✅ **Camera math solver** — attach sheet “Solve math with camera” → VisionCamera live frame + adjustable crop + torch / pinch-zoom / photos. On-device ML Kit text recognition runs only inside the live crop and marks the frame ready after repeated stable reads; live frames never hit a paid OCR endpoint. Camera shots are cropped from the live frame immediately (no second crop/Solve step); imported photos retain the adjustable still-image crop. Math then shows **I read this as** (`POST /math/scan/read`: Mathpix, then `vision-chat`, no solve). The student edits the reading if needed and taps **Solve**, which sends it as text through the full math pipeline, or **Send photo**, which sends the crop at once with the checked reading so the turn does not read it again. Physics and chemistry read back the same way through their own readers (`POST /physics/scan/read`, `POST /chemistry/scan/read`: `vision-chat` plain text, no Mathpix kinds); physics turns OCR LaTeX into typed text (`2 × 10^-6 C`, `30°`), and **Solve** sends that text alone, so a photographed physics problem gets the same verified instant reply as a typed one. A physics photo sent with its reading is verified from that reading; one without gets the physics note, never math hints. The three readers share one guard (`services/scan_read.py`: payload limits, spend cap, per-user rate). A refused read (reader off, photo too large, rate limit, spend cap) names itself the same way for every subject (`lib/scanner/scanReadError.ts`). Biology camera scans send the live crop directly. Mathpix runs only on the captured math crop when `MATHPIX_APP_ID`/`MATHPIX_APP_KEY` are set (`improve_mathpix=false`); SymPy verifies. Camera capture needs a **dev build**. Unverified fall-through is labeled (`Couldn't verify this with SymPy.`) only when the reply contains math.
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on short A–D replies).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
