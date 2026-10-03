@@ -61,6 +61,7 @@ from app.modules.chemistry.solvers.gases import (
     solve_henry,
     solve_partial_pressure,
 )
+from app.modules.chemistry.solvers.half_reaction import solve_half_reaction
 from app.modules.chemistry.solvers.ice_table import (
     solve_ice,
 )
@@ -213,6 +214,7 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "average_atomic_mass": solve_average_atomic_mass,
     "electron_configuration": solve_electron_configuration,
     "balance": solve_equation,
+    "half_reaction": solve_half_reaction,
     "molar_mass": solve_molar_mass,
     "mass_to_moles": solve_amount,
     "moles_to_mass": solve_amount,

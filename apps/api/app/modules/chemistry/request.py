@@ -54,7 +54,7 @@ _STRONG_CUE = re.compile(
     r"thermochem\w*|enthalpy|specific\s+heat|calorimet\w*|"
     r"reaction\s+quotient|equilibrium\s+(?:constant|expression)|ice\s+(?:table|equilibrium)|"
     r"rate\s+(?:constant|law)|first[- ]order|second[- ]order|zero[- ]order|arrhenius|"
-    r"electrochem\w*|nernst|electrolysis|cell\s+potential|faraday'?s?\s+law|"
+    r"electrochem\w*|half[- ]reactions?|nernst|electrolysis|cell\s+potential|faraday'?s?\s+law|"
     r"galvanic|radioactive|nuclear\s+(?:equation|mass|activity)|decay\s+constant|"
     r"exponential\s+decay|mass\s+defect|binding\s+energy|electron\s+capture|"
     r"beer[- ]lambert|absorbance|percent\s+(?:yield|composition|error)|atom\s+economy|"

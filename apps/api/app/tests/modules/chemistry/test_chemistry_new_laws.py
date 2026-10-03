@@ -282,6 +282,27 @@ def test_gibbs_and_vant_hoff_enthalpy_show_the_joule_to_kilojoule_step() -> None
     assert solve_chemistry(enthalpy).answer == "ΔH° = 28 kJ/mol"
 
 
+def test_a_redox_pair_gains_water_protons_and_electrons_for_its_medium() -> None:
+    acidic = "Balance the half-reaction Cr2O7^2- -> Cr3+ in acidic solution."
+    basic = "Balance the half-reaction MnO4- -> MnO2 in basic solution."
+    assert _answer(acidic) == "Cr2O7^2- + 14 H+ + 6 e- -> 2 Cr3+ + 7 H2O"
+    assert _answer(basic) == "MnO4- + 2 H2O + 3 e- -> MnO2 + 4 OH-"
+    oxidation = "Balance Fe2+ -> Fe3+ in acidic solution."
+    assert _answer(oxidation) == "Fe2+ -> Fe3+ + e-"
+
+
+def test_a_half_reaction_declines_when_the_oxidation_state_or_the_equation_is_wider() -> None:
+    ambiguous = extract_chemistry_intent("Balance FeS -> Fe2+ in acidic solution.")
+    assert ambiguous is not None and ambiguous.chemistry_op == "half_reaction"
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(ambiguous)
+    wider = "Balance MnO4- + Fe2+ -> Mn2+ + Fe3+ in acidic solution."
+    intent = extract_chemistry_intent(wider)
+    assert intent is None or intent.chemistry_op != "half_reaction"
+    bare = extract_chemistry_intent("Balance MnO4- -> Mn2+.")
+    assert bare is None or bare.chemistry_op != "half_reaction"
+
+
 def test_binary_vapor_pressure_declines_when_only_one_pressure_is_stated() -> None:
     question = (
         "What is the total vapor pressure if the mole fraction of A is 0.400, "

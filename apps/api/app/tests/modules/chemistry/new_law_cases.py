@@ -51,6 +51,11 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "Mass/volume percent = 2.00%",
     ),
     (
+        "Balance the half-reaction MnO4- -> Mn2+ in acidic solution.",
+        "half_reaction",
+        "MnO4- + 8 H+ + 5 e- -> Mn2+ + 4 H2O",
+    ),
+    (
         "What is the atom economy of CH3COOCH3 in CH3COOH + CH3OH -> CH3COOCH3 + H2O?",
         "atom_economy",
         "Atom economy of CH3COOCH3 = 80.44%",

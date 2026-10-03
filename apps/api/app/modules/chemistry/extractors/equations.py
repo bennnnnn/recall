@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.equations import balance_equation
@@ -11,6 +12,11 @@ from app.modules.chemistry.extractors.parsing import (
     _target,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.modules.chemistry.species import parse_reaction
+
+_ACIDIC = re.compile(r"\b(?:acidic|in acid|an?\s+acid)\b", re.IGNORECASE)
+_BASIC = re.compile(r"\b(?:basic|alkaline|in base|an?\s+base)\b", re.IGNORECASE)
+_ADDED = frozenset({"H2O", "H+", "OH-", "e-"})
 
 
 def _amounts(text: str) -> dict[str, float]:
@@ -33,6 +39,9 @@ def _extract_equations(text: str) -> ChemistryIntent | None:
         return ChemistryIntent(
             kind="equations", chemistry_op="balance", equation=equation, target="check"
         )
+    half = _half_reaction(text, equation)
+    if half is not None:
+        return half
     if re.search(r"\b(?:balance|balanced|coefficient)\b", text, re.IGNORECASE):
         return ChemistryIntent(kind="equations", chemistry_op="balance", equation=equation)
     if re.search(r"\b(?:Kc|equilibrium constant|reaction quotient|Qc)\b", text, re.IGNORECASE):
@@ -100,3 +109,27 @@ def _extract_equations(text: str) -> ChemistryIntent | None:
                 species=known,
             )
     return None
+
+
+def _half_reaction(text: str, equation: str) -> ChemistryIntent | None:
+    """One written pair plus an acidic or basic medium. Anything wider stays unread."""
+    acidic = _ACIDIC.search(text) is not None
+    basic = _BASIC.search(text) is not None
+    if acidic == basic:
+        return None
+    reaction = parse_reaction(equation)
+    if reaction is None or len(reaction.reactants) != 1 or len(reaction.products) != 1:
+        return None
+    labels: set[str] = set()
+    for term in (*reaction.reactants, *reaction.products):
+        if term.species.electron:
+            return None
+        labels.add(replace(term.species, phase=None).label)
+    if labels & _ADDED:
+        return None
+    return ChemistryIntent(
+        kind="equations",
+        chemistry_op="half_reaction",
+        equation=equation,
+        target="acidic" if acidic else "basic",
+    )
