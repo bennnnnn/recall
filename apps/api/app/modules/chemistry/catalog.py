@@ -20,18 +20,41 @@ class FormulaSpec:
     kind: str
     law_name: str
     base_formula: str
+    # A procedure, not an equation: the answer shows it under **Method** as a rule.
+    method: bool = False
+
+
+# Operations answered by a procedure (balancing, a table lookup, a structure match).
+METHODS = frozenset(
+    {
+        "balance",
+        "precipitation",
+        "functional_groups",
+        "stereochemistry",
+        "isomers",
+        "iupac_name",
+        "named_reaction",
+        "ir_ranges",
+        "ir_peak",
+        "nmr_ranges",
+        "nmr_peak",
+        "molecular_ion",
+        "electron_configuration",
+    }
+)
 
 
 def _spec(operation: str, kind: str, law_name: str, base_formula: str) -> FormulaSpec:
-    return FormulaSpec(operation, kind, law_name, base_formula)
+    return FormulaSpec(operation, kind, law_name, base_formula, operation in METHODS)
 
 
 _ROWS: tuple[tuple[str, str, str, str], ...] = (
     (
         "balance",
         "equations",
-        "Law of conservation of mass",
-        "Atoms of each element on reactant side = atoms on product side",
+        "Conservation of atoms and charge",
+        "count each element's atoms on both sides; the smallest whole-number coefficients that "
+        "make every count, and the charge, equal",
     ),
     ("molar_mass", "amounts", "Molar mass from atomic masses", "M = Σ(nᵢ × atomic massᵢ)"),
     ("mass_to_moles", "amounts", "Mass–mole relation", "n = m / M"),
@@ -184,7 +207,8 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "precipitation",
         "equilibrium",
         "Ion product versus solubility product",
-        "precipitate forms when Qsp > Ksp",
+        "compare Qsp with Ksp: above it a precipitate forms, below it none does, "
+        "and equal is saturated",
     ),
     ("common_ion", "equilibrium", "Common-ion effect", "Ksp = Π [ion]^ν"),
     (
@@ -250,15 +274,21 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     (
         "functional_groups",
         "organic",
-        "RDKit SMARTS groups",
-        "each group is a SMARTS pattern matched atom by atom",
+        "Functional-group patterns",
+        "match each group's SMARTS pattern against the molecule atom by atom (RDKit)",
     ),
-    ("stereochemistry", "organic", "RDKit CIP labels", "R/S centers and E/Z double bonds"),
+    (
+        "stereochemistry",
+        "organic",
+        "Cahn–Ingold–Prelog priorities",
+        "rank each stereocenter's substituents for R/S and each double bond's for E/Z (RDKit)",
+    ),
     (
         "isomers",
         "organic",
-        "Formula and canonical SMILES",
-        "same formula, then isomeric versus non-isomeric SMILES",
+        "Formula and canonical structure",
+        "compare the molecular formulas, then the canonical SMILES with and without "
+        "stereochemistry: identical, constitutional isomers or stereoisomers",
     ),
     (
         "coordination_complex",
@@ -300,43 +330,43 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "Δz/z = √((Δa/a)^2 + (Δb/b)^2)",
     ),
     ("chromatography_rf", "analytical", "Chromatography Rf", "Rf = spot distance / solvent front"),
-    ("iupac_name", "organic", "IUPAC name", "PubChem IUPACName for a valid SMILES"),
+    ("iupac_name", "organic", "IUPAC name", "PubChem's IUPACName for the structure's SMILES"),
     (
         "named_reaction",
         "organic",
-        "One-product reaction table",
-        "one SMARTS or atom change with a single product",
+        "Reaction rule",
+        "apply the one reaction rule that gives a single product; two possible products decline",
     ),
     (
         "ir_ranges",
         "spectroscopy",
-        "Functional-group correlation",
-        "each recognized group maps to a textbook range",
+        "IR correlation table",
+        "look up each recognized group's textbook absorption range",
     ),
     (
         "ir_peak",
         "spectroscopy",
-        "Functional-group correlation",
-        "list every group that contains the peak; do not choose a structure",
+        "IR correlation table",
+        "list every group whose range contains the peak; one peak does not choose a structure",
     ),
     (
         "nmr_ranges",
         "spectroscopy",
-        "Functional-group correlation",
-        "each recognized group maps to a textbook range",
+        "¹H NMR correlation table",
+        "look up each recognized group's textbook chemical-shift range",
     ),
     (
         "nmr_peak",
         "spectroscopy",
-        "Functional-group correlation",
-        "list every group that contains the peak; do not choose a structure",
+        "¹H NMR correlation table",
+        "list every group whose range contains the shift; one peak does not choose a structure",
     ),
     ("nmr_splitting", "spectroscopy", "n+1 rule", "lines = neighbors + 1"),
     (
         "molecular_ion",
         "spectroscopy",
         "Molecular ion",
-        "M+ = sum of the most abundant isotope masses (not the average molar mass)",
+        "add the masses of each element's most abundant isotope, not the average atomic masses",
     ),
     ("michaelis_menten", "biochemistry", "Michaelis–Menten equation", "v = Vmax[S] / (Km + [S])"),
     (
@@ -349,7 +379,8 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "electron_configuration",
         "structure",
         "Aufbau principle",
-        "fill 1s 2s 2p 3s 3p 4s 3d 4p 5s 4d 5p 6s 4f 5d 6p; the table keeps exceptions (Cr, Cu)",
+        "fill the subshells in the order 1s 2s 2p 3s 3p 4s 3d 4p 5s 4d 5p 6s 4f 5d 6p; "
+        "the element table keeps the exceptions (Cr, Cu)",
     ),
 )
 

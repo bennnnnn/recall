@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.catalog import formula_spec
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.scene import attach_scene
 from app.modules.chemistry.sig_figs import numbers_as_written
@@ -231,7 +233,9 @@ def supported_operations() -> frozenset[str]:
 def solve_chemistry(intent: ChemistryIntent) -> ChemistryResult:
     """Dispatch a validated intent to its subject-grouped pure solver."""
     with numbers_as_written(intent):
-        return attach_scene(intent, _solve(intent))
+        result = attach_scene(intent, _solve(intent))
+    spec = formula_spec(intent.chemistry_op)
+    return replace(result, method=spec is not None and spec.method)
 
 
 def _solve(intent: ChemistryIntent) -> ChemistryResult:

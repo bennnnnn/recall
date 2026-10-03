@@ -27,7 +27,8 @@ class FormulaLaw:
     # Each given: parameter, label as printed, unit as printed. A label, the result and a
     # substitution row may name the intent's "{formula}" and "{target}".
     given: tuple[tuple[str, str, str], ...]
-    # Substitution rows; "{name}" is a given's value as typed.
+    # Substitution rows: "{name}" is a given's value as typed with its unit ("0.500 L"), and
+    # "{name.value}" the bare number, for a row written in numbers alone.
     substitution: tuple[str, ...]
     # Givens that may be negative (an enthalpy); every other one must be positive.
     signed: frozenset[str] = frozenset()
@@ -66,7 +67,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
                 ("volume_l", "V", "L"),
                 ("molar_mass", "M({formula})", "g/mol"),
             ),
-            "m = ({concentration} mol/L)({volume_l} L)({molar_mass} g/mol)",
+            "m = ({concentration})({volume_l})({molar_mass})",
         ),
         _law(
             "molality_from_mass",
@@ -81,8 +82,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
                 ("molar_mass", "M({formula})", "g/mol"),
                 ("solvent_kg", "m(solvent)", "kg"),
             ),
-            "n = {solute_mass} g / {molar_mass} g/mol",
-            "b = n / {solvent_kg} kg",
+            "b = ({solute_mass} / {molar_mass}) / {solvent_kg}",
         ),
         _law(
             "mass_percent_solvent",
@@ -104,8 +104,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
             ("m", "g"),
             "particles/N_A*molar_mass",
             (("particles", "N", ""), ("molar_mass", "M({formula})", "g/mol")),
-            "n = {particles} / 6.022 × 10^23",
-            "m = n × {molar_mass} g/mol",
+            "m = ({particles} / 6.022 × 10^23 mol⁻¹)({molar_mass})",
         ),
         _law(
             "mole_fraction",
@@ -131,7 +130,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
                 ("molar_mass", "M({formula})", "g/mol"),
                 ("temperature", "T", "K"),
             ),
-            "d = ({pressure})({molar_mass}) / [(0.082057)({temperature})]",
+            "d = ({pressure})({molar_mass}) / [(0.082057 L·atm/(mol·K))({temperature})]",
         ),
         _law(
             "molar_mass_from_density",
@@ -146,7 +145,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
                 ("temperature", "T", "K"),
                 ("pressure", "P", "atm"),
             ),
-            "M = ({density})(0.082057)({temperature}) / {pressure}",
+            "M = ({density})(0.082057 L·atm/(mol·K))({temperature}) / {pressure}",
         ),
         _law(
             "percent_ionization",
@@ -157,7 +156,8 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
             ("Percent ionization", "%"),
             "(-ka + sqrt(ka**2 + 4*ka*concentration))/2/concentration*100",
             (("concentration", "C", "mol/L"), ("ka", "Ka", "")),
-            "x = [−({ka}) + √(({ka})^2 + 4({ka})({concentration}))] / 2",
+            # The quadratic is written in bare numbers; its x is a concentration in mol/L.
+            "x = [−{ka.value} + √(({ka.value})^2 + 4({ka.value})({concentration.value}))] / 2",
             "% ionization = x / {concentration} × 100",
         ),
         _law(
@@ -169,7 +169,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
             ("q", "kJ"),
             "moles*enthalpy",
             (("moles", "n", "mol"), ("enthalpy", "ΔH", "kJ/mol")),
-            "q = ({moles} mol)({enthalpy} kJ/mol)",
+            "q = ({moles})({enthalpy})",
             signed=frozenset({"enthalpy"}),
         ),
         _law(
@@ -186,7 +186,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
                 ("current", "I", "A"),
                 ("molar_mass", "M", "g/mol"),
             ),
-            "t = ({mass})({electrons})(96485) / [({current})({molar_mass})]",
+            "t = ({mass})({electrons})(96485 C/mol) / [({current})({molar_mass})]",
         ),
         _law(
             "titration_concentration",
@@ -232,7 +232,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
                 ("atomic_mass", "A({target})", "g/mol"),
                 ("molar_mass", "M({formula})", "g/mol"),
             ),
-            "m({target}) = ({sample_mass} g)({count})({atomic_mass} g/mol) / {molar_mass} g/mol",
+            "m({target}) = ({sample_mass})({count})({atomic_mass}) / {molar_mass}",
         ),
     )
 }

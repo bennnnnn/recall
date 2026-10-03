@@ -192,6 +192,7 @@ def _titration_in_words(text: str) -> ChemistryIntent | None:
     # Where each solution phrase states its volume: "adding 10 mL of 0.1 M NaOH" is read
     # once, as the NaOH solution, not again as an added volume.
     stated_at: set[int] = set()
+    typed_unit: dict[str, str] = {}
     for match in _SOLUTION.finditer(text):
         formula = _species(match.group(4))
         if formula is None or concentration.get(formula, float(match.group(3))) != float(
@@ -204,9 +205,10 @@ def _titration_in_words(text: str) -> ChemistryIntent | None:
             if volume.get(formula, stated) != stated:
                 return None
             volume[formula] = stated
+            typed_unit[formula] = match.group(2)
             stated_at.add(match.start(1))
     if len(concentration) == 1 and re.search(r"\b(?:concentration|molarity)\b", text, re.I):
-        return _unknown_concentration(text, concentration, volume)
+        return _unknown_concentration(text, concentration, volume, typed_unit)
     if not re.search(r"\bpH\b", text):
         return None
     acids = [
@@ -255,7 +257,10 @@ def _titration_in_words(text: str) -> ChemistryIntent | None:
 
 
 def _unknown_concentration(
-    text: str, concentration: dict[str, float], volume: dict[str, float]
+    text: str,
+    concentration: dict[str, float],
+    volume: dict[str, float],
+    typed_unit: dict[str, str],
 ) -> ChemistryIntent | None:
     """The concentration a neutralization finds: C₂ = C₁V₁ · ratio / V₂.
 
@@ -264,11 +269,13 @@ def _unknown_concentration(
     and hydroxides: H2SO4 neutralizes two NaOH.
     """
     known = next(iter(concentration))
-    volumes = {
-        formula: _liters(match.group(1), match.group(2))
-        for match in _VOLUME_OF.finditer(text)
-        if (formula := _species(match.group(3))) is not None
-    }
+    volumes: dict[str, float] = {}
+    typed = dict(typed_unit)
+    for match in _VOLUME_OF.finditer(text):
+        formula = _species(match.group(3))
+        if formula is not None:
+            volumes[formula] = _liters(match.group(1), match.group(2))
+            typed[formula] = match.group(2)
     unknown = [formula for formula in volumes if formula != known]
     if len(unknown) != 1 or known not in volume:
         return None
@@ -286,5 +293,10 @@ def _unknown_concentration(
             "known_volume": volume[known],
             "unknown_volume": volumes[other],
             "ratio": equivalents[known] / equivalents[other],
+        },
+        # The volumes as typed, for the answer's Given rows (25.0 mL = 0.0250 L).
+        units={
+            "known_volume": typed.get(known, "L"),
+            "unknown_volume": typed.get(other, "L"),
         },
     )

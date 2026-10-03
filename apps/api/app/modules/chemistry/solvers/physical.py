@@ -6,8 +6,18 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry import sig_figs
 from app.modules.chemistry.catalog import stated
-from app.modules.chemistry.solvers.common_chem import const, inp, num, verified
+from app.modules.chemistry.solvers.common_chem import (
+    const,
+    given_row,
+    inp,
+    molar_mass_working,
+    num,
+    qty,
+    used,
+    verified,
+)
 from app.modules.chemistry.solvers.constants import FARADAY, GAS_R_J
 from app.modules.chemistry.solvers.params import require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -19,16 +29,19 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
         delta_h, delta_s, temperature = require_all(intent, "delta_h", "delta_s", "temperature")
         if temperature <= 0:
             raise SolveServiceError("temperature must be positive Kelvin")
-        # Extractors normalize both H and S to kJ-based units.
+        # Extractors normalize both H and S to kJ-based units; a value typed in J (or °C) is
+        # echoed as typed before the value the arithmetic uses.
         delta_g = delta_h - temperature * delta_s
         value = f"{num(delta_g)} kJ/mol"
-        substitution = f"ΔG = {inp(delta_h)} − ({inp(temperature)})({inp(delta_s)})"
+        substitution = (
+            f"ΔG = {used(delta_h)} kJ/mol − ({used(temperature)} K)({used(delta_s)} kJ/(mol·K))"
+        )
         return verified(
             "Verified Gibbs free energy",
             (
-                f"ΔH = {inp(delta_h)} kJ/mol",
-                f"ΔS = {inp(delta_s)} kJ/(mol·K)",
-                f"T = {inp(temperature)} K",
+                given_row("ΔH", delta_h, "kJ/mol", "J/mol"),
+                given_row("ΔS", delta_s, "kJ/(mol·K)", "J/(mol·K)"),
+                given_row("T", temperature, "K", "°C"),
             ),
             "Gibbs free-energy change, ΔG",
             *stated("gibbs"),
@@ -228,21 +241,42 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
     raise SolveServiceError(f"unsupported kinetics operation: {op}")
 
 
+def _time_unit(seconds: float) -> str:
+    """The unit a converted time was typed in, from the factor its literal was scaled by."""
+    written = sig_figs.current()
+    literal = None if written is None else written.converted.get(repr(seconds))
+    if literal is None or float(literal) == 0:
+        return "s"
+    factor = seconds / float(literal)
+    return next(
+        (unit for unit, size in _TIME_SIZES if math.isclose(factor, size, rel_tol=1e-9)), "s"
+    )
+
+
+_TIME_SIZES = (("min", 60.0), ("h", 3600.0), ("day", 86400.0))
+
+
 def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
     op = intent.chemistry_op
     if op == "cell_gibbs":
         electrons, potential = require_all(intent, "electrons", "potential")
         if electrons <= 0:
             raise SolveServiceError("electron count must be positive")
-        delta_g_kj = -electrons * FARADAY * potential / 1000
+        delta_g_j = -electrons * FARADAY * potential
+        delta_g_kj = delta_g_j / 1000
         value = f"{num(delta_g_kj)} kJ/mol"
-        substitution = f"ΔG° = −({inp(electrons)})({const(FARADAY)})({inp(potential)}) / 1000"
+        rows = (
+            f"ΔG° = −({inp(electrons)})({const(FARADAY)} C/mol)({qty(potential, 'V')})"
+            f" = {num(delta_g_j)} J/mol",
+            # A coulomb-volt is a joule; the answer is quoted per kilojoule.
+            f"ΔG° = {num(delta_g_j)} J/mol = {value}",
+        )
         return verified(
             "Verified electrochemical free energy",
             (f"n = {inp(electrons)} mol e-", f"E°cell = {inp(potential)} V"),
             "ΔG°",
             *stated("cell_gibbs"),
-            (substitution,),
+            rows,
             f"ΔG° = {value}",
             value,
         )
@@ -255,8 +289,8 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
         potential = standard - (GAS_R_J * temperature / (electrons * FARADAY)) * math.log(quotient)
         value = f"{num(potential)} V"
         substitution = (
-            f"E = {inp(standard)} − [({const(GAS_R_J)})({inp(temperature)}) / "
-            f"(({inp(electrons)})({const(FARADAY)}))]ln({inp(quotient)})"
+            f"E = {qty(standard, 'V')} − [({const(GAS_R_J)} J/(mol·K))({used(temperature)} K) / "
+            f"(({inp(electrons)})({const(FARADAY)} C/mol))]ln({inp(quotient)})"
         )
         return verified(
             "Verified cell potential",
@@ -264,7 +298,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
                 f"E° = {inp(standard)} V",
                 f"n = {inp(electrons)}",
                 f"Q = {inp(quotient)}",
-                f"T = {inp(temperature)} K",
+                given_row("T", temperature, "K", "°C"),
             ),
             "Cell potential, E",
             *stated("nernst"),
@@ -281,15 +315,15 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
         mass = molar_mass * current * time / (electrons * FARADAY)
         value = f"{num(mass)} g"
         substitution = (
-            f"m = ({inp(molar_mass)})({inp(current)})({inp(time)}) / "
-            f"[({inp(electrons)})({const(FARADAY)})]"
+            f"m = ({molar_mass_working(molar_mass)} g/mol)({qty(current, 'A')})"
+            f"({used(time)} s) / [({inp(electrons)})({const(FARADAY)} C/mol)]"
         )
         return verified(
             "Verified electrolysis mass",
             (
-                f"M = {inp(molar_mass)} g/mol",
+                f"M = {molar_mass_working(molar_mass)} g/mol",
                 f"I = {inp(current)} A",
-                f"t = {inp(time)} s",
+                given_row("t", time, "s", _time_unit(time)),
                 f"n = {inp(electrons)}",
             ),
             "Deposited mass, m",

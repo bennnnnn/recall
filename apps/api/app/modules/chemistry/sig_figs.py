@@ -125,20 +125,26 @@ def _reading(value: float, forms: dict[float, list[str]]) -> tuple[list[str], st
     typed = forms.get(value)
     if typed:
         return typed, "typed"
+    sources: list[tuple[list[str], str]] = []
     for number, written in forms.items():
         if not written or number == 0:
             continue
         if math.isclose(value, number + _CELSIUS_OFFSET, rel_tol=0, abs_tol=1e-9):
-            return written, "celsius"
-        if any(math.isclose(value, number * factor, rel_tol=1e-9) for factor in _unit_factors()):
-            return written, "scaled"
-    return None
+            sources.append((written, "celsius"))
+        elif any(math.isclose(value, number * factor, rel_tol=1e-9) for factor in _unit_factors()):
+            sources.append((written, "scaled"))
+    if len(sources) > 1:
+        # 1800 s is 30 min, or 0.50 h: two literals explain it, so both limit the answer and
+        # neither is echoed as the value typed.
+        return [form for written, _how in sources for form in written], "ambiguous"
+    return sources[0] if sources else None
 
 
 def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
     """The intent with its givens' precision read from the text it was extracted from."""
     forms = _forms(text)
     written: dict[str, str] = {}
+    converted: dict[str, str] = {}
     figures: list[int] = []
     log_places: list[int] = []
     places: list[int] = []
@@ -156,11 +162,13 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
         # value, so neither is echoed; both still limit the answer.
         if how == "typed" and len(typed_forms) == 1:
             written[repr(value)] = typed_forms[0]
+        elif how in {"scaled", "celsius"} and len(typed_forms) == 1:
+            converted[repr(value)] = typed_forms[0]
         if _exact(intent.chemistry_op, key):
             continue
         for typed in typed_forms:
             typed_places = min(decimals_of(typed), MAX_DECIMALS)
-            if how != "scaled":
+            if how in {"typed", "celsius"}:
                 # A unit change moves the decimal point; a Celsius offset does not.
                 places.append(typed_places)
             if how == "typed" and key in LOG_KEYS:
@@ -180,7 +188,14 @@ def written_numbers(text: str, intent: ChemistryIntent) -> ChemistryIntent:
         # Every given limits a pH: pKa 4.756 + log10(0.20 / 0.10) keeps the ratio's two places.
         limits = [*log_places, *([answer] if figures and answer is not None else [])]
         decimals = min(limits) if limits else answer
-    return intent.model_copy(update={"figures": answer, "decimals": decimals, "written": written})
+    return intent.model_copy(
+        update={
+            "figures": answer,
+            "decimals": decimals,
+            "written": written,
+            "converted": converted,
+        }
+    )
 
 
 @dataclass(frozen=True, slots=True)
@@ -188,6 +203,8 @@ class WrittenNumbers:
     figures: int | None = None
     decimals: int | None = None
     written: dict[str, str] = field(default_factory=dict)
+    # A converted given's literal as typed, by the stored value's repr (0.5 L from "500").
+    converted: dict[str, str] = field(default_factory=dict)
     # Every number of the answer is a sum of givens, so it keeps ``decimals`` places.
     additive: bool = False
 
@@ -203,6 +220,7 @@ def numbers_as_written(intent: ChemistryIntent) -> Iterator[None]:
             intent.figures,
             intent.decimals,
             intent.written,
+            intent.converted,
             additive=intent.chemistry_op in ADDITIVE_OPS,
         )
     )
