@@ -39,8 +39,9 @@ def _named_outside(text: str, label: str) -> bool:
     bare = _bare_formula(label)
     if bare is not None:
         tokens.append(bare)
-    # A following + or ^ is a charge, so KCl does not match the different ion KCl+.
-    pattern = r"(?<![A-Za-z0-9]){}(?![A-Za-z0-9+^-])"
+    # A following charge or phase belongs to a different species: KCl is not KCl+,
+    # and H2O is not H2O(l).
+    pattern = r"(?<![A-Za-z0-9]){}(?![A-Za-z0-9+^-]|\((?i:aq|s|l|g)\))"
     return any(re.search(pattern.format(re.escape(token)), outside) for token in tokens)
 
 
