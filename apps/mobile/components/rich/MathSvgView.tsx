@@ -12,7 +12,7 @@ import { Space } from "@/lib/space";
  * (measured from MathJax output). Render display math at the same 20px em the
  * retired KaTeX WebView used.
  */
-const EX_PX = 20 * 0.442;
+export const MATH_SVG_EX_PX = 20 * 0.442;
 
 type Props = {
   latex: string;
@@ -84,8 +84,10 @@ export const MathSvgView = React.memo(function MathSvgView({
     );
   }
 
-  const width = Math.max(1, result.widthEx * EX_PX);
-  const height = Math.max(minHeight, result.heightEx * EX_PX);
+  // Intrinsic size. minHeight is only the loading slot: stretching a short
+  // MathJax SVG up to 48px turns `gt` and a limit into a smashed bar.
+  const width = Math.max(1, result.widthEx * MATH_SVG_EX_PX);
+  const height = Math.max(1, result.heightEx * MATH_SVG_EX_PX);
   return (
     <View style={styles.wrap}>
       <ScrollView
@@ -95,7 +97,13 @@ export const MathSvgView = React.memo(function MathSvgView({
         style={{ height }}
         contentContainerStyle={styles.lineScroll}
       >
-        <SvgXml xml={xml} width={width} height={height} testID="math-svg" />
+        <SvgXml
+          xml={xml}
+          width={width}
+          height={height}
+          preserveAspectRatio="xMidYMid meet"
+          testID="math-svg"
+        />
       </ScrollView>
     </View>
   );

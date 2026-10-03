@@ -4,12 +4,13 @@ import {
   parseExDimension,
   peekSvgMath,
   setSvgMathRendererForTest,
+  svgPaintsGlyphs,
 } from "@/lib/math/svgMath";
 
 const CONTAINER =
   '<mjx-container class="MathJax" jax="SVG" display="true">' +
   '<svg style="vertical-align: -1.575ex;" xmlns="http://www.w3.org/2000/svg" width="20.765ex" height="5.291ex" role="img" focusable="false" viewBox="0 -1642.5 9178 2336">' +
-  '<g stroke="currentColor" fill="currentColor"></path></svg></mjx-container>';
+  '<g stroke="currentColor" fill="currentColor"><path d="M0 0"></path></g></svg></mjx-container>';
 
 afterEach(() => {
   setSvgMathRendererForTest(null);
@@ -53,6 +54,8 @@ describe("latexToSvgMath", () => {
     expect(first).not.toBeNull();
     expect(first?.widthEx).toBeCloseTo(20.765);
     expect(first?.svg).toContain("<svg");
+    expect(first?.svg).toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(first?.svg).not.toContain('width="20.765ex"');
 
     const second = await latexToSvgMath("x^2", true);
     expect(second).toEqual(first);
@@ -90,6 +93,20 @@ describe("latexToSvgMath", () => {
 
     setSvgMathRendererForTest(() => '<mjx-container><svg viewBox="0 0 1 1"></svg></mjx-container>');
     expect(await latexToSvgMath("x^3", true)).toBeNull();
+  });
+
+  it("rejects an merror bar and a path-less spacer", async () => {
+    const errorSvg =
+      '<mjx-container><svg xmlns="http://www.w3.org/2000/svg" width="2ex" height="1ex" viewBox="0 0 100 100">' +
+      '<g fill="currentColor" data-mml-node="merror"><rect data-background="true" width="100" height="100"></rect></g></svg></mjx-container>';
+    setSvgMathRendererForTest(() => errorSvg);
+    expect(svgPaintsGlyphs(extractSvgElement(errorSvg) ?? "")).toBe(false);
+    expect(await latexToSvgMath(String.raw`\frac{mg}{`, true)).toBeNull();
+
+    const spacer =
+      '<mjx-container><svg xmlns="http://www.w3.org/2000/svg" width="0.036ex" height="0.036ex" viewBox="0 0 16 16"></svg></mjx-container>';
+    setSvgMathRendererForTest(() => spacer);
+    expect(await latexToSvgMath("\\\\", true)).toBeNull();
   });
 
   it("peekSvgMath is undefined before any attempt", () => {

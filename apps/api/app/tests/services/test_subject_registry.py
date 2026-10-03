@@ -97,7 +97,7 @@ async def test_uncovered_physics_keeps_the_prompt_note_and_not_a_failed_check() 
 
 
 @pytest.mark.asyncio
-async def test_symbolic_drag_fall_is_not_stamped_as_unverified() -> None:
+async def test_symbolic_drag_fall_is_verified_not_a_failed_check() -> None:
     text = (
         "A particle of mass m is dropped from rest in a fluid. "
         "Drag is F = -kv. Solve v(t), the terminal velocity as t goes to infinity, "
@@ -105,8 +105,13 @@ async def test_symbolic_drag_fall_is_not_stamped_as_unverified() -> None:
     )
     result = await build_subject_augmentation(text, Settings(math_tools_enabled=True))
     assert result.subject == "physics"
-    assert result.verified is None
+    assert result.verified is not None
     assert result.unverified is False
+    assert result.prompt_block is not None
+    assert r"\frac{mg}{k}" in result.prompt_block
+    assert r"v_{T}" in result.prompt_block
+    assert r"\lim_{k\to 0}v(t)=gt" in result.prompt_block
+    assert "I couldn't automatically verify" not in result.prompt_block
 
 
 @pytest.mark.asyncio

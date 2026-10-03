@@ -45,8 +45,75 @@ def _orbit_scene(r: float) -> SimulationBlockSpec:
     )
 
 
+def _road_result(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult | None:
+    """Banked curve, level curve, and the speed where the contact force is zero."""
+    op = intent.physics_op or ""
+    if op not in {"banked_speed", "banked_angle", "level_curve_speed", "contact_speed"}:
+        return None
+    radius = p.get("r", 0.0)
+    gravity = p.get("g", 0.0)
+    if radius <= 0 or gravity <= 0:
+        raise SolveServiceError("radius and g must be positive")
+    if op == "banked_speed":
+        angle = p.get("angle", 0.0)
+        if angle <= 0 or angle >= math.pi / 2:
+            raise SolveServiceError("bank angle must be between 0 and 90 degrees")
+        speed = math.sqrt(radius * gravity * math.tan(angle))
+        formula = r"v=\sqrt{rg\tan\theta}"
+        degrees = math.degrees(angle)
+        plugged = rf"v=\sqrt{{{radius:g}\cdot {gravity:g}\cdot \tan {degrees:g}^\circ}}"
+        return PhysicsResult(
+            answer=formula,
+            formulas=(formula,),
+            substitutions=(plugged,),
+            quantities=(QuantityResult("v", speed, "m/s"),),
+            joiner="projectile",
+        )
+    if op == "banked_angle":
+        speed = p.get("v", 0.0)
+        if speed <= 0:
+            raise SolveServiceError("speed must be positive")
+        angle = math.atan(speed**2 / (radius * gravity))
+        formula = r"\theta=\arctan\frac{v^{2}}{rg}"
+        plugged = rf"\theta=\arctan\frac{{{speed:g}^{{2}}}}{{{radius:g}\cdot {gravity:g}}}"
+        return PhysicsResult(
+            answer=formula,
+            formulas=(formula,),
+            substitutions=(plugged,),
+            quantities=(QuantityResult(r"\theta", math.degrees(angle), "deg"),),
+            joiner="projectile",
+        )
+    if op == "level_curve_speed":
+        mu = p.get("mu", 0.0)
+        if mu <= 0:
+            raise SolveServiceError("friction coefficient must be positive")
+        speed = math.sqrt(mu * radius * gravity)
+        formula = r"v=\sqrt{\mu rg}"
+        plugged = rf"v=\sqrt{{{mu:g}\cdot {radius:g}\cdot {gravity:g}}}"
+        return PhysicsResult(
+            answer=formula,
+            formulas=(formula,),
+            substitutions=(plugged,),
+            quantities=(QuantityResult("v", speed, "m/s"),),
+            joiner="projectile",
+        )
+    speed = math.sqrt(radius * gravity)
+    formula = r"v=\sqrt{rg}"
+    plugged = rf"v=\sqrt{{{radius:g}\cdot {gravity:g}}}"
+    return PhysicsResult(
+        answer=formula,
+        formulas=(formula,),
+        substitutions=(plugged,),
+        quantities=(QuantityResult("v", speed, "m/s"),),
+        joiner="projectile",
+    )
+
+
 def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
+    road = _road_result(intent, p)
+    if road is not None:
+        return road
     op = intent.physics_op or "centripetal_acceleration"
     if op == "angular_velocity" and "rpm" in p:
         # _params_in_si already turned revolutions per minute into rad/s.
