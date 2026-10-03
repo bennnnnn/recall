@@ -91,6 +91,12 @@ describe("native math layout invariants", () => {
     expect(CORPUS.length).toBeGreaterThanOrEqual(50);
   });
 
+  it("absorbs a nested script raise into a structured exponent", () => {
+    const { layout } = layoutOf(String.raw`x^{y^2}`, 16);
+    const structured = findLayouts(layout, "script").find((node) => node.stackedScript);
+    expect(structured?.children[0]?.padTop ?? 0).toBeGreaterThan(0);
+  });
+
   it.each(CORPUS)("$id lays out without broken boxes at 16px", ({ latex, kind }) => {
     const { segments, layout } = layoutOf(latex, 16);
     expect(layoutProblems(layout, 16)).toEqual([]);

@@ -255,7 +255,7 @@ function sideMargin(em: number): number {
 
 function measureStructuredScript(segments: MathSegment[], em: number, sup: boolean): MathLayout {
   const fontSize = em * SCRIPT_RATIO;
-  const inner = measureSegments(segments, fontSize, "body", false, false);
+  const inner = measureSegments(segments, fontSize, "body", false, true);
   return {
     kind: "script",
     width: Math.max(inner.width, fontSize * 0.35),
