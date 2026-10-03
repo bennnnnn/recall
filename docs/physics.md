@@ -141,6 +141,7 @@ The binder reads these laws, beside the extractors' own:
 | Fluids | absolute pressure; apparent weight when submerged; floating fraction; capillary rise |
 | Modern | photon momentum; threshold frequency and wavelength; stopping potential; photoelectric KE; fraction and mass remaining; decay constant; activity; mean life |
 | Upper level | hydrogen transitions (λ and ΔE); Bohr radius; quantum-oscillator levels; relativistic p, E and K; E² = (pc)² + (mc²)²; velocity addition; Schwarzschild radius; Boltzmann ratio; S = k ln Ω; energy-time uncertainty; an orbit's period from its height |
+| One formula | physical and conical pendulum periods; speed to just complete a vertical loop; sound level; shear, bulk and Poisson; gear speed and gear ratio; Newton's law of cooling; absorbed or reflected radiation pressure; Otto efficiency |
 
 ## Numbers and units
 
