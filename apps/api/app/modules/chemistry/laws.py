@@ -442,6 +442,46 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         ),
     ),
     _law(
+        "parts_per_million",
+        "solutions",
+        ("parts per million", "ppm"),
+        "dimensionless",
+        (
+            var("solute_mass", "m", "gram", words=_SOLUTE_WORDS, needs_words=True),
+            var("solution_mass", "m", "gram", words=("solution",), needs_words=True),
+        ),
+    ),
+    _law(
+        "parts_per_billion",
+        "solutions",
+        ("parts per billion", "ppb"),
+        "dimensionless",
+        (
+            var("solute_mass", "m", "gram", words=_SOLUTE_WORDS, needs_words=True),
+            var("solution_mass", "m", "gram", words=("solution",), needs_words=True),
+        ),
+    ),
+    _law(
+        "volume_percent",
+        "solutions",
+        ("volume percent", "percent by volume"),
+        "percent",
+        (
+            var("solute_volume", "V", "milliliter", words=_SOLUTE_WORDS, needs_words=True),
+            var("solution_volume", "V", "milliliter", words=("solution",), needs_words=True),
+        ),
+    ),
+    _law(
+        "mass_volume_percent",
+        "solutions",
+        ("mass/volume percent", "mass-volume percent", "percent m/v"),
+        "percent",
+        (
+            var("solute_mass", "m", "gram", words=_SOLUTE_WORDS, needs_words=True),
+            var("solution_volume", "V", "milliliter", words=("solution",), needs_words=True),
+        ),
+    ),
+    _law(
         "particles_to_mass",
         "amounts",
         _GRAMS_ASKS,
