@@ -15,16 +15,17 @@ import re
 
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES, _UNKNOWN
 from app.modules.physics.givens import ANGLE, unit_at, unit_dimension
+from app.services.law_binding.ask import ask_clause
 
-# A phrase naming the quantity itself ("how long"), not an ask before one.
-_SELF_NAMING = ("how long", "how far", "how fast", "how high", "how deep")
+__all__ = [
+    "ask_clause",
+    "asked_dimensions",
+    "asked_phrases",
+    "asked_unit",
+    "result_dimension",
+    "result_reading",
+]
 
-_ASK = re.compile(
-    r"\b(?:find|calculate|compute|determine|work\s+out|estimate|evaluate|"
-    r"what|"
-    r"how\s+(?:long|far|fast|high|deep|much|many))\b",
-    re.IGNORECASE,
-)
 _QUANTITY = re.compile(
     r"\b(?:"
     + "|".join(re.escape(phrase) for phrase in sorted(_QUANTITIES, key=len, reverse=True))
@@ -39,7 +40,6 @@ _CONNECTOR = re.compile(
     r"resultant|net|peak|new|common|equivalent|effective|kinetic|potential)\s+)*",
     re.IGNORECASE,
 )
-_SENTENCE_END = re.compile(r"[?!]|\.(?:\s|$)")
 # "a planet of mass 6e24 kg": a quantity followed by its own value is a given.
 # "the energy equivalent of 2 kg" is still the ask: kg is not an energy.
 _VALUE_AFTER = re.compile(
@@ -77,22 +77,6 @@ def _dimension(phrase: str, text: str) -> str | None:
         return None
     reading = unit_dimension(expression)
     return None if reading is None else reading[0]
-
-
-def ask_clause(text: str) -> str | None:
-    """The last question's asked part: from its verb to the end of its sentence.
-
-    "How long" and the like name the quantity themselves, so they are kept.
-    None when the text asks nothing.
-    """
-    asks = list(_ASK.finditer(text))
-    if not asks:
-        return None
-    ask = asks[-1]
-    self_naming = re.sub(r"\s+", " ", ask.group().lower()).startswith(_SELF_NAMING)
-    start = ask.start() if self_naming else ask.end()
-    end_match = _SENTENCE_END.search(text, start)
-    return text[start : end_match.start() if end_match else len(text)]
 
 
 def asked_phrases(text: str) -> tuple[str, ...]:

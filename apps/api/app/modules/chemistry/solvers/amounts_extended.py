@@ -22,7 +22,7 @@ from app.modules.chemistry.solvers.common_chem import (
 )
 from app.modules.chemistry.solvers.constants import AVOGADRO, GAS_R
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.modules.chemistry.stoichiometry import molar_mass
+from app.modules.chemistry.stoichiometry import formula_atoms, molar_mass
 from app.services.solving import SolveServiceError
 
 
@@ -85,7 +85,15 @@ def solve_molecular(intent: ChemistryIntent) -> ChemistryResult:
     molar = intent.params.get("molar_mass")
     if molar is None or molar <= 0:
         raise SolveServiceError("molecular molar mass must be positive")
-    counts, working = _empirical_counts(dict(intent.species))
+    if intent.species:
+        counts, working = _empirical_counts(dict(intent.species))
+        given = [f"{element} = {inp(percent)}%" for element, percent in intent.species.items()]
+    elif intent.formula and (stated_counts := formula_atoms(intent.formula)):
+        # The empirical formula may be given outright: "the empirical formula is CH2O".
+        counts, working = dict(stated_counts), []
+        given = [f"empirical formula = {intent.formula}"]
+    else:
+        raise SolveServiceError("a molecular formula needs a composition or an empirical formula")
     empirical = _formula_from_counts(counts)
     empirical_mass = molar_mass(empirical)
     multiple = molar / empirical_mass
@@ -96,16 +104,13 @@ def solve_molecular(intent: ChemistryIntent) -> ChemistryResult:
     formula = _formula_from_counts(molecular_counts)
     return verified(
         "Verified molecular formula",
-        (
-            *[f"{element} = {inp(percent)}%" for element, percent in intent.species.items()],
-            f"M = {molar_mass_working(molar)} g/mol",
-        ),
+        (*given, f"M = {inp(molar)} g/mol"),
         "Molecular formula",
         *stated("molecular_formula"),
         (
             *working,
             f"empirical formula = {empirical}, M = {molar_mass_working(empirical_mass)} g/mol",
-            f"n = {molar_mass_working(molar)} / {molar_mass_working(empirical_mass)} = {factor}",
+            f"n = {inp(molar)} / {molar_mass_working(empirical_mass)} = {factor}",
             f"molecular formula = ({empirical}){factor} = {formula}",
         ),
         formula,

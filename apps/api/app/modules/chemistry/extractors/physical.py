@@ -177,6 +177,16 @@ def _extract_equilibrium_ext(text: str) -> ChemistryIntent | None:
         and equation
         and re.search(r"\bFind Kp\b", text, re.IGNORECASE)
     ):
+        # "Kc = 0.5 at 500 K. Find Kp." converts the stated Kc; it has no partial pressures.
+        kc = _search(rf"\bKc\s*=\s*({_N})", text, flags=0)
+        temperature = _search(rf"({_N})\s*K\b", text, flags=0)
+        if kc is not None and temperature is not None:
+            return ChemistryIntent(
+                kind="equilibrium",
+                chemistry_op="kc_kp",
+                equation=equation,
+                params={"kc": kc, "temperature": temperature},
+            )
         return ChemistryIntent(
             kind="equilibrium",
             chemistry_op="kp",

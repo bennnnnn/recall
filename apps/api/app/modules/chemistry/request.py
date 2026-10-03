@@ -322,7 +322,12 @@ def is_chemistry_question(content: str) -> bool:
         return False
     if _STRUCTURE_VERB.search(cleaned) and _STRUCTURE_NOUN.search(cleaned):
         return True
-    return extract_compound_name(cleaned) is not None
+    if extract_compound_name(cleaned) is not None:
+        return True
+    # "How many moles are in 36 g of water?" names no cue word, but reads as one law.
+    from app.modules.chemistry.binding import bind_chemistry_intent
+
+    return bind_chemistry_intent(cleaned) is not None
 
 
 def _clean_name(raw: str) -> str | None:

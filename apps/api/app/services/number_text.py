@@ -34,7 +34,8 @@ _MANTISSA = rf"[-+{_MINUS_SIGNS}]?(?:\d{{1,3}}(?:,\d{{3}})+|\d+)(?:\.\d+)?"
 # the "000" of "6,000" is not a mantissa of its own.
 _SCIENTIFIC = re.compile(
     rf"(?<![\w.,^])(?:(?P<mantissa>{_MANTISSA}){_GAP}{_TIMES}{_GAP})?"
-    rf"10{_GAP}(?:{_EXPONENT})(?![\d.])"
+    # A decimal exponent ("10^5.5") is not one; a full stop ending the sentence is fine.
+    rf"10{_GAP}(?:{_EXPONENT})(?!\d|\.\d)"
 )
 
 
