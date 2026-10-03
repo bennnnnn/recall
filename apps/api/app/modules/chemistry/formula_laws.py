@@ -348,7 +348,8 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
                 ("k2", "K2", ""),
                 ("t2", "T2", "K"),
             ),
-            "ΔH° = −(8.314 J/(mol·K)) ln({k2.value}/{k1.value}) / (1/{t2.value} − 1/{t1.value})",
+            "ΔH° = [−(8.314 J/(mol·K)) ln({k2.value}/{k1.value})"
+            " / (1/{t2.value} − 1/{t1.value})] / 1000",
         ),
         _law(
             "gibbs_from_equilibrium",
@@ -359,7 +360,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
             ("ΔG°", "kJ/mol"),
             "-(R_J*temperature*log(k))/1000",
             (("k", "K", ""), ("temperature", "T", "K")),
-            "ΔG° = −(8.314 J/(mol·K))({temperature.value}) ln({k.value})",
+            "ΔG° = −(8.314 J/(mol·K))({temperature.value}) ln({k.value}) / 1000",
         ),
         _law(
             "equilibrium_from_gibbs",
