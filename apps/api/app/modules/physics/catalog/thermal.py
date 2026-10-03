@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, bind, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, var
 
 _GAS = ("gas",)
 # A temperature change is named: "heated by 50 K". A lone "at 20 °C" is a

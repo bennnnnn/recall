@@ -34,7 +34,8 @@ _MANTISSA = rf"[-+{_MINUS_SIGNS}]?(?:\d{{1,3}}(?:,\d{{3}})+|\d+)(?:\.\d+)?"
 # the "000" of "6,000" is not a mantissa of its own.
 _SCIENTIFIC = re.compile(
     rf"(?<![\w.,^])(?:(?P<mantissa>{_MANTISSA}){_GAP}{_TIMES}{_GAP})?"
-    rf"10{_GAP}(?:{_EXPONENT})(?![\d.])"
+    # A decimal exponent ("10^5.5") is not one; a full stop ending the sentence is fine.
+    rf"10{_GAP}(?:{_EXPONENT})(?!\d|\.\d)"
 )
 
 
@@ -66,3 +67,20 @@ def read_scientific_numbers(text: str) -> str:
     if "10" not in text:
         return text
     return _SCIENTIFIC.sub(_literal, text)
+
+
+# Where a plain literal starts: not inside a word ("H2") or a decimal (the "5" of "1.5").
+LITERAL_START = re.compile(r"(?<![\w.])(?=[+-]?(?:\d|\.\d))")
+NUMERIC_LITERAL = re.compile(r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?")
+
+
+def numeric_spans(text: str) -> list[tuple[int, int]]:
+    """Complete literal spans in already-normalized solver input."""
+    spans: list[tuple[int, int]] = []
+    for start in LITERAL_START.finditer(text):
+        if spans and start.start() < spans[-1][1]:
+            continue
+        match = NUMERIC_LITERAL.match(text, start.start())
+        if match is not None:
+            spans.append(match.span())
+    return spans

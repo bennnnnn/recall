@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import (
+from app.services.law_binding.spec import (
     Binding,
     FormulaSpec,
     FormulaVariant,

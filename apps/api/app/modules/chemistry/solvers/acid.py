@@ -17,19 +17,9 @@ from app.modules.chemistry.solvers.common_chem import (
 from app.modules.chemistry.solvers.constants import KW, PKW
 from app.modules.chemistry.solvers.params import positive, require
 from app.modules.chemistry.solvers.types import ChemistryResult
+from app.modules.chemistry.species_facts import STRONG_ACIDS, STRONG_BASES
 from app.services.solving import SolveServiceError
 
-_STRONG_ACIDS = frozenset({"HCl", "HBr", "HI", "HNO3", "HClO4", "HClO3"})
-_STRONG_BASES = {
-    "LiOH": 1,
-    "NaOH": 1,
-    "KOH": 1,
-    "RbOH": 1,
-    "CsOH": 1,
-    "Ca(OH)2": 2,
-    "Sr(OH)2": 2,
-    "Ba(OH)2": 2,
-}
 # Below this, water's own ions are no longer a small correction.
 _DILUTE = 1e-6
 
@@ -42,7 +32,7 @@ def solve_strong_acid(intent: ChemistryIntent) -> ChemistryResult:
     formula = intent.formula or ""
     if formula == "H2SO4":
         raise SolveServiceError("H2SO4 is not a simple strong monoprotic acid")
-    if formula not in _STRONG_ACIDS:
+    if formula not in STRONG_ACIDS:
         raise SolveServiceError(
             f"{formula or 'that acid'} is not a supported strong monoprotic acid"
         )
@@ -63,7 +53,7 @@ def solve_strong_acid(intent: ChemistryIntent) -> ChemistryResult:
 
 def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
     formula = intent.formula or ""
-    factor = _STRONG_BASES.get(formula)
+    factor = STRONG_BASES.get(formula)
     if factor is None:
         raise SolveServiceError(f"{formula or 'that base'} is not a supported strong base")
     concentration = require(intent, "concentration", positive=True)

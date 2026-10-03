@@ -25,6 +25,9 @@ from app.services.number_text import read_scientific_numbers
         ("3 × 10^8 m/s", "3e8 m/s"),
         ("a speed of 10^8 m/s", "a speed of 1e8 m/s"),
         ("6,000 × 10^3", "6000e3"),
+        # A full stop ending the sentence is not a decimal exponent.
+        ("Ka = 1.8 × 10^-5. Find the pH", "Ka = 1.8e-5. Find the pH"),
+        ("c = 3 × 10^8.", "c = 3e8."),
     ],
 )
 def test_read_scientific_numbers_folds_one_literal(text: str, expected: str) -> None:

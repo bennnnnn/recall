@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 _LAW = "Specific-heat equation"
 _RISE = ("by", "rise", "change", "increase", "raised", "heated", "cooled", "difference")

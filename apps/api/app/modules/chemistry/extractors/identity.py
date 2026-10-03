@@ -12,6 +12,7 @@ from app.modules.chemistry.extractors.parsing import (
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
 from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
+from app.modules.chemistry.species_facts import is_formula, named_elements
 
 # Other metals match as tokens. Potassium is added only after a trailing "298 K"
 # is removed, so kelvin is not a second electrode.
@@ -32,6 +33,8 @@ def _extract_cells(text: str) -> ChemistryIntent | None:
     if re.search(r"\bgalvanic cell\b", text, re.IGNORECASE):
         without_kelvin = _KELVIN_UNIT.sub(" ", text)
         found = re.findall(r"\b(" + "|".join(_METALS) + r"|K)\b", without_kelvin)
+        # "a zinc-copper galvanic cell" names its metals in words.
+        found += [symbol for symbol in named_elements(text) if symbol in STANDARD_REDUCTION]
         unique: list[str] = []
         for symbol in found:
             if symbol not in unique:
@@ -74,7 +77,7 @@ def _extract_nuclear_ext(text: str) -> ChemistryIntent | None:
                 chemistry_op="nuclear_activity",
                 params={"decay_constant": constant, "particles": particles},
             )
-    match = re.search(r"nuclear equation\s+(.+)$", text, re.IGNORECASE)
+    match = re.search(r"nuclear equation\s*:?\s+(.+)$", text, re.IGNORECASE)
     if match:
         return ChemistryIntent(
             kind="nuclear", chemistry_op="nuclear_equation", equation=match.group(1).strip()
@@ -83,8 +86,10 @@ def _extract_nuclear_ext(text: str) -> ChemistryIntent | None:
 
 
 def _extract_identity(text: str) -> ChemistryIntent | None:
+    # "the oxidation state of S in H2SO4" answers with every element's state, S's among them.
     oxidation = re.search(
-        rf"oxidation state(?:s)?(?: of each element)? in ({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"oxidation (?:state|number)s?(?: of (?:each element|[A-Z][a-z]?))? in "
+        rf"({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
         text,
         re.IGNORECASE,
     )
@@ -93,9 +98,12 @@ def _extract_identity(text: str) -> ChemistryIntent | None:
             kind="structure", chemistry_op="oxidation_state", formula=oxidation.group(1)
         )
     vsepr = re.search(
-        rf"\bVSEPR\b(?: shape)? of ({CHEMICAL_FORMULA})(?![A-Za-z0-9])", text, re.IGNORECASE
+        rf"\b(?:VSEPR(?: shape)?|(?:molecular |electron )?(?:shape|geometry)) of "
+        rf"({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        text,
+        re.IGNORECASE,
     )
-    if vsepr:
+    if vsepr and is_formula(vsepr.group(1)):
         return ChemistryIntent(kind="structure", chemistry_op="vsepr", formula=vsepr.group(1))
     if re.search(r"\bformal charge\b", text, re.IGNORECASE):
         valence = _search(rf"\bvalence\s*=\s*({_N})", text)
