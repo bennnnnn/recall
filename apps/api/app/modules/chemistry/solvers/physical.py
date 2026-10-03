@@ -6,8 +6,8 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.chemistry import ChemistryIntent
-from app.modules.chemistry import sig_figs
 from app.modules.chemistry.catalog import stated
+from app.modules.chemistry.extractors.parsing import seconds_per
 from app.modules.chemistry.solvers.common_chem import (
     const,
     given_row,
@@ -15,6 +15,7 @@ from app.modules.chemistry.solvers.common_chem import (
     molar_mass_working,
     num,
     qty,
+    typed_unit,
     used,
     verified,
 )
@@ -22,6 +23,10 @@ from app.modules.chemistry.solvers.constants import FARADAY, GAS_R_J
 from app.modules.chemistry.solvers.params import require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
+
+# The energies a Gibbs reader converts to kJ, by their size in kJ (a calorie is 4.184 J).
+_PER_MOL = (("J/mol", 1e-3), ("kcal/mol", 4.184), ("cal/mol", 4.184e-3))
+_PER_MOL_K = (("J/(mol·K)", 1e-3), ("kcal/(mol·K)", 4.184), ("cal/(mol·K)", 4.184e-3))
 
 
 def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
@@ -39,8 +44,8 @@ def solve_thermochemistry(intent: ChemistryIntent) -> ChemistryResult:
         return verified(
             "Verified Gibbs free energy",
             (
-                given_row("ΔH", delta_h, "kJ/mol", "J/mol"),
-                given_row("ΔS", delta_s, "kJ/(mol·K)", "J/(mol·K)"),
+                given_row("ΔH", delta_h, "kJ/mol", typed_unit(delta_h, _PER_MOL)),
+                given_row("ΔS", delta_s, "kJ/(mol·K)", typed_unit(delta_s, _PER_MOL_K)),
                 given_row("T", temperature, "K", "°C"),
             ),
             "Gibbs free-energy change, ΔG",
@@ -241,19 +246,11 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
     raise SolveServiceError(f"unsupported kinetics operation: {op}")
 
 
-def _time_unit(seconds: float) -> str:
-    """The unit a converted time was typed in, from the factor its literal was scaled by."""
-    written = sig_figs.current()
-    literal = None if written is None else written.converted.get(repr(seconds))
-    if literal is None or float(literal) == 0:
-        return "s"
-    factor = seconds / float(literal)
-    return next(
-        (unit for unit, size in _TIME_SIZES if math.isclose(factor, size, rel_tol=1e-9)), "s"
-    )
-
-
-_TIME_SIZES = (("min", 60.0), ("h", 3600.0), ("day", 86400.0))
+# The times a reader converts to seconds, by their size in seconds.
+_TIME_SIZES = tuple(
+    (shown, float(seconds_per(unit)))
+    for shown, unit in (("min", "min"), ("h", "h"), ("day", "days"), ("yr", "years"))
+)
 
 
 def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
@@ -323,7 +320,7 @@ def solve_electrochemistry(intent: ChemistryIntent) -> ChemistryResult:
             (
                 f"M = {molar_mass_working(molar_mass)} g/mol",
                 f"I = {inp(current)} A",
-                given_row("t", time, "s", _time_unit(time)),
+                given_row("t", time, "s", typed_unit(time, _TIME_SIZES)),
                 f"n = {inp(electrons)}",
             ),
             "Deposited mass, m",
