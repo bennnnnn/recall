@@ -395,9 +395,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   set (`copy` / drafts, `mermaid`, `chart`, `math`, chemistry source). Server attaches
   verified `answer` / `graph` / `geometry`, `sources`, and `places`. Layout fences
   (`steps`, `comparison`, `keyvalue`, `collapsible`, `quote`, `clock`, `callout`)
-  still render for history; the prompt must not choose them. Calendar and reminder
-  control fences stay outside the registry. Leftover `vocab_quiz` fences in old
-  messages are stripped for display.
+  still render for history; the prompt must not choose them. Calendar, reminder,
+  and settings (`settings_proposal`) control fences stay outside the registry.
+  Leftover `vocab_quiz` fences in old messages are stripped for display.
 - ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +
   copy + Mermaid Live link; Expo Go shows source + external editor hint.
 - ✅ **PDF attachments** — uploaded PDFs show a file card + inline first-page preview (pdf.js in
