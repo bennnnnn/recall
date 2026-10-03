@@ -31,7 +31,7 @@ _OHM_PATTERN = r"ohms?|\u03a9"
 
 _TESLA_PATTERN = r"T|tesla|teslas|mT|millitesla"
 
-_G_DEFAULT = 9.81
+_G_DEFAULT = SCHOOL_GRAVITY["earth"]
 
 _ELECTRON_MASS = ELECTRON_MASS
 

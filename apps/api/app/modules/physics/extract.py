@@ -92,6 +92,10 @@ def needs_physics(text: str) -> bool:
         return False
     if _ADVANCED_PHYSICS_RE.search(cleaned) is not None:
         return True
+    from app.modules.physics.extractors.drag import closed_drag_request
+
+    if closed_drag_request(cleaned):
+        return True
     if not any(char.isdigit() for char in cleaned):
         return _DIGIT_FREE_PHYSICS_RE.search(cleaned) is not None
     if has_supported_physics_cue(cleaned):

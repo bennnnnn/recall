@@ -25,6 +25,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "T",
         variables=(
             var("a", "a", "meter / second ** 2"),
+            var("g", "g", "meter / second ** 2", visible=False),
             var("m", "m", "kilogram"),
         ),
     ),
@@ -34,6 +35,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Newton's second law",
         "a,\\ T",
         variables=(
+            var("g", "g", "meter / second ** 2", visible=False),
             var("m1", "m_1", "kilogram"),
             var("m2", "m_2", "kilogram"),
         ),

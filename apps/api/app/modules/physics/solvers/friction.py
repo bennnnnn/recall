@@ -7,14 +7,19 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.physics import PhysicsIntent, SimulationBlockSpec, SimulationBody
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.common import (
+    PhysicsResult,
+    QuantityResult,
+    _params_in_si,
+    gravity_of,
+)
 from app.services.solving import SolveServiceError
 
 
 def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or "friction_force"
-    g = p.get("g", 9.81)
+    g = gravity_of(p)
     mu = p.get("mu", 0.0)
     theta = p.get("angle", 0.0)  # radians
     if g <= 0:

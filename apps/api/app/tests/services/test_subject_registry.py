@@ -86,14 +86,49 @@ async def test_no_subject_does_not_force_the_math_solver() -> None:
 
 
 @pytest.mark.asyncio
-async def test_physics_decline_is_flagged_without_reading_the_prompt() -> None:
+async def test_uncovered_physics_keeps_the_prompt_note_and_not_a_failed_check() -> None:
     text = "binding energy of He-4, mass = 4.002603 u"
     result = await build_subject_augmentation(text, Settings(math_tools_enabled=True))
     assert result.subject == "physics"
     assert result.verified is None
-    assert result.unverified is True
+    assert result.unverified is False
     assert result.prompt_block is not None
     assert result.prompt_block.startswith("Physics note:")
+
+
+@pytest.mark.asyncio
+async def test_symbolic_drag_fall_is_verified_not_a_failed_check() -> None:
+    text = (
+        "A particle of mass m is dropped from rest in a fluid. "
+        "Drag is F = -kv. Solve v(t), the terminal velocity as t goes to infinity, "
+        "and the limit as k goes to 0."
+    )
+    result = await build_subject_augmentation(text, Settings(math_tools_enabled=True))
+    assert result.subject == "physics"
+    assert result.verified is not None
+    assert result.unverified is False
+    assert result.prompt_block is not None
+    assert r"\frac{mg}{k}" in result.prompt_block
+    assert r"v_{T}" in result.prompt_block
+    assert r"\lim_{k\to 0}v(t)=gt" in result.prompt_block
+    assert "I couldn't automatically verify" not in result.prompt_block
+
+
+@pytest.mark.asyncio
+async def test_a_failed_physics_solve_is_still_unverified() -> None:
+    text = "A ball is dropped from 20 m. How long until it hits the ground?"
+
+    async def fail(*_args: object, **_kwargs: object) -> None:
+        return None
+
+    with patch(
+        "app.modules.physics.prompt._build_verified_physics_block_async",
+        fail,
+    ):
+        result = await build_subject_augmentation(text, Settings(math_tools_enabled=True))
+    assert result.subject == "physics"
+    assert result.verified is None
+    assert result.unverified is True
 
 
 @pytest.mark.asyncio

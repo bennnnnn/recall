@@ -170,6 +170,7 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ("dalton", "gases", "Dalton's law", "Ptotal = Σ Pi"),
     ("partial_pressure", "gases", "Mole fraction", "Pi = Xi Ptotal"),
     ("gas_over_water", "gases", "Dalton's law with water vapor", "Pdry = Ptotal − Pwater"),
+    ("graham", "gases", "Graham's law", "rate1 / rate2 = √(M2 / M1)"),
     ("calorimetry", "thermochemistry", "Calorimetry", "q_rxn = −Ccal ΔT"),
     ("hess", "thermochemistry", "Hess's law", "ΔH = Σ mi ΔHi"),
     (
@@ -179,6 +180,12 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "ΔH°rxn = Σ n ΔHf°(products) − Σ n ΔHf°(reactants)",
     ),
     ("bond_enthalpy", "thermochemistry", "Bond enthalpies", "ΔH ≈ Σ broken − Σ formed"),
+    (
+        "clausius_clapeyron",
+        "thermochemistry",
+        "Clausius-Clapeyron equation",
+        "ln(P2 / P1) = −ΔHvap / R × (1/T2 − 1/T1)",
+    ),
     ("ksp", "equilibrium", "Solubility product", "Ksp = Π (νᵢ s)^νᵢ"),
     (
         "precipitation",
@@ -270,6 +277,7 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ("freezing_depression", "solutions", "Freezing-point depression", "ΔTf = i Kf m"),
     ("osmotic_pressure", "solutions", "van 't Hoff equation", "Π = iMRT"),
     ("raoult", "solutions", "Raoult's law", "P = X P°"),
+    ("henry", "solutions", "Henry's law", "C = kH × P"),
     ("calibration", "analytical", "Linear calibration", "c = (signal − intercept) / slope"),
     ("gravimetric", "analytical", "Gravimetric factor", "mass = precipitate × factor"),
     (

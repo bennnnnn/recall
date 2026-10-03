@@ -66,6 +66,34 @@ export function extractSvgElement(containerHtml: string): string | null {
   return openTag + svg.slice(tagEnd);
 }
 
+/**
+ * A painted formula has glyph paths. MathJax's error SVG is an `merror` group
+ * whose background rect is filled with currentColor — a solid bar once the
+ * theme color is substituted. A valid fraction bar is a thin rect without
+ * `data-background`. A path-less spacer (`\\`) is the small black square.
+ */
+export function svgPaintsGlyphs(svg: string): boolean {
+  if (svg.includes('data-mml-node="merror"') || svg.includes('data-background="true"')) {
+    return false;
+  }
+  return svg.includes("<path");
+}
+
+/**
+ * Drop the `ex` width/height. react-native-svg treats those units as pixels
+ * and then stretches the drawing to the pixel width and height we pass, so a
+ * short formula becomes a bar. `meet` keeps the viewBox aspect.
+ */
+export function svgForDisplay(svg: string): string {
+  const tagEnd = svg.indexOf(">");
+  if (tagEnd < 0) return svg;
+  let open = svg.slice(0, tagEnd).replace(/\s(?:width|height)="[^"]*"/g, "");
+  if (!open.includes("preserveAspectRatio=")) {
+    open += ' preserveAspectRatio="xMidYMid meet"';
+  }
+  return open + svg.slice(tagEnd);
+}
+
 /** Parse `width="20.765ex"` → 20.765. Linear scan, no regex backtracking. */
 export function parseExDimension(svg: string, name: "width" | "height"): number | null {
   const attr = `${name}="`;
@@ -138,10 +166,12 @@ export async function latexToSvgMath(
       const render = await getRenderer();
       const containerHtml = render(trimmed, display);
       const svg = extractSvgElement(containerHtml);
-      if (svg) {
+      if (svg && svgPaintsGlyphs(svg)) {
         const widthEx = parseExDimension(svg, "width");
         const heightEx = parseExDimension(svg, "height");
-        if (widthEx != null && heightEx != null) result = { svg, widthEx, heightEx };
+        if (widthEx != null && heightEx != null) {
+          result = { svg: svgForDisplay(svg), widthEx, heightEx };
+        }
       }
     } catch {
       result = null;

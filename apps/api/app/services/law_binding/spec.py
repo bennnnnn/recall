@@ -104,6 +104,8 @@ class Binding:
     result_words: tuple[str, ...] = ()
     # A negative result is not an answer (a time, a height, a power).
     nonnegative: bool = False
+    # A negative result is reported as its size with this note: cooling "releases" heat.
+    negative_detail: str | None = None
     # A result above this is not an answer: a floating fraction above 1 sinks.
     at_most: float | None = None
     # The unit the answer is printed in when it is not the SI spelling of

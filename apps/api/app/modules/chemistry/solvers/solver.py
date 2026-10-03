@@ -65,6 +65,7 @@ from app.modules.chemistry.solvers.equilibrium_ext import (
     solve_precipitation,
 )
 from app.modules.chemistry.solvers.formula import solve_formula_law
+from app.modules.chemistry.solvers.formula_laws import solve_clausius, solve_graham, solve_henry
 from app.modules.chemistry.solvers.gases_ext import (
     solve_dalton,
     solve_gas_over_water,
@@ -139,10 +140,12 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "dalton": solve_dalton,
     "partial_pressure": solve_partial_pressure,
     "gas_over_water": solve_gas_over_water,
+    "graham": solve_graham,
     "calorimetry": solve_calorimetry,
     "hess": solve_hess,
     "formation_enthalpy": solve_formation,
     "bond_enthalpy": solve_bond_enthalpy,
+    "clausius_clapeyron": solve_clausius,
     "ksp": solve_ksp,
     "precipitation": solve_precipitation,
     "common_ion": solve_common_ion,
@@ -169,6 +172,7 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "freezing_depression": solve_freezing,
     "osmotic_pressure": solve_osmotic,
     "raoult": solve_raoult,
+    "henry": solve_henry,
     "calibration": solve_calibration,
     "gravimetric": solve_gravimetric,
     "standard_addition": solve_standard_addition,

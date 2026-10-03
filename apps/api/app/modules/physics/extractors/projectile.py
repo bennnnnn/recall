@@ -97,6 +97,10 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _PROJECTILE_CUES, _PROJECTILE_CUE_RES):
         return None
+    from app.modules.physics.extractors.drag import states_velocity_drag
+
+    if states_velocity_drag(cleaned):
+        return None
     # A collision is not a projectile, whatever units it carries. The signature
     # cue above is "a speed and an angle in one clause" — which a 2D collision
     # also satisfies, and this extractor runs first. Without this guard,
