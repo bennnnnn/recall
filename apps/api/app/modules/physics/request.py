@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from app.models.schemas.physics import PhysicsIntent
 from app.models.schemas.physics.intent import ProjectileQuantity
@@ -26,6 +27,9 @@ from app.modules.physics.numbers import (
     numeric_spans,
 )
 from app.modules.physics.registry import has_supported_physics_cue
+
+if TYPE_CHECKING:
+    from app.modules.physics.catalog.spec import FormulaSpec
 
 _MASS = re.compile(rf"({_NUMBER})\s*({_MASS_UNITS})(?![A-Za-z0-9/^])", re.IGNORECASE)
 _SPEED = re.compile(rf"({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)
@@ -210,6 +214,45 @@ def prepare_physics_request(text: str) -> PhysicsRequest:
     return PhysicsRequest(normalized, rejected=ops is None, projectile_ops=ops or ())
 
 
+_LATEX_COMMAND = re.compile(r"\\[A-Za-z]+")
+# An expression names g as an identifier (m*g). Latex writes the product glued
+# (mg, gh_1, 2g). Commands are removed first, so the g in \log or \gamma is not one.
+_G_NAME = re.compile(r"(?<![A-Za-z0-9_])g(?![A-Za-z0-9_])")
+
+
+def _text_uses_g(text: str | None) -> bool:
+    if not text:
+        return False
+    if "\\" in text or "{" in text:
+        return "g" in _LATEX_COMMAND.sub(" ", text)
+    return _G_NAME.search(text) is not None
+
+
+def _variant_uses_g(latex: str | None, expression: str | None, lines: tuple[str, ...]) -> bool:
+    return _text_uses_g(latex) or _text_uses_g(expression) or any(map(_text_uses_g, lines))
+
+
+def _selection_uses_gravity(spec: FormulaSpec, params: dict[str, float]) -> bool:
+    """Whether this filled formula multiplies by g.
+
+    A variable named g on the catalog is not enough. Bernoulli declares g for
+    the height variant, and the horizontal form does not use it.
+    """
+    from app.modules.physics.catalog import matching_variant
+
+    if not any(variable.name == "g" for variable in spec.variables):
+        return False
+    variant = matching_variant(spec, params)
+    if variant is not None and (variant.latex is not None or variant.expression or variant.lines):
+        return _variant_uses_g(variant.latex, variant.expression, variant.lines)
+    if _text_uses_g(spec.base_latex) or _text_uses_g(spec.expression):
+        return True
+    # g appears only in a variant that this selection did not take.
+    if any(_variant_uses_g(item.latex, item.expression, item.lines) for item in spec.variants):
+        return False
+    return True
+
+
 def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> PhysicsIntent | None:
     """Attach every requested projectile quantity, or refuse a different solve.
 
@@ -227,17 +270,19 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
     if any(value < 0 for key, value in params.items() if key in {"m", "m1", "m2"}):
         return None
     spec = formula_spec(intent.physics_op or "")
-    declares_g = spec is not None and any(variable.name == "g" for variable in spec.variables)
+    uses_g = spec is not None and _selection_uses_gravity(spec, params)
     # "On Jupiter" with no g written: Earth's school value would answer another planet.
+    # Only a selection that actually multiplies by g. Horizontal Bernoulli declares
+    # g for its height variant and does not use it.
     if (
-        declares_g
+        uses_g
         and stated_gravity(request.text) is None
         and names_body_without_school_gravity(request.text.lower())
     ):
         return None
     # Moon and Mars have a school g. A solver that would otherwise fill Earth's
     # must use that body's value when the question never wrote g.
-    if declares_g and "g" not in params:
+    if uses_g and "g" not in params:
         detected = _detect_gravity(request.text)
         if detected != SCHOOL_GRAVITY["earth"]:
             params = {**params, "g": detected}
