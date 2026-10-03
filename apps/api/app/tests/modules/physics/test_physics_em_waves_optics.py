@@ -316,3 +316,27 @@ def test_givens_in_different_units_answer_in_si() -> None:
 )
 def test_review_cases_answer_the_question_asked(text: str, answer: str) -> None:
     assert _answer(text) == answer
+
+
+def test_bragg_uses_the_stated_order_and_angle() -> None:
+    wavelength = (
+        "In Bragg reflection, crystal planes are 0.200 nm apart and the first-order "
+        "angle is 30 degrees. Find the wavelength."
+    )
+    spacing = (
+        "X-rays of wavelength 0.154 nm strike a crystal at a Bragg angle of 30 degrees "
+        "in the first order. Find the plane spacing."
+    )
+    assert _answer(wavelength) == "0.2 nm"
+    assert _answer(spacing) == "0.154 nm"
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Bragg reflection from planes 0.200 nm apart at 30 degrees. Find the wavelength.",
+        "First-order Bragg reflection from planes 0.200 nm apart. Find the wavelength.",
+    ],
+)
+def test_bragg_declines_when_the_order_or_the_angle_is_missing(text: str) -> None:
+    assert _answer(text) is None
