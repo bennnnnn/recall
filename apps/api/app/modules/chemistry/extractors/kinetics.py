@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
+from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     TIME_UNIT_PATTERN,
@@ -93,7 +93,7 @@ def _extract_first_order(text: str) -> ChemistryIntent | None:
     return None
 
 
-_INTEGRATED_ORDERS: tuple[tuple[str, ChemistryOp, ChemistryOp], ...] = (
+_INTEGRATED_ORDERS: tuple[tuple[str, str, str], ...] = (
     ("zero", "zero_order", "zero_order_half_life"),
     ("second", "second_order", "second_order_half_life"),
 )

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
+from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extractors.parsing import (
     _N,
@@ -60,7 +60,7 @@ def _extract_equations(text: str) -> ChemistryIntent | None:
                     break
                 normalized[species] = value
         if normalized:
-            op: ChemistryOp = (
+            op = (
                 "reaction_quotient"
                 if re.search(r"\b(?:reaction quotient|Qc)\b", text, re.IGNORECASE)
                 else "equilibrium_constant"

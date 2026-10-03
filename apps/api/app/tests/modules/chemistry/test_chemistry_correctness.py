@@ -13,7 +13,7 @@ import re
 
 import pytest
 
-from app.models.schemas.chemistry import ChemistryIntent, ChemistryKind, ChemistryOp
+from app.models.schemas.chemistry import ChemistryIntent, ChemistryKind
 from app.models.schemas.chemistry.scene import TitrationScene
 from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.equations import balance_equation
@@ -960,7 +960,7 @@ def test_esterification_needs_an_alcohol_partner_not_an_acid() -> None:
     ],
 )
 def test_a_missing_input_is_refused_not_defaulted(
-    kind: ChemistryKind, operation: ChemistryOp, params: dict[str, float]
+    kind: ChemistryKind, operation: str, params: dict[str, float]
 ) -> None:
     intent = ChemistryIntent(kind=kind, chemistry_op=operation, params=params)
     with pytest.raises(SolveServiceError):

@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import math
 import re
-from typing import get_args
 
 import pytest
 from pydantic import ValidationError
 
-from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
+from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.block import build_verified_chemistry
+from app.modules.chemistry.catalog import CATALOG
 from app.modules.chemistry.direct import (
     format_direct_chemistry_reply,
     maybe_direct_chemistry_reply,
@@ -22,7 +22,7 @@ from app.modules.chemistry.solvers.types import format_number
 from app.services.solving import SolveServiceError
 from app.tests.modules.chemistry.new_law_cases import NEW_LAW_CASES
 
-PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
+PIPELINE_CASES: list[tuple[str, str, str]] = [
     ("Balance H2 + O2 -> H2O", "balance", "2 H2 + O2 -> 2 H2O"),
     ("What is the molar mass of H2O?", "molar_mass", "M(H2O) = 18.02 g/mol"),
     (
@@ -403,7 +403,7 @@ PIPELINE_CASES: list[tuple[str, ChemistryOp, str]] = [
 
 # IUPAC names are a PubChem property. The local solver refuses them so a
 # missing lookup cannot be labeled verified.
-_LOCAL_OPS = set(get_args(ChemistryOp)) - {"iupac_name"}
+_LOCAL_OPS = set(CATALOG) - {"iupac_name"}
 
 REMAINING_CASES = (
     (
@@ -495,7 +495,7 @@ def test_pipeline_matrix_covers_every_typed_operation() -> None:
 @pytest.mark.parametrize(
     ("question", "operation", "answer"), (*PIPELINE_CASES, *REMAINING_CASES, *NEW_LAW_CASES)
 )
-def test_text_pipeline_matrix(question: str, operation: ChemistryOp, answer: str) -> None:
+def test_text_pipeline_matrix(question: str, operation: str, answer: str) -> None:
     assert is_chemistry_question(question)
     intent = extract_chemistry_intent(question)
     assert intent is not None
