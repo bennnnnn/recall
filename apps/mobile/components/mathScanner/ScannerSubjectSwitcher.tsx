@@ -83,6 +83,10 @@ export function ScannerSubjectSwitcher({ value, onChange }: Props) {
     width: segmentWidth,
     transform: [{ translateX: position.value * segmentWidth }],
   }));
+  const inkStyle = useAnimatedStyle(() => ({
+    width: segmentWidth * SCANNER_SUBJECTS.length,
+    transform: [{ translateX: -position.value * segmentWidth }],
+  }));
 
   const onA11yAction = (event: AccessibilityActionEvent) => {
     const current = SCANNER_SUBJECTS.indexOf(value);
@@ -103,7 +107,6 @@ export function ScannerSubjectSwitcher({ value, onChange }: Props) {
         accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
         onAccessibilityAction={onA11yAction}
       >
-        {width > 0 ? <Animated.View pointerEvents="none" style={[s.indicator, indicatorStyle]} /> : null}
         {SCANNER_SUBJECTS.map((subject, index) => {
           const selected = subject === value;
           return (
@@ -116,10 +119,25 @@ export function ScannerSubjectSwitcher({ value, onChange }: Props) {
               accessibilityState={{ selected }}
               accessibilityLabel={t(LABEL_KEYS[subject])}
             >
-              <Text style={[s.label, selected ? s.labelSelected : null]}>{t(LABEL_KEYS[subject])}</Text>
+              <Text style={s.label}>{t(LABEL_KEYS[subject])}</Text>
             </Pressable>
           );
         })}
+        {width > 0 ? (
+          // Dark copies ride inside the pill. The words underneath stay light,
+          // so a drag does not blank the subject you started on.
+          <Animated.View pointerEvents="none" style={[s.indicator, indicatorStyle]}>
+            <Animated.View style={[s.inkRow, inkStyle]}>
+              {SCANNER_SUBJECTS.map((subject) => (
+                <View key={subject} style={[s.inkCell, { width: segmentWidth }]}>
+                  <Text style={s.inkLabel} accessibilityElementsHidden importantForAccessibility="no">
+                    {t(LABEL_KEYS[subject])}
+                  </Text>
+                </View>
+              ))}
+            </Animated.View>
+          </Animated.View>
+        ) : null}
       </View>
     </GestureDetector>
   );
@@ -146,7 +164,17 @@ function makeStyles(theme: Theme) {
       bottom: 3,
       left: 3,
       borderRadius: Radius.full,
+      overflow: "hidden",
       backgroundColor: withAlpha(theme.onMedia, 0.96),
+    },
+    inkRow: {
+      flexDirection: "row",
+      height: "100%",
+    },
+    inkCell: {
+      height: "100%",
+      alignItems: "center",
+      justifyContent: "center",
     },
     option: {
       flex: 1,
@@ -154,15 +182,16 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: Space.xs,
       alignItems: "center",
       justifyContent: "center",
-      zIndex: 1,
     },
     label: {
       ...Type.compact,
       color: withAlpha(theme.onMedia, 0.78),
       ...Weight.bold,
     },
-    labelSelected: {
+    inkLabel: {
+      ...Type.compact,
       color: theme.mediaScrim,
+      ...Weight.bold,
     },
   });
 }

@@ -36,6 +36,8 @@ type Props = {
   granted: boolean;
   preview: boolean;
   busy: boolean;
+  /** Capture is in flight. Library picks stay off this so the shutter does not spin. */
+  capturing?: boolean;
   torchOn: boolean;
   subject: ScannerSubject;
   error: string | null;
@@ -55,6 +57,7 @@ export function MathScannerChrome({
   granted,
   preview,
   busy,
+  capturing = false,
   torchOn,
   subject,
   error,
@@ -178,7 +181,11 @@ export function MathScannerChrome({
               accessibilityLabel={t("chat.math_scan_capture_a11y")}
             >
               <Animated.View style={[s.shutter, shutterStyle]}>
-                {busy ? <ActivityIndicator color={theme.text} /> : <View style={s.shutterInner} />}
+                {capturing ? (
+                  <ActivityIndicator color={theme.text} />
+                ) : (
+                  <View style={s.shutterInner} testID="math-scanner-shutter-disc" />
+                )}
               </Animated.View>
             </GHPressable>
             <View style={s.sideSlot}>
