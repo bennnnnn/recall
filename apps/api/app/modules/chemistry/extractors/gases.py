@@ -1,4 +1,4 @@
-"""Gases: Dalton's law, partial pressures, a gas over water, and Graham's law."""
+"""Gases: Dalton's law, partial pressures, a gas over water, Graham's law, Henry's law."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from app.modules.chemistry.extractors.parsing import (
     _CANONICAL_PRESSURE,
     _N,
     _PRESSURE_UNIT,
+    _labeled,
     _partial_pressures,
     _search,
 )
@@ -41,7 +42,27 @@ def _listed_partials(text: str) -> tuple[dict[str, float], str] | None:
     return {str(index): to_atm(value, unit) for index, (value, unit) in enumerate(rows, 1)}, "atm"
 
 
+def _extract_graham_rates(text: str) -> ChemistryIntent | None:
+    if not re.search(r"\bGraham\b", text, re.IGNORECASE):
+        return None
+    found = _labeled(
+        text,
+        (
+            ("rate1", rf"\br1\s*=\s*({_N})"),
+            ("rate2", rf"\br2\s*=\s*({_N})"),
+            ("molar1", rf"\bM1\s*=\s*({_N})"),
+            ("molar2", rf"\bM2\s*=\s*({_N})"),
+        ),
+    )
+    if len(found) != 3:
+        return None
+    return ChemistryIntent(kind="gases", chemistry_op="graham", params=found)
+
+
 def _extract_gas_laws(text: str) -> ChemistryIntent | None:
+    graham = _extract_graham_rates(text)
+    if graham is not None:
+        return graham
     # Boyle, Charles and the combined and ideal gas laws are physics' (physics/catalog/gas_laws.py),
     # answered in L and atm when the question is written in them.
     if _LISTED_PARTIALS.search(text) and not re.search(r"\bP\(", text):
@@ -181,3 +202,19 @@ def _extract_graham(text: str) -> ChemistryIntent | None:
         target=second,
         params={"molar_mass_a": molar_mass(first), "molar_mass_b": molar_mass(second)},
     )
+
+
+def _extract_henry(text: str) -> ChemistryIntent | None:
+    if not re.search(r"\bHenry'?s?\s+law\b", text, re.IGNORECASE):
+        return None
+    found = _labeled(
+        text,
+        (
+            ("concentration", rf"\bC\s*=\s*({_N})"),
+            ("henry_constant", rf"\bkH\s*=\s*({_N})"),
+            ("pressure", rf"\bP\s*=\s*({_N})"),
+        ),
+    )
+    if len(found) != 2:
+        return None
+    return ChemistryIntent(kind="solutions", chemistry_op="henry", params=found)

@@ -58,17 +58,22 @@ async def build_physics_augmentation(
     settings: Settings,
     *,
     needs_subject: bool | None = None,
-) -> tuple[str | None, VerifiedPhysicsBlock | None]:
-    """Build physics context without passing through math extraction or blocks."""
+) -> tuple[str | None, VerifiedPhysicsBlock | None, bool]:
+    """Build physics context without passing through math extraction or blocks.
+
+    The third value is true only when a matching template was solved and that
+    solve failed. A physics question with no template still gets the prompt
+    note, and it is not reported as a failed check.
+    """
     if not settings.math_tools_enabled:
-        return None, None
+        return None, None, False
     detected = needs_physics(user_content) if needs_subject is None else needs_subject
     if not detected:
-        return None, None
+        return None, None, False
     intent = extract_physics_intent(user_content)
     if intent is None:
-        return _unverified_physics_note(), None
+        return _unverified_physics_note(), None, False
     verified = await _build_verified_physics_block_async(intent, settings)
     if verified is None:
-        return _unverified_physics_note(), None
-    return f"{verified.text}\n\n{PHYSICS_REPLY_POLICY}", verified
+        return _unverified_physics_note(), None, True
+    return f"{verified.text}\n\n{PHYSICS_REPLY_POLICY}", verified, False

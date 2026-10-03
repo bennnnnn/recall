@@ -8,6 +8,7 @@ from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _equation,
+    _labeled,
     _search,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
@@ -30,7 +31,35 @@ def _extract_gibbs(text: str) -> ChemistryIntent | None:
     return None
 
 
+def _extract_clausius(text: str) -> ChemistryIntent | None:
+    if not re.search(r"\bClausius\b", text, re.IGNORECASE):
+        return None
+    found = _labeled(
+        text,
+        (
+            ("p1", rf"\bP1\s*=\s*({_N})"),
+            ("t1", rf"\bT1\s*=\s*({_N})"),
+            ("p2", rf"\bP2\s*=\s*({_N})"),
+            ("t2", rf"\bT2\s*=\s*({_N})"),
+            ("delta_h", rf"\bdH\s*=\s*({_N})"),
+        ),
+    )
+    points = {"p1", "t1", "p2", "t2"}
+    pressure = {"p1", "t1", "t2", "delta_h"} <= set(found) or {"p2", "t1", "t2", "delta_h"} <= set(
+        found
+    )
+    complete = set(found) == points or (pressure and "delta_h" in found and len(found) == 4)
+    if complete:
+        return ChemistryIntent(
+            kind="thermochemistry", chemistry_op="clausius_clapeyron", params=found
+        )
+    return None
+
+
 def _extract_enthalpy(text: str) -> ChemistryIntent | None:
+    clausius = _extract_clausius(text)
+    if clausius is not None:
+        return clausius
     if re.search(r"\b(?:calorimeter constant|Ccal)\b", text, re.IGNORECASE):
         match = re.search(
             rf"(?:Ccal|calorimeter constant)\s*=\s*({_N})\s*(k?J)\s*/\s*(?:°\s*C|C|K)\b",

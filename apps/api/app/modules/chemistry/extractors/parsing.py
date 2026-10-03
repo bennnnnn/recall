@@ -263,3 +263,12 @@ def _element(token: str) -> str | None:
 
 
 _NUCLIDE = r"(?:[A-Z][a-z]?-\d+|\d+[A-Z][a-z]?)"
+
+
+def _labeled(text: str, labels: tuple[tuple[str, str], ...]) -> dict[str, float]:
+    found: dict[str, float] = {}
+    for key, pattern in labels:
+        value = _search(pattern, text)
+        if value is not None:
+            found[key] = value
+    return found

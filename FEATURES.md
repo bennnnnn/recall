@@ -283,7 +283,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   max height, time of flight, impact speed, launch angle from a range), scalar
   F=ma with resultants and components, KE / PE / work / power (including
   `W = Fd cos θ` and `P = Fv cos θ` when an angle is stated, the work-energy
-  theorem, and mechanical-energy conservation for gravity or a spring), momentum /
+  theorem, and mechanical-energy conservation for gravity or a spring), a physical
+  pendulum, a conical pendulum, and the speed to just complete a vertical loop, momentum /
   impulse / 1D collisions, friction (`f = μN`, incline acceleration, `μ = tanθ`
   at the slipping angle, minimum force to move), circular motion
   (`a_c`, `F_c`, period, RPM and `ω = v/r`), springs and SHM (`F = kx`, `U`, spring and
@@ -292,26 +293,26 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   `Q = It`, `E = Pt`, `C = Q/V`, terminal voltage, one-junction Kirchhoff
   and a one-battery series loop, inductor emf and energy, RL growth and decay,
   sinusoidal RMS, reactance, series impedance, LC resonance, and average
-  resistor power), **waves** (`v = fλ`,
+  resistor power),   **waves** (`v = fλ`,
   `f = 1/T`, Doppler for a moving source or a moving observer of a stationary
   source, with a stated speed of sound and either party's speed in any unit, and the
-  school form when both speeds are stated), **optics** (thin lens/mirror, speed-derived refractive
+  school form when both speeds are stated, plus a sound level and radiation pressure), **optics** (thin lens/mirror, speed-derived refractive
   index, magnification, Snell, critical
   angle), **thermal** (`Q = mcΔT`, `PV = nRT` for the missing pressure, volume,
   amount, or temperature, monatomic `U = 3/2 nRT`, isobaric `W = PΔV`,
   adiabatic `PV^γ` when gamma is stated, Carnot refrigerator and heat-pump
-  COP), **gravitation**
+  COP, Newton's law of cooling, and Otto efficiency), **gravitation**
   (`F = GMm/r²`, orbital and escape velocity, surface gravity, potential,
   potential energy, orbital energy, and the circular Kepler period, with a
   named-body table), **fluids** (`P = F/A`, `ρgh`, upthrust, density, continuity,
   flow rate, horizontal Bernoulli, Bernoulli with both heights stated, and
   Poiseuille), **rotation** (`ω = θ/t`, moment of inertia, `L = Iω`, rotational KE,
   constant-α kinematics, `τ = Iα`, `τ = ΔL/Δt`, isolated `Iω` conservation,
-  rolling without slipping, and the parallel-axis theorem),
+  rolling without slipping, the parallel-axis theorem, and a two-gear train),
   **magnetism** (`F = BIL`, `F = qvB`, `Φ = BA`, and `sin θ` / `cos θ` when an
   angle is stated; Gauss for a sphere, shell, line, and sheet; Faraday's
-  magnitude), **materials** (`σ = F/A`,
-  `ε = ΔL/L`, `E = σ/ε`) and **modern** (`E = hf` or `hc/λ`, de Broglie, half-life,
+  magnitude),   **materials** (`σ = F/A`,
+  `ε = ΔL/L`, `E = σ/ε`, shear modulus, bulk modulus, and Poisson's ratio) and **modern** (`E = hf` or `hc/λ`, de Broglie, half-life,
   `E = mc²`).
   **What it refuses is the design.** An unstated collision type, a 2D collision,
   a diverging lens (the sign conventions disagree), an absolute temperature
@@ -358,8 +359,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   molecular formulas; mass, solution, and gas stoichiometry with limiting reagent; solution
   concentration, dilution with the stock volume, mole fraction, and colligative properties;
   strong/weak acid–base pH, `Ka`/`Kb`, percent ionization, buffers after addition, titration
-  regions, and a neutralization's unknown concentration; Dalton, wet gases, gas density, and
-  Graham's law; calorimetry, `q = nΔH`, Hess, formation, and bond enthalpy; phase-aware
+  regions, and a neutralization's unknown concentration; Dalton, wet gases, gas density,
+  Graham's law, and Henry's law; calorimetry, `q = nΔH`, Hess, formation, and bond enthalpy, and
+  two-point Clausius–Clapeyron; phase-aware
   `Kc`/`Kp`, ICE, `Ksp` from a salt's formula, and precipitation; zero/first/second-order
   kinetics and two-point Arrhenius; cell, Nernst, electrolysis mass and time, and a school
   galvanic cell; one-missing-product nuclear equations and mass defect; Beer–Lambert;

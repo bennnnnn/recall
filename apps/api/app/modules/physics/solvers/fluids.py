@@ -8,7 +8,12 @@ import math
 
 from app.models.schemas.physics import PhysicsIntent, SimulationVector
 from app.modules.physics.display import plain_number
-from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.common import (
+    PhysicsResult,
+    QuantityResult,
+    _params_in_si,
+    gravity_of,
+)
 from app.modules.physics.solvers.force_scenes import _free_body_scene
 from app.services.solving import SolveServiceError
 
@@ -129,7 +134,7 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
     if op == "bernoulli_pressure":
         if p["rho"] <= 0 or p["pres1"] < 0:
             raise SolveServiceError("Bernoulli pressure needs positive density and valid pressure")
-        gravity = p.get("g", 9.81)
+        gravity = gravity_of(p)
         pressure = p["pres1"] + 0.5 * p["rho"] * (p["v1"] ** 2 - p["v2"] ** 2)
         if "h1" in p and "h2" in p:
             pressure += p["rho"] * gravity * (p["h1"] - p["h2"])
@@ -185,30 +190,30 @@ def solve_fluids(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     if op == "pressure_at_depth":
-        pressure = p["rho"] * p.get("g", 9.81) * p["depth"]
+        gravity = gravity_of(p)
+        pressure = p["rho"] * gravity * p["depth"]
         return PhysicsResult(
             answer=(
-                rf"P = \rho g h = {p['rho']:g} \cdot {p.get('g', 9.81):g} \cdot "
+                rf"P = \rho g h = {p['rho']:g} \cdot {gravity:g} \cdot "
                 rf"{p['depth']:g} \approx {pressure:.2f} \text{{ Pa}}"
             ),
             formulas=(r"P = \rho g h",),
-            substitutions=(rf"P = {p['rho']:g} \cdot {p.get('g', 9.81):g} \cdot {p['depth']:g}",),
+            substitutions=(rf"P = {p['rho']:g} \cdot {gravity:g} \cdot {p['depth']:g}",),
             # Gauge, and it says so: the absolute reading is this plus one
             # atmosphere, and which one is meant changes the number by 101 kPa.
             quantities=(QuantityResult("", pressure, "Pa", detail="gauge"),),
         )
 
     if op == "upthrust":
-        force = p["rho"] * p["volume"] * p.get("g", 9.81)
+        gravity = gravity_of(p)
+        force = p["rho"] * p["volume"] * gravity
         return PhysicsResult(
             answer=(
                 rf"F_b = \rho V g = {p['rho']:g} \cdot {p['volume']:g} \cdot "
-                rf"{p.get('g', 9.81):g} \approx {force:.2f} \text{{ N}}"
+                rf"{gravity:g} \approx {force:.2f} \text{{ N}}"
             ),
             formulas=(r"F_b = \rho V g",),
-            substitutions=(
-                rf"F_b = {p['rho']:g} \cdot {p['volume']:g} \cdot {p.get('g', 9.81):g}",
-            ),
+            substitutions=(rf"F_b = {p['rho']:g} \cdot {p['volume']:g} \cdot {gravity:g}",),
             quantities=(QuantityResult("", force, "N"),),
             # The one fluids answer a free body actually draws: an upward
             # buoyant force against the weight it opposes.

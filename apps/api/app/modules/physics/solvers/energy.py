@@ -11,6 +11,7 @@ from app.modules.physics.solvers.common import (
     QuantityResult,
     _latex_num,
     _params_in_si,
+    gravity_of,
 )
 from app.modules.physics.solvers.force_scenes import _free_body_scene
 from app.services.solving import SolveServiceError
@@ -27,7 +28,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         return solve_energy_conservation(intent)
 
     p = _params_in_si(intent)
-    g = p.get("g", 9.81)
+    g = gravity_of(p)
     op = intent.physics_op or "kinetic_energy"
     work_direction = (1.0, 0.0)
 

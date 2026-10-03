@@ -30,7 +30,11 @@ from app.modules.chemistry.extractors.electrochemistry import (
 )
 from app.modules.chemistry.extractors.equations import _extract_equations
 from app.modules.chemistry.extractors.equilibrium import _extract_equilibrium
-from app.modules.chemistry.extractors.gases import _extract_gas_laws, _extract_graham
+from app.modules.chemistry.extractors.gases import (
+    _extract_gas_laws,
+    _extract_graham,
+    _extract_henry,
+)
 from app.modules.chemistry.extractors.kinetics import (
     _extract_first_order,
     _extract_michaelis,
@@ -41,7 +45,10 @@ from app.modules.chemistry.extractors.nuclear import (
     _extract_nuclear_equation,
 )
 from app.modules.chemistry.extractors.organic import _extract_named_reaction, _extract_organic
-from app.modules.chemistry.extractors.solutions import _extract_colligative, _extract_solutions
+from app.modules.chemistry.extractors.solutions import (
+    _extract_colligative,
+    _extract_solutions,
+)
 from app.modules.chemistry.extractors.spectroscopy import (
     _extract_beer_lambert,
     _extract_spectrum,
@@ -85,6 +92,7 @@ CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     _extract_acid_solution,
     _extract_titration,
     _extract_buffer_addition,
+    _extract_henry,
     _extract_gas_laws,
     _extract_enthalpy,
     _extract_equilibrium,

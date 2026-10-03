@@ -3,10 +3,13 @@
 
 from __future__ import annotations
 
+import math
+
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.solvers.common_chem import (
+    const,
     given_row,
     inp,
     num,
@@ -14,7 +17,8 @@ from app.modules.chemistry.solvers.common_chem import (
     used,
     verified,
 )
-from app.modules.chemistry.solvers.params import require_all
+from app.modules.chemistry.solvers.constants import GAS_R_J
+from app.modules.chemistry.solvers.params import require, require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
 from app.services.solving import SolveServiceError
@@ -216,6 +220,77 @@ def solve_bond_enthalpy(intent: ChemistryIntent) -> ChemistryResult:
         "Reaction enthalpy",
         *stated("bond_enthalpy"),
         (f"ΔH = {inp(broken)} − {inp(formed)}",),
+        shown,
+        shown,
+    )
+
+
+def solve_clausius(intent: ChemistryIntent) -> ChemistryResult:
+    message = (
+        "two-point Clausius-Clapeyron needs two temperatures and either both "
+        "pressures or one pressure with the enthalpy"
+    )
+    temperatures = (
+        require(intent, "t1", positive=True, message=message),
+        require(intent, "t2", positive=True, message=message),
+    )
+    if temperatures[0] == temperatures[1]:
+        raise SolveServiceError(message)
+    has_p1 = intent.params.get("p1") is not None
+    has_p2 = intent.params.get("p2") is not None
+    has_enthalpy = intent.params.get("delta_h") is not None
+    if has_p1 and has_p2 and not has_enthalpy:
+        return _clausius_enthalpy(intent, message)
+    if has_enthalpy and has_p1 != has_p2:
+        return _clausius_pressure(intent, message, unknown="p2" if has_p1 else "p1")
+    raise SolveServiceError(message)
+
+
+def _clausius_enthalpy(intent: ChemistryIntent, message: str) -> ChemistryResult:
+    p1 = require(intent, "p1", positive=True, message=message)
+    t1 = require(intent, "t1", positive=True, message=message)
+    p2 = require(intent, "p2", positive=True, message=message)
+    t2 = require(intent, "t2", positive=True, message=message)
+    enthalpy = -GAS_R_J * math.log(p2 / p1) / (1 / t2 - 1 / t1)
+    shown = f"ΔHvap = {num(enthalpy / 1000)} kJ/mol"
+    return verified(
+        "Verified two-point Clausius-Clapeyron",
+        (f"P1 = {inp(p1)}", f"T1 = {inp(t1)} K", f"P2 = {inp(p2)}", f"T2 = {inp(t2)} K"),
+        "Enthalpy of vaporization",
+        *stated("clausius_clapeyron"),
+        (
+            f"ΔHvap = −({const(GAS_R_J)})ln({inp(p2)} / {inp(p1)}) / "
+            f"(1/{inp(t2)} − 1/{inp(t1)}) = {num(enthalpy)} J/mol",
+        ),
+        shown,
+        shown,
+    )
+
+
+def _clausius_pressure(intent: ChemistryIntent, message: str, *, unknown: str) -> ChemistryResult:
+    known = "p1" if unknown == "p2" else "p2"
+    pressure = require(intent, known, positive=True, message=message)
+    t1 = require(intent, "t1", positive=True, message=message)
+    t2 = require(intent, "t2", positive=True, message=message)
+    enthalpy = require(intent, "delta_h", positive=True, message=message)
+    exponent = -enthalpy / GAS_R_J * (1 / t2 - 1 / t1)
+    solved = pressure * math.exp(exponent if unknown == "p2" else -exponent)
+    label = "P2" if unknown == "p2" else "P1"
+    other = "P1" if unknown == "p2" else "P2"
+    shown = f"{label} = {num(solved)}"
+    factor = f"exp[−({inp(enthalpy)}) / ({const(GAS_R_J)}) × (1/{inp(t2)} − 1/{inp(t1)})]"
+    relation = "×" if unknown == "p2" else "/"
+    return verified(
+        "Verified two-point Clausius-Clapeyron",
+        (
+            f"{other} = {inp(pressure)}",
+            f"T1 = {inp(t1)} K",
+            f"T2 = {inp(t2)} K",
+            f"ΔHvap = {inp(enthalpy)} J/mol",
+        ),
+        label,
+        *stated("clausius_clapeyron"),
+        (f"{label} = {inp(pressure)} {relation} {factor} = {num(solved)}",),
         shown,
         shown,
     )
