@@ -134,6 +134,27 @@ describe("MathEquationScanner", () => {
     ).toBeTruthy();
   });
 
+  it("keeps the shutter disc while the photo library is opening", async () => {
+    let release: (picked: null) => void = () => undefined;
+    jest.mocked(pickImageDocument).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          release = resolve;
+        }),
+    );
+    const view = await render(
+      <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByTestId("math-scanner-photos"));
+    });
+    expect(view.getByTestId("math-scanner-shutter-disc")).toBeTruthy();
+    await act(async () => {
+      release(null);
+    });
+    jest.mocked(pickImageDocument).mockResolvedValue(null);
+  });
+
   it("shows a live crop frame with the selector and torch beside the shutter", async () => {
     const { getByTestId, getByLabelText, queryByLabelText, queryByTestId } = await render(
       <MathEquationScanner visible onClose={jest.fn()} onCaptured={jest.fn()} />,

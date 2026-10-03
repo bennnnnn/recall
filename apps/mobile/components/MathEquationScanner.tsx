@@ -114,6 +114,7 @@ export function MathEquationScanner({
   const cameraRef = useRef<LiveScannerCameraHandle>(null);
   const [hosted, setHosted] = useState(visible);
   const [busy, setBusy] = useState(false);
+  const [capturing, setCapturing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<ScanShot | null>(null);
   const [torchOn, setTorchOn] = useState(false);
@@ -255,12 +256,17 @@ export function MathEquationScanner({
   );
 
   const capture = useCallback(async () => {
-    if (!cameraRef.current || busy || preview || !cameraReady || capturePendingRef.current) return;
+    if (busy || preview || capturePendingRef.current) return;
+    if (!cameraRef.current || !cameraReady) {
+      setError(t("chat.math_scan_camera_unavailable"));
+      return;
+    }
     capturePendingRef.current = true;
     try {
       if (!cameraRef.current || busy || preview || !cameraReady) return;
       impactMedium();
       setBusy(true);
+      setCapturing(true);
       setError(null);
       const photo = await cameraRef.current.takePictureAsync();
       if (!photo?.uri) {
@@ -302,6 +308,7 @@ export function MathEquationScanner({
       setError(t("chat.math_scan_failed"));
     } finally {
       setBusy(false);
+      setCapturing(false);
       capturePendingRef.current = false;
     }
   }, [
@@ -506,6 +513,7 @@ export function MathEquationScanner({
           granted={granted}
           preview={Boolean(preview)}
           busy={busy}
+          capturing={capturing}
           torchOn={torchOn}
           subject={subject}
           error={error}
