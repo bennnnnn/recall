@@ -17,7 +17,7 @@ Cursor rules live in `.cursor/rules/`. Subject pipelines: [docs/math.md](./docs/
 ## Where an error lives
 
 - A wrong verified answer starts in `apps/api/app/modules/math/`, `modules/physics/`, or `modules/chemistry/`, and in that subject's doc above.
-- Stream, stop, or a turn that never finishes starts in `apps/api/app/services/chat/`. `routers/ws.py` and `routers/chat_stream.py` call it.
+- A stalled turn or a bad stream payload starts in `apps/api/app/services/chat/`. Stop and disconnect start in `routers/ws.py` (`_stream_over_ws` on a cancel frame) and `routers/chat_stream.py` (`_stream_tokens_sse` when the SSE client drops).
 - A screen that already has a feature folder starts in `apps/mobile/features/<name>/`.
 - Chat UI, until that move lands, starts in `apps/mobile/hooks/useChat*.ts`, `components/chat/`, and `lib/chat/`. `app/index.tsx` stays a route.
 
