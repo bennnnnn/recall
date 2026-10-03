@@ -7,14 +7,16 @@ import re
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.elements import BY_SYMBOL, ELEMENTS
+from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _element,
+    _equation,
     _search,
 )
 from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.isotopes import ISOTOPE_MASSES
-from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
     NAMED_COMPOUNDS,
@@ -23,7 +25,42 @@ from app.modules.chemistry.species_facts import (
 from app.modules.chemistry.stoichiometry import molar_mass
 
 
+def _desired_product(text: str, products: dict[str, int]) -> str | None:
+    """The one product the question names, or the only product when it names none."""
+    outside = EQUATION_RE.sub(" ", text)
+    mentioned = [
+        product
+        for product in products
+        if re.search(rf"(?<![A-Za-z0-9]){re.escape(product)}(?![A-Za-z0-9])", outside)
+    ]
+    if len(mentioned) == 1:
+        return mentioned[0]
+    if len(products) == 1:
+        return next(iter(products))
+    return None
+
+
+def _extract_atom_economy(text: str) -> ChemistryIntent | None:
+    if re.search(r"\batom economy\b", text, re.IGNORECASE) is None:
+        return None
+    equation = _equation(text)
+    if equation is None:
+        return None
+    balanced = balance_equation(equation)
+    if not balanced.balanced or not balanced.given_balanced:
+        return None
+    target = _desired_product(text, balanced.written_products)
+    if target is None:
+        return None
+    return ChemistryIntent(
+        kind="amounts", chemistry_op="atom_economy", equation=equation, target=target
+    )
+
+
 def _extract_amounts(text: str) -> ChemistryIntent | None:
+    economy = _extract_atom_economy(text)
+    if economy is not None:
+        return economy
     mass_formula = re.search(
         rf"(?:molar\s+mass|molecular\s+weight)\s+(?:of\s+)?({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
         text,

@@ -24,6 +24,7 @@ from app.modules.chemistry.solvers.acid_equilibria import (
 )
 from app.modules.chemistry.solvers.amounts import (
     solve_amount,
+    solve_atom_economy,
     solve_average_atomic_mass,
     solve_molar_mass,
     solve_percent_composition,
@@ -219,6 +220,7 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "particles_to_moles": solve_amount,
     "percent_composition": solve_percent_composition,
     "percent_yield": solve_percent_yield,
+    "atom_economy": solve_atom_economy,
     "stoichiometry": solve_stoichiometry,
     "limiting_reagent": solve_stoichiometry,
     "molarity": solve_solution,

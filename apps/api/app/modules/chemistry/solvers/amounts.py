@@ -154,6 +154,59 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
     raise SolveServiceError(f"unsupported amount operation: {op}")
 
 
+def _weighted(coefficient: int, molar: str) -> str:
+    return molar if coefficient == 1 else f"{coefficient} × {molar}"
+
+
+def solve_atom_economy(intent: ChemistryIntent) -> ChemistryResult:
+    """Percent of reactant mass that ends in one product of an already balanced equation."""
+    from app.modules.chemistry.equations import balance_equation
+    from app.modules.chemistry.species import ReactionTerm, parse_reaction
+
+    equation = intent.equation
+    target = intent.target
+    if not equation or not target:
+        raise SolveServiceError("atom economy needs a balanced equation and its desired product")
+    reaction = parse_reaction(equation)
+    balanced = balance_equation(equation)
+    if reaction is None or not balanced.balanced or not balanced.given_balanced:
+        raise SolveServiceError("the equation must already be balanced")
+    product = next((term for term in reaction.products if term.species.label == target), None)
+    if product is None:
+        raise SolveServiceError(f"{target} is not a product of the equation")
+
+    def mass_of(term: ReactionTerm) -> tuple[str, float]:
+        molar = _molar_mass(term.species.formula)
+        return molar_mass_working(molar), term.coefficient * molar
+
+    reactant_rows = [(term, *mass_of(term)) for term in reaction.reactants]
+    product_text, product_mass = mass_of(product)
+    total = sum(row[2] for row in reactant_rows)
+    shown = f"{num(product_mass / total * 100)}%"
+    reactant_sum = " + ".join(
+        _weighted(term.coefficient, text) for term, text, _mass in reactant_rows
+    )
+    return verified(
+        "Verified atom economy",
+        (
+            f"Equation = {equation}",
+            f"Desired product = {target}",
+            *(
+                f"M({term.species.label}) = {text} g/mol"
+                for term, text, _mass in (*reactant_rows, (product, product_text, product_mass))
+            ),
+        ),
+        "Atom economy",
+        *stated("atom_economy"),
+        (
+            "% atom economy = "
+            f"{_weighted(product.coefficient, product_text)} / ({reactant_sum}) × 100",
+        ),
+        f"Atom economy of {target} = {shown}",
+        shown,
+    )
+
+
 def solve_percent_composition(intent: ChemistryIntent) -> ChemistryResult:
     formula = _formula(intent)
     element = intent.target
