@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001, RUF002 -- textbook chemistry uses multiplication notation.
+# ruff: noqa: RUF001, RUF002, RUF003 -- textbook chemistry uses multiplication notation.
 """Shared chemistry result type and display-safe number formatting."""
 
 from __future__ import annotations
@@ -43,9 +43,13 @@ def format_number(
     if not math.isfinite(value):
         return str(value)
     mantissa, exponent = _round_significant(value, significant)
-    # A trailing zero is a significant figure once the answer's figures come from the data.
+    # Once the answer's figures come from the data, a whole number whose digits rounding
+    # replaced with zeros is written in powers of ten: 1780 to two figures is 1.8 × 10^3,
+    # since 1800 would read as measured. Zeros that are the number's own digits stay plain:
+    # 200 is 200, and 110.02 g to two figures is 110 g.
+    rounded_to_zeros = exponent >= significant and round(mantissa * 10.0**exponent) != round(value)
     tidy = (lambda text: text) if keep_zeros else _trim
-    if exponent < -3 or exponent >= 6:
+    if exponent < -3 or exponent >= 6 or (keep_zeros and rounded_to_zeros):
         return f"{tidy(f'{mantissa:.{significant - 1}f}')} × 10^{exponent}"
     decimals = max(significant - 1 - exponent, 0)
     return tidy(f"{float(f'{value:.{significant - 1}e}'):.{decimals}f}")

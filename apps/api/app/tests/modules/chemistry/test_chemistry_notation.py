@@ -15,6 +15,7 @@ from app.modules.chemistry.notation import typeset, typeset_json
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.solver import CHEMISTRY_SOLVERS
 from app.modules.chemistry.solvers.types import ChemistryResult
+from app.tests.modules.chemistry.new_law_cases import NEW_LAW_CASES
 from app.tests.modules.chemistry.test_chemistry_solver_expanded import (
     PIPELINE_CASES,
     REMAINING_CASES,
@@ -23,7 +24,7 @@ from app.tests.modules.chemistry.test_chemistry_solver_expanded import (
 _SUB = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 _SUP = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻", "0123456789+-")
 
-ALL_CASES = (*PIPELINE_CASES, *REMAINING_CASES)
+ALL_CASES = (*PIPELINE_CASES, *REMAINING_CASES, *NEW_LAW_CASES)
 
 
 def flatten(text: str) -> str:

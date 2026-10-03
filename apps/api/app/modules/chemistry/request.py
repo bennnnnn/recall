@@ -18,7 +18,7 @@ from __future__ import annotations
 import re
 
 from app.modules.chemistry.species import ARROWS
-from app.modules.chemistry.species_facts import is_formula
+from app.modules.chemistry.species_facts import ELEMENT_NAMES, is_formula
 
 # Formula characters are case-sensitive on purpose. Under ``re.IGNORECASE`` a
 # lowercase word such as "sodium" splits into "so" + "di" + "um" in Fibonacci-many
@@ -56,7 +56,8 @@ _STRONG_CUE = re.compile(
     r"galvanic|radioactive|nuclear\s+(?:equation|mass|activity)|decay\s+constant|"
     r"exponential\s+decay|mass\s+defect|binding\s+energy|electron\s+capture|"
     r"beer[- ]lambert|absorbance|percent\s+(?:yield|composition|error)|avogadro|"
-    r"pv\s*=\s*nrt|ideal\s+gas|gas\s+law|combined\s+gas|partial\s+pressure|"
+    r"pv\s*=\s*nrt|ideal\s+gas|gas\s+law|combined\s+gas|partial\s+pressures?|"
+    r"effus(?:ion|es?|ing)|graham'?s?\s+law|molar\s+solubility|"
     r"molecular\s+descriptor|logp|tpsa|periodic\s+table|atomic\s+(?:mass|number|weight)|"
     r"electronegativity|electron\s+configuration|valence\s+electrons?|"
     r"empirical\s+formula|molecular\s+formula|titration|ksp|hess'?s?\s+law|vsepr|"
@@ -91,6 +92,16 @@ _DECAY_CONTEXT = re.compile(
     r"sample|rate\s+constant)\b",
     re.IGNORECASE,
 )
+# "How many grams of oxygen are in 10 g of H2O?": an element's share of a sample.
+_ELEMENT_IN_SAMPLE = re.compile(
+    r"\b(?:grams?|mass)\s+of\s+(?:"
+    + "|".join(sorted(ELEMENT_NAMES, key=len, reverse=True))
+    + r")\s+(?:(?:is|are)\s+)?(?:there\s+)?(?:present\s+|contained\s+)?in\b",
+    re.IGNORECASE,
+)
+_MOLAR_SOLUTION = re.compile(r"(?<![\w.])\d+(?:\.\d+)?\s*M\s+([A-Z][A-Za-z0-9()]*)")
+_VMAX = re.compile(r"(?<![A-Za-z])Vmax(?![A-Za-z])")
+_KM = re.compile(r"(?<![A-Za-z])Km(?![A-Za-z])")
 # "the shape of NH3": a shape is chemistry's only when what it is of is a real formula.
 _SHAPE_OF = re.compile(
     r"\b(?:shape|geometry)\s+of\s+(?:an?\s+|the\s+)?([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])",
@@ -104,7 +115,7 @@ _WEAK_CUE = re.compile(
     r"\b(?:acid|base|boiling|freezing|nuclear|mol(?:e|es)?|molecules?|molar|dilut\w*|buffer|"
     r"equilibrium|entropy|kinetic\w*|empirical|oxidation|coordination|calibration|"
     r"precipitation|gibbs|faraday|hess|boyle|charles|dalton|lewis|reaction|compound|"
-    r"chemical|atoms?|bond)\b",
+    r"chemical|atoms?|bond|neutrali[sz]\w*|isotopes?|diffus\w*)\b",
     re.IGNORECASE,
 )
 # An element followed by a digit ("H2O", "CO2", "Fe2") or a capital run ("NaOH").
@@ -318,6 +329,14 @@ def is_chemistry_question(content: str) -> bool:
     if _SUBJECT_CUE.search(cleaned) and not _CHEMISTRY_IDIOM.search(cleaned):
         return True
     if _HALF_LIFE.search(cleaned) and _DECAY_CONTEXT.search(cleaned):
+        return True
+    if _ELEMENT_IN_SAMPLE.search(cleaned):
+        return True
+    # A concentration of a named formula: "6 M HCl".
+    if any(is_formula(match.group(1)) for match in _MOLAR_SOLUTION.finditer(cleaned)):
+        return True
+    # Michaelis-Menten written by its constants alone: "Vmax = 10 μmol/min, Km = 2 mM".
+    if _VMAX.search(cleaned) and _KM.search(cleaned):
         return True
     shape = _SHAPE_OF.search(cleaned)
     if shape is not None and is_formula(shape.group(1)):

@@ -228,6 +228,10 @@ def solve_chromatography_rf(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+def _with(value: str, unit: str) -> str:
+    return f"{value} {unit}" if unit else value
+
+
 def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
     velocity = intent.params.get("v")
     maximum = intent.params.get("vmax")
@@ -245,17 +249,19 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
     if any(value is not None and value < 0 for value in present.values()):
         raise SolveServiceError("Michaelis–Menten values cannot be negative")
     target = missing[0]
+    rate = intent.units.get("rate", "")
+    concentration = intent.units.get("concentration", "")
     if target == "v":
         if maximum is None or km is None or substrate is None or km + substrate == 0:
             raise SolveServiceError("Michaelis–Menten denominator is zero")
         value = maximum * substrate / (km + substrate)
-        shown = f"v = {num(value)}"
+        shown = f"v = {_with(num(value), rate)}"
         working = f"v = ({inp(maximum)})({inp(substrate)}) / ({inp(km)} + {inp(substrate)})"
     elif target == "Vmax":
         if velocity is None or km is None or substrate is None or substrate == 0:
             raise SolveServiceError("Michaelis–Menten cannot solve Vmax from these values")
         value = velocity * (km + substrate) / substrate
-        shown = f"Vmax = {num(value)}"
+        shown = f"Vmax = {_with(num(value), rate)}"
         working = f"Vmax = ({inp(velocity)})({inp(km)} + {inp(substrate)}) / {inp(substrate)}"
     elif target == "Km":
         if velocity is None or maximum is None or substrate is None or velocity <= 0:
@@ -263,7 +269,7 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
         if not maximum > velocity:
             raise SolveServiceError("Michaelis–Menten needs Vmax greater than v")
         value = substrate * (maximum - velocity) / velocity
-        shown = f"Km = {num(value)}"
+        shown = f"Km = {_with(num(value), concentration)}"
         working = f"Km = ({inp(substrate)})({inp(maximum)} − {inp(velocity)}) / {inp(velocity)}"
     else:
         if velocity is None or maximum is None or km is None or velocity <= 0:
@@ -271,10 +277,12 @@ def solve_michaelis_menten(intent: ChemistryIntent) -> ChemistryResult:
         if not maximum > velocity:
             raise SolveServiceError("Michaelis–Menten needs Vmax greater than v")
         value = velocity * km / (maximum - velocity)
-        shown = f"S = {num(value)}"
+        shown = f"S = {_with(num(value), concentration)}"
         working = f"S = ({inp(velocity)})({inp(km)}) / ({inp(maximum)} − {inp(velocity)})"
     given = tuple(
-        f"{name} = {inp(amount)}" for name, amount in present.items() if amount is not None
+        f"{name} = {_with(inp(amount), rate if name in {'v', 'Vmax'} else concentration)}"
+        for name, amount in present.items()
+        if amount is not None
     )
     return verified(
         "Verified Michaelis–Menten",
