@@ -11,6 +11,7 @@ import Animated, {
 
 import { Motion, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 /** Private-use mark so the caret can sit inside the last streaming text run. */
 export const STREAM_CARET = "\uE010";
@@ -112,8 +113,8 @@ function makeStyles(t: Theme) {
       backgroundColor: t.accent,
     },
     inlineCaret: {
+      ...Type.body,
       color: t.accent,
-      fontSize: 16,
     },
   });
 }
