@@ -24,8 +24,10 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    unit the registry cannot convert declines the problem instead of being read as the
    default unit. `1.8 × 10^-5` is read whole, never as `1.8`, by the shared
    `services/number_text` reader. One line is extracted once per turn: the result is
-   cached per text and each caller gets its own copy. The templates in `extractors/`
-   read labelled phrasings ("Strong acid: 0.01 M HCl", "M1 = 2 M, V1 = 50 mL").
+   cached per text and each caller gets its own copy. The templates in `extractors/`,
+   one module per topic, read labelled phrasings ("Strong acid: 0.01 M HCl", "M1 = 2 M,
+   V1 = 50 mL"). The first that returns an intent wins, so `registry.py` lists them in
+   the order they run.
    A question in its own words ("What is the pH of 0.01 M HCl?") is read by the
    **binder** (`binding.py`) once every template has declined. It uses the law engine
    physics uses (`services/law_binding`):
@@ -49,8 +51,12 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    pairs each volume with the solution it is "of" ("25 mL of 0.1 M HCl", "adding 10 mL of
    NaOH"); a volume no phrase ties to one solution declines. A binder fit is also a
    chemistry cue for the gate. A problem no reader knows goes to the model, unverified.
-3. **Solve** (`solvers/`) — grouped deterministic solvers return `ChemistryResult` with
-   Given, Find, named universal Formula, Substitution, and Answer fields.
+3. **Solve** (`solvers/`) — deterministic solvers, one module per topic (`amounts`,
+   `stoichiometry`, `acid_base`, `titration`, `equilibrium`, `kinetics`, …), return
+   `ChemistryResult` with Given, Find, named universal Formula, Substitution, and Answer
+   fields; `solver.py` maps each operation to its solver. The catalog (`catalog.py`) is
+   the one list of operations: `ChemistryIntent` refuses an operation it does not declare,
+   or one it files under another kind.
 4. **Respond** (`direct.py`) — a complete typed calculation returns the exact compact
    five-section answer without waiting for model prose. The value is a server
    ` ```answer ` fence whose first line is `notation: chemistry`, so the client
@@ -112,8 +118,8 @@ Pure solids and liquids are omitted from `Kc`, `Kp`, and solubility products onl
 | Stoichiometry | mole ratios; grams, moles, or particles through the balanced ratio to grams, moles, or particles; solution volume/molarity → product; gas volume at the same P and T; limiting reagent from masses or solution volumes, with theoretical yield and excess reactant |
 | Solutions | molarity, mass from molarity, dilution (including the stock volume: `6.0 M` to make `500 mL` of `1.5 M`), molality (also from the solute and solvent masses), mass percent, mole fraction, boiling-point elevation, freezing-point depression, osmotic pressure, Raoult's law |
 | Acid–base | pH from `[H+]`, pOH, or a strong monoprotic acid / strong base concentration; weak-acid and weak-base quadratics; `Ka`/`Kb`/`Kw` and `pKa`/`pKb`; Henderson–Hasselbalch; buffer after adding strong acid or base; strong titration, weak acid–strong base, and weak base–strong acid regions; a neutralization's unknown concentration with the mole ratio (H2SO4 neutralizes two NaOH); percent ionization; first dissociation of a polyprotic acid. A titration in words with a dihydroxide base (Ca(OH)2) declines |
-| Gases | Dalton, including partial pressures listed in words; gas density and molar mass from density (`d = PM/RT`, M from the named gas); Graham's law for two named gases; mole-fraction partial pressure; gas collected over water (water vapor pressure is interpolated between the tabulated points, log-linear in 1/T, from 0 to 100 °C). The ideal gas law, Boyle, Charles and the combined law are physics' (see **Shared laws**) |
-| Thermochemistry | the heat of a reaction amount `q = nΔH`, calorimetry `q_rxn = −q_cal`, Hess's law, formation enthalpy, bond enthalpy, `ΔG = ΔH − TΔS`. `q = mcΔT`, latent heat and a metal's specific heat by calorimetry are physics' |
+| Gases | Dalton, including partial pressures listed in words; gas density and molar mass from density (`d = PM/RT`, M from the named gas); Graham's law for two named gases, or for a rate or molar mass from the other three (`r1 =`, `M1 =`); Henry's law `C = kH × P` for any one of the three; mole-fraction partial pressure; gas collected over water (water vapor pressure is interpolated between the tabulated points, log-linear in 1/T, from 0 to 100 °C). The ideal gas law, Boyle, Charles and the combined law are physics' (see **Shared laws**) |
+| Thermochemistry | the heat of a reaction amount `q = nΔH`, calorimetry `q_rxn = −q_cal`, Hess's law, formation enthalpy, bond enthalpy, `ΔG = ΔH − TΔS`, and two-point Clausius–Clapeyron for ΔHvap or a vapor pressure. `q = mcΔT`, latent heat and a metal's specific heat by calorimetry are physics' |
 | Equilibrium | homogeneous `Kc` and `Qc`; phase-aware `Kc`/`Kp`; `Kc` ↔ `Kp`; quadratic ICE solutions, asked as "the equilibrium concentrations" with `[H2] = [I2] = 1.0 M` read as both; `Ksp`, molar solubility (a salt named by its formula gets its dissolution equation from its cation and a known anion: `Fe(OH)3` is Fe3+ and 3 OH-), common-ion solubility, and `Qsp` versus `Ksp` |
 | Kinetics | zero-, first-, and second-order integrated laws and half-lives; a first-order `k` from its half-life, per the half-life's time unit; integer order from two experiments; one-temperature and two-temperature Arrhenius |
 | Electrochemistry | `ΔG° = −nFE°`, Nernst potential, Faraday electrolysis mass and time (a metal named without its ion takes the galvanic table's ion, Cu2+), `E°cell = E°cathode − E°anode`, and a galvanic cell from the built-in reduction table |
@@ -196,7 +202,8 @@ records how each given was typed, and the solve formats every number from that r
 - **Molar masses** stay at full precision inside the arithmetic. A working row shows them
   to the table's three decimals (`18.015`), and only a molar-mass answer rounds to two
   (`98.07 g/mol`). Rounding first moved answers: 4 g of H₂ gave 35.68 g of water, not 35.74.
-- A physical constant is shown to 5 figures (`R = 0.08206`), and intermediate rows show
+- A physical constant is a CODATA value from the shared Pint registry (`services/units.constant`,
+  pinned by a test) and is shown to 5 figures (`R = 0.08206`). Intermediate rows show
   the answer's figures while the arithmetic keeps full precision.
 
 ## Teaching scenes
@@ -225,12 +232,12 @@ not supplied. Coordination number 4 is drawn as tetrahedral, not square planar.
 |---|---|
 | Intent schema | `apps/api/app/models/schemas/chemistry/intent.py` |
 | Gate / compound parsing | `apps/api/app/modules/chemistry/request.py` |
-| Text extraction | `apps/api/app/modules/chemistry/extract.py`, `extractors/` |
+| Text extraction | `apps/api/app/modules/chemistry/extract.py` (driver), `registry.py` (order), `extractors/<topic>.py` |
 | Binder (questions in their own words) | `binding.py`, `laws.py`, `species_facts.py`, `given_units.py`; engine in `apps/api/app/services/law_binding/` |
 | Typed solver dispatcher | `apps/api/app/modules/chemistry/solvers/solver.py` |
 | Formula catalog | `apps/api/app/modules/chemistry/catalog.py` |
 | Teaching scenes | `apps/api/app/modules/chemistry/scene.py` |
-| Grouped solvers | `apps/api/app/modules/chemistry/solvers/` |
+| Topic solvers | `apps/api/app/modules/chemistry/solvers/<topic>.py` |
 | Verified block / direct reply | `apps/api/app/modules/chemistry/block.py`, `direct.py` |
 | Turn integration | `apps/api/app/modules/chemistry/context.py` |
 | Balance / formula primitives | `apps/api/app/modules/chemistry/equations.py`, `stoichiometry.py` |
@@ -239,6 +246,7 @@ not supplied. Coordination number 4 is drawn as tetrahedral, not square planar.
 | Structure / organic / nuclear | `structure.py`, `lewis.py`, `organic.py`, `coordination.py`, `nuclear.py` |
 | SMILES / 3D / post-stream | `apps/api/app/modules/chemistry/smiles.py`, `fence.py` |
 | PubChem | `apps/api/app/gateways/pubchem_gateway.py` |
+| Mobile scan errors | `apps/mobile/lib/scanner/scanReadError.ts` (every subject) |
 | Mobile parse / render | `apps/mobile/lib/chemistry/` (fence parsing, `smilesDrawerHtml.ts`, `molecule3dLayout.ts`), `apps/mobile/components/rich/` |
 | Web render | `apps/web/src/lib/chemScene.ts`, `assistantMarkdown.ts` |
 | Client contract | `docs/fixtures/chemistry_replies.json` |

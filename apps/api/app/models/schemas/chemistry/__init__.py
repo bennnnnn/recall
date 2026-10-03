@@ -1,5 +1,5 @@
 """Validated chemistry solver inputs."""
 
-from app.models.schemas.chemistry.intent import ChemistryIntent, ChemistryKind, ChemistryOp
+from app.models.schemas.chemistry.intent import ChemistryIntent, ChemistryKind
 
-__all__ = ["ChemistryIntent", "ChemistryKind", "ChemistryOp"]
+__all__ = ["ChemistryIntent", "ChemistryKind"]

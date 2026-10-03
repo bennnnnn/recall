@@ -10,9 +10,7 @@ Each answer was checked by hand to the figures the question's data carry:
 
 from __future__ import annotations
 
-from app.models.schemas.chemistry import ChemistryOp
-
-NEW_LAW_CASES: tuple[tuple[str, ChemistryOp, str], ...] = (
+NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
     (
         "How many grams of NaCl are needed to make 500 mL of a 0.200 M NaCl solution?",
         "solution_mass",

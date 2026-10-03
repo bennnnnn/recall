@@ -11,7 +11,25 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, model_validator
 
-from app.models.schemas.chemistry.ops import OPS_BY_KIND, ChemistryKind, ChemistryOp
+ChemistryKind = Literal[
+    "equations",
+    "amounts",
+    "stoichiometry",
+    "solutions",
+    "acid_base",
+    "gases",
+    "thermochemistry",
+    "equilibrium",
+    "kinetics",
+    "electrochemistry",
+    "nuclear",
+    "spectroscopy",
+    "structure",
+    "organic",
+    "inorganic",
+    "analytical",
+    "biochemistry",
+]
 
 CrystalGeometry = Literal["octahedral", "tetrahedral", "square_planar"]
 
@@ -26,7 +44,7 @@ MAX_DECIMALS = 6
 # ``written`` only ever holds a number as typed ("1.10", "-0.76", "1.8e-5"), never other text.
 _NUMBER_LITERAL = re.compile(r"-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?")
 
-__all__ = ["ChemistryIntent", "ChemistryKind", "ChemistryOp"]
+__all__ = ["ChemistryIntent", "ChemistryKind"]
 
 
 class ChemistryIntent(BaseModel):
@@ -39,7 +57,9 @@ class ChemistryIntent(BaseModel):
     """
 
     kind: ChemistryKind
-    chemistry_op: ChemistryOp
+    # A catalog id. The catalog is the one list of operations: the validator refuses an id
+    # it does not declare, or one it files under another kind.
+    chemistry_op: str = Field(max_length=64)
     params: dict[str, float] = Field(default_factory=dict)
     units: dict[str, str] = Field(default_factory=dict)
     formula: str | None = Field(default=None, max_length=MAX_TEXT_FIELD)
@@ -60,8 +80,10 @@ class ChemistryIntent(BaseModel):
 
     @model_validator(mode="after")
     def finite_values(self) -> ChemistryIntent:
-        if self.chemistry_op not in OPS_BY_KIND[self.kind]:
-            raise ValueError(f"{self.chemistry_op!r} is not a {self.kind!r} chemistry operation")
+        # The catalog does not import this module, so asking it here cannot loop.
+        from app.modules.chemistry.catalog import check_operation
+
+        check_operation(self.kind, self.chemistry_op)
         if (
             len(self.species) > MAX_SPECIES
             or len(self.samples) > MAX_SAMPLES

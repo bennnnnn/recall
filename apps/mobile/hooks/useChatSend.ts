@@ -11,11 +11,6 @@ import type { useDraftChat } from "@/hooks/useDraftChat";
 import type { useChatScroll } from "@/hooks/useChatScroll";
 import { getSessionGeneration } from "@/lib/auth";
 import type { Message, ScanReading } from "@/lib/api";
-import {
-  chemistryScanFailureDetail,
-  chemistryScanFailureMessageKey,
-} from "@/lib/chemistry/scanReadError";
-import { mathScanFailureDetail, type MathScanReadFailure } from "@/lib/math/scanReadError";
 import { clearPendingChatTtft } from "@/lib/chat/latency";
 import { notifyWarning, tap } from "@/lib/haptics";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
@@ -61,6 +56,11 @@ import {
   composerTextAfterSubjectScan,
   type ScannerSubject,
 } from "@/lib/scanner/subjects";
+import {
+  scanFailureDetail,
+  scanFailureMessageKey,
+  type ScanReadFailure,
+} from "@/lib/scanner/scanReadError";
 import {
   subscribeComposerAttachmentQueue,
   takeQueuedComposerAttachment,
@@ -701,7 +701,7 @@ export function useChatSend({
       scan: PendingAttachment,
       subject: ReadBackSubject,
       signal: AbortSignal,
-    ): Promise<ScanReading | MathScanReadFailure | null> => {
+    ): Promise<ScanReading | ScanReadFailure | null> => {
       if (!token) return null;
       try {
         // Loaded on use: the API barrel pulls in native file-system modules
@@ -709,19 +709,12 @@ export function useChatSend({
         const { api } = await import("@/lib/api");
         return await api.readScan(token, subject, scan, signal);
       } catch (error) {
-        // Math names a rate limit and an oversized photo. Chemistry names a
-        // rate limit and a missing reader. Anything else stays generic.
-        if (subject === "chemistry") {
-          const detail = chemistryScanFailureDetail(error);
-          if (!detail) return null;
-          const key = chemistryScanFailureMessageKey(detail);
-          return { error: key ? t(key) : detail };
-        }
-        if (subject === "math") {
-          const detail = mathScanFailureDetail(error);
-          return detail ? { error: detail } : null;
-        }
-        return null;
+        // Every subject names a missing reader, an oversized photo and a
+        // limit the same way. Anything else stays generic.
+        const detail = scanFailureDetail(error);
+        if (!detail) return null;
+        const key = scanFailureMessageKey(detail);
+        return { error: key ? t(key) : detail };
       }
     },
     [t, token],

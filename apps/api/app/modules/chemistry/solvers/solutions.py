@@ -3,22 +3,19 @@
 
 from __future__ import annotations
 
-import math
-
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert, to_liters
 from app.modules.chemistry.solvers.common_chem import (
+    const,
     converted_from,
     inp,
     num,
-    p_value,
     qty,
     verified,
 )
-from app.modules.chemistry.solvers.constants import PKW
+from app.modules.chemistry.solvers.constants import GAS_R
 from app.modules.chemistry.solvers.params import require
-from app.modules.chemistry.solvers.relation import solve_paired
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 
@@ -179,114 +176,88 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
     raise SolveServiceError(f"unsupported solution operation: {op}")
 
 
-def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
-    op = intent.chemistry_op
-    if op == "ph_from_h":
-        concentration = require(intent, "h", positive=True)
-        ph = -math.log10(concentration)
-        value = p_value(ph)
-        return verified(
-            "Verified pH calculation",
-            (f"[H+] = {inp(concentration)} mol/L",),
-            "pH",
-            *stated("ph_from_h"),
-            (f"pH = −log10({inp(concentration)})",),
-            f"pH = {value}",
-            value,
-        )
-    if op == "ph_from_poh":
-        poh = require(intent, "poh")
-        ph = PKW - poh
-        value = p_value(ph)
-        return verified(
-            "Verified pH calculation",
-            (f"pOH = {inp(poh)}", f"pKw = {PKW} at 25 °C"),
-            "pH",
-            *stated("ph_from_poh"),
-            (f"pH = {PKW} − {inp(poh)}",),
-            f"pH = {value}",
-            value,
-        )
-    if op == "h_from_ph":
-        ph = require(intent, "ph")
-        concentration = 10 ** (-ph)
-        value = f"{num(concentration)} mol/L"
-        return verified(
-            "Verified pH calculation",
-            (f"pH = {inp(ph)}",),
-            "[H+]",
-            *stated("h_from_ph"),
-            (f"[H+] = 10^(-{inp(ph)})",),
-            f"[H+] = {value}",
-            value,
-        )
-    if op == "poh_from_oh":
-        concentration = require(intent, "oh", positive=True)
-        poh = -math.log10(concentration)
-        value = p_value(poh)
-        return verified(
-            "Verified pOH calculation",
-            (f"[OH-] = {inp(concentration)} mol/L",),
-            "pOH",
-            *stated("poh_from_oh"),
-            (f"pOH = −log10({inp(concentration)})",),
-            f"pOH = {value}",
-            value,
-        )
-    if op == "buffer_ph":
-        pka = require(intent, "pka")
-        base = require(intent, "base", positive=True)
-        acid = require(intent, "acid", positive=True)
-        ph = pka + math.log10(base / acid)
-        value = p_value(ph)
-        return verified(
-            "Verified buffer pH",
-            (
-                f"pKa = {inp(pka)}",
-                f"[A-] = {inp(base)} mol/L",
-                f"[HA] = {inp(acid)} mol/L",
-            ),
-            "Buffer pH",
-            *stated("buffer_ph"),
-            (f"pH = {inp(pka)} + log10({inp(base)}/{inp(acid)})",),
-            f"pH = {value}",
-            value,
-        )
-    raise SolveServiceError(f"unsupported acid-base operation: {op}")
-
-
-_BEER = {
-    "absorbance": ("A", "", "A = {}"),
-    "epsilon": ("ε", "L/(mol·cm)", "ε = {} L/(mol·cm)"),
-    "path": ("b", "cm", "b = {} cm"),
-    "concentration": ("c", "mol/L", "c = {} mol/L"),
-}
-
-
-def solve_beer_lambert(intent: ChemistryIntent) -> ChemistryResult:
-    values = {name: intent.params.get(name) for name in _BEER}
-    missing = [name for name, value in values.items() if value is None]
-    if len(missing) != 1:
-        raise SolveServiceError("exactly one Beer–Lambert variable must be unknown")
-    known_values = [value for value in values.values() if value is not None]
-    if any(value < 0 for value in known_values) or any(
-        values[name] == 0 for name in ("epsilon", "path", "concentration")
-    ):
-        raise SolveServiceError("Beer–Lambert inputs must be physically valid")
-    unknown = missing[0]
-    symbol, unit, _ = _BEER[unknown]
-    known = {_BEER[name][0]: value for name, value in values.items() if value is not None}
-    result, rearranged, substitution = solve_paired(known, symbol, ["A"], ["ε", "b", "c"])
-    value = f"{num(result)}{f' {unit}' if unit else ''}"
-    given = tuple(
-        _BEER[name][2].format(inp(amount)) for name, amount in values.items() if amount is not None
-    )
+def _colligative(
+    intent: ChemistryIntent,
+    constant_name: str,
+    constant_label: str,
+    symbol: str,
+    title: str,
+    operation: str,
+) -> ChemistryResult:
+    factor = intent.params.get("i")
+    constant = intent.params.get(constant_name)
+    molality = intent.params.get("molality")
+    if factor is None or constant is None or molality is None or factor <= 0 or molality < 0:
+        raise SolveServiceError("colligative inputs must be physically valid")
+    value = factor * constant * molality
+    shown = f"{symbol} = {num(value)} °C"
     return verified(
-        "Verified Beer–Lambert calculation",
-        given,
+        title,
+        (
+            f"i = {inp(factor)}",
+            f"{constant_label} = {inp(constant)} °C·kg/mol",
+            f"m = {inp(molality)} mol/kg",
+        ),
         symbol,
-        *stated("beer_lambert"),
-        (rearranged, substitution),
-        f"{symbol} = {value}",
-        value,
+        *stated(operation),
+        (f"{symbol} = ({inp(factor)})({inp(constant)})({inp(molality)})",),
+        shown,
+        shown,
+    )
+
+
+def solve_boiling(intent: ChemistryIntent) -> ChemistryResult:
+    return _colligative(
+        intent, "kb", "Kb", "ΔTb", "Verified boiling-point elevation", "boiling_elevation"
+    )
+
+
+def solve_freezing(intent: ChemistryIntent) -> ChemistryResult:
+    return _colligative(
+        intent, "kf", "Kf", "ΔTf", "Verified freezing-point depression", "freezing_depression"
+    )
+
+
+def solve_osmotic(intent: ChemistryIntent) -> ChemistryResult:
+    factor = intent.params.get("i")
+    molarity = intent.params.get("molarity")
+    temperature = intent.params.get("temperature")
+    if (
+        factor is None
+        or molarity is None
+        or temperature is None
+        or factor <= 0
+        or molarity < 0
+        or temperature <= 0
+    ):
+        raise SolveServiceError("osmotic pressure inputs must be physically valid")
+    value = factor * molarity * GAS_R * temperature
+    shown = f"Π = {num(value)} atm"
+    return verified(
+        "Verified osmotic pressure",
+        (f"i = {inp(factor)}", f"M = {inp(molarity)} mol/L", f"T = {inp(temperature)} K"),
+        "Osmotic pressure",
+        *stated("osmotic_pressure"),
+        (f"Π = ({inp(factor)})({inp(molarity)})({const(GAS_R)})({inp(temperature)})",),
+        shown,
+        shown,
+    )
+
+
+def solve_raoult(intent: ChemistryIntent) -> ChemistryResult:
+    fraction = intent.params.get("mole_fraction")
+    pure = intent.params.get("pure_pressure")
+    if fraction is None or pure is None or not 0 <= fraction <= 1 or pure < 0:
+        raise SolveServiceError("Raoult's law needs a mole fraction and a pure pressure")
+    unit = intent.units.get("pressure", "")
+    suffix = f" {unit}" if unit else ""
+    shown = f"P = {num(fraction * pure)}{suffix}"
+    return verified(
+        "Verified Raoult's law",
+        (f"X = {inp(fraction)}", f"P° = {inp(pure)}{suffix}"),
+        "Vapor pressure",
+        *stated("raoult"),
+        (f"P = ({inp(fraction)})({inp(pure)})",),
+        shown,
+        shown,
     )
