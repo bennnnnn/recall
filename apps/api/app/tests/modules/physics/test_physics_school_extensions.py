@@ -298,6 +298,34 @@ def test_conceptual_gauss_is_not_forced_into_physics() -> None:
     assert needs_physics("what is Gauss's law") is False
 
 
+@pytest.mark.parametrize("body", ["Jupiter", "the Sun"])
+def test_horizontal_bernoulli_on_a_body_without_school_g_still_answers(body: str) -> None:
+    # The height variant declares g. This selection does not use it, so the body
+    # must not decline the question.
+    text = (
+        f"Use Bernoulli for horizontal water flow on {body}: P1 is 100000 Pa, density "
+        "1000 kg/m^3, v1 is 2 m/s and v2 is 6 m/s. Find P2."
+    )
+    assert _answer(text) == "84000 Pa"
+
+
+def test_bernoulli_with_height_on_jupiter_declines() -> None:
+    text = (
+        "Use Bernoulli for water flow with initial height of 5 m and final height of 1 m "
+        "on Jupiter. P1 is 100000 Pa, density 1000 kg/m^3, v1 is 2 m/s and v2 is 2 m/s. "
+        "Find P2."
+    )
+    assert _answer(text) is None
+
+
+def test_horizontal_bernoulli_on_the_moon_does_not_take_the_moon_g() -> None:
+    text = (
+        "Use Bernoulli for horizontal water flow on the Moon: P1 is 100000 Pa, density "
+        "1000 kg/m^3, v1 is 2 m/s and v2 is 6 m/s. Find P2."
+    )
+    assert _answer(text) == "84000 Pa"
+
+
 def test_schrodinger_stays_recognized_and_unverified() -> None:
     text = "Derive the time-dependent Schrodinger equation for this Hamiltonian."
     assert needs_physics(text) is True
