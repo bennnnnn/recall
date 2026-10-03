@@ -173,6 +173,7 @@ function makeStyles(theme: Theme) {
     },
     inkCell: {
       height: "100%",
+      paddingHorizontal: Space.xs,
       alignItems: "center",
       justifyContent: "center",
     },

@@ -38,6 +38,8 @@ type Props = {
   busy: boolean;
   /** Capture is in flight. Library picks stay off this so the shutter does not spin. */
   capturing?: boolean;
+  /** False while the camera is still starting. A tap then is ignored, not a failure. */
+  captureReady?: boolean;
   torchOn: boolean;
   subject: ScannerSubject;
   error: string | null;
@@ -58,6 +60,7 @@ export function MathScannerChrome({
   preview,
   busy,
   capturing = false,
+  captureReady = true,
   torchOn,
   subject,
   error,
@@ -174,10 +177,10 @@ export function MathScannerChrome({
                 shutterScale.value = withTiming(1, { duration: pressMs });
               }}
               onPress={onCapture}
-              disabled={busy}
+              disabled={busy || !captureReady}
               testID="math-scanner-shutter"
               accessibilityRole="button"
-              accessibilityState={{ disabled: busy, busy }}
+              accessibilityState={{ disabled: busy || !captureReady, busy }}
               accessibilityLabel={t("chat.math_scan_capture_a11y")}
             >
               <Animated.View style={[s.shutter, shutterStyle]}>
