@@ -94,7 +94,7 @@ test("renders the cached match instantly with scan-first details", async () => {
   expect(getAllByText("Acme Health").length).toBeGreaterThan(0);
   expect(getByText("88%")).toBeTruthy();
   expect(getByLabelText("my_job.meta_skills: ACLS, Triage")).toBeTruthy();
-  expect(queryByText("Full summary of the role.")).toBeNull();
+  expect(getByText("Full summary of the role.")).toBeTruthy();
   expect(queryByText("my_job.not_interested")).toBeNull();
   expect(queryByText("Shift fit")).toBeNull();
   await fireEvent.press(getByLabelText("my_job.why_matches"));

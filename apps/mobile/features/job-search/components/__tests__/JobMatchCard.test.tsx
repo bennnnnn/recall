@@ -66,11 +66,11 @@ describe("JobMatchCard", () => {
     expect(queryByLabelText("my_job.not_interested")).toBeNull();
   });
 
-  it("does not render the summary body paragraph", async () => {
-    const { queryByText } = await render(
+  it("renders the role summary", async () => {
+    const { getByText } = await render(
       <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
     );
-    expect(queryByText("Build production APIs.")).toBeNull();
+    expect(getByText("Build production APIs.")).toBeTruthy();
   });
 
   it("falls back to the company initial when there is no logo", async () => {

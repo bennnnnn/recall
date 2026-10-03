@@ -8,30 +8,37 @@ from pydantic import ValidationError
 
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules.job_search import runner
-from app.modules.job_search.runner import (
-    PostingVerificationError,
-    _Candidate,
+from app.modules.job_search.posting import (
     _dedupe_accepted,
     _extract_company_logo_url,
     _extract_experience,
     _extract_salary,
     _extract_work_mode,
-    _fallback_rank,
-    _fetch_posting_pages,
-    _find_candidates,
     _is_listing_page,
+    _title_and_company,
+    _title_company_key,
+    canonicalize_job_url,
+)
+from app.modules.job_search.ranking import (
+    _fallback_rank,
     _obvious_mismatch,
-    _ProfileSnapshot,
-    _rank_candidates,
-    _RankedJob,
-    _RankedPayload,
     _ranking_messages,
     _salary_ceiling,
     _search_queries,
     _strategic_match_assessment,
-    _title_and_company,
-    _title_company_key,
-    canonicalize_job_url,
+)
+from app.modules.job_search.records import (
+    PostingVerificationError,
+    _AcceptedJob,
+    _Candidate,
+    _ProfileSnapshot,
+    _RankedJob,
+    _RankedPayload,
+)
+from app.modules.job_search.runner import (
+    _fetch_posting_pages,
+    _find_candidates,
+    _rank_candidates,
 )
 from app.modules.job_search.schemas import ResumeProfile
 
@@ -191,6 +198,52 @@ def test_work_mode_fallback_uses_earliest_explicit_posting_metadata() -> None:
     assert _extract_work_mode(candidate) == "remote"
 
 
+def test_gartner_posting_keeps_employer_place_pay_and_role() -> None:
+    """A careers host and a USD range must not become Jobs / Hybrid / no pay."""
+    page = (
+        "[![Gartner Careers logo](/media/gartner.svg)](/) "
+        "# Senior Account Executive * Remote, New York * [Sales](/teams/sales/) "
+        "## Description **About this role:** The Senior Account Executive is a field sales "
+        "role responsible for client retention and growth. Account Executives build "
+        "trust-based relationships with C-Level Executives and their teams. "
+        "**What you will need:** * 10+ years' B2B sales experience. "
+        "In our hybrid work environment, we provide the flexibility and support "
+        "for you to thrive. "
+        "A reasonable estimate of the base salary range for this role is "
+        "132,000 USD - 170,000 USD. "
+        "We also offer a 401k match up to $7,200 per year."
+    )
+    candidate = replace(
+        _candidate(
+            "Senior Account Executive ## Description",
+            "In our hybrid work environment, we provide the flexibility",
+        ),
+        url="https://jobs.gartner.com/jobs/job/108710-senior-account-executive",
+        canonical_url="https://jobs.gartner.com/jobs/job/108710-senior-account-executive",
+        source="jobs.gartner.com",
+        page_text=page,
+    )
+    accepted = _fallback_rank(
+        _profile(
+            target_roles=["Account Executive"],
+            experience_levels=["senior"],
+            work_modes=["remote", "hybrid", "onsite"],
+        ),
+        [candidate],
+    )
+    assert len(accepted) == 1
+    job = accepted[0]
+    assert job.title == "Senior Account Executive"
+    assert job.company == "Gartner"
+    assert job.location == "Remote, New York"
+    assert job.work_mode == "remote"
+    assert job.salary == "132,000 USD - 170,000 USD"
+    assert job.experience == "10+ years"
+    assert job.summary is not None
+    assert job.summary.startswith("The Senior Account Executive is a field sales role")
+    assert "hybrid work environment" not in job.summary
+
+
 def test_company_logo_must_be_https_and_labelled_with_employer() -> None:
     candidate = replace(
         _candidate("Backend Engineer - Acme"),
@@ -247,7 +300,7 @@ async def test_fetch_posting_pages_shortlists_and_attaches_text(
     weak = _candidate("Unrelated role", "nothing here")
     strong = replace(_candidate("Backend Engineer", "Python FastAPI remote"), candidate_id=1)
 
-    async def fake_extract(_settings: Any, urls: list[str]) -> dict[str, str]:
+    async def fake_extract(_settings: Any, urls: list[str], **_kwargs: object) -> dict[str, str]:
         return {urls[0]: "full page text"}
 
     monkeypatch.setattr(runner.web_search_gateway, "extract_pages", fake_extract)
@@ -262,7 +315,7 @@ async def test_fetch_posting_pages_rejects_unverified_results(
     settings = MagicMock(job_search_page_fetch_enabled=True, job_search_page_fetch_max=1)
     candidates = [_candidate("Backend Engineer", "Python"), _candidate("Other", "none")]
 
-    async def fake_extract(_settings: Any, _urls: list[str]) -> dict[str, str]:
+    async def fake_extract(_settings: Any, _urls: list[str], **_kwargs: object) -> dict[str, str]:
         return {}
 
     monkeypatch.setattr(runner.web_search_gateway, "extract_pages", fake_extract)
@@ -335,8 +388,8 @@ def test_title_company_key_ignores_case_punctuation_and_suffixes() -> None:
 
 
 def test_dedupe_accepted_drops_cross_source_repeats() -> None:
-    def accepted(title: str, company: str, url: str) -> runner._AcceptedJob:
-        return runner._AcceptedJob(
+    def accepted(title: str, company: str, url: str) -> _AcceptedJob:
+        return _AcceptedJob(
             candidate=_Candidate(
                 candidate_id=0,
                 title=title,
