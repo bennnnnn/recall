@@ -12,6 +12,8 @@ import re
 from functools import lru_cache
 
 from app.models.schemas.chemistry import ChemistryIntent, ChemistryOp
+from app.modules.chemistry.binding import bind_chemistry_intent
+from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extractors import EXTENDED_EXTRACTORS
 from app.modules.chemistry.extractors.parsing import (
@@ -27,6 +29,7 @@ from app.modules.chemistry.extractors.parsing import (
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
 from app.modules.chemistry.sig_figs import written_numbers
+from app.modules.chemistry.species_facts import ELEMENT_NAMES
 from app.services.number_text import read_scientific_numbers
 
 _MAX_TEXT_LENGTH = 4000
@@ -153,15 +156,18 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
 
     percent_composition = re.search(
         rf"percent(?:age)?\s+(?:composition|by mass)\s+(?:of\s+)?"
-        rf"([A-Z][a-z]?)\s+(?:in|of)\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"([A-Z][a-z]?|[a-z]+)\s+(?:in|of)\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
         text,
         re.IGNORECASE,
     )
-    if percent_composition:
+    # The element may be named in words: "the percent composition of carbon in CO2".
+    element = None if percent_composition is None else percent_composition.group(1).lower()
+    symbol = ELEMENT_NAMES.get(element or "", (element or "").capitalize())
+    if percent_composition and symbol in BY_SYMBOL:
         return ChemistryIntent(
             kind="amounts",
             chemistry_op="percent_composition",
-            target=percent_composition.group(1).capitalize(),
+            target=symbol,
             formula=percent_composition.group(2),
         )
 
@@ -607,4 +613,6 @@ def _extract_chemistry_intent(text: str) -> ChemistryIntent | None:
             return None
         if intent is not None:
             return written_numbers(text, intent)
-    return None
+    # No template knew the phrasing: read it into a law in its own words.
+    bound = bind_chemistry_intent(text)
+    return None if bound is None else written_numbers(text, bound)

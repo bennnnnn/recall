@@ -1,7 +1,7 @@
 """The words around a stated value, which say which input of a law it fills.
 
-The binder reads a question's values by dimension; these helpers read the
-words: the phrase before a value ("from 10 m/s", "reaches 18 m/s"), the
+The binder (``law_binding.fit``) reads a question's values by dimension; these helpers read
+the words: the phrase before a value ("from 10 m/s", "reaches 18 m/s"), the
 phrase after it ("100 turns on the primary"), the asked phrase, and words
 that state a value without a number ("from rest").
 """
@@ -11,8 +11,8 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from app.modules.physics.catalog.spec import Binding, VariableSpec
-from app.modules.physics.givens import unit_at, unit_dimension
+from app.services.law_binding.spec import Binding, VariableSpec
+from app.services.law_binding.units import UnitTable, unit_dimension
 
 _SENTENCE_BREAK = re.compile(r"[.;?!](?:\s|$)")
 _CONNECTOR = re.compile(
@@ -58,24 +58,26 @@ def words_after(lower: str, start: int, end: int) -> str:
     return after[: link.start()] if link is not None else after
 
 
-def ask_strength(clause: str, asks: tuple[str, ...], result: tuple[str, ...]) -> int:
+def ask_strength(
+    clause: str, asks: tuple[str, ...], result: tuple[str, ...], units: UnitTable
+) -> int:
     """The longest asked phrase this clause names, not counting a given's label."""
     strength = 0
     for phrase in asks:
         for match in word_pattern(phrase).finditer(clause):
             label = _LABELLED.match(clause, match.end())
-            if label is None or not _labels(clause, label.end(), result):
+            if label is None or not _labels(clause, label.end(), result, units):
                 strength = max(strength, len(phrase))
     return strength
 
 
-def _labels(clause: str, end: int, result: tuple[str, ...]) -> bool:
+def _labels(clause: str, end: int, result: tuple[str, ...], units: UnitTable) -> bool:
     """A value right after the asked phrase is its label when it is of that kind.
 
     "an acceleration of 2 m/s²" states an acceleration; "the internal energy
     of 2 mol of gas" asks for an energy of an amount. A bare number labels.
     """
-    unit = unit_at(clause, end)
+    unit = units.at(clause, end)
     if unit is None:
         return True
     reading = unit_dimension(unit[1])

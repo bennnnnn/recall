@@ -11,6 +11,15 @@ from app.modules.chemistry.extractors.parsing import (
     _molar_formula,
     _search,
 )
+from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.species_facts import (
+    NAMED_COMPOUNDS,
+    STRONG_ACIDS,
+    STRONG_BASES,
+    WEAK_ACIDS,
+    WEAK_BASES,
+    is_formula,
+)
 
 
 def _extract_acid(text: str) -> ChemistryIntent | None:
@@ -84,14 +93,14 @@ def _extract_acid(text: str) -> ChemistryIntent | None:
 
 
 def _extract_titration(text: str) -> ChemistryIntent | None:
-    if not re.search(r"\btitration\b", text, re.IGNORECASE):
+    if not re.search(r"\btitrat\w*", text, re.IGNORECASE):
         return None
     ma = _search(rf"\bMa\s*=\s*({_N})", text)
     va = _search(rf"\bVa\s*=\s*({_N})\s*L", text)
     mb = _search(rf"\bMb\s*=\s*({_N})", text)
     vb = _search(rf"\bVb\s*=\s*({_N})\s*L", text)
     if ma is None or va is None or mb is None:
-        return None
+        return _titration_in_words(text)
     params = {"ma": ma, "va_l": va, "mb": mb}
     if vb is not None:
         params["vb_l"] = vb
@@ -140,3 +149,98 @@ def _extract_buffer_addition(text: str) -> ChemistryIntent | None:
         target=target,
         params=params,
     )
+
+
+_SPECIES = rf"(?:{'|'.join(re.escape(name) for name in NAMED_COMPOUNDS)}|{CHEMICAL_FORMULA})"
+# "25 mL of 0.10 M HCl", or a titrant named by concentration alone: "0.10 M NaOH".
+_SOLUTION = re.compile(
+    rf"(?:({_N})\s*(mL|L)\s+of\s+(?:an?\s+|the\s+)?)?({_N})\s*M\s+({_SPECIES})(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
+# "after adding 10 mL of NaOH": the titrant's volume.
+_ADDED = re.compile(
+    rf"\b(?:adding|added|addition\s+of)\s+({_N})\s*(mL|L)\b"
+    rf"(?:\s+of\s+(?:the\s+)?({_SPECIES})(?![A-Za-z0-9]))?",
+    re.IGNORECASE,
+)
+
+
+def _species(token: str) -> str | None:
+    named = NAMED_COMPOUNDS.get(token.lower())
+    return named if named is not None else (token if is_formula(token) else None)
+
+
+def _liters(value: str, unit: str) -> float:
+    return float(value) / 1000 if unit.lower() == "ml" else float(value)
+
+
+def _titration_in_words(text: str) -> ChemistryIntent | None:
+    """A titration written in words: each volume belongs to the solution it is "of".
+
+    "25 mL of 0.1 M HCl is titrated with 0.1 M NaOH. Find the pH after adding 10 mL of
+    NaOH": HCl has 25 mL at 0.1 M, NaOH 0.1 M, and the 10 mL added is NaOH's. A volume no
+    phrase ties to one solution declines rather than guess.
+    """
+    if not re.search(r"\bpH\b", text):
+        return None
+    concentration: dict[str, float] = {}
+    volume: dict[str, float] = {}
+    # Where each solution phrase states its volume: "adding 10 mL of 0.1 M NaOH" is read
+    # once, as the NaOH solution, not again as an added volume.
+    stated_at: set[int] = set()
+    for match in _SOLUTION.finditer(text):
+        formula = _species(match.group(4))
+        if formula is None or concentration.get(formula, float(match.group(3))) != float(
+            match.group(3)
+        ):
+            return None
+        concentration[formula] = float(match.group(3))
+        if match.group(1) is not None:
+            stated = _liters(match.group(1), match.group(2))
+            if volume.get(formula, stated) != stated:
+                return None
+            volume[formula] = stated
+            stated_at.add(match.start(1))
+    acids = [
+        formula for formula in concentration if formula in STRONG_ACIDS or formula in WEAK_ACIDS
+    ]
+    bases = [
+        formula for formula in concentration if formula in STRONG_BASES or formula in WEAK_BASES
+    ]
+    if len(acids) != 1 or len(bases) != 1 or len(concentration) != 2:
+        return None
+    acid, base = acids[0], bases[0]
+    # The solvers count one OH- per formula unit: 0.1 M Ca(OH)2 is 0.2 M OH-, not 0.1.
+    if STRONG_BASES.get(base, 1) != 1:
+        return None
+    for match in _ADDED.finditer(text):
+        if match.start(1) in stated_at:
+            continue
+        named = _species(match.group(3)) if match.group(3) else None
+        titrant = named or next((f for f in (acid, base) if f not in volume), None)
+        added = _liters(match.group(1), match.group(2))
+        # The same volume said twice is one statement; two different ones are ambiguous.
+        if titrant not in (acid, base) or volume.get(titrant, added) != added:
+            return None
+        volume[titrant] = added
+    if acid not in volume or base not in volume:
+        return None
+    params = {
+        "ma": concentration[acid],
+        "va_l": volume[acid],
+        "mb": concentration[base],
+        "vb_l": volume[base],
+    }
+    if acid in STRONG_ACIDS and base in STRONG_BASES:
+        return ChemistryIntent(kind="acid_base", chemistry_op="titration_strong", params=params)
+    ka = _search(rf"\bKa\s*=\s*({_N})", text, flags=0)
+    kb = _search(rf"\bKb\s*=\s*({_N})", text, flags=0)
+    if acid in WEAK_ACIDS and base in STRONG_BASES and ka is not None:
+        return ChemistryIntent(
+            kind="acid_base", chemistry_op="titration_weak", params={**params, "ka": ka}
+        )
+    if base in WEAK_BASES and acid in STRONG_ACIDS and kb is not None:
+        return ChemistryIntent(
+            kind="acid_base", chemistry_op="titration_weak", params={**params, "kb": kb}
+        )
+    return None

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, bind, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, var
 
 # A half-life and the time that has passed are both times: the words say which.
 HALF_LIFE = var("half_life", r"T_{1/2}", "second", words=("half-life", "half life"))

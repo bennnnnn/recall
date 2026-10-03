@@ -24,9 +24,31 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    unit the registry cannot convert declines the problem instead of being read as the
    default unit. `1.8 × 10^-5` is read whole, never as `1.8`, by the shared
    `services/number_text` reader. One line is extracted once per turn: the result is
-   cached per text and each caller gets its own copy. Extraction is
-   template-driven: it recognises a fixed set of phrasings, and a problem outside them
-   goes to the model, unverified.
+   cached per text and each caller gets its own copy. The templates in `extractors/`
+   read labelled phrasings ("Strong acid: 0.01 M HCl", "M1 = 2 M, V1 = 50 mL").
+   A question in its own words ("What is the pH of 0.01 M HCl?") is read by the
+   **binder** (`binding.py`) once every template has declined. It uses the law engine
+   physics uses (`services/law_binding`):
+   - the text is prepared first. A symbol whose case is its meaning is spelled out
+     (`pH`, `Ka`, `E°`). Each substance named by formula or by name (`species_facts.py`:
+     water, table salt, acetic acid…) becomes its role: strong or weak acid or base,
+     conjugate salt, compound. Its digits are never read as numbers (the 2 of `Ca(OH)2`);
+   - a law (`laws.py`) is tried only when the question names the substance it is
+     about. A strong-acid pH needs exactly one strong acid;
+   - the stated values fill the law's inputs by dimension (`given_units.py`: `M` is mol/L,
+     `m` is mol/kg, `°C/m` a colligative constant) and by the words around them;
+   - settings fill the rest:
+     - the van 't Hoff factor of a named solute (glucose 1, NaCl 2);
+     - the molar mass of the metal deposited, and the charge of its ion (`Cu2+`);
+     - 25 °C for a Nernst cell with no temperature;
+   - each input is converted to the unit its solver reads, so the solver is the same one
+     a template reaches.
+
+   Anything short of one law with one way to fill it declines: two strong acids, a
+   weak acid without its Ka, a second time for one electrolysis. A titration in words
+   pairs each volume with the solution it is "of" ("25 mL of 0.1 M HCl", "adding 10 mL of
+   NaOH"); a volume no phrase ties to one solution declines. A binder fit is also a
+   chemistry cue for the gate. A problem no reader knows goes to the model, unverified.
 3. **Solve** (`solvers/`) — grouped deterministic solvers return `ChemistryResult` with
    Given, Find, named universal Formula, Substitution, and Answer fields.
 4. **Respond** (`direct.py`) — a complete typed calculation returns the exact compact
@@ -166,6 +188,7 @@ not supplied. Coordination number 4 is drawn as tetrahedral, not square planar.
 | Intent schema | `apps/api/app/models/schemas/chemistry/intent.py` |
 | Gate / compound parsing | `apps/api/app/modules/chemistry/request.py` |
 | Text extraction | `apps/api/app/modules/chemistry/extract.py`, `extractors/` |
+| Binder (questions in their own words) | `binding.py`, `laws.py`, `species_facts.py`, `given_units.py`; engine in `apps/api/app/services/law_binding/` |
 | Typed solver dispatcher | `apps/api/app/modules/chemistry/solvers/solver.py` |
 | Formula catalog | `apps/api/app/modules/chemistry/catalog.py` |
 | Teaching scenes | `apps/api/app/modules/chemistry/scene.py` |
