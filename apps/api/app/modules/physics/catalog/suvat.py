@@ -95,12 +95,17 @@ SPECS: tuple[FormulaSpec, ...] = (
                 present=frozenset({"v", "t"}),
                 absent=frozenset({"a"}),
             ),
+            FormulaVariant(
+                latex=r"s = vt - \tfrac{1}{2}at^2",
+                present=frozenset({"v", "a", "t"}),
+                absent=frozenset({"u"}),
+            ),
         ),
         variables=_with(_A, _T, _U, _V),
         binding=Binding(
             asks=("displacement", "distance", "how far"),
             result=("meter",),
-            inputs=_inputs("uat", "uva", "uvt"),
+            inputs=_inputs("uat", "uva", "uvt", "vat"),
         ),
     ),
     formula(

@@ -139,7 +139,7 @@ The binder reads these laws, beside the extractors' own:
 
 | Area | Laws |
 |------|------|
-| Motion | SUVAT for v, s, t, a and u; d = vt in any units; fall height; horizontal launch |
+| Motion | SUVAT for v, s, t, a and u, including s = vt − ½at²; d = vt in any units; fall height; horizontal launch |
 | Forces and energy | W = mg on a named body; Atwood; applied force with friction; P = mgh/t; energy-conservation speed; Kepler period; rotational KE |
 | Circuits | Q = It for I; Q = CV for Q, C and V; R = ρL/A; τ = RC; RC charging and discharging; capacitors in series and parallel; ideal transformer |
 | Fields | E = V/d between plates; F = qE; W = qV (eV with "in eV"); solenoid B = μ₀NI/L |

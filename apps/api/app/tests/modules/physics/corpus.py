@@ -36,6 +36,10 @@ MECHANICS: tuple[Case, ...] = (
         (6, "m/s"),
     ),
     _q(
+        "A car reaches 20 m/s after accelerating at 2 m/s^2 for 4 s. How far does it travel?",
+        (64, "m"),
+    ),
+    _q(
         "An object moves with initial velocity 5 m/s and acceleration 2 m/s^2. "
         "Find its displacement after 4 s.",
         (36, "m"),

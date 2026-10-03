@@ -50,6 +50,11 @@ def _answer(text: str) -> str | None:
             "36 m",  # 5·4 + ½·2·16
         ),
         (
+            "A car reaches 20 m/s after accelerating at 2 m/s^2 for 4 s. How far does it travel?",
+            "suvat_distance",
+            "64 m",  # 20*4 - 0.5*2*16
+        ),
+        (
             "How long does it take a car to accelerate from 0 to 27 m/s at 4.5 m/s^2?",
             "suvat_time",
             "6 s",  # 27 / 4.5; the bare 0 takes the m/s it runs to
