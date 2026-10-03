@@ -134,6 +134,9 @@ def prepare(text: str) -> Prepared:
         text,
         flags=re.IGNORECASE,
     )
+    # K1 and K2 are the two equilibrium constants in a van 't Hoff question. K2 is also
+    # a formula (K₂), so spell them out before formulas are replaced by their roles.
+    prepared = re.sub(r"(?<![A-Za-z])K([12])(?![A-Za-z0-9])", r" k\1 ", prepared)
     prepared = _ION.sub(lambda match: f" ion_{match.group(1).lower()} ", prepared)
     prepared = _FORMULA_TOKEN.sub(
         lambda match: substance(match.group(1)) if is_formula(match.group(1)) else match.group(0),

@@ -15,14 +15,19 @@ from app.modules.chemistry.solvers.common_chem import (
     num,
     verified,
 )
-from app.modules.chemistry.solvers.constants import AVOGADRO, FARADAY, GAS_R
+from app.modules.chemistry.solvers.constants import AVOGADRO, FARADAY, GAS_R, GAS_R_J
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.law_binding.expression import Notation, evaluate
 from app.services.solving import SolveServiceError
 
 # Constants a formula law may name: R in L·atm/(mol·K), Faraday's and Avogadro's constants.
 CHEMISTRY_NOTATION = Notation(
-    constants={"R_atm": (GAS_R, "R"), "F": (FARADAY, "F"), "N_A": (AVOGADRO, "Nₐ")},
+    constants={
+        "R_atm": (GAS_R, "R"),
+        "R_J": (GAS_R_J, "R"),
+        "F": (FARADAY, "F"),
+        "N_A": (AVOGADRO, "Nₐ"),
+    },
     number=str,
 )
 

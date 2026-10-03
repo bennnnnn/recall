@@ -115,4 +115,26 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "electron_configuration",
         "Fe: [Ar] 3d6 4s2",
     ),
+    (
+        "Use the van 't Hoff equation. K1 = 1.00, T1 = 300 K, T2 = 350 K, "
+        "and ΔH = 50.0 kJ/mol. What is K2?",
+        "vant_hoff_constant",
+        "K2 = 17.5",
+    ),
+    (
+        "Use the van 't Hoff equation. K1 = 0.10, T1 = 300 K, K2 = 0.50, "
+        "and T2 = 350 K. What is ΔH?",
+        "vant_hoff_enthalpy",
+        "ΔH° = 28 kJ/mol",
+    ),
+    (
+        "K = 10 at 298.15 K. What is ΔG°?",
+        "gibbs_from_equilibrium",
+        "ΔG° = -5.7 kJ/mol",
+    ),
+    (
+        "ΔG° = -5.708 kJ/mol at 298.15 K. What is the equilibrium constant?",
+        "equilibrium_from_gibbs",
+        "K = 10.00",
+    ),
 )
