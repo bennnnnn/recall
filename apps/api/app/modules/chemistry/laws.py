@@ -398,6 +398,137 @@ ANALYSIS: tuple[ChemistryLaw, ...] = (
     ),
 )
 
+
+def _molar_mass() -> VariableSpec:
+    """The molar mass of the substance the question names, unless it states one."""
+    return var("molar_mass", "M", "gram / mole", fallback="species_molar_mass")
+
+
+_SOLUTE_WORDS = ("compound", "solute", "salt", "sugar")
+_SOLVENT_WORDS = ("water", "solvent")
+_GRAMS_ASKS = ("how many grams", "grams", "mass")
+
+# Laws that are one line of arithmetic (formula_laws), read from a question in its words.
+FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
+    _law(
+        "solution_mass",
+        "solutions",
+        _GRAMS_ASKS,
+        "gram",
+        (var("concentration", "c", _MOLAR), var("volume_l", "V", "liter"), _molar_mass()),
+        cues=("solution",),
+        species="compound",
+    ),
+    _law(
+        "molality_from_mass",
+        "solutions",
+        ("molality",),
+        _MOLAL,
+        (
+            var("solute_mass", "m", "gram", words=_SOLUTE_WORDS),
+            _molar_mass(),
+            var("solvent_kg", "m", "kilogram", words=_SOLVENT_WORDS),
+        ),
+        species="solute",
+    ),
+    _law(
+        "mass_percent_solvent",
+        "solutions",
+        ("mass percent", "percent by mass", "mass percentage"),
+        "percent",
+        (
+            var("solute_mass", "m", "gram", words=_SOLUTE_WORDS, needs_words=True),
+            var("solvent_mass", "m", "gram", words=_SOLVENT_WORDS, needs_words=True),
+        ),
+    ),
+    _law(
+        "particles_to_mass",
+        "amounts",
+        _GRAMS_ASKS,
+        "gram",
+        (
+            # Molecules, not atoms: 3.01e23 atoms of O2 are half as many molecules.
+            var(
+                "particles",
+                "N",
+                dimensionless=True,
+                words=("molecules", "particles", "formula units"),
+                needs_words=True,
+            ),
+            _molar_mass(),
+        ),
+        species="compound",
+    ),
+    _law(
+        "mole_fraction",
+        "solutions",
+        # The asked part is the solute: "the mole fraction of water" is not this reading.
+        ("mole fraction of compound", "mole fraction of the compound"),
+        "dimensionless",
+        (
+            var("moles_a", "nA", "mole", words=_SOLUTE_WORDS, needs_words=True),
+            var("moles_b", "nB", "mole", words=_SOLVENT_WORDS, needs_words=True),
+        ),
+    ),
+    _law(
+        "gas_density",
+        "gases",
+        ("density",),
+        "gram / liter",
+        (var("pressure", "P", "atmosphere"), _molar_mass(), var("temperature", "T", "kelvin")),
+        cues=("gas",),
+        species="compound",
+    ),
+    _law(
+        "molar_mass_from_density",
+        "gases",
+        ("molar mass",),
+        "gram / mole",
+        (
+            var("density", "d", "gram / liter"),
+            var("temperature", "T", "kelvin"),
+            var("pressure", "P", "atmosphere"),
+        ),
+        cues=("gas",),
+    ),
+    _law(
+        "percent_ionization",
+        "acid_base",
+        ("percent ionization", "percentage ionization", "% ionization", "percent dissociation"),
+        "percent",
+        (_concentration(), var("ka", "Ka", dimensionless=True, words=("k_a",), needs_words=True)),
+        species="acid_weak",
+    ),
+    _law(
+        "reaction_heat",
+        "thermochemistry",
+        ("how much heat", "heat", "energy"),
+        "kilojoule",
+        (var("moles", "n", "mole"), var("enthalpy", "ΔH", "kilojoule / mole")),
+        nonnegative=False,
+    ),
+    _law(
+        "electrolysis_time",
+        "electrochemistry",
+        ("how long", "time"),
+        "second",
+        (
+            var("mass", "m", "gram"),
+            var(
+                "electrons",
+                "n",
+                dimensionless=True,
+                words=("n =", "electrons"),
+                needs_words=True,
+                fallback="ion_charge",
+            ),
+            var("current", "I", "ampere"),
+            var("molar_mass", "M", "gram / mole", fallback="deposited_molar_mass"),
+        ),
+        cues=("deposit", "electrolysis", "plated", "plating"),
+    ),
+)
+
 LAWS: tuple[ChemistryLaw, ...] = (
     *ACID_BASE,
     *SOLUTIONS,
@@ -406,4 +537,5 @@ LAWS: tuple[ChemistryLaw, ...] = (
     *ELECTROCHEMISTRY,
     *THERMOCHEMISTRY,
     *ANALYSIS,
+    *FORMULA_LAW_BINDINGS,
 )

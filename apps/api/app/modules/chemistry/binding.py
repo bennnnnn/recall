@@ -42,6 +42,7 @@ from app.modules.chemistry.species_facts import (
     ion_charge,
     is_formula,
 )
+from app.modules.chemistry.stoichiometry import molar_mass
 from app.services.law_binding.ask import ask_clause
 from app.services.law_binding.fit import Fit, Question, Subject, fit, read_givens
 from app.services.law_binding.spec import VariableSpec
@@ -148,6 +149,9 @@ def _formula_for(law: ChemistryLaw, species: tuple[str, ...]) -> str | bool | No
         return None
     if law.species == "compound":
         return species[0] if len(species) == 1 else False
+    if law.species == "solute":
+        solutes = [formula for formula in species if formula != "H2O"]
+        return solutes[0] if len(solutes) == 1 else False
     matching = [formula for formula in species if role(formula) == law.species]
     return matching[0] if len(matching) == 1 else False
 
@@ -173,6 +177,10 @@ def _fallback(prepared: Prepared, variable: VariableSpec, _text: str, _lower: st
         return None if factor is None else float(factor)
     if variable.fallback == "standard_temperature":
         return _STANDARD_TEMPERATURE
+    if variable.fallback == "species_molar_mass":
+        solutes = [formula for formula in prepared.species if formula != "H2O"]
+        named = solutes if len(solutes) == 1 else list(prepared.species)
+        return molar_mass(named[0]) if len(named) == 1 else None
     if variable.fallback not in {"deposited_molar_mass", "ion_charge"}:
         return None
     metal = _metal(prepared.original)
@@ -180,8 +188,9 @@ def _fallback(prepared: Prepared, variable: VariableSpec, _text: str, _lower: st
         return None
     if variable.fallback == "deposited_molar_mass":
         return BY_SYMBOL[metal].mass
+    # "Cu2+" states the ion; otherwise it is the galvanic table's school ion (Cu²⁺).
     charge = ion_charge(prepared.original, metal)
-    return None if charge is None else float(charge)
+    return float(charge if charge is not None else STANDARD_REDUCTION[metal][1])
 
 
 def _declared(variable: VariableSpec) -> str:
@@ -246,7 +255,7 @@ def _bind(text: str) -> ChemistryIntent | None:
         and (formula := _formula_for(law, prepared.species)) is not False
         and (not binding.cues or any(word_pattern(cue).search(lower) for cue in binding.cues))
         and not any(word_pattern(word).search(lower) for word in binding.excludes)
-        and (strength := ask_strength(asked_clause, binding.asks, binding.result, CHEMISTRY_UNITS))
+        and (strength := ask_strength(clause, binding.asks, binding.result, CHEMISTRY_UNITS))
     ]
     if not named:
         return None

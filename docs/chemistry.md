@@ -97,7 +97,7 @@ Verified operations share one species model instead of one-off formula patches.
 | Element | all 118 elements: atomic number, symbol, name, atomic mass, and, where a standard value exists, group, period, electronegativity, common oxidation states, and electron configuration. An element with no standard atomic weight (Tc, Pm, and every element from Po on except Th, Pa, and U) carries the mass number of a long-lived isotope, marked `*` in the source table. Helium, neon, argon, and radon omit electronegativity; krypton and xenon have one. |
 | `ChemicalSpecies` | formula, elemental composition, ionic charge, and optional phase (`s`, `l`, `g`, `aq`) |
 | `ChemicalReaction` | reactant and product terms, each a species plus a coefficient |
-| Quantity | school units normalized through the shared Pint registry (`25 °C` → 298.15 K, mmHg/kPa/bar → atm, mL → L) by the extractors for gas states, solution volumes, and dilution, before a solver sees them. An unsupported unit declines |
+| Quantity | school units normalized through the shared Pint registry (`25 °C` → 298.15 K, mmHg/kPa/bar → atm, mL → L) by the extractors for gas states, solution volumes, and dilution, before a solver sees them. mM, µM, nM, kcal, g/L and g/mL are read by the readers that convert units (the binder and Michaelis–Menten): the labelled templates never see them, since `M1 = 5 mM` would read as 5 M. An unsupported unit declines |
 
 Balancing builds a SymPy nullspace over atoms and, when any species is charged, over charge. It recounts both and refuses an underdetermined or non-positive coefficient set. Electrons are a species with charge −1 and no atoms. A glued `+` or `−` is charge (`Fe2+`, `MnO4-`, `SO4^2-`); `H2 + O2` stays a term separator. A polyatomic ion whose charge follows a digit (`Cr2O72-`) is ambiguous, so it must be written with a caret (`Cr2O7^2-`) or the equation is refused rather than balanced wrongly. Reaction arrows are `->`, `→`, `=>`, `-->`, `⟶`, `<=>`, `⇌`, `⇋`, `<->`, and `↔`, read longest first.
 
@@ -108,22 +108,22 @@ Pure solids and liquids are omitted from `Kc`, `Kp`, and solubility products onl
 | Group | Operations |
 |---|---|
 | Equations | atom-and-charge balancing, including ionic and redox half-equations that contain `e-` |
-| Amounts | molar mass, mass ↔ moles, moles ↔ particles, percent composition, percent yield, empirical formula, molecular formula |
+| Amounts | molar mass, mass ↔ moles, moles ↔ particles, particles → mass, percent composition, the mass of an element in a sample (`10.0 g` of H2O holds `8.88 g` of O), average atomic mass from isotope abundances (stated isotope masses, or the isotope table in `isotopes.py`, never the mass numbers), percent yield, empirical formula, molecular formula |
 | Stoichiometry | mole ratios; grams, moles, or particles through the balanced ratio to grams, moles, or particles; solution volume/molarity → product; gas volume at the same P and T; limiting reagent from masses or solution volumes, with theoretical yield and excess reactant |
-| Solutions | molarity, dilution, molality, mass percent, boiling-point elevation, freezing-point depression, osmotic pressure, Raoult's law |
-| Acid–base | pH from `[H+]`, pOH, or a strong monoprotic acid / strong base concentration; weak-acid and weak-base quadratics; `Ka`/`Kb`/`Kw` and `pKa`/`pKb`; Henderson–Hasselbalch; buffer after adding strong acid or base; strong titration, weak acid–strong base, and weak base–strong acid regions; first dissociation of a polyprotic acid |
-| Gases | Dalton; mole-fraction partial pressure; gas collected over water (water vapor pressure is interpolated between the tabulated points, log-linear in 1/T, from 0 to 100 °C). The ideal gas law, Boyle, Charles and the combined law are physics' (see **Shared laws**) |
-| Thermochemistry | calorimetry `q_rxn = −q_cal`, Hess's law, formation enthalpy, bond enthalpy, `ΔG = ΔH − TΔS`. `q = mcΔT` is physics' |
-| Equilibrium | homogeneous `Kc` and `Qc`; phase-aware `Kc`/`Kp`; `Kc` ↔ `Kp`; quadratic ICE solutions; `Ksp`, molar solubility, common-ion solubility, and `Qsp` versus `Ksp` |
-| Kinetics | zero-, first-, and second-order integrated laws and half-lives; integer order from two experiments; one-temperature and two-temperature Arrhenius |
-| Electrochemistry | `ΔG° = −nFE°`, Nernst potential, Faraday electrolysis mass, `E°cell = E°cathode − E°anode`, and a galvanic cell from the built-in reduction table |
+| Solutions | molarity, mass from molarity, dilution (including the stock volume: `6.0 M` to make `500 mL` of `1.5 M`), molality (also from the solute and solvent masses), mass percent, mole fraction, boiling-point elevation, freezing-point depression, osmotic pressure, Raoult's law |
+| Acid–base | pH from `[H+]`, pOH, or a strong monoprotic acid / strong base concentration; weak-acid and weak-base quadratics; `Ka`/`Kb`/`Kw` and `pKa`/`pKb`; Henderson–Hasselbalch; buffer after adding strong acid or base; strong titration, weak acid–strong base, and weak base–strong acid regions; a neutralization's unknown concentration with the mole ratio (H2SO4 neutralizes two NaOH); percent ionization; first dissociation of a polyprotic acid. A titration in words with a dihydroxide base (Ca(OH)2) declines |
+| Gases | Dalton, including partial pressures listed in words; gas density and molar mass from density (`d = PM/RT`, M from the named gas); Graham's law for two named gases; mole-fraction partial pressure; gas collected over water (water vapor pressure is interpolated between the tabulated points, log-linear in 1/T, from 0 to 100 °C). The ideal gas law, Boyle, Charles and the combined law are physics' (see **Shared laws**) |
+| Thermochemistry | the heat of a reaction amount `q = nΔH`, calorimetry `q_rxn = −q_cal`, Hess's law, formation enthalpy, bond enthalpy, `ΔG = ΔH − TΔS`. `q = mcΔT`, latent heat and a metal's specific heat by calorimetry are physics' |
+| Equilibrium | homogeneous `Kc` and `Qc`; phase-aware `Kc`/`Kp`; `Kc` ↔ `Kp`; quadratic ICE solutions, asked as "the equilibrium concentrations" with `[H2] = [I2] = 1.0 M` read as both; `Ksp`, molar solubility (a salt named by its formula gets its dissolution equation from its cation and a known anion: `Fe(OH)3` is Fe3+ and 3 OH-), common-ion solubility, and `Qsp` versus `Ksp` |
+| Kinetics | zero-, first-, and second-order integrated laws and half-lives; a first-order `k` from its half-life, per the half-life's time unit; integer order from two experiments; one-temperature and two-temperature Arrhenius |
+| Electrochemistry | `ΔG° = −nFE°`, Nernst potential, Faraday electrolysis mass and time (a metal named without its ion takes the galvanic table's ion, Cu2+), `E°cell = E°cathode − E°anode`, and a galvanic cell from the built-in reduction table |
 | Nuclear | one-missing-product nuclear equations (alpha, beta, positron, electron capture, written with the captured electron: `7Be + e- → 7Li`) that conserve both mass number and charge, and mass defect / binding energy when the nuclear mass in u is supplied. A half-life amount, decay constant and activity are physics' |
 | Spectroscopy | Beer–Lambert for any one of absorbance, molar absorptivity, path length, or concentration; IR and 1H NMR ranges for recognized functional groups; a peak lists every group whose range contains it; the n+1 rule when the neighbor count is stated; molecular ion is the monoisotopic mass with nominal m/z and the Cl/Br M+2 pattern |
-| Structure | school oxidation states, formal charge, and single-center VSEPR. The molecular angle is separate from the ideal electron-domain angle. With several different non-hydrogen atoms and no hydrogen, the center is the least electronegative one (`SOCl2`, `POCl3`, `XeOF4`); with hydrogen present it is not guessed (`HOCl`). A single carbon is the center of an HCN-style formula. Identical terminals with unequal bonds are counted as resonance forms |
+| Structure | the ground-state electron configuration of a neutral atom from the element table (exceptions such as Cu kept; an ion declines), school oxidation states, formal charge, and single-center VSEPR. The molecular angle is separate from the ideal electron-domain angle. With several different non-hydrogen atoms and no hydrogen, the center is the least electronegative one (`SOCl2`, `POCl3`, `XeOF4`); with hydrogen present it is not guessed (`HOCl`). A single carbon is the center of an HCN-style formula. Identical terminals with unequal bonds are counted as resonance forms |
 | Organic | RDKit functional groups matched atom by atom (including nitro, thiol, acyl halide, anhydride, and aryl halide), CIP labels from RDKit's CIP labeller (`atom 2 (C): S`, `C2=C3: E`), and isomer class (identical, constitutional, or stereo). A PubChem `IUPACName` is verified only when that property is returned. Five one-product reactions (HBr addition, bromine addition, acid hydration, primary-halide hydroxide substitution, esterification) return one SMILES; an addition across an unsymmetrical alkene that could give two products is declined |
 | Inorganic | oxidation state, coordination number, and additive name for the built-in ligand table. Crystal field for a first-row metal: coordination number 6 is octahedral, and 4 needs a stated tetrahedral or square planar geometry. An octahedral d4–d7 complex is high-spin when every ligand is weak-field (halide, water, hydroxide) and low-spin when every ligand is strong-field (CN−, CO); NH3, en, and NO2− decide it only for Co(III) (low-spin). Any other d4–d7 ligand set is declined, because its spin state depends on the metal. The answer includes unpaired electrons and `μ = √(n(n+2))` |
 | Analytical | linear calibration, gravimetric factor, one-point standard addition, sample standard deviation, standard error, percent error, relative uncertainty of a product or quotient, and chromatography `Rf` |
-| Biochemistry | Michaelis–Menten for any one of `v`, `Vmax`, `Km`, and `[S]` |
+| Biochemistry | Michaelis–Menten for any one of `v`, `Vmax`, `Km`, and `[S]`, named or recognized by its `Vmax` and `Km`, in the units they are written in (`10 μmol/min`, `2.0 mM`) |
 
 ### Shared laws
 
@@ -137,6 +137,11 @@ constant and an activity. A chemistry question routes to physics for them
 - a rate from a half-life in years, days or minutes is per that unit (1.21 × 10⁻⁴ 1/yr);
 - the subscripted states a chemistry class writes are read: `P1 = 2 atm, V1 = 3 L, V2 = 6 L,
   find P2`.
+
+- a latent heat per gram is read as a chemistry class labels it (`ΔHfus = 334 J/g`);
+- a hot object dropped into water gives its specific heat by calorimetry, with water's c as
+  the setting, and in grams and °C a specific heat is per gram and degree (`0.558 J/(g·°C)`,
+  not `558 J/(kg·K)`).
 
 Every converted answer shows the conversion as its last substitution row. Routing also runs
 the other way: a closed chemistry calculation (a mass percent, a molality, a cell potential)
@@ -173,6 +178,9 @@ records how each given was typed, and the solve formats every number from that r
 - **A sum of givens** (cell potential, Hess's law, formation or bond enthalpy, Dalton) keeps
   the fewest decimal places instead: `0.34 − (−0.76) = 1.10 V`, `2(−92.3) = −184.6 kJ/mol`.
   A galvanic-table potential is a hundredth of a volt.
+- **A whole number whose digits rounding replaced with zeros** is written in powers of
+  ten: `1780` to two figures is `1.8 × 10^3`, since `1800` would read as measured. Zeros
+  that are the number's own digits stay plain: `110 g`, `200 mL`.
 - **Molar masses** stay at full precision inside the arithmetic. A working row shows them
   to the table's three decimals (`18.015`), and only a molar-mass answer rounds to two
   (`98.07 g/mol`). Rounding first moved answers: 4 g of H₂ gave 35.68 g of water, not 35.74.

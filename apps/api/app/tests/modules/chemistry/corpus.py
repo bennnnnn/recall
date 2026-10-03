@@ -212,7 +212,12 @@ NOT_CHEMISTRY: tuple[str, ...] = (
     "precipitation tomorrow in Seattle",
     "kinetic energy of a 2 kg ball",
     "what is compound interest",
+    # A capital M after a number is a molarity only before a real formula.
+    "3 M Company stock rose 2% today.",
+    "We sold 5 M units in 2024.",
+    "neutralize the threat before it spreads",
+    "the diffusion of new ideas through a company",
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 59
+COVERAGE_FLOOR = 81

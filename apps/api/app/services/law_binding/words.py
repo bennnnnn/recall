@@ -58,13 +58,22 @@ def words_after(lower: str, start: int, end: int) -> str:
     return after[: link.start()] if link is not None else after
 
 
+@lru_cache(maxsize=1024)
+def _asked_pattern(phrase: str) -> re.Pattern[str]:
+    return re.compile(rf"(?<![\w]){re.escape(phrase)}", re.IGNORECASE)
+
+
 def ask_strength(
     clause: str, asks: tuple[str, ...], result: tuple[str, ...], units: UnitTable
 ) -> int:
-    """The longest asked phrase this clause names, not counting a given's label."""
+    """The longest asked phrase this clause names, not counting a given's label.
+
+    The clause keeps its case: the unit after a value is read as written ("5 mM" is a
+    concentration, "5 mm" a length), and the phrase is matched without case.
+    """
     strength = 0
     for phrase in asks:
-        for match in word_pattern(phrase).finditer(clause):
+        for match in _asked_pattern(phrase).finditer(clause):
             label = _LABELLED.match(clause, match.end())
             if label is None or not _labels(clause, label.end(), result, units):
                 strength = max(strength, len(phrase))

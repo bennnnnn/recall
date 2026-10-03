@@ -125,12 +125,30 @@ ChemistryOp = Literal[
     "nmr_splitting",
     "molecular_ion",
     "michaelis_menten",
+    "solution_mass",
+    "molality_from_mass",
+    "mass_percent_solvent",
+    "mole_fraction",
+    "particles_to_mass",
+    "gas_density",
+    "molar_mass_from_density",
+    "percent_ionization",
+    "reaction_heat",
+    "electrolysis_time",
+    "titration_concentration",
+    "graham_ratio",
+    "element_mass",
+    "average_atomic_mass",
+    "electron_configuration",
 ]
 
 OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
     "equations": frozenset({"balance"}),
     "amounts": frozenset(
         {
+            "particles_to_mass",
+            "element_mass",
+            "average_atomic_mass",
             "molar_mass",
             "mass_to_moles",
             "moles_to_mass",
@@ -155,6 +173,10 @@ OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
     ),
     "solutions": frozenset(
         {
+            "mole_fraction",
+            "mass_percent_solvent",
+            "molality_from_mass",
+            "solution_mass",
             "molarity",
             "dilution",
             "molality",
@@ -168,6 +190,8 @@ OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
     ),
     "acid_base": frozenset(
         {
+            "titration_concentration",
+            "percent_ionization",
             "ph_from_h",
             "ph_from_poh",
             "h_from_ph",
@@ -186,6 +210,9 @@ OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
     ),
     "gases": frozenset(
         {
+            "graham_ratio",
+            "molar_mass_from_density",
+            "gas_density",
             "dalton",
             "partial_pressure",
             "gas_over_water",
@@ -194,6 +221,7 @@ OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
     ),
     "thermochemistry": frozenset(
         {
+            "reaction_heat",
             "gibbs",
             "calorimetry",
             "hess",
@@ -228,7 +256,14 @@ OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
         }
     ),
     "electrochemistry": frozenset(
-        {"cell_gibbs", "nernst", "electrolysis_mass", "cell_potential", "galvanic_cell"}
+        {
+            "electrolysis_time",
+            "cell_gibbs",
+            "nernst",
+            "electrolysis_mass",
+            "cell_potential",
+            "galvanic_cell",
+        }
     ),
     "nuclear": frozenset(
         {
@@ -247,7 +282,7 @@ OPS_BY_KIND: dict[ChemistryKind, frozenset[ChemistryOp]] = {
             "molecular_ion",
         }
     ),
-    "structure": frozenset({"oxidation_state", "vsepr", "formal_charge"}),
+    "structure": frozenset({"electron_configuration", "oxidation_state", "vsepr", "formal_charge"}),
     "organic": frozenset(
         {
             "functional_groups",

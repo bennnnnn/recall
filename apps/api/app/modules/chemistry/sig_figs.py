@@ -26,8 +26,11 @@ from app.modules.chemistry.request import EQUATION_RE
 
 MIN_FIGURES = 2
 MAX_FIGURES = 4
-# Counts, not measurements: an electron count or a van 't Hoff factor never limits an answer.
-EXACT_KEYS = frozenset({"i", "valence", "electrons", "bonding", "nonbonding", "neighbors"})
+# Counts, not measurements: an electron count, a van 't Hoff factor, the atoms of an element
+# in a formula or a neutralization's mole ratio never limits an answer.
+EXACT_KEYS = frozenset(
+    {"i", "valence", "electrons", "bonding", "nonbonding", "neighbors", "count", "ratio"}
+)
 # Exact only in one operation: Hess's law multiplies each step by a whole number (m1, m2).
 _EXACT_IN_OP = {"hess": re.compile(r"m\d+")}
 # Given as logarithms: their precision is their decimal places.

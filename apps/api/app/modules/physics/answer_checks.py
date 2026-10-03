@@ -65,7 +65,7 @@ def _in_context_units(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsRe
     """A volume or pressure left in SI, shown in L or atm when the givens are chemistry's."""
     if intent.asked_unit is not None:
         return result
-    result = _per_time_of_givens(intent, result)
+    result = _per_gram_of_givens(intent, _per_time_of_givens(intent, result))
     written = {unit.lower() for unit in (intent.physics_units or {}).values()}
     if not written & _CHEMISTRY_GAS or written & _SI_GAS:
         return result
@@ -88,11 +88,42 @@ def _in_context_units(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsRe
     return result
 
 
-# A rate from a half-life in years is per year: 1.21e-4 1/yr, not 3.83e-12 1/s.
-# The per-time unit a rate takes from the time its givens share, by Pint expression, so every
+# A rate from a half-life in years is per year: 1.21e-4 1/yr, not 3.83e-12 1/s. The per-time
+# unit a rate takes from the time its givens share, by Pint expression, so every
 # spelling the unit table reads ("hrs", "hours", "h") gives one answer unit.
 _SHORT_TIME = {"year": "yr", "day": "day", "hour": "h", "minute": "min"}
 _TIME = "[time]^1"
+
+
+_SPECIFIC_HEAT = "J/kg/K"
+_PER_GRAM_SPECIFIC_HEAT = "J/(g·°C)"
+
+
+def _per_gram_of_givens(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsResult:
+    """A specific heat in J/(g·°C) when every mass is in grams and a temperature in °C.
+
+    That is how a chemistry class writes both the data and the answer: 0.558 J/(g·°C), not
+    558 J/(kg·K).
+    """
+    if not any(item.unit == _SPECIFIC_HEAT for item in result.quantities):
+        return result
+    expressions = [unit_expression(unit) for unit in (intent.physics_units or {}).values()]
+    masses = [
+        expression
+        for expression in expressions
+        if (reading := unit_dimension(expression or "")) and reading[0] == "[mass]^1"
+    ]
+    if not masses or set(masses) != {"gram"} or "degC" not in expressions:
+        return result
+    target = intent.model_copy(update={"asked_unit": _PER_GRAM_SPECIFIC_HEAT})
+    converted = _in_the_asked_unit(target, result)
+    return replace(
+        result,
+        quantities=tuple(
+            new if old.unit == _SPECIFIC_HEAT else old
+            for old, new in zip(result.quantities, converted.quantities, strict=True)
+        ),
+    )
 
 
 def _per_time_of_givens(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsResult:
