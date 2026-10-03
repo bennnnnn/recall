@@ -40,6 +40,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Ideal-gas law",
         "P",
         base_latex="PV = nRT",
+        expression="moles*R_gas*temp/volume",
         variables=(
             var("moles", "n", "mole"),
             var("temp", "T", "kelvin"),
@@ -53,6 +54,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Ideal-gas law",
         "V",
         base_latex="PV = nRT",
+        expression="moles*R_gas*temp/pres",
         variables=(
             var("moles", "n", "mole"),
             var("pres", "P", "pascal"),
@@ -66,6 +68,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Ideal-gas law",
         "n",
         base_latex="PV = nRT",
+        expression="pres*volume/(R_gas*temp)",
         variables=(
             var("pres", "P", "pascal"),
             var("temp", "T", "kelvin"),
@@ -86,6 +89,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Ideal-gas law",
         "T",
         base_latex="PV = nRT",
+        expression="pres*volume/(moles*R_gas)",
         variables=(
             var("moles", "n", "mole"),
             var("pres", "P", "pascal"),
