@@ -43,6 +43,10 @@ _EFFUSION = re.compile(r"\b(?:effus\w*|diffus\w*|graham'?s?\s+law)\b", re.IGNORE
 _RATE_ASK = re.compile(
     r"\b(?:rates?|faster|slower|how\s+many\s+times|compare|comparison|ratio)\b", re.IGNORECASE
 )
+# A rate "slower" than another is the other's ratio to it; a time ratio is not a rate ratio.
+_SLOWER = re.compile(r"\bslower\b", re.IGNORECASE)
+_FASTER = re.compile(r"\bfaster\b", re.IGNORECASE)
+_TIME_ASK = re.compile(r"\b(?:longer|time|takes?|took|how\s+long)\b", re.IGNORECASE)
 _GAS_WORDS = "|".join(sorted((*_GAS_NAMES, *NAMED_COMPOUNDS), key=len, reverse=True))
 _GAS_TOKEN = re.compile(
     r"(?<![A-Za-z0-9])(?P<formula>(?-i:[A-Z][A-Za-z0-9()]*))(?![A-Za-z0-9(])"
@@ -75,13 +79,20 @@ def _states_a_number(text: str) -> bool:
 
 
 def _extract_graham(text: str) -> ChemistryIntent | None:
-    """ "Compare the rates of effusion of H2 and O2": rate(H2) / rate(O2) = √(M(O2) / M(H2))."""
+    """ "Compare the rates of effusion of H2 and O2": rate(H2) / rate(O2) = √(M(O2) / M(H2)).
+
+    "How many times slower does O2 effuse than H2?" asks rate(H2) / rate(O2), so a "slower"
+    question swaps the gases. A time asked, or both directions asked, declines.
+    """
     if not _EFFUSION.search(text) or not _RATE_ASK.search(text) or _states_a_number(text):
+        return None
+    slower = _SLOWER.search(text) is not None
+    if _TIME_ASK.search(text) or (slower and _FASTER.search(text)):
         return None
     gases = _gases(text)
     if len(gases) != 2:
         return None
-    first, second = gases
+    first, second = reversed(gases) if slower else gases
     return ChemistryIntent(
         kind="gases",
         chemistry_op="graham_ratio",

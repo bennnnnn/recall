@@ -104,7 +104,7 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
             ("m", "g"),
             "particles/N_A*molar_mass",
             (("particles", "N", ""), ("molar_mass", "M({formula})", "g/mol")),
-            "m = ({particles} / 6.022 × 10^23 mol⁻¹)({molar_mass})",
+            "m = [{particles} / (6.022 × 10^23 mol⁻¹)]({molar_mass})",
         ),
         _law(
             "mole_fraction",
