@@ -256,11 +256,8 @@ export function MathEquationScanner({
   );
 
   const capture = useCallback(async () => {
-    if (busy || preview || capturePendingRef.current) return;
-    if (!cameraRef.current || !cameraReady) {
-      setError(t("chat.math_scan_camera_unavailable"));
-      return;
-    }
+    // Not ready yet is startup, not a failure. onError already reports a real load failure.
+    if (busy || preview || capturePendingRef.current || !cameraReady || !cameraRef.current) return;
     capturePendingRef.current = true;
     try {
       if (!cameraRef.current || busy || preview || !cameraReady) return;
@@ -514,6 +511,7 @@ export function MathEquationScanner({
           preview={Boolean(preview)}
           busy={busy}
           capturing={capturing}
+          captureReady={cameraReady}
           torchOn={torchOn}
           subject={subject}
           error={error}
