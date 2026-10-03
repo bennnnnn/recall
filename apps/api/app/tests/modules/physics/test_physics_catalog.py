@@ -82,7 +82,7 @@ def test_the_schema_takes_only_operations_the_catalog_declares() -> None:
 
 def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:
     features = " ".join(_features_text().split())
-    assert "not twenty formulas" in features
+    assert "formula catalog, one entry per `physics_op`" in features
     assert "relativity, quantum states, alternating current" not in features
     for phrase in _UNVERIFIED_PHYSICS_PHRASES:
         assert _ADVANCED_PHYSICS_RE.search(phrase), phrase
