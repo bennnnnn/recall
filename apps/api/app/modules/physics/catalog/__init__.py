@@ -33,7 +33,12 @@ from app.modules.physics.catalog.projectile import SPECS as PROJECTILE
 from app.modules.physics.catalog.quantum import SPECS as QUANTUM
 from app.modules.physics.catalog.relativity import SPECS as RELATIVITY
 from app.modules.physics.catalog.rotation import SPECS as ROTATION
-from app.modules.physics.catalog.spec import (
+from app.modules.physics.catalog.spring import SPECS as SPRING
+from app.modules.physics.catalog.suvat import SPECS as SUVAT
+from app.modules.physics.catalog.thermal import SPECS as THERMAL
+from app.modules.physics.catalog.torque import SPECS as TORQUE
+from app.modules.physics.catalog.waves import SPECS as WAVES
+from app.services.law_binding.spec import (
     FormulaSpec,
     formula,
     matching_variant,
@@ -42,11 +47,6 @@ from app.modules.physics.catalog.spec import (
     variable_for,
     visible_assumptions,
 )
-from app.modules.physics.catalog.spring import SPECS as SPRING
-from app.modules.physics.catalog.suvat import SPECS as SUVAT
-from app.modules.physics.catalog.thermal import SPECS as THERMAL
-from app.modules.physics.catalog.torque import SPECS as TORQUE
-from app.modules.physics.catalog.waves import SPECS as WAVES
 
 __all__ = [
     "CATALOG",

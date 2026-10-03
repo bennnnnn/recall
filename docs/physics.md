@@ -45,7 +45,10 @@ flowchart LR
    (`fluid_laws.py`, `thermal_laws.py`, `modern.py`).
    Extraction reads at most 4,000 characters, and the result is cached per text.
    When every extractor declines, the **binder** (`binding.py`) reads the question straight
-   into a catalog operation:
+   into a catalog operation. Its engine is subject-neutral and shared
+   (`services/law_binding`: the spec types, the givens scanner, the word windows, `fit`
+   and the expression evaluator); physics brings its unit table (`givens.PHYSICS_UNITS`),
+   its settings (`binding_values`) and its constants (`expression.PHYSICS_NOTATION`):
    - every stated value fills one input of its dimension. Two inputs of one dimension (u
      and v) are told apart by the word just before the value ("from", "to", "initial",
      "reaches") or just after it ("100 turns on the primary"). Inputs that play the same
@@ -74,7 +77,7 @@ flowchart LR
    physics cue for the gate.
 4. **Complete** (`request.complete_physics_intent`). Every intent passes two checks before it
    is solved:
-   - **Numeric accountability** (`accounting.py`). `givens.py` lists every stated number with
+   - **Numeric accountability** (`accounting.py`). `givens.scan_givens` lists every stated number with
      its unit and dimension. A solve is refused when it leaves a stated value unbound whose
      dimension it uses — "a KE at 3 m/s and at 4 m/s" binds one speed and would answer half
      the question. A value of another kind is a distractor and stays allowed (a ball's mass
@@ -112,7 +115,7 @@ catalog is also the one list of operations: every `PhysicsIntent` is checked aga
   the solver answers from, and cue words when the numbers alone cannot show the situation
   ("horizontally", "pulley");
 - for a law that is plain arithmetic, an `expression` (`"(F - mu*m*g)/m"`), with a variant
-  per other input set. `expression.py` evaluates it by walking a checked tree, and prints
+  per other input set. `services/law_binding/expression.py` evaluates it by walking a checked tree, and prints
   the rearranged formula and the substitution from that same tree. Nothing is executed,
   and nothing calls SymPy.
 

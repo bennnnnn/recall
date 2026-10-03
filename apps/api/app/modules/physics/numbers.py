@@ -11,10 +11,9 @@ import math
 import re
 from decimal import Decimal, InvalidOperation
 
+from app.services.number_text import LITERAL_START, NUMERIC_LITERAL
 from app.services.symbolic_text import _MAX_PHYSICS_REQUEST
 
-_START = re.compile(r"(?<![\w.])(?=[+-]?(?:\d|\.\d))")
-_LITERAL = re.compile(r"[+-]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][+-]?\d+)?")
 _GROUPED_CANDIDATE = re.compile(r"(?<![\w.])[+-]?\d(?:[\d,]*\d)?(?:\.\d+)?(?:[eE][+-]?\d+)?")
 _GROUPED_LITERAL = re.compile(r"[+-]?\d{1,3}(?:,\d{3})+(?:\.\d+)?(?:[eE][+-]?\d+)?")
 # Legacy keyword scanners inspect 40-character windows. Never expand a
@@ -87,10 +86,10 @@ def normalize_physics_numbers(text: str) -> str | None:
         return None
     pieces: list[str] = []
     end = 0
-    for start in _START.finditer(text):
+    for start in LITERAL_START.finditer(text):
         if start.start() < end:
             continue
-        match = _LITERAL.match(text, start.start())
+        match = NUMERIC_LITERAL.match(text, start.start())
         if match is None:
             return None
         token = match.group()
@@ -119,15 +118,3 @@ def normalize_physics_numbers(text: str) -> str | None:
         end = match.end()
     pieces.append(text[end:])
     return "".join(pieces)
-
-
-def numeric_spans(text: str) -> list[tuple[int, int]]:
-    """Complete literal spans in already-normalized solver input."""
-    spans: list[tuple[int, int]] = []
-    for start in _START.finditer(text):
-        if spans and start.start() < spans[-1][1]:
-            continue
-        match = _LITERAL.match(text, start.start())
-        if match is not None:
-            spans.append(match.span())
-    return spans

@@ -413,6 +413,17 @@ def test_infrastructure_does_not_depend_on_product_modules() -> None:
     assert not violations, "\n".join(violations)
 
 
+def test_the_law_engine_does_not_depend_on_a_subject() -> None:
+    """Physics and chemistry share ``services/law_binding``; it may import neither."""
+    violations = [
+        f"{path.relative_to(APP_ROOT)} imports {imported}"
+        for path in (APP_ROOT / "services" / "law_binding").rglob("*.py")
+        for imported in _imports(path)
+        if imported == "app.modules" or imported.startswith("app.modules.")
+    ]
+    assert not violations, "\n".join(violations)
+
+
 def test_mobile_job_search_has_one_feature_home_and_thin_routes() -> None:
     feature_root = MOBILE_ROOT / "features" / "job-search"
     assert (feature_root / "api.ts").is_file()

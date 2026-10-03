@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.modules.physics.catalog.spec import Binding, FormulaSpec, bind, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, var
 
 _CHARGE = var("Q", "Q", "coulomb")
 _CAPACITANCE = var("capacitance", "C", "farad")
