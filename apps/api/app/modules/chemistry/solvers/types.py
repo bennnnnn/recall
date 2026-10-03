@@ -82,3 +82,5 @@ class ChemistryResult:
     # True when the text carries SMILES or atom labels (``C1CCCCC1``, ``C2=C3: E``) whose
     # digits are not subscripts; ``notation.typeset`` must leave such a result alone.
     verbatim: bool = False
+    # The operation is a procedure: the answer shows its rule under **Method**, not **Formula**.
+    method: bool = False

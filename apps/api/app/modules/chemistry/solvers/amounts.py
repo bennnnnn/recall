@@ -15,6 +15,7 @@ from app.modules.chemistry.solvers.common_chem import (
     molar_mass_text,
     molar_mass_working,
     num,
+    qty,
     verified,
 )
 from app.modules.chemistry.solvers.constants import AVOGADRO
@@ -184,7 +185,7 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             (f"mass = {inp(mass)} g", f"M({formula}) = {molar_mass_working(molar)} g/mol"),
             "Amount, n",
             *stated("mass_to_moles"),
-            (f"n = {inp(mass)} / {molar_mass_working(molar)}",),
+            (f"n = {qty(mass, 'g')} / {molar_mass_working(molar)} g/mol",),
             f"n({formula}) = {value}",
             value,
         )
@@ -197,7 +198,7 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             (f"n = {inp(moles)} mol", f"M({formula}) = {molar_mass_working(molar)} g/mol"),
             "Mass, m",
             *stated("moles_to_mass"),
-            (f"m = ({inp(moles)})({molar_mass_working(molar)})",),
+            (f"m = ({qty(moles, 'mol')})({molar_mass_working(molar)} g/mol)",),
             f"m({formula}) = {value}",
             value,
         )
@@ -217,7 +218,7 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             law_name,
             particle_formula,
             (
-                f"N = ({inp(moles)})({const(AVOGADRO)})"
+                f"N = ({qty(moles, 'mol')})({const(AVOGADRO)} mol⁻¹)"
                 + ("" if per_formula == 1 else f"({per_formula})"),
             ),
             f"N({formula}) = {value}",
@@ -238,7 +239,7 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             law_name,
             amount_formula,
             (
-                f"n = {inp(particles)} / {const(AVOGADRO)}"
+                f"n = {inp(particles)} / {const(AVOGADRO)} mol⁻¹"
                 + ("" if per_formula == 1 else f" / {per_formula}"),
             ),
             f"n({formula}) = {value}",
@@ -289,7 +290,7 @@ def solve_percent_yield(intent: ChemistryIntent) -> ChemistryResult:
         ),
         "Percent yield",
         *stated("percent_yield"),
-        (f"% yield = ({inp(actual)} / {inp(theoretical)}) × 100",),
+        (f"% yield = ({qty(actual, 'g')} / {qty(theoretical, 'g')}) × 100",),
         f"Percent yield = {value}",
         value,
     )

@@ -11,7 +11,7 @@
     },
     "balance_ammonia": {
       "question": "Balance N2 + H2 -> NH3",
-      "reply": "**Given**\n\n- Unbalanced equation: N₂ + H₂ → NH₃\n\n**Find**\n\nSmallest whole-number coefficients\n\n**Formula**\n\nAtoms of each element on reactant side = atoms on product side — Law of conservation of mass\n\n**Substitution**\n\nN: left 1(2) = 2; right 2(1) = 2\nH: left 3(2) = 6; right 2(3) = 6\n\n**Answer**\n\n```answer\nnotation: chemistry\nN₂ + 3 H₂ → 2 NH₃\n```\n\n```chem_scene\n{\"kind\": \"balance\", \"title\": \"Atom tally\", \"rows\": [{\"element\": \"N\", \"left\": 2, \"right\": 2}, {\"element\": \"H\", \"left\": 6, \"right\": 6}], \"charge\": {\"left\": 0, \"right\": 0}}\n```\n"
+      "reply": "**Given**\n\n- Unbalanced equation: N₂ + H₂ → NH₃\n\n**Find**\n\nSmallest whole-number coefficients\n\n**Method**\n\nConservation of atoms and charge: count each element's atoms on both sides; the smallest whole-number coefficients that make every count, and the charge, equal\n\n**Working**\n\nN: left 1(2) = 2; right 2(1) = 2\nH: left 3(2) = 6; right 2(3) = 6\n\n**Answer**\n\n```answer\nnotation: chemistry\nN₂ + 3 H₂ → 2 NH₃\n```\n\n```chem_scene\n{\"kind\": \"balance\", \"title\": \"Atom tally\", \"rows\": [{\"element\": \"N\", \"left\": 2, \"right\": 2}, {\"element\": \"H\", \"left\": 6, \"right\": 6}], \"charge\": {\"left\": 0, \"right\": 0}}\n```\n"
     },
     "vsepr_water": {
       "question": "VSEPR of H2O",

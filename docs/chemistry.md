@@ -162,6 +162,18 @@ and nothing else, and a result marked `verbatim` (organic and SMILES spectroscop
 results, IUPAC names) is never typeset. The model is told to write species with
 Unicode sub- and superscripts and `→` / `⇌` arrows, not LaTeX.
 
+A verified answer is laid out as a textbook worked solution (`direct.py`): **Given**,
+**Find**, **Formula**, **Substitution**, **Answer**. An operation that is a procedure rather
+than an equation (balancing, a correlation table, a structure match, an electron
+configuration: `catalog.METHODS`) shows its rule under **Method** and checks it under
+**Working**. Substitutions carry units (`n = 36 g / 18.015 g/mol`, `c = 0.5 mol / 2.0 L`),
+and a unit change is a row of its own (`ΔG° = -2.1 × 10^5 J/mol = -2.1 × 10^2 kJ/mol`). A
+given an extractor converted is shown as typed, then as used: `V = 500 mL = 0.500 L`,
+`ΔS = -200 J/(mol·K) = -0.200 kJ/(mol·K)`, `T = 37 °C = 310.15 K`, `t = 1 h = 3600 s`. The
+converted value keeps the typed figures without rounding away the conversion's own digits,
+and a value two typed numbers could explain (1800 s from `30 min`, or from `0.50 × 3600`)
+is not echoed as either. The headings are the server's text, like physics' and math's.
+
 Numbers keep the precision the question was written in (`sig_figs.py`). Extraction
 records how each given was typed, and the solve formats every number from that record:
 
