@@ -59,6 +59,8 @@ def _extract_materials_intent(cleaned: str) -> PhysicsIntent | None:
     )
 
     if "modulus" in lower:
+        if "shear modulus" in lower or "bulk modulus" in lower or "poisson" in lower:
+            return None
         if stress is None or strain_match is None:
             return None
         return PhysicsIntent(

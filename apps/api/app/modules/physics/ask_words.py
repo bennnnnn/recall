@@ -149,6 +149,12 @@ _QUANTITIES: dict[str, str] = {
     "decay constant": "1 / second",
     # Pure numbers and angles
     "angle": ANGLE,
+    "sound level": _DIMENSIONLESS,
+    "intensity level": _DIMENSIONLESS,
+    "poisson's ratio": _DIMENSIONLESS,
+    "poissons ratio": _DIMENSIONLESS,
+    "poisson ratio": _DIMENSIONLESS,
+    "gear ratio": _DIMENSIONLESS,
     "efficiency": _DIMENSIONLESS,
     "refractive index": _DIMENSIONLESS,
     "index of refraction": _DIMENSIONLESS,

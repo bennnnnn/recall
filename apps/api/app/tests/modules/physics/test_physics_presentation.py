@@ -91,6 +91,29 @@ def test_a_value_not_in_si_shows_the_value_the_solver_used(text: str, row: str) 
 
 
 @pytest.mark.parametrize(
+    ("text", "row"),
+    [
+        # The answer equals a given (λ = d at 30°): the answer's own conversion row
+        # "λ = 2e-10 m = 0.2 nm" is not the given written into the arithmetic.
+        (
+            "In Bragg reflection, crystal planes are 0.200 nm apart and the first-order angle "
+            "is 30 degrees. Find the wavelength.",
+            r"$d = 2 \times 10^{-10}\,\mathrm{m}$",
+        ),
+        (
+            "X-rays of wavelength 0.154 nm strike a crystal at a Bragg angle of 30 degrees in "
+            "the first order. Find the plane spacing.",
+            r"$\lambda = 1.54 \times 10^{-10}\,\mathrm{m}$",
+        ),
+    ],
+)
+def test_an_answer_equal_to_a_given_does_not_hide_its_si_step(text: str, row: str) -> None:
+    reply = maybe_direct_physics_reply(_verified(text), text)
+    assert reply is not None
+    assert row in reply.split("**Find**", 1)[0]
+
+
+@pytest.mark.parametrize(
     "text",
     [
         # Solved in the written units, so a conversion would not match the working.

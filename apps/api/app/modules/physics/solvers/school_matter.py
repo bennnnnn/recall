@@ -131,36 +131,6 @@ def _cop(kind: str, params: dict[str, float]) -> PhysicsResult:
     return result("COP", r"\frac{T_C}{T_H-T_C}", numeric, value, "")
 
 
-def _ideal_volume(params: dict[str, float]) -> PhysicsResult:
-    positive(params, "pres", "moles", "temp")
-    value = params["moles"] * _GAS_CONSTANT * params["temp"] / params["pres"]
-    numeric = (
-        rf"\frac{{{params['moles']:g}\cdot {_GAS_CONSTANT:.4f}"
-        rf"\cdot {params['temp']:g}}}{{{params['pres']:g}}}"
-    )
-    return result("V", r"\frac{nRT}{P}", numeric, value, "m^3")
-
-
-def _ideal_amount(params: dict[str, float]) -> PhysicsResult:
-    positive(params, "pres", "volume", "temp")
-    value = params["pres"] * params["volume"] / (_GAS_CONSTANT * params["temp"])
-    numeric = (
-        rf"\frac{{{params['pres']:g}\cdot {params['volume']:g}}}"
-        rf"{{{_GAS_CONSTANT:.4f}\cdot {params['temp']:g}}}"
-    )
-    return result("n", r"\frac{PV}{RT}", numeric, value, "mol")
-
-
-def _ideal_temperature(params: dict[str, float]) -> PhysicsResult:
-    positive(params, "pres", "volume", "moles")
-    value = params["pres"] * params["volume"] / (params["moles"] * _GAS_CONSTANT)
-    numeric = (
-        rf"\frac{{{params['pres']:g}\cdot {params['volume']:g}}}"
-        rf"{{{params['moles']:g}\cdot {_GAS_CONSTANT:.4f}}}"
-    )
-    return result("T", r"\frac{PV}{nR}", numeric, value, "K")
-
-
 MATTER_SOLVERS = {
     "poiseuille_flow": _poiseuille,
     "gravitational_potential": _potential,
@@ -173,7 +143,4 @@ MATTER_SOLVERS = {
     "adiabatic_volume": _adiabatic_volume,
     "refrigerator_cop": _refrigerator,
     "heat_pump_cop": _heat_pump,
-    "ideal_gas_volume": _ideal_volume,
-    "ideal_gas_amount": _ideal_amount,
-    "ideal_gas_temperature": _ideal_temperature,
 }
