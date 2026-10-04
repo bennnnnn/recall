@@ -37,6 +37,56 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
     normal = p.get("m", 0.0) * g * math.cos(theta)
     m = p.get("m", 0.0)
 
+    if op == "incline_sliding":
+        mu_s = p.get("mu_s")
+        if mu_s is None:
+            raise SolveServiceError("a static-friction coefficient is required")
+        if mu_s < 0:
+            raise SolveServiceError("static-friction coefficient cannot be negative")
+        if "m" in p and m <= 0:
+            raise SolveServiceError("mass must be positive")
+
+        downhill_ratio = math.sin(theta)
+        static_ratio = mu_s * math.cos(theta)
+        slides = downhill_ratio - static_ratio > 1e-12
+        decision = "Yes, it starts sliding." if slides else "No, it stays at rest."
+        formulas = (
+            r"F_{g,\parallel}=mg\sin\theta",
+            r"f_{s,\max}=\mu_sN=\mu_smg\cos\theta",
+            r"\text{It starts sliding if }F_{g,\parallel}>f_{s,\max}",
+        )
+        if "m" in p:
+            downhill = m * g * downhill_ratio
+            maximum_static = m * g * static_ratio
+            substitutions = (
+                rf"F_{{g,\parallel}}={m:g}\cdot{g:g}\cdot\sin({deg:g}^\circ)"
+                rf"\approx {downhill:.2f}\,\text{{N}}",
+                rf"f_{{s,\max}}={mu_s:g}\cdot{m:g}\cdot{g:g}"
+                rf"\cdot\cos({deg:g}^\circ)\approx {maximum_static:.2f}\,\text{{N}}",
+                (
+                    rf"{downhill:.2f}\,\text{{N}} > {maximum_static:.2f}\,\text{{N}}"
+                    if slides
+                    else rf"{downhill:.2f}\,\text{{N}} \le {maximum_static:.2f}\,\text{{N}}"
+                ),
+            )
+        else:
+            substitutions = (
+                rf"\sin({deg:g}^\circ)\approx {downhill_ratio:.4f}",
+                rf"{mu_s:g}\cos({deg:g}^\circ)\approx {static_ratio:.4f}",
+                (
+                    rf"{downhill_ratio:.4f} > {static_ratio:.4f}"
+                    if slides
+                    else rf"{downhill_ratio:.4f} \le {static_ratio:.4f}"
+                ),
+            )
+        return PhysicsResult(
+            answer=decision,
+            answer_value=decision,
+            answer_latex=rf"\text{{{decision}}}",
+            formulas=formulas,
+            substitutions=substitutions,
+        )
+
     if op == "normal_force":
         if theta == 0:
             plugged = rf"{m:g} \cdot {g:g}"

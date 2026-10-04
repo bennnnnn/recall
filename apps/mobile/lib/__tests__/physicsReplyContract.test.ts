@@ -25,7 +25,8 @@ describe("server physics replies", () => {
   it.each(replies)("%s: the answer card is typeset, not chemistry text", (_name, entry) => {
     const { notation, body } = splitAnswerNotation(answerCard(entry.reply));
     expect(notation).not.toBe("chemistry");
-    expect(body).toContain("\\");
+    // A dimensionless answer can be valid math with no TeX command (MA = 5).
+    expect(body.includes("\\") || /^[-+]?\d+(?:\.\d+)?$/.test(body.trim())).toBe(true);
   });
 
   it.each(replies)("%s: the readable fallback has no raw commands", (_name, entry) => {

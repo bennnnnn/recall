@@ -123,4 +123,18 @@ SAMPLES: dict[str, float] = {
     "angle_cone": 30.0,
     "altitude": 4.0e5,
     "radius_body": 6.371e6,
+    # Simple machines
+    "F_out": 20.0,
+    "F_in": 10.0,
+    "incline_length": 4.0,
+    "incline_height": 1.0,
+    "supporting_strands": 3.0,
+    "wheel_radius": 0.2,
+    "axle_radius": 0.04,
+    "output_teeth": 40.0,
+    "input_teeth": 20.0,
+    "screw_handle_length": 0.25,
+    "thread_pitch": 0.005,
+    "wedge_length": 0.1,
+    "wedge_width": 0.02,
 }

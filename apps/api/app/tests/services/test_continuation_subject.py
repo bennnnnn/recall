@@ -39,9 +39,12 @@ def test_another_is_not_itself_a_subject() -> None:
     assert detect_subject("Another") is None
     assert classify_presentation_subject("Another") is None
     assert is_pure_continuation("Another")
+    assert is_pure_continuation("Another such question")
     assert is_pure_continuation("Trickier")
     assert is_pure_continuation("One more")
     assert is_pure_continuation("Same but harder")
+    assert is_pure_continuation("Make it harder")
+    assert is_pure_continuation("Change chapter")
     assert not is_pure_continuation("How do plants grow?")
     assert not is_pure_continuation("explain photosynthesis")
     assert not is_pure_continuation("Write me an email")
@@ -51,6 +54,9 @@ def test_physics_continuation_keeps_physics_and_a_new_topic_does_not() -> None:
     assert needs_physics(CYCLIST)
     prior = _exchange(("user", CYCLIST), ("assistant", "The average speed is 48 km/h."))
     assert effective_presentation_subject("Another", prior) == "physics"
+    assert effective_presentation_subject("Another such question", prior) == "physics"
+    assert effective_presentation_subject("Change chapter", prior) == "physics"
+    assert effective_presentation_subject("Make it harder", prior) == "physics"
     assert effective_presentation_subject("Trickier", prior) == "physics"
     assert effective_presentation_subject("please give me another", prior) == "physics"
     chained = [
@@ -86,15 +92,16 @@ def test_math_chemistry_statistics_and_biology_continuations() -> None:
 
 def test_style_hints_follow_the_continuation_subject() -> None:
     physics_prior = [("user", CYCLIST), ("assistant", "48 km/h")]
-    another = _style_format_hints(
-        query_text="Another",
-        style="balanced",
-        is_day_plan=False,
-        minimal_personal_context=False,
-        prior_messages=physics_prior,
-    )
-    assert PHYSICS_INTENT_HINT in another
-    assert MATH_REPLY_POLICY not in another
+    for query in ("Another", "Another such question", "Change chapter", "Make it harder"):
+        hints = _style_format_hints(
+            query_text=query,
+            style="balanced",
+            is_day_plan=False,
+            minimal_personal_context=False,
+            prior_messages=physics_prior,
+        )
+        assert PHYSICS_INTENT_HINT in hints
+        assert MATH_REPLY_POLICY not in hints
 
     email = _style_format_hints(
         query_text="Write me an email",

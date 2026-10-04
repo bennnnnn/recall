@@ -10,8 +10,10 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas.physics.intent import PhysicsIntent
+from app.modules.physics.block import PHYSICS_BLOCK_BUILDERS
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.extract import _ADVANCED_PHYSICS_RE, _UNVERIFIED_PHYSICS_PHRASES
+from app.modules.physics.solver import PHYSICS_SOLVERS
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,
@@ -78,6 +80,11 @@ def test_the_schema_takes_only_operations_the_catalog_declares() -> None:
     assert all(
         spec.law_name.strip() and spec.law_name != "Physics formula" for spec in CATALOG.values()
     )
+
+
+def test_every_catalog_family_has_solver_and_verified_block_dispatch() -> None:
+    assert set(PHYSICS_SOLVERS) == set(CATALOG)
+    assert {spec.kind for spec in CATALOG.values()} == set(PHYSICS_BLOCK_BUILDERS)
 
 
 def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:

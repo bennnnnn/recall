@@ -47,6 +47,7 @@ MECHANICS: tuple[Case, ...] = (
     _q("How long does it take a car to accelerate from 0 to 27 m/s at 4.5 m/s^2?", (6, "s")),
     _q("A car travels 150 km in 2 hours. What is its average speed?", (75, "km/h")),
     _q("A runner covers 400 m in 50 s. Find the average speed.", (8, "m/s")),
+    _q("A runner covers 100 m in 20 s. Find the speed.", (5, "m/s")),
     _q("How far does a plane travel in 3 hours at 800 km/h?", (2400, "km")),
     _q(
         "A ball is dropped from a height of 45 m. How long does it take to hit the ground?",
@@ -95,6 +96,7 @@ MECHANICS: tuple[Case, ...] = (
     ),
     _q("A 5 kg box is pushed with a net force of 20 N. What is its acceleration?", (4, "m/s^2")),
     _q("What is the weight of a 70 kg person on Earth?", (686.7, "N")),
+    _q("A person weighs 686.7 N on Earth. Find their mass.", (70, "kg")),
     _q(
         "A 2000 kg elevator accelerates upward at 1.5 m/s^2. Find the tension in the cable.",
         (22620, "N"),
@@ -231,6 +233,16 @@ WAVES_AND_OPTICS: tuple[Case, ...] = (
         "Light of wavelength 600 nm passes through a diffraction grating with 300 lines per mm. "
         "Find the angle of the first order maximum.",
         (10.37, "deg"),
+    ),
+    _q(
+        "First-order Bragg diffraction occurs at 30 degrees from crystal planes "
+        "0.2 nm apart. Find the wavelength.",
+        (0.2, "nm"),
+    ),
+    _q(
+        "First-order Bragg diffraction uses X-rays of wavelength 0.2 nm at 30 degrees. "
+        "Find the plane spacing.",
+        (0.2, "nm"),
     ),
     _q(
         "A siren of 500 Hz moves away from a stationary observer at 20 m/s. "
@@ -447,5 +459,5 @@ ANSWERABLE: tuple[Case, ...] = (
     *corpus_thermal_modern.CASES,
 )
 
-# Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 131
+# Every answerable row is verified today. Raise it whenever coverage grows; never lower it.
+COVERAGE_FLOOR = 146

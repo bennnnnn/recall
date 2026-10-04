@@ -25,7 +25,8 @@ _FRICTION_CUES = (
 _FRICTION_SUBJECT = r"friction|frictional|incline|inclined|ramp"
 
 _FRICTION_GIVEN = (
-    r"coefficient|\bmu\s*(?:=|is)|\u03bc\s*(?:=|is)|(?<!\d)\d+\s*(?:degrees?|deg|\u00b0)"
+    r"coefficient|(?:\\?(?:\bmu|\u03bc)\s*_?\s*[sk]?\s*(?:=|is))|"
+    r"(?<!\d)\d+\s*(?:degrees?|deg|\u00b0)"
 )
 
 _FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (
@@ -52,6 +53,21 @@ _MU_RE = re.compile(
     re.IGNORECASE,
 )
 
+_MU_STATIC_RE = re.compile(
+    r"(?:\\?(?:\bmu|\u03bc)\s*_?\s*(?:s|\u209b)|"
+    r"coefficient\s+of\s+static\s+friction|static\s+(?:coefficient\s+of\s+)?friction|"
+    r"static\s+friction\s+coefficient)"
+    r"\s*(?:=|is|of)?\s*(-?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
+_MU_KINETIC_RE = re.compile(
+    r"(?:\\?(?:\bmu|\u03bc)\s*_?\s*(?:k|\u2096)|"
+    r"coefficient\s+of\s+kinetic\s+friction|kinetic\s+(?:coefficient\s+of\s+)?friction)"
+    r"\s*(?:=|is|of)?\s*(-?\d+(?:\.\d+)?)",
+    re.IGNORECASE,
+)
+
 _MU_ASK_RE = re.compile(
     r"(?:what|find|calculate|determine|compute)\b[^.?!]{0,40}?"
     r"\bcoefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\b"
@@ -64,6 +80,14 @@ _SLIPPING_RE = re.compile(
     r"|\bslipping\s+begins?\b|\bjust\s+(?:slides?|slips?|begins)\b"
     r"|\bslides?\s+(?:at|when|down\s+a)\b|\bon\s+the\s+point\s+of\b"
     r"|\bjust\s+prevents?\s+(?:it\s+from\s+)?slid(?:e|ing)\b",
+    re.IGNORECASE,
+)
+
+_SLIDING_ASK_RE = re.compile(
+    r"\b(?:does|did|will|would|can|could|whether)\b[^.?!]{0,80}?"
+    r"\b(?:slide|slid(?:e|es|ing)?|slip(?:s|ped|ping)?|mov(?:e|es|ing))\b"
+    r"|\b(?:start|starts|started|begin|begins|began)\s+(?:to\s+)?"
+    r"(?:slide|slid(?:e|es|ing)?|slip(?:s|ped|ping)?|mov(?:e|es|ing))\b",
     re.IGNORECASE,
 )
 
@@ -83,7 +107,10 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
         # A different quantity. The force extractor refuses it via
         # _UNSUPPORTED_FORCE_CONTEXT rather than guessing, which is right.
         return None
-    if has_equation(_strip_param_assignments(_MU_RE.sub("", cleaned))):
+    without_coefficients = _MU_RE.sub(
+        "", _MU_STATIC_RE.sub("", _MU_KINETIC_RE.sub("", cleaned))
+    )
+    if has_equation(_strip_param_assignments(without_coefficients)):
         return None
 
     mass = _find_value_with_specific_unit(
@@ -93,6 +120,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     frictionless = "frictionless" in lower
     mu_match = _MU_RE.search(cleaned)
     mu = 0.0 if frictionless else (float(mu_match.group(1)) if mu_match else None)
+    static_mu_match = _MU_STATIC_RE.search(cleaned)
 
     angle_match = _INCLINE_ANGLE_RE.search(cleaned)
     angle = float(angle_match.group(1)) if angle_match else 0.0
@@ -102,6 +130,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     wants_friction = _FRICTION_FORCE_ASK_RE.search(cleaned) is not None and not frictionless
     wants_coefficient = _MU_ASK_RE.search(cleaned) is not None
     wants_min_force = _MIN_FORCE_ASK_RE.search(cleaned) is not None
+    wants_sliding = _SLIDING_ASK_RE.search(cleaned) is not None
 
     op: Literal[
         "friction_force",
@@ -109,6 +138,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
         "incline_acceleration",
         "friction_coefficient",
         "minimum_force",
+        "incline_sliding",
     ]
     if wants_coefficient:
         # mu = tan(theta) holds only at the angle where it *starts* to slide.
@@ -139,6 +169,15 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
             # "acceleration" with no incline angle is an F = ma question, not
             # this one. Leave it for the force extractor.
             return None
+    elif wants_sliding:
+        op = "incline_sliding"
+        if angle == 0.0:
+            return None
+        if static_mu_match is None:
+            # Neither a kinetic nor an unqualified coefficient establishes
+            # the maximum static friction available before motion starts.
+            return None
+        mu = float(static_mu_match.group(1))
     elif wants_normal:
         op = "normal_force"
         if mass is None:
@@ -158,7 +197,10 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     }
     # For `friction_coefficient` mu is the answer, not a given, so there is
     # none to pass. Every other op has already refused a missing one above.
-    if mu is not None:
+    if op == "incline_sliding":
+        params["mu_s"] = mu if mu is not None else 0.0
+        units["mu_s"] = ""
+    elif mu is not None:
         params["mu"] = mu
         units["mu"] = ""
     if mass is not None:
