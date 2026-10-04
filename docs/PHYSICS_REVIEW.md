@@ -75,6 +75,9 @@ integration, conditional linear ODE general solutions, Cartesian vector calculus
 numeric matrix eigensystems. Decimal tokens retain exact precision. ODE leading-coefficient,
 discriminant and generated singularity conditions are explicit; unsupported nonlinear
 or parameterized variable-coefficient equations and symbolic eigensystems decline.
+Parameterized algebra supports affine equations with fixed coefficients. Systems whose
+rank or degree depends on an unconstrained coefficient decline, including `a*x=0`;
+substitution alone cannot prove completeness at singular coefficient values.
 The parser, operation solver and schema remain separate from
 numeric word-problem extraction. Exact input/output binding prevents an old symbolic
 result from answering a changed request.
