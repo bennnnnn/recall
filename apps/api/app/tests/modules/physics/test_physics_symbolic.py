@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 
 import pytest
+import sympy as sp
 
 from app.core.config import Settings
 from app.modules.physics.direct import maybe_direct_physics_reply
@@ -62,6 +63,26 @@ def test_eigenvalues_and_eigenspaces() -> None:
     assert "multiplicity 2" in repeated.canonical_answer
 
 
+def test_decimal_source_lexemes_remain_exact() -> None:
+    assert (
+        solve("Physics: simplify 10000000000000000.1-10000000000000000").canonical_answer == "1/10"
+    )
+    assert solve("Physics: solve x=0.100000000000000000001 for x").canonical_answer == (
+        "Eq(x, 100000000000000000001/1000000000000000000000)"
+    )
+    assert solve("Physics: simplify 1e-100").canonical_answer == str(sp.Rational("1e-100"))
+
+
+def test_ode_general_family_states_its_generated_domain_and_parameter_conditions() -> None:
+    singular = solve("Physics: ode t*x'+x=0 for x(t)")
+    assert "Ne(t, 0)" in singular.domain_conditions[0]
+    parameterized = solve("Physics: ode m*x''+k*x=0 for x(t)")
+    assert "Ne(m, 0)" in parameterized.domain_conditions[0]
+    assert "Ne(-4*k*m, 0)" in parameterized.domain_conditions[0]
+    repeated = solve("Physics: ode x''+2*x'+x=0 for x(t)")
+    assert "C2*t" in repeated.canonical_answer
+
+
 def test_algebra_retains_branches_and_denominator_conditions() -> None:
     roots = solve("Physics: solve v^2=4 for v")
     assert "Eq(v, -2)" in roots.canonical_answer
@@ -110,9 +131,13 @@ def test_whole_request_grammar_declines_extra_work(text: str) -> None:
         "solve x+y=2 for x,y",
         "integrate exp(t^3) with respect to t from 0 to t",
         "eigenvalues [[1,2,3],[1,2,3]]",
+        "eigenvectors [[a,b],[0,a]]",
+        "eigenvectors [[0,1],[a,0]]",
         "cross [1,2]; [2,3]",
         "ode x'''=0 for x(t)",
         "ode DerivativeOne+x=0 for x(t)",
+        "ode t*x'+a*x=0 for x(t)",
+        "ode x'+x^2=0 for x(t)",
     ],
 )
 def test_unsupported_or_unsafe_models_never_verify(body: str) -> None:

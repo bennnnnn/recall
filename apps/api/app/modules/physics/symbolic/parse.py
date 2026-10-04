@@ -39,6 +39,7 @@ class ModelParser:
         self.conditions: list[Any] = []
         self.dependent = dependent
         self.variable = variable
+        self.source = ""
 
     def symbol(self, name: str) -> Any:
         if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,23}", name):
@@ -60,7 +61,8 @@ class ModelParser:
                 raise SolveServiceError("reserved derivative name")
             expression = re.sub(rf"\b{name}('{{1,2}})(?!')", self._derivative_name, expression)
         try:
-            tree = ast.parse(expression.replace("^", "**"), mode="eval").body
+            self.source = expression.replace("^", "**")
+            tree = ast.parse(self.source, mode="eval").body
         except (SyntaxError, RecursionError) as exc:
             raise SolveServiceError("invalid model expression") from exc
         if sum(1 for _ in ast.walk(tree)) > MAX_NODES:
@@ -77,9 +79,16 @@ class ModelParser:
             and isinstance(node.value, int | float)
             and not isinstance(node.value, bool)
         ):
-            if not math.isfinite(float(node.value)) or abs(node.value) > 1e100:
+            # AST floats are already rounded. Read the original decimal token
+            # so an exact stated model cannot silently change before solving.
+            token = (ast.get_source_segment(self.source, node) or "").replace("_", "")
+            match = re.fullmatch(r"(?:\d+(?:\.\d*)?|\.\d+)(?:[eE]([+-]?\d+))?", token)
+            if match is None or (match[1] is not None and abs(int(match[1])) > 100):
+                raise SolveServiceError("only bounded decimal numbers are supported")
+            value = sp.Rational(token)
+            if not math.isfinite(float(node.value)) or abs(value) > 10**100:
                 raise SolveServiceError("model number outside bounds")
-            return sp.Rational(str(node.value))
+            return value
         if isinstance(node, ast.Name):
             if node.id in _CONSTANTS:
                 return _CONSTANTS[node.id]
