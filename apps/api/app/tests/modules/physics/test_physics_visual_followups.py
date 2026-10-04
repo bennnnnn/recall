@@ -30,6 +30,31 @@ from app.services.subject_solving import detect_subject
 _QUERY = "Do one 10th grde physics problem"
 
 
+@pytest.mark.parametrize(
+    "prompt",
+    ["Physics", "Explain Newton's laws", "What is kinetic energy?", "Explain thermodynamics"],
+)
+def test_conceptual_physics_uses_the_visual_capability_policy(prompt: str) -> None:
+    assert detect_subject(prompt) == "physics"
+    assert (
+        physics_visual_followup(
+            "show an animation",
+            [
+                {"role": "user", "content": prompt},
+                {"role": "assistant", "content": "Would you like an animation?"},
+            ],
+        )
+        is not None
+    )
+
+
+@pytest.mark.parametrize(
+    "prompt", ["I have no energy today", "There is friction at work", "Describe my work"]
+)
+def test_everyday_prose_does_not_claim_the_physics_policy(prompt: str) -> None:
+    assert detect_subject(prompt) != "physics"
+
+
 async def _turn(content: str, history: list[dict[str, str]]):
     user = User(
         id=uuid4(),
@@ -73,7 +98,6 @@ async def _turn(content: str, history: list[dict[str, str]]):
             AsyncMock(return_value=[]),
         ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
-        patch("app.services.chat.turn_prep.context._instant_reply_needs_db", return_value=False),
         patch(
             "app.services.chat.turn_prep.context.plan_service.chat_fallback_models", return_value=[]
         ),
@@ -138,6 +162,32 @@ async def test_exact_two_turn_request_returns_native_motion(
     assert has_native_visual(second.verified_subject, animation=True)
     assert second.verified_subject.physics_intent == first.verified_subject.physics_intent
     assert second.verified_subject.canonical_fences == first.verified_subject.canonical_fences
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "problem",
+    [
+        "A ball is dropped from 20 m. What is its velocity after 1 s?",
+        "A ball is thrown upward at 20 m/s. What is its velocity after 1 s?",
+    ],
+)
+async def test_directional_prelude_preserves_final_native_diagram(
+    problem: str, thread_sympy_executor: None
+) -> None:
+    context = await _turn(
+        "show me a diagram",
+        [
+            {"role": "user", "content": problem},
+            {"role": "assistant", "content": "Would you like a diagram?"},
+        ],
+    )
+    assert context.instant_reply is not None
+    assert context.instant_reply.startswith("Upward is positive.")
+    final = validate_physics_fences(context.instant_reply, verified=context.verified_subject)
+    assert final.count("```answer") == 1
+    assert final.count("```graph") == 1
+    assert final.count("```simulation") == 1
 
 
 @pytest.mark.asyncio
@@ -407,10 +457,23 @@ async def test_new_image_does_not_reuse_a_previous_physics_visual() -> None:
         "Here is how to read the plot: its upward slope means positive acceleration.",
         "I will use the slope of the velocity-time plot to calculate acceleration, which gives 2 m/s^2.",
         "Would you like an explanation of the velocity-time plot?",
+        "I will show that the slope of a velocity-time graph equals acceleration.",
+        "I can show that energy is conserved by equating the initial and final energies.",
+        "I will show this calculation step by step: a = F/m = 2 m/s^2.",
     ],
 )
 def test_explaining_an_existing_plot_is_not_a_drawing_promise(prose: str) -> None:
     assert validate_physics_fences(prose) == prose
+    assert (
+        physics_visual_followup(
+            "yes",
+            [
+                {"role": "user", "content": "A 5 kg mass accelerates at 2 m/s^2. Find the force."},
+                {"role": "assistant", "content": prose},
+            ],
+        )
+        is None
+    )
 
 
 def test_unlabeled_drawing_fence_gets_an_unavailable_response() -> None:

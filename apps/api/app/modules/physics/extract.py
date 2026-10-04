@@ -39,6 +39,25 @@ _DIGIT_FREE_PHYSICS_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Concept explanations also need the native-visual policy even when they do
+# not state numerical inputs. Keep this request-shaped so everyday uses of
+# "energy", "work", or "friction" do not claim an unrelated chat turn.
+_PHYSICS_CONCEPT = (
+    r"(?:physics|kinematics|thermodynamics|electromagnetism|electrostatics|"
+    r"newton['\u2019]s laws?|projectile motion|simple harmonic motion|"
+    r"kinetic energy|potential energy|centripetal acceleration|"
+    r"conservation of (?:energy|momentum)|free[- ]body diagrams?)"
+)
+_CONCEPTUAL_PHYSICS_RE = re.compile(
+    r"^(?:please\s+)?(?:(?:explain|describe|teach\s+me(?:\s+about)?|"
+    r"what\s+(?:is|are|about)|how\s+(?:does|do))\s+(?:the\s+)?"
+    + _PHYSICS_CONCEPT
+    + r"\b|"
+    + _PHYSICS_CONCEPT
+    + r"[.!?]*$)",
+    re.IGNORECASE,
+)
+
 # Recognized as physics, then left unverified. Closed school templates that
 # now have a solver stay off this list, including Kirchhoff, Gauss, Faraday,
 # inductors, RL, AC, Poiseuille, the quantum oscillator's levels and the
@@ -97,6 +116,8 @@ def needs_physics(text: str) -> bool:
     if _ADVANCED_PHYSICS_RE.search(cleaned) is not None:
         return True
     if re.search(r"\bphysics\s+(?:problem|question|exercise)\b", cleaned, re.IGNORECASE):
+        return True
+    if _CONCEPTUAL_PHYSICS_RE.search(cleaned.strip()):
         return True
     from app.modules.physics.extractors.drag import closed_drag_request
 

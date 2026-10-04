@@ -65,8 +65,9 @@ def validate_physics_fences(
     question_prose = cleaned
     if verified.physics_problem_text is not None:
         problem_header = f"**Problem**\n\n{verified.physics_problem_text}"
-        if question_prose.startswith(problem_header):
-            question_prose = question_prose[len(problem_header) :]
+        # Directional working can precede this server-owned problem section.
+        # Its question is the solved request, not a new clarification question.
+        question_prose = question_prose.replace(problem_header, "", 1)
     if answer and any(line.rstrip("*_`~ \t").endswith("?") for line in question_prose.splitlines()):
         normalized_content = re.sub(r"\s+", " ", cleaned.lower())
         normalized_answer = re.sub(r"\s+", " ", answer.lower())

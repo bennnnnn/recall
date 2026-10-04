@@ -314,6 +314,11 @@ use the current interpolation segment so they do not anticipate a collision.
 
 ## Exercise and visual follow-ups
 
+Recognized conceptual requests (for example `Explain Newton's laws` and
+`What is kinetic energy?`) also use the physics visual policy without numerical
+inputs. They remain ordinary unverified explanations; a later animation request
+declines when no complete solver-owned moving scene exists.
+
 A closed request for one grade-10 physics exercise, including `Do one 10th grde
 physics problem`, selects a server-owned horizontal-launch example, solves it,
 and renders the worked answer and native scene immediately. This is a curated
