@@ -19,6 +19,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.math.tools import _build_verified_block as build_math_block
 from app.modules.math.tools import extract_math_intent as extract_real_math_intent
+from app.modules.physics.direct import maybe_direct_physics_reply
 from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 
 PHYSICS_KINDS = {"kinematics", "projectile", "force", "energy", "momentum", "friction"}
@@ -70,6 +71,23 @@ VERIFIED: list[tuple[str, str, str]] = [
         "incline_acceleration",
         "3.21 m/s²",
     ),
+    (
+        "For the 12.0 kg crate on a 30 degree incline with μs = 0.45 and "
+        "μk = 0.30, does it start sliding?",
+        "incline_sliding",
+        "Yes, it starts sliding.",
+    ),
+    (
+        "Will a 10 kg block on a 10 degree ramp with coefficient of static "
+        "friction 0.5 start to slide?",
+        "incline_sliding",
+        "No, it stays at rest.",
+    ),
+    (
+        "Does a 12 kg crate on a 30 degree incline with mu_s = 0.45 start sliding?",
+        "incline_sliding",
+        "Yes, it starts sliding.",
+    ),
 ]
 
 
@@ -88,7 +106,12 @@ def test_every_friction_op_has_at_least_three_phrasings() -> None:
     covered = Counter(op for _, op, _ in VERIFIED)
 
     assert {op: n for op, n in covered.items() if n < 3} == {}
-    assert set(covered) == {"friction_force", "normal_force", "incline_acceleration"}
+    assert set(covered) == {
+        "friction_force",
+        "normal_force",
+        "incline_acceleration",
+        "incline_sliding",
+    }
 
 
 # --- the physics, not just the plumbing ------------------------------------
@@ -125,6 +148,118 @@ def test_a_block_that_cannot_slide_is_reported_as_stationary() -> None:
         )
         == "0 m/s²"
     )
+
+
+@pytest.mark.parametrize(
+    "text, expected, static_coefficient",
+    [
+        (
+            "For the 12.0 kg crate on a 30 degree incline with μs = 0.45 and "
+            "μk = 0.30, does it start sliding?",
+            "Yes, it starts sliding.",
+            0.45,
+        ),
+        (
+            "Will a 10 kg block on a 10 degree ramp with coefficient of static "
+            "friction 0.5 start to slide?",
+            "No, it stays at rest.",
+            0.5,
+        ),
+        (
+            "Does a 12 kg crate on a 30 degree incline with mu_s = 0.45 start sliding?",
+            "Yes, it starts sliding.",
+            0.45,
+        ),
+        (
+            "Will a 12 kg crate on a 30 degree incline start sliding if its static friction "
+            "coefficient is 0.45?",
+            "Yes, it starts sliding.",
+            0.45,
+        ),
+        (
+            "Does a block on a 30 degree incline with μ_s = 0.5773502691896257 start sliding?",
+            "No, it stays at rest.",
+            0.5773502691896257,
+        ),
+    ],
+)
+def test_sliding_threshold_uses_static_friction(
+    text: str, expected: str, static_coefficient: float
+) -> None:
+    intent = extract_physics_intent(text)
+
+    assert intent is not None
+    assert intent.kind == "friction"
+    assert intent.physics_op == "incline_sliding"
+    assert intent.physics_params is not None
+    assert intent.physics_params["mu_s"] == static_coefficient
+
+    block = build_verified_physics_block(intent, _settings())
+
+    assert block is not None
+    assert block.canonical_answer == expected
+    assert "F_{g,\\parallel}" in (block.physics_working or "")
+    assert "f_{s,\\max}" in (block.physics_working or "")
+    assert "Verified result" in (block.physics_working or "")
+    if "12.0 kg" in text:
+        assert "58.86" in (block.physics_working or "")
+        assert "45.88" in (block.physics_working or "")
+
+
+def test_sliding_threshold_does_not_treat_kinetic_friction_as_static() -> None:
+    text = (
+        "Does a 12 kg crate on a 30 degree incline start sliding if "
+        "the coefficient of kinetic friction is 0.30?"
+    )
+
+    assert _verified_answer(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Does a 12 kg crate on a 30 degree incline start sliding?",
+        "Does a 12 kg crate on a 30 degree incline start sliding with μ = 0.45?",
+        "Does a 12 kg crate on a 30 degree incline start sliding with coefficient of friction 0.45?",
+    ],
+)
+def test_sliding_threshold_requires_an_explicit_static_coefficient(text: str) -> None:
+    assert _verified_answer(text) is None
+
+
+def test_sliding_threshold_rejects_a_negative_static_coefficient() -> None:
+    text = "Does a 12 kg crate on a 30 degree incline with μs = -0.45 start sliding?"
+
+    assert _verified_answer(text) is None
+
+
+def test_sliding_answer_has_a_clear_find_line_and_renderable_threshold() -> None:
+    text = (
+        "For the 12 kg crate on a 30 degree incline with μs = 0.45 and "
+        "μk = 0.30, does it start sliding?"
+    )
+    intent = extract_physics_intent(text)
+    assert intent is not None
+    block = build_verified_physics_block(intent, _settings())
+    reply = maybe_direct_physics_reply(block, text)
+
+    assert reply is not None
+    assert "**Find**\n\n$\\text{Will it start sliding?}$" in reply
+    assert "Rearranged for" not in reply
+    assert r"\quad mg\sin\theta>\mu_smg\cos\theta" in reply
+    assert r"\quadmg" not in reply
+
+
+def test_acceleration_request_keeps_priority_when_it_mentions_sliding() -> None:
+    text = (
+        "A 5 kg crate slides down a 30 degree incline with coefficient of kinetic "
+        "friction 0.30, find acceleration."
+    )
+    intent = extract_physics_intent(text)
+
+    assert intent is not None
+    assert intent.physics_op == "incline_acceleration"
+    assert _verified_answer(text) == "2.36 m/s²"
 
 
 def test_the_slope_reduces_the_normal_force() -> None:

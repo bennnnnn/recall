@@ -29,6 +29,16 @@ describe("parseSimpleLatex", () => {
     expect(parseSimpleLatex("10^23").some((s) => s.type === "sup" && s.value === "23")).toBe(true);
   });
 
+  it("keeps upright text styled inside a subscript", () => {
+    const segments = parseSimpleLatex(String.raw`t_{\mathrm{flight}}`);
+    const subscript = segments.find((segment) => segment.type === "sub");
+    expect(subscript?.type).toBe("sub");
+    if (subscript?.type !== "sub") return;
+    expect(subscript.body).toEqual([{ type: "upright", value: "flight" }]);
+    expect(segmentsToPlain(segments)).toBe("t_flight");
+    expect(segmentsToPlain(segments)).not.toMatch(/[\uE006\uE007]/);
+  });
+
   it("does not turn adjacent digits into a superscript (MathText pipeline)", () => {
     for (const expr of ["12+3=15", "20-10=10", "99*2=198"]) {
       const segs = parseSimpleLatex(fixImplicitExponents(expr));

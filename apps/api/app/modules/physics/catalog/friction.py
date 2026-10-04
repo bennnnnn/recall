@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -39,6 +39,35 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("g", "g", "meter / second ** 2"),
             var("m", "m", "kilogram"),
             var("mu", r"\mu", dimensionless=True),
+        ),
+    ),
+    formula(
+        "incline_sliding",
+        "friction",
+        "Static-friction threshold",
+        r"\text{Will it start sliding?}",
+        base_latex=(
+            r"F_{g,\parallel} > f_{s,\max}"
+            r" \quad\Longleftrightarrow\quad "
+            r"mg\sin\theta > \mu_s mg\cos\theta"
+        ),
+        variables=(
+            var("angle", r"\theta", dimensionless=True),
+            var("g", "g", "meter / second ** 2"),
+            var("m", "m", "kilogram"),
+            var("mu_s", r"\mu_s", dimensionless=True),
+        ),
+        variants=(
+            FormulaVariant(
+                present=frozenset({"mu_s"}),
+                lines=(
+                    r"F_{g,\parallel}=mg\sin\theta",
+                    r"f_{s,\max}=\mu_sN=\mu_smg\cos\theta",
+                    r"F_{g,\parallel}>f_{s,\max}"
+                    r" \quad\Longleftrightarrow\quad "
+                    r"mg\sin\theta>\mu_smg\cos\theta",
+                ),
+            ),
         ),
     ),
     formula(

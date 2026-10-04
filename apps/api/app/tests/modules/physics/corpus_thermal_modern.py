@@ -46,6 +46,54 @@ CASES: tuple[Case, ...] = (
         "Find the wavelength of the emitted photon.",
         (6.5611e-7, "m"),
     ),
+    q(
+        "At constant pressure, a gas at 300 K occupies 2 L and expands to 4 L. "
+        "Find its final temperature.",
+        (600, "K"),
+    ),
+    q(
+        "At constant volume, a gas at 100 kPa and 300 K is heated until its pressure "
+        "is 200 kPa. Find its final temperature.",
+        (600, "K"),
+    ),
+    q(
+        "A gas changes from 100 kPa, 2 L and 300 K to 1 L and 600 K. "
+        "Find its final pressure.",
+        (400, "kPa"),
+    ),
+    q(
+        "Find the mean speed of nitrogen molecules at 300 K. "
+        "Molar mass is 0.028 kg/mol.",
+        (476.3, "m/s"),
+    ),
+    q(
+        "Find the most probable speed of nitrogen molecules at 300 K. "
+        "Molar mass is 0.028 kg/mol.",
+        (422.1, "m/s"),
+    ),
+    q(
+        "How much does the temperature of 2 kg of water increase after absorbing 8360 J?",
+        (0.998565, "K"),
+    ),
+    q(
+        "What mass of water warms by 5 K after absorbing 41860 J?",
+        (2, "kg"),
+    ),
+    q(
+        "A 0.1 kg metal sample at 373 K is placed in 0.2 kg of water at 293 K. "
+        "The final temperature is 298 K. Find the metal's specific heat capacity.",
+        (558.13, "J/(kg*K)"),
+    ),
+    q(
+        "What mass of ice melts when it absorbs 67000 J? "
+        "Use a latent heat of fusion of 334000 J/kg.",
+        (0.2006, "kg"),
+    ),
+    q(
+        "A particle has rest mass 1 kg and relativistic momentum 3e8 kg m/s. "
+        "Find its total energy.",
+        (1.272e17, "J"),
+    ),
     q("A proton moves at 0.8c. Find its relativistic momentum.", (6.6871e-19, "kg*m/s")),
     q("Find the Schwarzschild radius of the Sun.", (2953.3, "m")),
     q("Find the period of a satellite orbiting 400 km above Earth.", (5544.8, "s")),

@@ -95,6 +95,10 @@ function RootNavigator() {
             ...stackBackOptions(),
           }}
         />
+        <Stack.Screen
+          name="physics-reference"
+          options={{ ...stackUtilityTransition(reduceMotion), headerShown: false }}
+        />
       </Stack>
     </>
   );

@@ -727,11 +727,16 @@ function preprocessLatex(latex: string): string {
   return s;
 }
 
-/** Braced scripts and root indexes that are only letters stay strings.
- * A fraction, radical, or nested script keeps its segments. */
+/** Braced scripts and root indexes that are only ordinary letters stay
+ * strings. Upright runs keep their segment so the renderer preserves their
+ * font style inside a subscript (for example, `t_{\mathrm{flight}}`). */
 function plainScriptPieces(segments: MathSegment[]): string | null {
-  if (segments.some((seg) => seg.type !== "text" && seg.type !== "upright")) return null;
-  return segments.map((seg) => (seg.type === "text" || seg.type === "upright" ? seg.value : "")).join("");
+  let plain = "";
+  for (const segment of segments) {
+    if (segment.type !== "text") return null;
+    plain += segment.value;
+  }
+  return plain;
 }
 
 function parseFrac(

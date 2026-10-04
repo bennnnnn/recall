@@ -159,3 +159,17 @@ def test_an_asked_phrase_reads_the_unit_after_it_as_written() -> None:
     # A label of the asked kind is not an ask; the phrase is matched without case.
     assert ask_strength(" the length of 5 mm", ("length",), ("meter",), table) == 0
     assert ask_strength(" the Length of the rod", ("length",), ("meter",), table) == 6
+
+
+@pytest.mark.parametrize(
+    ("clause", "ask"),
+    [
+        (" does the temperature of 2 kg of water increase after heating", "temperature increase"),
+        (" does the pressure of the gas decrease as it cools", "pressure decrease"),
+        (" what is the temperature increase of the water", "temperature increase"),
+    ],
+)
+def test_a_quantity_can_be_asked_through_its_change_verb(clause: str, ask: str) -> None:
+    from app.services.law_binding.words import ask_strength
+
+    assert ask_strength(clause, (ask,), ("kelvin",), _UNITS) == len(ask)

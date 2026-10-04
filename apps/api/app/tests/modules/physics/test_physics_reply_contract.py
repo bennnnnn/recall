@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +35,14 @@ QUESTIONS = {
     "parallel_resistance": "Find the total resistance of 4 ohm, 6 ohm and 12 ohm resistors in parallel.",
     "rebound_impulse": "A 0.2 kg ball hits a wall at 10 m/s and rebounds at 8 m/s. Find the impulse.",
     "heater_energy": "A 2 kW heater runs for 3 hours. How much energy does it use in kWh?",
+    "machine_advantage": (
+        "A wheel and axle has a wheel radius of 0.20 m and an axle radius of 0.04 m. "
+        "Find its mechanical advantage."
+    ),
+    "incline_sliding": (
+        "For the 12 kg crate on a 30 degree incline with μs = 0.45 and μk = 0.30, "
+        "does it start sliding?"
+    ),
     "projectile_parts": (
         "A projectile is launched at 20 m/s at 30 degrees. "
         "Find the time of flight, the maximum height and the range."
@@ -74,5 +83,8 @@ def test_every_reply_carries_a_typeset_answer_card() -> None:
     for entry in _stored()["replies"].values():
         assert "```answer\n" in entry["reply"]
         card = entry["reply"].split("```answer\n", 1)[1].split("\n```", 1)[0]
-        assert "\\" in card, "the card is LaTeX"
+        assert card.strip(), "the card has a rendered answer"
+        # A bare dimensionless result (for example MA = 5) is valid math too.
+        assert "\\" in card or re.fullmatch(r"[-+]?\d+(?:\.\d+)?", card.strip())
+        assert re.search(r"\$[^$]+\$", entry["reply"]), "the working typesets its equation"
         assert "\\" not in entry["answer"], "the plain answer is text"

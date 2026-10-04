@@ -20,6 +20,14 @@ _CONNECTOR = re.compile(
 )
 # An asked phrase followed by its own value labels a given: "an acceleration of 2".
 _LABELLED = re.compile(r"\s*(?:of|=|is|:|was)?\s*[-+]?\.?\d[\d.]*(?:[eE][-+]?\d+)?")
+_CHANGE_VERBS = {
+    "change": r"chang\w*",
+    "increase": r"increas\w*",
+    "rise": r"ris(?:e|es|en|ing)",
+    "decrease": r"decreas\w*",
+    "drop": r"drop(?:s|ped|ping)?",
+    "fall": r"fall(?:s|en|ing)?",
+}
 
 
 @lru_cache(maxsize=1024)
@@ -60,6 +68,16 @@ def words_after(lower: str, start: int, end: int) -> str:
 
 @lru_cache(maxsize=1024)
 def _asked_pattern(phrase: str) -> re.Pattern[str]:
+    # Questions often put the quantity before its verb: "how much does the
+    # temperature of the water increase?" A catalog ask such as "temperature
+    # increase" should match that wording without treating a plain temperature
+    # reading as a change.
+    words = phrase.rsplit(" ", 1)
+    if len(words) == 2 and (verb := _CHANGE_VERBS.get(words[1])) is not None:
+        return re.compile(
+            rf"(?<![\w]){re.escape(words[0])}\b[^.?!,;]{{0,80}}?\b{verb}\b",
+            re.IGNORECASE,
+        )
     return re.compile(rf"(?<![\w]){re.escape(phrase)}", re.IGNORECASE)
 
 

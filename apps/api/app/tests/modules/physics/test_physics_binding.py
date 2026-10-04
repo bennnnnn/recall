@@ -113,6 +113,82 @@ def _answer(text: str) -> str | None:
             "rotational_kinetic_energy",
             "200 J",  # ½·4·100
         ),
+        ("A runner covers 100 m in 20 s. Find the speed.", "rate_speed", "5 m/s"),
+        (
+            "A person weighs 686.7 N on Earth. Find their mass.",
+            "mass_from_weight",
+            "70 kg",
+        ),
+        (
+            "First-order Bragg diffraction occurs at 30 degrees from crystal planes "
+            "0.2 nm apart. Find the wavelength.",
+            "bragg_wavelength",
+            "0.2 nm",
+        ),
+        (
+            "First-order Bragg diffraction uses X-rays of wavelength 0.2 nm at 30 degrees. "
+            "Find the plane spacing.",
+            "bragg_spacing",
+            "0.2 nm",
+        ),
+        (
+            "At constant pressure, a gas at 300 K occupies 2 L and expands to 4 L. "
+            "Find its final temperature.",
+            "charles_temperature",
+            "600 K",
+        ),
+        (
+            "At constant volume, a gas at 100 kPa and 300 K is heated until its pressure "
+            "is 200 kPa. Find its final temperature.",
+            "gay_lussac_temperature",
+            "600 K",
+        ),
+        (
+            "A gas changes from 100 kPa, 2 L and 300 K to 1 L and 600 K. "
+            "Find its final pressure.",
+            "combined_gas_pressure",
+            "400 kPa",
+        ),
+        (
+            "Find the mean speed of nitrogen molecules at 300 K. "
+            "Molar mass is 0.028 kg/mol.",
+            "mean_molecular_speed",
+            "476 m/s",
+        ),
+        (
+            "Find the most probable speed of nitrogen molecules at 300 K. "
+            "Molar mass is 0.028 kg/mol.",
+            "most_probable_speed",
+            "422 m/s",
+        ),
+        (
+            "How much does the temperature of 2 kg of water increase after absorbing 8360 J?",
+            "temperature_change_from_heat",
+            "0.999 K",
+        ),
+        (
+            "What mass of water warms by 5 K after absorbing 41860 J?",
+            "mass_from_heat",
+            "2 kg",
+        ),
+        (
+            "A 0.1 kg metal sample at 373 K is placed in 0.2 kg of water at 293 K. "
+            "The final temperature is 298 K. Find the metal's specific heat capacity.",
+            "calorimetry_specific_heat",
+            "558 J/(kg·K)",
+        ),
+        (
+            "What mass of ice melts when it absorbs 67000 J? "
+            "Use a latent heat of fusion of 334000 J/kg.",
+            "mass_from_latent_heat",
+            "0.201 kg",
+        ),
+        (
+            "A particle has rest mass 1 kg and relativistic momentum 3e8 kg m/s. "
+            "Find its total energy.",
+            "energy_momentum_relation",
+            "1.27 × 10¹⁷ J",
+        ),
     ],
 )
 def test_a_stated_law_is_read_and_verified(text: str, operation: str, answer: str) -> None:

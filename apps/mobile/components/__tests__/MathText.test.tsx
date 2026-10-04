@@ -58,6 +58,13 @@ describe("MathText", () => {
     });
   });
 
+  it("keeps upright words in subscripts instead of leaking markers or italics", async () => {
+    const rendered = await render(<MathText latex={String.raw`t_{\mathrm{flight}}`} />);
+    expect(rendered.getByTestId("math-upright-run")).toHaveTextContent("flight");
+    expect(rendered.getByTestId("math-upright-run")).toHaveStyle({ fontFamily: "KaTeX_Main" });
+    expect(JSON.stringify(rendered.toJSON())).not.toMatch(/[\uE006\uE007]/);
+  });
+
   it("renders escaped braces inside upright text without leaking native markers", async () => {
     const rendered = await render(
       <MathText latex={String.raw`\text{\{x\}}`} />,

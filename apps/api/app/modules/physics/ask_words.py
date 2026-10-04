@@ -155,6 +155,7 @@ _QUANTITIES: dict[str, str] = {
     "poissons ratio": _DIMENSIONLESS,
     "poisson ratio": _DIMENSIONLESS,
     "gear ratio": _DIMENSIONLESS,
+    "mechanical advantage": _DIMENSIONLESS,
     "efficiency": _DIMENSIONLESS,
     "refractive index": _DIMENSIONLESS,
     "index of refraction": _DIMENSIONLESS,

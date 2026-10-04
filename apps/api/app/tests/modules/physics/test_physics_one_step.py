@@ -27,6 +27,45 @@ def _op(text: str) -> str | None:
     ("text", "operation", "answer"),
     [
         (
+            "A machine applies 30 N of input force and produces 120 N of output force. "
+            "Find its mechanical advantage.",
+            "machine_advantage_forces",
+            "4",
+        ),
+        (
+            "An ideal inclined plane is 4 m long and rises 1 m. Find its mechanical advantage.",
+            "machine_advantage_inclined_plane",
+            "4",
+        ),
+        (
+            "A pulley supports a load with 4 supporting rope strands. Find its mechanical advantage.",
+            "machine_advantage_pulley",
+            "4",
+        ),
+        (
+            "A wheel and axle has a wheel radius of 0.20 m and an axle radius of 0.04 m. "
+            "Find its mechanical advantage.",
+            "machine_advantage_wheel_axle",
+            "5",
+        ),
+        (
+            "A gear has 12 teeth on the input and 48 teeth on the output. "
+            "Find the mechanical advantage.",
+            "machine_advantage_gears",
+            "4",
+        ),
+        (
+            "A screw has a handle length of 0.25 m and a thread pitch of 0.005 m. "
+            "Find its mechanical advantage.",
+            "machine_advantage_screw",
+            "314",
+        ),
+        (
+            "A wedge is 0.10 m long and 0.02 m wide. Find its mechanical advantage.",
+            "machine_advantage_wedge",
+            "5",
+        ),
+        (
             "A physical pendulum has moment of inertia 0.50 kg m^2, mass 2.0 kg "
             "and pivot distance 0.40 m. Find its period.",
             "physical_pendulum_period",
