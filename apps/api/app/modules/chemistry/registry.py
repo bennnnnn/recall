@@ -20,6 +20,7 @@ from app.modules.chemistry.extractors.amounts import (
     _extract_combustion,
     _extract_element_mass,
     _extract_empirical,
+    _extract_hydrate,
 )
 from app.modules.chemistry.extractors.analytical import (
     _extract_analytical,
@@ -89,6 +90,7 @@ CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     _extract_spectrum,
     # Topic readers. Combustion owns CO2 and H2O masses before percent composition does.
     _extract_combustion,
+    _extract_hydrate,
     _extract_empirical,
     _extract_mass_chain,
     _extract_acid_solution,

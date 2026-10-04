@@ -152,6 +152,12 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "n(C) = m(CO2) / M(CO2); n(H) = 2 m(H2O) / M(H2O); m(O) = m(sample) − m(C) − m(H)",
     ),
     (
+        "hydrate_water",
+        "amounts",
+        "Hydrate water coefficient",
+        "n = (m(hydrate) − m(salt)) / M(H2O) × M(salt) / m(salt)",
+    ),
+    (
         "molecular_formula",
         "amounts",
         "Molecular formula from the empirical formula",

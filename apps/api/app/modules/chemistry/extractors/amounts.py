@@ -343,7 +343,11 @@ _HYDROCARBON = re.compile(r"\bonly\s+carbon\s+and\s+hydrogen\b", re.IGNORECASE)
 
 
 def _grams_of(text: str, name: str) -> float | None:
-    match = re.search(rf"({_N})\s*g(?:rams?)?\s+(?:of\s+)?(?:{name})\b", text, re.IGNORECASE)
+    match = re.search(
+        rf"({_N})\s*g(?:rams?)?\s+(?:of\s+)?(?:the\s+)?(?:{name})\b",
+        text,
+        re.IGNORECASE,
+    )
     return None if match is None else float(match.group(1))
 
 
@@ -366,4 +370,37 @@ def _extract_combustion(text: str) -> ChemistryIntent | None:
         chemistry_op="combustion_analysis",
         target="CH" if hydrocarbon else None,
         params={"sample_mass": sample, "co2_mass": co2, "h2o_mass": water},
+    )
+
+
+_HYDRATE_ASK = re.compile(
+    r"\bwaters?\s+of\s+hydration\b|\bwater\s+of\s+crystallization\b|\bhow\s+many\s+waters\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_hydrate(text: str) -> ChemistryIntent | None:
+    """n in salt·nH2O from the hydrate mass, the anhydrous mass, and the salt formula."""
+    if re.search(r"\bhydrate\b", text, re.IGNORECASE) is None or _HYDRATE_ASK.search(text) is None:
+        return None
+    formulas = {
+        match.group(1)
+        for match in re.finditer(
+            rf"\b(?:anhydrous|hydrate of)\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+            text,
+        )
+        if match.group(1) != "H2O" and parse_formula(match.group(1))
+    }
+    if len(formulas) != 1:
+        return None
+    formula = next(iter(formulas))
+    hydrate = _grams_of(text, "sample|hydrate")
+    anhydrous = _grams_of(text, "anhydrous")
+    if hydrate is None or anhydrous is None:
+        return None
+    return ChemistryIntent(
+        kind="amounts",
+        chemistry_op="hydrate_water",
+        formula=formula,
+        params={"hydrate_mass": hydrate, "anhydrous_mass": anhydrous},
     )

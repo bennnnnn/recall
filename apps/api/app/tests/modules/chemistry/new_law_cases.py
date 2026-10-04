@@ -158,4 +158,10 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "combustion_analysis",
         "CH2O",
     ),
+    (
+        "A 2.49677 g sample of a hydrate of CuSO4 leaves 1.59602 g of anhydrous CuSO4. "
+        "How many waters of hydration?",
+        "hydrate_water",
+        "CuSO4\u00b75H2O",
+    ),
 )
