@@ -164,4 +164,39 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "hydrate_water",
         "CuSO4\u00b75H2O",
     ),
+    (
+        "What is the LOD when m = 2.00 and s = 0.060?",
+        "lod",
+        "LOD = 0.090",
+    ),
+    (
+        "What is the LOQ when m = 2.00 and s = 0.060?",
+        "loq",
+        "LOQ = 0.30",
+    ),
+    (
+        "What is the capacity factor when tR = 5.00 and tM = 1.00?",
+        "capacity_factor",
+        "k' = 4.00",
+    ),
+    (
+        "What is the selectivity when k1 = 2.00 and k2 = 4.00?",
+        "selectivity",
+        "α = 2.00",
+    ),
+    (
+        "What is Rs when tR1 = 4.00, tR2 = 5.20, w1 = 0.40, and w2 = 0.40?",
+        "resolution",
+        "Rs = 3.0",
+    ),
+    (
+        "What is the plate number when tR = 10.0 and w = 1.00?",
+        "plate_number",
+        "N = 1600",
+    ),
+    (
+        "What is the plate height when L = 16.0 and N = 1600?",
+        "plate_height",
+        "H = 0.0100",
+    ),
 )
