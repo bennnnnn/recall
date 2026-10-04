@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.equations import balance_equation
@@ -16,7 +15,6 @@ from app.modules.chemistry.species import parse_reaction
 
 _ACIDIC = re.compile(r"\b(?:acidic|in acid|an?\s+acid)\b", re.IGNORECASE)
 _BASIC = re.compile(r"\b(?:basic|alkaline|in base|an?\s+base)\b", re.IGNORECASE)
-_ADDED = frozenset({"H2O", "H+", "OH-", "e-"})
 
 
 def _amounts(text: str) -> dict[str, float]:
@@ -120,12 +118,9 @@ def _half_reaction(text: str, equation: str) -> ChemistryIntent | None:
     reaction = parse_reaction(equation)
     if reaction is None or len(reaction.reactants) != 1 or len(reaction.products) != 1:
         return None
-    labels: set[str] = set()
-    for term in (*reaction.reactants, *reaction.products):
-        if term.species.electron:
-            return None
-        labels.add(replace(term.species, phase=None).label)
-    if labels & _ADDED:
+    # Water, H+, and OH- may be the pair itself (O2 -> H2O, H+ -> H2). Electrons
+    # already written belong to the ordinary balancer.
+    if any(term.species.electron for term in (*reaction.reactants, *reaction.products)):
         return None
     return ChemistryIntent(
         kind="equations",

@@ -82,6 +82,7 @@ def _construct(left: ChemicalSpecies, right: ChemicalSpecies, medium: str) -> _B
     )
     if medium == "basic":
         _to_basic(reactants, products)
+    _cancel_water(reactants, products)
     return _Built(
         f"{_side(reactants, canonical_label(left))} -> {_side(products, canonical_label(right))}",
         element,
@@ -115,10 +116,11 @@ def _balance_oxygen(
 ) -> None:
     oxygen_left = reactant_coefficient * left.composition.get("O", 0)
     oxygen_right = product_coefficient * right.composition.get("O", 0)
+    # The difference is water still needed. Add it to a pair that is already water.
     if oxygen_left > oxygen_right:
-        products["H2O"] = oxygen_left - oxygen_right
+        products["H2O"] = products.get("H2O", 0) + (oxygen_left - oxygen_right)
     elif oxygen_right > oxygen_left:
-        reactants["H2O"] = oxygen_right - oxygen_left
+        reactants["H2O"] = reactants.get("H2O", 0) + (oxygen_right - oxygen_left)
 
 
 def _balance_hydrogen(
@@ -129,16 +131,17 @@ def _balance_hydrogen(
     reactants: dict[str, int],
     products: dict[str, int],
 ) -> None:
-    hydrogen_left = reactant_coefficient * left.composition.get("H", 0) + 2 * reactants.get(
-        "H2O", 0
+    hydrogen_left = reactant_coefficient * left.composition.get("H", 0) + 2 * _extra(
+        reactants, "H2O", canonical_label(left), reactant_coefficient
     )
-    hydrogen_right = product_coefficient * right.composition.get("H", 0) + 2 * products.get(
-        "H2O", 0
+    hydrogen_right = product_coefficient * right.composition.get("H", 0) + 2 * _extra(
+        products, "H2O", canonical_label(right), product_coefficient
     )
+    # The difference is protons still needed. Add them when the pair itself is H+.
     if hydrogen_right > hydrogen_left:
-        reactants["H+"] = hydrogen_right - hydrogen_left
+        reactants["H+"] = reactants.get("H+", 0) + (hydrogen_right - hydrogen_left)
     elif hydrogen_left > hydrogen_right:
-        products["H+"] = hydrogen_left - hydrogen_right
+        products["H+"] = products.get("H+", 0) + (hydrogen_left - hydrogen_right)
 
 
 def _balance_charge(
@@ -149,8 +152,12 @@ def _balance_charge(
     reactants: dict[str, int],
     products: dict[str, int],
 ) -> int:
-    charge_left = reactant_coefficient * left.charge + reactants.get("H+", 0)
-    charge_right = product_coefficient * right.charge + products.get("H+", 0)
+    charge_left = reactant_coefficient * left.charge + _extra(
+        reactants, "H+", canonical_label(left), reactant_coefficient
+    )
+    charge_right = product_coefficient * right.charge + _extra(
+        products, "H+", canonical_label(right), product_coefficient
+    )
     electrons = charge_left - charge_right
     if electrons > 0:
         reactants["e-"] = electrons
@@ -159,6 +166,14 @@ def _balance_charge(
     else:
         raise SolveServiceError("the pair does not transfer electrons")
     return abs(electrons)
+
+
+def _extra(counts: dict[str, int], label: str, primary: str, coefficient: int) -> int:
+    """Ions added for balance, excluding a pair species that already uses that label."""
+    total = counts.get(label, 0)
+    if label == primary:
+        return total - coefficient
+    return total
 
 
 def _to_basic(reactants: dict[str, int], products: dict[str, int]) -> None:
@@ -171,6 +186,10 @@ def _to_basic(reactants: dict[str, int], products: dict[str, int]) -> None:
     elif protons_right:
         products["H2O"] = products.get("H2O", 0) + protons_right
         reactants["OH-"] = reactants.get("OH-", 0) + protons_right
+
+
+def _cancel_water(reactants: dict[str, int], products: dict[str, int]) -> None:
+    """Drop water that the pair and the oxygen balance both introduced."""
     cancel = min(reactants.get("H2O", 0), products.get("H2O", 0))
     if cancel == 0:
         return
@@ -179,7 +198,8 @@ def _to_basic(reactants: dict[str, int], products: dict[str, int]) -> None:
 
 
 def _side(counts: dict[str, int], primary: str) -> str:
-    labels = [primary, *(label for label in _ADDED if counts.get(label, 0) > 0)]
+    ordered = (primary, *(label for label in _ADDED if label != primary))
+    labels = [label for label in ordered if counts.get(label, 0) > 0]
     return " + ".join(
         label if counts[label] == 1 else f"{counts[label]} {label}" for label in labels
     )
