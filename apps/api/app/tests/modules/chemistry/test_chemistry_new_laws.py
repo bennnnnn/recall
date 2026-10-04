@@ -309,6 +309,13 @@ def test_a_half_reaction_declines_when_the_oxidation_state_or_the_equation_is_wi
         "For Fe2+ -> Fe3+ in acidic solution, calculate ΔG° when E° = 0.77 V and n = 1"
     )
     assert gibbs is not None and gibbs.chemistry_op == "cell_gibbs"
+    # No oxidation-number change stays with the ordinary balancer.
+    unchanged = "Balance N2O4 -> NO2 in acidic solution."
+    intent = extract_chemistry_intent(unchanged)
+    assert intent is not None and intent.chemistry_op == "balance"
+    assert _answer(unchanged) == "N2O4 -> 2 NO2"
+    # A one-element ion may have a fractional average oxidation number.
+    assert _answer("Balance the half-reaction O2 -> O2- in acidic solution.") == "O2 + e- -> O2-"
 
 
 def test_binary_vapor_pressure_declines_when_only_one_pressure_is_stated() -> None:

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.equations import balance_equation
@@ -11,6 +12,7 @@ from app.modules.chemistry.extractors.parsing import (
     _target,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.modules.chemistry.solvers.half_reaction import is_single_redox_change
 from app.modules.chemistry.species import parse_reaction
 
 _ACIDIC = re.compile(r"\b(?:acidic|in acid|an?\s+acid)\b", re.IGNORECASE)
@@ -126,6 +128,11 @@ def _half_reaction(text: str, equation: str) -> ChemistryIntent | None:
     # Water, H+, and OH- may be the pair itself (O2 -> H2O, H+ -> H2). Electrons
     # already written belong to the ordinary balancer.
     if any(term.species.electron for term in (*reaction.reactants, *reaction.products)):
+        return None
+    left = replace(reaction.reactants[0].species, phase=None)
+    right = replace(reaction.products[0].species, phase=None)
+    # A pair whose oxidation numbers do not change is an ordinary balance.
+    if is_single_redox_change(left, right) is False:
         return None
     return ChemistryIntent(
         kind="equations",
