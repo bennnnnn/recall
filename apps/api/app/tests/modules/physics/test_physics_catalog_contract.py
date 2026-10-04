@@ -270,7 +270,7 @@ _ALTERNATE_FAMILIES: tuple[tuple[str, str, dict[str, float], str, str, tuple[str
     (
         "suvat",
         "suvat_distance",
-        {"u": 10.0, "v": 30.0, "a": 4.0},
+        {"u": 10.0, "v": 30.0, "a": 4.0, "distance_path": 0.0},
         r"s = \frac{v^2 - u^2}{2a}",
         r"s = ut + \tfrac{1}{2}at^2",
         (),
@@ -278,7 +278,7 @@ _ALTERNATE_FAMILIES: tuple[tuple[str, str, dict[str, float], str, str, tuple[str
     (
         "suvat",
         "suvat_distance",
-        {"u": 12.0, "v": 0.0, "t": 4.0},
+        {"u": 12.0, "v": 0.0, "t": 4.0, "distance_path": 0.0},
         r"s = \tfrac{1}{2}(u + v)t",
         r"s = ut + \tfrac{1}{2}at^2",
         (),

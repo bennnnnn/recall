@@ -7,6 +7,7 @@ from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 _STATE = (
     var("static_equilibrium", "static", dimensionless=True, visible=False),
     var("motion_sign", "direction", dimensionless=True, visible=False),
+    var("released_from_rest", "initial", dimensionless=True, visible=False),
 )
 
 SPECS: tuple[FormulaSpec, ...] = (

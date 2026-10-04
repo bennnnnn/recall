@@ -122,12 +122,12 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(formula + (r"\quad\text{(downhill positive)}" if motion else ""),),
             substitutions=(substituted,),
             quantities=(QuantityResult("", a_val, "m/s^2"),),
-            # A moving body's initial speed is not stated. Show its forces;
-            # never invent a trajectory that starts from rest in another direction.
+            # Initial rest is a supplied initial condition, not current
+            # equilibrium. Other moving bodies have no stated initial speed.
             simulation_specs=_incline_scene(
                 deg,
                 mu=mu,
-                accel=a_val if not motion else None,
+                accel=a_val if not motion or p.get("released_from_rest") else None,
                 uphill=motion < 0,
             ),
         )
