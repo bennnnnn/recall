@@ -7,6 +7,7 @@ different equation and are not completed here.
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+from fractions import Fraction
 from math import gcd
 
 from app.models.schemas.chemistry import ChemistryIntent
@@ -90,20 +91,61 @@ def _construct(left: ChemicalSpecies, right: ChemicalSpecies, medium: str) -> _B
     )
 
 
+def is_single_redox_change(left: ChemicalSpecies, right: ChemicalSpecies) -> bool | None:
+    """True when one element changes oxidation number.
+
+    False when those numbers are known and none change, so the ordinary balancer
+    can keep the equation. None when the numbers are ambiguous.
+    """
+    changed = _changed_elements(left, right)
+    if changed is None:
+        return None
+    if not changed:
+        return False
+    if len(changed) == 1:
+        return True
+    return None
+
+
 def _redox_element(left: ChemicalSpecies, right: ChemicalSpecies) -> tuple[str, int, int]:
-    left_states = oxidation_states(canonical_label(left))
-    right_states = oxidation_states(canonical_label(right))
+    left_states = _state_map(left)
+    right_states = _state_map(right)
     if left_states is None or right_states is None:
         raise SolveServiceError("oxidation states are ambiguous")
     shared = set(left.composition) & set(right.composition)
-    changed = [element for element in shared if left_states[element] != right_states[element]]
-    if len(changed) != 1:
-        raise SolveServiceError("the pair is not one redox change")
     extras = (set(left.composition) | set(right.composition)) - shared - {"H", "O"}
     if extras:
         raise SolveServiceError("an element in the pair is not on both sides")
+    changed = [element for element in shared if left_states[element] != right_states[element]]
+    if len(changed) != 1:
+        raise SolveServiceError("the pair is not one redox change")
     element = changed[0]
     return element, left.composition[element], right.composition[element]
+
+
+def _changed_elements(left: ChemicalSpecies, right: ChemicalSpecies) -> list[str] | None:
+    left_states = _state_map(left)
+    right_states = _state_map(right)
+    if left_states is None or right_states is None:
+        return None
+    shared = set(left.composition) & set(right.composition)
+    extras = (set(left.composition) | set(right.composition)) - shared - {"H", "O"}
+    if extras:
+        return None
+    return [element for element in shared if left_states[element] != right_states[element]]
+
+
+def _state_map(species: ChemicalSpecies) -> dict[str, Fraction] | None:
+    """Oxidation numbers, including a fractional average for one element."""
+    known = oxidation_states(canonical_label(species))
+    if known is not None:
+        return {element: Fraction(state) for element, state in known.items()}
+    if len(species.composition) != 1:
+        return None
+    element, count = next(iter(species.composition.items()))
+    if count == 0:
+        return None
+    return {element: Fraction(species.charge, count)}
 
 
 def _balance_oxygen(
