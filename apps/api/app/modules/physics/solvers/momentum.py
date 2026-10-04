@@ -21,7 +21,7 @@ def _collision_substitutions(intent: PhysicsIntent, *, elastic: bool) -> tuple[s
     """Numeric collision rows. The reply reads these; it does not rebuild them."""
     from app.modules.physics.display import latex_given
 
-    params = intent.physics_params or {}
+    params = _params_in_si(intent)
     m1 = latex_given(params["m1"])
     m2 = latex_given(params["m2"])
     v1 = latex_given(params["v1"])

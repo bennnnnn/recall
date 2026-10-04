@@ -66,4 +66,5 @@ def test_ordinary_text_is_not_physics(text: str) -> None:
 def test_coverage_never_drops() -> None:
     answered = [case for case in ANSWERABLE if _verified_values(case.question) is not None]
     print(f"physics corpus coverage: {len(answered)}/{len(ANSWERABLE)}")
-    assert len(answered) >= COVERAGE_FLOOR
+    missing = [case.question for case in ANSWERABLE if case not in answered]
+    assert len(answered) >= COVERAGE_FLOOR, f"Unanswered corpus questions: {missing}"

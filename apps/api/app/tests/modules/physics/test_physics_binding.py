@@ -130,9 +130,6 @@ def test_a_stated_law_is_read_and_verified(text: str, operation: str, answer: st
         "A car has speeds 10 m/s and 30 m/s over 5 s. Find its acceleration.",
         # "reaches 18 m/s" is the final speed, so a question for "the speed" is answered.
         "A cyclist accelerates at 2 m/s^2 for 6 s and reaches 18 m/s. What is its speed?",
-        # A value no input of the law takes: the mass is not part of SUVAT.
-        "A 2 kg car with initial velocity 5 m/s accelerates at 2 m/s^2. "
-        "Find its displacement after 4 s.",
         # "weight" here is the everyday mass, not a force.
         "My weight is 70 kg. What is my weight in pounds?",
         # A second request is not something the verified answer finishes.

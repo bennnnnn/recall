@@ -13,6 +13,7 @@ def _free_body_scene(
     *,
     label: str | None = None,
     ground: bool = False,
+    position: tuple[float, float] = (0.0, 0.0),
 ) -> list[SimulationBlockSpec]:
     """A block with labelled forces on it, and nothing moving.
 
@@ -22,18 +23,25 @@ def _free_body_scene(
     the *labels* carry the sizes and the arrows carry the directions.
     """
     reach = 2.0
+    points = [position, *((vector.anchor[0], vector.anchor[1]) for vector in vectors)]
+    points.extend(
+        (vector.anchor[0] + vector.dx, vector.anchor[1] + vector.dy) for vector in vectors
+    )
+    xs, ys = [point[0] for point in points], [point[1] for point in points]
     return [
         SimulationBlockSpec(
             type="free_body",
             title="Free-Body Diagram",
             bodies=[
-                SimulationBody(path=[[0.0, 0.0], [0.0, 0.0]], radius=reach * 0.16, label=label)
+                SimulationBody(
+                    path=[list(position), list(position)], radius=reach * 0.16, label=label
+                )
             ],
             vectors=vectors,
-            x_min=-reach,
-            x_max=reach,
-            y_min=-reach if not ground else -reach * 0.35,
-            y_max=reach,
+            x_min=min(-reach, min(xs) - 1),
+            x_max=max(reach, max(xs) + 1),
+            y_min=min(-reach if not ground else -reach * 0.35, min(ys) - 0.7),
+            y_max=max(reach, max(ys) + 1),
             ground=ground,
         )
     ]
@@ -47,6 +55,8 @@ def _atwood_scene(m1: float, m2: float, accel: float, tension: float) -> list[Si
     opposite directions at the same rate, which is the whole idea.
     """
     reach = 3.0
+    m1, m2 = sorted((m1, m2), reverse=True)
+    accel = abs(accel)
     drop = reach * 0.5
     n_points = 50
     # Uniform in time, so the pair visibly accelerates. The drop is a display
@@ -64,13 +74,13 @@ def _atwood_scene(m1: float, m2: float, accel: float, tension: float) -> list[Si
             bodies=[
                 SimulationBody(
                     path=heavy,
-                    radius=0.3 * (m1 ** (1 / 3)),
+                    radius=0.4,
                     label=f"{plain_number(m1, GIVEN_FIGURES)} kg",
                     role="primary",
                 ),
                 SimulationBody(
                     path=light,
-                    radius=0.3 * (m2 ** (1 / 3)),
+                    radius=0.4 * (m2 / m1) ** (1 / 3),
                     label=f"{plain_number(m2, GIVEN_FIGURES)} kg",
                     role="secondary",
                 ),
@@ -107,14 +117,17 @@ def _vector_sum_scene(
     """
     vectors = [*parts, result]
     reach = max(math.hypot(v.dx, v.dy) for v in vectors) * 1.3 or 1.0
+    xs = [0.0, *(v.anchor[0] for v in vectors), *(v.anchor[0] + v.dx for v in vectors)]
+    ys = [0.0, *(v.anchor[1] for v in vectors), *(v.anchor[1] + v.dy for v in vectors)]
+    margin = reach * 0.2
     return [
         SimulationBlockSpec(
             type="vector_sum",
             title="Forces",
             vectors=vectors,
-            x_min=-reach * 0.25,
-            x_max=reach,
-            y_min=-reach * 0.25,
-            y_max=reach,
+            x_min=min(xs) - margin,
+            x_max=max(xs) + margin,
+            y_min=min(ys) - margin,
+            y_max=max(ys) + margin,
         )
     ]

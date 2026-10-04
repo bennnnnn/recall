@@ -113,10 +113,10 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         scene = _free_body_scene(
             [
                 SimulationVector(
-                    anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label=f"W = {plain_number(p['m'] * g)} N"
+                    anchor=[0.0, height], dx=0.0, dy=-1.0, label=f"W = {plain_number(p['m'] * g)} N"
                 ),
                 SimulationVector(
-                    anchor=[-0.9, -height],
+                    anchor=[-0.9, 0.0],
                     dx=0.0,
                     dy=height,
                     label=f"h = {plain_number(height, GIVEN_FIGURES)} m",
@@ -125,6 +125,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
             ],
             label=f"{plain_number(p['m'], GIVEN_FIGURES)} kg",
             ground=True,
+            position=(0.0, height),
         )
     elif op == "work":
         distance = p["d"]

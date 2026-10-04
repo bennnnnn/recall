@@ -26,8 +26,8 @@ def _orbit_scene(r: float) -> SimulationBlockSpec:
     n_points = 96
     path = [
         [
-            round(r * math.cos(2 * math.pi * i / (n_points - 1)), 4),
-            round(r * math.sin(2 * math.pi * i / (n_points - 1)), 4),
+            r * math.cos(2 * math.pi * i / (n_points - 1)),
+            r * math.sin(2 * math.pi * i / (n_points - 1)),
         ]
         for i in range(n_points)
     ]

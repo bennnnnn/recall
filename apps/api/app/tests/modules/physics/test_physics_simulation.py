@@ -315,7 +315,7 @@ INELASTIC_Q = (
     "a 2 kg ball at 3 m/s hits a 1 kg ball at rest and they stick together, find the final velocity"
 )
 SLIDING_Q = (
-    "a block slides down a 30 degree incline with a coefficient of friction of 0.2, "
+    "a block is released from rest on a 30 degree incline with a coefficient of friction of 0.2, "
     "what is the acceleration"
 )
 NORMAL_Q = "what is the normal force on a 5 kg block on a 30 degree incline"

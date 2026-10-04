@@ -67,7 +67,8 @@ _SUVAT_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "suvat_distance",
         re.compile(
-            r"\bhow far\b|\bwhat distance\b|\bdistance (?:does|do|is|will|travel|cover)"
+            r"\bdisplacement\b|\bhow far\b|\bwhat distance\b"
+            r"|\bdistance (?:does|do|is|will|travel|cover)"
             r"|\bdistance travell?ed\b|\bhow much (?:distance|ground)\b|\bfind the distance\b",
             re.IGNORECASE,
         ),

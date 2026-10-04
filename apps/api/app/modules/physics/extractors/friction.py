@@ -74,6 +74,10 @@ _MIN_FORCE_ASK_RE = re.compile(
     re.IGNORECASE,
 )
 
+_REST = re.compile(r"\b(?:rests|resting|stationary|at rest|equilibrium)\b", re.IGNORECASE)
+_UPHILL = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\s+up\b", re.IGNORECASE)
+_MOVING = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\b", re.IGNORECASE)
+
 
 def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
@@ -164,6 +168,25 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     if mass is not None:
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"
+    if op in {"friction_force", "incline_acceleration"}:
+        at_rest = _REST.search(cleaned) is not None
+        moving = _MOVING.search(cleaned) is not None
+        kinetic = "kinetic" in lower
+        static = "static" in lower
+        limiting = any(
+            word in lower for word in ("maximum", "limiting", "starts to", "just slides")
+        )
+        if (at_rest and (moving or kinetic)) or (static and moving):
+            return None
+        if (at_rest or static) and not limiting and not frictionless:
+            # A second horizontal/applied force needs another force balance.
+            if re.search(r"\b(?:push|pull|applied|external)\w*\b", cleaned, re.IGNORECASE):
+                return None
+            params["static_equilibrium"] = 1.0
+            units["static_equilibrium"] = ""
+        if moving or kinetic:
+            params["motion_sign"] = -1.0 if _UPHILL.search(cleaned) else 1.0
+            units["motion_sign"] = ""
     return PhysicsIntent(
         kind="friction",
         physics_op=op,
