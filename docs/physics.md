@@ -146,7 +146,7 @@ Supported operations and examples:
 
 | Operation | Example |
 |---|---|
-| Algebraic rearrangement | `Physics: solve F=m*a for a` |
+| Algebraic rearrangement | `Physics: solve a=F/m for a` (the stated denominator excludes zero mass) |
 | Algebraic systems | `Physics: solve F=m*a; F=12; m=3 for F,m,a` |
 | Simplification | `Physics: simplify sin(theta)^2+cos(theta)^2` |
 | Time or spatial derivatives | `Physics: differentiate A*cos(omega*t) with respect to t` |
@@ -160,7 +160,11 @@ Supported operations and examples:
 
 Algebra returns explicit branches, checks substitution into every original equation,
 and retains denominator conditions even when an expression cancels. Systems have up to
-four equations/targets and polynomial degree at most four. General ODE solutions are
+four equations/targets and polynomial degree at most four. Unconstrained parameterized
+algebra is limited to affine equations with fixed coefficients; coefficient-dependent
+rank/degree and nonlinear parameter branches decline rather than publishing a generic
+root set as complete. Explicit input denominators keep their nonzero conditions.
+General ODE solutions are
 checked by `checkodesol`, with nonzero leading coefficients, generic discriminant
 conditions for parameterized constant coefficients, and solution-generated singularities
 stated explicitly. Exceptional parameter branches and parameterized variable coefficients

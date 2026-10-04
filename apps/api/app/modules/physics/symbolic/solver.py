@@ -41,6 +41,24 @@ def _solve(request: SymbolicPhysicsRequest, parser: ModelParser) -> list[Any]:
         numerator = sp.together(equation).as_numer_denom()[0]
         if not numerator.is_polynomial(*targets) or sp.Poly(numerator, *targets).total_degree() > 4:
             raise SolveServiceError("only algebraic systems of degree at most four are supported")
+    parameters = set().union(*(equation.free_symbols for equation in equations)) - set(targets)
+    if parameters:
+        # A residual check proves that a root works, not that the root set is
+        # complete at every parameter value. Restrict parameterized systems to
+        # affine equations with fixed coefficients, whose rank cannot change.
+        # Keep the original equations: clearing F/m would introduce an m
+        # coefficient even though the stated denominator already excludes m=0.
+        for equation in equations:
+            try:
+                polynomial = sp.Poly(equation, *targets)
+            except sp.PolynomialError as exc:
+                raise SolveServiceError("parameterized algebra requires affine equations") from exc
+            if polynomial.total_degree() > 1 or any(
+                coefficient.free_symbols & parameters
+                for powers, coefficient in polynomial.terms()
+                if any(powers)
+            ):
+                raise SolveServiceError("parameter-dependent algebra requires singular branches")
     solutions = sp.solve(equations, targets, dict=True, check=True)
     if not solutions or len(solutions) > 8:
         raise SolveServiceError("no bounded explicit solution set")
