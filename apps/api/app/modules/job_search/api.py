@@ -173,7 +173,7 @@ async def list_matches(
             )
             query = query.where(JobMatch.found_at == latest_found.scalar_subquery())
     elif view == "applied":
-        query = query.where(JobMatch.status.in_(["applied", "interviewing", "offer", "rejected"]))
+        query = query.where(JobMatch.status == "applied")
     rows = list(
         (
             await session.scalars(

@@ -266,7 +266,7 @@ async def test_requisition_dedup_preserves_saved_history_and_returns_existing_id
     assert len(ids) == 2 and first.new_match_count == 2
     saved = await db_session.get(JobMatch, ids[0])
     assert saved is not None
-    saved.is_saved, saved.status, saved.notes = True, "interviewing", "Prepare examples"
+    saved.is_saved, saved.status, saved.notes = True, "applied", "Prepare examples"
     await db_session.commit()
     cross_site = replace(
         accepted[0],
@@ -285,7 +285,7 @@ async def test_requisition_dedup_preserves_saved_history_and_returns_existing_id
         ids[0]
     ]
     assert second.new_match_count == 0
-    assert saved.is_saved and saved.status == "interviewing" and saved.notes == "Prepare examples"
+    assert saved.is_saved and saved.status == "applied" and saved.notes == "Prepare examples"
     assert (
         await db_session.scalar(
             select(func.count())

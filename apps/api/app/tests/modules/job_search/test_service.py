@@ -22,12 +22,12 @@ from app.modules.job_search.schemas import (
 )
 
 
-def test_match_status_update_accepts_stages_and_notes() -> None:
-    body = JobMatchStatusUpdate(status="interviewing", notes="  Call Friday  ")
-    assert body.status == "interviewing"
+def test_match_status_update_accepts_applied_and_notes() -> None:
+    body = JobMatchStatusUpdate(status="applied", notes="  Call Friday  ")
+    assert body.status == "applied"
     assert body.notes == "Call Friday"
-    assert JobMatchStatusUpdate(status="offer").notes is None
-    assert JobMatchStatusUpdate(status="rejected", notes="   ").notes is None
+    assert JobMatchStatusUpdate(status="new").notes is None
+    assert JobMatchStatusUpdate(status="hidden", notes="   ").notes is None
     assert JobMatchStatusUpdate(is_saved=True).is_saved is True
 
 
@@ -66,7 +66,7 @@ async def test_bookmarking_preserves_applied_stage() -> None:
 
 @pytest.mark.asyncio
 async def test_legacy_saved_command_bookmarks_without_replacing_stage() -> None:
-    match = MagicMock(status="interviewing", is_saved=False)
+    match = MagicMock(status="applied", is_saved=False)
     session = AsyncMock()
     session.scalar.return_value = match
 
@@ -79,7 +79,7 @@ async def test_legacy_saved_command_bookmarks_without_replacing_stage() -> None:
             "saved",
         )
 
-    assert match.status == "interviewing"
+    assert match.status == "applied"
     assert match.is_saved is True
 
 
@@ -414,7 +414,7 @@ def test_match_out_versions_legacy_bookmark_status() -> None:
 
 @pytest.mark.asyncio
 async def test_legacy_unsave_preserves_newer_application_stage() -> None:
-    match = MagicMock(status="interviewing", is_saved=True)
+    match = MagicMock(status="applied", is_saved=True)
     session = AsyncMock()
     session.scalar.return_value = match
 
@@ -428,7 +428,7 @@ async def test_legacy_unsave_preserves_newer_application_stage() -> None:
             separate_bookmarks=False,
         )
 
-    assert match.status == "interviewing"
+    assert match.status == "applied"
     assert match.is_saved is False
 
 
@@ -600,3 +600,15 @@ async def test_cover_letter_llm_failure_is_502() -> None:
                 env.session, MagicMock(id=uuid4(), plan="pro"), Settings(), env.redis, uuid4()
             )
     assert excinfo.value.status_code == 502
+
+
+@pytest.mark.parametrize("status", ["interviewing", "offer", "rejected"])
+def test_removed_application_stages_are_rejected(status: str) -> None:
+    from app.models.schemas.tools import JobSearchToolInput
+
+    with pytest.raises(ValidationError):
+        JobMatchStatusUpdate.model_validate({"status": status})
+    with pytest.raises(ValidationError):
+        JobSearchToolInput.model_validate({"action": "update_match", "match_status": status})
+    with pytest.raises(ValidationError):
+        JobSearchToolInput.model_validate({"action": "list", "list_filter": status})

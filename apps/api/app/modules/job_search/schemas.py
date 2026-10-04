@@ -11,14 +11,11 @@ JobSearchStatus = Literal["active", "paused"]
 JobSearchWorkMode = Literal["remote", "hybrid", "onsite"]
 JobSearchExperience = Literal["internship", "entry", "mid", "senior"]
 # ``saved`` remains accepted for old mobile clients and chat commands. Modern
-# clients opt into independent bookmark state and only receive pipeline stages.
+# clients opt into independent bookmark state.
 JobMatchStatus = Literal[
     "new",
     "saved",
     "applied",
-    "interviewing",
-    "offer",
-    "rejected",
     "hidden",
 ]
 JobSearchListMode = Literal["replace", "add", "remove"]
@@ -391,7 +388,7 @@ class JobMatchOut(BaseModel):
     gap: str | None = None
     found_at: datetime
     # Legacy clients can receive ``saved`` during the compatibility window;
-    # modern clients opt into independent bookmark state and receive stages.
+    # modern clients opt into independent bookmark state and receive the application status.
     status: JobMatchStatus = "new"
     is_saved: bool = False
     notes: str | None = None

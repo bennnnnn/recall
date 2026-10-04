@@ -670,7 +670,7 @@ async def set_match_status(
         raise JobSearchError("Job match not found", status_code=404)
     if not separate_bookmarks:
         # Old clients model bookmarking as a status. Present that view while
-        # preserving a newer application stage underneath whenever possible.
+        # preserving an existing application underneath whenever possible.
         if status == "saved":
             match.is_saved = True
         elif status == "new" and match.is_saved:

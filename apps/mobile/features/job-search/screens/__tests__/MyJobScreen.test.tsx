@@ -3,14 +3,13 @@ import { act, fireEvent, render, within } from "@testing-library/react-native";
 import MyJobScreen from "@/app/my-job";
 import type { JobMatch, JobSearchDashboard, JobSearchProfile } from "@/lib/api";
 
-jest.mock("@/lib/pushNotifications", () => ({ getNotificationPermissionGranted: jest.fn(async () => true) }));
-
 jest.mock("@/components/UpgradeSheet", () => ({ UpgradeSheet: () => null }));
 
 const mockRefresh = jest.fn(async () => {});
 const mockRunNow = jest.fn(async () => true);
 const mockView = jest.fn();
 const mockLoadMore = jest.fn();
+let mockPushEnabled = true;
 let mockLoading = true;
 let mockError = false;
 let mockDashboard: JobSearchDashboard = { profile: null, matches: [] };
@@ -26,7 +25,7 @@ jest.mock("expo-router", () => {
   };
 });
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ token: "token-a", user: { plan: "pro" } }),
+  useAuth: () => ({ token: "token-a", user: { plan: "pro", push_notifications_enabled: mockPushEnabled } }),
 }));
 jest.mock("@/hooks/useAccountViewOwner", () => ({
   useAccountViewOwner: () => ({ key: "owner", isCurrent: () => true }),
@@ -108,6 +107,7 @@ jest.mock("@/features/job-search/components/JobSearchActionsMenu", () => ({
 
 beforeEach(() => {
   jest.clearAllMocks();
+  mockPushEnabled = true;
   mockLoading = true;
   mockError = false;
   mockDashboard = { profile: null, matches: [] };
@@ -201,11 +201,13 @@ test("uses a minimum 44 point menu target", async () => {
   });
 });
 
-test("has exactly New matches, All, and Applied and requests their server pages", async () => {
+test("orders New matches, Applied, and All and requests their server pages", async () => {
   mockLoading = false;
   mockDashboard = { profile: profile(), matches: [match("latest", "new")] };
   const screen = await render(<MyJobScreen />);
-  expect(screen.getAllByRole("tab")).toHaveLength(3);
+  expect(screen.getAllByRole("tab").map(tab => within(tab).getByText(/my_job\.tab_/).props.children)).toEqual([
+    "my_job.tab_new_matches", "my_job.tab_applied", "my_job.tab_all",
+  ]);
   expect(screen.getByRole("tab", { name: "my_job.tab_new_matches" }).props.accessibilityState.selected).toBe(true);
   expect(mockView).toHaveBeenLastCalledWith(expect.any(Function), undefined, "new");
   expect(screen.queryByText("my_job.tab_saved")).toBeNull();
@@ -261,4 +263,24 @@ test("shares the search from the share sheet", async () => {
     message: "Registered Nurse\nBerlin · onsite\nmy_job.cadence_weekly",
     title: "my_job.title",
   });
+});
+
+
+test("keeps the search card free of schedule text and notification prompts when push is enabled", async () => {
+  mockLoading = false;
+  mockPushEnabled = true;
+  mockDashboard = { profile: profile(), matches: [] };
+  const screen = await render(<MyJobScreen />);
+  expect(screen.queryByText("my_job.last_checked")).toBeNull();
+  expect(screen.queryByText("my_job.next_delivery")).toBeNull();
+  expect(screen.queryByText("my_job.notification_setup")).toBeNull();
+  expect(screen.getByText("my_job.ask_recall")).toBeTruthy();
+});
+
+test("shows the notification settings action only when the user disabled push", async () => {
+  mockLoading = false;
+  mockPushEnabled = false;
+  mockDashboard = { profile: profile(), matches: [] };
+  const screen = await render(<MyJobScreen />);
+  expect(screen.getByText("my_job.notification_setup")).toBeTruthy();
 });

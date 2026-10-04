@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useMemo } from "react";
 import {
   KeyboardAvoidingView,
   Platform,
@@ -20,12 +20,10 @@ import { JobFitBadge } from "@/features/job-search/components/JobFitBadge";
 import { JobMatchDetailSkeleton } from "@/features/job-search/components/JobMatchDetailSkeleton";
 import { JobMatchMetaChips } from "@/features/job-search/components/JobMatchMetaChips";
 import { JobMatchReasons } from "@/features/job-search/components/JobMatchReasons";
-import { SelectMenu } from "@/ui/overlay/SelectMenu";
 import { StateView } from "@/ui/feedback/StateView";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useJobMatchDetail } from "@/features/job-search/hooks/useJobMatchDetail";
-import { type JobMatchStatus } from "@/lib/api";
 import { selection, tap } from "@/lib/haptics";
 import { canToggleApplied, hasApplied } from "@/features/job-search/model/stages";
 import { Radius } from "@/lib/radius";
@@ -33,15 +31,6 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
-import { TextField } from "@/ui/controls/TextField";
-
-const STAGES: JobMatchStatus[] = [
-  "new",
-  "applied",
-  "interviewing",
-  "offer",
-  "rejected",
-];
 
 export default function JobMatchDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -74,13 +63,7 @@ function JobMatchDetailView({
     loadError,
     load,
     updateStatus,
-    updateSaved,
-    notesDraft,
-    setNotesDraft,
-    saveNotes,
     openJob,
-    stageOpen,
-    setStageOpen,
     letterOpen,
     setLetterOpen,
     letterLoading,
@@ -88,13 +71,6 @@ function JobMatchDetailView({
     generateLetter,
   } = useJobMatchDetail(id, isCurrent);
   const isPro = user?.plan === "pro" && !match?.pro_required;
-  const stageRowRef = useRef<View>(null);
-
-  const stageLabel = (status: JobMatchStatus): string => {
-    if (status === "applied") return t("my_job.applied");
-    if (status === "hidden") return t("my_job.not_interested");
-    return t(`my_job.stage_${status}`);
-  };
   const applicationStarted = match ? hasApplied(match.status) : false;
 
   return (
@@ -173,32 +149,6 @@ function JobMatchDetailView({
             <Pressable
               style={({ pressed }) => [
                 s.action,
-                match.is_saved && s.actionActive,
-                pressed && s.pressed,
-              ]}
-              onPress={() => {
-                selection();
-                void updateSaved(!match.is_saved);
-              }}
-              accessibilityRole="button"
-              disabled={!isPro}
-              accessibilityState={{ selected: match.is_saved, disabled: !isPro }}
-            >
-              <Icon
-                name="bookmark"
-                filled={match.is_saved}
-                size={IconSize.sm}
-                color={match.is_saved ? C.primary : C.textSecondary}
-              />
-              <Text
-                style={[s.actionText, match.is_saved && s.actionTextActive]}
-              >
-                {match.is_saved ? t("my_job.saved") : t("my_job.save")}
-              </Text>
-            </Pressable>
-            <Pressable
-              style={({ pressed }) => [
-                s.action,
                 applicationStarted && s.actionActive,
                 pressed && s.pressed,
               ]}
@@ -238,54 +188,9 @@ function JobMatchDetailView({
             </Pressable>
           ) : null}
 
-          <Pressable
-            disabled={!isPro}
-            accessibilityState={{ disabled: !isPro }}
-            ref={stageRowRef}
-            style={({ pressed }) => [s.stageRow, pressed && s.pressed]}
-            onPress={() => {
-              tap();
-              setStageOpen(true);
-            }}
-            accessibilityRole="button"
-            accessibilityLabel={t("my_job.stage_label")}
-          >
-            <Text style={s.sectionTitle}>{t("my_job.stage_label")}</Text>
-            <View style={s.stageValue}>
-              <Text style={s.stageValueText}>{stageLabel(match.status)}</Text>
-              <Icon name="chevron-down" size={IconSize.xs} color={C.textTertiary} />
-            </View>
-          </Pressable>
-
-          <View style={s.notesBlock}>
-            <Text style={s.sectionTitle}>{t("my_job.notes_label")}</Text>
-            <TextField
-              editable={isPro}
-              value={notesDraft}
-              onChangeText={setNotesDraft}
-              onBlur={saveNotes}
-              placeholder={t("my_job.notes_placeholder")}
-              multiline
-              accessibilityLabel={t("my_job.notes_label")}
-            />
-          </View>
         </ScrollView>
       )}
       </KeyboardAvoidingView>
-
-      {match != null ? (
-        <SelectMenu
-          visible={stageOpen}
-          anchorRef={stageRowRef}
-          title={t("my_job.stage_label")}
-          options={STAGES.map((stage) => ({ key: stage, label: stageLabel(stage) }))}
-          selectedKey={match.status}
-          onClose={() => setStageOpen(false)}
-          onSelect={(key) => {
-            void updateStatus(key as JobMatchStatus);
-          }}
-        />
-      ) : null}
 
       <CoverLetterSheet
         visible={letterOpen}
@@ -321,25 +226,29 @@ function makeStyles(C: Theme) {
     title: { ...Type.navTitle, color: C.text, ...Weight.bold },
     company: { ...Type.body, color: C.textSecondary, marginTop: 2 },
     summary: { ...Type.secondary, color: C.text },
-    sectionTitle: { ...Type.label, color: C.text },
     source: { ...Type.caption, color: C.textTertiary },
-    actions: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
+    actions: {
+      flexDirection: "row",
+      gap: Space.sm,
+      paddingHorizontal: Space.xs,
+    },
     action: {
-      minHeight: 44,
+      flex: 1,
+      minHeight: Space.lg * 2,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
-      gap: Space.xxs,
+      gap: Space.xs,
       paddingHorizontal: Space.sm,
+      paddingVertical: Space.xs,
       borderRadius: Radius.full,
       backgroundColor: C.surfaceAlt,
     },
     actionPrimary: {
       backgroundColor: C.primaryLight,
-      paddingHorizontal: Space.xs,
     },
     actionActive: { backgroundColor: C.primaryLight },
-    actionText: { ...Type.compact, color: C.textSecondary, ...Weight.semibold },
+    actionText: { ...Type.compact, color: C.textSecondary, ...Weight.semibold, flexShrink: 1, textAlign: "center" },
     actionTextPrimary: { color: C.primary },
     actionTextActive: { color: C.primary },
     letterCta: {
@@ -356,23 +265,6 @@ function makeStyles(C: Theme) {
       color: C.primary,
       ...Weight.bold,
       flex: 1,
-    },
-    stageRow: {
-      minHeight: 52,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      backgroundColor: C.surface,
-      borderRadius: Radius.xl,
-      paddingHorizontal: Space.md,
-    },
-    stageValue: { flexDirection: "row", alignItems: "center", gap: Space.xxs },
-    stageValueText: { ...Type.secondary, color: C.primary, ...Weight.semibold },
-    notesBlock: {
-      backgroundColor: C.surface,
-      borderRadius: Radius.xl,
-      padding: Space.md,
-      gap: Space.xs,
     },
     pressed: { opacity: 0.68 },
   });

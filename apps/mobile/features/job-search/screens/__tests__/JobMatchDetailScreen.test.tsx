@@ -143,31 +143,26 @@ test("cold start renders a fetched match", async () => {
   await waitFor(() => expect(getByText("Registered Nurse")).toBeTruthy());
 });
 
-test("stage picker updates the match status", async () => {
+test("uses I applied without an application stage picker", async () => {
   cacheJobMatches("user", [match()]);
-  const { getAllByText, getByText } = await render(<JobMatchDetailScreen />);
-  // The stage row and the sheet title share the label — the row is first.
-  await fireEvent.press(getAllByText("my_job.stage_label")[0]);
-  await fireEvent.press(getByText("my_job.stage_interviewing"));
+  const { getByText, queryByText } = await render(<JobMatchDetailScreen />);
+  expect(queryByText("my_job.stage_label")).toBeNull();
+  await fireEvent.press(getByText("my_job.i_applied"));
   await waitFor(() =>
-    expect(mockSetJobMatchStatus).toHaveBeenCalledWith("token-a", "m1", "interviewing", undefined),
+    expect(mockSetJobMatchStatus).toHaveBeenCalledWith("token-a", "m1", "applied", undefined),
   );
 });
 
-test("notes save on blur", async () => {
+test("does not show Save, Notes, or the old application stages", async () => {
   cacheJobMatches("user", [match()]);
-  const { getByPlaceholderText } = await render(<JobMatchDetailScreen />);
-  const input = getByPlaceholderText("my_job.notes_placeholder");
-  await fireEvent.changeText(input, "Call recruiter Friday");
-  await fireEvent(input, "blur");
-  await waitFor(() =>
-    expect(mockSetJobMatchStatus).toHaveBeenCalledWith(
-      "token-a",
-      "m1",
-      "new",
-      "Call recruiter Friday",
-    ),
-  );
+  const { queryByText, queryByPlaceholderText, getByText } = await render(<JobMatchDetailScreen />);
+  expect(queryByText("my_job.save")).toBeNull();
+  expect(queryByText("my_job.saved")).toBeNull();
+  expect(queryByText("my_job.notes_label")).toBeNull();
+  expect(queryByPlaceholderText("my_job.notes_placeholder")).toBeNull();
+  expect(queryByText("my_job.stage_label")).toBeNull();
+  expect(getByText("my_job.view_job")).toBeTruthy();
+  expect(getByText("my_job.i_applied")).toBeTruthy();
 });
 
 test("cover letter CTA is Pro-only and generates into the sheet", async () => {

@@ -4,7 +4,7 @@ const BOOKMARK_MODEL_HEADERS = { "X-Recall-Job-Bookmarks": "separate-v1" } as co
 export type JobSearchFrequency = "daily" | "weekdays" | "weekly" | "monthly";
 export type JobSearchWorkMode = "remote" | "hybrid" | "onsite";
 export type JobSearchExperience = "internship" | "entry" | "mid" | "senior";
-export type JobMatchStatus = "new" | "applied" | "interviewing" | "offer" | "rejected" | "hidden";
+export type JobMatchStatus = "new" | "applied" | "hidden";
 export type JobLocation = { country: string; region?: string | null; city?: string | null };
 export type JobRunStatus = {
   id: string;

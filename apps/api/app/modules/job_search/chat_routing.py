@@ -187,9 +187,6 @@ def _direct_job_tool_args(text: str) -> dict[str, Any] | None:
             for status in (
                 "saved",
                 "applied",
-                "interviewing",
-                "offer",
-                "rejected",
                 "hidden",
                 "new",
             )

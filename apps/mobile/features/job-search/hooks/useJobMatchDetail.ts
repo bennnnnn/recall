@@ -38,7 +38,6 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
   const [loading, setLoading] = useState(Boolean(id && token && !initialMatch));
   const [loadError, setLoadError] = useState(false);
   const [notesDraft, setNotesDraftState] = useState(initialMatch?.notes ?? "");
-  const [stageOpen, setStageOpen] = useState(false);
   const [letterOpen, setLetterOpen] = useState(false);
   const [letterLoading, setLetterLoading] = useState(false);
   const [letter, setLetter] = useState<string | null>(null);
@@ -231,8 +230,6 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
     setNotesDraft,
     saveNotes,
     openJob,
-    stageOpen,
-    setStageOpen,
     letterOpen,
     setLetterOpen,
     letterLoading,

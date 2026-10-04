@@ -7,10 +7,12 @@ app does not abandon the search.
 
 ## Enablement
 
-1. Apply Alembic migrations through `0101_job_manual_allowance` before deploying the
-   API and worker together. These are additive migrations: bookmarks, application
-   stages, notes and résumé data stay in place. Unambiguous legacy locations are
-   backfilled; ambiguous geography and legacy salary currency require review.
+1. Apply Alembic migrations through `0102_job_applied_only` before deploying the
+   API and worker together. Migration 0102 converts Interviewing, Offer, and
+   Rejected to Applied and removes those allowed statuses. Jobs, bookmarks and
+   notes are retained. Migrations 0100/0101 preserve résumé data and backfill
+   unambiguous legacy locations; uncertain geography and salary currency require
+   review.
 2. Keep `JOB_SEARCH_PREMIUM_ENABLED=false` during migration and smoke checks. Set it
    to `true` for the controlled release. `WEB_SEARCH_ENABLED`, Tavily credentials,
    the durable Redis worker, and the periodic My Job scheduler must also be enabled.
