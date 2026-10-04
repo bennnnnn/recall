@@ -21,6 +21,12 @@ from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.modules.math.followup import math_working_followup_problem, offered_equation_problem
 from app.modules.math.tools.extract import is_graph_followup
+from app.modules.physics.visual_requests import (
+    ANIMATION_UNAVAILABLE,
+    VISUAL_UNAVAILABLE,
+    has_native_visual,
+    physics_visual_followup,
+)
 from app.modules.web_search.subject import (
     _prior_user_messages as _prompt_prior_user_messages,
 )
@@ -58,7 +64,7 @@ from app.services.chat.turn_prep.mode import (
 )
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.settings_intent import extract_settings_changes
-from app.services.solving import VerifiedSolveBlock
+from app.services.solving import VerifiedPhysicsBlock, VerifiedSolveBlock
 from app.services.subject_solving import detect_subject, maybe_direct_subject_reply
 
 logger = logging.getLogger(__name__)
@@ -472,15 +478,22 @@ async def build_stream_prompt_context(
         and prompt_messages[-1].get("content") == content
     ):
         followup_history = prompt_messages[:-1]
-    math_followup_problem = math_working_followup_problem(
-        content, followup_history, blocked=blocks_math_followup
+    physics_followup = (
+        None
+        if has_image_attachment or image_math_extract is not None
+        else physics_visual_followup(content, followup_history)
+    )
+    math_followup_problem = (
+        None
+        if physics_followup is not None
+        else math_working_followup_problem(content, followup_history, blocked=blocks_math_followup)
     )
     # "Do it" after the assistant wrote a new equation is not a request to
     # re-solve the user's earlier line. Solve the offered equation instead.
-    if math_followup_problem is None:
+    if math_followup_problem is None and physics_followup is None:
         math_followup_problem = offered_equation_problem(content, followup_history)
     chemistry_followup_problem = None
-    if math_followup_problem is None:
+    if math_followup_problem is None and physics_followup is None:
         chemistry_followup_problem = chemistry_working_followup_problem(content, followup_history)
 
     # Geo "location not set" fallback (independent of the LLM).
@@ -497,6 +510,7 @@ async def build_stream_prompt_context(
     )
     needs_math = settings.math_tools_enabled and (
         detected_subject in {"math", "physics"}
+        or physics_followup is not None
         or math_followup_problem is not None
         or is_graph_followup(content)
     )
@@ -605,6 +619,7 @@ async def build_stream_prompt_context(
                 image_math_extract=image_math_extract,
                 math_followup_problem=math_followup_problem,
                 chemistry_followup_problem=chemistry_followup_problem,
+                physics_followup_problem=physics_followup.problem if physics_followup else None,
                 on_status=on_status,
                 user=user,
                 redis=redis,
@@ -721,6 +736,11 @@ async def build_stream_prompt_context(
             response_style=getattr(user, "response_style", None) or "balanced",
             verified_request_text=math_followup_problem,
         )
+    if physics_followup is not None and not has_native_visual(
+        verified_subject if isinstance(verified_subject, VerifiedPhysicsBlock) else None,
+        animation=physics_followup.animation,
+    ):
+        instant_reply = ANIMATION_UNAVAILABLE if physics_followup.animation else VISUAL_UNAVAILABLE
     return TurnPromptBundle(
         prompt_messages=prompt_messages,
         meta=meta,

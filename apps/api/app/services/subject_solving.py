@@ -124,13 +124,13 @@ async def _augment_physics(
         has_image_attachment,
         image_math_extract,
         prior_user_messages,
-        response_intent_text,
         redis,
     )
     block, physics_verified, solve_failed = await build_physics_augmentation(
         _physics_request_text(user_content),
         settings,
         needs_subject=True,
+        response_intent_text=response_intent_text,
     )
     return SubjectAugmentation(
         subject="physics",

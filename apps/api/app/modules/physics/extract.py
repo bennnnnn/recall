@@ -96,6 +96,8 @@ def needs_physics(text: str) -> bool:
         return False
     if _ADVANCED_PHYSICS_RE.search(cleaned) is not None:
         return True
+    if re.search(r"\bphysics\s+(?:problem|question|exercise)\b", cleaned, re.IGNORECASE):
+        return True
     from app.modules.physics.extractors.drag import closed_drag_request
 
     if closed_drag_request(cleaned):

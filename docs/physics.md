@@ -310,3 +310,31 @@ position-time graph, covers two periods, and states the convention that it
 starts at maximum displacement. Without an amplitude it stays a normalised
 plot. Zero-speed orbits and static force diagrams remain still. Velocity arrows
 use the current interpolation segment so they do not anticipate a collision.
+
+
+## Exercise and visual follow-ups
+
+A closed request for one grade-10 physics exercise, including `Do one 10th grde
+physics problem`, selects a server-owned horizontal-launch example, solves it,
+and renders the worked answer and native scene immediately. This is a curated
+example, not a claim that arbitrary generated exercises have verified coverage.
+
+`visual_requests.py` resolves short diagram / animation requests and accepted
+visual offers from adjacent complete exchanges. It reads only the problem
+statement, then solves again; previous answers and drawing payloads are never
+trusted. An unrelated exchange, multiple offered problems or a new image blocks
+reuse of an earlier physics source. Request text and problem intent are checked
+again before emitting a direct reply.
+
+The native scene schema is the capability boundary. A diagram requires a scene
+that validates against a supported native type; an animation additionally
+requires a moving body. Unsupported requests receive a direct unavailable
+reply. Physics prompts and finalization suppress unowned visual offers and
+ASCII, Mermaid, HTML and SVG substitutes, including when verification declines.
+
+Vertical motion and SUVAT include uniformly sampled body positions and physical
+playback duration. Vertical scenes stop at impact and include the ground in
+bounds; SUVAT body motion follows signed displacement, even when its distance
+graph accumulates both legs of a reversal. All eight scene types have real solver
+payloads checked by API tests and rendered by mobile component tests, with and
+without reduced motion.

@@ -233,7 +233,7 @@ def test_an_invented_scene_with_no_verified_block_is_struck_out() -> None:
     out = validate_physics_fences('```simulation\n{"type":"orbit","bodies":[]}\n```')
 
     assert "```simulation" not in out
-    assert "Could not render that diagram" in out
+    assert "can't render a verified native diagram" in out
 
 
 # --- the spec's own rules ---------------------------------------------------

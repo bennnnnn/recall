@@ -6,8 +6,27 @@ import json
 import re
 
 from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
-from app.services.md_fence_scan import close_unclosed_fences, strip_closed_fences
+from app.modules.physics.visual_requests import (
+    ANIMATION_UNAVAILABLE,
+    VISUAL_UNAVAILABLE,
+    remove_text_art,
+    remove_visual_offers,
+)
+from app.services.md_fence_scan import close_unclosed_fences, has_closed_fence, strip_closed_fences
 from app.services.solving import VerifiedPhysicsBlock
+
+_VISUAL_FENCES = (
+    "graph",
+    "simulation",
+    "geometry",
+    "html",
+    "svg",
+    "mermaid",
+    "text",
+    "ascii",
+    "plaintext",
+)
+_STRIPPED_FENCES = ("answer", "result", "final", *_VISUAL_FENCES, "")
 
 
 def _canonical_specs(verified: VerifiedPhysicsBlock) -> list[dict[str, object]]:
@@ -24,20 +43,31 @@ def validate_physics_fences(
     verified: VerifiedPhysicsBlock | None = None,
 ) -> str:
     """Drop model-authored result fences and append only solver-owned data."""
-    had_visual_fence = any(
-        f"```{language}" in content for language in ("graph", "simulation", "geometry")
-    )
-    cleaned = content
-    for language in ("answer", "result", "final", "graph", "simulation", "geometry"):
+    had_visual_fence = any(f"```{language}" in content.lower() for language in _VISUAL_FENCES)
+    if content.strip() in {VISUAL_UNAVAILABLE, ANIMATION_UNAVAILABLE}:
+        return content.strip()
+    cleaned = close_unclosed_fences(content)
+    had_visual_fence = had_visual_fence or has_closed_fence(cleaned, "")
+    # Every physics visual comes from the verified native schema. Never keep
+    # a model's HTML/SVG, Mermaid or ASCII substitute, even on a declined solve.
+    for language in _STRIPPED_FENCES:
         cleaned = strip_closed_fences(cleaned, language)
-    cleaned = cleaned.strip()
+    offered = remove_visual_offers(cleaned)
+    prose = remove_text_art(offered)
+    had_visual_fence = had_visual_fence or offered != cleaned.strip() or prose != offered
+    cleaned = prose
     if verified is None:
         if had_visual_fence and not cleaned:
-            return "*Could not render that diagram.*"
+            return VISUAL_UNAVAILABLE
         return cleaned
     extras: list[str] = []
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
-    if answer and any(line.rstrip("*_`~ \t").endswith("?") for line in cleaned.splitlines()):
+    question_prose = cleaned
+    if verified.physics_problem_text is not None:
+        problem_header = f"**Problem**\n\n{verified.physics_problem_text}"
+        if question_prose.startswith(problem_header):
+            question_prose = question_prose[len(problem_header) :]
+    if answer and any(line.rstrip("*_`~ \t").endswith("?") for line in question_prose.splitlines()):
         normalized_content = re.sub(r"\s+", " ", cleaned.lower())
         normalized_answer = re.sub(r"\s+", " ", answer.lower())
         if normalized_answer not in normalized_content:
@@ -68,13 +98,12 @@ def replace_unclosed_physics_fences_safe(
         return validate_physics_fences(closed, verified=verified)
     except Exception:
         cleaned = closed
-        had_visual = any(
-            f"```{language}" in cleaned for language in ("graph", "simulation", "geometry")
-        )
-        for language in ("answer", "result", "final", "graph", "simulation", "geometry"):
+        had_visual = any(f"```{language}" in cleaned.lower() for language in _VISUAL_FENCES)
+        had_visual = had_visual or has_closed_fence(cleaned, "")
+        for language in _STRIPPED_FENCES:
             cleaned = strip_closed_fences(cleaned, language)
-        cleaned = cleaned.strip()
-        return cleaned or ("*Could not render that diagram.*" if had_visual else "")
+        cleaned = remove_text_art(remove_visual_offers(cleaned))
+        return cleaned or (VISUAL_UNAVAILABLE if had_visual or closed.strip() else "")
 
 
 def needs_physics_fence_validate(

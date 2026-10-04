@@ -467,3 +467,31 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
     assert "notation: chemistry\npH = 3" in persisted
     assert "```smiles" not in persisted
     assert "```answer\n4\n```" not in persisted
+
+
+@pytest.mark.asyncio
+async def test_unverified_physics_provider_reply_cannot_offer_or_draw_a_visual(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
+    ctx = _ctx()
+    ctx.user_message_content = "Do one 10th grade physics problem about an unsupported system"
+    raw = "I will animate this for you.\n\n```svg\n<svg><circle /></svg>\n```"
+    result: dict[str, Any] = {}
+    seams = _seams()
+    persisted = await enrich_final_content(
+        seams,
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=raw,
+        usage={"input": 10, "output": 20},
+        result=result,
+        was_cancelled=False,
+        assistant_parts=[raw],
+        should_cancel=None,
+    )
+    assert "can't render a verified native diagram" in persisted
+    assert "animate this for you" not in persisted
+    assert "<svg>" not in persisted
+    assert result["final_content"] == persisted

@@ -149,9 +149,9 @@ def _build_physics_block(
     if result.simulation_specs:
         lines.append(
             "A verified native physics visual will render with this answer and will animate "
-            "automatically when the scene contains motion. Never claim that you cannot show, "
-            "embed, or provide an animation or diagram. Do not discuss how the visual is attached "
-            "and do not emit a simulation fence yourself."
+            "automatically when the scene contains motion. Static scenes provide a diagram "
+            "only; do not offer animation for a static scene. Do not discuss how the visual "
+            "is attached and do not emit a simulation fence yourself."
         )
     # Plain text for guards and readers without math; LaTeX for the card.
     answer, card = result.answer_value, result.answer_latex

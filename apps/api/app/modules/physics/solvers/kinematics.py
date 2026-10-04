@@ -16,6 +16,7 @@ from app.modules.physics.solvers.common import (
     gravity_of,
     quadratic_roots,
 )
+from app.modules.physics.solvers.linear_scene import linear_motion_scene
 from app.modules.physics.solvers.rates import _RATE_OPERATIONS, _solve_distance_speed_time
 from app.modules.physics.solvers.stopping import _solve_stopping_distance
 from app.services.solving import SolveServiceError
@@ -160,6 +161,9 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     else:
         raise SolveServiceError(f"unsupported kinematics op: {op}")
 
+    landed = _time_to_ground()
+    scene_duration = min(t_val, landed) if landed is not None else t_val
+    scenes = linear_motion_scene(v0, -g, scene_duration, height=h0, ground=landed is not None)
     n_points = 100
 
     # A "how fast after 1 s" ask gets v(t), not h(t). Plotting height against a
@@ -192,6 +196,7 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(formula,),
             substitutions=(substitution,),
             quantities=(quantity,),
+            simulation_specs=scenes,
             graph_specs=[
                 GraphBlockSpec(
                     type="trajectory",
@@ -250,4 +255,5 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         substitutions=(substitution,),
         quantities=(quantity,),
         graph_specs=[graph_spec],
+        simulation_specs=scenes,
     )

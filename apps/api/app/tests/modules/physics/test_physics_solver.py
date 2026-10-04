@@ -421,7 +421,7 @@ def test_physics_block_does_not_disclaim_its_native_visual() -> None:
 
     assert block is not None
     assert "verified native physics visual" in block.text
-    assert "Never claim that you cannot show" in block.text
+    assert "Static scenes provide a diagram only" in block.text
     assert "do not emit a simulation fence" in block.text
 
 
