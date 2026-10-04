@@ -316,6 +316,14 @@ def test_a_half_reaction_declines_when_the_oxidation_state_or_the_equation_is_wi
     assert _answer(unchanged) == "N2O4 -> 2 NO2"
     # A one-element ion may have a fractional average oxidation number.
     assert _answer("Balance the half-reaction O2 -> O2- in acidic solution.") == "O2 + e- -> O2-"
+    for question in (
+        "Balance H2O -> H2 in acidic solution.",
+        "Balance H2 -> H2O in acidic solution.",
+    ):
+        water = extract_chemistry_intent(question)
+        assert water is not None and water.chemistry_op == "half_reaction"
+        with pytest.raises(SolveServiceError):
+            solve_chemistry(water)
 
 
 def test_binary_vapor_pressure_declines_when_only_one_pressure_is_stated() -> None:
