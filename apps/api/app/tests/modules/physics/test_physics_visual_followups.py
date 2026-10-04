@@ -129,29 +129,32 @@ async def _turn(content: str, history: list[dict[str, str]]):
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    "followup",
+    "query,followup",
     [
-        "show me a diagram",
-        "show an animation",
-        "animate it",
-        "diagram?",
-        "draw it",
-        "Okay diagram",
-        "Can I see an animation?",
+        (_QUERY, "show me a diagram"),
+        (_QUERY, "show an animation"),
+        (_QUERY, "animate it"),
+        (_QUERY, "diagram?"),
+        (_QUERY, "draw it"),
+        (_QUERY, "Okay diagram"),
+        (_QUERY, "Can I see an animation?"),
+        ("Give me a 10th grade physics exercise", "Okay diagram"),
+        ("Do one 10th grde physics exercise", "show an animation"),
     ],
 )
 async def test_exact_two_turn_request_returns_native_motion(
+    query: str,
     followup: str,
     thread_sympy_executor: None,
 ) -> None:
-    assert detect_subject(_QUERY) == "physics"
-    first = await _turn(_QUERY, [])
+    assert detect_subject(query) == "physics"
+    first = await _turn(query, [])
     assert first.instant_reply is not None
     assert first.instant_reply.startswith("**Problem**")
     assert has_native_visual(first.verified_subject, animation=True)
     assert first.instant_reply.count("```simulation") == 1
     history = [
-        {"role": "user", "content": _QUERY},
+        {"role": "user", "content": query},
         {"role": "assistant", "content": first.instant_reply},
     ]
     second = await _turn(followup, history)
