@@ -1,7 +1,7 @@
-import { Children, Fragment, ReactNode } from "react";
+import { Children, Fragment, ReactNode, useState } from "react";
 import { Image } from "expo-image";
 import { Icon } from "@/ui/icons/Icon";
-import { Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { Text, View, Pressable, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { splitStreamCaret, StreamingCursor } from "@/components/StreamingCursor";
@@ -351,6 +351,56 @@ function renderTextWithMath(
   );
 }
 
+function InteractiveTaskListItem({
+  initialChecked,
+  nodeKey,
+  styles,
+  mdMath,
+  t,
+  children,
+}: {
+  initialChecked: boolean;
+  nodeKey: string;
+  styles: any;
+  mdMath: any;
+  t: Theme;
+  children: ReactNode;
+}) {
+  const [checked, setChecked] = useState(initialChecked);
+  if (checked) {
+    return (
+      <Pressable
+        key={nodeKey}
+        onPress={() => setChecked(false)}
+        style={styles._VIEW_SAFE_list_item as object}
+      >
+        <View style={mdMath.listBullet} accessible={false} />
+        <View style={verifyCheckStyles.verifyRow}>
+          <View style={verifyCheckStyles.verifyContent}>{children}</View>
+          <VerifyCheckmark />
+        </View>
+      </Pressable>
+    );
+  }
+  return (
+    <Pressable
+      key={nodeKey}
+      onPress={() => setChecked(true)}
+      style={styles._VIEW_SAFE_list_item as object}
+    >
+      <Icon
+        name="square"
+        size={IconSize.sm}
+        color={t.textTertiary}
+        style={{ marginTop: 2 }}
+      />
+      <View style={styles._VIEW_SAFE_bullet_list_content as object}>
+        {children}
+      </View>
+    </Pressable>
+  );
+}
+
 function makeSharedRules(
   t: Theme,
   mdTable: MdTableStyles,
@@ -467,29 +517,17 @@ function makeSharedRules(
     ) => {
       const task = taskChecked(node);
       if (parentHasType(parent, "bullet_list") && task !== null) {
-        if (task) {
-          return (
-            <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-              <View style={mdMath.listBullet} accessible={false} />
-              <View style={verifyCheckStyles.verifyRow}>
-                <View style={verifyCheckStyles.verifyContent}>{children}</View>
-                <VerifyCheckmark />
-              </View>
-            </View>
-          );
-        }
         return (
-          <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-            <Icon
-              name="square"
-              size={IconSize.sm}
-              color={t.textTertiary}
-              style={{ marginTop: 2 }}
-            />
-            <View style={styles._VIEW_SAFE_bullet_list_content as object}>
-              {children}
-            </View>
-          </View>
+          <InteractiveTaskListItem
+            key={node.key}
+            nodeKey={node.key}
+            initialChecked={task}
+            styles={styles}
+            mdMath={mdMath}
+            t={t}
+          >
+            {children}
+          </InteractiveTaskListItem>
         );
       }
       if (shouldNumberListItem(parent)) {
