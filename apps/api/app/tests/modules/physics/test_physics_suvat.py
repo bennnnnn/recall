@@ -456,6 +456,51 @@ def test_a_reversal_reports_the_whole_path() -> None:
     assert _verified_answer(text) == "62.5 m"
 
 
+@pytest.mark.parametrize(
+    "ask,expected,title",
+    [
+        ("find the distance travelled, not the displacement", "34 m", "Distance vs. Time"),
+        ("find the displacement, not the distance travelled", "16 m", "Displacement vs. Time"),
+        ("how far does it travel, rather than its displacement", "34 m", "Distance vs. Time"),
+    ],
+)
+def test_distance_and_displacement_follow_the_requested_quantity(ask, expected, title) -> None:
+    text = "A particle initially moves at 10 m/s with acceleration -2 m/s^2 for 8 s; " + ask
+    assert _verified_answer(text) == expected
+    graph = _graph(text)
+    assert graph.title == title
+    assert graph.points[-1][1] == pytest.approx(float(expected.split()[0]))
+
+
+@pytest.mark.parametrize(
+    "text,op,expected",
+    [
+        (
+            "A particle moves with constant acceleration from rest. "
+            "Its displacement after 5 s is 100 m. Find the acceleration",
+            "suvat_acceleration",
+            "8 m/s²",
+        ),
+        (
+            "A particle moves from rest with constant acceleration of 8 m/s^2. "
+            "Its displacement is 100 m. Find the time",
+            "suvat_time",
+            "5 s",
+        ),
+        (
+            "A particle moves from rest with constant acceleration. "
+            "Its final velocity after 5 s is 20 m/s. Find the acceleration",
+            "suvat_acceleration",
+            "4 m/s²",
+        ),
+    ],
+)
+def test_suvat_givens_do_not_shadow_the_unknown(text, op, expected) -> None:
+    intent = extract_physics_intent(text)
+    assert intent is not None and intent.physics_op == op
+    assert _verified_answer(text) == expected
+
+
 def test_an_unanswerable_question_shape_is_refused() -> None:
     """A question with givens but no recognisable ask stays out.
 

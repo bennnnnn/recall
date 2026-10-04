@@ -104,6 +104,12 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     if any(rx.search(lower) for rx in _PROJECTILE_CUE_RES):
         return None
     asked = asked_phrases(cleaned)
+    if asked in {("acceleration",), ("deceleration",)} and not any(
+        cue in lower for cue in _GRAVITY_MOTION_CUES
+    ):
+        # A given velocity cannot turn a request for an unknown acceleration
+        # into a free-fall velocity calculation. SUVAT owns that request.
+        return None
     asks_speed = _asks_speed(lower, asked)
     asks_velocity = _asks_velocity(lower, asked)
     asks_position = _asks_position(lower)

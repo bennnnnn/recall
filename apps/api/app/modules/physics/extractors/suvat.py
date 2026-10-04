@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.ask import ask_clause, asked_phrases
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _NUMBER,
@@ -107,10 +108,28 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
     if has_equation(_strip_param_assignments(cleaned)):
         return None
 
-    unknown = next(
-        (op for op, rx in _SUVAT_UNKNOWN_RES if rx.search(cleaned)),
-        None,
-    )
+    clause = ask_clause(cleaned)
+    if clause is None:
+        return None
+    # A stated displacement/final speed is a given, not an unknown. Read the
+    # first requested noun before the fallback phrasings ("how far/long/fast").
+    phrases = asked_phrases(cleaned)
+    unknown = {
+        "distance": "suvat_distance",
+        "displacement": "suvat_distance",
+        "velocity": "suvat_velocity",
+        "speed": "suvat_velocity",
+        "acceleration": "suvat_acceleration",
+        "deceleration": "suvat_acceleration",
+        "time": "suvat_time",
+    }.get(phrases[0] if phrases else "")
+    if unknown is None:
+        matches = [
+            (match.start(), op)
+            for op, rx in _SUVAT_UNKNOWN_RES
+            if (match := rx.search("find " + clause)) is not None
+        ]
+        unknown = min(matches)[1] if matches else None
     if unknown is None:
         return None
 
@@ -121,6 +140,13 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
     # "from 10 m/s to 30 m/s" reads left to right; a stated rest state at
     # either end fills the slot that has no number of its own.
     velocities = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)
+    if (
+        len(velocities) > 1
+        and re.search(r"\b(?:from|initial(?:ly)?)\b", cleaned, re.IGNORECASE) is None
+    ):
+        # Written order alone cannot identify which of two unlabeled speeds
+        # came first ("has speeds 10 m/s and 30 m/s").
+        return None
     starts_at_rest = _AT_REST_START_RE.search(cleaned) is not None
     ends_at_rest = _AT_REST_END_RE.search(cleaned) is not None
 
