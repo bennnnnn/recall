@@ -45,6 +45,13 @@ describe("MathText", () => {
     ]);
   });
 
+  it("does not paint private-use markers when a text subscript has no braces", async () => {
+    const rendered = await render(<MathText latex={String.raw`t_\text{flight}`} />);
+    expect(rendered.getByTestId("math-upright-run")).toHaveTextContent("flight");
+    expect(rendered.getAllByTestId("math-variable").map((node) => node.props.children)).toEqual(["t"]);
+    expect(JSON.stringify(rendered.toJSON())).not.toMatch(/[\uE006\uE007]/);
+  });
+
   it("keeps physics units in text and roman commands upright", async () => {
     const { getAllByTestId, getByTestId } = await render(
       <MathText latex={String.raw`x = 25\,\mathrm{m/s}`} />,

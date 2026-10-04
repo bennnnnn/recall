@@ -885,6 +885,21 @@ function segmentToPlain(seg: MathSegment): string {
   return `${segmentsToPlain(seg.num)}/${segmentsToPlain(seg.den)}`;
 }
 
+/** `\text{flight}` after a bare `_` or `^` is one upright script.
+ * Taking only the private-use start marker made iOS draw it as an emoji
+ * and left the closing marker beside the word. */
+function readMarkedUpright(input: string, i: number): { value: string; next: number } | null {
+  if (input[i] !== NATIVE_UPRIGHT_START_MARKER) return null;
+  const end = input.indexOf(NATIVE_UPRIGHT_END_MARKER, i + 1);
+  if (end < 0) return null;
+  const value = input
+    .slice(i + 1, end)
+    .split(NATIVE_LITERAL_APOSTROPHE_MARKER).join("'")
+    .split(NATIVE_LITERAL_LEFT_BRACE_MARKER).join("{")
+    .split(NATIVE_LITERAL_RIGHT_BRACE_MARKER).join("}");
+  return { value, next: end + 1 };
+}
+
 function readBareScript(input: string, i: number): { value: string; next: number } {
   if (i >= input.length) return { value: "", next: i };
   let j = i;
@@ -928,7 +943,9 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
     .split(NATIVE_LITERAL_RIGHT_BRACE_MARKER).join("}");
 
   const pushText = (value: string) => {
-    value = restoreNativeLiterals(value);
+    value = restoreNativeLiterals(value)
+      .split(NATIVE_UPRIGHT_START_MARKER).join("")
+      .split(NATIVE_UPRIGHT_END_MARKER).join("");
     if (!value) return;
     const last = out[out.length - 1];
     if (last?.type === "text") last.value += value;
@@ -1012,6 +1029,16 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
 
     if (ch === "^") {
       i += 1;
+      const markedSup = readMarkedUpright(input, i);
+      if (markedSup) {
+        out.push({
+          type: "sup",
+          value: "",
+          body: [{ type: "upright", value: markedSup.value }],
+        });
+        i = markedSup.next;
+        continue;
+      }
       if (input[i] === "{") {
         const group = readGroup(input, i);
         if (group) {
@@ -1032,6 +1059,16 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
 
     if (ch === "_") {
       i += 1;
+      const markedSub = readMarkedUpright(input, i);
+      if (markedSub) {
+        out.push({
+          type: "sub",
+          value: "",
+          body: [{ type: "upright", value: markedSub.value }],
+        });
+        i = markedSub.next;
+        continue;
+      }
       if (input[i] === "{") {
         const group = readGroup(input, i);
         if (group) {
