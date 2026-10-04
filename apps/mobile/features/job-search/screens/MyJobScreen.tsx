@@ -1,15 +1,18 @@
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
 import {
+  AppState,
   Pressable,
   RefreshControl,
   StyleSheet,
   Text,
   View,
 } from "react-native";
-import { Redirect, useFocusEffect, useRouter } from "expo-router";
+import { Redirect, useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+
+import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
 
 import { Icon } from "@/ui/icons/Icon";
 import { JobMatchCard } from "@/features/job-search/components/JobMatchCard";
@@ -18,7 +21,8 @@ import {
   JobStageFilter,
   type JobStageFilterValue,
 } from "@/features/job-search/components/JobStageFilter";
-import { SearchProfileFields } from "@/features/job-search/components/SearchProfileFields";
+import { SearchStatusHeader } from "@/features/job-search/components/SearchStatusHeader";
+import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
@@ -37,7 +41,7 @@ import { confirmDialog } from "@/ui/overlay/dialogs";
 import { ShareSheet } from "@/ui/share/ShareSheet";
 import { Button } from "@/ui/controls/Button";
 
-type Tab = "matches" | "saved" | "all";
+type Tab = "matches" | "possible" | "saved" | "all";
 
 function cadence(profile: JobSearchProfile, t: TFunction): string {
   return t(`my_job.cadence_${profile.frequency}`, {
@@ -91,6 +95,7 @@ export default function MyJobScreen() {
 
 function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const { token, user } = useAuth();
+  const { runId } = useLocalSearchParams<{ runId?: string }>();
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
@@ -105,12 +110,27 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     setMatchSaved,
     runNow,
     remove,
-  } = useJobSearch(isCurrent);
+    loadMore,
+  } = useJobSearch(isCurrent, runId);
   const router = useRouter();
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const paid = user?.plan === "pro" && !dashboard.pro_required;
+  const [notificationPermission, setNotificationPermission] = useState<boolean | null>(null);
+  useEffect(() => {
+    let current = true;
+    const check = () => { void getNotificationPermissionGranted().then(granted => {
+      if (current && isCurrent()) setNotificationPermission(granted);
+    }).catch(() => { if (current && isCurrent()) setNotificationPermission(false); }); };
+    check();
+    const listener = AppState.addEventListener("change", state => { if (state === "active") check(); });
+    return () => { current = false; listener.remove(); };
+  }, [isCurrent]);
+  const askRecall = () => router.push({ pathname: "/", params: { myJobPrompt: "My Job: " } });
   const openSetup = useCallback(() => {
     tap();
-    router.push("/my-job/setup");
-  }, [router]);
+    if (paid) router.push("/my-job/setup");
+    else setUpgradeOpen(true);
+  }, [router, paid]);
   const [tab, setTab] = useState<Tab>("matches");
   const [stageFilter, setStageFilter] = useState<JobStageFilterValue>("all");
   const [refreshing, setRefreshing] = useState(false);
@@ -121,7 +141,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   useFocusEffect(
     useCallback(() => {
       void refresh({ silent: true });
-    }, [refresh]),
+    }, [refresh, runId]),
   );
 
   const profile = dashboard.profile;
@@ -129,8 +149,9 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     () => ({
       all: dashboard.matches.filter((item) => item.status !== "hidden").length,
       matches: dashboard.matches.filter(
-        (item) => item.status === "new" && !item.is_saved,
+        (item) => item.status === "new" && !item.is_saved && item.match_kind === "qualifying",
       ).length,
+      possible: dashboard.matches.filter(item => item.match_kind !== "qualifying" && item.status !== "hidden").length,
       saved: dashboard.matches.filter(
         (item) => item.is_saved && item.status !== "hidden",
       ).length,
@@ -148,11 +169,13 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const visibleMatches = useMemo(
     () =>
       filterAndSortMatches(
-        dashboard.matches,
-        tab === "matches" ? "new" : tab === "saved" ? "saved" : stageFilter,
+        dashboard.matches.filter(item =>
+          (tab !== "matches" || item.match_kind === "qualifying") &&
+          (tab !== "possible" || item.match_kind !== "qualifying")),
+        tab === "matches" ? "new" : tab === "saved" ? "saved" : tab === "possible" ? "all" : stageFilter,
         "best",
       ),
-    [dashboard.matches, stageFilter, tab],
+    [dashboard.matches, dashboard.latest_run, stageFilter, tab, runId],
   );
 
   const confirmDelete = () => {
@@ -175,6 +198,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   };
   const handleTogglePause = () => {
     if (!profile) return;
+    if (!paid) { setUpgradeOpen(true); return; }
     selection();
     setMenuOpen(false);
     void setSearchStatus(profile.status === "paused" ? "active" : "paused");
@@ -263,11 +287,9 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             onPress={openSetup}
             style={s.primaryButton}
           />
-          <Text style={s.planNote}>
-            {user?.plan === "pro"
-              ? t("my_job.plan_note_pro")
-              : t("my_job.plan_note_free")}
-          </Text>
+          <Button title={t("my_job.ask_recall")} variant="secondary" onPress={askRecall} />
+          <Text style={s.planNote}>{t(paid ? "my_job.plan_note_pro" : "my_job.pro_only")}</Text>
+          <UpgradeSheet visible={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
         </View>
       </View>
     );
@@ -359,7 +381,11 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 </Pressable>
               </View>
 
-              <SearchProfileFields profile={profile} />
+              <SearchStatusHeader dashboard={dashboard} busy={busy} paid={paid}
+                onSearch={() => void runNow()} onAsk={askRecall} onResume={() => void setSearchStatus("active")} />
+              {(user?.push_notifications_enabled === false || notificationPermission === false) && paid ? <Button title={t("my_job.notification_setup")} variant="ghost" icon="bell" onPress={() => router.push("/settings/notifications")} /> : null}
+              {runId ? <Text style={s.planNote}>{t("my_job.notification_results")}</Text> : null}
+              {!paid ? <Button title={t("my_job.renew_pro")} variant="secondary" onPress={() => setUpgradeOpen(true)} /> : null}
             </View>
 
             <View style={s.tabs} accessibilityRole="tablist">
@@ -375,6 +401,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 active={tab === "saved"}
                 onPress={() => setTab("saved")}
               />
+              <TabButton label={t("my_job.tab_possible")} count={counts.possible} active={tab === "possible"} onPress={() => setTab("possible")} />
               <JobStageFilter
                 value={stageFilter}
                 counts={{
@@ -390,6 +417,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               />
             </View>
 
+            {tab === "possible" ? <Text style={s.planNote}>{t("my_job.possible_body")}</Text> : null}
             {error ? (
               <Pressable style={s.errorCard} onPress={() => void refresh()}>
                 <Icon name="alert-circle" size={IconSize.sm} color={C.danger} />
@@ -397,7 +425,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               </Pressable>
             ) : null}
 
-            {profile.last_run_status === "error" ? (
+            {profile.last_run_status === "error" && !dashboard.latest_run ? (
               <View style={s.runErrorCard} accessibilityRole="alert">
                 <Icon name="alert-circle" size={IconSize.sm} color={C.danger} />
                 <View style={s.runErrorCopy}>
@@ -430,15 +458,18 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             ) : null}
           </View>
         }
+        ListFooterComponent={dashboard.next_offset != null ? <Button title={t("my_job.load_more")} variant="ghost" loading={busy} onPress={() => void loadMore()} /> : null}
         renderItem={({ item }) => (
           <JobMatchCard
             match={item}
+            readOnly={!paid || busy}
             onStatus={(status) => void setMatchStatus(item.id, status)}
             onSavedChange={(saved) => void setMatchSaved(item.id, saved)}
             onPress={() => router.push(`/my-job/match/${item.id}`)}
           />
         )}
       />
+      <UpgradeSheet visible={upgradeOpen} onClose={() => setUpgradeOpen(false)} />
       <JobSearchActionsMenu
         visible={menuOpen}
         anchorRef={menuAnchorRef}
@@ -560,13 +591,19 @@ function makeStyles(C: Theme) {
       backgroundColor: C.surfaceAlt,
     },
     tabs: {
+      flexWrap: "wrap",
+      gap: Space.xxs,
       flexDirection: "row",
       padding: Space.xxs,
       borderRadius: Radius.full,
       backgroundColor: C.surface,
     },
     tab: {
-      flex: 1,
+      flexGrow: 1,
+      flexShrink: 0,
+      flexBasis: "auto",
+      maxWidth: "100%",
+      paddingHorizontal: Space.sm,
       minHeight: 44,
       borderRadius: Radius.full,
       flexDirection: "row",
@@ -575,7 +612,7 @@ function makeStyles(C: Theme) {
       gap: Space.xxs,
     },
     tabActive: { backgroundColor: C.bg },
-    tabText: { ...Type.compact, color: C.textSecondary, ...Weight.semibold },
+    tabText: { flexShrink: 1, ...Type.compact, color: C.textSecondary, ...Weight.semibold },
     tabTextActive: { color: C.text },
     tabCount: {
       minWidth: 22,

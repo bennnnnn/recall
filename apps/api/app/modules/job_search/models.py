@@ -8,6 +8,7 @@ from sqlalchemy import (
     Boolean,
     CheckConstraint,
     DateTime,
+    Float,
     ForeignKey,
     Index,
     Integer,
@@ -65,6 +66,16 @@ class JobSearchProfile(Base):
     user_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    search_cursor: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    included_locations: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    excluded_locations: Mapped[list[dict]] = mapped_column(JSON, nullable=False, default=list)
+    country: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    salary_currency: Mapped[str | None] = mapped_column(String(3), nullable=True)
+    salary_period: Mapped[str] = mapped_column(String(16), nullable=False, default="year")
+    years_experience: Mapped[float | None] = mapped_column(Float, nullable=True)
+    needs_review: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    suspension_reason: Mapped[str | None] = mapped_column(String(80), nullable=True)
     target_roles: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     skills: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     location: Mapped[str | None] = mapped_column(String(160), nullable=True)
@@ -82,7 +93,7 @@ class JobSearchProfile(Base):
     resume_text: Mapped[str | None] = mapped_column(Text, nullable=True)
     # Structured ResumeProfile dump, extracted once per uploaded resume.
     resume_profile: Mapped[dict | None] = mapped_column(JSON, nullable=True)
-    result_count: Mapped[int] = mapped_column(Integer, nullable=False, default=5)
+    result_count: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     frequency: Mapped[str] = mapped_column(String(16), nullable=False)
     next_run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
@@ -127,6 +138,11 @@ class JobMatch(Base):
         ForeignKey("job_search_profiles.id", ondelete="CASCADE"),
         nullable=False,
     )
+    assessment_revision: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    assessment: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    posting_identity: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    match_kind: Mapped[str] = mapped_column(String(16), nullable=False, default="possible")
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     canonical_url: Mapped[str] = mapped_column(String(2000), nullable=False)
     canonical_url_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     url: Mapped[str] = mapped_column(String(2000), nullable=False)
@@ -155,4 +171,88 @@ class JobMatch(Base):
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
+    )
+
+
+class JobSearchRun(Base):
+    """Database-backed logical run: Redis is transport, never the source of truth."""
+
+    __tablename__ = "job_search_runs"
+    __table_args__ = (
+        UniqueConstraint("profile_id", "request_key", name="uq_job_run_request"),
+        Index("ix_job_run_profile_created", "profile_id", "created_at"),
+        Index("ix_job_run_recovery", "state", "lease_until"),
+        CheckConstraint(
+            "state IN ('queued','running','completed','failed','limited','cancelled')",
+            name="ck_job_run_state",
+        ),
+    )
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    profile_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("job_search_profiles.id", ondelete="CASCADE")
+    )
+    request_key: Mapped[str] = mapped_column(String(160), nullable=False)
+    profile_revision: Mapped[int] = mapped_column(Integer, nullable=False)
+    manual: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    local_day: Mapped[str] = mapped_column(String(10), nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="queued")
+    checkpoint: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    overrides: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    result_limit: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now().astimezone()
+    )
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    qualifying_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    possible_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    new_match_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    match_ids: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    partial: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    failure_reason: Mapped[str | None] = mapped_column(String(240), nullable=True)
+    usage: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+
+    @property
+    def candidate_count(self) -> int:
+        return int((self.usage or {}).get("candidate_count", 0))
+
+    @property
+    def verified_count(self) -> int:
+        return int((self.usage or {}).get("verified_count", 0))
+
+
+class JobNotificationEvent(Base):
+    """Transactional outbox with independent per-device acceptance tracking."""
+
+    __tablename__ = "job_notification_events"
+    __table_args__ = (UniqueConstraint("run_id", name="uq_job_notification_run"),)
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    run_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("job_search_runs.id", ondelete="CASCADE"))
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
+    new_match_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    devices: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    attempts: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    next_attempt_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now().astimezone()
+    )
+    lease_until: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), nullable=False, default=lambda: datetime.now().astimezone()
+    )
+
+
+class JobManualAllowance(Base):
+    """Per-user reservations outlive deleting a search; deleting the account removes them."""
+
+    __tablename__ = "job_manual_allowances"
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    local_day: Mapped[str] = mapped_column(String(10), primary_key=True)
+    reserved_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    last_requested_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )

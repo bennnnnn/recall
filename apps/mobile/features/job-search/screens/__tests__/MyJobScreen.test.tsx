@@ -3,6 +3,10 @@ import { act, fireEvent, render, within } from "@testing-library/react-native";
 import MyJobScreen from "@/app/my-job";
 import type { JobMatch, JobSearchDashboard, JobSearchProfile } from "@/lib/api";
 
+jest.mock("@/lib/pushNotifications", () => ({ getNotificationPermissionGranted: jest.fn(async () => true) }));
+
+jest.mock("@/components/UpgradeSheet", () => ({ UpgradeSheet: () => null }));
+
 const mockRefresh = jest.fn(async () => {});
 const mockRunNow = jest.fn(async () => true);
 let mockLoading = true;
@@ -13,13 +17,14 @@ jest.mock("expo-router", () => {
   const React = jest.requireActual<typeof import("react")>("react");
   return {
     Redirect: () => null,
+    useLocalSearchParams: () => ({}),
     useRouter: () => ({ push: jest.fn() }),
     useFocusEffect: (callback: () => void) =>
       React.useEffect(callback, [callback]),
   };
 });
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ token: "token-a", user: { plan: "free" } }),
+  useAuth: () => ({ token: "token-a", user: { plan: "pro" } }),
 }));
 jest.mock("@/hooks/useAccountViewOwner", () => ({
   useAccountViewOwner: () => ({ key: "owner", isCurrent: () => true }),
@@ -139,6 +144,8 @@ function match(id: string, status: JobMatch["status"], isSaved = false): JobMatc
     salary: null,
     experience: null,
     match_score: 80,
+    match_kind: "qualifying",
+    fit_label: "Strong fit",
     url: `https://jobs.example.com/${id}`,
     source: "jobs.example.com",
     posted_at: null,

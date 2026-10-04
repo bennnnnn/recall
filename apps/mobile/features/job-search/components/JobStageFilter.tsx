@@ -120,7 +120,11 @@ export function JobStageFilter({
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     tab: {
-      flex: 1,
+      flexGrow: 1,
+      flexShrink: 0,
+      flexBasis: "auto",
+      maxWidth: "100%",
+      paddingHorizontal: Space.sm,
       minHeight: 44,
       borderRadius: Radius.full,
       flexDirection: "row",
@@ -129,7 +133,7 @@ function makeStyles(C: Theme) {
       gap: Space.sm,
     },
     tabActive: { backgroundColor: C.bg },
-    tabText: { ...Type.compact, color: C.textSecondary, ...Weight.semibold },
+    tabText: { flexShrink: 1, ...Type.compact, color: C.textSecondary, ...Weight.semibold },
     tabTextActive: { color: C.text },
     countBadge: {
       minWidth: 24,

@@ -22,6 +22,9 @@ class WebSearchToolInput(BaseModel):
 
 class JobSearchToolInput(BaseModel):
     action: Literal[
+        "command",
+        "setup",
+        "cover_letter",
         "list",
         "get_profile",
         "update_profile",
@@ -30,6 +33,13 @@ class JobSearchToolInput(BaseModel):
         "analyze_job",
         "update_match",
     ] = "list"
+    command: str | None = Field(default=None, max_length=1500)
+    run_after_save: bool = False
+    is_saved: bool | None = None
+    offset: int = Field(default=0, ge=0)
+    list_filter: Literal[
+        "matches", "possible", "saved", "applied", "interviewing", "offer", "rejected", "all"
+    ] = "matches"
     preferences: JobSearchPreferencesPatch | None = None
     result_limit: int | None = Field(
         default=None,

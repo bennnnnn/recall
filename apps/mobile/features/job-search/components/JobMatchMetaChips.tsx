@@ -22,7 +22,7 @@ export type MetaChip = {
 };
 
 /** Wrapping row of icon chips — shared by match cards and the search card. */
-export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
+export function MetaChipsRow({ chips, compact = false }: { chips: MetaChip[]; compact?: boolean }) {
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   if (chips.length === 0) return null;
@@ -34,7 +34,7 @@ export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
           variant="tag"
           icon={chip.icon}
           iconColor={C.textTertiary}
-          prefix={`${chip.label}:`}
+          prefix={compact ? undefined : `${chip.label}:`}
           label={chip.value}
           numberOfLines={2}
           accessibilityLabel={`${chip.label}: ${chip.value}`}
@@ -48,9 +48,11 @@ export function MetaChipsRow({ chips }: { chips: MetaChip[] }) {
 export function JobMatchMetaChips({
   match,
   maxSkills = 4,
+  compact = false,
 }: {
   match: JobMatch;
   maxSkills?: number;
+  compact?: boolean;
 }) {
   const { t } = useTranslation();
   const chips: MetaChip[] = [];
@@ -72,7 +74,7 @@ export function JobMatchMetaChips({
       label: t("my_job.meta_salary"),
       value: match.salary,
     });
-  if (match.experience)
+  if (match.experience && !compact)
     chips.push({
       icon: "bar-chart",
       label: t("my_job.meta_experience"),
@@ -91,7 +93,7 @@ export function JobMatchMetaChips({
       label: t("my_job.meta_posted"),
       value: match.posted_at,
     });
-  return <MetaChipsRow chips={chips} />;
+  return <MetaChipsRow chips={chips} compact={compact} />;
 }
 
 function makeStyles(C: Theme) {

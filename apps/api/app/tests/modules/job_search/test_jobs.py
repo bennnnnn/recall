@@ -1,5 +1,4 @@
 from datetime import UTC, datetime, timedelta
-from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -23,78 +22,69 @@ class _SessionCM:
 
 
 @pytest.mark.asyncio
-async def test_job_search_cycle_is_disabled_without_web_search() -> None:
+async def test_job_search_cycle_is_disabled_without_web_search(
+    account, db_session, fake_redis, durable_session
+) -> None:
+    from app.modules.job_search.runs import submit_run
+
+    user, _ = account
+    run = await submit_run(db_session, user, Settings(job_search_premium_enabled=True), fake_redis)
     enqueue = AsyncMock()
+    from app.tests.modules.job_search.test_jobs import _SessionCM
+
     with (
-        patch("app.modules.job_search.scheduler.SessionLocal") as session_local,
-        patch("app.modules.job_search.scheduler.enqueue", enqueue),
+        patch.object(job_search_scheduler, "SessionLocal", return_value=_SessionCM(db_session)),
+        patch.object(job_search_scheduler, "get_redis_client", return_value=fake_redis),
+        patch.object(job_search_scheduler, "dispatch", enqueue),
     ):
         await job_search_scheduler._cycle(Settings(web_search_enabled=False))
-
-    session_local.assert_not_called()
-    enqueue.assert_not_awaited()
+    enqueue.assert_awaited_once_with(fake_redis, run)
 
 
 @pytest.mark.asyncio
-async def test_job_search_cycle_enqueues_due_profiles_with_stable_dedupe_keys() -> None:
-    now = datetime.now(UTC)
-    profiles = [
-        SimpleNamespace(id=uuid4(), next_run_at=now - timedelta(minutes=2)),
-        SimpleNamespace(id=uuid4(), next_run_at=now - timedelta(minutes=1)),
-    ]
-    session = AsyncMock()
-    session.scalars.return_value = SimpleNamespace(all=lambda: profiles)
-    redis = AsyncMock()
-    enqueue = AsyncMock()
+async def test_job_search_cycle_enqueues_due_profiles_with_stable_dedupe_keys(
+    account, db_session, fake_redis, durable_session
+) -> None:
+    from sqlalchemy import select
 
+    from app.modules.job_search.models import JobSearchRun
+
+    _user, profile = account
+    profile.next_run_at = datetime.now(UTC) - timedelta(minutes=2)
+    await db_session.commit()
+    expected = f"scheduled:{profile.next_run_at.isoformat()}"
     with (
-        patch(
-            "app.modules.job_search.scheduler.SessionLocal",
-            return_value=_SessionCM(session),
-        ),
-        patch(
-            "app.modules.job_search.scheduler.get_redis_client",
-            return_value=redis,
-        ),
-        patch("app.modules.job_search.scheduler.enqueue", enqueue),
+        patch.object(job_search_scheduler, "SessionLocal", return_value=_SessionCM(db_session)),
+        patch.object(job_search_scheduler, "get_redis_client", return_value=fake_redis),
     ):
-        await job_search_scheduler._cycle(Settings(web_search_enabled=True))
-
-    assert enqueue.await_count == 2
-    for call, profile in zip(enqueue.await_args_list, profiles, strict=True):
-        assert call.args == (
-            redis,
-            "job_search_run",
-            {"profile_id": str(profile.id), "manual": False},
+        await job_search_scheduler._cycle(
+            Settings(web_search_enabled=True, job_search_premium_enabled=True)
         )
-        assert call.kwargs == {
-            "dedupe_key": (f"job_search_run:{profile.id}:{profile.next_run_at.isoformat()}")
-        }
+        await job_search_scheduler._cycle(
+            Settings(web_search_enabled=True, job_search_premium_enabled=True)
+        )
+    runs = list(
+        (
+            await db_session.scalars(
+                select(JobSearchRun).where(JobSearchRun.profile_id == profile.id)
+            )
+        ).all()
+    )
+    assert len(runs) == 1 and runs[0].request_key == expected and runs[0].manual is False
 
 
 @pytest.mark.asyncio
 async def test_job_search_worker_forwards_scheduled_run_payload() -> None:
-    profile_id = uuid4()
+    run_id = uuid4()
     settings = Settings()
     redis = AsyncMock()
-    run = AsyncMock()
+    execute = AsyncMock()
     with (
         patch("app.modules.job_search.jobs.get_redis_client", return_value=redis),
-        patch("app.modules.job_search.jobs.job_search_runner.run_job_search", run),
+        patch("app.modules.job_search.worker.execute_run", execute),
     ):
-        await job_search_jobs._handle_job_search_run(
-            settings,
-            {"profile_id": str(profile_id), "manual": False},
-        )
-
-    run.assert_awaited_once_with(
-        settings,
-        redis,
-        profile_id=profile_id,
-        manual=False,
-        overrides=None,
-        result_limit=None,
-    )
+        await job_search_jobs._handle_job_search_run(settings, {"run_id": str(run_id)})
+    execute.assert_awaited_once_with(settings, redis, run_id)
 
 
 @pytest.mark.asyncio

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Linking } from "react-native";
+import { AppState, Linking } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -28,6 +28,8 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
   const mountedRef = useRef(false);
   const loadRequestRef = useRef(0);
   const mutationRequestRef = useRef(0);
+  const mutationBusyRef = useRef(false);
+  const notesDirtyRef = useRef(false);
   const letterRequestRef = useRef(0);
   const letterBusyRef = useRef(false);
   const initialMatch = id && accountId ? getCachedJobMatch(accountId, id) : null;
@@ -63,36 +65,40 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
 
   const load = useCallback(async () => {
     const currentToken = tokenRef.current;
-    if (!currentToken || !id || !isActive()) return;
+    if (!currentToken || !id || !isActive() || mutationBusyRef.current) return;
     const request = ++loadRequestRef.current;
     if (!matchRef.current) setLoading(true);
     setLoadError(false);
     try {
-      const dashboard = await api.getJobSearch(currentToken);
+      const next = await api.getJobMatch(currentToken, id);
       if (!isActive() || request !== loadRequestRef.current) return;
-      if (accountId) cacheJobMatches(accountId, dashboard.matches);
-      const next = dashboard.matches.find((item) => item.id === id) ?? null;
+      if (accountId) cacheJobMatch(accountId, next);
       setCurrentMatch(next);
-      setNotesDraftState(next?.notes ?? "");
+      if (!notesDirtyRef.current) setNotesDraftState(next.notes ?? "");
       setLoading(false);
-    } catch {
+    } catch (error) {
       if (!isActive() || request !== loadRequestRef.current) return;
       setLoading(false);
-      setLoadError(true);
+      if (error && typeof error === "object" && "status" in error && error.status === 404) {
+        setCurrentMatch(null);
+        setLoadError(false);
+      } else setLoadError(true);
     }
   }, [accountId, id, isActive, setCurrentMatch]);
 
   useEffect(() => {
-    if (!initialMatch) void load();
-    // `initialMatch` is the mount-time cache snapshot for this keyed view.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    void load();
+    const listener = AppState.addEventListener("change", state => { if (state === "active") void load(); });
+    return () => listener.remove();
   }, [load]);
 
   const updateStatus = useCallback(
     async (status: JobMatchStatus, notes?: string | null) => {
       const currentToken = tokenRef.current;
       const previous = matchRef.current;
-      if (!currentToken || !previous || !isActive()) return false;
+      if (!currentToken || !previous || !isActive() || mutationBusyRef.current) return false;
+      mutationBusyRef.current = true;
+      loadRequestRef.current += 1;
       const request = ++mutationRequestRef.current;
       const next: JobMatch = {
         ...previous,
@@ -113,7 +119,7 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
         const confirmed =
           dashboard.matches.find((item) => item.id === previous.id) ?? next;
         setCurrentMatch(confirmed);
-        if (notes !== undefined) setNotesDraftState(confirmed.notes ?? "");
+        if (notes !== undefined) { notesDirtyRef.current = false; setNotesDraftState(confirmed.notes ?? ""); }
         if (status === "hidden") router.back();
         return true;
       } catch {
@@ -123,7 +129,7 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
         if (notes !== undefined) setNotesDraftState(previous.notes ?? "");
         reportRecoverableError(feedback, t("my_job.error_match"));
         return false;
-      }
+      } finally { mutationBusyRef.current = false; }
     },
     [accountId, feedback, isActive, router, setCurrentMatch, t],
   );
@@ -132,7 +138,9 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
     async (isSaved: boolean) => {
       const currentToken = tokenRef.current;
       const previous = matchRef.current;
-      if (!currentToken || !previous || !isActive()) return false;
+      if (!currentToken || !previous || !isActive() || mutationBusyRef.current) return false;
+      mutationBusyRef.current = true;
+      loadRequestRef.current += 1;
       const request = ++mutationRequestRef.current;
       const next: JobMatch = { ...previous, is_saved: isSaved };
       setCurrentMatch(next);
@@ -151,7 +159,7 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
         if (accountId) cacheJobMatch(accountId, previous);
         reportRecoverableError(feedback, t("my_job.error_match"));
         return false;
-      }
+      } finally { mutationBusyRef.current = false; }
     },
     [accountId, feedback, isActive, setCurrentMatch, t],
   );
@@ -165,6 +173,7 @@ export function useJobMatchDetail(id: string | undefined, isCurrent: () => boole
   }, [isActive, notesDraft, updateStatus]);
 
   const setNotesDraft = useCallback((value: string) => {
+    notesDirtyRef.current = true;
     setNotesDraftState(value);
   }, []);
 

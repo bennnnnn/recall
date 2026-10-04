@@ -1,12 +1,11 @@
 """My Job chat tool: intent routing + adapter behavior."""
 
-from datetime import UTC, datetime, timedelta
-from unittest.mock import AsyncMock, MagicMock, patch
+from datetime import UTC, datetime
+from unittest.mock import AsyncMock, MagicMock
 from uuid import uuid4
 
 import pytest
 
-from app.modules.job_search import tool as job_search_adapter
 from app.modules.job_search.chat_intent import wants_job_search, wants_job_search_turn
 from app.modules.job_search.tool import JobSearchAdapter, bind_job_search_context
 
@@ -115,281 +114,173 @@ def _profile(**overrides: object) -> MagicMock:
     return MagicMock(**values)
 
 
-async def test_adapter_list_without_profile_suggests_setup() -> None:
-    adapter = JobSearchAdapter()
-    user = MagicMock()
-    with (
-        bind_job_search_context(user=user, redis=None),
-        patch.object(job_search_adapter, "SessionLocal", return_value=_SessionCM(AsyncMock())),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=None),
-        ),
-    ):
-        result = await adapter.invoke({"action": "list"})
-    assert "not set up My Job" in result.content
+async def test_adapter_list_without_profile_suggests_setup(
+    account, db_session, fake_redis, durable_session
+) -> None:
+    from app.core.config import Settings
+
+    user, profile = account
+    await db_session.delete(profile)
+    await db_session.commit()
+    with bind_job_search_context(user=user, redis=fake_redis, settings=Settings()):
+        result = await JobSearchAdapter().invoke({"action": "list"})
+    assert "set up My Job" in result.content and "country" in result.content
 
 
-async def test_adapter_list_formats_matches() -> None:
-    adapter = JobSearchAdapter()
-    user = MagicMock()
-    profile = _profile()
-    with (
-        bind_job_search_context(user=user, redis=None),
-        patch.object(
-            job_search_adapter,
-            "SessionLocal",
-            return_value=_SessionCM(_session_with_matches([_match()])),
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=profile),
-        ),
-    ):
-        result = await adapter.invoke({"action": "list"})
-    assert "Nurse at Acme Health" in result.content
-    assert "88% fit" in result.content
-    assert "https://jobs.example.com/1" in result.content
+async def test_adapter_list_formats_matches(
+    account, db_session, fake_redis, durable_session
+) -> None:
+    from app.core.config import Settings
+    from app.modules.job_search.models import JobMatch
 
-
-async def test_adapter_search_now_returns_only_persisted_verified_matches() -> None:
-    adapter = JobSearchAdapter()
-    user = MagicMock()
-    profile = _profile()
-    run_search = AsyncMock(
-        return_value=job_search_adapter.job_search_runner.JobSearchRunResult(
-            status="completed",
-            canonical_urls=("https://jobs.example.com/1",),
-        )
+    user, profile = account
+    match = JobMatch(
+        profile_id=profile.id,
+        title="Nurse",
+        company="Acme Health",
+        url="https://jobs.example.com/1",
+        canonical_url="https://jobs.example.com/1",
+        canonical_url_hash="a" * 64,
+        match_reasons=[],
+        found_at=datetime.now(UTC),
+        match_kind="qualifying",
+        assessment={"fit_label": "Potential fit"},
     )
-    with (
-        bind_job_search_context(user=user, redis=MagicMock(), settings=MagicMock()),
-        patch.object(
-            job_search_adapter,
-            "SessionLocal",
-            return_value=_SessionCM(_session_with_matches([_match()])),
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=profile),
-        ),
-        patch.object(
-            job_search_adapter.job_search_runner,
-            "run_job_search",
-            new=run_search,
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "can_request_manual_run",
-            return_value=True,
-        ),
-    ):
-        result = await adapter.invoke({"action": "search_now", "result_limit": 2})
-    run_search.assert_awaited_once()
-    run_args = run_search.await_args
-    assert run_args is not None
-    assert run_args.kwargs["result_limit"] == 2
-    assert "found and saved 1 verified job" in result.content
-    assert "[Nurse at Acme Health](https://jobs.example.com/1)" in result.content
-    assert result.data is not None and "direct_reply" in result.data
+    db_session.add(match)
+    await db_session.commit()
+    with bind_job_search_context(user=user, redis=fake_redis, settings=Settings()):
+        result = await JobSearchAdapter().invoke({"action": "list"})
+    assert "job-results" in result.content
+    assert result.data and result.data["matches"][0]["id"] == str(match.id)
+    assert result.data["matches"][0]["company"] == "Acme Health"
+    assert "% fit" not in result.content
 
 
-async def test_adapter_search_now_free_user_does_not_run() -> None:
-    adapter = JobSearchAdapter()
-    user = MagicMock()
-    profile = _profile(
-        last_run_at=datetime.now(UTC) - timedelta(days=1),
-        last_run_status="ok",
-    )
-    run_search = AsyncMock()
-    with (
-        bind_job_search_context(user=user, redis=MagicMock()),
-        patch.object(
-            job_search_adapter,
-            "SessionLocal",
-            return_value=_SessionCM(_session_with_matches([])),
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=profile),
-        ),
-        patch.object(
-            job_search_adapter.job_search_runner,
-            "run_job_search",
-            new=run_search,
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "can_request_manual_run",
-            return_value=False,
-        ),
+async def test_adapter_search_now_returns_only_persisted_verified_matches(
+    account, db_session, fake_redis, durable_session
+) -> None:
+    from app.core.config import Settings
+    from app.modules.job_search.models import JobSearchRun
+
+    user, _ = account
+    with bind_job_search_context(
+        user=user, redis=fake_redis, settings=Settings(job_search_premium_enabled=True)
     ):
-        result = await adapter.invoke({"action": "search_now"})
-    run_search.assert_not_awaited()
+        result = await JobSearchAdapter().invoke({"action": "search_now", "result_limit": 2})
+    assert "Search queued" in result.content and "close chat" in result.content
+    assert result.data and result.data["run_id"]
+    from uuid import UUID
+
+    run = await db_session.get(JobSearchRun, UUID(result.data["run_id"]))
+    assert run is not None and run.result_limit == 2 and run.state == "queued"
+
+
+async def test_adapter_search_now_free_user_does_not_run(
+    account, db_session, fake_redis, durable_session
+) -> None:
+    from app.core.config import Settings
+
+    user, _ = account
+    user.plan = "free"
+    await db_session.commit()
+    with bind_job_search_context(
+        user=user, redis=fake_redis, settings=Settings(job_search_premium_enabled=True)
+    ):
+        result = await JobSearchAdapter().invoke({"action": "search_now"})
     assert "Recall Pro" in result.content
-    assert "No matches yet" in result.content
+    assert result.data and "run_id" not in result.data
 
 
-async def test_adapter_search_now_explains_paused_profile() -> None:
-    adapter = JobSearchAdapter()
-    user = MagicMock()
-    profile = _profile(status="paused")
-    run_search = AsyncMock()
-    with (
-        bind_job_search_context(user=user, redis=MagicMock()),
-        patch.object(
-            job_search_adapter,
-            "SessionLocal",
-            return_value=_SessionCM(_session_with_matches([])),
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=profile),
-        ),
-        patch.object(
-            job_search_adapter.job_search_runner,
-            "run_job_search",
-            new=run_search,
-        ),
+async def test_adapter_search_now_explains_paused_profile(
+    account, db_session, fake_redis, durable_session
+) -> None:
+    from app.core.config import Settings
+
+    user, profile = account
+    profile.status = "paused"
+    await db_session.commit()
+    with bind_job_search_context(
+        user=user, redis=fake_redis, settings=Settings(job_search_premium_enabled=True)
     ):
-        result = await adapter.invoke({"action": "search_now"})
-
-    run_search.assert_not_awaited()
-    assert "My Job is paused" in result.content
+        result = await JobSearchAdapter().invoke({"action": "search_now"})
     assert "Resume My Job" in result.content
-    assert "Recall Pro" not in result.content
 
 
-async def test_adapter_search_now_respects_cooldown() -> None:
-    adapter = JobSearchAdapter()
-    user = MagicMock()
-    profile = _profile(
-        last_run_at=datetime.now(UTC),
-        last_run_status="ok",
-        updated_at=datetime.now(UTC) - timedelta(minutes=1),
-    )
-    run_search = AsyncMock()
-    with (
-        bind_job_search_context(user=user, redis=MagicMock()),
-        patch.object(
-            job_search_adapter,
-            "SessionLocal",
-            return_value=_SessionCM(_session_with_matches([])),
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=profile),
-        ),
-        patch.object(
-            job_search_adapter.job_search_runner,
-            "run_job_search",
-            new=run_search,
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "can_request_manual_run",
-            return_value=True,
-        ),
-    ):
-        result = await adapter.invoke({"action": "search_now"})
-    run_search.assert_not_awaited()
-    assert "finished a few minutes ago" in result.content
+async def test_adapter_search_now_respects_cooldown(
+    account, db_session, fake_redis, durable_session
+) -> None:
+    from app.core.config import Settings
+    from app.modules.job_search.runs import submit_run
+
+    user, _ = account
+    settings = Settings(job_search_premium_enabled=True)
+    run = await submit_run(db_session, user, settings, fake_redis)
+    run.state = "completed"
+    await db_session.commit()
+    with bind_job_search_context(user=user, redis=fake_redis, settings=settings):
+        result = await JobSearchAdapter().invoke({"action": "search_now"})
+    assert "ten minutes" in result.content
 
 
-async def test_adapter_update_profile_uses_structured_patch() -> None:
-    adapter = JobSearchAdapter()
-    user = MagicMock()
-    profile = _profile()
-    updated = _profile(
-        target_roles=["Nurse", "Clinical Educator"],
-        experience_levels=["senior"],
-    )
-    patch_profile = AsyncMock(return_value=MagicMock(profile=updated))
-    with (
-        bind_job_search_context(user=user, settings=MagicMock()),
-        patch.object(
-            job_search_adapter,
-            "SessionLocal",
-            return_value=_SessionCM(_session_with_matches([])),
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=profile),
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "patch_profile",
-            new=patch_profile,
-        ),
-    ):
-        result = await adapter.invoke(
+async def test_adapter_update_profile_uses_structured_patch(
+    account, db_session, fake_redis, durable_session
+) -> None:
+    from app.core.config import Settings
+
+    user, profile = account
+    with bind_job_search_context(user=user, redis=fake_redis, settings=Settings()):
+        result = await JobSearchAdapter().invoke(
             {
                 "action": "update_profile",
-                "preferences": {
-                    "target_roles": ["Clinical Educator"],
-                    "target_roles_mode": "add",
-                    "experience_levels": ["senior"],
-                },
+                "preferences": {"target_roles": ["Clinic Manager"], "work_modes": ["onsite"]},
             }
         )
-    patch_profile.assert_awaited_once()
-    patch_args = patch_profile.await_args
-    assert patch_args is not None
-    patch_arg = patch_args.args[3]
-    assert patch_arg.target_roles_mode == "add"
-    assert patch_arg.experience_levels == ["senior"]
-    assert "Clinical Educator" in result.content
+    assert profile.target_roles == ["Clinic Manager"] and profile.work_modes == ["onsite"]
+    assert profile.revision == 2
+    assert result.data and result.data["saved"]["target_roles"] == ["Clinic Manager"]
 
 
-async def test_adapter_temporary_search_passes_override_without_changing_profile() -> None:
-    adapter = JobSearchAdapter()
-    user = MagicMock()
-    profile = _profile()
-    run_search = AsyncMock(
-        return_value=job_search_adapter.job_search_runner.JobSearchRunResult(status="completed")
-    )
-    with (
-        bind_job_search_context(user=user, redis=MagicMock(), settings=MagicMock()),
-        patch.object(
-            job_search_adapter,
-            "SessionLocal",
-            return_value=_SessionCM(_session_with_matches([])),
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=profile),
-        ),
-        patch.object(
-            job_search_adapter.job_search_service,
-            "can_request_manual_run",
-            return_value=True,
-        ),
-        patch.object(
-            job_search_adapter.job_search_runner,
-            "run_job_search",
-            new=run_search,
-        ),
+async def test_adapter_temporary_search_passes_override_without_changing_profile(
+    account, db_session, fake_redis, durable_session
+) -> None:
+    from uuid import UUID
+
+    from app.core.config import Settings
+    from app.modules.job_search.models import JobSearchRun
+
+    user, profile = account
+    with bind_job_search_context(
+        user=user, redis=fake_redis, settings=Settings(job_search_premium_enabled=True)
     ):
-        result = await adapter.invoke(
+        result = await JobSearchAdapter().invoke(
             {
                 "action": "search_now",
-                "preferences": {
-                    "target_roles": ["Clinic Manager"],
-                    "work_modes": ["onsite"],
-                },
+                "preferences": {"target_roles": ["Clinic Manager"], "work_modes": ["onsite"]},
             }
         )
-    run_args = run_search.await_args
-    assert run_args is not None
-    overrides = run_args.kwargs["overrides"]
-    assert overrides["target_roles"] == ["Clinic Manager"]
-    assert overrides["work_modes"] == ["onsite"]
-    assert "no verified jobs" in result.content
+    assert result.data and result.data["run_id"]
+    run = await db_session.get(JobSearchRun, UUID(result.data["run_id"]))
+    assert run is not None and run.overrides["target_roles"] == ["Clinic Manager"]
+    assert profile.target_roles == ["Backend Engineer"] and profile.revision == 1
+    assert "unchanged" in result.content
+
+
+@pytest.mark.parametrize("text", ["I don't want from DC", "I dont want DC", "Add DC"])
+def test_short_location_followups_after_plain_job_search(text):
+    from app.modules.job_search.chat_commands import direct_command
+
+    assert direct_command(text) == {"action": "command", "command": text}
+    assert wants_job_search_turn(
+        [
+            {"role": "user", "content": "Search a job"},
+            {"role": "assistant", "content": "Wait ten minutes between manual searches"},
+            {"role": "user", "content": text},
+        ]
+    )
+    assert not wants_job_search_turn(
+        [
+            {"role": "user", "content": "Tell me about Washington"},
+            {"role": "assistant", "content": "Washington has several meanings."},
+            {"role": "user", "content": text},
+        ]
+    )

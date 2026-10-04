@@ -15,6 +15,8 @@ function profile(overrides: Partial<JobSearchProfile> = {}): JobSearchProfile {
     work_modes: ["hybrid"],
     experience_levels: ["mid"],
     salary_min: 100_000,
+    salary_currency: "EUR",
+    salary_period: "month",
     requires_sponsorship: null,
     excluded_companies: [],
     background: null,
@@ -41,7 +43,8 @@ test("builds a labeled field for every set profile value", () => {
   expect(byKey.work_mode.label).toBe("my_job.work_mode_label");
   expect(byKey.work_mode.values).toEqual(["my_job.work_hybrid"]);
   expect(byKey.experience.values).toEqual(["my_job.level_mid"]);
-  expect(byKey.salary.values[0]).toContain("my_job.salary_min_chip");
+  expect(byKey.salary.values[0]).toContain("EUR");
+  expect(byKey.salary.values[0]).toContain("my_job.pay_month");
   expect(byKey.salary.values[0]).toContain("100,000");
   expect(byKey.count.values).toEqual(["5 my_job.count_jobs"]);
   expect(byKey.frequency.values).toEqual(["my_job.freq_weekly"]);

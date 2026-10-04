@@ -17,9 +17,7 @@ _TRACKING_KEYS = {
     "gclid",
     "mc_cid",
     "mc_eid",
-    "ref",
     "referrer",
-    "source",
 }
 _SENIOR_TERMS = re.compile(
     r"\b(senior|staff|principal|lead|manager|director|architect|head of|vp)\b",
@@ -161,7 +159,7 @@ def _dedupe_accepted(accepted: list[_AcceptedJob]) -> list[_AcceptedJob]:
     seen: set[str] = set()
     unique: list[_AcceptedJob] = []
     for item in accepted:
-        key = _title_company_key(item.title, item.company)
+        key = item.posting_identity or item.candidate.canonical_url
         if key in seen:
             continue
         seen.add(key)

@@ -12,6 +12,7 @@ import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
 import { EmailCard } from "@/features/integrations/components/EmailCard";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import {
+  LazyJobResultsBlock,
   LazyChartBlock,
   LazyChemistryBlock,
   LazyCircularClockBlock,
@@ -54,6 +55,7 @@ export function renderRichFenceById(
   tokenIndex?: number,
 ): ReactNode | null {
   switch (id) {
+    case "job-results": return <LazyJobResultsBlock key={key} content={content} />;
     case "email": {
       const draft = parseEmailDraft(content) ?? { body: content };
       const emailKey = tokenIndex != null ? `email:${tokenIndex}` : key;

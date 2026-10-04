@@ -29,7 +29,7 @@ function match(id: string, overrides: Partial<JobMatch> = {}): JobMatch {
 
 const matches = [
   match("a", { match_score: 50, found_at: "2026-09-03T00:00:00Z" }),
-  match("b", { match_score: 90, found_at: "2026-09-01T00:00:00Z" }),
+  match("b", { match_kind: "qualifying", match_reasons: ["Verified skill match", "Verified experience"], match_score: 90, found_at: "2026-09-01T00:00:00Z" }),
   match("c", { is_saved: true, found_at: "2026-09-05T00:00:00Z" }),
   match("d", { status: "hidden", match_score: 99 }),
   match("e", {
@@ -68,7 +68,7 @@ test("status filters keep only that status", () => {
   ).toEqual(["h"]);
 });
 
-test("best sort orders by score, unknown scores last, ties newest first", () => {
+test("best sort uses verified evidence and recency rather than percentage scores", () => {
   const withTie = [
     match("x", { match_score: 80, found_at: "2026-09-01T00:00:00Z" }),
     match("y", { match_score: 80, found_at: "2026-09-06T00:00:00Z" }),

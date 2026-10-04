@@ -61,10 +61,10 @@ it("updates search and match states", async () => {
 
 it("starts a manual search through the dedicated endpoint", async () => {
   jest.mocked(request).mockResolvedValue({ queued: true });
-  await jobSearchApi.runJobSearch("token");
+  await jobSearchApi.runJobSearch("token", "request-1");
   expect(request).toHaveBeenCalledWith("/job-search/run", "token", {
     method: "POST",
-    headers: bookmarkHeaders,
+    headers: { ...bookmarkHeaders, "Idempotency-Key": "request-1" },
   });
 });
 

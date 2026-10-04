@@ -9,7 +9,7 @@ import {
   getCachedJobMatch,
 } from "@/features/job-search/model/matchCache";
 
-const mockGetJobSearch = jest.fn();
+const mockGetJobMatch = jest.fn();
 const mockSetJobMatchStatus = jest.fn();
 const mockSetJobMatchSaved = jest.fn();
 const mockGenerateCoverLetter = jest.fn();
@@ -29,7 +29,7 @@ jest.mock("react-i18next", () => ({
 jest.mock("@/lib/haptics", () => ({ tap: jest.fn() }));
 jest.mock("@/lib/api", () => ({
   api: {
-    getJobSearch: (...args: unknown[]) => mockGetJobSearch(...args),
+    getJobMatch: (...args: unknown[]) => mockGetJobMatch(...args),
     setJobMatchStatus: (...args: unknown[]) => mockSetJobMatchStatus(...args),
     setJobMatchSaved: (...args: unknown[]) => mockSetJobMatchSaved(...args),
     generateCoverLetter: (...args: unknown[]) => mockGenerateCoverLetter(...args),
@@ -77,7 +77,7 @@ function deferred<T>() {
 beforeEach(() => {
   clearJobMatchCache();
   jest.clearAllMocks();
-  mockGetJobSearch.mockReset();
+  mockGetJobMatch.mockReset();
   mockSetJobMatchStatus.mockReset();
   mockSetJobMatchSaved.mockReset();
   mockGenerateCoverLetter.mockReset();
@@ -88,7 +88,8 @@ beforeEach(() => {
 
 afterEach(() => jest.restoreAllMocks());
 
-test("hydrates from cache without a cold dashboard request", async () => {
+test("hydrates from cache immediately and refreshes verified detail", async () => {
+  mockGetJobMatch.mockResolvedValue(match({ notes: "Cached note", outdated: true }));
   cacheJobMatches("account-a", [match({ notes: "Cached note" })]);
   const { result } = await renderHook(() =>
     useJobMatchDetail("m1", () => mockCurrent),
@@ -96,25 +97,26 @@ test("hydrates from cache without a cold dashboard request", async () => {
   expect(result.current.match?.title).toBe("Registered Nurse");
   expect(result.current.notesDraft).toBe("Cached note");
   expect(result.current.loading).toBe(false);
-  expect(mockGetJobSearch).not.toHaveBeenCalled();
+  await waitFor(() => expect(result.current.match?.outdated).toBe(true));
+  expect(mockGetJobMatch).toHaveBeenCalledWith("token-a", "m1");
 });
 
 test("does not hydrate a match cached by an earlier account session", async () => {
   cacheJobMatches("account-a", [match()]);
   mockAccountId = "account-b";
-  mockGetJobSearch.mockResolvedValue(dashboard([]));
+  mockGetJobMatch.mockRejectedValue(Object.assign(new Error("not found"), { status: 404 }));
   const { result } = await renderHook(() =>
     useJobMatchDetail("m1", () => mockCurrent),
   );
   expect(result.current.match).toBeNull();
   await waitFor(() => expect(result.current.loading).toBe(false));
-  expect(mockGetJobSearch).toHaveBeenCalledWith("token-a");
+  expect(mockGetJobMatch).toHaveBeenCalledWith("token-a", "m1");
 });
 
 test("keeps first-load failure separate from true not-found and retries", async () => {
-  mockGetJobSearch
+  mockGetJobMatch
     .mockRejectedValueOnce(new Error("offline"))
-    .mockResolvedValueOnce(dashboard([]));
+    .mockRejectedValueOnce(Object.assign(new Error("not found"), { status: 404 }));
   const { result } = await renderHook(() =>
     useJobMatchDetail("m1", () => mockCurrent),
   );
@@ -130,14 +132,14 @@ test("keeps first-load failure separate from true not-found and retries", async 
 });
 
 test("ignores a cold response after the view owner becomes stale", async () => {
-  const pending = deferred<JobSearchDashboard>();
-  mockGetJobSearch.mockReturnValue(pending.promise);
+  const pending = deferred<JobMatch>();
+  mockGetJobMatch.mockReturnValue(pending.promise);
   const { result } = await renderHook(() =>
     useJobMatchDetail("m1", () => mockCurrent),
   );
   mockCurrent = false;
   await act(async () => {
-    pending.resolve(dashboard([match()]));
+    pending.resolve(match());
   });
   expect(result.current.match).toBeNull();
   expect(getCachedJobMatch("account-a", "m1")).toBeNull();

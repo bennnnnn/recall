@@ -19,6 +19,8 @@ const baseMatch: JobMatch = {
   salary: "$90,000 - $120,000",
   experience: "3+ years",
   match_score: 87,
+  match_kind: "qualifying",
+  fit_label: "Strong fit",
   url: "https://jobs.example.com/roles/123",
   source: "jobs.example.com",
   posted_at: "2d ago",
@@ -33,27 +35,23 @@ const baseMatch: JobMatch = {
 };
 
 describe("JobMatchCard", () => {
-  it("shows the fit score and all high-signal posting facts as chips", async () => {
-    const { getByLabelText, getByText } = await render(
+  it("shows an evidence label and concise posting facts", async () => {
+    const { getByLabelText, getByText, queryByLabelText } = await render(
       <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
     );
-    expect(getByText("87%")).toBeTruthy();
+    expect(getByText("my_job.fit_strong")).toBeTruthy();
     expect(getByLabelText("my_job.meta_location: Berlin, Germany")).toBeTruthy();
     expect(getByLabelText("my_job.meta_work_mode: my_job.work_remote")).toBeTruthy();
     expect(getByLabelText("my_job.meta_salary: $90,000 - $120,000")).toBeTruthy();
-    expect(getByLabelText("my_job.meta_experience: 3+ years")).toBeTruthy();
-    expect(getByLabelText("my_job.meta_skills: Python, FastAPI")).toBeTruthy();
+    expect(queryByLabelText("my_job.meta_experience: 3+ years")).toBeNull();
+    expect(queryByLabelText("my_job.meta_skills: Python, FastAPI")).toBeNull();
     expect(getByLabelText("my_job.meta_posted: 2d ago")).toBeTruthy();
   });
 
-  it("keeps fit reasons folded until the user expands them", async () => {
-    const { getByLabelText, getByText, queryByText } = await render(
-      <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
-    );
-    expect(queryByText("Python matches your skills")).toBeNull();
-    await fireEvent.press(getByLabelText("my_job.why_matches"));
+  it("shows one concrete fit reason on the card", async () => {
+    const { getByText, queryByText } = await render(<JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />);
     expect(getByText("Python matches your skills")).toBeTruthy();
-    expect(getByText("Remote fits your preference")).toBeTruthy();
+    expect(queryByText("Remote fits your preference")).toBeNull();
   });
 
   it("shows the hiring-company logo and has no dismiss control", async () => {
@@ -66,11 +64,11 @@ describe("JobMatchCard", () => {
     expect(queryByLabelText("my_job.not_interested")).toBeNull();
   });
 
-  it("renders the role summary", async () => {
-    const { getByText } = await render(
+  it("keeps full descriptions on the detail screen", async () => {
+    const { queryByText } = await render(
       <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
     );
-    expect(getByText("Build production APIs.")).toBeTruthy();
+    expect(queryByText("Build production APIs.")).toBeNull();
   });
 
   it("falls back to the company initial when there is no logo", async () => {

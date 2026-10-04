@@ -79,6 +79,10 @@ async def sync_user_plan_from_revenuecat(
     plan = await resolve_plan_from_revenuecat(settings, str(user.id))
     if plan is None or plan == user.plan:
         return user
+    if plan != "pro":
+        from app.modules.job_search import suspend_on_expiration
+
+        await suspend_on_expiration(session, user.id)
     updated = await users_repo.update(session, user, plan=plan)
     logger.info("Updated plan from RevenueCat user=%s plan=%s", user.id, plan)
     return updated
@@ -103,6 +107,10 @@ async def apply_plan_for_app_user_id(
         # No change — return False so the caller doesn't fire a duplicate
         # receipt email on every RENEWAL/replay of an already-Pro user.
         return False
+    if plan != "pro":
+        from app.modules.job_search import suspend_on_expiration
+
+        await suspend_on_expiration(session, user.id)
     await users_repo.update(session, user, plan=plan)
     logger.info("RevenueCat webhook set plan=%s user=%s", plan, user_id)
     return True

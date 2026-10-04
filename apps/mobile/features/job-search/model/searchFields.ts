@@ -60,7 +60,7 @@ export function searchProfileFields(profile: JobSearchProfile, t: TFunction): Se
       key: "salary",
       icon: "banknote",
       label: t("my_job.salary_label"),
-      values: [t("my_job.salary_min_chip", { amount: profile.salary_min.toLocaleString() })],
+      values: [`${profile.salary_currency ?? "?"} ${profile.salary_min.toLocaleString()}+ / ${t(`my_job.pay_${profile.salary_period ?? "year"}`)}`],
     });
   }
   fields.push({

@@ -159,6 +159,7 @@ export function attachPushForegroundSync(
 }
 
 type PushData = {
+  run_id?: unknown;
   type?: string;
   screen?: string;
   focus?: string;
@@ -195,7 +196,8 @@ export async function handlePushNotificationResponse(
   const current = currentPathname ?? null;
 
   if (data.type === "job_search_ready" || data.screen === "my-job") {
-    navigateToTarget(router, current, "/my-job");
+    const runId = typeof data.run_id === "string" && /^[0-9a-f-]{36}$/i.test(data.run_id) ? data.run_id : null;
+    navigateToTarget(router, current, runId ? { pathname: "/my-job", params: { runId } } : "/my-job");
     return;
   }
 

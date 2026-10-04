@@ -6,10 +6,11 @@ import json
 import logging
 import re
 from dataclasses import replace
-from typing import Any
+from typing import Any, cast
 
 from app.models.orm import User
 from app.modules.billing import is_pro
+from app.modules.job_search.locations import legacy_location, location_label
 from app.modules.job_search.models import JobMatch, JobSearchProfile
 from app.modules.job_search.posting import (
     _JUNIOR_TERMS,
@@ -92,7 +93,11 @@ def _strategic_match_assessment(
         years_match = re.search(r"\d+(?:\.\d+)?", experience)
         if years_match:
             requested_years = float(years_match.group())
-    user_years = profile.resume_profile.years_experience if profile.resume_profile else None
+    user_years = (
+        profile.years_experience
+        if profile.years_experience is not None
+        else (profile.resume_profile.years_experience if profile.resume_profile else None)
+    )
     if requested_years is not None and user_years is not None:
         if user_years >= requested_years:
             reasons.append(
@@ -130,14 +135,6 @@ def _strategic_match_assessment(
         preferred_location = _normalize_key_part(profile.location)
         if preferred_location in job_location or job_location in preferred_location:
             reasons.append(f"The {location} location matches your {profile.location} preference.")
-
-    salary_ceiling = _salary_ceiling(salary)
-    if (
-        profile.salary_min is not None
-        and salary_ceiling is not None
-        and salary_ceiling >= profile.salary_min
-    ):
-        reasons.append(f"The disclosed pay meets your ${profile.salary_min:,} minimum.")
 
     if gap is None and unmatched_skills:
         gap = (
@@ -194,10 +191,18 @@ def _profile_from_rows(
         background=profile.background,
         resume_text=profile.resume_text,
         resume_profile=resume_profile,
-        hidden_companies=list({match.company for match in hidden if match.company}),
+        hidden_companies=[],
         hidden_titles=list({match.title for match in hidden if match.title}),
         result_count=profile.result_count,
         frequency=profile.frequency,
+        revision=profile.revision or 1,
+        search_cursor=profile.search_cursor or 0,
+        included_locations=profile.included_locations or legacy_location(profile.location),
+        excluded_locations=profile.excluded_locations or [],
+        country=profile.country,
+        salary_currency=profile.salary_currency,
+        salary_period=profile.salary_period or "year",
+        years_experience=profile.years_experience,
     )
 
 
@@ -207,72 +212,26 @@ def _snapshot_with_overrides(
 ) -> _ProfileSnapshot:
     if not overrides:
         return profile
+    from app.modules.job_search.service import preference_values
+
     patch = JobSearchPreferencesPatch.model_validate(overrides)
-    changes: dict[str, Any] = {}
-    allowed = {
-        "target_roles",
-        "skills",
-        "location",
-        "work_modes",
-        "experience_levels",
-        "salary_min",
-        "requires_sponsorship",
-        "excluded_companies",
-        "background",
-        "result_count",
-        "frequency",
-    }
-    for field in patch.model_fields_set & allowed:
-        value = getattr(patch, field)
-        if field in {"target_roles", "work_modes", "experience_levels"} and not value:
-            raise ValueError(f"{field} cannot be empty")
-        changes[field] = value
-    if not profile.is_pro and (
-        changes.get("result_count", profile.result_count) != 5
-        or changes.get("frequency", profile.frequency) != "weekly"
-    ):
-        raise ValueError("Free My Job searches are limited to 5 weekly matches")
+    if not profile.is_pro:
+        raise ValueError("My Job requires Recall Pro")
+    # Both records expose the saved preference fields read by the shared composer.
+    # It never mutates its input, so temporary edits use the same merge semantics.
+    changes = preference_values(cast(JobSearchProfile, profile), patch)
     return replace(profile, **changes)
 
 
 def _search_queries(profile: _ProfileSnapshot) -> list[str]:
-    level_terms = {
-        "internship": "intern internship",
-        # Sector-neutral on purpose: My Job is cross-sector, so "entry" must
-        # not inject tech terms into e.g. a nurse's query.
-        "entry": "entry level junior",
-        "mid": "mid level experienced",
-        "senior": "senior experienced",
-    }
-    levels = " ".join(level_terms.get(level, level) for level in profile.experience_levels)
-    work_mode = " ".join(profile.work_modes)
-    location = profile.location or "United States"
-    # The structured resume profile sharpens queries with skills/titles the
-    # user never typed into the setup form.
-    skill_pool = list(profile.skills)
-    if profile.resume_profile is not None:
-        known = {skill.casefold() for skill in skill_pool}
-        skill_pool += [
-            skill for skill in profile.resume_profile.skills if skill.casefold() not in known
-        ]
-    skills_hint = " ".join(skill_pool[:3])
-    queries: list[str] = []
-    for role in profile.target_roles[:_MAX_SEARCH_ROLES]:
-        queries.append(
-            f'"{role}" {levels} {work_mode} {skills_hint} {location} job opening posted recently'
-        )
-    if profile.target_roles:
-        role = profile.target_roles[0]
-        queries.append(
-            f'"{role}" {location} '
-            "(site:boards.greenhouse.io OR site:jobs.lever.co OR "
-            "site:jobs.ashbyhq.com OR site:myworkdayjobs.com)"
-        )
-    if profile.resume_profile is not None and profile.resume_profile.titles:
-        alt_title = profile.resume_profile.titles[0]
-        if all(alt_title.casefold() != role.casefold() for role in profile.target_roles):
-            queries.append(f'"{alt_title}" {work_mode} {location} job opening posted recently')
-    return list(dict.fromkeys(queries))
+    places = [location_label(place) for place in (profile.included_locations or [])]
+    places = places or [profile.country or profile.location or "worldwide"]
+    combinations = [(role, place) for role in profile.target_roles for place in places]
+    if not combinations:
+        return []
+    start = profile.search_cursor % len(combinations)
+    rotated = combinations[start:] + combinations[:start]
+    return [f'"{role}" {place} job opening posted recently' for role, place in rotated[:6]]
 
 
 def _obvious_mismatch(profile: _ProfileSnapshot, candidate: _Candidate) -> bool:

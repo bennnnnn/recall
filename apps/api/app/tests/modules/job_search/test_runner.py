@@ -1,5 +1,4 @@
 from dataclasses import replace
-from typing import Any
 from unittest.mock import MagicMock
 from uuid import uuid4
 
@@ -7,7 +6,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.gateways.web_search_gateway import WebSearchHit
-from app.modules.job_search import runner
+from app.modules.job_search import providers
 from app.modules.job_search.posting import (
     _dedupe_accepted,
     _extract_company_logo_url,
@@ -33,14 +32,11 @@ from app.modules.job_search.records import (
     _Candidate,
     _ProfileSnapshot,
     _RankedJob,
-    _RankedPayload,
-)
-from app.modules.job_search.runner import (
-    _fetch_posting_pages,
-    _find_candidates,
-    _rank_candidates,
 )
 from app.modules.job_search.schemas import ResumeProfile
+from app.modules.job_search.verification import PostingBatch, PostingFacts
+from app.tests.modules.job_search.posting_fixtures import posting
+from app.tests.modules.job_search.posting_fixtures import profile as fixture_profile
 
 
 def _profile(**overrides: object) -> _ProfileSnapshot:
@@ -130,7 +126,8 @@ def test_search_queries_stay_sector_neutral_for_entry_level() -> None:
     assert queries
     for query in queries:
         assert "software" not in query.casefold()
-    assert any("entry level" in query for query in queries)
+    assert all("Registered Nurse" in query for query in queries)
+    assert len(queries) <= 6
 
 
 def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:
@@ -304,38 +301,40 @@ def test_ranking_messages_prefer_page_text_over_snippet() -> None:
 async def test_fetch_posting_pages_shortlists_and_attaches_text(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    settings = MagicMock(job_search_page_fetch_enabled=True, job_search_page_fetch_max=1)
-    weak = _candidate("Unrelated role", "nothing here")
-    strong = replace(_candidate("Backend Engineer", "Python FastAPI remote"), candidate_id=1)
+    from unittest.mock import AsyncMock
 
-    async def fake_extract(_settings: Any, urls: list[str], **_kwargs: object) -> dict[str, str]:
-        return {urls[0]: "full page text"}
+    from app.core.config import Settings
+    from app.modules.job_search.providers import TavilyExtraction
 
-    monkeypatch.setattr(runner.web_search_gateway, "extract_pages", fake_extract)
-    result = await _fetch_posting_pages(settings, _profile(), [weak, strong])
-    assert [item.candidate_id for item in result] == [1]
-    assert result[0].page_text == "full page text"
+    candidate, _ = posting()
+    response = MagicMock()
+    response.json.return_value = {
+        "results": [{"url": candidate.url, "raw_content": candidate.page_text}],
+        "usage": {"credits": 1},
+    }
+    client = MagicMock(post=AsyncMock(return_value=response))
+    monkeypatch.setattr(providers, "get_pooled_client", lambda timeout: client)
+    pages, usage = await TavilyExtraction(Settings()).extract([candidate.url])
+    assert pages[candidate.url] == candidate.page_text
+    assert usage == {"credits": 1}
+    assert client.post.await_args.kwargs["json"]["extract_depth"] == "basic"
 
 
 async def test_fetch_posting_pages_rejects_unverified_results(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    settings = MagicMock(job_search_page_fetch_enabled=True, job_search_page_fetch_max=1)
-    candidates = [_candidate("Backend Engineer", "Python"), _candidate("Other", "none")]
-
-    async def fake_extract(_settings: Any, _urls: list[str], **_kwargs: object) -> dict[str, str]:
-        return {}
-
-    monkeypatch.setattr(runner.web_search_gateway, "extract_pages", fake_extract)
-    with pytest.raises(PostingVerificationError):
-        await _fetch_posting_pages(settings, _profile(), candidates)
+    candidate, facts = posting()
+    candidate = replace(candidate, page_text=None)
+    assert await _rank_postings(monkeypatch, fixture_profile(), candidate, facts) == []
 
 
-async def test_fetch_posting_pages_disabled_flag_is_passthrough() -> None:
-    settings = MagicMock(job_search_page_fetch_enabled=False)
-    candidates = [_candidate("Backend Engineer", "Python")]
-    result = await _fetch_posting_pages(settings, _profile(), candidates)
-    assert result == candidates
+async def test_fetch_posting_pages_disabled_flag_is_passthrough(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Legacy flags cannot allow snippet-only matches through the premium verifier.
+    candidate, facts = posting()
+    candidate = replace(candidate, page_text=None, snippet=candidate.page_text or "")
+    assert await _rank_postings(monkeypatch, fixture_profile(), candidate, facts) == []
 
 
 def test_search_queries_use_resume_skills_and_alt_title() -> None:
@@ -345,14 +344,15 @@ def test_search_queries_use_resume_skills_and_alt_title() -> None:
     )
     profile = _profile(resume_profile=resume)
     queries = _search_queries(profile)
-    assert any("Kubernetes" in query for query in queries)
-    assert any('"Platform Engineer"' in query for query in queries)
+    # Explicit roles take precedence over résumé titles; retrieval remains broad.
+    assert all('"Backend Engineer"' in query for query in queries)
+    assert not any('"Platform Engineer"' in query for query in queries)
 
 
 def test_search_queries_skip_resume_title_already_targeted() -> None:
     resume = ResumeProfile(titles=["Backend Engineer"], skills=[])
     queries = _search_queries(_profile(resume_profile=resume))
-    assert sum('"Backend Engineer"' in query for query in queries) == 2
+    assert sum('"Backend Engineer"' in query for query in queries) == 1
 
 
 def test_ranking_messages_include_structured_resume_profile() -> None:
@@ -427,7 +427,7 @@ def test_dedupe_accepted_drops_cross_source_repeats() -> None:
         accepted("Backend Engineer", "Other Co", "https://indeed.example.com/3"),
     ]
     unique = _dedupe_accepted(batch)
-    assert [item.company for item in unique] == ["Acme Inc", "Other Co"]
+    assert [item.company for item in unique] == ["Acme Inc", "Acme", "Other Co"]
 
 
 @pytest.mark.parametrize(
@@ -471,29 +471,23 @@ def test_specific_posting_pages_pass(url: str, title: str) -> None:
 
 
 async def test_find_candidates_drops_listing_pages(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.modules.job_search.discovery import collect_candidates
+    from app.modules.job_search.providers import SearchResponse
+
     hits = [
         WebSearchHit(
-            title="Registered Nurse Jobs in Berlin",
-            url="https://de.indeed.com/jobs?q=registered+nurse&l=Berlin",
-            snippet="Browse 500+ openings",
+            title="Registered Nurse Jobs",
+            url="https://de.indeed.com/jobs?q=nurse",
+            snippet="Browse jobs",
         ),
         WebSearchHit(
-            title="Intensivpfleger (m/w/d) - Charité",
+            title="Intensivpfleger",
             url="https://www.charite.de/karriere/stellenangebote/12345",
-            snippet="Zum nächstmöglichen Zeitpunkt",
+            snippet="One opening",
         ),
     ]
-
-    async def fake_search(
-        _settings: object, _query: str, *, max_results: int
-    ) -> list[WebSearchHit]:
-        return hits
-
-    monkeypatch.setattr(runner.web_search_gateway, "search_web", fake_search)
-    candidates = await _find_candidates(MagicMock(), _profile())
-    assert [item.url for item in candidates] == [
-        "https://www.charite.de/karriere/stellenangebote/12345"
-    ]
+    candidates = collect_candidates([SearchResponse(hits)])
+    assert [item.url for item in candidates] == [hits[1].url]
 
 
 def test_title_and_company_strips_board_suffix() -> None:
@@ -524,102 +518,57 @@ def _rank_settings() -> MagicMock:
 
 
 async def test_rank_keeps_exact_grounded_posting_title(monkeypatch: pytest.MonkeyPatch) -> None:
-    candidate = _candidate("Intensivpfleger (m/w/d) Intensivstation - Charité", "snippet")
-
-    async def fake_structured(**kwargs: object) -> _RankedPayload:
-        return _RankedPayload(
-            jobs=[
-                _RankedJob(
-                    candidate_id=0,
-                    title="Intensivpfleger (m/w/d) Intensivstation",
-                    company="Charité",
-                )
-            ]
-        )
-
-    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
-    accepted = await _rank_candidates(_rank_settings(), _profile(), [candidate])
+    title = "Intensivpfleger (m/w/d) Intensivstation"
+    candidate, facts = posting(
+        title=title,
+        company="Charité",
+        country="Germany",
+        region="Berlin",
+        city="Berlin",
+        currency="EUR",
+        salary="EUR 50000-60000 per year",
+        lower=50000,
+        upper=60000,
+    )
+    accepted = await _rank_postings(
+        monkeypatch,
+        fixture_profile(target_roles=[title], included_locations=[{"country": "Germany"}]),
+        candidate,
+        facts,
+    )
     assert len(accepted) == 1
-    assert accepted[0].title == "Intensivpfleger (m/w/d) Intensivstation"
-    assert accepted[0].company == "Charité"
+    assert accepted[0].title == title and accepted[0].company == "Charité"
 
 
 async def test_rank_keeps_grounded_title_pay_and_employer_without_a_heading(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    candidate = replace(
-        _candidate("Backend Engineer jobs", "Python APIs"),
-        source="job-boards.greenhouse.io",
-        url="https://job-boards.greenhouse.io/acme/jobs/1",
-        canonical_url="https://job-boards.greenhouse.io/acme/jobs/1",
-        page_text=(
-            "Backend Engineer. Full time. "
-            "Salary $120,000-$140,000 per year. "
-            "Signing bonus of 10,000 USD."
-        ),
-    )
-
-    async def fake_structured(**kwargs: object) -> _RankedPayload:
-        return _RankedPayload(
-            jobs=[
-                _RankedJob(
-                    candidate_id=0,
-                    title="Backend Engineer",
-                    company="Acme",
-                    salary="$120,000-$140,000 per year",
-                )
-            ]
-        )
-
-    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
-    accepted = await _rank_candidates(_rank_settings(), _profile(), [candidate])
+    candidate, facts = posting(salary="USD 120000-140000 per year", lower=120000, upper=140000)
+    accepted = await _rank_postings(monkeypatch, fixture_profile(), candidate, facts)
     assert len(accepted) == 1
-    assert accepted[0].title == "Backend Engineer"
-    assert accepted[0].company == "Acme"
-    assert accepted[0].salary == "$120,000-$140,000 per year"
+    assert accepted[0].title == "Backend Engineer" and accepted[0].company == "Acme"
+    assert accepted[0].salary == "USD 120000-140000 per year"
 
 
 async def test_rank_rejects_composed_title_in_favor_of_page_headline(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    candidate = _candidate("Intensivpfleger (m/w/d) Intensivstation - Charité", "snippet")
-
-    async def fake_structured(**kwargs: object) -> _RankedPayload:
-        return _RankedPayload(
-            jobs=[_RankedJob(candidate_id=0, title="Registered Nurse (ICU) — Berlin")]
-        )
-
-    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
-    accepted = await _rank_candidates(_rank_settings(), _profile(), [candidate])
-    assert len(accepted) == 1
-    # The composed label is ungrounded — the real page headline wins.
-    assert accepted[0].title == "Intensivpfleger (m/w/d) Intensivstation"
-    assert accepted[0].company == "Charité"
+    candidate, facts = posting()
+    facts.title = "Registered Nurse (ICU) Berlin"
+    # An invented title is rejected rather than repaired using a search snippet.
+    assert await _rank_postings(monkeypatch, fixture_profile(), candidate, facts) == []
 
 
 async def test_rank_drops_listing_titled_results(monkeypatch: pytest.MonkeyPatch) -> None:
-    candidate = _candidate("Registered Nurse jobs in Berlin", "browse openings")
-
-    async def fake_structured(**kwargs: object) -> _RankedPayload:
-        return _RankedPayload(jobs=[_RankedJob(candidate_id=0)])
-
-    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
-    accepted = await _rank_candidates(_rank_settings(), _profile(), [candidate])
-    assert accepted == []
+    candidate, facts = posting()
+    facts.document_kind = "listing"
+    assert await _rank_postings(monkeypatch, fixture_profile(), candidate, facts) == []
 
 
 async def test_rank_rejects_board_name_as_company(monkeypatch: pytest.MonkeyPatch) -> None:
-    candidate = _candidate("Backend Engineer - Acme", "Python APIs")
-
-    async def fake_structured(**kwargs: object) -> _RankedPayload:
-        return _RankedPayload(
-            jobs=[_RankedJob(candidate_id=0, title="Backend Engineer", company="LinkedIn")]
-        )
-
-    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
-    accepted = await _rank_candidates(_rank_settings(), _profile(), [candidate])
-    assert len(accepted) == 1
-    assert accepted[0].company == "Acme"
+    candidate, facts = posting()
+    facts.company = "LinkedIn"
+    assert await _rank_postings(monkeypatch, fixture_profile(), candidate, facts) == []
 
 
 def test_ranking_prompt_requires_exact_posting_title() -> None:
@@ -634,47 +583,16 @@ def test_ranking_prompt_requires_exact_posting_title() -> None:
 async def test_rank_replaces_weak_reason_with_evidence_based_comparison(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    candidate = _candidate(
-        "Backend Engineer - Acme",
-        "Remote role requiring Python and SQL with 3+ years of experience.",
+    candidate, facts = posting(skills=["Python", "SQL"], years=3)
+    accepted = await _rank_postings(
+        monkeypatch, fixture_profile(skills=["Python"], years_experience=4), candidate, facts
     )
-
-    async def fake_structured(**kwargs: object) -> _RankedPayload:
-        return _RankedPayload(
-            jobs=[
-                _RankedJob(
-                    candidate_id=0,
-                    company="Acme",
-                    work_mode="remote",
-                    experience="3+ years",
-                    required_skills=["Python", "SQL"],
-                    match_reasons=[
-                        "The title and description align with your target role.",
-                    ],
-                )
-            ]
-        )
-
-    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
-    accepted = await _rank_candidates(
-        _rank_settings(),
-        _profile(
-            work_modes=["remote"],
-            resume_profile=ResumeProfile(
-                skills=["Python"],
-                years_experience=4,
-            ),
-        ),
-        [candidate],
-    )
-
     assert len(accepted) == 1
     assert any("Python" in reason for reason in accepted[0].match_reasons)
     assert any("4 years" in reason for reason in accepted[0].match_reasons)
     assert all(
         "title and description" not in reason.casefold() for reason in accepted[0].match_reasons
     )
-    assert accepted[0].gap is not None and "SQL" in accepted[0].gap
 
 
 def test_fallback_rejects_result_without_required_salary_evidence() -> None:
@@ -698,124 +616,65 @@ def test_entry_fallback_requires_entry_level_evidence() -> None:
 async def test_rank_falls_back_to_verified_page_when_structured_result_is_empty(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    request: dict[str, object] = {}
-    candidate = _Candidate(
-        candidate_id=0,
-        title="(Remote) - Entry-Level Account Manager (20 - 27 per hour)",
-        url="https://apply.workable.com/nogigiddy/j/123",
-        canonical_url="https://apply.workable.com/nogigiddy/j/123",
-        snippet="Remote entry-level account manager",
-        source="apply.workable.com",
-        page_text=(
-            "[![Image 1: NoGigiddy](https://cdn.example.com/nogigiddy-logo.png)](company) "
-            "# (Remote) - Entry-Level Account Manager (20 - 27 per hour) "
-            "**Remote** Remote Work Full time New York, New York, United States "
-            "[Overview](job) ## Description NoGigiddy is seeking an entry-level "
-            "account manager. **Skills and Qualifications:** "
-            "* Communication Skills: Strong written communication. "
-            "* Customer Service: Understand client needs. "
-            "* Remote Work: Enjoy flexibility. **Benefits:** * Health plan"
-        ),
+    from unittest.mock import AsyncMock
+
+    from app.core.config import Settings
+
+    candidate, _ = posting()
+    monkeypatch.setattr(
+        providers.litellm_gateway,
+        "complete_structured",
+        AsyncMock(return_value=PostingBatch(postings=[])),
+    )
+    # Empty model output is a provider failure, never an invented fallback match.
+    with pytest.raises(PostingVerificationError):
+        await providers.EvidenceRanker(Settings()).rank(fixture_profile(), [candidate], {})
+
+
+async def test_rank_rejects_salary_below_minimum(monkeypatch: pytest.MonkeyPatch) -> None:
+    candidate, facts = posting(salary="USD 80000-90000 per year", lower=80000, upper=90000)
+    assert (
+        await _rank_postings(monkeypatch, fixture_profile(salary_min=100000), candidate, facts)
+        == []
     )
 
-    async def empty_structured(**kwargs: object) -> _RankedPayload:
-        request.update(kwargs)
-        return _RankedPayload(jobs=[])
 
-    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", empty_structured)
-    accepted = await _rank_candidates(
-        _rank_settings(),
-        _profile(
-            target_roles=["Account Manager"],
-            experience_levels=["entry"],
-            work_modes=["remote"],
-            result_count=2,
-        ),
-        [candidate],
+async def test_rank_requires_positive_sponsorship_evidence(monkeypatch: pytest.MonkeyPatch) -> None:
+    candidate, facts = posting()
+    accepted = await _rank_postings(
+        monkeypatch, fixture_profile(requires_sponsorship=True), candidate, facts
     )
-
-    assert len(accepted) == 1
-    assert accepted[0].title == "Entry-Level Account Manager (20 - 27 per hour)"
-    assert accepted[0].company == "NoGigiddy"
-    assert accepted[0].company_logo_url == "https://cdn.example.com/nogigiddy-logo.png"
-    assert accepted[0].salary == "20 - 27 per hour"
-    assert accepted[0].location == "New York, New York, United States"
-    assert accepted[0].experience == "Entry level"
-    assert accepted[0].required_skills == ["Communication Skills", "Customer Service"]
-    assert accepted[0].candidate.url == candidate.url
-    assert request["model_alias"] == "gemini-flash"
-    assert request["timeout_seconds"] == 20.0
-
-
-async def test_rank_rejects_salary_below_minimum(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    candidate = _candidate("Backend Engineer - Acme", "Python remote $80,000-$90,000")
-
-    async def fake_structured(**kwargs: object) -> _RankedPayload:
-        return _RankedPayload(
-            jobs=[
-                _RankedJob(
-                    candidate_id=0,
-                    work_mode="remote",
-                    salary="$80,000-$90,000",
-                )
-            ]
-        )
-
-    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
-    accepted = await _rank_candidates(
-        _rank_settings(),
-        _profile(salary_min=100_000, work_modes=["remote"]),
-        [candidate],
-    )
-    assert accepted == []
-
-
-async def test_rank_requires_positive_sponsorship_evidence(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    candidate = _candidate("Backend Engineer - Acme", "Python remote role")
-
-    async def fake_structured(**kwargs: object) -> _RankedPayload:
-        return _RankedPayload(jobs=[_RankedJob(candidate_id=0, work_mode="remote")])
-
-    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
-    accepted = await _rank_candidates(
-        _rank_settings(),
-        _profile(requires_sponsorship=True, work_modes=["remote"]),
-        [candidate],
-    )
-    assert accepted == []
+    assert len(accepted) == 1 and accepted[0].match_kind == "possible"
+    assert accepted[0].gap and "sponsorship" in accepted[0].gap.lower()
 
 
 async def test_rank_requires_entry_level_evidence_for_entry_profile(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    candidate = _candidate(
-        "Technical Account Manager - Smile Digital Health",
-        "Remote customer success and technical enablement role",
+    candidate, facts = posting(title="Account Manager")
+    accepted = await _rank_postings(
+        monkeypatch,
+        fixture_profile(target_roles=["Account Manager"], experience_levels=["entry"]),
+        candidate,
+        facts,
     )
+    assert len(accepted) == 1 and accepted[0].match_kind == "possible"
+    assert accepted[0].gap and "seniority" in accepted[0].gap.lower()
 
-    async def fake_structured(**kwargs: object) -> _RankedPayload:
-        return _RankedPayload(
-            jobs=[
-                _RankedJob(
-                    candidate_id=0,
-                    company="Smile Digital Health",
-                    work_mode="remote",
-                )
-            ]
-        )
 
-    monkeypatch.setattr(runner.litellm_gateway, "complete_structured", fake_structured)
-    accepted = await _rank_candidates(
-        _rank_settings(),
-        _profile(
-            target_roles=["Account Manager"],
-            experience_levels=["entry"],
-            work_modes=["remote"],
-        ),
-        [candidate],
+async def _rank_postings(
+    monkeypatch: pytest.MonkeyPatch,
+    profile: _ProfileSnapshot,
+    candidate: _Candidate,
+    facts: PostingFacts,
+) -> list[_AcceptedJob]:
+    from unittest.mock import AsyncMock
+
+    from app.core.config import Settings
+
+    monkeypatch.setattr(
+        providers.litellm_gateway,
+        "complete_structured",
+        AsyncMock(return_value=PostingBatch(postings=[facts])),
     )
-    assert accepted == []
+    return await providers.EvidenceRanker(Settings()).rank(profile, [candidate], {})
