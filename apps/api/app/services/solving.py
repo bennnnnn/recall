@@ -120,6 +120,11 @@ class VerifiedPhysicsBlock(VerifiedSolveBlock):
     physics_formulas: tuple[str, ...] = ()
     physics_substitutions: tuple[str, ...] = ()
     symbolic_request: SymbolicPhysicsRequest | None = None
+    # Bind a selected exercise / visual follow-up to the current request.
+    # The direct formatter still re-extracts and checks this problem's intent.
+    physics_problem_text: str | None = None
+    physics_request_text: str | None = None
+    physics_presentation: Literal["exercise", "visual"] | None = None
 
 
 # Compatibility for solver modules and downstream integrations while callers

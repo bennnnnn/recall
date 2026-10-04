@@ -22,6 +22,7 @@ from app.modules.physics.solvers.common import (
     _params_in_si,
     quadratic_roots,
 )
+from app.modules.physics.solvers.linear_scene import linear_motion_scene
 from app.services.solving import SolveServiceError
 
 
@@ -349,6 +350,20 @@ def solve_suvat(intent: PhysicsIntent) -> PhysicsResult:
                     implied = (initial**2 + final**2) * duration / (2 * abs(final - initial))
             if duration < 0 or not math.isclose(implied, p["d"], rel_tol=1e-8, abs_tol=1e-8):
                 raise SolveServiceError("the motion does not cover the stated distance")
+    known = {**p, **({solved: value} if solved else {})}
+    initial, final, acceleration, duration = (known.get(name) for name in ("u", "v", "a", "t"))
+    if duration is None and initial is not None and final is not None and acceleration:
+        duration = (final - initial) / acceleration
+    if duration is not None and duration > 0:
+        if initial is None and final is not None and acceleration is not None:
+            initial = final - acceleration * duration
+        if acceleration is None and initial is not None and final is not None:
+            acceleration = (final - initial) / duration
+    scenes = (
+        linear_motion_scene(initial, acceleration, duration)
+        if initial is not None and acceleration is not None and duration is not None
+        else []
+    )
     graphs = _suvat_graph(op, p, {solved: value} if solved else {})
     return PhysicsResult(
         answer=rf"{workings} \approx {value:.2f} \text{{ {unit} }}",
@@ -356,4 +371,5 @@ def solve_suvat(intent: PhysicsIntent) -> PhysicsResult:
         substitutions=(substitution,),
         quantities=(QuantityResult("", value, unit),),
         graph_specs=graphs,
+        simulation_specs=scenes,
     )

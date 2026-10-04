@@ -160,7 +160,8 @@ export function SimulationBlock({ content }: Props) {
       return Math.min(sceneTop, trackTop);
     }, Number.POSITIVE_INFINITY);
     if (!Number.isFinite(bodyTop)) return null;
-    return Math.max(4, bodyTop - 24);
+    // Collision labels alternate above/below their bodies; reserve the upper label's space.
+    return Math.max(4, bodyTop - (spec.type === "collision" ? 48 : 24));
   }, [animated, height, spec, tracks, transform]);
 
   if (!spec || !transform) {
@@ -248,6 +249,7 @@ export function SimulationBlock({ content }: Props) {
               track={tracks[index]}
               radius={Math.max(body.radius * transform.scale, MIN_BODY_RADIUS)}
               label={body.label}
+              labelSide={spec.type === "collision" ? (index % 2 === 0 ? "above" : "below") : undefined}
               role={body.role}
               arrows={spec.arrows}
               centre={centre}
@@ -311,6 +313,7 @@ function BodyMarks({
   track,
   radius,
   label,
+  labelSide,
   role,
   arrows,
   centre,
@@ -324,6 +327,7 @@ function BodyMarks({
   track: ScreenPoint[];
   radius: number;
   label?: string;
+  labelSide?: "above" | "below";
   role: "primary" | "secondary";
   arrows: SimulationArrow[];
   centre: ScreenPoint | null;
@@ -340,13 +344,19 @@ function BodyMarks({
   const bodyY = useDerivedValue(() => at.value.py);
   const labelWidth = label && font ? font.measureText(label).width : 0;
   const labelX = useDerivedValue(() => {
+    if (labelSide) return clampCanvasLabelX(at.value.px - labelWidth / 2, labelWidth, canvasWidth);
     const left = at.value.px - radius - LABEL_OFFSET - labelWidth;
     const preferred = left >= 4 ? left : at.value.px + radius + LABEL_OFFSET;
     return clampCanvasLabelX(preferred, labelWidth, canvasWidth);
   });
-  const labelY = useDerivedValue(() =>
-    clampCanvasLabelBaseline(at.value.py + 4, LABEL_FONT_SIZE, canvasHeight),
-  );
+  const labelY = useDerivedValue(() => {
+    const baseline = labelSide === "above"
+      ? at.value.py - radius - LABEL_OFFSET
+      : labelSide === "below"
+        ? at.value.py + radius + LABEL_OFFSET + LABEL_FONT_SIZE
+        : at.value.py + 4;
+    return clampCanvasLabelBaseline(baseline, LABEL_FONT_SIZE, canvasHeight);
+  });
   const gravity = useDerivedValue(() =>
     arrowPath(at.value, 0, 1, ARROW_LENGTH, ARROW_HEAD),
   );

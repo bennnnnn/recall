@@ -295,6 +295,7 @@ async def enrich_final_content(
                 )
 
         from app.modules.math.sympy_executor import run_sympy
+        from app.modules.physics.extract import needs_physics
         from app.services.solving import VerifiedPhysicsBlock
 
         try:
@@ -305,12 +306,15 @@ async def enrich_final_content(
                 from app.modules.chemistry.fence import validate_chemistry_fences
 
                 assistant_text = validate_chemistry_fences(assistant_text, verified=verified)
-            elif isinstance(verified, VerifiedPhysicsBlock):
+            elif isinstance(verified, VerifiedPhysicsBlock) or (
+                verified is None
+                and (ctx.unverified_subject == "physics" or needs_physics(ctx.user_message_content))
+            ):
                 from app.modules.physics.fence import validate_physics_fences
 
                 assistant_text = validate_physics_fences(
                     assistant_text,
-                    verified=verified,
+                    verified=verified if isinstance(verified, VerifiedPhysicsBlock) else None,
                 )
             # Direct verified replies already carry ```answer. Running that
             # rewrite on the SymPy pool can queue behind an integral for no

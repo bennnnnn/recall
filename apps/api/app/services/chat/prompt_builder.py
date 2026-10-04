@@ -312,6 +312,7 @@ async def fetch_web_and_tools(
     image_math_extract: MathImageExtract | None = None,
     math_followup_problem: str | None = None,
     chemistry_followup_problem: str | None = None,
+    physics_followup_problem: str | None = None,
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
@@ -323,10 +324,15 @@ async def fetch_web_and_tools(
     ``solver_unverified`` is the adapter flag. Callers must not re-derive it from
     the wording of the prompt block. ``unverified_subject`` is set only when that flag is true.
     """
+    if has_image_attachment or image_math_extract is not None:
+        physics_followup_problem = None
     math_user_content = math_followup_problem or user_content
     subject_user_content = user_content
     subject: SubjectName | None
-    if math_followup_problem is not None or is_graph_followup(user_content):
+    if physics_followup_problem is not None:
+        subject = "physics"
+        subject_user_content = physics_followup_problem
+    elif math_followup_problem is not None or is_graph_followup(user_content):
         subject = "math"
     elif chemistry_followup_problem is not None:
         subject = "chemistry"
@@ -379,7 +385,11 @@ async def fetch_web_and_tools(
             has_image_attachment=has_image_attachment,
             image_math_extract=image_math_extract,
             prior_user_messages=prior_user_messages,
-            response_intent_text=user_content if math_followup_problem is not None else None,
+            response_intent_text=(
+                user_content
+                if math_followup_problem is not None or physics_followup_problem is not None
+                else None
+            ),
             detected_subject=subject,
             redis=redis,
         ),

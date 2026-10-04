@@ -9,6 +9,7 @@ from app.core.config import Settings
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.block import _build_physics_block
 from app.modules.physics.extract import extract_physics_intent, needs_physics
+from app.modules.physics.visual_requests import exercise_for_request
 from app.services.chat.prompt_constants.physics import PHYSICS_REPLY_POLICY
 from app.services.solving import VerifiedPhysicsBlock, wrap_verified_physics
 
@@ -58,6 +59,7 @@ async def build_physics_augmentation(
     settings: Settings,
     *,
     needs_subject: bool | None = None,
+    response_intent_text: str | None = None,
 ) -> tuple[str | None, VerifiedPhysicsBlock | None, bool]:
     """Build physics context without passing through math extraction or blocks.
 
@@ -93,10 +95,19 @@ async def build_physics_augmentation(
             logger.info("symbolic physics model declined", exc_info=True)
             return _unverified_physics_note(), None, True
         return f"{symbolic_verified.text}\n\n{PHYSICS_REPLY_POLICY}", symbolic_verified, False
-    intent = extract_physics_intent(user_content)
+    selected = exercise_for_request(user_content) if response_intent_text is None else None
+    problem = selected or user_content
+    intent = extract_physics_intent(problem)
     if intent is None:
         return _unverified_physics_note(), None, False
     verified = await _build_verified_physics_block_async(intent, settings)
     if verified is None:
         return _unverified_physics_note(), None, True
+    if selected is not None or response_intent_text is not None:
+        verified = replace(
+            verified,
+            physics_problem_text=problem,
+            physics_request_text=response_intent_text or user_content,
+            physics_presentation="visual" if response_intent_text is not None else "exercise",
+        )
     return f"{verified.text}\n\n{PHYSICS_REPLY_POLICY}", verified, False

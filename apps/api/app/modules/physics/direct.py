@@ -260,8 +260,27 @@ def maybe_direct_physics_reply(
         ):
             return present_assistant_markdown(verified.direct_reply)
         return None
+    problem = user_text
+    if verified.physics_presentation is not None:
+        from app.modules.physics.visual_requests import (
+            exercise_for_request,
+            has_native_visual,
+            is_visual_acceptance,
+            is_visual_request,
+        )
+
+        if verified.physics_request_text != user_text or not verified.physics_problem_text:
+            return None
+        problem = verified.physics_problem_text
+        if verified.physics_presentation == "exercise":
+            if exercise_for_request(user_text) != problem:
+                return None
+        elif not (is_visual_request(user_text) or is_visual_acceptance(user_text)):
+            return None
+        if not has_native_visual(verified):
+            return None
     fences = _solver_fences(verified)
-    if not can_direct_physics(verified, user_text, fences):
+    if not can_direct_physics(verified, problem, fences):
         return None
     working = format_direct_physics_working(verified)
     if working is None:
@@ -270,6 +289,10 @@ def maybe_direct_physics_reply(
     if not answer:
         return None
     parts = [working, f"```answer\n{answer}\n```"]
+    if verified.physics_presentation is not None:
+        parts.insert(0, f"**Problem**\n\n{problem}")
+        if verified.physics_presentation == "visual":
+            parts[1] = "**Diagram**"
     for fence in fences:
         fence_type = fence.get("type")
         if fence_type == "answer":
