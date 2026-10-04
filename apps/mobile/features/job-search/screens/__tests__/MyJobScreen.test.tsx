@@ -202,6 +202,7 @@ test("shows application pipeline lists and filters each stage", async () => {
     profile: profile(),
     matches: [
       match("new", "new"),
+      { ...match("legacy", "new"), match_kind: "possible" },
       match("applied", "applied"),
       match("interview", "interviewing"),
       match("offer", "offer"),
@@ -211,6 +212,8 @@ test("shows application pipeline lists and filters each stage", async () => {
   const screen = await render(<MyJobScreen />);
 
   expect(screen.getByText("Job new")).toBeTruthy();
+  expect(screen.getByText("Job legacy")).toBeTruthy();
+  expect(screen.queryByText("my_job.tab_possible")).toBeNull();
   expect(screen.getByText("my_job.pipeline")).toBeTruthy();
 
   await fireEvent.press(
@@ -266,7 +269,7 @@ test("keeps a bookmarked applied job in Saved and Applied", async () => {
   mockLoading = false;
   mockDashboard = {
     profile: profile(),
-    matches: [match("applied-saved", "applied", true)],
+    matches: [{ ...match("applied-saved", "applied", true), match_kind: "possible" }],
   };
   const screen = await render(<MyJobScreen />);
 

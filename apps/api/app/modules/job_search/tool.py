@@ -56,10 +56,7 @@ def _direct_reply(content: str, data: dict | None = None) -> ToolResult:
 
 
 def _match_line(match: JobMatch) -> str:
-    return (
-        f"- [{match.title} at {match.company}]({match.url}) "
-        f"· {match.match_kind or 'possible'}\n  <!-- job-match:{match.id} -->"
-    )
+    return f"- [{match.title} at {match.company}]({match.url})\n  <!-- job-match:{match.id} -->"
 
 
 def _profile_summary(profile: Any) -> str:
@@ -243,8 +240,8 @@ class JobSearchAdapter:
                     latest = dashboard.latest_run
                     outcome = (
                         f"Last outcome: {latest.state}; "
-                        f"{latest.new_match_count} new qualifying matches; "
-                        f"{latest.possible_count} possible matches."
+                        f"{latest.qualifying_count + latest.possible_count} matches found; "
+                        f"{latest.new_match_count} new verified matches."
                         if latest
                         else "No searches have run yet."
                     )
@@ -386,11 +383,6 @@ class JobSearchAdapter:
                     query = query.where(JobMatch.is_saved.is_(True))
                 elif filter_name in {"applied", "interviewing", "offer", "rejected"}:
                     query = query.where(JobMatch.status == filter_name)
-                elif filter_name in {"matches", "possible"}:
-                    query = query.where(
-                        JobMatch.match_kind
-                        == ("possible" if filter_name == "possible" else "qualifying")
-                    )
                 rows = list(
                     (
                         await session.scalars(

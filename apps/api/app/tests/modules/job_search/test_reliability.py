@@ -339,14 +339,18 @@ async def test_chat_status_reads_live_outcome_and_setup_defaults(
     run = await submit_run(db_session, user, settings, fake_redis)
     run.state = "completed"
     run.new_match_count = 3
+    run.qualifying_count = 3
     run.possible_count = 2
     run.partial = True
     await db_session.commit()
     with bind_job_search_context(user=user, redis=fake_redis, settings=settings):
         result = await JobSearchAdapter().invoke({"action": "get_profile"})
     assert (
-        "3 new" in result.content and "2 possible" in result.content and "partial" in result.content
+        "3 new" in result.content
+        and "5 matches found" in result.content
+        and "partial" in result.content
     )
+    assert "possible matches" not in result.content
     assert result.data and result.data["dashboard"]["latest_run"]["id"] == str(run.id)
     await service.delete_profile(db_session, user, settings)
     with bind_job_search_context(user=user, redis=fake_redis, settings=settings):
