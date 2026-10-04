@@ -63,7 +63,7 @@ _STRONG_CUE = re.compile(
     r"effus(?:ion|es?|ing)|graham'?s?\s+law|molar\s+solubility|"
     r"molecular\s+descriptor|logp|tpsa|periodic\s+table|atomic\s+(?:mass|number|weight)|"
     r"electronegativity|electron\s+configuration|valence\s+electrons?|"
-    r"empirical\s+formula|molecular\s+formula|titration|ksp|hess'?s?\s+law|vsepr|"
+    r"empirical\s+formula|molecular\s+formula|combustion|titration|ksp|hess'?s?\s+law|vsepr|"
     r"lewis\s+(?:structure|dot)|formal\s+charge|oxidation\s+(?:state|number)|"
     r"(?:boyle|charles|dalton|graham|henry)'?s?\s+law|clausius|functional\s+groups?|isomer\w*|"
     r"coordination\s+(?:complex|compound|number)|polyprotic|amphiprotic|diprotic|common[- ]ion|"

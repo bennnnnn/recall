@@ -75,6 +75,11 @@ AMOUNTS: tuple[Case, ...] = (
     q("How many atoms are in 2 mol of He?", 2 * AVOGADRO, "atoms"),
     q("How many grams are in 3.01 × 10^23 molecules of O2?", 3.01e23 / AVOGADRO * O2, "g"),
     q("How many grams of oxygen are in 10 g of H2O?", 10 * O / H2O, "g"),
+    says(
+        "Combustion of a 0.60052 g sample of a compound containing only C, H, and O "
+        "produced 0.88018 g of CO2 and 0.36030 g of H2O. What is the empirical formula?",
+        "CH2O",
+    ),
     q(
         "Chlorine has isotopes 35Cl (75.77%) and 37Cl (24.23%). Find its average atomic mass.",
         # The isotopes' masses, 34.969 and 36.966 u, not their mass numbers.
@@ -276,6 +281,11 @@ MUST_DECLINE: tuple[str, ...] = (
     "What is [A2-] in 1.0e-10 M diprotic H2A with Ka1 = 1e-4 and Ka2 = 1e-8?",
     "What is the pH of a 1e-10 M amphiprotic salt with pKa1 = 4.00 and pKa2 = 9.00?",
     "What is the concentration of H+ in a diprotic acid that also forms A2-? Ka2 = 1e-8",
+    # Nitrogen is not a C/H/O combustion, and these product masses outweigh the sample.
+    "Combustion of a 0.60052 g sample of a compound containing nitrogen produced "
+    "0.88018 g of CO2 and 0.36030 g of H2O. What is the empirical formula?",
+    "Combustion of a 0.20000 g sample of a compound containing only C, H, and O produced "
+    "0.88018 g of CO2 and 0.36030 g of H2O. What is the empirical formula?",
     # Charge balance over every species is not these two steps.
     "What are all the species concentrations for 0.10 M H2A with Ka1 = 1e-3 and Ka2 = 1e-8?",
     # No time unit for k.
@@ -311,4 +321,4 @@ NOT_CHEMISTRY: tuple[str, ...] = (
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 94
+COVERAGE_FLOOR = 95

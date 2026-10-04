@@ -146,6 +146,12 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "n = (percent / atomic mass) / smallest",
     ),
     (
+        "combustion_analysis",
+        "amounts",
+        "Combustion analysis",
+        "n(C) = m(CO2) / M(CO2); n(H) = 2 m(H2O) / M(H2O); m(O) = m(sample) − m(C) − m(H)",
+    ),
+    (
         "molecular_formula",
         "amounts",
         "Molecular formula from the empirical formula",

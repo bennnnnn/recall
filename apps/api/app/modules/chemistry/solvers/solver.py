@@ -47,6 +47,7 @@ from app.modules.chemistry.solvers.electrochemistry import (
     solve_galvanic_cell,
 )
 from app.modules.chemistry.solvers.empirical import (
+    solve_combustion,
     solve_empirical,
     solve_molecular,
 )
@@ -143,6 +144,7 @@ from app.services.solving import SolveServiceError
 
 CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "empirical_formula": solve_empirical,
+    "combustion_analysis": solve_combustion,
     "molecular_formula": solve_molecular,
     "mass_stoichiometry": solve_mass_stoichiometry,
     "solution_stoichiometry": solve_mass_stoichiometry,

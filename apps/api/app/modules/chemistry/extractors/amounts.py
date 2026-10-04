@@ -327,3 +327,43 @@ def _extract_average_atomic_mass(text: str) -> ChemistryIntent | None:
         species=abundances,
         params=masses,
     )
+
+
+_COMBUSTION = re.compile(r"\b(?:combustion|burned|burnt)\b", re.IGNORECASE)
+_EMPIRICAL_ASK = re.compile(r"\bempirical formula\b", re.IGNORECASE)
+_FOREIGN_ELEMENT = re.compile(
+    r"\b(?:nitrogen|sulfur|sulphur|phosphorus|chlorine|bromine|iodine|fluorine)\b",
+    re.IGNORECASE,
+)
+_CHO = re.compile(
+    r"carbon\s*,\s*hydrogen\s*,?\s*(?:and\s+)?oxygen|\bC\s*,\s*H\s*,?\s*(?:and\s+)?O\b",
+    re.IGNORECASE,
+)
+_HYDROCARBON = re.compile(r"\bonly\s+carbon\s+and\s+hydrogen\b", re.IGNORECASE)
+
+
+def _grams_of(text: str, name: str) -> float | None:
+    match = re.search(rf"({_N})\s*g(?:rams?)?\s+(?:of\s+)?(?:{name})\b", text, re.IGNORECASE)
+    return None if match is None else float(match.group(1))
+
+
+def _extract_combustion(text: str) -> ChemistryIntent | None:
+    """C/H/O combustion masses to an empirical formula. Another element is not this op."""
+    if _COMBUSTION.search(text) is None or _EMPIRICAL_ASK.search(text) is None:
+        return None
+    if _FOREIGN_ELEMENT.search(text) is not None:
+        return None
+    hydrocarbon = _HYDROCARBON.search(text) is not None and _CHO.search(text) is None
+    if not hydrocarbon and _CHO.search(text) is None:
+        return None
+    sample = _grams_of(text, "sample")
+    co2 = _grams_of(text, "CO2|carbon dioxide")
+    water = _grams_of(text, "H2O|water")
+    if sample is None or co2 is None or water is None:
+        return None
+    return ChemistryIntent(
+        kind="amounts",
+        chemistry_op="combustion_analysis",
+        target="CH" if hydrocarbon else None,
+        params={"sample_mass": sample, "co2_mass": co2, "h2o_mass": water},
+    )

@@ -152,4 +152,10 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "equilibrium_from_gibbs",
         "K = 10.00",
     ),
+    (
+        "Combustion of a 0.60052 g sample of a compound containing only C, H, and O "
+        "produced 0.88018 g of CO2 and 0.36030 g of H2O. What is the empirical formula?",
+        "combustion_analysis",
+        "CH2O",
+    ),
 )
