@@ -135,6 +135,46 @@ kWh"). A number written onto an element is an isotope's label, not a given ("car
 
 ## Coverage
 
+### Explicit symbolic models
+
+Requests beginning with `Physics:` have a separate, whole-request grammar in
+`modules/physics/symbolic/`. They run SymPy in the existing bounded worker, without
+passing through heuristic numeric extraction. A malformed or unsupported model declines
+as a whole. No Python code, attributes, imports, or model-authored expressions are executed.
+
+Supported operations and examples:
+
+| Operation | Example |
+|---|---|
+| Algebraic rearrangement | `Physics: solve F=m*a for a` |
+| Algebraic systems | `Physics: solve F=m*a; F=12; m=3 for F,m,a` |
+| Simplification | `Physics: simplify sin(theta)^2+cos(theta)^2` |
+| Time or spatial derivatives | `Physics: differentiate A*cos(omega*t) with respect to t` |
+| Antiderivatives | `Physics: integrate 2*t with respect to t` |
+| Definite integrals | `Physics: integrate k*x with respect to x from 0 to L` |
+| First/second-order ODEs | `Physics: ode x''+4*x=0 for x(t)` |
+| Cartesian gradient/Laplacian | `Physics: gradient x^2+y^2+z^2 in x,y,z` |
+| Cartesian divergence/curl | `Physics: curl [-y,x,0] in x,y,z` |
+| Vector dot/cross products | `Physics: cross [1,0,0]; [0,1,0]` |
+| Eigenvalues/eigenspaces | `Physics: eigenvectors [[2,0],[0,3]]` |
+
+Algebra returns explicit branches, checks substitution into every original equation,
+and retains denominator conditions even when an expression cancels. Systems have up to
+four equations/targets and polynomial degree at most four. General ODE solutions are
+checked by `checkodesol`; indefinite integrals are checked by differentiation and retain
+an integration constant. Eigenvectors are checked against the matrix. Matrices are square,
+of order two through four. Each expression is capped at 512 characters and 160 AST nodes;
+the whole request is capped at 2,000 characters. Output and solve runtime are also bounded.
+
+This verifies a **calculation on the stated model**, not the model's physical validity.
+Symbols have no inferred dimensions, sign, reality, or particle identity. Complex solutions
+remain explicit. Unit-bearing word problems continue to use the catalog/Pint pipeline.
+An unevaluated integral, unresolved derivative, unsupported request, or timed-out solve
+stays unverified. The symbolic path does not invent a scene from an arbitrary equation.
+
+The detailed coverage audit and outstanding advanced capabilities are recorded in
+[PHYSICS_REVIEW.md](./PHYSICS_REVIEW.md).
+
 The binder reads these laws, beside the extractors' own:
 
 | Area | Laws |

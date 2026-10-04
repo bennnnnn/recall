@@ -84,6 +84,10 @@ _CACHE_SIZE = 128
 @lru_cache(maxsize=_CACHE_SIZE)
 def needs_physics(text: str) -> bool:
     """True for a verified template or an unmistakable physics-only request."""
+    from app.modules.physics.symbolic.request import is_symbolic_physics_request
+
+    if is_symbolic_physics_request(text):
+        return True
     normalized = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_SUBJECT_TEXT)
     if not normalized:
         return False
