@@ -246,6 +246,20 @@ def maybe_direct_physics_reply(
     """Render a complete physics reply from solver-owned data only."""
     if verified is None or has_image_attachment:
         return None
+    if verified.symbolic_request is not None:
+        from app.modules.physics.symbolic.request import parse_symbolic_physics_request
+
+        if (
+            verified.allow_direct
+            and verified.direct_reply
+            and verified.direct_request_text == user_text
+            and verified.symbolic_request == parse_symbolic_physics_request(user_text)
+            and verified.direct_answer_binding == verified.display_answer
+            and verified.canonical_fence == {"type": "answer", "content": verified.display_answer}
+            and not verified.canonical_fences
+        ):
+            return present_assistant_markdown(verified.direct_reply)
+        return None
     fences = _solver_fences(verified)
     if not can_direct_physics(verified, user_text, fences):
         return None
