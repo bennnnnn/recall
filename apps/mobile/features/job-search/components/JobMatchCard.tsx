@@ -6,6 +6,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { CompanyLogo } from "@/features/job-search/components/CompanyLogo";
 import { JobFitBadge } from "@/features/job-search/components/JobFitBadge";
 import { JobMatchMetaChips } from "@/features/job-search/components/JobMatchMetaChips";
+import { JobMatchReasons } from "@/features/job-search/components/JobMatchReasons";
 import { StatusPill } from "@/ui/feedback/StatusPill";
 import type { JobMatch, JobMatchStatus } from "@/lib/api";
 import { canToggleApplied, hasApplied } from "@/features/job-search/model/stages";
@@ -127,9 +128,8 @@ export function JobMatchCard({
           {match.checked_at ? <Text style={s.freshness}>{t("my_job.checked_on", { date: new Date(match.checked_at).toLocaleDateString() })}</Text> : null}
         </View> : null}
         <JobMatchMetaChips match={match} />
-        {match.match_reasons[0] ? <Text style={s.summary} numberOfLines={2}>{match.match_reasons[0]}</Text> : null}
-        {match.match_kind !== "qualifying" && match.gap ? <Text style={s.company} numberOfLines={3}>{match.gap}</Text> : null}
       </Pressable>
+      <JobMatchReasons match={match} />
 
       <View style={s.divider} />
       <View style={s.actions}>
@@ -174,7 +174,6 @@ function makeStyles(C: Theme) {
     fitRow: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, alignItems: "center", justifyContent: "space-between" },
     freshness: { ...Type.meta, color: C.textSecondary },
     company: { ...Type.secondary, color: C.textSecondary, flexShrink: 1 },
-    summary: { ...Type.secondary, color: C.text },
     divider: {
       height: StyleSheet.hairlineWidth,
       backgroundColor: C.border,
