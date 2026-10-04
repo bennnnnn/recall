@@ -126,7 +126,7 @@ export function JobMatchCard({
           <JobFitBadge label={match.fit_label} outdated={match.outdated} />
           {match.checked_at ? <Text style={s.freshness}>{t("my_job.checked_on", { date: new Date(match.checked_at).toLocaleDateString() })}</Text> : null}
         </View>
-        <JobMatchMetaChips match={match} compact maxSkills={0} />
+        <JobMatchMetaChips match={match} />
         {match.match_reasons[0] ? <Text style={s.summary} numberOfLines={2}>{match.match_reasons[0]}</Text> : null}
         {match.match_kind !== "qualifying" && match.gap ? <Text style={s.company} numberOfLines={3}>{match.gap}</Text> : null}
       </Pressable>

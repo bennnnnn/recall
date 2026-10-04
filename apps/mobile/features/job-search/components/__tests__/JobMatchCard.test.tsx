@@ -35,16 +35,16 @@ const baseMatch: JobMatch = {
 };
 
 describe("JobMatchCard", () => {
-  it("shows an evidence label and concise posting facts", async () => {
-    const { getByLabelText, getByText, queryByLabelText } = await render(
+  it("shows an evidence label and all available posting details", async () => {
+    const { getByLabelText, getByText } = await render(
       <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
     );
     expect(getByText("my_job.fit_strong")).toBeTruthy();
     expect(getByLabelText("my_job.meta_location: Berlin, Germany")).toBeTruthy();
     expect(getByLabelText("my_job.meta_work_mode: my_job.work_remote")).toBeTruthy();
     expect(getByLabelText("my_job.meta_salary: $90,000 - $120,000")).toBeTruthy();
-    expect(queryByLabelText("my_job.meta_experience: 3+ years")).toBeNull();
-    expect(queryByLabelText("my_job.meta_skills: Python, FastAPI")).toBeNull();
+    expect(getByLabelText("my_job.meta_experience: 3+ years")).toBeTruthy();
+    expect(getByLabelText("my_job.meta_skills: Python, FastAPI")).toBeTruthy();
     expect(getByLabelText("my_job.meta_posted: 2d ago")).toBeTruthy();
   });
 
