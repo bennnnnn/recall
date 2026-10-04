@@ -74,7 +74,8 @@ _STRONG_CUE = re.compile(
     r"crystal\s+field|magnetic\s+moment|standard\s+deviation|standard\s+error|"
     r"relative\s+uncertainty|retention\s+factor|Michaelis[- ]Menten|IUPAC|"
     r"IR\s+(?:ranges|peak)|NMR\s+(?:ranges|peak|splitting)|molecular\s+ion|"
-    r"HBr\s+addition|bromine\s+addition|acid\s+hydration|hydroxide\s+substitution|"
+    r"HBr\s+addition|HCl\s+addition|HI\s+addition|bromine\s+addition|acid\s+hydration|"
+    r"catalytic\s+hydrogenation|hydroxide\s+substitution|"
     r"esterification|calibration\s+curve|gravimetric|standard\s+addition|"
     r"calorimeter\s+constant|gibbs\s+(?:free\s+)?energy|Δ[GHS]|delta\s*[GHS](?=\s*=))\b",
     re.IGNORECASE,

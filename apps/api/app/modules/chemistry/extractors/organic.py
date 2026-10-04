@@ -34,8 +34,11 @@ def _extract_organic(text: str) -> ChemistryIntent | None:
 
 _REACTIONS = {
     "hbr addition": "hbr",
+    "hcl addition": "hcl",
+    "hi addition": "hi",
     "bromine addition": "bromine",
     "acid hydration": "hydration",
+    "catalytic hydrogenation": "hydrogenation",
     "hydroxide substitution": "hydroxide",
     "esterification": "esterification",
 }

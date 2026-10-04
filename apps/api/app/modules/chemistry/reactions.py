@@ -18,6 +18,12 @@ def named_product(reaction: str, smiles: str, partner: str | None = None) -> str
         return _add_across_alkene(molecule, "Br", "Br")
     if reaction == "hbr":
         return _add_across_alkene(molecule, "Br", None)
+    if reaction == "hcl":
+        return _add_across_alkene(molecule, "Cl", None)
+    if reaction == "hi":
+        return _add_across_alkene(molecule, "I", None)
+    if reaction == "hydrogenation":
+        return _saturate_alkene(molecule)
     if reaction == "hydration":
         return _add_across_alkene(molecule, "O", None)
     if reaction == "hydroxide":
@@ -44,6 +50,18 @@ def _alkene_bond(molecule: Any) -> tuple[int, int] | None:
     if len(found) != 1:
         return None
     return found[0]
+
+
+def _saturate_alkene(molecule: Any) -> str | None:
+    """Catalytic hydrogenation: one C=C becomes a single bond. Two alkenes are not one product."""
+    from rdkit import Chem
+
+    bond = _alkene_bond(molecule)
+    if bond is None:
+        return None
+    edited = Chem.RWMol(molecule)
+    edited.GetBondBetweenAtoms(*bond).SetBondType(Chem.BondType.SINGLE)
+    return _canonical(edited)
 
 
 def _substituents(molecule: Any, index: int, other: int) -> int | None:

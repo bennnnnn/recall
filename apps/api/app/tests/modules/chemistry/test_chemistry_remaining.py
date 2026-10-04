@@ -195,6 +195,19 @@ def test_peroxide_hbr_addition_stays_unverified() -> None:
     assert extract_chemistry_intent("HBr addition with peroxide of SMILES CC=C") is None
 
 
+def test_hcl_and_hydrogenation_use_the_one_product_path() -> None:
+    chloride = extract_chemistry_intent("HCl addition to SMILES C=CC")
+    assert chloride is not None and chloride.target == "hcl"
+    assert solve_chemistry(chloride).answer == "product SMILES CC(C)Cl"
+    saturated = extract_chemistry_intent("catalytic hydrogenation of SMILES C=CC")
+    assert saturated is not None and saturated.target == "hydrogenation"
+    assert solve_chemistry(saturated).answer == "product SMILES CCC"
+    two = extract_chemistry_intent("HCl addition to SMILES CCC=CC")
+    assert two is not None and two.target == "hcl"
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(two)
+
+
 @pytest.mark.asyncio
 async def test_iupac_name_is_verified_only_from_pubchem() -> None:
     settings = Settings()

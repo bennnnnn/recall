@@ -873,6 +873,14 @@ def test_an_oversized_smiles_is_not_parsed() -> None:
         ("hbr", "C=CC", "CC(C)Br"),  # Markovnikov
         ("hbr", "CCC=CC", None),  # 2-pentene: two products, none preferred
         ("hbr", "C=COC", None),  # the ether oxygen, not alkyl count, directs the addition
+        ("hcl", "C=CC", "CC(C)Cl"),
+        ("hcl", "CC=CC", "CCC(C)Cl"),
+        ("hcl", "CCC=CC", None),
+        ("hi", "C=CC", "CC(C)I"),
+        ("hi", "CCC=CC", None),
+        ("hydrogenation", "C=CC", "CCC"),
+        ("hydrogenation", "CC=CC", "CCCC"),
+        ("hydrogenation", "C=CC=C", None),  # two alkenes are not one addition
         ("bromine", "CC=CC", "CC(Br)C(C)Br"),
         ("hydroxide", "CCl", "CO"),  # methyl
         ("hydroxide", "CCCl", "CCO"),
