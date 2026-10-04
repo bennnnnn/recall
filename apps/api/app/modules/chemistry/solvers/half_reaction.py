@@ -83,7 +83,7 @@ def _construct(left: ChemicalSpecies, right: ChemicalSpecies, medium: str) -> _B
     )
     if medium == "basic":
         _to_basic(reactants, products)
-    _cancel_water(reactants, products)
+    _cancel_water(reactants, products, left, right)
     return _Built(
         f"{_side(reactants, canonical_label(left))} -> {_side(products, canonical_label(right))}",
         element,
@@ -230,11 +230,28 @@ def _to_basic(reactants: dict[str, int], products: dict[str, int]) -> None:
         reactants["OH-"] = reactants.get("OH-", 0) + protons_right
 
 
-def _cancel_water(reactants: dict[str, int], products: dict[str, int]) -> None:
-    """Drop water that the pair and the oxygen balance both introduced."""
+def _cancel_water(
+    reactants: dict[str, int],
+    products: dict[str, int],
+    left: ChemicalSpecies,
+    right: ChemicalSpecies,
+) -> None:
+    """Drop water that the pair and the oxygen balance both introduced.
+
+    Cancelling the written water when the other species has no oxygen leaves a
+    different pair, such as H+ -> H2 in place of H2O -> H2.
+    """
     cancel = min(reactants.get("H2O", 0), products.get("H2O", 0))
     if cancel == 0:
         return
+    left_label = canonical_label(left)
+    right_label = canonical_label(right)
+    erases_left = left_label == "H2O" and reactants.get("H2O", 0) <= cancel
+    erases_right = right_label == "H2O" and products.get("H2O", 0) <= cancel
+    if (erases_left and right.composition.get("O", 0) == 0) or (
+        erases_right and left.composition.get("O", 0) == 0
+    ):
+        raise SolveServiceError("the written water cancels")
     reactants["H2O"] -= cancel
     products["H2O"] -= cancel
 
