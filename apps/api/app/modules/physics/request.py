@@ -264,6 +264,14 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
     from app.modules.physics.extractors.common import _detect_gravity, stated_gravity
 
     params = intent.physics_params or {}
+    if intent.kind == "suvat":
+        params = {**params, "distance_path": float("displacement" not in request.text.lower())}
+        intent = intent.model_copy(
+            update={
+                "physics_params": params,
+                "physics_units": {**(intent.physics_units or {}), "distance_path": ""},
+            }
+        )
     if any(value < 0 for key, value in params.items() if key in {"m", "m1", "m2"}):
         return None
     spec = formula_spec(intent.physics_op or "")

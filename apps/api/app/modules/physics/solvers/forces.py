@@ -172,7 +172,7 @@ def solve_force(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     if op == "atwood":
-        m1, m2 = p["m1"], p["m2"]
+        m1, m2 = sorted((p["m1"], p["m2"]), reverse=True)
         if m1 <= 0 or m2 <= 0:
             raise SolveServiceError("masses must be positive")
         g = gravity_of(p)

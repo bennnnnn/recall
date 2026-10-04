@@ -181,7 +181,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
         yi = h0 + v0 * math.sin(theta) * ti - 0.5 * g * ti**2
         if yi < 0:
             yi = 0.0
-        points.append([round(xi, 4), round(float(yi), 4)])
+        points.append([xi, float(yi)])
 
     flat = f"x*tan({math.degrees(theta):.1f} deg) - g*x^2/(2*v0^2*cos^2(theta))"
     expr = f"y(x) = {h0:g} + {flat}" if h0 > 0 else f"y(x) = {flat}"
@@ -190,7 +190,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
         expr=expr,
         variable="x",
         x_min=0.0,
-        x_max=points[-1][0] * 1.05,
+        x_max=max(points[-1][0] * 1.05, max(point[1] for point in points) * 0.05, 1e-12),
         points=points,
         title="Projectile Trajectory",
         x_label="Distance (m)",
@@ -209,7 +209,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
         title="Projectile",
         bodies=[SimulationBody(path=points, radius=max(span, peak) * 0.025 or 0.1)],
         x_min=0.0,
-        x_max=span * 1.05,
+        x_max=max(span * 1.05, peak * 0.25, 1e-12),
         y_min=0.0,
         # Headroom so the gravity arrow at the apex is not clipped by the top.
         y_max=max(peak * 1.25, span * 0.25, 1.0),

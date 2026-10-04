@@ -56,6 +56,28 @@ def _suvat_velocity(p: dict[str, float]) -> tuple[float, str, str, str]:
 
 def _suvat_distance(p: dict[str, float]) -> tuple[float, str, str, str]:
     u, v, a, t = p.get("u"), p.get("v"), p.get("a"), p.get("t")
+    if p.get("distance_path", 1.0):
+        initial, final = u, v
+        if initial is not None and a is not None and t is not None:
+            final = initial + a * t
+        elif final is not None and a is not None and t is not None:
+            initial = final - a * t
+        if initial is not None and final is not None and initial * final < 0:
+            acceleration = a if a is not None else (final - initial) / t if t else None
+            if acceleration is None or acceleration == 0:
+                raise SolveServiceError("reversal needs a nonzero acceleration")
+            distance = (initial * initial + final * final) / (2 * abs(acceleration))
+            formula = r"s = \int_0^t |u+a\tau|\,d\tau = \frac{u^2+v^2}{2|a|}"
+            substitution = (
+                rf"s = \frac{{{_latex_num(initial, square=True)} + "
+                rf"{_latex_num(final, square=True)}}}{{2\cdot {abs(acceleration):g}}}"
+            )
+            return (
+                distance,
+                formula + " = " + substitution.split(" = ", 1)[1],
+                formula,
+                substitution,
+            )
     if u is not None and a is not None and t is not None:
         plugged = (
             rf"{u:g} \cdot {t:g} + 0.5 \cdot {_latex_num(a)} \cdot {_latex_num(t, square=True)}"
@@ -92,7 +114,7 @@ def _suvat_distance(p: dict[str, float]) -> tuple[float, str, str, str]:
     # displacement and not the distance traveled.
     if v is not None and a is not None and t is not None:
         initial = v - a * t
-        if initial * v < 0:
+        if initial * v < 0 and p.get("distance_path", 1.0):
             raise SolveServiceError(
                 "the body reverses direction, so this is not the distance traveled"
             )
@@ -224,20 +246,29 @@ def _suvat_graph(op: str, p: dict[str, float], solved: dict[str, float]) -> list
     n_points = 60
     dt = t_end / (n_points - 1)
     if wants_distance:
-        points = [
-            [round(i * dt, 4), round(u * (i * dt) + 0.5 * a * (i * dt) ** 2, 4)]
-            for i in range(n_points)
-        ]
+        path_distance = bool(p.get("distance_path", 1.0))
+        stop = -u / a if a else -1.0
+
+        def position(time: float) -> float:
+            displacement = u * time + 0.5 * a * time**2
+            if path_distance and 0 < stop < time:
+                turning = u * stop + 0.5 * a * stop**2
+                return abs(turning) + abs(displacement - turning)
+            return abs(displacement) if path_distance else displacement
+
+        points = [[i * dt, position(i * dt)] for i in range(n_points)]
         spec = GraphBlockSpec(
             type="trajectory",
-            expr=f"s(t) = {u:g}*t + {0.5 * a:g}*t^2",
+            expr=f"s(t) = integral(abs({u:g}+{a:g}*t),t)"
+            if path_distance
+            else f"s(t) = {u:g}*t + {0.5 * a:g}*t^2",
             variable="t",
             x_min=0.0,
             x_max=t_end,
             points=points,
-            title="Distance vs. Time",
+            title="Distance vs. Time" if path_distance else "Displacement vs. Time",
             x_label="Time (s)",
-            y_label="Distance (m)",
+            y_label="Distance (m)" if path_distance else "Displacement (m)",
             trajectory_type="position_vs_time",
         )
     else:
@@ -265,15 +296,59 @@ def solve_suvat(intent: PhysicsIntent) -> PhysicsResult:
         raise SolveServiceError(f"unsupported suvat op: {op}")
     compute, unit = entry
 
+    if p.get("t", 0.0) < 0:
+        raise SolveServiceError("elapsed time cannot be negative")
+    if all(name in p for name in ("u", "v", "a")) and p["a"] and (p["v"] - p["u"]) / p["a"] < 0:
+        raise SolveServiceError("the stated velocities require a negative elapsed time")
+    if all(name in p for name in ("u", "v", "a", "t")) and not math.isclose(
+        p["v"],
+        p["u"] + p["a"] * p["t"],
+        rel_tol=1e-9,
+        abs_tol=1e-9,
+    ):
+        raise SolveServiceError("the stated motion is inconsistent")
+
     value, workings, formula, substitution = compute(p)
     if not math.isfinite(value):
         raise SolveServiceError("suvat solution is not finite")
     # A negative time or distance means the givens describe no real motion —
     # better refused than reported, since the arithmetic looks fine either way.
-    if op in ("suvat_time", "suvat_distance") and value < 0:
+    if op == "suvat_distance" and p.get("distance_path", 1.0) and value < 0:
+        formula = "s = |" + formula.split(" = ", 1)[1] + "|"
+        substitution = "s = |" + substitution.split(" = ", 1)[1] + "|"
+        workings = substitution
+        value = abs(value)
+    if (
+        op == "suvat_time" or (op == "suvat_distance" and p.get("distance_path", 1.0))
+    ) and value < 0:
         raise SolveServiceError(f"negative {op.removeprefix('suvat_')} from these givens")
 
-    solved = {"suvat_velocity": "v", "suvat_distance": "d", "suvat_time": "t"}.get(op)
+    solved = {
+        "suvat_velocity": "v",
+        "suvat_distance": "d",
+        "suvat_time": "t",
+        "suvat_acceleration": "a",
+    }.get(op)
+    if "d" in p:
+        known = {**p, **({solved: value} if solved else {})}
+        initial, final, acceleration, duration = (known.get(name) for name in ("u", "v", "a", "t"))
+        if duration is None and initial is not None and final is not None and acceleration:
+            duration = (final - initial) / acceleration
+        if (
+            duration is not None
+            and initial is not None
+            and final is None
+            and acceleration is not None
+        ):
+            final = initial + acceleration * duration
+        if initial is not None and final is not None and duration is not None:
+            implied = 0.5 * (initial + final) * duration
+            if p.get("distance_path", 1.0):
+                implied = abs(implied)
+                if initial * final < 0 and initial != final:
+                    implied = (initial**2 + final**2) * duration / (2 * abs(final - initial))
+            if duration < 0 or not math.isclose(implied, p["d"], rel_tol=1e-8, abs_tol=1e-8):
+                raise SolveServiceError("the motion does not cover the stated distance")
     graphs = _suvat_graph(op, p, {solved: value} if solved else {})
     return PhysicsResult(
         answer=rf"{workings} \approx {value:.2f} \text{{ {unit} }}",

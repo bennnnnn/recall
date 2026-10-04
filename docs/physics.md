@@ -89,6 +89,16 @@ flowchart LR
 5. **Solve** (`solver.py`, `solvers/`, one module per topic). Pure arithmetic in SI, through
    Pint (`_params_in_si`). Quadratics use the cancellation-free closed form; there is no SymPy on
    the request path.
+
+   Incline extraction retains equilibrium and kinetic motion direction. Static friction
+   is the force needed for equilibrium, bounded by `mu_s*N`; it is not automatically that
+   maximum. For an already sliding block, downhill-positive acceleration may be negative,
+   and uphill motion reverses the friction direction. Without the moving body's initial
+   speed the solver emits a force diagram rather than inventing a path from rest.
+
+   SUVAT retains distance versus displacement. A reversal's travelled distance sums both
+   portions of the path; a displacement remains signed. Its distance graph is cumulative
+   and cannot decrease. Inconsistent givens and a negative elapsed time decline.
 6. **Block** (`block.py`). The block refuses a result unless every asked dimension is among
    the results: a time is never the answer to "what is its speed". It converts results to
    the asked unit, then writes two spellings of the answer:
@@ -239,6 +249,10 @@ The binder reads these laws, beside the extractors' own:
   `6.6261 \times 10^{-34}`.
 - **Scene labels** are formatted from the true values. Re-rounding a label that a solver had
   already rounded put 59.0 N on the picture beside a 59.1 N answer.
+- **Scene coordinates** retain their floating-point precision instead of rounding to fixed
+  SI decimal places. Micrometre orbits keep their shape. Vertical launches receive padded
+  horizontal bounds, and static scene bounds include vector anchors and endpoints in all
+  quadrants. Height diagrams place the body above the ground by the stated height.
 
 ## Clients
 

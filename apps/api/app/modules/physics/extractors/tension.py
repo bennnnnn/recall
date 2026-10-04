@@ -13,6 +13,7 @@ from app.modules.physics.extractors.common import (
 from app.modules.physics.extractors.cues import (
     _has_cue,
 )
+from app.modules.physics.solvers.common import _to_si
 from app.services.text_match import has_equation
 
 _TENSION_CUE_RES: tuple[re.Pattern[str], ...] = (
@@ -87,7 +88,11 @@ def _extract_tension_intent(cleaned: str) -> PhysicsIntent | None:
         # The heavier mass descends, so ordering them here makes the sign of
         # the acceleration a property of the physics rather than of the
         # sentence. Its magnitude is what the question asks for either way.
-        heavy, light = sorted((masses[0], masses[1]), key=lambda pair: pair[0], reverse=True)
+        heavy, light = sorted(
+            (masses[0], masses[1]),
+            key=lambda pair: _to_si(pair[0], pair[1] or "kg"),
+            reverse=True,
+        )
         return PhysicsIntent(
             kind="force",
             physics_op="atwood",
