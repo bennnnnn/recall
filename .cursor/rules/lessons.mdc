@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`t_\textit{rel}`, `F_\mathbf{g}`, and `x^\{2\}` still showed a backslash, the command name, or an emoji in the script.** The one-character read after `_` or `^` only special-cased `\text` / `\mathrm` markers. A space, `\mathbf`, `\textit`, `\max`, or the private-use brace for `\{` was that one character. Skip spaces and take the whole command or `\{...\}` group as the script; mark `\textit` and `\operatorname*` the same way as `\text`.
+
 - **An LLM formula showed emoji inside `t_flight`, while the same subscript from SymPy did not.** SymPy writes `t_{\mathrm{flight}}`. The model writes `t_\text{flight}` with no braces. The native parser marks `\text` with private-use characters, and a bare `_` kept only the opening mark as the subscript, so iOS drew that mark and the closing mark as emoji around the word. A bare `^` or `_` before those marks is the whole upright script.
 
 - **"ΔH = -10 kcal/mol" was echoed as "-10 J/mol = -41.84 kJ/mol", a year of electrolysis as "1 s", and 700 mmHg as 0.921052762798 atm.** The Gibbs row named the unit its template converts from, but the binder converts others. The time table lacked years. And a converted value kept every digit of its float, which is right for 3600 s and wrong for a repeating decimal. Read the typed unit from the conversion factor, over a table of the units the readers accept, and when no unit fits, show only the value used. A conversion keeps its own digits only when they terminate (six or fewer); otherwise it keeps the typed figures.

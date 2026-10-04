@@ -65,6 +65,31 @@ describe("MathText", () => {
     });
   });
 
+  it("does not paint private-use marks or command names for other bare scripts", async () => {
+    const italic = await render(<MathText latex={String.raw`t_\textit{rel}`} />);
+    expect(italic.getByTestId("math-upright-run")).toHaveTextContent("rel");
+    expect(JSON.stringify(italic.toJSON())).not.toMatch(/[\uE000-\uE00F]/);
+    expect(italic.queryByText(/textit/)).toBeNull();
+
+    const bold = await render(<MathText latex={String.raw`F_\mathbf{g}`} />);
+    expect(bold.getByTestId("math-script")).toHaveTextContent("g");
+    expect(JSON.stringify(bold.toJSON())).not.toMatch(/[\uE000-\uE00F]/);
+    expect(bold.queryByText(/mathbf/)).toBeNull();
+
+    const escaped = await render(<MathText latex={String.raw`x^\{2\}`} />);
+    expect(escaped.getByTestId("math-script")).toHaveTextContent("2");
+    expect(JSON.stringify(escaped.toJSON())).not.toMatch(/[\uE000-\uE00F]/);
+
+    const spaced = await render(<MathText latex="x^ {2}" />);
+    expect(spaced.getByTestId("math-script")).toHaveTextContent("2");
+
+    const hat = await render(<MathText latex={String.raw`\hat\text{v}`} />);
+    expect(hat.getByTestId("math-accent")).toBeOnTheScreen();
+    expect(hat.getByTestId("math-upright-run")).toHaveTextContent("v");
+    expect(hat.queryByText(/hat/)).toBeNull();
+    expect(JSON.stringify(hat.toJSON())).not.toMatch(/[\uE000-\uE00F]/);
+  });
+
   it("keeps upright words in subscripts instead of leaking markers or italics", async () => {
     const rendered = await render(<MathText latex={String.raw`t_{\mathrm{flight}}`} />);
     expect(rendered.getByTestId("math-upright-run")).toHaveTextContent("flight");
