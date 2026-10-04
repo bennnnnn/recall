@@ -43,10 +43,15 @@ _AMPHIPROTIC = re.compile(r"\bamphiprotic\b|\bintermediate form\b", re.IGNORECAS
 _SPECIATION = re.compile(
     r"\b(?:speciation|charge[- ]balance|every species|all species)\b", re.IGNORECASE
 )
-_A2_ASK = re.compile(
+_A2_BODY = (
     r"\[A(?:\^2-|2-|²-|2" + "\u2212" + r")\]|(?<![A-Za-z])A(?:\^2-|²-|2" + "\u2212"
-    r"|2-)(?![A-Za-z0-9])|fully deprotonated",
-    re.IGNORECASE,
+    r"|2-)(?![A-Za-z0-9])|fully deprotonated"
+)
+# The ask has to name this concentration. A later pH, or "[A2-] = 1e-6" as a given, does not.
+_A2_ASK = re.compile(
+    r"(?:what|find|calculate|determine|concentration|molarity)\b"
+    r"(?:(?!\b(?:pH|pOH)\b).){0,80}(?:" + _A2_BODY + r")",
+    re.IGNORECASE | re.DOTALL,
 )
 _KA_STEP = {"1": "1", "2": "2", "₁": "1", "₂": "2"}
 
@@ -80,6 +85,16 @@ def _pka_pair(found: dict[str, float]) -> tuple[float, float] | None:
     return first, second
 
 
+def _asks_for_a2(text: str) -> bool:
+    if _SPECIATION.search(text):
+        return False
+    asked = _A2_ASK.search(text)
+    if asked is None:
+        return False
+    # "[A2-] = 1e-6" states the concentration. It does not ask for it.
+    return re.match(r"\s*=", text[asked.end() :]) is None
+
+
 def _extract_acid_solution(text: str) -> ChemistryIntent | None:
     if _AMPHIPROTIC.search(text):
         found = _step_constants(text)
@@ -91,7 +106,7 @@ def _extract_acid_solution(text: str) -> ChemistryIntent | None:
             if key in found and f"p{key}" not in found:
                 params[key] = found[key]
         return ChemistryIntent(kind="acid_base", chemistry_op="amphiprotic_ph", params=params)
-    if _A2_ASK.search(text) and _SPECIATION.search(text) is None:
+    if _asks_for_a2(text):
         ka2 = _step_constants(text).get("ka2")
         if ka2 is not None:
             return ChemistryIntent(
