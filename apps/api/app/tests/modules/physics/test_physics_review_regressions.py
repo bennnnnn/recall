@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.physics.block import build_verified_physics_block
+from app.modules.physics.direct import maybe_direct_physics_reply
 from app.modules.physics.extract import extract_physics_intent
 from app.modules.physics.solver import solve_physics
 
@@ -63,6 +64,37 @@ def test_impossible_static_equilibrium_declines() -> None:
     intent = extract_physics_intent(question)
     assert intent is not None
     assert build_verified_physics_block(intent, Settings(math_tools_enabled=True)) is None
+
+
+def test_initial_rest_allows_subsequent_kinetic_sliding() -> None:
+    solved = result(
+        "A 5 kg block is initially at rest, then released and slides down a 30 degree "
+        "incline with coefficient of kinetic friction 0.2. Find its acceleration."
+    )
+    assert solved.quantities[0].value == pytest.approx(9.81 * (0.5 - 0.2 * math.cos(math.pi / 6)))
+    assert (
+        solved.simulation_specs[0].bodies[0].path[0]
+        != solved.simulation_specs[0].bodies[0].path[-1]
+    )
+
+
+def test_distance_reply_does_not_call_displacement_an_equivalent_distance_law() -> None:
+    given = "A particle initially moves at 10 m/s and has constant acceleration -2 m/s^2 for 10 s. "
+    question = given + "Find the distance travelled."
+    intent = extract_physics_intent(question)
+    assert intent is not None
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    reply = maybe_direct_physics_reply(block, question)
+    assert reply is not None and r"\int_0^t" in reply
+    assert r"$s = ut + \tfrac{1}{2}at^2$" not in reply
+    question = given + "Find the displacement."
+    intent = extract_physics_intent(question)
+    assert intent is not None
+    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
+    assert block is not None
+    reply = maybe_direct_physics_reply(block, question)
+    assert reply is not None and r"$s = ut + \tfrac{1}{2}at^2$" in reply
 
 
 @pytest.mark.parametrize(

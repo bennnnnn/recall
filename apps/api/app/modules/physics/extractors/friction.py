@@ -99,6 +99,10 @@ _MIN_FORCE_ASK_RE = re.compile(
 )
 
 _REST = re.compile(r"\b(?:rests|resting|stationary|at rest|equilibrium)\b", re.IGNORECASE)
+_INITIAL_REST = re.compile(
+    r"\b(?:initially\s+(?:at\s+rest|stationary)|released\s+from\s+rest|starts?\s+from\s+rest)\b",
+    re.IGNORECASE,
+)
 _UPHILL = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\s+up\b", re.IGNORECASE)
 _MOVING = re.compile(r"\b(?:moves?|moving|slides?|sliding|travell?ing)\b", re.IGNORECASE)
 
@@ -209,7 +213,8 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"
     if op in {"friction_force", "incline_acceleration"}:
-        at_rest = _REST.search(cleaned) is not None
+        initially_at_rest = _INITIAL_REST.search(cleaned) is not None
+        at_rest = _REST.search(cleaned) is not None and not initially_at_rest
         moving = _MOVING.search(cleaned) is not None
         kinetic = "kinetic" in lower
         static = "static" in lower
@@ -227,6 +232,9 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
         if moving or kinetic:
             params["motion_sign"] = -1.0 if _UPHILL.search(cleaned) else 1.0
             units["motion_sign"] = ""
+        if initially_at_rest:
+            params["released_from_rest"] = 1.0
+            units["released_from_rest"] = ""
     return PhysicsIntent(
         kind="friction",
         physics_op=op,
