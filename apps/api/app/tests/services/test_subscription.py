@@ -172,8 +172,10 @@ async def test_handle_revenuecat_transfer_downgrades_old_and_syncs_new():
 
     assert ok is True
     resolve_mock.assert_awaited_once_with(settings, str(new_id))
-    update.assert_awaited_once_with(session, user, plan="pro")
-    apply_mock.assert_awaited_once_with(session, str(old_id), plan="free")
+    update.assert_not_awaited()
+    assert apply_mock.await_count == 2
+    apply_mock.assert_any_await(session, str(new_id), plan="pro")
+    apply_mock.assert_any_await(session, str(old_id), plan="free")
     assert resolve_mock.await_args_list[0].args[1] == str(new_id)
 
 

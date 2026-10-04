@@ -555,3 +555,31 @@ async def test_explicit_include_reverses_same_exclusion_without_erasing_other_ex
     assert profile.excluded_locations == []
     assert any(item.get("region") == "California" for item in profile.included_locations)
     assert any(item.get("region") == "District of Columbia" for item in profile.included_locations)
+
+
+async def test_transfer_target_downgrade_stays_paused_after_renewal(
+    account, db_session, fake_redis, monkeypatch
+):
+    from app.modules.billing import subscription
+
+    user, profile = account
+    monkeypatch.setattr(
+        subscription, "resolve_plan_from_revenuecat", AsyncMock(return_value="free")
+    )
+    assert await subscription.handle_revenuecat_transfer(
+        db_session, Settings(), new_app_user_id=str(user.id), transferred_from=[]
+    )
+    await db_session.refresh(user)
+    await db_session.refresh(profile)
+    assert user.plan == "free"
+    assert profile.status == "paused"
+    assert profile.suspension_reason == "pro_expired"
+    assert profile.revision == 2
+    await subscription.apply_plan_for_app_user_id(db_session, str(user.id), plan="pro")
+    await db_session.refresh(profile)
+    assert profile.status == "paused"
+    settings = Settings(job_search_premium_enabled=True)
+    with pytest.raises(service.JobSearchError, match="Resume"):
+        await submit_run(db_session, user, settings, fake_redis)
+    await service.set_search_status(db_session, user, settings, "active")
+    assert profile.status == "active" and profile.suspension_reason is None

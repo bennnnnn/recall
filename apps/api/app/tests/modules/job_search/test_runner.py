@@ -659,3 +659,38 @@ async def _rank_postings(
         AsyncMock(return_value=PostingBatch(postings=[facts])),
     )
     return await providers.EvidenceRanker(Settings()).rank(profile, [candidate], {})
+
+
+@pytest.mark.parametrize(
+    ("premium_enabled", "web_enabled"), [(False, True), (True, False), (False, False)]
+)
+async def test_analysis_flags_block_provider_calls_and_spending(
+    monkeypatch: pytest.MonkeyPatch, fake_redis, premium_enabled: bool, web_enabled: bool
+) -> None:
+    from unittest.mock import AsyncMock
+
+    from app.core.config import Settings
+    from app.modules.job_search import runner, spending
+    from app.modules.job_search.service import JobSearchError
+    from app.services import quota
+
+    load = AsyncMock()
+    extract = AsyncMock()
+    rank = AsyncMock()
+    spend = AsyncMock()
+    tokens = AsyncMock()
+    monkeypatch.setattr(runner, "_load_snapshot", load)
+    monkeypatch.setattr(providers.TavilyExtraction, "extract", extract)
+    monkeypatch.setattr(providers.EvidenceRanker, "rank", rank)
+    monkeypatch.setattr(quota, "record_global_spend", spend)
+    monkeypatch.setattr(spending, "record_tokens", tokens)
+    with pytest.raises(JobSearchError, match="unavailable") as error:
+        await runner.analyze_job_url(
+            Settings(job_search_premium_enabled=premium_enabled, web_search_enabled=web_enabled),
+            profile_id=uuid4(),
+            url="https://jobs.example.com/roles/123",
+            redis=fake_redis,
+        )
+    assert error.value.status_code == 503
+    for blocked in (load, extract, rank, spend, tokens):
+        blocked.assert_not_awaited()

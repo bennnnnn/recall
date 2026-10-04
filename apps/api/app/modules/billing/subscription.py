@@ -152,7 +152,7 @@ async def handle_revenuecat_transfer(
         logger.warning("RevenueCat TRANSFER user not found id=%s", cleaned_new)
         return False
     if user.plan != plan:
-        await users_repo.update(session, user, plan=plan)
+        await apply_plan_for_app_user_id(session, cleaned_new, plan=plan)
         logger.info("RevenueCat TRANSFER set plan=%s user=%s", plan, user_id)
 
     for old_id in transferred_from:
