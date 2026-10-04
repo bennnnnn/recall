@@ -33,7 +33,7 @@ export function SearchStatusHeader({ dashboard, paid, onAsk }: {
   const date = (value: string) => new Date(value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   return <View style={s.wrap}>
     <View style={s.line}>
-      <StatusPill label={t(`my_job.run_${state}`)} tone={running ? "accent" : profile.status === "paused" ? "neutral" : "success"} />
+      {state !== "active" ? <StatusPill label={t(`my_job.run_${state}`)} tone={running ? "accent" : profile.status === "paused" ? "neutral" : "success"} /> : null}
       <Text style={s.scope}>{scope}</Text>
     </View>
     <Text style={s.meta}>{t("my_job.last_checked", { date: profile.last_run_at ? date(profile.last_run_at) : t("my_job.not_checked") })}</Text>
