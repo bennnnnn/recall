@@ -48,10 +48,20 @@ describe("JobMatchCard", () => {
     expect(getByLabelText("my_job.meta_posted: 2d ago")).toBeTruthy();
   });
 
-  it("shows one concrete fit reason on the card", async () => {
-    const { getByText, queryByText } = await render(<JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />);
+  it("expands and collapses all fit reasons without opening the detail screen", async () => {
+    const onPress = jest.fn();
+    const { getByRole, getByText, queryByText } = await render(<JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} onPress={onPress} />);
+    const heading = () => getByRole("button", { name: "my_job.why_matches" });
+    expect(heading().props.accessibilityState.expanded).toBe(false);
+    expect(queryByText("Python matches your skills")).toBeNull();
+    await fireEvent.press(heading(), { stopPropagation: jest.fn() });
+    expect(heading().props.accessibilityState.expanded).toBe(true);
     expect(getByText("Python matches your skills")).toBeTruthy();
+    expect(getByText("Remote fits your preference")).toBeTruthy();
+    await fireEvent.press(heading(), { stopPropagation: jest.fn() });
+    expect(queryByText("Python matches your skills")).toBeNull();
     expect(queryByText("Remote fits your preference")).toBeNull();
+    expect(onPress).not.toHaveBeenCalled();
   });
 
   it("shows the hiring-company logo and has no dismiss control", async () => {
