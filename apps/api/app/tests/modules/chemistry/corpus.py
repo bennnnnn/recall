@@ -210,6 +210,14 @@ ACIDS_AND_BASES: tuple[Case, ...] = (
         math.sqrt(1.8e-10),
         "mol/L",
     ),
+    says(
+        "What is the pH of an amphiprotic solution with pKa1 = 4.00 and pKa2 = 9.00?",
+        "pH = 6.50",
+    ),
+    says(
+        "What is [A2-] for a diprotic acid with Ka2 = 1.0e-8?",
+        "[A2-] = 1.0 × 10^-8 mol/L",
+    ),
 )
 
 EQUILIBRIUM: tuple[Case, ...] = (
@@ -261,6 +269,11 @@ MUST_DECLINE: tuple[str, ...] = (
     "Balance MnO4- + Fe2+ -> Mn2+ + Fe3+ in acidic solution.",
     # The second proton of H2SO4 is only partly lost (Ka2 ≈ 0.012): pH 1.0 would be wrong.
     "What is the pH of a 0.05 M H2SO4 solution?",
+    # One constant is not an amphiprotic average, and Ka2 = 0.012 is not [A2-] = Ka2.
+    "What is the pH of an amphiprotic solution with pKa1 = 4.00?",
+    "What is [A2-] when Ka2 = 0.012?",
+    # Charge balance over every species is not these two steps.
+    "What are all the species concentrations for 0.10 M H2A with Ka1 = 1e-3 and Ka2 = 1e-8?",
     # No time unit for k.
     "Find first-order half-life when k=0.2",
     # 310 what: kelvin or Celsius?
@@ -294,4 +307,4 @@ NOT_CHEMISTRY: tuple[str, ...] = (
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 92
+COVERAGE_FLOOR = 94

@@ -136,6 +136,54 @@ def solve_buffer_addition(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+# [A2-] = Ka2 is the school step for a weak second dissociation, not for H2SO4 (Ka2 ≈ 0.012).
+_WEAK_SECOND_KA = 1e-3
+
+
+def solve_amphiprotic(intent: ChemistryIntent) -> ChemistryResult:
+    pka1 = require(intent, "pka1")
+    pka2 = require(intent, "pka2")
+    if pka2 <= pka1:
+        raise SolveServiceError("pKa2 must be greater than pKa1")
+    ph = (pka1 + pka2) / 2
+    ph_text = p_value(ph)
+    shown = []
+    for index in ("1", "2"):
+        ka = intent.params.get(f"ka{index}")
+        if ka is not None:
+            shown.append(
+                f"pKa{index} = −log10({inp(ka)}) = {p_value(intent.params[f'pka{index}'])}"
+            )
+    left = p_value(pka1) if "ka1" in intent.params else inp(pka1)
+    right = p_value(pka2) if "ka2" in intent.params else inp(pka2)
+    shown.append(f"pH = ({left} + {right}) / 2 = {ph_text}")
+    return verified(
+        "Verified amphiprotic pH",
+        tuple(shown[:-1]) or (f"pKa1 = {inp(pka1)}", f"pKa2 = {inp(pka2)}"),
+        "pH",
+        *stated("amphiprotic_ph"),
+        shown,
+        f"pH = {ph_text}",
+        ph_text,
+    )
+
+
+def solve_diprotic_a2(intent: ChemistryIntent) -> ChemistryResult:
+    ka2 = require(intent, "ka2", positive=True)
+    if ka2 >= _WEAK_SECOND_KA:
+        raise SolveServiceError("the second dissociation is not weak enough for [A2-] = Ka2")
+    amount = num(ka2)
+    return verified(
+        "Verified diprotic [A2-]",
+        (f"Ka2 = {inp(ka2)}",),
+        "[A2-]",
+        *stated("diprotic_a2"),
+        (f"[A2-] = {inp(ka2)}",),
+        f"[A2-] = {amount} mol/L",
+        amount,
+    )
+
+
 def solve_polyprotic(intent: ChemistryIntent) -> ChemistryResult:
     concentration = require(intent, "concentration", positive=True)
     ka1 = require(intent, "ka1", positive=True)

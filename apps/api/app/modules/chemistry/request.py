@@ -66,7 +66,7 @@ _STRONG_CUE = re.compile(
     r"empirical\s+formula|molecular\s+formula|titration|ksp|hess'?s?\s+law|vsepr|"
     r"lewis\s+(?:structure|dot)|formal\s+charge|oxidation\s+(?:state|number)|"
     r"(?:boyle|charles|dalton|graham|henry)'?s?\s+law|clausius|functional\s+groups?|isomer\w*|"
-    r"coordination\s+(?:complex|compound|number)|polyprotic|common[- ]ion|"
+    r"coordination\s+(?:complex|compound|number)|polyprotic|amphiprotic|diprotic|common[- ]ion|"
     r"bond\s+enthalpy|formation\s+enthalpy|van\s*'?t\s*hoff|weak\s+(?:acid|base)|strong\s+(?:acid|base)|"
     r"boiling[- ]point\s+elevation|freezing[- ]point\s+depression|osmotic\s+pressure|raoult|"
     r"total\s+vapor\s+pressure|"

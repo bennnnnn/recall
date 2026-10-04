@@ -56,6 +56,16 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "MnO4- + 8 H+ + 5 e- -> Mn2+ + 4 H2O",
     ),
     (
+        "What is the pH of an amphiprotic solution with pKa1 = 4.00 and pKa2 = 9.00?",
+        "amphiprotic_ph",
+        "pH = 6.50",
+    ),
+    (
+        "What is [A2-] for a diprotic acid with Ka2 = 1.0e-8?",
+        "diprotic_a2",
+        "[A2-] = 1.0 × 10^-8 mol/L",
+    ),
+    (
         "What is the atom economy of CH3COOCH3 in CH3COOH + CH3OH -> CH3COOCH3 + H2O?",
         "atom_economy",
         "Atom economy of CH3COOCH3 = 80.44%",
