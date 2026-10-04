@@ -70,6 +70,29 @@ async def build_physics_augmentation(
     detected = needs_physics(user_content) if needs_subject is None else needs_subject
     if not detected:
         return None, None, False
+    from app.modules.physics.symbolic.request import (
+        is_symbolic_physics_request,
+        parse_symbolic_physics_request,
+    )
+
+    if is_symbolic_physics_request(user_content):
+        request = parse_symbolic_physics_request(user_content)
+        if request is None:
+            return _unverified_physics_note(), None, False
+        from app.modules.physics.symbolic.solver import build_symbolic_physics_block
+        from app.services.sympy_executor import run_sympy
+
+        try:
+            symbolic_verified = await run_sympy(
+                build_symbolic_physics_block,
+                request,
+                user_content,
+                timeout=settings.math_solve_timeout_seconds,
+            )
+        except Exception:
+            logger.info("symbolic physics model declined", exc_info=True)
+            return _unverified_physics_note(), None, True
+        return f"{symbolic_verified.text}\n\n{PHYSICS_REPLY_POLICY}", symbolic_verified, False
     intent = extract_physics_intent(user_content)
     if intent is None:
         return _unverified_physics_note(), None, False
