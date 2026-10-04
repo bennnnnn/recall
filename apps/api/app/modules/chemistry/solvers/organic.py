@@ -86,6 +86,18 @@ _REACTIONS = {
         "HBr addition to the C=C (Markovnikov)",
         "H goes to the carbon with more hydrogens, Br to the more substituted carbon",
     ),
+    "hcl": (
+        "HCl addition to the C=C (Markovnikov)",
+        "H goes to the carbon with more hydrogens, Cl to the more substituted carbon",
+    ),
+    "hi": (
+        "HI addition to the C=C (Markovnikov)",
+        "H goes to the carbon with more hydrogens, I to the more substituted carbon",
+    ),
+    "hydrogenation": (
+        "catalytic hydrogenation of the C=C",
+        "H adds to both carbons of the double bond",
+    ),
     "hydration": (
         "acid-catalysed hydration of the C=C (Markovnikov)",
         "H goes to the carbon with more hydrogens, OH to the more substituted carbon",
