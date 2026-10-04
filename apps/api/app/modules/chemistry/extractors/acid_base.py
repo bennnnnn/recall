@@ -98,10 +98,10 @@ def _asks_for_a2(text: str) -> bool:
 def _extract_acid_solution(text: str) -> ChemistryIntent | None:
     if _AMPHIPROTIC.search(text):
         found = _step_constants(text)
-        pair = _pka_pair(found)
-        if pair is None or re.search(r"\bpH\b", text) is None:
+        pka_values = _pka_pair(found)
+        if pka_values is None or re.search(r"\bpH\b", text) is None:
             return None
-        params = {"pka1": pair[0], "pka2": pair[1]}
+        params = {"pka1": pka_values[0], "pka2": pka_values[1]}
         for key in ("ka1", "ka2"):
             if key in found and f"p{key}" not in found:
                 params[key] = found[key]
