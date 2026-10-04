@@ -70,6 +70,7 @@ def _atwood_scene(m1: float, m2: float, accel: float, tension: float) -> list[Si
     return [
         SimulationBlockSpec(
             type="free_body",
+            duration_s=duration if accel > 0 else None,
             title="Atwood Machine",
             bodies=[
                 SimulationBody(

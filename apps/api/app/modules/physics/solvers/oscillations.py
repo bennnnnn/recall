@@ -7,7 +7,7 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.math import GraphBlockSpec
-from app.models.schemas.physics import PhysicsIntent
+from app.models.schemas.physics import PhysicsIntent, SimulationBlockSpec, SimulationBody
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
@@ -19,7 +19,7 @@ from app.services.solving import SolveServiceError
 
 
 def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSpec:
-    """One period-and-a-bit of x(t) = A cos(2πt/T).
+    """Two periods of x(t) = A cos(2πt/T), starting at maximum displacement.
 
     The oscillation is the thing worth seeing, so hand P3's player a curve.
     Amplitude only scales the y-axis — the shape and the period are what the
@@ -29,10 +29,9 @@ def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSp
     n_points = 100
     span = 2 * t_period
     dt = span / (n_points - 1)
-    a_plot = abs(amplitude) if amplitude else 1.0
+    a_plot = abs(amplitude) if amplitude is not None else 1.0
     points = [
-        [round(i * dt, 4), round(a_plot * math.cos(2 * math.pi * (i * dt) / t_period), 4)]
-        for i in range(n_points)
+        [i * dt, a_plot * math.cos(2 * math.pi * (i * dt) / t_period)] for i in range(n_points)
     ]
     return GraphBlockSpec(
         type="trajectory",
@@ -43,9 +42,32 @@ def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSp
         points=points,
         title="Displacement vs. Time",
         x_label="Time (s)",
-        y_label="Displacement (m)" if amplitude else "Displacement (normalised)",
+        y_label="Displacement (m)" if amplitude is not None else "Displacement (normalised)",
         trajectory_type="position_vs_time",
     )
+
+
+def _oscillation_scene(curve: GraphBlockSpec, amplitude: float | None) -> list[SimulationBlockSpec]:
+    """Render a supplied amplitude; an unspecified amplitude stays a normalised plot."""
+    if amplitude is None or amplitude <= 0 or curve.points is None:
+        return []
+    path = [[displacement, 0.0] for _, displacement in curve.points]
+    return [
+        SimulationBlockSpec(
+            type="oscillation",
+            title="Simple Harmonic Motion (starts at A)",
+            duration_s=curve.x_max,
+            bodies=[SimulationBody(path=path, radius=amplitude * 0.08)],
+            x_min=-1.25 * amplitude,
+            x_max=1.25 * amplitude,
+            y_min=-0.3 * amplitude,
+            y_max=0.3 * amplitude,
+            # Segment tangents are not exact derivatives at turning points.
+            # Omit this arrow until a physical velocity channel is supported.
+            arrows=[],
+            centre=[0.0, 0.0],
+        )
+    ]
 
 
 def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
@@ -81,6 +103,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         if t_period <= 0:
             raise SolveServiceError("period must be positive")
         freq = 1 / t_period
+        curve = _oscillation_curve(t_period, p.get("x"))
         return PhysicsResult(
             answer=(
                 rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
@@ -89,7 +112,8 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(r"f = \frac{1}{T}",),
             substitutions=(rf"f = \frac{{1}}{{{t_period:g}}}",),
             quantities=(QuantityResult("", freq, "Hz"),),
-            graph_specs=[_oscillation_curve(t_period, p.get("x"))],
+            graph_specs=[curve],
+            simulation_specs=_oscillation_scene(curve, p.get("x")),
         )
 
     if op == "shm_max_speed":
@@ -98,6 +122,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         if amplitude <= 0 or omega <= 0:
             raise SolveServiceError("amplitude and angular frequency must be positive")
         v_max = amplitude * omega
+        curve = _oscillation_curve(2 * math.pi / omega, amplitude)
         return PhysicsResult(
             answer=(
                 rf"v_{{max}} = A\omega = {amplitude:g} \cdot {omega:g} "
@@ -106,7 +131,8 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(r"v_{max} = A\omega",),
             substitutions=(rf"v_{{max}} = {amplitude:g} \cdot {omega:g}",),
             quantities=(QuantityResult("", v_max, "m/s"),),
-            graph_specs=[_oscillation_curve(2 * math.pi / omega, amplitude)],
+            graph_specs=[curve],
+            simulation_specs=_oscillation_scene(curve, amplitude),
         )
 
     k = p["k"]
@@ -153,6 +179,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(rf"T = 2\pi\sqrt{{\frac{{{m:g}}}{{{k:g}}}}}",),
             quantities=(QuantityResult("", t_period, "s"),),
             graph_specs=[spec],
+            simulation_specs=_oscillation_scene(spec, p.get("x")),
         )
 
     raise SolveServiceError(f"unsupported spring op: {op}")

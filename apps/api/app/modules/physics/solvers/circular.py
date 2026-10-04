@@ -14,7 +14,7 @@ from app.modules.physics.solvers.common import (
 from app.services.solving import SolveServiceError
 
 
-def _orbit_scene(r: float) -> SimulationBlockSpec:
+def _orbit_scene(r: float, speed: float) -> SimulationBlockSpec:
     """One lap, sampled at a constant angular step.
 
     Every circular answer is a number about something going round, and going
@@ -24,23 +24,27 @@ def _orbit_scene(r: float) -> SimulationBlockSpec:
     angular step is a constant speed, which is what uniform circular motion is.
     """
     n_points = 96
+    direction = -1 if speed < 0 else 1
     path = [
         [
             r * math.cos(2 * math.pi * i / (n_points - 1)),
-            r * math.sin(2 * math.pi * i / (n_points - 1)),
+            direction * r * math.sin(2 * math.pi * i / (n_points - 1)),
         ]
         for i in range(n_points)
     ]
+    if speed == 0:
+        path = [[r, 0.0]] * n_points
     margin = r * 1.35
     return SimulationBlockSpec(
         type="orbit",
         title="Circular Motion",
+        duration_s=2 * math.pi * r / abs(speed) if speed else None,
         bodies=[SimulationBody(path=path, radius=r * 0.08)],
         x_min=-margin,
         x_max=margin,
         y_min=-margin,
         y_max=margin,
-        arrows=["velocity", "centripetal"],
+        arrows=["velocity", "centripetal"] if speed else [],
         centre=[0.0, 0.0],
     )
 
@@ -144,11 +148,11 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
         )
     r = p["r"]
     omega = p.get("omega")
-    v = p.get("v", abs(omega) * r if omega is not None else 0.0)
+    v = p.get("v", omega * r if omega is not None else 0.0)
     if r <= 0:
         raise SolveServiceError("radius must be positive")
 
-    scene = [_orbit_scene(r)]
+    scene = [_orbit_scene(r, v)]
 
     if op == "orbital_period":
         if v == 0:

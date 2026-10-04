@@ -206,6 +206,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
     span = points[-1][0]
     scene = SimulationBlockSpec(
         type="projectile_motion",
+        duration_s=t_flight if t_flight > 0 else None,
         title="Projectile",
         bodies=[SimulationBody(path=points, radius=max(span, peak) * 0.025 or 0.1)],
         x_min=0.0,

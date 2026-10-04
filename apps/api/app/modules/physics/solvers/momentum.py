@@ -196,6 +196,7 @@ def _collision_scene(
     half_height = max((hi - lo) * 0.18, gap * 1.2)
     return SimulationBlockSpec(
         type="collision",
+        duration_s=2 * half if fastest > 0 else None,
         title="Collision",
         bodies=[
             SimulationBody(

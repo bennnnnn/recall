@@ -1,6 +1,5 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
 /** Native Skia renderer for verified physics simulation scenes. */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
@@ -14,11 +13,7 @@ import {
   type SkFont,
 } from "@shopify/react-native-skia";
 import {
-  cancelAnimation,
-  runOnJS,
   useDerivedValue,
-  useSharedValue,
-  withTiming,
   type SharedValue,
 } from "react-native-reanimated";
 
@@ -31,6 +26,8 @@ import {
   projectPath,
   simulationTransform,
   simulationViewportHeight,
+  simulationHasMotion,
+  simulationPlayback,
   tangentAt,
   worldToScreen,
   type SimulationArrow,
@@ -39,10 +36,7 @@ import {
   type SimulationVector,
   type ScreenPoint,
 } from "@/lib/physics/simulation";
-import {
-  playbackStart,
-  remainingPlaybackDuration,
-} from "@/lib/animationPlayback";
+import { useSimulationPlayback } from "./simulation/useSimulationPlayback";
 import { Icon } from "@/ui/icons/Icon";
 import { trajectoryPointAt } from "@/lib/math/trajectory";
 import { Motion, useReduceMotion } from "@/lib/motion";
@@ -121,10 +115,13 @@ export function SimulationBlock({ content }: Props) {
   const { t } = useTranslation();
   const { width: screenWidth } = useWindowDimensions();
   const reduceMotion = useReduceMotion();
-  const progress = useSharedValue(0);
-  const [isPlaying, setIsPlaying] = useState(false);
   const font = useFont(require("../../assets/fonts/SpaceMono-Regular.ttf"), LABEL_FONT_SIZE);
   const spec = useMemo(() => parseSimulationSpec(content), [content]);
+  const animated = useMemo(() => simulationHasMotion(spec), [spec]);
+  const playback = useMemo(() => simulationPlayback(spec, Motion.duration.simulation), [spec]);
+  const { progress, isPlaying, play, pause } = useSimulationPlayback(
+    content, animated, reduceMotion, playback.durationMs,
+  );
   const width = Math.min(screenWidth - 48, 360);
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const height = useMemo(
@@ -149,15 +146,6 @@ export function SimulationBlock({ content }: Props) {
     [spec, transform],
   );
   const trackPaths = useMemo(() => tracks.map(pointsPath), [tracks]);
-  const animated = useMemo(
-    () =>
-      spec?.bodies.some((body) =>
-        body.path.some(
-          (point) => point[0] !== body.path[0][0] || point[1] !== body.path[0][1],
-        ),
-      ) ?? false,
-    [spec],
-  );
   const compactTitleTop = useMemo(() => {
     if (!spec || !transform || !animated || height >= SIMULATION_HEIGHT) return null;
     const bodyTop = tracks.reduce((sceneTop, track, index) => {
@@ -174,34 +162,6 @@ export function SimulationBlock({ content }: Props) {
     if (!Number.isFinite(bodyTop)) return null;
     return Math.max(4, bodyTop - 24);
   }, [animated, height, spec, tracks, transform]);
-
-  const markStopped = useCallback(() => setIsPlaying(false), []);
-  const play = useCallback(() => {
-    cancelAnimation(progress);
-    const start = playbackStart(progress.value);
-    progress.value = start;
-    setIsPlaying(true);
-    progress.value = withTiming(
-      1,
-      {
-        duration: remainingPlaybackDuration(Motion.duration.simulation, start),
-        easing: Motion.easing.linear,
-      },
-      (finished) => {
-        if (finished) runOnJS(markStopped)();
-      },
-    );
-  }, [markStopped, progress]);
-  const pause = useCallback(() => {
-    cancelAnimation(progress);
-    setIsPlaying(false);
-  }, [progress]);
-
-  useEffect(() => {
-    if (!animated || reduceMotion) return;
-    play();
-    return () => cancelAnimation(progress);
-  }, [animated, play, progress, reduceMotion]);
 
   if (!spec || !transform) {
     return (
@@ -317,6 +277,11 @@ export function SimulationBlock({ content }: Props) {
           reduceMotion={reduceMotion}
         />
       </View>
+      {!reduceMotion && animated && spec.durationS !== undefined && playback.rate !== undefined ? (
+        <Text testID="simulation-timing" style={styles.timing}>
+          {`${Number(spec.durationS.toPrecision(3))} s · ${Number(playback.rate.toPrecision(3))}×`}
+        </Text>
+      ) : null}
       {!reduceMotion && animated ? (
         <Pressable
           testID="simulation-control"
@@ -591,6 +556,11 @@ function makeStyles(theme: Theme) {
     },
     fallbackText: {
       fontSize: 13,
+      color: theme.textSecondary,
+    },
+    timing: {
+      marginTop: Space.xs,
+      fontSize: 11,
       color: theme.textSecondary,
     },
     control: {

@@ -24,6 +24,7 @@ export type SimulationKind =
   | "orbit"
   | "collision"
   | "incline"
+  | "oscillation"
   | "lever"
   | "free_body"
   | "vector_sum";
@@ -62,6 +63,9 @@ export type SimulationBody = {
 export type SimulationSpec = {
   type: SimulationKind;
   title?: string;
+  /** Physical span of the uniformly sampled path, in seconds. */
+  durationS?: number;
+  playbackRate?: number;
   bodies: SimulationBody[];
   xMin: number;
   xMax: number;
@@ -92,6 +96,7 @@ const SCENE_KINDS: readonly SimulationKind[] = [
   "orbit",
   "collision",
   "incline",
+  "oscillation",
   "lever",
   "free_body",
   "vector_sum",
@@ -175,6 +180,10 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
   if (!data || typeof data !== "object") return null;
   const row = data as Record<string, unknown>;
   if (!SCENE_KINDS.includes(row.type as SimulationKind)) return null;
+  const durationS = row.duration_s == null ? undefined : finite(row.duration_s);
+  const playbackRate = row.playback_rate == null ? undefined : finite(row.playback_rate);
+  if (durationS === null || (durationS !== undefined && durationS <= 0)) return null;
+  if (playbackRate === null || (playbackRate !== undefined && playbackRate <= 0)) return null;
 
   const rawBodies = Array.isArray(row.bodies) ? row.bodies : [];
   if (rawBodies.length > MAX_BODIES) return null;
@@ -231,6 +240,7 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
   }
 
   const inclineDeg = finite(row.incline_deg);
+  if (inclineDeg !== null && Math.abs(inclineDeg) >= 90) return null;
 
   // Each of these is read off something the scene may not have: "toward the
   // centre" needs a centre, and the normal and friction directions come off
@@ -246,6 +256,8 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
   return {
     type: row.type as SimulationKind,
     title: typeof row.title === "string" && row.title ? row.title.slice(0, 64) : undefined,
+    durationS,
+    playbackRate,
     bodies,
     xMin,
     xMax,
@@ -259,6 +271,23 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
     beam,
     pivot,
   };
+}
+
+/** Presentation bounds keep very fast/slow models legible; show their actual rate. */
+export function simulationPlayback(
+  spec: SimulationSpec | null,
+  legacyDurationMs: number,
+): { durationMs: number; rate?: number } {
+  if (spec?.durationS === undefined) return { durationMs: legacyDurationMs };
+  const seconds = spec.durationS / (spec.playbackRate ?? 1);
+  const durationMs = Math.max(0.6, Math.min(12, seconds)) * 1000;
+  return { durationMs, rate: spec.durationS / (durationMs / 1000) };
+}
+
+export function simulationHasMotion(spec: SimulationSpec | null): boolean {
+  return spec?.bodies.some((body) =>
+    body.path.some((point) => point[0] !== body.path[0][0] || point[1] !== body.path[0][1]),
+  ) ?? false;
 }
 
 export type SimulationTransform = {
@@ -417,10 +446,10 @@ export function tangentAt(
   const last = points.length - 1;
   if (last < 1) return { dx: 0, dy: 0 };
   const clamped = progress < 0 ? 0 : progress > 1 ? 1 : progress;
-  const window = Math.max(1, Math.round(last * 0.04));
-  const at = Math.round(clamped * last);
-  const lo = at - window < 0 ? 0 : at - window;
-  const hi = at + window > last ? last : at + window;
+  // The tangent of the same segment used to interpolate the body. A wider
+  // window anticipates a collision and draws velocity on a stationary body.
+  const lo = Math.min(last - 1, Math.floor(clamped * last));
+  const hi = lo + 1;
   return { dx: points[hi].px - points[lo].px, dy: points[hi].py - points[lo].py };
 }
 

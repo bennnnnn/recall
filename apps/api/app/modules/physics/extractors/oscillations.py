@@ -140,11 +140,19 @@ def _extract_shm_intent(cleaned: str) -> PhysicsIntent | None:
     )
     if period is None:
         return None
+    amplitude = _find_value_with_specific_unit(
+        cleaned, _LENGTH_UNIT_PATTERN, ("amplitude",), require_keyword=True
+    )
+    params = {"period": period[0]}
+    units = {"period": period[1] or "s"}
+    if amplitude is not None:
+        params["x"] = amplitude[0]
+        units["x"] = amplitude[1] or "m"
     return PhysicsIntent(
         kind="spring",
         physics_op="shm_frequency",
-        physics_params={"period": period[0]},
-        physics_units={"period": period[1] or "s"},
+        physics_params=params,
+        physics_units=units,
         operation="solve",
     )
 

@@ -20,6 +20,7 @@ import {
   projectPath,
   simulationTransform,
   simulationViewportHeight,
+  simulationPlayback,
   tangentAt,
   worldToScreen,
 } from "@/lib/physics/simulation";
@@ -75,6 +76,36 @@ const ORBIT = {
 function parse(spec: object) {
   return parseSimulationSpec(JSON.stringify(spec));
 }
+
+describe("physical playback", () => {
+  it("uses the supplied physical duration and requested rate", () => {
+    const spec = parse({ ...ORBIT, duration_s: 8, playback_rate: 2 });
+    expect(simulationPlayback(spec, 4000)).toEqual({ durationMs: 4000, rate: 2 });
+    expect(simulationPlayback(parse({ ...ORBIT, duration_s: 2 }), 4000))
+      .toEqual({ durationMs: 2000, rate: 1 });
+  });
+
+  it("reports the effective rate when a span needs compression or slow motion", () => {
+    expect(simulationPlayback(parse({ ...ORBIT, duration_s: 120 }), 4000))
+      .toEqual({ durationMs: 12000, rate: 10 });
+    expect(simulationPlayback(parse({ ...ORBIT, duration_s: 0.06 }), 4000))
+      .toEqual({ durationMs: 600, rate: 0.1 });
+    expect(simulationPlayback(parse(ORBIT), 4000)).toEqual({ durationMs: 4000 });
+  });
+
+  it.each([0, -1, "2", "Infinity"])("rejects malformed timing %s", (duration_s) => {
+    expect(parse({ ...ORBIT, duration_s })).toBeNull();
+    expect(parse({ ...ORBIT, playback_rate: duration_s })).toBeNull();
+  });
+
+  it("does not anticipate a collision in the velocity arrow", () => {
+    const points = Array.from({ length: 101 }, (_, i) => ({
+      px: i <= 50 ? 0 : i - 50, py: 0,
+    }));
+    expect(tangentAt(points, 0.49)).toEqual({ dx: 0, dy: 0 });
+    expect(tangentAt(points, 0.5)).toEqual({ dx: 1, dy: 0 });
+  });
+});
 
 describe("parseSimulationSpec", () => {
   it("reads a projectile scene", () => {

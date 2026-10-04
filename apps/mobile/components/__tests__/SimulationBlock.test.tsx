@@ -72,6 +72,12 @@ beforeEach(() => {
 });
 
 describe("SimulationBlock", () => {
+  it("shows physical time and the effective playback speed", async () => {
+    const content = JSON.stringify({ ...JSON.parse(ORBIT), duration_s: 120, playback_rate: 1 });
+    const { getByTestId } = await render(<SimulationBlock content={content} />);
+    expect(getByTestId("simulation-timing").props.children).toBe("120 s · 10×");
+  });
+
   it("renders a projectile scene with a body, its arrows and the ground", async () => {
     const { getByTestId, getAllByTestId } = await render(<SimulationBlock content={PROJECTILE} />);
 

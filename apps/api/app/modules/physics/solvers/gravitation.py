@@ -52,7 +52,7 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(r"v = \sqrt{\frac{GM}{r}}",),
             substitutions=(rf"v = \sqrt{{\frac{{{_BIG_G:.5g} \cdot {p['M']:.4g}}}{{{r:.4g}}}}}",),
             quantities=(QuantityResult("", v_val, "m/s"),),
-            simulation_specs=[_orbit_scene(r)],
+            simulation_specs=[_orbit_scene(r, v_val)],
         )
 
     if op == "escape_velocity":

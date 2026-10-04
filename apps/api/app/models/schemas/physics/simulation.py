@@ -46,6 +46,8 @@ class SimulationBody(BaseModel):
 
     @model_validator(mode="after")
     def finite_pairs(self) -> SimulationBody:
+        if not math.isfinite(self.radius):
+            raise ValueError("radius must be finite")
         for point in self.path:
             if len(point) != 2 or not all(math.isfinite(value) for value in point):
                 raise ValueError("every path sample must be a finite [x, y] pair")
@@ -91,6 +93,7 @@ SimulationType = Literal[
     "orbit",
     "collision",
     "incline",
+    "oscillation",
     # Static figures. Nothing moves in these, and that is the point: a
     # free-body diagram is what the question is asking to see.
     "lever",
@@ -110,6 +113,7 @@ _DEFAULT_TITLES: dict[str, str] = {
     "orbit": "Orbit",
     "collision": "Collision",
     "incline": "Inclined Plane",
+    "oscillation": "Simple Harmonic Motion",
     "lever": "Moments",
     "free_body": "Free-Body Diagram",
     "vector_sum": "Forces",
@@ -129,6 +133,11 @@ class SimulationBlockSpec(BaseModel):
 
     type: SimulationType
     title: str | None = Field(default=None, max_length=64)
+    # Physical time covered by the uniformly sampled paths. Absent on static
+    # diagrams and legacy scenes. Playback may be scaled for legibility, but
+    # the client must display the effective rate instead of changing the law.
+    duration_s: float | None = Field(default=None, gt=0)
+    playback_rate: float = Field(default=1.0, gt=0)
     # Empty on a static figure: a see-saw's picture is its beam and its two
     # load arrows, with nothing to walk a clock through.
     bodies: list[SimulationBody] = Field(default_factory=list, max_length=4)
@@ -164,6 +173,10 @@ class SimulationBlockSpec(BaseModel):
 
     @model_validator(mode="after")
     def coherent_scene(self) -> SimulationBlockSpec:
+        if self.duration_s is not None and not math.isfinite(self.duration_s):
+            raise ValueError("duration_s must be finite")
+        if not math.isfinite(self.playback_rate):
+            raise ValueError("playback_rate must be finite")
         # A scene with neither is an empty box. One or the other is what makes
         # it a picture.
         if not self.bodies and not self.vectors:

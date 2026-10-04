@@ -284,3 +284,24 @@ pipeline refuses:
   with 100 and 500 turns respectively"); a list the law fills in order still binds;
 - every refusal listed under Physics in `FEATURES.md` (an unstated collision type, a
   diverging lens, an absolute temperature written as bare "degrees", and the rest).
+
+## Native scene timing
+
+The server samples motion uniformly in physical time and includes `duration_s`
+and `playback_rate` on simulation specs. The native Skia renderer advances one
+Reanimated clock for all bodies. New scenes reset that clock; backgrounding
+pauses it; returning resumes the remaining interval. Reduce Motion cancels
+playback and displays the first sample. Completion callbacks from replaced
+scenes cannot stop the new scene.
+
+Playback uses physical time at the requested rate, with a 0.6–12 second display
+window for legibility. The caption shows physical duration and the effective
+speed factor whenever the window changes the rate. Legacy scenes retain the
+existing four-second fallback. The client interpolates supplied coordinates;
+it does not solve motion equations.
+
+Harmonic motion with a supplied amplitude uses the same displacements as its
+position-time graph, covers two periods, and states the convention that it
+starts at maximum displacement. Without an amplitude it stays a normalised
+plot. Zero-speed orbits and static force diagrams remain still. Velocity arrows
+use the current interpolation segment so they do not anticipate a collision.

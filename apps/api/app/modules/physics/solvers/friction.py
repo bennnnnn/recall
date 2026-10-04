@@ -192,6 +192,7 @@ def _incline_scene(
     top_x, top_y = 0.0, _INCLINE_LENGTH * math.sin(theta)
 
     n_points = 60
+    duration = None
     if accel is not None and accel > 0:
         # s = ½at², sampled uniformly in *time*, so the block visibly
         # accelerates rather than sliding at a constant rate. The duration is
@@ -214,6 +215,7 @@ def _incline_scene(
     return [
         SimulationBlockSpec(
             type="incline",
+            duration_s=duration,
             title="Inclined Plane",
             bodies=[SimulationBody(path=path, radius=_INCLINE_LENGTH * 0.06)],
             x_min=-margin,
