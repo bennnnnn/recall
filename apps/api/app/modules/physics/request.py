@@ -258,14 +258,20 @@ def complete_physics_intent(intent: PhysicsIntent, request: PhysicsRequest) -> P
     different question.
     """
     from app.modules.physics.accounting import competing_given
-    from app.modules.physics.ask import asked_dimensions, asked_unit
+    from app.modules.physics.ask import asked_dimensions, asked_phrases, asked_unit
     from app.modules.physics.bodies import SCHOOL_GRAVITY, names_body_without_school_gravity
     from app.modules.physics.catalog import formula_spec
     from app.modules.physics.extractors.common import _detect_gravity, stated_gravity
 
     params = intent.physics_params or {}
     if intent.kind == "suvat":
-        params = {**params, "distance_path": float("displacement" not in request.text.lower())}
+        phrases = asked_phrases(request.text)
+        displacement = (
+            bool(phrases and phrases[0] == "displacement")
+            if intent.physics_op == "suvat_distance"
+            else "displacement" in request.text.lower()
+        )
+        params = {**params, "distance_path": float(not displacement)}
         intent = intent.model_copy(
             update={
                 "physics_params": params,
