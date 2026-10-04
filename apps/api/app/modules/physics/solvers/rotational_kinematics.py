@@ -95,6 +95,8 @@ def _theta(params: dict[str, float]) -> PhysicsResult:
     # theta = (omega0 + omega) t / 2 eliminates alpha. Opposite signs mean the
     # rotation reversed, so this average is not the angle traveled.
     if {"omega", "omega0", "t"} <= params.keys() and "ang_alpha" not in params:
+        if params["t"] == 0 and params["omega"] != params["omega0"]:
+            raise SolveServiceError("elapsed time must be nonzero")
         if params["omega0"] * params["omega"] < 0:
             raise SolveServiceError(
                 "the rotation reverses, so this is not the angular displacement"
