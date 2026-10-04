@@ -41,6 +41,56 @@ describe("parseSimpleLatex", () => {
     }
   });
 
+  it("does not split other upright commands or private-use braces into a one-character script", () => {
+    const pua = /[\uE000-\uE00F]/;
+    for (const latex of [
+      String.raw`t_\textit{rel}`,
+      String.raw`t_\textup{rel}`,
+      String.raw`t_\emph{rel}`,
+      String.raw`t_\mbox{rel}`,
+      String.raw`v_\operatorname*{max}`,
+      String.raw`t_ \text{flight}`,
+      String.raw`\frac{t_\textit{rel}}{c}`,
+      String.raw`\sqrt[\textit{n}]{8}`,
+    ]) {
+      const plain = segmentsToPlain(parseSimpleLatex(latex));
+      expect(plain).not.toMatch(pua);
+      expect(plain).not.toMatch(/\\/);
+      expect(plain).not.toMatch(/textit|textup|emph|mbox|operatorname/);
+    }
+    const italic = parseSimpleLatex(String.raw`t_\textit{rel}`);
+    const subscript = italic.find((segment) => segment.type === "sub");
+    expect(subscript).toEqual({ type: "sub", value: "", body: [{ type: "upright", value: "rel" }] });
+    expect(parseSimpleLatex(String.raw`t_ \text{flight}`)).toEqual([
+      { type: "text", value: "t" },
+      { type: "sub", value: "", body: [{ type: "upright", value: "flight" }] },
+    ]);
+
+    const styled = parseSimpleLatex(String.raw`F_\mathbf{g}`);
+    expect(segmentsToPlain(styled)).toBe("F_g");
+    expect(JSON.stringify(styled)).not.toMatch(pua);
+    expect(segmentsToPlain(styled)).not.toContain("mathbf");
+    expect(parseSimpleLatex(String.raw`\mathbf{x}`)).toEqual([{ type: "text", value: "x" }]);
+
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x^ {2}`))).toBe("x^2");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x^\{2\}`))).toBe("x^2");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x_\{i\}`))).toBe("x_i");
+    expect(JSON.stringify(parseSimpleLatex(String.raw`x^\{n\}`))).not.toMatch(pua);
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\{1, 2\}`))).toBe("{1, 2}");
+
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\hat\text{v}`))).toBe("v̂");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\vec v`))).toBe("v⃗");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\vec\mathbf{F}`))).toBe("F⃗");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\sqrt\text{x}`))).toBe("√x̅");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\sqrt\{y\}`))).toBe("√y̅");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x^\frac{1}{2}`))).toBe("x^1/2");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`x_\max`))).toBe("x_max");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\text{\textit{\mathrm{kg}}}`))).toBe("kg");
+    expect(parseSimpleLatex(String.raw`\textit{don't}`)).toEqual([
+      { type: "upright", value: "don't" },
+    ]);
+  });
+
   it("keeps upright text styled inside a subscript", () => {
     const segments = parseSimpleLatex(String.raw`t_{\mathrm{flight}}`);
     const subscript = segments.find((segment) => segment.type === "sub");

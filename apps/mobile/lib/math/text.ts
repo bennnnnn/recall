@@ -54,6 +54,17 @@ const NATIVE_UPRIGHT_END_MARKER = String.fromCharCode(0xe007);
 // Literal set braces must survive the generic TeX-group unwrapping below.
 const NATIVE_LITERAL_LEFT_BRACE_MARKER = String.fromCharCode(0xe008);
 const NATIVE_LITERAL_RIGHT_BRACE_MARKER = String.fromCharCode(0xe009);
+// `\textit` and `\operatorname*` belong with `\text`. Leaving them out let a
+// bare `_` keep the backslash and print the command name beside the word.
+const UPRIGHT_TEXT_COMMANDS =
+  "text|textrm|textsf|texttt|textnormal|textbf|textit|textup|emph|mbox|hbox|mathrm|operatorname";
+const UPRIGHT_TEXT_COMMAND_RE = new RegExp(
+  `^\\\\(?:${UPRIGHT_TEXT_COMMANDS})\\*?(?![A-Za-z])`,
+);
+const UPRIGHT_TEXT_UNWRAP_RE = new RegExp(
+  `\\\\(?:${UPRIGHT_TEXT_COMMANDS})\\*?\\{([^}]+)\\}`,
+  "g",
+);
 
 /** Restore source characters after markdown tokenization, before math parsing. */
 export function restoreMathEscapes(latex: string): string {
@@ -519,7 +530,7 @@ function normalizeNativeDerivativePrimes(source: string): string {
   let out = "";
   for (let i = 0; i < source.length;) {
     if (source[i] === "\\") {
-      const textCommand = /^\\(?:text|textrm|textsf|texttt|textnormal|textbf|textit|mathrm|operatorname)(?![A-Za-z])/.exec(source.slice(i));
+      const textCommand = UPRIGHT_TEXT_COMMAND_RE.exec(source.slice(i));
       if (textCommand) {
         let groupAt = i + textCommand[0].length;
         while (source[groupAt] === " ") groupAt += 1;
@@ -572,9 +583,7 @@ function preserveNativeUprightRuns(source: string): string {
   let out = "";
   for (let i = 0; i < source.length;) {
     if (source[i] === "\\") {
-      const command = /^\\(?:text|textrm|textsf|texttt|textnormal|textbf|mathrm|operatorname)(?![A-Za-z])/.exec(
-        source.slice(i),
-      );
+      const command = UPRIGHT_TEXT_COMMAND_RE.exec(source.slice(i));
       if (command) {
         let groupAt = i + command[0].length;
         while (source[groupAt] === " ") groupAt += 1;
@@ -670,9 +679,16 @@ function preprocessLatex(latex: string): string {
   // so `\sqrt{\frac{M}{2}}` broke on the FIRST `}` (the one closing \frac's
   // own `{M}`), leaking the rest of the radicand as raw text. readGroup
   // already solves this correctly for \frac's num/den; \sqrt reuses it.
-  s = s.replace(/\\text\{([^}]+)\}/g, "$1");
-  s = s.replace(/\\mathrm\{([^}]+)\}/g, "$1");
-  s = s.replace(/\\operatorname\{([^}]+)\}/g, "$1");
+  // Nested `\textit` / `\mathrm` inside an upright run is already inside
+  // markers. Unwrap the leftover command so the word is not shown raw.
+  // One pass misses `\textit{\mathrm{a}}` because the inner `}` blocks the
+  // outer match; each pass shrinks the string.
+  for (let pass = 0; pass < 4; pass += 1) {
+    UPRIGHT_TEXT_UNWRAP_RE.lastIndex = 0;
+    const unwrapped = s.replace(UPRIGHT_TEXT_UNWRAP_RE, "$1");
+    if (unwrapped === s) break;
+    s = unwrapped;
+  }
   s = s.replace(/\\overbrace\{([^}]+)\}/g, "$1");
   s = s.replace(/\\underbrace\{([^}]+)\}/g, "$1");
   s = s.replace(/\\substack\{([^{}]+)\}/g, (_m, body: string) =>
@@ -800,6 +816,12 @@ function parseSqrt(
       next: group.next,
     };
   }
+  // `\sqrt\text{x}` / `\sqrt\frac{1}{2}` — the radicand is one atom, not the
+  // letters "sqrt" followed by that atom.
+  const atom = readLeadingAtom(input, i, depth);
+  if (atom) {
+    return { seg: { type: "sqrt", body: atom.body, degree, index }, next: atom.next };
+  }
   // \sqrt without braces (\sqrt4, \sqrt 4) — bare single-token radicand.
   const bare = input.slice(i).match(/^[0-9a-zA-Z]+/)?.[0];
   if (bare) {
@@ -822,11 +844,15 @@ function parseCancel(
   let i = start + name.length;
   while (input[i] === " ") i += 1;
   const group = readGroup(input, i);
-  if (!group) return null;
-  return {
-    seg: { type: "cancel", body: parseSimpleLatex(group.value, depth + 1) },
-    next: group.next,
-  };
+  if (group) {
+    return {
+      seg: { type: "cancel", body: parseSimpleLatex(group.value, depth + 1) },
+      next: group.next,
+    };
+  }
+  const atom = readLeadingAtom(input, i, depth);
+  if (!atom) return null;
+  return { seg: { type: "cancel", body: atom.body }, next: atom.next };
 }
 
 function parseAccent(
@@ -844,15 +870,18 @@ function parseAccent(
   let i = start + opener.cmd.length;
   while (input[i] === " ") i += 1;
   const group = readGroup(input, i);
-  if (!group) return null;
+  const body = group
+    ? { segments: parseSimpleLatex(group.value, depth + 1), next: group.next }
+    : readUnbracedAccentAtom(input, i, depth);
+  if (!body) return null;
   return {
     seg: {
       type: "accent",
       kind: opener.kind,
       span: ACCENT_SPAN.has(opener.cmd),
-      body: parseSimpleLatex(group.value, depth + 1),
+      body: body.segments,
     },
-    next: group.next,
+    next: body.next,
   };
 }
 
@@ -900,6 +929,102 @@ function readMarkedUpright(input: string, i: number): { value: string; next: num
   return { value, next: end + 1 };
 }
 
+function literalBraceChar(ch: string | undefined): string | null {
+  if (ch === NATIVE_LITERAL_LEFT_BRACE_MARKER) return "{";
+  if (ch === NATIVE_LITERAL_RIGHT_BRACE_MARKER) return "}";
+  if (ch === NATIVE_LITERAL_APOSTROPHE_MARKER) return "'";
+  return null;
+}
+
+/** `\max`, `\mathbf{v}`, `\frac{1}{2}`, `\sqrt[3]{8}` — one atom, not one character. */
+function readCommandAtom(input: string, i: number): { source: string; next: number } | null {
+  if (input[i] !== "\\") return null;
+  const match = /^\\([a-zA-Z]+)/.exec(input.slice(i));
+  if (!match) {
+    if (!input[i + 1]) return null;
+    return { source: input.slice(i, i + 2), next: i + 2 };
+  }
+  const name = match[1] ?? "";
+  let head = i + match[0].length;
+  if (name === "operatorname" && input[head] === "*") head += 1;
+  let j = head;
+  while (input[j] === " ") j += 1;
+  if (input[j] === "[") {
+    const close = input.indexOf("]", j + 1);
+    if (close >= 0) {
+      j = close + 1;
+      while (input[j] === " ") j += 1;
+    }
+  }
+  if (input[j] !== "{") return { source: input.slice(i, head), next: head };
+  const wanted = name === "frac" ? 2 : 1;
+  let end = j;
+  let got = 0;
+  while (got < wanted && input[end] === "{") {
+    const group = readGroup(input, end);
+    if (!group) break;
+    end = group.next;
+    got += 1;
+    if (got < wanted) {
+      while (input[end] === " ") end += 1;
+    }
+  }
+  if (got !== wanted) return { source: input.slice(i, head), next: head };
+  return { source: input.slice(i, end), next: end };
+}
+
+/** `\{...\}` after preprocessing is a real TeX group. Models escape braces
+ * that were only grouping (`x^\{2\}`, `\sqrt\{x\}`). An unclosed `\{` stays
+ * a visible brace. */
+function readMarkerGroup(input: string, start: number): { value: string; next: number } | null {
+  if (input[start] !== NATIVE_LITERAL_LEFT_BRACE_MARKER) return null;
+  let depth = 1;
+  for (let k = start + 1; k < input.length; k += 1) {
+    if (input[k] === NATIVE_LITERAL_LEFT_BRACE_MARKER) depth += 1;
+    else if (input[k] === NATIVE_LITERAL_RIGHT_BRACE_MARKER) {
+      depth -= 1;
+      if (depth === 0) return { value: input.slice(start + 1, k), next: k + 1 };
+    }
+  }
+  return null;
+}
+
+/** Upright word, escaped brace group, or backslash command. Not a plain letter. */
+function readLeadingAtom(
+  input: string,
+  i: number,
+  depth: number,
+): { body: MathSegment[]; next: number } | null {
+  const marked = readMarkedUpright(input, i);
+  if (marked) return { body: [{ type: "upright", value: marked.value }], next: marked.next };
+  if (input[i] === NATIVE_LITERAL_LEFT_BRACE_MARKER) {
+    const group = readMarkerGroup(input, i);
+    if (group) return { body: parseSimpleLatex(group.value, depth + 1), next: group.next };
+    return { body: [{ type: "text", value: "{" }], next: i + 1 };
+  }
+  const brace = literalBraceChar(input[i]);
+  if (brace) return { body: [{ type: "text", value: brace }], next: i + 1 };
+  if (input[i] !== "\\") return null;
+  const atom = readCommandAtom(input, i);
+  if (!atom) return null;
+  return { body: parseSimpleLatex(atom.source, depth + 1), next: atom.next };
+}
+
+/** `\hat x` and `\hat\text{v}` take one atom when the braces were omitted. */
+function readUnbracedAccentAtom(
+  input: string,
+  i: number,
+  depth: number,
+): { segments: MathSegment[]; next: number } | null {
+  const leading = readLeadingAtom(input, i, depth);
+  if (leading) return { segments: leading.body, next: leading.next };
+  const cp = input.codePointAt(i);
+  if (cp == null) return null;
+  const ch = String.fromCodePoint(cp);
+  if (/[\s^_{}\\]/.test(ch)) return null;
+  return { segments: [{ type: "text", value: ch }], next: i + ch.length };
+}
+
 function readBareScript(input: string, i: number): { value: string; next: number } {
   if (i >= input.length) return { value: "", next: i };
   let j = i;
@@ -911,7 +1036,13 @@ function readBareScript(input: string, i: number): { value: string; next: number
   if (j === i && ((input[j] >= "a" && input[j] <= "z") || (input[j] >= "A" && input[j] <= "Z"))) {
     return { value: input[j] ?? "", next: i + 1 };
   }
-  return { value: input[i] ?? "", next: i + 1 };
+  const raw = input[i] ?? "";
+  const brace = literalBraceChar(raw);
+  if (brace) return { value: brace, next: i + 1 };
+  const code = raw.codePointAt(0) ?? 0;
+  // A private-use sentinel is never a visible script. iOS draws it as emoji.
+  if (code >= 0xe000 && code <= 0xe00f) return { value: "", next: i + 1 };
+  return { value: raw, next: i + 1 };
 }
 
 /** SymPy emits y{\\left(x \\right)}; these braces group one function
@@ -950,6 +1081,47 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
     const last = out[out.length - 1];
     if (last?.type === "text") last.value += value;
     else out.push({ type: "text", value });
+  };
+
+  const pushScript = (kind: "sup" | "sub", inner: MathSegment[]) => {
+    const plain = plainScriptPieces(inner);
+    out.push(plain == null
+      ? { type: kind, value: "", body: inner }
+      : { type: kind, value: plain });
+  };
+
+  // TeX ignores spaces between `^`/`_` and the atom. One character here used
+  // to be a private-use brace or the backslash of `\mathbf` / `\textit`.
+  const takeScript = (kind: "sup" | "sub") => {
+    i += 1;
+    while (input[i] === " ") i += 1;
+    const marked = readMarkedUpright(input, i);
+    if (marked) {
+      out.push({
+        type: kind,
+        value: "",
+        body: [{ type: "upright", value: marked.value }],
+      });
+      i = marked.next;
+      return;
+    }
+    if (input[i] === "{") {
+      const group = readGroup(input, i);
+      if (group) {
+        pushScript(kind, parseSimpleLatex(group.value, depth + 1));
+        i = group.next;
+        return;
+      }
+    }
+    const leading = readLeadingAtom(input, i, depth);
+    if (leading) {
+      pushScript(kind, leading.body);
+      i = leading.next;
+      return;
+    }
+    const bare = readBareScript(input, i);
+    if (bare.value) out.push({ type: kind, value: bare.value });
+    i = bare.next > i ? bare.next : i + 1;
   };
 
   while (i < input.length) {
@@ -1027,63 +1199,8 @@ export function parseSimpleLatex(latex: string, depth = 0): MathSegment[] {
       }
     }
 
-    if (ch === "^") {
-      i += 1;
-      const markedSup = readMarkedUpright(input, i);
-      if (markedSup) {
-        out.push({
-          type: "sup",
-          value: "",
-          body: [{ type: "upright", value: markedSup.value }],
-        });
-        i = markedSup.next;
-        continue;
-      }
-      if (input[i] === "{") {
-        const group = readGroup(input, i);
-        if (group) {
-          const inner = parseSimpleLatex(group.value, depth + 1);
-          const plain = plainScriptPieces(inner);
-          out.push(plain == null
-            ? { type: "sup", value: "", body: inner }
-            : { type: "sup", value: plain });
-          i = group.next;
-          continue;
-        }
-      }
-      const bare = readBareScript(input, i);
-      out.push({ type: "sup", value: bare.value });
-      i = bare.next;
-      continue;
-    }
-
-    if (ch === "_") {
-      i += 1;
-      const markedSub = readMarkedUpright(input, i);
-      if (markedSub) {
-        out.push({
-          type: "sub",
-          value: "",
-          body: [{ type: "upright", value: markedSub.value }],
-        });
-        i = markedSub.next;
-        continue;
-      }
-      if (input[i] === "{") {
-        const group = readGroup(input, i);
-        if (group) {
-          const inner = parseSimpleLatex(group.value, depth + 1);
-          const plain = plainScriptPieces(inner);
-          out.push(plain == null
-            ? { type: "sub", value: "", body: inner }
-            : { type: "sub", value: plain });
-          i = group.next;
-          continue;
-        }
-      }
-      const bare = readBareScript(input, i);
-      out.push({ type: "sub", value: bare.value });
-      i = bare.next;
+    if (ch === "^" || ch === "_") {
+      takeScript(ch === "^" ? "sup" : "sub");
       continue;
     }
 
