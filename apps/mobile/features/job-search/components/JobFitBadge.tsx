@@ -11,8 +11,9 @@ export function JobFitBadge({ label, outdated }: { label?: string; outdated?: bo
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
-  const key = outdated ? "fit_outdated" : label === "Strong fit" ? "fit_strong" : label === "Potential fit" ? "fit_potential" : "fit_review";
-  const color = label === "Strong fit" && !outdated ? C.primary : C.textSecondary;
+  if (outdated) return null;
+  const key = label === "Strong fit" ? "fit_strong" : label === "Potential fit" ? "fit_potential" : "fit_review";
+  const color = label === "Strong fit" ? C.primary : C.textSecondary;
   const text = t(`my_job.${key}`);
   return (
     <View style={s.badge} accessibilityLabel={text}>
