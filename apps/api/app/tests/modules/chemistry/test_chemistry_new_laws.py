@@ -512,6 +512,19 @@ def test_combustion_analysis_is_only_a_closed_cho_formula() -> None:
     assert percents is not None and percents.chemistry_op == "empirical_formula"
 
 
+def test_hydrate_water_is_an_integer_coefficient() -> None:
+    fractional = (
+        "A 2.00000 g sample of a hydrate of CuSO4 leaves 1.59602 g of anhydrous CuSO4. "
+        "How many waters of hydration?"
+    )
+    intent = extract_chemistry_intent(fractional)
+    assert intent is not None and intent.chemistry_op == "hydrate_water"
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(intent)
+    unnamed = "A 2.49677 g hydrate leaves 1.59602 g of solid. How many waters of hydration?"
+    assert extract_chemistry_intent(unnamed) is None
+
+
 @pytest.mark.parametrize(
     ("value", "figures", "shown"),
     [

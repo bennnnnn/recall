@@ -5,7 +5,7 @@ from __future__ import annotations
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.elements import BY_SYMBOL
-from app.modules.chemistry.formula import hill_formula
+from app.modules.chemistry.formula import hill_formula, parse_formula
 from app.modules.chemistry.solvers.common_chem import (
     atomic_mass,
     inp,
@@ -115,6 +115,44 @@ def solve_combustion(intent: ChemistryIntent) -> ChemistryResult:
         working,
         formula,
         formula,
+    )
+
+
+_WATER_COEFFICIENT_TOLERANCE = 0.05
+
+
+def solve_hydrate(intent: ChemistryIntent) -> ChemistryResult:
+    """Water coefficient of salt·nH2O from the hydrate mass, anhydrous mass, and salt formula."""
+    hydrate = require(intent, "hydrate_mass", positive=True)
+    anhydrous = require(intent, "anhydrous_mass", positive=True)
+    formula = intent.formula
+    if not formula or not parse_formula(formula):
+        raise SolveServiceError("a hydrate needs the anhydrous formula")
+    if anhydrous >= hydrate:
+        raise SolveServiceError("the anhydrous mass must be less than the hydrate mass")
+    salt = molar_mass(formula)
+    water = molar_mass("H2O")
+    water_mass = hydrate - anhydrous
+    coefficient = (water_mass / water) / (anhydrous / salt)
+    nearest = round(coefficient)
+    if nearest < 1 or abs(coefficient - nearest) > _WATER_COEFFICIENT_TOLERANCE:
+        raise SolveServiceError("the water coefficient is not a small integer")
+    shown = formula if nearest == 1 else f"{formula}\u00b7{nearest}H2O"
+    return verified(
+        "Verified hydrate",
+        (
+            f"hydrate = {inp(hydrate)} g",
+            f"anhydrous {formula} = {inp(anhydrous)} g",
+        ),
+        "Waters of hydration",
+        *stated("hydrate_water"),
+        (
+            f"m(H2O) = {inp(hydrate)} - {inp(anhydrous)} = {num(water_mass)} g",
+            f"n = ({num(water_mass)} / {molar_mass_working(water)})"
+            f" / ({inp(anhydrous)} / {molar_mass_working(salt)}) = {nearest}",
+        ),
+        shown,
+        shown,
     )
 
 

@@ -80,6 +80,11 @@ AMOUNTS: tuple[Case, ...] = (
         "produced 0.88018 g of CO2 and 0.36030 g of H2O. What is the empirical formula?",
         "CH2O",
     ),
+    says(
+        "A 2.49677 g sample of a hydrate of CuSO4 leaves 1.59602 g of anhydrous CuSO4. "
+        "How many waters of hydration?",
+        "CuSO4\u00b75H2O",
+    ),
     q(
         "Chlorine has isotopes 35Cl (75.77%) and 37Cl (24.23%). Find its average atomic mass.",
         # The isotopes' masses, 34.969 and 36.966 u, not their mass numbers.
@@ -286,6 +291,9 @@ MUST_DECLINE: tuple[str, ...] = (
     "0.88018 g of CO2 and 0.36030 g of H2O. What is the empirical formula?",
     "Combustion of a 0.20000 g sample of a compound containing only C, H, and O produced "
     "0.88018 g of CO2 and 0.36030 g of H2O. What is the empirical formula?",
+    # The anhydrous salt is heavier than the sample, so it is not that hydrate.
+    "A 1.00000 g sample of a hydrate of CuSO4 leaves 1.59602 g of anhydrous CuSO4. "
+    "How many waters of hydration?",
     # Charge balance over every species is not these two steps.
     "What are all the species concentrations for 0.10 M H2A with Ka1 = 1e-3 and Ka2 = 1e-8?",
     # No time unit for k.
@@ -321,4 +329,4 @@ NOT_CHEMISTRY: tuple[str, ...] = (
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 95
+COVERAGE_FLOOR = 96
