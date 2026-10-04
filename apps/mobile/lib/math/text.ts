@@ -252,6 +252,8 @@ const CMD_REPLACEMENTS: [RegExp, string][] = [
   // Lowercase Greek letters — matches mathFenceRetag.ts's LATEX_CMD_RE list.
   // Only alpha/beta/gamma/theta/pi were handled here; the rest leaked as
   // raw "\delta"/"\sigma"/etc. backslash text once actually rendered.
+  // Reduced Planck constant. Without this, `\hbar` falls through as the word hbar.
+  [/\\hbar(?![a-zA-Z])/g, "ℏ"],
   [/\\alpha(?![a-zA-Z])/g, "α"],
   [/\\beta(?![a-zA-Z])/g, "β"],
   [/\\gamma(?![a-zA-Z])/g, "γ"],

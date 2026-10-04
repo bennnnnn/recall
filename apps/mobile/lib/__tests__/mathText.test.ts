@@ -170,6 +170,8 @@ describe("parseSimpleLatex", () => {
   });
 
   it("BUG FIX regression: uppercase Greek + calculus/set symbols render as unicode, not raw backslash", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\hbar`))).toBe("ℏ");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\frac{\hbar}{2}`))).toContain("ℏ");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\Gamma + \Theta`))).toBe("Γ + Θ");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\Sigma \Omega \Pi`))).toBe("Σ Ω Π");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\partial f / \partial x`))).toContain("∂");

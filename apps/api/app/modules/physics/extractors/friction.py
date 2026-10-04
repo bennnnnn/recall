@@ -107,9 +107,7 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
         # A different quantity. The force extractor refuses it via
         # _UNSUPPORTED_FORCE_CONTEXT rather than guessing, which is right.
         return None
-    without_coefficients = _MU_RE.sub(
-        "", _MU_STATIC_RE.sub("", _MU_KINETIC_RE.sub("", cleaned))
-    )
+    without_coefficients = _MU_RE.sub("", _MU_STATIC_RE.sub("", _MU_KINETIC_RE.sub("", cleaned)))
     if has_equation(_strip_param_assignments(without_coefficients)):
         return None
 

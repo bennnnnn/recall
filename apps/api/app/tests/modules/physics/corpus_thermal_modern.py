@@ -57,18 +57,15 @@ CASES: tuple[Case, ...] = (
         (600, "K"),
     ),
     q(
-        "A gas changes from 100 kPa, 2 L and 300 K to 1 L and 600 K. "
-        "Find its final pressure.",
+        "A gas changes from 100 kPa, 2 L and 300 K to 1 L and 600 K. Find its final pressure.",
         (400, "kPa"),
     ),
     q(
-        "Find the mean speed of nitrogen molecules at 300 K. "
-        "Molar mass is 0.028 kg/mol.",
+        "Find the mean speed of nitrogen molecules at 300 K. Molar mass is 0.028 kg/mol.",
         (476.3, "m/s"),
     ),
     q(
-        "Find the most probable speed of nitrogen molecules at 300 K. "
-        "Molar mass is 0.028 kg/mol.",
+        "Find the most probable speed of nitrogen molecules at 300 K. Molar mass is 0.028 kg/mol.",
         (422.1, "m/s"),
     ),
     q(
