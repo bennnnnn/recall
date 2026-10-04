@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 
 from app.models.schemas.chemistry import ChemistryIntent
@@ -38,7 +39,64 @@ def _extract_ph(text: str) -> ChemistryIntent | None:
     return None
 
 
+_AMPHIPROTIC = re.compile(r"\bamphiprotic\b|\bintermediate form\b", re.IGNORECASE)
+_SPECIATION = re.compile(
+    r"\b(?:speciation|charge[- ]balance|every species|all species)\b", re.IGNORECASE
+)
+_A2_ASK = re.compile(
+    r"\[A(?:\^2-|2-|²-|2" + "\u2212" + r")\]|(?<![A-Za-z])A(?:\^2-|²-|2" + "\u2212"
+    r"|2-)(?![A-Za-z0-9])|fully deprotonated",
+    re.IGNORECASE,
+)
+_KA_STEP = {"1": "1", "2": "2", "₁": "1", "₂": "2"}
+
+
+def _step_constants(text: str) -> dict[str, float]:
+    """pKa1, Ka2, and the same labels with a subscript 1 or 2."""
+    found: dict[str, float] = {}
+    for match in re.finditer(
+        rf"(?<![A-Za-z0-9])(p?Ka)\s*([12₁₂])\s*=\s*({_N})",
+        text,
+        re.IGNORECASE,
+    ):
+        kind = "pka" if match.group(1).lower().startswith("p") else "ka"
+        found[f"{kind}{_KA_STEP[match.group(2)]}"] = float(match.group(3))
+    return found
+
+
+def _pka_pair(found: dict[str, float]) -> tuple[float, float] | None:
+    def one(index: str) -> float | None:
+        pka = found.get(f"pka{index}")
+        if pka is not None:
+            return pka
+        ka = found.get(f"ka{index}")
+        if ka is None or ka <= 0:
+            return None
+        return -math.log10(ka)
+
+    first, second = one("1"), one("2")
+    if first is None or second is None:
+        return None
+    return first, second
+
+
 def _extract_acid_solution(text: str) -> ChemistryIntent | None:
+    if _AMPHIPROTIC.search(text):
+        found = _step_constants(text)
+        pair = _pka_pair(found)
+        if pair is None or re.search(r"\bpH\b", text) is None:
+            return None
+        params = {"pka1": pair[0], "pka2": pair[1]}
+        for key in ("ka1", "ka2"):
+            if key in found and f"p{key}" not in found:
+                params[key] = found[key]
+        return ChemistryIntent(kind="acid_base", chemistry_op="amphiprotic_ph", params=params)
+    if _A2_ASK.search(text) and _SPECIATION.search(text) is None:
+        ka2 = _step_constants(text).get("ka2")
+        if ka2 is not None:
+            return ChemistryIntent(
+                kind="acid_base", chemistry_op="diprotic_a2", params={"ka2": ka2}
+            )
     if re.search(r"\bweak acid\b", text, re.IGNORECASE):
         pair = _molar_formula(text)
         ka = _search(rf"\bKa\s*=\s*({_N})", text, flags=0)

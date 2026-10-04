@@ -34,7 +34,7 @@ EXACT_KEYS = frozenset(
 # Exact only in one operation: Hess's law multiplies each step by a whole number (m1, m2).
 _EXACT_IN_OP = {"hess": re.compile(r"m\d+")}
 # Given as logarithms: their precision is their decimal places.
-LOG_KEYS = frozenset({"ph", "poh", "pka", "pkb"})
+LOG_KEYS = frozenset({"ph", "poh", "pka", "pkb", "pka1", "pka2"})
 # A Celsius reading, whose precision is that of the kelvin value it becomes.
 CELSIUS_KEYS = frozenset({"temperature_c"})
 # Answers that only add and subtract the givens, so decimal places limit them, not figures.

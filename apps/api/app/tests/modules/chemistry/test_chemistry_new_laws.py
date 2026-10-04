@@ -219,6 +219,29 @@ def test_ppm_allows_no_solute_and_rejects_a_solute_heavier_than_the_solution() -
         solve_chemistry(heavier)
 
 
+def test_diprotic_steps_past_the_first_dissociation() -> None:
+    amphiprotic = "What is the pH of an amphiprotic solution with pKa1 = 4.00 and pKa2 = 9.00?"
+    second = "What is [A2-] for a diprotic acid with Ka2 = 1.0e-8?"
+    assert _answer(amphiprotic) == "pH = 6.50"
+    assert _answer(second) == "[A2-] = 1.0 × 10^-8 mol/L"
+    from_ka = "What is the pH of the intermediate form when Ka1 = 1.0e-4 and Ka2 = 1.0e-9?"
+    assert _answer(from_ka) == "pH = 6.50"
+    swapped = extract_chemistry_intent(
+        "What is the pH of an amphiprotic solution with pKa1 = 9.00 and pKa2 = 4.00?"
+    )
+    assert swapped is not None and swapped.chemistry_op == "amphiprotic_ph"
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(swapped)
+    strong_second = extract_chemistry_intent("What is [A2-] when Ka2 = 0.012?")
+    assert strong_second is not None and strong_second.chemistry_op == "diprotic_a2"
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(strong_second)
+    assert (
+        extract_chemistry_intent("What is the pH of an amphiprotic solution with pKa1 = 4.00?")
+        is None
+    )
+
+
 def test_binary_vapor_pressure_rejects_fractions_that_do_not_sum_to_one() -> None:
     question = (
         "What is the total vapor pressure if the mole fraction of A is 0.400, "

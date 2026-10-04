@@ -205,6 +205,18 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "First dissociation of a polyprotic acid",
         "Ka1 = x^2 / (C − x)",
     ),
+    (
+        "amphiprotic_ph",
+        "acid_base",
+        "Amphiprotic approximation",
+        "pH = (pKa1 + pKa2) / 2",
+    ),
+    (
+        "diprotic_a2",
+        "acid_base",
+        "Second dissociation approximation",
+        "[A2-] = Ka2",
+    ),
     ("dalton", "gases", "Dalton's law", "Ptotal = Σ Pi"),
     ("partial_pressure", "gases", "Mole fraction", "Pi = Xi Ptotal"),
     ("gas_over_water", "gases", "Dalton's law with water vapor", "Pdry = Ptotal − Pwater"),

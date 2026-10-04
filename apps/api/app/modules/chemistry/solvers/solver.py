@@ -17,7 +17,9 @@ from app.modules.chemistry.solvers.acid_base import (
     solve_strong_base,
 )
 from app.modules.chemistry.solvers.acid_equilibria import (
+    solve_amphiprotic,
     solve_buffer_addition,
+    solve_diprotic_a2,
     solve_polyprotic,
     solve_weak_acid,
     solve_weak_base,
@@ -156,6 +158,8 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "titration_weak": solve_titration_weak,
     "buffer_addition": solve_buffer_addition,
     "polyprotic_ph": solve_polyprotic,
+    "amphiprotic_ph": solve_amphiprotic,
+    "diprotic_a2": solve_diprotic_a2,
     "dalton": solve_dalton,
     "partial_pressure": solve_partial_pressure,
     "gas_over_water": solve_gas_over_water,
