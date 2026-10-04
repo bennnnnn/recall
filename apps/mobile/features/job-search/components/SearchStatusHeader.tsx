@@ -30,14 +30,11 @@ export function SearchStatusHeader({ dashboard, paid, onAsk }: {
     ? profile.included_locations.map(place => [place.city, place.region, place.country].filter(Boolean).join(", ")).join(" · ")
     : profile.location || t("my_job.worldwide");
   const blocked = Boolean(dashboard.cooldown_until && Date.parse(dashboard.cooldown_until) > now);
-  const date = (value: string) => new Date(value).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
   return <View style={s.wrap}>
     <View style={s.line}>
       {state !== "active" ? <StatusPill label={t(`my_job.run_${state}`)} tone={running ? "accent" : profile.status === "paused" ? "neutral" : "success"} /> : null}
       <Text style={s.scope}>{scope}</Text>
     </View>
-    <Text style={s.meta}>{t("my_job.last_checked", { date: profile.last_run_at ? date(profile.last_run_at) : t("my_job.not_checked") })}</Text>
-    {paid && profile.status === "active" ? <Text style={s.meta}>{t("my_job.next_delivery", { date: date(profile.next_run_at) })}</Text> : null}
     <View style={s.actions}>
       <Button title={t("my_job.ask_recall")} icon="sparkles" variant="secondary" style={{ paddingHorizontal: Space.sm }} onPress={onAsk} />
     </View>

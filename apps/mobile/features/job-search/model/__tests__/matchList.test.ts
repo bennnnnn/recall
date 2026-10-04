@@ -37,14 +37,11 @@ const matches = [
     match_score: 70,
     found_at: "2026-09-04T00:00:00Z",
   }),
-  match("f", { status: "interviewing", match_score: 80 }),
-  match("g", { status: "offer", match_score: 85 }),
-  match("h", { status: "rejected", match_score: 40 }),
 ];
 
 test("all filter excludes hidden but keeps every other status", () => {
   const ids = filterAndSortMatches(matches, "all", "newest").map((m) => m.id);
-  expect(ids).toEqual(["c", "e", "a", "b", "f", "g", "h"]);
+  expect(ids).toEqual(["c", "e", "a", "b"]);
 });
 
 test("status filters keep only that status", () => {
@@ -57,15 +54,7 @@ test("status filters keep only that status", () => {
   expect(
     filterAndSortMatches(matches, "applied", "best").map((m) => m.id),
   ).toEqual(["e"]);
-  expect(
-    filterAndSortMatches(matches, "interviewing", "best").map((m) => m.id),
-  ).toEqual(["f"]);
-  expect(
-    filterAndSortMatches(matches, "offer", "best").map((m) => m.id),
-  ).toEqual(["g"]);
-  expect(
-    filterAndSortMatches(matches, "rejected", "best").map((m) => m.id),
-  ).toEqual(["h"]);
+
 });
 
 test("best sort uses verified evidence and recency rather than percentage scores", () => {

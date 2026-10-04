@@ -214,15 +214,15 @@ async def test_new_retains_latest_legacy_batch(account, db_session):
     assert [match.id for match in result.matches] == [latest.id]
 
 
-async def test_applied_pages_include_existing_application_stages(account, db_session):
+async def test_applied_pages_include_only_applied_jobs(account, db_session):
     from datetime import UTC, datetime
 
     user, profile = account
     now = datetime.now(UTC)
     await _history_match(db_session, profile, now)
     applications = [
-        await _history_match(db_session, profile, now, status=stage, saved=True)
-        for stage in ("applied", "interviewing", "offer", "rejected")
+        await _history_match(db_session, profile, now, status="applied", saved=saved)
+        for saved in (True, False, True, False)
     ]
     result = await job_search.list_matches(user=user, session=db_session, view="applied", limit=2)
     rest = await job_search.list_matches(

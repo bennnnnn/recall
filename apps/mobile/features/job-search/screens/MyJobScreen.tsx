@@ -1,7 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
 import {
-  AppState,
   Pressable,
   RefreshControl,
   StyleSheet,
@@ -11,8 +10,6 @@ import {
 import { Redirect, useFocusEffect, useRouter, useLocalSearchParams } from "expo-router";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
-
-import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
 
 import { Icon } from "@/ui/icons/Icon";
 import { JobMatchCard } from "@/features/job-search/components/JobMatchCard";
@@ -102,16 +99,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const router = useRouter();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const paid = user?.plan === "pro" && !dashboard.pro_required;
-  const [notificationPermission, setNotificationPermission] = useState<boolean | null>(null);
-  useEffect(() => {
-    let current = true;
-    const check = () => { void getNotificationPermissionGranted().then(granted => {
-      if (current && isCurrent()) setNotificationPermission(granted);
-    }).catch(() => { if (current && isCurrent()) setNotificationPermission(false); }); };
-    check();
-    const listener = AppState.addEventListener("change", state => { if (state === "active") check(); });
-    return () => { current = false; listener.remove(); };
-  }, [isCurrent]);
   const askRecall = () => router.push({ pathname: "/", params: { myJobPrompt: "My Job: " } });
   const openSetup = useCallback(() => {
     tap();
@@ -301,15 +288,15 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               </View>
 
               <SearchStatusHeader dashboard={dashboard} paid={paid} onAsk={askRecall} />
-              {(user?.push_notifications_enabled === false || notificationPermission === false) && paid ? <Button title={t("my_job.notification_setup")} variant="ghost" icon="bell" onPress={() => router.push("/settings/notifications")} /> : null}
+              {user?.push_notifications_enabled === false && paid ? <Button title={t("my_job.notification_setup")} variant="ghost" icon="bell" onPress={() => router.push("/settings/notifications")} /> : null}
               {runId ? <Text style={s.planNote}>{t("my_job.notification_results")}</Text> : null}
               {!paid ? <Button title={t("my_job.renew_pro")} variant="secondary" onPress={() => setUpgradeOpen(true)} /> : null}
             </View>
 
             <View style={s.tabs} accessibilityRole="tablist">
               <TabButton label={t("my_job.tab_new_matches")} active={tab === "new"} onPress={() => setTab("new")} />
-              <TabButton label={t("my_job.tab_all")} active={tab === "all"} onPress={() => setTab("all")} />
               <TabButton label={t("my_job.tab_applied")} active={tab === "applied"} onPress={() => setTab("applied")} />
+              <TabButton label={t("my_job.tab_all")} active={tab === "all"} onPress={() => setTab("all")} />
             </View>
 
             {error ? (

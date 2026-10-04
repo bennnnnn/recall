@@ -117,28 +117,15 @@ describe("JobMatchCard", () => {
     expect(onStatus).toHaveBeenCalledWith("applied");
   });
 
-  it("keeps legacy applications without showing stage badges", async () => {
-    const { queryByText, getByRole } = await render(
-      <JobMatchCard match={{ ...baseMatch, status: "interviewing" }} onStatus={jest.fn()} />,
-    );
-    expect(queryByText("my_job.stage_interviewing")).toBeNull();
-    expect(getByRole("button", { name: "my_job.applied" })).toBeTruthy();
-  });
-
-  it("keeps later pipeline stages visibly applied and prevents accidental regression", async () => {
+  it("lets the user unmark an applied job", async () => {
     const onStatus = jest.fn();
     const { getByRole } = await render(
-      <JobMatchCard
-        match={{ ...baseMatch, status: "offer" }}
-        onStatus={onStatus}
-
-      />,
+      <JobMatchCard match={{ ...baseMatch, status: "applied" }} onStatus={onStatus} />,
     );
     const applied = getByRole("button", { name: "my_job.applied" });
-
-    expect(applied.props.accessibilityState).toEqual({ selected: true, disabled: true });
+    expect(applied.props.accessibilityState).toEqual({ selected: true, disabled: false });
     await fireEvent.press(applied);
-    expect(onStatus).not.toHaveBeenCalled();
+    expect(onStatus).toHaveBeenCalledWith("new");
   });
 
   it("keeps the external job action compact instead of stretching across the card", async () => {

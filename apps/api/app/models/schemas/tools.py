@@ -37,9 +37,7 @@ class JobSearchToolInput(BaseModel):
     run_after_save: bool = False
     is_saved: bool | None = None
     offset: int = Field(default=0, ge=0)
-    list_filter: Literal[
-        "matches", "saved", "applied", "interviewing", "offer", "rejected", "all"
-    ] = "matches"
+    list_filter: Literal["matches", "saved", "applied", "all"] = "matches"
     preferences: JobSearchPreferencesPatch | None = None
     result_limit: int | None = Field(
         default=None,

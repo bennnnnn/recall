@@ -161,7 +161,8 @@ class JobSearchAdapter:
             "or resume searches; run_after_save is only for an explicitly requested search. "
             "Read get_profile for live status and list for verified persisted match IDs. "
             "Ask which job when ambiguous. Setup needs roles and country; pay and resume "
-            "are optional. Support saved jobs, stages, notes and cover letters. Pro required."
+            "are optional. Support saved jobs, marking jobs applied, notes and cover letters. "
+            "Pro required."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:
@@ -381,8 +382,8 @@ class JobSearchAdapter:
                 filter_name = args.get("list_filter", "matches")
                 if filter_name == "saved":
                     query = query.where(JobMatch.is_saved.is_(True))
-                elif filter_name in {"applied", "interviewing", "offer", "rejected"}:
-                    query = query.where(JobMatch.status == filter_name)
+                elif filter_name == "applied":
+                    query = query.where(JobMatch.status == "applied")
                 rows = list(
                     (
                         await session.scalars(
