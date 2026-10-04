@@ -84,8 +84,6 @@ def test_zero_amplitude_produces_zero_displacement() -> None:
     [
         "a ball is launched at 20 m/s at 45 degrees, find the range",
         "a 2 kg mass and a 3 kg mass hang over a pulley, find the acceleration",
-        "a block is released from rest on a 30 degree incline with coefficient of friction 0.2, "
-        "find the acceleration",
         "in an elastic collision a 2 kg ball at 3 m/s hits a 1 kg ball at rest, "
         "find the final velocities",
         "Find the orbital speed of a satellite 400 km above Earth.",
@@ -100,6 +98,22 @@ def test_moving_scenes_carry_positive_finite_physical_duration(question: str) ->
         assert scene.duration_s is not None and math.isfinite(scene.duration_s)
         assert scene.duration_s > 0
         assert scene.playback_rate == 1
+
+
+def test_display_only_incline_motion_has_no_physical_duration() -> None:
+    question = (
+        "A block is released from rest on a 30 degree incline with coefficient of friction 0.2, "
+        "find the acceleration"
+    )
+    intent = extract_physics_intent(question)
+    assert intent is not None
+    scene = solve_physics(intent).simulation_specs[0]
+    assert scene.type == "incline"
+    assert scene.duration_s is None
+    assert "duration_s" not in scene.model_dump(exclude_none=True)
+    path = scene.bodies[0].path
+    assert path[0] != path[-1]
+    assert path[-1][0] - path[-2][0] > 2 * (path[1][0] - path[0][0])
 
 
 @pytest.mark.parametrize("field", ["duration_s", "playback_rate"])

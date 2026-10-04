@@ -287,8 +287,8 @@ pipeline refuses:
 
 ## Native scene timing
 
-The server samples motion uniformly in physical time and includes `duration_s`
-and `playback_rate` on simulation specs. The native Skia renderer advances one
+For motion with a known physical span, the server samples uniformly in physical
+time and includes `duration_s` and `playback_rate` on simulation specs. The native Skia renderer advances one
 Reanimated clock for all bodies. New scenes reset that clock; backgrounding
 pauses it; returning resumes the remaining interval. Reduce Motion cancels
 playback and displays the first sample. Completion callbacks from replaced
@@ -299,6 +299,11 @@ window for legibility. The caption shows physical duration and the effective
 speed factor whenever the window changes the rate. Legacy scenes retain the
 existing four-second fallback. The client interpolates supplied coordinates;
 it does not solve motion equations.
+
+Incline acceleration questions do not supply a slope length or travel time. Their
+illustrative slope retains its accelerating path but omits `duration_s`, so native
+playback uses the display fallback and shows no physical-time caption. The chosen
+display length must not produce a verified travel-time claim.
 
 Harmonic motion with a supplied amplitude uses the same displacements as its
 position-time graph, covers two periods, and states the convention that it

@@ -110,6 +110,8 @@ The native renderer uses Skia with Reanimated shared/derived values. The server 
 the path uniformly in time; the device interpolates those samples with a uniform spatial
 scale. Physics is never re-solved on the device. Timing metadata must record the physical
 time span and playback rate separately, and scene replacement must cancel the old clock.
+An incline whose length is only a display choice omits physical duration; its
+accelerating illustration remains playable without an invented time caption.
 Reduce Motion keeps the static diagram. Lifecycle and parameter tests complement native
 device validation; Jest mocks cannot establish native frame rate or visual quality.
 

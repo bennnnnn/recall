@@ -192,14 +192,13 @@ def _incline_scene(
     top_x, top_y = 0.0, _INCLINE_LENGTH * math.sin(theta)
 
     n_points = 60
-    duration = None
     if accel is not None and accel > 0:
         # s = ½at², sampled uniformly in *time*, so the block visibly
-        # accelerates rather than sliding at a constant rate. The duration is
-        # the one that covers the drawn slope, so the block arrives at the
-        # bottom exactly as the animation ends.
-        duration = math.sqrt(2 * _INCLINE_LENGTH / accel)
-        dt = duration / (n_points - 1)
+        # accelerates rather than sliding at a constant rate. This span only
+        # parameterizes the display's chosen slope length; it is not a solved
+        # physical duration and must not appear in a timing caption.
+        display_span = math.sqrt(2 * _INCLINE_LENGTH / accel)
+        dt = display_span / (n_points - 1)
         distances = [0.5 * accel * (i * dt) ** 2 for i in range(n_points)]
     else:
         # Held by friction, or an op with no acceleration to show: the block
@@ -215,7 +214,6 @@ def _incline_scene(
     return [
         SimulationBlockSpec(
             type="incline",
-            duration_s=duration,
             title="Inclined Plane",
             bodies=[SimulationBody(path=path, radius=_INCLINE_LENGTH * 0.06)],
             x_min=-margin,

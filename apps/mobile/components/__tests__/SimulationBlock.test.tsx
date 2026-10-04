@@ -184,6 +184,19 @@ const INCLINE = JSON.stringify({
 });
 
 describe("SimulationBlock: collisions and inclines", () => {
+  it("animates an illustrative incline without a physical-time caption", async () => {
+    const incline = JSON.parse(INCLINE);
+    incline.bodies[0].path = [[0, 3], [1.3, 2.25], [5.2, 0]];
+    const { getByTestId, queryByTestId } = await render(
+      <SimulationBlock content={JSON.stringify(incline)} />,
+    );
+
+    expect(getByTestId("simulation-body")).toBeTruthy();
+    expect(getByTestId("simulation-slope")).toBeTruthy();
+    expect(getByTestId("simulation-control")).toBeTruthy();
+    expect(queryByTestId("simulation-timing")).toBeNull();
+  });
+
   it("renders both bodies of a collision", async () => {
     // The scene a number cannot replace: "1.00 m/s and 4.00 m/s" says nothing
     // about which ball ends up ahead or whether either turns around.
