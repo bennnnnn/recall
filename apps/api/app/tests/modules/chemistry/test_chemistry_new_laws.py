@@ -240,6 +240,15 @@ def test_diprotic_steps_past_the_first_dissociation() -> None:
         extract_chemistry_intent("What is the pH of an amphiprotic solution with pKa1 = 4.00?")
         is None
     )
+    # Mentioning A2- in a pH question, or stating [A2-] as a given, is not that ask.
+    mentioned = (
+        "What is the pH of 0.10 M H2A? Ka = 1.0e-4. The acid also forms A2- with Ka2 = 1.0e-8."
+    )
+    acid = extract_chemistry_intent(mentioned)
+    assert acid is None or acid.chemistry_op != "diprotic_a2"
+    given = "Ka2 = 1.0e-8 and [A2-] = 1.0e-6. What is the ratio?"
+    ratio = extract_chemistry_intent(given)
+    assert ratio is None or ratio.chemistry_op != "diprotic_a2"
 
 
 def test_binary_vapor_pressure_rejects_fractions_that_do_not_sum_to_one() -> None:
