@@ -1,4 +1,5 @@
 import { Text, View } from "react-native";
+import { TextField } from "@/ui/controls/TextField";
 import { useTranslation } from "react-i18next";
 
 import { SearchableMultiSelect } from "@/features/job-search/components/SearchableMultiSelect";
@@ -15,6 +16,8 @@ import {
 type Props = {
   roles: string[];
   skills: string[];
+  years: string;
+  onYearsChange: (years: string) => void;
   roleError: boolean;
   busy: boolean;
   onRolesChange: (roles: string[]) => void;
@@ -24,6 +27,8 @@ type Props = {
 export function RolesSkillsStep({
   roles,
   skills,
+  years,
+  onYearsChange,
   roleError,
   busy,
   onRolesChange,
@@ -50,6 +55,18 @@ export function RolesSkillsStep({
         {roleError ? (
           <Text style={s.errorText}>{t("my_job.role_required_body")}</Text>
         ) : null}
+      </View>
+
+      <View style={s.fieldGroup}>
+        <FieldLabel>{t("my_job.actual_experience")}</FieldLabel>
+        <TextField
+          value={years}
+          onChangeText={onYearsChange}
+          accessibilityLabel={t("my_job.actual_experience")}
+          keyboardType="decimal-pad"
+          placeholder={t("my_job.optional")}
+          editable={!busy}
+        />
       </View>
 
       <View style={s.fieldGroup}>

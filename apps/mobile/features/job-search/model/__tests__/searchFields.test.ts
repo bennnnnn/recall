@@ -20,8 +20,6 @@ function profile(overrides: Partial<JobSearchProfile> = {}): JobSearchProfile {
     requires_sponsorship: null,
     excluded_companies: [],
     background: null,
-    resume_attachment_id: null,
-    resume_filename: null,
     result_count: 5,
     frequency: "weekly",
     next_run_at: "2026-09-19T15:00:00Z",

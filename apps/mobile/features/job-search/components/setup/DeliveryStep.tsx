@@ -17,7 +17,6 @@ type Props = {
   timeLabel: string;
   isPro: boolean;
   busy: boolean;
-  summary: string[];
   onOpenCount: () => void;
   onOpenFrequency: () => void;
   onOpenDatePicker: () => void;
@@ -31,7 +30,6 @@ export function DeliveryStep({
   timeLabel,
   isPro,
   busy,
-  summary,
   onOpenCount,
   onOpenFrequency,
   onOpenDatePicker,
@@ -42,16 +40,6 @@ export function DeliveryStep({
 
   return (
     <>
-      <View style={s.reviewCard}>
-        <Text style={s.reviewTitle}>{t("my_job.review_title")}</Text>
-        {summary.map((line) => (
-          <View key={line} style={s.reviewRow}>
-            <Icon name="check-circle-filled" size={IconSize.xs} color={C.primary} />
-            <Text style={s.reviewText}>{line}</Text>
-          </View>
-        ))}
-      </View>
-
       <View style={s.fieldGroup}>
         <FieldLabel>{t("my_job.count_label")}</FieldLabel>
         <Pressable

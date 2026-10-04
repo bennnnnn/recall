@@ -36,10 +36,6 @@ function optimisticProfile(
   return {
     id: previous?.id ?? "local-job-search",
     ...input,
-    resume_filename:
-      input.resume_attachment_id === previous?.resume_attachment_id
-        ? previous.resume_filename
-        : null,
     status: previous?.status ?? "active",
     last_run_at: previous?.last_run_at ?? null,
     last_run_status: previous?.last_run_status ?? null,

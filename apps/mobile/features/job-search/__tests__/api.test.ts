@@ -17,7 +17,6 @@ const input: JobSearchInput = {
   requires_sponsorship: false,
   excluded_companies: ["Example Staffing"],
   background: "Built production APIs.",
-  resume_attachment_id: "resume-1",
   result_count: 10,
   frequency: "weekdays",
   next_run_at: "2026-09-18T15:00:00.000Z",

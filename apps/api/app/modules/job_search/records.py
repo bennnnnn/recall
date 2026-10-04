@@ -8,8 +8,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, Field, field_validator
 
-from app.modules.job_search.schemas import ResumeProfile
-
 
 @dataclass(frozen=True, slots=True)
 class _ProfileSnapshot:
@@ -26,8 +24,6 @@ class _ProfileSnapshot:
     requires_sponsorship: bool | None
     excluded_companies: list[str]
     background: str | None
-    resume_text: str | None
-    resume_profile: ResumeProfile | None
     # Titles/companies the user dismissed ("Not interested") — hard filter for
     # companies, ranking signal for titles.
     hidden_companies: list[str]

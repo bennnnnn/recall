@@ -41,8 +41,6 @@ export type JobSearchProfile = {
   requires_sponsorship: boolean | null;
   excluded_companies: string[];
   background: string | null;
-  resume_attachment_id: string | null;
-  resume_filename: string | null;
   result_count: 5 | 10 | 15;
   frequency: JobSearchFrequency;
   next_run_at: string;
@@ -107,7 +105,6 @@ export type JobSearchInput = {
   requires_sponsorship: boolean | null;
   excluded_companies: string[];
   background: string | null;
-  resume_attachment_id: string | null;
   result_count: 5 | 10 | 15;
   frequency: JobSearchFrequency;
   next_run_at: string;

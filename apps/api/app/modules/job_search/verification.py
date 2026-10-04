@@ -356,8 +356,6 @@ def assess(
         else:
             unresolved.append("Pay does not confirm your minimum in the same currency and period")
     actual_years = profile.years_experience
-    if actual_years is None and profile.resume_profile:
-        actual_years = profile.resume_profile.years_experience
     if facts.minimum_years is not None and actual_years is not None:
         if facts.minimum_years > actual_years:
             return None
@@ -377,7 +375,7 @@ def assess(
             reasons.append("The posting offers sponsorship")
     if facts.availability != "open":
         unresolved.append("Current application availability needs confirmation")
-    skills = [*profile.skills, *(profile.resume_profile.skills if profile.resume_profile else [])]
+    skills = profile.skills
     overlap = [
         skill
         for skill in facts.required_skills

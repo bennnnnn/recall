@@ -33,7 +33,6 @@ from app.modules.job_search.records import (
     _ProfileSnapshot,
     _RankedJob,
 )
-from app.modules.job_search.schemas import ResumeProfile
 from app.modules.job_search.verification import PostingBatch, PostingFacts
 from app.tests.modules.job_search.posting_fixtures import posting
 from app.tests.modules.job_search.posting_fixtures import profile as fixture_profile
@@ -54,8 +53,6 @@ def _profile(**overrides: object) -> _ProfileSnapshot:
         "requires_sponsorship": False,
         "excluded_companies": [],
         "background": None,
-        "resume_text": None,
-        "resume_profile": None,
         "hidden_companies": [],
         "hidden_titles": [],
         "result_count": 10,
@@ -150,14 +147,11 @@ def test_fallback_rank_assigns_bounded_heuristic_scores() -> None:
     )
 
 
-def test_strategic_match_assessment_compares_resume_with_job_requirements() -> None:
+def test_strategic_match_assessment_compares_user_profile_with_job_requirements() -> None:
     profile = _profile(
         work_modes=["remote"],
-        resume_profile=ResumeProfile(
-            titles=["Backend Engineer"],
-            skills=["Python", "FastAPI"],
-            years_experience=4,
-        ),
+        skills=["Python", "FastAPI"],
+        years_experience=4,
     )
     reasons, gap = _strategic_match_assessment(
         profile,
@@ -337,34 +331,21 @@ async def test_fetch_posting_pages_disabled_flag_is_passthrough(
     assert await _rank_postings(monkeypatch, fixture_profile(), candidate, facts) == []
 
 
-def test_search_queries_use_resume_skills_and_alt_title() -> None:
-    resume = ResumeProfile(
-        titles=["Platform Engineer"],
-        skills=["Kubernetes", "Terraform"],
-    )
-    profile = _profile(resume_profile=resume)
-    queries = _search_queries(profile)
-    # Explicit roles take precedence over résumé titles; retrieval remains broad.
+def test_search_queries_use_explicit_titles() -> None:
+    queries = _search_queries(_profile())
     assert all('"Backend Engineer"' in query for query in queries)
-    assert not any('"Platform Engineer"' in query for query in queries)
 
 
-def test_search_queries_skip_resume_title_already_targeted() -> None:
-    resume = ResumeProfile(titles=["Backend Engineer"], skills=[])
-    queries = _search_queries(_profile(resume_profile=resume))
-    assert sum('"Backend Engineer"' in query for query in queries) == 1
-
-
-def test_ranking_messages_include_structured_resume_profile() -> None:
-    resume = ResumeProfile(titles=["Backend Engineer"], skills=["Python"], years_experience=4)
+def test_ranking_messages_use_only_user_supplied_candidate_facts() -> None:
     messages = _ranking_messages(
-        _profile(resume_profile=resume, resume_text="raw resume text"),
+        _profile(skills=["Python"], years_experience=4),
         [_candidate("Backend Engineer", "Python")],
     )
     payload = messages[1]["content"]
-    assert '"resume_profile"' in payload
     assert '"years_experience": 4' in payload
-    assert "raw resume text" in payload
+    assert '"Python"' in payload
+    assert '"resume_profile"' not in payload
+    assert '"resume_excerpt"' not in payload
 
 
 def test_hidden_company_is_filtered_like_an_excluded_company() -> None:
