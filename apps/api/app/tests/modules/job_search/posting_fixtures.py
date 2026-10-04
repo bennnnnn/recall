@@ -22,8 +22,6 @@ def profile(**changes) -> _ProfileSnapshot:
         requires_sponsorship=None,
         excluded_companies=[],
         background=None,
-        resume_text=None,
-        resume_profile=None,
         hidden_companies=[],
         hidden_titles=[],
         result_count=10,

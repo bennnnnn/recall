@@ -125,8 +125,6 @@ function profile(): JobSearchProfile {
     requires_sponsorship: null,
     excluded_companies: [],
     background: null,
-    resume_attachment_id: null,
-    resume_filename: null,
     result_count: 5,
     frequency: "weekly",
     next_run_at: "2026-09-20T08:00:00.000Z",

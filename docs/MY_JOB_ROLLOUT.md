@@ -7,10 +7,12 @@ app does not abandon the search.
 
 ## Enablement
 
-1. Apply Alembic migrations through `0102_job_applied_only` before deploying the
+1. Apply Alembic migrations through `0103_remove_job_resume` before deploying the
    API and worker together. Migration 0102 converts Interviewing, Offer, and
    Rejected to Applied and removes those allowed statuses. Jobs, bookmarks and
-   notes are retained. Migrations 0100/0101 preserve résumé data and backfill
+   notes are retained. Migration 0103 removes My Job résumé columns and increments
+   revisions for profiles with résumé data, preventing stale assessments from publishing.
+   Uploaded attachments remain available to their owning chats. Migrations 0100/0101 backfill
    unambiguous legacy locations; uncertain geography and salary currency require
    review.
 2. Keep `JOB_SEARCH_PREMIUM_ENABLED=false` during migration and smoke checks. Set it
@@ -26,8 +28,10 @@ app does not abandon the search.
    taps include the run ID so the app loads that search's result set.
 
 A new profile defaults to ten results on weekdays at 8 AM in the account timezone.
-Experience and work arrangements stay broad until the user narrows them. Résumé
-upload and a salary minimum are optional. Editing preferences saves them and keeps
+Experience and work arrangements stay broad until the user narrows them. A salary
+minimum is optional and numeric-only in the form. The form keeps an established
+currency or displays the selected country’s currency as its pay unit. Editing
+preferences saves them and keeps
 paused searches paused. Only an explicitly requested search starts another run.
 
 ## Reliability contracts
@@ -43,7 +47,7 @@ paused searches paused. Only an explicitly requested search starts another run.
   Checkpoints resume completed phases after worker restarts. A crash before a
   checkpoint can consume reserved budget without producing results; retries cannot
   exceed those limits. Search-provider daily limits and the global spend guard also
-  apply to workers, posting analysis and résumé/cover-letter assistance.
+  apply to workers, posting analysis and cover-letter assistance.
 - Unreadable pages, closed postings and confirmed mismatches are rejected. Extracted
   facts require supporting text from a specific posting. Unknown requirements,
   overlapping pay ranges and incomparable currencies/periods remain in the single
@@ -66,7 +70,7 @@ Use `job_search_runs` for queued/running/completed/failed/limited/cancelled outc
 creation/start/finish times, partial coverage, qualifying/possible/new counts,
 provider usage and reserved/estimated costs. Structured `my_job_run_finished` logs
 include outcome, latency, counts and usage. `my_job_assistance_usage` records model
-usage for résumé and cover-letter assistance. No posting contents or résumé text
+usage for cover-letter assistance. No posting contents or candidate background
 are included in these metrics.
 
 Track failures, successful empty results, partial-result rate, p50/p95 latency,

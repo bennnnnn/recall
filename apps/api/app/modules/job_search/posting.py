@@ -580,8 +580,6 @@ def _fallback_required_skills(
     """
     text = f"{candidate.snippet} {candidate.page_text or ''}".casefold()
     known = list(profile.skills)
-    if profile.resume_profile is not None:
-        known.extend(profile.resume_profile.skills)
     result: list[str] = []
     seen: set[str] = set()
     for skill in known:

@@ -361,19 +361,17 @@ async def test_chat_status_reads_live_outcome_and_setup_defaults(
     assert saved is not None and saved.country == "Canada"
     assert saved.frequency == "weekdays" and saved.result_count == 10
     assert len(saved.work_modes) == 3 and len(saved.experience_levels) == 4
-    assert saved.salary_min is None and saved.resume_attachment_id is None
+    assert saved.salary_min is None
     assert "set up" in setup.content
 
 
-async def test_legacy_put_preserves_richer_preferences_and_resume(account, db_session):
+async def test_legacy_put_preserves_richer_preferences(account, db_session):
     from app.modules.job_search.schemas import JobSearchUpsert
 
     user, profile = account
     profile.salary_min = 100000
     profile.salary_period = "month"
     profile.excluded_locations = [{"country": "United States", "region": "District of Columbia"}]
-    profile.resume_text, profile.resume_filename = "Existing resume text", "resume.pdf"
-    profile.resume_profile = {"titles": ["Engineer"], "skills": ["SQL"]}
     await db_session.commit()
     await service.upsert_profile(
         db_session,
@@ -389,7 +387,6 @@ async def test_legacy_put_preserves_richer_preferences_and_resume(account, db_se
     assert profile.salary_currency == "USD" and profile.salary_period == "month"
     assert profile.years_experience == 5 and profile.excluded_locations
     assert profile.included_locations[0]["region"] == "California"
-    assert profile.resume_text == "Existing resume text" and profile.resume_filename == "resume.pdf"
 
 
 async def test_uncertain_legacy_preferences_block_spending(account, db_session, fake_redis):

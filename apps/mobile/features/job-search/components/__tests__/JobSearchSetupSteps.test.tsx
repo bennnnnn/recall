@@ -78,10 +78,13 @@ describe("job search setup steps", () => {
   it("routes role and skill selections and displays role validation", async () => {
     const onRolesChange = jest.fn();
     const onSkillsChange = jest.fn();
+    const onYearsChange = jest.fn();
     const screen = await render(
       <RolesSkillsStep
         roles={[]}
         skills={[]}
+        years=""
+        onYearsChange={onYearsChange}
         roleError
         busy={false}
         onRolesChange={onRolesChange}
@@ -90,6 +93,11 @@ describe("job search setup steps", () => {
     );
 
     expect(screen.getByText("my_job.role_required_body")).toBeTruthy();
+    expect(screen.getAllByText(/^(my_job.roles_label|my_job.actual_experience|my_job.skills_label)$/).map(node => node.props.children)).toEqual([
+      "my_job.roles_label", "my_job.actual_experience", "my_job.skills_label",
+    ]);
+    await fireEvent.changeText(screen.getByLabelText("my_job.actual_experience"), "5.5");
+    expect(onYearsChange).toHaveBeenCalledWith("5.5");
     await fireEvent.press(screen.getByText("my_job.roles_label-picker"));
     await fireEvent.press(screen.getByText("my_job.skills_label-picker"));
 
@@ -97,48 +105,26 @@ describe("job search setup steps", () => {
     expect(onSkillsChange).toHaveBeenCalledWith(["my_job.skills_label-choice"]);
   });
 
-  it("routes resume, experience, and salary controls", async () => {
-    const onChooseResume = jest.fn();
-    const onRemoveResume = jest.fn();
+  it("routes seniority and numeric salary controls", async () => {
     const onExperiencePress = jest.fn();
     const onSalaryChange = jest.fn();
-    const onSponsorshipChange = jest.fn();
-    const onExcludedCompaniesChange = jest.fn();
     const screen = await render(
       <ProfileStep
-        resumeName="resume.pdf"
-        uploadingResume={false}
         levels={["entry"]}
         salary="100000"
-        requiresSponsorship={null}
-        excludedCompanies="Acme"
-        salaryError
+        salaryCurrency="USD"
+        salaryError="my_job.salary_invalid_body"
         busy={false}
-        onChooseResume={onChooseResume}
-        onRemoveResume={onRemoveResume}
         onExperiencePress={onExperiencePress}
         onSalaryChange={onSalaryChange}
-        onSponsorshipChange={onSponsorshipChange}
-        onExcludedCompaniesChange={onExcludedCompaniesChange}
       />,
     );
 
-    await fireEvent.press(screen.getByText("resume.pdf"));
-    await fireEvent.press(screen.getByText("my_job.resume_remove"));
     await fireEvent.press(screen.getByText("my_job.level_entry"));
-    await fireEvent.press(screen.getByText("my_job.sponsorship_yes"));
     await fireEvent.changeText(screen.getByPlaceholderText("100000"), "120000");
-    await fireEvent.changeText(
-      screen.getByPlaceholderText("my_job.excluded_companies_placeholder"),
-      "Acme, Contoso",
-    );
 
-    expect(onChooseResume).toHaveBeenCalledTimes(1);
-    expect(onRemoveResume).toHaveBeenCalledTimes(1);
     expect(onExperiencePress).toHaveBeenCalledWith("entry");
-    expect(onSponsorshipChange).toHaveBeenCalledWith(true);
     expect(onSalaryChange).toHaveBeenCalledWith("120000");
-    expect(onExcludedCompaniesChange).toHaveBeenCalledWith("Acme, Contoso");
     expect(screen.getByText("my_job.salary_invalid_body")).toBeTruthy();
   });
 
@@ -153,7 +139,6 @@ describe("job search setup steps", () => {
         timeLabel="Tomorrow at 8:00 AM"
         isPro
         busy={false}
-        summary={["Nurse", "Berlin"]}
         onOpenCount={onOpenCount}
         onOpenFrequency={onOpenFrequency}
         onOpenDatePicker={onOpenDatePicker}
@@ -164,8 +149,6 @@ describe("job search setup steps", () => {
     await fireEvent.press(screen.getByText("Weekdays"));
     await fireEvent.press(screen.getByText("Tomorrow at 8:00 AM"));
 
-    expect(screen.getByText("Nurse")).toBeTruthy();
-    expect(screen.getByText("Berlin")).toBeTruthy();
 
     expect(onOpenCount).toHaveBeenCalledTimes(1);
     expect(onOpenFrequency).toHaveBeenCalledTimes(1);

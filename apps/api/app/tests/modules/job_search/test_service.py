@@ -18,7 +18,6 @@ from app.modules.job_search import service as job_search_service
 from app.modules.job_search.schemas import (
     JobMatchStatusUpdate,
     JobSearchPreferencesPatch,
-    ResumeProfile,
 )
 
 
@@ -279,53 +278,6 @@ def test_manual_run_policy(
         assert job_search_service.can_request_manual_run(user, profile) is expected
 
 
-async def test_extract_resume_profile_returns_parsed_model() -> None:
-    extracted = ResumeProfile(
-        titles=["Nurse", "Charge Nurse"],
-        skills=["Triage", "ACLS"],
-        years_experience=6,
-        domains=["Healthcare"],
-        education="BSN",
-        summary="Experienced nurse.",
-    )
-    with patch.object(
-        job_search_service.litellm_gateway,
-        "complete_structured",
-        new=AsyncMock(return_value=extracted),
-    ):
-        result = await job_search_service.extract_resume_profile(MagicMock(), "resume text")
-    assert result is not None
-    assert result.titles == ["Nurse", "Charge Nurse"]
-    assert result.years_experience == 6
-
-
-async def test_extract_resume_profile_none_when_gateway_returns_none() -> None:
-    with patch.object(
-        job_search_service.litellm_gateway,
-        "complete_structured",
-        new=AsyncMock(return_value=None),
-    ):
-        assert await job_search_service.extract_resume_profile(MagicMock(), "text") is None
-
-
-async def test_extract_resume_profile_swallows_provider_errors() -> None:
-    with patch.object(
-        job_search_service.litellm_gateway,
-        "complete_structured",
-        new=AsyncMock(side_effect=RuntimeError("provider down")),
-    ):
-        assert await job_search_service.extract_resume_profile(MagicMock(), "text") is None
-
-
-async def test_extract_resume_profile_skips_empty_text() -> None:
-    with patch.object(
-        job_search_service.litellm_gateway,
-        "complete_structured",
-        new=AsyncMock(side_effect=AssertionError("must not be called")),
-    ):
-        assert await job_search_service.extract_resume_profile(MagicMock(), "   ") is None
-
-
 def test_match_out_upgrades_legacy_weak_reason_with_profile_evidence() -> None:
     match = SimpleNamespace(
         id=uuid4(),
@@ -355,9 +307,8 @@ def test_match_out_upgrades_legacy_weak_reason_with_profile_evidence() -> None:
     profile = SimpleNamespace(
         is_pro=True,
         revision=1,
-        years_experience=None,
+        years_experience=4,
         skills=["Python"],
-        resume_profile=ResumeProfile(skills=["Python"], years_experience=4),
         experience_levels=["mid"],
         work_modes=["remote"],
         location="United States",
@@ -467,7 +418,6 @@ def test_match_out_drops_stale_preference_reasons_after_profile_change() -> None
         is_pro=True,
         years_experience=None,
         skills=[],
-        resume_profile=None,
         experience_levels=["entry"],
         work_modes=["remote"],
         location="United States",
@@ -519,8 +469,8 @@ def _cover_letter_setup(
     profile.target_roles = ["Registered Nurse"]
     profile.skills = ["Triage"]
     profile.experience_levels = ["mid"]
-    profile.resume_profile = {"titles": ["Nurse"], "skills": ["Triage"]}
-    profile.resume_text = "raw resume"
+    profile.years_experience = 4
+    profile.background = None
 
     session = AsyncMock()
     session.scalar.return_value = match

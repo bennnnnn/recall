@@ -84,7 +84,6 @@ class JobSearchUpsert(BaseModel):
     requires_sponsorship: bool | None = None
     excluded_companies: list[str] = Field(default_factory=list, max_length=20)
     background: str | None = Field(default=None, max_length=6000)
-    resume_attachment_id: UUID | None = None
     result_count: Literal[5, 10, 15] = 10
     frequency: JobSearchFrequency = "weekdays"
     next_run_at: datetime
@@ -166,7 +165,6 @@ class JobSearchPreferencesPatch(BaseModel):
     result_count: Literal[5, 10, 15] | None = None
     frequency: JobSearchFrequency | None = None
     next_run_at: datetime | None = None
-    resume_attachment_id: UUID | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -321,8 +319,6 @@ class JobSearchProfileOut(BaseModel):
     requires_sponsorship: bool | None = None
     excluded_companies: list[str]
     background: str | None = None
-    resume_attachment_id: UUID | None = None
-    resume_filename: str | None = None
     result_count: Literal[5, 10, 15]
     frequency: JobSearchFrequency
     next_run_at: datetime
@@ -331,33 +327,6 @@ class JobSearchProfileOut(BaseModel):
     last_run_status: Literal["ok", "error", "skipped_quota"] | None = None
     created_at: datetime
     updated_at: datetime
-
-
-class ResumeProfile(BaseModel):
-    """Structured facts extracted once from an uploaded resume.
-
-    Stored as JSON on the profile so each run can target queries and ranking
-    without re-reading the raw resume text.
-    """
-
-    model_config = ConfigDict(title="ResumeProfile")
-
-    titles: list[str] = Field(default_factory=list, max_length=8)
-    skills: list[str] = Field(default_factory=list, max_length=25)
-    years_experience: float | None = None
-    domains: list[str] = Field(default_factory=list, max_length=6)
-    education: str | None = Field(default=None, max_length=200)
-    summary: str | None = Field(default=None, max_length=400)
-
-    @field_validator("titles", "skills", "domains")
-    @classmethod
-    def clean_items(cls, values: list[str]) -> list[str]:
-        result: list[str] = []
-        for raw in values:
-            value = " ".join(raw.strip().split())[:80]
-            if value and value.casefold() not in {item.casefold() for item in result}:
-                result.append(value)
-        return result
 
 
 class JobMatchOut(BaseModel):

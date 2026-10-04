@@ -160,7 +160,7 @@ class JobSearchAdapter:
             "Ask one clarification for ambiguous country or currency. Edits alone never run "
             "or resume searches; run_after_save is only for an explicitly requested search. "
             "Read get_profile for live status and list for verified persisted match IDs. "
-            "Ask which job when ambiguous. Setup needs roles and country; pay and resume "
+            "Ask which job when ambiguous. Setup needs roles and country; pay "
             "are optional. Support saved jobs, marking jobs applied, notes and cover letters. "
             "Pro required."
         )

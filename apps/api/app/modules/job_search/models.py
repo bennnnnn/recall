@@ -82,14 +82,6 @@ class JobSearchProfile(Base):
     requires_sponsorship: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
     excluded_companies: Mapped[list[str]] = mapped_column(JSON, nullable=False)
     background: Mapped[str | None] = mapped_column(Text, nullable=True)
-    resume_attachment_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("attachments.id", ondelete="SET NULL"),
-        nullable=True,
-    )
-    resume_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    resume_text: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # Structured ResumeProfile dump, extracted once per uploaded resume.
-    resume_profile: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     result_count: Mapped[int] = mapped_column(Integer, nullable=False, default=10)
     frequency: Mapped[str] = mapped_column(String(16), nullable=False)
     next_run_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
