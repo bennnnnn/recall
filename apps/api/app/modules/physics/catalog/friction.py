@@ -4,6 +4,11 @@ from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
+_STATE = (
+    var("static_equilibrium", "static", dimensionless=True, visible=False),
+    var("motion_sign", "direction", dimensionless=True, visible=False),
+)
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "friction_force",
@@ -11,6 +16,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Friction law",
         "f",
         variables=(
+            *_STATE,
             var("angle", r"\theta", dimensionless=True),
             var("g", "g", "meter / second ** 2"),
             var("m", "m", "kilogram"),
@@ -35,6 +41,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Inclined-plane force equation",
         "a",
         variables=(
+            *_STATE,
             var("angle", r"\theta", dimensionless=True),
             var("g", "g", "meter / second ** 2"),
             var("m", "m", "kilogram"),
@@ -112,6 +119,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter / second ** 2",),
             inputs=(frozenset({"F", "g", "m", "mu"}),),
             cues=("friction",),
+            excludes=("static", "rests", "resting", "at rest"),
             # Friction stronger than the pull leaves the body at rest, not
             # accelerating backwards.
             nonnegative=True,

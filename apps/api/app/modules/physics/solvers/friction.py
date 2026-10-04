@@ -6,7 +6,12 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.physics import PhysicsIntent, SimulationBlockSpec, SimulationBody
+from app.models.schemas.physics import (
+    PhysicsIntent,
+    SimulationBlockSpec,
+    SimulationBody,
+    SimulationVector,
+)
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
@@ -106,18 +111,37 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
 
     if op == "friction_force":
         f_val = mu * normal
+        if p.get("static_equilibrium"):
+            f_val = m * g * abs(math.sin(theta))
+            if f_val > mu * normal + 1e-12:
+                raise SolveServiceError("static friction cannot hold the stated equilibrium")
+            return PhysicsResult(
+                answer=rf"f_s = mg|\sin\theta| = {f_val:g} \text{{ N}}",
+                formulas=(r"f_s = mg|\sin\theta|", r"f_s \le \mu_s N"),
+                substitutions=(rf"f_s = {m:g}\cdot {g:g}\cdot |\sin({deg:g}^\circ)|",),
+                quantities=(QuantityResult("", f_val, "N"),),
+                simulation_specs=_incline_scene(deg, mu=mu if f_val else 0),
+            )
         answer = rf"f = \mu N = {mu:g} \cdot {normal:.2f} \approx {f_val:.2f} \text{{ N}}"
         return PhysicsResult(
             answer=answer,
             formulas=(r"f = \mu N",),
             substitutions=(rf"f = {mu:g} \cdot {normal:.2f}",),
             quantities=(QuantityResult("", f_val, "N"),),
-            simulation_specs=_incline_scene(deg, mu=mu),
+            simulation_specs=_incline_scene(deg, mu=mu, uphill=p.get("motion_sign") == -1),
         )
 
     if op == "incline_acceleration":
-        a_val = g * (math.sin(theta) - mu * math.cos(theta))
-        if a_val <= 0:
+        motion = p.get("motion_sign", 0.0)
+        if motion not in {-1.0, 0.0, 1.0}:
+            raise SolveServiceError("unsupported incline motion direction")
+        if p.get("static_equilibrium"):
+            if abs(math.tan(theta)) > mu:
+                raise SolveServiceError("static friction cannot hold the stated equilibrium")
+            a_val = 0.0
+        else:
+            a_val = g * (math.sin(theta) - (-1 if motion < 0 else 1) * mu * math.cos(theta))
+        if (a_val <= 0 and motion == 0) or p.get("static_equilibrium"):
             # tan(theta) <= mu: static friction holds it. Reporting a negative
             # acceleration would describe the block sliding *up* the slope on
             # its own, which is not what the equation means here.
@@ -136,17 +160,26 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
                 # is the free body that explains why.
                 simulation_specs=_incline_scene(deg, mu=mu),
             )
+        sign = "+" if motion < 0 else "-"
+        formula = rf"a = g(\sin\theta {sign} \mu\cos\theta)"
+        substituted = rf"a = {g:g}(\sin({deg:g}^\circ) {sign} {mu:g}\cos({deg:g}^\circ))"
         answer = (
-            r"a = g(\sin\theta - \mu\cos\theta) = "
-            rf"{g:g}(\sin({deg:g}^\circ) - {mu:g}\cos({deg:g}^\circ)) "
+            formula + " = " + substituted.split(" = ", 1)[1] + " "
             rf"\approx {a_val:.2f} \text{{ m/s}}^2"
         )
         return PhysicsResult(
             answer=answer,
-            formulas=(r"a = g(\sin\theta - \mu\cos\theta)",),
-            substitutions=(rf"a = {g:g}(\sin({deg:g}^\circ) - {mu:g}\cos({deg:g}^\circ))",),
+            formulas=(formula + (r"\quad\text{(downhill positive)}" if motion else ""),),
+            substitutions=(substituted,),
             quantities=(QuantityResult("", a_val, "m/s^2"),),
-            simulation_specs=_incline_scene(deg, mu=mu, accel=a_val),
+            # A moving body's initial speed is not stated. Show its forces;
+            # never invent a trajectory that starts from rest in another direction.
+            simulation_specs=_incline_scene(
+                deg,
+                mu=mu,
+                accel=a_val if not motion else None,
+                uphill=motion < 0,
+            ),
         )
 
     if op == "friction_coefficient":
@@ -184,7 +217,11 @@ _INCLINE_LENGTH = 6.0
 
 
 def _incline_scene(
-    deg: float, *, mu: float, accel: float | None = None
+    deg: float,
+    *,
+    mu: float,
+    accel: float | None = None,
+    uphill: bool = False,
 ) -> list[SimulationBlockSpec]:
     """A block on a slope with its weight, normal and friction arrows.
 
@@ -220,7 +257,7 @@ def _incline_scene(
 
     path = [[round(top_x + s * down_x, 4), round(top_y + s * down_y, 4)] for s in distances]
     arrows: list[str] = ["gravity", "normal"]
-    if mu > 0:
+    if mu > 0 and not uphill:
         arrows.append("friction")
 
     margin = _INCLINE_LENGTH * 0.18
@@ -234,6 +271,9 @@ def _incline_scene(
             y_min=-margin,
             y_max=top_y + margin,
             arrows=arrows,  # type: ignore[arg-type]
+            vectors=[SimulationVector(anchor=path[0], dx=down_x, dy=down_y)]
+            if uphill and mu > 0
+            else [],
             # The angle arrived here through radians, so 30 comes back as
             # 29.999999999999996 and would ship in the fence JSON that way.
             incline_deg=round(abs(deg), 4),

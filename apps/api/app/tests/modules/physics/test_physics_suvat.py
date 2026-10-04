@@ -444,7 +444,7 @@ def test_two_givens_are_not_enough(text: str) -> None:
     assert _verified_answer(text) is None
 
 
-def test_a_reversal_is_not_reported_as_distance() -> None:
+def test_a_reversal_reports_the_whole_path() -> None:
     """Reaching 15 m/s after 2 m/s^2 for 10 s implies u = -5 m/s.
 
     s = vt - (1/2)at^2 is then 50 m of displacement. The path is 62.5 m, and
@@ -453,7 +453,7 @@ def test_a_reversal_is_not_reported_as_distance() -> None:
     text = "a car reaches 15 m/s after accelerating at 2 m/s^2 for 10 s, how far does it travel"
     intent = extract_physics_intent(text)
     assert intent is not None and intent.physics_op == "suvat_distance"
-    assert _verified_answer(text) is None
+    assert _verified_answer(text) == "62.5 m"
 
 
 def test_an_unanswerable_question_shape_is_refused() -> None:

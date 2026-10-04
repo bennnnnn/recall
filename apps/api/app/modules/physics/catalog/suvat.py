@@ -48,7 +48,10 @@ def _inputs(*sets: str) -> tuple[frozenset[str], ...]:
 
 
 def _with(*variables: VariableSpec) -> tuple[VariableSpec, ...]:
-    return tuple(sorted(variables, key=lambda variable: variable.name))
+    return (
+        *sorted(variables, key=lambda variable: variable.name),
+        var("distance_path", "path", dimensionless=True, visible=False),
+    )
 
 
 SPECS: tuple[FormulaSpec, ...] = (

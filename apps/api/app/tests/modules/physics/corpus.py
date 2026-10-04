@@ -20,6 +20,10 @@ from app.tests.modules.physics.corpus_case import q as _q
 
 MECHANICS: tuple[Case, ...] = (
     _q(
+        "A car reaches 15 m/s after accelerating at 2 m/s^2 for 10 s. How far does it travel?",
+        (62.5, "m"),
+    ),
+    _q(
         "A car accelerates uniformly from 10 m/s to 30 m/s in 5 s. Find its acceleration.",
         (4, "m/s^2"),
     ),
@@ -411,10 +415,6 @@ MUST_DECLINE: tuple[Case, ...] = (
     _decline("A ball is dropped from 20 m. How much energy does it have when it lands?"),
     # It "reaches 18 m/s": that speed is stated. Read as the start, it gave 30 m/s.
     _decline("A cyclist accelerates at 2 m/s^2 for 6 s and reaches 18 m/s. What is its speed?"),
-    # Implied u = -5 m/s, so 50 m is the displacement and the path is 62.5 m.
-    _decline(
-        "A car reaches 15 m/s after accelerating at 2 m/s^2 for 10 s. How far does it travel?"
-    ),
     # "weight" in kg is the everyday mass; W = mg would answer a force.
     _decline("My weight is 70 kg. What is my weight in pounds?"),
     # Two speeds and nothing to say which is the start.
