@@ -179,7 +179,7 @@ function makeStyles(C: Theme) {
       backgroundColor: C.border,
       marginTop: Space.xs,
     },
-    actions: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs },
+    actions: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", gap: Space.xs },
     action: {
       minHeight: 44,
       flexDirection: "row",
