@@ -89,6 +89,14 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"s = ut + \tfrac{1}{2}at^2",
         variants=(
             FormulaVariant(
+                latex=r"s = \int_0^t |u+a\tau|\,d\tau",
+                equals=(("distance_path", 1.0),),
+            ),
+            FormulaVariant(
+                latex=r"s = \int_0^t |u+a\tau|\,d\tau",
+                absent=frozenset({"distance_path"}),
+            ),
+            FormulaVariant(
                 latex=r"s = \frac{v^2 - u^2}{2a}",
                 present=frozenset({"v"}),
                 absent=frozenset({"t"}),
