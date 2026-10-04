@@ -55,6 +55,14 @@ The companion correctness and animation PRs address these cases with regression 
 - Replacing one moving scene with another retained the previous animation progress.
 - A single fixed playback duration concealed changes to physical timescales.
 
+Review of the implementations also caught decimal-token precision loss, symbolic
+eigensystems with unstated exceptional parameters, ODE families missing coefficient
+and solution-domain conditions, a false displacement/distance formula equivalence,
+initial rest mistaken for current equilibrium, zero amplitude treated as unspecified,
+and harmonic velocity arrows at zero-velocity turning points. Regression tests cover
+these cases. Numeric eigensystems and conditional linear ODE families define the
+supported symbolic boundary; unsupported exceptional branches decline.
+
 ## Structure and extensions
 
 Keep the catalog as the owner of numerical laws and assumptions. Extractors bind
@@ -63,8 +71,11 @@ results. Shared law binding and the bounded symbolic executor are useful common
 infrastructure. Physics must not reach through math's private solver modules.
 
 The new explicit-model path adds algebra/systems, simplification, differentiation,
-integration, ODE general solutions, Cartesian vector calculus, vector products and
-matrix eigensystems. The parser, operation solver and schema remain separate from
+integration, conditional linear ODE general solutions, Cartesian vector calculus, vector products and
+numeric matrix eigensystems. Decimal tokens retain exact precision. ODE leading-coefficient,
+discriminant and generated singularity conditions are explicit; unsupported nonlinear
+or parameterized variable-coefficient equations and symbolic eigensystems decline.
+The parser, operation solver and schema remain separate from
 numeric word-problem extraction. Exact input/output binding prevents an old symbolic
 result from answering a changed request.
 

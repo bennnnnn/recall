@@ -75,14 +75,45 @@ def _ode(request: SymbolicPhysicsRequest, parser: ModelParser) -> Any:
     variable = parser.symbol(request.variables[0])
     function = sp.Function(request.dependent)(variable)
     equation = parser.equation(request.expressions[0])
-    if sp.ode_order(equation, function) not in {1, 2}:
+    order = sp.ode_order(equation, function)
+    if order not in {1, 2}:
         raise SolveServiceError("only first and second order ODEs are supported")
+    terms = [function, *(sp.diff(function, variable, degree) for degree in range(1, order + 1))]
+    try:
+        polynomial = sp.Poly(equation, *terms)
+    except sp.PolynomialError as exc:
+        raise SolveServiceError("only linear ODEs are supported") from exc
+    if polynomial.total_degree() != 1:
+        raise SolveServiceError("only linear ODEs are supported")
+    coefficients = [polynomial.coeff_monomial(term) for term in terms]
+    leading = coefficients[-1]
+    parser.conditions.append(sp.Ne(leading, 0))
+    # Parameter-dependent variable coefficients can have exceptional orders
+    # and domains that a generic residual check does not establish.
+    parameters = set().union(*(coefficient.free_symbols for coefficient in coefficients)) - {
+        variable
+    }
+    if parameters and any(variable in coefficient.free_symbols for coefficient in coefficients):
+        raise SolveServiceError("parameterized ODEs require constant coefficients")
+    if order == 2 and parameters:
+        constant, first, second = coefficients
+        discriminant = sp.simplify(first**2 - 4 * second * constant)
+        if discriminant != 0:
+            parser.conditions.append(sp.Ne(discriminant, 0))
     solution = sp.dsolve(equation, function)
     if not isinstance(solution, sp.Equality) or solution.lhs != function:
         raise SolveServiceError("an explicit ODE solution is required")
     checked, _residual = sp.checkodesol(equation, solution, func=function)
     if not checked:
         raise SolveServiceError("ODE solution failed its residual check")
+    # dsolve may introduce singularities absent from the input's divisions:
+    # t*x'+x=0 -> C1/t. Record them on the published general family.
+    parser.conditions.append(sp.Ne(sp.denom(sp.together(solution.rhs)), 0))
+    for power in solution.rhs.atoms(sp.Pow):
+        if power.exp.is_negative:
+            parser.conditions.append(sp.Ne(power.base, 0))
+    for logarithm in solution.rhs.atoms(sp.log):
+        parser.conditions.append(sp.Ne(logarithm.args[0], 0))
     return solution
 
 
@@ -107,6 +138,10 @@ def _field(request: SymbolicPhysicsRequest, parser: ModelParser) -> Any:
 
 def _matrix(request: SymbolicPhysicsRequest, parser: ModelParser) -> list[Any]:
     matrix = parser.matrix(request.expressions[0])
+    if matrix.free_symbols:
+        raise SolveServiceError(
+            "eigensystems require numeric entries; parameter branches unsupported"
+        )
     values = matrix.eigenvects()
     if sum(multiplicity for _, multiplicity, _ in values) != matrix.rows:
         raise SolveServiceError("the eigenspectrum is incomplete")
