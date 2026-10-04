@@ -302,10 +302,7 @@ def solve_resolution(intent: ChemistryIntent) -> ChemistryResult:
         ),
         "Resolution",
         *stated("resolution"),
-        (
-            f"Rs = 2 * ({inp(later)} - {inp(earlier)})"
-            f" / ({inp(first_width)} + {inp(second_width)})",
-        ),
+        (f"Rs = 2 * ({inp(later)} - {inp(earlier)}) / ({inp(first_width)} + {inp(second_width)})",),
         shown,
         shown,
     )
