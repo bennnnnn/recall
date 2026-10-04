@@ -488,6 +488,30 @@ def test_each_new_reading_reaches_chemistry(question: str) -> None:
     assert detect_subject(question) == "chemistry"
 
 
+def test_combustion_analysis_is_only_a_closed_cho_formula() -> None:
+    hydrocarbon = (
+        "Combustion of a 0.30070 g sample containing only carbon and hydrogen "
+        "produced 0.88018 g of CO2 and 0.54045 g of H2O. What is the empirical formula?"
+    )
+    assert _answer(hydrocarbon) == "CH3"
+    nitrogen = (
+        "Combustion of a 0.60052 g sample of a compound containing nitrogen produced "
+        "0.88018 g of CO2 and 0.36030 g of H2O. What is the empirical formula?"
+    )
+    assert extract_chemistry_intent(nitrogen) is None
+    open_masses = (
+        "Combustion of a 0.20000 g sample of a compound containing only C, H, and O produced "
+        "0.88018 g of CO2 and 0.36030 g of H2O. What is the empirical formula?"
+    )
+    intent = extract_chemistry_intent(open_masses)
+    assert intent is not None and intent.chemistry_op == "combustion_analysis"
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(intent)
+    percent = "A compound is 40.0% C, 6.7% H and 53.3% O. Find its empirical formula."
+    percents = extract_chemistry_intent(percent)
+    assert percents is not None and percents.chemistry_op == "empirical_formula"
+
+
 @pytest.mark.parametrize(
     ("value", "figures", "shown"),
     [

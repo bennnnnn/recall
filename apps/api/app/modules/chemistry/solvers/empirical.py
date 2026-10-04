@@ -13,6 +13,7 @@ from app.modules.chemistry.solvers.common_chem import (
     num,
     verified,
 )
+from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.stoichiometry import (
     formula_atoms,
@@ -59,6 +60,62 @@ def _empirical_counts(percents: dict[str, float]) -> tuple[dict[str, int], list[
         for element in percents
     ]
     return counts, working
+
+
+# A milligram-scale balance plus table rounding. More than this and the masses do not close.
+_CLOSURE_GRAMS = 0.002
+
+
+def solve_combustion(intent: ChemistryIntent) -> ChemistryResult:
+    """Empirical formula of a C/H/O compound from the sample, CO2, and H2O masses."""
+    sample = require(intent, "sample_mass", positive=True)
+    co2 = require(intent, "co2_mass", positive=True)
+    water = require(intent, "h2o_mass", positive=True)
+    carbon = molar_mass("C")
+    hydrogen = molar_mass("H")
+    oxygen = molar_mass("O")
+    co2_mass = molar_mass("CO2")
+    water_mass = molar_mass("H2O")
+    moles_c = co2 / co2_mass
+    moles_h = 2 * water / water_mass
+    mass_c = moles_c * carbon
+    mass_h = moles_h * hydrogen
+    mass_o = sample - mass_c - mass_h
+    hydrocarbon = intent.target == "CH"
+    if mass_o < -_CLOSURE_GRAMS or (hydrocarbon and mass_o > _CLOSURE_GRAMS):
+        raise SolveServiceError("the combustion masses do not close")
+    moles = {"C": moles_c, "H": moles_h}
+    if mass_o > _CLOSURE_GRAMS:
+        moles["O"] = mass_o / oxygen
+    ratios = {element: value / min(moles.values()) for element, value in moles.items()}
+    counts = _integer_ratio(ratios)
+    if counts is None:
+        raise SolveServiceError("the combustion masses do not form a simple integer ratio")
+    formula = _formula_from_counts(counts)
+    working = [
+        f"n(C) = {inp(co2)} / {molar_mass_working(co2_mass)} = {num(moles_c)} mol",
+        f"n(H) = 2 * {inp(water)} / {molar_mass_working(water_mass)} = {num(moles_h)} mol",
+    ]
+    if "O" in moles:
+        working.append(f"m(O) = {inp(sample)} - {num(mass_c)} - {num(mass_h)} = {num(mass_o)} g")
+        working.append(
+            f"n(O) = {num(mass_o)} / {molar_mass_working(oxygen)} = {num(moles['O'])} mol"
+        )
+    else:
+        working.append("the sample mass is the carbon and hydrogen, so there is no oxygen")
+    ratio = ", ".join(
+        f"{element} {counts[element]}" for element in ("C", "H", "O") if element in counts
+    )
+    working.append(f"{ratio} -> {formula}")
+    return verified(
+        "Verified combustion analysis",
+        (f"sample = {inp(sample)} g", f"CO2 = {inp(co2)} g", f"H2O = {inp(water)} g"),
+        "Empirical formula",
+        *stated("combustion_analysis"),
+        working,
+        formula,
+        formula,
+    )
 
 
 def solve_empirical(intent: ChemistryIntent) -> ChemistryResult:

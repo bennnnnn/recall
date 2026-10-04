@@ -17,6 +17,7 @@ from app.modules.chemistry.extractors.acid_base import _extract_acid_solution, _
 from app.modules.chemistry.extractors.amounts import (
     _extract_amounts,
     _extract_average_atomic_mass,
+    _extract_combustion,
     _extract_element_mass,
     _extract_empirical,
 )
@@ -86,7 +87,8 @@ CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     _extract_michaelis,
     _extract_named_reaction,
     _extract_spectrum,
-    # Topic readers.
+    # Topic readers. Combustion owns CO2 and H2O masses before percent composition does.
+    _extract_combustion,
     _extract_empirical,
     _extract_mass_chain,
     _extract_acid_solution,
