@@ -37,7 +37,7 @@ const baseMatch: JobMatch = {
 describe("JobMatchCard", () => {
   it("shows an evidence label and all available posting details", async () => {
     const { getByLabelText, getByText } = await render(
-      <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} />,
     );
     expect(getByText("my_job.fit_strong")).toBeTruthy();
     expect(getByLabelText("my_job.meta_location: Berlin, Germany")).toBeTruthy();
@@ -50,7 +50,7 @@ describe("JobMatchCard", () => {
 
   it("expands and collapses all fit reasons without opening the detail screen", async () => {
     const onPress = jest.fn();
-    const { getByRole, getByText, queryByText } = await render(<JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} onPress={onPress} />);
+    const { getByRole, getByText, queryByText } = await render(<JobMatchCard match={baseMatch} onStatus={jest.fn()} onPress={onPress} />);
     const heading = () => getByRole("button", { name: "my_job.why_matches" });
     expect(heading().props.accessibilityState.expanded).toBe(false);
     expect(queryByText("Python matches your skills")).toBeNull();
@@ -66,7 +66,7 @@ describe("JobMatchCard", () => {
 
   it("shows the hiring-company logo and has no dismiss control", async () => {
     const { getByTestId, queryByLabelText } = await render(
-      <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} />,
     );
     expect(getByTestId("company-logo-image").props.source).toEqual({
       uri: "https://cdn.acme.com/logo.png",
@@ -76,7 +76,7 @@ describe("JobMatchCard", () => {
 
   it("keeps full descriptions on the detail screen", async () => {
     const { queryByText } = await render(
-      <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} />,
     );
     expect(queryByText("Build production APIs.")).toBeNull();
   });
@@ -86,7 +86,7 @@ describe("JobMatchCard", () => {
       <JobMatchCard
         match={{ ...baseMatch, company_logo_url: null, match_score: null }}
         onStatus={jest.fn()}
-        onSavedChange={jest.fn()}
+
       />,
     );
     expect(getByText("A")).toBeTruthy();
@@ -98,7 +98,7 @@ describe("JobMatchCard", () => {
       <JobMatchCard
         match={{ ...baseMatch, salary: null, experience: null, location: null }}
         onStatus={jest.fn()}
-        onSavedChange={jest.fn()}
+
       />,
     );
     expect(queryByText("Berlin, Germany")).toBeNull();
@@ -106,40 +106,23 @@ describe("JobMatchCard", () => {
     expect(queryByText("$90,000 - $120,000")).toBeNull();
   });
 
-  it("shows a stage badge for interviewing/offer/rejected only", async () => {
-    const { getByText, rerender, queryByText } = await render(
-      <JobMatchCard
-        match={{ ...baseMatch, status: "interviewing" }}
-        onStatus={jest.fn()}
-        onSavedChange={jest.fn()}
-      />,
+  it("shows only the two requested actions and records I applied", async () => {
+    const onStatus = jest.fn();
+    const { getByRole, queryByText } = await render(
+      <JobMatchCard match={baseMatch} onStatus={onStatus} />,
     );
-    expect(getByText("my_job.stage_interviewing")).toBeTruthy();
-    await rerender(
-      <JobMatchCard
-        match={{ ...baseMatch, status: "new" }}
-        onStatus={jest.fn()}
-        onSavedChange={jest.fn()}
-      />,
-    );
-    expect(queryByText("my_job.stage_interviewing")).toBeNull();
+    expect(getByRole("button", { name: "my_job.view_job" })).toBeTruthy();
+    expect(queryByText("my_job.save")).toBeNull();
+    await fireEvent.press(getByRole("button", { name: "my_job.i_applied" }));
+    expect(onStatus).toHaveBeenCalledWith("applied");
   });
 
-  it("bookmarks an applied job without changing its application stage", async () => {
-    const onStatus = jest.fn();
-    const onSavedChange = jest.fn();
-    const { getByText } = await render(
-      <JobMatchCard
-        match={{ ...baseMatch, status: "applied", is_saved: false }}
-        onStatus={onStatus}
-        onSavedChange={onSavedChange}
-      />,
+  it("keeps legacy applications without showing stage badges", async () => {
+    const { queryByText, getByRole } = await render(
+      <JobMatchCard match={{ ...baseMatch, status: "interviewing" }} onStatus={jest.fn()} />,
     );
-
-    await fireEvent.press(getByText("my_job.save"));
-
-    expect(onSavedChange).toHaveBeenCalledWith(true);
-    expect(onStatus).not.toHaveBeenCalled();
+    expect(queryByText("my_job.stage_interviewing")).toBeNull();
+    expect(getByRole("button", { name: "my_job.applied" })).toBeTruthy();
   });
 
   it("keeps later pipeline stages visibly applied and prevents accidental regression", async () => {
@@ -148,7 +131,7 @@ describe("JobMatchCard", () => {
       <JobMatchCard
         match={{ ...baseMatch, status: "offer" }}
         onStatus={onStatus}
-        onSavedChange={jest.fn()}
+
       />,
     );
     const applied = getByRole("button", { name: "my_job.applied" });
@@ -160,7 +143,7 @@ describe("JobMatchCard", () => {
 
   it("keeps the external job action compact instead of stretching across the card", async () => {
     const { getByRole } = await render(
-      <JobMatchCard match={baseMatch} onStatus={jest.fn()} onSavedChange={jest.fn()} />,
+      <JobMatchCard match={baseMatch} onStatus={jest.fn()} />,
     );
 
     expect(getByRole("button", { name: "my_job.view_job" })).not.toHaveStyle({

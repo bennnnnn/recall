@@ -7,7 +7,6 @@ import { CompanyLogo } from "@/features/job-search/components/CompanyLogo";
 import { JobFitBadge } from "@/features/job-search/components/JobFitBadge";
 import { JobMatchMetaChips } from "@/features/job-search/components/JobMatchMetaChips";
 import { JobMatchReasons } from "@/features/job-search/components/JobMatchReasons";
-import { StatusPill } from "@/ui/feedback/StatusPill";
 import type { JobMatch, JobMatchStatus } from "@/lib/api";
 import { canToggleApplied, hasApplied } from "@/features/job-search/model/stages";
 import { Radius } from "@/lib/radius";
@@ -25,7 +24,7 @@ function Action({
   disabled,
   onPress,
 }: {
-  icon: "bookmark" | "check-circle" | "external-link";
+  icon: "check-circle" | "external-link";
   label: string;
   active?: boolean;
   primary?: boolean;
@@ -48,7 +47,7 @@ function Action({
       accessibilityRole="button"
       accessibilityState={{ selected: !!active, disabled: !!disabled }}
     >
-      <Icon name={icon} size={IconSize.sm} color={iconColor} filled={active && icon === "bookmark"} />
+      <Icon name={icon} size={IconSize.sm} color={iconColor} />
       <Text
         style={[
           s.actionText,
@@ -65,14 +64,12 @@ function Action({
 export function JobMatchCard({
   match,
   onStatus,
-  onSavedChange,
   onPress,
   readOnly = false,
 }: {
   readOnly?: boolean;
   match: JobMatch;
   onStatus: (status: JobMatchStatus) => void;
-  onSavedChange: (saved: boolean) => void;
   onPress?: () => void;
 }) {
   const C = useTheme();
@@ -105,20 +102,6 @@ export function JobMatchCard({
             <Text style={s.title} numberOfLines={2}>{match.title}</Text>
             <View style={s.companyRow}>
               <Text style={s.company}>{match.company}</Text>
-              {match.status === "interviewing" ||
-              match.status === "offer" ||
-              match.status === "rejected" ? (
-                <StatusPill
-                  label={t(`my_job.stage_${match.status}`)}
-                  tone={
-                    match.status === "offer"
-                      ? "success"
-                      : match.status === "rejected"
-                        ? "neutral"
-                        : "accent"
-                  }
-                />
-              ) : null}
             </View>
           </View>
 
@@ -134,13 +117,6 @@ export function JobMatchCard({
       <View style={s.divider} />
       <View style={s.actions}>
         <Action icon="external-link" label={t("my_job.view_job")} primary onPress={() => void openJob()} />
-        <Action
-          icon="bookmark"
-          label={match.is_saved ? t("my_job.saved") : t("my_job.save")}
-          disabled={readOnly}
-          active={match.is_saved}
-          onPress={() => onSavedChange(!match.is_saved)}
-        />
         <Action
           icon="check-circle"
           label={applicationStarted ? t("my_job.applied") : t("my_job.i_applied")}

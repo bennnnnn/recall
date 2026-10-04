@@ -17,10 +17,6 @@ import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
 import { Icon } from "@/ui/icons/Icon";
 import { JobMatchCard } from "@/features/job-search/components/JobMatchCard";
 import { JobSearchActionsMenu } from "@/features/job-search/components/JobSearchActionsMenu";
-import {
-  JobStageFilter,
-  type JobStageFilterValue,
-} from "@/features/job-search/components/JobStageFilter";
 import { SearchStatusHeader } from "@/features/job-search/components/SearchStatusHeader";
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
@@ -28,8 +24,7 @@ import { StateView } from "@/ui/feedback/StateView";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useJobSearch } from "@/features/job-search/hooks/useJobSearch";
-import type { JobMatch, JobSearchProfile } from "@/lib/api";
-import { filterAndSortMatches } from "@/features/job-search/model/matchList";
+import type { JobMatch, JobMatchView, JobSearchProfile } from "@/lib/api";
 import { nextDeliveryDate } from "@/features/job-search/model/searchFields";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -41,7 +36,7 @@ import { confirmDialog } from "@/ui/overlay/dialogs";
 import { ShareSheet } from "@/ui/share/ShareSheet";
 import { Button } from "@/ui/controls/Button";
 
-type Tab = "matches" | "saved" | "all";
+type Tab = JobMatchView;
 
 function cadence(profile: JobSearchProfile, t: TFunction): string {
   return t(`my_job.cadence_${profile.frequency}`, {
@@ -51,12 +46,10 @@ function cadence(profile: JobSearchProfile, t: TFunction): string {
 
 function TabButton({
   label,
-  count,
   active,
   onPress,
 }: {
   label: string;
-  count: number;
   active: boolean;
   onPress: () => void;
 }) {
@@ -77,13 +70,7 @@ function TabButton({
       accessibilityState={{ selected: active }}
     >
       <Text style={[s.tabText, active && s.tabTextActive]}>{label}</Text>
-      {count > 0 ? (
-        <View style={[s.tabCount, active && s.tabCountActive]}>
-          <Text style={[s.tabCountText, active && s.tabCountTextActive]}>
-            {count}
-          </Text>
-        </View>
-      ) : null}
+
     </Pressable>
   );
 }
@@ -99,6 +86,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const [tab, setTab] = useState<Tab>("new");
   const {
     dashboard,
     loading,
@@ -107,11 +95,10 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     refresh,
     setSearchStatus,
     setMatchStatus,
-    setMatchSaved,
     runNow,
     remove,
     loadMore,
-  } = useJobSearch(isCurrent, runId);
+  } = useJobSearch(isCurrent, tab === "new" ? runId : undefined, tab);
   const router = useRouter();
   const [upgradeOpen, setUpgradeOpen] = useState(false);
   const paid = user?.plan === "pro" && !dashboard.pro_required;
@@ -131,8 +118,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     if (paid) router.push("/my-job/setup");
     else setUpgradeOpen(true);
   }, [router, paid]);
-  const [tab, setTab] = useState<Tab>("matches");
-  const [stageFilter, setStageFilter] = useState<JobStageFilterValue>("all");
   const [refreshing, setRefreshing] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
@@ -145,35 +130,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   );
 
   const profile = dashboard.profile;
-  const counts = useMemo(
-    () => ({
-      all: dashboard.matches.filter((item) => item.status !== "hidden").length,
-      matches: dashboard.matches.filter(
-        (item) => item.status === "new" && !item.is_saved,
-      ).length,
-      saved: dashboard.matches.filter(
-        (item) => item.is_saved && item.status !== "hidden",
-      ).length,
-      applied: dashboard.matches.filter((item) => item.status === "applied")
-        .length,
-      interviewing: dashboard.matches.filter(
-        (item) => item.status === "interviewing",
-      ).length,
-      offer: dashboard.matches.filter((item) => item.status === "offer").length,
-      rejected: dashboard.matches.filter((item) => item.status === "rejected")
-        .length,
-    }),
-    [dashboard.matches],
-  );
-  const visibleMatches = useMemo(
-    () =>
-      filterAndSortMatches(
-        dashboard.matches,
-        tab === "matches" ? "new" : tab === "saved" ? "saved" : stageFilter,
-        "best",
-      ),
-    [dashboard.matches, dashboard.latest_run, stageFilter, tab, runId],
-  );
+  const visibleMatches = dashboard.matches;
 
   const confirmDelete = () => {
     void confirmDialog({
@@ -292,45 +249,15 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     );
   }
 
-  const effectiveFilter = tab === "all" ? stageFilter : tab;
-  const emptyTitle =
-    effectiveFilter === "saved"
-      ? t("my_job.empty_saved")
-      : effectiveFilter === "applied"
-        ? t("my_job.empty_applied")
-        : effectiveFilter === "interviewing"
-          ? t("my_job.empty_interviewing")
-          : effectiveFilter === "offer"
-            ? t("my_job.empty_offers")
-            : effectiveFilter === "rejected"
-              ? t("my_job.empty_rejected")
-              : t("my_job.empty_matches");
-  const emptyBody =
-    effectiveFilter === "saved"
-      ? t("my_job.empty_saved_body")
-      : effectiveFilter === "applied"
-        ? t("my_job.empty_applied_body")
-        : effectiveFilter === "interviewing" ||
-            effectiveFilter === "offer" ||
-            effectiveFilter === "rejected"
-          ? t("my_job.empty_stage_body")
-          : profile.last_run_at
-            ? t("my_job.empty_matches_body_ran")
-            : t("my_job.empty_matches_body_scheduled", {
-                date: nextDeliveryDate(profile),
-              });
-  const emptyIcon =
-    effectiveFilter === "saved"
-      ? "bookmark"
-      : effectiveFilter === "applied"
-        ? "check-circle"
-        : effectiveFilter === "interviewing"
-          ? "users"
-          : effectiveFilter === "offer"
-            ? "trophy"
-            : effectiveFilter === "rejected"
-              ? "minus-circle"
-              : "search";
+  const emptyTitle = t(tab === "applied" ? "my_job.empty_applied" : tab === "all" ? "my_job.empty_all" : "my_job.empty_matches");
+  const emptyBody = tab === "applied"
+    ? t("my_job.empty_applied_body")
+    : tab === "all"
+      ? t("my_job.empty_all_body")
+      : profile.last_run_at
+        ? t("my_job.empty_matches_body_ran")
+        : t("my_job.empty_matches_body_scheduled", { date: nextDeliveryDate(profile) });
+  const emptyIcon = tab === "applied" ? "check-circle" : "search";
 
   return (
     <View style={s.root}>
@@ -380,31 +307,9 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             </View>
 
             <View style={s.tabs} accessibilityRole="tablist">
-              <TabButton
-                label={t("my_job.tab_matches")}
-                count={counts.matches}
-                active={tab === "matches"}
-                onPress={() => setTab("matches")}
-              />
-              <TabButton
-                label={t("my_job.tab_saved")}
-                count={counts.saved}
-                active={tab === "saved"}
-                onPress={() => setTab("saved")}
-              />
-              <JobStageFilter
-                value={stageFilter}
-                counts={{
-                  all: counts.all,
-                  applied: counts.applied,
-                  interviewing: counts.interviewing,
-                  offer: counts.offer,
-                  rejected: counts.rejected,
-                }}
-                active={tab === "all"}
-                onOpen={() => setTab("all")}
-                onChange={setStageFilter}
-              />
+              <TabButton label={t("my_job.tab_new_matches")} active={tab === "new"} onPress={() => setTab("new")} />
+              <TabButton label={t("my_job.tab_all")} active={tab === "all"} onPress={() => setTab("all")} />
+              <TabButton label={t("my_job.tab_applied")} active={tab === "applied"} onPress={() => setTab("applied")} />
             </View>
 
             {error ? (
@@ -436,7 +341,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               </View>
             ) : null}
 
-            {visibleMatches.length === 0 ? (
+            {loading ? <SkeletonList /> : visibleMatches.length === 0 && !error ? (
               <StateView
                 variant="empty"
                 compact
@@ -453,7 +358,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             match={item}
             readOnly={!paid || busy}
             onStatus={(status) => void setMatchStatus(item.id, status)}
-            onSavedChange={(saved) => void setMatchSaved(item.id, saved)}
             onPress={() => router.push(`/my-job/match/${item.id}`)}
           />
         )}
@@ -602,18 +506,6 @@ function makeStyles(C: Theme) {
     tabActive: { backgroundColor: C.bg },
     tabText: { flexShrink: 1, ...Type.compact, color: C.textSecondary, ...Weight.semibold },
     tabTextActive: { color: C.text },
-    tabCount: {
-      minWidth: 22,
-      height: 22,
-      borderRadius: 11,
-      paddingHorizontal: 6,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: C.surfaceAlt,
-    },
-    tabCountActive: { backgroundColor: C.primaryLight },
-    tabCountText: { ...Type.caption, color: C.textSecondary },
-    tabCountTextActive: { color: C.primary },
     cardGap: { height: Space.md },
     errorCard: {
       minHeight: 52,

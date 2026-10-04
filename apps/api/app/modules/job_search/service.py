@@ -11,7 +11,7 @@ from typing import Any, Literal, cast
 from uuid import UUID
 
 from redis.asyncio import Redis
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
@@ -380,6 +380,7 @@ async def get_dashboard(
     settings: Settings,
     *,
     separate_bookmarks: bool = True,
+    include_matches: bool = True,
 ) -> JobSearchDashboardOut:
     profile = await get_profile_for_user(session, user.id)
     if profile is None:
@@ -387,18 +388,25 @@ async def get_dashboard(
             pro_required=not is_pro(user), premium_enabled=settings.job_search_premium_enabled
         )
 
-    matches = list(
-        (
-            await session.scalars(
-                select(JobMatch)
-                .where(
-                    JobMatch.profile_id == profile.id,
-                    JobMatch.status != "hidden",
+    matches = (
+        list(
+            (
+                await session.scalars(
+                    select(JobMatch)
+                    .where(
+                        JobMatch.profile_id == profile.id,
+                        JobMatch.status != "hidden",
+                    )
+                    .order_by(
+                        func.coalesce(JobMatch.checked_at, JobMatch.found_at).desc(),
+                        JobMatch.id.desc(),
+                    )
+                    .limit(201)
                 )
-                .order_by(JobMatch.found_at.desc(), JobMatch.created_at.desc())
-                .limit(200)
-            )
-        ).all()
+            ).all()
+        )
+        if include_matches
+        else []
     )
     profile_snapshot = _profile_from_rows(profile, user)
     from app.modules.job_search.runs import allowance, latest_run
@@ -411,7 +419,7 @@ async def get_dashboard(
         pro_required=not is_pro(user),
         manual_remaining=remaining,
         cooldown_until=cooldown,
-        next_offset=200 if len(matches) == 200 else None,
+        next_offset=200 if len(matches) > 200 else None,
         profile=profile_out(profile),
         matches=[
             match_out(
@@ -419,7 +427,7 @@ async def get_dashboard(
                 profile_snapshot=profile_snapshot,
                 separate_bookmarks=separate_bookmarks,
             )
-            for match in matches
+            for match in matches[:200]
         ],
     )
 

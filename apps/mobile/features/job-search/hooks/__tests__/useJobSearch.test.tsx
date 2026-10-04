@@ -30,6 +30,7 @@ jest.mock("@/features/job-search/model/matchCache", () => ({
 jest.mock("@/lib/api", () => ({
   api: {
     getJobSearch: jest.fn(),
+    getJobMatches: jest.fn(),
     saveJobSearch: jest.fn(),
     setJobSearchStatus: jest.fn(),
     setJobMatchStatus: jest.fn(),
@@ -362,4 +363,70 @@ test("retries a failed run optimistically and restores the error on failure", as
   });
   expect(result.current.dashboard).toEqual(initial);
   expect(mockFeedbackError).toHaveBeenCalledWith("offline");
+});
+
+
+test("pages history, keeps loaded jobs when applying, and loads Applied separately", async () => {
+  mockApi.getJobSearch.mockResolvedValue({ profile: profile(), matches: [] });
+  mockApi.getJobMatches.mockResolvedValueOnce({ matches: [match()], next_offset: 30 });
+  const hook = await renderHook(({ view }: { view: "all" | "applied" }) => useJobSearch(() => mockCurrent, undefined, view), { initialProps: { view: "all" as "all" | "applied" } });
+  await waitFor(() => expect(hook.result.current.loading).toBe(false));
+  expect(mockApi.getJobSearch).toHaveBeenCalledWith("token-a", false);
+  expect(mockApi.getJobMatches).toHaveBeenLastCalledWith("token-a", 0, undefined, "all");
+  mockApi.getJobMatches.mockResolvedValueOnce({ matches: [match({ id: "older" })], next_offset: null });
+  await act(() => hook.result.current.loadMore());
+  expect(mockApi.getJobMatches).toHaveBeenLastCalledWith("token-a", 30, undefined, "all");
+  mockApi.setJobMatchStatus.mockResolvedValue({ profile: profile(), matches: [match({ status: "applied" })] });
+  await act(() => hook.result.current.setMatchStatus("older", "applied"));
+  expect(hook.result.current.dashboard.matches.map(item => [item.id, item.status])).toEqual([["match-a", "new"], ["older", "applied"]]);
+  mockApi.getJobMatches.mockResolvedValueOnce({ matches: [match({ id: "older", status: "applied", is_saved: true })], next_offset: null });
+  await hook.rerender({ view: "applied" });
+  await waitFor(() => expect(hook.result.current.loading).toBe(false));
+  expect(hook.result.current.dashboard.matches.map(item => item.id)).toEqual(["older"]);
+});
+
+test("ignores a late history page after switching to Applied", async () => {
+  mockApi.getJobSearch.mockResolvedValue({ profile: profile(), matches: [] });
+  mockApi.getJobMatches.mockResolvedValueOnce({ matches: [match()], next_offset: 30 });
+  const hook = await renderHook(({ view }: { view: "all" | "applied" }) => useJobSearch(() => mockCurrent, undefined, view), { initialProps: { view: "all" as "all" | "applied" } });
+  await waitFor(() => expect(hook.result.current.loading).toBe(false));
+  const page = deferred<{ matches: JobMatch[]; next_offset: number | null }>();
+  mockApi.getJobMatches.mockReturnValueOnce(page.promise);
+  let pending!: Promise<void>;
+  await act(() => { pending = hook.result.current.loadMore(); });
+  mockApi.getJobMatches.mockResolvedValueOnce({ matches: [match({ id: "application", status: "applied" })], next_offset: null });
+  await hook.rerender({ view: "applied" });
+  await waitFor(() => expect(hook.result.current.loading).toBe(false));
+  await act(async () => { page.resolve({ matches: [match({ id: "old-history" })], next_offset: null }); await pending; });
+  expect(hook.result.current.dashboard.matches.map(item => item.id)).toEqual(["application"]);
+});
+
+test("unmarking Applied keeps the history page and adjusts the next page offset", async () => {
+  mockApi.getJobSearch.mockResolvedValue({ profile: profile(), matches: [] });
+  mockApi.getJobMatches.mockResolvedValue({ matches: [match({ status: "applied", is_saved: true })], next_offset: 30 });
+  const hook = await renderHook(() => useJobSearch(() => mockCurrent, undefined, "applied"));
+  await waitFor(() => expect(hook.result.current.loading).toBe(false));
+  mockApi.setJobMatchStatus.mockResolvedValue({ profile: profile(), matches: [match({ status: "new", is_saved: true })] });
+  await act(() => hook.result.current.setMatchStatus("match-a", "new"));
+  expect(hook.result.current.dashboard.matches).toEqual([]);
+  expect(hook.result.current.dashboard.next_offset).toBe(29);
+});
+
+
+test("refreshes the chosen tab after switching while an application update is pending", async () => {
+  mockApi.getJobSearch.mockResolvedValue({ profile: profile(), matches: [] });
+  mockApi.getJobMatches.mockResolvedValueOnce({ matches: [match()], next_offset: null });
+  const hook = await renderHook(({ view }: { view: "all" | "applied" }) => useJobSearch(() => mockCurrent, undefined, view), { initialProps: { view: "all" as "all" | "applied" } });
+  await waitFor(() => expect(hook.result.current.loading).toBe(false));
+  const update = deferred<JobSearchDashboard>();
+  mockApi.setJobMatchStatus.mockReturnValueOnce(update.promise);
+  let pending!: Promise<void>;
+  await act(() => { pending = hook.result.current.setMatchStatus("match-a", "applied"); });
+  await hook.rerender({ view: "applied" });
+  expect(hook.result.current.dashboard.matches).toEqual([]);
+  mockApi.getJobMatches.mockResolvedValueOnce({ matches: [match({ status: "applied" })], next_offset: null });
+  await act(async () => { update.resolve({ profile: profile(), matches: [match({ status: "applied" })] }); await pending; });
+  await waitFor(() => expect(hook.result.current.loading).toBe(false));
+  expect(mockApi.getJobMatches).toHaveBeenLastCalledWith("token-a", 0, undefined, "applied");
+  expect(hook.result.current.dashboard.matches[0].status).toBe("applied");
 });

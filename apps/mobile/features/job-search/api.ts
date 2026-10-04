@@ -112,10 +112,12 @@ export type JobSearchInput = {
   frequency: JobSearchFrequency;
   next_run_at: string;
 };
+export type JobMatchView = "new" | "all" | "applied";
+
 export const jobSearchApi = {
-  getJobSearch: (token: string) => request<JobSearchDashboard>("/job-search", token, { headers: BOOKMARK_MODEL_HEADERS }),
+  getJobSearch: (token: string, includeMatches = true) => request<JobSearchDashboard>(`/job-search${includeMatches ? "" : "?include_matches=false"}`, token, { headers: BOOKMARK_MODEL_HEADERS }),
   getJobMatch: (token: string, id: string) => request<JobMatch>(`/job-search/matches/${id}`, token, { headers: BOOKMARK_MODEL_HEADERS }),
-  getJobMatches: (token: string, offset = 0, runId?: string) => request<{ matches: JobMatch[]; next_offset: number | null }>(`/job-search/matches?offset=${offset}${runId ? `&run_id=${encodeURIComponent(runId)}` : ""}`, token, { headers: BOOKMARK_MODEL_HEADERS }),
+  getJobMatches: (token: string, offset = 0, runId?: string, view?: JobMatchView) => request<{ matches: JobMatch[]; next_offset: number | null }>(`/job-search/matches?offset=${offset}${runId ? `&run_id=${encodeURIComponent(runId)}` : ""}${view ? `&view=${view}` : ""}`, token, { headers: BOOKMARK_MODEL_HEADERS }),
   getJobRun: (token: string, id: string) => request<JobRunStatus>(`/job-search/runs/${id}`, token),
   saveJobSearch: (token: string, input: JobSearchInput) => request<JobSearchDashboard>("/job-search", token, { method: "PUT", headers: BOOKMARK_MODEL_HEADERS, body: JSON.stringify(input) }),
   patchJobSearch: (token: string, input: Partial<JobSearchInput>) => request<JobSearchDashboard>("/job-search", token, { method: "PATCH", headers: BOOKMARK_MODEL_HEADERS, body: JSON.stringify(input) }),

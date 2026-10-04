@@ -9,6 +9,8 @@ jest.mock("@/components/UpgradeSheet", () => ({ UpgradeSheet: () => null }));
 
 const mockRefresh = jest.fn(async () => {});
 const mockRunNow = jest.fn(async () => true);
+const mockView = jest.fn();
+const mockLoadMore = jest.fn();
 let mockLoading = true;
 let mockError = false;
 let mockDashboard: JobSearchDashboard = { profile: null, matches: [] };
@@ -30,8 +32,11 @@ jest.mock("@/hooks/useAccountViewOwner", () => ({
   useAccountViewOwner: () => ({ key: "owner", isCurrent: () => true }),
 }));
 jest.mock("@/features/job-search/hooks/useJobSearch", () => ({
-  useJobSearch: () => ({
+  useJobSearch: (...args: unknown[]) => {
+    mockView(...args);
+    return ({
     dashboard: mockDashboard,
+    loadMore: mockLoadMore,
     loading: mockLoading,
     busy: false,
     error: mockError,
@@ -41,7 +46,7 @@ jest.mock("@/features/job-search/hooks/useJobSearch", () => ({
     setMatchSaved: jest.fn(),
     runNow: mockRunNow,
     remove: jest.fn(),
-  }),
+  }); },
 }));
 jest.mock("@shopify/flash-list");
 jest.mock("react-i18next", () => ({
@@ -196,92 +201,29 @@ test("uses a minimum 44 point menu target", async () => {
   });
 });
 
-test("shows application pipeline lists and filters each stage", async () => {
+test("has exactly New matches, All, and Applied and requests their server pages", async () => {
   mockLoading = false;
-  mockDashboard = {
-    profile: profile(),
-    matches: [
-      match("new", "new"),
-      { ...match("legacy", "new"), match_kind: "possible" },
-      match("applied", "applied"),
-      match("interview", "interviewing"),
-      match("offer", "offer"),
-      match("rejected", "rejected"),
-    ],
-  };
+  mockDashboard = { profile: profile(), matches: [match("latest", "new")] };
   const screen = await render(<MyJobScreen />);
-
-  expect(screen.getByText("Job new")).toBeTruthy();
-  expect(screen.getByText("Job legacy")).toBeTruthy();
-  expect(screen.queryByText("my_job.tab_possible")).toBeNull();
-  expect(screen.getByText("my_job.pipeline")).toBeTruthy();
-
-  await fireEvent.press(
-    screen.getByRole("button", {
-      name: "my_job.pipeline: my_job.tab_all_stages",
-    }),
-  );
-  expect(
-    screen.getByRole("radio", { name: "my_job.tab_all_stages" }),
-  ).toBeTruthy();
-  await fireEvent.press(
-    screen.getByRole("radio", { name: "my_job.tab_interviewing" }),
-  );
-  expect(screen.getByText("Job interview")).toBeTruthy();
-  expect(screen.getByText("my_job.tab_interviewing")).toBeTruthy();
-  expect(screen.queryByText("Job new")).toBeNull();
-
-  await fireEvent.press(
-    screen.getByRole("button", {
-      name: "my_job.pipeline: my_job.tab_interviewing",
-    }),
-  );
-  await fireEvent.press(
-    screen.getByRole("radio", { name: "my_job.tab_offers" }),
-  );
-  expect(screen.getByText("Job offer")).toBeTruthy();
-  expect(screen.getByText("my_job.tab_offers")).toBeTruthy();
-
-  await fireEvent.press(
-    screen.getByRole("button", {
-      name: "my_job.pipeline: my_job.tab_offers",
-    }),
-  );
-  await fireEvent.press(
-    screen.getByRole("radio", { name: "my_job.tab_rejected" }),
-  );
-  expect(screen.getByText("Job rejected")).toBeTruthy();
-  expect(screen.getByText("my_job.tab_rejected")).toBeTruthy();
-
-  await fireEvent.press(
-    screen.getByRole("button", {
-      name: "my_job.pipeline: my_job.tab_rejected",
-    }),
-  );
-  await fireEvent.press(
-    screen.getByRole("radio", { name: "my_job.tab_applied" }),
-  );
-  expect(screen.getByText("Job applied")).toBeTruthy();
-  expect(screen.getByText("my_job.tab_applied")).toBeTruthy();
+  expect(screen.getAllByRole("tab")).toHaveLength(3);
+  expect(screen.getByRole("tab", { name: "my_job.tab_new_matches" }).props.accessibilityState.selected).toBe(true);
+  expect(mockView).toHaveBeenLastCalledWith(expect.any(Function), undefined, "new");
+  expect(screen.queryByText("my_job.tab_saved")).toBeNull();
+  expect(screen.queryByText("my_job.pipeline")).toBeNull();
+  await fireEvent.press(screen.getByRole("tab", { name: "my_job.tab_all" }));
+  expect(mockView).toHaveBeenLastCalledWith(expect.any(Function), undefined, "all");
+  await fireEvent.press(screen.getByRole("tab", { name: "my_job.tab_applied" }));
+  expect(mockView).toHaveBeenLastCalledWith(expect.any(Function), undefined, "applied");
 });
 
-test("keeps a bookmarked applied job in Saved and Applied", async () => {
+test("renders the selected server page in search-date order and can load older jobs", async () => {
   mockLoading = false;
-  mockDashboard = {
-    profile: profile(),
-    matches: [{ ...match("applied-saved", "applied", true), match_kind: "possible" }],
-  };
+  mockDashboard = { profile: profile(), matches: [match("recent", "new"), match("old-applied", "applied", true)], next_offset: 30 };
   const screen = await render(<MyJobScreen />);
-
-  expect(screen.queryByText("Job applied-saved")).toBeNull();
-  await fireEvent.press(screen.getByRole("tab", { name: /my_job\.tab_saved/ }));
-  expect(screen.getByText("Job applied-saved")).toBeTruthy();
-
-  await fireEvent.press(
-    screen.getByRole("button", { name: "my_job.pipeline: my_job.tab_all_stages" }),
-  );
-  await fireEvent.press(screen.getByRole("radio", { name: "my_job.tab_applied" }));
-  expect(screen.getByText("Job applied-saved")).toBeTruthy();
+  await fireEvent.press(screen.getByRole("tab", { name: "my_job.tab_all" }));
+  expect(screen.getAllByText(/^Job /).map(node => node.props.children)).toEqual(["Job recent", "Job old-applied"]);
+  await fireEvent.press(screen.getByText("my_job.load_more"));
+  expect(mockLoadMore).toHaveBeenCalledTimes(1);
 });
 
 test("shows a retry action when the last search failed", async () => {

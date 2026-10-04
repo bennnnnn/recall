@@ -43,12 +43,14 @@ async def get_job_search(
     session: AsyncSession = Depends(get_db),
     settings: Settings = Depends(get_settings_dep),
     bookmark_model: str | None = Header(default=None, alias="X-Recall-Job-Bookmarks"),
+    include_matches: bool = True,
 ) -> JobSearchDashboardOut:
     return await job_search_service.get_dashboard(
         session,
         user,
         settings,
         separate_bookmarks=_uses_separate_bookmarks(bookmark_model),
+        include_matches=include_matches,
     )
 
 
@@ -120,14 +122,26 @@ async def list_matches(
     limit: int = 30,
     kind: str | None = None,
     run_id: UUID | None = None,
+    view: str = "all",
 ) -> JobMatchPageOut:
-    from sqlalchemy import select
+    from sqlalchemy import func, select
 
-    from app.modules.job_search.models import JobMatch, JobSearchProfile
+    from app.modules.job_search.models import JobMatch, JobSearchProfile, JobSearchRun
     from app.modules.job_search.ranking import _profile_from_rows
 
-    if offset < 0 or not 1 <= limit <= 100 or kind not in {None, "qualifying", "possible"}:
+    if (
+        offset < 0
+        or not 1 <= limit <= 100
+        or kind not in {None, "qualifying", "possible"}
+        or view not in {"new", "all", "applied"}
+    ):
         raise HTTPException(status_code=422, detail="Invalid page")
+    run = None
+    if run_id:
+        try:
+            run = await owned_run(session, user.id, run_id)
+        except job_search_service.JobSearchError as exc:
+            raise _map_error(exc) from exc
     profile = await job_search_service.get_profile_for_user(session, user.id)
     if profile is None:
         return JobMatchPageOut(matches=[])
@@ -138,16 +152,35 @@ async def list_matches(
     )
     if kind:
         query = query.where(JobMatch.match_kind == kind)
-    if run_id:
-        try:
-            run = await owned_run(session, user.id, run_id)
-        except job_search_service.JobSearchError as exc:
-            raise _map_error(exc) from exc
+    if not run_id and view == "new":
+        run = await session.scalar(
+            select(JobSearchRun)
+            .where(JobSearchRun.profile_id == profile.id, JobSearchRun.state == "completed")
+            .order_by(JobSearchRun.finished_at.desc(), JobSearchRun.id.desc())
+            .limit(1)
+        )
+    if run is not None:
         query = query.where(JobMatch.id.in_([UUID(value) for value in run.match_ids]))
+    if view == "new":
+        if run is not None:
+            # Publishing uses one timestamp for new rows and the completed run.
+            # A rediscovered opening keeps its original found_at and stays in All.
+            query = query.where(JobMatch.found_at == run.finished_at)
+        else:
+            # Retain the latest legacy batch when no durable successful run exists.
+            latest_found = select(func.max(JobMatch.found_at)).where(
+                JobMatch.profile_id == profile.id
+            )
+            query = query.where(JobMatch.found_at == latest_found.scalar_subquery())
+    elif view == "applied":
+        query = query.where(JobMatch.status.in_(["applied", "interviewing", "offer", "rejected"]))
     rows = list(
         (
             await session.scalars(
-                query.order_by(JobMatch.found_at.desc(), JobMatch.id.desc())
+                query.order_by(
+                    func.coalesce(JobMatch.checked_at, JobMatch.found_at).desc(),
+                    JobMatch.id.desc(),
+                )
                 .offset(offset)
                 .limit(limit + 1)
             )
