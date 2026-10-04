@@ -271,7 +271,7 @@ def typeset_numbers(row: str) -> str:
 
 # One value as ``latex_number`` and ``latex_unit`` print it: "2 \\times 10^{-10}\\,\\mathrm{m}".
 _QUANTITY = r"-?\d[\d.]*(?: \\times 10\^\{-?\d+\})?(?:\\,\S+)?"
-_CONVERSION_ROW = re.compile(rf"[^=]+ = {_QUANTITY} = {_QUANTITY}")
+_CONVERSION_ROW = re.compile(rf"\A[^=]+ = {_QUANTITY} = {_QUANTITY}")
 
 
 def is_conversion_row(row: str) -> bool:
