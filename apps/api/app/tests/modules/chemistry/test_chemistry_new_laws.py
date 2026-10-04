@@ -289,6 +289,9 @@ def test_a_redox_pair_gains_water_protons_and_electrons_for_its_medium() -> None
     assert _answer(basic) == "MnO4- + 2 H2O + 3 e- -> MnO2 + 4 OH-"
     oxidation = "Balance Fe2+ -> Fe3+ in acidic solution."
     assert _answer(oxidation) == "Fe2+ -> Fe3+ + e-"
+    # The pair itself may be water or H+. Those are not only species we add.
+    assert _answer("Balance O2 -> H2O in acidic solution.") == "O2 + 4 H+ + 4 e- -> 2 H2O"
+    assert _answer("Balance H+ -> H2 in acidic solution.") == "2 H+ + 2 e- -> H2"
 
 
 def test_a_half_reaction_declines_when_the_oxidation_state_or_the_equation_is_wider() -> None:
