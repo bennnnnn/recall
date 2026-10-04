@@ -14,7 +14,7 @@ from app.modules.chemistry.solvers.common_chem import (
     verified,
     weak_dissociation,
 )
-from app.modules.chemistry.solvers.constants import PKW
+from app.modules.chemistry.solvers.constants import KW, PKW
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
@@ -138,6 +138,17 @@ def solve_buffer_addition(intent: ChemistryIntent) -> ChemistryResult:
 
 # [A2-] = Ka2 is the school step for a weak second dissociation, not for H2SO4 (Ka2 ≈ 0.012).
 _WEAK_SECOND_KA = 1e-3
+# C has to be at least this many times the neglected term (Ka1, Kw/Ka2, or Ka2).
+_APPROXIMATION_MARGIN = 10
+
+
+def _require_approximation_concentration(intent: ChemistryIntent) -> float | None:
+    concentration = intent.params.get("concentration")
+    if concentration is None:
+        return None
+    if concentration <= 0:
+        raise SolveServiceError("concentration must be positive")
+    return concentration
 
 
 def solve_amphiprotic(intent: ChemistryIntent) -> ChemistryResult:
@@ -145,6 +156,16 @@ def solve_amphiprotic(intent: ChemistryIntent) -> ChemistryResult:
     pka2 = require(intent, "pka2")
     if pka2 <= pka1:
         raise SolveServiceError("pKa2 must be greater than pKa1")
+    concentration = _require_approximation_concentration(intent)
+    if concentration is not None:
+        ka1 = 10 ** (-pka1)
+        ka2 = 10 ** (-pka2)
+        # [H+] ≈ √(Ka1 Ka2) when C ≫ Ka1 and Ka2 C ≫ Kw. A trace salt is near pH 7.
+        if (
+            concentration <= _APPROXIMATION_MARGIN * ka1
+            or ka2 * concentration <= _APPROXIMATION_MARGIN * KW
+        ):
+            raise SolveServiceError("that concentration is too low for pH = (pKa1 + pKa2) / 2")
     ph = (pka1 + pka2) / 2
     ph_text = p_value(ph)
     shown = []
@@ -157,9 +178,12 @@ def solve_amphiprotic(intent: ChemistryIntent) -> ChemistryResult:
     left = p_value(pka1) if "ka1" in intent.params else inp(pka1)
     right = p_value(pka2) if "ka2" in intent.params else inp(pka2)
     shown.append(f"pH = ({left} + {right}) / 2 = {ph_text}")
+    given = tuple(shown[:-1]) or (f"pKa1 = {inp(pka1)}", f"pKa2 = {inp(pka2)}")
+    if concentration is not None:
+        given = (*given, f"C = {inp(concentration)} mol/L")
     return verified(
         "Verified amphiprotic pH",
-        tuple(shown[:-1]) or (f"pKa1 = {inp(pka1)}", f"pKa2 = {inp(pka2)}"),
+        given,
         "pH",
         *stated("amphiprotic_ph"),
         shown,
@@ -172,10 +196,17 @@ def solve_diprotic_a2(intent: ChemistryIntent) -> ChemistryResult:
     ka2 = require(intent, "ka2", positive=True)
     if ka2 >= _WEAK_SECOND_KA:
         raise SolveServiceError("the second dissociation is not weak enough for [A2-] = Ka2")
+    concentration = _require_approximation_concentration(intent)
+    # [A2-] ≈ Ka2 cannot exceed the acid, and the step assumes Ka2 ≪ C.
+    if concentration is not None and ka2 * _APPROXIMATION_MARGIN >= concentration:
+        raise SolveServiceError("[A2-] = Ka2 is not small beside this acid concentration")
     amount = num(ka2)
+    given = [f"Ka2 = {inp(ka2)}"]
+    if concentration is not None:
+        given.append(f"C = {inp(concentration)} mol/L")
     return verified(
         "Verified diprotic [A2-]",
-        (f"Ka2 = {inp(ka2)}",),
+        tuple(given),
         "[A2-]",
         *stated("diprotic_a2"),
         (f"[A2-] = {inp(ka2)}",),

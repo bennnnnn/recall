@@ -249,6 +249,25 @@ def test_diprotic_steps_past_the_first_dissociation() -> None:
     given = "Ka2 = 1.0e-8 and [A2-] = 1.0e-6. What is the ratio?"
     ratio = extract_chemistry_intent(given)
     assert ratio is None or ratio.chemistry_op != "diprotic_a2"
+    typeset = "What is [A\u00b2\u207b] for a diprotic acid with Ka2 = 1.0e-8?"
+    assert _answer(typeset) == "[A2-] = 1.0 \u00d7 10^-8 mol/L"
+    deprotonated = "What is the concentration of the fully deprotonated form if Ka2 = 1.0e-8?"
+    assert _answer(deprotonated) == "[A2-] = 1.0 \u00d7 10^-8 mol/L"
+    hydrogen = "What is the concentration of H+ in a diprotic acid that also forms A2-? Ka2 = 1e-8"
+    asked = extract_chemistry_intent(hydrogen)
+    assert asked is None or asked.chemistry_op != "diprotic_a2"
+    crowded = "What is [A2-] in 1.0e-10 M diprotic H2A with Ka1 = 1e-4 and Ka2 = 1e-8?"
+    too_much = extract_chemistry_intent(crowded)
+    assert too_much is not None and too_much.chemistry_op == "diprotic_a2"
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(too_much)
+    dilute = "What is the pH of a 1e-10 M amphiprotic salt with pKa1 = 4.00 and pKa2 = 9.00?"
+    trace = extract_chemistry_intent(dilute)
+    assert trace is not None and trace.chemistry_op == "amphiprotic_ph"
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(trace)
+    stated = "What is the pH of a 0.10 M amphiprotic solution with pKa1 = 4.00 and pKa2 = 9.00?"
+    assert _answer(stated) == "pH = 6.50"
 
 
 def test_binary_vapor_pressure_rejects_fractions_that_do_not_sum_to_one() -> None:
