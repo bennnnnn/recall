@@ -205,6 +205,144 @@ def solve_chromatography_rf(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+def _detection_limit(
+    intent: ChemistryIntent, factor: int, operation: str, label: str
+) -> ChemistryResult:
+    slope = require(intent, "slope", positive=True)
+    deviation = require(intent, "sd", positive=True)
+    value = factor * deviation / slope
+    shown = f"{label} = {num(value)}"
+    return verified(
+        f"Verified {label}",
+        (f"s = {inp(deviation)}", f"m = {inp(slope)}"),
+        label,
+        *stated(operation),
+        (f"{label} = {factor} * {inp(deviation)} / {inp(slope)}",),
+        shown,
+        shown,
+    )
+
+
+def solve_lod(intent: ChemistryIntent) -> ChemistryResult:
+    return _detection_limit(intent, 3, "lod", "LOD")
+
+
+def solve_loq(intent: ChemistryIntent) -> ChemistryResult:
+    return _detection_limit(intent, 10, "loq", "LOQ")
+
+
+def solve_capacity_factor(intent: ChemistryIntent) -> ChemistryResult:
+    retention = require(intent, "tr", positive=True)
+    dead = require(intent, "tm", positive=True)
+    if retention <= dead:
+        raise SolveServiceError("the retention time must be after the dead time")
+    value = (retention - dead) / dead
+    shown = f"k' = {num(value)}"
+    return verified(
+        "Verified capacity factor",
+        (f"tR = {inp(retention)}", f"tM = {inp(dead)}"),
+        "Capacity factor",
+        *stated("capacity_factor"),
+        (f"k' = ({inp(retention)} - {inp(dead)}) / {inp(dead)}",),
+        shown,
+        shown,
+    )
+
+
+def solve_selectivity(intent: ChemistryIntent) -> ChemistryResult:
+    given: tuple[str, ...]
+    steps: tuple[str, ...]
+    if "k1" in intent.params or "k2" in intent.params:
+        first = require(intent, "k1", positive=True)
+        second = require(intent, "k2", positive=True)
+        given = (f"k1 = {inp(first)}", f"k2 = {inp(second)}")
+        steps = (f"α = {inp(second)} / {inp(first)}",)
+    else:
+        earlier = require(intent, "tr1", positive=True)
+        later = require(intent, "tr2", positive=True)
+        dead = require(intent, "tm", positive=True)
+        if earlier <= dead or later <= dead:
+            raise SolveServiceError("each retention time must be after the dead time")
+        first = (earlier - dead) / dead
+        second = (later - dead) / dead
+        given = (f"tR1 = {inp(earlier)}", f"tR2 = {inp(later)}", f"tM = {inp(dead)}")
+        steps = (
+            f"k1 = ({inp(earlier)} - {inp(dead)}) / {inp(dead)} = {num(first)}",
+            f"k2 = ({inp(later)} - {inp(dead)}) / {inp(dead)} = {num(second)}",
+            f"α = {num(second)} / {num(first)}",
+        )
+    shown = f"α = {num(second / first)}"
+    return verified(
+        "Verified selectivity",
+        given,
+        "Selectivity",
+        *stated("selectivity"),
+        steps,
+        shown,
+        shown,
+    )
+
+
+def solve_resolution(intent: ChemistryIntent) -> ChemistryResult:
+    earlier = require(intent, "tr1", positive=True)
+    later = require(intent, "tr2", positive=True)
+    first_width = require(intent, "w1", positive=True)
+    second_width = require(intent, "w2", positive=True)
+    if later <= earlier:
+        raise SolveServiceError("the later peak must follow the earlier one")
+    value = 2 * (later - earlier) / (first_width + second_width)
+    shown = f"Rs = {num(value)}"
+    return verified(
+        "Verified resolution",
+        (
+            f"tR1 = {inp(earlier)}",
+            f"tR2 = {inp(later)}",
+            f"w1 = {inp(first_width)}",
+            f"w2 = {inp(second_width)}",
+        ),
+        "Resolution",
+        *stated("resolution"),
+        (
+            f"Rs = 2 * ({inp(later)} - {inp(earlier)})"
+            f" / ({inp(first_width)} + {inp(second_width)})",
+        ),
+        shown,
+        shown,
+    )
+
+
+def solve_plate_number(intent: ChemistryIntent) -> ChemistryResult:
+    retention = require(intent, "tr", positive=True)
+    width = require(intent, "width", positive=True)
+    value = 16 * (retention / width) ** 2
+    shown = f"N = {num(value)}"
+    return verified(
+        "Verified plate number",
+        (f"tR = {inp(retention)}", f"w = {inp(width)}"),
+        "Plate number",
+        *stated("plate_number"),
+        (f"N = 16 * ({inp(retention)} / {inp(width)})^2",),
+        shown,
+        shown,
+    )
+
+
+def solve_plate_height(intent: ChemistryIntent) -> ChemistryResult:
+    length = require(intent, "length", positive=True)
+    plates = require(intent, "plates", positive=True)
+    value = length / plates
+    shown = f"H = {num(value)}"
+    return verified(
+        "Verified plate height",
+        (f"L = {inp(length)}", f"N = {inp(plates)}"),
+        "Plate height",
+        *stated("plate_height"),
+        (f"H = {inp(length)} / {inp(plates)}",),
+        shown,
+        shown,
+    )
+
+
 def _samples(intent: ChemistryIntent) -> list[float]:
     if len(intent.samples) < 2:
         raise SolveServiceError("at least two measurements are required")

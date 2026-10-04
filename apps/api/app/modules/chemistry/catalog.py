@@ -377,6 +377,13 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "Δz/z = √((Δa/a)^2 + (Δb/b)^2)",
     ),
     ("chromatography_rf", "analytical", "Chromatography Rf", "Rf = spot distance / solvent front"),
+    ("lod", "analytical", "Limit of detection", "LOD = 3s/m"),
+    ("loq", "analytical", "Limit of quantitation", "LOQ = 10s/m"),
+    ("capacity_factor", "analytical", "Capacity factor", "k' = (tR − tM) / tM"),
+    ("selectivity", "analytical", "Selectivity", "α = k2 / k1"),
+    ("resolution", "analytical", "Chromatographic resolution", "Rs = 2 (tR2 − tR1) / (w1 + w2)"),
+    ("plate_number", "analytical", "Theoretical plates", "N = 16 (tR / w)^2"),
+    ("plate_height", "analytical", "Plate height", "H = L / N"),
     ("iupac_name", "organic", "IUPAC name", "PubChem's IUPACName for the structure's SMILES"),
     (
         "named_reaction",

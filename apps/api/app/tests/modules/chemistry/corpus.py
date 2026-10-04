@@ -262,6 +262,17 @@ EQUATIONS: tuple[Case, ...] = (
 )
 
 
+ANALYTICAL: tuple[Case, ...] = (
+    says("What is the LOD when m = 2.00 and s = 0.060?", "LOD = 0.090"),
+    says("What is the LOQ when m = 2.00 and s = 0.060?", "LOQ = 0.30"),
+    says("What is the capacity factor when tR = 5.00 and tM = 1.00?", "k' = 4.00"),
+    says("What is the selectivity when k1 = 2.00 and k2 = 4.00?", "α = 2.00"),
+    says("What is Rs when tR1 = 4.00, tR2 = 5.20, w1 = 0.40, and w2 = 0.40?", "Rs = 3.0"),
+    says("What is the plate number when tR = 10.0 and w = 1.00?", "N = 1600"),
+    says("What is the plate height when L = 16.0 and N = 1600?", "H = 0.0100"),
+)
+
+
 ANSWERABLE: tuple[Case, ...] = (
     *AMOUNTS,
     *STOICHIOMETRY,
@@ -269,6 +280,7 @@ ANSWERABLE: tuple[Case, ...] = (
     *ACIDS_AND_BASES,
     *EQUILIBRIUM,
     *EQUATIONS,
+    *ANALYTICAL,
     *corpus_physical.CASES,
 )
 
@@ -294,6 +306,9 @@ MUST_DECLINE: tuple[str, ...] = (
     # The anhydrous salt is heavier than the sample, so it is not that hydrate.
     "A 1.00000 g sample of a hydrate of CuSO4 leaves 1.59602 g of anhydrous CuSO4. "
     "How many waters of hydration?",
+    # No slope is stated, and a retention time before the dead time is not k'.
+    "What is the LOD?",
+    "What is the capacity factor when tR = 1.00 and tM = 5.00?",
     # Charge balance over every species is not these two steps.
     "What are all the species concentrations for 0.10 M H2A with Ka1 = 1e-3 and Ka2 = 1e-8?",
     # No time unit for k.
@@ -329,4 +344,4 @@ NOT_CHEMISTRY: tuple[str, ...] = (
 )
 
 # Answered and correct today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 96
+COVERAGE_FLOOR = 103
