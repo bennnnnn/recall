@@ -144,14 +144,12 @@ def _answer(text: str) -> str | None:
             "600 K",
         ),
         (
-            "A gas changes from 100 kPa, 2 L and 300 K to 1 L and 600 K. "
-            "Find its final pressure.",
+            "A gas changes from 100 kPa, 2 L and 300 K to 1 L and 600 K. Find its final pressure.",
             "combined_gas_pressure",
             "400 kPa",
         ),
         (
-            "Find the mean speed of nitrogen molecules at 300 K. "
-            "Molar mass is 0.028 kg/mol.",
+            "Find the mean speed of nitrogen molecules at 300 K. Molar mass is 0.028 kg/mol.",
             "mean_molecular_speed",
             "476 m/s",
         ),
