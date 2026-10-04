@@ -25,7 +25,8 @@ def solve(text: str):
 @pytest.mark.parametrize(
     "text,expected",
     [
-        ("Physics: solve F=m*a for a", "Eq(a, F/m) where Ne(m, 0)"),
+        ("Physics: solve a=F/m for a", "Eq(a, F/m) where Ne(m, 0)"),
+        ("Physics: solve x+y=a; x-y=b for x,y", "Eq(x, a/2 + b/2), Eq(y, a/2 - b/2)"),
         ("Physics: solve F=m*a; F=12; m=3 for F,m,a", "Eq(F, 12), Eq(m, 3), Eq(a, 4)"),
         ("Physics: differentiate A*cos(omega*t) with respect to t", "-A*omega*sin(omega*t)"),
         ("Physics: differentiate 3 with respect to t", "0"),
@@ -64,6 +65,7 @@ def test_eigenvalues_and_eigenspaces() -> None:
 
 
 def test_decimal_source_lexemes_remain_exact() -> None:
+    assert solve("Physics: simplify 9007199254740993.0").canonical_answer == "9007199254740993"
     assert (
         solve("Physics: simplify 10000000000000000.1-10000000000000000").canonical_answer == "1/10"
     )
@@ -81,6 +83,9 @@ def test_ode_general_family_states_its_generated_domain_and_parameter_conditions
     assert "Ne(-4*k*m, 0)" in parameterized.domain_conditions[0]
     repeated = solve("Physics: ode x''+2*x'+x=0 for x(t)")
     assert "C2*t" in repeated.canonical_answer
+    first_order = solve("Physics: ode a*x'+x=0 for x(t)")
+    assert "Ne(a, 0)" in first_order.domain_conditions[0]
+    assert r"a \neq 0" in first_order.text
 
 
 def test_algebra_retains_branches_and_denominator_conditions() -> None:
@@ -125,6 +130,11 @@ def test_whole_request_grammar_declines_extra_work(text: str) -> None:
         "simplify (lambda x:x)(2)",
         "simplify True",
         "simplify 1/0",
+        "simplify x # also solve y",
+        "solve a*x=0 for x",
+        "solve F=m*a for a",
+        "solve a*x+y=0; x+a*y=0 for x,y",
+        "solve x^3+a*x=0 for x",
         "solve sin(t)=0 for t",
         "solve x^5-x+1=0 for x",
         "solve x=1 for y",
@@ -146,7 +156,7 @@ def test_unsupported_or_unsafe_models_never_verify(body: str) -> None:
 
 
 def test_symbolic_direct_reply_is_bound_to_request_and_card() -> None:
-    text = "Physics: solve F=m*a for a"
+    text = "Physics: solve a=F/m for a"
     block = solve(text)
     assert maybe_direct_physics_reply(block, text + " and find work") is None
     assert maybe_direct_physics_reply(block, text, has_image_attachment=True) is None
@@ -164,7 +174,7 @@ async def test_symbolic_boundary_uses_worker_timeout_and_declines(monkeypatch) -
         return fn(*args)
 
     monkeypatch.setattr("app.services.sympy_executor.run_sympy", worker)
-    text = "Physics: solve F=m*a for a"
+    text = "Physics: solve a=F/m for a"
     _prompt, verified, failed = await build_physics_augmentation(text, settings)
     assert verified is not None and not failed
     assert calls == [settings.math_solve_timeout_seconds]

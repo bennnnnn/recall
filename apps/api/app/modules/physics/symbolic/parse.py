@@ -55,6 +55,8 @@ class ModelParser:
     def parse(self, expression: str) -> Any:
         if len(expression) > 512:
             raise SolveServiceError("model expression too long")
+        if "#" in expression:
+            raise SolveServiceError("comments are not model expressions")
         if self.dependent is not None:
             name = re.escape(self.dependent)
             if re.search(r"\bDerivative(?:One|Two)\b", expression):
