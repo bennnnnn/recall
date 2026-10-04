@@ -23,6 +23,9 @@ it.each(fixtures)("renders the server's $name scene and its correct playback sta
   expect(view.getByTestId("simulation-canvas")).toBeTruthy();
   expect(view.queryAllByTestId("simulation-body")).toHaveLength(fixture.scene.bodies.length);
   expect(Boolean(view.queryByTestId("simulation-control"))).toBe(fixture.animated);
+  expect(Boolean(view.queryByTestId("simulation-timing"))).toBe(
+    fixture.animated && "duration_s" in fixture.scene,
+  );
 });
 
 it.each(fixtures)("keeps the server's $name scene visible with reduced motion", async (fixture) => {

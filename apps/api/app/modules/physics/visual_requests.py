@@ -18,7 +18,7 @@ from app.services.solving import VerifiedPhysicsBlock
 _EXERCISE = re.compile(
     r"(?:please\s+)?(?:do|solve|give(?:\s+me)?|show(?:\s+me)?)\s+"
     r"(?:one|a|an)\s+(?:10th\s+gr(?:a)?de|gr(?:a)?de\s+10|tenth\s+grade|class\s+10)\s+"
-    r"physics\s+(?:problem|question)(?:\s+please)?[.!?]*",
+    r"physics\s+(?:problem|question|exercise)(?:\s+please)?[.!?]*",
     re.IGNORECASE,
 )
 _SCHOOL_PROBLEM = "A ball is thrown horizontally at 10 m/s from a height of 5 m. Find the range."
