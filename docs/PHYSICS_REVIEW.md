@@ -115,6 +115,31 @@ accelerating illustration remains playable without an invented time caption.
 Reduce Motion keeps the static diagram. Lifecycle and parameter tests complement native
 device validation; Jest mocks cannot establish native frame rate or visual quality.
 
+## Reported exercise and diagram flow
+
+The literal request `Do one 10th grde physics problem` previously reached a provider
+that offered a diagram, then returned broken Mermaid and ASCII art after `Okay diagram`.
+The request now selects a complete, verified horizontal-launch exercise. Adjacent
+diagram requests and visual-offer acceptances recover one problem statement and solve
+it again. They discard old answers and scene payloads, stop at unrelated exchanges,
+and preserve a new image as the current source. Unsupported diagrams and animations
+decline before the provider can invent a replacement. Final physics output removes
+model-authored visual fences and drawing promises, including the unverified path.
+
+The live API check exercised the exact request, `Okay diagram`, and an animation
+request, then checked the saved replies. Each supported reply contained one native
+scene. A heat problem followed by an animation request returned and saved the native
+animation-unavailable response. The verified replies bypassed the model provider;
+tests cover model-authored offers and unsupported drawing cleanup separately.
+
+All eight native scene types were inspected in the iOS Simulator with actual server
+payloads: projectile, orbit, collision, incline, harmonic motion, lever, free-body,
+and vectors. Falling-body and reversing SUVAT scenes were checked as well. Collision
+mass labels alternate above and below the bodies, with title space reserved for the
+upper label. Automated contracts cover parsing/rendering all types and Reduce Motion;
+lifecycle tests cover replacement, cancellation and background resume. Native frame
+time and accessibility profiling remain outstanding.
+
 References: [SymPy algebra](https://docs.sympy.org/latest/guides/solving/solve-equation-algebraically.html),
 [SymPy ODEs](https://docs.sympy.org/latest/guides/solving/solve-ode.html),
 [Expo SDK 57](https://docs.expo.dev/versions/v57.0.0/).

@@ -46,7 +46,8 @@ _VISUAL_OBJECT = (
 _VISUAL_ACTION = (
     r"(?:animate(?:\s+(?:it|this|that|one))?|"
     r"(?:draw|render|show|create|make|provide|display|give|generate|sketch|plot|see)\s+"
-    r"(?:you\s+)?(?:it|this|that|one|" + _VISUAL_OBJECT + r"))"
+    r"(?:you\s+)?(?:"
+    r"(?:it|this|that|one)(?=\s*(?:[.!?;:]|$))|" + _VISUAL_OBJECT + r"))"
 )
 _OFFER = re.compile(
     r"\b(?:(?:would\s+you\s+like|do\s+you\s+want|want)\s+"
