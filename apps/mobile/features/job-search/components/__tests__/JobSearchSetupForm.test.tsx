@@ -169,3 +169,28 @@ test("Minimum pay accepts only digits, including pasted text, using the visible 
   await fireEvent.press(screen.getByText("my_job.start_search"));
   expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ salary_min: 100000, salary_currency: "EUR" }));
 });
+
+
+test("keeps draft pay and the current step when a refreshed profile arrives", async () => {
+  const initial: JobSearchProfile = {
+    id: "profile", revision: 1, target_roles: ["Registered Nurse"], skills: [],
+    location: "Berlin, Germany", country: "Germany", work_modes: ["onsite"],
+    experience_levels: ["mid"], salary_min: 4000, salary_currency: "EUR",
+    requires_sponsorship: null, excluded_companies: [], background: null,
+    result_count: 10, frequency: "weekdays", next_run_at: "2026-10-05T08:00:00.000Z",
+    status: "active", last_run_at: null, last_run_status: null,
+    created_at: "2026-01-01", updated_at: "2026-01-01",
+  };
+  const onSave = jest.fn(async () => false);
+  const onClose = jest.fn();
+  const screen = await render(<JobSearchSetupForm initial={initial} busy={false} onClose={onClose} onSave={onSave} />);
+  await reachPayStep(screen);
+  await fireEvent.changeText(screen.getByLabelText("my_job.salary_label"), "5500");
+  await screen.rerender(<JobSearchSetupForm initial={{ ...initial, updated_at: "2026-10-04" }} busy={false} onClose={onClose} onSave={onSave} />);
+  expect(screen.getByText("my_job.step2_title")).toBeTruthy();
+  expect(screen.getByLabelText("my_job.salary_label").props.value).toBe("5500");
+  await fireEvent.press(screen.getByText("common.next"));
+  await fireEvent.press(screen.getByText("common.save"));
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ salary_min: 5500 }));
+  expect(screen.getByText("my_job.step3_title")).toBeTruthy();
+});

@@ -24,7 +24,9 @@ function MyJobSetupView({ isCurrent }: { isCurrent: () => boolean }) {
   const theme = useTheme();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { dashboard, loading, busy, error, refresh, save } = useJobSearch(isCurrent);
+  const { dashboard, loading, busy, error, refresh, save } = useJobSearch(
+    isCurrent, undefined, undefined, { autoRefresh: false },
+  );
 
   if (!token) return <Redirect href="/login" />;
   if (user?.plan !== "pro" || dashboard.pro_required) return <Redirect href="/my-job" />;

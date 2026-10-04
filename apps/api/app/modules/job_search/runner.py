@@ -54,6 +54,10 @@ async def analyze_job_url(
     redis: Redis,
 ) -> _AcceptedJob | None:
     """Verify and compare one specific posting without changing the saved search."""
+    from app.modules.job_search.service import JobSearchError
+
+    if not settings.job_search_premium_enabled or not settings.web_search_enabled:
+        raise JobSearchError("Job comparison is unavailable right now", status_code=503)
     canonical = canonicalize_job_url(url)
     if not canonical or _is_listing_page(url, ""):
         return None

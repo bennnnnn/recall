@@ -3,6 +3,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import MyJobSetupScreen from "@/app/my-job/setup";
 
 const mockRefresh = jest.fn(async () => {});
+const mockUseJobSearch = jest.fn();
 let mockLoading = true;
 let mockError = false;
 
@@ -23,14 +24,14 @@ jest.mock("@/hooks/useAccountViewOwner", () => ({
   useAccountViewOwner: () => ({ key: "owner", isCurrent: () => true }),
 }));
 jest.mock("@/features/job-search/hooks/useJobSearch", () => ({
-  useJobSearch: () => ({
+  useJobSearch: (...args: unknown[]) => { mockUseJobSearch(...args); return ({
     dashboard: { profile: null, matches: [] },
     loading: mockLoading,
     busy: false,
     error: mockError,
     refresh: mockRefresh,
     save: jest.fn(),
-  }),
+  }); },
 }));
 jest.mock("@/features/job-search/components/JobSearchSetupForm", () => {
   const { Text } = jest.requireActual("react-native");
@@ -82,4 +83,5 @@ test("shows the form only after a successful empty response", async () => {
   const screen = await render(<MyJobSetupScreen />);
   expect(screen.getByText("SetupForm")).toBeTruthy();
   expect(screen.queryByText("my_job.refresh_error")).toBeNull();
+  expect(mockUseJobSearch).toHaveBeenCalledWith(expect.any(Function), undefined, undefined, { autoRefresh: false });
 });

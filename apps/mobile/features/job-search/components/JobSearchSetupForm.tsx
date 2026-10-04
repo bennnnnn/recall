@@ -75,10 +75,13 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
   const [showPicker, setShowPicker] = useState(false);
   const [roleError, setRoleError] = useState(false);
   const [salaryError, setSalaryError] = useState<string | null>(null);
+  const seededRef = useRef(false);
 
-  // Full-screen route: mount = open, so (re)seed the draft when the loaded
-  // profile / user arrives.
+  // The route waits for the profile before mounting. Keep the draft when auth
+  // refreshes or an optimistic save replaces the profile object.
   useEffect(() => {
+    if (seededRef.current) return;
+    seededRef.current = true;
     setStep(0);
     setRoleError(false);
     setSalaryError(null);

@@ -1,4 +1,5 @@
 import { act, renderHook, waitFor } from "@testing-library/react-native";
+import { AppState } from "react-native";
 
 import { useJobSearch } from "@/features/job-search/hooks/useJobSearch";
 import {
@@ -10,7 +11,8 @@ import {
 } from "@/lib/api";
 
 jest.mock("expo-router", () => ({ useFocusEffect: (callback: () => void) => { const React = jest.requireActual("react"); React.useEffect(callback, [callback]); } }));
-jest.mock("expo-crypto", () => ({ randomUUID: () => "search-request-id" }));
+const mockRandomUUID = jest.fn();
+jest.mock("expo-crypto", () => ({ randomUUID: () => mockRandomUUID() }));
 
 const mockFeedbackError = jest.fn();
 let mockCurrent = true;
@@ -124,6 +126,8 @@ async function renderSearch(initial: JobSearchDashboard) {
 
 beforeEach(() => {
   jest.clearAllMocks();
+  let request = 0;
+  mockRandomUUID.mockImplementation(() => `search-request-${++request}`);
   mockCurrent = true;
 });
 
@@ -425,4 +429,50 @@ test("refreshes the chosen tab after switching while an application update is pe
   await waitFor(() => expect(hook.result.current.loading).toBe(false));
   expect(mockApi.getJobMatches).toHaveBeenLastCalledWith("token-a", 0, undefined, "applied");
   expect(hook.result.current.dashboard.matches[0].status).toBe("applied");
+});
+
+
+test("reuses the logical search key when the dashboard refresh fails after admission", async () => {
+  const initial = { profile: profile(), matches: [] };
+  const { result } = await renderSearch(initial);
+  mockApi.runJobSearch.mockResolvedValue({ queued: true });
+  mockApi.getJobSearch.mockRejectedValueOnce(new Error("offline"));
+  await act(async () => { await expect(result.current.runNow()).resolves.toBe(false); });
+  await act(async () => { await expect(result.current.runNow()).resolves.toBe(true); });
+  expect(mockApi.runJobSearch.mock.calls.slice(0, 2)).toEqual([
+    ["token-a", "search-request-1"], ["token-a", "search-request-1"],
+  ]);
+  await act(async () => { await expect(result.current.runNow()).resolves.toBe(true); });
+  expect(mockApi.runJobSearch).toHaveBeenLastCalledWith("token-a", "search-request-2");
+});
+
+test.each([true, false])("autoRefresh=%s controls polling and foreground refresh", async (autoRefresh) => {
+  jest.useFakeTimers();
+  const state = AppState.currentState;
+  AppState.currentState = "active";
+  const listener = jest.spyOn(AppState, "addEventListener");
+  const initial: JobSearchDashboard = { profile: profile(), matches: [], latest_run: {
+    id: "run", state: "running", profile_revision: 1, manual: true,
+    created_at: "2026-09-18T00:00:00.000Z", qualifying_count: 0, possible_count: 0, new_match_count: 0,
+  } };
+  mockApi.getJobSearch.mockResolvedValue(initial);
+  const hook = await renderHook(() => useJobSearch(() => mockCurrent, undefined, undefined, { autoRefresh }));
+  try {
+    await act(async () => {});
+    expect(mockApi.getJobSearch).toHaveBeenCalledTimes(1);
+    await act(async () => { jest.advanceTimersByTime(9000); });
+    expect(mockApi.getJobSearch).toHaveBeenCalledTimes(autoRefresh ? 4 : 1);
+    if (autoRefresh) {
+      const callback = listener.mock.calls.at(-1)![1];
+      await act(async () => { callback("active"); });
+      expect(mockApi.getJobSearch).toHaveBeenCalledTimes(5);
+    } else {
+      expect(listener).not.toHaveBeenCalled();
+    }
+  } finally {
+    await hook.unmount();
+    listener.mockRestore();
+    AppState.currentState = state;
+    jest.useRealTimers();
+  }
 });

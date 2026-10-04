@@ -44,7 +44,12 @@ function optimisticProfile(
   };
 }
 
-export function useJobSearch(isCurrent: () => boolean, runId?: string, view?: JobMatchView) {
+export function useJobSearch(
+  isCurrent: () => boolean,
+  runId?: string,
+  view?: JobMatchView,
+  { autoRefresh = true }: { autoRefresh?: boolean } = {},
+) {
   const { token, user } = useAuth();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -125,6 +130,7 @@ export function useJobSearch(isCurrent: () => boolean, runId?: string, view?: Jo
   }, [token, view, runId]);
 
   useFocusEffect(useCallback(() => {
+    if (!autoRefresh) return;
     let visible = true;
     const timer = setInterval(() => {
       if (visible && AppState.currentState === "active" &&
@@ -136,7 +142,7 @@ export function useJobSearch(isCurrent: () => boolean, runId?: string, view?: Jo
       if (state === "active" && visible) void refresh({ silent: true });
     });
     return () => { visible = false; clearInterval(timer); listener.remove(); };
-  }, [refresh]));
+  }, [refresh, autoRefresh]));
 
   const save = useCallback(
     async (input: JobSearchInput): Promise<boolean> => {
@@ -319,8 +325,8 @@ export function useJobSearch(isCurrent: () => boolean, runId?: string, view?: Jo
     try {
       requestKeyRef.current ??= randomUUID();
       await api.runJobSearch(token, requestKeyRef.current);
-      requestKeyRef.current = null;
       const next = reconcile(await api.getJobSearch(token));
+      requestKeyRef.current = null;
       if (isCurrent()) { dashboardRef.current = next; setDashboard(next); }
       return true;
     } catch (err) {
