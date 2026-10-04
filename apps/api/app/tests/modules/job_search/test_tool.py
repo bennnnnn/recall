@@ -147,12 +147,29 @@ async def test_adapter_list_formats_matches(
         assessment={"fit_label": "Potential fit"},
     )
     db_session.add(match)
+    legacy = JobMatch(
+        profile_id=profile.id,
+        title="Nurse",
+        company="Legacy Health",
+        url="https://jobs.example.com/legacy",
+        canonical_url="https://jobs.example.com/legacy",
+        canonical_url_hash="b" * 64,
+        match_reasons=[],
+        found_at=datetime.now(UTC),
+        match_kind="possible",
+    )
+    db_session.add(legacy)
     await db_session.commit()
     with bind_job_search_context(user=user, redis=fake_redis, settings=Settings()):
         result = await JobSearchAdapter().invoke({"action": "list"})
+        old_view = await JobSearchAdapter().invoke({"action": "list", "list_filter": "possible"})
     assert "job-results" in result.content
-    assert result.data and result.data["matches"][0]["id"] == str(match.id)
-    assert result.data["matches"][0]["company"] == "Acme Health"
+    assert result.data and {row["id"] for row in result.data["matches"]} == {
+        str(match.id),
+        str(legacy.id),
+    }
+    assert {row["company"] for row in result.data["matches"]} == {"Acme Health", "Legacy Health"}
+    assert old_view.data and old_view.data["matches"] == result.data["matches"]
     assert "% fit" not in result.content
 
 

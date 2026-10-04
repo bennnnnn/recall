@@ -38,7 +38,7 @@ class JobSearchToolInput(BaseModel):
     is_saved: bool | None = None
     offset: int = Field(default=0, ge=0)
     list_filter: Literal[
-        "matches", "possible", "saved", "applied", "interviewing", "offer", "rejected", "all"
+        "matches", "saved", "applied", "interviewing", "offer", "rejected", "all"
     ] = "matches"
     preferences: JobSearchPreferencesPatch | None = None
     result_limit: int | None = Field(
@@ -66,6 +66,9 @@ class JobSearchToolInput(BaseModel):
         if not isinstance(value, dict):
             return value
         normalized = dict(value)
+        # Older tool calls share the single Matches view too.
+        if normalized.get("list_filter") == "possible":
+            normalized["list_filter"] = "matches"
         preferences = normalized.get("preferences")
         if not isinstance(preferences, str):
             return normalized

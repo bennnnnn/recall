@@ -8,9 +8,9 @@ import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 import { useTheme } from "@/lib/theme";
 
-export function SearchStatusHeader({ dashboard, busy, paid, onSearch, onAsk, onResume }: {
-  dashboard: JobSearchDashboard; busy: boolean; paid: boolean;
-  onSearch: () => void; onAsk: () => void; onResume: () => void;
+export function SearchStatusHeader({ dashboard, paid, onAsk }: {
+  dashboard: JobSearchDashboard; paid: boolean;
+  onAsk: () => void;
 }) {
   const { t } = useTranslation();
   const [now, setNow] = useState<number>(() => Date.now());
@@ -39,10 +39,6 @@ export function SearchStatusHeader({ dashboard, busy, paid, onSearch, onAsk, onR
     <Text style={s.meta}>{t("my_job.last_checked", { date: profile.last_run_at ? date(profile.last_run_at) : t("my_job.not_checked") })}</Text>
     {paid && profile.status === "active" ? <Text style={s.meta}>{t("my_job.next_delivery", { date: date(profile.next_run_at) })}</Text> : null}
     <View style={s.actions}>
-      <Button title={t(profile.status === "paused" ? "my_job.resume" : "my_job.search_now")}
-        icon={profile.status === "paused" ? "play" : "search"}
-        style={{ paddingHorizontal: Space.sm }} onPress={profile.status === "paused" ? onResume : onSearch}
-        loading={busy || running} disabled={!paid || dashboard.premium_enabled === false || (profile.status !== "paused" && (blocked || dashboard.manual_remaining === 0))} />
       <Button title={t("my_job.ask_recall")} icon="sparkles" variant="secondary" style={{ paddingHorizontal: Space.sm }} onPress={onAsk} />
     </View>
     {dashboard.premium_enabled === false ? <Text style={s.meta}>{t("my_job.rollout_pending")}</Text> : null}
@@ -51,6 +47,5 @@ export function SearchStatusHeader({ dashboard, busy, paid, onSearch, onAsk, onR
     {run?.partial ? <Text style={s.notice}>{t("my_job.partial_results")}</Text> : null}
     {run && ["failed", "limited", "cancelled"].includes(run.state) ? <Text accessibilityRole="alert" style={s.notice}>{run.failure_reason || t("my_job.run_failed_body")}</Text> : null}
     {profile.needs_review ? <Text style={s.notice}>{t("my_job.preferences_review")}</Text> : null}
-    <Text style={s.meta}>{t("my_job.coverage_note")}</Text>
   </View>;
 }

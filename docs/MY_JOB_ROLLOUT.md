@@ -44,8 +44,9 @@ paused searches paused. Only an explicitly requested search starts another run.
   apply to workers, posting analysis and résumé/cover-letter assistance.
 - Unreadable pages, closed postings and confirmed mismatches are rejected. Extracted
   facts require supporting text from a specific posting. Unknown requirements,
-  overlapping pay ranges and incomparable currencies/periods appear in Possible
-  matches. Currency conversion and assumed working hours are never used.
+  overlapping pay ranges and incomparable currencies/periods remain in the single
+  Matches list with the unresolved facts on each job. There is no separate Possible
+  matches view. Currency conversion and assumed working hours are never used.
 - Country-wide coverage is a bounded sample of selected sources, never an exhaustive
   claim. Partial provider/query/extraction failures are recorded separately from a
   successful search with no results.

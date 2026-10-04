@@ -41,7 +41,7 @@ import { confirmDialog } from "@/ui/overlay/dialogs";
 import { ShareSheet } from "@/ui/share/ShareSheet";
 import { Button } from "@/ui/controls/Button";
 
-type Tab = "matches" | "possible" | "saved" | "all";
+type Tab = "matches" | "saved" | "all";
 
 function cadence(profile: JobSearchProfile, t: TFunction): string {
   return t(`my_job.cadence_${profile.frequency}`, {
@@ -149,9 +149,8 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
     () => ({
       all: dashboard.matches.filter((item) => item.status !== "hidden").length,
       matches: dashboard.matches.filter(
-        (item) => item.status === "new" && !item.is_saved && item.match_kind === "qualifying",
+        (item) => item.status === "new" && !item.is_saved,
       ).length,
-      possible: dashboard.matches.filter(item => item.match_kind !== "qualifying" && item.status !== "hidden").length,
       saved: dashboard.matches.filter(
         (item) => item.is_saved && item.status !== "hidden",
       ).length,
@@ -169,10 +168,8 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
   const visibleMatches = useMemo(
     () =>
       filterAndSortMatches(
-        dashboard.matches.filter(item =>
-          (tab !== "matches" || item.match_kind === "qualifying") &&
-          (tab !== "possible" || item.match_kind !== "qualifying")),
-        tab === "matches" ? "new" : tab === "saved" ? "saved" : tab === "possible" ? "all" : stageFilter,
+        dashboard.matches,
+        tab === "matches" ? "new" : tab === "saved" ? "saved" : stageFilter,
         "best",
       ),
     [dashboard.matches, dashboard.latest_run, stageFilter, tab, runId],
@@ -358,11 +355,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
             <View style={s.searchCard}>
               <View style={s.searchTopRow}>
                 <View style={s.searchCopy}>
-                  <Text style={s.overline}>
-                    {profile.status === "paused"
-                      ? t("my_job.status_paused")
-                      : t("my_job.status_your_search")}
-                  </Text>
                   <Text style={s.searchTitle} numberOfLines={2}>
                     {profile.target_roles.join(" · ")}
                   </Text>
@@ -381,8 +373,7 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 </Pressable>
               </View>
 
-              <SearchStatusHeader dashboard={dashboard} busy={busy} paid={paid}
-                onSearch={() => void runNow()} onAsk={askRecall} onResume={() => void setSearchStatus("active")} />
+              <SearchStatusHeader dashboard={dashboard} paid={paid} onAsk={askRecall} />
               {(user?.push_notifications_enabled === false || notificationPermission === false) && paid ? <Button title={t("my_job.notification_setup")} variant="ghost" icon="bell" onPress={() => router.push("/settings/notifications")} /> : null}
               {runId ? <Text style={s.planNote}>{t("my_job.notification_results")}</Text> : null}
               {!paid ? <Button title={t("my_job.renew_pro")} variant="secondary" onPress={() => setUpgradeOpen(true)} /> : null}
@@ -401,7 +392,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
                 active={tab === "saved"}
                 onPress={() => setTab("saved")}
               />
-              <TabButton label={t("my_job.tab_possible")} count={counts.possible} active={tab === "possible"} onPress={() => setTab("possible")} />
               <JobStageFilter
                 value={stageFilter}
                 counts={{
@@ -417,7 +407,6 @@ function MyJobContent({ isCurrent }: { isCurrent: () => boolean }) {
               />
             </View>
 
-            {tab === "possible" ? <Text style={s.planNote}>{t("my_job.possible_body")}</Text> : null}
             {error ? (
               <Pressable style={s.errorCard} onPress={() => void refresh()}>
                 <Icon name="alert-circle" size={IconSize.sm} color={C.danger} />
@@ -575,7 +564,6 @@ function makeStyles(C: Theme) {
       gap: Space.sm,
     },
     searchCopy: { flex: 1 },
-    overline: { ...Type.overline, color: C.primary },
     searchTitle: {
       ...Type.title,
       color: C.text,
