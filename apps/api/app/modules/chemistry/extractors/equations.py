@@ -15,6 +15,9 @@ from app.modules.chemistry.species import parse_reaction
 
 _ACIDIC = re.compile(r"\b(?:acidic|in acid|an?\s+acid)\b", re.IGNORECASE)
 _BASIC = re.compile(r"\b(?:basic|alkaline|in base|an?\s+base)\b", re.IGNORECASE)
+_BALANCE_REQUEST = re.compile(
+    r"\b(?:balance|balanced|coefficients?|half[- ]reactions?)\b", re.IGNORECASE
+)
 
 
 def _amounts(text: str) -> dict[str, float]:
@@ -111,6 +114,8 @@ def _extract_equations(text: str) -> ChemistryIntent | None:
 
 def _half_reaction(text: str, equation: str) -> ChemistryIntent | None:
     """One written pair plus an acidic or basic medium. Anything wider stays unread."""
+    if _BALANCE_REQUEST.search(text) is None:
+        return None
     acidic = _ACIDIC.search(text) is not None
     basic = _BASIC.search(text) is not None
     if acidic == basic:

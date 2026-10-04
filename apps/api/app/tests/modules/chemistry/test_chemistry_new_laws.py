@@ -304,6 +304,11 @@ def test_a_half_reaction_declines_when_the_oxidation_state_or_the_equation_is_wi
     assert intent is None or intent.chemistry_op != "half_reaction"
     bare = extract_chemistry_intent("Balance MnO4- -> Mn2+.")
     assert bare is None or bare.chemistry_op != "half_reaction"
+    # Acidic medium alone is not a request to balance the pair.
+    gibbs = extract_chemistry_intent(
+        "For Fe2+ -> Fe3+ in acidic solution, calculate ΔG° when E° = 0.77 V and n = 1"
+    )
+    assert gibbs is not None and gibbs.chemistry_op == "cell_gibbs"
 
 
 def test_binary_vapor_pressure_declines_when_only_one_pressure_is_stated() -> None:

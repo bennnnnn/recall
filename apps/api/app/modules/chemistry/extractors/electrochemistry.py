@@ -37,8 +37,9 @@ def _extract_electrochem(text: str) -> ChemistryIntent | None:
                     "temperature": temperature,
                 },
             )
+    # A degree sign is not a word character, so E° must not demand a trailing boundary.
     if re.search(r"\b(?:ΔG|Gibbs)\b", text, re.IGNORECASE) and re.search(
-        r"\b(?:cell|electrochem|E°)\b", text, re.IGNORECASE
+        r"\b(?:cell|electrochem)\b|\bE°", text, re.IGNORECASE
     ):
         electrons = _search(rf"\bn\s*=\s*({_N})", text)
         potential = _search(rf"E(?:cell)?(?:°|0)?\s*=\s*({_N})\s*V", text)
