@@ -42,6 +42,6 @@ export function JobResultsBlock({ content }: { content: string }) {
     {loading ? <StateView variant="loading" compact title={t("my_job.run_running")} /> : null}
     {error || (!loading && !matches.length) ? <StateView variant="error" compact title={t("my_job.refresh_error")} /> : null}
     {matches.map(match => <JobMatchCard key={match.id} match={match} readOnly
-      onStatus={() => undefined} onSavedChange={() => undefined} onPress={() => router.push(`/my-job/match/${match.id}`)} />)}
+      onStatus={() => undefined} onPress={() => router.push(`/my-job/match/${match.id}`)} />)}
   </View>;
 }
