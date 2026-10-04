@@ -23,7 +23,8 @@ export function filterAndSortMatches(
     // Unknown scores sink to the bottom; ties fall back to newest first.
     sorted.sort(
       (a, b) =>
-        (b.match_score ?? -1) - (a.match_score ?? -1) ||
+        Number(b.match_kind === "qualifying") - Number(a.match_kind === "qualifying") ||
+        b.match_reasons.length - a.match_reasons.length ||
         b.found_at.localeCompare(a.found_at),
     );
   } else {

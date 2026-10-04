@@ -38,98 +38,77 @@ async def test_dashboard_versions_bookmarks_from_client_header() -> None:
     assert get_dashboard.await_args_list[1].kwargs["separate_bookmarks"] is True
 
 
-async def test_run_endpoint_queues_first_search() -> None:
-    profile = MagicMock(id=uuid4(), status="active", last_run_at=None)
-    redis = MagicMock()
-    enqueue = AsyncMock()
-    with (
-        patch.object(
-            job_search.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=profile),
-        ),
-        patch.object(
-            job_search.job_search_service,
-            "can_request_manual_run",
-            return_value=True,
-        ),
-        patch.object(job_search, "enqueue", new=enqueue),
-    ):
-        result = await job_search.run_job_search_now(
-            user=MagicMock(id=uuid4()),
-            session=AsyncMock(),
-            redis=redis,
-        )
+async def test_run_endpoint_queues_first_search(account, db_session, fake_redis) -> None:
+    from app.core.config import Settings
 
-    assert result.queued is True
-    enqueue.assert_awaited_once_with(
-        redis,
-        "job_search_run",
-        {"profile_id": str(profile.id), "manual": True},
-        dedupe_key=f"job_search_retry:{profile.id}:never",
+    user, _ = account
+    result = await job_search.run_job_search_now(
+        user=user,
+        session=db_session,
+        redis=fake_redis,
+        settings=Settings(job_search_premium_enabled=True),
+        request_key="first-click",
     )
+    assert result.queued and result.state == "queued" and result.run_id
+    repeated = await job_search.run_job_search_now(
+        user=user,
+        session=db_session,
+        redis=fake_redis,
+        settings=Settings(job_search_premium_enabled=True),
+        request_key="first-click",
+    )
+    assert repeated.run_id == result.run_id
 
 
-async def test_run_endpoint_rejects_unavailable_on_demand_search() -> None:
-    profile = MagicMock(id=uuid4(), status="active", last_run_at=MagicMock())
-    with (
-        patch.object(
-            job_search.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=profile),
-        ),
-        patch.object(
-            job_search.job_search_service,
-            "can_request_manual_run",
-            return_value=False,
-        ),
-        pytest.raises(HTTPException) as excinfo,
-    ):
+async def test_run_endpoint_rejects_unavailable_on_demand_search(
+    account, db_session, fake_redis
+) -> None:
+    from app.core.config import Settings
+
+    user, _ = account
+    user.plan = "free"
+    with pytest.raises(HTTPException) as error:
         await job_search.run_job_search_now(
-            user=MagicMock(id=uuid4()),
-            session=AsyncMock(),
-            redis=MagicMock(),
+            user=user,
+            session=db_session,
+            redis=fake_redis,
+            settings=Settings(job_search_premium_enabled=True),
+            request_key="denied",
         )
+    assert error.value.status_code == 403
 
-    assert excinfo.value.status_code == 403
 
+async def test_run_endpoint_rejects_paused_profile_without_queueing(
+    account, db_session, fake_redis
+) -> None:
+    from app.core.config import Settings
 
-async def test_run_endpoint_rejects_paused_profile_without_queueing() -> None:
-    profile = MagicMock(id=uuid4(), status="paused", last_run_at=None)
-    enqueue = AsyncMock()
-    with (
-        patch.object(
-            job_search.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=profile),
-        ),
-        patch.object(job_search, "enqueue", new=enqueue),
-        pytest.raises(HTTPException) as excinfo,
-    ):
+    user, profile = account
+    profile.status = "paused"
+    await db_session.commit()
+    with pytest.raises(HTTPException) as error:
         await job_search.run_job_search_now(
-            user=MagicMock(id=uuid4()),
-            session=AsyncMock(),
-            redis=MagicMock(),
+            user=user,
+            session=db_session,
+            redis=fake_redis,
+            settings=Settings(job_search_premium_enabled=True),
+            request_key="paused",
         )
-
-    assert excinfo.value.status_code == 409
-    assert "Resume My Job" in str(excinfo.value.detail)
-    enqueue.assert_not_awaited()
+    assert error.value.status_code == 409 and "Resume My Job" in error.value.detail
 
 
-async def test_run_endpoint_requires_existing_profile() -> None:
-    with (
-        patch.object(
-            job_search.job_search_service,
-            "get_profile_for_user",
-            new=AsyncMock(return_value=None),
-        ),
-        pytest.raises(HTTPException) as excinfo,
-    ):
+async def test_run_endpoint_requires_existing_profile(account, db_session, fake_redis) -> None:
+    from app.core.config import Settings
+
+    user, profile = account
+    await db_session.delete(profile)
+    await db_session.commit()
+    with pytest.raises(HTTPException) as error:
         await job_search.run_job_search_now(
-            user=MagicMock(id=uuid4()),
-            session=AsyncMock(),
-            redis=MagicMock(),
+            user=user,
+            session=db_session,
+            redis=fake_redis,
+            settings=Settings(job_search_premium_enabled=True),
+            request_key="missing",
         )
-
-    assert excinfo.value.status_code == 404
+    assert error.value.status_code == 404

@@ -25,11 +25,11 @@ JobSearchListMode = Literal["replace", "add", "remove"]
 
 
 def _default_work_modes() -> list[JobSearchWorkMode]:
-    return ["remote"]
+    return ["remote", "hybrid", "onsite"]
 
 
 def _default_experience_levels() -> list[JobSearchExperience]:
-    return ["entry"]
+    return ["internship", "entry", "mid", "senior"]
 
 
 def _clean_list(values: list[str], *, limit: int) -> list[str]:
@@ -49,15 +49,41 @@ def _clean_list(values: list[str], *, limit: int) -> list[str]:
     return result
 
 
+class JobLocation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    country: str = Field(min_length=2, max_length=100)
+    region: str | None = Field(default=None, max_length=100)
+    city: str | None = Field(default=None, max_length=100)
+
+    @field_validator("country", "region", "city")
+    @classmethod
+    def clean_place(cls, value: str | None, info: ValidationInfo) -> str | None:
+        cleaned = " ".join(value.strip().split()) or None if value is not None else None
+        if info.field_name == "country" and not cleaned:
+            raise ValueError("country is required")
+        return cleaned
+
+
+SalaryPeriod = Literal["year", "month", "week", "hour"]
+
+
 class JobSearchUpsert(BaseModel):
     model_config = ConfigDict(title="JobSearchUpsert")
 
+    expected_revision: int | None = Field(default=None, ge=1)
     target_roles: list[str] = Field(min_length=1, max_length=6)
     skills: list[str] = Field(default_factory=list, max_length=30)
     location: str | None = Field(default=None, max_length=160)
+    included_locations: list[JobLocation] = Field(default_factory=list, max_length=20)
+    excluded_locations: list[JobLocation] = Field(default_factory=list, max_length=20)
+    country: str | None = Field(default=None, max_length=100)
+    salary_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    salary_period: SalaryPeriod = "year"
+    years_experience: float | None = Field(default=None, ge=0, le=80)
+
     work_modes: list[JobSearchWorkMode] = Field(default_factory=_default_work_modes)
     experience_levels: list[JobSearchExperience] = Field(default_factory=_default_experience_levels)
-    salary_min: int | None = Field(default=None, ge=0, le=1_000_000)
+    salary_min: int | None = Field(default=None, ge=0, le=1_000_000_000)
     requires_sponsorship: bool | None = None
     excluded_companies: list[str] = Field(default_factory=list, max_length=20)
     background: str | None = Field(default=None, max_length=6000)
@@ -117,6 +143,16 @@ class JobSearchPreferencesPatch(BaseModel):
     )
     skills_mode: JobSearchListMode = "replace"
     location: str | None = Field(default=None, max_length=160)
+    included_locations: list[JobLocation] | None = Field(default=None, max_length=20)
+    excluded_locations: list[JobLocation] | None = Field(default=None, max_length=20)
+    country: str | None = Field(default=None, max_length=100)
+    salary_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    salary_period: SalaryPeriod | None = None
+    years_experience: float | None = Field(default=None, ge=0, le=80)
+    included_locations_mode: JobSearchListMode = "replace"
+    excluded_locations_mode: JobSearchListMode = "replace"
+    expected_revision: int | None = Field(default=None, ge=1)
+
     work_modes: list[JobSearchWorkMode] | None = Field(
         default=None,
         description="Work modes as an array: remote, hybrid, or onsite.",
@@ -125,13 +161,15 @@ class JobSearchPreferencesPatch(BaseModel):
         default=None,
         description="Experience levels as an array: internship, entry, mid, or senior.",
     )
-    salary_min: int | None = Field(default=None, ge=0, le=1_000_000)
+    salary_min: int | None = Field(default=None, ge=0, le=1_000_000_000)
     requires_sponsorship: bool | None = None
     excluded_companies: list[str] | None = Field(default=None, max_length=20)
     excluded_companies_mode: JobSearchListMode = "replace"
     background: str | None = Field(default=None, max_length=6000)
     result_count: Literal[5, 10, 15] | None = None
     frequency: JobSearchFrequency | None = None
+    next_run_at: datetime | None = None
+    resume_attachment_id: UUID | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -151,11 +189,11 @@ class JobSearchPreferencesPatch(BaseModel):
             "role": "target_roles",
             "job_type": "target_roles",
             "skill": "skills",
+            "locations": "location",
             "work_mode": "work_modes",
             "experience": "experience_levels",
             "experience_level": "experience_levels",
             "excluded_company": "excluded_companies",
-            "locations": "location",
         }
         for raw_key in list(normalized):
             normalized_key = "_".join(raw_key.strip().casefold().replace("-", " ").split())
@@ -271,6 +309,15 @@ class JobSearchProfileOut(BaseModel):
     target_roles: list[str]
     skills: list[str]
     location: str | None = None
+    included_locations: list[JobLocation] = Field(default_factory=list, max_length=20)
+    excluded_locations: list[JobLocation] = Field(default_factory=list, max_length=20)
+    country: str | None = Field(default=None, max_length=100)
+    salary_currency: str | None = Field(default=None, pattern=r"^[A-Z]{3}$")
+    salary_period: SalaryPeriod = "year"
+    years_experience: float | None = Field(default=None, ge=0, le=80)
+    revision: int = 1
+    needs_review: bool = False
+    suspension_reason: str | None = None
     work_modes: list[JobSearchWorkMode]
     experience_levels: list[JobSearchExperience]
     salary_min: int | None = None
@@ -320,6 +367,13 @@ class JobMatchOut(BaseModel):
     model_config = ConfigDict(title="JobMatchOut")
 
     id: UUID
+    assessment_revision: int = 0
+    assessment: dict | None = None
+    match_kind: Literal["qualifying", "possible"] = "possible"
+    fit_label: Literal["Strong fit", "Potential fit", "Needs review"] = "Needs review"
+    outdated: bool = False
+    pro_required: bool = False
+    checked_at: datetime | None = None
     title: str
     company: str
     company_logo_url: str | None = None
@@ -343,10 +397,40 @@ class JobMatchOut(BaseModel):
     notes: str | None = None
 
 
+class JobRunStatusOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    state: Literal["queued", "running", "completed", "failed", "limited", "cancelled"]
+    profile_revision: int
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    candidate_count: int = 0
+    verified_count: int = 0
+    qualifying_count: int = 0
+    possible_count: int = 0
+    new_match_count: int = 0
+    match_ids: list[str] = Field(default_factory=list)
+    partial: bool = False
+    failure_reason: str | None = None
+    usage: dict = Field(default_factory=dict)
+
+
+class JobMatchPageOut(BaseModel):
+    matches: list[JobMatchOut]
+    next_offset: int | None = None
+
+
 class JobSearchDashboardOut(BaseModel):
     model_config = ConfigDict(title="JobSearchDashboardOut")
 
     profile: JobSearchProfileOut | None = None
+    latest_run: JobRunStatusOut | None = None
+    premium_enabled: bool = False
+    pro_required: bool = False
+    manual_remaining: int = 5
+    cooldown_until: datetime | None = None
+    next_offset: int | None = None
     matches: list[JobMatchOut] = Field(default_factory=list)
 
 
@@ -354,6 +438,8 @@ class JobSearchRunOut(BaseModel):
     model_config = ConfigDict(title="JobSearchRunOut")
 
     queued: bool = True
+    run_id: UUID | None = None
+    state: str = "queued"
 
 
 class CoverLetterOut(BaseModel):
@@ -373,7 +459,7 @@ class JobMatchStatusUpdate(BaseModel):
 
     @model_validator(mode="after")
     def require_status_or_bookmark(self) -> "JobMatchStatusUpdate":
-        if self.status is None and self.is_saved is None:
+        if self.status is None and self.is_saved is None and "notes" not in self.model_fields_set:
             raise ValueError("status or is_saved is required")
         return self
 

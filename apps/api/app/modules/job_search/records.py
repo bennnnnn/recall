@@ -34,14 +34,23 @@ class _ProfileSnapshot:
     hidden_titles: list[str]
     result_count: int
     frequency: str
+    revision: int = 1
+    search_cursor: int = 0
+    included_locations: list[dict] | None = None
+    excluded_locations: list[dict] | None = None
+    country: str | None = None
+    salary_currency: str | None = None
+    salary_period: str = "year"
+    years_experience: float | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class JobSearchRunResult:
     """Verified outcome returned to synchronous callers such as chat."""
 
-    status: Literal["completed", "busy", "unavailable"]
+    status: Literal["queued", "completed", "busy", "unavailable"]
     canonical_urls: tuple[str, ...] = ()
+    run_id: UUID | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,6 +145,9 @@ class _AcceptedJob:
     required_skills: list[str]
     match_reasons: list[str]
     gap: str | None
+    assessment: dict | None = None
+    match_kind: str = "possible"
+    posting_identity: str | None = None
 
 
 class PostingVerificationError(RuntimeError):

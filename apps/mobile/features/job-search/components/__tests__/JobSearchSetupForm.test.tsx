@@ -27,7 +27,7 @@ jest.mock("@/ui/icons/Icon", () => ({ Icon: () => null }));
 jest.mock("@/features/job-search/components/LocationFields", () => ({
   EMPTY_PLACE: { city: "", region: "", country: "" },
   composePlace: () => "Berlin",
-  parsePlace: () => ({ city: "Berlin", region: "", country: "" }),
+  parsePlace: () => ({ city: "Berlin", region: "", country: "Germany" }),
   LocationFields: () => null,
 }));
 jest.mock("@/features/job-search/components/SearchableMultiSelect", () => ({
@@ -134,7 +134,7 @@ test("moves through all setup steps and back without saving", async () => {
   expect(onSave).not.toHaveBeenCalled();
 });
 
-test("starts the first search after a successful initial setup", async () => {
+test("saves setup without starting an unrequested search", async () => {
   const onClose = jest.fn();
   const onSave = jest.fn(async () => true);
   const screen = await render(
@@ -150,6 +150,8 @@ test("starts the first search after a successful initial setup", async () => {
   await fireEvent.press(screen.getByText("common.next"));
   await fireEvent.press(screen.getByText("my_job.start_search"));
 
-  await waitFor(() => expect(mockRunJobSearch).toHaveBeenCalledWith("token-a"));
+  await waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
+  expect(mockRunJobSearch).not.toHaveBeenCalled();
+  expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ result_count: 10, frequency: "weekdays", work_modes: ["remote", "hybrid", "onsite"], experience_levels: ["internship", "entry", "mid", "senior"] }));
   expect(onClose).toHaveBeenCalledTimes(1);
 });

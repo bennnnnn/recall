@@ -8,32 +8,29 @@ from uuid import UUID
 from app.core.config import Settings
 from app.core.jobs import JobDiscardError, register
 from app.core.redis import get_redis_client
-from app.modules.job_search import runner as job_search_runner
 
 
-async def _handle_job_search_run(
-    settings: Settings,
-    payload: dict[str, Any],
-) -> None:
-    raw_profile_id = payload.get("profile_id")
+async def _handle_job_search_run(settings: Settings, payload: dict[str, Any]) -> None:
+    from app.modules.job_search.worker import execute_run
+
     try:
-        profile_id = UUID(str(raw_profile_id))
+        run_id = UUID(str(payload.get("run_id")))
     except (TypeError, ValueError) as exc:
-        raise JobDiscardError(f"job_search_run: invalid profile_id={raw_profile_id!r}") from exc
+        # Old queued profile-only jobs must not bypass durable admission.
+        raise JobDiscardError("job_search_run: durable run_id required") from exc
+    await execute_run(settings, get_redis_client(), run_id)
 
-    await job_search_runner.run_job_search(
-        settings,
-        get_redis_client(),
-        profile_id=profile_id,
-        manual=bool(payload.get("manual")),
-        overrides=(
-            payload.get("overrides") if isinstance(payload.get("overrides"), dict) else None
-        ),
-        result_limit=(
-            payload.get("result_limit") if isinstance(payload.get("result_limit"), int) else None
-        ),
-    )
+
+async def _handle_job_notification(settings: Settings, payload: dict[str, Any]) -> None:
+    from app.modules.job_search.notifications import deliver_event
+
+    try:
+        event_id = UUID(str(payload.get("event_id")))
+    except (TypeError, ValueError) as exc:
+        raise JobDiscardError("job_notification: event_id required") from exc
+    await deliver_event(settings, get_redis_client(), event_id)
 
 
 def register_job_search_jobs() -> None:
     register("job_search_run", _handle_job_search_run)
+    register("job_notification", _handle_job_notification)

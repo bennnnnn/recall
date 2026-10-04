@@ -5,9 +5,9 @@ import type { JobMatch } from "@/lib/api";
 import { cacheJobMatches, clearJobMatchCache } from "@/features/job-search/model/matchCache";
 
 let mockId = "m1";
-let mockPlan: "free" | "pro" = "free";
+let mockPlan: "free" | "pro" = "pro";
 const mockBack = jest.fn();
-const mockGetJobSearch = jest.fn();
+const mockGetJobMatch = jest.fn();
 const mockSetJobMatchStatus = jest.fn(async () => ({ profile: null, matches: [] }));
 const mockSetJobMatchSaved = jest.fn(async () => ({ profile: null, matches: [] }));
 const mockGenerateCoverLetter = jest.fn(async () => ({ cover_letter: "Dear team, ..." }));
@@ -37,7 +37,7 @@ jest.mock("@/lib/haptics", () => ({
 }));
 jest.mock("@/lib/api", () => ({
   api: {
-    getJobSearch: (...args: unknown[]) => mockGetJobSearch(...args),
+    getJobMatch: (...args: unknown[]) => mockGetJobMatch(...args),
     setJobMatchStatus: (...args: unknown[]) => mockSetJobMatchStatus(...args),
     setJobMatchSaved: (...args: unknown[]) => mockSetJobMatchSaved(...args),
     generateCoverLetter: (...args: unknown[]) => mockGenerateCoverLetter(...args),
@@ -80,19 +80,20 @@ function deferred<T>() {
 
 afterEach(() => {
   clearJobMatchCache();
-  mockPlan = "free";
+  mockPlan = "pro";
   jest.clearAllMocks();
 });
 
 test("renders the cached match instantly with scan-first details", async () => {
   cacheJobMatches("user", [match()]);
+  mockGetJobMatch.mockResolvedValue(match());
   const { getByLabelText, getByText, getAllByText, queryByText } = await render(
     <JobMatchDetailScreen />,
   );
   expect(getByText("Registered Nurse")).toBeTruthy();
   // Company shows in the header and under the title.
   expect(getAllByText("Acme Health").length).toBeGreaterThan(0);
-  expect(getByText("88%")).toBeTruthy();
+  expect(getByText("my_job.fit_review")).toBeTruthy();
   expect(getByLabelText("my_job.meta_skills: ACLS, Triage")).toBeTruthy();
   expect(getByText("Full summary of the role.")).toBeTruthy();
   expect(queryByText("my_job.not_interested")).toBeNull();
@@ -103,41 +104,41 @@ test("renders the cached match instantly with scan-first details", async () => {
   expect(getByText("No pediatric experience")).toBeTruthy();
   expect(getByText(/jobs\.example\.com/)).toBeTruthy();
   expect(queryByText("my_job.detail_not_found")).toBeNull();
-  expect(mockGetJobSearch).not.toHaveBeenCalled();
+  expect(mockGetJobMatch).toHaveBeenCalledWith("token-a", "m1");
 });
 
 test("shows the structured skeleton during a cold load", async () => {
-  const pending = deferred<{ profile: null; matches: JobMatch[] }>();
-  mockGetJobSearch.mockReturnValue(pending.promise);
+  const pending = deferred<JobMatch>();
+  mockGetJobMatch.mockReturnValue(pending.promise);
   const screen = await render(<JobMatchDetailScreen />);
   expect(screen.getByTestId("job-match-detail-skeleton")).toBeTruthy();
 
-  pending.resolve({ profile: null, matches: [match()] });
+  pending.resolve(match());
   await waitFor(() => expect(screen.getByText("Registered Nurse")).toBeTruthy());
 });
 
 test("cold start fetches the dashboard and shows a missing-match state", async () => {
-  mockGetJobSearch.mockResolvedValue({ profile: null, matches: [match({ id: "other" })] });
+  mockGetJobMatch.mockRejectedValue(Object.assign(new Error("not found"), { status: 404 }));
   const { getByText } = await render(<JobMatchDetailScreen />);
   await waitFor(() => expect(getByText("my_job.detail_not_found")).toBeTruthy());
-  expect(mockGetJobSearch).toHaveBeenCalledWith("token-a");
+  expect(mockGetJobMatch).toHaveBeenCalledWith("token-a", "m1");
 });
 
 test("cold-load failure shows Retry instead of not-found and can recover", async () => {
-  mockGetJobSearch
+  mockGetJobMatch
     .mockRejectedValueOnce(new Error("offline"))
-    .mockResolvedValueOnce({ profile: null, matches: [match()] });
+    .mockResolvedValueOnce(match());
   const { getByText, queryByText } = await render(<JobMatchDetailScreen />);
   await waitFor(() => expect(getByText("my_job.refresh_error")).toBeTruthy());
   expect(queryByText("my_job.detail_not_found")).toBeNull();
 
   await fireEvent.press(getByText("common.retry"));
   await waitFor(() => expect(getByText("Registered Nurse")).toBeTruthy());
-  expect(mockGetJobSearch).toHaveBeenCalledTimes(2);
+  expect(mockGetJobMatch).toHaveBeenCalledTimes(2);
 });
 
 test("cold start renders a fetched match", async () => {
-  mockGetJobSearch.mockResolvedValue({ profile: null, matches: [match()] });
+  mockGetJobMatch.mockResolvedValue(match());
   const { getByText } = await render(<JobMatchDetailScreen />);
   await waitFor(() => expect(getByText("Registered Nurse")).toBeTruthy());
 });
@@ -170,6 +171,7 @@ test("notes save on blur", async () => {
 });
 
 test("cover letter CTA is Pro-only and generates into the sheet", async () => {
+  mockPlan = "free";
   cacheJobMatches("user", [match()]);
   const { queryByText, rerender, getByText } = await render(<JobMatchDetailScreen />);
   expect(queryByText("my_job.cover_letter_cta")).toBeNull();

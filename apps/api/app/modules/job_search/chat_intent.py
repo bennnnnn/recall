@@ -66,7 +66,12 @@ _JOB_CONTEXT = re.compile(
 def wants_job_search(text: str) -> bool:
     """True when the user is asking to find or review job openings."""
     return bool(
-        _FIND_JOB_INTENT.search(text)
+        re.search(
+            r"^My Job:|\b(?:my job (?:status|setup)|minimum salary|update my experience)\b",
+            text,
+            re.I,
+        )
+        or _FIND_JOB_INTENT.search(text)
         or _MY_JOB_INTENT.search(text)
         or _CHANGE_JOB_INTENT.search(text)
         or _CHECK_JOB_INTENT.search(text)
@@ -95,12 +100,27 @@ def wants_job_search_turn(messages: list[dict[str, object]]) -> bool:
             break
     if wants_job_search(user_text):
         return True
-    if not user_text or not _JOB_FOLLOW_UP.fullmatch(user_text):
+    from app.modules.job_search.chat_commands import direct_command
+
+    contextual_edit = direct_command(user_text) is not None or bool(
+        re.match(
+            (
+                "^(?:add|remove|exclude|include|minimum|pause|resume|sav"
+                "e|mark|cover letter|notes?|check all over)\\b"
+            ),
+            user_text,
+            re.I,
+        )
+    )
+    if not user_text or not (_JOB_FOLLOW_UP.fullmatch(user_text) or contextual_edit):
         return False
     recent = messages[max(0, current_index - 4) : current_index]
     return any(
         isinstance(message.get("content"), str)
-        and bool(_JOB_CONTEXT.search(str(message["content"])))
+        and (
+            bool(_JOB_CONTEXT.search(str(message["content"])))
+            or (message.get("role") == "user" and wants_job_search(str(message["content"])))
+        )
         for message in recent
         if message.get("role") in {"user", "assistant"}
     )

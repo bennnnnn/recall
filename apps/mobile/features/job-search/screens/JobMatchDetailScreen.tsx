@@ -68,7 +68,6 @@ function JobMatchDetailView({
   const s = useMemo(() => makeStyles(C), [C]);
   const { t } = useTranslation();
   const { user } = useAuth();
-  const isPro = user?.plan === "pro";
   const {
     match,
     loading,
@@ -88,6 +87,7 @@ function JobMatchDetailView({
     letter,
     generateLetter,
   } = useJobMatchDetail(id, isCurrent);
+  const isPro = user?.plan === "pro" && !match?.pro_required;
   const stageRowRef = useRef<View>(null);
 
   const stageLabel = (status: JobMatchStatus): string => {
@@ -144,9 +144,10 @@ function JobMatchDetailView({
               <Text style={s.title}>{match.title}</Text>
               <Text style={s.company}>{match.company}</Text>
             </View>
-            <JobFitBadge score={match.match_score} />
+            <JobFitBadge label={match.fit_label} outdated={match.outdated} />
           </View>
 
+          {!isPro ? <Text style={s.company}>{t("my_job.expired_pro_body")}</Text> : null}
           <JobMatchMetaChips match={match} maxSkills={8} />
 
           {match.summary ? <Text style={s.summary}>{match.summary}</Text> : null}
@@ -180,7 +181,8 @@ function JobMatchDetailView({
                 void updateSaved(!match.is_saved);
               }}
               accessibilityRole="button"
-              accessibilityState={{ selected: match.is_saved }}
+              disabled={!isPro}
+              accessibilityState={{ selected: match.is_saved, disabled: !isPro }}
             >
               <Icon
                 name="bookmark"
@@ -205,10 +207,10 @@ function JobMatchDetailView({
                 void updateStatus(match.status === "applied" ? "new" : "applied");
               }}
               accessibilityRole="button"
-              disabled={!canToggleApplied(match.status)}
+              disabled={!isPro || !canToggleApplied(match.status)}
               accessibilityState={{
                 selected: applicationStarted,
-                disabled: !canToggleApplied(match.status),
+                disabled: !isPro || !canToggleApplied(match.status),
               }}
             >
               <Icon
@@ -237,6 +239,8 @@ function JobMatchDetailView({
           ) : null}
 
           <Pressable
+            disabled={!isPro}
+            accessibilityState={{ disabled: !isPro }}
             ref={stageRowRef}
             style={({ pressed }) => [s.stageRow, pressed && s.pressed]}
             onPress={() => {
@@ -256,6 +260,7 @@ function JobMatchDetailView({
           <View style={s.notesBlock}>
             <Text style={s.sectionTitle}>{t("my_job.notes_label")}</Text>
             <TextField
+              editable={isPro}
               value={notesDraft}
               onChangeText={setNotesDraft}
               onBlur={saveNotes}

@@ -19,7 +19,7 @@ export default function MyJobSetupScreen() {
 /** Multi-step job-search setup as a pushed screen. Multi-step forms are
  *  screens; short forms are sheets. */
 function MyJobSetupView({ isCurrent }: { isCurrent: () => boolean }) {
-  const { token } = useAuth();
+  const { token, user } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
   const router = useRouter();
@@ -27,6 +27,7 @@ function MyJobSetupView({ isCurrent }: { isCurrent: () => boolean }) {
   const { dashboard, loading, busy, error, refresh, save } = useJobSearch(isCurrent);
 
   if (!token) return <Redirect href="/login" />;
+  if (user?.plan !== "pro" || dashboard.pro_required) return <Redirect href="/my-job" />;
 
   return (
     <View

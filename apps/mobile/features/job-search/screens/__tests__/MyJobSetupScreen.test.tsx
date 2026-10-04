@@ -17,7 +17,7 @@ jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ token: "token-a" }),
+  useAuth: () => ({ token: "token-a", user: { plan: "pro" } }),
 }));
 jest.mock("@/hooks/useAccountViewOwner", () => ({
   useAccountViewOwner: () => ({ key: "owner", isCurrent: () => true }),

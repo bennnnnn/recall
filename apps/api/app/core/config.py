@@ -205,7 +205,11 @@ class Settings(BaseSettings):
     # My Job: fetch full posting pages (Tavily extract) for the shortlisted
     # candidates before LLM ranking so salary/experience come from real text.
     job_search_page_fetch_enabled: bool = True
-    job_search_page_fetch_max: int = 12
+    job_search_page_fetch_max: int = 30
+    job_search_tavily_credit_usd: float = 0.008
+    job_search_premium_enabled: bool = False
+    job_search_zai_comparison_enabled: bool = False
+    zai_search_api_key: str = ""
 
     # Process role for production split: all (dev), api (HTTP only), worker (jobs only).
     process_role: str = "all"

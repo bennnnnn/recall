@@ -1,3 +1,5 @@
+from app.core.config import Settings
+
 """Resume profile extraction for My Job (save-time, best-effort)."""
 
 from dataclasses import dataclass
@@ -49,7 +51,7 @@ async def test_bookmarking_preserves_applied_stage() -> None:
     with patch.object(job_search_service, "get_dashboard", AsyncMock(return_value=dashboard)):
         output = await job_search_service.set_match_status(
             session,
-            MagicMock(id=uuid4()),
+            MagicMock(id=uuid4(), plan="pro"),
             MagicMock(),
             uuid4(),
             None,
@@ -71,7 +73,7 @@ async def test_legacy_saved_command_bookmarks_without_replacing_stage() -> None:
     with patch.object(job_search_service, "get_dashboard", AsyncMock(return_value=MagicMock())):
         await job_search_service.set_match_status(
             session,
-            MagicMock(id=uuid4()),
+            MagicMock(id=uuid4(), plan="pro"),
             MagicMock(),
             uuid4(),
             "saved",
@@ -252,8 +254,8 @@ def test_job_tool_rejects_unknown_compact_preference_labels() -> None:
 @pytest.mark.parametrize(
     ("status", "last_run_at", "last_run_status", "is_pro", "expected"),
     [
-        ("active", None, None, False, True),
-        ("active", MagicMock(), "error", False, True),
+        ("active", None, None, False, False),
+        ("active", MagicMock(), "error", False, False),
         ("active", MagicMock(), "ok", True, True),
         ("active", MagicMock(), "ok", False, False),
         ("paused", None, None, True, False),
@@ -327,6 +329,10 @@ async def test_extract_resume_profile_skips_empty_text() -> None:
 def test_match_out_upgrades_legacy_weak_reason_with_profile_evidence() -> None:
     match = SimpleNamespace(
         id=uuid4(),
+        assessment={},
+        assessment_revision=0,
+        match_kind="possible",
+        checked_at=None,
         title="Backend Engineer",
         company="Acme",
         company_logo_url=None,
@@ -347,6 +353,9 @@ def test_match_out_upgrades_legacy_weak_reason_with_profile_evidence() -> None:
         notes=None,
     )
     profile = SimpleNamespace(
+        is_pro=True,
+        revision=1,
+        years_experience=None,
         skills=["Python"],
         resume_profile=ResumeProfile(skills=["Python"], years_experience=4),
         experience_levels=["mid"],
@@ -366,6 +375,10 @@ def test_match_out_upgrades_legacy_weak_reason_with_profile_evidence() -> None:
 def test_match_out_versions_legacy_bookmark_status() -> None:
     match = SimpleNamespace(
         id=uuid4(),
+        assessment={},
+        assessment_revision=0,
+        match_kind="possible",
+        checked_at=None,
         title="Backend Engineer",
         company="Acme",
         company_logo_url=None,
@@ -408,7 +421,7 @@ async def test_legacy_unsave_preserves_newer_application_stage() -> None:
     with patch.object(job_search_service, "get_dashboard", AsyncMock(return_value=MagicMock())):
         await job_search_service.set_match_status(
             session,
-            MagicMock(id=uuid4()),
+            MagicMock(id=uuid4(), plan="pro"),
             MagicMock(),
             uuid4(),
             "new",
@@ -422,6 +435,10 @@ async def test_legacy_unsave_preserves_newer_application_stage() -> None:
 def test_match_out_drops_stale_preference_reasons_after_profile_change() -> None:
     match = SimpleNamespace(
         id=uuid4(),
+        assessment={},
+        assessment_revision=0,
+        match_kind="possible",
+        checked_at=None,
         title="Backend Engineer",
         company="Acme",
         company_logo_url=None,
@@ -446,6 +463,9 @@ def test_match_out_drops_stale_preference_reasons_after_profile_change() -> None
         notes=None,
     )
     current_profile = SimpleNamespace(
+        revision=1,
+        is_pro=True,
+        years_experience=None,
         skills=[],
         resume_profile=None,
         experience_levels=["entry"],
@@ -464,6 +484,7 @@ def test_match_out_drops_stale_preference_reasons_after_profile_change() -> None
 
 # --- Cover letters ---------------------------------------------------------
 
+from app.modules.job_search import applications
 from app.modules.job_search.schemas import CoverLetterOut
 
 
@@ -507,6 +528,7 @@ def _cover_letter_setup(
 
     redis = AsyncMock()
     redis.incrby.return_value = incr_total
+    redis.get.return_value = "0"
 
     return _CoverEnv(
         session=session,
@@ -520,13 +542,13 @@ def _cover_letter_setup(
 async def test_cover_letter_requires_pro() -> None:
     env = _cover_letter_setup()
     with (
-        patch.object(job_search_service, "is_pro", return_value=False),
-        patch.object(job_search_service.web_search_gateway, "extract_pages", new=env.extract),
-        patch.object(job_search_service.litellm_gateway, "complete_structured", new=env.llm),
+        patch.object(applications, "is_pro", return_value=False),
+        patch.object(applications.web_search_gateway, "extract_pages", new=env.extract),
+        patch.object(applications.litellm_gateway, "complete_structured", new=env.llm),
     ):
         with pytest.raises(job_search_service.JobSearchError) as excinfo:
-            await job_search_service.generate_cover_letter(
-                env.session, MagicMock(id=uuid4()), MagicMock(), env.redis, uuid4()
+            await applications.generate_cover_letter(
+                env.session, MagicMock(id=uuid4(), plan="pro"), Settings(), env.redis, uuid4()
             )
     assert excinfo.value.status_code == 403
 
@@ -534,13 +556,13 @@ async def test_cover_letter_requires_pro() -> None:
 async def test_cover_letter_daily_cap() -> None:
     env = _cover_letter_setup(incr_total=11)
     with (
-        patch.object(job_search_service, "is_pro", return_value=True),
-        patch.object(job_search_service.web_search_gateway, "extract_pages", new=env.extract),
-        patch.object(job_search_service.litellm_gateway, "complete_structured", new=env.llm),
+        patch.object(applications, "is_pro", return_value=True),
+        patch.object(applications.web_search_gateway, "extract_pages", new=env.extract),
+        patch.object(applications.litellm_gateway, "complete_structured", new=env.llm),
     ):
         with pytest.raises(job_search_service.JobSearchError) as excinfo:
-            await job_search_service.generate_cover_letter(
-                env.session, MagicMock(id=uuid4()), MagicMock(), env.redis, uuid4()
+            await applications.generate_cover_letter(
+                env.session, MagicMock(id=uuid4(), plan="pro"), Settings(), env.redis, uuid4()
             )
     assert excinfo.value.status_code == 429
 
@@ -551,12 +573,12 @@ async def test_cover_letter_happy_path_includes_posting_text() -> None:
         pages={"https://jobs.example.com/1": "We seek an ICU nurse with ACLS."},
     )
     with (
-        patch.object(job_search_service, "is_pro", return_value=True),
-        patch.object(job_search_service.web_search_gateway, "extract_pages", new=env.extract),
-        patch.object(job_search_service.litellm_gateway, "complete_structured", new=env.llm),
+        patch.object(applications, "is_pro", return_value=True),
+        patch.object(applications.web_search_gateway, "extract_pages", new=env.extract),
+        patch.object(applications.litellm_gateway, "complete_structured", new=env.llm),
     ):
-        result = await job_search_service.generate_cover_letter(
-            env.session, MagicMock(id=uuid4()), MagicMock(), env.redis, uuid4()
+        result = await applications.generate_cover_letter(
+            env.session, MagicMock(id=uuid4(), plan="pro"), Settings(), env.redis, uuid4()
         )
     assert result.cover_letter.startswith("Dear Acme")
     await_args = env.llm.await_args
@@ -569,12 +591,12 @@ async def test_cover_letter_happy_path_includes_posting_text() -> None:
 async def test_cover_letter_llm_failure_is_502() -> None:
     env = _cover_letter_setup(llm_result=None)
     with (
-        patch.object(job_search_service, "is_pro", return_value=True),
-        patch.object(job_search_service.web_search_gateway, "extract_pages", new=env.extract),
-        patch.object(job_search_service.litellm_gateway, "complete_structured", new=env.llm),
+        patch.object(applications, "is_pro", return_value=True),
+        patch.object(applications.web_search_gateway, "extract_pages", new=env.extract),
+        patch.object(applications.litellm_gateway, "complete_structured", new=env.llm),
     ):
         with pytest.raises(job_search_service.JobSearchError) as excinfo:
-            await job_search_service.generate_cover_letter(
-                env.session, MagicMock(id=uuid4()), MagicMock(), env.redis, uuid4()
+            await applications.generate_cover_letter(
+                env.session, MagicMock(id=uuid4(), plan="pro"), Settings(), env.redis, uuid4()
             )
     assert excinfo.value.status_code == 502

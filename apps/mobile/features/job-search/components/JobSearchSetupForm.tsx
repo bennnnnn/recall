@@ -28,7 +28,6 @@ import {
 } from "@/features/job-search/components/setup/setupShared";
 import { useAuth } from "@/contexts/AuthContext";
 import {
-  api,
   type JobSearchExperience,
   type JobSearchFrequency,
   type JobSearchInput,
@@ -37,6 +36,9 @@ import {
 } from "@/lib/api";
 import { pickDocument, uploadChatAttachment } from "@/features/attachments/model/attachments";
 import { alertDialog } from "@/ui/overlay/dialogs";
+import { LocationCollection } from "./LocationCollection";
+import { TextField } from "@/ui/controls/TextField";
+import { FieldLabel, SelectChip } from "./setup/setupShared";
 import { Button } from "@/ui/controls/Button";
 
 type Step = 0 | 1 | 2 | 3;
@@ -59,13 +61,18 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
   const [skills, setSkills] = useState<string[]>([]);
   const [place, setPlace] = useState<PlaceValue>(EMPTY_PLACE);
   const [salary, setSalary] = useState("");
-  const [workModes, setWorkModes] = useState<JobSearchWorkMode[]>(["remote"]);
-  const [levels, setLevels] = useState<JobSearchExperience[]>(["entry"]);
+  const [currency, setCurrency] = useState("");
+  const [salaryPeriod, setSalaryPeriod] = useState<"year" | "month" | "week" | "hour">("year");
+  const [years, setYears] = useState("");
+  const [additionalPlaces, setAdditionalPlaces] = useState<PlaceValue[]>([]);
+  const [excludedPlaces, setExcludedPlaces] = useState<PlaceValue[]>([]);
+  const [workModes, setWorkModes] = useState<JobSearchWorkMode[]>(["remote", "hybrid", "onsite"]);
+  const [levels, setLevels] = useState<JobSearchExperience[]>(["internship", "entry", "mid", "senior"]);
   const [requiresSponsorship, setRequiresSponsorship] = useState<boolean | null>(null);
   const [excludedCompanies, setExcludedCompanies] = useState("");
-  const [count, setCount] = useState<ResultCount>(isPro ? 10 : 5);
+  const [count, setCount] = useState<ResultCount>(10);
   const [frequency, setFrequency] = useState<JobSearchFrequency>(
-    isPro ? "weekdays" : "weekly",
+    "weekdays",
   );
   const [showCount, setShowCount] = useState(false);
   const [showFrequency, setShowFrequency] = useState(false);
@@ -87,14 +94,20 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
     setSalaryError(false);
     setRoles(initial?.target_roles ?? (user?.job ? [user.job] : []));
     setSkills(initial?.skills ?? []);
-    setPlace(parsePlace(initial?.location ?? user?.location ?? user?.country ?? ""));
+    const places = (initial?.included_locations ?? []).map(item => ({ country: item.country, region: item.region ?? "", city: item.city ?? "" }));
+    setPlace(places[0] ?? parsePlace(initial?.location ?? user?.location ?? user?.country ?? ""));
+    setAdditionalPlaces(places.slice(1));
+    setExcludedPlaces((initial?.excluded_locations ?? []).map(item => ({ country: item.country, region: item.region ?? "", city: item.city ?? "" })));
+    setCurrency(initial?.salary_currency ?? "");
+    setSalaryPeriod(initial?.salary_period ?? "year");
+    setYears(initial?.years_experience == null ? "" : String(initial.years_experience));
     setSalary(initial?.salary_min ? String(initial.salary_min) : "");
-    setWorkModes(initial?.work_modes ?? ["remote"]);
-    setLevels(initial?.experience_levels?.length ? initial.experience_levels : ["entry"]);
+    setWorkModes(initial?.work_modes ?? ["remote", "hybrid", "onsite"]);
+    setLevels(initial?.experience_levels?.length ? initial.experience_levels : ["internship", "entry", "mid", "senior"]);
     setRequiresSponsorship(initial?.requires_sponsorship ?? null);
     setExcludedCompanies((initial?.excluded_companies ?? []).join(", "));
-    setCount(isPro ? (initial?.result_count ?? 10) : 5);
-    setFrequency(isPro ? (initial?.frequency ?? "weekdays") : "weekly");
+    setCount(initial?.result_count ?? 10);
+    setFrequency(initial?.frequency ?? "weekdays");
     setShowCount(false);
     setShowFrequency(false);
     setNextRunAt(usableRunDate(initial?.next_run_at));
@@ -152,7 +165,18 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
       setStep(2);
       return;
     }
+    if (!place.country || (parsedSalary != null && !/^[A-Z]{3}$/.test(currency)) || (years.trim() && (!Number.isFinite(Number(years)) || Number(years) < 0 || Number(years) > 80))) {
+      void alertDialog({ title: t("my_job.preferences_review"), message: !place.country ? t("my_job.country_required") : years.trim() && (!Number.isFinite(Number(years)) || Number(years) < 0 || Number(years) > 80) ? t("my_job.experience_invalid") : t("my_job.currency_required") });
+      return;
+    }
     const ok = await onSave({
+      expected_revision: initial?.revision,
+      included_locations: [place, ...additionalPlaces],
+      excluded_locations: excludedPlaces,
+      country: place.country,
+      salary_currency: currency || null,
+      salary_period: salaryPeriod,
+      years_experience: years.trim() ? Number(years) : null,
       target_roles: roles,
       skills,
       location: composePlace(place) || null,
@@ -166,23 +190,12 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
         .filter(Boolean),
       background: initial?.background ?? null,
       resume_attachment_id: resumeId,
-      result_count: isPro ? count : 5,
-      frequency: isPro ? frequency : "weekly",
+      result_count: count,
+      frequency,
       next_run_at: nextRunAt.toISOString(),
     });
-    if (ok) {
-      if (!initial && token) {
-        try {
-          await api.runJobSearch(token);
-        } catch {
-          // The saved schedule remains valid; the dashboard exposes a retry if
-          // the first on-demand enqueue cannot start.
-        }
-      }
-      onClose();
-    }
+    if (ok) onClose();
   };
-
 
   const moveBack = () => {
     if (busy) return;
@@ -195,6 +208,10 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
   const moveForward = async () => {
     Keyboard.dismiss();
     setShowPicker(false);
+    if (step === 0 && !place.country) {
+      void alertDialog({ title: t("my_job.location_label"), message: t("my_job.country_required") });
+      return;
+    }
     if (step === 1 && roles.length === 0) {
       setRoleError(true);
       return;
@@ -274,6 +291,7 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
           </View>
 
           {step === 0 ? (
+            <>
             <LocationStep
               place={place}
               workModes={workModes}
@@ -283,6 +301,8 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
                 setWorkModes((current) => toggleSelection(mode, current))
               }
             />
+            <LocationCollection included={additionalPlaces} excluded={excludedPlaces} onIncluded={setAdditionalPlaces} onExcluded={setExcludedPlaces} disabled={busy} />
+            </>
           ) : null}
           {step === 1 ? (
             <RolesSkillsStep
@@ -298,6 +318,11 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
             />
           ) : null}
           {step === 2 ? (
+            <>
+            <View style={s.fieldGroup}>
+              <FieldLabel>{t("my_job.actual_experience")}</FieldLabel>
+              <TextField value={years} onChangeText={setYears} keyboardType="decimal-pad" placeholder={t("my_job.optional")} editable={!busy} />
+            </View>
             <ProfileStep
               resumeName={resumeName}
               uploadingResume={uploadingResume}
@@ -322,6 +347,12 @@ export function JobSearchSetupForm({ initial, busy, onClose, onSave }: Props) {
               onSponsorshipChange={setRequiresSponsorship}
               onExcludedCompaniesChange={setExcludedCompanies}
             />
+            <View style={s.fieldGroup}>
+              <FieldLabel>{t("my_job.salary_currency")}</FieldLabel>
+              <TextField value={currency} onChangeText={value => setCurrency(value.toUpperCase())} placeholder="USD / EUR / CAD" maxLength={3} autoCapitalize="characters" editable={!busy} />
+              <View style={s.chipRow}>{(["year", "month", "week", "hour"] as const).map(period => <SelectChip key={period} value={period} label={t(`my_job.pay_${period}`)} selected={salaryPeriod === period} onPress={() => setSalaryPeriod(period)} disabled={busy} />)}</View>
+            </View>
+            </>
           ) : null}
           {step === 3 ? (
             <DeliveryStep

@@ -2,21 +2,21 @@ import { useMemo } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { matchScoreColor } from "@/features/job-search/components/JobMatchMetaChips";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
-export function JobFitBadge({ score }: { score: number | null }) {
+export function JobFitBadge({ label, outdated }: { label?: string; outdated?: boolean; score?: number | null }) {
   const C = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(C), [C]);
-  if (score == null) return null;
-  const color = matchScoreColor(score, C);
+  const key = outdated ? "fit_outdated" : label === "Strong fit" ? "fit_strong" : label === "Potential fit" ? "fit_potential" : "fit_review";
+  const color = label === "Strong fit" && !outdated ? C.primary : C.textSecondary;
+  const text = t(`my_job.${key}`);
   return (
-    <View style={s.badge} accessibilityLabel={t("my_job.match_fit", { score })}>
-      <Text style={[s.text, { color }]}>{score}%</Text>
+    <View style={s.badge} accessibilityLabel={text}>
+      <Text style={[s.text, { color }]}>{text}</Text>
     </View>
   );
 }
@@ -24,7 +24,8 @@ export function JobFitBadge({ score }: { score: number | null }) {
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     badge: {
-      minHeight: 36,
+      alignSelf: "flex-start",
+      minHeight: 32,
       minWidth: 56,
       alignItems: "center",
       justifyContent: "center",

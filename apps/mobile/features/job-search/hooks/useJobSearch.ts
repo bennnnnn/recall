@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppState } from "react-native";
+import { useFocusEffect } from "expo-router";
+import { randomUUID } from "expo-crypto";
 import { useTranslation } from "react-i18next";
 
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
@@ -12,6 +15,14 @@ import {
 } from "@/lib/api";
 import { cacheJobMatches } from "@/features/job-search/model/matchCache";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
+
+function jobErrorMessage(error: unknown, fallback: string): string {
+  if (!(error instanceof Error)) return fallback;
+  try {
+    const payload: unknown = JSON.parse(error.message);
+    return payload && typeof payload === "object" && "detail" in payload && typeof payload.detail === "string" ? payload.detail : fallback;
+  } catch { return error.message || fallback; }
+}
 
 const EMPTY: JobSearchDashboard = { profile: null, matches: [] };
 
@@ -35,7 +46,7 @@ function optimisticProfile(
   };
 }
 
-export function useJobSearch(isCurrent: () => boolean) {
+export function useJobSearch(isCurrent: () => boolean, runId?: string) {
   const { token, user } = useAuth();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
@@ -46,15 +57,20 @@ export function useJobSearch(isCurrent: () => boolean) {
   const dashboardRef = useRef(dashboard);
   dashboardRef.current = dashboard;
   const mutationBusyRef = useRef(false);
+  const refreshRequestRef = useRef(0);
+  const requestKeyRef = useRef<string | null>(null);
 
   const refresh = useCallback(
     async (opts?: { silent?: boolean }) => {
-      if (!token) return;
+      if (!token || mutationBusyRef.current) return;
+      const request = ++refreshRequestRef.current;
       if (!opts?.silent) setLoading(true);
       try {
         const next = await api.getJobSearch(token);
+        if (runId) { const results = await api.getJobMatches(token, 0, runId); next.matches = results.matches; next.next_offset = results.next_offset; }
         if (user?.id) cacheJobMatches(user.id, next.matches);
-        if (!isCurrent()) return;
+        if (!isCurrent() || request !== refreshRequestRef.current || mutationBusyRef.current) return;
+        dashboardRef.current = next;
         setDashboard(next);
         setError(false);
       } catch {
@@ -63,13 +79,27 @@ export function useJobSearch(isCurrent: () => boolean) {
         if (isCurrent()) setLoading(false);
       }
     },
-    [token, user?.id, isCurrent],
+    [token, user?.id, isCurrent, runId],
   );
 
   useEffect(() => {
     void refresh();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
+
+  useFocusEffect(useCallback(() => {
+    let visible = true;
+    const timer = setInterval(() => {
+      if (visible && AppState.currentState === "active" &&
+          ["queued", "running"].includes(dashboardRef.current.latest_run?.state ?? "")) {
+        void refresh({ silent: true });
+      }
+    }, 3000);
+    const listener = AppState.addEventListener("change", (state) => {
+      if (state === "active" && visible) void refresh({ silent: true });
+    });
+    return () => { visible = false; clearInterval(timer); listener.remove(); };
+  }, [refresh]));
 
   const save = useCallback(
     async (input: JobSearchInput): Promise<boolean> => {
@@ -94,7 +124,7 @@ export function useJobSearch(isCurrent: () => boolean) {
         if (isCurrent()) {
           dashboardRef.current = previous;
           setDashboard(previous);
-          const message = err instanceof Error ? err.message : t("my_job.error_save");
+          const message = jobErrorMessage(err, t("my_job.error_save"));
           reportRecoverableError(feedback, message);
         }
         return false;
@@ -141,8 +171,10 @@ export function useJobSearch(isCurrent: () => boolean) {
 
   const setMatchStatus = useCallback(
     async (id: string, status: JobMatchStatus) => {
-      if (!token) return;
-      const previous = dashboard;
+      if (!token || mutationBusyRef.current || !isCurrent()) return;
+      mutationBusyRef.current = true;
+      setBusy(true);
+      const previous = dashboardRef.current;
       setDashboard((current) => ({
         ...current,
         matches: current.matches.map((match) =>
@@ -157,6 +189,9 @@ export function useJobSearch(isCurrent: () => boolean) {
         if (!isCurrent()) return;
         setDashboard(previous);
         reportRecoverableError(feedback, t("my_job.error_match"));
+      } finally {
+        mutationBusyRef.current = false;
+        if (isCurrent()) setBusy(false);
       }
     },
     [token, user?.id, dashboard, isCurrent, feedback, t],
@@ -164,8 +199,10 @@ export function useJobSearch(isCurrent: () => boolean) {
 
   const setMatchSaved = useCallback(
     async (id: string, isSaved: boolean) => {
-      if (!token) return;
-      const previous = dashboard;
+      if (!token || mutationBusyRef.current || !isCurrent()) return;
+      mutationBusyRef.current = true;
+      setBusy(true);
+      const previous = dashboardRef.current;
       setDashboard((current) => ({
         ...current,
         matches: current.matches.map((match) =>
@@ -180,6 +217,9 @@ export function useJobSearch(isCurrent: () => boolean) {
         if (!isCurrent()) return;
         setDashboard(previous);
         reportRecoverableError(feedback, t("my_job.error_match"));
+      } finally {
+        mutationBusyRef.current = false;
+        if (isCurrent()) setBusy(false);
       }
     },
     [token, user?.id, dashboard, isCurrent, feedback, t],
@@ -218,13 +258,17 @@ export function useJobSearch(isCurrent: () => boolean) {
       setDashboard(optimistic);
     }
     try {
-      await api.runJobSearch(token);
+      requestKeyRef.current ??= randomUUID();
+      await api.runJobSearch(token, requestKeyRef.current);
+      requestKeyRef.current = null;
+      const next = await api.getJobSearch(token);
+      if (isCurrent()) { dashboardRef.current = next; setDashboard(next); }
       return true;
-    } catch {
+    } catch (err) {
       if (isCurrent()) {
         dashboardRef.current = previous;
         setDashboard(previous);
-        reportRecoverableError(feedback, t("my_job.error_run"));
+        reportRecoverableError(feedback, jobErrorMessage(err, t("my_job.error_run")));
       }
       return false;
     } finally {
@@ -233,8 +277,24 @@ export function useJobSearch(isCurrent: () => boolean) {
     }
   }, [token, isCurrent, feedback, t]);
 
+  const loadMore = useCallback(async () => {
+    const offset = dashboardRef.current.next_offset;
+    if (!token || offset == null || mutationBusyRef.current) return;
+    mutationBusyRef.current = true;
+    setBusy(true);
+    try {
+      const page = await api.getJobMatches(token, offset, runId);
+      if (!isCurrent()) return;
+      setDashboard(current => ({ ...current, next_offset: page.next_offset,
+        matches: [...new Map([...current.matches, ...page.matches].map(match => [match.id, match])).values()] }));
+    } catch (err) {
+      if (isCurrent()) reportRecoverableError(feedback, jobErrorMessage(err, t("my_job.refresh_error")));
+    } finally { mutationBusyRef.current = false; if (isCurrent()) setBusy(false); }
+  }, [token, runId, isCurrent, feedback, t]);
+
   return {
     dashboard,
+    loadMore,
     loading,
     busy,
     error,

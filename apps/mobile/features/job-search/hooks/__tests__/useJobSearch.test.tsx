@@ -9,6 +9,9 @@ import {
   type JobSearchProfile,
 } from "@/lib/api";
 
+jest.mock("expo-router", () => ({ useFocusEffect: (callback: () => void) => { const React = jest.requireActual("react"); React.useEffect(callback, [callback]); } }));
+jest.mock("expo-crypto", () => ({ randomUUID: () => "search-request-id" }));
+
 const mockFeedbackError = jest.fn();
 let mockCurrent = true;
 
@@ -358,5 +361,5 @@ test("retries a failed run optimistically and restores the error on failure", as
     await expect(pending).resolves.toBe(false);
   });
   expect(result.current.dashboard).toEqual(initial);
-  expect(mockFeedbackError).toHaveBeenCalledWith("my_job.error_run");
+  expect(mockFeedbackError).toHaveBeenCalledWith("offline");
 });
