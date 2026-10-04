@@ -43,15 +43,21 @@ _AMPHIPROTIC = re.compile(r"\bamphiprotic\b|\bintermediate form\b", re.IGNORECAS
 _SPECIATION = re.compile(
     r"\b(?:speciation|charge[- ]balance|every species|all species)\b", re.IGNORECASE
 )
-_A2_BODY = (
-    r"\[A(?:\^2-|2-|²-|2" + "\u2212" + r")\]|(?<![A-Za-z])A(?:\^2-|²-|2" + "\u2212"
-    r"|2-)(?![A-Za-z0-9])|fully deprotonated"
-)
-# The ask has to name this concentration. A later pH, or "[A2-] = 1e-6" as a given, does not.
+# Superscript 2 + superscript minus is the typeset charge. Mixed keyboard forms stay too.
+_SUP2 = "\u00b2"
+_SUP_MINUS = "\u207b"
+_UNI_MINUS = "\u2212"
+_A2_CHARGE = r"(?:\^2-|2-|" + _SUP2 + _SUP_MINUS + r"|" + _SUP2 + r"-|2" + _UNI_MINUS + r")"
+_A2_SPECIES = r"\[A" + _A2_CHARGE + r"\]|(?<![A-Za-z])A" + _A2_CHARGE + r"(?![A-Za-z0-9])"
+_A2_BODY = _A2_SPECIES + r"|fully deprotonated"
+# The ask names this concentration. "concentration of H+ ... forms A2-" does not.
 _A2_ASK = re.compile(
-    r"(?:what|find|calculate|determine|concentration|molarity)\b"
-    r"(?:(?!\b(?:pH|pOH)\b).){0,80}(?:" + _A2_BODY + r")",
-    re.IGNORECASE | re.DOTALL,
+    r"(?:"
+    r"(?:what|find|calculate|determine)\s+(?:is\s+)?(?:the\s+)?"
+    r"(?:(?:concentration|molarity)\s+)?(?:of\s+)?(?:the\s+)?"
+    r"|(?:concentration|molarity)\s+of\s+(?:the\s+)?"
+    r")(?:" + _A2_BODY + r")",
+    re.IGNORECASE,
 )
 _KA_STEP = {"1": "1", "2": "2", "₁": "1", "₂": "2"}
 
@@ -85,6 +91,18 @@ def _pka_pair(found: dict[str, float]) -> tuple[float, float] | None:
     return first, second
 
 
+def _stated_molarity(text: str) -> float | None:
+    match = re.search(rf"({_N})\s*M(?![A-Za-z])", text)
+    return None if match is None else float(match.group(1))
+
+
+def _with_concentration(text: str, params: dict[str, float]) -> dict[str, float]:
+    molarity = _stated_molarity(text)
+    if molarity is not None:
+        params["concentration"] = molarity
+    return params
+
+
 def _asks_for_a2(text: str) -> bool:
     if _SPECIATION.search(text):
         return False
@@ -105,12 +123,18 @@ def _extract_acid_solution(text: str) -> ChemistryIntent | None:
         for key in ("ka1", "ka2"):
             if key in found and f"p{key}" not in found:
                 params[key] = found[key]
-        return ChemistryIntent(kind="acid_base", chemistry_op="amphiprotic_ph", params=params)
+        return ChemistryIntent(
+            kind="acid_base",
+            chemistry_op="amphiprotic_ph",
+            params=_with_concentration(text, params),
+        )
     if _asks_for_a2(text):
         ka2 = _step_constants(text).get("ka2")
         if ka2 is not None:
             return ChemistryIntent(
-                kind="acid_base", chemistry_op="diprotic_a2", params={"ka2": ka2}
+                kind="acid_base",
+                chemistry_op="diprotic_a2",
+                params=_with_concentration(text, {"ka2": ka2}),
             )
     if re.search(r"\bweak acid\b", text, re.IGNORECASE):
         pair = _molar_formula(text)

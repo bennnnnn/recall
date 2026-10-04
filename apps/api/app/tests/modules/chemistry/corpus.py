@@ -272,6 +272,10 @@ MUST_DECLINE: tuple[str, ...] = (
     # One constant is not an amphiprotic average, and Ka2 = 0.012 is not [A2-] = Ka2.
     "What is the pH of an amphiprotic solution with pKa1 = 4.00?",
     "What is [A2-] when Ka2 = 0.012?",
+    # [A2-] = Ka2 cannot exceed the acid, and a trace amphiprotic salt is not the pKa average.
+    "What is [A2-] in 1.0e-10 M diprotic H2A with Ka1 = 1e-4 and Ka2 = 1e-8?",
+    "What is the pH of a 1e-10 M amphiprotic salt with pKa1 = 4.00 and pKa2 = 9.00?",
+    "What is the concentration of H+ in a diprotic acid that also forms A2-? Ka2 = 1e-8",
     # Charge balance over every species is not these two steps.
     "What are all the species concentrations for 0.10 M H2A with Ka1 = 1e-3 and Ka2 = 1e-8?",
     # No time unit for k.
