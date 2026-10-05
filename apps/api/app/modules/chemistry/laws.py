@@ -21,6 +21,7 @@ from app.modules.chemistry.law_record import (
     ChemistryLaw,
     _law,
 )
+from app.modules.chemistry.stated_bindings import STATED_LAW_BINDINGS
 from app.services.law_binding.spec import VariableSpec, var
 
 
@@ -357,4 +358,5 @@ LAWS: tuple[ChemistryLaw, ...] = (
     *THERMOCHEMISTRY,
     *ANALYSIS,
     *FORMULA_LAW_BINDINGS,
+    *STATED_LAW_BINDINGS,
 )
