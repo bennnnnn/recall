@@ -160,9 +160,25 @@ export function stripRedundantDollarWrap(s: string): string {
  * invalid (same "bare LaTeX only" contract), so unwrap every one of them,
  * leaving an unmatched lone "$" (e.g. real currency text) untouched.
  */
+function escapedDollar(source: string, index: number): boolean {
+  let slashes = 0;
+  for (let i = index - 1; i >= 0 && source[i] === "\\"; i -= 1) slashes += 1;
+  return slashes % 2 === 1;
+}
+
 export function stripEmbeddedDollarWraps(s: string): string {
   if (!s.includes("$")) return s;
-  return s.replace(/\$\$([^$\n]+?)\$\$|\$([^$\n]+?)\$/g, (_m, double, single) => double ?? single);
+  // `\$43 ... \$1,720` is currency inside the formula. The `$` of `\$` is not
+  // a wrap, and stripping the pair leaves `\43` and `\1,720`.
+  return s.replace(
+    /\$\$([^$\n]+?)\$\$|\$([^$\n]+?)\$/g,
+    (match, double, single, offset: number, source: string) => {
+      const opener = double != null ? offset + 1 : offset;
+      const closer = offset + match.length - 1;
+      if (escapedDollar(source, opener) || escapedDollar(source, closer)) return match;
+      return double ?? single;
+    },
+  );
 }
 
 /** Model often emits ```latex — detect and reroute at render time. */
