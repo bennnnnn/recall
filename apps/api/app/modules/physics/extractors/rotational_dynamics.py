@@ -67,6 +67,16 @@ def extract_rotational_dynamics(cleaned: str) -> PhysicsIntent | None:
             return _torque_inertia(cleaned)
     if re.search(_ALPHA_UNIT, cleaned, re.I) or "angular acceleration" in lower:
         return _kinematics(cleaned)
+    labeled_endpoints = (
+        _first(cleaned, r"initial angular (?:velocity|speed)", _OMEGA_UNIT) is not None
+        and _first(cleaned, r"final angular (?:velocity|speed)", _OMEGA_UNIT) is not None
+    )
+    if (
+        "angular displacement" in lower
+        and _time(cleaned) is not None
+        and (_omega_pair(cleaned) is not None or labeled_endpoints)
+    ):
+        return _kinematics(cleaned)
     return None
 
 
@@ -81,15 +91,19 @@ def _kinematics(cleaned: str) -> PhysicsIntent | None:
         params["omega0"], units["omega0"] = pair[0]
         params["omega"], units["omega"] = pair[1]
     initial = _first(cleaned, r"initial angular (?:velocity|speed)", _OMEGA_UNIT)
-    final = _first(cleaned, r"(?:final )?angular (?:velocity|speed)", _OMEGA_UNIT)
+    final = _first(cleaned, r"final angular (?:velocity|speed)", _OMEGA_UNIT)
+    lone = _first(cleaned, r"(?:final )?angular (?:velocity|speed)", _OMEGA_UNIT)
     if initial is not None:
         params["omega0"], units["omega0"] = initial
+    if initial is not None and final is not None:
+        params["omega"], units["omega"] = final
     elif (
-        final is not None
+        initial is None
+        and lone is not None
         and "omega" not in params
         and not re.search(r"\bfind\b.{0,40}?\bangular (?:velocity|speed)\b", cleaned, re.IGNORECASE)
     ):
-        params["omega0"], units["omega0"] = final
+        params["omega0"], units["omega0"] = lone
     alpha = _alpha(cleaned)
     if alpha is not None:
         params["ang_alpha"] = alpha[0]
@@ -122,11 +136,11 @@ def _kinematics(cleaned: str) -> PhysicsIntent | None:
         return None
     if asks_theta:
         params.pop("theta", None)
-        if {"omega0", "ang_alpha", "t"} <= params.keys() or {
-            "omega",
-            "omega0",
-            "ang_alpha",
-        } <= params.keys():
+        if (
+            {"omega0", "ang_alpha", "t"} <= params.keys()
+            or {"omega", "omega0", "ang_alpha"} <= params.keys()
+            or {"omega", "omega0", "t"} <= params.keys()
+        ):
             return _intent("rotational_theta", params, units)
         return None
     if asks_omega or (

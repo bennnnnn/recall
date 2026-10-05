@@ -11,13 +11,13 @@ import { layoutMath } from "@/lib/math/layout";
 import { parseSimpleLatex } from "@/lib/math/text";
 
 describe("physics formula reference", () => {
-  it("contains the requested 43 topics and 540 formula entries", () => {
+  it("contains the requested 43 topics and 541 formula entries", () => {
     expect(PHYSICS_TOPICS).toHaveLength(43);
     expect(PHYSICS_FORMULAS).toHaveLength(PHYSICS_FORMULA_COUNT);
-    expect(new Set(PHYSICS_FORMULAS.map(({ id }) => id)).size).toBe(540);
+    expect(new Set(PHYSICS_FORMULAS.map(({ id }) => id)).size).toBe(PHYSICS_FORMULA_COUNT);
     expect(
       new Set(PHYSICS_FORMULAS.map(({ name, equation }) => `${name}|${equation}`)).size,
-    ).toBe(540);
+    ).toBe(PHYSICS_FORMULA_COUNT);
     expect(new Set(PHYSICS_TOPICS.map(({ id }) => id)).size).toBe(43);
     expect(PHYSICS_TOPICS.every(({ id }) => PHYSICS_FORMULAS.some((row) => row.topicId === id))).toBe(true);
     expect(PHYSICS_FORMULAS.every((row) => PHYSICS_TOPICS.some((topic) => topic.id === row.topicId))).toBe(true);

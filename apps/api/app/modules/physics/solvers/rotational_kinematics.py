@@ -92,6 +92,30 @@ def _theta(params: dict[str, float]) -> PhysicsResult:
             ),
             quantities=(QuantityResult("", value, "rad"),),
         )
+    # theta = (omega0 + omega) t / 2 eliminates alpha. Opposite signs mean the
+    # rotation reversed, so this average is not the angle traveled.
+    if {"omega", "omega0", "t"} <= params.keys() and "ang_alpha" not in params:
+        if params["t"] == 0 and params["omega"] != params["omega0"]:
+            raise SolveServiceError("elapsed time must be nonzero")
+        if params["omega0"] * params["omega"] < 0:
+            raise SolveServiceError(
+                "the rotation reverses, so this is not the angular displacement"
+            )
+        value = theta0 + (params["omega0"] + params["omega"]) * params["t"] / 2
+        answer = (
+            r"\theta = \frac{\omega_0 + \omega}{2} t = "
+            rf"\frac{{{params['omega0']:g} + {params['omega']:g}}}{{2}} "
+            rf"\cdot {params['t']:g} \approx {value:.2f} \text{{ rad}}"
+        )
+        return PhysicsResult(
+            answer=answer,
+            formulas=(r"\theta = \frac{\omega_0 + \omega}{2} t",),
+            substitutions=(
+                rf"\theta = \frac{{{params['omega0']:g} + {params['omega']:g}}}{{2}}"
+                rf" \cdot {params['t']:g}",
+            ),
+            quantities=(QuantityResult("", value, "rad"),),
+        )
     raise SolveServiceError("angular displacement needs the constant-acceleration givens")
 
 
