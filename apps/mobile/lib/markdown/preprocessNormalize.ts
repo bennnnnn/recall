@@ -153,8 +153,10 @@ export function breakMidlineAtxHeadings(content: string): string {
 }
 
 function boldDetailsTitle(title: string): string {
+  // Drop each bracket on its own. Stripping a whole tag once lets
+  // `<scr<script>ipt>` reassemble into `<script`.
   const cleaned = title
-    .replace(/<[^>]+>/g, "")
+    .replace(/[<>]/g, "")
     .replace(/\*\*/g, "")
     .replace(/\s+/g, " ")
     .trim();
