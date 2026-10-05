@@ -37,9 +37,6 @@ const LEGACY_STRUCTURED = [
   "fields",
   "steps",
   "step",
-  "details",
-  "collapse",
-  "summary",
   "math",
   "latex",
   "tex",
@@ -167,6 +164,13 @@ describe("fence registry lookups", () => {
     expect(isStructuredFenceLang(" Mermaid")).toBe(true);
   });
 
+  it("does not route collapsed-answer langs to a fence", () => {
+    for (const lang of ["details", "collapse", "summary"]) {
+      expect(fenceIdForLang(lang)).toBeNull();
+      expect(isStructuredFenceLang(lang)).toBe(false);
+    }
+  });
+
   it("returns null for unknown and code languages", () => {
     for (const lang of ["python", "javascript", "json", "", "rust"]) {
       expect(fenceIdForLang(lang)).toBeNull();
@@ -220,7 +224,6 @@ describe("fence registry lookups", () => {
       "chem_scene",
       "chemistry",
       "clock",
-      "collapsible",
       "comparison",
       "copy",
       "email",
@@ -275,7 +278,6 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
       comparison: "component",
       keyvalue: "component",
       steps: "component",
-      collapsible: "component",
       math: "component",
       answer: "component",
       arithmetic: "component",

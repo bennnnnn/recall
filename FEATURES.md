@@ -398,15 +398,18 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   "open in browser" (needs a dev build; see the code-execution policy below). Run may load
   scripts/styles only from `cdn.jsdelivr.net`, `unpkg.com`, `cdnjs.cloudflare.com`, and Google
   Fonts — not open `https:`.
-- ✅ **Rich blocks** — callouts (`> [!NOTE]`), key-value, comparison, step lists, and
+- ✅ **Rich blocks** — callouts only for a real `> Warning:` or a short `> Note:`
+  (GitHub `[!WARNING]` / `[!NOTE]` too), key-value, comparison, step lists, and
   email/message/social "copy" cards. EmailCard edits persist into the stored
   ` ```email ` fence so Copy, follow-ups, and reopen see the same draft.
 - ✅ **Fence ownership** — [fenceRegistry.ts](apps/mobile/lib/fenceRegistry.ts) marks each
   fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
   set (`copy` / drafts, `mermaid`, `chart`, `math`, chemistry source). Server attaches
   verified `answer` / `graph` / `geometry`, `sources`, and `places`. Layout fences
-  (`steps`, `comparison`, `keyvalue`, `collapsible`, `quote`, `clock`, `callout`)
-  still render for history; the prompt must not choose them. Calendar, reminder,
+  (`steps`, `comparison`, `keyvalue`, `quote`, `clock`, `callout`)
+  still render for history; the prompt must not choose them. A `>` quote card is
+  only a citation whose last line is `— Name`. `details` / `collapse` / `summary`
+  and HTML `<details>` unwrap to a bold title plus markdown. Calendar, reminder,
   and settings (`settings_proposal`) control fences stay outside the registry.
   Leftover `vocab_quiz` fences in old messages are stripped for display.
 - ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +

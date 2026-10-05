@@ -241,7 +241,6 @@ module.exports = defineConfig([
       "components/rich/ChartBlock.tsx",
       "components/rich/ChemistryBlock.tsx",
       "components/rich/CircularClockBlock.tsx",
-      "components/rich/CollapsibleBlock.tsx",
       "components/rich/ComparisonBlock.tsx",
       "components/rich/FunctionGraphBlock.tsx",
       "components/rich/GeometryBlock.tsx",

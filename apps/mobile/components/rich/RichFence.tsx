@@ -7,7 +7,6 @@ import { CalloutBlock } from "@/components/rich/CalloutBlock";
 import { parsePlacesJson } from "@/lib/placesList";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { ArithmeticWorkBlock } from "@/components/rich/ArithmeticWorkBlock";
-import { CollapsibleBlock } from "@/components/rich/CollapsibleBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
 import { EmailCard } from "@/features/integrations/components/EmailCard";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
@@ -33,7 +32,6 @@ import type { FenceId } from "@/lib/fenceRegistry";
 import {
   isMessageLang,
   parseCalloutKind,
-  parseCollapsible,
   parseComparison,
   parseEmailDraft,
   parseKeyValue,
@@ -94,10 +92,6 @@ export function renderRichFenceById(
       return <LazyCircularClockBlock key={key} content={content} />;
     case "callout":
       return <CalloutBlock key={key} kind={parseCalloutKind(lang)} content={content} />;
-    case "collapsible": {
-      const draft = parseCollapsible(lang, content);
-      return <CollapsibleBlock key={key} title={draft.title} body={draft.body} />;
-    }
     case "comparison": {
       const data = parseComparison(content);
       if (data) return <ComparisonBlock key={key} data={data} />;

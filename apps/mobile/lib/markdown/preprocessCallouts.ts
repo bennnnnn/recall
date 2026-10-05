@@ -3,9 +3,12 @@ import { splitTrailingAttribution } from "@/lib/richBlocks";
 // Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).
 const CALLOUT_RE =
   /^>[ \t]*\[!(\w+)\][ \t]*([^\n]*)\n((?:>[^\n]*(?:\n|$))*)/gim;
-/** Markdown `> Tip:` / `> Warning:` — same cards as `> [!TIP]`, no custom fence. */
+/** A callout card is only `> Note:` or `> Warning:`. */
 const CALLOUT_LABEL_LINE =
-  /^>[ \t]*(Tip|Note|Warning|Important|Info)[ \t]*:[ \t]*(.*)$/i;
+  /^>[ \t]*(Note|Warning)[ \t]*:[ \t]*(.*)$/i;
+/** Any labeled blockquote ends the previous callout, even when it is not a card. */
+const LABELED_BLOCKQUOTE_LINE =
+  /^>[ \t]*(Tip|Note|Warning|Important|Info|Hint)[ \t]*:/i;
 
 export function promoteCalloutBlockquotes(content: string): string {
   const lines = content.split("\n");
@@ -26,7 +29,7 @@ export function promoteCalloutBlockquotes(content: string): string {
     while (i < lines.length) {
       const line = lines[i] ?? "";
       if (!line.startsWith(">")) break;
-      if (CALLOUT_LABEL_LINE.test(line)) break;
+      if (LABELED_BLOCKQUOTE_LINE.test(line)) break;
       body.push(line.replace(/^>\s?/, ""));
       i += 1;
     }
@@ -202,19 +205,34 @@ export function splitBlockquoteInlineAttribution(content: string): string {
   return out.join("\n");
 }
 
+function calloutBody(title: string, body: string): string {
+  const cleaned = body
+    .split("\n")
+    .map((line) => line.replace(/^>\s?/, ""))
+    .join("\n")
+    .trim();
+  const heading = title.trim();
+  if (heading && cleaned) return `${heading}\n\n${cleaned}`;
+  return heading || cleaned;
+}
+
+/** Tip / Important / Info / Hint alerts stay prose, not a card. */
+function plainBlockquote(text: string): string {
+  if (!text) return "\n";
+  const lines = text.split("\n").map((line) => (line.trim() ? `> ${line}` : ">"));
+  return `\n${lines.join("\n")}\n`;
+}
+
 export function convertCalloutBlocks(content: string): string {
   return content.replace(
     CALLOUT_RE,
     (_match, kind: string, title: string, body: string) => {
       const k = kind.trim().toLowerCase();
-      const cleaned = body
-        .split("\n")
-        .map((line) => line.replace(/^>\s?/, ""))
-        .join("\n")
-        .trim();
-      const heading = title.trim();
-      const merged = heading ? `${heading}\n\n${cleaned}` : cleaned;
-      return `\n\`\`\`callout-${k}\n${merged}\n\`\`\`\n`;
+      const merged = calloutBody(title, body);
+      if (k === "note" || k === "warning") {
+        return `\n\`\`\`callout-${k}\n${merged}\n\`\`\`\n`;
+      }
+      return plainBlockquote(merged);
     },
   );
 }

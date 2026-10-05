@@ -295,12 +295,12 @@ _CALLOUT_TURN = re.compile(
 )
 
 CALLOUT_FORMAT_HINT = (
-    "This turn explicitly asked for a highlighted tip/note/warning. Recall renders blockquotes "
-    "starting with Tip: / Note: / Warning: as callout cards.\n"
-    "Do not write a joke setup. Lead with the advice.\n"
-    "Use one matching markdown blockquote—`> Tip: …`, `> Note: …`, or "
-    "`> Warning: …`—for the specifically highlighted point. Use ordinary bullets for "
-    "other unordered tips; use numbers only if order matters. Never a pipe table."
+    "This turn asked for a highlighted warning or note. A callout is only "
+    "`> Warning:` for a real risk or correction, or a short `> Note:` the reader "
+    "must not miss, and only when that label is true. Never for hints, answers, "
+    "section intros, emphasis, or decoration. Other points are ordinary bullets "
+    "(numbers only if order matters). A `>` quote card is only a cited quotation "
+    "whose last line is `— Name`. Do not write a joke setup. Never a pipe table."
 )
 
 
@@ -382,9 +382,9 @@ _STOCK_QUOTE = re.compile(
 )
 
 QUOTE_FORMAT_HINT = (
-    "This turn asked for a quotation. Recall renders markdown blockquotes "
-    "(plain `>`) as a quote card. Do not write a joke setup. Lead with the "
-    "quote.\n"
+    "This turn asked for a quotation. A `>` quote card is only a cited "
+    "quotation whose last line is `— Name`. Do not write a joke setup. Lead "
+    "with the quote.\n"
     "Put the quote on `>` lines. Attribution on its own following line as "
     "`— Name` (em dash). Do not wrap the whole thing in straight quotes "
     '(`"…" - Author`) and do not italicize it as a paragraph.\n'
@@ -403,8 +403,8 @@ def is_quote_question(text: str) -> bool:
 
 
 # One layout contract. The model writes Markdown; Recall upgrades presentation.
-# Do NOT teach tip / steps / comparison / details / answer as model-chosen UI —
-# those cards still render if an old message has the fence.
+# Do NOT teach steps / comparison / details / answer / tip fences as layout.
+# A quote card is only a citation. A callout is only Warning or Note.
 FORMAT_CONTRACT = (
     "This is a conversational chat. Write normal Markdown — headings, lists, "
     "tables, and blockquotes. Do not invent custom fence names for layout.\n"
@@ -427,10 +427,12 @@ FORMAT_CONTRACT = (
     "  - Short how-to: one numbered list. Multi-phase roadmap/guide: ## headings for "
     "phases and numbered steps under each. Prefer lists to a pipe table unless the user "
     "explicitly requested a compact grid.\n"
-    "  - Callouts: a blockquote starting with Tip: / Note: / Warning: "
-    "(plain `>`). Not a fence.\n"
-    "  - Famous quotes: a markdown blockquote (`>`), attribution on its own "
-    "line as `— Name`. Not a ```quote fence and not a quoted italic paragraph.\n"
+    "  - A `>` quote card is only a cited quotation whose last line is "
+    "`— Name`. Every other `>` is ordinary indented prose, not a card and "
+    "not a quoted italic paragraph.\n"
+    "  - A callout is only `> Warning:` for a real risk or correction, or a "
+    "short `> Note:` the reader must not miss, and only when that label is "
+    "true. Never for hints, answers, section intros, emphasis, or decoration.\n"
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
     "  - If they named what the email/message should say, put only send-ready text "
@@ -599,9 +601,11 @@ TONE_FORMAT_GUARD = (
     "compare leads with the pipe table; a casual preference can be a short "
     "paragraph; a numeric chart leads with ```chart, "
     "never a substitute table; a flowchart leads with ```mermaid; "
-    "a tips/warning ask leads with `> Tip:` / `> Warning:`, never a joke essay; "
+    "a real warning leads with `> Warning:`; a note the reader must not miss "
+    "may be `> Note:`; hints stay ordinary prose, never a joke essay; "
     "a learning plan / how-to leads with ## headings and lists, never a "
-    "schedule table; a quotation ask leads with a `>` blockquote, never "
+    "schedule table; a quotation ask leads with a `>` blockquote whose last "
+    "line is `— Name`, never "
     'italic `"…" - Author` prose.'
 )
 

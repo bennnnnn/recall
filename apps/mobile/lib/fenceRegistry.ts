@@ -39,7 +39,6 @@ export type FenceId =
   | "chem_scene"
   | "chemistry"
   | "clock"
-  | "collapsible"
   | "comparison"
   | "copy"
   | "email"
@@ -114,13 +113,9 @@ export const FENCES: readonly FenceSpec[] = [
     neverCodeBlock: false,
     owner: "legacy",
   },
-  {
-    id: "collapsible",
-    langs: ["details", "collapse", "summary"],
-    structured: true,
-    neverCodeBlock: false,
-    owner: "legacy",
-  },
+  // `details`, `collapse`, and `summary` are unwrapped to markdown before
+  // this table. They are not fence languages.
+  //
   // `latex`/`tex` are aliases of `math`. The model is told never to emit
   // those tags, but it drifts; the settled path already retags closed
   // fences. Registering them here makes the *open* streaming tail typeset

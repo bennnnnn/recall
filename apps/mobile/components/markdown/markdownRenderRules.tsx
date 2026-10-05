@@ -1,4 +1,4 @@
-import { Children, Fragment, ReactNode } from "react";
+import { Fragment, ReactNode } from "react";
 import { Image } from "expo-image";
 import { Icon } from "@/ui/icons/Icon";
 import { Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
@@ -13,7 +13,7 @@ import {
   MarkdownTableHeaderCell,
   MarkdownTableRow,
 } from "@/components/MarkdownTable";
-import { QuoteBlock } from "@/components/rich/QuoteBlock";
+import { renderBlockquote } from "@/components/markdown/blockquoteRender";
 import {
   type AstNode,
   type AstParent,
@@ -51,7 +51,6 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
 import { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/preprocess";
-import { parseQuoteAttribution } from "@/lib/richBlocks";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import {
   latexHasNestedMathView,
@@ -529,17 +528,7 @@ function makeSharedRules(
         </View>
       );
     },
-    blockquote: (node: AstNode, children: ReactNode) => {
-      const last = node.children?.[node.children.length - 1];
-      const lastMeta = last ? parseQuoteAttribution(astTextWithBreaks(last)) : undefined;
-      const lastIsOnlyAttr = Boolean(lastMeta?.author && !lastMeta.quote);
-      const body = lastIsOnlyAttr ? Children.toArray(children).slice(0, -1) : children;
-      return (
-        <QuoteBlock key={node.key} author={lastIsOnlyAttr ? lastMeta?.author : undefined}>
-          {body}
-        </QuoteBlock>
-      );
-    },
+    blockquote: (node: AstNode, children: ReactNode) => renderBlockquote(node, children),
     paragraph: (
       node: AstNode,
       children: ReactNode,
