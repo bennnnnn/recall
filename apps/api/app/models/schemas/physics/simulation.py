@@ -21,9 +21,9 @@ from __future__ import annotations
 
 import math
 import typing
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_serializer, model_validator
 
 # Matches GraphBlockSpec.points: the solver never legitimately needs more
 # samples than the canonical solve produced.
@@ -220,3 +220,12 @@ class SimulationBlockSpec(BaseModel):
         if not self.title:
             self.title = _DEFAULT_TITLES[self.type]
         return self
+
+    @model_serializer(mode="wrap")
+    def omit_empty_anchor(self, handler: Any) -> Any:
+        # Other scenes have no wall. Writing `"anchor": null` into their fence
+        # would change a stored reply that never had the key.
+        data = handler(self)
+        if isinstance(data, dict) and data.get("anchor") is None:
+            del data["anchor"]
+        return data
