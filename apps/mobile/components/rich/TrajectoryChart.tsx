@@ -69,29 +69,6 @@ function pointsPath(points: readonly ScreenPoint[]) {
   return path;
 }
 
-function partialPointsPath(points: readonly ScreenPoint[], progress: number) {
-  "worklet";
-  const path = Skia.Path.Make();
-  if (points.length === 0) return path;
-  const clamped = Math.max(0, Math.min(1, progress));
-  const at = clamped * (points.length - 1);
-  const end = Math.floor(at);
-  path.moveTo(points[0].px, points[0].py);
-  for (let index = 1; index <= end; index += 1) {
-    path.lineTo(points[index].px, points[index].py);
-  }
-  if (end < points.length - 1) {
-    const fraction = at - end;
-    const a = points[end];
-    const b = points[end + 1];
-    path.lineTo(
-      a.px + (b.px - a.px) * fraction,
-      a.py + (b.py - a.py) * fraction,
-    );
-  }
-  return path;
-}
-
 function linePath(x1: number, y1: number, x2: number, y2: number) {
   const path = Skia.Path.Make();
   path.moveTo(x1, y1);
@@ -220,7 +197,6 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
     return () => cancelAnimation(progress);
   }, [play, progress, reduceMotion]);
 
-  const trailPath = useDerivedValue(() => partialPointsPath(screenPoints, progress.value));
   const dotX = useDerivedValue(() => trajectoryPointAt(screenPoints, progress.value).px);
   const dotY = useDerivedValue(() => trajectoryPointAt(screenPoints, progress.value).py);
   const xLabel = spec.x_label ?? "x";
@@ -308,17 +284,6 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
             </>
           ) : null}
           <Group clip={clip}>
-            {!reduceMotion ? (
-              <Path
-                path={trailPath}
-                color={theme.primary}
-                style="stroke"
-                strokeWidth={7}
-                strokeCap="round"
-                strokeJoin="round"
-                opacity={0.25}
-              />
-            ) : null}
             <Path
               path={curvePath}
               color={theme.primary}

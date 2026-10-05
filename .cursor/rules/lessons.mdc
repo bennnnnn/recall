@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A drop from 50 m drew its height at 2 s as a curve that stopped between 25 and 30, with a soft blue stroke.** The samples ran to `t * 1.05`, so the marker was h(2.1) ≈ 28.4 m while the answer was h(2) = 30.4 m. A 7px stroke at 25% opacity sat under the real line. Sample through the answered instant only, and draw the trajectory as one solid stroke.
+
 - **`$$ \$43 \times 40 = \mathbf{\$1,720} $$` rendered as `43 × 40 = 1,720`.** The display-math fence strip treated each `$` inside `\$` as a wrap and deleted the pair, leaving `\43` and `\1,720`. Skip a `$` that is escaped.
 
 - **`43 × 35 = \$1,505$` rendered as `1,505` with the dollar gone.** Markdown turns `\$` into `$`, so the leftover `$1,505$` is a math span of the number. Rewrite that amount to `$1,505` before markdown, and skip the rewrite when the backslash is already inside `$\$...$`.

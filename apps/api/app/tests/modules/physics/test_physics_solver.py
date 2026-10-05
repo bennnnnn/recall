@@ -36,9 +36,11 @@ def test_kinematics_time_to_ground() -> None:
     assert spec.trajectory_type == "position_vs_time"
     assert spec.x_label == "Time (s)"
     assert spec.y_label == "Height (m)"
-    # First point is at t=0, h=20
+    # First point is at t=0, h=20. The last point is the landing itself,
+    # not a sample past it.
     assert spec.points[0] == [0.0, 20.0]
-    # Last point is at ground (h=0)
+    assert spec.x_max == pytest.approx(expected)
+    assert spec.points[-1][0] == pytest.approx(expected, abs=1e-4)
     assert spec.points[-1][1] == 0.0
 
 
@@ -87,6 +89,10 @@ def test_kinematics_velocity_op() -> None:
     result = physics_solver.solve_kinematics(intent)
     # v = v0 - g*t = 0 - 9.81*1 = -9.81 m/s
     assert abs(result.quantities[0].value - (-9.81)) < 0.01
+    spec = result.graph_specs[0]
+    assert spec.x_max == pytest.approx(1.0)
+    assert spec.points[-1][0] == pytest.approx(1.0, abs=1e-4)
+    assert spec.points[-1][1] == pytest.approx(-9.81, abs=1e-3)
 
 
 def test_kinematics_speed_op_is_magnitude() -> None:

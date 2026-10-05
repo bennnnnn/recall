@@ -177,7 +177,9 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
                 substitutions=(substitution,),
                 quantities=(quantity,),
             )
-        t_max = t_val * 1.05
+        # End on the instant this answer is about. A later sample is a
+        # different velocity than the one just computed.
+        t_max = t_val
         dt = t_max / (n_points - 1)
         v_points: list[list[float]] = []
         for i in range(n_points):
@@ -220,7 +222,9 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             quantities=(quantity,),
         )
 
-    t_max = t_val * 1.05  # small pad so the curve doesn't end exactly at ground
+    # End on the instant this answer is about. A later sample is a different
+    # height than the one just computed, so the marker disagrees with it.
+    t_max = t_val
     dt = t_max / (n_points - 1)
     points: list[list[float]] = []
     for i in range(n_points):
