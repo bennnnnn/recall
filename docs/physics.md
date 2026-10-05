@@ -197,7 +197,7 @@ The detailed coverage audit and outstanding advanced capabilities are recorded i
 ### Searchable formula reference
 
 The mobile app includes a reference library in **Settings → Physics formulas**. It contains
-540 named equations across 43 topics, arranged at middle-school, high-school/AP, and
+541 named equations across 43 topics, arranged at middle-school, high-school/AP, and
 undergraduate levels, plus 32 constants. Search matches formula names, topic names, and
 common Greek-symbol spellings; topic and education-level filters can be combined. Long
 equations scroll horizontally, and context-dependent equations show their assumptions.
@@ -212,7 +212,7 @@ conversions and approximate cosmological values are identified separately in the
 and [NIST CODATA 2022 values](https://physics.nist.gov/constants).
 
 This is an educational reference, not a claim that the chat has a deterministic solver for
-all 540 rows. Verified chat calculations continue to come only from the backend extractors
+all 541 rows. Verified chat calculations continue to come only from the backend extractors
 and operation catalog below; an unsupported numeric problem is declined to the model and
 marked unverified. Every reference equation is checked against the mobile math layout
 engine, but that rendering check is not a derivation or experimental validation of the
