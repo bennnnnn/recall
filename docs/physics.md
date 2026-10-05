@@ -118,7 +118,9 @@ flowchart LR
 
 A law the binder can read needs one catalog entry (`catalog/`) and no extractor. The
 catalog is also the one list of operations: every `PhysicsIntent` is checked against it
-(`catalog.check_intent`) when it is built.
+(`catalog.check_intent`) when it is built. `closed_forms.py`, `later_forms.py`, and
+`stated_forms.py` are batch files, not topics. Move those laws back into the topic
+modules later.
 - `variables`, with `words`, `implied` phrases or a `fallback` where the question may name a
   value without a number;
 - a `Binding`: the phrases that ask for the result, the result's unit, every set of inputs

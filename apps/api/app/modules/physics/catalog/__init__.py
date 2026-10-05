@@ -107,6 +107,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     NUCLEAR,
     ONE_STEP,
     FURTHER,
+    # Batch files, not topics. Move each law back into its topic module later.
     CLOSED_FORMS,
     LATER_FORMS,
     STATED_FORMS,
