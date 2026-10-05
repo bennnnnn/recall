@@ -38,6 +38,12 @@ export type MathSegment =
  * command table runs.
  */
 export const PROTECTED_ESCAPE_MARKER = String.fromCharCode(0xe000);
+/**
+ * `\$` inside math is a dollar sign. Replacing only the backslash leaves a
+ * real `$`, and the next scanner closes the span there. The amount then
+ * falls out as plain text with the backslash still in front of it.
+ */
+export const PROTECTED_LITERAL_DOLLAR = String.fromCharCode(0xe00a);
 /** Bare `_` inside `$...$` — markdown-it would otherwise start emphasis. */
 export const PROTECTED_MATH_UNDERSCORE_MARKER = String.fromCharCode(0xe002);
 /** Bare `*` inside `$...$` — markdown-it would otherwise start emphasis. */
@@ -69,6 +75,7 @@ const UPRIGHT_TEXT_UNWRAP_RE = new RegExp(
 /** Restore source characters after markdown tokenization, before math parsing. */
 export function restoreMathEscapes(latex: string): string {
   return latex
+    .split(PROTECTED_LITERAL_DOLLAR).join("$")
     .split(PROTECTED_ESCAPE_MARKER).join("\\")
     .split(PROTECTED_MATH_UNDERSCORE_MARKER).join("_")
     .split(PROTECTED_MATH_STAR_MARKER).join("*")
@@ -589,6 +596,9 @@ function preserveNativeUprightRuns(source: string): string {
         while (source[groupAt] === " ") groupAt += 1;
         const group = source[groupAt] === "{" ? readGroup(source, groupAt) : null;
         if (group) {
+          // TeX ignores a space before \text. The brace holds the visible
+          // space (`43 \text{ per hour}`); keeping both shows `43  per`.
+          if (/^\s/.test(group.value)) out = out.replace(/ +$/, "");
           // Markdown attaches sentence punctuation to a math run as
           // `\text{.}` / `\text{,}`. Keep that punctuation in the adjacent
           // run so copy, wrapping, and tests see one continuous expression.

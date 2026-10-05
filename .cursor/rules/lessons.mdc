@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`$43 per hour` rendered as `\43`, and `$1,505` as `\1,505$`.** A `$` scanner closed the span on the `$` inside `\$`. Rewrapping the rest made `\$$`, which became a broken math fence. Protecting the backslash alone left that `$` in place, so the next scanner closed there and the marker drew as `\`. Do not close a span on an escaped dollar, and replace the whole `\$` with one marker that restores to `$`.
+
 - **`t_\textit{rel}`, `F_\mathbf{g}`, and `x^\{2\}` still showed a backslash, the command name, or an emoji in the script.** The one-character read after `_` or `^` only special-cased `\text` / `\mathrm` markers. A space, `\mathbf`, `\textit`, `\max`, or the private-use brace for `\{` was that one character. Skip spaces and take the whole command or `\{...\}` group as the script; mark `\textit` and `\operatorname*` the same way as `\text`.
 
 - **An LLM formula showed emoji inside `t_flight`, while the same subscript from SymPy did not.** SymPy writes `t_{\mathrm{flight}}`. The model writes `t_\text{flight}` with no braces. The native parser marks `\text` with private-use characters, and a bare `_` kept only the opening mark as the subscript, so iOS drew that mark and the closing mark as emoji around the word. A bare `^` or `_` before those marks is the whole upright script.

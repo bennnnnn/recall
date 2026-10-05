@@ -149,6 +149,13 @@ def test_adjacent_tokens_units_and_wide_statistics_stay_readable() -> None:
     )
 
 
+def test_escaped_currency_dollar_does_not_split_the_formula() -> None:
+    source = r"$\$43 \text{ per hour} \times 40 \text{ hours} = \$1{,}720 \text{ per week}$"
+    assert present_assistant_markdown(source) == source
+    assert present_assistant_markdown(r"$\$1,505$") == r"$\$1,505$"
+    assert present_assistant_markdown(r"$\mathbf{\$3,440}$") == r"$\mathbf{\$3,440}$"
+
+
 def test_presentation_is_idempotent() -> None:
     source = (
         "A cyclist rides **12 km** at**20 km/h**, then**8 km** at**10 km/h**.\n\n"

@@ -261,15 +261,41 @@ function expandMathIslandLeft(seg: string, start: number): number {
  * (e.g. `$(-2 + \sqrt{3})^2 + 4(-2 + \sqrt{3}) + ...$`), producing `$$` and
  * shattering `$` pairing across the whole message — leaving `\sqrt` as raw
  * text and gluing adjacent prose into the math. */
+function escapedDollar(text: string, index: number): boolean {
+  let slashes = 0;
+  for (let i = index - 1; i >= 0 && text[i] === "\\"; i -= 1) slashes += 1;
+  return slashes % 2 === 1;
+}
+
 function applyOutsideInlineMath(line: string, fn: (s: string) => string): string {
   const out: string[] = [];
   let last = 0;
-  const re = /\$[^$\n]+?\$/g;
-  let m: RegExpExecArray | null;
-  while ((m = re.exec(line)) !== null) {
-    if (m.index > last) out.push(fn(line.slice(last, m.index)));
-    out.push(m[0]);
-    last = m.index + m[0].length;
+  let i = 0;
+  while (i < line.length) {
+    // `\$` is a currency sign. Closing on that `$` keeps only `$\$`, and
+    // wrapping the rest inserts another `$`. `\$$` then becomes a math
+    // fence, which is why the screen shows `\43` and `\1,720`.
+    const displayDollar = line[i + 1] === "$" || (line[i - 1] === "$" && !escapedDollar(line, i - 1));
+    if (line[i] !== "$" || escapedDollar(line, i) || displayDollar) {
+      i += 1;
+      continue;
+    }
+    let close = i + 1;
+    while (
+      close < line.length
+      && line[close] !== "\n"
+      && (line[close] !== "$" || escapedDollar(line, close))
+    ) {
+      close += 1;
+    }
+    if (close >= line.length || line[close] !== "$") {
+      i += 1;
+      continue;
+    }
+    if (i > last) out.push(fn(line.slice(last, i)));
+    out.push(line.slice(i, close + 1));
+    last = close + 1;
+    i = last;
   }
   if (last === 0) return fn(line);
   if (last < line.length) out.push(fn(line.slice(last)));

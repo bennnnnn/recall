@@ -1,6 +1,7 @@
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 import {
   PROTECTED_ESCAPE_MARKER,
+  PROTECTED_LITERAL_DOLLAR,
   PROTECTED_MATH_APOSTROPHE_MARKER,
   PROTECTED_MATH_STAR_MARKER,
   PROTECTED_MATH_UNDERSCORE_MARKER,
@@ -80,6 +81,8 @@ export function prepareStreamingMathText(text: string): { text: string; pending:
       const body = span.value
         // Keep a multiline explicit formula inside one single-dollar span.
         .split(/\r?\n/).map((line) => line.trim()).join(" ")
+        .split("\\$")
+        .join(PROTECTED_LITERAL_DOLLAR)
         .replace(/\\/g, PROTECTED_ESCAPE_MARKER)
         .replace(/_/g, PROTECTED_MATH_UNDERSCORE_MARKER)
         .replace(/\*/g, PROTECTED_MATH_STAR_MARKER)

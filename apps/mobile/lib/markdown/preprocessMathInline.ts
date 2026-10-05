@@ -1,6 +1,7 @@
 import { readInlineMathSpan, splitInlineMath } from "@/lib/markdown/inlineMath";
 import {
   PROTECTED_ESCAPE_MARKER,
+  PROTECTED_LITERAL_DOLLAR,
   PROTECTED_MATH_APOSTROPHE_MARKER,
   PROTECTED_MATH_STAR_MARKER,
   PROTECTED_MATH_UNDERSCORE_MARKER,
@@ -74,6 +75,10 @@ export function protectMathEscapes(content: string): string {
         // Preserve LaTeX row separators before CommonMark can consume them.
         .split("\\\\")
         .join(`${PROTECTED_ESCAPE_MARKER}${PROTECTED_ESCAPE_MARKER}`)
+        // `\$` is one dollar sign. A backslash marker plus a leftover `$`
+        // is a new closer, so `$\$1,505$` renders as `\1,505$`.
+        .split("\\$")
+        .join(PROTECTED_LITERAL_DOLLAR)
         .replace(MATH_ESCAPE_BACKSLASH_RE, PROTECTED_ESCAPE_MARKER)
         .replace(/_/g, PROTECTED_MATH_UNDERSCORE_MARKER)
         .replace(/\*/g, PROTECTED_MATH_STAR_MARKER)

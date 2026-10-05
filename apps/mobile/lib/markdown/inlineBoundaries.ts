@@ -71,20 +71,35 @@ function readCode(text: string, index: number): number | null {
   return close + length;
 }
 
+function escapedDollar(text: string, index: number): boolean {
+  let slashes = 0;
+  for (let i = index - 1; i >= 0 && text[i] === "\\"; i -= 1) slashes += 1;
+  return slashes % 2 === 1;
+}
+
 function readMath(text: string, index: number): number | null {
+  if (escapedDollar(text, index)) return null;
   if (text.startsWith("$$", index)) {
     const close = text.indexOf("$$", index + 2);
     if (close < 0 || close === index + 2 || text.slice(index + 2, close).includes("\n")) return null;
     return close + 2;
   }
   if (text[index] !== "$" || (index > 0 && text[index - 1] === "$")) return null;
-  const close = text.indexOf("$", index + 1);
-  if (close < 0 || text.slice(index + 1, close).includes("\n")) return null;
-  if (close + 1 < text.length && text[close + 1] === "$") return null;
-  const body = text.slice(index + 1, close);
-  if (!body.trim()) return null;
-  if (/^\d/.test(body) && !/[\\=^_]/.test(body)) return null;
-  return close + 1;
+  let from = index + 1;
+  while (from < text.length) {
+    const close = text.indexOf("$", from);
+    if (close < 0 || text.slice(index + 1, close).includes("\n")) return null;
+    if (escapedDollar(text, close)) {
+      from = close + 1;
+      continue;
+    }
+    if (close + 1 < text.length && text[close + 1] === "$") return null;
+    const body = text.slice(index + 1, close);
+    if (!body.trim()) return null;
+    if (/^\d/.test(body) && !/[\\=^_]/.test(body)) return null;
+    return close + 1;
+  }
+  return null;
 }
 
 function readLink(text: string, index: number): number | null {
