@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A telescope's two focal lengths were verified as m = −v/u.** "Objective" and "eyepiece" are lengths, and magnification from two distances does not say they are an object and an image. Exclude a telescope from that law and use M = f_o/f_e.
+
 - **A diverging-lens reply ended on the word Answer.** The solver declined, and the unverified note told the model to write that heading and not to invent a result or emit an answer fence, so it stopped before the number. An unverified calculation still has to put the result under Answer, and it must not end on the heading.
 
 - **A drop from 50 m drew its height at 2 s as a curve that stopped between 25 and 30, with a soft blue stroke.** The samples ran to `t * 1.05`, so the marker was h(2.1) ≈ 28.4 m while the answer was h(2) = 30.4 m. A 7px stroke at 25% opacity sat under the real line. Sample through the answered instant only, and draw the trajectory as one solid stroke.

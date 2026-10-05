@@ -208,8 +208,9 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("magnification",),
             result=("dimensionless",),
             inputs=(frozenset({"d_img", "d_obj"}),),
-            # A virtual image's distance carries the other sign.
-            excludes=("virtual",),
+            # A virtual image's distance carries the other sign. A telescope's
+            # two focal lengths are not an object and an image.
+            excludes=("virtual", "telescope", "eyepiece", "objective"),
         ),
     ),
     formula(

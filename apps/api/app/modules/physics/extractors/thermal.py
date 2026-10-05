@@ -72,6 +72,10 @@ def _extract_thermal_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _THERMAL_CUES, _THERMAL_CUE_RES):
         return None
+    # Isothermal work is W = nRT ln(V2/V1). The same n, V and T would otherwise
+    # be read as the pressure of an ideal gas.
+    if re.search(r"\bisothermal", lower) and re.search(r"\bwork\b", lower):
+        return None
     if blocks_thermal(cleaned):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
