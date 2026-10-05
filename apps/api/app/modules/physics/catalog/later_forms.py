@@ -117,7 +117,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Plasma frequency",
         r"\omega_p",
         base_latex=r"\omega_p = \sqrt{\frac{n e^2}{\varepsilon_0 m_e}}",
-        assumptions=("electrons in a cold plasma"),
+        assumptions=("electrons in a cold plasma",),
         expression="sqrt(number_density*e_charge**2/(epsilon_0*m_e))",
         variables=(
             var(
@@ -142,7 +142,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Debye length",
         r"\lambda_D",
         base_latex=r"\lambda_D = \sqrt{\frac{\varepsilon_0 k_B T}{n e^2}}",
-        assumptions=("one mobile species"),
+        assumptions=("one mobile species",),
         expression="sqrt(epsilon_0*k_B*temp/(number_density*e_charge**2))",
         variables=(
             var(
@@ -187,7 +187,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Stellar luminosity",
         "L",
         base_latex=r"L = 4\pi R^2\sigma T^4",
-        assumptions=("a black spherical star"),
+        assumptions=("a black spherical star",),
         expression="4*pi*star_radius**2*sigma*temp**4",
         variables=(
             var("star_radius", "R", "meter", words=("radius",), needs_words=True),
@@ -232,7 +232,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Nuclear radius",
         "R",
         base_latex=r"R = R_0 A^{1/3}",
-        assumptions=(r"R_0 = 1.2\,\mathrm{fm}"),
+        assumptions=(r"R_0 = 1.2\,\mathrm{fm}",),
         expression="1.2e-15*mass_number**(1/3)",
         variables=(
             var(
@@ -257,7 +257,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Drude conductivity",
         r"\sigma",
         base_latex=r"\sigma = \frac{n e^2 \tau}{m_e}",
-        assumptions=("electrons"),
+        assumptions=("electrons",),
         expression="number_density*e_charge**2*scattering_time/m_e",
         variables=(
             var(
@@ -289,7 +289,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Hall coefficient",
         "R_H",
         base_latex=r"R_H = -\frac{1}{ne}",
-        assumptions=("electrons; the sign is negative"),
+        assumptions=("electrons; the sign is negative",),
         expression="-1/(number_density*e_charge)",
         variables=(
             var(
@@ -346,7 +346,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Gravitational time dilation",
         r"d\tau/dt",
         base_latex=r"\frac{d\tau}{dt} = \sqrt{1-\frac{2GM}{rc^2}}",
-        assumptions=("the Schwarzschild factor, outside the horizon"),
+        assumptions=("the Schwarzschild factor, outside the horizon",),
         expression="sqrt(1-2*G_grav*M/(radial_distance*c_light**2))",
         variables=(
             var("M", "M", "kilogram", fallback="body_mass"),
@@ -401,7 +401,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Bose-Einstein occupation",
         "f",
         base_latex=r"f = \frac{1}{e^{(E-\mu)/k_B T}-1}",
-        assumptions=("E is above the chemical potential"),
+        assumptions=("E is above the chemical potential",),
         expression="1/(exp((state_energy-chemical_potential)/(k_B*temp))-1)",
         variables=(
             var("state_energy", "E", "joule", words=("energy",), needs_words=True),

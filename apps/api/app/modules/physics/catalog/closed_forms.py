@@ -388,7 +388,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Electric dipole field on axis",
         "E",
         base_latex=r"E = \frac{1}{4\pi\varepsilon_0}\frac{2p}{r^3}",
-        assumptions=("a point on the dipole axis, far from the charges"),
+        assumptions=("a point on the dipole axis, far from the charges",),
         expression="2*k_e*dipole_moment/dipole_distance**3",
         variables=(
             var(
@@ -444,7 +444,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Thin-film constructive interference",
         "t",
         base_latex=r"2nt = \left(m+\frac{1}{2}\right)\lambda",
-        assumptions=("normal incidence, a phase change at exactly one surface"),
+        assumptions=("normal incidence, a phase change at exactly one surface",),
         expression="(order+0.5)*wavelength/(2*n_index)",
         variables=(
             var("order", "m", dimensionless=True, words=("order",), needs_words=True),
@@ -466,7 +466,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Thin-film destructive interference",
         "t",
         base_latex=r"2nt = m\lambda",
-        assumptions=("normal incidence, a phase change at exactly one surface"),
+        assumptions=("normal incidence, a phase change at exactly one surface",),
         expression="order*wavelength/(2*n_index)",
         variables=(
             var("order", "m", dimensionless=True, words=("order",), needs_words=True),
@@ -488,7 +488,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Vis-viva equation",
         "v",
         base_latex=r"v = \sqrt{GM\left(\frac{2}{r}-\frac{1}{a}\right)}",
-        assumptions=("a Kepler orbit about a fixed central mass"),
+        assumptions=("a Kepler orbit about a fixed central mass",),
         expression="sqrt(G_grav*M*(2/orbit_radius-1/semi_major))",
         variables=(
             var("M", "M", "kilogram", fallback="body_mass"),
@@ -521,7 +521,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Fermi energy",
         "E_F",
         base_latex=r"E_F = \frac{\hbar^2}{2m_e}(3\pi^2 n)^{2/3}",
-        assumptions=("a three-dimensional free-electron gas"),
+        assumptions=("a three-dimensional free-electron gas",),
         expression="(hbar**2/(2*m_e))*(3*pi**2*number_density)**(2/3)",
         variables=(
             var(
@@ -546,7 +546,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Planck's law",
         r"B_\lambda",
         base_latex=r"B_\lambda = \frac{2hc^2}{\lambda^5}\frac{1}{e^{hc/\lambda kT}-1}",
-        assumptions=("spectral radiance per steradian, wavelength form"),
+        assumptions=("spectral radiance per steradian, wavelength form",),
         expression=(
             "2*h_planck*c_light**2/wavelength**5/(exp(h_planck*c_light/(wavelength*k_B*temp))-1)"
         ),
@@ -569,7 +569,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Skin depth",
         r"\delta",
         base_latex=r"\delta = \frac{1}{\sqrt{\pi f \mu_0 \sigma}}",
-        assumptions=("a good nonmagnetic conductor"),
+        assumptions=("a good nonmagnetic conductor",),
         expression="1/sqrt(pi*freq*mu_0*conductivity)",
         variables=(
             var("freq", "f", "hertz", words=("frequency",), needs_words=True),
@@ -596,7 +596,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Skin depth",
         r"\delta",
         base_latex=r"\delta = \sqrt{\frac{\rho}{\pi f \mu_0}}",
-        assumptions=("a good nonmagnetic conductor"),
+        assumptions=("a good nonmagnetic conductor",),
         expression="sqrt(resistivity/(pi*freq*mu_0))",
         variables=(
             var("freq", "f", "hertz", words=("frequency",), needs_words=True),
@@ -623,7 +623,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Skin depth",
         r"\delta",
         base_latex=r"\delta = \frac{1}{\sqrt{\pi f \mu_0 \mu_r \sigma}}",
-        assumptions=("a good conductor of stated relative permeability"),
+        assumptions=("a good conductor of stated relative permeability",),
         expression="1/sqrt(pi*freq*mu_0*relative_permeability*conductivity)",
         variables=(
             var("freq", "f", "hertz", words=("frequency",), needs_words=True),
@@ -656,7 +656,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Coaxial capacitance",
         "C",
         base_latex=r"C = \frac{2\pi\varepsilon_0 L}{\ln(b/a)}",
-        assumptions=("vacuum between the conductors"),
+        assumptions=("vacuum between the conductors",),
         expression="2*pi*epsilon_0*cable_length/log(outer_radius/inner_radius)",
         variables=(
             var("cable_length", "L", "meter", words=("long", "length"), needs_words=True),
@@ -677,7 +677,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Spherical capacitor",
         "C",
         base_latex=r"C = 4\pi\varepsilon_0\frac{ab}{b-a}",
-        assumptions=("vacuum between concentric spheres"),
+        assumptions=("vacuum between concentric spheres",),
         expression="4*pi*epsilon_0*inner_radius*outer_radius/(outer_radius-inner_radius)",
         variables=(
             var("inner_radius", "a", "meter", words=("inner",), needs_words=True),
@@ -697,7 +697,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Quality factor",
         "Q",
         base_latex=r"Q = \frac{f_0}{\Delta f}",
-        assumptions=("the bandwidth is the full width"),
+        assumptions=("the bandwidth is the full width",),
         expression="resonant_freq/bandwidth",
         variables=(
             var(
@@ -723,7 +723,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Series RLC quality factor",
         "Q",
         base_latex=r"Q = \frac{1}{R}\sqrt{\frac{L}{C}}",
-        assumptions=("a series combination at resonance"),
+        assumptions=("a series combination at resonance",),
         expression="sqrt(inductance/capacitance)/R",
         variables=(
             var("R", "R", "ohm", words=("resistance",), needs_words=True),
@@ -745,7 +745,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Tunneling probability",
         "T",
         base_latex=r"T \approx \exp\left(-\frac{2L}{\hbar}\sqrt{2m(U-E)}\right)",
-        assumptions=("a rectangular barrier with E < U; the prefactor is omitted"),
+        assumptions=("a rectangular barrier with E < U; the prefactor is omitted",),
         expression="exp(-2*barrier_width*sqrt(2*m*(barrier_height-particle_energy))/hbar)",
         variables=(
             var("m", "m", "kilogram", fallback="particle_mass"),
