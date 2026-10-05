@@ -172,8 +172,11 @@ def effective_presentation_subject(
         return own
     if is_pure_continuation(query):
         return _continuation_subject(prior_messages or ())
+    from app.modules.chemistry.followup import chemistry_followup_problem
     from app.modules.physics.followup import physics_followup_problem
 
+    if chemistry_followup_problem(query, prior_messages or ()) is not None:
+        return "chemistry"
     if physics_followup_problem(query, prior_messages or ()) is not None:
         return "physics"
     return None

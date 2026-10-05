@@ -122,6 +122,12 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
             raise SolveServiceError("solute mass must be between zero and solution mass")
     if law.op == "binary_vapor_pressure":
         _binary_fractions(values["mole_fraction_a"], values["mole_fraction_b"])
+    if law.op == "absorbance_transmittance" and not 0 < values["transmittance"] <= 1:
+        raise SolveServiceError("transmittance must be between 0 and 1")
+    if law.op == "absorbance_percent_transmittance" and not (
+        0 < values["percent_transmittance"] <= 100
+    ):
+        raise SolveServiceError("percent transmittance must be between 0 and 100")
     try:
         result = evaluate(law.expression, values, CHEMISTRY_NOTATION)
     except (ValueError, ZeroDivisionError, OverflowError) as exc:

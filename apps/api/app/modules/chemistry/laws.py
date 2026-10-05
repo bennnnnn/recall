@@ -662,6 +662,129 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         ),
         cues=("deposit", "electrolysis", "plated", "plating"),
     ),
+    _law(
+        "ionic_strength",
+        "solutions",
+        ("ionic strength",),
+        _MOLAR,
+        (
+            var("concentration_1", "c1", _MOLAR, words=("cation concentration",), needs_words=True),
+            var("charge_1", "z1", dimensionless=True, words=("cation charge",), needs_words=True),
+            var("concentration_2", "c2", _MOLAR, words=("anion concentration",), needs_words=True),
+            var("charge_2", "z2", dimensionless=True, words=("anion charge",), needs_words=True),
+        ),
+        excludes=("debye", "huckel", "hückel", "activity"),
+        nonnegative=False,
+    ),
+    _law(
+        "absorbance_transmittance",
+        "spectroscopy",
+        ("absorbance",),
+        "dimensionless",
+        (
+            var(
+                "transmittance",
+                "T",
+                dimensionless=True,
+                words=("transmittance",),
+                needs_words=True,
+            ),
+        ),
+        excludes=("percent transmittance", "percent t", "beer", "epsilon", "absorptivity"),
+    ),
+    _law(
+        "absorbance_percent_transmittance",
+        "spectroscopy",
+        ("absorbance",),
+        "dimensionless",
+        (
+            var(
+                "percent_transmittance",
+                "%T",
+                "percent",
+                words=("percent transmittance", "percent t"),
+                needs_words=True,
+            ),
+        ),
+        excludes=("beer", "epsilon", "absorptivity"),
+    ),
+    _law(
+        "kirchhoff",
+        "thermochemistry",
+        ("enthalpy", "delta_h"),
+        "kilojoule / mole",
+        (
+            var(
+                "enthalpy",
+                "ΔH",
+                "kilojoule / mole",
+                words=("delta_h", "enthalpy"),
+                needs_words=True,
+            ),
+            var("t1", "T1", "kelvin", words=("t1",), needs_words=True),
+            var("t2", "T2", "kelvin", words=("t2",), needs_words=True),
+            var(
+                "heat_capacity",
+                "ΔCp",
+                "kilojoule / mole / kelvin",
+                words=("delta_cp", "heat capacity", "cp"),
+                needs_words=True,
+            ),
+        ),
+        cues=("kirchhoff",),
+        nonnegative=False,
+    ),
+    _law(
+        "optical_purity",
+        "organic",
+        ("optical purity",),
+        "percent",
+        (
+            var("observed", "a_obs", dimensionless=True, words=("observed",), needs_words=True),
+            var("pure", "a_pure", dimensionless=True, words=("pure",), needs_words=True),
+        ),
+        nonnegative=False,
+    ),
+    _law(
+        "partition_coefficient",
+        "solutions",
+        ("partition coefficient", "distribution coefficient"),
+        "dimensionless",
+        (
+            var("organic", "org", _MOLAR, words=("organic",), needs_words=True),
+            var("aqueous", "aq", _MOLAR, words=("aqueous",), needs_words=True),
+        ),
+        excludes=("successive", "stages", "repeated"),
+    ),
+    _law(
+        "vant_hoff_factor",
+        "solutions",
+        ("van 't hoff factor", "vant hoff factor"),
+        "dimensionless",
+        (
+            # The stated degrees are the change. 0.372 °C is not 273.5 K.
+            var(
+                "delta_t",
+                "ΔT",
+                "kelvin",
+                words=(
+                    "freezing point depression",
+                    "boiling point elevation",
+                    "temperature change",
+                ),
+                needs_words=True,
+            ),
+            var(
+                "constant",
+                "K",
+                "kelvin * kilogram / mole",
+                words=("k_f", "k_b", "colligative"),
+                needs_words=True,
+            ),
+            var("molality", "m", _MOLAL),
+        ),
+        keep_units=("delta_t",),
+    ),
 )
 
 LAWS: tuple[ChemistryLaw, ...] = (

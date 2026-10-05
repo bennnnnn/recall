@@ -214,6 +214,42 @@ def _strip_owned_fences(content: str) -> str:
     return cleaned.strip()
 
 
+_BARE_ANSWER = re.compile(
+    r"^(?:(?:the|its)\s+)?[A-Za-zΔ\[\]+\-°/%' ]{0,40}?(?:=|is|equals)\s*[-+]?\d.*$",
+    re.IGNORECASE,
+)
+_EXPLAINS = re.compile(r"\b(?:because|since|therefore|which|so)\b", re.IGNORECASE)
+_ANSWER_BODY = re.compile(
+    r"(?P<head>(?:^|\n)[ \t]*(?:\*\*)?Answer(?:\*\*)?[ \t]*:?[ \t]*\n?)"
+    r"(?P<body>[^\n]*)\s*\Z",
+    re.IGNORECASE,
+)
+
+
+def _bare_answer_line(line: str) -> bool:
+    """A one-line number, whether it repeats the verified answer or replaces it."""
+    text = line.strip().strip("*_`")
+    if not text or len(text) > 80 or _EXPLAINS.search(text):
+        return False
+    return _BARE_ANSWER.match(text) is not None
+
+
+def _without_one_line_answer(prose: str) -> str:
+    """Drop a photo line that is only a number. Keep a longer explanation and the fence."""
+    text = prose.strip()
+    if not text:
+        return text
+    lines = [line for line in text.splitlines() if line.strip()]
+    if len(lines) == 1 and _bare_answer_line(lines[0]):
+        return ""
+    match = _ANSWER_BODY.search(text)
+    if match is None or not match.group("body") or not match.group("body").strip():
+        return text
+    if not _bare_answer_line(match.group("body")):
+        return text
+    return text[: match.end("head")].rstrip()
+
+
 def assemble_chemistry_reply(prose: str, verified: VerifiedChemistry) -> str:
     """Prose plus the solver's answer, scene, and structure. One blank line between."""
     parts = [prose.strip(), *_solver_fences(verified)]
@@ -226,7 +262,8 @@ def validate_chemistry_fences(content: str, verified: object | None = None) -> s
     if not isinstance(verified, VerifiedChemistry):
         return content
     # An unclosed model fence would swallow the solver fences appended below it.
-    return assemble_chemistry_reply(_strip_owned_fences(close_unclosed_fences(content)), verified)
+    prose = _without_one_line_answer(_strip_owned_fences(close_unclosed_fences(content)))
+    return assemble_chemistry_reply(prose, verified)
 
 
 def replace_unclosed_chemistry_fences_safe(content: str, verified: object | None) -> str:

@@ -247,8 +247,8 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
     user = MagicMock()
     user.id = uuid4()
     with (
-        patch("app.services.chat.prompt_builder.SessionLocal", _session_cm()),
-        patch("app.services.chat.prompt_builder.messages_repo.list_recent", fast_recent),
+        patch("app.services.chat.prompt_context.SessionLocal", _session_cm()),
+        patch("app.services.chat.prompt_context.messages_repo.list_recent", fast_recent),
         patch(
             "app.services.chat.history_rag.embed_query_for_prompt",
             slow_embed,
@@ -271,7 +271,7 @@ async def test_load_context_blocks_does_not_wait_on_history_embed_before_recent(
 
 
 def test_slim_memory_cap_keeps_complete_fact_boundaries():
-    from app.services.chat.prompt_builder import _cap_slim_memory_block
+    from app.services.chat.prompt_context import _cap_slim_memory_block
 
     first_fact = "x" * 600
     second_fact = "y" * 600
@@ -321,6 +321,7 @@ async def test_build_prompt_uses_gathered_history_embedding_once(
     row = MagicMock(text="User: We chose the blue couch.")
     with (
         patch("app.services.chat.prompt_builder.SessionLocal", _session_cm()),
+        patch("app.services.chat.prompt_context.SessionLocal", _session_cm()),
         patch("app.services.chat.history_rag.SessionLocal", _session_cm()),
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
         patch("app.modules.todos.build_todos_system_section", AsyncMock(return_value=None)),

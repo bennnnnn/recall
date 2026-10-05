@@ -238,6 +238,21 @@ _SAMPLES: dict[str, tuple[dict[str, float], str | None, dict[str, str]]] = {
         None,
         {},
     ),
+    "ionic_strength": (
+        {"concentration_1": 0.1, "charge_1": 2.0, "concentration_2": 0.2, "charge_2": 1.0},
+        None,
+        {},
+    ),
+    "absorbance_transmittance": ({"transmittance": 0.1}, None, {}),
+    "absorbance_percent_transmittance": ({"percent_transmittance": 10.0}, None, {}),
+    "kirchhoff": (
+        {"enthalpy": -50.0, "t1": 298.0, "t2": 398.0, "heat_capacity": 0.04},
+        None,
+        {},
+    ),
+    "optical_purity": ({"observed": 8.5, "pure": 17.0}, None, {}),
+    "partition_coefficient": ({"organic": 0.4, "aqueous": 0.1}, None, {}),
+    "vant_hoff_factor": ({"delta_t": 0.372, "constant": 1.86, "molality": 0.2}, None, {}),
 }
 
 

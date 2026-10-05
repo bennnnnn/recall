@@ -13,7 +13,7 @@ from app.core.config import Settings
 from app.models.orm import Chat, User
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.services.chat.prompt_builder import _PromptContextBlocks
+from app.services.chat.prompt_context import _PromptContextBlocks
 from app.services.chat.turn_prep.context import build_stream_prompt_context
 from app.services.chat.turn_prep.mode import _TurnMode
 from app.services.chat.turn_prep.prepare import prepare_chat_turn
