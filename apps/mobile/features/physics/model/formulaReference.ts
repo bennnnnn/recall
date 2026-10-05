@@ -196,6 +196,7 @@ const TOPIC_SEEDS: readonly TopicSeed[] = [
       ["Angular velocity at constant acceleration", String.raw`\omega_f=\omega_i+\alpha t`],
       ["Angular position at constant acceleration", String.raw`\theta_f=\theta_i+\omega_it+\frac{1}{2}\alpha t^2`],
       ["Angular velocity-position relation", String.raw`\omega_f^2=\omega_i^2+2\alpha\Delta\theta`],
+      ["Angular displacement from two speeds", String.raw`\Delta\theta=\frac{\omega_i+\omega_f}{2}t`],
       ["Arc length", String.raw`s=r\theta`],
       ["Tangential acceleration", String.raw`a_t=r\alpha`],
       ["Radial acceleration", String.raw`a_r=r\omega^2`],
@@ -879,7 +880,7 @@ export const PHYSICS_FORMULAS: readonly PhysicsFormulaRow[] = TOPIC_SEEDS.flatMa
   })),
 );
 
-export const PHYSICS_FORMULA_COUNT = 540;
+export const PHYSICS_FORMULA_COUNT = 541;
 
 export type PhysicsConstant = {
   id: string;
