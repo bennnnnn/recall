@@ -199,4 +199,44 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "plate_height",
         "H = 0.0100",
     ),
+    (
+        "The cation concentration is 0.10 M and the cation charge is 2. "
+        "The anion concentration is 0.20 M and the anion charge is 1. Find the ionic strength.",
+        "ionic_strength",
+        "I = 0.30 mol/L",
+    ),
+    (
+        "The transmittance is 0.100. Find the absorbance.",
+        "absorbance_transmittance",
+        "A = 1.00",
+    ),
+    (
+        "The percent transmittance is 10.0%. Find the absorbance.",
+        "absorbance_percent_transmittance",
+        "A = 1.00",
+    ),
+    (
+        "Use Kirchhoff's law. delta H = -50.0 kJ/mol, T1 = 298 K, T2 = 398 K, "
+        "and the heat capacity is 0.0400 kJ/(mol·K). Find the enthalpy.",
+        "kirchhoff",
+        "ΔH(T2) = -46.0 kJ/mol",
+    ),
+    (
+        "The observed specific rotation is 8.50 and the pure specific rotation is 17.0. "
+        "Find the optical purity.",
+        "optical_purity",
+        "Optical purity = 50.0%",
+    ),
+    (
+        "The organic concentration is 0.400 M and the aqueous concentration is 0.100 M. "
+        "Find the partition coefficient.",
+        "partition_coefficient",
+        "KD = 4.00",
+    ),
+    (
+        "The freezing point depression is 0.372 °C, Kf is 1.86 °C/m, "
+        "and the molality is 0.200 m. Find the van 't Hoff factor.",
+        "vant_hoff_factor",
+        "i = 1.00",
+    ),
 )

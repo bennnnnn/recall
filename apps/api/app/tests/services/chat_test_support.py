@@ -29,6 +29,7 @@ def offline_session_patches():
     return (
         patch("app.services.chat.stream.SessionLocal", FakeSessionCM),
         patch("app.services.chat.prompt_builder.SessionLocal", FakeSessionCM),
+        patch("app.services.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch("app.services.chat.turn_prep.attachments.SessionLocal", FakeSessionCM),
         patch("app.services.chat.turn_prep.context.SessionLocal", FakeSessionCM),
         patch("app.services.chat.turn_prep.integrations.SessionLocal", FakeSessionCM),

@@ -17,6 +17,7 @@ from app.models.orm import Chat, User
 from app.models.schemas.math import MathImageExtract
 from app.modules import web_search as web_search_service
 from app.modules.billing import plan as plan_service
+from app.modules.chemistry.followup import chemistry_followup_problem as resolve_chemistry_followup
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.modules.math.followup import math_working_followup_problem, offered_equation_problem
@@ -484,6 +485,8 @@ async def build_stream_prompt_context(
     physics_followup = None
     if math_followup_problem is None:
         chemistry_followup_problem = chemistry_working_followup_problem(content, followup_history)
+        if chemistry_followup_problem is None:
+            chemistry_followup_problem = resolve_chemistry_followup(content, followup_history)
     if math_followup_problem is None and chemistry_followup_problem is None:
         physics_followup = physics_followup_problem(content, followup_history)
 

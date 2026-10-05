@@ -541,3 +541,38 @@ def test_a_rounded_whole_number_is_not_mistaken_for_measured_zeros(
     value: float, figures: int, shown: str
 ) -> None:
     assert format_number(value, significant=figures, keep_zeros=True) == shown
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        # A charge is missing, so the sum is not the ionic strength.
+        "The cation concentration is 0.10 M and the cation charge is 2. "
+        "The anion concentration is 0.20 M. Find the ionic strength.",
+        # A third ion is not folded into the two-ion sum.
+        "The cation concentration is 0.10 M and the cation charge is 2. "
+        "The anion concentration is 0.20 M and the anion charge is 1. "
+        "Another cation concentration is 0.050 M and its cation charge is 1. "
+        "Find the ionic strength.",
+        "Use the Debye-Huckel equation to find the activity coefficient.",
+        "The organic concentration is 0.400 M and the aqueous concentration is 0.100 M. "
+        "Find the partition coefficient after 3 successive extractions.",
+        "The observed specific rotation is 8.50. Find the optical purity.",
+        "Use Kirchhoff's law. delta H = -50.0 kJ/mol and T1 = 298 K. Find the enthalpy.",
+    ],
+)
+def test_a_closeout_law_declines_when_an_input_is_missing_or_extra(question: str) -> None:
+    assert extract_chemistry_intent(question) is None
+
+
+def test_transmittance_outside_zero_to_one_declines() -> None:
+    intent = extract_chemistry_intent("The transmittance is 2.00. Find the absorbance.")
+    assert intent is not None and intent.chemistry_op == "absorbance_transmittance"
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(intent)
+
+
+def test_the_van_t_hoff_factor_does_not_replace_the_temperature_change() -> None:
+    question = "Find the freezing point depression when i=1, Kf=1.86, and molality=0.5"
+    intent = extract_chemistry_intent(question)
+    assert intent is not None and intent.chemistry_op == "freezing_depression"

@@ -1330,8 +1330,9 @@ async def test_build_prompt_forces_rich_context_when_chat_has_attachment_chunks(
 
     with (
         patch("app.services.chat.prompt_builder.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.prompt_context.SessionLocal", _FakeSessionCM),
         patch(
-            "app.services.chat.prompt_builder.chats_repo.get_by_id",
+            "app.services.chat.prompt_context.chats_repo.get_by_id",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -1389,8 +1390,9 @@ async def test_build_prompt_skips_attachment_rag_probe_when_disabled():
 
     with (
         patch("app.services.chat.prompt_builder.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.prompt_context.SessionLocal", _FakeSessionCM),
         patch(
-            "app.services.chat.prompt_builder.chats_repo.get_by_id",
+            "app.services.chat.prompt_context.chats_repo.get_by_id",
             AsyncMock(return_value=None),
         ),
         patch(
@@ -1457,6 +1459,7 @@ async def test_build_prompt_uses_preloaded_recent_without_list_recent():
 
     with (
         patch("app.services.chat.prompt_builder.SessionLocal", _FakeSessionCM),
+        patch("app.services.chat.prompt_context.SessionLocal", _FakeSessionCM),
         patch("app.repositories.messages.list_recent", list_recent),
         patch(
             "app.modules.memory.get_memory_block",

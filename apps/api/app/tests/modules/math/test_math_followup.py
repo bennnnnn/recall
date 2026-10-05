@@ -17,7 +17,8 @@ from app.modules.math.followup import (
     readable_standalone_answer,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.services.chat.prompt_builder import _PromptContextBlocks, build_prompt_messages
+from app.services.chat.prompt_builder import build_prompt_messages
+from app.services.chat.prompt_context import _PromptContextBlocks
 
 _EQUATION_ASK = "Solve 2x + 7 = 19"
 _EQUATION_RESULT = "x = 6"
