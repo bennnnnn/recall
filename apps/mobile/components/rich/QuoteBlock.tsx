@@ -9,14 +9,14 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { IconSize } from "@/ui/icons/sizes";
 
-type Props = { quote?: string; author?: string; children?: ReactNode };
+type Props = { quote?: string; author?: string; children?: ReactNode; testID?: string };
 
-export function QuoteBlock({ quote, author, children }: Props) {
+export function QuoteBlock({ quote, author, children, testID }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (
-    <View style={s.wrap}>
+    <View style={s.wrap} testID={testID}>
       <Icon
         name="message-quote"
         size={IconSize.sm}

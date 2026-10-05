@@ -280,7 +280,7 @@ export function unwrapNonCodeFences(content: string): string {
   return mapClosedFences(content, (info, body, original) => {
     const lang = parseFenceLang((info || "").trim());
     const l = lang.toLowerCase();
-    if (isStructuredFenceLang(l) || l === "details" || l === "math" || isHtmlFenceLang(l)) {
+    if (isStructuredFenceLang(l) || l === "math" || isHtmlFenceLang(l)) {
       return original;
     }
 

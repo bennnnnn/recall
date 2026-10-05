@@ -406,4 +406,64 @@ $x^0=1$`}
     const { queryByTestId } = await render(<MarkdownContent content={content} />);
     expect(queryByTestId("lesson-step")).toBeNull();
   });
+
+  it("renders a citation whose last line is — Name as a quote card", async () => {
+    const { getByTestId, getByText } = await render(
+      <MarkdownContent content={"> To be or not to be.\n> — Shakespeare"} />,
+    );
+    expect(getByTestId("quote-card")).toBeOnTheScreen();
+    expect(getByText(/To be or not to be/)).toBeOnTheScreen();
+    expect(getByText(/Shakespeare/)).toBeOnTheScreen();
+  });
+
+  it("renders a citation whose last line is -- Name as a quote card", async () => {
+    const { getByTestId, getByText } = await render(
+      <MarkdownContent content={"> We are such stuff as dreams are made on.\n> -- Prospero"} />,
+    );
+    expect(getByTestId("quote-card")).toBeOnTheScreen();
+    expect(getByText(/dreams are made on/)).toBeOnTheScreen();
+    expect(getByText("— Prospero")).toBeOnTheScreen();
+  });
+
+  it("renders a hint blockquote as indented prose, not a quote card", async () => {
+    const { getByTestId, getByText, queryByTestId, toJSON } = await render(
+      <MarkdownContent content={"> Hint: try the reciprocal"} />,
+    );
+    expect(getByText(/try the reciprocal/)).toBeOnTheScreen();
+    expect(getByTestId("indented-prose")).toBeOnTheScreen();
+    expect(queryByTestId("quote-card")).toBeNull();
+    expect(queryByTestId("callout-note")).toBeNull();
+    expect(JSON.stringify(toJSON())).not.toContain("lightbulb");
+    expect(JSON.stringify(toJSON())).not.toContain("message-quote");
+  });
+
+  it("renders Warning and Note blockquotes as callouts", async () => {
+    const { getByTestId, getByText, queryByTestId } = await render(
+      <MarkdownContent
+        content={"> Warning: hot surface\n\n> Note: check the units"}
+      />,
+    );
+    expect(getByTestId("callout-warning")).toBeOnTheScreen();
+    expect(getByTestId("callout-note")).toBeOnTheScreen();
+    expect(getByText(/hot surface/)).toBeOnTheScreen();
+    expect(getByText(/check the units/)).toBeOnTheScreen();
+    expect(queryByTestId("quote-card")).toBeNull();
+    expect(queryByTestId("indented-prose")).toBeNull();
+  });
+
+  it("does not render Tip as a card and shows no lightbulb", async () => {
+    const { getByText, queryByTestId, toJSON } = await render(
+      <MarkdownContent content={"> Tip: save your work"} />,
+    );
+    expect(getByText(/save your work/)).toBeOnTheScreen();
+    expect(queryByTestId("callout-tip")).toBeNull();
+    expect(queryByTestId("quote-card")).toBeNull();
+    expect(JSON.stringify(toJSON())).not.toContain("lightbulb");
+
+    const legacy = await render(
+      <MarkdownContent content={"```tip\nsave a copy\n```"} />,
+    );
+    expect(legacy.getByText(/save a copy/)).toBeOnTheScreen();
+    expect(JSON.stringify(legacy.toJSON())).not.toContain("lightbulb");
+  });
 });

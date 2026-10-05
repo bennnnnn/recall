@@ -106,7 +106,9 @@ def test_day_planning_answer_hint_uses_plain_markdown_not_callout_cards():
     assert "Only mention Calendar or Gmail" in DAY_PLANNING_ANSWER_HINT
     assert "ordinary markdown prose" in DAY_PLANNING_ANSWER_HINT
     assert "Never a card" in DAY_PLANNING_ANSWER_HINT
-    assert "quote card" in DAY_PLANNING_ANSWER_HINT
+    assert "A `>` line renders as a quote card." not in DAY_PLANNING_ANSWER_HINT
+    assert "ordinary indented prose" in DAY_PLANNING_ANSWER_HINT
+    assert "quote card only when the last line is `— Name`" in DAY_PLANNING_ANSWER_HINT
     assert "both disconnected blocks are present" in DAY_PLANNING_ANSWER_HINT
     assert "Do not offer a setup walkthrough" in DAY_PLANNING_ANSWER_HINT
     assert "Settings → Google Calendar" in DAY_PLANNING_ANSWER_HINT
@@ -128,7 +130,9 @@ def test_day_plan_style_hints_include_snapshot_and_override_format_contract_call
     )
     assert DAY_PLANNING_ANSWER_HINT in parts
     joined = "\n".join(parts)
-    assert "Callouts: a blockquote starting with Tip:" in joined
+    assert "a blockquote starting with Tip:" not in joined
+    assert "A `>` quote card is only a cited quotation whose last line is " in joined
+    assert "> Warning:" in joined
     assert "Never a card" in joined
     assert "quote card" in joined
     assert "Skip a product with no block" in joined

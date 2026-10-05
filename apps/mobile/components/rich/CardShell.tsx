@@ -23,6 +23,7 @@ type Props = {
   accent?: boolean;
   /** Extra header controls (edit, Gmail, …). Replaces the default Copy button. */
   headerActions?: ReactNode;
+  testID?: string;
   children: ReactNode;
 };
 
@@ -36,6 +37,7 @@ export function CardShell({
   accentColor,
   accent = true,
   headerActions,
+  testID,
   children,
 }: Props) {
   const theme = useTheme();
@@ -44,6 +46,7 @@ export function CardShell({
 
   return (
     <View
+      testID={testID}
       style={[
         s.wrap,
         accent ? { borderLeftColor: resolvedAccent } : s.wrapEven,

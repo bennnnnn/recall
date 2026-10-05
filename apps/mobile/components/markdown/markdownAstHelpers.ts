@@ -1,4 +1,4 @@
-import { isStandaloneUrl } from "@/lib/richBlocks";
+import { citationAuthor, isStandaloneUrl } from "@/lib/richBlocks";
 
 export type AstNode = {
   key: string;
@@ -86,6 +86,40 @@ export function inHeading(parent: unknown): boolean {
 export function astText(node: AstNode): string {
   if (node.content) return node.content;
   return (node.children ?? []).map(astText).join("");
+}
+
+/**
+ * A blockquote is a quote card only when an earlier line is the quotation and
+ * the last line is `— Name` or `-- Name`.
+ *
+ * `author` is set when that line is its own block (QuoteBlock prints it).
+ * It is null when the line already sits inside the quotation paragraph.
+ */
+export function blockquoteCitation(
+  node: AstNode,
+): { author: string | null; bodyCount: number } | null {
+  const children = node.children ?? [];
+  let last = -1;
+  for (let i = children.length - 1; i >= 0; i -= 1) {
+    if (astTextWithBreaks(children[i]!).trim()) {
+      last = i;
+      break;
+    }
+  }
+  if (last < 0) return null;
+  const lines = astTextWithBreaks(children[last]!)
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+  const author = citationAuthor(lines[lines.length - 1] ?? "");
+  if (!author) return null;
+  const quoteInLast = lines.slice(0, -1).join("\n").trim();
+  const prior = children
+    .slice(0, last)
+    .some((child) => astTextWithBreaks(child).trim().length > 0);
+  if (!quoteInLast && !prior) return null;
+  if (!quoteInLast) return { author, bodyCount: last };
+  return { author: null, bodyCount: last + 1 };
 }
 
 /** Like `astText`, but soft/hard breaks and block siblings become newlines. */

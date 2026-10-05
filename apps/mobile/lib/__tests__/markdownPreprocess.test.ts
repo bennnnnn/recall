@@ -97,12 +97,52 @@ describe("preprocessMarkdown", () => {
     expect(out).toContain("**Atelier Crenn**");
   });
 
-  it("promotes > Tip: / > Warning: blockquotes into callout fences", () => {
-    const out = preprocessMarkdown("> Tip: wear gloves\n>\n> Warning: hot surface");
-    expect(out).toContain("```callout-tip");
-    expect(out).toContain("wear gloves");
+  it("promotes Warning and Note blockquotes into callouts, not Tip", () => {
+    const out = preprocessMarkdown(
+      "> Tip: wear gloves\n>\n> Warning: hot surface\n>\n> Note: check the units",
+    );
+    expect(out).not.toContain("```callout-tip");
+    expect(out).toContain("> Tip: wear gloves");
     expect(out).toContain("```callout-warning");
     expect(out).toContain("hot surface");
+    expect(out).toContain("```callout-note");
+    expect(out).toContain("check the units");
+  });
+
+  it("does not promote Hint or GitHub tip, important, and info alerts into cards", () => {
+    const out = preprocessMarkdown(
+      "> Hint: try factoring\n\n> [!TIP]\n> save a copy\n\n> [!IMPORTANT]\n> read this\n\n> [!INFO]\n> extra\n",
+    );
+    expect(out).not.toContain("```callout");
+    expect(out).toContain("try factoring");
+    expect(out).toContain("save a copy");
+    expect(out).not.toContain("[!TIP]");
+    expect(out).not.toContain("[!IMPORTANT]");
+    expect(out).not.toContain("[!INFO]");
+  });
+
+  it("keeps GitHub warning and note alerts as callouts", () => {
+    const out = preprocessMarkdown("> [!WARNING]\n> hot\n\n> [!NOTE]\n> units\n");
+    expect(out).toContain("```callout-warning");
+    expect(out).toContain("```callout-note");
+    expect(out).toContain("hot");
+    expect(out).toContain("units");
+  });
+
+  it("unwraps details fences and HTML details into a bold title and markdown", () => {
+    const fenced = preprocessMarkdown(
+      "```details\nClick for answer\n$x^2$\n- one\n```",
+    );
+    expect(fenced).toContain("**Click for answer**");
+    expect(fenced).toContain("- one");
+    expect(fenced).not.toContain("```details");
+
+    const html = preprocessMarkdown(
+      "<details><summary>Click for answer</summary>\n$x=2$\n</details>",
+    );
+    expect(html).toContain("**Click for answer**");
+    expect(html).not.toContain("<details");
+    expect(html).not.toContain("```details");
   });
 
   it("does not turn a plain Calendar/Gmail connect sentence into a callout card", () => {

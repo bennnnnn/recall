@@ -1,7 +1,10 @@
-import { applyOutsideFences } from "@/lib/mdFenceScan";
+import { parseFenceLang } from "@/lib/codeHighlight";
+import { applyOutsideFences, mapClosedFences } from "@/lib/mdFenceScan";
 
-const DETAILS_HTML_RE =
-  /<details>\s*<summary>([\s\S]*?)<\/summary>\s*([\s\S]*?)<\/details>/gim;
+const DETAILS_FENCE_LANGS = new Set(["details", "collapse", "summary"]);
+const DETAILS_WITH_SUMMARY_RE =
+  /<details\b[^>]*>\s*<summary>([\s\S]*?)<\/summary>\s*([\s\S]*?)<\/details>/gi;
+const DETAILS_BARE_RE = /<details\b[^>]*>([\s\S]*?)<\/details>/gi;
 
 /**
  * Models occasionally leave padding before a closing bold delimiter:
@@ -149,13 +152,56 @@ export function breakMidlineAtxHeadings(content: string): string {
   return out.join("\n");
 }
 
+function boldDetailsTitle(title: string): string {
+  const cleaned = title
+    .replace(/<[^>]+>/g, "")
+    .replace(/\*\*/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!cleaned) return "";
+  return `**${cleaned}**`;
+}
+
+function detailsToMarkdown(title: string, body: string): string {
+  const heading = boldDetailsTitle(title);
+  const text = body.replace(/^\n+/, "").replace(/\n+$/, "");
+  if (heading && text) return `\n${heading}\n\n${text}\n`;
+  if (heading) return `\n${heading}\n`;
+  if (text) return `\n${text}\n`;
+  return "\n";
+}
+
+function detailsFenceToMarkdown(info: string, body: string): string {
+  const lang = parseFenceLang(info);
+  const titleFromInfo = info.trim().slice(lang.length).trim();
+  if (titleFromInfo) return detailsToMarkdown(titleFromInfo, body);
+  const nl = body.indexOf("\n");
+  if (nl === -1) return detailsToMarkdown(body.trim(), "");
+  return detailsToMarkdown(body.slice(0, nl), body.slice(nl + 1));
+}
+
+/** Legacy collapsed answers become a bold title plus normal Markdown. */
 export function convertDetailsBlocks(content: string): string {
-  return content.replace(DETAILS_HTML_RE, (_m, title: string, body: string) => {
-    return `\n\`\`\`details ${title.trim()}\n${body.trim()}\n\`\`\`\n`;
+  const unwrapped = mapClosedFences(content, (info, body, original) => {
+    const lang = parseFenceLang(info);
+    if (!DETAILS_FENCE_LANGS.has(lang)) return original;
+    return detailsFenceToMarkdown(info, body);
+  });
+  return applyOutsideFences(unwrapped, (prose) => {
+    DETAILS_WITH_SUMMARY_RE.lastIndex = 0;
+    DETAILS_BARE_RE.lastIndex = 0;
+    const withSummary = prose.replace(
+      DETAILS_WITH_SUMMARY_RE,
+      (_m, title: string, body: string) => detailsToMarkdown(title, body),
+    );
+    DETAILS_BARE_RE.lastIndex = 0;
+    return withSummary.replace(DETAILS_BARE_RE, (_m, body: string) =>
+      detailsToMarkdown("", body),
+    );
   });
 }
 
-/** GitHub callouts, block math, and HTML details → fenced blocks the app understands. */
+/** Vega specs are retagged so they render as charts. */
 const VEGA_FENCE_LANGS = new Set(["", "json", "vega", "vega-lite", "chart", "plot"]);
 const VEGA_SCHEMA_MARKER = '"$schema"';
 const VEGA_SCHEMA_HOST = "vega.github.io/schema/";

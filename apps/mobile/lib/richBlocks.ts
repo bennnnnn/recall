@@ -18,11 +18,6 @@ export type ComparisonDraft = {
   right: string[];
 };
 
-export type CollapsibleDraft = {
-  title: string;
-  body: string;
-};
-
 export type SocialPlatform = "twitter" | "linkedin" | "facebook" | "instagram" | "generic";
 
 const SOCIAL_LANGS: Record<string, SocialPlatform> = {
@@ -188,17 +183,15 @@ export function parseComparison(text: string): ComparisonDraft | null {
   return { leftTitle, rightTitle, left, right };
 }
 
-export function parseCollapsible(lang: string, text: string): CollapsibleDraft {
-  const l = lang.trim().toLowerCase();
-  if (l === "details" || l === "collapse" || l === "summary") {
-    const nl = text.indexOf("\n");
-    if (nl === -1) return { title: text.trim() || "Details", body: "" };
-    return {
-      title: text.slice(0, nl).trim() || "Details",
-      body: text.slice(nl + 1).trim(),
-    };
-  }
-  return { title: "Details", body: text.trim() };
+const MAX_CITATION_AUTHOR_CHARS = 80;
+/** A citation's last line: `— Name` or `-- Name`. A single hyphen is not one. */
+const CITATION_AUTHOR_RE = /^(?:\u2014|--)\s+(\S(?:.*\S)?)\s*$/u;
+
+export function citationAuthor(line: string): string | null {
+  const match = line.trim().match(CITATION_AUTHOR_RE);
+  const author = match?.[1]?.trim() ?? "";
+  if (!author || author.length > MAX_CITATION_AUTHOR_CHARS) return null;
+  return author;
 }
 
 export function parseQuoteAttribution(text: string): {

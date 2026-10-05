@@ -113,8 +113,10 @@ def test_compact_tips_turn_uses_callout_blockquotes_not_plain_prose():
     assert CALLOUT_FORMAT_HINT in parts
     assert COMPACT_RESPONSE_FORMAT_HINT not in parts
     joined = "\n".join(parts)
-    assert "> Tip:" in joined
+    assert "> Tip:" not in joined
     assert "> Warning:" in joined
+    assert "> Note:" in joined
+    assert "Never for hints" in joined
     assert "No ## headings" not in joined
 
 

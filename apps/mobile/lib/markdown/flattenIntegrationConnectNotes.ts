@@ -1,6 +1,6 @@
 /**
  * Calendar/Gmail "not connected" copy must stay plain markdown.
- * Models wrap it in `>` (quote card) or `> Tip:` / `> Note:` (callout card).
+ * Models wrap it in `>` or a Note/Warning callout. Keep it as ordinary prose.
  */
 
 const CALLOUT_LABELS = ["tip:", "note:", "warning:", "important:", "info:"];

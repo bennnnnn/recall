@@ -16,15 +16,12 @@ function calloutMeta(
   {
     label: string;
     color: string;
-    icon:
-      | "lightbulb"
-      | "info"
-      | "warning"
-      | "alert-circle";
+    icon?: "info" | "warning" | "alert-circle";
   }
 > {
   return {
-    tip: { label: t("rich.callout_tip"), color: theme.success, icon: "lightbulb" },
+    // Legacy ```tip fences still resolve here. No tip icon — the lightbulb is gone.
+    tip: { label: t("rich.callout_tip"), color: theme.success },
     note: { label: t("rich.callout_note"), color: theme.primary, icon: "info" },
     info: { label: t("rich.callout_info"), color: theme.primary, icon: "info" },
     warning: { label: t("rich.callout_warning"), color: theme.warning, icon: "warning" },
@@ -51,6 +48,7 @@ export function CalloutBlock({ kind, content }: Props) {
 
   return (
     <CardShell
+      testID={`callout-${kind}`}
       label={title}
       labelContent={<RichMathBody content={title} style={s.title} />}
       icon={meta.icon}

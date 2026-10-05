@@ -307,4 +307,18 @@ describe("MarkdownContent math rendering", () => {
     expect(getByText("3 x = 3")).toBeOnTheScreen();
     expect(queryByText(/Simplify 3/)).toBeNull();
   });
+
+  it("unwraps a details fence so the body is markdown, not a collapsed card", async () => {
+    const { getByText, getByTestId, queryByText, queryByRole } = await render(
+      <MarkdownContent
+        content={"```details\nClick for answer\n$x^2$\n- first step\n```"}
+      />,
+    );
+    expect(getByText("Click for answer")).toBeOnTheScreen();
+    expect(getByText("first step")).toBeOnTheScreen();
+    expect(queryByText(/\$x/)).toBeNull();
+    expect(getByTestId("math-text-tall")).toBeOnTheScreen();
+    expect(getByTestId("math-script")).toHaveTextContent("2");
+    expect(queryByRole("button", { name: "Click for answer" })).toBeNull();
+  });
 });

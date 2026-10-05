@@ -418,7 +418,11 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "```comparison" not in FORMAT_CONTRACT
     assert "```details" not in FORMAT_CONTRACT
     assert "```answer" not in FORMAT_CONTRACT
-    assert "blockquote" in FORMAT_CONTRACT.lower() or "Tip:" in FORMAT_CONTRACT
+    assert "A `>` quote card is only a cited quotation whose last line is " in FORMAT_CONTRACT
+    assert "`— Name`" in FORMAT_CONTRACT
+    assert "> Warning:" in FORMAT_CONTRACT
+    assert "> Note:" in FORMAT_CONTRACT
+    assert "Tip:" not in FORMAT_CONTRACT
     assert "quoted italic paragraph" in FORMAT_CONTRACT
     assert "```email" in FORMAT_CONTRACT
     assert "```python" in FORMAT_CONTRACT
