@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { Redirect, useFocusEffect, useRouter, type Href } from "expo-router";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -23,11 +23,6 @@ import {
 import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import {
-  PHYSICS_CONSTANTS,
-  PHYSICS_FORMULA_COUNT,
-  PHYSICS_TOPICS,
-} from "@/features/physics/model/formulaReference";
 
 export default function SettingsScreen() {
   const { token, user, signOut } = useAuth();
@@ -173,16 +168,6 @@ export default function SettingsScreen() {
         </SettingsOverviewGroup>
 
         <SettingsOverviewGroup label={t("settings.support")}>
-          <SettingsOverviewRow
-            icon="book"
-            title={t("physics.reference.title")}
-            accessibilityHint={t("physics.reference.summary", {
-              formulaCount: PHYSICS_FORMULA_COUNT,
-              topicCount: PHYSICS_TOPICS.length,
-              constantCount: PHYSICS_CONSTANTS.length,
-            })}
-            onPress={() => router.push("/physics-reference" as Href)}
-          />
           <SettingsOverviewRow
             icon="help"
             title={t("settings.help")}
