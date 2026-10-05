@@ -63,5 +63,3 @@ def _law(
         binding=binding,
     )
     return ChemistryLaw(op, kind, spec, species, keep_units, labels)
-
-
