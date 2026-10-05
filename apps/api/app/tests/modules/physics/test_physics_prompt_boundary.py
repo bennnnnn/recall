@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.physics.prompt import _unverified_physics_note
 from app.services.chat.prompt_constants.math import MATH_SOLVER_HINT
 from app.services.chat.prompt_constants.physics import (
     PHYSICS_INTENT_HINT,
@@ -27,8 +28,16 @@ def test_math_prompt_contains_no_physics_policy() -> None:
 def test_physics_prompt_cannot_claim_an_unverified_result() -> None:
     lower = PHYSICS_INTENT_HINT.lower()
     assert "if no verified block is present, do not claim verification" in lower
-    assert "say when you are unsure" in lower
+    assert "never end on that heading" in lower
     assert "do not recompute" in lower
+
+
+def test_unverified_physics_note_must_finish_the_answer() -> None:
+    note = _unverified_physics_note()
+    assert "finish under Answer" in note
+    assert "Never end on the Answer heading" in note
+    assert "solve only one fragment" not in note
+    assert note.rstrip().endswith("Compute the result and write it under Answer.")
 
 
 def test_physics_working_contract_is_explicit_and_ordered() -> None:
