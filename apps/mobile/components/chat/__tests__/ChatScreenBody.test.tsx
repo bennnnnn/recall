@@ -79,7 +79,6 @@ const renderItem = jest.fn(({ item }: { item: Message }) => <Text>{item.content}
 const onScroll = jest.fn();
 const onScrollEnd = jest.fn();
 const onLoadOlder = jest.fn();
-const onSelectStarter = jest.fn();
 
 const baseProps: ChatScreenBodyProps = {
   layout: {
@@ -102,7 +101,6 @@ const baseProps: ChatScreenBodyProps = {
     onLoadOlder,
     onScroll,
     onScrollEnd,
-    onSelectStarter,
     header: null,
   },
   composer: {
@@ -170,7 +168,6 @@ describe("ChatScreenBody", () => {
         onLoadOlder,
         onScroll,
         onScrollEnd,
-        onSelectStarter,
         headerInset: 72,
         streamActive: false,
       }),
@@ -190,7 +187,6 @@ describe("ChatScreenBody", () => {
         onLoadOlder,
         onScroll,
         onScrollEnd,
-        onSelectStarter,
         streamActive: true,
       }),
     );

@@ -2,8 +2,7 @@
  * (keeps HomeProvider free of circular-module init races with Metro). */
 
 import i18n from "@/lib/i18n";
-import type { HomeScreen, HomeStarter } from "@/lib/api/types";
-import type { IconName } from "@/ui/icons/names";
+import type { HomeScreen } from "@/lib/api/types";
 
 export function localGreeting(now: Date = new Date()): string {
   const hour = now.getHours();
@@ -13,33 +12,12 @@ export function localGreeting(now: Date = new Date()): string {
   return i18n.t("chat.home.greeting_night");
 }
 
-/** First paint / empty-account chips — no assumed day history. */
-export function welcomeStarters(): HomeStarter[] {
-  return [
-    {
-      text: i18n.t("chat.home.starter_help_think"),
-      prompt: i18n.t("chat.home.starter_help_think_prompt"),
-      kind: "general",
-    },
-    {
-      text: i18n.t("chat.home.starter_what_can_you"),
-      prompt: i18n.t("chat.home.starter_what_can_you_prompt"),
-      kind: "general",
-    },
-  ];
-}
-
-/** Distinct chip icons so the two local starters scan as different actions. */
-export function welcomeStarterIcon(index: number): IconName {
-  return index === 0 ? "sparkles" : "help";
-}
-
 /** Sync placeholder so post-login home never paints a bare spinner. */
 export function instantHomePlaceholder(now: Date = new Date()): HomeScreen {
   return {
     greeting: localGreeting(now),
     subtitle: null,
     urgent_todos: [],
-    starters: welcomeStarters(),
+    starters: [],
   };
 }

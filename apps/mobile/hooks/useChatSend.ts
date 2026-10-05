@@ -30,7 +30,6 @@ import {
 } from "@/features/images/model/imageGenIntent";
 import { extractImageLookupQuery } from "@/features/images/model/imageLookupIntent";
 import { scheduleIdlePromise } from "@/lib/scheduleIdle";
-import { retireHomeGuidance } from "@/features/home/model/homeGuidancePrefs";
 import type { ClientGeo } from "@/lib/clientGeo";
 import {
   queryNeedsClientGeo,
@@ -109,7 +108,6 @@ type Options = {
   /** Current transcript — used to treat short follow-ups after image replies as revisions. */
   messages: Message[];
   selectedModel: string;
-  user: import("@/lib/api").User | null;
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
   t: (key: string) => string;
   onStreamBusy?: () => void;
@@ -145,7 +143,6 @@ export function useChatSend({
   setMessages,
   messages,
   selectedModel,
-  user,
   updateUser,
   t,
   onStreamBusy,
@@ -359,7 +356,6 @@ export function useChatSend({
         const imagePrompt = extractImageGenPromptFromThread(text, messages) ?? revision;
         if (imagePrompt) {
           if (imageGenerating) return;
-          if (user?.id) void retireHomeGuidance(user.id);
           sendInFlightRef.current = true;
           setSendPhase("preparing");
           const draftsPromise = flushEmailDrafts();
@@ -415,8 +411,6 @@ export function useChatSend({
       }
       const clientGeo = geoResult.clientGeo;
       setSendPhase(attached ? "uploading" : "preparing");
-
-      if (user?.id) void retireHomeGuidance(user.id);
 
       // Clear the composer immediately so the next draft can be typed.
       // Keep Send/Attach busy until the turn is accepted — an idle button
@@ -563,7 +557,6 @@ export function useChatSend({
       routeChatId,
       newMessageCountRef,
       selectedModel,
-      user,
       setMessages,
       prepareDraftChat,
       skipLoadForChatIdRef,

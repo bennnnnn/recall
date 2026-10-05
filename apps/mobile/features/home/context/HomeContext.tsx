@@ -98,7 +98,7 @@ export function HomeProvider({ children }: { children: ReactNode }) {
       resourceRef.current.clear();
       return;
     }
-    // Paint greeting + starters immediately — first sign-in must not sit on a
+    // Paint the greeting immediately — first sign-in must not sit on a
     // blank ActivityIndicator while /home is in flight.
     setScreen(instantHomePlaceholder());
     void refresh({ force: true });

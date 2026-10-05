@@ -19,7 +19,7 @@ import type { IconName } from "../icons/names";
 import { IconSize } from "../icons/sizes";
 
 /**
- * - `assist`: a tappable suggestion (home starters, follow-up ideas).
+ * - `assist`: a tappable suggestion (follow-up ideas).
  * - `filter`: one choice among several; `selected` turns it indigo.
  * - `input`: something the person added, with a remove button (skills).
  * - `tag`: a small read-only fact (salary, remote, a class's language).
@@ -52,7 +52,7 @@ type Props = {
   testID?: string;
 };
 
-/** One chip for the whole app, so starters, filters, skills and tags match. */
+/** One chip for the whole app, so suggestions, filters, skills and tags match. */
 export function Chip({
   label,
   variant = "assist",

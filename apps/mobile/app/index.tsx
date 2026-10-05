@@ -281,7 +281,6 @@ function ChatScreen() {
     setMessages,
     messages,
     selectedModel,
-    user,
     updateUser,
     t,
     onStreamBusy: handleStreamBusy,

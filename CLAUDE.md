@@ -128,7 +128,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
 | Suggestions | `modules/suggestions/` (HTTP `/suggestions`) | `features/suggestions/`; follow-up chips |
 | Todos / reminders | `modules/todos/` (HTTP `/todos`) | `features/todos/`; `app/todos.tsx` route only |
-| Home starters | `modules/home/` (HTTP `/home`) | `features/home/`; chat empty canvas |
+| Home | `modules/home/` (HTTP `/home`) | `features/home/`; greeting + one overdue reminder |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
 | Image gen (Pro) | `modules/images/` (HTTP `/images/generate`) | `features/images/`; composer send only |

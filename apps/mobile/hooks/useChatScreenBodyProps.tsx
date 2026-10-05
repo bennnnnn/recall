@@ -1,7 +1,5 @@
 import {
-  useEffect,
   useMemo,
-  useRef,
   useState,
   useCallback,
   type MutableRefObject,
@@ -237,31 +235,6 @@ export function useChatScreenBodyProps({
   const onLoadOlder = useCallback(() => {
     void loadOlderMessages();
   }, [loadOlderMessages]);
-  // "Pick up where we left off" starter carries the source chat_id so we open
-  // the original conversation (with its message history) instead of creating
-  // a new empty chat — otherwise the assistant has no context and tells the
-  // user it doesn't remember the topic.
-  const pendingStarterRef = useRef<{ chatId: string; prompt: string } | null>(null);
-  const onSelectStarter = useCallback(
-    (prompt: string, chatId?: string) => {
-      if (chatId) {
-        pendingStarterRef.current = { chatId, prompt };
-        router.setParams({ chatId });
-      } else {
-        void handleSend(prompt);
-      }
-    },
-    [handleSend, router],
-  );
-  // Fire the pending prompt once the target chat finishes loading.
-  useEffect(() => {
-    const pending = pendingStarterRef.current;
-    if (!pending || chatLoading) return;
-    if (routeChatId === pending.chatId) {
-      pendingStarterRef.current = null;
-      void handleSend(pending.prompt);
-    }
-  }, [routeChatId, chatLoading, handleSend]);
   const onSend = useCallback(
     (text?: string) => {
       void handleSend(text);
@@ -377,7 +350,6 @@ export function useChatScreenBodyProps({
       onLoadOlder,
       onScroll: handleScroll,
       onScrollEnd: handleScrollEnd,
-      onSelectStarter,
       header: listHeader,
       footer: listFooter,
       hideHomeStarters,
@@ -393,7 +365,6 @@ export function useChatScreenBodyProps({
       onLoadOlder,
       handleScroll,
       handleScrollEnd,
-      onSelectStarter,
       listHeader,
       listFooter,
       hideHomeStarters,

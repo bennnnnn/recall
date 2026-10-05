@@ -32,7 +32,6 @@ type Props = {
   onLoadOlder: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
-  onSelectStarter: (prompt: string, chatId?: string) => void;
   header?: ReactElement | null;
   hideHomeStarters?: boolean;
   listFooter?: ReactElement | null;
@@ -54,7 +53,6 @@ function ChatMessageListComponent({
   onLoadOlder,
   onScroll,
   onScrollEnd,
-  onSelectStarter,
   header,
   hideHomeStarters = false,
   listFooter = null,
@@ -162,7 +160,7 @@ function ChatMessageListComponent({
             <View style={[s.empty, { height: emptyHeight }]} />
           ) : (
             <View style={[s.empty, { height: emptyHeight }]}>
-              <HomeStarters onSelect={onSelectStarter} />
+              <HomeStarters />
             </View>
           )
         }

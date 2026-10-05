@@ -1,4 +1,4 @@
-"""Day-planning snapshot: home starters, inject, and connect-note copy."""
+"""Day-planning snapshot: inject and connect-note copy."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -6,7 +6,6 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.home.time_starters import time_starters
 from app.modules.integrations.calendar import (
     CALENDAR_HINT,
     format_not_connected_calendar_block,
@@ -27,8 +26,7 @@ from app.services.day_planning import (
     needs_gmail_for_day_planning,
 )
 
-# Every Home time-starter prompt plus the two welcome chips.
-# wants_gmail is False on reflection (inbox fetch skipped).
+# Day-planning phrases a person can type. wants_gmail is False on reflection.
 _HOME_STARTERS: list[tuple[str, bool, bool]] = [
     ("Help me plan my day based on what you know about me.", True, True),
     ("What should I focus on today?", True, True),
@@ -84,20 +82,6 @@ def test_home_starter_day_planning_and_gmail_flags(prompt, is_planning, wants_gm
     assert should_inject_calendar_block(prompt) is is_planning
     assert should_inject_gmail_block(prompt) is wants_gmail
     assert should_inject_todos_prompt([], query_text=prompt) is is_planning
-
-
-def test_every_time_starter_prompt_is_classified():
-    """Hour bands must not grow a starter the snapshot detector misses."""
-    user = MagicMock()
-    user.name = "Dev"
-    covered = {prompt for prompt, _, _ in _HOME_STARTERS}
-    for hour in range(24):
-        with patch(
-            "app.modules.home.time_starters.local_hour_for_tz",
-            return_value=hour,
-        ):
-            for starter in time_starters(user, MagicMock()):
-                assert starter.prompt in covered, starter.prompt
 
 
 def test_day_planning_answer_hint_uses_plain_markdown_not_callout_cards():

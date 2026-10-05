@@ -999,7 +999,6 @@ def test_home_runtime_code_has_one_owner() -> None:
     module_root = APP_ROOT / "modules" / "home"
     expected = {
         "api.py",
-        "integration_starters.py",
         "legacy_alias.py",
         "memory_starters.py",
         "time_starters.py",
