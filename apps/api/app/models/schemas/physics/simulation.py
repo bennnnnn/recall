@@ -96,6 +96,9 @@ SimulationType = Literal[
     "lever",
     "free_body",
     "vector_sum",
+    # A mass on a horizontal spring. The path is the displacement the graph
+    # already sampled; the client draws the coil out to the current sample.
+    "spring",
 ]
 
 # The one place a scene's `type` values are written down. Both the fence layer
@@ -113,6 +116,7 @@ _DEFAULT_TITLES: dict[str, str] = {
     "lever": "Moments",
     "free_body": "Free-Body Diagram",
     "vector_sum": "Forces",
+    "spring": "Spring",
 }
 
 
@@ -161,6 +165,9 @@ class SimulationBlockSpec(BaseModel):
     # is `pivot`, drawn as a wedge beneath it.
     beam: list[float] | None = None
     pivot: list[float] | None = None
+    # The fixed end of a spring, in world units. The coil is drawn from here
+    # to the mass, so the renderer never chooses a wall of its own.
+    anchor: list[float] | None = None
 
     @model_validator(mode="after")
     def coherent_scene(self) -> SimulationBlockSpec:
@@ -196,6 +203,14 @@ class SimulationBlockSpec(BaseModel):
         # makes a lever readable as a lever.
         if self.pivot is not None and self.beam is None:
             raise ValueError("a pivot requires a beam")
+        if self.anchor is not None and (
+            len(self.anchor) != 2 or not all(math.isfinite(v) for v in self.anchor)
+        ):
+            raise ValueError("anchor must be a finite [x, y] pair")
+        # Without a stated wall the coil would start at whatever edge the
+        # canvas happened to have, and that edge is not the spring.
+        if self.type == "spring" and (self.anchor is None or len(self.bodies) != 1):
+            raise ValueError("a spring scene needs one mass and an anchor")
         # Every body is walked by one shared clock, so paths of different
         # lengths would drift apart on screen — a two-body scene would show a
         # collision at the wrong moment.

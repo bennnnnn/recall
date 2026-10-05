@@ -26,7 +26,8 @@ export type SimulationKind =
   | "incline"
   | "lever"
   | "free_body"
-  | "vector_sum";
+  | "vector_sum"
+  | "spring";
 
 /**
  * An arrow the renderer cannot derive, so the solver states it.
@@ -76,6 +77,8 @@ export type SimulationSpec = {
   /** A rigid beam as its two ends, in world coords. */
   beam?: { x1: number; y1: number; x2: number; y2: number };
   pivot?: { x: number; y: number };
+  /** Fixed end of a spring, in world coords. The coil is drawn from here. */
+  anchor?: { x: number; y: number };
 };
 
 const MAX_BODIES = 4;
@@ -95,6 +98,7 @@ const SCENE_KINDS: readonly SimulationKind[] = [
   "lever",
   "free_body",
   "vector_sum",
+  "spring",
 ];
 const MAX_VECTORS = 6;
 
@@ -229,6 +233,15 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
     const py = finite(row.pivot[1]);
     if (px !== null && py !== null) pivot = { x: px, y: py };
   }
+  let anchor: { x: number; y: number } | undefined;
+  if (Array.isArray(row.anchor) && row.anchor.length === 2) {
+    const ax = finite(row.anchor[0]);
+    const ay = finite(row.anchor[1]);
+    if (ax !== null && ay !== null) anchor = { x: ax, y: ay };
+  }
+  // A spring with no wall would start the coil at the canvas edge, which is
+  // not the spring the solver sampled.
+  if (row.type === "spring" && (anchor === undefined || bodies.length !== 1)) return null;
 
   const inclineDeg = finite(row.incline_deg);
 
@@ -258,6 +271,7 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
     vectors,
     beam,
     pivot,
+    anchor,
   };
 }
 

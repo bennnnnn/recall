@@ -342,7 +342,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   without waiting on the language model. Trajectory ` ```graph ` fences only for
   kinematics/SUVAT (height or velocity against time), projectile (x-y path) and
   SHM (displacement against time); a speed/velocity ask plots `v(t)`, not
-  height. Trajectories and simulation scenes render in native Skia and autoplay;
+  height. A spring with a stated amplitude is also a scene: the mass walks that
+  sampled displacement, and the coil is drawn from a wall the solver states.
+  A period with no amplitude stays a graph, so the picture does not invent a
+  length. Trajectories and simulation scenes render in native Skia and autoplay;
   `=` stops and `<` restarts playback. A dot walks the sampled points, which the
   solver spaces by uniform time, so the motion is real rather than eased.
   Reduce Motion keeps the static curve. The solver gate is the union of those extractor cues, and every
@@ -876,6 +879,9 @@ The dedicated language-learning product (vocabulary classes, lesson maps, SM-2 p
 
 ## Deferred to upcoming version(s)
 A consolidated list of what's intentionally **not** (or only partially) in this version.
+
+- 🔜 **Verified biology** — not in this version. A photographed biology crop can still be sent as a picture. When a verified biology subject is added, it is its own module on `services/law_binding`, the way chemistry is. It is not more physics, and the subject chain stays the hardcoded math, physics, and chemistry order until that module exists.
+- 🔜 **Symbolic physics models** — checking an equation the user already wrote is not how a student asks. New school laws stay catalog bindings of the question's words.
 
 ### Already shipped (keep for audit trail)
 - ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds; `MCP_TOOL_LOOP_ENABLED`
