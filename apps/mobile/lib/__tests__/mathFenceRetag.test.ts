@@ -325,6 +325,11 @@ describe("mathFenceRetag", () => {
     it("leaves an unmatched lone $ untouched", () => {
       expect(stripEmbeddedDollarWraps("$5 + x")).toBe("$5 + x");
     });
+
+    it("keeps escaped currency dollars inside a display formula", () => {
+      const formula = String.raw`\$43 \text{/hour} \times 40 \text{ hours} = \mathbf{\$1,720\ per\ week}`;
+      expect(stripEmbeddedDollarWraps(formula)).toBe(formula);
+    });
   });
 
   it("does not swallow prose between two already-tagged math fences", () => {

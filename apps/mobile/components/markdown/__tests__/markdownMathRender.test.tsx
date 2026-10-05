@@ -325,6 +325,19 @@ describe("MarkdownContent math rendering", () => {
     expect(queryByText(/\\text|\\times|mathbf|[\uE000-\uE00F]/)).toBeNull();
   });
 
+  it("keeps the dollars in a display-math pay formula", async () => {
+    const { getByText, queryByText } = await render(
+      <MarkdownContent
+        content={String.raw`#### Weekly Pay:
+$$
+\$43 \text{/hour} \times 40 \text{ hours} = \mathbf{\$1,720\ per\ week}
+$$`}
+      />,
+    );
+    expect(getByText("$43 /hour × 40 hours = $1,720 per week")).toBeOnTheScreen();
+    expect(queryByText(/\\text|mathbf|[\uE000-\uE00F]/)).toBeNull();
+  });
+
   it("renders the same pay formula while the reply is still streaming", async () => {
     const content = String.raw`Weekly Pay:
 
