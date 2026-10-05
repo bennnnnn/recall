@@ -101,6 +101,65 @@ def test_an_angstrom_lattice_and_an_si_diffusion_coefficient() -> None:
     assert solve_chemistry(spread).answer == "⟨x²⟩ = 2.00 × 10^-4 cm²"
 
 
+@pytest.mark.parametrize(
+    ("question", "operation", "answer"),
+    [
+        (
+            "Mass number 56 and atomic number 26 how many neutrons",
+            "neutron_count",
+            "N = 30",
+        ),
+        (
+            "Oxygen has atomic number 8 and 10 electrons. What is the charge of the ion?",
+            "ion_charge",
+            "q = -2.0",
+        ),
+        (
+            "How many electrons fit in the shell with n = 5?",
+            "shell_capacity",
+            "N = 50",
+        ),
+        (
+            "2.00 mol of gas has a molar heat capacity of 37.0 J/(mol·K) and the temperature "
+            "rises by 5.00 K. How much heat is absorbed?",
+            "molar_heat",
+            "q = 370 J",
+        ),
+        (
+            "Freundlich constant KF = 4.00, concentration C = 3.00 M, and n = 1.00. What is q?",
+            "freundlich",
+            "q = 12.0",
+        ),
+        (
+            "Mw is 5000 g/mol and Mn is 10000 g/mol. What is the polydispersity?",
+            "polydispersity",
+            "Đ = 0.5000",
+        ),
+        (
+            "Step-growth polymerization has extent of reaction 0.980. Use Carothers and find Xn.",
+            "carothers",
+            "Xn = 50.0",
+        ),
+        (
+            "Stokes-Einstein at 20 °C, viscosity 1.00e-3 Pa·s, radius 0.150 nm. What is D?",
+            "stokes_einstein",
+            "D = 1.43 × 10^-9 m²/s",
+        ),
+        (
+            "K = 1.0e-5 at 298 K. What is the standard free-energy change?",
+            "gibbs_from_equilibrium",
+            "ΔG° = 29 kJ/mol",
+        ),
+    ],
+)
+def test_ordinary_wording_still_reaches_the_law(question: str, operation: str, answer: str) -> None:
+    assert detect_subject(question) == "chemistry"
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    assert intent.chemistry_op == operation
+    assert solve_chemistry(intent).answer == answer
+
+
 def test_carothers_declines_when_the_extent_reaches_one() -> None:
     intent = extract_chemistry_intent(
         "Use the Carothers equation. The extent of reaction is 1.00. "

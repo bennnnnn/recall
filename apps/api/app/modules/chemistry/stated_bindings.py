@@ -17,7 +17,7 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
     _law(
         "neutron_count",
         "nuclear",
-        ("number of neutrons", "neutron count"),
+        ("number of neutrons", "neutron count", "neutrons"),
         "dimensionless",
         (
             var("mass_number", "A", dimensionless=True, words=("mass number",), needs_words=True),
@@ -34,7 +34,7 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
     _law(
         "ion_charge",
         "structure",
-        ("ion charge",),
+        ("ion charge", "charge of the ion"),
         "dimensionless",
         (
             var(
@@ -52,14 +52,14 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
                 needs_words=True,
             ),
         ),
-        cues=("ion charge",),
+        cues=("ion charge", "charge of the ion"),
         excludes=("oxidation",),
         nonnegative=False,
     ),
     _law(
         "shell_capacity",
         "structure",
-        ("maximum electrons", "shell capacity"),
+        ("maximum electrons", "shell capacity", "electrons"),
         "dimensionless",
         (var("shell_n", "n", dimensionless=True, words=("n =", "shell"), needs_words=True),),
         cues=("shell",),
@@ -143,7 +143,13 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
                 words=("molar heat capacity",),
                 needs_words=True,
             ),
-            var("delta_t", "dT", "kelvin", words=("change",), needs_words=True),
+            var(
+                "delta_t",
+                "dT",
+                "kelvin",
+                words=("change", "rises by", "rose by", "increases by", "increased by"),
+                needs_words=True,
+            ),
         ),
         cues=("molar heat capacity",),
         nonnegative=False,
@@ -171,7 +177,7 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
     _law(
         "freundlich",
         "analytical",
-        ("adsorbed amount",),
+        ("adsorbed amount", "q"),
         "dimensionless",
         (
             var(
@@ -219,14 +225,14 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
                 "weight_average",
                 "Mw",
                 "gram / mole",
-                words=("weight-average", "weight average"),
+                words=("weight-average", "weight average", "mw"),
                 needs_words=True,
             ),
             var(
                 "number_average",
                 "Mn",
                 "gram / mole",
-                words=("number-average", "number average"),
+                words=("number-average", "number average", "mn"),
                 needs_words=True,
             ),
         ),
@@ -235,7 +241,7 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
     _law(
         "carothers",
         "organic",
-        ("degree of polymerization",),
+        ("degree of polymerization", "xn"),
         "dimensionless",
         (var("extent", "p", dimensionless=True, words=("extent",), needs_words=True),),
         cues=("carothers", "extent of reaction"),
@@ -472,7 +478,7 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
     _law(
         "stokes_einstein",
         "kinetics",
-        ("diffusion coefficient",),
+        ("diffusion coefficient", "d"),
         "meter ** 2 / second",
         (
             var("temperature", "T", "kelvin"),
