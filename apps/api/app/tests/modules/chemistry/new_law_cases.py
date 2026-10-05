@@ -14,7 +14,7 @@ Each answer was checked by hand to the figures the question's data carry:
 
 from __future__ import annotations
 
-NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
+_EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
     (
         "How many grams of NaCl are needed to make 500 mL of a 0.200 M NaCl solution?",
         "solution_mass",
@@ -333,3 +333,203 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "Λm = 0.0100 S·m²/mol",
     ),
 )
+
+STATED_LAW_CASES: tuple[tuple[str, str, str], ...] = (
+    (
+        "The mass number is 23 and the atomic number is 11. Find the number of neutrons.",
+        "neutron_count",
+        "N = 12",
+    ),
+    (
+        "The atomic number is 11 and the electron count is 10. Find the ion charge.",
+        "ion_charge",
+        "q = 1.0",
+    ),
+    (
+        "For the shell, n = 3. Find the maximum electrons.",
+        "shell_capacity",
+        "N = 18",
+    ),
+    (
+        "The bonding electron count is 8 and the antibonding electron count is 4. "
+        "Find the bond order.",
+        "bond_order",
+        "BO = 2.0",
+    ),
+    (
+        "The wavelength is 500 nm. Find the wavenumber.",
+        "wavenumber",
+        "ν̃ = 20000 1/cm",
+    ),
+    (
+        "The event count is 50 and the photon count is 200. Find the quantum yield.",
+        "quantum_yield",
+        "Φ = 0.25",
+    ),
+    (
+        "The octahedral splitting delta_o is 90.0 kJ/mol. Find the tetrahedral splitting.",
+        "tetrahedral_splitting",
+        "Δt = 40.0 kJ/mol",
+    ),
+    (
+        "A buffer has pKb = 4.74, the conjugate concentration is 0.100 M, "
+        "and the base concentration is 0.200 M. Find the pOH.",
+        "base_buffer_poh",
+        "pOH = 4.44",
+    ),
+    (
+        "n = 2.00 mol, the molar heat capacity is 75.0 J/(mol·K), "
+        "and the temperature change is 10.0 K. Find the heat.",
+        "molar_heat",
+        "q = 1500 J",
+    ),
+    (
+        "The current is 1.00 A and the time is 10.0 s. Find the moles of electrons.",
+        "electron_moles",
+        "n = 1.04 × 10^-4 mol",
+    ),
+    (
+        "Use the Hill equation. The ligand concentration is 2.00 M, "
+        "the Hill coefficient n = 1.00, and Kd = 2.00 M. Find the saturation.",
+        "hill_saturation",
+        "θ = 0.500",
+    ),
+    (
+        "Use the Freundlich isotherm. The Freundlich constant is 2.00, "
+        "the concentration is 4.00 M, and n = 2.00. Find the adsorbed amount.",
+        "freundlich",
+        "q = 4.00",
+    ),
+    (
+        "The polymer molar mass is 10000 g/mol and the repeat unit molar mass is 100 g/mol. "
+        "Find the degree of polymerization.",
+        "degree_of_polymerization",
+        "DP = 100",
+    ),
+    (
+        "The weight-average molar mass is 20000 g/mol and the number-average molar mass "
+        "is 10000 g/mol. Find the polydispersity.",
+        "polydispersity",
+        "Đ = 2.000",
+    ),
+    (
+        "Use the Carothers equation. The extent of reaction is 0.500. "
+        "Find the degree of polymerization.",
+        "carothers",
+        "Xn = 2.00",
+    ),
+    (
+        "The polymerization rate constant is 2.00 L/(mol·s), the monomer concentration "
+        "is 3.00 M, and the radical concentration is 4.00 M. Find the polymerization rate.",
+        "polymerization_rate",
+        "Rp = 24.0 mol/(L·s)",
+    ),
+    (
+        "Use the Butler-Volmer equation. The exchange current is 1.00e-6 A, "
+        "the transfer coefficient alpha is 0.500, n = 1.00 electrons, "
+        "the overpotential is 0.0100 V, and the temperature is 298 K. Find the current.",
+        "butler_volmer",
+        "i = 3.92 × 10^-7 A",
+    ),
+    (
+        "Use the Tafel equation. The intercept is 0.100 V, the slope is 0.120 V, "
+        "and the current is 0.0100 A. Find the overpotential.",
+        "tafel",
+        "η = -0.140 V",
+    ),
+    (
+        "The chemical potential is 1000 J/mol, the charge number z = 1.00, "
+        "and the potential is 0.100 V. Find the electrochemical potential.",
+        "electrochemical_potential",
+        "μ̃ = 1.06 × 10^4 J/mol",
+    ),
+    (
+        "The standard chemical potential is -10000 J/mol, the temperature is 298 K, "
+        "and the activity is 0.500. Find the chemical potential.",
+        "chemical_potential",
+        "μ = -1.17 × 10^4 J/mol",
+    ),
+    (
+        "The activity coefficient is 0.800, the concentration is 0.100 M, "
+        "and the standard concentration is 1.00 M. Find the activity.",
+        "activity",
+        "a = 0.0800",
+    ),
+    (
+        "Use the Larmor frequency. The gyromagnetic ratio is 2.675e8 "
+        "and the field is 1.00 T. Find the Larmor frequency.",
+        "larmor",
+        "ω = 2.68 × 10^8 rad/s",
+    ),
+    (
+        "The sample frequency is 4.00004e8 Hz, the reference frequency is 4.00000e8 Hz, "
+        "and the spectrometer frequency is 4.00000e8 Hz. Find the chemical shift.",
+        "chemical_shift",
+        "δ = 10.00 ppm",
+    ),
+    (
+        "Use a magnetic sector mass spectrometer. The field is 0.500 T, "
+        "the radius is 0.100 meter, and the voltage is 1000 V. Find the mass-to-charge ratio.",
+        "magnetic_sector",
+        "m/q = 1.25 × 10^-6 kg/C",
+    ),
+    (
+        "Use the cubic crystal spacing. The lattice constant is 0.400 nm, "
+        "h = 1, k = 1, and l = 1. Find the interplanar spacing.",
+        "cubic_spacing",
+        "d = 0.23 nm",
+    ),
+    (
+        "Use the lever rule. The alpha composition is 0.200, the beta composition is 0.800, "
+        "and the overall composition is 0.500. Find the alpha fraction.",
+        "lever_alpha",
+        "fα = 0.500",
+    ),
+    (
+        "Use the lever rule. The alpha composition is 0.200, the beta composition is 0.800, "
+        "and the overall composition is 0.500. Find the beta fraction.",
+        "lever_beta",
+        "fβ = 0.500",
+    ),
+    (
+        "The diffusion coefficient is 1.00e-5 cm^2/s and the time is 10.0 s. "
+        "Find the mean-square displacement.",
+        "mean_square_displacement",
+        "⟨x²⟩ = 2.00 × 10^-4 cm²",
+    ),
+    (
+        "Use the Stokes-Einstein equation. The temperature is 298 K, "
+        "the viscosity is 0.00100 Pa·s, and the radius is 1.00 nm. "
+        "Find the diffusion coefficient.",
+        "stokes_einstein",
+        "D = 2.18 × 10^-10 m²/s",
+    ),
+    (
+        "The standard deviation is 0.200 and the mean is 10.0. "
+        "Find the relative standard deviation.",
+        "relative_standard_deviation",
+        "RSD = 2.00%",
+    ),
+    (
+        "Ka = 1.00e-5 and [H+] = 1.00e-4 M. Find the conjugate fraction.",
+        "conjugate_fraction",
+        "αA− = 0.0909",
+    ),
+    (
+        "Ka = 1.00e-5 and [H+] = 1.00e-4 M. Find the acid fraction.",
+        "acid_fraction",
+        "αHA = 0.909",
+    ),
+    (
+        "Ka = 1.00e-5 and the pH is 4.00. Find the conjugate fraction.",
+        "conjugate_fraction_ph",
+        "αA− = 0.0909",
+    ),
+    (
+        "Ka = 1.00e-5 and the pH is 4.00. Find the acid fraction.",
+        "acid_fraction_ph",
+        "αHA = 0.909",
+    ),
+)
+
+NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (*_EARLIER_CASES, *STATED_LAW_CASES)

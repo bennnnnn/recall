@@ -68,7 +68,7 @@ def _law(
     )
 
 
-FORMULA_LAWS: dict[str, FormulaLaw] = {
+_BUILT_IN: dict[str, FormulaLaw] = {
     law.op: law
     for law in (
         _law(
@@ -713,3 +713,9 @@ FORMULA_LAWS: dict[str, FormulaLaw] = {
         ),
     )
 }
+
+from app.modules.chemistry.stated_laws import STATED_LAWS  # noqa: E402
+
+FORMULA_LAWS: dict[str, FormulaLaw] = {**_BUILT_IN, **STATED_LAWS}
+if len(FORMULA_LAWS) != len(_BUILT_IN) + len(STATED_LAWS):
+    raise RuntimeError("duplicate chemistry formula law")

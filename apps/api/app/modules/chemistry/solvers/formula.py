@@ -139,10 +139,20 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("percent transmittance must be between 0 and 100")
     if law.op == "van_der_waals_pressure" and values["volume"] <= values["n"] * values["b"]:
         raise SolveServiceError("volume must be greater than n b")
+    if law.op == "carothers" and values["extent"] >= 1:
+        raise SolveServiceError("the extent of reaction must be below 1")
+    if law.op in {"lever_alpha", "lever_beta"} and math.isclose(
+        values["alpha_composition"], values["beta_composition"]
+    ):
+        raise SolveServiceError("the two phase compositions must differ")
     try:
         result = evaluate(law.expression, values, CHEMISTRY_NOTATION)
     except (ValueError, ZeroDivisionError, OverflowError) as exc:
         raise SolveServiceError(f"{law.law_name} has no real answer here") from exc
+    if law.op == "neutron_count" and result < 0:
+        raise SolveServiceError("the mass number is smaller than the atomic number")
+    if law.op in {"lever_alpha", "lever_beta"} and not 0 <= result <= 1:
+        raise SolveServiceError("those compositions are not a tie line")
     shown = _with_unit(num(result), law.unit)
     names = {"formula": intent.formula or "", "target": intent.target or ""}
     units = {name: unit for name, _label, unit in law.given}

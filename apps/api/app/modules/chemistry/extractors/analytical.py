@@ -57,7 +57,9 @@ def _extract_statistics(text: str) -> ChemistryIntent | None:
             return ChemistryIntent(
                 kind="analytical", chemistry_op="standard_error", samples=samples
             )
-    if re.search(r"\bstandard deviation\b", text, re.IGNORECASE):
+    if re.search(r"\bstandard deviation\b", text, re.IGNORECASE) and not re.search(
+        r"\brelative standard deviation\b", text, re.IGNORECASE
+    ):
         samples = _number_list(text)
         if len(samples) >= 2:
             return ChemistryIntent(
