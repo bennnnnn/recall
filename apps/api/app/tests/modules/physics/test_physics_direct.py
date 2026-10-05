@@ -498,8 +498,10 @@ def test_post_impact_request_does_not_gain_a_verified_direct_answer() -> None:
 
 def test_a_photo_reply_does_not_repeat_the_verified_number_under_answer() -> None:
     verified = _verified(_ELECTRIC_FORCE)
+    shown = verified.display_answer
+    assert shown is not None
     prose = "**Given**\n\n$q = 2$ µC\n\n**Answer**\n\n0.216 N"
     finalized = validate_physics_fences(prose, verified=verified)
-    assert finalized.count(verified.display_answer) == 1
+    assert finalized.count(shown) == 1
     assert "```answer" in finalized
     assert "**Answer**" in finalized
