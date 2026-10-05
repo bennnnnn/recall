@@ -180,6 +180,9 @@ def _cop(text: str, lower: str) -> PhysicsIntent | None:
 
 
 def _ideal_gas(text: str) -> PhysicsIntent | None:
+    # PV = NkT counts molecules. PV = nRT must not claim that question.
+    if re.search(r"\b(?:molecules?|particles)\b", text, re.IGNORECASE):
+        return None
     pressure = _one(text, _PRESSURE)
     volume = _one(text, _VOLUME)
     moles = _one(text, r"mol|moles?")

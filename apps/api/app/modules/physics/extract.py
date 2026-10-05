@@ -31,11 +31,15 @@ __all__ = [
 
 _DIGIT_FREE_PHYSICS_RE = re.compile(
     r"\b(?:escape velocity|escape speed|orbital velocity|orbital speed|"
-    r"surface gravity|gravitational field strength|hawking temperature)\b"
+    r"surface gravity|gravitational field strength|hawking temperature|"
+    r"hawking power|hawking luminosity)\b"
     r"[^.?!]{0,60}?\b(?:earth|moon|mars|jupiter|sun)\b"
     r"|\b(?:earth|moon|mars|jupiter|sun)\b[^.?!]{0,60}?"
     r"\b(?:escape velocity|escape speed|orbital velocity|orbital speed|"
-    r"surface gravity|gravitational field strength|hawking temperature)\b",
+    r"surface gravity|gravitational field strength|hawking temperature|"
+    r"hawking power|hawking luminosity)\b"
+    r"|\bpair[- ]production\b[^.?!]{0,80}?\b(?:electron|proton|neutron|positron)\b"
+    r"|\b(?:electron|proton|neutron|positron)\b[^.?!]{0,80}?\bpair[- ]production\b",
     re.IGNORECASE,
 )
 

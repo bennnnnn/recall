@@ -285,6 +285,8 @@ _WORDS: dict[str, str] = {
     "dioptres": "1 / meter",
     "diopter": "1 / meter",
     "diopters": "1 / meter",
+    "/m^2": "1 / meter ** 2",
+    "1/m^2": "1 / meter ** 2",
     "/m^3": "1 / meter ** 3",
     "m^-3": "1 / meter ** 3",
     "per m^3": "1 / meter ** 3",

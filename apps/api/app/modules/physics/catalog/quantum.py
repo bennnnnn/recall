@@ -211,6 +211,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter",),
             inputs=(frozenset({"quantum_n"}),),
             cues=("bohr", "hydrogen"),
+            excludes=("hydrogen-like", "hydrogenic", "atomic number"),
             nonnegative=True,
         ),
     ),
