@@ -362,7 +362,7 @@ STATED_LAWS: dict[str, FormulaLaw] = {
             "field**2*radius**2/(2*voltage)",
             (
                 ("field", "B", "T"),
-                ("radius", "r", "m"),
+                ("radius", "r", "meter"),
                 ("voltage", "V", "V"),
             ),
             "m/q = ({field.value})² ({radius.value})² / (2 {voltage.value})",

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 
+from pint.errors import PintError
+
 from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry import sig_figs
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
@@ -78,7 +80,12 @@ def convert_quantity(value: float, unit: str, target: str) -> float:
     source, wanted = CHEMISTRY_UNITS.expression(unit), CHEMISTRY_UNITS.expression(target)
     if source is None or wanted is None:
         raise ValueError(f"no conversion from {unit} to {target}")
-    quantity = get_unit_registry().Quantity(value, source).to(wanted)
+    try:
+        quantity = get_unit_registry().Quantity(value, source).to(wanted)
+    except PintError as exc:
+        # A display conversion Pint refuses must not abort a solve whose value is
+        # already in the law's unit. "m" in this table is molal, not meter.
+        raise ValueError(f"no conversion from {unit} to {target}") from exc
     return float(quantity.magnitude)
 
 

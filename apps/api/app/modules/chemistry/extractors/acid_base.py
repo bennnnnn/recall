@@ -11,14 +11,18 @@ from app.modules.chemistry.extractors.parsing import (
     _search,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.services.law_binding.ask import ask_clause
 
 
 def _extract_ph(text: str) -> ChemistryIntent | None:
+    # pH has to be what was asked. A stated pH beside [H+] is a given, so a
+    # conjugate-fraction question is not answered as pH = 4.
+    asked = ask_clause(text) or ""
     h = _search(rf"\[H\+?\]\s*=\s*({_N})", text, flags=0)
-    if h is not None and re.search(r"\bpH\b", text):
+    if h is not None and re.search(r"\bpH\b", asked):
         return ChemistryIntent(kind="acid_base", chemistry_op="ph_from_h", params={"h": h})
     oh = _search(rf"\[OH-?\]\s*=\s*({_N})", text, flags=0)
-    if oh is not None and re.search(r"\bpOH\b", text):
+    if oh is not None and re.search(r"\bpOH\b", asked):
         return ChemistryIntent(kind="acid_base", chemistry_op="poh_from_oh", params={"oh": oh})
     poh = _search(rf"\bpOH\s*=\s*({_N})", text)
     if poh is not None and re.search(r"\bpH\b", text):

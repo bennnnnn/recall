@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A 10 cm magnetic-sector radius crashed, and an activity coefficient was verified as the activity.** Chemistry reads `m` as molal, and the law spelled the radius unit `m`, so echoing 10 cm asked Pint to convert molal into centimeters. `activity` also matches the start of `activity coefficient`. Spell the radius `meter`, and name that activity with `activity is` so a coefficient stays a coefficient.
+
+- **A conjugate-fraction question that also stated pH was verified as pH = 4.** The pH extractor treated any `[H+]` plus the word pH anywhere as "find the pH". pH has to be in the asked clause.
+
 - **"What about the kinetic energy" was rewritten onto an F = ma problem and still verified as the force.** The force extractor does not read the asked quantity, so the rewritten sentence still matched it. Accept a follow-up rewrite only when the verified block survives the ask guard.
 
 - **A telescope's two focal lengths were verified as m = −v/u.** "Objective" and "eyepiece" are lengths, and magnification from two distances does not say they are an object and an image. Exclude a telescope from that law and use M = f_o/f_e.
