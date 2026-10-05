@@ -67,6 +67,28 @@ const ORBIT = JSON.stringify({
   ground: false,
 });
 
+const SPRING = JSON.stringify({
+  type: "spring",
+  title: "Spring",
+  bodies: [
+    {
+      radius: 0.2,
+      role: "primary",
+      path: [
+        [-1, 0.2],
+        [0, 0.2],
+        [1, 0.2],
+      ],
+    },
+  ],
+  x_min: -2.4,
+  x_max: 1.5,
+  y_min: 0,
+  y_max: 1,
+  ground: true,
+  anchor: [-2, 0.2],
+});
+
 beforeEach(() => {
   mockUseReduceMotion.mockReturnValue(false);
 });
@@ -79,6 +101,18 @@ describe("SimulationBlock", () => {
     expect(getByTestId("simulation-arrow-velocity")).toBeTruthy();
     expect(getByTestId("simulation-arrow-gravity")).toBeTruthy();
     expect(getByTestId("simulation-ground")).toBeTruthy();
+  });
+
+  it("renders a spring from the wall the solver stated", async () => {
+    const { getByTestId, getByText, queryByTestId } = await render(
+      <SimulationBlock content={SPRING} />,
+    );
+
+    expect(getByText("Spring")).toBeTruthy();
+    expect(getByTestId("simulation-spring")).toBeTruthy();
+    expect(getByTestId("simulation-body")).toBeTruthy();
+    expect(getByTestId("simulation-ground")).toBeTruthy();
+    expect(queryByTestId("simulation-arrow-gravity")).toBeNull();
   });
 
   it("renders an orbit with its centre and a centripetal arrow", async () => {

@@ -107,6 +107,41 @@ function arrowPath(
   return path;
 }
 
+const COIL_COUNT = 8;
+const COIL_WIDTH = 8;
+
+function springPath(from: ScreenPoint, to: ScreenPoint) {
+  "worklet";
+  const path = Skia.Path.Make();
+  const dx = to.px - from.px;
+  const dy = to.py - from.py;
+  const length = Math.hypot(dx, dy);
+  path.moveTo(from.px, from.py);
+  if (length < 1) {
+    path.lineTo(to.px, to.py);
+    return path;
+  }
+  const ux = dx / length;
+  const uy = dy / length;
+  const px = -uy;
+  const py = ux;
+  const turns = COIL_COUNT * 2;
+  for (let i = 1; i < turns; i += 1) {
+    const along = (i / turns) * length;
+    const side = i % 2 === 0 ? COIL_WIDTH : -COIL_WIDTH;
+    path.lineTo(from.px + ux * along + px * side, from.py + uy * along + py * side);
+  }
+  path.lineTo(to.px, to.py);
+  return path;
+}
+
+function wallPath(point: ScreenPoint) {
+  const path = Skia.Path.Make();
+  path.moveTo(point.px, point.py - 16);
+  path.lineTo(point.px, point.py + 16);
+  return path;
+}
+
 function pivotPath(point: ScreenPoint) {
   const path = Skia.Path.Make();
   path.moveTo(point.px, point.py);
@@ -222,6 +257,10 @@ export function SimulationBlock({ content }: Props) {
       }
     : null;
   const pivot = spec.pivot ? worldToScreen(spec.pivot.x, spec.pivot.y, transform) : null;
+  const anchor =
+    spec.type === "spring" && spec.anchor
+      ? worldToScreen(spec.anchor.x, spec.anchor.y, transform)
+      : null;
 
   return (
     <View style={styles.wrap}>
@@ -270,6 +309,22 @@ export function SimulationBlock({ content }: Props) {
             />
           ) : null}
           {pivot ? <Path path={pivotPath(pivot)} color={theme.textSecondary} /> : null}
+          {anchor ? (
+            <Path
+              path={wallPath(anchor)}
+              color={theme.textSecondary}
+              style="stroke"
+              strokeWidth={2}
+            />
+          ) : null}
+          {anchor && tracks[0] ? (
+            <SpringCoil
+              anchor={anchor}
+              track={tracks[0]}
+              progress={progress}
+              color={theme.textSecondary}
+            />
+          ) : null}
           {spec.vectors.map((vector, index) => (
             <StatedVector
               key={`vector-${index}`}
@@ -314,6 +369,7 @@ export function SimulationBlock({ content }: Props) {
           centre={centre !== null}
           beam={beam !== null}
           pivot={pivot !== null}
+          spring={anchor !== null}
           reduceMotion={reduceMotion}
         />
       </View>
@@ -340,6 +396,23 @@ export function SimulationBlock({ content }: Props) {
       ) : null}
     </View>
   );
+}
+
+function SpringCoil({
+  anchor,
+  track,
+  progress,
+  color,
+}: {
+  anchor: ScreenPoint;
+  track: ScreenPoint[];
+  progress: SharedValue<number>;
+  color: string;
+}) {
+  const path = useDerivedValue(() =>
+    springPath(anchor, trajectoryPointAt(track, progress.value)),
+  );
+  return <Path path={path} color={color} style="stroke" strokeWidth={1.5} />;
 }
 
 function BodyMarks({
@@ -507,6 +580,7 @@ function SceneMarkers({
   centre,
   beam,
   pivot,
+  spring,
   reduceMotion,
 }: {
   spec: SimulationSpec;
@@ -514,6 +588,7 @@ function SceneMarkers({
   centre: boolean;
   beam: boolean;
   pivot: boolean;
+  spring: boolean;
   reduceMotion: boolean;
 }) {
   return (
@@ -523,6 +598,7 @@ function SceneMarkers({
       {beam ? <View testID="simulation-beam" style={markerStyle} /> : null}
       {pivot ? <View testID="simulation-pivot" style={markerStyle} /> : null}
       {centre ? <View testID="simulation-centre" style={markerStyle} /> : null}
+      {spring ? <View testID="simulation-spring" style={markerStyle} /> : null}
       {reduceMotion ? <View testID="simulation-static" style={markerStyle} /> : null}
       {spec.bodies.map((body, bodyIndex) => (
         <View key={`body-marker-${bodyIndex}`}>

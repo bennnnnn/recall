@@ -7,7 +7,7 @@ from __future__ import annotations
 import math
 
 from app.models.schemas.math import GraphBlockSpec
-from app.models.schemas.physics import PhysicsIntent
+from app.models.schemas.physics import PhysicsIntent, SimulationBlockSpec, SimulationBody
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
@@ -16,6 +16,47 @@ from app.modules.physics.solvers.common import (
     gravity_of,
 )
 from app.services.solving import SolveServiceError
+
+_SAMPLES = 100
+
+
+def _displacement_samples(t_period: float, amplitude: float) -> list[list[float]]:
+    """Two periods of x(t) = A cos(2πt/T), uniform in time."""
+    span = 2 * t_period
+    dt = span / (_SAMPLES - 1)
+    return [
+        [round(i * dt, 4), round(amplitude * math.cos(2 * math.pi * (i * dt) / t_period), 4)]
+        for i in range(_SAMPLES)
+    ]
+
+
+def _spring_scene(samples: list[list[float]], amplitude: float) -> SimulationBlockSpec:
+    """The mass walks the same displacement the graph plotted.
+
+    The graph's y column is position. The scene uses that column as x and
+    holds y, so a frame cannot sit somewhere the curve is not. The wall is
+    one amplitude left of the leftmost sample: close enough to read as a
+    spring, far enough that the coil never collapses onto the mass.
+    """
+    xs = [point[1] for point in samples]
+    radius = max(amplitude * 0.16, 0.02)
+    wall = min(xs) - amplitude
+    pad = amplitude * 0.45
+    return SimulationBlockSpec(
+        type="spring",
+        bodies=[
+            SimulationBody(
+                path=[[x, round(radius, 4)] for x in xs],
+                radius=radius,
+            )
+        ],
+        x_min=wall - pad,
+        x_max=max(xs) + pad,
+        y_min=0.0,
+        y_max=max(amplitude, radius * 4),
+        ground=True,
+        anchor=[wall, round(radius, 4)],
+    )
 
 
 def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSpec:
@@ -26,14 +67,9 @@ def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSp
     question is about — so when none is given the plot is normalised rather
     than invented.
     """
-    n_points = 100
-    span = 2 * t_period
-    dt = span / (n_points - 1)
     a_plot = abs(amplitude) if amplitude else 1.0
-    points = [
-        [round(i * dt, 4), round(a_plot * math.cos(2 * math.pi * (i * dt) / t_period), 4)]
-        for i in range(n_points)
-    ]
+    points = _displacement_samples(t_period, a_plot)
+    span = points[-1][0]
     return GraphBlockSpec(
         type="trajectory",
         expr=f"x(t) = {a_plot:g}*cos(2*pi*t/{t_period:.4g})",
@@ -46,6 +82,20 @@ def _oscillation_curve(t_period: float, amplitude: float | None) -> GraphBlockSp
         y_label="Displacement (m)" if amplitude else "Displacement (normalised)",
         trajectory_type="position_vs_time",
     )
+
+
+def _motion(
+    t_period: float, amplitude: float | None
+) -> tuple[GraphBlockSpec, list[SimulationBlockSpec]]:
+    """Graph always. A scene only when the amplitude is a stated length.
+
+    A normalised plot uses A = 1 so the shape is visible. Drawing that 1 as
+    metres would invent a swing the question never gave.
+    """
+    graph = _oscillation_curve(t_period, amplitude)
+    if amplitude is None or amplitude == 0:
+        return graph, []
+    return graph, [_spring_scene(graph.points, abs(amplitude))]
 
 
 def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
@@ -66,12 +116,14 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
             rf"T = 2\pi\sqrt{{\frac{{L}}{{g}}}} = 2\pi\sqrt{{\frac{{{length:g}}}{{{g:g}}}}} "
             rf"\approx {t_period:.2f} \text{{ s}}"
         )
+        graph, scene = _motion(t_period, p.get("x"))
         return PhysicsResult(
             answer=answer,
             formulas=(r"T = 2\pi\sqrt{\frac{L}{g}}",),
             substitutions=(rf"T = 2\pi\sqrt{{\frac{{{length:g}}}{{{g:g}}}}}",),
             quantities=(QuantityResult("", t_period, "s"),),
-            graph_specs=[_oscillation_curve(t_period, p.get("x"))],
+            graph_specs=[graph],
+            simulation_specs=scene,
         )
 
     # Like the pendulum above, these need no spring constant, so they are
@@ -81,6 +133,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         if t_period <= 0:
             raise SolveServiceError("period must be positive")
         freq = 1 / t_period
+        graph, scene = _motion(t_period, p.get("x"))
         return PhysicsResult(
             answer=(
                 rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
@@ -89,7 +142,8 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(r"f = \frac{1}{T}",),
             substitutions=(rf"f = \frac{{1}}{{{t_period:g}}}",),
             quantities=(QuantityResult("", freq, "Hz"),),
-            graph_specs=[_oscillation_curve(t_period, p.get("x"))],
+            graph_specs=[graph],
+            simulation_specs=scene,
         )
 
     if op == "shm_max_speed":
@@ -98,6 +152,7 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
         if amplitude <= 0 or omega <= 0:
             raise SolveServiceError("amplitude and angular frequency must be positive")
         v_max = amplitude * omega
+        graph, scene = _motion(2 * math.pi / omega, amplitude)
         return PhysicsResult(
             answer=(
                 rf"v_{{max}} = A\omega = {amplitude:g} \cdot {omega:g} "
@@ -106,7 +161,8 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(r"v_{max} = A\omega",),
             substitutions=(rf"v_{{max}} = {amplitude:g} \cdot {omega:g}",),
             quantities=(QuantityResult("", v_max, "m/s"),),
-            graph_specs=[_oscillation_curve(2 * math.pi / omega, amplitude)],
+            graph_specs=[graph],
+            simulation_specs=scene,
         )
 
     k = p["k"]
@@ -146,13 +202,14 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
             rf"\approx {t_period:.2f} \text{{ s}}"
         )
 
-        spec = _oscillation_curve(t_period, p.get("x"))
+        graph, scene = _motion(t_period, p.get("x"))
         return PhysicsResult(
             answer=answer,
             formulas=(r"T = 2\pi\sqrt{\frac{m}{k}}",),
             substitutions=(rf"T = 2\pi\sqrt{{\frac{{{m:g}}}{{{k:g}}}}}",),
             quantities=(QuantityResult("", t_period, "s"),),
-            graph_specs=[spec],
+            graph_specs=[graph],
+            simulation_specs=scene,
         )
 
     raise SolveServiceError(f"unsupported spring op: {op}")

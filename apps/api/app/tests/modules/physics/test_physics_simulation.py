@@ -528,6 +528,12 @@ def test_normal_and_friction_arrows_require_a_slope() -> None:
             SimulationBlockSpec(type="incline", bodies=[_body()], arrows=[arrow])  # type: ignore[list-item]
 
 
+def test_a_spring_scene_needs_its_wall() -> None:
+    """The coil is drawn from the anchor. A missing wall is not a scene."""
+    with pytest.raises(ValidationError):
+        SimulationBlockSpec(type="spring", bodies=[_body()])
+
+
 def test_a_vertical_slope_is_refused() -> None:
     """At 90 degrees it is not an incline, it is a drop."""
     with pytest.raises(ValidationError):
@@ -542,6 +548,9 @@ def test_each_scene_kind_has_its_own_default_title() -> None:
         ("incline", "Inclined Plane"),
     ]:
         assert SimulationBlockSpec(type=kind, bodies=[_body()]).title == title  # type: ignore[arg-type]
+    assert (
+        SimulationBlockSpec(type="spring", bodies=[_body()], anchor=[-1.0, 0.0]).title == "Spring"
+    )
 
 
 def test_the_fence_layer_knows_every_scene_kind() -> None:

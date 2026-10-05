@@ -131,6 +131,13 @@ def test_an_shm_period_emits_an_animatable_trajectory() -> None:
     assert max(ys) == pytest.approx(0.1, abs=1e-3)
     assert min(ys) == pytest.approx(-0.1, abs=1e-3)
 
+    # The scene walks that same displacement. Its x is the graph's y.
+    assert len(result.simulation_specs) == 1
+    scene = result.simulation_specs[0]
+    assert scene.type == "spring"
+    assert scene.anchor is not None
+    assert [point[0] for point in scene.bodies[0].path] == ys
+
 
 def test_an_unstated_amplitude_is_normalised_not_invented() -> None:
     """Amplitude only scales the y-axis; the period is what was asked.
@@ -143,9 +150,12 @@ def test_an_unstated_amplitude_is_normalised_not_invented() -> None:
     intent = extract_physics_intent("period of a 0.5 kg mass on a spring with k = 200 N/m")
     assert isinstance(intent, PhysicsIntent)
 
-    spec = solve_physics(intent).graph_specs[0]
+    result = solve_physics(intent)
+    spec = result.graph_specs[0]
     assert spec.y_label == "Displacement (normalised)"
     assert max(point[1] for point in spec.points) == pytest.approx(1.0, abs=1e-3)
+    # A = 1 here is a plot scale, not a metre. A scene would draw that fiction.
+    assert result.simulation_specs == []
 
 
 # --- the physics ------------------------------------------------------------
@@ -322,6 +332,8 @@ def test_the_pendulum_emits_the_same_animatable_curve_as_the_spring() -> None:
     # One period-and-a-bit: the curve must come back to where it started.
     assert spec.points[0][1] == pytest.approx(1.0)
     assert spec.points[-1][1] == pytest.approx(1.0, abs=1e-3)
+    # No stated swing angle, so there is no bob path to sample.
+    assert result.simulation_specs == []
 
 
 def test_the_spring_period_is_untouched() -> None:

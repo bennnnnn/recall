@@ -88,6 +88,34 @@ describe("parseSimulationSpec", () => {
     expect(spec!.ground).toBe(true);
   });
 
+  it("reads a spring scene only when the wall is stated", () => {
+    const spring = {
+      type: "spring",
+      bodies: [
+        {
+          radius: 0.2,
+          role: "primary",
+          path: [
+            [-1, 0.2],
+            [0, 0.2],
+            [1, 0.2],
+          ],
+        },
+      ],
+      x_min: -2,
+      x_max: 1.5,
+      y_min: 0,
+      y_max: 1,
+      ground: true,
+      anchor: [-1.8, 0.2],
+    };
+
+    const spec = parse(spring);
+    expect(spec!.type).toBe("spring");
+    expect(spec!.anchor).toEqual({ x: -1.8, y: 0.2 });
+    expect(parse({ ...spring, anchor: undefined })).toBeNull();
+  });
+
   it("reads an orbit scene with its centre", () => {
     const spec = parse(ORBIT);
 
