@@ -241,7 +241,10 @@ def test_a_speed_ask_plots_velocity_even_when_a_height_is_given() -> None:
     result = solve_physics(intent)
     assert result.answer_value == "9.81 m/s"
     assert len(result.graph_specs) == 1
-    assert result.graph_specs[0].trajectory_type == "velocity_vs_time"
+    spec = result.graph_specs[0]
+    assert spec.trajectory_type == "velocity_vs_time"
+    assert spec.points[-1][0] == pytest.approx(1.0, abs=1e-4)
+    assert spec.points[-1][1] == pytest.approx(9.81, abs=1e-3)
 
 
 def test_a_height_ask_still_plots_height() -> None:
@@ -254,7 +257,12 @@ def test_a_height_ask_still_plots_height() -> None:
     result = solve_physics(intent)
     assert result.answer_value == "30.4 m"
     assert len(result.graph_specs) == 1
-    assert result.graph_specs[0].trajectory_type == "position_vs_time"
+    spec = result.graph_specs[0]
+    assert spec.trajectory_type == "position_vs_time"
+    # The marker is the height at 2 s (30.38 m), not a sample past that instant.
+    assert spec.x_max == pytest.approx(2.0)
+    assert spec.points[-1][0] == pytest.approx(2.0, abs=1e-4)
+    assert spec.points[-1][1] == pytest.approx(30.38, abs=1e-3)
 
 
 def test_a_flat_height_curve_is_still_withheld() -> None:
