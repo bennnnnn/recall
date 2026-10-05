@@ -881,7 +881,7 @@ The dedicated language-learning product (vocabulary classes, lesson maps, SM-2 p
 A consolidated list of what's intentionally **not** (or only partially) in this version.
 
 - 🔜 **Verified biology** — not in this version. A photographed biology crop can still be sent as a picture. When a verified biology subject is added, it is its own module on `services/law_binding`, the way chemistry is. It is not more physics, and the subject chain stays the hardcoded math, physics, and chemistry order until that module exists.
-- 🔜 **Symbolic physics models** — checking an equation the user already wrote is not how a student asks. New school laws stay catalog bindings of the question's words.
+- ✅ **Symbolic physics models** — a stated equation can be checked. A school question is still a catalog binding of the words the student used. New coverage grows that way, one law at a time.
 
 ### Already shipped (keep for audit trail)
 - ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds; `MCP_TOOL_LOOP_ENABLED`
