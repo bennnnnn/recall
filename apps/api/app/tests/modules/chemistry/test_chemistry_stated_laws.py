@@ -62,6 +62,45 @@ def test_a_stated_law_declines_when_an_input_is_missing(question: str) -> None:
     assert extract_chemistry_intent(question) is None
 
 
+def test_a_centimeter_radius_is_a_length_in_the_magnetic_sector() -> None:
+    question = (
+        "Use a magnetic sector mass spectrometer. The field is 0.500 T, "
+        "the radius is 10.0 cm, and the voltage is 1000 V. Find the mass-to-charge ratio."
+    )
+    intent = extract_chemistry_intent(question)
+    assert intent is not None
+    assert intent.chemistry_op == "magnetic_sector"
+    assert solve_chemistry(intent).answer == "m/q = 1.25 × 10^-6 kg/C"
+
+
+def test_an_activity_coefficient_is_not_the_activity() -> None:
+    question = (
+        "The standard chemical potential is -10000 J/mol and the temperature is 298 K. "
+        "The activity coefficient is 0.800. Find the chemical potential."
+    )
+    assert extract_chemistry_intent(question) is None
+
+
+def test_a_stated_ph_does_not_turn_a_fraction_into_a_ph() -> None:
+    question = "Ka = 1.00e-5, [H+] = 1.00e-4 M, and the pH is 4.00. Find the conjugate fraction."
+    assert extract_chemistry_intent(question) is None
+
+
+def test_an_angstrom_lattice_and_an_si_diffusion_coefficient() -> None:
+    spacing = extract_chemistry_intent(
+        "Use the cubic crystal spacing. The lattice constant is 4.00 angstrom, "
+        "h = 1, k = 0, and l = 0. Find the interplanar spacing."
+    )
+    assert spacing is not None
+    assert solve_chemistry(spacing).answer == "d = 0.40 nm"
+    spread = extract_chemistry_intent(
+        "The diffusion coefficient is 1.00e-9 m^2/s and the time is 10.0 s. "
+        "Find the mean-square displacement."
+    )
+    assert spread is not None
+    assert solve_chemistry(spread).answer == "⟨x²⟩ = 2.00 × 10^-4 cm²"
+
+
 def test_carothers_declines_when_the_extent_reaches_one() -> None:
     intent = extract_chemistry_intent(
         "Use the Carothers equation. The extent of reaction is 1.00. "

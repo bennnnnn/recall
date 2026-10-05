@@ -319,7 +319,13 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         (
             var("standard_potential", "mu0", _PER_MOL, words=("standard",), needs_words=True),
             var("temperature", "T", "kelvin"),
-            var("activity", "a", dimensionless=True, words=("activity",), needs_words=True),
+            var(
+                "activity",
+                "a",
+                dimensionless=True,
+                words=("activity is", "activity =", "activity of"),
+                needs_words=True,
+            ),
         ),
         cues=("chemical potential",),
         excludes=("electrochemical",),
