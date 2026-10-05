@@ -62,6 +62,9 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
         )
         if area is None or spacing is None:
             return None
+        # A stated dielectric is C = κ ε0 A / d. The vacuum formula would drop κ.
+        if "dielectric" in lower or "kappa" in lower:
+            return None
         return PhysicsIntent(
             kind="circuit",
             physics_op="parallel_plate_capacitance",

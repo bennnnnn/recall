@@ -22,6 +22,7 @@ from app.modules.physics.solvers.common import (
     _PLANCK_H,
     _RYDBERG,
     _SPEED_OF_LIGHT,
+    _STEFAN_BOLTZMANN,
 )
 from app.services.law_binding import expression as _shared
 from app.services.law_binding.expression import ExpressionError, Notation, parse
@@ -44,6 +45,7 @@ PHYSICS_NOTATION = Notation(
         "hbar": (_HBAR, r"\hbar"),
         "R_inf": (_RYDBERG, r"R_\infty"),
         "a_0": (_BOHR_RADIUS, "a_0"),
+        "sigma": (_STEFAN_BOLTZMANN, r"\sigma"),
     },
     number=latex_given,
 )

@@ -62,6 +62,9 @@ def _particle_in_box(cleaned: str) -> PhysicsIntent | None:
 
 def _hydrogen_level(cleaned: str) -> PhysicsIntent | None:
     """The energy of one hydrogen level."""
+    # Z = 1 is this law. A stated atomic number is the hydrogen-like formula.
+    if re.search(r"hydrogen-like|hydrogenic|atomic number|\bZ\s*=", cleaned, re.IGNORECASE):
+        return None
     # One level is its energy; two ("falls from n = 3 to n = 2") are a
     # transition, whose photon the level formula would misreport as E₃.
     levels = re.findall(r"\bn\s*(?:=|is)\s*(\d+)\b", cleaned, re.IGNORECASE)

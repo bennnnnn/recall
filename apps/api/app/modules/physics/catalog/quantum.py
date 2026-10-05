@@ -38,6 +38,7 @@ def _transition(
             result=(result,),
             inputs=(frozenset({"n_lower", "n_upper"}),),
             cues=_HYDROGEN,
+            excludes=("hydrogen-like", "hydrogenic", "atomic number"),
             descending=("n_upper", "n_lower"),
             nonnegative=True,
         ),

@@ -40,6 +40,9 @@ def _rms_params(value: float, unit: str, text: str) -> tuple[dict[str, float], d
 
 def extract_ac(text: str, lower: str) -> PhysicsIntent | None:
     if "rms" in lower:
+        # Average power with a stated phase is not an rms conversion.
+        if "phase" in lower:
+            return None
         if "voltage" in lower or re.search(r"\bvolts?\b", lower):
             given = _one(text, r"V|volts?")
             if given is None:

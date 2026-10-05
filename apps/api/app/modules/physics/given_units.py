@@ -58,6 +58,12 @@ _SYMBOLS: dict[str, str] = {
     "A m^2": "ampere * meter ** 2",
     "A·m^2": "ampere * meter ** 2",
     "A*m^2": "ampere * meter ** 2",
+    "C·m": "coulomb * meter",
+    "C*m": "coulomb * meter",
+    "C m": "coulomb * meter",
+    "J/(mol·K)": "joule / mole / kelvin",
+    "J/(mol K)": "joule / mole / kelvin",
+    "J/mol·K": "joule / mole / kelvin",
     "V/m": "volt / meter",
     "kV/m": "kilovolt / meter",
     # Viscosity, not a pressure: "0.001 Pa*s" is one unit.
