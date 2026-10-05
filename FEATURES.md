@@ -979,8 +979,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Mobile consumer polish (audit 2026-09)** — generic `StateView` errors use
   an alert icon (cloud-offline only for real connectivity); a separate Usage page;
   quieter chat-header chrome; drawer profile opens Settings; Home overdue uses warning,
-  not danger; starter chips have distinct
-  icons; composer send/stop/dismiss use `Icon`. Web remains a later project.
+  not danger; composer send/stop/dismiss use `Icon`. Web remains a later project.
 - ✅ **One UI kit (2026-09)** — `apps/mobile/ui/` is the single source for controls
   (catalog: `apps/mobile/ui/README.md`; dev gallery at Settings → About → UI kit):
   - **Icons:** Lucide line icons at one stroke weight, plus multicolor brand marks.
@@ -1178,7 +1177,7 @@ with durable memory and everyday productivity.
 |--------|---------|
 | Chat that feels fast | Streaming, stop/regenerate, rich answers, status while working |
 | Memory that compounds | User facts + past-chat RAG — the namesake |
-| Utility beyond chat | Schedule, integrations, home starters |
+| Utility beyond chat | Schedule, integrations |
 | Trust & control | Export, delete account, opt-in integrations, quota transparency |
 | Monetize fairly | Free tier with limits; Pro for power users |
 

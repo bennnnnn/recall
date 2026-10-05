@@ -46,7 +46,6 @@ export interface ChatScreenListProps {
   onLoadOlder: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
-  onSelectStarter: (prompt: string, chatId?: string) => void;
   header: ReactElement | null;
   footer?: ReactElement | null;
   hideHomeStarters?: boolean;
@@ -195,7 +194,6 @@ export const ChatScreenBody = memo(function ChatScreenBody({
           onLoadOlder={list.onLoadOlder}
           onScroll={list.onScroll}
           onScrollEnd={list.onScrollEnd}
-          onSelectStarter={list.onSelectStarter}
           header={list.header}
           hideHomeStarters={list.hideHomeStarters}
           listFooter={list.footer}

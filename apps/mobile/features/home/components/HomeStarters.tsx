@@ -1,30 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
-import { Chip } from "@/ui/controls/Chip";
 import { useAuth } from "@/contexts/AuthContext";
 import { useComposerDraftActivity } from "@/contexts/ComposerDraftContext";
 import { useHome } from "@/features/home/context/HomeContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
 import type { HomeUrgentTodo } from "@/lib/api";
 import { describeDueAt } from "@/features/todos/model/dueDate";
-import { instantHomePlaceholder, welcomeStarterIcon, welcomeStarters } from "@/features/home/model/homeWelcome";
+import { instantHomePlaceholder } from "@/features/home/model/homeWelcome";
 import { filterHomeNudgeTodos } from "@/features/todos/model/homeReminderNudges";
 import { firstOverdueHomeTodo, listHomeUrgentTodos } from "@/features/todos/model/homeUrgentTodos";
 import { tap } from "@/lib/haptics";
-import { isHomeGuidanceRetired, retireHomeGuidance } from "@/features/home/model/homeGuidancePrefs";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
 import { Type, Weight } from "@/lib/type";
-
-type Props = {
-  onSelect: (prompt: string, chatId?: string) => void;
-};
 
 function OverdueReminderRow({
   todo,
@@ -89,12 +83,11 @@ function OverdueReminderRow({
   );
 }
 
-export function HomeStarters({ onSelect }: Props) {
+export function HomeStarters() {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const { user } = useAuth();
   const composerActive = useComposerDraftActivity();
-  const [guidanceRetired, setGuidanceRetired] = useState<boolean | null>(null);
   const { screen } = useHome();
   const {
     todos,
@@ -106,30 +99,6 @@ export function HomeStarters({ onSelect }: Props) {
   const leadMinutes = user?.reminder_lead_minutes ?? undefined;
   // Never block first paint on /home — local greeting, then hydrate the name.
   const display = screen ?? instantHomePlaceholder();
-  const chips = welcomeStarters();
-
-  useEffect(() => {
-    let current = true;
-    if (!user?.id) {
-      setGuidanceRetired(false);
-      return () => {
-        current = false;
-      };
-    }
-    setGuidanceRetired(null);
-    void isHomeGuidanceRetired(user.id).then((retired) => {
-      if (current) setGuidanceRetired(retired);
-    });
-    return () => {
-      current = false;
-    };
-  }, [user?.id]);
-
-  useEffect(() => {
-    if (!composerActive || guidanceRetired !== false) return;
-    setGuidanceRetired(true);
-    if (user?.id) void retireHomeGuidance(user.id);
-  }, [composerActive, guidanceRetired, user?.id]);
 
   const overdueTodo = useMemo(() => {
     // Wait until todos + nudge-state are in sync. Silent refreshes used to paint
@@ -161,27 +130,6 @@ export function HomeStarters({ onSelect }: Props) {
           styles={s}
           theme={theme}
         />
-      ) : null}
-
-      {guidanceRetired === false ? (
-        <View style={s.startersBlock}>
-          <View style={s.chipRow}>
-            {chips.map((starter, index) => (
-              <Chip
-                key={`${starter.kind}-${index}-${starter.text}`}
-                label={starter.text}
-                icon={welcomeStarterIcon(index)}
-                numberOfLines={2}
-                onPress={() => {
-                  setGuidanceRetired(true);
-                  if (user?.id) void retireHomeGuidance(user.id);
-                  tap();
-                  onSelect(starter.prompt, starter.chat_id);
-                }}
-              />
-            ))}
-          </View>
-        </View>
       ) : null}
     </View>
   );
@@ -247,7 +195,5 @@ function makeStyles(t: Theme) {
     urgentMain: { flex: 1, gap: 2 },
     urgentTitle: { ...Type.navTitle, color: t.text },
     urgentDue: { ...Type.caption, ...Weight.semibold, color: t.warning },
-    startersBlock: { width: "100%", marginTop: Space.xxs },
-    chipRow: { flexDirection: "row", flexWrap: "wrap", gap: Space.xs, justifyContent: "center" },
   });
 }

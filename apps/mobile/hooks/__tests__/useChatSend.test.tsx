@@ -7,7 +7,6 @@ import { act, render } from "@testing-library/react-native";
 import { useChatSend } from "@/hooks/useChatSend";
 import { pickDocument, uploadChatAttachment } from "@/features/attachments/model/attachments";
 import { registerEmailDraftFlusher } from "@/features/integrations/model/emailDraftFlush";
-import { retireHomeGuidance } from "@/features/home/model/homeGuidancePrefs";
 import {
   queryNeedsClientGeo,
   resolveClientGeoForQuery,
@@ -74,9 +73,6 @@ jest.mock("@/lib/resolveClientGeoForQuery", () => ({
 jest.mock("@/lib/scheduleIdle", () => ({
   scheduleIdlePromise: () => Promise.resolve(),
 }));
-jest.mock("@/features/home/model/homeGuidancePrefs", () => ({
-  retireHomeGuidance: jest.fn(async () => undefined),
-}));
 jest.mock("@/features/attachments/model/pendingComposerAttachment", () => ({
   subscribeComposerAttachmentQueue: () => () => undefined,
   takeQueuedComposerAttachment: () => null,
@@ -95,7 +91,6 @@ function Probe({
   sendMessage = jest.fn(),
   prepareDraftChat = jest.fn(),
   setMessages = jest.fn(),
-  userId,
 }: {
   offline?: boolean;
   chatLoading?: boolean;
@@ -105,7 +100,6 @@ function Probe({
   sendMessage?: jest.Mock;
   prepareDraftChat?: jest.Mock;
   setMessages?: jest.Mock;
-  userId?: string;
 }) {
   const result = useChatSend({
     token,
@@ -129,7 +123,6 @@ function Probe({
     setMessages,
     messages: [],
     selectedModel: "free-chat",
-    user: userId ? ({ id: userId } as never) : null,
     updateUser: jest.fn(),
     t: (key) => key,
     isOffline: offline,
@@ -157,17 +150,6 @@ describe("useChatSend", () => {
       await current.handleSend();
     });
     expect(onOfflineBlocked).toHaveBeenCalledTimes(1);
-  });
-
-  it("retires home starter guidance after the first accepted message", async () => {
-    await act(async () => {
-      render(<Probe chatId="chat-1" userId="user-1" />);
-    });
-    await act(async () => {
-      await current.handleSend();
-    });
-
-    expect(retireHomeGuidance).toHaveBeenCalledWith("user-1");
   });
 
   it("routes image intent directly to generation", async () => {

@@ -1,10 +1,10 @@
-"""Detect day-planning / daily-priority questions (home starters, etc.)."""
+"""Detect day-planning / daily-priority questions."""
 
 from __future__ import annotations
 
 import re
 
-# Home starter prompts and natural "how's my day" phrasing.
+# Natural "how's my day" phrasing.
 _DAY_PLANNING = re.compile(
     r"\b("
     r"how(?:'s| is) my day|"

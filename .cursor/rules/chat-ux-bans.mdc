@@ -60,9 +60,11 @@ When the user says **remove**, leave it removed. Do **not** bring these back in 
 - Schedule keeps `SuggestedReminderRow` / From email. The drawer Schedule badge stays.
 
 ## 10. No Home dashboard chrome
-- Home is **greeting + two local starters + at most one dismissible overdue row**.
+- Home is **greeting + at most one dismissible overdue reminder**.
+- Do **not** show starter chips (`welcomeStarters`, “Help me think”, “What can you do?”,
+  time, memory, calendar, or “Pick up where we left off” chips).
 - Do **not** show a progress bar, due-soon stack, or “For you” personalized chips.
-- Starters stay `welcomeStarters()` — ignore API `starters` / `project_highlight` on this surface.
+- `/home` may return `starters: []`. Do not rebuild a starter list or wire `onSelectStarter`.
 
 ## 11. No user-message edit / resend
 - Do **not** show a pencil on user bubbles, an “editing message” composer banner, or

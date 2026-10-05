@@ -8,7 +8,7 @@ export function isContextFresh(
   return lastFetchedAt != null && now - lastFetchedAt < CONTEXT_REFRESH_STALE_MS;
 }
 
-/** Home starters are not on screen when a thread is open. */
+/** The greeting is already on screen when a thread is open. */
 export function shouldRefreshHomeOnChatFocus(opts: {
   hasOpenThread: boolean;
   hasFetchedHome?: boolean;

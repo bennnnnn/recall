@@ -151,7 +151,6 @@ describe("useChatScreenBodyProps", () => {
       onLoadOlder: initial.list.onLoadOlder,
       onScroll: initial.list.onScroll,
       onScrollEnd: initial.list.onScrollEnd,
-      onSelectStarter: initial.list.onSelectStarter,
     };
 
     await rerender({ streaming: true, messages: firstMessages });
@@ -168,7 +167,6 @@ describe("useChatScreenBodyProps", () => {
       onLoadOlder: streaming.list.onLoadOlder,
       onScroll: streaming.list.onScroll,
       onScrollEnd: streaming.list.onScrollEnd,
-      onSelectStarter: streaming.list.onSelectStarter,
     }).toEqual(initialListCallbacks);
 
     await rerender({ streaming: true, messages: firstMessages });
