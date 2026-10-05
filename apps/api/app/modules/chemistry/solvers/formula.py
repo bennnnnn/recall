@@ -15,7 +15,14 @@ from app.modules.chemistry.solvers.common_chem import (
     num,
     verified,
 )
-from app.modules.chemistry.solvers.constants import AVOGADRO, FARADAY, GAS_R, GAS_R_J
+from app.modules.chemistry.solvers.constants import (
+    AVOGADRO,
+    BOLTZMANN,
+    FARADAY,
+    GAS_R,
+    GAS_R_J,
+    PLANCK,
+)
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.law_binding.expression import Notation, evaluate
 from app.services.solving import SolveServiceError
@@ -27,6 +34,8 @@ CHEMISTRY_NOTATION = Notation(
         "R_J": (GAS_R_J, "R"),
         "F": (FARADAY, "F"),
         "N_A": (AVOGADRO, "Nₐ"),
+        "k_B": (BOLTZMANN, "k_B"),
+        "h": (PLANCK, "h"),
     },
     number=str,
 )
@@ -128,6 +137,8 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
         0 < values["percent_transmittance"] <= 100
     ):
         raise SolveServiceError("percent transmittance must be between 0 and 100")
+    if law.op == "van_der_waals_pressure" and values["volume"] <= values["n"] * values["b"]:
+        raise SolveServiceError("volume must be greater than n b")
     try:
         result = evaluate(law.expression, values, CHEMISTRY_NOTATION)
     except (ValueError, ZeroDivisionError, OverflowError) as exc:

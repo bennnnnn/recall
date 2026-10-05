@@ -559,6 +559,10 @@ def test_a_rounded_whole_number_is_not_mistaken_for_measured_zeros(
         "Find the partition coefficient after 3 successive extractions.",
         "The observed specific rotation is 8.50. Find the optical purity.",
         "Use Kirchhoff's law. delta H = -50.0 kJ/mol and T1 = 298 K. Find the enthalpy.",
+        "The carbon count is 5.00 and the hydrogen count is 8.00. "
+        "Find the index of hydrogen deficiency.",
+        "The t2g count is 6.00, the eg count is 0.00, and delta_o is 100.0 kJ/mol. "
+        "Find the crystal field stabilization energy with pairing energy 20 kJ/mol.",
     ],
 )
 def test_a_closeout_law_declines_when_an_input_is_missing_or_extra(question: str) -> None:
@@ -568,6 +572,16 @@ def test_a_closeout_law_declines_when_an_input_is_missing_or_extra(question: str
 def test_transmittance_outside_zero_to_one_declines() -> None:
     intent = extract_chemistry_intent("The transmittance is 2.00. Find the absorbance.")
     assert intent is not None and intent.chemistry_op == "absorbance_transmittance"
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(intent)
+
+
+def test_van_der_waals_volume_inside_nb_declines() -> None:
+    intent = extract_chemistry_intent(
+        "Use the van der Waals equation. n = 1.00 mol, T = 300 K, V = 0.0100 L, "
+        "a = 1.00, and b = 0.0500. Find the pressure."
+    )
+    assert intent is not None and intent.chemistry_op == "van_der_waals_pressure"
     with pytest.raises(SolveServiceError):
         solve_chemistry(intent)
 
