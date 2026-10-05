@@ -460,4 +460,4 @@ ANSWERABLE: tuple[Case, ...] = (
 )
 
 # Every answerable row is verified today. Raise it whenever coverage grows; never lower it.
-COVERAGE_FLOOR = 146
+COVERAGE_FLOOR = 147
