@@ -239,4 +239,97 @@ NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "vant_hoff_factor",
         "i = 1.00",
     ),
+    (
+        "The carbon count is 5.00, the hydrogen count is 8.00, the nitrogen count is 1.00, "
+        "and the halogen count is 1.00. Find the index of hydrogen deficiency.",
+        "hydrogen_deficiency",
+        "IHD = 2.00",
+    ),
+    (
+        "The observed rotation is 10.0, the path length is 2.00 dm, "
+        "and the concentration is 0.500 g/mL. Find the specific rotation.",
+        "specific_rotation",
+        "[α] = 10.0 °·mL/(g·dm)",
+    ),
+    (
+        "The major amount is 0.700 mol and the minor amount is 0.300 mol. "
+        "Find the enantiomeric excess.",
+        "enantiomeric_excess",
+        "ee = 40.0%",
+    ),
+    (
+        "The standard Gibbs energy is -10.0 kJ/mol, the temperature is 298 K, "
+        "and the reaction quotient is 0.100. Find the Gibbs energy.",
+        "gibbs_reaction",
+        "ΔG = -15.7 kJ/mol",
+    ),
+    (
+        "Use the van der Waals equation. n = 1.00 mol, T = 300 K, V = 2.00 L, "
+        "a = 1.00, and b = 0.0500. Find the pressure.",
+        "van_der_waals_pressure",
+        "P = 12.4 atm",
+    ),
+    (
+        "Find the compressibility factor. The pressure is 2.00 atm, the volume is 1.00 L, "
+        "n = 1.00 mol, and the temperature is 300 K.",
+        "compressibility",
+        "Z = 0.0812",
+    ),
+    (
+        "Use the phase rule. The component count is 2 and the phase count is 2. "
+        "Find the degrees of freedom.",
+        "phase_rule",
+        "F = 2.0",
+    ),
+    (
+        "The first concentration is 1.00 M, the first volume is 100 mL, "
+        "the second concentration is 0.200 M, and the second volume is 300 mL. "
+        "Find the concentration after mixing.",
+        "mixture_concentration",
+        "C = 0.400 mol/L",
+    ),
+    (
+        "Find the entropy change of an ideal gas. n = 1.00 mol, "
+        "the initial volume is 1.00 L, and the final volume is 2.00 L.",
+        "entropy_volume",
+        "ΔS = 5.76 J/K",
+    ),
+    (
+        "Find the entropy change. n = 2.00 mol, the molar heat capacity is 30.0 J/(mol·K), "
+        "T1 = 300 K, and T2 = 600 K.",
+        "entropy_temperature",
+        "ΔS = 41.6 J/K",
+    ),
+    (
+        "Use the Clapeyron equation. The temperature is 373 K, "
+        "the volume change is 0.0300 m^3/mol, the pressure change is 1000 Pa, "
+        "and the temperature change is 1.00 K. Find the enthalpy.",
+        "clapeyron",
+        "ΔH = 11.2 kJ/mol",
+    ),
+    (
+        "Use the Langmuir isotherm. The Langmuir constant is 2.00 atm^-1 "
+        "and the pressure is 1.00 atm. Find the surface coverage.",
+        "langmuir",
+        "θ = 0.667",
+    ),
+    (
+        "Use the Eyring equation. The temperature is 300 K, "
+        "the activation enthalpy is 50.0 kJ/mol, and the activation entropy is 0 J/(mol·K). "
+        "Find the rate constant.",
+        "eyring",
+        "k = 1.2 × 10^4 1/s",
+    ),
+    (
+        "The t2g count is 6.00, the eg count is 0.00, and delta_o is 100.0 kJ/mol. "
+        "Find the crystal field stabilization energy.",
+        "crystal_field_stabilization",
+        "CFSE = -240 kJ/mol",
+    ),
+    (
+        "The conductivity is 1.00 S/m and the concentration is 0.100 M. "
+        "Find the molar conductivity.",
+        "molar_conductivity",
+        "Λm = 0.0100 S·m²/mol",
+    ),
 )

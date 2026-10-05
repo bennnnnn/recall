@@ -253,6 +253,45 @@ _SAMPLES: dict[str, tuple[dict[str, float], str | None, dict[str, str]]] = {
     "optical_purity": ({"observed": 8.5, "pure": 17.0}, None, {}),
     "partition_coefficient": ({"organic": 0.4, "aqueous": 0.1}, None, {}),
     "vant_hoff_factor": ({"delta_t": 0.372, "constant": 1.86, "molality": 0.2}, None, {}),
+    "hydrogen_deficiency": (
+        {"carbon": 5.0, "hydrogen": 8.0, "nitrogen": 1.0, "halogen": 1.0},
+        None,
+        {},
+    ),
+    "specific_rotation": ({"observed": 10.0, "path_length": 2.0, "concentration": 0.5}, None, {}),
+    "enantiomeric_excess": ({"major": 0.7, "minor": 0.3}, None, {}),
+    "gibbs_reaction": ({"gibbs_standard": -10.0, "temperature": 298.0, "quotient": 0.1}, None, {}),
+    "van_der_waals_pressure": (
+        {"n": 1.0, "temperature": 300.0, "volume": 2.0, "a": 1.0, "b": 0.05},
+        None,
+        {},
+    ),
+    "compressibility": (
+        {"pressure": 2.0, "volume": 1.0, "n": 1.0, "temperature": 300.0},
+        None,
+        {},
+    ),
+    "phase_rule": ({"components": 2.0, "phases": 2.0}, None, {}),
+    "mixture_concentration": (
+        {"concentration_1": 1.0, "volume_1": 0.1, "concentration_2": 0.2, "volume_2": 0.3},
+        None,
+        {},
+    ),
+    "entropy_volume": ({"n": 1.0, "volume_1": 1.0, "volume_2": 2.0}, None, {}),
+    "entropy_temperature": (
+        {"n": 2.0, "heat_capacity": 30.0, "t1": 300.0, "t2": 600.0},
+        None,
+        {},
+    ),
+    "clapeyron": (
+        {"temperature": 373.0, "delta_v": 0.03, "delta_p": 1000.0, "delta_t": 1.0},
+        None,
+        {},
+    ),
+    "langmuir": ({"affinity": 2.0, "pressure": 1.0}, None, {}),
+    "eyring": ({"temperature": 300.0, "delta_h": 50000.0, "delta_s": 0.0}, None, {}),
+    "crystal_field_stabilization": ({"n_t2g": 6.0, "n_eg": 0.0, "delta_o": 100.0}, None, {}),
+    "molar_conductivity": ({"conductivity": 1.0, "concentration": 100.0}, None, {}),
 }
 
 

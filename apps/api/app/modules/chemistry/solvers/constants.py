@@ -12,6 +12,8 @@ from app.services.units import constant
 # each, so a Pint upgrade cannot move an answer.
 GAS_R = constant("molar_gas_constant", "L * atm / (mol * K)")
 GAS_R_J = constant("molar_gas_constant", "J / (mol * K)")
+BOLTZMANN = constant("boltzmann_constant", "J / K")
+PLANCK = constant("planck_constant", "J * s")
 FARADAY = constant("faraday_constant", "C / mol")
 AVOGADRO = constant("avogadro_constant", "1 / mol")
 PROTON_U = constant("proton_mass", "u")

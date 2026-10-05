@@ -73,6 +73,7 @@ _SYMBOLS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
         (r"(?<![A-Za-z])E(?:°|0|º)(?:\s*cell)?(?![A-Za-z0-9])", " e_standard "),
         (r"(?<![A-Za-z])E(?:a|ₐ)(?![A-Za-z0-9])", " e_a "),
         (r"(?<![A-Za-z0-9])E(?![A-Za-z0-9°º₀_])", " e_cell "),
+        (r"Δ\s*G\s*(?:°|º)|\bdelta\s*G\s*(?:°|º)\b", " delta_g_standard "),
         (r"Δ\s*G|\bdelta\s*G\b", " delta_g "),
         (r"Δ\s*H|\bdelta\s*H\b", " delta_h "),
         (r"Δ\s*S|\bdelta\s*S\b", " delta_s "),
