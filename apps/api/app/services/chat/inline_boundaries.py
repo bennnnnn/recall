@@ -92,7 +92,18 @@ def _read_code(text: str, index: int) -> int | None:
     return close + length
 
 
+def _escaped_dollar(text: str, index: int) -> bool:
+    slashes = 0
+    cursor = index - 1
+    while cursor >= 0 and text[cursor] == "\\":
+        slashes += 1
+        cursor -= 1
+    return slashes % 2 == 1
+
+
 def _read_math(text: str, index: int) -> int | None:
+    if _escaped_dollar(text, index):
+        return None
     if text.startswith("$$", index):
         close = text.find("$$", index + 2)
         if close < 0 or "\n" in text[index + 2 : close] or close == index + 2:
@@ -100,18 +111,24 @@ def _read_math(text: str, index: int) -> int | None:
         return close + 2
     if text[index] != "$" or (index > 0 and text[index - 1] == "$"):
         return None
-    close = text.find("$", index + 1)
-    if close < 0 or "\n" in text[index + 1 : close]:
-        return None
-    if close + 1 < len(text) and text[close + 1] == "$":
-        return None
-    body = text[index + 1 : close]
-    if not body.strip():
-        return None
-    # "$5 and $10" is currency, not a math span.
-    if body[0].isdigit() and not any(char in body for char in "\\=^_"):
-        return None
-    return close + 1
+    start = index + 1
+    while start < len(text):
+        close = text.find("$", start)
+        if close < 0 or "\n" in text[index + 1 : close]:
+            return None
+        if _escaped_dollar(text, close):
+            start = close + 1
+            continue
+        if close + 1 < len(text) and text[close + 1] == "$":
+            return None
+        body = text[index + 1 : close]
+        if not body.strip():
+            return None
+        # "$5 and $10" is currency, not a math span.
+        if body[0].isdigit() and not any(char in body for char in "\\=^_"):
+            return None
+        return close + 1
+    return None
 
 
 def _read_link(text: str, index: int) -> int | None:

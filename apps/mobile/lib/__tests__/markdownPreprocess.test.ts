@@ -1364,6 +1364,17 @@ describe("fenced code stays opaque to math/table repair", () => {
     expect(out).toContain("print(doc)");
   });
 
+  it("renders an escaped currency dollar as a dollar sign", () => {
+    const plain = (src: string) => splitInlineMath(preprocessMarkdown(src)).map((part) => (
+      part.type === "math" ? segmentsToPlain(parseSimpleLatex(part.value)) : part.value
+    )).join("");
+    const weekly = String.raw`$\$43 \text{ per hour} \times 40 \text{ hours} = \$1{,}720 \text{ per week}$`;
+    expect(preprocessMarkdown(weekly)).not.toContain("```math");
+    expect(plain(weekly)).toBe("$43 per hour × 40 hours = $1,720 per week");
+    expect(plain(String.raw`$\$1,505$`)).toBe("$1,505");
+    expect(plain(String.raw`$1,720 \times 2 = \mathbf{\$3,440}$`)).toBe("1,720 × 2 = $3,440");
+  });
+
   it("still converts $$ display math in prose", () => {
     const out = preprocessMarkdown("See\n\n$$x^2$$\n\nDone.");
     expect(out).toContain("```math");
