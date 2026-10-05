@@ -55,6 +55,10 @@ def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
         return None
     if _DIVERGING_RE.search(cleaned):
         return None
+    # The catalog owns a microscope and the lens-maker equation. This reader
+    # would treat "objective" as an object distance.
+    if "microscope" in lower or "lens maker" in lower or "lensmaker" in lower:
+        return None
 
     if "malus" in lower:
         intensity = _find_value_with_specific_unit(

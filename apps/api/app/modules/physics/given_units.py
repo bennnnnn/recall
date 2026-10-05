@@ -55,6 +55,9 @@ _SYMBOLS: dict[str, str] = {
     "GPa": "gigapascal",
     # Field strength: a newton per coulomb is a volt per metre.
     "N/C": "newton / coulomb",
+    "A m^2": "ampere * meter ** 2",
+    "A·m^2": "ampere * meter ** 2",
+    "A*m^2": "ampere * meter ** 2",
     "V/m": "volt / meter",
     "kV/m": "kilovolt / meter",
     # Viscosity, not a pressure: "0.001 Pa*s" is one unit.

@@ -52,6 +52,9 @@ def _extract_torque_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _TORQUE_CUES, _TORQUE_CUE_RES):
         return None
+    # τ = μB sinθ is a catalog law. A lever reading of "torque" would guess.
+    if "magnetic moment" in lower:
+        return None
     if any(word in lower for word in _TORQUE_UNSUPPORTED):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
