@@ -113,6 +113,10 @@ _SPELLED = {
     "uF": "µF",
     "um": "µm",
     "micrometers": "µm",
+    "dioptre": "D",
+    "dioptres": "D",
+    "diopter": "D",
+    "diopters": "D",
 }
 # Solver unit spellings with a symbol of their own.
 _PLAIN_SYMBOLS = {"deg": "°", "ohm": "Ω", "degC": "°C", "D": "D", "": ""}

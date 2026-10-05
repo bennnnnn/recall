@@ -216,3 +216,10 @@ def test_an_unstated_axis_or_shape_still_declines(text: str) -> None:
 )
 def test_a_law_with_a_missing_stated_input_still_declines(text: str) -> None:
     assert _answer(text) is None
+
+
+def test_lens_powers_written_as_dioptres_show_as_d() -> None:
+    answer = _answer(
+        "Two thin lenses in contact have powers 2 dioptres and 3 dioptres. Find the total power."
+    )
+    assert answer == "5 D"
