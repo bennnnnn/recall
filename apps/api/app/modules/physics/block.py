@@ -32,6 +32,14 @@ _PROJECTILE_LABELS = {
     "range": "R",
     "impact_speed": r"v_{\mathrm{impact}}",
 }
+_SUVAT_LABELS = {
+    "suvat_velocity": "v",
+    "suvat_distance": "s",
+    "suvat_time": "t",
+    "suvat_acceleration": "a",
+}
+_PROJECTILE_UNITS = {"s", "m", "m/s"}
+_SUVAT_UNITS = {"s", "m", "m/s", "m/s^2", "m/s²"}
 
 
 def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
@@ -45,6 +53,9 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
         return solve_physics(intent)
     # Validate even a model_copy-constructed intent before trusting its parts.
     intent = PhysicsIntent.model_validate(intent.model_dump())
+    suvat = intent.kind == "suvat"
+    labels = _SUVAT_LABELS if suvat else _PROJECTILE_LABELS
+    allowed = _SUVAT_UNITS if suvat else _PROJECTILE_UNITS
     results: list[PhysicsResult] = []
     labeled: list[QuantityResult] = []
     for op in intent.requested_ops:
@@ -53,17 +64,11 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
         )
         result = solve_physics(part)
         if len(result.quantities) != 1:
-            raise SolveServiceError("unexpected projectile result representation")
+            raise SolveServiceError("unexpected multipart result representation")
         item = result.quantities[0]
-        if item.unit not in {"s", "m", "m/s"}:
-            raise SolveServiceError("unexpected projectile result representation")
-        labeled.append(
-            QuantityResult(
-                _PROJECTILE_LABELS[op],
-                item.value,
-                item.unit,
-            )
-        )
+        if item.unit not in allowed or op not in labels:
+            raise SolveServiceError("unexpected multipart result representation")
+        labeled.append(QuantityResult(labels[op], item.value, item.unit))
         results.append(result)
     first = results[0]
     return PhysicsResult(
@@ -72,8 +77,8 @@ def _solve_requested_quantities(intent: PhysicsIntent) -> PhysicsResult:
         formulas=tuple(formula for result in results for formula in result.formulas),
         substitutions=tuple(row for result in results for row in result.substitutions),
         joiner="projectile",
-        graph_specs=first.graph_specs,
-        simulation_specs=first.simulation_specs,
+        graph_specs=[] if suvat else first.graph_specs,
+        simulation_specs=[] if suvat else first.simulation_specs,
     )
 
 
@@ -130,11 +135,16 @@ def _build_physics_block(
         )
         return None
 
-    if intent.requested_ops:
+    if intent.requested_ops and intent.kind == "projectile":
         lines.append("Every requested projectile quantity below was solved for the same givens.")
         lines.append(
             "Working uses uniform gravity, no air resistance, and heights measured from "
             "the landing plane. Copy each verified formula; do not recalculate its numbers."
+        )
+    elif intent.requested_ops:
+        lines.append(
+            "Every requested constant-acceleration quantity below was solved for the same givens. "
+            "Copy each verified formula; do not recalculate its numbers."
         )
     lines.append(
         "Required user-visible layout for this verified physics solution: use the headings "

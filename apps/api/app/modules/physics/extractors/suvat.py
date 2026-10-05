@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Sequence
 
 from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.ask import ask_clause, asked_phrases
@@ -64,6 +65,68 @@ _DECELERATION_RE = re.compile(r"\bdecelerat\w*\b|\bslow(?:s|ing|ed)?\s+down\b", 
 
 _SUVAT_TIME_UNITS = r"seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
 
+_PHRASE_OP = {
+    "distance": "suvat_distance",
+    "displacement": "suvat_distance",
+    "how far": "suvat_distance",
+    "velocity": "suvat_velocity",
+    "speed": "suvat_velocity",
+    "how fast": "suvat_velocity",
+    "acceleration": "suvat_acceleration",
+    "deceleration": "suvat_acceleration",
+    "time": "suvat_time",
+    "how long": "suvat_time",
+    "how much time": "suvat_time",
+    "time taken": "suvat_time",
+    "stopping time": "suvat_time",
+}
+_WANTED = {
+    "suvat_velocity": "v",
+    "suvat_distance": "d",
+    "suvat_time": "t",
+    "suvat_acceleration": "a",
+}
+# The input sets each operation can solve. A multipart question is verified only
+# when every asked unknown is one of these and the remaining givens cover it.
+_DETERMINED: dict[str, tuple[frozenset[str], ...]] = {
+    "suvat_velocity": (frozenset("uat"), frozenset("uad"), frozenset("udt")),
+    "suvat_distance": (
+        frozenset("uat"),
+        frozenset("uva"),
+        frozenset("uvt"),
+        frozenset("vat"),
+    ),
+    "suvat_time": (frozenset("uva"), frozenset("uad"), frozenset("uvd")),
+    "suvat_acceleration": (frozenset("uvt"), frozenset("uvd"), frozenset("udt")),
+}
+
+
+def _listed_unknowns(phrases: Sequence[str]) -> list[str] | None:
+    """The SUVAT unknowns named together.
+
+    None means another topic is in the list, so the whole question stays
+    unverified. An empty list means the phrases are not SUVAT nouns and the
+    older wording patterns still apply.
+    """
+    ops: list[str] = []
+    foreign = False
+    for phrase in phrases:
+        op = _PHRASE_OP.get(phrase)
+        if op is None:
+            foreign = True
+            continue
+        if op not in ops:
+            ops.append(op)
+    if foreign:
+        return None if ops else []
+    return ops
+
+
+def _determined(op: str, params: dict[str, float]) -> bool:
+    known = set(params)
+    return any(need <= known for need in _DETERMINED[op])
+
+
 _SUVAT_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
     (
         "suvat_distance",
@@ -114,15 +177,10 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
     # A stated displacement/final speed is a given, not an unknown. Read the
     # first requested noun before the fallback phrasings ("how far/long/fast").
     phrases = asked_phrases(cleaned)
-    unknown = {
-        "distance": "suvat_distance",
-        "displacement": "suvat_distance",
-        "velocity": "suvat_velocity",
-        "speed": "suvat_velocity",
-        "acceleration": "suvat_acceleration",
-        "deceleration": "suvat_acceleration",
-        "time": "suvat_time",
-    }.get(phrases[0] if phrases else "")
+    listed = _listed_unknowns(phrases) if phrases else []
+    if listed is None:
+        return None
+    unknown = listed[0] if listed else None
     if unknown is None:
         matches = [
             (match.start(), op)
@@ -189,12 +247,22 @@ def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
 
     # The unknown must not also be a given, and three of the other four are
     # needed to reach it — every SUVAT equation relates exactly four variables.
-    wanted = {
-        "suvat_velocity": "v",
-        "suvat_distance": "d",
-        "suvat_time": "t",
-        "suvat_acceleration": "a",
-    }[unknown]
+    if listed and len(listed) > 1:
+        for op in listed:
+            params.pop(_WANTED[op], None)
+            units.pop(_WANTED[op], None)
+        if len(listed) > 4 or any(not _determined(op, params) for op in listed):
+            return None
+        return PhysicsIntent(
+            kind="suvat",
+            physics_op=listed[0],  # type: ignore[arg-type]
+            physics_params=params,
+            physics_units=units,
+            operation="solve",
+            requested_ops=listed,  # type: ignore[arg-type]
+        )
+
+    wanted = _WANTED[unknown]
     params.pop(wanted, None)
     units.pop(wanted, None)
     if len(params) < 3:
