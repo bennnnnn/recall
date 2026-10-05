@@ -155,7 +155,9 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
         )
 
     # --- capacitance: C = Q / V ------------------------------------------
-    if "capacit" in lower:
+    # Stored energy from Q and V is not this capacitance. The energy branch
+    # above already declined when C was not stated.
+    if "capacit" in lower and "energy" not in lower:
         coulombs = _ordered_values(cleaned, _COULOMB_PATTERN)
         if not coulombs or not volts:
             return None

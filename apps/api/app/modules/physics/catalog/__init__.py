@@ -38,6 +38,7 @@ from app.modules.physics.catalog.quantum import SPECS as QUANTUM
 from app.modules.physics.catalog.relativity import SPECS as RELATIVITY
 from app.modules.physics.catalog.rotation import SPECS as ROTATION
 from app.modules.physics.catalog.spring import SPECS as SPRING
+from app.modules.physics.catalog.stated_forms import SPECS as STATED_FORMS
 from app.modules.physics.catalog.suvat import SPECS as SUVAT
 from app.modules.physics.catalog.thermal import SPECS as THERMAL
 from app.modules.physics.catalog.torque import SPECS as TORQUE
@@ -108,6 +109,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     FURTHER,
     CLOSED_FORMS,
     LATER_FORMS,
+    STATED_FORMS,
     QUANTUM,
     RELATIVITY,
 )
