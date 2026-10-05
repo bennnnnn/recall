@@ -534,6 +534,14 @@ def test_a_spring_scene_needs_its_wall() -> None:
         SimulationBlockSpec(type="spring", bodies=[_body()])
 
 
+def test_a_scene_without_a_wall_does_not_grow_an_anchor_key() -> None:
+    """Stored replies were written before springs. A null anchor would change them."""
+    dumped = SimulationBlockSpec(type="projectile_motion", bodies=[_body()]).model_dump()
+    assert "anchor" not in dumped
+    spring = SimulationBlockSpec(type="spring", bodies=[_body()], anchor=[-1.0, 0.0]).model_dump()
+    assert spring["anchor"] == [-1.0, 0.0]
+
+
 def test_a_vertical_slope_is_refused() -> None:
     """At 90 degrees it is not an incline, it is a drop."""
     with pytest.raises(ValidationError):
