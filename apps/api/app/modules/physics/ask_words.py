@@ -146,6 +146,7 @@ _QUANTITIES: dict[str, str] = {
     "charge": "coulomb",
     "capacitance": "farad",
     "inductance": "henry",
+    "magnetic moment": "ampere * meter ** 2",
     "magnetic field": "tesla",
     "flux density": "tesla",
     "magnetic flux": "weber",

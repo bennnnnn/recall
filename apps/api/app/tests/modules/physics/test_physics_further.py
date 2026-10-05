@@ -142,6 +142,45 @@ _CASES = [
         "decay_elapsed",
         138.6,
     ),
+    (
+        "A compound microscope has a tube length of 16 cm and a near point of 25 cm. "
+        "The objective focal length is 2 cm and the eyepiece focal length is 5 cm. "
+        "Find the magnification.",
+        "microscope_magnification",
+        40.0,
+    ),
+    (
+        "A lens of refractive index 1.5 has radii 20 cm and -20 cm. Find the focal length.",
+        "lens_maker",
+        20.0,
+    ),
+    (
+        "A biconvex lens of refractive index 1.5 has radii 20 cm and 20 cm. Find the focal length.",
+        "lens_maker",
+        20.0,
+    ),
+    (
+        "Two springs in parallel have constants 200 N/m and 300 N/m. "
+        "Find the equivalent spring constant.",
+        "springs_parallel",
+        500.0,
+    ),
+    (
+        "Two springs in series have constants 200 N/m and 300 N/m. "
+        "Find the equivalent spring constant.",
+        "springs_series",
+        120.0,
+    ),
+    (
+        "A loop carries a current of 2 A through an area of 0.05 m^2. Find the magnetic moment.",
+        "magnetic_moment",
+        0.1,
+    ),
+    (
+        "A magnetic moment of 0.2 A m^2 is in a 0.5 T field at 30 degrees. Find the torque.",
+        "magnetic_moment_torque",
+        0.05,
+    ),
 ]
 
 
@@ -162,4 +201,18 @@ def test_a_missing_closed_formula_is_verified(text: str, operation: str, value: 
     ],
 )
 def test_an_unstated_axis_or_shape_still_declines(text: str) -> None:
+    assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A compound microscope has an objective focal length of 2 cm and an eyepiece "
+        "focal length of 5 cm. Find the magnification.",
+        "A magnetic moment of 0.2 A m^2 is in a 0.5 T field. Find the torque.",
+        "Two plane mirrors face each other. Find the image after two reflections.",
+        "A current of 3 A is enclosed by an arbitrary loop. Find the magnetic field.",
+    ],
+)
+def test_a_law_with_a_missing_stated_input_still_declines(text: str) -> None:
     assert _answer(text) is None
