@@ -278,7 +278,7 @@ THERMOCHEMISTRY: tuple[ChemistryLaw, ...] = (
     _law(
         "gibbs",
         "thermochemistry",
-        ("delta_g", "gibbs", "free energy"),
+        ("delta_g", "gibbs", "free energy", "free-energy"),
         "kilojoule / mole",
         (
             var("delta_h", "ΔH", "kilojoule / mole"),

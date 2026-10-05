@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **"How many neutrons?" with mass number 56 and atomic number 26 was solved as the algebra 56 = 26 + n.** The chemistry ask was "number of neutrons", so the law never closed and math rearranged an equation it invented. Ask for "neutrons" itself. The same gap was "charge of the ion", "rises by", "Mw"/"Mn", "Xn", "what is D?", "what is q?", and "free-energy" with a hyphen.
+
 - **A 10 cm magnetic-sector radius crashed, and an activity coefficient was verified as the activity.** Chemistry reads `m` as molal, and the law spelled the radius unit `m`, so echoing 10 cm asked Pint to convert molal into centimeters. `activity` also matches the start of `activity coefficient`. Spell the radius `meter`, and name that activity with `activity is` so a coefficient stays a coefficient.
 
 - **A conjugate-fraction question that also stated pH was verified as pH = 4.** The pH extractor treated any `[H+]` plus the word pH anywhere as "find the pH". pH has to be in the asked clause.

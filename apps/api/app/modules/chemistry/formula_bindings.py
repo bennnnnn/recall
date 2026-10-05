@@ -194,7 +194,7 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
     _law(
         "gibbs_from_equilibrium",
         "equilibrium",
-        ("delta_g", "gibbs", "free energy"),
+        ("delta_g", "gibbs", "free energy", "free-energy"),
         "kilojoule / mole",
         (
             var(
