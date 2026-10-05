@@ -25,6 +25,7 @@ from app.modules.math.followup import (
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.tools.extract import is_graph_followup
+from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, physics_followup_problem
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import locale as locale_service
@@ -312,6 +313,7 @@ async def fetch_web_and_tools(
     image_math_extract: MathImageExtract | None = None,
     math_followup_problem: str | None = None,
     chemistry_followup_problem: str | None = None,
+    physics_followup_problem: str | None = None,
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
@@ -331,6 +333,9 @@ async def fetch_web_and_tools(
     elif chemistry_followup_problem is not None:
         subject = "chemistry"
         subject_user_content = chemistry_followup_problem
+    elif physics_followup_problem is not None:
+        subject = "physics"
+        subject_user_content = physics_followup_problem
     else:
         subject = detect_subject(
             user_content,
@@ -1145,6 +1150,9 @@ async def build_prompt_messages(
     ):
         followup_exchange = recent[:-1]
     math_followup = is_math_followup(query_text, followup_exchange, blocked=blocks_math_followup)
+    physics_followup = (
+        not math_followup and physics_followup_problem(query_text, followup_exchange) is not None
+    )
     lesson = active_lesson_step(followup_exchange)
     chat_history_rag_block = ""
     # The context gather already attempted the history embed. None means no
@@ -1254,6 +1262,8 @@ async def build_prompt_messages(
 
     if math_followup:
         system_parts.extend([MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT])
+    elif physics_followup:
+        system_parts.append(PHYSICS_FOLLOWUP_HINT)
 
     # Keep the acknowledgement contract closest to the user turn. Memory and
     # integration context is appended after the style pack and can otherwise

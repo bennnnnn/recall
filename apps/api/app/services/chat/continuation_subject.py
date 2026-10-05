@@ -170,9 +170,13 @@ def effective_presentation_subject(
     own = classify_presentation_subject(query)
     if own:
         return own
-    if not is_pure_continuation(query):
-        return None
-    return _continuation_subject(prior_messages or ())
+    if is_pure_continuation(query):
+        return _continuation_subject(prior_messages or ())
+    from app.modules.physics.followup import physics_followup_problem
+
+    if physics_followup_problem(query, prior_messages or ()) is not None:
+        return "physics"
+    return None
 
 
 def _role_content(message: Any) -> tuple[str | None, str | None]:

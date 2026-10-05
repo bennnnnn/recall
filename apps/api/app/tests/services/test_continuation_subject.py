@@ -151,6 +151,19 @@ def test_style_hints_follow_the_continuation_subject() -> None:
     assert BIOLOGY_PRESENTATION_HINT in biology
 
 
+def test_why_is_it_after_physics_keeps_the_physics_contract() -> None:
+    prior = [("user", CYCLIST), ("assistant", "48 km/h")]
+    assert effective_presentation_subject("why is it 40", prior) == "physics"
+    hints = _style_format_hints(
+        query_text="why is it 40",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        prior_messages=prior,
+    )
+    assert PHYSICS_INTENT_HINT in hints
+
+
 def test_how_after_physics_is_not_a_math_solver_replay() -> None:
     recent = [
         SimpleNamespace(id=uuid4(), role="user", content=CYCLIST),

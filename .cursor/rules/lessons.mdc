@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **"What about the kinetic energy" was rewritten onto an F = ma problem and still verified as the force.** The force extractor does not read the asked quantity, so the rewritten sentence still matched it. Accept a follow-up rewrite only when the verified block survives the ask guard.
+
 - **A telescope's two focal lengths were verified as m = −v/u.** "Objective" and "eyepiece" are lengths, and magnification from two distances does not say they are an object and an image. Exclude a telescope from that law and use M = f_o/f_e.
 
 - **A diverging-lens reply ended on the word Answer.** The solver declined, and the unverified note told the model to write that heading and not to invent a result or emit an answer fence, so it stopped before the number. An unverified calculation still has to put the result under Answer, and it must not end on the heading.

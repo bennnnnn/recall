@@ -21,6 +21,7 @@ from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.modules.math.followup import math_working_followup_problem, offered_equation_problem
 from app.modules.math.tools.extract import is_graph_followup
+from app.modules.physics.followup import physics_followup_problem
 from app.modules.web_search.subject import (
     _prior_user_messages as _prompt_prior_user_messages,
 )
@@ -480,8 +481,11 @@ async def build_stream_prompt_context(
     if math_followup_problem is None:
         math_followup_problem = offered_equation_problem(content, followup_history)
     chemistry_followup_problem = None
+    physics_followup = None
     if math_followup_problem is None:
         chemistry_followup_problem = chemistry_working_followup_problem(content, followup_history)
+    if math_followup_problem is None and chemistry_followup_problem is None:
+        physics_followup = physics_followup_problem(content, followup_history)
 
     # Geo "location not set" fallback (independent of the LLM).
     if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
@@ -498,6 +502,7 @@ async def build_stream_prompt_context(
     needs_math = settings.math_tools_enabled and (
         detected_subject in {"math", "physics"}
         or math_followup_problem is not None
+        or physics_followup is not None
         or is_graph_followup(content)
     )
     needs_search = web_search_service.needs_web_search(
@@ -605,6 +610,7 @@ async def build_stream_prompt_context(
                 image_math_extract=image_math_extract,
                 math_followup_problem=math_followup_problem,
                 chemistry_followup_problem=chemistry_followup_problem,
+                physics_followup_problem=physics_followup,
                 on_status=on_status,
                 user=user,
                 redis=redis,
