@@ -194,30 +194,6 @@ stays unverified. The symbolic path does not invent a scene from an arbitrary eq
 The detailed coverage audit and outstanding advanced capabilities are recorded in
 [PHYSICS_REVIEW.md](./PHYSICS_REVIEW.md).
 
-### Searchable formula reference
-
-The mobile app includes a reference library in **Settings → Physics formulas**. It contains
-541 named equations across 43 topics, arranged at middle-school, high-school/AP, and
-undergraduate levels, plus 32 constants. Search matches formula names, topic names, and
-common Greek-symbol spellings; topic and education-level filters can be combined. Long
-equations scroll horizontally, and context-dependent equations show their assumptions.
-
-The pasted email export exposed 49 formula rows and 32 constants, not a recoverable
-540-row list. Those readable rows are represented in the app; the rest of the 540-entry
-reference was curated independently against broad introductory-to-undergraduate physics
-scope, with the OpenStax University Physics sequence as a curriculum cross-check.
-Fundamental-constant values use NIST's 2022 CODATA values where applicable. Standard unit
-conversions and approximate cosmological values are identified separately in the app. See
-[OpenStax University Physics, Volume 1 preface](https://openstax.org/books/university-physics-volume-1/pages/preface)
-and [NIST CODATA 2022 values](https://physics.nist.gov/constants).
-
-This is an educational reference, not a claim that the chat has a deterministic solver for
-all 541 rows. Verified chat calculations continue to come only from the backend extractors
-and operation catalog below; an unsupported numeric problem is declined to the model and
-marked unverified. Every reference equation is checked against the mobile math layout
-engine, but that rendering check is not a derivation or experimental validation of the
-equation. Solver coverage is exercised separately by the physics corpus and binding tests.
-
 ### Backend solver coverage
 
 The binder reads these laws, beside the extractors' own:
