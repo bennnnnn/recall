@@ -97,6 +97,83 @@ _CASES = [
         "center_of_mass_three",
         3.6667,
     ),
+    (
+        "A thin film of refractive index 1.40 is viewed in constructive interference "
+        "at wavelength 560 nm for order 1. Find the thickness.",
+        "thin_film_constructive",
+        300,
+    ),
+    (
+        "A thin film of refractive index 1.40 is viewed in destructive interference "
+        "at wavelength 560 nm for order 1. Find the thickness.",
+        "thin_film_destructive",
+        200,
+    ),
+    (
+        "Use the vis-viva equation for the Sun at a distance of 1.47e11 m "
+        "with semi-major axis 1.496e11 m. Find the speed.",
+        "vis_viva",
+        30307,
+    ),
+    (
+        "An electron gas has number density 8.47e28 /m^3. Find the Fermi energy.",
+        "fermi_energy",
+        1.127e-18,
+    ),
+    (
+        "Using Planck's law, a blackbody at temperature 5800 K emits at wavelength 500 nm. "
+        "Find the spectral radiance.",
+        "planck_spectral_radiance",
+        2.688e13,
+    ),
+    (
+        "A conductor of conductivity 5.80e7 S/m carries a wave of frequency 1.00 MHz. "
+        "Find the skin depth.",
+        "skin_depth",
+        6.609e-5,
+    ),
+    (
+        "A conductor of conductivity 5.80e7 S/m and relative permeability 200 "
+        "carries a wave of frequency 1.00 MHz. Find the skin depth.",
+        "skin_depth_permeability",
+        4.673e-6,
+    ),
+    (
+        "A nonmagnetic conductor has resistivity 1.72e-8 ohm m and a wave of frequency "
+        "1.00 MHz. Find the skin depth.",
+        "skin_depth_resistivity",
+        6.601e-5,
+    ),
+    (
+        "A coaxial cable 2.00 m long has an inner radius of 1.00 mm and an outer radius "
+        "of 4.00 mm. Find the capacitance.",
+        "coaxial_capacitance",
+        8.026e-11,
+    ),
+    (
+        "A spherical capacitor has an inner radius of 10.0 cm and an outer radius of 20.0 cm. "
+        "Find the capacitance.",
+        "spherical_capacitance",
+        2.225e-11,
+    ),
+    (
+        "A resonator has a resonant frequency of 1.00 MHz and a bandwidth of 10.0 kHz. "
+        "Find the quality factor.",
+        "quality_factor_bandwidth",
+        100,
+    ),
+    (
+        "A series circuit has resistance 10.0 ohm, inductance 50.0 mH, and capacitance "
+        "2.00 uF. Find the quality factor.",
+        "quality_factor_rlc",
+        15.811,
+    ),
+    (
+        "An electron of energy 5.00 eV hits a barrier of height 10.0 eV that is 0.100 nm wide. "
+        "Find the tunneling probability.",
+        "tunnel_probability",
+        0.1012,
+    ),
 ]
 
 
@@ -118,6 +195,11 @@ def test_a_closed_form_is_verified(text: str, operation: str, value: float) -> N
         "Find the center of mass.",
         "A parallel-plate capacitor has plate area 0.02 m^2 and separation 1 mm "
         "and a dielectric. Find the capacitance.",
+        "A thin film of refractive index 1.40 at wavelength 560 nm for order 1. "
+        "Find the thickness.",
+        "Use the vis-viva equation for the Sun at a distance of 1.47e11 m. Find the speed.",
+        "An electron of energy 15.0 eV hits a barrier of height 10.0 eV that is 0.100 nm wide. "
+        "Find the tunneling probability.",
     ],
 )
 def test_a_closed_form_with_a_missing_input_declines(text: str) -> None:

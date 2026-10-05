@@ -148,6 +148,7 @@ _WORDS: dict[str, str] = {
     "kj/g": "kilojoule / gram",
     "j/g": "joule / gram",
     "w/m^2": "watt / meter ** 2",
+    "s/m": "siemens / meter",
     "w/m/k": "watt / meter / kelvin",
     "ohm m": "ohm * meter",
     "ohm·m": "ohm * meter",
