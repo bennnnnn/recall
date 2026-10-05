@@ -25,6 +25,7 @@ from app.modules.physics.catalog.gravitation import SPECS as GRAVITATION
 from app.modules.physics.catalog.heat import SPECS as HEAT
 from app.modules.physics.catalog.inductance_ac import SPECS as INDUCTANCE_AC
 from app.modules.physics.catalog.kinematics import SPECS as KINEMATICS
+from app.modules.physics.catalog.later_forms import SPECS as LATER_FORMS
 from app.modules.physics.catalog.magnetism import SPECS as MAGNETISM
 from app.modules.physics.catalog.materials import SPECS as MATERIALS
 from app.modules.physics.catalog.modern import SPECS as MODERN
@@ -106,6 +107,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     ONE_STEP,
     FURTHER,
     CLOSED_FORMS,
+    LATER_FORMS,
     QUANTUM,
     RELATIVITY,
 )
