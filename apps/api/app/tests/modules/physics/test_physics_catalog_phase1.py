@@ -188,7 +188,6 @@ def test_new_catalog_operations_convert_mixed_units(query: str, answer: str) -> 
 @pytest.mark.parametrize(
     "query",
     [
-        "Find the center of mass of 1 kg at 0 m, 2 kg at 2 m, and 3 kg at 4 m.",
         "A machine uses 100 J and produces 80 J. Find its efficiency.",
         "Find the fourth harmonic of a 0.5 m closed pipe with sound speed 340 m/s.",
         "Use Bernoulli for water with pressure 100000 Pa and speeds 2 m/s and 6 m/s.",

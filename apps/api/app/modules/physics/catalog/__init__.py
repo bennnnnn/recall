@@ -13,6 +13,7 @@ from app.modules.physics.catalog.buoyancy import SPECS as BUOYANCY
 from app.modules.physics.catalog.capacitors import SPECS as CAPACITORS
 from app.modules.physics.catalog.circuit import SPECS as CIRCUIT
 from app.modules.physics.catalog.circular import SPECS as CIRCULAR
+from app.modules.physics.catalog.closed_forms import SPECS as CLOSED_FORMS
 from app.modules.physics.catalog.electric_field import SPECS as ELECTRIC_FIELD
 from app.modules.physics.catalog.energy import SPECS as ENERGY
 from app.modules.physics.catalog.fluids import SPECS as FLUIDS
@@ -104,6 +105,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     NUCLEAR,
     ONE_STEP,
     FURTHER,
+    CLOSED_FORMS,
     QUANTUM,
     RELATIVITY,
 )

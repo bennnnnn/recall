@@ -84,10 +84,31 @@ def _extract_momentum_intent(cleaned: str) -> PhysicsIntent | None:
     # --- Centre of mass: x_cm = sum(m_i x_i) / sum(m_i) ---------------
     if "center of mass" in lower or "centre of mass" in lower:
         positions = _ordered_values(cleaned, r"km|cm|mm|m|ft|yd|in|mi")
+        if len(masses) == 3 and len(positions) == 3:
+            return PhysicsIntent(
+                kind="momentum",
+                physics_op="center_of_mass_three",
+                physics_params={
+                    "m1": masses[0][0],
+                    "m2": masses[1][0],
+                    "m3": masses[2][0],
+                    "x1": positions[0][0],
+                    "x2": positions[1][0],
+                    "x3": positions[2][0],
+                },
+                physics_units={
+                    "m1": masses[0][1] or "kg",
+                    "m2": masses[1][1] or "kg",
+                    "m3": masses[2][1] or "kg",
+                    "x1": positions[0][1] or "m",
+                    "x2": positions[1][1] or "m",
+                    "x3": positions[2][1] or "m",
+                },
+                operation="solve",
+            )
         if len(masses) != 2 or len(positions) != 2:
-            # This operation deliberately starts with the common two-point
-            # school form. A three-body or continuous-distribution question
-            # belongs to a different input shape and must not be truncated.
+            # Two and three stated point masses are closed. A fourth mass or a
+            # continuous distribution is a different shape and must not be truncated.
             return None
         return PhysicsIntent(
             kind="momentum",

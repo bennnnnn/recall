@@ -65,6 +65,9 @@ _QUANTITIES: dict[str, str] = {
     "momentum": "kilogram * meter / second",
     "impulse": "kilogram * meter / second",
     # Force and energy
+    "force per unit length": "newton / meter",
+    "force per meter": "newton / meter",
+    "force per metre": "newton / meter",
     "force": "newton",
     "forces": "newton",
     "tension": "newton",
@@ -84,6 +87,9 @@ _QUANTITIES: dict[str, str] = {
     "work": "joule",
     "work done": "joule",
     "work function": "joule",
+    "molar heat capacity at constant pressure": "joule / mole / kelvin",
+    "molar heat capacity at constant volume": "joule / mole / kelvin",
+    "molar heat capacity": "joule / mole / kelvin",
     "heat": "joule",
     "kinetic energy": "joule",
     "potential energy": "joule",
@@ -154,6 +160,8 @@ _QUANTITIES: dict[str, str] = {
     "activity": "1 / second",
     "decay constant": "1 / second",
     # Pure numbers and angles
+    "tangent of the phase angle": _DIMENSIONLESS,
+    "phase tangent": _DIMENSIONLESS,
     "angle": ANGLE,
     "sound level": _DIMENSIONLESS,
     "intensity level": _DIMENSIONLESS,

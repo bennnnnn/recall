@@ -43,6 +43,9 @@ def _extract_electrostatics_intent(cleaned: str) -> PhysicsIntent | None:
     if has_equation(_strip_param_assignments(cleaned)):
         return None
     lower = cleaned.lower()
+    # The axial dipole field is not the field of one of its charges.
+    if "dipole" in lower:
+        return None
     charges = _ordered_values(cleaned, _COULOMB_PATTERN)
     if len(charges) == 1 and "each" in lower and _TWO_CHARGES_RE.search(cleaned):
         charges = [charges[0], charges[0]]

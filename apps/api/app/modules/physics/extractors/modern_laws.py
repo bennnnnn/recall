@@ -89,6 +89,10 @@ def _wien(cleaned: str) -> PhysicsIntent | None:
 
 def _stefan_boltzmann(cleaned: str) -> PhysicsIntent | None:
     """A black body's radiated power."""
+    # Net power needs the surroundings. Emitting into an unstated enclosure is a
+    # different number, so this reader declines and the net-power law can bind.
+    if re.search(r"surroundings|ambient|environment", cleaned, re.IGNORECASE):
+        return None
     temp = _temperature_value(cleaned, ("temperature", "at", "blackbody"))
     area = _find_value_with_specific_unit(cleaned, _AREA_PATTERN, ("area", "surface"))
     emissivity_match = re.search(
