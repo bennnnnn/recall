@@ -145,6 +145,16 @@ describe("preprocessMarkdown", () => {
     expect(html).not.toContain("```details");
   });
 
+  it("strips nested angle brackets from a details title", () => {
+    const html = preprocessMarkdown(
+      "<details><summary><scr<script>ipt>Click</script></summary>\nok\n</details>",
+    );
+    expect(html).toContain("**scrscriptiptClick/script**");
+    expect(html).not.toContain("<");
+    expect(html).not.toContain(">");
+    expect(html).toContain("ok");
+  });
+
   it("does not turn a plain Calendar/Gmail connect sentence into a callout card", () => {
     const src =
       "Google Calendar is not connected. Connect it in Settings → Google Calendar to see meetings.\n\n" +
@@ -212,6 +222,14 @@ describe("preprocessMarkdown", () => {
     );
     expect(out).toContain("> — Maya Angelou");
     expect(out).not.toMatch(/consistently\. — Maya Angelou/);
+  });
+
+  it("separates a citation line so the author is not part of the quote paragraph", () => {
+    const src = "> We are such stuff as dreams are made on.\n> -- Prospero";
+    const out = preprocessMarkdown(src);
+    expect(out).toBe(
+      "> We are such stuff as dreams are made on.\n>\n> -- Prospero",
+    );
   });
 
   it("still converts real display math delimiters", () => {

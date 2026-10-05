@@ -1,4 +1,4 @@
-import { splitTrailingAttribution } from "@/lib/richBlocks";
+import { citationAuthor, splitTrailingAttribution } from "@/lib/richBlocks";
 
 // Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).
 const CALLOUT_RE =
@@ -190,6 +190,14 @@ export function splitBlockquoteInlineAttribution(content: string): string {
     if (line[prefixEnd] === " ") prefixEnd += 1;
     const body = line.slice(prefixEnd);
     if (body.startsWith("[!")) {
+      out.push(line);
+      continue;
+    }
+    // Consecutive `>` lines are one paragraph, so `-- Name` stayed in the
+    // quote. A blank line makes that citation its own author row.
+    if (citationAuthor(body)) {
+      const prev = out[out.length - 1]?.trim() ?? "";
+      if (prev.startsWith(">") && prev !== ">") out.push(">");
       out.push(line);
       continue;
     }
