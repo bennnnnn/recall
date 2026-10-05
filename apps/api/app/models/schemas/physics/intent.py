@@ -18,6 +18,13 @@ from typing import Literal
 from pydantic import BaseModel, Field, model_validator
 
 ProjectileQuantity = Literal["time_of_flight", "max_height", "range", "impact_speed"]
+SuvatQuantity = Literal[
+    "suvat_velocity",
+    "suvat_distance",
+    "suvat_time",
+    "suvat_acceleration",
+]
+RequestedQuantity = ProjectileQuantity | SuvatQuantity
 
 
 class PhysicsIntent(BaseModel):
@@ -58,8 +65,8 @@ class PhysicsIntent(BaseModel):
     # Unit labels for the params above: {"h0": "m", "v0": "m/s", "g": "m/s^2"}.
     # Used to render the answer with proper units.
     physics_units: dict[str, str] | None = None
-    # One launch, with every requested output retained in presentation order.
-    requested_ops: list[ProjectileQuantity] = Field(default_factory=list, max_length=4)
+    # One setup, with every requested output retained in presentation order.
+    requested_ops: list[RequestedQuantity] = Field(default_factory=list, max_length=4)
     # Dimensions the question asks for, read independently of the extractor.
     # Empty when the ask could not be read; then no result is refused for it.
     asked: tuple[str, ...] = Field(default=(), max_length=4)
@@ -70,8 +77,28 @@ class PhysicsIntent(BaseModel):
     def coherent_requested_ops(self) -> PhysicsIntent:
         ops = self.requested_ops
         if ops:
-            if self.kind != "projectile" or self.physics_op != ops[0]:
+            if self.kind == "projectile":
+                allowed: set[str] = {
+                    "time_of_flight",
+                    "max_height",
+                    "range",
+                    "impact_speed",
+                }
+                message = "multipart quantities must belong to the same projectile"
+            elif self.kind == "suvat":
+                allowed = {
+                    "suvat_velocity",
+                    "suvat_distance",
+                    "suvat_time",
+                    "suvat_acceleration",
+                }
+                message = (
+                    "multipart quantities must belong to the same constant-acceleration motion"
+                )
+            else:
                 raise ValueError("multipart quantities must belong to the same projectile")
+            if self.physics_op != ops[0] or any(op not in allowed for op in ops):
+                raise ValueError(message)
             if len(ops) < 2 or len(set(ops)) != len(ops):
                 raise ValueError("multipart quantities must contain two to four distinct requests")
         self._catalog_owns_operation()
