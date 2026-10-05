@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`43 × 35 = \$1,505$` rendered as `1,505` with the dollar gone.** Markdown turns `\$` into `$`, so the leftover `$1,505$` is a math span of the number. Rewrite that amount to `$1,505` before markdown, and skip the rewrite when the backslash is already inside `$\$...$`.
+
 - **`$43 per hour` rendered as `\43`, and `$1,505` as `\1,505$`.** A `$` scanner closed the span on the `$` inside `\$`. Rewrapping the rest made `\$$`, which became a broken math fence. Protecting the backslash alone left that `$` in place, so the next scanner closed there and the marker drew as `\`. Do not close a span on an escaped dollar, and replace the whole `\$` with one marker that restores to `$`.
 
 - **`t_\textit{rel}`, `F_\mathbf{g}`, and `x^\{2\}` still showed a backslash, the command name, or an emoji in the script.** The one-character read after `_` or `^` only special-cased `\text` / `\mathrm` markers. A space, `\mathbf`, `\textit`, `\max`, or the private-use brace for `\{` was that one character. Skip spaces and take the whole command or `\{...\}` group as the script; mark `\textit` and `\operatorname*` the same way as `\text`.

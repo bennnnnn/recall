@@ -308,6 +308,35 @@ describe("MarkdownContent math rendering", () => {
     expect(queryByText(/Simplify 3/)).toBeNull();
   });
 
+  it("renders an escaped pay formula as dollars, not backslashes or command names", async () => {
+    const content = [
+      "Weekly Pay:",
+      "",
+      String.raw`$\$43 \text{ per hour} \times 40 \text{ hours} = \mathbf{\$1,720} \text{ per week}$`,
+      "",
+      String.raw`Example: 35 hrs/week → 43 × 35 = \$1,505$`,
+      "",
+      String.raw`$1,720 \times 2 = \mathbf{\$3,440}$ per paycheck`,
+    ].join("\n");
+    const { getByText, queryByText } = await render(<MarkdownContent content={content} />);
+    expect(getByText("$43 per hour × 40 hours = $1,720 per week")).toBeOnTheScreen();
+    expect(getByText(/43 × 35 = \$1,505/)).toBeOnTheScreen();
+    expect(getByText("1,720 × 2 = $3,440")).toBeOnTheScreen();
+    expect(queryByText(/\\text|\\times|mathbf|[\uE000-\uE00F]/)).toBeNull();
+  });
+
+  it("renders the same pay formula while the reply is still streaming", async () => {
+    const content = String.raw`Weekly Pay:
+
+$\$43 \text{ per hour} \times 40 \text{ hours} = \mathbf{\$1,720} \text{ per week}$
+`;
+    const { getByText, queryByText } = await render(
+      <MarkdownContent content={content} streaming />,
+    );
+    expect(getByText("$43 per hour × 40 hours = $1,720 per week")).toBeOnTheScreen();
+    expect(queryByText(/\\text|\\times|mathbf|[\uE000-\uE00F]/)).toBeNull();
+  });
+
   it("unwraps a details fence so the body is markdown, not a collapsed card", async () => {
     const { getByText, getByTestId, queryByText, queryByRole } = await render(
       <MarkdownContent
