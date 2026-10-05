@@ -165,6 +165,8 @@ _WORDS: dict[str, str] = {
     "cm^3": "centimeter ** 3",
     "cm3": "centimeter ** 3",
     # An expansion coefficient: per degree of change, so per °C is per K.
+    "/s": "1 / second",
+    "1/s": "1 / second",
     "per k": "1 / kelvin",
     "/k": "1 / kelvin",
     "k^-1": "1 / kelvin",

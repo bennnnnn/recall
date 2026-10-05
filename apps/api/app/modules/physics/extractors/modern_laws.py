@@ -37,6 +37,9 @@ def _relativistic_speed(cleaned: str) -> tuple[float, str] | None:
 def _relativity(cleaned: str) -> PhysicsIntent | None:
     """A Lorentz factor, a dilated time or a contracted length."""
     lower = cleaned.lower()
+    # A gravitational factor is sqrt(1 - 2GM/rc²), not a Lorentz factor.
+    if "gravitational" in lower or "schwarzschild" in lower:
+        return None
     speed = _relativistic_speed(cleaned)
     if speed is None:
         return None
