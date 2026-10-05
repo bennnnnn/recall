@@ -1,6 +1,7 @@
 /** Turn model output like `( x^2 = 6 )` into renderable LaTeX. Bare `12+3`
  * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
+import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
 const LATEX_CMD = /\\(?:[a-zA-Z]+|.){1,}/;
@@ -457,7 +458,7 @@ export function normalizeImplicitMath(
   content: string,
   format?: (expr: string) => string,
 ): string {
-  return applyOutsideFences(content, (prose) =>
+  return applyOutsideFences(revealCurrencyDollars(content), (prose) =>
     normalizeOutsideDisplayMath(prose, format),
   );
 }

@@ -108,6 +108,16 @@ export function separateConsecutiveMathLines(content: string): string {
   });
 }
 
+/** `\$1,505$` is a currency amount with a stray closer, not math `1,505`.
+ * Leave `$\$1,505$` alone: that span already keeps the dollar. */
+export function revealCurrencyDollars(text: string): string {
+  return text.replace(
+    /\\\$(\d[\d,]*(?:\.\d+)?)\$/g,
+    (match, amount: string, offset: number, source: string) =>
+      source[offset - 1] === "$" ? match : `$${amount}`,
+  );
+}
+
 /** Move $...$ out of **...** so emphasis nodes do not swallow math delimiters.
 
  * Keep the original span when math sits in the *middle* of the bold (text

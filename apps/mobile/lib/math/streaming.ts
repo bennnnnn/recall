@@ -1,4 +1,5 @@
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
+import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
 import {
   PROTECTED_ESCAPE_MARKER,
   PROTECTED_LITERAL_DOLLAR,
@@ -60,6 +61,7 @@ export function completeStreamingLatex(body: string): string {
 /** Protect complete inline math in the live tail, holding only an unfinished
  * explicit formula. Ordinary dollars and backticked source remain visible. */
 export function prepareStreamingMathText(text: string): { text: string; pending: boolean } {
+  text = revealCurrencyDollars(text);
   let out = "";
   for (let i = 0; i < text.length;) {
     if (text[i - 1] === "(" && text[i] === "$") {
