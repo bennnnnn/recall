@@ -18,10 +18,14 @@ logger = logging.getLogger(__name__)
 def _unverified_physics_note() -> str:
     return (
         "Physics note: a physics request was detected, but no complete verified "
-        "solver result is available. Do not claim verification, drop units, or "
-        "solve only one fragment of the request. Do not emit answer, graph, or "
-        "simulation fences.\n\n"
-        f"{PHYSICS_REPLY_POLICY}"
+        "solver result is available. Do not claim verification or drop units. "
+        "Still finish under Answer with the result and units in inline math. "
+        "Never end on the Answer heading. If there is no unique result, say "
+        "what is missing instead of leaving Answer blank. Do not emit answer, "
+        "graph, or simulation fences.\n\n"
+        f"{PHYSICS_REPLY_POLICY}\n\n"
+        "No verified numbers were produced for this request, so the copy-verified "
+        "rule does not apply. Compute the result and write it under Answer."
     )
 
 

@@ -13,8 +13,10 @@ PHYSICS_INTENT_HINT = (
     "  - Do NOT emit ```answer, ```graph, ```simulation, or ```geometry.\n"
     "  - A trajectory is only for kinematics, projectile motion, or spring and "
     "pendulum motion. Every other answer is a number with units.\n"
-    "  - Outside the verified templates, say when you are unsure instead of "
-    "inventing a result.\n"
+    "  - If no verified block is present, still put the result under Answer "
+    "in inline `$...$` with units. Never end on that heading, and do not call "
+    "the result verified. If there is no unique result, say what is missing "
+    "instead of a blank Answer.\n"
     "  - Never join several transformations into one math row."
 )
 
@@ -36,5 +38,6 @@ PHYSICS_REPLY_POLICY = (
     "cards, and do not repeat the result. Copy verified numbers and units; do "
     "not recompute them. Honor SHORT by giving less, and DETAILED by showing "
     "the working. For a hint or practice, give a focused hint without the full "
-    "solution unless the user asked for it."
+    "solution unless the user asked for it. The Answer line must state the "
+    "result. Never end on the heading."
 )
