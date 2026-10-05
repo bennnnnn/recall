@@ -43,6 +43,7 @@ def validate_physics_fences(
         if normalized_answer not in normalized_content:
             return cleaned
     if answer:
+        cleaned = _without_duplicated_answer(cleaned, answer)
         extras.append(f"```answer\n{answer}\n```")
     for spec in _canonical_specs(verified):
         spec_type = spec.get("type")
@@ -51,6 +52,36 @@ def validate_physics_fences(
         language = "simulation" if spec_type in SIMULATION_SPEC_TYPES else "graph"
         extras.append(f"```{language}\n{json.dumps(spec, separators=(',', ':'))}\n```")
     return "\n\n".join(part for part in (cleaned, *extras) if part).strip()
+
+
+def _without_duplicated_answer(content: str, answer: str) -> str:
+    """Drop a trailing Answer line that only repeats the verified fence.
+
+    The direct card ends on the heading and keeps the number in the fence.
+    A photo reply that writes the same number under Answer would show it twice.
+    """
+    match = re.search(
+        r"(?P<head>(?:^|\n)[ \t]*(?:\*\*)?Answer(?:\*\*)?[ \t]*:?[ \t]*)"
+        r"(?P<body>[^\n]*(?:\n[\s\S]*)?)?\Z",
+        content,
+        re.IGNORECASE,
+    )
+    if match is None or not match.group("body") or not match.group("body").strip():
+        return content
+    if not _restates(match.group("body"), answer):
+        return content
+    return content[: match.end("head")].rstrip()
+
+
+def _restates(body: str, answer: str) -> bool:
+    return _plain_answer(body) == _plain_answer(answer) and bool(_plain_answer(answer))
+
+
+def _plain_answer(text: str) -> str:
+    plain = re.sub(r"\\[a-zA-Z]+", " ", text)
+    plain = plain.replace(r"\,", " ")
+    plain = re.sub(r"[$\\{}_*`]", "", plain)
+    return re.sub(r"\s+", " ", plain).strip(" .").lower()
 
 
 def replace_unclosed_physics_fences_safe(
