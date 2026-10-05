@@ -89,6 +89,23 @@ def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
             ),
             None,
         )
+        if word_index(lower, "rod") != -1:
+            length = _find_value_with_specific_unit(
+                cleaned, _LENGTH_UNIT_PATTERN, ("length", "long"), require_keyword=True
+            )
+            about_end = word_index(lower, "end") != -1
+            about_center = word_index(lower, "center") != -1 or word_index(lower, "centre") != -1
+            # The axis is the formula. Center and end are different, and neither
+            # may be guessed.
+            if mass is None or length is None or about_end == about_center:
+                return None
+            return PhysicsIntent(
+                kind="rotation",
+                physics_op="rod_end_inertia" if about_end else "rod_center_inertia",
+                physics_params={"m": mass[0], "rod_length": length[0]},
+                physics_units={"m": mass[1] or "kg", "rod_length": length[1] or "m"},
+                operation="solve",
+            )
         if shape_factor is None or mass is None or radius is None:
             return None
         return PhysicsIntent(

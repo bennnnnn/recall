@@ -54,6 +54,10 @@ def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
     # this gate reads the original casing the way the pre-filter now does.
     if not _has_cue_either_case(cleaned, _MAGNETISM_CUES, _MAGNETISM_CUE_RES):
         return None
+    # Hall voltage uses the same current, field, and thickness as F = BIL.
+    # The catalog law owns it; this extractor must not answer first.
+    if re.search(r"\bhall\b", cleaned, re.IGNORECASE):
+        return None
     if blocks_field(cleaned):
         return None
     if has_equation(_strip_param_assignments(cleaned)):

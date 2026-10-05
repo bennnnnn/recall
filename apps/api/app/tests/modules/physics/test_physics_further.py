@@ -1,0 +1,165 @@
+"""Closed formulas that the school catalog used to leave to the model."""
+
+from __future__ import annotations
+
+import pytest
+
+from app.modules.physics.extract import extract_physics_intent
+from app.tests.modules.physics.support import answer_number
+from app.tests.modules.physics.test_physics_binding import _answer
+
+_CASES = [
+    (
+        "A metal plate of area 0.2 m^2 has a linear expansivity of 1.2e-5 /K. "
+        "Find the change in area when the temperature rises by 20 K.",
+        "area_expansion",
+        9.6e-5,
+    ),
+    (
+        "A glass vessel of volume 0.5 m^3 has a volume expansivity of 2.7e-5 /K. "
+        "Find the change in volume for a temperature rise of 10 K.",
+        "volume_expansion",
+        1.35e-4,
+    ),
+    (
+        "A glass vessel of volume 0.5 m^3 has a linear expansivity of 1.2e-5 /K. "
+        "Find the change in volume when the temperature rises by 20 K.",
+        "volume_expansion",
+        3.6e-4,
+    ),
+    (
+        "2 mol of ideal gas expands isothermally at 300 K from 0.01 m^3 to 0.02 m^3. "
+        "Find the work done by the gas.",
+        "isothermal_work",
+        3457.0,
+    ),
+    (
+        "A gas has number density 2.5e25 /m^3 and molecular diameter 3e-10 m. "
+        "Find the mean free path.",
+        "mean_free_path",
+        1.0006e-7,
+    ),
+    (
+        "A rocket exhausts gas at 2000 m/s. Its mass falls from 1000 kg to 400 kg. "
+        "Find the change in speed.",
+        "rocket_delta_v",
+        1832.6,
+    ),
+    (
+        "A circular loop of radius 0.1 m carries 5 A. Find the magnetic field at its center.",
+        "loop_magnetic_field",
+        3.1416e-5,
+    ),
+    (
+        "A toroid of 200 turns and radius 0.05 m carries 3 A. Find the magnetic field inside.",
+        "toroid_field",
+        0.0024,
+    ),
+    (
+        "A solenoid of 500 turns, length 0.4 m and cross-sectional area 2e-4 m^2. "
+        "Find its inductance.",
+        "solenoid_inductance",
+        1.5708e-4,
+    ),
+    (
+        "An electron moves in a cyclotron in a 0.5 T field. Find the cyclotron frequency.",
+        "cyclotron_frequency",
+        1.4e10,
+    ),
+    (
+        "A strip 1 mm thick carries 2 A in a 0.4 T field. The charge density is 1e28 /m^3. "
+        "Find the Hall voltage.",
+        "hall_voltage",
+        4.99e-7,
+    ),
+    (
+        "An electric field of 1000 N/C fills space. Find the electric energy density.",
+        "electric_energy_density",
+        4.427e-6,
+    ),
+    (
+        "A magnetic field of 0.2 T fills space. Find the magnetic energy density.",
+        "magnetic_energy_density",
+        1.592e4,
+    ),
+    (
+        "An electromagnetic wave has a peak electric field of 50 N/C. Find its intensity.",
+        "em_wave_intensity",
+        3.32,
+    ),
+    (
+        "Light of wavelength 500 nm passes a circular aperture of diameter 2 mm. "
+        "Find the Rayleigh criterion angle.",
+        "rayleigh_angle",
+        3.05e-4,
+    ),
+    (
+        "Two thin lenses in contact have powers 2 dioptres and 3 dioptres. Find the total power.",
+        "lens_power_sum",
+        5.0,
+    ),
+    (
+        "A telescope has an objective focal length of 80 cm and an eyepiece focal length of 2 cm. "
+        "Find the magnification.",
+        "telescope_magnification",
+        40.0,
+    ),
+    (
+        "Masses of 3 kg and 6 kg orbit their center of mass. Find the reduced mass.",
+        "reduced_mass",
+        2.0,
+    ),
+    (
+        "Two carts approach at 4 m/s and separate at 2 m/s. Find the coefficient of restitution.",
+        "restitution",
+        0.5,
+    ),
+    (
+        "A torsional pendulum has moment of inertia 0.02 kg m^2 and torsion constant 0.5 N m/rad. "
+        "Find the period.",
+        "torsional_period",
+        1.2566,
+    ),
+    (
+        "A rod of mass 2 kg and length 0.6 m rotates about its center. Find its moment of inertia.",
+        "rod_center_inertia",
+        0.06,
+    ),
+    (
+        "A rod of mass 2 kg and length 0.6 m rotates about one end. Find its moment of inertia.",
+        "rod_end_inertia",
+        0.24,
+    ),
+    (
+        "A clock is 2000 m above another in a gravitational field of 9.81 m/s^2. "
+        "Find the fractional frequency shift.",
+        "gravitational_frequency_shift",
+        2.183e-13,
+    ),
+    (
+        "A sample has decay constant 0.01 Hz and falls from 1000 nuclei to 250. "
+        "Find the time elapsed.",
+        "decay_elapsed",
+        138.6,
+    ),
+]
+
+
+@pytest.mark.parametrize(("text", "operation", "value"), _CASES)
+def test_a_missing_closed_formula_is_verified(text: str, operation: str, value: float) -> None:
+    intent = extract_physics_intent(text)
+    assert intent is not None and intent.physics_op == operation
+    answer = _answer(text)
+    assert answer is not None
+    assert answer_number(answer) == pytest.approx(value, rel=0.02)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "A rod of mass 2 kg and length 0.6 m. Find its moment of inertia.",
+        "What is the moment of inertia of a 5 kg wheel of radius 2 m?",
+    ],
+)
+def test_an_unstated_axis_or_shape_still_declines(text: str) -> None:
+    assert _answer(text) is None

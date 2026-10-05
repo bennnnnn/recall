@@ -142,6 +142,7 @@ _WORD_UNIT_SYMBOLS = {
     "1 / millimeter": "lines/mm",
     "1 / centimeter": "lines/cm",
     "1 / meter": "lines/m",
+    "1 / meter ** 3": "m⁻³",
 }
 
 

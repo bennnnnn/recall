@@ -18,6 +18,7 @@ from app.modules.physics.catalog.energy import SPECS as ENERGY
 from app.modules.physics.catalog.fluids import SPECS as FLUIDS
 from app.modules.physics.catalog.force import SPECS as FORCE
 from app.modules.physics.catalog.friction import SPECS as FRICTION
+from app.modules.physics.catalog.further import SPECS as FURTHER
 from app.modules.physics.catalog.gas_laws import SPECS as GAS_LAWS
 from app.modules.physics.catalog.gravitation import SPECS as GRAVITATION
 from app.modules.physics.catalog.heat import SPECS as HEAT
@@ -102,6 +103,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     MODERN,
     NUCLEAR,
     ONE_STEP,
+    FURTHER,
     QUANTUM,
     RELATIVITY,
 )

@@ -269,4 +269,13 @@ _WORDS: dict[str, str] = {
     "lines per metre": "1 / meter",
     "lines per meter": "1 / meter",
     "lines/m": "1 / meter",
+    "dioptre": "1 / meter",
+    "dioptres": "1 / meter",
+    "diopter": "1 / meter",
+    "diopters": "1 / meter",
+    "/m^3": "1 / meter ** 3",
+    "m^-3": "1 / meter ** 3",
+    "per m^3": "1 / meter ** 3",
+    "n m/rad": "newton * meter / radian",
+    "n·m/rad": "newton * meter / radian",
 }
