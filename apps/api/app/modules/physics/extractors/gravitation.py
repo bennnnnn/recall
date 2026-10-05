@@ -84,6 +84,9 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
         )
 
     if "orbital" in lower:
+        # Vis-viva needs the semi-major axis. Circular orbital speed would drop it.
+        if re.search(r"semi-?major|vis-?viva", lower):
+            return None
         planet_mass, planet_radius = _resolve_body(body, masses, radius)
         if planet_mass is None or planet_radius is None:
             return None

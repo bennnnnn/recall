@@ -117,7 +117,14 @@ def _photon_energy(cleaned: str) -> PhysicsIntent | None:
     """A photon's energy from its frequency or wavelength.
 
     A photon's momentum is not its energy: that law is the catalog binder's.
+    Planck's law is a spectrum, not one photon's energy.
     """
+    if re.search(
+        r"spectral radiance|planck(?:'s)? law|planck distribution|blackbody distribution",
+        cleaned,
+        re.IGNORECASE,
+    ):
+        return None
     freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
     wavelength = _find_value_with_specific_unit(
         cleaned,

@@ -45,7 +45,6 @@ _DIGIT_FREE_PHYSICS_RE = re.compile(
 # Rydberg formula.
 _UNVERIFIED_PHYSICS_PHRASES: tuple[str, ...] = (
     "schrödinger equation",
-    "planck distribution",
     "binding energy",
     "mass defect",
     "general relativity",
