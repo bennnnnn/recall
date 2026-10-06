@@ -28,6 +28,8 @@ _SYMBOLS: dict[str, str] = {
     "Ω": "ohm",
     "°": "degree",
     "%": "percent",
+    # A lens power. Pint reads a bare D as a debye; the chip prints this symbol.
+    "D": "1 / meter",
     "mA": "milliampere",
     "MW": "megawatt",
     "mW": "milliwatt",

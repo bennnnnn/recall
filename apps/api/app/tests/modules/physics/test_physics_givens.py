@@ -70,6 +70,12 @@ def test_a_time_before_a_sentence_is_not_significant_figures() -> None:
     ]
 
 
+def test_a_capital_d_is_a_dioptre() -> None:
+    (given,) = scan_givens("4.00 D")
+    assert given.unit == "D"
+    assert given.dimension == unit_dimension("1 / meter")[0]
+
+
 @pytest.mark.parametrize(
     ("text", "unit", "expression"),
     [

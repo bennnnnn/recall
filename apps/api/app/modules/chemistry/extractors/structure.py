@@ -6,6 +6,7 @@ import re
 from typing import Literal
 
 from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _element,
@@ -75,13 +76,17 @@ def _extract_crystal_field(text: str) -> ChemistryIntent | None:
     )
     if formula is None:
         return None
+    # "magnetic moment of 0.200 A m^2" is a magnitude. A crystal-field moment names a complex.
+    token = formula.group(1).rstrip("?.!,")
+    if parse_complex_formula(token) is None:
+        return None
     stated = _stated_geometry(text)
     if stated == "ambiguous":
         return None
     return ChemistryIntent(
         kind="inorganic",
         chemistry_op="crystal_field",
-        formula=formula.group(1).rstrip("?.!,"),
+        formula=token,
         geometry=None if stated is None else stated,
     )
 

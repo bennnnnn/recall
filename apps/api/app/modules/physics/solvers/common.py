@@ -219,6 +219,9 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
                 continue
             raise SolveServiceError(f"unsupported unit: {unit}") from exc
         if dim_spec is not None and quantity.dimensionality != ureg(dim_spec).dimensionality:
+            # Pint reads D as a debye. The unit table's dioptre is the later reading.
+            if index + 1 < len(readings):
+                continue
             raise SolveServiceError(
                 f"unit {unit} does not match expected dimension for {expected_key}"
             )

@@ -49,7 +49,8 @@ _VALUE_AFTER = re.compile(
 # The asked quantity follows its verb closely: "find the speed", "what is the
 # magnitude of the resultant force". Further on, a noun is part of a given.
 _ASK_REACH = 60
-_LENS = re.compile(r"\blens\b|\bdiopt", re.IGNORECASE)
+# "lens" misses "lenses": the boundary after the singular is the next letter.
+_LENS = re.compile(r"\blens(?:es)?\b|\bdiopt", re.IGNORECASE)
 
 
 def _labels_a_value(clause: str, noun: re.Match[str], text: str) -> bool:

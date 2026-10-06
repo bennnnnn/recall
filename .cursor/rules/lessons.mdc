@@ -12,13 +12,17 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A lens power written D declined, and a magnetic moment in tesla was taken as a complex.** D is a dioptre, the unit the chip already prints. “magnetic moment of 0.200” is a magnitude; a crystal-field moment names a complex such as \([\mathrm{Co}(\mathrm{NH}_3)_6]^{3+}\).
+
 - **A number density, a Hubble constant, and an expansivity written in words declined.** “per cubic meter” is \(1/\mathrm{m}^3\), “per second” is \(1/\mathrm{s}\), and “per kelvin” is \(1/\mathrm{K}\). The slash spellings already answered those laws.
 
 - **A stated moment of inertia and angular speed declined when the question asked for angular momentum.** The shape branch returns None as soon as the sentence says "moment of inertia" without a hoop or a disc, so \(L = I\omega\) never runs. Rotational kinetic energy already binds those two inputs. Angular momentum needs the same binding.
 
 - **Magnetic flux density was read as a flux and a density, angular separation as a length, and a rocket that ejects gas never opened.** "magnetic flux" is a weber and "separation" is a meter, so those longer asks never fit a tesla or an angle. The exhaust speed is named by ejects, the same verb as ejected.
 
-- **A speed in rad/s was read as an angle, Stefan's law never opened, and a volume flow rate was read as a volume.** `rad` inside `rad/s` matched the angle pattern, so 2 rad/s for 3 s verified 0.667 rad/s. The word stefan opens that law, as Wien's law already does. Volume flow rate is a flow, in m³/s.- **Parallel resistors across a voltage declined after the series form answered.** The current was \(I = V/R_\mathrm{eq}\), but accountability only treats a sum or a difference as a derivation, so 4 Ω and 12 Ω were left unbound by \(R = 3\,\Omega\). The reciprocal sum accounts for those resistances, and only on the ohm dimension.
+- **A speed in rad/s was read as an angle, Stefan's law never opened, and a volume flow rate was read as a volume.** `rad` inside `rad/s` matched the angle pattern, so 2 rad/s for 3 s verified 0.667 rad/s. The word stefan opens that law, as Wien's law already does. Volume flow rate is a flow, in m³/s.
+
+- **Parallel resistors across a voltage declined after the series form answered.** The current was \(I = V/R_\mathrm{eq}\), but accountability only treats a sum or a difference as a derivation, so 4 Ω and 12 Ω were left unbound by \(R = 3\,\Omega\). The reciprocal sum accounts for those resistances, and only on the ohm dimension.
 
 - **Centripetal acceleration declined when the given was called an angular speed.** "Angular speed" was read as the question, and a stated ω is not an input of ω = v/r, so \(a = \omega^2 r\) never ran. The quantity after the ask verb is the question.
 
@@ -28,8 +32,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 - **A grating's resolving power declined when the order was "second order".** \(R = mN\) already reads a numbered order. "Second order" is the order the grating angle already takes as 2, so that phrase fills \(m\) here too.
 
-- **A spring asked for its frequency was withheld as the period, and six stated forms of owned laws declined.** \(m\) and \(k\) asked as a frequency are \(f = (1/2\pi)\sqrt{k/m}\). Turns per meter are \(n = N/L\), Earth's surface is the potential's \(r\), a volume strain is \(\Delta V/V\), decibels use \(I_0 = 10^{-12}\), the colder of two reservoirs is \(T_C\), and an adiabatic gas stated in L and atm stays in those units.- **Parallel resistors across a voltage declined after the series form answered.** The current was \(I = V/R_\mathrm{eq}\), but accountability only treats a sum or a difference as a derivation, so 4 Ω and 12 Ω were left unbound by \(R = 3\,\Omega\). The reciprocal sum accounts for those resistances, and only on the ohm dimension.
+- **A spring asked for its frequency was withheld as the period, and six stated forms of owned laws declined.** \(m\) and \(k\) asked as a frequency are \(f = (1/2\pi)\sqrt{k/m}\). Turns per meter are \(n = N/L\), Earth's surface is the potential's \(r\), a volume strain is \(\Delta V/V\), decibels use \(I_0 = 10^{-12}\), the colder of two reservoirs is \(T_C\), and an adiabatic gas stated in L and atm stays in those units.
+
 - **A stated mass crashed centripetal acceleration, and a series pair across a voltage verified the resistance when the question asked for the current.** \(a = v^2/r\) does not take mass, so sending \(m\) made the catalog reject the intent. Only the force law keeps the mass. A network that asks for current, with one voltage, is \(I = V/R_\mathrm{eq}\); without that voltage it declines instead of answering the ohm sum.
+
 - **Labeled M1V1 with the stock concentration missing was left to algebra.** The dilution reader required M1 and V1 already, so "find M1" never closed. Any three of M1, V1, M2, and V2 name the fourth, and M1 = M2 V2 / V1.
 
 - **High-spin d5 crystal-field energy printed CFSE = −4.44×10^-14 kJ/mol.** −0.4 and 0.6 do not cancel in floating point, so three t2g and two eg electrons were not zero. Evaluate (−2 n_t2g + 3 n_eg) Δo / 5, which is 0 for that count.
