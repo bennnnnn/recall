@@ -262,7 +262,9 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
     elif omega is not None:
         params["omega"] = float(omega.group(1))
         units["omega"] = "rad/s"
-    if mass is not None:
+    # a = v^2/r and the period do not use mass. Sending it makes the catalog
+    # reject the intent, so a stated mass crashes instead of being ignored.
+    if mass is not None and op == "centripetal_force":
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"
     return PhysicsIntent(
