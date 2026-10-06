@@ -15,6 +15,7 @@ from app.modules.chemistry.solvers.common_chem import (
     inp,
     molar_mass_working,
     num,
+    p_value,
     verified,
 )
 from app.modules.chemistry.solvers.constants import (
@@ -45,6 +46,11 @@ CHEMISTRY_NOTATION = Notation(
 
 # Inputs the element table gives when the question does not state them.
 _TABLE_INPUTS = ("molar_mass", "atomic_mass")
+
+
+def _is_logarithm(symbol: str) -> bool:
+    """True for pH, pOH, pKa and pKb, whose precision is decimal places."""
+    return len(symbol) > 1 and symbol[0] == "p" and symbol[1].isupper()
 
 
 def _with_unit(value: str, unit: str) -> str:
@@ -160,7 +166,9 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("the mass number is smaller than the atomic number")
     if law.op in {"lever_alpha", "lever_beta"} and not 0 <= result <= 1:
         raise SolveServiceError("those compositions are not a tie line")
-    shown = _with_unit(num(result), law.unit)
+    # pH, pOH and pK are logarithms: 4.20 + log10(0.25) is 3.60, not 3.6.
+    number = p_value(result) if _is_logarithm(law.result) else num(result)
+    shown = _with_unit(number, law.unit)
     names = {"formula": intent.formula or "", "target": intent.target or ""}
     units = {name: unit for name, _label, unit in law.given}
     typed = {name: _Given(_shown(name, value), units[name]) for name, value in values.items()}

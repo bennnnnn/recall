@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Hill saturation with [L] = Kd and n = 2 printed θ = 0.75, and uranium-238 printed N = 1.5×10^2.** Kd is a concentration, so the half-saturation form is θ = [L]^n / (Kd^n + [L]^n), which is 0.500 when [L] = Kd. Mass number and atomic number are counts, so 238 − 92 stays 146. A formula-law pOH also used significant figures, so pKb 4.20 printed 3.6 instead of 3.60.
+
 - **0.050 M sodium acetate with acetic acid's Ka was verified as pH 3.03.** The only molarity and the Ka filled the weak-acid law, so the salt was treated as its parent acid. A named conjugate salt is that salt: Kb = Kw / Ka, then the weak-base quadratic (pH 8.72).
 
 - **"5.00 g of NaCl dissolved in 250 mL" did not give a molarity.** The molarity reader wanted moles and liters already, and a named solute plus water counted as two compounds. Read the mass through the solute's molar mass, and treat water as the solvent so the solute is still the one compound.

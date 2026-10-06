@@ -110,6 +110,23 @@ def test_an_angstrom_lattice_and_an_si_diffusion_coefficient() -> None:
             "N = 30",
         ),
         (
+            "Mass number 238 and atomic number 92. How many neutrons?",
+            "neutron_count",
+            "N = 146",
+        ),
+        (
+            "Use the Hill equation. The ligand concentration is 3.00 M, "
+            "the Hill coefficient n = 2.00, and Kd = 3.00 M. Find the saturation.",
+            "hill_saturation",
+            "θ = 0.500",
+        ),
+        (
+            "A buffer has pKb = 4.20, the conjugate is 0.050 M, and the base is 0.200 M. "
+            "What is the pOH?",
+            "base_buffer_poh",
+            "pOH = 3.60",
+        ),
+        (
             "Oxygen has atomic number 8 and 10 electrons. What is the charge of the ion?",
             "ion_charge",
             "q = -2.0",

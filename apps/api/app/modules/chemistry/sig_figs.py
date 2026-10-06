@@ -32,7 +32,11 @@ EXACT_KEYS = frozenset(
     {"i", "valence", "electrons", "bonding", "nonbonding", "neighbors", "count", "ratio"}
 )
 # Exact only in one operation: Hess's law multiplies each step by a whole number (m1, m2).
-_EXACT_IN_OP = {"hess": re.compile(r"m\d+")}
+# A mass number and an atomic number are counts, so 238 and 92 give 146 neutrons.
+_EXACT_IN_OP = {
+    "hess": re.compile(r"m\d+"),
+    "neutron_count": re.compile(r"mass_number|atomic_number"),
+}
 # Given as logarithms: their precision is their decimal places.
 LOG_KEYS = frozenset({"ph", "poh", "pka", "pkb", "pka1", "pka2"})
 # A Celsius reading, whose precision is that of the kelvin value it becomes.
