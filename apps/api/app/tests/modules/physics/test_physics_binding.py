@@ -113,6 +113,12 @@ def _answer(text: str) -> str | None:
             "rotational_kinetic_energy",
             "200 J",  # ½·4·100
         ),
+        (
+            "A flywheel has moment of inertia 0.500 kg m^2 and angular speed 4.00 rad/s. "
+            "Find the angular momentum.",
+            "angular_momentum",
+            "2 kg·m²/s",  # 0.500·4.00
+        ),
         ("A runner covers 100 m in 20 s. Find the speed.", "rate_speed", "5 m/s"),
         (
             "A person weighs 686.7 N on Earth. Find their mass.",
