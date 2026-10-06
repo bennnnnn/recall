@@ -16,6 +16,17 @@ _FORCE = unit_dimension("newton")[0]  # type: ignore[index]
 _ACCELERATION = unit_dimension("meter / second ** 2")[0]  # type: ignore[index]
 
 
+def test_inverse_length_and_molar_heat_are_units() -> None:
+    givens = scan_givens("5.00e5 /m and 29.1 J/mol/K and 0.385 kJ/kg/K.")
+    assert [(given.value, given.unit) for given in givens] == [
+        (5.0e5, "/m"),
+        (29.1, "J/mol/K"),
+        (0.385, "kJ/kg/K"),
+    ]
+    assert givens[0].si == pytest.approx(5.0e5)
+    assert givens[2].si == pytest.approx(385)
+
+
 def test_scan_givens_reads_value_unit_and_si() -> None:
     givens = scan_givens("heat 2 kg of water from 20 °C to 80 °C, c = 4200 J/kg°C, 100 µF.")
     assert [(given.value, given.unit) for given in givens] == [

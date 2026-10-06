@@ -133,6 +133,12 @@ def _answer(text: str) -> str | None:
             "10.4°",  # asin(600e-9 · 3e5)
         ),
         (
+            "A diffraction grating has a line density of 5.00e5 /m. Light of wavelength 600 nm "
+            "is seen in the first order. Find the angle.",
+            "grating_angle",
+            "17.5°",  # asin(600e-9 · 5e5)
+        ),
+        (
             "A concave mirror has a radius of curvature of 40 cm. Find its focal length.",
             "mirror_focal_length",
             "20 cm",

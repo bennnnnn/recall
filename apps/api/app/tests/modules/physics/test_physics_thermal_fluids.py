@@ -102,6 +102,19 @@ def _answer(text: str) -> str | None:
             "83700 J",  # water's c; a rise of 10 °C is 10 K
         ),
         (
+            # "specific heat of" is the capacity, not the heat being asked for.
+            "A 0.500 kg block has a specific heat of 900 J/kg/K. The temperature rises "
+            "by 20.0 K. Find the heat energy.",
+            "heat_energy",
+            "9000 J",
+        ),
+        (
+            "A 0.500 kg block has a specific heat of 900 J/kg/K. It goes from 290 K to "
+            "310 K. Find the heat energy.",
+            "heat_energy",
+            "9000 J",
+        ),
+        (
             "5000 J of heat raises the temperature of 2 kg of a metal by 10 K. "
             "Find its specific heat capacity.",
             "specific_heat_from_energy",
