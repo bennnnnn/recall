@@ -73,6 +73,18 @@ CASES: list[tuple[str, str, str]] = [
         "0.0024 m",
     ),
     (
+        "A double-slit experiment has wavelength 500 nm, a screen distance of 1.50 m, "
+        "and a slit separation of 0.250 mm. Find the fringe spacing.",
+        "double_slit_fringe_spacing",
+        "0.003 m",
+    ),
+    (
+        "A single-slit diffraction experiment has wavelength 500 nm, a screen distance "
+        "of 1.50 m, and a slit width of 0.100 mm. Find the central width.",
+        "diffraction_central_width",
+        "0.015 m",
+    ),
+    (
         "A single-slit diffraction experiment has wavelength 600 nm, screen "
         "distance 2 m, and slit width 0.2 mm. Find central width.",
         "diffraction_central_width",

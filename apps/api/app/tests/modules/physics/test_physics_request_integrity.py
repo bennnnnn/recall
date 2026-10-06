@@ -72,6 +72,12 @@ def test_malformed_or_oversized_numbers_are_refused(literal: str) -> None:
     assert normalize_physics_numbers(f"mass {literal} kg") is None
 
 
+def test_a_finite_exponent_past_the_window_stays_scientific() -> None:
+    normalized = normalize_physics_numbers("lambda is 1.00e-52 /m^2")
+    assert normalized == "lambda is 1e-52 /m^2"
+    assert normalize_physics_numbers(normalized) == normalized
+
+
 def test_unit_case_labels_and_sentence_punctuation_are_preserved() -> None:
     assert normalize_physics_numbers("v0 = 2e1 m/s. Use g = 1e-2 m/s^2.") == (
         "v0 = 20 m/s. Use g = 0.01 m/s^2."

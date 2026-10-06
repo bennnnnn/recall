@@ -155,6 +155,12 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "magnification",
         "3",
     ),
+    (
+        "The object height is 2.00 cm and the image height is 6.00 cm. Find the magnification.",
+        "optics",
+        "magnification",
+        "3",
+    ),
     # --- thermal ---------------------------------------------------------
     ("how much heat to raise 2 kg of water by 20 K", "thermal", "heat_energy", "1.67 × 10⁵ J"),
     (

@@ -119,6 +119,51 @@ def _keyword_spans(
     return spans
 
 
+# Words that sit between a label and the number it names: "distance of 1.50 m",
+# "image height is 6.00 cm". "and" is not one of them, so "2 cm object and 6 cm"
+# does not hand the second length to the first label.
+_LABEL_GAP = re.compile(
+    r"(?:[\s,:=.]+|(?:of|is|are|was|were|a|an|the|height|distance|equal|to)\b)*",
+    re.IGNORECASE,
+)
+
+
+def _value_the_keyword_names(
+    text: str,
+    matches: list[re.Match[str]],
+    keyword_spans: list[tuple[int, int]],
+) -> re.Match[str] | None:
+    """The value a keyword introduces, when only a label sits between them.
+
+    Character distance ties "screen distance of 1.50 m" with the length written
+    just before that label, and the earlier length won. The label names the
+    number that follows it.
+    """
+    named: list[tuple[int, int, re.Match[str]]] = []
+    for candidate in matches:
+        gap: int | None = None
+        for _start, end in keyword_spans:
+            if end > candidate.start():
+                continue
+            if any(
+                other.start() >= end and other.end() <= candidate.start()
+                for other in matches
+                if other.start() != candidate.start()
+            ):
+                continue
+            if _LABEL_GAP.fullmatch(text[end : candidate.start()]) is None:
+                continue
+            size = candidate.start() - end
+            if gap is None or size < gap:
+                gap = size
+        if gap is not None:
+            named.append((gap, candidate.start(), candidate))
+    if not named:
+        return None
+    named.sort()
+    return named[0][2]
+
+
 def _find_value_with_specific_unit(
     text: str,
     unit_pattern: str,
@@ -175,7 +220,8 @@ def _find_value_with_specific_unit(
                     distances.append(candidate.start() - ends[before - 1])
                 return min(distances)
 
-            match = min(matches, key=distance_to_keyword)
+            named = _value_the_keyword_names(text, matches, keyword_spans)
+            match = named if named is not None else min(matches, key=distance_to_keyword)
         elif require_keyword:
             return None
 
