@@ -187,11 +187,29 @@ PIPELINE_CASES: list[tuple[str, str, str]] = [
         "Limiting reagent = NaOH; 0.12 g NaCl",
     ),
     ("Find the strong acid pH of 0.010 M HCl", "strong_acid_ph", "pH = 2.00"),
+    ("What is the pOH of 0.010 M HCl?", "strong_acid_poh", "pOH = 12.00"),
     ("Find the strong base pH of 0.010 M NaOH", "strong_base_ph", "pH = 12.00"),
+    ("What is the pOH of 0.010 M NaOH?", "strong_base_poh", "pOH = 2.00"),
+    (
+        "What is the pH of a buffer that is 0.20 M ammonia and 0.30 M ammonium chloride? "
+        "Kb = 1.8e-5",
+        "base_buffer_ph",
+        "pH = 9.08",
+    ),
+    (
+        "A 0.10 M weak acid has pH 3.50. What is Ka?",
+        "weak_acid_ka",
+        "Ka = 1.0 × 10^-6",
+    ),
     (
         "Find the weak acid pH of 0.10 M HA when Ka=1.8e-5",
         "weak_acid_ph",
         "pH = 2.88",
+    ),
+    (
+        "What is the pH of a 0.050 M solution of sodium acetate? The Ka of acetic acid is 1.8e-5.",
+        "conjugate_salt_ph",
+        "pH = 8.72",
     ),
     (
         "Find the weak base pH of 0.10 M B when Kb=1.8e-5",

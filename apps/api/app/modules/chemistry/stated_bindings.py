@@ -550,4 +550,16 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         cues=("acid fraction",),
         excludes=("conjugate",),
     ),
+    _law(
+        "molarity_from_mass",
+        "solutions",
+        ("molarity",),
+        _MOLAR,
+        (
+            var("solute_mass", "m", "gram"),
+            var("molar_mass", "M", "gram / mole", fallback="species_molar_mass"),
+            var("volume_l", "V", "liter"),
+        ),
+        species="solute",
+    ),
 )

@@ -93,6 +93,31 @@ def solve_acid_base(intent: ChemistryIntent) -> ChemistryResult:
             f"pH = {value}",
             value,
         )
+    if op == "base_buffer_ph":
+        kb = require(intent, "kb", positive=True)
+        conjugate = require(intent, "conjugate", positive=True)
+        base = require(intent, "base", positive=True)
+        pkb = -math.log10(kb)
+        poh = pkb + math.log10(conjugate / base)
+        ph = PKW - poh
+        value = p_value(ph)
+        return verified(
+            "Verified base-buffer pH",
+            (
+                f"Kb = {inp(kb)}",
+                f"[BH+] = {inp(conjugate)} mol/L",
+                f"[B] = {inp(base)} mol/L",
+            ),
+            "Buffer pH",
+            *stated("base_buffer_ph"),
+            (
+                f"pKb = −log10({inp(kb)}) = {p_value(pkb)}",
+                f"pOH = {p_value(pkb)} + log10({inp(conjugate)}/{inp(base)}) = {p_value(poh)}",
+                f"pH = {PKW} − {p_value(poh)}",
+            ),
+            f"pH = {value}",
+            value,
+        )
     raise SolveServiceError(f"unsupported acid-base operation: {op}")
 
 
@@ -116,6 +141,21 @@ def solve_strong_acid(intent: ChemistryIntent) -> ChemistryResult:
     if concentration < _DILUTE:
         raise SolveServiceError("water's contribution is required for this dilute strong acid")
     ph = ph_text(concentration)
+    if intent.chemistry_op == "strong_acid_poh":
+        poh = p_value(PKW + math.log10(concentration))
+        return verified(
+            "Verified strong-acid pOH",
+            (f"{formula} = {inp(concentration)} mol/L",),
+            "pOH",
+            *stated("strong_acid_poh"),
+            (
+                f"[H+] = {inp(concentration)} mol/L",
+                f"pH = −log10({inp(concentration)}) = {ph}",
+                f"pOH = {PKW} − {ph}",
+            ),
+            f"pOH = {poh}",
+            poh,
+        )
     return verified(
         "Verified strong-acid pH",
         (f"{formula} = {inp(concentration)} mol/L",),
@@ -139,6 +179,19 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
     poh = ph_text(hydroxide)
     ph = p_value(PKW + math.log10(hydroxide))
     hydroxide_law = "[OH-] = C" if factor == 1 else f"[OH-] = {factor}C"
+    if intent.chemistry_op == "strong_base_poh":
+        return verified(
+            "Verified strong-base pOH",
+            (f"{formula} = {inp(concentration)} mol/L",),
+            "pOH",
+            *stated("strong_base_poh"),
+            (
+                f"[OH-] = {factor} × {inp(concentration)} = {num(hydroxide)} mol/L",
+                f"pOH = −log10({num(hydroxide)})",
+            ),
+            f"pOH = {poh}",
+            poh,
+        )
     return verified(
         "Verified strong-base pH",
         (f"{formula} = {inp(concentration)} mol/L",),

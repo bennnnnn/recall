@@ -66,6 +66,56 @@ def solve_weak_acid(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+def solve_conjugate_salt(intent: ChemistryIntent) -> ChemistryResult:
+    """pH of a weak acid's salt: Kb = Kw / Ka, then the weak-base quadratic."""
+    concentration = require(intent, "concentration", positive=True)
+    ka = require(intent, "ka", positive=True)
+    kb = KW / ka
+    amount, ph, note = _weakph_text(kb, concentration, acid=False)
+    ph_text = p_value(ph)
+    lines = [
+        f"Kb = {num(KW)} / {inp(ka)} = {num(kb)}",
+        *_quadratic_lines(kb, concentration, amount),
+        f"[OH-] = x = {num(amount)} mol/L",
+        f"pOH = −log10({num(amount)}) = {p_value(-math.log10(amount))}",
+        f"pH = {PKW} − {p_value(-math.log10(amount))} = {ph_text}",
+    ]
+    if note:
+        lines.append(note)
+    return verified(
+        "Verified conjugate-salt pH",
+        (f"C = {inp(concentration)} mol/L", f"Ka = {inp(ka)}"),
+        "pH",
+        *stated("conjugate_salt_ph"),
+        lines,
+        f"pH = {ph_text}",
+        ph_text,
+    )
+
+
+def solve_weak_acid_ka(intent: ChemistryIntent) -> ChemistryResult:
+    """The weak-acid constant when the concentration and its pH are stated."""
+    concentration = require(intent, "concentration", positive=True)
+    ph = require(intent, "ph")
+    hydrogen = 10 ** (-ph)
+    if hydrogen <= 0 or hydrogen >= concentration:
+        raise SolveServiceError("that pH is not a dilute solution of this concentration")
+    ka = hydrogen**2 / (concentration - hydrogen)
+    value = num(ka)
+    return verified(
+        "Verified weak-acid constant",
+        (f"C = {inp(concentration)} mol/L", f"pH = {inp(ph)}"),
+        "Ka",
+        *stated("weak_acid_ka"),
+        (
+            f"[H+] = 10^(-{inp(ph)}) = {num(hydrogen)} mol/L",
+            f"Ka = ({num(hydrogen)})^2 / ({inp(concentration)} − {num(hydrogen)})",
+        ),
+        f"Ka = {value}",
+        value,
+    )
+
+
 def solve_weak_base(intent: ChemistryIntent) -> ChemistryResult:
     concentration = require(intent, "concentration", positive=True)
     constant = require(intent, "kb", positive=True)

@@ -19,9 +19,11 @@ from app.modules.chemistry.solvers.acid_base import (
 from app.modules.chemistry.solvers.acid_equilibria import (
     solve_amphiprotic,
     solve_buffer_addition,
+    solve_conjugate_salt,
     solve_diprotic_a2,
     solve_polyprotic,
     solve_weak_acid,
+    solve_weak_acid_ka,
     solve_weak_base,
 )
 from app.modules.chemistry.solvers.amounts import (
@@ -161,7 +163,9 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "limiting_mass": solve_limiting_mass,
     "limiting_solution": solve_limiting_solution,
     "strong_acid_ph": solve_strong_acid,
+    "strong_acid_poh": solve_strong_acid,
     "strong_base_ph": solve_strong_base,
+    "strong_base_poh": solve_strong_base,
     "weak_acid_ph": solve_weak_acid,
     "weak_base_ph": solve_weak_base,
     "ka_kb": solve_ka_kb,
@@ -256,6 +260,9 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "h_from_ph": solve_acid_base,
     "poh_from_oh": solve_acid_base,
     "buffer_ph": solve_acid_base,
+    "base_buffer_ph": solve_acid_base,
+    "weak_acid_ka": solve_weak_acid_ka,
+    "conjugate_salt_ph": solve_conjugate_salt,
     "gibbs": solve_thermochemistry,
     "equilibrium_constant": solve_equilibrium,
     "reaction_quotient": solve_equilibrium,

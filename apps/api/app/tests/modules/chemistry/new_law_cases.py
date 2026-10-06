@@ -530,6 +530,11 @@ STATED_LAW_CASES: tuple[tuple[str, str, str], ...] = (
         "acid_fraction_ph",
         "αHA = 0.909",
     ),
+    (
+        "Find the molarity when 5.00 g of NaCl is dissolved in 250 mL of solution.",
+        "molarity_from_mass",
+        "c = 0.342 mol/L",
+    ),
 )
 
 NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (*_EARLIER_CASES, *STATED_LAW_CASES)

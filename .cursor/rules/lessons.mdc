@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **0.050 M sodium acetate with acetic acid's Ka was verified as pH 3.03.** The only molarity and the Ka filled the weak-acid law, so the salt was treated as its parent acid. A named conjugate salt is that salt: Kb = Kw / Ka, then the weak-base quadratic (pH 8.72).
+
+- **"5.00 g of NaCl dissolved in 250 mL" did not give a molarity.** The molarity reader wanted moles and liters already, and a named solute plus water counted as two compounds. Read the mass through the solute's molar mass, and treat water as the solvent so the solute is still the one compound.
+
+- **An ammonia buffer, "what is the pOH of 0.0025 M HNO3", and "the rate constant is 0.045 1/s" all declined.** The base-buffer law wanted pKb and the word conjugate, and it answered pOH. A strong acid or base was only asked as pH. The rate reader wanted `k =` and `s^-1`, so `1/s` looked unitless and was refused. "Oxidation number of chromium" also missed, because the reader accepted a one- or two-letter symbol after "of", not the element name.
+
 - **"How many neutrons?" with mass number 56 and atomic number 26 was solved as the algebra 56 = 26 + n.** The chemistry ask was "number of neutrons", so the law never closed and math rearranged an equation it invented. Ask for "neutrons" itself. The same gap was "charge of the ion", "rises by", "Mw"/"Mn", "Xn", "what is D?", "what is q?", and "free-energy" with a hyphen.
 
 - **A 10 cm magnetic-sector radius crashed, and an activity coefficient was verified as the activity.** Chemistry reads `m` as molal, and the law spelled the radius unit `m`, so echoing 10 cm asked Pint to convert molal into centimeters. `activity` also matches the start of `activity coefficient`. Spell the radius `meter`, and name that activity with `activity is` so a coefficient stays a coefficient.
