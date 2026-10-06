@@ -65,12 +65,20 @@ def _extract_solutions(text: str) -> ChemistryIntent | None:
         m2 = _search(rf"\bM2\s*=\s*({_N})", text)
         v1 = _labeled_volume(text, "V1")
         v2 = _labeled_volume(text, "V2")
-        if m1 is not None and v1 is not None and ((m2 is None) != (v2 is None)):
-            v1_unit = v1[1] or (v2[1] if v2 is not None else None) or "L"
-            params = {"m1": m1, "v1": v1[0]}
-            units = {"v1": v1_unit}
+        known = sum(value is not None for value in (m1, m2, v1, v2))
+        if known == 3:
+            v1_unit = (
+                (v1[1] if v1 is not None else None) or (v2[1] if v2 is not None else None) or "L"
+            )
+            params: dict[str, float] = {}
+            units: dict[str, str] = {}
+            if m1 is not None:
+                params["m1"] = m1
             if m2 is not None:
                 params["m2"] = m2
+            if v1 is not None:
+                params["v1"] = v1[0]
+                units["v1"] = v1_unit
             if v2 is not None:
                 params["v2"] = v2[0]
                 units["v2"] = v2[1] or v1_unit
