@@ -27,6 +27,48 @@ def _volume_in_l(value: float, unit: str) -> float:
         raise SolveServiceError(f"unsupported dilution volume unit: {unit}") from exc
 
 
+def _stock_concentration(intent: ChemistryIntent) -> ChemistryResult:
+    """M1 = M2 V2 / V1: the stock a dilution starts from."""
+    v1 = require(intent, "v1", positive=True)
+    m2 = require(intent, "m2", positive=True)
+    v2 = require(intent, "v2", positive=True)
+    v1_unit = intent.units.get("v1", "L")
+    v2_unit = intent.units.get("v2", v1_unit)
+    v1_l = _volume_in_l(v1, v1_unit)
+    v2_l = _volume_in_l(v2, v2_unit)
+    if v2_l < v1_l:
+        raise SolveServiceError("a dilution cannot make a solution stronger than its stock")
+    result = m2 * v2_l / v1_l
+    value = f"{num(result)} mol/L"
+    substitution: tuple[str, ...]
+    if v1_unit == v2_unit:
+        substitution = (f"M1 = ({qty(m2, 'mol/L')})({qty(v2, v2_unit)}) / {qty(v1, v1_unit)}",)
+    else:
+        litres = {"V1": converted_from(v1_l, v1), "V2": converted_from(v2_l, v2)}
+        in_litres = tuple(
+            f"{name} = {qty(volume, unit)} = {litres[name]} L"
+            for name, volume, unit in (("V1", v1, v1_unit), ("V2", v2, v2_unit))
+            if unit != "L"
+        )
+        substitution = (
+            *in_litres,
+            f"M1 = ({qty(m2, 'mol/L')})({litres['V2']} L) / {litres['V1']} L",
+        )
+    return verified(
+        "Verified dilution",
+        (
+            f"V1 = {inp(v1)} {v1_unit}",
+            f"M2 = {inp(m2)} mol/L",
+            f"V2 = {inp(v2)} {v2_unit}",
+        ),
+        "Stock concentration, M1",
+        *stated("dilution"),
+        substitution,
+        f"M1 = {value}",
+        value,
+    )
+
+
 def _stock_volume(intent: ChemistryIntent) -> ChemistryResult:
     """V1 = M2V2 / M1: the stock a dilution starts from, in the unit asked or V2's."""
     m1 = require(intent, "m1", positive=True)
@@ -72,6 +114,8 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
             f"c = {value}",
             value,
         )
+    if op == "dilution" and "m1" not in intent.params:
+        return _stock_concentration(intent)
     if op == "dilution" and "v1" not in intent.params:
         return _stock_volume(intent)
     if op == "dilution":

@@ -579,6 +579,22 @@ def test_incomplete_or_non_calculation_text_stays_on_model_path(question: str) -
     assert extract_chemistry_intent(question) is None
 
 
+def test_dilution_can_find_stock_concentration() -> None:
+    intent = extract_chemistry_intent(
+        "Dilution using M1V1: M2=0.250, V2=100.0 mL, V1=20.0 mL, find M1"
+    )
+    assert intent is not None
+    result = solve_chemistry(intent)
+    assert result.answer == "M1 = 1.25 mol/L"
+
+
+def test_dilution_labeled_form_can_find_stock_volume() -> None:
+    intent = extract_chemistry_intent("Dilution using M1V1: M1=2.00, M2=0.500, V2=100 mL, find V1")
+    assert intent is not None
+    result = solve_chemistry(intent)
+    assert result.answer == "V1 = 25.0 mL"
+
+
 def test_dilution_can_find_final_concentration() -> None:
     result = solve_chemistry(
         ChemistryIntent(

@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Labeled M1V1 with the stock concentration missing was left to algebra.** The dilution reader required M1 and V1 already, so "find M1" never closed. Any three of M1, V1, M2, and V2 name the fourth, and M1 = M2 V2 / V1.
+
 - **High-spin d5 crystal-field energy printed CFSE = −4.44×10^-14 kJ/mol.** −0.4 and 0.6 do not cancel in floating point, so three t2g and two eg electrons were not zero. Evaluate (−2 n_t2g + 3 n_eg) Δo / 5, which is 0 for that count.
 
 - **Hill saturation with [L] = Kd and n = 2 printed θ = 0.75, and uranium-238 printed N = 1.5×10^2.** Kd is a concentration, so the half-saturation form is θ = [L]^n / (Kd^n + [L]^n), which is 0.500 when [L] = Kd. Mass number and atomic number are counts, so 238 − 92 stays 146. A formula-law pOH also used significant figures, so pKb 4.20 printed 3.6 instead of 3.60.
