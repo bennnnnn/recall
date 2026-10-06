@@ -28,6 +28,7 @@ _GRAVITATION_CUES = (
     "escape velocity",
     "escape speed",
     "surface gravity",
+    "gravitational potential",
     "newton's law of gravitation",
     "law of universal gravitation",
 )
@@ -104,6 +105,18 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
             physics_op="orbital_velocity",
             physics_params=params,
             physics_units=units,
+            operation="solve",
+        )
+
+    if "gravitational potential" in lower and "energy" not in lower and "surface" in lower:
+        planet_mass, planet_radius = _resolve_body(body, masses, radius)
+        if planet_mass is None or planet_radius is None:
+            return None
+        return PhysicsIntent(
+            kind="gravitation",
+            physics_op="gravitational_potential",
+            physics_params={"M": planet_mass, "r": planet_radius},
+            physics_units={"M": "kg", "r": "m"},
             operation="solve",
         )
 

@@ -17,6 +17,7 @@ from app.modules.physics.extractors.school_common import (
     _kelvin,
     _one,
 )
+from app.modules.physics.extractors.thermal_readings import _reservoir_temperatures
 
 
 def extract_poiseuille(text: str, lower: str) -> PhysicsIntent | None:
@@ -133,8 +134,9 @@ def _adiabatic(text: str, lower: str) -> PhysicsIntent | None:
     gamma = re.search(rf"\bgamma(?:\s+is|\s+of|=)?\s*({_NUMBER})", text, re.IGNORECASE)
     if gamma is None:
         return None
-    pressures = _ordered_values(text, _PRESSURE)
-    volumes = _ordered_values(text, _VOLUME)
+    # Boyle and Charles already read "2 atm" and "3 L". This law uses the same units.
+    pressures = _ordered_values(text, _PRESSURE + r"|atm|atmospheres?")
+    volumes = _ordered_values(text, _VOLUME + r"|mL|L")
     params: dict[str, float] = {"gamma_gas": float(gamma.group(1))}
     units = {"gamma_gas": ""}
     if len(pressures) == 1 and len(volumes) == 2:
@@ -161,10 +163,12 @@ def _adiabatic(text: str, lower: str) -> PhysicsIntent | None:
 
 
 def _cop(text: str, lower: str) -> PhysicsIntent | None:
-    hot = _kelvin(text, ("hot", "source"))
-    cold = _kelvin(text, ("cold", "sink"))
-    if hot is None or cold is None:
+    # "Between 250 K and 300 K" names no reservoir. The colder one is Tc,
+    # the same reading Carnot already uses.
+    reservoirs = _reservoir_temperatures(text)
+    if reservoirs is None:
         return None
+    hot, cold = reservoirs
     if "heat pump" in lower:
         operation = "heat_pump_cop"
     elif "refrigerator" in lower:
@@ -175,7 +179,7 @@ def _cop(text: str, lower: str) -> PhysicsIntent | None:
         "thermal",
         operation,
         {"temp": hot[0], "temp_env": cold[0]},
-        {"temp": "K", "temp_env": "K"},
+        {"temp": hot[1], "temp_env": cold[1]},
     )
 
 

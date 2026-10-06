@@ -110,6 +110,7 @@ SAMPLES: dict[str, float] = {
     "shear_strain": 0.002,
     "delta_pres": 2.0e5,
     "dV": 1.0e-4,
+    "volume_strain": 0.001,
     "lateral_strain": 0.001,
     "axial_strain": 0.004,
     "teeth_driving": 40.0,

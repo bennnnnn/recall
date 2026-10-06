@@ -14,6 +14,7 @@ from app.modules.physics.extractors.common import (
     _ELEMENTARY_CHARGE,
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
+    _NUMBER,
     _TESLA_PATTERN,
     _VELOCITY_UNIT_PATTERN,
     _find_value_with_specific_unit,
@@ -81,6 +82,24 @@ def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
         # Magnetic force here is a magnitude; the sign distinguishes the
         # direction, which this scalar template intentionally does not infer.
         charge = (_ELEMENTARY_CHARGE, "C")
+
+    # "2000 turns per meter" is n = N/L. One metre of that winding is the
+    # catalog's N and L, so B = μ0 n I. This has to run before the wire
+    # branch, which declines any other "magnetic field" that also has a length.
+    if field is None and "solenoid" in lower and current is not None:
+        density = re.search(
+            rf"({_NUMBER})\s*turns?\s+per\s+met(?:er|re)\b",
+            cleaned,
+            re.IGNORECASE,
+        )
+        if density is not None:
+            return PhysicsIntent(
+                kind="magnetism",
+                physics_op="solenoid_field",
+                physics_params={"turns": float(density.group(1)), "I": current[0], "L": 1.0},
+                physics_units={"turns": "", "I": current[1] or "A", "L": "m"},
+                operation="solve",
+            )
 
     # Field around a long straight wire: B = mu0 I / (2 pi r).
     if field is None and "magnetic field" in lower and current is not None and radius is not None:
