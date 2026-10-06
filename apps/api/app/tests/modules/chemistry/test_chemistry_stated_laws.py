@@ -127,6 +127,12 @@ def test_an_angstrom_lattice_and_an_si_diffusion_coefficient() -> None:
             "pOH = 3.60",
         ),
         (
+            "The t2g count is 3.00, the eg count is 2.00, and delta_o is 200 kJ/mol. "
+            "Find the crystal field stabilization energy.",
+            "crystal_field_stabilization",
+            "CFSE = 0 kJ/mol",
+        ),
+        (
             "Oxygen has atomic number 8 and 10 electrons. What is the charge of the ion?",
             "ion_charge",
             "q = -2.0",
