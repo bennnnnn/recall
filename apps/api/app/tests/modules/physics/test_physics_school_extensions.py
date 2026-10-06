@@ -134,6 +134,13 @@ VERIFIED: list[tuple[str, str, str]] = [
         "3.93 × 10⁻⁶ m³/s",
     ),
     (
+        "Using Poiseuille's law, a tube of radius 1.00 mm and length 0.200 m "
+        "has a pressure difference of 2000 Pa. The viscosity is 0.00100 Pa*s. "
+        "Find the volume flow rate.",
+        "poiseuille_flow",
+        "3.93 × 10⁻⁶ m³/s",
+    ),
+    (
         "Use Bernoulli for water flow with initial height of 5 m and final height of 1 m. "
         "P1 is 100000 Pa, density 1000 kg/m^3, v1 is 2 m/s and v2 is 2 m/s. Find P2.",
         "bernoulli_pressure",

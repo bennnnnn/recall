@@ -123,6 +123,7 @@ _QUANTITIES: dict[str, str] = {
     "heat conduction rate": "watt",
     "conduction rate": "watt",
     "mass flow rate": "kilogram / second",
+    "volume flow rate": "meter ** 3 / second",
     "flow rate": "meter ** 3 / second",
     "surface tension": "newton / meter",
     "hawking power": "watt",

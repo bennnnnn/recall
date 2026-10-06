@@ -52,7 +52,7 @@ _MODERN_CUES = (
     "compton",
     "wien's law",
     "wien law",
-    "stefan-boltzmann",
+    "stefan",
     "blackbody power",
 )
 
