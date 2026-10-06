@@ -94,7 +94,13 @@ def _compton(cleaned: str) -> PhysicsIntent | None:
 
 
 def _photoelectric(cleaned: str) -> PhysicsIntent | None:
-    """The photoelectric electrons' kinetic energy."""
+    """The photoelectric electrons' kinetic energy.
+
+    Stopping potential uses the same frequency and work function, answered in
+    volts. Leaving that ask here would publish the kinetic energy instead.
+    """
+    if re.search(r"\bstopping (?:potential|voltage)\b", cleaned, re.IGNORECASE):
+        return None
     freq = _find_value_with_specific_unit(cleaned, _HERTZ_PATTERN)
     work_function = _find_value_with_specific_unit(
         cleaned,

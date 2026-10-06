@@ -36,6 +36,13 @@ def _answer(text: str) -> str | None:
             "2.66 V",
         ),
         (
+            # 1e15 Hz is a frequency the kinetic-energy reader can see. The ask is volts.
+            "The photoelectric work function is 2.00 eV and the frequency is 1.00e15 Hz. "
+            "Find the stopping potential.",
+            "stopping_potential",
+            "2.14 V",
+        ),
+        (
             "A metal has a work function of 2.3 eV. Find the threshold frequency.",
             "threshold_frequency",
             "5.56 × 10¹⁴ Hz",

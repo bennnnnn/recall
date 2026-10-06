@@ -64,6 +64,12 @@ _CASES = [
         20.786,
     ),
     (
+        "By Mayer's relation, the molar heat capacity at constant pressure is 29.1 J/mol/K. "
+        "Find the molar heat capacity at constant volume.",
+        "mayer_cv",
+        20.786,
+    ),
+    (
         "A series circuit has inductive reactance 150 ohm, capacitive reactance 50 ohm, "
         "and resistance 100 ohm. Find the tangent of the phase angle.",
         "series_phase_tangent",

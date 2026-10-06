@@ -145,7 +145,9 @@ def _other_sense(question: Question, asks: tuple[str, ...], produced: set[str | 
         # internal energy of 2 mol of gas" asks for the energy of the gas.
         links = r"(?:=|is|:|was)?" if given.start >= question.asked_from else r"(?:of|=|is|:|was)?"
         for phrase in asks:
-            label = re.search(rf"{re.escape(phrase)}\s*{links}\s*$", before)
+            # "specific heat of 900 J/kg/K" names the capacity. The short ask
+            # "heat" is the end of that label, not the heat the question asks for.
+            label = re.search(rf"(?<!specific ){re.escape(phrase)}\s*{links}\s*$", before)
             if label is not None:
                 return True
     return False
