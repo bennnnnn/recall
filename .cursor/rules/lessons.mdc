@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A stated mass crashed centripetal acceleration, and a series pair across a voltage verified the resistance when the question asked for the current.** \(a = v^2/r\) does not take mass, so sending \(m\) made the catalog reject the intent. Only the force law keeps the mass. A network that asks for current, with one voltage, is \(I = V/R_\mathrm{eq}\); without that voltage it declines instead of answering the ohm sum.
+
 - **Labeled M1V1 with the stock concentration missing was left to algebra.** The dilution reader required M1 and V1 already, so "find M1" never closed. Any three of M1, V1, M2, and V2 name the fourth, and M1 = M2 V2 / V1.
 
 - **High-spin d5 crystal-field energy printed CFSE = −4.44×10^-14 kJ/mol.** −0.4 and 0.6 do not cancel in floating point, so three t2g and two eg electrons were not zero. Evaluate (−2 n_t2g + 3 n_eg) Δo / 5, which is 0 for that count.

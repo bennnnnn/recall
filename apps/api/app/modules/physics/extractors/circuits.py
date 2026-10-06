@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Literal
 
 from app.models.schemas.physics import PhysicsIntent
@@ -33,6 +34,15 @@ from app.modules.physics.extractors.cues import (
 from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_circuit
 from app.services.text_match import has_equation
+
+
+def _network_equivalent(values: list[float], *, series: bool) -> float | None:
+    """Series sum, or the parallel reciprocal sum. Nonpositive parts decline."""
+    if len(values) < 2 or any(value <= 0 for value in values):
+        return None
+    if series:
+        return sum(values)
+    return 1.0 / sum(1.0 / value for value in values)
 
 
 def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
@@ -102,6 +112,22 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
     if len(network) >= 2 and ("series" in lower or "parallel" in lower):
         if len(network) > _MAX_NETWORK_RESISTORS:
             return None
+        series = "series" in lower
+        # "Find the current" with a supply voltage is Ohm's law on the
+        # equivalent resistance. Answering the resistance sum is a different law.
+        asks_current = re.search(r"\bcurrents?\b", lower) is not None
+        asks_resistance = re.search(r"\bresistances?\b", lower) is not None
+        if asks_current and not asks_resistance:
+            equivalent = _network_equivalent(network, series=series)
+            if len(volts) != 1 or amps or equivalent is None:
+                return None
+            return PhysicsIntent(
+                kind="circuit",
+                physics_op="current",
+                physics_params={"V": volts[0][0], "R": equivalent},
+                physics_units={"V": "volt", "R": "ohm"},
+                operation="solve",
+            )
         op: Literal[
             "voltage",
             "current",
@@ -109,7 +135,7 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
             "electrical_power",
             "series_resistance",
             "parallel_resistance",
-        ] = "series_resistance" if "series" in lower else "parallel_resistance"
+        ] = "series_resistance" if series else "parallel_resistance"
         return PhysicsIntent(
             kind="circuit",
             physics_op=op,

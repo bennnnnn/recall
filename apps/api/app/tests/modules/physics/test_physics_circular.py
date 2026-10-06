@@ -96,6 +96,18 @@ def test_every_circular_op_has_at_least_three_phrasings() -> None:
 # --- the physics ------------------------------------------------------------
 
 
+def test_stated_mass_does_not_crash_centripetal_acceleration() -> None:
+    """A mass next to a = v^2/r is unused. It must not reject the intent."""
+    text = (
+        "A 2.00 kg mass moves at 6.00 m/s in a circle of radius 3.00 m. "
+        "Find the centripetal acceleration."
+    )
+    intent = extract_physics_intent(text)
+    assert intent is not None and intent.physics_op == "centripetal_acceleration"
+    assert intent.physics_params is not None and "m" not in intent.physics_params
+    assert _verified_answer(text) == "12 m/s²"
+
+
 def test_centripetal_acceleration_and_period_do_not_need_a_mass() -> None:
     """`v^2/r` and `2*pi*r/v` have no mass in them.
 
