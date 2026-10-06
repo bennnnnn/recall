@@ -67,6 +67,20 @@ def _answer(text: str) -> str | None:
             "1.33 L",  # 2·100·400 / (300·200)
         ),
         (
+            "An ideal gas has an initial pressure of 2.00e5 Pa, an initial volume of "
+            "0.00300 m^3, and an initial temperature of 300 K. The new pressure is "
+            "1.00e5 Pa and the new temperature is 400 K. Find the new volume.",
+            "combined_gas_volume",
+            "0.008 m³",  # 2e5·0.003·400 / (300·1e5)
+        ),
+        (
+            "An ideal gas has an initial pressure of 2.00e5 Pa, an initial volume of "
+            "0.00300 m^3, and an initial temperature of 300 K. The new volume is "
+            "0.00600 m^3 and the new temperature is 600 K. Find the new pressure.",
+            "combined_gas_pressure",
+            "2 × 10⁵ Pa",
+        ),
+        (
             "Find the rms speed of oxygen molecules at 300 K. The molar mass of oxygen is 32 g/mol.",
             "rms_speed",
             "484 m/s",  # √(3·8.314·300/0.032)
@@ -120,6 +134,12 @@ def _answer(text: str) -> str | None:
             "Find its apparent weight.",
             "apparent_weight_submerged",
             "29.4 N",  # 49.05 - 19.62
+        ),
+        (
+            "A 2.00 kg object of volume 0.00100 m^3 is submerged in water of density "
+            "1000 kg/m^3. Find the apparent weight.",
+            "apparent_weight_submerged",
+            "9.81 N",  # 19.62 - 9.81
         ),
         (
             "Ice of density 917 kg/m^3 floats in water of density 1000 kg/m^3. "

@@ -119,7 +119,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "molecule_gas_count",
         "N",
         "pres*volume/(k_B*temp)",
-        ("number of molecules", "number of particles"),
+        ("number of molecules", "number of particles", "how many molecules", "how many particles"),
         "dimensionless",
         (_PRESSURE, _VOLUME, _TEMP),
         frozenset({"pres", "temp", "volume"}),

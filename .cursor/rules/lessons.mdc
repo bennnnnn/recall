@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **An ideal gas with two states declined, "how many molecules" declined, and a stated water density was read as the object's density.** The single-state reader kept the first pressure and temperature, so the combined-gas law never ran. "How many" was dropped before the ask, unlike "how long". A density already written is the fluid's; \(m/V\) is only when no density is given.
+
 - **A grating's resolving power declined when the order was "second order".** \(R = mN\) already reads a numbered order. "Second order" is the order the grating angle already takes as 2, so that phrase fills \(m\) here too.
 
 - **A spring asked for its frequency was withheld as the period, and six stated forms of owned laws declined.** \(m\) and \(k\) asked as a frequency are \(f = (1/2\pi)\sqrt{k/m}\). Turns per meter are \(n = N/L\), Earth's surface is the potential's \(r\), a volume strain is \(\Delta V/V\), decibels use \(I_0 = 10^{-12}\), the colder of two reservoirs is \(T_C\), and an adiabatic gas stated in L and atm stays in those units.
