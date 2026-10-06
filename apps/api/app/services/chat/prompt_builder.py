@@ -59,7 +59,7 @@ from app.services.chat.prompt_format import (
     _integration_hints,
     _style_format_hints,
 )
-from app.services.chat.stream_status import StreamStatusFn
+from app.services.chat.stream_status import StreamStatusFn, status_phase_for_subject
 from app.services.context_window import (
     estimate_tokens,
     select_recent_window,
@@ -230,8 +230,8 @@ async def fetch_web_and_tools(
         needs_subject = settings.math_tools_enabled
     else:
         needs_subject = False
-    if needs_subject and on_status is not None:
-        await on_status("physics" if subject == "physics" else "calculating")
+    if needs_subject and on_status is not None and subject is not None:
+        await on_status(status_phase_for_subject(subject))
 
     async def _web_for_turn() -> tuple[str | None, list[WebSearchHit]]:
         # Closed symbolic/statistical work is self-contained. Do not ask the

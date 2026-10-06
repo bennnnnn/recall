@@ -4,12 +4,19 @@ from app.services.chat.stream_status import (
     STATUS_DETAIL_MAX_CHARS,
     STREAM_STATUS_PHASES,
     clip_status_detail,
+    status_phase_for_subject,
 )
 
 
 def test_phases_include_activity_specific_entries():
-    for phase in ("remembering", "reading_files", "searching", "calculating"):
+    for phase in ("remembering", "reading_files", "searching", "calculating", "chemistry"):
         assert phase in STREAM_STATUS_PHASES
+
+
+def test_each_subject_has_its_own_status_phase() -> None:
+    assert status_phase_for_subject("math") == "calculating"
+    assert status_phase_for_subject("physics") == "physics"
+    assert status_phase_for_subject("chemistry") == "chemistry"
 
 
 def test_clip_status_detail_flattens_whitespace():
