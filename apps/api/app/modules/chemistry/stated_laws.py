@@ -154,17 +154,17 @@ STATED_LAWS: dict[str, FormulaLaw] = {
             "hill_saturation",
             "biochemistry",
             "Hill equation",
-            "θ = [L]^n / (Kd + [L]^n)",
+            "θ = [L]^n / (Kd^n + [L]^n)",
             "Saturation, θ",
             ("θ", ""),
-            "ligand**hill_n/(dissociation + ligand**hill_n)",
+            "ligand**hill_n/(dissociation**hill_n + ligand**hill_n)",
             (
                 ("ligand", "[L]", "mol/L"),
                 ("hill_n", "n", ""),
                 ("dissociation", "Kd", "mol/L"),
             ),
             "θ = {ligand.value}^{hill_n.value}"
-            " / ({dissociation.value} + {ligand.value}^{hill_n.value})",
+            " / ({dissociation.value}^{hill_n.value} + {ligand.value}^{hill_n.value})",
         ),
         _law(
             "freundlich",
