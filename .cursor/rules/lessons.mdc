@@ -12,14 +12,15 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Centripetal acceleration declined when the given was called an angular speed.** "Angular speed" was read as the question, and a stated ω is not an input of ω = v/r, so \(a = \omega^2 r\) never ran. The quantity after the ask verb is the question.
+
 - **A stated specific heat declined, 1e15 Hz published the photoelectric energy, and /m and J/mol/K were not units.** "specific heat of 900 J/kg/K" matched the ask word "heat", so \(Q = mc\Delta T\) never ran. The photoelectric reader returns kinetic energy whenever it sees a frequency, so a stopping potential written as 1e15 Hz never reached the volt law. /s and J/kg/K were spellings; /m and J/mol/K were not.
 
 - **An ideal gas with two states declined, "how many molecules" declined, and a stated water density was read as the object's density.** The single-state reader kept the first pressure and temperature, so the combined-gas law never ran. "How many" was dropped before the ask, unlike "how long". A density already written is the fluid's; \(m/V\) is only when no density is given.
 
 - **A grating's resolving power declined when the order was "second order".** \(R = mN\) already reads a numbered order. "Second order" is the order the grating angle already takes as 2, so that phrase fills \(m\) here too.
 
-- **A spring asked for its frequency was withheld as the period, and six stated forms of owned laws declined.** \(m\) and \(k\) asked as a frequency are \(f = (1/2\pi)\sqrt{k/m}\). Turns per meter are \(n = N/L\), Earth's surface is the potential's \(r\), a volume strain is \(\Delta V/V\), decibels use \(I_0 = 10^{-12}\), the colder of two reservoirs is \(T_C\), and an adiabatic gas stated in L and atm stays in those units.
-- **Parallel resistors across a voltage declined after the series form answered.** The current was \(I = V/R_\mathrm{eq}\), but accountability only treats a sum or a difference as a derivation, so 4 Ω and 12 Ω were left unbound by \(R = 3\,\Omega\). The reciprocal sum accounts for those resistances, and only on the ohm dimension.
+- **A spring asked for its frequency was withheld as the period, and six stated forms of owned laws declined.** \(m\) and \(k\) asked as a frequency are \(f = (1/2\pi)\sqrt{k/m}\). Turns per meter are \(n = N/L\), Earth's surface is the potential's \(r\), a volume strain is \(\Delta V/V\), decibels use \(I_0 = 10^{-12}\), the colder of two reservoirs is \(T_C\), and an adiabatic gas stated in L and atm stays in those units.- **Parallel resistors across a voltage declined after the series form answered.** The current was \(I = V/R_\mathrm{eq}\), but accountability only treats a sum or a difference as a derivation, so 4 Ω and 12 Ω were left unbound by \(R = 3\,\Omega\). The reciprocal sum accounts for those resistances, and only on the ohm dimension.
 
 - **A stated mass crashed centripetal acceleration, and a series pair across a voltage verified the resistance when the question asked for the current.** \(a = v^2/r\) does not take mass, so sending \(m\) made the catalog reject the intent. Only the force law keeps the mass. A network that asks for current, with one voltage, is \(I = V/R_\mathrm{eq}\); without that voltage it declines instead of answering the ohm sum.
 

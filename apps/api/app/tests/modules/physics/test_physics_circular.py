@@ -69,6 +69,11 @@ VERIFIED: list[tuple[str, str, str]] = [
         "centripetal_acceleration",
         "5.33 m/s²",
     ),
+    (
+        "Find the centripetal acceleration for angular speed 3.00 rad/s and radius 2.00 m.",
+        "centripetal_acceleration",
+        "18 m/s²",
+    ),
     ("period of an object moving at 4 m/s in a circle of radius 3 m", "orbital_period", "4.71 s"),
     ("what is the orbital period for radius 3 m at 4 m/s", "orbital_period", "4.71 s"),
     ("how long is one revolution at 4 m/s around a 3 m radius circle", "orbital_period", "4.71 s"),

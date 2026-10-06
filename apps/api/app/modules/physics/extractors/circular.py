@@ -34,6 +34,30 @@ _CIRCULAR_CUES = (
 )
 
 _ANGULAR_ASK_RE = re.compile(r"\bangular\s+(?:velocity|speed|frequency)\b", re.IGNORECASE)
+# The last ask verb. A given named "angular speed" is not the question when
+# the verb asks for the centripetal acceleration.
+_ASK_VERB_RE = re.compile(
+    r"\b(?:find|what|calculate|determine|compute)\b",
+    re.IGNORECASE,
+)
+_CircularOp = Literal[
+    "centripetal_force",
+    "centripetal_acceleration",
+    "orbital_period",
+    "angular_velocity",
+]
+_CIRCULAR_ASKS: tuple[tuple[str, _CircularOp], ...] = (
+    ("centripetal acceleration", "centripetal_acceleration"),
+    ("centripetal force", "centripetal_force"),
+    ("angular velocity", "angular_velocity"),
+    ("angular speed", "angular_velocity"),
+    ("angular frequency", "angular_velocity"),
+    ("orbital period", "orbital_period"),
+    ("period", "orbital_period"),
+    ("revolution", "orbital_period"),
+    ("acceleration", "centripetal_acceleration"),
+    ("force", "centripetal_force"),
+)
 
 _RPM_RE = re.compile(rf"({_NUMBER})\s*(?:rpm|revolutions?\s+per\s+minute)\b", re.IGNORECASE)
 
@@ -92,6 +116,20 @@ _ASKS_SPEED = re.compile(
     r"|\b(?:maximum|max|fastest)\s+speed\b|\bwithout skidding\b",
     re.IGNORECASE,
 )
+
+
+def _asked_circular_op(text: str) -> _CircularOp | None:
+    """The circular quantity the question asks for, not a given that shares its name."""
+    verbs = list(_ASK_VERB_RE.finditer(text))
+    tail = text[verbs[-1].end() :] if verbs else text
+    found = [
+        (index, operation)
+        for phrase, operation in _CIRCULAR_ASKS
+        if (index := tail.find(phrase)) >= 0
+    ]
+    if not found:
+        return None
+    return min(found)[1]
 
 
 def _radius(text: str) -> tuple[float, str] | None:
@@ -227,27 +265,14 @@ def _extract_circular_intent(cleaned: str) -> PhysicsIntent | None:
         cleaned, r"kg|g|mg|lb|lbs|oz", ("mass", "object", "body", "ball", "car")
     )
 
-    op: Literal[
-        "centripetal_force",
-        "centripetal_acceleration",
-        "orbital_period",
-        "angular_velocity",
-    ]
-    if _ANGULAR_ASK_RE.search(cleaned):
-        # Before "period": "angular frequency" contains neither word, but
-        # "what angular velocity gives a period of 2 s" contains both.
-        op = "angular_velocity"
-    elif "period" in lower or "revolution" in lower:
-        op = "orbital_period"
-    elif "acceleration" in lower:
-        op = "centripetal_acceleration"
-    elif "force" in lower:
-        op = "centripetal_force"
-        # F = m v^2 / r is the only one of the three that needs a mass; the
-        # other two are mass-independent, same as the incline result in P5.
-        if mass is None:
-            return None
-    else:
+    op: _CircularOp
+    asked = _asked_circular_op(lower)
+    if asked is None:
+        return None
+    op = asked
+    # F = m v^2 / r is the only one of the three that needs a mass; the
+    # other two are mass-independent, same as the incline result in P5.
+    if op == "centripetal_force" and mass is None:
         return None
 
     params: dict[str, float] = {"r": radius[0]}
