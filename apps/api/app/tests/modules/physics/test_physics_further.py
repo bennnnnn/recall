@@ -248,6 +248,21 @@ def test_a_law_with_a_missing_stated_input_still_declines(text: str) -> None:
     assert _answer(text) is None
 
 
+def test_lens_powers_written_as_d_add() -> None:
+    text = "Two thin lenses in contact have powers 4.00 D and 2.50 D. Find the total power."
+    intent = extract_physics_intent(text)
+    assert intent is not None and intent.physics_op == "lens_power_sum"
+    assert _answer(text) == "6.5 D"
+
+
+def test_torque_on_a_stated_moment_stays_physics() -> None:
+    from app.services.subject_solving import detect_subject
+
+    text = "A magnetic moment of 0.200 A m^2 is in a 0.500 T field at 30 degrees. Find the torque."
+    assert detect_subject(text) == "physics"
+    assert _answer(text) == "0.05 N·m"
+
+
 def test_lens_powers_written_as_dioptres_show_as_d() -> None:
     answer = _answer(
         "Two thin lenses in contact have powers 2 dioptres and 3 dioptres. Find the total power."

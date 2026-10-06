@@ -713,6 +713,15 @@ def test_a_charge_suffix_cannot_be_combined_with_counter_ions() -> None:
     assert parse_complex_formula("K3[Fe(CN)6]3-") is None
 
 
+def test_a_numeric_magnetic_moment_is_not_a_complex() -> None:
+    assert (
+        extract_chemistry_intent(
+            "A magnetic moment of 0.200 A m^2 is in a 0.500 T field at 30 degrees. Find the torque."
+        )
+        is None
+    )
+
+
 @pytest.mark.parametrize(
     ("question", "expected"),
     [
