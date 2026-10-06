@@ -12,6 +12,7 @@ StreamStatusPhase = Literal[
     "searching",
     "calculating",
     "physics",
+    "chemistry",
     "thinking",
     "composing",
 ]
@@ -25,13 +26,27 @@ STREAM_STATUS_PHASES: tuple[StreamStatusPhase, ...] = (
     "searching",
     "calculating",
     "physics",
+    "chemistry",
     "thinking",
     "composing",
 )
 
+_SUBJECT_STATUS_PHASE: dict[Literal["math", "physics", "chemistry"], StreamStatusPhase] = {
+    "math": "calculating",
+    "physics": "physics",
+    "chemistry": "chemistry",
+}
+
 # Status detail is rendered inline in the client label ("Searching — “…”"),
 # so keep it short on the wire.
 STATUS_DETAIL_MAX_CHARS = 80
+
+
+def status_phase_for_subject(
+    subject: Literal["math", "physics", "chemistry"],
+) -> StreamStatusPhase:
+    """Bubble phase for one subject. Math keeps the calculating label."""
+    return _SUBJECT_STATUS_PHASE[subject]
 
 
 class StreamStatusFn(Protocol):
