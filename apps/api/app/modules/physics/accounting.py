@@ -9,8 +9,9 @@ A quantity of a kind the formula never uses is a distractor and stays
 allowed: a ball's mass does not change its fall time. A value the extractor
 derived by adding or subtracting givens accounts for them: currents of 2 A
 and 3 A entering a junction are the 5 A it binds, and 80 °C and 20 °C are
-the 60 K it heats by. A value that a given states outright is read, not
-derived, so it accounts for no other given.
+the 60 K it heats by. Parallel resistances account the same way: 4 Ω and
+12 Ω are the 3 Ω a current binds. A value that a given states outright is
+read, not derived, so it accounts for no other given.
 """
 
 from __future__ import annotations
@@ -37,6 +38,8 @@ _GRAVITY_SETTING = re.compile(
 # Derived values are sums or differences of a few givens; more is a guess.
 _MAX_OPERANDS = 4
 _MAX_SAME_KIND = 6
+_OHM = unit_dimension("ohm")
+_OHM_DIMENSION = None if _OHM is None else _OHM[0]
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,8 +118,19 @@ def _bound(given: Given, params: list[_Param]) -> bool:
     )
 
 
+def _parallel_of(values: list[float]) -> float | None:
+    """1 / (1/R1 + 1/R2 + ...). Nonpositive parts are not a resistor network."""
+    if len(values) < 2 or any(value <= 0 for value in values):
+        return None
+    return 1.0 / sum(1.0 / value for value in values)
+
+
 def _derived(given: Given, others: list[Given], params: list[_Param]) -> bool:
-    """Whether a bound value is a signed sum of this given and a few others."""
+    """Whether a bound value is a signed sum of this given and a few others.
+
+    Resistances may instead be combined in parallel. That check stays on the
+    ohm dimension, so 4 m and 12 m are not "derived" by a length of 3 m.
+    """
     if len(others) > _MAX_SAME_KIND:
         return False
     targets = [abs(param.raw) for param in params]
@@ -134,6 +148,17 @@ def _derived(given: Given, others: list[Given], params: list[_Param]) -> bool:
                     )
                     if any(_same(abs(si), target) for target in si_targets):
                         return True
+            if given.dimension != _OHM_DIMENSION:
+                continue
+            raw_parallel = _parallel_of([given.value, *(item.value for item in group)])
+            if raw_parallel is not None and any(_same(raw_parallel, target) for target in targets):
+                return True
+            if all(item.si is not None for item in operands):
+                si_parallel = _parallel_of([item.si or 0.0 for item in operands])
+                if si_parallel is not None and any(
+                    _same(si_parallel, target) for target in si_targets
+                ):
+                    return True
     return False
 
 

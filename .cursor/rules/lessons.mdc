@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Parallel resistors across a voltage declined after the series form answered.** The current was \(I = V/R_\mathrm{eq}\), but accountability only treats a sum or a difference as a derivation, so 4 Ω and 12 Ω were left unbound by \(R = 3\,\Omega\). The reciprocal sum accounts for those resistances, and only on the ohm dimension.
+
 - **A stated mass crashed centripetal acceleration, and a series pair across a voltage verified the resistance when the question asked for the current.** \(a = v^2/r\) does not take mass, so sending \(m\) made the catalog reject the intent. Only the force law keeps the mass. A network that asks for current, with one voltage, is \(I = V/R_\mathrm{eq}\); without that voltage it declines instead of answering the ohm sum.
 
 - **Labeled M1V1 with the stock concentration missing was left to algebra.** The dilution reader required M1 and V1 already, so "find M1" never closed. Any three of M1, V1, M2, and V2 name the fourth, and M1 = M2 V2 / V1.

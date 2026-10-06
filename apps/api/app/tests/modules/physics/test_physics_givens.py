@@ -162,6 +162,29 @@ def test_a_direction_sign_is_not_a_different_value() -> None:
     assert competing_given(intent, "0.2 kg at 10 m/s rebounds at 8 m/s") is None
 
 
+def test_parallel_resistances_account_for_each_other() -> None:
+    intent = _intent("current", "circuit", {"V": 12, "R": 3}, {"V": "V", "R": "ohm"})
+    text = "A 4.00 ohm resistor and a 12.0 ohm resistor are in parallel across 12.0 V."
+    assert competing_given(intent, text) is None
+
+
+def test_a_parallel_combination_does_not_explain_lengths() -> None:
+    intent = _intent(
+        "centripetal_acceleration", "circular", {"r": 3, "v": 4}, {"r": "m", "v": "m/s"}
+    )
+    given = competing_given(intent, "a 4 m length and a 12 m length at 4 m/s")
+    assert given is not None and given.value == 4
+
+
+def test_a_stated_resistance_is_not_a_parallel_derivation() -> None:
+    intent = _intent("current", "circuit", {"V": 12, "R": 3}, {"V": "V", "R": "ohm"})
+    given = competing_given(
+        intent,
+        "A 4 ohm resistor, a 12 ohm resistor, and a 3 ohm resistor in parallel across 12 V.",
+    )
+    assert given is not None and given.value == 4
+
+
 def test_a_stated_gravity_is_a_setting_not_a_given() -> None:
     intent = _intent("net_force", "force", {"m": 5, "a": 2}, {"m": "kg", "a": "m/s^2"})
     assert competing_given(intent, "5 kg at 2 m/s^2, with g = 9.8 m/s^2") is None
