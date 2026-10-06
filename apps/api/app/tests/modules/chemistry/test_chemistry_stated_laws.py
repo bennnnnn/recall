@@ -150,6 +150,21 @@ def test_an_angstrom_lattice_and_an_si_diffusion_coefficient() -> None:
             "gibbs_from_equilibrium",
             "ΔG° = 29 kJ/mol",
         ),
+        (
+            "The rate constant is 0.045 1/s. What is the half-life of this first-order reaction?",
+            "first_order_half_life",
+            "t₁/₂ = 15 s",
+        ),
+        (
+            "What is the oxidation number of chromium in K2Cr2O7?",
+            "oxidation_state",
+            "K = +1\nCr = +6\nO = -2",
+        ),
+        (
+            "Find the molarity when 5.00 g of NaCl is dissolved in 250 mL of water.",
+            "molarity_from_mass",
+            "c = 0.342 mol/L",
+        ),
     ],
 )
 def test_ordinary_wording_still_reaches_the_law(question: str, operation: str, answer: str) -> None:

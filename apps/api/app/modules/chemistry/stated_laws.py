@@ -515,5 +515,20 @@ STATED_LAWS: dict[str, FormulaLaw] = {
             ),
             "αHA = 10^(−{ph.value}) / ({ka.value} + 10^(−{ph.value}))",
         ),
+        _law(
+            "molarity_from_mass",
+            "solutions",
+            "Molarity from mass",
+            "c = (m / M) / V",
+            "Molarity, c",
+            ("c", "mol/L"),
+            "solute_mass/molar_mass/volume_l",
+            (
+                ("solute_mass", "m", "g"),
+                ("molar_mass", "M({formula})", "g/mol"),
+                ("volume_l", "V", "L"),
+            ),
+            "c = ({solute_mass} / {molar_mass}) / {volume_l}",
+        ),
     )
 }

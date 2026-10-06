@@ -114,6 +114,21 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ("h_from_ph", "acid_base", "Inverse pH relation", "[H+] = 10^(-pH)"),
     ("poh_from_oh", "acid_base", "Definition of pOH", "pOH = −log10[OH-]"),
     ("buffer_ph", "acid_base", "Henderson–Hasselbalch equation", "pH = pKa + log10([A-]/[HA])"),
+    (
+        "base_buffer_ph",
+        "acid_base",
+        "Base-buffer pH",
+        "pH = pKw − pKb − log10([BH+]/[B])",
+    ),
+    ("strong_acid_poh", "acid_base", "Strong-acid pOH", "pOH = pKw + log10(C)"),
+    ("strong_base_poh", "acid_base", "Strong-base pOH", "pOH = −log10(nC)"),
+    ("weak_acid_ka", "acid_base", "Weak-acid constant", "Ka = x^2 / (C − x)"),
+    (
+        "conjugate_salt_ph",
+        "acid_base",
+        "Hydrolysis of a conjugate salt",
+        "Kb = Kw / Ka",
+    ),
     ("gibbs", "thermochemistry", "Gibbs equation", "ΔG = ΔH − TΔS"),
     (
         "equilibrium_constant",

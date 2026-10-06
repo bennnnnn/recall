@@ -21,7 +21,7 @@ from app.modules.chemistry.species_facts import (
 def _extract_structure(text: str) -> ChemistryIntent | None:
     # "the oxidation state of S in H2SO4" answers with every element's state, S's among them.
     oxidation = re.search(
-        rf"oxidation (?:state|number)s?(?: of (?:each element|[A-Z][a-z]?))? in "
+        rf"oxidation (?:state|number)s?(?: of (?:each element|[A-Za-z]+))? in "
         rf"({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
         text,
         re.IGNORECASE,

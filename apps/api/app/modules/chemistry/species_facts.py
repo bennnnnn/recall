@@ -47,6 +47,7 @@ NAMED_COMPOUNDS: dict[str, str] = {
     "lithium hydroxide": "LiOH",
     "calcium hydroxide": "Ca(OH)2",
     "barium hydroxide": "Ba(OH)2",
+    "ammonium chloride": "NH4Cl",
     "sodium acetate": "CH3COONa",
     "potassium acetate": "CH3COOK",
 }
@@ -78,7 +79,7 @@ WEAK_BASES = frozenset({"NH3", "CH3NH2", "C5H5N", "C6H5NH2"})
 NEUTRALIZING_ACIDS: dict[str, int] = {**STRONG_ACIDS, "H2SO4": 2, **dict.fromkeys(WEAK_ACIDS, 1)}
 NEUTRALIZING_BASES: dict[str, int] = {**STRONG_BASES, **dict.fromkeys(WEAK_BASES, 1)}
 # The conjugate base of a weak acid, as the salt a buffer is made with.
-CONJUGATE_SALTS = frozenset({"CH3COONa", "CH3COOK", "HCOONa", "NaF", "NaNO2", "NaCN"})
+CONJUGATE_SALTS = frozenset({"CH3COONa", "CH3COOK", "HCOONa", "NaF", "NaNO2", "NaCN", "NH4Cl"})
 # Particles one dissolved formula unit gives, for an ideal colligative property.
 VAN_T_HOFF: dict[str, int] = {
     "C6H12O6": 1,

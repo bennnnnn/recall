@@ -49,11 +49,14 @@ _FOREIGN_RATE_UNIT = re.compile(r"\s*(?:M\b|L\b|mol\b|/)")
 def rate_constant(text: str, label: str = "k") -> tuple[float, str | None] | None:
     """``k = 0.05 min^-1`` as ``(0.05, "min")``; the unit is ``None`` when none is written.
 
+    ``k`` may also be written "the rate constant is", and ``s^-1`` as ``1/s``.
     ``None`` when the label is absent or its unit is one this reader does not understand.
     """
+    name = rf"(?-i:{label})" if label != "k" else r"(?:(?-i:k)|rate\s+constant)"
     match = re.search(
-        rf"\b(?-i:{label})\s*=\s*({_N})\s*(?:(?P<unit>{TIME_UNIT_PATTERN})\s*"
-        rf"(?:\^\s*-\s*1|⁻¹)|/\s*(?P<per>{TIME_UNIT_PATTERN})\b)?",
+        rf"\b{name}\s*(?:=|is)\s*({_N})\s*(?:"
+        rf"(?P<unit>{TIME_UNIT_PATTERN})\s*(?:\^\s*-\s*1|⁻¹)"
+        rf"|(?:1\s*)?/\s*(?P<per>{TIME_UNIT_PATTERN})\b)?",
         text,
         re.IGNORECASE,
     )
