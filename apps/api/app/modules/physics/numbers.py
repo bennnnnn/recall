@@ -100,7 +100,13 @@ def normalize_physics_numbers(text: str) -> str | None:
             return None
         try:
             value = Decimal(token)
-            if not value.is_finite() or (value and abs(value.adjusted()) > 36):
+            if not value.is_finite():
+                return None
+            number = float(value)
+            # 1e1000000 overflows and 1e-1000000 underflows. A finite float
+            # whose decimal spelling would be longer than a keyword window
+            # stays scientific: refusing it dropped every law in the question.
+            if not math.isfinite(number) or (value != 0 and number == 0):
                 return None
             decimal = "0" if value.is_zero() else format(value, "f")
         except (InvalidOperation, ValueError, OverflowError):
@@ -110,9 +116,8 @@ def normalize_physics_numbers(text: str) -> str | None:
         if decimal in {"-0", "+0"}:
             decimal = "0"
         if len(decimal) > _MAX_LITERAL_CHARS:
-            return None
-        number = float(value)
-        if not math.isfinite(number) or (value != 0 and number == 0):
+            decimal = format(value.normalize(), "e")
+        if len(decimal) > _MAX_LITERAL_CHARS:
             return None
         pieces.extend((text[end : start.start()], decimal))
         end = match.end()

@@ -165,6 +165,13 @@ _CASES = [
         0.0173,
     ),
     (
+        "In the Friedmann equation, the density is 1.00e-26 kg/m^3, the curvature is 0, "
+        "the scale factor is 1.00e26 m, and the cosmological constant is 1.00e-52 /m^2. "
+        "Find the Hubble parameter.",
+        "friedmann_hubble",
+        2.930409372178323e-18,
+    ),
+    (
         "For the virial theorem, the potential energy is -2.00e11 J. Find the kinetic energy.",
         "virial_kinetic_energy",
         1e11,

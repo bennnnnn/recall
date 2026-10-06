@@ -32,6 +32,12 @@ VERIFIED: list[tuple[str, str, str]] = [
         "4.49 × 10⁵ N/C",
     ),
     (
+        "Using Gauss's law, a point charge of 4.00 uC. Find the electric field outside "
+        "at a distance of 0.200 m from the center.",
+        "gauss_outside",
+        "8.99 × 10⁵ N/C",
+    ),
+    (
         "Use Gauss's law for a point inside a hollow shell of charge 2e-6 C "
         "with shell radius 0.5 m and a distance of 0.2 m from the center.",
         "gauss_inside_shell",

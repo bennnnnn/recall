@@ -52,10 +52,8 @@ def extract_gauss(text: str, lower: str) -> PhysicsIntent | None:
             {"sigma_charge": density[0]},
             {"sigma_charge": density[1] or "C/m^2"},
         )
-    if charge is None or radius is None:
-        return None
     if "inside" in lower and any(word in lower for word in ("shell", "hollow")):
-        if distance is None:
+        if charge is None or radius is None or distance is None:
             return None
         return _intent(
             "magnetism",
@@ -68,7 +66,7 @@ def extract_gauss(text: str, lower: str) -> PhysicsIntent | None:
             },
         )
     if "inside" in lower and "uniform" in lower:
-        if distance is None:
+        if charge is None or radius is None or distance is None:
             return None
         return _intent(
             "magnetism",
@@ -82,7 +80,10 @@ def extract_gauss(text: str, lower: str) -> PhysicsIntent | None:
         )
     if "outside" not in lower and "surface" not in lower:
         return None
+    # A point charge has no shell radius. The distance from the center is r.
     point = distance or radius
+    if charge is None or point is None:
+        return None
     return _intent(
         "magnetism",
         "gauss_outside",
