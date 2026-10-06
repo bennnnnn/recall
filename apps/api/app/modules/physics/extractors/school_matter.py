@@ -187,6 +187,14 @@ def _ideal_gas(text: str) -> PhysicsIntent | None:
     # PV = NkT counts molecules. PV = nRT must not claim that question.
     if re.search(r"\b(?:molecules?|particles)\b", text, re.IGNORECASE):
         return None
+    # A second pressure, volume, or temperature is a change of state. Keeping
+    # the first state would answer n = PV/RT and block the combined-gas law.
+    if (
+        len(_ordered_values(text, _PRESSURE)) > 1
+        or len(_ordered_values(text, _VOLUME)) > 1
+        or len(_ordered_values(text, r"K|kelvins?")) > 1
+    ):
+        return None
     pressure = _one(text, _PRESSURE)
     volume = _one(text, _VOLUME)
     moles = _one(text, r"mol|moles?")

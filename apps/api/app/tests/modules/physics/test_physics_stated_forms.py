@@ -28,6 +28,12 @@ _CASES = [
         4.83e23,
     ),
     (
+        "How many molecules are in an ideal gas at a pressure of 1.00e5 Pa, "
+        "a volume of 0.0200 m^3, and a temperature of 300 K?",
+        "molecule_gas_count",
+        4.83e23,
+    ),
+    (
         "An ideal gas has 1.00e24 molecules, pressure 1.00e5 Pa, and volume 0.0200 m^3. "
         "Find the temperature.",
         "molecule_gas_temperature",

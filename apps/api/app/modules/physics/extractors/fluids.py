@@ -147,7 +147,8 @@ def _general_law(f: FluidReading) -> PhysicsIntent | None:
         )
 
     # --- density: rho = m / V -------------------------------------------
-    if "density" in f.lower and f.mass is not None and f.volume is not None:
+    # A density already written is the fluid's. m/V is only when none is given.
+    if "density" in f.lower and f.mass is not None and f.volume is not None and f.density is None:
         return PhysicsIntent(
             kind="fluids",
             physics_op="density",
