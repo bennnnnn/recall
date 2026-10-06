@@ -136,6 +136,12 @@ _CASES = [
         1200,
     ),
     (
+        "A diffraction grating has 800 lines and is used in second order. "
+        "Find the resolving power.",
+        "grating_resolving_power",
+        1600,
+    ),
+    (
         "In the BCS approximation, the critical temperature is 10.0 K. Find the energy gap.",
         "bcs_gap",
         2.44e-22,
@@ -184,6 +190,10 @@ def test_a_stated_form_is_verified(text: str, operation: str, value: float) -> N
     answer = _answer(text)
     assert answer is not None
     assert answer_number(answer) == pytest.approx(value, rel=0.02)
+
+
+def test_resolving_power_without_an_order_declines() -> None:
+    assert _answer("A diffraction grating has 800 lines. Find the resolving power.") is None
 
 
 def test_a_hydrogenlike_radius_without_z_declines() -> None:

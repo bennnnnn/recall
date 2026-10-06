@@ -492,7 +492,22 @@ SPECS: tuple[FormulaSpec, ...] = (
         assumptions=("a diffraction grating",),
         expression="order*n_lines",
         variables=(
-            var("order", "m", dimensionless=True, words=("order",), needs_words=True),
+            var(
+                "order",
+                "m",
+                dimensionless=True,
+                words=("order",),
+                needs_words=True,
+                # "second order" states m the same way the grating angle already reads it.
+                implied=(
+                    ("first order", 1.0),
+                    ("first-order", 1.0),
+                    ("second order", 2.0),
+                    ("second-order", 2.0),
+                    ("third order", 3.0),
+                    ("third-order", 3.0),
+                ),
+            ),
             var(
                 "n_lines",
                 "N",
