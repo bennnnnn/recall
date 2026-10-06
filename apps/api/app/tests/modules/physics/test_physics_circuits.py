@@ -329,6 +329,17 @@ def test_series_voltage_asked_as_current_is_ohms_law() -> None:
     assert _verified_answer(text) == "0.5 A"
 
 
+def test_parallel_voltage_asked_as_current_is_ohms_law() -> None:
+    """1/R = 1/4 + 1/12, so the current is 12 V / 3 Ω."""
+    text = (
+        "A 4.00 ohm resistor and a 12.0 ohm resistor are in parallel across 12.0 V. "
+        "Find the current."
+    )
+    intent = extract_physics_intent(text)
+    assert isinstance(intent, PhysicsIntent) and intent.physics_op == "current"
+    assert _verified_answer(text) == "4 A"
+
+
 def test_series_current_without_a_voltage_declines() -> None:
     text = "A 4 ohm resistor and a 12 ohm resistor are in series. Find the current."
     assert extract_physics_intent(text) is None
