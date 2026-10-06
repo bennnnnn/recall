@@ -36,6 +36,16 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("inertia", "I", "kilogram * meter ** 2"),
             var("omega", r"\omega", "radian / second"),
         ),
+        # "Moment of inertia" without a shape is not this law's missing input.
+        # The shape branch declines that sentence, so L = Iω needs the same
+        # binding the kinetic-energy form already has.
+        binding=Binding(
+            asks=("angular momentum",),
+            result=("kilogram * meter ** 2 / second",),
+            inputs=(frozenset({"inertia", "omega"}),),
+            excludes=("conserved", "isolated", "squared", "z component"),
+            nonnegative=True,
+        ),
     ),
     formula(
         "rotational_kinetic_energy",
