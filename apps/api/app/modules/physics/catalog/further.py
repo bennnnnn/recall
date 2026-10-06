@@ -136,7 +136,7 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "v_exhaust",
                 "v_e",
                 "meter / second",
-                words=("exhaust", "exhausts", "ejected"),
+                words=("exhaust", "exhausts", "ejected", "ejects"),
                 needs_words=True,
             ),
             var("m_initial", "m_0", "kilogram", words=("from", "initial"), needs_words=True),

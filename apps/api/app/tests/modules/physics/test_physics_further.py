@@ -46,6 +46,12 @@ _CASES = [
         1832.6,
     ),
     (
+        "A rocket ejects gas at 2000 m/s. Its mass goes from 800 kg to 200 kg. "
+        "Find the change in speed.",
+        "rocket_delta_v",
+        2772.6,
+    ),
+    (
         "A circular loop of radius 0.1 m carries 5 A. Find the magnetic field at its center.",
         "loop_magnetic_field",
         3.1416e-5,
@@ -92,6 +98,18 @@ _CASES = [
         "Find the Rayleigh criterion angle.",
         "rayleigh_angle",
         3.05e-4,
+    ),
+    (
+        "Using the Rayleigh criterion, the wavelength is 550 nm and the aperture "
+        "diameter is 2.00 mm. Find the angular separation.",
+        "rayleigh_angle",
+        3.355e-4,
+    ),
+    (
+        "A solenoid has 500 turns, a length of 0.200 m, and a current of 3.00 A. "
+        "Find the magnetic flux density.",
+        "solenoid_field",
+        9.425e-3,
     ),
     (
         "Two thin lenses in contact have powers 2 dioptres and 3 dioptres. Find the total power.",
