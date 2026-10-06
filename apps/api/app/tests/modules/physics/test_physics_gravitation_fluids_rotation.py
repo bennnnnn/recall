@@ -335,6 +335,17 @@ def test_angular_velocity_from_a_period_needs_no_radius() -> None:
     assert _verified_answer(text) == "3.14 rad/s"
 
 
+def test_rad_per_second_is_not_an_angle_in_radians() -> None:
+    """2 rad/s is already a speed. Reading the rad as an angle verified 0.667 rad/s."""
+    for text in (
+        "A wheel turns at 2.00 rad/s for 3.00 s. Find the angular speed.",
+        "A wheel turns at 2.00 radians per second for 3.00 s. Find the angular speed.",
+    ):
+        intent = extract_physics_intent(text)
+        assert intent is None or intent.physics_op != "angular_displacement_rate"
+        assert _verified_answer(text) != "0.667 rad/s"
+
+
 def test_a_narrowing_pipe_writes_its_unit_once() -> None:
     """ "from 0.04 to 0.01 m^2" puts the unit on the second area only.
 

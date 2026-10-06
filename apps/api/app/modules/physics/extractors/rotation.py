@@ -131,7 +131,12 @@ def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
         )
 
     # omega = theta / t
-    turned = re.search(r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:radians?|rad)\b", cleaned, re.IGNORECASE)
+    # "rad" in "rad/s" is not an angle, and neither is "radians per second".
+    turned = re.search(
+        r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:radians?|rad)(?![A-Za-z/])(?!\s*per\s+second)",
+        cleaned,
+        re.IGNORECASE,
+    )
     elapsed = _find_value_with_specific_unit(cleaned, r"seconds?|secs?|sec|s|minutes?|mins?|min")
     if turned is not None and elapsed is not None:
         return PhysicsIntent(

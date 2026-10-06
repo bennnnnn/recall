@@ -155,6 +155,11 @@ CASES: list[tuple[str, str, str]] = [
         "stefan_boltzmann_power",
         "5670 W",
     ),
+    (
+        "Using Stefan's law, a blackbody of area 0.2 m^2 is at 500 K. Find the power.",
+        "stefan_boltzmann_power",
+        "709 W",
+    ),
 ]
 
 
