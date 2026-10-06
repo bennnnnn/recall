@@ -688,7 +688,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             "CFSE = (−0.4 n_t2g + 0.6 n_eg) Δo",
             "Crystal-field stabilization energy, CFSE",
             ("CFSE", "kJ/mol"),
-            "(-0.4*n_t2g + 0.6*n_eg)*delta_o",
+            "(-2*n_t2g + 3*n_eg)*delta_o/5",
             (
                 ("n_t2g", "n(t2g)", ""),
                 ("n_eg", "n(eg)", ""),
