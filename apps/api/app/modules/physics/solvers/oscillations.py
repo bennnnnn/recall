@@ -129,18 +129,36 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
     # Like the pendulum above, these need no spring constant, so they are
     # answered before the k lookup rather than after it.
     if op == "shm_frequency":
-        t_period = p["period"]
-        if t_period <= 0:
-            raise SolveServiceError("period must be positive")
-        freq = 1 / t_period
-        graph, scene = _motion(t_period, p.get("x"))
-        return PhysicsResult(
-            answer=(
+        if "period" in p:
+            t_period = p["period"]
+            if t_period <= 0:
+                raise SolveServiceError("period must be positive")
+            freq = 1 / t_period
+            formula = r"f = \frac{1}{T}"
+            substitution = rf"f = \frac{{1}}{{{t_period:g}}}"
+            shown = (
                 rf"f = \frac{{1}}{{T}} = \frac{{1}}{{{t_period:g}}} "
                 rf"\approx {freq:.2f} \text{{ Hz}}"
-            ),
-            formulas=(r"f = \frac{1}{T}",),
-            substitutions=(rf"f = \frac{{1}}{{{t_period:g}}}",),
+            )
+        else:
+            mass = p["m"]
+            spring_k = p["k"]
+            if mass <= 0 or spring_k <= 0:
+                raise SolveServiceError("mass and spring constant must be positive")
+            freq = math.sqrt(spring_k / mass) / (2 * math.pi)
+            t_period = 1 / freq
+            formula = r"f = \frac{1}{2\pi}\sqrt{\frac{k}{m}}"
+            substitution = rf"f = \frac{{1}}{{2\pi}}\sqrt{{\frac{{{spring_k:g}}}{{{mass:g}}}}}"
+            shown = (
+                rf"f = \frac{{1}}{{2\pi}}\sqrt{{\frac{{k}}{{m}}}} = "
+                rf"\frac{{1}}{{2\pi}}\sqrt{{\frac{{{spring_k:g}}}{{{mass:g}}}}} "
+                rf"\approx {freq:.2f} \text{{ Hz}}"
+            )
+        graph, scene = _motion(t_period, p.get("x"))
+        return PhysicsResult(
+            answer=shown,
+            formulas=(formula,),
+            substitutions=(substitution,),
             quantities=(QuantityResult("", freq, "Hz"),),
             graph_specs=[graph],
             simulation_specs=scene,

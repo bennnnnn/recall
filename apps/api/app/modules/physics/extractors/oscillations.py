@@ -183,8 +183,15 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
         cleaned, r"kg|mg|lb|lbs|oz", ("mass", "object", "body", "block")
     )
 
-    op: Literal["spring_force", "spring_energy", "shm_period"]
-    if "period" in lower or "oscillat" in lower or "simple harmonic" in lower:
+    # f = (1/2π)√(k/m) is the period law asked for the frequency. Returning
+    # the period makes the ask guard drop the question.
+    asks_frequency = "frequency" in lower and "period" not in lower and "angular" not in lower
+    op: Literal["spring_force", "spring_energy", "shm_period", "shm_frequency"]
+    if asks_frequency:
+        op = "shm_frequency"
+        if mass is None:
+            return None
+    elif "period" in lower or "oscillat" in lower or "simple harmonic" in lower:
         op = "shm_period"
         if mass is None:
             return None
@@ -201,7 +208,7 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
 
     params: dict[str, float] = {"k": k}
     units: dict[str, str] = {"k": "N/m"}
-    if displacement is not None:
+    if displacement is not None and op != "shm_frequency":
         params["x"] = displacement[0]
         units["x"] = displacement[1] or "m"
     if mass is not None:

@@ -243,6 +243,56 @@ def test_a_largest_first_pair_compares_in_si_and_keeps_its_units(text: str) -> N
     assert _answer(text) == "2.45 m/s² and 36.8 N"
 
 
+@pytest.mark.parametrize(
+    ("text", "operation", "answer"),
+    [
+        (
+            "A 1.00 kg mass is attached to a spring of constant 100 N/m. "
+            "Find the frequency of oscillation.",
+            "shm_frequency",
+            "1.59 Hz",  # (1/2π)√(100/1)
+        ),
+        (
+            "A solenoid has 2000 turns per meter and carries 3.00 A. "
+            "Find the magnetic field inside.",
+            "solenoid_field",
+            "0.00754 T",  # μ0·2000·3
+        ),
+        (
+            "Find the gravitational potential at the surface of Earth.",
+            "gravitational_potential",
+            "-6.26 × 10⁷ J/kg",  # -GM/R
+        ),
+        (
+            "A pressure increase of 2.00e6 Pa produces a volume strain of 0.00100. "
+            "Find the bulk modulus.",
+            "bulk_modulus",
+            "2 × 10⁹ Pa",  # 2e6/0.001
+        ),
+        (
+            "The sound intensity is 1.00e-6 W/m^2. Find the sound level in decibels.",
+            "sound_level",
+            "60 dB",  # 10 log10(1e-6/1e-12)
+        ),
+        (
+            "A refrigerator operates between 250 K and 300 K. Find the coefficient of performance.",
+            "refrigerator_cop",
+            "5",  # 250/(300-250)
+        ),
+        (
+            "An ideal gas at 2.00 atm occupies 3.00 L. It is compressed adiabatically "
+            "to 1.00 L with gamma 1.40. Find the final pressure.",
+            "adiabatic_pressure",
+            "9.31 atm",  # 2·3^1.40
+        ),
+    ],
+)
+def test_stated_forms_answer_the_law_that_was_asked(text: str, operation: str, answer: str) -> None:
+    intent = extract_physics_intent(text)
+    assert intent is not None and intent.physics_op == operation
+    assert _answer(text) == answer
+
+
 def test_a_stated_g_answers_for_a_body_without_a_school_value() -> None:
     assert (
         _answer("What is the weight of a 70 kg astronaut on Jupiter where gravity is 24.8 m/s^2?")

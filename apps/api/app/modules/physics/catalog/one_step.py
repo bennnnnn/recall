@@ -7,7 +7,7 @@ does not belong here.
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 _G = var("g", "g", "meter / second ** 2", fallback="gravity")
 
@@ -284,7 +284,12 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "I_0",
                 "watt / meter ** 2",
                 words=("reference",),
-                implied=(("threshold of hearing", 1.0e-12), ("hearing threshold", 1.0e-12)),
+                implied=(
+                    ("threshold of hearing", 1.0e-12),
+                    ("hearing threshold", 1.0e-12),
+                    ("decibel", 1.0e-12),
+                    ("decibels", 1.0e-12),
+                ),
                 needs_words=True,
             ),
         ),
@@ -329,15 +334,33 @@ SPECS: tuple[FormulaSpec, ...] = (
         base_latex=r"B = \frac{\Delta P}{\Delta V/V}",
         assumptions=("the volume change is a decrease",),
         expression="delta_pres*volume/dV",
+        variants=(
+            FormulaVariant(
+                latex=r"B = \frac{\Delta P}{\Delta V/V}",
+                present=frozenset({"volume_strain"}),
+                absent=frozenset({"volume", "dV"}),
+                expression="delta_pres/volume_strain",
+            ),
+        ),
         variables=(
             var("delta_pres", r"\Delta P", "pascal"),
             var("volume", "V", "meter ** 3", words=("original",), needs_words=True),
             var("dV", r"\Delta V", "meter ** 3", words=("change", "decrease"), needs_words=True),
+            var(
+                "volume_strain",
+                r"\Delta V/V",
+                dimensionless=True,
+                words=("volume strain", "volumetric strain"),
+                needs_words=True,
+            ),
         ),
         binding=Binding(
             asks=("bulk modulus",),
             result=("pascal",),
-            inputs=(frozenset({"dV", "delta_pres", "volume"}),),
+            inputs=(
+                frozenset({"dV", "delta_pres", "volume"}),
+                frozenset({"delta_pres", "volume_strain"}),
+            ),
             cues=("bulk modulus",),
             nonnegative=True,
         ),
