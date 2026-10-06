@@ -142,6 +142,7 @@ _WORD_UNIT_SYMBOLS = {
     "newton * meter": "N·m",
     "newton * second": "N·s",
     "ohm * meter": "Ω·m",
+    "1 / second": "s⁻¹",
     "1 / kelvin": "K⁻¹",
     "1 / millimeter": "lines/mm",
     "1 / centimeter": "lines/cm",

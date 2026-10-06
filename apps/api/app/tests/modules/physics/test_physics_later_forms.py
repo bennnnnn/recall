@@ -27,6 +27,17 @@ _CASES = [
         70052,
     ),
     (
+        "The Hubble constant is 2.20e-18 per second. A galaxy is a distance of 1.00e25 m away. "
+        "Find the recessional speed.",
+        "hubble_law",
+        2.20e7,
+    ),
+    (
+        "The Hubble constant is 2.20e-18 per second. Find the critical density.",
+        "critical_density",
+        8.656e-27,
+    ),
+    (
         "The Hubble constant is 2.27e-18 /s. Find the critical density.",
         "critical_density",
         9.216e-27,
@@ -37,9 +48,21 @@ _CASES = [
         5.641e10,
     ),
     (
+        "A cold plasma has electron number density 1.00e18 per cubic meter. "
+        "Find the plasma frequency.",
+        "plasma_frequency",
+        5.641e10,
+    ),
+    (
         "A plasma has electron density 1.00e18 /m^3 and temperature 10000 K. Find the Debye length.",
         "debye_length",
         6.901e-6,
+    ),
+    (
+        "A plasma has number density 1.00e16 per cubic meter and temperature 10000 K. "
+        "Find the Debye length.",
+        "debye_length",
+        6.901e-5,
     ),
     (
         "A plasma has magnetic field 0.0100 T and density 1.00e-6 kg/m^3. Find the Alfven speed.",

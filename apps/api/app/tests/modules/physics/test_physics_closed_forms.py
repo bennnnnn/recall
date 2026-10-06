@@ -16,6 +16,12 @@ _CASES = [
         9.986e-6,
     ),
     (
+        "A wire carries 2.00 A. The carrier number density is 8.00e28 per cubic meter "
+        "and the cross-sectional area is 1.00e-6 m^2. Find the drift speed.",
+        "drift_speed",
+        1.5606e-4,
+    ),
+    (
         "Two parallel wires carry 2.00 A and 3.00 A and are 0.100 m apart. "
         "Find the force per unit length.",
         "wire_force_per_length",

@@ -16,6 +16,12 @@ _CASES = [
         9.6e-5,
     ),
     (
+        "A plate of area 0.0200 m^2 has linear expansivity 1.20e-5 per kelvin. "
+        "The temperature rises by 50.0 K. Find the change in area.",
+        "area_expansion",
+        2.4e-5,
+    ),
+    (
         "A glass vessel of volume 0.5 m^3 has a volume expansivity of 2.7e-5 /K. "
         "Find the change in volume for a temperature rise of 10 K.",
         "volume_expansion",
@@ -35,6 +41,12 @@ _CASES = [
     ),
     (
         "A gas has number density 2.5e25 /m^3 and molecular diameter 3e-10 m. "
+        "Find the mean free path.",
+        "mean_free_path",
+        1.0006e-7,
+    ),
+    (
+        "Gas molecules have diameter 3.00e-10 m and number density 2.50e25 per cubic meter. "
         "Find the mean free path.",
         "mean_free_path",
         1.0006e-7,

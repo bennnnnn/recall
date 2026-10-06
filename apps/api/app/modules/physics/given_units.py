@@ -169,7 +169,9 @@ _WORDS: dict[str, str] = {
     # An expansion coefficient: per degree of change, so per °C is per K.
     "/s": "1 / second",
     "1/s": "1 / second",
+    "per second": "1 / second",
     "per k": "1 / kelvin",
+    "per kelvin": "1 / kelvin",
     "/k": "1 / kelvin",
     "k^-1": "1 / kelvin",
     "k⁻¹": "1 / kelvin",
@@ -294,6 +296,10 @@ _WORDS: dict[str, str] = {
     "/m^3": "1 / meter ** 3",
     "m^-3": "1 / meter ** 3",
     "per m^3": "1 / meter ** 3",
+    "per cubic meter": "1 / meter ** 3",
+    "per cubic metre": "1 / meter ** 3",
+    "per cubic meters": "1 / meter ** 3",
+    "per cubic metres": "1 / meter ** 3",
     "n m/rad": "newton * meter / radian",
     "n·m/rad": "newton * meter / radian",
 }

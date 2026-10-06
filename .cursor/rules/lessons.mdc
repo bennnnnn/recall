@@ -12,12 +12,13 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A number density, a Hubble constant, and an expansivity written in words declined.** “per cubic meter” is \(1/\mathrm{m}^3\), “per second” is \(1/\mathrm{s}\), and “per kelvin” is \(1/\mathrm{K}\). The slash spellings already answered those laws.
+
 - **A stated moment of inertia and angular speed declined when the question asked for angular momentum.** The shape branch returns None as soon as the sentence says "moment of inertia" without a hoop or a disc, so \(L = I\omega\) never runs. Rotational kinetic energy already binds those two inputs. Angular momentum needs the same binding.
 
 - **Magnetic flux density was read as a flux and a density, angular separation as a length, and a rocket that ejects gas never opened.** "magnetic flux" is a weber and "separation" is a meter, so those longer asks never fit a tesla or an angle. The exhaust speed is named by ejects, the same verb as ejected.
 
-- **A speed in rad/s was read as an angle, Stefan's law never opened, and a volume flow rate was read as a volume.** `rad` inside `rad/s` matched the angle pattern, so 2 rad/s for 3 s verified 0.667 rad/s. The word stefan opens that law, as Wien's law already does. Volume flow rate is a flow, in m³/s.
-- **Parallel resistors across a voltage declined after the series form answered.** The current was \(I = V/R_\mathrm{eq}\), but accountability only treats a sum or a difference as a derivation, so 4 Ω and 12 Ω were left unbound by \(R = 3\,\Omega\). The reciprocal sum accounts for those resistances, and only on the ohm dimension.
+- **A speed in rad/s was read as an angle, Stefan's law never opened, and a volume flow rate was read as a volume.** `rad` inside `rad/s` matched the angle pattern, so 2 rad/s for 3 s verified 0.667 rad/s. The word stefan opens that law, as Wien's law already does. Volume flow rate is a flow, in m³/s.- **Parallel resistors across a voltage declined after the series form answered.** The current was \(I = V/R_\mathrm{eq}\), but accountability only treats a sum or a difference as a derivation, so 4 Ω and 12 Ω were left unbound by \(R = 3\,\Omega\). The reciprocal sum accounts for those resistances, and only on the ohm dimension.
 
 - **Centripetal acceleration declined when the given was called an angular speed.** "Angular speed" was read as the question, and a stated ω is not an input of ω = v/r, so \(a = \omega^2 r\) never ran. The quantity after the ask verb is the question.
 

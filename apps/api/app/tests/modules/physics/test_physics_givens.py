@@ -70,6 +70,27 @@ def test_a_time_before_a_sentence_is_not_significant_figures() -> None:
     ]
 
 
+@pytest.mark.parametrize(
+    ("text", "unit", "expression"),
+    [
+        ("8.00e28 per cubic meter", "per cubic meter", "1 / meter ** 3"),
+        ("8.00e28 per cubic metre", "per cubic metre", "1 / meter ** 3"),
+        ("2.20e-18 per second", "per second", "1 / second"),
+        ("1.20e-5 per kelvin", "per kelvin", "1 / kelvin"),
+    ],
+)
+def test_prose_names_of_inverse_units(text: str, unit: str, expression: str) -> None:
+    (given,) = scan_givens(text)
+    assert given.unit == unit
+    assert given.dimension == unit_dimension(expression)[0]
+
+
+def test_meters_per_second_stays_a_length() -> None:
+    (given,) = scan_givens("20 meters per second")
+    assert given.unit == "meters"
+    assert given.dimension == _LENGTH
+
+
 def test_scan_givens_never_reads_prose_as_units() -> None:
     givens = scan_givens("walk 3 at a time, 4 in a row, 5 a day")
     assert [given.dimension for given in givens] == [None, None, None]
