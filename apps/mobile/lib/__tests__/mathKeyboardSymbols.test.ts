@@ -440,6 +440,21 @@ describe("symbol homes (no duplicate glyphs)", () => {
     expect(MATH_KEYBOARD_SYMBOLS.some((s) => s.id === "pi-greek")).toBe(false);
   });
 
+  it("keeps each Calc family in one run", () => {
+    const ids = symbolsInGroup("calc").map((spec) => spec.id);
+    expect(ids.slice(0, 6)).toEqual(["int", "dint", "iint", "iiint", "oint", "dx"]);
+    expect(ids.slice(6, 12)).toEqual(["partial", "der", "der2", "ddv", "nabla", "vec"]);
+    expect(ids.slice(12, 18)).toEqual(["sum", "prod", "lim", "infty", "to", "cdot"]);
+  });
+
+  it("keeps lowercase Greek in alphabet order", () => {
+    const ids = symbolsInGroup("greek").map((spec) => spec.id);
+    expect(ids.indexOf("theta")).toBeLessThan(ids.indexOf("iota"));
+    expect(ids.indexOf("iota")).toBeLessThan(ids.indexOf("kappa"));
+    expect(ids.indexOf("tau")).toBeLessThan(ids.indexOf("upsilon"));
+    expect(ids.indexOf("upsilon")).toBeLessThan(ids.indexOf("phi"));
+  });
+
   it("fills Calc and Greek in even 6-wide rows", () => {
     expect(symbolsInGroup("calc")).toHaveLength(30);
     expect(symbolsInGroup("calc").length % MATH_SYMBOL_ROW_SIZE).toBe(0);

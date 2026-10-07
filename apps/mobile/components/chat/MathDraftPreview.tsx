@@ -16,6 +16,7 @@ import {
 import { healDroppedCommandSlash } from "@/lib/math/healMathSource";
 import { innermostSlot, type LatexGroup } from "@/lib/math/keyboardSymbols";
 import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
 export const MATH_DRAFT_PREVIEW_HEIGHT = 48;
@@ -58,11 +59,18 @@ export function sentMessageShowsMathPreview(input: string): boolean {
 
 type ScriptNode = Extract<DraftNode, { kind: "script" }>;
 
-/** ∑, ∏, and lim carry their scripts above and below. Everything else keeps them beside the base. */
+/** ∑, ∏, and lim carry their scripts above and below. A definite integral is drawn separately. */
 const LIMIT_BASE = /\\(?:sum|prod|lim)\s*$/;
+const INTEGRAL_BASE = /\\int\s*$/;
+const INTEGRAL_SIGN_SIZE = 32;
+const INTEGRAL_SIGN_LINE = 36;
 
 function isLimitBase(input: string, node: DraftNode): boolean {
   return node.kind === "text" && LIMIT_BASE.test(input.slice(node.start, node.end).replace(/\$/g, ""));
+}
+
+function isIntegralBase(input: string, node: DraftNode): boolean {
+  return node.kind === "text" && INTEGRAL_BASE.test(input.slice(node.start, node.end).replace(/\$/g, ""));
 }
 
 /** A superscript or subscript belongs on the previous symbol, not as the next item in the row. */
@@ -173,6 +181,7 @@ function DraftAtom({
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const limits = piece.scripts.length > 0 && isLimitBase(input, piece.node);
+  const integral = piece.scripts.length > 0 && isIntegralBase(input, piece.node);
   const sup = piece.scripts.filter((node) => node.mark === "^");
   const sub = piece.scripts.filter((node) => node.mark === "_");
   const base = (
@@ -185,6 +194,35 @@ function DraftAtom({
       onMoveCaret={onMoveCaret}
     />
   );
+  if (integral) {
+    return (
+      <View style={s.integral} testID="math-integral">
+        <Text style={s.integralSign} testID="math-integral-sign">
+          ∫
+        </Text>
+        <View style={s.integralLimits} testID="math-integral-limits">
+          <ScriptStack
+            scripts={sup}
+            input={input}
+            caret={caret}
+            before={before}
+            after={after}
+            onMoveCaret={onMoveCaret}
+            place="over"
+          />
+          <ScriptStack
+            scripts={sub}
+            input={input}
+            caret={caret}
+            before={before}
+            after={after}
+            onMoveCaret={onMoveCaret}
+            place="over"
+          />
+        </View>
+      </View>
+    );
+  }
   if (!limits) {
     return (
       <View style={s.atom}>
@@ -548,7 +586,7 @@ function EditSlot({
         const atFront = width > 0 && e.nativeEvent.locationX < width / 2;
         onMoveCaret?.(atFront ? group.open + 1 : group.close);
       }}
-      style={[s.slot, empty && active && s.slotActive]}
+      style={[s.slot, empty && s.slotActive]}
       accessibilityRole="button"
     >
       <View style={s.slotRow}>
@@ -607,6 +645,20 @@ const makeStyles = (theme: Theme) =>
     },
     limitAtom: {
       alignItems: "center",
+    },
+    integral: {
+      flexDirection: "row",
+      alignItems: "center",
+    },
+    integralSign: {
+      fontSize: INTEGRAL_SIGN_SIZE,
+      lineHeight: INTEGRAL_SIGN_LINE,
+      color: theme.text,
+    },
+    integralLimits: {
+      height: INTEGRAL_SIGN_LINE,
+      marginLeft: Space.xxs,
+      justifyContent: "space-between",
     },
     scriptStack: {
       marginLeft: 1,
@@ -691,20 +743,12 @@ const makeStyles = (theme: Theme) =>
     placeholder: {
       width: 10,
       height: 14,
-      borderRadius: 2,
-      backgroundColor: "transparent",
-      borderBottomWidth: 1,
-      borderBottomColor: theme.textTertiary,
     },
     placeholderActive: {
       width: 10,
       height: 14,
-      borderRadius: 2,
       alignItems: "center",
       justifyContent: "center",
-      backgroundColor: theme.primaryLight,
-      borderBottomWidth: 1,
-      borderBottomColor: theme.primary,
     },
     edge: {
       minWidth: 6,
