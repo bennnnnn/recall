@@ -351,15 +351,6 @@ export const ChatComposer = memo(function ChatComposer({
         />
       </Animated.View>
       <View style={[s.composerAnchor, composerExpanded && s.expandedFill]}>
-        {mathBarOpen && !composerExpanded ? (
-          <LinearGradient
-            pointerEvents="none"
-            colors={bottomChromeFadeColors(theme) as [string, string, ...string[]]}
-            locations={[...BOTTOM_CHROME_FADE_LOCATIONS]}
-            style={s.scrollFade}
-            testID="composer-scroll-fade"
-          />
-        ) : null}
         <View style={[s.composer, composerExpanded && s.expandedFill]}>
           {scanHint && onOpenMathScanner ? (
             <View style={s.scanHint}>
@@ -676,6 +667,15 @@ export const ChatComposer = memo(function ChatComposer({
             />
           ) : null}
           </View>
+          {mathBarOpen && !composerExpanded ? (
+            <LinearGradient
+              pointerEvents="none"
+              colors={bottomChromeFadeColors(theme) as [string, string, ...string[]]}
+              locations={[...BOTTOM_CHROME_FADE_LOCATIONS]}
+              style={[s.keyboardGapFade, { bottom: math.padHeight }]}
+              testID="composer-scroll-fade"
+            />
+          ) : null}
           {math.mathBarOpen ? (
             <MathKeyboardBar
               open

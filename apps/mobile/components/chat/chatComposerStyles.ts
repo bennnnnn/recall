@@ -1,6 +1,5 @@
 import { StyleSheet } from "react-native";
 
-import { CHROME_FADE_EXTRA } from "@/lib/chromeFade";
 import {
   COMPOSER_CONTROL_SIZE,
   COMPOSER_INPUT_LINE_HEIGHT,
@@ -13,6 +12,9 @@ import { Theme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
 export const MATH_KEYBOARD_CHIP_HEIGHT = 44;
+const COMPOSER_VERTICAL_PADDING = 6;
+/** Pill padding plus the keypad's top margin. The dim sits in that strip. */
+export const MATH_KEYBOARD_GAP_FADE_HEIGHT = Space.xs + COMPOSER_VERTICAL_PADDING;
 
 export function makeChatComposerStyles(theme: Theme) {
   return StyleSheet.create({
@@ -26,12 +28,11 @@ export function makeChatComposerStyles(theme: Theme) {
       paddingHorizontal: Space.md,
       paddingTop: Space.xxs,
     },
-    scrollFade: {
+    keyboardGapFade: {
       position: "absolute",
       left: -Space.md,
       right: -Space.md,
-      top: -CHROME_FADE_EXTRA,
-      height: CHROME_FADE_EXTRA,
+      height: MATH_KEYBOARD_GAP_FADE_HEIGHT,
       zIndex: 2,
     },
     composerDocked: {
@@ -52,7 +53,7 @@ export function makeChatComposerStyles(theme: Theme) {
       zIndex: 0,
     },
     composerAnchor: { position: "relative", overflow: "visible", zIndex: 1 },
-    composer: { paddingVertical: 6, overflow: "visible" },
+    composer: { paddingVertical: COMPOSER_VERTICAL_PADDING, overflow: "visible" },
     inputStack: { position: "relative", overflow: "visible" },
     liveTalkRow: {
       flexDirection: "row",

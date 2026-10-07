@@ -3,6 +3,7 @@ import { Dimensions, StyleSheet } from "react-native";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/components/chat/ChatComposer";
+import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/components/chat/chatComposerStyles";
 import {
   CONVERTER_HEADER_HEIGHT,
   CONVERTER_ROWS,
@@ -532,7 +533,11 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     expect(getByTestId("math-keyboard-pad")).toBeTruthy();
-    expect(getByTestId("composer-scroll-fade")).toBeTruthy();
+    const padHeight = StyleSheet.flatten(getByTestId("math-keyboard-pad").props.style).height;
+    const fade = StyleSheet.flatten(getByTestId("composer-scroll-fade").props.style);
+    expect(fade.top).toBeUndefined();
+    expect(fade.bottom).toBe(padHeight);
+    expect(fade.height).toBe(MATH_KEYBOARD_GAP_FADE_HEIGHT);
     expect(StyleSheet.flatten(getByTestId("chat-composer").props.style).top).toBeUndefined();
     expect(queryByTestId("math-keyboard-dismiss")).toBeNull();
     await fireEvent.press(getByTestId("math-keyboard-abc"));
