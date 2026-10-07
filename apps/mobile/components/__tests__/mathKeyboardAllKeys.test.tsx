@@ -145,7 +145,7 @@ async function walkDeletes(id: string, startText: string, startCaret: number, is
 const SPECS: MathKeyboardSymbol[] = [...MATH_KEYBOARD_SYMBOLS, ...MATH_PAD_KEYS];
 
 function shapeIssue(id: string, source: string, shown: string, ids: string[]): string | null {
-  if (id === "fact" && (shown !== "!" || source.includes("{"))) return "factorial shows a brace slot";
+  if (id === "fact" && (shown !== "n!" || source.includes("{"))) return "factorial shows a brace slot";
   if (id === "binom" && (!shown.startsWith("C(") || !ids.includes("math-slot-binom-n"))) {
     return "binomial is not two slots";
   }

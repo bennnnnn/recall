@@ -24,6 +24,11 @@ import {
   normalizePastedMath,
 } from "@/lib/math/pasteNormalize";
 import { spliceMathBackspace } from "@/lib/math/draftSlots";
+import {
+  droppedOnlySlash,
+  hasBareCommand,
+  healDroppedCommandSlash,
+} from "@/lib/math/healMathSource";
 import { mathPadHeight } from "@/lib/math/keyboardPad";
 
 function hasEditableMath(text: string): boolean {
@@ -84,6 +89,16 @@ export function useMathKeyboardInsert(options: {
     setForcedSelection(sel);
   }, []);
 
+  useLayoutEffect(() => {
+    if (!previewEnabledRef.current || !hasEditableMath(input)) return;
+    const pin = pinRef.current ?? selection;
+    const healed = healDroppedCommandSlash(input, pin.start, pin.end);
+    if (healed.text === input) return;
+    textRef.current = healed.text;
+    setInput(healed.text);
+    pinSelection({ start: healed.start, end: healed.end });
+  }, [input, pinSelection, selection, setInput]);
+
   const onSelectionChange = useCallback(
     (event: NativeSyntheticEvent<TextInputSelectionChangeEventData>) => {
       const next = event.nativeEvent.selection;
@@ -109,15 +124,38 @@ export function useMathKeyboardInsert(options: {
       const previous = textRef.current;
       const pin = pinRef.current ?? selection;
       const parked = previewEnabledRef.current && hasEditableMath(previous);
+      // A native edit that only knocks the `\` off `\frac` is not a delete.
+      // Keep the formula, or remove one math atom, and never show `frac{…}`.
+      if (parked && hasBareCommand(next) && !hasBareCommand(previous)) {
+        if (droppedOnlySlash(previous, next)) {
+          const removed = spliceMathBackspace(previous, pin);
+          const healed = healDroppedCommandSlash(
+            removed.text,
+            removed.selection.start,
+            removed.selection.end,
+          );
+          textRef.current = healed.text;
+          setInput(healed.text);
+          pinSelection({ start: healed.start, end: healed.end });
+          return;
+        }
+        textRef.current = previous;
+        setInput(previous);
+        pinSelection(pin);
+        return;
+      }
       // onChangeText does not identify a paste. Rewriting its delta can
       // corrupt ordinary/coalesced typing and race the native selection.
       const range = nativeEditRange(previous, next);
       const changed = parked
         ? applyPinnedTextChange(previous, next, pin)
         : { text: next, caret: range ? range.at + range.added.length : pin.start };
-      textRef.current = changed.text;
-      setInput(changed.text);
-      const nextSelection = { start: changed.caret, end: changed.caret };
+      const healed = parked
+        ? healDroppedCommandSlash(changed.text, changed.caret, changed.caret)
+        : { text: changed.text, start: changed.caret, end: changed.caret };
+      textRef.current = healed.text;
+      setInput(healed.text);
+      const nextSelection = { start: healed.start, end: healed.end };
       if (parked) {
         pinSelection(nextSelection);
       } else {
@@ -179,10 +217,11 @@ export function useMathKeyboardInsert(options: {
         at === sel.start
           ? autoAdvanceNextEmptySlot(text, sel.start, result.text, result.selection.start, spec)
           : null;
-      const caret = advanced ?? result.selection.start;
       textRef.current = result.text;
       setInput(result.text);
-      pinSelection({ start: caret, end: caret });
+      pinSelection(
+        advanced != null ? { start: advanced, end: advanced } : result.selection,
+      );
     },
     [enablePreview, pinSelection, selection, setInput],
   );
@@ -190,9 +229,10 @@ export function useMathKeyboardInsert(options: {
   const backspace = useCallback(() => {
     const sel = pinRef.current ?? selection;
     const result = spliceMathBackspace(textRef.current, sel);
-    textRef.current = result.text;
-    setInput(result.text);
-    pinSelection(result.selection);
+    const healed = healDroppedCommandSlash(result.text, result.selection.start, result.selection.end);
+    textRef.current = healed.text;
+    setInput(healed.text);
+    pinSelection({ start: healed.start, end: healed.end });
   }, [pinSelection, selection, setInput]);
 
   const pasteText = useCallback(

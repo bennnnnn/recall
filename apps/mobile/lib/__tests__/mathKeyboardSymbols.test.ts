@@ -81,11 +81,11 @@ describe("spliceMathInsert", () => {
     expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "partial-x")?.group).toBe("pad");
   });
 
-  it("n! attaches to a number, or inserts an empty slot on an empty draft", () => {
+  it("n! attaches to a number, or selects the n so the next digit replaces it", () => {
     const fact = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "fact")!;
     const empty = spliceMathInsert("", { start: 0, end: 0 }, fact);
-    expect(empty.text).toBe("$!$");
-    expect(empty.selection).toEqual({ start: 1, end: 1 });
+    expect(empty.text).toBe("$n!$");
+    expect(empty.selection).toEqual({ start: 1, end: 2 });
     const five = spliceMathInsert(empty.text, empty.selection, {
       id: "digit-5",
       label: "5",
