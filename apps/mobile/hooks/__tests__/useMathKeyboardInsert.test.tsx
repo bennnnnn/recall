@@ -2,6 +2,7 @@ import { act, renderHook } from "@testing-library/react-native";
 import { useState } from "react";
 
 import { useMathKeyboardInsert } from "@/hooks/useMathKeyboardInsert";
+import { MATH_KEYBOARD_SYMBOLS } from "@/lib/math/keyboardSymbols";
 import { clipboardIsImageOnly } from "@/lib/math/clipboard";
 
 jest.mock("@/lib/math/clipboard", () => ({
@@ -98,6 +99,29 @@ describe("useMathKeyboardInsert", () => {
     const n = "solve $x^2+1$".length;
     expect(result.current.math.selection).toEqual({ start: n, end: n });
     expect(result.current.math.selection.start).not.toBe(0);
+  });
+
+  it("does not replace a derivative with raw frac when a slash is dropped", async () => {
+    const der2 = MATH_KEYBOARD_SYMBOLS.find((spec) => spec.id === "der2");
+    if (!der2) throw new Error("missing der2");
+    const { result } = await renderHook(() => useHarness());
+    await act(() => result.current.math.insertSymbol(der2));
+    const formula = result.current.input;
+    expect(formula).toBe("$\\frac{d^{2}}{dx^{2}}$");
+    await act(() => result.current.math.onChangeText(formula.replace("\\", "")));
+    expect(result.current.input).toBe("$\\frac{d^{2}}{dx^{}}$");
+  });
+
+  it("keeps a finished delete when a later edit brings the raw command back", async () => {
+    const der2 = MATH_KEYBOARD_SYMBOLS.find((spec) => spec.id === "der2");
+    if (!der2) throw new Error("missing der2");
+    const { result } = await renderHook(() => useHarness());
+    await act(() => result.current.math.insertSymbol(der2));
+    await act(() => result.current.math.backspace());
+    const peeled = result.current.input;
+    expect(peeled).toBe("$\\frac{d^{2}}{dx^{}}$");
+    await act(() => result.current.math.onChangeText("$frac{d^{2}}{dx^{2}}$"));
+    expect(result.current.input).toBe(peeled);
   });
 
   it("does not probe the clipboard for ordinary typing", async () => {

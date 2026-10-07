@@ -321,15 +321,18 @@ function lastNonSpaceChar(text: string, pos: number): string {
 }
 
 /**
- * n!: attach `!` to an existing base. Alone, leave the caret in front of `!`
- * so the next digit becomes `5!`. A `{…}` slot is painted as the characters `{}`.
+ * n!: attach `!` to an existing base. Alone, insert the label `n!` and select
+ * the n so the next digit replaces it (`5!`). A `{…}` slot is painted as `{}`.
  */
-function factAttachInsert(text: string, start: number): { insert: string; cursorOffset: number } {
+function factAttachInsert(
+  text: string,
+  start: number,
+): { insert: string; cursorOffset: number; select?: number } {
   const prev = lastNonSpaceChar(text, start);
   if (/[0-9a-zA-Z.)\]}|]/.test(prev)) {
     return { insert: "!", cursorOffset: 1 };
   }
-  return { insert: "!", cursorOffset: 0 };
+  return { insert: "n!", cursorOffset: 0, select: 1 };
 }
 
 /** xⁿ / xₙ: attach the script to an existing base, otherwise insert `x`. */
@@ -364,7 +367,7 @@ function resolveInsert(
   text: string,
   start: number,
   spec: MathKeyboardSymbol,
-): { insert: string; cursorOffset: number } {
+): { insert: string; cursorOffset: number; select?: number } {
   if (spec.id === "sup") return scriptAttachInsert(text, start, "^");
   if (spec.id === "sub") return scriptAttachInsert(text, start, "_");
   if (spec.id === "fact") return factAttachInsert(text, start);
@@ -448,7 +451,8 @@ export function spliceMathInsert(
   }
   const next = text.slice(0, start) + snippet + text.slice(end);
   const caret = start + cursorOffset;
-  return { text: next, selection: { start: caret, end: caret } };
+  const select = resolved.select ?? 0;
+  return { text: next, selection: { start: caret, end: caret + select } };
 }
 
 export function spliceBackspace(
