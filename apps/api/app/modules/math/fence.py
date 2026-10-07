@@ -415,6 +415,17 @@ def _canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
         return None
     if verified.response_intent is not None and not verified.response_intent.reveal_answer:
         return None
+    answer_only = (
+        verified.response_intent is not None and verified.response_intent.mode == "answer_only"
+    )
+    written = [verified.canonical_fence, *(verified.canonical_fences or [])]
+    if (
+        answer_only
+        and verified.canonical_answer
+        and any(isinstance(spec, dict) and spec.get("type") == "arithmetic" for spec in written)
+    ):
+        # "Just the answer" is the number. The equation is the ordinary line.
+        return verified.canonical_answer.strip()
     if verified.display_answer and verified.display_answer.strip():
         return verified.display_answer.strip()
     if verified.canonical_answer and verified.canonical_answer.strip():
