@@ -12,6 +12,7 @@ export type DraftNode =
   | { kind: "sqrt"; start: number; end: number; index?: LatexGroup; body: LatexGroup }
   | { kind: "script"; start: number; end: number; mark: "^" | "_"; body: LatexGroup }
   | { kind: "abs"; start: number; end: number; body: LatexGroup }
+  | { kind: "brace"; start: number; end: number; body: LatexGroup }
   | { kind: "group"; start: number; end: number; open: string; close: string; body: LatexGroup };
 
 function cmdAt(text: string, i: number, cmd: string): boolean {
@@ -51,6 +52,23 @@ function tryScript(text: string, i: number): Extract<DraftNode, { kind: "script"
   const body = readBraceGroup(text, i + 1);
   if (!body) return null;
   return { kind: "script", start: i, end: body.close + 1, mark, body };
+}
+
+function tryBrace(text: string, i: number): Extract<DraftNode, { kind: "brace" }> | null {
+  if (text[i] !== "{") return null;
+  const prev = text[i - 1];
+  if (
+    prev === "\\" ||
+    prev === "^" ||
+    prev === "_" ||
+    prev === "}" ||
+    (prev != null && /[A-Za-z]/.test(prev))
+  ) {
+    return null;
+  }
+  const body = readBraceGroup(text, i);
+  if (!body) return null;
+  return { kind: "brace", start: i, end: body.close + 1, body };
 }
 
 function tryAbs(text: string, i: number): Extract<DraftNode, { kind: "abs" }> | null {
@@ -103,6 +121,13 @@ export function findDraftNodes(text: string): DraftNode[] {
       textStart = i = script.end;
       continue;
     }
+    const brace = tryBrace(text, i);
+    if (brace) {
+      flush(i);
+      nodes.push(brace);
+      textStart = i = brace.end;
+      continue;
+    }
     const abs = tryAbs(text, i);
     if (abs) {
       flush(i);
@@ -144,16 +169,65 @@ function nodeSlots(node: Exclude<DraftNode, { kind: "text" }>): LatexGroup[] {
   return [node.body];
 }
 
+/** `\mathrm{rad}` and `\binom{}{}` are one key. Nested braces stay out of this. */
+const COMMAND_GROUPS = /\\[A-Za-z]+(?:\{[^{}]*\})+$/;
+const COMMAND_GROUPS_START = /^\\[A-Za-z]+(?:\{[^{}]*\})+/;
+const SYMBOL_COMMAND = /\\[^A-Za-z\s]$/;
+const SYMBOL_COMMAND_START = /^\\[^A-Za-z\s]/;
+
 function lastTokenLength(prefix: string): number {
+  const wrapped = prefix.match(COMMAND_GROUPS);
+  if (wrapped) return wrapped[0].length;
+  const symbol = prefix.match(SYMBOL_COMMAND);
+  if (symbol) return symbol[0].length;
   const cmd = prefix.match(/\\[A-Za-z]+[ ]?$/);
   if (cmd) return cmd[0].length;
   return prefix.length > 0 ? 1 : 0;
 }
 
 function firstTokenLength(s: string): number {
+  const wrapped = s.match(COMMAND_GROUPS_START);
+  if (wrapped) return wrapped[0].length;
+  const symbol = s.match(SYMBOL_COMMAND_START);
+  if (symbol) return symbol[0].length;
   const cmd = s.match(/^\\[A-Za-z]+[ ]?/);
   if (cmd) return cmd[0].length;
   return s.length > 0 ? 1 : 0;
+}
+
+function matchingCloserOpen(text: string, closeIdx: number, min: number): number | null {
+  const closeCh = text[closeIdx];
+  const openCh = closeCh === "}" ? "{" : closeCh === "]" ? "[" : closeCh === ")" ? "(" : "";
+  if (!openCh) return null;
+  let depth = 0;
+  for (let i = closeIdx; i >= min; i -= 1) {
+    if (text[i] === closeCh) depth += 1;
+    else if (text[i] === openCh) {
+      depth -= 1;
+      if (depth === 0) return i;
+    }
+  }
+  return null;
+}
+
+function plainCommandTouching(text: string, cut: number, min: number): [number, number] | null {
+  const re = /\\[A-Za-z]+(?:\{[^{}]*\})+/g;
+  const slice = text.slice(min);
+  let match: RegExpExecArray | null;
+  while ((match = re.exec(slice))) {
+    const from = min + match.index;
+    const to = from + match[0].length;
+    if (cut > from && cut <= to) return [from, to];
+  }
+  return null;
+}
+
+function deleteRange(
+  text: string,
+  from: number,
+  to: number,
+): { text: string; selection: TextSelection } {
+  return collapseEmptyMath(text.slice(0, from) + text.slice(to), from);
 }
 
 function deleteTokenBefore(
@@ -162,6 +236,39 @@ function deleteTokenBefore(
   min: number,
 ): { text: string; selection: TextSelection } | null {
   if (cut <= min) return null;
+  const command = plainCommandTouching(text, cut, min);
+  if (command) return deleteRange(text, command[0], command[1]);
+  const prev = text[cut - 1];
+  if (prev === "{" && (text[cut] === "}" || text[cut] === "]" || text[cut] === ")")) {
+    let from = cut - 1;
+    if (from > min && (text[from - 1] === "^" || text[from - 1] === "_") && text[from - 2] !== "\\") {
+      from -= 1;
+    }
+    if (from < min) return null;
+    return deleteRange(text, from, cut + 1);
+  }
+  if (prev === "}" || prev === "]" || prev === ")") {
+    const inside = text.slice(min, cut);
+    // A finished `\mathrm{rad}` / `\text{cm}` / `\binom{}{}` deletes as one key.
+    if (!COMMAND_GROUPS.test(inside)) {
+      const open = matchingCloserOpen(text, cut - 1, min);
+      if (open != null && open >= min) {
+        if (open + 1 === cut - 1) {
+          let from = open;
+          if (
+            from > min &&
+            (text[from - 1] === "^" || text[from - 1] === "_") &&
+            text[from - 2] !== "\\"
+          ) {
+            from -= 1;
+          }
+          const next = text.slice(0, from) + text.slice(cut);
+          return collapseEmptyMath(next, from);
+        }
+        return deleteTokenBefore(text, cut - 1, open + 1);
+      }
+    }
+  }
   const n = lastTokenLength(text.slice(min, cut));
   if (n === 0 || cut - n < min) return null;
   const delAt = cut - n;

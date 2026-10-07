@@ -240,6 +240,20 @@ function DraftPiece({
     );
   }
 
+  if (node.kind === "brace") {
+    return (
+      <View style={s.inline} testID="math-brace">
+        <EditSlot
+          text={input}
+          group={node.body}
+          caret={caret}
+          testID="math-slot-brace"
+          onMoveCaret={onMoveCaret}
+        />
+      </View>
+    );
+  }
+
   if (node.kind === "abs") {
     return (
       <View style={s.inline} testID="math-abs">
