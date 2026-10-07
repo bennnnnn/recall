@@ -1011,6 +1011,15 @@ def _format_direct_math_body(
     )
 
 
+def _chip_answer(verified: VerifiedMathBlock, *, answer_only: bool) -> str:
+    """The checked line. A bare fact reads ``4 x 4 = 16``; answer-only is the number."""
+    from app.modules.math.tools.direct_arithmetic import arithmetic_work_spec
+
+    if answer_only and arithmetic_work_spec(verified) is not None:
+        return (verified.canonical_answer or "").strip()
+    return (verified.display_answer or verified.canonical_answer or "").strip()
+
+
 def maybe_direct_math_reply(
     verified: VerifiedMathBlock | None,
     user_text: str,
@@ -1058,8 +1067,7 @@ def maybe_direct_math_reply(
             ):
                 return None
         if response_intent.mode == MathResponseMode.ANSWER_ONLY and verified.canonical_answer:
-            answer = (verified.display_answer or verified.canonical_answer).strip()
-            return f"```answer\n{answer}\n```\n"
+            return f"```answer\n{_chip_answer(verified, answer_only=True)}\n```\n"
         return verified.direct_reply
     if not can_direct_verified_math_reply(
         verified,
@@ -1070,8 +1078,7 @@ def maybe_direct_math_reply(
     ):
         return None
     if response_intent.mode == MathResponseMode.ANSWER_ONLY and verified.canonical_answer:
-        answer = (verified.display_answer or verified.canonical_answer).strip()
-        return f"```answer\n{answer}\n```\n"
+        return f"```answer\n{_chip_answer(verified, answer_only=True)}\n```\n"
     reply = format_direct_math_reply(verified, user_text)
     if should_render_equation_lesson(verified, user_text, response_style):
         reply = format_equation_lesson_reply(

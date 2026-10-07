@@ -346,8 +346,16 @@ describe("ArithmeticWorkBlock", () => {
     expect(queryByText("29/4")).not.toBeOnTheScreen();
   });
 
-  it("draws a ten frame from a teaching picture instead of a column", async () => {
-    const content = JSON.stringify({
+  it("does not draw a dot array or a ten frame under the answer", async () => {
+    const array = JSON.stringify({
+      type: "array",
+      rows: 4,
+      columns: 4,
+      product: 16,
+      answer: "16",
+      speech: "4 rows of 4 makes 16.",
+    });
+    const frame = JSON.stringify({
       type: "ten_frame",
       first: 7,
       second: 5,
@@ -358,14 +366,11 @@ describe("ArithmeticWorkBlock", () => {
       answer: "12",
       speech: "7 plus 3 makes 10, and 2 remain, so 10 plus 2 is 12.",
     });
-    const { getAllByTestId, getByTestId, queryByTestId } = await render(
-      <ArithmeticWorkBlock content={content} />,
-    );
-
-    expect(getByTestId("teaching-ten_frame")).toBeOnTheScreen();
-    expect(getAllByTestId("ten-cell-first")).toHaveLength(7);
-    expect(getAllByTestId("ten-cell-fill")).toHaveLength(3);
-    expect(queryByTestId("arithmetic-work-inline")).toBeNull();
+    const dots = await render(<ArithmeticWorkBlock content={array} />);
+    expect(dots.queryByTestId("equal-groups")).toBeNull();
+    expect(dots.queryByTestId("teaching-array")).toBeNull();
+    const cells = await render(<ArithmeticWorkBlock content={frame} />);
+    expect(cells.queryByTestId("teaching-ten_frame")).toBeNull();
   });
 
   it("does not draw a number bond under the answer", async () => {

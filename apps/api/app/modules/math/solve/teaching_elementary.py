@@ -179,26 +179,6 @@ def array_spec(rows: int, columns: int, answer: str | None = None) -> ArraySpec 
     )
 
 
-def written_picture(
-    school_op: str, operands: list[str]
-) -> NumberBondSpec | TenFrameSpec | ArraySpec | None:
-    """Prefer a picture over a one-column trace for a single-digit fact."""
-    if len(operands) != 2 or any(not operand.isdigit() for operand in operands):
-        return None
-    left, right = int(operands[0]), int(operands[1])
-    if school_op == "column_addition" and left <= 9 and right <= 9:
-        return bond_or_frame(left, right, str(left + right))
-    if school_op == "column_multiplication" and 1 <= left <= 10 and 1 <= right <= 10:
-        return array_spec(left, right, str(left * right))
-    return None
-
-
-def bond_or_frame(first: int, second: int, answer: str) -> NumberBondSpec | TenFrameSpec | None:
-    if first + second >= 10:
-        return ten_frame_spec(first, second, answer)
-    return number_bond_spec(first + second, first, second, answer)
-
-
 def number_line_move(start: int, change: int, answer: str) -> NumberLineMoveSpec | None:
     end = start + change
     if abs(start) > 20 or abs(change) > 20 or abs(end) > 24:

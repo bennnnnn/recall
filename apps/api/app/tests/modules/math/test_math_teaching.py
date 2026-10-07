@@ -64,16 +64,11 @@ def test_closed_teaching_requests_keep_a_picture_and_an_answer(text, kind, answe
     assert block.canonical_answer in reply
 
 
-def test_seven_plus_five_uses_a_ten_frame_not_a_column():
+def test_seven_plus_five_is_one_equation():
     _intent, block = _block("7+5")
-    picture = _picture(block)
-    assert picture["type"] == "ten_frame"
-    assert picture["make_ten"] is True
-    assert picture["fill"] == 3
-    assert picture["leftover"] == 2
     assert block.canonical_answer == "12"
-    reply = maybe_direct_math_reply(block, "7+5")
-    assert reply is not None and '"ten_frame"' in reply
+    assert block.display_answer == "7 + 5 = 12"
+    assert maybe_direct_math_reply(block, "7+5") == "```answer\n7 + 5 = 12\n```\n"
 
 
 @pytest.mark.parametrize(
@@ -104,13 +99,21 @@ def test_a_single_digit_sum_is_one_forward_equation(text, equation, value):
     assert "number_bond" not in shown
 
 
-def test_three_times_four_is_an_array():
-    _intent, block = _block("3*4")
-    picture = _picture(block)
-    assert picture["type"] == "array"
-    assert picture["rows"] == 3
-    assert picture["columns"] == 4
-    assert block.canonical_answer == "12"
+@pytest.mark.parametrize(
+    ("text", "equation", "value"),
+    [
+        ("4-4", "4 \u2212 4 = 0", "0"),
+        ("4*4", "4 \u00d7 4 = 16", "16"),
+        ("5*5", "5 \u00d7 5 = 25", "25"),
+        ("8 divided by 2", "8 \u00f7 2 = 4", "4"),
+    ],
+)
+def test_each_operation_is_the_same_equation_line(text, equation, value):
+    _intent, block = _block(text)
+    assert block.canonical_answer == value
+    assert block.display_answer == equation
+    assert maybe_direct_math_reply(block, text) == f"```answer\n{equation}\n```\n"
+    assert "array" not in (maybe_direct_math_reply(block, text) or "")
 
 
 def test_multidigit_addition_keeps_the_column_trace():
@@ -209,7 +212,8 @@ def test_model_path_keeps_the_picture_unless_only_the_answer_was_requested():
         "Seven plus five is twelve.",
         verified=replace(block, response_intent=classify_math_response_intent("7+5")),
     )
-    assert '"ten_frame"' in shown
+    assert "7 + 5 = 12" in shown
+    assert "ten_frame" not in shown
     hidden = validate_math_fences(
         "12",
         verified=replace(

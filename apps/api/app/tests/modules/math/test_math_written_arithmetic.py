@@ -229,11 +229,13 @@ def test_long_division_preserves_significant_trailing_zeros(
 
 def test_direct_reply_separates_division_answer_mode_from_working_visibility() -> None:
     _intent, plain_block, _spec = _work("478 + 356")
-    assert maybe_direct_math_reply(plain_block, "478 + 356") == "```answer\n834\n```\n"
+    assert maybe_direct_math_reply(plain_block, "478 + 356") == "```answer\n478 + 356 = 834\n```\n"
 
     _intent, division_block, _spec = _work("59595 devided by 54")
     division_reply = maybe_direct_math_reply(division_block, "59595 devided by 54")
-    assert division_reply == "```answer\n\\frac{19865}{18}\\approx 1103.61\n```\n"
+    assert division_reply == (
+        "```answer\n59595 \u00f7 54 = \\frac{19865}{18}\\approx 1103.61\n```\n"
+    )
     assert "```arithmetic" not in validate_math_fences(division_reply, verified=division_block)
 
     answer_only = "Just the answer: 59595 divided by 54"

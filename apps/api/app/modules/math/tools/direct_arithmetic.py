@@ -76,9 +76,27 @@ def can_direct_fraction(
     )
 
 
+def _shown_operand(token: str) -> str:
+    """Drop column padding so ``03.60`` reads as ``3.60`` on the answer line."""
+    whole, dot, fraction = token.partition(".")
+    whole = whole.lstrip("0") or "0"
+    return f"{whole}.{fraction}" if dot else whole
+
+
+def written_fact_line(spec: ArithmeticWorkSpec) -> str:
+    """One line for every operation: ``4 x 4 = 16``."""
+    shown = f" {spec.operator} ".join(_shown_operand(token) for token in spec.operands)
+    return f"{shown} = {spec.answer}"
+
+
 def format_direct_written_arithmetic(spec: ArithmeticWorkSpec, user_text: str) -> str:
     response = classify_math_response_intent(user_text)
-    answer = f"```answer\n{spec.answer}\n```\n"
+    shown = (
+        spec.answer
+        if response.mode == MathResponseMode.ANSWER_ONLY or response.wants_explanation
+        else written_fact_line(spec)
+    )
+    answer = f"```answer\n{shown}\n```\n"
     # Operation chooses the mathematical procedure; response intent alone
     # chooses whether that procedure is visible.  Division is not implicitly
     # a request for a tutorial.

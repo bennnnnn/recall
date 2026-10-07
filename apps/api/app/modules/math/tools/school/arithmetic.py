@@ -179,14 +179,6 @@ def _verified_block_arithmetic(
             request = mtm.written_arithmetic_request(f"calculate {intent.expr}")
             operands = list(request[:2]) if request is not None else None
         if operands is not None:
-            from app.modules.math.solve.teaching_elementary import written_picture
-
-            picture = written_picture(intent.school_op or "", operands)
-            if picture is not None:
-                lines.append(picture.speech)
-                return _attach_picture(
-                    _finish_with_answer(lines, picture.answer), picture, intent, direct=True
-                )
             arithmetic_work = build_written_arithmetic_operands(
                 operands,
                 intent.school_op,
@@ -194,12 +186,15 @@ def _verified_block_arithmetic(
                 division_answer_mode=intent.division_answer_mode,
             )
             if arithmetic_work is not None:
+                from app.modules.math.tools.direct_arithmetic import written_fact_line
+
                 lines.append(f"Verified {arithmetic_work.operation} procedure:")
                 lines.extend(arithmetic_work.explanations)
                 block = _finish_with_answer(lines, arithmetic_work.answer)
                 return replace(
                     block,
                     canonical_fences=[arithmetic_work.model_dump()],
+                    display_answer=written_fact_line(arithmetic_work),
                 )
     if (
         intent.school_op == "z_score"
