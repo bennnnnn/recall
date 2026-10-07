@@ -22,7 +22,7 @@ import {
   formatConvertNumber,
 } from "@/lib/unitConverter";
 
-const RAW = /[\\{}]|\\[a-zA-Z]+/;
+const RAW = /[\\{}]|\b(?:binom|mathrm|mathbf|tfrac|dfrac|frac|sqrt|partial|nabla|infty|cdot|oint)\b/;
 
 function press(text: string, caret: number, spec: MathKeyboardSymbol) {
   const jump = tapAdvancesToNextSlot(text, caret, spec.id);
@@ -77,9 +77,29 @@ function pressTestId(testID: string) {
   throw new Error(`no press handler for ${testID}`);
 }
 
+function previewTree(input: string, caret: number): JsonNode | JsonNode[] | null {
+  if (!input) return null;
+  return paint(<MathDraftPreview input={input} caret={caret} showCaret={false} />);
+}
+
 function visible(input: string, caret: number): string {
-  if (!input) return "";
-  return collect(paint(<MathDraftPreview input={input} caret={caret} showCaret={false} />)).join("");
+  return collect(previewTree(input, caret)).join("");
+}
+
+function previewIds(input: string, caret: number): string[] {
+  const ids: string[] = [];
+  const walk = (node: JsonNode | JsonNode[] | string | null | undefined) => {
+    if (node == null || typeof node === "string") return;
+    if (Array.isArray(node)) {
+      node.forEach(walk);
+      return;
+    }
+    const id = node.props?.testID;
+    if (typeof id === "string") ids.push(id);
+    (node.children ?? []).forEach((child) => walk(child));
+  };
+  walk(previewTree(input, caret));
+  return ids;
 }
 
 function leaks(shown: string): boolean {
@@ -124,12 +144,29 @@ async function walkDeletes(id: string, startText: string, startCaret: number, is
 
 const SPECS: MathKeyboardSymbol[] = [...MATH_KEYBOARD_SYMBOLS, ...MATH_PAD_KEYS];
 
+function shapeIssue(id: string, source: string, shown: string, ids: string[]): string | null {
+  if (id === "fact" && (shown !== "!" || source.includes("{"))) return "factorial shows a brace slot";
+  if (id === "binom" && (!shown.startsWith("C(") || !ids.includes("math-slot-binom-n"))) {
+    return "binomial is not two slots";
+  }
+  if (id === "vec" && (!shown.includes("→") || !ids.includes("math-slot-vec"))) {
+    return "vector slot is blank";
+  }
+  if (id === "ddv" && !ids.includes("math-slot-brace")) return "derivative has no variable slot";
+  return null;
+}
+
 describe("math keyboard keys", () => {
   it("presses every key, then deletes without showing raw latex", async () => {
     const issues: Issue[] = [];
     for (const spec of SPECS) {
       const inserted = press("", 0, spec);
       const shown = await visible(inserted.text, inserted.caret);
+      const ids = previewIds(inserted.text, inserted.caret);
+      const shape = shapeIssue(spec.id, inserted.text, shown, ids);
+      if (shape) {
+        issues.push({ id: spec.id, step: shape, source: inserted.text, shown });
+      }
       if (leaks(shown)) {
         issues.push({ id: spec.id, step: "insert", source: inserted.text, shown });
       }

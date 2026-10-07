@@ -11,6 +11,8 @@ export type DraftNode =
   | { kind: "frac"; start: number; end: number; num: LatexGroup; den: LatexGroup }
   | { kind: "sqrt"; start: number; end: number; index?: LatexGroup; body: LatexGroup }
   | { kind: "script"; start: number; end: number; mark: "^" | "_"; body: LatexGroup }
+  | { kind: "binom"; start: number; end: number; n: LatexGroup; k: LatexGroup }
+  | { kind: "vec"; start: number; end: number; body: LatexGroup }
   | { kind: "abs"; start: number; end: number; body: LatexGroup }
   | { kind: "brace"; start: number; end: number; body: LatexGroup }
   | { kind: "group"; start: number; end: number; open: string; close: string; body: LatexGroup };
@@ -45,6 +47,22 @@ function trySqrt(text: string, i: number): Extract<DraftNode, { kind: "sqrt" }> 
   return { kind: "sqrt", start: i, end: body.close + 1, index, body };
 }
 
+function tryBinom(text: string, i: number): Extract<DraftNode, { kind: "binom" }> | null {
+  if (!cmdAt(text, i, "\\binom")) return null;
+  const n = readBraceGroup(text, i + 6);
+  if (!n) return null;
+  const k = readBraceGroup(text, n.close + 1);
+  if (!k) return null;
+  return { kind: "binom", start: i, end: k.close + 1, n, k };
+}
+
+function tryVec(text: string, i: number): Extract<DraftNode, { kind: "vec" }> | null {
+  if (!cmdAt(text, i, "\\vec")) return null;
+  const body = readBraceGroup(text, i + 4);
+  if (!body) return null;
+  return { kind: "vec", start: i, end: body.close + 1, body };
+}
+
 function tryScript(text: string, i: number): Extract<DraftNode, { kind: "script" }> | null {
   const mark = text[i];
   if (mark !== "^" && mark !== "_") return null;
@@ -54,18 +72,18 @@ function tryScript(text: string, i: number): Extract<DraftNode, { kind: "script"
   return { kind: "script", start: i, end: body.close + 1, mark, body };
 }
 
+/** `{` that closes a `\command` stays with that command (`\mathrm{rad}`). */
+function braceFollowsCommand(text: string, braceIndex: number): boolean {
+  let j = braceIndex - 1;
+  while (j >= 0 && /[A-Za-z]/.test(text[j]!)) j -= 1;
+  return text[j] === "\\";
+}
+
 function tryBrace(text: string, i: number): Extract<DraftNode, { kind: "brace" }> | null {
   if (text[i] !== "{") return null;
   const prev = text[i - 1];
-  if (
-    prev === "\\" ||
-    prev === "^" ||
-    prev === "_" ||
-    prev === "}" ||
-    (prev != null && /[A-Za-z]/.test(prev))
-  ) {
-    return null;
-  }
+  if (prev === "\\" || prev === "^" || prev === "_" || prev === "}") return null;
+  if (braceFollowsCommand(text, i)) return null;
   const body = readBraceGroup(text, i);
   if (!body) return null;
   return { kind: "brace", start: i, end: body.close + 1, body };
@@ -121,6 +139,20 @@ export function findDraftNodes(text: string): DraftNode[] {
       textStart = i = script.end;
       continue;
     }
+    const binom = tryBinom(text, i);
+    if (binom) {
+      flush(i);
+      nodes.push(binom);
+      textStart = i = binom.end;
+      continue;
+    }
+    const vec = tryVec(text, i);
+    if (vec) {
+      flush(i);
+      nodes.push(vec);
+      textStart = i = vec.end;
+      continue;
+    }
     const brace = tryBrace(text, i);
     if (brace) {
       flush(i);
@@ -163,8 +195,52 @@ export function caretAfterExpression(text: string): number {
   return text.length;
 }
 
+function shiftGroup(group: LatexGroup, delta: number): LatexGroup {
+  return { open: group.open + delta, close: group.close + delta };
+}
+
+/** Rebase nodes parsed from a slot's inner text onto the full draft. */
+export function shiftDraftNodes(nodes: DraftNode[], delta: number): DraftNode[] {
+  if (delta === 0) return nodes;
+  return nodes.map((node) => {
+    const start = node.start + delta;
+    const end = node.end + delta;
+    switch (node.kind) {
+      case "text":
+        return { kind: "text", start, end };
+      case "frac":
+        return {
+          kind: "frac",
+          start,
+          end,
+          num: shiftGroup(node.num, delta),
+          den: shiftGroup(node.den, delta),
+        };
+      case "sqrt":
+        return {
+          kind: "sqrt",
+          start,
+          end,
+          index: node.index ? shiftGroup(node.index, delta) : undefined,
+          body: shiftGroup(node.body, delta),
+        };
+      case "script":
+        return { kind: "script", start, end, mark: node.mark, body: shiftGroup(node.body, delta) };
+      case "binom":
+        return { kind: "binom", start, end, n: shiftGroup(node.n, delta), k: shiftGroup(node.k, delta) };
+      case "group":
+        return { ...node, start, end, body: shiftGroup(node.body, delta) };
+      case "vec":
+      case "abs":
+      case "brace":
+        return { ...node, start, end, body: shiftGroup(node.body, delta) };
+    }
+  });
+}
+
 function nodeSlots(node: Exclude<DraftNode, { kind: "text" }>): LatexGroup[] {
   if (node.kind === "frac") return [node.num, node.den];
+  if (node.kind === "binom") return [node.n, node.k];
   if (node.kind === "sqrt") return node.index ? [node.index, node.body] : [node.body];
   return [node.body];
 }

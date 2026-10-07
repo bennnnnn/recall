@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Tapping n! showed `{}!`, and nCr showed the word binom.** An empty `{…}` with no backslash is painted as those brace characters. Empty `\binom{}{}` only becomes `C(n,k)` when both groups have text, so it fell through as the command name; empty `\vec{}` drew nothing; `d{}` inside a derivative was swallowed. Leave the factorial caret in front of `!`, and draw the binomial, vector, and `d/d□` as slots.
+
 - **A label's number was the previous quantity, a point charge needed the word radius, and 10^-52 refused the question.** The nearer span bound the length before "screen distance of" and "image height is", so accounting declined. A keyword with only a label before the next number names that number. Gauss's outside field read the distance, then returned unless a shell radius was written. A finite exponent past 36 decimal places stays scientific instead of refusing the whole question.
 
 - **A lens power written D declined, and a magnetic moment in tesla was taken as a complex.** D is a dioptre, the unit the chip already prints. “magnetic moment of 0.200” is a magnitude; a crystal-field moment names a complex such as \([\mathrm{Co}(\mathrm{NH}_3)_6]^{3+}\).
