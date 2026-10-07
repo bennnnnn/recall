@@ -704,6 +704,7 @@ class TestBareArithmetic:
             ("calculate 1+1", "1+1"),
             ("10-3-2", "10-3-2"),
             ("100/5/2", "100/5/2"),
+            ("-3+5", "-3+5"),
         ],
     )
     def test_accepts(self, text: str, expected: str) -> None:

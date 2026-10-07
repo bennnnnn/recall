@@ -122,13 +122,22 @@ def test_multidigit_addition_keeps_the_column_trace():
     assert block.canonical_answer == "834"
 
 
-def test_negative_addition_moves_on_a_number_line():
-    _intent, block = _block("-3+5")
-    picture = _picture(block)
-    assert picture["type"] == "number_line_move"
-    assert picture["start"] == -3
-    assert picture["end"] == 2
-    assert block.canonical_answer == "2"
+@pytest.mark.parametrize(
+    ("text", "equation", "value"),
+    [
+        ("8-8-8", "8 \u2212 8 \u2212 8 = -8", "-8"),
+        ("2*3*4", "2 \u00d7 3 \u00d7 4 = 24", "24"),
+        ("100/5/2", "100 \u00f7 5 \u00f7 2 = 10", "10"),
+        ("8-8*2", "8 \u2212 8 \u00d7 2 = -8", "-8"),
+        ("1+2+3", "1 + 2 + 3 = 6", "6"),
+        ("-3+5", "\u22123 + 5 = 2", "2"),
+    ],
+)
+def test_a_chain_uses_the_same_equation_line(text, equation, value):
+    _intent, block = _block(text)
+    assert block.canonical_answer == value
+    assert block.display_answer == equation
+    assert maybe_direct_math_reply(block, text) == f"```answer\n{equation}\n```\n"
 
 
 def test_polynomial_and_synthetic_division_agree():
@@ -201,6 +210,9 @@ def test_just_the_answer_hides_the_picture():
     _intent, block = _block(text)
     reply = maybe_direct_math_reply(block, text)
     assert reply == "```answer\n12\n```\n"
+    chain = "just the answer: 8-8-8"
+    _intent, chained = _block(chain)
+    assert maybe_direct_math_reply(chained, chain) == "```answer\n-8\n```\n"
 
 
 def test_model_path_keeps_the_picture_unless_only_the_answer_was_requested():
