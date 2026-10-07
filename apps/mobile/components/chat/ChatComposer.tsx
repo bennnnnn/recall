@@ -16,6 +16,10 @@ import Animated, {
 } from "react-native-reanimated";
 import * as Clipboard from "expo-clipboard";
 import { LinearGradient } from "expo-linear-gradient";
+import {
+  BOTTOM_CHROME_FADE_LOCATIONS,
+  bottomChromeFadeColors,
+} from "@/lib/chromeFade";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Icon } from "@/ui/icons/Icon";
 import { useTranslation } from "react-i18next";
@@ -30,6 +34,10 @@ import {
 } from "@/components/chat/MathDraftPreview";
 import { MathComposerCaret } from "@/components/chat/MathComposerCaret";
 import { MathKeyboardBar } from "@/components/chat/MathKeyboardBar";
+import {
+  MATH_KEYBOARD_CHIP_HEIGHT,
+  makeChatComposerStyles,
+} from "@/components/chat/chatComposerStyles";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import {
   useComposerDraftApiOptional,
@@ -41,9 +49,6 @@ import type { PendingAttachment } from "@/features/attachments/model/attachments
 import {
   CHAT_COMPOSER_MIN_BOTTOM_PAD,
   COMPOSER_GAP_FADE_OVERLAP,
-  COMPOSER_INPUT_LINE_HEIGHT,
-  COMPOSER_INPUT_MAX_HEIGHT,
-  COMPOSER_CONTROL_SIZE,
   COMPOSER_INPUT_MIN_HEIGHT,
   composerInputFrameHeight,
   composerInputMetrics,
@@ -56,10 +61,9 @@ import {
 import { liveTalkShowsSideChrome } from "@/features/speech/model/liveTalkLogic";
 import { textLooksLikeMath } from "@/lib/math/composerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
-import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Theme, useTheme, withAlpha } from "@/lib/theme";
-import { DYNAMIC_TYPE_MAX, Type, Weight } from "@/lib/type";
+import { useTheme, withAlpha } from "@/lib/theme";
+import { DYNAMIC_TYPE_MAX } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
 
 function noopComposerInput(_text: string) {}
@@ -76,7 +80,6 @@ export const COMPOSER_HEIGHT = 56;
 // Attachment extras mirror the rendered preview sizes instead of under-reserving the thread.
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 120;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 56;
-const MATH_KEYBOARD_CHIP_HEIGHT = 44;
 /** Space above the floating keypad so message action icons are not flush with it. */
 const MATH_KEYBOARD_CHIP_GAP = Space.sm;
 const COMPOSER_STATUS_LINE_HEIGHT = 18;
@@ -170,7 +173,7 @@ export const ChatComposer = memo(function ChatComposer({
   // Native text scales the field's line box with the system text size.
   const { fontScale } = useWindowDimensions();
   const theme = useTheme();
-  const s = useMemo(() => makeStyles(theme), [theme]);
+  const s = useMemo(() => makeChatComposerStyles(theme), [theme]);
   const draft = useComposerDraftValueOptional();
   const draftApi = useComposerDraftApiOptional();
   const input = inputProp ?? draft?.input ?? "";
@@ -260,7 +263,10 @@ export const ChatComposer = memo(function ChatComposer({
   const keyboard = useAnimatedKeyboard();
   const gapFadeStyle = useAnimatedStyle(() => {
     "worklet";
-    const pad = keyboard.height.value > 0 || composerExpanded ? 0 : bottomPad;
+    // The math pad fills the home-indicator gap. A scrim there would paint
+    // across the keys instead of the messages above the pill.
+    const pad =
+      keyboard.height.value > 0 || composerExpanded || mathBarOpen ? 0 : bottomPad;
     // Inline the height. Calling composerGapFadeHeight here runs on the UI
     // thread and aborts the app.
     const height = pad <= 0 ? 0 : pad * 2 + COMPOSER_GAP_FADE_OVERLAP;
@@ -268,7 +274,7 @@ export const ChatComposer = memo(function ChatComposer({
       height,
       bottom: pad > 0 ? -pad : 0,
     };
-  });
+  }, [bottomPad, composerExpanded, mathBarOpen]);
 
   const onToggleMathBar = useCallback(() => {
     const wasOpen = mathBarOpen;
@@ -326,14 +332,10 @@ export const ChatComposer = memo(function ChatComposer({
     ? [blockStyle, animatedContainerStyle, expandedBlockStyle]
     : [blockStyle, { bottom, paddingBottom }, expandedBlockStyle];
   const showExpandControl = fieldOverflows || composerExpanded;
-  // The composer view is only as tall as the field. A target drawn above that
-  // box never receives taps, so while the math pad is open the view itself
-  // stretches to the top of the screen and the dismiss target fills that space.
-  const mathDismissCoversScreen = math.mathBarOpen && !composerExpanded && !docked;
 
   return (
     <Animated.View
-      style={[containerStyle, mathDismissCoversScreen && s.mathHitHost]}
+      style={containerStyle}
       pointerEvents="box-none"
       testID="chat-composer"
     >
@@ -348,19 +350,16 @@ export const ChatComposer = memo(function ChatComposer({
           style={StyleSheet.absoluteFill}
         />
       </Animated.View>
-      {mathDismissCoversScreen ? (
-        <Pressable
-          style={s.outsideDismiss}
-          onPress={() => {
-            math.dismissMathBar();
-            inputRef.current?.blur();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={t("common.close")}
-          testID="math-keyboard-dismiss"
-        />
-      ) : null}
       <View style={[s.composerAnchor, composerExpanded && s.expandedFill]}>
+        {mathBarOpen && !composerExpanded ? (
+          <LinearGradient
+            pointerEvents="none"
+            colors={bottomChromeFadeColors(theme) as [string, string, ...string[]]}
+            locations={[...BOTTOM_CHROME_FADE_LOCATIONS]}
+            style={s.scrollFade}
+            testID="composer-scroll-fade"
+          />
+        ) : null}
         <View style={[s.composer, composerExpanded && s.expandedFill]}>
           {scanHint && onOpenMathScanner ? (
             <View style={s.scanHint}>
@@ -703,173 +702,3 @@ export const ChatComposer = memo(function ChatComposer({
   );
 });
 
-function makeStyles(theme: Theme) {
-  return StyleSheet.create({
-    composerBlock: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      zIndex: 110,
-      overflow: "visible",
-      backgroundColor: "transparent",
-      paddingHorizontal: Space.md,
-      paddingTop: Space.xxs,
-    },
-    mathHitHost: { top: 0 },
-    outsideDismiss: { flex: 1, marginHorizontal: -Space.sm },
-    composerDocked: {
-      overflow: "visible",
-      backgroundColor: "transparent",
-      paddingHorizontal: Space.md,
-      paddingTop: Space.xxs,
-    },
-    composerBlockExpanded: {
-      zIndex: 200,
-      backgroundColor: theme.bg,
-    },
-    expandedFill: { flex: 1, minHeight: 0 },
-    bottomFade: {
-      position: "absolute",
-      left: -Space.md,
-      right: -Space.md,
-      zIndex: 0,
-    },
-    composerAnchor: { position: "relative", overflow: "visible", zIndex: 1 },
-    composer: { paddingVertical: 6, overflow: "visible" },
-    inputStack: { position: "relative", overflow: "visible" },
-    liveTalkRow: {
-      flexDirection: "row",
-      alignItems: "flex-end",
-      gap: Space.xs,
-    },
-    inputWrap: {
-      // Attachments and the input row live inside the same rounded card.
-      backgroundColor: theme.control,
-      borderRadius: Radius.sheet,
-      paddingHorizontal: Space.md,
-      paddingTop: Space.xxs,
-      paddingBottom: Space.xxs,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.composerBorder,
-    },
-    inputWrapFlex: { flex: 1, minWidth: 0 },
-    inputWrapExpanded: { flex: 1, minHeight: 0 },
-    sendStatus: {
-      marginTop: Space.xxs,
-      marginLeft: 40,
-      ...Type.meta,
-      color: theme.textSecondary,
-    },
-    inputRowMain: { flexDirection: "row", alignItems: "flex-end", gap: Space.xs },
-    inputRowMainSingleLine: { alignItems: "center" },
-    inputRowMainExpanded: { flex: 1, minHeight: 0 },
-    inputField: {
-      flex: 1,
-      justifyContent: "flex-end",
-      minHeight: COMPOSER_INPUT_MIN_HEIGHT,
-      position: "relative",
-    },
-    inputFieldExpanded: { justifyContent: "flex-start", minHeight: 0, paddingBottom: 0 },
-    expandControlRow: {
-      minHeight: Space.minTouch,
-      flexDirection: "row",
-      justifyContent: "flex-end",
-      alignItems: "center",
-    },
-    expandControl: {
-      width: Space.minTouch,
-      height: Space.minTouch,
-      borderRadius: Space.minTouch / 2,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    emptyCaret: {
-      position: "absolute",
-      left: 0,
-      top: 2,
-      bottom: 2,
-      justifyContent: "center",
-      zIndex: 2,
-    },
-    attachBtn: {
-      width: COMPOSER_CONTROL_SIZE,
-      height: COMPOSER_CONTROL_SIZE,
-      borderRadius: COMPOSER_CONTROL_SIZE / 2,
-      // Keep the + as quiet chrome inside the shared composer surface.
-      borderWidth: 0,
-      borderColor: "transparent",
-      backgroundColor: "transparent",
-      alignItems: "center",
-      justifyContent: "center",
-      marginBottom: 0,
-    },
-    controlDisabled: { opacity: 0.55 },
-    chip: {
-      position: "absolute",
-      left: 0,
-      top: -(MATH_KEYBOARD_CHIP_HEIGHT + Space.xxs),
-      zIndex: 1,
-      minWidth: Space.minTouch,
-      minHeight: Space.minTouch,
-      height: Space.minTouch,
-      paddingHorizontal: 10,
-      borderRadius: Radius.xl,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "transparent",
-    },
-    chipPressed: { opacity: 0.55 },
-    input: {
-      flex: 1,
-      ...Type.body,
-      color: theme.text,
-      // Fixed line box. A padded field makes iOS draw the caret a line too high.
-      lineHeight: COMPOSER_INPUT_LINE_HEIGHT,
-      maxHeight: COMPOSER_INPUT_MAX_HEIGHT,
-      paddingVertical: 0,
-      minHeight: COMPOSER_INPUT_LINE_HEIGHT,
-    },
-    inputExpanded: {
-      height: undefined,
-      maxHeight: undefined,
-      minHeight: 0,
-      textAlignVertical: "top",
-    },
-    inputParked: {
-      position: "absolute",
-      width: 1,
-      height: 1,
-      opacity: 0,
-      overflow: "hidden",
-      flex: 0,
-    },
-    sendBtn: {
-      width: COMPOSER_CONTROL_SIZE,
-      height: COMPOSER_CONTROL_SIZE,
-      borderRadius: Radius.full,
-      backgroundColor: theme.primary,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    sendBtnSlot: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "flex-end",
-      gap: Space.xxs,
-      minHeight: COMPOSER_CONTROL_SIZE,
-    },
-    sendBtnDisabled: { backgroundColor: theme.border },
-    scanHint: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-      marginBottom: 6,
-      paddingHorizontal: 10,
-      paddingVertical: Space.xs,
-      borderRadius: Radius.sm,
-      backgroundColor: theme.primaryLight,
-    },
-    scanHintText: { flex: 1, ...Type.compact, color: theme.text },
-    scanHintCta: { ...Type.compact, ...Weight.bold, color: theme.primary },
-  });
-}

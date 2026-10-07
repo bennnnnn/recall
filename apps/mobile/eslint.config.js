@@ -223,6 +223,7 @@ module.exports = defineConfig([
       "components/UpgradeSheet.tsx",
       "components/UserMessageContent.tsx",
       "components/chat/ChatComposer.tsx",
+      "components/chat/chatComposerStyles.ts",
       "components/chat/ChatInlineError.tsx",
       "components/chat/ChatMessageList.tsx",
       "components/chat/ChatScrollFab.tsx",
