@@ -82,7 +82,9 @@ def test_a_time_before_a_sentence_is_not_significant_figures() -> None:
 def test_prose_names_of_inverse_units(text: str, unit: str, expression: str) -> None:
     (given,) = scan_givens(text)
     assert given.unit == unit
-    assert given.dimension == unit_dimension(expression)[0]
+    reading = unit_dimension(expression)
+    assert reading is not None
+    assert given.dimension == reading[0]
 
 
 def test_meters_per_second_stays_a_length() -> None:
