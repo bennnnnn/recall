@@ -12,6 +12,17 @@ from app.modules.math.tools.lesson import lesson_math_text
 from app.services.solving import VerifiedMathBlock
 
 
+def equation_line_hides_for_answer_only(verified: VerifiedMathBlock) -> bool:
+    """Just the answer is the number when the ordinary line is an equation."""
+    value = (verified.canonical_answer or "").strip()
+    if not value:
+        return False
+    if arithmetic_work_spec(verified) is not None:
+        return True
+    shown = (verified.display_answer or "").strip()
+    return shown.endswith(f"= {value}")
+
+
 def arithmetic_work_spec(verified: VerifiedMathBlock) -> ArithmeticWorkSpec | None:
     specs = [verified.canonical_fence, *verified.canonical_fences]
     candidates = [
@@ -81,6 +92,69 @@ def _shown_operand(token: str) -> str:
     whole, dot, fraction = token.partition(".")
     whole = whole.lstrip("0") or "0"
     return f"{whole}.{fraction}" if dot else whole
+
+
+_DISPLAY_OPERATOR = {
+    "+": "+",
+    "-": "\u2212",
+    "*": "\u00d7",
+    "/": "\u00f7",
+}
+
+
+def arithmetic_equation(expr: str, answer: str) -> str | None:
+    """``8-8-8`` and ``8-8*2`` read as one checked line, like ``8 - 8 = 0``."""
+    tokens = _arithmetic_tokens(expr.replace(" ", ""))
+    if tokens is None:
+        return None
+    shown: list[str] = []
+    for index, token in enumerate(tokens):
+        if index % 2 == 1:
+            shown.append(_DISPLAY_OPERATOR[token])
+            continue
+        if token.startswith("-"):
+            shown.append(f"\u2212{token[1:]}")
+        elif token.startswith("+"):
+            shown.append(token[1:])
+        else:
+            shown.append(token)
+    return f"{' '.join(shown)} = {answer}"
+
+
+def _arithmetic_tokens(expr: str) -> list[str] | None:
+    """Numbers and the four operators, at most six numbers. No powers or groups."""
+    if not expr or len(expr) > 80:
+        return None
+    tokens: list[str] = []
+    index = 0
+    expect_number = True
+    while index < len(expr):
+        if expect_number:
+            sign = ""
+            if expr[index] in "+-":
+                sign = expr[index]
+                index += 1
+            start = index
+            saw_dot = False
+            while index < len(expr) and (expr[index].isdigit() or expr[index] == "."):
+                if expr[index] == ".":
+                    if saw_dot:
+                        return None
+                    saw_dot = True
+                index += 1
+            if index == start:
+                return None
+            tokens.append(sign + expr[start:index])
+            expect_number = False
+            continue
+        if expr[index] not in _DISPLAY_OPERATOR:
+            return None
+        tokens.append(expr[index])
+        index += 1
+        expect_number = True
+    if expect_number or len(tokens) < 3 or len(tokens) > 11:
+        return None
+    return tokens
 
 
 def written_fact_line(spec: ArithmeticWorkSpec) -> str:

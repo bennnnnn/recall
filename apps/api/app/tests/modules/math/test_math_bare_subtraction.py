@@ -10,11 +10,10 @@ from app.modules.math.tools.direct import maybe_direct_math_reply
 @pytest.mark.parametrize(
     ("text", "canonical", "shown"),
     [
-        ("2-6", "-4", "-4"),
-        ("2 - 6", "-4", "-4"),
-        ("2−6", "-4", "-4"),
-        ("-2-6", "-8", "-8"),
-        # A result that stays non-negative is the same equation line as addition.
+        ("2-6", "-4", "2 \u2212 6 = -4"),
+        ("2 - 6", "-4", "2 \u2212 6 = -4"),
+        ("2−6", "-4", "2 \u2212 6 = -4"),
+        ("-2-6", "-8", "\u22122 \u2212 6 = -8"),
         ("10-3", "7", "10 \u2212 3 = 7"),
     ],
 )

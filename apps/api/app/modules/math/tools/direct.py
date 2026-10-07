@@ -1013,9 +1013,9 @@ def _format_direct_math_body(
 
 def _chip_answer(verified: VerifiedMathBlock, *, answer_only: bool) -> str:
     """The checked line. A bare fact reads ``4 x 4 = 16``; answer-only is the number."""
-    from app.modules.math.tools.direct_arithmetic import arithmetic_work_spec
+    from app.modules.math.tools.direct_arithmetic import equation_line_hides_for_answer_only
 
-    if answer_only and arithmetic_work_spec(verified) is not None:
+    if answer_only and equation_line_hides_for_answer_only(verified):
         return (verified.canonical_answer or "").strip()
     return (verified.display_answer or verified.canonical_answer or "").strip()
 

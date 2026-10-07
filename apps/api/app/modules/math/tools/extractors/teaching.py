@@ -53,9 +53,6 @@ _ROUND_NAME = {
     "thousand": "thousands",
     "thousands": "thousands",
 }
-# A rightward jump that starts negative. Bare subtraction, including a
-# unicode minus, stays on the arithmetic chip path.
-_SIGNED_MOVE = re.compile(r"(-\d{1,2})\s*\+\s*(\d{1,2})$")
 _DIVIDE = re.compile(
     r"(synthetic division|polynomial long division|long division|divide) (?:of )?(.+) by (.+)$"
 )
@@ -155,8 +152,6 @@ def _match(text: str) -> tuple[str, str] | None:
         return "decimal_compare", f"{found.group(2)}|{found.group(3)}|{ask}"
     if (found := _ROUND.fullmatch(text)) is not None:
         return "round_place", f"{found.group(1)}|{_ROUND_NAME[found.group(2)]}"
-    if (found := _SIGNED_MOVE.fullmatch(text)) is not None:
-        return "number_line_move", f"{found.group(1)}|{found.group(2)}"
     if (found := _DIVIDE.fullmatch(text)) is not None:
         operation = (
             "synthetic_division"

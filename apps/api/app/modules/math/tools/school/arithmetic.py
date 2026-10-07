@@ -368,6 +368,11 @@ def _verified_block_arithmetic(
         )
     lines.append(f"Result: {answer}")
     block = _finish_with_answer(lines, answer)
+    from app.modules.math.tools.direct_arithmetic import arithmetic_equation
+
+    shown = arithmetic_equation(intent.expr or "", answer)
+    if shown is not None:
+        return replace(block, display_answer=shown)
     if intent.school_op != "eval" or not intent.expr:
         return block
     from app.modules.math.solve.teaching_elementary import number_line_for_expr

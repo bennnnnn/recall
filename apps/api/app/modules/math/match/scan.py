@@ -582,7 +582,9 @@ def bare_arithmetic_expr(text: str) -> str | None:
     unambiguous = unambiguous or "**" in normalized
     unambiguous = unambiguous or _unambiguous_single_slash(compact)
     subtraction = ops == 1 and "-" in compact and not any(ch in "+*/^" for ch in compact)
-    if not (unambiguous or subtraction or ops >= 2 or had_cue):
+    # ``-3+5`` is one signed start and one operation, not a date.
+    signed_start = compact[0] in "+-" and ops >= 1
+    if not (unambiguous or subtraction or ops >= 2 or had_cue or signed_start):
         return None
     # Dates / phones: structural ``9/7/2026`` / ``1-800-273-8255``, not
     # every minus-or-slash chain (``10-3-2``). Keep ``8-8*2`` and cued ``9/9``.
