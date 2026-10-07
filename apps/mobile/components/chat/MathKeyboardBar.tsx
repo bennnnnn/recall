@@ -104,7 +104,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   );
   const greekBottom = useMemo(
     () =>
-      ["iota", "upsilon", "Theta", "Phi"].map(
+      ["Theta", "Sigma", "Omega", "Phi"].map(
         (id) => MATH_KEYBOARD_SYMBOLS.find((spec) => spec.id === id)!,
       ),
     [],
