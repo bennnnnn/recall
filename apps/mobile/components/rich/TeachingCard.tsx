@@ -108,11 +108,11 @@ function Blocks({
 function Bond({ spec, styles }: { spec: TeachingSpec; styles: Styles }) {
   return (
     <View style={styles.row}>
-      <Text style={styles.strong}>{text(spec.whole)}</Text>
-      <Text style={styles.body}>=</Text>
       <Text style={styles.strong}>{text(spec.left)}</Text>
       <Text style={styles.body}>+</Text>
       <Text style={styles.strong}>{text(spec.right)}</Text>
+      <Text style={styles.body}>=</Text>
+      <Text style={styles.strong}>{text(spec.whole)}</Text>
     </View>
   );
 }
