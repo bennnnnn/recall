@@ -170,8 +170,10 @@ def test_a_long_resistor_list_still_declines() -> None:
     [
         ("a 2 kg cart pushes a 5 kg block", ("block",), (5.0, "kg")),
         ("a 2 kg cart pushes a 5 kg block", ("cart",), (2.0, "kg")),
-        # Equidistant values: the first one written wins, as it always did.
-        ("3 kg mass 4 kg", ("mass",), (3.0, "kg")),
+        # The word names the number that follows it.
+        ("3 kg mass 4 kg", ("mass",), (4.0, "kg")),
+        # Equidistant, and neither side is a label: the first one written wins.
+        ("3 kg x mass x 4 kg", ("mass",), (3.0, "kg")),
         # A keyword that overlaps the value is distance zero.
         ("the 7 kg-block and a 9 kg ball", ("kg-block",), (7.0, "kg")),
         ("no keyword here, 6 kg then 8 kg", ("crate",), (6.0, "kg")),
