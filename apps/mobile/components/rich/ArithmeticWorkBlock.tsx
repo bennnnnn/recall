@@ -311,6 +311,9 @@ function DivisionWork({ spec }: { spec: ArithmeticWorkSpec }) {
 
 export function ArithmeticWorkBlock({ content }: { content: string }) {
   const teaching = parseTeaching(content);
+  // A number bond is the sum written backwards. The answer line already
+  // states it as ``1 + 1 = 2``, so the card would repeat that fact.
+  if (teaching?.type === "number_bond") return null;
   if (teaching) return <TeachingCard spec={teaching} />;
   const spec = parseArithmeticWork(content);
   if (!spec) {

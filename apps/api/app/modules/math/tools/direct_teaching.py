@@ -9,6 +9,19 @@ from app.models.schemas.math.teaching import TEACHING_TYPES, TeachingSpec
 from app.services.solving import VerifiedMathBlock
 
 
+def _sum_equation(spec: TeachingSpec) -> str | None:
+    """One line, in the order the sum was asked: ``1 + 1 = 2``.
+
+    A number bond is that same fact. Shipping it as a second card painted
+    ``2 = 1 + 1`` under the checked answer.
+    """
+    from app.models.schemas.math.teaching import NumberBondSpec
+
+    if not isinstance(spec, NumberBondSpec):
+        return None
+    return f"{spec.left} + {spec.right} = {spec.whole}"
+
+
 def attach_teaching(
     block: VerifiedMathBlock,
     spec: TeachingSpec,
@@ -16,6 +29,16 @@ def attach_teaching(
     direct: bool,
     request_text: str | None,
 ) -> VerifiedMathBlock:
+    equation = _sum_equation(spec)
+    if equation is not None:
+        updated = replace(block, display_answer=equation)
+        if not direct:
+            return updated
+        return replace(
+            updated,
+            direct_reply=f"```answer\n{equation}\n```\n",
+            direct_request_text=request_text or block.direct_request_text,
+        )
     data = spec.model_dump()
     fences = [*block.canonical_fences, data]
     if not direct:

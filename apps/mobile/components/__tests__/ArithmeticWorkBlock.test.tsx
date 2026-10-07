@@ -367,4 +367,21 @@ describe("ArithmeticWorkBlock", () => {
     expect(getAllByTestId("ten-cell-fill")).toHaveLength(3);
     expect(queryByTestId("arithmetic-work-inline")).toBeNull();
   });
+
+  it("does not draw a number bond under the answer", async () => {
+    const content = JSON.stringify({
+      type: "number_bond",
+      whole: 2,
+      left: 1,
+      right: 1,
+      answer: "2",
+      speech: "2 is 1 plus 1.",
+    });
+    const { queryByTestId, queryByText } = await render(
+      <ArithmeticWorkBlock content={content} />,
+    );
+
+    expect(queryByTestId("teaching-number_bond")).toBeNull();
+    expect(queryByText("=")).toBeNull();
+  });
 });

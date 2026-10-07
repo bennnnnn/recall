@@ -38,7 +38,6 @@ def _picture(block) -> dict[str, object]:
         ("expanded form of 347", "place_value", "300 + 40 + 7"),
         ("place value of the 4 in 347", "place_value", "40"),
         ("base ten blocks for 347", "place_value", "300 + 40 + 7"),
-        ("8 = 5 + 3", "number_bond", "8"),
         ("ten frame for 7 + 5", "ten_frame", "12"),
         ("array of 3 by 4", "array", "12"),
         ("3/4 on a number line", "fraction_line", r"\frac{3}{4}"),
@@ -77,10 +76,32 @@ def test_seven_plus_five_uses_a_ten_frame_not_a_column():
     assert reply is not None and '"ten_frame"' in reply
 
 
-def test_three_plus_four_is_a_number_bond():
-    _intent, block = _block("3+4")
-    assert _picture(block)["type"] == "number_bond"
-    assert block.canonical_answer == "7"
+@pytest.mark.parametrize(
+    ("text", "equation", "value"),
+    [
+        ("1+1", "1 + 1 = 2", "2"),
+        ("3+3", "3 + 3 = 6", "6"),
+        ("3+4", "3 + 4 = 7", "7"),
+        ("8 = 5 + 3", "5 + 3 = 8", "8"),
+    ],
+)
+def test_a_single_digit_sum_is_one_forward_equation(text, equation, value):
+    _intent, block = _block(text)
+    assert block.canonical_answer == value
+    assert block.display_answer == equation
+    assert all(fence.get("type") != "number_bond" for fence in block.canonical_fences)
+    reply = maybe_direct_math_reply(block, text)
+    assert reply == f"```answer\n{equation}\n```\n"
+    from app.modules.math.fence import validate_math_fences
+    from app.modules.math.response_intent import classify_math_response_intent
+
+    shown = validate_math_fences(
+        reply or "",
+        verified=replace(block, response_intent=classify_math_response_intent(text)),
+    )
+    assert shown.count("```answer") == 1
+    assert equation in shown
+    assert "number_bond" not in shown
 
 
 def test_three_times_four_is_an_array():
