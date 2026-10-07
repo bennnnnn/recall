@@ -10,6 +10,7 @@ import {
   caretAfterExpression,
   caretBeforeExpression,
   findDraftNodes,
+  shiftDraftNodes,
   type DraftNode,
 } from "@/lib/math/draftSlots";
 import { innermostSlot, type LatexGroup } from "@/lib/math/keyboardSymbols";
@@ -177,6 +178,8 @@ function DraftPiece({
           text={input}
           group={node.num}
           caret={caret}
+          before={before}
+          after={after}
           testID="math-slot-num"
           onMoveCaret={onMoveCaret}
         />
@@ -185,6 +188,8 @@ function DraftPiece({
           text={input}
           group={node.den}
           caret={caret}
+          before={before}
+          after={after}
           testID="math-slot-den"
           onMoveCaret={onMoveCaret}
         />
@@ -201,6 +206,8 @@ function DraftPiece({
               text={input}
               group={node.index}
               caret={caret}
+              before={before}
+              after={after}
               testID="math-slot-nroot-index"
               onMoveCaret={onMoveCaret}
               fontSize={12}
@@ -214,6 +221,8 @@ function DraftPiece({
             text={input}
             group={node.body}
             caret={caret}
+            before={before}
+            after={after}
             testID="math-slot-sqrt"
             onMoveCaret={onMoveCaret}
             compact
@@ -232,6 +241,8 @@ function DraftPiece({
             text={input}
             group={node.body}
             caret={caret}
+            before={before}
+            after={after}
             testID={sub ? "math-slot-sub" : "math-slot-sup"}
             onMoveCaret={onMoveCaret}
           />
@@ -247,6 +258,8 @@ function DraftPiece({
           text={input}
           group={node.body}
           caret={caret}
+          before={before}
+          after={after}
           testID="math-slot-brace"
           onMoveCaret={onMoveCaret}
         />
@@ -262,10 +275,57 @@ function DraftPiece({
           text={input}
           group={node.body}
           caret={caret}
+          before={before}
+          after={after}
           testID="math-slot-abs"
           onMoveCaret={onMoveCaret}
         />
         <Text style={s.prose}>|</Text>
+      </View>
+    );
+  }
+
+  if (node.kind === "binom") {
+    return (
+      <View style={s.inline} testID="math-binom">
+        <Text style={s.prose}>C(</Text>
+        <EditSlot
+          text={input}
+          group={node.n}
+          caret={caret}
+          before={before}
+          after={after}
+          testID="math-slot-binom-n"
+          onMoveCaret={onMoveCaret}
+        />
+        <Text style={s.prose}>,</Text>
+        <EditSlot
+          text={input}
+          group={node.k}
+          caret={caret}
+          before={before}
+          after={after}
+          testID="math-slot-binom-k"
+          onMoveCaret={onMoveCaret}
+        />
+        <Text style={s.prose}>)</Text>
+      </View>
+    );
+  }
+
+  if (node.kind === "vec") {
+    return (
+      <View style={s.vec} testID="math-vec">
+        <Text style={s.vecArrow}>→</Text>
+        <EditSlot
+          text={input}
+          group={node.body}
+          caret={caret}
+          before={before}
+          after={after}
+          testID="math-slot-vec"
+          onMoveCaret={onMoveCaret}
+        />
       </View>
     );
   }
@@ -278,6 +338,8 @@ function DraftPiece({
         text={input}
         group={node.body}
         caret={caret}
+        before={before}
+        after={after}
         testID="math-slot-group"
         onMoveCaret={onMoveCaret}
       />
@@ -290,6 +352,8 @@ function EditSlot({
   text,
   group,
   caret,
+  before,
+  after,
   testID,
   onMoveCaret,
   compact = false,
@@ -298,6 +362,8 @@ function EditSlot({
   text: string;
   group: LatexGroup;
   caret: number;
+  before: number;
+  after: number;
   testID: string;
   onMoveCaret?: (pos: number) => void;
   /** Radicand slot: the bar is this slot's top border, so the content needs a
@@ -309,6 +375,8 @@ function EditSlot({
   const s = useMemo(() => makeStyles(theme), [theme]);
   const widthRef = useRef(0);
   const inner = text.slice(group.open + 1, group.close);
+  const nested = inner ? shiftDraftNodes(findDraftNodes(inner), group.open + 1) : [];
+  const structured = nested.some((node) => node.kind !== "text");
   const focus = innermostSlot(text, caret);
   const active =
     focus != null && focus.open === group.open && focus.close === group.close;
@@ -333,17 +401,33 @@ function EditSlot({
       accessibilityRole="button"
     >
       <View style={s.slotRow}>
-        {inner && atStart ? <MathComposerCaret testID={`${testID}-caret-start`} /> : null}
-        {inner ? (
-          <MathText latex={inner} textColor={theme.text} compact={compact} fontSize={fontSize} />
-        ) : active ? (
-          <View style={s.placeholderActive}>
-            <MathComposerCaret testID={`${testID}-caret`} />
-          </View>
+        {structured ? (
+          nested.map((node, i) => (
+            <DraftPiece
+              key={`${node.kind}-${node.start}-${i}`}
+              node={node}
+              input={text}
+              caret={caret}
+              before={before}
+              after={after}
+              onMoveCaret={onMoveCaret}
+            />
+          ))
         ) : (
-          <View style={s.placeholder} testID={`${testID}-placeholder`} />
+          <>
+            {inner && atStart ? <MathComposerCaret testID={`${testID}-caret-start`} /> : null}
+            {inner ? (
+              <MathText latex={inner} textColor={theme.text} compact={compact} fontSize={fontSize} />
+            ) : active ? (
+              <View style={s.placeholderActive}>
+                <MathComposerCaret testID={`${testID}-caret`} />
+              </View>
+            ) : (
+              <View style={s.placeholder} testID={`${testID}-placeholder`} />
+            )}
+            {inner && atEnd ? <MathComposerCaret testID={`${testID}-caret-end`} /> : null}
+          </>
         )}
-        {inner && atEnd ? <MathComposerCaret testID={`${testID}-caret-end`} /> : null}
       </View>
     </Pressable>
   );
@@ -403,6 +487,15 @@ const makeStyles = (theme: Theme) =>
     // Place the degree above the root hook. Scaling a full-height edit slot
     // around its centre left the old degree looking like a coefficient.
     index: { marginRight: -4, marginTop: -6 },
+    vec: {
+      alignItems: "center",
+    },
+    vecArrow: {
+      fontSize: 12,
+      lineHeight: 12,
+      color: theme.text,
+      marginBottom: -2,
+    },
     sup: { marginBottom: 10 },
     sub: { marginTop: 10 },
     slot: {

@@ -20,6 +20,13 @@ describe("findDraftNodes", () => {
     expect(hasTappableDraftSlot(nodes)).toBe(true);
   });
 
+  it("keeps an empty binomial, vector, and d/d slot as boxes", () => {
+    expect(findDraftNodes("$\\binom{}{}$").some((n) => n.kind === "binom")).toBe(true);
+    expect(findDraftNodes("$\\vec{}$").some((n) => n.kind === "vec")).toBe(true);
+    expect(findDraftNodes("d{}").some((n) => n.kind === "brace")).toBe(true);
+    expect(findDraftNodes("$\\mathrm{rad}$").some((n) => n.kind === "brace")).toBe(false);
+  });
+
   it("keeps \\sin() / \\cos() as one group, not a repeated name", () => {
     const text = "$\\cos()$";
     const nodes = findDraftNodes(text);

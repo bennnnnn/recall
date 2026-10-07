@@ -421,6 +421,7 @@ describe("parseSimpleLatex", () => {
     // fallback, leaving "\binom{5}{2}" visible verbatim in the no-WebView
     // (Expo Go) fallback.
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\binom{5}{2}`))).toBe("C(5,2)");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`\binom{}{}`))).toBe("C(,)");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\dbinom{n}{k} = 1`))).toBe("C(n,k) = 1");
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\tbinom{n}{k}`))).toBe("C(n,k)");
   });

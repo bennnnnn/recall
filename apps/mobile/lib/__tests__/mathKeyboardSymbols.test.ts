@@ -83,7 +83,17 @@ describe("spliceMathInsert", () => {
 
   it("n! attaches to a number, or inserts an empty slot on an empty draft", () => {
     const fact = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "fact")!;
-    expect(spliceMathInsert("", { start: 0, end: 0 }, fact).text).toBe("${}!$");
+    const empty = spliceMathInsert("", { start: 0, end: 0 }, fact);
+    expect(empty.text).toBe("$!$");
+    expect(empty.selection).toEqual({ start: 1, end: 1 });
+    const five = spliceMathInsert(empty.text, empty.selection, {
+      id: "digit-5",
+      label: "5",
+      insert: "5",
+      cursorOffset: 1,
+      group: "pad",
+    });
+    expect(five.text).toBe("$5!$");
     expect(spliceMathInsert("$5$", { start: 2, end: 2 }, fact).text).toBe("$5!$");
   });
 
