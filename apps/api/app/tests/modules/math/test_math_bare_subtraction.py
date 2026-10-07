@@ -8,17 +8,24 @@ from app.modules.math.tools.direct import maybe_direct_math_reply
 
 
 @pytest.mark.parametrize(
-    "text,expected",
-    [("2-6", "-4"), ("2 - 6", "-4"), ("2−6", "-4"), ("-2-6", "-8"), ("10-3", "7")],
+    ("text", "canonical", "shown"),
+    [
+        ("2-6", "-4", "-4"),
+        ("2 - 6", "-4", "-4"),
+        ("2−6", "-4", "-4"),
+        ("-2-6", "-8", "-8"),
+        # A result that stays non-negative is the same equation line as addition.
+        ("10-3", "7", "10 \u2212 3 = 7"),
+    ],
 )
-def test_bare_subtraction_reaches_verified_direct_answer(text, expected):
+def test_bare_subtraction_reaches_verified_direct_answer(text, canonical, shown):
     assert math_tools.needs_symbolic_math(text)
     intent = math_tools.extract_math_intent(text)
     assert intent is not None and intent.kind == "arithmetic"
     block = math_tools._build_verified_block(intent, Settings(_env_file=None))
-    assert block is not None and block.canonical_answer == expected
+    assert block is not None and block.canonical_answer == canonical
     reply = maybe_direct_math_reply(block, text)
-    assert reply == f"```answer\n{expected}\n```\n"
+    assert reply == f"```answer\n{shown}\n```\n"
 
 
 @pytest.mark.parametrize(
