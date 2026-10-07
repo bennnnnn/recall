@@ -444,6 +444,8 @@ const makeStyles = (theme: Theme) =>
       minHeight: Space.minTouch,
       justifyContent: "center",
       borderRadius: Radius.xs,
+      borderWidth: 1,
+      borderColor: theme.bg,
     },
     tabSelected: { backgroundColor: theme.primaryLight },
     tabLabel: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
