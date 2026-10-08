@@ -109,17 +109,12 @@ def web_search_skip(
     return False
 
 
-# Stable schoolbook questions ("what is the capital of France") must not pay
-# an LLM classifier before the reply. A time-sensitive question still does,
-# even when it lacks one of the live-word tokens below.
+# A live or time-sensitive cue is the only reason to spend a model call
+# deciding search. Schoolbook questions and chitchat have none of these, so
+# they keep the regex answer and the chat model can start immediately.
 _MAYBE_LIVE = re.compile(
     r"\b(?:who\s+is|who\s+leads|current|latest|today|tonight|right\s+now|"
     r"price|pricing|hotel|weather|score|news|ceo|near\s+me)\b",
-    re.IGNORECASE,
-)
-_STABLE_FACT = re.compile(
-    r"\b(?:what(?:'s| is| are)|how (?:do|does|can|to)|why (?:is|does|do)|"
-    r"explain|define|capital of|solve|calculate|simplify|translate)\b",
     re.IGNORECASE,
 )
 _TIME_SENSITIVE = re.compile(
@@ -128,10 +123,20 @@ _TIME_SENSITIVE = re.compile(
 )
 
 
-def _stable_without_live_lookup(text: str) -> bool:
-    if _MAYBE_LIVE.search(text) or _TIME_SENSITIVE.search(text):
+def _live_lookup_cue(text: str) -> bool:
+    return _MAYBE_LIVE.search(text) is not None or _TIME_SENSITIVE.search(text) is not None
+
+
+def _continues_searchable_topic(
+    text: str,
+    prior_user_messages: list[str] | None,
+) -> bool:
+    """A short line after a topic that already needed a live lookup."""
+    if not prior_user_messages:
         return False
-    return _STABLE_FACT.search(text) is not None
+    if len(collapse_ws(text).split()) > _SHORT_FOLLOWUP_WORDS:
+        return False
+    return _prior_searchable_topic(prior_user_messages) is not None
 
 
 def web_search_fast_yes(
@@ -232,7 +237,7 @@ async def should_web_search(
     prior_user_messages: list[str] | None = None,
     prior_assistant: str | None = None,
 ) -> bool:
-    """Async gate: regex fast paths, then LLM classifier for everything else."""
+    """Async gate: regex first. The classifier runs only for a live cue or a short follow-up."""
     if not settings.web_search_enabled:
         return False
     if web_search_skip(
@@ -241,7 +246,8 @@ async def should_web_search(
         return False
     if web_search_fast_yes(text, prior_user_messages=prior_user_messages):
         return True
-    if _stable_without_live_lookup(collapse_ws(text)):
+    cleaned = collapse_ws(text)
+    if not (_live_lookup_cue(cleaned) or _continues_searchable_topic(cleaned, prior_user_messages)):
         return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)
     classification = await classify_web_search(
         text,

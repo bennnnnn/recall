@@ -143,9 +143,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   searches once. Empty hits inject a no-results instruction so the reply cannot look live from
   training data. One Tavily
   reservation per turn. A Redis reserve failure (or a missing user) fails closed to **DuckDuckGo
-  only** — DDG is uncapped (latency only). Search cache keys include `user_id`. When the sync
-  search heuristic is weak, the tool-loop gate consults the LLM classifier (`should_web_search`)
-  so factual lookups still get a tool round.
+  only** — DDG is uncapped (latency only). Search cache keys include `user_id`. A live cue or a
+  short follow-up to a searchable topic consults the LLM classifier (`should_web_search`); every
+  other line keeps the regex answer. Factual lookups that still need a live result get a tool round.
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via OpenAI `gpt-4o-mini-transcribe`, and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
@@ -829,9 +829,9 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
   adapters once before streaming (legacy; skipped when the tool loop is on).
 - ✅ **Full tool-calling loop** — **on by default**, but **not on every turn.**
   Ordinary chat streams immediately. Pre-stream `complete_with_tools` runs only
-  when the turn still looks like web search (sync heuristic, then the LLM
-  classifier when that heuristic is weak — and heuristic search did not already
-  fill sources), unsolved math, calendar create, or Pro image gen. If that round
+  when the turn still looks like web search (a live cue or a short follow-up may
+  consult the LLM classifier; otherwise the regex answer stands — and heuristic
+  search did not already fill sources), unsolved math, calendar create, or Pro image gen. If that round
   finishes without tools, the text is shown — the stream does not call the model
   a second time. Adapters: `web_search` / `sympy` / `calendar` / `image_gen`,
   Pydantic-validated args, bounded by `mcp_tool_loop_max_rounds`. The **calendar**
