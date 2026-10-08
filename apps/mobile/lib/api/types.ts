@@ -55,6 +55,8 @@ export type Message = {
   content: string;
   model: string | null;
   feedback?: Feedback;
+  /** Related subject questions for the latest reply. Tap sends the string. */
+  related_prompts?: string[] | null;
   search_sources?: SearchSource[];
   local_image_uri?: string | null;
   local_file_uri?: string | null;

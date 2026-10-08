@@ -20,6 +20,7 @@ from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services.chat import finalize_registry
+from app.services.chat.related_prompts import related_prompts_for_page
 from app.services.chat.titles import sanitize_manual_chat_title
 from app.services.quota import utc_today
 
@@ -233,10 +234,14 @@ async def list_messages_page(
             except Exception:
                 logger.warning("Title backfill enqueue failed chat_id=%s", chat_id, exc_info=True)
 
-    return MessagePageOut(
-        messages=[MessageOut.model_validate(m) for m in msgs],
-        has_more=has_more,
+    outs = [MessageOut.model_validate(m) for m in msgs]
+    prompts = related_prompts_for_page(
+        [(message.role, message.content) for message in outs],
+        newest_page=before is None,
     )
+    if prompts:
+        outs[-1] = outs[-1].model_copy(update={"related_prompts": prompts})
+    return MessagePageOut(messages=outs, has_more=has_more)
 
 
 async def set_message_feedback(

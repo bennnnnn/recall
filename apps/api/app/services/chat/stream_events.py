@@ -39,6 +39,7 @@ _DONE_PAYLOAD_KEYS = (
     "final_content",
     "resolved_model",
     "fallback_used",
+    "related_prompts",
     # "interrupted" | "user_stop" — omitted when the reply completed normally.
     "completion",
 )

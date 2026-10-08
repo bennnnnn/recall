@@ -470,6 +470,11 @@ async def register_and_enqueue_finalize(
             result["memory_hints"] = json.dumps(ctx.memory_hints)
         if ctx.context_summarized:
             result["context_summarized"] = str(ctx.context_summarized)
+        from app.services.chat.related_prompts import related_prompts
+
+        prompts = related_prompts(ctx.user_message_content or "")
+        if prompts:
+            result["related_prompts"] = prompts
     await seams.mark_pending_finalize(redis, ctx.chat_id)
     finalize_db_task = seams.create_background_task(
         seams.finalize_stream_turn_db(redis, ctx, assistant_text, usage, result),

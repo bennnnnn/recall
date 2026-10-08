@@ -85,6 +85,7 @@ class MessageOut(BaseModel):
     content: str
     model: str | None
     feedback: MessageFeedback | None = None
+    related_prompts: list[str] | None = None
     created_at: datetime
 
 
