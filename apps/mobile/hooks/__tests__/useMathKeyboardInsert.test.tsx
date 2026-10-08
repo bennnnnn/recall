@@ -108,7 +108,7 @@ describe("useMathKeyboardInsert", () => {
     await act(() => result.current.math.insertSymbol(der2));
     const formula = result.current.input;
     expect(formula).toBe("$\\frac{d^{2}}{dx^{2}}$");
-    await act(() => result.current.math.onChangeText(formula.replace("\\", "")));
+    await act(() => result.current.math.onChangeText(formula.replaceAll("\\", "")));
     expect(result.current.input).toBe("$\\frac{d^{2}}{dx^{}}$");
   });
 

@@ -21,7 +21,7 @@ describe("healDroppedCommandSlash", () => {
 
   it("detects a single dropped slash", () => {
     const prev = "$\\frac{d^{2}}{dx^{2}}$";
-    expect(droppedOnlySlash(prev, prev.replace("\\", ""))).toBe(true);
+    expect(droppedOnlySlash(prev, prev.replaceAll("\\", ""))).toBe(true);
     expect(droppedOnlySlash(prev, "$\\frac{d^{2}}{dx^{}}$")).toBe(false);
   });
 });
