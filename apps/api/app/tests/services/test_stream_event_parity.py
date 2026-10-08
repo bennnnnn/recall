@@ -59,6 +59,16 @@ def test_done_includes_completion_when_interrupted() -> None:
     assert payload["message_id"] == "abc"
 
 
+def test_done_includes_related_prompts() -> None:
+    payload = stream_events.build_done_payload(
+        {
+            "message_id": "abc",
+            "related_prompts": ["what is 2+1?", "what is 1+2?"],
+        }
+    )
+    assert payload["related_prompts"] == ["what is 2+1?", "what is 1+2?"]
+
+
 def test_done_omits_complete_completion() -> None:
     payload = stream_events.build_done_payload({"message_id": "abc"})
     assert "completion" not in payload

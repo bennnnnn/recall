@@ -143,6 +143,20 @@ describe("chatSocketReduce", () => {
     expect(next[0].id).toBe("u1");
   });
 
+  it("mergeDoneIntoMessages stores related question strings", () => {
+    const prev: Message[] = [
+      { id: "u1", role: "user", content: "what is 1+1?", model: null, created_at: "t" },
+      { id: "streaming", role: "assistant", content: "2", model: null, created_at: "t" },
+    ];
+    const prompts = ["what is 2+1?", "what is 1+2?", "what is 1−1?"];
+    const input = buildDoneMergeInput(
+      { type: "done", message_id: "msg-1", final_content: "2", related_prompts: prompts },
+      { content: "2" },
+    );
+    const next = mergeDoneIntoMessages(prev, input);
+    expect(next[1].related_prompts).toEqual(prompts);
+  });
+
   it("buildDoneMergeInput parses stream metadata", () => {
     const input = buildDoneMergeInput(
       {

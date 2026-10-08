@@ -16,6 +16,7 @@ export type ChatWsPayload = {
   search_sources?: string;
   resolved_model?: string;
   completion?: string;
+  related_prompts?: unknown;
 };
 
 const STOPPED_STREAM_DELTA_TYPES = new Set([
@@ -54,6 +55,14 @@ export function parsePayloadSearchSources(
   return parsed.length > 0 ? parsed : undefined;
 }
 
+export function relatedPromptsFrom(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) return undefined;
+  const prompts = value.filter(
+    (item): item is string => typeof item === "string" && item.trim().length > 0,
+  );
+  return prompts.length > 0 ? prompts.slice(0, 3) : undefined;
+}
+
 export type DoneMergeInput = {
   finalId: string;
   messageId?: string;
@@ -62,6 +71,7 @@ export type DoneMergeInput = {
   search_sources?: SearchSource[];
   draftSearchSources?: SearchSource[];
   model?: string | null;
+  relatedPrompts?: string[];
   /**
    * Local id given to the streaming bubble when the user stopped generation
    * (e.g. `streamed-<ts>`). When the server's `done` arrives after a stop,
@@ -86,6 +96,7 @@ export function mergeDoneIntoMessages(
     search_sources,
     draftSearchSources,
     model,
+    relatedPrompts,
     stoppedStreamedId,
     generationStopped,
   } = input;
@@ -109,6 +120,7 @@ export function mergeDoneIntoMessages(
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             model: model ?? m.model,
             generationStopped: m.generationStopped || generationStopped,
+            ...(relatedPrompts?.length ? { related_prompts: relatedPrompts } : {}),
           }
         : m,
     );
@@ -138,6 +150,7 @@ export function mergeDoneIntoMessages(
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             model: model ?? m.model,
             generationStopped: m.generationStopped || generationStopped,
+            ...(relatedPrompts?.length ? { related_prompts: relatedPrompts } : {}),
           }
         : m,
     );
@@ -158,6 +171,7 @@ export function mergeDoneIntoMessages(
       search_sources: search_sources ?? parseSearchSources(content),
       created_at: new Date().toISOString(),
       generationStopped,
+      ...(relatedPrompts?.length ? { related_prompts: relatedPrompts } : {}),
     },
   ];
 }
@@ -190,6 +204,7 @@ export function buildDoneMergeInput(
     search_sources: parsePayloadSearchSources(payload.search_sources),
     draftSearchSources: draft?.search_sources,
     model: payload.resolved_model ?? null,
+    relatedPrompts: relatedPromptsFrom(payload.related_prompts),
     stoppedStreamedId,
     generationStopped: completion === "interrupted" || completion === "user_stop",
   };

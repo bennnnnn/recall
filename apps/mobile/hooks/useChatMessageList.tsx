@@ -3,6 +3,7 @@ import { View } from "react-native";
 
 import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
 import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageRow";
+import { RelatedPromptChips } from "@/features/suggestions/components/RelatedPromptChips";
 import { SuggestionChips } from "@/features/suggestions/components/SuggestionChips";
 import type { Message, Suggestion } from "@/lib/api";
 import {
@@ -150,8 +151,20 @@ export function useChatMessageList({
       // Every row keeps the same root <View> so the suggestion chips appearing
       // after stream end (or lastAssistantId moving to a new reply) never
       // changes the root element type — that would remount the whole bubble.
-      const withChips =
+      const relatedPrompts =
+        item.role === "assistant" && item.id === lastAssistantId
+          ? (item.related_prompts ?? [])
+          : [];
+      const showRelated =
+        !streaming &&
+        !finalizing &&
+        !imageGenerating &&
+        !suggestionsDelayed &&
+        relatedPrompts.length > 0 &&
+        Boolean(onSelectSuggestion);
+      const withActivity =
         showSuggestions &&
+        relatedPrompts.length === 0 &&
         item.role === "assistant" &&
         item.id === lastAssistantId &&
         onSelectSuggestion &&
@@ -159,7 +172,10 @@ export function useChatMessageList({
       return (
         <View>
           {row}
-          {withChips ? (
+          {showRelated && onSelectSuggestion ? (
+            <RelatedPromptChips prompts={relatedPrompts} onSelect={onSelectSuggestion} />
+          ) : null}
+          {withActivity ? (
             <SuggestionChips
               suggestions={suggestions}
               onSelect={onSelectSuggestion}
@@ -173,6 +189,8 @@ export function useChatMessageList({
       sharedRowProps,
       streaming,
       finalizing,
+      imageGenerating,
+      suggestionsDelayed,
       lastAssistantId,
       regenerating,
       showSuggestions,
