@@ -28,7 +28,7 @@ export function Login() {
     });
   }, [signInWithGoogle, navigate, loading, user]);
 
-  const onDev = async (e: React.FormEvent) => {
+  const onDev = async (e: React.SubmitEvent<HTMLFormElement>) => {
     e.preventDefault();
     try {
       await signInWithDev(devEmail, devName);
