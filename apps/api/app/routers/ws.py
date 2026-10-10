@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
 
+from app.core.background_tasks import create_background_task
 from app.core.client_ip import client_ip_from_websocket
 from app.core.config import get_settings
 from app.core.rate_limit import allow_request_fail_closed
@@ -36,6 +37,7 @@ from app.services.chat.stream_events import (
     error_payload_for_exception,
     persist_finalize_if_pending,
     pop_finalize_tasks,
+    take_related_prompts_event,
 )
 
 logger = logging.getLogger(__name__)
@@ -166,6 +168,7 @@ async def _stream_over_ws(
             return
 
         await _safe_send_json(websocket, build_done_payload(result))
+        _schedule_related_prompts(websocket, result)
 
     producer = asyncio.create_task(run_stream())
     if chat_id is not None:
@@ -526,3 +529,17 @@ async def chat_websocket(
             )
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected chat_id=%s", chat_id)
+
+
+def _schedule_related_prompts(websocket: WebSocket, result: dict[str, Any]) -> None:
+    """Send follow-up questions after ``done`` without holding the next message."""
+    task = result.pop("_related_task", None)
+    if task is None:
+        return
+
+    async def _send() -> None:
+        event = await take_related_prompts_event(task)
+        if event is not None:
+            await _safe_send_json(websocket, event)
+
+    create_background_task(_send(), name="related_prompts_send")

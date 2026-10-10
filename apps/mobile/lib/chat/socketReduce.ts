@@ -16,7 +16,8 @@ export type ChatWsPayload = {
   search_sources?: string;
   resolved_model?: string;
   completion?: string;
-  related_prompts?: unknown;
+  /** Follow-up questions on a `related_prompts` event. The message field stays `related_prompts`. */
+  prompts?: unknown;
 };
 
 const STOPPED_STREAM_DELTA_TYPES = new Set([
@@ -63,6 +64,11 @@ export function relatedPromptsFrom(value: unknown): string[] | undefined {
   return prompts.length > 0 ? prompts.slice(0, 3) : undefined;
 }
 
+/** The wire event is `{ type, message_id, prompts }`, not the message field name. */
+export function relatedPromptsFromEvent(payload: ChatWsPayload): string[] | undefined {
+  return relatedPromptsFrom(payload.prompts);
+}
+
 export type DoneMergeInput = {
   finalId: string;
   messageId?: string;
@@ -71,7 +77,6 @@ export type DoneMergeInput = {
   search_sources?: SearchSource[];
   draftSearchSources?: SearchSource[];
   model?: string | null;
-  relatedPrompts?: string[];
   /**
    * Local id given to the streaming bubble when the user stopped generation
    * (e.g. `streamed-<ts>`). When the server's `done` arrives after a stop,
@@ -96,7 +101,6 @@ export function mergeDoneIntoMessages(
     search_sources,
     draftSearchSources,
     model,
-    relatedPrompts,
     stoppedStreamedId,
     generationStopped,
   } = input;
@@ -120,7 +124,6 @@ export function mergeDoneIntoMessages(
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             model: model ?? m.model,
             generationStopped: m.generationStopped || generationStopped,
-            ...(relatedPrompts?.length ? { related_prompts: relatedPrompts } : {}),
           }
         : m,
     );
@@ -150,7 +153,6 @@ export function mergeDoneIntoMessages(
               parseSearchSources(finalContent ?? draftContent ?? m.content),
             model: model ?? m.model,
             generationStopped: m.generationStopped || generationStopped,
-            ...(relatedPrompts?.length ? { related_prompts: relatedPrompts } : {}),
           }
         : m,
     );
@@ -171,9 +173,24 @@ export function mergeDoneIntoMessages(
       search_sources: search_sources ?? parseSearchSources(content),
       created_at: new Date().toISOString(),
       generationStopped,
-      ...(relatedPrompts?.length ? { related_prompts: relatedPrompts } : {}),
     },
   ];
+}
+
+/** Attach follow-up questions from the event that arrives after `done`. */
+export function applyRelatedPrompts(
+  messages: Message[],
+  messageId: string,
+  prompts: string[],
+): Message[] {
+  if (!messageId || prompts.length === 0) return messages;
+  let changed = false;
+  const next = messages.map((message) => {
+    if (message.id !== messageId) return message;
+    changed = true;
+    return { ...message, related_prompts: prompts };
+  });
+  return changed ? next : messages;
 }
 
 /** Apply resolved model to the in-flight streaming bubble as soon as stream_end arrives. */
@@ -204,7 +221,6 @@ export function buildDoneMergeInput(
     search_sources: parsePayloadSearchSources(payload.search_sources),
     draftSearchSources: draft?.search_sources,
     model: payload.resolved_model ?? null,
-    relatedPrompts: relatedPromptsFrom(payload.related_prompts),
     stoppedStreamedId,
     generationStopped: completion === "interrupted" || completion === "user_stop",
   };

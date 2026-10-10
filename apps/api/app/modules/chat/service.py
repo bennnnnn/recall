@@ -20,7 +20,7 @@ from app.repositories import messages as messages_repo
 from app.repositories import usage as usage_repo
 from app.services import quota as quota_service
 from app.services.chat import finalize_registry
-from app.services.chat.related_prompts import related_prompts_for_page
+from app.services.chat.related_prompts import load_related_prompts
 from app.services.chat.titles import sanitize_manual_chat_title
 from app.services.quota import utc_today
 
@@ -235,13 +235,21 @@ async def list_messages_page(
                 logger.warning("Title backfill enqueue failed chat_id=%s", chat_id, exc_info=True)
 
     outs = [MessageOut.model_validate(m) for m in msgs]
-    prompts = related_prompts_for_page(
-        [(message.role, message.content) for message in outs],
-        newest_page=before is None,
-    )
-    if prompts:
-        outs[-1] = outs[-1].model_copy(update={"related_prompts": prompts})
+    if before is None:
+        await _attach_cached_related_prompts(redis, outs)
     return MessagePageOut(messages=outs, has_more=has_more)
+
+
+async def _attach_cached_related_prompts(redis: Redis, messages: list[MessageOut]) -> None:
+    """Newest page only. A cache miss leaves the field empty and does not call a model."""
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if message.role != "assistant":
+            continue
+        prompts = await load_related_prompts(redis, str(message.id))
+        if prompts:
+            messages[index] = message.model_copy(update={"related_prompts": prompts})
+        return
 
 
 async def set_message_feedback(

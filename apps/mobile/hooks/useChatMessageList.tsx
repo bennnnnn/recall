@@ -3,7 +3,7 @@ import { View } from "react-native";
 
 import { ChatMessageRow } from "@/components/chat/ChatMessageRow";
 import { StreamingChatMessageRow } from "@/components/chat/StreamingChatMessageRow";
-import { RelatedPromptChips } from "@/features/suggestions/components/RelatedPromptChips";
+import { RelatedPromptLines } from "@/features/suggestions/components/RelatedPromptLines";
 import { SuggestionChips } from "@/features/suggestions/components/SuggestionChips";
 import type { Message, Suggestion } from "@/lib/api";
 import {
@@ -173,7 +173,7 @@ export function useChatMessageList({
         <View>
           {row}
           {showRelated && onSelectSuggestion ? (
-            <RelatedPromptChips prompts={relatedPrompts} onSelect={onSelectSuggestion} />
+            <RelatedPromptLines prompts={relatedPrompts} onSelect={onSelectSuggestion} />
           ) : null}
           {withActivity ? (
             <SuggestionChips

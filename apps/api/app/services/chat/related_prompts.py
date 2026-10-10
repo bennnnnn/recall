@@ -1,245 +1,245 @@
-"""Related question strings for a math, physics, chemistry, or biology turn.
+"""Follow-up questions for a subject answer.
 
-Built from the user's own wording. No model call, so the reply is not held
-up waiting for another suggestion.
+One structured call on ``memory-model`` reads the student's question and the
+reply. Chitchat makes no call. The strings are cached in Redis under the
+assistant message id so reopening the chat does not call the model again.
 """
 
 from __future__ import annotations
 
+import asyncio
+import json
+import logging
 import re
-from collections.abc import Sequence
-from decimal import Decimal
+from typing import Any
 
+from pydantic import BaseModel, Field
+from redis.asyncio import Redis
+
+from app.core.background_tasks import create_background_task
+from app.core.config import Settings
+from app.gateways.litellm_gateway import complete_structured
+from app.services.chat.stream_events import build_related_prompts_event
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
 
-_MAX_PROMPTS = 3
+logger = logging.getLogger(__name__)
 
-# Same cues the presentation subject uses, plus plain biology topics that
-# have no number to rewrite.
-_BIOLOGY_BANKS: tuple[tuple[tuple[str, ...], tuple[str, str, str]], ...] = (
-    (
-        ("photosynthesis",),
-        (
-            "What is the equation for photosynthesis?",
-            "Where does photosynthesis happen?",
-            "How is photosynthesis different from cellular respiration?",
-        ),
-    ),
-    (
-        ("mitosis",),
-        (
-            "What are the stages of mitosis?",
-            "How is mitosis different from meiosis?",
-            "What is the result of mitosis?",
-        ),
-    ),
-    (
-        ("punnett", "allele"),
-        (
-            "What is a Punnett square for a heterozygous cross?",
-            "What is the difference between a genotype and a phenotype?",
-            "What is a dominant allele?",
-        ),
-    ),
-    (
-        ("hardy-weinberg", "hardy weinberg"),
-        (
-            "What is the Hardy-Weinberg equation?",
-            "What does p + q = 1 mean in Hardy-Weinberg?",
-            "What changes allele frequencies in a population?",
-        ),
-    ),
-    (
-        ("dilution",),
-        (
-            "What is C1V1 = C2V2?",
-            "How do you dilute a stock solution by half?",
-            "What is the difference between a dilution and a concentration?",
-        ),
-    ),
-    (
-        ("enzyme kinetics", "michaelis"),
-        (
-            "What is the Michaelis-Menten equation?",
-            "What does Km mean in enzyme kinetics?",
-            "How does substrate concentration change the rate of an enzyme?",
-        ),
-    ),
-    (
-        ("population growth",),
-        (
-            "What is exponential population growth?",
-            "What is the difference between exponential and logistic growth?",
-            "What limits population growth?",
-        ),
-    ),
+RELATED_PROMPTS_TIMEOUT_SECONDS = 6.0
+RELATED_PROMPTS_TTL_SECONDS = 7 * 24 * 60 * 60
+_ANSWER_CHARS = 800
+_QUESTION_CHARS = 500
+_MAX_QUESTIONS = 3
+_KEY = "related_prompts:{message_id}"
+_NUMBER = re.compile(r"\d+(?:\.\d+)?")
+
+# Biology is not a solver subject. These cues only decide whether to ask the
+# model for follow-up questions. They are not a list of questions to show.
+_BIOLOGY_CUES = (
+    "dilution",
+    "punnett",
+    "hardy-weinberg",
+    "hardy weinberg",
+    "allele",
+    "enzyme kinetics",
+    "michaelis",
+    "population growth",
+    "photosynthesis",
+    "mitosis",
 )
 
-_BINARY_ARITH = re.compile(
-    r"^(?P<prefix>.*?)"
-    r"(?P<a>\d+(?:\.\d+)?)"
-    r"(?P<gap1>\s*)"
-    r"(?P<op>[+\-*/\u00d7\u00f7\u2212xX])"
-    r"(?P<gap2>\s*)"
-    r"(?P<b>\d+(?:\.\d+)?)"
-    r"(?P<suffix>[^0-9]*)$"
+_SYSTEM = (
+    "You write the next three questions this student would ask about the "
+    "problem they just worked. Each item is one full question about this "
+    "same problem: why the result came out that way, a harder case of the "
+    "same idea, or the neighboring idea. "
+    "Write each equation or quantity in $...$, as in $x^2 = 9$. "
+    'Return JSON {"questions": ["...", "...", "..."]}. '
+    "Do not repeat the student's question. "
+    "Do not keep the same sentence and only change a number. "
+    "No heading and no label."
 )
-# Skip exponents (m/s^2) and digits glued to a formula (H2O).
-_NUMBER = re.compile(r"(?<![\w.^])(\d+(?:\.\d+)?)")
-_NEXT_OP = {
-    "+": "\u2212",
-    "-": "\u00d7",
-    "\u2212": "\u00d7",
-    "*": "\u00f7",
-    "\u00d7": "\u00f7",
-    "x": "\u00f7",
-    "X": "\u00f7",
-    "/": "+",
-    "\u00f7": "+",
-}
 
 
-def related_prompts(user_text: str) -> list[str]:
-    """Up to three related questions, or nothing when this is not a subject turn."""
-    text = collapse_ws(user_text or "")
-    if not text:
-        return []
-    subject = _subject(text)
-    if subject is None:
-        return []
-    if subject == "math":
-        arithmetic = _arithmetic_prompts(text)
-        if arithmetic:
-            return arithmetic
-    numbered = _numbered_prompts(text)
-    if numbered:
-        return numbered
-    if subject == "biology":
-        return _biology_prompts(text)
-    return []
+class RelatedQuestions(BaseModel):
+    questions: list[str] = Field(min_length=1, max_length=_MAX_QUESTIONS)
 
 
-def latest_related_prompts(turns: Sequence[tuple[str, str]]) -> list[str]:
-    """Prompts for the latest assistant turn, from the user line just before it."""
-    if not turns or turns[-1][0] != "assistant":
-        return []
-    for role, content in reversed(turns[:-1]):
-        if role == "user":
-            return related_prompts(content)
-    return []
-
-
-def related_prompts_for_page(
-    turns: Sequence[tuple[str, str]],
-    *,
-    newest_page: bool,
-) -> list[str]:
-    """Older history pages do not repeat chips that belong on the latest reply."""
-    if not newest_page:
-        return []
-    return latest_related_prompts(turns)
-
-
-def _subject(text: str) -> str | None:
-    detected = detect_subject(text)
+def subject_for_related(text: str) -> str | None:
+    """Math, physics, chemistry, or biology. Anything else is skipped."""
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return None
+    detected = detect_subject(cleaned)
     if detected is not None:
         return detected
-    if _biology_bank(text) is not None:
+    lowered = cleaned.casefold()
+    if any(cue in lowered for cue in _BIOLOGY_CUES):
         return "biology"
     return None
 
 
-def _biology_bank(text: str) -> tuple[str, str, str] | None:
-    lowered = text.casefold()
-    for cues, questions in _BIOLOGY_BANKS:
-        if any(cue in lowered for cue in cues):
-            return questions
-    return None
+def _digit_skeleton(text: str) -> str:
+    return _NUMBER.sub("#", collapse_ws(text).casefold())
 
 
-def _biology_prompts(text: str) -> list[str]:
-    bank = _biology_bank(text)
-    if bank is None:
-        return []
-    return _unique(text, list(bank))
+def _folded_question(text: str) -> str:
+    return collapse_ws(text).casefold().rstrip("?").strip()
 
 
-def _arithmetic_prompts(text: str) -> list[str]:
-    match = _BINARY_ARITH.match(text)
-    if match is None:
-        return []
-    prefix = match.group("prefix")
-    left = match.group("a")
-    gap1 = match.group("gap1")
-    op = match.group("op")
-    gap2 = match.group("gap2")
-    right = match.group("b")
-    suffix = match.group("suffix")
-    swapped = _NEXT_OP.get(op)
-    if swapped is None:
-        return []
-    candidates = [
-        _arith(prefix, _bump(left, 1), gap1, op, gap2, right, suffix),
-        _arith(prefix, left, gap1, op, gap2, _bump(right, 1), suffix),
-        _arith(prefix, left, gap1, swapped, gap2, right, suffix),
-        _arith(prefix, _bump(left, 2), gap1, op, gap2, right, suffix),
-        _arith(prefix, left, gap1, op, gap2, _bump(right, 2), suffix),
-    ]
-    return _unique(text, candidates)
+def _keep_question(question: str, candidate: str) -> bool:
+    cleaned = collapse_ws(candidate)
+    if not cleaned:
+        return False
+    folded = cleaned.casefold()
+    if _folded_question(cleaned) == _folded_question(question):
+        return False
+    if "suggestion" in folded:
+        return False
+    if _digit_skeleton(cleaned) == _digit_skeleton(question):
+        return False
+    return True
 
 
-def _arith(
-    prefix: str,
-    left: str,
-    gap1: str,
-    op: str,
-    gap2: str,
-    right: str,
-    suffix: str,
-) -> str:
-    return f"{prefix}{left}{gap1}{op}{gap2}{right}{suffix}"
-
-
-def _numbered_prompts(text: str) -> list[str]:
-    matches = list(_NUMBER.finditer(text))
-    if not matches:
-        return []
-    candidates: list[str] = []
-    if len(matches) == 1:
-        token = matches[0]
-        for step in (1, 2, 3):
-            candidates.append(_replace_span(text, token, _bump(token.group(1), step)))
-    else:
-        for match in matches[:_MAX_PROMPTS]:
-            candidates.append(_replace_span(text, match, _bump(match.group(1), 1)))
-        if len(candidates) < _MAX_PROMPTS:
-            first = matches[0]
-            candidates.append(_replace_span(text, first, _bump(first.group(1), 2)))
-    return _unique(text, candidates)
-
-
-def _replace_span(text: str, match: re.Match[str], replacement: str) -> str:
-    return f"{text[: match.start()]}{replacement}{text[match.end() :]}"
-
-
-def _bump(token: str, steps: int) -> str:
-    if "." in token:
-        places = len(token.split(".", 1)[1])
-        value = Decimal(token) + (Decimal(steps) / (Decimal(10) ** places))
-        return f"{value:.{places}f}"
-    return str(int(token) + steps)
-
-
-def _unique(original: str, candidates: list[str]) -> list[str]:
-    seen = {collapse_ws(original).casefold()}
-    chosen: list[str] = []
-    for candidate in candidates:
-        key = collapse_ws(candidate).casefold()
-        if not key or key in seen:
+def _accepted_questions(question: str, raw: list[str]) -> list[str]:
+    kept: list[str] = []
+    seen: set[str] = set()
+    for item in raw:
+        if not _keep_question(question, item):
+            continue
+        cleaned = collapse_ws(item)
+        key = cleaned.casefold()
+        if key in seen:
             continue
         seen.add(key)
-        chosen.append(candidate)
-        if len(chosen) == _MAX_PROMPTS:
+        kept.append(cleaned)
+        if len(kept) == _MAX_QUESTIONS:
             break
-    return chosen
+    return kept
+
+
+def _answer_excerpt(answer: str) -> str:
+    text = re.sub(r"```[a-z0-9_-]*", " ", answer, flags=re.IGNORECASE)
+    text = text.replace("```", " ")
+    return collapse_ws(text)[:_ANSWER_CHARS]
+
+
+async def generate_related_questions(
+    settings: Settings,
+    question: str,
+    answer: str,
+) -> list[str]:
+    """Three follow-up questions, or none when this line is not a subject."""
+    if subject_for_related(question) is None:
+        return []
+    excerpt = _answer_excerpt(answer)
+    if not excerpt:
+        return []
+    messages = [
+        {"role": "system", "content": _SYSTEM},
+        {
+            "role": "user",
+            "content": (
+                f"Student question:\n{collapse_ws(question)[:_QUESTION_CHARS]}\n\nReply:\n{excerpt}"
+            ),
+        },
+    ]
+    try:
+        parsed = await asyncio.wait_for(
+            complete_structured(
+                settings=settings,
+                model_alias="memory-model",
+                messages=messages,
+                schema=RelatedQuestions,
+                max_tokens=256,
+                timeout_seconds=RELATED_PROMPTS_TIMEOUT_SECONDS,
+                allow_fallback=False,
+            ),
+            timeout=RELATED_PROMPTS_TIMEOUT_SECONDS,
+        )
+    except TimeoutError:
+        logger.warning("Related questions timed out")
+        return []
+    except Exception:
+        logger.warning("Related questions failed", exc_info=True)
+        return []
+    if parsed is None:
+        return []
+    return _accepted_questions(question, parsed.questions)
+
+
+def _cache_key(message_id: str) -> str:
+    return _KEY.format(message_id=message_id)
+
+
+async def store_related_prompts(redis: Redis, message_id: str, prompts: list[str]) -> None:
+    await redis.set(
+        _cache_key(message_id),
+        json.dumps(prompts),
+        ex=RELATED_PROMPTS_TTL_SECONDS,
+    )
+
+
+async def load_related_prompts(redis: Redis, message_id: str) -> list[str]:
+    """Cached questions for one assistant message. A miss does not call the model."""
+    try:
+        raw = await redis.get(_cache_key(message_id))
+    except Exception:
+        logger.warning("Related questions cache read failed", exc_info=True)
+        return []
+    if not isinstance(raw, str) or not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        return []
+    if not isinstance(data, list):
+        return []
+    prompts = [item.strip() for item in data if isinstance(item, str) and item.strip()]
+    return prompts[:_MAX_QUESTIONS]
+
+
+async def _related_prompts_event(
+    redis: Redis,
+    settings: Settings,
+    *,
+    message_id: str,
+    question: str,
+    answer: str,
+) -> dict[str, Any] | None:
+    prompts = await generate_related_questions(settings, question, answer)
+    if not prompts:
+        return None
+    try:
+        await store_related_prompts(redis, message_id, prompts)
+    except Exception:
+        logger.warning("Related questions cache write failed", exc_info=True)
+    return build_related_prompts_event(message_id, prompts)
+
+
+def schedule_related_prompts(
+    result: dict[str, Any] | None,
+    redis: Redis,
+    settings: Settings,
+    *,
+    message_id: str,
+    question: str,
+    answer: str,
+) -> None:
+    """Start the model call without waiting. The transport sends the event after done."""
+    if result is not None and result.get("completion") not in (None, "complete"):
+        return
+    if subject_for_related(question) is None or not collapse_ws(answer):
+        return
+    task = create_background_task(
+        _related_prompts_event(
+            redis,
+            settings,
+            message_id=message_id,
+            question=question,
+            answer=answer,
+        ),
+        name="related_prompts",
+    )
+    if result is not None:
+        result["_related_task"] = task

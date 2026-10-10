@@ -1,4 +1,4 @@
-import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyStreamEndModel, parseChatWsPayload, shouldIgnoreStoppedStreamEvent } from "@/lib/chat/socketReduce";
+import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyRelatedPrompts, applyStreamEndModel, parseChatWsPayload, relatedPromptsFromEvent, shouldIgnoreStoppedStreamEvent } from "@/lib/chat/socketReduce";
 import type { Message } from "@/lib/api";
 
 describe("chatSocketReduce", () => {
@@ -143,18 +143,44 @@ describe("chatSocketReduce", () => {
     expect(next[0].id).toBe("u1");
   });
 
-  it("mergeDoneIntoMessages stores related question strings", () => {
+  it("a later related_prompts event stores the full questions", () => {
     const prev: Message[] = [
-      { id: "u1", role: "user", content: "what is 1+1?", model: null, created_at: "t" },
-      { id: "streaming", role: "assistant", content: "2", model: null, created_at: "t" },
+      { id: "u1", role: "user", content: "what is the force?", model: null, created_at: "t" },
+      { id: "streaming", role: "assistant", content: "30 N", model: null, created_at: "t" },
     ];
-    const prompts = ["what is 2+1?", "what is 1+2?", "what is 1−1?"];
-    const input = buildDoneMergeInput(
-      { type: "done", message_id: "msg-1", final_content: "2", related_prompts: prompts },
-      { content: "2" },
+    const prompts = [
+      "Why is the force the product of mass and acceleration?",
+      "What changes if this object is already moving?",
+      "How do you find the acceleration from the force and the mass?",
+    ];
+    const done = mergeDoneIntoMessages(
+      prev,
+      buildDoneMergeInput(
+        { type: "done", message_id: "msg-1", final_content: "30 N" },
+        { content: "30 N" },
+      ),
     );
-    const next = mergeDoneIntoMessages(prev, input);
+    expect(done[1].related_prompts).toBeUndefined();
+    const next = applyRelatedPrompts(done, "msg-1", prompts);
     expect(next[1].related_prompts).toEqual(prompts);
+  });
+
+  it("reads follow-up questions from the prompts field on the event", () => {
+    const payload = parseChatWsPayload(
+      JSON.stringify({
+        type: "related_prompts",
+        message_id: "msg-1",
+        prompts: [
+          "Why is the force the product of mass and acceleration?",
+          "What changes if this object is already moving?",
+        ],
+      }),
+    );
+    expect(payload).not.toBeNull();
+    expect(relatedPromptsFromEvent(payload!)).toEqual([
+      "Why is the force the product of mass and acceleration?",
+      "What changes if this object is already moving?",
+    ]);
   });
 
   it("buildDoneMergeInput parses stream metadata", () => {
