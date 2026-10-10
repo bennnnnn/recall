@@ -19,6 +19,7 @@ from app.services.chat.related_prompts import (
     load_related_prompts,
     schedule_related_prompts,
     store_related_prompts,
+    subject_for_related,
 )
 from app.services.chat.stream_events import build_done_payload, take_related_prompts_event
 
@@ -80,6 +81,11 @@ async def test_a_digit_change_of_the_same_sentence_is_dropped() -> None:
 
     assert tweaked not in prompts
     assert prompts == PHYSICS_FOLLOWUPS[:2]
+
+
+def test_an_arithmetic_follow_up_still_asks_for_more() -> None:
+    question = "How would you calculate 1 + 1 + 1 + 1?"
+    assert subject_for_related(question) == "math"
 
 
 @pytest.mark.parametrize("text", ["how's your day", "hi"])
