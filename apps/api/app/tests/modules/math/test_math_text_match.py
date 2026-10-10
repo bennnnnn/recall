@@ -702,6 +702,8 @@ class TestBareArithmetic:
             ("what is 10-3", "10-3"),
             ("10-3", "10-3"),
             ("calculate 1+1", "1+1"),
+            ("How would you calculate 1 + 1 + 1 + 1?", "1 + 1 + 1 + 1"),
+            ("how do you calculate 2+2+2", "2+2+2"),
             ("10-3-2", "10-3-2"),
             ("100/5/2", "100/5/2"),
             ("-3+5", "-3+5"),

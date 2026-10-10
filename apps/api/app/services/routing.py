@@ -458,12 +458,10 @@ def _verified_math_stays_fast(content: str) -> bool:
     Keep equations / calculus / graphs on smart. Bare factorial ("4!") and
     "what is 1+1" style arithmetic stay on the fast model.
     """
+    from app.modules.math.match.arithmetic import bare_arithmetic_expr
     from app.modules.math.match.discrete import combinatorics_signal
-    from app.modules.math.match.scan import (
-        bare_arithmetic_expr,
-        prepare,
-        written_arithmetic_request,
-    )
+    from app.modules.math.match.scan import prepare
+    from app.modules.math.match.written import written_arithmetic_request
 
     cleaned = prepare(content)
     if not cleaned:

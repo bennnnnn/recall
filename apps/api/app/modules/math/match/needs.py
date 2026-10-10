@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.math.match.arithmetic import bare_arithmetic_expr
 from app.modules.math.match.calculus import (
     calc_op,
     parse_limit,
@@ -28,7 +29,6 @@ from app.modules.math.match.graph import (
 )
 from app.modules.math.match.literal_geometry import parse_named_rectangle_request
 from app.modules.math.match.scan import (
-    bare_arithmetic_expr,
     first_dim_pair,
     geometry_dim_context,
     has_algebraic_equation,
@@ -37,11 +37,10 @@ from app.modules.math.match.scan import (
     inequality_signal,
     number_after,
     prepare,
-    spoken_power_request,
     two_numbers_after,
-    written_arithmetic_request,
 )
 from app.modules.math.match.statistics import bivariate_stats_signal
+from app.modules.math.match.written import spoken_power_request, written_arithmetic_request
 from app.services.text_match import has_equation, word_index
 
 
