@@ -27,6 +27,10 @@ _BUILDERS = {
     "reasoning": lambda: stream_events.build_reasoning_event("hmm"),
     "stream_end": lambda: stream_events.build_stream_end_payload({}),
     "done": lambda: stream_events.build_done_payload({}),
+    "related_prompts": lambda: stream_events.build_related_prompts_event(
+        "abc",
+        ["Why is the force the product of mass and acceleration?"],
+    ),
 }
 
 
@@ -59,14 +63,27 @@ def test_done_includes_completion_when_interrupted() -> None:
     assert payload["message_id"] == "abc"
 
 
-def test_done_includes_related_prompts() -> None:
+def test_done_does_not_carry_related_prompts() -> None:
     payload = stream_events.build_done_payload(
         {
             "message_id": "abc",
-            "related_prompts": ["what is 2+1?", "what is 1+2?"],
+            "related_prompts": ["Why is the force the product of mass and acceleration?"],
         }
     )
-    assert payload["related_prompts"] == ["what is 2+1?", "what is 1+2?"]
+    assert "related_prompts" not in payload
+    assert payload["message_id"] == "abc"
+
+
+def test_related_prompts_event_shape() -> None:
+    question = "Why is the force the product of mass and acceleration?"
+    event = stream_events.build_related_prompts_event("abc", [question])
+    assert event == {"type": "related_prompts", "message_id": "abc", "prompts": [question]}
+
+
+@pytest.mark.parametrize("router", [_WS, _SSE], ids=["ws", "sse"])
+def test_related_prompts_follow_done(router: Path) -> None:
+    source = router.read_text()
+    assert source.rindex("build_done_payload") < source.rindex("take_related_prompts_event")
 
 
 def test_done_omits_complete_completion() -> None:

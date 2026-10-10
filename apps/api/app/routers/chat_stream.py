@@ -36,6 +36,7 @@ from app.services.chat.stream_events import (
     error_payload_for_exception,
     persist_finalize_if_pending,
     pop_finalize_tasks,
+    take_related_prompts_event,
 )
 from app.services.chat.stream_status import StreamStatusFn
 
@@ -176,6 +177,9 @@ async def _stream_tokens_sse(
             return
 
         yield _sse(build_done_payload(result))
+        related = await take_related_prompts_event(result.pop("_related_task", None))
+        if related is not None:
+            yield _sse(related)
     except Exception as exc:
         if not isinstance(
             exc,

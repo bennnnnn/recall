@@ -11,7 +11,15 @@ import { useTheme } from "@/lib/theme";
 import { Weight } from "@/lib/type";
 
 /** Math-aware callout text without invoking MarkdownContent or rich-fence routing. */
-export function RichMathBody({ content, style }: { content: string; style?: StyleProp<TextStyle> }) {
+export function RichMathBody({
+  content,
+  style,
+  textColor,
+}: {
+  content: string;
+  style?: StyleProp<TextStyle>;
+  textColor?: string;
+}) {
   const theme = useTheme();
   const parts = useMemo(() => parseRichMathText(content), [content]);
   if (!parts.some((part) => part.type === "math")) {
@@ -23,7 +31,7 @@ export function RichMathBody({ content, style }: { content: string; style?: Styl
         if (part.type === "math") {
           return [isHeavyInlineMath(part.value)
             ? <MathBlock key={index} latex={part.value} />
-            : <MathText key={index} latex={part.value} textColor={theme.text} />];
+            : <MathText key={index} latex={part.value} textColor={textColor ?? theme.text} />];
         }
         // Separate words can wrap around a sized fraction/radical. Never nest
         // those Views inside Text (iOS gives them a zero-sized attachment).

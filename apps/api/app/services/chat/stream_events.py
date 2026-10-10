@@ -39,7 +39,6 @@ _DONE_PAYLOAD_KEYS = (
     "final_content",
     "resolved_model",
     "fallback_used",
-    "related_prompts",
     # "interrupted" | "user_stop" — omitted when the reply completed normally.
     "completion",
 )
@@ -139,6 +138,31 @@ async def persist_finalize_if_pending(result: dict[str, Any]) -> None:
         return
     with suppress(Exception):
         await await_finalize_commit(finalize_db_task)
+
+
+def build_related_prompts_event(message_id: str, prompts: list[str]) -> dict[str, Any]:
+    """Follow-up questions for one assistant message. Sent after ``done``."""
+    return {
+        "type": "related_prompts",
+        "message_id": message_id,
+        "prompts": prompts,
+    }
+
+
+async def take_related_prompts_event(
+    task: asyncio.Task[Any] | None,
+) -> dict[str, Any] | None:
+    """Wait for the follow-up event. ``done`` is already on the wire."""
+    if task is None:
+        return None
+    try:
+        event = await asyncio.shield(task)
+    except Exception:
+        logger.warning("Related prompts failed", exc_info=True)
+        return None
+    if not isinstance(event, dict) or event.get("type") != "related_prompts":
+        return None
+    return event
 
 
 def build_done_payload(result: dict[str, Any]) -> dict[str, Any]:
