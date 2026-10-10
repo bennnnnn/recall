@@ -2,7 +2,6 @@ import { attachmentsApi } from "@/features/attachments/api";
 import { homeApi } from "@/features/home/api";
 import { imagesApi } from "@/features/images/api";
 import { integrationsApi } from "@/features/integrations/api";
-import { jobSearchApi } from "@/features/job-search/api";
 import { memoriesApi } from "@/features/memory/api";
 import { searchApi } from "@/features/search/api";
 import { speechApi } from "@/features/speech/api";
@@ -18,7 +17,6 @@ import { scanApi } from "@/lib/api/scan";
 export type * from "@/lib/api/types";
 export type { ProductEventName } from "@/lib/api/analytics";
 export type { ScanReading } from "@/lib/api/scan";
-export type * from "@/features/job-search/api";
 export { attachmentRecordExists } from "@/features/attachments/api";
 export type { AttachmentListItem } from "@/features/attachments/types";
 export {
@@ -49,6 +47,5 @@ export const api = {
   ...attachmentsApi,
   ...imagesApi,
   ...speechApi,
-  ...jobSearchApi,
   ...scanApi,
 };

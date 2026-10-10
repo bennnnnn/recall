@@ -218,7 +218,7 @@ def android_channel_id(data: dict[str, Any], channels: str = SPLIT_ANDROID_CHANN
     """Match the Android channels created in the mobile app."""
     suffix = "-v2" if channels == TONE_ANDROID_CHANNELS else ""
     kind = data.get("type")
-    if kind in {"email_suggestion", "job_search_ready"}:
+    if kind == "email_suggestion":
         return f"recall-inbox{suffix}"
     return f"recall-reminders{suffix}"
 

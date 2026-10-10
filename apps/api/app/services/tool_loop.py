@@ -36,28 +36,6 @@ from app.modules.billing import plan as plan_service
 from app.modules.images.gen_tool import bind_image_gen_context
 from app.modules.images.search_tool import bind_image_search_context
 from app.modules.integrations.tool import bind_calendar_context
-from app.modules.job_search.chat_routing import (
-    _direct_job_tool_args as _direct_job_tool_args,
-)
-from app.modules.job_search.chat_routing import (
-    _is_one_off_job_search as _is_one_off_job_search,
-)
-from app.modules.job_search.chat_routing import (
-    _is_saved_job_update as _is_saved_job_update,
-)
-from app.modules.job_search.chat_routing import (
-    _is_unfiltered_job_search as _is_unfiltered_job_search,
-)
-from app.modules.job_search.chat_routing import (
-    _protect_one_off_job_search as _protect_one_off_job_search,
-)
-from app.modules.job_search.chat_routing import (
-    _protect_saved_job_update as _protect_saved_job_update,
-)
-from app.modules.job_search.chat_routing import (
-    _requested_job_limit as _requested_job_limit,
-)
-from app.modules.job_search.tool import JOB_DIRECT_REPLY_PREFIX, bind_job_search_context
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.tools import VerifiedMathBlock
 from app.modules.math.tools.extract import trig_domain_would_be_dropped
@@ -77,7 +55,7 @@ class TerminalImageResult:
 
 
 def _status_for_tool(name: str) -> str | None:
-    if name in ("web_search", "job_search"):
+    if name == "web_search":
         return "searching"
     if name == "sympy":
         return "calculating"
@@ -263,31 +241,6 @@ def _tool_loop_completion_alias(model_alias: str) -> str:
     return "gemini-flash"
 
 
-def _job_tool_unavailable_message() -> dict[str, Any]:
-    return {
-        "role": "system",
-        "content": (
-            "This request requires the My Job tool, but no verified My Job tool result "
-            "was produced. Never infer saved preferences, matches, schedules, or job-search "
-            "state from memories or past conversation. Briefly say My Job could not be "
-            "checked or changed right now and ask the user to retry."
-        ),
-    }
-
-
-def direct_tool_reply(messages: list[dict[str, Any]]) -> str | None:
-    """Extract an authoritative tool reply from a tool-role message only."""
-    for message in reversed(messages):
-        if message.get("role") != "tool":
-            continue
-        content = message.get("content")
-        if not isinstance(content, str) or not content.startswith(JOB_DIRECT_REPLY_PREFIX):
-            continue
-        reply = content.removeprefix(JOB_DIRECT_REPLY_PREFIX).strip()
-        return reply or None
-    return None
-
-
 def _tool_calls_from_text(
     content: object,
     tools: list[dict[str, Any]],
@@ -382,7 +335,6 @@ def turn_needs_tool_loop(
     has_verified_math: bool = False,
     has_search_sources: bool = False,
     web_search: bool | None = None,
-    job_search_turn: bool = False,
     settings: Settings | None = None,
     user: User | None = None,
 ) -> bool:
@@ -403,8 +355,6 @@ def turn_needs_tool_loop(
     text = content.strip() if isinstance(content, str) else ""
     if not text:
         return False
-    if job_search_turn:
-        return True
     if lightweight:
         return False
     has_leftover_math = leftover_math_after_verified(text)
@@ -419,15 +369,12 @@ def turn_needs_tool_loop(
 
     from app.modules.images.gen_intent import extract_image_gen_prompt
     from app.modules.images.lookup_intent import extract_image_lookup_query
-    from app.modules.job_search.chat_intent import wants_job_search
     from app.modules.math.tools import needs_symbolic_math
     from app.modules.web_search.detection import needs_web_search
 
     if web_search is True:
         return True
     if web_search is not False and not has_search_sources and needs_web_search(text):
-        return True
-    if wants_job_search(text):
         return True
     math_on = settings is None or settings.math_tools_enabled
     if math_on and needs_symbolic_math(text):
@@ -498,16 +445,6 @@ async def run_tool_rounds(
     if not tools:
         return messages, None, None, []
 
-    # A classified My Job turn must never spill into calendar, reminders, web,
-    # or another tool family. Restricting the selector is both more accurate
-    # and prevents an unrelated side effect when the request is an edit.
-    from app.modules.job_search.chat_intent import wants_job_search_turn
-
-    if wants_job_search_turn(messages):
-        tools = [tool for tool in tools if (tool.get("function") or {}).get("name") == "job_search"]
-        if not tools:
-            return [*messages, _job_tool_unavailable_message()], None, None, []
-
     with (
         bind_search_quota_context(
             user=user,
@@ -519,7 +456,6 @@ async def run_tool_rounds(
         bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
         bind_image_search_context(user=user, redis=redis, chat_id=chat_id),
         bind_calendar_context(user=user, redis=redis, settings=settings),
-        bind_job_search_context(user=user, redis=redis, settings=settings),
     ):
         working, verified, terminal, hits = await _run_tool_rounds_bound(
             settings=settings,
@@ -560,34 +496,6 @@ async def _run_tool_rounds_bound(
 ]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
     user_text = _last_user_content(messages)
-    from app.modules.job_search.chat_intent import wants_job_search_turn
-
-    job_search_turn = wants_job_search_turn(messages)
-    direct_job_args = _direct_job_tool_args(user_text) if job_search_turn else None
-    if direct_job_args is not None:
-        call_id = "job_search_direct"
-        result = await mcp_registry.invoke_validated("job_search", direct_job_args)
-        content = result.content if result else "My Job is unavailable right now."
-        working.extend(
-            [
-                {
-                    "role": "assistant",
-                    "content": None,
-                    "tool_calls": [
-                        {
-                            "id": call_id,
-                            "type": "function",
-                            "function": {
-                                "name": "job_search",
-                                "arguments": json.dumps(direct_job_args),
-                            },
-                        }
-                    ],
-                },
-                {"role": "tool", "tool_call_id": call_id, "content": content},
-            ]
-        )
-        return working, None, None, []
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
     # Collect canonical fences across rounds keyed by type so a geometry
     # fence from round 1 isn't lost when round 2 produces a graph fence.
@@ -613,14 +521,10 @@ async def _run_tool_rounds_bound(
         except ModelUnavailableError:
             logger.warning("Tool-loop completion failed; falling through to stream")
             working.append(_tool_selection_unavailable_message())
-            if job_search_turn:
-                working.append(_job_tool_unavailable_message())
             break
         except Exception:
             logger.exception("Tool-loop completion failed; falling through to stream")
             working.append(_tool_selection_unavailable_message())
-            if job_search_turn:
-                working.append(_job_tool_unavailable_message())
             break
 
         if should_cancel and should_cancel():
@@ -631,8 +535,6 @@ async def _run_tool_rounds_bound(
         tool_calls = msg.get("tool_calls") or _tool_calls_from_text(msg.get("content"), tools)
         if not tool_calls:
             # Explicit no-tool decision; the caller streams the answer.
-            if job_search_turn:
-                working.append(_job_tool_unavailable_message())
             break
 
         assistant_msg: dict[str, Any] = {
@@ -650,8 +552,6 @@ async def _run_tool_rounds_bound(
             fn = call.get("function") or {}
             name = str(fn.get("name") or "")
             raw_args = fn.get("arguments") or "{}"
-            raw_args = _protect_one_off_job_search(name, raw_args, user_text)
-            raw_args = _protect_saved_job_update(name, raw_args, user_text)
             call_id = str(call.get("id") or name)
             if index >= max_calls:
                 working.append(
@@ -693,15 +593,6 @@ async def _run_tool_rounds_bound(
                 await on_status(phase, _status_detail_for_tool(name, raw_args))
             result = await mcp_registry.invoke_validated(name, raw_args)
             content = result.content if result else f"Unknown tool: {name}"
-            if (
-                job_search_turn
-                and name == "job_search"
-                and content.startswith(("Invalid arguments:", "Invalid JSON arguments."))
-            ):
-                content = (
-                    f"{JOB_DIRECT_REPLY_PREFIX}I could not apply that My Job change "
-                    "because part of the request was invalid. Nothing was changed."
-                )
             fence = _canonical_from_tool_result(result) if result else None
             if fence is not None:
                 # Merge by type so earlier rounds' fences survive later ones.

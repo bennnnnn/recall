@@ -78,9 +78,6 @@ async def run_tool_loop_path(
     has_instant = ctx.instant_reply is not None
     has_verified = ctx.verified_subject is not None
     has_sources = bool(sources)
-    from app.modules.job_search.chat_intent import wants_job_search_turn
-
-    job_search_turn = wants_job_search_turn(ctx.prompt_messages)
     web_search_flag: bool | None = None
     if await seams.quota_service.global_spend_exceeded(redis, settings):
         logger.warning(
@@ -97,7 +94,6 @@ async def run_tool_loop_path(
         has_instant_reply=has_instant,
         has_verified_math=has_verified,
         has_search_sources=has_sources,
-        job_search_turn=job_search_turn,
         settings=settings,
         user=ctx.user,
     ):
@@ -133,7 +129,6 @@ async def run_tool_loop_path(
             has_verified_math=has_verified,
             has_search_sources=has_sources,
             web_search=web_search_flag,
-            job_search_turn=job_search_turn,
             settings=settings,
             user=ctx.user,
         ):
@@ -162,9 +157,6 @@ async def run_tool_loop_path(
         ctx.terminal_image_message_id = terminal_image.message_id
         ctx.terminal_image_content = terminal_image.final_content
         ctx.terminal_image_model = terminal_image.resolved_model
-    direct_reply = tool_loop_service.direct_tool_reply(ctx.prompt_messages)
-    if direct_reply is not None:
-        ctx.instant_reply = direct_reply
     if tool_search_hits and not ctx.search_sources:
         ctx.search_sources = tool_search_hits
 

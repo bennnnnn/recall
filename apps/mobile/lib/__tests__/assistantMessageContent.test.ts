@@ -187,6 +187,16 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownContent).not.toContain("What does hola mean?");
   });
 
+  it("strips leftover job-results fences from stored replies", () => {
+    const result = deriveAssistantMessageContent({
+      ...base,
+      content: ["Here are matches.", "", "```job-results", "{\"matches\":[]}", "```"].join("\n"),
+    });
+
+    expect(result.markdownContent).not.toContain("job-results");
+    expect(result.markdownContent).toContain("Here are matches.");
+  });
+
   it("strips vocab_card fences instead of rendering a study card in chat", () => {
     const result = deriveAssistantMessageContent({
       ...base,

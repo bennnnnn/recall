@@ -49,9 +49,9 @@ export type AssistantMessageContent = {
   markdownResetKey: string;
 };
 
-/** Stored chats may still contain language-learning fences. Drop the JSON. */
+/** Stored chats may still contain retired product fences. Drop the JSON. */
 const RETIRED_LEARNING_FENCE =
-  /```(?:vocab_quiz|vocab_card|learning_launch)\b[^\n]*\n[\s\S]*?```/g;
+  /```(?:vocab_quiz|vocab_card|learning_launch|job-results)\b[^\n]*\n[\s\S]*?```/g;
 
 function stripRetiredLearningFences(text: string): string {
   if (!text.includes("```")) return text;

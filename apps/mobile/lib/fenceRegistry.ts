@@ -31,7 +31,6 @@
  */
 
 export type FenceId =
-  | "job-results"
   | "answer"
   | "arithmetic"
   | "callout"
@@ -83,7 +82,6 @@ export type FenceSpec = {
 };
 
 export const FENCES: readonly FenceSpec[] = [
-  { id: "job-results", langs: ["job-results"], structured: true, neverCodeBlock: true, owner: "server" },
   { id: "email", langs: ["email"], structured: true, neverCodeBlock: true, owner: "model" },
   {
     id: "quote",
