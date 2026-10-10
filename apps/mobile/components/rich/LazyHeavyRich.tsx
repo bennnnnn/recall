@@ -5,14 +5,6 @@
 import React, { Suspense } from "react";
 import { ActivityIndicator, View } from "react-native";
 
-const JobResultsBlockLazy = React.lazy(() =>
-  import("@/features/job-search/components/JobResultsBlock").then(m => ({ default: m.JobResultsBlock })),
-);
-
-export function LazyJobResultsBlock({ content }: { content: string }) {
-  return <Suspense fallback={<RichLoadPlaceholder height={120} />}><JobResultsBlockLazy content={content} /></Suspense>;
-}
-
 const MermaidBlockLazy = React.lazy(() =>
   import("@/components/rich/MermaidBlock").then((m) => ({ default: m.MermaidBlock })),
 );

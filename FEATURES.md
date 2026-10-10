@@ -657,8 +657,6 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 **UX decisions from the 2026-09 frontend audit (do not relitigate):**
 - Model selection is **settings-only** (Settings → Models); no composer model picker.
-- My Job keeps one combined route (empty state → dashboard); split only if the empty
-  state grows.
 - User-message copy stays **long-press only** (with a "Long press to copy"
   accessibility hint); no visible copy button on user bubbles.
 - Onboarding keeps a single CTA.
@@ -986,10 +984,10 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   - **Menus:** every menu is one anchored popover; choices use a checked `SelectMenu`.
   - **Dialogs:** themed `confirmDialog` / `alertDialog` replace system alerts; passing errors are toasts.
   - **Pickers:** an Android-style clock time picker (dial, AM/PM, 24-hour inner ring,
-    keyboard entry) and a calendar date picker with a year list, used for quiet hours,
-    to-dos and My Job. The native datetimepicker module is removed.
+    keyboard entry) and a calendar date picker with a year list, used for quiet hours
+    and to-dos. The native datetimepicker module is removed.
   - **Share:** a ChatGPT-style share sheet (preview card with copy, Share / Copy / PDF) for
-    chats, the drawer and My Job.
+    chats and the drawer.
   - **Controls:** round header buttons, pill `Button`s, one `Chip`, `SegmentedControl`,
     `ListRow`, and `TextField`.
 

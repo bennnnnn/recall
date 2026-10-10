@@ -175,11 +175,6 @@ export function ConversationList() {
     startNewChatGlobal();
   }, []);
 
-  const openMyJob = useCallback(() => {
-    closeDrawer();
-    router.push("/my-job");
-  }, [router]);
-
   const openReminders = useCallback(() => {
     closeDrawer();
     router.push("/todos");
@@ -245,7 +240,6 @@ export function ConversationList() {
           styles={s}
           showIndicator={showIndicator}
           unseenCount={unseenCount}
-          onMyJob={openMyJob}
           onReminders={openReminders}
           onGallery={openGallery}
         />
@@ -267,7 +261,6 @@ export function ConversationList() {
       s,
       showIndicator,
       unseenCount,
-      openMyJob,
       openReminders,
       openGallery,
       loading,

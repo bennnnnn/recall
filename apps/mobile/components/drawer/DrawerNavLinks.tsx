@@ -13,7 +13,6 @@ type Props = {
   styles: ConversationListStyles;
   showIndicator: boolean;
   unseenCount: number;
-  onMyJob: () => void;
   onReminders: () => void;
   onGallery: () => void;
 };
@@ -22,7 +21,6 @@ export function DrawerNavLinks({
   styles: s,
   showIndicator,
   unseenCount,
-  onMyJob,
   onReminders,
   onGallery,
 }: Props) {
@@ -30,16 +28,6 @@ export function DrawerNavLinks({
 
   return (
     <View style={s.drawerNav}>
-      <ListRow
-        appearance="plain"
-        icon="briefcase"
-        title={t("drawer.my_job")}
-        onPress={() => {
-          tap();
-          onMyJob();
-        }}
-        style={s.navRow}
-      />
       <ListRow
         appearance="plain"
         leading={

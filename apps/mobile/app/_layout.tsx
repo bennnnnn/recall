@@ -78,11 +78,6 @@ function RootNavigator() {
             ...stackBackOptions(),
           }}
         />
-        {/* Nested-stack drawer hubs share one transition preset. */}
-        <Stack.Screen
-          name="my-job"
-          options={{ ...stackPushTransition(reduceMotion), headerShown: false }}
-        />
         <Stack.Screen
           name="gallery"
           options={{

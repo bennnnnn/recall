@@ -16,8 +16,6 @@ from app.core.sentry import init_sentry
 from app.gateways.http_client import aclose_pooled_clients
 from app.modules.attachments import reaper as attachment_orphan_reaper
 from app.modules.integrations import scheduler as gmail_periodic_sync
-from app.modules.job_search import jobs as job_search_jobs
-from app.modules.job_search import scheduler as job_search_scheduler
 from app.services.mcp import setup_mcp_adapters
 
 VALID_PROCESS_ROLES = frozenset({"all", "api", "worker"})
@@ -48,12 +46,10 @@ async def initialize_process(settings: Settings) -> None:
 
 async def start_worker_runtime(settings: Settings) -> None:
     job_handlers.register_all()
-    job_search_jobs.register_job_search_jobs()
     await jobs.start_worker(settings)
     await push_scheduler.start_push_scheduler(settings)
     await email_reminder_scheduler.start_email_reminder_scheduler(settings)
     await gmail_periodic_sync.start_gmail_periodic_scheduler(settings)
-    await job_search_scheduler.start_job_search_scheduler(settings)
     await attachment_orphan_reaper.start_orphan_reaper(settings)
     await billing_reconcile_scheduler.start_billing_reconcile_scheduler(settings)
 
@@ -63,7 +59,6 @@ async def stop_worker_runtime() -> None:
     await push_scheduler.stop_push_scheduler()
     await email_reminder_scheduler.stop_email_reminder_scheduler()
     await gmail_periodic_sync.stop_gmail_periodic_scheduler()
-    await job_search_scheduler.stop_job_search_scheduler()
     await attachment_orphan_reaper.stop_orphan_reaper()
     await billing_reconcile_scheduler.stop_billing_reconcile_scheduler()
 

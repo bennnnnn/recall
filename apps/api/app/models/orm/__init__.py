@@ -14,13 +14,6 @@ from app.modules.integrations.models import (
     UserCalendarConnection,
     UserGmailConnection,
 )
-from app.modules.job_search.models import (
-    JobManualAllowance,
-    JobMatch,
-    JobNotificationEvent,
-    JobSearchProfile,
-    JobSearchRun,
-)
 from app.modules.memory.models import Memory, MemoryArea
 from app.modules.suggestions.models import Suggestion
 from app.modules.todos.models import TodoItem
@@ -29,11 +22,6 @@ __all__ = [
     "Attachment",
     "AttachmentChunk",
     "Chat",
-    "JobManualAllowance",
-    "JobMatch",
-    "JobNotificationEvent",
-    "JobSearchProfile",
-    "JobSearchRun",
     "Memory",
     "MemoryArea",
     "Message",

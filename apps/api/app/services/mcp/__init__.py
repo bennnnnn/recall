@@ -5,7 +5,6 @@ from app.gateways.mcp.registry import register
 from app.modules.images.gen_tool import ImageGenAdapter
 from app.modules.images.search_tool import ImageSearchAdapter
 from app.modules.integrations.tool import CalendarAdapter
-from app.modules.job_search.tool import JobSearchAdapter
 from app.modules.math.tool import SympyAdapter
 from app.modules.web_search import WebSearchAdapter
 
@@ -13,7 +12,6 @@ from app.modules.web_search import WebSearchAdapter
 def setup_mcp_adapters(settings: Settings) -> None:
     register(WebSearchAdapter(settings))
     register(CalendarAdapter())
-    register(JobSearchAdapter())
     if settings.math_tools_enabled:
         register(SympyAdapter(settings))
     if settings.image_generation_enabled:

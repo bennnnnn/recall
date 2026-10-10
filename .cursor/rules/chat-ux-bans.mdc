@@ -93,3 +93,9 @@ If a plan or FEATURES item asks for these, **push back and skip** — they are e
 ## 15. No in-chat A–D quiz chips
 - Chat must **not** render A–D chips or grade stored `vocab_quiz` fences.
 - Leftover `vocab_quiz`, `vocab_card`, and `learning_launch` fences in old messages are **strip for display** only. Do not parse them back into chips or a lesson path.
+
+## 16. No My Job product
+- Job search, match cards, cover letters, application stages, and `/my-job` are removed.
+- Do **not** restore `modules/job_search/`, `features/job-search/`, the drawer row, or the `job_search` chat tool.
+- A stored `job-results` fence is **strip for display** only.
+- Settings “your job” stays. That is the profile occupation field.

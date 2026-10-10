@@ -25,7 +25,6 @@ import {
  */
 
 const LEGACY_STRUCTURED = [
-  "job-results",
   "email",
   "quote",
   "blockquote",
@@ -90,7 +89,6 @@ const LEGACY_STRUCTURED = [
 ];
 
 const LEGACY_NEVER_CODE_BLOCK = [
-  "job-results",
   "copy",
   "message",
   "email",
@@ -229,7 +227,6 @@ describe("fence registry lookups", () => {
       "email",
       "geometry",
       "graph",
-      "job-results",
       "keyvalue",
       "math",
       "mermaid",
@@ -297,7 +294,6 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
       message: "component",
       copy: "hidden",
       sources: "hidden",
-      "job-results": "component",
     };
     for (const spec of FENCES) {
       expect(renderSlot[spec.id]).toBe(spec.structured ? "component" : "hidden");
