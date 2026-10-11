@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.attachment_limits import MAX_ATTACHMENT_SIZE as MAX_ATTACHMENT_SIZE
 from app.core.config import Settings
 from app.gateways.storage_gateway import get_storage_gateway
+from app.modules.attachments import lifecycle as _lifecycle
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import extract_text_details_async, read_attachment_bytes
 from app.modules.attachments.content_types import EXTRACTABLE_CONTENT_TYPES
@@ -24,6 +25,10 @@ from app.modules.attachments.content_types import (
 )
 
 create_pending = attachments_repo.create_pending
+get_by_id = attachments_repo.get_by_id
+hide_from_gallery = attachments_repo.hide_from_gallery
+list_for_user = attachments_repo.list_for_user
+purge_attachments_for_user = _lifecycle.purge_attachments_for_user
 get_by_ids = attachments_repo.get_by_ids
 insert_verified_clone = attachments_repo.insert_verified_clone
 link_to_message = attachments_repo.link_to_message

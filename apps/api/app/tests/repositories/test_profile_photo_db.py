@@ -9,9 +9,10 @@ from sqlalchemy import select, update
 
 from app.core.config import Settings
 from app.models.orm import Attachment, User
+from app.modules.account import lifecycle as account_lifecycle
+from app.modules.account import service as auth
 from app.modules.attachments import repository as attachments
 from app.repositories import users
-from app.services import account_lifecycle, auth
 
 
 async def _user(session) -> User:

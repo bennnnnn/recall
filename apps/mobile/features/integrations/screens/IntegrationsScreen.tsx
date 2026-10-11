@@ -7,11 +7,11 @@ import { useTranslation } from "react-i18next";
 import { StateView } from "@/ui/feedback/StateView";
 import { BrandMark } from "@/ui/icons/brand";
 import { IconSize } from "@/ui/icons/sizes";
-import { ConnectedAppCard } from "@/components/settings/ConnectedAppCard";
+import { ConnectedAppCard } from "@/features/account/components/ConnectedAppCard";
 import {
   makeSettingsStyles,
   SettingsLinkRow,
-} from "@/components/settings/settingsUi";
+} from "@/features/account/components/settingsUi";
 import { useSettingsIntegrations } from "@/features/integrations/hooks/useSettingsIntegrations";
 import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";

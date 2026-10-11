@@ -36,6 +36,7 @@ from app.modules.memory.consolidation import (
 from app.modules.memory.consolidation import (
     sections_need_consolidation as sections_need_consolidation,
 )
+from app.modules.memory.repository import list_range as list_range
 from app.modules.memory.selection import (
     _ALWAYS_INJECT_TYPES as _ALWAYS_INJECT_TYPES,
 )

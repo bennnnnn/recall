@@ -455,7 +455,7 @@ async def test_handle_transactional_email_missing_user_discards():
 @pytest.mark.asyncio
 async def test_login_dev_enqueues_welcome_for_new_user():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
     redis = AsyncMock()
@@ -471,14 +471,19 @@ async def test_login_dev_enqueues_welcome_for_new_user():
     )
 
     with (
-        patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock(id=uuid4()))),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.users_repo.get_by_google_sub", AsyncMock(return_value=None)
+        ),
+        patch(
+            "app.modules.account.service.users_repo.create",
+            AsyncMock(return_value=MagicMock(id=uuid4())),
+        ),
+        patch(
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
-        patch("app.services.auth.jobs.enqueue_welcome_email", AsyncMock()) as enq,
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.jobs.enqueue_welcome_email", AsyncMock()) as enq,
     ):
         await auth_service.login_dev(
             AsyncMock(), settings, email="dev@test.local", name="Dev", redis=redis
@@ -489,7 +494,7 @@ async def test_login_dev_enqueues_welcome_for_new_user():
 @pytest.mark.asyncio
 async def test_login_dev_does_not_enqueue_for_existing_user():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
     redis = AsyncMock()
@@ -506,13 +511,16 @@ async def test_login_dev_does_not_enqueue_for_existing_user():
     )
 
     with (
-        patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=existing)),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.users_repo.get_by_google_sub",
+            AsyncMock(return_value=existing),
+        ),
+        patch(
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
-        patch("app.services.auth.jobs.enqueue_welcome_email", AsyncMock()) as enq,
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.jobs.enqueue_welcome_email", AsyncMock()) as enq,
     ):
         await auth_service.login_dev(
             AsyncMock(), settings, email="dev@test.local", name="Dev", redis=redis
@@ -523,7 +531,7 @@ async def test_login_dev_does_not_enqueue_for_existing_user():
 @pytest.mark.asyncio
 async def test_login_dev_refreshes_name_on_relogin():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
     redis = AsyncMock()
@@ -541,14 +549,19 @@ async def test_login_dev_refreshes_name_on_relogin():
     )
 
     with (
-        patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=existing)),
-        patch("app.services.auth.users_repo.update", AsyncMock(return_value=existing)) as update,
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.users_repo.get_by_google_sub",
+            AsyncMock(return_value=existing),
+        ),
+        patch(
+            "app.modules.account.service.users_repo.update", AsyncMock(return_value=existing)
+        ) as update,
+        patch(
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
-        patch("app.services.auth.jobs.enqueue_welcome_email", AsyncMock()),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.jobs.enqueue_welcome_email", AsyncMock()),
     ):
         session = AsyncMock()
         await auth_service.login_dev(
@@ -560,7 +573,7 @@ async def test_login_dev_refreshes_name_on_relogin():
 @pytest.mark.asyncio
 async def test_login_dev_keeps_name_when_unchanged():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
     redis = AsyncMock()
@@ -578,14 +591,19 @@ async def test_login_dev_keeps_name_when_unchanged():
     )
 
     with (
-        patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=existing)),
-        patch("app.services.auth.users_repo.update", AsyncMock(return_value=existing)) as update,
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.users_repo.get_by_google_sub",
+            AsyncMock(return_value=existing),
+        ),
+        patch(
+            "app.modules.account.service.users_repo.update", AsyncMock(return_value=existing)
+        ) as update,
+        patch(
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
-        patch("app.services.auth.jobs.enqueue_welcome_email", AsyncMock()),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.jobs.enqueue_welcome_email", AsyncMock()),
     ):
         await auth_service.login_dev(
             AsyncMock(), settings, email="dev@test.local", name="Bini", redis=redis
@@ -596,7 +614,7 @@ async def test_login_dev_keeps_name_when_unchanged():
 @pytest.mark.asyncio
 async def test_login_dev_skips_enqueue_when_email_disabled():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings = Settings(
         dev_auth_enabled=True,
@@ -616,14 +634,19 @@ async def test_login_dev_skips_enqueue_when_email_disabled():
     )
 
     with (
-        patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock(id=uuid4()))),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.users_repo.get_by_google_sub", AsyncMock(return_value=None)
+        ),
+        patch(
+            "app.modules.account.service.users_repo.create",
+            AsyncMock(return_value=MagicMock(id=uuid4())),
+        ),
+        patch(
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
-        patch("app.services.auth.jobs.enqueue_welcome_email", AsyncMock()) as enq,
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.jobs.enqueue_welcome_email", AsyncMock()) as enq,
     ):
         await auth_service.login_dev(
             AsyncMock(), settings, email="dev@test.local", name="Dev", redis=redis

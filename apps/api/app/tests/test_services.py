@@ -900,7 +900,7 @@ async def test_stream_chat_response_quota_exceeded(used: int) -> None:
 @pytest.mark.asyncio
 async def test_login_dev_creates_user():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
     uid = uuid4()
@@ -915,13 +915,15 @@ async def test_login_dev_creates_user():
         created_at="2024-01-01T00:00:00",
     )
     with (
-        patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock())),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.users_repo.get_by_google_sub", AsyncMock(return_value=None)
+        ),
+        patch("app.modules.account.service.users_repo.create", AsyncMock(return_value=MagicMock())),
+        patch(
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(
             AsyncMock(), settings, email="dev@test.local", name="Dev", redis=AsyncMock()
@@ -933,7 +935,7 @@ async def test_login_dev_creates_user():
 @pytest.mark.asyncio
 async def test_login_dev_returns_existing_user():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
     uid = uuid4()
@@ -950,14 +952,14 @@ async def test_login_dev_returns_existing_user():
 
     with (
         patch(
-            "app.services.auth.users_repo.get_by_google_sub",
+            "app.modules.account.service.users_repo.get_by_google_sub",
             AsyncMock(return_value=MagicMock()),
         ),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(
             AsyncMock(), settings, email="existing@test.local", name="Old", redis=AsyncMock()
@@ -968,7 +970,7 @@ async def test_login_dev_returns_existing_user():
 @pytest.mark.asyncio
 async def test_login_dev_updates_name_for_existing_user():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings = Settings(dev_auth_enabled=True, jwt_secret="test-secret-long-enough-32-chars!!")
     existing = MagicMock()
@@ -987,18 +989,18 @@ async def test_login_dev_updates_name_for_existing_user():
 
     with (
         patch(
-            "app.services.auth.users_repo.get_by_google_sub",
+            "app.modules.account.service.users_repo.get_by_google_sub",
             AsyncMock(return_value=existing),
         ),
         patch(
-            "app.services.auth.users_repo.update",
+            "app.modules.account.service.users_repo.update",
             AsyncMock(return_value=existing),
         ) as mock_update,
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_dev(
             AsyncMock(),
@@ -1013,8 +1015,8 @@ async def test_login_dev_updates_name_for_existing_user():
 
 @pytest.mark.asyncio
 async def test_get_current_user_returns_none_for_unknown():
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
-    with patch("app.services.auth.users_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.account.service.users_repo.get_by_id", AsyncMock(return_value=None)):
         user = await auth_service.get_current_user(AsyncMock(), uuid4())
     assert user is None

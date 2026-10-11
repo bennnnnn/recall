@@ -206,8 +206,8 @@ module.exports = defineConfig([
       "lib/vendor/**",
       // Spacing and radius only. Color stays enforced on these files.
       // They still use a number that is not on the scale.
-      "app/login.tsx",
-      "app/onboarding.tsx",
+      "features/auth/screens/LoginScreen.tsx",
+      "features/auth/screens/OnboardingScreen.tsx",
       "components/ChatMessageImage.tsx",
       "components/ChatMessagePdf.tsx",
       "components/CodeBlock.tsx",
@@ -257,9 +257,9 @@ module.exports = defineConfig([
       "components/rich/SimulationBlock.tsx",
       "components/rich/StepList.tsx",
       "components/rich/VisualCard.tsx",
-      "components/settings/SettingsProfileSheet.tsx",
-      "components/settings/SettingsSkeleton.tsx",
-      "components/settings/settingsStyles.ts",
+      "features/account/components/SettingsProfileSheet.tsx",
+      "features/account/components/SettingsSkeleton.tsx",
+      "features/account/components/settingsStyles.ts",
       "features/attachments/components/AttachmentLightboxChrome.tsx",
       "features/attachments/components/ComposerAttachmentPreview.tsx",
       "features/attachments/screens/GalleryScreen.tsx",

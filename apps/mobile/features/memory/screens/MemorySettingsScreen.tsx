@@ -9,7 +9,7 @@ import {
   SettingsGroup,
   SettingsLinkRow,
   SettingsSwitchRow,
-} from "@/components/settings/settingsUi";
+} from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { StateView } from "@/ui/feedback/StateView";

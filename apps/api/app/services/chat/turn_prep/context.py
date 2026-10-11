@@ -15,6 +15,9 @@ from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
+from app.modules.account import profile as profile_service
+from app.modules.account import settings_proposal as settings_proposal_service
+from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.billing import plan as plan_service
 from app.modules.chemistry.followup import chemistry_followup_problem as resolve_chemistry_followup
 from app.modules.integrations import calendar as calendar_service
@@ -31,9 +34,7 @@ from app.modules.web_search.subject import (
 from app.modules.web_search.subject import last_assistant_content
 from app.repositories import chats as chats_repo
 from app.repositories import users as users_repo
-from app.services import profile as profile_service
 from app.services import recurring_pay as recurring_pay_service
-from app.services import settings_proposal as settings_proposal_service
 from app.services import time_context as time_context_service
 from app.services.chat.continuation_subject import (
     blocks_math_followup,
@@ -62,7 +63,6 @@ from app.services.chat.turn_prep.mode import (
     _TurnMode,
 )
 from app.services.chat.turn_timing import TurnTimingTracker
-from app.services.settings_intent import extract_settings_changes
 from app.services.solving import VerifiedSolveBlock
 from app.services.subject_solving import detect_subject, maybe_direct_subject_reply
 from app.services.text_normalize import collapse_ws

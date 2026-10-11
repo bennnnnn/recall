@@ -12,6 +12,7 @@ from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
+from app.modules.account import profile as profile_service
 from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT, chemistry_followup_problem
 from app.modules.integrations import inbox as email_service
 from app.modules.math.followup import (
@@ -24,7 +25,6 @@ from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
 from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, physics_followup_problem
 from app.services import locale as locale_service
-from app.services import profile as profile_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
 from app.services.chat import tools as chat_tools_service

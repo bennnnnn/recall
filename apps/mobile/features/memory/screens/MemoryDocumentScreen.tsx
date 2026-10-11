@@ -10,7 +10,7 @@ import {
 import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
-import { SettingsFieldSheet } from "@/components/settings/SettingsFieldSheet";
+import { SettingsFieldSheet } from "@/features/account/components/SettingsFieldSheet";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { MemoryComposer } from "@/features/memory/components/MemoryComposer";

@@ -119,11 +119,11 @@ What exists in code today. Product caveats: FEATURES.md.
 
 | Domain | API | Mobile |
 |--------|-----|--------|
-| Auth / account | `routers/auth.py`, `users.py`, `services/auth.py`, `profile.py`, `subscription.py` | `app/login.tsx`, `onboarding.tsx`, `lib/api/auth.ts`, `account.ts` |
+| Auth / account | `modules/account/` (HTTP `/auth`: sign-in, sessions, profile, settings proposals, export, delete); per-request token check in `core/access_tokens.py` | `features/auth/` (login, onboarding), `features/account/` (settings screens); `app/login.tsx`, `onboarding.tsx`, `app/settings/*` routes only |
 | Chat history | `modules/chat/` (HTTP `/chats`) | drawer history; `lib/api/chats.ts` until the mobile chat move |
 | Chat stream | `routers/ws.py`, `chat_stream.py`; `services/chat/` | `app/index.tsx`, `hooks/useChat*.ts`, `components/chat/` |
 | Memory | `modules/memory/` (HTTP `/memories`, `/memories/documents`, `/memories/instruct`) | `features/memory/`; `app/memory/` routes only (list + `[key]` page) |
-| Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `settings/models.tsx` |
+| Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
 | Suggestions | `modules/suggestions/` (HTTP `/suggestions`) | `features/suggestions/`; follow-up chips |
 | Todos / reminders | `modules/todos/` (HTTP `/todos`) | `features/todos/`; `app/todos.tsx` route only |
@@ -141,13 +141,13 @@ What exists in code today. Product caveats: FEATURES.md.
 | Push / email out | `modules/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `modules/billing/`, `gateways/revenuecat_gateway.py` | RevenueCat |
 | Product analytics | `routers/analytics.py`, `services/product_analytics.py` | `lib/api/analytics.ts` (metadata-only events; never prompts) |
-| Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `settings/about.tsx`, data-controls |
+| Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `features/account/screens/AboutScreen.tsx`, `DataControlsScreen.tsx` |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, and Speech APIs plus the legacy health, legal, auth, admin, webhooks, users, link_preview, chat_stream, models, analytics, and ws routers.
+**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, and Notifications push-token (`/users`) APIs plus the legacy health, legal, admin, link_preview, chat_stream, models, analytics, and ws routers.
 
-**Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, auth, tokens, …). New chat-loop code belongs in `services/chat/`; new external IO belongs in a gateway, not an API surface.
+**Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, model catalog, time context, …). New chat-loop code belongs in `services/chat/`; new external IO belongs in a gateway, not an API surface.
 
 ## Seams (plug in / plug out)
 
@@ -194,7 +194,7 @@ Steps 6–8 are the only ones on the user's critical path. Everything in step 9 
 
 Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Settings (models, memory, preferences, integrations, notifications, data-controls, about). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
 
-- Network: `lib/api.ts` barrel → `lib/api/{client,auth,chats,account,discover,connectivity,analytics,push,types}.ts` plus feature slices (`features/memory/api.ts`, `features/todos/api.ts`, `features/home/api.ts`, `features/search/api.ts`, `features/suggestions/api.ts`, `features/integrations/api.ts`, `features/attachments/api.ts`, `features/images/api.ts`, `features/speech/api.ts`)
+- Network: `lib/api.ts` barrel → `lib/api/{client,chats,discover,connectivity,analytics,push,scan,types}.ts` plus feature slices (`features/auth/api.ts`, `features/account/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/home/api.ts`, `features/search/api.ts`, `features/suggestions/api.ts`, `features/integrations/api.ts`, `features/attachments/api.ts`, `features/images/api.ts`, `features/speech/api.ts`)
 - Tokens: `expo-secure-store` only
 - Chat logic: `hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — screens stay thin
 - Domain libs: `lib/<domain>/` — `math/`, `chat/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.

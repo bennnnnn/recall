@@ -11,10 +11,16 @@ from typing import Any
 _EXPORTS = {
     "is_pro": ("plan", "is_pro"),
 }
-__all__ = list(_EXPORTS)
+# Account reads plan policy and syncs a purchase; both are billing's to own.
+_MODULE_EXPORTS = ("plan", "subscription")
+__all__ = list(_EXPORTS) + list(_MODULE_EXPORTS)
 
 
 def __getattr__(name: str) -> Any:
+    if name in _MODULE_EXPORTS:
+        value = import_module(f"app.modules.billing.{name}")
+        globals()[name] = value
+        return value
     target = _EXPORTS.get(name)
     if target is None:
         raise AttributeError(name)
