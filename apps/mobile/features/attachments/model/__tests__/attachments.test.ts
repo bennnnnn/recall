@@ -1,6 +1,5 @@
 // lib/ tests run under ts-jest/node — react-native is ESM and cannot load
-// as CJS. pickFromCamera opens Settings via Linking; this suite does not
-// exercise that path but still imports the module.
+// as CJS.
 jest.mock("react-native", () => ({
   Linking: { openSettings: jest.fn() },
 }));
@@ -9,7 +8,8 @@ import { File } from "expo-file-system";
 import { api } from "@/lib/api";
 import { pendingFromLibraryItem } from "@/lib/pendingFromLibraryItem";
 import { requestRaw } from "@/lib/api/client";
-import { pickDocument, pickFromPhotoLibrary, pickImageDocument, uploadChatAttachment, NativePickerBusyError } from "@/features/attachments/model/attachments";
+import { Linking } from "react-native";
+import { pickDocument, pickFromCamera, pickFromPhotoLibrary, pickImageDocument, uploadChatAttachment, NativePickerBusyError } from "@/features/attachments/model/attachments";
 import * as DocumentPicker from "expo-document-picker";
 import * as ImagePicker from "expo-image-picker";
 import * as ImageManipulator from "expo-image-manipulator";
@@ -22,7 +22,9 @@ jest.mock("expo-document-picker", () => ({ getDocumentAsync: jest.fn() }));
 jest.mock("expo-image-picker", () => ({
   requestMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
   getMediaLibraryPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
+  requestCameraPermissionsAsync: jest.fn(async () => ({ granted: true, canAskAgain: true })),
   launchImageLibraryAsync: jest.fn(),
+  launchCameraAsync: jest.fn(),
 }));
 jest.mock("expo-image-manipulator", () => ({
   SaveFormat: { JPEG: "jpeg" }, manipulateAsync: jest.fn(async () => ({ uri: "file:///converted.jpg" })),
@@ -118,16 +120,62 @@ it("uses square editing and preserves source dimensions for profile preparation"
   expect(ImageManipulator.manipulateAsync).not.toHaveBeenCalled();
 });
 
-it("throws when the photo library permission is permanently denied", async () => {
+it("opens Photos even when library permission is denied", async () => {
   jest.mocked(ImagePicker.getMediaLibraryPermissionsAsync).mockResolvedValueOnce({
     granted: false,
     canAskAgain: false,
   } as ImagePicker.MediaLibraryPermissionResponse);
-  await expect(pickFromPhotoLibrary()).rejects.toMatchObject({
+  jest.mocked(ImagePicker.launchImageLibraryAsync).mockResolvedValue({ canceled: true, assets: null });
+  await expect(pickFromPhotoLibrary()).resolves.toBeNull();
+  expect(ImagePicker.getMediaLibraryPermissionsAsync).not.toHaveBeenCalled();
+  expect(ImagePicker.launchImageLibraryAsync).toHaveBeenCalled();
+  expect(Linking.openSettings).not.toHaveBeenCalled();
+});
+
+it("still requires library permission for the square crop editor", async () => {
+  jest.mocked(ImagePicker.getMediaLibraryPermissionsAsync).mockResolvedValueOnce({
+    granted: false,
+    canAskAgain: false,
+  } as ImagePicker.MediaLibraryPermissionResponse);
+  await expect(pickFromPhotoLibrary({ squareCrop: true })).rejects.toMatchObject({
     name: "PhotoLibraryPermissionError",
     needsSettings: true,
   });
   expect(ImagePicker.launchImageLibraryAsync).not.toHaveBeenCalled();
+});
+
+it("opens the camera without a permission round trip when access is already granted", async () => {
+  jest.mocked(ImagePicker.launchCameraAsync).mockResolvedValue({ canceled: true, assets: null });
+  await expect(pickFromCamera()).resolves.toBeNull();
+  expect(ImagePicker.requestCameraPermissionsAsync).not.toHaveBeenCalled();
+  expect(ImagePicker.launchCameraAsync).toHaveBeenCalled();
+});
+
+it("asks for camera permission only after the system rejects the launch", async () => {
+  jest.mocked(ImagePicker.launchCameraAsync)
+    .mockRejectedValueOnce(new Error("Missing camera or camera roll permission"))
+    .mockResolvedValueOnce({ canceled: true, assets: null });
+  jest.mocked(ImagePicker.requestCameraPermissionsAsync).mockResolvedValue({
+    granted: true,
+    canAskAgain: true,
+  } as ImagePicker.CameraPermissionResponse);
+  await expect(pickFromCamera()).resolves.toBeNull();
+  expect(ImagePicker.requestCameraPermissionsAsync).toHaveBeenCalledTimes(1);
+  expect(ImagePicker.launchCameraAsync).toHaveBeenCalledTimes(2);
+  expect(Linking.openSettings).not.toHaveBeenCalled();
+});
+
+it("opens Settings when camera access cannot be requested again", async () => {
+  jest.mocked(ImagePicker.launchCameraAsync).mockRejectedValue(
+    new Error("Missing camera or camera roll permission"),
+  );
+  jest.mocked(ImagePicker.requestCameraPermissionsAsync).mockResolvedValue({
+    granted: false,
+    canAskAgain: false,
+  } as ImagePicker.CameraPermissionResponse);
+  await expect(pickFromCamera()).rejects.toThrow(/camera permission/i);
+  expect(Linking.openSettings).toHaveBeenCalledTimes(1);
+  expect(ImagePicker.launchCameraAsync).toHaveBeenCalledTimes(1);
 });
 
 it("throws instead of silently no-oping when a native picker is already open", async () => {

@@ -38,7 +38,7 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
       variant="bottom"
       withHandle
       floating
-      keyboardAvoiding
+      embedded
       minBottomPadding={12}
       contentContainerStyle={s.panel}
     >
