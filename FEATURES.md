@@ -194,7 +194,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   image: …"). Pro users get daily-limited generations stored as chat attachments. No separate
   prompt sheet, and the model must not send people to DALL-E / Midjourney. Stop
   mid-generation keeps the user message and shows canceled/failed + Retry. Tap the result to
-  view full-screen and save via the system share sheet.
+  view full-screen and save via the system share sheet. The phone and the server read the
+  request with the same rules; `docs/fixtures/image_intent_cases.json` is asserted by both
+  test suites, so "show the steps" after a picture is chat on every client.
 - 🔜 **Music generation** — same composer-send path as image gen (no prompt sheet): user asks
   to generate a track, we generate a clip, store it as an audio attachment, and show a **compact
   inline player** on the assistant message (play/pause + scrub + duration — not a full-screen

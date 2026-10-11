@@ -1,11 +1,16 @@
 """Detect composer image-generation intent (mirrors mobile imageGenIntent.ts).
 
+The phone runs the same rules before it sends, so each helper has a same-named
+TypeScript twin. Change both, and ``docs/fixtures/image_intent_cases.json``,
+together; both test suites assert every case in that file.
+
 Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
 (CodeQL ``py/polynomial-redos``).
 """
 
 from __future__ import annotations
 
+from itertools import pairwise
 from typing import Any
 
 _USER_MESSAGE_PREFIX = "Generate image: "
@@ -35,7 +40,10 @@ _IMAGE_NOUNS = frozenset(
     },
 )
 _ARTICLES = frozenset({"a", "an"})
+_POSSESSIVES = frozenset({"my", "your", "our", "his", "her", "their", "its"})
 _REVISION_PRONOUNS = frozenset({"it", "them", "this", "that"})
+_NOUN_MESSAGE_FILE_WORDS = frozenset({"script", "code", "compression", "format", "file"})
+_SUBJECTLESS_FILLER = frozenset({"a", "an", "the", "of", "just", "please"})
 
 _NON_IMAGE_WORDS = frozenset(
     {
@@ -164,10 +172,15 @@ _NON_IMAGE_WORDS = frozenset(
         "ways",
         "tips",
         "tip",
+        "secret",
         "secrets",
+        "habit",
         "habits",
+        "trick",
         "tricks",
+        "stage",
         "stages",
+        "phase",
         "phases",
         # "create music" is a chat ask, not a picture of an instrument.
         "music",
@@ -175,6 +188,27 @@ _NON_IMAGE_WORDS = frozenset(
         "songs",
         "playlist",
         "playlists",
+        # Things the user wants built or written, not drawn.
+        "app",
+        "apps",
+        "website",
+        "websites",
+        "game",
+        "games",
+        "program",
+        "programs",
+        "spreadsheet",
+        "spreadsheets",
+        "recipe",
+        "recipes",
+        "poem",
+        "poems",
+        "essay",
+        "essays",
+        "story",
+        "stories",
+        "joke",
+        "jokes",
     },
 )
 
@@ -248,8 +282,7 @@ def _clean_prompt(raw: str) -> str | None:
     prompt = raw.strip().rstrip(".!?").strip()
     if not prompt or len(prompt) < 2:
         return None
-    words = prompt.lower().split()
-    if any(w in _CODEISH_WORDS for w in words):
+    if any(_fold_token(w) in _CODEISH_WORDS for w in prompt.split()):
         return None
     return prompt
 
@@ -272,14 +305,28 @@ def _has_non_image_subject(subject: str) -> bool:
 
 
 def _has_non_image_draw(subject: str) -> bool:
-    lower = subject.lower()
-    if "sketch of the idea" in lower:
+    words = [_fold_token(word) for word in subject.split()]
+    if "sketch of the idea" in " ".join(words):
         return True
-    return any(word in _NON_IMAGE_DRAW_WORDS for word in lower.split())
+    return any(word in _NON_IMAGE_DRAW_WORDS for word in words)
+
+
+def _names_no_subject(parts: list[str]) -> bool:
+    """``the image`` / ``just a pic of`` — only fillers and image nouns, no subject."""
+    return all(
+        _fold_token(tok) in _IMAGE_NOUNS or _fold_token(tok) in _SUBJECTLESS_FILLER for tok in parts
+    )
+
+
+_MAX_IMAGE_MODIFIERS = 3
 
 
 def _match_verb_then_image(tokens: list[str]) -> str | None:
-    """create/generate … image/pic … of? SUBJECT"""
+    """create/generate … image/pic … of? SUBJECT
+
+    A few words may describe the picture first (``create a realistic photo of
+    a dog``); they stay in the prompt, so the subject must follow ``of``.
+    """
     if len(tokens) < 3:
         return None
     if tokens[0].lower() not in _VERBS_IMAGE:
@@ -289,11 +336,26 @@ def _match_verb_then_image(tokens: list[str]) -> str | None:
         i += 1
     if i < len(tokens) and tokens[i].lower() in _ARTICLES:
         i += 1
+    start = i
+    while (
+        i < len(tokens)
+        and i - start < _MAX_IMAGE_MODIFIERS
+        and tokens[i].lower() not in _IMAGE_NOUNS
+    ):
+        i += 1
     if i >= len(tokens) or tokens[i].lower() not in _IMAGE_NOUNS:
         return None
-    i += 1
-    if i < len(tokens) and tokens[i].lower() == "of":
+    if i > start:
+        rest = tokens[i + 2 :]
+        if rest and rest[0].lower() in _ARTICLES:
+            rest = rest[1:]
+        if not rest or tokens[i + 1].lower() != "of":
+            return None
+        i = start
+    else:
         i += 1
+        if i < len(tokens) and tokens[i].lower() == "of":
+            i += 1
     if i >= len(tokens):
         return None
     subject = _join_subject(tokens[i:])
@@ -316,7 +378,7 @@ def _match_verb_subject_image(tokens: list[str]) -> str | None:
     if i < len(tokens) - 1 and tokens[i].lower() in _ARTICLES:
         i += 1
     subject_parts = tokens[i:-1]
-    if not subject_parts:
+    if not subject_parts or _names_no_subject(subject_parts):
         return None
     subject = _join_subject(subject_parts)
     if _has_non_image_subject(subject) or _has_non_image_draw(subject):
@@ -375,6 +437,8 @@ _MAKE_NOT_A_PICTURE = frozenset(
         "bed",
         "love",
         "ends",
+        "laugh",
+        "smile",
     }
 )
 _MAKE_IDIOM_FILLER = frozenset({"a", "an", "the", "some", "more", "much", "of", "lot", "lots"})
@@ -407,6 +471,9 @@ def _match_short_create(tokens: list[str]) -> str | None:
         return None
     if subject_parts[0].lower() in _REVISION_PRONOUNS:
         return None
+    # "create an image" names no subject; the thread may supply one.
+    if _names_no_subject(subject_parts):
+        return None
     subject = _join_subject(subject_parts)
     if verb == "make" and _make_is_not_a_picture(subject):
         return None
@@ -416,20 +483,37 @@ def _match_short_create(tokens: list[str]) -> str | None:
 
 
 def _match_image_noun_message(tokens: list[str]) -> str | None:
-    """Short colloquial: 'cat pic' / 'sunset photo' as the full message."""
-    if not tokens or len(tokens) > 16:
+    """Short colloquial ask: ``cat pic`` / ``a sunset photo`` / ``photo of a cat``.
+
+    The image noun must close the message, or open it before ``of``. A noun in
+    the middle (``best photo editing apps``, ``picture this``) is ordinary chat,
+    and so is a question or a possessive (``how to take a good photo``).
+    """
+    if len(tokens) < 2 or len(tokens) > 16:
         return None
-    if not any(tok.lower() in _IMAGE_NOUNS for tok in tokens):
+    folded = [_fold_token(tok) for tok in tokens]
+    if folded[-1] in _IMAGE_NOUNS:
+        parts = tokens[:-1]
+    else:
+        i = 1 if folded[0] in _ARTICLES else 0
+        if i + 1 >= len(tokens) or folded[i] not in _IMAGE_NOUNS or folded[i + 1] != "of":
+            return None
+        parts = tokens[i + 2 :]
+    if parts and _fold_token(parts[0]) in _ARTICLES:
+        parts = parts[1:]
+    if not parts or _names_no_subject(parts):
         return None
-    kept = [tok for tok in tokens if tok.lower() not in _IMAGE_NOUNS]
-    i = 0
-    if i < len(kept) and kept[i].lower() in _ARTICLES:
-        i += 1
-    subject = _join_subject(kept[i:])
-    if len(subject) < 2:
+    first = _fold_token(parts[0])
+    if (
+        first in _POSSESSIVES
+        or first in _NOT_REVISION_STARTERS
+        or first in _IMAGE_NOUNS
+        or first in _VERBS_IMAGE
+        or first in _VERBS_DRAW
+    ):
         return None
-    words = subject.lower().split()
-    if any(w in {"script", "code", "compression", "format", "file"} for w in words):
+    subject = _join_subject(parts)
+    if any(_fold_token(w) in _NOUN_MESSAGE_FILE_WORDS for w in parts):
         return None
     if _has_non_image_subject(subject) or _has_non_image_draw(subject):
         return None
@@ -504,8 +588,14 @@ _GENERATE_NOW_EXACT = frozenset(
 
 
 def is_image_noun_only_message(text: str) -> bool:
-    """True for a bare image/pic/photo ask with no subject on this line."""
+    """True for a bare image ask with no subject: ``Image``, ``a pic``, ``create an image``."""
+    if is_image_gen_generate_now(text):
+        return False
     tokens = _strip_polite(_tokens(text.strip().rstrip(".!?")))
+    if tokens and (tokens[0].lower() in _VERBS_IMAGE or tokens[0].lower() in _VERBS_DRAW):
+        tokens = tokens[1:]
+        if tokens and tokens[0].lower() == "me":
+            tokens = tokens[1:]
     kept = [tok for tok in tokens if tok.lower() not in _NOUN_ONLY_FILLER]
     if not kept:
         return False
@@ -750,6 +840,7 @@ _NOT_REVISION_STARTERS = frozenset(
         "will",
         "am",
         "help",
+        "show",
         "tell",
         "explain",
         "write",
@@ -764,6 +855,38 @@ _NOT_REVISION_STARTERS = frozenset(
         "lets",
     }
 )
+
+
+# "show it at night" / "show the car in blue" redraw the last picture; "show the
+# steps" or "show 23 times 14" after a picture are ordinary chat.
+_SHOW_REVISION_TARGETS = frozenset({"it", "them", "more", "less", "another", "a", "an", "the"})
+_SHOW_NON_IMAGE_WORDS = frozenset(
+    {
+        "step",
+        "steps",
+        "work",
+        "working",
+        "workout",
+        "answer",
+        "solution",
+        "calculation",
+        "how",
+    }
+)
+_SHOW_NON_IMAGE_SYMBOLS = "+-\u00d7\u00f7*/=^"
+
+
+def _is_show_image_revision(tokens: list[str]) -> bool:
+    if len(tokens) < 3 or tokens[0].lower() != "show":
+        return False
+    if any(symbol in tok for tok in tokens for symbol in _SHOW_NON_IMAGE_SYMBOLS):
+        return False
+    words = [_fold_token(tok) for tok in tokens]
+    if any(word in _SHOW_NON_IMAGE_WORDS for word in words):
+        return False
+    if any(a == "long" and b == "division" for a, b in pairwise(words)):
+        return False
+    return words[1] in _SHOW_REVISION_TARGETS
 
 
 def subject_from_image_gen_user_message(content: str) -> str | None:
@@ -843,7 +966,7 @@ def extract_image_revision_prompt(
     if "?" in trimmed:
         return None
     first = tokens[0].lower().rstrip(".!,")
-    if first in _NOT_REVISION_STARTERS:
+    if first in _NOT_REVISION_STARTERS and not _is_show_image_revision(tokens):
         return None
     revision = _join_subject(tokens)
     if not revision:
