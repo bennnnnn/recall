@@ -202,6 +202,7 @@ async def run_llm_token_stream(
         fallback_aliases=ctx.fallback_models,
         stream_meta=stream_meta,
         on_reasoning=on_reasoning,
+        thinking=ctx.thinking,
     )
     try:
         async for token in llm_stream:

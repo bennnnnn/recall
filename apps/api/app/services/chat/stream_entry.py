@@ -23,7 +23,7 @@ from app.services.chat.turn_prep import RegenerateBackup
 from app.services.chat.turn_prep.mode import _classify_turn_mode
 from app.services.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
 from app.services.chat.turn_timing import TurnTimingTracker
-from app.services.routing import last_user_turn
+from app.services.routing import last_user_turn, message_needs_thinking
 
 logger = logging.getLogger(__name__)
 
@@ -552,6 +552,7 @@ async def stream_regenerate_response(
                 user_id=user_id,
                 attachment_ids=current_image_ids,
             )
+        thinking = message_needs_thinking(user_message_content, settings=settings)
         ctx = seams.stream_context_from_bundle(
             bundle,
             user_id=user_id,
@@ -565,6 +566,7 @@ async def stream_regenerate_response(
             run_title=False,
             skip_memory_jobs=False,
             regenerate_backup=regenerate_backup,
+            thinking=thinking,
         )
         await seams._top_up_reserve_for_prompt(
             res,

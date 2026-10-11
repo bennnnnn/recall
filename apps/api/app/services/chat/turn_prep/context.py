@@ -149,6 +149,8 @@ class StreamContext:
     terminal_image_message_id: str | None = None
     terminal_image_content: str | None = None
     terminal_image_model: str | None = None
+    # False sends the model's thinking-off payload. Hard jobs set this True.
+    thinking: bool = False
 
 
 @dataclass
@@ -186,6 +188,7 @@ def stream_context_from_bundle(
     regenerate_backup: RegenerateBackup | None = None,
     indexable_attachment_ids: list[str] | None = None,
     user_message_persist: asyncio.Task[list[str]] | None = None,
+    thinking: bool = False,
 ) -> StreamContext:
     """Map a TurnPromptBundle into StreamContext; overrides preserve call-site semantics."""
     if run_title is None:
@@ -224,6 +227,7 @@ def stream_context_from_bundle(
         web_search_classified=getattr(bundle, "web_search_classified", None),
         indexable_attachment_ids=list(indexable_attachment_ids or []),
         user_message_persist=user_message_persist,
+        thinking=thinking,
     )
 
 

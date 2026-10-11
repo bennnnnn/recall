@@ -28,7 +28,7 @@ from app.services.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
 from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.context_window import estimate_tokens
 from app.services.prompt_safety import messages_have_attachment_marker
-from app.services.routing import last_user_turn
+from app.services.routing import last_user_turn, message_needs_thinking
 
 logger = logging.getLogger(__name__)
 
@@ -330,6 +330,14 @@ async def prepare_chat_turn(
     # Vision may have mutated prompt_messages in place on the bundle.
     if user is None or chat is None or model is None or prior_count is None:
         raise ChatNotFoundError("Turn context incomplete.")
+    prior_user, prior_model = last_user_turn(recent_messages)
+    thinking = message_needs_thinking(
+        content,
+        prior_user=prior_user,
+        prior_model=prior_model,
+        lesson_active=lesson_active,
+        settings=settings,
+    )
     return stream_context_from_bundle(
         bundle,
         user_id=user_id,
@@ -342,4 +350,5 @@ async def prepare_chat_turn(
         timing=timing,
         indexable_attachment_ids=indexable_attachment_ids,
         user_message_persist=persist_task,
+        thinking=thinking,
     )
