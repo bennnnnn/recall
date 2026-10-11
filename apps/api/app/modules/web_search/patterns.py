@@ -24,6 +24,20 @@ _LOOK_IT_UP = re.compile(
     re.IGNORECASE,
 )
 
+# "Where did you get that?" is about the previous question, not a new topic.
+_SOURCE_FOLLOWUP = re.compile(
+    r"^(?:and )?(?:where|how) (?:did|do) you (?:get|know|find) (?:that|this|it)"
+    r"(?: from)?[.!?]*$",
+    re.IGNORECASE,
+)
+
+
+def asks_for_prior_subject(text: str) -> bool:
+    """True when the whole message points at the previous question."""
+    cleaned = collapse_ws(text)
+    return bool(_LOOK_IT_UP.match(cleaned) or _SOURCE_FOLLOWUP.match(cleaned))
+
+
 _CLARIFICATION = re.compile(
     r"^(?:"
     r"no[,!.]? (?:i meant|the|not)|"

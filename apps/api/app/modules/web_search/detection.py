@@ -11,7 +11,6 @@ from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answ
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _EXPLICIT_SEARCH,
-    _LOOK_IT_UP,
     _NEWS,
     _ONGOING,
     _PERSONAL_PLANNING,
@@ -24,6 +23,7 @@ from app.modules.web_search.patterns import (
     _TEAM_SCORE,
     _WORLD_CUP,
     _YESTERDAY,
+    asks_for_prior_subject,
     collapse_ws,
     has_recency,
 )
@@ -153,7 +153,7 @@ def web_search_fast_yes(
 ) -> bool:
     """Obvious yes — skip the classifier."""
     cleaned = collapse_ws(text)
-    if _LOOK_IT_UP.match(cleaned):
+    if asks_for_prior_subject(cleaned):
         return bool(prior_user_messages)
     if _EXPLICIT_SEARCH.search(cleaned):
         return True
