@@ -7,6 +7,7 @@ reimplement extraction or presentation.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Literal
@@ -29,6 +30,9 @@ class SubjectAugmentation:
     prompt_block: str | None
     verified: VerifiedSolveBlock | None
     unverified: bool = False
+    # Both halves of "…, and also …" already rendered. Chat shows this and
+    # does not ask the model to redo either half.
+    direct_text: str | None = None
 
 
 @dataclass(frozen=True)
@@ -271,6 +275,11 @@ def _direct_chemistry(
     )
 
 
+# "Dilute …, and also solve …" is two problems. One failed reading of the
+# whole line used to stamp "couldn't verify" under two correct answers.
+_AND_ALSO = re.compile(r"(?:,\s*|\s+)\band\s+also\b\s+", re.IGNORECASE)
+
+
 # Dispatch table. Detection order is ``detect_subject``, not this dict's order:
 # physics still beats math, and a closed chemistry extraction beats algebra.
 SUBJECT_ADAPTERS: dict[SubjectName, SubjectAdapter] = {
@@ -291,7 +300,16 @@ async def build_subject_augmentation(
     response_intent_text: str | None = None,
     detected_subject: SubjectName | None = None,
     redis: Redis | None = None,
+    pair: bool = True,
 ) -> SubjectAugmentation:
+    if pair and not has_image_attachment:
+        paired = await _paired_direct_reply(
+            user_content,
+            settings,
+            redis=redis,
+        )
+        if paired is not None:
+            return SubjectAugmentation(None, None, None, direct_text=paired)
     math_text = math_user_content or user_content
     subject = detected_subject or detect_subject(
         user_content,
@@ -312,6 +330,26 @@ async def build_subject_augmentation(
         response_intent_text=response_intent_text,
         redis=redis,
     )
+
+
+async def _paired_direct_reply(
+    user_content: str,
+    settings: Settings,
+    *,
+    redis: Redis | None,
+) -> str | None:
+    parts = [part.strip().rstrip(".").strip() for part in _AND_ALSO.split(user_content)]
+    parts = [part for part in parts if part]
+    if len(parts) != 2:
+        return None
+    replies: list[str] = []
+    for part in parts:
+        piece = await build_subject_augmentation(part, settings, pair=False, redis=redis)
+        reply = maybe_direct_subject_reply(piece.verified, part)
+        if reply is None:
+            return None
+        replies.append(reply.strip())
+    return "\n\n".join(replies)
 
 
 def maybe_direct_subject_reply(

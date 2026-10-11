@@ -165,7 +165,15 @@ async def test_fetch_returns_the_adapter_decline_flag() -> None:
             return_value=SubjectAugmentation("physics", "Physics note: declined", None, True)
         ),
     ):
-        _web, block, _sources, verified, declined, unverified_subject = await fetch_web_and_tools(
+        (
+            _web,
+            block,
+            _sources,
+            verified,
+            declined,
+            unverified_subject,
+            _direct,
+        ) = await fetch_web_and_tools(
             "binding energy of He-4, mass = 4.002603 u",
             settings,
             prompt_messages=[{"role": "user", "content": "q"}],
@@ -182,7 +190,7 @@ async def test_chemistry_followup_solves_the_prior_problem() -> None:
 
     settings = Settings(chemistry_enabled=True, web_search_enabled=False, math_tools_enabled=True)
     prior = "Find the molar mass of H2O"
-    _web, _block, _sources, verified, declined, _subject = await fetch_web_and_tools(
+    _web, _block, _sources, verified, declined, _subject, _direct = await fetch_web_and_tools(
         "how?",
         settings,
         prompt_messages=[{"role": "user", "content": "how?"}],
@@ -192,3 +200,16 @@ async def test_chemistry_followup_solves_the_prior_problem() -> None:
     assert verified is not None
     assert verified.subject == "chemistry"
     assert "18.02" in verified.text
+
+
+@pytest.mark.asyncio
+async def test_two_problems_joined_by_and_also_are_both_verified() -> None:
+    settings = Settings(chemistry_enabled=True, math_tools_enabled=True, web_search_enabled=False)
+    question = "Dilute 10 mL of 2 M HCl to 0.5 M, and also solve x^2 - 5x + 6 = 0."
+    result = await build_subject_augmentation(question, settings)
+    assert result.unverified is False
+    assert result.direct_text is not None
+    assert "40 mL" in result.direct_text
+    assert "x = 2" in result.direct_text
+    assert "x = 3" in result.direct_text
+    assert "couldn't automatically verify" not in result.direct_text

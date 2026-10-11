@@ -216,6 +216,7 @@ async def test_extractor_prompt_preserves_current_employer_when_target_is_aspira
     assert isinstance(system_prompt, str)
     assert "keeps Uber as the current employer" in system_prompt
     assert "must not claim the user works at Google" in system_prompt
+    assert "4 in the evening is 16:00" in system_prompt
 
 
 @pytest.mark.asyncio

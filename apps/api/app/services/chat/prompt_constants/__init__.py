@@ -66,18 +66,14 @@ from app.services.chat.prompt_constants.routing import (
     LIGHTWEIGHT_REPLY_HINT,
     PERSONAL_DISCLOSURE_HINT,
     is_broad_self_question,
-    is_email_or_message_request,
     is_lightweight_chat_turn,
     is_personal_advice_question,
     is_personal_disclosure_turn,
     is_short_confirmation,
     is_short_reply,
-    is_underspecified_writing_request,
-    is_writing_deliverable_request,
     needs_rich_context,
     prior_looks_like_offer,
     recalls_earlier_conversation,
-    writing_request_kind,
 )
 from app.services.chat.prompt_constants.solving import VERIFIED_SOLVE_SAFETY_HINT
 from app.services.chat.prompt_constants.teaching import (
@@ -106,11 +102,19 @@ from app.services.chat.prompt_constants.writing import (
     EMAIL_ASK_PURPOSE_HINT,
     EMAIL_DRAFT_HINT,
     NON_DRAFT_TURN_HINT,
+    PERSONAL_RECORD_HINT,
     PROSE_WRITING_HINT,
     SOCIAL_DRAFT_HINT,
     TRANSLATION_FORMAT_HINT,
     WRITING_LINE_HINT,
     is_bare_writing_line,
+    personal_record_hint,
+)
+from app.services.chat.prompt_constants.writing_kind import (
+    is_email_or_message_request,
+    is_underspecified_writing_request,
+    is_writing_deliverable_request,
+    writing_request_kind,
 )
 
 __all__ = [
@@ -149,6 +153,7 @@ __all__ = [
     "MERMAID_FORMAT_HINT",
     "NON_DRAFT_TURN_HINT",
     "PERSONAL_DISCLOSURE_HINT",
+    "PERSONAL_RECORD_HINT",
     "PHYSICS_INTENT_HINT",
     "PHYSICS_REPLY_POLICY",
     "PHYSICS_SHORT_HINT",
@@ -200,6 +205,7 @@ __all__ = [
     "lesson_continue_hint",
     "lesson_step",
     "needs_rich_context",
+    "personal_record_hint",
     "prior_looks_like_offer",
     "programming_lesson_contract",
     "recalls_earlier_conversation",

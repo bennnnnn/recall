@@ -89,6 +89,10 @@ _SYMBOLS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
     )
 )
 _FORMULA_TOKEN = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])")
+# "Iron-56" and "Fe-56" are a mass number. Only a neutron question is rewritten, so a
+# half-life or a binding energy that names the same isotope still reads its own law.
+_ISOTOPE = re.compile(r"\b([A-Za-z]{1,20})-(\d{1,3})\b")
+_NEUTRON_ASK = re.compile(r"\bneutrons?\b", re.IGNORECASE)
 # Subscript digits a typeset answer copies back (K₂, T₁) beside the ASCII labels.
 _SUBSCRIPT_DIGITS = "\u2081\u2082"
 _SUBSCRIPT_TO_ASCII = str.maketrans(_SUBSCRIPT_DIGITS, "12")
@@ -131,8 +135,38 @@ class Prepared:
     original: str
 
 
+def _element_symbol(token: str) -> str | None:
+    if token in BY_SYMBOL:
+        return token
+    return ELEMENT_NAMES.get(token.lower())
+
+
+def _spell_isotope(text: str) -> str:
+    """Turn Iron-56 into the words the neutron law already binds: mass number 56."""
+    if _NEUTRON_ASK.search(text) is None:
+        return text
+
+    def replace(match: re.Match[str]) -> str:
+        if _element_symbol(match.group(1)) is None:
+            return match.group(0)
+        return f"mass number {match.group(2)}"
+
+    return _ISOTOPE.sub(replace, text)
+
+
+def _one_isotope(text: str) -> str | None:
+    symbols = [
+        symbol
+        for match in _ISOTOPE.finditer(text)
+        if (symbol := _element_symbol(match.group(1))) is not None
+    ]
+    return symbols[0] if len(symbols) == 1 else None
+
+
 def prepare(text: str) -> Prepared:
     """Spell out case-sensitive symbols and replace each named substance by its role."""
+    original = text
+    text = _spell_isotope(text)
     species: list[str] = []
 
     def substance(formula: str) -> str:
@@ -158,7 +192,7 @@ def prepare(text: str) -> Prepared:
     )
     for pattern, spelled in _SYMBOLS:
         prepared = pattern.sub(spelled, prepared)
-    return Prepared(re.sub(r"[ \t]+", " ", prepared), tuple(species), text)
+    return Prepared(re.sub(r"[ \t]+", " ", prepared), tuple(species), original)
 
 
 def _formula_for(law: ChemistryLaw, species: tuple[str, ...]) -> str | bool | None:
@@ -189,6 +223,11 @@ def _metal(original: str) -> str | None:
 
 def _fallback(prepared: Prepared, variable: VariableSpec, _text: str, _lower: str) -> float | None:
     """A setting an unstated input takes from the substances the question names."""
+    if variable.fallback == "element_atomic_number":
+        symbol = _one_isotope(prepared.original)
+        if symbol is None:
+            return None
+        return float(BY_SYMBOL[symbol].number)
     if variable.fallback == "van_t_hoff":
         solutes = [formula for formula in prepared.species if formula != "H2O"]
         factor = VAN_T_HOFF.get(solutes[0]) if len(solutes) == 1 else None

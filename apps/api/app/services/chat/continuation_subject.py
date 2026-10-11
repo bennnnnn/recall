@@ -10,10 +10,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from typing import Any
 
-from app.services.chat.prompt_constants.routing import (
-    is_lightweight_chat_turn,
-    is_writing_deliverable_request,
-)
+from app.services.chat.prompt_constants.routing import is_lightweight_chat_turn
+from app.services.chat.prompt_constants.writing_kind import is_writing_deliverable_request
 from app.services.text_normalize import collapse_ws
 
 _MAX_CHARS = 80

@@ -27,6 +27,7 @@ STATED_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
                 dimensionless=True,
                 words=("atomic number",),
                 needs_words=True,
+                fallback="element_atomic_number",
             ),
         ),
         cues=("neutron",),

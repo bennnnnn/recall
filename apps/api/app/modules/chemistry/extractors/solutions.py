@@ -56,10 +56,39 @@ def _stock_volume(text: str) -> ChemistryIntent | None:
     )
 
 
+# "Dilute 10 mL of 2 M HCl to 0.5 M": the stock volume and both concentrations, so V2.
+_DILUTE_TO = re.compile(
+    rf"\b(?:dilute|diluting)\s+(?P<v1>{_N})\s*(?P<unit>mL|L)\s+of\s+"
+    rf"(?P<m1>{_N}){_MOLAR_VALUE}(?:\s+[A-Za-z][A-Za-z0-9]*)?\s+to\s+"
+    rf"(?P<m2>{_N}){_MOLAR_VALUE}",
+    re.IGNORECASE,
+)
+
+
+def _dilute_to_concentration(text: str) -> ChemistryIntent | None:
+    match = _DILUTE_TO.search(text)
+    if match is None:
+        return None
+    unit = "mL" if match.group("unit").lower() == "ml" else "L"
+    return ChemistryIntent(
+        kind="solutions",
+        chemistry_op="dilution",
+        params={
+            "m1": float(match.group("m1")),
+            "v1": float(match.group("v1")),
+            "m2": float(match.group("m2")),
+        },
+        units={"v1": unit},
+    )
+
+
 def _extract_solutions(text: str) -> ChemistryIntent | None:
     stock = _stock_volume(text)
     if stock is not None:
         return stock
+    diluted = _dilute_to_concentration(text)
+    if diluted is not None:
+        return diluted
     if re.search(r"\b(?:dilut|M1V1)\w*", text, re.IGNORECASE):
         m1 = _search(rf"\bM1\s*=\s*({_N})", text)
         m2 = _search(rf"\bM2\s*=\s*({_N})", text)
