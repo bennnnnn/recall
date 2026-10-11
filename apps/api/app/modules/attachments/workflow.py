@@ -19,14 +19,13 @@ from app.modules.attachments.content import (
     GALLERY_THUMB_MAX_EDGE,
     GALLERY_THUMB_MIN_EDGE,
     MAX_ATTACHMENT_SIZE,
-    bytes_match_claimed,
     ensure_verified_or_purge,
-    is_image_content_type,
     purge_invalid_upload,
     resize_image_bytes,
-    strip_attachment_from_content,
 )
+from app.modules.attachments.content_types import bytes_match_claimed, is_image_content_type
 from app.modules.attachments.lifecycle import delete_storage_keys, enqueue_failed_storage_deletes
+from app.modules.attachments.markers import strip_attachment_from_content
 from app.modules.attachments.quota import has_current_upload_reservation
 from app.modules.attachments.upload import AttachmentUploadError, cancel_pending_upload
 from app.repositories import messages as messages_repo

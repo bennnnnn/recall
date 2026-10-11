@@ -7,7 +7,7 @@
  * degrade to a short human summary — never raw JSON or SDF dumps.
  */
 import { splitAnswerNotation } from "@/lib/answerNotation";
-import { parseGraphSpec } from "@/lib/math/graphBlock";
+import { parseGraphSpec } from "@/lib/math/graphSpec";
 import { parseGeometrySpec } from "@/lib/math/geometryBlock";
 import { fenceIdForLang, fallbackKindForLang } from "@/lib/fenceRegistry";
 import { parseCalloutKind, type CalloutKind } from "@/lib/richBlocks";

@@ -1,11 +1,8 @@
 import io
 from unittest.mock import MagicMock, patch
 
-from app.modules.attachments.content import (
-    MAX_INDEX_EXTRACT_CHARS,
-    bytes_match_claimed,
-    extract_text_details,
-)
+from app.modules.attachments.content import MAX_INDEX_EXTRACT_CHARS, extract_text_details
+from app.modules.attachments.content_types import bytes_match_claimed
 
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 PPTX = "application/vnd.openxmlformats-officedocument.presentationml.presentation"

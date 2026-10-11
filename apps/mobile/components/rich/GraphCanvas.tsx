@@ -8,8 +8,8 @@ import {
   interiorVertex,
   mapGraphPoint,
   SHIFTED_VERTEX_MIN,
-  type GraphSpec,
 } from "@/lib/math/graphBlock";
+import { type GraphSpec } from "@/lib/math/graphSpec";
 import { inequalityFillPoints, type GraphCmp } from "@/lib/math/graphExpr";
 import { type GraphView } from "@/lib/math/graphViewport";
 import { Theme } from "@/lib/theme";

@@ -13,7 +13,7 @@ from app.core.access_tokens import (
     decode_access_token,
 )
 from app.core.config import Settings
-from app.gateways import litellm_gateway
+from app.gateways import litellm_gateway, think_stripper
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.mock_llm import (
     mock_memory_sections,
@@ -28,23 +28,23 @@ from app.services.chat import titles as chat_titles
 
 
 def test_think_stripper_passes_plain_text_through():
-    s = litellm_gateway._ThinkStripper()
+    s = think_stripper.ThinkStripper()
     assert s.feed("hello ") + s.feed("world") + s.flush() == "hello world"
 
 
 def test_think_stripper_removes_closed_think_block():
-    s = litellm_gateway._ThinkStripper()
-    open_tag = litellm_gateway._THINK_OPEN
-    close_tag = litellm_gateway._THINK_CLOSE
+    s = think_stripper.ThinkStripper()
+    open_tag = think_stripper.THINK_OPEN
+    close_tag = think_stripper.THINK_CLOSE
     assert (
         s.feed(f"before {open_tag}reasoning here{close_tag} after") + s.flush() == "before  after"
     )
 
 
 def test_think_stripper_handles_tag_split_across_chunks():
-    s = litellm_gateway._ThinkStripper()
-    open_tag = litellm_gateway._THINK_OPEN
-    close_tag = litellm_gateway._THINK_CLOSE
+    s = think_stripper.ThinkStripper()
+    open_tag = think_stripper.THINK_OPEN
+    close_tag = think_stripper.THINK_CLOSE
     split = len(open_tag) // 2
     out = (
         s.feed(f"answer {open_tag[:split]}")
@@ -55,31 +55,31 @@ def test_think_stripper_handles_tag_split_across_chunks():
 
 
 def test_think_stripper_drops_unclosed_block_on_flush():
-    s = litellm_gateway._ThinkStripper()
-    open_tag = litellm_gateway._THINK_OPEN
+    s = think_stripper.ThinkStripper()
+    open_tag = think_stripper.THINK_OPEN
     assert s.feed(f"visible {open_tag}never closes") + s.flush() == "visible "
 
 
 def test_think_tags_match_deepseek_fences() -> None:
     """Regression: a source rewrite once renamed the tags so the filter
     never matched R1's inline think fences and CoT leaked into the bubble."""
-    assert litellm_gateway._THINK_OPEN == "<" + "think" + ">"
-    assert litellm_gateway._THINK_CLOSE == "</" + "think" + ">"
+    assert think_stripper.THINK_OPEN == "<" + "think" + ">"
+    assert think_stripper.THINK_CLOSE == "</" + "think" + ">"
 
 
 def test_think_stripper_strips_long_closed_block() -> None:
-    s = litellm_gateway._ThinkStripper()
-    open_tag = litellm_gateway._THINK_OPEN
-    close_tag = litellm_gateway._THINK_CLOSE
+    s = think_stripper.ThinkStripper()
+    open_tag = think_stripper.THINK_OPEN
+    close_tag = think_stripper.THINK_CLOSE
     inner = "the user just wrote 4! " * 400
     assert len(inner) > 4096
     assert s.feed(f"{open_tag}{inner}{close_tag}24") + s.flush() == "24"
 
 
 def test_think_stripper_recovers_after_oversized_unclosed_block():
-    s = litellm_gateway._ThinkStripper()
-    open_tag = litellm_gateway._THINK_OPEN
-    oversized = "x" * (litellm_gateway._THINK_MAX_OPEN_BUFFER + 1)
+    s = think_stripper.ThinkStripper()
+    open_tag = think_stripper.THINK_OPEN
+    oversized = "x" * (think_stripper.THINK_MAX_OPEN_BUFFER + 1)
     out = s.feed(f"keep {open_tag}{oversized}") + s.feed(" tail") + s.flush()
     assert out == "keep  tail"
 

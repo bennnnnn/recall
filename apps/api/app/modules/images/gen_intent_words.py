@@ -1,0 +1,451 @@
+"""Word lists for composer image intent (mirrors mobile imageGenIntentWords.ts).
+
+Kept apart from the matchers in ``gen_intent.py`` so a vocabulary change is a
+data change. Edit the TypeScript twin and ``docs/fixtures/image_intent_cases.json``
+in the same change.
+"""
+
+from __future__ import annotations
+
+VERBS_IMAGE = frozenset(
+    {"create", "generate", "make", "design", "render", "produce"},
+)
+
+VERBS_DRAW = frozenset({"draw", "paint", "illustrate"})
+
+IMAGE_NOUNS = frozenset(
+    {
+        "image",
+        "images",
+        "picture",
+        "pictures",
+        "pic",
+        "pics",
+        "photo",
+        "photos",
+        "illustration",
+        "illustrations",
+        "artwork",
+        "artworks",
+        "drawing",
+        "drawings",
+        "portrait",
+        "portraits",
+    },
+)
+
+ARTICLES = frozenset({"a", "an"})
+
+POSSESSIVES = frozenset({"my", "your", "our", "his", "her", "their", "its"})
+
+REVISION_PRONOUNS = frozenset({"it", "them", "this", "that"})
+
+NOUN_MESSAGE_FILE_WORDS = frozenset({"script", "code", "compression", "format", "file"})
+
+SUBJECTLESS_FILLER = frozenset({"a", "an", "the", "of", "just", "please"})
+
+NON_IMAGE_WORDS = frozenset(
+    {
+        "todo",
+        "todos",
+        "task",
+        "tasks",
+        "list",
+        "lists",
+        "reminder",
+        "reminders",
+        "project",
+        "projects",
+        "account",
+        "accounts",
+        "script",
+        "scripts",
+        "code",
+        "function",
+        "functions",
+        "class",
+        "classes",
+        "file",
+        "files",
+        "folder",
+        "folders",
+        "chat",
+        "chats",
+        "note",
+        "notes",
+        "summary",
+        "summaries",
+        "plan",
+        "plans",
+        "schedule",
+        "schedules",
+        "event",
+        "events",
+        "meeting",
+        "meetings",
+        "quiz",
+        "quizzes",
+        "flashcard",
+        "flashcards",
+        "email",
+        "emails",
+        "message",
+        "messages",
+        "reply",
+        "replies",
+        "draft",
+        "drafts",
+        "report",
+        "reports",
+        "endpoint",
+        "endpoints",
+        "api",
+        "apis",
+        "database",
+        "databases",
+        "table",
+        "tables",
+        "component",
+        "components",
+        "hook",
+        "hooks",
+        "page",
+        "pages",
+        "screen",
+        "screens",
+        "modal",
+        "modals",
+        "button",
+        "buttons",
+        "form",
+        "forms",
+        "user",
+        "users",
+        "password",
+        "passwords",
+        "login",
+        "logins",
+        "pr",
+        "prs",
+        "commit",
+        "commits",
+        "branch",
+        "branches",
+        "issue",
+        "issues",
+        "bug",
+        "bugs",
+        "test",
+        "tests",
+        "array",
+        "arrays",
+        "object",
+        "objects",
+        "string",
+        "strings",
+        "comparison",
+        "comparisons",
+        # Learning / chat asks — "make your own example" is not a picture.
+        "example",
+        "examples",
+        "problem",
+        "problems",
+        "equation",
+        "equations",
+        "question",
+        "questions",
+        "exercise",
+        "exercises",
+        "homework",
+        "solution",
+        "solutions",
+        "proof",
+        "proofs",
+        "worksheet",
+        "worksheets",
+        "assignment",
+        "assignments",
+        # How-to / listicle heads — same as image_lookup_intent. Do not add
+        # "way" (milky way) or "guide" (tour-guide photos).
+        "stops",
+        "ways",
+        "tips",
+        "tip",
+        "secret",
+        "secrets",
+        "habit",
+        "habits",
+        "trick",
+        "tricks",
+        "stage",
+        "stages",
+        "phase",
+        "phases",
+        # "create music" is a chat ask, not a picture of an instrument.
+        "music",
+        "song",
+        "songs",
+        "playlist",
+        "playlists",
+        # Things the user wants built or written, not drawn.
+        "app",
+        "apps",
+        "website",
+        "websites",
+        "game",
+        "games",
+        "program",
+        "programs",
+        "spreadsheet",
+        "spreadsheets",
+        "recipe",
+        "recipes",
+        "poem",
+        "poems",
+        "essay",
+        "essays",
+        "story",
+        "stories",
+        "joke",
+        "jokes",
+    },
+)
+
+NON_IMAGE_DRAW_WORDS = frozenset(
+    {
+        "conclusion",
+        "inference",
+        "boundary",
+        "line",
+        "diagram",
+        "chart",
+        "graph",
+        "plot",
+        "flowchart",
+        "flowcharts",
+        # Verified ```geometry / ```smiles — not AI images.
+        "triangle",
+        "triangles",
+        "square",
+        "squares",
+        "circle",
+        "circles",
+        "rectangle",
+        "rectangles",
+        "trapezoid",
+        "trapezoids",
+        "trapezium",
+        "polygon",
+        "polygons",
+        "rhombus",
+        "parallelogram",
+        "geometry",
+        "geometric",
+        "hypotenuse",
+        "molecule",
+        "molecules",
+        "molecular",
+        "structure",
+        "structures",
+        "smiles",
+        "chemistry",
+        "chemical",
+    },
+)
+
+CODEISH_WORDS = frozenset(
+    {"compression", "script", "code", "algorithm", "function", "api"},
+)
+
+# "make money" / "make dinner" are ordinary English. A picture that uses
+# "make" already names an image noun and is matched before this short path.
+MAKE_NOT_A_PICTURE = frozenset(
+    {
+        "money",
+        "cash",
+        "bank",
+        "profit",
+        "profits",
+        "income",
+        "living",
+        "sense",
+        "time",
+        "friends",
+        "friend",
+        "decision",
+        "decisions",
+        "point",
+        "progress",
+        "mistake",
+        "mistakes",
+        "amends",
+        "peace",
+        "difference",
+        "room",
+        "haste",
+        "dinner",
+        "lunch",
+        "breakfast",
+        "bed",
+        "love",
+        "ends",
+        "laugh",
+        "smile",
+    }
+)
+
+MAKE_IDIOM_FILLER = frozenset({"a", "an", "the", "some", "more", "much", "of", "lot", "lots"})
+
+NOUN_ONLY_FILLER = frozenset({"please", "a", "an", "the", "just"})
+
+GENERATE_NOW_EXACT = frozenset(
+    {
+        "that works",
+        "that will work",
+        "that works for me",
+        "do it",
+        "do that",
+        "go ahead",
+        "go for it",
+        "generate it",
+        "generate that",
+        "generate the image",
+        "generate the picture",
+        "you do it",
+        "u do it",
+        "you pick",
+        "u pick",
+        "you choose",
+        "u choose",
+    }
+)
+
+DEICTIC_SUBJECTS = frozenset({"that", "this", "it", "them"})
+
+REACTION_WORDS = frozenset(
+    {
+        "nice",
+        "cool",
+        "great",
+        "love",
+        "wow",
+        "beautiful",
+        "awesome",
+        "perfect",
+        "cute",
+    }
+)
+
+REACTION_PHRASES = frozenset(
+    {
+        "looks good",
+        "looks great",
+        "looks nice",
+        "love it",
+        "love this",
+        "so cool",
+        "so nice",
+        "well done",
+        "nice one",
+    }
+)
+
+NON_REVISION = frozenset(
+    {
+        "ok",
+        "okay",
+        "k",
+        "thanks",
+        "thank you",
+        "thx",
+        "ty",
+        "yes",
+        "no",
+        "yep",
+        "nope",
+        "sure",
+        "cool",
+        "nice",
+        "lol",
+        "lmao",
+        "haha",
+        "hehe",
+        "great",
+        "got it",
+        "perfect",
+        "awesome",
+        "hi",
+        "hello",
+        "hey",
+        "hiya",
+        "yo",
+        "sup",
+        "bye",
+        "goodbye",
+        "cya",
+        "see ya",
+        "sounds good",
+        "makes sense",
+        "understood",
+    }
+)
+
+# First remaining token after revision lead-ins. Questions and chat openers
+# must not become "{subject}, what's 2+2" or pay Neon list_recent on a new chat.
+NOT_REVISION_STARTERS = frozenset(
+    {
+        "what",
+        "what's",
+        "whats",
+        "why",
+        "how",
+        "how's",
+        "who",
+        "when",
+        "where",
+        "which",
+        "can",
+        "could",
+        "would",
+        "should",
+        "is",
+        "are",
+        "do",
+        "does",
+        "did",
+        "will",
+        "am",
+        "help",
+        "show",
+        "tell",
+        "explain",
+        "write",
+        "please",
+        "i",
+        "i'm",
+        "im",
+        "i've",
+        "ive",
+        "we",
+        "let's",
+        "lets",
+    }
+)
+
+# "show it at night" / "show the car in blue" redraw the last picture; "show the
+# steps" or "show 23 times 14" after a picture are ordinary chat.
+SHOW_REVISION_TARGETS = frozenset({"it", "them", "more", "less", "another", "a", "an", "the"})
+
+SHOW_NON_IMAGE_WORDS = frozenset(
+    {
+        "step",
+        "steps",
+        "work",
+        "working",
+        "workout",
+        "answer",
+        "solution",
+        "calculation",
+        "how",
+    }
+)

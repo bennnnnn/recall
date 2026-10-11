@@ -15,14 +15,13 @@ from app.core.attachment_limits import MAX_ATTACHMENT_SIZE as MAX_ATTACHMENT_SIZ
 from app.core.config import Settings
 from app.gateways.storage_gateway import get_storage_gateway
 from app.modules.attachments import repository as attachments_repo
-from app.modules.attachments.content import (
-    EXTRACTABLE_CONTENT_TYPES,
-    extract_text_details_async,
-    read_attachment_bytes,
+from app.modules.attachments.content import extract_text_details_async, read_attachment_bytes
+from app.modules.attachments.content_types import EXTRACTABLE_CONTENT_TYPES
+from app.modules.attachments.content_types import bytes_match_claimed as bytes_match_claimed
+from app.modules.attachments.content_types import is_image_content_type as is_image_content_type
+from app.modules.attachments.content_types import (
+    normalize_content_type as normalize_content_type,
 )
-from app.modules.attachments.content import bytes_match_claimed as bytes_match_claimed
-from app.modules.attachments.content import is_image_content_type as is_image_content_type
-from app.modules.attachments.content import normalize_content_type as normalize_content_type
 
 create_pending = attachments_repo.create_pending
 get_by_ids = attachments_repo.get_by_ids

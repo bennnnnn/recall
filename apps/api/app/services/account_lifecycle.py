@@ -16,7 +16,8 @@ from app.modules import home as home_service
 from app.modules import memory as memory_service
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.attachments import repository as attachments_repo
-from app.modules.attachments.content import MAX_ATTACHMENT_SIZE, is_image_content_type
+from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
+from app.modules.attachments.content_types import is_image_content_type
 from app.modules.billing import plan as plan_service
 from app.modules.integrations import connect as google_integrations_service
 from app.repositories import users as users_repo

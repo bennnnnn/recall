@@ -1,4 +1,5 @@
-import { formatAxisNumber, graphAxisTicks, parseGraphSpec, type InequalityGraphSpec } from "@/lib/math/graphBlock";
+import { formatAxisNumber, graphAxisTicks } from "@/lib/math/graphBlock";
+import { parseGraphSpec, type InequalityGraphSpec } from "@/lib/math/graphSpec";
 import { clipInequalityRegion } from "@/lib/math/inequalityGraph";
 
 const base: InequalityGraphSpec = {

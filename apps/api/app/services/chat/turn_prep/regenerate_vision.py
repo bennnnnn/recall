@@ -7,6 +7,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways.storage_gateway import get_storage_gateway
 from app.modules.attachments import content as attachment_content
+from app.modules.attachments import markers as attachment_markers
 from app.modules.attachments import repository as attachments_repo
 
 
@@ -48,5 +49,5 @@ async def inject_regenerated_image_content(
         else 0
     )
     if image_count < len(ids):
-        attachment_content.append_image_unavailable_note(prompt_messages)
+        attachment_markers.append_image_unavailable_note(prompt_messages)
     return injected

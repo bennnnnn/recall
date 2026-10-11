@@ -151,7 +151,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     ):
         return True
     if word_index(lower, "square") != -1:
-        from app.modules.math.tools.extractors.geometry_graph import _extract_square_intent
+        from app.modules.math.tools.extractors.geometry import _extract_square_intent
 
         if _extract_square_intent(cleaned) is not None:
             return True

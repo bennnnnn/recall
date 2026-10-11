@@ -1,4 +1,4 @@
-import type { InequalityGraphSpec } from "@/lib/math/graphBlock";
+import type { InequalityGraphSpec } from "@/lib/math/graphSpec";
 
 type Point = [number, number];
 

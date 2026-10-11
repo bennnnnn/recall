@@ -5,12 +5,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.modules.attachments.content import (
-    ALLOWED_CONTENT_TYPES,
-    extract_text_from_bytes,
-    is_image_content_type,
-    strip_attachment_from_content,
-)
+from app.modules.attachments.content import extract_text_from_bytes
+from app.modules.attachments.content_types import ALLOWED_CONTENT_TYPES, is_image_content_type
+from app.modules.attachments.markers import strip_attachment_from_content
 
 _DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
@@ -44,7 +41,7 @@ def test_extract_text_from_bytes_respects_max_chars():
 
 
 def test_normalize_content_type():
-    from app.modules.attachments.content import normalize_content_type
+    from app.modules.attachments.content_types import normalize_content_type
 
     assert normalize_content_type("image/heic") == "image/heic"
     assert normalize_content_type("image/jpeg; charset=binary") == "image/jpeg"
@@ -63,7 +60,7 @@ def test_extract_text_from_plain_text():
 
 
 def test_bytes_match_claimed_accepts_word_documents():
-    from app.modules.attachments.content import bytes_match_claimed
+    from app.modules.attachments.content_types import bytes_match_claimed
 
     docx_bytes = _build_zip_bytes(["word/document.xml", "[Content_Types].xml"])
     doc_bytes = b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1" + b"\x00" * 32
@@ -76,7 +73,7 @@ def test_bytes_match_claimed_rejects_non_docx_zip_family():
     """.xlsx/.pptx/.jar/.apk/plain .zip all share the PK\\x03\\x04 ZIP
     signature but aren't DOCX — a claimed DOCX upload must actually contain
     the word/document.xml marker entry, not just look like a ZIP."""
-    from app.modules.attachments.content import bytes_match_claimed
+    from app.modules.attachments.content_types import bytes_match_claimed
 
     xlsx_bytes = _build_zip_bytes(["xl/workbook.xml", "[Content_Types].xml"])
     pptx_bytes = _build_zip_bytes(["ppt/presentation.xml", "[Content_Types].xml"])
@@ -90,7 +87,7 @@ def test_bytes_match_claimed_rejects_non_docx_zip_family():
 def test_bytes_match_claimed_handles_corrupt_zip_gracefully():
     """A truncated/corrupt buffer that merely starts with the ZIP magic
     bytes must not raise — it should just fail to match DOCX."""
-    from app.modules.attachments.content import bytes_match_claimed
+    from app.modules.attachments.content_types import bytes_match_claimed
 
     corrupt_zip_bytes = b"PK\x03\x04" + b"\x00" * 32
     assert bytes_match_claimed(_DOCX_CONTENT_TYPE, corrupt_zip_bytes) is False
@@ -99,12 +96,8 @@ def test_bytes_match_claimed_handles_corrupt_zip_gracefully():
 def test_docx_zip_bomb_rejected():
     """An entry larger than MAX_ATTACHMENT_SIZE is treated as a zip bomb —
     not a DOCX match, and text extraction returns None without parsing."""
-    from app.modules.attachments.content import (
-        MAX_ATTACHMENT_SIZE,
-        _docx_zip_bomb,
-        bytes_match_claimed,
-        extract_text_from_bytes,
-    )
+    from app.modules.attachments.content import MAX_ATTACHMENT_SIZE, extract_text_from_bytes
+    from app.modules.attachments.content_types import _docx_zip_bomb, bytes_match_claimed
 
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w", compression=zipfile.ZIP_DEFLATED) as archive:
@@ -119,7 +112,7 @@ def test_docx_zip_bomb_rejected():
 
 
 def test_bytes_match_claimed_rejects_spoofed_image():
-    from app.modules.attachments.content import bytes_match_claimed
+    from app.modules.attachments.content_types import bytes_match_claimed
 
     png_header = b"\x89PNG\r\n\x1a\n" + b"fake"
     assert bytes_match_claimed("image/png", png_header) is True
@@ -421,7 +414,7 @@ async def test_inject_vision_content_noop_when_no_images_readable():
 
 
 def test_unavailable_image_note_forbids_a_placeholder_story():
-    from app.modules.attachments.content import append_image_unavailable_note
+    from app.modules.attachments.markers import append_image_unavailable_note
 
     prompt_messages = [{"role": "user", "content": "What?"}]
     append_image_unavailable_note(prompt_messages)
@@ -594,7 +587,7 @@ def test_docx_tables_keep_row_alignment():
 
 
 def test_prior_image_attachment_ids_skips_current_user_turn():
-    from app.modules.attachments.content import prior_image_attachment_ids
+    from app.modules.attachments.markers import prior_image_attachment_ids
 
     first = uuid4()
     messages = [
@@ -606,7 +599,7 @@ def test_prior_image_attachment_ids_skips_current_user_turn():
 
 
 def test_prior_image_attachment_ids_newest_first_with_cap():
-    from app.modules.attachments.content import prior_image_attachment_ids
+    from app.modules.attachments.markers import prior_image_attachment_ids
 
     older = uuid4()
     newer = uuid4()

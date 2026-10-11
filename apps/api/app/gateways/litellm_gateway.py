@@ -1,5 +1,4 @@
 import asyncio
-import json
 import logging
 import time
 from collections.abc import AsyncIterator, Awaitable, Callable
@@ -31,6 +30,7 @@ from app.gateways.structured_completion import (
 from app.gateways.structured_completion import (
     complete_structured as complete_structured,
 )
+from app.gateways.think_stripper import ThinkStripper
 from app.models import model_catalog
 from app.models.model_catalog import ChatModel
 
@@ -56,66 +56,6 @@ class ModelUnavailableError(Exception):
 _CHAT_MODEL_UNAVAILABLE_MSG = (
     "That model isn't responding right now. Try again — or pick a different model."
 )
-
-
-# DeepSeek-R1 (and similar) emit inline think fences in `content`, plus a
-# separate `reasoning_content` delta. Hex-encode the tags so a source rewrite
-# cannot turn this filter into a no-op. Strip the fences from tokens; do not
-# forward `reasoning_content` to the client (the chat UI must not show CoT).
-_THINK_OPEN = "\x3cthink\x3e"
-_THINK_CLOSE = "\x3c/think\x3e"
-# Hold an unclosed think block this long while streaming. R1 CoT on even a
-# short ask is often >4k chars; giving up early leaked the rest into the bubble.
-_THINK_MAX_OPEN_BUFFER = 65_536
-
-
-class _ThinkStripper:
-    """Stateful filter that removes inline think fences from a token stream.
-
-    Handles open/close tags split across chunks. Emits text outside think blocks
-    unchanged; discards text inside. An unclosed think block is dropped on flush.
-    """
-
-    def __init__(self) -> None:
-        self._buf = ""
-        self._in_think = False
-
-    def feed(self, chunk: str) -> str:
-        self._buf += chunk
-        out: list[str] = []
-        while True:
-            if self._in_think:
-                idx = self._buf.find(_THINK_CLOSE)
-                if idx == -1:
-                    if len(self._buf) > _THINK_MAX_OPEN_BUFFER:
-                        # Model forgot to close — give up on this block.
-                        self._buf = ""
-                        self._in_think = False
-                    break
-                self._buf = self._buf[idx + len(_THINK_CLOSE) :]
-                self._in_think = False
-            else:
-                idx = self._buf.find(_THINK_OPEN)
-                if idx == -1:
-                    # Hold back enough trailing chars that a split open tag can't leak.
-                    safe = len(self._buf) - (len(_THINK_OPEN) - 1)
-                    if safe > 0:
-                        out.append(self._buf[:safe])
-                        self._buf = self._buf[safe:]
-                    break
-                out.append(self._buf[:idx])
-                self._buf = self._buf[idx + len(_THINK_OPEN) :]
-                self._in_think = True
-        return "".join(out)
-
-    def flush(self) -> str:
-        if self._in_think:
-            self._buf = ""
-            self._in_think = False
-            return ""
-        out = self._buf
-        self._buf = ""
-        return out
 
 
 def resolve_model(alias: str) -> str:
@@ -262,201 +202,6 @@ def _apply_usage_from_response(usage: dict[str, int] | None, response: Any) -> N
         usage["output"] = usage.get("output", 0) + int(completion)
 
 
-def _tool_calls_to_jsonable(tool_calls: list[Any]) -> list[dict[str, Any]]:
-    out: list[dict[str, Any]] = []
-    for call in tool_calls:
-        if isinstance(call, dict):
-            out.append(call)
-            continue
-        fn = getattr(call, "function", None)
-        out.append(
-            {
-                "id": getattr(call, "id", None) or "",
-                "type": getattr(call, "type", None) or "function",
-                "function": {
-                    "name": getattr(fn, "name", None) or "",
-                    "arguments": getattr(fn, "arguments", None),
-                },
-            }
-        )
-    return out
-
-
-_NO_TOOL_NAME = "recall_no_tool_needed"
-_NO_TOOL = {
-    "type": "function",
-    "function": {
-        "name": _NO_TOOL_NAME,
-        "description": "Select this alone when no available tool is needed for the current turn.",
-        "parameters": {"type": "object", "properties": {}, "additionalProperties": False},
-    },
-}
-_TOOL_SELECTION_INSTRUCTION = (
-    "Select tools for the current user request. Do not answer the user or write prose. "
-    "Return only the necessary tool calls with complete arguments. "
-    f"If no available tool is needed, call {_NO_TOOL_NAME} alone with {{}}. "
-    "Never combine that decision with another call. Do not invent missing information "
-    "or bypass the existing rules for permission and tool use."
-)
-
-
-def _tool_choice_unsupported(exc: Exception) -> bool:
-    """Retry only an explicit parameter rejection, never an ambiguous outage."""
-    message = str(exc).lower()
-    return (
-        getattr(exc, "status_code", None) in (400, 422)
-        and "tool_choice" in message
-        and any(term in message for term in ("unsupported", "not supported", "does not support"))
-    )
-
-
-async def _await_tool_selection(
-    completion: Awaitable[Any], should_cancel: Callable[[], bool] | None
-) -> Any:
-    if should_cancel is None:
-        return await completion
-    task = asyncio.ensure_future(completion)
-    try:
-        while True:
-            if should_cancel():
-                raise asyncio.CancelledError
-            done, _ = await asyncio.wait({task}, timeout=0.1)
-            if done:
-                return task.result()
-    finally:
-        if not task.done():
-            task.cancel()
-            with suppress(asyncio.CancelledError, Exception):
-                await task
-
-
-def _tool_selection_result(
-    response: Any, *, tools: list[dict[str, Any]], model_alias: str
-) -> dict[str, Any]:
-    """Accept a complete decision before exposing any call to the service."""
-    invalid = ModelUnavailableError(
-        _CHAT_MODEL_UNAVAILABLE_MSG, code="tool_selection_incomplete", failed_alias=model_alias
-    )
-    choices = getattr(response, "choices", None) or []
-    if not choices or getattr(choices[0], "finish_reason", None) not in ("tool_calls", "stop"):
-        # Even valid JSON can be a truncated prefix of a multi-call response.
-        raise invalid
-    message = getattr(choices[0], "message", None)
-    calls = _tool_calls_to_jsonable(list(getattr(message, "tool_calls", None) or []))
-    if not calls:
-        # Prose is not evidence that no tool was needed, even in auto fallback.
-        raise invalid
-    allowed = {tool["function"]["name"] for tool in tools} | {_NO_TOOL_NAME}
-    ids: set[str] = set()
-    no_tool = False
-    for call in calls:
-        function = call.get("function")
-        if not isinstance(function, dict):
-            raise invalid
-        name, arguments, call_id = function.get("name"), function.get("arguments"), call.get("id")
-        if (
-            call.get("type") != "function"
-            or not isinstance(name, str)
-            or name not in allowed
-            or not isinstance(call_id, str)
-            or not call_id.strip()
-            or call_id in ids
-            or not isinstance(arguments, str)
-        ):
-            raise invalid
-        try:
-            parsed = json.loads(arguments)
-        except (ValueError, TypeError) as exc:
-            raise invalid from exc
-        if not isinstance(parsed, dict):
-            raise invalid
-        ids.add(call_id)
-        if name == _NO_TOOL_NAME:
-            if len(calls) != 1 or parsed:
-                raise invalid
-            no_tool = True
-    # Selection prose/reasoning is neither an answer nor useful tool context.
-    return {
-        "content": None,
-        "tool_calls": [] if no_tool else calls,
-        "finish_reason": choices[0].finish_reason,
-    }
-
-
-async def complete_with_tools(
-    *,
-    settings: Settings,
-    model_alias: str,
-    messages: list[dict[str, Any]],
-    tools: list[dict[str, Any]],
-    max_tokens: int,
-    usage: dict[str, int] | None = None,
-    timeout_seconds: float = 30.0,
-    should_cancel: Callable[[], bool] | None = None,
-) -> dict[str, Any]:
-    """Compact tool-only selection; retain the final response and its usage."""
-    if should_cancel and should_cancel():
-        raise asyncio.CancelledError
-    if mock_llm.should_mock_llm(settings):
-        result = await mock_llm.mock_complete_with_tools(messages=messages, tools=tools)
-        return {**result, "content": None, "finish_reason": "stop"}
-
-    route = resolve_route(model_alias)
-    kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=False)
-    if route.model.startswith("openrouter/"):
-        # Otherwise OpenRouter may silently ignore an unsupported tool_choice.
-        kwargs["extra_body"]["provider"]["require_parameters"] = True
-    selection_messages = [
-        *messages,
-        {"role": "system", "content": _TOOL_SELECTION_INSTRUCTION},
-    ]
-    try:
-        # An explicit unsupported-parameter retry shares this entire deadline.
-        async with asyncio.timeout(timeout_seconds):
-            for tool_choice in ("required", "auto"):
-                try:
-                    response = await _await_tool_selection(
-                        acompletion(
-                            model=route.model,
-                            messages=selection_messages,
-                            tools=[*tools, _NO_TOOL],
-                            tool_choice=tool_choice,
-                            max_tokens=max_tokens,
-                            stream=False,
-                            **kwargs,
-                        ),
-                        should_cancel,
-                    )
-                except Exception as exc:
-                    if tool_choice == "required" and _tool_choice_unsupported(exc):
-                        logger.info(
-                            "Tool choice required unsupported alias=%s; retrying auto", model_alias
-                        )
-                        continue
-                    raise
-                # Apply once, including a completed but rejected/truncated
-                # decision. No early abort means no lost usage-only trailer.
-                _apply_usage_from_response(usage, response)
-                return _tool_selection_result(response, tools=tools, model_alias=model_alias)
-    except TimeoutError as exc:
-        raise ModelUnavailableError(
-            _CHAT_MODEL_UNAVAILABLE_MSG,
-            failed_alias=model_alias,
-        ) from exc
-    except ModelUnavailableError:
-        raise
-    except Exception as exc:
-        logger.warning(
-            "complete_with_tools failed alias=%s type=%s", model_alias, type(exc).__name__
-        )
-        raise ModelUnavailableError(
-            _CHAT_MODEL_UNAVAILABLE_MSG,
-            failed_alias=model_alias,
-        ) from exc
-
-    raise ModelUnavailableError(_CHAT_MODEL_UNAVAILABLE_MSG, failed_alias=model_alias)
-
-
 async def stream_chat_completion(
     *,
     settings: Settings,
@@ -587,7 +332,7 @@ async def _stream_chat_once(
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
     kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)
-    stripper = _ThinkStripper()
+    stripper = ThinkStripper()
     # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
     _ = on_reasoning
     response = None
@@ -805,3 +550,7 @@ async def vision_completion(
     except Exception:
         logger.warning("Vision LLM %s failed", model_alias, exc_info=True)
         return None
+
+
+# Imported last: tool_completion reads this module's provider seams at call time.
+from app.gateways.tool_completion import complete_with_tools as complete_with_tools  # noqa: E402

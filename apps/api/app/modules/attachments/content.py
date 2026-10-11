@@ -6,7 +6,6 @@ import asyncio
 import base64
 import io
 import logging
-import zipfile
 from dataclasses import dataclass
 from typing import Any
 from uuid import UUID
@@ -16,6 +15,18 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.attachment_limits import MAX_ATTACHMENT_SIZE as MAX_ATTACHMENT_SIZE
 from app.core.config import Settings
 from app.gateways.storage_gateway import StorageGateway
+from app.modules.attachments.content_types import (
+    _DOCX_CONTENT_TYPE,
+    _OFFICE_MARKERS,
+    _TEXTISH_TYPES,
+    EXTRACTABLE_CONTENT_TYPES,
+    _docx_zip_bomb,
+    _office_content_type,
+    bytes_match_claimed,
+    is_image_content_type,
+    normalize_content_type,
+)
+from app.modules.attachments.markers import _strip_image_markers
 
 logger = logging.getLogger(__name__)
 
@@ -29,16 +40,8 @@ MAX_INDEX_EXTRACT_CHARS = 200_000
 # Inline excerpts stay small; background indexing can read later PDF pages.
 PDF_EXTRACT_MAX_PAGES = 25
 PDF_INDEX_MAX_PAGES = 500
-VISION_REHYDRATE_LIMIT = 2
 
 _IMAGE_REAL_NOTE = "These images are real. Do not call them placeholders or a failed generation."
-_IMAGE_UNAVAILABLE_NOTE = (
-    "The earlier image is not available to look at again. "
-    "Do not guess from a prior description; say you cannot see it. "
-    "Do not call it a placeholder or a failed generation."
-)
-_ATTACH_ID_PREFIX = "/attachments/"
-_ATTACH_ID_SUFFIX = "/file"
 
 GALLERY_THUMB_MIN_EDGE = 32
 GALLERY_THUMB_MAX_EDGE = 512
@@ -58,199 +61,6 @@ def resize_image_bytes(data: bytes, edge: int) -> tuple[bytes, str]:
     converted = opened.convert("RGB") if opened.mode != "RGB" else opened
     converted.save(out, format="JPEG", quality=80, optimize=True)
     return out.getvalue(), "image/jpeg"
-
-
-IMAGE_CONTENT_TYPES = frozenset(
-    {
-        "image/jpeg",
-        "image/jpg",
-        "image/png",
-        "image/webp",
-        "image/gif",
-        # HEIC/HEIF rejected — unreliable cross-platform preview + vision; ask for JPEG/PNG.
-    }
-)
-
-DOCUMENT_CONTENT_TYPES = frozenset(
-    {
-        "application/pdf",
-        "text/plain",
-        "text/markdown",
-        "text/csv",
-        "application/json",
-        # Legacy .doc (application/msword) intentionally excluded — no pure-Python
-        # parser can read it, so uploads succeed but RAG silently fails. Reject
-        # at presign with a clear error so users convert to .docx instead.
-        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    }
-)
-
-ALLOWED_CONTENT_TYPES = IMAGE_CONTENT_TYPES | DOCUMENT_CONTENT_TYPES
-
-_CONTENT_TYPE_ALIASES = {
-    "image/jpg": "image/jpeg",
-    "image/pjpeg": "image/jpeg",
-}
-
-# Text-ish types have no reliable magic signature. Accept only clean UTF-8
-# with no NUL (rejects polyglot binaries claimed as txt/json/csv/md). HEIC/HEIF
-# use an ISO BMFF ftyp box that's awkward to sniff here and are rare via the
-# local upload path, so they're accepted on trust for now.
-_TEXTISH_TYPES = frozenset({"text/plain", "text/markdown", "text/csv", "application/json"})
-_UNVERIFIABLE_TYPES: frozenset[str] = frozenset()
-
-
-_DOCX_MARKER_ENTRY = "word/document.xml"
-_MAX_DOCX_TOTAL_UNCOMPRESSED = 32 * 1024 * 1024
-_OFFICE_MARKERS = {
-    _DOCX_MARKER_ENTRY: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "xl/workbook.xml": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "ppt/presentation.xml": (
-        "application/vnd.openxmlformats-officedocument.presentationml.presentation"
-    ),
-}
-
-
-def _office_content_type(data: bytes) -> str | None:
-    try:
-        if _docx_zip_bomb(data):
-            return None
-        with zipfile.ZipFile(io.BytesIO(data)) as archive:
-            names = archive.namelist()
-            # Reject ambiguous containers and macro-bearing files even if renamed.
-            if any(name.lower().endswith("vbaproject.bin") for name in names):
-                return None
-            matches = [mime for marker, mime in _OFFICE_MARKERS.items() if marker in names]
-            return matches[0] if len(matches) == 1 else None
-    except (zipfile.BadZipFile, OSError, EOFError, NotImplementedError):
-        return None
-
-
-def _docx_zip_bomb(data: bytes) -> bool:
-    """True when any ZIP entry or the total uncompressed size looks like a bomb.
-
-    Per-entry cap matches ``MAX_ATTACHMENT_SIZE``; total uncompressed across
-    all entries is capped at 32 MiB so a small compressed upload can't expand
-    into gigabytes during DOCX parse.
-    """
-    try:
-        with zipfile.ZipFile(io.BytesIO(data)) as archive:
-            if len(archive.infolist()) > 4096:
-                return True
-            total = 0
-            for info in archive.infolist():
-                if info.file_size > MAX_ATTACHMENT_SIZE:
-                    return True
-                total += info.file_size
-                if total > _MAX_DOCX_TOTAL_UNCOMPRESSED:
-                    return True
-        return False
-    except (zipfile.BadZipFile, OSError, EOFError, NotImplementedError):
-        return False
-
-
-def _is_docx_zip(data: bytes) -> bool:
-    """True only for a ZIP archive that contains the canonical DOCX marker
-    entry, `word/document.xml`.
-
-    The ZIP local-file-header signature (`PK\\x03\\x04`) alone is shared by
-    .xlsx (`xl/workbook.xml`), .pptx (`ppt/presentation.xml`), .jar, .apk, and
-    plain .zip files, so it isn't enough to confirm a claimed DOCX upload is
-    actually a DOCX. This only inspects the archive's namelist — it never
-    reads/parses `document.xml` itself.
-
-    Runs on untrusted, potentially adversarial or truncated bytes: any
-    failure to open the buffer as a well-formed ZIP is treated as "not a
-    DOCX" rather than raised. Zip bombs are also rejected.
-    """
-    try:
-        if _docx_zip_bomb(data):
-            return False
-        with zipfile.ZipFile(io.BytesIO(data)) as archive:
-            return _DOCX_MARKER_ENTRY in archive.namelist()
-    except (zipfile.BadZipFile, OSError, EOFError, NotImplementedError) as exc:
-        logger.debug("ZIP signature present but not a valid/DOCX archive: %s", exc)
-        return False
-
-
-def _sniff_signature(data: bytes) -> str | None:
-    """Detect a few common binary types by leading magic bytes."""
-    if len(data) >= 3 and data[:3] == b"\xff\xd8\xff":
-        return "image/jpeg"
-    if len(data) >= 8 and data[:8] == b"\x89PNG\r\n\x1a\n":
-        return "image/png"
-    if len(data) >= 4 and data[:4] == b"%PDF":
-        return "application/pdf"
-    if len(data) >= 6 and data[:6] in (b"GIF87a", b"GIF89a"):
-        return "image/gif"
-    if len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP":
-        return "image/webp"
-    if len(data) >= 4 and data[:4] == b"PK\x03\x04":
-        return _office_content_type(data)
-    if len(data) >= 8 and data[:8] == b"\xd0\xcf\x11\xe0\xa1\xb1\x1a\xe1":
-        return "application/msword"
-    return None
-
-
-def _is_clean_textish(data: bytes) -> bool:
-    """UTF-8 text with no NUL — rejects polyglot binaries claimed as txt/json/csv/md."""
-    if b"\x00" in data:
-        return False
-    try:
-        data.decode("utf-8")
-    except UnicodeDecodeError:
-        return False
-    return True
-
-
-def bytes_match_claimed(claimed: str, data: bytes) -> bool:
-    """True if the uploaded bytes are consistent with the claimed content type.
-
-    The presign step validates the *claim*; this checks the *actual bytes* on
-    upload so a client can't presign "image/png" and then upload a shell script
-    that later gets served back with `Content-Type: image/png` (a content-
-    spoofing risk for any externally-shared signed URL).
-    """
-    norm = "image/jpeg" if claimed == "image/jpg" else claimed
-    if norm in _UNVERIFIABLE_TYPES:
-        return True
-    detected = _sniff_signature(data)
-    if detected is None:
-        # No binary signature. Accept only for text-ish claims; an image/pdf
-        # claim with no matching signature is a spoof.
-        if norm not in _TEXTISH_TYPES:
-            return False
-        return _is_clean_textish(data)
-    if detected != norm:
-        return False
-    if norm in _TEXTISH_TYPES:
-        return _is_clean_textish(data)
-    return True
-
-
-def normalize_content_type(content_type: str) -> str:
-    """Normalize client MIME types (strip params, map common aliases)."""
-    base = content_type.split(";", 1)[0].strip().lower()
-    return _CONTENT_TYPE_ALIASES.get(base, base)
-
-
-def is_allowed_content_type(content_type: str) -> bool:
-    return normalize_content_type(content_type) in ALLOWED_CONTENT_TYPES
-
-
-def is_image_content_type(content_type: str) -> bool:
-    return normalize_content_type(content_type) in IMAGE_CONTENT_TYPES
-
-
-_DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-
-# Types extract_text_from_bytes actually knows how to parse. Used to tell a
-# genuinely unsupported type (e.g. legacy .doc, which has no good pure-Python
-# parser) apart from a supported type that just yielded no text (e.g. a
-# scanned image-only PDF) — the two deserve different user-facing messages.
-EXTRACTABLE_CONTENT_TYPES = _TEXTISH_TYPES | {"application/pdf", *_OFFICE_MARKERS.values()}
 
 
 @dataclass(frozen=True)
@@ -627,142 +437,6 @@ async def format_attachment_lines(
         )
 
     return [file_ref, f"[File attached: {content_type}, {size_bytes} bytes]"], False
-
-
-def _is_image_marker_line(line: str) -> bool:
-    s = line.strip()
-    return s.startswith("[Image:") and s.endswith("]") and len(s) > len("[Image:]")
-
-
-def _is_file_ref_line(line: str) -> bool:
-    s = line.strip()
-    return s.startswith("[File:") and s.endswith("]") and len(s) > len("[File:]")
-
-
-def image_attachment_ids_from_text(content: str) -> list[UUID]:
-    """Parse ``[Image: /attachments/{uuid}/file]`` markers with a linear scan."""
-    found: list[UUID] = []
-    seen: set[UUID] = set()
-    for line in content.splitlines():
-        stripped = line.strip()
-        if not _is_image_marker_line(stripped):
-            continue
-        inner = stripped[len("[Image:") : -1].strip()
-        start = inner.find(_ATTACH_ID_PREFIX)
-        if start < 0:
-            continue
-        id_start = start + len(_ATTACH_ID_PREFIX)
-        id_end = inner.find(_ATTACH_ID_SUFFIX, id_start)
-        if id_end < 0:
-            continue
-        raw = inner[id_start:id_end]
-        try:
-            uid = UUID(raw)
-        except ValueError:
-            continue
-        if uid in seen:
-            continue
-        seen.add(uid)
-        found.append(uid)
-    return found
-
-
-def _content_as_text(content: Any) -> str:
-    if isinstance(content, str):
-        return content
-    if isinstance(content, list):
-        parts: list[str] = []
-        for part in content:
-            if isinstance(part, dict) and part.get("type") == "text":
-                text = part.get("text")
-                if isinstance(text, str):
-                    parts.append(text)
-        return "\n".join(parts)
-    return ""
-
-
-def prior_image_attachment_ids(
-    messages: list[dict[str, Any]],
-    *,
-    limit: int = VISION_REHYDRATE_LIMIT,
-) -> list[UUID]:
-    """Most recent prior-turn image ids (newest first), excluding the last user turn."""
-    if limit <= 0:
-        return []
-    last_user: int | None = None
-    for index in range(len(messages) - 1, -1, -1):
-        if messages[index].get("role") == "user":
-            last_user = index
-            break
-    start = last_user - 1 if last_user is not None else len(messages) - 1
-    ordered: list[UUID] = []
-    seen: set[UUID] = set()
-    for index in range(start, -1, -1):
-        for uid in image_attachment_ids_from_text(_content_as_text(messages[index].get("content"))):
-            if uid in seen:
-                continue
-            seen.add(uid)
-            ordered.append(uid)
-            if len(ordered) >= limit:
-                return ordered
-    return ordered
-
-
-def history_has_image_marker(messages: list[Any]) -> bool:
-    """True when any history row still has an ``[Image: …]`` marker."""
-    for row in messages:
-        if isinstance(row, dict):
-            text = _content_as_text(row.get("content"))
-        else:
-            raw = getattr(row, "content", None)
-            text = raw if isinstance(raw, str) else ""
-        if image_attachment_ids_from_text(text):
-            return True
-    return False
-
-
-def append_image_unavailable_note(prompt_messages: list[dict[str, Any]]) -> None:
-    """Tell the model it cannot see a prior image — do not guess from a caption."""
-    for index in range(len(prompt_messages) - 1, -1, -1):
-        msg = prompt_messages[index]
-        if msg.get("role") != "user":
-            continue
-        content = msg.get("content")
-        if isinstance(content, str):
-            msg["content"] = f"{content}\n\n{_IMAGE_UNAVAILABLE_NOTE}"
-            return
-        if isinstance(content, list):
-            content.append({"type": "text", "text": _IMAGE_UNAVAILABLE_NOTE})
-            return
-        msg["content"] = _IMAGE_UNAVAILABLE_NOTE
-        return
-
-
-def strip_attachment_from_content(content: str, attachment_id: UUID) -> str:
-    """Remove this attachment's markers (and a following file excerpt) from a message.
-
-    Linear scan — no regex. Empty result means the caller should delete the row.
-    """
-    needle = str(attachment_id)
-    kept: list[str] = []
-    skipping_file_block = False
-    for line in content.split("\n"):
-        stripped = line.strip()
-        if skipping_file_block:
-            if _is_image_marker_line(stripped) or _is_file_ref_line(stripped):
-                skipping_file_block = False
-            else:
-                continue
-        if needle in stripped and (_is_image_marker_line(stripped) or _is_file_ref_line(stripped)):
-            skipping_file_block = _is_file_ref_line(stripped)
-            continue
-        kept.append(line)
-    return "\n".join(kept).strip()
-
-
-def _strip_image_markers(text: str) -> str:
-    lines = [line for line in text.splitlines() if not _is_image_marker_line(line)]
-    return "\n".join(lines).strip()
 
 
 async def inject_vision_content(

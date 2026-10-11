@@ -4,7 +4,13 @@ import { useTranslation } from "react-i18next";
 import Svg, { Circle, G, Polygon, Polyline } from "react-native-svg";
 
 import { CartesianAxes } from "@/components/rich/CartesianAxes";
-import { formatGraphExpr, formatInequalityExpr, graphPolylinePoints, mapGraphPoint, type InequalityGraphSpec } from "@/lib/math/graphBlock";
+import {
+  formatGraphExpr,
+  formatInequalityExpr,
+  graphPolylinePoints,
+  mapGraphPoint,
+} from "@/lib/math/graphBlock";
+import { type InequalityGraphSpec } from "@/lib/math/graphSpec";
 import { clipInequalityRegion } from "@/lib/math/inequalityGraph";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { useTheme } from "@/lib/theme";

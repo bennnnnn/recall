@@ -45,7 +45,7 @@ def _should_use_vision_chat(
         return True
     if not recent_messages:
         return False
-    from app.modules.attachments.content import history_has_image_marker
+    from app.modules.attachments.markers import history_has_image_marker
 
     return history_has_image_marker(recent_messages)
 
@@ -287,6 +287,7 @@ async def prepare_chat_turn(
 
     prompt_messages = bundle.prompt_messages
     from app.modules.attachments import content as attachment_content_service
+    from app.modules.attachments import markers as attachment_markers
 
     if has_image_attachment and image_attachments and gateway is not None:
         await attachment_content_service.inject_vision_content(
@@ -297,7 +298,7 @@ async def prepare_chat_turn(
             bytes_by_key=attachment_bytes_by_key,
         )
     elif not has_image_attachment and settings.attachments_enabled and user is not None:
-        prior_ids = attachment_content_service.prior_image_attachment_ids(prompt_messages)
+        prior_ids = attachment_markers.prior_image_attachment_ids(prompt_messages)
         if prior_ids:
             from app.gateways.storage_gateway import get_storage_gateway
             from app.modules.attachments import repository as attachments_repo
@@ -325,7 +326,7 @@ async def prepare_chat_turn(
                 if injected:
                     model = "vision-chat"
             if not injected or len(images) < len(prior_ids):
-                attachment_content_service.append_image_unavailable_note(prompt_messages)
+                attachment_markers.append_image_unavailable_note(prompt_messages)
 
     # Vision may have mutated prompt_messages in place on the bundle.
     if user is None or chat is None or model is None or prior_count is None:

@@ -13,250 +13,32 @@ from __future__ import annotations
 from itertools import pairwise
 from typing import Any
 
+from app.modules.images.gen_intent_words import (
+    ARTICLES,
+    CODEISH_WORDS,
+    DEICTIC_SUBJECTS,
+    GENERATE_NOW_EXACT,
+    IMAGE_NOUNS,
+    MAKE_IDIOM_FILLER,
+    MAKE_NOT_A_PICTURE,
+    NON_IMAGE_DRAW_WORDS,
+    NON_IMAGE_WORDS,
+    NON_REVISION,
+    NOT_REVISION_STARTERS,
+    NOUN_MESSAGE_FILE_WORDS,
+    NOUN_ONLY_FILLER,
+    POSSESSIVES,
+    REACTION_PHRASES,
+    REACTION_WORDS,
+    REVISION_PRONOUNS,
+    SHOW_NON_IMAGE_WORDS,
+    SHOW_REVISION_TARGETS,
+    SUBJECTLESS_FILLER,
+    VERBS_DRAW,
+    VERBS_IMAGE,
+)
+
 _USER_MESSAGE_PREFIX = "Generate image: "
-
-_VERBS_IMAGE = frozenset(
-    {"create", "generate", "make", "design", "render", "produce"},
-)
-_VERBS_DRAW = frozenset({"draw", "paint", "illustrate"})
-_IMAGE_NOUNS = frozenset(
-    {
-        "image",
-        "images",
-        "picture",
-        "pictures",
-        "pic",
-        "pics",
-        "photo",
-        "photos",
-        "illustration",
-        "illustrations",
-        "artwork",
-        "artworks",
-        "drawing",
-        "drawings",
-        "portrait",
-        "portraits",
-    },
-)
-_ARTICLES = frozenset({"a", "an"})
-_POSSESSIVES = frozenset({"my", "your", "our", "his", "her", "their", "its"})
-_REVISION_PRONOUNS = frozenset({"it", "them", "this", "that"})
-_NOUN_MESSAGE_FILE_WORDS = frozenset({"script", "code", "compression", "format", "file"})
-_SUBJECTLESS_FILLER = frozenset({"a", "an", "the", "of", "just", "please"})
-
-_NON_IMAGE_WORDS = frozenset(
-    {
-        "todo",
-        "todos",
-        "task",
-        "tasks",
-        "list",
-        "lists",
-        "reminder",
-        "reminders",
-        "project",
-        "projects",
-        "account",
-        "accounts",
-        "script",
-        "scripts",
-        "code",
-        "function",
-        "functions",
-        "class",
-        "classes",
-        "file",
-        "files",
-        "folder",
-        "folders",
-        "chat",
-        "chats",
-        "note",
-        "notes",
-        "summary",
-        "summaries",
-        "plan",
-        "plans",
-        "schedule",
-        "schedules",
-        "event",
-        "events",
-        "meeting",
-        "meetings",
-        "quiz",
-        "quizzes",
-        "flashcard",
-        "flashcards",
-        "email",
-        "emails",
-        "message",
-        "messages",
-        "reply",
-        "replies",
-        "draft",
-        "drafts",
-        "report",
-        "reports",
-        "endpoint",
-        "endpoints",
-        "api",
-        "apis",
-        "database",
-        "databases",
-        "table",
-        "tables",
-        "component",
-        "components",
-        "hook",
-        "hooks",
-        "page",
-        "pages",
-        "screen",
-        "screens",
-        "modal",
-        "modals",
-        "button",
-        "buttons",
-        "form",
-        "forms",
-        "user",
-        "users",
-        "password",
-        "passwords",
-        "login",
-        "logins",
-        "pr",
-        "prs",
-        "commit",
-        "commits",
-        "branch",
-        "branches",
-        "issue",
-        "issues",
-        "bug",
-        "bugs",
-        "test",
-        "tests",
-        "array",
-        "arrays",
-        "object",
-        "objects",
-        "string",
-        "strings",
-        "comparison",
-        "comparisons",
-        # Learning / chat asks — "make your own example" is not a picture.
-        "example",
-        "examples",
-        "problem",
-        "problems",
-        "equation",
-        "equations",
-        "question",
-        "questions",
-        "exercise",
-        "exercises",
-        "homework",
-        "solution",
-        "solutions",
-        "proof",
-        "proofs",
-        "worksheet",
-        "worksheets",
-        "assignment",
-        "assignments",
-        # How-to / listicle heads — same as image_lookup_intent. Do not add
-        # "way" (milky way) or "guide" (tour-guide photos).
-        "stops",
-        "ways",
-        "tips",
-        "tip",
-        "secret",
-        "secrets",
-        "habit",
-        "habits",
-        "trick",
-        "tricks",
-        "stage",
-        "stages",
-        "phase",
-        "phases",
-        # "create music" is a chat ask, not a picture of an instrument.
-        "music",
-        "song",
-        "songs",
-        "playlist",
-        "playlists",
-        # Things the user wants built or written, not drawn.
-        "app",
-        "apps",
-        "website",
-        "websites",
-        "game",
-        "games",
-        "program",
-        "programs",
-        "spreadsheet",
-        "spreadsheets",
-        "recipe",
-        "recipes",
-        "poem",
-        "poems",
-        "essay",
-        "essays",
-        "story",
-        "stories",
-        "joke",
-        "jokes",
-    },
-)
-
-_NON_IMAGE_DRAW_WORDS = frozenset(
-    {
-        "conclusion",
-        "inference",
-        "boundary",
-        "line",
-        "diagram",
-        "chart",
-        "graph",
-        "plot",
-        "flowchart",
-        "flowcharts",
-        # Verified ```geometry / ```smiles — not AI images.
-        "triangle",
-        "triangles",
-        "square",
-        "squares",
-        "circle",
-        "circles",
-        "rectangle",
-        "rectangles",
-        "trapezoid",
-        "trapezoids",
-        "trapezium",
-        "polygon",
-        "polygons",
-        "rhombus",
-        "parallelogram",
-        "geometry",
-        "geometric",
-        "hypotenuse",
-        "molecule",
-        "molecules",
-        "molecular",
-        "structure",
-        "structures",
-        "smiles",
-        "chemistry",
-        "chemical",
-    },
-)
-
-_CODEISH_WORDS = frozenset(
-    {"compression", "script", "code", "algorithm", "function", "api"},
-)
 
 
 def _tokens(text: str) -> list[str]:
@@ -282,7 +64,7 @@ def _clean_prompt(raw: str) -> str | None:
     prompt = raw.strip().rstrip(".!?").strip()
     if not prompt or len(prompt) < 2:
         return None
-    if any(_fold_token(w) in _CODEISH_WORDS for w in prompt.split()):
+    if any(_fold_token(w) in CODEISH_WORDS for w in prompt.split()):
         return None
     return prompt
 
@@ -296,7 +78,7 @@ def _has_non_image_subject(subject: str) -> bool:
     words = subject.split()
     for i, word in enumerate(words):
         key = _fold_token(word)
-        if key in _NON_IMAGE_WORDS:
+        if key in NON_IMAGE_WORDS:
             return True
         nxt = _fold_token(words[i + 1]) if i + 1 < len(words) else ""
         if key == "pull" and nxt in {"request", "requests"}:
@@ -308,13 +90,13 @@ def _has_non_image_draw(subject: str) -> bool:
     words = [_fold_token(word) for word in subject.split()]
     if "sketch of the idea" in " ".join(words):
         return True
-    return any(word in _NON_IMAGE_DRAW_WORDS for word in words)
+    return any(word in NON_IMAGE_DRAW_WORDS for word in words)
 
 
 def _names_no_subject(parts: list[str]) -> bool:
     """``the image`` / ``just a pic of`` — only fillers and image nouns, no subject."""
     return all(
-        _fold_token(tok) in _IMAGE_NOUNS or _fold_token(tok) in _SUBJECTLESS_FILLER for tok in parts
+        _fold_token(tok) in IMAGE_NOUNS or _fold_token(tok) in SUBJECTLESS_FILLER for tok in parts
     )
 
 
@@ -329,25 +111,25 @@ def _match_verb_then_image(tokens: list[str]) -> str | None:
     """
     if len(tokens) < 3:
         return None
-    if tokens[0].lower() not in _VERBS_IMAGE:
+    if tokens[0].lower() not in VERBS_IMAGE:
         return None
     i = 1
     if i < len(tokens) and tokens[i].lower() == "me":
         i += 1
-    if i < len(tokens) and tokens[i].lower() in _ARTICLES:
+    if i < len(tokens) and tokens[i].lower() in ARTICLES:
         i += 1
     start = i
     while (
         i < len(tokens)
         and i - start < _MAX_IMAGE_MODIFIERS
-        and tokens[i].lower() not in _IMAGE_NOUNS
+        and tokens[i].lower() not in IMAGE_NOUNS
     ):
         i += 1
-    if i >= len(tokens) or tokens[i].lower() not in _IMAGE_NOUNS:
+    if i >= len(tokens) or tokens[i].lower() not in IMAGE_NOUNS:
         return None
     if i > start:
         rest = tokens[i + 2 :]
-        if rest and rest[0].lower() in _ARTICLES:
+        if rest and rest[0].lower() in ARTICLES:
             rest = rest[1:]
         if not rest or tokens[i + 1].lower() != "of":
             return None
@@ -368,14 +150,14 @@ def _match_verb_subject_image(tokens: list[str]) -> str | None:
     """create/generate … SUBJECT image/pic/photo"""
     if len(tokens) < 3:
         return None
-    if tokens[0].lower() not in _VERBS_IMAGE:
+    if tokens[0].lower() not in VERBS_IMAGE:
         return None
-    if tokens[-1].lower() not in _IMAGE_NOUNS:
+    if tokens[-1].lower() not in IMAGE_NOUNS:
         return None
     i = 1
     if i < len(tokens) - 1 and tokens[i].lower() == "me":
         i += 1
-    if i < len(tokens) - 1 and tokens[i].lower() in _ARTICLES:
+    if i < len(tokens) - 1 and tokens[i].lower() in ARTICLES:
         i += 1
     subject_parts = tokens[i:-1]
     if not subject_parts or _names_no_subject(subject_parts):
@@ -390,12 +172,12 @@ def _match_draw_me(tokens: list[str]) -> str | None:
     """draw/paint/illustrate me [a/an] SUBJECT"""
     if len(tokens) < 3:
         return None
-    if tokens[0].lower() not in _VERBS_DRAW:
+    if tokens[0].lower() not in VERBS_DRAW:
         return None
     if tokens[1].lower() != "me":
         return None
     i = 2
-    if i < len(tokens) and tokens[i].lower() in _ARTICLES:
+    if i < len(tokens) and tokens[i].lower() in ARTICLES:
         i += 1
     if i >= len(tokens):
         return None
@@ -405,49 +187,10 @@ def _match_draw_me(tokens: list[str]) -> str | None:
     return _clean_prompt(subject)
 
 
-# "make money" / "make dinner" are ordinary English. A picture that uses
-# "make" already names an image noun and is matched before this short path.
-_MAKE_NOT_A_PICTURE = frozenset(
-    {
-        "money",
-        "cash",
-        "bank",
-        "profit",
-        "profits",
-        "income",
-        "living",
-        "sense",
-        "time",
-        "friends",
-        "friend",
-        "decision",
-        "decisions",
-        "point",
-        "progress",
-        "mistake",
-        "mistakes",
-        "amends",
-        "peace",
-        "difference",
-        "room",
-        "haste",
-        "dinner",
-        "lunch",
-        "breakfast",
-        "bed",
-        "love",
-        "ends",
-        "laugh",
-        "smile",
-    }
-)
-_MAKE_IDIOM_FILLER = frozenset({"a", "an", "the", "some", "more", "much", "of", "lot", "lots"})
-
-
 def _make_is_not_a_picture(subject: str) -> bool:
     words = [_fold_token(word) for word in subject.split()]
-    words = [word for word in words if word and word not in _MAKE_IDIOM_FILLER]
-    return bool(words) and all(word in _MAKE_NOT_A_PICTURE for word in words)
+    words = [word for word in words if word and word not in MAKE_IDIOM_FILLER]
+    return bool(words) and all(word in MAKE_NOT_A_PICTURE for word in words)
 
 
 def _match_short_create(tokens: list[str]) -> str | None:
@@ -459,17 +202,17 @@ def _match_short_create(tokens: list[str]) -> str | None:
     if len(tokens) < 2:
         return None
     verb = tokens[0].lower()
-    if verb not in _VERBS_DRAW and verb not in _VERBS_IMAGE:
+    if verb not in VERBS_DRAW and verb not in VERBS_IMAGE:
         return None
     i = 1
     if i < len(tokens) and tokens[i].lower() == "me":
         i += 1
-    if i < len(tokens) and tokens[i].lower() in _ARTICLES:
+    if i < len(tokens) and tokens[i].lower() in ARTICLES:
         i += 1
     subject_parts = tokens[i:]
     if not subject_parts or len(subject_parts) > 8:
         return None
-    if subject_parts[0].lower() in _REVISION_PRONOUNS:
+    if subject_parts[0].lower() in REVISION_PRONOUNS:
         return None
     # "create an image" names no subject; the thread may supply one.
     if _names_no_subject(subject_parts):
@@ -492,28 +235,28 @@ def _match_image_noun_message(tokens: list[str]) -> str | None:
     if len(tokens) < 2 or len(tokens) > 16:
         return None
     folded = [_fold_token(tok) for tok in tokens]
-    if folded[-1] in _IMAGE_NOUNS:
+    if folded[-1] in IMAGE_NOUNS:
         parts = tokens[:-1]
     else:
-        i = 1 if folded[0] in _ARTICLES else 0
-        if i + 1 >= len(tokens) or folded[i] not in _IMAGE_NOUNS or folded[i + 1] != "of":
+        i = 1 if folded[0] in ARTICLES else 0
+        if i + 1 >= len(tokens) or folded[i] not in IMAGE_NOUNS or folded[i + 1] != "of":
             return None
         parts = tokens[i + 2 :]
-    if parts and _fold_token(parts[0]) in _ARTICLES:
+    if parts and _fold_token(parts[0]) in ARTICLES:
         parts = parts[1:]
     if not parts or _names_no_subject(parts):
         return None
     first = _fold_token(parts[0])
     if (
-        first in _POSSESSIVES
-        or first in _NOT_REVISION_STARTERS
-        or first in _IMAGE_NOUNS
-        or first in _VERBS_IMAGE
-        or first in _VERBS_DRAW
+        first in POSSESSIVES
+        or first in NOT_REVISION_STARTERS
+        or first in IMAGE_NOUNS
+        or first in VERBS_IMAGE
+        or first in VERBS_DRAW
     ):
         return None
     subject = _join_subject(parts)
-    if any(_fold_token(w) in _NOUN_MESSAGE_FILE_WORDS for w in parts):
+    if any(_fold_token(w) in NOUN_MESSAGE_FILE_WORDS for w in parts):
         return None
     if _has_non_image_subject(subject) or _has_non_image_draw(subject):
         return None
@@ -563,43 +306,19 @@ def extract_image_gen_prompt(text: str) -> str | None:
     return None
 
 
-_NOUN_ONLY_FILLER = frozenset({"please", "a", "an", "the", "just"})
-_GENERATE_NOW_EXACT = frozenset(
-    {
-        "that works",
-        "that will work",
-        "that works for me",
-        "do it",
-        "do that",
-        "go ahead",
-        "go for it",
-        "generate it",
-        "generate that",
-        "generate the image",
-        "generate the picture",
-        "you do it",
-        "u do it",
-        "you pick",
-        "u pick",
-        "you choose",
-        "u choose",
-    }
-)
-
-
 def is_image_noun_only_message(text: str) -> bool:
     """True for a bare image ask with no subject: ``Image``, ``a pic``, ``create an image``."""
     if is_image_gen_generate_now(text):
         return False
     tokens = _strip_polite(_tokens(text.strip().rstrip(".!?")))
-    if tokens and (tokens[0].lower() in _VERBS_IMAGE or tokens[0].lower() in _VERBS_DRAW):
+    if tokens and (tokens[0].lower() in VERBS_IMAGE or tokens[0].lower() in VERBS_DRAW):
         tokens = tokens[1:]
         if tokens and tokens[0].lower() == "me":
             tokens = tokens[1:]
-    kept = [tok for tok in tokens if tok.lower() not in _NOUN_ONLY_FILLER]
+    kept = [tok for tok in tokens if tok.lower() not in NOUN_ONLY_FILLER]
     if not kept:
         return False
-    return all(tok.lower() in _IMAGE_NOUNS for tok in kept)
+    return all(tok.lower() in IMAGE_NOUNS for tok in kept)
 
 
 def is_image_gen_generate_now(text: str) -> bool:
@@ -607,7 +326,7 @@ def is_image_gen_generate_now(text: str) -> bool:
     collapsed = " ".join(text.strip().lower().split()).rstrip(".!?").strip()
     if not collapsed or len(collapsed) > 40:
         return False
-    if collapsed in _GENERATE_NOW_EXACT:
+    if collapsed in GENERATE_NOW_EXACT:
         return True
     padded = f" {collapsed} "
     return " do it " in padded or " u do it " in padded or " you do it " in padded
@@ -636,12 +355,12 @@ def _thread_subject_from_user(text: str) -> str | None:
     if not words or len(words) > 6:
         return None
     first = words[0].lower().rstrip(".!,")
-    if first in _NOT_REVISION_STARTERS:
+    if first in NOT_REVISION_STARTERS:
         return None
     if _has_non_image_subject(trimmed) or _has_non_image_draw(trimmed):
         return None
     cleaned = _clean_prompt(trimmed)
-    if not cleaned or cleaned.lower() in _NON_REVISION:
+    if not cleaned or cleaned.lower() in NON_REVISION:
         return None
     return cleaned
 
@@ -664,12 +383,9 @@ def prior_user_contents_for_image_gen(messages: list[Any], current: str) -> list
     return out
 
 
-_DEICTIC_SUBJECTS = frozenset({"that", "this", "it", "them"})
-
-
 def _is_deictic_subject(subject: str) -> bool:
     first = _fold_token(subject.split()[0]) if subject.split() else ""
-    return first in _DEICTIC_SUBJECTS
+    return first in DEICTIC_SUBJECTS
 
 
 def _resolve_deictic_subject(direct: str, prior_user_contents: list[str]) -> str:
@@ -723,43 +439,15 @@ def _subject_from_active_image_exchange(prior_user_contents: list[str]) -> str |
     return None
 
 
-_REACTION_WORDS = frozenset(
-    {
-        "nice",
-        "cool",
-        "great",
-        "love",
-        "wow",
-        "beautiful",
-        "awesome",
-        "perfect",
-        "cute",
-    }
-)
-_REACTION_PHRASES = frozenset(
-    {
-        "looks good",
-        "looks great",
-        "looks nice",
-        "love it",
-        "love this",
-        "so cool",
-        "so nice",
-        "well done",
-        "nice one",
-    }
-)
-
-
 def _is_reaction(text: str) -> bool:
     collapsed = " ".join(text.strip().lower().split()).rstrip(".!?").strip()
     if collapsed.startswith("please "):
         collapsed = collapsed[len("please ") :].strip()
     if not collapsed:
         return False
-    if collapsed in _REACTION_PHRASES:
+    if collapsed in REACTION_PHRASES:
         return True
-    return collapsed.split()[0] in _REACTION_WORDS
+    return collapsed.split()[0] in REACTION_WORDS
 
 
 def _has_edit_lead_in(tokens: list[str]) -> bool:
@@ -774,105 +462,6 @@ def _has_edit_lead_in(tokens: list[str]) -> bool:
     return i < n and tokens[i].lower() in {"now", "again", "instead", "try"}
 
 
-_NON_REVISION = frozenset(
-    {
-        "ok",
-        "okay",
-        "k",
-        "thanks",
-        "thank you",
-        "thx",
-        "ty",
-        "yes",
-        "no",
-        "yep",
-        "nope",
-        "sure",
-        "cool",
-        "nice",
-        "lol",
-        "lmao",
-        "haha",
-        "hehe",
-        "great",
-        "got it",
-        "perfect",
-        "awesome",
-        "hi",
-        "hello",
-        "hey",
-        "hiya",
-        "yo",
-        "sup",
-        "bye",
-        "goodbye",
-        "cya",
-        "see ya",
-        "sounds good",
-        "makes sense",
-        "understood",
-    }
-)
-
-# First remaining token after revision lead-ins. Questions and chat openers
-# must not become "{subject}, what's 2+2" or pay Neon list_recent on a new chat.
-_NOT_REVISION_STARTERS = frozenset(
-    {
-        "what",
-        "what's",
-        "whats",
-        "why",
-        "how",
-        "how's",
-        "who",
-        "when",
-        "where",
-        "which",
-        "can",
-        "could",
-        "would",
-        "should",
-        "is",
-        "are",
-        "do",
-        "does",
-        "did",
-        "will",
-        "am",
-        "help",
-        "show",
-        "tell",
-        "explain",
-        "write",
-        "please",
-        "i",
-        "i'm",
-        "im",
-        "i've",
-        "ive",
-        "we",
-        "let's",
-        "lets",
-    }
-)
-
-
-# "show it at night" / "show the car in blue" redraw the last picture; "show the
-# steps" or "show 23 times 14" after a picture are ordinary chat.
-_SHOW_REVISION_TARGETS = frozenset({"it", "them", "more", "less", "another", "a", "an", "the"})
-_SHOW_NON_IMAGE_WORDS = frozenset(
-    {
-        "step",
-        "steps",
-        "work",
-        "working",
-        "workout",
-        "answer",
-        "solution",
-        "calculation",
-        "how",
-    }
-)
 _SHOW_NON_IMAGE_SYMBOLS = "+-\u00d7\u00f7*/=^"
 
 
@@ -882,11 +471,11 @@ def _is_show_image_revision(tokens: list[str]) -> bool:
     if any(symbol in tok for tok in tokens for symbol in _SHOW_NON_IMAGE_SYMBOLS):
         return False
     words = [_fold_token(tok) for tok in tokens]
-    if any(word in _SHOW_NON_IMAGE_WORDS for word in words):
+    if any(word in SHOW_NON_IMAGE_WORDS for word in words):
         return False
     if any(a == "long" and b == "division" for a, b in pairwise(words)):
         return False
-    return words[1] in _SHOW_REVISION_TARGETS
+    return words[1] in SHOW_REVISION_TARGETS
 
 
 def subject_from_image_gen_user_message(content: str) -> str | None:
@@ -966,7 +555,7 @@ def extract_image_revision_prompt(
     if "?" in trimmed:
         return None
     first = tokens[0].lower().rstrip(".!,")
-    if first in _NOT_REVISION_STARTERS and not _is_show_image_revision(tokens):
+    if first in NOT_REVISION_STARTERS and not _is_show_image_revision(tokens):
         return None
     revision = _join_subject(tokens)
     if not revision:
@@ -976,7 +565,7 @@ def extract_image_revision_prompt(
     cleaned = _clean_prompt(revision)
     if not cleaned:
         return None
-    if cleaned.lower() in _NON_REVISION:
+    if cleaned.lower() in NON_REVISION:
         return None
     return f"{previous_subject}, {cleaned}"
 
