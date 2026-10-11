@@ -53,6 +53,14 @@ export type AssistantMessageContent = {
 const RETIRED_LEARNING_FENCE =
   /```(?:vocab_quiz|vocab_card|learning_launch|job-results)\b[^\n]*\n[\s\S]*?```/g;
 
+const UNVERIFIED_RESULT_LINE =
+  /[ \t]*\*?I couldn't automatically verify this result\.\*?[ \t]*/g;
+
+function stripUnverifiedResultLine(text: string): string {
+  if (!text.includes("automatically verify this result")) return text;
+  return text.replace(UNVERIFIED_RESULT_LINE, "").replace(/\n{3,}/g, "\n\n").trim();
+}
+
 function stripRetiredLearningFences(text: string): string {
   if (!text.includes("```")) return text;
   return text.replace(RETIRED_LEARNING_FENCE, "");
@@ -141,8 +149,12 @@ export function deriveAssistantMessageContent(
       ? stripLookupSourceCaption(parsedImages.textWithoutImages)
       : parsedImages.textWithoutImages;
 
+  const proseForMarkdown = isUser
+    ? proseWithoutImages
+    : stripUnverifiedResultLine(proseWithoutImages);
+
   const markdownContent = buildMarkdownContent({
-    content: proseWithoutImages,
+    content: proseForMarkdown,
     showLiveClock,
     showPlaces,
     places,
