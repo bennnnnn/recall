@@ -46,6 +46,8 @@ export interface ChatScreenListProps {
   onLoadOlder: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
+  onContentSizeChange?: (width: number, height: number) => void;
+  onListLayout?: (height: number) => void;
   header: ReactElement | null;
   footer?: ReactElement | null;
   hideHomeStarters?: boolean;
@@ -194,6 +196,8 @@ export const ChatScreenBody = memo(function ChatScreenBody({
           onLoadOlder={list.onLoadOlder}
           onScroll={list.onScroll}
           onScrollEnd={list.onScrollEnd}
+          onContentSizeChange={list.onContentSizeChange}
+          onListLayout={list.onListLayout}
           header={list.header}
           hideHomeStarters={list.hideHomeStarters}
           listFooter={list.footer}

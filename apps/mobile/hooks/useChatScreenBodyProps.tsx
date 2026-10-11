@@ -82,6 +82,8 @@ export type UseChatScreenBodyPropsParams = {
     loadOlderMessages: () => Promise<void>;
     handleScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
     handleScrollEnd: () => void;
+    handleContentSizeChange?: (width: number, height: number) => void;
+    handleListLayout?: (height: number) => void;
   };
   handleSend: (prompt?: string) => void | Promise<void>;
   showScrollToBottom: boolean;
@@ -170,6 +172,8 @@ export function useChatScreenBodyProps({
     loadOlderMessages,
     handleScroll,
     handleScrollEnd,
+    handleContentSizeChange,
+    handleListLayout,
   },
   handleSend,
   showScrollToBottom,
@@ -350,6 +354,8 @@ export function useChatScreenBodyProps({
       onLoadOlder,
       onScroll: handleScroll,
       onScrollEnd: handleScrollEnd,
+      onContentSizeChange: handleContentSizeChange,
+      onListLayout: handleListLayout,
       header: listHeader,
       footer: listFooter,
       hideHomeStarters,
@@ -365,6 +371,8 @@ export function useChatScreenBodyProps({
       onLoadOlder,
       handleScroll,
       handleScrollEnd,
+      handleContentSizeChange,
+      handleListLayout,
       listHeader,
       listFooter,
       hideHomeStarters,

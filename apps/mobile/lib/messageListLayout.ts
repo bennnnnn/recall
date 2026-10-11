@@ -16,17 +16,17 @@ export const STREAM_LAYOUT_SETTLE_MS = 280;
 export const STREAM_AUTOSCROLL_RESUME_MS = STREAM_LAYOUT_SETTLE_MS + 80;
 
 /**
- * First turn stays under the header. Do not flip this to true while a short
- * thread grows — FlashList then pads the top and pins content to the bottom
- * of the full-screen list (behind the overlay composer).
- * Longer threads / older pages still open on the latest message.
+ * Short threads stay under the header. FlashList's bottom start pads the top
+ * until the rows fill the screen, so a few messages sit on the composer and
+ * cannot scroll up. Only a thread that already has older pages is long enough
+ * to open on the latest message. A single page that overflows is scrolled
+ * after layout, not pinned with that pad.
  */
 export function shouldStartRenderingFromBottom(options: {
   messageCount: number;
   hasMoreOlder: boolean;
 }): boolean {
-  if (options.hasMoreOlder) return true;
-  return options.messageCount > 2;
+  return options.hasMoreOlder && options.messageCount > 0;
 }
 
 /** Keep the mount-time pin; never promote a short in-progress thread. */

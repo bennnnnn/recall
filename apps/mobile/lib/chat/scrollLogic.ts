@@ -41,6 +41,35 @@ export function shouldScrollToEndWhenPinned(maxOffset: number): boolean {
   return maxOffset > 0;
 }
 
+/**
+ * A short thread that was laid out from the bottom stays there with offset 0,
+ * because the extra top pad is not scrollable. Once that pad is gone, pull a
+ * leftover offset back to the header. A thread taller than the screen opens
+ * on the latest message once, then the streaming pin takes over.
+ */
+export function resolveListAnchor(options: {
+  contentHeight: number;
+  viewportHeight: number;
+  scrollOffset: number;
+  atBottom: boolean;
+  pinnedOverflow: boolean;
+}): { action: "top" | "end" | "none"; pinnedOverflow: boolean } {
+  if (options.viewportHeight <= 0 || options.contentHeight <= 0) {
+    return { action: "none", pinnedOverflow: options.pinnedOverflow };
+  }
+  const maxOffset = Math.max(0, options.contentHeight - options.viewportHeight);
+  if (!shouldScrollToEndWhenPinned(maxOffset)) {
+    return {
+      action: options.scrollOffset > 1 ? "top" : "none",
+      pinnedOverflow: false,
+    };
+  }
+  if (options.pinnedOverflow || !options.atBottom) {
+    return { action: "none", pinnedOverflow: options.pinnedOverflow };
+  }
+  return { action: "end", pinnedOverflow: true };
+}
+
 /** Scroll once after stream ends — not on every draft clear / layout tick. */
 export function shouldSchedulePostStreamScroll(
   wasStreamActive: boolean,

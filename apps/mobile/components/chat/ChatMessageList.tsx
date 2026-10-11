@@ -32,6 +32,8 @@ type Props = {
   onLoadOlder: () => void;
   onScroll: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
   onScrollEnd: () => void;
+  onContentSizeChange?: (width: number, height: number) => void;
+  onListLayout?: (height: number) => void;
   header?: ReactElement | null;
   hideHomeStarters?: boolean;
   listFooter?: ReactElement | null;
@@ -53,6 +55,8 @@ function ChatMessageListComponent({
   onLoadOlder,
   onScroll,
   onScrollEnd,
+  onContentSizeChange,
+  onListLayout,
   header,
   hideHomeStarters = false,
   listFooter = null,
@@ -115,7 +119,10 @@ function ChatMessageListComponent({
   );
 
   return (
-    <View style={s.messagesArea}>
+    <View
+      style={s.messagesArea}
+      onLayout={(event) => onListLayout?.(event.nativeEvent.layout.height)}
+    >
       <FlashList
         ref={listRef}
         data={messages}
@@ -128,6 +135,7 @@ function ChatMessageListComponent({
         onScroll={onScroll}
         onScrollEndDrag={onScrollEnd}
         onMomentumScrollEnd={onScrollEnd}
+        onContentSizeChange={onContentSizeChange}
         scrollEventThrottle={16}
         contentContainerStyle={contentContainerStyle}
         keyboardShouldPersistTaps="handled"
