@@ -1,4 +1,4 @@
-"""Periodic push notification scheduler — todo reminders, email suggestions, and calendar meetings."""
+"""Periodic push scheduler for todo reminders, email suggestions, and calendar meetings."""
 
 from __future__ import annotations
 
