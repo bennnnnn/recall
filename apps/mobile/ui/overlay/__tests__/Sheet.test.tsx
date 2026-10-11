@@ -8,6 +8,7 @@ import {
   type KeyboardEvent,
 } from "react-native";
 
+import { Layer } from "@/lib/layer";
 import { Space } from "@/lib/space";
 
 import { floatingSheetBottomMargin, Sheet } from "../Sheet";
@@ -120,6 +121,8 @@ describe("Sheet", () => {
     expect(getByText("File")).toBeOnTheScreen();
     const panel = StyleSheet.flatten(getByTestId("app-sheet-dialog").props.style);
     expect(panel.marginBottom).toBeGreaterThanOrEqual(composerClearance);
+    const host = StyleSheet.flatten(getByTestId("app-sheet-embedded").props.style);
+    expect(host.zIndex).toBe(Layer.sheet);
   });
 
   it("renders floating sheets with a handle still visible", async () => {

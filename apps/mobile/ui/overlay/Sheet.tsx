@@ -21,6 +21,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { useSheetPanDismiss } from "./useSheetPanDismiss";
 import { useReduceMotion } from "@/lib/reduceMotion";
+import { Layer } from "@/lib/layer";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
@@ -59,8 +60,9 @@ type Props = {
    */
   floating?: boolean;
   /**
-   * Keep a floating panel above overlapping chrome. Pass the composer
-   * clearance so the last row ends above that bar instead of running under it.
+   * Extra lift for a floating panel, in addition to the safe area. The attach
+   * sheet does not use this — it sits on the bottom edge and stacks above the
+   * composer.
    */
   bottomOffset?: number;
   /** Style override for the panel (background, radius, padding). */
@@ -248,7 +250,11 @@ export function Sheet({
 
   if (embedded) {
     if (!visible) return null;
-    return <View style={s.embedded}>{frame}</View>;
+    return (
+      <View style={s.embedded} testID="app-sheet-embedded">
+        {frame}
+      </View>
+    );
   }
 
   return (
@@ -267,8 +273,8 @@ export function Sheet({
 }
 
 /**
- * Bottom margin for a floating sheet. When `bottomOffset` is the composer
- * clearance, the panel ends above that bar so the last row cannot sit under it.
+ * Bottom margin for a floating sheet. Safe-area clearance, plus `bottomOffset`
+ * when a caller needs the panel to end higher than the home indicator.
  */
 export function floatingSheetBottomMargin(options: {
   safeAreaBottom: number;
@@ -336,7 +342,7 @@ function makeStyles(t: Theme) {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 40,
+      zIndex: Layer.sheet,
     },
   });
 }

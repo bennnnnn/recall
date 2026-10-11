@@ -18,12 +18,10 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   onSelect: (source: AttachmentSource) => void;
-  /** Composer clearance. The panel ends above that bar. */
-  bottomOffset?: number;
 };
 
 /** Attach / math-scan source picker — same floating Sheet chrome as chat actions. */
-export function AttachmentSourceSheet({ visible, onClose, onSelect, bottomOffset }: Props) {
+export function AttachmentSourceSheet({ visible, onClose, onSelect }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -41,7 +39,6 @@ export function AttachmentSourceSheet({ visible, onClose, onSelect, bottomOffset
       withHandle
       floating
       embedded
-      bottomOffset={bottomOffset}
       minBottomPadding={12}
       contentContainerStyle={s.panel}
     >
