@@ -4,6 +4,7 @@ import {
   nextStreamingScrollDelay,
   resolveScrollAtBottom,
   shouldSchedulePostStreamScroll,
+  resolveListAnchor,
   shouldScrollToEndWhenPinned,
 } from "@/lib/chat/scrollLogic";
 
@@ -76,6 +77,45 @@ describe("chatScrollLogic", () => {
     expect(shouldSchedulePostStreamScroll(false, false, true)).toBe(false);
     expect(shouldSchedulePostStreamScroll(true, true, true)).toBe(false);
     expect(shouldSchedulePostStreamScroll(true, false, false)).toBe(false);
+  });
+
+  it("keeps a short thread at the top and opens a tall thread on the latest message once", () => {
+    expect(
+      resolveListAnchor({
+        contentHeight: 420,
+        viewportHeight: 700,
+        scrollOffset: 180,
+        atBottom: true,
+        pinnedOverflow: false,
+      }),
+    ).toEqual({ action: "top", pinnedOverflow: false });
+    expect(
+      resolveListAnchor({
+        contentHeight: 420,
+        viewportHeight: 700,
+        scrollOffset: 0,
+        atBottom: true,
+        pinnedOverflow: false,
+      }),
+    ).toEqual({ action: "none", pinnedOverflow: false });
+    expect(
+      resolveListAnchor({
+        contentHeight: 1400,
+        viewportHeight: 700,
+        scrollOffset: 0,
+        atBottom: true,
+        pinnedOverflow: false,
+      }),
+    ).toEqual({ action: "end", pinnedOverflow: true });
+    expect(
+      resolveListAnchor({
+        contentHeight: 1600,
+        viewportHeight: 700,
+        scrollOffset: 700,
+        atBottom: true,
+        pinnedOverflow: true,
+      }),
+    ).toEqual({ action: "none", pinnedOverflow: true });
   });
 
   it("nextStreamingScrollDelay converges toward 0 instead of resetting on sustained calls", () => {

@@ -413,6 +413,8 @@ function ChatScreen() {
     scrollToLatest,
     handleScroll,
     handleScrollEnd,
+    handleContentSizeChange,
+    handleListLayout,
   } = scroll;
 
   const { draftChatId } = draft;
@@ -527,6 +529,8 @@ function ChatScreen() {
       loadOlderMessages,
       handleScroll,
       handleScrollEnd,
+      handleContentSizeChange,
+      handleListLayout,
     },
     handleSend,
     showScrollToBottom,

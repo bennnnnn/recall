@@ -7,6 +7,7 @@ import type { Message } from "@/lib/api";
 import {
   getScrollThresholds,
   nextStreamingScrollDelay,
+  resolveListAnchor,
   resolveScrollAtBottom,
   shouldSchedulePostStreamScroll,
   shouldScrollToEndWhenPinned,
@@ -57,6 +58,8 @@ export function useChatScroll({
   const streamEndScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const keyboardScrollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const prevStreamActiveRef = useRef(false);
+  const contentHeightRef = useRef(0);
+  const pinnedOverflowRef = useRef(false);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
   const [scrollAwayCount, setScrollAwayCount] = useState(0);
 
@@ -233,6 +236,8 @@ export function useChatScroll({
     maxScrollOffsetRef.current = 0;
     scrollOffsetRef.current = 0;
     viewportHeightRef.current = 0;
+    contentHeightRef.current = 0;
+    pinnedOverflowRef.current = false;
     showScrollBtnRef.current = false;
     setShowScrollToBottom(false);
     setScrollAwayCount(0);
@@ -265,6 +270,47 @@ export function useChatScroll({
     syncScrollPosition();
   }, [syncScrollPosition]);
 
+  const alignListToContent = useCallback(() => {
+    if (messagesLenRef.current === 0) return;
+    const decision = resolveListAnchor({
+      contentHeight: contentHeightRef.current,
+      viewportHeight: viewportHeightRef.current,
+      scrollOffset: scrollOffsetRef.current,
+      atBottom: atBottomRef.current,
+      pinnedOverflow: pinnedOverflowRef.current,
+    });
+    pinnedOverflowRef.current = decision.pinnedOverflow;
+    if (decision.action === "top") {
+      scrollOffsetRef.current = 0;
+      listRef.current?.scrollToOffset({ offset: 0, animated: false });
+      updateAtBottom(true);
+      return;
+    }
+    if (decision.action === "end") {
+      scrollOffsetRef.current = Math.max(
+        0,
+        contentHeightRef.current - viewportHeightRef.current,
+      );
+      listRef.current?.scrollToEnd({ animated: false });
+    }
+  }, [updateAtBottom]);
+
+  const handleContentSizeChange = useCallback(
+    (_width: number, height: number) => {
+      contentHeightRef.current = height;
+      alignListToContent();
+    },
+    [alignListToContent],
+  );
+
+  const handleListLayout = useCallback(
+    (height: number) => {
+      if (height > 0) viewportHeightRef.current = height;
+      alignListToContent();
+    },
+    [alignListToContent],
+  );
+
   useEffect(() => {
     if (keyboardHeight <= 0) return;
     scheduleTimeout(keyboardScrollTimerRef, 50, () => scrollToEndIfAtBottom(true));
@@ -279,5 +325,7 @@ export function useChatScroll({
     scrollToLatest,
     handleScroll,
     handleScrollEnd,
+    handleContentSizeChange,
+    handleListLayout,
   };
 }

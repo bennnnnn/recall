@@ -22,8 +22,11 @@ describe("messageListLayout", () => {
       shouldStartRenderingFromBottom({ messageCount: 2, hasMoreOlder: false }),
     ).toBe(false);
     expect(
-      shouldStartRenderingFromBottom({ messageCount: 3, hasMoreOlder: false }),
-    ).toBe(true);
+      shouldStartRenderingFromBottom({ messageCount: 4, hasMoreOlder: false }),
+    ).toBe(false);
+    expect(
+      shouldStartRenderingFromBottom({ messageCount: 0, hasMoreOlder: true }),
+    ).toBe(false);
     expect(
       shouldStartRenderingFromBottom({ messageCount: 1, hasMoreOlder: true }),
     ).toBe(true);
@@ -46,14 +49,30 @@ describe("messageListLayout", () => {
       hasMoreOlder: false,
     });
     expect(grew.value).toBe(false);
-    const openedLong = latchStartRenderingFromBottom({
+    const named = latchStartRenderingFromBottom({
       chatKey: "chat-1:live",
+      previousChatKey: grew.chatKey,
+      previousValue: grew.value,
+      messageCount: 4,
+      hasMoreOlder: false,
+    });
+    expect(named.value).toBe(false);
+    const openedLong = latchStartRenderingFromBottom({
+      chatKey: "chat-2:live",
       previousChatKey: "",
       previousValue: false,
       messageCount: 8,
       hasMoreOlder: false,
     });
-    expect(openedLong.value).toBe(true);
+    expect(openedLong.value).toBe(false);
+    const withHistory = latchStartRenderingFromBottom({
+      chatKey: "chat-2:live",
+      previousChatKey: openedLong.chatKey,
+      previousValue: openedLong.value,
+      messageCount: 8,
+      hasMoreOlder: true,
+    });
+    expect(withHistory.value).toBe(true);
   });
 
   it("uses role for user rows", () => {

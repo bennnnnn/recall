@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A short chat sat on the composer and would not scroll up.** FlashList padded the top once a thread passed two messages, so the rows filled the screen from the bottom and the max scroll was zero. Only a thread that already has older pages starts there. A page that fits stays under the header.
+
 - **Stop dropped the reply after tokens had already arrived.** A task cancel stays pending after it is caught, so the next await raised again and the save never ran. Cancelling the consumer also left the generator parked at a yield, and closing the provider socket cancelled the task again during the save. Clear the pending cancel, cancel the producer only once, resume the generator, and run the save on its own task.
 
 - **√9 = 3 still ended with “I couldn’t automatically verify.”** A declined solve appended that italic line, and the model could write the same sentence when it was not checked. The line is removed from every reply. A verified reply still shows a check. Nothing in the chat says the result was not verified.
