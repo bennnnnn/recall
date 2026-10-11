@@ -32,6 +32,7 @@ _QUESTION_CHARS = 500
 _MAX_QUESTIONS = 3
 _KEY = "related_prompts:{message_id}"
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
+_CONTENT_WORD = re.compile(r"[a-z]{5,}")
 
 # Biology is not a solver subject. These cues only decide whether to ask the
 # model for follow-up questions. They are not a list of questions to show.
@@ -53,6 +54,7 @@ _SYSTEM = (
     "problem they just worked. Each item is one full question about this "
     "same problem: why the result came out that way, a harder case of the "
     "same idea, or the neighboring idea. "
+    "Keep a number or a word from that problem in every question. "
     "Write each equation or quantity in $...$, as in $x^2 = 9$. "
     'Return JSON {"questions": ["...", "...", "..."]}. '
     "Do not repeat the student's question. "
@@ -98,7 +100,27 @@ def _keep_question(question: str, candidate: str) -> bool:
         return False
     if _digit_skeleton(cleaned) == _digit_skeleton(question):
         return False
+    # "3 + 4" has no long word. A follow-up that mentions neither 3 nor 4
+    # left the problem. A physics follow-up can skip the digits when it
+    # still says force or object. A numberless question may ask the
+    # neighboring idea, so this check stays off there.
+    anchors = _problem_anchors(question)
+    if anchors and not _mentions_anchor(cleaned, anchors):
+        return False
     return True
+
+
+def _problem_anchors(question: str) -> set[str]:
+    folded = collapse_ws(question).casefold()
+    numbers = set(_NUMBER.findall(folded))
+    if not numbers:
+        return set()
+    return numbers | set(_CONTENT_WORD.findall(folded))
+
+
+def _mentions_anchor(follow_up: str, anchors: set[str]) -> bool:
+    folded = collapse_ws(follow_up).casefold()
+    return any(re.search(rf"\b{re.escape(anchor)}\b", folded) for anchor in anchors)
 
 
 def _accepted_questions(question: str, raw: list[str]) -> list[str]:

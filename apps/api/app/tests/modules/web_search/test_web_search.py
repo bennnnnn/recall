@@ -28,6 +28,11 @@ from app.modules.web_search import (
         ("Show me yesterdays game", True),
         ("show me yesterday's game result", True),
         ("Ethiopias game score", True),
+        (
+            "Why does adding two positive numbers always result in a larger number "
+            "than either of the original numbers?",
+            False,
+        ),
         ("explain Python decorators", False),
         ("what time is it", False),
         ("what year is it", False),

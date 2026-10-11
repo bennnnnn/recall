@@ -83,6 +83,22 @@ async def test_a_digit_change_of_the_same_sentence_is_dropped() -> None:
     assert prompts == PHYSICS_FOLLOWUPS[:2]
 
 
+async def test_a_sum_follow_up_that_drops_both_numbers_is_rejected() -> None:
+    drifted = (
+        "Why does adding two positive numbers always result in a larger number "
+        "than either of the original numbers?"
+    )
+    with patch(
+        "app.services.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        complete.return_value = RelatedQuestions(questions=[drifted, "What is 3 + 5?"])
+        prompts = await generate_related_questions(Settings(), "3+4", "3 + 4 = 7")
+
+    assert drifted not in prompts
+    assert prompts == ["What is 3 + 5?"]
+
+
 def test_an_arithmetic_follow_up_still_asks_for_more() -> None:
     question = "How would you calculate 1 + 1 + 1 + 1?"
     assert subject_for_related(question) == "math"

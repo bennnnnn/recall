@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A suggestion after 3 + 4 searched the web and opened with 7.** “always result” matched a team-score pattern, so a why-question was treated as a live lookup. The chip had also dropped 3 and 4. “result” counts as a score only after an apostrophe, a follow-up has to keep a number or a word from the problem, and a digit-free why-question does not start with the previous sum.
+
 - **A paired dilution and quadratic printed `notation: chemistry` and raw `\\text`.** The direct reply already had two ```answer fences, and a paired turn has no single verified subject, so the unverified math rewrite unwrapped both. A direct reply keeps its fences.
 
 - **“Add milk” answered “Added” at 6:00 PM and saved nothing.** The model invented the hour and skipped the reminder fence. A chat create needs a clock in the user’s message, and a Set/Added line is removed when nothing was saved.
