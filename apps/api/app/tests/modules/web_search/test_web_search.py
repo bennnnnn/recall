@@ -203,6 +203,16 @@ def test_needs_web_search_look_it_up_with_prior():
     assert needs_web_search("look it up", prior_user_messages=[]) is False
 
 
+def test_needs_web_search_source_followup_uses_the_prior_question():
+    prior = ["Who is the current president of France?"]
+    assert needs_web_search("Where did you get that?", prior_user_messages=prior) is True
+    assert needs_web_search("Where did you get that?", prior_user_messages=[]) is False
+    assert (
+        resolve_search_subject("Where did you get that?", prior_user_messages=prior)
+        == "Who is the current president of France?"
+    )
+
+
 def test_needs_web_search_clarification_follow_up():
     prior = ["Show me yesterdays game", "Look it up"]
     assert needs_web_search("No, the ongoing one.", prior_user_messages=prior) is True

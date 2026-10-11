@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
-    _LOOK_IT_UP,
     _NEWS,
     _SHORT_FOLLOWUP_WORDS,
     _SPORTS,
     _WORLD_CUP,
+    asks_for_prior_subject,
     collapse_ws,
 )
 
@@ -37,7 +37,7 @@ def _prior_searchable_topic(prior_user_messages: list[str] | None) -> str | None
         return None
     for msg in reversed(prior_user_messages):
         cleaned = collapse_ws(msg)
-        if not cleaned or _LOOK_IT_UP.match(cleaned):
+        if not cleaned or asks_for_prior_subject(cleaned):
             continue
         if (
             _topic_needs_search(cleaned)
@@ -55,10 +55,10 @@ def resolve_search_subject(
     prior_user_messages: list[str] | None = None,
 ) -> str:
     cleaned = collapse_ws(user_content)
-    if _LOOK_IT_UP.match(cleaned) and prior_user_messages:
+    if asks_for_prior_subject(cleaned) and prior_user_messages:
         for msg in reversed(prior_user_messages):
             prior = collapse_ws(msg)
-            if prior and not _LOOK_IT_UP.match(prior):
+            if prior and not asks_for_prior_subject(prior):
                 return prior
     if prior_user_messages and (
         len(cleaned.split()) <= _SHORT_FOLLOWUP_WORDS or _CLARIFICATION.search(cleaned)

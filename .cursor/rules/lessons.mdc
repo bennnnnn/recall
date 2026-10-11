@@ -12,13 +12,15 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“Where did you get that?” had no source.** That follow-up was sent to the search classifier, which said no, so the previous question was never looked up. A source question searches the prior question and skips the classifier.
+
 - **Camera and File paused, and Photo opened Settings.** The attach sheet was a modal, so the native picker waited for it to leave, and a denied Photos status skipped the system picker. Draw the sheet in the screen and open the picker on the tap. Photos does not need library permission.
 
 - **A short chat sat on the composer and would not scroll up.** FlashList padded the top once a thread passed two messages, so the rows filled the screen from the bottom and the max scroll was zero. Only a thread that already has older pages starts there. A page that fits stays under the header.
 
-- **Stop dropped the reply after tokens had already arrived.** A task cancel stays pending after it is caught, so the next await raised again and the save never ran. Cancelling the consumer also left the generator parked at a yield, and closing the provider socket cancelled the task again during the save. Clear the pending cancel, cancel the producer only once, resume the generator, and run the save on its own task.
-
 - **“Forget that I’m a nurse” left the nurse fact stored.** The extractor returned no delete, and an empty result was treated as nothing to do. When the user names the fact, delete the stored row that contains that word even if the model returns no op.
+
+- **Stop dropped the reply after tokens had already arrived.** A task cancel stays pending after it is caught, so the next await raised again and the save never ran. Cancelling the consumer also left the generator parked at a yield, and closing the provider socket cancelled the task again during the save. Clear the pending cancel, cancel the producer only once, resume the generator, and run the save on its own task.
 
 - **“3 days after” Sunday, October 11 was called Monday, October 14.** The date was 11 plus 3, and the weekday was remembered separately, so they did not have to agree. A short “N days ago/after” is answered from the calendar, and a weekday that does not match the date written next to it is replaced.
 

@@ -10,7 +10,6 @@ from app.modules.web_search.geo_intent import is_geo_query
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _GENERIC_NEWS_QUERY,
-    _LOOK_IT_UP,
     _NEWS,
     _ONGOING,
     _QUERY_PREFIX,
@@ -18,6 +17,7 @@ from app.modules.web_search.patterns import (
     _TEAM_POSSESSIVE_SCORE,
     _TEAM_SCORE,
     _WORLD_CUP,
+    asks_for_prior_subject,
     collapse_ws,
 )
 from app.modules.web_search.subject import resolve_search_subject
@@ -286,7 +286,7 @@ def build_search_queries(
             f"{cleaned} latest match result",
         ]
 
-    if _LOOK_IT_UP.match(current) and prior_user_messages:
+    if asks_for_prior_subject(current) and prior_user_messages:
         return build_search_queries(
             subject,
             user_timezone=user_timezone,
