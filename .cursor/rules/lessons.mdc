@@ -12,6 +12,10 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A paired dilution and quadratic printed `notation: chemistry` and raw `\\text`.** The direct reply already had two ```answer fences, and a paired turn has no single verified subject, so the unverified math rewrite unwrapped both. A direct reply keeps its fences.
+
+- **“Add milk” answered “Added” at 6:00 PM and saved nothing.** The model invented the hour and skipped the reminder fence. A chat create needs a clock in the user’s message, and a Set/Added line is removed when nothing was saved.
+
 - **A correct 19:00 still ended with “I couldn't automatically verify this result.”** The stamp fired whenever the solver declined and the reply contained a digit, so a clock answer qualified. That sentence is not written under the reply.
 
 - **The math keypad froze the thread.** A full-screen tap target sat over the list, so it could not bounce, and the composer scrim was pinned under the keys. The list stays the touch target. Messages dim in the gap between the pill and the keypad.

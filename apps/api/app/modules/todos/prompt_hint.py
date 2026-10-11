@@ -22,12 +22,10 @@ TODO_HINT = (
     "When a dated item appears under ### Today, say it is due today — never call it tomorrow.\n"
     "To-do writes via chat — REQUIRED fence (the app only saves from this fence). "
     "Emit the fence first, before any other text. One fence per item. "
-    "due_at is optional for create. When supplied it must be ISO-8601 with timezone offset "
-    "(or Z). Repeat requires a due_at and may be daily, weekdays, weekly, or monthly.\n"
-    "Create a plain to-do:\n"
-    "```reminder\n"
-    '{"title":"Buy milk"}\n'
-    "```\n"
+    "A chat to-do needs a date and a clock the user actually said. If they did not "
+    "give one, ask when. Do not invent a time, do not emit a fence, and do not say "
+    "it was added. due_at must be ISO-8601 with a timezone offset (or Z). "
+    "Repeat requires a due_at and may be daily, weekdays, weekly, or monthly.\n"
     "Create a dated to-do:\n"
     "```reminder\n"
     '{"title":"short title","due_at":"2026-07-19T15:00:00-04:00","repeat":"weekly"}\n'

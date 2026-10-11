@@ -656,7 +656,7 @@ def test_todo_hint_does_not_promise_unapplied_changes():
     assert "I'll delete" not in hint
     assert "I'll set" not in hint
     assert "appends the saved result" in hint
-    assert "plain to-do" in hint
+    assert "ask when" in hint
     assert "whole-list delete" not in hint
 
 
@@ -1057,6 +1057,65 @@ async def test_materialize_reminder_fences_creates_plain_todo():
     assert "Set: x." in updated
     assert create_mock.await_args.kwargs["due_at"] is None
     assert create_mock.await_args.kwargs["topic"] == todos_repo.DEFAULT_TOPIC
+
+
+@pytest.mark.asyncio
+async def test_add_milk_does_not_confirm_an_invented_time():
+    session = AsyncMock()
+    with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text="Added: Milk — Buy milk — Saturday, Oct 10, 6:00 PM.",
+            user_timezone="America/New_York",
+            user_text="Add milk.",
+        )
+    assert created == 0
+    create_mock.assert_not_awaited()
+    assert "Added:" not in updated
+    assert updated == "When should I remind you?"
+
+
+@pytest.mark.asyncio
+async def test_add_fence_with_a_time_the_user_did_not_say_is_not_saved():
+    session = AsyncMock()
+    text = '```reminder\n{"title":"Buy milk","due_at":"2026-10-10T18:00:00-04:00"}\n```'
+    with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+            user_text="Add milk.",
+        )
+    assert created == 0
+    create_mock.assert_not_awaited()
+    assert "```reminder" not in updated
+    assert updated == "When should I remind you?"
+
+
+@pytest.mark.asyncio
+async def test_add_fence_keeps_a_clock_the_user_stated():
+    session = AsyncMock()
+    text = '```reminder\n{"title":"Call the bakery","due_at":"2026-10-11T09:00:00-04:00"}\n```'
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+            user_text="Remind me to call the bakery tomorrow at 9:00 in the morning.",
+        )
+    assert created == 1
+    assert "Set: Call the bakery" in updated
+    assert create_mock.await_args.kwargs["content"] == "Call the bakery"
 
 
 @pytest.mark.asyncio
