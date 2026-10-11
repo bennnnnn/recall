@@ -1119,7 +1119,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
-| Camera math solver UX | ✅ Shipped (vision extract → SymPy subset; unverified labeled; **dev build** for camera) |
+| Camera math solver UX | ✅ Shipped (vision extract → SymPy subset; **dev build** for camera) |
 | Full chat-history corpus RAG | ✅ Shipped (`message_chunks`; flag on by default) |
 | Full duplex voice mode | 🔎 Physical-device implementation; release validation pending |
 
@@ -1208,7 +1208,7 @@ drawer FTS search ✅.
 | Vision routing for images + scanned-PDF OCR (**index job**, not prepare) | — |
 | PDF text extract + pgvector RAG **per conversation** | User-wide attachment corpus |
 | Chat-history corpus RAG (pgvector top-k, not full transcript) | — |
-| Camera math solver (vision extract → SymPy subset; unverified labeled) | Virus scan / enterprise DLP |
+| Camera math solver (vision extract → SymPy subset) | Virus scan / enterprise DLP |
 | PDF inline preview in message bubble | — |
 
 ### Voice

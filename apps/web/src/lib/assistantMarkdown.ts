@@ -312,7 +312,11 @@ function replaceRichFences(markdown: string): string {
 }
 
 export function prepareAssistantMarkdown(markdown: string): string {
-  const stripped = stripSearchSourcesFromContent(markdown ?? "");
+  const withoutUnverified = (markdown ?? "").replace(
+    /[ \t]*\*?I couldn't automatically verify this result\.\*?[ \t]*/g,
+    "",
+  );
+  const stripped = stripSearchSourcesFromContent(withoutUnverified);
   const split = splitSwallowedCodeFenceTables(stripped, iterFences(stripped));
   return replaceRichFences(normalizeMarkdownTables(split));
 }

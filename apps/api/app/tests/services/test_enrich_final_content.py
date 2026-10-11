@@ -365,7 +365,8 @@ async def test_unverified_math_note_appended_to_final_content(
         assistant_parts=["The mass is 12 kg."],
         should_cancel=None,
     )
-    assert persisted.endswith("*I couldn't automatically verify this result.*")
+    assert "*I couldn't automatically verify this result.*" not in persisted
+    assert persisted == "The mass is 12 kg."
     assert "\n>" not in persisted
     assert "```answer" not in persisted
 
@@ -392,7 +393,8 @@ async def test_unverified_chemistry_uses_the_chemistry_note(
         assistant_parts=["The pH is about 6."],
         should_cancel=None,
     )
-    assert unverified_chemistry_note() in persisted
+    assert unverified_chemistry_note() not in persisted
+    assert persisted == "The pH is about 6."
     assert "*I couldn't automatically verify this result.*" not in persisted
 
 

@@ -229,14 +229,8 @@ def unverified_chemistry_note() -> str:
 
 
 def append_unverified_chemistry_note(content: str) -> str:
-    """User-visible decline line. This is the chemistry note, not the math sentence."""
-    note = unverified_chemistry_note()
-    if note in content:
-        return content
-    stripped = content.rstrip()
-    if not stripped:
-        return note
-    return f"{stripped}\n\n{note}"
+    """The decline stays in the prompt. It is not written under the reply."""
+    return content
 
 
 async def build_chemistry_augmentation(
