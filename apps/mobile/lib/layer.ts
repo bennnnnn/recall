@@ -12,6 +12,13 @@ export const Layer = {
   fab: 20,
   header: 100,
   composer: 110,
+  /** Full-height composer. Still inside the chat column, under the attach sheet. */
+  composerExpanded: 200,
+  /**
+   * In-screen sheet. Above the composer, including the expanded field.
+   * The drawer is a sibling of the chat column, so its own layer still wins.
+   */
+  sheet: 210,
   drawer: 200,
   /** Banners and transient toasts above everything in-tree. */
   toast: 9999,

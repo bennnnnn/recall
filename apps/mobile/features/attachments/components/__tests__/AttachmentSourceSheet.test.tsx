@@ -2,6 +2,8 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
 import { AttachmentSourceSheet } from "@/features/attachments/components/AttachmentSourceSheet";
+import { Layer } from "@/lib/layer";
+import { Space } from "@/lib/space";
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({
@@ -37,19 +39,16 @@ describe("AttachmentSourceSheet", () => {
     expect(onSelect).toHaveBeenCalledWith("camera");
   });
 
-  it("keeps File above the composer instead of under the bar", async () => {
-    const composerClearance = 96;
+  it("sits on the bottom edge and stacks above the composer", async () => {
     const { getByTestId, getByText } = await render(
-      <AttachmentSourceSheet
-        visible
-        bottomOffset={composerClearance}
-        onClose={jest.fn()}
-        onSelect={jest.fn()}
-      />,
+      <AttachmentSourceSheet visible onClose={jest.fn()} onSelect={jest.fn()} />,
     );
 
     expect(getByText("chat.attach_file")).toBeOnTheScreen();
     const panel = StyleSheet.flatten(getByTestId("app-sheet-dialog").props.style);
-    expect(panel.marginBottom).toBeGreaterThanOrEqual(composerClearance);
+    // Safe-area margin only. A composer-sized lift leaves the bar visible under the sheet.
+    expect(panel.marginBottom).toBe(Space.xs + Space.sm);
+    const host = StyleSheet.flatten(getByTestId("app-sheet-embedded").props.style);
+    expect(host.zIndex).toBeGreaterThan(Layer.composerExpanded);
   });
 });

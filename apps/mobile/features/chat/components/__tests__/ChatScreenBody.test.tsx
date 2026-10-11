@@ -58,7 +58,7 @@ jest.mock("@/contexts/StreamingDraftContext", () => ({
 
 jest.mock("@/ui/feedback/ActionBanner", () => ({ ActionBanner: () => null }));
 jest.mock("@/features/attachments/components/AttachmentSourceSheet", () => ({
-  AttachmentSourceSheet: (props: { bottomOffset?: number; visible?: boolean }) => {
+  AttachmentSourceSheet: (props: { visible?: boolean }) => {
     mockAttachmentSourceSheet(props);
     return null;
   },
@@ -186,8 +186,9 @@ describe("ChatScreenBody", () => {
 
     expect(getByTestId("composer-streaming")).toBeTruthy();
     expect(mockAttachmentSourceSheet).toHaveBeenLastCalledWith(
-      expect.objectContaining({ visible: false, bottomOffset: 96 }),
+      expect.objectContaining({ visible: false }),
     );
+    expect(mockAttachmentSourceSheet.mock.calls.at(-1)?.[0]).not.toHaveProperty("bottomOffset");
     expect(mockChatMessageList).toHaveBeenLastCalledWith(
       expect.objectContaining({
         renderItem,
