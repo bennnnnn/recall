@@ -4,20 +4,25 @@ from zoneinfo import ZoneInfo
 import pytest
 
 from app.services.time_context import (
+    correct_weekday_dates,
     describe_due_at,
     effective_timezone,
     format_date_answer,
     format_digital_clock,
     format_location_answer,
+    format_now_awareness,
     format_time_answer,
     format_time_context,
     format_year_answer,
     is_current_date_question,
     is_local_now_question,
     is_location_question,
+    is_shown_clock_question,
+    is_time_denial,
     is_time_question,
     is_year_question,
     maybe_local_now_reply,
+    model_denies_clock,
     normalize_due_at,
 )
 
@@ -138,12 +143,57 @@ def test_format_date_answer_uses_local_calendar_day():
     assert format_date_answer("UTC") == f"{now.strftime('%A, %B')} {now.day}, {now.year}."
 
 
-def test_maybe_local_now_reply_dispatches():
+def test_relative_day_answer_uses_the_real_weekday():
+    reply = maybe_local_now_reply("3 days after", "America/New_York")
+    assert reply is not None
+    when = datetime.now(ZoneInfo("America/New_York")) + timedelta(days=3)
+    assert when.strftime("%A") in reply
+    assert when.strftime("%B") in reply
+    assert str(when.day) in reply
+    ago = maybe_local_now_reply("And 3 days ago", "America/New_York")
+    assert ago is not None
+    earlier = datetime.now(ZoneInfo("America/New_York")) - timedelta(days=3)
+    assert earlier.strftime("%A") in ago
+    assert maybe_local_now_reply("remind me in 3 days", "UTC") is None
+
+
+def test_correct_weekday_dates_fixes_a_mismatched_name():
+    fixed = correct_weekday_dates("Adding three days gives **Monday, October 14, 2026**.")
+    assert "Wednesday, October 14, 2026" in fixed
+    assert "Monday" not in fixed
+    kept = correct_weekday_dates("Today is Sunday, October 11, 2026.")
+    assert kept == "Today is Sunday, October 11, 2026."
+
+
+def test_format_now_awareness_includes_year_month_and_time():
+    now = datetime.now(ZoneInfo("America/New_York"))
+    text = format_now_awareness("America/New_York", "en")
+    assert str(now.year) in text
+    assert now.strftime("%B") in text
+    assert "Never say you lack a clock" in text
     assert maybe_local_now_reply("what time is it", "UTC") == "```clock\n```"
     now = datetime.now(ZoneInfo("UTC"))
     assert maybe_local_now_reply("what year is it", "UTC") == f"It's {now.year}."
     assert maybe_local_now_reply("what's the date", "UTC") == (
         f"{now.strftime('%A, %B')} {now.day}, {now.year}."
+    )
+    denial = "Didn't u just says u don't know the time"
+    assert is_time_denial(denial) is True
+    assert maybe_local_now_reply(denial, "UTC") == (
+        "No. I didn't say that. The clock above is the current time."
+    )
+    assert maybe_local_now_reply("you said you don't know the time", "UTC") == (
+        "No. I didn't say that. The clock above is the current time."
+    )
+    assert is_time_denial("I don't have time") is False
+    assert maybe_local_now_reply("I don't know the time of the meeting", "UTC") is None
+    shown = maybe_local_now_reply("What time is above", "America/New_York")
+    assert shown is not None
+    assert "```clock" not in shown
+    assert "October" in shown
+    assert is_shown_clock_question("What time is above") is True
+    assert model_denies_clock(
+        "I don't have access to the current clock, so I can't tell you the exact time right now."
     )
     assert maybe_local_now_reply("what year did WWII end", "UTC") is None
     assert maybe_local_now_reply("what year", "UTC") is None

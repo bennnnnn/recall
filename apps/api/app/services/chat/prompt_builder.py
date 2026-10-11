@@ -540,6 +540,7 @@ async def build_prompt_messages(
     location_for_context = prompt_location or profile_service.user_location_label(user)
     system_parts: list[str] = [
         "You are Recall, a helpful personal AI assistant.",
+        time_context_service.format_now_awareness(local_tz, user.locale),
         format_user_name_only_block(user)
         if slim_context
         else format_user_profile_block(

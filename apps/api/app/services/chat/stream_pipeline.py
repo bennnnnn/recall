@@ -452,6 +452,16 @@ async def enrich_final_content(
             present_assistant_markdown(assistant_text),
             ctx.user_message_content,
         )
+        from app.services.time_context import (
+            correct_weekday_dates,
+            format_shown_clock_answer,
+            model_denies_clock,
+        )
+
+        if model_denies_clock(assistant_text):
+            locale = ctx.user.locale if ctx.user is not None else None
+            assistant_text = format_shown_clock_answer(ctx.user_timezone, locale)
+        assistant_text = correct_weekday_dates(assistant_text)
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting raw assistant text")
         assistant_text = raw_assistant_text

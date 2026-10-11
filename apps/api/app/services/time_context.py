@@ -1,7 +1,7 @@
 """User-local time context for LLM prompts (foundation for due dates & reminders)."""
 
 import re
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from app.core.timezone import DEFAULT_TIMEZONE, resolve_timezone
@@ -235,9 +235,202 @@ def is_current_date_question(text: str) -> bool:
     return _normalize_now_ask(text) in _DATE_ASKS
 
 
+# The user is disputing a clock we already showed. Substring marks stay linear.
+# "I don't have time" is availability, not this.
+_TIME_DENIAL_MARKS = (
+    "don't know the time",
+    "dont know the time",
+    "do not know the time",
+    "don't know what time",
+    "dont know what time",
+    "do not know what time",
+    "didn't know the time",
+    "didnt know the time",
+    "did not know the time",
+    "can't tell the time",
+    "cant tell the time",
+    "cannot tell the time",
+    "can't tell what time",
+    "cant tell what time",
+    "cannot tell what time",
+    "don't have a clock",
+    "dont have a clock",
+    "do not have a clock",
+    "don't have access to real-time",
+    "dont have access to real-time",
+    "do not have access to real-time",
+    "don't have access to a clock",
+    "dont have access to a clock",
+    "no access to real-time",
+    "no access to a clock",
+    "no access to the clock",
+)
+_TIME_DENIAL_REPLY = "No. I didn't say that. The clock above is the current time."
+
+# Pointing at the clock already on screen. Not a request for a second widget.
+_SHOWN_CLOCK_MARKS = (
+    "time above",
+    "time is above",
+    "time up there",
+    "time on the clock",
+    "time is the clock",
+    "time does the clock",
+    "time does it say",
+    "time does that say",
+    "clock say",
+    "clock above",
+)
+_SHOWN_CLOCK_MAX_LEN = 80
+
+# Short model replies that deny the clock we already have. Linear substrings.
+_MODEL_CLOCK_DENIALS = (
+    "don't have access to the current clock",
+    "do not have access to the current clock",
+    "don't have access to real-time",
+    "do not have access to real-time",
+    "don't have access to a clock",
+    "don't have access to the clock",
+    "no access to real-time",
+    "no access to a clock",
+    "no access to the clock",
+    "can't tell you the exact time",
+    "cannot tell you the exact time",
+    "can't tell the current time",
+    "cannot tell the current time",
+    "check a device nearby",
+)
+_MODEL_CLOCK_DENIAL_MAX_LEN = 400
+
+
+def is_time_denial(text: str) -> bool:
+    """True when the user says we do not know the current time."""
+    cleaned = _normalize_now_ask(text)
+    if not cleaned or _SCHEDULED_EVENT.search(cleaned):
+        return False
+    return any(mark in cleaned for mark in _TIME_DENIAL_MARKS)
+
+
+def is_shown_clock_question(text: str) -> bool:
+    """True when the user is asking for the time already on screen."""
+    cleaned = _normalize_now_ask(text)
+    if (
+        not cleaned
+        or len(cleaned) > _SHOWN_CLOCK_MAX_LEN
+        or _SCHEDULED_EVENT.search(cleaned)
+        or is_remote_time_question(cleaned)
+    ):
+        return False
+    return any(mark in cleaned for mark in _SHOWN_CLOCK_MARKS)
+
+
+def model_denies_clock(text: str) -> bool:
+    """True when a short reply claims we cannot read the current time."""
+    cleaned = collapse_ws(text)
+    if not cleaned or len(cleaned) > _MODEL_CLOCK_DENIAL_MAX_LEN:
+        return False
+    lowered = cleaned.lower()
+    return any(mark in lowered for mark in _MODEL_CLOCK_DENIALS)
+
+
+_DAY_COUNTS = {
+    "one": 1,
+    "two": 2,
+    "three": 3,
+    "four": 4,
+    "five": 5,
+    "six": 6,
+    "seven": 7,
+    "eight": 8,
+    "nine": 9,
+    "ten": 10,
+}
+# Whole message only, after collapse_ws. No `.+` (CodeQL py/polynomial-redos).
+_RELATIVE_DAY = re.compile(
+    r"^(?:and |what about )?"
+    r"(?P<count>\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten) "
+    r"days? "
+    r"(?P<direction>ago|before|after(?: today)?|later|from now|from today)$",
+    re.IGNORECASE,
+)
+_IN_DAYS = re.compile(
+    r"^in (?P<count>\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten) days?$",
+    re.IGNORECASE,
+)
+_WEEKDAY_DATE = re.compile(
+    r"\b(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),?\s+"
+    r"(January|February|March|April|May|June|July|August|September|"
+    r"October|November|December)\s+"
+    r"(\d{1,2}),?\s+(\d{4})\b",
+    re.IGNORECASE,
+)
+_PAST_DIRECTIONS = frozenset({"ago", "before"})
+
+
+def _day_count(raw: str) -> int | None:
+    if raw.isdigit():
+        count = int(raw)
+        return count if 1 <= count <= 366 else None
+    return _DAY_COUNTS.get(raw.lower())
+
+
+def relative_day_offset(text: str) -> int | None:
+    """Signed day offset for a short 'N days ago/after' ask. None otherwise."""
+    cleaned = _normalize_now_ask(text)
+    if not cleaned or _SCHEDULED_EVENT.search(cleaned):
+        return None
+    match = _RELATIVE_DAY.match(cleaned) or _IN_DAYS.match(cleaned)
+    if match is None:
+        return None
+    count = _day_count(match.group("count"))
+    if count is None:
+        return None
+    direction = match.groupdict().get("direction") or "after"
+    if direction in _PAST_DIRECTIONS:
+        return -count
+    return count
+
+
+def format_relative_day_answer(offset: int, timezone: str | None) -> str:
+    tz = resolve_timezone(timezone)
+    when = datetime.now(tz) + timedelta(days=offset)
+    written = when.strftime(f"%A, %B {when.day}, %Y")
+    span = abs(offset)
+    unit = "day" if span == 1 else "days"
+    if offset < 0:
+        return f"{span} {unit} ago was {written}."
+    return f"{span} {unit} after today is {written}."
+
+
+def correct_weekday_dates(text: str) -> str:
+    """Replace a weekday that does not belong to the date written next to it."""
+
+    def replace(match: re.Match[str]) -> str:
+        weekday = match.group(1)
+        month = match.group(2)
+        day_raw = match.group(3)
+        year_raw = match.group(4)
+        try:
+            when = datetime.strptime(f"{month} {int(day_raw)} {int(year_raw)}", "%B %d %Y")
+        except ValueError:
+            return match.group(0)
+        actual = when.strftime("%A")
+        if actual.lower() == weekday.lower():
+            return match.group(0)
+        return match.group(0).replace(weekday, actual, 1)
+
+    return _WEEKDAY_DATE.sub(replace, text)
+
+
 def is_local_now_question(text: str) -> bool:
     """Current local time, year, or date — facts we already know without the LLM."""
-    return is_time_question(text) or is_year_question(text) or is_current_date_question(text)
+    return (
+        is_time_question(text)
+        or is_year_question(text)
+        or is_current_date_question(text)
+        or is_time_denial(text)
+        or is_shown_clock_question(text)
+        or relative_day_offset(text) is not None
+    )
 
 
 def format_year_answer(timezone: str | None) -> str:
@@ -252,18 +445,37 @@ def format_date_answer(timezone: str | None) -> str:
     return f"{now.strftime('%A, %B')} {now.day}, {now.year}."
 
 
+def format_shown_clock_answer(timezone: str | None, locale: str | None = None) -> str:
+    """Read the same local instant the clock widget is showing."""
+    tz = resolve_timezone(timezone)
+    now = datetime.now(tz)
+    clock = format_digital_clock(now, locale)
+    if clock.startswith("0"):
+        clock = clock[1:]
+    tzname = now.tzname() or ""
+    date = f"{now.strftime('%A, %B')} {now.day}, {now.year}"
+    return f"{date}, {clock} {tzname}".rstrip() + "."
+
+
 def maybe_local_now_reply(
     text: str,
     timezone: str | None,
     locale: str | None = None,
 ) -> str | None:
     """Server-owned answers for current time / year / date. Skip the LLM."""
+    if is_time_denial(text):
+        return _TIME_DENIAL_REPLY
+    if is_shown_clock_question(text):
+        return format_shown_clock_answer(timezone, locale)
     if is_time_question(text):
         return format_time_answer(timezone, locale)
     if is_year_question(text):
         return format_year_answer(timezone)
     if is_current_date_question(text):
         return format_date_answer(timezone)
+    offset = relative_day_offset(text)
+    if offset is not None:
+        return format_relative_day_answer(offset, timezone)
     return None
 
 
@@ -297,6 +509,23 @@ def format_location_answer(location: str | None, timezone: str | None) -> str:
     return (
         "I don't have your location yet. Turn on Location in Recall Settings "
         "(Preferences), allow access if prompted, then ask again."
+    )
+
+
+def format_now_awareness(timezone: str | None, locale: str | None = None) -> str:
+    """Facts every reply can use. Slim turns otherwise never see the clock."""
+    tz = resolve_timezone(timezone)
+    now = datetime.now(tz)
+    clock = format_digital_clock(now, locale)
+    if clock.startswith("0"):
+        clock = clock[1:]
+    month = now.strftime("%B")
+    tzname = now.tzname() or ""
+    return (
+        f"Current local time: {now.strftime('%A')}, {month} {now.day}, {now.year}, "
+        f"{clock} {tzname}. Year {now.year}. Month {month}. "
+        "You know this time, year, and month. "
+        "Never say you lack a clock, the current time, the year, or the month."
     )
 
 
