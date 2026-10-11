@@ -67,6 +67,22 @@ def deletion_plan(
     return delete, leftover
 
 
+def local_deletion_plan(
+    branches: list[str],
+    current: str | None,
+    open_heads: set[str],
+    landed: set[str],
+) -> list[str]:
+    """Local names whose patches are already on main. Never the checked-out branch."""
+    delete: list[str] = []
+    for name in branches:
+        if not safe_branch(name) or name == current or name in open_heads:
+            continue
+        if name in landed:
+            delete.append(name)
+    return delete
+
+
 def pr_heads(root: Path, state: str) -> set[str] | None:
     result = run(
         [
@@ -131,6 +147,50 @@ def delete_remote(root: Path, branch: str) -> bool:
     return result.returncode == 0
 
 
+def local_branches(root: Path) -> list[str]:
+    result = run(["git", "for-each-ref", "--format=%(refname:short)", "refs/heads"], root)
+    if result.returncode != 0:
+        return []
+    return [line.strip() for line in result.stdout.splitlines() if line.strip()]
+
+
+def current_branch(root: Path) -> str | None:
+    result = run(["git", "branch", "--show-current"], root)
+    if result.returncode != 0:
+        return None
+    name = result.stdout.strip()
+    return name or None
+
+
+def main_subjects(root: Path) -> set[str] | None:
+    result = run(["git", "log", "origin/main", "--format=%s"], root, timeout=20)
+    if result.returncode != 0:
+        return None
+    return set(result.stdout.splitlines())
+
+
+def patch_landed(root: Path, branch: str, subjects: set[str]) -> bool:
+    """True when every patch on the local branch already has the same subject on main."""
+    result = run(["git", "cherry", "origin/main", branch], root, timeout=20)
+    if result.returncode != 0:
+        return False
+    for line in result.stdout.splitlines():
+        if not line.startswith("+"):
+            continue
+        parts = line.split()
+        if len(parts) < 2:
+            return False
+        shown = run(["git", "log", "-1", "--format=%s", parts[1]], root)
+        if shown.returncode != 0 or shown.stdout.strip() not in subjects:
+            return False
+    return True
+
+
+def delete_local(root: Path, branch: str) -> bool:
+    result = run(["git", "branch", "-D", branch], root)
+    return result.returncode == 0
+
+
 def sweep(root: Path) -> str | None:
     run(["git", "fetch", "origin", "--prune"], root, timeout=25)
     open_heads = pr_heads(root, "open")
@@ -164,6 +224,17 @@ def sweep(root: Path) -> str | None:
     for name in delete:
         if not delete_remote(root, name):
             failed.append(name)
+    subjects = main_subjects(root)
+    if subjects is not None:
+        current = current_branch(root)
+        local = [name for name in local_branches(root) if safe_branch(name)]
+        landed = {
+            name
+            for name in local
+            if name != current and name not in open_heads and patch_landed(root, name, subjects)
+        }
+        for name in local_deletion_plan(local, current, open_heads, landed):
+            delete_local(root, name)
     if not leftover and not failed:
         return None
     lines: list[str] = []
