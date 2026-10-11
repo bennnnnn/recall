@@ -19,7 +19,7 @@ from __future__ import annotations
 from fractions import Fraction
 
 import pytest
-from hypothesis import given, settings
+from hypothesis import example, given, settings
 from hypothesis import strategies as st
 
 from app.modules.math.match import needs_symbolic
@@ -39,6 +39,9 @@ _POS_INT = st.integers(min_value=1, max_value=9)
         max_size=200,
     )
 )
+# Circled digits pass str.isdigit() but int() rejects them.
+@example(text="P\u2776")
+@example(text="\u2776P")
 @settings(max_examples=100, deadline=None)
 def test_extract_never_raises_and_stays_schema_valid(text: str) -> None:
     """Arbitrary unicode/punctuation soup: no crash, valid intent, deterministic."""
