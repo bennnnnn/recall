@@ -2,14 +2,15 @@ import { act, fireEvent, render } from "@testing-library/react-native";
 import {
   Keyboard,
   Platform,
+  StyleSheet,
   Text,
   type EmitterSubscription,
   type KeyboardEvent,
 } from "react-native";
 
-import { Layer } from "@/lib/layer";
+import { Space } from "@/lib/space";
 
-import { Sheet } from "../Sheet";
+import { floatingSheetBottomMargin, Sheet } from "../Sheet";
 
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 34, left: 0, right: 0 }),
@@ -98,16 +99,27 @@ describe("Sheet", () => {
     expect(queryByTestId("app-sheet-handle")).toBeNull();
   });
 
-  it("stacks an embedded sheet above the composer", async () => {
+  it("ends a floating sheet above the composer instead of under it", async () => {
+    const composerClearance = 96;
+    const safeOnly = floatingSheetBottomMargin({ safeAreaBottom: 34 });
+    expect(safeOnly).toBeLessThan(composerClearance);
+
+    const margin = floatingSheetBottomMargin({
+      safeAreaBottom: 34,
+      bottomOffset: composerClearance,
+    });
+    expect(margin).toBeGreaterThanOrEqual(composerClearance);
+    expect(margin).toBe(composerClearance + Space.sm);
+
     const { getByTestId, getByText } = await render(
-      <Sheet visible embedded onClose={jest.fn()}>
-        <Text>attach rows</Text>
+      <Sheet visible embedded floating bottomOffset={composerClearance} onClose={jest.fn()}>
+        <Text>File</Text>
       </Sheet>,
     );
 
-    expect(getByText("attach rows")).toBeOnTheScreen();
-    expect(getByTestId("app-sheet-embedded")).toHaveStyle({ zIndex: Layer.sheet });
-    expect(Layer.sheet).toBeGreaterThan(Layer.composer);
+    expect(getByText("File")).toBeOnTheScreen();
+    const panel = StyleSheet.flatten(getByTestId("app-sheet-dialog").props.style);
+    expect(panel.marginBottom).toBeGreaterThanOrEqual(composerClearance);
   });
 
   it("renders floating sheets with a handle still visible", async () => {

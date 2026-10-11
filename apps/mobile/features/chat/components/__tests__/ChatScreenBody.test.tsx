@@ -11,6 +11,7 @@ import { lightTheme } from "@/lib/theme";
 
 const mockChatMessageList = jest.fn();
 const mockChatComposer = jest.fn();
+const mockAttachmentSourceSheet = jest.fn();
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -57,7 +58,10 @@ jest.mock("@/contexts/StreamingDraftContext", () => ({
 
 jest.mock("@/ui/feedback/ActionBanner", () => ({ ActionBanner: () => null }));
 jest.mock("@/features/attachments/components/AttachmentSourceSheet", () => ({
-  AttachmentSourceSheet: () => null,
+  AttachmentSourceSheet: (props: { bottomOffset?: number; visible?: boolean }) => {
+    mockAttachmentSourceSheet(props);
+    return null;
+  },
 }));
 jest.mock("@/components/MathEquationScanner", () => ({
   MathEquationScanner: () => null,
@@ -181,6 +185,9 @@ describe("ChatScreenBody", () => {
     );
 
     expect(getByTestId("composer-streaming")).toBeTruthy();
+    expect(mockAttachmentSourceSheet).toHaveBeenLastCalledWith(
+      expect.objectContaining({ visible: false, bottomOffset: 96 }),
+    );
     expect(mockChatMessageList).toHaveBeenLastCalledWith(
       expect.objectContaining({
         renderItem,

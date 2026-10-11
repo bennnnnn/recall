@@ -20,7 +20,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { useSheetPanDismiss } from "./useSheetPanDismiss";
-import { Layer } from "@/lib/layer";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -59,6 +58,11 @@ type Props = {
    * Safe-area clearance is applied as margin so the last row stays visible.
    */
   floating?: boolean;
+  /**
+   * Keep a floating panel above overlapping chrome. Pass the composer
+   * clearance so the last row ends above that bar instead of running under it.
+   */
+  bottomOffset?: number;
   /** Style override for the panel (background, radius, padding). */
   contentContainerStyle?: StyleProp<ViewStyle>;
   /** iOS only. Fires after the modal has finished leaving, so another sheet can present. */
@@ -86,6 +90,7 @@ export function Sheet({
   backdropColor,
   minBottomPadding = 0,
   floating = false,
+  bottomOffset = 0,
   contentContainerStyle,
   onDismiss,
   onShow,
@@ -185,7 +190,12 @@ export function Sheet({
           (floating
             ? {
                 marginHorizontal: Space.md,
-                marginBottom: keyboardOpen ? Space.sm : Math.max(insets.bottom, Space.xs) + Space.sm,
+                marginBottom: keyboardOpen
+                  ? Space.sm
+                  : floatingSheetBottomMargin({
+                      safeAreaBottom: insets.bottom,
+                      bottomOffset,
+                    }),
                 paddingBottom: Math.max(minBottomPadding, Space.sm),
                 borderRadius: Radius.sheet,
               }
@@ -238,11 +248,7 @@ export function Sheet({
 
   if (embedded) {
     if (!visible) return null;
-    return (
-      <View style={s.embedded} testID="app-sheet-embedded" collapsable={false}>
-        {frame}
-      </View>
-    );
+    return <View style={s.embedded}>{frame}</View>;
   }
 
   return (
@@ -258,6 +264,20 @@ export function Sheet({
       <GestureHandlerRootView style={s.flex}>{frame}</GestureHandlerRootView>
     </Modal>
   );
+}
+
+/**
+ * Bottom margin for a floating sheet. When `bottomOffset` is the composer
+ * clearance, the panel ends above that bar so the last row cannot sit under it.
+ */
+export function floatingSheetBottomMargin(options: {
+  safeAreaBottom: number;
+  bottomOffset?: number;
+}): number {
+  const safe = Math.max(options.safeAreaBottom, Space.xs) + Space.sm;
+  const offset = options.bottomOffset ?? 0;
+  if (offset <= 0) return safe;
+  return Math.max(safe, offset + Space.sm);
 }
 
 function makeStyles(t: Theme) {
@@ -316,8 +336,7 @@ function makeStyles(t: Theme) {
       left: 0,
       right: 0,
       bottom: 0,
-      // Above the chat composer so the last attach row stays visible and tappable.
-      zIndex: Layer.sheet,
+      zIndex: 40,
     },
   });
 }
