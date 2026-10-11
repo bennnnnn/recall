@@ -8,6 +8,116 @@
 const MATH_ISLAND =
   /[A-Za-z](?:\s*[\^_]\s*(?:\{[^{}\n]+\}|\d+))+(?:\s*[-+*/=]\s*(?:[A-Za-z]|\d+(?:\.\d+)?))*/g;
 
+const GLUED_RADICAL = /\^\s*\d+\s*\\sqrt/;
+const GLUED_VARIABLE = /(?<![A-Za-z\\^_{])[A-Za-z]\d+/;
+const MIN_QUESTION_WORDS = 4;
+
+function prevSignificant(text: string): string {
+  const stripped = text.trimEnd();
+  return stripped.length > 0 ? stripped[stripped.length - 1]! : "";
+}
+
+/** Spaces around = and a binary + or -. A power group is left as written. */
+function spaceMathSpan(span: string): string {
+  let out = "";
+  let i = 0;
+  while (i < span.length) {
+    const ch = span[i]!;
+    if (ch === "\\") {
+      let j = i + 1;
+      while (j < span.length && /[A-Za-z]/.test(span[j]!)) j += 1;
+      out += span.slice(i, j);
+      i = j;
+      continue;
+    }
+    if (ch === "^" || ch === "_") {
+      if (span[i + 1] === "{") {
+        let depth = 0;
+        let j = i + 1;
+        while (j < span.length) {
+          if (span[j] === "{") depth += 1;
+          else if (span[j] === "}") {
+            depth -= 1;
+            if (depth === 0) {
+              j += 1;
+              break;
+            }
+          }
+          j += 1;
+        }
+        out += span.slice(i, j);
+        i = j;
+        continue;
+      }
+      out += ch;
+      i += 1;
+      continue;
+    }
+    const prev = prevSignificant(out);
+    const binary =
+      ch === "=" ||
+      ((ch === "+" || ch === "-") && prev !== "" && !"+=-*/(^".includes(prev));
+    if (binary) {
+      if (out.length > 0 && !out.endsWith(" ")) out += " ";
+      out += `${ch} `;
+      i += 1;
+      while (span[i] === " ") i += 1;
+      continue;
+    }
+    out += ch;
+    i += 1;
+  }
+  return out.trim();
+}
+
+function mathStaysApart(text: string): boolean {
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === "$") {
+      const close = text.indexOf("$", i + 1);
+      if (close > i + 1) {
+        const span = text.slice(i + 1, close);
+        if (GLUED_RADICAL.test(span) || GLUED_VARIABLE.test(span)) return false;
+        i = close + 1;
+        continue;
+      }
+    }
+    i += 1;
+  }
+  return true;
+}
+
+function spaceDelimitedMath(text: string): string {
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === "$") {
+      const close = text.indexOf("$", i + 1);
+      if (close > i + 1) {
+        out += `$${spaceMathSpan(text.slice(i + 1, close))}$`;
+        i = close + 1;
+        continue;
+      }
+    }
+    out += text[i];
+    i += 1;
+  }
+  return out;
+}
+
+/**
+ * The line to send when a follow-up is tapped.
+ * A fragment, or a number glued to a letter or a radical, is not a question.
+ * A tight `$x=5$` is spaced so the letter and the number stay apart.
+ */
+export function suggestionToSend(text: string): string | null {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  const words = cleaned.match(/[A-Za-z]{2,}/g);
+  if (!cleaned.endsWith("?") || (words?.length ?? 0) < MIN_QUESTION_WORDS) return null;
+  if (!mathStaysApart(cleaned)) return null;
+  return spaceDelimitedMath(cleaned);
+}
+
 export function wrapSuggestionMath(text: string): string {
   let out = "";
   let i = 0;

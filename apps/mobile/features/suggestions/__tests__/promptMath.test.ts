@@ -1,4 +1,4 @@
-import { wrapSuggestionMath } from "@/features/suggestions/model/promptMath";
+import { suggestionToSend, wrapSuggestionMath } from "@/features/suggestions/model/promptMath";
 
 describe("wrapSuggestionMath", () => {
   it("wraps a bare caret equation and leaves the surrounding question", () => {
@@ -35,5 +35,20 @@ describe("wrapSuggestionMath", () => {
   it("leaves a question with no equation unchanged", () => {
     const plain = "Why does photosynthesis need light?";
     expect(wrapSuggestionMath(plain)).toBe(plain);
+  });
+});
+
+describe("suggestionToSend", () => {
+  it("spaces a tight equation so the letter and the number stay apart", () => {
+    expect(suggestionToSend("Why does $x=5$ give a different value?")).toBe(
+      "Why does $x = 5$ give a different value?",
+    );
+  });
+
+  it("drops a fragment and a number glued to a letter or a radical", () => {
+    expect(suggestionToSend("How")).toBeNull();
+    expect(suggestionToSend("Education level")).toBeNull();
+    expect(suggestionToSend("What is the value of $x5$ here?")).toBeNull();
+    expect(suggestionToSend(String.raw`Why does $^5\sqrt{x} = 0^5$ equal zero?`)).toBeNull();
   });
 });

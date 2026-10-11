@@ -32,6 +32,12 @@ _QUESTION_CHARS = 500
 _MAX_QUESTIONS = 3
 _KEY = "related_prompts:{message_id}"
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
+_WORD = re.compile(r"[A-Za-z]{2,}")
+_MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
+# A digit glued to a radical (`^5\sqrt{x}`) or to a variable (`x5`).
+_GLUED_RADICAL = re.compile(r"\^\s*\d+\s*\\sqrt")
+_GLUED_VARIABLE = re.compile(r"(?<![A-Za-z\\^_{])[A-Za-z]\d+")
+_MIN_QUESTION_WORDS = 4
 _CONTENT_WORD = re.compile(r"[a-z]{5,}")
 
 # Biology is not a solver subject. These cues only decide whether to ask the
@@ -51,11 +57,13 @@ _BIOLOGY_CUES = (
 
 _SYSTEM = (
     "You write the next three questions this student would ask about the "
-    "problem they just worked. Each item is one full question about this "
-    "same problem: why the result came out that way, a harder case of the "
-    "same idea, or the neighboring idea. "
+    "problem they just worked. Each item is one full question ending with ? "
+    "about this same problem: why the result came out that way, a harder case "
+    "of the same idea, or the neighboring idea. "
     "Keep a number or a word from that problem in every question. "
-    "Write each equation or quantity in $...$, as in $x^2 = 9$. "
+    "Write each equation in $...$ with spaces around =, as in $x^2 = 9$ or "
+    "$\\sqrt{x} = 5$. A letter and a number stay separate: never $x5$, and "
+    "never a number stuck to a radical like $^5\\sqrt{x}$. "
     'Return JSON {"questions": ["...", "...", "..."]}. '
     "Do not repeat the student's question. "
     "Do not keep the same sentence and only change a number. "
@@ -87,6 +95,85 @@ def _digit_skeleton(text: str) -> str:
 
 def _folded_question(text: str) -> str:
     return collapse_ws(text).casefold().rstrip("?").strip()
+
+
+def _prev_significant(text: str) -> str:
+    stripped = text.rstrip()
+    return stripped[-1] if stripped else ""
+
+
+def _space_math_span(span: str) -> str:
+    """Put a space on each side of = and of a binary + or -."""
+    out: list[str] = []
+    i = 0
+    n = len(span)
+    while i < n:
+        ch = span[i]
+        if ch == "\\":
+            j = i + 1
+            while j < n and span[j].isalpha():
+                j += 1
+            out.append(span[i:j])
+            i = j
+            continue
+        if ch in "^_":
+            if i + 1 < n and span[i + 1] == "{":
+                depth = 0
+                j = i + 1
+                while j < n:
+                    if span[j] == "{":
+                        depth += 1
+                    elif span[j] == "}":
+                        depth -= 1
+                        if depth == 0:
+                            j += 1
+                            break
+                    j += 1
+                out.append(span[i:j])
+                i = j
+                continue
+            out.append(ch)
+            i += 1
+            continue
+        prev = _prev_significant("".join(out))
+        binary = ch == "=" or (ch in "+-" and prev not in {"", "=", "+", "-", "*", "/", "(", "^"})
+        if binary:
+            if out and not "".join(out).endswith(" "):
+                out.append(" ")
+            out.append(f"{ch} ")
+            i += 1
+            while i < n and span[i] == " ":
+                i += 1
+            continue
+        out.append(ch)
+        i += 1
+    return "".join(out).strip()
+
+
+def _symbols_stay_apart(text: str) -> bool:
+    for span in _MATH_SPAN.findall(text):
+        if _GLUED_RADICAL.search(span) or _GLUED_VARIABLE.search(span):
+            return False
+    return True
+
+
+def _prepare_question(candidate: str) -> str | None:
+    """A full question with a variable and a number kept apart, or none."""
+    cleaned = collapse_ws(candidate)
+    letter_words = _WORD.findall(cleaned)
+    # A sum such as "What is 3 + 5?" is short, and it still names the problem.
+    # "How" does not.
+    short_with_number = _NUMBER.search(cleaned) is not None and len(letter_words) >= 2
+    long_enough = len(letter_words) >= _MIN_QUESTION_WORDS or short_with_number
+    if not cleaned.endswith("?") or not long_enough:
+        return None
+    if not _symbols_stay_apart(cleaned):
+        return None
+
+    def _spaced(match: re.Match[str]) -> str:
+        return f"${_space_math_span(match.group(1))}$"
+
+    return _MATH_SPAN.sub(_spaced, cleaned)
 
 
 def _keep_question(question: str, candidate: str) -> bool:
@@ -127,14 +214,14 @@ def _accepted_questions(question: str, raw: list[str]) -> list[str]:
     kept: list[str] = []
     seen: set[str] = set()
     for item in raw:
-        if not _keep_question(question, item):
+        prepared = _prepare_question(item)
+        if prepared is None or not _keep_question(question, prepared):
             continue
-        cleaned = collapse_ws(item)
-        key = cleaned.casefold()
+        key = prepared.casefold()
         if key in seen:
             continue
         seen.add(key)
-        kept.append(cleaned)
+        kept.append(prepared)
         if len(kept) == _MAX_QUESTIONS:
             break
     return kept
