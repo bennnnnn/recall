@@ -1,6 +1,7 @@
 /**
  * Detect reference-photo *lookup* intent from plain composer text — mirrors
- * apps/api/app/services/image_lookup_intent.py. Separate from
+ * apps/api/app/modules/images/lookup_intent.py (shared cases:
+ * docs/fixtures/image_intent_cases.json). Separate from
  * imageGenIntent.ts (creative generation): "show me an ear" / "what does a
  * golden retriever look like" want a real photo, sent as a normal chat turn
  * so the backend's image_search tool/intercept can attach one — not routed
@@ -15,7 +16,7 @@ const ARTICLES = new Set(["a", "an", "the"]);
 const POSSESSIVES = new Set(["my", "your", "our", "his", "her", "their", "its"]);
 const REFERENCE_NOUNS = new Set(["picture", "pictures", "photo", "photos", "image", "images", "pic", "pics"]);
 
-// Keep in sync with image_lookup_intent.py's _NON_IMAGE_WORDS.
+// Keep in sync with lookup_intent.py's _NON_IMAGE_WORDS.
 const NON_IMAGE_WORDS = new Set([
   "todo", "todos", "task", "tasks", "list", "lists", "reminder", "reminders",
   "project", "projects", "account", "accounts", "script", "scripts", "code",
