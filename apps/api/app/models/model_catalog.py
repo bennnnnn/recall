@@ -42,6 +42,10 @@ class ChatModel:
     plan_access: str = "pro"  # free | pro — free-plan users only see free-tier models
     selectable: bool = True  # shown in the model picker
     quota_multiplier: float = 1.0  # weight against daily token quota (R1 costs more)
+    # How to turn thinking down on an ordinary question. None leaves the
+    # provider default (the model rejects a disable). "none" / "minimal" /
+    # "low" are reasoning.effort. "off" is reasoning.enabled false.
+    thinking_off: str | None = None
 
 
 def _or(
@@ -57,6 +61,7 @@ def _or(
     plan_access: str = "pro",
     selectable: bool = True,
     quota_multiplier: float = 1.0,
+    thinking_off: str | None = None,
 ) -> ChatModel:
     """OpenRouter-backed catalog entry (``openrouter_slug`` = OpenRouter model id)."""
     return ChatModel(
@@ -73,6 +78,7 @@ def _or(
         plan_access=plan_access,
         selectable=selectable,
         quota_multiplier=quota_multiplier,
+        thinking_off=thinking_off,
     )
 
 
@@ -132,6 +138,7 @@ CATALOG: tuple[ChatModel, ...] = (
         description="Z.ai GLM — strong reasoning and coding (1M context).",
         tier="smart",
         quota_multiplier=3.5,
+        thinking_off="off",
     ),
     _or(
         id="glm-5.3",
@@ -142,6 +149,7 @@ CATALOG: tuple[ChatModel, ...] = (
         description="Z.ai frontier reasoning and coding model (1M context).",
         tier="smart",
         quota_multiplier=3.5,
+        thinking_off="low",
     ),
     _or(
         id="gpt-5.5",
@@ -153,6 +161,7 @@ CATALOG: tuple[ChatModel, ...] = (
         description="OpenAI frontier — top reasoning, coding, and multimodal (1M context).",
         tier="smart",
         quota_multiplier=3.5,
+        thinking_off="none",
     ),
     _or(
         id="qwen-plus",
@@ -170,6 +179,7 @@ CATALOG: tuple[ChatModel, ...] = (
         description="Alibaba flagship multimodal reasoning and coding model.",
         tier="smart",
         quota_multiplier=3.5,
+        thinking_off="minimal",
     ),
     _or(
         id="kimi-k3",
@@ -180,6 +190,7 @@ CATALOG: tuple[ChatModel, ...] = (
         description="MoonshotAI frontier model for coding and long-horizon agent tasks.",
         tier="smart",
         quota_multiplier=3.5,
+        thinking_off="off",
     ),
     _or(
         id="gemini-flash",
@@ -198,6 +209,7 @@ CATALOG: tuple[ChatModel, ...] = (
         output_price_per_m=0.75,
         description="Ultra-fast diffusion LLM — lowest latency for everyday chat.",
         tier="fast",
+        thinking_off="none",
     ),
     _or(
         id="llama-70b",

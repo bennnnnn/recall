@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **The same short equation took about ten times as long on Qwen Max as on Mercury.** Thinking stayed at the provider default on every question, and Qwen’s default is a long pass. Qwen rejects a full disable, so an ordinary question sends its lowest effort (`minimal`); a hard job leaves the default. Models that accept `none` or `enabled: false` get that. R1 rejects every disable and is left alone.
+
 - **“Where did you get that?” had no source.** That follow-up was sent to the search classifier, which said no, so the previous question was never looked up. A source question searches the prior question and skips the classifier.
 
 - **Camera and File paused, and Photo opened Settings.** The attach sheet was a modal, so the native picker waited for it to leave, and a denied Photos status skipped the system picker. Draw the sheet in the screen and open the picker on the tap. Photos does not need library permission.

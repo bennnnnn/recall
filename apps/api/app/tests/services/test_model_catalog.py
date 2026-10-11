@@ -21,6 +21,10 @@ def test_selectable_models_count():
     assert glm.tier == "smart"
     assert glm.model == "openrouter/z-ai/glm-5.2"
     assert model_catalog.is_reasoning_alias("glm-5.2") is True
+    assert glm.thinking_off == "off"
+    assert model_catalog.get("qwen-3.8-max").thinking_off == "minimal"
+    assert model_catalog.get("smart-chat").thinking_off is None
+    assert mercury.thinking_off == "none"
     gpt = model_catalog.get("gpt-5.5")
     assert gpt.tier == "smart"
     assert gpt.model == "openrouter/openai/gpt-5.5"

@@ -400,6 +400,31 @@ def route_chat_model(
     return preferred
 
 
+def message_needs_thinking(
+    content: str,
+    *,
+    prior_user: str | None = None,
+    prior_model: str | None = None,
+    lesson_active: bool = False,
+    settings: Settings | None = None,
+) -> bool:
+    """True only when this job should spend a reasoning pass.
+
+    The same split Auto uses for the strong lane, except the math lane:
+    an equation still uses a strong model, and it does not think first.
+    """
+    return (
+        route_chat_model(
+            content,
+            prior_user=prior_user,
+            prior_model=prior_model,
+            lesson_active=lesson_active,
+            settings=settings,
+        )
+        == model_catalog.auto_smart_alias()
+    )
+
+
 @lru_cache(maxsize=128)
 def _physics_solves(content: str) -> bool:
     """Whether the verified solver finishes this line's physics template.

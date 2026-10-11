@@ -7,7 +7,12 @@ import pytest
 from app.core.config import Settings
 from app.modules.billing import plan as plan_service
 from app.services import model_catalog, routing
-from app.services.routing import resolve_alias, resolve_alias_in_pool, route_chat_model
+from app.services.routing import (
+    message_needs_thinking,
+    resolve_alias,
+    resolve_alias_in_pool,
+    route_chat_model,
+)
 
 
 @pytest.mark.parametrize(
@@ -113,6 +118,21 @@ from app.services.routing import resolve_alias, resolve_alias_in_pool, route_cha
 )
 def test_route_chat_model(content: str, expected: str) -> None:
     assert route_chat_model(content) == expected
+
+
+@pytest.mark.parametrize(
+    "content,prior_user,expected",
+    [
+        ("What would be the solution if the equation were 3x^2 + 5 = 8?", None, False),
+        ("what's for dinner tonight", None, False),
+        ("prove the quadratic formula", None, True),
+        ("debug this algorithm", None, True),
+        ("why", "prove the quadratic formula", True),
+        ("why", "What would be the solution if the equation were 3x^2 + 5 = 8?", False),
+    ],
+)
+def test_message_needs_thinking(content: str, prior_user: str | None, expected: bool) -> None:
+    assert message_needs_thinking(content, prior_user=prior_user) is expected
 
 
 def test_verified_physics_stays_smart_when_math_tools_are_off() -> None:

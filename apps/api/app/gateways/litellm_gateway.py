@@ -182,11 +182,21 @@ def resolve_route(alias: str) -> ChatModel:
     return model_catalog.get(alias)
 
 
+def _reasoning_disabled(mode: str | None) -> dict[str, Any] | None:
+    """OpenRouter body that turns thinking down. Unknown modes send nothing."""
+    if mode == "off":
+        return {"enabled": False}
+    if mode in {"none", "minimal", "low"}:
+        return {"effort": mode}
+    return None
+
+
 def _litellm_kwargs(
     settings: Settings,
     route: ChatModel,
     *,
     latency_sensitive: bool = False,
+    thinking: bool | None = None,
 ) -> dict[str, Any]:
     kwargs: dict[str, Any] = {}
     api_key = getattr(settings, route.api_key_field, "")
@@ -213,6 +223,14 @@ def _litellm_kwargs(
         # on the critical path before the user-visible stream.
         if latency_sensitive:
             kwargs["extra_body"] = {"provider": {"sort": "latency"}}
+    # Ordinary questions must not wait on a thinking pass. Hard jobs leave
+    # this unset so the model keeps its own default. A model that rejects a
+    # disable (R1) has no thinking_off and is left alone.
+    if thinking is False:
+        disabled = _reasoning_disabled(route.thinking_off)
+        if disabled is not None:
+            kwargs.setdefault("extra_body", {})
+            kwargs["extra_body"]["reasoning"] = disabled
     return kwargs
 
 
@@ -384,7 +402,7 @@ async def complete_with_tools(
         return {**result, "content": None, "finish_reason": "stop"}
 
     route = resolve_route(model_alias)
-    kwargs = _litellm_kwargs(settings, route, latency_sensitive=True)
+    kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=False)
     if route.model.startswith("openrouter/"):
         # Otherwise OpenRouter may silently ignore an unsupported tool_choice.
         kwargs["extra_body"]["provider"]["require_parameters"] = True
@@ -449,6 +467,7 @@ async def stream_chat_completion(
     fallback_aliases: list[str] | None = None,
     stream_meta: dict[str, str] | None = None,
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
+    thinking: bool | None = None,
 ) -> AsyncIterator[str]:
     if mock_llm.should_mock_llm(settings):
         logger.info("Using mock LLM stream for alias=%s", model_alias)
@@ -482,6 +501,7 @@ async def stream_chat_completion(
                 usage=attempt_usage,
                 on_reasoning=on_reasoning,
                 stream_meta=stream_meta,
+                thinking=thinking,
                 first_content_timeout_seconds=(
                     settings.chat_stream_first_content_timeout_seconds
                     if index < len(aliases) - 1 and model_catalog.is_reasoning_alias(alias)
@@ -563,9 +583,10 @@ async def _stream_chat_once(
     on_reasoning: Callable[[str], Awaitable[None]] | None = None,
     stream_meta: dict[str, str] | None = None,
     first_content_timeout_seconds: float | None = None,
+    thinking: bool | None = None,
 ) -> AsyncIterator[str]:
     route = resolve_route(model_alias)
-    kwargs = _litellm_kwargs(settings, route, latency_sensitive=True)
+    kwargs = _litellm_kwargs(settings, route, latency_sensitive=True, thinking=thinking)
     stripper = _ThinkStripper()
     # Signature kept so WS/SSE callers stay unchanged; CoT is not forwarded.
     _ = on_reasoning
