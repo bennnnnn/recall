@@ -8,6 +8,7 @@ from app.core.config import cors_allow_origins, get_settings
 from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
+from app.modules.account import api as auth
 from app.modules.attachments import api as attachments
 from app.modules.billing import api as webhooks
 from app.modules.chat import api as chats
@@ -18,6 +19,7 @@ from app.modules.integrations import api as integrations
 from app.modules.integrations import gmail_api as gmail_integrations
 from app.modules.math import api as math_api
 from app.modules.memory import api as memories
+from app.modules.notifications import api as users
 from app.modules.physics import api as physics_api
 from app.modules.search import api as search
 from app.modules.speech import api as speech
@@ -27,13 +29,11 @@ from app.modules.todos import api as todos
 from app.routers import (
     admin,
     analytics,
-    auth,
     chat_stream,
     health,
     legal,
     link_preview,
     models,
-    users,
     ws,
 )
 

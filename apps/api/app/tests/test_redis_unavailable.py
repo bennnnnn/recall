@@ -12,9 +12,9 @@ from app.core.access_tokens import create_access_token
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.models.schemas import LogoutRequest, RefreshRequest
-from app.routers import auth as auth_router
+from app.modules.account import api as auth_router
+from app.modules.account import tokens as tokens_service
 from app.services import quota as quota_service
-from app.services import tokens as tokens_service
 from app.services.chat.stream_events import error_payload_for_exception
 
 
@@ -61,7 +61,7 @@ async def test_get_current_user_maps_redis_outage_to_503():
     credentials = MagicMock()
     credentials.credentials = "tok"
     with patch(
-        "app.core.deps.tokens_service.verify_access_token",
+        "app.core.deps.access_tokens.verify_access_token",
         AsyncMock(side_effect=RedisUnavailableError()),
     ):
         with pytest.raises(HTTPException) as exc:
@@ -82,11 +82,11 @@ async def test_refresh_session_maps_redis_outage_to_503():
     request.client = MagicMock(host="127.0.0.1")
     with (
         patch(
-            "app.routers.auth.allow_request_fail_closed",
+            "app.modules.account.api.allow_request_fail_closed",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.routers.auth.tokens_service.refresh_token_pair",
+            "app.modules.account.api.tokens_service.refresh_token_pair",
             AsyncMock(side_effect=RedisUnavailableError()),
         ),
     ):
@@ -109,7 +109,7 @@ async def test_logout_maps_redis_outage_to_503():
     request = MagicMock()
     request.headers = {"authorization": "Bearer atok"}
     with patch(
-        "app.routers.auth.tokens_service.revoke_access_token",
+        "app.modules.account.api.tokens_service.revoke_access_token",
         AsyncMock(side_effect=RedisUnavailableError()),
     ):
         with pytest.raises(HTTPException) as exc:

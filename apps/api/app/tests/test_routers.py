@@ -107,7 +107,7 @@ def test_me_patch_updates_user():
     app = _app_with_user(user)
 
     with patch(
-        "app.services.account_lifecycle.users_repo.update",
+        "app.modules.account.lifecycle.users_repo.update",
         AsyncMock(return_value=user),
     ):
         client = TestClient(app)
@@ -126,9 +126,9 @@ def test_me_patch_invalidates_memory_cache_on_toggle():
     invalidate_mock = AsyncMock()
 
     with (
-        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(return_value=user)),
+        patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(return_value=user)),
         patch(
-            "app.services.account_lifecycle.memory_service.invalidate_memory_block",
+            "app.modules.account.lifecycle.memory_service.invalidate_memory_block",
             invalidate_mock,
         ),
     ):
@@ -149,9 +149,9 @@ def test_me_patch_invalidates_home_cache():
     invalidate_mock = AsyncMock()
 
     with (
-        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(return_value=user)),
+        patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(return_value=user)),
         patch(
-            "app.services.account_lifecycle.home_service.invalidate_home_cache",
+            "app.modules.account.lifecycle.home_service.invalidate_home_cache",
             invalidate_mock,
         ),
     ):
@@ -173,9 +173,9 @@ def test_me_patch_skips_memory_invalidation_when_unchanged():
     invalidate_mock = AsyncMock()
 
     with (
-        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(return_value=user)),
+        patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(return_value=user)),
         patch(
-            "app.services.account_lifecycle.memory_service.invalidate_memory_block",
+            "app.modules.account.lifecycle.memory_service.invalidate_memory_block",
             invalidate_mock,
         ),
     ):
@@ -211,7 +211,7 @@ def test_me_patch_persists_custom_instructions_and_blank_clears():
         return user
 
     with (
-        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
         # The global REST rate limiter reads the real Redis; disable it so this
         # test is deterministic regardless of local Redis state.
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
@@ -227,7 +227,7 @@ def test_me_patch_persists_custom_instructions_and_blank_clears():
 
     # An empty/whitespace value normalizes to None (clears the field).
     with (
-        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         r2 = client.patch(
@@ -249,7 +249,7 @@ def test_me_patch_accepts_supported_locale_and_normalizes():
         return user
 
     with (
-        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         client = TestClient(app)
@@ -268,7 +268,7 @@ def test_me_patch_rejects_unsupported_locale():
     app = _app_with_user(user)
 
     with (
-        patch("app.services.account_lifecycle.users_repo.update", AsyncMock()) as update,
+        patch("app.modules.account.lifecycle.users_repo.update", AsyncMock()) as update,
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         client = TestClient(app)
@@ -294,7 +294,7 @@ def test_me_patch_treats_empty_locale_as_noop():
         return user
 
     with (
-        patch("app.services.account_lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
+        patch("app.modules.account.lifecycle.users_repo.update", AsyncMock(side_effect=capture)),
         patch("app.core.rest_rate_limit.allow_request", AsyncMock(return_value=True)),
     ):
         client = TestClient(app)
@@ -343,8 +343,8 @@ def test_dev_login():
     )
 
     with (
-        patch("app.routers.auth.auth_service.login_dev", AsyncMock(return_value=fake_resp)),
-        patch("app.routers.auth.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch("app.modules.account.api.auth_service.login_dev", AsyncMock(return_value=fake_resp)),
+        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
     ):
         client = TestClient(app)
         r = client.post(
@@ -376,8 +376,8 @@ def test_dev_login_rate_limited_returns_429():
         dev_auth_enabled=True, jwt_secret="test-secret-32-chars-long-enough!!"
     )
     with (
-        patch("app.routers.auth.auth_service.login_dev", AsyncMock()),
-        patch("app.routers.auth.allow_request_fail_closed", AsyncMock(return_value=False)),
+        patch("app.modules.account.api.auth_service.login_dev", AsyncMock()),
+        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=False)),
     ):
         client = TestClient(app)
         r = client.post("/auth/dev", json={"email": "x@x.com", "name": "X"})
@@ -399,8 +399,8 @@ def test_dev_login_refuses_non_loopback_without_allow_remote():
         jwt_secret="test-secret-32-chars-long-enough!!",
     )
     with (
-        patch("app.routers.auth.auth_service.login_dev", AsyncMock()) as login_dev,
-        patch("app.routers.auth.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch("app.modules.account.api.auth_service.login_dev", AsyncMock()) as login_dev,
+        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
     ):
         client = TestClient(app)
         r = client.post("/auth/dev", json={"email": "x@x.com", "name": "X"})
@@ -422,8 +422,8 @@ def test_dev_login_ignores_spoofed_loopback_forwarded_ip():
         jwt_secret="test-secret-32-chars-long-enough!!",
     )
     with (
-        patch("app.routers.auth.auth_service.login_dev", AsyncMock()) as login_dev,
-        patch("app.routers.auth.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch("app.modules.account.api.auth_service.login_dev", AsyncMock()) as login_dev,
+        patch("app.modules.account.api.allow_request_fail_closed", AsyncMock(return_value=True)),
     ):
         client = TestClient(app)
         r = client.post(

@@ -65,7 +65,7 @@ def test_pool_recycle_seconds_for_url():
 @pytest.mark.asyncio
 async def test_login_with_google_creates_user():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     uid = uuid4()
     fake_user_out = UserOut(
@@ -89,15 +89,19 @@ async def test_login_with_google_creates_user():
     }
 
     with (
-        patch("app.services.auth.verify_google_id_token", AsyncMock(return_value=payload)),
-        patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock())),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.verify_google_id_token", AsyncMock(return_value=payload)
+        ),
+        patch(
+            "app.modules.account.service.users_repo.get_by_google_sub", AsyncMock(return_value=None)
+        ),
+        patch("app.modules.account.service.users_repo.get_by_email", AsyncMock(return_value=None)),
+        patch("app.modules.account.service.users_repo.create", AsyncMock(return_value=MagicMock())),
+        patch(
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("google-tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_google(
             AsyncMock(), settings_obj, "id-token", AsyncMock()
@@ -109,7 +113,7 @@ async def test_login_with_google_creates_user():
 @pytest.mark.asyncio
 async def test_login_with_google_existing_user():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     uid = uuid4()
     fake_user_out = UserOut(
@@ -128,16 +132,18 @@ async def test_login_with_google_existing_user():
     payload = {"sub": "google-sub-456", "email": "existing@test.local"}
 
     with (
-        patch("app.services.auth.verify_google_id_token", AsyncMock(return_value=payload)),
         patch(
-            "app.services.auth.users_repo.get_by_google_sub",
+            "app.modules.account.service.verify_google_id_token", AsyncMock(return_value=payload)
+        ),
+        patch(
+            "app.modules.account.service.users_repo.get_by_google_sub",
             AsyncMock(return_value=MagicMock()),
         ),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("tok2", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_google(
             AsyncMock(), settings_obj, "id-token", AsyncMock()
@@ -148,7 +154,7 @@ async def test_login_with_google_existing_user():
 @pytest.mark.asyncio
 async def test_login_with_google_rejects_missing_email_on_new_user():
     from app.gateways.google_auth import GoogleAuthError
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
@@ -156,8 +162,12 @@ async def test_login_with_google_rejects_missing_email_on_new_user():
     payload = {"sub": "google-sub-no-email", "email": ""}
 
     with (
-        patch("app.services.auth.verify_google_id_token", AsyncMock(return_value=payload)),
-        patch("app.services.auth.users_repo.get_by_google_sub", AsyncMock(return_value=None)),
+        patch(
+            "app.modules.account.service.verify_google_id_token", AsyncMock(return_value=payload)
+        ),
+        patch(
+            "app.modules.account.service.users_repo.get_by_google_sub", AsyncMock(return_value=None)
+        ),
     ):
         with pytest.raises(GoogleAuthError, match="did not share an email"):
             await auth_service.login_with_google(AsyncMock(), settings_obj, "id-token", AsyncMock())
@@ -169,7 +179,7 @@ async def test_login_with_google_links_existing_account_by_email():
     accounts (set google_sub on the existing user) instead of creating a
     duplicate row, which would violate the unique(email) constraint."""
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     uid = uuid4()
     fake_user_out = UserOut(
@@ -197,22 +207,24 @@ async def test_login_with_google_links_existing_account_by_email():
     update_mock = AsyncMock(return_value=existing)
 
     with (
-        patch("app.services.auth.verify_google_id_token", AsyncMock(return_value=payload)),
         patch(
-            "app.services.auth.users_repo.get_by_google_sub",
+            "app.modules.account.service.verify_google_id_token", AsyncMock(return_value=payload)
+        ),
+        patch(
+            "app.modules.account.service.users_repo.get_by_google_sub",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.auth.users_repo.get_by_email",
+            "app.modules.account.service.users_repo.get_by_email",
             AsyncMock(return_value=existing),
         ),
-        patch("app.services.auth.users_repo.create", create_mock),
-        patch("app.services.auth.users_repo.update", update_mock),
+        patch("app.modules.account.service.users_repo.create", create_mock),
+        patch("app.modules.account.service.users_repo.update", update_mock),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("linked-tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_google(
             AsyncMock(), settings_obj, "id-token", AsyncMock()
@@ -230,7 +242,7 @@ async def test_login_with_google_links_existing_account_by_email():
 @pytest.mark.asyncio
 async def test_login_with_apple_creates_user():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     uid = uuid4()
     fake_user_out = UserOut(
@@ -254,17 +266,19 @@ async def test_login_with_apple_creates_user():
 
     with (
         patch(
-            "app.services.auth.verify_apple_id_token",
+            "app.modules.account.service.verify_apple_id_token",
             AsyncMock(return_value=payload),
         ),
-        patch("app.services.auth.users_repo.get_by_apple_sub", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock())),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.users_repo.get_by_apple_sub", AsyncMock(return_value=None)
+        ),
+        patch("app.modules.account.service.users_repo.get_by_email", AsyncMock(return_value=None)),
+        patch("app.modules.account.service.users_repo.create", AsyncMock(return_value=MagicMock())),
+        patch(
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("apple-tok", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_apple(
             AsyncMock(), settings_obj, "id-token", AsyncMock(), name="Apple User"
@@ -276,7 +290,7 @@ async def test_login_with_apple_creates_user():
 @pytest.mark.asyncio
 async def test_login_with_apple_existing_user():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     uid = uuid4()
     fake_user_out = UserOut(
@@ -300,18 +314,18 @@ async def test_login_with_apple_existing_user():
 
     with (
         patch(
-            "app.services.auth.verify_apple_id_token",
+            "app.modules.account.service.verify_apple_id_token",
             AsyncMock(return_value=payload),
         ),
         patch(
-            "app.services.auth.users_repo.get_by_apple_sub",
+            "app.modules.account.service.users_repo.get_by_apple_sub",
             AsyncMock(return_value=MagicMock()),
         ),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("tok-apple", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_apple(
             AsyncMock(), settings_obj, "id-token", AsyncMock()
@@ -322,7 +336,7 @@ async def test_login_with_apple_existing_user():
 @pytest.mark.asyncio
 async def test_login_with_apple_links_existing_account_by_email():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     uid = uuid4()
     fake_user_out = UserOut(
@@ -349,18 +363,22 @@ async def test_login_with_apple_links_existing_account_by_email():
 
     with (
         patch(
-            "app.services.auth.verify_apple_id_token",
+            "app.modules.account.service.verify_apple_id_token",
             AsyncMock(return_value=payload),
         ),
-        patch("app.services.auth.users_repo.get_by_apple_sub", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=existing)),
-        patch("app.services.auth.users_repo.create", create_mock),
-        patch("app.services.auth.users_repo.update", update_mock),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair",
+            "app.modules.account.service.users_repo.get_by_apple_sub", AsyncMock(return_value=None)
+        ),
+        patch(
+            "app.modules.account.service.users_repo.get_by_email", AsyncMock(return_value=existing)
+        ),
+        patch("app.modules.account.service.users_repo.create", create_mock),
+        patch("app.modules.account.service.users_repo.update", update_mock),
+        patch(
+            "app.modules.account.service.tokens_service.issue_token_pair",
             AsyncMock(return_value=("linked-apple", "refresh")),
         ),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
     ):
         result = await auth_service.login_with_apple(
             AsyncMock(), settings_obj, "id-token", AsyncMock()
@@ -376,7 +394,7 @@ async def test_login_with_apple_links_existing_account_by_email():
 @pytest.mark.asyncio
 async def test_login_with_apple_requires_email_on_first_sign_in():
     from app.gateways.google_auth import GoogleAuthError
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
@@ -385,11 +403,13 @@ async def test_login_with_apple_requires_email_on_first_sign_in():
 
     with (
         patch(
-            "app.services.auth.verify_apple_id_token",
+            "app.modules.account.service.verify_apple_id_token",
             AsyncMock(return_value=payload),
         ),
-        patch("app.services.auth.users_repo.get_by_apple_sub", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=None)),
+        patch(
+            "app.modules.account.service.users_repo.get_by_apple_sub", AsyncMock(return_value=None)
+        ),
+        patch("app.modules.account.service.users_repo.get_by_email", AsyncMock(return_value=None)),
     ):
         with pytest.raises(GoogleAuthError, match="did not share an email"):
             await auth_service.login_with_apple(AsyncMock(), settings_obj, "id-token", AsyncMock())
@@ -401,7 +421,7 @@ async def test_login_with_apple_rejects_string_false_email_verified():
     # `is False` check let this through — an unverified identity could create
     # or link an account.
     from app.gateways.google_auth import GoogleAuthError
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
@@ -409,7 +429,7 @@ async def test_login_with_apple_rejects_string_false_email_verified():
     payload = {"sub": "apple-sub-unverified", "email": "u@x.com", "email_verified": "false"}
 
     with patch(
-        "app.services.auth.verify_apple_id_token",
+        "app.modules.account.service.verify_apple_id_token",
         AsyncMock(return_value=payload),
     ):
         with pytest.raises(GoogleAuthError, match="not verified"):
@@ -420,7 +440,7 @@ async def test_login_with_apple_rejects_string_false_email_verified():
 async def test_login_with_apple_rejects_missing_email_verified():
     # A missing claim must not silently pass as "verified".
     from app.gateways.google_auth import GoogleAuthError
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!"
@@ -428,7 +448,7 @@ async def test_login_with_apple_rejects_missing_email_verified():
     payload = {"sub": "apple-sub-missing", "email": "m@x.com"}
 
     with patch(
-        "app.services.auth.verify_apple_id_token",
+        "app.modules.account.service.verify_apple_id_token",
         AsyncMock(return_value=payload),
     ):
         with pytest.raises(GoogleAuthError, match="not verified"):
@@ -438,7 +458,7 @@ async def test_login_with_apple_rejects_missing_email_verified():
 @pytest.mark.asyncio
 async def test_login_with_apple_accepts_string_true_email_verified():
     from app.models.schemas import UserOut
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     uid = uuid4()
     fake_user_out = UserOut(
@@ -458,15 +478,21 @@ async def test_login_with_apple_accepts_string_true_email_verified():
 
     with (
         patch(
-            "app.services.auth.verify_apple_id_token",
+            "app.modules.account.service.verify_apple_id_token",
             AsyncMock(return_value=payload),
         ),
-        patch("app.services.auth.users_repo.get_by_apple_sub", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.get_by_email", AsyncMock(return_value=None)),
-        patch("app.services.auth.users_repo.create", AsyncMock(return_value=MagicMock(id=uid))),
-        patch("app.services.auth.UserOut.model_validate", return_value=fake_user_out),
         patch(
-            "app.services.auth.tokens_service.issue_token_pair", AsyncMock(return_value=("a", "r"))
+            "app.modules.account.service.users_repo.get_by_apple_sub", AsyncMock(return_value=None)
+        ),
+        patch("app.modules.account.service.users_repo.get_by_email", AsyncMock(return_value=None)),
+        patch(
+            "app.modules.account.service.users_repo.create",
+            AsyncMock(return_value=MagicMock(id=uid)),
+        ),
+        patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
+        patch(
+            "app.modules.account.service.tokens_service.issue_token_pair",
+            AsyncMock(return_value=("a", "r")),
         ),
     ):
         result = await auth_service.login_with_apple(
@@ -495,7 +521,7 @@ async def test_verify_google_id_token_rejects_string_false_email_verified():
 @pytest.mark.asyncio
 async def test_login_dev_raises_when_disabled():
     from app.gateways.google_auth import GoogleAuthError
-    from app.services import auth as auth_service
+    from app.modules.account import service as auth_service
 
     settings_obj = __import__("app.core.config", fromlist=["Settings"]).Settings(
         dev_auth_enabled=False

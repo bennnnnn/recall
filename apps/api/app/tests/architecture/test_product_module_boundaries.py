@@ -102,6 +102,82 @@ def test_chat_history_runtime_code_has_one_owner() -> None:
     } <= {path.name for path in (APP_ROOT / "tests" / "modules" / "chat").glob("*.py")}
 
 
+def test_account_runtime_code_has_one_owner() -> None:
+    module_root = APP_ROOT / "modules" / "account"
+    expected = {
+        "api.py",
+        "export.py",
+        "lifecycle.py",
+        "profile.py",
+        "service.py",
+        "settings_intent.py",
+        "settings_proposal.py",
+        "tokens.py",
+        "web_session.py",
+    }
+    assert expected <= {path.name for path in module_root.glob("*.py")}
+    assert {"test_account.py", "test_tokens.py", "test_web_session.py"} <= {
+        path.name for path in (APP_ROOT / "tests" / "modules" / "account").glob("*.py")
+    }
+    # Every request verifies its token in core; core never imports the module.
+    assert (APP_ROOT / "core" / "access_tokens.py").is_file()
+    assert (APP_ROOT / "modules" / "notifications" / "api.py").is_file()
+
+
+def test_mobile_account_and_auth_have_feature_homes() -> None:
+    """Sign-in and settings screens live in features/; their routes only map URLs."""
+    routes = {
+        "app/login.tsx": "features/auth/screens/LoginScreen",
+        "app/onboarding.tsx": "features/auth/screens/OnboardingScreen",
+        "app/settings/index.tsx": "features/account/screens/SettingsScreen",
+        "app/settings/preferences.tsx": "features/account/screens/PreferencesSettingsScreen",
+        "app/settings/notifications.tsx": "features/account/screens/NotificationsSettingsScreen",
+        "app/settings/data-controls.tsx": "features/account/screens/DataControlsScreen",
+        "app/settings/security.tsx": "features/account/screens/SecuritySettingsScreen",
+        "app/settings/archived-chats.tsx": "features/account/screens/ArchivedChatsScreen",
+        "app/settings/models.tsx": "features/account/screens/ModelsSettingsScreen",
+        "app/settings/usage.tsx": "features/account/screens/UsageSettingsScreen",
+        "app/settings/about.tsx": "features/account/screens/AboutScreen",
+        "app/settings/help.tsx": "features/account/screens/HelpSettingsScreen",
+    }
+    for route, screen in routes.items():
+        lines = [line for line in (MOBILE_ROOT / route).read_text().splitlines() if line.strip()]
+        assert lines == [f'export {{ default }} from "@/{screen}";'], route
+        assert (MOBILE_ROOT / f"{screen}.tsx").is_file(), screen
+    for feature in ("account", "auth"):
+        root = MOBILE_ROOT / "features" / feature
+        assert (root / "api.ts").is_file()
+        violations = [
+            str(path.relative_to(MOBILE_ROOT))
+            for path in root.rglob("*.ts*")
+            if "__tests__" not in path.parts and "@/app/" in path.read_text()
+        ]
+        assert not violations
+    for gone in (
+        "components/settings",
+        "components/settings/AccountSettingsSection.tsx",
+        "components/settings/AppearanceSettingsRow.tsx",
+        "components/settings/ConnectedAppCard.tsx",
+        "components/settings/EditableProfileAvatar.tsx",
+        "components/settings/SettingsFieldSheet.tsx",
+        "components/settings/SettingsOverview.tsx",
+        "components/settings/SettingsPickerSheet.tsx",
+        "components/settings/SettingsProfile.tsx",
+        "components/settings/SettingsProfileSheet.tsx",
+        "components/settings/SettingsSkeleton.tsx",
+        "components/settings/settingsStyles.ts",
+        "components/settings/settingsUi.tsx",
+        "hooks/useDataControls.ts",
+        "hooks/useLoginActions.ts",
+        "hooks/useProfileEditor.ts",
+        "hooks/usePushNotificationToggle.ts",
+        "hooks/useUsage.ts",
+        "lib/api/account.ts",
+        "lib/api/auth.ts",
+    ):
+        assert not (MOBILE_ROOT / gone).exists(), gone
+
+
 def test_mobile_home_has_one_feature_home() -> None:
     feature_root = MOBILE_ROOT / "features" / "home"
     assert (feature_root / "api.ts").is_file()

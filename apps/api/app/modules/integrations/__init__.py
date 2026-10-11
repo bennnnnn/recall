@@ -18,7 +18,7 @@ _EXPORTS = {
     "is_external_calendar_question": ("calendar", "is_external_calendar_question"),
     "nudge_ttl_seconds": ("nudges", "nudge_ttl_seconds"),
 }
-_MODULE_EXPORTS = ("calendar", "inbox")
+_MODULE_EXPORTS = ("calendar", "connect", "inbox")
 __all__ = list(_EXPORTS) + list(_MODULE_EXPORTS)
 
 

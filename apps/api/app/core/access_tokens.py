@@ -1,14 +1,42 @@
-"""App JWT access tokens (create / decode). Not Google OAuth."""
+"""App JWT access tokens: create, decode, and the per-request revocation check.
+
+Every authenticated request verifies its token here (``app.core.deps``). The
+account module issues, rotates and revokes sessions, and writes the revocation
+keys this module reads. Not Google OAuth.
+"""
 
 from __future__ import annotations
 
+import logging
 import secrets
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 import jwt
+from redis.asyncio import Redis
+from redis.exceptions import RedisError
 
 from app.core.config import Settings
+from app.exceptions import RedisUnavailableError
+from app.gateways.google_auth import GoogleAuthError
+
+logger = logging.getLogger(__name__)
+
+REVOKED_PREFIX = "revoked:jti:"
+REVOKED_SINCE_PREFIX = "revoked_since:"
+
+
+def redis_str(value: str | bytes) -> str:
+    """Normalize a Redis reply that may be bytes or str (decode_responses varies)."""
+    return value.decode() if isinstance(value, bytes) else value
+
+
+def revoked_key(jti: str) -> str:
+    return f"{REVOKED_PREFIX}{jti}"
+
+
+def revoked_since_key(user_id: UUID) -> str:
+    return f"{REVOKED_SINCE_PREFIX}{user_id}"
 
 
 class AccessTokenError(Exception):
@@ -37,3 +65,39 @@ def decode_access_token(token: str, settings: Settings) -> UUID:
         return UUID(payload["sub"])
     except (jwt.PyJWTError, ValueError, KeyError) as exc:
         raise AccessTokenError("Invalid access token") from exc
+
+
+async def is_access_revoked(redis: Redis, jti: str) -> bool:
+    return bool(await redis.get(revoked_key(jti)))
+
+
+async def _is_access_revoked_since(redis: Redis, user_id: UUID, issued_at: float | None) -> bool:
+    if issued_at is None:
+        return False
+    revoked_since_raw = await redis.get(revoked_since_key(user_id))
+    if revoked_since_raw is None:
+        return False
+    revoked_since = float(redis_str(revoked_since_raw))
+    return issued_at <= revoked_since
+
+
+async def verify_access_token(redis: Redis, token: str, settings: Settings) -> UUID:
+    try:
+        payload = jwt.decode(token, settings.jwt_secret, algorithms=["HS256"])
+    except (jwt.PyJWTError, ValueError, KeyError) as exc:
+        raise GoogleAuthError("Invalid access token") from exc
+    jti = payload.get("jti")
+    try:
+        if jti and await is_access_revoked(redis, str(jti)):
+            raise GoogleAuthError("Token revoked")
+        user_id = UUID(payload["sub"])
+        if await _is_access_revoked_since(redis, user_id, payload.get("iat")):
+            raise GoogleAuthError("Token revoked")
+    except GoogleAuthError:
+        raise
+    except RedisError as exc:
+        # Fail closed: without Redis we cannot check jti / revoked_since.
+        # Surface as 503 (not 401) so clients retry instead of forcing re-login.
+        logger.warning("Access token revocation check failed; Redis unavailable", exc_info=True)
+        raise RedisUnavailableError() from exc
+    return user_id

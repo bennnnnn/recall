@@ -1,0 +1,62 @@
+import { useMemo } from "react";
+import { ScrollView, View } from "react-native";
+import Constants from "expo-constants";
+import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
+
+import {
+  makeSettingsStyles,
+  SettingsGroup,
+  SettingsLinkRow,
+  SettingsValueRow,
+} from "@/features/account/components/settingsUi";
+import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
+import { openAllowedUrl } from "@/lib/linkSchemePolicy";
+import { Space } from "@/lib/space";
+import { useTheme } from "@/lib/theme";
+
+export default function AboutScreen() {
+  const { t } = useTranslation();
+  const theme = useTheme();
+  const s = useMemo(() => makeSettingsStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const appVersion = Constants.expoConfig?.version ?? "1.0.0";
+
+  return (
+    <ScrollView
+      style={s.scroll}
+      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
+    >
+      <SettingsGroup styles={s}>
+        <SettingsLinkRow
+          title={t("privacy.title")}
+          onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
+          styles={s}
+          theme={theme}
+        />
+        <View style={s.menuSeparator} />
+        <SettingsLinkRow
+          title={t("terms.title")}
+          onPress={() => void openAllowedUrl(getLegalTermsUrl())}
+          styles={s}
+          theme={theme}
+        />
+      </SettingsGroup>
+      <SettingsGroup styles={s}>
+        <SettingsValueRow
+          title={t("settings.about_version")}
+          value={appVersion}
+          styles={s}
+          theme={theme}
+        />
+      </SettingsGroup>
+      {__DEV__ ? (
+        <SettingsGroup>
+          <SettingsLinkRow icon="grid" title="UI kit" onPress={() => router.push("/dev-ui")} />
+        </SettingsGroup>
+      ) : null}
+    </ScrollView>
+  );
+}

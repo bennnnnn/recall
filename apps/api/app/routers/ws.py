@@ -23,8 +23,8 @@ from app.exceptions import (
 from app.gateways.google_auth import GoogleAuthError
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.models.schemas import ChatMessageRequest
+from app.modules.account import tokens as tokens_service
 from app.services import chat as chat_service
-from app.services import tokens as tokens_service
 from app.services.chat.finalize_registry import register_inflight_stream
 from app.services.chat.stream_events import (
     await_finalize_commit,

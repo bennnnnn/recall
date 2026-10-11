@@ -552,8 +552,8 @@ async def test_get_current_user_from_valid_token():
     fake_user.id = uid
     session = AsyncMock()
     with (
-        patch("app.core.deps.tokens_service.verify_access_token", AsyncMock(return_value=uid)),
-        patch("app.core.deps.auth_service.get_current_user", AsyncMock(return_value=fake_user)),
+        patch("app.core.deps.access_tokens.verify_access_token", AsyncMock(return_value=uid)),
+        patch("app.core.deps.users_repo.get_by_id", AsyncMock(return_value=fake_user)),
         patch("app.core.deps.get_settings", return_value=settings),
     ):
         user = await get_current_user(creds, settings, AsyncMock(), session)
@@ -575,8 +575,8 @@ async def test_get_current_user_not_found_raises_401():
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="tok")
 
     with (
-        patch("app.core.deps.tokens_service.verify_access_token", AsyncMock(return_value=uid)),
-        patch("app.core.deps.auth_service.get_current_user", AsyncMock(return_value=None)),
+        patch("app.core.deps.access_tokens.verify_access_token", AsyncMock(return_value=uid)),
+        patch("app.core.deps.users_repo.get_by_id", AsyncMock(return_value=None)),
     ):
         with pytest.raises(HTTPException) as exc_info:
             await get_current_user(creds, settings, AsyncMock(), AsyncMock())
@@ -596,7 +596,7 @@ async def test_get_current_user_invalid_token_raises_401():
     creds = HTTPAuthorizationCredentials(scheme="Bearer", credentials="bad-token")
 
     with patch(
-        "app.core.deps.tokens_service.verify_access_token",
+        "app.core.deps.access_tokens.verify_access_token",
         AsyncMock(side_effect=GoogleAuthError("Invalid token")),
     ):
         with pytest.raises(HTTPException) as exc_info:

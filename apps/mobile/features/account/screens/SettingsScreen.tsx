@@ -1,0 +1,216 @@
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
+import { Redirect, useFocusEffect, useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useTranslation } from "react-i18next";
+
+import { StackBackButton } from "@/ui/controls/StackBackButton";
+import { AccountSettingsSection } from "@/features/account/components/AccountSettingsSection";
+import { AppearanceSettingsRow } from "@/features/account/components/AppearanceSettingsRow";
+import { SettingsProfile } from "@/features/account/components/SettingsProfile";
+import {
+  SettingsOverviewGroup,
+  SettingsOverviewRow,
+} from "@/features/account/components/SettingsOverview";
+import { useAuth } from "@/contexts/AuthContext";
+import { useModels } from "@/hooks/useModels";
+import { prefetchMemories } from "@/features/memory/model/memoryListCache";
+import {
+  connectedCountFromStatus,
+  fetchIntegrationStatus,
+  getCachedConnectedCount,
+} from "@/features/integrations/model/integrationStatusCache";
+import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
+import { Space } from "@/lib/space";
+import { type Theme, useTheme } from "@/lib/theme";
+
+export default function SettingsScreen() {
+  const { token, user, signOut } = useAuth();
+  const { t } = useTranslation();
+  const { isPro, autoEnabled, modelEnabledSet } = useModels();
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const insets = useSafeAreaInsets();
+  const router = useRouter();
+
+  const [connectedCount, setConnectedCount] = useState(getCachedConnectedCount);
+  const [osPushGranted, setOsPushGranted] = useState<boolean | null>(null);
+
+  const refreshSummary = useCallback(async () => {
+    if (!token) return;
+    const [integrationsR, pushGranted] = await Promise.allSettled([
+      fetchIntegrationStatus(token),
+      getNotificationPermissionGranted(),
+    ]);
+    if (integrationsR.status === "fulfilled" && integrationsR.value) {
+      setConnectedCount(connectedCountFromStatus(integrationsR.value));
+    }
+    if (pushGranted.status === "fulfilled") {
+      setOsPushGranted(pushGranted.value);
+    }
+  }, [token]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshSummary();
+    }, [refreshSummary]),
+  );
+
+  useEffect(() => {
+    void getNotificationPermissionGranted()
+      .then(setOsPushGranted)
+      .catch(() => setOsPushGranted(false));
+  }, []);
+
+  if (!token) return <Redirect href="/login" />;
+
+  const memoryValue = user?.memory_enabled ? t("settings.on") : t("settings.off");
+  const modelsValue = autoEnabled
+    ? t("settings.model_auto")
+    : t("settings.models_enabled", { count: modelEnabledSet.size });
+  const integrationsValue =
+    connectedCount > 0
+      ? t("settings.integrations_connected", { count: connectedCount })
+      : t("settings.integration_not_connected");
+  const notificationsOn =
+    Boolean(user?.push_notifications_enabled) && osPushGranted === true;
+  const notificationsValue =
+    osPushGranted == null
+      ? undefined
+      : notificationsOn
+        ? t("settings.on")
+        : t("settings.off");
+
+  return (
+    <View style={s.root}>
+      <ScrollView
+        style={s.scroll}
+        contentContainerStyle={[
+          s.content,
+          { paddingTop: insets.top + Space.md, paddingBottom: insets.bottom + Space.xl },
+        ]}
+      >
+        <View style={s.profileHeader}>
+          <StackBackButton style={s.backButton} />
+          <SettingsProfile />
+        </View>
+
+        <SettingsOverviewGroup label={t("settings.experience")}>
+          <AppearanceSettingsRow />
+          <SettingsOverviewRow
+            icon="user-circle"
+            title={t("settings.personalization")}
+            accessibilityHint={t("settings.personalization_summary")}
+            onPress={() => router.push("/settings/preferences")}
+          />
+          <SettingsOverviewRow
+            icon="box"
+            title={t("settings.memory")}
+            accessibilityHint={t("settings.memory_desc")}
+            value={memoryValue}
+            onPress={() => {
+              if (token) prefetchMemories(token);
+              router.push("/settings/memory-settings");
+            }}
+          />
+        </SettingsOverviewGroup>
+
+        <AccountSettingsSection isPro={isPro} />
+
+        <SettingsOverviewGroup>
+          <SettingsOverviewRow
+            icon="bell"
+            title={t("settings.notifications")}
+            accessibilityHint={t("settings.notifications_summary")}
+            value={notificationsValue}
+            onPress={() => router.push("/settings/notifications")}
+          />
+        </SettingsOverviewGroup>
+
+        <SettingsOverviewGroup>
+          <SettingsOverviewRow
+            icon="link"
+            title={t("settings.connected_apps")}
+            accessibilityHint={t("settings.connected_apps_summary")}
+            value={integrationsValue}
+            onPress={() => router.push("/settings/integrations")}
+          />
+        </SettingsOverviewGroup>
+
+        <SettingsOverviewGroup label={t("settings.models_and_usage")}>
+          <SettingsOverviewRow
+            icon="sparkles"
+            title={t("settings.model")}
+            accessibilityHint={t("settings.model_summary")}
+            value={modelsValue}
+            onPress={() => router.push("/settings/models")}
+          />
+          <SettingsOverviewRow
+            icon="bar-chart"
+            title={t("settings.usage_group")}
+            onPress={() => router.push("/settings/usage")}
+          />
+        </SettingsOverviewGroup>
+
+        <SettingsOverviewGroup label={t("settings.data_and_privacy")}>
+          <SettingsOverviewRow
+            icon="shield"
+            title={t("settings.data_controls")}
+            accessibilityHint={t("settings.data_controls_summary")}
+            onPress={() => router.push("/settings/data-controls")}
+          />
+          <SettingsOverviewRow
+            icon="lock"
+            title={t("settings.security")}
+            accessibilityHint={t("settings.security_summary")}
+            onPress={() => router.push("/settings/security")}
+          />
+        </SettingsOverviewGroup>
+
+        <SettingsOverviewGroup label={t("settings.support")}>
+          <SettingsOverviewRow
+            icon="help"
+            title={t("settings.help")}
+            accessibilityHint={t("settings.help_summary")}
+            onPress={() => router.push("/settings/help")}
+          />
+          <SettingsOverviewRow
+            icon="info"
+            title={t("settings.about")}
+            accessibilityHint={t("settings.about_summary")}
+            onPress={() => router.push("/settings/about")}
+          />
+        </SettingsOverviewGroup>
+
+        <SettingsOverviewGroup>
+          <SettingsOverviewRow
+            icon="log-out"
+            title={t("settings.sign_out")}
+            danger
+            onPress={async () => {
+              await signOut();
+              router.replace("/login");
+            }}
+          />
+        </SettingsOverviewGroup>
+      </ScrollView>
+    </View>
+  );
+}
+
+function makeStyles(theme: Theme) {
+  return StyleSheet.create({
+    root: { flex: 1, backgroundColor: theme.bg },
+    scroll: { flex: 1 },
+    content: { paddingHorizontal: Space.gutter },
+    profileHeader: {
+      alignItems: "center",
+      paddingBottom: Space.xs,
+    },
+    backButton: {
+      position: "absolute",
+      left: 0,
+      top: 0,
+    },
+  });
+}

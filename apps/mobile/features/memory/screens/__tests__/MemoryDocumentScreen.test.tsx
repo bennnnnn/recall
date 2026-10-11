@@ -49,7 +49,7 @@ jest.mock("@/ui/overlay/Menu", () => ({
     );
   },
 }));
-jest.mock("@/components/settings/SettingsFieldSheet", () => ({
+jest.mock("@/features/account/components/SettingsFieldSheet", () => ({
   SettingsFieldSheet: ({
     visible,
     value,

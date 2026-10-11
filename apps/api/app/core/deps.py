@@ -8,14 +8,14 @@ from sqlalchemy import inspect as sa_inspect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import make_transient_to_detached
 
+from app.core import access_tokens
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.core.redis import get_redis_client
 from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
-from app.services import auth as auth_service
-from app.services import tokens as tokens_service
+from app.repositories import users as users_repo
 
 security = HTTPBearer()
 
@@ -84,7 +84,7 @@ async def get_current_user(
     session: AsyncSession = Depends(get_db),
 ) -> User:
     try:
-        user_id = await tokens_service.verify_access_token(redis, credentials.credentials, settings)
+        user_id = await access_tokens.verify_access_token(redis, credentials.credentials, settings)
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
     except GoogleAuthError as exc:
@@ -97,7 +97,7 @@ async def get_current_user(
     if cached is not None:
         return cached
 
-    user = await auth_service.get_current_user(session, user_id)
+    user = await users_repo.get_by_id(session, user_id)
     if user is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found")
     remember_user(user)
