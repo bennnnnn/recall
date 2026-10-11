@@ -999,7 +999,7 @@ def needs_math_fence_validate(content: str, verified: VerifiedMathBlock | None) 
 
 
 def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None = None) -> str:
-    """Picklable entry for ``sympy_executor.run_sympy`` (positional args only)."""
+    """Picklable entry for ``app.core.sympy_executor.run_sympy`` (positional args only)."""
     return validate_math_fences(content, verified=verified)
 
 

@@ -39,9 +39,10 @@ async def initialize_process(settings: Settings) -> None:
     setup_mcp_adapters(settings)
     await warmup_db_pool()
     if role in ("all", "api"):
-        from app.modules.math.sympy_executor import warm_sympy_pool
+        from app.core.sympy_executor import warm_sympy_pool
+        from app.modules.math.sympy_warmup import warm_math_worker
 
-        await warm_sympy_pool()
+        await warm_sympy_pool(warm_math_worker)
 
 
 async def start_worker_runtime(settings: Settings) -> None:

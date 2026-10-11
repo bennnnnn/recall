@@ -42,7 +42,7 @@ def _reset_sympy_executor():
     a full suite. The thread worker also correctly observes monkeypatches;
     the production ``spawn`` context intentionally does not inherit them.
     """
-    from app.modules.math.sympy_executor import (
+    from app.core.sympy_executor import (
         ThreadSympyExecutor,
         reset_sympy_executor,
         set_sympy_executor,
@@ -61,7 +61,7 @@ def thread_sympy_executor():
     subprocess boundary) or that spy on in-process state (a subprocess can't
     write back to the test's memory). The production executor's hard-kill
     behavior is exercised in test_sympy_executor.py."""
-    from app.modules.math.sympy_executor import (
+    from app.core.sympy_executor import (
         ThreadSympyExecutor,
         reset_sympy_executor,
         set_sympy_executor,

@@ -70,8 +70,8 @@ or fence behavior.
 - dispatch direct presentation based on the verified block subtype.
 
 `app.services.symbolic_text`, `app.services.unit_text`, and `app.services.units` contain scanning
-or unit primitives that have no subject policy. `app.services.sympy_executor` owns the bounded
-worker execution mechanism. Moving these primitives out of math prevents physics from importing a
+or unit primitives that have no subject policy. `app.core.sympy_executor` owns the bounded
+worker execution mechanism (math hands it the warm-up solve at process start). Moving these primitives out of math prevents physics from importing a
 different subject merely to parse text, units, or run the shared symbolic engine.
 
 The only allowed production import from physics into a math schema is `GraphBlockSpec`. A physics

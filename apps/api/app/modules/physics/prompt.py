@@ -32,7 +32,7 @@ def _unverified_physics_note() -> str:
 async def _build_verified_physics_block_async(
     intent: PhysicsIntent, settings: Settings
 ) -> VerifiedPhysicsBlock | None:
-    from app.services.sympy_executor import run_sympy
+    from app.core.sympy_executor import run_sympy
 
     try:
         block = await run_sympy(
@@ -83,8 +83,8 @@ async def build_physics_augmentation(
         request = parse_symbolic_physics_request(user_content)
         if request is None:
             return _unverified_physics_note(), None, False
+        from app.core.sympy_executor import run_sympy
         from app.modules.physics.symbolic.solver import build_symbolic_physics_block
-        from app.services.sympy_executor import run_sympy
 
         try:
             symbolic_verified = await run_sympy(

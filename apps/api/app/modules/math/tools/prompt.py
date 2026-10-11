@@ -410,8 +410,8 @@ async def _build_verified_block_async(
     (the await cancels but the thread keeps running). Isolated 1-worker
     process slots can be hard-killed on timeout without terminating siblings.
     """
+    from app.core.sympy_executor import run_sympy
     from app.modules.math import tools as mt
-    from app.modules.math.sympy_executor import run_sympy
 
     try:
         return await run_sympy(

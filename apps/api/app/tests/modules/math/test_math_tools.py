@@ -2455,7 +2455,7 @@ async def test_augment_prompt_broken_pool_injects_unverified_note(
     async def boom(*_args: object, **_kwargs: object) -> None:
         raise BrokenProcessPool("killed by sibling timeout")
 
-    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", boom)
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", boom)
 
     settings = Settings(math_tools_enabled=True)
     messages = [{"role": "user", "content": "Solve x^2 + 2 = 6"}]
