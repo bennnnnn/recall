@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _floats,
     _search,
 )
+from app.modules.chemistry.schemas import ChemistryIntent
 
 
 def _labeled_volume(text: str, label: str) -> tuple[float, str | None] | None:

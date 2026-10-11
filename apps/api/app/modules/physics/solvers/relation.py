@@ -11,10 +11,10 @@ from __future__ import annotations
 import math
 from typing import TYPE_CHECKING
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.display import conversion_row, si_symbol
 from app.modules.physics.expression import evaluate, to_latex
 from app.modules.physics.givens import unit_dimension, unit_expression
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,

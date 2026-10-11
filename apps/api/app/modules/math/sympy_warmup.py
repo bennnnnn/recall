@@ -10,7 +10,7 @@ from __future__ import annotations
 
 def warm_math_worker() -> None:
     from app.core.config import Settings
-    from app.models.schemas.math import MathIntent
+    from app.modules.math.schemas import MathIntent
     from app.modules.math.tools.block import _build_verified_block
 
     _build_verified_block(

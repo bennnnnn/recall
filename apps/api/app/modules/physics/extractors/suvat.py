@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from collections.abc import Sequence
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.ask import ask_clause, asked_phrases
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
@@ -18,6 +17,7 @@ from app.modules.physics.extractors.common import (
 from app.modules.physics.extractors.cues import (
     _has_cue,
 )
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _SUVAT_CUES: tuple[str, ...] = ()

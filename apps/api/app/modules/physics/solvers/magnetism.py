@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.display import latex_given
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import (
     _COULOMB_K,
     _MU_0,

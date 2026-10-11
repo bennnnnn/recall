@@ -21,9 +21,9 @@ from fractions import Fraction
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
-from app.models.schemas.math import MathIntent
-from app.models.schemas.math.word_problem import WordProblemSetup
 from app.modules.math.request_consumption import request_consumption_complete
+from app.modules.math.schemas import MathIntent
+from app.modules.math.schemas.word_problem import WordProblemSetup
 
 logger = logging.getLogger(__name__)
 

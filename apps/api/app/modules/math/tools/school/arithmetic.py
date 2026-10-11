@@ -5,9 +5,9 @@ from __future__ import annotations
 from dataclasses import replace
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.helpers import substituted_eval_expr
 from app.modules.math.tools.school.fractions import _block_fraction

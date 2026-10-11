@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
@@ -20,6 +19,7 @@ from app.modules.physics.extractors.rotational_dynamics import (
     extract_rotational_dynamics,
 )
 from app.modules.physics.extractors.rotational_readings import _INERTIA_PATTERN
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation, word_index
 
 _ROTATION_CUES = (

@@ -10,7 +10,6 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.school_ac import extract_ac
 from app.modules.physics.extractors.school_circuits import (
     extract_inductor,
@@ -24,6 +23,7 @@ from app.modules.physics.extractors.school_matter import (
     extract_poiseuille,
     extract_thermal,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 _EXTENSION_CUES = (
     "kirchhoff",

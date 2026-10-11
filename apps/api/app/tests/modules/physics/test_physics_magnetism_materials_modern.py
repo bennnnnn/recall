@@ -20,8 +20,8 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.math.tools import extract_math_intent as extract_real_math_intent
+from app.modules.physics.schemas import PhysicsIntent
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,

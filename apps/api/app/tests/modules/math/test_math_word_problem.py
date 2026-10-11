@@ -8,9 +8,9 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
-from app.models.schemas.math import MathIntent
-from app.models.schemas.math.word_problem import WordProblemSetup
 from app.modules.math import tools as mt
+from app.modules.math.schemas import MathIntent
+from app.modules.math.schemas.word_problem import WordProblemSetup
 from app.modules.math.solve.word_problem import solve_word_problem
 from app.modules.math.tools import prompt as math_prompt
 from app.modules.math.tools.direct import maybe_direct_math_reply

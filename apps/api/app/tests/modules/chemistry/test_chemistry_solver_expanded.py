@@ -8,7 +8,6 @@ import re
 import pytest
 from pydantic import ValidationError
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.catalog import CATALOG
 from app.modules.chemistry.direct import (
@@ -17,6 +16,7 @@ from app.modules.chemistry.direct import (
 )
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import is_chemistry_question
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.types import format_number
 from app.services.solving import SolveServiceError

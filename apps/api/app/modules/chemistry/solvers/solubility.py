@@ -5,9 +5,9 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.common_chem import inp, num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import counts_in_mass_action

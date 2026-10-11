@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _detect_gravity,
     _find_value_with_specific_unit,
 )
 from app.modules.physics.extractors.fluid_readings import _PRESSURE_PATTERN, FluidReading
+from app.modules.physics.schemas import PhysicsIntent
 
 
 def _stokes(f: FluidReading) -> PhysicsIntent | None:

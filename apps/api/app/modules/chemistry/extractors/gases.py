@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _CANONICAL_PRESSURE,
     _N,
@@ -14,6 +13,7 @@ from app.modules.chemistry.extractors.parsing import (
     _search,
 )
 from app.modules.chemistry.quantity import to_atm
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     NAMED_COMPOUNDS,
     formula_spans,

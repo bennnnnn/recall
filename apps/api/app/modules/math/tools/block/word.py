@@ -14,8 +14,8 @@ from typing import Any
 from sympy import latex
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
-from app.models.schemas.math.word_problem import WordProblemSetup
+from app.modules.math.schemas import MathIntent
+from app.modules.math.schemas.word_problem import WordProblemSetup
 from app.modules.math.solve.word_problem import WordSolution, solve_word_problem
 from app.modules.math.tools.block.canonical import _answer_canonical
 from app.services.solving import VerifiedMathBlock

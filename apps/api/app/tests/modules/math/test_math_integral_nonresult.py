@@ -5,9 +5,9 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathExprResult
 from app.modules.math import solve as math_solve
 from app.modules.math.fence import validate_math_fences
+from app.modules.math.schemas import MathExprResult
 from app.modules.math.tool import SympyAdapter
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.calculus_outcome import undefined_integral_note

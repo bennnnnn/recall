@@ -14,13 +14,13 @@ from app.core.db import SessionLocal
 from app.exceptions import ChatNotFoundError
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
-from app.models.schemas.math import MathImageExtract
 from app.modules import web_search as web_search_service
 from app.modules.billing import plan as plan_service
 from app.modules.chemistry.followup import chemistry_followup_problem as resolve_chemistry_followup
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.modules.math.followup import math_working_followup_problem, offered_equation_problem
+from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.profile_reply import reply_for_profile_question

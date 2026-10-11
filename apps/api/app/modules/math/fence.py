@@ -30,11 +30,11 @@ from typing import TYPE_CHECKING
 from pydantic import ValidationError
 
 from app.core.config import get_settings
-from app.models.schemas.math import (
+from app.modules.math import solve as math_solve
+from app.modules.math.schemas import (
     GraphBlockSpec,
     GraphSampleInput,
 )
-from app.modules.math import solve as math_solve
 from app.modules.math.solve import MathServiceError
 from app.services.md_fence_scan import (
     find_lang_opener,
@@ -441,7 +441,7 @@ def _canonical_answer_body(verified: VerifiedMathBlock | None) -> str | None:
 
 
 def _spec_fence_kind(spec: dict[str, object]) -> str | None:
-    from app.models.schemas.math.teaching import TEACHING_TYPES
+    from app.modules.math.schemas.teaching import TEACHING_TYPES
 
     spec_type = spec.get("type")
     if spec_type == "answer":

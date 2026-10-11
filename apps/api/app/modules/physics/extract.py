@@ -5,13 +5,13 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.registry import (
     PHYSICS_CUE_RES,
     PHYSICS_CUES,
     PHYSICS_EXTRACTORS,
     has_supported_physics_cue,
 )
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.number_text import read_scientific_numbers
 from app.services.symbolic_text import (
     _MAX_PHYSICS_REQUEST,

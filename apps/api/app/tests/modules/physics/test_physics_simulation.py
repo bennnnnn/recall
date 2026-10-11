@@ -23,7 +23,7 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.schemas.physics import (
+from app.modules.physics.schemas import (
     PhysicsIntent,
     SimulationBlockSpec,
     SimulationBody,
@@ -570,7 +570,7 @@ def test_the_fence_layer_knows_every_scene_kind() -> None:
     """
     import typing
 
-    from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES, SimulationType
+    from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES, SimulationType
 
     assert SIMULATION_SPEC_TYPES == set(typing.get_args(SimulationType))
     for kind in SIMULATION_SPEC_TYPES:

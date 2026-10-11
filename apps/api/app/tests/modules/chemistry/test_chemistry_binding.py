@@ -8,11 +8,11 @@ from __future__ import annotations
 
 import pytest
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.binding import bind_chemistry_intent, prepare
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.laws import LAWS
 from app.modules.chemistry.request import is_chemistry_question
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers import solve_chemistry
 
 

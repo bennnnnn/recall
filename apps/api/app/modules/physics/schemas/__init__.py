@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from app.models.schemas.physics.intent import PhysicsIntent
-from app.models.schemas.physics.simulation import (
+from app.modules.physics.schemas.intent import PhysicsIntent
+from app.modules.physics.schemas.simulation import (
     SIMULATION_SPEC_TYPES,
     SimulationBlockSpec,
     SimulationBody,

@@ -7,7 +7,6 @@ import math
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics import build_verified_physics_block, extract_physics_intent, solve_physics
 from app.modules.physics.ask import result_dimension
 from app.modules.physics.binding import bind_physics_intent
@@ -15,6 +14,7 @@ from app.modules.physics.catalog import CATALOG
 from app.modules.physics.direct import maybe_direct_physics_reply
 from app.modules.physics.display import si_symbol
 from app.modules.physics.givens import unit_dimension
+from app.modules.physics.schemas import PhysicsIntent
 from app.tests.modules.physics.binding_samples import SAMPLES
 
 _SETTINGS = Settings(math_tools_enabled=True)

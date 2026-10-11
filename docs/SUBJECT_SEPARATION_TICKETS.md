@@ -44,7 +44,7 @@ or fence behavior.
 | Layer | Math owns | Physics owns | Neutral/shared owns |
 |---|---|---|---|
 | Detection | `modules/math/tools/prompt.py`, math matchers | `modules/physics/extract.py::needs_physics` | `services/subject_solving.py::detect_subject` chooses one peer subject |
-| Intent | `models/schemas/math/intent.py::MathIntent` | `models/schemas/physics/intent.py::PhysicsIntent` | No shared subject enum |
+| Intent | `modules/math/schemas/intent.py::MathIntent` | `modules/physics/schemas/intent.py::PhysicsIntent` | No shared subject enum |
 | Extraction | `modules/math/tools/extract.py` and math extractors | `modules/physics/extract.py` and physics extractors | Text/unit scanning primitives in `services/` |
 | Solving | `modules/math/solve/`, `modules/math/school.py` | `modules/physics/solver.py`, `modules/physics/solvers/` | `services/sympy_executor.py`, generic solve error |
 | Teaching data | Math `KeyStep`, arithmetic/fraction traces | Physics formula/substitution working and trajectories | Generic transport only |

@@ -5,12 +5,12 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.integrations.calendar import (
     is_calendar_create_request,
     should_inject_calendar_block,
 )
 from app.modules.physics.catalog import CATALOG
+from app.modules.physics.schemas import PhysicsIntent
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,

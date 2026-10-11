@@ -6,13 +6,13 @@ import re
 from dataclasses import replace
 
 from app.core.config import Settings
-from app.models.schemas.math import (
+from app.modules.math import solve as math_solve
+from app.modules.math.schemas import (
     EquationInput,
     MathIntent,
     NewtonMethodInput,
     SystemOfEquationsInput,
 )
-from app.modules.math import solve as math_solve
 from app.modules.math.solve.key_steps import (
     KeyStep,
     equation_check_latex,

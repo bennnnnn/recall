@@ -6,9 +6,9 @@ import logging
 from dataclasses import replace
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.block import _build_physics_block
 from app.modules.physics.extract import extract_physics_intent, needs_physics
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.chat.prompt_constants.physics import PHYSICS_REPLY_POLICY
 from app.services.solving import VerifiedPhysicsBlock, wrap_verified_physics
 

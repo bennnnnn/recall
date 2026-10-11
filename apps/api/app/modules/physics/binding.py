@@ -19,11 +19,11 @@ from __future__ import annotations
 import re
 from functools import lru_cache
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.ask import ask_clause, asked_dimensions, asked_unit
 from app.modules.physics.binding_values import fallback_value, si_unit
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.fit import Question, Subject, fit, read_givens
 from app.services.law_binding.spec import FormulaSpec
 from app.services.law_binding.units import dimension_of

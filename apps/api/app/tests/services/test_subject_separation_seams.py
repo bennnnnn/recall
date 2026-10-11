@@ -10,8 +10,8 @@ from pathlib import Path
 
 import pytest
 
-from app.models.schemas.math import MathIntent
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.math.schemas import MathIntent
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.subject_solving import detect_subject
 
 _APP_DIR = Path(__file__).resolve().parents[2]
@@ -20,7 +20,7 @@ _PHYSICS_DIR = _APP_DIR / "modules" / "physics"
 
 # Physics trajectories reuse the same native graph transport as mathematical
 # plots. This is a renderer primitive, not math extraction or solving logic.
-_ALLOWED_PHYSICS_IMPORTS_FROM_MATH = frozenset({("app.models.schemas.math", "GraphBlockSpec")})
+_ALLOWED_PHYSICS_IMPORTS_FROM_MATH = frozenset({("app.modules.math.schemas", "GraphBlockSpec")})
 
 
 def _imports_below(path: Path, package: str) -> set[tuple[str, str]]:
@@ -44,7 +44,7 @@ def test_math_package_has_no_physics_dependency() -> None:
     for root in _MATH_PATHS:
         for path in sorted(root.rglob("*.py")):
             imports = _imports_below(path, "app.modules.physics") | _imports_below(
-                path, "app.models.schemas.physics"
+                path, "app.modules.physics.schemas"
             )
             if imports:
                 offenders[str(path.relative_to(_APP_DIR))] = imports
@@ -55,7 +55,7 @@ def test_physics_imports_only_the_shared_graph_transport_from_math() -> None:
     offenders: dict[str, set[tuple[str, str]]] = {}
     for path in sorted(_PHYSICS_DIR.rglob("*.py")):
         imports = _imports_below(path, "app.modules.math") | _imports_below(
-            path, "app.models.schemas.math"
+            path, "app.modules.math.schemas"
         )
         unexpected = imports - _ALLOWED_PHYSICS_IMPORTS_FROM_MATH
         if unexpected:
@@ -115,8 +115,8 @@ def test_neutral_solving_module_does_not_build_math_blocks() -> None:
         "app.services.subject_solving",
         "app.services.symbolic_text",
         "app.services.unit_text",
-        "app.models.schemas.math",
-        "app.models.schemas.physics",
+        "app.modules.math.schemas",
+        "app.modules.physics.schemas",
         "app.modules.math.tools.extract",
         "app.modules.physics.extract",
     ],

@@ -14,10 +14,10 @@ from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep
 from app.main import create_app
 from app.models.orm import User
-from app.models.schemas.math import MathImageExtract
 from app.models.schemas.scan import SCAN_MAX_IMAGE_BYTES
 from app.modules.math.api import readable_reading
 from app.modules.math.ocr import MathOcrResult
+from app.modules.math.schemas import MathImageExtract
 
 _IMAGE = base64.b64encode(b"\xff\xd8\xff fake jpeg").decode()
 

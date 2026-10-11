@@ -6,7 +6,8 @@ from dataclasses import replace
 from typing import Any
 
 from app.core.config import Settings
-from app.models.schemas.math import (
+from app.modules.math import solve as math_solve
+from app.modules.math.schemas import (
     CombinatoricsInput,
     MathIntent,
     MatrixInput,
@@ -14,7 +15,6 @@ from app.models.schemas.math import (
     NumberTheoryResult,
     StatisticsInput,
 )
-from app.modules.math import solve as math_solve
 from app.modules.math.solve.derivative_steps import derivative_trace
 from app.modules.math.solve.integral_steps import integral_trace
 from app.modules.math.solve.key_steps import KeyStep

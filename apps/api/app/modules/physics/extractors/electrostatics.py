@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.circuit_patterns import _COULOMB_PATTERN
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
@@ -16,6 +15,7 @@ from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
 from app.modules.physics.extractors.school_extensions import blocks_field
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _ELECTROSTATICS_CUES = (

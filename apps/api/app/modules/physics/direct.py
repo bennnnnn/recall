@@ -13,8 +13,6 @@ import math
 import re
 from typing import Any
 
-from app.models.schemas.physics import PhysicsIntent
-from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.modules.physics.catalog import (
     formula_spec,
     select_formula,
@@ -24,6 +22,8 @@ from app.modules.physics.catalog import (
 )
 from app.modules.physics.display import is_conversion_row, latex_given, latex_unit, si_symbol
 from app.modules.physics.extract import extract_physics_intent
+from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
 from app.modules.physics.working import result_symbol_for
 from app.services.chat.presentation import present_assistant_markdown

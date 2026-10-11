@@ -7,8 +7,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathImageExtract
 from app.modules.math.response_intent import response_intent_prompt
+from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.prompt import (
     VERIFIED_MATH_REPLY_HINT,
     augment_prompt_messages,

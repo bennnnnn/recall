@@ -9,7 +9,7 @@ from sympy import QQ, Poly, Symbol, div, latex, simplify
 from sympy.core.sympify import SympifyError
 from sympy.polys.polyerrors import GeneratorsError, PolynomialError
 
-from app.models.schemas.math.teaching import (
+from app.modules.math.schemas.teaching import (
     PolynomialDivisionSpec,
     PolynomialTermStep,
     TransformationSpec,

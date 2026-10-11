@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, PrivateAttr
 
-from app.models.schemas.math.word_problem import WordProblemSetup
+from app.modules.math.schemas.word_problem import WordProblemSetup
 
 
 class MathIntent(BaseModel):

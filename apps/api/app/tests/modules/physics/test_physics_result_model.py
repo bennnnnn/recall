@@ -9,10 +9,10 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.block import _solve_requested_quantities
 from app.modules.physics.bodies import ELECTRON_MASS, ELEMENTARY_CHARGE, SCHOOL_GRAVITY
 from app.modules.physics.catalog import CATALOG, select_formula
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PHYSICS_SOLVERS, solve_physics
 from app.modules.physics.solvers.common import (
     _BIG_G,

@@ -7,7 +7,6 @@ import itertools
 import pytest
 from pydantic import ValidationError
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.numbers import normalize_physics_numbers
 from app.modules.physics.request import (
     PhysicsRequest,
@@ -15,6 +14,7 @@ from app.modules.physics.request import (
     _projectile_parts,
     complete_physics_intent,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 
 @pytest.mark.parametrize(

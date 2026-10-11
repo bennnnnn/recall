@@ -6,7 +6,6 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
@@ -24,6 +23,7 @@ from app.modules.physics.extractors.thermal_readings import (
     _temperature_change,
     _temperature_value,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 
 def _carnot(cleaned: str) -> PhysicsIntent | None:

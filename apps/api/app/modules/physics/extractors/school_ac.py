@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _AMP_PATTERN,
     _OHM_PATTERN,
@@ -18,6 +17,7 @@ from app.modules.physics.extractors.school_common import (
     _intent,
     _one,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 _PEAK_ASK_RE = re.compile(
     r"\b(?:find|what(?:'s| is)|calculate|compute|determine)\b"

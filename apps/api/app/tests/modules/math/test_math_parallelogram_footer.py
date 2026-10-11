@@ -5,8 +5,8 @@ import json
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent, ParallelogramGeometryBlockSpec
 from app.modules.math.fence import validate_math_fences
+from app.modules.math.schemas import MathIntent, ParallelogramGeometryBlockSpec
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.prompt import build_math_augmentation

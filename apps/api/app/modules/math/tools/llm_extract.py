@@ -25,7 +25,7 @@ from pydantic import BaseModel, Field
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
-from app.models.schemas.math import MathIntent
+from app.modules.math.schemas import MathIntent
 
 logger = logging.getLogger(__name__)
 

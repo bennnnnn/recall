@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _floats,
     _search,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     NAMED_COMPOUNDS,
     NEUTRALIZING_ACIDS,

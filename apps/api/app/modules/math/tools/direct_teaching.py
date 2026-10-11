@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from dataclasses import replace
 
-from app.models.schemas.math.teaching import TEACHING_TYPES, TeachingSpec
+from app.modules.math.schemas.teaching import TEACHING_TYPES, TeachingSpec
 from app.services.solving import VerifiedMathBlock
 
 
@@ -15,7 +15,7 @@ def _sum_equation(spec: TeachingSpec) -> str | None:
     A number bond is that same fact. Shipping it as a second card painted
     ``2 = 1 + 1`` under the checked answer.
     """
-    from app.models.schemas.math.teaching import NumberBondSpec
+    from app.modules.math.schemas.teaching import NumberBondSpec
 
     if not isinstance(spec, NumberBondSpec):
         return None

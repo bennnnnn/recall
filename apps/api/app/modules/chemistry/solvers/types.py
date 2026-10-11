@@ -6,7 +6,7 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 
-from app.models.schemas.chemistry.scene import ChemistryScene
+from app.modules.chemistry.schemas.scene import ChemistryScene
 
 # A textbook answer carries as many figures as its least precise input, and the inputs a
 # student types have two to four. Four is enough to check a hand calculation without printing

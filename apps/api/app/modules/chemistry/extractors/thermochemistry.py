@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _equation,
@@ -12,6 +11,7 @@ from app.modules.chemistry.extractors.parsing import (
     _search,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.schemas import ChemistryIntent
 
 
 def _extract_gibbs(text: str) -> ChemistryIntent | None:

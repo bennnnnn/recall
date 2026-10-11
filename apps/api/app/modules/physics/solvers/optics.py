@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import (
     _SPEED_OF_LIGHT,
     PhysicsResult,

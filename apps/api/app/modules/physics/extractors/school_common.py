@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _AMP_PATTERN,
     _NUMBER,
     _find_value_with_specific_unit,
     _keyword_spans,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 _HENRY = r"mH|millihenrys?|millihenries|H|henrys?|henries"
 _FARAD = r"mF|uF|µF|nF|pF|F|farads?|microfarads?"

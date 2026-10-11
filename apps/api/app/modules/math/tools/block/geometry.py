@@ -8,7 +8,8 @@ from dataclasses import replace
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.schemas.math import (
+from app.modules.math import solve as math_solve
+from app.modules.math.schemas import (
     CircleGeometryBlockSpec,
     CircleGeometryInput,
     GeometryBlockSpec,
@@ -29,7 +30,6 @@ from app.models.schemas.math import (
     TriangleSidesGeometryBlockSpec,
     TriangleSidesInput,
 )
-from app.modules.math import solve as math_solve
 from app.modules.math.tools.block.canonical import _diagram_block, _finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
 from app.services.solving import VerifiedMathBlock

@@ -6,9 +6,9 @@ import pytest
 from sympy import S, Symbol, sin, solveset
 
 from app.core.config import Settings
-from app.models.schemas.math import EquationInput
 from app.modules.math import fence as math_fence
 from app.modules.math import solve as math_solve
+from app.modules.math.schemas import EquationInput
 from app.modules.math.solve.trig_equations import _complete_solution_latex
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.extract import extract_math_intent

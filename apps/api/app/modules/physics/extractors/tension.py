@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _find_value_with_specific_unit,
     _ordered_values,
@@ -13,6 +12,7 @@ from app.modules.physics.extractors.common import (
 from app.modules.physics.extractors.cues import (
     _has_cue,
 )
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import _to_si
 from app.services.text_match import has_equation
 

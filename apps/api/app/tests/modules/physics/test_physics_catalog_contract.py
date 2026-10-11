@@ -8,9 +8,9 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.catalog import CATALOG, select_formula
 from app.modules.physics.direct import format_direct_physics_working
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import solve_physics
 from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 

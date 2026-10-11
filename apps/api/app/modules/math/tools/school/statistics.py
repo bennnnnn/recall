@@ -5,7 +5,7 @@ from __future__ import annotations
 import math
 import re
 
-from app.models.schemas.math import MathIntent
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock
 from app.modules.math.tools.school._parse import _LABELED_NUMBER
 

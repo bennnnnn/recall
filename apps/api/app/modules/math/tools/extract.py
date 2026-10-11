@@ -5,8 +5,8 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Sequence
 
-from app.models.schemas.math import MathIntent
 from app.modules.math.request_consumption import request_consumption_complete
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.extractors.algebra import (
     ALGEBRA_EXTRACTORS,
     PRE_DISCRETE_ALGEBRA_EXTRACTORS,

@@ -7,7 +7,7 @@ from typing import get_args
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent, WordProblemSetup
+from app.modules.math.schemas import MathIntent, WordProblemSetup
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.extract import extract_math_intent
 

@@ -14,7 +14,7 @@ from sympy.parsing.sympy_parser import (
 )
 
 from app.core.config import get_settings
-from app.models.schemas.math import EquationInput
+from app.modules.math.schemas import EquationInput
 from app.services.solving import MathServiceError
 
 logger = logging.getLogger(__name__)

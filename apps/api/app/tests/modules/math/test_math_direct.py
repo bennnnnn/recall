@@ -8,7 +8,7 @@ from dataclasses import replace
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import GraphBlockSpec
+from app.modules.math.schemas import GraphBlockSpec
 from app.modules.math.tools.direct import (
     can_direct_verified_math_reply,
     format_direct_math_reply,

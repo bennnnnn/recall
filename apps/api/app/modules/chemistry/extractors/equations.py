@@ -5,13 +5,13 @@ from __future__ import annotations
 import re
 from dataclasses import replace
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _target,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.half_reaction import is_single_redox_change
 from app.modules.chemistry.species import parse_reaction
 

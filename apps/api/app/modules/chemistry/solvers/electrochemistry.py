@@ -6,10 +6,10 @@ from __future__ import annotations
 import math
 from dataclasses import replace
 
-from app.models.schemas.chemistry import ChemistryIntent
-from app.models.schemas.chemistry.scene import CellScene
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.extractors.parsing import seconds_per
+from app.modules.chemistry.schemas import ChemistryIntent
+from app.modules.chemistry.schemas.scene import CellScene
 from app.modules.chemistry.solvers.common_chem import (
     const,
     given_row,

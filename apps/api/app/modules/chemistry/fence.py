@@ -12,10 +12,10 @@ import json
 import logging
 import re
 
-from app.models.schemas.chemistry.scene import dump_scene
 from app.modules import chemistry as chemistry_service
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.chemistry.notation import typeset, typeset_json
+from app.modules.chemistry.schemas.scene import dump_scene
 from app.services.md_fence_scan import close_unclosed_fences, map_closed_fences, strip_closed_fences
 
 logger = logging.getLogger(__name__)

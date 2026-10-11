@@ -9,10 +9,10 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.block import _solve_requested_quantities
 from app.modules.physics.givens import unit_dimension
+from app.modules.physics.schemas import PhysicsIntent
 
 _SETTINGS = Settings(math_tools_enabled=True)
 

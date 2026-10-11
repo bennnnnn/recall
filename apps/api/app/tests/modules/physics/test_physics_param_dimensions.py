@@ -12,8 +12,8 @@ from pathlib import Path
 
 import pytest
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.catalog import CATALOG
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import _PARAM_SI_DIMENSIONS
 from app.services.units import get_unit_registry
 from app.tests.modules.physics.support import extract_physics_intent

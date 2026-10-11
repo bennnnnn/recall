@@ -4,8 +4,8 @@ import json
 
 import pytest
 
-from app.models.schemas.math import GraphBlockSpec
 from app.modules.math.fence import densify_sparse_graph, validate_math_fences
+from app.modules.math.schemas import GraphBlockSpec
 
 
 def _verified(canonical_fence):
@@ -512,8 +512,8 @@ def test_leaves_point_marker_graph_undensified() -> None:
 
 def test_sample_domain_unions_declared_window_and_key_points() -> None:
     """Default [-10,10] must expand when key points sit outside that window."""
-    from app.models.schemas.math import GraphBlockSpec
     from app.modules.math.fence import _sample_domain
+    from app.modules.math.schemas import GraphBlockSpec
 
     spec = GraphBlockSpec(
         type="function",

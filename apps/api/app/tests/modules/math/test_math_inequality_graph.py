@@ -9,8 +9,8 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.schemas.math import GraphBlockSpec
 from app.modules.math import fence as math_fence
+from app.modules.math.schemas import GraphBlockSpec
 from app.modules.math.solve.inequality_graph import affine_inequality_graph_spec
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.extract import extract_math_intent

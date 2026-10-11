@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.angles import _stated_angle
 from app.modules.physics.extractors.circuit_patterns import (
     _COULOMB_PATTERN,
@@ -25,6 +24,7 @@ from app.modules.physics.extractors.cues import (
 )
 from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_field
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _MAGNETISM_CUES = (

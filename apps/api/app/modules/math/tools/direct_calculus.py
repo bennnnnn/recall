@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.math import MathIntent
 from app.modules.math.match import calc_op
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.helpers import _split_response_instruction_sentence, math_expr_or_none
 

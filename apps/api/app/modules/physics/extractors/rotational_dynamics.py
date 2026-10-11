@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.rotational_laws import (
     _angular_impulse,
     _angular_momentum,
@@ -28,6 +27,7 @@ from app.modules.physics.extractors.rotational_readings import (
     _time,
     _torque_value,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 _CLAIM_RE = re.compile(
     r"parallel[- ]axis|without slipping|angular momentum is conserved|"

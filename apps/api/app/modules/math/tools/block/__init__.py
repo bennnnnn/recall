@@ -8,8 +8,8 @@ from dataclasses import replace
 from typing import Any
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
 from app.modules.math import solve as math_solve
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block.algebra import (
     _verified_block_equation,
     _verified_block_inequality,

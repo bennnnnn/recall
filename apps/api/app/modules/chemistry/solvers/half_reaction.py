@@ -10,9 +10,9 @@ from dataclasses import dataclass, replace
 from fractions import Fraction
 from math import gcd
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import written_is_balanced
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.common_chem import verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import ChemicalSpecies, canonical_label, parse_reaction

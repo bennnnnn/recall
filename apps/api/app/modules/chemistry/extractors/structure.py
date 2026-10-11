@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.extractors.parsing import (
     _N,
@@ -14,6 +13,7 @@ from app.modules.chemistry.extractors.parsing import (
     _search,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     is_formula,
 )

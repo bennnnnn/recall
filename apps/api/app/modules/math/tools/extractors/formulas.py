@@ -5,8 +5,8 @@ from __future__ import annotations
 import math
 import re
 
-from app.models.schemas.math import MathIntent
 from app.modules.math import match as mtm
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.helpers import _strip_trailing_filler, math_expr_or_none
 from app.services.text_match import word_index
 

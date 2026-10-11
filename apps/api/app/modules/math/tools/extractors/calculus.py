@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.models.schemas.math import MathIntent
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.extractors.formulas import FORMULA_CALCULUS_EXTRACTORS
 from app.modules.math.tools.helpers import (
     _calc_expr_tail,

@@ -6,8 +6,8 @@ import math
 from collections.abc import Callable
 from dataclasses import replace
 
-from app.models.schemas.chemistry import ChemistryIntent
-from app.models.schemas.chemistry.scene import TitrationAnchor, TitrationScene
+from app.modules.chemistry.schemas import ChemistryIntent
+from app.modules.chemistry.schemas.scene import TitrationAnchor, TitrationScene
 from app.modules.chemistry.solvers.common_chem import num, p_value, weak_dissociation
 from app.modules.chemistry.solvers.constants import KW, PKW
 from app.modules.chemistry.solvers.types import ChemistryResult

@@ -6,7 +6,8 @@ import math
 
 import pytest
 
-from app.models.schemas.math import (
+from app.modules.math import solve as math_solve
+from app.modules.math.schemas import (
     EquationInput,
     GraphBlockSpec,
     GraphSampleInput,
@@ -15,7 +16,6 @@ from app.models.schemas.math import (
     RectangleGeometryInput,
     SystemOfEquationsInput,
 )
-from app.modules.math import solve as math_solve
 from app.modules.math.solve import MathServiceError
 
 
@@ -288,7 +288,7 @@ def test_rectangle_geometry() -> None:
 
 
 def test_square_geometry() -> None:
-    from app.models.schemas.math import SquareGeometryInput
+    from app.modules.math.schemas import SquareGeometryInput
 
     result = math_solve.square_geometry(SquareGeometryInput(side=5))
     assert result.area == 25.0
@@ -297,7 +297,7 @@ def test_square_geometry() -> None:
 
 
 def test_solid_geometry_cube_and_prism() -> None:
-    from app.models.schemas.math import SolidGeometryInput
+    from app.modules.math.schemas import SolidGeometryInput
 
     cube = math_solve.solid_geometry(SolidGeometryInput(shape="cube", side=5))
     assert cube.volume == 125.0
@@ -311,7 +311,7 @@ def test_solid_geometry_cube_and_prism() -> None:
 
 
 def test_solid_geometry_sphere() -> None:
-    from app.models.schemas.math import SolidGeometryInput
+    from app.modules.math.schemas import SolidGeometryInput
 
     sphere = math_solve.solid_geometry(SolidGeometryInput(shape="sphere", radius=3))
     assert sphere.volume == pytest.approx((4.0 / 3.0) * math.pi * 27, rel=1e-3)
@@ -319,14 +319,14 @@ def test_solid_geometry_sphere() -> None:
 
 
 def test_triangle_geometry() -> None:
-    from app.models.schemas.math import TriangleGeometryInput
+    from app.modules.math.schemas import TriangleGeometryInput
 
     result = math_solve.triangle_geometry(TriangleGeometryInput(base=8, height=5))
     assert result.area == 20.0
 
 
 def test_right_triangle_geometry() -> None:
-    from app.models.schemas.math import RightTriangleGeometryInput
+    from app.modules.math.schemas import RightTriangleGeometryInput
 
     result = math_solve.right_triangle_geometry(RightTriangleGeometryInput(base=6, height=4))
     assert result.hypotenuse == pytest.approx(7.2111, rel=1e-3)
@@ -337,7 +337,7 @@ def test_right_triangle_geometry() -> None:
 
 
 def test_circle_geometry() -> None:
-    from app.models.schemas.math import CircleGeometryInput
+    from app.modules.math.schemas import CircleGeometryInput
 
     result = math_solve.circle_geometry(CircleGeometryInput(radius=4))
     assert result.diameter == 8.0

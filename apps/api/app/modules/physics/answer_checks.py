@@ -6,9 +6,9 @@ import math
 import re
 from dataclasses import replace
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.ask import result_dimension, result_reading
 from app.modules.physics.givens import unit_dimension, unit_expression
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult
 from app.modules.physics.solvers.common import QuantityResult
 

@@ -968,7 +968,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   “Chemical structure” label for that pair. Verified compute coverage is
   [docs/chemistry.md](./docs/chemistry.md); do not treat SMILES rendering as the
   whole chemistry product.
-- ✅ **Chemistry intent boundary** — `models/schemas/chemistry/ChemistryIntent` separates
+- ✅ **Chemistry intent boundary** — `modules/chemistry/schemas/ChemistryIntent` separates
   extraction, solving, and presentation. Incomplete questions deliberately stay on the
   model path; only successful deterministic results receive verified labels.
 - 🔜 Folders, editing arbitrary older messages, user-tunable routing rules, family plans,

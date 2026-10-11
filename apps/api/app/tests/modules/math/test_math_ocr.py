@@ -4,8 +4,8 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mathpix_gateway import MathpixOcrResult
-from app.models.schemas.math import MathImageExtract
 from app.modules.math import ocr as math_ocr
+from app.modules.math.schemas import MathImageExtract
 
 
 def test_extract_from_confirmed_reading_equation():

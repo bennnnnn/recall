@@ -720,7 +720,7 @@ async def test_non_create_turn_skips_calendar_write_session():
 @pytest.mark.asyncio
 @pytest.mark.parametrize("graph", [False, True], ids=["closed-answer", "cubic-graph"])
 async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> None:
-    from app.models.schemas.math import GraphBlockSpec
+    from app.modules.math.schemas import GraphBlockSpec
     from app.services.chat.stream_pipeline import stream_and_finalize
     from app.services.chat.turn_prep.context import StreamContext
     from app.services.solving import VerifiedMathBlock

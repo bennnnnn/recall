@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _search,
@@ -12,6 +11,7 @@ from app.modules.chemistry.extractors.parsing import (
     temperature_kelvin,
     timed,
 )
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
 from app.modules.chemistry.species_facts import named_elements
 

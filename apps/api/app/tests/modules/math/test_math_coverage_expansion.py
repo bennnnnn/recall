@@ -4,10 +4,10 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.schemas.math import MatrixInput
 from app.modules.math import function_analysis
 from app.modules.math import match as math_match
 from app.modules.math import solve as math_solve
+from app.modules.math.schemas import MatrixInput
 from app.modules.math.solve import MathServiceError
 from app.modules.math.tools import _build_verified_block, extract_math_intent
 from app.modules.math.tools.direct import maybe_direct_math_reply

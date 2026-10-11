@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import (
     _EPSILON_0,
     _RESISTOR_KEY_RE,

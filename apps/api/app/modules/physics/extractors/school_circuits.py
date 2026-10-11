@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _AMP_PATTERN,
     _OHM_PATTERN,
@@ -19,6 +18,7 @@ from app.modules.physics.extractors.school_common import (
     _one,
     _sum_directed,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 
 def extract_junction(text: str, lower: str) -> PhysicsIntent | None:

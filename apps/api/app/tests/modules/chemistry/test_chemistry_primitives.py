@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import pytest
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.coordination import parse_coordination
 from app.modules.chemistry.elements import BY_NUMBER, BY_SYMBOL, ELEMENTS, get_element_info
@@ -13,6 +12,7 @@ from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.nuclear import balance_nuclear, format_nuclear
 from app.modules.chemistry.organic import isomer_relationship, organic_facts
 from app.modules.chemistry.quantity import to_atm, to_kelvin, to_liters
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.structure import lewis_structure, oxidation_states
 from app.services.solving import SolveServiceError

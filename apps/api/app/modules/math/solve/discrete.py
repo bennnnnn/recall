@@ -8,7 +8,8 @@ import statistics as _stats
 
 from sympy import latex
 
-from app.models.schemas.math import (
+from app.modules.math.match.scan import mask_unknown_letter_runs
+from app.modules.math.schemas import (
     CombinatoricsInput,
     CombinatoricsResult,
     MatrixInput,
@@ -18,7 +19,6 @@ from app.models.schemas.math import (
     StatisticsInput,
     StatisticsResult,
 )
-from app.modules.math.match.scan import mask_unknown_letter_runs
 from app.services.solving import MathServiceError
 
 _FUNCTION_NAME_RE = re.compile(

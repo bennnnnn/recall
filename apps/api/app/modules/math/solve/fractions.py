@@ -6,7 +6,7 @@ from fractions import Fraction
 from math import gcd, lcm
 from typing import Literal, cast
 
-from app.models.schemas.math import FractionStep, FractionWorkSpec, MathIntent
+from app.modules.math.schemas import FractionStep, FractionWorkSpec, MathIntent
 
 
 def _parse_fraction(value: str) -> tuple[int, int] | None:

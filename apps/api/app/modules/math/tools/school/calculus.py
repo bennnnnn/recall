@@ -7,9 +7,9 @@ from dataclasses import replace
 from typing import Any
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 
 _ODE_START_RE = re.compile(r"dy\s*/\s*dx|d\^?2\s*y\s*/\s*dx\^?2|[A-Za-z]'")

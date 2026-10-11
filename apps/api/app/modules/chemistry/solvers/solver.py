@@ -5,10 +5,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import replace
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import formula_spec
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.scene import attach_scene
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.sig_figs import numbers_as_written
 from app.modules.chemistry.solvers.acid_base import (
     solve_acid_base,

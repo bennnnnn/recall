@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.acid_base import _extract_acid_solution, _extract_ph
 from app.modules.chemistry.extractors.amounts import (
     _extract_amounts,
@@ -67,6 +66,7 @@ from app.modules.chemistry.extractors.titration import (
     _extract_buffer_addition,
     _extract_titration,
 )
+from app.modules.chemistry.schemas import ChemistryIntent
 
 Extractor = Callable[[str], ChemistryIntent | None]
 

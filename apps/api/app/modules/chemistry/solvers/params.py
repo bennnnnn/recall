@@ -6,7 +6,7 @@ turns "the question never gave a concentration" into a verified answer about 1 M
 
 from __future__ import annotations
 
-from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.services.solving import SolveServiceError
 
 

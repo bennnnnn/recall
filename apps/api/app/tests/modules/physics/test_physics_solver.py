@@ -8,10 +8,10 @@ import math
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.math.solve import MathServiceError
 from app.modules.physics import block as physics_block
 from app.modules.physics import solver as physics_solver
+from app.modules.physics.schemas import PhysicsIntent
 
 # ---------------------------------------------------------------------------
 # Kinematics

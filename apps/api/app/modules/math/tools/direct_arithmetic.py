@@ -6,8 +6,8 @@ import json
 
 from pydantic import ValidationError
 
-from app.models.schemas.math import ArithmeticWorkSpec, FractionWorkSpec
 from app.modules.math.response_intent import MathResponseMode, classify_math_response_intent
+from app.modules.math.schemas import ArithmeticWorkSpec, FractionWorkSpec
 from app.modules.math.tools.lesson import lesson_math_text
 from app.services.solving import VerifiedMathBlock
 

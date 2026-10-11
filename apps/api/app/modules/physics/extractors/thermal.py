@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _MASS_UNITS,
     _NUMBER,
@@ -25,6 +24,7 @@ from app.modules.physics.extractors.thermal_readings import (
     _temperature_change,
     _temperature_value,
 )
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _THERMAL_CUES = (

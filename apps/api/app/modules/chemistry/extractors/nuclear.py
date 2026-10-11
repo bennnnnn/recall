@@ -4,12 +4,12 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _NUCLIDE,
     _search,
 )
+from app.modules.chemistry.schemas import ChemistryIntent
 
 
 def _extract_nuclear_equation(text: str) -> ChemistryIntent | None:

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.circuits import solve_circuit
 from app.modules.physics.solvers.circular import solve_circular
 from app.modules.physics.solvers.common import (
