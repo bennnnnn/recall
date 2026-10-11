@@ -73,8 +73,7 @@ describe("type and space tokens", () => {
     expect(IconSize.xl).toBe(40);
     expect(IconSize.hero).toBe(56);
     expect(Layer.toast).toBe(9999);
-    expect(Layer.drawer).toBeGreaterThan(Layer.sheet);
-    expect(Layer.sheet).toBeGreaterThan(Layer.composer);
+    expect(Layer.drawer).toBeGreaterThan(Layer.composer);
     expect(Layer.composer).toBeGreaterThan(Layer.header);
   });
 });

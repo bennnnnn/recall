@@ -304,6 +304,7 @@ const ChatOverlays = memo(function ChatOverlays({
         visible={sheets.attachSheetOpen && !drawerOpen}
         onClose={sheets.onCloseAttachSheet}
         onSelect={sheets.onAttachmentSource}
+        bottomOffset={composerClearance}
       />
 
       <MathEquationScanner

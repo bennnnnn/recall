@@ -12,8 +12,6 @@ export const Layer = {
   fab: 20,
   header: 100,
   composer: 110,
-  /** In-screen sheets (attach menu) above the composer, under the drawer. */
-  sheet: 150,
   drawer: 200,
   /** Banners and transient toasts above everything in-tree. */
   toast: 9999,
