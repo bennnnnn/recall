@@ -33,6 +33,7 @@ _EXPORTS = {
     "snap_first_due": ("recurrence", "snap_first_due"),
     "sync_todos_from_transcript": ("sync", "sync_todos_from_transcript"),
     "update_schedule_if_current": ("schedule_repository", "update_schedule_if_current"),
+    "should_recover_todo_writes": ("classification", "should_recover_todo_writes"),
     "transcript_implies_todo_sync": ("classification", "transcript_implies_todo_sync"),
 }
 

@@ -159,6 +159,15 @@ def query_implies_todos(query_text: str | None) -> bool:
     return _implies_mark_done(low) or _implies_move_to_tomorrow(low)
 
 
+def should_recover_todo_writes(user_text: str | None, transcript: str) -> bool:
+    """Background extract repairs a missed fence. A stated change is already applied."""
+    from app.modules.todos.spoken_change import user_stated_reminder_change
+
+    if user_stated_reminder_change(user_text):
+        return False
+    return transcript_implies_todo_sync(transcript)
+
+
 def transcript_implies_todo_sync(transcript: str) -> bool:
     text = transcript.strip()
     if not text:

@@ -14,7 +14,18 @@ let mockSheet: { visible: boolean; onClose: () => void };
 let mockList: { onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[] };
 let mockHeader: { onRetry: () => void; calendarNudge?: { title: string; startAt: string } };
 const mockOpenTodo = jest.fn();
-const mockGetTodos = () => [];
+const mockGetTodos = () => mockTodos;
+let mockTodos: {
+  id: string;
+  content: string;
+  checked: boolean;
+  due_at: string | null;
+  topic: string;
+  sort_order: null;
+  chat_id: null;
+  created_at: string;
+  updated_at: string;
+}[] = [];
 const mockCurrentSession = () => true;
 const mockMarkSeenIds = jest.fn(async () => {});
 let mockActionParams: { isCurrentView: () => boolean; getTodos: () => unknown; markSeenIds: unknown };
@@ -79,14 +90,14 @@ jest.mock("@/features/todos/hooks/useSuggestedReminders", () => ({ useSuggestedR
   add: jest.fn(),
   dismiss: jest.fn(),
 }) }));
-jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ todos: [], loading: false, error: false,
+jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ todos: mockTodos, loading: false, error: false,
   getTodos: mockGetTodos, isCurrentSession: mockCurrentSession, markSeenIds: mockMarkSeenIds,
   refresh: mockRefresh, setTodos: jest.fn(),
 }) }));
 
 beforeEach(() => {
   jest.clearAllMocks(); mockSession++; mockToken = "token-a"; mockFocused = true;
-  mockRouteParams = {}; mockSuggestedReminders = [];
+  mockRouteParams = {}; mockSuggestedReminders = []; mockTodos = [];
   mockRefresh.mockResolvedValue();
 });
 
@@ -172,6 +183,40 @@ it("shows the exact calendar event carried by a notification", async () => {
     title: "Design review",
     startAt: "2026-09-18T17:30:00.000Z",
   });
+});
+
+function todoAt(id: string, dayOffset: number) {
+  const due = new Date();
+  due.setDate(due.getDate() + dayOffset);
+  due.setHours(15, 0, 0, 0);
+  return {
+    id,
+    content: id,
+    checked: false,
+    due_at: due.toISOString(),
+    topic: "General",
+    sort_order: null,
+    chat_id: null,
+    created_at: "2026-09-01T00:00:00.000Z",
+    updated_at: "2026-09-01T00:00:00.000Z",
+  };
+}
+
+it("opens Schedule on overdue and today", async () => {
+  mockTodos = [todoAt("later", 14), todoAt("overdue", -1), todoAt("today", 0)];
+  await render(<TodosScreen />);
+  const ids = (mockList.rows as { kind: string; todo?: { id: string } }[])
+    .filter((row) => row.kind === "todo")
+    .map((row) => row.todo?.id);
+  expect(ids).toEqual(["overdue", "today"]);
+});
+
+it("opens the reminder a due notification points at", async () => {
+  const due = todoAt("todo-1", 0);
+  mockTodos = [due];
+  mockRouteParams = { highlight: "todo-1" };
+  await render(<TodosScreen />);
+  expect(mockOpenTodo).toHaveBeenCalledWith(due);
 });
 
 it("includes pending email suggestions in the actionable To-do list", async () => {

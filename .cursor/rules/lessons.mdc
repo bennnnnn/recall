@@ -14,6 +14,14 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 - **Stop dropped the reply after tokens had already arrived.** A task cancel stays pending after it is caught, so the next await raised again and the save never ran. Cancelling the consumer also left the generator parked at a yield, and closing the provider socket cancelled the task again during the save. Clear the pending cancel, cancel the producer only once, resume the generator, and run the save on its own task.
 
+- **“Remind me tomorrow” stopped enqueueing the todos job.** The reply is replaced with “When should I remind you?” before the transcript is checked, so “I'll set a reminder” is gone and the extractor must not invent a clock. A confirmation that is left on screen still enqueues.
+
+- **“Make it for everyday” said it was daily, and the row was still once.** The model wrote “Got it! Set:” with no fence, and that sentence does not start with `Set:`, so it was left on screen. “Make it” changes the latest reminder’s repeat, clock, or category, “it” is that reminder, a schedule question is answered from the saved rows, and a success sentence is dropped when the row did not change.
+
+- **“6” after “what time tomorrow” was saved as today at 6:00 PM, which had already passed, and the row was not there.** The model wrote `Set:` without a fence, and the hour was applied to today. A day without a clock is not saved, a reply that is only a clock finishes that reminder on the day already named, and a past time is not kept.
+
+- **“Mark done” deleted the reminder, and reopen created a new one at 2:30 AM.** The reply confirmed a change the fence never saved, then a later extractor wrote a different action. Done, reopen, delete, and move are taken from the user’s words, the reply is that result, and the extractor does not run again for that turn.
+
 - **√9 = 3 still ended with “I couldn’t automatically verify.”** A declined solve appended that italic line, and the model could write the same sentence when it was not checked. The line is removed from every reply. A verified reply still shows a check. Nothing in the chat says the result was not verified.
 
 - **A reminder after a price question sat for a couple of seconds, and the price question itself waited twice.** A short line was treated as a follow-up of any older search, so the web classifier ran and said no. A current-price question then spent another model round deciding to search. A follow-up continues only the previous message, a reminder never searches, and an obvious lookup searches before the reply is written.
