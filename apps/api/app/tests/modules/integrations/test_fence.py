@@ -53,10 +53,12 @@ async def test_update_message_email_rewrites_assistant_fence() -> None:
         return msg
 
     with (
-        patch("app.services.chats.get_chat", AsyncMock()),
-        patch("app.services.chats.messages_repo.get_in_chat", AsyncMock(return_value=message)),
+        patch("app.modules.chat.service.get_chat", AsyncMock()),
         patch(
-            "app.services.chats.messages_repo.update_content", AsyncMock(side_effect=_update)
+            "app.modules.chat.service.messages_repo.get_in_chat", AsyncMock(return_value=message)
+        ),
+        patch(
+            "app.modules.chat.service.messages_repo.update_content", AsyncMock(side_effect=_update)
         ) as update,
     ):
         result = await update_message_email(
@@ -83,8 +85,10 @@ async def test_update_message_email_rejects_user_role() -> None:
     message.role = "user"
     message.content = "```email\nTo: a@b.com\nSubject: Hi\n\nHello\n```\n"
     with (
-        patch("app.services.chats.get_chat", AsyncMock()),
-        patch("app.services.chats.messages_repo.get_in_chat", AsyncMock(return_value=message)),
+        patch("app.modules.chat.service.get_chat", AsyncMock()),
+        patch(
+            "app.modules.chat.service.messages_repo.get_in_chat", AsyncMock(return_value=message)
+        ),
         pytest.raises(ChatsError) as exc,
     ):
         await update_message_email(
@@ -106,8 +110,10 @@ async def test_update_message_email_requires_email_fence() -> None:
     message.role = "assistant"
     message.content = "No draft here."
     with (
-        patch("app.services.chats.get_chat", AsyncMock()),
-        patch("app.services.chats.messages_repo.get_in_chat", AsyncMock(return_value=message)),
+        patch("app.modules.chat.service.get_chat", AsyncMock()),
+        patch(
+            "app.modules.chat.service.messages_repo.get_in_chat", AsyncMock(return_value=message)
+        ),
         pytest.raises(ChatsError) as exc,
     ):
         await update_message_email(
@@ -127,10 +133,10 @@ async def test_update_message_email_requires_email_fence() -> None:
 @pytest.mark.asyncio
 async def test_update_message_email_404_when_missing() -> None:
     with (
-        patch("app.services.chats.get_chat", AsyncMock()),
-        patch("app.services.chats.messages_repo.get_in_chat", AsyncMock(return_value=None)),
+        patch("app.modules.chat.service.get_chat", AsyncMock()),
+        patch("app.modules.chat.service.messages_repo.get_in_chat", AsyncMock(return_value=None)),
         patch(
-            "app.services.chats.finalize_registry.wait_for_pending_finalize",
+            "app.modules.chat.service.finalize_registry.wait_for_pending_finalize",
             AsyncMock(),
         ),
         pytest.raises(ChatsError) as exc,

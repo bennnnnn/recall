@@ -46,8 +46,8 @@ def prompt_io():
         stack.enter_context(
             patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
         )
-        stack.enter_context(patch("app.services.plan.chat_fallback_models", return_value=[]))
-        stack.enter_context(patch("app.services.plan.model_pool", return_value=[]))
+        stack.enter_context(patch("app.modules.billing.plan.chat_fallback_models", return_value=[]))
+        stack.enter_context(patch("app.modules.billing.plan.model_pool", return_value=[]))
         stack.enter_context(
             patch("app.services.chat.turn_prep.context._instant_reply_needs_db", return_value=False)
         )

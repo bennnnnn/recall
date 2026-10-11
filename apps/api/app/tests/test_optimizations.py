@@ -141,7 +141,7 @@ def test_router_delete_chat_204():
     user.id = uuid4()
     app = _app_with_user(user)
 
-    with patch("app.services.chats.delete_chat", AsyncMock(return_value=None)):
+    with patch("app.modules.chat.service.delete_chat", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.delete(f"/chats/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 204
@@ -154,7 +154,7 @@ def test_router_delete_chat_404():
     user.id = uuid4()
     app = _app_with_user(user)
 
-    with patch("app.services.chats.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.chat.service.chats_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.delete(f"/chats/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 404
@@ -164,7 +164,7 @@ def test_router_delete_chat_404():
 async def test_delete_chat_keeps_library_attachments():
     """Chat delete must not purge Library files — only the conversation."""
     from app.models.orm import User
-    from app.services import chats as chats_service
+    from app.modules.chat import service as chats_service
 
     user = MagicMock(spec=User)
     user.id = uuid4()

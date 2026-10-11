@@ -32,13 +32,13 @@ async def test_persist_live_talk_turn_writes_both_roles_and_enqueues_topic():
     session.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
-        patch("app.services.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
+        patch("app.modules.speech.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.services.live_talk.messages_repo.create",
+            "app.modules.speech.live_talk.messages_repo.create",
             AsyncMock(side_effect=[user_row, asst_row]),
         ) as create,
-        patch("app.services.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
     ):
         result = await persist_live_talk_turn(
             user=user,
@@ -72,13 +72,13 @@ async def test_persist_live_talk_turn_titles_when_assistant_transcript_missing()
     session.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
-        patch("app.services.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
+        patch("app.modules.speech.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.services.live_talk.messages_repo.create",
+            "app.modules.speech.live_talk.messages_repo.create",
             AsyncMock(return_value=user_row),
         ),
-        patch("app.services.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
     ):
         await persist_live_talk_turn(
             user=user,
@@ -110,13 +110,13 @@ async def test_persist_live_talk_turn_skips_user_row_on_follow_up():
     session.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
-        patch("app.services.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
+        patch("app.modules.speech.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.services.live_talk.messages_repo.create",
+            "app.modules.speech.live_talk.messages_repo.create",
             AsyncMock(return_value=asst_row),
         ) as create,
-        patch("app.services.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
     ):
         result = await persist_live_talk_turn(
             user=user,
@@ -164,9 +164,9 @@ async def test_load_session_context_passes_last_user_line_as_query():
     session = _memory_session()
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session) as session_factory,
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session) as session_factory,
         patch(
-            "app.services.live_talk.load_live_talk_history",
+            "app.modules.speech.live_talk.load_live_talk_history",
             AsyncMock(return_value=(history, False)),
         ),
         patch(
@@ -198,9 +198,9 @@ async def test_load_session_context_keeps_sensitive_memory_on_matching_ask():
     session = _memory_session()
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
         patch(
-            "app.services.live_talk.load_live_talk_history",
+            "app.modules.speech.live_talk.load_live_talk_history",
             AsyncMock(return_value=(history, False)),
         ),
         patch(
@@ -227,7 +227,7 @@ async def test_load_session_context_without_chat_has_no_query():
     session = _memory_session()
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session) as session_factory,
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session) as session_factory,
         patch(
             "app.modules.memory.get_memory_block",
             AsyncMock(return_value="vegetarian"),
@@ -255,7 +255,7 @@ async def test_load_session_context_skips_memory_when_disabled():
     session = _memory_session()
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
         patch("app.modules.memory.get_memory_block", AsyncMock()) as mem,
     ):
         result = await load_live_talk_session_context(
@@ -279,9 +279,9 @@ async def test_load_session_context_memory_failure_still_returns_history():
     session = _memory_session()
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
         patch(
-            "app.services.live_talk.load_live_talk_history",
+            "app.modules.speech.live_talk.load_live_talk_history",
             AsyncMock(return_value=(history, False)),
         ),
         patch(
@@ -307,8 +307,8 @@ async def test_load_session_context_missing_chat_is_none():
     session = _memory_session()
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session) as session_factory,
-        patch("app.services.live_talk.load_live_talk_history", AsyncMock(return_value=None)),
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session) as session_factory,
+        patch("app.modules.speech.live_talk.load_live_talk_history", AsyncMock(return_value=None)),
         patch("app.modules.memory.get_memory_block", AsyncMock()) as mem,
     ):
         result = await load_live_talk_session_context(
@@ -341,9 +341,9 @@ async def test_load_session_context_includes_schedule_snapshot():
     item.recurrence_rule = None
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
         patch(
-            "app.services.live_talk.list_owned_todos",
+            "app.modules.speech.live_talk.list_owned_todos",
             AsyncMock(return_value=[item]),
         ),
     ):
@@ -378,17 +378,17 @@ async def test_persist_live_talk_turn_materializes_clocked_reminder_and_skips_to
     session.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
-        patch("app.services.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
+        patch("app.modules.speech.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.services.live_talk.messages_repo.create",
+            "app.modules.speech.live_talk.messages_repo.create",
             AsyncMock(side_effect=[user_row, asst_row]),
         ),
         patch(
-            "app.services.live_talk.todos_service.materialize_reminder_fences",
+            "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
             AsyncMock(return_value=(updated, 1)),
         ) as materialize,
-        patch("app.services.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
     ):
         await persist_live_talk_turn(
             user=user,
@@ -426,17 +426,17 @@ async def test_persist_live_talk_turn_enqueues_todos_when_reminder_not_applied()
     session.__aexit__ = AsyncMock(return_value=None)
 
     with (
-        patch("app.services.live_talk.SessionLocal", return_value=session),
-        patch("app.services.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
+        patch("app.modules.speech.live_talk.chats_repo.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.services.live_talk.messages_repo.create",
+            "app.modules.speech.live_talk.messages_repo.create",
             AsyncMock(side_effect=[user_row, asst_row]),
         ),
         patch(
-            "app.services.live_talk.todos_service.materialize_reminder_fences",
+            "app.modules.speech.live_talk.todos_service.materialize_reminder_fences",
             AsyncMock(return_value=("I'll set a reminder.", 0)),
         ),
-        patch("app.services.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
+        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()) as enqueue,
     ):
         await persist_live_talk_turn(
             user=user,

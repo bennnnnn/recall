@@ -56,10 +56,10 @@ def _memory_write_lock_always_free():
     the lock-held path specifically."""
     with (
         patch(
-            "app.background.memory_extraction.acquire_memory_write_lock",
+            "app.modules.memory.extraction_workflow.acquire_memory_write_lock",
             AsyncMock(return_value=True),
         ),
-        patch("app.background.memory_extraction.release_memory_write_lock", AsyncMock()),
+        patch("app.modules.memory.extraction_workflow.release_memory_write_lock", AsyncMock()),
         patch(
             "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
             AsyncMock(return_value=[]),
@@ -268,25 +268,25 @@ async def test_stream_chat_completion_handles_exception():
 
 @pytest.mark.asyncio
 async def test_extract_and_store_no_result():
-    from app.background.memory_extraction import extract_and_store_memories
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
 
     settings = Settings(memory_min_confidence=0.5)
     _, session_locals = _memory_extraction_sessions()
     with (
         patch(
-            "app.background.memory_extraction.SessionLocal",
+            "app.modules.memory.extraction_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -298,8 +298,8 @@ async def test_extract_and_store_no_result():
 
 @pytest.mark.asyncio
 async def test_extract_and_store_filters_confidence():
-    from app.background.memory_extraction import extract_and_store_memories
     from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
 
     settings = Settings(memory_min_confidence=0.7)
     extraction = MemoryFactUpdateResult(
@@ -312,22 +312,22 @@ async def test_extract_and_store_filters_confidence():
     _, session_locals = _memory_extraction_sessions()
     with (
         patch(
-            "app.background.memory_extraction.SessionLocal",
+            "app.modules.memory.extraction_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(return_value=extraction),
         ),
-        patch("app.background.memory_extraction.apply_memory_facts", apply),
+        patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply),
     ):
         await extract_and_store_memories(
             settings, user_id=uuid4(), chat_id=uuid4(), transcript="I like using Vim daily."
@@ -340,25 +340,25 @@ async def test_extract_and_store_filters_confidence():
 
 @pytest.mark.asyncio
 async def test_extract_and_store_swallows_exception():
-    from app.background.memory_extraction import extract_and_store_memories
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
 
     settings = Settings()
     _, session_locals = _memory_extraction_sessions()
     with (
         patch(
-            "app.background.memory_extraction.SessionLocal",
+            "app.modules.memory.extraction_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(side_effect=RuntimeError("boom")),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
     ):
@@ -370,21 +370,21 @@ async def test_extract_and_store_swallows_exception():
 
 @pytest.mark.asyncio
 async def test_extract_and_store_skips_when_memory_disabled():
-    from app.background.memory_extraction import extract_and_store_memories
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
 
     settings = Settings()
     _, session_locals = _memory_extraction_sessions()
     with (
         patch(
-            "app.background.memory_extraction.SessionLocal",
+            "app.modules.memory.extraction_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=False)),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(side_effect=AssertionError("should not be called")),
         ),
     ):
@@ -404,7 +404,7 @@ async def test_extract_and_store_skips_when_write_lock_held():
     rather than side_effect=AssertionError, because extract_and_store_memories
     swallows all internal exceptions (Golden Rule 4) — a raised AssertionError
     would just be caught and logged, silently passing even pre-fix."""
-    from app.background.memory_extraction import extract_and_store_memories
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
 
     settings = Settings()
     get_by_id = AsyncMock()
@@ -412,12 +412,12 @@ async def test_extract_and_store_skips_when_write_lock_held():
     upsert = AsyncMock()
     with (
         patch(
-            "app.background.memory_extraction.acquire_memory_write_lock",
+            "app.modules.memory.extraction_workflow.acquire_memory_write_lock",
             AsyncMock(return_value=False),
         ),
-        patch("app.background.memory_extraction.users_repo.get_by_id", get_by_id),
-        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
-        patch("app.background.memory_extraction.apply_memory_facts", upsert),
+        patch("app.modules.memory.extraction_workflow.users_repo.get_by_id", get_by_id),
+        patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
+        patch("app.modules.memory.extraction_workflow.apply_memory_facts", upsert),
     ):
         await extract_and_store_memories(settings, user_id=uuid4(), chat_id=uuid4(), transcript="t")
 
@@ -428,8 +428,8 @@ async def test_extract_and_store_skips_when_write_lock_held():
 
 @pytest.mark.asyncio
 async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
-    from app.background.memory_extraction import extract_and_store_memories
     from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
 
     settings = Settings(memory_min_confidence=0.4)
     extraction = MemoryFactUpdateResult(
@@ -461,23 +461,23 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
     _, session_locals = _memory_extraction_sessions(count=3)
     with (
         patch(
-            "app.background.memory_extraction.SessionLocal",
+            "app.modules.memory.extraction_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(side_effect=[[existing], [updated]]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(return_value=extraction),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.apply_writes",
+            "app.modules.memory.extraction_workflow.memories_repo.apply_writes",
             AsyncMock(return_value=[memory_id]),
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
@@ -502,8 +502,8 @@ async def test_extract_and_store_reembeds_when_text_changed(embedding_write):
 
 @pytest.mark.asyncio
 async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write):
-    from app.background.memory_extraction import extract_and_store_memories
     from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
 
     settings = Settings(memory_min_confidence=0.4)
     extraction = MemoryFactUpdateResult(
@@ -527,23 +527,23 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
     _, session_locals = _memory_extraction_sessions(count=3)
     with (
         patch(
-            "app.background.memory_extraction.SessionLocal",
+            "app.modules.memory.extraction_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(side_effect=[[existing], [updated]]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(return_value=extraction),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.apply_writes",
+            "app.modules.memory.extraction_workflow.memories_repo.apply_writes",
             AsyncMock(return_value=[memory_id]),
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
@@ -570,8 +570,8 @@ async def test_extract_and_store_reembeds_when_pgvector_missing(embedding_write)
 async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_this_pass(
     embedding_write,
 ):
-    from app.background.memory_extraction import extract_and_store_memories
     from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
 
     settings = Settings(memory_min_confidence=0.4)
     extraction = MemoryFactUpdateResult(
@@ -595,23 +595,23 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
     _, session_locals = _memory_extraction_sessions(count=3)
     with (
         patch(
-            "app.background.memory_extraction.SessionLocal",
+            "app.modules.memory.extraction_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(side_effect=[[existing], [updated]]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(return_value=extraction),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.apply_writes",
+            "app.modules.memory.extraction_workflow.memories_repo.apply_writes",
             AsyncMock(return_value=[memory_id]),
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
@@ -636,7 +636,7 @@ async def test_extract_and_store_reembeds_stale_hash_even_when_text_unchanged_th
 
 @pytest.mark.asyncio
 async def test_extract_and_store_releases_db_before_provider_io_without_write_commit():
-    from app.background.memory_extraction import extract_and_store_memories
+    from app.modules.memory.extraction_workflow import extract_and_store_memories
 
     session = AsyncMock()
     session.commit = AsyncMock()
@@ -661,17 +661,17 @@ async def test_extract_and_store_releases_db_before_provider_io_without_write_co
         return None
 
     with (
-        patch("app.background.memory_extraction.SessionLocal", return_value=load_cm),
+        patch("app.modules.memory.extraction_workflow.SessionLocal", return_value=load_cm),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(side_effect=fake_revise),
         ),
     ):

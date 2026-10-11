@@ -12,8 +12,8 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.models.orm import Chat, Message
 from app.models.schemas import ChatOut, SearchResultItem
+from app.modules.chat import service as chats_service
 from app.repositories import chats as chats_repo
-from app.services import chats as chats_service
 from app.services import topic
 
 

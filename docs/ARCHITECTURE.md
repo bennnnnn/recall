@@ -27,9 +27,13 @@ Use only the files a domain needs. A full module may contain `api.py`, `service.
 implementation packages. File names are not mandatory; ownership and dependency direction are.
 
 Infrastructure cannot import product modules. Application composition roots (`main.py`, process
-bootstrap, tool registration, and model metadata registration) connect the two sides. Temporary
-legacy modules may re-export a migrated public surface, but they contain no executable behavior
-and must not receive new imports.
+bootstrap, tool registration, and model metadata registration) connect the two sides.
+
+The re-exports that let callers move one at a time during the migrations are deleted. Their old
+paths are listed in `app/tests/architecture/boundary_support.py` (`RETIRED_LEGACY_MODULES`), and
+`test_legacy_paths_removed.py` fails if code or a test imports or patches one again. A future
+migration may add a behavior-free re-export while its callers move, then deletes it and lists the
+path there.
 
 ## Mobile feature shape
 
@@ -52,4 +56,5 @@ request client and are composed into the existing `lib/api.ts` public barrel.
 11. Suggestions — migrated (`modules/suggestions/`, follow-up chips in `features/suggestions/`). Chat last.
 
 Each migration is its own reviewable change: preserve behavior, establish the public seam, run
-the feature tests and architecture checks, then remove compatibility imports in a later cleanup.
+the feature tests and architecture checks, then remove compatibility imports in a later cleanup
+(done for every domain above).
