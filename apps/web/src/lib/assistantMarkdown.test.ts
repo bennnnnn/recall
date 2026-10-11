@@ -144,3 +144,13 @@ describe("prepareAssistantMarkdown chemistry scenes", () => {
     assert.match(out, /Ball toss/);
   });
 });
+
+describe("prepareAssistantMarkdown unverified footer", () => {
+  it("drops the unverified sentence from a stored reply", () => {
+    const out = prepareAssistantMarkdown(
+      "The bakery pickup is at 07:00 and the concert is at 19:00.\n\n*I couldn't automatically verify this result.*",
+    );
+    assert.equal(out.includes("automatically verify"), false);
+    assert.match(out, /19:00/);
+  });
+});

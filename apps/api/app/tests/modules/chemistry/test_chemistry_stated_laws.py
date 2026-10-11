@@ -115,6 +115,21 @@ def test_an_angstrom_lattice_and_an_si_diffusion_coefficient() -> None:
             "N = 146",
         ),
         (
+            "Iron-56 has atomic number 26. How many neutrons?",
+            "neutron_count",
+            "N = 30",
+        ),
+        (
+            "How many neutrons are in Iron-56?",
+            "neutron_count",
+            "N = 30",
+        ),
+        (
+            "How many neutrons are in carbon-14?",
+            "neutron_count",
+            "N = 8",
+        ),
+        (
             "Use the Hill equation. The ligand concentration is 3.00 M, "
             "the Hill coefficient n = 2.00, and Kd = 3.00 M. Find the saturation.",
             "hill_saturation",

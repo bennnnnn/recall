@@ -151,8 +151,14 @@ _TEAM_SCORE = re.compile(
     re.IGNORECASE,
 )
 
+# A bare "s" before "result" matches the end of "always result". That is a
+# math sentence, not a team possessive. "result" counts only after an
+# apostrophe. "Ethiopias game score" still matches the game/score branch.
 _TEAM_POSSESSIVE_SCORE = re.compile(
-    r".{2,40}(?:'s|s)\s+(?:games?|match(?:es)?|score|scores|result|results)",
+    r".{2,40}(?:"
+    r"'s\s+(?:games?|match(?:es)?|score|scores|result|results)"
+    r"|s\s+(?:games?|match(?:es)?|score|scores)"
+    r")",
     re.IGNORECASE,
 )
 
@@ -165,6 +171,14 @@ _SKIP = re.compile(
     r"|vocabulary\s+quiz|interactive\s+vocabulary|quiz\s+me\s+in\s+chat"
     r"|quick\s+quiz|begin\s+with\s+the\s+first\s+question"
     r")\b",
+    re.IGNORECASE,
+)
+
+# A reminder or a request to read the user's own list is not a lookup,
+# even when the previous turn searched the web.
+_REMINDER_TURN = re.compile(
+    r"^(?:please\s+)?(?:can you\s+)?remind\s+me\b"
+    r"|^(?:what|which)\s+(?:reminders?|todos?|tasks?)\s+do\s+i\s+have\b",
     re.IGNORECASE,
 )
 

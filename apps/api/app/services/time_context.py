@@ -333,7 +333,10 @@ def format_time_context(
         "DC / US Eastern, or answer in short prose with the local time there. "
         "When they ask where they are, use the location above if set. "
         "Use this when answering questions about today, deadlines, overdue reminders, "
-        "or how long until something is due."
+        "or how long until something is due. "
+        "A clock hour keeps the part of day they used. Morning is AM. Afternoon, "
+        "evening, and night are not the morning: 4 in the evening is 16:00, never "
+        "04:00 or 4 AM."
     )
     return " ".join(parts)
 

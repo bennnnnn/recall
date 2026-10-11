@@ -197,6 +197,22 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.markdownContent).toContain("Here are matches.");
   });
 
+  it("drops the unverified footer from a stored reply", () => {
+    const result = deriveAssistantMessageContent({
+      ...base,
+      content: [
+        "The bakery pickup is at 07:00 and the concert is at 19:00.",
+        "",
+        "*I couldn't automatically verify this result.*",
+      ].join("\n"),
+    });
+
+    expect(result.markdownContent).toBe(
+      "The bakery pickup is at 07:00 and the concert is at 19:00.",
+    );
+    expect(result.markdownContent).not.toContain("automatically verify");
+  });
+
   it("strips vocab_card fences instead of rendering a study card in chat", () => {
     const result = deriveAssistantMessageContent({
       ...base,

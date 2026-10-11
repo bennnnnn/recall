@@ -10,6 +10,7 @@ from app.services.time_context import (
     format_digital_clock,
     format_location_answer,
     format_time_answer,
+    format_time_context,
     format_year_answer,
     is_current_date_question,
     is_local_now_question,
@@ -235,6 +236,12 @@ def test_effective_timezone_falls_back_to_profile():
 
 def test_effective_timezone_invalid_client_uses_profile():
     assert effective_timezone("America/Chicago", "Not/A/Zone") == "America/Chicago"
+
+
+def test_evening_is_not_rewritten_as_morning() -> None:
+    context = format_time_context("UTC")
+    assert "4 in the evening is 16:00" in context
+    assert "never 04:00" in context
 
 
 def test_effective_timezone_invalid_profile_falls_back_to_utc():

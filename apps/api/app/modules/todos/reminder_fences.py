@@ -66,6 +66,26 @@ _OK_PREFIX = {
     "clear_due": "Date removed",
 }
 
+# A clock the user typed. "9:00", "9 pm", and "7 in the evening" count.
+# A bare "add milk" does not, so a model time is not theirs.
+_USER_CLOCK_RE = re.compile(
+    r"\b(?:noon|midnight)\b"
+    r"|\b\d{1,2}:\d{2}\b"
+    r"|\b\d{1,2}(?::\d{2})?\s*(?:a\.?m\.?|p\.?m\.?)\b"
+    r"|\b\d{1,2}(?::\d{2})?\s+in\s+the\s+(?:morning|afternoon|evening)\b",
+    re.IGNORECASE,
+)
+_CLAIM_LINE_RE = re.compile(
+    r"^(?:added|set|moved|deleted|done|reopened|scheduled|saved|created|date removed)\s*:\s+\S",
+    re.IGNORECASE,
+)
+_ADD_REQUEST_RE = re.compile(
+    r"^\s*(?:please\s+)?(?:can you\s+)?(?:add|buy|get|pick up|remind me(?:\s+to)?)\b",
+    re.IGNORECASE,
+)
+_ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day)\b", re.IGNORECASE)
+_NEED_A_TIME = "When should I remind you?"
+
 _DECLINES_REMINDER_CREATE_RE = re.compile(
     r"\b(?:do\s+not|don(?:'|\u2019)?t|dont|never)\s+"
     r"(?:(?:create|set|add|make|save|schedule)\s+(?:me\s+)?(?:a\s+|the\s+|any\s+)?reminder"
@@ -79,6 +99,58 @@ _DECLINES_REMINDER_CREATE_RE = re.compile(
 def explicitly_declines_reminder_creation(user_text: str | None) -> bool:
     """True when this turn explicitly asks Recall not to save a reminder."""
     return bool(user_text and _DECLINES_REMINDER_CREATE_RE.search(user_text))
+
+
+def user_named_a_clock(user_text: str | None) -> bool:
+    """True when this message states a time. A model-picked hour does not count."""
+    return bool(user_text and _USER_CLOCK_RE.search(user_text))
+
+
+def chat_add_needs_a_stated_time(user_text: str | None, due_at: datetime | None) -> bool:
+    """A chat create with no user clock is not saved.
+
+    Callers that omit the user text (older tests, non-chat jobs) keep the
+    previous fence behavior. A live turn always passes what the user wrote.
+    """
+    if user_text is None:
+        return False
+    if due_at is None:
+        return True
+    return not user_named_a_clock(user_text)
+
+
+def drop_false_schedule_claims(text: str) -> tuple[str, bool]:
+    """Remove a 'Set:' / 'Added:' line when nothing was saved.
+
+    The bool is true only when a claim line was removed. Whitespace-only
+    cleanup must not rewrite a reply that never claimed a save.
+    """
+    lines = text.splitlines()
+    kept = [line for line in lines if not _CLAIM_LINE_RE.match(line.strip())]
+    if len(kept) == len(lines):
+        return text, False
+    return re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip(), True
+
+
+def _asks_for_a_reminder_without_a_clock(user_text: str | None) -> bool:
+    return bool(
+        user_text and _ADD_REQUEST_RE.search(user_text) and not user_named_a_clock(user_text)
+    )
+
+
+def reply_when_nothing_saved(text: str, user_text: str | None) -> str:
+    """The model must not confirm a reminder the server did not save."""
+    cleaned, changed = drop_false_schedule_claims(text)
+    needs_time = _asks_for_a_reminder_without_a_clock(user_text) and not _ASKS_WHEN_RE.search(
+        cleaned
+    )
+    if needs_time and (changed or not cleaned.strip()):
+        return f"{cleaned}\n\n{_NEED_A_TIME}" if cleaned else _NEED_A_TIME
+    if changed and not cleaned.strip():
+        return "I didn't change your reminders."
+    if not changed:
+        return text
+    return cleaned
 
 
 class _ReminderFence(BaseModel):
@@ -579,7 +651,7 @@ async def materialize_reminder_fences(
     if not spans:
         draft = _explicit_user_remind(user_text, user_timezone)
         if draft is None:
-            return assistant_text, 0
+            return reply_when_nothing_saved(assistant_text, user_text), 0
         state = _ReminderFenceCreateState(
             session=session,
             user_id=user_id,
@@ -627,6 +699,18 @@ async def materialize_reminder_fences(
             else:
                 parts.append(_INVALID_FENCE)
             continue
+        if draft.action == "add" and chat_add_needs_a_stated_time(user_text, draft.due_at):
+            # The fence time was not in the user's message. Save only a clock
+            # they actually wrote; otherwise ask when, below.
+            fallback = _explicit_user_remind(user_text, user_timezone)
+            if fallback is None:
+                continue
+            line, ok = await _create_one(state, fallback)
+            result_lines.append(line)
+            if ok:
+                state.applied += 1
+                created_any = True
+            continue
         if draft.action == "add":
             line, ok = await _create_one(state, draft)
             created_any = created_any or ok
@@ -642,4 +726,6 @@ async def materialize_reminder_fences(
     updated = re.sub(r"\n{3,}", "\n\n", updated).strip()
     if created_any:
         await home_service.invalidate_home_cache(user_id)
+    if state.applied == 0:
+        updated = reply_when_nothing_saved(updated, user_text)
     return updated, state.applied

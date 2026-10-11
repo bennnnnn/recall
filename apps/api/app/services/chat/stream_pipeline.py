@@ -311,6 +311,12 @@ async def enrich_final_content(
                 assistant_text = seams.math_fence_service.validate_math_fences_worker(
                     assistant_text, verified
                 )
+            elif ctx.instant_reply is not None:
+                # Two solved problems have no single verified subject. Their
+                # answer fences are the results. The unverified rewrite unwraps
+                # every ```answer, which printed "notation: chemistry" and raw
+                # LaTeX under the reply.
+                pass
             elif seams.math_fence_service.needs_math_fence_validate(assistant_text, verified):
                 assistant_text = await run_sympy(
                     seams.math_fence_service.validate_math_fences_worker,
@@ -413,9 +419,15 @@ async def enrich_final_content(
 
         assistant_text = sanitize_mermaid_fences(assistant_text)
         assistant_text = sanitize_places_fences(assistant_text)
-        from app.services.chat.presentation import present_assistant_markdown
+        from app.services.chat.presentation import (
+            drop_orphan_leading_answer,
+            present_assistant_markdown,
+        )
 
-        assistant_text = present_assistant_markdown(assistant_text)
+        assistant_text = drop_orphan_leading_answer(
+            present_assistant_markdown(assistant_text),
+            ctx.user_message_content,
+        )
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting raw assistant text")
         assistant_text = raw_assistant_text

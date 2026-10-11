@@ -1003,41 +1003,17 @@ def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None
     return validate_math_fences(content, verified=verified)
 
 
-_UNVERIFIED_MATH_NOTE = "*I couldn't automatically verify this result.*"
-
-# Any digit, inline `$...$`, or a LaTeX macro. Deliberately blunt: the first
-# attempt looked for an operator or an `=` and dropped the note from "The mass
-# is 12 kg.", a verified-physics answer where it belongs. A false positive here
-# only preserves the existing behavior; a false negative hides the note on a
-# real math reply, so anything numeric counts.
-_MATH_PRESENCE_RE = re.compile(r"[0-9]|\$[^$\n]+\$|\\[A-Za-z]+")
-
-
-def _reply_contains_math(content: str) -> bool:
-    """Is there anything in this reply the note could be talking about?"""
-    lower = content.lower()
-    if any(marker in lower for marker in _FENCE_VALIDATE_MARKERS):
-        return True
-    return _MATH_PRESENCE_RE.search(content) is not None
+# The user-visible line is banned. A clock answer such as 19:00 contains a
+# digit, so the old stamp landed under a correct time. Drop the sentence if a
+# stored reply or the model still has it.
+_UNVERIFIED_MATH_NOTE_RE = re.compile(
+    r"[ \t]*\*?I couldn't automatically verify this result\.\*?[ \t]*"
+)
 
 
 def append_unverified_math_note(content: str) -> str:
-    """Honest label when a subject solver declined.
-
-    One italic line in the reply body. A blockquote or answer fence would paint
-    a shaded card, and an assistant status chip is already banned.
-
-    Skipped when the reply holds no math at all. The note is stamped whenever
-    a math block was injected and SymPy returned nothing, so every extractor
-    false positive reaches here: a chat about anatomy answered "show me" and
-    ended with an internal-solver warning. Guarding the stamp makes the
-    whole class fail quietly instead of one misfire at a time.
-    """
-    if _UNVERIFIED_MATH_NOTE in content:
+    """Remove the banned unverified line. Never add it."""
+    if "automatically verify this result" not in content:
         return content
-    if not _reply_contains_math(content):
-        return content
-    stripped = content.rstrip()
-    if not stripped:
-        return _UNVERIFIED_MATH_NOTE
-    return f"{stripped}\n\n{_UNVERIFIED_MATH_NOTE}"
+    stripped = _UNVERIFIED_MATH_NOTE_RE.sub("", content)
+    return re.sub(r"\n{3,}", "\n\n", stripped).strip()

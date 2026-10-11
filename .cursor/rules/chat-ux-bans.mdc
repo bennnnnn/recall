@@ -94,7 +94,12 @@ If a plan or FEATURES item asks for these, **push back and skip** — they are e
 - Chat must **not** render A–D chips or grade stored `vocab_quiz` fences.
 - Leftover `vocab_quiz`, `vocab_card`, and `learning_launch` fences in old messages are **strip for display** only. Do not parse them back into chips or a lesson path.
 
-## 16. No My Job product
+## 16. No “couldn't automatically verify” line on a reply
+- Do **not** append or render “I couldn't automatically verify this result.”
+- A declined solve stays in the prompt. The reply the user reads does not carry that sentence.
+- Do **not** bring the line back as a chip, a footer, or italic under the answer.
+
+## 17. No My Job product
 - Job search, match cards, cover letters, application stages, and `/my-job` are removed.
 - Do **not** restore `modules/job_search/`, `features/job-search/`, the drawer row, or the `job_search` chat tool.
 - A stored `job-results` fence is **strip for display** only.

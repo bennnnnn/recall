@@ -343,10 +343,54 @@ def _match_draw_me(tokens: list[str]) -> str | None:
     return _clean_prompt(subject)
 
 
+# "make money" / "make dinner" are ordinary English. A picture that uses
+# "make" already names an image noun and is matched before this short path.
+_MAKE_NOT_A_PICTURE = frozenset(
+    {
+        "money",
+        "cash",
+        "bank",
+        "profit",
+        "profits",
+        "income",
+        "living",
+        "sense",
+        "time",
+        "friends",
+        "friend",
+        "decision",
+        "decisions",
+        "point",
+        "progress",
+        "mistake",
+        "mistakes",
+        "amends",
+        "peace",
+        "difference",
+        "room",
+        "haste",
+        "dinner",
+        "lunch",
+        "breakfast",
+        "bed",
+        "love",
+        "ends",
+    }
+)
+_MAKE_IDIOM_FILLER = frozenset({"a", "an", "the", "some", "more", "much", "of", "lot", "lots"})
+
+
+def _make_is_not_a_picture(subject: str) -> bool:
+    words = [_fold_token(word) for word in subject.split()]
+    words = [word for word in words if word and word not in _MAKE_IDIOM_FILLER]
+    return bool(words) and all(word in _MAKE_NOT_A_PICTURE for word in words)
+
+
 def _match_short_create(tokens: list[str]) -> str | None:
     """Short ``draw a dog`` or ``create a cat`` — the whole message is the subject.
 
     Chat asks such as ``make your own example`` still fail ``_has_non_image_subject``.
+    ``make money`` is not a picture; ``make a cat photo`` is matched earlier.
     """
     if len(tokens) < 2:
         return None
@@ -364,6 +408,8 @@ def _match_short_create(tokens: list[str]) -> str | None:
     if subject_parts[0].lower() in _REVISION_PRONOUNS:
         return None
     subject = _join_subject(subject_parts)
+    if verb == "make" and _make_is_not_a_picture(subject):
+        return None
     if _has_non_image_subject(subject) or _has_non_image_draw(subject):
         return None
     return _clean_prompt(subject)

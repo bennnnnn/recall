@@ -206,7 +206,7 @@ async def test_tool_loop_forces_search_when_model_skips_web_search(web_search_re
             messages=messages,
             usage={},
         )
-    complete.assert_awaited_once()
+    complete.assert_not_awaited()
     forced.assert_awaited_once()
     assert hits == [hit]
     assert any(
@@ -241,7 +241,7 @@ async def test_tool_loop_forces_search_when_classifier_required_and_heuristic_no
             usage={},
             web_search=True,
         )
-    complete.assert_awaited_once()
+    complete.assert_not_awaited()
     forced.assert_awaited_once()
     assert hits == [hit]
     assert any(
@@ -304,7 +304,9 @@ async def test_tool_loop_injects_empty_search_when_force_finds_nothing(web_searc
 
 @pytest.mark.asyncio
 async def test_tool_loop_injects_empty_when_tool_returns_no_hits(web_search_registered):
-    messages = [{"role": "user", "content": "What's the latest news on SpaceX?"}]
+    # A math turn still asks the model which tool to call. A pure lookup
+    # does not: that path searches before the selection round.
+    messages = [{"role": "user", "content": "differentiate x^2"}]
     complete = AsyncMock(
         return_value={
             "content": None,
