@@ -34,6 +34,16 @@ from app.modules.todos.actions import (
 )
 from app.modules.todos.recurrence import snap_first_due
 from app.modules.todos.schemas import RecurrenceRule
+from app.modules.todos.spoken_add import (
+    chat_add_needs_a_stated_time,
+    due_for_add,
+    due_is_past,
+    parse_clock_only,
+    parse_spoken_add,
+    passed_time_reply,
+    pending_add,
+    reply_when_nothing_saved,
+)
 from app.modules.todos.spoken_change import match_spoken_reminder, parse_spoken_reminder_change
 from app.services import time_context as time_context_service
 
@@ -608,10 +618,45 @@ async def materialize_reminder_fences(
         if ok:
             await home_service.invalidate_home_cache(user_id)
         return line, (1 if ok else 0)
+    clock = parse_clock_only(user_text)
+    if clock is not None:
+        pending = await pending_add(session, chat_id, user_text or "")
+        if pending is not None:
+            due = due_for_add(
+                pending,
+                user_timezone=user_timezone,
+                hour=clock[0],
+                minute=clock[1],
+            )
+            if due is None or due_is_past(due, user_timezone=user_timezone):
+                return passed_time_reply(), 0
+            return await _save_spoken_add(
+                session,
+                user_id=user_id,
+                chat_id=chat_id,
+                user_timezone=user_timezone,
+                title=pending.title,
+                due=due,
+                repeat=pending.repeat,
+            )
+    stated = parse_spoken_add(user_text)
+    if stated is not None and stated.day is not None and stated.hour is not None:
+        due = due_for_add(stated, user_timezone=user_timezone)
+        if due is None or due_is_past(due, user_timezone=user_timezone):
+            return passed_time_reply(), 0
+        return await _save_spoken_add(
+            session,
+            user_id=user_id,
+            chat_id=chat_id,
+            user_timezone=user_timezone,
+            title=stated.title,
+            due=due,
+            repeat=stated.repeat,
+        )
     if not spans:
         draft = _explicit_user_remind(user_text, user_timezone)
         if draft is None:
-            return assistant_text, 0
+            return reply_when_nothing_saved(assistant_text, user_text), 0
         state = _ReminderFenceCreateState(
             session=session,
             user_id=user_id,
@@ -659,6 +704,15 @@ async def materialize_reminder_fences(
             else:
                 parts.append(_INVALID_FENCE)
             continue
+        if draft.action == "add" and (
+            chat_add_needs_a_stated_time(user_text, draft.due_at)
+            or (
+                user_text is not None
+                and draft.due_at is not None
+                and due_is_past(draft.due_at, user_timezone=user_timezone)
+            )
+        ):
+            continue
         if draft.action == "add":
             line, ok = await _create_one(state, draft)
             created_any = created_any or ok
@@ -674,4 +728,30 @@ async def materialize_reminder_fences(
     updated = re.sub(r"\n{3,}", "\n\n", updated).strip()
     if created_any:
         await home_service.invalidate_home_cache(user_id)
+    if state.applied == 0:
+        updated = reply_when_nothing_saved(updated, user_text)
     return updated, state.applied
+
+
+async def _save_spoken_add(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    user_timezone: str | None,
+    title: str,
+    due: datetime,
+    repeat: RecurrenceRule | None,
+) -> tuple[str, int]:
+    state = _ReminderFenceCreateState(
+        session=session,
+        user_id=user_id,
+        chat_id=chat_id,
+        user_timezone=user_timezone,
+    )
+    draft = _ReminderFence(action="add", title=title, due_at=due)
+    draft.repeat = repeat
+    line, ok = await _create_one(state, draft)
+    if ok:
+        await home_service.invalidate_home_cache(user_id)
+    return line, (1 if ok else 0)

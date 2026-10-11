@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“6” after “what time tomorrow” was saved as today at 6:00 PM, which had already passed, and the row was not there.** The model wrote `Set:` without a fence, and the hour was applied to today. A day without a clock is not saved, a reply that is only a clock finishes that reminder on the day already named, and a past time is not kept.
+
 - **“Mark done” deleted the reminder, and reopen created a new one at 2:30 AM.** The reply confirmed a change the fence never saved, then a later extractor wrote a different action. Done, reopen, delete, and move are taken from the user’s words, the reply is that result, and the extractor does not run again for that turn.
 
 - **The math keypad froze the thread.** A full-screen tap target sat over the list, so it could not bounce, and the composer scrim was pinned under the keys. The list stays the touch target. Messages dim in the gap between the pill and the keypad.

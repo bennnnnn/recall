@@ -716,7 +716,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   or a failure line — it does not promise a change that has not happened. A clear
   “mark done”, “reopen”, “delete”, or “move … to Monday at 8pm” is applied from
   those words when the fence is missing or mislabeled, and that turn does not
-  run the background extractor again. Route
+  run the background extractor again. A create with no clock asks when instead
+  of inventing one. A reply that is only a clock (“6”) finishes that reminder
+  on the day already named, and a time that has already passed is not saved. Route
   `focus=reminders` still works; `focus=schedule` is an alias.
   `/todos?focus=list` redirects to Schedule.
 - ✅ **Schedule reliability** — normal reminder saves use the

@@ -1251,6 +1251,122 @@ async def test_user_remind_without_clock_does_not_invent_a_due():
 
 
 @pytest.mark.asyncio
+async def test_add_without_a_clock_does_not_keep_an_invented_set_line():
+    session = AsyncMock()
+    with patch.object(todos_repo, "create", AsyncMock()) as create_mock:
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text="Set: Walk — Sunday, Oct 11, 7:00 PM · weekly.",
+            user_timezone="America/New_York",
+            user_text="Add a todo walking for tomorrow wekkly",
+        )
+    assert created == 0
+    assert updated == "When should I remind you?"
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_clock_reply_saves_tomorrow_not_a_past_today():
+    from zoneinfo import ZoneInfo
+
+    session = AsyncMock()
+    previous = MagicMock()
+    previous.role = "user"
+    previous.content = "Add read for tommorrow"
+    current = MagicMock()
+    current.role = "user"
+    current.content = "6"
+    when = datetime(2026, 10, 10, 22, 8, tzinfo=ZoneInfo("America/New_York"))
+    text = "Set: Read — Saturday, Oct 10, 6:00 PM."
+    with (
+        patch(
+            "app.repositories.messages.list_recent",
+            AsyncMock(return_value=[previous, current]),
+        ),
+        patch("app.modules.todos.spoken_add._now", return_value=when),
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+            user_text="6",
+        )
+    assert created == 1
+    assert updated == "Set: read — Sunday, Oct 11, 6:00 PM."
+    assert "Saturday" not in updated
+    assert create_mock.await_args.kwargs["due_at"] == datetime(2026, 10, 11, 22, 0, tzinfo=UTC)
+    assert create_mock.await_args.kwargs["content"] == "read"
+    assert create_mock.await_args.kwargs["recurrence_rule"] is None
+
+
+@pytest.mark.asyncio
+async def test_clock_reply_keeps_the_repeat_from_the_earlier_add():
+    from zoneinfo import ZoneInfo
+
+    session = AsyncMock()
+    previous = MagicMock()
+    previous.role = "user"
+    previous.content = "Add a todo walking for tomorrow wekkly"
+    current = MagicMock()
+    current.role = "user"
+    current.content = "7pm"
+    when = datetime(2026, 10, 10, 22, 8, tzinfo=ZoneInfo("America/New_York"))
+    with (
+        patch(
+            "app.repositories.messages.list_recent",
+            AsyncMock(return_value=[previous, current]),
+        ),
+        patch("app.modules.todos.spoken_add._now", return_value=when),
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text="Set: Walk — Saturday, Oct 10, 7:00 PM · weekly.",
+            user_timezone="America/New_York",
+            user_text="7pm",
+        )
+    assert created == 1
+    assert updated == "Set: walking — Sunday, Oct 11, 7:00 PM · weekly."
+    assert create_mock.await_args.kwargs["recurrence_rule"] == "weekly"
+
+
+@pytest.mark.asyncio
+async def test_past_fence_is_not_saved_when_the_user_only_said_a_clock():
+    session = AsyncMock()
+    text = (
+        "Set: Read — Saturday, Oct 10, 6:00 PM.\n"
+        '```reminder\n{"title":"Read","due_at":"2026-10-10T18:00:00-04:00"}\n```'
+    )
+    with (
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+    ):
+        updated, created = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+            user_text="6",
+        )
+    assert created == 0
+    assert "Set:" not in updated
+    assert "Saturday" not in updated
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_materialize_reminder_fences_caps_creates_per_reply():
     session = AsyncMock()
     over = todos_service.MAX_TODO_ACTIONS_PER_TURN + 3
