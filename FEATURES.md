@@ -713,13 +713,23 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   can fire. Chat can set `repeat` on the ` ```reminder `
   fence (create, complete, uncheck, delete, set_due). After the fence applies, the
   reply appends the saved result (`Set: Call Mom — Friday, Jul 19, 3:00 PM · weekly.`)
-  or a failure line — it does not promise a change that has not happened. Route
+  or a failure line — it does not promise a change that has not happened. A clear
+  “mark done”, “reopen”, “delete”, or “move … to Monday at 8pm” is applied from
+  those words when the fence is missing or mislabeled, and that turn does not
+  run the background extractor again. “Make it everyday”, “make it 8:00 AM”,
+  and “put it in Health” change that reminder’s repeat, clock, or category.
+  “It” means the latest one. Asking what is scheduled answers from the saved
+  rows. A create with no clock asks when instead of inventing one. A reply
+  that is only a clock (“6”) finishes that reminder on the day already named,
+  and a time that has already passed is not saved. A success sentence is kept
+  only when that row actually changed. Route
   `focus=reminders` still works; `focus=schedule` is an alias.
   `/todos?focus=list` redirects to Schedule.
 - ✅ **Schedule reliability** — normal reminder saves use the
   accepted API payload; failed saves preserve drafts. Account/focus guards, coordinated
   list reads and row mutations, Android date-then-time selection, serialized local
   notifications, and conditional server recurrence/delivery writes protect reminder state.
+  Opening Schedule lands on overdue and today. All tasks stays in the menu.
   Schedule loads through immutable-ID cursor pages so edits between pages cannot hide
   existing reminders. Recurring reminders are excluded from email; one-shot email
   finalization cannot mark a concurrently edited occurrence as delivered.
@@ -737,8 +747,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   labels in prompts (overdue, due today, due in N days); user timezone synced from
   device (`users.timezone`).
 - ✅ **Local due reminders** — schedules a device notification at due time **when
-  push is off**; resyncs on login, foreground, and todo changes; tap opens **Schedule**
-  (`/todos?focus=reminders`). Lead time configurable (5 / 10 / 15 / 30 / **60 min**
+  push is off**; resyncs on login, foreground, and todo changes; tap opens **that
+  reminder** on Schedule. Lead time configurable (5 / 10 / 15 / 30 / **60 min**
   before due). With push on, the server owns due-at (`server_todo_push_enabled` defaults
   true) and local scheduling is skipped so both do not fire. Turning push off cancels
   leftover local alerts then re-schedules them on-device.

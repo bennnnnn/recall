@@ -60,7 +60,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const editRef = useRef<TodoEditorHandle>(null);
   /** Header ⋮ — both the list menu and the detail menu drop from it. */
   const menuAnchorRef = useRef<View>(null);
-  const [view, setView] = useState<TodoView>("all");
+  const [view, setView] = useState<TodoView>("today");
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const refreshingRef = useRef(false);
@@ -96,6 +96,19 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setSelecting(false);
     setSelectedIds([]);
   }, []);
+
+  const openedHighlight = useRef<string | null>(null);
+  const highlightId = Array.isArray(highlight) ? highlight[0] : highlight;
+  useEffect(() => {
+    if (!highlightId || openedHighlight.current === highlightId || !isCurrentView()) return;
+    const todo = todos.find((item) => item.id === highlightId);
+    if (!todo) return;
+    openedHighlight.current = highlightId;
+    setMenuOpen(false);
+    setDetailMenu(false);
+    setEditorOpen(false);
+    actions.openTodoEditor(todo);
+  }, [highlightId, todos, actions, isCurrentView]);
 
   const editingId = actions.editingTodo?.id ?? null;
   const closeEditor = actions.closeTodoEditor;
@@ -220,7 +233,7 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
 
   const visibleTodos = useMemo(() => todosForView(todos, view), [todos, view]);
   const rows = useMemo(() => {
-    const suggestions = view === "all" || view === "open" ? suggestedReminders : [];
+    const suggestions = view === "completed" ? [] : suggestedReminders;
     return buildTodoListRows(visibleTodos, new Date(), suggestions);
   }, [visibleTodos, view, suggestedReminders]);
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
