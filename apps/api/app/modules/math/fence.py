@@ -1003,17 +1003,28 @@ def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None
     return validate_math_fences(content, verified=verified)
 
 
-# The user-visible line is banned. A clock answer such as 19:00 contains a
-# digit, so the old stamp landed under a correct time. Drop the sentence if a
-# stored reply or the model still has it.
-_UNVERIFIED_MATH_NOTE_RE = re.compile(
-    r"[ \t]*\*?I couldn't automatically verify this result\.\*?[ \t]*"
+_UNVERIFIED_MATH_NOTE = "*I couldn't automatically verify this result.*"
+# The disclaimer, italic or plain, alone or at the end of the answer.
+_UNVERIFIED_PHRASE = re.compile(
+    r"(?i)[ \t]*\*?[ \t]*"
+    r"(?:"
+    r"i could(?:n't| not) (?:automatically )?verify this(?: result)?\.?"
+    r"|couldn't verify this with sympy\.?"
+    r"|this (?:result|answer) (?:is|was) not verified\.?"
+    r")"
+    r"[ \t]*\*?[ \t]*"
 )
 
 
 def append_unverified_math_note(content: str) -> str:
-    """Remove the banned unverified line. Never add it."""
-    if "automatically verify this result" not in content:
+    """Remove a couldn't-verify sentence. Never add one.
+
+    This runs on every reply, including one the solver did not check. A
+    verified reply shows a check. Nothing in the chat says the result was
+    not verified.
+    """
+    if not content or not content.strip():
         return content
-    stripped = _UNVERIFIED_MATH_NOTE_RE.sub("", content)
-    return re.sub(r"\n{3,}", "\n\n", stripped).strip()
+    plain = content.replace("\u2019", "'")
+    without = _UNVERIFIED_PHRASE.sub("", plain)
+    return re.sub(r"\n{3,}", "\n\n", without).strip()
