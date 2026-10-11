@@ -155,12 +155,12 @@ async def test_chemistry_decline_is_flagged_and_element_context_is_not() -> None
 
 @pytest.mark.asyncio
 async def test_fetch_returns_the_adapter_decline_flag() -> None:
-    from app.services.chat.prompt_builder import fetch_web_and_tools
+    from app.modules.chat.prompt_builder import fetch_web_and_tools
     from app.services.subject_solving import SubjectAugmentation
 
     settings = Settings(math_tools_enabled=True, web_search_enabled=False)
     with patch(
-        "app.services.chat.prompt_builder.build_subject_augmentation",
+        "app.modules.chat.prompt_builder.build_subject_augmentation",
         AsyncMock(
             return_value=SubjectAugmentation("physics", "Physics note: declined", None, True)
         ),
@@ -186,7 +186,7 @@ async def test_fetch_returns_the_adapter_decline_flag() -> None:
 
 @pytest.mark.asyncio
 async def test_chemistry_followup_solves_the_prior_problem() -> None:
-    from app.services.chat.prompt_builder import fetch_web_and_tools
+    from app.modules.chat.prompt_builder import fetch_web_and_tools
 
     settings = Settings(chemistry_enabled=True, web_search_enabled=False, math_tools_enabled=True)
     prior = "Find the molar mass of H2O"

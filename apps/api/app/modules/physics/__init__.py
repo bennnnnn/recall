@@ -25,6 +25,9 @@ from typing import Any
 _EXPORTS = {
     "PHYSICS_BLOCK_BUILDERS": ("block", "PHYSICS_BLOCK_BUILDERS"),
     "PHYSICS_EXTRACTORS": ("registry", "PHYSICS_EXTRACTORS"),
+    "PHYSICS_INTENT_HINT": ("reply_policy", "PHYSICS_INTENT_HINT"),
+    "PHYSICS_REPLY_POLICY": ("reply_policy", "PHYSICS_REPLY_POLICY"),
+    "PHYSICS_SHORT_HINT": ("reply_policy", "PHYSICS_SHORT_HINT"),
     "PhysicsRequest": ("request", "PhysicsRequest"),
     "build_verified_physics_block": ("block", "build_verified_physics_block"),
     "can_direct_physics": ("direct", "can_direct_physics"),
@@ -48,3 +51,7 @@ def __getattr__(name: str) -> Any:
     value = getattr(import_module(f"app.modules.physics.{module_name}"), attribute)
     globals()[name] = value
     return value
+
+
+# Seams the chat turn uses: question detection, follow-ups, and post-stream fences.
+_MODULE_EXPORTS = ("extract", "fence", "followup")

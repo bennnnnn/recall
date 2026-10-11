@@ -11,7 +11,7 @@ from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway, StorageUnavailableError
 from app.modules.attachments.quota import has_current_upload_reservation
-from app.services.chat.turn_prep.attachments import _process_attachments
+from app.modules.chat.turn_prep.attachments import _process_attachments
 
 
 @pytest.mark.asyncio
@@ -24,7 +24,7 @@ async def test_missing_or_foreign_requested_ids_fail_before_reuse(partial):
     context = AsyncMock()
     context.__aenter__.return_value = session
     with (
-        patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=context),
+        patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=context),
         patch(
             "app.modules.attachments.repository.get_by_ids",
             AsyncMock(return_value=[owned] if partial else []),
@@ -60,7 +60,7 @@ async def test_local_presign_without_upload_cannot_be_sent(tmp_path):
     context = AsyncMock()
     context.__aenter__.return_value = session
     with (
-        patch("app.services.chat.turn_prep.attachments.SessionLocal", return_value=context),
+        patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=context),
         patch("app.modules.attachments.repository.get_by_ids", AsyncMock(return_value=[row])),
         patch(
             "app.gateways.storage_gateway.get_storage_gateway",
@@ -86,7 +86,7 @@ async def test_storage_outage_before_acceptance_is_safe_to_retry():
     user = SimpleNamespace(id=uuid4())
     with (
         patch(
-            "app.services.chat.turn_prep.attachments._process_attachment_inputs",
+            "app.modules.chat.turn_prep.attachments._process_attachment_inputs",
             AsyncMock(side_effect=StorageUnavailableError("outage")),
         ),
         pytest.raises(ChatBusyError, match="storage is temporarily unavailable"),

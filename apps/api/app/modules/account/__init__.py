@@ -7,3 +7,6 @@ client's refresh cookie. ``profile`` and the ``settings_*`` pair let chat
 propose preference changes the user confirms. ``export`` and ``lifecycle``
 serve data controls.
 """
+
+# Seams the chat turn uses to read location and propose settings changes.
+_MODULE_EXPORTS = ("profile", "settings_intent", "settings_proposal")

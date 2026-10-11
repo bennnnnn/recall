@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import json
 
+from app.modules.chat.presentation import present_assistant_markdown
 from app.modules.chemistry.block import build_verified_chemistry
 from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.fence import validate_chemistry_fences
 from app.modules.chemistry.notation import typeset_json
 from app.modules.chemistry.schemas.scene import dump_scene
-from app.services.chat.presentation import present_assistant_markdown
 
 
 def _verified(question: str):

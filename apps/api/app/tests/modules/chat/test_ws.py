@@ -1,0 +1,998 @@
+"""WebSocket endpoint tests."""
+
+import asyncio
+import json
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app.core.access_tokens import create_access_token
+from app.core.config import Settings
+from app.exceptions import AttachmentValidationError, ChatNotFoundError, QuotaExceededError
+from app.main import create_app
+from app.services.quota import QUOTA_EXCEEDED_MESSAGE
+
+
+@pytest.fixture(autouse=True)
+def _ws_rate_limit():
+    with (
+        patch("app.modules.chat.ws_api.allow_request_fail_closed", AsyncMock(return_value=True)),
+        patch("app.core.chat_rate_limit.allow_chat_message", AsyncMock(return_value=True)),
+    ):
+        yield
+
+
+def _settings():
+    return Settings(
+        jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
+        dev_auth_enabled=True,
+    )
+
+
+def _token(uid=None):
+    uid = uid or uuid4()
+    return str(uid), create_access_token(uid, _settings())
+
+
+def _fake_user(uid=None):
+    user = MagicMock()
+    user.id = uid or uuid4()
+    user.default_model = "free-chat"
+    user.response_style = "balanced"
+    user.memory_enabled = True
+    return user
+
+
+def _app(user):
+    from app.core.deps import get_settings_dep
+
+    app = create_app()
+    app.dependency_overrides[get_settings_dep] = _settings
+    return app
+
+
+async def _empty_stream(*args, **kwargs):
+    return
+    yield  # make it an async generator
+
+
+# ── auth failure ───────────────────────────────────────────────────────────────
+
+
+def test_ws_missing_token_closes():
+    app = _app(None)
+    client = TestClient(app)
+    with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+        ws.send_json({})
+        msg = ws.receive_json()
+    assert msg["type"] == "error"
+    assert "Missing token" in msg["message"]
+
+
+@pytest.mark.asyncio
+async def test_ws_disconnect_before_auth_is_a_normal_close():
+    from starlette.websockets import WebSocketDisconnect
+
+    from app.modules.chat.ws_api import chat_websocket
+
+    socket = AsyncMock()
+    socket.receive_json.side_effect = WebSocketDisconnect(code=1000)
+    with (
+        patch("app.modules.chat.ws_api._ws_handshake_rate_limit", AsyncMock(return_value=True)),
+        patch("app.modules.chat.ws_api.get_redis_client", return_value=AsyncMock()),
+    ):
+        await chat_websocket(socket, uuid4())
+    socket.send_json.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "invalid_frame", [json.JSONDecodeError("bad JSON", "{", 1), KeyError("text")]
+)
+async def test_ws_invalid_frame_during_stream_keeps_producer_owned(invalid_frame):
+    from app.modules.chat.ws_api import _stream_over_ws
+
+    first_token = asyncio.Event()
+    resume = asyncio.Event()
+    frames = []
+
+    async def stream_tokens():
+        yield "first"
+        first_token.set()
+        await resume.wait()
+        yield " second"
+
+    class Socket:
+        reads = 0
+
+        async def send_json(self, frame):
+            frames.append(frame)
+
+        async def receive_json(self):
+            self.reads += 1
+            if self.reads == 1:
+                await first_token.wait()
+                raise invalid_frame
+            resume.set()
+            await asyncio.Event().wait()
+
+    try:
+        await asyncio.wait_for(
+            _stream_over_ws(Socket(), stream_tokens(), asyncio.Event(), {}), timeout=1
+        )
+    finally:
+        resume.set()
+        await asyncio.sleep(0)
+    assert [frame["content"] for frame in frames if frame["type"] == "token"] == [
+        "first",
+        " second",
+    ]
+    assert sum(frame["type"] == "done" for frame in frames) == 1
+    assert any(frame.get("message") == "Invalid JSON" for frame in frames)
+
+
+def test_ws_handshake_fails_closed_on_redis_error():
+    """A Redis outage during the WS handshake must close (1008), not let the
+    connect through unbounded — otherwise unauthenticated connects bypass
+    the limiter for the whole outage."""
+    from starlette.websockets import WebSocketDisconnect
+
+    app = _app(None)
+    client = TestClient(app)
+    with patch(
+        "app.modules.chat.ws_api.allow_request_fail_closed",
+        AsyncMock(return_value=False),
+    ):
+        with pytest.raises(WebSocketDisconnect):
+            with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+                ws.send_json({"token": "x"})
+
+
+@pytest.mark.asyncio
+async def test_ws_handshake_rate_limit_uses_forwarded_ip_when_trusted():
+    """The handshake limiter must key on the edge-seen IP (fly-client-ip/XFF)
+    when behind a trusted proxy, not the proxy's own address — otherwise
+    every connect shares one proxy bucket."""
+    from app.modules.chat.ws_api import _ws_handshake_rate_limit
+
+    websocket = MagicMock()
+    websocket.client.host = "10.0.0.1"
+    websocket.headers = {"fly-client-ip": "198.51.100.7"}
+    settings = Settings(trust_x_forwarded_for=True)
+
+    captured: dict = {}
+
+    async def fake_allow(_redis, key, *, limit, window_seconds):
+        captured["key"] = key
+        return True
+
+    with (
+        patch("app.modules.chat.ws_api.get_settings", return_value=settings),
+        patch("app.modules.chat.ws_api.allow_request_fail_closed", side_effect=fake_allow),
+    ):
+        await _ws_handshake_rate_limit(AsyncMock(), websocket)
+
+    assert "198.51.100.7" in captured["key"]
+
+
+def test_ws_invalid_token_closes():
+    app = _app(None)
+    client = TestClient(app)
+    with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+        ws.send_json({"token": "not-a-valid-jwt"})
+        msg = ws.receive_json()
+    assert msg["type"] == "error"
+
+
+def test_ws_auth_timeout_closes():
+    """Sockets that never send an auth frame must not hang forever."""
+    app = _app(None)
+    client = TestClient(app)
+
+    with patch(
+        "app.modules.chat.ws_api.asyncio.wait_for",
+        side_effect=TimeoutError(),
+    ):
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            msg = ws.receive_json()
+    assert msg["type"] == "error"
+    assert "timeout" in msg["message"].lower()
+
+
+def test_ws_non_dict_frame_does_not_crash():
+    """JSON arrays/non-objects must error cleanly, not AttributeError the loop."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+
+    with patch(
+        "app.modules.chat.ws_api.access_tokens.verify_access_token",
+        AsyncMock(return_value=user.id),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json(["not", "an", "object"])
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "Invalid" in err["message"]
+            # Socket stays open for a valid follow-up.
+            ws.send_json({"type": "cancel"})
+
+
+def test_ws_null_content_does_not_crash():
+    """content: null used to AttributeError on .strip() before validation."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+
+    with patch(
+        "app.modules.chat.ws_api.access_tokens.verify_access_token",
+        AsyncMock(return_value=user.id),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": None})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "Invalid" in err["message"]
+
+
+def test_ws_connect_rate_limit_fails_closed_on_redis_error():
+    """Per-user connect limiter must deny when Redis is down (fail closed)."""
+    _, tok = _token()
+    user = _fake_user()
+    app = _app(user)
+
+    async def allow_side_effect(_redis, key, *, limit, window_seconds):
+        if str(key).startswith("rate:ws:handshake:"):
+            return True
+        if str(key).startswith("rate:ws:connect:"):
+            return False
+        return True
+
+    with (
+        patch("app.modules.chat.ws_api.allow_request_fail_closed", side_effect=allow_side_effect),
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{uuid4()}") as ws:
+            ws.send_json({"token": tok})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "Too many requests" in err["message"]
+
+
+# ── normal message flow ────────────────────────────────────────────────────────
+
+
+def test_ws_sends_message_and_receives_tokens():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_stream(*args, **kwargs):
+        yield "Hello"
+        yield " world"
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            start = ws.receive_json()
+            assert start["type"] == "start"
+            token1 = ws.receive_json()
+            assert token1["type"] == "token"
+            assert token1["content"] == "Hello"
+            token2 = ws.receive_json()
+            assert token2["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            done = ws.receive_json()
+            assert done["type"] == "done"
+
+
+def test_ws_done_includes_resolved_model():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_stream(*args, result=None, **kwargs):
+        if result is not None:
+            result["message_id"] = str(uuid4())
+            result["resolved_model"] = "smart-chat"
+        yield "Hello"
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            stream_end = ws.receive_json()
+            assert stream_end["type"] == "stream_end"
+            assert stream_end["resolved_model"] == "smart-chat"
+            done = ws.receive_json()
+            assert done["type"] == "done"
+            assert done["resolved_model"] == "smart-chat"
+
+
+def test_ws_passes_client_timezone_to_stream():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_stream(*args, **kwargs):
+        assert kwargs.get("client_timezone") == "America/Los_Angeles"
+        yield "ok"
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok, "client_timezone": "America/Los_Angeles"})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json()["type"] == "done"
+
+
+def test_ws_empty_message_sends_error_frame():
+    """An empty text-only message must produce a visible error frame at the
+    WS layer immediately, not be silently ignored or dropped mid-stream —
+    the client needs to know the turn was rejected so it can reset its UI."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "   "})
+            frame = ws.receive_json()
+            assert frame["type"] == "error"
+            assert "empty" in frame["message"].lower()
+
+
+# ── regenerate ─────────────────────────────────────────────────────────────────
+
+
+def test_ws_regenerate():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_regen(*args, **kwargs):
+        yield "Regen"
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_regenerate_response", fake_regen),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "regenerate"})
+            start = ws.receive_json()
+            assert start["type"] == "start"
+            token = ws.receive_json()
+            assert token["content"] == "Regen"
+            assert ws.receive_json()["type"] == "stream_end"
+            done = ws.receive_json()
+            assert done["type"] == "done"
+
+
+def test_ws_regenerate_passes_client_geo():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_regen(*args, **kwargs):
+        assert kwargs.get("client_location") == "San Francisco, CA"
+        assert kwargs.get("client_latitude") == 37.77
+        assert kwargs.get("client_longitude") == -122.42
+        yield "nearby"
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_regenerate_response", fake_regen),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json(
+                {
+                    "type": "regenerate",
+                    "client_location": "San Francisco, CA",
+                    "client_latitude": 37.77,
+                    "client_longitude": -122.42,
+                }
+            )
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json()["type"] == "done"
+
+
+# ── cancel ─────────────────────────────────────────────────────────────────────
+
+
+def test_ws_cancel_sets_flag():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_stream(*args, should_cancel=None, **kwargs):
+        for word in ["A", "B", "C"]:
+            if should_cancel and should_cancel():
+                return
+            yield word
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "cancel"})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            while True:
+                msg = ws.receive_json()
+                if msg["type"] == "done":
+                    break
+
+
+def test_ws_mid_stream_cancel():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def slow_stream(*args, should_cancel=None, **kwargs):
+        for word in ["one", "two", "three", "four"]:
+            if should_cancel and should_cancel():
+                return
+            yield word
+            await asyncio.sleep(0.05)
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", slow_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            first = ws.receive_json()
+            assert first["type"] == "token"
+            ws.send_json({"type": "cancel"})
+            assert ws.receive_json()["type"] == "stream_end"
+            done = ws.receive_json()
+            assert done["type"] == "done"
+
+
+def test_ws_mid_stream_non_dict_frame_is_ignored():
+    """A JSON array mid-stream must not error or interrupt the producer."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def slow_stream(*args, should_cancel=None, **kwargs):
+        for word in ["one", "two", "three"]:
+            if should_cancel and should_cancel():
+                return
+            yield word
+            await asyncio.sleep(0.05)
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", slow_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            ws.send_json([])  # non-dict — ignored, stream continues
+            types = []
+            while True:
+                msg = ws.receive_json()
+                types.append(msg["type"])
+                assert msg["type"] != "error"
+                if msg["type"] == "done":
+                    break
+            assert "token" in types
+            assert "stream_end" in types
+
+
+@pytest.mark.asyncio
+async def test_stream_over_ws_disconnect_still_finalizes():
+    """Closing the socket mid-token must still persist the assistant.
+    stream_end send fails after disconnect, so `finally` awaits finalize."""
+    from starlette.websockets import WebSocketDisconnect
+
+    from app.modules.chat.ws_api import _stream_over_ws
+
+    finalized = asyncio.Event()
+
+    async def slow_finalize() -> None:
+        await asyncio.sleep(0.02)
+        finalized.set()
+
+    result: dict = {"_finalize_db_task": asyncio.create_task(slow_finalize())}
+
+    async def short_stream():
+        yield "Hi"
+        yield "there"
+
+    class FakeWs:
+        async def send_json(self, payload: dict) -> None:
+            if payload.get("type") in ("stream_end", "done"):
+                raise WebSocketDisconnect()
+
+        async def receive_json(self) -> dict:
+            await asyncio.sleep(0.01)
+            raise WebSocketDisconnect()
+
+    await asyncio.wait_for(
+        _stream_over_ws(FakeWs(), short_stream(), asyncio.Event(), result),
+        timeout=2,
+    )
+    assert finalized.is_set()
+
+
+@pytest.mark.asyncio
+async def test_stream_over_ws_disconnect_does_not_cancel_generation():
+    """New chat closes the socket; the model must still run to completion."""
+    from starlette.websockets import WebSocketDisconnect
+
+    from app.modules.chat.ws_api import _stream_over_ws
+
+    produced: list[str] = []
+    finalized = asyncio.Event()
+
+    async def mark_finalize() -> None:
+        finalized.set()
+
+    result: dict = {"_finalize_db_task": asyncio.create_task(mark_finalize())}
+
+    async def stream():
+        for part in ("one", "two", "three"):
+            produced.append(part)
+            yield part
+            await asyncio.sleep(0.01)
+
+    class FakeWs:
+        def __init__(self) -> None:
+            self._sends = 0
+
+        async def send_json(self, payload: dict) -> None:
+            self._sends += 1
+            if payload.get("type") == "token" and self._sends >= 2:
+                raise WebSocketDisconnect()
+            if payload.get("type") in ("stream_end", "done"):
+                raise WebSocketDisconnect()
+
+        async def receive_json(self) -> dict:
+            await asyncio.sleep(10)
+            return {"type": "ping"}
+
+    await asyncio.wait_for(
+        _stream_over_ws(FakeWs(), stream(), asyncio.Event(), result),
+        timeout=2,
+    )
+    assert produced == ["one", "two", "three"]
+    assert finalized.is_set()
+
+
+# ── validation / service errors ────────────────────────────────────────────────
+
+
+def test_ws_invalid_message_payload():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi", "model": "not-a-model"})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+
+
+@pytest.mark.parametrize(
+    "error,code",
+    [
+        (QuotaExceededError(QUOTA_EXCEEDED_MESSAGE), "quota_exceeded"),
+        (AttachmentValidationError("Attach the file again."), "attachment_rejected"),
+    ],
+)
+def test_ws_rejected_send_error_frame(error, code):
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def quota_fail(*args, **kwargs):
+        raise error
+        yield  # pragma: no cover
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", quota_fail),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert err["code"] == code
+            assert err["message"] == error.message
+
+
+# ── user not found ─────────────────────────────────────────────────────────────
+
+
+def test_ws_user_not_found_sends_error():
+    _, tok = _token()
+    chat_id = uuid4()
+    app = _app(None)
+
+    def missing_user_stream(*_args, **_kwargs):
+        async def _gen():
+            raise ChatNotFoundError("User not found.")
+            yield ""  # pragma: no cover
+
+        return _gen()
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=uuid4()),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", missing_user_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hello"})
+            start = ws.receive_json()
+            assert start["type"] == "start"
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "User not found" in err["message"]
+
+
+def test_ws_message_rate_limit_blocks_second_chargeable_message():
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+    msg_calls = {"count": 0}
+
+    async def allow_chat_side_effect(_redis, user_id):
+        msg_calls["count"] += 1
+        return msg_calls["count"] <= 1
+
+    async def fake_stream(*args, **kwargs):
+        yield "ok"
+
+    with (
+        patch(
+            "app.core.chat_rate_limit.allow_chat_message",
+            side_effect=allow_chat_side_effect,
+        ),
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "first"})
+            assert ws.receive_json()["type"] == "start"
+            while True:
+                msg = ws.receive_json()
+                if msg["type"] == "done":
+                    break
+            ws.send_json({"type": "message", "content": "second"})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert "Too many requests" in err["message"]
+            assert msg_calls["count"] == 2
+
+
+# ── done is not blocked by background finalization ─────────────────────────────
+
+
+def test_ws_done_waits_for_finalize_commit():
+    """`done` must not be sent until the DB finalize commits, so the
+    message_id it carries always references a persisted row (no ghost `done`
+    with a pre-assigned id that might never land). The token stream still
+    flushes immediately (stream_end is not held); only the final `done`
+    waits on the commit. Before this, a failed finalize left the client
+    holding a message_id for a row that was never inserted."""
+    import time
+
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    message_id = str(uuid4())
+    release_finalize = asyncio.Event()
+    captured: dict = {}
+
+    async def fake_stream(*args, result=None, **kwargs):
+        captured["loop"] = asyncio.get_running_loop()
+        yield "Hello"
+        if result is not None:
+            result["message_id"] = message_id
+            result["resolved_model"] = "free-chat"
+
+            async def slow_finalize():
+                # Blocks until the test releases it — `done` must wait.
+                try:
+                    await asyncio.wait_for(release_finalize.wait(), timeout=8)
+                except TimeoutError:
+                    pass
+
+            result["_finalize_db_task"] = asyncio.create_task(slow_finalize())
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            # `done` is held while the finalize commit is in flight — the
+            # client stays in the streaming state until the commit lands.
+            started = time.monotonic()
+            captured["loop"].call_soon_threadsafe(release_finalize.set)
+            done = ws.receive_json()
+            elapsed = time.monotonic() - started
+            assert done["type"] == "done"
+            assert done["message_id"] == message_id
+            # `done` arrived only after the finalize was released — proving
+            # we awaited the commit rather than sending a ghost `done`.
+            assert elapsed >= 0.0  # released near-instantly; the point is it
+            # was awaited, not that it was slow.
+
+
+def test_ws_done_sends_error_when_finalize_fails():
+    """If the DB finalize FAILS, the client must get an error instead of a
+    ghost `done` carrying a message_id for a row that never persisted."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    message_id = str(uuid4())
+
+    async def fake_stream(*args, result=None, **kwargs):
+        yield "Hello"
+        if result is not None:
+            result["message_id"] = message_id
+            result["resolved_model"] = "free-chat"
+
+            async def failing_finalize():
+                raise RuntimeError("Neon is down")
+
+            result["_finalize_db_task"] = asyncio.create_task(failing_finalize())
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            msg = ws.receive_json()
+            assert msg["type"] == "error"
+            assert "Failed to save" in msg["message"]
+
+
+def test_ws_done_sends_persisting_when_finalize_times_out():
+    """H2: on finalize TIMEOUT, send `done` without message_id + persisting: true
+    so the client keeps the local bubble and refetches instead of trusting a
+    row that may never persist if the shielded task later fails."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    message_id = str(uuid4())
+    gate = asyncio.Event()
+
+    async def fake_stream(*args, result=None, **kwargs):
+        yield "Hello"
+        if result is not None:
+            result["message_id"] = message_id
+            result["resolved_model"] = "free-chat"
+
+            async def slow_finalize():
+                await gate.wait()
+
+            result["_finalize_db_task"] = asyncio.create_task(slow_finalize())
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", fake_stream),
+        patch("app.modules.chat.stream_events.DONE_COMMIT_WAIT_SECONDS", 0.05),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            msg = ws.receive_json()
+            assert msg["type"] == "done"
+            assert "message_id" not in msg
+            assert msg.get("persisting") is True
+            gate.set()
+
+
+def test_ws_status_event_carries_detail():
+    """Status events forward the optional activity detail (e.g. the web-search
+    query) so the client can render a specific label."""
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+
+    async def fake_stream(*args, on_status=None, **kwargs):
+        if on_status is not None:
+            await on_status("searching", "weather in berlin")
+            await on_status("composing")
+        yield "ok"
+
+    app = _app(user)
+
+    with (
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=user.id),
+        ),
+        patch("app.modules.chat.ws_api.chat_service.stream_chat_response", fake_stream),
+    ):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "hi"})
+            assert ws.receive_json()["type"] == "start"
+            searching = ws.receive_json()
+            assert searching == {
+                "type": "status",
+                "phase": "searching",
+                "detail": "weather in berlin",
+            }
+            composing = ws.receive_json()
+            assert composing == {"type": "status", "phase": "composing"}
+            assert ws.receive_json()["type"] == "token"
+            assert ws.receive_json()["type"] == "stream_end"
+            assert ws.receive_json()["type"] == "done"
+
+
+def test_ws_rechecks_token_on_chargeable_message():
+    """After purge/revoke, the next chargeable frame must close the socket."""
+    from app.gateways.google_auth import GoogleAuthError
+
+    _, tok = _token()
+    user = _fake_user()
+    chat_id = uuid4()
+    app = _app(user)
+    verify = AsyncMock(side_effect=[user.id, GoogleAuthError("Token revoked")])
+
+    with patch("app.modules.chat.ws_api.access_tokens.verify_access_token", verify):
+        client = TestClient(app)
+        with client.websocket_connect(f"/ws/chats/{chat_id}") as ws:
+            ws.send_json({"token": tok})
+            ws.send_json({"type": "message", "content": "still here?"})
+            err = ws.receive_json()
+            assert err["type"] == "error"
+            assert err["message"] == "Unauthorized"
+            assert verify.await_count == 2

@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.chat.prompt_builder import build_prompt_messages
+from app.modules.chat.prompt_builder import build_prompt_messages
 
 
 @pytest.mark.asyncio

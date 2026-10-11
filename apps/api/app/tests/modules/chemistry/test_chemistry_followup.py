@@ -1,9 +1,9 @@
 """A short line after a chemistry problem replays that problem, or declines."""
 
+from app.modules.chat.continuation_subject import effective_presentation_subject
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.followup import chemistry_followup_problem
 from app.modules.chemistry.solvers import solve_chemistry
-from app.services.chat.continuation_subject import effective_presentation_subject
 
 _ACID = "What is the pH of 0.010 M HCl?"
 _KA = "Ka = 1.8e-5. Find Kb."

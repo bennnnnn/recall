@@ -1,6 +1,6 @@
 from uuid import uuid4
 
-from app.services.chat.turn_timing import TurnTimingTracker
+from app.modules.chat.turn_timing import TurnTimingTracker
 
 
 def test_turn_timing_tracker_records_phases_and_logs(caplog):

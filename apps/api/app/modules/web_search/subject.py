@@ -13,7 +13,7 @@ from app.modules.web_search.patterns import (
 )
 
 
-def _prior_user_messages(
+def collect_prior_user_messages(
     prompt_messages: list[dict[str, str]],
     current: str,
 ) -> list[str]:

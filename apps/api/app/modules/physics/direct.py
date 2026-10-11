@@ -13,6 +13,7 @@ import math
 import re
 from typing import Any
 
+from app.modules.chat import present_assistant_markdown
 from app.modules.physics.catalog import (
     formula_spec,
     select_formula,
@@ -26,7 +27,6 @@ from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
 from app.modules.physics.working import result_symbol_for
-from app.services.chat.presentation import present_assistant_markdown
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
 
 _EXTRA_REQUEST = re.compile(

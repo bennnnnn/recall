@@ -2,14 +2,14 @@
 
 from __future__ import annotations
 
+from app.modules.chat.prompt_constants.math import MATH_SOLVER_HINT
+from app.modules.chat.prompt_constants.solving import VERIFIED_SOLVE_SAFETY_HINT
 from app.modules.physics.prompt import _unverified_physics_note
-from app.services.chat.prompt_constants.math import MATH_SOLVER_HINT
-from app.services.chat.prompt_constants.physics import (
+from app.modules.physics.reply_policy import (
     PHYSICS_INTENT_HINT,
     PHYSICS_REPLY_POLICY,
     PHYSICS_SHORT_HINT,
 )
-from app.services.chat.prompt_constants.solving import VERIFIED_SOLVE_SAFETY_HINT
 
 
 def test_physics_prompt_names_its_subject_and_not_math() -> None:

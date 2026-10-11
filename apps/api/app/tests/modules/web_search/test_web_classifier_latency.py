@@ -9,14 +9,14 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
-from app.modules.web_search.detection import should_web_search
-from app.services.chat.stream_pipeline import run_tool_loop_path
-from app.services.chat.turn_prep.context import (
+from app.modules.chat.stream_pipeline import run_tool_loop_path
+from app.modules.chat.turn_prep.context import (
     StreamContext,
     build_stream_prompt_context,
     stream_context_from_bundle,
 )
-from app.services.chat.turn_prep.mode import _TurnMode
+from app.modules.chat.turn_prep.mode import _TurnMode
+from app.modules.web_search.detection import should_web_search
 
 QUESTION = "Who leads Acme Corporation?"
 
@@ -39,9 +39,7 @@ def prompt_io():
             ("_load_has_calendar_write", False),
         ]:
             stack.enter_context(
-                patch(
-                    f"app.services.chat.turn_prep.context.{target}", AsyncMock(return_value=value)
-                )
+                patch(f"app.modules.chat.turn_prep.context.{target}", AsyncMock(return_value=value))
             )
         stack.enter_context(
             patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
@@ -49,14 +47,14 @@ def prompt_io():
         stack.enter_context(patch("app.modules.billing.plan.chat_fallback_models", return_value=[]))
         stack.enter_context(patch("app.modules.billing.plan.model_pool", return_value=[]))
         stack.enter_context(
-            patch("app.services.chat.turn_prep.context._instant_reply_needs_db", return_value=False)
+            patch("app.modules.chat.turn_prep.context._instant_reply_needs_db", return_value=False)
         )
         stack.enter_context(
             patch("app.services.time_context.maybe_local_now_reply", return_value=None)
         )
         stack.enter_context(
             patch(
-                "app.services.chat.turn_prep.context.inject_web_and_tools",
+                "app.modules.chat.turn_prep.context.inject_web_and_tools",
                 AsyncMock(side_effect=lambda messages, *_a, **_kw: messages),
             )
         )
@@ -98,7 +96,7 @@ async def test_prefetch_overlaps_phase_b_and_preserves_negative_verdict(prompt_i
         return False
 
     with (
-        patch("app.services.chat.turn_prep.context.fetch_integration_blocks", integration),
+        patch("app.modules.chat.turn_prep.context.fetch_integration_blocks", integration),
         patch(
             "app.modules.web_search.detection.should_web_search", AsyncMock(side_effect=classify)
         ) as classify_mock,
@@ -172,7 +170,7 @@ async def test_cancelling_prep_cancels_both_phase_b_fetches(prompt_io):
 
     with (
         patch(
-            "app.services.chat.turn_prep.context.fetch_integration_blocks",
+            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
             lambda *_a, **_kw: pending("integration"),
         ),
         patch(
@@ -208,7 +206,7 @@ async def test_failed_phase_b_fetch_cancels_classifier_before_returning(prompt_i
             classifier_cancelled.set()
 
     with (
-        patch("app.services.chat.turn_prep.context.fetch_integration_blocks", fail),
+        patch("app.modules.chat.turn_prep.context.fetch_integration_blocks", fail),
         patch("app.modules.web_search.detection.should_web_search", classify),
     ):
         with pytest.raises(RuntimeError, match="integration unavailable"):

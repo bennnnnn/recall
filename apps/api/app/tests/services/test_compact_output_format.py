@@ -2,8 +2,8 @@
 
 import pytest
 
-from app.services.chat.prompt_builder import _style_format_hints
-from app.services.chat.prompt_constants import (
+from app.modules.chat.prompt_builder import _style_format_hints
+from app.modules.chat.prompt_constants import (
     COMPACT_RESPONSE_FORMAT_HINT,
     MATH_FENCE_SAFETY_HINT,
     RESPONSE_FORMAT_HINT,
@@ -31,7 +31,7 @@ def test_compact_turn_skips_rich_format_pack():
 
 
 def test_compact_technical_compare_uses_table_and_conditional_code_examples():
-    from app.services.chat.prompt_constants import COMPARISON_FORMAT_HINT
+    from app.modules.chat.prompt_constants import COMPARISON_FORMAT_HINT
 
     parts = _style_format_hints(
         query_text="Compare Python vs Java for a beginner. Side by side on typing, syntax, and use cases.",
@@ -50,7 +50,7 @@ def test_compact_technical_compare_uses_table_and_conditional_code_examples():
 
 
 def test_compact_chart_turn_uses_vega_fence_not_plain_prose():
-    from app.services.chat.prompt_constants import CHART_FORMAT_HINT
+    from app.modules.chat.prompt_constants import CHART_FORMAT_HINT
 
     parts = _style_format_hints(
         query_text=(
@@ -76,7 +76,7 @@ def test_compact_chart_turn_uses_vega_fence_not_plain_prose():
 
 
 def test_compact_mermaid_turn_uses_flowchart_fence_not_plain_prose():
-    from app.services.chat.prompt_constants import MERMAID_FORMAT_HINT
+    from app.modules.chat.prompt_constants import MERMAID_FORMAT_HINT
 
     parts = _style_format_hints(
         query_text=(
@@ -98,7 +98,7 @@ def test_compact_mermaid_turn_uses_flowchart_fence_not_plain_prose():
 
 
 def test_compact_tips_turn_uses_callout_blockquotes_not_plain_prose():
-    from app.services.chat.prompt_constants import CALLOUT_FORMAT_HINT
+    from app.modules.chat.prompt_constants import CALLOUT_FORMAT_HINT
 
     parts = _style_format_hints(
         query_text=(
@@ -121,7 +121,7 @@ def test_compact_tips_turn_uses_callout_blockquotes_not_plain_prose():
 
 
 def test_compact_week_plan_uses_detailed_learning_plan_not_plain_prose():
-    from app.services.chat.prompt_constants import LEARNING_PLAN_HINT
+    from app.modules.chat.prompt_constants import LEARNING_PLAN_HINT
 
     parts = _style_format_hints(
         query_text="Give me a 4-week plan to learn Spanish for travel.",
@@ -140,7 +140,7 @@ def test_compact_week_plan_uses_detailed_learning_plan_not_plain_prose():
 
 
 def test_compact_spanish_week_plan_uses_detailed_learning_plan():
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import (
         LEARNING_PLAN_HINT,
         is_howto_question,
         is_learning_plan_request,
@@ -195,7 +195,7 @@ def test_fragment_gets_writing_line_hint():
 
 
 def test_yes_follow_through_hint_is_not_a_greeting():
-    from app.services.chat.prompt_constants import CONFIRM_FOLLOW_THROUGH_HINT
+    from app.modules.chat.prompt_constants import CONFIRM_FOLLOW_THROUGH_HINT
 
     parts = _style_format_hints(
         query_text="yes",
@@ -209,7 +209,7 @@ def test_yes_follow_through_hint_is_not_a_greeting():
 
 
 def test_bare_y_does_not_invent_an_offer_to_follow_through_on():
-    from app.services.chat.prompt_constants import CONFIRM_FOLLOW_THROUGH_HINT
+    from app.modules.chat.prompt_constants import CONFIRM_FOLLOW_THROUGH_HINT
 
     parts = _style_format_hints(
         query_text="y",
@@ -222,7 +222,7 @@ def test_bare_y_does_not_invent_an_offer_to_follow_through_on():
 
 
 def test_clarification_hint_asks_once_when_purpose_or_data_missing():
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import (
         CLARIFICATION_HINT,
         EMAIL_ASK_PURPOSE_HINT,
         EMAIL_DRAFT_HINT,
@@ -246,7 +246,7 @@ def test_clarification_hint_asks_once_when_purpose_or_data_missing():
 
 
 def test_writing_request_kinds_cover_each_output_shape():
-    from app.services.chat.prompt_constants import writing_request_kind
+    from app.modules.chat.prompt_constants import writing_request_kind
 
     cases = {
         "Write me an email about taking Friday off": "email",
@@ -349,7 +349,7 @@ def test_writing_request_kinds_cover_each_output_shape():
 
 
 def test_bare_drafts_ask_once_but_supplied_purpose_drafts_now():
-    from app.services.chat.prompt_constants import is_underspecified_writing_request
+    from app.modules.chat.prompt_constants import is_underspecified_writing_request
 
     assert is_underspecified_writing_request("Message to my friend")
     assert is_underspecified_writing_request("write me an email")
@@ -360,7 +360,7 @@ def test_bare_drafts_ask_once_but_supplied_purpose_drafts_now():
 
 
 def test_each_writing_kind_gets_only_its_relevant_format_hint():
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import (
         EMAIL_ASK_PURPOSE_HINT,
         EMAIL_DRAFT_HINT,
         PERSONAL_RECORD_HINT,
@@ -417,7 +417,7 @@ def _writing_style_parts(
 
 
 def test_writing_kinds_displace_competing_format_contracts():
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import (
         EMAIL_DRAFT_HINT,
         FORMAT_CONTRACT,
         PROSE_WRITING_HINT,
@@ -458,7 +458,7 @@ def test_writing_kinds_displace_competing_format_contracts():
 
 
 def test_writing_deliverable_wins_over_incidental_comparison_layout():
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import (
         COMPARISON_FORMAT_HINT,
         PROSE_WRITING_HINT,
         SOCIAL_DRAFT_HINT,
@@ -502,7 +502,7 @@ def test_writing_deliverable_wins_over_incidental_comparison_layout():
 
 
 def test_informational_queries_do_not_receive_writing_hints():
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import (
         EMAIL_ASK_PURPOSE_HINT,
         SOCIAL_DRAFT_HINT,
         TRANSLATION_FORMAT_HINT,
@@ -534,7 +534,7 @@ def test_informational_queries_do_not_receive_writing_hints():
 
 
 def test_explicit_table_request_survives_short_and_compact_styles():
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import (
         COMPACT_RESPONSE_FORMAT_HINT,
         SHORT_RESPONSE_FORMAT_HINT,
         UNIVERSAL_FORMAT_BASELINE,
@@ -546,7 +546,7 @@ def test_explicit_table_request_survives_short_and_compact_styles():
 
 
 def test_translation_and_proofreading_do_not_load_private_rich_context():
-    from app.services.chat.prompt_constants import needs_rich_context
+    from app.modules.chat.prompt_constants import needs_rich_context
 
     assert not needs_rich_context("Translate 'hello' into Spanish")
     assert not needs_rich_context("Is this sentence correct?")
@@ -564,7 +564,7 @@ def test_universal_baseline_bans_invented_tables_and_hooks():
 
 
 def test_compact_quote_turn_uses_blockquote_not_plain_prose():
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import (
         COMPACT_RESPONSE_FORMAT_HINT,
         QUOTE_FORMAT_HINT,
         is_quote_question,
@@ -604,7 +604,7 @@ def test_compact_quote_turn_uses_blockquote_not_plain_prose():
     ],
 )
 def test_is_capabilities_question(text, expected):
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import (
         is_capabilities_question,
         is_email_or_message_request,
         writing_request_kind,
@@ -617,7 +617,7 @@ def test_is_capabilities_question(text, expected):
 
 
 def test_capabilities_overview_skips_email_draft_contract():
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_constants import (
         CAPABILITIES_FORMAT_HINT,
         CLARIFICATION_HINT,
         COPY_DELIVERABLE_HINT,
@@ -657,8 +657,8 @@ def test_capabilities_overview_skips_email_draft_contract():
     ],
 )
 def test_career_updates_are_conversation_not_unsolicited_email_drafts(query):
-    from app.services.chat.prompt_builder import _style_format_hints
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_builder import _style_format_hints
+    from app.modules.chat.prompt_constants import (
         EMAIL_DRAFT_HINT,
         NON_DRAFT_TURN_HINT,
         is_email_or_message_request,
@@ -678,8 +678,8 @@ def test_career_updates_are_conversation_not_unsolicited_email_drafts(query):
 
 
 def test_explicit_google_outreach_request_still_gets_email_draft_contract():
-    from app.services.chat.prompt_builder import _style_format_hints
-    from app.services.chat.prompt_constants import EMAIL_DRAFT_HINT, NON_DRAFT_TURN_HINT
+    from app.modules.chat.prompt_builder import _style_format_hints
+    from app.modules.chat.prompt_constants import EMAIL_DRAFT_HINT, NON_DRAFT_TURN_HINT
 
     parts = _style_format_hints(
         query_text="Write an email to a Google recruiter about my software engineering experience",
@@ -692,8 +692,8 @@ def test_explicit_google_outreach_request_still_gets_email_draft_contract():
 
 
 def test_plain_career_disclosure_gets_short_conversation_contract():
-    from app.services.chat.prompt_builder import _style_format_hints
-    from app.services.chat.prompt_constants import (
+    from app.modules.chat.prompt_builder import _style_format_hints
+    from app.modules.chat.prompt_constants import (
         COPY_DELIVERABLE_HINT,
         FORMAT_CONTRACT,
         PERSONAL_DISCLOSURE_HINT,
@@ -731,7 +731,7 @@ def test_plain_career_disclosure_gets_short_conversation_contract():
     ],
 )
 def test_personal_context_with_a_real_request_is_not_only_a_disclosure(query):
-    from app.services.chat.prompt_constants import is_personal_disclosure_turn
+    from app.modules.chat.prompt_constants import is_personal_disclosure_turn
 
     assert not is_personal_disclosure_turn(query)
 
@@ -746,13 +746,13 @@ def test_personal_context_with_a_real_request_is_not_only_a_disclosure(query):
     ],
 )
 def test_collective_implicit_requests_are_not_personal_disclosures(query):
-    from app.services.chat.prompt_constants import is_personal_disclosure_turn
+    from app.modules.chat.prompt_constants import is_personal_disclosure_turn
 
     assert not is_personal_disclosure_turn(query)
 
 
 @pytest.mark.parametrize("query", ["We moved to Boston", "We work in healthcare"])
 def test_collective_personal_facts_remain_disclosures(query):
-    from app.services.chat.prompt_constants import is_personal_disclosure_turn
+    from app.modules.chat.prompt_constants import is_personal_disclosure_turn
 
     assert is_personal_disclosure_turn(query)

@@ -15,11 +15,11 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.models.orm import Message, User
 from app.modules import todos as todos_service
+from app.modules.chat import needs_generated_title
 from app.modules.speech.service import LIVE_TALK_ALIAS
 from app.modules.todos.service import list_owned_todos
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
-from app.services.chat.titles import needs_generated_title
 from app.services.prompt_safety import wrap_untrusted, wrap_user_preferences
 from app.services.text_normalize import cap_text_head_tail
 

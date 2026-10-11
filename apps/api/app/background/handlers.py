@@ -28,6 +28,7 @@ from app.core.jobs import JobDiscardError, enqueue, register
 from app.core.redis import get_redis_client
 from app.modules.attachments import jobs as attachment_indexing
 from app.modules.attachments import lifecycle as attachment_lifecycle
+from app.modules.chat import compaction
 from app.modules.integrations import jobs as gmail_sync
 from app.modules.memory import consolidation_workflow as memory_consolidation
 from app.modules.memory import extraction_workflow as memory_extraction
@@ -36,7 +37,6 @@ from app.modules.notifications import transactional_email as transactional_email
 from app.modules.suggestions import service as suggestion_generation
 from app.modules.todos import jobs as todo_jobs
 from app.services import quota as quota_service
-from app.services.chat import compaction
 
 logger = logging.getLogger(__name__)
 

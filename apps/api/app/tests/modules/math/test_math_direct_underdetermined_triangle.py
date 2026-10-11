@@ -9,13 +9,13 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.stream_pipeline import stream_and_finalize
+from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.math.fence import validate_math_fences
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import can_direct_verified_math_reply, maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import build_math_augmentation
-from app.services.chat.stream_pipeline import stream_and_finalize
-from app.services.chat.turn_prep.context import StreamContext
 from app.services.solving import VerifiedMathBlock
 
 
@@ -141,8 +141,8 @@ async def test_missing_scale_reply_skips_tool_selection_and_model_stream() -> No
         verified_subject=verified,
     )
     with (
-        patch("app.services.chat.stream_pipeline.run_tool_loop_path", AsyncMock()) as tools,
-        patch("app.services.chat.stream_pipeline.run_llm_token_stream") as llm,
+        patch("app.modules.chat.stream_pipeline.run_tool_loop_path", AsyncMock()) as tools,
+        patch("app.modules.chat.stream_pipeline.run_llm_token_stream") as llm,
     ):
         stream = stream_and_finalize(MagicMock(), MagicMock(), Settings(), ctx, should_cancel=None)
         assert isinstance(stream, AsyncGenerator)

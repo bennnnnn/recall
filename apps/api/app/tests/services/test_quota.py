@@ -144,7 +144,7 @@ async def test_seed_usage_from_db_skips_db_when_redis_key_warm(fake_redis):
     from unittest.mock import AsyncMock, patch
     from uuid import uuid4
 
-    from app.services.chat.post_turn import seed_usage_from_db
+    from app.modules.chat.post_turn import seed_usage_from_db
 
     session = AsyncMock()
     user_id = uuid4()
@@ -170,7 +170,7 @@ async def test_seed_usage_from_db_does_not_heal_warm_redis(fake_redis):
     from unittest.mock import AsyncMock, patch
     from uuid import uuid4
 
-    from app.services.chat.post_turn import seed_usage_from_db
+    from app.modules.chat.post_turn import seed_usage_from_db
 
     session = AsyncMock()
     user_id = uuid4()
@@ -203,7 +203,7 @@ async def test_seed_usage_from_db_heals_when_flag_set(fake_redis):
     from unittest.mock import AsyncMock, patch
     from uuid import uuid4
 
-    from app.services.chat.post_turn import seed_usage_from_db
+    from app.modules.chat.post_turn import seed_usage_from_db
 
     session = AsyncMock()
     user_id = uuid4()

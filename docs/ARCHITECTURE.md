@@ -57,7 +57,11 @@ request client and are composed into the existing `lib/api.ts` public barrel.
 12. Account — migrated (`modules/account/` for `/auth`; sign-in in `features/auth/`, settings screens in
     `features/account/`). Every request still verifies its token in `core/deps.py` through
     `core/access_tokens.py`, so infrastructure never imports the module. Push-token registration is
-    `modules/notifications/api.py`. Chat last.
+    `modules/notifications/api.py`.
+13. Chat — migrated. History, the WebSocket and SSE transports, turn prep, the stream pipeline and
+    post-turn jobs are all `modules/chat/`. Chat reaches other modules only through the submodules
+    they declare public (`_MODULE_EXPORTS`), and they reach chat's turn cues, presentation and stream
+    status through the `app.modules.chat` package. The tool loop stays in `services/tool_loop.py`.
 
 Each migration is its own reviewable change: preserve behavior, establish the public seam, run
 the feature tests and architecture checks, then remove compatibility imports in a later cleanup

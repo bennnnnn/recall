@@ -8,6 +8,8 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import User
+from app.modules.chat.prompt_builder import build_prompt_messages
+from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
@@ -17,8 +19,6 @@ from app.modules.math.followup import (
     readable_standalone_answer,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.services.chat.prompt_builder import build_prompt_messages
-from app.services.chat.prompt_context import _PromptContextBlocks
 
 _EQUATION_ASK = "Solve 2x + 7 = 19"
 _EQUATION_RESULT = "x = 6"
@@ -212,7 +212,7 @@ async def _prompt(
         chat=None,
     )
     with patch(
-        "app.services.chat.prompt_builder._load_context_blocks", AsyncMock(return_value=blocks)
+        "app.modules.chat.prompt_builder._load_context_blocks", AsyncMock(return_value=blocks)
     ):
         return await build_prompt_messages(
             user,

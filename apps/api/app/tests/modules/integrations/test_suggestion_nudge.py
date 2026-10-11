@@ -4,7 +4,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.chat.turn_prep.integrations import _inject_integration_blocks
+from app.modules.chat.turn_prep.integrations import _inject_integration_blocks
 
 
 @pytest.mark.asyncio
@@ -14,15 +14,15 @@ async def test_injects_pending_email_nudge_on_unrelated_turn():
     settings = Settings(gmail_enabled=True, google_calendar_enabled=False)
     with (
         patch(
-            "app.services.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
+            "app.modules.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
             return_value=False,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
+            "app.modules.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
             return_value=False,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+            "app.modules.chat.turn_prep.integrations._load_pending_email_nudge",
             AsyncMock(return_value="- Amazon delivery (from Amazon)"),
         ),
     ):
@@ -52,23 +52,23 @@ async def test_skips_email_nudge_when_full_gmail_block_present():
     load_nudge = AsyncMock(return_value="- should not appear")
     with (
         patch(
-            "app.services.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
+            "app.modules.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
             return_value=False,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
+            "app.modules.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
             return_value=True,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+            "app.modules.chat.turn_prep.integrations._load_pending_email_nudge",
             load_nudge,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations.email_service.format_gmail_block",
+            "app.modules.chat.turn_prep.integrations.email_service.format_gmail_block",
             return_value="full inbox",
         ),
         patch(
-            "app.services.chat.turn_prep.integrations.email_service.is_external_email_question",
+            "app.modules.chat.turn_prep.integrations.email_service.is_external_email_question",
             return_value=True,
         ),
     ):
@@ -99,15 +99,15 @@ async def test_skips_email_nudge_when_include_flag_false():
     load_nudge = AsyncMock(return_value="- should not appear")
     with (
         patch(
-            "app.services.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
+            "app.modules.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
             return_value=False,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
+            "app.modules.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
             return_value=False,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+            "app.modules.chat.turn_prep.integrations._load_pending_email_nudge",
             load_nudge,
         ),
     ):
@@ -137,23 +137,23 @@ async def test_day_planning_injects_calendar_and_gmail_not_connected_blocks():
     settings = Settings(gmail_enabled=True, google_calendar_enabled=True)
     with (
         patch(
-            "app.services.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
+            "app.modules.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
             return_value=True,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
+            "app.modules.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
             return_value=True,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_calendar_prompt_block",
+            "app.modules.chat.turn_prep.integrations._load_calendar_prompt_block",
             AsyncMock(return_value="Google Calendar: not connected."),
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_gmail_prompt_block",
+            "app.modules.chat.turn_prep.integrations._load_gmail_prompt_block",
             AsyncMock(return_value="Gmail: not connected.\nSettings → Gmail"),
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+            "app.modules.chat.turn_prep.integrations._load_pending_email_nudge",
             AsyncMock(return_value="- should not appear"),
         ),
     ):

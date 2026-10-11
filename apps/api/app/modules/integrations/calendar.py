@@ -18,10 +18,10 @@ from app.core.secrets import OAuthTokenDecryptError, decrypt_refresh_token
 from app.gateways import google_calendar_gateway
 from app.gateways.google_calendar_gateway import CalendarEvent, GoogleCalendarError
 from app.models.orm import User
+from app.modules.chat import has_locale_cue
 from app.modules.integrations import calendar_repository as calendar_repo
 from app.services import day_planning as day_planning_service
 from app.services import time_context as time_context_service
-from app.services.chat.prompt_constants.locale_cues import has_locale_cue
 
 logger = logging.getLogger(__name__)
 

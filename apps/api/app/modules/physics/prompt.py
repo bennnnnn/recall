@@ -8,8 +8,8 @@ from dataclasses import replace
 from app.core.config import Settings
 from app.modules.physics.block import _build_physics_block
 from app.modules.physics.extract import extract_physics_intent, needs_physics
+from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY
 from app.modules.physics.schemas import PhysicsIntent
-from app.services.chat.prompt_constants.physics import PHYSICS_REPLY_POLICY
 from app.services.solving import VerifiedPhysicsBlock, wrap_verified_physics
 
 logger = logging.getLogger(__name__)

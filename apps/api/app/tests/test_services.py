@@ -6,9 +6,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat import titles as chat_titles
 from app.modules.memory import embedding_text_hash
 from app.modules.memory import llm as memory_llm
-from app.services.chat import titles as chat_titles
 
 
 class _FakeSessionCM:
@@ -853,7 +853,7 @@ async def test_topic_generate_chat_title_releases_db_before_llm():
 @pytest.mark.parametrize("used", [100, 101], ids=["at-limit", "over-limit"])
 async def test_stream_chat_response_quota_exceeded(used: int) -> None:
     from app.exceptions import QuotaExceededError
-    from app.services import chat as chat_service
+    from app.modules import chat as chat_service
 
     user_id = uuid4()
     redis = AsyncMock()
@@ -867,17 +867,17 @@ async def test_stream_chat_response_quota_exceeded(used: int) -> None:
     prepare = AsyncMock(side_effect=AssertionError("Over-limit turn reached preparation"))
     with (
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
-        patch("app.services.chat.stream.SessionLocal", lambda: _FakeSessionCM()),
-        patch("app.services.chat.stream.wait_for_pending_finalize", AsyncMock()),
+        patch("app.modules.chat.stream.SessionLocal", lambda: _FakeSessionCM()),
+        patch("app.modules.chat.stream.wait_for_pending_finalize", AsyncMock()),
         patch(
-            "app.services.chat.stream.chats_repo.get_by_id",
+            "app.modules.chat.stream.chats_repo.get_by_id",
             AsyncMock(return_value=MagicMock(summary=None)),
         ),
-        patch("app.services.chat.stream.messages_repo.list_recent", AsyncMock(return_value=[])),
+        patch("app.modules.chat.stream.messages_repo.list_recent", AsyncMock(return_value=[])),
         patch("app.services.quota.has_daily_usage_key", AsyncMock(return_value=True)),
         patch("app.services.quota.get_daily_usage", usage),
         patch("app.services.quota.reserve_usage", AsyncMock()) as reserve,
-        patch("app.services.chat.stream.prepare_chat_turn", prepare),
+        patch("app.modules.chat.stream.prepare_chat_turn", prepare),
     ):
         with pytest.raises(QuotaExceededError):
             async for _t in chat_service.stream_chat_response(

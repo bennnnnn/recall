@@ -12,6 +12,8 @@ from app.modules.account import api as auth
 from app.modules.attachments import api as attachments
 from app.modules.billing import api as webhooks
 from app.modules.chat import api as chats
+from app.modules.chat import stream_api as chat_stream
+from app.modules.chat import ws_api as ws
 from app.modules.chemistry import api as chemistry_api
 from app.modules.home import api as home
 from app.modules.images import api as images
@@ -29,12 +31,10 @@ from app.modules.todos import api as todos
 from app.routers import (
     admin,
     analytics,
-    chat_stream,
     health,
     legal,
     link_preview,
     models,
-    ws,
 )
 
 

@@ -3,11 +3,11 @@
 from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
+from app.modules.chat.prompt_constants.routing import profile_question_to_answer
 from app.modules.memory.extraction_workflow import writes_from_ops
 from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
 from app.modules.memory.profile_reply import reply_for_profile_question
 from app.modules.memory.schemas import MemoryFactOp
-from app.services.chat.prompt_constants.routing import profile_question_to_answer
 
 _NOW = datetime(2026, 10, 11, tzinfo=UTC)
 

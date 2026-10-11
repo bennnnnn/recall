@@ -42,3 +42,6 @@ __all__ = [
     "stoichiometry",
     "validate_smiles",
 ]
+
+# Seams the chat turn uses: question detection, follow-ups, and post-stream fences.
+_MODULE_EXPORTS = ("context", "fence", "followup", "request")

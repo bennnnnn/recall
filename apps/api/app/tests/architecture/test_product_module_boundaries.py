@@ -92,9 +92,27 @@ def test_search_runtime_code_has_one_owner() -> None:
     } <= {path.name for path in (APP_ROOT / "tests" / "modules" / "search").glob("*.py")}
 
 
-def test_chat_history_runtime_code_has_one_owner() -> None:
+def test_chat_runtime_code_has_one_owner() -> None:
+    """History, both transports, turn prep and the stream pipeline are one module."""
     module_root = APP_ROOT / "modules" / "chat"
-    expected = {"api.py", "service.py"}
+    expected = {
+        "api.py",
+        "post_turn.py",
+        "prompt_builder.py",
+        "service.py",
+        "stream.py",
+        "stream_api.py",
+        "stream_entry.py",
+        "stream_events.py",
+        "stream_pipeline.py",
+        "ws_api.py",
+    }
+    assert (module_root / "turn_prep" / "prepare.py").is_file()
+    assert (module_root / "prompt_constants" / "__init__.py").is_file()
+    assert not (APP_ROOT / "services" / "chat").exists()
+    assert {"test_ws.py", "test_chat_stream.py", "test_turn_prep_parallel.py"} <= {
+        path.name for path in (APP_ROOT / "tests" / "modules" / "chat").glob("*.py")
+    }
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert {
         "test_chat_management.py",
@@ -256,6 +274,17 @@ def test_package_import_cannot_pull_a_private_name() -> None:
         "from app.modules.integrations import calendar\n"
     )
     assert not _foreign_module_import_violations(public, owner="images", label="sample")
+
+    # A submodule the owner declares public may be imported by path, nested or not.
+    declared = ast.parse(
+        "from app.modules.attachments.markers import strip_attachment_from_content\n"
+        "from app.modules.math.tools.extract import is_graph_followup\n"
+    )
+    assert not _foreign_module_import_violations(declared, owner="chat", label="sample")
+    undeclared = ast.parse("from app.modules.math.tools.block import build_block\n")
+    assert _foreign_module_import_violations(undeclared, owner="chat", label="sample") == [
+        "sample imports app.modules.math.tools.block"
+    ]
 
 
 def test_modules_import_other_modules_only_through_public_files() -> None:
