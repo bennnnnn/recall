@@ -419,9 +419,15 @@ async def enrich_final_content(
 
         assistant_text = sanitize_mermaid_fences(assistant_text)
         assistant_text = sanitize_places_fences(assistant_text)
-        from app.services.chat.presentation import present_assistant_markdown
+        from app.services.chat.presentation import (
+            drop_orphan_leading_answer,
+            present_assistant_markdown,
+        )
 
-        assistant_text = present_assistant_markdown(assistant_text)
+        assistant_text = drop_orphan_leading_answer(
+            present_assistant_markdown(assistant_text),
+            ctx.user_message_content,
+        )
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting raw assistant text")
         assistant_text = raw_assistant_text

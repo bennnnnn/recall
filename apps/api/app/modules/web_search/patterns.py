@@ -151,8 +151,14 @@ _TEAM_SCORE = re.compile(
     re.IGNORECASE,
 )
 
+# A bare "s" before "result" matches the end of "always result". That is a
+# math sentence, not a team possessive. "result" counts only after an
+# apostrophe. "Ethiopias game score" still matches the game/score branch.
 _TEAM_POSSESSIVE_SCORE = re.compile(
-    r".{2,40}(?:'s|s)\s+(?:games?|match(?:es)?|score|scores|result|results)",
+    r".{2,40}(?:"
+    r"'s\s+(?:games?|match(?:es)?|score|scores|result|results)"
+    r"|s\s+(?:games?|match(?:es)?|score|scores)"
+    r")",
     re.IGNORECASE,
 )
 

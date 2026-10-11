@@ -1,9 +1,23 @@
 """Markdown boundaries and one-row calculation layout."""
 
 from app.services.chat.calculation_layout import split_math_expression
-from app.services.chat.presentation import present_assistant_markdown
+from app.services.chat.presentation import drop_orphan_leading_answer, present_assistant_markdown
 
 CYCLIST = "A cyclist rides 12 km at 20 km/h then 8 km at 10 km/h. Find average speed."
+
+
+def test_a_why_question_drops_the_previous_sum() -> None:
+    question = (
+        "Why does adding two positive numbers always result in a larger number "
+        "than either of the original numbers?"
+    )
+    reply = "7\n\nAdding two positive numbers moves further along the number line."
+    assert drop_orphan_leading_answer(reply, question) == (
+        "Adding two positive numbers moves further along the number line."
+    )
+    fenced = "```answer\n7\n```\n\nAdding two positive numbers moves further along the number line."
+    assert "7" not in drop_orphan_leading_answer(fenced, question)
+    assert drop_orphan_leading_answer("7", "What is 3 + 4?") == "7"
 
 
 def test_glued_bold_values_regain_a_word_space() -> None:
