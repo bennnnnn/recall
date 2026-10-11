@@ -6,9 +6,9 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Memory
+from app.modules.chat.prompt_constants import writing_request_kind
 from app.modules.memory import is_memory_candidate, select_memories_semantic
 from app.modules.memory import llm as memory_llm
-from app.services.chat.prompt_constants import writing_request_kind
 
 CURRENT_EMPLOYER_QUERIES = [
     "I work at Uber but I want to move to Google",

@@ -91,7 +91,7 @@ def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str |
     cleaned = " ".join(text.split())
     if not cleaned or len(cleaned) > 24:
         return None
-    from app.services.chat.prompt_constants.routing import is_lightweight_chat_turn
+    from app.modules.chat import is_lightweight_chat_turn
 
     if is_lightweight_chat_turn(cleaned):
         return None

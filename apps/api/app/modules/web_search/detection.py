@@ -7,6 +7,12 @@ import re
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
+from app.modules.chat import (
+    is_lightweight_chat_turn,
+    is_personal_disclosure_turn,
+    is_short_confirmation,
+    prior_looks_like_offer,
+)
 from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answer
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
@@ -32,12 +38,6 @@ from app.modules.web_search.subject import (
     resolve_search_subject,
 )
 from app.services import time_context as time_context_service
-from app.services.chat.prompt_constants import (
-    is_lightweight_chat_turn,
-    is_personal_disclosure_turn,
-    is_short_confirmation,
-    prior_looks_like_offer,
-)
 
 logger = logging.getLogger(__name__)
 

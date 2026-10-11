@@ -22,7 +22,7 @@ def test_chat_service_errors_carry_message():
 
 
 def test_unknown_model_override_error_payload():
-    from app.services.chat.stream_events import error_payload_for_exception
+    from app.modules.chat.stream_events import error_payload_for_exception
 
     payload = error_payload_for_exception(UnknownModelOverrideError("glm-5.2"))
     assert payload["type"] == "error"

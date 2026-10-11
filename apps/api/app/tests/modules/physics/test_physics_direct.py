@@ -9,10 +9,10 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.stream_pipeline import stream_and_finalize
+from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.physics.fence import replace_unclosed_physics_fences_safe
 from app.modules.physics.prompt import build_physics_augmentation as build_math_augmentation
-from app.services.chat.stream_pipeline import stream_and_finalize
-from app.services.chat.turn_prep.context import StreamContext
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.tool_loop import turn_needs_tool_loop
 from app.tests.modules.physics.support import (
@@ -128,8 +128,8 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
         verified_subject=verified,
     )
     with (
-        patch("app.services.chat.stream_pipeline.run_tool_loop_path", AsyncMock()) as tools,
-        patch("app.services.chat.stream_pipeline.run_llm_token_stream") as llm,
+        patch("app.modules.chat.stream_pipeline.run_tool_loop_path", AsyncMock()) as tools,
+        patch("app.modules.chat.stream_pipeline.run_llm_token_stream") as llm,
     ):
         stream = stream_and_finalize(MagicMock(), MagicMock(), _SETTINGS, ctx, should_cancel=None)
         assert isinstance(stream, AsyncGenerator)

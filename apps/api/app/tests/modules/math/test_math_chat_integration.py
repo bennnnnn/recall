@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.services.chat.prompt_builder import _augment_web_and_tools
+from app.modules.chat.prompt_builder import _augment_web_and_tools
 
 
 @pytest.mark.asyncio

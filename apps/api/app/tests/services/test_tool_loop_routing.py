@@ -346,7 +346,7 @@ async def test_tool_loop_injects_empty_when_tool_returns_no_hits(web_search_regi
 async def test_tool_loop_path_copies_tool_hits_onto_context():
     from uuid import uuid4
 
-    from app.services.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream import _run_tool_loop_path
 
     hit = WebSearchHit(title="T", url="https://example.com", snippet="s")
     ctx = MagicMock()
@@ -382,9 +382,9 @@ async def test_tool_loop_path_copies_tool_hits_onto_context():
 async def test_tool_loop_keeps_a_chemistry_verified_block():
     from uuid import uuid4
 
+    from app.modules.chat.stream import _run_tool_loop_path
     from app.modules.chemistry.block import build_verified_chemistry
     from app.modules.chemistry.extract import extract_chemistry_intent
-    from app.services.chat.stream import _run_tool_loop_path
     from app.services.solving import VerifiedMathBlock
 
     intent = extract_chemistry_intent("Find the molar mass of H2O")
@@ -432,7 +432,7 @@ async def test_tool_loop_keeps_a_chemistry_verified_block():
 async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
     from uuid import uuid4
 
-    from app.services.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream import _run_tool_loop_path
 
     ctx = MagicMock()
     ctx.instant_reply = None
@@ -473,7 +473,7 @@ async def test_tool_loop_path_classifier_yes_when_heuristic_is_weak():
 async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
     from uuid import uuid4
 
-    from app.services.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream import _run_tool_loop_path
 
     ctx = MagicMock()
     ctx.instant_reply = None
@@ -512,7 +512,7 @@ async def test_tool_loop_path_skips_classifier_when_heuristic_already_yes():
 async def test_tool_loop_path_skips_classifier_when_spend_capped():
     from uuid import uuid4
 
-    from app.services.chat.stream import _run_tool_loop_path
+    from app.modules.chat.stream import _run_tool_loop_path
 
     ctx = MagicMock()
     ctx.instant_reply = None

@@ -112,7 +112,7 @@ def test_glued_please_is_equation_not_graph() -> None:
 
 
 def test_glued_graph_is_not_a_vega_chart_question() -> None:
-    from app.services.chat.prompt_constants.format import is_chart_question
+    from app.modules.chat.prompt_constants.format import is_chart_question
 
     assert is_chart_question("X=6graph") is False
 
@@ -1196,8 +1196,8 @@ def test_garbled_graph_ask_does_not_become_equation() -> None:
 
 
 def test_unverified_graph_note_bans_table_and_mermaid_substitute() -> None:
+    from app.modules.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
     from app.modules.math.tools.prompt import _unverified_math_note
-    from app.services.chat.prompt_constants import GRAPH_NO_SUBSTITUTE_CLAUSE
 
     note = _unverified_math_note("graph")
     assert GRAPH_NO_SUBSTITUTE_CLAUSE in note

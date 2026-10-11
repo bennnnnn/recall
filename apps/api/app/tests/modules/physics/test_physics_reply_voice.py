@@ -1,15 +1,15 @@
 """A physics turn must not be labeled or wrapped as math."""
 
 from app.core.config import Settings
-from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.services.chat.prompt_builder import _style_format_hints
-from app.services.chat.prompt_constants import (
+from app.modules.chat.prompt_builder import _style_format_hints
+from app.modules.chat.prompt_constants import (
     MATH_INTENT_HINT,
     MATH_TUTORING_HINT,
     PHYSICS_INTENT_HINT,
     PHYSICS_REPLY_POLICY,
 )
-from app.services.chat.prompt_format import _physics_turn
+from app.modules.chat.prompt_format import _physics_turn
+from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.services.solving import strip_verified_math_markers
 from app.tests.modules.physics.support import build_verified_physics_block, extract_physics_intent
 

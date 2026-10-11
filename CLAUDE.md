@@ -16,7 +16,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 1. **Never put provider API keys in the mobile app.** Keys live only in the backend `.env`. The app only ever talks to our API.
 2. **Use product model aliases, never provider names**, in app/business code: `free-chat`, `smart-chat`, `title-model`, `memory-model`. Alias → provider mapping lives in `services/model_catalog.py` (LiteLLM calls go through `gateways/litellm_gateway.py`).
 3. **Never send full chat history to the model.** Build context from injected memory + the recent window (default hard cap 20 messages; token budget also trims) only.
-4. **Topic generation, memory extraction, and other post-turn work are best-effort background jobs.** They must never raise into the chat request path or block streaming. Enqueue from `services/chat/post_turn.py` via `core/jobs.py`.
+4. **Topic generation, memory extraction, and other post-turn work are best-effort background jobs.** They must never raise into the chat request path or block streaming. Enqueue from `modules/chat/post_turn.py` via `core/jobs.py`.
 5. **No arbitrary code execution — one sandboxed exception.** Code in messages is rendered/highlighted only, with a single exception: **HTML/CSS/JS may be previewed in a sandboxed WebView** (and charts/diagrams rendered from model output). Never execute Python, shell, or any other language, and never run code anywhere except inside the isolated preview WebView (no app token is ever exposed to it). The preview WebView requires a dev build — it does not work in Expo Go.
 6. **All LLM structured outputs are validated with Pydantic** before they touch the DB.
 7. **Symbolic math runs server-side only (SymPy).** Math lives in `modules/math/`. Physics is a peer subject in `modules/physics/`, not a corner of math. The mobile app renders verified results and structured `geometry` / `graph` / `simulation` fences — it never solves equations on-device, and a `simulation` scene is a *sampled path* it walks, never motion it re-derives. Pipeline map: [docs/math.md](./docs/math.md).
@@ -109,7 +109,7 @@ and extractors stay inside the owning module. Do not rename `core/` or
   both the eventual commit and rollback. Do not add a generic unit-of-work layer
   unless repeated concrete workflows require more than these boundaries.
 
-**Streaming:** WebSocket (`routers/ws.py`) preferred (stop-generation); SSE fallback (`routers/chat_stream.py`). Both share `chat/stream_events.py` for `done` / `error` payloads. A cancel message aborts the active LLM task.
+**Streaming:** WebSocket (`modules/chat/ws_api.py`) preferred (stop-generation); SSE fallback (`modules/chat/stream_api.py`). Both share `modules/chat/stream_events.py` for `done` / `error` payloads. A cancel message aborts the active LLM task.
 
 **Clients & the API contract:** the backend is a client-agnostic HTTP/WebSocket API with JWT auth. Mobile uses Bearer + `expo-secure-store`. `apps/web` uses an in-memory access token plus an httpOnly refresh cookie. Keep `apps/mobile/lib/api.ts` the **barrel** over `lib/api/*.ts` (single network boundary for mobile). Rich-block rendering should stay swappable; only platform bits differ per client.
 
@@ -121,7 +121,7 @@ What exists in code today. Product caveats: FEATURES.md.
 |--------|-----|--------|
 | Auth / account | `modules/account/` (HTTP `/auth`: sign-in, sessions, profile, settings proposals, export, delete); per-request token check in `core/access_tokens.py` | `features/auth/` (login, onboarding), `features/account/` (settings screens); `app/login.tsx`, `onboarding.tsx`, `app/settings/*` routes only |
 | Chat history | `modules/chat/` (HTTP `/chats`) | drawer history; `lib/api/chats.ts` until the mobile chat move |
-| Chat stream | `routers/ws.py`, `chat_stream.py`; `services/chat/` | `app/index.tsx`, `hooks/useChat*.ts`, `components/chat/` |
+| Chat stream | `modules/chat/` (`ws_api.py` WebSocket, `stream_api.py` SSE; `stream.py`, `turn_prep/`, `stream_pipeline.py`, `post_turn.py`) | `app/index.tsx`, `hooks/useChat*.ts`, `components/chat/` |
 | Memory | `modules/memory/` (HTTP `/memories`, `/memories/documents`, `/memories/instruct`) | `features/memory/`; `app/memory/` routes only (list + `[key]` page) |
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
@@ -145,9 +145,9 @@ What exists in code today. Product caveats: FEATURES.md.
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |
 | i18n | locale on user + prompt | `lib/i18n/*.json` (9 locales, key parity tested) |
 
-**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, and Notifications push-token (`/users`) APIs plus the legacy health, legal, admin, link_preview, chat_stream, models, analytics, and ws routers.
+**HTTP surfaces registered in** `main.py`: the module-owned Math, Physics, Chemistry, Memory, To-do, Home, Search, Suggestions, Chat history, Google Calendar/Gmail, Attachments, Images, Speech, Account (`/auth`), Billing webhooks, and Notifications push-token (`/users`) APIs plus the legacy health, legal, admin, link_preview, models, and analytics routers. Chat history (`/chats`) and the chat stream (`/ws/chat`, SSE) are both `modules/chat/`.
 
-**Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, model catalog, time context, …). New chat-loop code belongs in `services/chat/`; new external IO belongs in a gateway, not an API surface.
+**Domain packages:** migrated domains live under `modules/`; legacy domains remain packages under `services/` until their dedicated migration. What is left at `services/` root is genuinely cross-cutting (quota, routing, model catalog, time context, …). New chat-loop code belongs in `modules/chat/`; new external IO belongs in a gateway, not an API surface.
 
 ## Seams (plug in / plug out)
 
@@ -172,7 +172,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 
 ## The chat loop
 
-New chat-loop code → `services/chat/`. Quota + per-chat prepare lock are owned by `async with turn_resources(...)` in `stream.py` (do not re-introduce hand-managed `owns_lock` / `pre_reserved` flags).
+New chat-loop code → `modules/chat/`. Quota + per-chat prepare lock are owned by `async with turn_resources(...)` in `stream.py` (do not re-introduce hand-managed `owns_lock` / `pre_reserved` flags).
 
 1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
 2. Check + reserve daily quota (Redis)
@@ -235,7 +235,7 @@ pnpm expo start          # dev; press i / a for iOS / Android
 ```bash
 cd apps/api
 uv run pytest
-uv run pytest app/tests/services/test_chat.py
+uv run pytest app/tests/modules/chat/test_chat.py
 uv run pytest -k memory
 ```
 

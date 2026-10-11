@@ -37,3 +37,16 @@ def __getattr__(name: str) -> Any:
     value = getattr(import_module(f"app.modules.math.{module_name}"), attribute)
     globals()[name] = value
     return value
+
+
+# Seams the chat turn uses: detection, follow-ups, camera reads, and post-stream fences.
+_MODULE_EXPORTS = (
+    "fence",
+    "followup",
+    "image_extract",
+    "match",
+    "ocr",
+    "reply_policy",
+    "tools.extract",
+    "tools.prompt",
+)

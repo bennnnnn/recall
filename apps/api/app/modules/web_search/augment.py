@@ -32,7 +32,7 @@ from app.modules.web_search.query_builders import (
 )
 from app.modules.web_search.search_cache import _run_search
 from app.modules.web_search.subject import (
-    _prior_user_messages,
+    collect_prior_user_messages,
     last_assistant_content,
     resolve_search_subject,
 )
@@ -40,7 +40,7 @@ from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import wrap_untrusted
 
 if TYPE_CHECKING:
-    from app.services.chat.stream_status import StreamStatusFn
+    from app.modules.chat import StreamStatusFn
 
 
 async def build_search_augmentation(
@@ -72,7 +72,7 @@ async def build_search_augmentation(
 
     prior_user = prior_user_messages
     if prior_user is None:
-        prior_user = _prior_user_messages(messages or [], user_content)
+        prior_user = collect_prior_user_messages(messages or [], user_content)
     prior_assistant = last_assistant_content(messages or [])
     if web_search_skip(
         user_content, prior_user_messages=prior_user, prior_assistant=prior_assistant
@@ -126,7 +126,7 @@ async def build_search_augmentation(
         # Surface what we're searching for so the client label is specific.
         # Local import avoids making the web-search package initialize the
         # eager chat package while web-search itself is still importing.
-        from app.services.chat.stream_status import clip_status_detail
+        from app.modules.chat import clip_status_detail
 
         await on_status("searching", clip_status_detail(queries[0] if queries else None))
 

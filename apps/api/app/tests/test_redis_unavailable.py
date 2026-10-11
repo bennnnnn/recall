@@ -14,8 +14,8 @@ from app.exceptions import RedisUnavailableError
 from app.models.schemas import LogoutRequest, RefreshRequest
 from app.modules.account import api as auth_router
 from app.modules.account import tokens as tokens_service
+from app.modules.chat.stream_events import error_payload_for_exception
 from app.services import quota as quota_service
-from app.services.chat.stream_events import error_payload_for_exception
 
 
 @pytest.mark.asyncio

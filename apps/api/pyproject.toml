@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Recall personal AI chat backend"
 readme = "README.md"
 # Lower bound is 3.12.4, not 3.12: CPython 3.12.3 segfaults in the compiler
-# while byte-compiling app/tests/services/test_chat.py, so the whole backend
+# while byte-compiling app/tests/modules/chat/test_chat.py, so the whole backend
 # test suite dies with "Fatal Python error: Segmentation fault" during
 # collection and no usable error. 3.12.4 and later compile it fine. CI happens
 # to resolve a good interpreter, so this only ever bit a machine that landed on
@@ -93,7 +93,8 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "app/models/orm/**" = ["E501"]
 "app/content/vocab_banks_en/**" = ["RUF001", "E501"]
 "app/modules/learning/items_repository.py" = ["RUF005"]
-"app/services/chat/**" = ["E501"]
+"app/modules/chat/**" = ["E501"]
+"app/modules/chat/*_api.py" = ["B008", "E501"]
 "app/modules/integrations/calendar.py" = ["E501", "RUF001"]
 "app/modules/learning/actions.py" = ["E501", "RUF001"]
 "app/modules/learning/common.py" = ["E501", "RUF001"]

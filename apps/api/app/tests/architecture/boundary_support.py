@@ -31,6 +31,7 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.models.schemas.memory",
     "app.models.schemas.physics",
     "app.models.schemas.schedule",
+    "app.modules.chat.prompt_constants.physics",
     "app.modules.chemistry.legacy_alias",
     "app.modules.home.legacy_alias",
     "app.modules.math.legacy_alias",
@@ -52,6 +53,7 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.repositories.todos",
     "app.routers.attachments",
     "app.routers.auth",
+    "app.routers.chat_stream",
     "app.routers.chats",
     "app.routers.gmail_integrations",
     "app.routers.home",
@@ -65,11 +67,13 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.routers.todos",
     "app.routers.users",
     "app.routers.webhooks",
+    "app.routers.ws",
     "app.services.account_lifecycle",
     "app.services.attachments",
     "app.services.auth",
     "app.services.calendar",
     "app.services.calendar_nudges",
+    "app.services.chat",
     "app.services.chats",
     "app.services.chemistry",
     "app.services.email.context",
@@ -183,6 +187,10 @@ def _foreign_module_import_violations(tree: ast.AST, *, owner: str, label: str) 
                 if symbol == "*" or symbol not in _package_public_names(other):
                     violations.append(f"{label} imports {symbol} from {module_name}")
                 continue
-            if parts[1] not in _PUBLIC_MODULE_TAILS:
+            if parts[1] in _PUBLIC_MODULE_TAILS:
+                continue
+            # A package may declare submodules public (``_MODULE_EXPORTS``,
+            # dotted for nested ones such as ``tools.extract``).
+            if ".".join(parts[1:]) not in _package_public_names(other):
                 violations.append(f"{label} imports {module_name}")
     return violations

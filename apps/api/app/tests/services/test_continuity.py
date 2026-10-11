@@ -7,7 +7,7 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
-from app.services.chat.prompt_constants.routing import recalls_earlier_conversation
+from app.modules.chat.prompt_constants.routing import recalls_earlier_conversation
 
 
 @pytest.mark.parametrize(
@@ -46,7 +46,7 @@ def test_ordinary_turns_do_not_recall_earlier_conversation(text: str):
 
 @pytest.mark.asyncio
 async def test_prompt_includes_messages_between_summary_and_recent_window():
-    from app.services.chat.prompt_builder import build_prompt_messages
+    from app.modules.chat.prompt_builder import build_prompt_messages
 
     chat_id = uuid4()
     user = MagicMock(
@@ -84,14 +84,14 @@ async def test_prompt_includes_messages_between_summary_and_recent_window():
             return False
 
     with (
-        patch("app.services.chat.prompt_builder.SessionLocal", _Session),
-        patch("app.services.chat.prompt_context.SessionLocal", _Session),
+        patch("app.modules.chat.prompt_builder.SessionLocal", _Session),
+        patch("app.modules.chat.prompt_context.SessionLocal", _Session),
         patch(
-            "app.services.chat.prompt_context.messages_repo.count_for_chat",
+            "app.modules.chat.prompt_context.messages_repo.count_for_chat",
             AsyncMock(return_value=100),
         ),
         patch(
-            "app.services.chat.prompt_context.messages_repo.list_before",
+            "app.modules.chat.prompt_context.messages_repo.list_before",
             AsyncMock(return_value=[gap_row]),
         ) as list_before,
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),
@@ -116,7 +116,7 @@ async def test_prompt_includes_messages_between_summary_and_recent_window():
 
 @pytest.mark.asyncio
 async def test_prompt_keeps_the_message_pushed_out_by_the_current_turn():
-    from app.services.chat.prompt_builder import build_prompt_messages
+    from app.modules.chat.prompt_builder import build_prompt_messages
 
     chat_id = uuid4()
     user = MagicMock(
@@ -150,14 +150,14 @@ async def test_prompt_keeps_the_message_pushed_out_by_the_current_turn():
             return False
 
     with (
-        patch("app.services.chat.prompt_builder.SessionLocal", _Session),
-        patch("app.services.chat.prompt_context.SessionLocal", _Session),
+        patch("app.modules.chat.prompt_builder.SessionLocal", _Session),
+        patch("app.modules.chat.prompt_context.SessionLocal", _Session),
         patch(
-            "app.services.chat.prompt_context.messages_repo.count_for_chat",
+            "app.modules.chat.prompt_context.messages_repo.count_for_chat",
             AsyncMock(return_value=20),
         ),
         patch(
-            "app.services.chat.prompt_context.messages_repo.list_before",
+            "app.modules.chat.prompt_context.messages_repo.list_before",
             AsyncMock(return_value=[]),
         ),
         patch("app.modules.memory.get_memory_block", AsyncMock(return_value="")),

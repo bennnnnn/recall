@@ -74,3 +74,6 @@ __all__ = [
     "web_search_fast_yes",
     "web_search_skip",
 ]
+
+# Seams the chat turn uses to decide on a search and read prior turns.
+_MODULE_EXPORTS = ("detection", "subject")

@@ -11,13 +11,12 @@ it from this file in that pull request.
 
 ## Now
 
-Chat history is on main. Next is the chat stream.
+Chat history, the chat stream and turn prep are in `modules/chat/`. Next is
+mobile chat.
 
-## After chat history
+## Remaining
 
-1. **Chat stream.** WebSocket, SSE, and `services/chat/stream.py`. Not turn prep.
-2. **Chat turn prep.** `services/chat/turn_prep/` and prompt assembly.
-3. **Mobile chat.** Move `hooks/useChat*`, `components/chat/`, `lib/chat/`
+1. **Mobile chat.** Move `hooks/useChat*`, `components/chat/`, `lib/chat/`
    (stream, socket, reducer, cache, mutation helpers, and their tests), and
    the chat API slice `lib/api/chats.ts` into `features/chat/`. Compose that
    slice through `lib/api.ts`. `app/index.tsx` stays a route.

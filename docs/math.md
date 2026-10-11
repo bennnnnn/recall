@@ -108,9 +108,9 @@ The stored user text preserves what the composer submitted. Explicit math contro
 | Fraction procedures | `apps/api/app/modules/math/tools/extractors/fractions.py`, `solve/fractions.py`, `modules/math/schemas/fraction.py` |
 | Check my work | `apps/api/app/modules/math/tools/work_request.py` (reading the lines), `solve/work_check.py` + `work_lines.py` + `work_slips.py` (grading and slips), `tools/block/work.py` (reply) |
 | Word problems | `apps/api/app/modules/math/tools/word_problem.py` (gate, number guard, structured call), `solve/word_problem.py`, `tools/block/word.py`, `modules/math/schemas/word_problem.py` |
-| Recurring pay + date arithmetic | `apps/api/app/services/recurring_pay.py`, hooked before prompt/model work in `services/chat/turn_prep/context.py` |
+| Recurring pay + date arithmetic | `apps/api/app/services/recurring_pay.py`, hooked before prompt/model work in `modules/chat/turn_prep/context.py` |
 | MCP sympy | `apps/api/app/modules/math/tool.py` |
-| Prompt hints | `apps/api/app/services/chat/prompt_constants/` (`math.py`, …) |
+| Prompt hints | `apps/api/app/modules/chat/prompt_constants/` (`math.py`, …) |
 | Mobile preprocess | `apps/mobile/lib/markdown/markdownPreprocess.ts`, `apps/mobile/lib/math/normalizeImplicit.ts` |
 | Composer math input | `apps/mobile/lib/math/pasteNormalize.ts`, `keyboardSymbols.ts`, `components/chat/MathKeyboardBar.tsx` |
 | Render | `MathText`, `MathView` / `MathSvgView` (MathJax-SVG), `GeometryBlock`, `FunctionGraphBlock` + `rich/skia/` graph, number-line, and inequality canvases |

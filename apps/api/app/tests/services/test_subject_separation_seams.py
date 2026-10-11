@@ -64,7 +64,7 @@ def test_physics_imports_only_the_shared_graph_transport_from_math() -> None:
 
 
 def test_math_prompt_has_no_physics_policy() -> None:
-    from app.services.chat.prompt_constants.math import MATH_SOLVER_HINT
+    from app.modules.chat.prompt_constants.math import MATH_SOLVER_HINT
 
     assert "physics" not in MATH_SOLVER_HINT.lower()
     assert "projectile" not in MATH_SOLVER_HINT.lower()

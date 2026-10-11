@@ -11,12 +11,12 @@ import pytest
 
 from app.core.config import Settings
 from app.models.orm import Chat, User
+from app.modules.chat.prompt_context import _PromptContextBlocks
+from app.modules.chat.turn_prep.context import build_stream_prompt_context
+from app.modules.chat.turn_prep.mode import _TurnMode
+from app.modules.chat.turn_prep.prepare import prepare_chat_turn
 from app.modules.math.followup import MATH_FOLLOWUP_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
-from app.services.chat.prompt_context import _PromptContextBlocks
-from app.services.chat.turn_prep.context import build_stream_prompt_context
-from app.services.chat.turn_prep.mode import _TurnMode
-from app.services.chat.turn_prep.prepare import prepare_chat_turn
 
 _QUERY = "Sum 1/n^2 from n=1 to infinity"
 _RESULT = r"\frac{\pi^{2}}{6}"
@@ -87,15 +87,15 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
         google_calendar_enabled=False,
     )
     with (
-        patch("app.services.chat.turn_prep.prepare.SessionLocal", return_value=_Session()),
+        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=_Session()),
         patch("app.repositories.messages.create", AsyncMock(side_effect=create_message)),
         patch(
-            "app.services.chat.prompt_builder._load_context_blocks",
+            "app.modules.chat.prompt_builder._load_context_blocks",
             AsyncMock(side_effect=context_blocks),
         ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
         patch(
-            "app.services.chat.turn_prep.context.plan_service.chat_fallback_models", return_value=[]
+            "app.modules.chat.turn_prep.context.plan_service.chat_fallback_models", return_value=[]
         ),
     ):
         context = await asyncio.wait_for(
@@ -189,16 +189,16 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
     )
     with (
         patch(
-            "app.services.chat.prompt_builder._load_context_blocks",
+            "app.modules.chat.prompt_builder._load_context_blocks",
             AsyncMock(return_value=blocks),
         ),
         patch(
-            "app.services.chat.turn_prep.context._load_prior_user_messages",
+            "app.modules.chat.turn_prep.context._load_prior_user_messages",
             AsyncMock(return_value=[_EQUATION]),
         ),
         patch("app.services.model_health.enrich_models_health", AsyncMock(return_value={})),
         patch(
-            "app.services.chat.turn_prep.context.plan_service.chat_fallback_models",
+            "app.modules.chat.turn_prep.context.plan_service.chat_fallback_models",
             return_value=[],
         ),
     ):

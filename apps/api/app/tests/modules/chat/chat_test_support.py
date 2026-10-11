@@ -1,0 +1,61 @@
+from contextlib import ExitStack
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
+import pytest
+
+
+class FakeSessionCM:
+    async def __aenter__(self):
+        return AsyncMock()
+
+    async def __aexit__(self, *args):
+        return False
+
+
+def stub_recent(n: int) -> list[MagicMock]:
+    """n chronological rows so prior_count can come from list_recent, not COUNT."""
+    rows: list[MagicMock] = []
+    for i in range(n):
+        row = MagicMock()
+        row.id = uuid4()
+        row.role = "user" if i % 2 == 0 else "assistant"
+        row.content = f"m{i}"
+        rows.append(row)
+    return rows
+
+
+def offline_session_patches():
+    return (
+        patch("app.modules.chat.stream.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.prompt_builder.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.turn_prep.attachments.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.turn_prep.context.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.turn_prep.integrations.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.turn_prep.prepare.SessionLocal", FakeSessionCM),
+        patch("app.modules.chat.post_turn.SessionLocal", FakeSessionCM),
+    )
+
+
+@pytest.fixture
+def stream_offline_io():
+    with ExitStack() as stack:
+        for patcher in offline_session_patches():
+            stack.enter_context(patcher)
+        stack.enter_context(patch("app.modules.chat.post_turn.seed_usage_from_db", AsyncMock()))
+        stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
+        stack.enter_context(
+            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
+        )
+        stack.enter_context(patch("app.modules.chat.stream.wait_for_pending_finalize", AsyncMock()))
+        stack.enter_context(
+            patch("app.modules.web_search.is_short_letter_answer", return_value=False)
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.has_write_access",
+                AsyncMock(return_value=False),
+            )
+        )
+        yield

@@ -1,0 +1,430 @@
+import asyncio
+import json
+import logging
+import math
+from uuid import UUID
+
+from redis.asyncio import Redis
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core import jobs
+from app.core.config import Settings, get_settings
+from app.core.db import SessionLocal
+from app.modules import todos as todos_service
+from app.modules.attachments import lifecycle as attachment_lifecycle
+from app.modules.chat.finalize_registry import clear_pending_finalize
+from app.modules.chat.turn_prep import RegenerateBackup, StreamContext
+from app.modules.memory import is_explicit_memory_command, memory_extract_user_text
+from app.repositories import chats as chats_repo
+from app.repositories import messages as messages_repo
+from app.repositories import usage as usage_repo
+from app.services import model_catalog
+from app.services import quota as quota_service
+from app.services.context_window import estimate_tokens
+from app.services.quota import utc_today
+from app.services.text_normalize import cap_text_head_tail
+
+logger = logging.getLogger(__name__)
+
+# Memory extraction only needs recent head+tail; keep the job payload bounded.
+_MEMORY_TRANSCRIPT_MAX_CHARS = 4000
+
+
+async def seed_usage_from_db(redis: Redis, session: AsyncSession, user_id: UUID) -> None:
+    """Re-seed the Redis daily usage counter from the DB total.
+
+    Also heals Redis/DB drift when a previous ``adjust_usage`` failed after
+    commit (Redis flag). If Redis holds a stale value lower than the DB total,
+    raise Redis to max(redis, db_total). Warm Redis with no heal flag skips
+    Neon — do not pay get_total_for_date on every send.
+
+    M9: errors are logged at warning (not debug) — a failed seed after Redis
+    eviction means the turn proceeds with Redis at 0 despite prior usage in
+    the DB, allowing the user to exceed daily limits. The caller may still
+    proceed (best-effort), but this should be visible in logs.
+    """
+    try:
+        # Hot path: Redis already has today's counter. Skip Neon so every turn
+        # does not pay get_total_for_date. Missing key (eviction / new day)
+        # still seeds from DB. Drift heal only runs when adjust_usage failed
+        # after a commit and left a flag — not on every send.
+        if await quota_service.has_daily_usage_key(redis, str(user_id)):
+            if not await quota_service.usage_needs_heal(redis, str(user_id)):
+                return
+            db_total = await usage_repo.get_total_for_date(session, user_id, utc_today())
+            await quota_service.heal_usage_drift(redis, str(user_id), db_total)
+            await quota_service.clear_usage_needs_heal(redis, str(user_id))
+            return
+        db_total = await usage_repo.get_total_for_date(session, user_id, utc_today())
+        await quota_service.seed_usage_if_missing(redis, str(user_id), db_total)
+    except Exception:
+        logger.warning(
+            "Usage DB-seed failed user_id=%s — quota enforcement may start "
+            "from 0 if Redis was evicted",
+            user_id,
+            exc_info=True,
+        )
+
+
+async def restore_regenerate_backup(
+    user_id: UUID,
+    chat_id: UUID,
+    backup: RegenerateBackup,
+) -> None:
+    # New path: prior assistant was never deleted (omit-from-prompt). Nothing
+    # to restore. Legacy path (message_id is None): recreate the row.
+    if backup.message_id is not None:
+        return
+    async with SessionLocal() as session:
+        await messages_repo.create(
+            session,
+            chat_id=chat_id,
+            user_id=user_id,
+            role="assistant",
+            content=backup.content,
+            model=backup.model,
+        )
+
+
+async def finalize_stream_turn_db(
+    redis: Redis,
+    ctx: StreamContext,
+    assistant_text: str,
+    usage: dict[str, int],
+    result: dict[str, object] | None,
+) -> None:
+    usage_input = usage.get("input")
+    input_tokens = (
+        usage_input
+        if usage_input is not None
+        else sum(estimate_tokens(m["content"]) for m in ctx.prompt_messages)
+    )
+    usage_output = usage.get("output")
+    output_tokens = usage_output if usage_output is not None else estimate_tokens(assistant_text)
+    total_tokens = input_tokens + output_tokens
+    multiplier = model_catalog.quota_multiplier(ctx.model)
+    weighted_total = math.ceil(total_tokens * multiplier)
+
+    # The daily usage aggregate must store WEIGHTED tokens (the same units
+    # Redis uses), not raw — otherwise `seed_usage_from_db` re-seeds Redis
+    # with a raw total after an eviction and the user silently gets
+    # `multiplier`x more quota for the rest of the day. The per-message row
+    # below keeps raw input/output for per-message display; only the daily
+    # aggregate (used for re-seeding) is weighted.
+    weighted_input = math.ceil(input_tokens * multiplier)
+    weighted_output = math.ceil(output_tokens * multiplier)
+
+    # Dollar cost uses RAW tokens * catalog prices (not quota-weighted).
+    est_cost = model_catalog.estimate_cost_usd(
+        ctx.model,
+        input_tokens=input_tokens,
+        output_tokens=output_tokens,
+    )
+    if est_cost is not None:
+        logger.info(
+            "turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s "
+            "est_cost_usd=%.6f quota_multiplier=%s",
+            ctx.user_id,
+            ctx.model,
+            input_tokens,
+            output_tokens,
+            est_cost,
+            multiplier,
+        )
+    else:
+        logger.info(
+            "turn_cost user_id=%s model=%s input_tokens=%s output_tokens=%s "
+            "est_cost_usd=unknown quota_multiplier=%s",
+            ctx.user_id,
+            ctx.model,
+            input_tokens,
+            output_tokens,
+            multiplier,
+        )
+
+    persisted_text = assistant_text
+    settings = get_settings()
+    pending_storage_keys: list[str] = []
+    committed = False
+
+    try:
+        async with SessionLocal() as session:
+            # Replace the prior assistant atomically with the new reply so a
+            # crash cannot leave zero assistant messages after regenerate.
+            if ctx.regenerate_backup is not None and ctx.regenerate_backup.message_id is not None:
+                old = await messages_repo.get_by_id(
+                    session, ctx.regenerate_backup.message_id, ctx.chat_id
+                )
+                if old is not None:
+                    # Detach rows in this transaction; delete bytes only after
+                    # commit so a failed finalize cannot orphan storage keys
+                    # that still have DB rows (or vice versa).
+                    pending_storage_keys = (
+                        await attachment_lifecycle.detach_attachments_for_messages(
+                            session, [old.id], commit=False
+                        )
+                    )
+                    await session.delete(old)
+
+            assistant_message = await messages_repo.create(
+                session,
+                chat_id=ctx.chat_id,
+                user_id=ctx.user_id,
+                role="assistant",
+                content=persisted_text,
+                model=ctx.model,
+                input_tokens=input_tokens,
+                output_tokens=output_tokens,
+                message_id=ctx.assistant_message_id,
+                commit=False,  # batch with touch + usage into one commit below
+            )
+            if result is not None:
+                # stream_and_finalize preassigns these; direct callers also
+                # receive the flushed row's identity before commit returns.
+                result.setdefault("message_id", str(assistant_message.id))
+                result.setdefault("resolved_model", ctx.model)
+                if ctx.recalled_count:
+                    result.setdefault("recalled", str(ctx.recalled_count))
+                if ctx.memory_hints:
+                    result.setdefault("memory_hints", json.dumps(ctx.memory_hints))
+                if ctx.context_summarized:
+                    result.setdefault("context_summarized", str(ctx.context_summarized))
+
+            await chats_repo.touch_by_id(session, ctx.chat_id, commit=False)
+
+            # Usage write is NOT swallowed: if the daily aggregate misses this
+            # turn, a later Redis eviction re-seeds from the DB total and the
+            # user gets free quota. Let the exception propagate so the outer
+            # except refunds the reservation and the commit below never runs
+            # (the message insert rolls back with the usage row).
+            await usage_repo.add_tokens(
+                session,
+                ctx.user_id,
+                utc_today(),
+                # Weighted so the daily aggregate matches Redis units and
+                # re-seeds correctly after an eviction (see header comment).
+                input_tokens=weighted_input,
+                output_tokens=weighted_output,
+                # Cost is raw-token based; 0 when catalog prices are missing.
+                est_cost_usd=est_cost if est_cost is not None else 0.0,
+                commit=False,
+            )
+
+            # The create flush already supplies the row identity. No refresh
+            # is needed after commit: a failed read must not report a saved
+            # reply as failed or refund its charged quota.
+            await session.commit()
+            committed = True
+
+        # Cap overshoot at the user's daily limit so one turn's actual >
+        # reserved delta can't push the counter past the cap (which would
+        # make subsequent reserve_usage checks under-report remaining quota).
+        # Runs AFTER a successful commit — failure here must not refund the
+        # full reservation (the reply already persisted).
+        daily_limit = (
+            quota_service.daily_limit_for_user(ctx.user, settings) if ctx.user is not None else None
+        )
+        try:
+            # H2: retry adjust_usage with short backoff so a transient Redis
+            # blip doesn't leave the reservation inflated (user loses quota
+            # on subsequent turns). On persistent failure, the next turn's
+            # heal_usage_drift will correct the drift from the DB total.
+            for _attempt in range(3):
+                try:
+                    await quota_service.adjust_usage(
+                        redis,
+                        str(ctx.user_id),
+                        ctx.reserved_tokens,
+                        weighted_total,
+                        daily_limit=daily_limit,
+                    )
+                    break
+                except Exception:
+                    if _attempt == 2:
+                        raise
+                    await asyncio.sleep(0.1 * (_attempt + 1))
+        except Exception:
+            logger.warning(
+                "adjust_usage failed after finalize commit; Redis may drift "
+                "from the DB total — heal_usage_drift on next turn will correct",
+                exc_info=True,
+            )
+            try:
+                await quota_service.mark_usage_needs_heal(redis, str(ctx.user_id))
+            except Exception:
+                logger.warning(
+                    "mark_usage_needs_heal failed after adjust_usage; heal may not run",
+                    exc_info=True,
+                )
+        if est_cost:
+            try:
+                await quota_service.record_global_spend(redis, est_cost)
+            except Exception:
+                logger.exception("record_global_spend failed after successful finalize")
+    except Exception:
+        logger.exception("Stream-turn finalize failed; refunding reserved quota")
+        try:
+            await quota_service.refund_usage(redis, str(ctx.user_id), ctx.reserved_tokens)
+        except Exception:
+            logger.exception("refund_usage failed after finalize error")
+        raise
+    finally:
+        await clear_pending_finalize(redis, ctx.chat_id)
+        if committed and pending_storage_keys:
+            await attachment_lifecycle.delete_storage_keys(settings, pending_storage_keys)
+
+
+async def enqueue_post_turn_jobs(
+    redis: Redis,
+    settings: Settings,
+    ctx: StreamContext,
+    assistant_text: str,
+) -> None:
+    transcript = f"User: {ctx.user_message_content}\nAssistant: {assistant_text}"
+    # Extract from the user line only (stripped). Assistant restatements and
+    # attachment OCR must not become durable memories.
+    memory_user_text = memory_extract_user_text(ctx.user_message_content)
+    memory_transcript = f"User: {memory_user_text}" if memory_user_text else ""
+    # (job_type, payload, dedupe_key|None) — dedupe prevents at-least-once
+    # redelivery from double-applying side effects (duplicate todos, etc.).
+    job_specs: list[tuple[str, dict[str, str], str | None]] = []
+    turn_number = (ctx.prior_count + 2) // 2
+    turn_key = (
+        str(ctx.assistant_message_id)
+        if ctx.assistant_message_id is not None
+        else f"prior{ctx.prior_count}"
+    )
+    spend_capped = await quota_service.global_spend_exceeded(redis, settings)
+    if spend_capped:
+        logger.warning(
+            "skipping background LLM jobs: global spend cap user_id=%s chat_id=%s",
+            ctx.user_id,
+            ctx.chat_id,
+        )
+    should_extract_memory = (
+        turn_number == 1
+        or (
+            settings.memory_extract_every_n_turns > 0
+            and turn_number % settings.memory_extract_every_n_turns == 0
+        )
+        or is_explicit_memory_command(memory_user_text)
+    )
+    if (
+        not spend_capped
+        and not ctx.skip_memory_jobs
+        and should_extract_memory
+        and ctx.user is not None
+        and ctx.user.memory_enabled
+        and memory_transcript
+    ):
+        # Dedupe per assistant message. Lock-busy retries use `{stem}:lock{n}`.
+        job_specs.append(
+            (
+                "memory",
+                {
+                    "user_id": str(ctx.user_id),
+                    "chat_id": str(ctx.chat_id),
+                    "transcript": cap_text_head_tail(
+                        memory_transcript, _MEMORY_TRANSCRIPT_MAX_CHARS
+                    ),
+                    "assistant_message_id": turn_key,
+                },
+                f"memory:{turn_key}",
+            ),
+        )
+    if (
+        not spend_capped
+        and not ctx.skip_memory_jobs
+        and todos_service.should_recover_todo_writes(ctx.user_message_content, transcript)
+    ):
+        todo_transcript = transcript
+        try:
+            async with SessionLocal() as session:
+                todo_transcript = await todos_service.build_todo_sync_transcript(
+                    session,
+                    ctx.chat_id,
+                    user_message=ctx.user_message_content,
+                    assistant_text=assistant_text,
+                )
+        except Exception:
+            logger.exception("Failed to expand todo sync transcript; using current turn only")
+        job_specs.append(
+            (
+                "todos",
+                {
+                    "user_id": str(ctx.user_id),
+                    "chat_id": str(ctx.chat_id),
+                    "transcript": todo_transcript,
+                },
+                f"todosync:{ctx.chat_id}:{turn_key}",
+            ),
+        )
+    if ctx.run_title:
+        job_specs.append(
+            (
+                "topic",
+                {
+                    "chat_id": str(ctx.chat_id),
+                    "user_id": str(ctx.user_id),
+                    "user_message": ctx.user_message_content,
+                    "assistant_message": assistant_text,
+                },
+                f"topic:{ctx.chat_id}",
+            ),
+        )
+    if not spend_capped and settings.history_compression_enabled:
+        # Dedupe by chat: rapid successive turns on the same chat coalesce —
+        # the worker skips a duplicate enqueue, and the one job that runs
+        # compresses whatever is pending at that time (including the later
+        # turn's messages). Avoids churning the worker with a no-op compress
+        # job on every turn.
+        job_specs.append(
+            (
+                "compress",
+                {"chat_id": str(ctx.chat_id), "user_id": str(ctx.user_id)},
+                f"compress:{ctx.chat_id}",
+            )
+        )
+    if not spend_capped and ctx.prior_count % 10 == 0:
+        # Dedupe by user: the handler reads recent activity at run time, so a
+        # coalesced run covers the latest state. Without a key, rapid turns at
+        # the % 10 boundary could stack duplicate suggestion jobs per user.
+        job_specs.append(
+            ("suggestions", {"user_id": str(ctx.user_id)}, f"suggestions:{ctx.user_id}")
+        )
+    for attachment_id in ctx.indexable_attachment_ids if not spend_capped else []:
+        job_specs.append(
+            (
+                "attachment_index",
+                {
+                    "attachment_id": attachment_id,
+                    "user_id": str(ctx.user_id),
+                    "chat_id": str(ctx.chat_id),
+                },
+                f"attachment_index:{attachment_id}:{ctx.chat_id}",
+            ),
+        )
+    if (
+        not spend_capped
+        and settings.chat_history_rag_enabled
+        and ctx.assistant_message_id is not None
+        and not ctx.skip_memory_jobs
+    ):
+        job_specs.append(
+            (
+                "message_index",
+                {
+                    "user_id": str(ctx.user_id),
+                    "chat_id": str(ctx.chat_id),
+                    "assistant_message_id": str(ctx.assistant_message_id),
+                },
+                f"message_index:{ctx.assistant_message_id}",
+            ),
+        )
+
+    await asyncio.gather(
+        *(
+            jobs.enqueue(redis, name, payload, dedupe_key=dedupe_key)
+            for name, payload, dedupe_key in job_specs
+        )
+    )

@@ -1,0 +1,2384 @@
+import asyncio
+from contextlib import ExitStack, suppress
+from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
+
+import pytest
+
+from app.core.config import Settings
+from app.tests.modules.chat.chat_test_support import (
+    FakeSessionCM as _FakeSessionCM,
+)
+from app.tests.modules.chat.chat_test_support import (
+    offline_session_patches as _offline_session_patches,
+)
+from app.tests.modules.chat.chat_test_support import stub_recent
+
+pytest_plugins = ("app.tests.modules.chat.chat_test_support",)
+
+
+@pytest.mark.asyncio
+async def test_stream_does_not_duplicate_user_message(stream_offline_io):
+    from app.modules import chat as chat_module
+
+    tokens = ["Hello", " there"]
+
+    async def fake_stream(**kwargs):
+        for t in tokens:
+            yield t
+
+    user_id = AsyncMock()
+    chat_id = AsyncMock()
+
+    mock_build = AsyncMock(
+        return_value=[
+            {"role": "system", "content": "sys"},
+            {"role": "user", "content": "question"},
+        ]
+    )
+
+    fake_user = MagicMock()
+    fake_user.id = user_id
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch("app.modules.chat.turn_prep.context.build_prompt_messages", mock_build),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
+        ),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
+    ):
+        collected = []
+        async for tok in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            user_id=user_id,
+            chat_id=chat_id,
+            content="question",
+        ):
+            collected.append(tok)
+
+    assert collected == tokens
+    assert mock_build.await_count == 1
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
+    from app.modules import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "answer"
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=stub_recent(3))),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
+        ),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
+    ):
+        result: dict[str, str] = {}
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(
+                max_output_tokens=100,
+                memory_extract_every_n_turns=1,
+                mcp_tool_loop_enabled=False,
+            ),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="second turn info",
+            result=result,
+        ):
+            pass
+        finalize = result.get("_finalize_task")
+        if finalize is not None:
+            await finalize
+
+    # Explicit every-turn setting still enqueues memory on later turns.
+    job_types = [call.args[1] for call in enqueue_job.call_args_list]
+    assert job_types.count("memory") == 1
+    assert "topic" not in job_types
+    assert "todos" not in job_types
+    assert "projects" not in job_types
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io):
+    """When the user has memory_enabled=False, the memory job must not be
+    enqueued at all — previously it was enqueued every N turns and the
+    extraction worker no-op'd internally, wasting a stream-job cycle."""
+    from app.modules import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "answer"
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.memory_enabled = False
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
+        ),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
+    ):
+        result: dict[str, str] = {}
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="second turn info",
+            result=result,
+        ):
+            pass
+        finalize = result.get("_finalize_task")
+        if finalize is not None:
+            await finalize
+
+    job_types = [call.args[1] for call in enqueue_job.call_args_list]
+    assert "memory" not in job_types
+
+
+@pytest.mark.asyncio
+async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
+    """Ops can still raise memory_extract_every_n_turns to skip intermediate turns."""
+    from app.modules import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "answer"
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.list_recent", AsyncMock(return_value=stub_recent(2))),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
+        ),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
+    ):
+        result: dict[str, str] = {}
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(
+                max_output_tokens=100, memory_extract_every_n_turns=3, mcp_tool_loop_enabled=False
+            ),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="turn two chit chat",
+            result=result,
+        ):
+            pass
+        finalize = result.get("_finalize_task")
+        if finalize is not None:
+            await finalize
+
+    job_types = [call.args[1] for call in enqueue_job.call_args_list]
+    assert "memory" not in job_types
+
+
+@pytest.mark.asyncio
+async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
+    """Todo LLM extraction must not block the chat path before streaming."""
+    from app.modules import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "ok"
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.todos.extract.extract_todo_actions",
+            AsyncMock(),
+        ) as extract_mock,
+        patch(
+            "app.modules.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
+        ),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+    ):
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="remind me to call mom tomorrow",
+        ):
+            pass
+
+    extract_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offline_io):
+    """A reminder the model confirmed still enqueues.
+
+    "Remind me tomorrow" with no clock is not that case: the reply asks for a
+    time, and the extractor does not invent one.
+    """
+    from app.modules import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "I'll set a reminder for Call mom."
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
+        ),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()) as enqueue_job,
+    ):
+        result: dict[str, str] = {}
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="Sounds good for tomorrow",
+            result=result,
+        ):
+            pass
+        finalize = result.get("_finalize_task")
+        if finalize is not None:
+            await finalize
+
+    job_types = [call.args[1] for call in enqueue_job.call_args_list]
+    assert "todos" in job_types
+    assert result.get("todos_sync") == "1"
+
+
+@pytest.mark.asyncio
+async def test_stream_sets_final_content_on_cancel(stream_offline_io):
+    """On a user-initiated stop, the server persists text the client may not have
+    rendered yet; `result["final_content"]` carries the authoritative persisted
+    text so the client can reconcile (stop/regenerate desync fix)."""
+    from app.modules import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        for w in ["one ", "two ", "three "]:
+            yield w
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    cancel_after = {"n": 0}
+
+    def should_cancel():
+        cancel_after["n"] += 1
+        return cancel_after["n"] > 1  # let the first token through, then cancel
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
+        ),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
+    ):
+        result: dict[str, object] = {}
+        yielded: list[str] = []
+        async for tok in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="question",
+            should_cancel=should_cancel,
+            result=result,
+        ):
+            yielded.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    # Only the first token was yielded before cancel broke the loop.
+    assert yielded == ["one "]
+    # The authoritative persisted text is exposed for client reconciliation.
+    assert result.get("final_content") == "one"
+
+
+@pytest.mark.asyncio
+async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
+    """User stop must not record a failed health sample (poisons fallback routing)."""
+    from uuid import uuid4
+
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "one "
+        yield "two "
+
+    record = AsyncMock()
+    cancel_after = {"n": 0}
+
+    def should_cancel() -> bool:
+        cancel_after["n"] += 1
+        return cancel_after["n"] > 1
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+
+    result: dict[str, object] = {}
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.model_health.record_sample", record))
+        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", AsyncMock()))
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        async for _ in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=should_cancel,
+            result=result,
+        ):
+            pass
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    record.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_stream_and_finalize_starts_before_user_message_persist(stream_offline_io):
+    """First token must not wait on the Neon user-row commit."""
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    persist_hold = asyncio.Event()
+    llm_started = asyncio.Event()
+    finalize = AsyncMock()
+
+    async def persist() -> list[str]:
+        await persist_hold.wait()
+        return ["att-1"]
+
+    async def fake_stream(**_kwargs: object):
+        llm_started.set()
+        yield "ok"
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+        user_message_persist=asyncio.create_task(persist()),
+    )
+    result: dict[str, object] = {}
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        agen = stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        )
+        token = await agen.__anext__()
+        assert token == "ok"
+        assert llm_started.is_set()
+        assert ctx.user_message_persist is not None
+        assert ctx.user_message_persist.done() is False
+        finalize.assert_not_awaited()
+        persist_hold.set()
+        async for _ in agen:
+            pass
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    finalize.assert_awaited()
+    assert ctx.indexable_attachment_ids == ["att-1"]
+    assert ctx.user_message_persist is None
+
+
+@pytest.mark.asyncio
+async def test_hard_cancel_before_tokens_skips_model_health_sample(stream_offline_io):
+    """Cancel while waiting on the provider must not record success=False."""
+    import asyncio
+    from uuid import uuid4
+
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        raise asyncio.CancelledError()
+        yield  # pragma: no cover
+
+    record = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.model_health.record_sample", record))
+        with pytest.raises(asyncio.CancelledError):
+            async for _ in stream_and_finalize(
+                AsyncMock(),
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+                ctx,
+                should_cancel=None,
+            ):
+                pass
+
+    record.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_stream_chat_response_rejects_empty_content(stream_offline_io):
+    from app.exceptions import ChatNotFoundError
+    from app.modules.chat.stream import stream_chat_response
+
+    with pytest.raises(ChatNotFoundError, match="empty"):
+        async for _ in stream_chat_response(
+            AsyncMock(),
+            Settings(),
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            content="   ",
+        ):
+            pass
+
+
+@pytest.mark.asyncio
+async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
+    from app.modules.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    list_recent = AsyncMock(return_value=[])
+    long_text = "x" * 121
+
+    with (
+        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content=long_text,
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+    list_recent.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("greeting", ["hi", "hello", "thanks", "ok"])
+async def test_try_image_gen_skips_recent_lookup_for_greeting(greeting: str):
+    from app.modules.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    list_recent = AsyncMock(return_value=[])
+
+    with (
+        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content=greeting,
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+    list_recent.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_try_image_gen_looks_up_recent_when_text_could_be_revision():
+    from app.modules.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    list_recent = AsyncMock(return_value=[])
+
+    with (
+        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content="make it blue",
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+    list_recent.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_try_image_gen_uses_preloaded_recent_without_lookup():
+    from app.modules.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    list_recent = AsyncMock(return_value=[])
+
+    with (
+        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content="make it blue",
+            result=None,
+            create_user_message=True,
+            recent_messages=[],
+        )
+
+    assert handled is False
+    list_recent.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["what's 2+2", "help me think", "how are you"])
+async def test_try_image_gen_skips_recent_lookup_for_chat_openers(text: str):
+    from app.modules.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    list_recent = AsyncMock(return_value=[])
+
+    with (
+        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content=text,
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+    list_recent.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_try_image_gen_skips_recent_lookup_on_empty_chat():
+    """A brand-new chat has no prior image — don't pay Neon list_recent."""
+    from app.modules.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    list_recent = AsyncMock(return_value=[])
+
+    with (
+        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content="red",
+            result=None,
+            create_user_message=True,
+            skip_revision_lookup=True,
+        )
+
+    assert handled is False
+    list_recent.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_try_image_gen_dog_then_image_uses_prior_subject():
+    from app.modules.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    asst_msg = MagicMock()
+    asst_msg.id = uuid4()
+    asst_msg.content = "[Image: /attachments/x/file]"
+    asst_msg.model = "image-gen-model"
+    generate = AsyncMock(return_value=(MagicMock(), asst_msg))
+    dog = MagicMock()
+    dog.role = "user"
+    dog.content = "Dog"
+
+    with (
+        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
+        patch("app.modules.chat.stream.image_generation_service.generate_for_chat", generate),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content="Image",
+            result=None,
+            create_user_message=True,
+            recent_messages=[dog],
+        )
+
+    assert handled is True
+    assert generate.await_args.kwargs["prompt"] == "Dog"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status_code", [403, 404])
+async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
+    """403/404 must not delete the prior assistant (omit-until-success)."""
+    from app.modules.chat.stream import _try_image_gen_for_turn
+    from app.modules.images.generation import ImageGenerationError
+
+    user = MagicMock()
+    user.id = uuid4()
+    old_id = uuid4()
+    delete_message = AsyncMock()
+
+    with (
+        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value="a cat"),
+        patch("app.modules.chat.stream.messages_repo.delete_message", delete_message),
+        patch(
+            "app.modules.chat.stream.image_generation_service.generate_for_chat",
+            AsyncMock(side_effect=ImageGenerationError("Not available", status_code=status_code)),
+        ),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content="Generate image: a cat",
+            result=None,
+            create_user_message=False,
+            replace_assistant_id=old_id,
+        )
+
+    assert handled is False
+    delete_message.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_image_regen_deletes_prior_assistant_only_after_success():
+    from app.modules.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    old_id = uuid4()
+    chat_id = uuid4()
+    old = MagicMock()
+    old.id = old_id
+    old.role = "assistant"
+    asst_msg = MagicMock()
+    asst_msg.id = uuid4()
+    asst_msg.content = "[Image: /attachments/x/file]"
+    asst_msg.model = "image-gen-model"
+    order: list[str] = []
+
+    async def generate_for_chat(*_args, **_kwargs):
+        order.append("generate")
+        return MagicMock(), asst_msg
+
+    async def delete_message(_session, message):
+        order.append(f"delete:{message.id}")
+
+    async def purge_attachments_for_messages(_session, _settings, message_ids):
+        order.append(f"purge:{message_ids[0]}")
+
+    get_by_id = AsyncMock(return_value=old)
+
+    with (
+        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.extract_image_gen_prompt", return_value="a cat"),
+        patch("app.modules.chat.stream.SessionLocal", _FakeSessionCM),
+        patch("app.modules.chat.stream.messages_repo.get_by_id", get_by_id),
+        patch("app.modules.chat.stream.messages_repo.delete_message", delete_message),
+        patch(
+            "app.modules.chat.stream.attachment_lifecycle.purge_attachments_for_messages",
+            purge_attachments_for_messages,
+        ),
+        patch(
+            "app.modules.chat.stream.image_generation_service.generate_for_chat",
+            generate_for_chat,
+        ),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=chat_id,
+            content="Generate image: a cat",
+            result={},
+            create_user_message=False,
+            replace_assistant_id=old_id,
+        )
+
+    assert handled is True
+    assert order == ["generate", f"purge:{old_id}", f"delete:{old_id}"]
+    get_by_id.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_try_image_lookup_returns_false_when_disabled():
+    from app.modules.chat.stream import _try_image_lookup_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+
+    with patch("app.modules.chat.stream.extract_image_lookup_query", return_value="ear"):
+        handled = await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=False),
+            user=user,
+            chat_id=uuid4(),
+            content="show me an ear",
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+
+
+@pytest.mark.asyncio
+async def test_try_image_lookup_returns_false_when_no_query_match():
+    from app.modules.chat.stream import _try_image_lookup_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+
+    with patch("app.modules.chat.stream.extract_image_lookup_query", return_value=None):
+        handled = await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            content="what's the weather",
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+
+
+@pytest.mark.asyncio
+async def test_try_image_lookup_succeeds_and_populates_result():
+    from app.modules.chat.stream import _try_image_lookup_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    chat_id = uuid4()
+    user_msg = MagicMock()
+    asst_msg = MagicMock()
+    asst_msg.id = uuid4()
+    asst_msg.content = "[Image: /attachments/x/file]"
+    asst_msg.model = "image-search-model"
+
+    search_and_attach = AsyncMock(return_value=(user_msg, asst_msg))
+    result: dict = {}
+
+    with (
+        patch("app.modules.chat.stream.extract_image_lookup_query", return_value="human ear"),
+        patch(
+            "app.modules.chat.stream.image_search_service.search_and_attach_for_chat",
+            search_and_attach,
+        ),
+    ):
+        handled = await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=chat_id,
+            content="show me an ear",
+            result=result,
+            create_user_message=True,
+        )
+
+    assert handled is True
+    assert result["message_id"] == str(asst_msg.id)
+    assert result["final_content"] == asst_msg.content
+    assert result["resolved_model"] == "image-search-model"
+    search_and_attach.assert_awaited_once()
+    _args, kwargs = search_and_attach.call_args
+    assert kwargs["query"] == "human ear"
+    assert kwargs["chat_id"] == chat_id
+    assert kwargs["create_user_message"] is True
+
+
+@pytest.mark.asyncio
+async def test_try_image_lookup_quota_exceeded_raises():
+    from app.exceptions import QuotaExceededError
+    from app.modules.chat.stream import _try_image_lookup_for_turn
+    from app.modules.images.search import ImageSearchError
+
+    user = MagicMock()
+    user.id = uuid4()
+
+    search_and_attach = AsyncMock(side_effect=ImageSearchError("limit reached", status_code=429))
+
+    with (
+        patch("app.modules.chat.stream.extract_image_lookup_query", return_value="ear"),
+        patch(
+            "app.modules.chat.stream.image_search_service.search_and_attach_for_chat",
+            search_and_attach,
+        ),
+        pytest.raises(QuotaExceededError),
+    ):
+        await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            content="show me an ear",
+            result=None,
+            create_user_message=True,
+        )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status_code", [404, 502, 503])
+async def test_try_image_lookup_soft_fails_fall_through_to_chat(status_code: int):
+    """No-results / provider-down lookups fall through to a normal LLM answer."""
+    from app.modules.chat.stream import _try_image_lookup_for_turn
+    from app.modules.images.search import ImageSearchError
+
+    user = MagicMock()
+    user.id = uuid4()
+
+    search_and_attach = AsyncMock(
+        side_effect=ImageSearchError("not found", status_code=status_code)
+    )
+
+    with (
+        patch("app.modules.chat.stream.extract_image_lookup_query", return_value="ear"),
+        patch(
+            "app.modules.chat.stream.image_search_service.search_and_attach_for_chat",
+            search_and_attach,
+        ),
+    ):
+        handled = await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            content="show me an ear",
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+
+
+@pytest.mark.asyncio
+async def test_try_image_lookup_other_error_raises_chat_service_error():
+    from app.exceptions import ChatServiceError
+    from app.modules.chat.stream import _try_image_lookup_for_turn
+    from app.modules.images.search import ImageSearchError
+
+    user = MagicMock()
+    user.id = uuid4()
+
+    search_and_attach = AsyncMock(side_effect=ImageSearchError("boom", status_code=500))
+
+    with (
+        patch("app.modules.chat.stream.extract_image_lookup_query", return_value="ear"),
+        patch(
+            "app.modules.chat.stream.image_search_service.search_and_attach_for_chat",
+            search_and_attach,
+        ),
+        pytest.raises(ChatServiceError),
+    ):
+        await _try_image_lookup_for_turn(
+            Settings(image_search_enabled=True),
+            user=user,
+            chat_id=uuid4(),
+            content="show me an ear",
+            result=None,
+            create_user_message=True,
+        )
+
+
+@pytest.mark.asyncio
+async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
+    """WS/SSE CancelledError after tokens must persist like soft stop (no full refund)."""
+    import asyncio
+    from uuid import uuid4
+
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "partial "
+        raise asyncio.CancelledError()
+
+    finalize = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        tokens: list[str] = []
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            tokens.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert tokens == ["partial "]
+    assert result.get("final_content") == "partial"
+    assert result.get("completion") == "user_stop"
+    finalize.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
+    """Stopping the task after a token must still save that partial reply."""
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "partial "
+        await asyncio.sleep(30)
+
+    finalize = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+    tokens: list[str] = []
+
+    async def consume() -> None:
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            tokens.append(tok)
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        task = asyncio.create_task(consume())
+        for _ in range(50):
+            if tokens:
+                break
+            await asyncio.sleep(0.01)
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+        finalize_db = result.get("_finalize_db_task")
+        if isinstance(finalize_db, asyncio.Task):
+            await finalize_db
+
+    assert tokens == ["partial "]
+    assert result.get("final_content") == "partial"
+    assert result.get("completion") == "user_stop"
+    finalize.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_hard_cancel_with_empty_reply_reraises(stream_offline_io):
+    """CancelledError before any token must propagate so the caller refunds."""
+    import asyncio
+    from uuid import uuid4
+
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        raise asyncio.CancelledError()
+        yield  # pragma: no cover — async generator
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+
+    with (
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.modules.chat.stream.finalize_stream_turn_db", AsyncMock()) as finalize,
+        pytest.raises(asyncio.CancelledError),
+    ):
+        async for _ in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result={},
+        ):
+            pass
+
+    finalize.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_provider_fail_with_partial_reply_marks_interrupted(stream_offline_io):
+    """A mid-stream provider error with tokens must finalize as interrupted, not complete."""
+    from uuid import uuid4
+
+    from app.gateways.litellm_gateway import ModelUnavailableError
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "partial "
+        raise ModelUnavailableError("provider died", failed_alias="free-chat")
+
+    finalize = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        tokens: list[str] = []
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            tokens.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert tokens == ["partial "]
+    assert result.get("completion") == "interrupted"
+    finalize.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
+    """finish_reason=length is a truncated answer, not a completed one."""
+    from uuid import uuid4
+
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**kwargs):
+        meta = kwargs.get("stream_meta")
+        if isinstance(meta, dict):
+            meta["finish_reason"] = "length"
+        yield "cutoff"
+
+    finalize = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        async for _ in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            pass
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert result.get("completion") == "interrupted"
+    finalize.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_soft_cancel_mid_stream_marks_user_stop(stream_offline_io):
+    from uuid import uuid4
+
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "keep "
+        yield "going"
+
+    cancel_after_first = {"n": 0}
+
+    def should_cancel() -> bool:
+        cancel_after_first["n"] += 1
+        return cancel_after_first["n"] > 1
+
+    finalize = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        tokens: list[str] = []
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=should_cancel,
+            result=result,
+        ):
+            tokens.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert tokens == ["keep "]
+    assert result.get("completion") == "user_stop"
+    finalize.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
+    """Stop generation must aclose the provider stream so upstream tokens stop accruing."""
+    from app.modules import chat as chat_module
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    class TrackedStream:
+        def __init__(self) -> None:
+            self.aclose_called = False
+
+        def __call__(self, **_kwargs):
+            return self
+
+        def __aiter__(self):
+            self._remaining = ["one ", "two ", "three "]
+            return self
+
+        async def __anext__(self):
+            if not self._remaining:
+                raise StopAsyncIteration
+            return self._remaining.pop(0)
+
+        async def aclose(self) -> None:
+            self.aclose_called = True
+
+    tracked = TrackedStream()
+    cancel_after = {"n": 0}
+
+    def should_cancel():
+        cancel_after["n"] += 1
+        return cancel_after["n"] > 1
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
+        ),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", tracked),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
+    ):
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="question",
+            should_cancel=should_cancel,
+        ):
+            pass
+
+    assert tracked.aclose_called is True
+
+
+@pytest.mark.asyncio
+async def test_stream_places_query_without_location_prompts_to_enable(stream_offline_io):
+    """A 'near me' places query with no user.location should yield a deterministic
+    'enable location' instant reply and skip web search (no guessing)."""
+    from app.modules import chat as chat_module
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.location = ""  # no location set
+    fake_user.location_enabled = False
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    augment = AsyncMock(return_value=(None, []))
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.modules.web_search.build_search_augmentation", augment),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", AsyncMock()),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
+    ):
+        yielded: list[str] = []
+        async for tok in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="best restaurants near me",
+        ):
+            yielded.append(tok)
+
+    # The instant reply is the enable-location prompt.
+    assert any("Settings" in t and "location" in t.lower() for t in yielded), yielded
+    # Web search must be skipped (no guessing "near me").
+    augment.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_stream_places_query_uses_client_location_without_profile(stream_offline_io):
+    """Opted-in client GPS (no saved profile city) should run web search."""
+    from app.modules import chat as chat_module
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.location = ""
+    fake_user.location_enabled = True
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    augment = AsyncMock(return_value=(None, []))
+
+    async def fake_stream(**kwargs):
+        yield "answer"
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.users.update", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=0)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch("app.modules.web_search.build_search_augmentation", augment),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
+    ):
+        yielded: list[str] = []
+        async for tok in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="best restaurants near me",
+            client_location="San Francisco, CA",
+        ):
+            yielded.append(tok)
+
+    assert not any("Settings" in t for t in yielded), yielded
+    augment.assert_awaited_once()
+    assert augment.await_args.kwargs["user_location"] == "San Francisco, CA"
+
+
+@pytest.mark.asyncio
+async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io):
+    """Post-stream enrichment (calendar materialize, math fences, …) must not
+    abort persistence — the user already saw streamed tokens."""
+    from app.modules import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "hello "
+        yield "world"
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    finalize = AsyncMock()
+
+    with ExitStack() as stack:
+        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(
+            patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
+        )
+        stack.enter_context(
+            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+        )
+        stack.enter_context(
+            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3))
+        )
+        stack.enter_context(patch("app.repositories.messages.create", AsyncMock()))
+        stack.enter_context(
+            patch(
+                "app.modules.chat.turn_prep.context.build_prompt_messages",
+                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+            )
+        )
+        stack.enter_context(
+            patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False))
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.load_calendar_for_prompt",
+                AsyncMock(return_value=None),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=RuntimeError("calendar boom")),
+            )
+        )
+        stack.enter_context(
+            patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False))
+        )
+        stack.enter_context(
+            patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None))
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.inbox.load_gmail_for_prompt",
+                AsyncMock(return_value=None),
+            )
+        )
+        stack.enter_context(
+            patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[]))
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.web_search.build_search_augmentation",
+                AsyncMock(return_value=(None, [])),
+            )
+        )
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.quota.adjust_usage", AsyncMock()))
+        stack.enter_context(patch("app.repositories.usage.add_tokens", AsyncMock()))
+        stack.enter_context(patch("app.repositories.chats.touch_by_id", AsyncMock()))
+        stack.enter_context(patch("app.core.jobs.enqueue", AsyncMock()))
+        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+
+        result: dict[str, object] = {}
+        collected: list[str] = []
+        async for tok in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="question",
+            result=result,
+            user=fake_user,
+        ):
+            collected.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert collected == ["hello ", "world"]
+    finalize.assert_awaited()
+    assert finalize.await_args.args[2] == "hello world"
+
+
+@pytest.mark.asyncio
+async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
+    """`final_content` must NOT be set on a normal (non-cancelled) turn — keep
+    `done` payloads small."""
+    from app.modules import chat as chat_module
+
+    async def fake_stream(**kwargs):
+        yield "answer"
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    with (
+        patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user)),
+        patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat)),
+        patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=3)),
+        patch("app.repositories.messages.create", AsyncMock()),
+        patch(
+            "app.modules.chat.turn_prep.context.build_prompt_messages",
+            AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+        ),
+        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
+        patch(
+            "app.modules.integrations.calendar.load_calendar_for_prompt",
+            AsyncMock(return_value=None),
+        ),
+        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
+        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
+        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
+        patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
+        patch(
+            "app.modules.web_search.build_search_augmentation",
+            AsyncMock(return_value=(None, [])),
+        ),
+        patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
+        patch("app.services.quota.adjust_usage", AsyncMock()),
+        patch("app.repositories.usage.add_tokens", AsyncMock()),
+        patch("app.repositories.chats.touch_by_id", AsyncMock()),
+        patch("app.core.jobs.enqueue", AsyncMock()),
+    ):
+        result: dict[str, object] = {}
+        async for _ in chat_module.stream_chat_response(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            user_id=fake_user.id,
+            chat_id=MagicMock(),
+            content="question",
+            result=result,
+        ):
+            pass
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert "final_content" not in result
+
+
+@pytest.mark.asyncio
+async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
+    """If regenerate deletes the prior assistant but the model returns nothing,
+    the old reply is restored so the chat is not left blank."""
+    from app.modules import chat as chat_module
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.timezone = None
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    fake_last = MagicMock()
+    fake_last.role = "assistant"
+    fake_last.id = MagicMock()
+    fake_last.content = "prior answer"
+    fake_last.model = "free-chat"
+
+    fake_last_user = MagicMock()
+    fake_last_user.content = "question"
+
+    restore = AsyncMock()
+
+    async def empty_stream(**kwargs):
+        if False:
+            yield ""
+
+    with ExitStack() as stack:
+        for patcher in _offline_session_patches():
+            stack.enter_context(patcher)
+        stack.enter_context(
+            patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
+        )
+        stack.enter_context(
+            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+        )
+        stack.enter_context(
+            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
+        )
+        stack.enter_context(
+            patch(
+                "app.repositories.messages.get_last_user",
+                AsyncMock(return_value=fake_last_user),
+            )
+        )
+        stack.enter_context(
+            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.chat.turn_prep.context.build_prompt_messages",
+                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.web_search.is_short_letter_answer",
+                MagicMock(return_value=False),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.web_search.is_places_list_query",
+                MagicMock(return_value=False),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.has_write_access",
+                AsyncMock(return_value=False),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.repositories.messages.recent_user_contents",
+                AsyncMock(return_value=[]),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+                AsyncMock(return_value=(None, None, [], None, False, None, None)),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.chat.turn_prep.context.inject_web_and_tools",
+                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+            )
+        )
+        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
+        stack.enter_context(
+            patch(
+                "app.modules.attachments.lifecycle.detach_attachments_for_messages",
+                AsyncMock(return_value=[]),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.attachments.lifecycle.delete_storage_keys",
+                AsyncMock(),
+            )
+        )
+        stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
+        )
+        stack.enter_context(patch("app.modules.chat.stream.restore_regenerate_backup", restore))
+        from app.gateways.litellm_gateway import ModelUnavailableError
+
+        with pytest.raises(ModelUnavailableError, match="isn't responding"):
+            async for _ in chat_module.stream_regenerate_response(
+                fake_redis,
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+                user_id=fake_user.id,
+                chat_id=MagicMock(),
+            ):
+                pass
+
+    restore.assert_awaited_once()
+    backup = restore.await_args.args[2]
+    assert backup.content == "prior answer"
+    assert backup.model == "free-chat"
+
+
+@pytest.mark.asyncio
+async def test_regenerate_omits_assistant_from_prompt_without_pre_delete(fake_redis):
+    """Prior assistant stays in DB until finalize; prompt build must omit it."""
+    from app.modules import chat as chat_module
+    from app.modules.chat.turn_prep import ClientGeoContext, TurnPromptBundle
+
+    captured: dict[str, object] = {}
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.timezone = None
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    fake_last = MagicMock()
+    fake_last.role = "assistant"
+    fake_last.id = MagicMock()
+    fake_last.content = "prior answer"
+    fake_last.model = "free-chat"
+
+    fake_last_user = MagicMock()
+    fake_last_user.content = "question"
+
+    async def track_build(*_args, **kwargs):
+        captured["omit"] = kwargs.get("omit_message_ids")
+        return TurnPromptBundle(
+            prompt_messages=[{"role": "system", "content": "sys"}],
+            meta={},
+            instant_reply=None,
+            search_sources=[],
+            local_places=False,
+            max_out=100,
+            fallback_models=[],
+            lightweight=False,
+            rich_context=True,
+            geo=ClientGeoContext(
+                user_location=None,
+                client_lat=None,
+                client_lng=None,
+                has_geo_fix=False,
+                geo_query=False,
+                ambiguous_nearby=False,
+                local_places=False,
+            ),
+            local_tz="UTC",
+            verified_subject=None,
+        )
+
+    async def empty_stream(**kwargs):
+        if False:
+            yield ""
+
+    delete_mock = AsyncMock()
+
+    with ExitStack() as stack:
+        for patcher in _offline_session_patches():
+            stack.enter_context(patcher)
+        stack.enter_context(
+            patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
+        )
+        stack.enter_context(
+            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+        )
+        stack.enter_context(
+            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
+        )
+        stack.enter_context(
+            patch(
+                "app.repositories.messages.get_last_user",
+                AsyncMock(return_value=fake_last_user),
+            )
+        )
+        stack.enter_context(
+            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.chat.stream.build_stream_prompt_context",
+                side_effect=track_build,
+            )
+        )
+        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
+        stack.enter_context(
+            patch(
+                "app.modules.attachments.lifecycle.detach_attachments_for_messages",
+                AsyncMock(return_value=[]),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.attachments.lifecycle.delete_storage_keys",
+                AsyncMock(),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.repositories.messages.delete_message",
+                delete_mock,
+            )
+        )
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
+        )
+        stack.enter_context(patch("app.modules.chat.stream.restore_regenerate_backup", AsyncMock()))
+        from app.gateways.litellm_gateway import ModelUnavailableError
+
+        with pytest.raises(ModelUnavailableError):
+            async for _ in chat_module.stream_regenerate_response(
+                fake_redis,
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+                user_id=fake_user.id,
+                chat_id=MagicMock(),
+            ):
+                pass
+
+    assert captured["omit"] == {fake_last.id}
+    delete_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
+    from app.modules import chat as chat_module
+
+    fake_user = MagicMock()
+    fake_user.id = MagicMock()
+    fake_user.default_model = "free-chat"
+    fake_user.response_style = "balanced"
+    fake_user.timezone = None
+    fake_user.locale = "en"
+
+    fake_chat = MagicMock()
+    fake_chat.model = "free-chat"
+    fake_chat.summary = None
+
+    fake_last = MagicMock()
+    fake_last.role = "assistant"
+    fake_last.id = MagicMock()
+    fake_last.content = "old"
+    fake_last.model = "free-chat"
+
+    fake_last_user = MagicMock()
+    fake_last_user.content = "Best restaurants near me"
+
+    fetch_web = AsyncMock(return_value=(None, None, [], None, False, None, None))
+
+    async def empty_stream(**kwargs):
+        if False:
+            yield ""
+
+    with ExitStack() as stack:
+        for patcher in _offline_session_patches():
+            stack.enter_context(patcher)
+        stack.enter_context(
+            patch("app.repositories.users.get_by_id", AsyncMock(return_value=fake_user))
+        )
+        stack.enter_context(
+            patch("app.repositories.chats.get_by_id", AsyncMock(return_value=fake_chat))
+        )
+        stack.enter_context(
+            patch("app.repositories.messages.get_last", AsyncMock(return_value=fake_last))
+        )
+        stack.enter_context(
+            patch(
+                "app.repositories.messages.get_last_user",
+                AsyncMock(return_value=fake_last_user),
+            )
+        )
+        stack.enter_context(
+            patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.chat.turn_prep.context.build_prompt_messages",
+                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.web_search.is_short_letter_answer",
+                MagicMock(return_value=False),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.has_write_access",
+                AsyncMock(return_value=False),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.repositories.messages.recent_user_contents",
+                AsyncMock(return_value=[]),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+                fetch_web,
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.chat.turn_prep.context.inject_web_and_tools",
+                AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
+            )
+        )
+        stack.enter_context(patch("app.services.quota.reserve_usage", AsyncMock(return_value=True)))
+        stack.enter_context(patch("app.services.quota.refund_usage", AsyncMock()))
+        stack.enter_context(
+            patch(
+                "app.modules.attachments.lifecycle.detach_attachments_for_messages",
+                AsyncMock(return_value=[]),
+            )
+        )
+        stack.enter_context(
+            patch(
+                "app.modules.attachments.lifecycle.delete_storage_keys",
+                AsyncMock(),
+            )
+        )
+        stack.enter_context(patch("app.repositories.messages.delete_message", AsyncMock()))
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", empty_stream)
+        )
+        stack.enter_context(patch("app.modules.chat.stream.restore_regenerate_backup", AsyncMock()))
+        from app.gateways.litellm_gateway import ModelUnavailableError
+
+        with pytest.raises(ModelUnavailableError):
+            async for _ in chat_module.stream_regenerate_response(
+                fake_redis,
+                Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+                user_id=fake_user.id,
+                chat_id=MagicMock(),
+                client_location="San Francisco, CA",
+                client_latitude=37.77,
+                client_longitude=-122.42,
+            ):
+                pass
+
+    fetch_web.assert_awaited_once()
+    assert fetch_web.await_args.kwargs["latitude"] == 37.77
+    assert fetch_web.await_args.kwargs["longitude"] == -122.42
+    assert fetch_web.await_args.kwargs["user_location"] == "San Francisco, CA"
+
+
+@pytest.mark.asyncio
+async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
+    """Instant replies must seed usage with ``input``/``output`` — the keys
+    ``finalize_stream_turn_db`` reads. ``input_tokens``/``output_tokens`` were
+    ignored, so quota fell back to full prompt re-estimation and overcharged."""
+    from uuid import uuid4
+
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    captured: dict[str, object] = {}
+
+    async def capture_finalize(_redis, _ctx, assistant_text, usage, _result):
+        captured["usage"] = dict(usage)
+        captured["assistant_text"] = assistant_text
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "what time is it?"}],
+        run_title=False,
+        user_message_content="what time is it?",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        instant_reply="It's 3:00 PM.",
+        skip_memory_jobs=True,
+    )
+
+    result: dict[str, object] = {}
+    with (
+        patch("app.modules.chat.stream.finalize_stream_turn_db", side_effect=capture_finalize),
+        patch(
+            "app.modules.integrations.calendar.materialize_calendar_proposals",
+            AsyncMock(side_effect=lambda *_a, **_k: _a[-1] if _a else "It's 3:00 PM."),
+        ),
+        patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
+    ):
+        tokens: list[str] = []
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            tokens.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert tokens == ["It's 3:00 PM."]
+    assert "usage" in captured
+    usage = captured["usage"]
+    assert isinstance(usage, dict)
+    assert "input" in usage and "output" in usage
+    assert "input_tokens" not in usage and "output_tokens" not in usage
+    # Instant replies skip the LLM entirely (canned time/location/not-connected
+    # answers) — no provider token cost, so quota is not charged: 0/0 seeds
+    # let finalize's adjust_usage refund the full reservation.
+    assert usage["input"] == 0
+    assert usage["output"] == 0
+
+
+@pytest.mark.asyncio
+async def test_web_search_tool_round_streams_final_instead_of_regenerating(
+    stream_offline_io,
+):
+    """After web_search tools run, the visible answer is streamed — not a
+    leftover complete_with_tools dumped as one instant_reply chunk."""
+    from app.modules.chat.stream import stream_and_finalize
+    from app.modules.chat.turn_prep import StreamContext
+
+    query = "What's the latest news on SpaceX?"
+    prompt = [{"role": "user", "content": query}]
+    after_tools = [
+        *prompt,
+        {"role": "assistant", "tool_calls": [{"id": "c1"}]},
+        {"role": "tool", "tool_call_id": "c1", "content": "SpaceX landed Starship."},
+    ]
+    stream_messages: list[list[dict]] = []
+
+    async def fake_stream(**kwargs):
+        stream_messages.append(kwargs["messages"])
+        yield "SpaceX "
+        yield "landed."
+
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=prompt,
+        run_title=False,
+        user_message_content=query,
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch(
+                "app.services.tool_loop.run_tool_rounds",
+                AsyncMock(return_value=(after_tools, None, None, [])),
+            )
+        )
+        stack.enter_context(
+            patch("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False))
+        )
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", AsyncMock()))
+        stack.enter_context(patch("app.services.model_health.record_sample", AsyncMock()))
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        yielded: list[str] = []
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=True),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            yielded.append(tok)
+        finalize_db = result.get("_finalize_db_task")
+        if finalize_db is not None:
+            await finalize_db
+
+    assert yielded == ["SpaceX ", "landed."]
+    assert ctx.instant_reply is None
+    assert stream_messages == [after_tools]

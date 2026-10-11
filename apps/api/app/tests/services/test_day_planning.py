@@ -6,6 +6,9 @@ from uuid import uuid4
 import pytest
 
 from app.core.config import Settings
+from app.modules.chat.prompt_builder import _integration_hints, _style_format_hints
+from app.modules.chat.prompt_constants import DAY_PLANNING_ANSWER_HINT
+from app.modules.chat.turn_prep.integrations import _inject_integration_blocks
 from app.modules.integrations.calendar import (
     CALENDAR_HINT,
     format_not_connected_calendar_block,
@@ -17,9 +20,6 @@ from app.modules.integrations.inbox import (
     should_inject_gmail_block,
 )
 from app.modules.todos.prompt_context import should_inject_todos_prompt
-from app.services.chat.prompt_builder import _integration_hints, _style_format_hints
-from app.services.chat.prompt_constants import DAY_PLANNING_ANSWER_HINT
-from app.services.chat.turn_prep.integrations import _inject_integration_blocks
 from app.services.day_planning import (
     is_day_planning_question,
     is_day_reflection_question,
@@ -190,15 +190,15 @@ async def _inject(query: str, *, calendar: str | None, gmail: str | None) -> str
     settings = Settings(gmail_enabled=True, google_calendar_enabled=True)
     with (
         patch(
-            "app.services.chat.turn_prep.integrations._load_calendar_prompt_block",
+            "app.modules.chat.turn_prep.integrations._load_calendar_prompt_block",
             AsyncMock(return_value=calendar),
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_gmail_prompt_block",
+            "app.modules.chat.turn_prep.integrations._load_gmail_prompt_block",
             AsyncMock(return_value=gmail),
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+            "app.modules.chat.turn_prep.integrations._load_pending_email_nudge",
             AsyncMock(return_value="- should not appear"),
         ),
     ):
@@ -254,15 +254,15 @@ async def test_reflection_injects_calendar_not_gmail():
     query = "How did my day go? Help me reflect and wrap up loose ends."
     with (
         patch(
-            "app.services.chat.turn_prep.integrations._load_calendar_prompt_block",
+            "app.modules.chat.turn_prep.integrations._load_calendar_prompt_block",
             AsyncMock(return_value=format_not_connected_calendar_block()),
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_gmail_prompt_block",
+            "app.modules.chat.turn_prep.integrations._load_gmail_prompt_block",
             gmail_loader,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+            "app.modules.chat.turn_prep.integrations._load_pending_email_nudge",
             AsyncMock(return_value=None),
         ),
     ):
@@ -318,15 +318,15 @@ async def test_casual_turn_does_not_inject_calendar_or_gmail():
     user.id = uuid4()
     with (
         patch(
-            "app.services.chat.turn_prep.integrations._load_calendar_prompt_block",
+            "app.modules.chat.turn_prep.integrations._load_calendar_prompt_block",
             calendar_loader,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_gmail_prompt_block",
+            "app.modules.chat.turn_prep.integrations._load_gmail_prompt_block",
             gmail_loader,
         ),
         patch(
-            "app.services.chat.turn_prep.integrations._load_pending_email_nudge",
+            "app.modules.chat.turn_prep.integrations._load_pending_email_nudge",
             AsyncMock(return_value=None),
         ),
     ):
