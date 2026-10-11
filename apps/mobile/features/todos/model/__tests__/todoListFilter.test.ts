@@ -43,7 +43,15 @@ describe("todosForView", () => {
     expect(todosForView(rows, "completed", now).map((item) => item.id)).toEqual(["done"]);
   });
 
-  it("previews only open to-dos due today", () => {
-    expect(todosForView(rows, "today", now).map((item) => item.id)).toEqual(["today"]);
+  it("previews open to-dos that are overdue or due today", () => {
+    const withOverdue = [
+      ...rows,
+      todo({ id: "overdue", due_at: new Date(2026, 8, 24, 15, 0, 0).toISOString() }),
+      todo({ id: "later", due_at: new Date(2026, 8, 30, 15, 0, 0).toISOString() }),
+    ];
+    expect(todosForView(withOverdue, "today", now).map((item) => item.id)).toEqual([
+      "today",
+      "overdue",
+    ]);
   });
 });
