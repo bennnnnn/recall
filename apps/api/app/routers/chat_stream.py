@@ -33,7 +33,9 @@ from app.services.chat.stream_events import (
     build_status_event,
     build_stream_end_payload,
     build_token_event,
+    clear_task_cancellation,
     error_payload_for_exception,
+    finish_open_stream,
     persist_finalize_if_pending,
     pop_finalize_tasks,
     take_related_prompts_event,
@@ -83,6 +85,7 @@ async def _stream_tokens_sse(
 ) -> AsyncIterator[str]:
     result: dict[str, Any] = {}
     event_queue: asyncio.Queue[tuple[str, str, str | None] | None] = asyncio.Queue()
+    producer_cancelled = False
     if cancel_event is None:
         cancel_event = asyncio.Event()
     yield _sse(build_start_event())
@@ -97,16 +100,30 @@ async def _stream_tokens_sse(
         return cancel_event.is_set()
 
     async def produce_tokens() -> None:
+        stream = stream_factory(result, on_status, on_reasoning, should_cancel)
         try:
-            stream = stream_factory(result, on_status, on_reasoning, should_cancel)
             async for token_text in stream:
                 if should_cancel():
                     break
                 await event_queue.put(("token", token_text, None))
+        except asyncio.CancelledError:
+            # Cancel often lands in this task, not inside the generator.
+            # The generator is then parked at yield and would never save.
+            clear_task_cancellation()
+            cancel_event.set()
         finally:
-            await event_queue.put(None)
+            await finish_open_stream(stream)
+            with suppress(Exception):
+                await event_queue.put(None)
 
     producer: asyncio.Task[None] | None = None
+
+    def cancel_producer_once() -> None:
+        nonlocal producer_cancelled
+        if producer_cancelled or producer is None or producer.done():
+            return
+        producer_cancelled = True
+        producer.cancel()
 
     async def watch_disconnect() -> None:
         """SSE is one-way, so a client's only way to stop generation is
@@ -124,8 +141,7 @@ async def _stream_tokens_sse(
             while not cancel_event.is_set():
                 if await request.is_disconnected():
                     cancel_event.set()
-                    if producer is not None and not producer.done():
-                        producer.cancel()
+                    cancel_producer_once()
                     await event_queue.put(None)
                     return
                 await asyncio.sleep(_DISCONNECT_POLL_SECONDS)
@@ -150,8 +166,8 @@ async def _stream_tokens_sse(
                 yield _sse(build_token_event(payload))
 
         if cancel_event.is_set():
-            if not producer.done():
-                producer.cancel()
+            # Disconnect already cancelled the producer. A second cancel
+            # lands in the partial-reply save and drops the text.
             with suppress(asyncio.CancelledError):
                 await producer
             return
@@ -188,10 +204,14 @@ async def _stream_tokens_sse(
             logger.exception("SSE chat stream failed chat_id=%s", chat_id)
         yield _sse(error_payload_for_exception(exc))
     finally:
+        # The request task is cancelled when the client drops the socket.
+        # That pending cancel would abort the partial-reply save on the
+        # next await, and a second producer.cancel() does the same.
+        clear_task_cancellation()
         cancel_event.set()
+        cancel_producer_once()
         if not producer.done():
-            producer.cancel()
-            with suppress(asyncio.CancelledError):
+            with suppress(asyncio.CancelledError, Exception):
                 await producer
         # M10: if the SSE transport failed mid-stream (client disconnect,
         # proxy drop) the success-path finalize await above never ran, so

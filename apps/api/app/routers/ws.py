@@ -34,7 +34,9 @@ from app.services.chat.stream_events import (
     build_status_event,
     build_stream_end_payload,
     build_token_event,
+    clear_task_cancellation,
     error_payload_for_exception,
+    finish_open_stream,
     persist_finalize_if_pending,
     pop_finalize_tasks,
     take_related_prompts_event,
@@ -118,12 +120,17 @@ async def _stream_over_ws(
         except asyncio.CancelledError:
             # Task cancel interrupts an in-flight LiteLLM wait; still fall
             # through to stream_end/done so the client gets a clean stop.
+            clear_task_cancellation()
             cancel_event.set()
         except Exception as exc:
             if not isinstance(exc, QuotaExceededError | ChatServiceError | ModelUnavailableError):
                 logger.exception("Chat stream failed")
             await _safe_send_json(websocket, error_payload_for_exception(exc))
             return
+
+        # A stop can leave the generator parked at yield. Resume it so the
+        # partial reply is saved before we read the finalize task.
+        await finish_open_stream(stream)
 
         # M12: if the user cancelled before any token was streamed (hard
         # cancel at the very start), skip stream_end + done entirely — an
@@ -216,8 +223,8 @@ async def _stream_over_ws(
                     await receiver
                 except asyncio.CancelledError:
                     pass
-        if cancel_event.is_set() and not producer.done():
-            producer.cancel()
+        # Stop already cancelled the producer once. Cancelling again
+        # aborts the save of the partial reply.
         try:
             await producer
         except asyncio.CancelledError:

@@ -3,19 +3,31 @@ import json
 import logging
 import time
 from collections.abc import AsyncIterator, Callable
+from contextlib import suppress
 from dataclasses import dataclass, field
 from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
 
+from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.services.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
+from app.services.chat.stream_events import await_ignoring_cancel, clear_task_cancellation
 from app.services.chat.tool_gate import should_classify_tool_web_search
 from app.services.chat.turn_prep import StreamContext, await_user_message_persist
 
 logger = logging.getLogger(__name__)
+
+_STOP_CLOSE_TIMEOUT_SECONDS = 2.0
+
+
+async def _close_stopped_stream(close: Callable[[], Any]) -> None:
+    """Close a stopped provider stream without blocking the reply save."""
+    with suppress(Exception, asyncio.CancelledError):
+        await asyncio.wait_for(close(), _STOP_CLOSE_TIMEOUT_SECONDS)
+
 
 # Provider finish_reason values that mean the reply stopped short of a
 # complete answer. "stop" is a normal end; these are not.
@@ -200,17 +212,31 @@ async def run_llm_token_stream(
                 ctx.timing.mark_first_token()
             accum.parts.append(token)
             yield token
+            # Stop can land while we are parked on this yield. The consumer
+            # resumes us so we halt before the next provider read and save.
+            if should_cancel and should_cancel():
+                accum.mark_user_stop()
+                break
         stream_ok = bool(accum.parts) or accum.was_cancelled
         finish = stream_meta.get("finish_reason")
         if finish in _INCOMPLETE_FINISH_REASONS and not accum.was_cancelled:
             accum.mark_truncated()
     except asyncio.CancelledError:
+        clear_task_cancellation()
         accum.mark_user_stop()
         raise
     finally:
         close = getattr(llm_stream, "aclose", None)
         if close is not None:
-            await close()
+            if accum.was_cancelled:
+                # Closing the provider socket can outlive the stop. Do not
+                # make the partial-reply save wait on it.
+                create_background_task(
+                    _close_stopped_stream(close),
+                    name="close_stopped_stream",
+                )
+            else:
+                await close()
         if not accum.was_cancelled:
             try:
                 from app.services import model_health as model_health_service
@@ -619,6 +645,7 @@ async def stream_and_finalize(
         except asyncio.CancelledError:
             if not accum.parts:
                 raise
+            clear_task_cancellation()
             accum.mark_user_stop()
             logger.info(
                 "Hard cancel with partial reply; finalizing chat_id=%s parts=%d",
@@ -642,29 +669,39 @@ async def stream_and_finalize(
             )
         if result is not None and accum.completion != "complete":
             result["completion"] = accum.completion
-        assistant_text = await enrich_final_content(
-            seams,
-            redis,
-            settings,
-            ctx,
-            assistant_text=assistant_text,
-            usage=usage,
-            result=result,
-            was_cancelled=accum.was_cancelled,
-            assistant_parts=accum.parts,
-            should_cancel=should_cancel,
-            completion=accum.completion,
-        )
-        await await_user_message_persist(ctx)
-        await register_and_enqueue_finalize(
-            seams,
-            redis,
-            settings,
-            ctx,
-            assistant_text=assistant_text,
-            usage=usage,
-            result=result,
-        )
+
+        async def persist_reply() -> None:
+            nonlocal assistant_text
+            assistant_text = await enrich_final_content(
+                seams,
+                redis,
+                settings,
+                ctx,
+                assistant_text=assistant_text,
+                usage=usage,
+                result=result,
+                was_cancelled=accum.was_cancelled,
+                assistant_parts=accum.parts,
+                should_cancel=should_cancel,
+                completion=accum.completion,
+            )
+            await await_user_message_persist(ctx)
+            await register_and_enqueue_finalize(
+                seams,
+                redis,
+                settings,
+                ctx,
+                assistant_text=assistant_text,
+                usage=usage,
+                result=result,
+            )
+
+        # Closing the provider socket after Stop cancels this task again.
+        # The save runs on its own task so that second cancel cannot drop it.
+        if accum.was_cancelled:
+            await await_ignoring_cancel(persist_reply())
+        else:
+            await persist_reply()
     finally:
         if ctx.user_message_persist is not None:
             try:

@@ -1,5 +1,5 @@
 import asyncio
-from contextlib import ExitStack
+from contextlib import ExitStack, suppress
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -1195,6 +1195,71 @@ async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
             tokens.append(tok)
         finalize_db = result.get("_finalize_db_task")
         if finalize_db is not None:
+            await finalize_db
+
+    assert tokens == ["partial "]
+    assert result.get("final_content") == "partial"
+    assert result.get("completion") == "user_stop"
+    finalize.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
+    """Stopping the task after a token must still save that partial reply."""
+    from app.services.chat.stream import stream_and_finalize
+    from app.services.chat.turn_prep import StreamContext
+
+    async def fake_stream(**_kwargs):
+        yield "partial "
+        await asyncio.sleep(30)
+
+    finalize = AsyncMock()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "hi"}],
+        run_title=False,
+        user_message_content="hi",
+        reserved_tokens=100,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+    )
+    result: dict[str, object] = {}
+    tokens: list[str] = []
+
+    async def consume() -> None:
+        async for tok in stream_and_finalize(
+            AsyncMock(),
+            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            ctx,
+            should_cancel=None,
+            result=result,
+        ):
+            tokens.append(tok)
+
+    with ExitStack() as stack:
+        stack.enter_context(
+            patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
+        )
+        stack.enter_context(patch("app.services.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.modules.integrations.calendar.materialize_calendar_proposals",
+                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
+            )
+        )
+        stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
+        task = asyncio.create_task(consume())
+        for _ in range(50):
+            if tokens:
+                break
+            await asyncio.sleep(0.01)
+        task.cancel()
+        with suppress(asyncio.CancelledError):
+            await task
+        finalize_db = result.get("_finalize_db_task")
+        if isinstance(finalize_db, asyncio.Task):
             await finalize_db
 
     assert tokens == ["partial "]

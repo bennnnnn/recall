@@ -1,6 +1,7 @@
 """Tests for HTTP SSE chat stream fallback."""
 
 import asyncio
+from contextlib import suppress
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -198,6 +199,92 @@ async def test_stream_tokens_sse_cancels_hung_producer_on_disconnect(monkeypatch
     assert started.is_set()
     assert cancelled.is_set()
     assert any('"type":"start"' in c for c in chunks)
+
+
+@pytest.mark.asyncio
+async def test_stream_tokens_sse_saves_partial_when_the_client_task_is_cancelled(monkeypatch):
+    """Dropping the socket cancels this generator. The tokens already sent must still be saved."""
+    import app.routers.chat_stream as chat_stream
+
+    monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
+    request = AsyncMock()
+    request.is_disconnected = AsyncMock(return_value=False)
+    result: dict[str, object] = {}
+
+    async def stream_factory(_result, _on_status, _on_reasoning, _should_cancel):
+        yield "hello "
+        try:
+            await asyncio.sleep(30)
+        except asyncio.CancelledError:
+            result["saved"] = "hello"
+            raise
+
+    seen = asyncio.Event()
+
+    async def consume() -> None:
+        async for chunk in chat_stream._stream_tokens_sse(
+            chat_id=uuid4(),
+            settings=Settings(),
+            stream_factory=stream_factory,
+            request=request,
+            cancel_event=asyncio.Event(),
+        ):
+            if "hello" in chunk:
+                seen.set()
+
+    task = asyncio.create_task(consume())
+    await asyncio.wait_for(seen.wait(), timeout=2.0)
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
+    assert result["saved"] == "hello"
+
+
+@pytest.mark.asyncio
+async def test_stream_tokens_sse_resumes_generator_parked_at_yield(monkeypatch):
+    """Cancel between tokens parks the generator at yield. Resume it so the reply is saved."""
+    import app.routers.chat_stream as chat_stream
+
+    monkeypatch.setattr(chat_stream, "_DISCONNECT_POLL_SECONDS", 0.01)
+    request = AsyncMock()
+    request.is_disconnected = AsyncMock(return_value=False)
+    result: dict[str, object] = {}
+    parked = asyncio.Event()
+
+    class _HoldTokenQueue(asyncio.Queue):
+        async def put(self, item: object) -> None:
+            if isinstance(item, tuple) and item and item[0] == "token":
+                parked.set()
+                await asyncio.Event().wait()
+            await super().put(item)
+
+    monkeypatch.setattr(chat_stream.asyncio, "Queue", _HoldTokenQueue)
+
+    async def stream_factory(_result, _on_status, _on_reasoning, should_cancel):
+        yield "hello "
+        if should_cancel():
+            result["saved"] = "hello"
+            return
+        await asyncio.sleep(30)
+
+    async def consume() -> None:
+        async for _chunk in chat_stream._stream_tokens_sse(
+            chat_id=uuid4(),
+            settings=Settings(),
+            stream_factory=stream_factory,
+            request=request,
+            cancel_event=asyncio.Event(),
+        ):
+            pass
+
+    task = asyncio.create_task(consume())
+    await asyncio.wait_for(parked.wait(), timeout=2.0)
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+
+    assert result["saved"] == "hello"
 
 
 @pytest.mark.asyncio
