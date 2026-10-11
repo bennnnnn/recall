@@ -8,6 +8,7 @@ from typing import Any
 
 from litellm import acompletion
 
+from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.gateways import mock_llm
 
@@ -543,6 +544,15 @@ async def stream_chat_completion(
         raise last_error
 
 
+_PROVIDER_CLOSE_TIMEOUT_SECONDS = 2.0
+
+
+async def _close_provider_stream(close: Callable[[], Awaitable[None]]) -> None:
+    """Close the provider socket after a stop without blocking the caller."""
+    with suppress(Exception, asyncio.CancelledError):
+        await asyncio.wait_for(close(), _PROVIDER_CLOSE_TIMEOUT_SECONDS)
+
+
 async def _stream_chat_once(
     *,
     settings: Settings,
@@ -692,8 +702,18 @@ async def _stream_chat_once(
     finally:
         close = getattr(response, "aclose", None)
         if close is not None:
-            with suppress(Exception):
-                await close()
+            # A stop cancels this task. Awaiting the socket close here either
+            # raises again immediately or waits out the provider, and the
+            # partial reply never gets saved. Close in the background.
+            task = asyncio.current_task()
+            if task is not None and task.cancelling():
+                create_background_task(
+                    _close_provider_stream(close),
+                    name="close_provider_stream",
+                )
+            else:
+                with suppress(Exception):
+                    await close()
 
 
 async def complete_text(

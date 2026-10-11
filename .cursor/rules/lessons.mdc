@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Stop dropped the reply after tokens had already arrived.** A task cancel stays pending after it is caught, so the next await raised again and the save never ran. Cancelling the consumer also left the generator parked at a yield, and closing the provider socket cancelled the task again during the save. Clear the pending cancel, cancel the producer only once, resume the generator, and run the save on its own task.
+
 - **A reminder after a price question sat for a couple of seconds, and the price question itself waited twice.** A short line was treated as a follow-up of any older search, so the web classifier ran and said no. A current-price question then spent another model round deciding to search. A follow-up continues only the previous message, a reminder never searches, and an obvious lookup searches before the reply is written.
 
 - **A suggestion after 3 + 4 searched the web and opened with 7.** “always result” matched a team-score pattern, so a why-question was treated as a live lookup. The chip had also dropped 3 and 4. “result” counts as a score only after an apostrophe, a follow-up has to keep a number or a word from the problem, and a digit-free why-question does not start with the previous sum.

@@ -8,9 +8,11 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from collections.abc import AsyncIterator, Coroutine
 from contextlib import suppress
 from typing import Any
 
+from app.core.background_tasks import create_background_task
 from app.exceptions import (
     AttachmentValidationError,
     ChatBusyError,
@@ -22,6 +24,56 @@ from app.exceptions import (
 from app.gateways.litellm_gateway import ModelUnavailableError
 
 logger = logging.getLogger(__name__)
+
+
+def clear_task_cancellation() -> None:
+    """Let partial-reply cleanup await after a task cancel.
+
+    Python 3.11 keeps the cancellation pending after ``CancelledError`` is
+    caught, so the next ``await`` raises again and the save never runs.
+    """
+    task = asyncio.current_task()
+    if task is None:
+        return
+    while task.cancelling():
+        task.uncancel()
+
+
+async def await_ignoring_cancel(coro: Coroutine[Any, Any, Any]) -> Any:
+    """Finish ``coro`` even if this task is cancelled again while it runs.
+
+    Stop closes the provider socket, and that close cancels the stream task
+    a second time. The partial-reply save still has to run.
+    """
+    work = create_background_task(coro, name="partial_reply_save")
+    while True:
+        clear_task_cancellation()
+        try:
+            return await asyncio.shield(work)
+        except asyncio.CancelledError:
+            if work.done():
+                break
+    return work.result()
+
+
+async def finish_open_stream(stream: AsyncIterator[Any]) -> None:
+    """Resume a chat generator left parked at ``yield`` so its save still runs.
+
+    Breaking out of ``async for``, or cancelling the consumer while the
+    generator is suspended, leaves it open. Nothing after the yield runs,
+    so the partial reply is never written. Pull until it ends.
+    """
+    try:
+        async for _ in stream:
+            pass
+    except asyncio.CancelledError:
+        clear_task_cancellation()
+        with suppress(Exception, asyncio.CancelledError):
+            async for _ in stream:
+                pass
+    except Exception:
+        return
+
 
 # How long to hold `done` waiting on the DB commit before falling back to a
 # best-effort `done`. Long enough for a normal Neon round trip + usage write,
