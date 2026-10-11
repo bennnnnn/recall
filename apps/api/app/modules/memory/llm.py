@@ -19,7 +19,8 @@ _TOPIC_HINTS = {
     "like to learn or use the app",
     "interests": "hobbies and interests outside work that they come back to",
     "tech-stack": "languages, frameworks, tools, and services they use in their own work",
-    "schedule": "routines, working hours, and how they plan their time",
+    "schedule": "standing routines and working hours only. A todo, reminder, "
+    "appointment, flight, or one-off errand is not memory",
     "recent-work": "what they are working on lately that is not its own area",
     "goals": "what they are working toward: career, learning, health, life",
     "side-projects": "ideas and smaller things they build",
@@ -122,7 +123,12 @@ async def revise_memory_facts(
                 "- Each op is ONE fact — never a paragraph of unrelated ideas.\n"
                 "- Return ONLY ops for facts that changed or are new this turn.\n"
                 "- On conflicting facts (e.g. moved cities), op=supersede with match_text "
-                "of the old fact and text of the new one.\n"
+                "of the old fact and text of the new one. Two current places cannot "
+                "both stay. Current schooling cannot stay next to an earlier stage "
+                "(12th grade and a university).\n"
+                "- Do not store a todo, reminder, appointment, flight, concert, or "
+                "other one-off errand. Those are reminders, not memory. A standing "
+                "routine (every evening, working hours) may be a schedule fact.\n"
                 "- Distinguish current facts from aspirations and hypotheticals. For example, "
                 "'I work at Uber but want to move to Google' keeps Uber as the current employer "
                 "and adds Google as a career goal; it must not claim the user works at Google.\n"

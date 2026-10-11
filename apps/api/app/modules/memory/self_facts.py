@@ -9,6 +9,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from uuid import UUID
 
+from app.modules.memory.fact_quality import is_one_off_schedule_fact
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.ops import normalize_memory_text
 from app.modules.memory.text import classify_memory_sensitivity
@@ -231,6 +232,8 @@ def stated_fact_writes(
             continue
         sentence = normalize_memory_text(text).casefold()
         if _already_stored(kind, sentence, obj.casefold(), known):
+            continue
+        if is_one_off_schedule_fact(text):
             continue
         writes.append(
             MemoryFactWrite(
