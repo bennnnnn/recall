@@ -190,6 +190,27 @@ def is_explicit_memory_command(text: str) -> bool:
     return any(marker in lowered for marker in _MEMORY_COMMAND_MARKERS)
 
 
+_FORGET_WORD_MIN_CHARS = 5
+_FORGET_WORD_SKIP = frozenset({"please", "about", "really"})
+
+
+def forget_content_words(text: str) -> list[str]:
+    """Words the user named in a forget command, not the command itself.
+
+    Words shorter than five letters are dropped so "forget that" cannot match
+    every stored fact.
+    """
+    lowered = (text or "").lower().replace("\u2019", "'").replace("\u2018", "'")
+    for marker in sorted(_FORGET_MARKERS, key=len, reverse=True):
+        lowered = lowered.replace(marker, " ")
+    seen: list[str] = []
+    for word in re.findall(r"[a-z0-9]+", lowered.replace("'", "")):
+        if len(word) < _FORGET_WORD_MIN_CHARS or word in _FORGET_WORD_SKIP or word in seen:
+            continue
+        seen.append(word)
+    return seen
+
+
 def is_explicit_forget_command(text: str) -> bool:
     """True when the user asked to drop a stored fact, not to remember one."""
     lowered = (text or "").lower().replace("\u2019", "'").replace("\u2018", "'")

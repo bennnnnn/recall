@@ -31,7 +31,12 @@ from app.modules.memory.extract_backlog import (
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.self_facts import stated_fact_writes
-from app.modules.memory.text import classify_memory_sensitivity, normalize_memory_text
+from app.modules.memory.text import (
+    classify_memory_sensitivity,
+    contains_phrase,
+    forget_content_words,
+    normalize_memory_text,
+)
 from app.modules.memory.topics import (
     fact_topic,
     is_area,
@@ -159,6 +164,33 @@ def writes_from_ops(
     return writes, skipped
 
 
+def named_forget_deletes(
+    transcript: str,
+    *,
+    existing_facts: dict[UUID, str],
+    chat_id: UUID | None,
+) -> list[MemoryFactWrite]:
+    """Delete stored facts the user named when the model returned no delete."""
+    words = forget_content_words(transcript)
+    if not words:
+        return []
+    deletes: list[MemoryFactWrite] = []
+    for fact_text in existing_facts.values():
+        if not any(contains_phrase(fact_text, word) for word in words):
+            continue
+        deletes.append(
+            MemoryFactWrite(
+                op="delete",
+                type="fact",
+                text="",
+                confidence=1.0,
+                match_text=fact_text,
+                source_chat_id=chat_id,
+            )
+        )
+    return deletes
+
+
 async def extract_and_store_memories(
     settings: Settings,
     *,
@@ -272,6 +304,14 @@ async def _extract_pass(
                 transcript=expanded,
                 existing_texts=snapshot.existing_facts.values(),
             )
+            if forget and not from_history and not any(write.op == "delete" for write in writes):
+                writes.extend(
+                    named_forget_deletes(
+                        expanded,
+                        existing_facts=snapshot.existing_facts,
+                        chat_id=chat_id,
+                    )
+                )
             if not forget:
                 writes.extend(
                     stated_fact_writes(
