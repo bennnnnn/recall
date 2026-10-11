@@ -7,6 +7,8 @@ import {
   type KeyboardEvent,
 } from "react-native";
 
+import { Layer } from "@/lib/layer";
+
 import { Sheet } from "../Sheet";
 
 jest.mock("react-native-safe-area-context", () => ({
@@ -94,6 +96,18 @@ describe("Sheet", () => {
     );
 
     expect(queryByTestId("app-sheet-handle")).toBeNull();
+  });
+
+  it("stacks an embedded sheet above the composer", async () => {
+    const { getByTestId, getByText } = await render(
+      <Sheet visible embedded onClose={jest.fn()}>
+        <Text>attach rows</Text>
+      </Sheet>,
+    );
+
+    expect(getByText("attach rows")).toBeOnTheScreen();
+    expect(getByTestId("app-sheet-embedded")).toHaveStyle({ zIndex: Layer.sheet });
+    expect(Layer.sheet).toBeGreaterThan(Layer.composer);
   });
 
   it("renders floating sheets with a handle still visible", async () => {

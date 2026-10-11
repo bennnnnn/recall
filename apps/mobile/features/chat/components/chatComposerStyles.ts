@@ -6,6 +6,7 @@ import {
   COMPOSER_INPUT_MAX_HEIGHT,
   COMPOSER_INPUT_MIN_HEIGHT,
 } from "@/features/chat/model/composerLogic";
+import { Layer } from "@/lib/layer";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
@@ -22,7 +23,7 @@ export function makeChatComposerStyles(theme: Theme) {
       position: "absolute",
       left: 0,
       right: 0,
-      zIndex: 110,
+      zIndex: Layer.composer,
       overflow: "visible",
       backgroundColor: "transparent",
       paddingHorizontal: Space.md,
@@ -42,7 +43,8 @@ export function makeChatComposerStyles(theme: Theme) {
       paddingTop: Space.xxs,
     },
     composerBlockExpanded: {
-      zIndex: 200,
+      // Stay on the composer layer so an open attach sheet paints above this field.
+      zIndex: Layer.composer,
       backgroundColor: theme.bg,
     },
     expandedFill: { flex: 1, minHeight: 0 },

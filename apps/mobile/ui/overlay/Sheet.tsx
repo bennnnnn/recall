@@ -20,6 +20,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useKeyboardHeight } from "../hooks/useKeyboardHeight";
 import { useSheetPanDismiss } from "./useSheetPanDismiss";
+import { Layer } from "@/lib/layer";
 import { useReduceMotion } from "@/lib/reduceMotion";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -237,7 +238,11 @@ export function Sheet({
 
   if (embedded) {
     if (!visible) return null;
-    return <View style={s.embedded}>{frame}</View>;
+    return (
+      <View style={s.embedded} testID="app-sheet-embedded" collapsable={false}>
+        {frame}
+      </View>
+    );
   }
 
   return (
@@ -311,7 +316,8 @@ function makeStyles(t: Theme) {
       left: 0,
       right: 0,
       bottom: 0,
-      zIndex: 40,
+      // Above the chat composer so the last attach row stays visible and tappable.
+      zIndex: Layer.sheet,
     },
   });
 }
