@@ -33,18 +33,24 @@ from app.services.chat.continuation_subject import (
 )
 from app.services.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
+    CAREER_PERSONALIZE_HINT,
+    EXAMPLE_PERSONALIZE_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_FENCE_SAFETY_HINT,
     PERSONAL_DISCLOSURE_HINT,
+    PROFILE_FACT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
     active_lesson_step,
     is_bare_writing_line,
     is_capabilities_question,
+    is_career_personal_question,
     is_email_or_message_request,
     is_learning_plan_request,
     is_personal_disclosure_turn,
+    is_profile_fact_question,
+    is_profile_recall_pushback,
     is_short_confirmation,
     is_teaching_request,
     learning_plan_daily_contract,
@@ -621,7 +627,16 @@ async def build_prompt_messages(
         if chat_history_rag_block:
             system_parts.append(chat_history_rag_block)
         if advice_memory and not (query_text and is_capabilities_question(query_text)):
-            system_parts.append(ADVICE_PERSONALIZE_HINT)
+            if query_text and (
+                is_profile_fact_question(query_text) or is_profile_recall_pushback(query_text)
+            ):
+                system_parts.append(PROFILE_FACT_HINT)
+            elif query_text and is_teaching_request(query_text):
+                system_parts.append(EXAMPLE_PERSONALIZE_HINT)
+            elif query_text and is_career_personal_question(query_text):
+                system_parts.append(CAREER_PERSONALIZE_HINT)
+            else:
+                system_parts.append(ADVICE_PERSONALIZE_HINT)
 
     if math_followup:
         system_parts.extend([MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT])

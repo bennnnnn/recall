@@ -16,11 +16,17 @@ from app.services import time_context as time_context_service
 from app.services.chat.prompt_constants import (
     is_broad_self_question,
     is_capabilities_question,
+    is_career_personal_question,
     is_lightweight_chat_turn,
     is_personal_advice_question,
+    is_profile_fact_question,
+    is_profile_recall_pushback,
     is_short_reply,
+    is_teaching_request,
     needs_rich_context,
+    profile_question_to_answer,
 )
+from app.services.text_normalize import collapse_ws
 
 if TYPE_CHECKING:
     from app.services.chat.turn_prep.context import ClientGeoContext
@@ -115,6 +121,23 @@ def _turn_needs_rich_context(
     return False
 
 
+async def _prior_user_texts(
+    session: AsyncSession,
+    chat_id: UUID,
+    content: str,
+) -> list[str]:
+    """User lines before this turn. The current line may already be stored."""
+    recent = await messages_repo.list_recent(session, chat_id, limit=8)
+    users = [
+        message.content
+        for message in recent
+        if message.role == "user" and isinstance(message.content, str)
+    ]
+    if users and collapse_ws(users[-1]) == collapse_ws(content):
+        users = users[:-1]
+    return users
+
+
 async def _classify_turn_mode(
     session: AsyncSession,
     chat: Chat,
@@ -134,6 +157,10 @@ async def _classify_turn_mode(
         if prior is not None:
             prior_assistant = prior.content
     lightweight = is_lightweight_chat_turn(content, prior_assistant=prior_assistant)
+    profile_followup = False
+    if is_profile_recall_pushback(content):
+        prior_users = await _prior_user_texts(session, chat.id, content)
+        profile_followup = profile_question_to_answer(content, prior_users) is not None
     rich_context = _turn_needs_rich_context(
         content,
         day_planning=day_planning,
@@ -144,6 +171,10 @@ async def _classify_turn_mode(
             is_personal_advice_question(content)
             or is_food_or_diet_query(content)
             or is_capabilities_question(content)
+            or is_teaching_request(content)
+            or is_career_personal_question(content)
+            or is_profile_fact_question(content)
+            or profile_followup
         )
         and not day_planning
         and not day_reflection

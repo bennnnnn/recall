@@ -15,6 +15,7 @@ from app.services.text_normalize import collapse_ws
 _BROAD_SELF_QUESTION = re.compile(
     r"^(?:"
     r"who am i\??"
+    r"|what am i\??"
     r"|tell me about me\??"
     r"|what do you know about me\??"
     r"|describe me\??"
@@ -387,6 +388,104 @@ def _advice_need_plan_with_domain(cleaned: str) -> bool:
     start = max(0, plan.start() - _ADVICE_NEED_LOOKBEHIND)
     end = min(len(cleaned), plan.end() + _ADVICE_NEED_LOOKAHEAD)
     return bool(_ADVICE_NEED_DOMAIN.search(cleaned[start:end]))
+
+
+_CAREER_PERSONAL = re.compile(
+    r"\b(?:my career|my job|my work|career advice|job interview|interviews?|"
+    r"resume|résumé|\bcv\b|promotion|workplace)\b",
+    re.IGNORECASE,
+)
+
+
+# "What is my education" / "my second langauge" — a stored profile field, including
+# the common misspelling. Not a general "who am I" summary.
+_PROFILE_FACT_QUESTION = re.compile(
+    r"(?:"
+    r"\b(?:my|i am|i'm|im)\b(?:\s+\w+){0,6}\s+"
+    r"(?:education|school|university|college|degree|grades?|languages?|langauges?)\b"
+    r"|"
+    r"\b(?:education|school|university|college|degree|grades?|languages?|langauges?)\b"
+    r".{0,24}\b(?:mine|my|i|me)\b"
+    r"|"
+    r"\bwhere am i from\b"
+    r"|"
+    r"\bwhere do i live\b"
+    r"|"
+    r"\bwhat languages? do i\b"
+    r")",
+    re.IGNORECASE,
+)
+_PROFILE_PUSHBACK = re.compile(
+    r"\b(?:(?:u|you) don'?t know|(?:u|you) should know)\b",
+    re.IGNORECASE,
+)
+_TELL_ME = re.compile(r"^(?:(?:u|you) )?tell me[.!?]*$", re.IGNORECASE)
+_LANGUAGE_SLOT = re.compile(
+    r"^(?:the |my )?(first|second|native|other)(?: one| language| langauge)?[.!?]*$",
+    re.IGNORECASE,
+)
+_LANGUAGE_TOPIC = re.compile(r"\b(?:language|langauge)s?\b", re.IGNORECASE)
+
+
+def is_profile_fact_question(text: str) -> bool:
+    """True when they ask for a detail their profile may already hold."""
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return False
+    return bool(_PROFILE_FACT_QUESTION.search(cleaned))
+
+
+def is_profile_recall_pushback(text: str) -> bool:
+    """True when they say you should already know, after a profile question."""
+    cleaned = collapse_ws(text)
+    if not cleaned or len(cleaned) > 48:
+        return False
+    return bool(_PROFILE_PUSHBACK.search(cleaned) or _TELL_ME.match(cleaned))
+
+
+def _language_slot_followup(content: str, prior_user_texts: list[str]) -> str | None:
+    """'Second' after a language question asks for that language, not a new topic."""
+    match = _LANGUAGE_SLOT.match(collapse_ws(content))
+    if match is None:
+        return None
+    slot = match.group(1).lower()
+    if slot == "native":
+        slot = "first"
+    for text in reversed(prior_user_texts):
+        if is_profile_recall_pushback(text):
+            continue
+        if not _LANGUAGE_TOPIC.search(text):
+            break
+        if slot == "other":
+            slot = "first" if re.search(r"\bsecond\b", text, re.IGNORECASE) else "second"
+        return f"what is my {slot} language"
+    return None
+
+
+def profile_question_to_answer(content: str, prior_user_texts: list[str]) -> str | None:
+    """The profile question this turn is asking, including a later 'you tell me'."""
+    if is_profile_fact_question(content):
+        return content
+    slotted = _language_slot_followup(content, prior_user_texts)
+    if slotted:
+        return slotted
+    if not is_profile_recall_pushback(content):
+        return None
+    for text in reversed(prior_user_texts):
+        if is_profile_fact_question(text):
+            return text
+        if is_profile_recall_pushback(text):
+            continue
+        break
+    return None
+
+
+def is_career_personal_question(text: str) -> bool:
+    """True when the ask is about their work, so a known job should shape the answer."""
+    cleaned = collapse_ws(text)
+    if not cleaned:
+        return False
+    return bool(_CAREER_PERSONAL.search(cleaned))
 
 
 def is_personal_advice_question(text: str) -> bool:

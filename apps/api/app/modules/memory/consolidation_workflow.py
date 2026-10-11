@@ -19,6 +19,7 @@ from app.modules.memory import llm as memory_llm
 from app.modules.memory import repository as memories_repo
 from app.modules.memory.apply import apply_memory_facts
 from app.modules.memory.consolidation import fact_text_jaccard
+from app.modules.memory.fact_quality import FactView, texts_to_drop
 from app.modules.memory.facts import is_active_memory
 from app.modules.memory.writes_repository import MemoryFactWrite
 from app.repositories import users as users_repo
@@ -89,7 +90,7 @@ def _duplicate_pairs(facts: list) -> list[_Pair]:
 
 async def _load_pairs(
     session: AsyncSession, user_id: UUID
-) -> tuple[dict[UUID, str], list[_Pair]] | None:
+) -> tuple[dict[UUID, str], list[_Pair], list[str]] | None:
     user = await users_repo.get_by_id(session, user_id)
     if user is None or not getattr(user, "memory_enabled", True):
         return None
@@ -98,7 +99,14 @@ async def _load_pairs(
     )
     if not existing or not facts_need_consolidation(existing):
         return None
-    return {fact.id: fact.text for fact in existing}, _duplicate_pairs(existing)
+    drops = texts_to_drop(
+        [
+            FactView(text=fact.text, confirmed_at=fact.last_confirmed_at)
+            for fact in existing
+            if is_active_memory(fact)
+        ]
+    )
+    return {fact.id: fact.text for fact in existing}, _duplicate_pairs(existing), drops
 
 
 async def consolidate_user_memory_sections(
@@ -120,8 +128,9 @@ async def consolidate_user_memory_sections(
                 loaded = await _load_pairs(session, user_id)
             if loaded is None:
                 return False
-            expected, pairs = loaded
+            expected, pairs, drops = loaded
             writes: list[MemoryFactWrite] = []
+            dropped_text: set[str] = set()
             for pair in pairs:
                 keep_norm = normalize_memory_text(pair.keep_text).lower()
                 drop_norm = normalize_memory_text(pair.drop_text).lower()
@@ -161,6 +170,20 @@ async def consolidate_user_memory_sections(
                         text="",
                         confidence=1.0,
                         match_text=pair.drop_text,
+                    )
+                )
+                dropped_text.add(pair.drop_text)
+            for text in drops:
+                if text in dropped_text:
+                    continue
+                dropped_text.add(text)
+                writes.append(
+                    MemoryFactWrite(
+                        op="delete",
+                        type="fact",
+                        text="",
+                        confidence=1.0,
+                        match_text=text,
                     )
                 )
             if not writes:

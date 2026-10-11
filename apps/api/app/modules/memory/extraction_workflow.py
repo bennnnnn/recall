@@ -28,6 +28,7 @@ from app.modules.memory.extract_backlog import (
     note_failed_extract_pass,
     stamp_extract_cursor,
 )
+from app.modules.memory.fact_quality import FactView, is_one_off_schedule_fact, texts_to_drop
 from app.modules.memory.facts import should_skip_sensitive_persist
 from app.modules.memory.name_claim import is_unclaimed_user_name
 from app.modules.memory.self_facts import stated_fact_writes
@@ -62,6 +63,7 @@ class MemorySnapshot:
     prompt_areas: list[dict[str, str]]
     # When the user last removed or changed memory by hand.
     edited_at: datetime | None = None
+    active_facts: tuple[FactView, ...] = ()
 
 
 async def load_memory_snapshot(
@@ -98,6 +100,13 @@ async def load_memory_snapshot(
             {"topic": area.key, "title": area.title, "summary": area.summary} for area in areas
         ],
         edited_at=getattr(user, "memory_edited_at", None),
+        active_facts=tuple(
+            FactView(
+                text=memory.text,
+                confirmed_at=getattr(memory, "last_confirmed_at", None),
+            )
+            for memory in existing
+        ),
     )
 
 
@@ -140,6 +149,10 @@ def writes_from_ops(
             text, transcript, existing_texts=existing_texts
         ):
             logger.info("Skipping memory name the user did not claim")
+            skipped += 1
+            continue
+        if op.op != "delete" and is_one_off_schedule_fact(text):
+            logger.info("Skipping one-off reminder stored as memory")
             skipped += 1
             continue
         # No valid topic keeps a matched fact where it is; a new fact then gets
@@ -328,6 +341,31 @@ async def _extract_pass(
                 )
             if from_history:
                 writes = [write for write in writes if write.op == "add"]
+            else:
+                already = {
+                    normalize_memory_text(write.match_text or "")
+                    for write in writes
+                    if write.op == "delete"
+                }
+                fresh = {
+                    normalize_memory_text(write.text)
+                    for write in writes
+                    if write.op != "delete" and write.text
+                }
+                for text in texts_to_drop(snapshot.active_facts):
+                    key = normalize_memory_text(text)
+                    if key in already or key in fresh:
+                        continue
+                    already.add(key)
+                    writes.append(
+                        MemoryFactWrite(
+                            op="delete",
+                            type="fact",
+                            text="",
+                            confidence=1.0,
+                            match_text=text,
+                        )
+                    )
             if not writes:
                 if newest_cursor and advance_cursor:
                     await stamp_extract_cursor(user_id, chat_id, newest_cursor)

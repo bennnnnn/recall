@@ -82,6 +82,28 @@ ADVICE_PERSONALIZE_HINT = (
     "something up, or quote the known-facts block."
 )
 
+EXAMPLE_PERSONALIZE_HINT = (
+    "The user is learning something. When you give an example, use one real detail "
+    "from the known facts if it makes the example clearer: a language they speak, "
+    "a place they are from, or their job. A variable lesson can use a name and a "
+    "country they actually have. One detail is enough. Skip it when nothing fits. "
+    "Do not mention memory, recite where they live, or copy a tone preference "
+    "(including swearing) into the lesson."
+)
+
+PROFILE_FACT_HINT = (
+    "The user is asking about a detail their profile may already contain. "
+    "Answer from the known facts in this prompt. If a fact answers the question, "
+    "state it in one sentence. Do not ask them to repeat a detail that is already "
+    "listed. If it is not listed, say you don't have it yet. Do not mention memory."
+)
+
+CAREER_PERSONALIZE_HINT = (
+    "The user is asking about work. If the known facts include their job or field, "
+    "answer from that role when it changes the advice. Do not mention memory or "
+    "quote the known-facts block."
+)
+
 BROAD_SELF_ANSWER_HINT = (
     "The user explicitly asked what you know about them. Give a concise, warm summary grounded "
     "only in the profile, memory, and past-conversation context present in this prompt. Include "

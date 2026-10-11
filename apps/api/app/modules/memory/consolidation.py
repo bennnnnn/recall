@@ -10,6 +10,7 @@ import re
 from collections.abc import Iterable
 from typing import Any
 
+from app.modules.memory.fact_quality import FactView, texts_to_drop
 from app.modules.memory.text import (
     _split_sentences,
     merge_diet_facts,
@@ -59,7 +60,15 @@ def fact_text_jaccard(left: str, right: str) -> float:
 
 
 def facts_need_consolidation(memories: Iterable[Any]) -> bool:
-    """True when two active facts are exact or near duplicates."""
+    """True when two active facts are duplicates, or one should be dropped."""
+    active_views = [
+        FactView(text=normalize_memory_text(getattr(memory, "text", "")))
+        for memory in memories
+        if str(getattr(memory, "status", None) or "active") == "active"
+        and normalize_memory_text(getattr(memory, "text", ""))
+    ]
+    if texts_to_drop(active_views):
+        return True
     active: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
     for memory in memories:

@@ -882,6 +882,8 @@ async def test_build_prompt_includes_locale_hint_for_amharic():
     [
         ("Who am I", True),
         ("who am i?", True),
+        ("What am I", True),
+        ("What am I doing", False),
         ("Tell me about me", True),
         ("Where am I?", False),
         ("What's my email?", False),
@@ -1249,6 +1251,58 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
 
 
 @pytest.mark.asyncio
+async def test_build_prompt_teaching_uses_a_known_detail_in_examples():
+    user = MagicMock()
+    user.name = "Dev User"
+    user.email = "dev@example.com"
+    user.location = "Addis Ababa"
+    user.location_enabled = True
+    user.response_style = "balanced"
+    user.response_tone = None
+    user.memory_enabled = True
+    user.locale = "en"
+    user.timezone = "UTC"
+    user.custom_instructions = None
+    user.age = None
+    user.country = "Ethiopia"
+    user.job = None
+    user.plan = "free"
+    chat = MagicMock()
+
+    with (
+        patch("app.repositories.messages.list_recent", return_value=[]),
+        patch(
+            "app.modules.memory.get_memory_block",
+            AsyncMock(return_value="User is from Addis Ababa, Ethiopia. User speaks Amharic."),
+        ) as memory_mock,
+        patch(
+            "app.modules.todos.build_todos_system_section",
+            AsyncMock(return_value="TODOS SHOULD NOT LOAD"),
+        ) as todos_mock,
+    ):
+        messages = await build_prompt_messages(
+            user,
+            uuid4(),
+            Settings(attachment_rag_enabled=False, web_search_enabled=False),
+            query_text="teach me about python variables",
+            lightweight=False,
+            rich_context=False,
+            advice_memory=True,
+            chat=chat,
+        )
+
+    memory_mock.assert_awaited()
+    todos_mock.assert_not_awaited()
+    system = messages[0]["content"]
+    assert "User speaks Amharic" in system
+    assert "country they actually have" in system
+    assert "personal recommendation" not in system
+    assert "TODOS SHOULD NOT LOAD" not in system
+    assert "The user may have Google Calendar connected" not in system
+    assert "The user may have Gmail" not in system
+
+
+@pytest.mark.asyncio
 async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     user = MagicMock()
     user.name = "Dev User"
@@ -1547,6 +1601,84 @@ async def test_classify_turn_mode_hi_does_not_load_last_assistant():
 
     get_last.assert_not_awaited()
     assert mode.lightweight is True
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_profile_field_loads_memory():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+
+    education = await _classify_turn_mode(AsyncMock(), chat, "What is my education level")
+    language = await _classify_turn_mode(AsyncMock(), chat, "My second langauge")
+
+    assert education.advice_memory is True
+    assert education.rich_context is False
+    assert language.advice_memory is True
+    assert language.rich_context is False
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_profile_pushback_loads_memory():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    language = MagicMock()
+    language.role = "user"
+    language.content = "My second langauge"
+    pushback = MagicMock()
+    pushback.role = "user"
+    pushback.content = "U don't know. It?"
+
+    with patch(
+        "app.services.chat.turn_prep.mode.messages_repo.list_recent",
+        AsyncMock(return_value=[language, pushback]),
+    ):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "You tell me")
+
+    assert mode.advice_memory is True
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_teaching_loads_memory_not_rich_context():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+
+    mode = await _classify_turn_mode(AsyncMock(), chat, "teach me about python variables")
+
+    assert mode.lightweight is False
+    assert mode.rich_context is False
+    assert mode.advice_memory is True
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_career_loads_memory():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+
+    mode = await _classify_turn_mode(AsyncMock(), chat, "how do I prepare for a job interview")
+
+    assert mode.advice_memory is True
+    assert mode.rich_context is False
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_lookup_does_not_load_memory():
+    from app.services.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+
+    mode = await _classify_turn_mode(AsyncMock(), chat, "what is the capital of France")
+
+    assert mode.advice_memory is False
+    assert mode.rich_context is False
 
 
 @pytest.mark.asyncio

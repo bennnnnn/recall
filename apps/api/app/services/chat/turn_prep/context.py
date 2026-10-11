@@ -22,6 +22,8 @@ from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
 from app.modules.math.followup import math_working_followup_problem, offered_equation_problem
 from app.modules.math.tools.extract import is_graph_followup
+from app.modules.memory import repository as memories_repo
+from app.modules.memory.profile_reply import reply_for_profile_question
 from app.modules.physics.followup import physics_followup_problem
 from app.modules.web_search.subject import (
     _prior_user_messages as _prompt_prior_user_messages,
@@ -42,6 +44,7 @@ from app.services.chat.prompt_builder import (
     fetch_web_and_tools,
     inject_web_and_tools,
 )
+from app.services.chat.prompt_constants.routing import profile_question_to_answer
 from app.services.chat.stream_status import StreamStatusFn
 from app.services.chat.tool_gate import should_classify_tool_web_search
 from app.services.chat.turn_prep.integrations import (
@@ -62,6 +65,7 @@ from app.services.chat.turn_timing import TurnTimingTracker
 from app.services.settings_intent import extract_settings_changes
 from app.services.solving import VerifiedSolveBlock
 from app.services.subject_solving import detect_subject, maybe_direct_subject_reply
+from app.services.text_normalize import collapse_ws
 
 logger = logging.getLogger(__name__)
 
@@ -283,6 +287,18 @@ def resolve_client_geo(
     )
 
 
+def _earlier_user_texts(recent_messages: list[Any] | None, content: str) -> list[str]:
+    texts = [
+        message.content
+        for message in recent_messages or []
+        if getattr(message, "role", None) == "user"
+        and isinstance(getattr(message, "content", None), str)
+    ]
+    if texts and collapse_ws(texts[-1]) == collapse_ws(content):
+        texts = texts[:-1]
+    return texts
+
+
 async def build_stream_prompt_context(
     user_id: UUID,
     chat_id: UUID,
@@ -403,6 +419,16 @@ async def build_stream_prompt_context(
                 return now_reply
         if time_context_service.is_location_question(content):
             return time_context_service.format_location_answer(geo.user_location, local_tz)
+        asked = profile_question_to_answer(content, _earlier_user_texts(recent_messages, content))
+        if asked:
+            async with SessionLocal() as session:
+                rows = await memories_repo.list_for_user(
+                    session,
+                    user.id,
+                    include_muted=False,
+                    include_superseded=False,
+                )
+            return reply_for_profile_question(asked, [row.text for row in rows])
         reply: str | None = None
         if _instant_reply_needs_db(content):
             async with SessionLocal() as session:

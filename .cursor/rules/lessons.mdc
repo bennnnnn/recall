@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“Second” after “what is my first language” asked again.** That one word was not a profile question, so the saved English fact was never read. A first/second follow-up to a language question answers that language.
+
+- **“You tell me” still asked which language.** Loading memory and hoping the model would read it was not enough, and that follow-up never looked back to “my second language.” A direct profile question, including “you tell me” after one, is answered from the saved fact.
+
+- **A Python lesson ignored who the user is, and Schedule held todos plus two current places.** Teaching and career questions never loaded memory, so examples stayed generic. One-off reminders were saved as facts, and “in Avon” stayed next to “in Russia.” Those questions now load memory and ask for one real detail in an example. A dated errand is not stored, and the newer place or school stage replaces the other.
+
 - **The same short equation took about ten times as long on Qwen Max as on Mercury.** Thinking stayed at the provider default on every question, and Qwen’s default is a long pass. Qwen rejects a full disable, so an ordinary question sends its lowest effort (`minimal`); a hard job leaves the default. Models that accept `none` or `enabled: false` get that. R1 rejects every disable and is left alone.
 
 - **“Where did you get that?” had no source.** That follow-up was sent to the search classifier, which said no, so the previous question was never looked up. A source question searches the prior question and skips the classifier.
