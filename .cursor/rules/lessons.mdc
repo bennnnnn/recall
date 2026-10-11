@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A tapped follow-up showed a dot, and “How” did not explain the sum.** A question with `$...$` went through the math-key preview, which draws no words, so the bubble was empty. A fragment such as “How” was offered as the next question, and “what is the result of 7 + 9” was not the sum that “How” continues. A sent sentence stays text. A follow-up has to be a full question with the letter and the number apart, and “How” after that sum explains it.
+
 - **“Second” after “what is my first language” asked again.** That one word was not a profile question, so the saved English fact was never read. A first/second follow-up to a language question answers that language.
 
 - **“You tell me” still asked which language.** Loading memory and hoping the model would read it was not enough, and that follow-up never looked back to “my second language.” A direct profile question, including “you tell me” after one, is answered from the saved fact.

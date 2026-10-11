@@ -67,6 +67,13 @@ def test_short_referential_request_uses_immediate_math_exchange(query: str) -> N
     assert is_math_followup(query, _exchange())
 
 
+def test_how_after_a_stated_sum_continues_that_sum() -> None:
+    question = "What is the result of 7 + 9?"
+    recent = _exchange(question, "The sum of 7 + 9 is 16.")
+    assert is_math_followup("How", recent)
+    assert math_working_followup_problem("How", recent) == question
+
+
 @pytest.mark.parametrize(
     "query",
     [

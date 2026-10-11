@@ -24,6 +24,8 @@ _ARITH_CUES: tuple[str, ...] = (
     "how can you calculate",
     "can you calculate",
     "could you calculate",
+    "the result of",
+    "the sum of",
     "the value of",
     "what is",
     "what's",

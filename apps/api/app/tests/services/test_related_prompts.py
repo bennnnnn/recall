@@ -68,6 +68,27 @@ async def test_subject_question_returns_the_models_questions(
     assert call.kwargs["allow_fallback"] is False
 
 
+async def test_a_fragment_or_a_glued_equation_is_dropped() -> None:
+    spaced = "Why does a force of $x=5$ give a different value?"
+    glued_radical = r"Why does $^5\sqrt{x} = 0^5$ equal zero?"
+    glued_variable = "What is the value of $x5$ here?"
+    with patch(
+        "app.services.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        complete.return_value = RelatedQuestions(questions=[spaced, glued_radical, "How"])
+        prompts = await generate_related_questions(Settings(), PHYSICS, "The force is 30 newtons.")
+        assert prompts == ["Why does a force of $x = 5$ give a different value?"]
+
+        complete.return_value = RelatedQuestions(
+            questions=[glued_variable, PHYSICS_FOLLOWUPS[0], PHYSICS_FOLLOWUPS[1]]
+        )
+        prompts = await generate_related_questions(Settings(), PHYSICS, "The force is 30 newtons.")
+
+    assert glued_variable not in prompts
+    assert prompts == PHYSICS_FOLLOWUPS[:2]
+
+
 async def test_a_digit_change_of_the_same_sentence_is_dropped() -> None:
     tweaked = "what is the force on a 11 kg object accelerating at 3 m/s^2"
     with patch(

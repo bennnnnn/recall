@@ -47,13 +47,35 @@ export function draftShowsMathPreview(input: string): boolean {
  *
  * Multi-line / display-math pastes (`\[...\]`, `$$...$$`) must not use the
  * composer preview: wrapping them in one `$` row left a tall empty bubble.
+ * A sentence that only contains an equation stays markdown, so the words
+ * are not dropped and the bubble is not left as a dot.
  */
+/** Words outside `$...$`. A question around an equation is a sentence. */
+function proseOutsideMath(input: string): string {
+  let out = "";
+  let i = 0;
+  while (i < input.length) {
+    if (input[i] === "$") {
+      const close = input.indexOf("$", i + 1);
+      if (close > i) {
+        i = close + 1;
+        continue;
+      }
+    }
+    out += input[i];
+    i += 1;
+  }
+  return out;
+}
+
 export function sentMessageShowsMathPreview(input: string): boolean {
   const s = input.trim();
   if (!s.includes("$") || s.length === 0) return false;
   if (s.includes("\n")) return false;
   if (s.includes("\\[") || s.includes("\\]") || s.includes("$$")) return false;
   if (s.length > 160) return false;
+  // The composer preview drops the words and the bubble collapses to a dot.
+  if (/[A-Za-z]{2,}/.test(proseOutsideMath(s))) return false;
   return true;
 }
 

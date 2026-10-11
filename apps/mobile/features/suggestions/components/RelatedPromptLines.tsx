@@ -1,7 +1,7 @@
 import { Pressable, StyleSheet, View } from "react-native";
 
 import { RichMathBody } from "@/components/rich/RichMathBody";
-import { wrapSuggestionMath } from "@/features/suggestions/model/promptMath";
+import { suggestionToSend, wrapSuggestionMath } from "@/features/suggestions/model/promptMath";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
@@ -19,7 +19,11 @@ export function RelatedPromptLines({ prompts, onSelect }: Props) {
 
   if (prompts.length === 0) return null;
 
-  const lines = prompts.slice(0, 3);
+  const lines = prompts
+    .map((prompt) => suggestionToSend(prompt))
+    .filter((prompt): prompt is string => prompt !== null)
+    .slice(0, 3);
+  if (lines.length === 0) return null;
   return (
     <View style={s.wrap}>
       {lines.map((prompt, index) => (

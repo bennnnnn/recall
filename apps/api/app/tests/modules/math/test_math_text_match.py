@@ -698,6 +698,8 @@ class TestBareArithmetic:
             ("1+2+3", "1+2+3"),
             ("(8-8)*2", "(8-8)*2"),
             ("what is 7*8", "7*8"),
+            ("what is the result of 7 + 9?", "7 + 9"),
+            ("What is the sum of 3 + 5?", "3 + 5"),
             ("what is 9/9", "9/9"),
             ("what is 10-3", "10-3"),
             ("10-3", "10-3"),

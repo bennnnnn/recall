@@ -1,7 +1,14 @@
 import { render } from "@testing-library/react-native";
 
-import { MathDraftPreview } from "@/components/chat/MathDraftPreview";
+import { MathDraftPreview, sentMessageShowsMathPreview } from "@/components/chat/MathDraftPreview";
 import { lightTheme } from "@/lib/theme";
+
+describe("sentMessageShowsMathPreview", () => {
+  it("keeps a question around an equation as text", () => {
+    expect(sentMessageShowsMathPreview("Why does $x^2 = 9$ have two solutions?")).toBe(false);
+    expect(sentMessageShowsMathPreview("$x^2 = 9$")).toBe(true);
+  });
+});
 
 describe("MathDraftPreview", () => {
   it("uses readable root degree text while preserving the full-size radicand", async () => {
