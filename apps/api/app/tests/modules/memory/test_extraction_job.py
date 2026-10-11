@@ -455,6 +455,70 @@ async def test_extract_and_store_deletes_fact_on_explicit_forget():
 
 
 @pytest.mark.asyncio
+async def test_extract_forget_deletes_named_fact_when_the_model_returns_nothing():
+    settings = Settings(memory_min_confidence=0.4)
+    extraction = _ops()
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+
+    with _extract_patches(
+        session_locals=session_locals,
+        extraction=extraction,
+        apply=apply,
+        listed=[
+            SimpleNamespace(
+                id=uuid4(),
+                type="profile",
+                text="Works as a nurse in Boston",
+                status="active",
+            ),
+            SimpleNamespace(id=uuid4(), type="preference", text="Likes oat milk", status="active"),
+        ],
+    ):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: Forget that I'm a nurse",
+        )
+
+    apply.assert_awaited_once()
+    writes: list[MemoryFactWrite] = apply.await_args.kwargs["writes"]
+    assert len(writes) == 1
+    assert writes[0].op == "delete"
+    assert writes[0].match_text == "Works as a nurse in Boston"
+
+
+@pytest.mark.asyncio
+async def test_extract_forget_without_a_named_fact_does_not_wipe_memory():
+    settings = Settings(memory_min_confidence=0.4)
+    apply = AsyncMock()
+    _, session_locals = _extraction_sessions()
+
+    with _extract_patches(
+        session_locals=session_locals,
+        extraction=_ops(),
+        apply=apply,
+        listed=[
+            SimpleNamespace(
+                id=uuid4(),
+                type="profile",
+                text="Works as a nurse in Boston",
+                status="active",
+            )
+        ],
+    ):
+        await extract_and_store_memories(
+            settings,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            transcript="User: Forget that",
+        )
+
+    apply.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_extract_forget_does_not_clear_unrelated_nonempty_sections():
     settings = Settings(memory_min_confidence=0.4)
     fact_id = uuid4()

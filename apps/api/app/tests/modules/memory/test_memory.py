@@ -112,6 +112,21 @@ def test_accept_memory_section_rewrite_rejects_short_preference_alone():
     )
 
 
+def test_forget_content_words_keep_the_named_fact():
+    from app.modules.memory.text import forget_content_words
+
+    assert forget_content_words("Forget that I'm a nurse") == ["nurse"]
+    assert forget_content_words("Please forget that") == []
+    assert forget_content_words("don't forget I like tea") == []
+
+
+def test_forget_content_words_names_the_fact_not_the_command():
+    from app.modules.memory.text import forget_content_words
+
+    assert forget_content_words("Forget that I'm a nurse") == ["nurse"]
+    assert forget_content_words("Please forget that") == []
+
+
 def test_is_explicit_forget_command_ignores_dont_forget():
     assert is_explicit_forget_command("Please forget that I live in Boston") is True
     assert is_explicit_forget_command("forget this: I work at Hooh") is True
