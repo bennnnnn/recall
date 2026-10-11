@@ -12,14 +12,14 @@ import {
   type SetStateAction,
 } from "react";
 
-import { subscribeComposerDraftReset } from "@/lib/chat/composerDraftReset";
+import { subscribeComposerDraftReset } from "@/features/chat/model/composerDraftReset";
 import {
   COMPOSER_NEW_THREAD_KEY,
   adoptNewComposerThread,
   clearAllComposerDrafts,
   stashFailedSendDraft,
   takeThreadDraft,
-} from "@/lib/chat/composerThreadDraft";
+} from "@/features/chat/model/composerThreadDraft";
 
 type ComposerDraftApi = {
   setInput: Dispatch<SetStateAction<string>>;

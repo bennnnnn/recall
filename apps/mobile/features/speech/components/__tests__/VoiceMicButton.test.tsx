@@ -1,7 +1,7 @@
 import { StyleSheet } from "react-native";
 import { render } from "@testing-library/react-native";
 
-import { COMPOSER_CONTROL_SIZE } from "@/lib/chat/composerLogic";
+import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { VoiceMicButton } from "@/features/speech/components/VoiceMicButton";
 import { lightTheme } from "@/lib/theme";
 

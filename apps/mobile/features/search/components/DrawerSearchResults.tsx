@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Icon } from "@/ui/icons/Icon";
 import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { StateView } from "@/ui/feedback/StateView";
-import { displayChatTitle } from "@/lib/chat/title";
+import { displayChatTitle } from "@/features/chat/model/title";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import type { SearchResult } from "@/lib/api";

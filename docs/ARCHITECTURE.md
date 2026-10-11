@@ -62,6 +62,8 @@ request client and are composed into the existing `lib/api.ts` public barrel.
     post-turn jobs are all `modules/chat/`. Chat reaches other modules only through the submodules
     they declare public (`_MODULE_EXPORTS`), and they reach chat's turn cues, presentation and stream
     status through the `app.modules.chat` package. The tool loop stays in `services/tool_loop.py`.
+    On mobile, the chat screen, its hooks, components, stream/socket model and API slice are
+    `features/chat/`; `app/index.tsx` is a one-line route.
 
 Each migration is its own reviewable change: preserve behavior, establish the public seam, run
 the feature tests and architecture checks, then remove compatibility imports in a later cleanup

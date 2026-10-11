@@ -9,7 +9,7 @@ import { MarkdownContent } from "@/components/MarkdownContent";
 import {
   sentMessageShowsMathPreview,
   MathDraftPreview,
-} from "@/components/chat/MathDraftPreview";
+} from "@/features/chat/components/MathDraftPreview";
 import { useAttachmentIndexed } from "@/features/attachments/hooks/useAttachmentIndexed";
 import { Message } from "@/lib/api";
 import {

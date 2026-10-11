@@ -112,7 +112,7 @@ The stored user text preserves what the composer submitted. Explicit math contro
 | MCP sympy | `apps/api/app/modules/math/tool.py` |
 | Prompt hints | `apps/api/app/modules/chat/prompt_constants/` (`math.py`, …) |
 | Mobile preprocess | `apps/mobile/lib/markdown/markdownPreprocess.ts`, `apps/mobile/lib/math/normalizeImplicit.ts` |
-| Composer math input | `apps/mobile/lib/math/pasteNormalize.ts`, `keyboardSymbols.ts`, `components/chat/MathKeyboardBar.tsx` |
+| Composer math input | `apps/mobile/lib/math/pasteNormalize.ts`, `keyboardSymbols.ts`, `features/chat/components/MathKeyboardBar.tsx` |
 | Render | `MathText`, `MathView` / `MathSvgView` (MathJax-SVG), `GeometryBlock`, `FunctionGraphBlock` + `rich/skia/` graph, number-line, and inequality canvases |
 
 ## Curriculum coverage (K–12 through undergrad homework)

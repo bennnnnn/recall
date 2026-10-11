@@ -3,7 +3,7 @@ import { Dimensions } from "react-native";
 import * as Clipboard from "expo-clipboard";
 import { fireEvent, render, waitFor } from "@testing-library/react-native";
 
-import { ChatComposer } from "@/components/chat/ChatComposer";
+import { ChatComposer } from "@/features/chat/components/ChatComposer";
 
 jest.mock("expo-linear-gradient", () => {
   const { View } = jest.requireActual("react-native") as typeof import("react-native");

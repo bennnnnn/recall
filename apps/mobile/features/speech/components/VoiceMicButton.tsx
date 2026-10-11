@@ -2,7 +2,7 @@ import { Pressable, StyleSheet, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 import { useTranslation } from "react-i18next";
 
-import { COMPOSER_CONTROL_SIZE } from "@/lib/chat/composerLogic";
+import { COMPOSER_CONTROL_SIZE } from "@/features/chat/model/composerLogic";
 import { lightTheme, useTheme } from "@/lib/theme";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";

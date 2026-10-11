@@ -1,8 +1,8 @@
 import { act, type ReactElement } from "react";
 import { createRoot, type JsonNode } from "test-renderer";
 
-import { MathDraftPreview } from "@/components/chat/MathDraftPreview";
-import { MathKeyboardBar } from "@/components/chat/MathKeyboardBar";
+import { MathDraftPreview } from "@/features/chat/components/MathDraftPreview";
+import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
 import {
   MATH_KEYBOARD_GROUPS,
   MATH_KEYBOARD_SYMBOLS,

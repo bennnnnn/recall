@@ -7,13 +7,13 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { useTheme } from "@/lib/theme";
 import { ActionBanner } from "@/ui/feedback/ActionBanner";
-import { ChatShareSheet } from "@/components/chat/ChatShareSheet";
+import { ChatShareSheet } from "@/features/chat/components/ChatShareSheet";
 import { ChatActionsMenu } from "@/components/ChatActionsMenu";
 import { ChatRenameSheet } from "@/components/ChatRenameSheet";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
-import { useChatBulkActions } from "@/hooks/useChatBulkActions";
-import { useChatMenuActions } from "@/hooks/useChatMenuActions";
+import { useChatBulkActions } from "@/features/chat/hooks/useChatBulkActions";
+import { useChatMenuActions } from "@/features/chat/hooks/useChatMenuActions";
 import { useDrawerChatList } from "@/hooks/useDrawerChatList";
 import { useDrawerChatSelection } from "@/hooks/useDrawerChatSelection";
 import { useReminderBadgeCount } from "@/features/todos/hooks/useReminderBadgeCount";

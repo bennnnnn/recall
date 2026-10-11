@@ -1,5 +1,6 @@
 import { accountApi } from "@/features/account/api";
 import { attachmentsApi } from "@/features/attachments/api";
+import { chatsApi } from "@/features/chat/api";
 import { homeApi } from "@/features/home/api";
 import { imagesApi } from "@/features/images/api";
 import { integrationsApi } from "@/features/integrations/api";
@@ -9,7 +10,6 @@ import { speechApi } from "@/features/speech/api";
 import { suggestionsApi } from "@/features/suggestions/api";
 import { todosApi } from "@/features/todos/api";
 import { analyticsApi } from "@/lib/api/analytics";
-import { chatsApi } from "@/lib/api/chats";
 import { discoverApi } from "@/lib/api/discover";
 import { pushApi } from "@/lib/api/push";
 import { scanApi } from "@/lib/api/scan";

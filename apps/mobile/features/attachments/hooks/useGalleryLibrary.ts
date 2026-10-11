@@ -8,7 +8,7 @@ import { getSessionGeneration } from "@/lib/auth";
 import { api, type AttachmentListItem } from "@/lib/api";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { removeCachedGalleryItem } from "@/features/attachments/model/galleryListCache";
-import { clearCachedChatMessages } from "@/lib/chat/messageCache";
+import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
 import { shareChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
 import { galleryFileName, isReadableTextContentType, libraryOpenChatHref } from "@/features/attachments/model/gallery";
 import { isPdfContentType } from "@/lib/messageAttachments";

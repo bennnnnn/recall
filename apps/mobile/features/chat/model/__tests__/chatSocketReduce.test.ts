@@ -1,0 +1,274 @@
+import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyRelatedPrompts, applyStreamEndModel, parseChatWsPayload, relatedPromptsFromEvent, shouldIgnoreStoppedStreamEvent } from "@/features/chat/model/socketReduce";
+import type { Message } from "@/lib/api";
+
+describe("chatSocketReduce", () => {
+  it("parseChatWsPayload parses tokens without recording TTFT", () => {
+    expect(parseChatWsPayload('{"type":"token","content":"hi"}')).toEqual({
+      type: "token",
+      content: "hi",
+    });
+    expect(parseChatWsPayload("not-json")).toBeNull();
+  });
+
+  it("appendToken concatenates stream chunks", () => {
+    expect(appendToken("Hi", " there")).toBe("Hi there");
+    expect(appendToken("Hi", undefined)).toBe("Hi");
+  });
+
+  it("mergeDoneIntoMessages replaces streaming placeholder", () => {
+    const prev: Message[] = [
+      { id: "u1", role: "user", content: "Hello", model: null, created_at: "t" },
+      {
+        id: "streaming",
+        renderKey: "stream-1",
+        role: "assistant",
+        content: "",
+        model: null,
+        created_at: "t",
+      },
+    ];
+    const next = mergeDoneIntoMessages(prev, {
+      finalId: "msg-1",
+      messageId: "msg-1",
+      draftContent: "Hi back",
+    });
+    expect(next).toHaveLength(2);
+    expect(next[1].id).toBe("msg-1");
+    expect(next[1].renderKey).toBe("stream-1");
+    expect(next[1].content).toBe("Hi back");
+  });
+
+  it("mergeDoneIntoMessages drops empty streaming bubble without message_id", () => {
+    const prev: Message[] = [
+      { id: "streaming", role: "assistant", content: "", model: null, created_at: "t" },
+    ];
+    const next = mergeDoneIntoMessages(prev, {
+      finalId: "x",
+      draftContent: "   ",
+    });
+    expect(next).toHaveLength(0);
+  });
+
+  it("mergeDoneIntoMessages prefers final_content on streaming placeholder", () => {
+    const prev: Message[] = [
+      { id: "streaming", role: "assistant", content: "Intro\n```places", model: null, created_at: "t" },
+    ];
+    const next = mergeDoneIntoMessages(prev, {
+      finalId: "msg-1",
+      messageId: "msg-1",
+      draftContent: "Intro\n```places",
+      finalContent: "Intro\n\n```places\n[{\"name\":\"A\"}]\n```",
+    });
+    expect(next[0].content).toContain("```places");
+  });
+
+  it("mergeDoneIntoMessages appends assistant when streaming placeholder missing", () => {
+    const prev: Message[] = [
+      { id: "u1", role: "user", content: "Q", model: null, created_at: "t" },
+      {
+        id: "streamed-1",
+        role: "assistant",
+        content: "Partial",
+        model: null,
+        created_at: "t",
+      },
+    ];
+    const next = mergeDoneIntoMessages(prev, {
+      finalId: "msg-final",
+      messageId: "msg-final",
+      draftContent: "Partial",
+      finalContent: "Partial plus more from server",
+    });
+    expect(next).toHaveLength(3);
+    expect(next[2].id).toBe("msg-final");
+    expect(next[2].content).toBe("Partial plus more from server");
+    expect(next[1].content).toBe("Partial");
+  });
+
+  it("mergeDoneIntoMessages reconciles stopped bubble in place (no duplicate)", () => {
+    const prev: Message[] = [
+      { id: "u1", role: "user", content: "Q", model: null, created_at: "t" },
+      {
+        id: "streamed-100",
+        role: "assistant",
+        content: "Partial reply",
+        model: null,
+        created_at: "t",
+      },
+    ];
+    const next = mergeDoneIntoMessages(prev, {
+      finalId: "msg-server-1",
+      messageId: "msg-server-1",
+      draftContent: "Partial reply",
+      finalContent: "Partial reply with server tail",
+      stoppedStreamedId: "streamed-100",
+    });
+    expect(next).toHaveLength(2);
+    expect(next[1].id).toBe("msg-server-1");
+    expect(next[1].content).toBe("Partial reply with server tail");
+  });
+
+  it("mergeDoneIntoMessages removes stopped bubble when done is empty and has no message_id", () => {
+    const prev: Message[] = [
+      { id: "u1", role: "user", content: "Q", model: null, created_at: "t" },
+      {
+        id: "streamed-100",
+        role: "assistant",
+        content: "   ",
+        model: null,
+        created_at: "t",
+      },
+    ];
+    const next = mergeDoneIntoMessages(prev, {
+      finalId: "x",
+      draftContent: "   ",
+      stoppedStreamedId: "streamed-100",
+    });
+    expect(next).toHaveLength(1);
+    expect(next[0].id).toBe("u1");
+  });
+
+  it("mergeDoneIntoMessages drops late done when stopped id is no longer present", () => {
+    const prev: Message[] = [
+      { id: "u1", role: "user", content: "Q", model: null, created_at: "t" },
+    ];
+    const next = mergeDoneIntoMessages(prev, {
+      finalId: "msg-1",
+      messageId: "msg-1",
+      draftContent: "Late content",
+      finalContent: "Late content",
+      stoppedStreamedId: "streamed-100",
+    });
+    expect(next).toHaveLength(1);
+    expect(next[0].id).toBe("u1");
+  });
+
+  it("a later related_prompts event stores the full questions", () => {
+    const prev: Message[] = [
+      { id: "u1", role: "user", content: "what is the force?", model: null, created_at: "t" },
+      { id: "streaming", role: "assistant", content: "30 N", model: null, created_at: "t" },
+    ];
+    const prompts = [
+      "Why is the force the product of mass and acceleration?",
+      "What changes if this object is already moving?",
+      "How do you find the acceleration from the force and the mass?",
+    ];
+    const done = mergeDoneIntoMessages(
+      prev,
+      buildDoneMergeInput(
+        { type: "done", message_id: "msg-1", final_content: "30 N" },
+        { content: "30 N" },
+      ),
+    );
+    expect(done[1].related_prompts).toBeUndefined();
+    const next = applyRelatedPrompts(done, "msg-1", prompts);
+    expect(next[1].related_prompts).toEqual(prompts);
+  });
+
+  it("reads follow-up questions from the prompts field on the event", () => {
+    const payload = parseChatWsPayload(
+      JSON.stringify({
+        type: "related_prompts",
+        message_id: "msg-1",
+        prompts: [
+          "Why is the force the product of mass and acceleration?",
+          "What changes if this object is already moving?",
+        ],
+      }),
+    );
+    expect(payload).not.toBeNull();
+    expect(relatedPromptsFromEvent(payload!)).toEqual([
+      "Why is the force the product of mass and acceleration?",
+      "What changes if this object is already moving?",
+    ]);
+  });
+
+  it("buildDoneMergeInput parses stream metadata", () => {
+    const input = buildDoneMergeInput(
+      {
+        type: "done",
+        message_id: "abc",
+        resolved_model: "smart-chat",
+        final_content: "Full text",
+      },
+      { content: "Full text" },
+      123,
+    );
+    expect(input.finalId).toBe("abc");
+    expect(input.model).toBe("smart-chat");
+    expect(input.finalContent).toBe("Full text");
+  });
+
+  it("buildDoneMergeInput does not copy reasoning onto the settled message", () => {
+    const input = buildDoneMergeInput(
+      { type: "done", message_id: "abc" },
+      { content: "Hi" },
+    );
+    expect(input).not.toHaveProperty("reasoning_preview");
+  });
+
+  it("buildDoneMergeInput passes stoppedStreamedId through", () => {
+    const input = buildDoneMergeInput(
+      { type: "done", message_id: "abc" },
+      { content: "Hi" },
+      123,
+      "streamed-100",
+    );
+    expect(input.stoppedStreamedId).toBe("streamed-100");
+  });
+
+  it("maps interrupted completion onto generationStopped", () => {
+    const input = buildDoneMergeInput(
+      { type: "done", message_id: "abc", completion: "interrupted" },
+      { content: "Partial" },
+    );
+    expect(input.generationStopped).toBe(true);
+    const prev: Message[] = [
+      { id: "streaming", role: "assistant", content: "Partial", model: null, created_at: "" },
+    ];
+    const next = mergeDoneIntoMessages(prev, input);
+    expect(next[0].generationStopped).toBe(true);
+  });
+
+  it("does not mark a complete done as generationStopped", () => {
+    const input = buildDoneMergeInput(
+      { type: "done", message_id: "abc" },
+      { content: "Full" },
+    );
+    expect(input.generationStopped).toBe(false);
+  });
+
+  it("mergeDoneIntoMessages stores resolved model on assistant message", () => {
+    const prev: Message[] = [
+      { id: "u1", role: "user", content: "Hi", model: null, created_at: "" },
+      { id: "streaming", role: "assistant", content: "Hello", model: null, created_at: "" },
+    ];
+    const next = mergeDoneIntoMessages(prev, {
+      finalId: "a1",
+      messageId: "a1",
+      draftContent: "Hello",
+      model: "free-chat",
+    });
+    expect(next[1].model).toBe("free-chat");
+  });
+
+  it("applyStreamEndModel patches streaming placeholder", () => {
+    const prev: Message[] = [
+      { id: "streaming", role: "assistant", content: "Hi", model: null, created_at: "" },
+    ];
+    const next = applyStreamEndModel(prev, "smart-chat");
+    expect(next[0].model).toBe("smart-chat");
+  });
+
+  it("shouldIgnoreStoppedStreamEvent drops late starts and deltas after Stop, not done/error", () => {
+    expect(shouldIgnoreStoppedStreamEvent("token", false)).toBe(true);
+    expect(shouldIgnoreStoppedStreamEvent("status", false)).toBe(true);
+    expect(shouldIgnoreStoppedStreamEvent("reasoning", false)).toBe(true);
+    expect(shouldIgnoreStoppedStreamEvent("stream_end", false)).toBe(true);
+    expect(shouldIgnoreStoppedStreamEvent("token", true)).toBe(false);
+    expect(shouldIgnoreStoppedStreamEvent("start", false)).toBe(true);
+    expect(shouldIgnoreStoppedStreamEvent("start", true)).toBe(false);
+    expect(shouldIgnoreStoppedStreamEvent("done", false)).toBe(false);
+    expect(shouldIgnoreStoppedStreamEvent("error", false)).toBe(false);
+  });
+});

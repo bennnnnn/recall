@@ -28,8 +28,8 @@ jest.mock("@/hooks/useDrawerChatList", () => ({ useDrawerChatList: () => ({
   groups: { pinned: [], today: [], yesterday: [], last_7_days: [], this_month: [], older: [], archived: [] },
   allChats: [], load: jest.fn(), isSectionCollapsed: () => false,
 }) }));
-jest.mock("@/hooks/useChatBulkActions", () => ({ useChatBulkActions: () => ({}) }));
-jest.mock("@/hooks/useChatMenuActions", () => ({ useChatMenuActions: () => ({}) }));
+jest.mock("@/features/chat/hooks/useChatBulkActions", () => ({ useChatBulkActions: () => ({}) }));
+jest.mock("@/features/chat/hooks/useChatMenuActions", () => ({ useChatMenuActions: () => ({}) }));
 jest.mock("@/hooks/useDrawerChatSelection", () => ({ useDrawerChatSelection: () => ({ selectedIds: new Set(), selectedCount: 0 }) }));
 jest.mock("@/features/todos/hooks/useReminderBadgeCount", () => ({ useReminderBadgeCount: () => ({}) }));
 jest.mock("@/ui/feedback/ActionBanner", () => ({ ActionBanner: () => null }));

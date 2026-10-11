@@ -19,7 +19,7 @@ import { AssistantMessageScope } from "@/features/integrations/context/emailDraf
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
-import { SENDING_LABEL_DELAY_MS } from "@/lib/chat/messageLogic";
+import { SENDING_LABEL_DELAY_MS } from "@/features/chat/model/messageLogic";
 import { useAssistantMessageContent } from "@/hooks/useAssistantMessageContent";
 import { useStreamLayoutHold } from "@/hooks/useStreamLayoutHold";
 import { formatAssistantMathExpr } from "@/lib/math/formatInput";

@@ -7,7 +7,7 @@ import { consumeCreatedSuggestionSkip } from "@/lib/cache/chatListCache";
 import {
   chatSuggestionLoadAction,
   shouldFetchChatSuggestions,
-} from "@/lib/chat/turnRefresh";
+} from "@/features/chat/model/turnRefresh";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 type Options = {

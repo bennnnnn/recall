@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react-native";
 
-import { MathDraftPreview, sentMessageShowsMathPreview } from "@/components/chat/MathDraftPreview";
+import { MathDraftPreview, sentMessageShowsMathPreview } from "@/features/chat/components/MathDraftPreview";
 import { lightTheme } from "@/lib/theme";
 
 describe("sentMessageShowsMathPreview", () => {

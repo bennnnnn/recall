@@ -8,7 +8,7 @@ import {
   useComposerDraftActivity,
   useComposerDraftValueOptional,
 } from "@/contexts/ComposerDraftContext";
-import { resetComposerDraftsForAccount } from "@/lib/chat/composerDraftReset";
+import { resetComposerDraftsForAccount } from "@/features/chat/model/composerDraftReset";
 
 function ValueProbe() {
   const draft = useComposerDraftValueOptional();
