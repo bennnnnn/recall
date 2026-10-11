@@ -71,6 +71,7 @@ from app.services.chat.prompt_constants import (
     is_underspecified_writing_request,
     learning_plan_daily_contract,
     lesson_continue_hint,
+    personal_record_hint,
     programming_lesson_contract,
     writing_request_kind,
 )
@@ -154,7 +155,7 @@ def _writing_format_hint(query_text: str | None) -> str | None:
     if kind == "translation":
         return TRANSLATION_FORMAT_HINT
     if kind == "prose":
-        return PROSE_WRITING_HINT
+        return personal_record_hint(query_text or "") or PROSE_WRITING_HINT
     return None
 
 

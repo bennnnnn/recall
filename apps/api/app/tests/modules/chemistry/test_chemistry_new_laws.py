@@ -425,6 +425,10 @@ def test_a_dilution_finds_the_stock_volume(question: str, answer: str) -> None:
     assert _answer(question) == answer
 
 
+def test_dilute_this_volume_to_a_weaker_concentration_finds_the_final_volume() -> None:
+    assert _answer("Dilute 10 mL of 2 M HCl to 0.5 M") == "V2 = 40 mL"
+
+
 def test_a_stock_weaker_than_its_dilution_has_no_answer() -> None:
     intent = extract_chemistry_intent(
         "What volume of 0.5 M NaCl is needed to make 100 mL of 2 M NaCl?"

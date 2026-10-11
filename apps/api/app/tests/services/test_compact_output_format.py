@@ -294,6 +294,8 @@ def test_writing_request_kinds_cover_each_output_shape():
         "번역해 주는 사람은 누구예요?": None,
         'Translate "write me an email" into Spanish': "translation",
         "Write one paragraph about photosynthesis": "prose",
+        "Now write a short cover letter for the best one": "prose",
+        "Draft a resume for a software role": "prose",
         "Write a short article comparing Python and Java": "prose",
         "Write a 500-word essay": "prose",
         "Is this sentence correct?": "edit",
@@ -361,6 +363,7 @@ def test_each_writing_kind_gets_only_its_relevant_format_hint():
     from app.services.chat.prompt_constants import (
         EMAIL_ASK_PURPOSE_HINT,
         EMAIL_DRAFT_HINT,
+        PERSONAL_RECORD_HINT,
         PROSE_WRITING_HINT,
         SOCIAL_DRAFT_HINT,
         TRANSLATION_FORMAT_HINT,
@@ -374,11 +377,13 @@ def test_each_writing_kind_gets_only_its_relevant_format_hint():
         ("Write me a facebook post updating about my healing", SOCIAL_DRAFT_HINT),
         ("Translate 'see you tomorrow' into Spanish", TRANSLATION_FORMAT_HINT),
         ("Write one paragraph about photosynthesis", PROSE_WRITING_HINT),
+        ("Now write a short cover letter for the best one", PERSONAL_RECORD_HINT),
         ("Is this sentence correct?", WRITING_LINE_HINT),
     )
     specialized = {
         EMAIL_ASK_PURPOSE_HINT,
         EMAIL_DRAFT_HINT,
+        PERSONAL_RECORD_HINT,
         PROSE_WRITING_HINT,
         SOCIAL_DRAFT_HINT,
         TRANSLATION_FORMAT_HINT,

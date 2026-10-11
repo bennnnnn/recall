@@ -198,13 +198,23 @@ async def fetch_web_and_tools(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
-) -> tuple[str | None, str | None, list[WebSearchHit], VerifiedSolveBlock | None, bool, str | None]:
+) -> tuple[
+    str | None,
+    str | None,
+    list[WebSearchHit],
+    VerifiedSolveBlock | None,
+    bool,
+    str | None,
+    str | None,
+]:
     """Fetch web-search and subject blocks WITHOUT mutating prompt_messages.
 
     Web search (network) and the subject solver are independent — gather both.
-    Returns ``(web_block, subject_block, search_sources, verified, solver_unverified, unverified_subject)``.
+    Returns ``(web_block, subject_block, search_sources, verified, solver_unverified,
+    unverified_subject, direct_text)``.
     ``solver_unverified`` is the adapter flag. Callers must not re-derive it from
     the wording of the prompt block. ``unverified_subject`` is set only when that flag is true.
+    ``direct_text`` is a reply both halves of a two-part question already rendered.
     """
     math_user_content = math_followup_problem or user_content
     subject_user_content = user_content
@@ -277,6 +287,7 @@ async def fetch_web_and_tools(
         subject_result.verified,
         subject_result.unverified,
         subject_result.subject if subject_result.unverified else None,
+        subject_result.direct_text,
     )
 
 
@@ -344,6 +355,7 @@ async def _augment_web_and_tools(
         verified_math,
         _solver_unverified,
         _unverified_subject,
+        _direct_text,
     ) = await fetch_web_and_tools(
         user_content,
         settings,

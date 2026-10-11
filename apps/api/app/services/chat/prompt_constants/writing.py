@@ -3,8 +3,8 @@
 import re
 
 from app.services.chat.prompt_constants.format import is_comparison_question
-from app.services.chat.prompt_constants.routing import (
-    is_lightweight_chat_turn,
+from app.services.chat.prompt_constants.routing import is_lightweight_chat_turn
+from app.services.chat.prompt_constants.writing_kind import (
     is_writing_deliverable_request,
     writing_request_kind,
 )
@@ -85,6 +85,29 @@ TRANSLATION_FORMAT_HINT = (
     "```message or ```social fence. If source text or target language is genuinely missing, "
     "ask one short question. A side-by-side table is only for an explicit side-by-side ask."
 )
+
+_PERSONAL_RECORD = re.compile(
+    r"\b(?:cover\s+letters?|r[eé]sum[eé]s?|cvs?|biograph(?:y|ies)|bios?)\b",
+    re.IGNORECASE,
+)
+
+PERSONAL_RECORD_HINT = (
+    "Cover letter, résumé, or short biography:\n"
+    "Use only facts the user stated in this conversation or that are already in "
+    "memory or their profile. Do not invent a name, a city they live in, an "
+    "employer, a job title, a skill, a tool, or a year of experience. A city "
+    "they asked about is not where they live, and a job they asked you to find "
+    "is not a job they have held. If their name or their experience is missing, "
+    "ask one short question and do not draft the biography yet."
+)
+
+
+def personal_record_hint(text: str) -> str | None:
+    """A cover letter or résumé, or None for other prose."""
+    if _PERSONAL_RECORD.search(text) is None:
+        return None
+    return PERSONAL_RECORD_HINT
+
 
 PROSE_WRITING_HINT = (
     "Requested prose form overrides the general response style:\n"

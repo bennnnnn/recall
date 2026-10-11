@@ -1,7 +1,7 @@
 # ruff: noqa: RUF001
 """Capabilities / 'what can you do' overview — not a draft or layout demo."""
 
-from app.services.chat.prompt_constants.routing import writing_request_kind
+from app.services.chat.prompt_constants.writing_kind import writing_request_kind
 from app.services.text_normalize import collapse_ws
 
 # Home-chip prompts (all shipped locales) plus short paraphrases.

@@ -580,6 +580,7 @@ async def build_stream_prompt_context(
                     VerifiedSolveBlock | None,
                     bool,
                     str | None,
+                    str | None,
                 ],
             ]
         ]
@@ -596,6 +597,7 @@ async def build_stream_prompt_context(
                 list[WebSearchHit],
                 VerifiedSolveBlock | None,
                 bool,
+                str | None,
                 str | None,
             ],
         ]:
@@ -630,6 +632,7 @@ async def build_stream_prompt_context(
     math_block: str | None = None
     solver_unverified = False
     unverified_subject: str | None = None
+    direct_text: str | None = None
     fetch_jobs: list[Awaitable[Any]] = []
     fetch_keys: list[str] = []
     if integration_coro is not None:
@@ -694,6 +697,7 @@ async def build_stream_prompt_context(
                     verified_subject,
                     solver_unverified,
                     unverified_subject,
+                    direct_text,
                 ),
             ) = by_key["web"]
         if "cal_write" in by_key:
@@ -722,7 +726,9 @@ async def build_stream_prompt_context(
         timing.mark_phase("augment_done")
         timing.mark_prompt_ready()
 
-    if instant_reply is None and verified_subject is not None:
+    if instant_reply is None and direct_text:
+        instant_reply = direct_text
+    elif instant_reply is None and verified_subject is not None:
         instant_reply = maybe_direct_subject_reply(
             verified_subject,
             content,

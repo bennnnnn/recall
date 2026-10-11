@@ -267,8 +267,8 @@ def _looks_like_smart_continuation(content: str) -> bool:
         is_lightweight_chat_turn,
         is_personal_advice_question,
         is_short_confirmation,
-        is_writing_deliverable_request,
     )
+    from app.services.chat.prompt_constants.writing_kind import is_writing_deliverable_request
     from app.services.day_planning import is_day_planning_question
     from app.services.text_normalize import collapse_ws
 
