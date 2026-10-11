@@ -93,7 +93,7 @@ class SympyAdapter:
         The function and args must be picklable (top-level functions + plain
         data) so they can cross the subprocess boundary.
         """
-        from app.modules.math.sympy_executor import run_sympy
+        from app.core.sympy_executor import run_sympy
 
         try:
             return await run_sympy(fn, *args, timeout=self.settings.math_solve_timeout_seconds)

@@ -13,7 +13,7 @@ import time
 
 import pytest
 
-from app.modules.math.sympy_executor import (
+from app.core.sympy_executor import (
     BoundedSympyExecutor,
     ProcessPoolSympyExecutor,
     ThreadSympyExecutor,
@@ -21,6 +21,7 @@ from app.modules.math.sympy_executor import (
     set_sympy_executor,
     warm_sympy_pool,
 )
+from app.modules.math.sympy_warmup import warm_math_worker
 
 
 def _add(a: int, b: int) -> int:
@@ -82,7 +83,7 @@ async def test_semaphore_exhaustion_still_runs_the_solve():
             raise OSError(errno.ENOSPC, "No space left on device")
 
     monkeypatch = pytest.MonkeyPatch()
-    monkeypatch.setattr("app.services.sympy_executor.ProcessPoolExecutor", _NoSemaphores)
+    monkeypatch.setattr("app.core.sympy_executor.ProcessPoolExecutor", _NoSemaphores)
     executor = ProcessPoolSympyExecutor(max_workers=1)
     set_sympy_executor(executor)
     try:
@@ -129,7 +130,7 @@ async def test_warmup_starts_every_worker_slot_concurrently():
     executor = _WarmupProbeExecutor(max_workers=3)
     set_sympy_executor(executor)
 
-    await warm_sympy_pool()
+    await warm_sympy_pool(warm_math_worker)
 
     assert executor.calls == 3
     assert executor.peak_active == 3

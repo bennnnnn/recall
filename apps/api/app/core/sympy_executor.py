@@ -381,30 +381,20 @@ def reset_sympy_executor() -> None:
     set_sympy_executor(None)
 
 
-def _warmup_math_worker() -> None:
-    """Picklable warmup that loads the real verified-math call path."""
-    from app.core.config import Settings
-    from app.models.schemas.math import MathIntent
-    from app.modules.math.tools.block import _build_verified_block
-
-    _build_verified_block(
-        MathIntent(kind="arithmetic", school_op="eval", expr="1+1", operation="solve"),
-        Settings.model_validate({}),
-    )
-
-
-async def warm_sympy_pool() -> None:
+async def warm_sympy_pool(warmup: Callable[[], None]) -> None:
     """Create every worker and import SymPy so early chats are not cold.
 
-    Warming one slot rotates it to the back of the free-slot queue, which made
-    the first real solve select an untouched slot and pay the full spawn/import
-    cost. Submit one warmup per slot concurrently so each process is ready
-    before the API reports startup complete.
+    ``warmup`` is a picklable, argument-free callable that runs a real solve in
+    the worker; the process bootstrap passes the math module's. Warming one slot
+    rotates it to the back of the free-slot queue, which made the first real
+    solve select an untouched slot and pay the full spawn/import cost. Submit one
+    warmup per slot concurrently so each process is ready before the API reports
+    startup complete.
     """
     executor = get_sympy_executor()
     try:
         await asyncio.gather(
-            *(executor.run(_warmup_math_worker, timeout=20.0) for _ in range(executor.max_workers))
+            *(executor.run(warmup, timeout=20.0) for _ in range(executor.max_workers))
         )
     except Exception:
         logger.warning("sympy pool warmup failed", exc_info=True)

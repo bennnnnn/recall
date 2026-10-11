@@ -9,7 +9,8 @@ Three stages, each its own subpackage:
 
 Alongside them: ``fence`` (post-stream fence correction), ``school``,
 ``followup``, ``ocr`` / ``image_extract`` (math from photos), ``reply_policy``
-and ``sympy_executor`` (the sandboxed SymPy process pool).
+and ``sympy_warmup`` (the solve that warms the shared SymPy pool in
+``app.core.sympy_executor``).
 
 Physics is a peer subject, not a corner of this package — see
 ``app.modules.physics``.

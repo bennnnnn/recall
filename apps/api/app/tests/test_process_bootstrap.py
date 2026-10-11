@@ -24,13 +24,17 @@ async def test_initialize_process_warms_sympy_only_for_api_roles(
         patch("app.process_bootstrap.validate_production_settings"),
         patch("app.process_bootstrap.setup_mcp_adapters"),
         patch("app.process_bootstrap.warmup_db_pool", AsyncMock()),
-        patch("app.modules.math.sympy_executor.warm_sympy_pool", warm_sympy),
+        patch("app.core.sympy_executor.warm_sympy_pool", warm_sympy),
     ):
         await process_bootstrap.initialize_process(
             Settings(mock_llm_enabled=True, process_role=role)
         )
 
     assert warm_sympy.await_count == expected_warmups
+    if expected_warmups:
+        from app.modules.math.sympy_warmup import warm_math_worker
+
+        warm_sympy.assert_awaited_once_with(warm_math_worker)
 
 
 @pytest.mark.asyncio

@@ -313,7 +313,7 @@ async def enrich_final_content(
                     user_text=ctx.user_message_content,
                 )
 
-        from app.modules.math.sympy_executor import run_sympy
+        from app.core.sympy_executor import run_sympy
         from app.services.solving import VerifiedPhysicsBlock
 
         try:
