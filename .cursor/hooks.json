@@ -5,6 +5,11 @@
       {
         "command": ".cursor/hooks/review-change.py",
         "loop_limit": 1
+      },
+      {
+        "command": ".cursor/hooks/merge-conflict.py",
+        "loop_limit": 1,
+        "timeout": 45
       }
     ]
   }
