@@ -5,10 +5,10 @@ from uuid import uuid4
 
 import pytest
 
-from app.background.memory_consolidation import consolidate_user_memory_sections
 from app.core.config import Settings
 from app.models.schemas import MemorySectionItem
 from app.modules.memory import embedding_text_hash
+from app.modules.memory.consolidation_workflow import consolidate_user_memory_sections
 from app.modules.memory.writes_repository import MemoryFactWrite
 
 
@@ -65,12 +65,12 @@ def embedding_write():
 def _memory_write_lock_always_free():
     with (
         patch(
-            "app.background.memory_consolidation.acquire_memory_write_lock",
+            "app.modules.memory.consolidation_workflow.acquire_memory_write_lock",
             AsyncMock(return_value=True),
         ),
-        patch("app.background.memory_consolidation.release_memory_write_lock", AsyncMock()),
+        patch("app.modules.memory.consolidation_workflow.release_memory_write_lock", AsyncMock()),
         patch(
-            "app.background.memory_consolidation.users_repo.get_by_id",
+            "app.modules.memory.consolidation_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True)),
         ),
     ):
@@ -84,11 +84,11 @@ async def test_consolidate_skips_clean_sections():
     _, session_locals = _consolidation_sessions()
     with (
         patch(
-            "app.background.memory_consolidation.SessionLocal",
+            "app.modules.memory.consolidation_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_consolidation.memories_repo.list_for_user",
+            "app.modules.memory.consolidation_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[memory]),
         ),
     ):
@@ -105,15 +105,17 @@ async def test_consolidate_skips_when_memory_disabled():
     _, session_locals = _consolidation_sessions()
     with (
         patch(
-            "app.background.memory_consolidation.SessionLocal",
+            "app.modules.memory.consolidation_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_consolidation.users_repo.get_by_id",
+            "app.modules.memory.consolidation_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=False)),
         ),
-        patch("app.background.memory_consolidation.memories_repo.list_for_user", list_for_user),
-        patch("app.background.memory_consolidation.memory_llm.merge_memory_section", merge),
+        patch(
+            "app.modules.memory.consolidation_workflow.memories_repo.list_for_user", list_for_user
+        ),
+        patch("app.modules.memory.consolidation_workflow.memory_llm.merge_memory_section", merge),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
@@ -129,11 +131,13 @@ async def test_consolidate_skips_when_write_lock_held():
     merge = AsyncMock()
     with (
         patch(
-            "app.background.memory_consolidation.acquire_memory_write_lock",
+            "app.modules.memory.consolidation_workflow.acquire_memory_write_lock",
             AsyncMock(return_value=False),
         ),
-        patch("app.background.memory_consolidation.memories_repo.list_for_user", list_for_user),
-        patch("app.background.memory_consolidation.memory_llm.merge_memory_section", merge),
+        patch(
+            "app.modules.memory.consolidation_workflow.memories_repo.list_for_user", list_for_user
+        ),
+        patch("app.modules.memory.consolidation_workflow.memory_llm.merge_memory_section", merge),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
@@ -153,15 +157,15 @@ async def test_consolidate_deletes_exact_duplicate_without_llm():
     _, session_locals = _consolidation_sessions()
     with (
         patch(
-            "app.background.memory_consolidation.SessionLocal",
+            "app.modules.memory.consolidation_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_consolidation.memories_repo.list_for_user",
+            "app.modules.memory.consolidation_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[keep, extra]),
         ),
-        patch("app.background.memory_consolidation.memory_llm.merge_memory_section", merge),
-        patch("app.background.memory_consolidation.apply_memory_facts", apply),
+        patch("app.modules.memory.consolidation_workflow.memory_llm.merge_memory_section", merge),
+        patch("app.modules.memory.consolidation_workflow.apply_memory_facts", apply),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
@@ -190,18 +194,18 @@ async def test_consolidate_merges_near_duplicate_pair():
     _, session_locals = _consolidation_sessions()
     with (
         patch(
-            "app.background.memory_consolidation.SessionLocal",
+            "app.modules.memory.consolidation_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_consolidation.memories_repo.list_for_user",
+            "app.modules.memory.consolidation_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[keep, extra]),
         ),
         patch(
-            "app.background.memory_consolidation.memory_llm.merge_memory_section",
+            "app.modules.memory.consolidation_workflow.memory_llm.merge_memory_section",
             AsyncMock(return_value=merged),
         ),
-        patch("app.background.memory_consolidation.apply_memory_facts", apply),
+        patch("app.modules.memory.consolidation_workflow.apply_memory_facts", apply),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
@@ -222,18 +226,18 @@ async def test_consolidate_keeps_keeper_when_merge_drops_anchors():
     _, session_locals = _consolidation_sessions()
     with (
         patch(
-            "app.background.memory_consolidation.SessionLocal",
+            "app.modules.memory.consolidation_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_consolidation.memories_repo.list_for_user",
+            "app.modules.memory.consolidation_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[keep, extra]),
         ),
         patch(
-            "app.background.memory_consolidation.memory_llm.merge_memory_section",
+            "app.modules.memory.consolidation_workflow.memory_llm.merge_memory_section",
             AsyncMock(return_value=merged),
         ),
-        patch("app.background.memory_consolidation.apply_memory_facts", apply),
+        patch("app.modules.memory.consolidation_workflow.apply_memory_facts", apply),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
@@ -253,15 +257,15 @@ async def test_consolidate_applies_only_duplicate_types():
     _, session_locals = _consolidation_sessions()
     with (
         patch(
-            "app.background.memory_consolidation.SessionLocal",
+            "app.modules.memory.consolidation_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_consolidation.memories_repo.list_for_user",
+            "app.modules.memory.consolidation_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[profile_a, profile_b, preference]),
         ),
-        patch("app.background.memory_consolidation.memory_llm.merge_memory_section", merge),
-        patch("app.background.memory_consolidation.apply_memory_facts", apply),
+        patch("app.modules.memory.consolidation_workflow.memory_llm.merge_memory_section", merge),
+        patch("app.modules.memory.consolidation_workflow.apply_memory_facts", apply),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 
@@ -290,15 +294,15 @@ async def test_consolidate_stores_embedding_when_vector_present(embedding_write)
     session, session_locals = _consolidation_sessions(count=3)
     with (
         patch(
-            "app.background.memory_consolidation.SessionLocal",
+            "app.modules.memory.consolidation_workflow.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.memory_consolidation.memories_repo.list_for_user",
+            "app.modules.memory.consolidation_workflow.memories_repo.list_for_user",
             AsyncMock(side_effect=[[keep, extra], [listed]]),
         ),
         patch(
-            "app.background.memory_consolidation.memories_repo.apply_writes",
+            "app.modules.memory.consolidation_workflow.memories_repo.apply_writes",
             AsyncMock(return_value=[keep.id]),
         ),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
@@ -355,18 +359,18 @@ async def test_consolidate_releases_db_before_llm():
 
     with (
         patch(
-            "app.background.memory_consolidation.SessionLocal",
+            "app.modules.memory.consolidation_workflow.SessionLocal",
             side_effect=[load_cm, apply_cm],
         ),
         patch(
-            "app.background.memory_consolidation.memories_repo.list_for_user",
+            "app.modules.memory.consolidation_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[keep, extra]),
         ),
         patch(
-            "app.background.memory_consolidation.memory_llm.merge_memory_section",
+            "app.modules.memory.consolidation_workflow.memory_llm.merge_memory_section",
             AsyncMock(side_effect=fake_merge),
         ),
-        patch("app.background.memory_consolidation.apply_memory_facts", AsyncMock()),
+        patch("app.modules.memory.consolidation_workflow.apply_memory_facts", AsyncMock()),
     ):
         changed = await consolidate_user_memory_sections(Settings(), user_id=user_id)
 

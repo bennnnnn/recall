@@ -28,9 +28,11 @@ from app.core.redis_lock import (
 )
 from app.gateways import litellm_gateway as litellm_gateway
 from app.models.orm import User
+from app.modules import todos, web_search
 from app.modules.attachments import (  # noqa: F401 - stream_entry reaches this through the stream module
     lifecycle as attachment_lifecycle,
 )
+from app.modules.billing import plan
 from app.modules.images import generation as image_generation
 from app.modules.images import search as image_search
 from app.modules.images.gen_intent import (
@@ -61,12 +63,7 @@ from app.modules.integrations import calendar
 from app.modules.math import fence as math_fence
 from app.repositories import chats, messages, users
 from app.services import model_catalog as model_catalog
-from app.services import (
-    plan,
-    quota,
-    todos,
-    web_search,
-)
+from app.services import quota
 from app.services.chat import stream_entry as _entry
 from app.services.chat import stream_pipeline as _pipeline
 from app.services.chat import turn_resources as _resources

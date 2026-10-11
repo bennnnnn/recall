@@ -52,17 +52,12 @@ def test_chemistry_package_exposes_its_public_api() -> None:
     assert callable(
         importlib.import_module("app.modules.chemistry.context").build_chemistry_context
     )
-    canonical_block = importlib.import_module("app.modules.chemistry.block")
-    legacy_block = importlib.import_module("app.services.chemistry.block")
-    assert legacy_block is canonical_block
+    assert callable(importlib.import_module("app.modules.chemistry.block").build_verified_chemistry)
     assert callable(importlib.import_module("app.modules.chemistry.fence").enrich_chemistry_fences)
 
 
 def test_math_extraction_public_seam_uses_focused_extractors() -> None:
-    canonical = importlib.import_module("app.modules.math.tools.extract")
-    legacy = importlib.import_module("app.services.math.tools.extract")
-    assert legacy is canonical
-    extract = canonical
+    extract = importlib.import_module("app.modules.math.tools.extract")
 
     assert extract.extract_math_intent("solve x + 2 = 5").kind == "equation"
     assert extract.extract_math_intent("draw a square with side 4").kind == "square"

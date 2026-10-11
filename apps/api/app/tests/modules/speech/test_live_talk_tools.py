@@ -19,7 +19,7 @@ async def test_voice_search_reserves_once_for_duplicate_tool_calls_and_keeps_sou
     invoke = AsyncMock(
         return_value=ToolResult(name="web_search", content="Score 2-1", data={"hits": sources})
     )
-    with patch("app.services.live_talk_tools.WebSearchAdapter.invoke", invoke):
+    with patch("app.modules.speech.live_talk_tools.WebSearchAdapter.invoke", invoke):
         args = dict(
             user=user, call_id="call", turn_id="turn", name="web_search", query="latest score"
         )
@@ -36,7 +36,7 @@ async def test_voice_search_reserves_once_for_duplicate_tool_calls_and_keeps_sou
 async def test_memory_disabled_does_not_call_memory_service():
     user = SimpleNamespace(id=uuid4(), memory_enabled=False)
     with patch(
-        "app.services.live_talk_tools.memory_service.get_memory_block", AsyncMock()
+        "app.modules.speech.live_talk_tools.memory_service.get_memory_block", AsyncMock()
     ) as memory:
         result = await execute_tool(
             Settings(),
@@ -55,7 +55,7 @@ async def test_memory_disabled_does_not_call_memory_service():
 async def test_tools_fail_closed_if_reservation_store_is_down():
     redis = AsyncMock()
     redis.get.side_effect = RuntimeError("offline")
-    with patch("app.services.live_talk_tools.WebSearchAdapter.invoke", AsyncMock()) as search:
+    with patch("app.modules.speech.live_talk_tools.WebSearchAdapter.invoke", AsyncMock()) as search:
         result = await execute_tool(
             Settings(),
             redis,

@@ -11,8 +11,8 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
+from app.modules import web_search as web_search_service
 from app.modules.web_search.formatting import format_sources_fence
-from app.services import web_search as web_search_service
 from app.services.chat.stream_pipeline import _replace_failed_subject_fences, enrich_final_content
 from app.services.solving import VerifiedPhysicsBlock
 

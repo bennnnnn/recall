@@ -1,33 +1,9 @@
 """Keep the modular-monolith ownership rules executable during migration."""
 
-import ast
-
 from .boundary_support import (
     APP_ROOT,
-    LEGACY_ATTACHMENTS_IMPORTS,
-    LEGACY_ATTACHMENTS_SHIMS,
-    LEGACY_BILLING_SHIMS,
-    LEGACY_CHEMISTRY_SHIMS,
-    LEGACY_HOME_SHIMS,
-    LEGACY_IMAGES_IMPORTS,
-    LEGACY_IMAGES_SHIMS,
-    LEGACY_INTEGRATIONS_IMPORTS,
-    LEGACY_INTEGRATIONS_SHIMS,
-    LEGACY_MATH_SHIMS,
-    LEGACY_MEMORY_IMPORTS,
-    LEGACY_MEMORY_SHIMS,
-    LEGACY_NOTIFICATION_SHIMS,
-    LEGACY_PHYSICS_SHIMS,
-    LEGACY_SEARCH_SHIMS,
-    LEGACY_SPEECH_IMPORTS,
-    LEGACY_SPEECH_SHIMS,
-    LEGACY_SUGGESTIONS_SHIMS,
-    LEGACY_TODOS_IMPORTS,
-    LEGACY_TODOS_SHIMS,
-    LEGACY_WEB_SEARCH_SHIMS,
     MOBILE_ROOT,
     _imports,
-    _production_python,
 )
 
 
@@ -63,49 +39,11 @@ def test_todos_runtime_code_has_one_owner() -> None:
         "test_unique_repository.py",
     } <= {path.name for path in (APP_ROOT / "tests" / "modules" / "todos").glob("*.py")}
 
-    for shim in LEGACY_TODOS_SHIMS:
-        tree = ast.parse(shim.read_text(), filename=str(shim))
-        owned_definitions = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-        ]
-        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
-
-
-def test_production_code_does_not_use_legacy_todos_imports() -> None:
-    violations: list[str] = []
-    for path in _production_python():
-        if path in LEGACY_TODOS_SHIMS:
-            continue
-        for imported in _imports(path):
-            if imported.startswith(LEGACY_TODOS_IMPORTS):
-                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
-    assert not violations, "\n".join(violations)
-
 
 def test_infrastructure_does_not_depend_on_product_modules() -> None:
     violations: list[str] = []
     for layer in ("core", "gateways", "repositories"):
         for path in (APP_ROOT / layer).rglob("*.py"):
-            if (
-                path in LEGACY_TODOS_SHIMS
-                or path in LEGACY_MEMORY_SHIMS
-                or path in LEGACY_INTEGRATIONS_SHIMS
-                or path in LEGACY_ATTACHMENTS_SHIMS
-                or path in LEGACY_IMAGES_SHIMS
-                or path in LEGACY_SPEECH_SHIMS
-                or path in LEGACY_CHEMISTRY_SHIMS
-                or path in LEGACY_PHYSICS_SHIMS
-                or path in LEGACY_MATH_SHIMS
-                or path in LEGACY_WEB_SEARCH_SHIMS
-                or path in LEGACY_NOTIFICATION_SHIMS
-                or path in LEGACY_HOME_SHIMS
-                or path in LEGACY_BILLING_SHIMS
-                or path in LEGACY_SEARCH_SHIMS
-                or path in LEGACY_SUGGESTIONS_SHIMS
-            ):
-                continue
             for imported in _imports(path):
                 if imported == "app.modules" or imported.startswith("app.modules."):
                     violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
@@ -161,35 +99,6 @@ def test_memory_runtime_code_has_one_owner() -> None:
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert (APP_ROOT / "tests" / "modules" / "memory" / "test_api.py").is_file()
 
-    for shim in LEGACY_MEMORY_SHIMS:
-        tree = ast.parse(shim.read_text(), filename=str(shim))
-        owned_definitions = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-        ]
-        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
-
-    router_shim = APP_ROOT / "routers" / "memories.py"
-    router_tree = ast.parse(router_shim.read_text(), filename=str(router_shim))
-    assert any(
-        isinstance(node, ast.ImportFrom)
-        and node.module == "app.modules.memory.api"
-        and any(alias.name == "router" for alias in node.names)
-        for node in router_tree.body
-    ), "legacy memories router must re-export app.modules.memory.api.router"
-
-
-def test_production_code_does_not_use_legacy_memory_imports() -> None:
-    violations: list[str] = []
-    for path in _production_python():
-        if path in LEGACY_MEMORY_SHIMS:
-            continue
-        for imported in _imports(path):
-            if imported.startswith(LEGACY_MEMORY_IMPORTS):
-                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
-    assert not violations, "\n".join(violations)
-
 
 def test_mobile_memory_has_one_feature_home_and_thin_routes() -> None:
     feature_root = MOBILE_ROOT / "features" / "memory"
@@ -242,39 +151,6 @@ def test_integrations_runtime_code_has_one_owner() -> None:
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert (APP_ROOT / "tests" / "modules" / "integrations" / "test_gmail.py").is_file()
 
-    for shim in LEGACY_INTEGRATIONS_SHIMS:
-        tree = ast.parse(shim.read_text(), filename=str(shim))
-        owned_definitions = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-        ]
-        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
-
-    for filename, module in (
-        ("integrations.py", "app.modules.integrations.api"),
-        ("gmail_integrations.py", "app.modules.integrations.gmail_api"),
-    ):
-        shim = APP_ROOT / "routers" / filename
-        shim_tree = ast.parse(shim.read_text(), filename=str(shim))
-        assert any(
-            isinstance(node, ast.ImportFrom)
-            and node.module == module
-            and any(alias.name == "router" for alias in node.names)
-            for node in shim_tree.body
-        ), f"legacy {filename} must re-export router"
-
-
-def test_production_code_does_not_use_legacy_integrations_imports() -> None:
-    violations: list[str] = []
-    for path in _production_python():
-        if path in LEGACY_INTEGRATIONS_SHIMS:
-            continue
-        for imported in _imports(path):
-            if imported.startswith(LEGACY_INTEGRATIONS_IMPORTS):
-                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
-    assert not violations, "\n".join(violations)
-
 
 def test_mobile_integrations_has_one_feature_home_and_thin_routes() -> None:
     feature_root = MOBILE_ROOT / "features" / "integrations"
@@ -325,35 +201,6 @@ def test_attachments_runtime_code_has_one_owner() -> None:
     }
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert (APP_ROOT / "tests" / "modules" / "attachments" / "test_api.py").is_file()
-
-    for shim in LEGACY_ATTACHMENTS_SHIMS:
-        tree = ast.parse(shim.read_text(), filename=str(shim))
-        owned_definitions = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-        ]
-        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
-
-    shim = APP_ROOT / "routers" / "attachments.py"
-    shim_tree = ast.parse(shim.read_text(), filename=str(shim))
-    assert any(
-        isinstance(node, ast.ImportFrom)
-        and node.module == "app.modules.attachments.api"
-        and any(alias.name == "router" for alias in node.names)
-        for node in shim_tree.body
-    ), "legacy attachments router must re-export router"
-
-
-def test_production_code_does_not_use_legacy_attachments_imports() -> None:
-    violations: list[str] = []
-    for path in _production_python():
-        if path in LEGACY_ATTACHMENTS_SHIMS:
-            continue
-        for imported in _imports(path):
-            if imported.startswith(LEGACY_ATTACHMENTS_IMPORTS):
-                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
-    assert not violations, "\n".join(violations)
 
 
 def test_mobile_attachments_has_one_feature_home_and_thin_routes() -> None:
@@ -406,24 +253,6 @@ def test_images_runtime_code_has_one_owner() -> None:
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert (APP_ROOT / "tests" / "modules" / "images" / "test_api.py").is_file()
 
-    for shim in LEGACY_IMAGES_SHIMS:
-        tree = ast.parse(shim.read_text(), filename=str(shim))
-        owned_definitions = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-        ]
-        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
-
-    shim = APP_ROOT / "routers" / "images.py"
-    shim_tree = ast.parse(shim.read_text(), filename=str(shim))
-    assert any(
-        isinstance(node, ast.ImportFrom)
-        and node.module == "app.modules.images.api"
-        and any(alias.name == "router" for alias in node.names)
-        for node in shim_tree.body
-    ), "legacy images router must re-export router"
-
     # schemas.py imports MessageOut from chats, which loads this package first.
     # Re-exporting the image models here imports the module while it is still initializing.
     schema_barrel = APP_ROOT / "models" / "schemas" / "__init__.py"
@@ -431,17 +260,6 @@ def test_images_runtime_code_has_one_owner() -> None:
         imported == "app.modules.images" or imported.startswith("app.modules.images.")
         for imported in _imports(schema_barrel)
     )
-
-
-def test_production_code_does_not_use_legacy_images_imports() -> None:
-    violations: list[str] = []
-    for path in _production_python():
-        if path in LEGACY_IMAGES_SHIMS:
-            continue
-        for imported in _imports(path):
-            if imported.startswith(LEGACY_IMAGES_IMPORTS):
-                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
-    assert not violations, "\n".join(violations)
 
 
 def test_mobile_images_has_one_feature_home() -> None:
@@ -484,41 +302,11 @@ def test_speech_runtime_code_has_one_owner() -> None:
     assert expected <= {path.name for path in module_root.glob("*.py")}
     assert (APP_ROOT / "tests" / "modules" / "speech" / "test_service.py").is_file()
 
-    for shim in LEGACY_SPEECH_SHIMS:
-        tree = ast.parse(shim.read_text(), filename=str(shim))
-        owned_definitions = [
-            node
-            for node in tree.body
-            if isinstance(node, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
-        ]
-        assert not owned_definitions, f"Compatibility shim contains behavior: {shim}"
-
-    for shim_name, module_name in (("speech.py", "api"), ("speech_realtime.py", "realtime")):
-        shim = APP_ROOT / "routers" / shim_name
-        shim_tree = ast.parse(shim.read_text(), filename=str(shim))
-        assert any(
-            isinstance(node, ast.ImportFrom)
-            and node.module == f"app.modules.speech.{module_name}"
-            and any(alias.name == "router" for alias in node.names)
-            for node in shim_tree.body
-        ), f"legacy {shim_name} must re-export router"
-
     schema_barrel = APP_ROOT / "models" / "schemas" / "__init__.py"
     assert not any(
         imported == "app.modules.speech" or imported.startswith("app.modules.speech.")
         for imported in _imports(schema_barrel)
     )
-
-
-def test_production_code_does_not_use_legacy_speech_imports() -> None:
-    violations: list[str] = []
-    for path in _production_python():
-        if path in LEGACY_SPEECH_SHIMS:
-            continue
-        for imported in _imports(path):
-            if imported.startswith(LEGACY_SPEECH_IMPORTS):
-                violations.append(f"{path.relative_to(APP_ROOT)} imports {imported}")
-    assert not violations, "\n".join(violations)
 
 
 def test_mobile_speech_has_one_feature_home() -> None:

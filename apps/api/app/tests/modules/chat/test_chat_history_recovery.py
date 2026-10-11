@@ -7,7 +7,7 @@ from uuid import uuid4
 
 import pytest
 
-from app.services import chats
+from app.modules.chat import service as chats
 
 
 @pytest.mark.asyncio
@@ -28,11 +28,16 @@ async def test_saved_messages_remain_readable_when_title_backfill_fails(failure_
         for role, content in [("user", "Hello"), ("assistant", "Hi there")]
     ]
     with (
-        patch("app.services.chats.get_chat", AsyncMock(return_value=SimpleNamespace(title=None))),
-        patch("app.services.chats.finalize_registry.wait_for_inflight_stream", AsyncMock()),
-        patch("app.services.chats.finalize_registry.wait_for_pending_finalize", AsyncMock()),
-        patch("app.services.chats.messages_repo.list_page", AsyncMock(return_value=(rows, False))),
-        patch("app.services.chats.jobs.enqueue", enqueue),
+        patch(
+            "app.modules.chat.service.get_chat", AsyncMock(return_value=SimpleNamespace(title=None))
+        ),
+        patch("app.modules.chat.service.finalize_registry.wait_for_inflight_stream", AsyncMock()),
+        patch("app.modules.chat.service.finalize_registry.wait_for_pending_finalize", AsyncMock()),
+        patch(
+            "app.modules.chat.service.messages_repo.list_page",
+            AsyncMock(return_value=(rows, False)),
+        ),
+        patch("app.modules.chat.service.jobs.enqueue", enqueue),
     ):
         page = await chats.list_messages_page(
             AsyncMock(), redis, SimpleNamespace(id=uuid4()), uuid4()

@@ -1,11 +1,11 @@
-"""Tests for app.services.plan — plan gates and model pools."""
+"""Tests for app.modules.billing.plan — plan gates and model pools."""
 
 import pytest
 
 from app.core.config import Settings
 from app.exceptions import UnknownModelOverrideError
+from app.modules.billing import plan as plan_service
 from app.services import model_catalog
-from app.services import plan as plan_service
 
 
 class FakeUser:

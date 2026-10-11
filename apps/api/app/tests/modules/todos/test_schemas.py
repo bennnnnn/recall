@@ -38,7 +38,7 @@ def test_todo_patch_rejects_null_nonnullable_field(field):
 
 @pytest.mark.parametrize("model", ["TodoCreate", "TodoUpdate"])
 def test_todo_rejects_whitespace_content(model):
-    from app.models.schemas import schedule
+    from app.modules.todos import schemas as schedule
 
     payload = {"content": " \t\n "}
     if model == "TodoCreate":

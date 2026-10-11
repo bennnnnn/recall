@@ -196,7 +196,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
             AsyncMock(return_value=extracted),
         ) as extract_mock,
         patch(
-            "app.services.plan.resolve_user_model_override",
+            "app.modules.billing.plan.resolve_user_model_override",
             return_value="smart-chat",
         ),
         patch(
@@ -334,7 +334,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
             AsyncMock(return_value=extracted),
         ) as extract_mock,
         patch(
-            "app.services.plan.resolve_user_model_override",
+            "app.modules.billing.plan.resolve_user_model_override",
             return_value="smart-chat",
         ),
         patch(

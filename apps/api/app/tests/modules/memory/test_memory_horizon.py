@@ -147,17 +147,17 @@ async def test_extract_remember_max_persists_via_ops():
             return None
 
     with (
-        patch("app.background.memory_extraction.SessionLocal", return_value=_CM()),
+        patch("app.modules.memory.extraction_workflow.SessionLocal", return_value=_CM()),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=MagicMock(memory_enabled=True, memory_include_sensitive=False)),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(
                 return_value=MemoryFactUpdateResult(
                     ops=[
@@ -171,12 +171,12 @@ async def test_extract_remember_max_persists_via_ops():
                 )
             ),
         ),
-        patch("app.background.memory_extraction.apply_memory_facts", apply),
+        patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply),
         patch(
-            "app.background.memory_extraction.acquire_memory_write_lock",
+            "app.modules.memory.extraction_workflow.acquire_memory_write_lock",
             AsyncMock(return_value=True),
         ),
-        patch("app.background.memory_extraction.release_memory_write_lock", AsyncMock()),
+        patch("app.modules.memory.extraction_workflow.release_memory_write_lock", AsyncMock()),
         patch(
             "app.modules.memory.extract_backlog.messages_repo.list_user_contents_since",
             AsyncMock(return_value=[]),

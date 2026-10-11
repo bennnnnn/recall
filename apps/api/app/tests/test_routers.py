@@ -455,7 +455,7 @@ def test_revenuecat_webhook_503_when_no_auth_and_no_dev_opt_in():
 def test_revenuecat_webhook_rejects_oversized_body():
     from fastapi import HTTPException
 
-    from app.routers import webhooks as webhooks_mod
+    from app.modules.billing import api as webhooks_mod
 
     with pytest.raises(HTTPException) as exc:
         webhooks_mod._reject_oversized_webhook_body(str(200_000), 0)
@@ -498,7 +498,7 @@ def test_create_chat():
     chat.updated_at = datetime(2024, 1, 1)
 
     app = _app_with_user(user)
-    with patch("app.services.chats.chats_repo.create", AsyncMock(return_value=chat)):
+    with patch("app.modules.chat.service.chats_repo.create", AsyncMock(return_value=chat)):
         client = TestClient(app)
         r = client.post(
             "/chats", headers={"Authorization": "Bearer tok"}, json={"model": "free-chat"}
@@ -523,7 +523,9 @@ def test_create_chat_ignores_retired_project_id():
     chat.created_at = datetime(2024, 1, 1)
     chat.updated_at = datetime(2024, 1, 1)
 
-    with patch("app.services.chats.chats_repo.create", AsyncMock(return_value=chat)) as create:
+    with patch(
+        "app.modules.chat.service.chats_repo.create", AsyncMock(return_value=chat)
+    ) as create:
         client = TestClient(app)
         response = client.post(
             "/chats",
@@ -541,13 +543,15 @@ def test_list_chats():
     empty_list: list = []
 
     with (
-        patch("app.services.chats.chats_repo.list_for_user", AsyncMock(return_value=empty_list)),
         patch(
-            "app.services.chats.chats_repo.list_archived_for_user",
+            "app.modules.chat.service.chats_repo.list_for_user", AsyncMock(return_value=empty_list)
+        ),
+        patch(
+            "app.modules.chat.service.chats_repo.list_archived_for_user",
             AsyncMock(return_value=empty_list),
         ),
         patch(
-            "app.services.chats.chats_repo.group_by_recency",
+            "app.modules.chat.service.chats_repo.group_by_recency",
             return_value={
                 "today": [],
                 "yesterday": [],
@@ -598,15 +602,15 @@ def test_list_chats_never_overlaps_ops_on_one_session():
 
     with (
         patch(
-            "app.services.chats.chats_repo.list_for_user",
+            "app.modules.chat.service.chats_repo.list_for_user",
             AsyncMock(side_effect=tracked("active", [])),
         ),
         patch(
-            "app.services.chats.chats_repo.list_archived_for_user",
+            "app.modules.chat.service.chats_repo.list_archived_for_user",
             AsyncMock(side_effect=tracked("archived", [])),
         ),
         patch(
-            "app.services.chats.chats_repo.group_by_recency",
+            "app.modules.chat.service.chats_repo.group_by_recency",
             return_value={
                 "today": [],
                 "yesterday": [],
@@ -626,7 +630,7 @@ def test_list_chats_never_overlaps_ops_on_one_session():
 def test_get_chat_not_found():
     user = _fake_user()
     app = _app_with_user(user)
-    with patch("app.services.chats.chats_repo.get_by_id", AsyncMock(return_value=None)):
+    with patch("app.modules.chat.service.chats_repo.get_by_id", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.get(f"/chats/{uuid4()}", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 404
@@ -673,12 +677,12 @@ def test_list_messages_enqueues_topic_backfill():
     asst_msg.created_at = datetime(2024, 1, 1)
 
     with (
-        patch("app.services.chats.chats_repo.get_by_id", AsyncMock(return_value=chat)),
+        patch("app.modules.chat.service.chats_repo.get_by_id", AsyncMock(return_value=chat)),
         patch(
-            "app.services.chats.messages_repo.list_page",
+            "app.modules.chat.service.messages_repo.list_page",
             AsyncMock(return_value=([user_msg, asst_msg], False)),
         ),
-        patch("app.services.chats.jobs.enqueue", AsyncMock()) as enqueue_job,
+        patch("app.modules.chat.service.jobs.enqueue", AsyncMock()) as enqueue_job,
     ):
         client = TestClient(app)
         r = client.get(f"/chats/{chat_id}/messages", headers={"Authorization": "Bearer tok"})
@@ -710,7 +714,7 @@ def test_patch_message_email_rewrites_via_service():
     asst_msg.created_at = datetime(2024, 1, 1)
 
     with patch(
-        "app.services.chats.update_message_email",
+        "app.modules.chat.service.update_message_email",
         AsyncMock(return_value=asst_msg),
     ) as update:
         client = TestClient(app)
@@ -732,7 +736,7 @@ def test_rename_chat_rejects_blank_title():
     chat = MagicMock()
     chat.id = chat_id
 
-    with patch("app.services.chats.chats_repo.get_by_id", AsyncMock(return_value=chat)):
+    with patch("app.modules.chat.service.chats_repo.get_by_id", AsyncMock(return_value=chat)):
         client = TestClient(app)
         r = client.patch(
             f"/chats/{chat_id}",
@@ -752,7 +756,7 @@ def test_today_usage():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     app.dependency_overrides[get_redis] = lambda: fake_redis
 
-    with patch("app.services.chats.usage_repo.get_for_date", AsyncMock(return_value=None)):
+    with patch("app.modules.chat.service.usage_repo.get_for_date", AsyncMock(return_value=None)):
         client = TestClient(app)
         r = client.get("/chats/usage/today", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -780,7 +784,9 @@ def test_today_usage_falls_back_to_db_total_when_redis_flushed():
     db_usage.input_tokens = 8_000
     db_usage.output_tokens = 4_000
 
-    with patch("app.services.chats.usage_repo.get_for_date", AsyncMock(return_value=db_usage)):
+    with patch(
+        "app.modules.chat.service.usage_repo.get_for_date", AsyncMock(return_value=db_usage)
+    ):
         client = TestClient(app)
         r = client.get("/chats/usage/today", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
@@ -991,14 +997,14 @@ def test_revenuecat_webhook_enqueues_receipt_on_purchase():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ),
-        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()) as enq,
+        patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
     ):
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
@@ -1032,14 +1038,14 @@ def test_revenuecat_webhook_skips_receipt_when_plan_not_applied():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=False),
         ),
-        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()) as enq,
+        patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
     ):
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
@@ -1068,14 +1074,14 @@ def test_revenuecat_webhook_free_event_does_not_enqueue_receipt():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ),
-        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()) as enq,
+        patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
     ):
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
@@ -1111,7 +1117,7 @@ def test_revenuecat_webhook_cancellation_with_future_expiry_keeps_pro():
     }
 
     with patch(
-        "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+        "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
         AsyncMock(return_value=True),
     ) as apply_plan:
         client = TestClient(app)
@@ -1146,7 +1152,7 @@ def test_revenuecat_webhook_cancellation_with_past_expiry_downgrades():
     }
 
     with patch(
-        "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+        "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
         AsyncMock(return_value=True),
     ) as apply_plan:
         client = TestClient(app)
@@ -1178,11 +1184,11 @@ def test_revenuecat_webhook_subscriber_fetch_failure_returns_503():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
     ):
@@ -1221,11 +1227,11 @@ def test_revenuecat_webhook_customer_support_refund_rechecks_entitlement():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="free"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
     ):
@@ -1264,11 +1270,11 @@ def test_revenuecat_webhook_customer_support_keeps_pro_when_entitlement_active()
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=False),
         ) as apply_plan,
     ):
@@ -1300,7 +1306,7 @@ def test_revenuecat_webhook_billing_issue_does_not_downgrade():
     payload = {"event": {"type": "BILLING_ISSUE", "app_user_id": str(uid)}}
 
     with patch(
-        "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+        "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
         AsyncMock(return_value=True),
     ) as apply_plan:
         client = TestClient(app)
@@ -1329,7 +1335,7 @@ def test_revenuecat_webhook_expiration_still_downgrades():
     payload = {"event": {"type": "EXPIRATION", "app_user_id": str(uid)}}
 
     with patch(
-        "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+        "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
         AsyncMock(return_value=True),
     ) as apply_plan:
         client = TestClient(app)
@@ -1377,19 +1383,19 @@ def test_revenuecat_webhook_ignores_stale_expiration_after_purchase():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
         patch(
-            "app.routers.webhooks.subscription_service.is_stale_rc_event",
+            "app.modules.billing.api.subscription_service.is_stale_rc_event",
             AsyncMock(side_effect=[False, True]),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.advance_rc_event_watermark",
+            "app.modules.billing.api.subscription_service.advance_rc_event_watermark",
             AsyncMock(),
         ) as advance,
     ):
@@ -1439,19 +1445,19 @@ def test_revenuecat_webhook_newer_expiration_still_applies_after_purchase():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_plan,
         patch(
-            "app.routers.webhooks.subscription_service.is_stale_rc_event",
+            "app.modules.billing.api.subscription_service.is_stale_rc_event",
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.advance_rc_event_watermark",
+            "app.modules.billing.api.subscription_service.advance_rc_event_watermark",
             AsyncMock(),
         ) as advance,
     ):
@@ -1467,7 +1473,7 @@ def test_revenuecat_webhook_newer_expiration_still_applies_after_purchase():
 
 def test_expiration_overflow_ms_returns_none():
     """Huge expiration_at_ms must not raise (webhook 500 / retry storm)."""
-    from app.routers.webhooks import _expiration
+    from app.modules.billing.api import _expiration
 
     assert _expiration({"event": {"expiration_at_ms": 10**20}}) is None
     assert _expiration({"event": {"expiration_at_ms": -(10**20)}}) is None
@@ -1499,14 +1505,14 @@ def test_revenuecat_webhook_huge_expiration_still_succeeds():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ),
-        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()) as enq,
+        patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
     ):
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
@@ -1541,14 +1547,14 @@ def test_revenuecat_webhook_dedups_replay_by_event_id():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
-        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()),
+        patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()),
     ):
         client = TestClient(app)
         r1 = client.post("/webhooks/revenuecat", json=payload)
@@ -1584,14 +1590,14 @@ def test_revenuecat_webhook_missing_event_id_hashes_payload_for_dedupe():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
-        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()),
+        patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()),
     ):
         client = TestClient(app)
         r1 = client.post("/webhooks/revenuecat", json=payload)
@@ -1628,11 +1634,11 @@ def test_revenuecat_webhook_pro_event_defers_when_entitlement_unresolved():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
     ):
@@ -1650,7 +1656,7 @@ def test_revenuecat_webhook_concurrent_claim_only_processes_once():
 
     from app.core.config import get_settings
     from app.core.deps import get_redis
-    from app.routers import webhooks as webhooks_mod
+    from app.modules.billing import api as webhooks_mod
 
     uid = uuid4()
     app = create_app()
@@ -1680,14 +1686,14 @@ def test_revenuecat_webhook_concurrent_claim_only_processes_once():
         patch.object(webhooks_mod, "_try_claim", side_effect=claim_side_effect),
         patch.object(webhooks_mod, "_already_processed", AsyncMock(return_value=False)),
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
-        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()) as enq,
+        patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
     ):
         client = TestClient(app)
         r1 = client.post("/webhooks/revenuecat", json=payload)
@@ -1730,11 +1736,11 @@ def test_revenuecat_webhook_failed_processing_does_not_burn_dedup_key():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(side_effect=[RuntimeError("boom"), True]),
         ) as apply_mock,
     ):
@@ -1769,14 +1775,14 @@ def test_revenuecat_webhook_requires_auth_in_production():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
-        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()),
+        patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()),
     ):
         client = TestClient(app)
         r_bad = client.post("/webhooks/revenuecat", json=payload)
@@ -1818,14 +1824,14 @@ def test_revenuecat_webhook_ignores_sandbox_in_production():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
-        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()) as enq,
+        patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()) as enq,
     ):
         client = TestClient(app)
         r = client.post(
@@ -1867,14 +1873,14 @@ def test_revenuecat_webhook_processes_sandbox_in_development():
 
     with (
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
-        patch("app.routers.webhooks.enqueue_purchase_receipt", AsyncMock()),
+        patch("app.modules.billing.api.enqueue_purchase_receipt", AsyncMock()),
     ):
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
@@ -1909,7 +1915,7 @@ def test_revenuecat_webhook_transfer_downgrades_old_and_syncs_new():
     }
 
     with patch(
-        "app.routers.webhooks.subscription_service.handle_revenuecat_transfer",
+        "app.modules.billing.api.subscription_service.handle_revenuecat_transfer",
         AsyncMock(),
     ) as transfer_mock:
         client = TestClient(app)
@@ -1949,7 +1955,7 @@ def test_revenuecat_webhook_transfer_failure_does_not_dedup():
     }
 
     with patch(
-        "app.routers.webhooks.subscription_service.handle_revenuecat_transfer",
+        "app.modules.billing.api.subscription_service.handle_revenuecat_transfer",
         AsyncMock(return_value=False),
     ) as transfer_mock:
         client = TestClient(app)
@@ -1989,7 +1995,7 @@ def test_revenuecat_webhook_malformed_transfer_is_not_deduped():
     payload["event"]["app_user_id"] = "   "
 
     with patch(
-        "app.routers.webhooks.subscription_service.handle_revenuecat_transfer",
+        "app.modules.billing.api.subscription_service.handle_revenuecat_transfer",
         AsyncMock(),
     ) as transfer_mock:
         client = TestClient(app)
@@ -2004,7 +2010,7 @@ def test_revenuecat_webhook_malformed_transfer_is_not_deduped():
 def test_verify_auth_non_ascii_header_is_401():
     from fastapi import HTTPException
 
-    from app.routers.webhooks import _verify_auth
+    from app.modules.billing.api import _verify_auth
 
     settings = Settings(revenuecat_webhook_auth="whsec-secret")
     with pytest.raises(HTTPException) as exc:
@@ -2017,7 +2023,7 @@ def test_revenuecat_webhook_subscriber_lock_busy_returns_503():
 
     from app.core.config import get_settings
     from app.core.deps import get_redis
-    from app.routers import webhooks as webhooks_mod
+    from app.modules.billing import api as webhooks_mod
 
     uid = uuid4()
     app = create_app()
@@ -2040,11 +2046,11 @@ def test_revenuecat_webhook_subscriber_lock_busy_returns_503():
     with (
         patch.object(webhooks_mod, "acquire_lock", AsyncMock(return_value=None)),
         patch(
-            "app.routers.webhooks.subscription_service.resolve_plan_from_revenuecat",
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ),
         patch(
-            "app.routers.webhooks.subscription_service.apply_plan_for_app_user_id",
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
     ):
@@ -2206,9 +2212,9 @@ def test_speech_transcribe_ok():
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.transcribe_audio",
+            "app.modules.speech.api.speech_service.transcribe_audio",
             AsyncMock(return_value="hello world"),
         ),
     ):
@@ -2230,13 +2236,13 @@ def test_speech_transcribe_global_spend_cap():
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.quota_service.global_spend_exceeded",
+            "app.modules.speech.api.quota_service.global_spend_exceeded",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.routers.speech.speech_service.transcribe_audio",
+            "app.modules.speech.api.speech_service.transcribe_audio",
             AsyncMock(return_value="hello"),
         ) as transcribe,
     ):
@@ -2263,9 +2269,9 @@ def test_speech_transcribe_json_ok():
     }
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.transcribe_audio",
+            "app.modules.speech.api.speech_service.transcribe_audio",
             AsyncMock(return_value="hello json"),
         ),
     ):
@@ -2293,8 +2299,8 @@ def test_speech_transcribe_json_forwards_language():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     transcribe = AsyncMock(return_value="hola")
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
-        patch("app.routers.speech.speech_service.transcribe_audio", transcribe),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.speech_service.transcribe_audio", transcribe),
     ):
         r = client.post(
             "/speech/transcribe",
@@ -2314,9 +2320,9 @@ def test_speech_transcribe_empty_text_ok():
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.transcribe_audio",
+            "app.modules.speech.api.speech_service.transcribe_audio",
             AsyncMock(return_value=""),
         ),
     ):
@@ -2336,9 +2342,9 @@ def test_speech_transcribe_provider_failure_is_502():
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.transcribe_audio",
+            "app.modules.speech.api.speech_service.transcribe_audio",
             AsyncMock(return_value=None),
         ),
     ):
@@ -2362,9 +2368,9 @@ def test_speech_transcribe_daily_cap():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.transcribe_audio",
+            "app.modules.speech.api.speech_service.transcribe_audio",
             AsyncMock(return_value="ok"),
         ),
     ):
@@ -2396,10 +2402,10 @@ def test_speech_transcribe_cancelled_refunds():
         raise asyncio.CancelledError()
 
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
-        patch("app.routers.speech.speech_service.transcribe_audio", boom),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.speech_service.transcribe_audio", boom),
         patch(
-            "app.routers.speech.quota_service.refund_speech_transcription",
+            "app.modules.speech.api.quota_service.refund_speech_transcription",
             AsyncMock(),
         ) as refund,
     ):
@@ -2427,9 +2433,9 @@ def test_speech_transcribe_rate_limit():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.transcribe_audio",
+            "app.modules.speech.api.speech_service.transcribe_audio",
             AsyncMock(return_value="ok"),
         ),
     ):
@@ -2477,9 +2483,9 @@ def test_speech_transcribe_rejects_oversized_multipart_content_length():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     oversized = b"x" * (SPEECH_MAX_REQUEST_BYTES + 1)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.transcribe_audio",
+            "app.modules.speech.api.speech_service.transcribe_audio",
             AsyncMock(return_value="should not reach"),
         ) as transcribe_mock,
     ):
@@ -2509,9 +2515,9 @@ def test_speech_transcribe_6mb_is_413_before_quota():
     client = TestClient(app)
     six_mb = b"x" * 6_000_000
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.transcribe_audio",
+            "app.modules.speech.api.speech_service.transcribe_audio",
             AsyncMock(return_value="ok"),
         ) as transcribe_mock,
     ):
@@ -2539,9 +2545,9 @@ def test_speech_tts_ok():
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.synthesize_speech",
+            "app.modules.speech.api.speech_service.synthesize_speech",
             AsyncMock(return_value=(b"fake-mp3", "audio/mpeg")),
         ),
     ):
@@ -2570,10 +2576,10 @@ def test_speech_tts_cancelled_refunds():
         raise asyncio.CancelledError()
 
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
-        patch("app.routers.speech.speech_service.synthesize_speech", boom),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.speech_service.synthesize_speech", boom),
         patch(
-            "app.routers.speech.quota_service.refund_speech_tts",
+            "app.modules.speech.api.quota_service.refund_speech_tts",
             AsyncMock(),
         ) as refund,
     ):
@@ -2598,9 +2604,9 @@ def test_speech_tts_daily_cap():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.synthesize_speech",
+            "app.modules.speech.api.speech_service.synthesize_speech",
             AsyncMock(return_value=(b"ok", "audio/mpeg")),
         ),
     ):
@@ -2631,9 +2637,9 @@ def test_speech_tts_lead_allows_multiple_rest_followups():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.synthesize_speech",
+            "app.modules.speech.api.speech_service.synthesize_speech",
             AsyncMock(return_value=(b"ok", "audio/mpeg")),
         ),
     ):
@@ -2676,9 +2682,9 @@ def test_speech_tts_rest_wrong_lead_hash_is_billed():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.synthesize_speech",
+            "app.modules.speech.api.speech_service.synthesize_speech",
             AsyncMock(return_value=(b"ok", "audio/mpeg")),
         ),
     ):
@@ -2723,9 +2729,9 @@ def test_speech_tts_rest_over_char_budget_is_billed():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.synthesize_speech",
+            "app.modules.speech.api.speech_service.synthesize_speech",
             AsyncMock(return_value=(b"ok", "audio/mpeg")),
         ),
     ):
@@ -2762,9 +2768,9 @@ def test_speech_tts_rate_limit_message():
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.synthesize_speech",
+            "app.modules.speech.api.speech_service.synthesize_speech",
             AsyncMock(return_value=(b"ok", "audio/mpeg")),
         ),
     ):
@@ -2810,9 +2816,9 @@ def test_speech_tts_stream_ok():
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech.speech_service.iter_tts_pcm",
+            "app.modules.speech.api.speech_service.iter_tts_pcm",
             _chunks,
         ),
     ):
@@ -2837,10 +2843,10 @@ def test_speech_tts_stream_empty_refunds():
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
-        patch("app.routers.speech.get_redis_client", return_value=fake_redis),
-        patch("app.routers.speech.speech_service.iter_tts_pcm", _empty),
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.api.speech_service.iter_tts_pcm", _empty),
         patch(
-            "app.routers.speech.quota_service.refund_speech_tts",
+            "app.modules.speech.api.quota_service.refund_speech_tts",
             AsyncMock(),
         ) as refund,
     ):
@@ -2860,7 +2866,7 @@ def test_speech_live_status_free_not_entitled():
     user = _fake_user(plan="free")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
+    with patch("app.modules.speech.api.get_redis_client", return_value=fake_redis):
         r = client.get("/speech/live", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
     body = r.json()
@@ -2876,7 +2882,7 @@ def test_speech_live_status_pro_remaining():
     user = _fake_user(plan="pro")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
+    with patch("app.modules.speech.api.get_redis_client", return_value=fake_redis):
         r = client.get("/speech/live", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 200
     body = r.json()
@@ -2911,7 +2917,7 @@ async def test_speech_live_refund_pending_slot():
     app = _app_with_user(user)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     await quota_service.reserve_live_talk(fake_redis, user.id, limit=30)
-    with patch("app.routers.speech.get_redis_client", return_value=fake_redis):
+    with patch("app.modules.speech.api.get_redis_client", return_value=fake_redis):
         async with AsyncClient(
             transport=ASGITransport(app=app),
             base_url="http://test",

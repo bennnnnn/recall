@@ -135,21 +135,21 @@ def _session_mint_patches(
 ):
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
-        patch("app.routers.speech_realtime.get_redis_client", return_value=fake_redis),
+        patch("app.modules.speech.realtime.get_redis_client", return_value=fake_redis),
         patch(
-            "app.routers.speech_realtime.quota_service.live_talk_limit_for_user",
+            "app.modules.speech.realtime.quota_service.live_talk_limit_for_user",
             return_value=30,
         ),
         patch(
-            "app.routers.speech_realtime.quota_service.live_talk_has_capacity",
+            "app.modules.speech.realtime.quota_service.live_talk_has_capacity",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.routers.speech_realtime.live_talk_service.load_live_talk_session_context",
+            "app.modules.speech.realtime.live_talk_service.load_live_talk_session_context",
             AsyncMock(return_value=LiveTalkSessionContext(None, memory_block, schedule_block)),
         ),
         patch(
-            "app.routers.speech_realtime.openai_speech_gateway.create_realtime_client_secret",
+            "app.modules.speech.realtime.openai_speech_gateway.create_realtime_client_secret",
             mint,
         ),
     ):
@@ -165,7 +165,7 @@ def test_persist_requires_issued_realtime_session():
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(_realtime_app(user, settings))
-    with patch("app.routers.speech_realtime.get_redis_client", return_value=fake_redis):
+    with patch("app.modules.speech.realtime.get_redis_client", return_value=fake_redis):
         r = client.post(
             "/speech/live/persist",
             headers={"Authorization": "Bearer tok"},
@@ -187,7 +187,7 @@ def test_persist_ignores_assistant_only_phantom_turn():
         speech_realtime_voice_enabled=True,
     )
     client = TestClient(_realtime_app(user, settings))
-    with patch("app.routers.speech_realtime.get_redis_client") as redis_client:
+    with patch("app.modules.speech.realtime.get_redis_client") as redis_client:
         r = client.post(
             "/speech/live/persist",
             headers={"Authorization": "Bearer tok"},
@@ -211,31 +211,32 @@ def test_voice_sources_persist_in_the_canonical_chat_fence():
     persist = AsyncMock(return_value=(None, None))
     chat_id = uuid4()
     with (
-        patch("app.routers.speech_realtime.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.speech.realtime.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.routers.speech_realtime.live_talk_service.realtime_session_bound_chat_id",
+            "app.modules.speech.realtime.live_talk_service.realtime_session_bound_chat_id",
             AsyncMock(return_value=chat_id),
         ),
         patch(
-            "app.routers.speech_realtime.quota_service.reserve_live_talk",
+            "app.modules.speech.realtime.quota_service.reserve_live_talk",
             AsyncMock(return_value=True),
         ),
         patch(
-            "app.routers.speech_realtime.quota_service.clear_live_talk_pending",
+            "app.modules.speech.realtime.quota_service.clear_live_talk_pending",
             AsyncMock(),
         ),
         patch(
-            "app.routers.speech_realtime.quota_service.record_voice_spend",
+            "app.modules.speech.realtime.quota_service.record_voice_spend",
             AsyncMock(),
         ),
         patch(
-            "app.routers.speech_realtime.live_talk_service.load_live_talk_history",
+            "app.modules.speech.realtime.live_talk_service.load_live_talk_history",
             AsyncMock(return_value=([], False)),
         ),
         patch(
-            "app.services.live_talk_tools.search_sources_for_turn", AsyncMock(return_value=sources)
+            "app.modules.speech.live_talk_tools.search_sources_for_turn",
+            AsyncMock(return_value=sources),
         ),
-        patch("app.routers.speech_realtime.live_talk_service.persist_live_talk_turn", persist),
+        patch("app.modules.speech.realtime.live_talk_service.persist_live_talk_turn", persist),
     ):
         response = client.post(
             "/speech/live/persist",
@@ -265,20 +266,20 @@ def test_persist_rejects_when_daily_turn_cap_is_exhausted():
     persist = AsyncMock(return_value=(None, None))
     client = TestClient(_realtime_app(user, settings))
     with (
-        patch("app.routers.speech_realtime.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.speech.realtime.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.routers.speech_realtime.quota_service.global_spend_exceeded",
+            "app.modules.speech.realtime.quota_service.global_spend_exceeded",
             AsyncMock(return_value=False),
         ),
         patch(
-            "app.routers.speech_realtime.live_talk_service.realtime_session_bound_chat_id",
+            "app.modules.speech.realtime.live_talk_service.realtime_session_bound_chat_id",
             AsyncMock(return_value=chat_id),
         ),
         patch(
-            "app.routers.speech_realtime.quota_service.reserve_live_talk",
+            "app.modules.speech.realtime.quota_service.reserve_live_talk",
             AsyncMock(return_value=False),
         ),
-        patch("app.routers.speech_realtime.live_talk_service.persist_live_talk_turn", persist),
+        patch("app.modules.speech.realtime.live_talk_service.persist_live_talk_turn", persist),
     ):
         response = client.post(
             "/speech/live/persist",
@@ -306,12 +307,12 @@ def test_persist_rejects_when_global_spend_cap_is_hit():
     persist = AsyncMock(return_value=(None, None))
     client = TestClient(_realtime_app(user, settings))
     with (
-        patch("app.routers.speech_realtime.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.speech.realtime.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.routers.speech_realtime.quota_service.global_spend_exceeded",
+            "app.modules.speech.realtime.quota_service.global_spend_exceeded",
             AsyncMock(return_value=True),
         ),
-        patch("app.routers.speech_realtime.live_talk_service.persist_live_talk_turn", persist),
+        patch("app.modules.speech.realtime.live_talk_service.persist_live_talk_turn", persist),
     ):
         response = client.post(
             "/speech/live/persist",
@@ -333,12 +334,12 @@ def test_persist_rejects_chat_id_that_is_not_bound_to_the_session():
     client = TestClient(_realtime_app(user, Settings()))
     persist = AsyncMock(return_value=(None, None))
     with (
-        patch("app.routers.speech_realtime.get_redis_client", return_value=AsyncMock()),
+        patch("app.modules.speech.realtime.get_redis_client", return_value=AsyncMock()),
         patch(
-            "app.routers.speech_realtime.live_talk_service.realtime_session_bound_chat_id",
+            "app.modules.speech.realtime.live_talk_service.realtime_session_bound_chat_id",
             AsyncMock(return_value=uuid4()),
         ),
-        patch("app.routers.speech_realtime.live_talk_service.persist_live_talk_turn", persist),
+        patch("app.modules.speech.realtime.live_talk_service.persist_live_talk_turn", persist),
     ):
         response = client.post(
             "/speech/live/persist",
@@ -368,7 +369,7 @@ def test_realtime_session_mint_does_not_consume_a_turn_slot():
     with (
         _session_mint_patches(mint=mint),
         patch(
-            "app.routers.speech_realtime.quota_service.reserve_live_talk",
+            "app.modules.speech.realtime.quota_service.reserve_live_talk",
             reserve,
         ),
     ):
@@ -517,15 +518,15 @@ def test_voice_tools_enforce_session_ownership_plan_and_read_only_allowlist(case
     redis.get.return_value = str(uuid4() if case == "wrong_chat" else chat_id)
     invoke = AsyncMock(return_value={"content": "verified"})
     with (
-        patch("app.routers.speech_realtime.get_redis_client", return_value=redis),
+        patch("app.modules.speech.realtime.get_redis_client", return_value=redis),
         patch(
-            "app.routers.speech_realtime.allow_request_fail_closed", AsyncMock(return_value=True)
+            "app.modules.speech.realtime.allow_request_fail_closed", AsyncMock(return_value=True)
         ),
         patch(
             "app.repositories.chats.get_by_id",
             AsyncMock(return_value=None if case == "missing_chat" else MagicMock()),
         ),
-        patch("app.services.live_talk_tools.execute_tool", invoke),
+        patch("app.modules.speech.live_talk_tools.execute_tool", invoke),
     ):
         response = client.post(
             "/speech/live/tool",

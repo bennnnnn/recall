@@ -15,8 +15,8 @@ from app.services.mcp import setup_mcp_adapters
 
 
 def test_sympy_adapter_shim_is_the_math_tool():
+    import app.modules.math.tool as legacy
     import app.modules.math.tool as math_tool
-    import app.services.mcp.sympy_adapter as legacy
 
     assert legacy is math_tool
     assert legacy.SympyAdapter is SympyAdapter

@@ -1,7 +1,7 @@
 """Which memories go into a prompt, in what order, and how they're rendered.
 
 Pure ranking and formatting — no Redis, no DB, no awaits. The stateful core
-(`app/services/memory/__init__.py`) imports these into its own namespace and
+(`app/modules/memory/surface.py`) imports these into its own namespace and
 calls them there, so tests patching `app.modules.memory.format_memory_block`
 and friends still intercept the internal calls.
 """

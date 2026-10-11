@@ -6,7 +6,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import revenuecat_gateway
-from app.services import subscription as subscription_service
+from app.modules.billing import subscription as subscription_service
 
 
 def test_entitlement_active_lifetime():
@@ -42,11 +42,11 @@ async def test_sync_user_plan_from_revenuecat_upgrades():
     payload = {"subscriber": {"entitlements": {"pro": {"expires_date": None}}}}
 
     with patch(
-        "app.services.subscription.revenuecat_gateway.fetch_subscriber",
+        "app.modules.billing.subscription.revenuecat_gateway.fetch_subscriber",
         AsyncMock(return_value=payload),
     ):
         with patch(
-            "app.services.subscription.users_repo.update",
+            "app.modules.billing.subscription.users_repo.update",
             AsyncMock(return_value=MagicMock(plan="pro")),
         ) as update:
             updated = await subscription_service.sync_user_plan_from_revenuecat(
@@ -64,11 +64,11 @@ async def test_apply_plan_for_app_user_id():
     session = AsyncMock()
 
     with patch(
-        "app.services.subscription.users_repo.get_by_id",
+        "app.modules.billing.subscription.users_repo.get_by_id",
         AsyncMock(return_value=user),
     ):
         with patch(
-            "app.services.subscription.users_repo.update",
+            "app.modules.billing.subscription.users_repo.update",
             AsyncMock(return_value=MagicMock(plan="pro")),
         ) as update:
             ok = await subscription_service.apply_plan_for_app_user_id(
@@ -88,7 +88,7 @@ async def test_is_stale_rc_event_when_older_than_watermark():
     session = AsyncMock()
 
     with patch(
-        "app.services.subscription.users_repo.get_by_id",
+        "app.modules.billing.subscription.users_repo.get_by_id",
         AsyncMock(return_value=user),
     ):
         assert await subscription_service.is_stale_rc_event(session, str(user_id), 100) is True
@@ -104,7 +104,7 @@ async def test_is_stale_rc_event_false_when_no_watermark():
     session = AsyncMock()
 
     with patch(
-        "app.services.subscription.users_repo.get_by_id",
+        "app.modules.billing.subscription.users_repo.get_by_id",
         AsyncMock(return_value=user),
     ):
         assert await subscription_service.is_stale_rc_event(session, str(user_id), 100) is False
@@ -118,11 +118,11 @@ async def test_advance_rc_event_watermark_moves_forward_only():
     session = AsyncMock()
 
     with patch(
-        "app.services.subscription.users_repo.get_by_id",
+        "app.modules.billing.subscription.users_repo.get_by_id",
         AsyncMock(return_value=user),
     ):
         with patch(
-            "app.services.subscription.users_repo.update",
+            "app.modules.billing.subscription.users_repo.update",
             AsyncMock(return_value=user),
         ) as update:
             await subscription_service.advance_rc_event_watermark(session, str(user_id), 150)
@@ -147,19 +147,19 @@ async def test_handle_revenuecat_transfer_downgrades_old_and_syncs_new():
 
     with (
         patch(
-            "app.services.subscription.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value="pro"),
         ) as resolve_mock,
         patch(
-            "app.services.subscription.users_repo.get_by_id",
+            "app.modules.billing.subscription.users_repo.get_by_id",
             AsyncMock(return_value=user),
         ),
         patch(
-            "app.services.subscription.users_repo.update",
+            "app.modules.billing.subscription.users_repo.update",
             AsyncMock(return_value=user),
         ) as update,
         patch(
-            "app.services.subscription.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(return_value=True),
         ) as apply_mock,
     ):
@@ -186,11 +186,11 @@ async def test_handle_revenuecat_transfer_skips_invalid_new_id():
 
     with (
         patch(
-            "app.services.subscription.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(),
         ) as apply_mock,
         patch(
-            "app.services.subscription.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(),
         ) as resolve_mock,
     ):
@@ -215,15 +215,15 @@ async def test_handle_revenuecat_transfer_does_not_downgrade_when_fetch_fails():
 
     with (
         patch(
-            "app.services.subscription.resolve_plan_from_revenuecat",
+            "app.modules.billing.subscription.resolve_plan_from_revenuecat",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.services.subscription.apply_plan_for_app_user_id",
+            "app.modules.billing.subscription.apply_plan_for_app_user_id",
             AsyncMock(),
         ) as apply_mock,
         patch(
-            "app.services.subscription.users_repo.get_by_id",
+            "app.modules.billing.subscription.users_repo.get_by_id",
             AsyncMock(),
         ) as get_mock,
     ):
@@ -243,7 +243,7 @@ async def test_handle_revenuecat_transfer_does_not_downgrade_when_fetch_fails():
 async def test_resolve_plan_from_revenuecat_none_without_secret():
     settings = Settings(revenuecat_secret_key="")
     with patch(
-        "app.services.subscription.revenuecat_gateway.fetch_subscriber",
+        "app.modules.billing.subscription.revenuecat_gateway.fetch_subscriber",
         AsyncMock(),
     ) as fetch:
         assert await subscription_service.resolve_plan_from_revenuecat(settings, "u") is None

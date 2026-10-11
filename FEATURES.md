@@ -784,7 +784,7 @@ Mobile → Recall API → MCP / calendar gateway → Google Calendar
 - ✅ **Google Calendar OAuth** — separate opt-in from sign-in; scope `calendar.readonly`; refresh
   token stored server-side only.
 - ✅ **`user_calendar_connections` table** — refresh token, granted scopes, primary calendar id.
-- ✅ **`services/calendar.py`** — fetch events for a window (**local midnight** → +60
+- ✅ **`modules/integrations/calendar.py`** — fetch events for a window (**local midnight** → +60
   days, not `timeMin=now`); prompt inject uses 14 days; Redis cache (~5 min) so every
   chat turn doesn't hit Google. Morning meetings stay on the Reminders day view after
   they end.
@@ -802,7 +802,7 @@ suggestions using existing `users.timezone` and `todo_items.due_at`.
   refresh token server-side only.
 - ✅ **`user_gmail_connections` table** — scopes, `last_sync_at`, connected email (7-day
   inbox query; not a Gmail History API cursor).
-- ✅ **`services/email.py`** — fetch recent mail, dedupe by message id, LLM extraction with Pydantic
+- ✅ **`modules/integrations/inbox.py`** — fetch recent mail, dedupe by message id, LLM extraction with Pydantic
   validation before DB writes.
 - ✅ **Suggested reminders API** — list / dismiss / confirm → create an in-app **dated**
   reminder (`due_at` required; undated extracts default to 18:00 local or now + 1 hour).

@@ -7,13 +7,12 @@ from uuid import uuid4
 
 import pytest
 
-from app.background.memory_extraction import extract_and_store_memories
 from app.core.config import Settings
 from app.models.orm import Memory
 from app.models.schemas import MemoryFactOp, MemoryFactUpdateResult
 from app.models.schemas.common import MemoryType
 from app.modules.memory import embedding_text_hash
-from app.modules.memory.extraction_workflow import extract_history_chat
+from app.modules.memory.extraction_workflow import extract_and_store_memories, extract_history_chat
 from app.modules.memory.writes_repository import MemoryFactWrite
 
 _CANDIDATE = "I like using Vim every day at work."
@@ -87,10 +86,10 @@ def _memory_write_lock_always_free(request: pytest.FixtureRequest):
         return
     with (
         patch(
-            "app.background.memory_extraction.acquire_memory_write_lock",
+            "app.modules.memory.extraction_workflow.acquire_memory_write_lock",
             AsyncMock(return_value=True),
         ),
-        patch("app.background.memory_extraction.release_memory_write_lock", AsyncMock()),
+        patch("app.modules.memory.extraction_workflow.release_memory_write_lock", AsyncMock()),
     ):
         yield
 
@@ -106,27 +105,29 @@ def _extract_patches(
 ):
     with ExitStack() as stack:
         stack.enter_context(
-            patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals)
+            patch("app.modules.memory.extraction_workflow.SessionLocal", side_effect=session_locals)
         )
         stack.enter_context(
             patch(
-                "app.background.memory_extraction.users_repo.get_by_id",
+                "app.modules.memory.extraction_workflow.users_repo.get_by_id",
                 AsyncMock(return_value=user or _user()),
             )
         )
         stack.enter_context(
             patch(
-                "app.background.memory_extraction.memories_repo.list_for_user",
+                "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
                 AsyncMock(return_value=listed or []),
             )
         )
         stack.enter_context(
             patch(
-                "app.background.memory_extraction.memory_llm.revise_memory_facts",
+                "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
                 AsyncMock(return_value=extraction),
             )
         )
-        stack.enter_context(patch("app.background.memory_extraction.apply_memory_facts", apply))
+        stack.enter_context(
+            patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply)
+        )
         yield
 
 
@@ -156,20 +157,20 @@ async def test_extract_skips_when_user_missing():
     _, session_locals = _extraction_sessions()
 
     with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch("app.modules.memory.extraction_workflow.SessionLocal", side_effect=session_locals),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=None),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             revise,
         ),
-        patch("app.background.memory_extraction.apply_memory_facts", apply),
+        patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply),
     ):
         await extract_and_store_memories(
             settings, user_id=uuid4(), chat_id=uuid4(), transcript=_CANDIDATE
@@ -186,22 +187,22 @@ async def test_extract_skips_non_candidate_small_talk():
     stamp = AsyncMock()
     _, session_locals = _extraction_sessions()
     with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch("app.modules.memory.extraction_workflow.SessionLocal", side_effect=session_locals),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=_user()),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.expand_memory_extract_transcript",
+            "app.modules.memory.extraction_workflow.expand_memory_extract_transcript",
             AsyncMock(return_value=("hey there", "cursor-1")),
         ),
-        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
-        patch("app.background.memory_extraction.apply_memory_facts", apply),
-        patch("app.background.memory_extraction.stamp_extract_cursor", stamp),
+        patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
+        patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply),
+        patch("app.modules.memory.extraction_workflow.stamp_extract_cursor", stamp),
     ):
         await extract_and_store_memories(
             Settings(), user_id=uuid4(), chat_id=uuid4(), transcript="hey there"
@@ -222,24 +223,24 @@ def _cursor_patches(*, revise: AsyncMock, give_up: bool = False):
     clear_failed = AsyncMock()
     _, session_locals = _extraction_sessions()
     with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch("app.modules.memory.extraction_workflow.SessionLocal", side_effect=session_locals),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=_user()),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.expand_memory_extract_transcript",
+            "app.modules.memory.extraction_workflow.expand_memory_extract_transcript",
             AsyncMock(return_value=("User: I build mobile apps with Expo", "cursor-2")),
         ),
-        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
-        patch("app.background.memory_extraction.apply_memory_facts", AsyncMock()),
-        patch("app.background.memory_extraction.stamp_extract_cursor", stamp),
-        patch("app.background.memory_extraction.note_failed_extract_pass", note_failed),
-        patch("app.background.memory_extraction.clear_failed_extract_passes", clear_failed),
+        patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
+        patch("app.modules.memory.extraction_workflow.apply_memory_facts", AsyncMock()),
+        patch("app.modules.memory.extraction_workflow.stamp_extract_cursor", stamp),
+        patch("app.modules.memory.extraction_workflow.note_failed_extract_pass", note_failed),
+        patch("app.modules.memory.extraction_workflow.clear_failed_extract_passes", clear_failed),
     ):
         yield SimpleNamespace(stamp=stamp, note_failed=note_failed, clear_failed=clear_failed)
 
@@ -343,17 +344,17 @@ async def test_extract_sends_natural_personal_statements_to_memory_model(transcr
     _, session_locals = _extraction_sessions()
     revise = AsyncMock(return_value=None)
     with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch("app.modules.memory.extraction_workflow.SessionLocal", side_effect=session_locals),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=_user()),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             revise,
         ),
     ):
@@ -699,20 +700,20 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
     apply_writes = AsyncMock(return_value=[memory_id])
     _session, session_locals = _extraction_sessions(count=3)
     with (
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals),
+        patch("app.modules.memory.extraction_workflow.SessionLocal", side_effect=session_locals),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=_user()),
         ),
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(side_effect=[[], [listed]]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(return_value=extraction),
         ),
-        patch("app.background.memory_extraction.memories_repo.apply_writes", apply_writes),
+        patch("app.modules.memory.extraction_workflow.memories_repo.apply_writes", apply_writes),
         patch("app.modules.memory.invalidate_memory_block", AsyncMock()),
         patch("app.modules.home.invalidate_home_cache", AsyncMock()),
         patch("app.gateways.embedding_gateway.embed_text", AsyncMock(return_value=vector)),
@@ -739,7 +740,7 @@ async def test_extract_and_store_stores_embedding_for_new_memory(embedding_write
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("_real_memory_lock")
 async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis):
-    from app.background.memory_consolidation import consolidate_user_memory_sections
+    from app.modules.memory.consolidation_workflow import consolidate_user_memory_sections
 
     user_id = uuid4()
     text = "Prefers concise answers."
@@ -779,19 +780,19 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
     with (
         patch("app.modules.memory.get_redis_client", return_value=fake_redis),
         patch(
-            "app.background.memory_extraction.SessionLocal",
+            "app.modules.memory.extraction_workflow.SessionLocal",
             side_effect=lambda: _FakeSessionCM(extraction_session),
         ),
         patch(
-            "app.background.memory_consolidation.SessionLocal",
+            "app.modules.memory.consolidation_workflow.SessionLocal",
             side_effect=lambda: _FakeSessionCM(consolidation_session),
         ),
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=_user()),
         ),
         patch(
-            "app.background.memory_consolidation.users_repo.get_by_id",
+            "app.modules.memory.consolidation_workflow.users_repo.get_by_id",
             AsyncMock(return_value=_user()),
         ),
         patch(
@@ -799,7 +800,7 @@ async def test_extraction_and_consolidation_do_not_race_the_same_user(fake_redis
             AsyncMock(return_value=[keep, extra]),
         ),
         patch(
-            "app.background.memory_extraction.memory_llm.revise_memory_facts",
+            "app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts",
             AsyncMock(side_effect=_slow_revise),
         ),
         patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply),
@@ -885,9 +886,9 @@ async def test_extract_shows_the_model_existing_topics_and_areas():
         _extract_patches(
             session_locals=session_locals, extraction=None, apply=AsyncMock(), listed=existing
         ),
-        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise),
+        patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise),
         patch(
-            "app.background.memory_extraction.memories_repo.list_areas",
+            "app.modules.memory.extraction_workflow.memories_repo.list_areas",
             AsyncMock(return_value=[area]),
         ),
     ):
@@ -911,17 +912,17 @@ def _history_patches(stack: ExitStack, *, lines: list[str], revise: AsyncMock, a
     read_lines = AsyncMock(return_value=[SimpleNamespace(content=line) for line in lines])
     _, session_locals = _extraction_sessions()
     stack.enter_context(
-        patch("app.background.memory_extraction.SessionLocal", side_effect=session_locals)
+        patch("app.modules.memory.extraction_workflow.SessionLocal", side_effect=session_locals)
     )
     stack.enter_context(
         patch(
-            "app.background.memory_extraction.users_repo.get_by_id",
+            "app.modules.memory.extraction_workflow.users_repo.get_by_id",
             AsyncMock(return_value=user),
         )
     )
     stack.enter_context(
         patch(
-            "app.background.memory_extraction.memories_repo.list_for_user",
+            "app.modules.memory.extraction_workflow.memories_repo.list_for_user",
             AsyncMock(return_value=[]),
         )
     )
@@ -932,9 +933,9 @@ def _history_patches(stack: ExitStack, *, lines: list[str], revise: AsyncMock, a
         )
     )
     stack.enter_context(
-        patch("app.background.memory_extraction.memory_llm.revise_memory_facts", revise)
+        patch("app.modules.memory.extraction_workflow.memory_llm.revise_memory_facts", revise)
     )
-    stack.enter_context(patch("app.background.memory_extraction.apply_memory_facts", apply))
+    stack.enter_context(patch("app.modules.memory.extraction_workflow.apply_memory_facts", apply))
     return read_lines, edited_at
 
 
@@ -950,11 +951,13 @@ async def test_history_pass_reads_lines_after_the_last_hand_edit_and_leaves_curs
             stack, lines=["I run every morning before work"], revise=revise, apply=AsyncMock()
         )
         stack.enter_context(
-            patch("app.background.memory_extraction.expand_memory_extract_transcript", expand)
+            patch("app.modules.memory.extraction_workflow.expand_memory_extract_transcript", expand)
         )
-        stack.enter_context(patch("app.background.memory_extraction.stamp_extract_cursor", stamp))
         stack.enter_context(
-            patch("app.background.memory_extraction.note_failed_extract_pass", note_failed)
+            patch("app.modules.memory.extraction_workflow.stamp_extract_cursor", stamp)
+        )
+        stack.enter_context(
+            patch("app.modules.memory.extraction_workflow.note_failed_extract_pass", note_failed)
         )
         outcome = await extract_history_chat(Settings(), user_id=uuid4(), chat_id=chat_id)
 

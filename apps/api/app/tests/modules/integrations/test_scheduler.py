@@ -6,8 +6,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.background import gmail_periodic_sync
 from app.core.config import Settings
+from app.modules.integrations import scheduler as gmail_periodic_sync
 
 
 class _FakeSessionCM:
@@ -51,15 +51,15 @@ async def test_periodic_cycle_syncs_due_users_concurrently_with_isolated_session
     with (
         patch("app.background.periodic.get_redis_client", return_value=redis),
         patch(
-            "app.background.gmail_periodic_sync.SessionLocal",
+            "app.modules.integrations.scheduler.SessionLocal",
             side_effect=lambda: _FakeSessionCM(AsyncMock()),
         ),
         patch(
-            "app.background.gmail_periodic_sync.gmail_repo.list_due",
+            "app.modules.integrations.scheduler.gmail_repo.list_due",
             AsyncMock(return_value=connections),
         ),
         patch(
-            "app.background.gmail_periodic_sync.email_service.sync_gmail_for_user",
+            "app.modules.integrations.scheduler.email_service.sync_gmail_for_user",
             fake_sync,
         ),
     ):
@@ -83,15 +83,15 @@ async def test_periodic_cycle_skips_recently_synced_users():
     with (
         patch("app.background.periodic.get_redis_client", return_value=redis),
         patch(
-            "app.background.gmail_periodic_sync.SessionLocal",
+            "app.modules.integrations.scheduler.SessionLocal",
             side_effect=lambda: _FakeSessionCM(AsyncMock()),
         ),
         patch(
-            "app.background.gmail_periodic_sync.gmail_repo.list_due",
+            "app.modules.integrations.scheduler.gmail_repo.list_due",
             AsyncMock(return_value=[stale]),
         ),
         patch(
-            "app.background.gmail_periodic_sync.email_service.sync_gmail_for_user",
+            "app.modules.integrations.scheduler.email_service.sync_gmail_for_user",
             sync_mock,
         ),
     ):
@@ -118,15 +118,15 @@ async def test_periodic_cycle_isolates_one_users_failure_from_the_rest():
     with (
         patch("app.background.periodic.get_redis_client", return_value=redis),
         patch(
-            "app.background.gmail_periodic_sync.SessionLocal",
+            "app.modules.integrations.scheduler.SessionLocal",
             side_effect=lambda: _FakeSessionCM(AsyncMock()),
         ),
         patch(
-            "app.background.gmail_periodic_sync.gmail_repo.list_due",
+            "app.modules.integrations.scheduler.gmail_repo.list_due",
             AsyncMock(return_value=connections),
         ),
         patch(
-            "app.background.gmail_periodic_sync.email_service.sync_gmail_for_user",
+            "app.modules.integrations.scheduler.email_service.sync_gmail_for_user",
             fake_sync,
         ),
     ):
@@ -145,7 +145,7 @@ async def test_periodic_cycle_skips_when_gmail_disabled():
     with (
         patch("app.background.periodic.get_redis_client", return_value=redis),
         patch(
-            "app.background.gmail_periodic_sync.gmail_repo.list_due",
+            "app.modules.integrations.scheduler.gmail_repo.list_due",
             AsyncMock(),
         ) as list_due,
     ):

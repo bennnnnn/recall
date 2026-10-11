@@ -1,4 +1,4 @@
-"""Tests for app.services.speech."""
+"""Tests for app.modules.speech.service."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -31,7 +31,7 @@ async def test_transcribe_returns_mock_when_mock_llm_enabled():
         openai_api_key="",
         speech_transcription_enabled=True,
     )
-    with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
+    with patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=True):
         text = await transcribe_audio(settings, b"fake-audio")
     assert text == "This is a mock transcription."
 
@@ -194,7 +194,7 @@ async def test_synthesize_returns_mock_when_mock_llm_enabled():
         openai_api_key="",
         speech_tts_enabled=True,
     )
-    with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
+    with patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=True):
         result = await synthesize_speech(settings, "Hello world")
     assert result is not None
     audio, content_type = result
@@ -211,7 +211,7 @@ async def test_synthesize_disabled_returns_none():
 @pytest.mark.asyncio
 async def test_synthesize_empty_returns_none():
     settings = Settings(mock_llm_enabled=True, speech_tts_enabled=True)
-    with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
+    with patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=True):
         assert await synthesize_speech(settings, "   ") is None
 
 
@@ -266,7 +266,7 @@ async def test_synthesize_openai_omits_language_field():
     client.post = AsyncMock(return_value=response)
 
     with (
-        patch("app.services.speech.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=False),
         patch("app.gateways.speech_gateway.get_pooled_client", return_value=client),
     ):
         result = await synthesize_speech(settings, "Hello world", language="en-US")
@@ -303,7 +303,7 @@ async def test_synthesize_legacy_fast_alias_requests_openai_mp3():
     client.post = AsyncMock(return_value=response)
 
     with (
-        patch("app.services.speech.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=False),
         patch("app.gateways.speech_gateway.get_pooled_client", return_value=client),
     ):
         result = await synthesize_speech(settings, "Hello", model_alias=TTS_FAST_ALIAS)
@@ -332,7 +332,7 @@ async def test_synthesize_uses_openai_when_mock_llm_but_key_present():
     client.post = AsyncMock(return_value=response)
 
     with (
-        patch("app.services.speech.mock_llm.should_mock_llm", return_value=True),
+        patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=True),
         patch("app.gateways.speech_gateway.get_pooled_client", return_value=client),
     ):
         result = await synthesize_speech(settings, "Hello")
@@ -381,7 +381,7 @@ async def test_stream_pcm_yields_chunks_without_buffering():
 async def test_voice_never_uses_openrouter_key_as_fallback():
     settings = Settings(mock_llm_enabled=False, openai_api_key="", openrouter_api_key="router-only")
     with (
-        patch("app.services.speech.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=False),
         patch("app.gateways.speech_gateway.get_pooled_client") as client,
     ):
         assert await transcribe_audio(settings, b"audio") is None
@@ -397,7 +397,7 @@ async def test_iter_tts_pcm_mock_without_key():
         openai_api_key="",
         speech_tts_enabled=True,
     )
-    with patch("app.services.speech.mock_llm.should_mock_llm", return_value=True):
+    with patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=True):
         chunks = [chunk async for chunk in iter_tts_pcm(settings, "Hello")]
     assert len(chunks) == 1
     assert len(chunks[0]) > 0
@@ -448,13 +448,13 @@ async def test_iter_tts_pcm_yields_lead_before_rest_finishes():
         speech_tts_enabled=True,
     )
     with (
-        patch("app.services.speech.mock_llm.should_mock_llm", return_value=False),
+        patch("app.modules.speech.service.mock_llm.should_mock_llm", return_value=False),
         patch(
-            "app.services.speech.split_tts_lead",
+            "app.modules.speech.service.split_tts_lead",
             return_value=("Lead sentence.", "Rest of the message."),
         ),
         patch(
-            "app.services.speech.speech_gateway.stream_pcm_via_openai",
+            "app.modules.speech.service.speech_gateway.stream_pcm_via_openai",
             fake_stream,
         ),
     ):

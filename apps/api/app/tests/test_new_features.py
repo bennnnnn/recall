@@ -711,7 +711,7 @@ def _suggestion_sessions(*, count: int = 1) -> tuple[AsyncMock, list[_FakeSessio
 
 @pytest.mark.asyncio
 async def test_generate_suggestions_creates_items():
-    from app.background.suggestion_generation import generate_suggestions
+    from app.modules.suggestions.service import generate_suggestions
 
     uid = uuid4()
     user_mock = MagicMock()
@@ -729,39 +729,39 @@ async def test_generate_suggestions_creates_items():
 
     with (
         patch(
-            "app.background.suggestion_generation.SessionLocal",
+            "app.modules.suggestions.service.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.suggestion_generation.users_repo.get_by_id",
+            "app.modules.suggestions.service.users_repo.get_by_id",
             AsyncMock(return_value=user_mock),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.delete_expired",
+            "app.modules.suggestions.service.suggestions_repo.delete_expired",
             AsyncMock(return_value=0),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.count_active",
+            "app.modules.suggestions.service.suggestions_repo.count_active",
             AsyncMock(return_value=0),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.list_active",
+            "app.modules.suggestions.service.suggestions_repo.list_active",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.suggestion_generation.chats_repo.list_for_user",
+            "app.modules.suggestions.service.chats_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.suggestion_generation.memory_service.get_memory_block",
+            "app.modules.suggestions.service.memory_service.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.background.suggestion_generation.litellm_gateway.complete_structured",
+            "app.modules.suggestions.service.litellm_gateway.complete_structured",
             AsyncMock(return_value=structured_result),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.create_many",
+            "app.modules.suggestions.service.suggestions_repo.create_many",
             AsyncMock(),
         ) as create_many,
     ):
@@ -777,7 +777,7 @@ async def test_generate_suggestions_creates_items():
 @pytest.mark.asyncio
 async def test_generate_suggestions_rechecks_cap_after_llm():
     """Concurrent jobs can fill the cap during the LLM wait — don't over-insert."""
-    from app.background.suggestion_generation import (
+    from app.modules.suggestions.service import (
         MAX_ACTIVE_SUGGESTIONS,
         generate_suggestions,
     )
@@ -798,39 +798,39 @@ async def test_generate_suggestions_rechecks_cap_after_llm():
 
     with (
         patch(
-            "app.background.suggestion_generation.SessionLocal",
+            "app.modules.suggestions.service.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.suggestion_generation.users_repo.get_by_id",
+            "app.modules.suggestions.service.users_repo.get_by_id",
             AsyncMock(return_value=user_mock),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.delete_expired",
+            "app.modules.suggestions.service.suggestions_repo.delete_expired",
             AsyncMock(return_value=0),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.count_active",
+            "app.modules.suggestions.service.suggestions_repo.count_active",
             count_active,
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.list_active",
+            "app.modules.suggestions.service.suggestions_repo.list_active",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.suggestion_generation.chats_repo.list_for_user",
+            "app.modules.suggestions.service.chats_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.suggestion_generation.memory_service.get_memory_block",
+            "app.modules.suggestions.service.memory_service.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.background.suggestion_generation.litellm_gateway.complete_structured",
+            "app.modules.suggestions.service.litellm_gateway.complete_structured",
             AsyncMock(return_value=SuggestionGenerationResult(items=fake_items)),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.create_many",
+            "app.modules.suggestions.service.suggestions_repo.create_many",
             AsyncMock(),
         ) as create_many,
     ):
@@ -841,7 +841,7 @@ async def test_generate_suggestions_rechecks_cap_after_llm():
 
 @pytest.mark.asyncio
 async def test_generate_suggestions_skips_when_at_cap():
-    from app.background.suggestion_generation import (
+    from app.modules.suggestions.service import (
         MAX_ACTIVE_SUGGESTIONS,
         generate_suggestions,
     )
@@ -854,27 +854,27 @@ async def test_generate_suggestions_skips_when_at_cap():
 
     with (
         patch(
-            "app.background.suggestion_generation.SessionLocal",
+            "app.modules.suggestions.service.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.suggestion_generation.users_repo.get_by_id",
+            "app.modules.suggestions.service.users_repo.get_by_id",
             AsyncMock(return_value=user_mock),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.delete_expired",
+            "app.modules.suggestions.service.suggestions_repo.delete_expired",
             AsyncMock(return_value=0),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.count_active",
+            "app.modules.suggestions.service.suggestions_repo.count_active",
             AsyncMock(return_value=MAX_ACTIVE_SUGGESTIONS),  # at cap
         ),
         patch(
-            "app.background.suggestion_generation.litellm_gateway.complete_structured",
+            "app.modules.suggestions.service.litellm_gateway.complete_structured",
             AsyncMock(),
         ) as llm_call,
         patch(
-            "app.background.suggestion_generation.suggestions_repo.create_many",
+            "app.modules.suggestions.service.suggestions_repo.create_many",
             AsyncMock(),
         ) as create_many,
     ):
@@ -887,7 +887,7 @@ async def test_generate_suggestions_skips_when_at_cap():
 
 @pytest.mark.asyncio
 async def test_generate_suggestions_user_not_found():
-    from app.background.suggestion_generation import generate_suggestions
+    from app.modules.suggestions.service import generate_suggestions
 
     settings = Settings()
     uid = uuid4()
@@ -895,11 +895,11 @@ async def test_generate_suggestions_user_not_found():
 
     with (
         patch(
-            "app.background.suggestion_generation.SessionLocal",
+            "app.modules.suggestions.service.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.suggestion_generation.users_repo.get_by_id",
+            "app.modules.suggestions.service.users_repo.get_by_id",
             AsyncMock(return_value=None),
         ),
     ):
@@ -909,7 +909,7 @@ async def test_generate_suggestions_user_not_found():
 
 @pytest.mark.asyncio
 async def test_generate_suggestions_handles_exceptions():
-    from app.background.suggestion_generation import generate_suggestions
+    from app.modules.suggestions.service import generate_suggestions
 
     settings = Settings()
     uid = uuid4()
@@ -917,11 +917,11 @@ async def test_generate_suggestions_handles_exceptions():
 
     with (
         patch(
-            "app.background.suggestion_generation.SessionLocal",
+            "app.modules.suggestions.service.SessionLocal",
             side_effect=session_locals,
         ),
         patch(
-            "app.background.suggestion_generation.users_repo.get_by_id",
+            "app.modules.suggestions.service.users_repo.get_by_id",
             AsyncMock(side_effect=RuntimeError("DB down")),
         ),
     ):
@@ -933,7 +933,7 @@ async def test_generate_suggestions_handles_exceptions():
 
 @pytest.mark.asyncio
 async def test_generate_suggestions_releases_db_before_llm():
-    from app.background.suggestion_generation import generate_suggestions
+    from app.modules.suggestions.service import generate_suggestions
 
     uid = uuid4()
     user_mock = MagicMock()
@@ -964,31 +964,31 @@ async def test_generate_suggestions_releases_db_before_llm():
 
     with (
         patch(
-            "app.background.suggestion_generation.SessionLocal",
+            "app.modules.suggestions.service.SessionLocal",
             side_effect=[load_cm, apply_cm],
         ),
         patch(
-            "app.background.suggestion_generation.users_repo.get_by_id",
+            "app.modules.suggestions.service.users_repo.get_by_id",
             AsyncMock(return_value=user_mock),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.delete_expired",
+            "app.modules.suggestions.service.suggestions_repo.delete_expired",
             AsyncMock(return_value=0),
         ),
         patch(
-            "app.background.suggestion_generation.suggestions_repo.count_active",
+            "app.modules.suggestions.service.suggestions_repo.count_active",
             AsyncMock(return_value=0),
         ),
         patch(
-            "app.background.suggestion_generation.chats_repo.list_for_user",
+            "app.modules.suggestions.service.chats_repo.list_for_user",
             AsyncMock(return_value=[]),
         ),
         patch(
-            "app.background.suggestion_generation.memory_service.get_memory_block",
+            "app.modules.suggestions.service.memory_service.get_memory_block",
             AsyncMock(return_value=""),
         ),
         patch(
-            "app.background.suggestion_generation.litellm_gateway.complete_structured",
+            "app.modules.suggestions.service.litellm_gateway.complete_structured",
             AsyncMock(side_effect=fake_complete),
         ),
     ):
@@ -1032,8 +1032,8 @@ async def test_suggestions_repo_list_active():
 async def test_suggestions_repo_list_active_cap_matches_generator():
     """list_active must surface up to MAX_ACTIVE_SUGGESTIONS (the generator's
     cap), not a smaller hard-coded limit — otherwise home/API under-shows."""
-    from app.background.suggestion_generation import MAX_ACTIVE_SUGGESTIONS as gen_cap
     from app.modules.suggestions.repository import MAX_ACTIVE_SUGGESTIONS, list_active
+    from app.modules.suggestions.service import MAX_ACTIVE_SUGGESTIONS as gen_cap
 
     assert MAX_ACTIVE_SUGGESTIONS == gen_cap == 10
     session = AsyncMock()

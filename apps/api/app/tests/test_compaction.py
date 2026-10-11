@@ -5,8 +5,8 @@ from uuid import uuid4
 
 import pytest
 
-from app.background import compaction
 from app.core.config import Settings
+from app.services.chat import compaction
 
 
 class _SessionCM:
@@ -44,14 +44,16 @@ async def test_compress_noop_when_tail_fits_budget():
     summarize = AsyncMock()
     redis = _fake_redis()
     with (
-        patch("app.background.compaction.get_redis_client", return_value=redis),
-        patch("app.background.compaction.SessionLocal", lambda: _SessionCM(session)),
-        patch("app.background.compaction.messages_repo.count_for_chat", AsyncMock(return_value=10)),
+        patch("app.services.chat.compaction.get_redis_client", return_value=redis),
+        patch("app.services.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
         patch(
-            "app.background.compaction.messages_repo.list_recent",
+            "app.services.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=10)
+        ),
+        patch(
+            "app.services.chat.compaction.messages_repo.list_recent",
             AsyncMock(return_value=[_msg() for _ in range(10)]),
         ),
-        patch("app.background.compaction.summarize_conversation", summarize),
+        patch("app.services.chat.compaction.summarize_conversation", summarize),
     ):
         # 10 short messages all fit the budget → keep=10, aged_out=0 → nothing to do
         await compaction.compress_chat_history(Settings(), uuid4())
@@ -71,19 +73,21 @@ async def test_compress_summarizes_when_over_window_cap():
     recent = [_msg() for _ in range(40)]  # window cap → keep = 40
     redis = _fake_redis()
     with (
-        patch("app.background.compaction.get_redis_client", return_value=redis),
-        patch("app.background.compaction.SessionLocal", lambda: _SessionCM(session)),
-        patch("app.background.compaction.messages_repo.count_for_chat", AsyncMock(return_value=60)),
+        patch("app.services.chat.compaction.get_redis_client", return_value=redis),
+        patch("app.services.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
         patch(
-            "app.background.compaction.messages_repo.list_recent",
+            "app.services.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=60)
+        ),
+        patch(
+            "app.services.chat.compaction.messages_repo.list_recent",
             AsyncMock(return_value=recent),
         ),
         patch(
-            "app.background.compaction.messages_repo.list_range",
+            "app.services.chat.compaction.messages_repo.list_range",
             AsyncMock(return_value=[_msg("a"), _msg("b")]),
         ),
         patch(
-            "app.background.compaction.summarize_conversation",
+            "app.services.chat.compaction.summarize_conversation",
             AsyncMock(return_value="SUMMARY"),
         ),
     ):
@@ -108,19 +112,21 @@ async def test_compress_runs_under_token_pressure_before_full_batch():
     summarize = AsyncMock(return_value="PARTIAL")
     redis = _fake_redis()
     with (
-        patch("app.background.compaction.get_redis_client", return_value=redis),
-        patch("app.background.compaction.SessionLocal", lambda: _SessionCM(session)),
-        patch("app.background.compaction.messages_repo.count_for_chat", AsyncMock(return_value=11)),
+        patch("app.services.chat.compaction.get_redis_client", return_value=redis),
+        patch("app.services.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
         patch(
-            "app.background.compaction.messages_repo.list_recent",
+            "app.services.chat.compaction.messages_repo.count_for_chat", AsyncMock(return_value=11)
+        ),
+        patch(
+            "app.services.chat.compaction.messages_repo.list_recent",
             AsyncMock(return_value=recent),
         ),
         patch(
-            "app.background.compaction.messages_repo.list_range",
+            "app.services.chat.compaction.messages_repo.list_range",
             AsyncMock(return_value=[_msg("old")] * 5),
         ) as list_range,
         patch(
-            "app.background.compaction.summarize_conversation",
+            "app.services.chat.compaction.summarize_conversation",
             summarize,
         ),
     ):
@@ -146,9 +152,9 @@ async def test_compress_missing_chat_is_noop():
     session.get = AsyncMock(return_value=None)
     redis = _fake_redis()
     with (
-        patch("app.background.compaction.get_redis_client", return_value=redis),
-        patch("app.background.compaction.SessionLocal", lambda: _SessionCM(session)),
-        patch("app.background.compaction.messages_repo.count_for_chat", AsyncMock()) as count,
+        patch("app.services.chat.compaction.get_redis_client", return_value=redis),
+        patch("app.services.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.services.chat.compaction.messages_repo.count_for_chat", AsyncMock()) as count,
     ):
         await compaction.compress_chat_history(Settings(), uuid4())
     count.assert_not_awaited()
@@ -162,9 +168,9 @@ async def test_compress_skips_when_another_worker_holds_the_lock():
     session = AsyncMock()
     redis = _fake_redis(acquired=False)
     with (
-        patch("app.background.compaction.get_redis_client", return_value=redis),
-        patch("app.background.compaction.SessionLocal", lambda: _SessionCM(session)),
-        patch("app.background.compaction.messages_repo.count_for_chat", AsyncMock()) as count,
+        patch("app.services.chat.compaction.get_redis_client", return_value=redis),
+        patch("app.services.chat.compaction.SessionLocal", lambda: _SessionCM(session)),
+        patch("app.services.chat.compaction.messages_repo.count_for_chat", AsyncMock()) as count,
     ):
         await compaction.compress_chat_history(Settings(), uuid4())
     count.assert_not_awaited()
