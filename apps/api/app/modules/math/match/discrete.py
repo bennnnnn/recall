@@ -99,7 +99,7 @@ def stats_signal(text: str) -> tuple[StatsOp, list[float]] | None:
 
 def _digits_immediately_before(text: str, idx: int) -> int | None:
     j = idx
-    while j > 0 and text[j - 1].isdigit():
+    while j > 0 and text[j - 1].isdecimal():
         j -= 1
     if j > 0 and text[j - 1] in ".-/":
         return None
@@ -110,9 +110,9 @@ def _digits_immediately_after(text: str, idx: int) -> tuple[int, int] | None:
     """(value, index just past the digit run) starting exactly at idx."""
     j = idx
     n = len(text)
-    while j < n and text[j].isdigit():
+    while j < n and text[j].isdecimal():
         j += 1
-    if j < n and (text[j] == "/" or (text[j] == "." and j + 1 < n and text[j + 1].isdigit())):
+    if j < n and (text[j] == "/" or (text[j] == "." and j + 1 < n and text[j + 1].isdecimal())):
         return None
     return (int(text[idx:j]), j) if j > idx else None
 
@@ -151,7 +151,7 @@ def _paren_pair(text: str, open_idx: int) -> tuple[int, int] | None:
     if len(parts) != 2:
         return None
     a_raw, b_raw = parts[0].strip(), parts[1].strip()
-    if not a_raw.isdigit() or not b_raw.isdigit():
+    if not a_raw.isdecimal() or not b_raw.isdecimal():
         return None
     return int(a_raw), int(b_raw)
 
