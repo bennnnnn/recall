@@ -1328,6 +1328,140 @@ async def test_materialize_reminder_fences_delete_miss_says_so():
 
 
 @pytest.mark.asyncio
+async def test_spoken_mark_done_checks_and_ignores_a_delete_fence():
+    session = AsyncMock()
+    existing = _item("Call the bakery", topic=todos_service.REMINDER_TOPIC)
+    text = 'Deleted!\n\n```reminder\n{"action":"delete","title":"Call the bakery"}\n```'
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
+        patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
+        patch.object(todos_repo, "delete_by_id", AsyncMock()) as delete_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, applied = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text=text,
+            user_timezone="America/New_York",
+            user_text="Mark the bakery call done.",
+        )
+    assert applied == 1
+    assert updated == "Done: Call the bakery."
+    assert update_mock.await_args.kwargs["checked"] is True
+    delete_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_spoken_reopen_unchecks_and_does_not_create():
+    session = AsyncMock()
+    existing = _item("Stretch", topic=todos_service.REMINDER_TOPIC, checked=True)
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
+        patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, applied = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text="Open: Stretch.",
+            user_timezone="America/New_York",
+            user_text="Reopen the stretch reminder.",
+        )
+    assert applied == 1
+    assert updated == "Reopened: Stretch."
+    assert update_mock.await_args.kwargs["checked"] is False
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_spoken_reopen_of_a_missing_reminder_does_not_create():
+    session = AsyncMock()
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
+        patch.object(todos_repo, "create", AsyncMock()) as create_mock,
+    ):
+        updated, applied = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text="I'll add Stretch again.",
+            user_timezone="America/New_York",
+            user_text="Reopen the stretch reminder.",
+        )
+    assert applied == 0
+    assert updated == "Could not reopen stretch."
+    create_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_spoken_move_sets_the_clock_and_repeat():
+    from zoneinfo import ZoneInfo
+
+    session = AsyncMock()
+    existing = _item("Call the dentist", topic=todos_service.REMINDER_TOPIC)
+    existing.due_at = datetime(2026, 10, 11, 20, 0, tzinfo=UTC)
+    when = datetime(2026, 10, 10, 18, 0, tzinfo=ZoneInfo("America/New_York"))
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
+        patch.object(todos_repo, "update", AsyncMock(return_value=existing)) as update_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+        patch("app.modules.todos.spoken_change._now", return_value=when),
+    ):
+        updated, applied = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text="Updated: Stretch — Monday at 8.",
+            user_timezone="America/New_York",
+            user_text="Move the dentist call to Monday at 8:00 PM and make it weekly.",
+        )
+    assert applied == 1
+    assert updated == "Moved: Call the dentist — Monday, Oct 12, 8:00 PM · weekly."
+    assert update_mock.await_args.kwargs["due_at"] == datetime(2026, 10, 13, 0, 0, tzinfo=UTC)
+    assert update_mock.await_args.kwargs["recurrence_rule"] == "weekly"
+
+
+@pytest.mark.asyncio
+async def test_spoken_delete_removes_the_named_reminder():
+    session = AsyncMock()
+    existing = _item("Call the dentist", topic=todos_service.REMINDER_TOPIC)
+    with (
+        patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[existing])),
+        patch.object(todos_repo, "delete_by_id", AsyncMock(return_value=True)) as delete_mock,
+        patch.object(home_service, "invalidate_home_cache", AsyncMock()),
+    ):
+        updated, applied = await todos_service.materialize_reminder_fences(
+            session,
+            user_id=uuid4(),
+            chat_id=uuid4(),
+            assistant_text="Got it—reminder deleted.",
+            user_timezone="America/New_York",
+            user_text="Delete the dentist reminder.",
+        )
+    assert applied == 1
+    assert updated == "Deleted: Call the dentist."
+    delete_mock.assert_awaited_once()
+
+
+def test_spoken_change_leaves_bulk_delete_and_a_new_reminder_alone():
+    assert not todos_service.should_recover_todo_writes(
+        "Mark the bakery call done.",
+        "User: Mark the bakery call done.\nAssistant: Done: Call the bakery.",
+    )
+    assert todos_service.should_recover_todo_writes(
+        "Delete overdue",
+        "User: Delete overdue\nAssistant: I'll delete the overdue reminders.",
+    )
+    assert todos_service.should_recover_todo_writes(
+        "remind me to call mom tomorrow at 6pm",
+        "User: remind me to call mom tomorrow at 6pm\nAssistant: I'll set a reminder.",
+    )
+
+
+@pytest.mark.asyncio
 async def test_materialize_reminder_fences_set_due_confirms():
     session = AsyncMock()
     existing = _item("Walk", topic=todos_service.REMINDER_TOPIC)

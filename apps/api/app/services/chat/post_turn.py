@@ -335,7 +335,7 @@ async def enqueue_post_turn_jobs(
     if (
         not spend_capped
         and not ctx.skip_memory_jobs
-        and todos_service.transcript_implies_todo_sync(transcript)
+        and todos_service.should_recover_todo_writes(ctx.user_message_content, transcript)
     ):
         todo_transcript = transcript
         try:

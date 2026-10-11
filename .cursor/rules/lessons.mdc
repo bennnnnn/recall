@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“Mark done” deleted the reminder, and reopen created a new one at 2:30 AM.** The reply confirmed a change the fence never saved, then a later extractor wrote a different action. Done, reopen, delete, and move are taken from the user’s words, the reply is that result, and the extractor does not run again for that turn.
+
 - **The math keypad froze the thread.** A full-screen tap target sat over the list, so it could not bounce, and the composer scrim was pinned under the keys. The list stays the touch target. Messages dim in the gap between the pill and the keypad.
 
 - **Delete on d²/dx² painted `frac{d ² }{dx ²}`.** The `\` was gone, so the preview split `^{2}` into superscripts and printed the braces and the command name. A missing slash inside `$...$` is put back; a native edit that only drops that slash deletes one math atom instead.

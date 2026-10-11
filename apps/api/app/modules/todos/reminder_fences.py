@@ -34,6 +34,7 @@ from app.modules.todos.actions import (
 )
 from app.modules.todos.recurrence import snap_first_due
 from app.modules.todos.schemas import RecurrenceRule
+from app.modules.todos.spoken_change import match_spoken_reminder, parse_spoken_reminder_change
 from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
@@ -576,6 +577,37 @@ async def materialize_reminder_fences(
         restraint_parts.append(assistant_text[last:])
         updated = re.sub(r"\n{3,}", "\n\n", "".join(restraint_parts)).strip()
         return updated, 0
+    # The user's words outrank a missing or mislabeled fence. "Mark done"
+    # must check the row, not delete it, and the reply is only that result.
+    spoken = parse_spoken_reminder_change(user_text, user_timezone=user_timezone)
+    if spoken is not None:
+        state = _ReminderFenceCreateState(
+            session=session,
+            user_id=user_id,
+            chat_id=chat_id,
+            user_timezone=user_timezone,
+        )
+        await _load_existing(state)
+        item = match_spoken_reminder(state.existing, spoken.title_hint, action=spoken.action)
+        if item is None or not (item.content or "").strip():
+            return format_schedule_result(
+                action=spoken.action,
+                title=spoken.title_hint,
+                due_at=spoken.due_at,
+                repeat=spoken.repeat,
+                user_timezone=user_timezone,
+                ok=False,
+            ), 0
+        spoken_draft = _ReminderFence(
+            action=spoken.action,
+            title=item.content.strip(),
+            due_at=spoken.due_at,
+        )
+        spoken_draft.repeat = spoken.repeat
+        line, ok = await _mutate_one(state, spoken_draft)
+        if ok:
+            await home_service.invalidate_home_cache(user_id)
+        return line, (1 if ok else 0)
     if not spans:
         draft = _explicit_user_remind(user_text, user_timezone)
         if draft is None:

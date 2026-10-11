@@ -404,7 +404,7 @@ async def _enqueue_live_talk_jobs(
                 f"memory:{turn_key}",
             )
         )
-    if reminder_applied <= 0 and todos_service.transcript_implies_todo_sync(transcript):
+    if reminder_applied <= 0 and todos_service.should_recover_todo_writes(user_text, transcript):
         specs.append(
             (
                 "todos",
