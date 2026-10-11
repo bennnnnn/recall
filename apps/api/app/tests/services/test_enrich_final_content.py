@@ -433,6 +433,43 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
 
 
 @pytest.mark.asyncio
+async def test_paired_direct_reply_keeps_both_answer_fences(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.math.fence import needs_math_fence_validate, validate_math_fences
+
+    monkeypatch.setattr("app.modules.math.sympy_executor.run_sympy", _run_sympy_inline)
+    seams = _seams()
+    seams.math_fence_service.needs_math_fence_validate = needs_math_fence_validate
+    seams.math_fence_service.validate_math_fences_worker = validate_math_fences
+    reply = (
+        "**Answer**\n\n```answer\nnotation: chemistry\nV₂ = 100 mL\n```\n\n"
+        "**Answer**\n\n```answer\nx = 3 \\text{ or } x = 4\n```\n"
+    )
+    ctx = _ctx()
+    ctx.instant_reply = reply
+    ctx.verified_subject = None
+    ctx.user_message_content = (
+        "Dilute 25 mL of 1 M NaOH to 0.25 M, and also solve x^2 - 7x + 12 = 0."
+    )
+    persisted = await enrich_final_content(
+        seams,
+        MagicMock(),
+        Settings(chemistry_enabled=True),
+        ctx,
+        assistant_text=reply,
+        usage={"input": 0, "output": 0},
+        result={},
+        was_cancelled=False,
+        assistant_parts=[reply],
+        should_cancel=None,
+    )
+    assert persisted.count("```answer") == 2
+    assert "notation: chemistry\nV₂ = 100 mL" in persisted
+    assert "x = 3 \\text{ or } x = 4" in persisted
+
+
+@pytest.mark.asyncio
 async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
