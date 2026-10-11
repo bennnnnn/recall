@@ -229,8 +229,13 @@ def unverified_chemistry_note() -> str:
 
 
 def append_unverified_chemistry_note(content: str) -> str:
-    """The decline stays in the prompt. It is not written under the reply."""
-    return content
+    """Keep the chemistry decline in the prompt. Do not paste it under the answer."""
+    note = unverified_chemistry_note()
+    if note not in content:
+        return content
+    without = content.replace(f"\n\n{note}", "")
+    without = without.replace(note, "")
+    return without.rstrip()
 
 
 async def build_chemistry_augmentation(

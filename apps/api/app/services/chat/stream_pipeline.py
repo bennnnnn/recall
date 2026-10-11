@@ -361,16 +361,14 @@ async def enrich_final_content(
                 seams, assistant_text, ctx.verified_subject
             )
 
-        if ctx.solver_unverified is True:
-            # One note. A blockquote or answer fence would paint a card.
-            if ctx.unverified_subject == "chemistry":
-                from app.modules.chemistry.context import append_unverified_chemistry_note
+        # Every reply, checked or not. The check mark is the only signal.
+        from app.modules.math.fence import append_unverified_math_note
 
-                assistant_text = append_unverified_chemistry_note(assistant_text)
-            else:
-                assistant_text = seams.math_fence_service.append_unverified_math_note(
-                    assistant_text
-                )
+        assistant_text = append_unverified_math_note(assistant_text)
+        if ctx.solver_unverified is True and ctx.unverified_subject == "chemistry":
+            from app.modules.chemistry.context import append_unverified_chemistry_note
+
+            assistant_text = append_unverified_chemistry_note(assistant_text)
 
         # Prompt scaffolding must never survive into the reply. The model is
         # told not to mention a system block, but instruction is not

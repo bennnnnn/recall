@@ -141,8 +141,8 @@ async def _augment_physics(
         prompt_block=block,
         verified=physics_verified,
         # No matching template is not a failed check. The prompt note still
-        # tells the model not to claim verification; the user does not see
-        # "I couldn't automatically verify this result."
+        # tells the model not to claim a check. The reply does not say it
+        # could not be verified.
         unverified=solve_failed,
     )
 
