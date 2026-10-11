@@ -49,8 +49,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Pin** — pin/unpin a chat (chat `⋯` menu + drawer long-press); pinned chats show in a
   **Pinned** section at the top of the drawer.
 - ✅ **Share / Export** — share a conversation as a markdown transcript via the **native OS
-  share sheet** (Messages, Mail, Files, …); export a chat as PDF from the in-chat `⋯` menu;
-  export a learning topic as PDF. Chat `⋯` + drawer long-press (share/pin/archive/delete);
+  share sheet** (Messages, Mail, Files, …); export a chat as PDF from the in-chat `⋯` menu.
+  Chat `⋯` + drawer long-press (share/pin/archive/delete);
   no backend. This is **not** a
   ChatGPT-style public `chatgpt.com/share/…` URL — anyone with that kind of link could
   read the thread without signing in. Public web links are a separate privacy feature
@@ -443,7 +443,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (calendar-proposal style): model (Flash / Pro / Auto, nicknames like “GPT” → GPT 5.5),
   tone (funny / professional / casual / soft), app language, and appearance
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
-  No open settings tool. Daily learning goal lives on the lesson map ⋯ menu.
+  No open settings tool.
 - ✅ **Auto routing** — an **Auto** option (Settings → Models) picks Flash vs Pro per message via a
   fast heuristic (length, code fences, reasoning keywords). Explicit chat tutoring and substantive
   learning roadmaps use the low-latency Gemini Flash lane with strict step/day and tagged-example
@@ -554,7 +554,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   model supports it (transparent to the app).
 - ✅ **Snappy delivery** — async backend, streaming, virtualized message list; DB connection is
   released during the model stream.
-- ✅ **Parallelized pre-stream reads** — memory, todos, projects, recent titles, and attachment
+- ✅ **Parallelized pre-stream reads** — memory, todos, recent titles, and attachment
   RAG gather on separate short-lived sessions so the prompt path stays concurrent without
   sharing one `AsyncSession`.
 - ✅ **Slim casual turns** — coaching / chit-chat uses a compact format + math-safety hint (not
@@ -620,9 +620,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Sidebar controls** — search uses a translucent white surface and border; the
   user's profile photo or initials open Settings beside New chat.
 - ✅ **Sign out.**
-- ✅ **Data export** — exports profile + chats + messages + memories + todos + learning projects
-  (with items) as JSON via the native share sheet (`GET /auth/me/export`). Shows a progress
-  screen while the archive builds.
+- ✅ **Data export** — exports profile, chats and their messages, memories, todos,
+  attachments, and product events as JSON via the native share sheet
+  (`GET /auth/me/export`). Shows a progress screen while the archive builds.
 - ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`),
   then signs out.
 - ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, German, Italian, Portuguese, Russian, and Turkish.
@@ -630,10 +630,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Settings → Appearance.
 - ✅ **Local todo reminders** — scheduled on-device notifications when a todo item is due (via
   `expo-notifications`; requires a dev build for full native support).
-- ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; learning-review,
-  todo-due, email-suggestion, and **calendar meeting** notifications (requires dev build + EAS
+- ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; todo-due,
+  email-suggestion, and **calendar meeting** notifications (requires dev build + EAS
   project ID). Quiet hours skip push and reminder email without marking them sent.
-- ✅ **Email reminders** — opt-in todo-due + learning nudge emails (Resend); Settings
+- ✅ **Email reminders** — opt-in todo-due emails (Resend); Settings
   toggle; worker scheduler only (welcome + Pro receipt unchanged).
 
 ## 11. Navigation & UX
@@ -1072,7 +1072,7 @@ Shipped after the Phase 1/2 code review (and follow-up PRs):
 - ✅ WS handshake IP rate limit before `accept()`; core `user_id` FKs `ON DELETE CASCADE`
 - ✅ Alembic `transaction_per_migration` so future `CREATE INDEX CONCURRENTLY` can use
   `op.get_context().autocommit_block()`
-- ✅ Enum-like CHECK constraints (`0053`) for memories, projects, users plan/tone, quiz mode, item status
+- ✅ Enum-like CHECK constraints — memories (type, status, sensitivity), users plan and response tone, and message role/feedback. Project, quiz-mode, and item-status checks left with the learning tables.
 - ✅ Mobile: in-chat delete syncs drawer + cache; mount chat-load `catch`; memoized contexts;
   removed unused `showContextSummarized`; bootstrap listener cleanup race; draft discard on
   background; a11y labels on key icon-only controls
@@ -1255,15 +1255,13 @@ drawer FTS search ✅.
 
 ### Explicitly not v1
 Multi-user teams, collaborative editing, video generation, public unauthenticated share URLs,
-arbitrary user MCP servers, gamification (XP/badges beyond learning
-streaks). **OpenRouter / product aliases are the intended model setup** — not a gap.
+arbitrary user MCP servers, gamification (XP/badges). **OpenRouter / product aliases are the intended model setup** — not a gap.
 
 **Next (product):** none — tool loop, scanned-PDF OCR, and chat-history RAG are done.
 
 **Future (not implementing now):** launch ops (provision, landing page, Gmail OAuth, on-device
 QA, prod R2); Google Docs + GitHub; code execution (beyond the HTML sandbox); duplex voice;
-remaining web slices; locale prose + legal bodies; folders / family plans; **user-wide attachment RAG**;
-**SM-2 review-queue UI / Settings deck browse / typed-answer lessons**.
+remaining web slices; locale prose + legal bodies; folders / family plans; **user-wide attachment RAG**.
 
 ---
 
@@ -1308,7 +1306,6 @@ weakness. No video generation. Native share is enough unless we later decide we 
   Google OAuth verification (Gmail); on-device QA (iOS + Android); production R2 secrets.
 - Google Docs, GitHub (owned integrations).
 - **User-wide attachment RAG** — chunks stay per `chat_id`; later turns in that chat only.
-- **SM-2 review-queue UI / Settings deck browse / typed-answer lesson path.**
 - Full duplex live voice (talk over playback without tapping).
 - Code execution beyond the sandboxed HTML/chart WebView.
 - Web client (same API).
