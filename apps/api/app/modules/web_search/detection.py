@@ -15,6 +15,7 @@ from app.modules.web_search.patterns import (
     _NEWS,
     _ONGOING,
     _PERSONAL_PLANNING,
+    _REMINDER_TURN,
     _SHORT_FOLLOWUP_WORDS,
     _SKIP,
     _SPORTS,
@@ -100,6 +101,8 @@ def web_search_skip(
         return True
     if _SKIP.search(cleaned):
         return True
+    if _REMINDER_TURN.search(cleaned):
+        return True
     if _PERSONAL_PLANNING.search(cleaned):
         return True
     from app.modules.integrations import is_external_calendar_question
@@ -131,12 +134,16 @@ def _continues_searchable_topic(
     text: str,
     prior_user_messages: list[str] | None,
 ) -> bool:
-    """A short line after a topic that already needed a live lookup."""
+    """A short line continuing the user's previous message, when that needed a lookup.
+
+    An older search does not count. Otherwise "remind me…" or "what is my
+    dog's name?" after a price question pays for a classifier that says no.
+    """
     if not prior_user_messages:
         return False
     if len(collapse_ws(text).split()) > _SHORT_FOLLOWUP_WORDS:
         return False
-    return _prior_searchable_topic(prior_user_messages) is not None
+    return _prior_searchable_topic([prior_user_messages[-1]]) is not None
 
 
 def web_search_fast_yes(
@@ -182,7 +189,7 @@ def needs_web_search_heuristic(
     if _CLARIFICATION.search(cleaned) and prior_user_messages:
         return _prior_searchable_topic(prior_user_messages) is not None
     if prior_user_messages and len(cleaned.split()) <= _SHORT_FOLLOWUP_WORDS:
-        if _prior_searchable_topic(prior_user_messages) is not None:
+        if _prior_searchable_topic([prior_user_messages[-1]]) is not None:
             return True
     if has_recency(cleaned) and "?" in cleaned:
         return True

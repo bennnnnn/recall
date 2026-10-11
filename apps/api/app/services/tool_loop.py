@@ -367,14 +367,22 @@ def turn_needs_tool_loop(
     if has_leftover_math:
         return True
 
-    from app.modules.images.gen_intent import extract_image_gen_prompt
-    from app.modules.images.lookup_intent import extract_image_lookup_query
-    from app.modules.math.tools import needs_symbolic_math
     from app.modules.web_search.detection import needs_web_search
 
     if web_search is True:
         return True
     if web_search is not False and not has_search_sources and needs_web_search(text):
+        return True
+    return _needs_non_web_tool(text, settings, user)
+
+
+def _needs_non_web_tool(text: str, settings: Settings | None, user: User | None) -> bool:
+    """Math, a photo lookup, or image generation still needs a tool-selection round."""
+    from app.modules.images.gen_intent import extract_image_gen_prompt
+    from app.modules.images.lookup_intent import extract_image_lookup_query
+    from app.modules.math.tools import needs_symbolic_math
+
+    if leftover_math_after_verified(text):
         return True
     math_on = settings is None or settings.math_tools_enabled
     if math_on and needs_symbolic_math(text):
@@ -382,9 +390,8 @@ def turn_needs_tool_loop(
 
         # Detection without an extractor is the 7*8 trap: the sympy tool
         # calls the same extractor and burns the round timeout for nothing.
-        if extract_math_intent(text) is None:
-            return False
-        return True
+        if extract_math_intent(text) is not None:
+            return True
     # Reference-photo lookup ("show me an ear") is checked before generation
     # so its disjoint trigger phrasing (show / let … see / what does … look
     # like) never competes with generation's own verbs — see
@@ -401,6 +408,27 @@ def turn_needs_tool_loop(
     ):
         return True
     return False
+
+
+def _search_before_the_model(
+    user_text: str,
+    settings: Settings,
+    user: User | None,
+    *,
+    web_search: bool | None,
+) -> bool:
+    """True when the reply only needs sources, so the selection model can be skipped."""
+    if not settings.web_search_enabled or not user_text:
+        return False
+    if _needs_non_web_tool(user_text, settings, user):
+        return False
+    if web_search is True:
+        return True
+    if web_search is False:
+        return False
+    from app.modules.web_search.detection import needs_web_search
+
+    return needs_web_search(user_text)
 
 
 def _tools_for_user(settings: Settings, user: User | None) -> list[dict[str, Any]]:
@@ -444,6 +472,29 @@ async def run_tool_rounds(
     tools = _tools_for_user(settings, user)
     if not tools:
         return messages, None, None, []
+
+    user_text = _last_user_content(messages)
+    # An obvious lookup used to spend a model round deciding to call
+    # web_search, then a second round writing the answer. Search first
+    # and let the caller stream the reply once. Math and image turns
+    # still need the selection round.
+    if _search_before_the_model(
+        user_text,
+        settings,
+        user,
+        web_search=web_search,
+    ):
+        working, hits = await _force_web_search_if_needed(
+            settings=settings,
+            messages=messages,
+            search_hits=[],
+            user=user,
+            redis=redis,
+            on_status=on_status,
+            should_cancel=should_cancel,
+            search_required=True,
+        )
+        return working, None, None, hits
 
     with (
         bind_search_quota_context(

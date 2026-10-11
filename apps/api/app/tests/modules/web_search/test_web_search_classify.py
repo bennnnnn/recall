@@ -73,6 +73,55 @@ async def test_weather_stays_on_the_instant_yes_path():
 
 
 @pytest.mark.asyncio
+async def test_a_reminder_after_a_search_does_not_reach_the_classifier():
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    prior = ["What is the current price of Bitcoin in US dollars?"]
+    with patch(
+        "app.modules.web_search.detection.classify_web_search",
+        AsyncMock(),
+    ) as classify:
+        assert (
+            await should_web_search(
+                "Remind me to water the plant tomorrow at 8:00 AM.",
+                settings,
+                prior_user_messages=prior,
+            )
+            is False
+        )
+        assert (
+            await should_web_search(
+                "What reminders do I have?",
+                settings,
+                prior_user_messages=prior,
+            )
+            is False
+        )
+    classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_memory_question_does_not_continue_an_older_search():
+    settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
+    prior = [
+        "What is the current price of Bitcoin in US dollars?",
+        "Remember that my dog's name is Kofi and he is a brown terrier.",
+    ]
+    with patch(
+        "app.modules.web_search.detection.classify_web_search",
+        AsyncMock(),
+    ) as classify:
+        assert (
+            await should_web_search(
+                "What is my dog's name and what color is he?",
+                settings,
+                prior_user_messages=prior,
+            )
+            is False
+        )
+    classify.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_short_followup_to_a_search_still_reaches_the_classifier():
     settings = Settings(web_search_enabled=True, web_search_classifier_enabled=True)
     with patch(

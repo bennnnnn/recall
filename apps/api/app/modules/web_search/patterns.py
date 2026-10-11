@@ -174,6 +174,14 @@ _SKIP = re.compile(
     re.IGNORECASE,
 )
 
+# A reminder or a request to read the user's own list is not a lookup,
+# even when the previous turn searched the web.
+_REMINDER_TURN = re.compile(
+    r"^(?:please\s+)?(?:can you\s+)?remind\s+me\b"
+    r"|^(?:what|which)\s+(?:reminders?|todos?|tasks?)\s+do\s+i\s+have\b",
+    re.IGNORECASE,
+)
+
 _PERSONAL_PLANNING = re.compile(
     r"\b("
     r"what\s+(?:am\s+I|are\s+we|do\s+I|should\s+I)\s+(?:trying\s+to\s+)?(?:get|have)\s+(?:done|to\s+do)"
