@@ -29,7 +29,6 @@ import {
   imageGenRevisionContext,
 } from "@/features/images/model/imageGenIntent";
 import { extractImageLookupQuery } from "@/features/images/model/imageLookupIntent";
-import { scheduleIdlePromise } from "@/lib/scheduleIdle";
 import type { ClientGeo } from "@/lib/clientGeo";
 import {
   queryNeedsClientGeo,
@@ -599,17 +598,14 @@ export function useChatSend({
   }, [session, viewVersion, getThreadKey, composerThread, streaming, inputRef, feedback, t, setInput, setPendingAttachment]);
 
   const handlePickAttachment = useCallback(() => {
-    if (!token || attachBusy || streaming || sendInFlightRef.current) return;
+    if (!token || attachBusy || streaming || sendInFlightRef.current || attachPickInFlightRef.current) return;
     Keyboard.dismiss();
-    // Let the keyboard finish dismissing before presenting the Modal so the
-    // first tap isn't swallowed on Android.
+    // Let the keyboard finish dismissing so the first tap isn't swallowed on Android.
     const version = viewRef.current.version;
     requestAnimationFrame(() => {
       if (viewRef.current.version === version && session === getSessionGeneration()) setAttachSheetOpen(true);
     });
   }, [token, attachBusy, streaming, session]);
-
-  const waitForPickerUi = useCallback(() => scheduleIdlePromise(), []);
 
   const handleAttachmentSheetSelect = useCallback(
     async (source: AttachmentSource) => {
@@ -624,9 +620,7 @@ export function useChatSend({
       const version = viewRef.current.version;
       const current = () => viewRef.current.version === version && session === getSessionGeneration();
       attachPickInFlightRef.current = true;
-      setAttachPicking(true);
       setAttachSheetOpen(false);
-      await waitForPickerUi();
 
       if (!current() || !token || attachBusy || streaming || sendInFlightRef.current) {
         attachPickInFlightRef.current = false;
@@ -670,7 +664,7 @@ export function useChatSend({
         setAttachPicking(false);
       }
     },
-    [attachBusy, feedback, session, streaming, t, token, waitForPickerUi, setPendingAttachment],
+    [attachBusy, feedback, session, streaming, t, token, setPendingAttachment],
   );
 
   const handleMathScanCaptured = useCallback((

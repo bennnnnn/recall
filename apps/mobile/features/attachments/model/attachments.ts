@@ -199,17 +199,24 @@ export function messageTextForSend(
   return defaultAttachmentPrompt(attached);
 }
 
+async function ensureSquareCropPermission(): Promise<void> {
+  let permission = await ImagePicker.getMediaLibraryPermissionsAsync();
+  if (!permission.granted && !cameraPermissionNeedsSettings(permission)) {
+    permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  }
+  if (!permission.granted) {
+    throw new PhotoLibraryPermissionError(cameraPermissionNeedsSettings(permission));
+  }
+}
+
 export async function pickFromPhotoLibrary(
   options: { squareCrop?: boolean } = {},
 ): Promise<PendingAttachment | null> {
   return withNativePicker(async () => {
-    let permission = await ImagePicker.getMediaLibraryPermissionsAsync();
-    if (!permission.granted && !cameraPermissionNeedsSettings(permission)) {
-      permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    }
-    if (!permission.granted) {
-      throw new PhotoLibraryPermissionError(cameraPermissionNeedsSettings(permission));
-    }
+    // The system Photos picker does not need library permission. Checking
+    // first turned a denied status into Settings instead of the picker.
+    // The square crop editor still uses the legacy picker, which does need it.
+    if (options.squareCrop) await ensureSquareCropPermission();
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
@@ -242,24 +249,37 @@ export async function pickFromPhotoLibrary(
   });
 }
 
+function isMissingCameraPermission(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.toLowerCase().includes("missing camera");
+}
+
+function launchCamera() {
+  return ImagePicker.launchCameraAsync({
+    mediaTypes: ["images"],
+    quality: 0.85,
+    allowsEditing: false,
+  });
+}
+
 export async function pickFromCamera(): Promise<PendingAttachment | null> {
   return withNativePicker(async () => {
-    let permission = await ImagePicker.getCameraPermissionsAsync();
-    if (!permission.granted && !cameraPermissionNeedsSettings(permission)) {
-      permission = await ImagePicker.requestCameraPermissionsAsync();
-    }
-    if (!permission.granted) {
-      if (cameraPermissionNeedsSettings(permission)) {
-        void Linking.openSettings();
+    // Launch immediately when access is already granted. iOS rejects the
+    // launch otherwise, and only then do we show the system permission prompt.
+    let result: ImagePicker.ImagePickerResult;
+    try {
+      result = await launchCamera();
+    } catch (error) {
+      if (!isMissingCameraPermission(error)) throw error;
+      const permission = await ImagePicker.requestCameraPermissionsAsync();
+      if (!permission.granted) {
+        if (cameraPermissionNeedsSettings(permission)) {
+          void Linking.openSettings();
+        }
+        throw new Error("Camera permission is required to take photos.");
       }
-      throw new Error("Camera permission is required to take photos.");
+      result = await launchCamera();
     }
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["images"],
-      quality: 0.85,
-      allowsEditing: false,
-    });
 
     if (result.canceled || !result.assets[0]) return null;
 
@@ -274,7 +294,6 @@ export async function pickFromCamera(): Promise<PendingAttachment | null> {
 
 async function pickDocumentWithTypes(types: string[]): Promise<PendingAttachment | null> {
   return withNativePicker(async () => {
-    await sleep(150);
     const result = await DocumentPicker.getDocumentAsync({
       type: types,
       copyToCacheDirectory: true,

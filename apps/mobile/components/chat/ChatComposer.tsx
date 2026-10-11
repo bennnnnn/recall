@@ -459,8 +459,6 @@ export const ChatComposer = memo(function ChatComposer({
                     color={theme.text}
                     testID="composer-voice-cancel-icon"
                   />
-                ) : attachPicking ? (
-                  <ActivityIndicator size="small" color={theme.text} />
                 ) : (
                   <Icon
                     name="plus"
