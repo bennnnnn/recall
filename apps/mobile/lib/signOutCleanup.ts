@@ -1,4 +1,4 @@
-import { resetComposerDraftsForAccount } from "@/lib/chat/composerDraftReset";
+import { resetComposerDraftsForAccount } from "@/features/chat/model/composerDraftReset";
 import { signOutGoogle } from "@/lib/google-auth";
 
 /** Device/account side effects finish before another account signs in. Backend
@@ -9,7 +9,7 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/attachments/model/downloadChatAttachment").then(({ clearLocalAttachmentFileCache }) => clearLocalAttachmentFileCache()),
     import("@/features/todos/model/todoReminders").then(({ cancelAllTodoReminders }) => cancelAllTodoReminders()),
     import("@/features/todos/model/reminderPrefs").then(({ clearReminderLeadPrefs }) => clearReminderLeadPrefs()),
-    import("@/lib/chat/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),
+    import("@/features/chat/model/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),
     import("@/features/memory/model/memoryListCache").then(({ invalidateMemoriesCache }) => invalidateMemoriesCache()),
     import("@/features/attachments/model/galleryListCache").then(({ invalidateGalleryCache }) => invalidateGalleryCache()),
     import("@/features/integrations/model/integrationStatusCache").then(({ invalidateIntegrationStatusCache }) => invalidateIntegrationStatusCache()),

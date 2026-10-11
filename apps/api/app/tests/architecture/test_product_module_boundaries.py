@@ -196,6 +196,32 @@ def test_mobile_account_and_auth_have_feature_homes() -> None:
         assert not (MOBILE_ROOT / gone).exists(), gone
 
 
+def test_mobile_chat_has_one_feature_home_and_thin_route() -> None:
+    """The chat screen, its hooks, components, stream model and API slice are one feature."""
+    feature_root = MOBILE_ROOT / "features" / "chat"
+    assert (feature_root / "api.ts").is_file()
+    for folder in ("components", "hooks", "model", "screens"):
+        assert (feature_root / folder).is_dir()
+    assert (feature_root / "model" / "wsTransport.ts").is_file()
+    assert (feature_root / "hooks" / "useChatSend.ts").is_file()
+
+    lines = [line for line in (MOBILE_ROOT / "app" / "index.tsx").read_text().splitlines() if line]
+    assert lines == ['export { default } from "@/features/chat/screens/ChatScreen";']
+
+    assert not (MOBILE_ROOT / "components" / "chat").exists()
+    assert not (MOBILE_ROOT / "lib" / "chat").exists()
+    assert not (MOBILE_ROOT / "lib" / "api" / "chats.ts").exists()
+    assert not list((MOBILE_ROOT / "hooks").glob("useChat*"))
+    assert "@/features/chat/api" in (MOBILE_ROOT / "lib" / "api.ts").read_text()
+
+    feature_import_violations = [
+        str(path.relative_to(MOBILE_ROOT))
+        for path in feature_root.rglob("*.ts*")
+        if "__tests__" not in path.parts and "@/app/" in path.read_text()
+    ]
+    assert not feature_import_violations
+
+
 def test_mobile_home_has_one_feature_home() -> None:
     feature_root = MOBILE_ROOT / "features" / "home"
     assert (feature_root / "api.ts").is_file()

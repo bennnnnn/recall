@@ -1,5 +1,5 @@
 import type { Chat, ChatList } from "@/lib/api";
-import { activeChatsFromGroups } from "@/lib/chat/listSections";
+import { activeChatsFromGroups } from "@/features/chat/model/listSections";
 
 export function toggleChatSelection(selected: ReadonlySet<string>, chatId: string): Set<string> {
   const next = new Set(selected);

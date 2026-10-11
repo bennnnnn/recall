@@ -25,7 +25,7 @@ jest.mock("@/lib/api", () => ({ api: { deleteAttachment: jest.fn() } }));
 jest.mock("@/lib/pendingFromLibraryItem", () => ({ pendingFromLibraryItem: jest.fn() }));
 jest.mock("@/features/attachments/model/pendingComposerAttachment", () => ({ queueComposerAttachment: jest.fn() }));
 jest.mock("@/features/attachments/model/galleryLayout", () => ({ getGalleryLayout: async () => "grid", peekGalleryLayout: () => "grid", setGalleryLayout: jest.fn() }));
-jest.mock("@/lib/chat/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
+jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ shareChatAttachment: jest.fn() }));
 jest.mock("@/features/attachments/model/attachmentUri", () => ({ resolveAttachmentUri: () => "file://attachment" }));
 jest.mock("@/lib/haptics", () => ({ selection: jest.fn(), tap: jest.fn() }));

@@ -2,7 +2,7 @@ import { StyleSheet } from "react-native";
 import { render } from "@testing-library/react-native";
 
 import { ReminderBadge } from "@/components/ReminderBadge";
-import { ChatScrollFab } from "@/components/chat/ChatScrollFab";
+import { ChatScrollFab } from "@/features/chat/components/ChatScrollFab";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
 
 jest.mock("react-i18next", () => ({

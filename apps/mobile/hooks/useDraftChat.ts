@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { api } from "@/lib/api";
 import { rememberCreatedChat } from "@/lib/cache/chatListCache";
-import { resolveActiveChatId } from "@/lib/chat/draftLogic";
+import { resolveActiveChatId } from "@/features/chat/model/draftLogic";
 
 const DRAFT_PREWARM_DELAY_MS = 125;
 

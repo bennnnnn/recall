@@ -2,8 +2,8 @@ import { useState } from "react";
 import { Dimensions, StyleSheet } from "react-native";
 import { act, fireEvent, render, waitFor, within } from "@testing-library/react-native";
 
-import { ChatComposer } from "@/components/chat/ChatComposer";
-import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/components/chat/chatComposerStyles";
+import { ChatComposer } from "@/features/chat/components/ChatComposer";
+import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatComposerStyles";
 import {
   CONVERTER_HEADER_HEIGHT,
   CONVERTER_ROWS,

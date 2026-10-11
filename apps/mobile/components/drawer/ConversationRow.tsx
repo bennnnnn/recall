@@ -6,7 +6,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import type { Chat } from "@/lib/api";
-import { displayChatTitle } from "@/lib/chat/title";
+import { displayChatTitle } from "@/features/chat/model/title";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";

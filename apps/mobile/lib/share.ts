@@ -1,6 +1,6 @@
 import { Platform, Share } from "react-native";
 
-import { conversationTranscript } from "@/lib/chat/transcript";
+import { conversationTranscript } from "@/features/chat/model/transcript";
 import { Message } from "@/lib/api";
 import { isShareCancelled } from "@/lib/shareCancelled";
 

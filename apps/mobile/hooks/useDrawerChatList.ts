@@ -9,7 +9,7 @@ import {
   patchChatListGroups,
   removeChatFromGroups,
   type ChatListSectionKey,
-} from "@/lib/chat/listSections";
+} from "@/features/chat/model/listSections";
 import {
   fetchChatList,
   getCachedChatList,
