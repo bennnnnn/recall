@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“Make it for everyday” said it was daily, and the row was still once.** The model wrote “Got it! Set:” with no fence, and that sentence does not start with `Set:`, so it was left on screen. “Make it” changes the latest reminder’s repeat, clock, or category, “it” is that reminder, a schedule question is answered from the saved rows, and a success sentence is dropped when the row did not change.
+
 - **“6” after “what time tomorrow” was saved as today at 6:00 PM, which had already passed, and the row was not there.** The model wrote `Set:` without a fence, and the hour was applied to today. A day without a clock is not saved, a reply that is only a clock finishes that reminder on the day already named, and a past time is not kept.
 
 - **“Mark done” deleted the reminder, and reopen created a new one at 2:30 AM.** The reply confirmed a change the fence never saved, then a later extractor wrote a different action. Done, reopen, delete, and move are taken from the user’s words, the reply is that result, and the extractor does not run again for that turn.

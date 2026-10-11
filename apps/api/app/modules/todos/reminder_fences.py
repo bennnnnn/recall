@@ -44,7 +44,8 @@ from app.modules.todos.spoken_add import (
     pending_add,
     reply_when_nothing_saved,
 )
-from app.modules.todos.spoken_change import match_spoken_reminder, parse_spoken_reminder_change
+from app.modules.todos.spoken_apply import apply_spoken_change, format_reminder_reading
+from app.modules.todos.spoken_change import asks_to_read_reminders, parse_spoken_reminder_change
 from app.services import time_context as time_context_service
 
 logger = logging.getLogger(__name__)
@@ -578,7 +579,7 @@ async def materialize_reminder_fences(
     # when the model misunderstood "don't create a reminder".
     if explicitly_declines_reminder_creation(user_text):
         if not spans:
-            return assistant_text, 0
+            return reply_when_nothing_saved(assistant_text, user_text), 0
         restraint_parts: list[str] = []
         last = 0
         for start, end, _body in spans:
@@ -586,11 +587,10 @@ async def materialize_reminder_fences(
             last = end
         restraint_parts.append(assistant_text[last:])
         updated = re.sub(r"\n{3,}", "\n\n", "".join(restraint_parts)).strip()
-        return updated, 0
-    # The user's words outrank a missing or mislabeled fence. "Mark done"
-    # must check the row, not delete it, and the reply is only that result.
-    spoken = parse_spoken_reminder_change(user_text, user_timezone=user_timezone)
-    if spoken is not None:
+        return reply_when_nothing_saved(updated, user_text), 0
+    # A question about the schedule is answered from the saved rows. The model's
+    # list is discarded, including any reminder it invented.
+    if asks_to_read_reminders(user_text):
         state = _ReminderFenceCreateState(
             session=session,
             user_id=user_id,
@@ -598,26 +598,20 @@ async def materialize_reminder_fences(
             user_timezone=user_timezone,
         )
         await _load_existing(state)
-        item = match_spoken_reminder(state.existing, spoken.title_hint, action=spoken.action)
-        if item is None or not (item.content or "").strip():
-            return format_schedule_result(
-                action=spoken.action,
-                title=spoken.title_hint,
-                due_at=spoken.due_at,
-                repeat=spoken.repeat,
-                user_timezone=user_timezone,
-                ok=False,
-            ), 0
-        spoken_draft = _ReminderFence(
-            action=spoken.action,
-            title=item.content.strip(),
-            due_at=spoken.due_at,
+        return format_reminder_reading(state.existing, user_timezone), 0
+    # The user's words outrank a missing or mislabeled fence. "Mark done"
+    # must check the row, not delete it, and the reply is only that result.
+    spoken = parse_spoken_reminder_change(user_text, user_timezone=user_timezone)
+    if spoken is not None:
+        if spoken.needs_time:
+            return "When should I remind you?", 0
+        return await apply_spoken_change(
+            session,
+            user_id=user_id,
+            chat_id=chat_id,
+            user_timezone=user_timezone,
+            spoken=spoken,
         )
-        spoken_draft.repeat = spoken.repeat
-        line, ok = await _mutate_one(state, spoken_draft)
-        if ok:
-            await home_service.invalidate_home_cache(user_id)
-        return line, (1 if ok else 0)
     clock = parse_clock_only(user_text)
     if clock is not None:
         pending = await pending_add(session, chat_id, user_text or "")

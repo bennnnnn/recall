@@ -30,6 +30,42 @@ _CLAIM_LINE_RE = re.compile(
     r"^(?:added|set|moved|deleted|done|reopened|scheduled|saved|created|date removed)\s*:\s+\S",
     re.IGNORECASE,
 )
+_COLON_CLAIM_RE = re.compile(
+    r"(?:got it!?\s*)?"
+    r"(?:added|set|moved|deleted|done|reopened|scheduled|saved|created|date removed)\s*:\s+\S",
+    re.IGNORECASE,
+)
+_PROSE_CLAIM_RE = re.compile(
+    r"\b(?:i(?:['\u2019]ve| have)?\s+added|"
+    r"i(?:['\u2019]ll| will)\s+add|"
+    r"added (?:your|it|that|a reminder|to your)|"
+    r"you(?:['\u2019]ll| will)\s+now (?:get|have)|"
+    r"marked as done|changed to|updated!|grocery list)",
+    re.IGNORECASE,
+)
+_DECLINE_SAVE_RE = re.compile(
+    r"\b(?:i (?:set|added|saved|scheduled)|reminder (?:is |was )?set)\b",
+    re.IGNORECASE,
+)
+_DECLINE_NEGATION_RE = re.compile(
+    r"\b(?:no reminder|not set|didn(?:'|\u2019)t|did not|won(?:'|\u2019)t|will not|without)\b",
+    re.IGNORECASE,
+)
+_CHANGE_LEADS = (
+    "make ",
+    "change ",
+    "set ",
+    "put ",
+    "mark ",
+    "complete ",
+    "finish ",
+    "reopen ",
+    "uncheck ",
+    "delete ",
+    "remove ",
+    "move ",
+    "reschedule ",
+)
 _ADD_REQUEST_RE = re.compile(
     r"^\s*(?:please\s+)?(?:can you\s+)?(?:add|buy|get|pick up|remind me(?:\s+to)?)\b",
     re.IGNORECASE,
@@ -62,6 +98,8 @@ _ADD_LEADS = (
 )
 _REPEATS: tuple[tuple[str, RecurrenceRule], ...] = (
     ("weekdays", "weekdays"),
+    ("everyday", "daily"),
+    ("every day", "daily"),
     ("weekly", "weekly"),
     ("daily", "daily"),
     ("monthly", "monthly"),
@@ -97,20 +135,45 @@ def chat_add_needs_a_stated_time(user_text: str | None, due_at: datetime | None)
 
 def reply_when_nothing_saved(text: str, user_text: str | None) -> str:
     """The model must not confirm a reminder the server did not save."""
+    asked = _asked_to_change_or_add(user_text)
+    colon = bool(_COLON_CLAIM_RE.search(text))
+    prose = bool(asked and _PROSE_CLAIM_RE.search(text))
+    needs_time = bool(
+        user_text and _ADD_REQUEST_RE.search(user_text) and not user_named_a_clock(user_text)
+    )
     lines = text.splitlines()
     kept = [line for line in lines if not _CLAIM_LINE_RE.match(line.strip())]
     changed = len(kept) != len(lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip() if changed else text
-    needs_time = bool(
-        user_text and _ADD_REQUEST_RE.search(user_text) and not user_named_a_clock(user_text)
-    ) and not _ASKS_WHEN_RE.search(cleaned)
-    if needs_time and (changed or not cleaned.strip()):
-        return f"{cleaned}\n\n{_NEED_A_TIME}" if cleaned else _NEED_A_TIME
+    asks_when = bool(_ASKS_WHEN_RE.search(cleaned))
+    if needs_time:
+        if asks_when and not colon and not prose:
+            return cleaned
+        return _NEED_A_TIME
+    if _user_declined(user_text) and _DECLINE_SAVE_RE.search(cleaned):
+        if not _DECLINE_NEGATION_RE.search(cleaned):
+            return "I didn't set a reminder."
+    if colon or prose:
+        return "I didn't change your reminders."
     if changed and not cleaned.strip():
         return "I didn't change your reminders."
     if not changed:
         return text
     return cleaned
+
+
+def _user_declined(user_text: str | None) -> bool:
+    from app.modules.todos.reminder_fences import explicitly_declines_reminder_creation
+
+    return explicitly_declines_reminder_creation(user_text)
+
+
+def _asked_to_change_or_add(user_text: str | None) -> bool:
+    if not user_text:
+        return False
+    if _ADD_REQUEST_RE.search(user_text):
+        return True
+    return user_text.strip().lower().startswith(_CHANGE_LEADS)
 
 
 def parse_clock_only(user_text: str | None) -> tuple[int, int] | None:
@@ -287,8 +350,26 @@ def _title_before(body: str, day_at: int) -> str:
         if not bare or any(bare == name for name, _rule in _REPEATS):
             continue
         words.append(word.strip("\"'.,;:"))
-    while words and words[-1].lower() in _TRAILING_FILLER:
+    while words and words[-1].lower() in _TRAILING_FILLER | {
+        "everyday",
+        "daily",
+        "weekly",
+        "monthly",
+        "weekdays",
+    }:
         words.pop()
+    if (
+        len(words) >= 2
+        and words[-2].lower() == "every"
+        and words[-1].lower()
+        in {
+            "day",
+            "week",
+            "weekday",
+            "month",
+        }
+    ):
+        del words[-2:]
     return " ".join(words).strip()
 
 
