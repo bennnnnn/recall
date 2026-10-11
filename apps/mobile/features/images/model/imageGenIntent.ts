@@ -242,6 +242,48 @@ const SHORT_CREATE_SUBJECT = new RegExp(
   "i",
 );
 
+/** "make money" / "make dinner". A picture that uses "make" names an image noun. */
+const MAKE_NOT_A_PICTURE = new Set([
+  "money",
+  "cash",
+  "bank",
+  "profit",
+  "profits",
+  "income",
+  "living",
+  "sense",
+  "time",
+  "friends",
+  "friend",
+  "decision",
+  "decisions",
+  "point",
+  "progress",
+  "mistake",
+  "mistakes",
+  "amends",
+  "peace",
+  "difference",
+  "room",
+  "haste",
+  "dinner",
+  "lunch",
+  "breakfast",
+  "bed",
+  "love",
+  "ends",
+]);
+const MAKE_IDIOM_FILLER = new Set(["a", "an", "the", "some", "more", "much", "of", "lot", "lots"]);
+
+function makeIsNotAPicture(subject: string): boolean {
+  const words = subject
+    .toLowerCase()
+    .split(/\s+/)
+    .map((word) => word.replace(/^[.,!?;:"'()[\]]+|[.,!?;:"'()[\]]+$/g, ""))
+    .filter((word) => word.length > 0 && !MAKE_IDIOM_FILLER.has(word));
+  return words.length > 0 && words.every((word) => MAKE_NOT_A_PICTURE.has(word));
+}
+
 const NON_IMAGE_DRAW = new RegExp(
   String.raw`\b(?:conclusion|inference|boundary|line|diagram|chart|graph|plot|flowcharts?|sketch\s+of\s+the\s+idea|triangles?|squares?|circles?|rectangles?|trapezoids?|trapezium|polygons?|rhombus|parallelogram|geometry|geometric|hypotenuse|molecules?|molecular|structures?|smiles|chemistry|chemical)\b`,
   "i",
@@ -362,7 +404,12 @@ function extractShortDrawSubject(trimmed: string): string | null {
 }
 
 function extractShortCreateSubject(trimmed: string): string | null {
-  return extractShortVerbSubject(trimmed, SHORT_CREATE_SUBJECT);
+  const subject = extractShortVerbSubject(trimmed, SHORT_CREATE_SUBJECT);
+  if (!subject) return null;
+  if (/^(?:please\s+)?(?:can you\s+)?make\b/i.test(trimmed) && makeIsNotAPicture(subject)) {
+    return null;
+  }
+  return subject;
 }
 
 export function extractImageGenPrompt(text: string): string | null {

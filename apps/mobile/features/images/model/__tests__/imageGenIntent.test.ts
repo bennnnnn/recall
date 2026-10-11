@@ -33,6 +33,10 @@ describe("extractImageGenPrompt", () => {
     expect(extractImageGenPrompt("create a song")).toBeNull();
     expect(extractImageGenPrompt("make your own example")).toBeNull();
     expect(extractImageGenPrompt("make an example")).toBeNull();
+    expect(extractImageGenPrompt("Make money")).toBeNull();
+    expect(extractImageGenPrompt("make some money")).toBeNull();
+    expect(extractImageGenPrompt("make a lot of money")).toBeNull();
+    expect(extractImageGenPrompt("make dinner")).toBeNull();
     expect(extractImageGenPrompt("create a math problem")).toBeNull();
     expect(extractImageGenPrompt("draw me an example")).toBeNull();
   });
