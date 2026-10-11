@@ -282,7 +282,7 @@ def test_derivative_trace_names_the_rule_for_each_part(expr, labels):
     ["x**3 + 2*x", "x**2*sin(x)", "(x**2+1)/(x-1)", "sin(3*x**2)", "5*x**4 - 3*x + 7", "x*exp(x)"],
 )
 def test_derivative_trace_ends_on_the_verified_answer(expr):
-    from app.modules.math.solve.algebra import differentiate_expression
+    from app.modules.math.solve.calculus import differentiate_expression
     from app.modules.math.solve.derivative_steps import derivative_key_steps
 
     steps = derivative_key_steps(sympify(expr), "x")

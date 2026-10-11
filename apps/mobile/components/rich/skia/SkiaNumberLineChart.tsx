@@ -12,11 +12,11 @@ import {
 
 import {
   formatInequalityExpr,
-  type GraphSpec,
   mapGraphPoint,
   numberLineBounds,
   numberLineTicks,
 } from "@/lib/math/graphBlock";
+import { type GraphSpec } from "@/lib/math/graphSpec";
 
 const PAD = 28;
 const TICK_FONT_SIZE = 11;

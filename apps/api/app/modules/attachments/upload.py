@@ -12,9 +12,9 @@ from app.gateways.storage_gateway import UnconfiguredStorageGateway, get_storage
 from app.models.orm import User
 from app.models.schemas import AttachmentPresignOut
 from app.modules.attachments import repository as attachments_repo
-from app.modules.attachments.content import (
+from app.modules.attachments.content import MAX_ATTACHMENT_SIZE
+from app.modules.attachments.content_types import (
     IMAGE_CONTENT_TYPES,
-    MAX_ATTACHMENT_SIZE,
     is_allowed_content_type,
     is_image_content_type,
     normalize_content_type,

@@ -42,11 +42,8 @@ import {
 import { useSheetPanDismiss } from "@/ui/overlay/useSheetPanDismiss";
 import { useSkiaGraphViewport } from "@/hooks/useSkiaGraphViewport";
 import { CODE_FONT } from "@/lib/fonts";
-import {
-  formatGraphExpr,
-  interactiveFunctionBounds,
-  type GraphSpec,
-} from "@/lib/math/graphBlock";
+import { formatGraphExpr, interactiveFunctionBounds } from "@/lib/math/graphBlock";
+import { type GraphSpec } from "@/lib/math/graphSpec";
 import { defaultInteractiveBounds, expandGraphView } from "@/lib/math/graphViewport";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
 import { IconSize } from "@/ui/icons/sizes";

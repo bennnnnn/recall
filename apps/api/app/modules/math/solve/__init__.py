@@ -3,23 +3,25 @@
 from __future__ import annotations
 
 from app.modules.math.solve.algebra import (
-    compute_limit,
-    differentiate_at_point,
-    differentiate_expression,
-    evaluate_series_sum,
     expand_expression,
     factor_expression,
     factored_key_step,
-    integrate_definite,
-    integrate_double,
-    integrate_expression,
-    integrate_triple,
     newton_method,
     simplify_expression,
     solve_compound_inequality,
     solve_equation,
     solve_inequality,
     solve_system,
+)
+from app.modules.math.solve.calculus import (
+    compute_limit,
+    differentiate_at_point,
+    differentiate_expression,
+    evaluate_series_sum,
+    integrate_definite,
+    integrate_double,
+    integrate_expression,
+    integrate_triple,
 )
 from app.modules.math.solve.discrete import (
     compute_combinatorics,

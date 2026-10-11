@@ -1,7 +1,7 @@
 import { sanitizeEmailDraft } from "@/features/integrations/model/emailDraftSanitize";
 import { fenceIdForLang } from "@/lib/fenceRegistry";
 import { parseGeometrySpec } from "@/lib/math/geometryBlock";
-import { parseGraphSpec } from "@/lib/math/graphBlock";
+import { parseGraphSpec } from "@/lib/math/graphSpec";
 
 export type CalloutKind = "tip" | "note" | "warning" | "info" | "important";
 

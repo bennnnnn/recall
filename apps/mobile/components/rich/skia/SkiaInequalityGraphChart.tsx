@@ -16,8 +16,8 @@ import {
   graphAxisTicks,
   graphTickCount,
   mapGraphPoint,
-  type InequalityGraphSpec,
 } from "@/lib/math/graphBlock";
+import { type InequalityGraphSpec } from "@/lib/math/graphSpec";
 import { clipInequalityRegion } from "@/lib/math/inequalityGraph";
 import type { Theme } from "@/lib/theme";
 

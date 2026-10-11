@@ -11,244 +11,35 @@
 import { parseMessageImages } from "@/lib/messageAttachments";
 import { isScannerCameraPrompt } from "@/lib/scanner/subjects";
 
+import {
+  ARTICLES,
+  CODEISH_WORDS,
+  DEICTIC_SUBJECTS,
+  GENERATE_NOW_EXACT,
+  IMAGE_NOUNS,
+  MAKE_IDIOM_FILLER,
+  MAKE_NOT_A_PICTURE,
+  NON_IMAGE_DRAW_WORDS,
+  NON_IMAGE_WORDS,
+  NON_REVISION,
+  NOT_REVISION_STARTERS,
+  NOUN_MESSAGE_FILE_WORDS,
+  NOUN_ONLY_FILLER,
+  POSSESSIVES,
+  REACTION_PHRASES,
+  REACTION_WORDS,
+  REVISION_PRONOUNS,
+  SHOW_NON_IMAGE_WORDS,
+  SHOW_REVISION_TARGETS,
+  SUBJECTLESS_FILLER,
+  VERBS_DRAW,
+  VERBS_IMAGE,
+} from "@/features/images/model/imageGenIntentWords";
+
 export const IMAGE_GEN_PENDING_ASSISTANT_ID = "image-gen-pending";
 export const IMAGE_GEN_FAILED_ASSISTANT_ID = "image-gen-failed";
 export const IMAGE_GEN_USER_PREFIX = "Generate image: ";
 const IMAGE_SEARCH_MODEL_ALIAS = "image-search-model";
-
-const VERBS_IMAGE = new Set(["create", "generate", "make", "design", "render", "produce"]);
-const VERBS_DRAW = new Set(["draw", "paint", "illustrate"]);
-const IMAGE_NOUNS = new Set([
-  "image",
-  "images",
-  "picture",
-  "pictures",
-  "pic",
-  "pics",
-  "photo",
-  "photos",
-  "illustration",
-  "illustrations",
-  "artwork",
-  "artworks",
-  "drawing",
-  "drawings",
-  "portrait",
-  "portraits",
-]);
-const ARTICLES = new Set(["a", "an"]);
-const POSSESSIVES = new Set(["my", "your", "our", "his", "her", "their", "its"]);
-const REVISION_PRONOUNS = new Set(["it", "them", "this", "that"]);
-const NOUN_MESSAGE_FILE_WORDS = new Set(["script", "code", "compression", "format", "file"]);
-const SUBJECTLESS_FILLER = new Set(["a", "an", "the", "of", "just", "please"]);
-
-/** Subjects that mean "make a thing in the app/code", not a picture. */
-const NON_IMAGE_WORDS = new Set([
-  "todo",
-  "todos",
-  "task",
-  "tasks",
-  "list",
-  "lists",
-  "reminder",
-  "reminders",
-  "project",
-  "projects",
-  "account",
-  "accounts",
-  "script",
-  "scripts",
-  "code",
-  "function",
-  "functions",
-  "class",
-  "classes",
-  "file",
-  "files",
-  "folder",
-  "folders",
-  "chat",
-  "chats",
-  "note",
-  "notes",
-  "summary",
-  "summaries",
-  "plan",
-  "plans",
-  "schedule",
-  "schedules",
-  "event",
-  "events",
-  "meeting",
-  "meetings",
-  "quiz",
-  "quizzes",
-  "flashcard",
-  "flashcards",
-  "email",
-  "emails",
-  "message",
-  "messages",
-  "reply",
-  "replies",
-  "draft",
-  "drafts",
-  "report",
-  "reports",
-  "endpoint",
-  "endpoints",
-  "api",
-  "apis",
-  "database",
-  "databases",
-  "table",
-  "tables",
-  "component",
-  "components",
-  "hook",
-  "hooks",
-  "page",
-  "pages",
-  "screen",
-  "screens",
-  "modal",
-  "modals",
-  "button",
-  "buttons",
-  "form",
-  "forms",
-  "user",
-  "users",
-  "password",
-  "passwords",
-  "login",
-  "logins",
-  "pr",
-  "prs",
-  "commit",
-  "commits",
-  "branch",
-  "branches",
-  "issue",
-  "issues",
-  "bug",
-  "bugs",
-  "test",
-  "tests",
-  "array",
-  "arrays",
-  "object",
-  "objects",
-  "string",
-  "strings",
-  "comparison",
-  "comparisons",
-  // Learning / chat asks — "make your own example" is not a picture.
-  "example",
-  "examples",
-  "problem",
-  "problems",
-  "equation",
-  "equations",
-  "question",
-  "questions",
-  "exercise",
-  "exercises",
-  "homework",
-  "solution",
-  "solutions",
-  "proof",
-  "proofs",
-  "worksheet",
-  "worksheets",
-  "assignment",
-  "assignments",
-  // How-to / listicle heads — same as imageLookupIntent. Do not add
-  // "way" (milky way) or "guide" (tour-guide photos).
-  "stops",
-  "ways",
-  "tips",
-  "tip",
-  "secret",
-  "secrets",
-  "habit",
-  "habits",
-  "trick",
-  "tricks",
-  "stage",
-  "stages",
-  "phase",
-  "phases",
-  // "create music" is a chat ask, not a picture of an instrument.
-  "music",
-  "song",
-  "songs",
-  "playlist",
-  "playlists",
-  // Things the user wants built or written, not drawn.
-  "app",
-  "apps",
-  "website",
-  "websites",
-  "game",
-  "games",
-  "program",
-  "programs",
-  "spreadsheet",
-  "spreadsheets",
-  "recipe",
-  "recipes",
-  "poem",
-  "poems",
-  "essay",
-  "essays",
-  "story",
-  "stories",
-  "joke",
-  "jokes",
-]);
-
-const NON_IMAGE_DRAW_WORDS = new Set([
-  "conclusion",
-  "inference",
-  "boundary",
-  "line",
-  "diagram",
-  "chart",
-  "graph",
-  "plot",
-  "flowchart",
-  "flowcharts",
-  // Verified ```geometry / ```smiles — not AI images.
-  "triangle",
-  "triangles",
-  "square",
-  "squares",
-  "circle",
-  "circles",
-  "rectangle",
-  "rectangles",
-  "trapezoid",
-  "trapezoids",
-  "trapezium",
-  "polygon",
-  "polygons",
-  "rhombus",
-  "parallelogram",
-  "geometry",
-  "geometric",
-  "hypotenuse",
-  "molecule",
-  "molecules",
-  "molecular",
-  "structure",
-  "structures",
-  "smiles",
-  "chemistry",
-  "chemical",
-]);
-
-const CODEISH_WORDS = new Set(["compression", "script", "code", "algorithm", "function", "api"]);
 
 const EDGE_PUNCT = /^[.,!?;:"'()[\]]+|[.,!?;:"'()[\]]+$/g;
 
@@ -370,41 +161,6 @@ function matchDrawMe(toks: string[]): string | null {
   return cleanPrompt(subject);
 }
 
-/** "make money" / "make dinner". A picture that uses "make" names an image noun. */
-const MAKE_NOT_A_PICTURE = new Set([
-  "money",
-  "cash",
-  "bank",
-  "profit",
-  "profits",
-  "income",
-  "living",
-  "sense",
-  "time",
-  "friends",
-  "friend",
-  "decision",
-  "decisions",
-  "point",
-  "progress",
-  "mistake",
-  "mistakes",
-  "amends",
-  "peace",
-  "difference",
-  "room",
-  "haste",
-  "dinner",
-  "lunch",
-  "breakfast",
-  "bed",
-  "love",
-  "ends",
-  "laugh",
-  "smile",
-]);
-const MAKE_IDIOM_FILLER = new Set(["a", "an", "the", "some", "more", "much", "of", "lot", "lots"]);
-
 function makeIsNotAPicture(subject: string): boolean {
   const words = tokens(subject)
     .map(foldToken)
@@ -493,28 +249,6 @@ export function extractImageGenPrompt(text: string): string | null {
   return null;
 }
 
-const NOUN_ONLY_FILLER = new Set(["please", "a", "an", "the", "just"]);
-
-const GENERATE_NOW_EXACT = new Set([
-  "that works",
-  "that will work",
-  "that works for me",
-  "do it",
-  "do that",
-  "go ahead",
-  "go for it",
-  "generate it",
-  "generate that",
-  "generate the image",
-  "generate the picture",
-  "you do it",
-  "u do it",
-  "you pick",
-  "u pick",
-  "you choose",
-  "u choose",
-]);
-
 /** True for a bare image ask with no subject: "Image", "a pic", "create an image". */
 export function isImageNounOnlyMessage(text: string): boolean {
   if (isImageGenGenerateNow(text)) return false;
@@ -553,8 +287,6 @@ function threadSubjectFromUser(text: string): string | null {
   if (!cleaned || NON_REVISION.has(cleaned.toLowerCase())) return null;
   return cleaned;
 }
-
-const DEICTIC_SUBJECTS = new Set(["that", "this", "it", "them"]);
 
 function isDeicticSubject(subject: string): boolean {
   const first = tokens(subject)[0];
@@ -627,30 +359,6 @@ export function extractImageGenPromptFromThread(
   return subjectFromActiveImageExchange(priors);
 }
 
-const REACTION_WORDS = new Set([
-  "nice",
-  "cool",
-  "great",
-  "love",
-  "wow",
-  "beautiful",
-  "awesome",
-  "perfect",
-  "cute",
-]);
-
-const REACTION_PHRASES = new Set([
-  "looks good",
-  "looks great",
-  "looks nice",
-  "love it",
-  "love this",
-  "so cool",
-  "so nice",
-  "well done",
-  "nice one",
-]);
-
 function isReaction(text: string): boolean {
   let collapsed = stripTrailing(tokens(text.trim().toLowerCase()).join(" "), /[.!?]+$/).trim();
   if (collapsed.startsWith("please ")) collapsed = collapsed.slice("please ".length).trim();
@@ -670,102 +378,6 @@ function hasEditLeadIn(toks: string[]): boolean {
   return i < toks.length && ["now", "again", "instead", "try"].includes(word);
 }
 
-const NON_REVISION = new Set([
-  "ok",
-  "okay",
-  "k",
-  "thanks",
-  "thank you",
-  "thx",
-  "ty",
-  "yes",
-  "no",
-  "yep",
-  "nope",
-  "sure",
-  "cool",
-  "nice",
-  "lol",
-  "lmao",
-  "haha",
-  "hehe",
-  "great",
-  "got it",
-  "perfect",
-  "awesome",
-  "hi",
-  "hello",
-  "hey",
-  "hiya",
-  "yo",
-  "sup",
-  "bye",
-  "goodbye",
-  "cya",
-  "see ya",
-  "sounds good",
-  "makes sense",
-  "understood",
-]);
-
-/**
- * First remaining token after revision lead-ins. Questions and chat openers
- * must not become "{subject}, what's 2+2".
- */
-const NOT_REVISION_STARTERS = new Set([
-  "what",
-  "what's",
-  "whats",
-  "why",
-  "how",
-  "how's",
-  "who",
-  "when",
-  "where",
-  "which",
-  "can",
-  "could",
-  "would",
-  "should",
-  "is",
-  "are",
-  "do",
-  "does",
-  "did",
-  "will",
-  "am",
-  "help",
-  "show",
-  "tell",
-  "explain",
-  "write",
-  "please",
-  "i",
-  "i'm",
-  "im",
-  "i've",
-  "ive",
-  "we",
-  "let's",
-  "lets",
-]);
-
-/**
- * "show it at night" / "show the car in blue" redraw the last picture; "show the
- * steps" or "show 23 × 14" after a picture are ordinary chat.
- */
-const SHOW_REVISION_TARGETS = new Set(["it", "them", "more", "less", "another", "a", "an", "the"]);
-const SHOW_NON_IMAGE_WORDS = new Set([
-  "step",
-  "steps",
-  "work",
-  "working",
-  "workout",
-  "answer",
-  "solution",
-  "calculation",
-  "how",
-]);
 const SHOW_NON_IMAGE_SYMBOLS = ["+", "-", "×", "÷", "*", "/", "=", "^"];
 
 function isShowImageRevision(toks: string[]): boolean {

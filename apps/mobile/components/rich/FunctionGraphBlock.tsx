@@ -6,11 +6,8 @@ import { NumberLineChart } from "@/components/rich/NumberLineChart";
 import { InequalityGraphChart } from "@/components/rich/InequalityGraphChart";
 import { InteractiveFunctionPlot } from "@/components/rich/InteractiveFunctionPlot";
 import { TrajectoryChart } from "@/components/rich/TrajectoryChart";
-import {
-  formatGraphExpr,
-  formatInequalityExpr,
-  parseGraphSpec,
-} from "@/lib/math/graphBlock";
+import { formatGraphExpr, formatInequalityExpr } from "@/lib/math/graphBlock";
+import { parseGraphSpec } from "@/lib/math/graphSpec";
 import { CODE_FONT } from "@/lib/fonts";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";

@@ -3,12 +3,11 @@ import Svg, { Circle, Line, Polygon, Text as SvgText } from "react-native-svg";
 
 import {
   formatInequalityExpr,
-  GraphSpec,
   mapGraphPoint,
   numberLineBounds,
   numberLineTicks,
-  NumberLineInterval,
 } from "@/lib/math/graphBlock";
+import { GraphSpec, NumberLineInterval } from "@/lib/math/graphSpec";
 import { isSkiaAvailable } from "@/lib/skiaAvailability";
 
 type Props = {

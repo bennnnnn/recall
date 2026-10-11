@@ -8,6 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway as gateway
+from app.gateways.tool_completion import NO_TOOL_NAME
 
 TOOLS = [{"type": "function", "function": {"name": "calendar", "parameters": {}}}]
 MESSAGES = [{"role": "user", "content": "Add lunch tomorrow at noon"}]
@@ -49,7 +50,7 @@ async def _complete(**kwargs):
 @pytest.mark.asyncio
 async def test_selector_requires_explicit_no_tool_decision_and_retains_usage():
     usage = {"input": 10, "output": 20}
-    complete = AsyncMock(return_value=_response([_call(gateway._NO_TOOL_NAME, "{}")]))
+    complete = AsyncMock(return_value=_response([_call(NO_TOOL_NAME, "{}")]))
     with (
         patch.object(gateway, "acompletion", complete),
         patch.object(gateway.asyncio, "timeout", wraps=asyncio.timeout) as timeout,
@@ -64,7 +65,7 @@ async def test_selector_requires_explicit_no_tool_decision_and_retains_usage():
     assert request["max_tokens"] == 1024
     assert request["extra_body"]["provider"] == {"sort": "latency", "require_parameters": True}
     assert request["tools"][:-1] == TOOLS
-    assert request["tools"][-1]["function"]["name"] == gateway._NO_TOOL_NAME
+    assert request["tools"][-1]["function"]["name"] == NO_TOOL_NAME
     assert request["messages"][:-1] == MESSAGES
     assert len(MESSAGES) == len(TOOLS) == 1
     timeout.assert_called_once_with(30.0)
@@ -94,8 +95,8 @@ async def test_selector_preserves_calls_after_prose_and_discards_all_reasoning()
         ([_call(call_id="")], "tool_calls"),
         ([_call(), _call()], "tool_calls"),
         ([_call(name="not_offered")], "tool_calls"),
-        ([_call(gateway._NO_TOOL_NAME, "{}"), _call(call_id="real")], "tool_calls"),
-        ([_call(gateway._NO_TOOL_NAME, '{"explanation":"no"}')], "tool_calls"),
+        ([_call(NO_TOOL_NAME, "{}"), _call(call_id="real")], "tool_calls"),
+        ([_call(NO_TOOL_NAME, '{"explanation":"no"}')], "tool_calls"),
     ],
 )
 async def test_selector_rejects_incomplete_or_ambiguous_decision(calls, finish_reason):
@@ -132,7 +133,7 @@ async def test_selector_retries_only_explicit_unsupported_choice_with_same_contr
     complete = AsyncMock(
         side_effect=[
             UnsupportedToolChoice("tool_choice required is not supported"),
-            _response([_call(gateway._NO_TOOL_NAME, "{}")]),
+            _response([_call(NO_TOOL_NAME, "{}")]),
         ]
     )
     usage = {}

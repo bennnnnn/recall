@@ -25,8 +25,8 @@ import {
   formatGraphExpr,
   graphBounds,
   mapGraphPoint,
-  type GraphSpec,
 } from "@/lib/math/graphBlock";
+import { type GraphSpec } from "@/lib/math/graphSpec";
 import {
   playbackStart,
   remainingPlaybackDuration,

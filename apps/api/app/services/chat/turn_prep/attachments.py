@@ -21,7 +21,7 @@ async def count_image_attachments(
     session: AsyncSession, user_id: UUID, attachment_ids: list[UUID]
 ) -> int:
     from app.modules.attachments import repository as attachments_repo
-    from app.modules.attachments.content import IMAGE_CONTENT_TYPES, normalize_content_type
+    from app.modules.attachments.content_types import IMAGE_CONTENT_TYPES, normalize_content_type
 
     rows = await attachments_repo.get_by_ids(session, attachment_ids, user_id)
     return sum(1 for row in rows if normalize_content_type(row.content_type) in IMAGE_CONTENT_TYPES)

@@ -17,6 +17,7 @@ from app.modules.attachments import chunks_repository as chunks_repo
 from app.modules.attachments import content as attachment_content_service
 from app.modules.attachments import repository as attachments_repo
 from app.modules.attachments.content import ExtractedText
+from app.modules.attachments.content_types import EXTRACTABLE_CONTENT_TYPES
 from app.services.prompt_safety import wrap_untrusted
 
 logger = logging.getLogger(__name__)
@@ -132,7 +133,7 @@ def chunk_text(text: str, *, chunk_chars: int = 900, overlap: int = 120) -> list
 def is_indexable_attachment(row: Attachment) -> bool:
     return (
         not attachment_content_service.is_image_content_type(row.content_type)
-        and row.content_type in attachment_content_service.EXTRACTABLE_CONTENT_TYPES
+        and row.content_type in EXTRACTABLE_CONTENT_TYPES
     )
 
 

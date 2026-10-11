@@ -29,10 +29,10 @@ import {
   graphPolylinePoints,
   numberLineBounds,
   numberLineTicks,
-  parseGraphSpec,
   schoolViewBounds,
   graphAxisTicks,
 } from "@/lib/math/graphBlock";
+import { parseGraphSpec } from "@/lib/math/graphSpec";
 
 describe("geometryBlock", () => {
   it("parses square spec from side", () => {

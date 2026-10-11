@@ -8,7 +8,6 @@ from typing import cast, get_args, get_origin
 from pydantic import BaseModel
 
 from app.core.config import Settings
-from app.gateways import litellm_gateway as gateway
 from app.gateways import mock_llm
 from app.models.schemas import (
     MEMORY_REPLY_MAX_LENGTH,
@@ -55,6 +54,10 @@ async def _complete_structured_once[T: BaseModel](
     usage: dict[str, int] | None = None,
 ) -> T | None:
     """One structured attempt. Raises on provider outage; returns None on bad output."""
+    # Resolved at call time: litellm_gateway re-exports this module, and tests
+    # patch its provider seams (``acompletion``) there.
+    from app.gateways import litellm_gateway as gateway
+
     route = gateway.resolve_route(model_alias)
     kwargs = gateway._litellm_kwargs(settings, route)  # ModelUnavailableError if no key
     timeout = (
@@ -154,6 +157,7 @@ async def complete_structured[T: BaseModel](
 ) -> T | None:
     if mock_llm.should_mock_llm(settings):
         return None
+    from app.gateways import litellm_gateway as gateway
 
     fallback = gateway._fallback_alias(settings, model_alias) if allow_fallback else None
     try:
