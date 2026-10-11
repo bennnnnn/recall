@@ -7,9 +7,9 @@ from pathlib import Path
 
 import pytest
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.formula import hill_formula, parse_formula
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.constants import GAS_R
 from app.modules.chemistry.solvers.params import positive, require, require_all

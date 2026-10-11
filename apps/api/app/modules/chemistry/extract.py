@@ -11,9 +11,9 @@ import logging
 import re
 from functools import lru_cache
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.binding import bind_chemistry_intent
 from app.modules.chemistry.registry import CHEMISTRY_EXTRACTORS, UNIT_AWARE_EXTRACTORS
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.sig_figs import written_numbers
 from app.services.number_text import read_scientific_numbers
 

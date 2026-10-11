@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock
 from app.modules.math.tools.extractors.fractions import extract_fraction_intent
 from app.modules.math.tools.extractors.teaching import extract_teaching_intent

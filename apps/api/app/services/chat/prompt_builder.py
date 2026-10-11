@@ -11,7 +11,6 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
-from app.models.schemas.math import MathImageExtract
 from app.modules import web_search as web_search_service
 from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT, chemistry_followup_problem
 from app.modules.integrations import inbox as email_service
@@ -21,6 +20,7 @@ from app.modules.math.followup import (
     readable_standalone_answer,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
+from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
 from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, physics_followup_problem
 from app.services import locale as locale_service

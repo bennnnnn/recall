@@ -12,13 +12,13 @@ from collections.abc import Callable
 from dataclasses import replace
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.answer_checks import (
     _answers_the_question,
     _in_context_units,
     _in_the_asked_unit,
 )
 from app.modules.physics.display import conversion_row
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.common import QuantityResult
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics

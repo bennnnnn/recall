@@ -9,8 +9,14 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.chemistry import ChemistryIntent, ChemistryKind
-from app.models.schemas.chemistry.scene import (
+from app.modules.chemistry.block import build_verified_chemistry
+from app.modules.chemistry.catalog import CATALOG
+from app.modules.chemistry.context import build_chemistry_augmentation
+from app.modules.chemistry.direct import format_direct_chemistry_reply
+from app.modules.chemistry.extract import extract_chemistry_intent
+from app.modules.chemistry.notation import typeset_json
+from app.modules.chemistry.schemas import ChemistryIntent, ChemistryKind
+from app.modules.chemistry.schemas.scene import (
     BalanceScene,
     CellScene,
     EquilibriumScene,
@@ -19,12 +25,6 @@ from app.models.schemas.chemistry.scene import (
     VseprScene,
     dump_scene,
 )
-from app.modules.chemistry.block import build_verified_chemistry
-from app.modules.chemistry.catalog import CATALOG
-from app.modules.chemistry.context import build_chemistry_augmentation
-from app.modules.chemistry.direct import format_direct_chemistry_reply
-from app.modules.chemistry.extract import extract_chemistry_intent
-from app.modules.chemistry.notation import typeset_json
 from app.modules.chemistry.solvers.solver import solve_chemistry, supported_operations
 from app.modules.physics.extract import needs_physics
 from app.services.solving import SolveServiceError
@@ -241,7 +241,7 @@ async def test_iupac_name_is_verified_only_from_pubchem() -> None:
 def test_local_iupac_solver_does_not_invent_a_name() -> None:
     intent = extract_chemistry_intent("IUPAC name of SMILES CCO")
     assert intent is None
-    from app.models.schemas.chemistry import ChemistryIntent
+    from app.modules.chemistry.schemas import ChemistryIntent
 
     with pytest.raises(SolveServiceError):
         solve_chemistry(ChemistryIntent(kind="organic", chemistry_op="iupac_name", formula="CCO"))

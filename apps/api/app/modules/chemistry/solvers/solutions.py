@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert, to_liters
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.common_chem import (
     const,
     converted_from,

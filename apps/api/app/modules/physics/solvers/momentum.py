@@ -6,8 +6,8 @@ Elastic: v1' = ((m1 - m2) v1 + 2 m2 v2) / (m1 + m2), and v2' by symmetry.
 
 from __future__ import annotations
 
-from app.models.schemas.physics import PhysicsIntent, SimulationBlockSpec, SimulationBody
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
+from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationBody
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,

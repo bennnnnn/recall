@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _TESLA_PATTERN,
@@ -15,6 +14,7 @@ from app.modules.physics.extractors.school_common import (
     _one,
     _turns,
 )
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import word_index
 
 

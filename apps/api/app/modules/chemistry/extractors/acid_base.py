@@ -5,12 +5,12 @@ from __future__ import annotations
 import math
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _search,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.services.law_binding.ask import ask_clause
 
 

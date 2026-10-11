@@ -21,7 +21,7 @@ from sympy import (
     tan,
 )
 
-from app.models.schemas.math import MathSolveResult
+from app.modules.math.schemas import MathSolveResult
 from app.services.solving import MathServiceError
 
 

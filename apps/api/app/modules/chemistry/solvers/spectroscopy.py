@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.organic import organic_facts
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.smiles import most_common_isotope
 from app.modules.chemistry.solvers.common_chem import (
     inp,

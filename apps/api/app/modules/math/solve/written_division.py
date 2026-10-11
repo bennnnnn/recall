@@ -6,7 +6,7 @@ from decimal import ROUND_DOWN, ROUND_HALF_UP
 from math import gcd
 from typing import Literal, cast
 
-from app.models.schemas.math import ArithmeticWorkSpec, LongDivisionStep
+from app.modules.math.schemas import ArithmeticWorkSpec, LongDivisionStep
 from app.modules.math.solve.written_arithmetic_common import (
     MAX_DECIMAL_PLACES,
     MAX_DIVISION_DIGITS,

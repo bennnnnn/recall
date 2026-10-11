@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
@@ -15,6 +14,7 @@ from app.modules.physics.extractors.common import (
 )
 from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
 from app.modules.physics.extractors.thermal_readings import _temperature_value
+from app.modules.physics.schemas import PhysicsIntent
 
 _HALF_LIFE_COUNT_RE = re.compile(rf"({_NUMBER})\s*half[- ]li(?:ves|fe)", re.IGNORECASE)
 

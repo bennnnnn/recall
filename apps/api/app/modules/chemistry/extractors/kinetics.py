@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.extractors.parsing import (
     _N,
     TIME_UNIT_PATTERN,
@@ -18,6 +17,7 @@ from app.modules.chemistry.extractors.parsing import (
     temperature_kelvin,
     timed,
 )
+from app.modules.chemistry.schemas import ChemistryIntent
 
 _HALF_LIFE_VALUE = re.compile(
     rf"\bhalf[- ]life\b[^.\d]{{0,60}}?(?:=|is|of|was)\s*({_N})\s*({TIME_UNIT_PATTERN})\b",

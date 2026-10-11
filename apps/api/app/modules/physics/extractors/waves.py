@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _NUMBER,
@@ -18,6 +17,7 @@ from app.modules.physics.extractors.cues import (
 )
 from app.modules.physics.extractors.doppler import SOUND_SOURCE, doppler_intent
 from app.modules.physics.extractors.oscillations import _SHM_TIME_UNITS
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _WAVE_CUES = (

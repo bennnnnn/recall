@@ -25,7 +25,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.schemas import PhysicsIntent
 from app.tests.modules.physics.support import (
     answer_number,
     build_verified_physics_block,

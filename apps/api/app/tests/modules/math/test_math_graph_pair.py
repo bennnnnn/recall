@@ -5,10 +5,10 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import GraphBlockSpec
 from app.modules.math import fence as math_fence
 from app.modules.math import match as math_match
 from app.modules.math import tools as math_tools
+from app.modules.math.schemas import GraphBlockSpec
 
 
 class TestGraphExprPairSignal:

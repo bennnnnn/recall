@@ -6,7 +6,7 @@ from decimal import ROUND_HALF_UP, Decimal
 from fractions import Fraction
 from typing import Literal
 
-from app.models.schemas.math.teaching import (
+from app.modules.math.schemas.teaching import (
     ArraySpec,
     DecimalCompareSpec,
     FractionBarRow,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.unit_text import LENGTH_UNITS, QUANTITY_NUMBER, TIME_UNITS, unit_after_quantity
 
 _RATE_CUES = (

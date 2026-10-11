@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models.schemas.math import MathIntent
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 
 
@@ -13,7 +13,7 @@ def _attach_picture(
     *,
     direct: bool,
 ) -> VerifiedMathBlock:
-    from app.models.schemas.math.teaching import TeachingSpec
+    from app.modules.math.schemas.teaching import TeachingSpec
     from app.modules.math.tools.direct_teaching import attach_teaching
 
     if not isinstance(spec, TeachingSpec):

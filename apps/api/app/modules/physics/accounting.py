@@ -22,9 +22,9 @@ import re
 from dataclasses import dataclass
 from itertools import combinations, product
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import _NUMBER
 from app.modules.physics.givens import ANGLE, Given, scan_givens, unit_dimension, unit_expression
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
 from app.services.solving import SolveServiceError
 

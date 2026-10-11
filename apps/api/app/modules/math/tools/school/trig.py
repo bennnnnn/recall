@@ -6,9 +6,9 @@ import re
 from dataclasses import replace
 
 from app.core.config import Settings
-from app.models.schemas.math import EquationInput, MathIntent
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
+from app.modules.math.schemas import EquationInput, MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.helpers import math_expr_or_none
 from app.modules.math.tools.school._parse import _LABELED_NUMBER

@@ -9,16 +9,16 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from app.models.schemas.chemistry import ChemistryIntent
-from app.models.schemas.chemistry.scene import (
+from app.modules.chemistry.equations import balance_equation
+from app.modules.chemistry.lewis import lewis_structure
+from app.modules.chemistry.schemas import ChemistryIntent
+from app.modules.chemistry.schemas.scene import (
     BalanceRow,
     BalanceScene,
     ChargeTally,
     ChemistryScene,
     VseprScene,
 )
-from app.modules.chemistry.equations import balance_equation
-from app.modules.chemistry.lewis import lewis_structure
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
 

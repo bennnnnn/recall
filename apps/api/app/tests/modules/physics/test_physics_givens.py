@@ -4,10 +4,10 @@ from __future__ import annotations
 
 import pytest
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.accounting import competing_given
 from app.modules.physics.ask import asked_dimensions, asked_phrases, result_dimension
 from app.modules.physics.givens import ANGLE, scan_givens, unit_dimension
+from app.modules.physics.schemas import PhysicsIntent
 
 _VELOCITY = unit_dimension("meter / second")[0]  # type: ignore[index]
 _TIME = unit_dimension("second")[0]  # type: ignore[index]

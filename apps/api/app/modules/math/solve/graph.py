@@ -9,7 +9,7 @@ from typing import Any
 import numpy as np
 from sympy import Symbol, denom, limit, solve
 
-from app.models.schemas.math import (
+from app.modules.math.schemas import (
     GraphBlockSpec,
     GraphSampleInput,
     GraphSampleResult,

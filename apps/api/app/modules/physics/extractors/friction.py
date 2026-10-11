@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
 from app.modules.physics.extractors.common import (
     _detect_gravity,
@@ -15,6 +14,7 @@ from app.modules.physics.extractors.common import (
 from app.modules.physics.extractors.cues import (
     _has_cue,
 )
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _FRICTION_CUES = (

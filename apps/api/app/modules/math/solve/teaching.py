@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models.schemas.math.teaching import TeachingSpec
+from app.modules.math.schemas.teaching import TeachingSpec
 from app.modules.math.solve.teaching_algebra import (
     polynomial_division,
     transformation_spec,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.math import (
+from app.modules.math.schemas import (
     CircleGeometryInput,
     CircleGeometryResult,
     ParallelogramInput,

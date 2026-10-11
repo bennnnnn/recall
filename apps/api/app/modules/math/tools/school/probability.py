@@ -8,8 +8,8 @@ from dataclasses import replace
 from fractions import Fraction
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
 from app.modules.math import school as math_school
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.school._parse import _PROB_NUMBER
 

@@ -6,12 +6,12 @@ import math
 import re
 from dataclasses import dataclass, field
 
-from app.models.schemas.math import GraphBlockSpec
-from app.models.schemas.physics import (
+from app.modules.math.schemas import GraphBlockSpec
+from app.modules.physics.bodies import ELECTRON_MASS, ELEMENTARY_CHARGE, SCHOOL_GRAVITY
+from app.modules.physics.schemas import (
     PhysicsIntent,
     SimulationBlockSpec,
 )
-from app.modules.physics.bodies import ELECTRON_MASS, ELEMENTARY_CHARGE, SCHOOL_GRAVITY
 from app.modules.physics.solvers.chip import render_chip, render_chip_latex
 from app.modules.physics.solvers.unit_aliases import _UNIT_ALIASES
 from app.services.solving import SolveServiceError

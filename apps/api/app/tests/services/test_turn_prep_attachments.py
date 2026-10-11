@@ -8,7 +8,7 @@ import pytest
 from app.core.config import Settings
 from app.exceptions import AttachmentValidationError, ChatBusyError
 from app.gateways.storage_gateway import LocalStorageGateway
-from app.models.schemas.math import MathImageExtract
+from app.modules.math.schemas import MathImageExtract
 
 
 @pytest.mark.asyncio

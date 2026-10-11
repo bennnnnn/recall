@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.bodies import WATER_DENSITY
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
@@ -17,6 +16,7 @@ from app.modules.physics.extractors.common import (
     _detect_gravity,
     _find_value_with_specific_unit,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 _KV_FORCE = re.compile(
     r"F_drag\s*=\s*-\s*k\s*v\b"

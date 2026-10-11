@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import re
 
-from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
+from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.services.md_fence_scan import close_unclosed_fences, strip_closed_fences
 from app.services.solving import VerifiedPhysicsBlock
 

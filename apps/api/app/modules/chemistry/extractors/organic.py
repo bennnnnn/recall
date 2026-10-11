@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
+from app.modules.chemistry.schemas import ChemistryIntent
 
 
 def _extract_organic(text: str) -> ChemistryIntent | None:

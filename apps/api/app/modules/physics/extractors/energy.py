@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.angles import _stated_angle
 from app.modules.physics.extractors.common import (
     _NUMBER,
@@ -18,6 +17,7 @@ from app.modules.physics.extractors.common import (
 from app.modules.physics.extractors.cues import (
     _has_cue_either_case,
 )
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _ENERGY_CUES = (

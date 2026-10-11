@@ -15,7 +15,7 @@ from typing import Any
 
 from sympy import Add, Eq, Float, Rational, Symbol, latex, simplify, solve
 
-from app.models.schemas.math.word_problem import WordProblemSetup
+from app.modules.math.schemas.word_problem import WordProblemSetup
 from app.modules.math.solve.key_steps import KeyStep, equation_check_latex, equation_key_steps
 from app.modules.math.solve.traces import system_check_latex, system_key_steps
 from app.modules.math.solve.work_lines import student_tex

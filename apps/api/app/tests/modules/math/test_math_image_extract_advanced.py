@@ -11,8 +11,8 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathImageExtract
 from app.modules.math import tools as math_tools
+from app.modules.math.schemas import MathImageExtract
 
 
 class TestMathImageExtractSchema:

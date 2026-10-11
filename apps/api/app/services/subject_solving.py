@@ -15,7 +15,7 @@ from typing import Literal
 from redis.asyncio import Redis
 
 from app.core.config import Settings
-from app.models.schemas.math import MathImageExtract
+from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.prompt import build_math_augmentation, needs_symbolic_math
 from app.modules.physics.extract import needs_physics
 from app.modules.physics.prompt import build_physics_augmentation

@@ -233,7 +233,7 @@ is drawn as tetrahedral, not square planar.
 
 | Layer | Path |
 |---|---|
-| Intent schema | `apps/api/app/models/schemas/chemistry/intent.py` |
+| Intent schema | `apps/api/app/modules/chemistry/schemas/intent.py` |
 | Gate / compound parsing | `apps/api/app/modules/chemistry/request.py` |
 | Text extraction | `apps/api/app/modules/chemistry/extract.py` (driver), `registry.py` (order), `extractors/<topic>.py` |
 | Binder (questions in their own words) | `binding.py`, `laws.py`, `law_record.py`, `formula_bindings.py`, `species_facts.py`, `given_units.py`; engine in `apps/api/app/services/law_binding/` |

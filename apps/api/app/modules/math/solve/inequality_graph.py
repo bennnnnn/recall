@@ -9,7 +9,7 @@ from typing import Literal, cast
 from sympy import Expr, Poly, Symbol
 from sympy.polys.polyerrors import PolynomialError
 
-from app.models.schemas.math import GraphBlockSpec
+from app.modules.math.schemas import GraphBlockSpec
 from app.modules.math.solve.parse import (
     MathServiceError,
     _normalize_latex_to_sympy,

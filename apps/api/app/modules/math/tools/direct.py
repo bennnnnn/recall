@@ -871,7 +871,7 @@ def can_direct_verified_math_reply(
     ):
         return False
     if statistics_request or unit_request or solid_request or calculus_request:
-        from app.models.schemas.math.teaching import TEACHING_TYPES
+        from app.modules.math.schemas.teaching import TEACHING_TYPES
 
         fences = _solver_fences(verified)
         answers = [fence for fence in fences if fence.get("type") == "answer"]
@@ -906,7 +906,7 @@ def can_direct_verified_math_reply(
         return False
     if not answer or len(answer) > _MAX_DIRECT_ANSWER_CHARS:
         return False
-    from app.models.schemas.math.teaching import TEACHING_TYPES
+    from app.modules.math.schemas.teaching import TEACHING_TYPES
 
     fences = _solver_fences(verified)
     if not fences:

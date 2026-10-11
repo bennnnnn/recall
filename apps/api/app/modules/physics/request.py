@@ -12,8 +12,6 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from app.models.schemas.physics import PhysicsIntent
-from app.models.schemas.physics.intent import ProjectileQuantity
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
@@ -23,6 +21,8 @@ from app.modules.physics.extractors.common import (
 from app.modules.physics.extractors.momentum import _COLLISION_SUBJECT_RE, _TWO_DIMENSIONAL_RE
 from app.modules.physics.numbers import normalize_physics_numbers, normalize_physics_units
 from app.modules.physics.registry import has_supported_physics_cue
+from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.schemas.intent import ProjectileQuantity
 from app.services.number_text import numeric_spans
 
 if TYPE_CHECKING:

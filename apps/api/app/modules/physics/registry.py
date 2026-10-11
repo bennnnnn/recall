@@ -9,7 +9,6 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.circuit_patterns import _CIRCUIT_CUE_RES, _CIRCUIT_CUES
 from app.modules.physics.extractors.circuits import _extract_circuit_intent
 from app.modules.physics.extractors.circular import (
@@ -116,6 +115,7 @@ from app.modules.physics.extractors.torque import (
     _extract_torque_intent,
 )
 from app.modules.physics.extractors.waves import _WAVE_CUE_RES, _WAVE_CUES, _extract_waves_intent
+from app.modules.physics.schemas import PhysicsIntent
 
 PHYSICS_EXTRACTORS: tuple[Callable[[str], PhysicsIntent | None], ...] = (
     # Before kinematics: a drop that states F = -kv is not free fall.

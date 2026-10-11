@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _MASS_UNITS,
     _detect_gravity,
@@ -23,6 +22,7 @@ from app.modules.physics.extractors.fluid_readings import (
     read_fluid,
 )
 from app.modules.physics.extractors.school_extensions import blocks_fluids
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _FLUIDS_CUES = (

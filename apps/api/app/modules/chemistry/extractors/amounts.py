@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.elements import BY_SYMBOL, ELEMENTS
 from app.modules.chemistry.equations import written_is_balanced
 from app.modules.chemistry.extractors.parsing import (
@@ -17,6 +16,7 @@ from app.modules.chemistry.extractors.parsing import (
 from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.isotopes import ISOTOPE_MASSES
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
     NAMED_COMPOUNDS,

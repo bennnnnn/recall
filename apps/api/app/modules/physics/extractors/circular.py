@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.angles import _stated_angle
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
@@ -20,6 +19,7 @@ from app.modules.physics.extractors.cues import (
 )
 from app.modules.physics.extractors.friction import _MU_RE
 from app.modules.physics.extractors.oscillations import _ANGULAR_FREQ_RE
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _CIRCULAR_CUES = (

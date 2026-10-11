@@ -6,7 +6,6 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _strip_param_assignments,
 )
@@ -29,6 +28,7 @@ from app.modules.physics.extractors.quantum import (
     _photon_energy,
     _uncertainty,
 )
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _MODERN_CUES = (

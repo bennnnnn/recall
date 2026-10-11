@@ -13,8 +13,6 @@ import re
 
 import pytest
 
-from app.models.schemas.chemistry import ChemistryIntent, ChemistryKind
-from app.models.schemas.chemistry.scene import TitrationScene
 from app.modules.chemistry.coordination import parse_complex_formula
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
@@ -27,6 +25,8 @@ from app.modules.chemistry.nuclear import balance_nuclear, format_nuclear
 from app.modules.chemistry.organic import organic_facts
 from app.modules.chemistry.reactions import named_product
 from app.modules.chemistry.request import EQUATION_RE
+from app.modules.chemistry.schemas import ChemistryIntent, ChemistryKind
+from app.modules.chemistry.schemas.scene import TitrationScene
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.thermochemistry import (
     _formation,

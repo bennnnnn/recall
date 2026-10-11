@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.physics import PhysicsIntent, SimulationBlockSpec, SimulationVector
+from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationVector
 from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
 from app.services.solving import SolveServiceError
 

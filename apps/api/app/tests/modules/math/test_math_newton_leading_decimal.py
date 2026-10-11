@@ -3,8 +3,8 @@
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
 from app.modules.math.fence import validate_math_fences
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent

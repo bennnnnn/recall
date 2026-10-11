@@ -6,7 +6,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways import litellm_gateway
-from app.models.schemas.math import MathIntent
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools import prompt as math_prompt
 from app.modules.math.tools.llm_extract import (
     LLMMathExtract,
@@ -309,7 +309,7 @@ async def test_fallback_inequality_with_nondefault_domain_is_dropped(
 @pytest.mark.asyncio
 async def test_fallback_not_used_for_image_extracts(monkeypatch: pytest.MonkeyPatch) -> None:
     """Image extracts already have a structured path; the text fallback must not run."""
-    from app.models.schemas.math import MathImageExtract
+    from app.modules.math.schemas import MathImageExtract
 
     async def fake(**kwargs: object) -> None:
         raise AssertionError("text fallback must not run for image extracts")
@@ -328,7 +328,7 @@ async def test_fallback_not_used_for_image_extracts(monkeypatch: pytest.MonkeyPa
 @pytest.mark.asyncio
 async def test_image_intent_with_nondefault_domain_is_dropped() -> None:
     """OCR-derived intents obey the same whole-request audit as text extractors."""
-    from app.models.schemas.math import MathImageExtract
+    from app.modules.math.schemas import MathImageExtract
 
     note, verified = await math_prompt.build_math_augmentation(
         "Solve this over the integers",
@@ -344,7 +344,7 @@ async def test_image_intent_with_nondefault_domain_is_dropped() -> None:
 @pytest.mark.asyncio
 async def test_image_source_domain_is_audited_when_caption_has_no_constraint() -> None:
     """A condition printed in the image cannot be lost by the OCR structure."""
-    from app.models.schemas.math import MathImageExtract
+    from app.modules.math.schemas import MathImageExtract
 
     note, verified = await math_prompt.build_math_augmentation(
         "Solve this",
@@ -365,7 +365,7 @@ async def test_image_source_domain_is_audited_when_caption_has_no_constraint() -
 
 @pytest.mark.asyncio
 async def test_every_independent_image_reading_is_audited() -> None:
-    from app.models.schemas.math import MathImageExtract
+    from app.modules.math.schemas import MathImageExtract
 
     note, verified = await math_prompt.build_math_augmentation(
         "Solve this",

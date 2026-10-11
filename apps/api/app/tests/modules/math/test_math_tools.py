@@ -8,8 +8,8 @@ import pytest
 from pydantic import ValidationError
 
 from app.core.config import Settings
-from app.models.schemas.math import MathImageExtract, MathIntent
 from app.modules.math import tools as math_tools
+from app.modules.math.schemas import MathImageExtract, MathIntent
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.prompt import build_physics_augmentation
 
@@ -649,7 +649,7 @@ async def test_augment_prompt_newton_reports_non_convergence() -> None:
     text = "use newton's method to find the root of x^3 - 2x - 5 = 0 starting at x0 = 2"
     intent = math_tools.extract_math_intent(text)
     assert intent is not None
-    from app.models.schemas.math import NewtonMethodResult
+    from app.modules.math.schemas import NewtonMethodResult
 
     with patch(
         "app.modules.math.tools.math_solve.newton_method",

@@ -31,7 +31,7 @@ from sympy import (
 )
 
 from app.core.config import get_settings
-from app.models.schemas.math import (
+from app.modules.math.schemas import (
     EquationInput,
     MathExprResult,
     MathLimitResult,

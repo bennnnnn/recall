@@ -24,11 +24,11 @@ from typing import TYPE_CHECKING, Any, Literal
 # use of KeyStep below is an annotation (`from __future__ import annotations`
 # makes them lazy strings), so no runtime import is needed at all.
 if TYPE_CHECKING:
-    from app.models.schemas.math import NewtonMethodInput, NewtonMethodResult
-    from app.models.schemas.physics import PhysicsIntent
-    from app.models.schemas.physics.symbolic import SymbolicPhysicsRequest
     from app.modules.math.response_intent import MathResponseIntent
+    from app.modules.math.schemas import NewtonMethodInput, NewtonMethodResult
     from app.modules.math.solve.key_steps import KeyStep
+    from app.modules.physics.schemas import PhysicsIntent
+    from app.modules.physics.schemas.symbolic import SymbolicPhysicsRequest
 
 VERIFIED_MATH_BEGIN = "[BEGIN VERIFIED MATH]"
 VERIFIED_MATH_END = "[END VERIFIED MATH]"

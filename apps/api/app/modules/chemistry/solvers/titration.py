@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.catalog import stated
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.acid_base import (
     ph_text,
 )

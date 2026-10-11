@@ -6,8 +6,8 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.physics import PhysicsIntent, SimulationVector
 from app.modules.physics.display import plain_number
+from app.modules.physics.schemas import PhysicsIntent, SimulationVector
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,

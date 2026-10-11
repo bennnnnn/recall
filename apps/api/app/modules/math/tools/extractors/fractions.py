@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.math import MathIntent
 from app.modules.math.response_intent import strip_math_response_wrappers
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.lesson import lesson_math_text
 from app.services.text_normalize import collapse_ws
 

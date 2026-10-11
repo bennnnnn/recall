@@ -33,7 +33,7 @@ from sympy import (
     trigsimp,
 )
 
-from app.models.schemas.math import MathExprResult
+from app.modules.math.schemas import MathExprResult
 from app.modules.math.solve import MathServiceError, _parse_expression
 from app.services.units import get_unit_registry
 

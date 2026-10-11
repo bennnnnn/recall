@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.physics import SimulationBlockSpec, SimulationBody, SimulationVector
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
+from app.modules.physics.schemas import SimulationBlockSpec, SimulationBody, SimulationVector
 
 
 def _free_body_scene(

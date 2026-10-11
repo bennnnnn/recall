@@ -10,12 +10,12 @@ from unittest.mock import MagicMock
 import pytest
 from pydantic import ValidationError
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry import context as chemistry_context
 from app.modules.chemistry import extract as chemistry_extract
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.request import extract_compound_name, is_chemistry_question
+from app.modules.chemistry.schemas import ChemistryIntent
 
 # The old regex needed seconds. Anything linear finishes in a few milliseconds.
 _BUDGET_SECONDS = 0.25

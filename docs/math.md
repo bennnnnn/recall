@@ -104,10 +104,10 @@ The stored user text preserves what the composer submitted. Explicit math contro
 | Post-stream fences | `apps/api/app/modules/math/fence.py` |
 | Camera OCR | `apps/api/app/modules/math/ocr.py`, `apps/api/app/modules/math/image_extract.py`; read-back `apps/api/app/modules/math/api.py` |
 | Step traces | `apps/api/app/modules/math/solve/key_steps.py` (equations), `traces.py` (inequalities, 2×2 systems), `derivative_steps.py`, `integral_steps.py` |
-| Written arithmetic | `apps/api/app/modules/math/solve/written_arithmetic.py`, `written_division.py`, `models/schemas/math/arithmetic.py`; mobile `components/rich/ArithmeticWorkBlock.tsx` |
-| Fraction procedures | `apps/api/app/modules/math/tools/extractors/fractions.py`, `solve/fractions.py`, `models/schemas/math/fraction.py` |
+| Written arithmetic | `apps/api/app/modules/math/solve/written_arithmetic.py`, `written_division.py`, `modules/math/schemas/arithmetic.py`; mobile `components/rich/ArithmeticWorkBlock.tsx` |
+| Fraction procedures | `apps/api/app/modules/math/tools/extractors/fractions.py`, `solve/fractions.py`, `modules/math/schemas/fraction.py` |
 | Check my work | `apps/api/app/modules/math/tools/work_request.py` (reading the lines), `solve/work_check.py` + `work_lines.py` + `work_slips.py` (grading and slips), `tools/block/work.py` (reply) |
-| Word problems | `apps/api/app/modules/math/tools/word_problem.py` (gate, number guard, structured call), `solve/word_problem.py`, `tools/block/word.py`, `models/schemas/math/word_problem.py` |
+| Word problems | `apps/api/app/modules/math/tools/word_problem.py` (gate, number guard, structured call), `solve/word_problem.py`, `tools/block/word.py`, `modules/math/schemas/word_problem.py` |
 | Recurring pay + date arithmetic | `apps/api/app/services/recurring_pay.py`, hooked before prompt/model work in `services/chat/turn_prep/context.py` |
 | MCP sympy | `apps/api/app/modules/math/tool.py` |
 | Prompt hints | `apps/api/app/services/chat/prompt_constants/` (`math.py`, …) |
@@ -121,7 +121,7 @@ The factual grade-by-grade audit is [MATH_GRADE_1_12_COVERAGE.md](./MATH_GRADE_1
 It distinguishes **VERIFIED**, **VERIFIED + PROCEDURE**, **TEACH**, **LLM-ONLY**, and
 **MISSING**. Do not treat the capability index below as a claim of complete curriculum coverage.
 
-The LLM can **talk** about almost any homework. **Verified** work (pre-stream SymPy + canonical fences) covers the `MathIntent.kind` list in [`schemas/math/intent.py`](../apps/api/app/models/schemas/math/intent.py) (**34 kinds**). Physics has a separate, disjoint `PhysicsIntent` and a peer pipeline; it is described only for cross-reference below, not registered through math. Anything else is unverified prose. That is intentional: the app renders; the server verifies only what a complete extractor and deterministic solver can close. Proof-based analysis and abstract algebra stay LLM-only. Count kinds from the schema Literal, not from this table.
+The LLM can **talk** about almost any homework. **Verified** work (pre-stream SymPy + canonical fences) covers the `MathIntent.kind` list in [`math/schemas/intent.py`](../apps/api/app/modules/math/schemas/intent.py) (**34 kinds**). Physics has a separate, disjoint `PhysicsIntent` and a peer pipeline; it is described only for cross-reference below, not registered through math. Anything else is unverified prose. That is intentional: the app renders; the server verifies only what a complete extractor and deterministic solver can close. Proof-based analysis and abstract algebra stay LLM-only. Count kinds from the schema Literal, not from this table.
 
 [`math/tools/`](../apps/api/app/modules/math/tools/) is the feature split: ordered `_INTENT_EXTRACTORS` in `extract.py` plus `kind → _verified_block_*` in `block/`. Do **not** add a second kind table. Rendering: inline `MathText`, display math MathJax-SVG (`MathSvgView`), geometry diagrams `react-native-svg`, and native math graph surfaces Skia (`rich/skia/`, with SVG fallback).
 

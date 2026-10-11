@@ -20,9 +20,9 @@ from contextvars import ContextVar
 from dataclasses import dataclass, field
 from functools import lru_cache
 
-from app.models.schemas.chemistry import ChemistryIntent
-from app.models.schemas.chemistry.intent import MAX_DECIMALS, MAX_WRITTEN
 from app.modules.chemistry.request import EQUATION_RE
+from app.modules.chemistry.schemas import ChemistryIntent
+from app.modules.chemistry.schemas.intent import MAX_DECIMALS, MAX_WRITTEN
 
 MIN_FIGURES = 2
 MAX_FIGURES = 4

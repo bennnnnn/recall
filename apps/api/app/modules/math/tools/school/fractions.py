@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import replace
 
-from app.models.schemas.math import MathIntent
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.school.teaching import _attach_picture
 

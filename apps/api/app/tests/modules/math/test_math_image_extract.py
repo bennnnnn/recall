@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathImageExtract
 from app.modules.math import image_extract as mie
+from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools import needs_symbolic_math
 from app.services.subject_scan import SCAN_CONFIRMED_PREFIX
 
@@ -293,7 +293,7 @@ async def test_augment_prompt_messages_image_math_extract_survives_ocr_chars(
     from unittest.mock import AsyncMock
 
     from app.core.config import Settings
-    from app.models.schemas.math import MathIntent
+    from app.modules.math.schemas import MathIntent
     from app.modules.math.tools import VerifiedMathBlock, augment_prompt_messages
 
     settings = Settings(math_tools_enabled=True)
@@ -337,7 +337,7 @@ async def test_augment_prompt_messages_without_image_math_extract_mangles_ocr_te
     from unittest.mock import AsyncMock
 
     from app.core.config import Settings
-    from app.models.schemas.math import MathIntent
+    from app.modules.math.schemas import MathIntent
     from app.modules.math.tools import VerifiedMathBlock, augment_prompt_messages
 
     settings = Settings(math_tools_enabled=True)

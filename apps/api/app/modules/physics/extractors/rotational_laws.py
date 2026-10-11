@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _NUMBER,
@@ -23,6 +22,7 @@ from app.modules.physics.extractors.rotational_readings import (
     _time,
     _torque_value,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 
 def _angular_impulse(cleaned: str) -> PhysicsIntent | None:

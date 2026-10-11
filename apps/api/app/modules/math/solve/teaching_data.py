@@ -6,7 +6,7 @@ import math
 import statistics
 from fractions import Fraction
 
-from app.models.schemas.math.teaching import (
+from app.modules.math.schemas.teaching import (
     BoxPlotSpec,
     FrequencyRow,
     FrequencyTableSpec,

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _NUMBER,
@@ -18,6 +17,7 @@ from app.modules.physics.extractors.school_common import (
     _one,
 )
 from app.modules.physics.extractors.thermal_readings import _reservoir_temperatures
+from app.modules.physics.schemas import PhysicsIntent
 
 
 def extract_poiseuille(text: str, lower: str) -> PhysicsIntent | None:

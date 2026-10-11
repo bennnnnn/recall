@@ -3,8 +3,8 @@
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import RectangleGeometryInput, TriangleGeometryInput
 from app.modules.math import solve as math_solve
+from app.modules.math.schemas import RectangleGeometryInput, TriangleGeometryInput
 from app.modules.math.tools.prompt import build_math_augmentation
 
 

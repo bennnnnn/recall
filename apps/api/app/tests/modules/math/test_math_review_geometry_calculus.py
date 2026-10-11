@@ -5,7 +5,7 @@ from unittest.mock import patch
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent, MathSeriesResult
+from app.modules.math.schemas import MathIntent, MathSeriesResult
 from app.modules.math.tools import extract_math_intent
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply

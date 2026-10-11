@@ -5,7 +5,7 @@ Each operation is solved in its topic module; this module picks it.
 
 from __future__ import annotations
 
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.angular_momentum import _angular_impulse, _angular_momentum
 from app.modules.physics.solvers.common import PhysicsResult, _params_in_si
 from app.modules.physics.solvers.rolling import (

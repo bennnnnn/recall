@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _NUMBER,
@@ -16,6 +15,7 @@ from app.modules.physics.extractors.cues import (
     _has_cue,
 )
 from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN, _PRESSURE_PATTERN
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _MATERIALS_CUES = ("young's modulus", "youngs modulus", "young modulus", "tensile stress")

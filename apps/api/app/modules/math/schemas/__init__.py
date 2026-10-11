@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.models.schemas.math.algebra import (
+from app.modules.math.schemas.algebra import (
     EquationInput,
     MathExprResult,
     MathImageExtract,
@@ -15,7 +15,7 @@ from app.models.schemas.math.algebra import (
     NewtonMethodResult,
     SystemOfEquationsInput,
 )
-from app.models.schemas.math.arithmetic import (
+from app.modules.math.schemas.arithmetic import (
     AdditionColumn,
     ArithmeticWorkSpec,
     LongDivisionStep,
@@ -23,7 +23,7 @@ from app.models.schemas.math.arithmetic import (
     PartialProduct,
     SubtractionColumn,
 )
-from app.models.schemas.math.discrete import (
+from app.modules.math.schemas.discrete import (
     CombinatoricsInput,
     CombinatoricsResult,
     MatrixInput,
@@ -33,8 +33,8 @@ from app.models.schemas.math.discrete import (
     StatisticsInput,
     StatisticsResult,
 )
-from app.models.schemas.math.fraction import FractionStep, FractionWorkSpec
-from app.models.schemas.math.geometry import (
+from app.modules.math.schemas.fraction import FractionStep, FractionWorkSpec
+from app.modules.math.schemas.geometry import (
     CircleGeometryBlockSpec,
     CircleGeometryInput,
     CircleGeometryResult,
@@ -64,14 +64,14 @@ from app.models.schemas.math.geometry import (
     TriangleSidesInput,
     TriangleSidesResult,
 )
-from app.models.schemas.math.graph import (
+from app.modules.math.schemas.graph import (
     GraphBlockSpec,
     GraphSampleInput,
     GraphSampleResult,
     NumberLineInterval,
 )
-from app.models.schemas.math.intent import MathIntent
-from app.models.schemas.math.word_problem import (
+from app.modules.math.schemas.intent import MathIntent
+from app.modules.math.schemas.word_problem import (
     WordEquation,
     WordProblemSetup,
     WordTarget,

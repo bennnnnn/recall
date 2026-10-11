@@ -22,8 +22,8 @@ import pytest
 from hypothesis import given, settings
 from hypothesis import strategies as st
 
-from app.models.schemas.math import MathIntent
 from app.modules.math.match import needs_symbolic
+from app.modules.math.schemas import MathIntent
 from app.modules.math.solve import _parse_expression
 from app.modules.math.solve.fractions import build_fraction_work
 from app.modules.math.solve.written_arithmetic import build_written_arithmetic_operands

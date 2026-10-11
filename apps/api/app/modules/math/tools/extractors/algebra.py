@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.math import MathIntent
 from app.modules.math import solve as math_solve
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.helpers import (
     _parse_newton_guess,
     _strip_newton_leadin,

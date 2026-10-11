@@ -6,10 +6,10 @@ import math
 
 from pint.errors import PintError
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry import sig_figs
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.common_chem import (
     converted,
     inp,

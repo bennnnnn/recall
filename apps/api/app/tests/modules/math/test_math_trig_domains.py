@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.math import MathImageExtract, MathIntent
+from app.modules.math.schemas import MathImageExtract, MathIntent
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import build_math_augmentation

@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from app.core.config import Settings
-from app.models.schemas.math import MathIntent
 from app.modules.math import school as math_school
 from app.modules.math.match.coordinate_vector import literal_math_tuples
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 
 

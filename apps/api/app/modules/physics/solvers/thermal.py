@@ -4,7 +4,7 @@ latent heat and the first law.
 
 from __future__ import annotations
 
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
 from app.services.solving import SolveServiceError
 

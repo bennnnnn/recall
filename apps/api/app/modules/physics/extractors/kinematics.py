@@ -5,7 +5,6 @@ from __future__ import annotations
 import re
 from typing import Literal
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.ask import asked_phrases
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
@@ -32,6 +31,7 @@ from app.modules.physics.extractors.kinematics_asks import (
     _velocity_is_downward,
 )
 from app.modules.physics.extractors.projectile import _PROJECTILE_CUE_RES
+from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
 _GRAVITY_MOTION_CUES = (

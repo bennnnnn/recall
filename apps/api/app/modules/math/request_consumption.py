@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
-from app.models.schemas.math import MathIntent
+from app.modules.math.schemas import MathIntent
 
 _ADDITIONAL_OPERATION = re.compile(
     r"\b(?:and|then|also|plus)\s+(?:then\s+)?"

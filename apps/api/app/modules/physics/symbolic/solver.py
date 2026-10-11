@@ -6,7 +6,7 @@ from typing import Any
 
 import sympy as sp
 
-from app.models.schemas.physics.symbolic import SymbolicPhysicsRequest
+from app.modules.physics.schemas.symbolic import SymbolicPhysicsRequest
 from app.modules.physics.symbolic.parse import ModelParser
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
 

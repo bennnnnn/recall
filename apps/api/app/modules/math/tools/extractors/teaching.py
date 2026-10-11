@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.math import MathIntent
+from app.modules.math.schemas import MathIntent
 from app.modules.math.solve.teaching import build_teaching
 
 _PREFIXES = (

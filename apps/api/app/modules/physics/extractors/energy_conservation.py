@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _NUMBER,
@@ -17,6 +16,7 @@ from app.modules.physics.extractors.common import (
     _detect_gravity,
     _find_value_with_specific_unit,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 _ENERGY_UNIT = r"kilojoules?|joules?|kJ|J"
 _MASS_UNIT = r"kg|g|mg|lb|lbs|oz"

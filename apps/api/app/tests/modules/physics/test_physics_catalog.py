@@ -9,10 +9,10 @@ from typing import Union, get_args, get_origin
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.physics.intent import PhysicsIntent
 from app.modules.physics.block import PHYSICS_BLOCK_BUILDERS
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.extract import _ADVANCED_PHYSICS_RE, _UNVERIFIED_PHYSICS_PHRASES
+from app.modules.physics.schemas.intent import PhysicsIntent
 from app.modules.physics.solver import PHYSICS_SOLVERS
 from app.tests.modules.physics.support import (
     build_verified_physics_block,

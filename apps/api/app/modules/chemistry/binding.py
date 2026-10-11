@@ -25,11 +25,11 @@ import re
 from dataclasses import dataclass
 from functools import lru_cache, partial
 
-from app.models.schemas.chemistry import ChemistryIntent
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.laws import LAWS, ChemistryLaw
+from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
 from app.modules.chemistry.species_facts import (
     CONJUGATE_SALTS,

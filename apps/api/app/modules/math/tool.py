@@ -8,7 +8,10 @@ from typing import Any, TypeVar
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
-from app.models.schemas.math import (
+from app.models.schemas.tools import SympyToolInput
+from app.modules.math import solve as math_solve
+from app.modules.math import tools as math_tools
+from app.modules.math.schemas import (
     CircleGeometryBlockSpec,
     CircleGeometryInput,
     EquationInput,
@@ -21,9 +24,6 @@ from app.models.schemas.math import (
     SquareGeometryInput,
     SystemOfEquationsInput,
 )
-from app.models.schemas.tools import SympyToolInput
-from app.modules.math import solve as math_solve
-from app.modules.math import tools as math_tools
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 
 logger = logging.getLogger(__name__)

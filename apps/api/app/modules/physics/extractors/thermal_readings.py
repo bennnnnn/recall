@@ -4,13 +4,13 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.physics import PhysicsIntent
 from app.modules.physics.bodies import WATER_SPECIFIC_HEAT
 from app.modules.physics.extractors.common import (
     _NUMBER,
     _find_value_with_specific_unit,
     _positioned_values,
 )
+from app.modules.physics.schemas import PhysicsIntent
 
 _KELVIN_PATTERN = r"K|kelvins?"
 

@@ -7,7 +7,7 @@ import re
 import pytest
 
 from app.core.config import Settings
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.schemas import PhysicsIntent
 from app.services import tool_loop
 from app.tests.modules.physics.support import (
     build_verified_physics_block,

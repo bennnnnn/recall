@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import cast
 
-from app.models.schemas.physics.symbolic import SymbolicOperation, SymbolicPhysicsRequest
+from app.modules.physics.schemas.symbolic import SymbolicOperation, SymbolicPhysicsRequest
 
 MAX_SYMBOLIC_REQUEST = 2000
 MAX_EXPRESSION = 512

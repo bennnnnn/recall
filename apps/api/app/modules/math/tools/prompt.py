@@ -7,10 +7,6 @@ from dataclasses import replace
 from typing import Literal, cast
 
 from app.core.config import Settings
-from app.models.schemas.math import (
-    MathImageExtract,
-    MathIntent,
-)
 from app.modules.math import solve as math_solve
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.request_consumption import request_consumption_complete
@@ -18,6 +14,10 @@ from app.modules.math.response_intent import (
     MathResponseIntent,
     classify_math_response_intent,
     response_intent_prompt,
+)
+from app.modules.math.schemas import (
+    MathImageExtract,
+    MathIntent,
 )
 from app.modules.math.tools.block import VerifiedMathBlock
 from app.modules.math.tools.extract import (

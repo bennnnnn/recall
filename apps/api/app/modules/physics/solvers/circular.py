@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.physics import PhysicsIntent, SimulationBlockSpec, SimulationBody
+from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationBody
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,

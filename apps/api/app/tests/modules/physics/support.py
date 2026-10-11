@@ -2,7 +2,6 @@
 
 import re
 
-from app.models.schemas.physics.simulation import SIMULATION_SPEC_TYPES
 from app.modules.physics import (
     build_verified_physics_block,
     extract_physics_intent,
@@ -10,6 +9,7 @@ from app.modules.physics import (
 )
 from app.modules.physics.direct import maybe_direct_physics_reply
 from app.modules.physics.fence import validate_physics_fences
+from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 
 
 def _spec_fence_kind(spec: dict[str, object]) -> str | None:

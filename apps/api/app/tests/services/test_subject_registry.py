@@ -17,7 +17,7 @@ from app.services.subject_solving import (
 
 
 def test_image_extract_is_math_before_any_peer() -> None:
-    from app.models.schemas.math import MathImageExtract
+    from app.modules.math.schemas import MathImageExtract
 
     extract = MathImageExtract(lhs="2x+3", rhs="11")
     assert (

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import math
 
-from app.models.schemas.physics import PhysicsIntent
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.circular import _orbit_scene
 from app.modules.physics.solvers.common import (
     _BIG_G,

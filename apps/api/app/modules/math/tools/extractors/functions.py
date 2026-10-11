@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.models.schemas.math import MathIntent
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.helpers import (
     _normalize_latex_expr,
     _strip_trailing_filler,
