@@ -2,7 +2,13 @@
 
 from __future__ import annotations
 
+from typing import Literal, cast
+
 from app.modules.math.schemas import MathIntent
+
+SummaryStatsOp = Literal[
+    "mean", "median", "mode", "variance", "stdev", "sample_stdev", "sample_variance", "range"
+]
 
 
 def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
@@ -34,7 +40,7 @@ def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
         return MathIntent(
             kind="statistics",
             stats_op=requested[0],
-            stats_ops=list(requested),
+            stats_ops=cast(list[SummaryStatsOp], list(requested)),
             stats_numbers=numbers,
             operation="solve",
         )

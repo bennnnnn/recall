@@ -273,6 +273,48 @@ def _implicit_mul_before_sqrt(s: str) -> str:
     return "".join(out)
 
 
+_UNICODE_HIGHER_ROOTS = {"\u221b": "3", "\u221c": "4"}  # cube and fourth root signs
+
+
+def _rewrite_unicode_higher_roots(s: str) -> str:
+    """``∛(x)`` / ``∛8`` → ``((x))**(1/3)``; a sign with nothing after it is left alone."""
+    out: list[str] = []
+    i = 0
+    n = len(s)
+    while i < n:
+        index = _UNICODE_HIGHER_ROOTS.get(s[i])
+        if index is None:
+            out.append(s[i])
+            i += 1
+            continue
+        j = i + 1
+        while j < n and s[j] in " \t":
+            j += 1
+        if j < n and s[j] == "(":
+            depth = 1
+            k = j + 1
+            while k < n and depth:
+                depth += {"(": 1, ")": -1}.get(s[k], 0)
+                k += 1
+            if depth:
+                out.append(s[i])
+                i += 1
+                continue
+            body = s[j + 1 : k - 1]
+        else:
+            k = j
+            while k < n and (s[k].isalnum() or s[k] == "."):
+                k += 1
+            body = s[j:k]
+        if not body.strip():
+            out.append(s[i])
+            i += 1
+            continue
+        out.append(f"(({body})**(1/{index}))")
+        i = k
+    return "".join(out)
+
+
 def _rewrite_unicode_sqrts(s: str) -> str:
     """``√9`` / ``√x`` / ``√(x+1)`` → ``sqrt(...)``. Linear scan, leftover ``√`` → ``sqrt``."""
     out: list[str] = []
@@ -496,6 +538,7 @@ def _normalize_latex_to_sympy(expr: str) -> str:
         s = s.replace(glyph, repl)
     for glyph, repl in _UNICODE_VULGAR:
         s = s.replace(glyph, repl)
+    s = _rewrite_unicode_higher_roots(s)
     s = _rewrite_unicode_sqrts(s)
     s = _rewrite_unicode_script_runs(s)
     for _ in range(8):

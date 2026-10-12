@@ -126,3 +126,28 @@ async def test_system_does_not_answer_a_letter_it_never_contains() -> None:
     subject, canonical, reply = await _answer("a = 3, b = 4, find c")
     assert subject == "math"
     assert canonical is None and reply is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("Show steps: ∛(x)=2", "x = 8"),
+        ("solve ∛x = 3", "x = 27"),
+        ("Show steps: (1/2)x+3=7", "x = 8"),
+        ("Show steps: log_2(x)+log_2(x-2)=3", "x = 4"),
+        ("Show steps: 2/(x-1)=3/(x+1)", "x = 5"),
+        ("Show steps: |2x-1|=7", r"x = -3 \text{ or } x = 4"),
+    ],
+)
+async def test_scan_readings_solve_what_was_printed(text: str, answer: str) -> None:
+    """What the scanner shows is what Solve sends; it must parse whole."""
+    _subject, canonical, _reply = await _answer(text)
+    assert canonical == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["Show steps: x^2=2, x∈ℤ", "Show steps: 2x + 3 = 7 (x ∈ ℤ)"])
+async def test_a_printed_number_set_is_never_dropped(text: str) -> None:
+    _subject, canonical, reply = await _answer(text)
+    assert canonical is None and reply is None

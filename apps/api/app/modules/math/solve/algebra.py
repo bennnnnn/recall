@@ -392,13 +392,13 @@ def _real_roots_when_any(solutions: list[dict[Any, Any]], sym: Any) -> list[dict
     A root whose realness SymPy cannot decide (it depends on a parameter) is
     kept. With no real root, every root stays, so ``x^2 + 1 = 0`` keeps ``±i``.
     """
-    real = [solution for solution in solutions if _is_real_value(solution.get(sym)) is True]
+    real = [solution for solution in solutions if _known_realness(solution.get(sym)) is True]
     if not real:
         return solutions
-    return [solution for solution in solutions if _is_real_value(solution.get(sym)) is not False]
+    return [solution for solution in solutions if _known_realness(solution.get(sym)) is not False]
 
 
-def _is_real_value(value: Any) -> bool | None:
+def _known_realness(value: Any) -> bool | None:
     if value is None:
         return None
     try:

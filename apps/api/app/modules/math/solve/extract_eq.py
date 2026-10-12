@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import unicodedata
 from itertools import pairwise
 
 from app.modules.math.match.scan import MATH_MULTI_LETTER, peel_edge_english
@@ -238,10 +239,22 @@ def _equation_spans(text: str) -> list[tuple[int, int, str, str]]:
             right += 1
         lhs = _strip_side_punct(peel_edge_english(cleaned[left:eq].strip()))
         rhs = _strip_side_punct(peel_edge_english(cleaned[eq + 1 : right].strip()))
+        if _stopped_at_math_symbol(cleaned, left - 1) or _stopped_at_math_symbol(cleaned, right):
+            # ``∛(x)=2`` stopped at a root sign the walker cannot carry, which
+            # left ``(x)=2``. A side cut short by a math symbol is not the side.
+            start = right if right > eq + 1 else eq + 1
+            continue
         if _is_equation_side(lhs) and _is_equation_side(rhs):
             spans.append((left, right, lhs, rhs))
         start = right if right > eq + 1 else eq + 1
     return spans
+
+
+def _stopped_at_math_symbol(text: str, index: int) -> bool:
+    """True when the walk ended at a symbol (``∛``, ``∫``, ``∑``), not prose or a break."""
+    if not 0 <= index < len(text):
+        return False
+    return unicodedata.category(text[index]).startswith("S") and not text[index].isascii()
 
 
 def _equation_pairs(text: str) -> list[tuple[str, str]]:
