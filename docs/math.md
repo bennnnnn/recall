@@ -2,6 +2,8 @@
 
 Server-side SymPy verifies and samples; the mobile app only renders. Do not add on-device solving.
 
+Latest review and plan (workout format, coverage, models, geometry, scanner): [MATH_REVIEW.md](./MATH_REVIEW.md).
+
 ## Architecture and ownership audit
 
 The chat pipeline chooses a peer subject before it extracts an intent:
