@@ -42,7 +42,7 @@ model, not with the regex tables (Phase 2).
 | P0-6: scanner drops a term or condition | Fixed. The read-back is the full transcription in written notation (`math/reading.py`), and the equation walker refuses a side cut short by `∛`, `∫` or another symbol. |
 | Found while fixing | `∛(x) = 2` answered `x = 2` (fixed: `x = 8`). `a = 3, b = 4, find c` restated a and b (fixed: declines). Dividing `3x = 3` struck out both sides (fixed). |
 | Workout format | Shipped (§3), across maths, physics, chemistry, the model prompts, and the phone. |
-| Open: the base of a bare `log` | `log(x) = 2` is solved as a natural log (`x = e²`), while school calculators read it as base 10 (`x = 100`). Needs a product decision. |
+| The base of a bare `log` | Decided: base 10, as on a school calculator. `log` and `lg` are base 10 and `ln` is natural, in the parser, the phone's graph resampler, and every prompt. Natural logs print as `ln`, and a change of base prints as `log₁₀ x` (`core/sympy_notation.py`). `log(x) = 2` → `x = 100`. |
 | Open: reach, model lanes, geometry, scanner S2–S6, subject kit | Unchanged; see §4–§9. |
 
 Regression tests: `app/tests/modules/math/test_math_review_regressions.py` and
@@ -122,7 +122,8 @@ P1 fidelity issues found in the same runs:
 - "…by elimination" returns a substitution trace.
 - A definite integral's step label leaks a developer note: "Evaluate (using endpoint limits if
   the integral is improper)".
-- `10^x = 50` answers `log(50)/log(10)`, with no `log₁₀ 50 ≈ 1.699`.
+- `10^x = 50` answers `log(50)/log(10)`, with no `log₁₀ 50 ≈ 1.699`. (Now `log₁₀ 50`; the
+  decimal is still missing.)
 - The `log_2(x) = 3` lesson repeats `x = 8` on steps 3, 4, and 5, and labels step 2 "Combine
   logarithms" although nothing is combined.
 - `show steps: 1234 ÷ 7` does decimal long division to `1234.000` and answers `1234/7 ≈ 176.29`.

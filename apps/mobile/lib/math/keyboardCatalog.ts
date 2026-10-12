@@ -246,7 +246,7 @@ export const SYMBOL_A11Y: Record<string, string> = {
   der2: "Second derivative",
   to: "Arrow",
   dx: "Differential",
-  log: "Logarithm",
+  log: "Log base 10",
   ln: "Natural logarithm",
   logn: "Log base n",
   exp: "Exponential",

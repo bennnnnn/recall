@@ -39,6 +39,9 @@ def solve(text: str):
         ("Physics: laplacian x^2+y^2+z^2 in x,y,z", "6"),
         ("Physics: dot [1,2,3]; [4,5,6]", "32"),
         ("Physics: cross [1,0,0]; [0,1,0]", "[0, 0, 1]"),
+        # School notation, as in math: log is base 10, ln is natural.
+        ("Physics: simplify log(1000)", "3"),
+        ("Physics: simplify ln(exp(2))", "2"),
     ],
 )
 def test_exact_model_operations(text: str, expected: str) -> None:

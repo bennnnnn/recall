@@ -17,7 +17,7 @@ from app.modules.math.schemas import (
 )
 from app.modules.math.solve.derivative_steps import derivative_trace
 from app.modules.math.solve.integral_steps import integral_trace
-from app.modules.math.solve.key_steps import KeyStep
+from app.modules.math.solve.key_steps import KeyStep, written_side
 from app.modules.math.tools.block.canonical import _finish_with_answer
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 from app.services.solving import VerifiedMathBlock
@@ -282,14 +282,17 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
                     continue
                 seen_symmetric.add(pair)
             restrictions.append(rf"{latex(sym)} \ne {latex(value)}")
-    steps = [math_line(f"{latex(display_original)} = {answer}", "simplify")]
+    # As typed: ``log(100)`` evaluates to 2 at parse, which would show ``2 = 2``.
+    written = written_side(intent.expr or "", names)
+    shown = written[1] if written else latex(display_original)
+    steps = [math_line(f"{shown} = {answer}", "simplify")]
     if restrictions:
         steps.append(math_line(r",\; ".join(restrictions), "excluded by the original expression"))
     elif "Abs(" in str(parsed):
         steps.append(
             text_line("a principal square root is never negative, so keep the absolute value")
         )
-    workout = Workout(given=(math_line(latex(display_original)),), steps=tuple(steps))
+    workout = Workout(given=(math_line(shown),), steps=tuple(steps))
     return render_workout(workout, answer)
 
 
@@ -466,17 +469,17 @@ def _verified_block_calculus(
         and intent.integral_lower is None
         and _is_log_over_x_integral(intent.expr, intent.variable)
     ):
-        answer = rf"\log\left|\log\left({intent.variable}\right)\right| + C"
+        answer = rf"\ln\left|\ln\left({intent.variable}\right)\right| + C"
         var = intent.variable
         direct = render_workout(
             Workout(
-                find=(math_line(f"\\int \\frac{{1}}{{{var} \\log({var})}}\\,d{var}"),),
+                find=(math_line(f"\\int \\frac{{1}}{{{var} \\ln({var})}}\\,d{var}"),),
                 steps=(
                     math_line(
-                        f"u = \\log({var}), \\quad du = \\frac{{1}}{{{var}}}\\,d{var}",
+                        f"u = \\ln({var}), \\quad du = \\frac{{1}}{{{var}}}\\,d{var}",
                         "substitute",
                     ),
-                    math_line(r"\int \frac{1}{u}\,du = \log|u| + C", "integrate"),
+                    math_line(r"\int \frac{1}{u}\,du = \ln|u| + C", "integrate"),
                     math_line(answer, "substitute back"),
                     math_line(f"{var} > 0,\\; {var} \\ne 1", "domain for real values"),
                 ),

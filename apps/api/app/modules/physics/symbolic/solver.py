@@ -6,10 +6,14 @@ from typing import Any
 
 import sympy as sp
 
+from app.core.sympy_notation import use_school_log_notation
 from app.modules.physics.schemas.symbolic import SymbolicPhysicsRequest
 from app.modules.physics.symbolic.parse import ModelParser
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
 from app.services.workout import Workout, math_line, render_workout, text_line
+
+# ``log`` reads as base 10, so a natural log has to print as ``\ln``.
+use_school_log_notation()
 
 MAX_OUTPUT = 4000
 _MODEL_NOTE = (

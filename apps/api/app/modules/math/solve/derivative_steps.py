@@ -23,6 +23,7 @@ _POWER_REASON = r"$\frac{d}{dx} x^n = n x^{n-1}$"
 _PRODUCT_REASON = r"$(uv)' = u'v + uv'$"
 _QUOTIENT_REASON = r"$\left(\frac{u}{v}\right)' = \frac{u'v - uv'}{v^2}$"
 _CHAIN_REASON = "the outside's derivative times the inside's derivative"
+_BASE_LOG_REASON = r"$\frac{d}{dx} \log_{b} x = \frac{1}{x \ln b}$"
 
 _ELEMENTARY = {
     sin: r"the derivative of $\sin x$ is $\cos x$",
@@ -52,6 +53,17 @@ def _product(left: Any, right: Any) -> str:
     if right == 1:
         return _factor(left)
     return f"{_factor(left)} {_factor(right)}"
+
+
+def _base_log(term: Any) -> tuple[Any, Any] | None:
+    """``ln(u) / ln(b)`` with a whole-number base: ``(u, b)``, the parse of ``log_b(u)``."""
+    numerator, denominator = term.as_numer_denom()
+    if getattr(denominator, "func", None) is not log or len(denominator.args) != 1:
+        return None
+    base = denominator.args[0]
+    if getattr(numerator, "func", None) is not log or not (base.is_Integer and base > 1):
+        return None
+    return numerator.args[0], base
 
 
 def _is_const(expr: Any, var: Any) -> bool:
@@ -103,6 +115,24 @@ def _term_step(term: Any, var: Any) -> KeyStep | None:
             label=f"Power rule on ${latex(term)}$",
             formula=_equals_chain(lhs, shown, value),
             reason=_POWER_REASON,
+        )
+    base_log = _base_log(term)
+    if base_log is not None:
+        inside, base = base_log
+        d_inside = diff(inside, var)
+        if not _matches(d_inside / (inside * log(base)), derivative):
+            return None
+        if inside == var:
+            return KeyStep(
+                label=f"Derivative of ${latex(term)}$",
+                formula=f"{lhs} = {value}",
+                reason=_BASE_LOG_REASON,
+            )
+        outer = rf"\frac{{1}}{{{_factor(inside)} \ln {latex(base)}}}"
+        return KeyStep(
+            label=f"Chain rule with inside ${latex(inside)}$",
+            formula=_equals_chain(lhs, f"{outer} \\cdot {_factor(d_inside)}", value),
+            reason=_BASE_LOG_REASON,
         )
     numerator, denominator = term.as_numer_denom()
     if denominator != 1 and not _is_const(denominator, var):

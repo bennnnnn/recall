@@ -22,7 +22,9 @@ _FUNCTIONS = {
     "cosh": sp.cosh,
     "tanh": sp.tanh,
     "exp": sp.exp,
-    "log": sp.log,
+    # School notation: ``log`` is base 10 and ``ln`` the natural log, as in math.
+    "log": lambda arg: sp.log(arg, 10),
+    "ln": sp.log,
     "sqrt": sp.sqrt,
     "abs": sp.Abs,
 }

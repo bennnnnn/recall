@@ -13,7 +13,8 @@ MATH_NOTATION_CLARIFICATION_HINT = (
     "If mathematical notation is unclear, unrecognized, or malformed, ask one brief "
     "clarification instead of guessing its meaning. Do not invent a named mathematical "
     "concept or silently change the expression. Standard, unambiguous notation aliases "
-    "are fine."
+    "are fine. A bare log is base 10, as on a school calculator; write the natural log "
+    "as ln."
 )
 
 MATH_FENCE_SAFETY_HINT = (

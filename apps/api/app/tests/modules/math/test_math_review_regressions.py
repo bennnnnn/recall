@@ -45,7 +45,7 @@ def test_parse_reads_written_function_shorthand(text: str, expected: str) -> Non
     assert str(_parse_expression(text, ["x"])) == expected
 
 
-@pytest.mark.parametrize("text", ["5 kg", "3 cm", "20 mol", "lg(x)", "sinx^2", "log(x) + 2kg"])
+@pytest.mark.parametrize("text", ["5 kg", "3 cm", "20 mol", "sinx^2", "log(x) + 2kg"])
 def test_parse_refuses_letters_taken_from_a_word(text: str) -> None:
     """A symbol that exists only inside a function or unit word is a misread."""
     with pytest.raises(MathServiceError):
@@ -58,7 +58,7 @@ def test_parse_refuses_letters_taken_from_a_word(text: str) -> None:
     [
         ("solve log2(x) + log2(x-2) = 3", "x = 4"),
         ("solve cos2x = 0", r"x = \pi k + \frac{\pi}{4}"),
-        ("solve e^(2x) = 5", r"x = \frac{\log{\left(5 \right)}}{2}"),
+        ("solve e^(2x) = 5", r"x = \frac{\ln 5}{2}"),
         ("solve x^3 = 8", "x = 2"),
         ("solve x^4 = 16", r"x = \pm 2"),
         ("solve x^2 + 1 = 0", r"x = \pm i"),
@@ -71,6 +71,60 @@ async def test_equations_answer_what_was_written(text: str, answer: str) -> None
     assert reply is not None
     for misread in ("g l o", "c o s", r"\pi i", r"\sqrt{3} i"):
         assert misread not in reply
+
+
+@pytest.mark.parametrize(
+    ("text", "expected"),
+    [
+        ("log(x)", "log(x)/log(10)"),
+        ("log x", "log(x)/log(10)"),
+        (r"\log x", "log(x)/log(10)"),
+        ("lg(x)", "log(x)/log(10)"),
+        ("ln(x)", "log(x)"),
+        ("log(8, 2)", "3"),
+        ("log(1000)", "3"),
+    ],
+)
+def test_parse_reads_a_bare_log_as_base_ten(text: str, expected: str) -> None:
+    """School notation: ``log`` is base 10, ``ln`` is natural, a written base is kept."""
+    assert str(_parse_expression(text, ["x"])) == expected
+
+
+def test_natural_log_prints_as_ln_and_a_change_of_base_as_its_base() -> None:
+    from sympy import Symbol, latex, log
+
+    x = Symbol("x")
+    assert latex(log(x)) == r"\ln{\left(x \right)}"
+    assert latex(log(x) / log(10)) == r"\log_{10}\left(x\right)"
+    assert latex(3 * log(x) / log(2)) == r"3 \log_{2}\left(x\right)"
+    assert latex(1 / (x * log(10))) == r"\frac{1}{x \ln 10}"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("solve log(x) = 2", "x = 100"),
+        ("solve lg(x) = 3", "x = 1000"),
+        ("solve log(x) + log(x - 3) = 1", "x = 5"),
+        ("solve ln(x) = 2", "x = e^{2}"),
+        ("solve 10^x = 50", r"x = \log_{10} 50"),
+    ],
+)
+async def test_bare_log_equations_are_base_ten(text: str, answer: str) -> None:
+    subject, canonical, reply = await _answer(text)
+    assert subject == "math"
+    assert canonical == answer
+    assert reply is not None
+
+
+@pytest.mark.asyncio
+async def test_base_ten_derivative_is_exact_with_its_rule() -> None:
+    _, canonical, reply = await _answer("differentiate log(x^2 + 1)")
+    assert canonical == r"\frac{2 x}{\left(x^{2} + 1\right) \ln 10}"
+    assert reply is not None
+    assert r"$\frac{d}{dx} \log_{b} x = \frac{1}{x \ln b}$" in reply
+    assert "0.86" not in reply
 
 
 @pytest.mark.asyncio

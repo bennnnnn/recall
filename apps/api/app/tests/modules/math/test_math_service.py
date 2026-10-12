@@ -196,7 +196,7 @@ def test_canonical_sixth_roots_group_conjugates() -> None:
         ("x**6", "1", [r"x = -1", r"x = 1"]),
         ("x**3", "8", [r"x = 2"]),
         ("x**4", "16", [r"x = -2", r"x = 2"]),
-        ("exp(2*x)", "5", [r"x = \frac{\log{\left(5 \right)}}{2}"]),
+        ("exp(2*x)", "5", [r"x = \frac{\ln 5}{2}"]),
     ],
 )
 def test_solve_equation_keeps_real_roots_when_one_exists(lhs, rhs, expected) -> None:

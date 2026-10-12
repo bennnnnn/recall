@@ -35,7 +35,7 @@ def test_numeric_base_logs_keep_the_logarithms_and_enforce_the_domain() -> None:
     reply = maybe_direct_math_reply(block, query)
 
     assert intent.kind == "equation"
-    assert "log(x - 1)" in (intent.lhs or "")
+    assert "ln(x - 1)" in (intent.lhs or "")
     assert block.canonical_answer == "x = 5"
     assert reply is not None
     assert "domain restriction" in reply
@@ -139,7 +139,7 @@ def test_exponential_equation_returns_exact_and_decimal_forms_directly() -> None
     reply = maybe_direct_math_reply(block, query)
 
     assert block.canonical_answer is not None
-    assert r"\frac{\log" in block.canonical_answer
+    assert r"\log_{2} 7" in block.canonical_answer
     assert reply is not None
     assert "Exact answer" in reply
     assert r"x \approx 2.80735" in reply
@@ -284,7 +284,7 @@ def test_logarithmic_substitution_uses_absolute_value_and_states_domain() -> Non
     _intent, block = _verified(query)
     reply = maybe_direct_math_reply(block, query)
 
-    assert block.canonical_answer == r"\log\left|\log\left(x\right)\right| + C"
+    assert block.canonical_answer == r"\ln\left|\ln\left(x\right)\right| + C"
     assert reply is not None
     assert r"x \ne 1" in reply
     assert "x > 0" in reply
