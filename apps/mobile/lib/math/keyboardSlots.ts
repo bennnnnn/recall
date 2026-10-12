@@ -165,6 +165,12 @@ export function prevEditSlotCaret(text: string, caret: number): number | null {
 
 const STAY_IN_SLOT = /^(digit-|var-)/;
 
+/** `[1, 2]` and `\{1, 2\}` are lists. A comma stays inside them. */
+function slotHoldsCommaList(text: string, group: LatexGroup): boolean {
+  if (text[group.open] === "[") return true;
+  return text[group.open] === "{" && text[group.open - 1] === "\\";
+}
+
 /**
  * Operators and new templates after a filled last box continue the expression
  * (`8/8 × 2`) instead of nesting inside that box.
@@ -173,6 +179,7 @@ export function caretForInsert(text: string, caret: number, spec: MathKeyboardSy
   if (STAY_IN_SLOT.test(spec.id)) return caret;
   const current = innermostSlot(text, caret);
   if (!current) return caret;
+  if (spec.id === "comma" && slotHoldsCommaList(text, current)) return caret;
   if (current.close - current.open <= 1) return caret;
   if (caret !== current.close) return caret;
   const later = findEditSlots(text).some((s) => s.open > current.close);
