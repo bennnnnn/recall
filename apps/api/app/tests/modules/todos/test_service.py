@@ -1,7 +1,8 @@
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
+from zoneinfo import ZoneInfo
 
 import pytest
 
@@ -1125,7 +1126,10 @@ async def test_add_fence_with_a_time_the_user_did_not_say_is_not_saved():
 @pytest.mark.asyncio
 async def test_add_fence_keeps_a_clock_the_user_stated():
     session = AsyncMock()
-    text = '```reminder\n{"title":"Call the bakery","due_at":"2026-10-12T09:00:00-04:00"}\n```'
+    # Tomorrow, as the user said: a fixed date passes and the fence rejects a past due time.
+    new_york = ZoneInfo("America/New_York")
+    nine = datetime.combine(datetime.now(new_york).date() + timedelta(days=1), time(9), new_york)
+    text = f'```reminder\n{{"title":"Call the bakery","due_at":"{nine.isoformat()}"}}\n```'
     with (
         patch.object(todos_repo, "list_for_user", AsyncMock(return_value=[])),
         patch.object(todos_repo, "create", AsyncMock()) as create_mock,
