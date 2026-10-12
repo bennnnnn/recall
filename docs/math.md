@@ -75,11 +75,24 @@ One layout tree (`lib/math/layout.ts`) owns native measurement. Renderers do not
 
 Heuristic pre-solve and web-search injection **still run**. The model may also call the `sympy` / `web_search` / `calendar` / `generate_image` tools for follow-ups. The math-triggered loop is skipped when `extract_math_intent` is `None` (bare detection without an extractor used to burn the full timeout). Tool results that include a `canonical_fence` / `canonical_answer` in `ToolResult.data` are collected into `VerifiedMathBlock` so post-stream still rewrites or appends fences. Direct verified replies skip this loop. Tool **content** is prose + verified numbers, not fence JSON. Plain replies without fences skip the post-stream SymPy rewrite (`needs_math_fence_validate`).
 
+## Worked-solution layout (every subject)
+
+Every verified reply in maths, physics, and chemistry is built by `app/services/workout.py`, and
+the model prompts state the same layout (`WORKOUT_PROMPT_RULE`). The sections are **Given**,
+**Find**, **Formula**, **Substitution** (values into a formula) or **Steps** (an equation changed
+one move at a time), and **Answer**, in that order and each only when it has lines. Each line
+is one state; its move is a short note after ` — `. Given is the problem as typed; the solver's
+tidy form is its own Expand or Collect line. A both-sides move is shown as the state it
+reaches, unless the learner asked why. A rule a trace verifies (product, chain, power,
+integration by parts, quadratic formula) is the Formula, named after its dash. The phone renders
+each section as a heading with one row per line (`apps/mobile/lib/markdown/workoutSection.ts`).
+Do not add a per-feature layout; build a `Workout`.
+
 ## Formula emit rule (prompts must agree)
 
 - **Answer length:** give the result once with only the key reasoning needed. Short mode keeps prose compact, but never removes an available verified equation/system/inequality trace; “just the answer” is the explicit opt-out. Longer calculus derivations follow explicit requests for steps, explanation, or proof; a hint/practice request should not reveal the full answer. Brevity must preserve domains, branches, units, and constants of integration.
 - **Simple roots/powers:** one exact equality chain and an optional approximation are usually enough. Group fractional exponents (`9^{1/6}`); avoid duplicated answer headings and Note/Tip cards that restate the result.
-- **Steps / intermediates:** one transformation per numbered step (label, then formula alone on the next `$...$` line). Inverse operations are for equations, not a universal method. Inline `$...$` only (no backticks around `$`, no ` ```math` inside numbered steps).
+- **Steps / intermediates:** the worked-solution layout below: one state per line with its move as a short note (`$2x = 8$ — subtract 3 from both sides`), no numbered steps. Inverse operations are for equations, not a universal method. Inline `$...$` only (no backticks around `$`, no ` ```math` inside a section).
 - **Standalone display:** ` ```math` OK for a final equation on its own lines.
 - **Diagrams:** Recall attaches ` ```geometry` / ` ```graph` from `canonical_fence`. The model describes the figure in words (`$...$`); it must not emit diagram JSON.
 - **Final algebra answer:** Recall attaches ` ```answer ` from `canonical_answer` after the stream. The model writes the result in `$...$`.
