@@ -165,10 +165,11 @@ export function prevEditSlotCaret(text: string, caret: number): number | null {
 
 const STAY_IN_SLOT = /^(digit-|var-)/;
 
-/** `[1, 2]` and `\{1, 2\}` are lists. A comma stays inside them. */
+/** `(1, 2)`, `[1, 2]`, and `\{1, 2\}` are lists. A comma stays inside them. */
 function slotHoldsCommaList(text: string, group: LatexGroup): boolean {
-  if (text[group.open] === "[") return true;
-  return text[group.open] === "{" && text[group.open - 1] === "\\";
+  const open = text[group.open];
+  if (open === "(" || open === "[") return true;
+  return open === "{" && text[group.open - 1] === "\\";
 }
 
 /**

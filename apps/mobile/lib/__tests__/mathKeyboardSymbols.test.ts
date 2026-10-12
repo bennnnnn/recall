@@ -313,17 +313,22 @@ describe("slot navigation", () => {
     expect(nextEditSlotCaret(text, slots[0]!.den.close)).toBe(slots[0]!.den.close + 1);
   });
 
-  it("keeps commas inside brackets and set braces", () => {
+  it("keeps commas inside parentheses, brackets, and set braces", () => {
     const comma = MATH_PAD_KEYS.find((s) => s.id === "comma")!;
     const one = MATH_PAD_KEYS.find((s) => s.id === "digit-1")!;
     const two = MATH_PAD_KEYS.find((s) => s.id === "digit-2")!;
-    for (const id of ["brackets", "braces"] as const) {
+    const expected: Record<string, string> = {
+      parens: "$(1,2)$",
+      brackets: "$[1,2]$",
+      braces: "$\\{1,2\\}$",
+    };
+    for (const id of ["parens", "brackets", "braces"] as const) {
       const spec = MATH_KEYBOARD_SYMBOLS.find((item) => item.id === id)!;
       const opened = spliceMathInsert("", { start: 0, end: 0 }, spec);
       const first = spliceMathInsert(opened.text, opened.selection, one);
       const withComma = spliceMathInsert(first.text, first.selection, comma);
       const second = spliceMathInsert(withComma.text, withComma.selection, two);
-      expect(second.text).toBe(id === "brackets" ? "$[1,2]$" : "$\\{1,2\\}$");
+      expect(second.text).toBe(expected[id]);
     }
   });
 
