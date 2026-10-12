@@ -99,10 +99,18 @@ def test_every_inequality_line_keeps_the_solution_set(lhs, rhs, comparator):
 
 @pytest.mark.parametrize(
     ("lhs", "rhs"),
-    [(x**2, 4), (1 / x, 2), (sympify(3), 5)],
+    [(x**3, 4), (1 / x, 2), (sympify(3), 5), (x**2, -4)],
 )
-def test_inequality_trace_is_empty_when_not_linear(lhs, rhs):
+def test_inequality_trace_is_empty_when_not_linear_or_a_two_root_quadratic(lhs, rhs):
     assert inequality_key_steps(sympify(lhs), sympify(rhs), "x", "<") == []
+
+
+def test_quadratic_inequality_trace_reads_the_sign_between_the_roots():
+    steps = inequality_key_steps(x**2, sympify(4), "x", "<")
+    assert _steps(steps)[-1] == (
+        "The parabola opens upward, so it is below zero between the roots",
+        "-2 < x < 2",
+    )
 
 
 def test_compound_trace_keeps_both_ends():

@@ -149,7 +149,12 @@ def _digits_immediately_after(text: str, idx: int) -> tuple[int, int] | None:
     return (int(text[idx:j]), j) if j > idx else None
 
 
-_BARE_FACTORIAL_BANG = re.compile(r"^\s*(\d+)\s*!\s*[.?!]*\s*$")
+# "5!", or "5!" asked as a question ("what is 5!", "calculate 5!").
+_BARE_FACTORIAL_BANG = re.compile(
+    r"^\s*(?:(?:what\s+is|what's|whats|calculate|compute|evaluate|find|work\s+out)\s+)?"
+    r"(\d+)\s*!\s*[.?!]*\s*$",
+    re.IGNORECASE,
+)
 
 
 def _factorial_signal(text: str) -> int | None:

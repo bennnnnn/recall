@@ -1,0 +1,168 @@
+"""What a broad maths battery found: wrong output, missed questions, and answers without working.
+
+Each row runs the real pre-stream path (subject dispatch, extraction, SymPy,
+direct reply) with no model call.
+"""
+
+from __future__ import annotations
+
+import pytest
+
+from app.core.config import Settings
+from app.modules.math.solve.algebra import solve_inequality
+from app.modules.math.solve.calculus import integrate_expression
+from app.services.subject_solving import build_subject_augmentation, maybe_direct_subject_reply
+
+
+async def _reply(text: str, style: str = "balanced") -> tuple[str | None, str | None]:
+    """(canonical answer, direct reply) for one turn."""
+    settings = Settings(math_llm_extract_enabled=False, math_word_problems_enabled=False)
+    augmentation = await build_subject_augmentation(text, settings)
+    verified = augmentation.verified
+    answer = getattr(verified, "canonical_answer", None) if verified is not None else None
+    return answer, maybe_direct_subject_reply(verified, text, response_style=style)
+
+
+@pytest.mark.parametrize(
+    ("integrand", "expected"),
+    [
+        ("1/x", r"\ln\left|x\right|"),
+        ("3/x + 2x", r"x^{2} + 3 \ln\left|x\right|"),
+        ("tan(x)", r"- \ln\left|\cos{\left(x \right)}\right|"),
+        # Always positive, or a log the integrand already had: no bars.
+        ("x/(x^2+1)", r"\frac{\ln{\left(x^{2} + 1 \right)}}{2}"),
+        ("ln(x)", r"x \left(\ln{\left(x \right)} - 1\right)"),
+    ],
+)
+def test_an_antiderivative_log_takes_absolute_value_bars(integrand: str, expected: str) -> None:
+    assert integrate_expression(integrand).latex == expected
+
+
+@pytest.mark.parametrize(
+    ("lhs", "comparator", "expected"),
+    [
+        ("x^2 - 4x - 5", "<", "-1 < x < 5"),
+        ("x^2 - 1", ">", r"x < -1 \text{ or } x > 1"),
+        ("(x-2)^2", ">", r"x \ne 2"),
+        ("x^2 + 1", "<", r"\text{no solution}"),
+        ("x^2", ">=", r"\text{all real } x"),
+    ],
+)
+def test_an_inequality_answer_is_written_as_a_student_writes_it(
+    lhs: str, comparator: str, expected: str
+) -> None:
+    assert solve_inequality(lhs, "0", "x", comparator).solutions_latex == [expected]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        ("what is 5!", "5! = 5 × 4 × 3 × 2 × 1 = 120"),
+        ("probability of getting exactly 2 heads in 4 coin flips", r"\frac{3}{8} \approx 0.375"),
+        (
+            "a fair coin is flipped 6 times. what is the probability of exactly 4 heads?",
+            r"\frac{15}{64} \approx 0.2344",
+        ),
+        (
+            "probability of rolling exactly 2 sixes in 5 rolls of a die",
+            r"\frac{625}{3888} \approx 0.1608",
+        ),
+        ("a right triangle has legs 3 and 4, find the hypotenuse", "5"),
+    ],
+)
+async def test_questions_the_battery_missed_are_answered_directly(text: str, answer: str) -> None:
+    canonical, reply = await _reply(text)
+    assert canonical is not None and canonical.startswith(answer)
+    assert reply is not None and answer in reply
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["I have 5!", "I got 2 heads in 4 flips"])
+async def test_ordinary_sentences_stay_ordinary(text: str) -> None:
+    canonical, reply = await _reply(text)
+    assert canonical is None and reply is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "lines"),
+    [
+        ("solve ln(x) = 2", ["$x = e^{2}$ — convert to exponential form"]),
+        (
+            "solve 2^(x+1) = 32",
+            [
+                "$2^{x + 1} = 2^{5}$ — write $32$ as a power of $2$",
+                "$x + 1 = 5$ — equal bases, so equal exponents",
+            ],
+        ),
+        ("solve e^(2x) = 5", [r"$2 x = \ln 5$ — take ln of both sides"]),
+        (
+            "solve x^3 - 6x^2 + 11x - 6 = 0",
+            [
+                r"$\left(x - 1\right) \left(x - 2\right) \left(x - 3\right) = 0$"
+                " — factor the left side",
+            ],
+        ),
+        (
+            "solve x^2 - 4x - 5 < 0",
+            [
+                "$-1 < x < 5$ — the parabola opens upward, so it is below zero between the roots",
+            ],
+        ),
+        (
+            "integrate x^2 from 0 to 3",
+            [
+                r"$F(x) = \frac{x^{3}}{3}$ — antiderivative",
+                "$= 9 - 0 = 9$ — evaluate at the limits",
+            ],
+        ),
+        (
+            "integrate sin(x) from 0 to pi",
+            [r"$= 1 - \left(-1\right) = 2$ — evaluate at the limits"],
+        ),
+        (
+            "distance between (1, 2) and (4, 6)",
+            [r"$= \sqrt{3^2 + 4^2} = \sqrt{25} = 5$"],
+        ),
+        (
+            "slope of the line through (1, 2) and (3, 8)",
+            [r"$m = \frac{8 - 2}{3 - 1} = \frac{6}{2} = 3$"],
+        ),
+        (
+            "limit of (x^2 - 1)/(x - 1) as x approaches 1",
+            [r"$\lim_{x \to 1} \left(x + 1\right) = 2$ — substitute $x = 1$"],
+        ),
+        ("limit of sin(x)/x as x approaches 0", ["L'Hôpital's rule"]),
+        (
+            "integrate sin(x)cos(x)",
+            [r"let $u = \sin{\left(x \right)}$", r"\frac{\sin^{2}{\left(x \right)}}{2} + C"],
+        ),
+    ],
+)
+async def test_answers_that_were_bare_now_show_their_working(text: str, lines: list[str]) -> None:
+    _, reply = await _reply(text)
+    assert reply is not None
+    for line in lines:
+        assert line in reply
+
+
+@pytest.mark.asyncio
+async def test_a_radical_domain_lists_only_conditions_on_the_unknown() -> None:
+    _, reply = await _reply("solve sqrt(x + 3) = 4")
+    assert reply is not None
+    assert r"$x + 3 \ge 0$ — domain restrictions" in reply
+    assert r"4 \ge 0" not in reply
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Find the distance between (0,0) and (3,4) and explain the formula",
+        "probability of getting exactly 2 heads in 4 coin flips and explain why",
+    ],
+)
+async def test_an_extra_ask_still_reaches_the_model(text: str) -> None:
+    _, reply = await _reply(text)
+    assert reply is None

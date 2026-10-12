@@ -140,7 +140,7 @@ def _settings() -> Settings:
         ("expected value of 1/2,3/2", "probability", "1"),
         ("5 choose 2", "combinatorics", "10"),
         ("10 permute 3", "combinatorics", "720"),
-        ("5!", "combinatorics", "120"),
+        ("5!", "combinatorics", "5! = 5 \u00d7 4 \u00d7 3 \u00d7 2 \u00d7 1 = 120"),
         ("determinant [[1,2],[3,4]]", "matrix", "-2"),
         ("sin(30 degrees)", "trig", r"\frac{1}{2}"),
         ("sin(-30 degrees)", "trig", r"- \frac{1}{2}"),

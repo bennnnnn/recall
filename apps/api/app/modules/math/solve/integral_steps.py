@@ -164,23 +164,33 @@ def _standard_step(term: Any, var: Any) -> tuple[KeyStep, Any] | None:
 
 
 def _inner_candidates(term: Any, var: Any) -> list[Any]:
-    """Inside expressions worth trying as u, largest first."""
-    found: list[Any] = []
+    """Expressions worth trying as u, largest first.
+
+    The inside of a power or function (``x^2 + 1`` in ``(x^2 + 1)^5``), and a
+    function itself (``sin x`` in ``sin x cos x``, ``ln x`` in ``ln(x)/x``).
+    """
+    insides: list[Any] = []
+    functions: list[Any] = []
     for node in preorder_traversal(term):
         if getattr(node, "is_Pow", False):
-            inner = node.base
+            insides.append(node.base)
         elif getattr(node, "func", None) in (exp, sin, cos, log):
-            inner = node.args[0]
-        else:
-            continue
-        if inner != var and not _is_const(inner, var) and inner not in found:
-            found.append(inner)
-    return sorted(found, key=lambda expr: -expr.count_ops())
+            insides.append(node.args[0])
+            functions.append(node)
+    found: list[Any] = []
+    # Insides first, largest first (``u = x^2`` in ``x e^{x^2}``, as textbooks do);
+    # then the functions in the order they are written (``u = sin x``).
+    for candidate in [*sorted(insides, key=lambda expr: -expr.count_ops()), *functions]:
+        if candidate != var and not _is_const(candidate, var) and candidate not in found:
+            found.append(candidate)
+    return found
 
 
 def _substitution_steps(term: Any, var: Any) -> tuple[list[KeyStep], Any] | None:
     u = Dummy("u")
-    for inner in _inner_candidates(term, var):
+    candidates = _inner_candidates(term, var)
+    # ``u = sin x`` (du = cos x dx) before ``u = cos x`` (du = -sin x dx): no stray minus.
+    for inner in sorted(candidates, key=lambda c: diff(c, var).could_extract_minus_sign()):
         d_inner = diff(inner, var)
         if d_inner == 0:
             continue

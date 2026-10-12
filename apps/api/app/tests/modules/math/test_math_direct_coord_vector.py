@@ -25,7 +25,13 @@ from app.modules.math.tools.prompt import build_math_augmentation
 async def test_closed_coordinate_vector_asks_return_one_verified_answer(query, answer):
     _, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
     assert verified is not None and verified.canonical_answer == answer
-    assert maybe_direct_math_reply(verified, query) == f"```answer\n{answer}\n```\n"
+    reply = maybe_direct_math_reply(verified, query)
+    assert reply is not None
+    # One answer, last; distance, slope and midpoint also show their formula.
+    assert reply.endswith(f"```answer\n{answer}\n```\n")
+    assert reply.count("```answer") == 1
+    if any(word in query for word in ("distance", "slope", "midpoint")):
+        assert "**Formula**" in reply and "**Substitution**" in reply
 
 
 @pytest.mark.asyncio

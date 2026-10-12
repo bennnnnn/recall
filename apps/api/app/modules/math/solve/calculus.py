@@ -150,10 +150,29 @@ def differentiate_at_point(expr: str, variable: str, point: str) -> MathExprResu
     )
 
 
+def _absolute_logs(antiderivative: Any, integrand: Any, sym: Any) -> Any:
+    """``∫ u'/u = ln|u|``: SymPy writes ``log(u)``, true only where ``u > 0``.
+
+    A log the integrand already had (``∫ ln x``) keeps its own domain, and an
+    argument that is always positive (``x² + 1``) needs no bars.
+    """
+    from sympy import Abs, log
+
+    if integrand.has(log):
+        return antiderivative
+    real = Symbol(sym.name, real=True)
+    bars = {
+        term: log(Abs(term.args[0]))
+        for term in antiderivative.atoms(log)
+        if not term.args[0].subs(sym, real).is_positive
+    }
+    return antiderivative.xreplace(bars) if bars else antiderivative
+
+
 def integrate_expression(expr: str, variable: str = "x") -> MathExprResult:
     sym = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
-    result = integrate(parsed, sym)
+    result = _absolute_logs(integrate(parsed, sym), parsed, sym)
     # integrate() can fail to find a closed form and hand back a result that
     # still contains an unevaluated Integral(...) rather than raising —
     # callers must not treat that as a verified, fully-solved answer.

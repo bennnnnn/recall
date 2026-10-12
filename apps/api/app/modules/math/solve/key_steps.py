@@ -14,6 +14,7 @@ from sympy import (
     expand,
     factor,
     latex,
+    prod,
     simplify,
     solve,
     sqrt,
@@ -100,6 +101,7 @@ def equation_key_steps(
     var = next((symbol for symbol in symbols if str(symbol) == variable), Symbol(variable))
     from app.modules.math.solve.key_steps_special import (
         absolute_value_key_steps,
+        exponential_key_steps,
         fractional_power_key_steps,
         logarithm_key_steps,
         radical_equation_key_steps,
@@ -109,6 +111,9 @@ def equation_key_steps(
     logarithm_steps = logarithm_key_steps(lhs, rhs, var)
     if logarithm_steps is not None:
         return logarithm_steps
+    exponential_steps = exponential_key_steps(lhs, rhs, var)
+    if exponential_steps is not None:
+        return exponential_steps
     absolute_steps = absolute_value_key_steps(lhs, rhs, var)
     if absolute_steps is not None:
         return absolute_steps
@@ -136,7 +141,18 @@ def equation_key_steps(
             poly,
             force_formula=force_quadratic_formula,
         )
-    return []
+    return _higher_degree_key_steps(lhs, rhs, var)
+
+
+def _higher_degree_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep]:
+    """``x^3 - 6x^2 + 11x - 6 = 0``: worked only when it splits into linear factors."""
+    expr = expand(lhs - rhs)
+    factored = factor(expr)
+    pieces = [arg.as_base_exp()[0] for arg in factored.as_ordered_factors()]
+    varying = [piece for piece in pieces if var in piece.free_symbols]
+    if len(varying) < 2 or any(Poly(piece, var).degree() != 1 for piece in varying):
+        return []
+    return _factor_trace(lhs, rhs, var, expr, factored)
 
 
 def equation_check_latex(lhs: Any, rhs: Any, variable: str) -> str | None:
@@ -473,7 +489,35 @@ def _linear_factors(factored: Any, var: Any) -> list[Any]:
         poly = piece.as_poly(var) if hasattr(piece, "as_poly") else None
         if poly is not None and poly.degree() == 1:
             linear.append(piece)
-    return linear
+    # The order the factored line prints them, so the next line reads the same way.
+    return sorted(linear, key=_factor_order)
+
+
+def _factor_order(piece: Any) -> tuple[bool, float]:
+    """A bare ``x`` leads (``x(x + 2)(x - 2)``); the rest go in root order."""
+    try:
+        root = float(solve(piece)[0])
+    except Exception:
+        root = 0.0
+    return (not piece.is_Symbol, root)
+
+
+def _ordered_factored_tex(factored: Any, var: Any) -> str:
+    """``(x + 2)(2x - 1)`` with the factors in root order, as the next line lists them."""
+    coefficient, rest = factored.as_coeff_Mul()
+    factors = [arg for arg in (rest.args if rest.is_Mul else (rest,)) if var in arg.free_symbols]
+    constant = [
+        arg for arg in (rest.args if rest.is_Mul else (rest,)) if var not in arg.free_symbols
+    ]
+
+    shown: list[str] = []
+    for arg in sorted(factors, key=lambda item: _factor_order(item.as_base_exp()[0])):
+        base, power = arg.as_base_exp()
+        body = latex(base) if base.is_Symbol else rf"\left({latex(base)}\right)"
+        shown.append(body if power == 1 else f"{body}^{{{latex(power)}}}")
+    lead = coefficient * prod(constant) if constant else coefficient
+    prefix = "" if lead == 1 else "-" if lead == -1 else f"{latex(lead)} "
+    return prefix + " ".join(shown)
 
 
 def _factor_trace(lhs: Any, rhs: Any, var: Any, expr: Any, factored: Any) -> list[KeyStep]:
@@ -486,13 +530,15 @@ def _factor_trace(lhs: Any, rhs: Any, var: Any, expr: Any, factored: Any) -> lis
                 reason="factoring needs one side equal to zero",
             )
         )
+    factors = _linear_factors(factored, var)
     steps.append(
         KeyStep(
             label="Factor the left side",
-            formula=_eq_tex(factored, 0),
+            formula=f"{_ordered_factored_tex(factored, var)} = 0"
+            if factors
+            else _eq_tex(factored, 0),
         )
     )
-    factors = _linear_factors(factored, var)
     if len(factors) < 1:
         return steps
     or_parts = [_eq_tex(piece, 0) for piece in factors]
@@ -570,12 +616,18 @@ def _quadratic_formula_steps(var: Any, c2: Any, c1: Any, c0: Any) -> list[KeySte
 
 def _substituted_eq(lhs: Any, rhs: Any, var: Any, val: Any) -> str:
     dummy = Symbol("QQQ")
-    wrapped = f"({latex(val)})"
-    left = latex(lhs.subs(var, dummy)).replace("QQQ", wrapped)
-    if var in getattr(rhs, "free_symbols", set()):
-        right = latex(rhs.subs(var, dummy)).replace("QQQ", wrapped)
-    else:
-        right = latex(rhs)
+    value = str(latex(val))
+    wrapped = f"({value})"
+
+    def substitute(side: Any) -> str:
+        tex = str(latex(side.subs(var, dummy)))
+        # Already bracketed or braced (``\log(QQQ)``, ``2^{QQQ}``): no second pair.
+        tex = tex.replace(r"\left(QQQ\right)", rf"\left({value}\right)")
+        tex = tex.replace("{QQQ}", f"{{{value}}}")
+        return tex.replace("QQQ", wrapped)
+
+    left = substitute(lhs)
+    right = substitute(rhs) if var in getattr(rhs, "free_symbols", set()) else latex(rhs)
     return f"{left} = {right}"
 
 

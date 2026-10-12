@@ -199,6 +199,14 @@ def literal_triangle_angles_draw(text: str) -> tuple[float, float, float] | None
     return a, b, c
 
 
+# "a right triangle has legs 3 and 4, find the hypotenuse": the legs come first.
+_LEGS_THEN_HYPOTENUSE = re.compile(
+    r"(?:a |the )?right triangle (?:has|with) (legs .+?)[,.;]? "
+    r"(?:find|what is|what's|calculate|compute|determine) (?:the |its )?"
+    r"(?:length of the )?hypotenuse"
+)
+
+
 def measurement_request(user_text: str) -> tuple[str, str] | None:
     """Keep all text after a short measurement lead-in for the shape matcher."""
     if len(user_text) > 1000:
@@ -206,6 +214,9 @@ def measurement_request(user_text: str) -> tuple[str, str] | None:
     request = " ".join(user_text.lower().split()).rstrip(".?")
     if request.startswith("please "):
         request = request[7:]
+    legs_first = _LEGS_THEN_HYPOTENUSE.fullmatch(request)
+    if legs_first is not None:
+        return "hypotenuse", f"right triangle with {legs_first.group(1)}"
     for prefix in ("find ", "calculate ", "compute ", "determine ", "what is ", "what's "):
         if request.startswith(prefix):
             request = request[len(prefix) :]
