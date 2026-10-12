@@ -88,6 +88,16 @@ integration by parts, quadratic formula) is the Formula, named after its dash. T
 each section as a heading with one row per line (`apps/mobile/lib/markdown/workoutSection.ts`).
 Do not add a per-feature layout; build a `Workout`.
 
+## Logarithm notation (school convention)
+
+A bare `log` (and `lg`) is base 10, as on a school calculator; `ln` is the natural log; `log_2`,
+`log2(…)`, `\log_{b}` and `log(x, b)` keep their written base. The parser
+(`solve/parse.py`), the symbolic physics grammar, the phone's graph resampler
+(`lib/math/graphExpr.ts`), the extraction prompts, and the chat prompt all agree. SymPy's `log`
+is natural, so `core/sympy_notation.py` prints it as `\ln` and prints a change of base
+`ln(x)/ln(10)` as `\log_{10} x`. An answer that still has a variable stays exact
+(`\frac{1}{x \ln 10}`, never `0.434294/x`).
+
 ## Formula emit rule (prompts must agree)
 
 - **Answer length:** give the result once with only the key reasoning needed. Short mode keeps prose compact, but never removes an available verified equation/system/inequality trace; “just the answer” is the explicit opt-out. Longer calculus derivations follow explicit requests for steps, explanation, or proof; a hint/practice request should not reveal the full answer. Brevity must preserve domains, branches, units, and constants of integration.

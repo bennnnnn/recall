@@ -381,7 +381,7 @@ def test_glued_plain_power_is_an_exponent() -> None:
     assert _normalize_expr("x0+1") == "x0+1"
     assert _normalize_expr("x1+1") == "x1+1"
     assert _normalize_expr("sin2") == "sin2"
-    assert _normalize_expr("log2(8)") == "(log(8)/log(2))"
+    assert _normalize_expr("log2(8)") == "(ln(8)/ln(2))"
     assert _normalize_expr("x2^3") == "x2**3"
 
     block = _block("3x2+4=4")

@@ -24,7 +24,9 @@ const FUNCS: Record<string, (n: number) => number> = {
   abs: Math.abs,
   exp: Math.exp,
   ln: Math.log,
-  log: Math.log,
+  // School notation, as on the server: a bare log is base 10.
+  log: Math.log10,
+  lg: Math.log10,
   log10: Math.log10,
   floor: Math.floor,
   ceil: Math.ceil,

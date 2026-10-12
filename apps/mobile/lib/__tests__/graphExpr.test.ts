@@ -33,6 +33,12 @@ describe("graphExpr", () => {
     expect(evalGraphExpr(parseGraphExpr("2^3^2")!, 0)).toBe(512);
   });
 
+  it("reads a bare log as base 10, as the server does", () => {
+    expect(evalGraphExpr(parseGraphExpr("log(x)")!, 100)).toBeCloseTo(2);
+    expect(evalGraphExpr(parseGraphExpr("lg(x)")!, 1000)).toBeCloseTo(3);
+    expect(evalGraphExpr(parseGraphExpr("ln(x)")!, Math.E)).toBeCloseTo(1);
+  });
+
   it("samples sin and splits 1/x at the pole", () => {
     expect(evalGraphExpr(parseGraphExpr("sin(0)")!, 0)).toBeCloseTo(0);
     const sampled = sampleGraphExpr(parseGraphExpr("1/x")!, -2, 2, 40);

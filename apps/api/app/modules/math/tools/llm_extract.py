@@ -51,6 +51,8 @@ Return JSON only, exactly one of these shapes:
 Rules:
 - Plain ASCII math only: * for multiplication, ^ for powers, sqrt(x) for roots,
   pi for π. No LaTeX, no $ delimiters.
+- Logarithms as written: log(x) is base 10, ln(x) is the natural log, log_2(x)
+  has base 2. Never turn ln into log.
 - Copy the user's numbers and terms exactly. Never invent, drop, or "fix" a term.
 - Spoken math is written out: "x squared" → x^2, "the integral of x" → integrate x.
 - Word problems, proofs, "explain why", or anything the shapes above cannot fully

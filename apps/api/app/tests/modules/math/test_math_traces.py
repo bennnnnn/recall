@@ -352,7 +352,7 @@ def test_a_negative_first_integral_term_keeps_its_sign():
         ("2*x*cos(x**2)", "Let $u = x^{2}$"),
         ("x*(x**2+1)**5", "Let $u = x^{2} + 1$"),
         ("x*exp(x)", r"Choose $u = x$ and $dv = e^{x}\,dx$"),
-        ("log(x)", r"Choose $u = \log{\left(x \right)}$ and $dv = dx$"),
+        ("ln(x)", r"Choose $u = \ln{\left(x \right)}$ and $dv = dx$"),
         ("x**3", "Power rule on $x^{3}$"),
     ],
 )

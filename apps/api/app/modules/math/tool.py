@@ -64,7 +64,8 @@ class SympyAdapter:
             "differentiate, integrate (optional lower/upper for definite), factor, "
             "expand, limits, series, Newton's method, first-order ODEs (dsolve), "
             "rectangle/square/circle "
-            "geometry, and graphs (optional second curve via expr2)."
+            "geometry, and graphs (optional second curve via expr2). In expressions log(x) "
+            "is base 10, ln(x) is the natural log, and log(x, b) has base b."
         )
 
     def to_openai_tool(self) -> dict[str, Any]:

@@ -48,9 +48,6 @@ def label_tex(value: Any) -> str:
     return f"${tex}$"
 
 
-_CHANGE_OF_BASE = re.compile(
-    r"\\frac\{\\log\{\\left\((.+?) \\right\)\}\}\{\\log\{\\left\((\d+(?:\.\d+)?) \\right\)\}\}"
-)
 _UNIT_FACTOR = re.compile(r"(?<![\d.}])1 \\cdot ")
 
 
@@ -58,7 +55,7 @@ def written_side(text: str, variables: list[str]) -> tuple[Any, str] | None:
     """A side as the student typed it: ``3(x-2)+4``, not SymPy's ``3x - 2``.
 
     The parse is unevaluated and printed in the typed order, so Given shows
-    the problem the student wrote. A change of base is a written base again.
+    the problem the student wrote; a change of base prints as its written base.
     """
     from app.modules.math.solve.parse import _parse_expression
 
@@ -67,7 +64,6 @@ def written_side(text: str, variables: list[str]) -> tuple[Any, str] | None:
         tex = str(latex(expr, order="none"))
     except Exception:
         return None
-    tex = _CHANGE_OF_BASE.sub(r"\\log_{\2}\\left(\1\\right)", tex)
     return expr, _UNIT_FACTOR.sub("", tex)
 
 

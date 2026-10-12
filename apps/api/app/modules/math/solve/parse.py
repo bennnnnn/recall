@@ -6,7 +6,7 @@ import logging
 import re
 from typing import Any
 
-from sympy import Abs, E, Eq, Symbol, parse_expr, pi
+from sympy import Abs, E, Eq, Mul, Pow, Symbol, log, parse_expr, pi
 from sympy.parsing.sympy_parser import (
     convert_xor,
     implicit_multiplication_application,
@@ -14,21 +14,42 @@ from sympy.parsing.sympy_parser import (
 )
 
 from app.core.config import get_settings
+from app.core.sympy_notation import use_school_log_notation
 from app.modules.math.schemas import EquationInput
 from app.services.solving import MathServiceError
 
 logger = logging.getLogger(__name__)
+
+# A bare ``log`` is base 10 here, so a natural log has to print as ``\ln``.
+use_school_log_notation()
 
 _TRANSFORMATIONS = (
     *standard_transformations,
     implicit_multiplication_application,
     convert_xor,
 )
+
+
+def _school_log(arg: Any, base: Any = 10, evaluate: bool = True) -> Any:
+    """``log(x)`` is base 10, as on a school calculator; ``ln(x)`` is natural.
+
+    ``log(x, b)`` keeps its written base. Unevaluated, SymPy's two-argument
+    ``log`` prints without its base, so the quotient is built by hand.
+    """
+    if evaluate:
+        return log(arg, base)
+    return Mul(
+        log(arg, evaluate=False), Pow(log(base, evaluate=False), -1, evaluate=False), evaluate=False
+    )
+
+
 _LOCALS: dict[str, Any] = {
     "pi": pi,
     "e": E,
     "E": E,
     "Abs": Abs,
+    "log": _school_log,
+    "lg": _school_log,
 }
 
 _EXACT_LATEX_DECIMAL_THRESHOLD = 40
@@ -40,7 +61,8 @@ def format_verified_latex(expr: Any) -> str:
 
     val = simplify(expr)
     tex = str(latex(val))
-    if len(tex) <= _EXACT_LATEX_DECIMAL_THRESHOLD:
+    # A derivative or antiderivative stays exact: ``0.434294 x`` is not ``x / ln 10``.
+    if len(tex) <= _EXACT_LATEX_DECIMAL_THRESHOLD or getattr(val, "free_symbols", None):
         return tex
     approximate = str(latex(val.evalf(6)))
     # ``evalf`` also converts harmless exact integer coefficients inside a
@@ -452,7 +474,7 @@ def _rewrite_latex_braced_scripts(s: str) -> str:
 
 
 def _rewrite_log_bases_once(s: str) -> str:
-    """``log_2(x)`` -> ``log(x)/log(2)`` without dropping the logarithm.
+    """``log_2(x)`` -> ``ln(x)/ln(2)`` without dropping the logarithm.
 
     The equation scanner intentionally rejects underscores. Previously it
     resumed at the base digit, turning ``log_2(x-1)`` into ``2(x-1)`` and
@@ -496,7 +518,7 @@ def _rewrite_log_bases_once(s: str) -> str:
             continue
         base = s[base_start:base_end]
         body = s[paren + 1 : close - 1]
-        out.append(f"(log({body})/log({base}))")
+        out.append(f"(ln({body})/ln({base}))")
         i = close
     return "".join(out)
 
