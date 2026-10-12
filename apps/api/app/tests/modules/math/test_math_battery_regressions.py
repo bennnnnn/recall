@@ -221,3 +221,141 @@ def test_factorial_working_line(expr: str, tex: str | None) -> None:
 
     working = factorial_working(expr)
     assert (working.tex if working is not None else None) == tex
+
+
+# A second battery: wrong answers it found, and the working that replaced them.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "working", "answer"),
+    [
+        # Read as 2*1/2 + 1*3/4 = 7/4 and shown as "21 ÷ 2 + 13 ÷ 4".
+        (
+            "2 1/2 + 1 3/4",
+            r"$2\frac{1}{2} + 1\frac{3}{4} = \frac{5}{2} + \frac{7}{4} = \frac{10}{4} + \frac{7}{4}$",
+            r"\frac{17}{4} = 4\frac{1}{4}",
+        ),
+        (
+            "1 1/2 divided by 3/4",
+            r"$1\frac{1}{2} \div \frac{3}{4} = \frac{3}{2} \div \frac{3}{4} = \frac{3}{2} \times \frac{4}{3}$",
+            "2",
+        ),
+        (
+            "3/4 divided by 2/5",
+            r"$\frac{3}{4} \div \frac{2}{5} = \frac{3}{4} \times \frac{5}{2}$",
+            r"\frac{15}{8}",
+        ),
+        ("what is 2/3 of 60", r"$\frac{2}{3} \times 60 = \frac{2 \times 60}{3}$", "40"),
+        # Solved for "f" as if f(x) meant f times x.
+        (
+            "if f(x) = 2x^2 - 3, find f(4)",
+            r"$f(4) = 2 \left(4\right)^{2} - 3 = 32 - 3$",
+            "29",
+        ),
+        (
+            "if f(x) = x + 1 and g(x) = x^2, find f(g(2))",
+            "$g(2) = \\left(2\\right)^{2} = 4$  \n$f(g(2)) = f(4) = 4 + 1$",
+            "5",
+        ),
+        # Answered "x = 4".
+        (
+            "evaluate 2x^2 - 3 when x = 4",
+            r"$2 x^{2} - 3 = 2 \left(4\right)^{2} - 3 = 32 - 3$",
+            "29",
+        ),
+        (
+            "find the derivative of x^2 at x = 3",
+            "$\\frac{dy}{dx} = 2 x$  \n$\\left.\\frac{dy}{dx}\\right|_{x = 3} = 2 \\left(3\\right)$",
+            "6",
+        ),
+    ],
+)
+async def test_battery_two_writes_the_working_once_then_the_answer(
+    text: str, working: str, answer: str
+) -> None:
+    canonical, reply = await _reply(text)
+    assert canonical == answer
+    assert reply == f"{working}\n\n```answer\n{answer}\n```\n"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # 20% off 48 (38.4) answers a different question: the 48 is already reduced.
+        ("after a 20% discount a shirt costs 48, what was the original price", "60"),
+        ("the sale price is 60 after 25% off. find the original price", "80"),
+        ("after a 15% increase the price is 230, what was the original price", "200"),
+        ("a jacket costs 80 with a 25% discount, what is the sale price", "60"),
+        ("what is the percentage increase from 40 to 50", "25"),
+        # Read as 0 to 360 radians: about 115 answers.
+        ("solve 2sin(x) = 1 for 0 <= x <= 360", r"x = 30^\circ,\;150^\circ"),
+        ("solve cos(x) = -0.5 for -180 <= x <= 180", r"x = -120^\circ,\;120^\circ"),
+        ("solve sin(x) = 0.3 for 0 <= x <= 360", r"x \approx 17.46^\circ,\;162.54^\circ"),
+        # Answered with the point of contact, (3, 9).
+        ("find the equation of the tangent to y = x^2 at x = 3", "y = 6 x - 9"),
+        (
+            "find the equation of the normal to y = x^2 at x = 1",
+            r"y = - \frac{1}{2} x + \frac{3}{2}",
+        ),
+        # Solved the curve for x in terms of y.
+        (
+            "find the stationary points of y = x^3 - 3x",
+            r"\left(-1, 2\right)\ \text{maximum},\; \left(1, -2\right)\ \text{minimum}",
+        ),
+        ("find the stationary points of y = x^3", r"\left(0, 0\right)\ \text{point of inflection}"),
+        # The first derivative's value (32) was given for the second.
+        ("Find the second derivative of x^4 at x=2", "48"),
+        ("f(x) = x^2, find f'(3)", "6"),
+        ("differentiate (x^2 + 1)/(x - 1)", r"\frac{x^{2} - 2 x - 1}{\left(x - 1\right)^{2}}"),
+        ("2.5 * 4.2", "10.5"),
+    ],
+)
+async def test_battery_two_answers_are_right(text: str, answer: str) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "text",
+    [
+        "f(x) = 2x + 3",
+        "f(x) = 2x + 3, find f(4) and explain the graph",
+        "solve f(x) = 0 where f(x) = x^2 - 4",
+    ],
+)
+async def test_function_notation_is_never_solved_for_the_function_name(text: str) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical is None or "f" not in canonical
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "unit"),
+    [("a car travels 150 km in 2.5 hours, what is its average speed", r"\mathrm{km/h}")],
+)
+async def test_a_speed_unit_is_written_in_symbols(text: str, unit: str) -> None:
+    _, reply = await _reply(text)
+    assert reply is not None and unit in reply and "hours" not in reply
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "rows"),
+    [
+        ("perimeter of a rectangle 8 by 5", [r"$l = 8\,\mathrm{units}$", r"$P = 2(8 + 5) = 26$"]),
+        ("circumference of a circle with diameter 10", [r"$C = \pi d$ — Circle circumference"]),
+        ("area of a circle with diameter 10", [r"$A = \pi r^2$ — Circle area"]),
+        (
+            "solve sin(x) = 0 for 0 <= x <= 360",
+            [r"$x = 180^\circ k$ — substitute the angle", r"$0^\circ \le x \le 360^\circ$"],
+        ),
+    ],
+)
+async def test_battery_two_layout_slips(text: str, rows: list[str]) -> None:
+    _, reply = await _reply(text)
+    assert reply is not None
+    for row in rows:
+        assert row in reply

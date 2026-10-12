@@ -66,7 +66,10 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
         ):
             raise SolveServiceError("speed requires a non-negative distance and positive time")
         value = distance / duration
-        answer_unit = f"{distance_unit}/{time_unit}"
+        from app.modules.physics.display import plain_unit
+
+        # "km" over "hours" is km/h, not "km/hours".
+        answer_unit = f"{plain_unit(distance_unit)}/{plain_unit(time_unit)}"
         formula = r"v = \frac{d}{t}"
         working = (
             rf"v = \frac{{d}}{{t}} = "

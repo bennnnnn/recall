@@ -8,6 +8,7 @@ from app.modules.math.tools.school import SCHOOL_BLOCK_BUILDERS, SCHOOL_EXTRACTO
 def test_school_extractor_order_and_builder_keys() -> None:
     assert [extractor.__qualname__ for extractor in SCHOOL_EXTRACTORS] == [
         "extract_teaching_intent",
+        "extract_function_value_intent",
         "_extract_unit_intent",
         "_extract_coord_intent",
         "_extract_vector_intent",

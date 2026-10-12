@@ -25,6 +25,7 @@ from app.modules.math.tools.school.coordinate import (
     _extract_coord_intent,
     _verified_block_coord,
 )
+from app.modules.math.tools.school.function_value import extract_function_value_intent
 from app.modules.math.tools.school.probability import (
     _extract_probability_intent,
     _verified_block_probability,
@@ -48,6 +49,8 @@ _SchoolBlockBuilder = Callable[[MathIntent, Settings, list[str]], VerifiedMathBl
 
 SCHOOL_EXTRACTORS: list[Callable[[str], MathIntent | None]] = [
     extract_teaching_intent,
+    # Before anything reads ``f(x) = ...`` as an equation to solve.
+    extract_function_value_intent,
     _extract_unit_intent,
     _extract_coord_intent,
     _extract_vector_intent,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from dataclasses import replace
 
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
@@ -15,6 +16,7 @@ from app.modules.math.tools.school._parse import (
     _number_immediately_before,
 )
 from app.services.text_match import word_index
+from app.services.workout import math_line
 
 _PERCENT_INCREASE_WORDS = ("increase", "increased", "increasing", "markup", "marked up")
 _PERCENT_DECREASE_WORDS = ("decrease", "decreased", "decreasing")
@@ -163,6 +165,19 @@ def _block_percent_is(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock
     return _finish_with_answer(lines, answer)
 
 
+def _with_working(lines: list[str], working: str, answer: str) -> VerifiedMathBlock:
+    """The working on one line, then the answer alone."""
+    lines.append(f"Working: ${working}$")
+    block = _finish_with_answer(lines, answer)
+    return replace(block, worked_reply=f"{math_line(working)}\n\n```answer\n{answer}\n```\n")
+
+
+def _fraction_of_one(rate: float, *, sign: str) -> tuple[str, str]:
+    """``(1 - 0.2, 0.8)`` for 20% off; ``(1 + 0.15, 1.15)`` for a 15% rise."""
+    factor = 1 - rate / 100 if sign == "-" else 1 + rate / 100
+    return f"1 {sign} {rate / 100:g}", f"{round(factor, 10):g}"
+
+
 def _block_discount(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
     from app.modules.math import formulas as math_formulas
 
@@ -170,7 +185,33 @@ def _block_discount(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock |
         return None
     answer = math_formulas.sale_price(intent.percent_base, intent.percent_rate)
     lines.append(f"{intent.percent_rate:g}% off {intent.percent_base:g} = {answer}")
-    return _finish_with_answer(lines, answer)
+    written, factor = _fraction_of_one(intent.percent_rate, sign="-")
+    base = f"{intent.percent_base:g}"
+    working = (
+        rf"\text{{sale price}} = {base} \times \left({written}\right) = {base} \times {factor}"
+    )
+    return _with_working(lines, working, answer)
+
+
+def _block_original_before_percent(
+    intent: MathIntent, lines: list[str]
+) -> VerifiedMathBlock | None:
+    """The amount before a percent change: ``48 / (1 - 0.2) = 48 / 0.8 = 60``."""
+    if intent.percent_base is None or intent.percent_rate is None:
+        return None
+    sign = "-" if intent.school_op == "original_before_decrease" else "+"
+    written, factor = _fraction_of_one(intent.percent_rate, sign=sign)
+    if float(factor) <= 0:
+        return None
+    answer = f"{round(intent.percent_base / float(factor), 10):g}"
+    after = f"{intent.percent_base:g}"
+    change = "less" if sign == "-" else "more"
+    lines.append(
+        f"{after} is {intent.percent_rate:g}% {change} than the original, so it is "
+        f"{factor} of the original. Original = {after} / {factor} = {answer}"
+    )
+    working = rf"\text{{original}} = \frac{{{after}}}{{{written}}} = \frac{{{after}}}{{{factor}}}"
+    return _with_working(lines, working, answer)
 
 
 def _block_percent_change_from(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
@@ -182,4 +223,10 @@ def _block_percent_change_from(intent: MathIntent, lines: list[str]) -> Verified
     lines.append(
         f"Percent change from {intent.percent_base:g} to {intent.percent_rate:g} = {answer}"
     )
-    return _finish_with_answer(lines, answer)
+    start, end = f"{intent.percent_base:g}", f"{intent.percent_rate:g}"
+    change = f"{intent.percent_rate - intent.percent_base:g}"
+    working = (
+        rf"\text{{change}} = \frac{{{end} - {start}}}{{{start}}} \times 100\% = "
+        rf"\frac{{{change}}}{{{start}}} \times 100\%"
+    )
+    return _with_working(lines, working, answer)

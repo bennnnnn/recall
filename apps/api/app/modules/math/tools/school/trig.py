@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import replace
+from typing import Any
 
 from app.core.config import Settings
 from app.modules.math import match as mtm
@@ -56,6 +57,39 @@ _BOUNDED_RADIAN_DOMAIN = re.compile(
 )
 
 
+def _exact_decimals(side: Any) -> Any:
+    """``-0.5`` -> ``-1/2``, so the angles solve exactly instead of as floats."""
+    from sympy import Float, nsimplify
+
+    return nsimplify(side, rational=True) if side.has(Float) else side
+
+
+def _degrees_in_k(expr: Any, k: Any) -> str:
+    """``90 + 180 k`` (degrees) -> ``90^\\circ + 180^\\circ k``."""
+    from sympy import expand, latex
+
+    expr = expand(expr)
+    constant = expr.subs(k, 0)
+    step = expr.coeff(k)
+    parts = [f"{latex(constant)}^\\circ"] if constant != 0 else []
+    if step != 0:
+        parts.append(f"{latex(step)}^\\circ k")
+    return " + ".join(parts) or "0^\\circ"
+
+
+def _unmarked_degree_bounds(lower: str, upper: str) -> bool:
+    """``0 <= x <= 360`` with no degree sign: a bound of 90 or more without pi is degrees.
+
+    No school question asks for the solutions up to 360 radians.
+    """
+    if any(mark in bound.lower() for bound in (lower, upper) for mark in ("pi", "π")):
+        return False
+    try:
+        return max(abs(float(lower)), abs(float(upper))) >= 90
+    except ValueError:
+        return False
+
+
 def _extract_trig_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math.tools.extractors.formulas import extract_sas_area
 
@@ -100,9 +134,14 @@ def _extract_trig_intent(cleaned: str) -> MathIntent | None:
             def normalize_bound(value: str) -> str:
                 return re.sub(r"(?<=\d)\s*(?=(?:pi|π)\b)", "*", value.replace("π", "pi"))
 
+            bounds = (radian_domain.group(1), radian_domain.group(5))
             return MathIntent(
                 kind="trig",
-                school_op="bounded_radian_equation",
+                school_op=(
+                    "bounded_degree_equation"
+                    if _unmarked_degree_bounds(*bounds)
+                    else "bounded_radian_equation"
+                ),
                 lhs=lhs,
                 rhs=rhs,
                 variable=variable,
@@ -256,6 +295,7 @@ def _verified_block_trig(
             Symbol,
             cos,
             latex,
+            nsimplify,
             pi,
             simplify,
             sin,
@@ -270,14 +310,18 @@ def _verified_block_trig(
         _, lhs, rhs = parse_equation(
             EquationInput(lhs=intent.lhs, rhs=intent.rhs, variables=[intent.variable])
         )
+        # ``cos(x) = -0.5``: a decimal value is read exactly, or the angles
+        # come back as floats and print as ``376.99/pi`` degrees.
+        lhs, rhs = _exact_decimals(lhs), _exact_decimals(rhs)
         symbols = getattr(lhs, "free_symbols", set()) | getattr(rhs, "free_symbols", set())
         variable = next(
             (symbol for symbol in symbols if str(symbol) == intent.variable),
             Symbol(intent.variable, real=True),
         )
-        if intent.school_op == "bounded_degree_equation":
-            low = float(intent.integral_lower) * pi / 180
-            high = float(intent.integral_upper) * pi / 180
+        degrees = intent.school_op == "bounded_degree_equation"
+        if degrees:
+            low = nsimplify(intent.integral_lower, rational=True) * pi / 180
+            high = nsimplify(intent.integral_upper, rational=True) * pi / 180
         else:
             low = math_solve._parse_expression(intent.integral_lower, [])
             high = math_solve._parse_expression(intent.integral_upper, [])
@@ -290,24 +334,31 @@ def _verified_block_trig(
         solved = solveset(Eq(lhs, rhs), variable, domain=domain)
         if not isinstance(solved, FiniteSet):
             return None
+        radian_values = sorted(solved, key=lambda value: float(value))
         display_values = (
-            [simplify(value * 180 / pi) for value in solved]
-            if intent.school_op == "bounded_degree_equation"
-            else list(solved)
+            [simplify(value * 180 / pi) for value in radian_values] if degrees else radian_values
         )
-        display_values.sort(key=lambda value: float(value))
+        # ``asin(3/10)`` in degrees has no exact school form: two decimals.
+        approximate = degrees and not all(value.is_Rational for value in display_values)
         if not display_values:
             answer = r"\text{no solution}"
         else:
-            suffix = "^\\circ" if intent.school_op == "bounded_degree_equation" else ""
-            joined = r",\;".join(f"{latex(value)}{suffix}" for value in display_values)
-            answer = f"{intent.variable} = {joined}"
-        degree_suffix = "^\\circ" if intent.school_op == "bounded_degree_equation" else ""
+            suffix = "^\\circ" if degrees else ""
+            joined = r",\;".join(
+                f"{float(value):.2f}{suffix}" if approximate else f"{latex(value)}{suffix}"
+                for value in display_values
+            )
+            relation = r"\approx" if approximate else "="
+            answer = f"{intent.variable} {relation} {joined}"
+        degree_suffix = "^\\circ" if degrees else ""
         left_comparator = r"\le" if intent.comparator == "<=" else "<"
         right_comparator = r"\le" if intent.comparator_upper == "<=" else "<"
+        # In degrees the domain reads as written: ``0^\circ \le x \le 360^\circ``.
+        shown_low = latex(low * 180 / pi) if degrees else latex(low)
+        shown_high = latex(high * 180 / pi) if degrees else latex(high)
         domain_tex = (
-            f"{latex(low)}{degree_suffix} {left_comparator} {intent.variable} "
-            f"{right_comparator} {latex(high)}{degree_suffix}"
+            f"{shown_low}{degree_suffix} {left_comparator} {intent.variable} "
+            f"{right_comparator} {shown_high}{degree_suffix}"
         )
         periodic: tuple[str, ...] | None = None
         if rhs == 0 and getattr(lhs, "func", None) in {sin, cos, tan} and len(lhs.args) == 1:
@@ -324,7 +375,7 @@ def _verified_block_trig(
             if len(solved_general) == 1:
                 general = simplify(solved_general[0])
                 k_values: list[str] = []
-                for value in display_values:
+                for value in radian_values:
                     candidates = solve(Eq(general, value), integer)
                     if len(candidates) == 1 and candidates[0].is_integer:
                         rendered = latex(candidates[0])
@@ -340,10 +391,19 @@ def _verified_block_trig(
                         f"Keep the values of $k$ that place ${intent.variable}$ in ${domain_tex}$."
                     )
                 )
+                if degrees:
+                    # The same law in degrees: ``\sin\theta = 0 \Rightarrow \theta = 180^\circ k``.
+                    zero_law = zero_law.replace(r"\frac{\pi}{2}", r"90^\circ").replace(
+                        r"k\pi", r"180^\circ k"
+                    )
+                    angle_shown = _degrees_in_k(angle_solution * 180 / pi, integer)
+                    general_shown = _degrees_in_k(general * 180 / pi, integer)
+                else:
+                    angle_shown, general_shown = latex(angle_solution), latex(general)
                 periodic = (
                     math_line(f"{zero_law}, \\quad k\\in\\mathbb{{Z}}", "periodic zero law"),
-                    math_line(f"{latex(angle)} = {latex(angle_solution)}", "substitute the angle"),
-                    math_line(f"{intent.variable} = {latex(general)}", "solve"),
+                    math_line(f"{latex(angle)} = {angle_shown}", "substitute the angle"),
+                    math_line(f"{intent.variable} = {general_shown}", "solve"),
                     interval_step,
                 )
         direct = render_workout(

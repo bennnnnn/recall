@@ -55,6 +55,34 @@ _LOCALS: dict[str, Any] = {
 _EXACT_LATEX_DECIMAL_THRESHOLD = 40
 
 
+def derivative_latex(expr: Any) -> str:
+    """A derivative as a textbook writes it.
+
+    A quotient keeps one fraction bar: the denominator factored, the numerator
+    expanded unless factoring shows a repeated factor:
+    ``\\frac{x^{2} - 2 x - 1}{\\left(x - 1\\right)^{2}}``, not SymPy's
+    ``\\frac{- x^{2} + 2 x \\left(x - 1\\right) - 1}{...}``. Anything else is
+    left to ``format_verified_latex``.
+    """
+    from sympy import cancel, expand, factor, fraction, latex, together
+
+    symbols: set[Any] = set(getattr(expr, "free_symbols", set()))
+    if len(symbols) != 1 or not expr.is_rational_function(*symbols):
+        return format_verified_latex(expr)
+    numerator, denominator = fraction(cancel(together(expr)))
+    if not denominator.free_symbols:
+        return format_verified_latex(expr)
+    factored = factor(numerator)
+    repeated = factored.is_Pow or (
+        factored.is_Mul and any(part.is_Pow and part.free_symbols for part in factored.args)
+    )
+    top = factored if repeated else expand(numerator)
+    bottom = factor(denominator)
+    if top.could_extract_minus_sign() and not top.is_Add:
+        return rf"- \frac{{{latex(-top)}}}{{{latex(bottom)}}}"
+    return rf"\frac{{{latex(top)}}}{{{latex(bottom)}}}"
+
+
 def format_verified_latex(expr: Any) -> str:
     """Exact latex when short; decimal via evalf when the exact form is a wall."""
     from sympy import latex, simplify

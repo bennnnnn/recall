@@ -126,6 +126,9 @@ _SOLVED_REGION_OPS = {
 }
 
 
+# ``f(x)``, ``g(t)``: a single-letter function of a single-letter variable.
+_FUNCTION_NOTATION = re.compile(r"(?<![A-Za-z\\])[a-zA-Z]\s*\(\s*[a-zA-Z]\s*\)")
+
 _LAGRANGE_REQUEST = re.compile(
     r"(?P<name>[a-zA-Z])\(\s*(?P<var>[a-zA-Z])\s*\)\s*=\s*(?P<expr>.+),\s*"
     r"(?:find|calculate|compute|determine)\s+(?P=name)'{1,3}\(\s*(?P=var)\s*\)[.?]?",
@@ -300,6 +303,10 @@ def _extract_math_intent(text: str) -> MathIntent | None:
             # not parse, never certify just the given assignment(s) while
             # silently ignoring the requested evaluation.
             if intent.kind in {"equation", "system"} and has_assignment_evaluation_request(text):
+                return None
+            if intent.kind in {"equation", "system"} and _FUNCTION_NOTATION.search(cleaned):
+                # ``f(x) = 2x + 3`` names a function. Solved as an equation it
+                # reads ``f * x`` and answers for ``f`` or in terms of it.
                 return None
             if intent.kind == "equation" and trig_domain_would_be_dropped(
                 f"{intent.lhs or ''} {intent.rhs or ''}", text

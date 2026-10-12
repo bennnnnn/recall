@@ -53,6 +53,10 @@ _UNAMBIGUOUS_ARITH = frozenset("*^" + "".join(src for src, dst in _ARITH_OP_ASCI
 _ARITH_ALLOWED = frozenset("0123456789.+-*/^()! " + "".join(src for src, _ in _ARITH_OP_ASCII))
 # The factorial input cap the combinatorics solver keeps.
 _LARGEST_FACTORIAL = 170
+# ``2 1/2`` is two and a half, never ``2 * 1/2``.
+_MIXED_NUMBER = re.compile(r"(?<![\d.])(\d+)\s+(\d+)\s*/\s*(\d+)(?![\d.])")
+# Two numbers with only a space between them (``1 000``) are not one expression.
+_SPACED_NUMBERS = re.compile(r"\d\s+[\d.]")
 
 
 def _factorials_ok(compact: str) -> bool:
@@ -244,7 +248,9 @@ def bare_arithmetic_expr(text: str) -> str | None:
         return None
     from app.modules.math.solve.parse import _normalize_latex_to_sympy
 
-    normalized = _normalize_latex_to_sympy(stripped)
+    normalized = _normalize_latex_to_sympy(_MIXED_NUMBER.sub(r"(\1+\2/\3)", stripped))
+    if _SPACED_NUMBERS.search(normalized):
+        return None
     # Numeric radicals and keyboard braced powers use the same normalization
     # as the solver. Only sqrt is admitted here; symbols/prose stay excluded.
     numeric = normalized.replace("sqrt(", "(")

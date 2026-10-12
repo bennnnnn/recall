@@ -10,6 +10,7 @@ from app.modules.math.response_intent import MathResponseMode, classify_math_res
 from app.modules.math.schemas import ArithmeticWorkSpec, FractionWorkSpec
 from app.modules.math.tools.lesson import lesson_math_text
 from app.services.solving import VerifiedMathBlock
+from app.services.workout import math_line
 
 
 def equation_line_hides_for_answer_only(verified: VerifiedMathBlock) -> bool:
@@ -49,11 +50,24 @@ def fraction_work_spec(verified: VerifiedMathBlock) -> FractionWorkSpec | None:
         return None
 
 
+def final_answer(spec: ArithmeticWorkSpec) -> str:
+    """The column result without the zeros it carries for alignment: ``10.50`` -> ``10.5``.
+
+    The column itself keeps ``10.50`` under ``2.5`` and ``4.2``; the answer is
+    the number.
+    """
+    whole, dot, decimals = spec.answer.partition(".")
+    if not dot or not whole.lstrip("-").isdigit() or not decimals.isdigit():
+        return spec.answer
+    decimals = decimals.rstrip("0")
+    return f"{whole}.{decimals}" if decimals else whole
+
+
 def can_direct_written_arithmetic(
     verified: VerifiedMathBlock, user_text: str, spec: ArithmeticWorkSpec
 ) -> bool:
     """Require the entire request to describe the exact traced operation."""
-    if len(user_text) > 1000 or verified.canonical_answer != spec.answer:
+    if len(user_text) > 1000 or verified.canonical_answer != final_answer(spec):
         return False
     from app.modules.math import match as mtm
 
@@ -160,13 +174,13 @@ def _arithmetic_tokens(expr: str) -> list[str] | None:
 def written_fact_line(spec: ArithmeticWorkSpec) -> str:
     """One line for every operation: ``4 x 4 = 16``."""
     shown = f" {spec.operator} ".join(_shown_operand(token) for token in spec.operands)
-    return f"{shown} = {spec.answer}"
+    return f"{shown} = {final_answer(spec)}"
 
 
 def format_direct_written_arithmetic(spec: ArithmeticWorkSpec, user_text: str) -> str:
     response = classify_math_response_intent(user_text)
     shown = (
-        spec.answer
+        final_answer(spec)
         if response.mode == MathResponseMode.ANSWER_ONLY or response.wants_explanation
         else written_fact_line(spec)
     )
@@ -183,7 +197,13 @@ def format_direct_written_arithmetic(spec: ArithmeticWorkSpec, user_text: str) -
 def format_direct_fraction(spec: FractionWorkSpec, user_text: str) -> str:
     response = classify_math_response_intent(user_text)
     answer = f"```answer\n{spec.answer}\n```\n"
-    if response.mode == MathResponseMode.ANSWER_ONLY or not response.wants_explanation:
+    if response.mode == MathResponseMode.ANSWER_ONLY:
         return answer
+    if not response.wants_explanation:
+        from app.modules.math.solve.fractions import fraction_working
+
+        # ``3/4 divided by 2/5 = 3/4 times 5/2``, then the answer on its own line.
+        working = fraction_working(spec)
+        return f"{math_line(working)}\n\n{answer}" if working else answer
     body = json.dumps(spec.model_dump(), separators=(",", ":"))
     return f"```arithmetic\n{body}\n```\n\n{answer}"
