@@ -93,6 +93,7 @@ from app.modules.physics.extractors.rotation import (
     _extract_rotation_intent,
 )
 from app.modules.physics.extractors.school_extensions import (
+    _EXTENSION_CUE_RES,
     _EXTENSION_CUES,
     extract_school_extension,
 )
@@ -233,6 +234,7 @@ PHYSICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     *_VECTOR_FORCE_CUE_RES,
     *_FORCE_CUE_RES,
     *_ENERGY_CUE_RES,
+    *_EXTENSION_CUE_RES,
 )
 
 

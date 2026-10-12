@@ -103,6 +103,45 @@ def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+_AREA_UNDER_RE = re.compile(
+    r"\barea\s+(?:under|below|beneath)\s+(?:the\s+(?:curve|graph)\s+(?:of\s+)?)?"
+    r"|\barea\s+(?:bounded|enclosed)\s+by\s+(?:the\s+(?:curve|graph)\s+(?:of\s+)?)?",
+    re.IGNORECASE,
+)
+_X_AXIS_RE = re.compile(r",?\s*(?:and\s+)?the\s+x[- ]axis\b,?", re.IGNORECASE)
+
+
+def _extract_area_under_intent(cleaned: str) -> MathIntent | None:
+    """``area under y = x^2 between x = 1 and x = 2``: the area between the curve and y = 0.
+
+    The area-between solver already takes the curve's absolute value, so a
+    stretch below the x-axis counts as area, not as a negative.
+    """
+    lead = _AREA_UNDER_RE.search(cleaned)
+    if lead is None:
+        return None
+    interval = _bounds(cleaned)
+    if interval is None:
+        return None
+    low, high, bounds_at = interval
+    if bounds_at <= lead.end():
+        return None
+    body = _X_AXIS_RE.sub("", cleaned[lead.end() : bounds_at]).strip(" ,;")
+    curve = _clean(body)
+    if curve is None or "=" in curve:
+        return None
+    return MathIntent(
+        kind="calculus",
+        operation="solve",
+        school_op="area_between_curves",
+        expr=curve,
+        expr2="0",
+        variable="x",
+        integral_lower=low,
+        integral_upper=high,
+    )
+
+
 def _extract_arc_length_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     at = lower.find("arc length")
@@ -191,6 +230,7 @@ CALCULUS_APPLICATION_EXTRACTORS = (
     # and the point became a system to solve.
     _extract_curve_point_intent,
     _extract_area_between_intent,
+    _extract_area_under_intent,
     _extract_arc_length_intent,
     _extract_volume_intent,
 )

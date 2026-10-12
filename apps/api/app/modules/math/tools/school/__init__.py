@@ -9,6 +9,7 @@ from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock
 from app.modules.math.tools.extractors.fractions import extract_fraction_intent
 from app.modules.math.tools.extractors.teaching import extract_teaching_intent
+from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
 from app.modules.math.tools.school.arithmetic import (
     _extract_arithmetic_intent,
     _verified_block_arithmetic,
@@ -26,6 +27,8 @@ from app.modules.math.tools.school.coordinate import (
     _verified_block_coord,
 )
 from app.modules.math.tools.school.function_value import extract_function_value_intent
+from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
+from app.modules.math.tools.school.number_facts import extract_number_fact_intent
 from app.modules.math.tools.school.probability import (
     _extract_probability_intent,
     _verified_block_probability,
@@ -51,6 +54,9 @@ SCHOOL_EXTRACTORS: list[Callable[[str], MathIntent | None]] = [
     extract_teaching_intent,
     # Before anything reads ``f(x) = ...`` as an equation to solve.
     extract_function_value_intent,
+    extract_geometry_fact_intent,
+    extract_number_fact_intent,
+    extract_algebra_fact_intent,
     _extract_unit_intent,
     _extract_coord_intent,
     _extract_vector_intent,

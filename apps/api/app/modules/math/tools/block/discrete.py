@@ -78,6 +78,7 @@ def _verified_calculus_application(
         Eq,
         FiniteSet,
         Interval,
+        S,
         Symbol,
         diff,
         integrate,
@@ -103,9 +104,9 @@ def _verified_calculus_application(
             interior_roots = [root for root in roots if root != low_expr and root != high_expr]
         midpoint = simplify((low_expr + high_expr) / 2)
         sample = difference.subs(sym, midpoint)
-        single_order = (
-            isinstance(roots, FiniteSet) and not interior_roots and sample.is_real is True
-        )
+        # No crossing comes back as EmptySet, which is not a FiniteSet.
+        no_crossing = roots is S.EmptySet or (isinstance(roots, FiniteSet) and not interior_roots)
+        single_order = no_crossing and sample.is_real is True
         if single_order and sample.is_nonnegative is True:
             upper, lower_curve, gap = parsed, second, difference
         elif single_order and sample.is_nonpositive is True:
@@ -113,18 +114,25 @@ def _verified_calculus_application(
         else:
             upper = lower_curve = None
             gap = None
-        given = (math_line(f"y = {latex(parsed)}"), math_line(f"y = {latex(second)}"), interval)
+        # "Area under y = f(x)" is the area between the curve and the x-axis.
+        x_axis = second == 0
+        given = (
+            math_line(f"y = {latex(parsed)}"),
+            math_line("y = 0", "the x-axis") if x_axis else math_line(f"y = {latex(second)}"),
+            interval,
+        )
         working: tuple[str, ...]
         if gap is not None:
             antiderivative = integrate(gap, sym)
+            side = "above" if upper is parsed else "below"
             working = (
                 text_line(
                     f"${latex(upper)} \\ge {latex(lower_curve)}$ on $[{low}, {high}]$",
-                    "upper curve first",
+                    f"the curve is {side} the x-axis" if x_axis else "upper curve first",
                 ),
                 math_line(
                     f"A = \\int_{{{low}}}^{{{high}}} \\left({latex(gap)}\\right)\\,d{var}",
-                    "upper minus lower",
+                    "the height of the curve" if x_axis else "upper minus lower",
                 ),
                 math_line(
                     f"= \\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}", "integrate"
@@ -140,15 +148,19 @@ def _verified_calculus_application(
             working = (
                 math_line(
                     f"A = \\int_{{{low}}}^{{{high}}} \\left|{latex(difference)}\\right|\\,d{var}",
-                    "the curves cross, so take the absolute difference",
+                    "the curve crosses the x-axis, so take its absolute value"
+                    if x_axis
+                    else "the curves cross, so take the absolute difference",
                 ),
                 math_line(f"= {answer}"),
             )
         workout = Workout(
             given=given,
-            find=(math_line("A", "area between the curves"),),
+            find=(math_line("A", "area under the curve" if x_axis else "area between the curves"),),
             formula=(
-                math_line(
+                math_line(f"A = \\int_{{a}}^{{b}} y\\,d{var}", "Area under a curve")
+                if x_axis
+                else math_line(
                     f"A = \\int_{{a}}^{{b}} \\left(y_{{\\text{{upper}}}} - "
                     f"y_{{\\text{{lower}}}}\\right)\\,d{var}"
                 ),
@@ -900,7 +912,35 @@ def _verified_block_combinatorics(
         # One checked line, like ``17 * 23 = 391``: ``5! = 5 * 4 * 3 * 2 * 1 = 120``.
         product = " \u00d7 ".join(str(factor) for factor in range(n, 0, -1))
         answer = f"{n}! = {product} = {answer}"
-    return _finish_with_answer(lines, answer)
+    working = _counting_working(intent.combo_op, n, intent.combo_k)
+    if working is None:
+        return _finish_with_answer(lines, answer)
+    lines.append(f"Working: ${working}$")
+    return replace(
+        _finish_with_answer(lines, answer),
+        worked_reply=f"{math_line(working)}\n\n```answer\n{answer}\n```\n",
+    )
+
+
+def _counting_working(op: str | None, n: int, k: int | None) -> str | None:
+    """Choose or arrange: the factorial formula, then the short product.
+
+    ``{}^{10}C_{3} = \\frac{10!}{3!\\,7!} = \\frac{10 \\times 9 \\times 8}{3 \\times 2 \\times 1}``
+    and ``{}^{7}P_{3} = \\frac{7!}{4!} = 7 \\times 6 \\times 5``. Long products are left out.
+    """
+    if k is None or op not in {"combinations", "permutations"}:
+        return None
+    if op == "permutations":
+        if not 0 < k <= 8:
+            return None
+        product = r" \times ".join(str(factor) for factor in range(n, n - k, -1))
+        return rf"{{}}^{{{n}}}P_{{{k}}} = \frac{{{n}!}}{{{n - k}!}} = {product}"
+    shorter = min(k, n - k)
+    if not 0 < shorter <= 6:
+        return None
+    top = r" \times ".join(str(factor) for factor in range(n, n - shorter, -1))
+    bottom = r" \times ".join(str(factor) for factor in range(shorter, 0, -1))
+    return rf"{{}}^{{{n}}}C_{{{k}}} = \frac{{{n}!}}{{{k}!\,{n - k}!}} = \frac{{{top}}}{{{bottom}}}"
 
 
 def _verified_block_number_theory(

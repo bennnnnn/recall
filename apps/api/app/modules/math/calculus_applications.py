@@ -13,6 +13,7 @@ establish is refused rather than approximated.
 from __future__ import annotations
 
 import math
+from typing import Any
 
 from sympy import Eq, FiniteSet, Integral, Interval, S, Symbol, integrate, pi, simplify, solveset
 from sympy.calculus.util import continuous_domain
@@ -88,15 +89,20 @@ def _integrate_absolute(expr, variable: Symbol, low, high):
         roots = solveset(Eq(expr, 0), variable, domain=Interval(low, high))
     except (NotImplementedError, TypeError) as exc:
         raise MathServiceError("could not locate the crossings symbolically") from exc
-    if not isinstance(roots, FiniteSet):
+    if roots is S.EmptySet:
+        # No crossing at all (y = 3x^2 + 1 stays above the axis): one piece.
+        found: list[Any] = []
+    elif isinstance(roots, FiniteSet):
+        found = list(roots)
+    else:
         raise MathServiceError("could not enumerate every crossing on that interval")
-    if len(roots) > _MAX_CROSSINGS:
+    if len(found) > _MAX_CROSSINGS:
         raise MathServiceError("too many crossings to verify")
 
     low_f = float(low.evalf())
     high_f = float(high.evalf())
     inner: list[tuple[float, object]] = []
-    for root in roots:
+    for root in found:
         if root.has(variable) or root.is_real is False:
             continue
         try:

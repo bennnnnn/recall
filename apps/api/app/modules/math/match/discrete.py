@@ -219,10 +219,64 @@ def _ncr_npr_signal(text: str, word: str | None, letter: str) -> tuple[int, int]
     return None
 
 
+# A counting question: "how many ways ...", "in how many ways ...", "number of arrangements".
+_COUNTING_QUESTION = re.compile(
+    r"\b(?:how\s+many\s+(?:different\s+|distinct\s+|possible\s+)?"
+    r"(?:ways|arrangements|orders|orderings|selections|combinations|committees|teams|groups)"
+    r"|number\s+of\s+(?:different\s+|possible\s+)?(?:ways|arrangements|selections|combinations))\b",
+    re.IGNORECASE,
+)
+# The order counts: arranging, seating, lining up, ranking.
+_ORDER_WORDS = re.compile(
+    r"\b(?:arrange[ds]?|arranging|arrangements?|sit|seated|seat|line\s+up|lined\s+up|"
+    r"stand|order(?:ed)?|in\s+a\s+row|in\s+a\s+line|rank(?:ed)?|first|second|third|"
+    r"president|captain|gold|silver|bronze)\b",
+    re.IGNORECASE,
+)
+# "3 of 7 runners", "2 of the 9 books".
+_K_OF_N = re.compile(r"\b(\d+)\s+of\s+(?:the\s+|these\s+)?(\d+)\b", re.IGNORECASE)
+_FROM_GROUP = re.compile(
+    r"\b(?:from|out\s+of|among)\s+(?:a\s+(?:group|class|team|set|box|bag)\s+of\s+)?(\d+)\b",
+    re.IGNORECASE,
+)
+
+
+def counting_word_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] | None:
+    """A counting question in words.
+
+    "how many ways can 5 people sit in a row" is 5!; "in how many ways can a
+    committee of 3 be chosen from 10 people" is C(10, 3); "... 3 of 7 runners
+    finish first, second and third" is P(7, 3).
+    """
+    if len(text) > 300 or not _COUNTING_QUESTION.search(text):
+        return None
+    numbers = [int(match) for match in re.findall(r"(?<![\d.])\d+(?![\d.])", text)]
+    ordered = _ORDER_WORDS.search(text) is not None
+    k_of_n = _K_OF_N.search(text)
+    if k_of_n is not None and len(numbers) == 2:
+        k, n = int(k_of_n.group(1)), int(k_of_n.group(2))
+        if not 0 <= k <= n <= 1000:
+            return None
+        return ("permutations" if ordered else "combinations"), n, k
+    group = _FROM_GROUP.search(text)
+    if group is not None and len(numbers) == 2:
+        n = int(group.group(1))
+        k = numbers[0] if numbers[1] == n else numbers[1]
+        if not 0 <= k <= n <= 1000:
+            return None
+        return ("permutations" if ordered else "combinations"), n, k
+    if group is None and len(numbers) == 1 and ordered and 1 <= numbers[0] <= 20:
+        return "factorial", numbers[0], None
+    return None
+
+
 def combinatorics_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] | None:
     """Factorial / combinations ("choose", "C(n,k)", "nCk") / permutations
-    ("permute", "permutation", "P(n,k)", "nPk"). Returns (op, n, k) — k is
-    None for factorial."""
+    ("permute", "permutation", "P(n,k)", "nPk"), or a counting question in
+    words. Returns (op, n, k) — k is None for factorial."""
+    words = counting_word_signal(text)
+    if words is not None:
+        return words
     n = _factorial_signal(text)
     if n is not None:
         return "factorial", n, None

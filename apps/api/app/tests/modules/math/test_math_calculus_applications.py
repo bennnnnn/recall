@@ -137,8 +137,8 @@ REFUSED = [
     # No interval to integrate over.
     "area between y=x and y=x^2",
     "arc length of y=x^2",
+    "area under y=x^2",
     # Still unimplemented shapes, still refused rather than answered sideways.
-    "area under y=x^2 from 0 to 1",
     "volume of the region bounded by y=x and y=0",
     # A shell volume straddling its own axis is not a volume.
     "volume of revolution of y=1 from -1 to 1 about the y-axis",

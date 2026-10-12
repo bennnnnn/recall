@@ -59,10 +59,10 @@ def test_an_inequality_answer_is_written_as_a_student_writes_it(
     ("text", "answer"),
     [
         ("what is 5!", "5! = 5 × 4 × 3 × 2 × 1 = 120"),
-        ("probability of getting exactly 2 heads in 4 coin flips", r"\frac{3}{8} \approx 0.375"),
+        ("probability of getting exactly 2 heads in 4 coin flips", r"\frac{3}{8} = 0.375"),
         (
             "a fair coin is flipped 6 times. what is the probability of exactly 4 heads?",
-            r"\frac{15}{64} \approx 0.2344",
+            r"\frac{15}{64} = 0.234375",
         ),
         (
             "probability of rolling exactly 2 sixes in 5 rolls of a die",
@@ -359,3 +359,89 @@ async def test_battery_two_layout_slips(text: str, rows: list[str]) -> None:
     assert reply is not None
     for row in rows:
         assert row in reply
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Each went to the model unverified, or was claimed by the wrong subject.
+        ("find the 6th term of the geometric sequence 2, 6, 18", "486"),
+        ("sum of the first 5 terms of the geometric series 3, 6, 12", "93"),
+        ("magnitude of the vector (3, 4)", "5"),
+        ("dot product of (1, 2, 3) and (4, 5, 6)", "32"),
+        ("(2 + 3i)(1 - i)", "5 + i"),
+        ("how many ways can 5 people sit in a row", "5! = 5 × 4 × 3 × 2 × 1 = 120"),
+        ("in how many ways can a committee of 3 be chosen from 10 people", "120"),
+        ("how many ways can 3 of 7 runners finish first, second and third", "210"),
+        ("probability of rolling a sum of 7 with two dice", r"\frac{1}{6} \approx 0.1667"),
+        ("probability of drawing a king from a standard deck", r"\frac{1}{13} \approx 0.07692"),
+        ("probability of drawing a heart from a deck of cards", r"\frac{1}{4} = 0.25"),
+        ("a right triangle has hypotenuse 13 and one leg 5, find the other leg", "12"),
+        ("sum of interior angles of a hexagon", r"720^\circ"),
+        ("find each interior angle of a regular octagon", r"135^\circ"),
+        ("what is each exterior angle of a regular pentagon", r"72^\circ"),
+        ("area under y = x^2 between x = 1 and x = 2", r"\frac{7}{3}"),
+        ("area under y=x^2 from 0 to 1", r"\frac{1}{3}"),
+        ("find the area under the curve y = 3x^2 + 1 from x = 0 to x = 2", "10"),
+        ("cube root of 27", "3"),
+        ("square root of 50", r"5\sqrt{2} \approx 7.071"),
+        ("convert 3/8 to a percentage", r"37.5\%"),
+        ("what is 2/3 as a percentage", r"\frac{200}{3}\% \approx 66.67\%"),
+        ("write 0.00045 in standard form", r"4.5 \times 10^{-4}"),
+        ("sum of the first 20 natural numbers", "210"),
+        ("complete the square x^2 + 6x + 5", r"\left(x + 3\right)^{2} - 4"),
+        ("complete the square 2x^2 + 8x + 3", r"2\left(x + 2\right)^{2} - 5"),
+        ("in triangle ABC, a = 7, b = 9, C = 60 degrees, find c", r"\sqrt{67} \approx 8.185"),
+    ],
+)
+async def test_battery_two_gaps_are_verified(text: str, answer: str) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "working"),
+    [
+        ("5C2", r"${}^{5}C_{2} = \frac{5!}{2!\,3!} = \frac{5 \times 4}{2 \times 1}$"),
+        ("7P3", r"${}^{7}P_{3} = \frac{7!}{4!} = 7 \times 6 \times 5$"),
+        ("magnitude of the vector (3, 4)", r"$|\vec{v}| = \sqrt{3^2 + 4^2} = \sqrt{25}$"),
+        (
+            "(2 + 3i)(1 - i)",
+            r"$(2 + 3i)(1 - i) = 2 - 2i + 3i - 3i^{2} = 2 + i + 3$ — using $i^2 = -1$",
+        ),
+        (
+            "probability of rolling a sum of 7 with two dice",
+            r"$P = \frac{6}{36}$ — favourable over all outcomes",
+        ),
+        (
+            "write 0.00045 in standard form",
+            r"$0.00045 = 4.5 \times 10^{-4}$ — move the decimal point 4 places right",
+        ),
+    ],
+)
+async def test_battery_two_gaps_show_their_working(text: str, working: str) -> None:
+    _, reply = await _reply(text)
+    assert reply is not None and working in reply
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I have 5 people coming over",
+        "the first 5 terms are fine",
+        "how many ways are there to say hello",
+    ],
+)
+def test_ordinary_sentences_are_not_counting_questions(text: str) -> None:
+    from app.modules.math.match.discrete import combinatorics_signal
+
+    assert combinatorics_signal(text) is None
+
+
+def test_rms_is_a_word_not_the_end_of_terms() -> None:
+    from app.modules.physics.extract import needs_physics
+
+    assert not needs_physics("sum of the first 5 terms of the geometric series 3, 6, 12")
+    assert needs_physics("what is the rms voltage of a 170 V peak supply")
