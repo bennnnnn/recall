@@ -6,6 +6,7 @@ import {
   spliceMathBackspace,
   stepMathCaret,
 } from "@/lib/math/draftSlots";
+import { MATH_KEYBOARD_SYMBOLS, spliceMathInsert } from "@/lib/math/keyboardSymbols";
 
 describe("findDraftNodes", () => {
   it("finds fractions, roots, scripts, abs, and groups", () => {
@@ -137,11 +138,28 @@ describe("spliceMathBackspace", () => {
     ["$x^{}$", "$x^{}$".length - 1, "$x$"],
     ["$x_{}$", "$x_{}$".length - 1, "$x$"],
     ["$||$", "$||$".length - 1, ""],
+    ["$[]$", "$[]$".length - 1, ""],
+    ["$\\{\\}$", "$\\{\\}$".length - 1, ""],
   ])("peels empty %s without leaking latex", (text, caret, expected) => {
     const result = spliceMathBackspace(text, { start: caret, end: caret });
     expect(result.text).toBe(expected);
     expect(result.text).not.toMatch(/\\(cos|sin|sqrt|frac)\b/);
     expect(result.text).not.toMatch(/[{}]/);
+  });
+
+  it("types a digit inside [] and \\{\\}, then deletes the pair together", () => {
+    const digit = MATH_KEYBOARD_SYMBOLS.find((spec) => spec.id === "digit-1")
+      ?? { id: "digit-1", label: "1", insert: "1", cursorOffset: 1, group: "pad" as const };
+    for (const id of ["brackets", "braces"] as const) {
+      const spec = MATH_KEYBOARD_SYMBOLS.find((item) => item.id === id)!;
+      const opened = spliceMathInsert("", { start: 0, end: 0 }, spec);
+      const typed = spliceMathInsert(opened.text, opened.selection, digit);
+      expect(typed.text).toBe(id === "brackets" ? "$[1]$" : "$\\{1\\}$");
+      const withoutDigit = spliceMathBackspace(typed.text, typed.selection);
+      expect(withoutDigit.text).toBe(id === "brackets" ? "$[]$" : "$\\{\\}$");
+      const gone = spliceMathBackspace(withoutDigit.text, withoutDigit.selection);
+      expect(gone.text).toBe("");
+    }
   });
 
   it("BUG FIX regression: collapseEmptyMath does not corrupt $$display math$$ with content (KB-040)", () => {
