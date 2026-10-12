@@ -5,7 +5,6 @@ import { useTranslation } from "react-i18next";
 
 import { MathConverterUnitSheet } from "@/features/chat/components/MathConverterUnitSheet";
 import { selection as hapticSelection } from "@/lib/haptics";
-import { converterResultSpec, type MathKeyboardSymbol } from "@/lib/math/keyboardSymbols";
 import {
   CONVERTER_HEADER_HEIGHT,
   CONVERTER_UNIT_HEIGHT,
@@ -32,7 +31,6 @@ type Props = {
   onAsk: (text: string) => void;
   onStop: () => void;
   streaming: boolean;
-  onInsert: (spec: MathKeyboardSymbol) => void;
 };
 
 function buzz() {
@@ -44,7 +42,6 @@ export const MathConverterPad = memo(function MathConverterPad({
   onAsk,
   onStop,
   streaming,
-  onInsert,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -80,12 +77,6 @@ export const MathConverterPad = memo(function MathConverterPad({
     if (pickerFor === "from") setFromId(id);
     if (pickerFor === "to") setToId(id);
     setPickerFor(null);
-  };
-
-  const insert = () => {
-    buzz();
-    if (raw == null || !to) return;
-    onInsert(converterResultSpec(result, to.symbol));
   };
 
   const ask = () => {
@@ -155,16 +146,7 @@ export const MathConverterPad = memo(function MathConverterPad({
                   onPress={ask}
                   theme={theme}
                   height={keyHeight}
-                />
-              ) : cell === "insert" ? (
-                <Key
-                  key={cell}
-                  label={t("chat.math_converter_insert")}
-                  testID="math-converter-insert"
-                  onPress={insert}
-                  theme={theme}
-                  disabled={raw == null}
-                  height={keyHeight}
+                  wide
                 />
               ) : (
                 <Key
@@ -197,7 +179,7 @@ const CONVERTER_PAD = [
   ["7", "8", "9", "AC"],
   ["4", "5", "6", "back"],
   ["1", "2", "3", "±"],
-  ["0", ".", "insert", "ask"],
+  ["0", ".", "ask"],
 ] as const;
 
 function UnitChip({
@@ -236,6 +218,7 @@ function Key({
   danger,
   disabled,
   height,
+  wide,
 }: {
   label: string;
   testID: string;
@@ -244,6 +227,8 @@ function Key({
   danger?: boolean;
   disabled?: boolean;
   height: number;
+  /** Two key-slots. Ask fills the old Insert key as well. */
+  wide?: boolean;
 }) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
@@ -252,6 +237,7 @@ function Key({
       disabled={disabled}
       style={({ pressed }) => [
         s.key,
+        wide && s.keyWide,
         { height },
         pressed && s.pressed,
         disabled && s.keyDisabled,
@@ -311,6 +297,7 @@ const makeStyles = (theme: Theme) =>
     },
     pad: { gap: PAD_GAP },
     row: { flexDirection: "row", alignItems: "stretch", gap: PAD_GAP },
+    keyWide: { flex: 2 },
     key: {
       flex: 1,
       minHeight: Space.minTouch,

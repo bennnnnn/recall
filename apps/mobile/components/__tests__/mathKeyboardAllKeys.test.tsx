@@ -241,7 +241,6 @@ describe("math keyboard keys", () => {
         for (const id of ["7", "8", "9", "AC", "4", "5", "6", "back", "1", "2", "3", "±", "0", "dot"]) {
           pressTestId(`math-converter-${id}`);
         }
-        pressTestId("math-converter-insert");
         pressTestId("math-converter-ask");
         pressTestId("math-converter-swap");
         continue;

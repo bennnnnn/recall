@@ -199,7 +199,6 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
           onAsk={onAsk}
           onStop={onStop}
           streaming={streaming}
-          onInsert={onInsert}
         />
       ) : (
         <>
