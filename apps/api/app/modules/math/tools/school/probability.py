@@ -129,6 +129,11 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     trials = _trials_intent(cleaned)
     if trials is not None:
         return trials
+    from app.modules.math.tools.school.single_draw import extract_single_draw_intent
+
+    single = extract_single_draw_intent(cleaned)
+    if single is not None:
+        return single
     dice = _DICE_CONDITIONAL_SUM.fullmatch(cleaned)
     if dice is not None:
         relation, threshold_text, event_text = dice.groups()
@@ -215,6 +220,8 @@ def _fraction_tex(value: Fraction) -> str:
 
 def _binomial_trials_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock:
     """``P(X = k) = C(n, k) p^k (1 - p)^(n - k)``, exact, for a fair coin or die."""
+    from app.modules.math.tools.school.single_draw import probability_answer
+
     n, k = intent.combo_n or 0, intent.combo_k or 0
     p = Fraction(intent.percent_base or 0).limit_denominator(6)
     ways = math.comb(n, k)
@@ -223,8 +230,7 @@ def _binomial_trials_block(intent: MathIntent, lines: list[str]) -> VerifiedMath
     one_outcome = "a six" if outcome == "sixes" else outcome
     trials = "rolls" if p == Fraction(1, 6) else "flips"
     exact = _fraction_tex(probability)
-    decimal = float(probability)
-    answer = exact if f"{decimal:g}" == exact else rf"{exact} \approx {decimal:.4g}"
+    answer = probability_answer(probability)
     p_tex, q_tex = _fraction_tex(p), _fraction_tex(1 - p)
     lines.append(f"P(X={k}) = {probability} for n={n}, k={k}, p={p}")
     direct = render_workout(
@@ -254,6 +260,10 @@ def _binomial_trials_block(intent: MathIntent, lines: list[str]) -> VerifiedMath
 def _verified_block_probability(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
+    if intent.school_op == "single_draw":
+        from app.modules.math.tools.school.single_draw import single_draw_block
+
+        return single_draw_block(intent, lines)
     if (
         intent.school_op == "dice_conditional_sum"
         and intent.comparator in {"<", "<=", "=", ">=", ">"}

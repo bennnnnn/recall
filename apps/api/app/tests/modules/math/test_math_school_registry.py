@@ -9,6 +9,9 @@ def test_school_extractor_order_and_builder_keys() -> None:
     assert [extractor.__qualname__ for extractor in SCHOOL_EXTRACTORS] == [
         "extract_teaching_intent",
         "extract_function_value_intent",
+        "extract_geometry_fact_intent",
+        "extract_number_fact_intent",
+        "extract_algebra_fact_intent",
         "_extract_unit_intent",
         "_extract_coord_intent",
         "_extract_vector_intent",

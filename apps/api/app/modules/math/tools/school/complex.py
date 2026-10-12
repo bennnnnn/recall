@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
@@ -66,4 +68,62 @@ def _verified_block_complex(
     else:
         answer = math_school.evaluate_complex(intent.expr)
     lines.append(f"Result: {answer}")
-    return _finish_with_answer(lines, answer)
+    working = _binomial_working(intent.expr) if intent.school_op == "eval" else None
+    if working is None:
+        return _finish_with_answer(lines, answer)
+    from dataclasses import replace
+
+    from app.services.workout import math_line
+
+    lines.append(f"Working: ${working}$ (i^2 = -1)")
+    note = "using $i^2 = -1$" if "i^{2}" in working else None
+    return replace(
+        _finish_with_answer(lines, answer),
+        worked_reply=f"{math_line(working, note)}\n\n```answer\n{answer}\n```\n",
+    )
+
+
+_PART = r"(-?\d+(?:\.\d+)?)\s*([+-])\s*(\d+(?:\.\d+)?)?\s*i"
+_PRODUCT = re.compile(rf"\(\s*{_PART}\s*\)\s*(\*|/)?\s*\(\s*{_PART}\s*\)")
+
+
+def _complex_tex(real: str, sign: str, imaginary: str | None) -> str:
+    return f"{real} {sign} {'' if imaginary in (None, '1') else imaginary}i"
+
+
+def _binomial_working(expr: str) -> str | None:
+    """``(2 + 3i)(1 - i) = 2 - 2i + 3i - 3i^{2}``; a quotient times the conjugate over itself.
+
+    The answer line then reads the result with ``i^2 = -1`` applied.
+    """
+    match = _PRODUCT.fullmatch(expr.strip())
+    if match is None:
+        return None
+    a, sign_b, b_text, operator, c, sign_d, d_text = match.groups()
+    b = float(b_text or 1) * (1 if sign_b == "+" else -1)
+    d = float(d_text or 1) * (1 if sign_d == "+" else -1)
+    real_a, real_c = float(a), float(c)
+    left = _complex_tex(a, sign_b, b_text)
+    right = _complex_tex(c, sign_d, d_text)
+
+    def term(value: float, suffix: str) -> str:
+        coefficient = f"{abs(value):g}"
+        if suffix and coefficient == "1":
+            coefficient = ""
+        return f"{'-' if value < 0 else '+'} {coefficient}{suffix}"
+
+    if operator == "/":
+        conjugate = _complex_tex(c, "-" if sign_d == "+" else "+", d_text)
+        top_real, top_imaginary = real_a * real_c + b * d, b * real_c - real_a * d
+        bottom = real_c**2 + d**2
+        top = f"{top_real:g} {term(top_imaginary, 'i')}"
+        return (
+            rf"\frac{{{left}}}{{{right}}} \times \frac{{{conjugate}}}{{{conjugate}}} = "
+            rf"\frac{{{top}}}{{{real_c:g}^{{2}} + {abs(d):g}^{{2}}}} = \frac{{{top}}}{{{bottom:g}}}"
+        )
+    expanded = (
+        f"{real_a * real_c:g} {term(real_a * d, 'i')} {term(b * real_c, 'i')} "
+        f"{term(b * d, 'i^{2}')}"
+    )
+    collected = f"{real_a * real_c:g} {term(real_a * d + b * real_c, 'i')} {term(-b * d, '')}"
+    return f"({left})({right}) = {expanded} = {collected}"

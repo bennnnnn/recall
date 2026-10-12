@@ -75,6 +75,11 @@ def _named_probability(cleaned: str, name: str) -> float | None:
     return value if math.isfinite(value) and 0 <= value <= 1 else None
 
 
+_GEOMETRIC_NOT_DISTRIBUTION = re.compile(
+    r"\bgeometric\s+(?:sequence|series|progression|mean|growth|shape|figure)s?\b"
+)
+
+
 def _medical_bayes_values(cleaned: str) -> list[float] | None:
     """Return Bayes inputs as prior, true-positive rate, false-positive rate."""
     prevalence = _named_probability(cleaned, "prevalence")
@@ -516,7 +521,8 @@ def extract_probability_formulas(cleaned: str) -> MathIntent | None:
             operation="solve",
         )
     compact = lower.replace(" ", "")
-    if "geometric" in lower:
+    # "the 6th term of the geometric sequence 2, 6, 18" is a sequence, not the distribution.
+    if "geometric" in lower and not _GEOMETRIC_NOT_DISTRIBUTION.search(lower):
         k_at = compact.find("k=")
         p_at = compact.find("p=")
         if k_at == -1 or p_at == -1 or "n=" in compact:

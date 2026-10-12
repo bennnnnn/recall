@@ -120,6 +120,31 @@ def _plain_prime_factorization_request(text: str) -> bool:
     return False
 
 
+def _closed_school_request(user_text: str, calculus_text: str) -> bool:
+    """A school grammar that reads the whole request, so no prose rides along.
+
+    Function values, counting questions in words, one roll or draw, and
+    tangent lines or stationary points.
+    """
+    from app.modules.math.match.discrete import counting_word_signal
+    from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
+    from app.modules.math.tools.school.curve_points import extract_curve_point_intent
+    from app.modules.math.tools.school.function_value import extract_function_value_intent
+    from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
+    from app.modules.math.tools.school.number_facts import extract_number_fact_intent
+    from app.modules.math.tools.school.single_draw import extract_single_draw_intent
+
+    return (
+        extract_function_value_intent(user_text) is not None
+        or extract_geometry_fact_intent(user_text) is not None
+        or extract_number_fact_intent(user_text) is not None
+        or extract_algebra_fact_intent(user_text) is not None
+        or counting_word_signal(user_text) is not None
+        or extract_single_draw_intent(user_text) is not None
+        or extract_curve_point_intent(calculus_text) is not None
+    )
+
+
 def can_direct_verified_math_reply(
     verified: VerifiedMathBlock,
     user_text: str,
@@ -215,23 +240,19 @@ def can_direct_verified_math_reply(
     from app.modules.math.tools.school.probability import binomial_trials_direct_request
 
     trials_request = binomial_trials_direct_request(user_text)
-    from app.modules.math.tools.school.function_value import extract_function_value_intent
-
-    # The function-value grammar already reads the whole request.
-    function_value_request = extract_function_value_intent(user_text) is not None
-    statistics_request = statistics_direct_request(user_text)
-    unit_request = unit_direct_request(user_text)
-    solid_request = solid_direct_request(user_text)
     # A lesson request wraps the calculus in teaching words ("show steps:",
     # "step by step"); the whole-request grammar reads the math under them.
     calculus_text = lesson_math_text(user_text) if lesson else user_text
-    from app.modules.math.tools.school.curve_points import extract_curve_point_intent
-
-    # Tangent lines and stationary points: their grammar reads the whole request.
-    curve_point_request = extract_curve_point_intent(calculus_text) is not None
+    closed_request = _closed_school_request(user_text, calculus_text)
+    # A closed grammar has read the whole request, so the other subjects'
+    # grammars do not get a veto: "the sum of two dice" is not a series and
+    # "convert 3/8 to a percentage" is not a unit conversion.
+    statistics_request = None if closed_request else statistics_direct_request(user_text)
+    unit_request = None if closed_request else unit_direct_request(user_text)
+    solid_request = None if closed_request else solid_direct_request(user_text)
     calculus_request = (
         None
-        if curve_point_request
+        if closed_request
         else calculus_direct_request(calculus_text, answer=verified.canonical_answer)
     )
     if (
@@ -264,8 +285,7 @@ def can_direct_verified_math_reply(
         factorization_request
         or coordinate_vector_request
         or trials_request
-        or function_value_request
-        or curve_point_request
+        or closed_request
         or statistics_request
         or unit_request
         or solid_request

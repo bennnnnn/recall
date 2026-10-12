@@ -17,6 +17,13 @@ _REQUESTS = (
     ("norm of ", "<", ">", 1, "vector"),
     ("dot product of ", "<", ">", 2, "vector"),
     ("cross product of ", "<", ">", 2, "vector"),
+    # Vectors are written in round brackets as often as angle ones.
+    ("magnitude of the vector ", "(", ")", 1, "vector"),
+    ("magnitude of vector ", "(", ")", 1, "vector"),
+    ("magnitude of ", "(", ")", 1, "vector"),
+    ("norm of ", "(", ")", 1, "vector"),
+    ("dot product of ", "(", ")", 2, "vector"),
+    ("cross product of ", "(", ")", 2, "vector"),
 )
 
 
@@ -80,20 +87,29 @@ def is_closed_coordinate_vector_request(text: str) -> bool:
     for prefix, opener, closer, count, kind in _REQUESTS:
         if not request.startswith(prefix):
             continue
-        rest = request[len(prefix) :]
-        operands: list[list[float]] = []
-        for index in range(count):
-            if index:
-                if not rest.startswith(" and "):
-                    return False
-                rest = rest[5:]
-            parsed = _take_tuple(rest, opener, closer)
-            if parsed is None:
-                return False
-            operand, rest = parsed
-            operands.append(operand)
-        if rest.strip() or len({len(operand) for operand in operands}) != 1:
-            return False
+        operands = _closed_operands(request[len(prefix) :], opener, closer, count)
+        if operands is None:
+            # The same words may open another entry: "magnitude of " then
+            # "magnitude of the vector (3, 4)" in round brackets.
+            continue
         dimension = len(operands[0])
         return dimension == 2 if kind == "coord" else True
     return False
+
+
+def _closed_operands(rest: str, opener: str, closer: str, count: int) -> list[list[float]] | None:
+    """``count`` tuples joined by "and" and nothing after them, all the same size."""
+    operands: list[list[float]] = []
+    for index in range(count):
+        if index:
+            if not rest.startswith(" and "):
+                return None
+            rest = rest[5:]
+        parsed = _take_tuple(rest, opener, closer)
+        if parsed is None:
+            return None
+        operand, rest = parsed
+        operands.append(operand)
+    if rest.strip() or len({len(operand) for operand in operands}) != 1:
+        return None
+    return operands

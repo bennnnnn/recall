@@ -52,8 +52,9 @@ DECLINED = [
     # Disks about x and shells about y are different formulas, so an unnamed
     # axis is not assumed.
     "volume of revolution of y=x from 0 to 1",
+    # An area under a curve with no interval to integrate over.
+    "area under y=x^2",
     # Shapes with no solver at all.
-    "area under y=x^2 from 0 to 1",
     "volume of the region bounded by y=x and y=0",
     "area bounded by y=x^2 and the x-axis",
 ]

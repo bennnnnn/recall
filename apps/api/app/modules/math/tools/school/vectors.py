@@ -38,7 +38,37 @@ def _extract_vector_intent(cleaned: str) -> MathIntent | None:
 
 
 def _angle_vectors(text: str) -> list[list[float]]:
-    return literal_math_tuples(text, "<", ">") or []
+    """``<3, 4>``, or ``(3, 4)`` when no angle-bracket vector is written."""
+    return literal_math_tuples(text, "<", ">") or literal_math_tuples(text, "(", ")") or []
+
+
+def _number(value: float) -> str:
+    return f"{value:g}"
+
+
+def _component(value: float) -> str:
+    """A component inside a sum of squares or products: ``(-2)``, bare otherwise."""
+    return f"\\left({_number(value)}\\right)" if value < 0 else _number(value)
+
+
+def _vector_working(intent: MathIntent) -> str | None:
+    """One working line before the answer.
+
+    ``|v| = \\sqrt{3^2 + 4^2} = \\sqrt{25}``;
+    ``a \\cdot b = (1)(4) + (2)(5) + (3)(6) = 4 + 10 + 18``.
+    """
+    a = intent.vec_a or []
+    if intent.school_op == "magnitude":
+        squares = " + ".join(f"{_component(value)}^2" for value in a)
+        total = sum(value * value for value in a)
+        return rf"|\vec{{v}}| = \sqrt{{{squares}}} = \sqrt{{{_number(total)}}}"
+    if intent.school_op == "dot" and intent.vec_b:
+        products = " + ".join(
+            f"({_number(x)})({_number(y)})" for x, y in zip(a, intent.vec_b, strict=True)
+        )
+        terms = " + ".join(_number(x * y) for x, y in zip(a, intent.vec_b, strict=True))
+        return rf"\vec{{a}} \cdot \vec{{b}} = {products} = {terms}".replace("+ -", "- ")
+    return None
 
 
 def _verified_block_vector(
@@ -67,4 +97,15 @@ def _verified_block_vector(
     else:
         return None
     lines.append(f"{intent.school_op}: {answer}")
-    return _finish_with_answer(lines, answer)
+    working = _vector_working(intent)
+    if working is None:
+        return _finish_with_answer(lines, answer)
+    from dataclasses import replace
+
+    from app.services.workout import math_line
+
+    lines.append(f"Working: ${working}$")
+    return replace(
+        _finish_with_answer(lines, answer),
+        worked_reply=f"{math_line(working)}\n\n```answer\n{answer}\n```\n",
+    )

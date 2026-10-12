@@ -43,7 +43,6 @@ _EXTENSION_CUES = (
     "rl circuit",
     "resonant",
     "resonance",
-    "rms",
     "average power",
     "poiseuille",
     "gravitational potential",
@@ -57,6 +56,9 @@ _EXTENSION_CUES = (
     "refrigerator",
     "ideal gas",
 )
+# "rms" as a word: as a substring it is the end of "terms", "arms" and "forms",
+# and "the first 5 terms of a series" went to physics.
+_EXTENSION_CUE_RES = (re.compile(r"\brms\b", re.IGNORECASE),)
 
 _CIRCUIT_BLOCK = re.compile(
     r"\b(?:kirchhoff(?:'s)?|junction rule|loop rule|inductors?|henrys?|henries|"
@@ -106,7 +108,9 @@ def blocks_thermal(text: str) -> bool:
 def extract_school_extension(cleaned: str) -> PhysicsIntent | None:
     """One complete school template, or nothing."""
     lower = cleaned.lower()
-    if not any(cue in lower for cue in _EXTENSION_CUES):
+    if not any(cue in lower for cue in _EXTENSION_CUES) and not any(
+        rx.search(lower) for rx in _EXTENSION_CUE_RES
+    ):
         return None
     for extractor in _EXTRACTORS:
         intent = extractor(cleaned, lower)

@@ -53,6 +53,14 @@ _COUNTED_OUTCOME = re.compile(
 )
 
 
+# "make r the subject of A = pi r^2" is "solve A = pi r^2 for r".
+_MAKE_SUBJECT = re.compile(r"\bmake\s+[a-zA-Z]\s+the\s+subject\s+of\s+\S.*=", re.IGNORECASE)
+_COMPLEX_ARITHMETIC = re.compile(
+    r"(?:(?:what\s+is|what's|whats|simplify|evaluate|compute|calculate|expand|multiply)\s+)?"
+    r"[\d\s+\-*/().^i]+[?.]?"
+)
+
+
 def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     cleaned = prepare(text)
     if cleaned is None:
@@ -138,6 +146,43 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
 
     # "if f(x) = 3x + 1, what is f(2)": a function's value at a number.
     if extract_function_value_intent(cleaned) is not None:
+        return True
+    if _COMPLEX_ARITHMETIC.fullmatch(lower) and re.search(r"\d\s*i\b|\bi\s*\)", lower):
+        # "(2 + 3i)(1 - i)": numbers, operators, brackets and i, nothing else.
+        return True
+    from app.modules.math.tools.extractors.calculus_applications import (
+        CALCULUS_APPLICATION_EXTRACTORS,
+    )
+
+    # Area under or between curves, arc length, volume, tangents, stationary points.
+    if any(extractor(cleaned) is not None for extractor in CALCULUS_APPLICATION_EXTRACTORS):
+        return True
+    from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
+    from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
+    from app.modules.math.tools.school.number_facts import extract_number_fact_intent
+
+    # A missing leg or polygon angles; roots, percentages, standard form and
+    # sums in words; completing the square and the cosine rule.
+    if any(
+        extract(cleaned) is not None
+        for extract in (
+            extract_geometry_fact_intent,
+            extract_number_fact_intent,
+            extract_algebra_fact_intent,
+        )
+    ):
+        return True
+    if _MAKE_SUBJECT.search(cleaned):
+        return True
+    from app.modules.math.tools.school.single_draw import extract_single_draw_intent
+
+    # "probability of rolling a sum of 7 with two dice", "drawing a king from a deck".
+    if extract_single_draw_intent(cleaned) is not None:
+        return True
+    from app.modules.math.match.coordinate_vector import is_closed_coordinate_vector_request
+
+    # "magnitude of the vector (3, 4)", "dot product of (1, 2, 3) and (4, 5, 6)".
+    if is_closed_coordinate_vector_request(cleaned):
         return True
     if "=" in cleaned:
         from app.modules.math.tools.helpers import substituted_eval_expr

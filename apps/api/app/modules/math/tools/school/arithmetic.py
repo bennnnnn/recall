@@ -161,6 +161,22 @@ def _verified_block_arithmetic(
         from app.modules.math.tools.school.function_value import _block_function_value
 
         return _block_function_value(intent, lines)
+    if intent.school_op in {
+        "pythagoras_leg",
+        "polygon_angle_sum",
+        "polygon_interior",
+        "polygon_exterior",
+    }:
+        from app.modules.math.tools.school.geometry_facts import geometry_fact_block
+
+        return geometry_fact_block(intent, lines)
+    from app.modules.math.tools.school.algebra_facts import ALGEBRA_FACT_OPS, algebra_fact_block
+    from app.modules.math.tools.school.number_facts import NUMBER_FACT_OPS, number_fact_block
+
+    if intent.school_op in NUMBER_FACT_OPS:
+        return number_fact_block(intent, lines)
+    if intent.school_op in ALGEBRA_FACT_OPS:
+        return algebra_fact_block(intent, lines)
     if intent.school_op and intent.school_op.startswith("fraction_"):
         fraction_block = _block_fraction(intent, lines)
         if fraction_block is not None:

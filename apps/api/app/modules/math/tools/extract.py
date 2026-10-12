@@ -49,6 +49,10 @@ _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
     *ALGEBRA_EXTRACTORS,
 )
 
+_MAKE_SUBJECT_RE = re.compile(
+    r"\bmake\s+([a-zA-Z])\s+the\s+subject\s+of\s+(?:the\s+formula\s+)?(\S.*=.*?)[.?!]?$",
+    re.IGNORECASE,
+)
 _ROOTS_RE = re.compile(r"\b(?:find(?:\s+the)?\s+)?(?:roots|zeros)\s+of\s+(.+)", re.IGNORECASE)
 _TRIG_FUNCTION_RE = re.compile(
     r"\b(?:sin|cos|tan|cot|sec|csc)\s*(?:\^\s*(?:\{\d+\}|\d+)|[²³])?\s*\(",
@@ -284,6 +288,10 @@ def _extract_math_intent(text: str) -> MathIntent | None:
     # verify just the trailing restriction and silently ignore the actual ask.
     if function_analysis_constraint_would_be_dropped(cleaned):
         return None
+    subject = _MAKE_SUBJECT_RE.search(cleaned)
+    if subject is not None:
+        # "make r the subject of A = pi r^2" is "solve A = pi r^2 for r".
+        cleaned = f"solve {subject.group(2).strip()} for {subject.group(1)}"
     roots_match = _ROOTS_RE.search(cleaned)
     if roots_match:
         tail = math_expr_or_none(roots_match.group(1))
