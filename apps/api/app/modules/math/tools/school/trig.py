@@ -13,6 +13,7 @@ from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.helpers import math_expr_or_none
 from app.modules.math.tools.school._parse import _LABELED_NUMBER
 from app.modules.math.tools.school.teaching import _attach_picture
+from app.services.workout import Workout, math_line, render_workout, text_line
 
 _TRIG_FUNCS = ("sine", "cosine", "tangent", "sin", "cos", "tan")
 _TRIG_CANON = {"sine": "sin", "cosine": "cos", "tangent": "tan"}
@@ -308,7 +309,7 @@ def _verified_block_trig(
             f"{latex(low)}{degree_suffix} {left_comparator} {intent.variable} "
             f"{right_comparator} {latex(high)}{degree_suffix}"
         )
-        periodic: str | None = None
+        periodic: tuple[str, ...] | None = None
         if rhs == 0 and getattr(lhs, "func", None) in {sin, cos, tan} and len(lhs.args) == 1:
             integer = Symbol("k", integer=True)
             angle = lhs.args[0]
@@ -331,26 +332,30 @@ def _verified_block_trig(
                             k_values.append(rendered)
                 joined_k = r",\;".join(k_values)
                 interval_step = (
-                    f"$k = {joined_k}$ gives every value in ${domain_tex}$."
+                    math_line(
+                        f"k = {joined_k}", f"the values that keep ${intent.variable}$ in range"
+                    )
                     if k_values
-                    else f"Keep the values of $k$ that place $x$ in ${domain_tex}$."
+                    else text_line(
+                        f"Keep the values of $k$ that place ${intent.variable}$ in ${domain_tex}$."
+                    )
                 )
                 periodic = (
-                    "**1. Use the periodic zero law**\n\n"
-                    f"${zero_law}, \\quad k\\in\\mathbb{{Z}}$\n\n"
-                    "**2. Substitute the angle**\n\n"
-                    f"${latex(angle)} = {latex(angle_solution)}$\n\n"
-                    "**3. Solve for the variable**\n\n"
-                    f"${intent.variable} = {latex(general)}$\n\n"
-                    "**4. Apply the stated interval**\n\n"
-                    f"{interval_step}\n\n"
+                    math_line(f"{zero_law}, \\quad k\\in\\mathbb{{Z}}", "periodic zero law"),
+                    math_line(f"{latex(angle)} = {latex(angle_solution)}", "substitute the angle"),
+                    math_line(f"{intent.variable} = {latex(general)}", "solve"),
+                    interval_step,
                 )
-        direct = (
-            f"**Given:** ${latex(lhs)} = {latex(rhs)}$\n\n"
-            f"**Domain:** ${domain_tex}$\n\n"
-            + (periodic or "**Solve within the stated interval**\n")
-            + f"${answer}$\n\n"
-            + f"```answer\n{answer}\n```\n"
+        direct = render_workout(
+            Workout(
+                given=(
+                    math_line(f"{latex(lhs)} = {latex(rhs)}"),
+                    math_line(domain_tex, "domain"),
+                ),
+                find=(math_line(intent.variable),),
+                steps=(*(periodic or ()), math_line(answer, "solutions in the domain")),
+            ),
+            answer,
         )
         lines.extend(
             [
@@ -436,21 +441,28 @@ def _verified_block_trig(
                     if intent.school_op == "cos"
                     else simplify(components[0] * components[1] + components[2] * components[3])
                 )
-                direct = (
-                    "**Split into familiar angles**\n"
-                    f"${angle}^\\circ = {first}^\\circ + {second}^\\circ$\n\n"
-                    "**Use the angle-sum identity**\n"
-                    f"$\\{intent.school_op}({angle}^\\circ) = "
-                    f"\\{left_first}({first}^\\circ)\\{left_second}({second}^\\circ) "
-                    f"{sign} \\{right_first}({first}^\\circ)\\{right_second}({second}^\\circ)$\n\n"
-                    "**Write the exact component values**\n"
-                    f"$\\{left_first}({first}^\\circ)={latex(components[0])}$\n\n"
-                    f"$\\{left_second}({second}^\\circ)={latex(components[1])}$\n\n"
-                    f"$\\{right_first}({first}^\\circ)={latex(components[2])}$\n\n"
-                    f"$\\{right_second}({second}^\\circ)={latex(components[3])}$\n\n"
-                    "**Substitute and simplify**\n"
-                    f"$\\{intent.school_op}({angle}^\\circ) = {latex(signed_second)}$\n\n"
-                    f"```answer\n{answer}\n```\n"
+                op = intent.school_op
+                direct = render_workout(
+                    Workout(
+                        given=(math_line(f"{angle}^\\circ = {first}^\\circ + {second}^\\circ"),),
+                        find=(math_line(f"\\{op}({angle}^\\circ)"),),
+                        formula=(
+                            math_line(
+                                f"\\{op}(A + B) = \\{left_first} A\\,\\{left_second} B "
+                                f"{sign} \\{right_first} A\\,\\{right_second} B",
+                                "Angle-sum identity",
+                            ),
+                        ),
+                        # One short value per line stays readable on a narrow phone.
+                        substitution=(
+                            math_line(f"\\{left_first}({first}^\\circ)={latex(components[0])}"),
+                            math_line(f"\\{left_second}({second}^\\circ)={latex(components[1])}"),
+                            math_line(f"\\{right_first}({first}^\\circ)={latex(components[2])}"),
+                            math_line(f"\\{right_second}({second}^\\circ)={latex(components[3])}"),
+                            math_line(f"\\{op}({angle}^\\circ) = {latex(signed_second)}"),
+                        ),
+                    ),
+                    answer,
                 )
                 return replace(block, direct_reply=direct)
         return block

@@ -8,6 +8,7 @@ import re
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock
 from app.modules.math.tools.school._parse import _LABELED_NUMBER
+from app.services.workout import Workout, math_line, render_workout, text_line
 
 _Z_VALUE = re.compile(rf"\bx\s*=\s*({_LABELED_NUMBER})\b", re.IGNORECASE)
 _Z_SCORED = re.compile(rf"\bscored\s+({_LABELED_NUMBER})\b", re.IGNORECASE)
@@ -60,13 +61,21 @@ def _block_z_score(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | 
     interpretation += (
         " This describes relative position only; it does not assume a normal distribution."
     )
-    direct = (
-        "**Formula**\n"
-        "$z = \\frac{x - \\mu}{\\sigma}$\n\n"
-        "**Substitute**\n"
-        f"$z = \\frac{{{x_value:g} - {mean:g}}}{{{stdev:g}}} = {answer}$\n\n"
-        f"{interpretation}\n\n"
-        f"```answer\nz = {answer}\n```\n"
+    direct = render_workout(
+        Workout(
+            given=(
+                math_line(f"x = {x_value:g}"),
+                math_line(f"\\mu = {mean:g}", "mean"),
+                math_line(f"\\sigma = {stdev:g}", "standard deviation"),
+            ),
+            find=(math_line("z", "z-score"),),
+            formula=(math_line("z = \\frac{x - \\mu}{\\sigma}"),),
+            substitution=(
+                math_line(f"z = \\frac{{{x_value:g} - {mean:g}}}{{{stdev:g}}} = {answer}"),
+            ),
+            steps=(text_line(interpretation),),
+        ),
+        f"z = {answer}",
     )
     lines.extend(
         [

@@ -31,5 +31,5 @@ def test_signed_leading_decimal_is_one_complete_newton_guess(literal: str, expec
     assert block.newton_result.root * expected > 0
     reply = maybe_direct_math_reply(block, query)
     assert reply is not None
-    assert f"| 0 | {expected:g} |" in reply
+    assert f"_{{0}} = {expected:g}$" in reply
     assert validate_math_fences(reply, verified=block) == reply

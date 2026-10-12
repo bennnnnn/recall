@@ -22,6 +22,7 @@ from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult, solve_physics
 from app.modules.physics.solvers.common import QuantityResult
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
+from app.services.workout import WORKOUT_PROMPT_RULE
 
 logger = logging.getLogger(__name__)
 
@@ -147,14 +148,12 @@ def _build_physics_block(
             "Copy each verified formula; do not recalculate its numbers."
         )
     lines.append(
-        "Required user-visible layout for this verified physics solution: use the headings "
-        "**Given**, **Find**, **Formula**, **Substitution**, and **Answer**, in that order. "
-        "Put every heading and every equation on its own line; never compress the working "
-        "into one equation or paragraph. Under Given, list the supplied quantities with "
-        "units. Under Find, name the requested quantity. Under Formula, name the governing "
-        "law, show its universal/base equation first, and then show any rearrangement needed "
-        "for the requested unknown. Under Substitution, insert the supplied numbers. Under "
-        "Answer, state the verified result exactly once."
+        "Required user-visible layout for this verified physics solution: "
+        f"{WORKOUT_PROMPT_RULE} Put every equation on its own line. Under Given, list the "
+        "supplied quantities with units. Under Find, name the requested quantity. Under "
+        "Formula, name the governing law, show its universal/base equation first, then any "
+        "rearrangement for the requested unknown. Under Substitution, insert the supplied "
+        "numbers. Under Answer, state the verified result exactly once."
     )
     if result.simulation_specs:
         lines.append(

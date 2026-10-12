@@ -189,7 +189,7 @@ def test_audit_prompts_are_verified_instant_structured_physics(
     assert [reply.index(heading) for heading in _HEADINGS] == sorted(
         reply.index(heading) for heading in _HEADINGS
     )
-    assert f"**Formula**\n\n{CATALOG[op].law_name}:" in reply
+    assert "**Formula**  \n" in reply and f" — {CATALOG[op].law_name}" in reply
     assert not is_calendar_create_request(query)
     assert not should_inject_calendar_block(query)
 
@@ -209,11 +209,11 @@ def test_named_base_law_keeps_the_equivalent_form_used_for_substitution() -> Non
     assert verified is not None
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
-    assert "**Formula**\n\nElectrical-power formula:" in reply
+    assert "— Electrical-power formula" in reply
     assert "$P = VI$" in reply
-    assert "Equivalent form for the given quantities:" in reply
+    assert "— the same law for these quantities" in reply
     assert "$P = I^2 R$" in reply
-    assert "**Substitution**\n\n$P = 3^{2} \\cdot 4$" in reply
+    assert "**Substitution**  \n$P = 3^{2} \\cdot 4$" in reply
 
 
 def test_identical_base_law_is_not_repeated_as_an_equivalent_form() -> None:
@@ -226,7 +226,7 @@ def test_identical_base_law_is_not_repeated_as_an_equivalent_form() -> None:
 
     assert reply is not None
     assert "$F = ma$" in reply
-    assert "Equivalent form for the given quantities:" not in reply
+    assert "— the same law for these quantities" not in reply
 
 
 def test_numbered_givens_and_degree_units_use_mathematical_notation() -> None:
@@ -335,13 +335,13 @@ def test_worked_layout_names_the_requested_unknown(
     assert verified is not None
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
-    assert f"**Find**\n\n{find_line}" in reply
-    assert f"**Formula**\n\n{law_name}:" in reply
+    assert f"**Find**  \n{find_line}" in reply
+    assert "**Formula**  \n" in reply and f" — {law_name}" in reply
     assert base_formula in reply
     if rearranged_formula is not None:
-        assert f"Rearranged for {find_line}:" in reply
+        assert f"— rearranged for {find_line}" in reply
         assert rearranged_formula in reply
-    assert f"**Substitution**\n\n{substitution_line}" in reply
+    assert f"**Substitution**  \n{substitution_line}" in reply
 
 
 def test_impact_speed_uses_height_formula_and_scientific_givens_stay_readable() -> None:

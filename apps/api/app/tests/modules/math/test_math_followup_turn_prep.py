@@ -228,8 +228,8 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
 
     assert bundle.verified_subject is not None
     assert bundle.instant_reply is not None
-    assert bundle.instant_reply.startswith("**Given:**")
-    assert "Subtract 3 from both sides" in bundle.instant_reply
-    assert "Square root" in bundle.instant_reply
+    assert bundle.instant_reply.startswith("**Given**")
+    assert "subtract 3 from both sides" in bundle.instant_reply
+    assert "square root" in bundle.instant_reply
     assert "—" in bundle.instant_reply.split("```answer")[0]
     assert _EQUATION_RESULT in bundle.instant_reply

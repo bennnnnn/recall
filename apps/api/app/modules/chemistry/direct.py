@@ -8,13 +8,14 @@ from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.chemistry.fence import assemble_chemistry_reply
 from app.modules.chemistry.notation import typeset
 from app.modules.chemistry.solvers.types import ChemistryResult
+from app.services.workout import Workout, formula_name, render_workout, text_line
 
 
-def _law_section(result: ChemistryResult, show: Callable[[str], str]) -> str:
-    """A law's equation under **Formula**; a procedure's rule under **Method**."""
+def _law_line(result: ChemistryResult, show: Callable[[str], str]) -> str:
+    """A law's equation with its name; a procedure's rule written out."""
     if result.method:
-        return f"**Method**\n\n{result.formula_name}: {show(result.formula)}"
-    return f"**Formula**\n\n{show(result.formula)} — {result.formula_name}"
+        return text_line(f"{result.formula_name}: {show(result.formula)}")
+    return text_line(show(result.formula), formula_name(result.formula_name))
 
 
 def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
@@ -22,20 +23,18 @@ def format_direct_chemistry_reply(verified: VerifiedChemistry) -> str:
     # The solver text is ASCII (H2SO4, Fe2+, ->); the reader gets H₂SO₄, Fe²⁺, →. A result
     # that carries SMILES or atom labels is left exactly as the solver wrote it.
     show = (lambda text: text) if result.verbatim else typeset
-    given = "\n".join(f"- {show(item)}" for item in result.given)
-    substitution = "\n".join(show(line) for line in result.substitution)
-    # The body is laid out here, so the shared calculation layout is not run over it: it
-    # would wrap any row with two "=" in LaTeX math, and a row like "n = 10 / 2.02 = 4.95 mol"
-    # is chemistry text, not a formula the client can typeset.
-    body = (
-        f"**Given**\n\n{given}\n\n"
-        f"**Find**\n\n{show(result.find)}\n\n"
-        f"{_law_section(result, show)}\n\n"
+    # Chemistry rows stay text: a row like "n = 10 / 2.02 = 4.95 mol" is chemistry
+    # notation, not a formula the client can typeset. The layout is the shared one.
+    rows = tuple(text_line(show(line)) for line in result.substitution)
+    workout = Workout(
+        given=tuple(text_line(show(item)) for item in result.given),
+        find=(text_line(show(result.find)),),
+        formula=(_law_line(result, show),),
         # A procedure's rows check its rule (an atom tally, a range); they substitute nothing.
-        f"**{'Working' if result.method else 'Substitution'}**\n\n{substitution}\n\n"
-        f"**Answer**"
+        steps=rows if result.method else (),
+        substitution=() if result.method else rows,
     )
-    return assemble_chemistry_reply(body, verified)
+    return assemble_chemistry_reply(render_workout(workout), verified)
 
 
 def maybe_direct_chemistry_reply(

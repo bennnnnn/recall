@@ -11,6 +11,7 @@ from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.services.workout import Workout, math_line, note_from_label, render_workout, text_line
 
 _ODE_START_RE = re.compile(r"dy\s*/\s*dx|d\^?2\s*y\s*/\s*dx\^?2|[A-Za-z]'")
 _ODE_INITIAL_RE = re.compile(
@@ -166,13 +167,15 @@ def apply_calculus_extension(
         labels = ["Separate variables", "Integrate both sides", "Write the general solution"]
         if len(out.steps) == 4:
             labels.append("Use the initial condition")
-        chunks = [f"**Given:** ${intent.expr}$"]
-        chunks.extend(
-            f"**{index}. {label}**\n${formula}$"
-            for index, (label, formula) in enumerate(zip(labels, out.steps, strict=True), start=1)
+        steps = tuple(
+            math_line(formula, note_from_label(label))
+            for label, formula in zip(labels, out.steps, strict=True)
         )
-        chunks.append(f"```answer\n{out.latex}\n```\n")
-        return replace(block, direct_reply="\n\n".join(chunks))
+        direct = render_workout(
+            Workout(given=(math_line(intent.expr),), find=(math_line("y"),), steps=steps),
+            out.latex,
+        )
+        return replace(block, direct_reply=direct)
     if intent.operation == "critical_points" and intent.expr:
         out = math_school.critical_points(intent.expr, intent.variable)
         lines.append(f"Critical points: {out.latex}")
@@ -191,10 +194,13 @@ def apply_calculus_extension(
             lines.append(f"Counterexample: {counterexample}")
             details.append(f"For example, ${counterexample}$.")
         answer = r"\text{false}"
-        direct = "**No — it is not always true.**"
-        if details:
-            direct += "\n\n" + " ".join(details)
-        direct += f"\n\n```answer\n{answer}\n```\n"
+        direct = render_workout(
+            Workout(
+                given=(math_line(f"{intent.lhs} = {intent.rhs}"),),
+                steps=(text_line("Not an identity: it is not true for every value."), *details),
+            ),
+            answer,
+        )
         return replace(
             _finish_with_answer(lines, answer),
             direct_reply=direct,
@@ -268,14 +274,23 @@ def apply_calculus_extension(
                 )
 
             differentiated = f"{_derivative_tex(left_d)} = {_derivative_tex(right_d)}"
-            direct = (
-                f"**Given:** ${latex(left.xreplace({dependent_fn: dependent}))} = "
-                f"{latex(right.xreplace({dependent_fn: dependent}))}$\n\n"
-                "**1. Differentiate both sides with respect to $x$**\n"
-                f"${differentiated}$\n\n"
-                "**2. Collect the $\\frac{dy}{dx}$ terms and solve**\n"
-                f"$\\frac{{dy}}{{dx}} = {answer}$\n\n"
-                f"```answer\n\\frac{{dy}}{{dx}} = {answer}\n```\n"
+            given_eq = (
+                f"{latex(left.xreplace({dependent_fn: dependent}))} = "
+                f"{latex(right.xreplace({dependent_fn: dependent}))}"
+            )
+            direct = render_workout(
+                Workout(
+                    given=(math_line(given_eq),),
+                    find=(math_line(r"\frac{dy}{dx}"),),
+                    steps=(
+                        math_line(differentiated, "differentiate both sides with respect to $x$"),
+                        math_line(
+                            f"\\frac{{dy}}{{dx}} = {answer}",
+                            "collect the $\\frac{dy}{dx}$ terms and solve",
+                        ),
+                    ),
+                ),
+                f"\\frac{{dy}}{{dx}} = {answer}",
             )
             return replace(block, direct_reply=direct)
         except Exception:

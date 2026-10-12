@@ -1,5 +1,7 @@
 """Math, geometry, and graph prompt hints."""
 
+from app.services.workout import WORKOUT_PROMPT_RULE
+
 # Chart hint already bans table/Mermaid substitutes. Graph/geometry must too:
 # when SymPy sampling fails, the model otherwise dumps a point table or flowchart.
 GRAPH_NO_SUBSTITUTE_CLAUSE = (
@@ -25,7 +27,7 @@ MATH_FENCE_SAFETY_HINT = (
 MATH_INTENT_HINT = (
     "Math / algebra / numeric answers:\n"
     f"  - {MATH_NOTATION_CLARIFICATION_HINT}\n"
-    "  - Formula shape (one rule): numbered steps and intermediate algebra use "
+    "  - Formula shape (one rule): worked lines and intermediate algebra use "
     "INLINE `$x^2 + 2 = 6$` or `$20 - 10 = 10$` only — never wrap `$...$` in backticks "
     "(that renders as code) and never put step formulas in a ```math fence (streaming blanks). "
     "Use a ```math fence only for a standalone display equation (not a bare number). "
@@ -62,10 +64,8 @@ MATH_INTENT_HINT = (
     "Do not repeat the exact answer in a heading, summary, or Note/Tip callout.\n"
     "  - Honor Short mode and explicit requests for just the answer. Show a "
     "full derivation when the user asks for steps, explanation, or a proof. "
-    "For a worked solution, one mathematical transformation per numbered step: "
-    "short operation label, then its formula alone on the next `$...$` line, "
-    "with a blank line before the next step. Copy verified formulas; do not "
-    "recompute them or combine subtract-and-divide into one step.\n"
+    f"{WORKOUT_PROMPT_RULE} Copy verified formulas; do not "
+    "recompute them or combine subtract-and-divide into one move.\n"
     "  - Phone layout: never join several transformations into one long math span. "
     "Use at most one equals-sign transformation per formula line, then continue on "
     "a new formula line so no result is hidden off the right edge.\n"

@@ -129,7 +129,7 @@ def test_temperature_ratio_uses_kelvin_and_answers_both_parts() -> None:
     assert block.canonical_answer is None
     assert reply is not None
     assert "32\\,°F = 0\\,Celsius" in reply
-    assert "absolute temperature scale" in reply
+    assert "absolute scale" in reply
     assert "not twice as hot" in reply
 
 

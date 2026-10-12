@@ -1,10 +1,12 @@
 """Request-aware math presentation shared by heuristic and tool-result prompts."""
 
+from app.services.workout import WORKOUT_PROMPT_RULE
+
 MATH_REPLY_POLICY = (
-    "Math reply policy for this request: For a multi-step word problem, use a compact worked "
-    "layout: Given, Find, Formula, Substitution, then the final Answer. Trivial one-step "
-    "arithmetic stays one math row and does not use those sections. Put each value or "
-    "equation on its own short line and do not wrap the calculation in prose paragraphs. "
+    "Math reply policy for this request: "
+    f"{WORKOUT_PROMPT_RULE} "
+    "Put each value or equation on its own short line and do not wrap the calculation "
+    "in prose paragraphs. "
     "Name the governing formula and show its universal form before rearranging it for an "
     "unknown. Do not add tutorial bullets, examples, alternatives, Note/Tip cards, or repeat "
     "the result in equivalent forms. "
@@ -21,7 +23,6 @@ MATH_REPLY_POLICY = (
     "Honor explicit requests for just the answer or no steps. Always preserve necessary "
     "domains, excluded endpoints or values, all solution branches, units, constants of "
     "integration, and every requested part of the problem. When steps are shown, one "
-    "transformation per numbered step: operation label, then the formula alone on the "
-    "next `$...$` line. Copy verified formulas; do not recompute them. Inverse "
+    "move per line in that layout. Copy verified formulas; do not recompute them. Inverse "
     "operations are for equations, not a universal teaching method."
 )

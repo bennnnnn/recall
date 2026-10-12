@@ -33,6 +33,7 @@ from app.modules.math.schemas import (
 from app.modules.math.tools.block.canonical import _diagram_block, _finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
 from app.services.solving import VerifiedMathBlock
+from app.services.workout import Workout, math_line, render_workout
 
 
 def _finish_geometry(
@@ -208,11 +209,21 @@ def _verified_block_circle(
             return VerifiedMathBlock(text="\n".join(lines), direct_reply=message)
         distance = math.sqrt(intent.radius**2 - (chord / 2) ** 2)
         answer = math_solve.format_geometry_decimal(distance)
-        direct = (
-            "**Use the perpendicular-bisector right triangle**\n"
-            f"$d = \\sqrt{{r^2-(c/2)^2}} = "
-            f"\\sqrt{{{intent.radius:g}^2-({chord:g}/2)^2}} = {answer}$\n\n"
-            f"```answer\n{answer} {intent.unit}\n```\n"
+        direct = render_workout(
+            Workout(
+                given=(
+                    math_line(f"r = {intent.radius:g}", "radius"),
+                    math_line(f"c = {chord:g}", "chord"),
+                ),
+                find=(math_line("d", "distance from the centre to the chord"),),
+                formula=(
+                    math_line("d = \\sqrt{r^2-(c/2)^2}", "Perpendicular bisector of the chord"),
+                ),
+                substitution=(
+                    math_line(f"d = \\sqrt{{{intent.radius:g}^2-({chord:g}/2)^2}} = {answer}"),
+                ),
+            ),
+            f"{answer} {intent.unit}",
         )
         return replace(
             _finish_with_answer(lines, answer),

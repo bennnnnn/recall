@@ -52,7 +52,7 @@ def _steps(steps):
             2 * x + 9,
             ">",
             [
-                ("Subtract 2 x from both sides", "3 x - 3 > 9"),
+                ("Subtract $2 x$ from both sides", "3 x - 3 > 9"),
                 ("Add 3 to both sides", "3 x > 12"),
                 ("Divide both sides by 3", "x > 4"),
             ],
@@ -220,15 +220,15 @@ def _reply(text: str, style: str) -> str | None:
 def test_a_system_gets_a_server_rendered_lesson():
     reply = _reply("solve 2x+3y=12, x-y=1", "balanced")
     assert reply is not None
-    assert reply.startswith(r"**Given:** $2 x + 3 y = 12, \quad x - y = 1$")
-    assert "**1. Solve equation (2) for x**\n$x = y + 1$" in reply
+    assert reply.startswith("**Given**  \n$2 x + 3 y = 12$  \n$x - y = 1$")
+    assert "$x = y + 1$ — solve equation (2) for x" in reply
     assert reply.endswith("```answer\nx = 3, y = 2\n```\n")
 
 
 def test_an_inequality_lesson_keeps_its_number_line_and_a_clean_answer():
     reply = _reply("show steps for 2x + 3 < 7", "balanced")
     assert reply is not None
-    assert "**1. Subtract 3 from both sides**\n$2 x < 4$" in reply
+    assert "$2 x < 4$ — subtract 3 from both sides" in reply
     assert "```answer\nx < 2\n```" in reply
     graph = reply.split("```graph\n", 1)[1].split("\n```", 1)[0]
     assert json.loads(graph)["type"] == "number_line"
@@ -238,16 +238,16 @@ def test_explain_adds_the_reason_for_the_flip():
     reply = _reply("explain how to solve -3x+2>=8", "balanced")
     assert reply is not None
     assert (
-        r"**2. Divide both sides by -3** — dividing by a negative number reverses the inequality"
-        "\n$x \\le -2$"
+        r"$x \le -2$ — divide both sides by -3 "
+        "(dividing by a negative number reverses the inequality)"
     ) in reply
 
 
 def test_a_short_inequality_still_uses_the_verified_trace_and_clean_spelling():
     reply = _reply("solve -3x+2>=8", "short")
     assert reply is not None
-    assert reply.startswith("**Given:**")
-    assert "Divide both sides by -3" in reply
+    assert reply.startswith("**Given**")
+    assert "divide both sides by -3" in reply
     assert "```answer\nx \\le -2\n```" in reply
 
 
@@ -307,8 +307,8 @@ def test_derivative_trace_is_empty_for_an_unknown_rule():
 def test_a_multi_part_derivative_gets_a_lesson_with_a_find_line():
     reply = _reply("differentiate x^3 + 2x", "balanced")
     assert reply is not None
-    assert reply.startswith(r"**Find:** $\frac{d}{dx}\left(x^{3} + 2 x\right)$")
-    assert "**2. Power rule on $x^{3}$**" in reply
+    assert reply.startswith("**Given**  \n$y = x^{3} + 2 x$\n\n**Find**  \n$\\frac{dy}{dx}$")
+    assert "— power rule on $x^{3}$" in reply
     assert reply.endswith("```answer\n3 x^{2} + 2\n```\n")
 
 
@@ -405,7 +405,7 @@ def test_integral_trace_is_empty_for_an_unknown_method():
 def test_an_integral_lesson_ends_on_its_checked_antiderivative():
     reply = _reply("integrate x(x^2+1)^5", "balanced")
     assert reply is not None
-    assert reply.startswith(r"**Find:** $\int x \left(x^{2} + 1\right)^{5}\,dx$")
+    assert reply.startswith(r"**Find**  " "\n" r"$\int x \left(x^{2} + 1\right)^{5}\,dx$")
     assert reply.endswith("```answer\n\\frac{\\left(x^{2} + 1\\right)^{6}}{12} + C\n```\n")
 
 
@@ -420,13 +420,13 @@ def test_a_short_integral_answer_reads_term_by_term():
     [
         ("differentiate x^2 sin(x) step by step", "Product rule"),
         ("show steps: differentiate x^2 sin(x)", "Product rule"),
-        ("explain how to integrate x e^x", "Choose $u = x$"),
-        ("Show steps: integrate x(x^2+1)^5", "Let $u = x^{2} + 1$"),
+        ("explain how to integrate x e^x", "choose $u = x$"),
+        ("Show steps: integrate x(x^2+1)^5", "let $u = x^{2} + 1$"),
     ],
 )
 def test_teaching_words_around_calculus_still_get_the_lesson(text: str, rule: str) -> None:
     reply = _reply(text, "balanced")
-    assert reply is not None and "**1." in reply and rule in reply
+    assert reply is not None and " — " in reply.split("```answer")[0] and rule in reply
 
 
 def test_calculus_with_an_unrelated_ask_keeps_the_model() -> None:

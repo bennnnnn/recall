@@ -28,6 +28,12 @@ from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
 from app.modules.physics.working import result_symbol_for
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock
+from app.services.workout import (
+    Workout,
+    math_line,
+    render_workout,
+    text_line,
+)
 
 _EXTRA_REQUEST = re.compile(
     r"\b(?:hint|air resistance|(?<!stokes )(?<!stokes' )drag|wind|"
@@ -124,7 +130,7 @@ def _formula_identity(formula: str) -> str:
 
 
 def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
-    """Name the governing law, show its base form, then any rearrangement."""
+    """The governing law named on its base form, then any rearrangement."""
     operation = intent.physics_op or ""
     spec = formula_spec(operation)
     name = spec.law_name if spec is not None else "Physics formula"
@@ -134,23 +140,23 @@ def _formula_rows(intent: PhysicsIntent, formulas: list[str]) -> list[str]:
     if spec is not None:
         base, lines, _assumptions = select_formula(spec, params)
     if lines:
-        return [f"{name}:", *[f"${line}$" for line in lines]]
-    rows = [f"{name}:"]
+        return [math_line(line, name if index == 0 else None) for index, line in enumerate(lines)]
     if base is None:
-        rows.extend(f"${formula}$" for formula in formulas)
-        return rows
+        return [
+            math_line(formula, name if index == 0 else None)
+            for index, formula in enumerate(formulas)
+        ]
 
-    rows.append(f"${base}$")
+    rows = [math_line(base, name)]
     base_lhs = base.split(" = ", 1)[0].strip()
     for formula in formulas:
         formula_lhs = formula.split(" = ", 1)[0].strip()
         if _formula_identity(formula) == _formula_identity(base):
             continue
         if formula_lhs == base_lhs:
-            rows.append("Equivalent form for the given quantities:")
+            rows.append(math_line(formula, "the same law for these quantities"))
         else:
-            rows.append(f"Rearranged for ${formula_lhs}$:")
-        rows.append(f"${formula}$")
+            rows.append(math_line(formula, f"rearranged for ${formula_lhs}$"))
     return rows
 
 
@@ -216,17 +222,20 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     substitutions = list(verified.physics_substitutions)
     result_symbol = result_symbol_for(intent)
     find_symbol = result_symbol or formulas[0].split(" = ", 1)[0]
-    rows = ["**Given**", *given_rows, "**Find**", f"${find_symbol}$", "**Formula**"]
-    rows.extend(_formula_rows(intent, formulas))
+    formula_rows = _formula_rows(intent, formulas)
     spec = formula_spec(intent.physics_op or "")
     if spec is not None:
-        rows.extend(
-            f"Assumption: {assumption}." for assumption in visible_assumptions(spec, params)
+        formula_rows.extend(
+            text_line(f"Assumes {assumption}.") for assumption in visible_assumptions(spec, params)
         )
-    rows.append("**Substitution**")
-    rows.extend(f"${substitution}$" for substitution in substitutions)
-    rows.append("**Answer**")
-    return "\n\n".join(rows)
+    return render_workout(
+        Workout(
+            given=tuple(given_rows),
+            find=(math_line(find_symbol),),
+            formula=tuple(formula_rows),
+            substitution=tuple(math_line(substitution) for substitution in substitutions),
+        )
+    )
 
 
 def _solver_fences(verified: VerifiedPhysicsBlock) -> list[dict[str, Any]]:

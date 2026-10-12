@@ -12,6 +12,7 @@ from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.school._parse import _PROB_NUMBER
+from app.services.workout import Workout, math_line, render_workout
 
 _BINOMIAL_PARAM = re.compile(
     rf"\b([nkp])\s*=\s*({_PROB_NUMBER}(?:\s*/\s*{_PROB_NUMBER})?)(?=\s|[,;.!?]|$)",
@@ -165,17 +166,24 @@ def _verified_block_probability(
                 f"Probability: {len(favorable)}/{len(sample)} = {probability}",
             )
         )
-        direct = (
-            "**Conditional sample space**\n\n"
-            f"Given $S {comparator_latex} {intent.combo_n}$:\n\n"
-            f"${sample_text}$\n\n"
-            f"There are **{len(sample)}** equally likely ordered outcomes.\n\n"
-            "**Favorable outcomes**\n\n"
-            f"For $S = {intent.combo_k}$: ${favorable_text}$\n\n"
-            "**Conditional probability**\n\n"
-            rf"$P(S={intent.combo_k}\mid S {comparator_latex} {intent.combo_n})="
-            f"{probability_working}$" + "\n\n"
-            f"```answer\n{answer}\n```\n"
+        event = rf"P(S={intent.combo_k}\mid S {comparator_latex} {intent.combo_n})"
+        direct = render_workout(
+            Workout(
+                given=(math_line(f"S {comparator_latex} {intent.combo_n}", "two fair dice"),),
+                find=(math_line(event),),
+                formula=(
+                    math_line(r"P(A \mid B) = \frac{n(A \cap B)}{n(B)}", "Equally likely outcomes"),
+                ),
+                substitution=(
+                    math_line(
+                        sample_text,
+                        f"{len(sample)} outcomes with ${{S {comparator_latex} {intent.combo_n}}}$",
+                    ),
+                    math_line(favorable_text, f"those with $S = {intent.combo_k}$"),
+                    math_line(f"{event} = {probability_working}"),
+                ),
+            ),
+            answer,
         )
         return replace(_finish_with_answer(lines, answer), direct_reply=direct)
     if (
@@ -243,33 +251,66 @@ def _verified_block_probability(
         medical = all(name in request_text for name in ("sensitivity", "specificity", "prevalence"))
         if medical:
             answer = f"{float(posterior) * 100:.6g}\\%"
-            direct = (
-                "**1. Translate the test rates**\n\n"
-                f"$P(D)={prior:g}$\n\n"
-                f"$P(+\\mid D)={hit:g}$\n\n"
-                "Specificity is $P(-\\mid \\neg D)$, so the false-positive rate is\n"
-                f"$P(+\\mid \\neg D)=1-{1.0 - false_positive:g}$\n\n"
-                f"$P(+\\mid \\neg D)={false_positive:g}$\n\n"
-                "**2. Find the total chance of a positive result**\n\n"
-                f"$P(+\\cap D)=({hit:g})({prior:g})={hit * prior:g}$\n\n"
-                f"$P(+) = ({hit:g})({prior:g}) + ({false_positive:g})(1-{prior:g})$\n\n"
-                f"$P(+)={evidence:g}$\n\n"
-                "**3. Apply Bayes' theorem**\n\n"
-                f"$P(D\\mid +)=\\frac{{({hit:g})({prior:g})}}{{{evidence:g}}}$\n\n"
-                f"$P(D\\mid +)={posterior}$\n\n"
-                f"$P(D\\mid +)\\approx {answer}$\n\n"
-                f"```answer\n{answer}\n```\n"
+            direct = render_workout(
+                Workout(
+                    given=(
+                        math_line(f"P(D) = {prior:g}", "prevalence"),
+                        math_line(f"P(+\\mid D) = {hit:g}", "sensitivity"),
+                        math_line(f"P(-\\mid \\neg D) = {1.0 - false_positive:g}", "specificity"),
+                    ),
+                    find=(math_line("P(D\\mid +)"),),
+                    formula=(
+                        math_line("P(D\\mid +) = \\frac{P(+\\mid D)P(D)}{P(+)}", "Bayes' theorem"),
+                    ),
+                    substitution=(
+                        math_line(
+                            f"P(+\\mid \\neg D) = 1 - {1.0 - false_positive:g}"
+                            f" = {false_positive:g}",
+                            "false-positive rate",
+                        ),
+                        math_line(
+                            f"P(+\\cap D) = ({hit:g})({prior:g}) = {hit * prior:g}",
+                            "true positives",
+                        ),
+                        math_line(
+                            f"P(+) = ({hit:g})({prior:g}) + ({false_positive:g})(1-{prior:g})"
+                            f" = {evidence:g}",
+                            "every positive result",
+                        ),
+                        math_line(
+                            f"P(D\\mid +) = \\frac{{({hit:g})({prior:g})}}{{{evidence:g}}}"
+                            f" = {posterior}"
+                        ),
+                        math_line(f"\\approx {answer}"),
+                    ),
+                ),
+                answer,
             )
         else:
             answer = posterior
-            direct = (
-                "**Bayes' theorem**\n"
-                "$P(A\\mid B)=\\frac{P(B\\mid A)P(A)}"
-                "{P(B\\mid A)P(A)+P(B\\mid \\neg A)P(\\neg A)}$\n\n"
-                "**Substitute**\n"
-                f"$P(A\\mid B)=\\frac{{({hit:g})({prior:g})}}"
-                f"{{({hit:g})({prior:g})+({false_positive:g})(1-{prior:g})}}={posterior}$\n\n"
-                f"```answer\n{answer}\n```\n"
+            direct = render_workout(
+                Workout(
+                    given=(
+                        math_line(f"P(A) = {prior:g}"),
+                        math_line(f"P(B\\mid A) = {hit:g}"),
+                        math_line(f"P(B\\mid \\neg A) = {false_positive:g}"),
+                    ),
+                    find=(math_line("P(A\\mid B)"),),
+                    formula=(
+                        math_line(
+                            "P(A\\mid B)=\\frac{P(B\\mid A)P(A)}"
+                            "{P(B\\mid A)P(A)+P(B\\mid \\neg A)P(\\neg A)}",
+                            "Bayes' theorem",
+                        ),
+                    ),
+                    substitution=(
+                        math_line(
+                            f"P(A\\mid B)=\\frac{{({hit:g})({prior:g})}}"
+                            f"{{({hit:g})({prior:g})+({false_positive:g})(1-{prior:g})}}={posterior}"
+                        ),
+                    ),
+                ),
+                answer,
             )
         lines.append(f"P(A|B) = {posterior}")
         return replace(_finish_with_answer(lines, answer), direct_reply=direct)

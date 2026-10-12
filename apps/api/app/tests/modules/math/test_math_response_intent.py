@@ -77,9 +77,9 @@ def test_equivalent_equation_prompts_follow_the_requested_presentation() -> None
         _block(lowercase), lowercase, response_style="balanced"
     )
 
-    assert normal_reply is not None and "**1." in normal_reply
+    assert normal_reply is not None and "**Steps**" in normal_reply
     assert answer_reply == "```answer\nx = 2\n```\n"
-    assert steps_reply is not None and "**1." in steps_reply and "**2." in steps_reply
+    assert steps_reply is not None and steps_reply.split("```answer")[0].count(" — ") >= 2
     assert explain_reply is not None and "this removes the added 3" in explain_reply
     assert (
         lowercase_reply is not None and "x = 2" in lowercase_reply and "X =" not in lowercase_reply

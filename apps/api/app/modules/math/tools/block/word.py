@@ -19,6 +19,7 @@ from app.modules.math.schemas.word_problem import WordProblemSetup
 from app.modules.math.solve.word_problem import WordSolution, solve_word_problem
 from app.modules.math.tools.block.canonical import _answer_canonical
 from app.services.solving import VerifiedMathBlock
+from app.services.workout import Workout, math_line, render_workout, text_line
 
 _PLAIN = re.compile(r"[^A-Za-z0-9 ,.'()%/-]")
 _UNIT = re.compile(r"[^A-Za-z ]")
@@ -83,27 +84,28 @@ def _answer_sentence(setup: WordProblemSetup, solution: WordSolution) -> str:
 
 
 def format_word_problem_reply(setup: WordProblemSetup, solution: WordSolution, answer: str) -> str:
-    unknowns = "\n".join(
-        f"${unknown.symbol}$ = {_plain(unknown.meaning)}"
-        + (f" ({_unit(unknown.unit)})" if _unit(unknown.unit) else "")
+    """Given: each equation with the words it comes from. Find: what each letter is."""
+    from app.modules.math.tools.lesson import trace_lines
+
+    find = tuple(
+        math_line(
+            unknown.symbol,
+            _plain(unknown.meaning) + (f" ({_unit(unknown.unit)})" if _unit(unknown.unit) else ""),
+        )
         for unknown in setup.unknowns
     )
-    equations = "\n".join(
-        f"${tex}$" + (f' (from "{_plain(item.source)}")' if _plain(item.source) else "")
+    given = tuple(
+        math_line(tex, f'"{_plain(item.source)}"' if _plain(item.source) else None)
         for tex, item in zip(solution.equations, setup.equations, strict=True)
     )
-    chunks = [f"**Let**\n{unknowns}", f"**Equations**\n{equations}"]
     if solution.steps:
-        chunks.append("**Solve**")
-        chunks.extend(
-            f"**{index}. {step.label}**\n${step.formula}$"
-            for index, step in enumerate(solution.steps, start=1)
+        _formulas, lines = trace_lines(
+            solution.steps, given_latex="", answer=answer, variable=setup.unknowns[0].symbol
         )
     else:
-        values = ", ".join(f"${name} = {latex(value)}$" for name, value in solution.values)
-        chunks.append(f"**Solution**\n{values}")
+        values = r",\; ".join(f"{name} = {latex(value)}" for name, value in solution.values)
+        lines = [math_line(values, "solve")]
     if solution.check:
-        chunks.append(f"Check: ${solution.check}$")
-    chunks.append(f"**Answer:** {_answer_sentence(setup, solution)}")
-    chunks.append(f"```answer\n{answer}\n```")
-    return "\n\n".join(chunks) + "\n"
+        lines.append(math_line(solution.check, "check"))
+    lines.append(text_line(_answer_sentence(setup, solution)))
+    return render_workout(Workout(given=given, find=find, steps=tuple(lines)), answer)

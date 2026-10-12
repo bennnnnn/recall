@@ -41,7 +41,51 @@ def label_tex(value: Any) -> str:
     as math; plain numbers and terms read the same either way.
     """
     tex = str(latex(value))
-    return tex if _PLAIN_LABEL_TEX.match(tex) else f"${tex}$"
+    # A number stays plain ("by 2"); a term is math ("$2 x$"), so it is set in
+    # the same italic as the line it acts on.
+    if _PLAIN_LABEL_TEX.match(tex) and not re.search(r"[A-Za-z]", tex):
+        return tex
+    return f"${tex}$"
+
+
+_CHANGE_OF_BASE = re.compile(
+    r"\\frac\{\\log\{\\left\((.+?) \\right\)\}\}\{\\log\{\\left\((\d+(?:\.\d+)?) \\right\)\}\}"
+)
+_UNIT_FACTOR = re.compile(r"(?<![\d.}])1 \\cdot ")
+
+
+def written_side(text: str, variables: list[str]) -> tuple[Any, str] | None:
+    """A side as the student typed it: ``3(x-2)+4``, not SymPy's ``3x - 2``.
+
+    The parse is unevaluated and printed in the typed order, so Given shows
+    the problem the student wrote. A change of base is a written base again.
+    """
+    from app.modules.math.solve.parse import _parse_expression
+
+    try:
+        expr = _parse_expression(text, variables, real=True, evaluate=False)
+        tex = str(latex(expr, order="none"))
+    except Exception:
+        return None
+    tex = _CHANGE_OF_BASE.sub(r"\\log_{\2}\\left(\1\\right)", tex)
+    return expr, _UNIT_FACTOR.sub("", tex)
+
+
+def rewrite_label(written: Any, evaluated: Any) -> str | None:
+    """The move from the typed side to the solver's: expand, collect, or none."""
+    from sympy import Add, Mul, preorder_traversal
+
+    def has_bracket(expr: Any) -> bool:
+        return any(
+            isinstance(node, Mul) and any(isinstance(arg, Add) for arg in node.args)
+            for node in preorder_traversal(expr)
+        )
+
+    if has_bracket(written) and not has_bracket(evaluated):
+        return "Expand"
+    if len(Add.make_args(written)) != len(Add.make_args(evaluated)):
+        return "Collect like terms"
+    return None
 
 
 def stringify_key_steps(steps: list[KeyStep]) -> list[str]:
@@ -228,7 +272,11 @@ def _divide_both_sides_step(
 ) -> KeyStep:
     return KeyStep(
         label=label or f"Divide both sides by {label_tex(coeff)}",
-        formula=(f"{_cancelled_side_tex(cur_l, coeff)} = {_cancelled_side_tex(cur_r, coeff)}"),
+        # Only the variable side cancels: ``3x = 3`` divided by 3 is ``x = 3/3``, not
+        # a struck-through 3 on both sides.
+        formula=(
+            f"{_cancelled_side_tex(cur_l, coeff)} = \\frac{{{latex(cur_r)}}}{{{latex(coeff)}}}"
+        ),
         reason=f"this undoes multiplication by {latex(coeff)}",
         branch=branch,
     )

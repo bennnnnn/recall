@@ -38,9 +38,9 @@ def test_numeric_base_logs_keep_the_logarithms_and_enforce_the_domain() -> None:
     assert "log(x - 1)" in (intent.lhs or "")
     assert block.canonical_answer == "x = 5"
     assert reply is not None
-    assert "Domain restriction" in reply
+    assert "domain restriction" in reply
     assert "x = -1" in reply
-    assert "Reject values outside the domain" in reply
+    assert "reject values outside the domain" in reply
 
 
 def test_bounded_powered_trig_equation_returns_only_degree_domain_roots() -> None:
@@ -152,7 +152,7 @@ def test_radical_returns_requested_exact_and_decimal_forms_directly() -> None:
 
     assert block.canonical_answer == r"\sqrt[3]{3}"
     assert reply is not None
-    assert "Exact form" in reply
+    assert "— exact" in reply
     assert r"\approx 1.44225" in reply
 
 
@@ -179,7 +179,7 @@ def test_single_radical_equation_checks_and_rejects_extraneous_roots() -> None:
 
     assert block.canonical_answer == "x = 3"
     assert reply is not None
-    assert "Domain restrictions" in reply
+    assert "domain restrictions" in reply
     assert "x = -1" in reply
     assert "reject extraneous roots" in reply.lower()
 
@@ -191,9 +191,9 @@ def test_two_radical_equation_uses_verified_repeated_squaring() -> None:
 
     assert block.canonical_answer == "x = 2"
     assert reply is not None
-    assert "Isolate one radical" in reply
-    assert "Square again" in reply
-    assert "Check in the original equation" in reply
+    assert "isolate one radical" in reply
+    assert "square again" in reply
+    assert "check in the original equation" in reply
 
 
 def test_rational_equations_keep_denominator_restrictions_and_reject_cancelled_root() -> None:
@@ -205,7 +205,7 @@ def test_rational_equations_keep_denominator_restrictions_and_reject_cancelled_r
     assert block.canonical_answer.startswith(r"\text{no solution}")
     assert reply is not None
     assert r"x \ne -2" in reply and r"x \ne 2" in reply
-    assert "Reject the excluded candidate" in reply
+    assert "reject the excluded candidate" in reply
 
 
 def test_real_fractional_power_keeps_both_real_branches() -> None:
@@ -225,7 +225,7 @@ def test_square_root_of_a_square_simplifies_to_absolute_value() -> None:
 
     assert block.canonical_answer == r"\left|{x}\right|"
     assert reply is not None
-    assert "principal square root is nonnegative" in reply
+    assert "principal square root is never negative" in reply
 
 
 def test_square_root_law_survives_ascii_equivalent_and_real_domain_wording() -> None:
@@ -286,8 +286,8 @@ def test_logarithmic_substitution_uses_absolute_value_and_states_domain() -> Non
 
     assert block.canonical_answer == r"\log\left|\log\left(x\right)\right| + C"
     assert reply is not None
-    assert r"x\ne1" in reply
-    assert "$x>0$" in reply
+    assert r"x \ne 1" in reply
+    assert "x > 0" in reply
 
 
 def test_logarithmic_substitution_honors_explicit_working_request_directly() -> None:
@@ -299,11 +299,11 @@ def test_logarithmic_substitution_honors_explicit_working_request_directly() -> 
     reply = maybe_direct_math_reply(block, query)
 
     assert reply is not None
-    assert "**Substitute**" in reply
-    assert "**Integrate**" in reply
-    assert "**Substitute back**" in reply
-    assert r"x\ne1" in reply
-    assert "$x>0$" in reply
+    assert "— substitute" in reply
+    assert "— integrate" in reply
+    assert "— substitute back" in reply
+    assert r"x \ne 1" in reply
+    assert "x > 0" in reply
 
 
 def test_conditional_dice_enumerates_the_conditioned_sample_space() -> None:
@@ -340,7 +340,7 @@ def test_improper_endpoint_definite_integral_uses_verified_limits_directly() -> 
 
     assert block.canonical_answer == "-1"
     assert reply is not None
-    assert "endpoint limits" in reply
+    assert "as a limit at the endpoint" in reply
     assert "```answer\n-1\n```" in reply
 
 
@@ -352,7 +352,7 @@ def test_arc_length_with_sentence_period_uses_the_calculus_application() -> None
     assert intent.school_op == "arc_length"
     assert block.canonical_answer == r"\frac{14}{3}"
     assert reply is not None
-    assert "Arc-length formula" in reply
+    assert "— Arc length" in reply
     assert "no solution" not in reply.lower()
 
 
@@ -363,9 +363,9 @@ def test_volume_chain_bounds_and_when_wording_use_disk_method() -> None:
 
     assert intent.school_op == "volume_revolution_x"
     assert block.canonical_answer == r"8 \pi"
-    assert reply is not None and "disk method" in reply
-    assert "Simplify the cross-sectional area" in reply
-    assert "Evaluate the endpoints" in reply
+    assert reply is not None and "Disk method" in reply
+    assert "simplify the cross-section" in reply
+    assert "evaluate the endpoints" in reply
 
 
 def test_area_between_curves_names_order_and_shows_endpoint_evaluation() -> None:
@@ -376,9 +376,9 @@ def test_area_between_curves_names_order_and_shows_endpoint_evaluation() -> None
     assert intent.school_op == "area_between_curves"
     assert block.canonical_answer == r"\frac{1}{6}"
     assert reply is not None
-    assert "Identify the upper curve" in reply
-    assert "Find an antiderivative" in reply
-    assert "Evaluate the endpoints" in reply
+    assert "upper curve first" in reply
+    assert "— integrate" in reply
+    assert "evaluate the endpoints" in reply
 
 
 def test_bounded_radian_trig_and_reciprocal_domain_are_direct() -> None:
@@ -399,7 +399,7 @@ def test_bounded_radian_trig_and_reciprocal_domain_are_direct() -> None:
         assert reply is not None
         assert all(value in reply for value in expected)
         if query.startswith("Solve cos"):
-            assert "Use the periodic zero law" in reply
+            assert "periodic zero law" in reply
             assert r"k\in\mathbb{Z}" in reply
             assert r"k = 0,\;1,\;2,\;3" in reply
             assert r"0 \le x < 2 \pi" in reply
@@ -418,7 +418,7 @@ def test_exact_composite_degree_angle_uses_angle_sum_identity() -> None:
         assert intent.school_op == "cos"
         assert block.canonical_answer == r"\frac{- \sqrt{2} + \sqrt{6}}{4}"
         assert reply is not None
-        assert "angle-sum identity" in reply
+        assert "Angle-sum identity" in reply
         assert r"75^\circ = 30^\circ + 45^\circ" in reply
         # Four short component lines stay readable on a narrow phone instead
         # of becoming a single clipped equation chain.

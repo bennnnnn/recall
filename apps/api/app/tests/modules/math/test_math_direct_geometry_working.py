@@ -86,12 +86,12 @@ def _reply(query: str) -> str:
         (
             "Find the area of a circle radius 3",
             r"$A = \pi r^2$",
-            r"$A = \pi(3)^2 \approx 28.27$",
+            r"$A = \pi(3)^2 = 9\pi \approx 28.27$",
         ),
         (
             "Find the circumference of a circle radius 3",
             r"$C = 2\pi r$",
-            r"$C = 2\pi(3) \approx 18.85$",
+            r"$C = 2\pi(3) = 6\pi \approx 18.85$",
         ),
         (
             "Find the diameter of a circle radius 3",
@@ -119,15 +119,15 @@ def test_geometry_formula_and_substitution_are_separate_verified_lines(
     assert positions == sorted(positions)
     assert formula in reply
     assert substitution in reply
-    assert "**Diagram**" in reply
+    assert "```geometry" in reply
     assert reply.count("```answer") == 1
     assert reply.count("```geometry") == 1
 
 
 def test_natural_rectangle_wording_draws_exact_sides_and_trims_decimal_zeroes() -> None:
     reply = _reply("a rectangle area with sides 4.04, 5")
-    assert "Width: $w = 4.04" in reply
-    assert "Length: $l = 5" in reply
+    assert "$w = 4.04" in reply and "— width" in reply
+    assert "$l = 5" in reply and "— length" in reply
     assert r"$A = 5 \times 4.04 = 20.2$" in reply
     assert "20.20" not in reply
     assert '"width":4.04' in reply and '"height":5.0' in reply
@@ -143,13 +143,13 @@ def test_natural_rectangle_wording_draws_exact_sides_and_trims_decimal_zeroes() 
 )
 def test_natural_named_rectangle_uses_compact_verified_working(query: str) -> None:
     reply = _reply(query)
-    assert "Length: $l = 4" in reply
-    assert "Width: $w = 3" in reply
+    assert "$l = 4" in reply and "— length" in reply
+    assert "$w = 3" in reply and "— width" in reply
     assert r"$A = l \times w$" in reply
     assert r"$A = 4 \times 3 = 12$" in reply
     assert r"```answer" + "\n" + r"12\ \mathrm{units}^{2}" + "\n```" in reply
-    assert "**Given**  \nLength:" in reply
-    assert "units}$  \nWidth:" in reply
+    assert "**Given**  \n$l = " in reply
+    assert "— length  \n$w = " in reply
 
 
 @pytest.mark.parametrize(
@@ -157,12 +157,12 @@ def test_natural_named_rectangle_uses_compact_verified_working(query: str) -> No
     [
         (
             "A rectangle has area 12 square units and width 3 units. Find the length.",
-            "Length ($l$)",
+            "$l$ — length",
             "l",
         ),
         (
             "Find the width of a rectangle with area 12 and length 4.",
-            "Width ($w$)",
+            "$w$ — width",
             "w",
         ),
     ],

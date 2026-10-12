@@ -361,20 +361,21 @@ def _reply(payload: dict[str, Any], text: str) -> str | None:
 def test_reply_shows_setup_steps_and_answer() -> None:
     reply = _reply(AGES_SETUP, AGES)
     assert reply is not None
-    assert "**Let**\n$m$ = Maria's age now (years)\n$s$ = her son's age now (years)" in reply
-    assert '$m = 3 \\cdot s$ (from "Maria is three times as old as her son")' in reply
-    assert "**Solve**" in reply and "Check: $" in reply
-    assert "**Answer:** her son's age: $12$ years" in reply
+    # Given: each equation with the words it comes from. Find: what each letter is.
+    assert "**Find**  \n$m$ — Maria's age now (years)  \n$s$ — her son's age now (years)" in reply
+    assert '$m = 3 \\cdot s$ — "Maria is three times as old as her son"' in reply
+    assert "**Steps**" in reply and "— check" in reply
+    assert "her son's age: $12$ years" in reply
     assert reply.rstrip().endswith("```answer\n12\\ \\text{years}\n```")
 
 
 def test_money_answer_reads_as_dollars() -> None:
     reply = _reply(PENCIL_SETUP, PENCIL)
     assert reply is not None
-    assert "**Answer:** the pencil costs: $0.30$ dollars" in reply
+    assert "the pencil costs: $0.30$ dollars" in reply
     assert "```answer\n\\$0.30\n```" in reply
-    assert "**1. Simplify**" in reply
-    assert "**2. Subtract $\\frac{3}{2}$ from both sides**" in reply
+    assert "— simplify" in reply
+    assert "— subtract $\\frac{3}{2}$ from both sides" in reply
 
 
 def test_inventory_change_problem_shows_equation_working_and_check() -> None:
@@ -382,10 +383,10 @@ def test_inventory_change_problem_shows_equation_working_and_check() -> None:
 
     assert reply is not None
     assert "$10 + g - 5 = 10$" in reply
-    assert "**Solve**" in reply
+    assert "**Steps**" in reply
     assert "$g = 5$" in reply
-    assert "Check: $" in reply
-    assert "**Answer:** green books Abebe had at first: $5$ books" in reply
+    assert "— check" in reply
+    assert "green books Abebe had at first: $5$ books" in reply
 
 
 def test_reply_strips_markup_from_the_translation() -> None:
@@ -508,7 +509,7 @@ async def test_turn_verifies_and_replies_directly(
     _note, verified = await math_prompt.build_math_augmentation(TICKETS, _settings())
     assert verified is not None and verified.canonical_answer == "8"
     reply = maybe_direct_math_reply(verified, TICKETS)
-    assert reply is not None and "**Answer:** adults who went: $8$" in reply
+    assert reply is not None and "adults who went: $8$" in reply
 
 
 @pytest.mark.asyncio

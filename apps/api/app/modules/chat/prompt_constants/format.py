@@ -553,8 +553,9 @@ CALCULATION_LAYOUT_CONTRACT = (
     "Put a formula, its substitution, and its result on separate rows: "
     "$v = \\frac{d}{t}$, then $v = \\frac{50}{10}$, then $v = 5$. "
     "Put independent equations on separate rows, never $t_1 = d/60,\\quad t_2 = d/40$. "
-    "Trivial one-step arithmetic is one row and does not use Given, Find, Formula, "
-    "Substitution, and Answer. A word problem may use those short labels. "
+    "Trivial one-step arithmetic is one row with no headings; any longer worked "
+    "solution uses the worked-solution layout (Given, Find, Formula, Substitution or "
+    "Steps, Answer). "
     "Do not force a line break with HTML."
 )
 

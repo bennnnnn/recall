@@ -21,6 +21,7 @@ from app.modules.math.solve.key_steps import KeyStep
 from app.modules.math.tools.block.canonical import _finish_with_answer
 from app.modules.math.tools.calculus_outcome import infinite_integral_note, undefined_integral_note
 from app.services.solving import VerifiedMathBlock
+from app.services.workout import Workout, math_line, render_workout, text_line
 
 _FUNCTION_ANALYSIS_OPS = {
     "function_domain",
@@ -89,6 +90,8 @@ def _verified_calculus_application(
     sym = Symbol(intent.variable, real=True)
     parsed = math_solve._parse_expression(intent.expr, [intent.variable], real=True)
     low, high = intent.integral_lower, intent.integral_upper
+    var = intent.variable
+    interval = math_line(rf"{low} \le {var} \le {high}")
     if op == "area_between_curves" and intent.expr2:
         second = math_solve._parse_expression(intent.expr2, [intent.variable], real=True)
         difference = simplify(parsed - second)
@@ -110,86 +113,136 @@ def _verified_calculus_application(
         else:
             upper = lower_curve = None
             gap = None
+        given = (math_line(f"y = {latex(parsed)}"), math_line(f"y = {latex(second)}"), interval)
+        working: tuple[str, ...]
         if gap is not None:
             antiderivative = integrate(gap, sym)
-            direct = (
-                "**1. Identify the upper curve**\n\n"
-                f"On $[{low},{high}]$, ${latex(upper)} \\ge {latex(lower_curve)}$, "
-                f"so use upper minus lower.\n\n"
-                "**2. Set up the area**\n\n"
-                f"$A = \\int_{{{low}}}^{{{high}}} \\left({latex(gap)}\\right)"
-                f"\\,d{intent.variable}$\n\n"
-                "**3. Find an antiderivative**\n\n"
-                f"$A = \\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}$\n\n"
-                "**4. Evaluate the endpoints**\n\n"
-                f"$A = {latex(antiderivative.subs(sym, high_expr))}"
-                f" - \\left({latex(antiderivative.subs(sym, low_expr))}\\right)$\n\n"
-                f"$A = {answer}$\n\n"
+            working = (
+                text_line(
+                    f"${latex(upper)} \\ge {latex(lower_curve)}$ on $[{low}, {high}]$",
+                    "upper curve first",
+                ),
+                math_line(
+                    f"A = \\int_{{{low}}}^{{{high}}} \\left({latex(gap)}\\right)\\,d{var}",
+                    "upper minus lower",
+                ),
+                math_line(
+                    f"= \\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}", "integrate"
+                ),
+                math_line(
+                    f"= {latex(antiderivative.subs(sym, high_expr))}"
+                    f" - \\left({latex(antiderivative.subs(sym, low_expr))}\\right)",
+                    "evaluate the endpoints",
+                ),
+                math_line(f"= {answer}"),
             )
         else:
-            direct = (
-                "**1. The curves change order, so use absolute difference**\n\n"
-                f"$A = \\int_{{{low}}}^{{{high}}} \\left|{latex(difference)}\\right|"
-                f"\\,d{intent.variable}$\n\n"
-                f"**2. Evaluate the integral**\n\n$A = {answer}$\n\n"
+            working = (
+                math_line(
+                    f"A = \\int_{{{low}}}^{{{high}}} \\left|{latex(difference)}\\right|\\,d{var}",
+                    "the curves cross, so take the absolute difference",
+                ),
+                math_line(f"= {answer}"),
             )
+        workout = Workout(
+            given=given,
+            find=(math_line("A", "area between the curves"),),
+            formula=(
+                math_line(
+                    f"A = \\int_{{a}}^{{b}} \\left(y_{{\\text{{upper}}}} - "
+                    f"y_{{\\text{{lower}}}}\\right)\\,d{var}"
+                ),
+            ),
+            substitution=working,
+        )
     elif op == "arc_length":
         derivative = diff(parsed, sym)
         integrand = sqrt(1 + derivative**2)
-        direct = (
-            "**Differentiate the curve**\n"
-            f"$y' = {latex(derivative)}$\n\n"
-            "**Arc-length formula**\n"
-            f"$L = \\int_{{{low}}}^{{{high}}} \\sqrt{{1+(y')^2}}\\,d{intent.variable}"
-            f" = \\int_{{{low}}}^{{{high}}} {latex(integrand)}\\,d{intent.variable}$\n\n"
-            f"**Evaluate**\n$L = {answer}$\n\n"
+        workout = Workout(
+            given=(math_line(f"y = {latex(parsed)}"), interval),
+            find=(math_line("L", "arc length"),),
+            formula=(
+                math_line(f"L = \\int_{{a}}^{{b}} \\sqrt{{1 + (y')^{{2}}}}\\,d{var}", "Arc length"),
+            ),
+            substitution=(
+                math_line(f"y' = {latex(derivative)}"),
+                math_line(f"L = \\int_{{{low}}}^{{{high}}} {latex(integrand)}\\,d{var}"),
+                math_line(f"= {answer}"),
+            ),
         )
     else:
         axis = "x" if op.endswith("_x") else "y"
+        low_expr = math_solve._parse_expression(str(low), [], real=True)
+        high_expr = math_solve._parse_expression(str(high), [], real=True)
         if axis == "x":
             cross_section = simplify(parsed**2)
             antiderivative = integrate(cross_section, sym)
-            low_expr = math_solve._parse_expression(str(low), [], real=True)
-            high_expr = math_solve._parse_expression(str(high), [], real=True)
-            setup = (
-                rf"V = \pi\int_{{{low}}}^{{{high}}}\left({latex(parsed)}\right)^2"
-                rf"\,d{intent.variable}"
-            )
+            formula = math_line(f"V = \\pi\\int_{{a}}^{{b}} y^{{2}}\\,d{var}", "Disk method")
             working = (
-                "**2. Simplify the cross-sectional area**\n\n"
-                f"$\\left({latex(parsed)}\\right)^2 = {latex(cross_section)}$\n\n"
-                "**3. Integrate**\n\n"
-                f"$V = \\pi\\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}$\n\n"
-                "**4. Evaluate the endpoints**\n\n"
-                f"$V = \\pi\\left({latex(antiderivative.subs(sym, high_expr))}"
-                f" - {latex(antiderivative.subs(sym, low_expr))}\\right)$\n\n"
+                math_line(
+                    rf"V = \pi\int_{{{low}}}^{{{high}}}\left({latex(parsed)}\right)^2\,d{var}"
+                ),
+                math_line(
+                    f"= \\pi\\int_{{{low}}}^{{{high}}} {latex(cross_section)}\\,d{var}",
+                    "simplify the cross-section",
+                ),
+                math_line(
+                    f"= \\pi\\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}",
+                    "integrate",
+                ),
+                math_line(
+                    f"= \\pi\\left({latex(antiderivative.subs(sym, high_expr))}"
+                    f" - {latex(antiderivative.subs(sym, low_expr))}\\right)",
+                    "evaluate the endpoints",
+                ),
+                math_line(f"= {answer}"),
             )
         else:
             shell_integrand = simplify(sym * parsed)
             antiderivative = integrate(shell_integrand, sym)
-            low_expr = math_solve._parse_expression(str(low), [], real=True)
-            high_expr = math_solve._parse_expression(str(high), [], real=True)
-            setup = (
-                rf"V = 2\pi\int_{{{low}}}^{{{high}}}{intent.variable}"
-                rf"\left({latex(parsed)}\right)\,d{intent.variable}"
-            )
+            formula = math_line(f"V = 2\\pi\\int_{{a}}^{{b}} {var}\\,y\\,d{var}", "Shell method")
             working = (
-                "**2. Simplify the shell integrand**\n\n"
-                f"${intent.variable}\\left({latex(parsed)}\\right) = {latex(shell_integrand)}$\n\n"
-                "**3. Integrate**\n\n"
-                f"$V = 2\\pi\\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}$\n\n"
-                "**4. Evaluate the endpoints**\n\n"
-                f"$V = 2\\pi\\left({latex(antiderivative.subs(sym, high_expr))}"
-                f" - {latex(antiderivative.subs(sym, low_expr))}\\right)$\n\n"
+                math_line(
+                    rf"V = 2\pi\int_{{{low}}}^{{{high}}}{var}"
+                    rf"\left({latex(parsed)}\right)\,d{var}"
+                ),
+                math_line(f"= 2\\pi\\int_{{{low}}}^{{{high}}} {latex(shell_integrand)}\\,d{var}"),
+                math_line(f"= 2\\pi\\left[{latex(antiderivative)}\\right]_{{{low}}}^{{{high}}}"),
+                math_line(
+                    f"= 2\\pi\\left({latex(antiderivative.subs(sym, high_expr))}"
+                    f" - {latex(antiderivative.subs(sym, low_expr))}\\right)"
+                ),
+                math_line(f"= {answer}"),
             )
-        direct = (
-            f"**1. Set up the {'disk' if axis == 'x' else 'shell'} method**\n\n"
-            f"${setup}$\n\n"
-            f"{working}"
-            f"$V = {answer}$\n\n"
+        workout = Workout(
+            given=(
+                math_line(f"y = {latex(parsed)}"),
+                interval,
+                text_line(f"about the {axis}-axis"),
+            ),
+            find=(math_line("V", "volume of revolution"),),
+            formula=(formula,),
+            substitution=working,
         )
-    direct += f"```answer\n{answer}\n```\n"
-    return replace(block, direct_reply=direct)
+    return replace(block, direct_reply=render_workout(workout, answer))
+
+
+def _unbounded_at_an_endpoint(parsed: Any, intent: MathIntent) -> bool:
+    """``ln(x)`` on ``[0, 1]``: the integral is a limit at 0, not a plain value."""
+    from sympy import Symbol, nan, zoo
+
+    symbol = next(
+        (s for s in parsed.free_symbols if str(s) == intent.variable), Symbol(intent.variable)
+    )
+    for bound in (intent.integral_lower, intent.integral_upper):
+        try:
+            point = math_solve._parse_expression(str(bound), [], real=True)
+            value = parsed.subs(symbol, point)
+        except Exception:  # noqa: S112 - an unreadable bound is not evidence either way
+            continue
+        if value in (zoo, nan) or getattr(value, "is_finite", True) is False:
+            return True
+    return False
 
 
 def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
@@ -229,19 +282,15 @@ def _simplification_direct_reply(intent: MathIntent, answer: str) -> str:
                     continue
                 seen_symmetric.add(pair)
             restrictions.append(rf"{latex(sym)} \ne {latex(value)}")
-    body = f"**Simplify**\n${latex(display_original)} = {answer}$\n"
+    steps = [math_line(f"{latex(display_original)} = {answer}", "simplify")]
     if restrictions:
-        body += (
-            "\n**Restrictions from the original expression**\n$"
-            + r",\; ".join(restrictions)
-            + "$\n"
-        )
+        steps.append(math_line(r",\; ".join(restrictions), "excluded by the original expression"))
     elif "Abs(" in str(parsed):
-        body += (
-            "\nThe principal square root is nonnegative, so the result is an "
-            "absolute value, not simply the variable.\n"
+        steps.append(
+            text_line("a principal square root is never negative, so keep the absolute value")
         )
-    return f"{body}\n```answer\n{answer}\n```\n"
+    workout = Workout(given=(math_line(latex(display_original)),), steps=tuple(steps))
+    return render_workout(workout, answer)
 
 
 def _is_log_over_x_integral(expr: str, variable: str) -> bool:
@@ -418,17 +467,21 @@ def _verified_block_calculus(
         and _is_log_over_x_integral(intent.expr, intent.variable)
     ):
         answer = rf"\log\left|\log\left({intent.variable}\right)\right| + C"
-        direct = (
-            "**Substitute**\n"
-            f"$u = \\log({intent.variable}), \\quad du = \\frac{{1}}{{{intent.variable}}}"
-            f"\\,d{intent.variable}$\n\n"
-            "**Integrate**\n"
-            r"$\int \frac{1}{u}\,du = \log|u| + C$"
-            "\n\n**Substitute back**\n"
-            f"${answer}$\n\n"
-            f"For real values, the domain is ${intent.variable}>0$ with "
-            f"${intent.variable}\\ne1$.\n\n"
-            f"```answer\n{answer}\n```\n"
+        var = intent.variable
+        direct = render_workout(
+            Workout(
+                find=(math_line(f"\\int \\frac{{1}}{{{var} \\log({var})}}\\,d{var}"),),
+                steps=(
+                    math_line(
+                        f"u = \\log({var}), \\quad du = \\frac{{1}}{{{var}}}\\,d{var}",
+                        "substitute",
+                    ),
+                    math_line(r"\int \frac{1}{u}\,du = \log|u| + C", "integrate"),
+                    math_line(answer, "substitute back"),
+                    math_line(f"{var} > 0,\\; {var} \\ne 1", "domain for real values"),
+                ),
+            ),
+            answer,
         )
         return replace(_finish_with_answer(lines, answer), direct_reply=direct)
     if intent.operation == "integrate" and intent.integral_lower is None:
@@ -451,27 +504,36 @@ def _verified_block_calculus(
         from sympy import latex
 
         parsed = math_solve._parse_expression(intent.expr, [intent.variable], real=True)
-        direct = (
-            "**Set up the definite integral**\n"
-            f"$\\int_{{{intent.integral_lower}}}^{{{intent.integral_upper}}} "
-            f"{latex(parsed)}\\,d{intent.variable}$\n\n"
-            "**Evaluate (using endpoint limits if the integral is improper)**\n"
-            f"$= {answer}$\n\n"
-            f"```answer\n{answer}\n```\n"
+        integral = (
+            f"\\int_{{{intent.integral_lower}}}^{{{intent.integral_upper}}} "
+            f"{latex(parsed)}\\,d{intent.variable}"
+        )
+        note = (
+            "evaluate as a limit at the endpoint"
+            if _unbounded_at_an_endpoint(parsed, intent)
+            else "evaluate"
+        )
+        direct = render_workout(
+            Workout(
+                find=(math_line(integral),),
+                steps=(math_line(f"{integral} = {answer}", note),),
+            ),
+            answer,
         )
         return replace(block, direct_reply=direct)
     if intent.operation == "simplify":
         return replace(block, direct_reply=_simplification_direct_reply(intent, answer))
     if intent.operation == "differentiate":
-        chunks: list[str] = []
-        if given:
-            chunks.append(f"**Find:** ${given}$")
-        for index, step in enumerate(trace, start=1):
-            chunks.append(f"**{index}. {step.label}**\n${step.formula}$")
-        if not trace:
-            chunks.extend(out.steps)
-        chunks.append(f"```answer\n{answer}\n```\n")
-        return replace(block, direct_reply="\n\n".join(chunks))
+        if trace:
+            from app.modules.math.tools.lesson import format_equation_lesson_reply
+
+            return replace(block, direct_reply=format_equation_lesson_reply(block))
+        steps = tuple(text_line(step) for step in out.steps)
+        given_lines = (math_line(given),) if given else ()
+        return replace(
+            block,
+            direct_reply=render_workout(Workout(find=given_lines, steps=steps), answer),
+        )
     if not trace:
         return block
     # An antiderivative the trace found (checked by differentiating back) may
@@ -537,9 +599,9 @@ def _verified_block_series(
             lines.append(f"Series {expression}: {status}; sum={outcome.latex}")
             parsed = math_solve._parse_expression(expression, [intent.variable], real=True)
             rendered.append(
-                f"$\\sum_{{{intent.variable}=1}}^{{\\infty}} {latex(parsed)}$ {status}."
+                math_line(f"\\sum_{{{intent.variable}=1}}^{{\\infty}} {latex(parsed)}", status)
             )
-        direct = "**Convergence**\n\n" + "\n\n".join(rendered)
+        direct = render_workout(Workout(steps=tuple(rendered))).removesuffix("\n\n**Answer**")
         return VerifiedMathBlock(text="\n".join(lines), direct_reply=direct)
     lines.append(f"Result: {series_out.latex}")
     if series_out.is_convergent is not None:

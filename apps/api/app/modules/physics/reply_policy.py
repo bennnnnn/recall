@@ -1,5 +1,7 @@
 """Physics prompt hints. A physics turn must not be told it is doing math."""
 
+from app.services.workout import WORKOUT_PROMPT_SHORT
+
 PHYSICS_INTENT_HINT = (
     "Physics answers:\n"
     "  - This is a physics problem. Do not describe the work as math, algebra, "
@@ -8,8 +10,7 @@ PHYSICS_INTENT_HINT = (
     "those exact numbers and units. Do not recompute. If no verified block is "
     "present, do not claim verification.\n"
     "  - Never mention a system block, SymPy, or that a diagram will be attached.\n"
-    "  - For a concrete calculation, use Given, Find, Formula, Substitution, "
-    "then Answer, in that order. One equation per line, in inline `$...$`.\n"
+    f"  - For a concrete calculation: {WORKOUT_PROMPT_SHORT} Equations in inline `$...$`.\n"
     "  - Do NOT emit ```answer, ```graph, ```simulation, or ```geometry.\n"
     "  - A trajectory is only for kinematics, projectile motion, or spring and "
     "pendulum motion. Every other answer is a number with units.\n"
@@ -30,8 +31,8 @@ PHYSICS_SHORT_HINT = (
 )
 
 PHYSICS_REPLY_POLICY = (
-    "Physics reply policy for this request: For a concrete calculation, use "
-    "Given, Find, Formula, Substitution, then the final Answer. Put each value "
+    "Physics reply policy for this request: For a concrete calculation: "
+    f"{WORKOUT_PROMPT_SHORT} Put each value "
     "or equation on its own short line. One reasoning state per row; do not "
     "chain several equals signs. Name the governing formula before "
     "substituting. Do not add a math lesson, tutorial bullets, or Note/Tip "

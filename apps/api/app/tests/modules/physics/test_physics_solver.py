@@ -410,7 +410,7 @@ def test_physics_block_requires_multiline_worked_layout() -> None:
     assert block is not None
     for heading in ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"):
         assert heading in block.text
-    assert "every equation on its own line" in block.text
+    assert "Put every equation on its own line" in block.text
     assert block.text.index("**Given**") < block.text.index("**Answer**")
 
 
