@@ -1,5 +1,6 @@
 import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
 
+import { repairLeakedMath } from "@/lib/math/healMathSource";
 import { CMD_REPLACEMENTS } from "@/lib/math/latexCommands";
 import { isParenthesizedArgument, readGroup } from "@/lib/math/latexGroups";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
@@ -199,7 +200,9 @@ function unwrapSympyFunctionArguments(source: string): string {
 }
 
 export function preprocessLatex(latex: string): string {
-  let s = normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(restoreMathEscapes(latex.trim())));
+  let s = repairLeakedMath(
+    normalizeNativeDerivativePrimes(unwrapSympyFunctionArguments(restoreMathEscapes(latex.trim()))),
+  );
   s = preserveNativeUprightRuns(s);
   // Protect visible set delimiters before command replacement turns `\{`
   // into an ordinary `{`, which is otherwise indistinguishable from an

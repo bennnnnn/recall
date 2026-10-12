@@ -5,14 +5,13 @@ import Svg, { Path } from "react-native-svg";
 import { radicalStroke, type MathLayout } from "@/lib/math/layout";
 
 const EM = 16;
-const INDEX_HEAD = 12;
+const INDEX_FONT = 12;
 
 function radicalLayout(contentWidth: number, contentHeight: number, hasIndex: boolean): MathLayout {
-  const head = hasIndex ? INDEX_HEAD : 0;
   const lead = Math.max(EM * 0.72, hasIndex ? EM * 0.9 : EM * 0.62);
   const barStart = lead;
   const barEnd = barStart + Math.max(contentWidth, EM * 0.45) + EM * 0.1;
-  const height = Math.max(EM * 1.35, head + contentHeight + EM * 0.2);
+  const height = Math.max(EM * 1.35, contentHeight + EM * 0.2);
   return {
     kind: "sqrt",
     width: barEnd,
@@ -24,7 +23,7 @@ function radicalLayout(contentWidth: number, contentHeight: number, hasIndex: bo
     barStart,
     barEnd,
     index: hasIndex
-      ? { left: 0, top: 0, width: EM * 0.7, fontSize: INDEX_HEAD, lineHeight: head }
+      ? { left: 1, top: EM * 0.02, width: EM * 0.7, fontSize: INDEX_FONT, lineHeight: INDEX_FONT }
       : undefined,
   };
 }
@@ -43,7 +42,7 @@ export function DraftRadical({
   const layout = radicalLayout(box.width, box.height, index != null);
   const stroke = radicalStroke(layout);
   const bodyLeft = layout.barStart ?? 0;
-  const bodyTop = (layout.index ? INDEX_HEAD : 0) + EM * 0.08;
+  const bodyTop = EM * 0.08;
   return (
     <View style={{ width: layout.width, height: layout.height }} testID="math-sqrt">
       <Svg
@@ -63,7 +62,9 @@ export function DraftRadical({
           strokeLinejoin="round"
         />
       </Svg>
-      {index ? <View style={styles.index}>{index}</View> : null}
+      {index && layout.index ? (
+        <View style={[styles.index, { left: layout.index.left, top: layout.index.top }]}>{index}</View>
+      ) : null}
       <View
         testID="math-sqrt-radicand"
         style={[styles.body, { left: bodyLeft, top: bodyTop }]}
@@ -82,8 +83,6 @@ export function DraftRadical({
 const styles = StyleSheet.create({
   index: {
     position: "absolute",
-    left: 1,
-    top: -2,
   },
   body: {
     position: "absolute",

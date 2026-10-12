@@ -45,6 +45,12 @@ describe("suggestionToSend", () => {
     );
   });
 
+  it("sends a fraction when the follow-up lost the f of frac", () => {
+    expect(suggestionToSend(String.raw`What is $rac{\sqrt{8}}{2}$ simplified?`)).toBe(
+      String.raw`What is $\frac{\sqrt{8}}{2}$ simplified?`,
+    );
+  });
+
   it("drops a fragment and a number glued to a letter or a radical", () => {
     expect(suggestionToSend("How")).toBeNull();
     expect(suggestionToSend("Education level")).toBeNull();

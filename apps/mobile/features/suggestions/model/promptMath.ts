@@ -5,6 +5,8 @@
  * Already-delimited spans are left alone.
  */
 
+import { repairLeakedMath } from "@/lib/math/healMathSource";
+
 const MATH_ISLAND =
   /[A-Za-z](?:\s*[\^_]\s*(?:\{[^{}\n]+\}|\d+))+(?:\s*[-+*/=]\s*(?:[A-Za-z]|\d+(?:\.\d+)?))*/g;
 
@@ -115,7 +117,25 @@ export function suggestionToSend(text: string): string | null {
   const words = cleaned.match(/[A-Za-z]{2,}/g);
   if (!cleaned.endsWith("?") || (words?.length ?? 0) < MIN_QUESTION_WORDS) return null;
   if (!mathStaysApart(cleaned)) return null;
-  return spaceDelimitedMath(cleaned);
+  return spaceDelimitedMath(repairDelimitedMath(cleaned));
+}
+
+function repairDelimitedMath(text: string): string {
+  let out = "";
+  let i = 0;
+  while (i < text.length) {
+    if (text[i] === "$") {
+      const close = text.indexOf("$", i + 1);
+      if (close > i + 1) {
+        out += `$${repairLeakedMath(text.slice(i + 1, close))}$`;
+        i = close + 1;
+        continue;
+      }
+    }
+    out += text[i];
+    i += 1;
+  }
+  return out;
 }
 
 export function wrapSuggestionMath(text: string): string {

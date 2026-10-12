@@ -410,10 +410,16 @@ function measureSegment(
     const barStart = lead + inset - em * 0.04;
     const barEnd = barStart + em * 0.04 + content + overhang;
     const indexHead = indexLayout ? indexLayout.height : seg.degree ? indexLine : 0;
-    const bodyTop = indexHead + em * 0.16 + em * scripts.raise;
-    const scriptFoot = em * scripts.drop;
-    const height = Math.max(px(SQRT_LINE_AT_16, em), body.height + bodyTop + scriptFoot);
     const hasIndex = Boolean(seg.degree || seg.index);
+    // The degree hangs in the hook, under the bar. A full index line above
+    // the vinculum is what put the 2 on top of √8.
+    const bodyTop = em * 0.16 + em * scripts.raise;
+    const scriptFoot = em * scripts.drop;
+    const height = Math.max(
+      px(SQRT_LINE_AT_16, em),
+      body.height + bodyTop + scriptFoot,
+      hasIndex ? indexHead + em * 0.04 : 0,
+    );
     const left = hasIndex ? px(2, em) : px(6, em);
     const right = px(2, em);
     const slot = Math.max(body.width, barEnd - lead);
@@ -499,12 +505,11 @@ export function radicalStroke(node: MathLayout): { d: string; barLength: number 
   const em = node.em && node.em > 0 ? node.em : 16;
   const barStart = node.barStart ?? 0;
   const barEnd = node.barEnd ?? node.width;
-  const head = node.index ? node.index.lineHeight : 0;
   const hook = Math.max(2, em * 0.16);
   const notch = Math.max(3.2, em * 0.32);
-  const top = head + em * 0.05;
+  const top = em * 0.05;
   const bottom = Math.max(top + em * 0.45, node.height - em * 0.08);
-  const hookY = Math.min(bottom - em * 0.12, head + (node.height - head) * 0.62);
+  const hookY = Math.min(bottom - em * 0.12, node.height * 0.62);
   const d = `M 0 ${hookY} L ${hook * 0.45} ${hookY} L ${notch} ${bottom} L ${barStart} ${top} L ${barEnd} ${top}`;
   return { d, barLength: Math.max(0, barEnd - barStart) };
 }
@@ -547,10 +552,15 @@ export function layoutProblems(node: MathLayout, em: number): string[] {
       if (item.barStart < strokeEm * 0.25) {
         problems.push("radical bar starts inside the hook");
       }
-      if (item.index && item.bodyTop != null) {
-        const indexBottom = item.index.top + item.index.lineHeight;
-        if (indexBottom - item.bodyTop > 0.5) {
+      if (item.index && item.barStart != null) {
+        const indexRight = item.index.left + item.index.width;
+        if (indexRight > item.barStart + 0.5) {
           problems.push("root index overlaps the radicand");
+        }
+        const strokeEm = item.em && item.em > 0 ? item.em : em;
+        const indexBottom = item.index.top + item.index.lineHeight;
+        if (indexBottom < strokeEm * 0.05 - 0.5) {
+          problems.push("root index sits above the bar");
         }
       }
     }

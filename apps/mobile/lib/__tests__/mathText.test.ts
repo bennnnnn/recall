@@ -579,6 +579,14 @@ describe("BUG FIX regression: native inline parser leaks (raw LaTeX / bad format
     expect(segmentsToPlain(parseSimpleLatex(String.raw`\substack{a\\b}`))).toBe("a; b");
   });
 
+  it("drops the word to copied from 'simplify to' and restores an eaten frac", () => {
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`t o 2 \sqrt{2} = 2 \sqrt{2} o t`))).not.toMatch(
+      /t o|o t|\bot\b/,
+    );
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`rac{\sqrt{8}}{2}`))).not.toContain("rac");
+    expect(segmentsToPlain(parseSimpleLatex(String.raw`rac{\sqrt{8}}{2}`))).toContain("/");
+  });
+
   it("does not let \\pm eat the \\pmod prefix", () => {
     // \pm → ± must not match inside \pmod (regression guard for the \pm
     // word-boundary fix that lets \pmod reach its own rule).
