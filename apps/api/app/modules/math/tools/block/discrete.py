@@ -569,6 +569,31 @@ def _verified_block_series(
     return _finish_with_answer(lines, series_out.latex)
 
 
+_STAT_SYMBOLS: dict[str, str] = {
+    "mean": r"\bar{x}",
+    "median": r"\text{median}",
+    "mode": r"\text{mode}",
+    "range": r"\text{range}",
+    "variance": r"\sigma^{2}",
+    "stdev": r"\sigma",
+    "sample_variance": r"s^{2}",
+    "sample_stdev": "s",
+}
+_SPREAD_OPS = frozenset({"variance", "stdev", "sample_variance", "sample_stdev"})
+
+
+def _summary_value(result: Any, op: str) -> str:
+    if op == "variance":
+        return f"{result.variance_population:g}"
+    if op == "sample_variance":
+        return f"{result.variance_sample:g}" if result.variance_sample is not None else "n/a"
+    if op == "stdev":
+        return result.labels["population_stdev"]
+    if op == "sample_stdev":
+        return result.labels.get("sample_stdev", "n/a")
+    return result.labels[op]
+
+
 def _verified_block_statistics(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -603,6 +628,13 @@ def _verified_block_statistics(
         f"range={result.range:g} population variance={result.variance_population:g} "
         f"population stdev={result.stdev_population:g} sample stdev={sample_stdev}"
     )
+    if intent.stats_ops and len(intent.stats_ops) >= 2:
+        # One chip states every requested summary, each with its symbol, so
+        # "mean and standard deviation" never certifies only the mean.
+        answer = r",\quad ".join(
+            f"{_STAT_SYMBOLS[op]} = {_summary_value(result, op)}" for op in intent.stats_ops
+        )
+        return _finish_with_answer(lines, answer)
     if intent.stats_op == "median":
         answer = result.labels["median"]
     elif intent.stats_op == "mode":
@@ -634,6 +666,11 @@ def _verified_block_statistics(
         lines,
         answer,
     )
+    if intent.stats_op in _SPREAD_OPS and block is not None and block.canonical_answer:
+        # Population and sample spreads differ; the chip says which one this is.
+        block = replace(
+            block, display_answer=f"{_STAT_SYMBOLS[intent.stats_op]} = {block.canonical_answer}"
+        )
     if intent.stats_op == "quartiles" and intent.stats_numbers:
         from app.modules.math.solve.teaching_data import box_plot_spec
         from app.modules.math.tools.direct_teaching import attach_teaching

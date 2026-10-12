@@ -176,11 +176,12 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
     additional = _ADDITIONAL_OPERATION.search(text)
     if additional is not None and _prior_math_request(text[: additional.start()]):
         leftovers.append("additional requested operation")
-    if _MEAN_AND_SPREAD.search(statistics_text):
-        # MathIntent currently represents one statistics operation. Until a
-        # typed multi-stat result exists, declining is the only atomic answer.
+    statistics_represented = _summary_statistics_represented(statistics_text, intent)
+    if _MEAN_AND_SPREAD.search(statistics_text) and not statistics_represented:
+        # One statistics intent carries one result unless ``stats_ops`` names
+        # every requested summary; otherwise declining is the only atomic answer.
         leftovers.append("additional requested statistic")
-    if _MULTIPLE_REQUESTED_STATISTICS.search(statistics_text):
+    if _MULTIPLE_REQUESTED_STATISTICS.search(statistics_text) and not statistics_represented:
         # One MathIntent carries one statistical result. Different requested
         # summaries must be represented together or declined together. Input
         # labels such as "mean 72 and standard deviation 8" are deliberately
@@ -214,6 +215,15 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         # a partial interpretation that silently discards that restriction.
         leftovers.append("unconsumed symbolic domain")
     return ConsumptionAudit(complete=not leftovers, leftovers=tuple(leftovers))
+
+
+def _summary_statistics_represented(text: str, intent: MathIntent) -> bool:
+    """True when the intent answers every summary statistic the text names."""
+    if intent.kind != "statistics" or not intent.stats_ops or len(intent.stats_ops) < 2:
+        return False
+    from app.modules.math.match.discrete import requested_summary_stats
+
+    return set(requested_summary_stats(text)) <= set(intent.stats_ops)
 
 
 def _prior_math_request(prefix: str) -> bool:

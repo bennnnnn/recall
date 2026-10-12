@@ -11,6 +11,9 @@ class EquationInput(BaseModel):
     lhs: str = Field(min_length=1, max_length=256)
     rhs: str = Field(min_length=1, max_length=256)
     variables: list[str] = Field(default_factory=lambda: ["x"], min_length=1, max_length=4)
+    # School answers are real. Non-real roots are kept only when asked for, or
+    # when the equation has no real root at all (``x^2 + 1 = 0``).
+    complex_roots: bool = False
 
 
 class SystemOfEquationsInput(BaseModel):

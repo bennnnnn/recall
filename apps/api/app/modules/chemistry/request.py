@@ -85,7 +85,7 @@ _STRONG_CUE = re.compile(
     r"boiling[- ]point\s+elevation|freezing[- ]point\s+depression|osmotic\s+pressure|raoult|"
     r"total\s+vapor\s+pressure|"
     r"gas\s+collected\s+over\s+water|precipitation\s+reaction|stereochemistry|"
-    r"crystal\s+field|magnetic\s+moment|standard\s+deviation|standard\s+error|"
+    r"crystal\s+field|magnetic\s+moment|"
     r"relative\s+uncertainty|retention\s+factor|limit\s+of\s+detection|limit\s+of\s+quantitation|"
     r"LOD|LOQ|capacity\s+factor|selectivity|Rs|plate\s+number|plate\s+height|"
     r"peak\s+resolution|Michaelis[- ]Menten|IUPAC|"
@@ -94,6 +94,16 @@ _STRONG_CUE = re.compile(
     r"catalytic\s+hydrogenation|hydroxide\s+substitution|"
     r"esterification|calibration\s+curve|gravimetric|standard\s+addition|"
     r"calorimeter\s+constant|gibbs\s+(?:free\s+)?energy|Δ[GHS]|delta\s*[GHS](?=\s*=))\b",
+    re.IGNORECASE,
+)
+# A standard deviation or standard error of a bare number list is statistics, not
+# chemistry. It is chemistry's when the numbers are lab data: replicate readings,
+# trials, a titration, or values with a chemistry unit.
+_DATA_STATISTIC = re.compile(r"\bstandard\s+(?:deviation|error)\b", re.IGNORECASE)
+_LAB_DATA = re.compile(
+    r"\b(?:measurements?|trials?|replicates?|readings?|runs|titrations?|titres?|titers?|"
+    r"absorbances?|concentrations?|masses|yields?)\b|"
+    r"\d\s*(?:mL|L|g|mg|kg|mol|mmol|M|mM|ppm|ppb|%)(?![A-Za-z])",
     re.IGNORECASE,
 )
 # "Chemistry" names the subject, except in the idiom for getting along ("great chemistry").
@@ -346,6 +356,8 @@ def is_chemistry_question(content: str) -> bool:
     if not cleaned:
         return False
     if _STRONG_CUE.search(cleaned) or _SYMBOL_CUE.search(cleaned):
+        return True
+    if _DATA_STATISTIC.search(cleaned) and _LAB_DATA.search(cleaned):
         return True
     if _SUBJECT_CUE.search(cleaned) and not _CHEMISTRY_IDIOM.search(cleaned):
         return True

@@ -73,6 +73,38 @@ def numeric_data_values(text: str) -> list[float] | None:
     return values
 
 
+# Single-list summaries that one answer can state together.
+SUMMARY_STATS: frozenset[str] = frozenset(
+    {"mean", "median", "mode", "range", "variance", "stdev", "sample_stdev", "sample_variance"}
+)
+
+
+def requested_summary_stats(text: str) -> list[StatsOp]:
+    """Every summary statistic named in ``text``, in order, without overlaps.
+
+    "mean and sample standard deviation" is ``["mean", "sample_stdev"]``: a
+    longer phrase claims its words before a shorter one inside it.
+    """
+    lower = text.lower()
+    taken: list[tuple[int, int, StatsOp]] = []
+    for phrase, op in _STATS_WORDS:
+        start = 0
+        while True:
+            idx = word_index(lower[start:], phrase)
+            if idx == -1:
+                break
+            begin = start + idx
+            end = begin + len(phrase)
+            if all(end <= lo or begin >= hi for lo, hi, _ in taken):
+                taken.append((begin, end, op))
+            start = end
+    ops: list[StatsOp] = []
+    for _, _, op in sorted(taken):
+        if op not in ops:
+            ops.append(op)
+    return ops
+
+
 def stats_signal(text: str) -> tuple[StatsOp, list[float]] | None:
     """ "mean/median/mode/standard deviation/variance of <numbers>" — requires
     BOTH the keyword AND 2+ numbers after it, so plain prose ("what do you

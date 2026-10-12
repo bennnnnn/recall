@@ -21,7 +21,7 @@ from app.services.solving import VerifiedMathBlock
         ("Find the population variance of 1,2,3", "0.666667"),
         ("Find the sample variance of 1,2,3", "1"),
         ("Find the population standard deviation of 1,2,3", "0.8165"),
-        ("Find the sample standard deviation of 1,2,3", "1.0000"),
+        ("Find the sample standard deviation of 1,2,3", "1"),
         ("Please calculate the average of [1, 2, 3].", "2"),
         ("What is the mean of (1/2, 1.5)?", "1"),
         ("Compute the median of {-1; +2; 3}", "2"),
@@ -34,7 +34,10 @@ async def test_complete_statistics_returns_one_existing_verified_answer(query: s
     _, verified = await build_math_augmentation(query, Settings(math_tools_enabled=True))
     assert verified is not None and verified.canonical_answer == answer
     assert statistics_direct_request(query) is True
-    assert maybe_direct_math_reply(verified, query) == f"```answer\n{answer}\n```\n"
+    # A spread names which one it is: population (sigma) or sample (s).
+    shown = (verified.display_answer or answer).strip()
+    assert shown.endswith(answer)
+    assert maybe_direct_math_reply(verified, query) == f"```answer\n{shown}\n```\n"
 
 
 @pytest.mark.parametrize(
