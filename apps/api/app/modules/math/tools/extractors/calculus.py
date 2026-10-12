@@ -29,6 +29,10 @@ _DERIVATIVE_AT_POINT = re.compile(
     r"\s+at\s+([a-zA-Z])\s*=\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*$",
     re.IGNORECASE,
 )
+# ``f'(3)``: a derivative asked at a number, in Lagrange's notation.
+_PRIME_AT_NUMBER = re.compile(
+    r"(?<![A-Za-z])[a-zA-Z]'{1,3}\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)"
+)
 _UNICODE_SIGMA_EXPR = re.compile(
     r"Σ\s*(.+?)(?=\s+(?:converges?|diverges?)\b|[?;]|$)",
     re.IGNORECASE,
@@ -337,6 +341,10 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
         if point_match is not None:
             raw = raw[: point_match.start()].rstrip(" ,;.")
             evaluation_point = point_match.group(2)
+        else:
+            prime_at = _PRIME_AT_NUMBER.search(cleaned)
+            if prime_at is not None:
+                evaluation_point = prime_at.group(1)
     if calc_op == "simplify":
         lower_raw = raw.lower()
         for suffix in (

@@ -180,7 +180,16 @@ def _extract_volume_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+def _extract_curve_point_intent(cleaned: str) -> MathIntent | None:
+    from app.modules.math.tools.school.curve_points import extract_curve_point_intent
+
+    return extract_curve_point_intent(cleaned)
+
+
 CALCULUS_APPLICATION_EXTRACTORS = (
+    # Tangent/normal lines and stationary points: read as algebra, the curve
+    # and the point became a system to solve.
+    _extract_curve_point_intent,
     _extract_area_between_intent,
     _extract_arc_length_intent,
     _extract_volume_intent,

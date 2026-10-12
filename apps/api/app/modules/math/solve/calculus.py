@@ -27,6 +27,7 @@ from app.modules.math.solve.algebra import _expr_equal
 from app.modules.math.solve.parse import (
     MathServiceError,
     _parse_expression,
+    derivative_latex,
     format_verified_latex,
 )
 
@@ -95,21 +96,26 @@ def differentiate_expression(expr: str, variable: str = "x", order: int = 1) -> 
     sym = Symbol(variable)
     parsed = _parse_expression(expr, [variable])
     result = diff(parsed, sym, order)
-    result_latex = format_verified_latex(result)
+    result_latex = derivative_latex(result)
     if order == 1:
         steps = _differentiation_steps(parsed, sym, result_latex)
     else:
-        ordinals = {1: "First", 2: "Second", 3: "Third", 4: "Fourth"}
+        ordinals = {1: "first", 2: "second", 3: "third", 4: "fourth"}
         current = parsed
         steps = []
         for index in range(1, order + 1):
             current = diff(current, sym)
+            # The operator acts on the expression, ``\frac{d}{dx}\left(x^{4}\right)``;
+            # no ``y`` the question did not name.
             derivative_tex = (
                 rf"\frac{{d}}{{d{latex(sym)}}}"
                 if index == 1
                 else rf"\frac{{d^{{{index}}}}}{{d{latex(sym)}^{{{index}}}}}"
             )
-            steps.append(f"**{ordinals[index]} derivative**\n${derivative_tex} = {latex(current)}$")
+            steps.append(
+                f"${derivative_tex}\\left({latex(parsed)}\\right) = {derivative_latex(current)}$"
+                f" — {ordinals[index]} derivative"
+            )
     return MathExprResult(
         result=str(result),
         latex=result_latex,

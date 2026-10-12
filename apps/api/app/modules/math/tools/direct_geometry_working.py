@@ -137,6 +137,10 @@ def format_direct_geometry_working(
                     rf"{{{_display(height)}}} = {result}"
                 ],
             )
+        named = re.search(r"\b(?:length|width|long|wide)\b", user_text, re.IGNORECASE)
+        if named is None and width > height:
+            # "8 by 5": the length is the longer side. Named sides keep their names.
+            width, height = height, width
         given = [_given("Length", "l", height, unit), _given("Width", "w", width, unit)]
         if quantity == "area_and_perimeter":
             area = _number(spec.get("area"))
@@ -367,18 +371,23 @@ def format_direct_geometry_working(
             substitutions.append(
                 rf"A = \pi({_display(radius)})^2 = {_display(radius**2)}\pi \approx {result}"
             )
+            # The section's name labels the first formula, so the area law leads.
             formulas = [r"A = \pi r^2"]
             if supplied_diameter:
-                formulas.insert(0, r"d = 2r")
+                formulas.append(r"r = \frac{d}{2}")
             return _section(given, "Area ($A$)", "Circle area formula", formulas, substitutions)
         if quantity == "circumference":
-            substitutions = radius_step if supplied_diameter else []
-            substitutions.append(
-                rf"C = 2\pi({_display(radius)}) = {_display(2 * radius)}\pi \approx {result}"
-            )
-            formulas = [r"C = 2\pi r"]
             if supplied_diameter:
-                formulas.insert(0, r"d = 2r")
+                # From the diameter in one step: C = \pi d.
+                formulas = [r"C = \pi d"]
+                substitutions = [
+                    rf"C = \pi({_display(diameter)}) = {_display(diameter)}\pi \approx {result}"
+                ]
+            else:
+                formulas = [r"C = 2\pi r"]
+                substitutions = [
+                    rf"C = 2\pi({_display(radius)}) = {_display(2 * radius)}\pi \approx {result}"
+                ]
             return _section(
                 given,
                 "Circumference ($C$)",

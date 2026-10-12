@@ -15,7 +15,7 @@ from typing import Any
 from sympy import Add, Mul, Symbol, cos, diff, exp, latex, log, simplify, sin, tan
 
 from app.modules.math.solve.key_steps import KeyStep
-from app.modules.math.solve.parse import format_verified_latex
+from app.modules.math.solve.parse import derivative_latex
 
 _MAX_TERMS = 6
 
@@ -52,7 +52,11 @@ def _product(left: Any, right: Any) -> str:
         return _factor(right)
     if right == 1:
         return _factor(left)
-    return f"{_factor(left)} {_factor(right)}"
+    shown = _factor(right)
+    if shown[:1].isdigit() or shown.startswith("-"):
+        # ``x \cdot 2 x``: side by side, ``x 2 x`` reads as one number in the middle.
+        return f"{_factor(left)} \\cdot {shown}"
+    return f"{_factor(left)} {shown}"
 
 
 def _base_log(term: Any) -> tuple[Any, Any] | None:
@@ -87,7 +91,7 @@ def _equals_chain(lhs: str, shown: str, value: str) -> str:
 def _term_step(term: Any, var: Any) -> KeyStep | None:
     """One rule application for one term. None when the rule is not recognized."""
     derivative = diff(term, var)
-    value = format_verified_latex(derivative)
+    value = derivative_latex(derivative)
     lhs = _d(var, term)
     coefficient, rest = term.as_coeff_Mul() if term.is_Mul else (1, term)
     if coefficient != 1 and not _is_const(rest, var):
@@ -263,7 +267,7 @@ def derivative_key_steps(expr: Any, variable: str) -> list[KeyStep]:
     if len(terms) > 1:
         if not _matches(Add(*[diff(term, var) for term in terms]), derivative):
             return []
-        steps.append(KeyStep(label="Add the results", formula=format_verified_latex(derivative)))
+        steps.append(KeyStep(label="Add the results", formula=derivative_latex(derivative)))
     return steps
 
 

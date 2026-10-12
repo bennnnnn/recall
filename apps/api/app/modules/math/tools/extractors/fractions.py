@@ -10,13 +10,18 @@ from app.modules.math.tools.lesson import lesson_math_text
 from app.services.text_normalize import collapse_ws
 
 _F = r"\d+\s*/\s*\d+"
+# A fraction, or a mixed number such as ``2 1/2``.
+_MIXED_OR_F = rf"(?:\d+\s+)?{_F}"
 _SIMPLE = re.compile(rf"^(?:simplify|reduce)\s+(?P<a>{_F})$", re.IGNORECASE)
 _BINARY = re.compile(
-    rf"^(?P<a>{_F})\s*(?P<op>\+|-|\*|\u00d7|x|\u00f7|divided\s+by)\s*(?P<b>{_F})$",
+    rf"^(?P<a>{_MIXED_OR_F})\s*(?P<op>\+|-|\*|\u00d7|x|\u00f7|divided\s+by)\s*"
+    rf"(?P<b>{_MIXED_OR_F})$",
     re.IGNORECASE,
 )
+_MIXED = re.compile(r"(\d+)\s+(\d+)\s*/\s*(\d+)")
 _OF_QUANTITY = re.compile(
-    rf"^(?:find\s+)?(?P<a>{_F})\s+of\s+(?P<quantity>\d+(?:\.\d+)?)$",
+    rf"^(?:(?:find|what\s+is|what's|whats|calculate|work\s+out)\s+)?"
+    rf"(?P<a>{_F})\s+of\s+(?P<quantity>\d+(?:\.\d+)?)$",
     re.IGNORECASE,
 )
 _MIXED_TO_IMPROPER = re.compile(
@@ -43,6 +48,23 @@ def _compact_fraction(value: str) -> str:
     return value.replace(" ", "")
 
 
+def _improper(value: str) -> str:
+    """``2 1/2`` -> ``5/2``; a plain fraction is only compacted."""
+    mixed = _MIXED.fullmatch(value.strip())
+    if mixed is None:
+        return _compact_fraction(value)
+    whole, numerator, denominator = (int(part) for part in mixed.groups())
+    return f"{whole * denominator + numerator}/{denominator}"
+
+
+def _written(value: str) -> str:
+    """``2  1 / 2`` -> ``2 1/2``: the operand as written, one space before a fraction."""
+    mixed = _MIXED.fullmatch(value.strip())
+    if mixed is None:
+        return _compact_fraction(value)
+    return f"{mixed[1]} {mixed[2]}/{mixed[3]}"
+
+
 def _fraction_body(text: str) -> str:
     body = lesson_math_text(strip_math_response_wrappers(text)).strip(" :?.!")
     return collapse_ws(body)
@@ -65,7 +87,7 @@ def extract_fraction_intent(text: str) -> MathIntent | None:
         )
     match = _BINARY.fullmatch(body)
     if match:
-        left, right = _compact_fraction(match["a"]), _compact_fraction(match["b"])
+        left, right = _improper(match["a"]), _improper(match["b"])
         op = match["op"].lower()
         operation = {
             "+": "fraction_add",
@@ -80,7 +102,8 @@ def extract_fraction_intent(text: str) -> MathIntent | None:
             kind="arithmetic",
             school_op=operation,
             fraction_operands=[left, right],
-            expr=f"{left}{match['op']}{right}",
+            # As written, so a mixed number is shown the way it was asked.
+            expr=f"{_written(match['a'])} {match['op']} {_written(match['b'])}",
             operation="solve",
         )
     match = _OF_QUANTITY.fullmatch(body)

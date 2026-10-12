@@ -85,6 +85,71 @@ def _medical_bayes_values(cleaned: str) -> list[float] | None:
     return [prevalence, sensitivity, 1.0 - specificity]
 
 
+# The question asks for the amount before the change: "what was the original price".
+_ORIGINAL_ASKED = re.compile(
+    r"\b(?:what\s+(?:was|is|were)|find|work\s+out|calculate|how\s+much\s+(?:was|did))\b"
+    r"[^.?!]*?\b(?:original|full|regular|usual|old|starting|initial)\s+"
+    r"(?:price|cost|value|amount|salary|wage)\b"
+    r"|\b(?:price|cost|value)\s+before\s+(?:the\s+)?(?:discount|sale|increase|rise|reduction)\b",
+    re.IGNORECASE,
+)
+_DECREASE_WORDS = (
+    "discount",
+    "off",
+    "decrease",
+    "decreased",
+    "reduced",
+    "reduction",
+    "fell",
+    "dropped",
+    "sale",
+)
+_INCREASE_WORDS = (
+    "increase",
+    "increased",
+    "rise",
+    "rose",
+    "raised",
+    "markup",
+    "tax",
+    "vat",
+    "grew",
+)
+
+
+def _extract_original_before_percent(cleaned: str, lower: str) -> MathIntent | None:
+    """``after a 20% discount it costs 48, what was the original price`` -> 48 / 0.8.
+
+    Taking 20% off 48 answers a different question; the 48 is already reduced.
+    """
+    if not _ORIGINAL_ASKED.search(cleaned) or cleaned.count("%") != 1:
+        return None
+    decrease = any(word_index(lower, word) != -1 for word in _DECREASE_WORDS)
+    increase = any(word_index(lower, word) != -1 for word in _INCREASE_WORDS)
+    if decrease == increase:
+        return None
+    nums = list(mtm._NUM.finditer(cleaned))
+    if len(nums) != 2:
+        return None
+    rate_m = _number_immediately_before(cleaned, cleaned.find("%"))
+    if rate_m is None:
+        return None
+    after_m = nums[0] if nums[0].span() != rate_m.span() else nums[1]
+    if after_m.span() == rate_m.span():
+        return None
+    rate = _finite_match_value(rate_m)
+    after = _finite_match_value(after_m)
+    if rate is None or after is None or not 0 < rate < (100 if decrease else 1000):
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="original_before_decrease" if decrease else "original_before_increase",
+        percent_rate=rate,
+        percent_base=after,
+        operation="solve",
+    )
+
+
 def _extract_discount(cleaned: str, lower: str) -> MathIntent | None:
     if "% of " in lower:
         return None
@@ -145,10 +210,19 @@ def _extract_with_percent_total(cleaned: str, lower: str) -> MathIntent | None:
     )
 
 
+# "percentage increase from 40 to 50", "rose from 40 to 50 ... percentage increase".
+_PERCENT_CHANGE_FROM = re.compile(
+    r"\bpercent(?:age)?\s+(?:change|increase|decrease)\s+from\b"
+    r"|\b(?:rose|rises|risen|increased|went\s+up|grew|fell|dropped|decreased|went\s+down|"
+    r"changed)\s+from\b[^.?!]*\bpercent(?:age)?\b",
+    re.IGNORECASE,
+)
+
+
 def _extract_percent_change_from(cleaned: str, lower: str) -> MathIntent | None:
     if "%" in cleaned:
         return None
-    if "percent change from" not in lower and "percentage change from" not in lower:
+    if not _PERCENT_CHANGE_FROM.search(cleaned):
         return None
     values = _exactly_n_numbers(cleaned, 2)
     if values is None:
@@ -259,6 +333,7 @@ def _extract_present_value(cleaned: str, lower: str) -> MathIntent | None:
 def extract_arithmetic_formulas(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     for extractor in (
+        _extract_original_before_percent,
         _extract_discount,
         _extract_with_percent_total,
         _extract_percent_change_from,

@@ -106,9 +106,10 @@ def test_two_sided_nonexistent_limit_and_derivative_at_point_are_direct() -> Non
         "The two-sided limit does not exist because the one-sided limits disagree."
     )
 
+    # d²/dx² x^4 = 12x^2, which is 48 at x = 2 (32 is the first derivative).
     derivative_query = "Find the second derivative of x^4 at x=2"
     reply = maybe_direct_math_reply(_verified(derivative_query), derivative_query)
-    assert reply is not None and "both equal 32" in reply
+    assert reply is not None and "```answer\n48\n```" in reply
 
 
 def test_divergent_series_returns_a_complete_direct_explanation() -> None:

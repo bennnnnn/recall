@@ -18,6 +18,7 @@ from app.modules.math.tools.school.interest import (
 )
 from app.modules.math.tools.school.percentages import (
     _block_discount,
+    _block_original_before_percent,
     _block_percent,
     _block_percent_change,
     _block_percent_change_from,
@@ -156,6 +157,10 @@ def _verified_block_arithmetic(
 ) -> VerifiedMathBlock | None:
     if intent.teaching_op and intent.teaching_payload:
         return _block_teaching(intent, lines)
+    if intent.school_op in {"function_value", "expression_value"}:
+        from app.modules.math.tools.school.function_value import _block_function_value
+
+        return _block_function_value(intent, lines)
     if intent.school_op and intent.school_op.startswith("fraction_"):
         fraction_block = _block_fraction(intent, lines)
         if fraction_block is not None:
@@ -187,11 +192,14 @@ def _verified_block_arithmetic(
                 division_answer_mode=intent.division_answer_mode,
             )
             if arithmetic_work is not None:
-                from app.modules.math.tools.direct_arithmetic import written_fact_line
+                from app.modules.math.tools.direct_arithmetic import (
+                    final_answer,
+                    written_fact_line,
+                )
 
                 lines.append(f"Verified {arithmetic_work.operation} procedure:")
                 lines.extend(arithmetic_work.explanations)
-                block = _finish_with_answer(lines, arithmetic_work.answer)
+                block = _finish_with_answer(lines, final_answer(arithmetic_work))
                 return replace(
                     block,
                     canonical_fences=[arithmetic_work.model_dump()],
@@ -228,6 +236,8 @@ def _verified_block_arithmetic(
         and intent.percent_base is not None
     ):
         return _block_discount(intent, lines)
+    if intent.school_op in {"original_before_decrease", "original_before_increase"}:
+        return _block_original_before_percent(intent, lines)
     if (
         intent.school_op == "percent_change_from"
         and intent.percent_base is not None

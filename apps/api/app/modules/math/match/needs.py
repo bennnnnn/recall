@@ -129,6 +129,16 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     if spoken_power_request(cleaned) is not None:
         return True
+    from app.modules.math.tools.extractors.fractions import extract_fraction_intent
+
+    # "3/4 divided by 2/5", "2/3 of 60": the fraction grammar reads the whole request.
+    if extract_fraction_intent(cleaned) is not None:
+        return True
+    from app.modules.math.tools.school.function_value import extract_function_value_intent
+
+    # "if f(x) = 3x + 1, what is f(2)": a function's value at a number.
+    if extract_function_value_intent(cleaned) is not None:
+        return True
     if "=" in cleaned:
         from app.modules.math.tools.helpers import substituted_eval_expr
 
@@ -360,8 +370,12 @@ def school_homework_cue(cleaned: str) -> bool:
         )
     ):
         return True
-    if has_digit and ("percent change from" in lower or "percentage change from" in lower):
-        return True
+    if has_digit:
+        from app.modules.math.tools.extractors.formulas import extract_arithmetic_formulas
+
+        # Percent change from 40 to 50, the price before a 20% discount, ...
+        if extract_arithmetic_formulas(cleaned) is not None:
+            return True
     if has_digit and ("direct proportion" in lower or "inverse proportion" in lower):
         return True
     if has_digit and word_index(lower, "cost") != -1 and word_index(lower, "if") != -1:

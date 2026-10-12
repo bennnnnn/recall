@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from fractions import Fraction
 from math import gcd, lcm
 from typing import Literal, cast
@@ -299,3 +300,71 @@ def build_fraction_work(intent: MathIntent) -> FractionWorkSpec | None:
             ],
         )
     return None
+
+
+_OPERATION_SYMBOL = {"add": "+", "subtract": "-", "multiply": r"\times", "divide": r"\div"}
+_WRITTEN_FRACTION = re.compile(r"(?:(?P<whole>\d+) )?(?P<top>\d+)/(?P<bottom>\d+)")
+
+
+def fraction_tex(value: str) -> str | None:
+    """``5/2`` -> ``\\frac{5}{2}``; the mixed number ``2 1/2`` -> ``2\\frac{1}{2}``."""
+    match = _WRITTEN_FRACTION.fullmatch(value.strip())
+    if match is None:
+        return None
+    fraction = _latex_fraction(int(match["top"]), int(match["bottom"]))
+    return f"{match['whole']}{fraction}" if match["whole"] else fraction
+
+
+def _latex_fraction(numerator: int, denominator: int) -> str:
+    return rf"\frac{{{numerator}}}{{{denominator}}}"
+
+
+def mixed_number_tex(numerator: int, denominator: int) -> str:
+    """``17/4`` -> ``4\\frac{1}{4}``."""
+    whole, remainder = divmod(numerator, denominator)
+    if not remainder:
+        return str(whole)
+    return rf"{whole}{_latex_fraction(remainder, denominator)}"
+
+
+def fraction_working(work: FractionWorkSpec, written: tuple[str, str] | None = None) -> str | None:
+    """One line from the question to the last step before the answer.
+
+    ``\\frac{3}{4} \\div \\frac{2}{5} = \\frac{3}{4} \\times \\frac{5}{2}``. With
+    ``written`` mixed numbers it starts from them:
+    ``2\\frac{1}{2} + 1\\frac{3}{4} = \\frac{5}{2} + \\frac{7}{4} = \\frac{10}{4} + \\frac{7}{4}``.
+    """
+    if work.operation == "of_quantity" and len(work.operands) == 2:
+        part = _parse_fraction(work.operands[0])
+        if part is None:
+            return None
+        top, bottom = part
+        quantity = work.operands[1]
+        # "of" means multiply: ``\frac{2}{3} \times 60 = \frac{2 \times 60}{3}``.
+        return rf"{_latex_fraction(top, bottom)} \times {quantity} = " + (
+            rf"\frac{{{top} \times {quantity}}}{{{bottom}}}"
+        )
+    symbol = _OPERATION_SYMBOL.get(work.operation)
+    if symbol is None or len(work.operands) != 2:
+        return None
+    parts = [_parse_fraction(operand) for operand in work.operands]
+    if parts[0] is None or parts[1] is None:
+        return None
+    (a, b), (c, d) = parts[0], parts[1]
+    chain = [f"{_latex_fraction(a, b)} {symbol} {_latex_fraction(c, d)}"]
+    if written is not None:
+        shown = [fraction_tex(operand) for operand in written]
+        if shown[0] is None or shown[1] is None:
+            return None
+        chain.insert(0, f"{shown[0]} {symbol} {shown[1]}")
+    if work.operation in {"add", "subtract"}:
+        common = lcm(b, d)
+        chain.append(
+            f"{_latex_fraction(a * (common // b), common)} {symbol} "
+            f"{_latex_fraction(c * (common // d), common)}"
+        )
+    elif work.operation == "multiply":
+        chain.append(rf"\frac{{{a} \times {c}}}{{{b} \times {d}}}")
+    elif c:
+        chain.append(rf"{_latex_fraction(a, b)} \times {_latex_fraction(d, c)}")
+    return " = ".join(dict.fromkeys(chain))

@@ -395,6 +395,10 @@ def _verified_block_calculus(
         return _verified_function_analysis(intent, lines)
     if intent.school_op in _CALCULUS_APPLICATION_OPS:
         return _verified_calculus_application(intent, lines)
+    from app.modules.math.tools.school.curve_points import CURVE_POINT_OPS, curve_point_block
+
+    if intent.school_op in CURVE_POINT_OPS:
+        return curve_point_block(intent, lines)
     from app.modules.math.tools.school import apply_calculus_extension
 
     extended = apply_calculus_extension(intent, settings, lines)
@@ -418,6 +422,8 @@ def _verified_block_calculus(
     if intent.operation == "simplify":
         out = math_solve.simplify_expression(intent.expr, intent.variable)
     elif intent.operation == "differentiate":
+        if intent.evaluation_point is not None and (intent.derivative_order or 1) > 1:
+            return _higher_derivative_at_point(intent, lines)
         if intent.evaluation_point is not None:
             out = math_solve.differentiate_at_point(
                 intent.expr, intent.variable, intent.evaluation_point
@@ -425,9 +431,12 @@ def _verified_block_calculus(
             point_tex = intent.evaluation_point
             lines.extend(out.steps)
             answer = out.latex
-            direct = (
-                f"At ${intent.variable}={point_tex}$, {out.steps[0]}\n\n```answer\n{answer}\n```\n"
+            working = _derivative_at_point_working(
+                intent.expr, intent.variable, intent.evaluation_point, out.result
             )
+            if working is None:
+                working = f"At ${intent.variable} = {point_tex}$: {out.steps[0]}"
+            direct = f"{working}\n\n```answer\n{answer}\n```\n"
             return replace(
                 _finish_with_answer(lines, answer),
                 direct_reply=direct,
@@ -964,4 +973,75 @@ def _verified_block_matrix(
     return _finish_with_answer(
         lines,
         answer,
+    )
+
+
+def _derivative_at_point_working(expr: str, variable: str, point: str, value: str) -> str | None:
+    """``dy/dx = 2x``, then ``dy/dx`` at ``x = 3`` with 3 put in: ``2(3)``.
+
+    None when the derivative's formula does not give the checked value there
+    (``|x|`` at 0); the difference-quotient reason stands in.
+    """
+    from sympy import Symbol, diff, latex, simplify, sympify
+
+    from app.modules.math import solve as math_solve
+    from app.modules.math.tools.school.function_value import _substituted_tex
+
+    try:
+        parsed = math_solve._parse_expression(expr, [variable])
+        at = sympify(point)
+        derivative = simplify(diff(parsed, Symbol(variable)))
+        if derivative.free_symbols - {Symbol(variable)}:
+            return None
+        if simplify(derivative.subs(variable, at) - sympify(value)) != 0:
+            return None
+    except (math_solve.MathServiceError, TypeError, ValueError, SyntaxError):
+        return None
+    d = rf"\frac{{dy}}{{d{variable}}}"
+    return (
+        f"${d} = {latex(derivative)}$  \n"
+        rf"$\left.{d}\right|_{{{variable} = {latex(at)}}} = "
+        f"{_substituted_tex(derivative, variable, at)}$"
+    )
+
+
+def _higher_derivative_at_point(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    """``d^2y/dx^2 = 12x^2``, then at ``x = 2``: ``12(2)^2``. The answer is that value.
+
+    The difference-quotient check covers a first derivative only; read with
+    it, "the second derivative of x^4 at x = 2" was answered with the first (32).
+    """
+    from sympy import Symbol, diff, latex, simplify, sympify
+
+    from app.modules.math.solve.parse import format_verified_latex
+    from app.modules.math.tools.school.function_value import _substituted_tex
+
+    order = intent.derivative_order
+    variable = intent.variable
+    try:
+        parsed = math_solve._parse_expression(intent.expr or "", [variable])
+        at = sympify(intent.evaluation_point)
+    except (math_solve.MathServiceError, TypeError, ValueError, SyntaxError):
+        return None
+    symbol = Symbol(variable)
+    if isinstance(parsed, tuple) or parsed.free_symbols - {symbol}:
+        return None
+    derivative = simplify(diff(parsed, symbol, order))
+    value = simplify(derivative.subs(symbol, at))
+    if not (value.is_number and value.is_finite):
+        return None
+    answer = format_verified_latex(value)
+    d = rf"\frac{{d^{{{order}}}y}}{{d{variable}^{{{order}}}}}"
+    working = (
+        f"${d} = {latex(derivative)}$  \n"
+        rf"$\left.{d}\right|_{{{variable} = {latex(at)}}} = "
+        f"{_substituted_tex(derivative, variable, at)}$"
+    )
+    lines.append(
+        f"Derivative of order {order}: {latex(derivative)}; at {variable} = {at}: {answer}"
+    )
+    return replace(
+        _finish_with_answer(lines, answer),
+        direct_reply=f"{working}\n\n```answer\n{answer}\n```\n",
+        direct_requires_calculus_guard=True,
     )

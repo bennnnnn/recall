@@ -430,7 +430,7 @@ def test_exact_composite_degree_angle_uses_angle_sum_identity() -> None:
 def test_product_and_second_derivatives_use_verified_working_directly() -> None:
     cases = {
         "Differentiate y = x^2 e^(3x).": "Product rule",
-        "Find d^2y/dx^2 if y = e^x sin x.": "Second derivative",
+        "Find d^2y/dx^2 if y = e^x sin x.": "second derivative",
     }
     for query, expected in cases.items():
         _intent, block = _verified(query)
