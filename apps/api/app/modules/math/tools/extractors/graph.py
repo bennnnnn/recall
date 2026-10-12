@@ -170,9 +170,10 @@ def _solve_for_y_as_function_of_x(expr: str) -> str | None:
     """
     if "=" not in expr:
         return None
-    from sympy import Eq, Symbol, solve, sstr
+    from sympy import Eq, Symbol, solve
     from sympy.core.relational import Relational
 
+    from app.core.sympy_notation import school_text
     from app.modules.math.solve.parse import _parse_expression
 
     lhs_str, _, rhs_str = expr.partition("=")
@@ -206,7 +207,7 @@ def _solve_for_y_as_function_of_x(expr: str) -> str | None:
     if value is None:
         return None
     # Must be a function of x only (no free y left).
-    text = sstr(value).replace(" ", "")
+    text = school_text(value).replace(" ", "")
     if "y" in text:
         return None
     return text or None
@@ -230,9 +231,9 @@ def _equation_as_function_of_x(expr: str) -> str | None:
         return None
     if _has_non_math_word(lhs_str) or _has_non_math_word(rhs_str):
         return None
-    from sympy import sstr
     from sympy.core.relational import Relational
 
+    from app.core.sympy_notation import school_text
     from app.modules.math.solve.parse import _parse_expression
 
     try:
@@ -254,7 +255,7 @@ def _equation_as_function_of_x(expr: str) -> str | None:
         return lhs_str.replace("^", "**").replace(" ", "")
     if lhs_compact in {"0", "0.0"}:
         return rhs_str.replace("^", "**").replace(" ", "")
-    text = sstr(diff).replace(" ", "")
+    text = school_text(diff).replace(" ", "")
     return text or None
 
 

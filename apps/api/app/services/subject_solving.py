@@ -16,7 +16,11 @@ from redis.asyncio import Redis
 
 from app.core.config import Settings
 from app.modules.math.schemas import MathImageExtract
-from app.modules.math.tools.prompt import build_math_augmentation, needs_symbolic_math
+from app.modules.math.tools.prompt import (
+    NOTHING_TO_GRAPH,
+    build_math_augmentation,
+    needs_symbolic_math,
+)
 from app.modules.physics.extract import needs_physics
 from app.modules.physics.prompt import build_physics_augmentation
 from app.services.solving import VerifiedMathBlock, VerifiedPhysicsBlock, VerifiedSolveBlock
@@ -198,7 +202,8 @@ async def _augment_math(
         subject="math",
         prompt_block=block,
         verified=math_verified,
-        unverified=block is not None and math_verified is None,
+        # Asking which function to graph is not an unverified answer.
+        unverified=block is not None and math_verified is None and block is not NOTHING_TO_GRAPH,
     )
 
 
