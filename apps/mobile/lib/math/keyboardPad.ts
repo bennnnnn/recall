@@ -14,7 +14,7 @@ export const KEY_HEIGHT_MIN = Space.minTouch;
 const SYMBOL_GROUPS: MathKeyboardGroup[] = ["basics", "trig", "calc", "greek"];
 
 function symbolRows(group: MathKeyboardGroup): number {
-  if (group === "basics") return 4;
+  if (group === "basics") return 5;
   return Math.ceil(symbolsInGroup(group).length / MATH_SYMBOL_ROW_SIZE) + 1;
 }
 

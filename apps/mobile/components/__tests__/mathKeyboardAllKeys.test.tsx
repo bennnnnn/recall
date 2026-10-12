@@ -102,7 +102,10 @@ function previewIds(input: string, caret: number): string[] {
   return ids;
 }
 
-function leaks(shown: string): boolean {
+function leaks(shown: string, id = ""): boolean {
+  if (id === "braces" || id.startsWith("braces+")) {
+    return /\\/.test(shown);
+  }
   return RAW.test(shown);
 }
 
@@ -125,7 +128,7 @@ async function walkDeletes(id: string, startText: string, startCaret: number, is
     }
     seen.add(key);
     const shown = await visible(text, caret);
-    if (leaks(shown)) {
+    if (leaks(shown, id)) {
       issues.push({ id, step: `delete ${i}`, source: text, shown });
     }
     if (!text) return;
@@ -167,7 +170,7 @@ describe("math keyboard keys", () => {
       if (shape) {
         issues.push({ id: spec.id, step: shape, source: inserted.text, shown });
       }
-      if (leaks(shown)) {
+      if (leaks(shown, spec.id)) {
         issues.push({ id: spec.id, step: "insert", source: inserted.text, shown });
       }
       await walkDeletes(spec.id, inserted.text, inserted.caret, issues);
@@ -182,7 +185,7 @@ describe("math keyboard keys", () => {
       }
       if (filled.text !== inserted.text) {
         const filledShown = await visible(filled.text, filled.caret);
-        if (leaks(filledShown)) {
+        if (leaks(filledShown, spec.id)) {
           issues.push({ id: spec.id, step: "filled", source: filled.text, shown: filledShown });
         }
         await walkDeletes(`${spec.id}+digits`, filled.text, filled.caret, issues);

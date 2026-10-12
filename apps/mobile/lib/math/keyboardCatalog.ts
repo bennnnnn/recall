@@ -36,9 +36,13 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "frac", label: "□/□", insert: "\\frac{}{}", group: "basics" }),
   key({ id: "sqrt", label: "√", insert: "\\sqrt{}", group: "basics" }),
   key({ id: "nroot", label: "ⁿ√", insert: "\\sqrt[]{}", cursorOffset: 6, group: "basics" }),
+  key({ id: "sq", label: "x²", insert: "x^{2}", group: "basics" }),
   key({ id: "sup", label: "xⁿ", insert: "x^{}", group: "basics" }),
   key({ id: "sub", label: "xₙ", insert: "x_{}", group: "basics" }),
   key({ id: "abs", label: "|x|", insert: "||", group: "basics" }),
+  key({ id: "brackets", label: "[ ]", insert: "[]", cursorOffset: 1, group: "basics" }),
+  key({ id: "braces", label: "{ }", insert: "\\{\\}", cursorOffset: 2, group: "basics" }),
+  key({ id: "angle", label: "∠", insert: "\\angle ", group: "basics" }),
   key({ id: "pi", label: "π", insert: "\\pi ", group: "basics" }),
   key({ id: "leq", label: "≤", insert: "\\leq ", group: "basics" }),
   key({ id: "geq", label: "≥", insert: "\\geq ", group: "basics" }),
@@ -183,8 +187,12 @@ export const SYMBOL_A11Y: Record<string, string> = {
   sqrt: "Square root",
   nroot: "Nth root",
   sup: "Superscript",
+  sq: "Square",
   sub: "Subscript",
   abs: "Absolute value",
+  brackets: "Square brackets",
+  braces: "Curly braces",
+  angle: "Angle",
   pi: "Pi",
   leq: "Less than or equal",
   geq: "Greater than or equal",
@@ -335,6 +343,15 @@ function factAttachInsert(
   return { insert: "n!", cursorOffset: 0, select: 1 };
 }
 
+/** x²: attach `^{2}` to an existing base, otherwise insert `x^{2}`. */
+function squareAttachInsert(text: string, start: number): { insert: string; cursorOffset: number } {
+  const prev = lastNonSpaceChar(text, start);
+  if (/[0-9a-zA-Z.)\]}|]/.test(prev)) {
+    return { insert: "^{2}", cursorOffset: 4 };
+  }
+  return { insert: "x^{2}", cursorOffset: 5 };
+}
+
 /** xⁿ / xₙ: attach the script to an existing base, otherwise insert `x`. */
 function scriptAttachInsert(
   text: string,
@@ -368,6 +385,7 @@ function resolveInsert(
   start: number,
   spec: MathKeyboardSymbol,
 ): { insert: string; cursorOffset: number; select?: number } {
+  if (spec.id === "sq") return squareAttachInsert(text, start);
   if (spec.id === "sup") return scriptAttachInsert(text, start, "^");
   if (spec.id === "sub") return scriptAttachInsert(text, start, "_");
   if (spec.id === "fact") return factAttachInsert(text, start);
