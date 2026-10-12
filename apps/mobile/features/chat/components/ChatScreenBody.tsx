@@ -1,4 +1,4 @@
-import { memo, ReactElement, RefObject, useCallback, useEffect, useMemo } from "react";
+import { memo, ReactElement, RefObject, useCallback, useEffect } from "react";
 import { View, type NativeScrollEvent, type NativeSyntheticEvent, type ViewStyle } from "react-native";
 import { FlashListRef, ListRenderItemInfo } from "@shopify/flash-list";
 import { type AnimatedStyle } from "react-native-reanimated";
@@ -22,7 +22,6 @@ import type { ReadBackSubject } from "@/lib/scanner/readBack";
 import type { ScannerSubject } from "@/lib/scanner/subjects";
 import type { ResolvedChatError } from "@/features/chat/model/errorMessage";
 import type { IconName } from "@/ui/icons/names";
-import { messagesLookLikeMath } from "@/lib/math/composerIntent";
 import type { Theme } from "@/lib/theme";
 
 export interface ChatScreenLayoutProps {
@@ -146,27 +145,6 @@ export const ChatScreenBody = memo(function ChatScreenBody({
   const { messages } = list;
   const { liveTalkSession, onSend } = composer;
   const { mathScannerOpen, onCloseMathScanner } = sheets;
-  // messagesLookLikeMath only reads the last 8 messages — fingerprint exactly
-  // those so a prepend of older pages (or any unrelated list change) doesn't
-  // re-run the regex scan, and never map the full history to get there.
-  const recentMathFingerprint = useMemo(() => {
-    const start = Math.max(0, messages.length - 8);
-    let fingerprint = "";
-    for (let i = start; i < messages.length; i += 1) {
-      const message = messages[i];
-      fingerprint += `${message.id}:${message.content.length};`;
-    }
-    return fingerprint;
-  }, [messages]);
-  const mathContext = useMemo(
-    () =>
-      messagesLookLikeMath(
-        messages.slice(Math.max(0, messages.length - 8)).map((m) => m.content),
-      ),
-    // recentMathFingerprint captures exactly the inputs this reads.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [recentMathFingerprint],
-  );
   const handleComposerSend = useCallback(
     (text?: string) => {
       liveTalkSession?.onYield();
@@ -231,7 +209,6 @@ export const ChatScreenBody = memo(function ChatScreenBody({
         onOpenMathScanner={composer.onOpenMathScanner}
         onMathChromeHeightChange={composer.onMathChromeHeightChange}
         onInputFrameExtraChange={composer.onInputFrameExtraChange}
-        mathContext={mathContext}
       />
 
       <ChatOverlays
