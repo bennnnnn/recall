@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`ot` and `rac` sat on a radical, and the root index floated above the bar.** “simplify to $2\sqrt{2}$” copied the word “to” into the formula as `t o` / `o t`, and `\frac` lost `\f` so the screen showed `rac`. The nth-root layout also reserved a full line above the vinculum. Drop that leaked “to”, restore `rac{` to `\frac`, and hang the index in the hook.
+
 - **A tapped follow-up showed a dot, and “How” did not explain the sum.** A question with `$...$` went through the math-key preview, which draws no words, so the bubble was empty. A fragment such as “How” was offered as the next question, and “what is the result of 7 + 9” was not the sum that “How” continues. A sent sentence stays text. A follow-up has to be a full question with the letter and the number apart, and “How” after that sum explains it.
 
 - **“Second” after “what is my first language” asked again.** That one word was not a profile question, so the saved English fact was never read. A first/second follow-up to a language question answers that language.

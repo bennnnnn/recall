@@ -482,18 +482,24 @@ describe("MathText", () => {
     expect(getByText("1")).toHaveStyle({ fontSize: 14 });
   });
 
-  it("raises the root degree above the hook without shrinking the radicand", async () => {
-    const { getByText } = await render(<MathText latex={String.raw`\sqrt[6]{9}`} />);
-    const radical = findLayouts(laidOut(String.raw`\sqrt[6]{9}`).layout, "sqrt")[0];
+  it("places the root degree in the hook instead of above the bar", async () => {
+    const latex = String.raw`\sqrt[6]{9}`;
+    const { getByText } = await render(<MathText latex={latex} />);
+    const radical = findLayouts(laidOut(latex).layout, "sqrt")[0];
     expect(radical.index).toBeDefined();
+    expect(laidOut(latex).problems).toEqual([]);
     expect(getByText("6")).toHaveStyle({
       fontSize: radical.index?.fontSize,
       lineHeight: radical.index?.lineHeight,
       left: radical.index?.left,
       top: radical.index?.top,
     });
-    expect((radical.index?.top ?? 0) + (radical.index?.lineHeight ?? 0))
-      .toBeLessThanOrEqual((radical.bodyTop ?? 0) + 0.01);
+    const barY = (radical.em ?? 16) * 0.05;
+    const indexTop = radical.index?.top ?? 0;
+    const indexBottom = indexTop + (radical.index?.lineHeight ?? 0);
+    expect(indexTop).toBeLessThanOrEqual(barY + 0.5);
+    expect(indexBottom).toBeGreaterThan(barY + 1);
+    expect((radical.index?.left ?? 0) + (radical.index?.width ?? 0)).toBeLessThan(radical.barStart ?? 0);
     expect(getByText("9")).toHaveStyle({ fontSize: 16 });
   });
 

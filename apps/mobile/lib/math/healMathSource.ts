@@ -52,6 +52,29 @@ const BRACED_COMMANDS = [
 
 const AT_COMMAND = new RegExp(`^(${BRACED_COMMANDS.join("|")})(?=[{\\[^_])`);
 
+/** `\f` from `\frac` is a form feed, so a decoder leaves `rac{…}{…}`. */
+const EATEN_FRAC = /(?<![A-Za-z\\])\u000C?rac\{/g;
+
+function eatenFracAt(text: string, i: number): boolean {
+  if (!text.startsWith("rac{", i)) return false;
+  const prev = text[i - 1];
+  return prev !== "\\" && (prev == null || !/[A-Za-z]/.test(prev));
+}
+
+/**
+ * The word "to" in "simplify to $…$" was copied into the formula as `t o` / `o t`.
+ * Drop that word from the edges. A real `\to` keeps its backslash and stays.
+ */
+function stripLeakedTo(latex: string): string {
+  if (!/\\[a-zA-Z]/.test(latex)) return latex;
+  return latex.replace(/^\s*(?:t o|to|ot)\s+/, "").replace(/\s+(?:o t|to|ot)\s*$/, "");
+}
+
+/** Restore a fraction that lost `\f`, and drop a leaked "to" beside a real command. */
+export function repairLeakedMath(latex: string): string {
+  return stripLeakedTo(latex.replace(EATEN_FRAC, "\\frac{"));
+}
+
 function commandAt(text: string, i: number): string | null {
   const prev = text[i - 1];
   if (prev === "\\" || (prev != null && /[A-Za-z]/.test(prev))) return null;
@@ -74,6 +97,13 @@ export function healDroppedCommandSlash(
     if (ch === "$" && text[i - 1] !== "\\") {
       math = !math;
       out += ch;
+      continue;
+    }
+    if (math && eatenFracAt(text, i)) {
+      out += "\\frac{";
+      if (i < start) nextStart += 2;
+      if (i < end) nextEnd += 2;
+      i += 3;
       continue;
     }
     if (math) {
