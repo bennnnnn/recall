@@ -47,6 +47,7 @@ _MODULE_EXPORTS = (
     "match",
     "ocr",
     "reply_policy",
+    "text_plot",
     "tools.extract",
     "tools.prompt",
 )

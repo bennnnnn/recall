@@ -371,6 +371,14 @@ async def enrich_final_content(
 
             assistant_text = append_unverified_chemistry_note(assistant_text)
 
+        # A graph drawn in text characters on a graph turn: the prompt forbids
+        # it, and the phone shows it as broken rows of symbols.
+        from app.modules.math.text_plot import strip_text_plots_on_graph_turn
+
+        assistant_text = strip_text_plots_on_graph_turn(
+            assistant_text, ctx.user_message_content, ctx.verified_subject
+        )
+
         # Prompt scaffolding must never survive into the reply. The model is
         # told not to mention a system block, but instruction is not
         # enforcement — this is the enforcement.
