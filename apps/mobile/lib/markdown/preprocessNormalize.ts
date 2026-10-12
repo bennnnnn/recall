@@ -23,12 +23,14 @@ export function trimBoldDelimiterWhitespace(content: string): string {
  * CommonMark treats one newline as a space, so ``**Substitute**\n$x=2$``
  * became one crowded line on iPhone. A blank line preserves the author's
  * intended step structure and gives tall native fractions/radicals their own
- * row. List labels and fenced examples are deliberately untouched.
+ * row. List labels and fenced examples are deliberately untouched. A workout
+ * heading (Given, Find, Formula, Substitution, Steps, Answer) keeps its lines:
+ * the workout renderer gives each line its own row.
  */
 export function separateStandaloneBoldLines(content: string): string {
   return applyOutsideFences(content, (prose) =>
     prose.replace(
-      /^(\s*\*\*(?!\d+[.)]\s)[^*\n]+\*\*\s*)\n(?!\n)/gm,
+      /^(\s*\*\*(?!\d+[.)]\s)(?!(?:Given|Find|Formula|Substitution|Steps|Answer):?\*\*)[^*\n]+\*\*\s*)\n(?!\n)/gm,
       "$1\n\n",
     ),
   );
