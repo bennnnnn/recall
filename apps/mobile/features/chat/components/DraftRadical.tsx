@@ -24,7 +24,7 @@ function radicalLayout(contentWidth: number, contentHeight: number, hasIndex: bo
     barStart,
     barEnd,
     index: hasIndex
-      ? { left: 0, top: 0, width: EM * 0.7, fontSize: 12, lineHeight: head }
+      ? { left: 0, top: 0, width: EM * 0.7, fontSize: INDEX_HEAD, lineHeight: head }
       : undefined,
   };
 }
