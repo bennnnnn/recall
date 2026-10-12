@@ -111,3 +111,18 @@ async def test_lab_readings_stay_chemistry() -> None:
         "Find the standard deviation of these measurements: 10.1, 10.3, 10.2"
     )
     assert subject == "chemistry"
+
+
+@pytest.mark.asyncio
+async def test_unit_givens_are_physics_not_algebra() -> None:
+    subject, canonical, reply = await _answer("F = 20 N, m = 5 kg, find a")
+    assert subject == "physics"
+    assert canonical is not None and canonical.startswith("4")
+    assert reply is not None and "infinitely many" not in reply
+
+
+@pytest.mark.asyncio
+async def test_system_does_not_answer_a_letter_it_never_contains() -> None:
+    subject, canonical, reply = await _answer("a = 3, b = 4, find c")
+    assert subject == "math"
+    assert canonical is None and reply is None

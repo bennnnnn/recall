@@ -35,6 +35,7 @@ _EXPORTS = {
     "format_direct_physics_working": ("direct", "format_direct_physics_working"),
     "extract_physics_intent": ("extract", "extract_physics_intent"),
     "has_supported_physics_cue": ("registry", "has_supported_physics_cue"),
+    "is_symbol_givens_request": ("symbol_givens", "is_symbol_givens_request"),
     "needs_physics": ("extract", "needs_physics"),
     "prepare_physics_request": ("request", "prepare_physics_request"),
     "solve_physics": ("solver", "solve_physics"),

@@ -332,6 +332,11 @@ def _extract_system_intent(cleaned: str) -> MathIntent | None:
         return None
     if len(eq_pairs) > _MAX_SYSTEM_EQUATIONS:
         return None
+    # "a = 3, b = 4, find c" asks for a letter no equation contains; restating
+    # the givens is not an answer to it.
+    asked = _SOLVE_FOR_VAR_RE.search(cleaned) or _FIND_VAR_RE.search(cleaned)
+    if asked is not None and asked.group(1) not in variables:
+        return None
     return MathIntent(
         kind="system",
         system_equations=eq_pairs,
