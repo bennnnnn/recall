@@ -452,7 +452,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-converter-ask"));
     expect(onSend).toHaveBeenCalledWith("convert 5 m to cm");
     expect(onChangeInput).not.toHaveBeenCalledWith("convert 5 m to cm");
-    expect(getByTestId("math-converter")).toBeTruthy();
+    expect(queryByTestId("math-converter")).toBeNull();
   });
 
   it("keeps math navigation and converter controls at least 44pt", async () => {
@@ -561,18 +561,22 @@ describe("ChatComposer math keyboard", () => {
     expect(latest).toBe("$100\\,\\text{cm}$");
   });
 
-  it("turns Ask into Stop while a reply is generating", async () => {
-    const onSend = jest.fn();
+  it("minimizes the math keyboard while a reply is streaming", async () => {
     const onStop = jest.fn();
-    const { getByTestId, getByLabelText } = await render(
-      <ChatComposer {...baseProps} streaming onSend={onSend} onStop={onStop} />,
+    const { getByTestId, getByLabelText, queryByTestId, rerender } = await render(
+      <ChatComposer {...baseProps} onStop={onStop} />,
     );
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
-    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
-    expect(getByLabelText("chat.stop")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-converter-ask"));
+    expect(getByTestId("math-keyboard-pad")).toBeTruthy();
+
+    await rerender(<ChatComposer {...baseProps} streaming onStop={onStop} />);
+    expect(queryByTestId("math-keyboard-pad")).toBeNull();
+    expect(getByLabelText("chat.stop_a11y")).toBeTruthy();
+
+    await fireEvent.press(getByTestId("math-keyboard-toggle"));
+    expect(queryByTestId("math-keyboard-pad")).toBeNull();
+    await fireEvent.press(getByLabelText("chat.stop_a11y"));
     expect(onStop).toHaveBeenCalled();
-    expect(onSend).not.toHaveBeenCalled();
   });
 
   it("reopens the Converter tab after ABC", async () => {
