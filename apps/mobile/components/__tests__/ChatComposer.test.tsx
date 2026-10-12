@@ -518,14 +518,15 @@ describe("ChatComposer math keyboard", () => {
     const white = [lightTheme.bg, darkTheme.bg];
     expect(white).toContain(flat(getByTestId("math-converter-5").props.style).backgroundColor);
     expect(white).toContain(flat(getByTestId("math-converter-ask").props.style).backgroundColor);
-    for (const [id, label] of [
-      ["math-converter-AC", "chat.math_converter_clear"],
-      ["math-converter-back", "chat.math_keyboard_backspace"],
-    ] as const) {
-      const key = getByTestId(id);
-      expect(white).toContain(flat(key.props.style).backgroundColor);
-      expect(danger).toContain(flat(within(key).getByText(label).props.style).color);
-    }
+    const clear = getByTestId("math-converter-AC");
+    expect(white).toContain(flat(clear.props.style).backgroundColor);
+    expect(danger).toContain(flat(within(clear).getByText("chat.math_converter_clear").props.style).color);
+    const back = getByTestId("math-converter-back");
+    expect(white).toContain(flat(back.props.style).backgroundColor);
+    expect(within(back).queryByText("chat.math_keyboard_backspace")).toBeNull();
+    const backIcon = within(back).getByTestId("math-converter-back-icon");
+    expect(backIcon.props.name).toBe("backspace");
+    expect(danger).toContain(backIcon.props.color);
     const sign = getByTestId("math-converter-±");
     expect(white).toContain(flat(sign.props.style).backgroundColor);
     expect(ink).toContain(flat(within(sign).getByText("±").props.style).color);
