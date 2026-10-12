@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, PrivateAttr
+from pydantic import BaseModel, Field, PrivateAttr
 
 from app.modules.math.schemas.word_problem import WordProblemSetup
 
@@ -271,6 +271,8 @@ class MathIntent(BaseModel):
         | None
     ) = None
     teaching_payload: str | None = None
+    # school_op == "binomial_trials": the counted outcome as written ("heads").
+    trial_outcome: str | None = Field(default=None, max_length=24)
     arithmetic_operands: list[str] | None = None
     division_answer_mode: (
         Literal["remainder", "fraction", "decimal", "round_up", "discard"] | None

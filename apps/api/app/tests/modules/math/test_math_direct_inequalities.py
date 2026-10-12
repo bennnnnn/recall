@@ -42,7 +42,10 @@ async def test_whole_inequality_returns_only_one_answer_and_verified_number_line
         f"```answer\n{verified.canonical_answer}\n```\n\n"
         f"```graph\n{json.dumps(verified.canonical_fence, separators=(',', ':'))}\n```\n"
     )
-    assert reply == expected
+    # A quadratic shows its working first; the answer and number line still close it.
+    assert reply.endswith(expected)
+    working = reply[: -len(expected)]
+    assert not working or (working.startswith("**Given**") and "**Steps**" in working)
     assert reply.endswith("```\n")
     GraphBlockSpec.model_validate(verified.canonical_fence)
     finalized = validate_math_fences(reply, verified=verified)

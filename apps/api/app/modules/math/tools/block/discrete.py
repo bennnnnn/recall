@@ -227,6 +227,60 @@ def _verified_calculus_application(
     return replace(block, direct_reply=render_workout(workout, answer))
 
 
+def _bound_tex(bound: object) -> str:
+    """``pi`` as ``\\pi``; an unreadable bound stays as written."""
+    from sympy import latex
+
+    try:
+        return str(latex(math_solve._parse_expression(str(bound), [], real=True)))
+    except Exception:
+        return str(bound)
+
+
+def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str) -> Workout | None:
+    """``∫_0^3 x² dx = [x³/3]_0^3 = 9 - 0``: the antiderivative, then F(b) - F(a)."""
+    from sympy import Integral, Symbol, integrate, latex, oo, simplify, zoo
+
+    symbol = next(
+        (s for s in parsed.free_symbols if str(s) == intent.variable), Symbol(intent.variable)
+    )
+    try:
+        low = math_solve._parse_expression(str(intent.integral_lower), [], real=True)
+        high = math_solve._parse_expression(str(intent.integral_upper), [], real=True)
+        if any(bound.has(oo, -oo, zoo) for bound in (low, high)):
+            return None
+        from app.modules.math.solve.calculus import _absolute_logs
+
+        antiderivative = _absolute_logs(integrate(parsed, symbol), parsed, symbol)
+        if antiderivative.has(Integral):
+            return None
+        at_high = simplify(antiderivative.subs(symbol, high))
+        at_low = simplify(antiderivative.subs(symbol, low))
+        value = simplify(integrate(parsed, (symbol, low, high)))
+        if not (at_high.is_finite and at_low.is_finite) or simplify(at_high - at_low - value) != 0:
+            return None
+    except Exception:
+        return None
+    var = latex(symbol)
+    low_tex = (
+        rf"\left({latex(at_low)}\right)" if at_low.could_extract_minus_sign() else latex(at_low)
+    )
+    return Workout(
+        find=(math_line(integral),),
+        formula=(
+            math_line(r"\int_{a}^{b} f(x)\,dx = F(b) - F(a)", "Fundamental theorem of calculus"),
+        ),
+        substitution=(
+            math_line(f"F({var}) = {latex(antiderivative)}", "antiderivative"),
+            math_line(
+                rf"{integral} = \left[{latex(antiderivative)}\right]"
+                rf"_{{{latex(low)}}}^{{{latex(high)}}}"
+            ),
+            math_line(f"= {latex(at_high)} - {low_tex} = {latex(value)}", "evaluate at the limits"),
+        ),
+    )
+
+
 def _unbounded_at_an_endpoint(parsed: Any, intent: MathIntent) -> bool:
     """``ln(x)`` on ``[0, 1]``: the integral is a limit at 0, not a plain value."""
     from sympy import Symbol, nan, zoo
@@ -507,17 +561,15 @@ def _verified_block_calculus(
         from sympy import latex
 
         parsed = math_solve._parse_expression(intent.expr, [intent.variable], real=True)
-        integral = (
-            f"\\int_{{{intent.integral_lower}}}^{{{intent.integral_upper}}} "
-            f"{latex(parsed)}\\,d{intent.variable}"
-        )
-        note = (
-            "evaluate as a limit at the endpoint"
-            if _unbounded_at_an_endpoint(parsed, intent)
-            else "evaluate"
-        )
+        integrand = rf"\left({latex(parsed)}\right)" if parsed.is_Add else latex(parsed)
+        low_tex, high_tex = _bound_tex(intent.integral_lower), _bound_tex(intent.integral_upper)
+        integral = f"\\int_{{{low_tex}}}^{{{high_tex}}} {integrand}\\,d{intent.variable}"
+        unbounded = _unbounded_at_an_endpoint(parsed, intent)
+        worked = None if unbounded else _fundamental_theorem_working(intent, parsed, integral)
+        note = "evaluate as a limit at the endpoint" if unbounded else "evaluate"
         direct = render_workout(
-            Workout(
+            worked
+            or Workout(
                 find=(math_line(integral),),
                 steps=(math_line(f"{integral} = {answer}", note),),
             ),
@@ -562,7 +614,69 @@ def _verified_block_limit(
             "This limit is infinite — preserve its sign, do not treat it as an ordinary "
             "finite number."
         )
-    return _finish_with_answer(lines, limit_out.latex)
+    block = _finish_with_answer(lines, limit_out.latex)
+    if limit_out.is_infinite or intent.limit_direction not in (None, "+-"):
+        return block  # a one-sided or infinite limit keeps the answer card alone
+    working = _limit_working(intent, limit_out.latex)
+    return replace(block, worked_reply=working) if working else block
+
+
+def _limit_working(intent: MathIntent, answer: str) -> str | None:
+    """Substitute; or factor and cancel a 0/0; or one step of L'Hôpital's rule."""
+    from sympy import Symbol, cancel, diff, factor, latex, limit, nan, simplify, zoo
+
+    try:
+        expr = math_solve._parse_expression(intent.expr or "", [intent.variable])
+        point = math_solve._parse_expression(str(intent.limit_point), [])
+        symbol = next(
+            (s for s in expr.free_symbols if str(s) == intent.variable), Symbol(intent.variable)
+        )
+        value = limit(expr, symbol, point)
+        if not value.is_finite:
+            return None
+        direct = expr.subs(symbol, point)
+    except Exception:
+        return None
+    var, at = latex(symbol), latex(point)
+    lim = rf"\lim_{{{var} \to {at}}}"
+
+    def operand(value: Any) -> str:
+        """``\\lim (x + 1)``: a sum after the limit sign is bracketed."""
+        return rf"\left({latex(value)}\right)" if value.is_Add else str(latex(value))
+
+    find = (math_line(f"{lim} {operand(expr)}"),)
+    substitute = f"substitute ${var} = {at}$"
+    if direct.is_finite and not direct.has(nan, zoo) and simplify(direct - value) == 0:
+        steps: tuple[str, ...] = (math_line(f"{lim} {operand(expr)} = {latex(value)}", substitute),)
+        return render_workout(Workout(find=find, steps=steps), answer)
+    numerator, denominator = expr.as_numer_denom()
+    if numerator.subs(symbol, point) != 0 or denominator.subs(symbol, point) != 0:
+        return None
+    zero = math_line(r"\frac{0}{0}", f"substituting ${var} = {at}$ gives an indeterminate form")
+    reduced = cancel(expr)
+    if reduced != expr and simplify(reduced.subs(symbol, point) - value) == 0:
+        factored = rf"\frac{{{latex(factor(numerator))}}}{{{latex(factor(denominator))}}}"
+        steps = (
+            zero,
+            math_line(f"{latex(expr)} = {factored} = {latex(reduced)}", "factor and cancel"),
+            math_line(f"{lim} {operand(reduced)} = {latex(value)}", substitute),
+        )
+        return render_workout(Workout(find=find, steps=steps), answer)
+    top, bottom = diff(numerator, symbol), diff(denominator, symbol)
+    ratio = simplify(top / bottom)
+    at_point = ratio.subs(symbol, point)
+    if not at_point.is_finite or simplify(at_point - value) != 0:
+        return None
+    rule = math_line(r"\lim \frac{f}{g} = \lim \frac{f'}{g'}", "L'Hôpital's rule, for a 0/0 limit")
+    steps = (
+        zero,
+        math_line(
+            rf"{lim} {latex(expr)} = {lim} \frac{{{latex(top)}}}{{{latex(bottom)}}}",
+            "differentiate the top and the bottom",
+        ),
+        math_line(f"= {latex(value)}", substitute),
+    )
+    return render_workout(Workout(find=find, formula=(rule,), steps=steps), answer)
 
 
 def _verified_block_series(
@@ -771,10 +885,13 @@ def _verified_block_combinatorics(
     )
     lines.extend(result.steps)
     lines.append(f"Result: {result.result}")
-    return _finish_with_answer(
-        lines,
-        str(result.result),
-    )
+    answer = str(result.result)
+    n = intent.combo_n
+    if intent.combo_op == "factorial" and 2 <= n <= 10:
+        # One checked line, like ``17 * 23 = 391``: ``5! = 5 * 4 * 3 * 2 * 1 = 120``.
+        product = " \u00d7 ".join(str(factor) for factor in range(n, 0, -1))
+        answer = f"{n}! = {product} = {answer}"
+    return _finish_with_answer(lines, answer)
 
 
 def _verified_block_number_theory(

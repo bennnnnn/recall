@@ -39,8 +39,7 @@ _CASES = [
     (
         "inequality",
         "solve x^2-4>0",
-        r"\left(-\infty < x \wedge x < -2\right) \vee "
-        r"\left(2 < x \wedge x < \infty\right)",
+        r"x < -2 \text{ or } x > 2",
         "number_line",
     ),
     ("statistics", "mean of 1,2,3,4", "2.5", "answer"),

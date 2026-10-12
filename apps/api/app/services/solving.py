@@ -97,6 +97,10 @@ class VerifiedMathBlock(VerifiedSolveBlock):
     given_label: str = "Given"
     check_latex: str | None = None
     alternate_method_note: str | None = None
+    # The worked layout for a closed result (formula, then substitution). Unlike
+    # ``direct_reply`` it is shown only after every direct-reply guard passes,
+    # so "and explain why" still reaches the model.
+    worked_reply: str | None = None
     # Paired snapshots of the actual Newton solve; never reconstruct iterations.
     newton_input: NewtonMethodInput | None = None
     newton_result: NewtonMethodResult | None = None

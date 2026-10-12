@@ -48,6 +48,7 @@ def use_school_log_notation() -> None:
 
     Idempotent; call at import from each module whose parser reads ``log``.
     """
+    from sympy import Abs
     from sympy.printing.latex import LatexPrinter
 
     LatexPrinter._default_settings["ln_notation"] = True
@@ -62,9 +63,12 @@ def use_school_log_notation() -> None:
 
     def _print_log(self: Any, expr: Any, exp: Any = None) -> str:
         arg = expr.args[0]
+        name = r"\ln" if exp is None else rf"\ln^{{{exp}}}"
+        if arg.func is Abs:
+            # ``\ln|x|``, as written, not ``\ln(|x|)``.
+            return rf"{name}\left|{self._print(arg.args[0])}\right|"
         if not (arg.is_Integer and arg > 0):
             return str(original_log(self, expr, exp))
-        name = r"\ln" if exp is None else rf"\ln^{{{exp}}}"
         return f"{name}{_argument(self, arg)}"
 
     _print_mul.school_log_notation = True  # type: ignore[attr-defined]

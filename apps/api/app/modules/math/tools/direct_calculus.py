@@ -10,7 +10,9 @@ from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.helpers import _split_response_instruction_sentence, math_expr_or_none
 
 _NUMBER = r"[+-]?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
-_POINT = rf"(?:{_NUMBER}|-?(?:infinity|inf|oo))"
+# ``pi``, ``2pi``, ``pi/2`` and ``e`` are exact bounds, as common as numbers.
+_CONSTANT_POINT = r"-?(?:[0-9]{1,3}\s*\*?\s*)?(?:pi|π)(?:\s*/\s*[0-9]{1,3})?|-?e"
+_POINT = rf"(?:{_NUMBER}|-?(?:infinity|inf|oo)|{_CONSTANT_POINT})"
 _INTEGER = r"[+-]?[0-9]{1,12}"
 _WRT = re.compile(r"(.+) (?:with respect to|wrt) ([a-zA-Z])", re.IGNORECASE)
 _AT_POINT = re.compile(rf"(.+) at ([a-zA-Z])\s*=\s*({_NUMBER})", re.IGNORECASE)
@@ -100,6 +102,14 @@ def _point(value: str | None) -> str | float | None:
     try:
         return float(value)
     except ValueError:
+        pass
+    if re.fullmatch(_CONSTANT_POINT, value.strip(), re.IGNORECASE) is None:
+        return None
+    from app.modules.math.solve.parse import _parse_expression
+
+    try:
+        return float(_parse_expression(value.replace("π", "pi"), []))
+    except Exception:
         return None
 
 

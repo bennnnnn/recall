@@ -33,12 +33,102 @@ _DICE_CONDITIONAL_SUM = re.compile(
 )
 
 
+_COUNT_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6,
+    "seven": 7, "eight": 8, "nine": 9, "ten": 10, "eleven": 11, "twelve": 12,
+}  # fmt: skip
+_COUNT = r"(\d{1,3}|" + "|".join(_COUNT_WORDS) + ")"
+_CHANCE = re.compile(r"\b(?:probability|chance|likelihood)\b", re.IGNORECASE)
+_NOT_EXACTLY = re.compile(
+    r"\b(?:at\s+least|at\s+most|more\s+than|fewer\s+than|less\s+than|no\s+more\s+than|"
+    r"or\s+more|or\s+fewer|or\s+less)\b",
+    re.IGNORECASE,
+)
+# "2 heads in 4 (coin) flips", "3 sixes in 5 rolls (of a die)".
+_TRIALS_IN = re.compile(
+    rf"\b(?:exactly\s+)?{_COUNT}\s+(heads|tails|sixes)\s+(?:in|from|out\s+of|with)\s+"
+    rf"{_COUNT}\s+(?:fair\s+)?(?:coin\s+|die\s+|dice\s+)?(flips|tosses|throws|rolls)\b",
+    re.IGNORECASE,
+)
+# "flip a coin 4 times ... exactly 2 heads" in either order.
+_TRIALS_REPEAT = re.compile(
+    rf"\b(?:flip|toss|roll|throw)(?:ped|ed|s)?\s+an?\s+(?:fair\s+)?(coin|die)\s+{_COUNT}\s+times\b"
+    rf"|\ban?\s+(?:fair\s+)?(coin|die)\s+is\s+(?:flipped|tossed|rolled|thrown)\s+{_COUNT}\s+times\b",
+    re.IGNORECASE,
+)
+_TRIALS_COUNTED = re.compile(rf"\b(?:exactly\s+)?{_COUNT}\s+(heads|tails|sixes)\b", re.IGNORECASE)
+
+
+# The whole request, for the direct reply: nothing else may ride along.
+_TRIALS_QUESTION = re.compile(
+    rf"(?:what(?:'s|\s+is)\s+)?(?:the\s+)?(?:probability|chance|likelihood)\s+"
+    r"(?:of\s+)?(?:getting\s+|rolling\s+|flipping\s+|tossing\s+)?(?:exactly\s+)?"
+    rf"{_COUNT}\s+(?:heads|tails|sixes)\s+(?:in|from|out\s+of|with)\s+{_COUNT}\s+"
+    r"(?:fair\s+)?(?:coin\s+|die\s+|dice\s+)?(?:flips|tosses|throws|rolls)"
+    r"(?:\s+of\s+an?\s+(?:fair\s+)?(?:coin|die))?\s*[?.]?",
+    re.IGNORECASE,
+)
+_TRIALS_SETUP = re.compile(
+    rf"an?\s+(?:fair\s+)?(?:coin|die)\s+is\s+(?:flipped|tossed|rolled|thrown)\s+{_COUNT}\s+"
+    r"times\s*[.,]?\s*(?:what\s+is\s+|find\s+)?(?:the\s+)?(?:probability|chance)\s+"
+    rf"(?:of\s+)?(?:getting\s+|rolling\s+)?(?:exactly\s+)?{_COUNT}\s+(?:heads|tails|sixes)"
+    r"\s*[?.]?",
+    re.IGNORECASE,
+)
+
+
+def binomial_trials_direct_request(text: str) -> bool:
+    """A coin or die question and nothing else, so the worked reply may stand alone."""
+    request = " ".join(text.split()).strip()
+    return bool(_TRIALS_QUESTION.fullmatch(request) or _TRIALS_SETUP.fullmatch(request))
+
+
+def _count(text: str) -> int:
+    return _COUNT_WORDS.get(text.lower()) or int(text)
+
+
+def _trials_intent(cleaned: str) -> MathIntent | None:
+    """A fair coin or die repeated n times, asking for exactly k of one outcome."""
+    if not _CHANCE.search(cleaned) or _NOT_EXACTLY.search(cleaned):
+        return None
+    found = _TRIALS_IN.search(cleaned)
+    if found is not None:
+        k, outcome, n = _count(found.group(1)), found.group(2).lower(), _count(found.group(3))
+        trial = found.group(4).lower()
+    else:
+        repeat = _TRIALS_REPEAT.search(cleaned)
+        counted = _TRIALS_COUNTED.search(cleaned)
+        if repeat is None or counted is None:
+            return None
+        device = (repeat.group(1) or repeat.group(3)).lower()
+        n = _count(repeat.group(2) or repeat.group(4))
+        k, outcome = _count(counted.group(1)), counted.group(2).lower()
+        trial = "flips" if device == "coin" else "rolls"
+    die = outcome == "sixes"
+    if (die and trial in {"flips", "tosses"}) or (not die and trial == "rolls"):
+        return None
+    if not 0 <= k <= n <= 100:
+        return None
+    return MathIntent(
+        kind="probability",
+        school_op="binomial_trials",
+        combo_n=n,
+        combo_k=k,
+        percent_base=1 / 6 if die else 1 / 2,
+        trial_outcome=outcome,
+        operation="solve",
+    )
+
+
 def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math.tools.extractors.formulas import extract_probability_formulas
 
     extra = extract_probability_formulas(cleaned)
     if extra is not None:
         return extra
+    trials = _trials_intent(cleaned)
+    if trials is not None:
+        return trials
     dice = _DICE_CONDITIONAL_SUM.fullmatch(cleaned)
     if dice is not None:
         relation, threshold_text, event_text = dice.groups()
@@ -117,6 +207,50 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     return None
 
 
+def _fraction_tex(value: Fraction) -> str:
+    if value.denominator == 1:
+        return str(value.numerator)
+    return rf"\frac{{{value.numerator}}}{{{value.denominator}}}"
+
+
+def _binomial_trials_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock:
+    """``P(X = k) = C(n, k) p^k (1 - p)^(n - k)``, exact, for a fair coin or die."""
+    n, k = intent.combo_n or 0, intent.combo_k or 0
+    p = Fraction(intent.percent_base or 0).limit_denominator(6)
+    ways = math.comb(n, k)
+    probability = ways * p**k * (1 - p) ** (n - k)
+    outcome = intent.trial_outcome or "successes"
+    one_outcome = "a six" if outcome == "sixes" else outcome
+    trials = "rolls" if p == Fraction(1, 6) else "flips"
+    exact = _fraction_tex(probability)
+    decimal = float(probability)
+    answer = exact if f"{decimal:g}" == exact else rf"{exact} \approx {decimal:.4g}"
+    p_tex, q_tex = _fraction_tex(p), _fraction_tex(1 - p)
+    lines.append(f"P(X={k}) = {probability} for n={n}, k={k}, p={p}")
+    direct = render_workout(
+        Workout(
+            given=(
+                math_line(f"n = {n}", trials),
+                math_line(f"k = {k}", outcome),
+                math_line(f"p = {p_tex}", f"{one_outcome} on one {trials[:-1]}"),
+            ),
+            find=(math_line(f"P(X = {k})"),),
+            formula=(
+                math_line(r"P(X = k) = \binom{n}{k} p^{k} (1 - p)^{n - k}", "Binomial probability"),
+            ),
+            substitution=(
+                math_line(
+                    rf"P(X = {k}) = \binom{{{n}}}{{{k}}} \left({p_tex}\right)^{{{k}}}"
+                    rf" \left({q_tex}\right)^{{{n - k}}}"
+                ),
+                math_line(rf"= {ways} \cdot {_fraction_tex(p**k * (1 - p) ** (n - k))} = {exact}"),
+            ),
+        ),
+        answer,
+    )
+    return replace(_finish_with_answer(lines, answer), worked_reply=direct)
+
+
 def _verified_block_probability(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -186,6 +320,13 @@ def _verified_block_probability(
             answer,
         )
         return replace(_finish_with_answer(lines, answer), direct_reply=direct)
+    if (
+        intent.school_op == "binomial_trials"
+        and intent.combo_n is not None
+        and intent.combo_k is not None
+        and intent.percent_base is not None
+    ):
+        return _binomial_trials_block(intent, lines)
     if (
         intent.school_op == "binomial"
         and intent.combo_n is not None

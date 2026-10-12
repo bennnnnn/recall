@@ -32,8 +32,8 @@ def test_parameter_equation_keeps_the_zero_coefficient_branch() -> None:
 def test_answer_only_no_graph_constraint_is_not_misread_as_a_graph_command() -> None:
     intent, block, reply = _verified("Solve x^2 < 4. Just the answer; no graph and no steps.")
     assert intent.kind == "inequality"
-    assert block.canonical_answer == r"-2 < x \wedge x < 2"
-    assert reply == "```answer\n-2 < x \\wedge x < 2\n```\n"
+    assert block.canonical_answer == r"-2 < x < 2"
+    assert reply == "```answer\n-2 < x < 2\n```\n"
 
 
 def test_numeric_linear_equation_does_not_display_a_constant_domain_condition() -> None:

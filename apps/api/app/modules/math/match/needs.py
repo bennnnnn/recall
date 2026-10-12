@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from app.modules.math.match.arithmetic import bare_arithmetic_expr
 from app.modules.math.match.calculus import (
     calc_op,
@@ -42,6 +44,13 @@ from app.modules.math.match.scan import (
 from app.modules.math.match.statistics import bivariate_stats_signal
 from app.modules.math.match.written import spoken_power_request, written_arithmetic_request
 from app.services.text_match import has_equation, word_index
+
+_CHANCE_WORD = re.compile(r"\b(?:probability|chance|likelihood)\b", re.IGNORECASE)
+_COUNTED_OUTCOME = re.compile(
+    r"\b(?:\d{1,3}|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)\s+"
+    r"(?:heads|tails|sixes)\b",
+    re.IGNORECASE,
+)
 
 
 def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
@@ -420,6 +429,9 @@ def school_homework_cue(cleaned: str) -> bool:
     if any(w in lower for w in ("dot product", "cross product", "magnitude of <")):
         return True
     if "binomial" in lower or "expected value" in lower:
+        return True
+    if _CHANCE_WORD.search(cleaned) and _COUNTED_OUTCOME.search(cleaned):
+        # "exactly 2 heads in 4 coin flips": a fair coin or die, repeated.
         return True
     if "z-score" in lower or "z score" in lower:
         return True

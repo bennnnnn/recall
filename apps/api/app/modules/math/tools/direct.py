@@ -212,7 +212,9 @@ def can_direct_verified_math_reply(
     from app.modules.math.tools.direct_solids import solid_direct_request
     from app.modules.math.tools.direct_statistics import statistics_direct_request
     from app.modules.math.tools.direct_units import unit_direct_request
+    from app.modules.math.tools.school.probability import binomial_trials_direct_request
 
+    trials_request = binomial_trials_direct_request(user_text)
     statistics_request = statistics_direct_request(user_text)
     unit_request = unit_direct_request(user_text)
     solid_request = solid_direct_request(user_text)
@@ -249,6 +251,7 @@ def can_direct_verified_math_reply(
     if not (
         factorization_request
         or coordinate_vector_request
+        or trials_request
         or statistics_request
         or unit_request
         or solid_request
@@ -300,6 +303,8 @@ def format_direct_math_reply(verified: VerifiedMathBlock, user_text: str = "") -
     quantity = underdetermined_triangle_measurement(verified, user_text)
     if quantity is not None:
         return f"The {quantity} cannot be determined from angles alone. What is one side length?"
+    if verified.worked_reply is not None:
+        return verified.worked_reply
     fences = solver_fences(verified)
     answer = (verified.canonical_answer or "").strip()
     display_answer = (verified.display_answer or answer).strip()

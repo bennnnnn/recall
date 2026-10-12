@@ -76,12 +76,15 @@ def inequality_key_steps(lhs: Any, rhs: Any, variable: str, comparator: str) -> 
         return []
     var = _symbol((lhs, rhs), variable)
     try:
-        if Poly(expand(lhs - rhs), var).degree() != 1:
-            return []
+        degree = Poly(expand(lhs - rhs), var).degree()
     except Exception:
         return []
     target = _solution_set([_RELATIONS[comparator](lhs, rhs)], var)
     if target is None:
+        return []
+    if degree == 2:
+        return _quadratic_inequality_steps(lhs, rhs, var, comparator, target)
+    if degree != 1:
         return []
     steps: list[KeyStep] = []
     state = {"left": lhs, "right": rhs, "op": comparator}
@@ -144,6 +147,56 @@ def inequality_key_steps(lhs: Any, rhs: Any, variable: str, comparator: str) -> 
             _NEGATIVE_DIVISOR_REASON if negative else None,
         ):
             return []
+    return steps
+
+
+def _quadratic_inequality_steps(
+    lhs: Any, rhs: Any, var: Any, comparator: str, target: Any
+) -> list[KeyStep]:
+    """``x^2 - 4x - 5 < 0``: the roots, then the sign of the parabola between them."""
+    from sympy import factor
+
+    from app.modules.math.solve.algebra import inequality_solution_latex
+
+    expr = expand(lhs - rhs)
+    leading = Poly(expr, var).LC()
+    roots = sorted(root for root in solve(Eq(expr, 0), var) if root.is_real)
+    if len(roots) != 2 or not leading.is_number:
+        return []
+    steps: list[KeyStep] = []
+    if simplify(rhs) != 0:
+        steps.append(
+            KeyStep(
+                label="Move every term to one side",
+                formula=_inequality_tex(expr, comparator, 0),
+                reason=_SAME_AMOUNT_REASON,
+            )
+        )
+    factored = factor(expr)
+    if factored != expr:
+        steps.append(
+            KeyStep(label="Factor the left side", formula=_inequality_tex(factored, comparator, 0))
+        )
+    low, high = roots
+    steps.append(
+        KeyStep(
+            label="Where the left side is zero",
+            formula=rf"{latex(var)} = {latex(low)} \text{{ or }} {latex(var)} = {latex(high)}",
+        )
+    )
+    below = comparator in {"<", "<="}
+    opens_up = bool(leading > 0)
+    side = "between" if below == opens_up else "outside"
+    sign = "below" if below else "above"
+    steps.append(
+        KeyStep(
+            label=(
+                f"The parabola opens {'upward' if opens_up else 'downward'}, so it is "
+                f"{sign} zero {side} the roots"
+            ),
+            formula=inequality_solution_latex(target, var),
+        )
+    )
     return steps
 
 

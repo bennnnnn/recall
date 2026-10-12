@@ -592,7 +592,7 @@ def solve_compound_inequality(
             f"Could not solve compound inequality: {low} {low_op} {mid} {high_op} {high}"
         ) from exc
 
-    sol_latex = latex(sol)
+    sol_latex = inequality_solution_latex(sol, sym)
     cmp_latex = {"<": "<", ">": ">", "<=": "\\leq", ">=": "\\geq"}
     return MathSolveResult(
         solutions_latex=[sol_latex],
@@ -606,6 +606,54 @@ def solve_compound_inequality(
         lhs_latex=latex(mid_e),
         rhs_latex=f"{latex(low_e)}, {latex(high_e)}",
     )
+
+
+def inequality_solution_latex(solution: Any, sym: Any) -> str:
+    """``-1 < x < 5`` and ``x < -1 \\text{ or } x > 1``, as a student writes them.
+
+    SymPy hands back either a logical ``And``/``Or`` (printed with ``\\wedge``)
+    or a set of intervals; both read as the same school notation here.
+    """
+    from sympy import FiniteSet, Interval, S, Union, oo
+
+    try:
+        found = solution.as_set() if hasattr(solution, "as_set") else solution
+    except Exception:
+        return str(latex(solution))
+    name = latex(sym)
+    if found == S.Reals:
+        return rf"\text{{all real }} {name}"
+    if found == S.EmptySet:
+        return r"\text{no solution}"
+
+    def piece(part: Any) -> str | None:
+        if isinstance(part, FiniteSet):
+            return r" \text{ or } ".join(f"{name} = {latex(value)}" for value in part)
+        if not isinstance(part, Interval):
+            return None
+        low = "<" if part.left_open else r"\le"
+        high = "<" if part.right_open else r"\le"
+        if part.start == -oo:
+            return f"{name} {high} {latex(part.end)}"
+        if part.end == oo:
+            return f"{name} {'>' if part.left_open else r'\ge'} {latex(part.start)}"
+        return f"{latex(part.start)} {low} {name} {high} {latex(part.end)}"
+
+    parts = list(found.args) if isinstance(found, Union) else [found]
+    if (
+        len(parts) == 2
+        and all(isinstance(part, Interval) for part in parts)
+        and parts[0].start == -oo
+        and parts[1].end == oo
+        and parts[0].end == parts[1].start
+        and parts[0].right_open
+        and parts[1].left_open
+    ):
+        return rf"{name} \ne {latex(parts[0].end)}"
+    shown = [piece(part) for part in parts]
+    if any(text is None for text in shown):
+        return str(latex(solution))
+    return r" \text{ or } ".join(text for text in shown if text)
 
 
 def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> MathSolveResult:
@@ -634,7 +682,7 @@ def solve_inequality(lhs: str, rhs: str, variable: str, comparator: str) -> Math
             sol = solve_univariate_inequality(rel, sym)
     except Exception as exc:  # NotImplementedError / non-univariate / etc.
         raise MathServiceError(f"Could not solve inequality: {lhs} {comparator} {rhs}") from exc
-    sol_latex = latex(sol)
+    sol_latex = inequality_solution_latex(sol, sym)
     cmp_latex = {"<": "<", ">": ">", "<=": "\\leq", ">=": "\\geq"}[comparator]
     return MathSolveResult(
         solutions_latex=[sol_latex],

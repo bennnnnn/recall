@@ -10,6 +10,7 @@ from typing import Any
 
 from sympy import (
     Abs,
+    E,
     Eq,
     Poly,
     S,
@@ -29,6 +30,11 @@ from app.modules.math.solve.key_steps import (
     _expr_equal,
     label_tex,
 )
+
+
+def _nonnegative_conditions(*sides: Any, var: Any, joiner: str) -> str:
+    """``x + 3 \\ge 0``: each side that holds the unknown must not be negative."""
+    return joiner.join(rf"{latex(side)} \ge 0" for side in sides if var in side.free_symbols)
 
 
 def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
@@ -57,7 +63,8 @@ def radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | 
         return []
     if not candidates or not valid:
         return []
-    domain = rf"{latex(radicand)} \ge 0 \quad\text{{and}}\quad {latex(other)} \ge 0"
+    # ``4 \ge 0`` is always true; only a side with the unknown restricts it.
+    domain = _nonnegative_conditions(radicand, other, var=var, joiner=r" \quad\text{and}\quad ")
     return [
         KeyStep(label="Domain restrictions", formula=domain),
         KeyStep(label="Square both sides", formula=_eq_tex(radicand, expand(other**2))),
@@ -99,10 +106,7 @@ def _two_radical_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeySte
         return []
     if not candidates or not valid:
         return []
-    domain = (
-        rf"{latex(first_base)} \ge 0,\quad {latex(second_base)} \ge 0,"
-        rf"\quad {latex(target)} \ge 0"
-    )
+    domain = _nonnegative_conditions(first_base, second_base, target, var=var, joiner=r",\quad ")
     return [
         KeyStep(label="Domain restrictions", formula=domain),
         KeyStep(
@@ -169,9 +173,12 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
         numerator, denominator = term.as_numer_denom()
         if getattr(numerator, "func", None) is not log:
             return None
-        if getattr(denominator, "func", None) is not log or len(denominator.args) != 1:
+        if denominator == 1:
+            candidate_base = E  # ``ln``
+        elif getattr(denominator, "func", None) is log and len(denominator.args) == 1:
+            candidate_base = denominator.args[0]
+        else:
             return None
-        candidate_base = denominator.args[0]
         if base is not None and not _expr_equal(base, candidate_base):
             return None
         base = candidate_base
@@ -194,13 +201,18 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
     domain = r" \text{ and } ".join(rf"{latex(argument)} > 0" for argument in arguments)
     candidate_formula = _canonical_root_formula(var, candidates)
     answer = _canonical_root_formula(var, valid)
-    base_tex = latex(base)
+    log_tex = r"\ln" if base == E else rf"\log_{{{latex(base)}}}"
+    combine: list[KeyStep] = []
+    if len(arguments) > 1:  # one logarithm has nothing to combine
+        combine.append(
+            KeyStep(
+                label="Combine logarithms",
+                formula=rf"{log_tex}\left({latex(combined)}\right) = {latex(rhs)}",
+            )
+        )
     return [
         KeyStep(label="Domain restriction", formula=domain),
-        KeyStep(
-            label="Combine logarithms",
-            formula=rf"\log_{{{base_tex}}}\left({latex(combined)}\right) = {latex(rhs)}",
-        ),
+        *combine,
         KeyStep(
             label="Convert to exponential form",
             formula=rf"{latex(combined)} = {latex(target)}",
@@ -208,6 +220,60 @@ def logarithm_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
         KeyStep(label="Solve the resulting equation", formula=candidate_formula),
         KeyStep(label="Reject values outside the domain", formula=answer),
     ]
+
+
+def exponential_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
+    """``2^{x+1} = 32``: equal bases, or a logarithm of both sides."""
+    from sympy import Integer, exp
+
+    if var in getattr(rhs, "free_symbols", set()) or not getattr(rhs, "is_number", False):
+        return None
+    if getattr(lhs, "func", None) is exp:
+        base, exponent = E, lhs.args[0]
+    elif getattr(lhs, "is_Pow", False) and getattr(lhs.base, "is_number", False):
+        base, exponent = lhs.base, lhs.exp
+    else:
+        return None
+    if var not in exponent.free_symbols or not (base.is_positive and base != 1):
+        return None
+    if not rhs.is_positive:
+        return []
+    try:
+        candidates = solve(Eq(lhs, rhs), var)
+        real = [value for value in candidates if value.is_real]
+    except Exception:
+        return []
+    if len(real) != 1:
+        return []
+    power = simplify(log(rhs) / log(base))
+    steps: list[KeyStep] = []
+    if base != E and power.is_Integer and isinstance(base, Integer):
+        steps.append(
+            KeyStep(
+                label=f"Write ${latex(rhs)}$ as a power of ${latex(base)}$",
+                formula=f"{latex(lhs)} = {latex(base)}^{{{latex(power)}}}",
+            )
+        )
+        steps.append(
+            KeyStep(
+                label="Equal bases, so equal exponents",
+                formula=f"{latex(exponent)} = {latex(power)}",
+            )
+        )
+    else:
+        name = r"\ln" if base == E else rf"\log_{{{latex(base)}}}"
+        taken = "ln" if base == E else rf"$\log_{{{latex(base)}}}$"
+        steps.append(
+            KeyStep(
+                label=f"Take {taken} of both sides",
+                formula=rf"{latex(exponent)} = {name} {latex(rhs)}",
+            )
+        )
+    if exponent != var:
+        steps.append(
+            KeyStep(label="Solve for the unknown", formula=f"{latex(var)} = {latex(real[0])}")
+        )
+    return steps
 
 
 def rational_equation_key_steps(lhs: Any, rhs: Any, var: Any) -> list[KeyStep] | None:
