@@ -84,12 +84,21 @@ _DETECTION_WINDOW = 4_000
 _CACHE_SIZE = 128
 
 
+def _named_symbol_request(text: str) -> str | None:
+    """``F = 20 N, m = 5 kg, find a`` as the named question the binder reads."""
+    from app.modules.physics.symbol_givens import named_symbol_request
+
+    return named_symbol_request(text, lambda request: _extract_physics_intent(request) is not None)
+
+
 @lru_cache(maxsize=_CACHE_SIZE)
 def needs_physics(text: str) -> bool:
     """True for a verified template or an unmistakable physics-only request."""
     from app.modules.physics.symbolic.request import is_symbolic_physics_request
 
     if is_symbolic_physics_request(text):
+        return True
+    if _named_symbol_request(text) is not None:
         return True
     normalized = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_SUBJECT_TEXT)
     if not normalized:
@@ -126,6 +135,10 @@ def extract_physics_intent(text: str) -> PhysicsIntent | None:
 @lru_cache(maxsize=_CACHE_SIZE)
 def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     from app.modules.physics.request import complete_physics_intent, prepare_physics_request
+
+    named = _named_symbol_request(text)
+    if named is not None:
+        return _extract_physics_intent(named)
 
     cleaned = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_PHYSICS_REQUEST)
     if not cleaned:

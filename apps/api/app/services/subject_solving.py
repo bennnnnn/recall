@@ -87,6 +87,12 @@ def detect_subject(
         return "chemistry"
     if needs_physics(text):
         return "physics"
+    from app.modules.physics import is_symbol_givens_request
+
+    # Symbol givens with units ("P = 200 W, t = 10 s, find W") are physics even
+    # when no catalog law binds; algebra would read W and s as unknowns.
+    if is_symbol_givens_request(text):
+        return "physics"
     if needs_symbolic_math(text, has_image_attachment=has_image_attachment):
         return "math"
     if not chemistry_enabled:
