@@ -1,0 +1,73 @@
+name: Publish app update
+
+# Ships JavaScript and asset changes to installed apps over the air (EAS Update),
+# with no store review. Native changes (a new native module, an Expo SDK upgrade,
+# a config plugin or permission change) still need a store build from deploy.yml,
+# and a bump of `version` in apps/mobile/app.json: a build only takes updates whose
+# runtime version (that `version`) matches its own.
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Which installed builds receive it
+        type: choice
+        options:
+          - production
+          - preview
+        default: production
+      message:
+        description: What changed (shown in the EAS dashboard)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-update-${{ inputs.channel }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: apps/mobile/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - uses: expo/expo-github-action@v9
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Publish the update
+        # --environment loads the EAS environment variables for that channel, so the
+        # bundle gets the same EXPO_PUBLIC_* values (API URL, client IDs) as the build.
+        # They must be "Plain text" or "Sensitive" in EAS, not "Secret", or the
+        # bundler cannot read them. RECALL_UPDATE_PROFILE makes app.config.ts check
+        # them like a release build and fail here rather than ship a broken bundle.
+        env:
+          RECALL_UPDATE_PROFILE: ${{ inputs.channel }}
+          UPDATE_CHANNEL: ${{ inputs.channel }}
+          UPDATE_MESSAGE: ${{ inputs.message }}
+        run: >-
+          eas update
+          --channel "$UPDATE_CHANNEL"
+          --environment "$UPDATE_CHANNEL"
+          --message "$UPDATE_MESSAGE"
+          --non-interactive
