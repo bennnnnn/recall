@@ -190,7 +190,9 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
     expect(getByTestId("math-sqrt")).toBeTruthy();
+    expect(getByTestId("math-radical-glyph")).toBeTruthy();
     expect(getByTestId("math-sqrt-radicand")).toBeTruthy();
+    expect(queryByText("√")).toBeNull();
     expect(getByTestId("math-slot-sqrt")).toBeTruthy();
     expect(queryByText(/\\sqrt/)).toBeNull();
   });

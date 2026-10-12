@@ -1,6 +1,7 @@
 import { memo, useMemo, useRef } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
+import { DraftRadical } from "@/features/chat/components/DraftRadical";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathText } from "@/components/rich/MathText";
 import { splitInlineMath } from "@/lib/markdown/preprocess";
@@ -423,9 +424,10 @@ function DraftPiece({
 
   if (node.kind === "sqrt") {
     return (
-      <View style={s.sqrtRow} testID="math-sqrt">
-        {node.index ? (
-          <View style={s.index}>
+      <DraftRadical
+        color={theme.text}
+        index={
+          node.index ? (
             <EditSlot
               text={input}
               group={node.index}
@@ -437,22 +439,20 @@ function DraftPiece({
               fontSize={12}
               compact
             />
-          </View>
-        ) : null}
-        <Text style={s.sqrtSign}>√</Text>
-        <View style={s.sqrtBody} testID="math-sqrt-radicand">
-          <EditSlot
-            text={input}
-            group={node.body}
-            caret={caret}
-            before={before}
-            after={after}
-            testID="math-slot-sqrt"
-            onMoveCaret={onMoveCaret}
-            compact
-          />
-        </View>
-      </View>
+          ) : null
+        }
+      >
+        <EditSlot
+          text={input}
+          group={node.body}
+          caret={caret}
+          before={before}
+          after={after}
+          testID="math-slot-sqrt"
+          onMoveCaret={onMoveCaret}
+          compact
+        />
+      </DraftRadical>
     );
   }
 
@@ -709,21 +709,8 @@ const makeStyles = (theme: Theme) =>
       flexDirection: "row",
       alignItems: "center",
     },
-    // Tops share an edge so the √ hook stays on the vinculum when the
-    // radicand grows (MathText lineHeight 28). `center` dropped the glyph
-    // and left a gap; `flex-end` would do the same once the slot is taller
-    // than the sign.
-    sqrtRow: {
-      flexDirection: "row",
-      alignItems: "flex-start",
-    },
     prose: {
       fontSize: 16,
-      color: theme.text,
-    },
-    sqrtSign: {
-      fontSize: 16,
-      lineHeight: 20,
       color: theme.text,
     },
     frac: {
@@ -736,15 +723,6 @@ const makeStyles = (theme: Theme) =>
       backgroundColor: theme.text,
       marginVertical: 2,
     },
-    sqrtBody: {
-      borderTopWidth: StyleSheet.hairlineWidth * 2,
-      borderTopColor: theme.text,
-      paddingTop: 1,
-      marginLeft: 1,
-    },
-    // Place the degree above the root hook. Scaling a full-height edit slot
-    // around its centre left the old degree looking like a coefficient.
-    index: { marginRight: -4, marginTop: -6 },
     vec: {
       alignItems: "center",
     },
