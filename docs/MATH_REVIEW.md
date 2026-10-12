@@ -18,8 +18,8 @@ the math suite run with coverage, and the mobile renderers read. Commands are at
    reply, with no model involved (§2). These are P0.
 3. **There is no single workout format.** The server has nine layouts, plus whatever the model
    writes. They are verbose: a bold heading on every step, "Simplify" rows, and Given / Find /
-   Formula / Substitution / Answer headings with a blank line after each value. §3 proposes one
-   compact `workout` grammar for all subjects.
+   Formula / Substitution / Answer headings with a blank line after each value. §3 describes the one
+   layout that now replaces them.
 4. **Reach is the bottleneck, not solving.** One in three everyday phrasings never enters the
    math pipeline ("factorise", "hcf", "x squared minus 5x plus 6 equals 0").
 5. **Geometry is not on Skia.** It is eight fixed SVG templates. Five of the 18 "verified
@@ -30,6 +30,23 @@ The biggest lever is strategic. Today a verified workout exists only when a rege
 closes the request. Let the model draft the workout in the compact grammar, and let SymPy audit
 every line with the check-my-work engine that already exists. Coverage then grows with the
 model, not with the regex tables (Phase 2).
+
+## Status — fixes shipped on 2026-10-12
+
+| Item | State |
+|---|---|
+| P0-1 / P0-2: letters taken from `log2`, `cos2x`, `sinx`, `lnx`, `5 kg` | Fixed. The parser reads the shorthand and refuses a symbol that exists only inside a function or unit word (`solve/parse.py`). |
+| P0-3: complex roots | Fixed. Real roots are kept when one exists; complex roots appear on "complex", "imaginary" or "all roots", or when no real root exists. |
+| P0-4: statistics routed to chemistry | Fixed. A bare data list is maths; spreads are labelled σ or s; "mean and standard deviation" is answered together. Lab readings stay chemistry. |
+| P0-5: `F = 20 N, m = 5 kg, find a` | Fixed. Physics reads symbol givens (`physics/symbol_givens.py`). A unit-bearing line that no law binds still goes to physics, not algebra. |
+| P0-6: scanner drops a term or condition | Fixed. The read-back is the full transcription in written notation (`math/reading.py`), and the equation walker refuses a side cut short by `∛`, `∫` or another symbol. |
+| Found while fixing | `∛(x) = 2` answered `x = 2` (fixed: `x = 8`). `a = 3, b = 4, find c` restated a and b (fixed: declines). Dividing `3x = 3` struck out both sides (fixed). |
+| Workout format | Shipped (§3), across maths, physics, chemistry, the model prompts, and the phone. |
+| Open: the base of a bare `log` | `log(x) = 2` is solved as a natural log (`x = e²`), while school calculators read it as base 10 (`x = 100`). Needs a product decision. |
+| Open: reach, model lanes, geometry, scanner S2–S6, subject kit | Unchanged; see §4–§9. |
+
+Regression tests: `app/tests/modules/math/test_math_review_regressions.py` and
+`app/tests/modules/physics/test_physics_symbol_givens.py`.
 
 ## 1. Who answers what
 
@@ -135,88 +152,95 @@ Transport is fragile. The server serializes steps to Markdown, and the phone reg
 `components/markdown/markdownRenderRules.tsx:93`). A wording change breaks the layout without a
 test failing.
 
-### Proposed workout grammar
+### Shipped layout
 
-1. **Line 1 is the problem as written.** Notation is normalized; nothing is simplified.
-2. **One line per mathematical state.** The action is a short margin note of three words or
-   fewer (`−3`, `÷ 2`, `factor`, `product rule`), not a bold heading.
-3. **No "Simplify" rows.** Arithmetic folds into the next state. The intermediate
-   `2x + 3 − 3 = 11 − 3` appears only in Detailed mode.
-4. **Align on the relation sign.** An evaluation chain continues with `=`.
-5. **Givens go on one line.** The formula is a line whose note is its name. There is no Find or
-   Substitution heading.
-6. **The answer chip appears once, last.** No "Answer" text heading and no restated answer.
-7. **Prose only on request.** Tapping a line's note shows its reason. The model may add at most
-   two sentences after the workout, never between lines.
-8. **Copy and read-aloud come from the same typed lines.**
+Shipped on 2026-10-12, keeping the section headings (they make a reply easy to scan). Every
+verified reply in maths, physics, and chemistry goes through one formatter,
+`apps/api/app/services/workout.py`. The model prompts for all three subjects state the same
+layout (`WORKOUT_PROMPT_RULE`).
 
-Mock-ups (margin notes on the right; the chip is the last box):
+- **Sections, always in this order, each only when it has lines:** **Given** (the problem as
+  the student typed it, or the stated values), **Find** (what is asked), **Formula** (the law
+  or rule, its name after the dash), **Substitution** (values put into that formula) or
+  **Steps** (an equation changed one move at a time), **Answer** (the chip).
+- **One state per line; the move is a short note after it** (`$2x = 8$ — subtract 3 from both
+  sides`). There are no numbered bold steps and no "Simplify" rows. A both-sides move
+  (`2x + 3 − 3 = 11 − 3`) is shown as the state it reaches, unless the learner asked why. Then
+  the intermediate line and the reason are kept.
+- **Given is what was typed.** `3(x−2)+4 = 2x+5` stays as written, and the expansion is its own
+  line (`$3x − 2 = 2x + 5$ — expand`). `log₂` is written as `log₂`, not as a change of base.
+- **Rules come from the verified trace.** The product, quotient, chain and power rules,
+  integration by parts, and the quadratic formula fill Formula. Their names are written as
+  names ("— Product rule", "— Newton's second law"); moves are lowercase.
+- **One equals sign per line.** A chain continues on the next line with `=`.
+- **The phone draws each section as a heading and one row per line**
+  (`lib/markdown/workoutSection.ts`, `markdownRenderRules.tsx`), with the note in the secondary
+  colour. A stacked fraction no longer pulls a section's lines onto one row.
 
 ```text
-2x + 3 = 11
-    2x = 8                 −3
-     x = 4                 ÷2
+**Given**
+$2x + 3 = 11$
+
+**Find**
+$x$
+
+**Steps**
+$2x = 8$ — subtract 3 from both sides
+$x = 4$ — divide both sides by 2
+
+**Answer**
 [ x = 4 ]
 ```
 
 ```text
-x² − 5x + 6 = 0
-(x − 2)(x − 3) = 0         factor
-x = 2  or  x = 3           zero product
-[ x = 2 or x = 3 ]
+**Given**
+$y = x^2 \sin x$
+
+**Find**
+$\frac{dy}{dx}$
+
+**Formula**
+$(uv)' = u'v + uv'$ — Product rule
+
+**Substitution**
+$\frac{d}{dx}(x^2 \sin x) = 2x \sin x + x^2 \cos x$ — product rule with u = x², v = sin x
+$= x(x \cos x + 2 \sin x)$
+
+**Answer**
+[ x(x cos x + 2 sin x) ]
 ```
 
 ```text
-y  = x² sin x
-y′ = (x²)′ sin x + x² (sin x)′     product rule
-   = 2x sin x + x² cos x
-[ 2x sin x + x² cos x ]
+**Given**
+$m = 5\,kg$
+$F = 20\,N$
+
+**Find**
+$a$
+
+**Formula**
+$F = ma$ — Newton's second law
+$a = \frac{F}{m}$ — rearranged for a
+
+**Substitution**
+$a = \frac{20}{5}$
+
+**Answer**
+[ 4 m/s² ]
 ```
 
-```text
-b = 6 cm,  h = 4 cm
-A = ½ b h                  triangle area
-  = ½ · 6 · 4
-  = 12 cm²
-[ 12 cm² ]   [diagram]
-```
+`2x + 3 = 11` went from 8 rows to 5 lines plus the chip. Physics went from about 12 paragraphs
+to 7 lines.
 
-```text
-m = 5 kg,  F = 20 N
-F = ma  ⇒  a = F / m       Newton's second law
-a = 20 / 5 = 4 m/s²
-[ 4 m/s² ]   [free-body diagram]
-```
+Still open from the original proposal:
 
-```text
-m = 5 g,  M(NaCl) = 58.44 g/mol,  V = 0.250 L
-c = (m / M) / V            molarity
-  = (5 / 58.44) / 0.250
-  = 0.34 mol/L
-[ 0.34 mol/L ]
-```
-
-`2x + 3 = 11` goes from 8 rows to 3 rows plus the chip. Physics goes from about 12 paragraphs
-to 3 lines.
-
-Implementation:
-
-- **W1 — One `Workout` model** in a subject-neutral package (`app/models/schemas/workout.py`):
-  `givens`, `lines[{lhs, rel, rhs, note, reason, checked}]`, `answer`, `figure`, `check`. Math
-  `KeyStep`, physics `physics_working` / `physics_formulas` / `physics_substitutions`, and
-  chemistry `ChemistryResult` all build it.
-- **W2 — A server-owned `workout` fence** in `lib/fenceRegistry.ts`, and one `WorkoutBlock`: an
-  aligned column, notes right-aligned (wrapping below the line at large font sizes), and tap a
-  line for its reason. This retires the Markdown round-trip and `LESSON_STEP_RE`.
-- **W3 — One prompt rule.** Delete the conflicting rules. A model-written workout uses the same
-  grammar (one `$state$ — note` per line), as structured output where the provider supports it,
-  rendered by the same fence.
-- **W4 — Golden snapshots.** The rendered reply for 40 canonical problems per subject, so layout
-  drift fails a test.
-- **W5 — Line budget.** A standard problem has at most 8 lines. A longer derivation nests
-  sub-steps that expand on tap.
-
-This also gives MT8 (hints) one rule: show the first line of the workout and stop.
+- **W2 — A typed `workout` fence.** The layout is still sent as Markdown. The phone now matches
+  the six headings rather than regex-parsing numbered labels, but a typed fence would let copy
+  and read-aloud use the same lines.
+- **W4 — Golden snapshots** of the rendered reply for 40 canonical problems per subject.
+- **W5 — Line budget,** with long derivations folded into sub-steps.
+- Tapping a line to show its reason (today the reason appears only when the learner asks
+  "why" or "explain").
 
 ## 4. Coverage
 
@@ -401,7 +425,9 @@ adding a subject:
 
 ## 9. Roadmap
 
-### Phase 0 — this week: correctness
+### Phase 0 — correctness (shipped 2026-10-12)
+
+All six are fixed, with regression tests. The property test over the C1 corpus waits for the corpus.
 
 | # | Ticket | Done when |
 |---|---|---|
@@ -414,9 +440,9 @@ adding a subject:
 
 ### Phase 1 — 2–3 weeks: format, reach, models
 
-- W1–W4 for equations, calculus, and geometry, then physics and chemistry.
-- "Given" is the student's text, with Expand and Collect lines. Honor "by elimination". Whole
-  numbers default to a remainder in long division. No developer notes in labels.
+- W1 and W3 shipped (one layout and one prompt rule, all three subjects). Left: W2 (typed fence) and W4 (golden snapshots).
+- Shipped: "Given" is the student's text with Expand and Collect lines, and no developer notes
+  in labels. Left: honor "by elimination"; whole numbers default to a remainder in long division.
 - R1–R3, the C1 corpus with reach in CI, and the C2 answer audit.
 - Model lanes: an explicit free math lane, proofs off R1, internal aliases, and the eval
   harness.
