@@ -6,6 +6,18 @@ function includeDevClientPlugin(buildProfile) {
   return !buildProfile || buildProfile === "development";
 }
 
+/** EAS Build sets EAS_BUILD_PROFILE; an over-the-air update sets RECALL_UPDATE_PROFILE
+ * so its bundle is checked like a release build of the same profile. */
+function releaseProfile(env) {
+  return env.EAS_BUILD_PROFILE?.trim() || env.RECALL_UPDATE_PROFILE?.trim() || "";
+}
+
+/** EAS Update's address for the project. Without a project ID, updates stay off. */
+function updatesUrl(projectId) {
+  const id = projectId?.trim();
+  return id ? `https://u.expo.dev/${id}` : null;
+}
+
 function assertReleaseApiUrl(apiUrl, envName) {
   const trimmed = apiUrl?.trim();
   if (!trimmed) {
@@ -68,6 +80,8 @@ function requireReleaseBuildSecrets(buildProfile, buildPlatform, env) {
 
 module.exports = {
   includeDevClientPlugin,
+  releaseProfile,
+  updatesUrl,
   assertReleaseApiUrl,
   requirePublicApiUrlForReleaseBuild,
   requireReleaseBuildSecrets,

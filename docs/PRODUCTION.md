@@ -121,6 +121,30 @@ curl -s https://<your-api>/health/ready
   ```
 - [ ] Submit to App Store / Play Console
 - [ ] On-device QA per [`docs/QA_MATRIX.md`](QA_MATRIX.md)
+
+### Over-the-air updates (EAS Update)
+
+JavaScript and asset changes reach installed apps without a store release.
+Builds made with the `production` profile listen on the `production` channel
+(`preview` builds on `preview`). The app checks on launch, downloads in the
+background, and runs the new code from the next launch.
+
+- [ ] In EAS environment variables, keep every `EXPO_PUBLIC_*` value as
+      **Plain text** or **Sensitive** (not **Secret**) in the `production` and
+      `preview` environments, so `eas update` can bundle them
+- [ ] Publish: GitHub **Actions → Publish app update** (channel + message), or
+  ```bash
+  cd apps/mobile
+  RECALL_UPDATE_PROFILE=production eas update --channel production \
+    --environment production --message "what changed"
+  ```
+- [ ] A build takes only updates for its own runtime version, which is the
+      `version` in `apps/mobile/app.json`. **Bump that version and ship a store
+      build** for any native change: a new native module, an Expo SDK upgrade, or
+      a config plugin or permission change. An update sent to an older binary
+      without that native code would crash it.
+- [ ] Builds made before `expo-updates` was added cannot receive updates; install
+      a new build once
 - [ ] Review [`docs/ROLLBACK.md`](ROLLBACK.md) before the first store submission
 
 ---

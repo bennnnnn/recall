@@ -68,8 +68,12 @@ poison jobs into the same failure.
 
 ## Mobile release recovery
 
-There is no production over-the-air update path. A bad native release must be replaced
-through App Store Connect and Play Console.
+A bad JavaScript update (EAS Update) is undone over the air: republish the previous
+update group to the same channel from the EAS dashboard (Updates → `production`), or
+run `eas update:republish --group <previous-group-id>`. Installed apps pick it up on
+their next two launches, as with any update.
+
+A bad native release must be replaced through App Store Connect and Play Console.
 
 1. Stop the staged rollout or pause the release.
 2. Keep the prior approved version available where the store allows it.

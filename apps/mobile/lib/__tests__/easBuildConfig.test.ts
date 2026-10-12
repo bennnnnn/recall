@@ -1,7 +1,9 @@
 import {
   includeDevClientPlugin,
+  releaseProfile,
   requirePublicApiUrlForReleaseBuild,
   requireReleaseBuildSecrets,
+  updatesUrl,
 } from "@/lib/easBuildConfig";
 
 describe("easBuildConfig", () => {
@@ -80,5 +82,24 @@ describe("easBuildConfig", () => {
 
   it("does not require release secrets for development builds", () => {
     expect(() => requireReleaseBuildSecrets("development", "ios", {})).not.toThrow();
+  });
+
+  it("checks an over-the-air update like a release build of the same profile", () => {
+    expect(releaseProfile({ EAS_BUILD_PROFILE: "preview" })).toBe("preview");
+    expect(releaseProfile({ RECALL_UPDATE_PROFILE: "production" })).toBe("production");
+    expect(
+      releaseProfile({ EAS_BUILD_PROFILE: "preview", RECALL_UPDATE_PROFILE: "production" }),
+    ).toBe("preview");
+    expect(releaseProfile({})).toBe("");
+    // A production update without its API URL fails instead of shipping a broken bundle.
+    const profile = releaseProfile({ RECALL_UPDATE_PROFILE: "production" });
+    expect(() => requireReleaseBuildSecrets(profile, "", {})).toThrow(/EXPO_PUBLIC_API_URL/);
+  });
+
+  it("points updates at EAS Update only when the project ID is known", () => {
+    expect(updatesUrl("abc-123")).toBe("https://u.expo.dev/abc-123");
+    expect(updatesUrl(" abc-123 ")).toBe("https://u.expo.dev/abc-123");
+    expect(updatesUrl(undefined)).toBeNull();
+    expect(updatesUrl("  ")).toBeNull();
   });
 });

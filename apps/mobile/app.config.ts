@@ -3,7 +3,9 @@ import type { ConfigContext, ExpoConfig } from "expo/config";
 import appJson from "./app.json";
 import {
   includeDevClientPlugin,
+  releaseProfile,
   requireReleaseBuildSecrets,
+  updatesUrl,
 } from "./lib/easBuildConfig.js";
 
 function iosUrlSchemeFromClientId(iosClientId: string): string | null {
@@ -14,7 +16,7 @@ function iosUrlSchemeFromClientId(iosClientId: string): string | null {
 
 export default ({ config }: ConfigContext): ExpoConfig => {
   const base = appJson.expo as ExpoConfig;
-  const buildProfile = process.env.EAS_BUILD_PROFILE ?? "";
+  const buildProfile = releaseProfile(process.env);
   requireReleaseBuildSecrets(
     buildProfile,
     process.env.EAS_BUILD_PLATFORM ?? "",
@@ -46,10 +48,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     iosInfoPlist.NSAppTransportSecurity = { NSAllowsLocalNetworking: true };
   }
 
+  const projectId = process.env.EXPO_PUBLIC_EAS_PROJECT_ID;
+  const updatesFrom = updatesUrl(projectId);
+
   return {
     ...config,
     ...base,
     plugins,
+    // Over-the-air JS updates (EAS Update). Which builds may take an update is
+    // decided by app.json's runtimeVersion: bump `version` with any native change.
+    updates: updatesFrom ? { ...base.updates, url: updatesFrom } : base.updates,
     ios: {
       ...base.ios,
       infoPlist: iosInfoPlist,
@@ -57,7 +65,7 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     extra: {
       ...base.extra,
       eas: {
-        projectId: process.env.EXPO_PUBLIC_EAS_PROJECT_ID,
+        projectId,
       },
     },
   };
