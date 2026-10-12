@@ -39,6 +39,7 @@ from app.modules.math.fence_graph import densify_sparse_graph
 from app.modules.math.schemas import (
     GraphBlockSpec,
 )
+from app.modules.math.text_plot import strip_text_plots
 from app.services.md_fence_scan import (
     find_lang_opener,
     has_closed_fence,
@@ -552,6 +553,7 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
         content = strip_closed_fences(content, "mermaid")
         content = strip_gfm_pipe_tables(content)
         content = strip_hand_sketch_filler(content)
+        content = strip_text_plots(content)
     return _append_missing_canonical_fences(content, scoped_verified)
 
 
