@@ -12,6 +12,7 @@ from typing import Literal
 from app.core.config import Settings
 from app.gateways import mathpix_gateway, mock_llm
 from app.modules.math import image_extract as mie
+from app.modules.math.reading import student_reading
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.solve.discrete import guess_variables
 from app.modules.math.solve.extract_eq import (
@@ -157,7 +158,14 @@ def _from_extract(
     confidence: float | None = None,
     uncertain: bool = False,
 ) -> MathOcrResult:
-    shown = display_text or mie.camera_math_display_text(extract) or ""
+    # The student confirms the whole transcription, not an equation rebuilt
+    # from the parse: a rebuilt one drops whatever the parse did not keep.
+    shown = (
+        display_text
+        or student_reading(extract.source_text or "")
+        or mie.camera_math_display_text(extract)
+        or ""
+    )
     return MathOcrResult(
         extract=extract,
         display_text=shown,
@@ -210,7 +218,9 @@ async def extract_math_from_image(
             return _from_extract(
                 parsed,
                 source="mathpix",
-                display_text=mie.camera_math_display_text(parsed) or mathpix_text,
+                display_text=student_reading(mathpix_source_text)
+                or mie.camera_math_display_text(parsed)
+                or mathpix_text,
                 confidence=confidence,
             )
 
@@ -255,7 +265,7 @@ async def extract_math_from_image(
         uncertain = confidence is None or confidence < settings.mathpix_confidence_min
         return MathOcrResult(
             extract=None,
-            display_text=mathpix_text,
+            display_text=student_reading(mathpix_source_text or mathpix_text) or mathpix_text,
             source="mathpix",
             confidence=confidence,
             uncertain=uncertain,

@@ -180,3 +180,57 @@ async def test_low_confidence_mathpix_reading_is_retained_beside_vision():
     assert result.extract is not None
     assert result.extract.source_text == "x^2=2"
     assert result.extract.alternate_source_text == "x^2=2, x∈ℤ"
+
+
+@pytest.mark.asyncio
+async def test_read_back_keeps_the_printed_condition() -> None:
+    """An integer condition stays in the reading; without it Solve certifies the irrational roots."""
+    settings = Settings(
+        mock_llm_enabled=False,
+        openrouter_api_key="test-key",
+        mathpix_app_id="id",
+        mathpix_app_key="key",
+        mathpix_enabled=True,
+        mathpix_confidence_min=0.72,
+    )
+    with (
+        patch(
+            "app.gateways.mathpix_gateway.ocr_image",
+            AsyncMock(
+                return_value=MathpixOcrResult(text="x^2=2, x∈ℤ", latex="x^2=2", confidence=0.95)
+            ),
+        ),
+        patch(
+            "app.modules.math.image_extract.vision_extract_equation",
+            AsyncMock(side_effect=AssertionError("vision should be skipped")),
+        ),
+    ):
+        result = await math_ocr.extract_math_from_image(
+            settings, content_type="image/jpeg", data=b"fake"
+        )
+    assert result.display_text == "x^2=2, x∈ℤ"
+
+
+@pytest.mark.parametrize(
+    ("printed", "reading"),
+    [
+        (r"\frac{1}{2}x+3=7", "(1/2)x+3=7"),
+        (r"\dfrac{2}{x-1}=\dfrac{3}{x+1}", "2/(x-1)=3/(x+1)"),
+        (r"\sqrt{x+3}=x-3", "√(x+3)=x-3"),
+        (r"\sqrt[3]{x}=2", "∛(x)=2"),
+        (r"\log_2(x)+\log_2(x-2)=3", "log_2(x)+log_2(x-2)=3"),
+        (r"\left|2x-1\right|=7", "|2x-1|=7"),
+        (r"2 x+3 \leq 11", "2 x+3 ≤ 11"),
+        (r"2x + 3 = 7 \quad (x \in \mathbb{Z})", "2x + 3 = 7 (x ∈ ℤ)"),
+        (r"\left\{\begin{array}{l}2x+y=7\\ x-y=2\end{array}\right.", "2x+y=7\nx-y=2"),
+        (r"5.(a) Solve \( 2x+3=7 \)", "Solve 2x+3=7"),
+        ("2*x**2+3*x-2=0", "2x^2+3x-2=0"),
+        ("Abs(2*x-1) = 7", "|2x-1| = 7"),
+    ],
+)
+def test_student_reading_is_the_whole_problem_in_written_notation(
+    printed: str, reading: str
+) -> None:
+    from app.modules.math.reading import student_reading
+
+    assert student_reading(printed) == reading
