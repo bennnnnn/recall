@@ -1,6 +1,7 @@
 import { memo, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/ui/icons/Icon";
+import type { IconName } from "@/ui/icons/names";
 import { useTranslation } from "react-i18next";
 
 import { MathConverterUnitSheet } from "@/features/chat/components/MathConverterUnitSheet";
@@ -152,6 +153,7 @@ export const MathConverterPad = memo(function MathConverterPad({
                 <Key
                   key={cell}
                   label={cell === "back" ? t("chat.math_keyboard_backspace") : cell === "AC" ? t("chat.math_converter_clear") : cell}
+                  icon={cell === "back" ? "backspace" : undefined}
                   testID={`math-converter-${cell === "back" ? "back" : cell === "." ? "dot" : cell}`}
                   onPress={() => typeKey(cell)}
                   theme={theme}
@@ -212,6 +214,7 @@ function UnitChip({
 
 function Key({
   label,
+  icon,
   testID,
   onPress,
   theme,
@@ -221,6 +224,7 @@ function Key({
   wide,
 }: {
   label: string;
+  icon?: IconName;
   testID: string;
   onPress: () => void;
   theme: Theme;
@@ -248,7 +252,16 @@ function Key({
       testID={testID}
     >
       <View style={s.keyInner}>
-        <Text style={[s.keyLabel, danger && s.keyLabelDanger]}>{label}</Text>
+        {icon ? (
+          <Icon
+            name={icon}
+            size={IconSize.sm}
+            color={danger ? theme.danger : theme.text}
+            testID={`${testID}-icon`}
+          />
+        ) : (
+          <Text style={[s.keyLabel, danger && s.keyLabelDanger]}>{label}</Text>
+        )}
       </View>
     </Pressable>
   );
