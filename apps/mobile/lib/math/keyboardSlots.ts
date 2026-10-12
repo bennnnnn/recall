@@ -305,12 +305,17 @@ function insertRow(ids: readonly string[]): PadCell[] {
   return ids.map((id) => ({ kind: "insert" as const, spec: padSpec(id) }));
 }
 
-/** Basics is 6×4. The fourth row starts with the 123 link; x y z = () . are the row above it. */
+/**
+ * Basics is 6×5.
+ * Build, then fences and marks, then comparisons, then names, then arithmetic.
+ * The last row starts with 123 and ends with backspace.
+ */
 function basicsRows(): PadCell[][] {
   return [
-    insertRow(["frac", "sqrt", "nroot", "sup", "sub", "abs"]),
+    insertRow(["frac", "sqrt", "nroot", "sq", "sup", "sub"]),
+    insertRow(["abs", "parens", "brackets", "braces", "deg", "angle"]),
     insertRow(["pi", "leq", "geq", "neq", "lt", "gt"]),
-    insertRow(["var-x", "var-y", "var-z", "eq", "parens", "digit-dot"]),
+    insertRow(["var-x", "var-y", "var-z", "eq", "digit-dot", "pm"]),
     [
       { kind: "digits" },
       ...insertRow(["times", "div", "minus", "plus"]),

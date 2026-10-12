@@ -97,6 +97,12 @@ describe("spliceMathInsert", () => {
     expect(spliceMathInsert("$5$", { start: 2, end: 2 }, fact).text).toBe("$5!$");
   });
 
+  it("x² inserts a squared x, or attaches ^{2} to an existing base", () => {
+    const sq = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "sq")!;
+    expect(spliceMathInsert("", { start: 0, end: 0 }, sq).text).toBe("$x^{2}$");
+    expect(spliceMathInsert("$3$", { start: 2, end: 2 }, sq).text).toBe("$3^{2}$");
+  });
+
   it("xⁿ inserts a base x and an exponent box, or attaches ^ to an existing base", () => {
     const sup = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "sup")!;
     expect(spliceMathInsert("", { start: 0, end: 0 }, sup).text).toBe("$x^{}$");
@@ -166,6 +172,10 @@ describe("key insert matches the button", () => {
     ["minus", "-"],
     ["eq", "="],
     ["parens", "()"],
+    ["brackets", "[]"],
+    ["braces", "\\{\\}"],
+    ["sq", "x^{2}"],
+    ["angle", "\\angle "],
     ["trig-theta", "\\theta "],
     ["trig-pi", "\\pi "],
     ["sin", "\\sin()"],
@@ -461,16 +471,19 @@ describe("symbol homes (no duplicate glyphs)", () => {
     expect(symbolsInGroup("greek").length % MATH_SYMBOL_ROW_SIZE).toBe(0);
   });
 
-  it("keeps Basics 6 by 4, with x y z = () . above a bottom row that starts with 123", () => {
+  it("keeps Basics 6 by 5, with families in order and 123 on the bottom row", () => {
     const rows = symbolRowsForGroup("basics");
-    expect(rows).toHaveLength(4);
+    expect(rows).toHaveLength(5);
     expect(rows.every((row) => row.length === MATH_SYMBOL_ROW_SIZE)).toBe(true);
-    const algebra = rows[2]!.flatMap((cell) => (cell.kind === "insert" ? [cell.spec.id] : []));
-    expect(algebra).toEqual(["var-x", "var-y", "var-z", "eq", "parens", "digit-dot"]);
-    expect(rows[3]![0]).toEqual({ kind: "digits" });
-    const bottom = rows[3]!.flatMap((cell) => (cell.kind === "insert" ? [cell.spec.id] : []));
-    expect(bottom).toEqual(["times", "div", "minus", "plus"]);
-    expect(rows[3]![5]).toEqual({ kind: "backspace" });
+    const ids = (row: (typeof rows)[number]) =>
+      row.flatMap((cell) => (cell.kind === "insert" ? [cell.spec.id] : []));
+    expect(ids(rows[0]!)).toEqual(["frac", "sqrt", "nroot", "sq", "sup", "sub"]);
+    expect(ids(rows[1]!)).toEqual(["abs", "parens", "brackets", "braces", "deg", "angle"]);
+    expect(ids(rows[2]!)).toEqual(["pi", "leq", "geq", "neq", "lt", "gt"]);
+    expect(ids(rows[3]!)).toEqual(["var-x", "var-y", "var-z", "eq", "digit-dot", "pm"]);
+    expect(rows[4]![0]).toEqual({ kind: "digits" });
+    expect(ids(rows[4]!)).toEqual(["times", "div", "minus", "plus"]);
+    expect(rows[4]![5]).toEqual({ kind: "backspace" });
   });
 
   it("fills the short Trig row with theta and the missing hyperbolics", () => {

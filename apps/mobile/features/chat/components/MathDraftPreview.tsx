@@ -16,6 +16,10 @@ import {
 import { healDroppedCommandSlash } from "@/lib/math/healMathSource";
 import { innermostSlot, type LatexGroup } from "@/lib/math/keyboardSymbols";
 import { latexNeedsTallLine, MATH_TALL_LINE_HEIGHT } from "@/lib/math/text";
+import {
+  NATIVE_LITERAL_LEFT_BRACE_MARKER,
+  NATIVE_LITERAL_RIGHT_BRACE_MARKER,
+} from "@/lib/math/textMarkers";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -83,6 +87,19 @@ type ScriptNode = Extract<DraftNode, { kind: "script" }>;
 
 /** ∑, ∏, and lim carry their scripts above and below. A definite integral is drawn separately. */
 const LIMIT_BASE = /\\(?:sum|prod|lim)\s*$/;
+
+/** Drop TeX grouping braces, but keep `\{` and `\}` as the braces the user typed. */
+function composerTextLabel(raw: string): string {
+  return raw
+    .replace(/\$/g, "")
+    .replace(/\\\{/g, NATIVE_LITERAL_LEFT_BRACE_MARKER)
+    .replace(/\\\}/g, NATIVE_LITERAL_RIGHT_BRACE_MARKER)
+    .replace(/[{}]/g, "")
+    .split(NATIVE_LITERAL_LEFT_BRACE_MARKER)
+    .join("{")
+    .split(NATIVE_LITERAL_RIGHT_BRACE_MARKER)
+    .join("}");
+}
 const INTEGRAL_BASE = /\\int\s*$/;
 const INTEGRAL_SIGN_SIZE = 32;
 const INTEGRAL_SIGN_LINE = 36;
@@ -347,10 +364,7 @@ function DraftPiece({
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   if (node.kind === "text") {
-    const display = input
-      .slice(node.start, node.end)
-      .replace(/\$/g, "")
-      .replace(/[{}]/g, "");
+    const display = composerTextLabel(input.slice(node.start, node.end));
     if (!display) return null;
     let start = node.start;
     if (input[start] === "$") start += 1;
