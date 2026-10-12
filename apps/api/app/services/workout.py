@@ -158,7 +158,9 @@ WORKOUT_PROMPT_RULE = (
     "blank line inside a section, one blank line between sections. Write a move as a "
     "short note after its line, e.g. `$2x = 8$ — subtract 3 from both sides`. No "
     "numbered steps, no separate Simplify lines, no prose between lines. Trivial "
-    "one-step arithmetic is one line with no headings."
+    "one-step arithmetic is one line with no headings. Write an expression once: "
+    "`$\\frac{6!}{4!} = \\frac{720}{24}$`, then the result alone as the answer, never "
+    "a second row that repeats the left side (`$\\frac{6!}{4!} = 30$`)."
 )
 
 # The same rule in one sentence, for hints with a tight character budget.
