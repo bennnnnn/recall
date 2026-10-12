@@ -70,10 +70,43 @@ export function readDelimGroup(
   return null;
 }
 
-/** Left-to-right editable `{…}` / `(…)` / `[…]` / `|…|` groups, including nested. */
+/**
+ * `\{ … \}`. `open` is the `{`, `close` is the `\` of `\}`, so the box
+ * between them is the same shape as `{…}` and `|…|`.
+ */
+export function readSetBrace(text: string, from: number): LatexGroup | null {
+  if (!text.startsWith("\\{", from)) return null;
+  let depth = 1;
+  let j = from + 2;
+  while (j < text.length) {
+    if (text.startsWith("\\{", j)) {
+      depth += 1;
+      j += 2;
+      continue;
+    }
+    if (text.startsWith("\\}", j)) {
+      depth -= 1;
+      if (depth === 0) return { open: from + 1, close: j };
+      j += 2;
+      continue;
+    }
+    j += 1;
+  }
+  return null;
+}
+
+/** Index just after a slot's closing delimiter. Set braces close with `\}`. */
+export function indexAfterSlot(text: string, group: LatexGroup): number {
+  if (text.startsWith("\\}", group.close)) return group.close + 2;
+  return group.close + 1;
+}
+
+/** Left-to-right editable `{…}` / `(…)` / `[…]` / `\{…\}` / `|…|` groups, including nested. */
 export function findEditSlots(text: string): LatexGroup[] {
   const out: LatexGroup[] = [];
   for (let i = 0; i < text.length; i += 1) {
+    const setBrace = readSetBrace(text, i);
+    if (setBrace) out.push(setBrace);
     const ch = text[i];
     const prev = text[i - 1];
     if (prev === "\\") continue;
@@ -110,7 +143,7 @@ export function nextEditSlotCaret(text: string, caret: number): number | null {
     return firstAfter ? firstAfter.close : null;
   }
   const later = slots.filter((s) => s.open > current.close);
-  if (later.length === 0) return current.close + 1;
+  if (later.length === 0) return indexAfterSlot(text, current);
   const nextOpen = Math.min(...later.map((s) => s.open));
   return later.find((s) => s.open === nextOpen)!.close;
 }
@@ -144,7 +177,7 @@ export function caretForInsert(text: string, caret: number, spec: MathKeyboardSy
   if (caret !== current.close) return caret;
   const later = findEditSlots(text).some((s) => s.open > current.close);
   if (later) return caret;
-  return current.close + 1;
+  return indexAfterSlot(text, current);
 }
 
 type SlotPair = { first: LatexGroup; second: LatexGroup };

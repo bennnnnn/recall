@@ -31,6 +31,7 @@ export {
   prevEditSlotCaret,
   readBraceGroup,
   readDelimGroup,
+  readSetBrace,
   symbolRowsForGroup,
   tapAdvancesToNextSlot,
   type LatexGroup,

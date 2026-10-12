@@ -2,6 +2,7 @@ import {
   caretInGroup,
   readBraceGroup,
   readDelimGroup,
+  readSetBrace,
   type LatexGroup,
   type TextSelection,
 } from "@/lib/math/keyboardSymbols";
@@ -96,17 +97,32 @@ function tryAbs(text: string, i: number): Extract<DraftNode, { kind: "abs" }> | 
   return { kind: "abs", start: i, end: close + 1, body: { open: i, close } };
 }
 
+function trySetBrace(text: string, i: number): Extract<DraftNode, { kind: "group" }> | null {
+  const body = readSetBrace(text, i);
+  if (!body) return null;
+  return {
+    kind: "group",
+    start: i,
+    end: body.close + 2,
+    open: "{",
+    close: "}",
+    body,
+  };
+}
+
 function tryGroup(text: string, i: number): Extract<DraftNode, { kind: "group" }> | null {
-  if (text[i] !== "(" || text[i - 1] === "\\") return null;
-  const body = readDelimGroup(text, i, "(", ")");
+  const openCh = text[i];
+  if ((openCh !== "(" && openCh !== "[") || text[i - 1] === "\\") return null;
+  const closeCh = openCh === "(" ? ")" : "]";
+  const body = readDelimGroup(text, i, openCh, closeCh);
   if (!body) return null;
   let start = i;
-  if (i > 0 && /[A-Za-z]/.test(text[i - 1]!)) {
+  if (openCh === "(" && i > 0 && /[A-Za-z]/.test(text[i - 1]!)) {
     let j = i - 1;
     while (j >= 0 && /[A-Za-z]/.test(text[j]!)) j -= 1;
     if (text[j] === "\\") start = j;
   }
-  return { kind: "group", start, end: body.close + 1, open: "(", close: ")", body };
+  return { kind: "group", start, end: body.close + 1, open: openCh, close: closeCh, body };
 }
 
 /** Top-level tappable constructs in the composer draft (source offsets). */
@@ -151,6 +167,13 @@ export function findDraftNodes(text: string): DraftNode[] {
       flush(i);
       nodes.push(vec);
       textStart = i = vec.end;
+      continue;
+    }
+    const setBrace = trySetBrace(text, i);
+    if (setBrace) {
+      flush(i);
+      nodes.push(setBrace);
+      textStart = i = setBrace.end;
       continue;
     }
     const brace = tryBrace(text, i);
