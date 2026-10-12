@@ -203,6 +203,13 @@ export const ChatComposer = memo(function ChatComposer({
     return () => cancelAnimationFrame(id);
   }, [math.mathBarOpen]);
 
+  // The system keyboard dismisses on send and stays down while a reply streams.
+  // The math pad is not a system keyboard, so close it the same way.
+  useEffect(() => {
+    if (!streaming || !math.mathBarOpen) return;
+    toggleMathBar();
+  }, [streaming, math.mathBarOpen, toggleMathBar]);
+
   // Scanner/expanded chrome belongs to the active draft, not the mounted screen.
   // Switching threads can keep ChatComposer mounted, so clear transient UI explicitly.
   useEffect(() => {
@@ -263,12 +270,21 @@ export const ChatComposer = memo(function ChatComposer({
   }, [bottomPad, composerExpanded, mathBarOpen]);
 
   const onToggleMathBar = useCallback(() => {
+    if (streaming && !mathBarOpen) return;
     const wasOpen = mathBarOpen;
     toggleMathBar();
     if (wasOpen) {
       requestAnimationFrame(() => inputRef.current?.focus());
     }
-  }, [mathBarOpen, toggleMathBar]);
+  }, [mathBarOpen, streaming, toggleMathBar]);
+
+  const sendAndCloseMath = useCallback(
+    (text?: string) => {
+      if (math.mathBarOpen) toggleMathBar();
+      onSend(text);
+    },
+    [math.mathBarOpen, onSend, toggleMathBar],
+  );
 
   if (!visible) return null;
 
@@ -604,7 +620,7 @@ export const ChatComposer = memo(function ChatComposer({
                           s.sendBtn,
                           (isOffline || sendBusy) && s.sendBtnDisabled,
                         ]}
-                        onPress={() => onSend()}
+                        onPress={() => sendAndCloseMath()}
                         disabled={isOffline || sendBusy}
                         hitSlop={6}
                         accessibilityRole="button"
@@ -666,7 +682,7 @@ export const ChatComposer = memo(function ChatComposer({
               height={math.padHeight}
               onToggle={onToggleMathBar}
               onInsert={math.insertSymbol}
-              onAsk={onSend}
+              onAsk={sendAndCloseMath}
               onStop={onStop}
               streaming={streaming}
               onBackspace={math.backspace}
