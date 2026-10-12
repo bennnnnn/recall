@@ -54,9 +54,12 @@ jest.mock("@/features/speech/components/VoiceComposerWaveform", () => ({
   VoiceComposerWaveform: () => null,
 }));
 
-jest.mock("@/features/speech/components/VoiceMicButton", () => ({
-  VoiceMicButton: () => null,
-}));
+jest.mock("@/features/speech/components/VoiceMicButton", () => {
+  const { View } = jest.requireActual("react-native") as typeof import("react-native");
+  return {
+    VoiceMicButton: () => <View testID="voice-mic-button" />,
+  };
+});
 
 jest.mock("@/features/speech/components/LiveTalkButton", () => {
   const { Pressable } = jest.requireActual("react-native") as typeof import("react-native");
@@ -95,7 +98,6 @@ const baseProps = {
   onSend: jest.fn(),
   onStop: jest.fn(),
   isOffline: false,
-  mathContext: true,
 };
 
 describe("ChatComposer math keyboard", () => {
@@ -363,31 +365,29 @@ describe("ChatComposer math keyboard", () => {
     expect(getByLabelText("chat.stop_a11y")).toBeTruthy();
   });
 
-  it("hides the math pill when the chat is not about math", async () => {
-    const { queryByTestId } = await render(
-      <ChatComposer {...baseProps} mathContext={false} input="" />,
-    );
-    expect(queryByTestId("math-keyboard-toggle")).toBeNull();
-  });
-
-  it("shows the math pill when the draft looks like math", async () => {
+  it("shows the math keyboard button on an empty composer, immediately before the mic", async () => {
     const { getByTestId } = await render(
-      <ChatComposer {...baseProps} mathContext={false} input={"$\\sqrt{9}$"} />,
-    );
-    expect(getByTestId("math-keyboard-toggle")).toBeTruthy();
-  });
-
-  it("reserves a gap above the floating math chip so action icons are not flush", async () => {
-    const onMathChromeHeightChange = jest.fn();
-    await render(
       <ChatComposer
         {...baseProps}
-        onMathChromeHeightChange={onMathChromeHeightChange}
+        input=""
+        voiceAvailable
+        onVoicePress={jest.fn()}
       />,
     );
-    await waitFor(() => {
-      expect(onMathChromeHeightChange).toHaveBeenLastCalledWith(56);
-    });
+    const row = getByTestId("composer-input-row");
+    const ids: string[] = [];
+    const walk = (node: { props?: { testID?: string }; children?: unknown[] }) => {
+      const id = node.props?.testID;
+      if (typeof id === "string") ids.push(id);
+      for (const child of node.children ?? []) {
+        if (child && typeof child === "object") walk(child as typeof node);
+      }
+    };
+    walk(row);
+    const math = ids.indexOf("math-keyboard-toggle");
+    const mic = ids.indexOf("voice-mic-button");
+    expect(math).toBeGreaterThanOrEqual(0);
+    expect(mic).toBe(math + 1);
   });
 
   it("toggles the symbol bar and inserts a fraction at the caret", async () => {

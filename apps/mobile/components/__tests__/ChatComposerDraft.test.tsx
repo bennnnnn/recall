@@ -84,7 +84,6 @@ const baseProps = {
   onSend: jest.fn(),
   onStop: jest.fn(),
   isOffline: false,
-  mathContext: true,
 };
 
 describe("ChatComposer math keyboard", () => {

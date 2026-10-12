@@ -34,10 +34,7 @@ import {
 } from "@/features/chat/components/MathDraftPreview";
 import { MathComposerCaret } from "@/features/chat/components/MathComposerCaret";
 import { MathKeyboardBar } from "@/features/chat/components/MathKeyboardBar";
-import {
-  MATH_KEYBOARD_CHIP_HEIGHT,
-  makeChatComposerStyles,
-} from "@/features/chat/components/chatComposerStyles";
+import { makeChatComposerStyles } from "@/features/chat/components/chatComposerStyles";
 import { ComposerAttachmentPreview } from "@/features/attachments/components/ComposerAttachmentPreview";
 import {
   useComposerDraftApiOptional,
@@ -59,7 +56,6 @@ import {
   composerShowsSend,
 } from "@/features/chat/model/composerLogic";
 import { liveTalkShowsSideChrome } from "@/features/speech/model/liveTalkLogic";
-import { textLooksLikeMath } from "@/lib/math/composerIntent";
 import { caretAfterExpression, caretBeforeExpression } from "@/lib/math/draftSlots";
 import { Space } from "@/lib/space";
 import { useTheme, withAlpha } from "@/lib/theme";
@@ -80,8 +76,6 @@ export const COMPOSER_HEIGHT = 56;
 // Attachment extras mirror the rendered preview sizes instead of under-reserving the thread.
 export const COMPOSER_IMAGE_PREVIEW_EXTRA = 120;
 export const COMPOSER_FILE_PREVIEW_EXTRA = 56;
-/** Space above the floating keypad so message action icons are not flush with it. */
-const MATH_KEYBOARD_CHIP_GAP = Space.sm;
 const COMPOSER_STATUS_LINE_HEIGHT = 18;
 
 export function composerAttachmentExtra(attachment: PendingAttachment | null): number {
@@ -130,8 +124,6 @@ type Props = {
   onMathChromeHeightChange?: (height: number) => void;
   /** Extra field height past one line, so the thread moves up with the pill. */
   onInputFrameExtraChange?: (extra: number) => void;
-  /** Recent chat already has math — offer the math keyboard even with an empty composer. */
-  mathContext?: boolean;
 };
 
 export const ChatComposer = memo(function ChatComposer({
@@ -165,7 +157,6 @@ export const ChatComposer = memo(function ChatComposer({
   onOpenMathScanner,
   onMathChromeHeightChange,
   onInputFrameExtraChange,
-  mathContext = false,
 }: Props) {
   const { t } = useTranslation();
   const token = useAuthToken();
@@ -195,14 +186,9 @@ export const ChatComposer = memo(function ChatComposer({
   const showMathPreview = math.showMathPreview;
   const mathBarOpen = math.mathBarOpen;
   const toggleMathBar = math.toggleMathBar;
-  const showMathChip =
-    !mathBarOpen && (mathContext || textLooksLikeMath(input));
+  const showMathButton = !mathBarOpen;
   const mathChromeHeight =
-    (math.mathBarOpen
-      ? math.padHeight
-      : showMathChip
-        ? MATH_KEYBOARD_CHIP_HEIGHT + MATH_KEYBOARD_CHIP_GAP
-        : 0) +
+    (math.mathBarOpen ? math.padHeight : 0) +
     (showMathPreview ? MATH_DRAFT_PREVIEW_HEIGHT : 0) +
     (scanHint ? 40 : 0) +
     (sendStatus ? COMPOSER_STATUS_LINE_HEIGHT : 0);
@@ -371,17 +357,6 @@ export const ChatComposer = memo(function ChatComposer({
             </View>
           ) : null}
           <View style={[s.inputStack, composerExpanded && s.expandedFill]}>
-            {showMathChip ? (
-              <Pressable
-                onPress={onToggleMathBar}
-                style={({ pressed }) => [s.chip, pressed && s.chipPressed]}
-                accessibilityRole="button"
-                accessibilityLabel={t("chat.math_keyboard_show")}
-                testID="math-keyboard-toggle"
-              >
-                <Icon name="calculator" size={IconSize.sm} color={theme.primary} />
-              </Pressable>
-            ) : null}
           <View
             style={[
               showLiveTalkSideChrome ? s.liveTalkRow : null,
@@ -580,6 +555,17 @@ export const ChatComposer = memo(function ChatComposer({
                   ) : null}
                 </Pressable>
               )}
+              {showMathButton ? (
+                <Pressable
+                  onPress={onToggleMathBar}
+                  style={({ pressed }) => [s.attachBtn, pressed && s.controlDisabled]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("chat.math_keyboard_show")}
+                  testID="math-keyboard-toggle"
+                >
+                  <Icon name="calculator" size={IconSize.sm} color={theme.text} />
+                </Pressable>
+              ) : null}
               <View style={s.sendBtnSlot}>
                 {streaming ? (
                   <Pressable

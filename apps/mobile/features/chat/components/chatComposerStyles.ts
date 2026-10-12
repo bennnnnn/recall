@@ -12,7 +12,6 @@ import { Space } from "@/lib/space";
 import { Theme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
-export const MATH_KEYBOARD_CHIP_HEIGHT = 44;
 const COMPOSER_VERTICAL_PADDING = 6;
 /** Pill padding plus the keypad's top margin. The dim sits in that strip. */
 export const MATH_KEYBOARD_GAP_FADE_HEIGHT = Space.xs + COMPOSER_VERTICAL_PADDING;
@@ -123,21 +122,6 @@ export function makeChatComposerStyles(theme: Theme) {
       marginBottom: 0,
     },
     controlDisabled: { opacity: 0.55 },
-    chip: {
-      position: "absolute",
-      left: 0,
-      top: -(MATH_KEYBOARD_CHIP_HEIGHT + Space.xxs),
-      zIndex: 1,
-      minWidth: Space.minTouch,
-      minHeight: Space.minTouch,
-      height: Space.minTouch,
-      paddingHorizontal: 10,
-      borderRadius: Radius.xl,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: "transparent",
-    },
-    chipPressed: { opacity: 0.55 },
     input: {
       flex: 1,
       ...Type.body,
