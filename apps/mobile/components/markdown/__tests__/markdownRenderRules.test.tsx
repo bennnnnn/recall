@@ -343,6 +343,37 @@ describe("markdown render rules", () => {
     expect(getByTestId("link-preview-card")).toBeOnTheScreen();
   });
 
+  it("renders a workout section as a heading with one row per line", async () => {
+    const content = [
+      "**Given**  ",
+      "$2 x + 3 = 11$",
+      "",
+      "**Steps**  ",
+      "$2 x = 8$ — subtract 3 from both sides  ",
+      String.raw`$x = \frac{8}{2}$ — divide both sides by 2`,
+    ].join("\n");
+    const { getAllByTestId, getByText, queryByText } = await render(
+      <MarkdownContent content={content} />,
+    );
+    expect(getAllByTestId("workout-section")).toHaveLength(2);
+    expect(getAllByTestId("workout-heading").map((node) => node.props.children)).toEqual([
+      "Given",
+      "Steps",
+    ]);
+    // A stacked fraction on the last line must not pull the lines into one row.
+    expect(getAllByTestId("workout-line")).toHaveLength(3);
+    expect(getAllByTestId("workout-note")).toHaveLength(2);
+    expect(getByText("subtract 3 from both sides")).toBeOnTheScreen();
+    expect(queryByText(/\$|\\frac/)).toBeNull();
+  });
+
+  it("keeps an older one-line Given label in the ordinary renderer", async () => {
+    const { queryByTestId } = await render(
+      <MarkdownContent content={"**Given:** $2x + 3 = 11$"} />,
+    );
+    expect(queryByTestId("workout-section")).toBeNull();
+  });
+
   it("puts a lesson step number in a badge apart from the label", async () => {
     const { getByTestId, getByText } = await render(
       <MarkdownContent content={"**1. Divide both sides by 3**"} />,

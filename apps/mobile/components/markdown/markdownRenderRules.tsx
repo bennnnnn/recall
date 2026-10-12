@@ -52,6 +52,7 @@ import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
 import { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/preprocess";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
+import { splitWorkoutNote, workoutHeading } from "@/lib/markdown/workoutSection";
 import {
   latexHasNestedMathView,
   mathRunLineHeight,
@@ -133,6 +134,44 @@ function lessonStepParts(
         formula,
       }
     : null;
+}
+
+const WORKOUT_LINE_KIDS = new Set(["text", "softbreak", "hardbreak"]);
+
+/** Plain text and line breaks only: emphasis, links, or code keep the markdown renderer. */
+function plainInline(node: AstNode): boolean {
+  if (WORKOUT_LINE_KIDS.has(node.type ?? "")) return true;
+  return node.type === "textgroup" && (node.children ?? []).every(plainInline);
+}
+
+/** The bold heading that opens a paragraph, if the paragraph starts with one. */
+function openingStrong(node: AstNode | undefined): AstNode | null {
+  if (!node) return null;
+  if (node.type === "strong") return node;
+  const kids = node.children ?? [];
+  return node.type === "textgroup" && kids.length === 1 ? openingStrong(kids[0]) : null;
+}
+
+/**
+ * A workout section: a bold heading that ends its line, then one state per
+ * line. The lines are rows of their own because a stacked fraction turns a
+ * paragraph into a wrapping row, where a line break is lost.
+ */
+function workoutSectionParts(node: AstNode): { heading: string; lines: string[] } | null {
+  const kids = unwrapSingle(node).children ?? [];
+  const strong = openingStrong(kids[0]);
+  if (!strong) return null;
+  const heading = workoutHeading(astText(strong));
+  if (!heading) return null;
+  const rest = kids.slice(1);
+  if (!rest.length || !rest.every(plainInline)) return null;
+  const tail = rest.map((kid) => astTextWithBreaks(kid)).join("");
+  if (!/^[ \t]*\n/.test(tail)) return null;
+  const lines = tail
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  return lines.length ? { heading, lines } : null;
 }
 
 /**
@@ -554,6 +593,62 @@ function makeSharedRules(
             cellRunHeight != null && { lineHeight: cellRunHeight },
           ],
           mdMath.inlineWrap,
+        );
+      }
+      const section = workoutSectionParts(node);
+      if (section) {
+        const inline = (text: string, keyPrefix: string, color: string) =>
+          splitInlineMath(text).map((part, i) =>
+            part.type === "math" ? (
+              <MathText
+                scrollOverflow
+                key={`${keyPrefix}-m-${i}`}
+                latex={part.value}
+                textColor={color}
+              />
+            ) : (
+              <Text
+                key={`${keyPrefix}-t-${i}`}
+                style={[styles.body, styles.text, { color }]}
+                selectable
+              >
+                {withGreenTicks(part.value, t.success, `${keyPrefix}-${i}`)}
+              </Text>
+            ),
+          );
+        return (
+          <View key={node.key} testID="workout-section" style={[styles.paragraphRun, { gap: Space.xxs }]}>
+            <Text
+              testID="workout-heading"
+              style={[styles.body, styles.text, { ...Weight.semibold, color: t.assistantText }]}
+            >
+              {section.heading}
+            </Text>
+            {section.lines.map((line, index) => {
+              const { state, note } = splitWorkoutNote(line);
+              const key = `${node.key}-line-${index}`;
+              return (
+                <View
+                  key={key}
+                  testID="workout-line"
+                  style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}
+                >
+                  {inline(state, `${key}-state`, t.assistantText)}
+                  {note ? (
+                    <View
+                      testID="workout-note"
+                      style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}
+                    >
+                      <Text style={[styles.body, styles.text, { color: t.textSecondary }]}>
+                        {"  — "}
+                      </Text>
+                      {inline(note, `${key}-note`, t.textSecondary)}
+                    </View>
+                  ) : null}
+                </View>
+              );
+            })}
+          </View>
         );
       }
       const step = lessonStepParts(node);
