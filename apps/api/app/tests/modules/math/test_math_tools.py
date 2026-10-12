@@ -342,9 +342,10 @@ def test_extract_latex_inline_sixth_power_equation() -> None:
     block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
     assert block.canonical_answer is not None
-    assert r"\begin{aligned}" in block.canonical_answer
-    assert r"\pm" in block.canonical_answer
-    assert " i" in block.canonical_answer
+    # School answers are real when a real root exists; the four non-real
+    # sixth roots of unity need an explicit request.
+    assert r"\pm 1" in block.canonical_answer
+    assert " i" not in block.canonical_answer
 
 
 @pytest.mark.parametrize(

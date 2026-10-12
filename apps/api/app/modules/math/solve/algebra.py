@@ -327,6 +327,8 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
                 for sym in syms
             )
         ]
+    if len(syms) == 1 and not data.complex_roots:
+        raw_solutions = _real_roots_when_any(raw_solutions, syms[0])
 
     parameter_conditions: list[str] = []
     alternate_cases: list[str] = []
@@ -382,6 +384,27 @@ def solve_equation(data: EquationInput) -> MathSolveResult:
         domain_conditions_latex=[*domain_conditions, *parameter_conditions],
         alternate_cases_latex=alternate_cases,
     )
+
+
+def _real_roots_when_any(solutions: list[dict[Any, Any]], sym: Any) -> list[dict[Any, Any]]:
+    """Drop non-real roots when a real one exists: ``x^3 = 8`` is ``x = 2``.
+
+    A root whose realness SymPy cannot decide (it depends on a parameter) is
+    kept. With no real root, every root stays, so ``x^2 + 1 = 0`` keeps ``±i``.
+    """
+    real = [solution for solution in solutions if _is_real_value(solution.get(sym)) is True]
+    if not real:
+        return solutions
+    return [solution for solution in solutions if _is_real_value(solution.get(sym)) is not False]
+
+
+def _is_real_value(value: Any) -> bool | None:
+    if value is None:
+        return None
+    try:
+        return value.is_real
+    except Exception:
+        return None
 
 
 def _classify_system_no_solution(pairs: list[tuple[Any, Any]]) -> Literal["none", "infinite"]:

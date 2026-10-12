@@ -54,6 +54,12 @@ def guess_variables(text: str) -> list[str]:
     return letters[:4] if letters else ["x"]
 
 
+def _four_places(value: float) -> str:
+    """``2.1381`` stays; ``2.0000`` is ``2`` (the zeros claimed precision)."""
+    text = f"{value:.4f}".rstrip("0").rstrip(".")
+    return "0" if text in {"", "-0"} else text
+
+
 def compute_statistics(data: StatisticsInput) -> StatisticsResult:
     """Mean/median/mode/variance/stdev for a raw list of numbers — stdlib
     `statistics`, not SymPy (no expression parsing needed for plain floats)."""
@@ -79,8 +85,8 @@ def compute_statistics(data: StatisticsInput) -> StatisticsResult:
         "median": f"{median_val:g}",
         "mode": ", ".join(f"{m:g}" for m in modes) if modes else "none",
         "range": f"{range_val:g}",
-        "population_stdev": f"{stdev_population:.4f}",
-        "sample_stdev": f"{stdev_sample:.4f}" if stdev_sample is not None else "n/a",
+        "population_stdev": _four_places(stdev_population),
+        "sample_stdev": _four_places(stdev_sample) if stdev_sample is not None else "n/a",
     }
     return StatisticsResult(
         count=n,

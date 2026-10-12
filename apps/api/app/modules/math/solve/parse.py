@@ -459,7 +459,28 @@ def _rewrite_log_bases_once(s: str) -> str:
     return "".join(out)
 
 
+# ``log2(x)`` and ``log10(x)`` are written bases. Without this the digits end a
+# letter run and implicit multiplication reads ``l*o*g*2*x``.
+_GLUED_LOG_BASE_RE = re.compile(r"(?<![A-Za-z_\\])log(\d+)(?=\s*\()")
+
+# ``sinx`` / ``sin2x`` / ``lnx`` are sin(x), sin(2x), ln(x). The argument is
+# digits and one letter; anything longer (``sinx^2``, ``sinxy``) is left alone so
+# the written-letter guard declines it instead of guessing.
+_GLUED_FUNCTION_ARG_RE = re.compile(
+    r"(?<![A-Za-z_\\])(sin|cos|tan|sec|csc|cot|ln)(\d*[a-z])(?![A-Za-z(_^\d])"
+)
+
+
+def _rewrite_glued_function_args(s: str) -> str:
+    # ``\log_2`` keeps its backslash: ``_`` is a word character, so the LaTeX
+    # function pattern's ``\b`` never matched it.
+    s = s.replace("\\log_", "log_")
+    s = _GLUED_LOG_BASE_RE.sub(r"log_\1", s)
+    return _GLUED_FUNCTION_ARG_RE.sub(r"\1(\2)", s)
+
+
 def _rewrite_log_bases(s: str) -> str:
+    s = _rewrite_glued_function_args(s)
     for _ in range(8):
         nxt = _rewrite_log_bases_once(s)
         if nxt == s:
@@ -598,6 +619,64 @@ def _reject_unsafe_expr(normalized: str) -> None:
         raise MathServiceError("Invalid expression")
 
 
+# Longest first, so ``sinh`` is not read as ``sin`` + ``h``.
+_FUNCTION_WORDS = (
+    "arcsin",
+    "arccos",
+    "arctan",
+    "asin",
+    "acos",
+    "atan",
+    "sinh",
+    "cosh",
+    "tanh",
+    "sqrt",
+    "sin",
+    "cos",
+    "tan",
+    "sec",
+    "csc",
+    "cot",
+    "log",
+    "exp",
+    "abs",
+    "ln",
+    "lg",
+)
+# A unit after a number is not a product of variables: ``5 kg`` is not 5*k*g.
+_UNIT_AFTER_NUMBER_RE = re.compile(
+    r"(?<=\d)\s*(?:kg|km|cm|mm|mg|mL|ml|ms|mol|kJ|kN|kW|kPa|hPa|Pa|Hz|hrs?|min|mph)\b"
+)
+_LETTER_RUN_RE = re.compile(r"[^\W\d_]+")
+
+
+def _written_letters(text: str) -> set[str]:
+    """Single letters the writer used as names, not inside a function or unit word."""
+    letters: set[str] = set()
+    for run in _LETTER_RUN_RE.findall(_UNIT_AFTER_NUMBER_RE.sub(" ", text)):
+        lowered = run.lower()
+        for word in _FUNCTION_WORDS:
+            if lowered.startswith(word):
+                run = run[len(word) :]
+                break
+        letters.update(run)
+    return letters
+
+
+def _reject_unwritten_symbols(expr: str, parsed: Any) -> None:
+    """Every one-letter symbol must be a letter the writer wrote as a name.
+
+    Implicit multiplication splits any letter run it cannot resolve, so
+    ``log2(x)`` became ``2*g*l*o*x``, ``cos2x`` became ``2*c*o*s*x`` and
+    ``5 kg`` became ``5*g*k``; each then solved as ordinary algebra and was
+    certified. A symbol that only exists inside such a word means the parse
+    is not what was written.
+    """
+    names = {symbol.name for symbol in getattr(parsed, "free_symbols", ()) if len(symbol.name) == 1}
+    if names and not names <= _written_letters(expr):
+        raise MathServiceError(f"Could not parse expression: {expr}")
+
+
 def _parse_expression(
     expr: str,
     variable_names: list[str] | None = None,
@@ -614,7 +693,7 @@ def _parse_expression(
         for name in variable_names:
             local_dict[name] = Symbol(name, real=True) if real else Symbol(name)
     try:
-        return parse_expr(
+        parsed = parse_expr(
             normalized,
             local_dict=local_dict,
             transformations=_TRANSFORMATIONS,
@@ -622,6 +701,8 @@ def _parse_expression(
         )
     except Exception as exc:
         raise MathServiceError(f"Could not parse expression: {expr}") from exc
+    _reject_unwritten_symbols(expr, parsed)
+    return parsed
 
 
 def _expr_needs_real_domain(*parts: str) -> bool:

@@ -435,12 +435,12 @@ REMAINING_CASES = (
         "octahedral low-spin d6, 0 unpaired, μ = 0 BM",
     ),
     (
-        "Find the standard deviation of 2, 4, 4, 4, 5, 5, 7, 9",
+        "Find the standard deviation of these measurements: 2, 4, 4, 4, 5, 5, 7, 9",
         "standard_deviation",
         "s = 2.1",
     ),
     (
-        "Find the standard error of 2, 4, 4, 4, 5, 5, 7, 9",
+        "Find the standard error of these trials: 2, 4, 4, 4, 5, 5, 7, 9",
         "standard_error",
         "SE = 0.76",
     ),

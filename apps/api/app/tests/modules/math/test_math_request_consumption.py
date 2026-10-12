@@ -33,9 +33,6 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
         "sin(30°) + cos(60°) and calculate 99",
         "Simplify 8/12 and solve 2x=4",
         "Graph y=x^2 and solve 3x=9",
-        "Find the mean and standard deviation of 1,2,3,4",
-        "Find the mean and median of 1,2,3,4",
-        "Find the median and mode of 1,1,2,3",
         "Find median of 1,2,3 and z-score for x=88, mean 72, standard deviation 8",
         "Solve 2x=4; also x must be positive",
         "Solve x²=4 for x > 0",
@@ -106,6 +103,28 @@ def test_complete_trig_expression_consumes_every_call(question: str, answer: str
 )
 def test_unsupported_multipart_request_fails_closed(question: str) -> None:
     assert extract_math_intent(question) is None
+
+
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        ("Find the mean and standard deviation of 1,2,3,4", r"\bar{x} = 2.5,\quad \sigma = 1.118"),
+        ("mean and standard deviation of 2,4,4,4,5,5,7,9", r"\bar{x} = 5,\quad \sigma = 2"),
+        ("Find the mean and median of 1,2,3,4", r"\bar{x} = 2.5,\quad \text{median} = 2.5"),
+        ("Find the median and mode of 1,1,2,3", r"\text{median} = 1.5,\quad \text{mode} = 1"),
+        (
+            "Find the mean and sample standard deviation of 2,4,4,4,5,5,7,9",
+            r"\bar{x} = 5,\quad s = 2.1381",
+        ),
+    ],
+)
+def test_several_summary_statistics_are_answered_together(question: str, answer: str) -> None:
+    """A second statistic is answered beside the first, never dropped."""
+    intent = extract_math_intent(question)
+    assert intent is not None and intent.kind == "statistics"
+    block = _build_verified_block(intent, Settings())
+    assert block is not None and block.canonical_answer == answer
+    assert maybe_direct_math_reply(block, question) is None
 
 
 def test_supported_geometry_multipart_retains_both_requested_values() -> None:

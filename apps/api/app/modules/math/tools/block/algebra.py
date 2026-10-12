@@ -73,6 +73,17 @@ def _rational_interval_is_clearer(intent: MathIntent) -> bool:
         return False
 
 
+_COMPLEX_ROOT_CUE = re.compile(
+    r"\b(?:complex|imaginary|all\s+(?:the\s+)?(?:roots|solutions|zeros))\b|\\mathbb\{C\}|\u2102",
+    re.IGNORECASE,
+)
+
+
+def wants_complex_roots(text: str) -> bool:
+    """``complex roots of x^3 = 8`` asks for every root; ``solve x^3 = 8`` does not."""
+    return _COMPLEX_ROOT_CUE.search(text) is not None
+
+
 def _verified_block_equation(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -82,6 +93,7 @@ def _verified_block_equation(
         lhs=intent.lhs[: settings.math_max_expr_length],
         rhs=intent.rhs[: settings.math_max_expr_length],
         variables=[intent.variable],
+        complex_roots=wants_complex_roots(intent._request_text or ""),
     )
     result = math_solve.solve_equation(eq)
     lines.extend(result.steps)

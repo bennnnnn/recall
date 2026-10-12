@@ -164,6 +164,23 @@ class MathIntent(BaseModel):
     ) = None
     stats_numbers: list[float] | None = None
     stats_numbers_b: list[float] | None = None
+    # "mean and standard deviation of …": every requested statistic of one
+    # list, in the order asked. ``stats_op`` is the first of them.
+    stats_ops: (
+        list[
+            Literal[
+                "mean",
+                "median",
+                "mode",
+                "variance",
+                "stdev",
+                "sample_stdev",
+                "sample_variance",
+                "range",
+            ]
+        ]
+        | None
+    ) = None
     # Combinatorics — factorial (k unused) / combinations / permutations.
     combo_op: Literal["factorial", "combinations", "permutations"] | None = None
     combo_n: int | None = None

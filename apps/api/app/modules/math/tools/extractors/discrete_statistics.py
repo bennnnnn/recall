@@ -25,6 +25,19 @@ def _extract_statistics_intent(cleaned: str) -> MathIntent | None:
     if signal is None:
         return None
     stat_op, numbers = signal
+    from app.modules.math.match.discrete import SUMMARY_STATS, requested_summary_stats
+
+    requested = requested_summary_stats(cleaned)
+    if len(requested) >= 2:
+        if not all(op in SUMMARY_STATS for op in requested):
+            return None
+        return MathIntent(
+            kind="statistics",
+            stats_op=requested[0],
+            stats_ops=list(requested),
+            stats_numbers=numbers,
+            operation="solve",
+        )
     percentile_n = None
     if stat_op == "percentile":
         idx = word_index(cleaned.lower(), "percentile")

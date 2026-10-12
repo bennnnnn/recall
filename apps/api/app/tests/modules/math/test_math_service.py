@@ -179,13 +179,34 @@ def test_solve_quadratic_includes_worked_isolation_steps() -> None:
 
 
 def test_canonical_sixth_roots_group_conjugates() -> None:
-    result = math_solve.solve_equation(EquationInput(lhs="x**6", rhs="1", variables=["x"]))
+    result = math_solve.solve_equation(
+        EquationInput(lhs="x**6", rhs="1", variables=["x"], complex_roots=True)
+    )
     assert len(result.solutions_latex) == 6
     assert len(result.canonical_solutions_latex) == 3
     joined = " ".join(result.canonical_solutions_latex)
     assert r"\pm 1" in joined
     assert r"\pm" in joined
     assert " i" in joined
+
+
+@pytest.mark.parametrize(
+    ("lhs", "rhs", "expected"),
+    [
+        ("x**6", "1", [r"x = -1", r"x = 1"]),
+        ("x**3", "8", [r"x = 2"]),
+        ("x**4", "16", [r"x = -2", r"x = 2"]),
+        ("exp(2*x)", "5", [r"x = \frac{\log{\left(5 \right)}}{2}"]),
+    ],
+)
+def test_solve_equation_keeps_real_roots_when_one_exists(lhs, rhs, expected) -> None:
+    result = math_solve.solve_equation(EquationInput(lhs=lhs, rhs=rhs, variables=["x"]))
+    assert sorted(result.solutions_latex) == sorted(expected)
+
+
+def test_solve_equation_keeps_complex_roots_when_no_real_root() -> None:
+    result = math_solve.solve_equation(EquationInput(lhs="x**2 + 1", rhs="0", variables=["x"]))
+    assert sorted(result.solutions_latex) == ["x = -i", "x = i"]
 
 
 def test_solve_rejects_polynomial_above_degree_cap() -> None:
