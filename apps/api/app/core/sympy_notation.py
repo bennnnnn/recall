@@ -8,7 +8,11 @@ the written ``\\log_{10}(x)``.
 
 from __future__ import annotations
 
+import re
 from typing import Any
+
+# SymPy's text for its natural log, the only ``log(`` it writes.
+_SSTR_LOG = re.compile(r"(?<![A-Za-z_])log\(")
 
 
 def _argument(printer: Any, arg: Any) -> str:
@@ -67,3 +71,15 @@ def use_school_log_notation() -> None:
     # SymPy has no setting for either spelling, so its printer is patched once.
     setattr(LatexPrinter, "_print_Mul", _print_mul)  # noqa: B010
     setattr(LatexPrinter, "_print_log", _print_log)  # noqa: B010
+
+
+def school_text(expr: Any) -> str:
+    """SymPy's plain text, with natural logs written ``ln``.
+
+    ``sstr`` writes a natural log as ``log``, which the parser and the phone's
+    graph resampler read as base 10. Text that is parsed or plotted again must
+    keep its meaning.
+    """
+    from sympy import sstr
+
+    return _SSTR_LOG.sub("ln(", str(sstr(expr)))

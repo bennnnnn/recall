@@ -5,8 +5,8 @@ from app.services.workout import WORKOUT_PROMPT_RULE
 # Chart hint already bans table/Mermaid substitutes. Graph/geometry must too:
 # when SymPy sampling fails, the model otherwise dumps a point table or flowchart.
 GRAPH_NO_SUBSTITUTE_CLAUSE = (
-    "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "
-    "diagram for a function plot."
+    "NEVER substitute a markdown table of sampled points, an ASCII or text-art sketch, "
+    "or a Mermaid/flowchart diagram for a function plot."
 )
 
 MATH_NOTATION_CLARIFICATION_HINT = (

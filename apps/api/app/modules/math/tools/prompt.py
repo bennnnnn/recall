@@ -34,6 +34,15 @@ logger = logging.getLogger(__name__)
 
 _MAX_SYMBOLIC_INPUT = 1000
 
+# "Graph it" when nothing earlier in the thread names a function. With no
+# guidance the model drew the lines as ASCII art, which the phone cannot render.
+NOTHING_TO_GRAPH = (
+    "The user asked to graph the previous problem, but no function y = f(x) to plot "
+    "was found in it. Ask in one short sentence which function to graph, for example "
+    "`y = 2x + 3`. Do not draw a graph in text: no ASCII or text-art sketch, no table "
+    "of points, no Mermaid diagram, and no ```graph fence."
+)
+
 VERIFIED_MATH_REPLY_HINT = (
     "Reply guidance for this request: The solver working above is supporting data, "
     "not a request to explain every step. "
@@ -242,7 +251,7 @@ async def build_math_augmentation(
     if image_math_extract is None:
         user_content, skip_math = resolve_graph_followup(user_content, prior_user_messages)
         if skip_math:
-            return None, None
+            return NOTHING_TO_GRAPH, None
     if needs_math is None:
         needs_math = needs_symbolic_math(user_content, has_image_attachment=has_image_attachment)
     if not needs_math and image_math_extract is None:
@@ -370,8 +379,8 @@ def _unverified_math_note(kind: str) -> str:
         "verified, or could not be verified. "
         "Write the result in `$...$`. Do NOT emit ```answer, ```geometry, or ```graph. "
         "Do not invent geometry/graph dimensions or point lists. "
-        "NEVER substitute a markdown table of sampled points or a Mermaid/flowchart "
-        "diagram for a function plot.\n\n"
+        "NEVER substitute a markdown table of sampled points, an ASCII or text-art sketch, "
+        "or a Mermaid/flowchart diagram for a function plot.\n\n"
         f"{MATH_REPLY_POLICY}"
     )
 

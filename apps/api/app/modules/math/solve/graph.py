@@ -205,6 +205,11 @@ def _adapt_sample_window(
     return mid - half, mid + half, zoom_n
 
 
+def _sampled(fn: Any, inputs: Any) -> Any:
+    """``fn`` at every input. A constant (``y = 5``) evaluates to one number, so spread it."""
+    return np.broadcast_to(np.asarray(fn(inputs), dtype=float), inputs.shape)
+
+
 def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     if data.x_max <= data.x_min:
         raise MathServiceError("x_max must be greater than x_min")
@@ -224,8 +229,7 @@ def sample_function(data: GraphSampleInput) -> GraphSampleResult:
     )
     xs = np.linspace(x_min, x_max, n)
     try:
-        ys = numpy_fn(xs)
-        ys = np.asarray(ys, dtype=float)
+        ys = _sampled(numpy_fn, xs)
     except Exception as exc:
         raise MathServiceError(f"Could not sample function: {data.expr}") from exc
     points: list[list[float]] = []
@@ -278,7 +282,7 @@ def sample_polar_curve(expr: str, variable: str = "theta", n: int = 96) -> Graph
     thetas = np.linspace(0.0, 2.0 * math.pi, count, endpoint=True)
     points: list[list[float]] = []
     try:
-        radii = np.asarray(numpy_fn(thetas), dtype=float)
+        radii = _sampled(numpy_fn, thetas)
     except Exception as exc:
         raise MathServiceError(f"Could not sample polar curve: {expr}") from exc
     for theta, radius in zip(thetas, radii, strict=False):
@@ -318,8 +322,8 @@ def sample_parametric_curve(
     ts = np.linspace(0.0, 2.0 * math.pi, count, endpoint=True)
     points: list[list[float]] = []
     try:
-        xs = np.asarray(fx(ts), dtype=float)
-        ys = np.asarray(fy(ts), dtype=float)
+        xs = _sampled(fx, ts)
+        ys = _sampled(fy, ts)
     except Exception as exc:
         raise MathServiceError(f"Could not sample parametric curve: {x_expr}, {y_expr}") from exc
     for x_val, y_val in zip(xs, ys, strict=False):

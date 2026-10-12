@@ -1319,11 +1319,15 @@ async def test_graph_it_uses_prior_quadratic_equation() -> None:
 
 @pytest.mark.asyncio
 async def test_graph_it_without_prior_does_not_stamp_unverified() -> None:
+    """It asks which function to graph instead of letting the model sketch one."""
+    from app.modules.math.tools.prompt import NOTHING_TO_GRAPH
+
     note, verified = await math_tools.build_math_augmentation(
         "graph it",
         Settings(math_tools_enabled=True),
     )
-    assert note is None
+    assert note is NOTHING_TO_GRAPH
+    assert "verif" not in note.lower()
     assert verified is None
 
 

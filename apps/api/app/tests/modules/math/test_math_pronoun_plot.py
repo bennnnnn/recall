@@ -15,9 +15,11 @@ from __future__ import annotations
 
 import pytest
 
+from app.core.config import Settings
 from app.modules.math.match import graph_expr
 from app.modules.math.tools import extract_math_intent, needs_symbolic_math
 from app.modules.math.tools.extract import resolve_graph_followup
+from app.modules.math.tools.prompt import NOTHING_TO_GRAPH, build_math_augmentation
 
 
 @pytest.mark.parametrize(
@@ -75,3 +77,40 @@ def test_graph_it_with_no_plottable_prior_skips_math_instead_of_stamping() -> No
 
     assert content == "graph it"
     assert skip_math is True
+
+
+@pytest.mark.parametrize(
+    ("prior", "expected"),
+    [
+        ("find the derivative of y = 3x + 2 and y = 2x + 3", "graph 3x + 2 and 2x + 3"),
+        ("what is the slope of y = 3x + 2 and y = 2x + 3", "graph 3x + 2 and 2x + 3"),
+        ("which grows faster, y = 3x + 2 or y = 2x + 3?", "graph 3x + 2 and 2x + 3"),
+        ("solve x + y = 5 and x - y = 1", "graph 5-x and x-1"),
+        ("differentiate x^2", "graph x^2"),
+    ],
+)
+def test_graph_it_reuses_the_functions_a_calculus_or_system_question_names(
+    prior: str, expected: str
+) -> None:
+    """Reported from the app: "Graph it" after the slopes of two lines got an ASCII sketch."""
+    assert resolve_graph_followup("Graph it", [prior]) == (expected, False)
+
+
+def test_a_curve_solved_for_y_keeps_its_natural_log() -> None:
+    """``log`` is base 10, so ``e^y = x`` must plot as ``ln(x)``, not ``log(x)``."""
+    intent = extract_math_intent("graph e^y = x")
+
+    assert intent is not None
+    assert intent.expr == "ln(x)"
+
+
+@pytest.mark.asyncio
+async def test_graph_it_with_nothing_to_plot_asks_instead_of_drawing() -> None:
+    block, verified = await build_math_augmentation(
+        "graph it", Settings(), needs_math=True, prior_user_messages=["what is a vagina"]
+    )
+
+    assert verified is None
+    assert block is NOTHING_TO_GRAPH
+    assert "which function to graph" in block
+    assert "ASCII" in block

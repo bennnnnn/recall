@@ -377,6 +377,15 @@ def test_sample_function_quadratic() -> None:
     assert zeroish[1] == pytest.approx(0.0, abs=0.5)
 
 
+def test_sample_function_draws_a_horizontal_line() -> None:
+    """``y = 5`` evaluates to one number; it used to crash the sampler."""
+    result = math_solve.sample_function(
+        GraphSampleInput(expr="5", variable="x", x_min=-2, x_max=2, n=10)
+    )
+    assert len(result.points) == 10
+    assert {point[1] for point in result.points} == {5.0}
+
+
 def test_sample_function_rejects_relational_expr() -> None:
     with pytest.raises(math_solve.MathServiceError, match="number lines"):
         math_solve.sample_function(
