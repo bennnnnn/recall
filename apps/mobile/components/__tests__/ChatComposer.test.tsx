@@ -488,9 +488,11 @@ describe("ChatComposer math keyboard", () => {
       keysBox,
     );
     expect(getByTestId("math-converter-from-unit")).toHaveStyle({ alignSelf: "stretch", height: 44 });
-    for (const id of ["math-converter-0", "math-converter-dot", "math-converter-insert", "math-converter-ask"]) {
+    for (const id of ["math-converter-0", "math-converter-dot", "math-converter-ask"]) {
       expect(flatKey(id).height).toBe(rowHeight);
     }
+    expect(flatKey("math-converter-ask").flex).toBe(2);
+    expect(queryByTestId("math-converter-insert")).toBeNull();
     expect(getByTestId("math-converter-swap")).toHaveStyle({
       minWidth: 44,
       minHeight: 44,
@@ -545,20 +547,6 @@ describe("ChatComposer math keyboard", () => {
     expect(queryByTestId("composer-scroll-fade")).toBeNull();
     await fireEvent(getByTestId("chat-composer-input"), "focus");
     expect(queryByTestId("math-keyboard-pad")).toBeNull();
-  });
-
-  it("inserts the converter result into the composer as math", async () => {
-    let latest = "";
-    function Harness() {
-      const [input, setInput] = useState("");
-      latest = input;
-      return <ChatComposer {...baseProps} input={input} onChangeInput={setInput} />;
-    }
-    const { getByTestId } = await render(<Harness />);
-    await fireEvent.press(getByTestId("math-keyboard-toggle"));
-    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
-    await fireEvent.press(getByTestId("math-converter-insert"));
-    expect(latest).toBe("$100\\,\\text{cm}$");
   });
 
   it("minimizes the math keyboard while a reply is streaming", async () => {
