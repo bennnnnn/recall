@@ -48,11 +48,11 @@ def test_every_method_is_a_catalog_operation_with_a_rule_not_an_equation() -> No
         ("How many moles are in 36 g of water?", False),
     ],
 )
-def test_a_procedure_shows_its_rule_under_method(question: str, method: bool) -> None:
+def test_a_procedure_shows_its_rule_and_then_its_steps(question: str, method: bool) -> None:
+    """One layout: the rule or law under Formula; a procedure's tally under Steps."""
     reply = _reply(question)
-    assert ("**Method**" in reply) is method
-    assert ("**Working**" in reply) is method
-    assert ("**Formula**" in reply) is not method
+    assert "**Formula**" in reply
+    assert ("**Steps**" in reply) is method
     assert ("**Substitution**" in reply) is not method
 
 
@@ -61,8 +61,8 @@ def test_the_model_prompt_names_the_same_sections() -> None:
     assert intent is not None
     verified = build_verified_chemistry(intent)
     assert verified is not None
-    assert "Given, Find, Method, Working, Answer" in verified.prompt_text
-    assert "\nWorking:\n" in verified.prompt_text
+    assert "Given, Find, Formula, Steps, Answer" in verified.prompt_text
+    assert "\nSteps:\n" in verified.prompt_text
 
 
 @pytest.mark.parametrize(

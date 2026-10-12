@@ -322,6 +322,6 @@ def test_assumptions_appear_once_in_the_formula_section(
     assert reply is not None
     if present is not None:
         assert reply.count(present) == 1
-        assert reply.count("Assumption:") >= 1
+        assert reply.count("Assumes ") >= 1
     if absent is not None:
         assert absent not in reply

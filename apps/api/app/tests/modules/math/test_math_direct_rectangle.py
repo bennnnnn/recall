@@ -45,7 +45,7 @@ async def test_rectangle_streams_one_answer_and_exact_diagram_without_model(
     assert "**Find**" in reply
     assert "**Formula**" in reply
     assert "**Substitution**" in reply
-    assert "**Diagram**" in reply
+    assert "```geometry" in reply
     finalized = validate_math_fences(reply, verified=verified)
     assert (
         json.loads(finalized.split("```geometry\n", 1)[1].split("\n```", 1)[0])

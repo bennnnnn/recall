@@ -229,21 +229,22 @@ def test_work_check_declines_out_of_scope(lines: list[str]) -> None:
 def test_reply_marks_lines_explains_and_fixes() -> None:
     reply = _reply("Check my work:\n2x + 3 = 11\n2x = 14\nx = 7")
     assert reply is not None
-    assert "**Line 1** (the problem)\n$2x + 3 = 11$" in reply
-    assert "**Line 2** \u2717\n$2x = 14$" in reply
-    assert "**Line 3** follows, but carries the line 2 slip\n$x = 7$" in reply
-    assert "**What went wrong in line 2:**" in reply
+    # The student's lines, graded, are the Given; the slip and the fix are the Steps.
+    assert reply.startswith("**Given**  \n$2x + 3 = 11$ — the problem  \n")
+    assert "$2x = 14$ — \u2717  \n" in reply
+    assert "$x = 7$ — follows, but carries the line 2 slip" in reply
+    assert "Line 2: A term changes sign" in reply
     assert "$11 - 3 = 8$" in reply
-    assert "**Fixed from line 2:**" in reply
-    assert "**1. Subtract $3$ from both sides**\n$2 x = 8$" in reply
+    assert "Fixed from line 2:" in reply
+    assert "$2 x = 8$ — subtract $3$ from both sides" in reply
     assert reply.rstrip().endswith("```answer\nx = 4\n```")
 
 
 def test_hint_reply_keeps_the_fix_and_answer_back() -> None:
     reply = _reply("Check my work, don't give me the answer:\n2x + 3 = 11\n2x = 14\nx = 7")
     assert reply is not None
-    assert "**Line 2** \u2717" in reply
-    assert "**Hint:** When $+3$ crosses to the other side" in reply
+    assert "$2x = 14$ — \u2717" in reply
+    assert "Hint: When $+3$ crosses to the other side" in reply
     for leaked in ("```answer", "x = 4", "2 x = 8", "11 - 3"):
         assert leaked not in reply
 
@@ -251,7 +252,7 @@ def test_hint_reply_keeps_the_fix_and_answer_back() -> None:
 def test_hint_reply_for_unfinished_correct_work_names_only_the_next_move() -> None:
     reply = _reply("Don't finish it for me. 5x+2=17\n5x=15")
     assert reply is not None
-    assert "**Next move:** divide both sides by 5." in reply
+    assert "Next move: divide both sides by 5." in reply
     assert "```answer" not in reply and "x = 3" not in reply
 
 
@@ -270,7 +271,7 @@ def test_correct_work_reply_confirms_and_shows_the_answer() -> None:
     assert reply is not None
     assert reply.count("\u2713") == 2
     assert "Every step checks out." in reply
-    assert "Check: $2 (4) + 3 = 11$" in reply
+    assert "$2 (4) + 3 = 11$ — check" in reply
     assert "```answer\nx = 4\n```" in reply
 
 

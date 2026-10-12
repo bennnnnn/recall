@@ -8,12 +8,15 @@ sequence: given values, requested quantity, named formula, and substitution.
 from __future__ import annotations
 
 import math
+import re
 
 from app.modules.math.match.geometry import parse_solid
 from app.modules.math.match.literal_geometry import (
     measurement_request,
     parse_named_rectangle_request,
 )
+from app.services.workout import Workout, math_line, render_workout
+from app.services.workout import formula_name as law_name
 
 
 def _number(value: object) -> float | None:
@@ -38,6 +41,25 @@ def _given(label: str, symbol: str, value: float, unit: str) -> str:
     return rf"{label}: ${symbol} = {_display(value)}\,{_unit(unit)}$"
 
 
+_LABELLED = re.compile(r"^(?P<label>[^:$]+):\s*\$(?P<tex>[^$]+)\$$")
+_NAMED_FIND = re.compile(r"^(?P<name>[^($]+?)\s*\(\$(?P<tex>[^$]+)\$\)$")
+
+
+def _labelled_line(line: str) -> str:
+    """``Base: $b = 6$`` → ``$b = 6$ — base``: the value first, its name as the note."""
+    match = _LABELLED.match(line.strip())
+    if match is None:
+        return line
+    return math_line(match.group("tex"), match.group("label").strip().lower())
+
+
+def _find_line(find: str) -> str:
+    match = _NAMED_FIND.match(find.strip())
+    if match is None:
+        return find
+    return math_line(match.group("tex"), match.group("name").strip().lower())
+
+
 def _section(
     given: list[str],
     find: str,
@@ -45,14 +67,19 @@ def _section(
     formulas: list[str],
     substitutions: list[str],
 ) -> str:
-    sections = [
-        "**Given**  \n" + "  \n".join(given),
-        f"**Find**  \n{find}",
-        f"**Formula**  \n{formula_name}:  \n" + "  \n".join(f"${formula}$" for formula in formulas),
-        "**Substitution**  \n" + "  \n".join(f"${line}$" for line in substitutions),
-        "**Answer**",
+    """The shared workout layout; the caller's answer fence follows **Answer**."""
+    name = law_name(formula_name)
+    formula_lines = [
+        math_line(formula, name if index == 0 else None) for index, formula in enumerate(formulas)
     ]
-    return "\n\n".join(sections)
+    return render_workout(
+        Workout(
+            given=tuple(_labelled_line(line) for line in given),
+            find=(_find_line(find),),
+            formula=tuple(formula_lines),
+            substitution=tuple(math_line(line) for line in substitutions),
+        )
+    )
 
 
 def _quantity(user_text: str) -> str | None:
@@ -188,7 +215,22 @@ def format_direct_geometry_working(
         base, height = _number(spec.get("base")), _number(spec.get("height"))
         if base is None or height is None:
             return None
-        given = [_given("Base", "b", base, unit), _given("Height", "h", height, unit)]
+        if kind == "right_triangle":
+            # The legs are a and b, the names the Pythagorean theorem uses.
+            given = [_given("Leg", "a", base, unit), _given("Leg", "b", height, unit)]
+        else:
+            given = [_given("Base", "b", base, unit), _given("Height", "h", height, unit)]
+        if quantity == "area" and kind == "right_triangle":
+            return _section(
+                given,
+                "Area ($A$)",
+                "Right-triangle area formula",
+                [r"A = \frac{1}{2}ab"],
+                [
+                    rf"A = \frac{{1}}{{2}} \times {_display(base)} \times "
+                    rf"{_display(height)} = {result}"
+                ],
+            )
         if quantity == "area":
             return _section(
                 given,
@@ -322,14 +364,18 @@ def format_direct_geometry_working(
         radius_step = [rf"r = \frac{{{_display(diameter)}}}{{2}} = {_display(radius)}"]
         if quantity == "area":
             substitutions = radius_step if supplied_diameter else []
-            substitutions.append(rf"A = \pi({_display(radius)})^2 \approx {result}")
+            substitutions.append(
+                rf"A = \pi({_display(radius)})^2 = {_display(radius**2)}\pi \approx {result}"
+            )
             formulas = [r"A = \pi r^2"]
             if supplied_diameter:
                 formulas.insert(0, r"d = 2r")
             return _section(given, "Area ($A$)", "Circle area formula", formulas, substitutions)
         if quantity == "circumference":
             substitutions = radius_step if supplied_diameter else []
-            substitutions.append(rf"C = 2\pi({_display(radius)}) \approx {result}")
+            substitutions.append(
+                rf"C = 2\pi({_display(radius)}) = {_display(2 * radius)}\pi \approx {result}"
+            )
             formulas = [r"C = 2\pi r"]
             if supplied_diameter:
                 formulas.insert(0, r"d = 2r")

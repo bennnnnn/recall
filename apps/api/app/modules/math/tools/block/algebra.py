@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import replace
+from typing import Any
 
 from app.core.config import Settings
 from app.modules.math import solve as math_solve
@@ -17,8 +18,10 @@ from app.modules.math.solve.key_steps import (
     KeyStep,
     equation_check_latex,
     equation_key_steps,
+    rewrite_label,
     stringify_key_steps,
     used_factor_trace,
+    written_side,
 )
 from app.modules.math.solve.parse import parse_equation as parse_eq
 from app.modules.math.solve.traces import (
@@ -84,6 +87,37 @@ def wants_complex_roots(text: str) -> bool:
     return _COMPLEX_ROOT_CUE.search(text) is not None
 
 
+def _written_given(
+    intent: MathIntent,
+    lhs: Any,
+    rhs: Any,
+    key_steps: list[KeyStep],
+    result: Any,
+) -> tuple[str, list[KeyStep]]:
+    """Given is the equation as typed; the solver's tidy form is the first step.
+
+    ``3(x-2)+4 = 2x+5`` used to show ``Given: 3x - 2 = 2x + 5`` with the
+    expansion silently done. The typed form comes first and the expansion (or
+    the collected like terms) is its own line, the same equation the trace
+    then starts from.
+    """
+    evaluated = f"{result.lhs_latex} = {result.rhs_latex}"
+    variables = [intent.variable or "x"]
+    left = written_side(intent.lhs or "", variables)
+    right = written_side(intent.rhs or "", variables)
+    if left is None or right is None:
+        return evaluated, key_steps
+    written = f"{left[1]} = {right[1]}"
+    if written == evaluated or not key_steps:
+        return written if key_steps else evaluated, key_steps
+    if r"\log" in written:
+        return written, key_steps
+    label = rewrite_label(left[0], lhs) or rewrite_label(right[0], rhs)
+    if label is None:
+        return written, key_steps
+    return written, [KeyStep(label=label, formula=evaluated), *key_steps]
+
+
 def _verified_block_equation(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
@@ -146,6 +180,7 @@ def _verified_block_equation(
             0,
             rf"Zero-exponent law: {symbol}^0 = 1 for {symbol} \ne 0.",
         )
+    given_latex, key_steps = _written_given(intent, lhs, rhs, key_steps, result)
     alt = None
     if used_factor_trace(key_steps):
         alt = "Another method is the quadratic formula; it gives the same two solutions."
@@ -154,7 +189,7 @@ def _verified_block_equation(
         answer,
         key_step=math_solve.factored_key_step(eq.lhs, eq.rhs, intent.variable or "x"),
         key_steps=key_steps,
-        given_latex=f"{result.lhs_latex} = {result.rhs_latex}",
+        given_latex=given_latex,
         check_latex=equation_check_latex(lhs, rhs, intent.variable or "x"),
         alternate_method_note=alt,
     )

@@ -11,6 +11,7 @@ from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
 from app.modules.math.tools.school._parse import _PROB_NUMBER
+from app.services.workout import Workout, math_line, render_workout
 
 _UNIT_PATTERN = r"[A-Za-zµμ°][A-Za-z0-9µμ°*/^._-]{0,63}"
 _TWICE_HOT_TAIL = re.compile(
@@ -98,16 +99,32 @@ def _verified_block_unit(
             f"Absolute-temperature comparison: {second_kelvin:g} K / "
             f"{first_kelvin:g} K = {ratio:.6g}; twice={verdict}."
         )
-        direct = (
-            "**Convert**\n"
-            f"${intent.percent_base:g}\\,{intent.unit_from} = {answer}\\,{intent.unit_to}$\n\n"
-            "**Compare on an absolute temperature scale**\n"
-            f"${intent.temperature_compare_value:g}\\,{intent.temperature_compare_unit}"
-            f" = {second_kelvin:g}\\,K$ and "
-            f"${intent.percent_base:g}\\,{intent.unit_from} = {first_kelvin:g}\\,K$.\n\n"
-            f"The ratio is ${second_kelvin:g}/{first_kelvin:g} \\approx {ratio:.3f}$, not 2. "
-            "So it is not twice as hot; Fahrenheit's zero is arbitrary, so raw Fahrenheit "
-            "numbers cannot be compared as temperature ratios."
-        )
+        direct = render_workout(
+            Workout(
+                given=(
+                    math_line(f"{intent.percent_base:g}\\,{intent.unit_from}"),
+                    math_line(
+                        f"{intent.temperature_compare_value:g}\\,{intent.temperature_compare_unit}"
+                    ),
+                ),
+                steps=(
+                    math_line(
+                        f"{intent.percent_base:g}\\,{intent.unit_from}"
+                        f" = {answer}\\,{intent.unit_to}",
+                        "convert",
+                    ),
+                    math_line(
+                        f"{intent.temperature_compare_value:g}\\,{intent.temperature_compare_unit}"
+                        f" = {second_kelvin:g}\\,K, \\quad "
+                        f"{intent.percent_base:g}\\,{intent.unit_from} = {first_kelvin:g}\\,K",
+                        "absolute scale",
+                    ),
+                    math_line(
+                        f"{second_kelvin:g}/{first_kelvin:g} \\approx {ratio:.3f}",
+                        "not 2, so not twice as hot (Fahrenheit's zero is arbitrary)",
+                    ),
+                ),
+            )
+        ).removesuffix("\n\n**Answer**")
         return VerifiedMathBlock(text="\n".join(lines), direct_reply=direct)
     return _finish_with_answer(lines, format_quantity(answer, intent.unit_to))

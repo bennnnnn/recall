@@ -9,6 +9,7 @@ from typing import Any
 from app.modules.math import solve as math_solve
 from app.modules.math.tools.direct_calculus import _compact, _expression
 from app.services.solving import VerifiedMathBlock
+from app.services.workout import Workout, math_line, render_workout, text_line
 
 _NUMBER = r"[+-]?(?:[0-9]{1,12}(?:\.[0-9]{1,12})?|\.[0-9]{1,12})"
 _START = re.compile(
@@ -114,28 +115,26 @@ def format_newton_reply(verified: VerifiedMathBlock) -> str:
     if data is None or result is None:
         raise ValueError("Newton reply requires its verified input and result")
     variable = data.variable
-    lines = [
-        rf"For $f({variable}) = {result.function_latex}$, Newton's update is",
-        "",
-        f"${result.recurrence_latex}$.",
-        "",
-    ]
     steps = result.iterations
-    if len(steps) > 8:
-        lines.extend(["First four and last three recorded iterates:", ""])
-    lines.extend([rf"| $n$ | ${variable}_n$ |", "| ---: | ---: |"])
     shown = steps if len(steps) <= 8 else [*steps[:4], *steps[-3:]]
+    iterates: list[str] = []
     for index, step in enumerate(shown):
         if len(steps) > 8 and index == 4:
-            lines.append("| … | … |")
-        lines.append(f"| {step.n} | {_iterate_text(step.x_n)} |")
+            iterates.append(text_line("…"))
+        iterates.append(math_line(f"{variable}_{{{step.n}}} = {_iterate_text(step.x_n)}"))
     tolerance = _iterate_text(data.tolerance)
-    lines.extend(
-        [
-            "",
-            rf"Stopped when $|f({variable}_n)| < {tolerance}$.",
-            "",
-            rf"${variable} \approx {verified.canonical_answer}$.",
-        ]
+    iterates.append(math_line(rf"|f({variable}_n)| < {tolerance}", "stop"))
+    workout = Workout(
+        given=(math_line(f"f({variable}) = {result.function_latex}"),),
+        find=(math_line(variable, "a root"),),
+        formula=(
+            (math_line(result.recurrence_latex, "Newton's method"),)
+            if result.recurrence_latex
+            else ()
+        ),
+        steps=tuple(iterates),
     )
-    return "\n".join(lines) + "\n"
+    # The root is an approximation, written as the Answer line rather than an
+    # answer chip, so the fence pass has nothing to rewrite.
+    root = math_line(rf"{variable} \approx {verified.canonical_answer}")
+    return f"{render_workout(workout)}  \n{root}\n"

@@ -133,7 +133,7 @@ def test_new_catalog_problem_is_verified_and_explained(
     assert verified.canonical_answer == answer
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
-    assert law_name in reply
+    assert f" — {law_name.rstrip(':')}" in reply
     headings = ["**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**"]
     assert all(reply.count(heading) == 1 for heading in headings)
     assert [reply.index(heading) for heading in headings] == sorted(

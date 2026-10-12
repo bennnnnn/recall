@@ -47,6 +47,7 @@ from app.modules.math.tools.school.sequences import (
 from app.modules.math.tools.school.sets import _block_sets, _extract_set_intent
 from app.modules.math.tools.school.statistics import _block_z_score
 from app.modules.math.tools.school.teaching import _attach_picture, _block_teaching
+from app.services.workout import Workout, math_line, render_workout
 
 
 def _extract_percent_or_ratio(cleaned: str) -> MathIntent | None:
@@ -318,30 +319,25 @@ def _verified_block_arithmetic(
             return block
         exponent = int(exponent_text)
         if exponent == 0:
-            working = (
-                "**Power notation**\n\n"
-                f"The zero-exponent law says that, for ${base} \\ne 0$,\n\n"
-                f"${base}^0 = 1$"
-            )
+            formula = math_line("a^0 = 1, \\quad a \\ne 0", "Zero-exponent law")
+            line = math_line(f"{base}^0 = 1")
         elif exponent == 1:
-            working = (
-                f"**Power notation**\n\nA first power is the base itself:\n\n${base}^1 = {answer}$"
-            )
+            formula = math_line("a^1 = a", "First power")
+            line = math_line(f"{base}^1 = {answer}")
         elif exponent <= 8:
             factors = r" \times ".join(base for _ in range(exponent))
-            working = (
-                "**Power notation**\n\n"
-                f"An exponent of {exponent} means using ${base}$ as a factor "
-                f"{exponent} times:\n\n"
-                f"${base}^{exponent} = {factors} = {answer}$"
-            )
+            formula = math_line("a^{n} = a \\times \\cdots \\times a", "Power notation")
+            line = math_line(f"{base}^{exponent} = {factors} = {answer}")
         else:
-            working = (
-                "**Power notation**\n\n"
-                f"${base}^{exponent}$ means multiplying ${base}$ by itself "
-                f"{exponent} times.\n\n"
-                f"So the result remains ${answer}$."
+            formula = math_line("a^{n} = a \\times \\cdots \\times a", "Power notation")
+            line = math_line(f"{base}^{exponent}", f"{exponent} factors of ${base}$")
+        working = render_workout(
+            Workout(
+                given=(math_line(f"{base}^{{{exponent}}}"),),
+                formula=(formula,),
+                substitution=(line,),
             )
+        )
         return replace(
             block,
             direct_reply=f"{working}\n\n```answer\n{answer}\n```\n",
@@ -354,10 +350,12 @@ def _verified_block_arithmetic(
         if isinstance(parsed, tuple) or parsed.free_symbols:
             return None
         decimal = str(parsed.evalf(6))
-        direct = (
-            f"**Exact form**\n\n${answer}$\n\n"
-            f"**Decimal approximation**\n\n$\\approx {decimal}$\n\n"
-            f"```answer\n{answer}\n```\n"
+        direct = render_workout(
+            Workout(
+                given=(math_line(intent.expr),),
+                steps=(math_line(answer, "exact"), math_line(f"\\approx {decimal}", "decimal")),
+            ),
+            answer,
         )
         block = _finish_with_answer(lines, answer)
         return VerifiedMathBlock(

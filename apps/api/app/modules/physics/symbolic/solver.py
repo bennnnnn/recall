@@ -9,6 +9,7 @@ import sympy as sp
 from app.modules.physics.schemas.symbolic import SymbolicPhysicsRequest
 from app.modules.physics.symbolic.parse import ModelParser
 from app.services.solving import SolveServiceError, VerifiedPhysicsBlock, wrap_verified_physics
+from app.services.workout import Workout, math_line, render_workout, text_line
 
 MAX_OUTPUT = 4000
 _MODEL_NOTE = (
@@ -235,16 +236,18 @@ def build_symbolic_physics_block(
     if max(len(plain), len(latex)) > MAX_OUTPUT:
         raise SolveServiceError("symbolic result too large for an answer card")
     # Keep model text literal; fence-injection characters fail the AST parser above.
-    model = "\n\n".join(f"`{expression}`" for expression in request.expressions)
-    working = (
-        f"**Stated model**\n\n{model}\n\n**Calculation**\n\n"
-        f"{request.operation.capitalize()}"
-        + (f" with respect to {', '.join(request.variables)}." if request.variables else ".")
-        + f"\n\n{_MODEL_NOTE}"
+    calculation = request.operation.capitalize() + (
+        f" with respect to {', '.join(request.variables)}." if request.variables else "."
     )
+    steps = [text_line(calculation), text_line(_MODEL_NOTE)]
     if conditions[0]:
-        working += f"\n\nConditions: ${conditions[1]}$."
-    direct = f"{working}\n\n```answer\n{latex}\n```\n"
+        steps.append(math_line(conditions[1], "conditions"))
+    workout = Workout(
+        given=tuple(text_line(f"`{expression}`") for expression in request.expressions),
+        steps=tuple(steps),
+    )
+    working = render_workout(workout).removesuffix("\n\n**Answer**")
+    direct = render_workout(workout, latex)
     return VerifiedPhysicsBlock(
         text=wrap_verified_physics(f"{working}\n\nResult: {plain}"),
         canonical_answer=plain,

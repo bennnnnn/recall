@@ -174,7 +174,7 @@ def test_projectile_working_substitutes_givens_without_redundant_zeros() -> None
     working = reply.split("```", 1)[0]
     assert "5.10" not in working
     assert (
-        "**Substitution**\n\n"
+        "**Substitution**  \n"
         r"$H_{max} = 0 + \frac{20^2 \sin^2(30^\circ)}{2 \cdot 9.81}$"
     ) in working
     assert "```answer\n5.1\\,\\mathrm{m}\n```" in reply
@@ -246,8 +246,8 @@ def test_force_rearrangements_name_the_quantity_actually_being_found(
 ) -> None:
     reply = maybe_direct_physics_reply(_verified(query), query)
     assert reply is not None
-    assert f"**Find**\n\n${symbol}$" in reply
-    assert f"**Substitution**\n\n${substitution}$" in reply
+    assert f"**Find**  \n${symbol}$" in reply
+    assert f"**Substitution**  \n${substitution}$" in reply
 
 
 @pytest.mark.parametrize(
@@ -288,11 +288,11 @@ def test_speed_law_uses_its_universal_formula_before_any_rearrangement(
     assert verified.canonical_answer == answer
     reply = maybe_direct_physics_reply(verified, query)
     assert reply is not None
-    assert f"**Find**\n\n{find}" in reply
-    assert "**Formula**\n\nDistance-speed-time equation:\n\n$v = \\frac{d}{t}$" in reply
+    assert f"**Find**  \n{find}" in reply
+    assert "**Formula**  \n$v = \\frac{d}{t}$ — Distance-speed-time equation" in reply
     if rearranged is not None:
         assert rearranged in reply
-    assert f"**Substitution**\n\n{substitution}" in reply
+    assert f"**Substitution**  \n{substitution}" in reply
     assert f"```answer\n{verified.display_answer}\n```" in reply
 
 

@@ -91,9 +91,9 @@ def test_first_order_growth_ode_uses_verified_separation_steps() -> None:
     assert block is not None and block.canonical_answer is not None
     reply = maybe_direct_math_reply(block, query)
     assert reply is not None
-    assert "Separate variables" in reply
+    assert "separate variables" in reply
     assert r"\frac{1}{y}\,dy = 1\,dx" in reply
-    assert "Use the initial condition" in reply
+    assert "use the initial condition" in reply
     assert block.canonical_answer in reply
 
 

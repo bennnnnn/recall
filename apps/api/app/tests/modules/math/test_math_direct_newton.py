@@ -1,5 +1,6 @@
 """A direct Newton reply retains the verified method, parameters, and iterates."""
 
+import re
 from dataclasses import replace
 from unittest.mock import patch
 
@@ -35,11 +36,11 @@ def test_exact_c17_displays_verified_recurrence_every_iterate_and_root_without_m
     assert result.recurrence_latex in reply
     assert r"\frac{x_{n}^{2} - 2}{2 x_{n}}" in reply
     for row in [
-        "| 0 | 1 |",
-        "| 1 | 1.5 |",
-        "| 2 | 1.4166666667 |",
-        "| 3 | 1.4142156863 |",
-        "| 4 | 1.4142135624 |",
+        "$x_{0} = 1$",
+        "$x_{1} = 1.5$",
+        "$x_{2} = 1.4166666667$",
+        "$x_{3} = 1.4142156863$",
+        "$x_{4} = 1.4142135624$",
     ]:
         assert row in reply
     assert r"$x \approx 1.41421$" in reply
@@ -162,11 +163,12 @@ def test_long_iteration_history_shows_labeled_first_and_last_actual_rows():
     assert len(block.newton_result.iterations) > 8
     reply = maybe_direct_math_reply(block, query)
     assert reply is not None
-    assert "First four and last three recorded iterates" in reply
-    assert "| … | … |" in reply
-    assert len([line for line in reply.splitlines() if line.startswith("|")]) == 10
+    # First four and last three iterates, with a gap line between.
+    assert "$x_{0} = 1000$" in reply and "…" in reply
+    # Seven iterates and the gap line, not the whole history.
+    assert len([line for line in reply.splitlines() if re.match(r"\$x_\{\d+\}", line)]) == 7
     last = block.newton_result.iterations[-1]
-    assert f"| {last.n} | {last.x_n} |" in reply
+    assert f"$x_{{{last.n}}} = {last.x_n}" in reply
 
 
 def test_block_carries_deep_copies_of_the_actual_solved_result():

@@ -70,7 +70,7 @@ async def test_complete_shape_measurement_emits_without_model(
     assert reply is not None and reply.endswith("```\n")
     assert reply.count("```answer") == 1 and reply.count("```geometry") == 1
     assert "**Given**" in reply and "**Formula**" in reply and "**Substitution**" in reply
-    assert "**Diagram**" in reply
+    assert "```geometry" in reply
     finalized = validate_math_fences(reply, verified=verified)
     assert (
         json.loads(finalized.split("```geometry\n", 1)[1].split("\n```", 1)[0])

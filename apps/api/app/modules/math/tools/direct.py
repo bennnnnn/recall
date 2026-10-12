@@ -346,7 +346,6 @@ def _format_direct_math_body(
         prefix = f"{working}\n\n" if working else ""
         return (
             f"{prefix}```answer\n{display_answer}\n```\n\n"
-            "**Diagram**\n\n"
             f"```geometry\n{json.dumps(fences[0], separators=(',', ':'))}\n```\n"
         )
     if len(fences) == 1 and fences[0].get("type") == "number_line":
