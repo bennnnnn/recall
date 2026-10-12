@@ -50,7 +50,26 @@ _ARITH_OP_ASCII: tuple[tuple[str, str], ...] = (
     ("\u2014", "-"),
 )
 _UNAMBIGUOUS_ARITH = frozenset("*^" + "".join(src for src, dst in _ARITH_OP_ASCII if dst in "*/"))
-_ARITH_ALLOWED = frozenset("0123456789.+-*/^() " + "".join(src for src, _ in _ARITH_OP_ASCII))
+_ARITH_ALLOWED = frozenset("0123456789.+-*/^()! " + "".join(src for src, _ in _ARITH_OP_ASCII))
+# The factorial input cap the combinatorics solver keeps.
+_LARGEST_FACTORIAL = 170
+
+
+def _factorials_ok(compact: str) -> bool:
+    """Every ``!`` closes a whole number of at most 170: ``6!/4!``, not ``5!!`` or ``(2+3)!``."""
+    for index, ch in enumerate(compact):
+        if ch != "!":
+            continue
+        start = index
+        while start > 0 and compact[start - 1].isdigit():
+            start -= 1
+        if start == index or (start > 0 and compact[start - 1] == "."):
+            return False
+        if int(compact[start:index]) > _LARGEST_FACTORIAL:
+            return False
+        if index + 1 < len(compact) and compact[index + 1] in "!.":
+            return False
+    return True
 
 
 def _strip_arith_cues(lower: str) -> tuple[str, bool]:
@@ -70,6 +89,9 @@ def _strip_arith_cues(lower: str) -> tuple[str, bool]:
             break
     s = s.strip()
     while s and s[-1] in "?.!":
+        if s[-1] == "!" and "!" in s[:-1]:
+            # ``6!/4!``: once factorials are written, a closing ``!`` is one too.
+            break
         s = s[:-1].rstrip()
     return collapse_ws(s), had
 
@@ -209,8 +231,9 @@ def bare_arithmetic_expr(text: str) -> str | None:
 
     Bare subtraction is arithmetic; a single ``/`` needs a cue unless its
     values cannot reasonably be a date (for example ``456/56``).
-    Auto-accept with a single subtraction, ``*``, ``^``, times/divide glyphs, two or
-    more operators, or a cue word (``what is``, ``calculate``, ...).
+    Auto-accept with a single subtraction, ``*``, ``^``, a factorial (``6!/4!``),
+    times/divide glyphs, two or more operators, or a cue word (``what is``,
+    ``calculate``, ...).
     Uncued ``-``/``/`` chains that look like a date or phone are rejected;
     chained arithmetic such as ``10-3-2`` is not.
     """
@@ -228,9 +251,9 @@ def bare_arithmetic_expr(text: str) -> str | None:
     if any(ch not in _ARITH_ALLOWED for ch in numeric):
         return None
     compact = _to_ascii_arith(numeric).replace(" ", "")
-    if not compact or not _arith_parens_ok(compact):
+    if not compact or not _arith_parens_ok(compact) or not _factorials_ok(compact):
         return None
-    if compact[-1] not in "0123456789)":
+    if compact[-1] not in "0123456789)!":
         return None
     if compact[0] not in "0123456789.(+-":
         return None
@@ -239,7 +262,7 @@ def bare_arithmetic_expr(text: str) -> str | None:
     if ops < 1 and not has_root:
         return None
     unambiguous = has_root or any(ch in stripped for ch in _UNAMBIGUOUS_ARITH)
-    unambiguous = unambiguous or "**" in normalized
+    unambiguous = unambiguous or "**" in normalized or "!" in compact
     unambiguous = unambiguous or _unambiguous_single_slash(compact)
     subtraction = ops == 1 and "-" in compact and not any(ch in "+*/^" for ch in compact)
     # ``-3+5`` is one signed start and one operation, not a date.

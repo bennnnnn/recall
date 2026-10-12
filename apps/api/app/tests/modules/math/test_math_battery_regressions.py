@@ -166,3 +166,58 @@ async def test_a_radical_domain_lists_only_conditions_on_the_unknown() -> None:
 async def test_an_extra_ask_still_reaches_the_model(text: str) -> None:
     _, reply = await _reply(text)
     assert reply is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "working", "answer"),
+    [
+        ("What is the value of 6!/4!?", r"$\frac{6!}{4!} = \frac{720}{24}$", "30"),
+        ("calculate 10!/8!", r"$\frac{10!}{8!} = \frac{3628800}{40320}$", "90"),
+        ("what is 8!/(3!5!)", r"$\frac{8!}{3!\,5!} = \frac{40320}{6 \times 120}$", "56"),
+        ("5! + 3!", "$5! + 3! = 120 + 6$", "126"),
+        # Too long to write out: the quotient cancels instead.
+        ("what is 100!/98!", r"$\frac{100!}{98!} = 100 \times 99$", "9900"),
+    ],
+)
+async def test_factorial_arithmetic_writes_the_expression_once(
+    text: str, working: str, answer: str
+) -> None:
+    canonical, reply = await _reply(text)
+    assert canonical == answer
+    assert reply == f"{working}\n\n```answer\n{answer}\n```\n"
+
+
+@pytest.mark.parametrize(
+    ("text", "expr"),
+    [
+        ("What is the value of 6!/4!?", "6!/4!"),
+        ("what is 2+2!", "2+2"),  # one closing ! is still punctuation
+        ("5!!", None),
+        ("what is 6!!/2", None),
+        ("what is 171!/170!", None),
+        ("what is (2+3)! + 1", None),
+        ("what is 2.5!", None),
+    ],
+)
+def test_bare_arithmetic_reads_factorials(text: str, expr: str | None) -> None:
+    from app.modules.math.match import bare_arithmetic_expr
+
+    assert bare_arithmetic_expr(text) == expr
+
+
+@pytest.mark.parametrize(
+    ("expr", "tex"),
+    [
+        ("5!/3!/2!", r"\frac{5!}{3!} \div 2! = \frac{120}{6} \div 2"),
+        ("2(3!)", r"2\,\left(3!\right) = 2 \times \left(6\right)"),
+        ("20!+1", None),
+        ("6/4", None),
+        ("6!^2", None),
+    ],
+)
+def test_factorial_working_line(expr: str, tex: str | None) -> None:
+    from app.modules.math.solve.factorial_working import factorial_working
+
+    working = factorial_working(expr)
+    assert (working.tex if working is not None else None) == tex

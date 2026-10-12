@@ -364,6 +364,9 @@ def _verified_block_arithmetic(
             canonical_answer=block.canonical_answer,
             direct_reply=direct,
         )
+    factorials = _factorial_block(intent.expr or "", answer, lines)
+    if factorials is not None:
+        return factorials
     lines.append(f"Result: {answer}")
     block = _finish_with_answer(lines, answer)
     from app.modules.math.tools.direct_arithmetic import arithmetic_equation
@@ -379,3 +382,24 @@ def _verified_block_arithmetic(
     if move is None:
         return block
     return _attach_picture(block, move, intent, direct=True)
+
+
+def _factorial_block(expr: str, answer: str, lines: list[str]) -> VerifiedMathBlock | None:
+    """``6!/4! = 720/24``, then the answer on its own line: the left side is written once."""
+    if "!" not in expr:
+        return None
+    from sympy import Rational
+
+    from app.modules.math import solve as math_solve
+    from app.modules.math.solve.factorial_working import factorial_working
+
+    working = factorial_working(expr)
+    parsed = math_solve._parse_expression(expr, ["x"])
+    if working is None or isinstance(parsed, tuple):
+        return None
+    if parsed != Rational(working.value.numerator, working.value.denominator):
+        return None
+    lines.append(f"Working: ${working.tex}$")
+    lines.append(f"Result: {answer}")
+    block = _finish_with_answer(lines, answer)
+    return replace(block, worked_reply=f"{math_line(working.tex)}\n\n```answer\n{answer}\n```\n")
