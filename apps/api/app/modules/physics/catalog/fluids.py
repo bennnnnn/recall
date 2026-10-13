@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -270,6 +270,33 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("rho", r"\rho_f", "kilogram / meter ** 3"),
             var("rho_body", r"\rho_s", "kilogram / meter ** 3"),
             var("viscosity", r"\eta", "pascal * second"),
+        ),
+    ),
+    formula(
+        "quadratic_drag_force",
+        "fluids",
+        "Quadratic drag force",
+        "F_D",
+        base_latex=r"F_D = \frac{1}{2}C_D\rho A v^2",
+        expression="0.5*drag_coefficient*rho*area*v**2",
+        variables=(
+            var(
+                "drag_coefficient",
+                "C_D",
+                dimensionless=True,
+                words=("coefficient",),
+                needs_words=True,
+            ),
+            var("rho", r"\rho", "kilogram / meter ** 3"),
+            var("area", "A", "meter ** 2"),
+            var("v", "v", "meter / second"),
+        ),
+        binding=Binding(
+            asks=("drag force", "drag"),
+            result=("newton",),
+            inputs=(frozenset({"area", "drag_coefficient", "rho", "v"}),),
+            cues=("drag coefficient",),
+            nonnegative=True,
         ),
     ),
 )

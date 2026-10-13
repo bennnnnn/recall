@@ -162,4 +162,37 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    formula(
+        "vis_viva",
+        "gravitation",
+        "Vis-viva equation",
+        "v",
+        base_latex=r"v = \sqrt{GM\left(\frac{2}{r}-\frac{1}{a}\right)}",
+        assumptions=("a Kepler orbit about a fixed central mass",),
+        expression="sqrt(G_grav*M*(2/orbit_radius-1/semi_major))",
+        variables=(
+            var("M", "M", "kilogram", fallback="body_mass"),
+            var(
+                "orbit_radius",
+                "r",
+                "meter",
+                words=("distance", "radius"),
+                needs_words=True,
+            ),
+            var(
+                "semi_major",
+                "a",
+                "meter",
+                words=("semi-major", "semimajor"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("orbital speed", "speed"),
+            result=("meter / second",),
+            inputs=(frozenset({"M", "orbit_radius", "semi_major"}),),
+            cues=("vis-viva", "vis viva", "semi-major", "semimajor"),
+            nonnegative=True,
+        ),
+    ),
 )

@@ -45,6 +45,17 @@ def _transition(
     )
 
 
+_FIELD_B = var("b_field", "B", "tesla")
+
+_LEVEL = var(
+    "quantum_n",
+    "n",
+    dimensionless=True,
+    words=("n =", "principal"),
+    needs_words=True,
+)
+
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "photon_momentum",
@@ -268,6 +279,226 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"dt"}),),
             cues=("uncertainty", "lifetime"),
             nonnegative=True,
+        ),
+    ),
+    formula(
+        "hydrogenlike_energy",
+        "modern",
+        "Hydrogen-like energy level",
+        "E_n",
+        base_latex=r"E_n = -\frac{13.6\,Z^2}{n^2}\,\mathrm{eV}",
+        assumptions=("infinite nuclear mass",),
+        expression="-13.6*e_charge*atomic_number**2/quantum_n**2",
+        variables=(
+            var(
+                "atomic_number",
+                "Z",
+                dimensionless=True,
+                words=("atomic number", "z"),
+                needs_words=True,
+            ),
+            var("quantum_n", "n", dimensionless=True, words=("n",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("energy",),
+            result=("joule",),
+            inputs=(frozenset({"atomic_number", "quantum_n"}),),
+            cues=("hydrogen-like", "hydrogenic"),
+            excludes=("transition", "wavelength"),
+            nonnegative=False,
+        ),
+    ),
+    formula(
+        "planck_spectral_radiance",
+        "modern",
+        "Planck's law",
+        r"B_\lambda",
+        base_latex=r"B_\lambda = \frac{2hc^2}{\lambda^5}\frac{1}{e^{hc/\lambda kT}-1}",
+        assumptions=("spectral radiance per steradian, wavelength form",),
+        expression=(
+            "2*h_planck*c_light**2/wavelength**5/(exp(h_planck*c_light/(wavelength*k_B*temp))-1)"
+        ),
+        variables=(
+            var("wavelength", r"\lambda", "meter", words=("wavelength",), needs_words=True),
+            var("temp", "T", "kelvin", words=("temperature",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("spectral radiance",),
+            result=("watt / meter ** 3",),
+            inputs=(frozenset({"temp", "wavelength"}),),
+            cues=("planck", "blackbody distribution"),
+            excludes=("photon",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "tunnel_probability",
+        "modern",
+        "Tunneling probability",
+        "T",
+        base_latex=r"T \approx \exp\left(-\frac{2L}{\hbar}\sqrt{2m(U-E)}\right)",
+        assumptions=("a rectangular barrier with E < U; the prefactor is omitted",),
+        expression="exp(-2*barrier_width*sqrt(2*m*(barrier_height-particle_energy))/hbar)",
+        variables=(
+            var("m", "m", "kilogram", fallback="particle_mass"),
+            var(
+                "barrier_height",
+                "U",
+                "joule",
+                words=("barrier", "height"),
+                needs_words=True,
+            ),
+            var(
+                "particle_energy",
+                "E",
+                "joule",
+                words=("energy", "kinetic"),
+                needs_words=True,
+            ),
+            var(
+                "barrier_width",
+                "L",
+                "meter",
+                words=("wide", "width", "thick"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("tunneling probability", "transmission probability"),
+            result=("dimensionless",),
+            inputs=(frozenset({"barrier_height", "barrier_width", "m", "particle_energy"}),),
+            cues=("tunnel",),
+            nonnegative=True,
+            at_most=1.0,
+        ),
+    ),
+    formula(
+        "bohr_angular_momentum",
+        "modern",
+        "Bohr angular momentum",
+        "L",
+        base_latex=r"L = n\hbar",
+        assumptions=("the Bohr model",),
+        expression="quantum_n*hbar",
+        variables=(
+            var(
+                "quantum_n",
+                "n",
+                dimensionless=True,
+                words=("n =", "level"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("angular momentum",),
+            result=("kilogram * meter ** 2 / second",),
+            inputs=(frozenset({"quantum_n"}),),
+            cues=("bohr",),
+            excludes=("squared", "z component"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "orbital_angular_momentum_squared",
+        "modern",
+        "Orbital angular-momentum eigenvalue",
+        "L^2",
+        base_latex=r"L^2 = \hbar^2 \ell(\ell+1)",
+        assumptions=("one orbital angular-momentum eigenvalue",),
+        expression="hbar**2*orbital_l*(orbital_l+1)",
+        variables=(
+            var(
+                "orbital_l",
+                r"\ell",
+                dimensionless=True,
+                words=("orbital", "azimuthal"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("angular momentum squared",),
+            result=("kilogram ** 2 * meter ** 4 / second ** 2",),
+            inputs=(frozenset({"orbital_l"}),),
+            cues=("orbital quantum", "azimuthal"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "angular_momentum_z",
+        "modern",
+        "Angular-momentum z component",
+        "L_z",
+        base_latex=r"L_z = m\hbar",
+        assumptions=("the z component",),
+        expression="magnetic_quantum*hbar",
+        variables=(
+            var(
+                "magnetic_quantum",
+                "m",
+                dimensionless=True,
+                words=("magnetic quantum",),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("z component of angular momentum",),
+            result=("kilogram * meter ** 2 / second",),
+            inputs=(frozenset({"magnetic_quantum"}),),
+            cues=("magnetic quantum",),
+            excludes=("zeeman",),
+            nonnegative=False,
+        ),
+    ),
+    formula(
+        "hydrogenlike_radius",
+        "modern",
+        "Hydrogen-like Bohr radius",
+        "r_n",
+        base_latex=r"r_n = \frac{n^2 a_0}{Z}",
+        assumptions=("a hydrogen-like atom, infinite nuclear mass",),
+        expression="quantum_n**2*a_0/atomic_number",
+        variables=(
+            _LEVEL,
+            var(
+                "atomic_number",
+                "Z",
+                dimensionless=True,
+                words=("atomic number", "z ="),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("orbit radius", "orbital radius", "radius"),
+            result=("meter",),
+            inputs=(frozenset({"atomic_number", "quantum_n"}),),
+            cues=("hydrogen-like", "hydrogenic", "atomic number"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "zeeman_shift",
+        "modern",
+        "Normal Zeeman shift",
+        r"\Delta E",
+        base_latex=r"\Delta E = \frac{e\hbar B m_l}{2 m_e}",
+        assumptions=("the normal Zeeman effect",),
+        expression="e_charge*hbar*b_field*magnetic_quantum/(2*m_e)",
+        variables=(
+            _FIELD_B,
+            var(
+                "magnetic_quantum",
+                "m_l",
+                dimensionless=True,
+                words=("magnetic quantum",),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("zeeman shift",),
+            result=("joule",),
+            inputs=(frozenset({"b_field", "magnetic_quantum"}),),
+            cues=("zeeman",),
+            nonnegative=False,
         ),
     ),
 )

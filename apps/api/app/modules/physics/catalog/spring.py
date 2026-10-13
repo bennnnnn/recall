@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import FormulaSpec, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
+
+_G = var("g", "g", "meter / second ** 2", fallback="gravity")
+
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -66,6 +69,115 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("omega", r"\omega", "radian / second"),
             var("x", "x", "meter"),
+        ),
+    ),
+    formula(
+        "torsional_period",
+        "spring",
+        "Torsional-pendulum period",
+        "T",
+        base_latex=r"T = 2\pi\sqrt{I/\kappa}",
+        expression="2*pi*sqrt(inertia/kappa)",
+        variables=(
+            var("inertia", "I", "kilogram * meter ** 2"),
+            var(
+                "kappa",
+                r"\kappa",
+                "newton * meter / radian",
+                words=("torsion",),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("period",),
+            result=("second",),
+            inputs=(frozenset({"inertia", "kappa"}),),
+            cues=("torsional",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "springs_parallel",
+        "spring",
+        "Springs in parallel",
+        "k",
+        base_latex="k = k_1 + k_2",
+        expression="k1+k2",
+        variables=(
+            var("k1", "k_1", "newton / meter"),
+            var("k2", "k_2", "newton / meter"),
+        ),
+        binding=Binding(
+            asks=("spring constant", "equivalent spring constant", "effective spring constant"),
+            result=("newton / meter",),
+            inputs=(frozenset({"k1", "k2"}),),
+            cues=("in parallel",),
+            excludes=("series",),
+            interchangeable=("k1", "k2"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "springs_series",
+        "spring",
+        "Springs in series",
+        "k",
+        base_latex=r"\frac{1}{k} = \frac{1}{k_1}+\frac{1}{k_2}",
+        expression="1/(1/k1+1/k2)",
+        variables=(
+            var("k1", "k_1", "newton / meter"),
+            var("k2", "k_2", "newton / meter"),
+        ),
+        binding=Binding(
+            asks=("spring constant", "equivalent spring constant", "effective spring constant"),
+            result=("newton / meter",),
+            inputs=(frozenset({"k1", "k2"}),),
+            cues=("in series",),
+            excludes=("parallel",),
+            interchangeable=("k1", "k2"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "physical_pendulum_period",
+        "spring",
+        "Physical-pendulum period",
+        "T",
+        base_latex=r"T = 2\pi\sqrt{\frac{I}{mgd}}",
+        assumptions=("the swing is a small angle",),
+        expression="2*pi*sqrt(inertia/(m*g*L))",
+        variables=(
+            var("inertia", "I", "kilogram * meter ** 2"),
+            var("m", "m", "kilogram"),
+            var("L", "d", "meter"),
+            _G,
+        ),
+        binding=Binding(
+            asks=("period",),
+            result=("second",),
+            inputs=(frozenset({"g", "inertia", "L", "m"}),),
+            cues=("physical pendulum", "compound pendulum", "bar pendulum"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "conical_pendulum_period",
+        "spring",
+        "Conical-pendulum period",
+        "T",
+        base_latex=r"T = 2\pi\sqrt{\frac{L\cos\theta}{g}}",
+        expression="2*pi*sqrt(L*cos(angle_cone)/g)",
+        variables=(
+            var("L", "L", "meter"),
+            var("angle_cone", r"\theta", dimensionless=True),
+            _G,
+        ),
+        binding=Binding(
+            asks=("period",),
+            result=("second",),
+            inputs=(frozenset({"angle_cone", "g", "L"}),),
+            cues=("conical pendulum",),
+            nonnegative=True,
         ),
     ),
 )

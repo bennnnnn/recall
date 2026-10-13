@@ -61,4 +61,21 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
         ),
     ),
+    formula(
+        "electric_energy_density",
+        "magnetism",
+        "Electric energy density",
+        "u",
+        base_latex=r"u = \frac{1}{2}\varepsilon_0 E^2",
+        expression="epsilon_0*e_field**2/2",
+        variables=(var("e_field", "E", "volt / meter"),),
+        binding=Binding(
+            asks=("energy density", "electric energy density"),
+            result=("joule / meter ** 3",),
+            inputs=(frozenset({"e_field"}),),
+            cues=("electric",),
+            excludes=("magnetic",),
+            nonnegative=True,
+        ),
+    ),
 )
