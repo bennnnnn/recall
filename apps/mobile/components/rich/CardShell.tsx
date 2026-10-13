@@ -79,8 +79,9 @@ function makeStyles(t: Theme) {
       marginVertical: Space.xs,
       overflow: "hidden",
     },
+    // The same hairline as the other three sides: 1pt drew a heavier left edge.
     wrapEven: {
-      borderLeftWidth: 1,
+      borderLeftWidth: StyleSheet.hairlineWidth,
       borderLeftColor: t.border,
     },
     header: {

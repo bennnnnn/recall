@@ -86,6 +86,7 @@ export function makeMdMath(t: Theme) {
       marginLeft: 2,
       flexShrink: 0,
     },
+    listBulletSpacer: { backgroundColor: "transparent" },
   });
 }
 
@@ -112,6 +113,9 @@ export function makeMdImg(t: Theme) {
   });
 }
 
+/** The space under a reply paragraph or list. */
+export const PARAGRAPH_GAP = 10;
+
 export function makeMdStyles(t: Theme) {
   return StyleSheet.create({
     body: { ...Type.body, color: t.assistantText },
@@ -121,9 +125,9 @@ export function makeMdStyles(t: Theme) {
     paragraph: { marginVertical: 0 },
     // Text-only paragraph run. Do not reuse `paragraph` — markdown-display
     // mergeStyle copies flexDirection/flexWrap/width onto that key.
-    paragraphRun: { marginTop: 0, marginBottom: 10 },
-    bullet_list: { marginTop: 0, marginBottom: 10 },
-    ordered_list: { marginTop: 0, marginBottom: 10 },
+    paragraphRun: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
+    bullet_list: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
+    ordered_list: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
     list_item: { marginBottom: 6 },
     ordered_list_icon: {
       ...Type.body,
@@ -191,8 +195,26 @@ export function makeMdStyles(t: Theme) {
     em: { fontStyle: "italic" },
     blockquote: { marginVertical: 0, padding: 0, borderWidth: 0 },
     hr: { backgroundColor: t.border, height: 1, marginVertical: Space.sm },
-    link: { color: t.primary },
+    // Underlined, so a link never depends on color alone (WCAG 1.4.1): in dark
+    // mode the accent is only ~1.8:1 against body text, and Graphite is grey.
+    link: { color: t.primary, textDecorationLine: "underline" },
   });
+}
+
+/**
+ * A sent bubble's blocks: spaced by the container's gap instead of each
+ * block's bottom margin, so the last paragraph or list adds nothing under the
+ * text and the bubble's top and bottom padding match.
+ */
+export function compactMdStyles<T extends ReturnType<typeof makeMdStyles>>(styles: T): T {
+  const blockGap = styles.paragraphRun.marginBottom;
+  return {
+    ...styles,
+    body: { ...styles.body, gap: blockGap },
+    paragraphRun: { ...styles.paragraphRun, marginBottom: 0 },
+    bullet_list: { ...styles.bullet_list, marginBottom: 0 },
+    ordered_list: { ...styles.ordered_list, marginBottom: 0 },
+  };
 }
 
 export type MdTableStyles = ReturnType<typeof makeMdTable>;

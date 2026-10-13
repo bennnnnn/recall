@@ -20,8 +20,6 @@ import { Theme, withAlpha } from "@/lib/theme";
 const STAGE = 236;
 const CORE = 128;
 const HALO = 148;
-/** Always white — dark `onPrimary` is near-black and would hide the eyes. */
-const EYE_COLOR = "#FFFFFF";
 const PARK_LOOK_X = 9;
 const PARK_LOOK_Y = -7;
 
@@ -271,7 +269,9 @@ function makeOrbStyles(theme: Theme) {
       width: 11,
       height: 24,
       borderRadius: 6,
-      backgroundColor: EYE_COLOR,
+      // The eyes sit mid-orb, on the accent: white on indigo (5.5:1), and near-black
+      // on dark mode's pale accent (10:1), where white was 1.9:1.
+      backgroundColor: theme.onPrimary,
     },
   });
 }

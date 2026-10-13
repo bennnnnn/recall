@@ -125,11 +125,11 @@ export function UserMessageContent({ message }: Props) {
 }
 
 function UserBubbleBody({ content }: { content: string }) {
-  const compact = displayMathToInline(content);
-  if (sentMessageShowsMathPreview(compact)) {
-    return <MathDraftPreview input={compact} showCaret={false} sent />;
+  const inline = displayMathToInline(content);
+  if (sentMessageShowsMathPreview(inline)) {
+    return <MathDraftPreview input={inline} showCaret={false} sent />;
   }
-  return <MarkdownContent content={compact} />;
+  return <MarkdownContent content={inline} compact />;
 }
 
 function makeStyles(C: Theme) {

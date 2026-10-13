@@ -280,6 +280,8 @@ describe("markdown render rules", () => {
     expect(getByText(/Personalized/)).toBeOnTheScreen();
     expect(getByText(/Pricing/)).toBeOnTheScreen();
     expect(getAllByTestId("md-list-bullet")).toHaveLength(3);
+    // The parent keeps the disc's column, so its sub-bullets indent under it.
+    expect(getAllByTestId("md-list-bullet-spacer")).toHaveLength(1);
   });
 
   it("renders a facebook fence as a post draft, not highlighted code", async () => {

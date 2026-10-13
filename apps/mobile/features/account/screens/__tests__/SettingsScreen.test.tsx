@@ -5,6 +5,7 @@ import SettingsScreen from "@/features/account/screens/SettingsScreen";
 
 const mockPush = jest.fn();
 const mockSetPreference = jest.fn();
+const mockSetAccent = jest.fn();
 const mockUpdateUser = jest.fn();
 const mockPickProfilePhoto = jest.fn();
 const mockUploadPhoto = jest.fn();
@@ -48,6 +49,7 @@ jest.mock("@/hooks/useModels", () => ({
 }));
 jest.mock("@/contexts/AppearanceContext", () => ({
   useAppearance: () => ({ preference: "system", setPreference: mockSetPreference }),
+  useAccent: () => ({ accent: "indigo", setAccent: mockSetAccent }),
 }));
 jest.mock("@/lib/pushNotifications", () => ({
   getNotificationPermissionGranted: jest.fn(async () => true),
@@ -95,6 +97,7 @@ describe("settings home", () => {
     jest.clearAllMocks();
     mockUpdateUser.mockResolvedValue(undefined);
     mockSetPreference.mockResolvedValue(undefined);
+    mockSetAccent.mockResolvedValue(undefined);
     mockPickProfilePhoto.mockResolvedValue(null);
     mockUploadPhoto.mockResolvedValue("11111111-1111-4111-8111-111111111111");
   });
@@ -186,6 +189,18 @@ describe("settings home", () => {
     await fireEvent.press(getByLabelText("settings.appearance_dark"));
 
     expect(mockSetPreference).toHaveBeenCalledWith("dark");
+    expect(queryByTestId("select-menu")).toBeNull();
+    expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("opens Accent color with a swatch per preset and applies the pick", async () => {
+    const { getByText, getByLabelText, queryByTestId } = await render(<SettingsScreen />);
+    await fireEvent.press(getByText("settings.accent"));
+    expect(queryByTestId("select-menu")).toBeTruthy();
+    expect(getByLabelText("settings.accent_indigo").props.accessibilityState.checked).toBe(true);
+    await fireEvent.press(getByLabelText("settings.accent_ocean"));
+
+    expect(mockSetAccent).toHaveBeenCalledWith("ocean");
     expect(queryByTestId("select-menu")).toBeNull();
     expect(mockPush).not.toHaveBeenCalled();
   });

@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next";
 
 import { StackBackButton } from "@/ui/controls/StackBackButton";
 import { AccountSettingsSection } from "@/features/account/components/AccountSettingsSection";
+import { AccentSettingsRow } from "@/features/account/components/AccentSettingsRow";
 import { AppearanceSettingsRow } from "@/features/account/components/AppearanceSettingsRow";
 import { SettingsProfile } from "@/features/account/components/SettingsProfile";
 import {
@@ -97,6 +98,7 @@ export default function SettingsScreen() {
 
         <SettingsOverviewGroup label={t("settings.experience")}>
           <AppearanceSettingsRow />
+          <AccentSettingsRow />
           <SettingsOverviewRow
             icon="user-circle"
             title={t("settings.personalization")}
