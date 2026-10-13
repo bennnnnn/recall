@@ -272,8 +272,8 @@ importers:
         specifier: ^30.5.2
         version: 30.5.2(@types/node@26.0.0)
       lucide-static:
-        specifier: 1.48.0
-        version: 1.48.0
+        specifier: 1.55.0
+        version: 1.55.0
       test-renderer:
         specifier: ^1.2.0
         version: 1.2.0(@types/react@19.3.0)(react@19.3.0)
@@ -4442,8 +4442,8 @@ packages:
   lru-cache@5.1.1:
     resolution: {integrity: sha512-KpNARQA3Iwv+jTA0utUVVbrh+Jlrr1Fv0e56GGzAFOXN7dk/FviaDW8LHmK52DlcH4WP2n6gI8vN1aesBFgo9w==}
 
-  lucide-static@1.48.0:
-    resolution: {integrity: sha512-ZUGgZ4rzlLfVbhN2Zi37TMrTaSpXAbWx6Y/xZxKSDLPiqxtTK7Mw2M+oBJa0gjV8p3+CWBHh48u+IC9+jKlUjA==}
+  lucide-static@1.55.0:
+    resolution: {integrity: sha512-h18lunTFsIJWnY0FMRPjXeO9KcAtNi7fDqtqgWHOFbssfgUWsctn/pA7bpiyrd4g1DuBOJ24CsRnPfkYblwm/A==}
 
   lz-string@1.5.0:
     resolution: {integrity: sha512-h5bgJWpxJNswbU7qCrV0tIKQCaS3blPDrqKWx+QxzuzL1zGUzij9XCWLrSLsJPu5t+eWA/ycetzYAO5IOMcWAQ==}
@@ -11318,7 +11318,7 @@ snapshots:
     dependencies:
       yallist: 3.1.1
 
-  lucide-static@1.48.0: {}
+  lucide-static@1.55.0: {}
 
   lz-string@1.5.0: {}
 
