@@ -28,6 +28,7 @@ from app.modules.math.tools.school.coordinate import (
 )
 from app.modules.math.tools.school.function_value import extract_function_value_intent
 from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
+from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
 from app.modules.math.tools.school.number_facts import extract_number_fact_intent
 from app.modules.math.tools.school.probability import (
     _extract_probability_intent,
@@ -55,6 +56,7 @@ SCHOOL_EXTRACTORS: list[Callable[[str], MathIntent | None]] = [
     # Before anything reads ``f(x) = ...`` as an equation to solve.
     extract_function_value_intent,
     extract_geometry_fact_intent,
+    extract_geometry_measure_intent,
     extract_number_fact_intent,
     extract_algebra_fact_intent,
     _extract_unit_intent,

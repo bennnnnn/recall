@@ -10,6 +10,7 @@ def test_school_extractor_order_and_builder_keys() -> None:
         "extract_teaching_intent",
         "extract_function_value_intent",
         "extract_geometry_fact_intent",
+        "extract_geometry_measure_intent",
         "extract_number_fact_intent",
         "extract_algebra_fact_intent",
         "_extract_unit_intent",

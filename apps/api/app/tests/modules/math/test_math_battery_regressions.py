@@ -449,3 +449,127 @@ def test_rms_is_a_word_not_the_end_of_terms() -> None:
 
     assert not needs_physics("sum of the first 5 terms of the geometric series 3, 6, 12")
     assert needs_physics("what is the rms voltage of a 170 V peak supply")
+
+
+# A third battery, geometry and calculus.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Wrong before: a whole circle, a radius of 31.4, no answer, all three angles.
+        ("area of a semicircle with radius 4", r"8\pi \approx 25.13"),
+        ("find the radius of a circle with circumference 31.4", r"\approx 5.00"),
+        ("diagonal of a cube with side 2", r"2\sqrt{3} \approx 3.46"),
+        ("a triangle has sides 7, 8 and 9, find the largest angle", r"\approx 73.4^\circ"),
+        (
+            "find the center and radius of x^2 + y^2 - 4x + 6y - 3 = 0",
+            r"\text{centre } (2, -3),\ r = 4",
+        ),
+        # Gaps before.
+        ("area of a square with diagonal 10", "50"),
+        ("area of a rhombus with diagonals 6 and 8", "24"),
+        ("find the circumference of a circle with area 50", r"\approx 25.07"),
+        ("area of an equilateral triangle with side 6", r"9\sqrt{3} \approx 15.59"),
+        ("volume of a hemisphere with radius 3", r"18\pi \approx 56.55"),
+        ("two angles of a triangle are 50 and 60 degrees, find the third angle", r"70^\circ"),
+        ("an isosceles triangle has a base angle of 70 degrees, find the apex angle", r"40^\circ"),
+        ("find the supplement of 35 degrees", r"145^\circ"),
+        (
+            "how many sides does a regular polygon have if each interior angle is 140 degrees",
+            "9",
+        ),
+        ("in triangle ABC, A = 40 degrees, B = 60 degrees, a = 10, find b", r"\approx 13.47"),
+        (
+            "in a right triangle the opposite side is 5 and the hypotenuse is 10, find the angle",
+            r"30^\circ",
+        ),
+        (
+            "a right triangle has an angle of 30 degrees and hypotenuse 12, find the opposite side",
+            "6",
+        ),
+        (
+            "a 10 m ladder leans against a wall with its foot 6 m from the wall, "
+            "how high up the wall does it reach",
+            r"8\ \mathrm{m}",
+        ),
+        (
+            "equation of a circle with center (2, -3) and radius 4",
+            r"\left(x - 2\right)^2 + \left(y + 3\right)^2 = 16",
+        ),
+        ("gradient of a line perpendicular to y = 2x + 1", r"- \frac{1}{2}"),
+        ("equation of the perpendicular bisector of (1, 2) and (5, 6)", "y = -x + 7"),
+        ("area of a triangle with vertices (0, 0), (4, 0) and (0, 3)", "6"),
+    ],
+)
+async def test_battery_three_geometry(text: str, answer: str) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Wrong before: the point (2, 8), the meeting points, "o p t u" in the series.
+        ("find the gradient of the curve y = x^3 at x = 2", "12"),
+        ("find the area enclosed by y = x^2 and y = 4", r"\frac{32}{3}"),
+        ("area between y = x and y = x^2", r"\frac{1}{6}"),
+        ("find the taylor series of e^x up to x^3", r"1 + x + \frac{x^{2}}{2} + \frac{x^{3}}{6}"),
+        (
+            "maclaurin series of cos(x) to 4 terms",
+            r"1 - \frac{x^{2}}{2} + \frac{x^{4}}{24} - \frac{x^{6}}{720}",
+        ),
+        ("volume of revolution of y = x from 0 to 2 about the x-axis", r"\frac{8 \pi}{3}"),
+        # Gaps before.
+        ("find dy/dx if x^2 + y^2 = 25", r"- \frac{x}{y}"),
+        ("where is f(x) = x^3 - 3x increasing", r"x < -1 \text{ or } x > 1"),
+        ("find the point of inflection of y = x^3 - 6x^2", r"\left(2, -16\right)"),
+        ("average value of x^2 on [0, 3]", "3"),
+        ("two numbers add to 20, find the maximum product", "100"),
+        ("a ball's height is h = 20t - 5t^2, find the maximum height", "20"),
+        ("solve dy/dx = 2x with y(0) = 1", "y = x^{2} + 1"),
+        # Display: e - 1, arctan.
+        ("integrate e^x from 0 to 1", "e - 1"),
+        ("integrate 1/(x^2 + 1)", r"\arctan{\left(x \right)} + C"),
+    ],
+)
+async def test_battery_three_calculus(text: str, answer: str) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "row"),
+    [
+        ("integrate x^3", r"$\int x^{3}\,dx = \frac{x^{3 + 1}}{3 + 1}$ — power rule on $x^{3}$"),
+        (
+            "limit of (3x^2 + 1)/(x^2 - 2) as x approaches infinity",
+            r"$= \frac{3 + 0}{1 - 0}$",
+        ),
+        ("integrate e^x from 0 to 1", "$= e - 1$ — evaluate at the limits"),
+        (
+            "solve dy/dx = 2x with y(0) = 1",
+            r"$y(0) = \left(0\right)^{2} + C = 1 \Rightarrow C = 1$ — use the initial value",
+        ),
+        ("surface area of a cube with side 3", "Cube surface area"),
+    ],
+)
+async def test_battery_three_working(text: str, row: str) -> None:
+    _, reply = await _reply(text)
+    assert reply is not None and row in reply
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "complement of 0.3",
+        "the radius of the earth is 6371 km",
+    ],
+)
+def test_geometry_measures_leave_other_questions_alone(text: str) -> None:
+    from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
+
+    assert extract_geometry_measure_intent(text) is None

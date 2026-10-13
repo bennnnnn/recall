@@ -60,10 +60,10 @@ def test_requested_algebra_form_reaches_the_canonical_answer(prompt: str, expect
             "Find the Taylor series of exp(x) at 1 order 2",
             r"\frac{e \left(x - 1\right)^{2}}{2} + e \left(x - 1\right) + e",
         ),
-        ("Find the Maclaurin series of sin(x) order 3", r"- \frac{x^{3}}{6} + x"),
+        ("Find the Maclaurin series of sin(x) order 3", r"x - \frac{x^{3}}{6}"),
         ("Find the critical points of x^3-3x", "-1, 1"),
         ("Use Newton method to solve x^2-2=0 starting at 1", "1.41421"),
-        ("Solve dy/dx=2x", r"y{\left(x \right)} = C_{1} + x^{2}"),
+        ("Solve dy/dx=2x", r"y = x^{2} + C"),
     ],
 )
 def test_calculus_walkthrough_has_the_expected_verified_value(prompt: str, expected: str) -> None:

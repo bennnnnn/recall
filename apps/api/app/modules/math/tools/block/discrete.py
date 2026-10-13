@@ -116,10 +116,16 @@ def _verified_calculus_application(
             gap = None
         # "Area under y = f(x)" is the area between the curve and the x-axis.
         x_axis = second == 0
+        meeting = intent.trial_outcome == "meeting points"
         given = (
             math_line(f"y = {latex(parsed)}"),
             math_line("y = 0", "the x-axis") if x_axis else math_line(f"y = {latex(second)}"),
-            interval,
+            math_line(
+                rf"{latex(low_expr)} \le {var} \le {latex(high_expr)}",
+                "between where the curves meet",
+            )
+            if meeting
+            else interval,
         )
         working: tuple[str, ...]
         if gap is not None:
@@ -288,7 +294,12 @@ def _fundamental_theorem_working(intent: MathIntent, parsed: Any, integral: str)
                 rf"{integral} = \left[{latex(antiderivative)}\right]"
                 rf"_{{{latex(low)}}}^{{{latex(high)}}}"
             ),
-            math_line(f"= {latex(at_high)} - {low_tex} = {latex(value)}", "evaluate at the limits"),
+            math_line(
+                " = ".join(
+                    ["", *dict.fromkeys([f"{latex(at_high)} - {low_tex}", latex(value)])]
+                ).strip(),
+                "evaluate at the limits",
+            ),
         ),
     )
 
@@ -648,13 +659,20 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
 
     try:
         expr = math_solve._parse_expression(intent.expr or "", [intent.variable])
-        point = math_solve._parse_expression(str(intent.limit_point), [])
+        written = str(intent.limit_point).strip().lower().replace("∞", "oo")
+        # "infinity" is how the request names it; the parser would read a symbol.
+        written = {"infinity": "oo", "+infinity": "oo", "-infinity": "-oo", "inf": "oo"}.get(
+            written, written
+        )
+        point = math_solve._parse_expression(written, [])
         symbol = next(
             (s for s in expr.free_symbols if str(s) == intent.variable), Symbol(intent.variable)
         )
         value = limit(expr, symbol, point)
         if not value.is_finite:
             return None
+        if point.is_infinite:
+            return _limit_at_infinity_working(expr, symbol, point, value, answer)
         direct = expr.subs(symbol, point)
     except Exception:
         return None
@@ -698,6 +716,60 @@ def _limit_working(intent: MathIntent, answer: str) -> str | None:
         math_line(f"= {latex(value)}", substitute),
     )
     return render_workout(Workout(find=find, formula=(rule,), steps=steps), answer)
+
+
+def _limit_at_infinity_working(
+    expr: Any, symbol: Any, point: Any, value: Any, answer: str
+) -> str | None:
+    """Divide by the highest power, or name the limit that defines ``e``.
+
+    ``\\frac{3x^2 + 1}{x^2 - 2}``: over ``x^2`` top and bottom it is
+    ``\\frac{3 + 1/x^2}{1 - 2/x^2}``, and each ``1/x^k`` goes to 0.
+    """
+    from sympy import Add, Poly, expand, latex, limit, simplify
+
+    lim = rf"\lim_{{{latex(symbol)} \to {latex(point)}}}"
+    find = (math_line(f"{lim} {latex(expr)}"),)
+    if expr.is_Pow:
+        base_gap = simplify((expr.base - 1) * symbol)
+        power = simplify(expr.exp / symbol)
+        if not base_gap.has(symbol) and not power.has(symbol) and base_gap != 0:
+            row = math_line(
+                f"{lim} {latex(expr)} = {latex(value)}",
+                r"the limit that defines $e$: $\left(1 + \frac{k}{n}\right)^{n} \to e^{k}$",
+            )
+            return render_workout(Workout(find=find, steps=(row,)), answer)
+        return None
+    numerator, denominator = expr.as_numer_denom()
+    try:
+        top_degree = Poly(numerator, symbol).degree()
+        bottom_degree = Poly(denominator, symbol).degree()
+    except Exception:
+        return None
+    if bottom_degree < 1 or top_degree > bottom_degree:
+        return None
+    scale = symbol**bottom_degree
+
+    def shown(part: Any, *, vanish: bool) -> str:
+        terms = Add.make_args(expand(part / scale))
+        pieces: list[str] = []
+        for term in sorted(terms, key=lambda term: -Poly(term * scale, symbol).degree()):
+            gone = vanish and term.has(symbol) and limit(term, symbol, point) == 0
+            text = "0" if gone else latex(-term if term.could_extract_minus_sign() else term)
+            sign = "-" if term.could_extract_minus_sign() else "+"
+            pieces.append(text if not pieces and sign == "+" else f"{sign} {text}")
+        return " ".join(pieces).lstrip("+ ")
+
+    divided = rf"\frac{{{shown(numerator, vanish=False)}}}{{{shown(denominator, vanish=False)}}}"
+    limits = rf"\frac{{{shown(numerator, vanish=True)}}}{{{shown(denominator, vanish=True)}}}"
+    rows = (
+        math_line(
+            f"{lim} {latex(expr)} = {lim} {divided}",
+            f"divide the top and the bottom by ${latex(scale)}$",
+        ),
+        math_line(f"= {limits}", f"each $\\frac{{1}}{{{latex(symbol)}^k}} \\to 0$"),
+    )
+    return render_workout(Workout(find=find, steps=rows), answer)
 
 
 def _verified_block_series(

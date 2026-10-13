@@ -32,7 +32,7 @@ _CASES = [
         "Find the Taylor series of exp(x) at 1 order 2",
         r"\frac{e \left(x - 1\right)^{2}}{2} + e \left(x - 1\right) + e",
     ),
-    ("Find the Maclaurin series of sin(x) order 3", r"- \frac{x^{3}}{6} + x"),
+    ("Find the Maclaurin series of sin(x) order 3", r"x - \frac{x^{3}}{6}"),
 ]
 _SETTINGS = Settings(math_tools_enabled=True)
 
@@ -125,7 +125,8 @@ def test_existing_simple_ode_keeps_its_constant_and_direct_behavior():
     block = _verified(query)
     reply = maybe_direct_math_reply(block, query)
     assert reply is not None and block.canonical_answer in reply
-    assert "C_{1}" in reply
+    # The arbitrary constant stays, written as a student writes it.
+    assert block.canonical_answer == "y = x^{2} + C"
 
 
 @pytest.mark.parametrize(

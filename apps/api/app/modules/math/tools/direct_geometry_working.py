@@ -428,7 +428,7 @@ def format_direct_geometry_working(
             return _section(
                 given,
                 "Arc length ($L$)",
-                "Arc-length formula",
+                "Arc length formula",
                 [r"L = \frac{\theta}{360^\circ}(2\pi r)"],
                 [
                     rf"L = \frac{{{_display(angle)}^\circ}}{{360^\circ}}"
@@ -461,7 +461,7 @@ def format_direct_solid_working(user_text: str, answer: str) -> str | None:
         return _section(
             [_given("Side length", "s", side, unit)],
             "Surface area ($S$)",
-            "Cube surface-area formula",
+            "Cube surface area formula",
             [r"S = 6s^2"],
             [rf"S = 6({_display(side)})^2 = {result}"],
         )
@@ -484,7 +484,7 @@ def format_direct_solid_working(user_text: str, answer: str) -> str | None:
             return _section(
                 given,
                 "Volume ($V$)",
-                "Rectangular-prism volume formula",
+                "Rectangular prism volume formula",
                 [r"V = lwh"],
                 [
                     rf"V = {_display(length)} \times {_display(width)} \times "
@@ -494,7 +494,7 @@ def format_direct_solid_working(user_text: str, answer: str) -> str | None:
         return _section(
             given,
             "Surface area ($S$)",
-            "Rectangular-prism surface-area formula",
+            "Rectangular prism surface area formula",
             [r"S = 2(lw+lh+wh)"],
             [
                 rf"S = 2({_display(length)}\times{_display(width)} + "
@@ -518,7 +518,7 @@ def format_direct_solid_working(user_text: str, answer: str) -> str | None:
             return _section(
                 given,
                 "Surface area ($S$)",
-                "Closed-cylinder surface-area formula",
+                "Closed cylinder surface area formula",
                 [r"S = 2\pi r(r+h)"],
                 [
                     rf"S = 2\pi({_display(radius)})({_display(radius)}+{_display(height)})"
@@ -540,7 +540,7 @@ def format_direct_solid_working(user_text: str, answer: str) -> str | None:
         return _section(
             given,
             "Surface area ($S$)",
-            "Cone surface-area formula",
+            "Cone surface area formula",
             [r"l = \sqrt{r^2+h^2}", r"S = \pi r(r+l)"],
             [
                 rf"l = \sqrt{{{_display(radius)}^2+{_display(height)}^2}}"
@@ -563,7 +563,7 @@ def format_direct_solid_working(user_text: str, answer: str) -> str | None:
         return _section(
             [_given("Radius", "r", radius, unit)],
             "Surface area ($S$)",
-            "Sphere surface-area formula",
+            "Sphere surface area formula",
             [r"S = 4\pi r^2"],
             [rf"S = 4\pi({_display(radius)})^2 \approx {result}"],
         )

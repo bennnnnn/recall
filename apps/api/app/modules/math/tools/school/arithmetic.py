@@ -171,8 +171,14 @@ def _verified_block_arithmetic(
 
         return geometry_fact_block(intent, lines)
     from app.modules.math.tools.school.algebra_facts import ALGEBRA_FACT_OPS, algebra_fact_block
+    from app.modules.math.tools.school.geometry_measures import (
+        geometry_measure_block,
+        is_geometry_measure,
+    )
     from app.modules.math.tools.school.number_facts import NUMBER_FACT_OPS, number_fact_block
 
+    if is_geometry_measure(intent.school_op):
+        return geometry_measure_block(intent, lines)
     if intent.school_op in NUMBER_FACT_OPS:
         return number_fact_block(intent, lines)
     if intent.school_op in ALGEBRA_FACT_OPS:

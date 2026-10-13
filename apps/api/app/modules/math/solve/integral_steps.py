@@ -100,7 +100,7 @@ def _ln_abs_latex(coefficient: Any, var: Any) -> str:
     return rf"{latex(coefficient)}{body}"
 
 
-def _power_step(term: Any, var: Any) -> tuple[KeyStep, Any] | None:
+def _power_step(term: Any, var: Any, *, explicit: bool = False) -> tuple[KeyStep, Any] | None:
     coefficient, rest = term.as_coeff_Mul() if term.is_Mul else (1, term)
     if rest == var:
         power = 1
@@ -112,7 +112,9 @@ def _power_step(term: Any, var: Any) -> tuple[KeyStep, Any] | None:
     if not _antiderivative_of(result, term, var):
         return None
     multiplier = "" if coefficient == 1 else f"{latex(coefficient)} \\cdot "
-    shown = rf"{multiplier}\frac{{{latex(var)}^{{{latex(power + 1)}}}}}{{{latex(power + 1)}}}"
+    raised = f"{latex(power)} + 1" if explicit else latex(power + 1)
+    # On its own, the rule is shown with n + 1 written out: x^{3 + 1} / (3 + 1).
+    shown = rf"{multiplier}\frac{{{latex(var)}^{{{raised}}}}}{{{raised}}}"
     value = latex(result)
     formula = f"{_int(term, var)} = {value}"
     if shown.replace(" ", "") != value.replace(" ", ""):
@@ -301,7 +303,7 @@ def _parts_steps(term: Any, var: Any) -> tuple[list[KeyStep], Any] | None:
     return steps, result
 
 
-def _term_steps(term: Any, var: Any) -> tuple[list[KeyStep], Any] | None:
+def _term_steps(term: Any, var: Any, *, alone: bool = False) -> tuple[list[KeyStep], Any] | None:
     if _is_const(term, var):
         result = term * var
         return (
@@ -313,10 +315,12 @@ def _term_steps(term: Any, var: Any) -> tuple[list[KeyStep], Any] | None:
             ],
             result,
         )
-    for method in (_power_step, _standard_step):
-        found = method(term, var)
-        if found is not None:
-            return [found[0]], found[1]
+    power = _power_step(term, var, explicit=alone)
+    if power is not None:
+        return [power[0]], power[1]
+    found = _standard_step(term, var)
+    if found is not None:
+        return [found[0]], found[1]
     for multi in (_substitution_steps, _parts_steps):
         steps = multi(term, var)
         if steps is not None:
@@ -356,7 +360,7 @@ def integral_key_steps(expr: Any, variable: str) -> tuple[list[KeyStep], Any | N
         )
     parts: list[Any] = []
     for term in terms:
-        found = _term_steps(term, var)
+        found = _term_steps(term, var, alone=len(terms) == 1)
         if found is None:
             return [], None
         term_steps, antiderivative = found
@@ -377,11 +381,12 @@ def integral_key_steps(expr: Any, variable: str) -> tuple[list[KeyStep], Any | N
         )
     else:
         last = steps[-1]
-        steps[-1] = KeyStep(
-            label=last.label,
-            formula=f"{last.formula} + C",
-            reason=last.reason,
-        )
+        if len(steps) == 1 and last.formula.count(" = ") >= 2:
+            # One rule: the line ends at its working; the answer holds the result.
+            formula = last.formula.rsplit(" = ", 1)[0]
+        else:
+            formula = f"{last.formula} + C"
+        steps[-1] = KeyStep(label=last.label, formula=formula, reason=last.reason)
     return steps, total
 
 
@@ -394,8 +399,12 @@ def integral_trace(expr: str, variable: str) -> tuple[list[KeyStep], str | None,
     except Exception:
         return [], None, None
     steps, antiderivative = integral_key_steps(parsed, variable)
-    if not steps or antiderivative is None or len(steps) < 2:
+    if not steps or antiderivative is None:
         return [], None, None
     var = next((s for s in parsed.free_symbols if str(s) == variable), Symbol(variable))
     answer = _ln_abs_latex(1, var) if antiderivative == log(Abs(var)) else latex(antiderivative)
+    # One step is worth showing only when it is not the answer itself
+    # (``x^{3 + 1} / (3 + 1)``, not ``\int \cos x\,dx = \sin x``).
+    if len(steps) < 2 and latex(antiderivative) in steps[0].formula:
+        return [], None, None
     return steps, _int(parsed, var), f"{answer} + C"

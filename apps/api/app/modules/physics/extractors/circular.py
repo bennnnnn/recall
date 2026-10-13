@@ -26,7 +26,6 @@ _CIRCULAR_CUES = (
     "centripetal",
     "circular motion",
     "orbital",
-    "revolution",
     "banked",
     "vertical circle",
     "loop-the-loop",
@@ -62,6 +61,8 @@ _CIRCULAR_ASKS: tuple[tuple[str, _CircularOp], ...] = (
 _RPM_RE = re.compile(rf"({_NUMBER})\s*(?:rpm|revolutions?\s+per\s+minute)\b", re.IGNORECASE)
 
 _CIRCULAR_CUE_RES: tuple[re.Pattern[str], ...] = (
+    # Revolutions of a body, not a "volume (solid, surface) of revolution" in calculus.
+    re.compile(r"(?<!volume of )(?<!solid of )(?<!surface of )\brevolutions?\b", re.IGNORECASE),
     re.compile(r"\bperiod\b.{0,80}?\bradius\b", re.IGNORECASE),
     re.compile(r"\bradius\b.{0,80}?\bperiod\b", re.IGNORECASE),
     re.compile(

@@ -669,16 +669,61 @@ def extract_triple_integral_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+_AVERAGE_ON = re.compile(
+    r"\baverage\s+value\s+of\s+(?:the\s+function\s+)?(?P<expr>.+?)\s+"
+    r"(?:on|over|in)\s*(?:the\s+interval\s*)?\[\s*(?P<lo>[^,\]]+?)\s*,\s*(?P<hi>[^\]]+?)\s*\]"
+    r"|\baverage\s+value\s+of\s+(?:the\s+function\s+)?(?P<expr2>.+?)\s+between\s+"
+    r"(?:x\s*=\s*)?(?P<lo2>\S+)\s+and\s+(?:x\s*=\s*)?(?P<hi2>[^\s,;?.]+)",
+    re.IGNORECASE,
+)
+
+
+_AVERAGE_REQUEST = re.compile(
+    r"(?:(?:find|what\s+is|what's|calculate|work\s+out|determine)\s+)?(?:the\s+)?"
+    r"average\s+value\s+of\s+[^?]+?\s+(?:(?:on|over|in)\s*(?:the\s+interval\s*)?\[[^\]]+\]"
+    r"|from\s+\S+\s+to\s+\S+|between\s+\S+\s+and\s+\S+)\s*[?.]?",
+    re.IGNORECASE,
+)
+
+
+def average_value_request(text: str) -> bool:
+    """The whole request is one average value, so its worked reply may stand alone."""
+    return _AVERAGE_REQUEST.fullmatch(" ".join(text.split())) is not None
+
+
 def extract_average_value_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "average value" not in lower:
         return None
+    # "on [0, 3]", "over [0, 3]", "between 0 and 3".
+    bracketed = _AVERAGE_ON.search(cleaned)
+    if bracketed is not None:
+        from app.modules.math.tools.helpers import peel_function_definition
+
+        raw = bracketed["expr"] or bracketed["expr2"]
+        expr = math_expr_or_none(peel_function_definition(raw.strip()))
+        lo = (bracketed["lo"] or bracketed["lo2"]).strip()
+        hi = (bracketed["hi"] or bracketed["hi2"]).strip()
+        if expr is None:
+            return None
+        return MathIntent(
+            kind="calculus",
+            operation="integrate",
+            school_op="average_value",
+            expr=expr,
+            variable="x",
+            integral_lower=lo,
+            integral_upper=hi,
+        )
     of_at = lower.find(" of ")
     from_at = lower.find(" from ")
     to_at = lower.find(" to ", from_at + 1) if from_at != -1 else -1
     if of_at == -1 or from_at == -1 or to_at == -1:
         return None
-    expr = math_expr_or_none(cleaned[of_at + 4 : from_at].strip())
+    from app.modules.math.tools.helpers import peel_function_definition
+
+    # "average value of f(x) = x^2 from 0 to 3": the function, not its name.
+    expr = math_expr_or_none(peel_function_definition(cleaned[of_at + 4 : from_at].strip()))
     lo = cleaned[from_at + 6 : to_at].strip()
     hi_part = cleaned[to_at + 4 :].strip()
     end = 0
@@ -794,10 +839,40 @@ def extract_div_curl_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+# "find dy/dx if x^2 + y^2 = 25": an equation in x and y, so implicit, without the word.
+_DY_DX_GIVEN = re.compile(
+    r"\b(?:find|what\s+is|calculate|work\s+out)\s+dy\s*/\s*dx\s+(?:if|for|given|when)\s+"
+    r"(?P<lhs>[^=]+)=(?P<rhs>[^=]+)$",
+    re.IGNORECASE,
+)
+
+
+def _dy_dx_given_intent(cleaned: str) -> MathIntent | None:
+    found = _DY_DX_GIVEN.search(cleaned.strip().rstrip("?.!"))
+    if found is None:
+        return None
+    lhs = math_expr_or_none(found["lhs"].strip())
+    rhs = math_expr_or_none(_strip_trailing_filler(found["rhs"].strip()))
+    if not lhs or not rhs or lhs.replace(" ", "") == "y":
+        # "find dy/dx if y = x^2" is ordinary differentiation.
+        return None
+    if "y" not in (lhs + rhs).replace(" ", "").lower():
+        return None
+    return MathIntent(
+        kind="calculus",
+        operation="differentiate",
+        school_op="implicit",
+        lhs=lhs,
+        rhs=rhs,
+        expr=f"({lhs})-({rhs})",
+        variable="x",
+    )
+
+
 def extract_implicit_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
     if "implicit" not in lower:
-        return None
+        return _dy_dx_given_intent(cleaned)
     # iOS autocorrect can expand the compact token ``dy`` to ``day`` in an
     # otherwise unambiguous "implicitly" request. Accept that scoped spelling
     # so algebra cannot append a solve-for-x footer to a derivative answer.

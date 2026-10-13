@@ -58,6 +58,12 @@ def _closed_chemistry(text: str) -> bool:
     return extract_chemistry_intent(text) is not None
 
 
+def _math_curve_request(text: str) -> bool:
+    from app.modules.math.tools.school.curve_points import extract_curve_point_intent
+
+    return extract_curve_point_intent(text) is not None
+
+
 def detect_subject(
     text: str,
     *,
@@ -90,6 +96,13 @@ def detect_subject(
     if chemistry_enabled and _closed_chemistry(text):
         return "chemistry"
     if needs_physics(text):
+        if _math_curve_request(text):
+            # "h = 20t - 5t^2, find the maximum height" cues physics, but it states the
+            # function and asks its maximum: physics extracts nothing, calculus does.
+            from app.modules.physics.extract import extract_physics_intent
+
+            if extract_physics_intent(text) is None:
+                return "math"
         return "physics"
     from app.modules.physics import is_symbol_givens_request
 
