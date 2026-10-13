@@ -1,5 +1,6 @@
 """Presentation-only context for a short follow-up to the immediately prior math turn."""
 
+import re
 from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
@@ -80,26 +81,40 @@ def _referenced_math_problem(
     return None
 
 
+# A lone unknown or value: ``x``, ``$\theta$``, ``5``, ``-2.5``, ``for y``.
+_FRAGMENT_RE = re.compile(
+    r"(?:for\s+)?(?:[a-z\u03b1-\u03c9]|\\[a-z]+|[-+\u2212]?\d+(?:\.\d+)?)\s*[.?!]?",
+    re.IGNORECASE,
+)
+_RELATION_RE = re.compile(r"[=<>≤≥≠]|\\(?:leq|geq|le|ge|lt|gt|neq|ne)(?![a-z])", re.IGNORECASE)
+
+
+def _is_fragment(text: str) -> bool:
+    cleaned = " ".join(text.strip().strip("$").split())
+    return bool(_FRAGMENT_RE.fullmatch(cleaned))
+
+
 def open_math_problem(text: str, prior_user_messages: list[str] | None) -> str | None:
     """The equation still in progress when this message is only a fragment.
 
     ``5`` or ``x`` after ``3x^2 + 3 = 5`` is the same problem, not a new chat.
-    A greeting or a new equation does not reopen it.
+    Anything else is a message of its own: ``What?`` asks about the last reply
+    and ``[4,4]`` is new input, and re-solving ``convert 1 m to cm`` answered
+    neither. Earlier fragments on the same equation are walked past; any
+    other message ends it.
     """
-    if not prior_user_messages:
-        return None
-    cleaned = " ".join(text.split())
-    if not cleaned or len(cleaned) > 24:
+    if not prior_user_messages or not _is_fragment(text):
         return None
     from app.modules.chat import is_lightweight_chat_turn
 
-    if is_lightweight_chat_turn(cleaned):
-        return None
-    if needs_symbolic_math(text):
+    if is_lightweight_chat_turn(" ".join(text.split())):
         return None
     for prior in reversed(prior_user_messages):
-        if prior and prior.strip() and needs_symbolic_math(prior):
+        if not prior or not prior.strip() or _is_fragment(prior):
+            continue
+        if _RELATION_RE.search(prior) and needs_symbolic_math(prior):
             return prior
+        return None
     return None
 
 

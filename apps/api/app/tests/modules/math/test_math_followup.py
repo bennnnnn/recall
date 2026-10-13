@@ -30,12 +30,47 @@ def _message(role: str, content: str) -> SimpleNamespace:
     return SimpleNamespace(id=uuid4(), role=role, content=content)
 
 
-def test_short_fragment_reopens_the_equation_in_progress() -> None:
-    prior = ["3x^2 + 3 = 5"]
-    assert open_math_problem("x", prior) == prior[0]
-    assert open_math_problem("5", prior) == prior[0]
-    assert open_math_problem("hi", prior) is None
-    assert open_math_problem("2x + 1 = 7", prior) is None
+@pytest.mark.parametrize(
+    ("text", "prior", "reopened"),
+    [
+        ("x", ["3x^2 + 3 = 5"], True),
+        ("5", ["3x^2 + 3 = 5"], True),
+        ("-2.5", ["3x^2 + 3 = 5"], True),
+        ("$y$", ["2x + y = 7"], True),
+        ("for x", ["3x^2 + 3 = 5"], True),
+        (r"$\theta$", [r"$2\sin(\theta) = 1$"], True),
+        ("x", [r"solve $2x+1\leq 7$"], True),
+        # An earlier fragment on the same equation is walked past.
+        ("5", ["3x^2 + 3 = 5", "x"], True),
+        ("hi", ["3x^2 + 3 = 5"], False),
+        ("2x + 1 = 7", ["3x^2 + 3 = 5"], False),
+        # A message in between ends the equation.
+        ("x", ["3x^2 + 3 = 5", "thanks, what about dinner?"], False),
+        # Only an equation is in progress; a conversion has no unknown to name.
+        ("5", ["convert 1 m to cm"], False),
+        # A question or new input is a message of its own.
+        ("What?", ["convert 1 m to cm"], False),
+        ("What?", ["3x^2 + 3 = 5"], False),
+        ("$[4,4]$", ["convert 1 m to cm"], False),
+        ("[4,4]", ["3x^2 + 3 = 5"], False),
+    ],
+)
+def test_open_math_problem_reopens_only_for_a_fragment(
+    text: str, prior: list[str], reopened: bool
+) -> None:
+    assert open_math_problem(text, prior) == (prior[0] if reopened else None)
+
+
+@pytest.mark.parametrize("text", ["$[4,4]$", "What?"])
+@pytest.mark.asyncio
+async def test_new_input_after_a_conversion_is_not_the_conversion_again(text: str) -> None:
+    from app.modules.math.tools.prompt import build_math_augmentation
+
+    settings = Settings(math_llm_extract_enabled=False, math_word_problems_enabled=False)
+    _block, verified = await build_math_augmentation(
+        text, settings, prior_user_messages=["convert 1 m to cm"]
+    )
+    assert verified is None
 
 
 def _exchange(

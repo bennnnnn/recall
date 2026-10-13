@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“[4,4]” and “What?” after “convert 1 m to cm” were both answered “1 m = 100 cm”.** `open_math_problem` reopened the last maths question for any message of 24 characters or fewer that was not a greeting, so the solver re-ran the conversion and the model restated it. It is for `x` or `5` after an equation: reopen only for a lone value or unknown, only an equation or inequality, and stop at any other message in between. “What?” then reaches the referential follow-up path.
+
 - **The math keypad typed `2(x)+3` for `2(x+3)`.** An operator at the end of a filled box jumped out of it (only a fraction's numerator kept it), and with no arrow keys that rule was the only way out of a box. A key now types into the box the caret is in; ← → (`lib/math/caretStops.ts`) move between boxes and out of a template. Two-box keys (□/□, ⁿ√, logₙ, ∫□, ∑, ∏, nCr) jump to their second box when pressed again.
 
 - **Keypad labels wrapped and changed font on Android.** Key height was the pad divided by each page's row count (the 123 page's keys were twice Calc's), labels had no `numberOfLines`, and they drew in Roboto, which lacks `⁻ ₙ ∠ ∬ □ 𝑥`. Every page is now 6 × 6, and `MathKey` draws words in Source Sans 3, symbols in the KaTeX face that has them (Size1 for ∬ ∭ ∮), and scripts as raised text. Check a new label against a 52pt key at 115% text.
