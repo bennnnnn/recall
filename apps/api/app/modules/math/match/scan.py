@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.services.symbolic_text import (
     collapse_repeated_si_unit_powers as _collapse_repeated_si_unit_powers,
 )
@@ -45,25 +46,8 @@ _GEOMETRY_DIM_WORDS = (
 # Multi-letter tokens SymPy already treats as one name. Any other 3+ letter
 # run is English or a command — never g*r*a*p*h, and never ``squared``/``plus``
 # slipping into letter-products.
-MATH_MULTI_LETTER = frozenset(
+MATH_MULTI_LETTER = MATH_FUNCTION_NAMES | frozenset(
     {
-        "sin",
-        "cos",
-        "tan",
-        "sec",
-        "csc",
-        "cot",
-        "arcsin",
-        "arccos",
-        "arctan",
-        "sinh",
-        "cosh",
-        "tanh",
-        "log",
-        "ln",
-        "sqrt",
-        "exp",
-        "abs",
         "min",
         "max",
         "pi",
