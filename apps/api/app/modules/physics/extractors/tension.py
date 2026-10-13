@@ -4,7 +4,10 @@ from __future__ import annotations
 
 import re
 
+from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
 from app.modules.physics.extractors.common import (
+    _DECIMAL,
+    _DEGREE_WORD,
     _find_value_with_specific_unit,
     _ordered_values,
     _strip_param_assignments,
@@ -141,26 +144,22 @@ _VECTOR_FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
     re.compile(r"\bresultant\b.{0,80}?\d\s*N\b", re.IGNORECASE),
     re.compile(r"\d\s*N\b.{0,80}?\bresultant\b", re.IGNORECASE),
     re.compile(
-        r"\A(?=.*\b(?:resolv\w*|components?)\b)(?=.*\d\s*N\b)(?=.*\d\s*(?:degrees?|deg|°))",
+        rf"\A(?=.*\b(?:resolv\w*|components?)\b)(?=.*\d\s*N\b)(?=.*\d\s*{_DEGREE_WORD})",
         re.IGNORECASE | re.DOTALL,
     ),
 )
 
 _PERPENDICULAR_RE = re.compile(
-    r"\bperpendicular\b|\bright angles?\b|\bat 90\s*(?:degrees?|deg|°)"
+    rf"\bperpendicular\b|\bright angles?\b|\bat 90\s*{_DEGREE_WORD}"
     r"|\b(?:north|south)\b.{0,60}?\b(?:east|west)\b|\b(?:east|west)\b.{0,60}?\b(?:north|south)\b"
     r"|\bhorizontal\b.{0,60}?\bvertical\b|\bvertical\b.{0,60}?\bhorizontal\b",
     re.IGNORECASE,
 )
 
 _ANGLE_BETWEEN_RE = re.compile(
-    r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:degrees?|deg|°)(?:[^.]{0,40}?"
+    rf"({_DECIMAL})\s*{_DEGREE_WORD}(?:[^.]{{0,40}}?"
     r"(?:to each other|between them|apart|to one another))",
     re.IGNORECASE,
-)
-
-_ANGLE_VALUE_RE = re.compile(
-    r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:degrees?|deg|°)(?![A-Za-z0-9])", re.IGNORECASE
 )
 
 _RESOLVE_RE = re.compile(r"\bresolv\w*\b|\bcomponents?\b", re.IGNORECASE)
@@ -195,7 +194,7 @@ def _extract_vector_force_intent(cleaned: str) -> PhysicsIntent | None:
 
     # --- one force split into components ------------------------------------
     if _RESOLVE_RE.search(cleaned) and forces:
-        angle = _ANGLE_VALUE_RE.search(cleaned)
+        angle = _INCLINE_ANGLE_RE.search(cleaned)
         if angle is None:
             return None
         return PhysicsIntent(

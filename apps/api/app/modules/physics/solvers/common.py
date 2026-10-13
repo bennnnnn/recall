@@ -13,7 +13,6 @@ from app.modules.physics.schemas import (
     SimulationBlockSpec,
 )
 from app.modules.physics.solvers.chip import render_chip, render_chip_latex
-from app.modules.physics.solvers.unit_aliases import _UNIT_ALIASES
 from app.services.solving import SolveServiceError
 
 
@@ -194,15 +193,11 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
     # (2π rad each), which made 500 solenoid turns 3142.
     if dim_spec == "dimensionless" and unit.strip().lower() in _COUNT_UNITS:
         return value
-    from app.modules.physics.givens import unit_expression
+    from app.modules.physics.givens import unit_readings
     from app.services.units import get_unit_registry
 
     ureg = get_unit_registry()
-    # "0.8c" is the speed of light; the lowercased alias table reads c as C.
-    alias = "speed_of_light" if unit == "c" else _UNIT_ALIASES.get(unit.lower(), unit)
-    # A spelling Pint cannot read ("lines per mm") is still one the givens
-    # scanner names; its unit is the second reading.
-    readings = [alias, *([table] if (table := unit_expression(unit)) not in (None, alias) else [])]
+    readings = unit_readings(unit)
     for index, reading in enumerate(readings):
         try:
             if reading in _OFFSET_UNITS:
@@ -219,7 +214,7 @@ def _to_si(value: float, unit: str, *, expected_key: str | None = None) -> float
                 continue
             raise SolveServiceError(f"unsupported unit: {unit}") from exc
         if dim_spec is not None and quantity.dimensionality != ureg(dim_spec).dimensionality:
-            # Pint reads D as a debye. The unit table's dioptre is the later reading.
+            # A later reading may be the one meant: Pint alone reads D as a debye.
             if index + 1 < len(readings):
                 continue
             raise SolveServiceError(

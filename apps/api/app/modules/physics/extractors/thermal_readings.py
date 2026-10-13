@@ -6,6 +6,7 @@ import re
 
 from app.modules.physics.bodies import WATER_SPECIFIC_HEAT
 from app.modules.physics.extractors.common import (
+    _DECIMAL,
     _NUMBER,
     _find_value_with_specific_unit,
     _positioned_values,
@@ -36,7 +37,7 @@ _TEMPERATURE_SPAN = re.compile(
 
 # A change of temperature reads the same in K and °C; it is named as a change.
 _TEMPERATURE_READING = re.compile(
-    rf"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})(?![A-Za-z])",
+    rf"({_DECIMAL})\s*(?:{_KELVIN_PATTERN}|{_CELSIUS_PATTERN})(?![A-Za-z])",
     re.IGNORECASE,
 )
 _CHANGE_REACH = 30
@@ -67,7 +68,7 @@ def _temperature_value(cleaned: str, keywords: tuple[str, ...]) -> tuple[float, 
     if kelvin is not None:
         return kelvin[0], "K"
     match = re.search(
-        rf"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:{_CELSIUS_PATTERN})",
+        rf"({_DECIMAL})\s*(?:{_CELSIUS_PATTERN})",
         cleaned,
         re.IGNORECASE,
     )

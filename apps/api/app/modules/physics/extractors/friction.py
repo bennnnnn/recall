@@ -7,6 +7,7 @@ from typing import Literal
 
 from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
 from app.modules.physics.extractors.common import (
+    _DEGREE_WORD,
     _detect_gravity,
     _find_value_with_specific_unit,
     _strip_param_assignments,
@@ -26,7 +27,7 @@ _FRICTION_SUBJECT = r"friction|frictional|incline|inclined|ramp"
 
 _FRICTION_GIVEN = (
     r"coefficient|(?:\\?(?:\bmu|\u03bc)\s*_?\s*[sk]?\s*(?:=|is))|"
-    r"(?<!\d)\d+\s*(?:degrees?|deg|\u00b0)"
+    rf"(?<!\d)\d+\s*{_DEGREE_WORD}"
 )
 
 _FRICTION_CUE_RES: tuple[re.Pattern[str], ...] = (

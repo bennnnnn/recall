@@ -16,6 +16,10 @@ logger = logging.getLogger(__name__)
 # rest of it, so one pasted 3,000-digit line cost a second per pattern. A match
 # that starts mid-run is only ever a suffix of the one that starts at the run.
 _NUMBER = r"-?(?<!\d)\d+(?:\.\d+)?(?:[eE][-+]?\d+)?"
+# The same number without an exponent, as an angle or a reading is written.
+_DECIMAL = r"-?(?<!\d)\d+(?:\.\d+)?"
+# The unit after an angle in degrees.
+_DEGREE_WORD = r"(?:degrees?|deg|\u00b0)"
 
 _LENGTH_UNIT_PATTERN = (
     r"kilometers?|km|centimeters?|cm|millimeters?|mm|"

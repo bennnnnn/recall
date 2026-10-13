@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
+    _DEGREE_WORD,
     _MASS_UNITS,
     _NUMBER,
     _find_value_with_specific_unit,
@@ -132,7 +133,7 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
         # "at 300 degrees" is not. Only the interval may be loose.
         bare = re.search(
             rf"(?:by|rises?|raise[sd]?|warms?|cools?)\s+(?:by\s+)?({_NUMBER})\s*"
-            r"(?:degrees?|deg|\u00b0)(?![A-Za-z0-9])",
+            rf"{_DEGREE_WORD}(?![A-Za-z0-9])",
             cleaned,
             re.IGNORECASE,
         )

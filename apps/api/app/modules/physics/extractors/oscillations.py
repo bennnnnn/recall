@@ -6,6 +6,7 @@ import re
 from typing import Literal
 
 from app.modules.physics.extractors.common import (
+    _DECIMAL,
     _G_DEFAULT,
     _LENGTH_UNIT_PATTERN,
     _detect_gravity,
@@ -104,7 +105,7 @@ _SHM_CUE_RES: tuple[re.Pattern[str], ...] = (_SHM_FREQUENCY_RE, _SHM_MAX_SPEED_R
 _SHM_TIME_UNITS = r"seconds?|secs?|sec|s|milliseconds?|ms|minutes?|mins?|min"
 
 _ANGULAR_FREQ_RE = re.compile(
-    r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:rad(?:ians?)?\s*(?:/|per)\s*s(?:ec(?:ond)?s?)?)",
+    rf"({_DECIMAL})\s*(?:rad(?:ians?)?\s*(?:/|per)\s*s(?:ec(?:ond)?s?)?)",
     re.IGNORECASE,
 )
 

@@ -6,6 +6,8 @@ import re
 
 from app.modules.physics.extractors.angles import _INCLINE_ANGLE_RE
 from app.modules.physics.extractors.common import (
+    _DECIMAL,
+    _DEGREE_WORD,
     _LENGTH_UNIT_PATTERN,
     _NUMBER,
     _VELOCITY_UNIT_PATTERN,
@@ -265,8 +267,8 @@ def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
         # "bends from 30 to 20 degrees" puts the unit on the second angle only,
         # so the scan above sees one number where the question gave two.
         pair = re.search(
-            r"from\s+(-?\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)?\s*to\s+"
-            r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:degrees?|deg|\u00b0)",
+            rf"from\s+(-?\d+(?:\.\d+)?)\s*{_DEGREE_WORD}?\s*to\s+"
+            rf"({_DECIMAL})\s*{_DEGREE_WORD}",
             cleaned,
             re.IGNORECASE,
         )

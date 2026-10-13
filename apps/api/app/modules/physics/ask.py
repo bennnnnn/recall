@@ -112,22 +112,24 @@ def asked_dimensions(text: str) -> tuple[str, ...]:
 
 def result_reading(unit: str) -> tuple[str, float, float] | None:
     """(dimension, scale, offset) of a solver's result unit; None when unreadable."""
-    from app.modules.physics.solvers.unit_aliases import _UNIT_ALIASES
+    from app.modules.physics.givens import unit_readings
 
     spelled = unit.strip()
     if not spelled or spelled == "%" or spelled.lower() in {"db", "decibel", "decibels"}:
         return _DIMENSIONLESS, 1.0, 0.0
-    # "0.85 c" is the speed of light; the lowercased alias table reads c as C.
-    alias = "speed_of_light" if spelled == "c" else _UNIT_ALIASES.get(spelled.lower(), spelled)
-    alias = alias.replace("·", "*").replace("^", "**")
-    if alias in {"deg", "°"}:
-        alias = "degree"
-    if alias in {"D", "dioptre", "diopter", "dioptres", "diopters"}:
-        alias = "1 / meter"
-    if alias in {"Bq", "becquerel"}:
-        # Pint counts decays; an activity is a rate, per second.
-        alias = "1 / second"
-    return unit_dimension("radian" if alias == "rad" else alias)
+    for reading in unit_readings(spelled):
+        expression = reading.replace("·", "*").replace("^", "**")
+        if expression in {"deg", "°"}:
+            expression = "degree"
+        if expression in {"D", "dioptre", "diopter", "dioptres", "diopters"}:
+            expression = "1 / meter"
+        if expression in {"Bq", "becquerel"}:
+            # Pint counts decays; an activity is a rate, per second.
+            expression = "1 / second"
+        found = unit_dimension("radian" if expression == "rad" else expression)
+        if found is not None:
+            return found
+    return None
 
 
 def result_dimension(unit: str) -> str | None:

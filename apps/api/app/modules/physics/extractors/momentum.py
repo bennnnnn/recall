@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
+    _DEGREE_WORD,
     _MASS_UNITS,
     _VELOCITY_UNIT_PATTERN,
     _ordered_values,
@@ -48,7 +49,7 @@ _COLLISION_SUBJECT_RE = re.compile(
 _TWO_DIMENSIONAL_RE = re.compile(
     r"\b2-?d\b|\btwo[- ]dimensional\b|\bdeflect(?:s|ed|ion)?\b"
     r"|\bat an angle\b|\bglancing\b|\boblique\b"
-    r"|\d\s*(?:degrees?|deg|°)",
+    rf"|\d\s*{_DEGREE_WORD}",
     re.IGNORECASE,
 )
 
