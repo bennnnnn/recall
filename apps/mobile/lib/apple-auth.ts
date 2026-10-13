@@ -1,3 +1,4 @@
+import Constants from "expo-constants";
 import { Platform } from "react-native";
 
 type AppleAuthModule = typeof import("expo-apple-authentication");
@@ -21,9 +22,14 @@ function isAppleSignInPlatform(): boolean {
   return Platform.OS === "ios";
 }
 
-/** Always show the Apple button on iOS; check availability when the user taps. */
+/**
+ * Show the Apple button on iOS; check availability when the user taps. A
+ * `pnpm ios:sim` build leaves Sign in with Apple out, so it has no button.
+ */
 export function shouldShowAppleSignInButton(): boolean {
-  return isAppleSignInPlatform();
+  if (!isAppleSignInPlatform()) return false;
+  const extra = Constants.expoConfig?.extra as { appleSignIn?: boolean } | undefined;
+  return extra?.appleSignIn !== false;
 }
 
 export type AppleSignInResult = {

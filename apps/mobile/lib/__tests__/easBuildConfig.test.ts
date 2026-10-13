@@ -3,10 +3,24 @@ import {
   releaseProfile,
   requirePublicApiUrlForReleaseBuild,
   requireReleaseBuildSecrets,
+  simulatorWithoutAppleSignIn,
   updatesUrl,
 } from "@/lib/easBuildConfig";
 
 describe("easBuildConfig", () => {
+  it("drops Sign in with Apple only for a local simulator build", () => {
+    expect(simulatorWithoutAppleSignIn("", {})).toBe(false);
+    expect(simulatorWithoutAppleSignIn("", { RECALL_IOS_SIMULATOR: "1" })).toBe(true);
+    expect(simulatorWithoutAppleSignIn("development", { RECALL_IOS_SIMULATOR: "1" })).toBe(true);
+    expect(() => simulatorWithoutAppleSignIn("production", { RECALL_IOS_SIMULATOR: "1" })).toThrow(
+      /not a production build/,
+    );
+    expect(() => simulatorWithoutAppleSignIn("preview", { RECALL_IOS_SIMULATOR: "1" })).toThrow(
+      /not a preview build/,
+    );
+    expect(simulatorWithoutAppleSignIn("production", {})).toBe(false);
+  });
+
   it("includes dev client only for local/dev EAS profile", () => {
     expect(includeDevClientPlugin("")).toBe(true);
     expect(includeDevClientPlugin("development")).toBe(true);

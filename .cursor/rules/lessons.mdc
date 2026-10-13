@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **`expo run:ios` said “No code signing certificates” for a Simulator.** Sign in with Apple's entitlement makes Expo require development signing even for a simulator, and Expo applies the Apple plugin on its own once the package is installed, so dropping it from `plugins` changes nothing. `pnpm ios:sim` sets `RECALL_IOS_SIMULATOR=1`; `plugins/withoutAppleSignIn.js`, registered first so its mod runs last, deletes the entitlement, and an `ios/` that still has it is regenerated.
+
 - **Numbered maths steps disappeared, twice.** The one-layout refactor told every subject “no numbered steps”, so both the verified lesson and the model's own maths replies lost their numbers. Maths numbers each move (`**1. Subtract 4 from both sides**`, the both-sides line, then the simplified line): the lesson in `math/tools/lesson.py`, the model through `MATH_WORKOUT_PROMPT_RULE`. Physics and chemistry keep the note after the line. Do not remove the numbering.
 
 - **An equation lesson skipped the both-sides line.** `trace_lines` replaced `4x + 4 - 4 = 0 - 4` with `$4x = -4$ — subtract 4`. Number each move, keep the written-out equation, then the simplified equation on the next line. `Simplify` is that result, not its own number.
