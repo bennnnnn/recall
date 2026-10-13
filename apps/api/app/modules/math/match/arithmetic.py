@@ -53,6 +53,10 @@ _UNAMBIGUOUS_ARITH = frozenset("*^" + "".join(src for src, dst in _ARITH_OP_ASCI
 _ARITH_ALLOWED = frozenset("0123456789.+-*/^()! " + "".join(src for src, _ in _ARITH_OP_ASCII))
 # Functions whose value at a number is one number in any unit system.
 _NUMERIC_FUNCTIONS = ("sqrt", "Abs", "log", "ln", "exp")
+_LATEX_ARITH_OPS = ("\\div", "\\times", "\\cdot")
+# Constants the keypad types: e, π, and the upright i (read as ``I``). A word
+# such as ``pie`` or ``I am`` is not one; ``5e3`` keeps its number.
+_NUMERIC_CONSTANT = re.compile(r"(?<![A-Za-z])(?:pi|e|I)(?![A-Za-z0-9])|π")
 # The factorial input cap the combinatorics solver keeps.
 _LARGEST_FACTORIAL = 170
 # ``2 1/2`` is two and a half, never ``2 * 1/2``.
@@ -259,6 +263,7 @@ def bare_arithmetic_expr(text: str) -> str | None:
     numeric = normalized
     for name in _NUMERIC_FUNCTIONS:
         numeric = numeric.replace(f"{name}(", "(")
+    numeric = _NUMERIC_CONSTANT.sub("1", numeric)
     if any(ch not in _ARITH_ALLOWED for ch in numeric):
         return None
     compact = _to_ascii_arith(numeric).replace(" ", "")
@@ -274,6 +279,8 @@ def bare_arithmetic_expr(text: str) -> str | None:
         return None
     unambiguous = has_root or any(ch in stripped for ch in _UNAMBIGUOUS_ARITH)
     unambiguous = unambiguous or "**" in normalized or "!" in compact
+    # The keypad's divide and times keys type \div and \times: never a date.
+    unambiguous = unambiguous or any(cmd in stripped for cmd in _LATEX_ARITH_OPS)
     unambiguous = unambiguous or _unambiguous_single_slash(compact)
     subtraction = ops == 1 and "-" in compact and not any(ch in "+*/^" for ch in compact)
     # ``-3+5`` is one signed start and one operation, not a date.
