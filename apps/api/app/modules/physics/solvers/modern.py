@@ -5,6 +5,7 @@ Compton, black bodies, half-lives and E = mc^2.
 from __future__ import annotations
 
 import math
+from collections.abc import Callable
 
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import (
@@ -25,266 +26,293 @@ from app.services.solving import SolveServiceError
 def solve_modern(intent: PhysicsIntent) -> PhysicsResult:
     p = _params_in_si(intent)
     op = intent.physics_op or ""
+    solver = _OPERATIONS.get(op)
+    if solver is None:
+        raise SolveServiceError(f"unsupported modern op: {op}")
+    return solver(intent, p)
 
-    if op in {"lorentz_factor", "time_dilation", "length_contraction"}:
-        speed = abs(p["v"])
-        if speed >= _SPEED_OF_LIGHT:
-            raise SolveServiceError("special relativity requires a speed below c")
-        gamma = 1 / math.sqrt(1 - (speed / _SPEED_OF_LIGHT) ** 2)
-        if op == "lorentz_factor":
-            return PhysicsResult(
-                answer=(
-                    rf"\gamma = \frac{{1}}{{\sqrt{{1-v^2/c^2}}}} = "
-                    rf"\frac{{1}}{{\sqrt{{1-({speed:g}/{_SPEED_OF_LIGHT:g})^2}}}} "
-                    rf"\approx {gamma:.4g}"
-                ),
-                formulas=(r"\gamma = \frac{1}{\sqrt{1-v^2/c^2}}",),
-                substitutions=(
-                    rf"\gamma = \frac{{1}}{{\sqrt{{1-({speed:g}/{_SPEED_OF_LIGHT:g})^2}}}}",
-                ),
-                quantities=(QuantityResult("", gamma, ""),),
-            )
-        if op == "time_dilation":
-            value = gamma * p["proper_time"]
-            return PhysicsResult(
-                answer=(
-                    rf"\Delta t = \gamma\Delta t_0 = {gamma:.4g} \cdot "
-                    rf"{p['proper_time']:g} \approx {value:.4g} \text{{ s}}"
-                ),
-                formulas=(r"\Delta t = \gamma\Delta t_0",),
-                substitutions=(rf"\Delta t = {gamma:.4g} \cdot {p['proper_time']:g}",),
-                quantities=(QuantityResult("", value, "s"),),
-            )
-        value = p["proper_length"] / gamma
+
+def _relativity(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    op = intent.physics_op or ""
+    speed = abs(p["v"])
+    if speed >= _SPEED_OF_LIGHT:
+        raise SolveServiceError("special relativity requires a speed below c")
+    gamma = 1 / math.sqrt(1 - (speed / _SPEED_OF_LIGHT) ** 2)
+    if op == "lorentz_factor":
         return PhysicsResult(
             answer=(
-                rf"L = \frac{{L_0}}{{\gamma}} = \frac{{{p['proper_length']:g}}}"
-                rf"{{{gamma:.4g}}} \approx {value:.4g} \text{{ m}}"
+                rf"\gamma = \frac{{1}}{{\sqrt{{1-v^2/c^2}}}} = "
+                rf"\frac{{1}}{{\sqrt{{1-({speed:g}/{_SPEED_OF_LIGHT:g})^2}}}} "
+                rf"\approx {gamma:.4g}"
             ),
-            formulas=(r"L = \frac{L_0}{\gamma}",),
-            substitutions=(rf"L = \frac{{{p['proper_length']:g}}}{{{gamma:.4g}}}",),
-            quantities=(QuantityResult("", value, "m"),),
-        )
-
-    if op == "photoelectric_kinetic_energy":
-        if p["freq"] <= 0 or p["work_function"] < 0:
-            raise SolveServiceError(
-                "photoelectric energy needs positive frequency and work function"
-            )
-        value = _PLANCK_H * p["freq"] - p["work_function"]
-        if value < 0:
-            raise SolveServiceError("the photon energy is below the work function")
-        ev = value / _ELEMENTARY_CHARGE
-        return PhysicsResult(
-            answer=(
-                rf"K_{{max}} = hf - \phi = {_PLANCK_H:.7g} \cdot {p['freq']:g} - "
-                rf"{p['work_function']:g} \approx {value:.4g} \text{{ J}}"
-            ),
-            formulas=(r"K_{max} = hf - \phi",),
+            formulas=(r"\gamma = \frac{1}{\sqrt{1-v^2/c^2}}",),
             substitutions=(
-                rf"K_{{max}} = {_PLANCK_H:.7g} \cdot {p['freq']:g} - {p['work_function']:g}",
+                rf"\gamma = \frac{{1}}{{\sqrt{{1-({speed:g}/{_SPEED_OF_LIGHT:g})^2}}}}",
             ),
-            quantities=(
-                QuantityResult("", value, "J"),
-                QuantityResult("", ev, "eV"),
-            ),
-            joiner="paren-second",
+            quantities=(QuantityResult("", gamma, ""),),
         )
-
-    if op == "uncertainty_momentum":
-        if p["uncertainty_x"] <= 0:
-            raise SolveServiceError("position uncertainty must be positive")
-        value = _HBAR / (2 * p["uncertainty_x"])
+    if op == "time_dilation":
+        value = gamma * p["proper_time"]
         return PhysicsResult(
             answer=(
-                rf"\Delta p_{{min}} = \frac{{\hbar}}{{2\Delta x}} = "
-                rf"\frac{{{_HBAR:.7g}}}{{2 \cdot {p['uncertainty_x']:g}}} "
-                rf"\approx {value:.4g} \text{{ kg}}\cdot\text{{m/s}}"
+                rf"\Delta t = \gamma\Delta t_0 = {gamma:.4g} \cdot "
+                rf"{p['proper_time']:g} \approx {value:.4g} \text{{ s}}"
             ),
-            formulas=(r"\Delta p_{min} = \frac{\hbar}{2\Delta x}",),
-            substitutions=(
-                rf"\Delta p_{{min}} = \frac{{{_HBAR:.7g}}}{{2 \cdot {p['uncertainty_x']:g}}}",
-            ),
-            quantities=(QuantityResult("", value, "kg*m/s"),),
+            formulas=(r"\Delta t = \gamma\Delta t_0",),
+            substitutions=(rf"\Delta t = {gamma:.4g} \cdot {p['proper_time']:g}",),
+            quantities=(QuantityResult("", value, "s"),),
         )
+    value = p["proper_length"] / gamma
+    return PhysicsResult(
+        answer=(
+            rf"L = \frac{{L_0}}{{\gamma}} = \frac{{{p['proper_length']:g}}}"
+            rf"{{{gamma:.4g}}} \approx {value:.4g} \text{{ m}}"
+        ),
+        formulas=(r"L = \frac{L_0}{\gamma}",),
+        substitutions=(rf"L = \frac{{{p['proper_length']:g}}}{{{gamma:.4g}}}",),
+        quantities=(QuantityResult("", value, "m"),),
+    )
 
-    if op == "particle_box_energy":
-        level = p["quantum_n"]
-        if p["L"] <= 0 or p["m"] <= 0 or level < 1 or not level.is_integer():
-            raise SolveServiceError("box energy needs positive m and L and an integer n >= 1")
-        value = level**2 * _PLANCK_H**2 / (8 * p["m"] * p["L"] ** 2)
-        ev = value / _ELEMENTARY_CHARGE
-        return PhysicsResult(
-            answer=(
-                rf"E_n = \frac{{n^2h^2}}{{8mL^2}} = "
-                rf"\frac{{{level:g}^2 \cdot ({_PLANCK_H:.7g})^2}}"
-                rf"{{8 \cdot {p['m']:g} \cdot {p['L']:g}^2}} "
-                rf"\approx {value:.4g} \text{{ J}}"
-            ),
-            formulas=(r"E_n = \frac{n^2h^2}{8mL^2}",),
-            substitutions=(
-                rf"E_n = \frac{{{level:g}^2 \cdot ({_PLANCK_H:.7g})^2}}{{8 \cdot {p['m']:g} \cdot "
-                rf"{p['L']:g}^2}}",
-            ),
-            quantities=(
-                QuantityResult("", value, "J"),
-                QuantityResult("", ev, "eV"),
-            ),
-            joiner="paren-second",
+
+def _photoelectric_kinetic_energy(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    if p["freq"] <= 0 or p["work_function"] < 0:
+        raise SolveServiceError("photoelectric energy needs positive frequency and work function")
+    value = _PLANCK_H * p["freq"] - p["work_function"]
+    if value < 0:
+        raise SolveServiceError("the photon energy is below the work function")
+    ev = value / _ELEMENTARY_CHARGE
+    return PhysicsResult(
+        answer=(
+            rf"K_{{max}} = hf - \phi = {_PLANCK_H:.7g} \cdot {p['freq']:g} - "
+            rf"{p['work_function']:g} \approx {value:.4g} \text{{ J}}"
+        ),
+        formulas=(r"K_{max} = hf - \phi",),
+        substitutions=(
+            rf"K_{{max}} = {_PLANCK_H:.7g} \cdot {p['freq']:g} - {p['work_function']:g}",
+        ),
+        quantities=(
+            QuantityResult("", value, "J"),
+            QuantityResult("", ev, "eV"),
+        ),
+        joiner="paren-second",
+    )
+
+
+def _uncertainty_momentum(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    if p["uncertainty_x"] <= 0:
+        raise SolveServiceError("position uncertainty must be positive")
+    value = _HBAR / (2 * p["uncertainty_x"])
+    return PhysicsResult(
+        answer=(
+            rf"\Delta p_{{min}} = \frac{{\hbar}}{{2\Delta x}} = "
+            rf"\frac{{{_HBAR:.7g}}}{{2 \cdot {p['uncertainty_x']:g}}} "
+            rf"\approx {value:.4g} \text{{ kg}}\cdot\text{{m/s}}"
+        ),
+        formulas=(r"\Delta p_{min} = \frac{\hbar}{2\Delta x}",),
+        substitutions=(
+            rf"\Delta p_{{min}} = \frac{{{_HBAR:.7g}}}{{2 \cdot {p['uncertainty_x']:g}}}",
+        ),
+        quantities=(QuantityResult("", value, "kg*m/s"),),
+    )
+
+
+def _particle_box_energy(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    level = p["quantum_n"]
+    if p["L"] <= 0 or p["m"] <= 0 or level < 1 or not level.is_integer():
+        raise SolveServiceError("box energy needs positive m and L and an integer n >= 1")
+    value = level**2 * _PLANCK_H**2 / (8 * p["m"] * p["L"] ** 2)
+    ev = value / _ELEMENTARY_CHARGE
+    return PhysicsResult(
+        answer=(
+            rf"E_n = \frac{{n^2h^2}}{{8mL^2}} = "
+            rf"\frac{{{level:g}^2 \cdot ({_PLANCK_H:.7g})^2}}"
+            rf"{{8 \cdot {p['m']:g} \cdot {p['L']:g}^2}} "
+            rf"\approx {value:.4g} \text{{ J}}"
+        ),
+        formulas=(r"E_n = \frac{n^2h^2}{8mL^2}",),
+        substitutions=(
+            rf"E_n = \frac{{{level:g}^2 \cdot ({_PLANCK_H:.7g})^2}}{{8 \cdot {p['m']:g} \cdot "
+            rf"{p['L']:g}^2}}",
+        ),
+        quantities=(
+            QuantityResult("", value, "J"),
+            QuantityResult("", ev, "eV"),
+        ),
+        joiner="paren-second",
+    )
+
+
+def _hydrogen_energy_level(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    level = p["quantum_n"]
+    if level < 1 or not level.is_integer():
+        raise SolveServiceError("hydrogen energy needs an integer n >= 1")
+    value = -13.6 / level**2
+    return PhysicsResult(
+        answer=(
+            rf"E_n = -\frac{{13.6\ \text{{eV}}}}{{n^2}} = "
+            rf"-\frac{{13.6}}{{{level:g}^2}} \approx {value:.4g} \text{{ eV}}"
+        ),
+        formulas=(r"E_n = -\frac{13.6\ \text{eV}}{n^2}",),
+        substitutions=(rf"E_n = -\frac{{13.6}}{{{level:g}^2}}",),
+        quantities=(QuantityResult("", value, "eV"),),
+    )
+
+
+def _compton_shift(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    value = _PLANCK_H / (_ELECTRON_MASS * _SPEED_OF_LIGHT) * (1 - math.cos(p["angle"]))
+    return PhysicsResult(
+        answer=(
+            rf"\Delta\lambda = \frac{{h}}{{m_ec}}(1-\cos\theta) = "
+            rf"\frac{{{_PLANCK_H:.7g}}}{{{_ELECTRON_MASS:.7g} \cdot {_SPEED_OF_LIGHT:g}}}"
+            rf"(1-\cos {math.degrees(p['angle']):g}^\circ) "
+            rf"\approx {value:.4g} \text{{ m}}"
+        ),
+        formulas=(r"\Delta\lambda = \frac{h}{m_ec}(1-\cos\theta)",),
+        substitutions=(
+            rf"\Delta\lambda = \frac{{{_PLANCK_H:.7g}}}{{{_ELECTRON_MASS:.7g} \cdot "
+            rf"{_SPEED_OF_LIGHT:g}}}(1-\cos {math.degrees(p['angle']):g}^\circ)",
+        ),
+        quantities=(QuantityResult("", value, "m"),),
+    )
+
+
+def _wien_peak(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    if p["temp"] <= 0:
+        raise SolveServiceError("blackbody temperature must be positive")
+    value = _WIEN_B / p["temp"]
+    return PhysicsResult(
+        answer=(
+            rf"\lambda_{{max}} = \frac{{b}}{{T}} = "
+            rf"\frac{{{_WIEN_B:.7g}}}{{{p['temp']:g}}} "
+            rf"\approx {value:.4g} \text{{ m}}"
+        ),
+        formulas=(r"\lambda_{max} = \frac{b}{T}",),
+        substitutions=(rf"\lambda_{{max}} = \frac{{{_WIEN_B:.7g}}}{{{p['temp']:g}}}",),
+        quantities=(QuantityResult("", value, "m"),),
+    )
+
+
+def _stefan_boltzmann_power(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    if p["temp"] <= 0 or p["area"] <= 0 or not 0 <= p["emissivity"] <= 1:
+        raise SolveServiceError("radiated power needs positive T and A and 0 <= emissivity <= 1")
+    value = p["emissivity"] * _STEFAN_BOLTZMANN * p["area"] * p["temp"] ** 4
+    return PhysicsResult(
+        answer=(
+            rf"P = \epsilon\sigma AT^4 = {p['emissivity']:g} \cdot "
+            rf"{_STEFAN_BOLTZMANN:.7g} \cdot {p['area']:g} \cdot {p['temp']:g}^4 "
+            rf"\approx {value:.4g} \text{{ W}}"
+        ),
+        formulas=(r"P = \epsilon\sigma AT^4",),
+        substitutions=(
+            rf"P = {p['emissivity']:g} \cdot {_STEFAN_BOLTZMANN:.7g} \cdot {p['area']:g} \cdot "
+            rf"{p['temp']:g}^4",
+        ),
+        quantities=(QuantityResult("", value, "W"),),
+    )
+
+
+def _photon_energy(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    if "freq" in p:
+        freq = p["freq"]
+        if freq <= 0:
+            raise SolveServiceError("photon frequency must be positive")
+        value = _PLANCK_H * freq
+        substitution = rf"{_PLANCK_H:.5g} \cdot {freq:.4g}"
+        formula = "E = hf"
+    else:
+        wavelength = p["wavelength"]
+        if wavelength <= 0:
+            raise SolveServiceError("photon wavelength must be positive")
+        value = _PLANCK_H * _SPEED_OF_LIGHT / wavelength
+        substitution = (
+            rf"\frac{{{_PLANCK_H:.5g} \cdot {_SPEED_OF_LIGHT:.0f}}}"
+            rf"{{{wavelength:.4g}}}"
         )
+        formula = r"E = \frac{hc}{\lambda}"
+    ev = value / _ELEMENTARY_CHARGE
+    return PhysicsResult(
+        answer=(
+            rf"{formula} = {substitution} "
+            rf"\approx {value:.4g} \text{{ J}}"
+        ),
+        quantities=(
+            QuantityResult("", value, "J"),
+            QuantityResult("", ev, "eV"),
+        ),
+        joiner="paren-second",
+        formulas=(formula,),
+        substitutions=(f"E = {substitution}",),
+    )
 
-    if op == "hydrogen_energy_level":
-        level = p["quantum_n"]
-        if level < 1 or not level.is_integer():
-            raise SolveServiceError("hydrogen energy needs an integer n >= 1")
-        value = -13.6 / level**2
-        return PhysicsResult(
-            answer=(
-                rf"E_n = -\frac{{13.6\ \text{{eV}}}}{{n^2}} = "
-                rf"-\frac{{13.6}}{{{level:g}^2}} \approx {value:.4g} \text{{ eV}}"
-            ),
-            formulas=(r"E_n = -\frac{13.6\ \text{eV}}{n^2}",),
-            substitutions=(rf"E_n = -\frac{{13.6}}{{{level:g}^2}}",),
-            quantities=(QuantityResult("", value, "eV"),),
-        )
 
-    if op == "compton_shift":
-        value = _PLANCK_H / (_ELECTRON_MASS * _SPEED_OF_LIGHT) * (1 - math.cos(p["angle"]))
-        return PhysicsResult(
-            answer=(
-                rf"\Delta\lambda = \frac{{h}}{{m_ec}}(1-\cos\theta) = "
-                rf"\frac{{{_PLANCK_H:.7g}}}{{{_ELECTRON_MASS:.7g} \cdot {_SPEED_OF_LIGHT:g}}}"
-                rf"(1-\cos {math.degrees(p['angle']):g}^\circ) "
-                rf"\approx {value:.4g} \text{{ m}}"
-            ),
-            formulas=(r"\Delta\lambda = \frac{h}{m_ec}(1-\cos\theta)",),
-            substitutions=(
-                rf"\Delta\lambda = \frac{{{_PLANCK_H:.7g}}}{{{_ELECTRON_MASS:.7g} \cdot "
-                rf"{_SPEED_OF_LIGHT:g}}}(1-\cos {math.degrees(p['angle']):g}^\circ)",
-            ),
-            quantities=(QuantityResult("", value, "m"),),
-        )
+def _de_broglie_wavelength(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    momentum = p["m"] * p["v"]
+    if momentum <= 0:
+        raise SolveServiceError("momentum must be positive")
+    value = _PLANCK_H / momentum
+    return PhysicsResult(
+        answer=(
+            rf"\lambda = \frac{{h}}{{mv}} = \frac{{{_PLANCK_H:.5g}}}"
+            rf"{{{p['m']:.4g} \cdot {p['v']:.4g}}} \approx {value:.4g} \text{{ m}}"
+        ),
+        formulas=(r"\lambda = \frac{h}{mv}",),
+        substitutions=(rf"\lambda = \frac{{{_PLANCK_H:.5g}}}{{{p['m']:.4g} \cdot {p['v']:.4g}}}",),
+        quantities=(QuantityResult("", value, "m"),),
+    )
 
-    if op == "wien_peak":
-        if p["temp"] <= 0:
-            raise SolveServiceError("blackbody temperature must be positive")
-        value = _WIEN_B / p["temp"]
-        return PhysicsResult(
-            answer=(
-                rf"\lambda_{{max}} = \frac{{b}}{{T}} = "
-                rf"\frac{{{_WIEN_B:.7g}}}{{{p['temp']:g}}} "
-                rf"\approx {value:.4g} \text{{ m}}"
-            ),
-            formulas=(r"\lambda_{max} = \frac{b}{T}",),
-            substitutions=(rf"\lambda_{{max}} = \frac{{{_WIEN_B:.7g}}}{{{p['temp']:g}}}",),
-            quantities=(QuantityResult("", value, "m"),),
-        )
 
-    if op == "stefan_boltzmann_power":
-        if p["temp"] <= 0 or p["area"] <= 0 or not 0 <= p["emissivity"] <= 1:
-            raise SolveServiceError(
-                "radiated power needs positive T and A and 0 <= emissivity <= 1"
-            )
-        value = p["emissivity"] * _STEFAN_BOLTZMANN * p["area"] * p["temp"] ** 4
-        return PhysicsResult(
-            answer=(
-                rf"P = \epsilon\sigma AT^4 = {p['emissivity']:g} \cdot "
-                rf"{_STEFAN_BOLTZMANN:.7g} \cdot {p['area']:g} \cdot {p['temp']:g}^4 "
-                rf"\approx {value:.4g} \text{{ W}}"
-            ),
-            formulas=(r"P = \epsilon\sigma AT^4",),
-            substitutions=(
-                rf"P = {p['emissivity']:g} \cdot {_STEFAN_BOLTZMANN:.7g} \cdot {p['area']:g} \cdot "
-                rf"{p['temp']:g}^4",
-            ),
-            quantities=(QuantityResult("", value, "W"),),
-        )
+def _half_life_remaining(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    halves = p.get("n_halves")
+    if halves is None:
+        if p["half_life"] <= 0:
+            raise SolveServiceError("half-life must be positive")
+        if p["elapsed"] < 0:
+            raise SolveServiceError("elapsed time cannot be negative")
+        halves = p["elapsed"] / p["half_life"]
+    if halves < 0:
+        raise SolveServiceError("the number of half lives cannot be negative")
+    # Answer in the unit the question used. A sample given in grams should
+    # not come back in kilograms; the arithmetic is a ratio either way.
+    unit = (intent.physics_units or {}).get("m", "kg")
+    given = (intent.physics_params or {}).get("m", p["m"])
+    value = given / (2**halves)
+    return PhysicsResult(
+        answer=(
+            rf"N = \frac{{N_0}}{{2^n}} = \frac{{{given:g}}}{{2^{{{halves:g}}}}} "
+            rf"\approx {value:.4g} \text{{ {unit}}}"
+        ),
+        formulas=(r"N = \frac{N_0}{2^n}",),
+        substitutions=(rf"N = \frac{{{given:g}}}{{2^{{{halves:g}}}}}",),
+        quantities=(QuantityResult("", value, unit),),
+    )
 
-    if op == "photon_energy":
-        if "freq" in p:
-            freq = p["freq"]
-            if freq <= 0:
-                raise SolveServiceError("photon frequency must be positive")
-            value = _PLANCK_H * freq
-            substitution = rf"{_PLANCK_H:.5g} \cdot {freq:.4g}"
-            formula = "E = hf"
-        else:
-            wavelength = p["wavelength"]
-            if wavelength <= 0:
-                raise SolveServiceError("photon wavelength must be positive")
-            value = _PLANCK_H * _SPEED_OF_LIGHT / wavelength
-            substitution = (
-                rf"\frac{{{_PLANCK_H:.5g} \cdot {_SPEED_OF_LIGHT:.0f}}}"
-                rf"{{{wavelength:.4g}}}"
-            )
-            formula = r"E = \frac{hc}{\lambda}"
-        ev = value / _ELEMENTARY_CHARGE
-        return PhysicsResult(
-            answer=(
-                rf"{formula} = {substitution} "
-                rf"\approx {value:.4g} \text{{ J}}"
-            ),
-            quantities=(
-                QuantityResult("", value, "J"),
-                QuantityResult("", ev, "eV"),
-            ),
-            joiner="paren-second",
-            formulas=(formula,),
-            substitutions=(f"E = {substitution}",),
-        )
 
-    if op == "de_broglie_wavelength":
-        momentum = p["m"] * p["v"]
-        if momentum <= 0:
-            raise SolveServiceError("momentum must be positive")
-        value = _PLANCK_H / momentum
-        return PhysicsResult(
-            answer=(
-                rf"\lambda = \frac{{h}}{{mv}} = \frac{{{_PLANCK_H:.5g}}}"
-                rf"{{{p['m']:.4g} \cdot {p['v']:.4g}}} \approx {value:.4g} \text{{ m}}"
-            ),
-            formulas=(r"\lambda = \frac{h}{mv}",),
-            substitutions=(
-                rf"\lambda = \frac{{{_PLANCK_H:.5g}}}{{{p['m']:.4g} \cdot {p['v']:.4g}}}",
-            ),
-            quantities=(QuantityResult("", value, "m"),),
-        )
+def _mass_energy(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    value = p["m"] * _SPEED_OF_LIGHT**2
+    return PhysicsResult(
+        answer=(
+            rf"E = mc^2 = {p['m']:g} \cdot ({_SPEED_OF_LIGHT:.0f})^2 "
+            rf"\approx {value:.4g} \text{{ J}}"
+        ),
+        formulas=(r"E = mc^2",),
+        substitutions=(rf"E = {p['m']:g} \cdot ({_SPEED_OF_LIGHT:.0f})^2",),
+        quantities=(QuantityResult("", value, "J"),),
+    )
 
-    if op == "half_life_remaining":
-        halves = p.get("n_halves")
-        if halves is None:
-            if p["half_life"] <= 0:
-                raise SolveServiceError("half-life must be positive")
-            if p["elapsed"] < 0:
-                raise SolveServiceError("elapsed time cannot be negative")
-            halves = p["elapsed"] / p["half_life"]
-        if halves < 0:
-            raise SolveServiceError("the number of half lives cannot be negative")
-        # Answer in the unit the question used. A sample given in grams should
-        # not come back in kilograms; the arithmetic is a ratio either way.
-        unit = (intent.physics_units or {}).get("m", "kg")
-        given = (intent.physics_params or {}).get("m", p["m"])
-        value = given / (2**halves)
-        return PhysicsResult(
-            answer=(
-                rf"N = \frac{{N_0}}{{2^n}} = \frac{{{given:g}}}{{2^{{{halves:g}}}}} "
-                rf"\approx {value:.4g} \text{{ {unit}}}"
-            ),
-            formulas=(r"N = \frac{N_0}{2^n}",),
-            substitutions=(rf"N = \frac{{{given:g}}}{{2^{{{halves:g}}}}}",),
-            quantities=(QuantityResult("", value, unit),),
-        )
 
-    if op == "mass_energy":
-        value = p["m"] * _SPEED_OF_LIGHT**2
-        return PhysicsResult(
-            answer=(
-                rf"E = mc^2 = {p['m']:g} \cdot ({_SPEED_OF_LIGHT:.0f})^2 "
-                rf"\approx {value:.4g} \text{{ J}}"
-            ),
-            formulas=(r"E = mc^2",),
-            substitutions=(rf"E = {p['m']:g} \cdot ({_SPEED_OF_LIGHT:.0f})^2",),
-            quantities=(QuantityResult("", value, "J"),),
-        )
-
-    raise SolveServiceError(f"unsupported modern op: {op}")
+_OPERATIONS: dict[str, Callable[[PhysicsIntent, dict[str, float]], PhysicsResult]] = {
+    "lorentz_factor": _relativity,
+    "time_dilation": _relativity,
+    "length_contraction": _relativity,
+    "photoelectric_kinetic_energy": _photoelectric_kinetic_energy,
+    "uncertainty_momentum": _uncertainty_momentum,
+    "particle_box_energy": _particle_box_energy,
+    "hydrogen_energy_level": _hydrogen_energy_level,
+    "compton_shift": _compton_shift,
+    "wien_peak": _wien_peak,
+    "stefan_boltzmann_power": _stefan_boltzmann_power,
+    "photon_energy": _photon_energy,
+    "de_broglie_wavelength": _de_broglie_wavelength,
+    "half_life_remaining": _half_life_remaining,
+    "mass_energy": _mass_energy,
+}

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import types
+from collections.abc import Callable
 from pathlib import Path
 from typing import Union, get_args, get_origin
 
@@ -13,6 +14,17 @@ from app.modules.physics.catalog import CATALOG
 from app.modules.physics.extract import _ADVANCED_PHYSICS_RE
 from app.modules.physics.schemas.intent import PhysicsIntent
 from app.modules.physics.solver import PHYSICS_SOLVERS
+from app.modules.physics.solvers import (
+    circuits,
+    fluids,
+    forces,
+    magnetism,
+    modern,
+    optics,
+    thermal,
+    waves,
+)
+from app.modules.physics.solvers.common import PhysicsResult
 from app.tests.modules.physics.support import (
     build_verified_physics_block,
     extract_physics_intent,
@@ -86,6 +98,33 @@ def test_every_catalog_family_has_solver_and_verified_block_dispatch() -> None:
     # One block builder serves every kind, so the catalog must cover the kinds.
     kinds = _literal_values(PhysicsIntent.model_fields["kind"].annotation)
     assert {spec.kind for spec in CATALOG.values()} == set(kinds)
+
+
+# A kind solver looks its operation up by name, so an operation missing from
+# its table would only fail when a question asked for it.
+_OPERATION_TABLES = (
+    (circuits.solve_circuit, set(circuits._OPERATIONS)),
+    (fluids.solve_fluids, set(fluids._OPERATIONS)),
+    (magnetism.solve_magnetism, set(magnetism._OPERATIONS)),
+    (modern.solve_modern, set(modern._OPERATIONS)),
+    (optics.solve_optics, set(optics._OPERATIONS) | set(optics._REFLECTION_OPS)),
+    (thermal.solve_thermal, set(thermal._OPERATIONS)),
+    (waves.solve_waves, set(waves._OPERATIONS)),
+)
+
+
+@pytest.mark.parametrize(("solver", "handled"), _OPERATION_TABLES)
+def test_every_operation_a_kind_solver_claims_has_a_handler(
+    solver: Callable[[PhysicsIntent], PhysicsResult], handled: set[str]
+) -> None:
+    claimed = {operation for operation, fn in PHYSICS_SOLVERS.items() if fn is solver}
+    assert claimed
+    assert claimed <= handled, sorted(claimed - handled)
+
+
+def test_force_names_only_its_own_operations() -> None:
+    claimed = {operation for operation, fn in PHYSICS_SOLVERS.items() if fn is forces.solve_force}
+    assert set(forces._OPERATIONS) <= claimed
 
 
 _UNVERIFIED_PHYSICS_PHRASES = (
