@@ -49,7 +49,8 @@ export function CopyButton({
   };
 
   const label = copied ? t("common.copied") : t("common.copy");
-  const ink = copied ? theme.primary : theme.text;
+  // The same quiet ink as the copy icon under a reply.
+  const ink = copied ? theme.primary : theme.textSecondary;
 
   return (
     <IconButton

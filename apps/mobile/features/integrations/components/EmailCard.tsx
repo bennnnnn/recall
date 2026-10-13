@@ -106,7 +106,7 @@ export function EmailCard({ draft }: Props) {
 
   return (
     <CardShell
-      label={t("chat.email_card_title")}
+      label={t("rich.email_draft")}
       icon="mail"
       accent={false}
       headerActions={
@@ -205,7 +205,8 @@ export function EmailCard({ draft }: Props) {
             ) : null}
             {currentDraft.subject ? (
               <Text style={s.subject} selectable>
-                {t("chat.email_card_subject")} {currentDraft.subject}
+                <Text style={s.subjectKey}>{t("chat.email_card_subject")} </Text>
+                {currentDraft.subject}
               </Text>
             ) : null}
             <Text style={s.bodyText} selectable>
@@ -256,9 +257,10 @@ function makeStyles(t: Theme) {
       lineHeight: 22,
       color: t.text,
     },
+    // The same quiet key as "To", so both fields read as label + value.
+    subjectKey: { ...Type.secondary, ...Weight.semibold, color: t.textTertiary },
     bodyText: {
       ...Type.body,
-      lineHeight: 24,
       color: t.text,
     },
   });

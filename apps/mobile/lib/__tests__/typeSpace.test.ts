@@ -64,7 +64,7 @@ describe("type and space tokens", () => {
     expect(Radius.menu).toBe(24);
     expect(Radius.sheet).toBe(28);
     expect(Radius.dialog).toBe(28);
-    expect(Radius.composer).toBe(24);
+    expect(Radius.composer).toBe(28);
     expect(IconSize.xxs).toBe(14);
     expect(IconSize.xs).toBe(16);
     expect(IconSize.sm).toBe(20);

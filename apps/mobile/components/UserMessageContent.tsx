@@ -134,8 +134,10 @@ function UserBubbleBody({ content }: { content: string }) {
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
+    // The row caps the width (MessageBubble userColumn): capping here too made
+    // a sent message 82% of 88%, about 72% of the screen.
     column: {
-      maxWidth: "82%",
+      maxWidth: "100%",
       alignItems: "flex-end",
       gap: Space.xs,
     },

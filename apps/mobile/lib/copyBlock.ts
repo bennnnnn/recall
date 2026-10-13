@@ -451,15 +451,16 @@ export function shouldRenderAsCopyBlock(
   );
 }
 
-export function copyBlockLabel(lang: string): string | undefined {
+/** The i18n key of a copy card's label: an email, a message, or a plain draft. */
+export function copyBlockLabelKey(lang: string): string {
   switch (lang.trim().toLowerCase()) {
     case "email":
-      return "Email draft";
+      return "rich.email_draft";
     case "sms":
     case "message":
-      return "Message draft";
+      return "rich.message_draft";
     default:
-      return undefined;
+      return "rich.copy_draft";
   }
 }
 

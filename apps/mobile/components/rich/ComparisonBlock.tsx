@@ -49,7 +49,7 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
       alignSelf: "stretch",
-      borderRadius: Radius.sm,
+      borderRadius: Radius.card,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       marginTop: 0,

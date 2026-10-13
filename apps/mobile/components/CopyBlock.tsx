@@ -1,78 +1,41 @@
 import { useMemo } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { StyleSheet, Text } from "react-native";
+import { useTranslation } from "react-i18next";
 
 import { CopyButton } from "@/components/CopyButton";
+import { CardShell } from "@/components/rich/CardShell";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
-import { Radius } from "@/lib/radius";
-import { Space } from "@/lib/space";
-import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
+import { Type } from "@/lib/type";
 
 type Props = {
   text: string;
-  label?: string;
+  /** i18n key of the card's label; a plain draft by default. */
+  labelKey?: string;
 };
 
-export function CopyBlock({ text, label }: Props) {
+/** Paste-ready text (a ```copy fence): the same card as the email and message drafts. */
+export function CopyBlock({ text, labelKey = "rich.copy_draft" }: Props) {
   const theme = useTheme();
+  const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
 
   return (
-    <View style={s.wrap}>
-      <View style={[s.header, !label && s.headerCompact]}>
-        {label ? <Text style={s.label}>{label}</Text> : null}
-        <CopyButton text={text} />
-      </View>
+    <CardShell
+      label={t(labelKey)}
+      icon="file-text"
+      accent={false}
+      headerActions={<CopyButton text={text} />}
+      testID="copy-block"
+    >
       <Text style={s.body} selectable>
         {text}
       </Text>
-    </View>
+    </CardShell>
   );
 }
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: {
-      alignSelf: "stretch",
-      width: "100%",
-      maxWidth: "100%",
-      backgroundColor: t.contentSurface,
-      borderRadius: Radius.md,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: t.border,
-      marginTop: 0,
-      marginBottom: PARAGRAPH_GAP,
-      overflow: "hidden",
-    },
-    header: {
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      gap: Space.xs,
-      paddingHorizontal: 14,
-      paddingVertical: 10,
-      borderBottomWidth: StyleSheet.hairlineWidth,
-      borderBottomColor: t.border,
-      backgroundColor: t.contentSurface,
-    },
-    headerCompact: {
-      justifyContent: "flex-end",
-      paddingVertical: Space.xs,
-    },
-    label: {
-      flex: 1,
-      flexShrink: 1,
-      ...Type.compact,
-      ...Weight.semibold,
-      color: t.textSecondary,
-    },
-    body: {
-      flexShrink: 1,
-      ...Type.body,
-      color: t.text,
-      paddingHorizontal: 14,
-      paddingVertical: Space.sm,
-      backgroundColor: t.contentSurface,
-    },
+    body: { ...Type.body, color: t.text },
   });
 }

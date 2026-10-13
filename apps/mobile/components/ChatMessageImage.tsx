@@ -18,6 +18,7 @@ import { fitAttachmentImage, type ImageSize } from "@/features/attachments/model
 import { motionMs, useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
+import { Radius } from "@/lib/radius";
 
 const AnimatedImage = Animated.createAnimatedComponent(Image);
 const REVEAL_DURATION_MS = 280;
@@ -281,7 +282,8 @@ function makeStyles(C: Theme, width: number, height: number) {
     wrap: {
       width,
       height,
-      borderRadius: 22,
+      // The bubble's curve, so text, photo and file in one message match.
+      borderRadius: Radius.bubble,
       overflow: "hidden",
       backgroundColor: C.surfaceAlt,
     },

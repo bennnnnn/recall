@@ -47,7 +47,7 @@ export function makeVerifyCheckStyles(t: Theme) {
     badge: {
       width: 20,
       height: 20,
-      borderRadius: 4,
+      borderRadius: Radius.row,
       backgroundColor: t.success,
       alignItems: "center",
       justifyContent: "center",
@@ -109,7 +109,7 @@ export function makeMdImg(t: Theme) {
     image: {
       width: "100%",
       height: 200,
-      borderRadius: Radius.xs,
+      borderRadius: Radius.md,
       marginVertical: 6,
       backgroundColor: t.contentSurface,
     },

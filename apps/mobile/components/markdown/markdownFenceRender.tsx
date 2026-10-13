@@ -12,7 +12,7 @@ import {
   renderCopyStyleBlock,
   renderRichFenceById,
 } from "@/components/rich/RichFence";
-import { copyBlockLabel, draftFenceProseText } from "@/lib/copyBlock";
+import { copyBlockLabelKey, draftFenceProseText } from "@/lib/copyBlock";
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import {
@@ -101,7 +101,7 @@ function renderFenceInner(
   if (decision.kind === "copy") {
     const styled = renderCopyStyleBlock("copy", content, key, tokenIndex);
     if (styled) return styled;
-    return <CopyBlock key={key} text={content} label={copyBlockLabel(lang)} />;
+    return <CopyBlock key={key} text={content} labelKey={copyBlockLabelKey(lang)} />;
   }
 
   if (isNeverCodeBlockLang(lang)) return neverCodeBlockFallback(key, content);

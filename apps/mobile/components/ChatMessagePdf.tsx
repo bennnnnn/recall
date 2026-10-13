@@ -177,7 +177,7 @@ function makeStyles(t: Theme, compact: boolean) {
       gap: 10,
       paddingHorizontal: Space.sm,
       paddingVertical: compact ? 8 : 10,
-      borderRadius: Radius.lg,
+      borderRadius: Radius.bubble,
       backgroundColor: t.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
