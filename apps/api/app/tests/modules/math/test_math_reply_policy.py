@@ -8,11 +8,12 @@ import pytest
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.modules.chat.prompt_builder import _style_format_hints
-from app.modules.chat.prompt_constants import MATH_TUTORING_HINT
+from app.modules.chat.prompt_constants import MATH_INTENT_HINT, MATH_TUTORING_HINT
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import augment_prompt_messages, needs_symbolic_math
 from app.services.tool_loop import run_tool_rounds
+from app.services.workout import MATH_WORKOUT_PROMPT_RULE, WORKOUT_PROMPT_RULE
 
 
 def _messages(query: str, style: str = "balanced") -> list[dict[str, Any]]:
@@ -246,3 +247,17 @@ async def test_nonmath_augmentation_remains_unchanged() -> None:
     )
     assert prepared == initial and verified is None
     assert all(MATH_REPLY_POLICY not in message["content"] for message in prepared)
+
+
+@pytest.mark.parametrize("prompt", [MATH_REPLY_POLICY, MATH_INTENT_HINT])
+def test_math_prompts_number_each_move(prompt: str) -> None:
+    """A maths reply the model writes numbers its moves, as the verified lesson does."""
+    assert MATH_WORKOUT_PROMPT_RULE in prompt
+    assert "`**1. Subtract 4 from both sides**`" in prompt
+    assert "`$4x + 4 - 4 = 0 - 4$`, then `$4x = -4$`" in prompt
+    assert "no numbered steps" not in prompt.lower()
+
+
+def test_physics_and_chemistry_keep_the_move_as_a_note() -> None:
+    assert "No numbered steps" in WORKOUT_PROMPT_RULE
+    assert "`$2x = 8$ — subtract 3 from both sides`" in WORKOUT_PROMPT_RULE

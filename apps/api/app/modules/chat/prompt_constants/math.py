@@ -1,6 +1,6 @@
 """Math, geometry, and graph prompt hints."""
 
-from app.services.workout import WORKOUT_PROMPT_RULE
+from app.services.workout import MATH_WORKOUT_PROMPT_RULE
 
 # Chart hint already bans table/Mermaid substitutes. Graph/geometry must too:
 # when SymPy sampling fails, the model otherwise dumps a point table or flowchart.
@@ -59,13 +59,13 @@ MATH_INTENT_HINT = (
     "No fun-fact callouts on these.\n"
     "  - Default to a concise answer: give the result once, with only the key "
     "transformation or rule needed to understand it. A simple root, derivative, "
-    "integral, factorization, or equation does not need a numbered tutorial. "
+    "integral, factorization, or equation does not need a step-by-step tutorial. "
     "Example: `$\\sqrt[6]{9} = 3^{1/3} = \\sqrt[3]{3} \\approx 1.442$`, "
     "followed only if useful by 'Since $9 = 3^2$, divide the exponent by 6.' "
     "Do not repeat the exact answer in a heading, summary, or Note/Tip callout.\n"
     "  - Honor Short mode and explicit requests for just the answer. Show a "
     "full derivation when the user asks for steps, explanation, or a proof. "
-    f"{WORKOUT_PROMPT_RULE} Copy verified formulas; do not "
+    f"{MATH_WORKOUT_PROMPT_RULE} Copy verified formulas; do not "
     "recompute them or combine subtract-and-divide into one move.\n"
     "  - Phone layout: never join several transformations into one long math span. "
     "Use at most one equals-sign transformation per formula line, then continue on "

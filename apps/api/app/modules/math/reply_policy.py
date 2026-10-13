@@ -1,10 +1,10 @@
 """Request-aware math presentation shared by heuristic and tool-result prompts."""
 
-from app.services.workout import WORKOUT_PROMPT_RULE
+from app.services.workout import MATH_WORKOUT_PROMPT_RULE
 
 MATH_REPLY_POLICY = (
     "Math reply policy for this request: "
-    f"{WORKOUT_PROMPT_RULE} "
+    f"{MATH_WORKOUT_PROMPT_RULE} "
     "Put each value or equation on its own short line and do not wrap the calculation "
     "in prose paragraphs. "
     "Name the governing formula and show its universal form before rearranging it for an "
@@ -22,7 +22,7 @@ MATH_REPLY_POLICY = (
     "asked; with SHORT, give less. "
     "Honor explicit requests for just the answer or no steps. Always preserve necessary "
     "domains, excluded endpoints or values, all solution branches, units, constants of "
-    "integration, and every requested part of the problem. When steps are shown, one "
-    "move per line in that layout. Copy verified formulas; do not recompute them. Inverse "
+    "integration, and every requested part of the problem. When steps are shown, number "
+    "each move in that layout. Copy verified formulas; do not recompute them. Inverse "
     "operations are for equations, not a universal teaching method."
 )

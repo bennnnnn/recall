@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **Numbered maths steps disappeared, twice.** The one-layout refactor told every subject “no numbered steps”, so both the verified lesson and the model's own maths replies lost their numbers. Maths numbers each move (`**1. Subtract 4 from both sides**`, the both-sides line, then the simplified line): the lesson in `math/tools/lesson.py`, the model through `MATH_WORKOUT_PROMPT_RULE`. Physics and chemistry keep the note after the line. Do not remove the numbering.
+
 - **An equation lesson skipped the both-sides line.** `trace_lines` replaced `4x + 4 - 4 = 0 - 4` with `$4x = -4$ — subtract 4`. Number each move, keep the written-out equation, then the simplified equation on the next line. `Simplify` is that result, not its own number.
 
 - **`ot` and `rac` sat on a radical, and the root index floated above the bar.** “simplify to $2\sqrt{2}$” copied the word “to” into the formula as `t o` / `o t`, and `\frac` lost `\f` so the screen showed `rac`. The nth-root layout also reserved a full line above the vinculum. Drop that leaked “to”, restore `rac{` to `\frac`, and hang the index in the hook.
