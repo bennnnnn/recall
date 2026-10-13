@@ -52,10 +52,25 @@ def use_school_log_notation() -> None:
     from sympy.printing.latex import LatexPrinter
 
     LatexPrinter._default_settings["ln_notation"] = True
+    # ``\arctan x``, not ``\operatorname{atan} x``.
+    LatexPrinter._default_settings["inv_trig_style"] = "full"
     original_mul = LatexPrinter._print_Mul
     original_log = LatexPrinter._print_log
+    original_add = LatexPrinter._print_Add
     if getattr(original_mul, "school_log_notation", False):
         return
+
+    def _print_add(self: Any, expr: Any, order: Any = None) -> str:
+        # A number with a whole-number part leads with the other term:
+        # ``e - 1``, ``\frac{\pi}{2} - 1``, not SymPy's ``-1 + e``.
+        if not expr.free_symbols:
+            terms = list(expr.as_ordered_terms())
+            if len(terms) > 1 and terms[0].is_Rational and terms[0].is_negative:
+                from sympy import Add
+
+                rest = original_add(self, Add(*terms[1:]), order)
+                return f"{rest} - {self._print(-terms[0])}"
+        return str(original_add(self, expr, order))
 
     def _print_mul(self: Any, expr: Any, *args: Any, **kwargs: Any) -> str:
         written = _written_base_log(self, expr)
@@ -75,6 +90,7 @@ def use_school_log_notation() -> None:
     # SymPy has no setting for either spelling, so its printer is patched once.
     setattr(LatexPrinter, "_print_Mul", _print_mul)  # noqa: B010
     setattr(LatexPrinter, "_print_log", _print_log)  # noqa: B010
+    setattr(LatexPrinter, "_print_Add", _print_add)  # noqa: B010
 
 
 def school_text(expr: Any) -> str:

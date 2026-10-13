@@ -78,7 +78,13 @@ def should_render_equation_lesson(
         return False
     if response_style == "detailed":
         return True
-    return len(verified.key_steps) >= 2
+    # One rule with its working shown (``x^{3 + 1} / (3 + 1)``), short of the
+    # answer, teaches as much as two lines.
+    answer = (verified.canonical_answer or "").replace(" ", "")
+    single = len(verified.key_steps) == 1 and (
+        answer.removesuffix("+C") not in verified.key_steps[0].formula.replace(" ", "")
+    )
+    return len(verified.key_steps) >= 2 or single
 
 
 def format_equation_lesson_reply(

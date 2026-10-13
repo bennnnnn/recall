@@ -53,6 +53,18 @@ def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
     if taylor_ok:
         expr = mtm.graph_expr(cleaned) or cleaned
         n = mtm.number_after(cleaned, "order") or mtm.number_after(cleaned, "degree") or 5
+        # "up to x^3" is order 3; "the first 4 terms" is order 3.
+        power = re.search(
+            r"\b(?:up\s+to|through|as\s+far\s+as)\s+(?:and\s+including\s+)?(?:the\s+)?"
+            r"x\s*\^\s*\{?(\d+)\}?",
+            lower,
+        )
+        terms = re.search(r"\b(?:first\s+|to\s+)?(\d+)\s+(?:non-?zero\s+)?terms\b", lower)
+        term_count: int | None = None
+        if power is not None:
+            n = int(power.group(1))
+        elif terms is not None and 1 <= int(terms.group(1)) <= 12:
+            term_count = int(terms.group(1))
         point = "0"
         if "maclaurin" not in lower and "at " in lower:
             pt = mtm.number_after(cleaned, "at")
@@ -62,16 +74,34 @@ def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
         idx = lower.find(" of ")
         if idx != -1:
             rest = cleaned[idx + 4 :]
-            for stop in (" at ", " order", " degree", " around"):
+            for stop in (
+                " at ",
+                " order",
+                " degree",
+                " around",
+                " up to",
+                " through ",
+                " as far as",
+                " to ",
+                ",",
+                " first ",
+            ):
                 sidx = rest.lower().find(stop)
                 if sidx != -1:
                     rest = rest[:sidx]
             expr = rest.strip()
+        from app.modules.math.tools.helpers import math_expr_or_none
+
+        # Leftover words ("up to") would become variables in the series.
+        if math_expr_or_none(expr) is None:
+            return None
         return MathIntent(
             kind="calculus",
             operation="taylor",
             expr=expr,
             taylor_n=int(n),
+            # "to 4 terms": four non-zero terms, however high the order.
+            combo_n=term_count,
             limit_point=point,
             variable="x",
         )
@@ -130,12 +160,115 @@ def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
     return None
 
 
+def _average_value_working(intent: MathIntent, answer: str) -> str | None:
+    """``\\frac{1}{b - a}\\int_a^b f\\,dx``, the integral worked, then the mean."""
+    from sympy import Symbol, integrate, latex, simplify
+
+    from app.modules.math import solve as math_solve
+
+    variable = intent.variable or "x"
+    try:
+        expr = math_solve._parse_expression(intent.expr or "", [variable])
+        low = math_solve._parse_expression(str(intent.integral_lower), [])
+        high = math_solve._parse_expression(str(intent.integral_upper), [])
+    except Exception:
+        return None
+    x = Symbol(variable)
+    if isinstance(expr, tuple) or expr.free_symbols - {x} or high == low:
+        return None
+    antiderivative = integrate(expr, x)
+    total = simplify(antiderivative.subs(x, high) - antiderivative.subs(x, low))
+    width = simplify(high - low)
+    lo, hi = latex(low), latex(high)
+    integral = rf"\int_{{{lo}}}^{{{hi}}} {latex(expr)}\,d{variable}"
+    return render_workout(
+        Workout(
+            given=(math_line(f"f({variable}) = {latex(expr)}"), math_line(rf"[{lo}, {hi}]")),
+            find=(math_line(r"\bar{f}", "the average value"),),
+            formula=(
+                math_line(
+                    rf"\bar{{f}} = \frac{{1}}{{b - a}}\int_{{a}}^{{b}} f({variable})\,d{variable}",
+                    "Average value of a function",
+                ),
+            ),
+            substitution=(
+                math_line(
+                    rf"{integral} = \left[{latex(antiderivative)}\right]_{{{lo}}}^{{{hi}}}"
+                    rf" = {latex(total)}"
+                ),
+                math_line(rf"\bar{{f}} = \frac{{1}}{{{latex(width)}}} \times {latex(total)}"),
+            ),
+        ),
+        answer,
+    )
+
+
+_DY_DX = re.compile(r"^\s*dy\s*/\s*dx\s*=\s*(?P<rhs>[^=]+)$", re.IGNORECASE)
+
+
+def _direct_integration_working(intent: MathIntent) -> tuple[str, str] | None:
+    """``dy/dx = f(x)``: integrate both sides, then the initial value fixes C.
+
+    Returns the working and the answer, ``y = x^{2} + 1`` (or ``... + C``).
+    """
+    from sympy import Eq, Symbol, integrate, latex, solve, sympify
+
+    from app.modules.math import solve as math_solve
+
+    match = _DY_DX.match(intent.expr or "")
+    if match is None:
+        return None
+    variable = intent.variable or "x"
+    try:
+        rate = math_solve._parse_expression(match["rhs"], [variable])
+    except Exception:
+        return None
+    x = Symbol(variable)
+    if isinstance(rate, tuple) or rate.free_symbols - {x}:
+        return None
+    from app.modules.math.tools.school.function_value import _substituted_tex
+
+    antiderivative = integrate(rate, x)
+    integrand = rf"\left({latex(rate)}\right)" if rate.is_Add else latex(rate)
+    given = [math_line(rf"\frac{{dy}}{{d{variable}}} = {latex(rate)}")]
+    steps = [
+        math_line(
+            rf"y = \int {integrand}\,d{variable} = {latex(antiderivative)} + C",
+            "integrate both sides",
+        )
+    ]
+    answer = f"y = {latex(antiderivative)} + C"
+    if intent.initial_x is not None and intent.initial_y is not None:
+        x0, y0 = sympify(intent.initial_x), sympify(intent.initial_y)
+        c = Symbol("C")
+        constant = solve(Eq(antiderivative.subs(x, x0) + c, y0), c)
+        if len(constant) != 1:
+            return None
+        given.append(math_line(f"y({latex(x0)}) = {latex(y0)}"))
+        steps.append(
+            math_line(
+                rf"y({latex(x0)}) = {_substituted_tex(antiderivative, variable, x0)} + C = "
+                rf"{latex(y0)} \Rightarrow C = {latex(constant[0])}",
+                "use the initial value",
+            )
+        )
+        answer = f"y = {latex(antiderivative + constant[0])}"
+    working = render_workout(
+        Workout(given=tuple(given), find=(math_line("y"),), steps=tuple(steps)), answer
+    )
+    return working, answer
+
+
 def apply_calculus_extension(
     intent: MathIntent, settings: Settings, lines: list[str]
 ) -> VerifiedMathBlock | None:
     if intent.operation == "taylor" and intent.expr:
         out = math_school.taylor_series(
-            intent.expr, intent.variable, intent.limit_point or "0", intent.taylor_n or 5
+            intent.expr,
+            intent.variable,
+            intent.limit_point or "0",
+            intent.taylor_n or 5,
+            nonzero_terms=intent.combo_n,
         )
         lines.append(f"Taylor: {out.latex}")
         return _finish_with_answer(lines, out.latex)
@@ -163,7 +296,11 @@ def apply_calculus_extension(
         lines.append(f"ODE: {out.latex}")
         block = _finish_with_answer(lines, out.latex)
         if not out.steps:
-            return block
+            integrated = _direct_integration_working(intent)
+            if integrated is None:
+                return block
+            working, answer = integrated
+            return replace(_finish_with_answer(lines, answer), direct_reply=working)
         labels = ["Separate variables", "Integrate both sides", "Write the general solution"]
         if len(out.steps) == 4:
             labels.append("Use the initial condition")
@@ -171,8 +308,9 @@ def apply_calculus_extension(
             math_line(formula, note_from_label(label))
             for label, formula in zip(labels, out.steps, strict=True)
         )
+        given_ode = re.sub(r"\bdy\s*/\s*dx\b", r"\\frac{dy}{dx}", intent.expr or "")
         direct = render_workout(
-            Workout(given=(math_line(intent.expr),), find=(math_line("y"),), steps=steps),
+            Workout(given=(math_line(given_ode),), find=(math_line("y"),), steps=steps),
             out.latex,
         )
         return replace(block, direct_reply=direct)
@@ -215,7 +353,9 @@ def apply_calculus_extension(
             intent.expr, intent.variable, intent.integral_lower, intent.integral_upper
         )
         lines.append(f"Average value: {answer}")
-        return _finish_with_answer(lines, answer)
+        block = _finish_with_answer(lines, answer)
+        average_working = _average_value_working(intent, answer)
+        return replace(block, worked_reply=average_working) if average_working else block
     if intent.school_op == "linear_approx" and intent.expr and intent.limit_point is not None:
         answer = math_formulas.linear_approximation(
             intent.expr, intent.variable, intent.limit_point

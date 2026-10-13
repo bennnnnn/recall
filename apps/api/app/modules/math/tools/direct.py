@@ -127,16 +127,20 @@ def _closed_school_request(user_text: str, calculus_text: str) -> bool:
     tangent lines or stationary points.
     """
     from app.modules.math.match.discrete import counting_word_signal
+    from app.modules.math.tools.extractors.formulas import average_value_request
     from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
     from app.modules.math.tools.school.curve_points import extract_curve_point_intent
     from app.modules.math.tools.school.function_value import extract_function_value_intent
     from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
+    from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
     from app.modules.math.tools.school.number_facts import extract_number_fact_intent
     from app.modules.math.tools.school.single_draw import extract_single_draw_intent
 
     return (
-        extract_function_value_intent(user_text) is not None
+        average_value_request(user_text)
+        or extract_function_value_intent(user_text) is not None
         or extract_geometry_fact_intent(user_text) is not None
+        or extract_geometry_measure_intent(user_text) is not None
         or extract_number_fact_intent(user_text) is not None
         or extract_algebra_fact_intent(user_text) is not None
         or counting_word_signal(user_text) is not None
@@ -450,7 +454,9 @@ def maybe_direct_math_reply(
             guarded_text = (
                 lesson_math_text(user_text) if wants_math_explanation(user_text) else user_text
             )
-            if calculus_direct_request(guarded_text, answer=verified.canonical_answer) is not True:
+            if calculus_direct_request(
+                guarded_text, answer=verified.canonical_answer
+            ) is not True and not _closed_school_request(user_text, guarded_text):
                 return None
         if verified.canonical_answer is not None:
             if verified.direct_answer_binding != verified.canonical_answer:

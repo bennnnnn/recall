@@ -45,8 +45,8 @@ def _verified_answer(text: str) -> str | None:
 # interval, an unnamed axis, or a shape with no solver — and must therefore be
 # refused outright rather than picked up by a neighbouring extractor.
 DECLINED = [
-    # The regression that proved the guard must stay broad: no interval.
-    "area between y=x and y=x^2",
+    # No interval, and no single region: the curves cross infinitely often.
+    "area between y=sin(x) and y=cos(x)",
     "area between y=sin(x) and y=0",
     "find the area between the curves y=x and y=2x",
     # Disks about x and shells about y are different formulas, so an unnamed
@@ -66,13 +66,14 @@ def test_a_declined_region_question_is_refused_not_reinterpreted(text: str) -> N
 
 
 def test_the_intersection_points_never_come_back(text: str = "area between y=x and y=x^2") -> None:
-    """The original defect, pinned by value on the shape that still declines.
+    """The original defect, pinned by value.
 
     `x = 0, y = 0; x = 1, y = 1` is a correct answer to "where do these curves
-    meet". It was returned for "what is the area between them".
+    meet". It was returned for "what is the area between them". With no
+    interval stated, the area now runs between those meeting points.
     """
     assert _verified_answer(text) != "x = 0, y = 0; x = 1, y = 1"
-    assert _verified_answer(text) is None
+    assert _verified_answer(text) == "\\frac{1}{6}"
 
 
 def test_the_same_question_with_bounds_is_answered_not_refused() -> None:

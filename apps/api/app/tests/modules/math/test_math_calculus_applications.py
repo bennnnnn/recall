@@ -59,7 +59,7 @@ VERIFIED: list[tuple[str, str, str]] = [
     (
         "arc length of y=x^(3/2) from 0 to 1",
         "arc_length",
-        "- \\frac{8}{27} + \\frac{13 \\sqrt{13}}{27}",
+        "\\frac{13 \\sqrt{13}}{27} - \\frac{8}{27}",
     ),
     # --- volume of revolution -------------------------------------------
     (
@@ -134,8 +134,8 @@ REFUSED = [
     # The axis decides the formula — disks about x, shells about y — so an
     # unnamed axis is not assumed.
     "volume of revolution of y=x from 0 to 1",
-    # No interval to integrate over.
-    "area between y=x and y=x^2",
+    # No interval to integrate over, and no single enclosed region.
+    "area between y=sin(x) and y=cos(x)",
     "arc length of y=x^2",
     "area under y=x^2",
     # Still unimplemented shapes, still refused rather than answered sideways.
