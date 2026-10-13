@@ -191,7 +191,7 @@ function makeStyles(theme: Theme) {
     listContent: { paddingVertical: Space.xs },
     loadEarlier: {
       alignSelf: "center",
-      marginVertical: 10,
+      marginVertical: Space.sm,
       paddingHorizontal: Space.md,
       paddingVertical: Space.xs,
       borderRadius: Radius.full,

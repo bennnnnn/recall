@@ -4,6 +4,7 @@ import { StyleSheet, View } from "react-native";
 import { SkeletonBlock } from "@/ui/feedback/SkeletonLoader";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
 
 export function SettingsSkeleton({
   rows = 3,
@@ -60,7 +61,7 @@ function makeStyles(theme: Theme) {
       gap: Space.gutter,
       paddingHorizontal: Space.gutter,
       paddingVertical: Space.gutter,
-      borderRadius: 4,
+      borderRadius: Radius.row,
       backgroundColor: theme.settingsSurface,
     },
     copy: {

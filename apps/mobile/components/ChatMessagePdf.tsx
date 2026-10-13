@@ -174,7 +174,7 @@ function makeStyles(t: Theme, compact: boolean) {
     card: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
+      gap: Space.sm,
       paddingHorizontal: Space.sm,
       paddingVertical: compact ? 8 : 10,
       borderRadius: Radius.bubble,
@@ -206,6 +206,6 @@ function makeStyles(t: Theme, compact: boolean) {
       justifyContent: "center",
     },
     previewWeb: { flex: 1, width: "100%", backgroundColor: "transparent" },
-    fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: 6 },
+    fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: Space.xs },
   });
 }

@@ -239,8 +239,8 @@ function makeStyles(t: Theme) {
       textAlign: "center",
     },
     sourceBox: {
-      paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.sm,
       backgroundColor: t.contentSurface,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,

@@ -123,7 +123,7 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     list: {
       marginVertical: Space.xs,
-      gap: 10,
+      gap: Space.sm,
     },
     row: {
       flexDirection: "row",
@@ -178,7 +178,7 @@ function makeSheetStyles(t: Theme) {
   return StyleSheet.create({
     sheet: {
       paddingHorizontal: Space.gutter,
-      gap: 10,
+      gap: Space.sm,
     },
     title: {
       ...Type.h2,
@@ -211,8 +211,8 @@ function makeSheetStyles(t: Theme) {
       gap: Space.xs,
       backgroundColor: t.primary,
       borderRadius: Radius.lg,
-      paddingVertical: 14,
-      marginTop: 6,
+      paddingVertical: Space.sm,
+      marginTop: Space.xs,
     },
     openBtnText: {
       ...Type.body,

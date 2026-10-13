@@ -269,8 +269,8 @@ function makeStyles(t: Theme) {
       justifyContent: "center",
     },
     previewBox: {
-      paddingHorizontal: 14,
-      paddingVertical: 10,
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.sm,
       backgroundColor: t.contentSurface,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
@@ -286,8 +286,8 @@ function makeStyles(t: Theme) {
     openBtn: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
-      paddingVertical: 10,
+      gap: Space.xs,
+      paddingVertical: Space.sm,
       paddingHorizontal: Space.md,
       borderRadius: Radius.sm,
       backgroundColor: t.primary,

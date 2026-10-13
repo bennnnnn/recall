@@ -71,15 +71,15 @@ export function CalendarProposalCard({ proposal, disabled }: Props) {
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     card: {
-      marginTop: 10,
-      padding: 14,
+      marginTop: Space.sm,
+      padding: Space.sm,
       borderRadius: Radius.lg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
       backgroundColor: theme.surface,
       gap: Space.xs,
     },
-    header: { flexDirection: "row", alignItems: "center", gap: 10 },
+    header: { flexDirection: "row", alignItems: "center", gap: Space.xs },
     title: { flex: 1, ...Type.body, ...Weight.bold, color: theme.text },
     when: { ...Type.label, color: theme.textSecondary },
     meta: { ...Type.compact, color: theme.textTertiary },

@@ -370,7 +370,7 @@ function makeStyles(theme: Theme) {
     },
     cellInner: {
       paddingHorizontal: Space.sm,
-      paddingVertical: 10,
+      paddingVertical: Space.xs,
       minWidth: 0,
       flexShrink: 1,
     },

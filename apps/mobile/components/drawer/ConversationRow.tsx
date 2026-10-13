@@ -118,7 +118,7 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
       minHeight: 44,
       paddingVertical: Space.sm,
       paddingHorizontal: Space.md,
-      gap: 10,
+      gap: Space.sm,
     },
     rowIcon: { flexShrink: 0 },
     title: { flex: 1, ...Type.body, ...Weight.medium, color: theme.text },
@@ -128,13 +128,13 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
     rowHighlighted: {
       backgroundColor: theme.primaryLight,
       borderRadius: Radius.sm,
-      marginHorizontal: 6,
+      marginHorizontal: Space.xs,
       paddingHorizontal: Space.xs,
     },
     rowActive: {
       backgroundColor: theme.surfaceAlt,
       borderRadius: Radius.sm,
-      marginHorizontal: 6,
+      marginHorizontal: Space.xs,
       paddingHorizontal: Space.xs,
     },
     rowSelected: {

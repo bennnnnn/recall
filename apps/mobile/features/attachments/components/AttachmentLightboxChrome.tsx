@@ -7,6 +7,7 @@ import { HeaderButton } from "@/ui/controls/HeaderButton";
 import { Menu } from "@/ui/overlay/Menu";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme, withAlpha } from "@/lib/theme";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   visible: boolean;
@@ -158,13 +159,13 @@ function makeStyles(theme: Theme) {
       flexDirection: "row",
       justifyContent: "center",
       alignItems: "center",
-      gap: 6,
+      gap: Space.xs,
       paddingTop: Space.xs,
     },
     dot: {
       width: 6,
       height: 6,
-      borderRadius: 3,
+      borderRadius: Radius.full,
       backgroundColor: withAlpha(theme.onMedia, 0.35),
     },
     dotActive: {

@@ -107,7 +107,7 @@ function makeStyles(C: Theme, width: number, height: number) {
     wrap: {
       width,
       height,
-      borderRadius: 22,
+      borderRadius: Radius.bubble,
       overflow: "hidden",
       backgroundColor: C.surfaceAlt,
     },
@@ -124,9 +124,9 @@ function makeStyles(C: Theme, width: number, height: number) {
     },
     retry: {
       alignSelf: "flex-start",
-      marginTop: 10,
+      marginTop: Space.sm,
       paddingHorizontal: Space.sm,
-      paddingVertical: 6,
+      paddingVertical: Space.xs,
       borderRadius: Radius.lg,
       backgroundColor: C.surface,
       borderWidth: StyleSheet.hairlineWidth,

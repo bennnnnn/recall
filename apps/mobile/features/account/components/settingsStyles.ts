@@ -36,7 +36,7 @@ export function makeSettingsStyles(theme: Theme) {
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
       gap: Space.md,
-      borderRadius: 4,
+      borderRadius: Radius.row,
       backgroundColor: theme.settingsSurface,
     },
     rowPressed: { opacity: 0.65 },
@@ -48,12 +48,12 @@ export function makeSettingsStyles(theme: Theme) {
     menuSeparator: { height: 2, backgroundColor: theme.bg },
     usageTrack: {
       height: 6,
-      borderRadius: 3,
+      borderRadius: Radius.full,
       backgroundColor: theme.border,
       overflow: "hidden",
       marginTop: Space.xs,
     },
-    usageFill: { height: 6, borderRadius: 3, backgroundColor: theme.primary },
+    usageFill: { height: 6, borderRadius: Radius.full, backgroundColor: theme.primary },
   });
 }
 

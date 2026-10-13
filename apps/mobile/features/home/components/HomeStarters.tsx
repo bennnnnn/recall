@@ -163,7 +163,7 @@ function makeStyles(t: Theme) {
       borderRadius: Radius.lg,
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
-      paddingRight: 36,
+      paddingRight: Space.xl + Space.xxs,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: withAlpha(t.warning, 0.28),
     },

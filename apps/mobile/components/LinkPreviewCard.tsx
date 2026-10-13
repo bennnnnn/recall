@@ -92,7 +92,7 @@ function makeStyles(theme: Theme) {
       borderColor: theme.border,
       backgroundColor: theme.surface,
       paddingHorizontal: Space.sm,
-      paddingVertical: 10,
+      paddingVertical: Space.sm,
       marginTop: 0,
       marginBottom: PARAGRAPH_GAP,
       gap: Space.xxs,

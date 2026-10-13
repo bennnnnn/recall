@@ -8,6 +8,7 @@ import { type useProfileEditor } from "@/features/account/hooks/useProfileEditor
 import { Space } from "@/lib/space";
 import { type Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   editor: ReturnType<typeof useProfileEditor>;
@@ -91,15 +92,15 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     sheet: {
       backgroundColor: theme.surfaceAlt,
-      borderTopLeftRadius: 32,
-      borderTopRightRadius: 32,
+      borderTopLeftRadius: Radius.sheet,
+      borderTopRightRadius: Radius.sheet,
     },
     body: { paddingHorizontal: Space.gutter, paddingTop: Space.xl, paddingBottom: Space.lg },
     nameField: {
       marginTop: Space.xl,
       borderWidth: 1.5,
       borderColor: theme.border,
-      borderRadius: 36,
+      borderRadius: Radius.full,
       minHeight: 72,
       justifyContent: "center",
     },
@@ -127,7 +128,7 @@ function makeStyles(theme: Theme) {
       minHeight: 64,
       paddingHorizontal: Space.lg,
       paddingVertical: Space.md,
-      borderRadius: 32,
+      borderRadius: Radius.full,
       backgroundColor: theme.text,
       alignItems: "center",
       justifyContent: "center",

@@ -6,6 +6,7 @@ import { liveTalkMuteA11yKey } from "@/features/speech/model/liveTalkLogic";
 import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   muted: boolean;
@@ -57,7 +58,7 @@ const styles = StyleSheet.create({
   round: {
     width: 52,
     height: 52,
-    borderRadius: 26,
+    borderRadius: Radius.full,
     borderWidth: StyleSheet.hairlineWidth,
     borderColor: "transparent",
     alignItems: "center",

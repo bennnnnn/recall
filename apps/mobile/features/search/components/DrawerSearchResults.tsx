@@ -127,18 +127,18 @@ function makeStyles(theme: Theme) {
     sectionTitle: {
       ...Type.overline,
       color: theme.textTertiary,
-      paddingHorizontal: 14,
+      paddingHorizontal: Space.md,
       paddingTop: Space.sm,
-      paddingBottom: 6,
+      paddingBottom: Space.xs,
     },
     searchHint: {
       ...Type.secondary,
       color: theme.textSecondary,
-      paddingHorizontal: 14,
+      paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
     },
     searchResult: {
-      paddingHorizontal: 14,
+      paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.border,
@@ -146,7 +146,7 @@ function makeStyles(theme: Theme) {
     searchResultHeader: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
+      gap: Space.xs,
     },
     searchResultTitle: { flex: 1, ...Type.compact, color: theme.textSecondary },
     searchResultBadge: {
@@ -154,7 +154,7 @@ function makeStyles(theme: Theme) {
       color: theme.primary,
     },
     searchResultSnippet: { ...Type.callout, ...Weight.regular, color: theme.text },
-    loadMore: { paddingVertical: 14, alignItems: "center" },
+    loadMore: { paddingVertical: Space.sm, alignItems: "center" },
     loadMoreText: { ...Type.label, color: theme.primary },
   });
 }
