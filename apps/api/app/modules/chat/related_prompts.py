@@ -11,6 +11,7 @@ import asyncio
 import json
 import logging
 import re
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -38,6 +39,35 @@ _MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
 _GLUED_RADICAL = re.compile(r"\^\s*\d+\s*\\sqrt")
 _GLUED_VARIABLE = re.compile(r"(?<![A-Za-z\\^_{])[A-Za-z]\d+")
 _MIN_QUESTION_WORDS = 4
+# A follow-up ("why does that work?") belongs to the problem a few user lines
+# back. Further than this is a stale thread, not the current one.
+_THREAD_USER_TURNS = 3
+_FOLLOW_UP_LEADS = frozenset(
+    {
+        "why",
+        "how",
+        "what",
+        "when",
+        "where",
+        "which",
+        "can",
+        "could",
+        "is",
+        "are",
+        "does",
+        "do",
+        "explain",
+        "show",
+        "give",
+        "try",
+        "solve",
+        "find",
+        "and",
+        "but",
+        "so",
+        "if",
+    }
+)
 _CONTENT_WORD = re.compile(r"[a-z]{5,}")
 
 # Biology is not a solver subject. These cues only decide whether to ask the
@@ -56,18 +86,22 @@ _BIOLOGY_CUES = (
 )
 
 _SYSTEM = (
-    "You write the next three questions this student would ask about the "
-    "problem they just worked. Each item is one full question ending with ? "
-    "about this same problem: why the result came out that way, a harder case "
-    "of the same idea, or the neighboring idea. "
-    "Keep a number or a word from that problem in every question. "
+    "You write the next three questions a student would tap to keep learning "
+    "the problem they are working on. Write them in this order: "
+    "1. Understand: why the method or the result works. "
+    "2. Practice: a new problem of the same kind with different numbers that the "
+    "student can solve. "
+    "3. Go further: a slightly harder case or the neighboring idea. "
+    "Each item is one short, full question ending with ? that a student would ask. "
+    "Do not ask what the reply already explained, and do not repeat the student's "
+    "question or one they asked before. "
+    "Keep a number or a word from the problem in every question. "
     "Write each equation in $...$ with spaces around =, as in $x^2 = 9$ or "
     "$\\sqrt{x} = 5$. A letter and a number stay separate: never $x5$, and "
     "never a number stuck to a radical like $^5\\sqrt{x}$. "
     'Return JSON {"questions": ["...", "...", "..."]}. '
-    "Do not repeat the student's question. "
     "Do not keep the same sentence and only change a number. "
-    "No heading and no label."
+    "No heading, no number, and no label."
 )
 
 
@@ -86,6 +120,54 @@ def subject_for_related(text: str) -> str | None:
     lowered = cleaned.casefold()
     if any(cue in lowered for cue in _BIOLOGY_CUES):
         return "biology"
+    return None
+
+
+def _role_content(message: Any) -> tuple[str | None, str | None]:
+    if isinstance(message, Mapping):
+        role, content = message.get("role"), message.get("content")
+    else:
+        role, content = getattr(message, "role", None), getattr(message, "content", None)
+    if not isinstance(role, str) or not isinstance(content, str):
+        return None, None
+    return role, content
+
+
+def _continues_thread(text: str) -> bool:
+    """A question or a "one more" about the open problem, not small talk."""
+    from app.modules.chat.continuation_subject import is_new_problem_request, is_pure_continuation
+    from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
+
+    cleaned = collapse_ws(text)
+    if not cleaned or is_lightweight_chat_turn(cleaned):
+        return False
+    if is_pure_continuation(cleaned) or is_new_problem_request(cleaned):
+        return True
+    words = cleaned.casefold().split()
+    return cleaned.endswith("?") or (bool(words) and words[0].strip(",.") in _FOLLOW_UP_LEADS)
+
+
+def thread_problem(question: str, prior: Sequence[Any] | None) -> str | None:
+    """The subject problem this line follows up on, or None.
+
+    "Why do we divide distance by time?" names no subject itself, so the
+    follow-ups would stop after the first tapped "why". It still belongs to
+    the bike problem two lines back.
+    """
+    if subject_for_related(question) is not None:
+        return question
+    if not prior or not _continues_thread(question):
+        return None
+    users = 0
+    for message in reversed(prior):
+        role, content = _role_content(message)
+        if role != "user" or not content or not content.strip():
+            continue
+        users += 1
+        if users > _THREAD_USER_TURNS:
+            return None
+        if subject_for_related(content) is not None:
+            return content
     return None
 
 
@@ -176,7 +258,7 @@ def _prepare_question(candidate: str) -> str | None:
     return _MATH_SPAN.sub(_spaced, cleaned)
 
 
-def _keep_question(question: str, candidate: str) -> bool:
+def _keep_question(question: str, candidate: str, problem: str | None = None) -> bool:
     cleaned = collapse_ws(candidate)
     if not cleaned:
         return False
@@ -192,6 +274,10 @@ def _keep_question(question: str, candidate: str) -> bool:
     # still says force or object. A numberless question may ask the
     # neighboring idea, so this check stays off there.
     anchors = _problem_anchors(question)
+    if problem is not None and problem != question:
+        if _folded_question(cleaned) == _folded_question(problem):
+            return False
+        anchors |= _problem_anchors(problem)
     if anchors and not _mentions_anchor(cleaned, anchors):
         return False
     return True
@@ -210,12 +296,12 @@ def _mentions_anchor(follow_up: str, anchors: set[str]) -> bool:
     return any(re.search(rf"\b{re.escape(anchor)}\b", folded) for anchor in anchors)
 
 
-def _accepted_questions(question: str, raw: list[str]) -> list[str]:
+def _accepted_questions(question: str, raw: list[str], problem: str | None = None) -> list[str]:
     kept: list[str] = []
     seen: set[str] = set()
     for item in raw:
         prepared = _prepare_question(item)
-        if prepared is None or not _keep_question(question, prepared):
+        if prepared is None or not _keep_question(question, prepared, problem):
             continue
         key = prepared.casefold()
         if key in seen:
@@ -237,21 +323,23 @@ async def generate_related_questions(
     settings: Settings,
     question: str,
     answer: str,
+    prior: Sequence[Any] | None = None,
 ) -> list[str]:
     """Three follow-up questions, or none when this line is not a subject."""
-    if subject_for_related(question) is None:
+    problem = thread_problem(question, prior)
+    if problem is None:
         return []
     excerpt = _answer_excerpt(answer)
     if not excerpt:
         return []
+    lines = []
+    if problem != question:
+        lines.append(f"Problem:\n{collapse_ws(problem)[:_QUESTION_CHARS]}")
+    lines.append(f"Student question:\n{collapse_ws(question)[:_QUESTION_CHARS]}")
+    lines.append(f"Reply:\n{excerpt}")
     messages = [
         {"role": "system", "content": _SYSTEM},
-        {
-            "role": "user",
-            "content": (
-                f"Student question:\n{collapse_ws(question)[:_QUESTION_CHARS]}\n\nReply:\n{excerpt}"
-            ),
-        },
+        {"role": "user", "content": "\n\n".join(lines)},
     ]
     try:
         parsed = await asyncio.wait_for(
@@ -274,7 +362,7 @@ async def generate_related_questions(
         return []
     if parsed is None:
         return []
-    return _accepted_questions(question, parsed.questions)
+    return _accepted_questions(question, parsed.questions, problem)
 
 
 def _cache_key(message_id: str) -> str:
@@ -315,8 +403,9 @@ async def _related_prompts_event(
     message_id: str,
     question: str,
     answer: str,
+    prior: Sequence[Any] | None = None,
 ) -> dict[str, Any] | None:
-    prompts = await generate_related_questions(settings, question, answer)
+    prompts = await generate_related_questions(settings, question, answer, prior)
     if not prompts:
         return None
     try:
@@ -334,11 +423,15 @@ def schedule_related_prompts(
     message_id: str,
     question: str,
     answer: str,
+    prior: Sequence[Any] | None = None,
 ) -> None:
-    """Start the model call without waiting. The transport sends the event after done."""
+    """Start the model call without waiting. The transport sends the event after done.
+
+    ``prior`` is the turn's recent window, which ties a "why?" to its problem.
+    """
     if result is not None and result.get("completion") not in (None, "complete"):
         return
-    if subject_for_related(question) is None or not collapse_ws(answer):
+    if thread_problem(question, prior) is None or not collapse_ws(answer):
         return
     task = create_background_task(
         _related_prompts_event(
@@ -347,6 +440,7 @@ def schedule_related_prompts(
             message_id=message_id,
             question=question,
             answer=answer,
+            prior=prior,
         ),
         name="related_prompts",
     )

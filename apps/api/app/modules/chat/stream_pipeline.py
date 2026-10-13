@@ -496,6 +496,21 @@ def log_background_task_failure(task: asyncio.Task[Any], message: str) -> None:
         logger.exception(message, exc_info=exc)
 
 
+def _prior_window(prompt_messages: Any) -> list[Any]:
+    """The recent window before this turn's own user line.
+
+    Tool and web results can follow that line, so the cut is at the last user
+    message, not the last message.
+    """
+    if not isinstance(prompt_messages, list):
+        return []
+    for index in range(len(prompt_messages) - 1, -1, -1):
+        message = prompt_messages[index]
+        if isinstance(message, dict) and message.get("role") == "user":
+            return prompt_messages[:index]
+    return []
+
+
 async def register_and_enqueue_finalize(
     seams: Any,
     redis: Redis,
@@ -526,6 +541,7 @@ async def register_and_enqueue_finalize(
             message_id=str(ctx.assistant_message_id),
             question=ctx.user_message_content or "",
             answer=assistant_text,
+            prior=_prior_window(ctx.prompt_messages),
         )
     await seams.mark_pending_finalize(redis, ctx.chat_id)
     finalize_db_task = seams.create_background_task(
