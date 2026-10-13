@@ -167,10 +167,12 @@ layout (`WORKOUT_PROMPT_RULE`).
   the student typed it, or the stated values), **Find** (what is asked), **Formula** (the law
   or rule, its name after the dash), **Substitution** (values put into that formula) or
   **Steps** (an equation changed one move at a time), **Answer** (the chip).
-- **One state per line; the move is a short note after it** (`$2x = 8$ — subtract 3 from both
-  sides`). There are no numbered bold steps and no "Simplify" rows. A both-sides move
-  (`2x + 3 − 3 = 11 − 3`) is shown as the state it reaches, unless the learner asked why. Then
-  the intermediate line and the reason are kept.
+- **Equation lessons number each move.** The heading is the instruction, then the equation
+  with that move written on both sides, then the simplified equation, each on its own line.
+  `4x + 4 = 0` is `**1. Subtract 4 from both sides**`, `$4x + 4 - 4 = 0 - 4$`, `$4x = -4$`,
+  then the same for dividing by 4, ending at `$x = -1$`. A `Simplify` row is that second
+  line, not its own number. Physics, chemistry, and geometry keep one state per line with
+  the move as a short note (`$2x = 8$ — subtract 3 from both sides`).
 - **Given is what was typed.** `3(x−2)+4 = 2x+5` stays as written, and the expansion is its own
   line (`$3x − 2 = 2x + 5$ — expand`). `log₂` is written as `log₂`, not as a change of base.
 - **Rules come from the verified trace.** The product, quotient, chain and power rules,
@@ -186,11 +188,15 @@ layout (`WORKOUT_PROMPT_RULE`).
 $2x + 3 = 11$
 
 **Find**
-$x$
+$x = ?$
 
-**Steps**
-$2x = 8$ — subtract 3 from both sides
-$x = 4$ — divide both sides by 2
+**1. Subtract 3 from both sides**
+$2x + 3 - 3 = 11 - 3$
+$2x = 8$
+
+**2. Divide both sides by 2**
+$2x/2 = 8/2$
+$x = 4$
 
 **Answer**
 [ x = 4 ]

@@ -66,21 +66,41 @@ def test_seven_times_eight_is_a_bare_chip() -> None:
         assert "Given" not in reply
 
 
+def test_linear_lesson_shows_each_move_on_both_sides() -> None:
+    """4x + 4 = 0 keeps the operation, the both-sides line, and the result."""
+    reply = maybe_direct_math_reply(_block("4x+4=0"), "4x+4=0", response_style="balanced")
+
+    assert reply is not None
+    before, _, _ = reply.partition("```answer")
+    assert "$x = ?$" in before
+    assert "**1. Subtract 4 from both sides**" in before
+    assert "$4 x + 4 - 4 = 0 - 4$" in before
+    assert "$4 x = -4$" in before
+    assert "**2. Divide both sides by 4**" in before
+    assert r"\frac{4 x}{4}" in before
+    assert r"\frac{-4}{4}" in before
+    assert "$x = -1$" in before
+    assert "**Steps**" not in before
+    assert "Simplify" not in before
+    assert before.index("Subtract 4") < before.index("4 x = -4")
+    assert before.index("4 x = -4") < before.index("Divide both sides by 4")
+    assert before.index("Divide both sides by 4") < before.index("$x = -1$")
+    assert reply.strip().endswith("```")
+
+
 def test_show_steps_linear_lesson_overrides_short() -> None:
     text = "Show steps: 2x + 3 = 11"
     reply = maybe_direct_math_reply(_block(text), text, response_style="short")
 
     assert reply is not None
     assert "**Given**" in reply
-    assert "subtract 3 from both sides" in reply
-    assert "divide both sides by 2" in reply
-    assert reply.index("subtract") < reply.index("divide")
+    assert "**1. Subtract 3 from both sides**" in reply
+    assert "$2 x + 3 - 3 = 11 - 3$" in reply
+    assert "$2 x = 8$" in reply
+    assert "**2. Divide both sides by 2**" in reply
+    assert reply.index("Subtract") < reply.index("Divide")
     assert "```answer" in reply
     assert "x = 4" in reply
-    # One state per line, the move as its note; no numbered list, chip last.
-    subtract_line = next(line for line in reply.splitlines() if "subtract 3" in line)
-    assert subtract_line.startswith("$2 x = 8$ — ")
-    assert not any(line[:1].isdigit() and line[1:3] == ". " for line in reply.splitlines())
     assert reply.strip().endswith("```")
 
 
@@ -111,7 +131,8 @@ def test_one_op_linear_still_shows_its_verified_working() -> None:
 
     assert reply is not None
     assert "**Given**" in reply
-    assert "subtract 7 from both sides" in reply
+    assert "**1. Subtract 7 from both sides**" in reply
+    assert "$x + 7 - 7 = 12 - 7$" in reply
     assert "x = 5" in reply
 
 
@@ -120,15 +141,15 @@ def test_balanced_two_op_linear_is_a_lesson() -> None:
     reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
 
     assert reply is not None
-    assert "subtract 7 from both sides" in reply
-    assert "divide both sides by 2" in reply
-    assert reply.index("subtract") < reply.index("divide")
+    assert "**1. Subtract 7 from both sides**" in reply
+    assert "**2. Divide both sides by 2**" in reply
+    assert reply.index("Subtract") < reply.index("Divide")
     assert "```answer" in reply
     assert "x = 6" in reply
     # The last move ends on the solved line, which the chip then states once.
     before_chip, _, _after = reply.partition("```answer")
     assert before_chip.count("x = 6") == 1
-    assert "$x = 6$ — divide both sides by 2" in before_chip
+    assert r"\frac{2 x}{2} = \frac{12}{2}" in before_chip
 
 
 def test_detailed_pure_power_takes_the_square_root() -> None:
@@ -140,16 +161,16 @@ def test_detailed_pure_power_takes_the_square_root() -> None:
     lines = reply.splitlines()
     given_line = lines[lines.index("**Given**  ") + 1]
     assert given_line.startswith("$")
-    assert "square root" in reply
+    assert "Square root" in reply
     assert r"\sqrt{4}" in reply
-    assert "simplify" in reply
+    assert r"x = \pm 2" in reply
     before, _, _ = reply.partition("```answer")
     assert before.index(r"x = \pm \sqrt{4}") < before.index(r"x = \pm 2")
     assert r"\sqrt{x" not in reply
     assert "lvert" not in reply
     assert "```answer" in reply
     assert r"\pm 2" in reply
-    assert "— check" in reply
+    assert "**3. Check**" in reply
 
 
 def test_rational_equation_clears_the_denominator_and_finishes_at_the_chip() -> None:
@@ -158,7 +179,7 @@ def test_rational_equation_clears_the_denominator_and_finishes_at_the_chip() -> 
     reply = maybe_direct_math_reply(block, text, response_style="balanced")
 
     assert reply is not None
-    assert "multiply both sides by $x - 1$" in reply
+    assert "Multiply both sides by $x - 1$" in reply
     assert r"3 \left(x - 1\right)" in reply
     assert r"x \ne 1" in reply
     assert block.key_steps[-1].formula == block.canonical_answer == "x = 2"
@@ -183,7 +204,7 @@ def test_absolute_value_equation_gets_a_complete_lesson() -> None:
     reply = maybe_direct_math_reply(block, text, response_style="balanced")
 
     assert reply is not None
-    assert "split the absolute-value equation" in reply
+    assert "Split the absolute-value equation" in reply
     assert r"x - 2 = 5 \quad\text{or}\quad x - 2 = -5" in reply
     assert block.key_steps[-1].formula == block.canonical_answer == r"x = -3 \text{ or } x = 7"
 
@@ -261,7 +282,7 @@ def test_balanced_factorable_quadratic_is_a_factor_trace() -> None:
     reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
 
     assert reply is not None
-    assert "factor the left side" in reply
+    assert "Factor the left side" in reply
     assert "Factors as" not in reply
     assert "x - 2" in reply and "x - 3" in reply
     assert "```answer" in reply
@@ -280,7 +301,7 @@ def test_short_style_keeps_verified_equation_working() -> None:
     reply = maybe_direct_math_reply(_block(text), text, response_style="short")
 
     assert reply is not None
-    assert "factor the left side" in reply
+    assert "Factor the left side" in reply
     assert "Factors as" not in reply
     assert reply.startswith("**Given**")
     assert "```answer" in reply
@@ -292,8 +313,8 @@ def test_bare_how_uses_the_verified_trace_and_explains_each_transformation() -> 
 
     assert reply is not None
     assert "**Given**" in reply
-    assert "subtract 3 from both sides" in reply
-    assert "square root" in reply
+    assert "Subtract 3 from both sides" in reply
+    assert "Square root" in reply
     assert "—" in reply.split("```answer")[0]
     assert block.canonical_answer in reply
 
@@ -332,18 +353,20 @@ def test_default_style_is_balanced() -> None:
     )
 
 
-def test_linear_lesson_is_one_state_per_move() -> None:
-    """Each line is the equation after a move, with the move as its note."""
+def test_linear_lesson_numbers_the_move_and_its_result() -> None:
+    """Each move keeps the both-sides line and the simplified equation."""
     text = "3x - 3 = 0"
     reply = maybe_direct_math_reply(_block(text), text, response_style="balanced")
 
     assert reply is not None
     before_chip, _, _ = reply.partition("```answer")
-    assert "$3 x = 3$ — add 3 to both sides" in before_chip
-    assert "$x = 1$ — divide both sides by 3" in before_chip
-    assert before_chip.index("divide both sides by 3") < before_chip.index("**Answer**")
-    # The both-sides intermediate, the cancel marks, the reasons, and the
-    # "Simplify" rows are the long form; a plain lesson shows the states.
+    assert "**1. Add 3 to both sides**" in before_chip
+    assert "$3 x - 3 + 3 = 0 + 3$" in before_chip
+    assert "$3 x = 3$" in before_chip
+    assert "**2. Divide both sides by 3**" in before_chip
+    assert r"\frac{3 x}{3} = \frac{3}{3}" in before_chip
+    assert "$x = 1$" in before_chip
+    assert before_chip.index("Divide both sides by 3") < before_chip.index("**Answer**")
     assert r"\cancel" not in before_chip
     assert "Simplify" not in before_chip
     assert "cancels" not in before_chip
@@ -357,7 +380,7 @@ def test_detailed_linear_keeps_the_why_sentence() -> None:
     reply = maybe_direct_math_reply(_block(text), text, response_style="detailed")
 
     assert reply is not None
-    assert "add 3 to both sides" in reply
+    assert "Add 3 to both sides" in reply
     assert "—" in reply.split("```answer")[0]
     assert r"\cancel{3}" in reply
 
