@@ -61,7 +61,7 @@
     "react-dom": "19.2.3",
     "react-i18next": "^17.0.16",
     "react-native": "0.86.0",
-    "react-native-gesture-handler": "~2.32.0",
+    "react-native-gesture-handler": "~3.3.0",
     "react-native-markdown-display": "^7.0.2",
     "react-native-nitro-image": "0.15.2",
     "react-native-nitro-modules": "0.37.0",
