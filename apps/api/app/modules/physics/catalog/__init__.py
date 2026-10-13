@@ -9,36 +9,36 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
+from app.modules.physics.catalog.astrophysics import SPECS as ASTROPHYSICS
 from app.modules.physics.catalog.buoyancy import SPECS as BUOYANCY
 from app.modules.physics.catalog.capacitors import SPECS as CAPACITORS
 from app.modules.physics.catalog.circuit import SPECS as CIRCUIT
 from app.modules.physics.catalog.circular import SPECS as CIRCULAR
-from app.modules.physics.catalog.closed_forms import SPECS as CLOSED_FORMS
+from app.modules.physics.catalog.condensed_matter import SPECS as CONDENSED_MATTER
 from app.modules.physics.catalog.electric_field import SPECS as ELECTRIC_FIELD
 from app.modules.physics.catalog.energy import SPECS as ENERGY
 from app.modules.physics.catalog.fluids import SPECS as FLUIDS
 from app.modules.physics.catalog.force import SPECS as FORCE
 from app.modules.physics.catalog.friction import SPECS as FRICTION
-from app.modules.physics.catalog.further import SPECS as FURTHER
 from app.modules.physics.catalog.gas_laws import SPECS as GAS_LAWS
 from app.modules.physics.catalog.gravitation import SPECS as GRAVITATION
 from app.modules.physics.catalog.heat import SPECS as HEAT
 from app.modules.physics.catalog.inductance_ac import SPECS as INDUCTANCE_AC
 from app.modules.physics.catalog.kinematics import SPECS as KINEMATICS
-from app.modules.physics.catalog.later_forms import SPECS as LATER_FORMS
+from app.modules.physics.catalog.machines import SPECS as MACHINES
 from app.modules.physics.catalog.magnetism import SPECS as MAGNETISM
 from app.modules.physics.catalog.materials import SPECS as MATERIALS
 from app.modules.physics.catalog.modern import SPECS as MODERN
 from app.modules.physics.catalog.momentum import SPECS as MOMENTUM
 from app.modules.physics.catalog.nuclear import SPECS as NUCLEAR
-from app.modules.physics.catalog.one_step import SPECS as ONE_STEP
 from app.modules.physics.catalog.optics import SPECS as OPTICS
+from app.modules.physics.catalog.particles import SPECS as PARTICLES
+from app.modules.physics.catalog.plasma import SPECS as PLASMA
 from app.modules.physics.catalog.projectile import SPECS as PROJECTILE
 from app.modules.physics.catalog.quantum import SPECS as QUANTUM
 from app.modules.physics.catalog.relativity import SPECS as RELATIVITY
 from app.modules.physics.catalog.rotation import SPECS as ROTATION
 from app.modules.physics.catalog.spring import SPECS as SPRING
-from app.modules.physics.catalog.stated_forms import SPECS as STATED_FORMS
 from app.modules.physics.catalog.suvat import SPECS as SUVAT
 from app.modules.physics.catalog.thermal import SPECS as THERMAL
 from app.modules.physics.catalog.torque import SPECS as TORQUE
@@ -83,6 +83,7 @@ CATALOG: dict[str, FormulaSpec] = _register(
     SUVAT,
     FORCE,
     ENERGY,
+    MACHINES,
     MOMENTUM,
     FRICTION,
     CIRCULAR,
@@ -102,17 +103,15 @@ CATALOG: dict[str, FormulaSpec] = _register(
     BUOYANCY,
     MAGNETISM,
     ELECTRIC_FIELD,
+    PLASMA,
     MATERIALS,
     MODERN,
-    NUCLEAR,
-    ONE_STEP,
-    FURTHER,
-    # Batch files, not topics. Move each law back into its topic module later.
-    CLOSED_FORMS,
-    LATER_FORMS,
-    STATED_FORMS,
     QUANTUM,
     RELATIVITY,
+    NUCLEAR,
+    PARTICLES,
+    CONDENSED_MATTER,
+    ASTROPHYSICS,
 )
 
 

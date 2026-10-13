@@ -253,4 +253,37 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    formula(
+        "newton_cooling",
+        "thermal",
+        "Newton's law of cooling",
+        "T",
+        base_latex=r"T = T_e + (T_0 - T_e)e^{-t/\tau}",
+        expression="temp_env + (temp - temp_env)*exp(-t/cool_time)",
+        variables=(
+            var(
+                "temp",
+                "T_0",
+                "kelvin",
+                words=("starts", "initial", "object"),
+                needs_words=True,
+            ),
+            var(
+                "temp_env",
+                "T_e",
+                "kelvin",
+                words=("room", "ambient", "surrounding", "environment", "outside"),
+                needs_words=True,
+            ),
+            var("t", "t", "second", words=("after", "later"), needs_words=True),
+            var("cool_time", r"\tau", "second", words=("time constant",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("temperature",),
+            result=("kelvin",),
+            inputs=(frozenset({"cool_time", "t", "temp", "temp_env"}),),
+            cues=("law of cooling",),
+            nonnegative=True,
+        ),
+    ),
 )

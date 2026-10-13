@@ -7,6 +7,9 @@ from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, v
 _CHARGE = var("Q", "Q", "coulomb")
 _CAPACITANCE = var("capacitance", "C", "farad")
 
+_VOLTAGE = var("V", "V", "volt")
+
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "capacitance",
@@ -168,6 +171,115 @@ SPECS: tuple[FormulaSpec, ...] = (
             "t",
             "v_supply",
             cues=("discharg",),
+        ),
+    ),
+    formula(
+        "dielectric_parallel_plate",
+        "circuit",
+        "Parallel-plate capacitance with a dielectric",
+        "C",
+        base_latex=r"C = \frac{\kappa\varepsilon_0 A}{d}",
+        assumptions=("a linear dielectric filling the gap",),
+        expression="dielectric_constant*epsilon_0*area/d",
+        variables=(
+            var(
+                "dielectric_constant",
+                r"\kappa",
+                dimensionless=True,
+                words=("dielectric", "kappa"),
+                needs_words=True,
+            ),
+            var("area", "A", "meter ** 2", words=("area",), needs_words=True),
+            var(
+                "d",
+                "d",
+                "meter",
+                words=("separation", "spacing", "apart"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("capacitance",),
+            result=("farad",),
+            inputs=(frozenset({"area", "d", "dielectric_constant"}),),
+            cues=("parallel plate", "parallel-plate"),
+            excludes=("vacuum",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "coaxial_capacitance",
+        "circuit",
+        "Coaxial capacitance",
+        "C",
+        base_latex=r"C = \frac{2\pi\varepsilon_0 L}{\ln(b/a)}",
+        assumptions=("vacuum between the conductors",),
+        expression="2*pi*epsilon_0*cable_length/log(outer_radius/inner_radius)",
+        variables=(
+            var("cable_length", "L", "meter", words=("long", "length"), needs_words=True),
+            var("inner_radius", "a", "meter", words=("inner",), needs_words=True),
+            var("outer_radius", "b", "meter", words=("outer",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("capacitance",),
+            result=("farad",),
+            inputs=(frozenset({"cable_length", "inner_radius", "outer_radius"}),),
+            cues=("coaxial",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "spherical_capacitance",
+        "circuit",
+        "Spherical capacitor",
+        "C",
+        base_latex=r"C = 4\pi\varepsilon_0\frac{ab}{b-a}",
+        assumptions=("vacuum between concentric spheres",),
+        expression="4*pi*epsilon_0*inner_radius*outer_radius/(outer_radius-inner_radius)",
+        variables=(
+            var("inner_radius", "a", "meter", words=("inner",), needs_words=True),
+            var("outer_radius", "b", "meter", words=("outer",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("capacitance",),
+            result=("farad",),
+            inputs=(frozenset({"inner_radius", "outer_radius"}),),
+            cues=("spherical capacitor",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "capacitor_energy_charge",
+        "circuit",
+        "Capacitor energy",
+        "U",
+        base_latex=r"U = \frac{Q^2}{2C}",
+        expression="Q**2/(2*capacitance)",
+        variables=(_CHARGE, _CAPACITANCE),
+        binding=Binding(
+            asks=("stored energy", "energy"),
+            result=("joule",),
+            inputs=(frozenset({"Q", "capacitance"}),),
+            cues=("capacitor",),
+            excludes=("voltage", "volt"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "capacitor_energy_charge_voltage",
+        "circuit",
+        "Capacitor energy",
+        "U",
+        base_latex=r"U = \frac{1}{2}QV",
+        expression="Q*V/2",
+        variables=(_CHARGE, _VOLTAGE),
+        binding=Binding(
+            asks=("stored energy", "energy"),
+            result=("joule",),
+            inputs=(frozenset({"Q", "V"}),),
+            cues=("capacitor",),
+            excludes=("capacitance", "farad"),
+            nonnegative=True,
         ),
     ),
 )

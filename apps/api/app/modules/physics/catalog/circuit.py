@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import FormulaSpec, bind, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -176,6 +176,34 @@ SPECS: tuple[FormulaSpec, ...] = (
             "turns_secondary",
             "v_primary",
             cues=("transformer",),
+        ),
+    ),
+    formula(
+        "drift_speed",
+        "circuit",
+        "Drift speed",
+        "v_d",
+        base_latex=r"v_d = \frac{I}{n e A}",
+        assumptions=("one carrier density",),
+        expression="I/(number_density*e_charge*area)",
+        variables=(
+            var("I", "I", "ampere"),
+            var(
+                "number_density",
+                "n",
+                "1 / meter ** 3",
+                words=("density", "number density", "carrier"),
+                needs_words=True,
+            ),
+            var("area", "A", "meter ** 2", words=("area",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("drift speed", "drift velocity"),
+            result=("meter / second",),
+            inputs=(frozenset({"I", "area", "number_density"}),),
+            cues=("drift",),
+            excludes=("hall",),
+            nonnegative=True,
         ),
     ),
 )

@@ -2,7 +2,10 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import FormulaSpec, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
+
+_G = var("g", "g", "meter / second ** 2", fallback="gravity")
+
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -100,6 +103,24 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("g", "g", "meter / second ** 2"),
             var("r", "r", "meter"),
+        ),
+    ),
+    formula(
+        "loop_entry_speed",
+        "circular",
+        "Speed to complete a vertical loop",
+        "v",
+        base_latex=r"v = \sqrt{5gr}",
+        assumptions=("the track is entered at the bottom", "the car just keeps contact at the top"),
+        expression="sqrt(5*g*r)",
+        variables=(var("r", "r", "meter"), _G),
+        binding=Binding(
+            asks=("speed", "minimum speed", "velocity"),
+            result=("meter / second",),
+            inputs=(frozenset({"g", "r"}),),
+            cues=("just completes", "just complete"),
+            excludes=("at the top",),
+            nonnegative=True,
         ),
     ),
 )

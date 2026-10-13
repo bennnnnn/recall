@@ -2,13 +2,75 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, var
+from app.services.law_binding.spec import (
+    Binding,
+    FormulaSpec,
+    FormulaVariant,
+    VariableSpec,
+    bind,
+    formula,
+    var,
+)
 
 _GAS = ("gas",)
 # A temperature change is named: "heated by 50 K". A lone "at 20 °C" is a
 # temperature, and reading it as the change would answer another question.
 _RISE = ("by", "rise", "change", "increase", "raised", "heated", "cooled", "difference")
 _DELTA_TEMP = var("delta_temp", r"\Delta T", "kelvin", words=_RISE, needs_words=True)
+
+_ALPHA = var(
+    "alpha",
+    r"\alpha",
+    "1 / kelvin",
+    words=("linear expansivity", "linear expansion", "coefficient of linear"),
+    needs_words=True,
+)
+
+_MOLECULES = ("molecules", "particles")
+
+_N = var(
+    "molecule_count",
+    "N",
+    dimensionless=True,
+    words=("molecules", "particles", "molecule"),
+    needs_words=True,
+)
+
+_TEMP = var("temp", "T", "kelvin")
+
+_VOLUME = var("volume", "V", "meter ** 3")
+
+_PRESSURE = var("pres", "P", "pascal")
+
+
+def _molecule_gas(
+    operation: str,
+    symbol: str,
+    expression: str,
+    asks: tuple[str, ...],
+    result: str,
+    variables: tuple[VariableSpec, ...],
+    inputs: frozenset[str],
+) -> FormulaSpec:
+    return formula(
+        operation,
+        "thermal",
+        "Ideal-gas law",
+        symbol,
+        base_latex=r"PV = N k_B T",
+        assumptions=("an ideal gas",),
+        expression=expression,
+        variables=variables,
+        binding=Binding(
+            asks=asks,
+            result=(result,),
+            inputs=(inputs,),
+            cues=_MOLECULES,
+            excludes=("particle in a box", "infinite box"),
+            nonnegative=True,
+        ),
+    )
+
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -272,6 +334,267 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"L", "area", "delta_temp", "thermal_conductivity"}),),
             cues=("conduct", "conduction", "thermal conductivity"),
             nonnegative=True,
+        ),
+    ),
+    formula(
+        "adiabatic_temperature",
+        "thermal",
+        "Adiabatic temperature-volume relation",
+        "T_2",
+        base_latex=r"T_1 V_1^{\gamma-1} = T_2 V_2^{\gamma-1}",
+        assumptions=("a reversible adiabatic process with gamma stated",),
+        expression="temp_initial*(vol1/vol2)**(gamma_gas-1)",
+        variables=(
+            var("gamma_gas", r"\gamma", dimensionless=True, words=("gamma",), needs_words=True),
+            var("temp_initial", "T_1", "kelvin", words=("initial",), needs_words=True),
+            var("vol1", "V_1", "meter ** 3", words=("initial",), needs_words=True),
+            var("vol2", "V_2", "meter ** 3", words=("final",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("final temperature", "temperature"),
+            result=("kelvin",),
+            inputs=(frozenset({"gamma_gas", "temp_initial", "vol1", "vol2"}),),
+            cues=("adiabatic",),
+            excludes=("pressure",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "mayer_cp",
+        "thermal",
+        "Mayer's relation",
+        "C_p",
+        base_latex=r"C_p - C_v = R",
+        assumptions=("an ideal gas, molar heat capacities",),
+        expression="cv_molar+R_gas",
+        variables=(
+            var(
+                "cv_molar",
+                "C_v",
+                "joule / mole / kelvin",
+                words=("cv", "constant volume"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("molar heat capacity at constant pressure", "cp"),
+            result=("joule / mole / kelvin",),
+            inputs=(frozenset({"cv_molar"}),),
+            cues=("mayer",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "mayer_cv",
+        "thermal",
+        "Mayer's relation",
+        "C_v",
+        base_latex=r"C_p - C_v = R",
+        assumptions=("an ideal gas, molar heat capacities",),
+        expression="cp_molar-R_gas",
+        variables=(
+            var(
+                "cp_molar",
+                "C_p",
+                "joule / mole / kelvin",
+                words=("cp", "constant pressure"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("molar heat capacity at constant volume",),
+            result=("joule / mole / kelvin",),
+            inputs=(frozenset({"cp_molar"}),),
+            cues=("mayer",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "area_expansion",
+        "thermal",
+        "Area thermal expansion",
+        r"\Delta A",
+        base_latex=r"\Delta A = 2\alpha A_0\Delta T",
+        assumptions=("the linear expansivity is the same in both directions",),
+        expression="2*alpha*area0*delta_temp",
+        variables=(
+            var("area0", "A_0", "meter ** 2", words=("area",), needs_words=True),
+            _ALPHA,
+            _DELTA_TEMP,
+        ),
+        binding=Binding(
+            asks=("change in area", "increase in area", "area expansion"),
+            result=("meter ** 2",),
+            inputs=(frozenset({"alpha", "area0", "delta_temp"}),),
+            cues=("area",),
+            excludes=("volume",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "volume_expansion",
+        "thermal",
+        "Volume thermal expansion",
+        r"\Delta V",
+        base_latex=r"\Delta V = \beta V_0\Delta T",
+        expression="beta*volume0*delta_temp",
+        variables=(
+            var("volume0", "V_0", "meter ** 3", words=("volume",), needs_words=True),
+            var(
+                "beta",
+                r"\beta",
+                "1 / kelvin",
+                words=("volume expansivity", "cubical expansivity", "volume expansion"),
+                needs_words=True,
+            ),
+            _ALPHA,
+            _DELTA_TEMP,
+        ),
+        variants=(
+            FormulaVariant(
+                present=frozenset({"alpha"}),
+                absent=frozenset({"beta"}),
+                latex=r"\Delta V = 3\alpha V_0\Delta T",
+                expression="3*alpha*volume0*delta_temp",
+                assumptions=("the volume expansivity is three times the linear one",),
+            ),
+        ),
+        binding=Binding(
+            asks=("change in volume", "increase in volume", "volume expansion"),
+            result=("meter ** 3",),
+            inputs=(
+                frozenset({"beta", "delta_temp", "volume0"}),
+                frozenset({"alpha", "delta_temp", "volume0"}),
+            ),
+            cues=("volume",),
+            excludes=("area",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "isothermal_work",
+        "thermal",
+        "Isothermal work of an ideal gas",
+        "W",
+        base_latex=r"W = nRT\ln\frac{V_2}{V_1}",
+        assumptions=("the temperature is constant", "the gas is ideal"),
+        expression="moles*R_gas*temp*log(vol_final/vol_initial)",
+        variables=(
+            var("moles", "n", "mole"),
+            var("temp", "T", "kelvin", words=("at",), needs_words=True),
+            var("vol_initial", "V_1", "meter ** 3", words=("from",), needs_words=True),
+            var("vol_final", "V_2", "meter ** 3", words=("to",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("work", "work done"),
+            result=("joule",),
+            inputs=(frozenset({"moles", "temp", "vol_final", "vol_initial"}),),
+            cues=("isothermal", "isothermally"),
+            negative_detail="done on the gas",
+        ),
+    ),
+    formula(
+        "mean_free_path",
+        "thermal",
+        "Mean free path",
+        r"\lambda",
+        base_latex=r"\lambda = \frac{1}{\sqrt{2}\pi d^2 n}",
+        assumptions=("the molecules are hard spheres",),
+        expression="1/(sqrt(2)*pi*diameter**2*number_density)",
+        variables=(
+            var("diameter", "d", "meter", words=("diameter",), needs_words=True),
+            var("number_density", "n", "1 / meter ** 3", words=("density",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("mean free path",),
+            result=("meter",),
+            inputs=(frozenset({"diameter", "number_density"}),),
+            cues=("mean free path",),
+            nonnegative=True,
+        ),
+    ),
+    _molecule_gas(
+        "molecule_gas_pressure",
+        "P",
+        "molecule_count*k_B*temp/volume",
+        ("pressure",),
+        "pascal",
+        (_N, _TEMP, _VOLUME),
+        frozenset({"molecule_count", "temp", "volume"}),
+    ),
+    _molecule_gas(
+        "molecule_gas_volume",
+        "V",
+        "molecule_count*k_B*temp/pres",
+        ("volume",),
+        "meter ** 3",
+        (_N, _TEMP, _PRESSURE),
+        frozenset({"molecule_count", "pres", "temp"}),
+    ),
+    _molecule_gas(
+        "molecule_gas_count",
+        "N",
+        "pres*volume/(k_B*temp)",
+        ("number of molecules", "number of particles", "how many molecules", "how many particles"),
+        "dimensionless",
+        (_PRESSURE, _VOLUME, _TEMP),
+        frozenset({"pres", "temp", "volume"}),
+    ),
+    _molecule_gas(
+        "molecule_gas_temperature",
+        "T",
+        "pres*volume/(molecule_count*k_B)",
+        ("temperature",),
+        "kelvin",
+        (_N, _PRESSURE, _VOLUME),
+        frozenset({"molecule_count", "pres", "volume"}),
+    ),
+    formula(
+        "ideal_gas_density",
+        "thermal",
+        "Ideal-gas density",
+        r"\rho",
+        base_latex=r"\rho = \frac{PM}{RT}",
+        assumptions=("an ideal gas",),
+        expression="pres*molar_mass/(R_gas*temp)",
+        variables=(
+            _PRESSURE,
+            var("molar_mass", "M", "kilogram / mole", words=("molar",), needs_words=True),
+            _TEMP,
+        ),
+        binding=Binding(
+            asks=("density",),
+            result=("kilogram / meter ** 3",),
+            inputs=(frozenset({"molar_mass", "pres", "temp"}),),
+            cues=("molar mass",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "otto_efficiency",
+        "thermal",
+        "Otto-cycle efficiency",
+        r"\eta",
+        base_latex=r"\eta = 1 - r^{1-\gamma}",
+        expression="1 - compression_ratio**(1 - gamma)",
+        variables=(
+            var(
+                "compression_ratio",
+                "r",
+                dimensionless=True,
+                words=("compression ratio", "compression"),
+                needs_words=True,
+            ),
+            var("gamma", r"\gamma", dimensionless=True, words=("gamma",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("efficiency",),
+            result=("dimensionless",),
+            inputs=(frozenset({"compression_ratio", "gamma"}),),
+            cues=("otto",),
+            excludes=("diesel", "carnot"),
+            nonnegative=True,
+            at_most=1.0,
         ),
     ),
 )

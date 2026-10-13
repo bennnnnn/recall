@@ -41,6 +41,39 @@ def _moving(
     )
 
 
+_BOOST = "sqrt(1 - v**2/c_light**2)"
+
+
+def _lorentz(
+    operation: str,
+    symbol: str,
+    base: str,
+    expression: str,
+    asks: tuple[str, ...],
+) -> FormulaSpec:
+    return formula(
+        operation,
+        "modern",
+        "Lorentz transformation",
+        symbol,
+        base_latex=base,
+        assumptions=("a boost along one axis",),
+        expression=expression,
+        variables=(
+            var("event_x", "x", "meter", words=("coordinate", "position"), needs_words=True),
+            var("t", "t", "second", words=("time",), needs_words=True),
+            var("v", "v", "meter / second"),
+        ),
+        binding=Binding(
+            asks=asks,
+            result=("meter" if operation.endswith("coordinate") else "second",),
+            inputs=(frozenset({"event_x", "t", "v"}),),
+            cues=("lorentz transformation",),
+            nonnegative=False,
+        ),
+    )
+
+
 SPECS: tuple[FormulaSpec, ...] = (
     _moving(
         "relativistic_momentum",
@@ -121,6 +154,68 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"M"}),),
             cues=("schwarzschild", "black hole", "event horizon"),
             nonnegative=True,
+        ),
+    ),
+    formula(
+        "gravitational_frequency_shift",
+        "gravitation",
+        "Gravitational frequency shift",
+        r"\frac{\Delta f}{f}",
+        base_latex=r"\frac{\Delta f}{f} = \frac{gh}{c^2}",
+        assumptions=("a weak uniform field",),
+        expression="g*h/c_light**2",
+        variables=(
+            var("g", "g", "meter / second ** 2"),
+            var("h", "h", "meter", words=("above", "height"), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("fractional frequency shift", "frequency shift"),
+            result=("dimensionless",),
+            inputs=(frozenset({"g", "h"}),),
+            cues=("gravitational",),
+            nonnegative=True,
+        ),
+    ),
+    _lorentz(
+        "lorentz_coordinate",
+        "x'",
+        r"x' = \gamma(x - vt)",
+        f"(event_x - v*t)/{_BOOST}",
+        ("transformed coordinate",),
+    ),
+    _lorentz(
+        "lorentz_time",
+        "t'",
+        r"t' = \gamma(t - vx/c^2)",
+        f"(t - v*event_x/c_light**2)/{_BOOST}",
+        ("transformed time",),
+    ),
+    formula(
+        "gravitational_time_factor",
+        "gravitation",
+        "Gravitational time dilation",
+        r"d\tau/dt",
+        base_latex=r"\frac{d\tau}{dt} = \sqrt{1-\frac{2GM}{rc^2}}",
+        assumptions=("the Schwarzschild factor, outside the horizon",),
+        expression="sqrt(1-2*G_grav*M/(radial_distance*c_light**2))",
+        variables=(
+            var("M", "M", "kilogram", fallback="body_mass"),
+            var(
+                "radial_distance",
+                "r",
+                "meter",
+                words=("distance", "radius"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("time-dilation factor", "dilation factor"),
+            result=("dimensionless",),
+            inputs=(frozenset({"M", "radial_distance"}),),
+            cues=("gravitational",),
+            excludes=("velocity", "speed of light"),
+            nonnegative=True,
+            at_most=1.0,
         ),
     ),
 )
