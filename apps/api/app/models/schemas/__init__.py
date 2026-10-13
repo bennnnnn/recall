@@ -52,6 +52,7 @@ from app.models.schemas.home import (
     SuggestionOut,
 )
 from app.models.schemas.integrations import (
+    ConversationReference,
     PushTokenIn,
     SpeechLiveStatusOut,
     SpeechTranscriptionIn,
@@ -123,6 +124,7 @@ __all__ = [
     "ChatMessageRequest",
     "ChatOut",
     "ChatRename",
+    "ConversationReference",
     "DevAuthRequest",
     "EmailDraftUpdate",
     "FeedbackUpdate",

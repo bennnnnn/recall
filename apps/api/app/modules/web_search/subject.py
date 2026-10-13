@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from app.modules.web_search.command import search_command
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _NEWS,
@@ -11,6 +12,8 @@ from app.modules.web_search.patterns import (
     asks_for_prior_subject,
     collapse_ws,
 )
+
+_MIN_QUERY_WORDS = 3
 
 
 def collect_prior_user_messages(
@@ -30,6 +33,12 @@ def last_assistant_content(prompt_messages: list[dict[str, str]]) -> str | None:
             text = str(msg.get("content") or "").strip()
             return text or None
     return None
+
+
+def _substantive(message: str) -> bool:
+    """A prior line that can stand as a query: not "Wrong", "ok", or another command."""
+    cleaned = collapse_ws(message)
+    return len(cleaned.split()) >= _MIN_QUERY_WORDS and not asks_for_prior_subject(cleaned)
 
 
 def _prior_searchable_topic(prior_user_messages: list[str] | None) -> str | None:
@@ -55,7 +64,15 @@ def resolve_search_subject(
     prior_user_messages: list[str] | None = None,
 ) -> str:
     cleaned = collapse_ws(user_content)
+    command = search_command(cleaned)
+    if command is not None and command.subject:
+        return command.subject
     if asks_for_prior_subject(cleaned) and prior_user_messages:
+        # Without the model's reading of the conversation, the last line that
+        # can stand alone. "Wrong" or "no" before "do a search" is not a query.
+        for msg in reversed(prior_user_messages):
+            if _substantive(msg):
+                return collapse_ws(msg)
         for msg in reversed(prior_user_messages):
             prior = collapse_ws(msg)
             if prior and not asks_for_prior_subject(prior):

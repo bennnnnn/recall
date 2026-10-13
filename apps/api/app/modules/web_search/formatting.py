@@ -56,7 +56,11 @@ WEB_SEARCH_HINT = (
     "Do NOT add a separate Sources section — the app renders source cards. "
     "Never role-play searching. "
     "If no **Web search results** block is in this prompt, do not claim you searched the "
-    "live web — answer from knowledge or say you don't have live results."
+    "live web — answer from knowledge or say you don't have live results. "
+    "Recall does search the web when the user asks: never say you can't browse, can't "
+    "search or have no internet access. If the user asked for a search and no results "
+    "came with this turn, say you couldn't find it this time and ask them to name the "
+    "person, place or thing in full, in one short sentence."
 )
 
 

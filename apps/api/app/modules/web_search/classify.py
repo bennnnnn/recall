@@ -19,6 +19,7 @@ async def classify_web_search_need(
     user_message: str,
     *,
     prior_user_messages: list[str] | None = None,
+    prior_assistant: str | None = None,
 ) -> WebSearchClassification | None:
     """Cheap structured gate for ambiguous turns — regex handles obvious cases."""
     budget = settings.web_search_classifier_timeout_seconds
@@ -46,6 +47,9 @@ async def classify_web_search_need(
             if stripped:
                 context_lines.append(f"- {stripped[:200]}")
     context_block = "\n".join(context_lines) if context_lines else "(none)"
+    # The reply names who "she" or "it" is, so the query can spell it out.
+    reply = " ".join((prior_assistant or "").split())[:300]
+    reply_block = f"\n\nAssistant's last reply:\n{reply}" if reply else ""
 
     messages = [
         {
@@ -55,7 +59,8 @@ async def classify_web_search_need(
                 "before answering. Return ONLY JSON: "
                 '{"needs_search": true|false, "query": "optional concise search query"}.\n\n'
                 "When needs_search is true, set query to a short web search string "
-                "(5-12 words) that would find the answer — not the user's full message.\n\n"
+                "(5-12 words) that would find the answer — not the user's full message. "
+                "Spell out who or what 'she', 'it' or 'that' means from the context.\n\n"
                 "Search YES for: current events, live scores, prices, people/org facts "
                 "that change over time, product release info, weather, local venues, "
                 "anything needing up-to-date data from the internet.\n\n"
@@ -70,7 +75,7 @@ async def classify_web_search_need(
         {
             "role": "user",
             "content": (
-                f"Recent user messages:\n{context_block}\n\n"
+                f"Recent user messages:\n{context_block}{reply_block}\n\n"
                 f"Latest message:\n{user_message.strip()[:500]}"
             ),
         },

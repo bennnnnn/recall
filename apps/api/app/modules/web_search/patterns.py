@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import re
 
+from app.modules.web_search.command import search_command
+
 # Re-export for detection/subject/query_builders (stable import path).
 from app.services.text_normalize import collapse_ws as collapse_ws
 
@@ -33,9 +35,16 @@ _SOURCE_FOLLOWUP = re.compile(
 
 
 def asks_for_prior_subject(text: str) -> bool:
-    """True when the whole message points at the previous question."""
+    """True when the whole message points at the previous question.
+
+    That includes a search request that names nothing ("do a search", "check
+    that online"): the conversation says what to search.
+    """
     cleaned = collapse_ws(text)
-    return bool(_LOOK_IT_UP.match(cleaned) or _SOURCE_FOLLOWUP.match(cleaned))
+    if _LOOK_IT_UP.match(cleaned) or _SOURCE_FOLLOWUP.match(cleaned):
+        return True
+    command = search_command(cleaned)
+    return command is not None and command.subject is None
 
 
 _CLARIFICATION = re.compile(

@@ -13,6 +13,7 @@ from app.modules.chat import (
     is_short_confirmation,
     prior_looks_like_offer,
 )
+from app.modules.web_search.command import search_command
 from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answer
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
@@ -82,6 +83,9 @@ def web_search_skip(
     cleaned = collapse_ws(text)
     if not cleaned:
         return True
+    # "search", "google it": an explicit request is never chitchat.
+    if search_command(cleaned) is not None:
+        return False
     follow_up = bool(prior_user_messages) or prior_looks_like_offer(prior_assistant)
     if len(cleaned) < 4 and not (is_short_confirmation(cleaned) and follow_up):
         return True
@@ -155,6 +159,9 @@ def web_search_fast_yes(
     cleaned = collapse_ws(text)
     if asks_for_prior_subject(cleaned):
         return bool(prior_user_messages)
+    command = search_command(cleaned)
+    if command is not None and command.subject:
+        return True
     if _EXPLICIT_SEARCH.search(cleaned):
         return True
     if _NEWS.search(cleaned):
@@ -219,6 +226,7 @@ async def classify_web_search(
     settings: Settings,
     *,
     prior_user_messages: list[str] | None = None,
+    prior_assistant: str | None = None,
 ) -> WebSearchClassification | None:
     """LLM gate for ambiguous turns; None when classifier disabled or call fails."""
     if not settings.web_search_classifier_enabled:
@@ -230,6 +238,7 @@ async def classify_web_search(
             settings,
             text,
             prior_user_messages=prior_user_messages,
+            prior_assistant=prior_assistant,
         )
     except Exception:
         logger.warning("Web-search classifier failed; using heuristic", exc_info=True)
@@ -260,6 +269,7 @@ async def should_web_search(
         text,
         settings,
         prior_user_messages=prior_user_messages,
+        prior_assistant=prior_assistant,
     )
     if classification is None:
         return needs_web_search_heuristic(text, prior_user_messages=prior_user_messages)

@@ -146,6 +146,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   only** — DDG is uncapped (latency only). Search cache keys include `user_id`. A live cue or a
   short follow-up to a searchable topic consults the LLM classifier (`should_web_search`); every
   other line keeps the regex answer. Factual lookups that still need a live result get a tool round.
+  An explicit request always searches: "do a search", "search it online", "google it", "check
+  that online", typos like "seearch" (`web_search/command.py`). When the request names no topic,
+  or a follow-up says "she" or "it", one cheap call reads the last turns and writes the query
+  (`services/conversation_reference.py`); the tool loop never searches the request's own words.
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
   transcribes via OpenAI `gpt-4o-mini-transcribe`, and injects the transcript as normal text. Daily caps
   (30 free / 200 Pro). Not available in Expo Go.
@@ -1124,7 +1128,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed original uploads reap after `attachment_pending_orphan_hours` (default **1h**) so a killed-app image slot can refund the same UTC day. Hidden clones stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
-| Reference-photo lookup (`show me an ear` / what-X-looks-like; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
+| Reference-photo lookup (`show me an ear` / what-X-looks-like / "can you show me…" / "send me a photo of X"; "show me her image" reads who from the chat; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
 | Library (drawer grid of generated + uploaded images and files; lookup photos stay on the chat) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |

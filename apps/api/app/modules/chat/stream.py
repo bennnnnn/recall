@@ -107,12 +107,17 @@ from app.modules.images.gen_intent import (
 from app.modules.images.lookup_intent import (
     extract_image_lookup_query as extract_image_lookup_query,
 )
+from app.modules.images.lookup_intent import (
+    is_reference_subject as is_reference_subject,
+)
 from app.modules.integrations import calendar
 from app.modules.math import fence as math_fence
 from app.repositories import chats, messages, users
 from app.services import model_catalog as model_catalog
 from app.services import quota
 from app.services.context_window import estimate_tokens as estimate_tokens
+from app.services.conversation_reference import resolve_reference as resolve_reference
+from app.services.conversation_reference import turns_from_rows as turns_from_rows
 
 chats_repo = chats
 messages_repo = messages
@@ -257,6 +262,7 @@ async def _try_image_lookup_for_turn(
     result: dict[str, Any] | None,
     create_user_message: bool,
     replace_assistant_id: UUID | None = None,
+    recent_messages: list[Any] | None = None,
 ) -> bool:
     return await _entry.try_image_lookup_for_turn(
         _seams(),
@@ -267,6 +273,7 @@ async def _try_image_lookup_for_turn(
         result=result,
         create_user_message=create_user_message,
         replace_assistant_id=replace_assistant_id,
+        recent_messages=recent_messages,
     )
 
 

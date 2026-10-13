@@ -25,6 +25,59 @@ _POSSESSIVES = frozenset({"my", "your", "our", "his", "her", "their", "its"})
 _REFERENCE_NOUNS = frozenset(
     {"picture", "pictures", "photo", "photos", "image", "images", "pic", "pics"}
 )
+# "show me her image", "a photo of him": someone named earlier in the chat.
+# "my" / "your" / "our" stay out — "show me my notes" is app content.
+_THIRD_PERSON_POSSESSIVES = frozenset({"his", "her", "their", "its"})
+_OBJECT_PRONOUNS = frozenset({"her", "him", "them", "it"})
+# Subjects that only make sense against the conversation: "it at night",
+# "she", "another one". The server reads them from the chat before searching.
+_REFERENCE_HEADS = frozenset(
+    {
+        "it",
+        "its",
+        "her",
+        "him",
+        "his",
+        "she",
+        "he",
+        "they",
+        "them",
+        "their",
+        "this",
+        "that",
+        "these",
+        "those",
+        "another",
+        "more",
+        "less",
+    }
+)
+# "can you show me…", "please show me…" ask the same thing as "show me…".
+_POLITE_LEADS: tuple[tuple[str, ...], ...] = (
+    ("can", "you"),
+    ("could", "you"),
+    ("would", "you"),
+    ("will", "you"),
+    ("can", "u"),
+    ("please",),
+    ("pls",),
+    ("just",),
+)
+# "can I see X", "I want to see X" ask what "let me see X" asks.
+_SEE_LEADS: tuple[tuple[str, ...], ...] = (
+    ("let", "me", "see"),
+    ("lemme", "see"),
+    ("can", "i", "see"),
+    ("could", "i", "see"),
+    ("may", "i", "see"),
+    ("i", "want", "to", "see"),
+    ("i'd", "like", "to", "see"),
+    ("i", "would", "like", "to", "see"),
+    ("i", "wanna", "see"),
+)
+# "send me a photo of X": these verbs need the photo noun, or "find me a
+# restaurant" and "give me a list" would turn into photo searches.
+_PHOTO_FETCH_VERBS = frozenset({"send", "find", "get", "give", "pull", "bring"})
 
 # "show me my todos", "show me the code", "show me how to solve this" — this
 # extremely common product phrase must NOT be hijacked into an image search.
@@ -259,6 +312,28 @@ def _fold_token(word: str) -> str:
     return word.lower().strip(".,!?;:\"'()[]")
 
 
+def _reference_subject(tokens: list[str]) -> str | None:
+    """ "her image" -> "her"; "her" / "him" alone -> itself. Else None."""
+    folded = [_fold_token(t) for t in tokens]
+    if not folded:
+        return None
+    if len(folded) == 1 and folded[0] in _OBJECT_PRONOUNS:
+        return folded[0]
+    if (
+        len(folded) == 2
+        and folded[0] in _THIRD_PERSON_POSSESSIVES
+        and folded[1] in _REFERENCE_NOUNS
+    ):
+        return folded[0]
+    return None
+
+
+def is_reference_subject(subject: str) -> bool:
+    """True when the subject names no one ("she", "it at night", "another one")."""
+    words = subject.split()
+    return bool(words) and _fold_token(words[0]) in _REFERENCE_HEADS
+
+
 def _clean_subject(raw: str) -> str | None:
     subject = raw.strip().rstrip(".!?").strip()
     if not subject or len(subject) < 2:
@@ -297,6 +372,29 @@ def _strip_leading_article(tokens: list[str]) -> list[str]:
     return tokens
 
 
+def _strip_polite_lead(tokens: list[str]) -> list[str]:
+    changed = True
+    while changed:
+        changed = False
+        for lead in _POLITE_LEADS:
+            n = len(lead)
+            if len(tokens) > n and tuple(t.lower() for t in tokens[:n]) == lead:
+                tokens = tokens[n:]
+                changed = True
+                break
+    return tokens
+
+
+def _photo_subject(tokens: list[str]) -> str | None:
+    """SUBJECT from "[a/an/the]? [picture/photo/image of]? SUBJECT"."""
+    remaining = _strip_leading_article(tokens)
+    remaining = _strip_reference_noun_prefix(remaining)
+    remaining = _strip_leading_article(remaining)
+    if not remaining:
+        return None
+    return _reference_subject(remaining) or _clean_subject(" ".join(remaining))
+
+
 def _match_show_me(tokens: list[str]) -> str | None:
     """ "show me [a/an/the]? [picture/photo/image of]? SUBJECT" """
     if len(tokens) < 2 or tokens[0].lower() != "show":
@@ -304,26 +402,51 @@ def _match_show_me(tokens: list[str]) -> str | None:
     i = 1
     if i < len(tokens) and tokens[i].lower() == "me":
         i += 1
-    remaining = _strip_leading_article(tokens[i:])
-    remaining = _strip_reference_noun_prefix(remaining)
-    remaining = _strip_leading_article(remaining)
-    if not remaining:
-        return None
-    return _clean_subject(" ".join(remaining))
+    return _photo_subject(tokens[i:])
 
 
 def _match_let_me_see(tokens: list[str]) -> str | None:
-    """ "let me see [a/an/the]? SUBJECT" """
-    if len(tokens) < 4:
+    """ "let me see / can I see / I want to see [a/an/the]? SUBJECT" """
+    folded = [t.lower() for t in tokens]
+    for lead in _SEE_LEADS:
+        n = len(lead)
+        if len(tokens) > n and tuple(folded[:n]) == lead:
+            return _photo_subject(tokens[n:])
+    return None
+
+
+def _match_fetch_photo(tokens: list[str]) -> str | None:
+    """ "send / find / get me a photo of SUBJECT", "pull up a picture of SUBJECT" """
+    if len(tokens) < 3 or tokens[0].lower() not in _PHOTO_FETCH_VERBS:
         return None
-    if tokens[0].lower() != "let" or tokens[1].lower() != "me" or tokens[2].lower() != "see":
+    i = 1
+    if i < len(tokens) and tokens[i].lower() == "up":
+        i += 1
+    if i < len(tokens) and tokens[i].lower() == "me":
+        i += 1
+    rest = _strip_leading_article(tokens[i:])
+    if rest and rest[0].lower() == "some":
+        rest = rest[1:]
+    if not rest or rest[0].lower() not in _REFERENCE_NOUNS:
         return None
-    remaining = _strip_leading_article(tokens[3:])
-    remaining = _strip_reference_noun_prefix(remaining)
-    remaining = _strip_leading_article(remaining)
-    if not remaining:
+    return _photo_subject(rest)
+
+
+def _match_show_what_looks_like(tokens: list[str]) -> str | None:
+    """ "show me what SUBJECT looks like" """
+    if len(tokens) < 5 or tokens[0].lower() != "show":
         return None
-    return _clean_subject(" ".join(remaining))
+    i = 1
+    if tokens[i].lower() == "me":
+        i += 1
+    if i >= len(tokens) or tokens[i].lower() != "what":
+        return None
+    if tokens[-1].lower().rstrip("?.!") != "like" or tokens[-2].lower() not in {"looks", "look"}:
+        return None
+    subject_tokens = _strip_leading_article(tokens[i + 1 : -2])
+    if not subject_tokens:
+        return None
+    return _clean_subject(" ".join(subject_tokens))
 
 
 def _match_look_like(tokens: list[str]) -> str | None:
@@ -346,20 +469,18 @@ def extract_image_lookup_query(text: str) -> str | None:
     if not trimmed or len(trimmed) > 200:
         return None
 
-    tokens = _tokens(trimmed)
+    tokens = _strip_polite_lead(_tokens(trimmed))
     if not tokens:
         return None
 
-    matched = _match_show_me(tokens)
-    if matched:
-        return matched
-
-    matched = _match_let_me_see(tokens)
-    if matched:
-        return matched
-
-    matched = _match_look_like(tokens)
-    if matched:
-        return matched
-
+    for match in (
+        _match_show_what_looks_like,
+        _match_show_me,
+        _match_let_me_see,
+        _match_fetch_photo,
+        _match_look_like,
+    ):
+        matched = match(tokens)
+        if matched:
+            return matched
     return None

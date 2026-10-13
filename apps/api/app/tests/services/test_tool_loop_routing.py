@@ -89,7 +89,7 @@ def test_turn_needs_tool_loop_draw_request_does_not_trigger_lookup_path():
 @pytest.mark.asyncio
 async def test_tool_loop_no_tools_first_round_does_not_complete_twice(web_search_registered):
     """Probe found no tools — stream the answer; never complete_with_tools twice."""
-    messages = [{"role": "user", "content": "search the latest news"}]
+    messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(return_value={"content": "Tokyo is the capital.", "tool_calls": []})
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
@@ -117,7 +117,7 @@ def test_tool_loop_completion_alias_uses_dedicated_tool_model():
 
 @pytest.mark.asyncio
 async def test_tool_loop_uses_dedicated_alias_for_smart_chat(web_search_registered):
-    messages = [{"role": "user", "content": "search the latest news"}]
+    messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(return_value={"content": "ok", "tool_calls": []})
     with (
         patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
@@ -168,7 +168,7 @@ def test_recovers_provider_text_function_call_only_for_offered_tool() -> None:
 
 @pytest.mark.asyncio
 async def test_tool_loop_model_unavailable_falls_through(web_search_registered):
-    messages = [{"role": "user", "content": "search the latest news"}]
+    messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(
         side_effect=ModelUnavailableError("down", failed_alias="free-chat"),
     )

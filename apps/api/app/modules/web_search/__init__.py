@@ -1,6 +1,7 @@
 """Live web search routing, query building, and prompt injection."""
 
 from app.modules.web_search.augment import augment_prompt_messages, build_search_augmentation
+from app.modules.web_search.command import SearchCommand, search_command
 from app.modules.web_search.detection import (
     needs_web_search,
     needs_web_search_heuristic,
@@ -37,6 +38,7 @@ from app.modules.web_search.query_builders import build_search_queries, build_se
 from app.modules.web_search.search_cache import run_cached_search
 from app.modules.web_search.subject import resolve_search_subject
 from app.modules.web_search.tool import WebSearchAdapter, bind_search_quota_context
+from app.modules.web_search.turn_query import search_queries_for_turn
 
 __all__ = [
     "AMBIGUOUS_NEARBY_HINT",
@@ -44,6 +46,7 @@ __all__ = [
     "GEO_DISTANCE_HINT",
     "LOCAL_PLACES_FORMAT_HINT",
     "WEB_SEARCH_HINT",
+    "SearchCommand",
     "WebSearchAdapter",
     "augment_prompt_messages",
     "bind_search_quota_context",
@@ -67,6 +70,8 @@ __all__ = [
     "places_payload_from_hits",
     "resolve_search_subject",
     "run_cached_search",
+    "search_command",
+    "search_queries_for_turn",
     "should_web_search",
     "sources_payload",
     "strip_duplicate_venue_list",

@@ -60,8 +60,10 @@ class ImageSearchAdapter:
         return (
             "Find and attach a REAL reference photo from the web — for "
             "'show me an ear', 'what does a golden retriever look like', "
-            "'what does the Eiffel Tower look like'. Call this when the user "
-            "wants to see what something actually looks like. "
+            "'what does the Eiffel Tower look like', 'show me her image'. Call this "
+            "when the user wants to see what something or someone real actually "
+            "looks like. The query names the subject itself: a person's full name "
+            "or the thing from the conversation, never 'her', 'him' or 'it'. "
             "Do NOT use for creative/artistic requests (draw, paint, create "
             "an image of) — use generate_image for those instead."
         )

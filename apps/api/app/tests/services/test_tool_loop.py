@@ -44,7 +44,7 @@ async def test_tool_loop_disabled_passthrough():
 
 @pytest.mark.asyncio
 async def test_tool_loop_single_web_search_round(web_search_registered):
-    messages = [{"role": "user", "content": "search the latest news"}]
+    messages = [{"role": "user", "content": "tell me about Lisbon"}]
     usage: dict[str, int] = {}
 
     complete = AsyncMock(
@@ -109,7 +109,7 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
 
 @pytest.mark.asyncio
 async def test_tool_loop_max_rounds(web_search_registered):
-    messages = [{"role": "user", "content": "search forever"}]
+    messages = [{"role": "user", "content": "tell me about Lisbon"}]
     tool_call = {
         "id": "c1",
         "type": "function",
@@ -137,7 +137,7 @@ async def test_tool_loop_max_rounds(web_search_registered):
 
 @pytest.mark.asyncio
 async def test_tool_loop_caps_calls_per_round(web_search_registered):
-    messages = [{"role": "user", "content": "search a lot"}]
+    messages = [{"role": "user", "content": "tell me about Lisbon"}]
     tool_calls = [
         {
             "id": f"c{i}",
@@ -262,7 +262,7 @@ async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
 @pytest.mark.asyncio
 async def test_tool_loop_cancel_mid_round_trims_unanswered_tool_calls(web_search_registered):
     """Stop after assistant tool_calls but before tool results → trim that turn."""
-    messages = [{"role": "user", "content": "search news"}]
+    messages = [{"role": "user", "content": "tell me about Lisbon"}]
     complete = AsyncMock(
         return_value={
             "content": None,
