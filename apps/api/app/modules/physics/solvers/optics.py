@@ -15,10 +15,55 @@ from app.modules.physics.solvers.common import (
 )
 from app.services.solving import SolveServiceError
 
+_REFLECTION_OPS = frozenset(
+    {"reflection_angle", "reflection_surface_angle", "reflection_ray_angle"}
+)
+
+
+def _reflection(intent: PhysicsIntent) -> PhysicsResult:
+    """The angle of reflection equals the angle of incidence, both from the normal.
+
+    A ray given against the surface is turned to the normal first, since the
+    normal is perpendicular to the mirror: 35 degrees to the surface is 55 to
+    the normal. Read as 35, the reflection was answered as 35.
+    """
+    given = intent.physics_params or {}
+    op = intent.physics_op
+    steps: list[str] = []
+    if "angle_surface" in given:
+        surface = given["angle_surface"]
+        if not 0 <= surface <= 90:
+            raise SolveServiceError("an angle with the mirror lies between 0 and 90 degrees")
+        incidence = 90 - surface
+        steps.append(rf"\theta_i = 90^\circ - {surface:g}^\circ = {incidence:g}^\circ")
+    else:
+        incidence = given["angle"]
+        if not 0 <= incidence <= 90:
+            raise SolveServiceError("an angle of incidence lies between 0 and 90 degrees")
+    steps.append(rf"\theta_r = \theta_i = {incidence:g}^\circ")
+    formulas = [r"\theta_r = \theta_i"]
+    value = incidence
+    if op == "reflection_surface_angle":
+        value = 90 - incidence
+        formulas.append(r"\beta = 90^\circ - \theta_r")
+        steps.append(rf"\beta = 90^\circ - {incidence:g}^\circ = {value:g}^\circ")
+    elif op == "reflection_ray_angle":
+        value = 2 * incidence
+        formulas.append(r"\theta_i + \theta_r = 2\theta_i")
+        steps.append(rf"\theta_i + \theta_r = 2 \times {incidence:g}^\circ = {value:g}^\circ")
+    return PhysicsResult(
+        answer=r",\; ".join(steps),
+        formulas=tuple(formulas),
+        substitutions=tuple(steps),
+        quantities=(QuantityResult("", value, "deg"),),
+    )
+
 
 def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
-    p = _params_in_si(intent)
     op = intent.physics_op or ""
+    if op in _REFLECTION_OPS:
+        return _reflection(intent)
+    p = _params_in_si(intent)
 
     if op == "lens_power":
         if p["focal"] == 0:

@@ -37,6 +37,26 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("v_wave", "v", "meter / second"),
         ),
     ),
+    # The law of reflection. A ray given against the mirror's surface is
+    # turned to the normal first: 35 degrees to the surface is 55 to the normal.
+    *(
+        formula(
+            operation,
+            "optics",
+            "Law of reflection",
+            symbol,
+            base_latex="\\theta_r = \\theta_i",
+            variables=(
+                var("angle", "\\theta_i", dimensionless=True),
+                var("angle_surface", "\\alpha", dimensionless=True),
+            ),
+        )
+        for operation, symbol in (
+            ("reflection_angle", "\\theta_r"),
+            ("reflection_surface_angle", "\\beta"),
+            ("reflection_ray_angle", "\\theta_i + \\theta_r"),
+        )
+    ),
     formula(
         "critical_angle",
         "optics",
@@ -111,8 +131,34 @@ SPECS: tuple[FormulaSpec, ...] = (
         r"\theta_2",
         base_latex=r"n_1 \sin\theta_1 = n_2 \sin\theta_2",
         expression="asin(n1*sin(angle)/n2)*180/pi",
+        # "30 degrees to the surface" is 60 to the normal. Read as 30, it
+        # certified 19.47 degrees for glass instead of 35.26.
+        variants=(
+            FormulaVariant(
+                latex=r"n_1 \sin(90^\circ - \alpha) = n_2 \sin\theta_2",
+                present=frozenset({"from_surface"}),
+                expression="asin(n1*cos(angle)/n2)*180/pi",
+            ),
+        ),
         variables=(
             var("angle", r"\theta_1", dimensionless=True),
+            var(
+                "from_surface",
+                "",
+                dimensionless=True,
+                visible=False,
+                implied=(
+                    ("to the surface", 1.0),
+                    ("with the surface", 1.0),
+                    ("from the surface", 1.0),
+                    ("relative to the surface", 1.0),
+                    ("to the boundary", 1.0),
+                    ("with the boundary", 1.0),
+                    ("to the interface", 1.0),
+                    ("glancing angle", 1.0),
+                    ("grazing angle", 1.0),
+                ),
+            ),
             var(
                 "n1",
                 "n_1",
@@ -125,7 +171,10 @@ SPECS: tuple[FormulaSpec, ...] = (
         binding=Binding(
             asks=("angle of refraction", "refraction angle", "refracted angle"),
             result=("degree",),
-            inputs=(frozenset({"angle", "n1", "n2"}),),
+            inputs=(
+                frozenset({"angle", "n1", "n2"}),
+                frozenset({"angle", "from_surface", "n1", "n2"}),
+            ),
             nonnegative=True,
         ),
     ),
