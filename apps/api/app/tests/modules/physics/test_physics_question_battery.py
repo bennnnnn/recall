@@ -291,3 +291,22 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
 @pytest.mark.asyncio
 async def test_school_physics_battery(question: str, answer: str) -> None:
     assert await _answer(question) == answer
+
+
+def test_a_refused_extractor_claim_falls_back_to_the_catalog() -> None:
+    """The gravitation extractor claims this as planet radius plus altitude.
+
+    That claim leaves the stated radius and mass unused and is refused; the
+    first claim used to be final, so the catalog's v = sqrt(GM/r) never ran.
+    """
+    from app.modules.physics.extract import extract_physics_intent
+    from app.modules.physics.extractors.gravitation import _extract_gravitation_intent
+
+    question = (
+        "A satellite orbits Earth at a radius of 7 x 10^6 m. What is its orbital speed? "
+        "(mass of Earth = 6 x 10^24 kg)"
+    )
+    claim = _extract_gravitation_intent(question.replace("7 x 10^6", "7000000"))
+    assert claim is not None and claim.physics_op == "orbital_velocity"
+    intent = extract_physics_intent(question)
+    assert intent is not None and intent.physics_op == "orbital_speed_radius"
