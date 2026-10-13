@@ -151,11 +151,19 @@ def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     for extractor in PHYSICS_EXTRACTORS:
         intent = extractor(request.text)
         if intent is not None:
-            return complete_physics_intent(intent, request)
-    # Last: a question the extractors declined may still state a catalog law's
-    # inputs plainly and ask for its result. Only one exact fit is answered,
-    # and only for text the physics gate calls physics, so the binder adds
-    # answers to physics questions and never takes a question from math.
+            completed = complete_physics_intent(intent, request)
+            if completed is not None:
+                return completed
+            # The claim was refused: a given it left unused, or a different
+            # asked quantity. Its law is not the question's, but a catalog law
+            # may still fit exactly. Returning here left "orbits Earth at a
+            # radius of 7 x 10^6 m" unanswered behind the altitude formula.
+            break
+    # Last: a question the extractors declined, or whose claim was refused,
+    # may still state a catalog law's inputs plainly and ask for its result.
+    # Only one exact fit is answered, and only for text the physics gate calls
+    # physics, so the binder adds answers to physics questions and never takes
+    # a question from math.
     if not needs_physics(text):
         return None
     from app.modules.physics.binding import bind_physics_intent

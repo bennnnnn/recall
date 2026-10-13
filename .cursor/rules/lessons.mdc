@@ -12,7 +12,7 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
-- **A physics question the catalog could answer still got no verified answer.** `_extract_physics_intent` takes the first extractor that claims the text; when `complete_physics_intent` then rejects that claim, the binder never runs. "orbits Earth at a radius of 7 x 10^6 m" was claimed as `orbital_velocity` (planet radius + altitude) and refused. When an extractor's law is not the one asked, make it decline so the binder can fit the right catalog law. A probe that tests only the binder misses this; run `extract_physics_intent`.
+- **A physics question the catalog could answer still got no verified answer.** `_extract_physics_intent` takes the first extractor that claims the text; when `complete_physics_intent` then rejects that claim, the binder never runs. "orbits Earth at a radius of 7 x 10^6 m" was claimed as `orbital_velocity` (planet radius + altitude) and refused. A refused claim now falls through to the binder, which still answers only one exact fit and passes the same completion check. A probe that tests only the binder misses this kind of bug; run `extract_physics_intent`.
 
 - **“solve 2sin(t)=1” was certified “no solution”.** `guess_variables` stripped function names with `\b`, but in `2sin(t)` the digit joins the word, so `sin` survived and the guesser solved for `i`; `theta` split into letters and solved for `a`. Match names by the letters around them (`(?<![A-Za-z])`), and keep a Greek name as one unknown.
 
