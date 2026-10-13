@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.extractors.common import _NUMBER, _detect_gravity
+from app.modules.physics.extractors.common import _DECIMAL, _NUMBER, _detect_gravity
 
 _H0_KEYWORDS = (
     "from",
@@ -70,7 +70,7 @@ def _asks_max_height(lower: str) -> bool:
     )
 
 
-_STATED_ACCELERATION_RE = re.compile(r"(-?(?<!\d)\d+(?:\.\d+)?)\s*m/s\^?2(?![0-9])", re.IGNORECASE)
+_STATED_ACCELERATION_RE = re.compile(rf"({_DECIMAL})\s*m/s\^?2(?![0-9])", re.IGNORECASE)
 
 # The question has to ask for the acceleration. The bare word must not replace
 # a time, height, or speed question, and it must not drop that question.

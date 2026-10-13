@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
+    _DECIMAL,
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
     _find_value_with_specific_unit,
@@ -133,7 +134,7 @@ def _extract_rotation_intent(cleaned: str) -> PhysicsIntent | None:
     # omega = theta / t
     # "rad" in "rad/s" is not an angle, and neither is "radians per second".
     turned = re.search(
-        r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:radians?|rad)(?![A-Za-z/])(?!\s*per\s+second)",
+        rf"({_DECIMAL})\s*(?:radians?|rad)(?![A-Za-z/])(?!\s*per\s+second)",
         cleaned,
         re.IGNORECASE,
     )

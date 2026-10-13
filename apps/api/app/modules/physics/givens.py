@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import re
 
-from app.modules.physics.given_units import _SYMBOLS, _WORDS
+from app.modules.physics.given_units import _LOWERCASE, _SYMBOLS, _WORDS
 from app.services.law_binding.givens import Given
 from app.services.law_binding.givens import scan_givens as _scan_givens
 from app.services.law_binding.units import ANGLE, UnitTable, unit_dimension
@@ -22,6 +22,7 @@ __all__ = [
     "unit_at",
     "unit_dimension",
     "unit_expression",
+    "unit_readings",
 ]
 
 # A speed written as a fraction of c. Written onto the number ("0.8c"), any
@@ -52,6 +53,22 @@ PHYSICS_UNITS = UnitTable(_SYMBOLS, _WORDS, special=_speed_of_light, exact={"c":
 def unit_expression(spelling: str) -> str | None:
     """The Pint expression of one spelling from the physics unit table."""
     return PHYSICS_UNITS.expression(spelling)
+
+
+def unit_readings(unit: str) -> tuple[str, ...]:
+    """The Pint expressions a unit an extractor wrote may mean, the table's first.
+
+    The table reads the unit as written; the same spelling in lowercase is the
+    second reading, for an extractor that matched without case; the spelling
+    itself is the last, for Pint.
+    """
+    lower = unit.lower()
+    readings = (
+        PHYSICS_UNITS.expression(unit),
+        PHYSICS_UNITS.symbols.get(lower) or PHYSICS_UNITS.words.get(lower) or _LOWERCASE.get(lower),
+        unit,
+    )
+    return tuple(dict.fromkeys(reading for reading in readings if reading))
 
 
 def unit_at(text: str, end: int) -> tuple[str, str] | None:

@@ -5,7 +5,10 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.extractors.common import (
+    _DECIMAL,
+    _DEGREE_WORD,
     _LENGTH_UNIT_PATTERN,
+    _VELOCITY_UNIT_PATTERN,
     _detect_gravity,
     _find_value_with_specific_unit,
     _find_value_with_unit,
@@ -32,8 +35,8 @@ _PROJECTILE_CUES = (
 )
 
 _PROJECTILE_CUE_RES: tuple[re.Pattern[str], ...] = (
-    re.compile(r"\d\s*(?:m/s|km/h|mph)\b.{0,80}?\d\s*(?:degrees?|deg|°)"),
-    re.compile(r"\d\s*(?:degrees?|deg|°).{0,80}?\d\s*(?:m/s|km/h|mph)\b"),
+    re.compile(rf"\d\s*(?:m/s|km/h|mph)\b.{{0,80}}?\d\s*{_DEGREE_WORD}"),
+    re.compile(rf"\d\s*{_DEGREE_WORD}.{{0,80}}?\d\s*(?:m/s|km/h|mph)\b"),
     # The launch-angle question has no angle to co-occur with — the angle is
     # what it is asking for — so the signature above cannot see it. A speed
     # beside an explicit ask for an angle is the signature instead.
@@ -117,7 +120,7 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     v0: float | None = None
     v0_unit = "m/s"
     speed_m = re.search(
-        r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(m/s|km/h|mph|cm/s|mm/s|miles\s+per\s+hour)",
+        rf"({_DECIMAL})\s*({_VELOCITY_UNIT_PATTERN})",
         cleaned,
         re.IGNORECASE,
     )
@@ -142,13 +145,13 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
         # present so "at 15 m/s" (speed) isn't mistaken for an angle.
         # ``°`` is not a word char, so a trailing ``\b`` would miss ``30°?``.
         angle_m = re.search(
-            r"\bat\s+(-?\d+(?:\.\d+)?)\s*(?:degrees?|°|deg)(?![A-Za-z0-9])",
+            rf"\bat\s+(-?\d+(?:\.\d+)?)\s*{_DEGREE_WORD}(?![A-Za-z0-9])",
             lower,
         )
     if angle_m is None:
         # After stripping ``angle = 30``, only ``30 deg`` remains.
         angle_m = re.search(
-            r"(-?(?<!\d)\d+(?:\.\d+)?)\s*(?:degrees?|°|deg|radians?|rad)(?![A-Za-z0-9])",
+            rf"({_DECIMAL})\s*(?:degrees?|°|deg|radians?|rad)(?![A-Za-z0-9])",
             lower,
         )
     if angle_m:
