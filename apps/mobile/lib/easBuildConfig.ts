@@ -54,6 +54,22 @@ export function requirePublicApiUrlForReleaseBuild(
   }
 }
 
+/** `pnpm ios:sim` sets RECALL_IOS_SIMULATOR=1: a local simulator build without Sign in
+ * with Apple, whose entitlement makes Expo demand a signing certificate even for a
+ * simulator. A release build never drops it. */
+export function simulatorWithoutAppleSignIn(
+  buildProfile: string,
+  env: Record<string, string | undefined>,
+): boolean {
+  if (env.RECALL_IOS_SIMULATOR?.trim() !== "1") return false;
+  if (buildProfile === "production" || buildProfile === "preview") {
+    throw new Error(
+      `RECALL_IOS_SIMULATOR is for local simulator builds, not a ${buildProfile} build`,
+    );
+  }
+  return true;
+}
+
 type ReleaseBuildEnvironment = {
   [key: string]: string | undefined;
   EXPO_PUBLIC_API_URL?: string;
