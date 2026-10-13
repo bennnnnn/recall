@@ -88,6 +88,26 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
     ),
     formula(
+        "photoelectric_kinetic_energy_wavelength",
+        "modern",
+        "Photoelectric equation",
+        "K_{max}",
+        base_latex=r"K_{max} = \frac{hc}{\lambda} - \phi",
+        expression="h_planck*c_light/wavelength - work_function",
+        variables=(
+            var("wavelength", r"\lambda", "meter"),
+            var("work_function", r"\phi", "joule"),
+        ),
+        binding=Binding(
+            asks=("maximum kinetic energy", "kinetic energy", "energy of the photoelectrons"),
+            result=("joule",),
+            inputs=(frozenset({"wavelength", "work_function"}),),
+            cues=("work function",),
+            nonnegative=True,
+            shown_unit="eV",
+        ),
+    ),
+    formula(
         "photoelectric_kinetic_energy",
         "modern",
         "Photoelectric equation",

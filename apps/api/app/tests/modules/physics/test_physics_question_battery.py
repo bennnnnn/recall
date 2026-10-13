@@ -286,6 +286,145 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         ),
         ("A satellite orbits 400 km above Earth's surface. What is its orbital speed?", "7670 m/s"),
         ("Convert 25 degrees Celsius to kelvin.", r"298.15\ \mathrm{kelvin}"),
+        # A second, harder battery: each returned no verified answer.
+        (
+            "A wheel accelerates from rest at 2 rad/s^2 for 5 s. What is its final angular "
+            "velocity?",
+            "10 rad/s",
+        ),
+        (
+            "A wheel spinning at 4 rad/s accelerates at 2 rad/s^2 for 3 s. What is its final "
+            "angular velocity?",
+            "10 rad/s",
+        ),
+        (
+            "A torque of 10 N m acts on a wheel with moment of inertia 2 kg m^2. What is its "
+            "angular acceleration?",
+            "5 rad/s²",
+        ),
+        # "Nm" is a newton metre; the caseless "nm" read it as a nanometre.
+        (
+            "A torque of 20 Nm acts on a wheel with moment of inertia 4 kg m^2. What is its "
+            "angular acceleration?",
+            "5 rad/s²",
+        ),
+        ("What is the reactance of a 10 mH inductor at 50 Hz?", "3.14 Ω"),
+        ("What is the reactance of a 20 microfarad capacitor at 50 Hz?", "159 Ω"),
+        (
+            "A gas expands at a constant pressure of 200 kPa from 0.01 m^3 to 0.03 m^3. How much "
+            "work does it do?",
+            "4000 J",
+        ),
+        (
+            "How much heat flows per second through a glass window of area 2 m^2 and thickness "
+            "0.005 m with a temperature difference of 10 K? (thermal conductivity 0.8 W/m K)",
+            "3200 W",
+        ),
+        (
+            "Light of wavelength 400 nm shines on a metal with a work function of 2 eV. What is "
+            "the maximum kinetic energy of the emitted electrons?",
+            "1.1 eV",
+        ),
+        (
+            "A 1000 kg car travelling at 20 m/s brakes to a stop. How much work is done by the "
+            "brakes?",
+            "-2 × 10⁵ J",
+        ),
+        (
+            "A 60 kg person stands in an elevator accelerating upward at 2 m/s^2. What is the "
+            "normal force on the person? (g = 9.8 m/s^2)",
+            "708 N",
+        ),
+        (
+            "A 60 kg person stands in a lift accelerating downward at 2 m/s^2. What is the normal "
+            "force on the person? (g = 9.8 m/s^2)",
+            "468 N",
+        ),
+        (
+            "A 0.2 kg ball hits a wall at 10 m/s and rebounds at 8 m/s. What is the magnitude of "
+            "the change in momentum?",
+            "3.6 kg·m/s",
+        ),
+        (
+            "Copper has a linear expansion coefficient of 1.7 x 10^-5 per K. How much does a 2 m "
+            "copper rod expand when heated by 50 K?",
+            "0.0017 m",
+        ),
+        (
+            "What is the moment of inertia of a solid disc of mass 2 kg and radius 0.5 m?",
+            "0.25 kg·m²",
+        ),
+        (
+            "What is the rotational kinetic energy of a flywheel with moment of inertia 3 kg "
+            "m^2 spinning at 4 rad/s?",
+            "24 J",
+        ),
+        (
+            "Water flows through a pipe at 2 m/s. The pipe narrows from an area of 0.04 m^2 "
+            "to 0.01 m^2. What is the speed in the narrow section?",
+            "8 m/s",
+        ),
+        (
+            "A hydraulic press has pistons of area 0.01 m^2 and 0.5 m^2. A force of 100 N is "
+            "applied to the small piston. What force is produced on the large piston?",
+            "5000 N",
+        ),
+        (
+            "A wire carrying a current of 3 A is 0.5 m long and lies perpendicular to a 0.2 T"
+            " magnetic field. What is the force on the wire?",
+            "0.3 N",
+        ),
+        (
+            "A transformer has 100 turns on the primary and 500 turns on the secondary. The "
+            "primary voltage is 12 V. What is the secondary voltage?",
+            "60 V",
+        ),
+        (
+            "A coil of 200 turns experiences a change in magnetic flux of 0.05 Wb in 0.1 s. "
+            "What is the induced emf?",
+            "100 V",
+        ),
+        (
+            "What is the electric field strength 0.2 m from a point charge of 5 microcoulombs?",
+            "1.12 × 10⁶ N/C",
+        ),
+        ("What is the energy stored in a 100 microfarad capacitor charged to 50 V?", "0.125 J"),
+        ("What is the RMS voltage of an AC supply with a peak voltage of 325 V?", "230 V"),
+        (
+            "A Carnot engine operates between 500 K and 300 K. What is its maximum efficiency?",
+            "0.4 (40%)",
+        ),
+        (
+            "A sound wave has a frequency of 440 Hz and travels at 340 m/s. What is its "
+            "wavelength?",
+            "0.773 m",
+        ),
+        (
+            "What is the fundamental frequency of a 0.5 m string fixed at both ends with a "
+            "wave speed of 200 m/s?",
+            "200 Hz",
+        ),
+        (
+            "What is the de Broglie wavelength of an electron moving at 1 x 10^6 m/s?",
+            "7.27 × 10⁻¹⁰ m",
+        ),
+        ("A particle moves at 0.8c. What is its Lorentz factor?", "1.67"),
+        ("A 5 kg box is lifted 2 m in 4 s. What is the power? (g = 9.8 m/s^2)", "24.5 W"),
+        (
+            "A ball rolls off a 1.25 m high table at 3 m/s horizontally. How far from the "
+            "table does it land? (g = 9.8 m/s^2)",
+            "1.52 m",
+        ),
+        (
+            "Two forces of 3 N and 4 N act at right angles. What is the resultant force?",
+            "5 N at 53.1°",
+        ),
+        ("What is the escape velocity from Earth?", "11200 m/s"),
+        (
+            "How much of an 80 g sample of a radioactive isotope with a half-life of 10 days "
+            "remains after 30 days?",
+            "10 g",
+        ),
     ],
 )
 @pytest.mark.asyncio
