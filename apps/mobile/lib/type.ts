@@ -10,7 +10,7 @@
  */
 import type { TextStyle } from "react-native";
 
-import { uiFontFamily } from "@/lib/uiFont";
+import { UI_FONT, uiFontFamily } from "@/lib/uiFont";
 
 /** Cap for a control that shares a line with a 44pt target. Body copy stays uncapped. */
 export const DYNAMIC_TYPE_MAX = 1.5;
@@ -115,4 +115,15 @@ export const Weight = {
   medium: face("500"),
   semibold: face("600"),
   bold: face("700"),
+} as const satisfies Record<string, TextStyle>;
+
+/**
+ * Italic on top of a role: `{ ...Type.body, ...Italic.regular }`. Each entry is
+ * a real italic file; `fontStyle: "italic"` on these one-file families draws
+ * upright on iOS and Roboto Italic on Android, so it is never set.
+ */
+export const Italic = {
+  regular: { fontFamily: UI_FONT.italic, fontWeight: "400", fontStyle: "normal" },
+  semibold: { fontFamily: UI_FONT.semiboldItalic, fontWeight: "400", fontStyle: "normal" },
+  bold: { fontFamily: UI_FONT.boldItalic, fontWeight: "400", fontStyle: "normal" },
 } as const satisfies Record<string, TextStyle>;

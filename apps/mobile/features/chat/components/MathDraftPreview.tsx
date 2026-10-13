@@ -21,6 +21,7 @@ import {
   NATIVE_LITERAL_LEFT_BRACE_MARKER,
   NATIVE_LITERAL_RIGHT_BRACE_MARKER,
 } from "@/lib/math/textMarkers";
+import { MATH_FONT, mathFace } from "@/lib/fonts";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 
@@ -700,6 +701,7 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
     },
     integralSign: {
+      ...mathFace(MATH_FONT),
       fontSize: INTEGRAL_SIGN_SIZE,
       lineHeight: INTEGRAL_SIGN_LINE,
       color: theme.text,
@@ -722,7 +724,10 @@ const makeStyles = (theme: Theme) =>
       flexDirection: "row",
       alignItems: "center",
     },
+    // Slot text, function names and delimiters (| C( , )) are part of the
+    // formula: the math face, not the system font beside KaTeX slots.
     prose: {
+      ...mathFace(MATH_FONT),
       fontSize: 16,
       color: theme.text,
     },
@@ -740,6 +745,7 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
     },
     vecArrow: {
+      ...mathFace(MATH_FONT),
       fontSize: 12,
       lineHeight: 12,
       color: theme.text,

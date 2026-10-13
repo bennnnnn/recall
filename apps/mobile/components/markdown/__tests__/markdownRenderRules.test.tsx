@@ -518,3 +518,35 @@ $x^0=1$`}
     expect(JSON.stringify(legacy.toJSON())).not.toContain("lightbulb");
   });
 });
+
+describe("emphasis faces", () => {
+  // A one-file family has no italic or bold slot: the face must be the file.
+  function faceOf(node: { props: { style?: unknown }; parent: unknown }): string | undefined {
+    let current: { props: { style?: unknown }; parent: unknown } | null = node;
+    while (current) {
+      const family = StyleSheet.flatten(current.props.style as never)?.fontFamily;
+      if (family) return family;
+      current = current.parent as typeof current;
+    }
+    return undefined;
+  }
+
+  it("draws *italic* with the italic file, never fontStyle", async () => {
+    const { getByText } = await render(<MarkdownContent content="A *soft* word" />);
+    const leaf = getByText("soft");
+    expect(faceOf(leaf)).toBe("SourceSans3-Italic");
+    expect(StyleSheet.flatten(leaf.props.style)?.fontStyle).not.toBe("italic");
+  });
+
+  it("draws ***both*** with the bold italic file", async () => {
+    const { getByText } = await render(<MarkdownContent content="A ***loud*** word" />);
+    expect(faceOf(getByText("loud"))).toBe("SourceSans3-BoldItalic");
+  });
+
+  it("keeps **bold** bold inside a table cell", async () => {
+    const md = "| Plan | Price |\n| --- | --- |\n| **Pro** | $5 |";
+    const { getByText } = await render(<MarkdownContent content={md} />);
+    expect(faceOf(getByText("Pro"))).toBe("SourceSans3-Bold");
+    expect(faceOf(getByText("$5"))).toBe("SourceSans3");
+  });
+});

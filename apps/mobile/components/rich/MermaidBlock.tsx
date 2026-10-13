@@ -31,6 +31,7 @@ import { MERMAID_MIN_JS } from "@/lib/vendor/mermaidMinJs";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { Type, Weight } from "@/lib/type";
 
 type Props = { content: string };
 
@@ -275,7 +276,7 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
     },
     previewText: { fontFamily: CODE_FONT, fontSize: 11, lineHeight: 17, color: t.textSecondary },
-    fallbackHint: { fontSize: 12, color: t.textTertiary, marginTop: Space.xs },
+    fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: Space.xs },
     iconBtn: {
       width: 32,
       height: 32,
@@ -291,6 +292,6 @@ function makeStyles(t: Theme) {
       borderRadius: Radius.sm,
       backgroundColor: t.primary,
     },
-    openLabel: { fontSize: 14, fontWeight: "700", color: t.onPrimary },
+    openLabel: { ...Type.label, ...Weight.bold, color: t.onPrimary },
   });
 }

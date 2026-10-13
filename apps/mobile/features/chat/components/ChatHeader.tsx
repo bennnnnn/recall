@@ -11,7 +11,7 @@ import {
   topChromeFadeColors,
 } from "@/lib/chromeFade";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { Italic, Type, Weight } from "@/lib/type";
 import { Space } from "@/lib/space";
 
 type Props = {
@@ -179,8 +179,7 @@ function makeStyles(theme: Theme) {
     },
     headerTitlePending: {
       color: theme.textTertiary,
-      fontStyle: "italic",
-      ...Weight.semibold,
+      ...Italic.semibold,
     },
     headerSpacer: { flex: 1, pointerEvents: "none" as const },
   });

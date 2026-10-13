@@ -719,7 +719,6 @@ const makeExplorerStyles = (theme: Theme) =>
       paddingVertical: 2,
       fontFamily: CODE_FONT,
       fontSize: 15,
-      fontWeight: "600",
       color: theme.text,
     },
     inputInvalid: {
@@ -743,8 +742,7 @@ const makeExplorerStyles = (theme: Theme) =>
       paddingVertical: Space.xxs,
     },
     addText: {
-      fontSize: 14,
-      fontWeight: "600",
+      ...Type.label,
       color: theme.primary,
     },
   });

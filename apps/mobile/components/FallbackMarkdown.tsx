@@ -20,7 +20,7 @@ import { preprocessMarkdown } from "@/lib/markdown/preprocess";
 import { classifyFallbackFence } from "@/lib/fallbackFence";
 import { fenceIdForLang } from "@/lib/fenceRegistry";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { Italic, Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -154,21 +154,28 @@ function makeMdStyles(t: Theme) {
   return StyleSheet.create({
     body: { ...Type.body, color: t.assistantText, lineHeight: 24 },
     code_inline: inlineCodeTextStyle(t),
-    heading1: { ...Type.title, ...Weight.bold, marginVertical: Space.xs },
-    heading2: { ...Type.h2, marginVertical: 6 },
-    heading3: { ...Type.h4, ...Weight.semibold, marginVertical: Space.xxs },
-    heading4: { ...Type.callout, marginVertical: Space.xxs, color: t.text },
-    heading5: { ...Type.label, marginVertical: 2, color: t.text },
-    heading6: { ...Type.compact, ...Weight.semibold, marginVertical: 2, color: t.text },
+    // The reply's heading ladder: never smaller than body text (h4–h6 were 15/14/13).
+    heading1: { ...Type.h1, marginVertical: Space.xs, color: t.text },
+    heading2: { ...Type.h2, marginVertical: 6, color: t.text },
+    heading3: { ...Type.h3, marginVertical: Space.xxs, color: t.text },
+    heading4: { ...Type.h4, marginVertical: Space.xxs, color: t.text },
+    heading5: { ...Type.h5, marginVertical: 2, color: t.text },
+    heading6: { ...Type.h6, marginVertical: 2, color: t.text },
     strong: { ...Weight.bold },
+    em: { ...Italic.regular },
+    // Themed, so the library's light defaults (#F5F5F5 quote fill, #000 rules
+    // and table lines) never show in dark mode.
     blockquote: {
+      backgroundColor: "transparent",
       borderLeftWidth: 3,
       borderLeftColor: t.primary,
       paddingLeft: Space.sm,
       marginVertical: Space.xs,
     },
-    table: { marginVertical: Space.xs },
-    link: { color: t.primary },
+    hr: { backgroundColor: t.border, height: StyleSheet.hairlineWidth },
+    table: { marginVertical: Space.xs, borderColor: t.border },
+    tr: { borderColor: t.border },
+    link: { color: t.primary, textDecorationLine: "underline" },
   });
 }
 

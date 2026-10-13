@@ -22,6 +22,7 @@ import { subscribeClockTick } from "@/lib/clockTick";
 import { useReduceMotion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
+import { Type } from "@/lib/type";
 
 type Props = { content: string };
 
@@ -215,22 +216,20 @@ function makeStyles(theme: Theme) {
     },
     date: {
       marginTop: 14,
-      fontSize: 14,
-      fontWeight: "600",
+      ...Type.label,
       color: theme.text,
       textAlign: "center",
     },
     digitalTime: {
       marginTop: 6,
-      fontSize: 22,
-      fontWeight: "700",
+      ...Type.h1,
       color: theme.primary,
       textAlign: "center",
       fontVariant: ["tabular-nums"],
     },
     tz: {
       marginTop: Space.xxs,
-      fontSize: 12,
+      ...Type.meta,
       color: theme.textSecondary,
       textAlign: "center",
     },

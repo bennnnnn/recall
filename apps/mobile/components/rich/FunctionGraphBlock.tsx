@@ -12,6 +12,7 @@ import { CODE_FONT } from "@/lib/fonts";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { Type } from "@/lib/type";
 
 type Props = { content: string };
 
@@ -87,8 +88,7 @@ const makeStyles = (theme: Theme) =>
       alignItems: "center",
     },
     title: {
-      fontSize: 15,
-      fontWeight: "600",
+      ...Type.callout,
       color: theme.text,
       marginBottom: 2,
       textAlign: "center",
@@ -121,6 +121,6 @@ const makeStyles = (theme: Theme) =>
     },
     fallbackText: {
       color: theme.textSecondary,
-      fontSize: 14,
+      ...Type.secondary,
     },
   });

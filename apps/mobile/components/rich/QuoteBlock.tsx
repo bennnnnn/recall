@@ -4,7 +4,7 @@ import { Icon } from "@/ui/icons/Icon";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Italic, Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { IconSize } from "@/ui/icons/sizes";
@@ -49,7 +49,7 @@ function makeStyles(t: Theme) {
       marginBottom: 10,
     },
     icon: { marginBottom: 6 },
-    quote: { ...Type.body, lineHeight: 24, color: t.text, fontStyle: "italic" },
+    quote: { ...Type.body, ...Italic.regular, lineHeight: 24, color: t.text },
     author: {
       marginTop: Space.xs,
       ...Type.label,
