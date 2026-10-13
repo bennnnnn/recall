@@ -27,6 +27,30 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
     ),
     formula(
+        "light_speed_in_medium",
+        "optics",
+        "Refractive-index definition",
+        "v",
+        base_latex=r"v = \frac{c}{n}",
+        expression="c_light/n_index",
+        variables=(
+            var(
+                "n_index",
+                "n",
+                dimensionless=True,
+                words=("refractive index", "index of refraction", "n ="),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("speed of light in", "speed of light", "speed in", "speed"),
+            result=("meter / second",),
+            inputs=(frozenset({"n_index"}),),
+            cues=("light",),
+            nonnegative=True,
+        ),
+    ),
+    formula(
         "refractive_index",
         "optics",
         "Snell's law",

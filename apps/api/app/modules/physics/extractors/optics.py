@@ -327,6 +327,13 @@ def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
         rf"({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
         cleaned,
         re.IGNORECASE,
+    ) or re.search(
+        # "An object is placed 15 cm from the mirror": the object's own
+        # sentence. The nearest number was the focal length just before it.
+        rf"\bobject\b[^.?!]{{0,30}}?\b(?:placed|located|positioned|sits|is)\s+(?:at\s+)?"
+        rf"({_NUMBER})\s*({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])",
+        cleaned,
+        re.IGNORECASE,
     )
     obj = (
         (float(obj_match.group(1)), obj_match.group(2))

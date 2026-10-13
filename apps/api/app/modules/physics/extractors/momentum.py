@@ -55,7 +55,7 @@ _TWO_DIMENSIONAL_RE = re.compile(
 _ELASTIC_RE = re.compile(r"\belastic")
 
 _INELASTIC_RE = re.compile(
-    r"\binelastic|sticks? together|stuck together|"
+    r"\binelastic|sticks? together|stuck together|\b(?:sticks?|stuck|sticking)\s+to\b|"
     r"\bcoupled?\b|\bembed(?:s|ded)?\b|\block(?:s|ed)? together\b"
 )
 

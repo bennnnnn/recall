@@ -12,6 +12,8 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **A physics question the catalog could answer still got no verified answer.** `_extract_physics_intent` takes the first extractor that claims the text; when `complete_physics_intent` then rejects that claim, the binder never runs. "orbits Earth at a radius of 7 x 10^6 m" was claimed as `orbital_velocity` (planet radius + altitude) and refused. When an extractor's law is not the one asked, make it decline so the binder can fit the right catalog law. A probe that tests only the binder misses this; run `extract_physics_intent`.
+
 - **“solve 2sin(t)=1” was certified “no solution”.** `guess_variables` stripped function names with `\b`, but in `2sin(t)` the digit joins the word, so `sin` survived and the guesser solved for `i`; `theta` split into letters and solved for `a`. Match names by the letters around them (`(?<![A-Za-z])`), and keep a Greek name as one unknown.
 
 - **“convert pi/2 radians to degrees” was certified 114.59°.** The unit extractor took the first bare number, the 2 of π/2. Anything between “convert” and the number means the quantity is an expression: read it whole, and keep an angle with π exact (π/2 rad = 90°).

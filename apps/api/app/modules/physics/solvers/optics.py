@@ -214,16 +214,25 @@ def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
             # Inside the focal length the image is virtual, and the sign that
             # says so is exactly what the conventions disagree about.
             raise SolveServiceError("an object inside the focal length forms a virtual image")
+        # The equation holds in any one length unit: distances given in cm
+        # are answered in cm (30 cm, not 0.3 m).
+        units = intent.physics_units or {}
+        shown = units.get("focal", "m")
+        if shown in ("cm", "mm") and units.get("d_obj") == shown:
+            given = intent.physics_params or {}
+            focal, obj = given["focal"], given["d_obj"]
+        else:
+            shown = "m"
         img = 1 / (1 / focal - 1 / obj)
         return PhysicsResult(
             answer=(
                 rf"\frac{{1}}{{f}} = \frac{{1}}{{u}} + \frac{{1}}{{v}} \Rightarrow v = "
                 rf"\frac{{uf}}{{u - f}} = \frac{{{obj:g} \cdot {focal:g}}}"
-                rf"{{{obj:g} - {focal:g}}} \approx {img:.4g} \text{{ m}}"
+                rf"{{{obj:g} - {focal:g}}} \approx {img:.4g} \text{{ {shown}}}"
             ),
             formulas=(r"v = \frac{uf}{u - f}",),
             substitutions=(rf"v = \frac{{{obj:g} \cdot {focal:g}}}{{{obj:g} - {focal:g}}}",),
-            quantities=(QuantityResult("", img, "m"),),
+            quantities=(QuantityResult("", img, shown),),
         )
 
     raise SolveServiceError(f"unsupported optics op: {op}")

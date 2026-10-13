@@ -292,7 +292,8 @@ def test_small_and_directional_results_keep_meaning(query: str, expected: str) -
             "Thin-lens and mirror equation",
             r"$\frac{1}{f} = \frac{1}{u} + \frac{1}{v}$",
             r"$v = \frac{uf}{u - f}$",
-            r"$v = \frac{0.3 \cdot 0.1}{0.3 - 0.1}$",
+            # Given in cm, the working stays in cm.
+            r"$v = \frac{30 \cdot 10}{30 - 10}$",
         ),
         (
             "A 30 kg child sits 2 m from the pivot of a seesaw. Where should a 20 kg child sit to balance it?",

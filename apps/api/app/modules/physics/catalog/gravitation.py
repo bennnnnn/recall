@@ -6,6 +6,33 @@ from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
+        "orbital_speed_radius",
+        "gravitation",
+        "Circular-orbit speed",
+        "v",
+        base_latex=r"v = \sqrt{\frac{GM}{r}}",
+        expression="sqrt(G_grav*M/orbit_radius)",
+        variables=(
+            var("M", "M", "kilogram", words=("mass of", "mass")),
+            var(
+                "orbit_radius",
+                "r",
+                "meter",
+                words=("radius", "distance", "orbit"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("orbital speed", "orbital velocity", "speed", "velocity"),
+            result=("meter / second",),
+            inputs=(frozenset({"M", "orbit_radius"}),),
+            cues=("orbit", "satellite"),
+            # An altitude needs the planet's radius added; a semi-major axis is vis-viva.
+            excludes=("altitude", "above the surface", "height", "semi-major", "vis-viva"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
         "gravitational_force",
         "gravitation",
         "Newton's law of gravitation",
