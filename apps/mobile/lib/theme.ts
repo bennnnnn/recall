@@ -1,6 +1,7 @@
 /**
- * App theme — one palette via `useTheme()`. Neutral surfaces + one indigo
- * accent for primary actions, selection, progress, links, and focus.
+ * App theme — one palette via `useTheme()`. Neutral surfaces + one accent
+ * (indigo by default, or the user's pick in `lib/accent.ts`) for primary
+ * actions, selection, progress, links, and focus.
  * Success / goal-met stays green so “done” is not the same hue as brand.
  * Do not hardcode hex in components — add a token here instead.
  *
@@ -8,7 +9,9 @@
  *  `bg` (background), `surface`, `text` (textPrimary), `textSecondary`,
  *  `border`, `primary` / `accent` (same indigo).
  */
+import { useAccentPreference } from "@/hooks/useAccentPreference";
 import { useResolvedColorScheme } from "@/hooks/useResolvedColorScheme";
+import { applyAccent, DEFAULT_ACCENT, type AccentPreference } from "@/lib/accent";
 
 export type Theme = {
   scheme: "light" | "dark";
@@ -237,9 +240,27 @@ export const darkTheme: Theme = {
   brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", googleRed: "#EA4335", googleYellow: "#FBBC05", googleGreen: "#34A853", apple: "#000000", appleInk: "#FFFFFF" },
 };
 
-/** Active palette for the current color scheme (system or user override). */
+const accented = new Map<string, Theme>();
+
+/**
+ * The palette for a scheme with an accent applied. One object per pair, so a
+ * screen that caches styles per theme object rebuilds only when either changes.
+ */
+export function themeFor(scheme: "light" | "dark", accent: AccentPreference): Theme {
+  const base = scheme === "dark" ? darkTheme : lightTheme;
+  if (accent === DEFAULT_ACCENT) return base;
+  const key = `${scheme}:${accent}`;
+  let theme = accented.get(key);
+  if (theme === undefined) {
+    theme = applyAccent(base, accent);
+    accented.set(key, theme);
+  }
+  return theme;
+}
+
+/** Active palette: the color scheme (system or user override) and the accent color. */
 export function useTheme(): Theme {
-  return useResolvedColorScheme() === "dark" ? darkTheme : lightTheme;
+  return themeFor(useResolvedColorScheme(), useAccentPreference());
 }
 
 const HEX_COLOR_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;

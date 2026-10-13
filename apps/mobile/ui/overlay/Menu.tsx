@@ -29,6 +29,8 @@ export type MenuItem = {
   key: string;
   label: string;
   icon?: IconName;
+  /** A color dot in place of an icon — the accent color picker. */
+  swatch?: string;
   onPress: () => void;
   /** Red ink — Delete and other actions that lose data. */
   destructive?: boolean;
@@ -174,7 +176,9 @@ function MenuCard({
         }}
         testID={entry.testID}
       >
-        {entry.icon ? (
+        {entry.swatch ? (
+          <View style={[s.swatch, { backgroundColor: entry.swatch }]} />
+        ) : entry.icon ? (
           <Icon
             name={entry.icon}
             size={IconSize.md}
@@ -273,6 +277,13 @@ function makeStyles(t: Theme) {
       paddingVertical: Space.xs,
     },
     rowPressed: { backgroundColor: t.pressed },
+    swatch: {
+      width: IconSize.md,
+      height: IconSize.md,
+      borderRadius: IconSize.md / 2,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: t.border,
+    },
     label: {
       ...Type.navTitle,
       ...Weight.regular,

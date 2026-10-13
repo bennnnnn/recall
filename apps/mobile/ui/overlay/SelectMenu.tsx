@@ -8,6 +8,8 @@ export type SelectOption = {
   key: string;
   label: string;
   icon?: IconName;
+  /** A color dot in place of an icon. */
+  swatch?: string;
   disabled?: boolean;
   /** Short note shown on the right (e.g. "Pro" on a locked choice). */
   note?: string;
@@ -55,6 +57,7 @@ export function SelectMenu({
         key: option.key,
         label: option.label,
         icon: option.icon,
+        swatch: option.swatch,
         disabled: disabled || option.disabled,
         selected: option.key === selectedKey,
         trailing: option.key === selectedKey ? undefined : option.note,
