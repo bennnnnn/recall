@@ -19,8 +19,8 @@ from app.modules.chat.prompt_constants import (
     SOCIAL_DRAFT_HINT,
     TRANSLATION_FORMAT_HINT,
     WRITING_LINE_HINT,
-    draft_revision_fence,
-    draft_revision_hint,
+    draft_followup,
+    draft_followup_hint,
     is_underspecified_writing_request,
     writing_request_kind,
 )
@@ -145,9 +145,9 @@ def test_a_proofread_is_a_writing_request_without_a_draft_fence() -> None:
 def test_a_change_to_the_previous_draft_returns_that_draft_revised(
     text: str, prior: str, fence: str
 ) -> None:
-    assert draft_revision_fence(text, [("user", "draft it"), ("assistant", prior)]) == fence
+    assert draft_followup(text, [("user", "draft it"), ("assistant", prior)]) == (fence, True)
     parts = _hints(text, ("draft it", prior))
-    assert draft_revision_hint(fence) in parts
+    assert draft_followup_hint(fence, drafted=True) in parts
     assert COPY_DELIVERABLE_HINT in parts
     assert NON_DRAFT_TURN_HINT not in parts
     assert WRITING_LINE_HINT not in parts
@@ -166,7 +166,7 @@ def test_a_change_to_the_previous_draft_returns_that_draft_revised(
     ],
 )
 def test_other_follow_ups_are_not_draft_revisions(text: str, prior: str) -> None:
-    assert draft_revision_fence(text, [("user", "ask"), ("assistant", prior)]) is None
+    assert draft_followup(text, [("user", "ask"), ("assistant", prior)]) is None
 
 
 def test_ways_and_tips_answers_are_bold_led_numbered_lists() -> None:
@@ -175,3 +175,50 @@ def test_ways_and_tips_answers_are_bold_led_numbered_lists() -> None:
     assert NON_DRAFT_TURN_HINT in parts
     assert "numbered list of about 5-8 items" in FORMAT_CONTRACT
     assert "**bold label of 2-5 words**" in FORMAT_CONTRACT
+
+
+# The chat from the app: a message to mom, then "asking money" and "send it"
+# were told not to draft, and the model refused.
+_MOM_CHAT = [
+    ("user", "write a message to my mom"),
+    ("assistant", "Hi Mom! Hope you're having a great week. Let's catch up soon!\n\nbini"),
+    ("user", "What did i ask u?"),
+    ("assistant", "You asked for a message to send to your mom."),
+]
+
+
+@pytest.mark.parametrize(
+    "text",
+    ["Asking money", "asking for money", "about her birthday", "send it", "write the message"],
+)
+def test_a_short_answer_goes_on_with_the_message_asked_for_earlier(text: str) -> None:
+    assert draft_followup(text, _MOM_CHAT) == ("message", False)
+    parts = _style_format_hints(
+        query_text=text,
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        prior_messages=_MOM_CHAT,
+    )
+    assert draft_followup_hint("message", drafted=False) in parts
+    assert NON_DRAFT_TURN_HINT not in parts
+
+
+def test_send_and_write_the_message_are_draft_requests_never_refused() -> None:
+    assert writing_request_kind("Send the message asking money") == "message"
+    assert writing_request_kind("U can't write the message asking for money?") == "message"
+    assert "never refuse because you cannot send" in COPY_DELIVERABLE_HINT
+
+
+def test_a_new_question_in_between_ends_the_draft() -> None:
+    chat = [
+        *_MOM_CHAT,
+        ("user", "what is the tallest mountain in the world and how high is it"),
+        ("assistant", "Mount Everest, 8,849 m."),
+    ]
+    assert draft_followup("make it shorter", chat) is None
+    assert draft_followup("about the weather tomorrow", []) is None
+
+
+def test_drafts_leave_out_memory_trivia() -> None:
+    assert "never for the user's tastes or trivia" in EMAIL_DRAFT_HINT

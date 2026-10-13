@@ -6,6 +6,7 @@ from app.modules.chat.prompt_constants.format import is_comparison_question
 from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
 from app.modules.chat.prompt_constants.writing_kind import (
     _DIRECT_REQUEST_INTRO,
+    is_underspecified_writing_request,
     is_writing_deliverable_request,
     writing_request_kind,
 )
@@ -31,7 +32,7 @@ NON_DRAFT_TURN_HINT = (
     "do not create an email, message, SMS, social-post, or copy fence. A personal update, goal, "
     "employer/company mention, or career-change statement is context to understand and respond "
     "to—not an implicit request to draft outreach. Only draft when the user explicitly asks you "
-    "to write, draft, compose, email, message, text, reply, or rewrite something."
+    "to write, draft, compose, send, email, message, text, reply, or rewrite something."
 )
 
 EMAIL_DRAFT_HINT = (
@@ -47,7 +48,9 @@ EMAIL_DRAFT_HINT = (
     "2. Resolve relationships from memory (my wife, my husband, mom, boss, etc.) to real "
     "names and emails when stored. Greet them by name in the body even if To: is omitted. "
     "If the name or address is unknown, omit To: and greet with Hi, — do not invent "
-    "bracketed slots for name or email.\n"
+    "bracketed slots for name or email. Use memory for names, relationships, and facts the "
+    "message needs, never for the user's tastes or trivia (food, drinks, hobbies) they did "
+    "not ask to mention.\n"
     "3. Return one draft by default (except as in 4). If the user explicitly asks for "
     "multiple versions, return exactly that many clearly labelled draft fences. Otherwise, "
     "after the fence, add at most ONE short line offering to adjust tone or length — not a "
@@ -101,15 +104,25 @@ REWRITE_HINT = (
 )
 
 
-def draft_revision_hint(fence: str) -> str:
-    """The contract for a follow-up that changes the draft in the previous reply."""
+def draft_followup_hint(fence: str, *, drafted: bool) -> str:
+    """The contract for a turn that goes on with a draft asked for a few turns ago.
+
+    ``drafted`` is True when a reply already holds that draft in a fence.
+    """
+    if drafted:
+        return (
+            f"This turn changes the draft you wrote earlier in this conversation (```{fence}). "
+            "Apply the requested change (what it says, tone, length, wording, a point added or "
+            "removed, or the language) and keep every name, date, number, and commitment the "
+            f"user did not change. Return the whole revised draft in one ```{fence} fence, not "
+            "a list of edits or a diff. No explanation before it and at most one short line "
+            "after it. Several versions only when the user asked for them."
+        )
     return (
-        f"This turn changes the draft in your previous reply (```{fence}). Apply only the "
-        "requested change (tone, length, wording, a point added or removed, or the language) "
-        "and keep every name, date, number, and commitment the user did not change. Return the "
-        f"whole revised draft in one ```{fence} fence, not a list of edits or a diff. No "
-        "explanation before it and at most one short line after it. Several versions only "
-        "when the user asked for them."
+        f"The user asked for a {fence} earlier in this conversation, and this turn says what it "
+        "should say or how to change it. Write it now, to the same recipient: the whole "
+        f"send-ready text in one ```{fence} fence. No explanation before it and at most one "
+        "short line after it."
     )
 
 
@@ -119,9 +132,11 @@ _DRAFT_FENCE = re.compile(
     r"insta|ig|tiktok|threads|caption|social)[ \t]*$",
     re.IGNORECASE | re.MULTILINE,
 )
+_KIND_FENCE = {"email": "email", "message": "message", "social": "social"}
 # A short follow-up that changes a draft: "make it more polite", "shorter",
-# "add that I'll be back tomorrow", "another version", "translate it to Spanish".
-_DRAFT_REVISION = re.compile(
+# "add that I'll be back tomorrow", "another version", "translate it to Spanish",
+# or says what it is for: "asking money", "about her birthday", "send it".
+_DRAFT_FOLLOWUP = re.compile(
     r"^" + _DIRECT_REQUEST_INTRO + r"(?:"
     r"(?:make|keep|get) (?:it|this|that)\b|"
     r"(?:(?:a )?(?:bit|little|lot|much|way) )?(?:more|less) [a-z]+|"
@@ -136,36 +151,61 @@ _DRAFT_REVISION = re.compile(
     r"(?:versions?|ones?|drafts?|options?)|"
     r"translate (?:it|this|that)\b|"
     r"(?:in|into) [a-z]+$|"
-    r"with(?:out)? (?:any |the |an? )?(?:emojis?|hashtags?|subject|greeting|signature)"
+    r"with(?:out)? (?:any |the |an? )?(?:emojis?|hashtags?|subject|greeting|signature)|"
+    # What the draft is for, as the answer to "what should it say?"
+    r"(?:it should |it'?s |tell (?:her|him|them) )?"
+    r"(?:asking|ask(?:ing)? (?:for|about|if|her|him|them)|about|saying|telling|regarding|"
+    r"wishing|thanking|inviting|apologi[sz]ing|reminding|letting|that (?:i|i'm|i'll|we))\b|"
+    # "send it", "write the message", "send the email to her"
+    r"(?:send|text|email|write|draft|show me|give me) "
+    r"(?:it|this|that|(?:the|my|that|this) (?:message|text|email|draft|post|one))\b"
     r")",
     re.IGNORECASE,
 )
-_REVISION_MAX_WORDS = 30
+_FOLLOWUP_MAX_WORDS = 30
+# A draft three exchanges back is still the one being talked about.
+_FOLLOWUP_LOOKBACK = 6
+# A longer question, or a long answer with no draft, moves the talk on.
+_NEW_TOPIC_WORDS = 7
+_NEW_TOPIC_ANSWER_CHARS = 400
 
 
-def draft_revision_fence(
+def draft_followup(
     text: str | None, prior_messages: list[tuple[str, str]] | None
-) -> str | None:
-    """The fence of the previous reply's draft when this line only changes that draft.
+) -> tuple[str, bool] | None:
+    """(fence, drafted) when this line goes on with a recent draft, else None.
 
-    A new draft request ("write a message to my mom") is its own deliverable.
+    The draft is the last one in a fenced reply, or else the last email, message or
+    post the user asked for, within the last three exchanges. A new draft request
+    with its own purpose ("write a message to my mom saying...") starts over.
     """
     if not text or not prior_messages:
         return None
     cleaned = collapse_ws(text)
-    if not cleaned or len(cleaned.split()) > _REVISION_MAX_WORDS:
+    if not cleaned or len(cleaned.split()) > _FOLLOWUP_MAX_WORDS:
         return None
-    if writing_request_kind(cleaned) in {"email", "message", "social", "prose"}:
+    kind = writing_request_kind(cleaned)
+    if kind == "prose":
         return None
-    if _DRAFT_REVISION.search(cleaned) is None:
+    if kind in _KIND_FENCE:
+        if not is_underspecified_writing_request(cleaned):
+            return None
+    elif _DRAFT_FOLLOWUP.search(cleaned) is None:
         return None
-    previous = next(
-        (content for role, content in reversed(prior_messages) if role == "assistant"), None
-    )
-    if not previous:
-        return None
-    fences = _DRAFT_FENCE.findall(previous)
-    return fences[-1].lower() if fences else None
+    for role, content in reversed(prior_messages[-_FOLLOWUP_LOOKBACK:]):
+        if role == "assistant":
+            fences = _DRAFT_FENCE.findall(content)
+            if fences:
+                return fences[-1].lower(), True
+            if len(content) > _NEW_TOPIC_ANSWER_CHARS:
+                return None
+        elif role == "user":
+            asked = writing_request_kind(content)
+            if asked in _KIND_FENCE:
+                return _KIND_FENCE[asked], False
+            if len(content.split()) >= _NEW_TOPIC_WORDS:
+                return None
+    return None
 
 
 _PERSONAL_RECORD = re.compile(
@@ -219,7 +259,9 @@ COPY_DELIVERABLE_HINT = (
     "If they only asked to write an email/message with no purpose, ask one question "
     "first — do not invent a generic letter. "
     "For email/message drafts, omit To: and greet Hi, when the name or address is unknown. "
-    "Never claim you sent the message — drafts are for the user to send. "
+    "Never claim you sent the message — drafts are for the user to send. Asked to send one, "
+    "draft it and say in one line that they can copy and send it — never refuse because you "
+    "cannot send. "
     "Never use ```copy or ```text for explanations, notes, advice, comparisons, "
     "articles, paragraphs, essays, or math/numeric final answers — those belong in "
     "plain markdown with `$...$` "
