@@ -62,6 +62,7 @@ from app.modules.chat.prompt_constants.privacy import (
 from app.modules.chat.prompt_constants.routing import (
     CONFIRM_FOLLOW_THROUGH_HINT,
     LIGHTWEIGHT_REPLY_HINT,
+    NEW_PROBLEM_HINT,
     PERSONAL_DISCLOSURE_HINT,
     is_broad_self_question,
     is_career_personal_question,
@@ -160,6 +161,7 @@ __all__ = [
     "MATH_SOLVER_HINT",
     "MATH_TUTORING_HINT",
     "MERMAID_FORMAT_HINT",
+    "NEW_PROBLEM_HINT",
     "NON_DRAFT_TURN_HINT",
     "PERSONAL_DISCLOSURE_HINT",
     "PERSONAL_RECORD_HINT",

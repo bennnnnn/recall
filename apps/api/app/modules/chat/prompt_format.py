@@ -4,7 +4,10 @@ from __future__ import annotations
 
 from app.core.config import Settings
 from app.modules import web_search as web_search_service
-from app.modules.chat.continuation_subject import effective_presentation_subject
+from app.modules.chat.continuation_subject import (
+    effective_presentation_subject,
+    is_new_problem_request,
+)
 from app.modules.chat.prompt_constants import (
     BIOLOGY_PRESENTATION_HINT,
     BREVITY_REQUEST_HINT,
@@ -30,6 +33,7 @@ from app.modules.chat.prompt_constants import (
     MATH_SOLVER_HINT,
     MATH_TUTORING_HINT,
     MERMAID_FORMAT_HINT,
+    NEW_PROBLEM_HINT,
     NON_DRAFT_TURN_HINT,
     PERSONAL_DISCLOSURE_HINT,
     PHYSICS_INTENT_HINT,
@@ -331,6 +335,10 @@ def _style_format_hints(
     elif subject == "math":
         # Keep requested detail last, after general layout and tutoring hints.
         parts.append(MATH_REPLY_POLICY)
+    # After the subject policy, which forbids added examples: "one more" is a
+    # request for exactly that, not for the last answer again.
+    if query_text and is_new_problem_request(query_text):
+        parts.append(NEW_PROBLEM_HINT)
     # Turn-derived hard contracts come after generic format/math/copy guidance
     # so smaller models cannot treat exact day coverage or a tagged example as
     # an optional style preference.

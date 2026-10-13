@@ -3,11 +3,14 @@
 from types import SimpleNamespace
 from uuid import uuid4
 
+import pytest
+
 from app.modules.chat.continuation_subject import (
     blocks_math_followup,
     chemistry_working_followup_problem,
     classify_presentation_subject,
     effective_presentation_subject,
+    is_new_problem_request,
     is_pure_continuation,
 )
 from app.modules.chat.prompt_builder import _style_format_hints
@@ -15,7 +18,9 @@ from app.modules.chat.prompt_constants import (
     BIOLOGY_PRESENTATION_HINT,
     CHEMISTRY_PRESENTATION_HINT,
     MATH_INTENT_HINT,
+    NEW_PROBLEM_HINT,
     PHYSICS_INTENT_HINT,
+    PHYSICS_REPLY_POLICY,
     STATISTICS_PRESENTATION_HINT,
 )
 from app.modules.math.followup import is_math_followup
@@ -120,7 +125,8 @@ def test_style_hints_follow_the_continuation_subject() -> None:
         prior_messages=[("user", EQUATION), ("assistant", "x = 4")],
     )
     assert MATH_INTENT_HINT in math_hints
-    assert math_hints[-1] == MATH_REPLY_POLICY
+    # "One more" wants a new problem, which outranks the policy's no-examples rule.
+    assert math_hints[-2:] == [MATH_REPLY_POLICY, NEW_PROBLEM_HINT]
 
     chemistry = _style_format_hints(
         query_text="Another",
@@ -207,3 +213,57 @@ def test_another_inherits_the_strong_model_after_a_hard_turn() -> None:
     assert route_chat_model("explain photosynthesis", prior_user="debug this algorithm") == (
         "gemini-flash"
     )
+
+
+@pytest.mark.parametrize(
+    "line, expected",
+    [
+        ("One more", True),
+        ("I said one more example", True),
+        ("another example please", True),
+        ("Give me a new problem", True),
+        ("One more, harder", True),
+        ("Next one!", True),
+        ("Another way", False),
+        ("Another method", False),
+        ("Why?", False),
+        ("A car goes 5 km in 1 h, another?", False),
+    ],
+)
+def test_is_new_problem_request_reads_a_fresh_problem_ask(line: str, expected: bool) -> None:
+    assert is_new_problem_request(line) is expected
+
+
+def test_one_more_asks_for_a_new_problem_after_the_subject_policy() -> None:
+    speed = "John drove 20 kms in 2 hours. What is his speed"
+    prior = _exchange(("user", speed), ("assistant", "John's speed = 10 km/h."))
+    repeated = [*prior, ("user", "One more"), ("assistant", "John's speed = 10 km/h.")]
+    assert effective_presentation_subject("One more", prior) == "physics"
+    assert effective_presentation_subject("I said one more example", repeated) == "physics"
+    for style in ("default", "short"):
+        parts = _style_format_hints(
+            query_text="I said one more example",
+            style=style,
+            is_day_plan=False,
+            minimal_personal_context=False,
+            prior_messages=repeated,
+        )
+        assert NEW_PROBLEM_HINT in parts
+        assert parts.index(NEW_PROBLEM_HINT) > parts.index(PHYSICS_REPLY_POLICY)
+    plain = _style_format_hints(
+        query_text="Why?",
+        style="default",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        prior_messages=prior,
+    )
+    assert NEW_PROBLEM_HINT not in plain
+
+
+def test_one_more_does_not_replay_the_chemistry_problem() -> None:
+    recent = [
+        SimpleNamespace(id=uuid4(), role="user", content=CHEMISTRY),
+        SimpleNamespace(id=uuid4(), role="assistant", content="2 H2O"),
+    ]
+    assert chemistry_working_followup_problem("One more", recent) is None
+    assert chemistry_working_followup_problem("Another", recent) is None

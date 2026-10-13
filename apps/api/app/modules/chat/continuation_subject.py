@@ -7,6 +7,7 @@ continuation. A new topic does not inherit that subject.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Mapping, Sequence
 from typing import Any
 
@@ -66,6 +67,42 @@ _PHRASES = frozenset(
         "keep going",
     }
 )
+# A fresh problem of the same kind, not the last one again. "Another way" or
+# "another method" asks about the same problem, so those stay out.
+_NEW_PROBLEM_PHRASES = frozenset(
+    {
+        "another",
+        "another one",
+        "another problem",
+        "another such question",
+        "another harder",
+        "another trickier",
+        "give me another",
+        "give me a harder one",
+        "give me a trickier one",
+        "one more",
+        "one more problem",
+        "next",
+        "next one",
+        "harder",
+        "trickier",
+        "easier",
+        "harder one",
+        "trickier one",
+        "same but harder",
+        "same but easier",
+        "a harder one",
+        "a trickier one",
+        "make it harder",
+        "make it trickier",
+    }
+)
+_NEW_PROBLEM_RE = re.compile(
+    r"(?:(?:no|i said|i asked for|i want|give me|show me|do|try)\s+)*"
+    r"(?:another|one more|a new|a different|new|different|next)"
+    r"(?:\s+(?:harder|easier|trickier|similar|practice))?"
+    r"(?:\s+(?:one|example|problem|question|exercise|exercises|examples|problems|questions))?"
+)
 _STATISTICS_CUES = (
     "standard deviation",
     "z-score",
@@ -104,6 +141,22 @@ def is_pure_continuation(text: str | None) -> bool:
     return _phrase(collapsed) in _PHRASES
 
 
+def is_new_problem_request(text: str | None) -> bool:
+    """True when a short line asks for a new problem like the last one.
+
+    "One more" after a solved problem wants a different problem, so the reply
+    must not replay or restate the previous answer.
+    """
+    if not text:
+        return False
+    collapsed = collapse_ws(text)
+    if not collapsed or len(collapsed) > _MAX_CHARS or _has_digit(collapsed):
+        return False
+    phrase = _phrase(collapsed).replace(",", "")
+    phrase = " ".join(phrase.split())
+    return phrase in _NEW_PROBLEM_PHRASES or _NEW_PROBLEM_RE.fullmatch(phrase) is not None
+
+
 def classify_presentation_subject(text: str | None) -> str | None:
     """Subject of this text, or None when it does not name one."""
     if not text or not text.strip():
@@ -138,7 +191,7 @@ def chemistry_working_followup_problem(query: str | None, recent: Sequence[Any])
 
     A later math or physics question is its own text, so it does not come back here.
     """
-    if not is_pure_continuation(query):
+    if not is_pure_continuation(query) or is_new_problem_request(query):
         return None
     own = classify_presentation_subject(query)
     if own in {"math", "physics"}:
@@ -168,7 +221,7 @@ def effective_presentation_subject(
     own = classify_presentation_subject(query)
     if own:
         return own
-    if is_pure_continuation(query):
+    if is_pure_continuation(query) or is_new_problem_request(query):
         return _continuation_subject(prior_messages or ())
     from app.modules.chemistry.followup import chemistry_followup_problem
     from app.modules.physics.followup import physics_followup_problem
@@ -214,7 +267,7 @@ def _continuation_subject(messages: Sequence[tuple[str, str]]) -> str | None:
         if role != "user":
             index -= 1
             continue
-        if is_pure_continuation(content):
+        if is_pure_continuation(content) or is_new_problem_request(content):
             index -= 1
             continue
         subject = classify_presentation_subject(content)

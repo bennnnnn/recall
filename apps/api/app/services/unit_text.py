@@ -10,7 +10,7 @@ LENGTH_UNITS = {
         "m": ("m", "meter", "meters", "metre", "metres"),
         "cm": ("cm", "centimeter", "centimeters", "centimetre", "centimetres"),
         "mm": ("mm", "millimeter", "millimeters", "millimetre", "millimetres"),
-        "km": ("km", "kilometer", "kilometers", "kilometre", "kilometres"),
+        "km": ("km", "kms", "kilometer", "kilometers", "kilometre", "kilometres"),
         "ft": ("ft", "foot", "feet"),
         "in": ("in", "inch", "inches"),
         "yd": ("yd", "yard", "yards"),

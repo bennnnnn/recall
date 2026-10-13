@@ -120,6 +120,8 @@ def _answer(text: str) -> str | None:
             "2 kg·m²/s",  # 0.500·4.00
         ),
         ("A runner covers 100 m in 20 s. Find the speed.", "rate_speed", "5 m/s"),
+        ("John drove 20 kms in 2 hours. What is his speed", "rate_speed", "10 km/h"),
+        ("She cycled 30 kilometres in 2 hrs. What is her speed?", "rate_speed", "15 km/h"),
         (
             "A person weighs 686.7 N on Earth. Find their mass.",
             "mass_from_weight",
