@@ -79,7 +79,7 @@ SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "average_speed",
         "kinematics",
-        "Distance-speed-time equation",
+        "Average speed formula",
         "v",
         base_latex="v = \\frac{d}{t}",
         variables=(
@@ -90,7 +90,7 @@ SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "rate_speed",
         "kinematics",
-        "Distance-speed-time equation",
+        "Speed formula",
         "v",
         base_latex="v = \\frac{d}{t}",
         variables=(
@@ -107,7 +107,7 @@ SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "rate_distance",
         "kinematics",
-        "Distance-speed-time equation",
+        "Speed formula",
         "d",
         base_latex="v = \\frac{d}{t}",
         variables=(
@@ -124,7 +124,7 @@ SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "rate_time",
         "kinematics",
-        "Distance-speed-time equation",
+        "Speed formula",
         "t",
         base_latex="v = \\frac{d}{t}",
         variables=(
