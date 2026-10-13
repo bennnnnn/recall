@@ -5,6 +5,7 @@
 // expo-linear-gradient) unrelated to what this file tests — stubbed so
 // import-time stays safe, mirroring markdownFenceRender.test.tsx's pattern.
 import { render } from "@testing-library/react-native";
+import { StyleSheet } from "react-native";
 
 import { UserMessageContent } from "@/components/UserMessageContent";
 import type { Message } from "@/lib/api/types";
@@ -170,5 +171,14 @@ describe("UserMessageContent", () => {
     );
     expect(getByText("c")).toBeOnTheScreen();
     expect(queryByLabelText("Quiz answer C")).toBeNull();
+  });
+});
+
+describe("sent math bubble", () => {
+  it("sizes to one-line math instead of the composer's fixed row", async () => {
+    const { getByTestId } = await render(<UserMessageContent message={userMessage("$[4,4]$")} />);
+    const style = StyleSheet.flatten(getByTestId("math-draft-preview").props.style);
+    expect(style.minHeight).toBe(0);
+    expect(style.marginBottom).toBe(0);
   });
 });

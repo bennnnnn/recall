@@ -12,6 +12,12 @@ Skip obvious UI polish (colors, icon choice, spacing, copy). Format each as
 
 ## Lessons
 
+- **“solve 2sin(t)=1” was certified “no solution”.** `guess_variables` stripped function names with `\b`, but in `2sin(t)` the digit joins the word, so `sin` survived and the guesser solved for `i`; `theta` split into letters and solved for `a`. Match names by the letters around them (`(?<![A-Za-z])`), and keep a Greek name as one unknown.
+
+- **“convert pi/2 radians to degrees” was certified 114.59°.** The unit extractor took the first bare number, the 2 of π/2. Anything between “convert” and the number means the quantity is an expression: read it whole, and keep an angle with π exact (π/2 rad = 90°).
+
+- **The next maths question after a slow one went unverified.** A timeout kills the SymPy worker; its replacement imports SymPy and the solvers (about 4s) inside the next job's 5s budget, and times out too. A restarted slot runs the start-up warmup before its timed job. A script that calls the solver without the API's start-up warmup sees the same cold timeouts, so warm it or raise the timeout before trusting a “None”.
+
 - **“[4,4]” and “What?” after “convert 1 m to cm” were both answered “1 m = 100 cm”.** `open_math_problem` reopened the last maths question for any message of 24 characters or fewer that was not a greeting, so the solver re-ran the conversion and the model restated it. It is for `x` or `5` after an equation: reopen only for a lone value or unknown, only an equation or inequality, and stop at any other message in between. “What?” then reaches the referential follow-up path.
 
 - **The math keypad typed `2(x)+3` for `2(x+3)`.** An operator at the end of a filled box jumped out of it (only a fraction's numerator kept it), and with no arrow keys that rule was the only way out of a box. A key now types into the box the caret is in; ← → (`lib/math/caretStops.ts`) move between boxes and out of a template. Two-box keys (□/□, ⁿ√, logₙ, ∫□, ∑, ∏, nCr) jump to their second box when pressed again.

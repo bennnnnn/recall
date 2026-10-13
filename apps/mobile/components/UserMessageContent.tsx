@@ -127,7 +127,7 @@ export function UserMessageContent({ message }: Props) {
 function UserBubbleBody({ content }: { content: string }) {
   const compact = displayMathToInline(content);
   if (sentMessageShowsMathPreview(compact)) {
-    return <MathDraftPreview input={compact} showCaret={false} />;
+    return <MathDraftPreview input={compact} showCaret={false} sent />;
   }
   return <MarkdownContent content={compact} />;
 }

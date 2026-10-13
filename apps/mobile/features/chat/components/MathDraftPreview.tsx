@@ -140,6 +140,11 @@ type Props = {
   onMoveCaret?: (pos: number) => void;
   /** Composer only. Sent bubbles must not show an insert caret. */
   showCaret?: boolean;
+  /**
+   * A sent bubble sizes to its math. The composer's fixed row height left
+   * empty space under one-line math such as `[4,4]`.
+   */
+  sent?: boolean;
 };
 
 export const MathDraftPreview = memo(function MathDraftPreview({
@@ -147,6 +152,7 @@ export const MathDraftPreview = memo(function MathDraftPreview({
   caret = 0,
   onMoveCaret,
   showCaret = true,
+  sent = false,
 }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -171,7 +177,10 @@ export const MathDraftPreview = memo(function MathDraftPreview({
   const pieces = clusterDraftNodes(nodes);
   const pieceCaret = liveCaret ? viewCaret : -1;
   return (
-    <View style={[s.wrap, s.row, tall && { minHeight: MATH_TALL_LINE_HEIGHT }]} testID="math-draft-preview">
+    <View
+      style={[s.wrap, s.row, sent && s.sent, tall && { minHeight: MATH_TALL_LINE_HEIGHT }]}
+      testID="math-draft-preview"
+    >
       <Pressable
         testID="math-slot-before"
         onPress={() => onMoveCaret?.(before)}
@@ -667,6 +676,10 @@ const makeStyles = (theme: Theme) =>
       justifyContent: "center",
       paddingHorizontal: 2,
       marginBottom: 2,
+    },
+    sent: {
+      minHeight: 0,
+      marginBottom: 0,
     },
     row: {
       flexDirection: "row",
