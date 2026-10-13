@@ -364,10 +364,18 @@ export const ChatComposer = memo(function ChatComposer({
                 }}
                 accessibilityRole="button"
                 accessibilityLabel={t("chat.math_paste_scan_cta")}
+                // A one-word link: reach the 44pt target around it.
+                hitSlop={{ top: 12, bottom: 12, left: Space.xs, right: Space.xs }}
               >
                 <Text style={s.scanHintCta}>{t("chat.math_paste_scan_cta")}</Text>
               </Pressable>
-              <Pressable onPress={() => setScanHint(false)} accessibilityRole="button" accessibilityLabel={t("common.cancel")}>
+              <Pressable
+                onPress={() => setScanHint(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t("common.cancel")}
+                // A 16pt glyph: 14pt each side makes the 44pt target.
+                hitSlop={14}
+              >
                 <Icon name="close" size={IconSize.xs} color={theme.textSecondary} />
               </Pressable>
             </View>
@@ -578,6 +586,7 @@ export const ChatComposer = memo(function ChatComposer({
                   accessibilityRole="button"
                   accessibilityLabel={t("chat.math_keyboard_show")}
                   testID="math-keyboard-toggle"
+                  hitSlop={4}
                 >
                   <Icon name="calculator" size={IconSize.sm} color={theme.text} />
                 </Pressable>

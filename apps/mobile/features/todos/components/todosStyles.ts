@@ -21,8 +21,8 @@ export function makeTodosStyles(C: Theme) {
     },
     list: { flex: 1 },
     listEmpty: { flexGrow: 1 },
-    // Keep the last row clear of the bottom-right add FAB (56px + offset).
-    listContent: { paddingTop: Space.xs, paddingBottom: 96 },
+    // paddingBottom comes from addFabClearance, which knows the safe area.
+    listContent: { paddingTop: Space.xs },
     section: {
       paddingTop: Space.xs,
       paddingBottom: Space.xxs,

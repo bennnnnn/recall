@@ -44,7 +44,8 @@ function makeStyles(t: Theme) {
       gap: Space.sm,
       paddingHorizontal: Space.sm,
       paddingVertical: 10,
-      alignItems: "flex-start",
+      // Key (14pt) and value (15pt) share a first baseline.
+      alignItems: "baseline",
     },
     rowBorder: {
       borderTopWidth: StyleSheet.hairlineWidth,
@@ -54,8 +55,7 @@ function makeStyles(t: Theme) {
       width: "38%",
       ...Type.label,
       color: t.textSecondary,
-      lineHeight: 20,
     },
-    value: { flex: 1, ...Type.callout, ...Weight.regular, lineHeight: 21, color: t.text },
+    value: { flex: 1, ...Type.callout, ...Weight.regular, color: t.text },
   });
 }

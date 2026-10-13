@@ -142,7 +142,6 @@ function makeStyles(t: Theme) {
       ...Type.display,
       color: t.text,
       textAlign: "center",
-      letterSpacing: -0.4,
     },
     sectionLabel: {
       ...Type.overline,

@@ -1,6 +1,7 @@
 import { useMemo, type ReactElement } from "react";
 import { RefreshControl, Text, View } from "react-native";
 import { FlashList } from "@shopify/flash-list";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { TodoRow } from "@/features/todos/components/TodoRow";
@@ -15,6 +16,7 @@ import {
   type TodoSection,
 } from "@/features/todos/model/todoListRows";
 import { useTheme } from "@/lib/theme";
+import { addFabClearance } from "@/ui/controls/addFabLayout";
 
 type Props = {
   rows: TodoListRow[];
@@ -136,6 +138,8 @@ export function TodosScrollList({
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const blocks = useMemo(() => blocksFromRows(rows), [rows]);
+  // The last row scrolls clear of the bottom-right add FAB.
+  const insets = useSafeAreaInsets();
 
   return (
     <FlashList
@@ -146,6 +150,7 @@ export function TodosScrollList({
       contentContainerStyle={[
         showEmpty && !error ? s.listEmpty : undefined,
         s.listContent,
+        { paddingBottom: addFabClearance(insets.bottom) },
       ]}
       extraData={selecting ? [...(selectedIds ?? [])].join(",") : highlight ?? "browse"}
       keyboardShouldPersistTaps="handled"

@@ -39,7 +39,8 @@ Development builds show every piece in light and dark at
 ## Folders
 
 - `controls/`: Button, IconButton, HeaderButton (+ HeaderButtonGroup), StackBackButton, Chip,
-  SegmentedControl, TextField, SearchField, AddFab.
+  SegmentedControl, TextField, SearchField, AddFab (`addFabLayout.ts` gives a list the bottom
+  padding that clears it).
 - `list/`: ListRow, ListGroup, ListSeparator.
 - `overlay/`: Overlay (the one floating layer), Menu, SelectMenu, Dialog + DialogHost +
   `dialogs.ts`, Sheet, SheetFormHeader, FullScreenModal.

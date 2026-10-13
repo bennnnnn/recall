@@ -150,12 +150,10 @@ function makeStyles(theme: Theme) {
     },
     searchResultTitle: { flex: 1, ...Type.compact, color: theme.textSecondary },
     searchResultBadge: {
-      ...Type.overline,
-      textTransform: "none",
-      letterSpacing: 0,
+      ...Type.micro,
       color: theme.primary,
     },
-    searchResultSnippet: { ...Type.callout, ...Weight.regular, lineHeight: 21, color: theme.text },
+    searchResultSnippet: { ...Type.callout, ...Weight.regular, color: theme.text },
     loadMore: { paddingVertical: 14, alignItems: "center" },
     loadMoreText: { ...Type.label, color: theme.primary },
   });

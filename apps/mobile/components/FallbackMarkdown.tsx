@@ -218,13 +218,10 @@ function makeCalloutStyles(t: Theme) {
       marginVertical: Space.xs,
     },
     label: {
-      ...Type.caption,
-      ...Weight.bold,
+      ...Type.overline,
       color: t.primary,
-      textTransform: "uppercase",
-      letterSpacing: 0.5,
       marginBottom: Space.xxs,
     },
-    body: { ...Type.callout, ...Weight.regular, lineHeight: 21, color: t.text },
+    body: { ...Type.callout, ...Weight.regular, color: t.text },
   });
 }

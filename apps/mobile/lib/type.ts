@@ -55,6 +55,12 @@ export const Type = {
     textTransform: "uppercase",
     letterSpacing: 0.8,
   },
+  /** 11pt bold, untracked — counts and tags inside a badge. The overline's
+   *  size without its uppercase tracking. */
+  micro: {
+    fontSize: 11,
+    ...face("700"),
+  },
   /** 13pt compact chrome — banners, inline alerts, supporting meta that
    *  sat between caption (12) and secondary (14). Override weight at the site. */
   compact: {
@@ -83,10 +89,11 @@ export const Type = {
     fontSize: 17,
     ...face("600"),
   },
-  /** Onboarding / marketing display */
+  /** Onboarding / marketing display. Tightened: 28pt bold reads loose at 0. */
   display: {
     fontSize: 28,
     ...face("700"),
+    letterSpacing: -0.5,
   },
   /** Large clock numerals (time picker header). Tabular so digits don't jiggle. */
   clock: {

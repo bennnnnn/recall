@@ -63,8 +63,9 @@ function makeStyles(t: Theme) {
     divider: { width: StyleSheet.hairlineWidth, backgroundColor: t.border },
     heading: { ...Type.secondary, ...Weight.bold, color: t.text, marginBottom: Space.xxs },
     itemRow: { flexDirection: "row", gap: 6, alignItems: "flex-start" },
-    bullet: { ...Type.secondary, ...Weight.bold, color: t.success, lineHeight: 21 },
+    // The item's role, so the mark and the first line share one line box.
+    bullet: { ...Type.callout, ...Weight.bold, color: t.success },
     bulletNeg: { color: t.danger },
-    item: { flex: 1, ...Type.callout, ...Weight.regular, lineHeight: 21, color: t.text },
+    item: { flex: 1, ...Type.callout, ...Weight.regular, color: t.text },
   });
 }

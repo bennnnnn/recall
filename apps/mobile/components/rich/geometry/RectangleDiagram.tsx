@@ -22,6 +22,7 @@ import {
 } from "@/lib/math/geometryBlock";
 import i18n from "@/lib/i18n";
 import { type Theme } from "@/lib/theme";
+import { UI_FONT } from "@/lib/uiFont";
 
 export function RectangleDiagram({
   spec,
@@ -133,7 +134,7 @@ export function RectangleDiagram({
         y={y - 10}
         fill={theme.text}
         fontSize={13}
-        fontWeight="600"
+        fontFamily={UI_FONT.semibold}
         textAnchor="middle"
       >
         {isSquare ? labels.side : labels.width}
@@ -144,7 +145,7 @@ export function RectangleDiagram({
         y={y + h + 18}
         fill={theme.text}
         fontSize={13}
-        fontWeight="600"
+        fontFamily={UI_FONT.semibold}
         textAnchor="middle"
       >
         {isSquare ? labels.side : labels.width}
@@ -155,7 +156,7 @@ export function RectangleDiagram({
         y={y + h / 2}
         fill={theme.text}
         fontSize={13}
-        fontWeight="600"
+        fontFamily={UI_FONT.semibold}
         textAnchor="end"
         alignmentBaseline="middle"
       >
@@ -167,7 +168,7 @@ export function RectangleDiagram({
         y={y + h / 2}
         fill={theme.text}
         fontSize={13}
-        fontWeight="600"
+        fontFamily={UI_FONT.semibold}
         textAnchor="start"
         alignmentBaseline="middle"
       >
@@ -179,7 +180,7 @@ export function RectangleDiagram({
           y={y + h / 2 - 6}
           fill={colors.diagonal}
           fontSize={12}
-          fontWeight="600"
+          fontFamily={UI_FONT.semibold}
         >
           {labels.diagonal}
         </SvgText>
@@ -201,6 +202,7 @@ export function RectangleDiagram({
             y={y + 28}
             fill={theme.textSecondary}
             fontSize={12}
+            fontFamily={UI_FONT.regular}
           >
             {`∠\u00A0${labels.angle}`}
           </SvgText>
@@ -212,6 +214,7 @@ export function RectangleDiagram({
           y={y + h + 40}
           fill={theme.textSecondary}
           fontSize={12}
+          fontFamily={UI_FONT.regular}
           textAnchor="middle"
         >
           {`${i18n.t("rich.area")}\u00A0${labels.area}`}
@@ -223,6 +226,7 @@ export function RectangleDiagram({
           y={y + h + (spec.show_area ? 56 : 40)}
           fill={theme.textSecondary}
           fontSize={12}
+          fontFamily={UI_FONT.regular}
           textAnchor="middle"
         >
           {`${i18n.t("rich.perimeter")}\u00A0${labels.perimeter}`}

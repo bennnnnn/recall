@@ -24,6 +24,7 @@ import {
   inTableCell,
   inTableHeader,
   inHeading,
+  bulletDiscMetrics,
   immediateAncestorType,
   listItemDisplayNumber,
   listLargestNumber,
@@ -51,7 +52,7 @@ import { isAllowedImageUri } from "@/lib/images/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Italic, Type, Weight } from "@/lib/type";
+import { DYNAMIC_TYPE_MAX, Italic, Type, Weight } from "@/lib/type";
 import { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/preprocess";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { splitWorkoutNote, workoutHeading } from "@/lib/markdown/workoutSection";
@@ -608,7 +609,7 @@ function makeSharedRules(
         if (task) {
           return (
             <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-              <View style={mdMath.listBullet} accessible={false} />
+              <View style={[mdMath.listBullet, bulletDiscStyle()]} accessible={false} />
               <View style={verifyCheckStyles.verifyRow}>
                 <View style={verifyCheckStyles.verifyContent}>{children}</View>
                 <VerifyCheckmark />
@@ -657,13 +658,13 @@ function makeSharedRules(
               // No disc on a parent topic, but keep its column: the label lines
               // up with its siblings' text and the sub-bullets indent under it.
               <View
-                style={[mdMath.listBullet, mdMath.listBulletSpacer]}
+                style={[mdMath.listBullet, bulletDiscStyle(), mdMath.listBulletSpacer]}
                 accessible={false}
                 testID="md-list-bullet-spacer"
               />
             ) : (
               <View
-                style={mdMath.listBullet}
+                style={[mdMath.listBullet, bulletDiscStyle()]}
                 accessible={false}
                 testID="md-list-bullet"
               />
@@ -777,8 +778,10 @@ function makeSharedRules(
             >
               <View
                 style={{
-                  width: 22,
-                  height: 22,
+                  // A pill once large text makes the number wider than 22pt.
+                  minWidth: 22,
+                  minHeight: 22,
+                  paddingHorizontal: Space.xxs,
                   borderRadius: Radius.full,
                   backgroundColor: t.surfaceAlt,
                   alignItems: "center",
@@ -786,11 +789,8 @@ function makeSharedRules(
                 }}
               >
                 <Text
-                  style={{
-                    ...Weight.bold,
-                    fontSize: Type.caption.fontSize,
-                    color: t.text,
-                  }}
+                  style={{ ...Type.caption, ...Weight.bold, color: t.text }}
+                  maxFontSizeMultiplier={DYNAMIC_TYPE_MAX}
                 >
                   {step.n}
                 </Text>
@@ -999,6 +999,12 @@ function makeSharedRules(
       </MarkdownTableCell>
     ),
   };
+}
+
+/** The list disc's size and drop at the reader's text size. */
+function bulletDiscStyle(): ViewStyle {
+  const { size, top } = bulletDiscMetrics(PixelRatio.getFontScale());
+  return { width: size, height: size, marginTop: top };
 }
 
 export function makeRenderRules(t: Theme, streaming = false) {

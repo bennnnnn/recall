@@ -70,9 +70,7 @@ function makeStyles(theme: Theme) {
       borderColor: theme.surface,
     },
     text: {
-      ...Type.overline,
-      textTransform: "none",
-      letterSpacing: 0,
+      ...Type.micro,
       color: theme.onPrimary,
     },
     dangerText: {
