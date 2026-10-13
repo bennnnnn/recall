@@ -431,7 +431,10 @@ def test_format_contract_is_markdown_not_ui_fences():
     assert "Do not backtick a phrase" in FORMAT_CONTRACT
     assert "$O(n)$" in FORMAT_CONTRACT
     assert "Bullets are for parallel unordered items" in FORMAT_CONTRACT
-    assert "Numbers are only for steps, rankings" in FORMAT_CONTRACT
+    assert "Numbers are for steps, rankings" in FORMAT_CONTRACT
+    # "Ways to become rich": numbered items, each led by a bold label.
+    assert "**bold label of 2-5 words**" in FORMAT_CONTRACT
+    assert "get the gist from the bold labels alone" in FORMAT_CONTRACT
     assert "Letters are for alternatives/answer choices" in FORMAT_CONTRACT
     assert "roman numerals only when requested" in FORMAT_CONTRACT
     assert "Nest at most one level" in FORMAT_CONTRACT

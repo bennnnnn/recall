@@ -13,29 +13,45 @@ from app.modules.chat.prompt_constants.locale_cues import (
 )
 from app.services.text_normalize import collapse_ws
 
+# The words that name what an email or message is for may stand between the
+# verb and the noun: "write a resignation email", "a follow-up email".
+_DRAFT_PURPOSE_WORDS = r"(?:[a-z]+(?:-[a-z]+)? ){0,2}"
+
 _EMAIL_WRITING = re.compile(
     r"\b(?:"
     r"send (?:me )?(?:an? )?email|"
     r"email (?:to|my)|"
-    r"write (?:me )?(?:an? )?email|"
-    r"draft (?:an? )?email|"
-    r"compose (?:an? )?email"
+    r"(?:write|draft|compose) (?:me )?(?:an? |the )?" + _DRAFT_PURPOSE_WORDS + r"e-?mail|"
+    r"(?:reply|respond|answer)(?: back)?(?: to)? (?:this|that|the|her|his|their|my|an?) e-?mail"
     r")\b",
     re.IGNORECASE,
 )
 
 _MESSAGE_WRITING = re.compile(
     r"\b(?:"
-    r"send (?:me )?(?:a )?(?:text|message)|"
-    r"(?:write|draft|compose) (?:me )?(?:an? )?(?:text|message|sms|reply)|"
+    r"send (?:me )?(?:a )?" + _DRAFT_PURPOSE_WORDS + r"(?:text|message)|"
+    r"(?:write|draft|compose) (?:me )?(?:an? )?"
+    + _DRAFT_PURPOSE_WORDS
+    + r"(?:text|message|sms|reply)|"
     r"(?:text|message|reply) (?:to|for|my)|"
-    r"reply (?:to|saying|that says)"
+    r"reply (?:to|saying|that says)|"
+    r"(?:answer|respond to)(?: back)? (?:this|that|the|her|his|their|my) "
+    r"(?:message|text|dm|sms|whatsapp)|"
+    r"respond to (?:this|that|it|her|him|them)\b"
     r")\b",
     re.IGNORECASE,
 )
 
+# "How should I reply to 'we need to talk'?" asks for the reply itself when it
+# quotes or pastes the message; "how do I reply to emails faster" is advice.
+_REPLY_HOWTO = re.compile(
+    r"^how (?:should|do|can|would) i (?:reply|respond|answer)(?: back)?(?: to)?\b"
+    r"(?=.*(?:[\"\u201c\u2018]|\s'|:\s*\S))",
+    re.IGNORECASE,
+)
+
 _SOCIAL_WRITING = re.compile(
-    r"\b(?:write|draft|compose|create|rewrite)\s+"
+    r"\b(?:write|draft|compose|create|rewrite|make)\s+"
     r"(?:me\s+)?(?:(?:an?|the|my|one)\s+)?"
     r"(?:(?:(?:very\s+)?(?:short|long|brief|concise|detailed|formal|informal|"
     r"professional|personal|promotional|funny|casual)|"
@@ -44,7 +60,10 @@ _SOCIAL_WRITING = re.compile(
     r"facebook (?:(?:update)\s+)?(?:post|status)|fb post|"
     r"instagram (?:caption|post|story)|tiktok (?:caption|post)|threads post|"
     r"social(?: media)? post|"
-    r"twitter post|x post|tweet|caption|dating (?:app )?bio)\b",
+    r"twitter post|x post|tweet|caption|dating (?:app )?bio|"
+    # "write a post for facebook", "a status on fb"
+    r"(?:post|status|update|caption) (?:for|on) "
+    r"(?:facebook|fb|instagram|insta|ig|linkedin|twitter|x|threads|tiktok|social media))\b",
     re.IGNORECASE,
 )
 
@@ -106,11 +125,56 @@ _PROSE_WRITING = re.compile(
 _EDIT_WRITING = re.compile(
     r"(?:^" + _DIRECT_REQUEST_INTRO + r"(?:"
     r"(?:correct(?: this)?|proofread|rewrite (?:this|it)|"
-    r"fix (?:this )?(?:sentence|grammar)|"
-    r"grammar check|check (?:this )?(?:sentence|grammar))\b|"
+    r"fix (?:the |my |this )?(?:sentence|grammar|spelling|typos?)|"
+    r"correct (?:the |my )?(?:grammar|spelling)|"
+    r"grammar check|check (?:the |my |this )?(?:sentence|grammar|spelling))\b|"
     r"\bis this (?:sentence )?(?:correct|right|grammatical)\b))",
     re.IGNORECASE,
 )
+
+# A change of tone or length to text the user pasted: "make this more polite:
+# ...". The result is wording they will paste and send, so it is a copy block,
+# not a corrected sentence with notes.
+_TONES = (
+    r"(?:professional|polite|formal|informal|casual|friendly|friendlier|nice|nicer|kind|"
+    r"kinder|warm|warmer|soft|softer|firm|firmer|gentle|gentler|respectful|confident|"
+    r"assertive|apologetic|grateful|positive|persuasive|diplomatic|natural|human|clear|"
+    r"clearer|simple|simpler|concise|short|shorter|long|longer|better|smooth|smoother|"
+    r"funny|funnier|fun|cute|romantic|sweet|sweeter|serious|enthusiastic|excited|happy|"
+    r"cheerful|empathetic|sincere)"
+)
+_REWRITE_WRITING = re.compile(
+    r"^" + _DIRECT_REQUEST_INTRO + r"(?:"
+    r"(?:make|rewrite|rephrase|reword|turn|change|edit|write) "
+    r"(?P<object>this|it|that|my (?:message|text|email|post|reply|caption)|"
+    r"the (?:message|text|email|post|reply|caption))"
+    r"(?: to)?(?: (?:sound|look|read|be))? (?:(?:a )?(?:bit|little|lot|much|way) )?"
+    r"(?:more |less |too )?" + _TONES + r"|"
+    r"(?:rephrase|reword|paraphrase|polish|shorten|simplify|soften|tone down) "
+    r"(?P<short_object>this|it|that|my|the)\b"
+    r")",
+    re.IGNORECASE,
+)
+# A message or email pasted after a colon, on its own lines, or in quotes is
+# what a reply answers or a rewrite changes.
+_PASTED_TEXT = re.compile(r":\s*\S+(?:\s+\S+){2,}|\n\s*\S|[\"\u201c]")
+
+
+def _is_rewrite(cleaned: str, written: str) -> bool:
+    """A tone or length change to text in this message, or to a named message.
+
+    "Make it shorter" with nothing pasted refers to the previous reply, which
+    the follow-up contract handles; it is not new text to paste and send.
+    ``written`` keeps the line breaks a pasted message starts on.
+    """
+    match = _REWRITE_WRITING.search(cleaned)
+    if match is None:
+        return False
+    target = (match.group("object") or match.group("short_object") or "").lower()
+    if target in {"this", "it", "that", "the", "my"}:
+        return _PASTED_TEXT.search(written) is not None
+    return True
+
 
 _WRITING_SEQUENCE_PREFIX = re.compile(r"^(?:then|now|also|next)[,\s]+", re.IGNORECASE)
 
@@ -268,6 +332,8 @@ def writing_request_kind(text: str) -> str | None:
     cleaned = collapse_ws(text)
     if not cleaned:
         return None
+    if _REPLY_HOWTO.search(cleaned):
+        return "message"
     # Questions about how to produce or manage a writing artifact are advice,
     # not requests for Recall to draft it. A later sentence can still contain
     # an explicit deliverable request and must keep its output contract.
@@ -287,6 +353,9 @@ def writing_request_kind(text: str) -> str | None:
     # has no translation verb and still routes to email below.
     if _TRANSLATION_WRITING.search(cleaned) or _UNSPACED_TRANSLATION_COMMAND.search(cleaned):
         return "translation"
+    # "Rewrite this to sound friendlier: ..." is a new tone, not a proofread.
+    if _is_rewrite(cleaned, text):
+        return "rewrite"
     if _EDIT_WRITING.search(cleaned):
         return "edit"
     shape_matches: list[tuple[int, int, str]] = []
@@ -361,7 +430,45 @@ _WRITING_PURPOSE_MARKERS = (
     " check-in",
     " update",
     " news",
+    # The kind of email or message is its purpose.
+    " resignation",
+    " resign",
+    " quit",
+    " complaint",
+    " complain",
+    " reminder",
+    " remind",
+    " invitation",
+    " welcome",
+    " introduc",
+    " farewell",
+    " goodbye",
+    " condolence",
+    " sympathy",
+    " refund",
+    " inquiry",
+    " enquiry",
+    " recommendation",
+    " reference",
+    " sick",
+    " sorry",
+    " wishing",
+    " get well",
+    " good luck",
+    " congrats",
+    " happy ",
+    " anniversary",
+    " graduation",
+    " wedding",
+    " opening",
+    " launch",
+    " sale",
+    " hiring",
+    " job",
 )
+
+# What a post or caption shows: "a caption for a beach sunset photo".
+_SOCIAL_SUBJECT_MARKERS = (" for a ", " for an ", " for the ", " for our ", " of a ", " of my ")
 
 
 def is_underspecified_writing_request(text: str) -> bool:
@@ -370,7 +477,9 @@ def is_underspecified_writing_request(text: str) -> bool:
     if kind not in {"email", "message", "social"}:
         return False
     cleaned = f" {collapse_ws(text).lower()} "
-    if '"' in cleaned or "\u201c" in cleaned:
+    if '"' in cleaned or "\u201c" in cleaned or _PASTED_TEXT.search(text):
+        return False
+    if kind == "social" and any(marker in cleaned for marker in _SOCIAL_SUBJECT_MARKERS):
         return False
     # Localized writing cues are stored as complete bare requests. Any text
     # beyond the cue is user-supplied purpose/content and should be drafted.
