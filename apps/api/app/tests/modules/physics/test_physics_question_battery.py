@@ -241,6 +241,51 @@ def test_a_mirror_alone_is_not_physics(text: str) -> None:
         ),
         ("What is the energy equivalent of 1 g of mass?", "8.99 × 10¹³ J"),
         ("A 20 N force acts 0.5 m from a pivot. What is the moment?", "10 N·m"),
+        # Each of these returned no verified answer.
+        ("A ball is thrown straight up at 15 m/s. How high does it go? (g = 9.8 m/s^2)", "11.5 m"),
+        (
+            "A ball is thrown vertically upward at 15 m/s. What is the maximum height? "
+            "(g = 9.8 m/s^2)",
+            "11.5 m",
+        ),
+        (
+            "A 2 kg cart moving at 3 m/s collides with and sticks to a stationary 1 kg cart. "
+            "What is their final velocity?",
+            "2 m/s",
+        ),
+        (
+            "A stationary 1 kg cart is hit by a 2 kg cart moving at 3 m/s and they stick "
+            "together. What is their final velocity?",
+            "2 m/s",
+        ),
+        (
+            "A 10 microfarad capacitor is charged to 12 V. How much charge does it store?",
+            "1.2 × 10⁻⁴ C",
+        ),
+        ("What is the speed of light in water (n = 1.33)?", "2.25 × 10⁸ m/s"),
+        ("What is the speed of light in glass of refractive index 1.5?", "2 × 10⁸ m/s"),
+        (
+            "A concave mirror has a focal length of 10 cm. An object is placed 15 cm from the "
+            "mirror. Where is the image?",
+            "30 cm",
+        ),
+        (
+            "An object is placed 30 cm in front of a converging lens of focal length 10 cm. "
+            "Where is the image?",
+            "15 cm",
+        ),
+        (
+            "What is the orbital speed of a satellite at a radius of 7 x 10^6 m around Earth? "
+            "(mass of Earth = 6 x 10^24 kg)",
+            "7560 m/s",
+        ),
+        (
+            "A satellite orbits Earth at a radius of 7 x 10^6 m. What is its orbital speed? "
+            "(mass of Earth = 6 x 10^24 kg)",
+            "7560 m/s",
+        ),
+        ("A satellite orbits 400 km above Earth's surface. What is its orbital speed?", "7670 m/s"),
+        ("Convert 25 degrees Celsius to kelvin.", r"298.15\ \mathrm{kelvin}"),
     ],
 )
 @pytest.mark.asyncio

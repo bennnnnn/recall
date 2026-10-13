@@ -123,13 +123,14 @@ VERIFIED: list[tuple[str, str, str, str]] = [
         "what is the image distance for a lens of focal length 10 cm and object at 30 cm",
         "optics",
         "image_distance",
-        "0.15 m",
+        # Given in cm, answered in cm.
+        "15 cm",
     ),
     (
         "a converging lens has focal length 5 cm and the object is 15 cm away, where is the image",
         "optics",
         "image_distance",
-        "0.075 m",
+        "7.5 cm",
     ),
     (
         "what is the critical angle for a medium of refractive index 1.5",

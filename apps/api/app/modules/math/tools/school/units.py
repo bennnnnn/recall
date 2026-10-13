@@ -97,9 +97,16 @@ def _exact_angle(intent: MathIntent) -> str | None:
     return latex(radians * pi)
 
 
+# "25 degrees Celsius" is one unit in two words; the source must be one token.
+_TEMPERATURE_WORDS = re.compile(
+    r"\bdeg(?:rees?)?\s+(celsius|centigrade|fahrenheit|kelvin)\b", re.IGNORECASE
+)
+
+
 def _extract_unit_intent(cleaned: str) -> MathIntent | None:
     from app.services.unit_text import QUANTITY_NUMBER
 
+    cleaned = _TEMPERATURE_WORDS.sub(r"\1", cleaned)
     lower = cleaned.lower()
     if "convert" not in lower and " to " not in lower:
         return None

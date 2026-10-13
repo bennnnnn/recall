@@ -46,6 +46,13 @@ _IDENTICAL_PAIR_RE = re.compile(
 )
 
 
+_ORBIT_RADIUS_RE = re.compile(
+    r"\borbits?\b[^.?!]{0,40}\bradius\b|\b(?:orbital|orbit)\s+radius\b"
+    r"|\bradius\s+of\s+(?:its|the|their)\s+orbit\b"
+    r"|\bsatellite\b[^.?!]{0,30}\bat\s+an?\s+radius\b"
+)
+
+
 def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _GRAVITATION_CUES, _GRAVITATION_CUE_RES):
@@ -87,6 +94,10 @@ def _extract_gravitation_intent(cleaned: str) -> PhysicsIntent | None:
     if "orbital" in lower:
         # Vis-viva needs the semi-major axis. Circular orbital speed would drop it.
         if re.search(r"semi-?major|vis-?viva", lower):
+            return None
+        # "orbits Earth at a radius of 7 x 10^6 m" states the orbit's radius,
+        # not Earth's: the catalog's v = sqrt(GM/r) reads that one.
+        if altitude is None and radius is not None and _ORBIT_RADIUS_RE.search(lower):
             return None
         planet_mass, planet_radius = _resolve_body(body, masses, radius)
         if planet_mass is None or planet_radius is None:

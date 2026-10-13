@@ -72,7 +72,15 @@ _KINEMATICS_CUES = (
     "acceleration of",
 )
 
-_KINEMATICS_CUE_RES: tuple[re.Pattern[str], ...] = (re.compile(r"\bhow long\b.{0,60}?\bto fall\b"),)
+_KINEMATICS_CUE_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"\bhow long\b.{0,60}?\bto fall\b"),
+    # "thrown straight up", "thrown vertically upward": the plain cues only
+    # had "thrown up", and the question went to math unanswered.
+    re.compile(
+        r"\b(?:thrown|tossed|launched|projected|fired|kicked|shot)\s+"
+        r"(?:straight|vertically|directly)\s+up(?:wards?)?\b"
+    ),
+)
 
 
 def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:

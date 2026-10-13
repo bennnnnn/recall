@@ -32,10 +32,16 @@ _MASS = re.compile(rf"({_NUMBER})\s*({_MASS_UNITS})(?![A-Za-z0-9/^])", re.IGNORE
 _SPEED = re.compile(rf"({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)
 _LENGTH = re.compile(rf"({_NUMBER})\s*({_LENGTH_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)
 _REST = re.compile(r"\bat rest\b|\bstationary\b|\binitially still\b", re.IGNORECASE)
+# "sticks to a stationary 1 kg cart": the rest word before a mass is that body's.
+_REST_BEFORE_MASS = re.compile(
+    r"(?:\bat rest\b|\bstationary\b|\binitially still\b)\s*$", re.IGNORECASE
+)
 _ELASTIC = re.compile(r"\belastic(?:ally)?\b", re.IGNORECASE)
 _STICKING = re.compile(
     r"\b(?:perfectly|completely|totally)\s+inelastic(?:ally)?\b"
     r"|\bsticks? together\b|\bstuck together\b|\bcoupled?\b"
+    # "collides with and sticks to a stationary 1 kg cart"
+    r"|\b(?:sticks?|stuck|sticking)\s+to\b"
     r"|\bembed(?:s|ded)?\b|\blocks? together\b",
     re.IGNORECASE,
 )
@@ -99,14 +105,19 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
     params: dict[str, float] = {"elastic": float(elastic)}
     units: dict[str, str] = {"elastic": ""}
     consumed_speeds = 0
+    leading_rest = _REST_BEFORE_MASS.search(text[: masses[0].start()]) is not None
     for index, mass in enumerate(masses, start=1):
         value = float(mass[1])
         if value <= 0:
             return None
         end = masses[index].start() if index < len(masses) else len(text)
         clause = text[mass.end() : end]
+        trailing = _REST_BEFORE_MASS.search(clause) if index < len(masses) else None
+        if trailing is not None:
+            clause = clause[: trailing.start()]
         velocities = list(_SPEED.finditer(clause))
-        at_rest = _REST.search(clause) is not None
+        at_rest = leading_rest or _REST.search(clause) is not None
+        leading_rest = trailing is not None
         if len(velocities) > 1 or (not velocities and not at_rest):
             return None
         velocity, velocity_unit = (
