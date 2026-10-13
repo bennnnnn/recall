@@ -20,13 +20,14 @@ could take either of two values.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 
 from app.services.law_binding.givens import Given, scan_givens
-from app.services.law_binding.spec import FormulaSpec, VariableSpec
+from app.services.law_binding.spec import Binding, FormulaSpec, VariableSpec
 from app.services.law_binding.units import ANGLE, UnitTable, dimension_of, unit_dimension
 from app.services.law_binding.words import (
+    ask_strength,
     choose,
     implied_value,
     last_said,
@@ -247,3 +248,67 @@ def fit(spec: FormulaSpec, strength: int, question: Question, subject: Subject) 
     if frozenset(params) not in binding.inputs:
         return None
     return Fit(spec, params, units, strength)
+
+
+def named_strength(
+    binding: Binding, clause: str, lower: str, units: UnitTable, *, cue_text: str | None = None
+) -> int:
+    """How strongly the asked clause names this law; 0 when its cues or excludes rule it out.
+
+    The word checks run before any unit is read, so a question that names no law's ask
+    costs a few regex searches. ``cue_text`` is ``lower`` with any phrase the subject
+    reads a cue from added.
+    """
+    cues = lower if cue_text is None else cue_text
+    if binding.cues and not any(word_pattern(cue).search(cues) for cue in binding.cues):
+        return 0
+    if any(word_pattern(word).search(lower) for word in binding.excludes):
+        return 0
+    return ask_strength(clause, binding.asks, binding.result, units)
+
+
+def read_question(
+    text: str,
+    clause: str,
+    units: UnitTable,
+    *,
+    max_givens: int,
+    asked: frozenset[str] = frozenset(),
+    asked_in: str | None = None,
+) -> Question | None:
+    """The question as the binder reads it, or None when it states too many values.
+
+    A school question states a handful of values; a paste full of numbers is not one
+    law's inputs.
+    """
+    givens = read_givens(text, units)
+    if len(givens) > max_givens:
+        return None
+    lower = text.lower()
+    return Question(
+        text=text,
+        lower=lower,
+        givens=givens,
+        asked=asked,
+        asked_in=asked_in,
+        asked_from=lower.rfind(clause.lower()),
+    )
+
+
+def only_strongest_fit[K](
+    named: Iterable[tuple[K, FormulaSpec, int]], question: Question, subject: Subject
+) -> tuple[K, Fit] | None:
+    """The one law that fits most strongly, with the key it was named under.
+
+    Two laws that fit equally strongly decline: the question does not say which it is.
+    """
+    fits = [
+        (key, filled)
+        for key, spec, strength in named
+        if (filled := fit(spec, strength, question, subject)) is not None
+    ]
+    if not fits:
+        return None
+    strongest = max(filled.strength for _, filled in fits)
+    top = [entry for entry in fits if entry[1].strength == strongest]
+    return top[0] if len(top) == 1 else None
