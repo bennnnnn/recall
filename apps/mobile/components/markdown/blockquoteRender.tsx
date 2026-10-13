@@ -6,12 +6,17 @@ import {
   type AstNode,
 } from "@/components/markdown/markdownAstHelpers";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
+import { PARAGRAPH_GAP, TRIM_TRAILING_GAP } from "@/components/markdown/markdownContentStyles";
 import { Space } from "@/lib/space";
+import { useTheme } from "@/lib/theme";
 
+// Ordinary indented prose (a citation is the quote card): the block rhythm and
+// a neutral rule, so the indent reads as a quote at a glance.
 const indentedProse = {
-  marginTop: Space.xs,
-  marginBottom: Space.xs,
+  marginTop: 0,
+  marginBottom: PARAGRAPH_GAP,
   paddingLeft: Space.sm,
+  borderLeftWidth: 2,
 };
 
 /** Quote card for a citation; every other blockquote is indented prose. */
@@ -29,8 +34,15 @@ export function renderBlockquote(node: AstNode, children: ReactNode): ReactNode 
     );
   }
   return (
-    <View key={node.key} testID="indented-prose" style={indentedProse}>
-      {children}
+    <IndentedProse key={node.key}>{children}</IndentedProse>
+  );
+}
+
+function IndentedProse({ children }: { children: ReactNode }) {
+  const t = useTheme();
+  return (
+    <View testID="indented-prose" style={[indentedProse, { borderLeftColor: t.border }]}>
+      <View style={TRIM_TRAILING_GAP}>{children}</View>
     </View>
   );
 }

@@ -9,6 +9,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = {
   label: string;
@@ -76,7 +77,8 @@ function makeStyles(t: Theme) {
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       borderLeftWidth: 3,
-      marginVertical: Space.xs,
+      marginTop: 0,
+      marginBottom: PARAGRAPH_GAP,
       overflow: "hidden",
     },
     // The same hairline as the other three sides: 1pt drew a heavier left edge.

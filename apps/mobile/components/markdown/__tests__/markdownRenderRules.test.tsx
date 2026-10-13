@@ -550,3 +550,33 @@ describe("emphasis faces", () => {
     expect(faceOf(getByText("$5"))).toBe("SourceSans3");
   });
 });
+
+describe("reply rhythm", () => {
+  it("drops the top margin of a heading that opens the reply", async () => {
+    const { toJSON } = await render(<MarkdownContent content={"# Title\n\nBody text"} />);
+    const tree = toJSON() as { props: { style?: unknown } } | null;
+    const top = StyleSheet.flatten(tree?.props.style as never)?.marginTop;
+    const heading = StyleSheet.flatten(makeMdStyles(lightTheme).heading1 as never)?.marginTop;
+    expect(heading).toBeGreaterThan(0);
+    expect(top).toBe(-(heading as number));
+  });
+
+  it("leaves a reply that opens with text where it is", async () => {
+    const { toJSON } = await render(<MarkdownContent content={"Body text\n\n# Later"} />);
+    const tree = toJSON() as { props: { style?: unknown } } | null;
+    expect(StyleSheet.flatten(tree?.props.style as never)?.marginTop).toBeUndefined();
+  });
+
+  it("sizes inline code to the heading it sits in", async () => {
+    const { getByText } = await render(<MarkdownContent content={"## Use `map` here"} />);
+    const size = StyleSheet.flatten(getByText("map").props.style)?.fontSize;
+    expect(size).toBeGreaterThan(14);
+  });
+
+  it("draws a rule beside an ordinary blockquote", async () => {
+    const { getByTestId } = await render(<MarkdownContent content={"> just an aside"} />);
+    const style = StyleSheet.flatten(getByTestId("indented-prose").props.style);
+    expect(style.borderLeftWidth).toBeGreaterThan(0);
+    expect(style.marginTop).toBe(0);
+  });
+});

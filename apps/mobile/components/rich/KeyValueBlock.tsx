@@ -5,6 +5,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = { rows: { key: string; value: string }[] };
 
@@ -34,7 +35,8 @@ function makeStyles(t: Theme) {
       borderWidth: 1,
       borderColor: t.border,
       backgroundColor: t.bg,
-      marginVertical: Space.xs,
+      marginTop: 0,
+      marginBottom: PARAGRAPH_GAP,
       overflow: "hidden",
     },
     row: {

@@ -5,7 +5,7 @@ import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
-import { Space } from "@/lib/space";
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = { steps: string[] };
 
@@ -31,7 +31,7 @@ export function StepList({ steps }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: { marginVertical: Space.xs, gap: 10 },
+    wrap: { marginTop: 0, marginBottom: PARAGRAPH_GAP, gap: 10 },
     row: {
       flexDirection: "row",
       gap: 10,
@@ -48,6 +48,6 @@ function makeStyles(t: Theme) {
       marginTop: 2,
     },
     badgeText: { ...Type.compact, ...Weight.bold, color: t.primary },
-    text: { flex: 1, ...Type.body, lineHeight: 24, color: t.text },
+    text: { flex: 1, ...Type.body, color: t.text },
   });
 }

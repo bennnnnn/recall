@@ -10,6 +10,7 @@ import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { IconSize } from "@/ui/icons/sizes";
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = { url: string };
 
@@ -92,7 +93,8 @@ function makeStyles(theme: Theme) {
       backgroundColor: theme.surface,
       paddingHorizontal: Space.sm,
       paddingVertical: 10,
-      marginVertical: Space.xs,
+      marginTop: 0,
+      marginBottom: PARAGRAPH_GAP,
       gap: Space.xxs,
     },
     loading: { opacity: 0.7 },

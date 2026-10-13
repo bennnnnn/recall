@@ -54,6 +54,31 @@ export function listItemHasNestedList(node: AstNode): boolean {
   return false;
 }
 
+/** The largest number an ordered list shows: its start plus its item count. */
+export function listLargestNumber(parent: unknown): number {
+  if (!Array.isArray(parent) || parent.length === 0) return 1;
+  const list = parent[0] as { attributes?: { start?: number }; children?: unknown[] };
+  const start = typeof list.attributes?.start === "number" ? list.attributes.start : 1;
+  return start + Math.max(0, (list.children?.length ?? 1) - 1);
+}
+
+/** Body-size digit and period widths in Source Sans 3 (tabular). */
+const DIGIT_WIDTH = 8;
+const PERIOD_WIDTH = 4;
+/** The column 1–99 fit in at the default text size. */
+const MIN_NUMBER_COLUMN = 22;
+
+/**
+ * Width of a numbered list's marker column: every item in the list uses the
+ * width of its largest number at the reader's text size, so "9." and "10."
+ * (and "100.") keep their text on one edge.
+ */
+export function numberColumnWidth(largest: number, fontScale: number): number {
+  const digits = String(Math.max(1, Math.floor(largest))).length;
+  const needed = Math.ceil((digits * DIGIT_WIDTH + PERIOD_WIDTH) * Math.max(1, fontScale)) + 2;
+  return Math.max(MIN_NUMBER_COLUMN, needed);
+}
+
 export function listItemDisplayNumber(parent: unknown, index: number): number {
   if (!Array.isArray(parent) || parent.length === 0) return index + 1;
   const list = parent[0] as { attributes?: { start?: number } };

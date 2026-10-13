@@ -21,6 +21,7 @@ import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
 import { Icon } from "@/ui/icons/Icon";
 import { IconSize } from "@/ui/icons/sizes";
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = {
   content: string;
@@ -248,7 +249,8 @@ const makeStyles = (t: Theme) =>
     row: {
       alignSelf: "stretch",
       alignItems: "center",
-      marginVertical: 10,
+      marginTop: 0,
+      marginBottom: PARAGRAPH_GAP,
     },
     rowLabeled: {
       alignItems: "flex-start",

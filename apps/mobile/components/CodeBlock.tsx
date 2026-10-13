@@ -19,6 +19,7 @@ import { CopyButton } from "@/components/CopyButton";
 import { CODE_FONT } from "@/lib/fonts";
 import { Space } from "@/lib/space";
 import { Type, Weight } from "@/lib/type";
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 const CODE_FONT_SIZE = 13;
 const CODE_LINE_HEIGHT = 20;
 
@@ -213,7 +214,7 @@ function makeStyles(t: Theme) {
       borderColor: t.border,
       overflow: "hidden",
       marginTop: 0,
-      marginBottom: 10,
+      marginBottom: PARAGRAPH_GAP,
     },
     lang: {
       ...Type.meta,

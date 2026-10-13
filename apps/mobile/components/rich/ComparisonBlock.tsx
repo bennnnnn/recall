@@ -6,6 +6,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = { data: ComparisonDraft };
 
@@ -51,7 +52,8 @@ function makeStyles(t: Theme) {
       borderRadius: Radius.sm,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
-      marginVertical: Space.xs,
+      marginTop: 0,
+      marginBottom: PARAGRAPH_GAP,
       overflow: "hidden",
     },
     row: { flexDirection: "row" },

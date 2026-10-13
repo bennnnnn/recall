@@ -4,6 +4,8 @@ import {
   listItemDisplayNumber,
   listItemHasNestedList,
   shouldNumberListItem,
+  listLargestNumber,
+  numberColumnWidth,
 } from "@/components/markdown/markdownAstHelpers";
 
 describe("nested list numbering", () => {
@@ -58,5 +60,22 @@ describe("listItemHasNestedList", () => {
         ],
       }),
     ).toBe(true);
+  });
+});
+
+describe("numbered list column", () => {
+  it("fits the list's largest number, so 9. and 10. share one text edge", () => {
+    expect(numberColumnWidth(9, 1)).toBe(22);
+    expect(numberColumnWidth(12, 1)).toBe(22);
+    expect(numberColumnWidth(100, 1)).toBeGreaterThan(22);
+    // Larger text: the column grows with it instead of pushing 10+ right.
+    expect(numberColumnWidth(12, 1.5)).toBeGreaterThan(numberColumnWidth(12, 1));
+  });
+
+  it("reads the largest number from the list's start and item count", () => {
+    const list = { attributes: { start: 8 }, children: [{}, {}, {}] };
+    expect(listLargestNumber([list])).toBe(10);
+    expect(listLargestNumber([{ children: [{}, {}] }])).toBe(2);
+    expect(listLargestNumber([])).toBe(1);
   });
 });

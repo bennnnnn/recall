@@ -18,6 +18,7 @@ import {
 
 import { Theme, useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type CellProps = { isLast?: boolean };
 
@@ -321,7 +322,7 @@ function makeStyles(theme: Theme) {
   return StyleSheet.create({
     scrollWrap: {
       marginTop: 0,
-      marginBottom: 10,
+      marginBottom: PARAGRAPH_GAP,
       overflow: "hidden",
       alignSelf: "stretch",
       width: "100%",
