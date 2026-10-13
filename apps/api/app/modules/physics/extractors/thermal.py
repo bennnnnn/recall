@@ -115,6 +115,11 @@ def _ideal_gas(cleaned: str, moles: tuple[float, str] | None) -> PhysicsIntent |
     )
 
 
+_STATED_CAPACITY = re.compile(
+    rf"(?:specific\s+heat(?:\s+capacity)?|\bc)\s*(?:=|is|of)\s*{_NUMBER}", re.IGNORECASE
+)
+
+
 def _heat_energy(cleaned: str) -> PhysicsIntent | None:
     """Q = mc dT, from a stated change or two readings, and a stated or water's c."""
     lower = cleaned.lower()
@@ -141,6 +146,10 @@ def _heat_energy(cleaned: str) -> PhysicsIntent | None:
     if capacity is not None:
         c_value = capacity[0]
         c_unit = _capacity_unit(capacity[1])
+    elif _STATED_CAPACITY.search(cleaned):
+        # A capacity is given but its unit was not read: water's 4186 would
+        # silently replace the stated number.
+        return None
     elif "water" in lower:
         c_value, c_unit = _WATER_SPECIFIC_HEAT, "J/kg/K"
     else:

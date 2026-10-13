@@ -239,12 +239,10 @@ def _params_in_si(intent: PhysicsIntent) -> dict[str, float]:
         # `startswith`, not `==`: Snell's law carries `angle` and `angle2`, and
         # an angle that skipped this branch would reach `_to_si` and convert
         # only because Pint's `degree` happens to base-convert to radians.
+        # Anything not in radians is degrees: "30 degree" (singular) was kept as
+        # 30 rad, and Snell's law then refused a negative refraction angle.
         if key.startswith("angle"):
-            lower_unit = unit.lower()
-            if lower_unit in ("rad", "radian", "radians"):
-                out[key] = val
-            else:
-                out[key] = math.radians(val) if lower_unit in ("deg", "degrees", "°", "") else val
+            out[key] = val if unit.lower().startswith("rad") else math.radians(val)
         else:
             out[key] = _to_si(val, unit, expected_key=key)
     return out

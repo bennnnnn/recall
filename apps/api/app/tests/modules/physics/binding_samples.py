@@ -170,6 +170,7 @@ SAMPLES: dict[str, float] = {
     "r2": 0.3,
     "convex": 1.0,
     "concave": 1.0,
+    "from_surface": 1.0,
     "k1": 200.0,
     "k2": 300.0,
     "loop_current": 2.0,
