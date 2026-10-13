@@ -16,7 +16,17 @@ from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.services.workout import Workout, math_line, render_workout
 
-CURVE_POINT_OPS = frozenset({"tangent_line", "normal_line", "stationary_points"})
+CURVE_POINT_OPS = frozenset(
+    {
+        "tangent_line",
+        "normal_line",
+        "stationary_points",
+        "inflection_points",
+        "monotonic_intervals",
+        "extreme_value",
+        "sum_max_product",
+    }
+)
 
 _NUMBER = r"[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:\s*/\s*\d+)?"
 _CURVE = r"(?:the\s+(?:curve|graph|function)\s+)?(?:(?:y|[a-z]\s*\(\s*x\s*\))\s*=\s*)?"
@@ -26,12 +36,46 @@ _TANGENT = re.compile(
     rf"(?:x\s*=\s*(?P<x>{_NUMBER})|\(\s*(?P<px>{_NUMBER})\s*,\s*(?P<py>{_NUMBER})\s*\))\s*$",
     re.IGNORECASE,
 )
+# "the gradient of the curve y = x^3 at x = 2": the derivative there, not a system to solve.
+_GRADIENT_AT = re.compile(
+    rf"\b(?:gradient|slope)\s+of\s+(?:the\s+)?(?:curve|graph|function|tangent\s+to)?\s*"
+    rf"(?:of\s+)?{_CURVE}(?P<expr>.+?)\s+(?:at|where|when)\s+(?:the\s+point\s+)?"
+    rf"(?:x\s*=\s*(?P<x>{_NUMBER})|\(\s*(?P<px>{_NUMBER})\s*,\s*(?P<py>{_NUMBER})\s*\))\s*$",
+    re.IGNORECASE,
+)
 _STATIONARY = re.compile(
     # Not "critical points": those include where dy/dx is undefined, which
     # the critical-point solver looks for and this block does not.
     rf"\b(?:stationary|turning)\s+points?\s+(?:of|for|on)\s+{_CURVE}(?P<expr>.+?)\s*$"
     rf"|\b(?:local\s+)?(?:maximum|max)\s+and\s+(?:local\s+)?(?:minimum|min)(?:\s+points?)?"
     rf"\s+(?:of|for)\s+{_CURVE}(?P<expr2>.+?)\s*$",
+    re.IGNORECASE,
+)
+_INFLECTION = re.compile(
+    rf"\bpoints?\s+of\s+inflection\s+(?:of|for|on)\s+{_CURVE}(?P<expr>.+?)\s*$"
+    rf"|\binflection\s+points?\s+(?:of|for|on)\s+{_CURVE}(?P<expr2>.+?)\s*$",
+    re.IGNORECASE,
+)
+_MONOTONIC = re.compile(
+    rf"^(?:where|when|for\s+what\s+values\s+of\s+x|on\s+what\s+intervals?)\s+is\s+{_CURVE}"
+    r"(?P<expr>.+?)\s+(?P<way>increasing|decreasing)$"
+    rf"|^(?:find\s+)?(?:the\s+)?intervals?\s+(?:where|on\s+which)\s+{_CURVE}(?P<expr2>.+?)\s+is\s+"
+    r"(?P<way2>increasing|decreasing)$",
+    re.IGNORECASE,
+)
+# "find the maximum value of f(x) = -x^2 + 4x", "h = 20t - 5t^2 ... the maximum height".
+_EXTREME = re.compile(
+    r"\b(?P<way>maximum|minimum|max|min|greatest|least|highest|lowest)\s+"
+    r"(?:value|height|point|output|profit|area|cost)?\b",
+    re.IGNORECASE,
+)
+_DEFINED = re.compile(
+    r"(?<![A-Za-z])(?P<name>[a-zA-Z])(?:\s*\(\s*(?P<var>[a-z])\s*\))?\s*=\s*"
+    r"(?P<expr>[^,;=]+?)(?=\s*(?:,|;|\.\s|\bfind\b|\bwhat\b|\bwhen\b|$))",
+)
+_SUM_PRODUCT = re.compile(
+    r"\btwo\s+(?:positive\s+|real\s+)?numbers\s+(?:add|sum|add\s+up)\s+to\s+(?P<sum>\d+(?:\.\d+)?)"
+    r".*?\b(?:maximum|largest|greatest|biggest)\s+(?:possible\s+)?product\b",
     re.IGNORECASE,
 )
 _LEAD = re.compile(
@@ -67,6 +111,22 @@ def extract_curve_point_intent(cleaned: str) -> MathIntent | None:
             variable="x",
             evaluation_point=point.replace(" ", ""),
         )
+    gradient = _GRADIENT_AT.fullmatch(request)
+    if gradient is not None:
+        expr = _expression(gradient["expr"])
+        point = gradient["x"] or gradient["px"]
+        if expr is None or point is None:
+            return None
+        return MathIntent(
+            kind="calculus",
+            operation="differentiate",
+            expr=expr,
+            variable="x",
+            evaluation_point=point.replace(" ", ""),
+        )
+    others = _other_curve_intents(body, request)
+    if others is not None:
+        return others
     stationary = _STATIONARY.fullmatch(request)
     if stationary is not None:
         expr = _expression(stationary["expr"] or stationary["expr2"] or "")
@@ -78,6 +138,75 @@ def extract_curve_point_intent(cleaned: str) -> MathIntent | None:
             school_op="stationary_points",
             expr=expr,
             variable="x",
+        )
+    return None
+
+
+def _other_curve_intents(body: str, request: str) -> MathIntent | None:
+    """Inflection points, where a curve rises or falls, and the largest or smallest value."""
+    inflection = _INFLECTION.fullmatch(request)
+    if inflection is not None:
+        expr = _expression(inflection["expr"] or inflection["expr2"] or "")
+        if expr is None:
+            return None
+        return MathIntent(
+            kind="calculus",
+            operation="critical_points",
+            school_op="inflection_points",
+            expr=expr,
+            variable="x",
+        )
+    monotonic = _MONOTONIC.fullmatch(body)
+    if monotonic is not None:
+        expr = _expression(monotonic["expr"] or monotonic["expr2"] or "")
+        way = (monotonic["way"] or monotonic["way2"] or "").lower()
+        if expr is None:
+            return None
+        return MathIntent(
+            kind="calculus",
+            operation="critical_points",
+            school_op="monotonic_intervals",
+            expr=expr,
+            variable="x",
+            trial_outcome=way,
+        )
+    pair = _SUM_PRODUCT.search(body)
+    if pair is not None:
+        return MathIntent(
+            kind="calculus",
+            operation="critical_points",
+            school_op="sum_max_product",
+            expr="x",
+            variable="x",
+            percent_base=float(pair["sum"]),
+        )
+    extreme = _EXTREME.search(body)
+    defined = _DEFINED.search(body)
+    if extreme is not None and defined is not None:
+        variable = defined["var"]
+        expr = _expression(defined["expr"])
+        if expr is None:
+            return None
+        letters = {
+            ch for ch in re.sub(r"(sin|cos|tan|ln|log|exp|sqrt|pi|e\^)", "", expr) if ch.isalpha()
+        }
+        if variable is None:
+            if len(letters) != 1:
+                return None
+            variable = next(iter(letters))
+        if letters - {variable} or variable == defined["name"].lower():
+            return None
+        way = extreme["way"].lower()
+        largest = way in {"maximum", "max", "greatest", "highest"}
+        return MathIntent(
+            kind="calculus",
+            operation="critical_points",
+            school_op="extreme_value",
+            expr=expr,
+            variable=variable,
+            trial_outcome="max" if largest else "min",
+            # The name as written: "f(x)", or "h" for h = 20t - 5t^2.
+            lhs=f"{defined['name']}({variable})" if defined["var"] else defined["name"],
         )
     return None
 
@@ -259,7 +388,181 @@ def _stationary_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock
     return replace(block, worked_reply=working)
 
 
+def _workout_block(
+    lines: list[str], answer: str, given: tuple[str, ...], find: str, rows: list[str]
+) -> VerifiedMathBlock:
+    lines.extend(rows)
+    block = _finish_with_answer(lines, answer)
+    working = render_workout(Workout(given=given, find=(find,), steps=tuple(rows)), answer)
+    return replace(block, worked_reply=working)
+
+
+def _inflection_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    from sympy import Eq, FiniteSet, S, diff, latex, simplify, solveset
+
+    parsed = _parse(intent.expr or "", intent.variable)
+    if parsed is None:
+        return None
+    x, curve = parsed
+    var = intent.variable
+    first = simplify(diff(curve, x))
+    second = simplify(diff(first, x))
+    roots = solveset(Eq(second, 0), x, domain=S.Reals)
+    if not isinstance(roots, FiniteSet) and roots is not S.EmptySet:
+        return None
+    candidates = sorted(roots, key=lambda root: float(root)) if roots is not S.EmptySet else []
+    d2 = rf"\frac{{d^{{2}}y}}{{d{var}^{{2}}}}"
+    rows = [
+        math_line(rf"\frac{{dy}}{{d{var}}} = {latex(first)}"),
+        math_line(f"{d2} = {latex(second)}"),
+    ]
+    points: list[str] = []
+    if candidates:
+        rows.append(
+            math_line(
+                f"{latex(second)} = 0 \\Rightarrow "
+                + r",\; ".join(f"{var} = {latex(root)}" for root in candidates),
+                "where the curvature could change",
+            )
+        )
+    for root in candidates:
+        left = second.subs(x, root - S.Half)
+        right = second.subs(x, root + S.Half)
+        if left.is_positive == right.is_positive:
+            rows.append(
+                math_line(f"{var} = {latex(root)}", f"${d2}$ keeps its sign: not an inflection")
+            )
+            continue
+        y_value = simplify(curve.subs(x, root))
+        rows.append(
+            math_line(f"{var} = {latex(root)}:\\ y = {latex(y_value)}", f"${d2}$ changes sign")
+        )
+        points.append(rf"\left({latex(root)}, {latex(y_value)}\right)")
+    answer = r",\; ".join(points) if points else r"\text{no point of inflection}"
+    return _workout_block(
+        lines, answer, (math_line(f"y = {latex(curve)}"),), "the points of inflection", rows
+    )
+
+
+def _monotonic_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    from sympy import S, diff, latex, simplify, solveset
+
+    from app.modules.math.solve.algebra import inequality_solution_latex
+
+    parsed = _parse(intent.expr or "", intent.variable)
+    if parsed is None:
+        return None
+    x, curve = parsed
+    var = intent.variable
+    first = simplify(diff(curve, x))
+    rising = intent.trial_outcome != "decreasing"
+    solution = solveset(first > 0 if rising else first < 0, x, domain=S.Reals)
+    answer = inequality_solution_latex(solution, x)
+    rows = [
+        math_line(rf"f'({var}) = {latex(first)}"),
+        math_line(
+            f"{latex(first)} {'>' if rising else '<'} 0",
+            "increasing where the gradient is positive"
+            if rising
+            else "decreasing where the gradient is negative",
+        ),
+    ]
+    return _workout_block(
+        lines,
+        answer,
+        (math_line(f"f({var}) = {latex(curve)}"),),
+        f"where f is {'increasing' if rising else 'decreasing'}",
+        rows,
+    )
+
+
+def _extreme_value_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    from sympy import Eq, FiniteSet, S, diff, latex, simplify, solveset
+
+    parsed = _parse(intent.expr or "", intent.variable)
+    if parsed is None:
+        return None
+    x, curve = parsed
+    var = intent.variable
+    written = intent.lhs or "y"
+    name = written.split("(", 1)[0]
+    largest = intent.trial_outcome == "max"
+    first = simplify(diff(curve, x))
+    second = simplify(diff(first, x))
+    roots = solveset(Eq(first, 0), x, domain=S.Reals)
+    if not isinstance(roots, FiniteSet):
+        return None
+    wanted = [
+        root
+        for root in roots
+        if (second.subs(x, root).is_negative if largest else second.subs(x, root).is_positive)
+    ]
+    if len(wanted) != 1:
+        return None
+    root = wanted[0]
+    value = simplify(curve.subs(x, root))
+    d = rf"\frac{{d{name}}}{{d{var}}}"
+    rows = [
+        math_line(f"{d} = {latex(first)}"),
+        math_line(f"{latex(first)} = 0 \\Rightarrow {var} = {latex(root)}", "a stationary point"),
+        math_line(
+            rf"\frac{{d^{{2}}{name}}}{{d{var}^{{2}}}} = {latex(second.subs(x, root))} "
+            f"{'<' if largest else '>'} 0",
+            "a maximum" if largest else "a minimum",
+        ),
+        math_line(
+            f"{name}({latex(root)}) = {_substituted(curve, var, root)}"
+            if "(" in written
+            else f"{name} = {_substituted(curve, var, root)}",
+            None if "(" in written else f"at ${var} = {latex(root)}$",
+        ),
+    ]
+    return _workout_block(
+        lines,
+        latex(value),
+        (math_line(f"{written} = {latex(curve)}"),),
+        f"the {'maximum' if largest else 'minimum'} value of ${name}$",
+        rows,
+    )
+
+
+def _substituted(curve: Any, var: str, value: Any) -> str:
+    from app.modules.math.tools.school.function_value import _substituted_tex
+
+    return _substituted_tex(curve, var, value)
+
+
+def _sum_max_product_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    total = intent.percent_base
+    if total is None or total <= 0:
+        return None
+    n = f"{total:g}"
+    half = f"{total / 2:g}"
+    answer = f"{total * total / 4:g}"
+    rows = [
+        math_line(f"y = {n} - x", "the two numbers are x and y"),
+        math_line(f"P = x({n} - x) = {n}x - x^2", "the product"),
+        math_line(
+            rf"\frac{{dP}}{{dx}} = {n} - 2x = 0 \Rightarrow x = {half}", "a stationary point"
+        ),
+        math_line(r"\frac{d^{2}P}{dx^{2}} = -2 < 0", "a maximum"),
+        math_line(f"x = y = {half},\\ P = {half} \\times {half}"),
+    ]
+    return _workout_block(
+        lines, answer, (math_line(f"x + y = {n}"),), "the largest product $P = xy$", rows
+    )
+
+
 def curve_point_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
-    if intent.school_op == "stationary_points":
+    op = intent.school_op
+    if op == "stationary_points":
         return _stationary_block(intent, lines)
+    if op == "inflection_points":
+        return _inflection_block(intent, lines)
+    if op == "monotonic_intervals":
+        return _monotonic_block(intent, lines)
+    if op == "extreme_value":
+        return _extreme_value_block(intent, lines)
+    if op == "sum_max_product":
+        return _sum_max_product_block(intent, lines)
     return _tangent_block(intent, lines)

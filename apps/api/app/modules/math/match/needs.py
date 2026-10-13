@@ -159,6 +159,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
     from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
+    from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
     from app.modules.math.tools.school.number_facts import extract_number_fact_intent
 
     # A missing leg or polygon angles; roots, percentages, standard form and
@@ -167,6 +168,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         extract(cleaned) is not None
         for extract in (
             extract_geometry_fact_intent,
+            extract_geometry_measure_intent,
             extract_number_fact_intent,
             extract_algebra_fact_intent,
         )

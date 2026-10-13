@@ -476,14 +476,28 @@ def convert_unit(value: float, src: str, dest: str) -> str:
         raise MathServiceError(f"unsupported conversion {src} to {dest}") from exc
 
 
-def taylor_series(expr: str, variable: str, point: str, order: int) -> MathExprResult:
-    from sympy import series
+def taylor_series(
+    expr: str, variable: str, point: str, order: int, *, nonzero_terms: int | None = None
+) -> MathExprResult:
+    """The Taylor polynomial to ``order``, or with ``nonzero_terms`` terms.
+
+    "cos x to 4 terms" means four non-zero terms (up to x^6), not order 3. A
+    series about 0 is written in ascending powers, as textbooks write it.
+    """
+    from sympy import Add, series
 
     parsed = _parse_expression(expr, [variable])
     var = Symbol(variable)
     pt = _parse_expression(point, [variable])
     out = series(parsed, var, pt, order + 1).removeO()
-    tex = str(latex(out))
+    if nonzero_terms is not None:
+        for longer in range(nonzero_terms, 31):
+            out = series(parsed, var, pt, longer + 1).removeO()
+            if len(Add.make_args(out)) >= nonzero_terms:
+                break
+        terms = sorted(Add.make_args(out), key=lambda term: term.as_poly(var).degree())
+        out = Add(*terms[:nonzero_terms])
+    tex = str(latex(out, order="rev-lex")) if pt == 0 else str(latex(out))
     return MathExprResult(result=tex, latex=tex, solved=True)
 
 

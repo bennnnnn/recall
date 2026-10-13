@@ -70,27 +70,40 @@ def _bounds(cleaned: str) -> tuple[str, str, int] | None:
     return None
 
 
+_AREA_BETWEEN_RE = re.compile(
+    r"\barea\s+(?:between|enclosed\s+(?:by|between)|bounded\s+by)\s+", re.IGNORECASE
+)
+
+
 def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
-    lower = cleaned.lower()
-    at = lower.find("area between")
-    if at == -1:
+    lead = _AREA_BETWEEN_RE.search(cleaned)
+    if lead is None:
         return None
     interval = _bounds(cleaned)
-    if interval is None:
+    if interval is not None and interval[2] <= lead.start():
         return None
-    low, high, bounds_at = interval
-    if bounds_at <= at:
-        return None
-
-    body = cleaned[at + len("area between") : bounds_at].strip(" ,;")
+    end = interval[2] if interval is not None else len(cleaned)
+    body = cleaned[lead.end() : end].strip(" ,;.?!")
     body = re.sub(r"^(?:the\s+)?curves\s+", "", body, flags=re.IGNORECASE)
-    halves = re.split(r"\s+and\s+", body, maxsplit=1, flags=re.IGNORECASE)
+    halves = re.split(r"\s*,?\s+and\s+", body, maxsplit=1, flags=re.IGNORECASE)
     if len(halves) != 2:
         return None
     first = _clean(halves[0])
-    second = _clean(halves[1])
+    second = (
+        "0"
+        if re.fullmatch(r"(?:the\s+)?x[- ]axis", halves[1].strip(), re.I)
+        else (_clean(halves[1]))
+    )
     if first is None or second is None:
         return None
+    if interval is None:
+        # No interval stated: the region the curves enclose runs between where they meet.
+        meeting = _meeting_points(first, second)
+        if meeting is None:
+            return None
+        low, high = meeting
+    else:
+        low, high, _ = interval
     return MathIntent(
         kind="calculus",
         operation="solve",
@@ -100,7 +113,33 @@ def _extract_area_between_intent(cleaned: str) -> MathIntent | None:
         variable="x",
         integral_lower=low,
         integral_upper=high,
+        trial_outcome="meeting points" if interval is None else None,
     )
+
+
+def _meeting_points(first: str, second: str) -> tuple[str, str] | None:
+    """The outermost real crossings, when the curves cross at two or more points.
+
+    One crossing (y = x and y = 2x) or infinitely many (y = sin x and y = 0)
+    encloses no single region, so the question stays unclaimed.
+    """
+    from sympy import Eq, FiniteSet, S, Symbol, solveset, sstr
+
+    from app.modules.math import solve as math_solve
+
+    x = Symbol("x", real=True)
+    try:
+        f = math_solve._parse_expression(first, ["x"], real=True)
+        g = math_solve._parse_expression(second, ["x"], real=True)
+        roots = solveset(Eq(f, g), x, domain=S.Reals)
+    except Exception:
+        return None
+    if not isinstance(roots, FiniteSet):
+        return None
+    real = sorted((root for root in roots if root.is_real), key=lambda root: float(root))
+    if len(real) < 2:
+        return None
+    return sstr(real[0]), sstr(real[-1])
 
 
 _AREA_UNDER_RE = re.compile(

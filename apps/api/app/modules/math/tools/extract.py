@@ -118,7 +118,7 @@ def trig_domain_would_be_dropped(expression: str, text: str) -> bool:
 # algebra side, and answered `x = 0, y = 0; x = 1, y = 1` all over again.
 _REGION_QUESTION_RE = re.compile(
     r"\b(?:area|arc\s+length|volume)\b[^.?!]{0,80}?"
-    r"\b(?:between|under|bounded\s+by|of\s+revolution|revolved|rotated)\b",
+    r"\b(?:between|under|bounded\s+by|enclosed\s+by|of\s+revolution|revolved|rotated)\b",
     re.IGNORECASE,
 )
 

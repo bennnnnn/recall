@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from app.modules.math.schemas import MathIntent
 from app.services.text_match import word_index
 
@@ -44,6 +46,11 @@ def _extract_solid_intent(cleaned: str) -> MathIntent | None:
         return None
     parsed = mtm.parse_solid(cleaned)
     if parsed is None:
+        return None
+    asks_measure = parsed.wants_volume or parsed.wants_surface_area
+    if not asks_measure and word_index(lower, "diagonal") != -1:
+        # The solid solver has volume and surface area only; a diagonal is
+        # the geometry measures' (s√3 for a cube), not a request to clarify.
         return None
     return MathIntent(
         kind="solid",
@@ -190,6 +197,22 @@ def _extract_square_intent(cleaned: str) -> MathIntent | None:
     return None
 
 
+def _given_number(cleaned: str, label: str) -> float | None:
+    """The number given for ``label``: "radius 4", "radius of 4 cm", "radius = 4".
+
+    Not the next number anywhere after the word: in "the radius of a circle
+    with circumference 31.4" the 31.4 is the circumference, and reading it
+    as the radius answered a different circle.
+    """
+    found = re.search(
+        rf"\b{label}\s*(?:of\s+|is\s+|=\s*|:\s*|equal\s+to\s+|equals\s+)?"
+        r"(-?\d+(?:\.\d+)?|-?\.\d+)",
+        cleaned,
+        re.IGNORECASE,
+    )
+    return float(found.group(1)) if found else None
+
+
 def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math import match as mtm
 
@@ -207,9 +230,12 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
     # do not steal them from equation/graph extractors that run later.
     if mtm.geometry_deferred_for_algebra(lower):
         return None
+    if re.search(r"\bsemi-?circle|\bhalf\s+(?:a\s+)?circle", lower):
+        # A semicircle is half of this circle's area, not all of it.
+        return None
     wants_area = "area" in lower
     wants_circumference = "circumference" in lower
-    radius = mtm.number_after(cleaned, "radius")
+    radius = _given_number(cleaned, "radius")
     if radius is not None:
         chord = mtm.number_after(cleaned, "chord")
         return MathIntent(
@@ -230,7 +256,7 @@ def _extract_circle_intent(cleaned: str) -> MathIntent | None:
                 or (chord is not None and "distance" in lower),
             ),
         )
-    diameter = mtm.number_after(cleaned, "diameter")
+    diameter = _given_number(cleaned, "diameter")
     if diameter is not None:
         return MathIntent(
             kind="circle",
