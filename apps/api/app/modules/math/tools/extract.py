@@ -33,7 +33,10 @@ from app.modules.math.tools.helpers import (
     has_assignment_evaluation_request,
     math_expr_or_none,
 )
-from app.modules.math.tools.keyboard_notation import keyboard_math_to_plain
+from app.modules.math.tools.keyboard_notation import (
+    keyboard_bounds_read_first,
+    keyboard_math_to_plain,
+)
 from app.modules.math.tools.school import SCHOOL_EXTRACTORS
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
@@ -176,16 +179,16 @@ def extract_math_intent(text: str) -> MathIntent | None:
         if intent is not None and request_consumption_complete(reading, intent):
             intent._request_text = text.strip()
             return intent
-    intent = _extract_math_intent(normalized)
-    if intent is not None and request_consumption_complete(normalized, intent):
-        intent._request_text = text.strip()
-        return intent
     # The math keyboard's LaTeX (``\int_{0}^{1}…\,dx``, ``\frac{d}{dx}``,
     # ``\binom``, ``30^{\circ}``) in the plain notation the extractors read.
+    # A product's ``n=1`` bound reads as an equation, so it goes plain first.
     plain = keyboard_math_to_plain(normalized)
-    if plain != normalized:
-        intent = _extract_math_intent(plain)
-        if intent is not None and request_consumption_complete(plain, intent):
+    readings = [normalized, plain]
+    if keyboard_bounds_read_first(normalized):
+        readings.reverse()
+    for candidate in dict.fromkeys(readings):
+        intent = _extract_math_intent(candidate)
+        if intent is not None and request_consumption_complete(candidate, intent):
             intent._request_text = text.strip()
             return intent
     # A second sentence can specify the teaching method or output format

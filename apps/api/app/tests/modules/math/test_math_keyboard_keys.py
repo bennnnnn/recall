@@ -117,6 +117,16 @@ def test_keyboard_latex_reads_as_plain_notation(typed: str, plain: str) -> None:
         (r"$\ln(e^{2})$", "2"),
         (r"$\mathrm{i}^{2}$", "-1"),
         (r"$2\pi \times 3$", r"6 \pi"),
+        (r"$17\bmod 5$", "2"),
+        (r"$\lfloor 3.7\rfloor $", "3"),
+        (r"$\lceil 3.2\rceil $", "4"),
+        (r"$\prod_{n=1}^{5}n$", "120"),
+        (r"$\prod_{k=1}^{3}(2k-1)$", "15"),
+        (r"$\frac{\partial}{\partial x}x^{2}y$", "2 x y"),
+        (r"$(1,2)\cdot (3,4)$", "11"),
+        (r"$\arcsin(\frac{1}{2})$", r"\frac{\pi}{6}"),
+        (r"$\cot^{-1}(1)$", r"\frac{\pi}{4}"),
+        (r"$\sinh(0)$", "0"),
         # A typed i is still a variable, as an index usually is.
         ("simplify i^2", "i^{2}"),
     ],
@@ -146,3 +156,41 @@ async def test_keyboard_notation_is_verified(typed: str, answer: str) -> None:
 @pytest.mark.asyncio
 async def test_angle_conversions_read_the_whole_quantity(typed: str, answer: str | None) -> None:
     assert await _answer(typed) == answer
+
+
+_SIN_HALF = (
+    r"2 \pi k + \frac{\pi}{6} \text{ or } {v} = 2 \pi k + \frac{5 \pi}{6},\quad k \in \mathbb{Z}"
+)
+
+
+@pytest.mark.parametrize(
+    ("typed", "answer"),
+    [
+        # ``2sin`` hid ``sin`` from the guesser, which solved for i: "no solution".
+        ("solve 2sin(t)=1", "t = " + _SIN_HALF.replace("{v}", "t")),
+        ("solve 2sin(theta)=1", r"\theta = " + _SIN_HALF.replace("{v}", r"\theta")),
+        (r"$2\sin(\theta )=1$", r"\theta = " + _SIN_HALF.replace("{v}", r"\theta")),
+        ("solve 3tan(y)=3", r"y = \pi k + \frac{\pi}{4},\quad k \in \mathbb{Z}"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_trig_equation_solves_for_its_own_unknown(typed: str, answer: str) -> None:
+    assert await _answer(typed) == answer
+
+
+@pytest.mark.parametrize(
+    ("equation", "variables"),
+    [
+        ("2sin(t)=1", ["t"]),
+        ("2sin(theta)=1", ["theta"]),
+        ("3tan(y)=3", ["y"]),
+        ("2cos(x)+1=0", ["x"]),
+        ("sin(pi*x)=0", ["x"]),
+    ],
+)
+def test_guess_variables_skips_function_names_after_a_number(
+    equation: str, variables: list[str]
+) -> None:
+    from app.modules.math.solve.discrete import guess_variables
+
+    assert guess_variables(equation) == variables
