@@ -52,7 +52,15 @@ _ARITH_OP_ASCII: tuple[tuple[str, str], ...] = (
 _UNAMBIGUOUS_ARITH = frozenset("*^" + "".join(src for src, dst in _ARITH_OP_ASCII if dst in "*/"))
 _ARITH_ALLOWED = frozenset("0123456789.+-*/^()! " + "".join(src for src, _ in _ARITH_OP_ASCII))
 # Functions whose value at a number is one number in any unit system.
-_NUMERIC_FUNCTIONS = ("sqrt", "Abs", "log", "ln", "exp")
+# Hyperbolic and inverse trig take a number, not an angle, so they are not
+# ambiguous the way sin(30) is. Longest names first: ``asinh(`` holds ``sinh(``.
+_NUMERIC_FUNCTIONS = (
+    "asinh", "acosh", "atanh", "asin", "acos", "atan", "acot", "asec", "acsc",
+    "sinh", "cosh", "tanh", "coth", "sech", "csch",
+    "ceiling", "floor", "sqrt", "Abs", "log", "ln", "exp",
+)  # fmt: skip
+# ``\\arcsin(…)`` normalizes to ``asin (…)``: a call with a space.
+_SPACED_CALL = re.compile(rf"(?<![A-Za-z])({'|'.join(_NUMERIC_FUNCTIONS)})\s+\(")
 _LATEX_ARITH_OPS = ("\\div", "\\times", "\\cdot")
 # Constants the keypad types: e, π, and the upright i (read as ``I``). A word
 # such as ``pie`` or ``I am`` is not one; ``5e3`` keeps its number.
@@ -255,6 +263,7 @@ def bare_arithmetic_expr(text: str) -> str | None:
     from app.modules.math.solve.parse import _normalize_latex_to_sympy
 
     normalized = _normalize_latex_to_sympy(_MIXED_NUMBER.sub(r"(\1+\2/\3)", stripped))
+    normalized = _SPACED_CALL.sub(r"\1(", normalized)
     if _SPACED_NUMBERS.search(normalized):
         return None
     # Numeric radicals and keyboard braced powers use the same normalization

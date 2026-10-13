@@ -22,10 +22,20 @@ from app.modules.math.schemas import (
 )
 from app.services.solving import MathServiceError
 
+# Letters around a name, not ``\b``: in ``2sin(t)`` the digit joins the word,
+# so ``sin`` stayed and the guesser solved for ``i`` ("no solution").
 _FUNCTION_NAME_RE = re.compile(
-    rf"\b(?:{function_name_alternation(MATH_FUNCTION_NAMES | {'min', 'max'})})\b",
+    rf"(?<![A-Za-z])(?:{function_name_alternation(MATH_FUNCTION_NAMES | {'min', 'max'})})"
+    r"(?![A-Za-z])",
     re.IGNORECASE,
 )
+# A Greek letter name is one unknown (the keypad's θ), not five letters.
+GREEK_NAMES = (
+    "alpha", "beta", "gamma", "delta", "epsilon", "zeta", "eta", "theta", "iota",
+    "kappa", "lambda", "mu", "nu", "xi", "rho", "sigma", "tau", "upsilon", "phi",
+    "chi", "psi", "omega",
+)  # fmt: skip
+_GREEK_NAME_RE = re.compile(rf"(?<![A-Za-z])(?:{'|'.join(GREEK_NAMES)})(?![A-Za-z])")
 
 # Multi-letter mathematical constants that must NOT be split into per-letter
 # variable candidates. Without this, "sin(pi*x) = 0" would guess 'i' and 'p'
@@ -45,6 +55,8 @@ def guess_variables(text: str) -> list[str]:
     extracting letters, so "sin(pi*x) = 0" guesses 'x' not 'i'/'p'."""
     stripped = _FUNCTION_NAME_RE.sub(" ", text)
     stripped = _CONSTANT_NAMES_RE.sub(" ", stripped)
+    greek = list(dict.fromkeys(_GREEK_NAME_RE.findall(stripped)))
+    stripped = _GREEK_NAME_RE.sub(" ", stripped)
     stripped = mask_unknown_letter_runs(stripped)
     found = sorted(set(re.findall(r"[a-zA-Z]", stripped)))
     # Exclude single-letter constants: e (Euler's number), i (imaginary unit
@@ -52,7 +64,7 @@ def guess_variables(text: str) -> list[str]:
     # since 'i' is far more often a loop variable than the imaginary unit in
     # user input). E (uppercase) is SymPy's Euler number.
     # I is the imaginary unit the math keyboard types as ``\\mathrm{i}``.
-    letters = [c for c in found if c not in {"e", "E", "I"}]
+    letters = greek + [c for c in found if c not in {"e", "E", "I"}]
     return letters[:4] if letters else ["x"]
 
 

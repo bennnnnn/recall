@@ -22,6 +22,15 @@ _BINOM_RE = re.compile(r"\\binom\{([^{}]+)\}\{([^{}]+)\}")
 _DEGREE_RE = re.compile(r"\^\{\\circ\}")
 _RADIAN_RE = re.compile(r"\s*\\mathrm\{rad\}")
 _DERIVATIVE_FRAC_RE = re.compile(r"\\frac\{(?:d|\\partial)")
+_GREEK_COMMAND_RE = re.compile(r"\\(var)?([a-z]+)(?![A-Za-z])")
+_MOD_RE = re.compile(r"\\bmod\b")
+_FLOOR_RE = re.compile(r"\\lfloor\s*(.+?)\s*\\rfloor")
+_CEIL_RE = re.compile(r"\\lceil\s*(.+?)\s*\\rceil")
+_PARTIAL_RE = re.compile(r"^\\frac\{\\partial\}\{\\partial ?([a-z])\}\s*(.+)$")
+_PRODUCT_RE = re.compile(r"^\\prod_\{([a-z])=(-?\d+)\}\^\{(-?\d+)\}\s*(.+)$")
+_DOT_PRODUCT_RE = re.compile(r"^\(([^()]+,[^()]+)\)\s*\\cdot\s*\(([^()]+,[^()]+)\)$")
+# A product written out factor by factor; longer ones stay with the model.
+_MAX_PRODUCT_FACTORS = 20
 
 
 def _group_end(tex: str, start: int) -> int | None:
@@ -72,8 +81,51 @@ def _times_beside_fractions(tex: str) -> str:
     return "".join(out)
 
 
+def _greek_names(tex: str) -> str:
+    """The keypad's ``\\theta`` is the unknown ``theta``; ``\\pi`` stays a constant."""
+    from app.modules.math.solve.discrete import GREEK_NAMES
+
+    def name(match: re.Match[str]) -> str:
+        word = match.group(2)
+        return word if word in GREEK_NAMES else match.group(0)
+
+    return _GREEK_COMMAND_RE.sub(name, tex)
+
+
+def _product_factors(match: re.Match[str]) -> str | None:
+    """``\\prod_{n=1}^{5}n`` as ``(1)*(2)*(3)*(4)*(5)``, which arithmetic checks."""
+    var, low, high, body = match.groups()
+    start, end = int(low), int(high)
+    if not 0 <= end - start < _MAX_PRODUCT_FACTORS:
+        return None
+    term = re.compile(rf"(?<![A-Za-z\\]){var}(?![A-Za-z])")
+
+    def factor(value: int) -> str:
+        def put(found: re.Match[str]) -> str:
+            before = body[: found.start()].rstrip()
+            joint = "\\cdot " if before and (before[-1].isdigit() or before[-1] in ")}") else ""
+            return f"{joint}({value})"
+
+        return f"({term.sub(put, body)})"
+
+    return "\\cdot ".join(factor(value) for value in range(start, end + 1))
+
+
 def _template_to_words(tex: str) -> str:
-    tex = _times_beside_fractions(tex.strip())
+    tex = _greek_names(_times_beside_fractions(tex.strip()))
+    tex = _MOD_RE.sub(" mod ", tex)
+    tex = _FLOOR_RE.sub(r"floor(\1)", tex)
+    tex = _CEIL_RE.sub(r"ceiling(\1)", tex)
+    match = _PRODUCT_RE.match(tex)
+    if match:
+        tex = _product_factors(match) or tex
+    match = _DOT_PRODUCT_RE.match(tex)
+    if match:
+        return f"dot product of ({match.group(1)}) and ({match.group(2)})"
+    match = _PARTIAL_RE.match(tex)
+    if match:
+        var, body = match.groups()
+        return f"differentiate {body} with respect to {var}"
     tex = _DEGREE_RE.sub("°", tex)
     tex = _RADIAN_RE.sub(" rad", tex)
     tex = _BINOM_RE.sub(r"C(\1,\2)", tex)
@@ -93,6 +145,11 @@ def _template_to_words(tex: str) -> str:
         var, body = match.groups()
         return f"d/d{var} {body}"
     return tex
+
+
+def keyboard_bounds_read_first(text: str) -> bool:
+    """A ``\\prod_{n=1}^{5}`` bound would be read as the equation n = 1."""
+    return "\\prod_{" in text
 
 
 def keyboard_math_to_plain(text: str) -> str:
