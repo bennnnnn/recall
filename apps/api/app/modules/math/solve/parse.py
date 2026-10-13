@@ -6,7 +6,7 @@ import logging
 import re
 from typing import Any
 
-from sympy import Abs, E, Eq, Mul, Pow, Symbol, log, parse_expr, pi
+from sympy import Abs, E, Eq, I, Mul, Pow, Symbol, log, parse_expr, pi
 from sympy.parsing.sympy_parser import (
     convert_xor,
     implicit_multiplication_application,
@@ -54,6 +54,8 @@ _LOCALS: dict[str, Any] = {
     "pi": pi,
     "e": E,
     "E": E,
+    # The math keyboard's i key types ``\\mathrm{i}``; a bare ``i`` stays a variable.
+    "I": I,
     "Abs": Abs,
     "log": _school_log,
     "lg": _school_log,
@@ -114,6 +116,7 @@ _LATEX_ABS_LEFT_RIGHT_RE = re.compile(
 )
 _LATEX_ABS_VERT_RE = re.compile(r"\\(?:lvert|rvert)\b")
 _LATEX_SYMBOL_SUBS: list[tuple[re.Pattern[str], str]] = [
+    (re.compile(r"\\mathrm\{i\}"), "I"),
     (re.compile(r"\\infty"), "oo"),
     (re.compile(r"\\pi\b"), "pi"),
     (re.compile(r"\\cdot"), "*"),

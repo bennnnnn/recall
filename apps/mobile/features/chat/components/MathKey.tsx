@@ -96,7 +96,8 @@ export function keyLabelSize(segments: Segment[]): number {
   return 14;
 }
 
-const VARIABLE_LABEL = /^[a-z]$/;
+/** x, y, z are variables, set in math italic; e and i are constants and stay upright. */
+const VARIABLE_LABEL = /^[xyz]$/;
 
 function KeyLabel({ label, color }: { label: string; color: string }) {
   const segments = useMemo(() => keyLabelSegments(label), [label]);

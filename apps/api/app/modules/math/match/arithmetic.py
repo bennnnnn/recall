@@ -51,6 +51,8 @@ _ARITH_OP_ASCII: tuple[tuple[str, str], ...] = (
 )
 _UNAMBIGUOUS_ARITH = frozenset("*^" + "".join(src for src, dst in _ARITH_OP_ASCII if dst in "*/"))
 _ARITH_ALLOWED = frozenset("0123456789.+-*/^()! " + "".join(src for src, _ in _ARITH_OP_ASCII))
+# Functions whose value at a number is one number in any unit system.
+_NUMERIC_FUNCTIONS = ("sqrt", "Abs", "log", "ln", "exp")
 # The factorial input cap the combinatorics solver keeps.
 _LARGEST_FACTORIAL = 170
 # ``2 1/2`` is two and a half, never ``2 * 1/2``.
@@ -252,8 +254,11 @@ def bare_arithmetic_expr(text: str) -> str | None:
     if _SPACED_NUMBERS.search(normalized):
         return None
     # Numeric radicals and keyboard braced powers use the same normalization
-    # as the solver. Only sqrt is admitted here; symbols/prose stay excluded.
-    numeric = normalized.replace("sqrt(", "(")
+    # as the solver. Functions with one numeric value are admitted (|-7|,
+    # log(1000)); trig is not, since sin(30) could mean degrees or radians.
+    numeric = normalized
+    for name in _NUMERIC_FUNCTIONS:
+        numeric = numeric.replace(f"{name}(", "(")
     if any(ch not in _ARITH_ALLOWED for ch in numeric):
         return None
     compact = _to_ascii_arith(numeric).replace(" ", "")
@@ -264,7 +269,7 @@ def bare_arithmetic_expr(text: str) -> str | None:
     if compact[0] not in "0123456789.(+-":
         return None
     ops = _count_binary_arith_ops(compact)
-    has_root = "sqrt(" in normalized
+    has_root = any(f"{name}(" in normalized for name in _NUMERIC_FUNCTIONS)
     if ops < 1 and not has_root:
         return None
     unambiguous = has_root or any(ch in stripped for ch in _UNAMBIGUOUS_ARITH)

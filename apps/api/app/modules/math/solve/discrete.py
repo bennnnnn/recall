@@ -51,7 +51,8 @@ def guess_variables(text: str) -> list[str]:
     # in some contexts, though commonly a variable index -- keep it for now
     # since 'i' is far more often a loop variable than the imaginary unit in
     # user input). E (uppercase) is SymPy's Euler number.
-    letters = [c for c in found if c not in {"e", "E"}]
+    # I is the imaginary unit the math keyboard types as ``\\mathrm{i}``.
+    letters = [c for c in found if c not in {"e", "E", "I"}]
     return letters[:4] if letters else ["x"]
 
 

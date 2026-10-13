@@ -158,7 +158,8 @@ export const MATH_KEYBOARD_SYMBOLS: readonly MathKeyboardSymbol[] = [
   key({ id: "euler", label: "e^{n}", insert: "e^{}", group: "calc" }),
   key({ id: "tenpow", label: "10^{n}", insert: "10^{}", group: "calc" }),
   key({ id: "e-const", label: "e", insert: "e", group: "calc" }),
-  key({ id: "imag", label: "i", insert: "i", group: "calc" }),
+  // Upright i is the imaginary unit to the server; a typed i stays a variable.
+  key({ id: "imag", label: "i", insert: "\\mathrm{i}", group: "calc" }),
   key({ id: "fact", label: "n!", insert: "n!", group: "calc" }),
 
   key({ id: "alpha", label: "α", insert: "\\alpha ", group: "greek" }),

@@ -98,6 +98,7 @@ def _withhold_hint_answer(
 
 def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> bool:
     from app.modules.math import match as math_match
+    from app.modules.math.tools.keyboard_notation import keyboard_math_to_plain
     from app.modules.math.tools.lesson import strip_lesson_prefixes
 
     # Match scanning rejects normalized inputs above this bound. Reject the
@@ -118,6 +119,13 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
     # extraction ever runs (for example, ``Show steps: 2x+3=11``).
     math_text = strip_lesson_prefixes(text)
     if math_match.needs_symbolic(math_text, has_image_attachment=has_image_attachment):
+        return True
+    # The math keyboard's LaTeX (``$\int_{0}^{1}…$``, ``$\binom{5}{2}$``) reads
+    # as math once it is in the notation the extractors know.
+    plain = keyboard_math_to_plain(math_text)
+    if plain != math_text and math_match.needs_symbolic(
+        plain, has_image_attachment=has_image_attachment
+    ):
         return True
     # An algebra word problem states no equation; the translation is tried
     # only after every extractor has passed on it.

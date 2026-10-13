@@ -219,7 +219,7 @@ describe("key insert matches the button", () => {
     ["binom", "\\binom{}{}"],
     ["percent", "\\%"],
     ["euler", "e^{}"],
-    ["imag", "i"],
+    ["imag", "\\mathrm{i}"],
     ["oint", "\\oint "],
     ["iiint", "\\iiint "],
     ["nabla", "\\nabla "],
