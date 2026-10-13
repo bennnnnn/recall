@@ -84,6 +84,9 @@ class BoundedSympyExecutor:
     ) -> _T:
         raise NotImplementedError
 
+    def set_warmup(self, warmup: Callable[[], None]) -> None:
+        """Remember the start-up solve; a slot that restarts runs it first."""
+
     def shutdown(self) -> None:
         pass
 
@@ -105,6 +108,11 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         self._max_workers = _clamp_workers(max_workers)
         self._queue_wait_seconds = queue_wait_seconds
         self._slots: list[ProcessPoolExecutor | None] = [None] * self._max_workers
+        # A new worker imports SymPy and the solvers on its first job (about
+        # 4s), which ate the 5s solve budget. After a timeout kills a worker,
+        # its replacement runs the warmup before the next timed solve.
+        self._cold = [True] * self._max_workers
+        self._warmup: Callable[[], None] | None = None
         self._free: asyncio.Queue[int] | None = None
         # macOS named semaphores leak until reboot. Once ``sem_open`` returns
         # ENOSPC, every later process-pool attempt fails the same way, so the
@@ -115,6 +123,9 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
     @property
     def max_workers(self) -> int:
         return self._max_workers
+
+    def set_warmup(self, warmup: Callable[[], None]) -> None:
+        self._warmup = warmup
 
     def _free_queue(self) -> asyncio.Queue[int]:
         q = self._free
@@ -158,7 +169,24 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 self._arm_in_process_fallback()
                 raise
             self._slots[slot] = pool
+            self._cold[slot] = True
         return pool
+
+    async def _warm_slot(self, slot: int, pool: ProcessPoolExecutor) -> None:
+        """Start a cold worker outside the solve's timeout."""
+        warmup = self._warmup
+        if warmup is None or not self._cold[slot]:
+            return
+        future = pool.submit(_sympy_worker, warmup)
+        try:
+            async with asyncio.timeout(_SPAWN_WAIT_SECONDS):
+                await asyncio.wrap_future(future)
+        except TimeoutError as exc:
+            logger.warning("sympy worker failed to warm after %.3fs", _SPAWN_WAIT_SECONDS)
+            future.cancel()
+            self._kill_slot(slot)
+            raise TimeoutError("SymPy worker failed to start") from exc
+        self._cold[slot] = False
 
     def _kill_slot(self, slot: int) -> None:
         """Hard-kill one worker subprocess and drop that slot's pool.
@@ -232,6 +260,8 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 if exc.errno != errno.ENOSPC or not self._in_process:
                     raise
                 return await self._run_in_process(fn, args, timeout)
+            if fn is not self._warmup:
+                await self._warm_slot(slot, pool)
             future = pool.submit(_sympy_worker, fn, *args)
             t_spawn = time.monotonic()
             while not future.running() and not future.done():
@@ -255,6 +285,7 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
                 future.cancel()
                 self._kill_slot(slot)
                 raise
+            self._cold[slot] = False
             if queue_s >= 0.05:
                 logger.info(
                     "sympy queued=%.3fs ran=%.3fs",
@@ -392,6 +423,7 @@ async def warm_sympy_pool(warmup: Callable[[], None]) -> None:
     startup complete.
     """
     executor = get_sympy_executor()
+    executor.set_warmup(warmup)
     try:
         await asyncio.gather(
             *(executor.run(warmup, timeout=20.0) for _ in range(executor.max_workers))
