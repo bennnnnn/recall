@@ -47,13 +47,6 @@ _DIGIT_FREE_PHYSICS_RE = re.compile(
 # now have a solver stay off this list, including Kirchhoff, Gauss, Faraday,
 # inductors, RL, AC, Poiseuille, the quantum oscillator's levels and the
 # Rydberg formula.
-_UNVERIFIED_PHYSICS_PHRASES: tuple[str, ...] = (
-    "schrödinger equation",
-    "binding energy",
-    "mass defect",
-    "general relativity",
-)
-
 _ADVANCED_PHYSICS_RE = re.compile(
     r"\b(?:schr[oö]dinger|hamilton(?:ian|'s equations?)?|lagrang(?:ian|e)|"
     r"maxwell(?:'s)? equations?|general relativity|schwarzschild|"

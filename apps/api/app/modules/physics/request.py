@@ -26,7 +26,7 @@ from app.modules.physics.schemas.intent import ProjectileQuantity
 from app.services.number_text import numeric_spans
 
 if TYPE_CHECKING:
-    from app.modules.physics.catalog.spec import FormulaSpec
+    from app.services.law_binding.spec import FormulaSpec
 
 _MASS = re.compile(rf"({_NUMBER})\s*({_MASS_UNITS})(?![A-Za-z0-9/^])", re.IGNORECASE)
 _SPEED = re.compile(rf"({_NUMBER})\s*({_VELOCITY_UNIT_PATTERN})(?![A-Za-z0-9/^])", re.IGNORECASE)

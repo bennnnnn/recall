@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.services.md_fence_scan import close_unclosed_fences, strip_closed_fences
 from app.services.solving import VerifiedPhysicsBlock
+
+logger = logging.getLogger(__name__)
 
 
 def _canonical_specs(verified: VerifiedPhysicsBlock) -> list[dict[str, object]]:
@@ -98,6 +101,7 @@ def replace_unclosed_physics_fences_safe(
     try:
         return validate_physics_fences(closed, verified=verified)
     except Exception:
+        logger.warning("physics fence finalization failed; keeping prose only", exc_info=True)
         cleaned = closed
         had_visual = any(
             f"```{language}" in cleaned for language in ("graph", "simulation", "geometry")
@@ -106,13 +110,3 @@ def replace_unclosed_physics_fences_safe(
             cleaned = strip_closed_fences(cleaned, language)
         cleaned = cleaned.strip()
         return cleaned or ("*Could not render that diagram.*" if had_visual else "")
-
-
-def needs_physics_fence_validate(
-    content: str,
-    verified: VerifiedPhysicsBlock | None,
-) -> bool:
-    return verified is not None or any(
-        f"```{language}" in content
-        for language in ("answer", "result", "final", "graph", "simulation", "geometry")
-    )

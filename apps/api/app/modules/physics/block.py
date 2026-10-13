@@ -8,7 +8,6 @@ optional trajectory graph Recall attaches after the stream.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 from dataclasses import replace
 
 from app.core.config import Settings
@@ -248,30 +247,3 @@ def build_verified_physics_block(
     if block is None:
         return None
     return replace(block, text=wrap_verified_physics(block.text))
-
-
-PHYSICS_BLOCK_BUILDERS: dict[
-    str,
-    Callable[[PhysicsIntent, Settings, list[str]], VerifiedPhysicsBlock | None],
-] = {
-    "kinematics": _build_physics_block,
-    "suvat": _build_physics_block,
-    "projectile": _build_physics_block,
-    "force": _build_physics_block,
-    "energy": _build_physics_block,
-    "momentum": _build_physics_block,
-    "friction": _build_physics_block,
-    "circular": _build_physics_block,
-    "spring": _build_physics_block,
-    "circuit": _build_physics_block,
-    "waves": _build_physics_block,
-    "optics": _build_physics_block,
-    "thermal": _build_physics_block,
-    "gravitation": _build_physics_block,
-    "fluids": _build_physics_block,
-    "rotation": _build_physics_block,
-    "magnetism": _build_physics_block,
-    "materials": _build_physics_block,
-    "modern": _build_physics_block,
-    "torque": _build_physics_block,
-}

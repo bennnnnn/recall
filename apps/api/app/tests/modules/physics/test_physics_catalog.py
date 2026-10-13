@@ -9,9 +9,8 @@ from typing import Union, get_args, get_origin
 import pytest
 
 from app.core.config import Settings
-from app.modules.physics.block import PHYSICS_BLOCK_BUILDERS
 from app.modules.physics.catalog import CATALOG
-from app.modules.physics.extract import _ADVANCED_PHYSICS_RE, _UNVERIFIED_PHYSICS_PHRASES
+from app.modules.physics.extract import _ADVANCED_PHYSICS_RE
 from app.modules.physics.schemas.intent import PhysicsIntent
 from app.modules.physics.solver import PHYSICS_SOLVERS
 from app.tests.modules.physics.support import (
@@ -84,7 +83,17 @@ def test_the_schema_takes_only_operations_the_catalog_declares() -> None:
 
 def test_every_catalog_family_has_solver_and_verified_block_dispatch() -> None:
     assert set(PHYSICS_SOLVERS) == set(CATALOG)
-    assert {spec.kind for spec in CATALOG.values()} == set(PHYSICS_BLOCK_BUILDERS)
+    # One block builder serves every kind, so the catalog must cover the kinds.
+    kinds = _literal_values(PhysicsIntent.model_fields["kind"].annotation)
+    assert {spec.kind for spec in CATALOG.values()} == set(kinds)
+
+
+_UNVERIFIED_PHYSICS_PHRASES = (
+    "schrödinger equation",
+    "binding energy",
+    "mass defect",
+    "general relativity",
+)
 
 
 def test_unverified_topics_stay_out_of_the_catalog_and_the_docs() -> None:
