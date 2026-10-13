@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next";
 import { Sheet } from "@/ui/overlay/Sheet";
 import { Icon } from "@/ui/icons/Icon";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import {
@@ -124,7 +124,7 @@ const makeStyles = (theme: Theme) =>
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      marginBottom: 10,
+      marginBottom: Space.xs,
     },
     title: { ...Type.navTitle, color: theme.text },
     close: {
@@ -144,23 +144,23 @@ const makeStyles = (theme: Theme) =>
       borderColor: theme.border,
     },
     catSelected: { backgroundColor: theme.primaryLight, borderColor: theme.primary },
-    catLabel: { fontSize: 14, fontWeight: "600", color: theme.textSecondary },
+    catLabel: { ...Type.label, color: theme.textSecondary },
     catLabelSelected: { color: theme.primary },
     list: { height: UNIT_PICKER_LIST_HEIGHT },
     unitRow: {
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "space-between",
-      paddingVertical: 14,
+      paddingVertical: Space.sm,
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: theme.border,
     },
-    unitName: { fontSize: 16, color: theme.text },
-    unitNameSelected: { color: theme.primary, fontWeight: "700" },
+    unitName: { ...Type.body, color: theme.text },
+    unitNameSelected: { color: theme.primary, ...Weight.bold },
     radio: {
       width: 18,
       height: 18,
-      borderRadius: 9,
+      borderRadius: Radius.full,
       borderWidth: 1.5,
       borderColor: theme.border,
     },

@@ -1,20 +1,16 @@
 import { memo, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
 import { Icon } from "@/ui/icons/Icon";
-import type { IconName } from "@/ui/icons/names";
 import { useTranslation } from "react-i18next";
 
 import { MathConverterUnitSheet } from "@/features/chat/components/MathConverterUnitSheet";
+import { KEY_FONT_SCALE_MAX, MathKey } from "@/features/chat/components/MathKey";
 import { selection as hapticSelection } from "@/lib/haptics";
-import {
-  CONVERTER_HEADER_HEIGHT,
-  CONVERTER_UNIT_HEIGHT,
-  CONVERTER_VALUE_HEIGHT,
-  PAD_GAP,
-} from "@/lib/math/keyboardPad";
+import { PAD_GAP } from "@/lib/math/keyboardPad";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
 import { Theme, useTheme } from "@/lib/theme";
+import { Type, Weight } from "@/lib/type";
 import {
   CONVERTER_DEFAULT_DIGITS,
   appendConverterDigit,
@@ -92,19 +88,16 @@ export const MathConverterPad = memo(function MathConverterPad({
 
   return (
     <View style={s.wrap} testID="math-converter">
-      <View style={s.io}>
-        <View style={s.col}>
-          <Text style={s.value} numberOfLines={1} testID="math-converter-from-value">
-            {digits}
-          </Text>
-          <UnitChip
-            symbol={from?.symbol ?? ""}
-            label={from?.prompt}
-            testID="math-converter-from-unit"
-            onPress={() => setPickerFor("from")}
-            theme={theme}
-          />
-        </View>
+      <View style={[s.row, { height: keyHeight }]}>
+        <Text
+          style={s.value}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          maxFontSizeMultiplier={KEY_FONT_SCALE_MAX}
+          testID="math-converter-from-value"
+        >
+          {digits}
+        </Text>
         <Pressable
           onPress={() => {
             buzz();
@@ -115,56 +108,75 @@ export const MathConverterPad = memo(function MathConverterPad({
               setFresh(false);
             }
           }}
-          style={({ pressed }) => [s.swap, pressed && s.pressed]}
+          style={({ pressed }) => [s.swap, pressed && s.swapPressed]}
+          android_ripple={{ color: theme.pressed, borderless: true }}
           accessibilityRole="button"
           accessibilityLabel={t("chat.math_converter_swap")}
           testID="math-converter-swap"
         >
           <Icon name="swap" size={IconSize.sm} color={theme.primary} />
         </Pressable>
-        <View style={s.col}>
-          <Text style={[s.value, s.valueOut]} numberOfLines={1} testID="math-converter-to-value">
-            {result}
-          </Text>
-          <UnitChip
-            symbol={to?.symbol ?? ""}
-            label={to?.prompt}
-            testID="math-converter-to-unit"
-            onPress={() => setPickerFor("to")}
-            theme={theme}
-          />
+        <Text
+          style={[s.value, s.valueOut]}
+          numberOfLines={1}
+          adjustsFontSizeToFit
+          maxFontSizeMultiplier={KEY_FONT_SCALE_MAX}
+          testID="math-converter-to-value"
+        >
+          {result}
+        </Text>
+      </View>
+      <View style={[s.row, { height: keyHeight }]}>
+        <UnitChip
+          symbol={from?.symbol ?? ""}
+          label={from?.prompt}
+          testID="math-converter-from-unit"
+          onPress={() => setPickerFor("from")}
+          theme={theme}
+          height={keyHeight}
+        />
+        <UnitChip
+          symbol={to?.symbol ?? ""}
+          label={to?.prompt}
+          testID="math-converter-to-unit"
+          onPress={() => setPickerFor("to")}
+          theme={theme}
+          height={keyHeight}
+        />
+      </View>
+      {CONVERTER_PAD.map((row, r) => (
+        <View key={r} style={s.row} testID={r === 0 ? "math-converter-numpad" : undefined}>
+          {row.map((cell) =>
+            cell === "ask" ? (
+              <MathKey
+                key={cell}
+                label={streaming ? t("chat.stop") : t("chat.math_converter_ask")}
+                accessibilityLabel={streaming ? t("chat.stop") : t("chat.math_converter_ask")}
+                testID="math-converter-ask"
+                onPress={ask}
+                height={keyHeight}
+                span={2}
+              />
+            ) : (
+              <MathKey
+                key={cell}
+                label={cell === "back" ? undefined : cell === "AC" ? t("chat.math_converter_clear") : cell}
+                icon={cell === "back" ? "backspace" : undefined}
+                accessibilityLabel={
+                  cell === "back"
+                    ? t("chat.math_keyboard_backspace")
+                    : cell === "AC"
+                      ? t("chat.math_converter_clear")
+                      : cell
+                }
+                testID={`math-converter-${cell === "back" ? "back" : cell === "." ? "dot" : cell}`}
+                onPress={() => typeKey(cell)}
+                height={keyHeight}
+              />
+            ),
+          )}
         </View>
-      </View>
-      <View style={s.pad} testID="math-converter-numpad">
-        {CONVERTER_PAD.map((row, r) => (
-          <View key={r} style={[s.row, { height: keyHeight }]}>
-            {row.map((cell) =>
-              cell === "ask" ? (
-                <Key
-                  key={cell}
-                  label={streaming ? t("chat.stop") : t("chat.math_converter_ask")}
-                  testID="math-converter-ask"
-                  onPress={ask}
-                  theme={theme}
-                  height={keyHeight}
-                  wide
-                />
-              ) : (
-                <Key
-                  key={cell}
-                  label={cell === "back" ? t("chat.math_keyboard_backspace") : cell === "AC" ? t("chat.math_converter_clear") : cell}
-                  icon={cell === "back" ? "backspace" : undefined}
-                  testID={`math-converter-${cell === "back" ? "back" : cell === "." ? "dot" : cell}`}
-                  onPress={() => typeKey(cell)}
-                  theme={theme}
-                  danger={cell === "AC" || cell === "back"}
-                  height={keyHeight}
-                />
-              ),
-            )}
-          </View>
-        ))}
-      </View>
+      ))}
       <MathConverterUnitSheet
         visible={pickerFor != null}
         category={category}
@@ -190,79 +202,29 @@ function UnitChip({
   testID,
   onPress,
   theme,
+  height,
 }: {
   symbol: string;
   label?: string;
   testID: string;
   onPress: () => void;
   theme: Theme;
+  height: number;
 }) {
   const s = useMemo(() => makeStyles(theme), [theme]);
   return (
     <Pressable
       onPress={onPress}
-      style={({ pressed }) => [s.unitBtn, pressed && s.pressed]}
+      android_ripple={{ color: theme.pressed, foreground: true }}
+      style={({ pressed }) => [s.unitBtn, { height }, Platform.OS === "ios" && pressed && s.unitPressed]}
       accessibilityRole="button"
       accessibilityLabel={label ?? symbol}
       testID={testID}
     >
-      <Text style={s.unitBtnLabel}>{symbol}</Text>
+      <Text style={s.unitBtnLabel} numberOfLines={1} maxFontSizeMultiplier={KEY_FONT_SCALE_MAX}>
+        {symbol}
+      </Text>
       <Icon name="chevron-down" size={IconSize.xxs} color={theme.primary} />
-    </Pressable>
-  );
-}
-
-function Key({
-  label,
-  icon,
-  testID,
-  onPress,
-  theme,
-  danger,
-  disabled,
-  height,
-  wide,
-}: {
-  label: string;
-  icon?: IconName;
-  testID: string;
-  onPress: () => void;
-  theme: Theme;
-  danger?: boolean;
-  disabled?: boolean;
-  height: number;
-  /** Two key-slots. Ask fills the old Insert key as well. */
-  wide?: boolean;
-}) {
-  const s = useMemo(() => makeStyles(theme), [theme]);
-  return (
-    <Pressable
-      onPress={onPress}
-      disabled={disabled}
-      style={({ pressed }) => [
-        s.key,
-        wide && s.keyWide,
-        { height },
-        pressed && s.pressed,
-        disabled && s.keyDisabled,
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled: !!disabled }}
-      testID={testID}
-    >
-      <View style={s.keyInner}>
-        {icon ? (
-          <Icon
-            name={icon}
-            size={IconSize.sm}
-            color={danger ? theme.danger : theme.text}
-            testID={`${testID}-icon`}
-          />
-        ) : (
-          <Text style={[s.keyLabel, danger && s.keyLabelDanger]}>{label}</Text>
-        )}
-      </View>
     </Pressable>
   );
 }
@@ -270,60 +232,36 @@ function Key({
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     wrap: { gap: PAD_GAP },
-    io: {
-      height: CONVERTER_HEADER_HEIGHT,
-      flexDirection: "row",
-      alignItems: "center",
-      gap: 6,
-      paddingHorizontal: 2,
-    },
-    col: { flex: 1, gap: 6, minWidth: 0 },
+    row: { flexDirection: "row", alignItems: "center", gap: PAD_GAP },
     value: {
-      height: CONVERTER_VALUE_HEIGHT,
-      fontSize: 22,
-      lineHeight: CONVERTER_VALUE_HEIGHT,
-      fontWeight: "700",
+      flex: 1,
+      ...Type.title,
       color: theme.text,
       paddingHorizontal: Space.xxs,
     },
-    valueOut: { color: theme.textSecondary, fontWeight: "600" },
+    valueOut: { color: theme.textSecondary, ...Weight.medium },
     unitBtn: {
+      flex: 1,
       flexDirection: "row",
       alignItems: "center",
       justifyContent: "center",
       gap: Space.xxs,
-      alignSelf: "stretch",
-      height: CONVERTER_UNIT_HEIGHT,
       minHeight: Space.minTouch,
-      paddingHorizontal: 10,
+      paddingHorizontal: Space.sm,
       borderRadius: Radius.xs,
+      overflow: "hidden",
       backgroundColor: theme.bg,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: theme.border,
     },
-    unitBtnLabel: { fontSize: 16, fontWeight: "700", color: theme.text },
+    unitPressed: { backgroundColor: theme.control },
+    unitBtnLabel: { ...Type.callout, color: theme.text },
     swap: {
       minWidth: Space.minTouch,
       minHeight: Space.minTouch,
       alignItems: "center",
       justifyContent: "center",
-    },
-    pad: { gap: PAD_GAP },
-    row: { flexDirection: "row", alignItems: "stretch", gap: PAD_GAP },
-    keyWide: { flex: 2 },
-    key: {
-      flex: 1,
-      minHeight: Space.minTouch,
       borderRadius: Radius.xs,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: theme.bg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
     },
-    keyDisabled: { opacity: 0.4 },
-    keyInner: { flexDirection: "row", alignItems: "center", gap: Space.xxs },
-    keyLabel: { fontSize: 17, fontWeight: "600", color: theme.text },
-    keyLabelDanger: { color: theme.danger },
-    pressed: { opacity: 0.55, transform: [{ scale: 0.97 }] },
+    swapPressed: { opacity: 0.55 },
   });

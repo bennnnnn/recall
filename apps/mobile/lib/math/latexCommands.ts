@@ -183,6 +183,7 @@ export const CMD_REPLACEMENTS: [RegExp, string][] = [
   [/\\exists(?![a-zA-Z])/g, "∃"],
   [/\\emptyset(?![a-zA-Z])/g, "∅"],
   [/\\angle(?![a-zA-Z])/g, "∠"],
+  [/\\triangle(?![a-zA-Z])/g, "△"],
   [/\\degree(?![a-zA-Z])/g, "°"],
   [/\\perp(?![a-zA-Z])/g, "⊥"],
   [/\\parallel(?![a-zA-Z])/g, "∥"],

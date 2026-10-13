@@ -1,39 +1,33 @@
-import { memo, useMemo, useState, type ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
-import { Icon } from "@/ui/icons/Icon";
+import { memo, useMemo } from "react";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
 import { MathConverterPad } from "@/features/chat/components/MathConverterPad";
+import { MathKey } from "@/features/chat/components/MathKey";
 import { selection as hapticSelection } from "@/lib/haptics";
-import {
-  KEY_HEIGHT_MIN,
-  PAD_GAP,
-  PAD_PADDING_V,
-  converterKeyHeight,
-  fillKeyHeight,
-  mathPadHeight,
-} from "@/lib/math/keyboardPad";
+import { PAD_GAP, TAB_ROW_HEIGHT, padKeyHeight } from "@/lib/math/keyboardPad";
 import {
   MATH_KEYBOARD_GROUPS,
-  MATH_KEYBOARD_SYMBOLS,
-  MATH_NUMPAD_ROWS,
-  mathGroupCanToggleDigits,
+  padRows,
   symbolA11yLabel,
-  symbolRowsForGroup,
   type MathKeyboardGroup,
   type MathKeyboardSymbol,
   type PadCell,
+  type SymbolPage,
 } from "@/lib/math/keyboardSymbols";
-import { Theme, useTheme } from "@/lib/theme";
-import { IconSize } from "@/ui/icons/sizes";
 import { Space } from "@/lib/space";
-import { Radius } from "@/lib/radius";
+import { Theme, useTheme } from "@/lib/theme";
+import { Button } from "@/ui/controls/Button";
+import { Chip } from "@/ui/controls/Chip";
+import { IconButton } from "@/ui/controls/IconButton";
+import { IconSize } from "@/ui/icons/sizes";
 
 type Props = {
   open: boolean;
   height: number;
   onToggle: () => void;
   onInsert: (spec: MathKeyboardSymbol) => void;
+  onCaret: (direction: "left" | "right") => void;
   onAsk: (text: string) => void;
   onStop: () => void;
   streaming: boolean;
@@ -52,6 +46,7 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   height,
   onToggle,
   onInsert,
+  onCaret,
   onAsk,
   onStop,
   streaming,
@@ -63,360 +58,129 @@ export const MathKeyboardBar = memo(function MathKeyboardBar({
   const { t } = useTranslation();
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const [digitsOpen, setDigitsOpen] = useState(false);
-  const [tabHeight, setTabHeight] = useState(36);
-  const canToggleDigits = mathGroupCanToggleDigits(group);
-  const fnRows = useMemo(() => symbolRowsForGroup(group), [group]);
-  const symbolKeyRows =
-    fnRows.filter((row) => row.length > 0).length + (canToggleDigits && group !== "basics" ? 1 : 0);
-  const digitKeyRows = MATH_NUMPAD_ROWS.length + 1;
-  const tab = Math.max(tabHeight, KEY_HEIGHT_MIN);
-  const padHeight = mathPadHeight(height, tab);
-  const keyHeight = fillKeyHeight(padHeight, tab, digitsOpen ? digitKeyRows : symbolKeyRows);
-  const converterRowHeight = converterKeyHeight(padHeight - PAD_PADDING_V - tab - PAD_GAP);
-  const trigFill = useMemo(
-    () => ({
-      theta: MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "trig-theta")!,
-      pi: MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "trig-pi")!,
-    }),
-    [],
-  );
-  const numberFill = useMemo(
-    () =>
-      ["percent", "pm", "deg", "approx"].map(
-        (id) => MATH_KEYBOARD_SYMBOLS.find((spec) => spec.id === id)!,
-      ),
-    [],
-  );
-  const trigBottom = useMemo(
-    () =>
-      ["pi-over-6", "pi-over-4", "pi-over-3", "pi-over-2"].map(
-        (id) => MATH_KEYBOARD_SYMBOLS.find((spec) => spec.id === id)!,
-      ),
-    [],
-  );
-  const calcBottom = useMemo(
-    () =>
-      ["partial-x", "dy", "ddt", "prime"].map(
-        (id) => MATH_KEYBOARD_SYMBOLS.find((spec) => spec.id === id)!,
-      ),
-    [],
-  );
-  const greekBottom = useMemo(
-    () =>
-      ["Theta", "Sigma", "Omega", "Phi"].map(
-        (id) => MATH_KEYBOARD_SYMBOLS.find((spec) => spec.id === id)!,
-      ),
-    [],
-  );
-  const symbolBottom =
-    group === "trig" ? trigBottom : group === "calc" ? calcBottom : group === "greek" ? greekBottom : [];
-  const digitSide = digitsOpen
-    ? group === "trig"
-      ? [trigFill.theta, trigFill.pi, numberFill[0]!, numberFill[1]!]
-      : numberFill
-    : symbolBottom;
-  const changeGroup = (next: MathKeyboardGroup) => {
-    setDigitsOpen(false);
-    onGroupChange(next);
-  };
-  const padNav = {
-    onInsert,
-    onBackspace,
-    onOpenDigits: () => setDigitsOpen(true),
-    backspaceLabel: t("chat.math_keyboard_backspace"),
-    digitsLabel: t("chat.math_keyboard_123"),
-    theme,
-    styles: s,
-    keyHeight,
-  };
-  const basicsGrid = group === "basics" && !digitsOpen;
+  const keyHeight = padKeyHeight(height);
+  const page: SymbolPage = group === "converter" || group === "pad" ? "basics" : group;
+  const rows = useMemo(() => padRows(page), [page]);
 
   if (!open) return null;
 
+  const cellKey = (cell: PadCell, at: string) => {
+    if (cell.kind === "insert") {
+      return (
+        <MathKey
+          key={at}
+          label={cell.spec.label}
+          testID={`math-key-${cell.spec.id}`}
+          accessibilityLabel={symbolA11yLabel(cell.spec)}
+          onPress={() => {
+            buzz();
+            onInsert(cell.spec);
+          }}
+          height={keyHeight}
+        />
+      );
+    }
+    if (cell.kind === "backspace") {
+      return (
+        <MathKey
+          key={at}
+          icon="backspace"
+          testID="math-key-backspace"
+          accessibilityLabel={t("chat.math_keyboard_backspace")}
+          onPress={() => {
+            buzz();
+            onBackspace();
+          }}
+          height={keyHeight}
+        />
+      );
+    }
+    const direction = cell.kind;
+    return (
+      <MathKey
+        key={at}
+        icon={direction === "left" ? "caret-left" : "caret-right"}
+        testID={`math-key-${direction}`}
+        accessibilityLabel={t(`chat.math_keyboard_${direction}`)}
+        onPress={() => {
+          buzz();
+          onCaret(direction);
+        }}
+        height={keyHeight}
+      />
+    );
+  };
+
   return (
     <View
-      style={[s.pad, { height: padHeight }]}
+      style={[s.pad, { height }]}
       accessibilityLabel={t("chat.math_keyboard_a11y")}
       testID="math-keyboard-pad"
     >
-      <View
-        style={s.tabs}
-        onLayout={(e) => setTabHeight(Math.round(e.nativeEvent.layout.height))}
-      >
+      <View style={s.tabs}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={s.tabRow}
           keyboardShouldPersistTaps="handled"
         >
-        {MATH_KEYBOARD_GROUPS.map((id) => {
-          const selected = id === group;
-          return (
-            <Pressable
+          {MATH_KEYBOARD_GROUPS.map((id) => (
+            <Chip
               key={id}
-              onPress={() => changeGroup(id)}
-              style={[s.tab, selected && s.tabSelected]}
-              accessibilityRole="button"
-              accessibilityState={{ selected }}
+              variant="filter"
+              label={t(`chat.math_keyboard_group_${id}`)}
+              selected={id === group}
+              onPress={() => onGroupChange(id)}
+              accessibilityRole="tab"
               testID={`math-keyboard-tab-${id}`}
-            >
-              <Text style={[s.tabLabel, selected && s.tabLabelSelected]}>
-                {t(`chat.math_keyboard_group_${id}`)}
-              </Text>
-            </Pressable>
-          );
-        })}
+            />
+          ))}
         </ScrollView>
-        <View style={s.nav}>
-        <Pressable
+        <IconButton
+          name="clipboard"
+          size={IconSize.sm}
+          color={theme.primary}
           onPress={() => {
             buzz();
             onPaste();
           }}
-          style={({ pressed }) => [s.pasteBtn, pressed && s.pressed]}
-          accessibilityRole="button"
           accessibilityLabel={t("chat.math_keyboard_paste")}
           testID="math-keyboard-paste"
-        >
-          <Icon name="clipboard" size={IconSize.sm} color={theme.primary} />
-        </Pressable>
-        <Pressable
+        />
+        <Button
+          title={t("chat.math_keyboard_abc")}
+          variant="ghost"
+          size="sm"
           onPress={onToggle}
-          style={({ pressed }) => [s.abc, pressed && s.pressed]}
-          accessibilityRole="button"
           accessibilityLabel={t("chat.math_keyboard_abc")}
           testID="math-keyboard-abc"
-        >
-          <Text style={s.abcLabel}>{t("chat.math_keyboard_abc")}</Text>
-        </Pressable>
-        </View>
+        />
       </View>
       <View style={s.keys}>
-      {group === "converter" ? (
-        <MathConverterPad
-          keyHeight={converterRowHeight}
-          onAsk={onAsk}
-          onStop={onStop}
-          streaming={streaming}
-        />
-      ) : (
-        <>
-      {digitsOpen ? (
-        <View style={s.numpad} testID="math-keyboard-numpad">
-          {MATH_NUMPAD_ROWS.map((row, r) => (
+        {group === "converter" ? (
+          <MathConverterPad
+            keyHeight={keyHeight}
+            onAsk={onAsk}
+            onStop={onStop}
+            streaming={streaming}
+          />
+        ) : (
+          rows.map((row, r) => (
             <View key={r} style={s.row}>
-              {row.map((cell, c) => (
-                <PadKey key={`${r}-${c}`} cell={cell} {...padNav} />
-              ))}
+              {row.map((cell, c) => cellKey(cell, `${r}-${c}`))}
             </View>
-          ))}
-        </View>
-      ) : (
-        fnRows.map((row, r) =>
-          row.length === 0 ? null : (
-            <View key={r} style={s.row}>
-              {row.map((cell, c) => (
-                <PadKey key={`${r}-${c}`} cell={cell} {...padNav} />
-              ))}
-            </View>
-          ),
-        )
-      )}
-      {canToggleDigits && !basicsGrid ? (
-        <RightControlRow
-          leading={
-            <>
-              <DigitToggle
-                label={
-                  digitsOpen
-                    ? t(`chat.math_keyboard_group_${group}`)
-                    : t("chat.math_keyboard_123")
-                }
-                onPress={() => {
-                  buzz();
-                  setDigitsOpen((open) => !open);
-                }}
-                styles={s}
-                keyHeight={keyHeight}
-              />
-              {digitSide.map((spec) => (
-                <PadKey key={spec.id} cell={{ kind: "insert", spec }} {...padNav} />
-              ))}
-            </>
-          }
-          trailing={<PadKey cell={{ kind: "backspace" }} {...padNav} />}
-          leadingCount={1 + digitSide.length}
-          styles={s}
-        />
-      ) : null}
-        </>
-      )}
+          ))
+        )}
       </View>
     </View>
   );
 });
 
-type PadStyles = ReturnType<typeof makeStyles>;
-
-const PAD_COLUMNS = 6;
-
-function RightControlRow({
-  leading,
-  trailing,
-  leadingCount,
-  styles: s,
-}: {
-  leading: ReactNode;
-  trailing: ReactNode;
-  leadingCount: number;
-  styles: PadStyles;
-}) {
-  const spacers = Math.max(0, PAD_COLUMNS - leadingCount - 1);
-  return (
-    <View style={s.row}>
-      {leading}
-      {Array.from({ length: spacers }, (_, i) => (
-        <View key={i} style={s.keySpacer} />
-      ))}
-      {trailing}
-    </View>
-  );
-}
-
-function DigitToggle({
-  label,
-  onPress,
-  styles: s,
-  keyHeight,
-}: {
-  label: string;
-  onPress: () => void;
-  styles: PadStyles;
-  keyHeight: number;
-}) {
-  return (
-    <KeyBtn
-      label={label}
-      testID="math-keyboard-123"
-      onPress={onPress}
-      accessibilityLabel={label}
-      styles={s}
-      keyHeight={keyHeight}
-    />
-  );
-}
-
-function PadKey({
-  cell,
-  onInsert,
-  onBackspace,
-  onOpenDigits,
-  backspaceLabel,
-  digitsLabel,
-  theme,
-  styles: s,
-  keyHeight = KEY_HEIGHT_MIN,
-}: {
-  cell: PadCell;
-  onInsert: (spec: MathKeyboardSymbol) => void;
-  onBackspace: () => void;
-  onOpenDigits: () => void;
-  backspaceLabel: string;
-  digitsLabel: string;
-  theme: Theme;
-  styles: PadStyles;
-  keyHeight?: number;
-}) {
-  if (cell.kind === "spacer") {
-    return <View style={s.keySpacer} />;
-  }
-  if (cell.kind === "digits") {
-    return (
-      <DigitToggle
-        label={digitsLabel}
-        onPress={() => {
-          buzz();
-          onOpenDigits();
-        }}
-        styles={s}
-        keyHeight={keyHeight}
-      />
-    );
-  }
-  if (cell.kind === "backspace") {
-    return (
-      <KeyBtn
-        testID="math-key-backspace"
-        onPress={() => {
-          buzz();
-          onBackspace();
-        }}
-        accessibilityLabel={backspaceLabel}
-        styles={s}
-        keyHeight={keyHeight}
-        danger
-      >
-        <Icon name="backspace" size={IconSize.sm} color={theme.danger} />
-      </KeyBtn>
-    );
-  }
-  return (
-    <KeyBtn
-      label={cell.spec.label}
-      testID={`math-key-${cell.spec.id}`}
-      onPress={() => {
-        buzz();
-        onInsert(cell.spec);
-      }}
-      accessibilityLabel={symbolA11yLabel(cell.spec)}
-      styles={s}
-      keyHeight={keyHeight}
-    />
-  );
-}
-
-function KeyBtn({
-  label,
-  testID,
-  onPress,
-  accessibilityLabel,
-  styles: s,
-  keyHeight = KEY_HEIGHT_MIN,
-  danger,
-  children,
-}: {
-  label?: string;
-  testID: string;
-  onPress: () => void;
-  accessibilityLabel?: string;
-  styles: PadStyles;
-  keyHeight?: number;
-  danger?: boolean;
-  children?: ReactNode;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        s.key,
-        { height: keyHeight, minHeight: keyHeight },
-        pressed && s.pressed,
-      ]}
-      accessibilityRole="button"
-      accessibilityLabel={accessibilityLabel ?? label}
-      testID={testID}
-    >
-      {children ?? <Text style={[s.label, danger && s.labelDanger]}>{label}</Text>}
-    </Pressable>
-  );
-}
-
 const makeStyles = (theme: Theme) =>
   StyleSheet.create({
     pad: {
       marginTop: Space.xs,
-      marginHorizontal: -12,
+      marginHorizontal: -Space.sm,
       paddingHorizontal: Space.xs,
       paddingTop: Space.xs,
       paddingBottom: Space.sm,
@@ -424,66 +188,15 @@ const makeStyles = (theme: Theme) =>
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: theme.border,
       overflow: "hidden",
-      gap: 6,
-    },
-    keys: {
-      flex: 1,
-      justifyContent: "flex-start",
-      gap: 6,
-      overflow: "hidden",
+      gap: PAD_GAP,
     },
     tabs: {
+      height: TAB_ROW_HEIGHT,
       flexDirection: "row",
       alignItems: "center",
       gap: Space.xxs,
     },
     tabRow: { flexDirection: "row", alignItems: "center", gap: Space.xxs, paddingRight: Space.xxs },
-    tab: {
-      paddingHorizontal: 6,
-      minHeight: Space.minTouch,
-      justifyContent: "center",
-      borderRadius: Radius.xs,
-      borderWidth: 1,
-      borderColor: theme.bg,
-    },
-    tabSelected: { backgroundColor: theme.primaryLight },
-    tabLabel: { fontSize: 13, fontWeight: "600", color: theme.textSecondary },
-    tabLabelSelected: { color: theme.primary },
-    nav: { marginLeft: "auto", flexDirection: "row", alignItems: "center" },
-    pasteBtn: {
-      minWidth: Space.minTouch,
-      minHeight: Space.minTouch,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-    abc: {
-      minHeight: Space.minTouch,
-      justifyContent: "center",
-      paddingHorizontal: 10,
-    },
-    abcLabel: { fontSize: 15, fontWeight: "700", color: theme.primary },
-    numpad: { gap: 6 },
-    keySpacer: { flex: 1 },
-    row: {
-      flexDirection: "row",
-      alignItems: "stretch",
-      gap: 6,
-    },
-    key: {
-      flex: 1,
-      minHeight: Space.minTouch,
-      borderRadius: Radius.xs,
-      alignItems: "center",
-      justifyContent: "center",
-      backgroundColor: theme.bg,
-      borderWidth: StyleSheet.hairlineWidth,
-      borderColor: theme.border,
-    },
-    pressed: { opacity: 0.55, transform: [{ scale: 0.97 }] },
-    label: {
-      fontSize: 17,
-      fontWeight: "600",
-      color: theme.text,
-    },
-    labelDanger: { color: theme.danger },
+    keys: { flex: 1, gap: PAD_GAP },
+    row: { flexDirection: "row", gap: PAD_GAP },
   });

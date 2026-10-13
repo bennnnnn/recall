@@ -1,11 +1,4 @@
-import {
-  MATH_KEYBOARD_SYMBOLS,
-  MATH_PAD_KEYS,
-  MATH_SYMBOL_ROW_SIZE,
-  symbolsInGroup,
-  type MathKeyboardGroup,
-  type MathKeyboardSymbol,
-} from "@/lib/math/keyboardCatalog";
+import type { MathKeyboardSymbol } from "@/lib/math/keyboardCatalog";
 
 export type LatexGroup = { open: number; close: number };
 
@@ -95,12 +88,6 @@ export function readSetBrace(text: string, from: number): LatexGroup | null {
   return null;
 }
 
-/** Index just after a slot's closing delimiter. Set braces close with `\}`. */
-export function indexAfterSlot(text: string, group: LatexGroup): number {
-  if (text.startsWith("\\}", group.close)) return group.close + 2;
-  return group.close + 1;
-}
-
 /** Left-to-right editable `{…}` / `(…)` / `[…]` / `\{…\}` / `|…|` groups, including nested. */
 export function findEditSlots(text: string): LatexGroup[] {
   const out: LatexGroup[] = [];
@@ -133,60 +120,7 @@ export function innermostSlot(text: string, caret: number): LatexGroup | null {
   );
 }
 
-/** After the last box of a construct, move past it — do not wrap back to the first box. */
-export function nextEditSlotCaret(text: string, caret: number): number | null {
-  const slots = findEditSlots(text);
-  if (slots.length === 0) return null;
-  const current = innermostSlot(text, caret);
-  if (!current) {
-    const firstAfter = slots.find((s) => s.open >= caret);
-    return firstAfter ? firstAfter.close : null;
-  }
-  const later = slots.filter((s) => s.open > current.close);
-  if (later.length === 0) return indexAfterSlot(text, current);
-  const nextOpen = Math.min(...later.map((s) => s.open));
-  return later.find((s) => s.open === nextOpen)!.close;
-}
-
-/** Previous box — inverse of nextEditSlotCaret; does not wrap. */
-export function prevEditSlotCaret(text: string, caret: number): number | null {
-  const slots = findEditSlots(text);
-  if (slots.length === 0) return null;
-  const current = innermostSlot(text, caret);
-  if (!current) {
-    const earlier = slots.filter((s) => s.close < caret);
-    if (earlier.length === 0) return null;
-    return earlier.reduce((best, s) => (s.open > best.open ? s : best)).close;
-  }
-  const earlier = slots.filter((s) => s.close < current.open);
-  if (earlier.length === 0) return current.open + 1;
-  return earlier.reduce((best, s) => (s.open > best.open ? s : best)).close;
-}
-
 const STAY_IN_SLOT = /^(digit-|var-)/;
-
-/** `(1, 2)`, `[1, 2]`, and `\{1, 2\}` are lists. A comma stays inside them. */
-function slotHoldsCommaList(text: string, group: LatexGroup): boolean {
-  const open = text[group.open];
-  if (open === "(" || open === "[") return true;
-  return open === "{" && text[group.open - 1] === "\\";
-}
-
-/**
- * Operators and new templates after a filled last box continue the expression
- * (`8/8 × 2`) instead of nesting inside that box.
- */
-export function caretForInsert(text: string, caret: number, spec: MathKeyboardSymbol): number {
-  if (STAY_IN_SLOT.test(spec.id)) return caret;
-  const current = innermostSlot(text, caret);
-  if (!current) return caret;
-  if (spec.id === "comma" && slotHoldsCommaList(text, current)) return caret;
-  if (current.close - current.open <= 1) return caret;
-  if (caret !== current.close) return caret;
-  const later = findEditSlots(text).some((s) => s.open > current.close);
-  if (later) return caret;
-  return indexAfterSlot(text, current);
-}
 
 type SlotPair = { first: LatexGroup; second: LatexGroup };
 
@@ -256,11 +190,60 @@ function lognPairs(text: string): SlotPair[] {
   return findLognSlots(text).map((f) => ({ first: f.base, second: f.arg }));
 }
 
+/** `\int_{a}^{b}`, `\sum_{…}^{…}`, `\prod_{…}^{…}`: lower bound, then upper bound. */
+function boundPairs(command: string) {
+  return (text: string): SlotPair[] => {
+    const out: SlotPair[] = [];
+    let i = 0;
+    while (i < text.length) {
+      const idx = text.indexOf(`${command}_`, i);
+      if (idx === -1) break;
+      const lower = readBraceGroup(text, idx + command.length + 1);
+      if (!lower || text[lower.close + 1] !== "^") {
+        i = idx + command.length;
+        continue;
+      }
+      const upper = readBraceGroup(text, lower.close + 2);
+      if (!upper) {
+        i = lower.close + 1;
+        continue;
+      }
+      out.push({ first: lower, second: upper });
+      i = upper.close + 1;
+    }
+    return out;
+  };
+}
+
+function bracePairs(command: string) {
+  return (text: string): SlotPair[] => {
+    const out: SlotPair[] = [];
+    let i = 0;
+    while (i < text.length) {
+      const idx = text.indexOf(command, i);
+      if (idx === -1) break;
+      const first = readBraceGroup(text, idx + command.length);
+      const second = first ? readBraceGroup(text, first.close + 1) : null;
+      if (first && second) out.push({ first, second });
+      i = (second ?? first)?.close ?? idx + command.length;
+      i += 1;
+    }
+    return out;
+  };
+}
+
+const TAP_PAIRS: Record<string, (text: string) => SlotPair[]> = {
+  frac: fracPairs,
+  nroot: nrootPairs,
+  logn: lognPairs,
+  dint: boundPairs("\\int"),
+  sum: boundPairs("\\sum"),
+  prod: boundPairs("\\prod"),
+  binom: bracePairs("\\binom"),
+};
+
 function pairsForTap(specId: string): ((text: string) => SlotPair[]) | null {
-  if (specId === "frac") return fracPairs;
-  if (specId === "nroot") return nrootPairs;
-  if (specId === "logn") return lognPairs;
-  return null;
+  return TAP_PAIRS[specId] ?? null;
 }
 
 function tapAdvancesPair(
@@ -276,7 +259,7 @@ function tapAdvancesPair(
   return null;
 }
 
-/** Second tap on frac / ⁿ√ / logₙ: jump the filled first box → empty second box. */
+/** Second tap on a two-box key (□/□, ⁿ√, logₙ, ∫□, ∑, ∏, nCr): first box → empty second box. */
 export function tapAdvancesToNextSlot(text: string, caret: number, specId: string): number | null {
   const find = pairsForTap(specId);
   if (!find) return null;
@@ -329,71 +312,3 @@ export function autoAdvanceFracDen(
   if (STAY_IN_SLOT.test(spec.id)) return null;
   return autoAdvancePair(before, beforeCaret, after, afterCaret, fracPairs);
 }
-
-export type PadCell =
-  | { kind: "insert"; spec: MathKeyboardSymbol }
-  | { kind: "backspace" }
-  | { kind: "digits" }
-  | { kind: "spacer" };
-
-function padSpec(id: string): MathKeyboardSymbol {
-  const spec = MATH_PAD_KEYS.find((s) => s.id === id) ?? MATH_KEYBOARD_SYMBOLS.find((s) => s.id === id);
-  if (!spec) throw new Error(`missing pad spec ${id}`);
-  return spec;
-}
-
-function insertRow(ids: readonly string[]): PadCell[] {
-  return ids.map((id) => ({ kind: "insert" as const, spec: padSpec(id) }));
-}
-
-/**
- * Basics is 6×5.
- * Build, then fences and marks, then comparisons, then names, then arithmetic.
- * The last row starts with 123 and ends with backspace.
- */
-function basicsRows(): PadCell[][] {
-  return [
-    insertRow(["frac", "sqrt", "nroot", "sq", "sup", "sub"]),
-    insertRow(["abs", "parens", "brackets", "braces", "deg", "angle"]),
-    insertRow(["pi", "leq", "geq", "neq", "lt", "gt"]),
-    insertRow(["var-x", "var-y", "var-z", "eq", "digit-dot", "pm"]),
-    [
-      { kind: "digits" },
-      ...insertRow(["times", "div", "minus", "plus"]),
-      { kind: "backspace" },
-    ],
-  ];
-}
-
-/** Fills the short Trig row with keys that are not already on Basics. */
-const TRIG_ROW_TAIL = ["trig-theta", "sech", "csch", "coth"] as const;
-
-/** Symbol rows for a tab, always 6-wide. Digits live on the 123 pad, not in these rows. */
-export function symbolRowsForGroup(group: MathKeyboardGroup): PadCell[][] {
-  if (group === "basics") return basicsRows();
-  const functions = symbolsInGroup(group);
-  const rows: PadCell[][] = [];
-  for (let i = 0; i < functions.length; i += MATH_SYMBOL_ROW_SIZE) {
-    rows.push(functions.slice(i, i + MATH_SYMBOL_ROW_SIZE).map((spec) => ({ kind: "insert" as const, spec })));
-  }
-  if (rows.length === 0) return rows;
-  const last = rows[rows.length - 1]!;
-  while (last.length < MATH_SYMBOL_ROW_SIZE) last.push({ kind: "spacer" });
-  if (group === "trig") {
-    let extra = 0;
-    for (let i = 0; i < last.length && extra < TRIG_ROW_TAIL.length; i++) {
-      if (last[i]?.kind === "spacer") {
-        last[i] = { kind: "insert", spec: padSpec(TRIG_ROW_TAIL[extra]!) };
-        extra++;
-      }
-    }
-  }
-  return rows;
-}
-
-/** Digit grid. x, y, z, =, (), and the dot live on the Basics row above 123. */
-export const MATH_NUMPAD_ROWS: PadCell[][] = [
-  insertRow(["digit-7", "digit-8", "digit-9", "digit-4", "digit-5", "digit-6"]),
-  insertRow(["digit-1", "digit-2", "digit-3", "digit-0", "digit-dot", "comma"]),
-];
-
