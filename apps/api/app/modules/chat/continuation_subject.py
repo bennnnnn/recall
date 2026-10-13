@@ -8,11 +8,12 @@ continuation. A new topic does not inherit that subject.
 from __future__ import annotations
 
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
 from app.modules.chat.prompt_constants.writing_kind import is_writing_deliverable_request
+from app.services.problem_followup import adjacent_problem
 from app.services.text_normalize import collapse_ws
 
 _MAX_CHARS = 80
@@ -196,19 +197,9 @@ def chemistry_working_followup_problem(query: str | None, recent: Sequence[Any])
     own = classify_presentation_subject(query)
     if own in {"math", "physics"}:
         return None
-    if len(recent) < 2:
-        return None
-    role, prior = _role_content(recent[-2])
-    answer_role, answer = _role_content(recent[-1])
-    if role != "user" or answer_role != "assistant":
-        return None
-    if not prior or not prior.strip() or not answer or not answer.strip():
-        return None
     from app.modules.chemistry.request import is_chemistry_question
 
-    if not is_chemistry_question(prior):
-        return None
-    return prior
+    return adjacent_problem(recent, is_chemistry_question)
 
 
 def effective_presentation_subject(
@@ -231,18 +222,6 @@ def effective_presentation_subject(
     if physics_followup_problem(query, prior_messages or ()) is not None:
         return "physics"
     return None
-
-
-def _role_content(message: Any) -> tuple[str | None, str | None]:
-    if isinstance(message, Mapping):
-        role = message.get("role")
-        content = message.get("content")
-    else:
-        role = getattr(message, "role", None)
-        content = getattr(message, "content", None)
-    if not isinstance(role, str) or not isinstance(content, str):
-        return None, None
-    return role, content
 
 
 def _phrase(text: str) -> str:

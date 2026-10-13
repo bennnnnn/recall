@@ -11,7 +11,7 @@ import asyncio
 import json
 import logging
 import re
-from collections.abc import Mapping, Sequence
+from collections.abc import Sequence
 from typing import Any
 
 from pydantic import BaseModel, Field
@@ -21,6 +21,7 @@ from app.core.background_tasks import create_background_task
 from app.core.config import Settings
 from app.gateways.litellm_gateway import complete_structured
 from app.modules.chat.stream_events import build_related_prompts_event
+from app.services.problem_followup import message_role_content
 from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
 
@@ -123,16 +124,6 @@ def subject_for_related(text: str) -> str | None:
     return None
 
 
-def _role_content(message: Any) -> tuple[str | None, str | None]:
-    if isinstance(message, Mapping):
-        role, content = message.get("role"), message.get("content")
-    else:
-        role, content = getattr(message, "role", None), getattr(message, "content", None)
-    if not isinstance(role, str) or not isinstance(content, str):
-        return None, None
-    return role, content
-
-
 def _continues_thread(text: str) -> bool:
     """A question or a "one more" about the open problem, not small talk."""
     from app.modules.chat.continuation_subject import is_new_problem_request, is_pure_continuation
@@ -160,7 +151,7 @@ def thread_problem(question: str, prior: Sequence[Any] | None) -> str | None:
         return None
     users = 0
     for message in reversed(prior):
-        role, content = _role_content(message)
+        role, content = message_role_content(message)
         if role != "user" or not content or not content.strip():
             continue
         users += 1

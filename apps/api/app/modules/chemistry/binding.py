@@ -45,9 +45,14 @@ from app.modules.chemistry.species_facts import (
 )
 from app.modules.chemistry.stoichiometry import molar_mass
 from app.services.law_binding.ask import ask_clause
-from app.services.law_binding.fit import Fit, Question, Subject, fit, read_givens
+from app.services.law_binding.fit import (
+    Fit,
+    Subject,
+    named_strength,
+    only_strongest_fit,
+    read_question,
+)
 from app.services.law_binding.spec import VariableSpec
-from app.services.law_binding.words import ask_strength, word_pattern
 
 _VERBS = re.compile(
     r"\b(?:find|calculate|compute|determine|work\s+out|estimate|evaluate|what|convert|"
@@ -307,44 +312,25 @@ def _bind(text: str) -> ChemistryIntent | None:
     if clause is None:
         return None
     lower = prepared.text.lower()
-    asked_clause = clause.lower()
     named = [
-        (law, formula, strength)
+        ((law, formula), law.spec, strength)
         for law in LAWS
         if (binding := law.spec.binding) is not None
         and (formula := _formula_for(law, prepared.species)) is not False
-        and (not binding.cues or any(word_pattern(cue).search(lower) for cue in binding.cues))
-        and not any(word_pattern(word).search(lower) for word in binding.excludes)
-        and (strength := ask_strength(clause, binding.asks, binding.result, CHEMISTRY_UNITS))
+        and (strength := named_strength(binding, clause, lower, CHEMISTRY_UNITS))
     ]
     if not named:
         return None
-    givens = read_givens(prepared.text, CHEMISTRY_UNITS)
-    if len(givens) > _MAX_GIVENS:
+    question = read_question(prepared.text, clause, CHEMISTRY_UNITS, max_givens=_MAX_GIVENS)
+    if question is None:
         return None
-    question = Question(
-        text=prepared.text,
-        lower=lower,
-        givens=givens,
-        asked=frozenset(),
-        asked_in=None,
-        asked_from=lower.rfind(asked_clause),
-    )
     subject = Subject(
         units=CHEMISTRY_UNITS, fallback=partial(_fallback, prepared), unit_of=_declared
     )
-    fits = [
-        (law, formula, filled)
-        for law, formula, strength in named
-        if (filled := fit(law.spec, strength, question, subject)) is not None
-    ]
-    if not fits:
+    strongest = only_strongest_fit(named, question, subject)
+    if strongest is None:
         return None
-    strongest = max(filled.strength for _, _, filled in fits)
-    top = [entry for entry in fits if entry[2].strength == strongest]
-    if len(top) != 1:
-        return None
-    law, formula, filled = top[0]
+    (law, formula), filled = strongest
     converted = _converted(law, filled)
     if converted is None:
         return None

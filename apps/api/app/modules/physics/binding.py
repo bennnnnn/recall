@@ -24,13 +24,16 @@ from app.modules.physics.binding_values import fallback_value, si_unit
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.givens import FRACTION_OF_C, PHYSICS_UNITS, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
-from app.services.law_binding.fit import Question, Subject, fit, read_givens
+from app.services.law_binding.fit import (
+    Subject,
+    named_strength,
+    only_strongest_fit,
+    read_question,
+)
 from app.services.law_binding.spec import FormulaSpec
 from app.services.law_binding.units import dimension_of
-from app.services.law_binding.words import ask_strength, word_pattern
 
-# A school question states a handful of values; a paste full of numbers is
-# not one law's inputs, and reading it all would cost every chat turn.
+# Reading a paste full of numbers would cost every chat turn.
 _MAX_GIVENS = 16
 # A second request in the same message ("... and tell me a joke") is not a
 # question the verified answer finishes.
@@ -55,46 +58,33 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     lower = text.lower()
     # "0.8c" is a speed of light: the phrase relativity's cues are written as.
     cue_text = f"{lower} speed of light" if FRACTION_OF_C.search(lower) else lower
-    asked_clause = clause.lower()
     named = [
-        (spec, strength)
+        (spec, spec, strength)
         for spec in _bindable()
         if spec.binding is not None
         and (
-            not spec.binding.cues
-            or any(word_pattern(cue).search(cue_text) for cue in spec.binding.cues)
-        )
-        and not any(word_pattern(word).search(lower) for word in spec.binding.excludes)
-        and (
-            strength := ask_strength(clause, spec.binding.asks, spec.binding.result, PHYSICS_UNITS)
+            strength := named_strength(
+                spec.binding, clause, lower, PHYSICS_UNITS, cue_text=cue_text
+            )
         )
     ]
     if not named:
         return None
-    givens = read_givens(text, PHYSICS_UNITS)
-    if len(givens) > _MAX_GIVENS:
-        return None
     unit = asked_unit(text)
-    question = Question(
-        text=text,
-        lower=lower,
-        givens=givens,
+    question = read_question(
+        text,
+        clause,
+        PHYSICS_UNITS,
+        max_givens=_MAX_GIVENS,
         asked=frozenset(asked_dimensions(text)),
         asked_in=dimension_of(unit_expression(unit) or "") if unit else None,
-        asked_from=lower.rfind(asked_clause),
     )
-    fits = [
-        filled
-        for spec, strength in named
-        if (filled := fit(spec, strength, question, _PHYSICS)) is not None
-    ]
-    if not fits:
+    if question is None:
         return None
-    strongest = max(filled.strength for filled in fits)
-    top = [filled for filled in fits if filled.strength == strongest]
-    if len(top) != 1:
+    strongest = only_strongest_fit(named, question, _PHYSICS)
+    if strongest is None:
         return None
-    chosen = top[0]
+    _, chosen = strongest
     try:
         return PhysicsIntent(
             kind=chosen.spec.kind,  # type: ignore[arg-type]
