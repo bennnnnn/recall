@@ -103,7 +103,12 @@ class WebSearchAdapter:
         self.settings = settings
 
     def describe(self) -> str:
-        return "Search the web for current information."
+        return (
+            "Search the web for current information. Call it whenever the user asks you "
+            "to search, look something up, google it or check online, and for facts that "
+            "change. The query must stand alone: spell out who or what the conversation "
+            "is about (a full name, a place), never 'it', 'her' or 'do a search'."
+        )
 
     def to_openai_tool(self) -> dict[str, Any]:
         return {

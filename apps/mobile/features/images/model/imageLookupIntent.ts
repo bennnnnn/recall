@@ -15,6 +15,24 @@
 const ARTICLES = new Set(["a", "an", "the"]);
 const POSSESSIVES = new Set(["my", "your", "our", "his", "her", "their", "its"]);
 const REFERENCE_NOUNS = new Set(["picture", "pictures", "photo", "photos", "image", "images", "pic", "pics"]);
+// "show me her image", "a photo of him": someone named earlier in the chat.
+// "my" / "your" / "our" stay out — "show me my notes" is app content.
+const THIRD_PERSON_POSSESSIVES = new Set(["his", "her", "their", "its"]);
+const OBJECT_PRONOUNS = new Set(["her", "him", "them", "it"]);
+// "can you show me…", "please show me…" ask the same thing as "show me…".
+const POLITE_LEADS: string[][] = [
+  ["can", "you"], ["could", "you"], ["would", "you"], ["will", "you"], ["can", "u"],
+  ["please"], ["pls"], ["just"],
+];
+// "can I see X", "I want to see X" ask what "let me see X" asks.
+const SEE_LEADS: string[][] = [
+  ["let", "me", "see"], ["lemme", "see"], ["can", "i", "see"], ["could", "i", "see"],
+  ["may", "i", "see"], ["i", "want", "to", "see"], ["i'd", "like", "to", "see"],
+  ["i", "would", "like", "to", "see"], ["i", "wanna", "see"],
+];
+// "send me a photo of X": these verbs need the photo noun, or "find me a
+// restaurant" and "give me a list" would turn into photo searches.
+const PHOTO_FETCH_VERBS = new Set(["send", "find", "get", "give", "pull", "bring"]);
 
 // Keep in sync with lookup_intent.py's _NON_IMAGE_WORDS.
 const NON_IMAGE_WORDS = new Set([
@@ -72,6 +90,16 @@ function tokens(text: string): string[] {
   return text.split(/\s+/).filter(Boolean);
 }
 
+function referenceSubject(toks: string[]): string | null {
+  const folded = toks.map(foldToken);
+  if (!folded.length) return null;
+  if (folded.length === 1 && OBJECT_PRONOUNS.has(folded[0])) return folded[0];
+  if (folded.length === 2 && THIRD_PERSON_POSSESSIVES.has(folded[0]) && REFERENCE_NOUNS.has(folded[1])) {
+    return folded[0];
+  }
+  return null;
+}
+
 function cleanSubject(raw: string): string | null {
   const subject = raw.trim().replace(/[.!?]+$/g, "").trim();
   if (!subject || subject.length < 2) return null;
@@ -102,27 +130,73 @@ function stripReferenceNounPrefix(toks: string[]): string[] {
   return toks;
 }
 
+function startsWith(folded: string[], lead: string[]): boolean {
+  return folded.length > lead.length && lead.every((word, i) => folded[i] === word);
+}
+
+function stripPoliteLead(toks: string[]): string[] {
+  let changed = true;
+  while (changed) {
+    changed = false;
+    const folded = toks.map((t) => t.toLowerCase());
+    for (const lead of POLITE_LEADS) {
+      if (startsWith(folded, lead)) {
+        toks = toks.slice(lead.length);
+        changed = true;
+        break;
+      }
+    }
+  }
+  return toks;
+}
+
+/** SUBJECT from "[a/an/the]? [picture/photo/image of]? SUBJECT". */
+function photoSubject(toks: string[]): string | null {
+  let remaining = stripLeadingArticle(toks);
+  remaining = stripReferenceNounPrefix(remaining);
+  remaining = stripLeadingArticle(remaining);
+  if (!remaining.length) return null;
+  return referenceSubject(remaining) ?? cleanSubject(remaining.join(" "));
+}
+
 function matchShowMe(toks: string[]): string | null {
   if (toks.length < 2 || toks[0].toLowerCase() !== "show") return null;
   let i = 1;
   if (i < toks.length && toks[i].toLowerCase() === "me") i += 1;
-  let remaining = stripLeadingArticle(toks.slice(i));
-  remaining = stripReferenceNounPrefix(remaining);
-  remaining = stripLeadingArticle(remaining);
-  if (!remaining.length) return null;
-  return cleanSubject(remaining.join(" "));
+  return photoSubject(toks.slice(i));
 }
 
 function matchLetMeSee(toks: string[]): string | null {
-  if (toks.length < 4) return null;
-  if (toks[0].toLowerCase() !== "let" || toks[1].toLowerCase() !== "me" || toks[2].toLowerCase() !== "see") {
-    return null;
+  const folded = toks.map((t) => t.toLowerCase());
+  for (const lead of SEE_LEADS) {
+    if (startsWith(folded, lead)) return photoSubject(toks.slice(lead.length));
   }
-  let remaining = stripLeadingArticle(toks.slice(3));
-  remaining = stripReferenceNounPrefix(remaining);
-  remaining = stripLeadingArticle(remaining);
-  if (!remaining.length) return null;
-  return cleanSubject(remaining.join(" "));
+  return null;
+}
+
+/** "send / find / get me a photo of SUBJECT", "pull up a picture of SUBJECT" */
+function matchFetchPhoto(toks: string[]): string | null {
+  if (toks.length < 3 || !PHOTO_FETCH_VERBS.has(toks[0].toLowerCase())) return null;
+  let i = 1;
+  if (i < toks.length && toks[i].toLowerCase() === "up") i += 1;
+  if (i < toks.length && toks[i].toLowerCase() === "me") i += 1;
+  let rest = stripLeadingArticle(toks.slice(i));
+  if (rest.length && rest[0].toLowerCase() === "some") rest = rest.slice(1);
+  if (!rest.length || !REFERENCE_NOUNS.has(rest[0].toLowerCase())) return null;
+  return photoSubject(rest);
+}
+
+/** "show me what SUBJECT looks like" */
+function matchShowWhatLooksLike(toks: string[]): string | null {
+  if (toks.length < 5 || toks[0].toLowerCase() !== "show") return null;
+  let i = 1;
+  if (toks[i].toLowerCase() === "me") i += 1;
+  if (i >= toks.length || toks[i].toLowerCase() !== "what") return null;
+  const last = toks[toks.length - 1].toLowerCase().replace(/[?.!]+$/g, "");
+  if (last !== "like" || !["looks", "look"].includes(toks[toks.length - 2].toLowerCase())) return null;
+  const subjectTokens = stripLeadingArticle(toks.slice(i + 1, -2));
+  if (!subjectTokens.length) return null;
+  return cleanSubject(subjectTokens.join(" "));
 }
 
 function matchLookLike(toks: string[]): string | null {
@@ -141,8 +215,14 @@ export function extractImageLookupQuery(text: string): string | null {
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > 200) return null;
 
-  const toks = tokens(trimmed);
+  const toks = stripPoliteLead(tokens(trimmed));
   if (!toks.length) return null;
 
-  return matchShowMe(toks) ?? matchLetMeSee(toks) ?? matchLookLike(toks);
+  return (
+    matchShowWhatLooksLike(toks) ??
+    matchShowMe(toks) ??
+    matchLetMeSee(toks) ??
+    matchFetchPhoto(toks) ??
+    matchLookLike(toks)
+  );
 }

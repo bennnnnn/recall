@@ -6,6 +6,7 @@ same way as the old ``prompt_constants`` module.
 
 from app.modules.chat.prompt_constants.capabilities import (
     CAPABILITIES_FORMAT_HINT,
+    PHOTO_LOOKUP_HINT,
     is_capabilities_question,
 )
 from app.modules.chat.prompt_constants.format import (
@@ -168,6 +169,7 @@ __all__ = [
     "NON_DRAFT_TURN_HINT",
     "PERSONAL_DISCLOSURE_HINT",
     "PERSONAL_RECORD_HINT",
+    "PHOTO_LOOKUP_HINT",
     "PHYSICS_INTENT_HINT",
     "PHYSICS_REPLY_POLICY",
     "PHYSICS_SHORT_HINT",

@@ -36,6 +36,7 @@ from app.modules.chat.prompt_constants import (
     NEW_PROBLEM_HINT,
     NON_DRAFT_TURN_HINT,
     PERSONAL_DISCLOSURE_HINT,
+    PHOTO_LOOKUP_HINT,
     PHYSICS_INTENT_HINT,
     PHYSICS_REPLY_POLICY,
     PHYSICS_SHORT_HINT,
@@ -397,6 +398,8 @@ def _integration_hints(
             parts.append(web_search_service.GEO_DISTANCE_HINT)
         if prompt_location and query_text and web_search_service.is_geo_query(query_text):
             parts.append(web_search_service.GEO_ACTIVE_LOCATION_HINT)
+    if settings.image_search_enabled:
+        parts.append(PHOTO_LOOKUP_HINT)
     if settings.google_calendar_enabled:
         parts.append(calendar_service.CALENDAR_HINT)
     if settings.gmail_enabled:

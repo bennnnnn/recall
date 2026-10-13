@@ -72,6 +72,16 @@ class WebSearchClassification(BaseModel):
     )
 
 
+class ConversationReference(BaseModel):
+    """What a follow-up like "do a search" or "show me her image" refers to."""
+
+    text: str | None = Field(
+        default=None,
+        max_length=160,
+        description="Standalone search query or photo subject; null when unclear",
+    )
+
+
 class PushTokenIn(BaseModel):
     expo_push_token: str = Field(min_length=8, max_length=512)
     platform: str = Field(min_length=2, max_length=20)

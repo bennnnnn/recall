@@ -154,6 +154,7 @@ async def _force_web_search_if_needed(
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
     search_required: bool = False,
+    user_timezone: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[WebSearchHit]]:
     """If the model skipped web_search on a turn that needs live results, search once.
 
@@ -170,6 +171,7 @@ async def _force_web_search_if_needed(
     user_text = _last_user_content(messages)
     if not user_text:
         return messages, search_hits
+    from app.modules.web_search import search_queries_for_turn
     from app.modules.web_search.detection import needs_web_search
     from app.modules.web_search.formatting import format_search_block, format_search_empty_block
     from app.modules.web_search.search_cache import run_cached_search
@@ -182,11 +184,19 @@ async def _force_web_search_if_needed(
 
     tried = [user_text]
     if not already_searched:
+        # Show the search before reading the chat for a follow-up's topic.
         if on_status is not None:
-            await on_status("searching", clip_status_detail(user_text))
+            await on_status("searching", None)
+        # "do a search" / "when did she die?" search for what the chat was
+        # about, not for the words of the request.
+        queries = await search_queries_for_turn(
+            settings, user_text, messages, user_timezone=user_timezone
+        )
+        if on_status is not None:
+            await on_status("searching", clip_status_detail(queries[0] if queries else user_text))
         hits, tried = await run_cached_search(
             settings,
-            [user_text],
+            queries or [user_text],
             user=user,
             redis=redis,
         )
@@ -493,6 +503,7 @@ async def run_tool_rounds(
             on_status=on_status,
             should_cancel=should_cancel,
             search_required=True,
+            user_timezone=user_timezone,
         )
         return working, None, None, hits
 
@@ -526,6 +537,7 @@ async def run_tool_rounds(
             on_status=on_status,
             should_cancel=should_cancel,
             search_required=web_search is True,
+            user_timezone=user_timezone,
         )
         return working, verified, terminal, hits
 

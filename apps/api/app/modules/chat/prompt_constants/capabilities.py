@@ -4,6 +4,15 @@
 from app.modules.chat.prompt_constants.writing_kind import writing_request_kind
 from app.services.text_normalize import collapse_ws
 
+# Recall attaches real photos itself (a lookup that runs before the model).
+PHOTO_LOOKUP_HINT = (
+    "Recall shows real photos: when the user asks to see someone or something, the app "
+    "looks up a photo and attaches it. Never say you can't display, show or send images "
+    "or photos. If they asked for a photo and none came with this turn, say you couldn't "
+    "find one this time and ask them to name the person or thing in full, in one short "
+    "sentence. Never invent image links."
+)
+
 # Home-chip prompts (all shipped locales) plus short paraphrases.
 _CAPABILITIES_EXACT = (
     "what can you help me with? give a few concrete examples.",

@@ -124,6 +124,40 @@ async def try_image_gen_for_turn(
     return True
 
 
+async def _photo_subject_from_chat(
+    seams: Any,
+    settings: Settings,
+    *,
+    chat_id: UUID,
+    content: str,
+    recent_messages: list[Any] | None,
+    replace_assistant_id: UUID | None,
+) -> str | None:
+    """Who "her" / "it" is in "show me her image", read from the chat; None if unclear.
+
+    After a generated picture, "show it at night" edits that picture: the
+    image-generation intercept owns it, so this returns None.
+    """
+    if recent_messages is not None:
+        recent = recent_messages
+    else:
+        async with seams.SessionLocal() as session:
+            recent = await seams.messages_repo.list_recent(
+                session, chat_id, limit=settings.recent_message_window
+            )
+    if replace_assistant_id is not None:
+        recent = [row for row in recent if getattr(row, "id", None) != replace_assistant_id]
+    last_is_generated_image, _subject = seams.image_gen_revision_context(recent)
+    if last_is_generated_image:
+        return None
+    return await seams.resolve_reference(
+        settings,
+        kind="photo",
+        request=content,
+        turns=seams.turns_from_rows(recent),
+    )
+
+
 async def try_image_lookup_for_turn(
     seams: Any,
     settings: Settings,
@@ -134,6 +168,7 @@ async def try_image_lookup_for_turn(
     result: dict[str, Any] | None,
     create_user_message: bool,
     replace_assistant_id: UUID | None = None,
+    recent_messages: list[Any] | None = None,
 ) -> bool:
     """Deterministic reference-photo lookup intercept ("show me an ear").
 
@@ -148,6 +183,17 @@ async def try_image_lookup_for_turn(
     query = seams.extract_image_lookup_query(content)
     if not query:
         return False
+    if seams.is_reference_subject(query):
+        query = await _photo_subject_from_chat(
+            seams,
+            settings,
+            chat_id=chat_id,
+            content=content,
+            recent_messages=recent_messages,
+            replace_assistant_id=replace_assistant_id,
+        )
+        if not query:
+            return False
     try:
         _user_msg, asst_msg = await seams.image_search_service.search_and_attach_for_chat(
             settings,
@@ -334,6 +380,7 @@ async def stream_chat_response(
             content=content,
             result=result,
             create_user_message=True,
+            recent_messages=recent,
         ):
             await res.refund()
             return

@@ -87,6 +87,7 @@ async def build_search_augmentation(
             user_content,
             settings,
             prior_user_messages=prior_user,
+            prior_assistant=prior_assistant,
         )
         if classification is not None:
             if not classification.needs_search:
