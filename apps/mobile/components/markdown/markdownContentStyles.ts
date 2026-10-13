@@ -116,8 +116,19 @@ export function makeMdImg(t: Theme) {
   });
 }
 
-/** The space under a reply paragraph or list. */
-export const PARAGRAPH_GAP = 10;
+/**
+ * The space under every block of a reply: paragraph, list, card, code, table,
+ * quote. One gap and no top margins, so the space between any two blocks is
+ * the same whatever their kind. Headings add their own space above.
+ */
+export const PARAGRAPH_GAP = Space.sm;
+
+/**
+ * Wraps markdown blocks inside a framed container (quote bar, quote card):
+ * cancels the last block's gap so the frame ends at the text and the gap
+ * below belongs to the container.
+ */
+export const TRIM_TRAILING_GAP = { marginBottom: -PARAGRAPH_GAP } as const;
 
 export function makeMdStyles(t: Theme) {
   return StyleSheet.create({
@@ -131,7 +142,11 @@ export function makeMdStyles(t: Theme) {
     paragraphRun: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
     bullet_list: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
     ordered_list: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
-    list_item: { marginBottom: 6 },
+    list_item: { marginBottom: Space.xs },
+    // A list inside a list item: its item's gap already separates it.
+    nestedList: { marginBottom: 0 },
+    // A loose list's paragraphs: the item gap separates them, not a block gap.
+    listParagraph: { marginBottom: 0 },
     ordered_list_icon: {
       ...Type.body,
       color: t.text,
@@ -142,7 +157,7 @@ export function makeMdStyles(t: Theme) {
     },
     heading1: {
       ...Type.h1,
-      marginTop: 18,
+      marginTop: Space.md,
       marginBottom: Space.xs,
       color: t.text,
       flexDirection: "row",
@@ -151,8 +166,8 @@ export function makeMdStyles(t: Theme) {
     },
     heading2: {
       ...Type.h2,
-      marginTop: Space.md,
-      marginBottom: 6,
+      marginTop: Space.sm,
+      marginBottom: Space.xxs,
       color: t.text,
       flexDirection: "row",
       flexWrap: "wrap",
@@ -160,7 +175,7 @@ export function makeMdStyles(t: Theme) {
     },
     heading3: {
       ...Type.h3,
-      marginTop: Space.sm,
+      marginTop: Space.xs,
       marginBottom: Space.xxs,
       color: t.text,
       flexDirection: "row",
@@ -169,7 +184,7 @@ export function makeMdStyles(t: Theme) {
     },
     heading4: {
       ...Type.h4,
-      marginTop: 10,
+      marginTop: Space.xxs,
       marginBottom: Space.xxs,
       color: t.text,
       flexDirection: "row",
@@ -178,8 +193,8 @@ export function makeMdStyles(t: Theme) {
     },
     heading5: {
       ...Type.h5,
-      marginTop: Space.xs,
-      marginBottom: 2,
+      marginTop: Space.xxs,
+      marginBottom: Space.xxs,
       color: t.text,
       flexDirection: "row",
       flexWrap: "wrap",
@@ -187,8 +202,8 @@ export function makeMdStyles(t: Theme) {
     },
     heading6: {
       ...Type.h6,
-      marginTop: Space.xs,
-      marginBottom: 2,
+      marginTop: Space.xxs,
+      marginBottom: Space.xxs,
       color: t.text,
       flexDirection: "row",
       flexWrap: "wrap",
@@ -197,7 +212,8 @@ export function makeMdStyles(t: Theme) {
     strong: { ...Weight.bold, color: t.text },
     em: { ...Italic.regular },
     blockquote: { marginVertical: 0, padding: 0, borderWidth: 0 },
-    hr: { backgroundColor: t.border, height: 1, marginVertical: Space.sm },
+    // Same space above (the previous block's gap) and below.
+    hr: { backgroundColor: t.border, height: 1, marginTop: 0, marginBottom: PARAGRAPH_GAP },
     // Underlined, so a link never depends on color alone (WCAG 1.4.1): in dark
     // mode the accent is only ~1.8:1 against body text, and Graphite is grey.
     link: { color: t.primary, textDecorationLine: "underline" },

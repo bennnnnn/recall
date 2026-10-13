@@ -1,7 +1,7 @@
 import { Fragment, ReactNode } from "react";
 import { Image } from "expo-image";
 import { Icon } from "@/ui/icons/Icon";
-import { Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
+import { PixelRatio, Text, View, type StyleProp, type TextStyle, type ViewStyle } from "react-native";
 
 import { LinkPreviewCard } from "@/components/LinkPreviewCard";
 import { splitStreamCaret, StreamingCursor } from "@/components/StreamingCursor";
@@ -26,6 +26,8 @@ import {
   inHeading,
   immediateAncestorType,
   listItemDisplayNumber,
+  listLargestNumber,
+  numberColumnWidth,
   listItemHasNestedList,
   parentHasType,
   shouldNumberListItem,
@@ -468,6 +470,25 @@ function renderTextWithMath(
   );
 }
 
+const HEADING_SIZES = {
+  heading1: Type.h1.fontSize,
+  heading2: Type.h2.fontSize,
+  heading3: Type.h3.fontSize,
+  heading4: Type.h4.fontSize,
+  heading5: Type.h5.fontSize,
+  heading6: Type.h6.fontSize,
+} as const;
+
+/** Inline code in a heading: the heading's size in the body's 14:16 ratio, not a fixed 14. */
+function headingCodeSize(parent: unknown): { fontSize: number } | null {
+  for (const [type, size] of Object.entries(HEADING_SIZES)) {
+    if (parentHasType(parent, type)) {
+      return { fontSize: Math.round((size * Type.secondary.fontSize) / Type.body.fontSize) };
+    }
+  }
+  return null;
+}
+
 function makeSharedRules(
   t: Theme,
   mdTable: MdTableStyles,
@@ -614,7 +635,12 @@ function makeSharedRules(
           immediateAncestorType(parent) === "ordered_list" ? (node.markup ?? ".") : ".";
         return (
           <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-            <Text style={styles.ordered_list_icon as object}>
+            <Text
+              style={[
+                styles.ordered_list_icon as object,
+                { minWidth: numberColumnWidth(listLargestNumber(parent), PixelRatio.getFontScale()) },
+              ]}
+            >
               {listItemDisplayNumber(parent, node.index)}
               {markup}
             </Text>
@@ -836,6 +862,8 @@ function makeSharedRules(
       // the library's flexDirection/flexWrap/width onto that key.
       const raw = astText(node);
       const runHeight = mathRunLineHeight(raw);
+      // A loose list's paragraph: the item gap separates items, not a block gap.
+      const inListItem = parentHasType(parent, "list_item");
       return wrapInlineChildren(
         node,
         children,
@@ -843,9 +871,10 @@ function makeSharedRules(
           styles.body,
           styles.text,
           styles.paragraphRun,
+          inListItem && styles.listParagraph,
           runHeight != null && { lineHeight: runHeight },
         ],
-        [mdMath.inlineWrap, styles.paragraphRun],
+        [mdMath.inlineWrap, styles.paragraphRun, inListItem && styles.listParagraph],
       );
     },
     hardbreak: (node: { key: string }, _c: unknown, _p: unknown, styles: StyleMap) => (
@@ -889,11 +918,33 @@ function makeSharedRules(
     ) => (
       <Text
         key={node.key}
-        style={[mdCodeInline, inTableCell(parent) && mdTable.cellCode]}
+        style={[mdCodeInline, inTableCell(parent) && mdTable.cellCode, headingCodeSize(parent)]}
         selectable
       >
         {node.content}
       </Text>
+    ),
+    bullet_list: (node: AstNode, children: ReactNode, parent: unknown, styles: StyleMap) => (
+      <View
+        key={node.key}
+        style={[
+          styles._VIEW_SAFE_bullet_list as object,
+          parentHasType(parent, "list_item") && (styles.nestedList as object),
+        ]}
+      >
+        {children}
+      </View>
+    ),
+    ordered_list: (node: AstNode, children: ReactNode, parent: unknown, styles: StyleMap) => (
+      <View
+        key={node.key}
+        style={[
+          styles._VIEW_SAFE_ordered_list as object,
+          parentHasType(parent, "list_item") && (styles.nestedList as object),
+        ]}
+      >
+        {children}
+      </View>
     ),
     strong: (
       node: AstNode,

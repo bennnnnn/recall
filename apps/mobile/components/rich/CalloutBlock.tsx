@@ -62,7 +62,7 @@ export function CalloutBlock({ kind, content }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    body: { ...Type.body, lineHeight: 24, color: t.text },
+    body: { ...Type.body, color: t.text },
     title: { ...Type.compact, ...Weight.semibold, color: t.textSecondary, flexShrink: 1 },
   });
 }

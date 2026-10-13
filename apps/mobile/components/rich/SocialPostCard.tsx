@@ -49,6 +49,6 @@ export function SocialPostCard({ text, platform }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    body: { ...Type.body, color: t.text, lineHeight: 24 },
+    body: { ...Type.body, color: t.text },
   });
 }

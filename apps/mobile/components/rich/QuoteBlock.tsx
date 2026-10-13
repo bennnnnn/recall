@@ -4,10 +4,11 @@ import { Icon } from "@/ui/icons/Icon";
 
 import { RichBodyText } from "@/components/rich/RichBodyText";
 import { Theme, useTheme } from "@/lib/theme";
-import { Italic, Type } from "@/lib/type";
+import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { IconSize } from "@/ui/icons/sizes";
+import { PARAGRAPH_GAP, TRIM_TRAILING_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = { quote?: string; author?: string; children?: ReactNode; testID?: string };
 
@@ -24,7 +25,7 @@ export function QuoteBlock({ quote, author, children, testID }: Props) {
         style={s.icon}
       />
       {children ? (
-        <View>{children}</View>
+        <View style={TRIM_TRAILING_GAP}>{children}</View>
       ) : (
         <RichBodyText style={s.quote} selectable>
           {quote}
@@ -46,10 +47,10 @@ function makeStyles(t: Theme) {
       paddingHorizontal: 14,
       paddingVertical: Space.sm,
       marginTop: 0,
-      marginBottom: 10,
+      marginBottom: PARAGRAPH_GAP,
     },
     icon: { marginBottom: 6 },
-    quote: { ...Type.body, ...Italic.regular, lineHeight: 24, color: t.text },
+    quote: { ...Type.body, color: t.text },
     author: {
       marginTop: Space.xs,
       ...Type.label,

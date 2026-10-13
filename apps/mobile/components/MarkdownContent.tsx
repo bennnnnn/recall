@@ -1,6 +1,6 @@
 /** Markdown renderer — v2 (no nested Markdown / plainFence), theme-aware. */
 import React, { useEffect, useMemo, useRef } from "react";
-import { View } from "react-native";
+import { StyleSheet, View } from "react-native";
 import Markdown from "react-native-markdown-display";
 
 import { CodeBlock } from "@/components/CodeBlock";
@@ -96,6 +96,22 @@ function tailPaintsBlock(kind: "fence" | "math" | "other", preview: OpenFencePre
   return preview === "answer" || preview === "math" || preview === "code";
 }
 
+const LEADING_HEADING = /^\s*(#{1,6})[ \t]/;
+
+/**
+ * A reply that opens with a heading should not open with that heading's top
+ * margin. Read from the source, so the streaming and settled renders agree and
+ * nothing jumps when the reply finishes.
+ */
+function leadingHeadingMargin(text: string, styles: Record<string, unknown>): number {
+  const match = LEADING_HEADING.exec(text);
+  if (!match) return 0;
+  const style = StyleSheet.flatten(styles[`heading${match[1].length}`] as never) as
+    | { marginTop?: unknown }
+    | undefined;
+  return typeof style?.marginTop === "number" ? style.marginTop : 0;
+}
+
 export function MarkdownContent({ content, streaming = false, mathFormat, compact = false }: Props) {
   const t = useTheme();
   const { rules, mdStyles: replyStyles } = useMemo(
@@ -141,6 +157,9 @@ export function MarkdownContent({ content, streaming = false, mathFormat, compac
       return renderContent;
     }
   }, [renderContent, streaming, mathFormat]);
+
+  const leadingTop = leadingHeadingMargin(prepared, mdStyles);
+  const leadingOffset = leadingTop > 0 ? { marginTop: -leadingTop } : null;
 
   if (streaming) {
     // Settling only happens inside the prepared-stable prefix, whose
@@ -188,6 +207,7 @@ export function MarkdownContent({ content, streaming = false, mathFormat, compac
 
     return (
       <HtmlPreviewFilesProvider files={previewFiles}>
+        <View style={leadingOffset}>
         {blocks.chunks.map((chunk, index) => (
           <MarkdownStreamChunk
             key={`chunk-${chunkOffsets[index]}-${chunk.length}`}
@@ -231,19 +251,22 @@ export function MarkdownContent({ content, streaming = false, mathFormat, compac
           </Markdown>
         ) : null}
         {caretHost === "after" && !caretOnMath ? <StreamingCursor /> : null}
+        </View>
       </HtmlPreviewFilesProvider>
     );
   }
 
   return (
     <HtmlPreviewFilesProvider files={previewFiles}>
-      <Markdown
-        style={mdStyles}
-        rules={rules as never}
-        markdownit={markdownItInstance}
-      >
-        {prepared}
-      </Markdown>
+      <View style={leadingOffset}>
+        <Markdown
+          style={mdStyles}
+          rules={rules as never}
+          markdownit={markdownItInstance}
+        >
+          {prepared}
+        </Markdown>
+      </View>
     </HtmlPreviewFilesProvider>
   );
 }
