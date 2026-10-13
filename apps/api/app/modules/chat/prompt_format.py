@@ -42,6 +42,7 @@ from app.modules.chat.prompt_constants import (
     PRIVACY_HINT,
     PROSE_WRITING_HINT,
     QUOTE_FORMAT_HINT,
+    REWRITE_HINT,
     SEQUENCE_FORMAT_HINT,
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
@@ -54,6 +55,8 @@ from app.modules.chat.prompt_constants import (
     VERIFIED_SOLVE_SAFETY_HINT,
     VISUALIZATION_HINTS,
     WRITING_LINE_HINT,
+    draft_revision_fence,
+    draft_revision_hint,
     is_bare_writing_line,
     is_brevity_request,
     is_callout_question,
@@ -160,6 +163,8 @@ def _writing_format_hint(query_text: str | None) -> str | None:
         return TRANSLATION_FORMAT_HINT
     if kind == "prose":
         return personal_record_hint(query_text or "") or PROSE_WRITING_HINT
+    if kind == "rewrite":
+        return REWRITE_HINT
     return None
 
 
@@ -210,7 +215,11 @@ def _style_format_hints(
             MATH_FENCE_SAFETY_HINT,
         ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
-    writing = _writing_format_hint(query_text)
+    # "make it more polite" after a draft changes that draft: same fence, whole draft.
+    revision_fence = draft_revision_fence(query_text, prior_messages)
+    writing = (
+        draft_revision_hint(revision_fence) if revision_fence else _writing_format_hint(query_text)
+    )
     learning_plan = bool(
         query_text
         and writing is None
@@ -229,7 +238,9 @@ def _style_format_hints(
         if lesson and not teaching and not learning_plan and not writing
         else None
     )
-    if query_text and writing is None:
+    writing_kind = writing_request_kind(query_text) if query_text else None
+    # A proofread is a writing request too; it only has no draft fence.
+    if query_text and writing is None and writing_kind != "edit":
         parts.append(NON_DRAFT_TURN_HINT)
     _, viz_intent = _subject_viz_intent(query_text)
     subject = effective_presentation_subject(query_text, prior_messages)
@@ -323,12 +334,12 @@ def _style_format_hints(
         parts.append(MATH_FENCE_SAFETY_HINT)
     if query_text and is_brevity_request(query_text):
         parts.append(BREVITY_REQUEST_HINT)
-    writing_kind = writing_request_kind(query_text) if query_text else None
     # Specialized translation/prose hints already own the shape; the copy-fence
-    # contract would tell the model to wrap an article in ```copy.
-    if writing_kind not in {"translation", "prose"}:
+    # contract would tell the model to wrap an article in ```copy. A translated
+    # draft is still a draft.
+    if revision_fence or writing_kind not in {"translation", "prose"}:
         parts.append(COPY_DELIVERABLE_HINT)
-    if query_text and is_bare_writing_line(query_text):
+    if query_text and not revision_fence and is_bare_writing_line(query_text):
         parts.append(WRITING_LINE_HINT)
     if subject == "physics":
         parts.append(PHYSICS_REPLY_POLICY)

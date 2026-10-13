@@ -413,9 +413,16 @@ FORMAT_CONTRACT = (
     "markers, tables, code, poems, and multiple draft versions keep that shape.\n"
     "Default:\n"
     "  - Simple factual or conversational answer: 1-3 short paragraphs, usually no heading.\n"
-    "  - Bullets are for parallel unordered items. Numbers are only for steps, rankings, "
-    "chronology, or priorities. Letters are for alternatives/answer choices or when requested; "
+    "  - Bullets are for parallel unordered items. Numbers are for steps, rankings, "
+    "chronology, priorities, and a list of ways, tips, or ideas the user may point back to "
+    '("the second one"). Letters are for alternatives/answer choices or when requested; '
     "roman numerals only when requested. Do not use numbers merely as indentation.\n"
+    '  - Several ways, tips, ideas, reasons, benefits, or options ("ways to become rich", '
+    '"tips for better sleep", "how to save money"): at most one lead sentence, then a '
+    "numbered list of about 5-8 items. Each item opens with a **bold label of 2-5 words**, "
+    "then a dash and one or two short sentences; bold at most one key phrase inside it. No "
+    "sub-bullets unless an item truly has parts. End with at most one short takeaway line, "
+    "not a recap section. The reader should get the gist from the bold labels alone.\n"
     '  - For a single topic ("tell me about X"), a short paragraph or flat bullets '
     "is enough. Use 2-3 short headings only when they group real sections — not a "
     "parent bullet whose children are more bullets, and not a wall of text or a table.\n"

@@ -5,6 +5,7 @@ import re
 from app.modules.chat.prompt_constants.format import is_comparison_question
 from app.modules.chat.prompt_constants.routing import is_lightweight_chat_turn
 from app.modules.chat.prompt_constants.writing_kind import (
+    _DIRECT_REQUEST_INTRO,
     is_writing_deliverable_request,
     writing_request_kind,
 )
@@ -47,10 +48,15 @@ EMAIL_DRAFT_HINT = (
     "names and emails when stored. Greet them by name in the body even if To: is omitted. "
     "If the name or address is unknown, omit To: and greet with Hi, — do not invent "
     "bracketed slots for name or email.\n"
-    "3. Return one draft by default. If the user explicitly asks for multiple versions, "
-    "return exactly that many clearly labelled draft fences. Otherwise, after the fence, "
-    "add at most ONE short line offering to adjust tone or length — not a questionnaire.\n"
-    "4. Recall cannot send email or SMS. Never say you sent it, emailed them, or texted "
+    "3. Return one draft by default (except as in 4). If the user explicitly asks for "
+    "multiple versions, return exactly that many clearly labelled draft fences. Otherwise, "
+    "after the fence, add at most ONE short line offering to adjust tone or length — not a "
+    "questionnaire.\n"
+    "4. A reply answers the message or email the user pasted or quoted. When that message "
+    "asks them something (an invitation, a favour, a meeting, a yes/no question) and they did "
+    "not say their answer, do not ask them and do not answer for them: give two short drafts, "
+    "**Yes:** and **No:**, each a bold label on its own line followed by its own fence.\n"
+    "5. Recall cannot send email or SMS. Never say you sent it, emailed them, or texted "
     "them — only that you drafted it for them to send."
 )
 
@@ -85,6 +91,82 @@ TRANSLATION_FORMAT_HINT = (
     "```message or ```social fence. If source text or target language is genuinely missing, "
     "ask one short question. A side-by-side table is only for an explicit side-by-side ask."
 )
+
+REWRITE_HINT = (
+    "Rewriting the user's own text for tone or length:\n"
+    "Return the rewritten version, ready to paste, in one fence: ```email for an email, "
+    "```message for a text or chat message, otherwise ```copy. Keep their meaning and every "
+    "name, date, number, and commitment. No explanation before it and at most one short line "
+    "after it. Several versions only when the user asked for them."
+)
+
+
+def draft_revision_hint(fence: str) -> str:
+    """The contract for a follow-up that changes the draft in the previous reply."""
+    return (
+        f"This turn changes the draft in your previous reply (```{fence}). Apply only the "
+        "requested change (tone, length, wording, a point added or removed, or the language) "
+        "and keep every name, date, number, and commitment the user did not change. Return the "
+        f"whole revised draft in one ```{fence} fence, not a list of edits or a diff. No "
+        "explanation before it and at most one short line after it. Several versions only "
+        "when the user asked for them."
+    )
+
+
+# The send-ready fences a reply drafts, as the mobile fence registry names them.
+_DRAFT_FENCE = re.compile(
+    r"^```(email|message|sms|reply|copy|twitter|tweet|x|linkedin|facebook|fb|instagram|"
+    r"insta|ig|tiktok|threads|caption|social)[ \t]*$",
+    re.IGNORECASE | re.MULTILINE,
+)
+# A short follow-up that changes a draft: "make it more polite", "shorter",
+# "add that I'll be back tomorrow", "another version", "translate it to Spanish".
+_DRAFT_REVISION = re.compile(
+    r"^" + _DIRECT_REQUEST_INTRO + r"(?:"
+    r"(?:make|keep|get) (?:it|this|that)\b|"
+    r"(?:(?:a )?(?:bit|little|lot|much|way) )?(?:more|less) [a-z]+|"
+    r"(?:shorter|longer|simpler|clearer|friendlier|warmer|softer|nicer|politer|"
+    r"formal|informal|casual|polite|professional)\b|"
+    r"(?:add|remove|drop|include|mention|change|replace|say|use|put|swap|cut|delete|"
+    r"take out|leave out|tone (?:it |this )?(?:down|up)|sign|end|start|open)\b|"
+    r"(?:rewrite|redo|rephrase|reword|shorten|lengthen|polish|soften|simplify|"
+    r"try again|again)\b|"
+    r"(?:another|a different|a new|different|other) (?:version|one|draft|option|way)|"
+    r"(?:give|write|show|send) (?:me )?(?:another|a different|a new|one more|more|other) "
+    r"(?:versions?|ones?|drafts?|options?)|"
+    r"translate (?:it|this|that)\b|"
+    r"(?:in|into) [a-z]+$|"
+    r"with(?:out)? (?:any |the |an? )?(?:emojis?|hashtags?|subject|greeting|signature)"
+    r")",
+    re.IGNORECASE,
+)
+_REVISION_MAX_WORDS = 30
+
+
+def draft_revision_fence(
+    text: str | None, prior_messages: list[tuple[str, str]] | None
+) -> str | None:
+    """The fence of the previous reply's draft when this line only changes that draft.
+
+    A new draft request ("write a message to my mom") is its own deliverable.
+    """
+    if not text or not prior_messages:
+        return None
+    cleaned = collapse_ws(text)
+    if not cleaned or len(cleaned.split()) > _REVISION_MAX_WORDS:
+        return None
+    if writing_request_kind(cleaned) in {"email", "message", "social", "prose"}:
+        return None
+    if _DRAFT_REVISION.search(cleaned) is None:
+        return None
+    previous = next(
+        (content for role, content in reversed(prior_messages) if role == "assistant"), None
+    )
+    if not previous:
+        return None
+    fences = _DRAFT_FENCE.findall(previous)
+    return fences[-1].lower() if fences else None
+
 
 _PERSONAL_RECORD = re.compile(
     r"\b(?:cover\s+letters?|r[eé]sum[eé]s?|cvs?|biograph(?:y|ies)|bios?)\b",
