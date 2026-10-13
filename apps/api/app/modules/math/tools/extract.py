@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Sequence
 
+from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.extractors.algebra import (
@@ -259,10 +260,7 @@ _SOLVE_VERB_RE = re.compile(
     r"(?:the\s+(?:inequality|equation|system)\s+)?"
 )
 _PROSE_WORD_RE = re.compile(r"[a-z]{3,}")
-_FUNCTION_WORDS = frozenset(
-    "sin cos tan sec csc cot log sqrt exp abs asin acos atan arcsin arccos arctan "
-    "sinh cosh tanh".split()
-)
+_FUNCTION_WORDS = MATH_FUNCTION_NAMES
 
 
 def _bare_math_request(text: str) -> bool:

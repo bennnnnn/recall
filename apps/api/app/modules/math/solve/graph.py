@@ -9,6 +9,7 @@ from typing import Any
 import numpy as np
 from sympy import Symbol, denom, limit, solve
 
+from app.modules.math.function_names import MATH_FUNCTION_NAMES, function_name_alternation
 from app.modules.math.schemas import (
     GraphBlockSpec,
     GraphSampleInput,
@@ -602,7 +603,7 @@ def number_line_spec_from_expr(expr: str, variable: str = "x") -> GraphBlockSpec
 
 
 _FUNCTION_NAME_RE = re.compile(
-    r"\b(?:sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|sqrt|exp|min|max|abs)\b",
+    rf"\b(?:{function_name_alternation(MATH_FUNCTION_NAMES | {'min', 'max'})})\b",
     re.IGNORECASE,
 )
 

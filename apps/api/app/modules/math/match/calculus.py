@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.match.scan import _CALC_OP, _parse_unsigned_number, ddx_cue_at
 
 
@@ -30,23 +31,7 @@ def _skip_optional_paren_var(text: str, start: int) -> int:
 # Multi-letter names that can carry Lagrange primes (``sin'``, ``ln'``).
 # One-letter variables (``y'``, ``f''``) are accepted separately. Long English
 # words (``teachers' lounge``) must not look like a derivative.
-_MATH_PRIME_NAMES = frozenset(
-    {
-        "sin",
-        "cos",
-        "tan",
-        "cot",
-        "sec",
-        "csc",
-        "log",
-        "ln",
-        "lg",
-        "exp",
-        "sinh",
-        "cosh",
-        "tanh",
-    }
-)
+_MATH_PRIME_NAMES = MATH_FUNCTION_NAMES
 _MAX_PRIME_BASE = 8
 
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.match import calc_op
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.extract import extract_math_intent
@@ -39,27 +40,7 @@ _SUM = re.compile(
 )
 _TAYLOR = re.compile(rf"(.+) at ({_NUMBER}) (?:order|degree) ([0-9]{{1,3}})", re.IGNORECASE)
 _MACLAURIN = re.compile(r"(.+) (?:order|degree) ([0-9]{1,3})", re.IGNORECASE)
-_FUNCTIONS = frozenset(
-    {
-        "sin",
-        "cos",
-        "tan",
-        "cot",
-        "sec",
-        "csc",
-        "asin",
-        "acos",
-        "atan",
-        "sinh",
-        "cosh",
-        "tanh",
-        "exp",
-        "log",
-        "ln",
-        "sqrt",
-        "pi",
-    }
-)
+_FUNCTIONS = MATH_FUNCTION_NAMES | {"pi"}
 _ORDERS = {
     "derivative of ": 1,
     "first derivative of ": 1,

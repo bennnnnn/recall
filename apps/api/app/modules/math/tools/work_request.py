@@ -12,6 +12,8 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass
 
+from app.modules.math.function_names import MATH_FUNCTION_NAMES
+
 _MAX_TEXT = 1000
 _MAX_LINES = 12
 _MAX_TOKENS = 40
@@ -140,10 +142,7 @@ _ROOT_CLAIM = re.compile(
     re.IGNORECASE,
 )
 
-FUNCTION_WORDS = frozenset(
-    "sin cos tan sec csc cot log ln sqrt exp abs pi asin acos atan arcsin arccos arctan "
-    "sinh cosh tanh".split()
-)
+FUNCTION_WORDS = MATH_FUNCTION_NAMES | {"pi"}
 # Letters that name a constant somewhere in the parser, never the unknown.
 _RESERVED_LETTERS = frozenset("eEiI")
 

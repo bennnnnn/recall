@@ -15,6 +15,13 @@ from sympy.parsing.sympy_parser import (
 
 from app.core.config import get_settings
 from app.core.sympy_notation import use_school_log_notation
+from app.modules.math.function_names import (
+    HYPERBOLIC,
+    MATH_FUNCTION_NAMES,
+    TRIG,
+    function_name_alternation,
+    names_longest_first,
+)
 from app.modules.math.schemas import EquationInput
 from app.services.solving import MathServiceError
 
@@ -121,9 +128,26 @@ _LATEX_SYMBOL_SUBS: list[tuple[re.Pattern[str], str]] = [
     (re.compile(r"\\right"), ""),
 ]
 _LATEX_FUNCTION_RE = re.compile(
-    r"\\(sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|sqrt|exp|min|max|Abs|abs)\b",
+    r"\\(sinh|cosh|tanh|coth|sech|csch|sin|cos|tan|sec|csc|cot|log|ln|sqrt|exp|min|max|Abs|abs)\b",
     re.IGNORECASE,
 )
+_TRIG_NAMES = f"({function_name_alternation(TRIG + HYPERBOLIC)})"
+# ``\cot^{-1}(x)``, ``sinh^(-1) x`` and ``tan⁻¹ x`` name the inverse function,
+# as on a school calculator. Read as a power they became ``1/cot(x)``, and the
+# derivative of cot⁻¹(x) was certified as 1/cos²(x).
+_INVERSE_POWER_RE = re.compile(
+    rf"(?:\\|(?<![A-Za-z])){_TRIG_NAMES}\s*"
+    r"(?:\^\s*\{\s*-\s*1\s*\}|\^\s*\(\s*-\s*1\s*\)|\^\s*-\s*1(?!\d)|\u207b\u00b9|\*\*\s*\(\s*-\s*1\s*\))"
+)
+# ``\arcsin`` … ``\arccsch`` are SymPy's ``asin`` … ``acsch``.
+_ARC_NAME_RE = re.compile(rf"(?:\\|(?<![A-Za-z]))arc{_TRIG_NAMES}(?![A-Za-z])")
+
+
+def _rewrite_inverse_functions(s: str) -> str:
+    """``\\cot^{-1}`` / ``\\arccot`` → ``acot``; ``\\sinh^{-1}`` → ``asinh``."""
+    # The trailing space keeps a glued argument apart: ``\\sin^{-1}x`` → ``asin x``.
+    s = _ARC_NAME_RE.sub(lambda m: f"a{m.group(1).lower()} ", s)
+    return _INVERSE_POWER_RE.sub(lambda m: f"a{m.group(1).lower()} ", s)
 
 
 def _rewrite_bare_abs_bars(expr: str) -> str:
@@ -584,6 +608,7 @@ def _rewrite_log_bases(s: str) -> str:
 def _normalize_latex_to_sympy(expr: str) -> str:
     """Expand common LaTeX so pasted/OCR homework can pass the safe-char gate."""
     s = _strip_math_dollar_delims(expr)
+    s = _rewrite_inverse_functions(s)
     for glyph, repl in _UNICODE_OP_SUBS:
         s = s.replace(glyph, repl)
     for glyph, repl in _UNICODE_VULGAR:
@@ -713,29 +738,7 @@ def _reject_unsafe_expr(normalized: str) -> None:
 
 
 # Longest first, so ``sinh`` is not read as ``sin`` + ``h``.
-_FUNCTION_WORDS = (
-    "arcsin",
-    "arccos",
-    "arctan",
-    "asin",
-    "acos",
-    "atan",
-    "sinh",
-    "cosh",
-    "tanh",
-    "sqrt",
-    "sin",
-    "cos",
-    "tan",
-    "sec",
-    "csc",
-    "cot",
-    "log",
-    "exp",
-    "abs",
-    "ln",
-    "lg",
-)
+_FUNCTION_WORDS = names_longest_first(MATH_FUNCTION_NAMES)
 # A unit after a number is not a product of variables: ``5 kg`` is not 5*k*g.
 _UNIT_AFTER_NUMBER_RE = re.compile(
     r"(?<=\d)\s*(?:kg|km|cm|mm|mg|mL|ml|ms|mol|kJ|kN|kW|kPa|hPa|Pa|Hz|hrs?|min|mph)\b"

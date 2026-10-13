@@ -8,6 +8,7 @@ import statistics as _stats
 
 from sympy import latex
 
+from app.modules.math.function_names import MATH_FUNCTION_NAMES, function_name_alternation
 from app.modules.math.match.scan import mask_unknown_letter_runs
 from app.modules.math.schemas import (
     CombinatoricsInput,
@@ -22,7 +23,7 @@ from app.modules.math.schemas import (
 from app.services.solving import MathServiceError
 
 _FUNCTION_NAME_RE = re.compile(
-    r"\b(?:sin|cos|tan|sec|csc|cot|arcsin|arccos|arctan|sinh|cosh|tanh|log|ln|sqrt|exp|min|max|abs)\b",
+    rf"\b(?:{function_name_alternation(MATH_FUNCTION_NAMES | {'min', 'max'})})\b",
     re.IGNORECASE,
 )
 
