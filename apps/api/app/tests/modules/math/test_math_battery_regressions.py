@@ -544,7 +544,11 @@ async def test_battery_three_calculus(text: str, answer: str) -> None:
 @pytest.mark.parametrize(
     ("text", "row"),
     [
-        ("integrate x^3", r"$\int x^{3}\,dx = \frac{x^{3 + 1}}{3 + 1}$ — power rule on $x^{3}$"),
+        # Maths numbers each move: the rule is the step, its working the line under it.
+        (
+            "integrate x^3",
+            "**1. Power rule on $x^{3}$**  \n$\\int x^{3}\\,dx = \\frac{x^{3 + 1}}{3 + 1}$",
+        ),
         (
             "limit of (3x^2 + 1)/(x^2 - 2) as x approaches infinity",
             r"$= \frac{3 + 0}{1 - 0}$",
