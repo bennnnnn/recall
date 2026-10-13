@@ -49,7 +49,7 @@ import { isAllowedImageUri } from "@/lib/images/imageUriPolicy";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { Type, Weight } from "@/lib/type";
+import { Italic, Type, Weight } from "@/lib/type";
 import { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/preprocess";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
 import { splitWorkoutNote, workoutHeading } from "@/lib/markdown/workoutSection";
@@ -317,8 +317,10 @@ function renderTextWithMath(
     styles.body,
     inheritedStyles,
     styles.text,
-    inTableCell(parent) && mdTable.cellText,
+    inTableCell(parent) && mdTable.cellInline,
     inTableHeader(parent) && mdTable.headerText,
+    // Ancestor styles stack in order, so strong's Bold would hide em's Italic.
+    parentHasType(parent, "em") && parentHasType(parent, "strong") && Italic.bold,
     runHeight != null && { lineHeight: runHeight },
   ];
   let caretLeft = marked.caret;
@@ -535,7 +537,7 @@ function makeSharedRules(
             styles.body,
             inheritedStyles,
             styles.text,
-            inTableCell(parent) && mdTable.cellText,
+            inTableCell(parent) && mdTable.cellInline,
             inTableHeader(parent) && mdTable.headerText,
             runHeight != null && { lineHeight: runHeight },
             { flexShrink: 1 },
@@ -905,11 +907,17 @@ function makeSharedRules(
           styles.body,
           styles.strong,
           inTableHeader(parent) && mdTable.headerText,
+          // ***both***: the bold italic file, not bold drawn upright.
+          parentHasType(parent, "em") && Italic.bold,
       ],
       mdMath.inlineWrap,
     ),
-    em: (node: { key: string }, children: ReactNode, _p: unknown, styles: StyleMap) => (
-      <Text key={node.key} style={[styles.body, styles.em]} selectable>
+    em: (node: { key: string }, children: ReactNode, parent: unknown, styles: StyleMap) => (
+      <Text
+        key={node.key}
+        style={[styles.body, styles.em, parentHasType(parent, "strong") && Italic.bold]}
+        selectable
+      >
         {children}
       </Text>
     ),

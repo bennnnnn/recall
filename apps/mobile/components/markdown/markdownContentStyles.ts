@@ -2,7 +2,7 @@ import { StyleSheet, type TextStyle } from "react-native";
 
 import { CODE_FONT } from "@/lib/fonts";
 import type { Theme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { Italic, Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
@@ -93,6 +93,9 @@ export function makeMdMath(t: Theme) {
 export function makeMdTable(t: Theme) {
   return StyleSheet.create({
     cellText: { ...Type.callout, ...Weight.regular, color: t.text, flexShrink: 1 },
+    // Runs inside a cell take its size and ink but keep their own face, so
+    // **bold** in a cell stays bold (cellText's Regular used to win).
+    cellInline: { fontSize: Type.callout.fontSize, color: t.text },
     headerText: { ...Weight.semibold, color: t.text },
     cellCode: {
       ...inlineCodeTextStyle(t),
@@ -192,7 +195,7 @@ export function makeMdStyles(t: Theme) {
       alignItems: "flex-start",
     },
     strong: { ...Weight.bold, color: t.text },
-    em: { fontStyle: "italic" },
+    em: { ...Italic.regular },
     blockquote: { marginVertical: 0, padding: 0, borderWidth: 0 },
     hr: { backgroundColor: t.border, height: 1, marginVertical: Space.sm },
     // Underlined, so a link never depends on color alone (WCAG 1.4.1): in dark

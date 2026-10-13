@@ -4,6 +4,11 @@ export const UI_FONT = {
   medium: "SourceSans3-Medium",
   semibold: "SourceSans3-Semibold",
   bold: "SourceSans3-Bold",
+  /** True italic files: `fontStyle: "italic"` on a one-file family draws upright
+   *  on iOS and Roboto Italic on Android. */
+  italic: "SourceSans3-Italic",
+  semiboldItalic: "SourceSans3-SemiboldItalic",
+  boldItalic: "SourceSans3-BoldItalic",
 } as const;
 
 const UI_FONT_FOR_WEIGHT = {

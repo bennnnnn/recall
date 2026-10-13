@@ -257,7 +257,7 @@ function makeStyles(t: Theme) {
       borderTopColor: t.border,
       backgroundColor: t.codeBg,
     },
-    expandText: { fontSize: 12, fontWeight: "600", color: t.textSecondary },
+    expandText: { ...Type.meta, ...Weight.semibold, color: t.textSecondary },
     footer: {
       flexDirection: "row",
       alignItems: "center",

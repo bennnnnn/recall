@@ -14,6 +14,7 @@ import { geometryFigureLabel, parseGeometrySpec } from "@/lib/math/geometryBlock
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
+import { Type } from "@/lib/type";
 
 type Props = { content: string };
 
@@ -74,6 +75,6 @@ const makeStyles = (theme: Theme) =>
     },
     fallbackText: {
       color: theme.textSecondary,
-      fontSize: 14,
+      ...Type.secondary,
     },
   });

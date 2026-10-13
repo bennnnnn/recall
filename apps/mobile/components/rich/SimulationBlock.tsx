@@ -50,6 +50,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { IconSize } from "@/ui/icons/sizes";
+import { Type, Weight } from "@/lib/type";
 
 export const SIMULATION_PAD = 24;
 export const SIMULATION_HEIGHT = 240;
@@ -647,8 +648,8 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
     },
     title: {
-      fontSize: 13,
-      fontWeight: "600",
+      ...Type.compact,
+      ...Weight.semibold,
       color: theme.textSecondary,
       marginBottom: 2,
       textAlign: "center",
@@ -666,7 +667,7 @@ function makeStyles(theme: Theme) {
       borderColor: theme.border,
     },
     fallbackText: {
-      fontSize: 13,
+      ...Type.compact,
       color: theme.textSecondary,
     },
     control: {

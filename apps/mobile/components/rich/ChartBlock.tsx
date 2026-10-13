@@ -234,7 +234,7 @@ function makeStyles(t: Theme) {
       paddingHorizontal: Space.md,
     },
     previewPlaceholderText: {
-      fontSize: 13,
+      ...Type.compact,
       color: t.textSecondary,
       textAlign: "center",
     },

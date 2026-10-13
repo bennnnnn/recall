@@ -2,6 +2,8 @@ import { Component, ReactNode } from "react";
 import { Text } from "react-native";
 
 import { FallbackMarkdown } from "@/components/FallbackMarkdown";
+import { useTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 type Props = {
   resetKey: string;
@@ -13,6 +15,12 @@ type State = { failed: boolean; resetKey: string };
 
 type PlainState = { failed: boolean };
 
+/** The raw reply in body type and the theme's ink (bare Text was black in dark mode). */
+function PlainFallbackText({ content }: { content: string }) {
+  const t = useTheme();
+  return <Text style={[Type.body, { color: t.assistantText }]}>{content}</Text>;
+}
+
 /** Last resort if FallbackMarkdown itself throws — keep the crash in the bubble. */
 class PlainTextErrorBoundary extends Component<{ content: string; children: ReactNode }, PlainState> {
   state: PlainState = { failed: false };
@@ -23,7 +31,7 @@ class PlainTextErrorBoundary extends Component<{ content: string; children: Reac
 
   render() {
     if (this.state.failed) {
-      return <Text>{this.props.content}</Text>;
+      return <PlainFallbackText content={this.props.content} />;
     }
     return this.props.children;
   }

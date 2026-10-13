@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { Italic, Type, Weight } from "@/lib/type";
 import type { Chat } from "@/lib/api";
 import { displayChatTitle } from "@/features/chat/model/title";
 import { IconSize } from "@/ui/icons/sizes";
@@ -122,7 +122,7 @@ export function makeConversationRowStyles(theme: Theme): ConversationRowStyles {
     },
     rowIcon: { flexShrink: 0 },
     title: { flex: 1, ...Type.body, ...Weight.medium, color: theme.text },
-    titlePending: { color: theme.textTertiary, fontStyle: "italic" },
+    titlePending: { color: theme.textTertiary, ...Italic.regular },
     // Wash already signals active — keep ink on theme.text, just bolder.
     titleActive: { ...Weight.bold },
     rowHighlighted: {
