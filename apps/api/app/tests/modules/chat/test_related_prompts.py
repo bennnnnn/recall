@@ -19,6 +19,7 @@ from app.modules.chat.related_prompts import (
     schedule_related_prompts,
     store_related_prompts,
     subject_for_related,
+    thread_problem,
 )
 from app.modules.chat.service import list_messages_page
 from app.modules.chat.stream_events import build_done_payload, take_related_prompts_event
@@ -250,3 +251,63 @@ async def test_reopen_reads_the_cache_and_does_not_call_the_model(fake_redis) ->
     assert page.messages[-1].related_prompts == PHYSICS_FOLLOWUPS
     assert older.messages[-1].related_prompts is None
     complete.assert_not_called()
+
+
+BIKE = "A bike travels 45 km in 3 hours. What's its average speed?"
+BIKE_WINDOW = [
+    {"role": "system", "content": "You are Recall."},
+    {"role": "user", "content": BIKE},
+    {"role": "assistant", "content": "v = 45 km / 3 h = 15 km/h"},
+]
+
+
+@pytest.mark.parametrize(
+    ("line", "expected"),
+    [
+        ("Why do we divide distance by time to get speed?", BIKE),
+        ("How do you convert 15 km/h into m/s?", BIKE),
+        ("One more", BIKE),
+        ("explain the units", BIKE),
+        ("thanks", None),
+        ("hi", None),
+    ],
+)
+def test_thread_problem_ties_a_follow_up_to_its_problem(line: str, expected: str | None) -> None:
+    assert thread_problem(line, BIKE_WINDOW) == expected
+    assert thread_problem(line, None) is None
+
+
+def test_thread_problem_forgets_a_stale_problem() -> None:
+    window = [
+        *BIKE_WINDOW,
+        {"role": "user", "content": "Write a poem about autumn"},
+        {"role": "assistant", "content": "Leaves fall."},
+        {"role": "user", "content": "Make it rhyme"},
+        {"role": "assistant", "content": "Leaves fall all."},
+        {"role": "user", "content": "Make it longer"},
+        {"role": "assistant", "content": "Leaves fall all day."},
+    ]
+    assert thread_problem("Why is that?", window) is None
+
+
+async def test_a_tapped_why_keeps_the_follow_ups_coming() -> None:
+    why = "Why do we divide distance by time to get speed?"
+    followups = [
+        "Why is average speed not the mean of two speeds?",
+        "A car travels 120 km in 2 hours. What is its average speed?",
+        "How would the average speed change if the bike stopped for 30 minutes?",
+    ]
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        # The original problem asked again is dropped.
+        complete.return_value = RelatedQuestions(questions=[followups[0], BIKE, followups[2]])
+        prompts = await generate_related_questions(
+            Settings(), why, "Speed is distance per unit time.", BIKE_WINDOW
+        )
+
+    assert prompts == [followups[0], followups[2]]
+    sent = complete.call_args.kwargs["messages"][1]["content"]
+    assert sent.startswith(f"Problem:\n{BIKE}")
+    assert f"Student question:\n{why}" in sent
