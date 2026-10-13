@@ -12,6 +12,9 @@ it has lines:
 
 Each line is one state. A move is a short note after the state
 (``$2x = 8$ — subtract 3 from both sides``), never a heading of its own.
+Maths numbers each move instead (``modules/math/tools/lesson.py``): a bold
+``**1. Subtract 4 from both sides**`` over the move written on both sides,
+then the simplified line.
 Lines in a section are hard line breaks, so the section reads as one block
 and every client keeps the breaks.
 """
@@ -158,20 +161,43 @@ def split_equality_chain(tex: str) -> list[str]:
     return [f"{parts[0]} = {parts[1]}", *(f"= {part}" for part in parts[2:])]
 
 
-# What the model is told, for a reply it writes itself. It is the layout above.
-WORKOUT_PROMPT_RULE = (
-    "Worked-solution layout, the same in every subject: bold headings in this order, "
-    "each only when it has something to show: **Given** (the problem exactly as written, "
-    "or the stated values), **Find** (what is asked), **Formula** (the governing law or "
-    "rule, its name after an em dash), **Substitution** (values put into that formula) "
-    "or **Steps** (an equation changed one move at a time), then **Answer**. Put each "
-    "heading on its own line with its lines directly under it: one state per line, no "
-    "blank line inside a section, one blank line between sections. Write a move as a "
-    "short note after its line, e.g. `$2x = 8$ — subtract 3 from both sides`. No "
-    "numbered steps, no separate Simplify lines, no prose between lines. Trivial "
-    "one-step arithmetic is one line with no headings. Write an expression once: "
+_WORKOUT_SECTIONS = (
+    "**Given** (the problem exactly as written, or the stated values), **Find** (what is "
+    "asked), **Formula** (the governing law or rule, its name after an em dash), "
+    "**Substitution** (values put into that formula)"
+)
+_WORKOUT_SECTION_LINES = (
+    "Put each heading on its own line with its lines directly under it: one state per "
+    "line, no blank line inside a section, one blank line between sections."
+)
+_WORKOUT_ONE_EXPRESSION = (
+    "Trivial one-step arithmetic is one line with no headings. Write an expression once: "
     "`$\\frac{6!}{4!} = \\frac{720}{24}$`, then the result alone as the answer, never "
     "a second row that repeats the left side (`$\\frac{6!}{4!} = 30$`)."
+)
+
+# What the model is told for a physics or chemistry reply it writes itself.
+WORKOUT_PROMPT_RULE = (
+    "Worked-solution layout: bold headings in this order, each only when it has something "
+    f"to show: {_WORKOUT_SECTIONS} or **Steps** (an equation changed one move at a time), "
+    f"then **Answer**. {_WORKOUT_SECTION_LINES} Write a move as a short note after its "
+    "line, e.g. `$2x = 8$ — subtract 3 from both sides`. No numbered steps, no separate "
+    f"Simplify lines, no prose between lines. {_WORKOUT_ONE_EXPRESSION}"
+)
+
+# What the model is told for a maths reply it writes itself: numbered moves, as the
+# verified equation lesson renders them, so the phone draws each number as a badge.
+MATH_WORKOUT_PROMPT_RULE = (
+    "Worked-solution layout for maths: bold headings in this order, each only when it has "
+    f"something to show: {_WORKOUT_SECTIONS} or numbered moves, then **Answer**. "
+    f"{_WORKOUT_SECTION_LINES} Number every move in place of a **Steps** heading: a bold "
+    "line naming the move (`**1. Subtract 4 from both sides**`), then its working, each "
+    "`$...$` alone on its own line with no note after it. For an equation that working is "
+    "the move written on both sides, then the simplified equation: `$4x + 4 - 4 = 0 - 4$`, "
+    "then `$4x = -4$`; next `**2. Divide both sides by 4**`, "
+    "`$\\frac{4x}{4} = \\frac{-4}{4}$`, then `$x = -1$`. A simplification is the last line "
+    "of its move, never a number of its own. One blank line between numbered moves, no "
+    f"prose between lines. {_WORKOUT_ONE_EXPRESSION}"
 )
 
 # The same rule in one sentence, for hints with a tight character budget.
