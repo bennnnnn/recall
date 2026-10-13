@@ -55,8 +55,8 @@ from app.modules.chat.prompt_constants import (
     VERIFIED_SOLVE_SAFETY_HINT,
     VISUALIZATION_HINTS,
     WRITING_LINE_HINT,
-    draft_revision_fence,
-    draft_revision_hint,
+    draft_followup,
+    draft_followup_hint,
     is_bare_writing_line,
     is_brevity_request,
     is_callout_question,
@@ -215,10 +215,14 @@ def _style_format_hints(
             MATH_FENCE_SAFETY_HINT,
         ]
     parts: list[str] = [CLARIFICATION_HINT, PRIVACY_HINT]
-    # "make it more polite" after a draft changes that draft: same fence, whole draft.
-    revision_fence = draft_revision_fence(query_text, prior_messages)
+    # "make it more polite" or "asking money" goes on with the draft asked for a
+    # few turns ago: the same fence, the whole draft.
+    followup = draft_followup(query_text, prior_messages)
+    revision_fence = followup[0] if followup else None
     writing = (
-        draft_revision_hint(revision_fence) if revision_fence else _writing_format_hint(query_text)
+        draft_followup_hint(followup[0], drafted=followup[1])
+        if followup
+        else _writing_format_hint(query_text)
     )
     learning_plan = bool(
         query_text
