@@ -83,7 +83,7 @@ const card = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: Space.sm,
     paddingVertical: Space.xs,
-    borderRadius: Radius.composer,
+    borderRadius: Radius.card,
   },
   actionText: { ...Weight.medium, textAlign: "center" },
   description: { paddingHorizontal: Space.gutter, paddingBottom: Space.gutter },

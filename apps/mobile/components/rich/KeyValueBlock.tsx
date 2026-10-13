@@ -31,8 +31,8 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
       alignSelf: "stretch",
-      borderRadius: Radius.md,
-      borderWidth: 1,
+      borderRadius: Radius.card,
+      borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       backgroundColor: t.bg,
       marginTop: 0,

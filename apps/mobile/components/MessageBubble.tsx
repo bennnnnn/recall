@@ -544,7 +544,8 @@ function makeStyles(t: Theme) {
       paddingHorizontal: Space.xs,
     },
     userRow: { alignItems: "flex-end" },
-    userColumn: { alignItems: "flex-end", maxWidth: "88%" },
+    // The one width cap on a sent message (its content no longer caps again).
+    userColumn: { alignItems: "flex-end", maxWidth: "82%" },
     sendingStatus: {
       marginTop: Space.xxs,
       marginRight: Space.xxs,

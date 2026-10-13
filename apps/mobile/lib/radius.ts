@@ -21,8 +21,8 @@ export const Radius = {
   card: 20,
   /** 24 — popover menus */
   menu: 24,
-  /** 24 — composer input well */
-  composer: 24,
+  /** 28 — composer input well (chat, memory, login and onboarding fields) */
+  composer: 28,
   /** 28 — sheet top corners */
   sheet: 28,
   /** 28 — centered dialogs and pickers */

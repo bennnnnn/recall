@@ -104,7 +104,7 @@ function makeStyles(t: Theme) {
       paddingLeft: Space.md,
       paddingRight: Space.xs,
       paddingVertical: Space.xs,
-      borderRadius: Radius.menu,
+      borderRadius: Radius.composer,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       backgroundColor: t.surface,

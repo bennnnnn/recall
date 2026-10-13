@@ -8,6 +8,7 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = {
   label: string;
@@ -48,8 +49,9 @@ export function VisualCard({
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     wrap: {
-      marginVertical: Space.xs,
-      borderRadius: Radius.xl,
+      marginTop: 0,
+      marginBottom: PARAGRAPH_GAP,
+      borderRadius: Radius.card,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       overflow: "hidden",
