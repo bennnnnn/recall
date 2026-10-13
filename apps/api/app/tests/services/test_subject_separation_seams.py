@@ -80,12 +80,12 @@ def test_math_and_physics_intent_kinds_are_disjoint() -> None:
 def test_subject_registries_exactly_cover_their_own_kind_spaces() -> None:
     from app.modules.math.tools.block import _BLOCK_BUILDERS
     from app.modules.math.tools.school import SCHOOL_BLOCK_BUILDERS
-    from app.modules.physics.block import PHYSICS_BLOCK_BUILDERS
+    from app.modules.physics.catalog import CATALOG
 
     math_kinds = set(typing.get_args(MathIntent.model_fields["kind"].annotation))
     physics_kinds = set(typing.get_args(PhysicsIntent.model_fields["kind"].annotation))
     assert math_kinds == set(_BLOCK_BUILDERS) | set(SCHOOL_BLOCK_BUILDERS)
-    assert physics_kinds == set(PHYSICS_BLOCK_BUILDERS)
+    assert physics_kinds == {spec.kind for spec in CATALOG.values()}
 
 
 @pytest.mark.parametrize(

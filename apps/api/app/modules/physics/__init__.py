@@ -12,8 +12,7 @@ Physics has its own intent, extraction, verified block, prompt augmentation,
 direct presentation, and fence finalization. Only canonical solve transport
 and text normalization are shared with other subjects.
 
-The package surface stays lazy. ``math.tools.block`` imports ``physics.block``
-while it is still initializing, so eager imports here would close that cycle.
+The package surface is lazy, so importing a name loads only its module.
 Other modules import only the names in ``_EXPORTS``.
 """
 
@@ -23,7 +22,6 @@ from importlib import import_module
 from typing import Any
 
 _EXPORTS = {
-    "PHYSICS_BLOCK_BUILDERS": ("block", "PHYSICS_BLOCK_BUILDERS"),
     "PHYSICS_EXTRACTORS": ("registry", "PHYSICS_EXTRACTORS"),
     "PHYSICS_INTENT_HINT": ("reply_policy", "PHYSICS_INTENT_HINT"),
     "PHYSICS_REPLY_POLICY": ("reply_policy", "PHYSICS_REPLY_POLICY"),
