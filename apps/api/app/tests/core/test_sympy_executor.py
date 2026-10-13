@@ -43,6 +43,20 @@ def _echo_pid() -> int:
     return os.getpid()
 
 
+_WARMED = False
+
+
+def _slow_warmup() -> None:
+    """Stands in for the first-job SymPy import: slow, and once per worker."""
+    global _WARMED
+    time.sleep(1.5)
+    _WARMED = True
+
+
+def _was_warmed() -> bool:
+    return _WARMED
+
+
 class _WarmupProbeExecutor(BoundedSympyExecutor):
     def __init__(self, max_workers: int) -> None:
         self._max_workers = max_workers
@@ -162,6 +176,23 @@ async def test_timeout_raises_and_kills_worker():
         # The pool was killed and recreated; the new worker has a different PID.
         second_pid = await run_sympy(_echo_pid, timeout=10)
         assert second_pid != first_pid
+    finally:
+        executor.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_restarted_worker_warms_outside_the_solve_timeout():
+    """A worker killed by a timeout comes back cold. Its first solve used to
+    pay the SymPy import inside a 5s budget and time out too, so the next
+    question after a slow one went unverified."""
+    executor = ProcessPoolSympyExecutor(max_workers=1)
+    executor.set_warmup(_slow_warmup)
+    set_sympy_executor(executor)
+    try:
+        assert await run_sympy(_was_warmed, timeout=1.0) is True
+        with pytest.raises(TimeoutError):
+            await run_sympy(_sleep_forever, None, timeout=0.5)
+        assert await run_sympy(_was_warmed, timeout=1.0) is True
     finally:
         executor.shutdown()
 

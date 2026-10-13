@@ -77,6 +77,10 @@ async def test_inverse_and_hyperbolic_keys_certify_the_right_derivative(
         (r"$\frac{d}{dx}x^{3}$", "d/dx x^3"),
         (r"$\frac{d^{2}}{dx^{2}}x^{3}$", "second derivative of x^3"),
         (r"$\binom{5}{2}$", "C(5,2)"),
+        # A number beside a fraction multiplies; a derivative's d/dx does not.
+        (r"$44\frac{2}{2}4$", "44* ((2)/(2))* 4"),
+        (r"$\frac{1}{2}(4+6)$", "((1)/(2))* (4+6)"),
+        (r"$\frac{d}{dx}(x^{2})$", "d/dx (x^2)"),
         (r"$\sin(30^{\circ})$", "sin(30°)"),
         ("no math here", "no math here"),
     ],
@@ -95,6 +99,10 @@ def test_keyboard_latex_reads_as_plain_notation(typed: str, plain: str) -> None:
         (r"$\frac{d}{dx}x^{3}$", r"3 x^{2}"),
         (r"$\frac{d^{2}}{dx^{2}}x^{3}$", r"6 x"),
         (r"$\binom{5}{2}$", "10"),
+        # Unread, the model guessed 44 + 2 ÷ 2 + 4 and answered 50.
+        (r"$44\frac{2}{2}4$", "176"),
+        (r"$\frac{1}{2}+\frac{1}{3}$", r"\frac{5}{6}"),
+        (r"$\int_{0}^{1}\frac{1}{2}x\,dx$", r"\frac{1}{4}"),
         (r"$P(5,2)$", "20"),
         (r"solve $2x+1\leq 7$", r"x \le 3"),
         (r"evaluate $\sin(30^{\circ})$", r"\frac{1}{2}"),
@@ -109,4 +117,26 @@ def test_keyboard_latex_reads_as_plain_notation(typed: str, plain: str) -> None:
 )
 @pytest.mark.asyncio
 async def test_keyboard_notation_is_verified(typed: str, answer: str) -> None:
+    assert await _answer(typed) == answer
+
+
+@pytest.mark.parametrize(
+    ("typed", "answer"),
+    [
+        # Reading only the 2 of π/2 certified 114.59°.
+        ("convert pi/2 radians to degrees", r"90\ \mathrm{degrees}"),
+        ("convert π/2 rad to degrees", r"90\ \mathrm{degrees}"),
+        ("convert 2pi radians to degrees", r"360\ \mathrm{degrees}"),
+        (r"convert $\frac{\pi}{2}\mathrm{rad}$ to degrees", r"90\ \mathrm{degrees}"),
+        (r"convert $\frac{3\pi}{4}\mathrm{rad}$ to degrees", r"135\ \mathrm{degrees}"),
+        ("convert 90 degrees to radians", r"\frac{\pi}{2}\ \mathrm{radians}"),
+        (r"convert $45^{\circ}$ to radians", r"\frac{\pi}{4}\ \mathrm{radians}"),
+        # Without π the answer stays a decimal.
+        ("convert 2 radians to degrees", r"114.591559\ \mathrm{degrees}"),
+        ("convert 3/4 km to m", r"750\ \mathrm{m}"),
+        ("convert pi/x radians to degrees", None),
+    ],
+)
+@pytest.mark.asyncio
+async def test_angle_conversions_read_the_whole_quantity(typed: str, answer: str | None) -> None:
     assert await _answer(typed) == answer
