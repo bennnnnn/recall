@@ -38,9 +38,9 @@ def test_numeric_base_logs_keep_the_logarithms_and_enforce_the_domain() -> None:
     assert "ln(x - 1)" in (intent.lhs or "")
     assert block.canonical_answer == "x = 5"
     assert reply is not None
-    assert "domain restriction" in reply
+    assert "Domain restriction" in reply
     assert "x = -1" in reply
-    assert "reject values outside the domain" in reply
+    assert "Reject values outside the domain" in reply
 
 
 def test_bounded_powered_trig_equation_returns_only_degree_domain_roots() -> None:
@@ -179,7 +179,7 @@ def test_single_radical_equation_checks_and_rejects_extraneous_roots() -> None:
 
     assert block.canonical_answer == "x = 3"
     assert reply is not None
-    assert "domain restrictions" in reply
+    assert "Domain restrictions" in reply
     assert "x = -1" in reply
     assert "reject extraneous roots" in reply.lower()
 
@@ -191,9 +191,9 @@ def test_two_radical_equation_uses_verified_repeated_squaring() -> None:
 
     assert block.canonical_answer == "x = 2"
     assert reply is not None
-    assert "isolate one radical" in reply
-    assert "square again" in reply
-    assert "check in the original equation" in reply
+    assert "Isolate one radical" in reply
+    assert "Square again" in reply
+    assert "Check in the original equation" in reply
 
 
 def test_rational_equations_keep_denominator_restrictions_and_reject_cancelled_root() -> None:
@@ -205,7 +205,7 @@ def test_rational_equations_keep_denominator_restrictions_and_reject_cancelled_r
     assert block.canonical_answer.startswith(r"\text{no solution}")
     assert reply is not None
     assert r"x \ne -2" in reply and r"x \ne 2" in reply
-    assert "reject the excluded candidate" in reply
+    assert "Reject the excluded candidate" in reply
 
 
 def test_real_fractional_power_keeps_both_real_branches() -> None:

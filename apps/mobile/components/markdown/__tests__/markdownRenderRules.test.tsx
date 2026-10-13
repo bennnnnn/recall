@@ -409,6 +409,24 @@ describe("markdown render rules", () => {
     expect(getByTestId("lesson-step-formula")).toBeOnTheScreen();
   });
 
+  it("stacks the both-sides line and the result under one numbered step", async () => {
+    const { getAllByText, getAllByTestId, getByTestId } = await render(
+      <MarkdownContent
+        content={[
+          "**1. Subtract 4 from both sides**  ",
+          "$4 x + 4 - 4 = 0 - 4$  ",
+          "$4 x = -4$",
+        ].join("\n")}
+      />,
+    );
+    expect(getAllByTestId("lesson-step")).toHaveLength(1);
+    expect(getByTestId("lesson-step-formula")).toBeOnTheScreen();
+    const fours = getAllByText("4");
+    expect(
+      fours.some((node) => JSON.stringify(node.props.style).includes("SourceSans3-Bold")),
+    ).toBe(true);
+  });
+
   it("renders inline math natively inside a lesson-step reason", async () => {
     const { getByTestId, queryByText } = await render(
       <MarkdownContent

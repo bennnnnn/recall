@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import re
+from dataclasses import dataclass
 
 from app.modules.math.response_intent import (
     MathResponseMode,
@@ -87,18 +88,19 @@ def format_equation_lesson_reply(
     include_check: bool = False,
     include_reasons: bool = False,
 ) -> str:
-    """The verified trace in the one workout layout (``services.workout``).
+    """Numbered working for a verified equation.
 
-    Given is the problem; Find is the unknown; a rule the trace applies is the
-    Formula; each move is one line under Substitution (into that rule) or Steps.
-    A move written on both sides (``2x + 3 - 3 = 11 - 3``) is shown as the state
-    it reaches, unless the learner asked why.
+    Given is the problem. Find is ``x = ?``. Each move is its own number: the
+    instruction, the equation with that move written on both sides, then the
+    simplified equation. A following ``Simplify`` row stays on that same step.
     """
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
     if not verified.key_steps:
         return f"```answer\n{answer}\n```\n"
-    workout = lesson_workout(verified, include_check=include_check, include_reasons=include_reasons)
-    reply = render_workout(workout, answer)
+    workout, numbered = lesson_workout(
+        verified, include_check=include_check, include_reasons=include_reasons
+    )
+    reply = render_workout(workout, answer, before_answer=numbered)
     fence = verified.canonical_fence
     if isinstance(fence, dict) and fence.get("type") == "number_line":
         # An inequality lesson keeps its solution set on the number line.
@@ -127,10 +129,10 @@ def lesson_workout(
     *,
     include_check: bool = False,
     include_reasons: bool = False,
-) -> Workout:
+) -> tuple[Workout, str]:
     given, find, variable = _given_and_find(verified)
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
-    formulas, lines = trace_lines(
+    formulas, blocks = _numbered_blocks(
         verified.key_steps,
         given_latex=verified.given_latex or "",
         answer=answer,
@@ -138,10 +140,9 @@ def lesson_workout(
         include_reasons=include_reasons,
     )
     if include_check and verified.check_latex:
-        lines.append(math_line(verified.check_latex, "check"))
-    if formulas:
-        return Workout(given=given, find=find, formula=tuple(formulas), substitution=tuple(lines))
-    return Workout(given=given, find=find, steps=tuple(lines))
+        blocks.append(_NumberedStep("Check", (verified.check_latex,)))
+    workout = Workout(given=given, find=find, formula=tuple(formulas))
+    return workout, _render_numbered(blocks)
 
 
 def trace_lines(
@@ -221,7 +222,12 @@ def _given_and_find(verified: VerifiedMathBlock) -> tuple[tuple[str, ...], tuple
             variables.append(name)
     variable = variables[0] if variables else "x"
     lines = tuple(math_line(part) for part in given.split(r", \quad ") if part.strip())
-    find = (math_line(", ".join(variables)),) if variables else ()
+    # An equation is solved for a value. An inequality keeps the unknown alone.
+    solving = "=" in (verified.canonical_answer or verified.display_answer or "")
+    if variables and solving:
+        find = tuple(math_line(f"{name} = ?") for name in variables)
+    else:
+        find = (math_line(", ".join(variables)),) if variables else ()
     return lines, find, variable
 
 
@@ -275,6 +281,102 @@ def _state_key(tex: str) -> str:
 
 def _single_variable_answer(answer: str) -> bool:
     return re.fullmatch(r"[A-Za-z]\s*=\s*[^=,;\n]+", answer) is not None
+
+
+@dataclass(frozen=True)
+class _NumberedStep:
+    label: str
+    formulas: tuple[str, ...]
+    reason: str | None = None
+
+
+def _numbered_blocks(
+    key_steps: tuple[KeyStep, ...] | list[KeyStep],
+    *,
+    given_latex: str,
+    answer: str,
+    variable: str,
+    include_reasons: bool,
+) -> tuple[list[str], list[_NumberedStep]]:
+    """Each operation, then the simplified equation that follows it.
+
+    A ``Simplify`` row is the second line of the move before it, not its own
+    number. The last both-sides move keeps the solved value on that same step
+    when the trace does not already record it.
+    """
+    formulas: list[str] = []
+    blocks: list[_NumberedStep] = []
+    shown = {_state_key(given_latex)} if given_latex.strip() else set()
+    steps = [step for step in key_steps if step.formula.strip()]
+    index = 0
+    while index < len(steps):
+        step = steps[index]
+        _collect_formula(step, formulas, variable)
+        if step.label == "Simplify" and blocks:
+            _attach_simplify(blocks, step, shown, include_reasons=include_reasons)
+            index += 1
+            continue
+        lines = _step_formula_lines(step, include_reasons=include_reasons)
+        index += 1
+        if index < len(steps) and steps[index].label == "Simplify":
+            _extend_new(lines, _step_formula_lines(steps[index], include_reasons=include_reasons))
+            index += 1
+        elif index == len(steps) and _shows_move(step) and _single_variable_answer(answer):
+            _extend_new(lines, split_equality_chain(answer))
+        if not any(_state_key(line) not in shown for line in lines):
+            continue
+        shown.update(_state_key(line) for line in lines)
+        reason = step.reason if include_reasons else None
+        if reason and _RULE_REASON.match(reason):
+            reason = None
+        blocks.append(_NumberedStep(step.label, tuple(lines), reason))
+    return formulas, blocks
+
+
+def _attach_simplify(
+    blocks: list[_NumberedStep],
+    step: KeyStep,
+    shown: set[str],
+    *,
+    include_reasons: bool,
+) -> None:
+    previous = blocks[-1]
+    merged = list(previous.formulas)
+    extra = _step_formula_lines(step, include_reasons=include_reasons)
+    _extend_new(merged, extra)
+    blocks[-1] = _NumberedStep(previous.label, tuple(merged), previous.reason)
+    shown.update(_state_key(line) for line in extra)
+
+
+def _extend_new(lines: list[str], more: list[str]) -> None:
+    seen = {_state_key(line) for line in lines}
+    for part in more:
+        text = part.strip()
+        if not text or _state_key(text) in seen:
+            continue
+        lines.append(text)
+        seen.add(_state_key(text))
+
+
+def _step_formula_lines(step: KeyStep, *, include_reasons: bool) -> list[str]:
+    tex = step.formula
+    # The stored divide strikes the factor. The working shows the fraction
+    # written out (``4x/4 = -4/4``). A why-question keeps the strike.
+    if not include_reasons and _shows_move(step):
+        tex = re.sub(r"\\cancel\{([^{}]*)\}", r"\1", tex)
+    return [part for part in split_equality_chain(tex) if part.strip()]
+
+
+def _render_numbered(blocks: list[_NumberedStep]) -> str:
+    """One paragraph per step, so the phone can draw the number as a badge."""
+    parts: list[str] = []
+    for number, block in enumerate(blocks, start=1):
+        heading = f"**{number}. {block.label}**"
+        if block.reason:
+            heading += f" — {block.reason}"
+        lines = [heading, *(f"${formula}$" for formula in block.formulas)]
+        parts.append("  \n".join(lines))
+    return "\n\n".join(parts)
 
 
 def _chain(tex: str, note: str) -> list[str]:

@@ -88,26 +88,29 @@ async def test_ordinary_sentences_stay_ordinary(text: str) -> None:
 @pytest.mark.parametrize(
     ("text", "lines"),
     [
-        ("solve ln(x) = 2", ["$x = e^{2}$ — convert to exponential form"]),
+        ("solve ln(x) = 2", ["**2. Convert to exponential form**", "$x = e^{2}$"]),
         (
             "solve 2^(x+1) = 32",
             [
-                "$2^{x + 1} = 2^{5}$ — write $32$ as a power of $2$",
-                "$x + 1 = 5$ — equal bases, so equal exponents",
+                "**1. Write $32$ as a power of $2$**",
+                "$2^{x + 1} = 2^{5}$",
+                "**2. Equal bases, so equal exponents**",
+                "$x + 1 = 5$",
             ],
         ),
-        ("solve e^(2x) = 5", [r"$2 x = \ln 5$ — take ln of both sides"]),
+        ("solve e^(2x) = 5", ["**1. Take ln of both sides**", r"$2 x = \ln 5$"]),
         (
             "solve x^3 - 6x^2 + 11x - 6 = 0",
             [
-                r"$\left(x - 1\right) \left(x - 2\right) \left(x - 3\right) = 0$"
-                " — factor the left side",
+                "**1. Factor the left side**",
+                r"$\left(x - 1\right) \left(x - 2\right) \left(x - 3\right) = 0$",
             ],
         ),
         (
             "solve x^2 - 4x - 5 < 0",
             [
-                "$-1 < x < 5$ — the parabola opens upward, so it is below zero between the roots",
+                "**3. The parabola opens upward, so it is below zero between the roots**",
+                "$-1 < x < 5$",
             ],
         ),
         (
@@ -136,7 +139,7 @@ async def test_ordinary_sentences_stay_ordinary(text: str) -> None:
         ("limit of sin(x)/x as x approaches 0", ["L'Hôpital's rule"]),
         (
             "integrate sin(x)cos(x)",
-            [r"let $u = \sin{\left(x \right)}$", r"\frac{\sin^{2}{\left(x \right)}}{2} + C"],
+            [r"Let $u = \sin{\left(x \right)}$", r"\frac{\sin^{2}{\left(x \right)}}{2} + C"],
         ),
     ],
 )
@@ -151,7 +154,8 @@ async def test_answers_that_were_bare_now_show_their_working(text: str, lines: l
 async def test_a_radical_domain_lists_only_conditions_on_the_unknown() -> None:
     _, reply = await _reply("solve sqrt(x + 3) = 4")
     assert reply is not None
-    assert r"$x + 3 \ge 0$ — domain restrictions" in reply
+    assert "**1. Domain restrictions**" in reply
+    assert r"$x + 3 \ge 0$" in reply
     assert r"4 \ge 0" not in reply
 
 

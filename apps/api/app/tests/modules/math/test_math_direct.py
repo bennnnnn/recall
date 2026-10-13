@@ -329,7 +329,7 @@ async def test_explain_every_step_uses_verified_lesson(thread_sympy_executor: No
     assert verified is not None
     reply = maybe_direct_math_reply(verified, content)
     assert reply is not None
-    assert "**Steps**" in reply
+    assert "**1." in reply
     assert "```answer" in reply
 
 
@@ -348,7 +348,7 @@ async def test_reported_quadratic_with_presentation_constraints_uses_verified_le
     reply = maybe_direct_math_reply(verified, content)
 
     assert reply is not None
-    assert "**Steps**" in reply or "**Substitution**" in reply
+    assert "**1." in reply or "**Substitution**" in reply
     assert "```answer" in reply
     assert "x" in reply
     assert "X" not in reply

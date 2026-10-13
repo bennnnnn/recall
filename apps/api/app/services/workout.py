@@ -90,8 +90,17 @@ def _clean(lines: tuple[str, ...]) -> list[str]:
     return kept
 
 
-def render_workout(workout: Workout, answer: str | None = None) -> str:
-    """The sections in order; with ``answer``, the answer fence closes it."""
+def render_workout(
+    workout: Workout,
+    answer: str | None = None,
+    *,
+    before_answer: str | None = None,
+) -> str:
+    """The sections in order; with ``answer``, the answer fence closes it.
+
+    ``before_answer`` is already-rendered markdown (numbered equation steps)
+    placed after the sections and before **Answer**.
+    """
     sections: list[str] = []
     for heading, lines in (
         (GIVEN, workout.given),
@@ -103,6 +112,8 @@ def render_workout(workout: Workout, answer: str | None = None) -> str:
         kept = _clean(lines)
         if kept:
             sections.append(f"**{heading}**{_HARD_BREAK}" + _HARD_BREAK.join(kept))
+    if before_answer and before_answer.strip():
+        sections.append(before_answer.strip())
     sections.append(f"**{ANSWER}**")
     body = "\n\n".join(sections)
     if answer is None:
