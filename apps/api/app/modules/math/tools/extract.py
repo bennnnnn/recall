@@ -33,6 +33,7 @@ from app.modules.math.tools.helpers import (
     has_assignment_evaluation_request,
     math_expr_or_none,
 )
+from app.modules.math.tools.keyboard_notation import keyboard_math_to_plain
 from app.modules.math.tools.school import SCHOOL_EXTRACTORS
 
 _INTENT_EXTRACTORS: Sequence[Callable[[str], MathIntent | None]] = (
@@ -179,6 +180,14 @@ def extract_math_intent(text: str) -> MathIntent | None:
     if intent is not None and request_consumption_complete(normalized, intent):
         intent._request_text = text.strip()
         return intent
+    # The math keyboard's LaTeX (``\int_{0}^{1}…\,dx``, ``\frac{d}{dx}``,
+    # ``\binom``, ``30^{\circ}``) in the plain notation the extractors read.
+    plain = keyboard_math_to_plain(normalized)
+    if plain != normalized:
+        intent = _extract_math_intent(plain)
+        if intent is not None and request_consumption_complete(plain, intent):
+            intent._request_text = text.strip()
+            return intent
     # A second sentence can specify the teaching method or output format
     # without changing the mathematical input: ``cos(75°). Use an angle-sum
     # identity``. Give every extractor one shared retry at that sentence
