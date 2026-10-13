@@ -33,3 +33,5 @@ export const MATH_VARIABLE_FONT = "KaTeX_MathItalic";
  * `∈`, `∞`) are in KaTeX_Main and must stay there.
  */
 export const MATH_SYMBOL_FONT = "KaTeX_AMS";
+/** Large operators (`∬ ∭ ∮`) that neither Main nor AMS carries. */
+export const MATH_SIZE1_FONT = "KaTeX_Size1";

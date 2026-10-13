@@ -4,15 +4,7 @@ import { act, fireEvent, render, waitFor, within } from "@testing-library/react-
 
 import { ChatComposer } from "@/features/chat/components/ChatComposer";
 import { MATH_KEYBOARD_GAP_FADE_HEIGHT } from "@/features/chat/components/chatComposerStyles";
-import {
-  CONVERTER_HEADER_HEIGHT,
-  CONVERTER_ROWS,
-  KEY_HEIGHT_MIN,
-  PAD_GAP,
-  PAD_PADDING_V,
-  converterKeyHeight,
-  mathPadHeight,
-} from "@/lib/math/keyboardPad";
+import { KEY_HEIGHT_MIN, mathPadHeight, padKeyHeight } from "@/lib/math/keyboardPad";
 import { darkTheme, lightTheme } from "@/lib/theme";
 import { ComposerDraftProvider, useComposerDraftApi } from "@/contexts/ComposerDraftContext";
 
@@ -443,7 +435,6 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
     expect(getByTestId("math-converter")).toBeTruthy();
-    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
     expect(getByTestId("math-converter-from-value").props.children).toBe("1");
     expect(getByTestId("math-converter-to-value").props.children).toBe("100");
     await fireEvent.press(getByTestId("math-converter-5"));
@@ -455,83 +446,57 @@ describe("ChatComposer math keyboard", () => {
     expect(queryByTestId("math-converter")).toBeNull();
   });
 
-  it("keeps math navigation and converter controls at least 44pt", async () => {
-    const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
+  it("gives every page, the converter included, one key height of at least 44pt", async () => {
+    const { getByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
-
-    expect(getByTestId("math-keyboard-tab-basics")).toHaveStyle({
-      minHeight: 44,
-      borderWidth: 1,
-      borderColor: lightTheme.bg,
-    });
-    expect(queryByTestId("math-key-caret-left")).toBeNull();
-    expect(queryByTestId("math-key-caret-right")).toBeNull();
-    expect(getByTestId("math-keyboard-abc")).toHaveStyle({ minHeight: 44 });
-
-    await fireEvent.press(getByTestId("math-keyboard-tab-calc"));
-    const calcStyle = getByTestId("math-key-partial-x").props.style;
-    const calcKey = StyleSheet.flatten(
-      typeof calcStyle === "function" ? calcStyle({ pressed: false }) : calcStyle,
-    );
-    expect(calcKey.height).toBeGreaterThanOrEqual(KEY_HEIGHT_MIN);
-    expect(calcKey.minHeight).toBeGreaterThanOrEqual(KEY_HEIGHT_MIN);
-
-    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
-    const keysBox = mathPadHeight(320) - PAD_PADDING_V - KEY_HEIGHT_MIN - PAD_GAP;
-    const rowHeight = converterKeyHeight(keysBox);
-    const flatKey = (id: string) => {
+    const flat = (id: string) => {
       const style = getByTestId(id).props.style;
       return StyleSheet.flatten(typeof style === "function" ? style({ pressed: false }) : style);
     };
-    expect(rowHeight).toBeGreaterThanOrEqual(KEY_HEIGHT_MIN);
-    expect(CONVERTER_HEADER_HEIGHT + CONVERTER_ROWS * PAD_GAP + rowHeight * CONVERTER_ROWS).toBeLessThanOrEqual(
-      keysBox,
-    );
-    expect(getByTestId("math-converter-from-unit")).toHaveStyle({ alignSelf: "stretch", height: 44 });
-    for (const id of ["math-converter-0", "math-converter-dot", "math-converter-ask"]) {
-      expect(flatKey(id).height).toBe(rowHeight);
+    const keyHeight = padKeyHeight(mathPadHeight(0));
+    expect(keyHeight).toBeGreaterThanOrEqual(KEY_HEIGHT_MIN);
+    expect(getByTestId("math-keyboard-tab-basics")).toHaveStyle({ minHeight: 44 });
+    expect(getByTestId("math-keyboard-abc")).toHaveStyle({ minHeight: 44 });
+    for (const id of ["math-key-frac", "math-key-digit-7", "math-key-left", "math-key-right"]) {
+      expect(flat(id).height).toBe(keyHeight);
     }
-    expect(flatKey("math-converter-ask").flex).toBe(2);
-    expect(queryByTestId("math-converter-insert")).toBeNull();
-    expect(getByTestId("math-converter-swap")).toHaveStyle({
-      minWidth: 44,
-      minHeight: 44,
-    });
-    expect(getByTestId("math-converter-from-unit")).toHaveStyle({ minHeight: 44 });
+    await fireEvent.press(getByTestId("math-keyboard-tab-calc"));
+    expect(flat("math-key-partial-x").height).toBe(keyHeight);
+    await fireEvent.press(getByTestId("math-keyboard-tab-symbols"));
+    expect(flat("math-key-cup").height).toBe(keyHeight);
+
+    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
+    for (const id of ["math-converter-0", "math-converter-dot", "math-converter-ask"]) {
+      expect(flat(id).height).toBe(keyHeight);
+    }
+    expect(flat("math-converter-ask").flex).toBe(2);
+    expect(flat("math-converter-from-unit").height).toBe(keyHeight);
+    expect(getByTestId("math-converter-swap")).toHaveStyle({ minWidth: 44, minHeight: 44 });
 
     await fireEvent.press(getByTestId("math-converter-from-unit"));
-    expect(getByTestId("math-converter-picker-close")).toHaveStyle({
-      minWidth: 44,
-      minHeight: 44,
-    });
+    expect(getByTestId("math-converter-picker-close")).toHaveStyle({ minWidth: 44, minHeight: 44 });
     expect(getByTestId("math-converter-cat-length")).toHaveStyle({ minHeight: 44 });
   });
-
-  it("uses white keys, red text for clear and delete, and normal text for ±", async () => {
+  it("draws every key white with the same ink, delete and clear included", async () => {
     const { getByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
-    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
     const flat = (style: unknown) =>
       StyleSheet.flatten(typeof style === "function" ? style({ pressed: false }) : style);
-    const danger = [lightTheme.danger, darkTheme.danger];
     const ink = [lightTheme.text, darkTheme.text];
     const white = [lightTheme.bg, darkTheme.bg];
-    expect(white).toContain(flat(getByTestId("math-converter-5").props.style).backgroundColor);
-    expect(white).toContain(flat(getByTestId("math-converter-ask").props.style).backgroundColor);
-    const clear = getByTestId("math-converter-AC");
-    expect(white).toContain(flat(clear.props.style).backgroundColor);
-    expect(danger).toContain(flat(within(clear).getByText("chat.math_converter_clear").props.style).color);
-    const back = getByTestId("math-converter-back");
+    const back = getByTestId("math-key-backspace");
     expect(white).toContain(flat(back.props.style).backgroundColor);
-    expect(within(back).queryByText("chat.math_keyboard_backspace")).toBeNull();
-    const backIcon = within(back).getByTestId("math-converter-back-icon");
+    expect(ink).toContain(within(back).getByTestId("math-key-backspace-icon").props.color);
+    await fireEvent.press(getByTestId("math-keyboard-tab-converter"));
+    for (const id of ["math-converter-5", "math-converter-ask", "math-converter-AC", "math-converter-±"]) {
+      expect(white).toContain(flat(getByTestId(id).props.style).backgroundColor);
+    }
+    const clear = within(getByTestId("math-converter-AC")).getByText("chat.math_converter_clear");
+    expect(ink).toContain(flat(clear.props.style).color);
+    const backIcon = within(getByTestId("math-converter-back")).getByTestId("math-converter-back-icon");
     expect(backIcon.props.name).toBe("backspace");
-    expect(danger).toContain(backIcon.props.color);
-    const sign = getByTestId("math-converter-±");
-    expect(white).toContain(flat(sign.props.style).backgroundColor);
-    expect(ink).toContain(flat(within(sign).getByText("±").props.style).color);
+    expect(ink).toContain(backIcon.props.color);
   });
-
   it("leaves the thread free to scroll while the math keyboard is open", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
@@ -598,73 +563,27 @@ describe("ChatComposer math keyboard", () => {
     );
   });
 
-  it("hides the number pad on every symbol tab until 123", async () => {
+  it("keeps digits and operators on Basics, and every page on the same grid", async () => {
     const { getByTestId, queryByTestId } = await render(<ChatComposer {...baseProps} />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
-    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
-    expect(getByTestId("math-keyboard-123")).toBeTruthy();
-    expect(getByTestId("math-key-sqrt")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-keyboard-123"));
-    expect(getByTestId("math-key-percent")).toBeTruthy();
-    expect(getByTestId("math-key-pm")).toBeTruthy();
-    expect([lightTheme.text, darkTheme.text]).toContain(
-      StyleSheet.flatten(within(getByTestId("math-key-pm")).getByText("±").props.style).color,
-    );
-    expect(getByTestId("math-key-deg")).toBeTruthy();
-    expect(getByTestId("math-key-approx")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-keyboard-123"));
+    for (const id of ["digit-7", "digit-0", "plus", "minus", "times", "div", "eq", "var-x", "frac"]) {
+      expect(getByTestId(`math-key-${id}`)).toBeTruthy();
+    }
+    expect(queryByTestId("math-keyboard-123")).toBeNull();
+    for (const tab of ["symbols", "trig", "calc", "greek"]) {
+      await fireEvent.press(getByTestId(`math-keyboard-tab-${tab}`));
+      expect(getByTestId("math-key-left")).toBeTruthy();
+      expect(getByTestId("math-key-right")).toBeTruthy();
+      expect(getByTestId("math-key-backspace")).toBeTruthy();
+      expect(queryByTestId("math-key-digit-7")).toBeNull();
+    }
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
-    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
-    expect(getByTestId("math-key-arccos")).toBeTruthy();
-    expect(getByTestId("math-key-arccot")).toBeTruthy();
-    expect(getByTestId("math-key-rad")).toBeTruthy();
-    expect(getByTestId("math-key-arcsinh")).toBeTruthy();
-    expect(getByTestId("math-key-arccosh")).toBeTruthy();
-    expect(getByTestId("math-key-trig-theta")).toBeTruthy();
-    expect(getByTestId("math-key-sech")).toBeTruthy();
-    expect(getByTestId("math-key-pi-over-2")).toBeTruthy();
-    expect(queryByTestId("math-key-sqrt")).toBeNull();
-    expect(queryByTestId("math-key-sup")).toBeNull();
-    expect(queryByTestId("math-key-abs")).toBeNull();
-    expect(queryByTestId("math-key-digit-1")).toBeNull();
-    expect(queryByTestId("math-key-digit-7")).toBeNull();
-    expect(queryByTestId("math-key-log")).toBeNull();
-    expect(getByTestId("math-keyboard-123")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-keyboard-123"));
-    expect(getByTestId("math-keyboard-numpad")).toBeTruthy();
-    expect(getByTestId("math-key-digit-7")).toBeTruthy();
-    expect(getByTestId("math-key-trig-theta")).toBeTruthy();
-    expect(getByTestId("math-key-trig-pi")).toBeTruthy();
-    expect(queryByTestId("math-key-arccos")).toBeNull();
-    await fireEvent.press(getByTestId("math-keyboard-123"));
-    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
-    expect(getByTestId("math-key-arccos")).toBeTruthy();
+    for (const id of ["arccot", "sech", "theta", "deg", "pi-over-2", "two-pi"]) {
+      expect(getByTestId(`math-key-${id}`)).toBeTruthy();
+    }
     await fireEvent.press(getByTestId("math-keyboard-tab-calc"));
-    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
-    expect(getByTestId("math-key-der")).toBeTruthy();
-    expect(getByTestId("math-key-log")).toBeTruthy();
-    expect(getByTestId("math-key-oint")).toBeTruthy();
-    expect(getByTestId("math-key-vec")).toBeTruthy();
-    expect(getByTestId("math-key-ddv")).toBeTruthy();
-    expect(getByTestId("math-key-partial-x")).toBeTruthy();
-    expect(getByTestId("math-key-dy")).toBeTruthy();
-    expect(getByTestId("math-key-ddt")).toBeTruthy();
-    expect(getByTestId("math-key-prime")).toBeTruthy();
-    expect(queryByTestId("math-key-sqrt")).toBeNull();
-    expect(queryByTestId("math-key-sup")).toBeNull();
-    expect(queryByTestId("math-key-abs")).toBeNull();
-    await fireEvent.press(getByTestId("math-keyboard-tab-greek"));
-    expect(queryByTestId("math-keyboard-numpad")).toBeNull();
-    expect(queryByTestId("math-key-digit-7")).toBeNull();
-    expect(getByTestId("math-key-alpha")).toBeTruthy();
-    expect(getByTestId("math-key-lambda")).toBeTruthy();
-    expect(getByTestId("math-key-Omega")).toBeTruthy();
-    expect(getByTestId("math-key-iota")).toBeTruthy();
-    expect(getByTestId("math-key-upsilon")).toBeTruthy();
-    expect(getByTestId("math-key-Theta")).toBeTruthy();
-    expect(getByTestId("math-key-Phi")).toBeTruthy();
-    expect(queryByTestId("math-key-pi")).toBeNull();
-    expect(queryByTestId("math-key-sqrt")).toBeNull();
-    expect(getByTestId("math-key-backspace")).toBeTruthy();
+    for (const id of ["der", "oint", "binom", "perm", "e-const", "prime"]) {
+      expect(getByTestId(`math-key-${id}`)).toBeTruthy();
+    }
   });
 });

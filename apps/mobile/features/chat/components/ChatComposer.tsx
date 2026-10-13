@@ -682,6 +682,7 @@ export const ChatComposer = memo(function ChatComposer({
               height={math.padHeight}
               onToggle={onToggleMathBar}
               onInsert={math.insertSymbol}
+              onCaret={math.stepCaret}
               onAsk={sendAndCloseMath}
               onStop={onStop}
               streaming={streaming}

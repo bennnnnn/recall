@@ -248,8 +248,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   number is stated in the problem and SymPy finds exactly one solution in the
   stated domain; the reply shows the setup, the verified steps and the answer. Recall attaches geometry, graph, and
   algebra ` ```answer ` after the stream when the model did write. The composer **math keypad** inserts
-  LaTeX (Basics + 6-column numpad; Trig / Calc / Greek; Converter can **Insert** the live
-  result into the draft). See [docs/math.md](./docs/math.md).
+  LaTeX on one 6 × 6 grid per page: Basics (digits, the four operations, x and y, fractions,
+  roots, powers), Symbols (relations, sets, geometry), Trig, Calc and Greek, each ending in
+  ← → ⌫. A key types into the box the caret is in; → leaves it. Converter sends a
+  "convert … to …" question with **Ask**. See [docs/math.md](./docs/math.md).
 - ✅ **Recurring pay through a date** — questions such as “I make $3,400 every two
   weeks; how much by December 11?” use the device-local date and a deterministic
   calendar calculator, not a chat model or web search. The reply shows complete

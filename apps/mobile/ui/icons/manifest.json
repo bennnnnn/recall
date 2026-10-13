@@ -21,6 +21,8 @@
     "calculator": "calculator",
     "calendar": "calendar",
     "camera": "camera",
+    "caret-left": "arrow-big-left",
+    "caret-right": "arrow-big-right",
     "check": "check",
     "check-circle": "circle-check",
     "chevron-down": "chevron-down",

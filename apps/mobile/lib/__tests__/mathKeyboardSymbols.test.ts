@@ -1,27 +1,27 @@
 import {
   autoAdvanceFracDen,
   autoAdvanceNextEmptySlot,
-  caretForInsert,
   caretInGroup,
+  caretStepLeft,
+  caretStepRight,
   converterResultSpec,
   findFracSlots,
   findLognSlots,
   findNrootSlots,
   fracTapAdvancesToDen,
   isCursorInsideInlineMath,
+  MATH_KEYBOARD_GROUPS,
   MATH_KEYBOARD_SYMBOLS,
   MATH_PAD_KEYS,
-  MATH_NUMPAD_ROWS,
-  MATH_SYMBOL_ROW_SIZE,
-  mathGroupCanToggleDigits,
-  nextEditSlotCaret,
-  prevEditSlotCaret,
+  PAD_COLUMNS,
+  PAD_ROWS,
+  pageKeyIds,
+  padRows,
   spliceBackspace,
   spliceMathInsert,
   SYMBOL_A11Y,
+  SYMBOL_PAGES,
   symbolA11yLabel,
-  symbolsInGroup,
-  symbolRowsForGroup,
   tapAdvancesToNextSlot,
 } from "@/lib/math/keyboardSymbols";
 
@@ -79,7 +79,7 @@ describe("spliceMathInsert", () => {
     const prime = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "prime")!;
     expect(spliceMathInsert("$x$", { start: 2, end: 2 }, prime).text).toBe("$x'$");
     expect(spliceMathInsert("", { start: 0, end: 0 }, prime).text).toBe("$^{\\prime}$");
-    expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "partial-x")?.group).toBe("pad");
+    expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "partial-x")?.group).toBe("calc");
   });
 
   it("n! attaches to a number, or selects the n so the next digit replaces it", () => {
@@ -141,8 +141,8 @@ describe("spliceMathInsert", () => {
     expect(spliceMathInsert("$30$", { start: 3, end: 3 }, deg).text).toBe("$30^{\\circ}$");
   });
 
-  it("labels second derivative as d²/dx²", () => {
-    expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "der2")?.label).toBe("d²/dx²");
+  it("labels second derivative as d²/dx², with drawn superscripts", () => {
+    expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "der2")?.label).toBe("d^{2}/dx^{2}");
   });
 
   it("digits stay prose inside a convert draft", () => {
@@ -177,8 +177,6 @@ describe("key insert matches the button", () => {
     ["braces", "\\{\\}"],
     ["sq", "x^{2}"],
     ["angle", "\\angle "],
-    ["trig-theta", "\\theta "],
-    ["trig-pi", "\\pi "],
     ["sin", "\\sin()"],
     ["cos", "\\cos()"],
     ["tan", "\\tan()"],
@@ -262,7 +260,7 @@ describe("slot navigation", () => {
   it("advances from a filled numerator to an empty denominator", () => {
     const text = "$\\frac{1}{}$";
     const slots = findFracSlots(text);
-    expect(nextEditSlotCaret(text, slots[0]!.num.close)).toBe(slots[0]!.den.close);
+    expect(caretStepRight(text, slots[0]!.num.close)).toBe(slots[0]!.den.open + 1);
     expect(fracTapAdvancesToDen(text, slots[0]!.num.close)).toBe(slots[0]!.den.close);
   });
 
@@ -307,10 +305,10 @@ describe("slot navigation", () => {
     expect(jump).toBe(findFracSlots(afterOne.text)[0]!.den.close);
   });
 
-  it("exits a filled last box instead of wrapping back to the first", () => {
+  it("→ leaves a filled last box instead of wrapping back to the first", () => {
     const text = "$\\frac{8}{8}$";
     const slots = findFracSlots(text);
-    expect(nextEditSlotCaret(text, slots[0]!.den.close)).toBe(slots[0]!.den.close + 1);
+    expect(caretStepRight(text, slots[0]!.den.close)).toBe(slots[0]!.den.close + 1);
   });
 
   it("keeps commas inside parentheses, brackets, and set braces", () => {
@@ -332,13 +330,16 @@ describe("slot navigation", () => {
     }
   });
 
-  it("places × after a finished fraction, not inside the denominator", () => {
+  it("types × into the denominator, and after the fraction once → leaves it", () => {
     const times = MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "times")!;
     const text = "$\\frac{8}{8}$";
     const den = findFracSlots(text)[0]!.den;
-    const at = caretForInsert(text, den.close, times);
-    const result = spliceMathInsert(text, { start: at, end: at }, times);
-    expect(result.text).toBe("$\\frac{8}{8}\\times $");
+    const inside = spliceMathInsert(text, { start: den.close, end: den.close }, times);
+    expect(inside.text).toBe("$\\frac{8}{8\\times }$");
+    const after = caretStepRight(text, den.close);
+    expect(spliceMathInsert(text, { start: after, end: after }, times).text).toBe(
+      "$\\frac{8}{8}\\times $",
+    );
   });
 
   it("auto-advances from a filled nth-root index into the radicand", () => {
@@ -422,107 +423,49 @@ describe("spliceBackspace", () => {
   });
 });
 
-describe("mathGroupCanToggleDigits", () => {
-  it("offers 123 on every symbol tab, including Basics", () => {
-    expect(mathGroupCanToggleDigits("basics")).toBe(true);
-    expect(mathGroupCanToggleDigits("trig")).toBe(true);
-    expect(mathGroupCanToggleDigits("calc")).toBe(true);
-    expect(mathGroupCanToggleDigits("greek")).toBe(true);
-    expect(mathGroupCanToggleDigits("converter")).toBe(false);
-  });
-});
-
-describe("MATH_NUMPAD_ROWS", () => {
-  it("is a 6-column digit grid without the Basics algebra keys", () => {
-    expect(MATH_NUMPAD_ROWS).toHaveLength(2);
-    expect(MATH_NUMPAD_ROWS.every((row) => row.length === MATH_SYMBOL_ROW_SIZE)).toBe(true);
-    const ids = MATH_NUMPAD_ROWS.flat().flatMap((c) =>
-      c.kind === "insert" ? [c.spec.id] : [],
-    );
-    expect(ids).toContain("comma");
-    expect(ids).toContain("digit-dot");
-    expect(ids).not.toContain("var-y");
-    expect(ids).not.toContain("eq");
-    expect(ids).not.toContain("parens");
-    expect(ids).not.toContain("times");
-    expect(MATH_NUMPAD_ROWS.flat().some((c) => c.kind === "backspace")).toBe(false);
+describe("keyboard pages", () => {
+  it("lays every page out as the same 6 × 6 grid ending in ← → ⌫", () => {
+    expect(SYMBOL_PAGES).toEqual(["basics", "symbols", "trig", "calc", "greek"]);
+    for (const page of SYMBOL_PAGES) {
+      const rows = padRows(page);
+      expect(rows).toHaveLength(PAD_ROWS);
+      expect(rows.every((row) => row.length === PAD_COLUMNS)).toBe(true);
+      expect(rows[PAD_ROWS - 1]!.slice(-3).map((cell) => cell.kind)).toEqual([
+        "left",
+        "right",
+        "backspace",
+      ]);
+    }
+    expect(MATH_KEYBOARD_GROUPS).toEqual([...SYMBOL_PAGES, "converter"]);
   });
 
-  it("BUG FIX regression: includes < and >", () => {
-    const allSymbols = MATH_KEYBOARD_SYMBOLS.map((s) => s.id);
-    expect(allSymbols).toContain("lt");
-    expect(allSymbols).toContain("gt");
-  });
-});
-
-describe("symbol homes (no duplicate glyphs)", () => {
-  it("keeps π on Basics, θ on Greek, and ⁿ√ only on Basics", () => {
-    const homes = (id: string) => MATH_KEYBOARD_SYMBOLS.filter((s) => s.id === id).map((s) => s.group);
-    expect(homes("pi")).toEqual(["basics"]);
-    expect(homes("theta")).toEqual(["greek"]);
-    expect(homes("nroot")).toEqual(["basics"]);
-    expect(MATH_KEYBOARD_SYMBOLS.some((s) => s.id === "nth")).toBe(false);
-    expect(symbolsInGroup("trig").some((s) => s.id === "trig-pi" || s.id === "trig-theta")).toBe(
-      false,
-    );
-    expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "trig-pi")?.group).toBe("pad");
-    expect(MATH_KEYBOARD_SYMBOLS.find((s) => s.id === "trig-theta")?.group).toBe("pad");
-    expect(MATH_KEYBOARD_SYMBOLS.some((s) => s.id === "pi-greek")).toBe(false);
+  it("puts digits, the four operations, x and = together on Basics", () => {
+    const basics = pageKeyIds("basics");
+    for (const id of [
+      "digit-0", "digit-1", "digit-2", "digit-3", "digit-4", "digit-5", "digit-6", "digit-7",
+      "digit-8", "digit-9", "digit-dot", "plus", "minus", "times", "div", "eq", "var-x",
+      "parens", "frac", "sqrt", "sq",
+    ]) {
+      expect(basics).toContain(id);
+    }
   });
 
-  it("keeps each Calc family in one run", () => {
-    const ids = symbolsInGroup("calc").map((spec) => spec.id);
-    expect(ids.slice(0, 6)).toEqual(["int", "dint", "iint", "iiint", "oint", "dx"]);
-    expect(ids.slice(6, 12)).toEqual(["partial", "der", "der2", "ddv", "nabla", "vec"]);
-    expect(ids.slice(12, 18)).toEqual(["sum", "prod", "lim", "infty", "to", "cdot"]);
+  it("puts every key on a page, and only π and θ on two", () => {
+    const placed = SYMBOL_PAGES.flatMap((page) => pageKeyIds(page));
+    const all = [...MATH_KEYBOARD_SYMBOLS, ...MATH_PAD_KEYS].map((spec) => spec.id);
+    expect(all.filter((id) => !placed.includes(id))).toEqual([]);
+    const twice = [...new Set(placed.filter((id, i) => placed.indexOf(id) !== i))].sort();
+    expect(twice).toEqual(["pi", "theta"]);
   });
 
-  it("keeps lowercase Greek in alphabet order", () => {
-    const ids = symbolsInGroup("greek").map((spec) => spec.id);
-    expect(ids.indexOf("theta")).toBeLessThan(ids.indexOf("iota"));
-    expect(ids.indexOf("iota")).toBeLessThan(ids.indexOf("kappa"));
-    expect(ids.indexOf("tau")).toBeLessThan(ids.indexOf("upsilon"));
-    expect(ids.indexOf("upsilon")).toBeLessThan(ids.indexOf("phi"));
-  });
-
-  it("fills Calc and Greek in even 6-wide rows", () => {
-    expect(symbolsInGroup("calc")).toHaveLength(30);
-    expect(symbolsInGroup("calc").length % MATH_SYMBOL_ROW_SIZE).toBe(0);
-    expect(symbolsInGroup("greek").length % MATH_SYMBOL_ROW_SIZE).toBe(0);
-  });
-
-  it("keeps Basics 6 by 5, with families in order and 123 on the bottom row", () => {
-    const rows = symbolRowsForGroup("basics");
-    expect(rows).toHaveLength(5);
-    expect(rows.every((row) => row.length === MATH_SYMBOL_ROW_SIZE)).toBe(true);
-    const ids = (row: (typeof rows)[number]) =>
-      row.flatMap((cell) => (cell.kind === "insert" ? [cell.spec.id] : []));
-    expect(ids(rows[0]!)).toEqual(["frac", "sqrt", "nroot", "sq", "sup", "sub"]);
-    expect(ids(rows[1]!)).toEqual(["abs", "parens", "brackets", "braces", "deg", "angle"]);
-    expect(ids(rows[2]!)).toEqual(["pi", "leq", "geq", "neq", "lt", "gt"]);
-    expect(ids(rows[3]!)).toEqual(["var-x", "var-y", "var-z", "eq", "digit-dot", "pm"]);
-    expect(rows[4]![0]).toEqual({ kind: "digits" });
-    expect(ids(rows[4]!)).toEqual(["times", "div", "minus", "plus"]);
-    expect(rows[4]![5]).toEqual({ kind: "backspace" });
-  });
-
-  it("fills the short Trig row with theta and the missing hyperbolics", () => {
-    const rows = symbolRowsForGroup("trig");
-    expect(symbolsInGroup("trig")).toHaveLength(20);
-    expect(rows).toHaveLength(4);
-    expect(rows.every((row) => row.length === MATH_SYMBOL_ROW_SIZE)).toBe(true);
-    const lastFn = rows[3]!;
-    expect(lastFn.map((cell) => (cell.kind === "insert" ? cell.spec.id : cell.kind))).toEqual([
-      "arccosh",
-      "arctanh",
-      "trig-theta",
-      "sech",
-      "csch",
-      "coth",
-    ]);
-    expect(rows.flat().some((cell) => cell.kind === "insert" && cell.spec.id.startsWith("digit-"))).toBe(
-      false,
-    );
+  it("adds the keys the review found missing", () => {
+    const placed = SYMBOL_PAGES.flatMap((page) => pageKeyIds(page));
+    for (const id of [
+      "perm", "e-const", "ratio", "in", "notin", "cup", "cap", "subset", "emptyset", "perp",
+      "parallel", "cong", "sim", "triangle", "floor", "mod", "Pi", "Lambda", "Psi", "Xi",
+    ]) {
+      expect(placed).toContain(id);
+    }
   });
 
   it("inserts a converter result as math with a unit", () => {
@@ -547,32 +490,41 @@ describe("symbolA11yLabel (KB-005)", () => {
     expect(symbolA11yLabel(fake)).toBe("★");
   });
 
-  it("covers every symbol in MATH_KEYBOARD_SYMBOLS and MATH_NUMPAD_ROWS", () => {
-    const allIds = new Set<string>();
-    for (const s of MATH_KEYBOARD_SYMBOLS) allIds.add(s.id);
-    for (const row of MATH_NUMPAD_ROWS) {
-      for (const cell of row) {
-        if (cell.kind === "insert") allIds.add(cell.spec.id);
-      }
-    }
-    const missing = [...allIds].filter((id) => !SYMBOL_A11Y[id]);
-    // Digits 0-9 and basic operators on the numpad are self-descriptive labels.
-    const allowedMissing = new Set([
-      "digit-0", "digit-1", "digit-2", "digit-3", "digit-4",
-      "digit-5", "digit-6", "digit-7", "digit-8", "digit-9",
-      "plus", "minus", "times", "div", "eq", "parens",
-    ]);
-    const trulyMissing = missing.filter((id) => !allowedMissing.has(id));
-    expect(trulyMissing).toEqual([]);
+  it("names every key, so a screen reader never reads the face's markup", () => {
+    const missing = [...MATH_KEYBOARD_SYMBOLS, ...MATH_PAD_KEYS]
+      .map((spec) => spec.id)
+      .filter((id) => !SYMBOL_A11Y[id]);
+    expect(missing).toEqual([]);
   });
 });
 
-describe("nextEditSlotCaret / prevEditSlotCaret", () => {
-  it("moves numerator → denominator → back", () => {
-    const text = "$\\frac{1}{}$";
+describe("← and →", () => {
+  it("moves numerator → denominator → after the fraction, and back", () => {
+    const text = "$\\frac{1}{2}$";
     const slots = findFracSlots(text)[0]!;
-    const den = nextEditSlotCaret(text, slots.num.close);
-    expect(den).toBe(slots.den.close);
-    expect(prevEditSlotCaret(text, den!)).toBe(slots.num.close);
+    const den = caretStepRight(text, slots.num.close);
+    expect(den).toBe(slots.den.open + 1);
+    expect(caretStepLeft(text, den)).toBe(slots.num.close);
+    const end = caretStepRight(text, slots.den.close);
+    expect(end).toBe(text.length - 1);
+    expect(caretStepRight(text, end)).toBe(end);
+  });
+
+  it("reaches both bounds of a definite integral", () => {
+    const text = "$\\int_{0}^{}$";
+    const lower = text.indexOf("{0}") + 2;
+    const upper = caretStepRight(text, lower);
+    expect(text.slice(upper - 2, upper + 1)).toBe("^{}");
+  });
+
+  it("steps over a symbol and \\mathbb{R} whole", () => {
+    expect(caretStepRight("$\\pi +1$", 1)).toBe(5);
+    expect(caretStepRight("$x\\in \\mathbb{R}$", 2)).toBe(6);
+    expect(caretStepRight("$x\\in \\mathbb{R}$", 6)).toBe(16);
+  });
+
+  it("moves one character in plain text", () => {
+    expect(caretStepRight("abc", 1)).toBe(2);
+    expect(caretStepLeft("abc", 1)).toBe(0);
   });
 });

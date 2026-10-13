@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
 import {
   Keyboard,
+  Platform,
   type NativeSyntheticEvent,
   type TextInputSelectionChangeEventData,
 } from "react-native";
@@ -8,7 +9,8 @@ import {
 import { clipboardIsImageOnly } from "@/lib/math/clipboard";
 import {
   autoAdvanceNextEmptySlot,
-  caretForInsert,
+  caretStepLeft,
+  caretStepRight,
   MATH_KEYBOARD_SYMBOLS,
   type MathKeyboardGroup,
   spliceMathInsert,
@@ -35,6 +37,17 @@ function hasEditableMath(text: string): boolean {
   return text.includes("$") && !isMostlyProsePaste(text);
 }
 
+/**
+ * The last height the phone's own keyboard reported. Module scope, so a pad
+ * opened with the keyboard already down still matches it, and the pad is the
+ * same height every time it opens.
+ */
+let lastSystemKeyboardHeight = 0;
+
+function rememberSystemKeyboard(height: number | undefined) {
+  if (height && height > 0) lastSystemKeyboardHeight = height;
+}
+
 export function useMathKeyboardInsert(options: {
   input: string;
   draftRevision?: number;
@@ -57,6 +70,12 @@ export function useMathKeyboardInsert(options: {
   const [resumeMathOnFocus, setResumeMathOnFocus] = useState(false);
   const textRef = useRef(input);
   textRef.current = input;
+
+  useEffect(() => {
+    const event = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const sub = Keyboard.addListener(event, (e) => rememberSystemKeyboard(e.endCoordinates.height));
+    return () => sub.remove();
+  }, []);
 
   const enablePreview = useCallback(() => {
     previewEnabledRef.current = true;
@@ -179,9 +198,9 @@ export function useMathKeyboardInsert(options: {
 
   const openMathBar = useCallback(() => {
     if (mathBarOpenRef.current) return;
-    const measured = Keyboard.metrics()?.height ?? 0;
+    rememberSystemKeyboard(Keyboard.metrics()?.height);
     if (hasEditableMath(textRef.current)) enablePreview();
-    setPadHeight(mathPadHeight(measured >= 200 ? measured : 0));
+    setPadHeight(mathPadHeight(lastSystemKeyboardHeight));
     Keyboard.dismiss();
     resumeMathRef.current = true;
     setResumeMathOnFocus(true);
@@ -210,13 +229,16 @@ export function useMathKeyboardInsert(options: {
         pinSelection({ start: jump, end: jump });
         return;
       }
-      const at = caretForInsert(text, sel.start, spec);
-      const insertAt = at === sel.start ? sel : { start: at, end: at };
-      const result = spliceMathInsert(text, insertAt, spec);
-      const advanced =
-        at === sel.start
-          ? autoAdvanceNextEmptySlot(text, sel.start, result.text, result.selection.start, spec)
-          : null;
+      // A key types into the box the caret is in, operators included: `(x+1)`
+      // stays together. → leaves the box.
+      const result = spliceMathInsert(text, sel, spec);
+      const advanced = autoAdvanceNextEmptySlot(
+        text,
+        sel.start,
+        result.text,
+        result.selection.start,
+        spec,
+      );
       textRef.current = result.text;
       setInput(result.text);
       pinSelection(
@@ -250,6 +272,21 @@ export function useMathKeyboardInsert(options: {
       pinSelection({ start: caret, end: caret });
     },
     [enablePreview, pinSelection, selection, setInput],
+  );
+
+  const stepCaret = useCallback(
+    (direction: "left" | "right") => {
+      const sel = pinRef.current ?? selection;
+      const text = textRef.current;
+      let next: number;
+      if (sel.start !== sel.end) {
+        next = direction === "right" ? sel.end : sel.start;
+      } else {
+        next = direction === "right" ? caretStepRight(text, sel.start) : caretStepLeft(text, sel.start);
+      }
+      pinSelection({ start: next, end: next });
+    },
+    [pinSelection, selection],
   );
 
   const moveCaret = useCallback(
@@ -293,6 +330,7 @@ export function useMathKeyboardInsert(options: {
     backspace,
     pasteText,
     moveCaret,
+    stepCaret,
     symbols: MATH_KEYBOARD_SYMBOLS,
   };
 }

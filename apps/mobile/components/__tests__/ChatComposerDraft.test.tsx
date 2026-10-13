@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Dimensions } from "react-native";
 import * as Clipboard from "expo-clipboard";
-import { fireEvent, render, waitFor } from "@testing-library/react-native";
+import { fireEvent, render, within, waitFor } from "@testing-library/react-native";
 
 import { ChatComposer } from "@/features/chat/components/ChatComposer";
 
@@ -110,7 +110,7 @@ describe("ChatComposer math keyboard", () => {
     expect(queryByTestId("math-draft-preview")).toBeNull();
   });
 
-  it("puts the caret in the numerator, then continues the expression after the fraction", async () => {
+  it("puts the caret in the numerator, then → continues the expression after the fraction", async () => {
     let latest = "";
     function Harness() {
       const [input, setInput] = useState("");
@@ -122,15 +122,13 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-key-frac"));
     expect(getByTestId("math-slot-num-caret")).toBeTruthy();
     expect(getByTestId("math-slot-den-placeholder")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-1"));
     await fireEvent.press(getByTestId("math-slot-den"));
     await fireEvent.press(getByTestId("math-key-digit-2"));
     expect(getByTestId("math-slot-num")).toBeTruthy();
     expect(getByTestId("math-slot-den")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-keyboard-123"));
+    await fireEvent.press(getByTestId("math-key-right"));
     await fireEvent.press(getByTestId("math-key-times"));
-    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-2"));
     expect(latest).toBe("$\\frac{1}{2}\\times 2$");
     expect(getByTestId("math-slot-after")).toBeTruthy();
@@ -187,12 +185,12 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByText } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-sqrt"));
-    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
     expect(getByTestId("math-sqrt")).toBeTruthy();
     expect(getByTestId("math-radical-glyph")).toBeTruthy();
     expect(getByTestId("math-sqrt-radicand")).toBeTruthy();
-    expect(queryByText("√")).toBeNull();
+    // The draft draws the radical; the √ text belongs only to the keys.
+    expect(within(getByTestId("math-draft-preview")).queryByText("√")).toBeNull();
     expect(getByTestId("math-slot-sqrt")).toBeTruthy();
     expect(queryByText(/\\sqrt/)).toBeNull();
   });
@@ -230,10 +228,8 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-nroot"));
-    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-3"));
     expect(getByTestId("math-slot-nroot-index-caret-end")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-nroot"));
     expect(getByTestId("math-slot-sqrt-caret")).toBeTruthy();
   });
@@ -250,7 +246,7 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-keyboard-tab-trig"));
     await fireEvent.press(getByTestId("math-key-deg"));
     expect(latest).toBe("$^{\\circ}$");
-    await fireEvent.press(getByTestId("math-keyboard-123"));
+    await fireEvent.press(getByTestId("math-keyboard-tab-basics"));
     await fireEvent.press(getByTestId("math-key-digit-3"));
     expect(latest).toBe("$3^{\\circ}$");
   });
@@ -280,7 +276,6 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-var-y"));
-    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-comma"));
     expect(getByTestId("chat-composer-input").props.value).toBe("$y,$");
   });
@@ -350,7 +345,6 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
-    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
     await fireEvent.press(getByTestId("math-slot-den"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
@@ -374,7 +368,6 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
-    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
     await fireEvent.press(getByTestId("math-slot-den"));
     await fireEvent.press(getByTestId("math-key-digit-8"));
@@ -398,7 +391,6 @@ describe("ChatComposer math keyboard", () => {
     await fireEvent.press(getByTestId("math-slot-after"));
     expect(queryByTestId("math-slot-before-caret")).toBeNull();
     expect(getByTestId("math-slot-after-caret")).toBeTruthy();
-    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-7"));
     expect(latest).toBe("$|5|997$");
   });
@@ -413,7 +405,6 @@ describe("ChatComposer math keyboard", () => {
     const { getByTestId, queryByTestId } = await render(<Harness />);
     await fireEvent.press(getByTestId("math-keyboard-toggle"));
     await fireEvent.press(getByTestId("math-key-frac"));
-    await fireEvent.press(getByTestId("math-keyboard-123"));
     await fireEvent.press(getByTestId("math-key-digit-9"));
     expect(getByTestId("math-slot-num-caret-end")).toBeTruthy();
     await fireEvent.press(getByTestId("math-keyboard-abc"));

@@ -8,7 +8,7 @@ import {
   MATH_KEYBOARD_SYMBOLS,
   MATH_PAD_KEYS,
   autoAdvanceNextEmptySlot,
-  caretForInsert,
+  caretStepRight,
   converterResultSpec,
   spliceMathInsert,
   tapAdvancesToNextSlot,
@@ -27,13 +27,22 @@ const RAW = /[\\{}]|\b(?:binom|mathrm|mathbf|tfrac|dfrac|frac|sqrt|partial|nabla
 function press(text: string, caret: number, spec: MathKeyboardSymbol) {
   const jump = tapAdvancesToNextSlot(text, caret, spec.id);
   if (jump != null) return { text, caret: jump };
-  const at = caretForInsert(text, caret, spec);
-  const result = spliceMathInsert(text, { start: at, end: at }, spec);
-  const advanced =
-    at === caret
-      ? autoAdvanceNextEmptySlot(text, caret, result.text, result.selection.start, spec)
-      : null;
+  const result = spliceMathInsert(text, { start: caret, end: caret }, spec);
+  const advanced = autoAdvanceNextEmptySlot(text, caret, result.text, result.selection.start, spec);
   return { text: result.text, caret: advanced ?? result.selection.start };
+}
+
+/** Key ids, or `→` to step right, typed from an empty composer. */
+function typeKeys(keys: string[]): string {
+  let state = { text: "", caret: 0 };
+  for (const id of keys) {
+    if (id === "→") {
+      state = { text: state.text, caret: caretStepRight(state.text, state.caret) };
+      continue;
+    }
+    state = press(state.text, state.caret, SPECS.find((spec) => spec.id === id)!);
+  }
+  return state.text;
 }
 
 function del(text: string, caret: number) {
@@ -224,6 +233,7 @@ describe("math keyboard keys", () => {
         height={320}
         onToggle={() => inserted.push("abc")}
         onInsert={(spec) => inserted.push(spec.id)}
+        onCaret={(direction) => inserted.push(direction)}
         onAsk={() => inserted.push("ask")}
         onStop={() => inserted.push("stop")}
         streaming={false}
@@ -256,28 +266,40 @@ describe("math keyboard keys", () => {
         ids.add(spec.id);
         seen.add(spec.id);
       }
-      if (root.container.queryAll((node) => node.props.testID === "math-key-backspace").length > 0) {
-        pressTestId("math-key-backspace");
-      }
-      if (root.container.queryAll((node) => node.props.testID === "math-keyboard-123").length > 0) {
-        pressTestId("math-keyboard-123");
-        for (const spec of SPECS) {
-          const node = root.container.queryAll((item) => item.props.testID === `math-key-${spec.id}`);
-          if (node.length === 0) continue;
-          pressTestId(`math-key-${spec.id}`);
-          seen.add(spec.id);
-        }
-      }
-      expect(ids.size).toBeGreaterThan(0);
+      pressTestId("math-key-backspace");
+      pressTestId("math-key-left");
+      pressTestId("math-key-right");
+      expect(ids.size).toBe(33);
     }
     expect(inserted).toContain("paste");
     expect(inserted).toContain("backspace");
+    expect(inserted).toContain("left");
+    expect(inserted).toContain("right");
     expect(inserted).toContain("frac");
     expect(inserted).toContain("sin");
     expect(inserted).toContain("int");
     expect(inserted).toContain("alpha");
     const missing = SPECS.map((spec) => spec.id).filter((id) => !seen.has(id));
     expect(missing).toEqual([]);
+  });
+
+  it.each([
+    ["2(x+3)", ["digit-2", "parens", "var-x", "plus", "digit-3"], "$2(x+3)$"],
+    ["(x+1)(x−1)", ["parens", "var-x", "plus", "digit-1", "→", "parens", "var-x", "minus", "digit-1"], "$(x+1)(x-1)$"],
+    ["√(x+1)", ["sqrt", "var-x", "plus", "digit-1"], "$\\sqrt{x+1}$"],
+    ["x^(y+1)", ["sup", "var-y", "plus", "digit-1"], "$x^{y+1}$"],
+    ["|x−3|", ["abs", "var-x", "minus", "digit-3"], "$|x-3|$"],
+    ["sin(x+π) + 1", ["sin", "var-x", "plus", "pi", "→", "plus", "digit-1"], "$\\sin(x+\\pi )+1$"],
+    ["x² y", ["sq", "var-y"], "$x^{2}y$"],
+    ["x^n then y", ["sup", "var-x", "→", "var-y"], "$x^{x}y$"],
+    ["∫ from 0 to 1", ["dint", "digit-0", "dint", "digit-1"], "$\\int_{0}^{1}$"],
+    ["∫ bounds by →", ["dint", "digit-0", "→", "digit-1", "→", "var-x"], "$\\int_{0}^{1}x$"],
+    ["∑ n=1 to 5", ["sum", "var-y", "eq", "digit-1", "sum", "digit-5"], "$\\sum_{y=1}^{5}$"],
+    ["nCr 5 2", ["binom", "digit-5", "binom", "digit-2"], "$\\binom{5}{2}$"],
+    ["lim x→0 of x", ["lim", "var-x", "to", "digit-0", "→", "var-x"], "$\\lim_{x\\to 0}x$"],
+    ["1/2 + 1", ["frac", "digit-1", "frac", "digit-2", "→", "plus", "digit-1"], "$\\frac{1}{2}+1$"],
+  ])("types %s with the keys", (_name, keys, expected) => {
+    expect(typeKeys(keys)).toBe(expected);
   });
 
   it("types every converter key, then deletes the inserted result", async () => {
