@@ -139,7 +139,7 @@ function makeStyles(C: Theme) {
     removeBtnCircle: {
       width: 22,
       height: 22,
-      borderRadius: 11,
+      borderRadius: Radius.full,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: C.bg,
@@ -151,7 +151,7 @@ function makeStyles(C: Theme) {
       alignItems: "center",
       gap: Space.xs,
       marginBottom: Space.xs,
-      paddingHorizontal: 10,
+      paddingHorizontal: Space.sm,
       paddingVertical: Space.xs,
       borderRadius: Radius.md,
       backgroundColor: C.surfaceAlt,

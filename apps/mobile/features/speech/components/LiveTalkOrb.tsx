@@ -16,6 +16,8 @@ import Animated, {
 import { liveTalkOrbMode, type LiveTalkPhase } from "@/features/speech/model/liveTalkLogic";
 import { Motion } from "@/lib/motion";
 import { Theme, withAlpha } from "@/lib/theme";
+import { Space } from "@/lib/space";
+import { Radius } from "@/lib/radius";
 
 const STAGE = 236;
 const CORE = 128;
@@ -262,13 +264,13 @@ function makeOrbStyles(theme: Theme) {
     eyes: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 9,
+      gap: Space.xs,
       marginTop: -14,
     },
     eye: {
       width: 11,
       height: 24,
-      borderRadius: 6,
+      borderRadius: Radius.full,
       // The eyes sit mid-orb, on the accent: white on indigo (5.5:1), and near-black
       // on dark mode's pale accent (10:1), where white was 1.9:1.
       backgroundColor: theme.onPrimary,

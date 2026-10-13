@@ -92,12 +92,12 @@ function makeStyles(t: Theme) {
       justifyContent: "space-between",
       gap: Space.xs,
       paddingHorizontal: Space.sm,
-      paddingTop: 10,
+      paddingTop: Space.sm,
       paddingBottom: Space.xxs,
     },
-    labelRow: { flexDirection: "row", alignItems: "center", gap: 6, flex: 1 },
+    labelRow: { flexDirection: "row", alignItems: "center", gap: Space.xs, flex: 1 },
     label: { ...Type.compact, ...Weight.semibold, color: t.textSecondary },
     headerActions: { flexDirection: "row", alignItems: "center", gap: 2 },
-    body: { paddingHorizontal: Space.sm, paddingVertical: 10 },
+    body: { paddingHorizontal: Space.sm, paddingVertical: Space.sm },
   });
 }

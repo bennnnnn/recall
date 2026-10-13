@@ -152,7 +152,7 @@ function makeStyles(theme: Theme) {
       alignSelf: "center",
       flexDirection: "row",
       borderRadius: Radius.full,
-      padding: 3,
+      padding: Space.xxs,
       overflow: "hidden",
       backgroundColor: withAlpha(theme.mediaScrim, 0.68),
       borderWidth: StyleSheet.hairlineWidth,

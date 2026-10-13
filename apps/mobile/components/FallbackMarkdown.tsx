@@ -156,7 +156,7 @@ function makeMdStyles(t: Theme) {
     code_inline: inlineCodeTextStyle(t),
     // The reply's heading ladder: never smaller than body text (h4–h6 were 15/14/13).
     heading1: { ...Type.h1, marginVertical: Space.xs, color: t.text },
-    heading2: { ...Type.h2, marginVertical: 6, color: t.text },
+    heading2: { ...Type.h2, marginVertical: Space.xs, color: t.text },
     heading3: { ...Type.h3, marginVertical: Space.xxs, color: t.text },
     heading4: { ...Type.h4, marginVertical: Space.xxs, color: t.text },
     heading5: { ...Type.h5, marginVertical: 2, color: t.text },
@@ -214,7 +214,7 @@ function makeCalloutStyles(t: Theme) {
       borderLeftColor: t.primary,
       borderRadius: Radius.xs,
       paddingHorizontal: Space.sm,
-      paddingVertical: 10,
+      paddingVertical: Space.sm,
       marginVertical: Space.xs,
     },
     label: {

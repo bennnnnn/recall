@@ -277,8 +277,8 @@ const makeStyles = (t: Theme) =>
     box: {
       alignSelf: "center",
       maxWidth: "100%",
-      paddingVertical: 10,
-      paddingHorizontal: 18,
+      paddingVertical: Space.sm,
+      paddingHorizontal: Space.md,
       backgroundColor: t.bg,
       borderRadius: Radius.sm,
       alignItems: "center",
@@ -294,10 +294,10 @@ const makeStyles = (t: Theme) =>
     boxStretch: {
       flex: 1,
       alignItems: "stretch",
-      paddingHorizontal: 10,
+      paddingHorizontal: Space.sm,
     },
     successCheck: {
-      marginLeft: 6,
+      marginLeft: Space.xs,
     },
     // Hosts a nested math View (sqrt/frac) as a direct child so iOS doesn't
     // clip it to a Text line box. Centers the run like the `answer` Text would.

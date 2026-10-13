@@ -101,12 +101,12 @@ const makeStyles = (theme: Theme) =>
     legendItem: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
+      gap: Space.xs,
     },
     legendDot: {
       width: 8,
       height: 8,
-      borderRadius: 4,
+      borderRadius: Radius.full,
     },
     legendText: {
       fontFamily: CODE_FONT,

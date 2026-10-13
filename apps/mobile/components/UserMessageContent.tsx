@@ -153,7 +153,7 @@ function makeStyles(C: Theme) {
     fileChip: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
+      gap: Space.xs,
       paddingHorizontal: 2,
       paddingVertical: 2,
     },

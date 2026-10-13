@@ -122,8 +122,8 @@ export function InequalityGraphChart({ spec, width }: { spec: InequalityGraphSpe
 
 const styles = StyleSheet.create({
   wrap: { marginVertical: Space.xs, alignItems: "center", maxWidth: "100%" },
-  title: { ...Type.callout, marginBottom: 6, textAlign: "center" },
-  legend: { gap: 6, alignSelf: "stretch", paddingHorizontal: PAD },
+  title: { ...Type.callout, marginBottom: Space.xs, textAlign: "center" },
+  legend: { gap: Space.xs, alignSelf: "stretch", paddingHorizontal: PAD },
   legendItem: { flexDirection: "row", alignItems: "center", gap: Space.xs },
   legendText: { ...Type.meta, lineHeight: 17, flexShrink: 1 },
   swatch: { width: 24, height: 12, borderRadius: 2 },

@@ -3,6 +3,7 @@ import { StyleSheet } from "react-native";
 
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { lightTheme } from "@/lib/theme";
+import { Space } from "@/lib/space";
 
 const mockFormula = jest.fn((_props: Record<string, unknown>) => null);
 
@@ -76,7 +77,7 @@ describe("AnswerBlock", () => {
     const row = getByTestId("answer-row");
     const check = getByTestId("answer-success-check");
     expect(check.parent).toBe(row);
-    expect(StyleSheet.flatten(check.props.style)).toMatchObject({ marginLeft: 6 });
+    expect(StyleSheet.flatten(check.props.style)).toMatchObject({ marginLeft: Space.xs });
   });
 
   it("BUG FIX regression: two roots joined with or stay on MathText so the last root is not clipped", async () => {

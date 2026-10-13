@@ -232,7 +232,7 @@ function makeStyles(t: Theme) {
       zIndex: 3,
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
+      gap: Space.xs,
       borderRadius: Radius.xs,
       // Masks a long first line that scrolls under the buttons.
       backgroundColor: t.codeBg,
@@ -266,7 +266,7 @@ function makeStyles(t: Theme) {
       justifyContent: "flex-end",
       gap: Space.xxs,
       paddingHorizontal: Space.xs,
-      paddingVertical: 6,
+      paddingVertical: Space.xs,
       borderTopWidth: StyleSheet.hairlineWidth,
       borderTopColor: t.border,
       backgroundColor: t.surface,

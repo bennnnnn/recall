@@ -241,7 +241,7 @@ function makeStyles(t: Theme) {
       borderWidth: 1,
       borderColor: t.border,
       paddingHorizontal: Space.sm,
-      paddingVertical: 10,
+      paddingVertical: Space.sm,
       ...Type.body,
       color: t.text,
     },

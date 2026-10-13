@@ -198,7 +198,7 @@ function makeStyles(theme: Theme) {
       alignItems: "center",
       paddingVertical: Space.gutter,
       paddingHorizontal: Space.md,
-      marginVertical: 6,
+      marginVertical: Space.xs,
     },
     clockStage: {
       width: SIZE,
@@ -215,13 +215,13 @@ function makeStyles(theme: Theme) {
       borderColor: theme.primary,
     },
     date: {
-      marginTop: 14,
+      marginTop: Space.sm,
       ...Type.label,
       color: theme.text,
       textAlign: "center",
     },
     digitalTime: {
-      marginTop: 6,
+      marginTop: Space.xs,
       ...Type.h1,
       color: theme.primary,
       textAlign: "center",

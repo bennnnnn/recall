@@ -22,6 +22,7 @@ import { openAllowedUrl } from "@/lib/linkSchemePolicy";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   visible: boolean;
@@ -229,7 +230,7 @@ const makeStyles = (theme: Theme) =>
     iconWrap: {
       width: 52,
       height: 52,
-      borderRadius: 26,
+      borderRadius: Radius.full,
       backgroundColor: theme.primaryLight,
       alignItems: "center",
       justifyContent: "center",

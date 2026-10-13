@@ -43,7 +43,7 @@ function makeStyles(t: Theme) {
       flexDirection: "row",
       gap: Space.sm,
       paddingHorizontal: Space.sm,
-      paddingVertical: 10,
+      paddingVertical: Space.sm,
       // Key (14pt) and value (15pt) share a first baseline.
       alignItems: "baseline",
     },

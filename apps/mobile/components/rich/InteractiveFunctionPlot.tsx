@@ -704,12 +704,12 @@ const makeExplorerStyles = (theme: Theme) =>
     row: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 6,
+      gap: Space.xs,
     },
     swatch: {
       width: 8,
       height: 8,
-      borderRadius: 4,
+      borderRadius: Radius.full,
     },
     expr: {
       flex: 1,

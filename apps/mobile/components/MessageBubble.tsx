@@ -536,7 +536,7 @@ const a = StyleSheet.create({
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    row: { marginVertical: 6, paddingHorizontal: Space.md },
+    row: { marginVertical: Space.xs, paddingHorizontal: Space.md },
     rowHighlighted: {
       backgroundColor: t.primaryLight,
       borderRadius: Radius.md,
@@ -562,7 +562,7 @@ function makeStyles(t: Theme) {
     waitingWrap: {
       flexDirection: "row",
       alignItems: "center",
-      gap: 10,
+      gap: Space.xs,
       paddingVertical: Space.xxs,
     },
     imageGenWaitingWrap: {

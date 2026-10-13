@@ -107,7 +107,7 @@ export function makeConversationListStyles(theme: Theme) {
     },
     navBadge: { position: "absolute", top: -6, right: -10 },
     list: { flex: 1 },
-    section: { marginTop: 18 },
+    section: { marginTop: Space.md },
     sectionTitle: {
       ...Type.overline,
       color: theme.textTertiary,
@@ -118,7 +118,7 @@ export function makeConversationListStyles(theme: Theme) {
       flexDirection: "row",
       alignItems: "center",
       gap: Space.xs,
-      marginTop: 18,
+      marginTop: Space.md,
       paddingHorizontal: Space.md,
       paddingVertical: Space.xxs,
     },

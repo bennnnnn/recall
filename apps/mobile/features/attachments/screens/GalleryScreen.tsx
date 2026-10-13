@@ -11,6 +11,7 @@ import {
 import { FlashList } from "@shopify/flash-list";
 import { useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { GalleryColumnRow } from "@/features/attachments/components/GalleryColumnRow";
 import { GalleryLibraryHeader } from "@/features/attachments/components/GalleryLibraryHeader";
@@ -40,6 +41,7 @@ export default function GalleryScreen() {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
+  const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const thumbSize = galleryThumbSize(width - Space.md * 2, GALLERY_GRID_COLUMNS, Space.xs);
   const pickParam = useLocalSearchParams<{ pick?: string | string[] }>().pick;
@@ -165,7 +167,7 @@ export default function GalleryScreen() {
           data={items}
           keyExtractor={(item) => item.id}
           numColumns={library.layout === "grid" ? GALLERY_GRID_COLUMNS : 1}
-          contentContainerStyle={s.content}
+          contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.xl }]}
           ItemSeparatorComponent={
             library.layout === "grid" ? () => <View style={s.gridGap} /> : undefined
           }
@@ -214,7 +216,6 @@ function makeStyles(C: Theme) {
     root: { flex: 1, backgroundColor: C.bg },
     content: {
       paddingHorizontal: Space.md,
-      paddingBottom: 96,
     },
     gridGap: { height: Space.xs },
     footer: {
@@ -228,7 +229,7 @@ function makeStyles(C: Theme) {
       borderColor: C.border,
       alignItems: "center",
       justifyContent: "center",
-      gap: 6,
+      gap: Space.xs,
     },
     fileLabel: {
       ...Type.overline,

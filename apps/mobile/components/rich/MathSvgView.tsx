@@ -115,7 +115,7 @@ const styles = StyleSheet.create({
     width: "100%",
   },
   fallbackBox: {
-    paddingVertical: 10,
+    paddingVertical: Space.sm,
     paddingHorizontal: Space.xxs,
   },
   lineScroll: {

@@ -55,7 +55,7 @@ function makeStyles(C: Theme) {
     iconWrap: {
       width: 38,
       height: 38,
-      borderRadius: 19,
+      borderRadius: Radius.full,
       alignItems: "center",
       justifyContent: "center",
       backgroundColor: C.surface,

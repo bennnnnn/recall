@@ -7,6 +7,7 @@ import { CountBadge } from "@/ui/feedback/CountBadge";
 import { Theme, useTheme } from "@/lib/theme";
 import { formatScrollAwayBadge } from "@/features/chat/model/scrollLogic";
 import { IconSize } from "@/ui/icons/sizes";
+import { Radius } from "@/lib/radius";
 
 type Props = {
   visible: boolean;
@@ -55,7 +56,7 @@ const makeS = (C: Theme) =>
     button: {
       width: 44,
       height: 44,
-      borderRadius: 22,
+      borderRadius: Radius.full,
       backgroundColor: C.surface,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: C.border,

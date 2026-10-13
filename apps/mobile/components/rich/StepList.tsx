@@ -34,10 +34,10 @@ export function StepList({ steps }: Props) {
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
-    wrap: { marginTop: 0, marginBottom: PARAGRAPH_GAP, gap: 10 },
+    wrap: { marginTop: 0, marginBottom: PARAGRAPH_GAP, gap: Space.sm },
     row: {
       flexDirection: "row",
-      gap: 10,
+      gap: Space.sm,
       alignItems: "flex-start",
     },
     // Grows into a pill when large text makes the number wider than 24pt.

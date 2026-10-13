@@ -82,7 +82,7 @@ export function makeMdMath(t: Theme) {
       backgroundColor: t.text,
       // Size and drop follow the text size: see bulletDiscMetrics.
       marginTop: Space.xs,
-      marginRight: 10,
+      marginRight: Space.sm,
       marginLeft: 2,
       flexShrink: 0,
     },
@@ -110,7 +110,7 @@ export function makeMdImg(t: Theme) {
       width: "100%",
       height: 200,
       borderRadius: Radius.md,
-      marginVertical: 6,
+      marginVertical: Space.xs,
       backgroundColor: t.contentSurface,
     },
   });

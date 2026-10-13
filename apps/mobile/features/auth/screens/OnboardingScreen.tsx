@@ -126,7 +126,7 @@ function makeStyles(theme: Theme) {
       textAlign: "center",
     },
     features: { gap: Space.gutter, marginBottom: Space.xl + Space.xs },
-    feature: { flexDirection: "row", alignItems: "flex-start", gap: 14 },
+    feature: { flexDirection: "row", alignItems: "flex-start", gap: Space.sm },
     featureIcon: {
       width: 40,
       height: 40,
