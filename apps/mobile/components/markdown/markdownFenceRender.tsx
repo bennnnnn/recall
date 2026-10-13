@@ -20,6 +20,8 @@ import {
   looksLikeMathMeta,
   shouldHideCopyOnCodeFallback,
 } from "@/lib/fenceDispatch";
+import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
+import { useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 
 // `tokenIndex` (and `index`) come from react-native-markdown-display's AST
@@ -40,12 +42,18 @@ export type FenceNode = {
   index?: number;
 };
 
-function neverCodeBlockFallback(key: string, content: string) {
+/** Prose from a draft fence, drawn like a reply paragraph (it had no color, so black in dark mode). */
+function NeverCodeBlockFallback({ content }: { content: string }) {
+  const t = useTheme();
   return (
-    <Text key={key} selectable style={Type.body}>
+    <Text selectable style={[Type.body, { color: t.assistantText, marginBottom: PARAGRAPH_GAP }]}>
       {content}
     </Text>
   );
+}
+
+function neverCodeBlockFallback(key: string, content: string) {
+  return <NeverCodeBlockFallback key={key} content={content} />;
 }
 
 function renderFenceInner(

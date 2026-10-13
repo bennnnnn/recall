@@ -7,6 +7,7 @@ import { CodeBlock } from "@/components/CodeBlock";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { MathText } from "@/components/rich/MathText";
 import { StreamingCursor, withStreamCaret } from "@/components/StreamingCursor";
+import { compactMdStyles } from "@/components/markdown/markdownContentStyles";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
 import { markdownItInstance } from "@/lib/markdown/parser";
 import { preprocessMarkdown } from "@/lib/markdown/preprocess";
@@ -30,7 +31,13 @@ import { draftFenceProseText } from "@/lib/copyBlock";
 import { useTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
 
-type Props = { content: string; streaming?: boolean; mathFormat?: (expr: string) => string };
+type Props = {
+  content: string;
+  streaming?: boolean;
+  mathFormat?: (expr: string) => string;
+  /** A sent bubble: no space under the last block, so the padding is even. */
+  compact?: boolean;
+};
 
 type MarkdownChunkProps = {
   content: string;
@@ -89,9 +96,16 @@ function tailPaintsBlock(kind: "fence" | "math" | "other", preview: OpenFencePre
   return preview === "answer" || preview === "math" || preview === "code";
 }
 
-export function MarkdownContent({ content, streaming = false, mathFormat }: Props) {
+export function MarkdownContent({ content, streaming = false, mathFormat, compact = false }: Props) {
   const t = useTheme();
-  const { rules, mdStyles } = useMemo(() => makeRenderRules(t, streaming), [t, streaming]);
+  const { rules, mdStyles: replyStyles } = useMemo(
+    () => makeRenderRules(t, streaming),
+    [t, streaming],
+  );
+  const mdStyles = useMemo(
+    () => (compact ? compactMdStyles(replyStyles) : replyStyles),
+    [compact, replyStyles],
+  );
   // Streaming input arrives already throttled at the draft→UI boundary
   // (useStreamingDraft, ~30fps), so parse immediately — a second throttle here
   // only added latency. Settled chunks parse once ever; per flush, only the

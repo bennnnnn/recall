@@ -86,7 +86,7 @@ function ComposerImagePreview({ attachment, uploading, onRemove }: Props) {
         />
         {uploading ? (
           <View style={s.uploadOverlay}>
-            <ActivityIndicator color={C.onPrimary} />
+            <ActivityIndicator color={C.onMedia} />
           </View>
         ) : null}
       </View>

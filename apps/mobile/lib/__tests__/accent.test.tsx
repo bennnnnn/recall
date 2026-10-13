@@ -34,8 +34,9 @@ describe("accent presets", () => {
       expect(contrast(theme.onPrimary, theme.primaryDark)).toBeGreaterThanOrEqual(4.5);
       // The user's own messages.
       expect(contrast(theme.userText, theme.userBubble)).toBeGreaterThanOrEqual(7);
-      // Selected text on a soft accent well.
+      // Selected text on a soft accent well: plain ink and accent ink (a selected chip).
       expect(contrast(theme.text, theme.primaryLight)).toBeGreaterThanOrEqual(7);
+      expect(contrast(theme.primary, theme.primaryLight)).toBeGreaterThanOrEqual(4.5);
     }
   });
 

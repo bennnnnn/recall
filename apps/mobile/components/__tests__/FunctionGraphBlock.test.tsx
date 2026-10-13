@@ -2,6 +2,7 @@ import { fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
 import { FunctionGraphBlock } from "@/components/rich/FunctionGraphBlock";
+import { lightTheme } from "@/lib/theme";
 
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
@@ -47,7 +48,7 @@ describe("FunctionGraphBlock", () => {
     expect(card.padding).toBe(12);
     expect(card.shadowOpacity).toBeUndefined();
     expect(card.elevation).toBeUndefined();
-    expect(plot.borderColor).toBe("#E4E6FF");
+    expect(plot.borderColor).toBe(lightTheme.primaryLight);
     expect(plot.borderWidth).toBe(1);
     expect(plot.borderRadius).toBeGreaterThanOrEqual(12);
     expect(plot.backgroundColor).toBe("#F7F7F8");

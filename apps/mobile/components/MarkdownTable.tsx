@@ -152,7 +152,9 @@ export function MarkdownTable({ nodeKey, columns, children }: Props) {
             directionalLockEnabled
             bounces={false}
             overScrollMode="never"
-            showsHorizontalScrollIndicator={false}
+            // A wide table's cut-off column needs a cue that the row scrolls.
+            showsHorizontalScrollIndicator={scrollable}
+            persistentScrollbar={scrollable}
             scrollEnabled={scrollable}
             style={[s.scroll, { maxWidth: layoutW }]}
             contentContainerStyle={
@@ -222,7 +224,8 @@ function FrozenFirstColumnTable({
         directionalLockEnabled
         bounces={false}
         overScrollMode="never"
-        showsHorizontalScrollIndicator={false}
+        showsHorizontalScrollIndicator
+        persistentScrollbar
         style={s.scroll}
         contentContainerStyle={{ width: columnWidth * restCols }}
       >

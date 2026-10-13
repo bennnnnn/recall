@@ -123,11 +123,11 @@ export const lightTheme: Theme = {
   isDark: false,
 
   primary: "#4F56E5",
-  primaryLight: "#E4E6FF",
+  primaryLight: "#EAEBFF",
   primaryDark: "#3E45C9",
 
   accent: "#4F56E5",
-  accentLight: "#E4E6FF",
+  accentLight: "#EAEBFF",
   accentDark: "#3E45C9",
 
   bg: "#FFFFFF",
@@ -158,7 +158,7 @@ export const lightTheme: Theme = {
 
   danger: "#D92D20",
   onDanger: "#FFFFFF",
-  dangerLight: "#FDECEC",
+  dangerLight: "#FFF5F5",
   warning: "#B54708",
   onWarning: "#FFFFFF",
   success: "#16845B",
@@ -229,7 +229,7 @@ export const darkTheme: Theme = {
 
   codeBg: "#171719",
   codeText: "#F5F5F6",
-  codeLang: "#7B7B83",
+  codeLang: "#8E8E96",
 
   scrim: "rgba(0,0,0,0.60)",
   wash: "rgba(0,0,0,0.45)",

@@ -599,7 +599,7 @@ function makeSharedRules(
               name="square"
               size={IconSize.sm}
               color={t.textTertiary}
-              style={{ marginTop: 2 }}
+              style={{ marginTop: 2, marginRight: Space.xs }}
             />
             <View style={styles._VIEW_SAFE_bullet_list_content as object}>
               {children}
@@ -625,7 +625,15 @@ function makeSharedRules(
       if (immediateAncestorType(parent) === "bullet_list") {
         return (
           <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
-            {listItemHasNestedList(node) ? null : (
+            {listItemHasNestedList(node) ? (
+              // No disc on a parent topic, but keep its column: the label lines
+              // up with its siblings' text and the sub-bullets indent under it.
+              <View
+                style={[mdMath.listBullet, mdMath.listBulletSpacer]}
+                accessible={false}
+                testID="md-list-bullet-spacer"
+              />
+            ) : (
               <View
                 style={mdMath.listBullet}
                 accessible={false}
