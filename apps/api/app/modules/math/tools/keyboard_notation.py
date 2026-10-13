@@ -99,7 +99,7 @@ def keyboard_math_to_plain(text: str) -> str:
     """Each ``$…$`` span in the plain notation the extractors read."""
     from app.modules.math.solve.parse import _normalize_latex_to_sympy
 
-    if "$" not in text or "\\" not in text:
+    if "$" not in text or ("\\" not in text and "{" not in text):
         return text
 
     def plain(match: re.Match[str]) -> str:

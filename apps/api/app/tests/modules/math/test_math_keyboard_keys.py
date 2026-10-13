@@ -111,6 +111,12 @@ def test_keyboard_latex_reads_as_plain_notation(typed: str, plain: str) -> None:
         (r"simplify $(2+3\mathrm{i})(2-3\mathrm{i})$", "13"),
         (r"calculate $|-7|$", "7"),
         (r"calculate $\log(1000)$", "3"),
+        # Sent bare, as the keypad sends them.
+        (r"$12\div 4$", "3"),
+        (r"$e^{0}$", "1"),
+        (r"$\ln(e^{2})$", "2"),
+        (r"$\mathrm{i}^{2}$", "-1"),
+        (r"$2\pi \times 3$", r"6 \pi"),
         # A typed i is still a variable, as an index usually is.
         ("simplify i^2", "i^{2}"),
     ],
