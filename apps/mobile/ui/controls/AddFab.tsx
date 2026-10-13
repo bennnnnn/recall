@@ -16,10 +16,11 @@ import { tap } from "@/lib/haptics";
 import { useReduceMotion } from "@/lib/motion";
 import { Radius } from "@/lib/radius";
 import { shadowElevated } from "@/lib/shadow";
+import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "../icons/sizes";
+import { FAB_SIZE, fabBottom } from "./addFabLayout";
 
-const FAB_SIZE = 56;
 const WAVE_MS = 1800;
 
 type Props = {
@@ -37,12 +38,12 @@ export function AddFab({ onPress, accessibilityLabel, wave = false }: Props) {
   const s = makeStyles(theme);
   // Android activity resize already shrinks the window — only lift on iOS.
   const keyboardLift = Platform.OS === "ios" ? keyboardHeight : 0;
-  const bottom = Math.max(insets.bottom, 12) + 8 + keyboardLift;
+  const bottom = fabBottom(insets.bottom) + keyboardLift;
 
   return (
     <View
       pointerEvents="box-none"
-      style={[s.slot, { bottom, right: 16 + insets.right }]}
+      style={[s.slot, { bottom, right: Space.md + insets.right }]}
     >
       {wave ? <FabWave color={theme.primary} /> : null}
       <Pressable

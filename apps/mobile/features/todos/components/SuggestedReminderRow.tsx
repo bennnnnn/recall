@@ -96,7 +96,7 @@ function makeStyles(C: Theme) {
     snippet: { ...Type.compact, color: C.textSecondary, marginTop: Space.xxs },
     actions: { flexDirection: "row", gap: Space.sm, marginTop: Space.sm },
     addButton: {
-      minHeight: 40,
+      minHeight: Space.minTouch,
       justifyContent: "center",
       paddingHorizontal: Space.md,
       borderRadius: Radius.sm,
@@ -104,8 +104,8 @@ function makeStyles(C: Theme) {
     },
     addText: { ...Type.label, color: C.onPrimary },
     dismissButton: {
-      minHeight: 40,
-      minWidth: 44,
+      minHeight: Space.minTouch,
+      minWidth: Space.minTouch,
       justifyContent: "center",
       alignItems: "center",
       paddingHorizontal: Space.xs,

@@ -134,7 +134,6 @@ function makeStyles(t: Theme) {
       width: 22,
       paddingTop: 1,
       ...Type.body,
-      lineHeight: 22,
       ...Weight.semibold,
       color: t.text,
     },
@@ -145,7 +144,6 @@ function makeStyles(t: Theme) {
     },
     name: {
       ...Type.body,
-      lineHeight: 22,
       ...Weight.semibold,
       color: t.text,
       textDecorationLine: "underline",
@@ -171,7 +169,6 @@ function makeStyles(t: Theme) {
     address: {
       flexShrink: 1,
       ...Type.compact,
-      lineHeight: 18,
       color: t.textTertiary,
     },
   });
@@ -186,12 +183,10 @@ function makeSheetStyles(t: Theme) {
     title: {
       ...Type.h2,
       color: t.text,
-      lineHeight: 23,
     },
     note: {
       ...Type.callout,
       ...Weight.regular,
-      lineHeight: 21,
       color: t.textSecondary,
     },
     metaRow: {
@@ -207,7 +202,6 @@ function makeSheetStyles(t: Theme) {
     address: {
       flexShrink: 1,
       ...Type.secondary,
-      lineHeight: 19,
       color: t.textTertiary,
     },
     openBtn: {

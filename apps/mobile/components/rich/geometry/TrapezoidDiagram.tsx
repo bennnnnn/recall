@@ -12,6 +12,7 @@ import {
 } from "@/lib/math/geometryBlock";
 import i18n from "@/lib/i18n";
 import { type Theme } from "@/lib/theme";
+import { UI_FONT } from "@/lib/uiFont";
 
 export function TrapezoidDiagram({
   spec,
@@ -71,7 +72,7 @@ export function TrapezoidDiagram({
             theme={theme}
           />
           {labels.area ? (
-            <SvgText x={(bl.x + br.x) / 2} y={bl.y + 34} fill={theme.textSecondary} fontSize={12} textAnchor="middle">
+            <SvgText x={(bl.x + br.x) / 2} y={bl.y + 34} fill={theme.textSecondary} fontSize={12} fontFamily={UI_FONT.regular} textAnchor="middle">
               {`${i18n.t("rich.area")}\u00A0${labels.area}`}
             </SvgText>
           ) : null}

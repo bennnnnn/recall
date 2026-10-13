@@ -37,7 +37,10 @@ export function Avatar({
   }
   return (
     <View style={[dim, styles.fallback]}>
-      <Text style={[styles.text, { fontSize: size * 0.4 }]}>{getInitials(name)}</Text>
+      {/* The circle is a fixed size, so its initials are too. */}
+      <Text style={[styles.text, { fontSize: size * 0.4 }]} allowFontScaling={false}>
+        {getInitials(name)}
+      </Text>
     </View>
   );
 }

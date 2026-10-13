@@ -232,11 +232,8 @@ function makeStyles(t: Theme) {
     gmailBtnBusy: { opacity: 0.6 },
     body: { gap: Space.xs },
     fieldLabel: {
-      ...Type.caption,
-      ...Weight.bold,
+      ...Type.overline,
       color: t.textTertiary,
-      textTransform: "uppercase",
-      letterSpacing: 0.4,
     },
     input: {
       backgroundColor: t.bg,
@@ -254,7 +251,6 @@ function makeStyles(t: Theme) {
     subject: {
       ...Type.body,
       ...Weight.bold,
-      lineHeight: 22,
       color: t.text,
     },
     // The same quiet key as "To", so both fields read as label + value.

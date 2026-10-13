@@ -246,12 +246,7 @@ function makeStyles(t: Theme) {
       borderBottomColor: t.border,
       maxHeight: 200,
     },
-    sourceText: {
-      fontFamily: CODE_FONT,
-      fontSize: 11,
-      lineHeight: 17,
-      color: t.textSecondary,
-    },
+    sourceText: { ...Type.meta, fontFamily: CODE_FONT, lineHeight: 18, color: t.textSecondary },
     iconBtn: {
       width: 32,
       height: 32,

@@ -263,12 +263,10 @@ function makeSheetStyles(theme: Theme) {
     rowTitle: {
       ...Type.callout,
       color: theme.text,
-      lineHeight: 20,
     },
     snippet: {
       ...Type.compact,
       color: theme.textSecondary,
-      lineHeight: 18,
       marginTop: 2,
     },
   });

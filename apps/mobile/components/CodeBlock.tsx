@@ -190,7 +190,8 @@ export function CodeBlock({
         <Pressable
           style={s.expandBtn}
           onPress={() => setExpanded((v) => !v)}
-          hitSlop={6}
+          // The bar is about 31pt tall; 8pt above and below make 44.
+          hitSlop={Space.xs}
           accessibilityRole="button"
           accessibilityLabel={expanded ? tr("common.show_less") : tr("common.show_more")}
         >

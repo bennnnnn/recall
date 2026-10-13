@@ -79,6 +79,25 @@ export function numberColumnWidth(largest: number, fontScale: number): number {
   return Math.max(MIN_NUMBER_COLUMN, needed);
 }
 
+/** Source Sans 3's line box: (ascender 1024 + descender 400) / 1000 em. */
+const BODY_LINE_RATIO = 1.424;
+const BODY_FONT_SIZE = 16;
+const BULLET_SIZE = 6;
+/** The disc stops growing here, like a control beside a 44pt target. */
+const BULLET_SCALE_MAX = 1.5;
+
+/**
+ * The list disc at the reader's text size: a little larger with the text, and
+ * centered on the first line, which grows with it. A fixed 8pt drop sat high
+ * once the line box was taller than 22pt.
+ */
+export function bulletDiscMetrics(fontScale: number): { size: number; top: number } {
+  const scale = Math.max(1, fontScale);
+  const size = Math.round(BULLET_SIZE * Math.min(scale, BULLET_SCALE_MAX));
+  const line = BODY_FONT_SIZE * scale * BODY_LINE_RATIO;
+  return { size, top: Math.max(0, Math.round((line - size) / 2)) };
+}
+
 export function listItemDisplayNumber(parent: unknown, index: number): number {
   if (!Array.isArray(parent) || parent.length === 0) return index + 1;
   const list = parent[0] as { attributes?: { start?: number } };

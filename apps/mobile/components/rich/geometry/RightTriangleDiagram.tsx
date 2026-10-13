@@ -9,6 +9,7 @@ import {
   type RightTriangleSpec,
 } from "@/lib/math/geometryBlock";
 import { type Theme } from "@/lib/theme";
+import { UI_FONT } from "@/lib/uiFont";
 
 export function RightTriangleDiagram({
   spec,
@@ -80,7 +81,7 @@ export function RightTriangleDiagram({
             y={verts[0].y + 18}
             fill={theme.text}
             fontSize={13}
-            fontWeight="600"
+            fontFamily={UI_FONT.semibold}
             textAnchor="middle"
           >
             {labels.base}
@@ -90,7 +91,7 @@ export function RightTriangleDiagram({
             y={(verts[2].y + verts[0].y) / 2}
             fill={colors.height}
             fontSize={12}
-            fontWeight="600"
+            fontFamily={UI_FONT.semibold}
             textAnchor="end"
           >
             {labels.height}
@@ -101,7 +102,7 @@ export function RightTriangleDiagram({
               y={(verts[2].y + verts[0].y) / 2 - 6}
               fill={colors.hypotenuse}
               fontSize={12}
-              fontWeight="600"
+              fontFamily={UI_FONT.semibold}
             >
               {labels.hypotenuse}
             </SvgText>

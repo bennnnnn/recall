@@ -15,7 +15,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import RenderHtml from "react-native-render-html";
+import RenderHtml, { defaultSystemFonts } from "react-native-render-html";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
@@ -24,7 +24,8 @@ import { CodeBlock } from "@/components/CodeBlock";
 import type { IconName } from "@/ui/icons/names";
 import { IconSize } from "@/ui/icons/sizes";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { Italic, Type, Weight } from "@/lib/type";
+import { UI_FONT } from "@/lib/uiFont";
 import { htmlForInlinePreview } from "@/lib/htmlForInlinePreview";
 import {
   looksLikeInteractiveHtml,
@@ -97,14 +98,24 @@ type Props = {
 
 type PreviewTab = "run" | "code";
 
+// render-html drops any fontFamily not in this list, which turned every
+// Source Sans role below back into the system font.
+const PREVIEW_FONTS = [...defaultSystemFonts, ...Object.values(UI_FONT), CODE_FONT];
+
 function makeTagStyles(theme: Theme) {
   return {
     body: { color: theme.text },
-    p: { marginTop: 0, marginBottom: 10, lineHeight: 22 },
+    p: { marginTop: 0, marginBottom: Space.sm },
     h1: { ...Type.display, marginBottom: Space.sm, color: theme.text },
-    h2: { ...Type.h1, marginBottom: 10, color: theme.text },
+    h2: { ...Type.h1, marginBottom: Space.sm, color: theme.text },
     h3: { ...Type.h2, marginBottom: Space.xs, color: theme.text },
     a: { color: theme.primary },
+    // One file per weight: a bold or italic slot on the regular file draws
+    // Roboto on Android and a faux face on iOS.
+    b: Weight.bold,
+    strong: Weight.bold,
+    em: Italic.regular,
+    i: Italic.regular,
     div: { color: theme.text },
     span: { color: theme.text },
     table: {
@@ -251,6 +262,7 @@ function StaticHtmlPreview({
         source={{ html: previewHtml }}
         baseStyle={s.base}
         tagsStyles={tagStyles}
+        systemFonts={PREVIEW_FONTS}
       />
     </ScrollView>
   );
@@ -403,7 +415,6 @@ const makeStyles = (theme: Theme) =>
     interactiveBannerText: {
       flex: 1,
       ...Type.compact,
-      lineHeight: 18,
       color: theme.text,
     },
     body: { flex: 1, minHeight: 0 },
@@ -442,7 +453,8 @@ const makeStyles = (theme: Theme) =>
     },
     scroll: { flex: 1 },
     scrollContent: { paddingHorizontal: Space.md, paddingVertical: Space.md, paddingBottom: Space.md },
-    base: { ...Type.body, color: theme.text, lineHeight: 22 },
+    // No fixed lineHeight: 22 on 16pt clipped tall scripts (Amharic, Thai).
+    base: { ...Type.body, color: theme.text },
     toolbar: {
       flexDirection: "row",
       alignItems: "stretch",

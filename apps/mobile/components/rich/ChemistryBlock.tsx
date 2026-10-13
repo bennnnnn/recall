@@ -156,7 +156,7 @@ function makeStyles(t: Theme) {
       borderBottomWidth: StyleSheet.hairlineWidth,
       borderBottomColor: t.border,
     },
-    previewText: { fontFamily: CODE_FONT, ...Type.meta, lineHeight: 17, color: t.textSecondary },
+    previewText: { ...Type.meta, fontFamily: CODE_FONT, lineHeight: 18, color: t.textSecondary },
     fallbackHint: { ...Type.meta, color: t.textTertiary, marginTop: Space.xs },
   });
 }

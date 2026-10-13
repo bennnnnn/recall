@@ -118,7 +118,6 @@ function makeStyles(theme: Theme) {
     title: {
       ...Type.display,
       color: theme.text,
-      letterSpacing: -0.5,
     },
     subtitle: {
       ...Type.body,

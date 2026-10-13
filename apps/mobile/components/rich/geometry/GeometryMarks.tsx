@@ -7,6 +7,7 @@ import {
   type VertexAngleMark,
 } from "@/lib/math/geometryBlock";
 import { type Theme } from "@/lib/theme";
+import { UI_FONT } from "@/lib/uiFont";
 
 export function diagramColors(theme: Theme) {
   return {
@@ -152,7 +153,7 @@ function VertexAngleGraphic({
           y={mark.labelY}
           fill={color}
           fontSize={11}
-          fontWeight="600"
+          fontFamily={UI_FONT.semibold}
           textAnchor="middle"
           alignmentBaseline="middle"
           accessible={false}

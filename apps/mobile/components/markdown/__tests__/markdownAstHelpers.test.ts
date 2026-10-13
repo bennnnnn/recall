@@ -6,6 +6,7 @@ import {
   shouldNumberListItem,
   listLargestNumber,
   numberColumnWidth,
+  bulletDiscMetrics,
 } from "@/components/markdown/markdownAstHelpers";
 
 describe("nested list numbering", () => {
@@ -77,5 +78,18 @@ describe("numbered list column", () => {
     expect(listLargestNumber([list])).toBe(10);
     expect(listLargestNumber([{ children: [{}, {}] }])).toBe(2);
     expect(listLargestNumber([])).toBe(1);
+  });
+});
+
+describe("bulletDiscMetrics", () => {
+  it.each([
+    // 16pt body, line box 22.8pt: a 6pt disc drops 8pt to sit on its middle.
+    [1, 6, 8],
+    [0.85, 6, 8],
+    [1.5, 9, 13],
+    // The disc stops growing at 1.5x; the drop keeps following the line.
+    [2, 9, 18],
+  ])("at text scale %p is %ppt and drops %ppt", (scale, size, top) => {
+    expect(bulletDiscMetrics(scale)).toEqual({ size, top });
   });
 });

@@ -80,7 +80,7 @@ export function makeMdMath(t: Theme) {
       height: 6,
       borderRadius: Radius.full,
       backgroundColor: t.text,
-      // Body is 16/22 — center the disc on the first line.
+      // Size and drop follow the text size: see bulletDiscMetrics.
       marginTop: Space.xs,
       marginRight: 10,
       marginLeft: 2,
