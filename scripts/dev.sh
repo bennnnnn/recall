@@ -18,7 +18,33 @@ kill_all_dev() {
   echo "All dev servers stopped."
 }
 
+# One terminal for everything: the API in the background (log in tmp/api.log),
+# the app in the foreground, and the checkout kept on origin/main so a merged
+# pull request reaches the running app by itself. Ctrl+C stops it all.
+up() {
+  local target="${1:-sim}" mobile_cmd
+  case "$target" in
+    sim) mobile_cmd=mobile-sim ;;
+    phone) mobile_cmd=mobile ;;
+    *) echo "Usage: scripts/dev.sh up [sim|phone]"; exit 1 ;;
+  esac
+  kill_all_dev
+  "$ROOT/scripts/follow-main.sh" --once --switch
+  mkdir -p "$ROOT/tmp"
+  (cd "$ROOT/apps/api" && exec uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000) \
+    >"$ROOT/tmp/api.log" 2>&1 &
+  local api_pid=$!
+  "$ROOT/scripts/follow-main.sh" &
+  local follow_pid=$!
+  trap 'kill '"$follow_pid"' '"$api_pid"' 2>/dev/null; lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true' EXIT
+  echo "API on :8000 (log: tmp/api.log). Pulling merged changes from main every minute."
+  "$ROOT/scripts/dev.sh" "$mobile_cmd"
+}
+
 case "${1:-}" in
+  up)
+    up "${2:-sim}"
+    ;;
   infra)
     echo "Optional: starts local Postgres + Redis via Docker."
     docker compose -f "$ROOT/docker-compose.yml" up -d
@@ -107,8 +133,9 @@ case "${1:-}" in
     echo "Optional local DB: ./scripts/dev.sh infra  (requires Docker)"
     ;;
   *)
-    echo "Usage: scripts/dev.sh {setup|migrate|api|watch-errors|mobile|mobile-sim|mobile-tunnel|web|kill-metro|kill-all|test-api|check|qa-smoke|verify-production|infra}"
+    echo "Usage: scripts/dev.sh {up|setup|migrate|api|watch-errors|mobile|mobile-sim|mobile-tunnel|web|kill-metro|kill-all|test-api|check|qa-smoke|verify-production|infra}"
     echo ""
+    echo "  up [sim|phone] API + app in one terminal, kept on the latest main (default: sim)"
     echo "  setup          Install deps, copy .env (no Docker)"
     echo "  migrate        Apply DB migrations (needs DATABASE_URL in .env)"
     echo "  api            Run FastAPI on :8000"

@@ -205,14 +205,20 @@ Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Tod
 
 ## Build / Run Commands
 
-**Starting the app — do it this way.** From the repo root, in two terminals:
+**Starting the app — do it this way.** From the repo root, one terminal, one command:
 
 ```bash
-./scripts/dev.sh api          # terminal 1: API on :8000 (0.0.0.0), leave it running
-./scripts/dev.sh mobile-sim   # terminal 2: iOS Simulator in Expo Go (sets API to 127.0.0.1:8000)
-./scripts/dev.sh mobile       # instead of mobile-sim: a phone on the same Wi-Fi scans the QR in Expo Go
-./scripts/dev.sh kill-all     # stop both
+./scripts/dev.sh up           # API + iOS Simulator in Expo Go; Ctrl+C stops both
+./scripts/dev.sh up phone     # same, for a phone on the same Wi-Fi (scan the QR in Expo Go)
 ```
+
+`up` keeps the checkout on the latest `main` while it runs (`scripts/follow-main.sh`, every
+minute): a merged pull request arrives by itself, and the API (`--reload`) and Metro (Fast
+Refresh) reload it. It installs changed dependencies and runs new migrations, and never pulls over
+local changes or off another branch. The API log is `tmp/api.log`.
+
+The two-terminal way still works: `./scripts/dev.sh api`, then `./scripts/dev.sh mobile-sim` (or
+`mobile`); `./scripts/dev.sh kill-all` stops both.
 
 Expo Go needs no build or signing; log in with dev login there. Only build a native dev client
 (`pnpm expo run:ios`, or `pnpm ios:sim` without a signing certificate) when a native-only feature
