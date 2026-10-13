@@ -72,21 +72,21 @@ def extract_rate_intent(cleaned: str) -> PhysicsIntent | None:
     plain_tail = tail.strip(" .?!").lower()
     speed_question = re.fullmatch(
         r"[.?!]*\s*(?:what\s+is|what's|find|calculate|compute|determine)\s+"
-        r"(?:the|its)\s+(?:average\s+)?(?:speed|velocity)(?:\s+please)?[.?!]*",
+        r"(?:the|its|his|her|their)\s+(?:average\s+)?(?:speed|velocity)(?:\s+please)?[.?!]*",
         tail,
         re.IGNORECASE,
     )
     distance_question = re.fullmatch(
-        r"[.?!]*\s*(?:(?:what\s+(?:is\s+)?(?:the|its)?\s*distance)|"
+        r"[.?!]*\s*(?:(?:what\s+(?:is\s+)?(?:the|its|his|her|their)?\s*distance)|"
         r"(?:how\s+far(?:\s+does\s+it\s+travel)?)|"
-        r"(?:(?:find|calculate|compute|determine)\s+(?:the|its)?\s*distance))"
+        r"(?:(?:find|calculate|compute|determine)\s+(?:the|its|his|her|their)?\s*distance))"
         r"(?:\s+(?:does\s+it\s+travel|travelled|traveled))?(?:\s+please)?[.?!]*",
         tail,
         re.IGNORECASE,
     )
     time_question = re.fullmatch(
         r"[.?!]*\s*(?:(?:how\s+long(?:\s+does\s+it\s+take)?)|"
-        r"(?:(?:what\s+is|find|calculate|compute|determine)\s+(?:the|its)?\s*time))"
+        r"(?:(?:what\s+is|find|calculate|compute|determine)\s+(?:the|its|his|her|their)?\s*time))"
         r"(?:\s+does\s+it\s+take)?(?:\s+please)?[.?!]*",
         tail,
         re.IGNORECASE,

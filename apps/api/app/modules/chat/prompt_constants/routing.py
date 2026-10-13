@@ -617,6 +617,14 @@ def is_personal_disclosure_turn(text: str) -> bool:
     return not any(marker in padded for marker in _PERSONAL_REQUEST_MARKERS)
 
 
+NEW_PROBLEM_HINT = (
+    "The user asked for another problem like the previous one. Make up a NEW problem "
+    "of the same kind, with a different scenario and different numbers (harder or "
+    "easier if they said so), state it, then solve it. Do not repeat, restate, or "
+    "re-answer the previous problem. This request outranks any rule against adding "
+    "examples."
+)
+
 CONFIRM_FOLLOW_THROUGH_HINT = (
     "The user accepted your last offer with a short yes/go/sure. "
     "Carry out that offer now. Do not treat this as a greeting or a one-word ack."
