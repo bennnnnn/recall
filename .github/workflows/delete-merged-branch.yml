@@ -1,0 +1,33 @@
+name: Delete merged branch
+
+# A merged pull request's branch is finished: delete it so stale branches do
+# not pile up. Branches from forks and the default branch are never touched,
+# and a closed-but-unmerged pull request keeps its branch.
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  delete:
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.head.ref != github.event.repository.default_branch
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Delete the head branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          # Passed through env, never interpolated into the script.
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if gh api --silent "repos/$REPO/git/ref/heads/$BRANCH" 2>/dev/null; then
+            gh api --method DELETE "repos/$REPO/git/refs/heads/$BRANCH"
+            echo "Deleted $BRANCH"
+          else
+            echo "$BRANCH is already gone"
+          fi
