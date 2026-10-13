@@ -121,6 +121,14 @@ _QUANTITIES: dict[str, str] = {
     "pe": "joule",
     "gpe": "joule",
     "rate of heat": "watt",
+    # "How much heat flows per second" asks for a rate; read as "heat", it was
+    # an energy and the conduction law (in watts) could not fit.
+    "heat flows per second": "watt",
+    "heat flow per second": "watt",
+    "heat per second": "watt",
+    "heat is conducted per second": "watt",
+    "heat flow rate": "watt",
+    "heat transfer rate": "watt",
     "heat conduction rate": "watt",
     "conduction rate": "watt",
     "mass flow rate": "kilogram / second",

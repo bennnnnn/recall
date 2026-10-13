@@ -2,9 +2,32 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
+    formula(
+        "momentum_change_rebound",
+        "momentum",
+        "Change in momentum",
+        r"\Delta p",
+        # Into the wall and back out: the velocity reverses, so the sizes add.
+        base_latex=r"\Delta p = m(v_1 + v_2)",
+        assumptions=("the object comes straight back along its path",),
+        expression="m*(v_in + v_out)",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("v_in", "v_1", "meter / second"),
+            var("v_out", "v_2", "meter / second"),
+        ),
+        binding=Binding(
+            asks=("change in momentum", "change of momentum", "impulse"),
+            result=("kilogram * meter / second",),
+            inputs=(frozenset({"m", "v_in", "v_out"}),),
+            cues=("rebound", "rebounds", "bounces back", "bounces off", "comes back"),
+            interchangeable=("v_in", "v_out"),
+            nonnegative=True,
+        ),
+    ),
     formula(
         "momentum",
         "momentum",

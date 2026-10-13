@@ -110,7 +110,9 @@ class UnitTable:
         word = self._word_re.match(text, end)
         symbol = self._symbol_re.match(text, end)
         # The longer spelling wins: "m/s" over "m", "kg" over "g", "ms" over "m".
-        if word is not None and (symbol is None or word.end() >= symbol.end()):
+        # At equal length the case-sensitive symbol wins: "Nm" is a newton
+        # metre, while the caseless word "nm" read it as a nanometre.
+        if word is not None and (symbol is None or word.end() > symbol.end()):
             spelling = word.group("unit")
             return spelling, self.words[spelling.lower()]
         if symbol is not None:

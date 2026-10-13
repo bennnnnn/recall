@@ -90,7 +90,20 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("W", "W", "joule"),
             var("m", "m", "kilogram"),
             var("v1", "v_1", "meter / second"),
-            var("v2", "v_2", "meter / second"),
+            var(
+                "v2",
+                "v_2",
+                "meter / second",
+                implied=(("to a stop", 0.0), ("to rest", 0.0), ("to a halt", 0.0)),
+            ),
+        ),
+        # "A 1000 kg car at 20 m/s brakes to a stop. How much work do the brakes do?"
+        binding=Binding(
+            asks=("work done by the brakes", "work done by friction", "work done", "work"),
+            result=("joule",),
+            inputs=(frozenset({"m", "v1", "v2"}),),
+            cues=("brake", "brakes", "braking", "to a stop", "to rest", "to a halt"),
+            negative_detail="taken from the motion",
         ),
     ),
     formula(

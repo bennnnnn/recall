@@ -2,9 +2,48 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
+    formula(
+        "lift_normal_force",
+        "force",
+        "Newton's second law in a lift",
+        "N",
+        base_latex="N = m(g + a)",
+        expression="m*(g + accel)",
+        variants=(
+            FormulaVariant(
+                latex="N = m(g - a)",
+                present=frozenset({"downward"}),
+                expression="m*(g - accel)",
+            ),
+        ),
+        variables=(
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("m", "m", "kilogram"),
+            var("accel", "a", "meter / second ** 2", words=("accelerat",)),
+            var(
+                "downward",
+                "",
+                dimensionless=True,
+                visible=False,
+                implied=(
+                    ("accelerating downward", 1.0),
+                    ("accelerating downwards", 1.0),
+                    ("accelerates downward", 1.0),
+                    ("accelerates downwards", 1.0),
+                ),
+            ),
+        ),
+        binding=Binding(
+            asks=("normal force", "apparent weight", "scale reading", "reading on the scale"),
+            result=("newton",),
+            inputs=(frozenset({"g", "m", "accel"}), frozenset({"g", "m", "accel", "downward"})),
+            cues=("elevator", "lift"),
+            nonnegative=True,
+        ),
+    ),
     formula(
         "net_force",
         "force",

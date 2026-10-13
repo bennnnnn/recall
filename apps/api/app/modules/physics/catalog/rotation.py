@@ -80,9 +80,19 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=(
             var("ang_alpha", r"\alpha", "radian / second ** 2"),
-            var("omega0", r"\omega_0", "radian / second"),
+            var(
+                "omega0",
+                r"\omega_0",
+                "radian / second",
+                implied=(("from rest", 0.0), ("starts at rest", 0.0)),
+            ),
             var("t", "t", "second"),
             var("theta", r"\theta", "radian"),
+        ),
+        binding=Binding(
+            asks=("final angular velocity", "angular velocity", "angular speed"),
+            result=("radian / second",),
+            inputs=(frozenset({"ang_alpha", "omega0", "t"}),),
         ),
     ),
     formula(
@@ -157,6 +167,11 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("ang_alpha", r"\alpha", "radian / second ** 2"),
             var("inertia", "I", "kilogram * meter ** 2"),
             var("tau", r"\tau", "newton * meter"),
+        ),
+        binding=Binding(
+            asks=("angular acceleration",),
+            result=("radian / second ** 2",),
+            inputs=(frozenset({"inertia", "tau"}),),
         ),
     ),
     formula(

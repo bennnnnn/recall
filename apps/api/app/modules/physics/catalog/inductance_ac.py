@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.services.law_binding.spec import FormulaSpec, FormulaVariant, formula, var
+from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -116,6 +116,13 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("freq", "f", "hertz"),
             var("inductance", "L", "henry"),
         ),
+        binding=Binding(
+            asks=("inductive reactance", "reactance"),
+            result=("ohm",),
+            inputs=(frozenset({"freq", "inductance"}),),
+            cues=("inductor", "inductance", "coil"),
+            nonnegative=True,
+        ),
     ),
     formula(
         "capacitive_reactance",
@@ -126,6 +133,13 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("capacitance", "C", "farad"),
             var("freq", "f", "hertz"),
+        ),
+        binding=Binding(
+            asks=("capacitive reactance", "reactance"),
+            result=("ohm",),
+            inputs=(frozenset({"capacitance", "freq"}),),
+            cues=("capacitor", "capacitance"),
+            nonnegative=True,
         ),
     ),
     formula(

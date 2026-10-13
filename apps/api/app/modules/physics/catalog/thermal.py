@@ -98,6 +98,15 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("vol1", "V_1", "meter ** 3"),
             var("vol2", "V_2", "meter ** 3"),
         ),
+        binding=Binding(
+            asks=("work done by the gas", "work done", "work"),
+            result=("joule",),
+            inputs=(frozenset({"pres", "vol1", "vol2"}),),
+            cues=("constant pressure", "isobaric"),
+            # "from 0.01 m^3 to 0.03 m^3": the first volume is the start.
+            interchangeable=("vol1", "vol2"),
+            negative_detail="done on the gas",
+        ),
     ),
     formula(
         "adiabatic_pressure",
@@ -179,6 +188,8 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "expansion",
                 "extension",
                 "how much longer",
+                # "How much does a 2 m copper rod expand"
+                "expand",
             ),
             result=("meter",),
             inputs=(frozenset({"L0", "alpha", "delta_temp"}),),
@@ -242,10 +253,25 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Q/t",
         base_latex="\\frac{Q}{t} = kA\\frac{\\Delta T}{L}",
         variables=(
-            var("L", "L", "meter"),
+            var("L", "L", "meter", words=("thick", "thickness", "long", "length")),
             var("area", "A", "meter ** 2"),
             var("delta_temp", r"\Delta T", "kelvin"),
             var("thermal_conductivity", "k", "watt / meter / kelvin"),
+        ),
+        binding=Binding(
+            asks=(
+                "rate of heat transfer",
+                "rate of heat flow",
+                "heat flow rate",
+                "heat transfer rate",
+                "heat flows per second",
+                "heat per second",
+                "rate of conduction",
+            ),
+            result=("watt",),
+            inputs=(frozenset({"L", "area", "delta_temp", "thermal_conductivity"}),),
+            cues=("conduct", "conduction", "thermal conductivity"),
+            nonnegative=True,
         ),
     ),
 )

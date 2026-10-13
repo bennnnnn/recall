@@ -57,6 +57,8 @@ _SYMBOLS: dict[str, str] = {
     "GPa": "gigapascal",
     # Field strength: a newton per coulomb is a volt per metre.
     "N/C": "newton / coulomb",
+    # Case-sensitive: "nm" stays nanometres.
+    "Nm": "newton * meter",
     "A m^2": "ampere * meter ** 2",
     "A·m^2": "ampere * meter ** 2",
     "A*m^2": "ampere * meter ** 2",
@@ -154,6 +156,12 @@ _WORDS: dict[str, str] = {
     "w/m^2": "watt / meter ** 2",
     "s/m": "siemens / meter",
     "w/m/k": "watt / meter / kelvin",
+    "w/m k": "watt / meter / kelvin",
+    "w/m·k": "watt / meter / kelvin",
+    "w/(m k)": "watt / meter / kelvin",
+    "w/(m·k)": "watt / meter / kelvin",
+    "w/(m*k)": "watt / meter / kelvin",
+    "w m^-1 k^-1": "watt / meter / kelvin",
     "ohm m": "ohm * meter",
     "ohm·m": "ohm * meter",
     "ω m": "ohm * meter",
