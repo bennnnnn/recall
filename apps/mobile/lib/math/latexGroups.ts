@@ -35,3 +35,48 @@ export function isParenthesizedArgument(value: string): boolean {
   }
   return depth === 0;
 }
+
+/** One TeX argument: a `{...}` group, a control word (`\pi`), or one character.
+ * The braced form is returned as written; the others come back braced. */
+function readArgument(input: string, start: number): { source: string; next: number } | null {
+  let i = start;
+  while (input[i] === " ") i += 1;
+  const ch = input[i];
+  if (ch === undefined || ch === "}") return null;
+  if (ch === "{") {
+    const group = readGroup(input, i);
+    return group ? { source: input.slice(i, group.next), next: group.next } : null;
+  }
+  if (ch === "\\") {
+    const word = /^\\[a-zA-Z]+/.exec(input.slice(i));
+    const end = word ? i + word[0].length : i + 2;
+    if (end > input.length) return null;
+    return { source: `{${input.slice(i, end)}}`, next: end };
+  }
+  return { source: `{${ch}}`, next: i + 1 };
+}
+
+/** `\frac12` is TeX for one half: each argument may be a single token rather
+ * than a `{...}` group, and KaTeX draws it. Brace those arguments so every
+ * later reader only meets `\frac{1}{2}`; a model writing the short form
+ * otherwise showed the letters "frac12". */
+export function braceFractionArguments(input: string): string {
+  let out = "";
+  let i = 0;
+  while (i < input.length) {
+    const at = input.indexOf("\\frac", i);
+    if (at < 0) break;
+    const head = at + "\\frac".length;
+    out += input.slice(i, head);
+    i = head;
+    // `\fraction` or another longer word is not a fraction.
+    if (/[a-zA-Z]/.test(input[head] ?? "")) continue;
+    const top = readArgument(input, head);
+    const bottom = top ? readArgument(input, top.next) : null;
+    if (!top || !bottom) continue;
+    out += top.source + bottom.source;
+    i = bottom.next;
+  }
+  return out + input.slice(i);
+}
+

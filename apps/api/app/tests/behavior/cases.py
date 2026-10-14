@@ -89,6 +89,25 @@ CASES: tuple[Case, ...] = (
         "x = 6, with the two steps shown.",
     ),
     Case(
+        "math-do-it-after-word-problem",
+        "math",
+        "Do it",
+        Expect(solved=False, instant=""),
+        "Works the sled problem it just set: a = 4 m/s², v = 12 m/s, s = 18 m. Never a "
+        "verified 'no solution' for the F = ma in its hint.",
+        history=(
+            ("user", "Give me a problem"),
+            (
+                "assistant",
+                "**Problem:** A 5 kg sled is pulled across a frictionless ice surface by a "
+                "horizontal rope that exerts a constant force of 20 N. The sled starts from "
+                "rest.\n\n1. Find the sled's acceleration.\n2. Determine its speed after 3 "
+                "seconds.\n3. Compute the distance it travels in those 3 seconds.\n\n*Hint:* "
+                "Use $F = ma$ for (a), $v = at$ for (b), and $s = \\frac12 a t^2$ for (c).",
+            ),
+        ),
+    ),
+    Case(
         "math-derivative",
         "math",
         "what is the derivative of x^3 sin x",

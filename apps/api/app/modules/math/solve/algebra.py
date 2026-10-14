@@ -5,6 +5,7 @@ Calculus lives in ``calculus.py``.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Literal
 
 from sympy import (
@@ -292,8 +293,29 @@ def _parameter_solution_conditions(
     return conditions, cases
 
 
+def _require_unknown(data: EquationInput, lhs: Any, rhs: Any) -> None:
+    """Refuse an equation that does not contain the unknown it is solved for.
+
+    ``F = ma`` solved for x has no x in it, and the empty solution set was
+    certified as "no solution". A contradiction such as ``x - x = 5`` keeps
+    its x in the written text after SymPy cancels it, so it still reads as
+    one.
+    """
+    present = {str(symbol) for symbol in lhs.free_symbols | rhs.free_symbols}
+    if any(name in present for name in data.variables):
+        return
+    written = f"{data.lhs} {data.rhs}"
+    if any(
+        re.search(rf"(?<![A-Za-z]){re.escape(name)}(?![A-Za-z])", written)
+        for name in data.variables
+    ):
+        return
+    raise MathServiceError(f"{', '.join(data.variables)} does not appear in the equation")
+
+
 def solve_equation(data: EquationInput) -> MathSolveResult:
     equation, lhs, rhs = parse_equation(data)
+    _require_unknown(data, lhs, rhs)
     _reject_high_degree(lhs, rhs, data.variables)
     real = _expr_needs_real_domain(data.lhs, data.rhs)
     syms = [Symbol(v, real=True) if real else Symbol(v) for v in data.variables]

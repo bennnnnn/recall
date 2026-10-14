@@ -181,6 +181,24 @@ describe("parseSimpleLatex", () => {
     expect(parseSimpleLatex(String.raw`\cfrac{a}{b}`).some((s) => s.type === "frac")).toBe(true);
   });
 
+  it("reads TeX's brace-less fraction arguments: \\frac12 is one half, not the letters frac12", () => {
+    const half = { type: "frac", num: [{ type: "text", value: "1" }], den: [{ type: "text", value: "2" }] };
+    expect(parseSimpleLatex(String.raw`\frac12`)).toEqual([half]);
+    expect(parseSimpleLatex(String.raw`\tfrac12`)).toEqual([half]);
+    expect(parseSimpleLatex(String.raw`\frac 1 2`)).toEqual([half]);
+    expect(parseSimpleLatex(String.raw`\frac1{2}`)).toEqual([half]);
+    const motion = parseSimpleLatex(String.raw`s = \frac12 a t^2`);
+    expect(motion.some((seg) => seg.type === "frac")).toBe(true);
+    expect(segmentsToPlain(motion)).not.toContain("frac");
+    const pi = parseSimpleLatex(String.raw`\frac\pi2`).find((seg) => seg.type === "frac");
+    expect(pi?.type).toBe("frac");
+    if (pi?.type === "frac") expect(segmentsToPlain(pi.den)).toBe("2");
+    // The braced form is untouched, and \\fraction is not a fraction.
+    expect(parseSimpleLatex(String.raw`\frac{a}{b}`)).toEqual([
+      { type: "frac", num: [{ type: "text", value: "a" }], den: [{ type: "text", value: "b" }] },
+    ]);
+  });
+
   it("keeps a nested root index and braced scripts as segments", () => {
     const root = parseSimpleLatex(String.raw`\sqrt[\frac{1}{2}]{x}`).find((seg) => seg.type === "sqrt");
     expect(root?.type).toBe("sqrt");
