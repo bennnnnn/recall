@@ -1,14 +1,18 @@
 import type { ReactNode } from "react";
-import { fireEvent, render, waitFor, within } from "@testing-library/react-native";
+import { Alert } from "react-native";
+import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
 
 import SettingsScreen from "@/features/account/screens/SettingsScreen";
+import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
 
 const mockPush = jest.fn();
+const mockReplace = jest.fn();
 const mockSetPreference = jest.fn();
 const mockSetAccent = jest.fn();
+const mockSetHaptics = jest.fn();
 const mockUpdateUser = jest.fn();
-const mockPickProfilePhoto = jest.fn();
-const mockUploadPhoto = jest.fn();
+const mockSignOut = jest.fn();
+let mockIsPro = true;
 
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
@@ -16,11 +20,15 @@ jest.mock("react-i18next", () => ({
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
-jest.mock("expo-router", () => ({
-  Redirect: () => null,
-  useRouter: () => ({ push: mockPush, replace: jest.fn() }),
-  useFocusEffect: (cb: () => void) => cb(),
-}));
+jest.mock("expo-router", () => {
+  const React = jest.requireActual<typeof import("react")>("react");
+  return {
+    Redirect: () => null,
+    router: { push: (...args: unknown[]) => mockPush(...args) },
+    useRouter: () => ({ push: mockPush, replace: mockReplace }),
+    useFocusEffect: (cb: () => void) => React.useEffect(cb, [cb]),
+  };
+});
 jest.mock("@/contexts/AuthContext", () => ({
   useAuth: () => ({
     token: "tok",
@@ -34,15 +42,16 @@ jest.mock("@/contexts/AuthContext", () => ({
       locale: "en",
       memory_enabled: true,
       push_notifications_enabled: true,
-      sign_in_provider: "dev",
+      sign_in_provider: "google",
+      tts_voice: "cedar",
     },
-    signOut: jest.fn(),
+    signOut: mockSignOut,
     updateUser: mockUpdateUser,
   }),
 }));
 jest.mock("@/hooks/useModels", () => ({
   useModels: () => ({
-    isPro: true,
+    isPro: mockIsPro,
     autoEnabled: false,
     modelEnabledSet: new Set(["free-chat"]),
   }),
@@ -50,6 +59,12 @@ jest.mock("@/hooks/useModels", () => ({
 jest.mock("@/contexts/AppearanceContext", () => ({
   useAppearance: () => ({ preference: "system", setPreference: mockSetPreference }),
   useAccent: () => ({ accent: "indigo", setAccent: mockSetAccent }),
+  useHaptics: () => ({ enabled: true, setEnabled: mockSetHaptics }),
+}));
+jest.mock("@/features/account/hooks/useUsage", () => ({
+  useUsage: () => ({
+    usage: { date: "2026-10-14", daily_limit: 100, remaining: 80, input_tokens: 10, output_tokens: 10 },
+  }),
 }));
 jest.mock("@/lib/pushNotifications", () => ({
   getNotificationPermissionGranted: jest.fn(async () => true),
@@ -68,22 +83,8 @@ jest.mock("@/features/integrations/model/integrationStatusCache", () => ({
 jest.mock("@/components/UpgradeSheet", () => ({
   UpgradeSheet: () => null,
 }));
-jest.mock("@/lib/purchases", () => ({
-  restorePurchases: jest.fn(),
-}));
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.recall.test" }));
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => 0 }));
-jest.mock("@/lib/api", () => ({ api: { cancelAttachment: jest.fn() } }));
-jest.mock("@/lib/profilePhoto", () => ({
-  pickProfilePhoto: (...args: unknown[]) => mockPickProfilePhoto(...args),
-  discardProfilePhoto: jest.fn(),
-}));
-jest.mock("@/features/attachments/model/attachments", () => ({
-  uploadChatAttachment: (...args: unknown[]) => mockUploadPhoto(...args),
-  PhotoLibraryPermissionError: class extends Error {},
-  NativePickerBusyError: class extends Error {},
-  NativePickerTimeoutError: class extends Error {},
-}));
 jest.mock("@/ui/overlay/Sheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
   return {
@@ -92,91 +93,87 @@ jest.mock("@/ui/overlay/Sheet", () => {
   };
 });
 
+function confirmLastAlert() {
+  const buttons = (Alert.alert as jest.Mock).mock.calls.at(-1)[2];
+  return buttons.find((button: { style?: string }) => button.style === "destructive").onPress;
+}
+
 describe("settings home", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockIsPro = true;
     mockUpdateUser.mockResolvedValue(undefined);
     mockSetPreference.mockResolvedValue(undefined);
     mockSetAccent.mockResolvedValue(undefined);
-    mockPickProfilePhoto.mockResolvedValue(null);
-    mockUploadPhoto.mockResolvedValue("11111111-1111-4111-8111-111111111111");
+    mockSignOut.mockResolvedValue(undefined);
+    jest.spyOn(Alert, "alert").mockImplementation(() => {});
   });
 
-  it("keeps account controls outside the profile editor and shows the name once", async () => {
-    const { queryByText, getByText, queryByRole } = await render(<SettingsScreen />);
-    expect(queryByText("settings.age_label")).toBeNull();
-    expect(queryByText("settings.country_label")).toBeNull();
-    expect(queryByText("settings.job_label")).toBeNull();
-    expect(queryByText("settings.profile")).toBeNull();
-    expect(getByText("settings.experience")).toBeTruthy();
-    expect(getByText("settings.account")).toBeTruthy();
-    expect(queryByText("settings.name_label")).toBeNull();
+  it("shows the account in one group without the profile fields or restore", async () => {
+    const { queryByText, getByText } = await render(<SettingsScreen />);
     expect(getByText("bini")).toBeTruthy();
-    expect(getByText("settings.email")).toBeTruthy();
-    expect(getByText("settings.sign_in_method")).toBeTruthy();
-    expect(getByText("settings.plan_label")).toBeTruthy();
+    expect(getByText("dev@recall.local")).toBeTruthy();
+    expect(getByText("settings.signed_in_with")).toBeTruthy();
     expect(getByText("settings.manage_subscription")).toBeTruthy();
-    expect(getByText("settings.restore_purchases")).toBeTruthy();
-    expect(queryByRole("button", { name: "settings.account" })).toBeNull();
-    expect(queryByRole("button", { name: "settings.edit_profile" })).toBeTruthy();
-    expect(queryByRole("button", { name: "bini" })).toBeNull();
-    expect(queryByText("settings.voice")).toBeNull();
+    expect(getByText("settings.usage_left_pro")).toBeTruthy();
+    expect(queryByText("settings.restore_purchases")).toBeNull();
+    expect(queryByText("settings.sign_in_method")).toBeNull();
+    expect(queryByText("settings.age_label")).toBeNull();
+    expect(queryByText("settings.job_label")).toBeNull();
   });
 
-  it("opens the profile editor from the avatar and saves the name without a username field", async () => {
-    const { getByDisplayValue, getByLabelText, queryByTestId, queryByText } =
-      await render(<SettingsScreen />);
-
+  it("opens the Profile page from the avatar", async () => {
+    const { getByLabelText, queryByTestId } = await render(<SettingsScreen />);
+    await fireEvent.press(getByLabelText("settings.profile"));
+    expect(mockPush).toHaveBeenCalledWith("/settings/profile");
     expect(queryByTestId("settings-profile-sheet")).toBeNull();
-    await fireEvent.press(getByLabelText("settings.edit_profile"));
-    expect(queryByTestId("settings-profile-sheet")).toBeTruthy();
-    expect(queryByText("settings.username")).toBeNull();
-    expect(getByLabelText("settings.change_photo")).toBeTruthy();
-    await fireEvent.changeText(getByDisplayValue("bini"), "  Bini  ");
-    await fireEvent.press(getByLabelText("settings.save_profile"));
+  });
 
-    await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ name: "Bini" }));
-    expect(queryByTestId("settings-profile-sheet")).toBeNull();
+  it.each([
+    ["settings.personalization", "/settings/preferences"],
+    ["settings.model", "/settings/models"],
+    ["settings.voice", "/settings/voice"],
+    ["settings.notifications", "/settings/notifications"],
+    ["settings.help_about", "/settings/about"],
+  ])("%s opens %s", async (title, href) => {
+    const { getByText } = await render(<SettingsScreen />);
+    await fireEvent.press(getByText(title));
+    expect(mockPush).toHaveBeenCalledWith(href);
+  });
+
+  it("reads the notification permission once per visit", async () => {
+    const { findByLabelText } = await render(<SettingsScreen />);
+    await findByLabelText("settings.notifications, settings.on");
+    expect(getNotificationPermissionGranted).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows the chosen voice on the Voice row", async () => {
+    const { getByText } = await render(<SettingsScreen />);
+    expect(getByText("Cedar")).toBeTruthy();
+  });
+
+  it("changes the language from a menu on the main page", async () => {
+    const { getByText, getByLabelText, queryByTestId } = await render(<SettingsScreen />);
+    await fireEvent.press(getByText("settings.language"));
+    expect(queryByTestId("select-menu")).toBeTruthy();
+    await fireEvent.press(getByLabelText("Español"));
+    await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({ locale: "es" }));
     expect(mockPush).not.toHaveBeenCalled();
   });
 
-  it("groups Models and Usage together outside Account and opens both directly", async () => {
-    const view = await render(<SettingsScreen />);
-    const modelGroup = view.getByText("settings.models_and_usage").parent!;
-    const accountGroup = view.getByText("settings.account").parent!;
-
-    expect(within(accountGroup).queryByText("settings.usage_group")).toBeNull();
-    expect(view.queryByText("settings.advanced")).toBeNull();
-    await fireEvent.press(within(modelGroup).getByText("settings.model"));
-    expect(mockPush).toHaveBeenCalledWith("/settings/models");
-    await fireEvent.press(within(modelGroup).getByText("settings.usage_group"));
-    expect(mockPush).toHaveBeenCalledWith("/settings/usage");
+  it("turns haptics off on this device", async () => {
+    const { getByRole } = await render(<SettingsScreen />);
+    await fireEvent.press(getByRole("switch", { name: "settings.haptics" }));
+    expect(mockSetHaptics).toHaveBeenCalledWith(false);
   });
 
-  it("previews a chosen photo and uploads it only when Save profile is pressed", async () => {
-    const photo = { localUri: "file:///profile-preview.jpg", contentType: "image/jpeg", fileName: "profile.jpg", kind: "image" };
-    mockPickProfilePhoto.mockResolvedValue(photo);
-    const { getByLabelText, getByTestId } = await render(<SettingsScreen />);
-
-    await fireEvent.press(getByLabelText("settings.edit_profile"));
-    await fireEvent.press(getByLabelText("settings.change_photo"));
-    await waitFor(() => expect(getByTestId("avatar-image", { includeHiddenElements: true }).props.source.uri).toBe(photo.localUri));
-    expect(mockUploadPhoto).not.toHaveBeenCalled();
-    await fireEvent.press(getByLabelText("settings.save_profile"));
-    await waitFor(() => expect(mockUpdateUser).toHaveBeenCalledWith({
-      name: "bini",
-      avatar_url: "/attachments/11111111-1111-4111-8111-111111111111/file",
-    }));
-  });
-
-  it("cancels a profile draft without updating the account", async () => {
-    const { getByLabelText, getByDisplayValue, getByText, queryByTestId } = await render(<SettingsScreen />);
-    await fireEvent.press(getByLabelText("settings.edit_profile"));
-    await fireEvent.changeText(getByDisplayValue("bini"), "Another name");
-    await fireEvent.press(getByText("settings.cancel"));
-    expect(queryByTestId("settings-profile-sheet")).toBeNull();
-    expect(mockUpdateUser).not.toHaveBeenCalled();
-    expect(mockUploadPhoto).not.toHaveBeenCalled();
+  it("asks before signing out", async () => {
+    const { getByText } = await render(<SettingsScreen />);
+    await fireEvent.press(getByText("settings.sign_out"));
+    expect(mockSignOut).not.toHaveBeenCalled();
+    await act(async () => { confirmLastAlert()(); });
+    await waitFor(() => expect(mockSignOut).toHaveBeenCalledTimes(1));
+    expect(mockReplace).toHaveBeenCalledWith("/login");
   });
 
   it("opens and selects Appearance without navigating to another page", async () => {
@@ -213,5 +210,13 @@ describe("settings home", () => {
     expect(mockSetPreference).not.toHaveBeenCalled();
     expect(queryByTestId("select-menu")).toBeNull();
     expect(mockPush).not.toHaveBeenCalled();
+  });
+
+  it("offers the upgrade on a free plan", async () => {
+    mockIsPro = false;
+    const { getByText, queryByText } = await render(<SettingsScreen />);
+    expect(getByText("settings.account_free")).toBeTruthy();
+    expect(queryByText("settings.manage_subscription")).toBeNull();
+    expect(getByText("settings.usage_left")).toBeTruthy();
   });
 });

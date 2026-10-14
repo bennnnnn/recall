@@ -3,7 +3,7 @@ import { Keyboard, Pressable, StyleSheet, Text, TextInput, View } from "react-na
 import { useTranslation } from "react-i18next";
 
 import { Icon } from "@/ui/icons/Icon";
-import { SettingsPickerSheet } from "@/features/account/components/SettingsPickerSheet";
+import { TodoPickerSheet } from "@/features/todos/components/TodoPickerSheet";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import {
   BUILTIN_CATEGORIES,
@@ -125,7 +125,7 @@ export function TodoCategoryPicker({
   };
 
   return (
-    <SettingsPickerSheet
+    <TodoPickerSheet
       visible
       options={options}
       selectedKey={topic}

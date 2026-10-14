@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useState, useSyncExternalStore, type ReactNode } from "react";
 
 import {
   type AppearancePreference,
@@ -20,11 +20,14 @@ import {
   setAccentPreference as persistAccentPreference,
 } from "@/lib/accentPrefs";
 import { setAccentSnapshot } from "@/lib/accentRuntime";
+import { hapticsEnabled, setHapticsEnabledSnapshot, subscribeHaptics } from "@/lib/haptics";
+import { getHapticsPreference, setHapticsPreference } from "@/lib/hapticsPrefs";
 
 export function AppearanceProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void getAppearancePreference().then(setAppearancePreferenceSnapshot);
     void getAccentPreference().then(setAccentSnapshot);
+    void getHapticsPreference().then(setHapticsEnabledSnapshot);
   }, []);
 
   return children;
@@ -57,4 +60,14 @@ export function useAccent() {
     await persistAccentPreference(next);
   }, []);
   return { accent, setAccent };
+}
+
+/** Settings → Haptics: whether taps and toggles buzz, saved on this device. */
+export function useHaptics() {
+  const enabled = useSyncExternalStore(subscribeHaptics, hapticsEnabled, hapticsEnabled);
+  const setEnabled = useCallback(async (next: boolean) => {
+    setHapticsEnabledSnapshot(next);
+    await setHapticsPreference(next);
+  }, []);
+  return { enabled, setEnabled };
 }

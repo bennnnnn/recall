@@ -23,8 +23,11 @@ import {
   notifyDestructive,
   notifySuccess,
   notifyWarning,
+  hapticsEnabled,
   resetHapticsAvailabilityForTests,
   selection,
+  setHapticsEnabledSnapshot,
+  subscribeHaptics,
   tap,
 } from "@/lib/haptics";
 
@@ -93,5 +96,27 @@ describe("haptics", () => {
     await Promise.resolve();
     expect(mockNotificationAsync).toHaveBeenCalledTimes(1);
     expect(mockNotificationAsync).toHaveBeenCalledWith("warning");
+  });
+
+  it("stays silent while Settings → Haptics is off", async () => {
+    const listener = jest.fn();
+    const unsubscribe = subscribeHaptics(listener);
+    setHapticsEnabledSnapshot(false);
+    expect(hapticsEnabled()).toBe(false);
+    expect(listener).toHaveBeenCalledTimes(1);
+    tap();
+    selection();
+    notifyDestructive();
+    await Promise.resolve();
+    expect(mockImpactAsync).not.toHaveBeenCalled();
+    expect(mockSelectionAsync).not.toHaveBeenCalled();
+    expect(mockNotificationAsync).not.toHaveBeenCalled();
+    expect(mockVibrate).not.toHaveBeenCalled();
+
+    setHapticsEnabledSnapshot(true);
+    tap();
+    await Promise.resolve();
+    expect(mockImpactAsync).toHaveBeenCalledTimes(1);
+    unsubscribe();
   });
 });

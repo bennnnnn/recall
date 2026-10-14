@@ -535,7 +535,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   delayed background writes cannot overwrite changed/deleted sections and recheck the
   learning toggle before saving.
 - ✅ **Structured profile fields** — name, age, country, and job are discrete account fields
-  (editable in Settings → Personalization → About you) and injected into the chat system profile block.
+  (editable in Settings → Profile) and injected into the chat system profile block.
 - ✅ **Attachment RAG** — chunk + embed PDF/doc text into pgvector; retrieve top chunks
   into the system prompt on **later turns in the same chat** (`chat_id` on chunks — **not**
   a user-wide file library). Prepare uses the **text layer only**; scanned-PDF vision OCR
@@ -570,8 +570,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   available for continuity, and skips calendar/gmail-nudge and web/math/chem prefetch unless the
   turn is rich or actually needs search, math, chemistry, or calendar/gmail. Exact greetings and
   acknowledgements stay on the zero-retrieval fast path.
-- ✅ **Prompt token budgeting UI** — Settings → Usage shows today's used / daily
-  limit. The composer
+- ✅ **Prompt token budgeting UI** — Settings → Account → Usage shows how much of
+  today's limit is left. The composer
   shows a local draft estimate when the text is large enough to matter.
 - 🔜 Response caching.
 
@@ -585,49 +585,55 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   bypassed by parallel requests). Free tier default **100k**/day; Pro tier **500k**/day
   (`DAILY_TOKEN_LIMIT` / `DAILY_TOKEN_LIMIT_PRO`).
 - ✅ **Plan-aware enforcement** — quota service reads the user's subscription plan before reserving.
-- ✅ **Usage meter** — today's tokens vs. daily limit shown in Settings → Models & usage → Usage.
+- ✅ **Usage meter** — the share of today's limit left, as the Usage row's value in Settings → Account.
 - ✅ **Real token accounting** — uses the provider's reported usage when available.
 - ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
 
 ## 10. Settings & profile
-- ✅ **Account settings** — a centered avatar with a pencil badge opens a profile editor
-  for the display name and photo. A camera badge picks and previews a photo; Save profile
-  persists both changes. The name beneath the avatar is display-only; there is no username.
-  Email, sign-in method, plan, and subscription
-  controls are visible in an Account section on the Settings page. Age / country / job
-  live under Personalization → About you. Persisted on `users` and injected into the chat system prompt
-  (see [§6](#6-memory-remembering-the-user)).
-- ✅ **Settings chrome** — Experience / Account / Connections / Models & usage / Data & privacy / Support.
-  The overview and submenus share roomy, softly rounded gray cards, regular-weight labels,
-  and current values beneath row titles. Choice popups and field editors use matching
-  surfaces and spacing. Overview icons are large outlines; overview explanations stay in accessibility hints.
-  Sentence-case group labels; nested screens omit row icons except connected-app marks
-  and danger/status rows.
-  Choice rows (appearance, style, tone, language, reminder lead, daily goal) open a
-  floating popup — they do **not** expand inside the gray card.
-- ✅ **Appearance** — System / Light / Dark (on-device), opening a floating popup directly
-  from Settings without navigating to another page.
-- ✅ **Personalization** — response length, tone labels, language sheet, custom
-  instructions, About you. Stored tone ids stay `soft` / `casual` / `professional` / `funny`.
-- 🔜 **Live voice settings** — accent choices are deferred. The former Voice & read aloud
-  settings menu has been removed; message read-aloud and live voice remain available.
+- ✅ **Account settings** — the avatar at the top of Settings opens **Profile**: a centered
+  avatar with a pencil badge opens the name and photo editor (a camera badge picks and
+  previews a photo; Save profile persists both). Profile also holds age / country / job and
+  use current location. There is no username. Settings → Account shows the email (with how
+  you sign in under it), the plan (free opens the upgrade sheet, which also restores a
+  purchase; Pro manages the subscription in the store) and today's usage. Persisted on
+  `users` and injected into the chat system prompt (see [§6](#6-memory-remembering-the-user)).
+- ✅ **Settings chrome** — Account / Experience / Assistant / Notifications & Connected apps /
+  Data & privacy / Help & about / Sign out. Every page builds from one kit in
+  `features/account/components/settingsUi.tsx` (`SettingsPage`, `SettingsGroup`, link /
+  value / switch / menu rows, `useSettingsAction` for confirm + busy + error) over the
+  app's `ListRow` / `ListGroup`. Rows that open a page show a chevron. Groups carry
+  sentence-case headings; current values sit beneath row titles; overview explanations
+  stay in accessibility hints. Nested screens omit row icons except connected-app marks.
+  Choice rows (appearance, accent, language, style, tone, voice, speed, reminder lead)
+  open a floating popup — they do **not** expand inside the gray card.
+- ✅ **Experience** — Appearance (System / Light / Dark), Accent color, Language and
+  Haptics, all on the Settings page itself. Appearance, accent and haptics are saved on
+  the device; Haptics off silences every `lib/haptics` call.
+- ✅ **Personalization** — response length, tone labels, custom instructions. Stored tone
+  ids stay `soft` / `casual` / `professional` / `funny`.
+- ✅ **Voice** — the voice (`users.tts_voice`, one of the voices both read-aloud and live
+  talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,
+  pitch kept) and Use on-device voice (offline device speech instead of cloud read-aloud).
 - ✅ **Memory** — on/off, Manage saved memories, clear all (`DELETE /memories`).
 - ✅ **Connected apps** — Calendar and Gmail each show status and Connect / Disconnect
   directly on one page. Calendar permissions and Gmail sync stay in the same cards;
   there is no provider detail page. Connect opens Google authorization directly;
   disconnect retains confirmation because it can also disconnect the other Google service.
-- ✅ **Notifications** — push (On only if pref and OS permission), email reminders,
-  quiet hours, reminder lead.
+- ✅ **Notifications** — push (On only if pref and OS permission) with its own switch per
+  kind under it: to-do reminders, email suggestions, calendar meetings
+  (`users.push_*_enabled`; the scheduler skips a kind that is off, and to-do reminders
+  off also stops the on-device ones). Reminder lead, email reminders, quiet hours.
 - ✅ **Models** — Auto and model toggles. Developer diagnostics are omitted from this screen.
 - ✅ **Data controls** — archived chats, archive all, delete all chats (Library stays),
-  export, use current location, delete account.
+  export, delete account.
 - ✅ **Security** — session list + revoke + sign out of all devices. No MFA.
-- ✅ **Help & feedback** — Report a problem / Send feedback via the OS share sheet
-  (version, plan, locale). No fake Help Center URL.
-- ✅ **Usage** — a sibling menu entry beside Models opens today's token meter and daily limit.
+- ✅ **Help & about** — Contact support (only when `EXPO_PUBLIC_SUPPORT_EMAIL` is set),
+  Report a problem / Send feedback via the OS share sheet (version, plan, locale),
+  Privacy, Terms, Open-source licenses (`lib/licenses.generated.json`, rebuilt by
+  `pnpm oss-licenses`; a test fails when it is stale) and the version. No fake Help Center URL.
 - ✅ **Sidebar controls** — search uses a translucent white surface and border; the
   user's profile photo or initials open Settings beside New chat.
-- ✅ **Sign out.**
+- ✅ **Sign out** — asks first.
 - ✅ **Data export** — exports profile, chats and their messages, memories, todos,
   attachments, and product events as JSON via the native share sheet
   (`GET /auth/me/export`). Shows a progress screen while the archive builds.
@@ -993,11 +999,11 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
   `Alert.alert` sweep, and unused UI file cleanup. Do not restyle or
   reintroduce banned UX.
 - ✅ **Mobile consumer polish (audit 2026-09)** — generic `StateView` errors use
-  an alert icon (cloud-offline only for real connectivity); a separate Usage page;
+  an alert icon (cloud-offline only for real connectivity); usage on the Settings page;
   quieter chat-header chrome; drawer profile opens Settings; Home overdue uses warning,
   not danger; composer send/stop/dismiss use `Icon`. Web remains a later project.
 - ✅ **One UI kit (2026-09)** — `apps/mobile/ui/` is the single source for controls
-  (catalog: `apps/mobile/ui/README.md`; dev gallery at Settings → About → UI kit):
+  (catalog: `apps/mobile/ui/README.md`; dev gallery at Settings → Help & about → UI kit):
   - **Icons:** Lucide line icons at one stroke weight, plus multicolor brand marks.
   - **Menus:** every menu is one anchored popover; choices use a checked `SelectMenu`.
   - **Dialogs:** themed `confirmDialog` / `alertDialog` replace system alerts; passing errors are toasts.

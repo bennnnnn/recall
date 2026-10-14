@@ -13,15 +13,16 @@ export function TodosProvider({ children }: { children: ReactNode }) {
   const list = useTodosList(auth?.token, auth?.user?.id);
   const leadMinutes = auth?.user?.reminder_lead_minutes ?? undefined;
   const pushEnabled = auth?.user?.push_notifications_enabled ?? true;
+  const remindersEnabled = auth?.user?.push_reminders_enabled ?? true;
   const reminders = useTodoReminderState({ userId: auth?.user?.id, leadMinutes,
     todos: list.todos, retainedOpenIds: list.retainedOpenIds, getTodos: list.getTodos, isCurrentSession: list.isCurrentSession });
   const session = getSessionGeneration();
   const { todos, loaded, isCurrentSession } = list;
   useEffect(() => {
     if (!loaded || !isCurrentSession()) return;
-    void syncTodoReminders(todos, { pushEnabled, session, leadMinutes })
+    void syncTodoReminders(todos, { pushEnabled, remindersEnabled, session, leadMinutes })
       .catch(() => { if (isCurrentSession()) console.warn("[todos] device reminder sync failed"); });
-  }, [todos, loaded, isCurrentSession, pushEnabled, session, leadMinutes]);
+  }, [todos, loaded, isCurrentSession, pushEnabled, remindersEnabled, session, leadMinutes]);
   const value = { ...list, ...reminders, remindersReady: reminders.remindersReady && !list.loading };
   return <TodosContext.Provider value={value}>{children}</TodosContext.Provider>;
 }

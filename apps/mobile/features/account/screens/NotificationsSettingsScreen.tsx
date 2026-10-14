@@ -1,14 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
-import { ScrollView, View } from "react-native";
-import { Redirect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useTranslation } from "react-i18next";
 
 import {
-  makeSettingsStyles,
   SettingsGroup,
-  SettingsInlinePicker,
   SettingsLinkRow,
+  SettingsMenuRow,
+  SettingsPage,
   SettingsSwitchRow,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
@@ -24,13 +21,20 @@ import {
   REMINDER_LEAD_OPTIONS,
 } from "@/features/todos/model/reminderPrefs";
 import { normalizeReminderLeadMinutes } from "@/features/todos/model/reminderTiming";
-import { Space } from "@/lib/space";
-import { useTheme } from "@/lib/theme";
+import { type User } from "@/lib/api";
 import { alertDialog } from "@/ui/overlay/dialogs";
 import { TimePickerDialog } from "@/ui/pickers/TimePickerDialog";
 
 const DEFAULT_QUIET_START = 1320;
 const DEFAULT_QUIET_END = 420;
+
+/** Each push kind's switch, shown under the master switch while it is on. */
+const PUSH_KINDS = [
+  { field: "push_reminders_enabled", title: "settings.push_reminders" },
+  { field: "push_email_suggestions_enabled", title: "settings.push_email_suggestions" },
+  { field: "push_calendar_enabled", title: "settings.push_calendar" },
+] as const satisfies readonly { field: keyof User; title: string }[];
+type PushKindField = (typeof PUSH_KINDS)[number]["field"];
 
 let pending: { session: number; action: string } | null = null;
 const listeners = new Set<() => void>();
@@ -48,10 +52,6 @@ export default function NotificationsSettingsScreen() {
 function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const { token, user, updateUser } = useAuth();
   const { t } = useTranslation();
-  const theme = useTheme();
-  const s = useMemo(() => makeSettingsStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
-  const [leadOpen, setLeadOpen] = useState(false);
   const [reminderLeadMinutes, setReminderLeadMinutesState] = useState(
     DEFAULT_REMINDER_LEAD_MINUTES,
   );
@@ -145,6 +145,14 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     finally { finish(request); }
   }, [begin, updateUser, reportError, finish]);
 
+  const togglePushKind = useCallback(async (field: PushKindField, enabled: boolean) => {
+    const request = begin(field);
+    if (!request) return;
+    try { await updateUser({ [field]: enabled }); }
+    catch { reportError("common.error"); }
+    finally { finish(request); }
+  }, [begin, updateUser, reportError, finish]);
+
   const toggleQuietHours = useCallback(async (enabled: boolean) => {
     const request = begin("quiet");
     if (!request) return;
@@ -187,73 +195,32 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
     [begin, updateUser, reportError, finish],
   );
 
-  if (!token) return <Redirect href="/login" />;
-
   return (
     <>
-      <ScrollView
-        style={s.scroll}
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
-      >
-        <SettingsGroup styles={s}>
+      <SettingsPage>
+        <SettingsGroup label={t("settings.push_group")}>
           <SettingsSwitchRow
             title={t("settings.push_notifications")}
             value={pushToggle.value}
             disabled={busyAction !== null}
             onValueChange={pushToggle.toggle}
-            styles={s}
-            theme={theme}
           />
-          <View style={s.menuSeparator} />
-          <SettingsSwitchRow
-            title={t("settings.email_reminders")}
-            value={user?.email_reminders_enabled ?? false}
-            disabled={busyAction !== null}
-            busy={busyAction === "email"}
-            onValueChange={(v) => void toggleEmailReminders(v)}
-            styles={s}
-            theme={theme}
-          />
+          {pushToggle.value
+            ? PUSH_KINDS.map((kind) => (
+                <SettingsSwitchRow
+                  key={kind.field}
+                  title={t(kind.title)}
+                  value={user?.[kind.field] ?? true}
+                  disabled={busyAction !== null}
+                  busy={busyAction === kind.field}
+                  onValueChange={(v) => void togglePushKind(kind.field, v)}
+                />
+              ))
+            : null}
         </SettingsGroup>
 
-        <SettingsGroup styles={s}>
-          <SettingsSwitchRow
-            title={t("settings.quiet_hours")}
-            value={quietEnabled}
-            disabled={busyAction !== null}
-            busy={busyAction === "quiet"}
-            onValueChange={(v) => void toggleQuietHours(v)}
-            styles={s}
-            theme={theme}
-          />
-          {quietEnabled ? (
-            <>
-              <View style={s.menuSeparator} />
-              <SettingsLinkRow
-                title={t("settings.quiet_hours_start")}
-                value={formatMinuteOfDay(quietStart)}
-                disabled={busyAction !== null}
-                busy={busyAction === "quiet-start"}
-                onPress={() => openQuietPicker("start")}
-                styles={s}
-                theme={theme}
-              />
-              <View style={s.menuSeparator} />
-              <SettingsLinkRow
-                title={t("settings.quiet_hours_end")}
-                value={formatMinuteOfDay(quietEnd)}
-                disabled={busyAction !== null}
-                busy={busyAction === "quiet-end"}
-                onPress={() => openQuietPicker("end")}
-                styles={s}
-                theme={theme}
-              />
-            </>
-          ) : null}
-        </SettingsGroup>
-
-        <SettingsGroup styles={s}>
-          <SettingsInlinePicker
+        <SettingsGroup label={t("settings.reminders_group")}>
+          <SettingsMenuRow
             title={t("settings.reminder_lead")}
             value={t("settings.reminder_lead_value", { count: reminderLeadMinutes })}
             options={REMINDER_LEAD_OPTIONS.map((minutes) => ({
@@ -261,16 +228,47 @@ function NotificationsSettingsContent({ isCurrentView }: { isCurrentView: () => 
               label: t("settings.reminder_lead_value", { count: minutes }),
             }))}
             selectedKey={String(reminderLeadMinutes)}
-            expanded={leadOpen}
             disabled={busyAction !== null}
             busy={busyAction === "lead"}
-            onToggle={() => { if (isCurrent()) setLeadOpen((open) => !open); }}
             onSelect={(key) => void saveReminderLead(Number(key))}
-            styles={s}
-            theme={theme}
+          />
+          <SettingsSwitchRow
+            title={t("settings.email_reminders")}
+            value={user?.email_reminders_enabled ?? false}
+            disabled={busyAction !== null}
+            busy={busyAction === "email"}
+            onValueChange={(v) => void toggleEmailReminders(v)}
           />
         </SettingsGroup>
-      </ScrollView>
+
+        <SettingsGroup>
+          <SettingsSwitchRow
+            title={t("settings.quiet_hours")}
+            value={quietEnabled}
+            disabled={busyAction !== null}
+            busy={busyAction === "quiet"}
+            onValueChange={(v) => void toggleQuietHours(v)}
+          />
+          {quietEnabled ? (
+            <>
+              <SettingsLinkRow
+                title={t("settings.quiet_hours_start")}
+                value={formatMinuteOfDay(quietStart)}
+                disabled={busyAction !== null}
+                busy={busyAction === "quiet-start"}
+                onPress={() => openQuietPicker("start")}
+              />
+              <SettingsLinkRow
+                title={t("settings.quiet_hours_end")}
+                value={formatMinuteOfDay(quietEnd)}
+                disabled={busyAction !== null}
+                busy={busyAction === "quiet-end"}
+                onPress={() => openQuietPicker("end")}
+              />
+            </>
+          ) : null}
+        </SettingsGroup>
+      </SettingsPage>
 
       <TimePickerDialog
         visible={pickingQuiet !== null && quietEnabled}

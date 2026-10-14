@@ -16,7 +16,13 @@ import {
 export { ensureNotificationPermission } from "@/lib/pushNotifications";
 const TODO_PREFIX = "todo-due-";
 const ANDROID_CHANNEL = AndroidNotificationChannel.reminders;
-type ReminderOptions = { pushEnabled?: boolean | null; session?: number; leadMinutes?: number };
+type ReminderOptions = {
+  pushEnabled?: boolean | null;
+  /** Settings → Notifications → Reminders; off means no reminder alerts from anywhere. */
+  remindersEnabled?: boolean;
+  session?: number;
+  leadMinutes?: number;
+};
 type IsCurrent = () => boolean;
 let androidChannelReady = false;
 let revision = 0;
@@ -99,7 +105,7 @@ async function permitted(current: IsCurrent): Promise<boolean> {
 
 export function syncTodoReminders(todos: Todo[], options?: ReminderOptions): Promise<void> {
   return enqueue(options?.session ?? getSessionGeneration(), async (current) => {
-    if (!shouldSyncLocalTodoReminders(options?.pushEnabled)) {
+    if (options?.remindersEnabled === false || !shouldSyncLocalTodoReminders(options?.pushEnabled)) {
       await cancelMatching((id) => id.startsWith(TODO_PREFIX), current);
       return;
     }

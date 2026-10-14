@@ -29,10 +29,11 @@ jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: mockT }) }));
 jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({ bottom: 0 }) }));
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/features/account/components/settingsUi", () => ({
-  makeSettingsStyles: () => ({}), SettingsGroup: ({ children }: { children: React.ReactNode }) => children,
+  SettingsPage: ({ children }: { children: React.ReactNode }) => children,
+  SettingsGroup: ({ children }: { children: React.ReactNode }) => children,
   SettingsSwitchRow: (props: { title: string } & (typeof mockSwitches)[string]) => { mockSwitches[props.title] = props; return null; },
   SettingsLinkRow: (props: { title: string } & (typeof mockLinks)[string]) => { mockLinks[props.title] = props; return null; },
-  SettingsInlinePicker: (props: typeof mockPicker) => { mockPicker = props; return null; },
+  SettingsMenuRow: (props: typeof mockPicker) => { mockPicker = props; return null; },
 }));
 jest.mock("@/ui/pickers/TimePickerDialog", () => ({
   TimePickerDialog: (props: typeof mockTimePicker) => {
@@ -276,4 +277,29 @@ it("surfaces an initial OS permission read failure and stays off", async () => {
 
   expect(mockSwitches["settings.push_notifications"].value).toBe(false);
   expect(mockFeedback.error).toHaveBeenCalledWith("settings.push_register_failed");
+});
+
+it("shows each push kind under the master switch and saves it alone", async () => {
+  mockUser = { id: "user", reminder_lead_minutes: 10, push_notifications_enabled: true };
+  await render(<NotificationsSettingsScreen />);
+  await act(async () => {
+    await Promise.resolve();
+  });
+
+  expect(mockSwitches["settings.push_reminders"].value).toBe(true);
+  expect(mockSwitches["settings.push_calendar"].value).toBe(true);
+  await act(async () => {
+    await mockSwitches["settings.push_email_suggestions"].onValueChange(false);
+  });
+  expect(mockUpdate).toHaveBeenCalledWith({ push_email_suggestions_enabled: false });
+});
+
+it("hides the push kinds while push is off", async () => {
+  for (const key of Object.keys(mockSwitches)) delete mockSwitches[key];
+  await render(<NotificationsSettingsScreen />);
+  await act(async () => {
+    await Promise.resolve();
+  });
+  expect(mockSwitches["settings.push_notifications"].value).toBe(false);
+  expect(mockSwitches["settings.push_reminders"]).toBeUndefined();
 });

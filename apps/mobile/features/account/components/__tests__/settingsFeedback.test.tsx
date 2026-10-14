@@ -1,13 +1,11 @@
 import { fireEvent, render } from "@testing-library/react-native";
 
 import { SettingsFieldSheet } from "@/features/account/components/SettingsFieldSheet";
-import {
-  makeSettingsStyles,
-  SettingsInlinePicker,
-  SettingsSwitchRow,
-} from "@/features/account/components/settingsUi";
-import { lightTheme } from "@/lib/theme";
+import { SettingsMenuRow, SettingsSwitchRow } from "@/features/account/components/settingsUi";
 
+jest.mock("expo-router", () => ({ Redirect: () => null, router: { push: jest.fn() } }));
+jest.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ token: "token" }) }));
+jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
 jest.mock("react-i18next", () => ({
   useTranslation: () => ({ t: (key: string) => key }),
 }));
@@ -24,8 +22,6 @@ jest.mock("@/ui/overlay/Sheet", () => {
   };
 });
 
-const styles = makeSettingsStyles(lightTheme);
-
 describe("settings action feedback", () => {
   it("replaces a saving switch with row-level progress", async () => {
     const { getByRole, queryByRole } = await render(
@@ -35,8 +31,6 @@ describe("settings action feedback", () => {
         disabled
         busy
         onValueChange={jest.fn()}
-        styles={styles}
-        theme={lightTheme}
       />,
     );
 
@@ -51,8 +45,6 @@ describe("settings action feedback", () => {
         title="Memory"
         value
         onValueChange={onValueChange}
-        styles={styles}
-        theme={lightTheme}
       />,
     );
 
@@ -65,18 +57,14 @@ describe("settings action feedback", () => {
 
   it("marks choice rows busy without hiding their current value", async () => {
     const { getByText, getByRole, queryByTestId } = await render(
-      <SettingsInlinePicker
+      <SettingsMenuRow
         title="Tone"
         value="Balanced"
         options={[{ key: "balanced", label: "Balanced" }]}
         selectedKey="balanced"
-        expanded={false}
         disabled
         busy
-        onToggle={jest.fn()}
         onSelect={jest.fn()}
-        styles={styles}
-        theme={lightTheme}
       />,
     );
 
@@ -90,10 +78,9 @@ describe("settings action feedback", () => {
   });
 
   it("opens choices in a popup instead of expanding inside the card", async () => {
-    const onToggle = jest.fn();
     const onSelect = jest.fn();
-    const { getByTestId, getByLabelText, queryByText } = await render(
-      <SettingsInlinePicker
+    const { getByTestId, getByLabelText, queryByTestId, queryByText } = await render(
+      <SettingsMenuRow
         title="Tone"
         value="Casual"
         options={[
@@ -101,19 +88,16 @@ describe("settings action feedback", () => {
           { key: "casual", label: "Casual" },
         ]}
         selectedKey="casual"
-        expanded
-        onToggle={onToggle}
         onSelect={onSelect}
-        styles={styles}
-        theme={lightTheme}
       />,
     );
 
+    expect(queryByTestId("select-menu")).toBeNull();
+    await fireEvent.press(getByLabelText("Tone, Casual"));
     expect(getByTestId("select-menu")).toBeOnTheScreen();
     expect(queryByText("Funny")).toBeOnTheScreen();
-    fireEvent.press(getByLabelText("Funny"));
+    await fireEvent.press(getByLabelText("Funny"));
     expect(onSelect).toHaveBeenCalledWith("funny");
-    expect(onToggle).toHaveBeenCalled();
   });
 
   it("locks the field editor while its save is pending", async () => {

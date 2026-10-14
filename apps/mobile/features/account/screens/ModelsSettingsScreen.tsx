@@ -1,20 +1,15 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { ScrollView, View } from "react-native";
-import { Redirect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import {
-  makeSettingsStyles,
   SettingsGroup,
+  SettingsPage,
   SettingsSwitchRow,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { buildModelPreferences, useModels } from "@/hooks/useModels";
-import { Space } from "@/lib/space";
-import { useTheme } from "@/lib/theme";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 
 function sameIdSet(a: Set<string>, b: Set<string>): boolean {
@@ -33,12 +28,9 @@ type DraftPrefs = {
 };
 
 export default function ModelsSettingsScreen() {
-  const { token, user, updateUser } = useAuth();
+  const { user, updateUser } = useAuth();
   const { t } = useTranslation();
   const { models, isPro, autoEnabled, modelEnabledSet } = useModels();
-  const theme = useTheme();
-  const s = useMemo(() => makeSettingsStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
   const [draft, setDraft] = useState<DraftPrefs | null>(null);
   const [savingKey, setSavingKey] = useState<string | null>(null);
@@ -54,8 +46,6 @@ export default function ModelsSettingsScreen() {
       setDraft(null);
     }
   }, [autoEnabled, modelEnabledSet, draft]);
-
-  if (!token) return <Redirect href="/login" />;
 
   const patchPreferences = (auto: boolean, modelIds: Set<string>, key: string) => {
     if ((!auto && modelIds.size === 0) || savingRef.current) return;
@@ -96,11 +86,8 @@ export default function ModelsSettingsScreen() {
 
   return (
     <>
-      <ScrollView
-        style={s.scroll}
-        contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
-      >
-        <SettingsGroup styles={s}>
+      <SettingsPage>
+        <SettingsGroup>
           <SettingsSwitchRow
             title={t("settings.model_auto")}
             subtitle={t("settings.model_auto_summary")}
@@ -108,13 +95,11 @@ export default function ModelsSettingsScreen() {
             disabled={Boolean(savingKey) || (effectiveAuto && effectiveModels.size === 0)}
             busy={savingKey === "auto"}
             onValueChange={toggleAuto}
-            styles={s}
-            theme={theme}
           />
         </SettingsGroup>
 
-        <SettingsGroup styles={s}>
-          {models.map((option, index) => {
+        <SettingsGroup label={t("settings.models_list")}>
+          {models.map((option) => {
             const proLocked = !isPro && option.plan_access === "pro";
             const enabled = effectiveModels.has(option.id) && !proLocked;
             const isLastModel = enabled && effectiveModels.size <= 1 && !effectiveAuto;
@@ -122,29 +107,25 @@ export default function ModelsSettingsScreen() {
               isLastModel || (!enabled && !option.available && !proLocked);
 
             return (
-              <View key={option.id}>
-                {index > 0 ? <View style={s.menuSeparator} /> : null}
-                <SettingsSwitchRow
-                  title={option.label}
-                  subtitle={
-                    proLocked
-                      ? t("settings.account_pro")
-                      : option.healthy === false
-                        ? t("settings.model_degraded")
-                        : undefined
-                  }
-                  value={enabled}
-                  disabled={Boolean(savingKey) || switchDisabled}
-                  busy={savingKey === option.id}
-                  onValueChange={(value) => toggleModel(option.id, value)}
-                  styles={s}
-                  theme={theme}
-                />
-              </View>
+              <SettingsSwitchRow
+                key={option.id}
+                title={option.label}
+                subtitle={
+                  proLocked
+                    ? t("settings.account_pro")
+                    : option.healthy === false
+                      ? t("settings.model_degraded")
+                      : undefined
+                }
+                value={enabled}
+                disabled={Boolean(savingKey) || switchDisabled}
+                busy={savingKey === option.id}
+                onValueChange={(value) => toggleModel(option.id, value)}
+              />
             );
           })}
         </SettingsGroup>
-      </ScrollView>
+      </SettingsPage>
       <UpgradeSheet
         visible={upgradeVisible}
         source="model_gate"

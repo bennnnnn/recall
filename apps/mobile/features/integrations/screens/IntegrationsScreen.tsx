@@ -1,34 +1,18 @@
-import { useMemo } from "react";
-import { ScrollView, Text, View } from "react-native";
-import { Redirect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { StateView } from "@/ui/feedback/StateView";
 import { BrandMark } from "@/ui/icons/brand";
 import { IconSize } from "@/ui/icons/sizes";
 import { ConnectedAppCard } from "@/features/account/components/ConnectedAppCard";
-import {
-  makeSettingsStyles,
-  SettingsLinkRow,
-} from "@/features/account/components/settingsUi";
+import { SettingsLinkRow, SettingsPage } from "@/features/account/components/settingsUi";
 import { useSettingsIntegrations } from "@/features/integrations/hooks/useSettingsIntegrations";
-import { Space } from "@/lib/space";
-import { useTheme } from "@/lib/theme";
-import { useAuth } from "@/contexts/AuthContext";
 
 export default function ConnectedAppsScreen() {
-  const { token } = useAuth();
   const { t } = useTranslation();
-  const theme = useTheme();
-  const s = useMemo(() => makeSettingsStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
   const {
     calendarStatus, calendarBusy, gmailStatus, gmailBusy, loading, loadError,
     connectCalendar, disconnectCalendar, connectGmail, disconnectGmail, syncGmail, refresh,
   } = useSettingsIntegrations();
-
-  if (!token) return <Redirect href="/login" />;
 
   const statusLabel = (status: { connected: boolean; email?: string | null } | null) =>
     !status ? undefined : status.connected
@@ -42,10 +26,7 @@ export default function ConnectedAppsScreen() {
     : undefined;
 
   return (
-    <ScrollView
-      style={s.scroll}
-      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
-    >
+    <SettingsPage>
       {loadError ? (
         <StateView
           variant="error"
@@ -64,20 +45,13 @@ export default function ConnectedAppsScreen() {
         onAction={calendarStatus?.connected ? disconnectCalendar : () => void connectCalendar(false)}
         busy={calendarPending}
         disabled={actionsDisabled || !calendarStatus}
-        styles={s}
-        theme={theme}
       >
         {calendarStatus?.connected && !calendarStatus.can_write ? (
-          <>
-            <View style={s.menuSeparator} />
-            <SettingsLinkRow
-              title={t("settings.calendar_upgrade_write")}
-              onPress={() => void connectCalendar(true)}
-              disabled={actionsDisabled}
-              styles={s}
-              theme={theme}
-            />
-          </>
+          <SettingsLinkRow
+            title={t("settings.calendar_upgrade_write")}
+            onPress={() => void connectCalendar(true)}
+            disabled={actionsDisabled}
+          />
         ) : null}
       </ConnectedAppCard>
       <ConnectedAppCard
@@ -89,29 +63,16 @@ export default function ConnectedAppsScreen() {
         onAction={gmailStatus?.connected ? disconnectGmail : connectGmail}
         busy={gmailPending}
         disabled={actionsDisabled || !gmailStatus}
-        styles={s}
-        theme={theme}
       >
         {gmailStatus?.connected ? (
-          <>
-            {lastSync ? (
-              <View style={s.menuRow}>
-                <View style={s.rowBody}>
-                  <Text style={s.meta}>{lastSync}</Text>
-                </View>
-              </View>
-            ) : null}
-            <View style={s.menuSeparator} />
-            <SettingsLinkRow
-              title={t("settings.gmail_sync")}
-              onPress={() => void syncGmail()}
-              disabled={actionsDisabled}
-              styles={s}
-              theme={theme}
-            />
-          </>
+          <SettingsLinkRow
+            title={t("settings.gmail_sync")}
+            subtitle={lastSync}
+            onPress={() => void syncGmail()}
+            disabled={actionsDisabled}
+          />
         ) : null}
       </ConnectedAppCard>
-    </ScrollView>
+    </SettingsPage>
   );
 }

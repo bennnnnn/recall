@@ -1,12 +1,12 @@
 import type { ReactNode } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { SettingsGroup, type SettingsStyles } from "@/features/account/components/settingsUi";
-import { Space } from "@/lib/space";
-import type { Theme } from "@/lib/theme";
-import { Radius } from "@/lib/radius";
-import { Weight } from "@/lib/type";
+import { SettingsGroup } from "@/features/account/components/settingsUi";
+import { ListRow } from "@/ui/list/ListRow";
 
+/**
+ * One connected service: its logo, status and a Connect/Disconnect capsule
+ * (the whole row presses it), with extra rows such as Sync under it.
+ */
 export function ConnectedAppCard({
   title,
   description,
@@ -17,8 +17,6 @@ export function ConnectedAppCard({
   busy,
   disabled,
   children,
-  styles,
-  theme,
 }: {
   title: string;
   description?: string;
@@ -29,62 +27,23 @@ export function ConnectedAppCard({
   busy: boolean;
   disabled: boolean;
   children?: ReactNode;
-  styles: SettingsStyles;
-  theme: Theme;
 }) {
   return (
-    <SettingsGroup styles={styles}>
-      <View style={[styles.menuRow, card.header]}>
-        <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          {leading}
-        </View>
-        <View style={styles.rowBody}>
-          <Text style={styles.rowTitle}>{title}</Text>
-          {value ? <Text style={styles.meta}>{value}</Text> : null}
-        </View>
-        <Pressable
-          onPress={onAction}
-          disabled={disabled}
-          accessibilityRole="button"
-          accessibilityLabel={`${actionLabel} ${title}`}
-          accessibilityState={{ disabled, busy }}
-          style={({ pressed }) => [
-            card.action,
-            { backgroundColor: theme.bg },
-            pressed && styles.rowPressed,
-          ]}
-        >
-          {busy ? (
-            <ActivityIndicator size="small" color={theme.primary} />
-          ) : (
-            <Text style={[styles.meta, card.actionText, { color: disabled ? theme.textSecondary : theme.text }]}>
-              {actionLabel}
-            </Text>
-          )}
-        </Pressable>
-      </View>
-      {description ? (
-        <View style={[card.description, { backgroundColor: theme.settingsSurface }]}>
-          <Text style={styles.meta}>{description}</Text>
-        </View>
-      ) : null}
+    <SettingsGroup>
+      <ListRow
+        leading={leading}
+        title={title}
+        value={value}
+        subtitle={description}
+        detail={actionLabel}
+        detailStyle="pill"
+        busy={busy}
+        disabled={disabled}
+        onPress={onAction}
+        accessibilityLabel={`${actionLabel} ${title}`}
+        accessibilityHint={value}
+      />
       {children}
     </SettingsGroup>
   );
 }
-
-const card = StyleSheet.create({
-  header: { gap: Space.sm },
-  action: {
-    minHeight: Space.minTouch,
-    minWidth: Space.minTouch,
-    maxWidth: "45%",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: Space.sm,
-    paddingVertical: Space.xs,
-    borderRadius: Radius.card,
-  },
-  actionText: { ...Weight.medium, textAlign: "center" },
-  description: { paddingHorizontal: Space.gutter, paddingBottom: Space.gutter },
-});

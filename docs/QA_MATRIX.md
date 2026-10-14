@@ -129,7 +129,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|
-| 9.1 | System / Light / Dark appearance | ☐ | ☐ | Settings → Personalization |
+| 9.1 | System / Light / Dark appearance | ☐ | ☐ | Settings → Appearance |
 | 9.2 | Switch locale — UI strings update | ☐ | ☐ | At least one non-English locale |
 | 9.3 | Dark theme on non-chat screens | ☐ | ☐ | Known partial rollout |
 
@@ -159,7 +159,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 11.1 | Settings proposal card appears (e.g. "switch to dark mode") | ☐ | ☐ | Accept applies; reject dismisses |
 | 11.2 | Appearance change via chat (dark/light/system incl. "default") | ☐ | ☐ | "default" → system; no "could not update" error |
 | 11.3 | Suggestion chips load after a turn | ☐ | ☐ | Tappable follow-up prompts |
-| 11.4 | Custom instructions in Settings → Preferences applied to prompts | ☐ | ☐ | Verify via a prompt that reflects them |
+| 11.4 | Custom instructions in Settings → Personalization applied to prompts | ☐ | ☐ | Verify via a prompt that reflects them |
 
 ---
 
@@ -238,7 +238,7 @@ These need a **dev build on hardware**. Simulator FPS and memory are not evidenc
 ## 17. UI kit (menus, dialogs, pickers, share)
 
 Rebuild the dev client once first: the native date/time picker module was removed.
-**Settings → About → UI kit** (dev builds) shows every piece in one place.
+**Settings → Help & about → UI kit** (dev builds) shows every piece in one place.
 
 | # | Test | iOS | Android | Notes |
 |---|------|-----|---------|-------|

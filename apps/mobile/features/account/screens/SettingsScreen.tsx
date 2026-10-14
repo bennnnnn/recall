@@ -1,71 +1,84 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { ScrollView, StyleSheet, View } from "react-native";
-import { Redirect, useFocusEffect, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useCallback, useMemo, useState } from "react";
+import { StyleSheet, View } from "react-native";
+import { useFocusEffect, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { StackBackButton } from "@/ui/controls/StackBackButton";
 import { AccountSettingsSection } from "@/features/account/components/AccountSettingsSection";
-import { AccentSettingsRow } from "@/features/account/components/AccentSettingsRow";
-import { AppearanceSettingsRow } from "@/features/account/components/AppearanceSettingsRow";
-import { SettingsProfile } from "@/features/account/components/SettingsProfile";
+import { ProfileHeader } from "@/features/account/components/ProfileHeader";
 import {
-  SettingsOverviewGroup,
-  SettingsOverviewRow,
-} from "@/features/account/components/SettingsOverview";
+  SettingsGroup,
+  SettingsLinkRow,
+  SettingsMenuRow,
+  SettingsPage,
+  SettingsSwitchRow,
+  useSettingsAction,
+} from "@/features/account/components/settingsUi";
+import { useAccent, useAppearance, useHaptics } from "@/contexts/AppearanceContext";
 import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
 import { prefetchMemories } from "@/features/memory/model/memoryListCache";
+import { voiceLabel } from "@/features/speech/model/voices";
 import {
   connectedCountFromStatus,
   fetchIntegrationStatus,
   getCachedConnectedCount,
 } from "@/features/integrations/model/integrationStatusCache";
+import { ACCENT_OPTIONS, accentSwatch } from "@/lib/accent";
+import { APPEARANCE_OPTIONS } from "@/lib/appearance";
+import { LANGUAGES } from "@/lib/i18n/languages";
 import { getNotificationPermissionGranted } from "@/lib/pushNotifications";
 import { Space } from "@/lib/space";
-import { type Theme, useTheme } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 
 export default function SettingsScreen() {
-  const { token, user, signOut } = useAuth();
+  const { token, user, signOut, updateUser } = useAuth();
   const { t } = useTranslation();
   const { isPro, autoEnabled, modelEnabledSet } = useModels();
   const theme = useTheme();
-  const s = useMemo(() => makeStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
   const router = useRouter();
+  const { preference, setPreference } = useAppearance();
+  const { accent, setAccent } = useAccent();
+  const haptics = useHaptics();
+  const action = useSettingsAction();
 
   const [connectedCount, setConnectedCount] = useState(getCachedConnectedCount);
   const [osPushGranted, setOsPushGranted] = useState<boolean | null>(null);
 
-  const refreshSummary = useCallback(async () => {
-    if (!token) return;
-    const [integrationsR, pushGranted] = await Promise.allSettled([
-      fetchIntegrationStatus(token),
-      getNotificationPermissionGranted(),
-    ]);
-    if (integrationsR.status === "fulfilled" && integrationsR.value) {
-      setConnectedCount(connectedCountFromStatus(integrationsR.value));
-    }
-    if (pushGranted.status === "fulfilled") {
-      setOsPushGranted(pushGranted.value);
-    }
-  }, [token]);
-
+  // Focus runs on the first visit too, so the OS permission is read once per visit.
   useFocusEffect(
     useCallback(() => {
-      void refreshSummary();
-    }, [refreshSummary]),
+      if (!token) return;
+      void fetchIntegrationStatus(token)
+        .then((status) => {
+          if (status) setConnectedCount(connectedCountFromStatus(status));
+        })
+        .catch(() => undefined);
+      void getNotificationPermissionGranted()
+        .then(setOsPushGranted)
+        .catch(() => setOsPushGranted(false));
+    }, [token]),
   );
 
-  useEffect(() => {
-    void getNotificationPermissionGranted()
-      .then(setOsPushGranted)
-      .catch(() => setOsPushGranted(false));
-  }, []);
+  const appearanceOptions = useMemo(
+    () => APPEARANCE_OPTIONS.map((key) => ({ key, label: t(`settings.appearance_${key}`) })),
+    [t],
+  );
+  const accentOptions = useMemo(
+    () =>
+      ACCENT_OPTIONS.map((key) => ({
+        key,
+        label: t(`settings.accent_${key}`),
+        swatch: accentSwatch(key, theme.scheme),
+      })),
+    [t, theme.scheme],
+  );
+  const languageOptions = useMemo(
+    () => LANGUAGES.map((lang) => ({ key: lang.code, label: lang.label })),
+    [],
+  );
+  const language = LANGUAGES.find((lang) => lang.code === user?.locale) ?? LANGUAGES[0];
 
-  if (!token) return <Redirect href="/login" />;
-
-  const memoryValue = user?.memory_enabled ? t("settings.on") : t("settings.off");
   const modelsValue = autoEnabled
     ? t("settings.model_auto")
     : t("settings.models_enabled", { count: modelEnabledSet.size });
@@ -73,146 +86,174 @@ export default function SettingsScreen() {
     connectedCount > 0
       ? t("settings.integrations_connected", { count: connectedCount })
       : t("settings.integration_not_connected");
-  const notificationsOn =
-    Boolean(user?.push_notifications_enabled) && osPushGranted === true;
   const notificationsValue =
     osPushGranted == null
       ? undefined
-      : notificationsOn
+      : Boolean(user?.push_notifications_enabled) && osPushGranted
         ? t("settings.on")
         : t("settings.off");
+  const voiceValue = user?.tts_voice ? voiceLabel(user.tts_voice) : t("settings.voice_default");
 
   return (
-    <View style={s.root}>
-      <ScrollView
-        style={s.scroll}
-        contentContainerStyle={[
-          s.content,
-          { paddingTop: insets.top + Space.md, paddingBottom: insets.bottom + Space.xl },
-        ]}
-      >
-        <View style={s.profileHeader}>
-          <StackBackButton style={s.backButton} />
-          <SettingsProfile />
-        </View>
+    <SettingsPage underStatusBar>
+      <View style={s.profileHeader}>
+        <StackBackButton style={s.backButton} />
+        <ProfileHeader
+          label={t("settings.profile")}
+          onPress={() => router.push("/settings/profile")}
+        />
+      </View>
 
-        <SettingsOverviewGroup label={t("settings.experience")}>
-          <AppearanceSettingsRow />
-          <AccentSettingsRow />
-          <SettingsOverviewRow
-            icon="user-circle"
-            title={t("settings.personalization")}
-            accessibilityHint={t("settings.personalization_summary")}
-            onPress={() => router.push("/settings/preferences")}
-          />
-          <SettingsOverviewRow
-            icon="box"
-            title={t("settings.memory")}
-            accessibilityHint={t("settings.memory_desc")}
-            value={memoryValue}
-            onPress={() => {
-              if (token) prefetchMemories(token);
-              router.push("/settings/memory-settings");
-            }}
-          />
-        </SettingsOverviewGroup>
+      <AccountSettingsSection isPro={isPro} />
 
-        <AccountSettingsSection isPro={isPro} />
+      <SettingsGroup label={t("settings.experience")}>
+        <SettingsMenuRow
+          icon="contrast"
+          title={t("settings.appearance")}
+          accessibilityHint={t("settings.appearance_summary")}
+          value={t(`settings.appearance_${preference}`)}
+          options={appearanceOptions}
+          selectedKey={preference}
+          onSelect={(next) => void setPreference(next)}
+        />
+        <SettingsMenuRow
+          icon="palette"
+          title={t("settings.accent")}
+          accessibilityHint={t("settings.accent_summary")}
+          value={t(`settings.accent_${accent}`)}
+          options={accentOptions}
+          selectedKey={accent}
+          onSelect={(next) => void setAccent(next)}
+        />
+        <SettingsMenuRow
+          icon="languages"
+          title={t("settings.language")}
+          value={language.label}
+          options={languageOptions}
+          selectedKey={language.code}
+          busy={action.busy === "language"}
+          onSelect={(code) => void action.run("language", () => updateUser({ locale: code }))}
+        />
+        <SettingsSwitchRow
+          icon="vibrate"
+          title={t("settings.haptics")}
+          value={haptics.enabled}
+          onValueChange={(next) => void haptics.setEnabled(next)}
+        />
+      </SettingsGroup>
 
-        <SettingsOverviewGroup>
-          <SettingsOverviewRow
-            icon="bell"
-            title={t("settings.notifications")}
-            accessibilityHint={t("settings.notifications_summary")}
-            value={notificationsValue}
-            onPress={() => router.push("/settings/notifications")}
-          />
-        </SettingsOverviewGroup>
+      <SettingsGroup label={t("settings.assistant")}>
+        <SettingsLinkRow
+          icon="user-circle"
+          title={t("settings.personalization")}
+          accessibilityHint={t("settings.personalization_summary")}
+          href="/settings/preferences"
+        />
+        <SettingsLinkRow
+          icon="box"
+          title={t("settings.memory")}
+          accessibilityHint={t("settings.memory_desc")}
+          value={user?.memory_enabled ? t("settings.on") : t("settings.off")}
+          href="/settings/memory-settings"
+          onPress={() => {
+            if (token) prefetchMemories(token);
+          }}
+        />
+        <SettingsLinkRow
+          icon="sparkles"
+          title={t("settings.model")}
+          accessibilityHint={t("settings.model_summary")}
+          value={modelsValue}
+          href="/settings/models"
+        />
+        <SettingsLinkRow
+          icon="volume"
+          title={t("settings.voice")}
+          accessibilityHint={t("settings.voice_summary")}
+          value={voiceValue}
+          href="/settings/voice"
+        />
+      </SettingsGroup>
 
-        <SettingsOverviewGroup>
-          <SettingsOverviewRow
-            icon="link"
-            title={t("settings.connected_apps")}
-            accessibilityHint={t("settings.connected_apps_summary")}
-            value={integrationsValue}
-            onPress={() => router.push("/settings/integrations")}
-          />
-        </SettingsOverviewGroup>
+      <SettingsGroup>
+        <SettingsLinkRow
+          icon="bell"
+          title={t("settings.notifications")}
+          accessibilityHint={t("settings.notifications_summary")}
+          value={notificationsValue}
+          href="/settings/notifications"
+        />
+        <SettingsLinkRow
+          icon="link"
+          title={t("settings.connected_apps")}
+          accessibilityHint={t("settings.connected_apps_summary")}
+          value={integrationsValue}
+          href="/settings/integrations"
+        />
+      </SettingsGroup>
 
-        <SettingsOverviewGroup label={t("settings.models_and_usage")}>
-          <SettingsOverviewRow
-            icon="sparkles"
-            title={t("settings.model")}
-            accessibilityHint={t("settings.model_summary")}
-            value={modelsValue}
-            onPress={() => router.push("/settings/models")}
-          />
-          <SettingsOverviewRow
-            icon="bar-chart"
-            title={t("settings.usage_group")}
-            onPress={() => router.push("/settings/usage")}
-          />
-        </SettingsOverviewGroup>
+      <SettingsGroup label={t("settings.data_and_privacy")}>
+        <SettingsLinkRow
+          icon="shield"
+          title={t("settings.data_controls")}
+          accessibilityHint={t("settings.data_controls_summary")}
+          href="/settings/data-controls"
+        />
+        <SettingsLinkRow
+          icon="lock"
+          title={t("settings.security")}
+          accessibilityHint={t("settings.security_summary")}
+          href="/settings/security"
+        />
+      </SettingsGroup>
 
-        <SettingsOverviewGroup label={t("settings.data_and_privacy")}>
-          <SettingsOverviewRow
-            icon="shield"
-            title={t("settings.data_controls")}
-            accessibilityHint={t("settings.data_controls_summary")}
-            onPress={() => router.push("/settings/data-controls")}
-          />
-          <SettingsOverviewRow
-            icon="lock"
-            title={t("settings.security")}
-            accessibilityHint={t("settings.security_summary")}
-            onPress={() => router.push("/settings/security")}
-          />
-        </SettingsOverviewGroup>
+      <SettingsGroup>
+        <SettingsLinkRow
+          icon="help"
+          title={t("settings.help_about")}
+          accessibilityHint={t("settings.help_about_summary")}
+          href="/settings/about"
+        />
+      </SettingsGroup>
 
-        <SettingsOverviewGroup label={t("settings.support")}>
-          <SettingsOverviewRow
-            icon="help"
-            title={t("settings.help")}
-            accessibilityHint={t("settings.help_summary")}
-            onPress={() => router.push("/settings/help")}
-          />
-          <SettingsOverviewRow
-            icon="info"
-            title={t("settings.about")}
-            accessibilityHint={t("settings.about_summary")}
-            onPress={() => router.push("/settings/about")}
-          />
-        </SettingsOverviewGroup>
-
-        <SettingsOverviewGroup>
-          <SettingsOverviewRow
-            icon="log-out"
-            title={t("settings.sign_out")}
-            danger
-            onPress={async () => {
-              await signOut();
-              router.replace("/login");
-            }}
-          />
-        </SettingsOverviewGroup>
-      </ScrollView>
-    </View>
+      <SettingsGroup>
+        <SettingsLinkRow
+          icon="log-out"
+          title={t("settings.sign_out")}
+          danger
+          busy={action.busy === "sign-out"}
+          onPress={() =>
+            void action.run(
+              "sign-out",
+              async () => {
+                await signOut();
+                router.replace("/login");
+              },
+              {
+                confirm: {
+                  title: t("settings.sign_out_confirm_title"),
+                  message: t("settings.sign_out_confirm_body"),
+                  cancelLabel: t("common.cancel"),
+                  confirmLabel: t("settings.sign_out"),
+                  destructive: true,
+                },
+              },
+            )
+          }
+        />
+      </SettingsGroup>
+    </SettingsPage>
   );
 }
 
-function makeStyles(theme: Theme) {
-  return StyleSheet.create({
-    root: { flex: 1, backgroundColor: theme.bg },
-    scroll: { flex: 1 },
-    content: { paddingHorizontal: Space.gutter },
-    profileHeader: {
-      alignItems: "center",
-      paddingBottom: Space.xs,
-    },
-    backButton: {
-      position: "absolute",
-      left: 0,
-      top: 0,
-    },
-  });
-}
+const s = StyleSheet.create({
+  profileHeader: {
+    alignItems: "center",
+    paddingBottom: Space.xs,
+  },
+  backButton: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+  },
+});

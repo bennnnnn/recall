@@ -6,6 +6,7 @@ import { requestRaw } from "@/lib/api/client";
 import { playbackStatusFinished } from "@/features/speech/model/cloudPlayback";
 import { markdownToSpeechText } from "@/lib/markdown/plain";
 import { splitTtsChunks } from "@/features/speech/model/ttsLead";
+import { currentSpeechRate, getSpeechRate } from "@/features/speech/model/speechRate";
 import { getTtsModel, TTS_DEVICE_MODEL, TTS_FAST_MODEL, TTS_QUALITY_MODEL } from "@/features/speech/model/ttsPreference";
 import { loadExpoAudio, preparePlaybackAudioMode } from "@/lib/speech/voiceAudio";
 
@@ -159,6 +160,8 @@ type PlaybackStatus = {
 /** Cloud TTS clip playback (expo-audio). Never mix with expo-speech. */
 type PlaybackHandle = {
   play: () => void;
+  setPlaybackRate?: (rate: number, pitchCorrectionQuality?: "low" | "medium" | "high") => void;
+  shouldCorrectPitch?: boolean;
   pause: () => void;
   remove: () => void;
   currentTime?: number;
@@ -171,6 +174,8 @@ type PlaybackHandle = {
 };
 
 const CLOUD_PLAYBACK_MAX_MS = 300_000;
+/** expo-speech at 1× sounded rushed; this is "normal" before the user's speed. */
+const DEVICE_SPEECH_RATE = 0.92;
 let cloudPlaybackFinish: (() => void) | null = null;
 
 function waitUntilPlaybackEnds(player: PlaybackHandle, maxMs = CLOUD_PLAYBACK_MAX_MS): Promise<void> {
@@ -231,6 +236,7 @@ async function playCloudBase64(
     await writeAsStringAsync(path, audioBase64, { encoding: EncodingType.Base64 });
     if (!isCurrentSpeak(generation)) return { ok: true };
     const player = Audio.createAudioPlayer(path, { updateInterval: 50 }) as PlaybackHandle;
+    applySpeechRate(player);
     cloudPlayerCleanup = () => {
       try {
         player.pause();
@@ -250,6 +256,18 @@ async function playCloudBase64(
     return { ok: true };
   } catch {
     return { ok: false, reason: "error" };
+  }
+}
+
+/** Read-aloud speed (Settings → Voice); the voice keeps its pitch. */
+function applySpeechRate(player: PlaybackHandle): void {
+  const rate = currentSpeechRate();
+  if (rate === 1) return;
+  try {
+    player.shouldCorrectPitch = true;
+    player.setPlaybackRate?.(rate, "high");
+  } catch {
+    /* plays at normal speed */
   }
 }
 
@@ -297,7 +315,7 @@ async function beginDeviceSpeech(
     try {
       Speech.speak(plain, {
         language,
-        rate: 0.92,
+        rate: DEVICE_SPEECH_RATE * currentSpeechRate(),
         onStart: () => logTtsSpeechStarted(),
         onDone: () => resolve({ ok: true }),
         onStopped: () => resolve({ ok: true }),
@@ -432,7 +450,7 @@ export async function speakPlainText(
   const plain = markdownToSpeechText(text).slice(0, 4000);
   if (!plain) return { ok: false, reason: "error" };
 
-  const ttsModel = await getTtsModel();
+  const [ttsModel] = await Promise.all([getTtsModel(), getSpeechRate()]);
   if (!isCurrentSpeak(generation)) return { ok: true };
 
   const token = options?.token ?? null;

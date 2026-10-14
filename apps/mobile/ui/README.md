@@ -7,7 +7,7 @@ product code (`@/features`, `@/components`, `@/contexts`, `@/hooks`,
 `@/app`), which lint enforces.
 
 Development builds show every piece in light and dark at
-**Settings → About → UI kit** (`app/dev-ui.tsx`).
+**Settings → Help & about → UI kit** (`app/dev-ui.tsx`).
 
 ## Which piece for which job
 
