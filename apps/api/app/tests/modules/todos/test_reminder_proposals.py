@@ -1,0 +1,354 @@
+"""A reminder change from chat waits for a tap on its card (Postgres + fake Redis)."""
+
+from __future__ import annotations
+
+import json
+import re
+from datetime import UTC, datetime, timedelta
+from typing import Any
+from unittest.mock import patch
+from uuid import UUID, uuid4
+
+import pytest
+
+from app.modules.todos import proposals, write_log
+from app.modules.todos import repository as todos_repo
+from app.modules.todos.reminder_fences import materialize_reminder_fences
+from app.repositories import chats as chats_repo
+from app.repositories import messages as messages_repo
+from app.repositories import users as users_repo
+
+_CARD = re.compile(r"```reminder_proposal\n(.*?)\n```", re.DOTALL)
+
+
+async def _user_and_chat(session: Any) -> tuple[Any, Any]:
+    user = await users_repo.create(
+        session,
+        email=f"{uuid4()}@example.com",
+        name="Test User",
+        avatar_url=None,
+        google_sub=str(uuid4()),
+    )
+    chat = await chats_repo.create(session, user_id=user.id, model="free-chat")
+    return user, chat
+
+
+async def _turn(session: Any, redis: Any, user: Any, chat: Any, user_text: str, reply: str) -> str:
+    text, written = await materialize_reminder_fences(
+        session,
+        user_id=user.id,
+        chat_id=chat.id,
+        assistant_text=reply,
+        user_timezone="UTC",
+        user_text=user_text,
+        redis=redis,
+        confirm=True,
+    )
+    assert written == 0
+    await messages_repo.create(
+        session, chat_id=chat.id, user_id=user.id, role="assistant", content=text
+    )
+    return text
+
+
+def _card(text: str) -> dict[str, Any]:
+    match = _CARD.search(text)
+    assert match, text
+    return json.loads(match.group(1))
+
+
+async def _rows(session: Any, user_id: UUID) -> list[Any]:
+    # A plain id: a refused tap rolls back, which expires the loaded user.
+    return await todos_repo.list_for_user(session, user_id, limit=50)
+
+
+async def _saved(session: Any, user: Any, title: str) -> Any:
+    return await todos_repo.create(
+        session,
+        user_id=user.id,
+        content=title,
+        topic="Reminders",
+        due_at=datetime.now(UTC) + timedelta(days=2),
+    )
+
+
+@pytest.mark.asyncio
+async def test_spoken_reminder_is_a_card_until_tapped(db_session, fake_redis):
+    user, chat = await _user_and_chat(db_session)
+    text = await _turn(
+        db_session, fake_redis, user, chat, "remind me tomorrow at 6pm to call mom", "Sure."
+    )
+
+    card = _card(text)
+    assert card["items"][0]["action"] == "add"
+    assert card["items"][0]["title"].lower() == "call mom"
+    assert card["items"][0]["when"]
+    assert "Set:" not in text
+    assert await _rows(db_session, user.id) == []
+
+    items = await proposals.confirm_proposal(
+        db_session, fake_redis, user_id=user.id, proposal_id=card["proposal_id"]
+    )
+    assert [item.action for item in items] == ["add"]
+    rows = await _rows(db_session, user.id)
+    assert [row.content.lower() for row in rows] == ["call mom"]
+    assert rows[0].due_at is not None and rows[0].due_at.hour == 18
+
+
+@pytest.mark.asyncio
+async def test_second_tap_saves_once_and_the_chat_shows_it_saved(db_session, fake_redis):
+    user, chat = await _user_and_chat(db_session)
+    text = await _turn(
+        db_session, fake_redis, user, chat, "remind me tomorrow at 9am to water the plants", "Ok."
+    )
+    proposal_id = _card(text)["proposal_id"]
+
+    first = await proposals.confirm_proposal(
+        db_session, fake_redis, user_id=user.id, proposal_id=proposal_id
+    )
+    again = await proposals.confirm_proposal(
+        db_session, fake_redis, user_id=user.id, proposal_id=proposal_id
+    )
+
+    assert [item.title for item in again] == [item.title for item in first]
+    assert len(await _rows(db_session, user.id)) == 1
+    [message] = await messages_repo.list_recent(db_session, chat.id, limit=5)
+    assert _card(message.content)["status"] == "saved"
+
+
+@pytest.mark.asyncio
+async def test_model_fence_becomes_a_card_and_keeps_the_reply(db_session, fake_redis):
+    user, chat = await _user_and_chat(db_session)
+    due = (datetime.now(UTC) + timedelta(days=1)).replace(hour=15, minute=0, second=0)
+    reply = (
+        "Here it is.\n"
+        "```reminder\n" + json.dumps({"title": "Dentist", "due_at": due.isoformat()}) + "\n```"
+    )
+    text = await _turn(
+        db_session, fake_redis, user, chat, "add dentist tomorrow at 3pm to my reminders", reply
+    )
+
+    assert text.startswith("Here it is.")
+    assert _card(text)["items"][0]["title"] == "Dentist"
+    assert await _rows(db_session, user.id) == []
+
+
+@pytest.mark.parametrize(
+    ("user_text", "action"),
+    [
+        ("mark call mom as done", "complete"),
+        ("delete the call mom reminder", "delete"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_a_change_to_a_saved_reminder_waits_for_the_tap(
+    db_session, fake_redis, user_text, action
+):
+    user, chat = await _user_and_chat(db_session)
+    saved = await _saved(db_session, user, "Call mom")
+
+    text = await _turn(db_session, fake_redis, user, chat, user_text, "Ok.")
+    card = _card(text)
+
+    assert card["items"] == [{"action": action, "title": "Call mom"}]
+    [row] = await _rows(db_session, user.id)
+    assert row.id == saved.id and row.checked is False
+
+    await proposals.confirm_proposal(
+        db_session, fake_redis, user_id=user.id, proposal_id=card["proposal_id"]
+    )
+    rows = await _rows(db_session, user.id)
+    if action == "delete":
+        assert rows == []
+    else:
+        assert rows[0].checked is True
+
+
+@pytest.mark.asyncio
+async def test_a_reply_that_changes_nothing_has_no_card(db_session, fake_redis):
+    user, chat = await _user_and_chat(db_session)
+    text = await _turn(db_session, fake_redis, user, chat, "what is 3 + 3?", "3 + 3 = 6.")
+    assert text == "3 + 3 = 6."
+    assert await fake_redis.keys("todos:proposal:*") == []
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_card_says_it_expired(db_session, fake_redis):
+    user, _chat = await _user_and_chat(db_session)
+    with pytest.raises(proposals.ProposalError) as caught:
+        await proposals.confirm_proposal(
+            db_session, fake_redis, user_id=user.id, proposal_id=str(uuid4())
+        )
+    assert caught.value.status_code == 410
+
+
+@pytest.mark.asyncio
+async def test_a_time_that_passed_before_the_tap_is_refused(db_session, fake_redis):
+    user, chat = await _user_and_chat(db_session)
+    user_id = user.id
+    text = await _turn(
+        db_session, fake_redis, user, chat, "remind me tomorrow at 6pm to call mom", "Sure."
+    )
+    proposal_id = _card(text)["proposal_id"]
+    key = f"todos:proposal:{user.id}:{proposal_id}"
+    stored = json.loads(await fake_redis.get(key))
+    stored["writes"][0]["fields"]["due_at"] = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
+    await fake_redis.set(key, json.dumps(stored))
+
+    with pytest.raises(proposals.ProposalError) as caught:
+        await proposals.confirm_proposal(
+            db_session, fake_redis, user_id=user_id, proposal_id=proposal_id
+        )
+    assert caught.value.status_code == 409
+    assert await _rows(db_session, user_id) == []
+
+
+@pytest.mark.asyncio
+async def test_a_reminder_removed_before_the_tap_is_not_recreated(db_session, fake_redis):
+    user, chat = await _user_and_chat(db_session)
+    user_id = user.id
+    saved = await _saved(db_session, user, "Call mom")
+    text = await _turn(db_session, fake_redis, user, chat, "mark call mom as done", "Ok.")
+    await todos_repo.delete_by_id(db_session, saved.id, user.id)
+
+    with pytest.raises(proposals.ProposalError) as caught:
+        await proposals.confirm_proposal(
+            db_session, fake_redis, user_id=user_id, proposal_id=_card(text)["proposal_id"]
+        )
+    assert caught.value.status_code == 409
+    assert await _rows(db_session, user_id) == []
+
+
+@pytest.mark.asyncio
+async def test_a_failed_save_leaves_the_card_to_tap_again(db_session, fake_redis):
+    user, chat = await _user_and_chat(db_session)
+    user_id = user.id
+    text = await _turn(
+        db_session, fake_redis, user, chat, "remind me tomorrow at 6pm to call mom", "Sure."
+    )
+    proposal_id = _card(text)["proposal_id"]
+
+    with (
+        patch.object(todos_repo, "create", side_effect=RuntimeError("db down")),
+        pytest.raises(RuntimeError),
+    ):
+        await proposals.confirm_proposal(
+            db_session, fake_redis, user_id=user_id, proposal_id=proposal_id
+        )
+    await proposals.confirm_proposal(
+        db_session, fake_redis, user_id=user_id, proposal_id=proposal_id
+    )
+    assert len(await _rows(db_session, user_id)) == 1
+
+
+@pytest.mark.asyncio
+async def test_without_confirm_the_reminder_is_saved_at_once(db_session, fake_redis):
+    user, chat = await _user_and_chat(db_session)
+    text, written = await materialize_reminder_fences(
+        db_session,
+        user_id=user.id,
+        chat_id=chat.id,
+        assistant_text="Sure.",
+        user_timezone="UTC",
+        user_text="remind me tomorrow at 6pm to call mom",
+        redis=fake_redis,
+        confirm=False,
+    )
+    assert written == 1
+    assert text.startswith("Set:")
+    assert len(await _rows(db_session, user.id)) == 1
+
+
+def test_recorded_update_leaves_the_loaded_row_alone() -> None:
+    row = todos_repo.TodoItem(id=uuid4(), content="Gym", checked=False, topic="Reminders")
+    with write_log.recording() as writes:
+        planned = write_log.plan_update(writes, row, {"checked": True})
+    assert row.checked is False
+    assert planned.checked is True
+    assert [(w.kind, w.fields) for w in writes] == [("update", {"checked": True})]
+
+
+def test_deleting_a_row_planned_this_turn_drops_its_create() -> None:
+    todo = todos_repo.TodoItem(content="Gym", topic="Reminders")
+    with write_log.recording() as writes:
+        write_log.plan_create(writes, todo)
+        assert write_log.plan_delete(writes, todo.id, None) is True
+    assert writes == []
+
+
+@pytest.mark.parametrize(
+    ("kind", "fields", "action"),
+    [
+        ("create", {}, "add"),
+        ("delete", {}, "delete"),
+        ("update", {"checked": True}, "complete"),
+        ("update", {"checked": False}, "uncheck"),
+        ("update", {"topic": "Work"}, "move"),
+        ("update", {"due_at": None, "recurrence_rule": None}, "clear_due"),
+        ("update", {"due_at": datetime(2026, 1, 1, tzinfo=UTC)}, "set_due"),
+        ("update", {"recurrence_rule": "daily"}, "set_due"),
+    ],
+)
+def test_card_action_names_the_change(kind, fields, action) -> None:
+    write = write_log.PlannedWrite(kind=kind, todo_id=uuid4(), title="Gym", fields=fields)
+    assert proposals.card_action(write) == action
+
+
+def test_mark_saved_marks_only_its_own_card() -> None:
+    content = (
+        'Hi\n```reminder_proposal\n{"proposal_id": "a", "items": []}\n```\n'
+        '```reminder_proposal\n{"proposal_id": "b", "items": []}\n```'
+    )
+    marked = proposals.mark_saved(content, "b")
+    cards = [json.loads(body) for body in _CARD.findall(marked)]
+    assert cards == [
+        {"proposal_id": "a", "items": []},
+        {"proposal_id": "b", "items": [], "status": "saved"},
+    ]
+
+
+def _fence(card: dict[str, Any]) -> str:
+    return f"```reminder_proposal\n{json.dumps(card)}\n```"
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [
+        (None, "Card offered, not yet tapped — Set: Gym — Thursday, Oct 15, 6:00 PM."),
+        ("saved", "Set: Gym — Thursday, Oct 15, 6:00 PM."),
+    ],
+)
+def test_history_reads_a_card_as_its_result_line(status, expected) -> None:
+    card: dict[str, Any] = {
+        "proposal_id": "p",
+        "items": [{"action": "add", "title": "Gym", "when": "Thursday, Oct 15, 6:00 PM"}],
+    }
+    if status:
+        card["status"] = status
+    text = proposals.cards_as_text(f"Sure.\n\n{_fence(card)}")
+    assert text == f"Sure.\n\n{expected}"
+    assert "proposal_id" not in text
+
+
+def test_history_names_each_kind_of_change() -> None:
+    card = {
+        "proposal_id": "p",
+        "status": "saved",
+        "items": [
+            {"action": "complete", "title": "Rent"},
+            {"action": "delete", "title": "Gym"},
+            {"action": "move", "title": "Walk", "topic": "Health"},
+        ],
+    }
+    assert proposals.cards_as_text(_fence(card)) == (
+        "Done: Rent.\nDeleted: Gym.\nMoved: Walk — to Health."
+    )
+
+
+@pytest.mark.asyncio
+async def test_a_card_the_model_wrote_itself_is_dropped(db_session, fake_redis):
+    user, chat = await _user_and_chat(db_session)
+    fake = _fence({"proposal_id": "made-up", "items": [{"action": "add", "title": "Gym"}]})
+    text = await _turn(db_session, fake_redis, user, chat, "thanks!", f"You're welcome.\n\n{fake}")
+    assert "made-up" not in text
+    assert text.startswith("You're welcome.")

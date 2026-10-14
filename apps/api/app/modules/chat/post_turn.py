@@ -342,9 +342,12 @@ async def enqueue_post_turn_jobs(
                 f"memory:{turn_key}",
             ),
         )
+    # The background repair writes without a card, so it stays off while
+    # reminder changes wait for the user's tap.
     if (
         not spend_capped
         and not ctx.skip_memory_jobs
+        and not settings.reminder_proposals_enabled
         and todos_service.should_recover_todo_writes(ctx.user_message_content, transcript)
     ):
         todo_transcript = transcript

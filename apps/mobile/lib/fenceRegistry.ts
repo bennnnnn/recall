@@ -398,6 +398,7 @@ export function isControlFenceLang(lang: string): boolean {
     l === "reminder" ||
     l === "calendar_proposal" ||
     l === "settings_proposal" ||
+    l === "reminder_proposal" ||
     l === "photo"
   );
 }

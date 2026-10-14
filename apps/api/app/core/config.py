@@ -335,6 +335,9 @@ class Settings(BaseSettings):
     link_preview_cache_ttl: int = 3600
     home_cache_ttl: int = 120
     todo_inject_limit: int = 100
+    # A reminder change from chat is a card the user taps to save (or mark
+    # done, move, delete). Off: chat writes to-dos as soon as it reads them.
+    reminder_proposals_enabled: bool = True
     todo_prompt_limit: int = 48
     project_inject_limit: int = 50
     project_item_inject_limit: int = 300

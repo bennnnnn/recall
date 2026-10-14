@@ -3,6 +3,11 @@ import { parseCalendarProposals, stripCalendarProposalFences } from "@/features/
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
 import { stripReminderFences } from "@/features/todos/model/reminderFence";
+import {
+  parseReminderProposals,
+  stripReminderProposalFences,
+  type ReminderProposal,
+} from "@/features/todos/model/reminderProposal";
 import type { SearchSource } from "@/lib/api";
 
 import { isLocationQuestion } from "@/lib/localPlacesQuery";
@@ -38,6 +43,8 @@ export type AssistantMessageContent = {
   showCalendarProposals: boolean;
   settingsProposals: SettingsProposal[];
   showSettingsProposals: boolean;
+  reminderProposals: ReminderProposal[];
+  showReminderProposals: boolean;
   places: PlaceItem[];
   showPlaces: boolean;
   images: ParsedMessageImage[];
@@ -87,6 +94,7 @@ function buildMarkdownContent(options: {
   text = stripReminderFences(text);
   text = stripCalendarProposalFences(text);
   text = stripSettingsProposalFences(text);
+  text = stripReminderProposalFences(text);
   if (showPlaces) text = stripPlacesContent(text, places);
   return text;
 }
@@ -132,6 +140,10 @@ export function deriveAssistantMessageContent(
   const settingsProposals =
     !isUser && hasContent && !layoutFrozen ? parseSettingsProposals(content) : [];
   const showSettingsProposals = settingsProposals.length > 0 && !layoutFrozen;
+
+  const reminderProposals =
+    !isUser && hasContent && !layoutFrozen ? parseReminderProposals(content) : [];
+  const showReminderProposals = reminderProposals.length > 0;
 
   const places =
     !isUser && hasContent && !layoutFrozen ? resolvePlaces(content) : [];
@@ -181,6 +193,8 @@ export function deriveAssistantMessageContent(
     showCalendarProposals,
     settingsProposals,
     showSettingsProposals,
+    reminderProposals,
+    showReminderProposals,
     places,
     showPlaces,
     images: parsedImages.images,

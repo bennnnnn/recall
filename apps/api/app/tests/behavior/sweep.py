@@ -45,6 +45,7 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.integrations import calendar as calendar_service
 from app.modules.math import fence as math_fence_service
 from app.modules.memory import is_explicit_memory_command
+from app.modules.todos import write_log
 from app.modules.todos.spoken_add import _NEED_A_TIME
 from app.tests.behavior.cases import Case, Expect
 from app.tests.behavior.harness import USER_TIMEZONE, battery_settings, route_case
@@ -176,21 +177,33 @@ def _stores(outcome: Outcome, user: User) -> Iterator[None]:
     async def list_for_user(*_args: Any, **_kwargs: Any) -> list[Any]:
         return list(items)
 
+    # Like the real repository, a write made while the turn records (the
+    # reminder card the user taps) is planned, not made.
     async def create(_session: Any, **kwargs: Any) -> Any:
         outcome.saved.append(kwargs)
         fields = {"checked": False, "sort_order": 0, "source": "chat", **kwargs}
         item = SimpleNamespace(id=uuid4(), **fields)
+        planned = write_log.planned()
+        if planned is not None:
+            return write_log.plan_create(planned, item)  # type: ignore[arg-type]
         items.append(item)
         return item
 
     async def update(_session: Any, item: Any, **fields: Any) -> Any:
         outcome.changed.append(f"update {getattr(item, 'content', '?')} {sorted(fields)}")
+        planned = write_log.planned()
+        if planned is not None:
+            return write_log.plan_update(planned, item, fields)
         for key, value in fields.items():
             setattr(item, key, value)
         return item
 
     async def delete_by_id(_session: Any, todo_id: Any, *_args: Any, **_kwargs: Any) -> bool:
         outcome.changed.append(f"delete {todo_id}")
+        planned = write_log.planned()
+        if planned is not None:
+            row = next((item for item in items if item.id == todo_id), None)
+            return write_log.plan_delete(planned, todo_id, row)
         return True
 
     repo = "app.modules.todos.repository"

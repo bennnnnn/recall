@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
+from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
 from app.modules.chat import tools as chat_tools_service
@@ -688,7 +689,9 @@ async def build_prompt_messages(
                 if math_followup and msg is followup_exchange[-1]
                 else None
             )
-            content = prior_result or _strip_prompt_owned_fences(content)
+            content = prior_result or todos_service.reminder_cards_as_text(
+                _strip_prompt_owned_fences(content)
+            )
         messages.append({"role": msg.role, "content": content})
     # Repeat only the machine-checkable turn contract immediately before the
     # current user message. Smaller low-latency models follow nearby system

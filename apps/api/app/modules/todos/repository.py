@@ -7,6 +7,7 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
+from app.modules.todos import write_log
 
 DEFAULT_TOPIC = "General"
 OPEN_CONTENT_DUE_UNIQUE = "uq_todo_open_content_due"
@@ -172,6 +173,9 @@ async def create(
         sort_order=resolved_sort,
         source=source if source in {"user", "gmail"} else "user",
     )
+    planned = write_log.planned()
+    if planned is not None:
+        return write_log.plan_create(planned, todo)
     session.add(todo)
     if commit:
         await session.commit()
@@ -187,11 +191,17 @@ async def update(
     if "due_at" in fields and fields["due_at"] != todo.due_at:
         fields["notification_sent_at"] = None
         fields["email_sent_at"] = None
+    changes: dict[str, Any] = {}
     for key, value in fields.items():
         if hasattr(todo, key):
             if key == "topic" and isinstance(value, str):
                 value = value.strip() or DEFAULT_TOPIC
-            setattr(todo, key, value)
+            changes[key] = value
+    planned = write_log.planned()
+    if planned is not None:
+        return cast(TodoItem, write_log.plan_update(planned, todo, changes))
+    for key, value in changes.items():
+        setattr(todo, key, value)
     if commit:
         await session.commit()
         await session.refresh(todo)
@@ -201,6 +211,10 @@ async def update(
 async def delete_by_id(
     session: AsyncSession, todo_id: UUID, user_id: UUID, *, commit: bool = True
 ) -> bool:
+    planned = write_log.planned()
+    if planned is not None:
+        todo = await get_by_id(session, todo_id, user_id)
+        return write_log.plan_delete(planned, todo_id, todo)
     result = cast(
         CursorResult[Any],
         await session.execute(

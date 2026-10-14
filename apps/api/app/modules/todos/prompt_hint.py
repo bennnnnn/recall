@@ -40,8 +40,9 @@ TODO_HINT = (
     "```reminder\n"
     '{"action":"clear_due","title":"Walk"}\n'
     "```\n"
-    "Do not say the change is done, coming, or set. The app appends the saved result "
-    "after it applies (or a failure line). Without the fence, nothing is saved.\n"
+    "Do not say the change is done, coming, or set. The app shows the change under "
+    "your reply for the user to confirm (or a failure line). Without the fence, "
+    "nothing is saved.\n"
     "If the user says not to create, set, add, save, or schedule a reminder, do not emit "
     "a reminder fence and do not claim one was set. Give only the non-saving advice they asked for.\n"
     'Bulk delete overdue ("delete overdue") — emit one delete fence per overdue item. '

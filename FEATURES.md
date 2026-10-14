@@ -114,7 +114,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   values over their indexes, a trace as `steps` cards, cost in math ($O(n)$) and a
   comparison table, then `### N. Your turn` with a `quiz` card (pick an option, **Check
   answer**, see why; checked on the phone, nothing is sent) and one line previewing the
-  next lesson. No course outline. The next turn grades a typed answer (“Correct! 🎉” or a
+  next lesson. A `quiz` or `array` fence whose JSON is broken still reads: the question,
+  lettered options and a **Show answer** tap, or the list's values as text
+  (`lib/lesson/lessonFences.ts` loose readers); a fence counts as finished once its braces close. No course outline. The next turn grades a typed answer (“Correct! 🎉” or a
   short fix), then teaches Lesson N+1 from the preview; confusion re-explains the same
   lesson a new way, random input is not graded, and “everything at once” / a cheat sheet
   wins. Prompt: `modules/chat/prompt_constants/teaching.py`. Procedures (“teach me how to
@@ -627,8 +629,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,
   pitch kept) and Use on-device voice (offline device speech instead of cloud read-aloud).
 - ✅ **Memory** — on/off, Manage saved memories, clear all (`DELETE /memories`).
-- ✅ **Connected apps** — Calendar and Gmail each show status and Connect / Disconnect
-  directly on one page. Calendar permissions and Gmail sync stay in the same cards;
+- ✅ **Connected apps** — **off for launch**: `google_calendar_enabled` and `gmail_enabled`
+  default false, and Settings hides the row while the server reports neither as configured
+  (a still-connected account keeps it, so it can be removed). With a flag on, Calendar and
+  Gmail each show status and Connect / Disconnect directly on one page. Calendar permissions and Gmail sync stay in the same cards;
   there is no provider detail page. Connect opens Google authorization directly;
   disconnect retains confirmation because it can also disconnect the other Google service.
 - ✅ **Notifications** — push (On only if pref and OS permission) with its own switch per
@@ -762,8 +766,17 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Todos API** — create, check off, delete dated reminders; `due_at` is required
   on create and cannot be cleared on update. Recurring without a due date stays invalid.
   Chat extract skips undated adds.
-- ✅ **LLM todo sync** — ` ```reminder ` fences apply on persist (create + mutations);
-  a background job still recovers missed writes from chat (dated items only). Injects
+- ✅ **Reminder cards** — a to-do change from chat is a card the user taps: **Save reminder**,
+  **Mark done**, **Move**, **Delete** (` ```reminder_proposal `, `reminder_proposals_enabled`,
+  default on). The reminder rules run unchanged inside `todos/write_log.recording()`, where the
+  repository plans its writes instead of making them; `todos/proposals.py` keeps them in Redis
+  for a day. `POST /todos/proposals/{id}/confirm` makes them once (a second tap answers the
+  same), refuses a one-off time that has passed or a row deleted since, and marks the card
+  `"status": "saved"` in the chat so it reads Saved after a reload.
+- ✅ **LLM todo sync** — ` ```reminder ` fences and the spoken rules become reminder cards
+  (above); with cards off they apply on persist (create + mutations), and a background job
+  recovers missed writes from chat (dated items only). The job is off while cards are on,
+  since it would write without one. Injects
   Schedule + overdue summary into the system prompt. “What time is my flight / meeting /
   …” loads Schedule (and Calendar) on the first turn. Typed “remind me …” also classifies
   as a Schedule turn. Live Talk injects a compact Schedule snapshot and applies the same
@@ -794,6 +807,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   only, and nothing runs outside the sandboxed preview WebView. (By design.)
 
 ## 16. MCP & calendar
+
+**Off for launch** (`google_calendar_enabled` / `gmail_enabled` default false): no prompt
+hints, no calendar tool, no nudges or Gmail sync, and Settings hides Connected apps. The
+code below stays; turning a flag on brings it back without an app release.
 
 Connect external context (starting with Google Calendar) so the assistant knows the user's schedule,
 can align todos with meetings, and eventually act via tools — **all server-side** (no MCP secrets or

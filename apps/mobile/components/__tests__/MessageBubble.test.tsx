@@ -46,6 +46,9 @@ jest.mock("@/features/integrations/components/CalendarProposalCard", () => ({
 jest.mock("@/components/SettingsProposalCard", () => ({
   SettingsProposalCard: () => null,
 }));
+jest.mock("@/features/todos/components/ReminderProposalCard", () => ({
+  ReminderProposalCard: () => null,
+}));
 jest.mock("@/components/PlacesListBlock", () => ({
   PlacesListBlock: () => null,
 }));
@@ -99,6 +102,8 @@ jest.mock("@/hooks/useAssistantMessageContent", () => ({
     showCalendarProposals: false,
     settingsProposals: [],
     showSettingsProposals: false,
+    reminderProposals: [],
+    showReminderProposals: false,
     places: [],
     showPlaces: false,
     images: [],
