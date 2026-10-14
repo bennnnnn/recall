@@ -1,10 +1,12 @@
 from types import SimpleNamespace
+from typing import cast
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import pytest
 
 from app.core.config import Settings
+from app.models.orm import User
 from app.modules.images.generation import ImageGenerationError, generate_for_chat
 
 
@@ -252,7 +254,8 @@ async def _run(patches, **kwargs) -> None:
     with ExitStack() as stack:
         for item in patches:
             stack.enter_context(item)
-        await generate_for_chat(Settings(), user=SimpleNamespace(id=uuid4()), **kwargs)
+        user = cast(User, SimpleNamespace(id=uuid4()))
+        await generate_for_chat(Settings(), user=user, **kwargs)
 
 
 @pytest.mark.asyncio
