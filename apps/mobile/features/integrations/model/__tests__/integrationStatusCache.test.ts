@@ -4,6 +4,7 @@ import {
   fetchIntegrationStatus,
   getCachedConnectedCount,
   getCachedIntegrationStatus,
+  integrationsAvailable,
   invalidateIntegrationStatusCache,
   patchIntegrationStatusCache,
   setIntegrationStatusCache,
@@ -40,7 +41,7 @@ describe("integrationStatusCache", () => {
     googleGmailStatus.mockResolvedValue({ connected: true, configured: true });
 
     const result = await fetchIntegrationStatus("token");
-    expect(result).toEqual({ calendarConnected: true, gmailConnected: true });
+    expect(result).toEqual({ calendarConnected: true, gmailConnected: true, available: true });
     expect(getCachedConnectedCount()).toBe(2);
     expect(googleCalendarStatus).toHaveBeenCalledTimes(1);
   });
@@ -51,7 +52,7 @@ describe("integrationStatusCache", () => {
     googleGmailStatus.mockResolvedValue({ connected: false, configured: true });
 
     const result = await fetchIntegrationStatus("token", { force: true });
-    expect(result).toEqual({ calendarConnected: true, gmailConnected: false });
+    expect(result).toEqual({ calendarConnected: true, gmailConnected: false, available: true });
     expect(getCachedIntegrationStatus()).toEqual(result);
   });
 
@@ -63,5 +64,25 @@ describe("integrationStatusCache", () => {
       gmailConnected: true,
     });
     expect(connectedCountFromStatus(getCachedIntegrationStatus()!)).toBe(2);
+  });
+
+  it("is not available when the server has both turned off", async () => {
+    googleCalendarStatus.mockResolvedValue({ connected: false, configured: false });
+    googleGmailStatus.mockResolvedValue({ connected: false, configured: false });
+
+    const result = await fetchIntegrationStatus("token");
+    expect(result?.available).toBe(false);
+    expect(integrationsAvailable(result)).toBe(false);
+  });
+
+  it("stays available while an account is still connected, so it can be removed", async () => {
+    googleCalendarStatus.mockResolvedValue({ connected: true, configured: false });
+    googleGmailStatus.mockResolvedValue({ connected: false, configured: false });
+
+    expect(integrationsAvailable(await fetchIntegrationStatus("token"))).toBe(true);
+  });
+
+  it("is not available before the first fetch", () => {
+    expect(integrationsAvailable(null)).toBe(false);
   });
 });

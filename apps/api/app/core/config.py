@@ -28,7 +28,8 @@ class Settings(BaseSettings):
     openai_api_key: str = ""
     tavily_api_key: str = ""
 
-    google_calendar_enabled: bool = True
+    # Off for launch: the app is for homework and concepts; to-dos cover reminders.
+    google_calendar_enabled: bool = False
     calendar_cache_ttl: int = 300
     calendar_fetch_days: int = 60
     calendar_prompt_days: int = 14
@@ -41,7 +42,8 @@ class Settings(BaseSettings):
     calendar_nudge_enabled: bool = True
     calendar_nudge_lead_minutes: int = 15
 
-    gmail_enabled: bool = True
+    # Off for launch, with Calendar.
+    gmail_enabled: bool = False
     gmail_fetch_days: int = 7
     gmail_max_messages: int = 30
     gmail_cache_ttl: int = 300
