@@ -41,6 +41,7 @@ EMOJI_RULE = "Do not decorate with emoji unless the user used them."
 # Name → text that marks the hint in the system prompt.
 HINTS: dict[str, str] = {
     "teaching": pc.TEACHING_HINT,
+    "walkthrough": pc.WALKTHROUGH_HINT,
     "learning_plan": pc.LEARNING_PLAN_HINT,
     "comparison": pc.COMPARISON_FORMAT_HINT,
     "howto": pc.HOWTO_FORMAT_HINT,

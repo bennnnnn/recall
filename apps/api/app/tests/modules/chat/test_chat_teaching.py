@@ -16,6 +16,7 @@ from app.modules.chat.prompt_constants import (
     SHORT_RESPONSE_FORMAT_HINT,
     TEACHING_HINT,
     TEACHING_SHORT_NOTE,
+    WALKTHROUGH_HINT,
     active_lesson_step,
     is_learning_plan_request,
     is_lightweight_chat_turn,
@@ -440,3 +441,49 @@ async def test_ordinary_follow_up_gets_no_lesson_hint():
     ]
     system = await _system_prompt(recent, "And of Spain?")
     assert "A lesson is in progress" not in system
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I want to know american history",
+        "I'd like to know more about black holes",
+        "I need to understand calculus",
+    ],
+)
+def test_wanting_to_know_a_subject_is_a_lesson(text: str) -> None:
+    assert TEACHING_HINT in _hints(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "I want to know if it will rain tomorrow",
+        "I want to know my balance",
+        "I want to know the price of gold",
+        "I want to know about the new tesla model",
+        "I want to know your opinion",
+    ],
+)
+def test_wanting_to_know_a_fact_is_not_a_lesson(text: str) -> None:
+    assert TEACHING_HINT not in _hints(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "help me understand two sum in python",
+        "walk me through quicksort",
+        "I don't understand recursion",
+        "explain merge sort step by step",
+    ],
+)
+def test_understanding_one_idea_is_a_walkthrough_not_a_lesson(text: str) -> None:
+    hints = _hints(text)
+    assert WALKTHROUGH_HINT in hints
+    assert TEACHING_HINT not in hints
+
+
+@pytest.mark.parametrize("text", ["I don't get it", "help me understand this"])
+def test_confusion_without_a_subject_is_not_a_walkthrough(text: str) -> None:
+    assert WALKTHROUGH_HINT not in _hints(text)

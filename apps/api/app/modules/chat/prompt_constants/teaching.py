@@ -27,6 +27,14 @@ _TEACH_TURN = re.compile(
     r"\bhelp\s+me\s+(?:learn|study)\b|"
     r"\bi\s*(?:'d|’d|\s+would)?\s+(?:want|like|love|need)\s+to\s+learn\b|"
     r"\bi\s+wanna\s+learn\b|"
+    # "I want to know American history": a subject, not a fact ("if it rains",
+    # "my balance", "the price") and not news ("the new iPhone").
+    r"\bi\s*(?:'d|’d|\s+would)?\s+(?:want|like|love|need)\s+to\s+(?:know|understand)\s+"
+    r"(?:(?:more\s+)?about\s+)?"
+    r"(?!(?:about|more|if|whether|what|when|where|why|how|who|whom|which|your|you|my|me|it|"
+    r"this|that|"
+    r"the\s+(?:price|time|weather|score|status|result|answer|cost|news|new|newest|latest|"
+    r"current|date)|(?:the\s+)?(?:new|newest|latest|current))\b)[^\W\d_]|"
     r"\btutor\s+me\b|"
     r"\b(?:be|become|act\s+as)\s+my\s+(?:tutor|teacher)\b|"
     r"\b(?:give\s+me\s+)?an?\s+(?:lesson|crash\s+course)\s+(?:on|in|about)\b|"
@@ -338,6 +346,49 @@ TEACHING_SHORT_NOTE = (
     "paragraphs and a one-line example. Keep the step heading and one low-pressure "
     "question/invitation so the conversation can continue naturally."
 )
+
+
+# "Help me understand two sum": one idea, explained in full now. A lesson
+# would teach step 1 and wait; a walkthrough builds to the answer in one reply.
+_WALKTHROUGH = re.compile(
+    r"(?:\bhelp\s+me\s+understand|\bwalk\s+me\s+through|\bbreak\s+down"
+    r"|\bi\s+(?:don'?t|do\s+not|can'?t|cannot)\s+(?:get|understand))\s+"
+    r"(?!(?:it|this|that|what\s+you|you|why\s+you)\b)[^\W\d_]"
+    r"|\bexplain\b[^.?!\n]{1,80}\bstep[- ]by[- ]step\b",
+    re.IGNORECASE,
+)
+
+WALKTHROUGH_HINT = (
+    "The user wants to understand one specific idea, problem or algorithm. Explain it "
+    "completely in this reply as a walkthrough, not a multi-turn lesson:\n"
+    "- Open with the problem or idea in one or two plain sentences and a tiny concrete example.\n"
+    "- Build up to the answer: the simple or naive approach first and why it falls short, then "
+    "the key insight that leads to the better one.\n"
+    "- For code, show one language-tagged block with the final solution, then trace it on the "
+    "small example step by step (a short table of the state at each step works well).\n"
+    "- End with the cost (time and space for an algorithm, trade-offs otherwise) and when to "
+    "use it. You may offer one practice variation as an optional question."
+)
+
+
+# "Walk me through changing a tire" / "how to set up Docker step by step" is a
+# task to do: it keeps the numbered how-to steps.
+_TASK_OBJECT = re.compile(r"\b(?:how\s+(?:to|do\s+i|can\s+i)|[a-z]{3,}ing)\b", re.IGNORECASE)
+
+
+def is_walkthrough_request(text: str) -> bool:
+    """True for "help me understand X" / "walk me through X": a full explanation now."""
+    cleaned = collapse_ws(text)
+    if not cleaned or len(cleaned) > 400:
+        return False
+    match = _WALKTHROUGH.search(cleaned)
+    if match is None:
+        return False
+    rest = cleaned[match.start() :]
+    first_object = rest.split()[3:4] if rest.lower().startswith("walk me through") else []
+    if first_object and _TASK_OBJECT.fullmatch(first_object[0]):
+        return False
+    return not (_PROCEDURE.search(cleaned) or re.search(r"\bhow\s+(?:to|do\s+i)\b", rest, re.I))
 
 
 def is_teaching_request(text: str) -> bool:

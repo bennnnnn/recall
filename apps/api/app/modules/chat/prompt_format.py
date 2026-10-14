@@ -55,6 +55,7 @@ from app.modules.chat.prompt_constants import (
     UNIVERSAL_FORMAT_BASELINE,
     VERIFIED_SOLVE_SAFETY_HINT,
     VISUALIZATION_HINTS,
+    WALKTHROUGH_HINT,
     WRITING_LINE_HINT,
     draft_followup,
     draft_followup_hint,
@@ -73,6 +74,7 @@ from app.modules.chat.prompt_constants import (
     is_structured_comparison_question,
     is_teaching_request,
     is_underspecified_writing_request,
+    is_walkthrough_request,
     learning_plan_daily_contract,
     lesson_continue_hint,
     personal_record_hint,
@@ -136,6 +138,9 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return LEARNING_PLAN_HINT
     if is_teaching_request(query_text):
         return TEACHING_HINT
+    # A task ("walk me through changing a tire") is not one: it keeps how-to steps.
+    if is_walkthrough_request(query_text):
+        return WALKTHROUGH_HINT
     if is_structured_comparison_question(query_text):
         return COMPARISON_FORMAT_HINT
     if is_quote_question(query_text):
