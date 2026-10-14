@@ -76,6 +76,13 @@ it("removes local reminders when remote push owns delivery", async () => {
   expect(scheduled.size).toBe(0);
 });
 
+it("removes local reminders when the Reminders alert is switched off", async () => {
+  scheduled.set(todoNotificationId(todo.id), {});
+  await syncTodoReminders([todo], { pushEnabled: false, remindersEnabled: false });
+  expect(scheduled.size).toBe(0);
+  expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
+});
+
 it("does not schedule unconfirmed optimistic reminders", async () => {
   await syncTodoReminders([{ ...todo, id: "local-create" }], { pushEnabled: false });
   expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();

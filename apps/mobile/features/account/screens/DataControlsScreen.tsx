@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
-import { ScrollView, View } from "react-native";
-import { Redirect, useNavigation, useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useEffect } from "react";
+import { useNavigation, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { plainHeaderItems, StackBackButton } from "@/ui/controls/StackBackButton";
 import { StateView } from "@/ui/feedback/StateView";
 import {
-  makeSettingsStyles,
   SettingsGroup,
   SettingsLinkRow,
+  SettingsPage,
+  useSettingsAction,
 } from "@/features/account/components/settingsUi";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useAuth } from "@/contexts/AuthContext";
@@ -17,8 +16,6 @@ import { useDataControls } from "@/features/account/hooks/useDataControls";
 import { api } from "@/lib/api";
 import { invalidateChatListCache } from "@/lib/cache/chatListCache";
 import { notifyDestructive } from "@/lib/haptics";
-import { Space } from "@/lib/space";
-import { useTheme } from "@/lib/theme";
 import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { confirmDialog } from "@/ui/overlay/dialogs";
 
@@ -27,13 +24,10 @@ export default function DataControlsScreen() {
   const { progress, exportData, deleteAccount } = useDataControls();
   const { t } = useTranslation();
   const feedback = useActionFeedbackOptional();
-  const theme = useTheme();
-  const s = useMemo(() => makeSettingsStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
   const router = useRouter();
   const navigation = useNavigation();
+  const action = useSettingsAction();
   const busy = progress !== "idle";
-  const [bulkBusy, setBulkBusy] = useState<"archive" | "delete" | null>(null);
 
   useEffect(() => {
     const back = busy ? null : <StackBackButton fallback="/settings" />;
@@ -64,73 +58,65 @@ export default function DataControlsScreen() {
       cancelLabel: t("common.cancel"),
       confirmLabel: t("common.delete"),
       destructive: true,
-    }).then((ok) => {
+    }).then(async (ok) => {
       if (!ok) return;
-      void runDelete();
+      if (await deleteAccount()) {
+        notifyDestructive();
+        router.replace("/login");
+      } else {
+        reportRecoverableError(feedback, t("settings.delete_failed"));
+      }
     });
   };
 
-  const runDelete = async () => {
-    const deleted = await deleteAccount();
-    if (deleted) {
-      notifyDestructive();
-      router.replace("/login");
-    } else {
-      reportRecoverableError(feedback, t("settings.delete_failed"));
-    }
-  };
-
-  const confirmArchiveAll = () => {
-    if (!token || bulkBusy) return;
-    void confirmDialog({
-      title: t("settings.archive_all_chats"),
-      message: t("settings.archive_all_confirm"),
-      cancelLabel: t("common.cancel"),
-      confirmLabel: t("settings.archive_all_chats"),
-    }).then((ok) => {
-      if (!ok) return;
-      void (async () => {
+  const archiveAll = () =>
+    void action.run(
+      "archive",
+      async () => {
         if (!token) return;
-        setBulkBusy("archive");
-        try {
-          await api.archiveAllChats(token);
-          invalidateChatListCache();
-        } catch {
-          reportRecoverableError(feedback, t("common.error"));
-        } finally {
-          setBulkBusy(null);
-        }
-      })();
-    });
-  };
+        await api.archiveAllChats(token);
+        invalidateChatListCache();
+      },
+      {
+        confirm: {
+          title: t("settings.archive_all_chats"),
+          message: t("settings.archive_all_confirm"),
+          cancelLabel: t("common.cancel"),
+          confirmLabel: t("settings.archive_all_chats"),
+        },
+      },
+    );
 
-  const confirmDeleteAll = () => {
-    if (!token || bulkBusy) return;
-    void confirmDialog({
-      title: t("settings.delete_all_chats_title"),
-      message: t("settings.delete_all_chats_body"),
-      cancelLabel: t("common.cancel"),
-      confirmLabel: t("settings.delete_all_chats"),
-      destructive: true,
-    }).then((ok) => {
-      if (!ok) return;
-      void (async () => {
+  const deleteAll = () =>
+    void action.run(
+      "delete",
+      async () => {
         if (!token) return;
-        setBulkBusy("delete");
-        try {
-          await api.deleteAllChats(token);
-          notifyDestructive();
-          invalidateChatListCache();
-        } catch {
-          reportRecoverableError(feedback, t("common.error"));
-        } finally {
-          setBulkBusy(null);
-        }
-      })();
-    });
-  };
+        await api.deleteAllChats(token);
+        notifyDestructive();
+        invalidateChatListCache();
+      },
+      {
+        confirm: {
+          title: t("settings.delete_all_chats_title"),
+          message: t("settings.delete_all_chats_body"),
+          cancelLabel: t("common.cancel"),
+          confirmLabel: t("settings.delete_all_chats"),
+          destructive: true,
+        },
+      },
+    );
 
-  if (!token && progress !== "deleting") return <Redirect href="/login" />;
+  // Deleting signs out mid-way; keep the progress up instead of redirecting.
+  if (progress === "deleting") {
+    return (
+      <StateView
+        variant="loading"
+        title={t("settings.delete_progress")}
+        message={t("settings.delete_progress_body")}
+      />
+    );
+  }
 
   if (progress === "exporting") {
     return (
@@ -142,61 +128,37 @@ export default function DataControlsScreen() {
     );
   }
 
-  if (progress === "deleting") {
-    return (
-      <StateView
-        variant="loading"
-        title={t("settings.delete_progress")}
-        message={t("settings.delete_progress_body")}
-      />
-    );
-  }
-
   return (
-    <ScrollView
-      style={s.scroll}
-      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
-    >
-      <SettingsGroup label={t("settings.chats_group")} styles={s}>
+    <SettingsPage>
+      <SettingsGroup label={t("settings.chats_group")}>
         <SettingsLinkRow
           title={t("settings.archived_chats")}
-          onPress={() => router.push("/settings/archived-chats")}
-          styles={s}
-          theme={theme}
+          href="/settings/archived-chats"
         />
-        <View style={s.menuSeparator} />
         <SettingsLinkRow
           title={t("settings.archive_all_chats")}
-          onPress={confirmArchiveAll}
-          styles={s}
-          theme={theme}
+          busy={action.busy === "archive"}
+          disabled={action.busy !== null}
+          onPress={archiveAll}
         />
-        <View style={s.menuSeparator} />
         <SettingsLinkRow
           title={t("settings.delete_all_chats")}
           danger
-          onPress={confirmDeleteAll}
-          styles={s}
-          theme={theme}
+          busy={action.busy === "delete"}
+          disabled={action.busy !== null}
+          onPress={deleteAll}
         />
       </SettingsGroup>
-      <SettingsGroup styles={s}>
-        <SettingsLinkRow
-          title={t("settings.export")}
-          onPress={() => void doExport()}
-          styles={s}
-          theme={theme}
-        />
+      <SettingsGroup label={t("settings.your_data")}>
+        <SettingsLinkRow title={t("settings.export")} onPress={() => void doExport()} />
       </SettingsGroup>
-      <SettingsGroup styles={s}>
+      <SettingsGroup label={t("settings.account")}>
         <SettingsLinkRow
           title={t("settings.delete")}
           danger
           onPress={confirmDeleteAccount}
-          styles={s}
-          theme={theme}
         />
       </SettingsGroup>
-    </ScrollView>
+    </SettingsPage>
   );
 }

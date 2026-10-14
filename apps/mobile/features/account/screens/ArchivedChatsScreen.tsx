@@ -1,38 +1,31 @@
-import { useCallback, useMemo, useState } from "react";
-import { View } from "react-native";
+import { useCallback, useState } from "react";
 import { FlashList } from "@shopify/flash-list";
 import { Redirect, useFocusEffect } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { StateView } from "@/ui/feedback/StateView";
 import { SettingsSkeleton } from "@/features/account/components/SettingsSkeleton";
 import {
-  makeSettingsStyles,
   SettingsGroup,
   SettingsLinkRow,
+  useSettingsAction,
+  useSettingsContentStyle,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { api, type Chat } from "@/lib/api";
 import { invalidateChatListCache } from "@/lib/cache/chatListCache";
 import { notifyDestructive } from "@/lib/haptics";
-import { reportRecoverableError } from "@/lib/reportRecoverableError";
-import { Space } from "@/lib/space";
 import { useTheme } from "@/lib/theme";
-import { confirmDialog } from "@/ui/overlay/dialogs";
 
 export default function ArchivedChatsScreen() {
   const { token } = useAuth();
   const { t } = useTranslation();
   const theme = useTheme();
-  const s = useMemo(() => makeSettingsStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
-  const feedback = useActionFeedbackOptional();
+  const contentStyle = useSettingsContentStyle();
+  const action = useSettingsAction();
   const [chats, setChats] = useState<Chat[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(false);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!token) return;
@@ -55,99 +48,79 @@ export default function ArchivedChatsScreen() {
     }, [load]),
   );
 
-  const unarchive = async (chat: Chat) => {
-    if (!token || busyId) return;
-    setBusyId(chat.id);
-    try {
-      await api.setArchive(token, chat.id, false);
-      invalidateChatListCache();
-      setChats((rows) => rows.filter((row) => row.id !== chat.id));
-    } catch {
-      reportRecoverableError(feedback, t("chat.archive_failed"));
-    } finally {
-      setBusyId(null);
-    }
+  const drop = (chat: Chat) => setChats((rows) => rows.filter((row) => row.id !== chat.id));
+
+  const unarchive = (chat: Chat) => {
+    if (!token) return;
+    void action.run(
+      `unarchive:${chat.id}`,
+      async () => {
+        await api.setArchive(token, chat.id, false);
+        invalidateChatListCache();
+        drop(chat);
+      },
+      { errorKey: "chat.archive_failed" },
+    );
   };
 
-  const confirmDelete = (chat: Chat) => {
-    if (!token || busyId) return;
-    void confirmDialog({
-      title: t("chat.delete_confirm_title"),
-      message: t("chat.delete_confirm_body"),
-      cancelLabel: t("common.cancel"),
-      confirmLabel: t("common.delete"),
-      destructive: true,
-    }).then((ok) => {
-      if (!ok) return;
-      void (async () => {
-        if (!token) return;
-        setBusyId(chat.id);
-        try {
-          await api.deleteChat(token, chat.id);
-          notifyDestructive();
-          invalidateChatListCache();
-          setChats((rows) => rows.filter((row) => row.id !== chat.id));
-        } catch {
-          reportRecoverableError(feedback, t("chat.delete_failed"));
-        } finally {
-          setBusyId(null);
-        }
-      })();
-    });
+  const remove = (chat: Chat) => {
+    if (!token) return;
+    void action.run(
+      `delete:${chat.id}`,
+      async () => {
+        await api.deleteChat(token, chat.id);
+        notifyDestructive();
+        invalidateChatListCache();
+        drop(chat);
+      },
+      {
+        errorKey: "chat.delete_failed",
+        confirm: {
+          title: t("chat.delete_confirm_title"),
+          message: t("chat.delete_confirm_body"),
+          cancelLabel: t("common.cancel"),
+          confirmLabel: t("common.delete"),
+          destructive: true,
+        },
+      },
+    );
   };
 
   if (!token) return <Redirect href="/login" />;
 
   if (loading && chats.length === 0 && !loadError) {
-    return (
-      <SettingsSkeleton
-        accessibilityLabel={t("settings.archived_chats")}
-      />
-    );
+    return <SettingsSkeleton accessibilityLabel={t("settings.archived_chats")} />;
   }
 
   if (loadError && chats.length === 0) {
-    return (
-      <StateView
-        variant="error"
-        title={t("common.error")}
-        onRetry={() => void load()}
-      />
-    );
+    return <StateView variant="error" title={t("common.error")} onRetry={() => void load()} />;
   }
 
   if (!loading && chats.length === 0) {
-    return (
-      <StateView
-        variant="empty"
-        icon="archive"
-        title={t("settings.archived_chats_empty")}
-      />
-    );
+    return <StateView variant="empty" icon="archive" title={t("settings.archived_chats_empty")} />;
   }
 
   return (
     <FlashList
       data={chats}
       keyExtractor={(chat) => chat.id}
-      style={s.scroll}
-      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
+      style={{ flex: 1, backgroundColor: theme.bg }}
+      contentContainerStyle={contentStyle}
       renderItem={({ item: chat }) => (
-        <SettingsGroup styles={s}>
+        <SettingsGroup>
           <SettingsLinkRow
             title={chat.title?.trim() || t("common.untitled")}
-            onPress={() => void unarchive(chat)}
             value={t("chat.unarchive")}
-            styles={s}
-            theme={theme}
+            busy={action.busy === `unarchive:${chat.id}`}
+            disabled={action.busy !== null}
+            onPress={() => unarchive(chat)}
           />
-          <View style={s.menuSeparator} />
           <SettingsLinkRow
             title={t("chat.delete")}
             danger
-            onPress={() => confirmDelete(chat)}
-            styles={s}
-            theme={theme}
+            busy={action.busy === `delete:${chat.id}`}
+            disabled={action.busy !== null}
+            onPress={() => remove(chat)}
           />
         </SettingsGroup>
       )}

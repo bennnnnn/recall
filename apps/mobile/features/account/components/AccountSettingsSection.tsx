@@ -4,13 +4,14 @@ import { useTranslation } from "react-i18next";
 
 import { UpgradeSheet } from "@/components/UpgradeSheet";
 import {
-  SettingsOverviewGroup,
-  SettingsOverviewRow,
-} from "@/features/account/components/SettingsOverview";
+  SettingsGroup,
+  SettingsLinkRow,
+  SettingsValueRow,
+} from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
-import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
+import { useUsage } from "@/features/account/hooks/useUsage";
 import { type User } from "@/lib/api";
-import { restorePurchases } from "@/lib/purchases";
+import { formatUsageSummary } from "@/lib/quota";
 
 function manageSubscriptionUrl(): string {
   return Platform.OS === "ios"
@@ -27,74 +28,50 @@ function signInLabel(
   return t("settings.sign_in_dev");
 }
 
+/**
+ * Email (with how you sign in), plan and today's usage. A free plan opens
+ * the upgrade sheet, which also restores a purchase; Pro manages it in the store.
+ */
 export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
   const { user } = useAuth();
   const { t } = useTranslation();
-  const feedback = useActionFeedbackOptional();
-
+  const { usage } = useUsage();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
-  const [restoreBusy, setRestoreBusy] = useState(false);
-
-  const restore = async () => {
-    if (restoreBusy) return;
-    setRestoreBusy(true);
-    try {
-      const ok = await restorePurchases();
-      if (ok) {
-        feedback?.success(t("settings.restore_purchases_ok"));
-      } else {
-        feedback?.error(t("settings.restore_purchases_none"));
-      }
-    } catch {
-      feedback?.error(t("common.error"));
-    } finally {
-      setRestoreBusy(false);
-    }
-  };
-
-  const planLabel = isPro ? t("settings.account_pro") : t("settings.account_free");
 
   return (
     <>
-      <SettingsOverviewGroup label={t("settings.account")}>
-        <SettingsOverviewRow
+      <SettingsGroup label={t("settings.account")}>
+        <SettingsValueRow
           icon="mail"
           title={t("settings.email")}
           value={user?.email ?? ""}
-        />
-        <SettingsOverviewRow
-          icon="key"
-          title={t("settings.sign_in_method")}
-          value={signInLabel(user?.sign_in_provider, t)}
+          subtitle={t("settings.signed_in_with", {
+            provider: signInLabel(user?.sign_in_provider, t),
+          })}
         />
         {isPro ? (
-          <>
-            <SettingsOverviewRow
-              icon="credit-card"
-              title={t("settings.plan_label")}
-              value={planLabel}
-            />
-            <SettingsOverviewRow
-              icon="wallet"
-              title={t("settings.manage_subscription")}
-              onPress={() => void Linking.openURL(manageSubscriptionUrl())}
-            />
-            <SettingsOverviewRow
-              icon="refresh"
-              title={t("settings.restore_purchases")}
-              onPress={() => void restore()}
-            />
-          </>
+          <SettingsLinkRow
+            icon="credit-card"
+            title={t("settings.plan_label")}
+            value={t("settings.account_pro")}
+            subtitle={t("settings.manage_subscription")}
+            onPress={() => void Linking.openURL(manageSubscriptionUrl())}
+          />
         ) : (
-          <SettingsOverviewRow
+          <SettingsLinkRow
             icon="sparkles"
             title={t("settings.plan_label")}
-            value={planLabel}
+            value={t("settings.account_free")}
             onPress={() => setUpgradeVisible(true)}
             accent
           />
         )}
-      </SettingsOverviewGroup>
+        <SettingsValueRow
+          icon="bar-chart"
+          title={t("settings.usage_group")}
+          value={usage ? formatUsageSummary(usage, isPro, t) : undefined}
+        />
+      </SettingsGroup>
 
       <UpgradeSheet
         visible={upgradeVisible}

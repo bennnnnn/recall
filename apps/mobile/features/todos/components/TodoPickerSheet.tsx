@@ -1,6 +1,6 @@
 /**
- * Floating choice popup for Settings (centered card).
- * One sheet per choice row — do not expand options inside the gray card.
+ * Floating choice popup for the to-do editor (centered card): a category
+ * list, or the date and time wheels passed as children.
  */
 import { useMemo, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -87,7 +87,7 @@ function PickerBody({
   );
 }
 
-export function SettingsPickerSheet({
+export function TodoPickerSheet({
   visible,
   title: _title,
   keyboardAvoiding = false,

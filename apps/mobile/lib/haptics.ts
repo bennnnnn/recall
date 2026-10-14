@@ -3,6 +3,26 @@ import * as Haptics from "expo-haptics";
 
 /** Platform where native haptics failed. Vibration is the Android fallback only. */
 let unavailableOn: string | null = null;
+/** Settings → Haptics. Loaded from the device at start (lib/hapticsPrefs). */
+let enabled = true;
+const listeners = new Set<() => void>();
+
+export function hapticsEnabled(): boolean {
+  return enabled;
+}
+
+export function setHapticsEnabledSnapshot(next: boolean): void {
+  if (next === enabled) return;
+  enabled = next;
+  listeners.forEach((listener) => listener());
+}
+
+export function subscribeHaptics(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
 
 function vibrateAndroid(ms: number): void {
   if (Platform.OS !== "android") return;
@@ -14,6 +34,7 @@ function vibrateAndroid(ms: number): void {
 }
 
 function play(fn: () => Promise<void>, androidFallbackMs: number): void {
+  if (!enabled) return;
   if (unavailableOn === Platform.OS) {
     vibrateAndroid(androidFallbackMs);
     return;
@@ -39,6 +60,7 @@ function play(fn: () => Promise<void>, androidFallbackMs: number): void {
 /** @internal Resets the Expo Go miss cache between tests. */
 export function resetHapticsAvailabilityForTests(): void {
   unavailableOn = null;
+  enabled = true;
 }
 
 /** Light tactile feedback for an important press. Never throws. */

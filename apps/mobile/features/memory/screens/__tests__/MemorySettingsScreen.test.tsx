@@ -26,7 +26,8 @@ jest.mock("react-native-safe-area-context", () => ({ useSafeAreaInsets: () => ({
 jest.mock("@/lib/theme", () => ({ useTheme: () => ({}) }));
 jest.mock("@/ui/feedback/StateView", () => ({ StateView: ({ onRetry }: { onRetry: () => void }) => { mockRetry = onRetry; return null; } }));
 jest.mock("@/features/account/components/settingsUi", () => ({
-  makeSettingsStyles: () => ({}), SettingsGroup: ({ children }: { children: React.ReactNode }) => children,
+  SettingsPage: ({ children }: { children: React.ReactNode }) => children,
+  SettingsGroup: ({ children }: { children: React.ReactNode }) => children,
   SettingsSwitchRow: (props: typeof mockSwitch & { title: string }) => {
     if (props.title === "settings.memory") mockSwitch = props;
     return null;

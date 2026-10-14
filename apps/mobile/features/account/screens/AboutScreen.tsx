@@ -1,62 +1,93 @@
-import { useMemo } from "react";
-import { ScrollView, View } from "react-native";
+import { Share } from "react-native";
 import Constants from "expo-constants";
-import { useRouter } from "expo-router";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import {
-  makeSettingsStyles,
   SettingsGroup,
   SettingsLinkRow,
+  SettingsPage,
   SettingsValueRow,
 } from "@/features/account/components/settingsUi";
+import { useAuth } from "@/contexts/AuthContext";
+import { useModels } from "@/hooks/useModels";
+import { config } from "@/lib/config";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
 import { openAllowedUrl } from "@/lib/linkSchemePolicy";
-import { Space } from "@/lib/space";
-import { useTheme } from "@/lib/theme";
 
+/** Settings → Help & about: reach us, the legal pages, and the version. */
 export default function AboutScreen() {
+  const { user } = useAuth();
+  const { isPro } = useModels();
   const { t } = useTranslation();
-  const theme = useTheme();
-  const s = useMemo(() => makeSettingsStyles(theme), [theme]);
-  const insets = useSafeAreaInsets();
-  const router = useRouter();
-  const appVersion = Constants.expoConfig?.version ?? "1.0.0";
+  const version = Constants.expoConfig?.version ?? "1.0.0";
+
+  /** What support needs to know, without anything from the user's chats. */
+  const reportBody = (title: string) =>
+    [
+      title,
+      "",
+      `${t("settings.about_version")}: ${version}`,
+      `${t("settings.plan_label")}: ${isPro ? t("settings.account_pro") : t("settings.account_free")}`,
+      `${t("settings.language")}: ${user?.locale ?? "en"}`,
+    ].join("\n");
+
+  const share = (titleKey: string) => {
+    const title = t(titleKey);
+    void Share.share({ title, message: reportBody(title) });
+  };
+
+  const contactSupport = (email: string) => {
+    const subject = encodeURIComponent(t("settings.contact_support_subject"));
+    const body = encodeURIComponent(reportBody(t("settings.contact_support")));
+    void openAllowedUrl(`mailto:${email}?subject=${subject}&body=${body}`);
+  };
+
+  const supportEmail = config.supportEmail;
 
   return (
-    <ScrollView
-      style={s.scroll}
-      contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.lg }]}
-    >
-      <SettingsGroup styles={s}>
+    <SettingsPage>
+      <SettingsGroup label={t("settings.support")}>
+        {supportEmail ? (
+          <SettingsLinkRow
+            title={t("settings.contact_support")}
+            value={supportEmail}
+            onPress={() => contactSupport(supportEmail)}
+          />
+        ) : null}
+        <SettingsLinkRow
+          title={t("settings.report_problem")}
+          onPress={() => share("settings.report_problem")}
+        />
+        <SettingsLinkRow
+          title={t("settings.send_feedback")}
+          onPress={() => share("settings.send_feedback")}
+        />
+      </SettingsGroup>
+
+      <SettingsGroup label={t("settings.legal")}>
         <SettingsLinkRow
           title={t("privacy.title")}
           onPress={() => void openAllowedUrl(getLegalPrivacyUrl())}
-          styles={s}
-          theme={theme}
         />
-        <View style={s.menuSeparator} />
         <SettingsLinkRow
           title={t("terms.title")}
           onPress={() => void openAllowedUrl(getLegalTermsUrl())}
-          styles={s}
-          theme={theme}
+        />
+        <SettingsLinkRow
+          title={t("settings.licenses")}
+          href="/settings/licenses"
         />
       </SettingsGroup>
-      <SettingsGroup styles={s}>
-        <SettingsValueRow
-          title={t("settings.about_version")}
-          value={appVersion}
-          styles={s}
-          theme={theme}
-        />
+
+      <SettingsGroup>
+        <SettingsValueRow title={t("settings.about_version")} value={version} />
       </SettingsGroup>
+
       {__DEV__ ? (
         <SettingsGroup>
-          <SettingsLinkRow icon="grid" title="UI kit" onPress={() => router.push("/dev-ui")} />
+          <SettingsLinkRow icon="grid" title="UI kit" href="/dev-ui" />
         </SettingsGroup>
       ) : null}
-    </ScrollView>
+    </SettingsPage>
   );
 }

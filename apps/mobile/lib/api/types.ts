@@ -2,6 +2,19 @@ import type { SearchSource } from "@/lib/searchSources";
 
 export type { SearchSource };
 
+/** Voices both read-aloud and live talk speak (the server's UserVoice). */
+export type UserVoice =
+  | "marin"
+  | "cedar"
+  | "alloy"
+  | "ash"
+  | "ballad"
+  | "coral"
+  | "echo"
+  | "sage"
+  | "shimmer"
+  | "verse";
+
 export type User = {
   id: string;
   email: string;
@@ -15,6 +28,12 @@ export type User = {
   memory_enabled: boolean;
   memory_include_sensitive?: boolean;
   push_notifications_enabled: boolean;
+  /** Each push kind's own switch, under the master one. */
+  push_reminders_enabled?: boolean;
+  push_email_suggestions_enabled?: boolean;
+  push_calendar_enabled?: boolean;
+  /** Read-aloud and live talk voice; null is the server default. */
+  tts_voice?: UserVoice | null;
   email_reminders_enabled?: boolean;
   reminder_lead_minutes: number;
   locale: string;

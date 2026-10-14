@@ -38,12 +38,16 @@ export default function SettingsLayout() {
     >
       <Stack.Screen name="index" options={{ title: t("settings.title"), headerShown: false }} />
       <Stack.Screen
+        name="profile"
+        options={subScreen(t("settings.profile"), header)}
+      />
+      <Stack.Screen
         name="models"
         options={subScreen(t("settings.model"), header)}
       />
       <Stack.Screen
-        name="usage"
-        options={subScreen(t("settings.usage_group"), header)}
+        name="voice"
+        options={subScreen(t("settings.voice"), header)}
       />
       <Stack.Screen
         name="preferences"
@@ -74,12 +78,12 @@ export default function SettingsLayout() {
         options={subScreen(t("settings.security"), header)}
       />
       <Stack.Screen
-        name="help"
-        options={subScreen(t("settings.help"), header)}
+        name="about"
+        options={subScreen(t("settings.help_about"), header)}
       />
       <Stack.Screen
-        name="about"
-        options={subScreen(t("settings.about"), header)}
+        name="licenses"
+        options={subScreen(t("settings.licenses"), header)}
       />
     </Stack>
   );

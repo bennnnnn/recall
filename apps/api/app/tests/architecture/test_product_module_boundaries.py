@@ -154,9 +154,10 @@ def test_mobile_account_and_auth_have_feature_homes() -> None:
         "app/settings/security.tsx": "features/account/screens/SecuritySettingsScreen",
         "app/settings/archived-chats.tsx": "features/account/screens/ArchivedChatsScreen",
         "app/settings/models.tsx": "features/account/screens/ModelsSettingsScreen",
-        "app/settings/usage.tsx": "features/account/screens/UsageSettingsScreen",
+        "app/settings/profile.tsx": "features/account/screens/ProfileSettingsScreen",
+        "app/settings/voice.tsx": "features/account/screens/VoiceSettingsScreen",
         "app/settings/about.tsx": "features/account/screens/AboutScreen",
-        "app/settings/help.tsx": "features/account/screens/HelpSettingsScreen",
+        "app/settings/licenses.tsx": "features/account/screens/LicensesScreen",
     }
     for route, screen in routes.items():
         lines = [line for line in (MOBILE_ROOT / route).read_text().splitlines() if line.strip()]
