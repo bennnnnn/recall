@@ -270,6 +270,13 @@ pnpm typecheck
 pnpm lint
 ```
 
+**Behavior battery:** `apps/api/app/tests/behavior/cases.py` lists ~70 real prompts (STEM,
+search, photos and maps, time and location, teaching, format, code, tone, personal) with how each
+should route. `test_battery.py` checks that routing offline in CI; a case with a `gap` is a strict
+expected failure until the gap is fixed (then delete the `gap` line). `./scripts/dev.sh battery`
+sends the same prompts to the running API and writes the replies to `tmp/battery/`
+(`--category teaching`, `--only map-where-is`).
+
 **Coverage requirements**
 
 - Backend minimum 80%; critical services (quota, auth, memory) target 90%+.

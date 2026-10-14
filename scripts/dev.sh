@@ -128,6 +128,10 @@ case "${1:-}" in
     shift
     "$ROOT/scripts/qa-smoke.sh" "$@"
     ;;
+  battery)
+    shift
+    (cd "$ROOT/apps/api" && uv run python "$ROOT/scripts/battery.py" "$@")
+    ;;
   verify-production)
     shift
     "$ROOT/scripts/verify-production.sh" "$@"
@@ -150,7 +154,7 @@ case "${1:-}" in
     echo "Optional local DB: ./scripts/dev.sh infra  (requires Docker)"
     ;;
   *)
-    echo "Usage: scripts/dev.sh {up|setup|migrate|api|watch-errors|mobile|mobile-sim|mobile-tunnel|web|kill-metro|kill-all|test-api|check|qa-smoke|verify-production|infra}"
+    echo "Usage: scripts/dev.sh {up|setup|migrate|api|watch-errors|mobile|mobile-sim|mobile-tunnel|web|kill-metro|kill-all|test-api|check|battery|qa-smoke|verify-production|infra}"
     echo ""
     echo "  up [sim|phone] API + app in one terminal, kept on the latest main (default: sim)"
     echo "  setup          Install deps, copy .env (no Docker)"
@@ -158,6 +162,8 @@ case "${1:-}" in
     echo "  api            Run FastAPI on :8000"
     echo "  watch-errors   Run API and highlight 4xx/5xx (saves to tmp/http-errors.log)"
     echo "  check          Run the full local gate (API ruff+format+mypy+pytest, mobile+web typecheck+lint)"
+    echo "  battery        Send the behavior battery to the running API; report in tmp/battery/"
+    echo "                 (--category teaching, --only map-where-is,search-ai-news)"
     echo "  qa-smoke       Backend smoke checks (add --live when API running)"
     echo "  verify-production  Production readiness report (add --live for deployed API)"
     echo "  api            Run FastAPI on :8000"
