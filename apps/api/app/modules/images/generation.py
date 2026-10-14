@@ -7,6 +7,8 @@ import re
 from typing import Literal, cast
 from uuid import UUID, uuid4
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.redis import get_redis_client
@@ -140,7 +142,7 @@ async def generate_for_chat(
             raise ImageGenerationError("Chat not found", status_code=404)
         if reference_attachment_ids is None and not create_user_message:
             prior = await messages_repo.get_last_user(session, chat_id)
-            reference_attachment_ids = image_reference_ids(prior.content if prior else "")
+            reference_attachment_ids = await _turn_reference_ids(session, prior)
 
     gateway = get_storage_gateway(settings)
     if isinstance(gateway, UnconfiguredStorageGateway):
@@ -232,15 +234,24 @@ async def generate_for_chat(
                 bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{cleaned}").strip()
                 if not bubble:
                     bubble = f"{_USER_MESSAGE_PREFIX}{cleaned}"
+                # "Black" after a cat picture edits the picture right above;
+                # repeating it in the user's bubble only shows it twice. A
+                # photo the user attached stays in their bubble.
+                in_chat = await _shown_in_chat(
+                    session, chat_id, [s for s, _, _ in reference_copies]
+                )
                 # Independent hidden copies keep an edit/regenerate usable if
                 # its original Library item or earlier image is later deleted.
+                # They are linked to the user row either way, so regenerate
+                # finds them without a marker in the text.
                 reference_ids: list[UUID] = []
                 for source, ref_id, ref_key in reference_copies:
                     await attachments_repo.insert_verified_clone(
                         session, src=source, new_id=ref_id, storage_key=ref_key
                     )
                     reference_ids.append(ref_id)
-                    bubble += f"\n[Image: /attachments/{ref_id}/file]"
+                    if source.id not in in_chat:
+                        bubble += f"\n[Image: /attachments/{ref_id}/file]"
                 user_message = await messages_repo.create(
                     session,
                     chat_id=chat_id,
@@ -342,6 +353,39 @@ async def load_reference_images(
             raise ImageGenerationError("Reference image is unavailable or invalid", status_code=400)
         result.append((row, raw))
     return result
+
+
+async def _shown_in_chat(
+    session: AsyncSession, chat_id: UUID, sources: list[Attachment]
+) -> set[UUID]:
+    """References that are already a reply's picture in this chat."""
+    shown: set[UUID] = set()
+    for source in sources:
+        if source.message_id is None:
+            continue
+        message = await messages_repo.get_by_id(session, source.message_id, chat_id)
+        if message is not None and message.role == "assistant":
+            shown.add(source.id)
+    return shown
+
+
+async def _turn_reference_ids(session: AsyncSession, turn: Message | None) -> list[UUID]:
+    """The images a generated turn was made from, to make it again.
+
+    The ones in its bubble come first, then the hidden copies linked to it
+    (an edit of the picture above keeps its reference out of the bubble).
+    """
+    if turn is None:
+        return []
+    linked = await attachments_repo.list_for_message_ids(session, [turn.id])
+    hidden = [
+        row.id
+        for row in sorted(
+            linked, key=lambda row: (row.created_at is None, row.created_at, str(row.id))
+        )
+        if is_image_content_type(row.content_type)
+    ]
+    return list(dict.fromkeys([*image_reference_ids(turn.content), *hidden]))[:2]
 
 
 def image_reference_ids(content: str) -> list[UUID]:
