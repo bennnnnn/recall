@@ -16,7 +16,32 @@ const QUIZ = {
 
 describe("parseQuizFence", () => {
   it("reads the question, options, answer and explanation", () => {
-    expect(parseQuizFence(JSON.stringify(QUIZ))).toEqual(QUIZ);
+    expect(parseQuizFence(JSON.stringify(QUIZ))).toEqual({
+      ...QUIZ,
+      label: null,
+      code: null,
+      codeLang: "python",
+    });
+  });
+
+  it("reads the label and the code drawn inside the card", () => {
+    const fence = parseQuizFence(
+      JSON.stringify({
+        ...QUIZ,
+        label: "Exercise 1",
+        code: "\nnumbers = [2, 4]\nprint(numbers)\n",
+        lang: "javascript",
+      }),
+    );
+    expect(fence).toMatchObject({
+      label: "Exercise 1",
+      code: "numbers = [2, 4]\nprint(numbers)",
+      codeLang: "javascript",
+    });
+    expect(quizText(fence!)).toBe(
+      "What should `two_sum(nums, target)` return?\nnumbers = [2, 4]\nprint(numbers)\n" +
+        "A) `[0, 1]`\nB) `[1, 2]`\nC) `[0, 2]`\nD) `[2, 4]`",
+    );
   });
 
   it.each([
@@ -42,7 +67,7 @@ describe("parseQuizFence", () => {
   });
 
   it("writes the question and lettered options as text", () => {
-    expect(quizText(QUIZ)).toBe(
+    expect(quizText(parseQuizFence(JSON.stringify(QUIZ))!)).toBe(
       "What should `two_sum(nums, target)` return?\nA) `[0, 1]`\nB) `[1, 2]`\nC) `[0, 2]`\nD) `[2, 4]`",
     );
   });
@@ -55,6 +80,7 @@ describe("parseArrayFence", () => {
     );
     expect(fence).toEqual({
       name: "nums",
+      title: null,
       values: [2, 7, 11, 15],
       highlight: [0, 1],
       caption: null,

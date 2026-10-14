@@ -35,10 +35,24 @@ describe("QuizCard", () => {
     expect(view.queryByText("rich.quiz_correct")).toBeNull();
     await fireEvent.press(view.getByText("[12, 16]"));
     await fireEvent.press(view.getByText("rich.quiz_check"));
+    // The verdict is its own line above the explanation, as in ChatGPT.
     expect(view.getByText("rich.quiz_correct")).toBeTruthy();
-    // The verdict opens the explanation's paragraph, as in ChatGPT.
+    expect(view.getByText("Only 6 and 8 are greater than 4.")).toBeTruthy();
+  });
+
+  it("shows the exercise pill and the code inside the card", async () => {
+    const content = JSON.stringify({
+      label: "Exercise 1",
+      question: "What will this Python code print?",
+      code: "numbers = [2, 4, 6, 8]\nprint(numbers[-1])",
+      options: ["2", "8"],
+      answer: 1,
+      explanation: "`-1` is the last item.",
+    });
+    const view = await render(<QuizCard content={content} />);
+    expect(view.getByText("Exercise 1")).toBeTruthy();
     expect(
-      view.getByText("rich.quiz_correct Only 6 and 8 are greater than 4."),
+      view.getByText("python:numbers = [2, 4, 6, 8]\nprint(numbers[-1])"),
     ).toBeTruthy();
   });
 

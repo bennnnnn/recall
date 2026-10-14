@@ -318,29 +318,39 @@ _LESSON_SHAPE = (
     "`### 3. Apply it to backend development`. Each section teaches one idea in two or three "
     "short paragraphs with a concrete, real-world example (for code: an API, a table of users; "
     "otherwise a worked example, an event, a source).\n"
-    "- Code: short language-tagged blocks such as ```python. Then go through the key function "
-    "line by line: for every line, the label `Line 1` on its own line, that one line alone in "
-    "its own ```python block, then one sentence on what it does. One label per line; never "
-    "group lines (no `Line 3-5`). Then `Test it:` with a ```python block that prints a call, "
-    "and `Output:` with what it prints in a ```text block. Never write `>>>` prompts.\n"
+    "- Code: short language-tagged blocks such as ```python. Explain it the way a tutor does: "
+    "a `# 18` comment for what a line gives, then a bullet per idea that opens with the code "
+    'in `inline code` ("`ages[0]` gets the first item."), or `**How it works:**` with '
+    "numbered steps for a loop, or `Let's break down the important parts:` with bullets. Only "
+    "for the key function of an algorithm lesson (four or more lines), go line by line "
+    "instead: the label `Line 1` on its own line, that one line alone in its own ```python "
+    "block, then one sentence; never group lines (no `Line 3-5`). After code that prints, "
+    "`Output:` with what it prints in a ```text block; after code that only defines a "
+    "function, `Test it:` with a ```python block that calls it, then `Output:`. Never write "
+    "`>>>` prompts.\n"
     "- A list or array: show its values over their indexes with an ```array fence holding JSON "
-    '{"values": [2, 7, 11, 15], "highlight": [0, 1], "caption": "2 + 7 = 9", "note": "The '
-    'numbers are at indexes 0 and 1. We return indexes, not the numbers themselves."}. '
-    "Highlight, caption and note are optional; write the caption as plain text, not LaTeX.\n"
+    '{"title": "Think of a Python list as a row of numbered boxes.", "values": [18, 25, 32, '
+    '40], "note": "Python starts counting indexes at **0**, not 1."}, or for an algorithm '
+    '{"values": [2, 7, 11, 15], "highlight": [0, 1], "caption": "2 + 7 = 9", "note": "We '
+    'return indexes, not the numbers themselves."}. Title (a line above the boxes), '
+    "highlight, caption (a short result under them) and note are optional; write them as "
+    "plain text, not LaTeX.\n"
     "- A trace of an algorithm or process: a ```steps fence, one numbered line per step with a "
     "bold title, and plain lines under it for what happens and the state, for example:\n"
     "```steps\n1. **Read `2` at index `0`**\nWe need `9 - 2 = 7`. Not seen yet, so save "
     "`2: 0`.\nDictionary: `{2: 0}`\n```\n"
     "- Cost in math: time $O(n^2)$, extra space $O(1)$. A key idea may be one display formula "
     "in a ```math fence. Compare approaches in a markdown table.\n"
-    "- The last section is `### N. Your turn` (translated) with one practice question as a "
-    '```quiz fence holding JSON {"question": "...", "options": ["...", "...", "...", "..."], '
+    "- The last section is `### N. Your turn — predict the output` (translated, or the kind of "
+    'question it is) with one practice question as a ```quiz fence holding JSON {"label": '
+    '"Exercise 1", "question": "What will this Python code print?", "code": "<the code the '
+    'question needs, lines joined with \\n>", "options": ["...", "...", "...", "..."], '
     '"answer": <0-based index of the right option>, "explanation": "<why, in one or two '
-    'sentences>"}. Label it `Practice 1` and put code the question needs in a fenced block '
-    'above it. Prefer "predict the output" or "what should it return"; make the wrong options '
-    "real mistakes. Options and the explanation may use `inline code`; the explanation may end "
-    "with a short fenced code block. The app lets the learner pick and check; never reveal the "
-    "answer in the text.\n"
+    'sentences>"}. The app draws the label, the question and the code inside one card, so '
+    'never repeat the code in a block above it. Prefer "predict the output" or "what should '
+    'it return"; make the wrong options real mistakes. Options and the explanation may use '
+    "`inline code`; the explanation may end with a short fenced code block. The app lets the "
+    "learner pick and check; never reveal the answer in the text.\n"
     "- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, "
     'B and C." No course outline, no table of contents, no "ready to continue?" question.\n'
     "- Lessons are the exception to the emoji rule: one fitting emoji in the opening line "

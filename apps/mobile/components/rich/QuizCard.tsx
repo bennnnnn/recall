@@ -1,18 +1,18 @@
-import { type ComponentProps, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
+import { ChipText } from "@/components/rich/ChipText";
 import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 import { CODE_FONT } from "@/lib/fonts";
 import { notifySuccess, notifyWarning, selection } from "@/lib/haptics";
 import i18n from "@/lib/i18n";
 import { isUnfinishedJson } from "@/lib/jsonFence";
 import { explanationParts, parseQuizFence } from "@/lib/lesson/lessonFences";
-import { parseInlineMarkdown } from "@/lib/markdown/inlineMarkdown";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Italic, Type, Weight } from "@/lib/type";
+import { Type, Weight } from "@/lib/type";
 import { Button } from "@/ui/controls/Button";
 
 type Props = { content: string };
@@ -21,7 +21,7 @@ type Attempt = { picked: number | null; checked: boolean };
 // The answer stays picked when the list recycles the message off screen and back.
 const attempts = new Map<string, Attempt>();
 
-/** "Your turn": pick an option, check it, see why. Nothing is sent to the chat. */
+/** "Exercise 1": the code, pick an option, check it, see why. Nothing is sent to the chat. */
 export function QuizCard({ content }: Props) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
@@ -50,16 +50,18 @@ export function QuizCard({ content }: Props) {
     save({ ...attempt, checked: true });
   };
   const correct = attempt.picked === quiz.answer;
-  const parts = explanationParts(quiz.explanation);
-  // The verdict opens the first paragraph: "Not quite. enumerate() gives you …"
-  const lead = parts[0]?.kind === "text" ? parts[0].text : null;
-  const rest = lead === null ? parts : parts.slice(1);
 
   return (
     <View style={s.card} testID="quiz-card">
+      {quiz.label ? (
+        <View style={s.badge}>
+          <Text style={s.badgeText}>{quiz.label}</Text>
+        </View>
+      ) : null}
       <ChipText style={s.question} chip={s.chip}>
         {quiz.question}
       </ChipText>
+      {quiz.code ? <CodeBlock code={quiz.code} lang={quiz.codeLang} /> : null}
       <View accessibilityRole="radiogroup">
         {quiz.options.map((option, index) => {
           const picked = attempt.picked === index;
@@ -88,16 +90,10 @@ export function QuizCard({ content }: Props) {
       />
       {attempt.checked ? (
         <View style={s.result} accessibilityLiveRegion="polite">
-          <Text style={s.explanation}>
-            <Text style={s.verdict}>
-              {correct
-                ? i18n.t("rich.quiz_correct")
-                : i18n.t("rich.quiz_wrong")}
-            </Text>
-            {lead ? " " : null}
-            {lead ? <ChipSpans text={lead} chip={s.chip} /> : null}
+          <Text style={s.verdict}>
+            {correct ? i18n.t("rich.quiz_correct") : i18n.t("rich.quiz_wrong")}
           </Text>
-          {rest.map((part, index) =>
+          {explanationParts(quiz.explanation).map((part, index) =>
             part.kind === "code" ? (
               <CodeBlock key={index} code={part.code} lang={part.lang} />
             ) : (
@@ -109,59 +105,6 @@ export function QuizCard({ content }: Props) {
         </View>
       ) : null}
     </View>
-  );
-}
-
-type TextStyleProp = ComponentProps<typeof Text>["style"];
-
-/** Inline markdown with `code` drawn as a gray chip, as in ChatGPT's quiz. */
-function ChipText({
-  children,
-  style,
-  chip,
-}: {
-  children: string;
-  style: TextStyleProp;
-  chip: TextStyleProp;
-}) {
-  return (
-    <Text style={style}>
-      <ChipSpans text={children} chip={chip} />
-    </Text>
-  );
-}
-
-function ChipSpans({ text, chip }: { text: string; chip: TextStyleProp }) {
-  const tokens = useMemo(() => parseInlineMarkdown(text), [text]);
-  if (tokens.length === 0) return <>{text}</>;
-  return (
-    <>
-      {tokens.map((token, index) => {
-        if (token.type === "code") {
-          // Thin spaces pad the chip; nested Text takes no padding.
-          return (
-            <Text key={index} style={chip}>
-              {` ${token.value} `}
-            </Text>
-          );
-        }
-        if (token.type === "bold") {
-          return (
-            <Text key={index} style={Weight.bold}>
-              {token.value}
-            </Text>
-          );
-        }
-        if (token.type === "italic") {
-          return (
-            <Text key={index} style={Italic.regular}>
-              {token.value}
-            </Text>
-          );
-        }
-        return token.value;
-      })}
-    </>
   );
 }
 
@@ -178,6 +121,15 @@ function makeStyles(t: Theme) {
       borderColor: t.border,
       backgroundColor: t.bg,
     },
+    // "Exercise 1", a soft pill in the brand tint.
+    badge: {
+      alignSelf: "flex-start",
+      paddingHorizontal: Space.sm,
+      paddingVertical: Space.xxs,
+      borderRadius: Radius.full,
+      backgroundColor: t.accentLight,
+    },
+    badgeText: { ...Type.secondary, ...Weight.semibold, color: t.accentDark },
     question: { ...Type.body, ...Weight.semibold, color: t.text },
     option: {
       flexDirection: "row",
@@ -211,8 +163,14 @@ function makeStyles(t: Theme) {
       color: t.text,
       backgroundColor: t.surfaceAlt,
     },
-    result: { gap: Space.sm, paddingHorizontal: Space.xxs },
-    verdict: { ...Weight.bold, color: t.text },
+    // The verdict and why, in a gray panel under the button.
+    result: {
+      gap: Space.sm,
+      padding: Space.md,
+      borderRadius: Radius.xl,
+      backgroundColor: t.surface,
+    },
+    verdict: { ...Type.body, ...Weight.bold, color: t.text },
     explanation: { ...Type.body, color: t.text },
     error: {
       ...Type.secondary,
