@@ -519,9 +519,15 @@ CASES: tuple[Case, ...] = (
         "format-howto",
         "format",
         "how do I make tea",
-        Expect(hints=("howto",), search="no"),
+        Expect(hints=("steps",), search="no"),
         "Numbered steps.",
-        gap="'how do I <task>' does not get the numbered-steps layout",
+    ),
+    Case(
+        "format-howto-feeling",
+        "format",
+        "how do I know if I'm ready to change jobs",
+        Expect(no_hints=("steps",), search="no"),
+        "Honest signs to weigh, not a numbered procedure.",
     ),
     Case(
         "format-email",
@@ -543,7 +549,6 @@ CASES: tuple[Case, ...] = (
         "summarize the french revolution in 3 sentences",
         Expect(hints=("brevity",), subject=NONE, search="no"),
         "Exactly three sentences.",
-        gap="'in 3 sentences' is not read as a length limit; 'revolution' plus a number reads as physics",
     ),
     Case(
         "format-chart",
@@ -595,7 +600,6 @@ CASES: tuple[Case, ...] = (
         "hi 👋",
         Expect(lightweight=True, search="no"),
         "A short greeting back, as fast as a plain 'hi'.",
-        gap="an emoji makes a greeting a full turn instead of a quick one",
     ),
     Case(
         "tone-emoji-mirror",

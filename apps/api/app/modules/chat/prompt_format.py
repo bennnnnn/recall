@@ -49,6 +49,7 @@ from app.modules.chat.prompt_constants import (
     SHORT_RESPONSE_FORMAT_HINT,
     SOCIAL_DRAFT_HINT,
     STATISTICS_PRESENTATION_HINT,
+    STEPS_FORMAT_HINT,
     TEACHING_HINT,
     TEACHING_SHORT_NOTE,
     TRANSLATION_FORMAT_HINT,
@@ -72,6 +73,7 @@ from app.modules.chat.prompt_constants import (
     is_sequence_diagram_question,
     is_short_confirmation,
     is_structured_comparison_question,
+    is_task_howto,
     is_teaching_request,
     is_underspecified_writing_request,
     is_walkthrough_request,
@@ -149,6 +151,9 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return CALLOUT_FORMAT_HINT
     if is_howto_question(query_text):
         return HOWTO_FORMAT_HINT
+    # A solver owns the shape of "how do I solve 2x + 5 = 17".
+    if is_task_howto(query_text) and detect_subject(query_text) is None:
+        return STEPS_FORMAT_HINT
     return None
 
 

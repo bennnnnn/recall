@@ -118,9 +118,21 @@ _BREVITY_MARKERS = (
     "tl;dr",
 )
 
+# "in 3 sentences", "under 100 words", "in two lines": a stated length is a cap too.
+_LENGTH_CAP = re.compile(
+    r"\b(?:in|within|using|with)\s+(?:only\s+|just\s+|exactly\s+)?"
+    r"(?:one|two|three|four|five|six|seven|eight|nine|ten|a\s+few|\d{1,3})\s+"
+    r"(?:short\s+)?(?:sentences?|words?|lines?|bullet(?:\s+point)?s?|paragraphs?)\b"
+    r"|\b(?:under|less\s+than|fewer\s+than|no\s+more\s+than|at\s+most|max(?:imum)?)\s+"
+    r"\d{1,4}\s+(?:words?|characters?|sentences?|lines?)\b"
+    r"|\b(?:one|two|three|four|five|\d{1,3})[- ](?:sentence|word|line|paragraph)\s+"
+    r"(?:summary|answer|reply|description|explanation|version|bio|pitch|intro|overview)\b",
+    re.IGNORECASE,
+)
+
 BREVITY_REQUEST_HINT = (
-    "The user asked for a one-sentence, one-word, or brief answer. "
-    "Ignore decorative table/heading layout and match the length they asked. Preserve a "
+    "The user set the length: a sentence, word or line count, or a brief answer. "
+    "Ignore decorative table/heading layout and match the length they asked exactly. Preserve a "
     "draft/code/visual container only when that container is the requested deliverable. "
     "When shortening existing text, never drop or blur factual details such as units, "
     "quantities, dates, names, or commitments."
@@ -132,7 +144,9 @@ def is_brevity_request(text: str) -> bool:
     cleaned = text.strip().lower()
     if not cleaned:
         return False
-    return any(marker in cleaned for marker in _BREVITY_MARKERS)
+    return any(marker in cleaned for marker in _BREVITY_MARKERS) or bool(
+        _LENGTH_CAP.search(cleaned)
+    )
 
 
 _CHART_TURN = re.compile(
@@ -362,6 +376,33 @@ def is_howto_question(text: str) -> bool:
     ):
         return False
     return bool(_HOWTO_TURN.search(cleaned))
+
+
+# "How do I make tea", "how to tie a tie", "what are the steps to renew a
+# passport": a task the user will do. Feelings and judgment ("how do I know if",
+# "how do I deal with") are not steps.
+_TASK_HOWTO = re.compile(
+    r"^(?:(?:so|ok(?:ay)?|hey|hi|please|quick\s+question)[,!:]?\s+)?"
+    r"(?:how\s+(?:do|can|should|would)\s+(?:i|you|we|one)|how\s+to"
+    r"|what\s+(?:are|is)\s+the\s+steps?\s+(?:to|for)|(?:give\s+me\s+)?(?:the\s+)?steps\s+to)\s+"
+    r"(?!(?:know|tell|feel|deal|cope|forgive|trust|decide|understand|stop\s+(?:feeling|thinking)"
+    r"|get\s+over|be\s+(?:happy|confident|happier)|love|say|pronounce|spell)\b)[^\W\d_]",
+    re.IGNORECASE,
+)
+
+STEPS_FORMAT_HINT = (
+    "This is a how-to task. Give numbered steps, one action each, in the order they are done. "
+    "Put what is needed (ingredients, tools, documents) first as a short list when there is "
+    "any, and add a one-line tip at the end only if it helps. No headings for a short task."
+)
+
+
+def is_task_howto(text: str) -> bool:
+    """True for "how do I <do a task>": numbered steps, not a plan or an essay."""
+    cleaned = text.strip()
+    if not cleaned or len(cleaned) > 300:
+        return False
+    return _TASK_HOWTO.search(cleaned) is not None
 
 
 _QUOTE_TURN = re.compile(

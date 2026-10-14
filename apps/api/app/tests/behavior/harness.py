@@ -45,6 +45,7 @@ HINTS: dict[str, str] = {
     "learning_plan": pc.LEARNING_PLAN_HINT,
     "comparison": pc.COMPARISON_FORMAT_HINT,
     "howto": pc.HOWTO_FORMAT_HINT,
+    "steps": pc.STEPS_FORMAT_HINT,
     "chart": pc.CHART_FORMAT_HINT,
     "mermaid": pc.MERMAID_FORMAT_HINT,
     "email": pc.EMAIL_DRAFT_HINT,

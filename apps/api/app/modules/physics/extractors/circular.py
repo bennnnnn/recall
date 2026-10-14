@@ -61,8 +61,16 @@ _CIRCULAR_ASKS: tuple[tuple[str, _CircularOp], ...] = (
 _RPM_RE = re.compile(rf"({_NUMBER})\s*(?:rpm|revolutions?\s+per\s+minute)\b", re.IGNORECASE)
 
 _CIRCULAR_CUE_RES: tuple[re.Pattern[str], ...] = (
-    # Revolutions of a body, not a "volume (solid, surface) of revolution" in calculus.
-    re.compile(r"(?<!volume of )(?<!solid of )(?<!surface of )\brevolutions?\b", re.IGNORECASE),
+    # Revolutions of a body: counted ("3 revolutions", "one revolution") or a rate
+    # ("revolutions per second"). Not "the French revolution" or a calculus
+    # "volume (solid, surface) of revolution".
+    # Lookbehinds keep it linear: a leading digit run would retry from every digit.
+    re.compile(
+        r"(?:(?<=\d)|(?<=\d )|(?<=\bone )|(?<=\ba )|(?<=\beach )|(?<=\bevery )|(?<=\bper )"
+        r"|(?<=\bfull )|(?<=\bcomplete )|(?<=\bmany ))revolutions?\b"
+        r"|\brevolutions?\s+(?:per|around|about|each|every)\b",
+        re.IGNORECASE,
+    ),
     re.compile(r"\bperiod\b.{0,80}?\bradius\b", re.IGNORECASE),
     re.compile(r"\bradius\b.{0,80}?\bperiod\b", re.IGNORECASE),
     re.compile(
