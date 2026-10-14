@@ -67,7 +67,7 @@ _SHORT_FOLLOWUP_WORDS = 12
 
 _RECENCY_PHRASES = (
     "latest",
-    "breaking",
+    "breaking news",
     "today",
     "today's",
     "current",
@@ -164,7 +164,7 @@ _WEATHER = re.compile(
     r"|(?:today|tomorrow|tonight)(?:['\u2019]s)?\s+(?:weather|forecast)"
     r"|(?:weather\s+)?forecast\s+(?:for|in|today|tomorrow|tonight|this)"
     r"|temperature\s+(?:outside|today|tomorrow|tonight|right\s+now|in|at)"
-    r"|(?:will|is)\s+it\s+(?:going\s+to\s+)?(?:rain|snow|storm)"
+    r"|(?:will|is)\s+it\s+(?:going\s+to\s+|gonna\s+)?(?:rain|snow|storm)"
     r"|(?:how|is\s+it)\s+(?:hot|cold|warm|humid)\s+(?:is\s+it\s+)?(?:outside|today|out))\b",
     re.IGNORECASE,
 )
@@ -439,6 +439,9 @@ _MOTION_HOMEWORK = re.compile(
     r"|m\s*/\s*s"
     r"|metres?\s+per\s+second"
     r"|meters?\s+per\s+second"
+    # "A train leaves at 9am and travels at 60 km/h. How far has it gone?"
+    r"|km\s*/\s*h|kph|mph|km\s+(?:per|an)\s+hour|miles\s+(?:per|an)\s+hour"
+    r"|travel(?:s|ed|led)?\s+at|average\s+speed"
     r")\b",
     re.IGNORECASE,
 )
@@ -506,6 +509,29 @@ _CORRESPONDENCE = re.compile(
 )
 
 
+# "Add a line saying the rent for this month is paid": an edit of a draft.
+_DRAFT_EDIT = re.compile(
+    r"^\s*(?:please\s+)?(?:(?:can|could)\s+you\s+)?(?:also\s+)?"
+    r"(?:add|remove|delete|change|rewrite|reword|shorten|expand)\s+"
+    r"(?:a|an|the|one|another|this|that|my)?\s*(?:[\w'-]+\s+){0,2}?"
+    r"(?:line|sentence|paragraph|section|bullet|point|p\.?s\.?|greeting|signature"
+    r"|subject|closing|opening|intro)s?\b",
+    re.IGNORECASE,
+)
+
+
 def is_correspondence_request(text: str) -> bool:
-    """True for "write a text / email / note …": a draft, not a search."""
-    return bool(_CORRESPONDENCE.search(text))
+    """True for "write a text / email / note …" or an edit of one: a draft, not a search."""
+    return bool(_CORRESPONDENCE.search(text) or _DRAFT_EDIT.search(text))
+
+
+# "scores = [78, 92]", "print(avg)", "add 25 + 38": a sum or code, never a search topic.
+_MATH_OR_CODE = re.compile(
+    r"=|\bprint\(|\bdef\s|\bfunction\s|\breturn\s|```|=>|\d\s*[+*/\u00d7\u00f7^]\s*\d"
+    r"|\badd\s+\d+\s+(?:and|to|\+)\s+\d+",
+    re.IGNORECASE,
+)
+
+
+def looks_like_math_or_code(text: str) -> bool:
+    return bool(_MATH_OR_CODE.search(text))

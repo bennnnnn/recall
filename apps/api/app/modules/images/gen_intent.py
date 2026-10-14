@@ -88,7 +88,9 @@ def _has_non_image_subject(subject: str) -> bool:
 
 def _has_non_image_draw(subject: str) -> bool:
     words = [_fold_token(word) for word in subject.split()]
-    if "sketch of the idea" in " ".join(words):
+    joined = " ".join(words)
+    # "Paint a picture with words of a morning in Addis" asks for prose.
+    if "sketch of the idea" in joined or "picture with words" in joined:
         return True
     return any(word in NON_IMAGE_DRAW_WORDS for word in words)
 

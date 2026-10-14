@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import re
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from datetime import tzinfo as TzInfo
 from typing import Literal, Protocol
@@ -76,6 +76,26 @@ _READ_OPENINGS = (
     "read my schedule",
 )
 
+_FILLER_LEADS = (
+    "please ",
+    "pls ",
+    "can you ",
+    "could you ",
+    "actually ",
+    "ok so ",
+    "okay so ",
+    "ok ",
+    "okay ",
+    "oh ",
+    "yes ",
+    "yeah ",
+    "also ",
+    "and ",
+    "wait ",
+    "so ",
+)
+_FILLER_TAILS = (" instead", " please", " then", " thanks", " thank you", " pls")
+_CLAUSE_SPLIT = re.compile(r"[,;]|\s[\u2014\u2013-]\s")
 # Openings that do not say "my": a place after them is somewhere else's schedule.
 _BARE_READS = frozenset({"what is scheduled", "whats scheduled"})
 _ELSEWHERE = re.compile(
@@ -100,6 +120,12 @@ class SpokenReminderChange:
     minute: int | None = None
     topic: str | None = None
     needs_time: bool = False
+    # "Move it to Sunday, same time": the day changes and the clock stays.
+    day: str | None = None
+    # "Push it to next week": the same day and clock, this many days later.
+    shift_days: int = 0
+    # "I paid rent, check it off": the other clause says what "it" is.
+    context_hint: str = ""
 
 
 def user_stated_reminder_change(user_text: str | None) -> bool:
@@ -125,8 +151,35 @@ def parse_spoken_reminder_change(
     user_timezone: str | None = None,
     now: datetime | None = None,
 ) -> SpokenReminderChange | None:
-    """Parse one named done, reopen, delete, or move. Bulk and undated moves stay out."""
-    text = _prepare(user_text)
+    """Parse one named done, reopen, delete, or move. Bulk and undated moves stay out.
+
+    "I paid rent, check it off" and "delete it, my roommate does it now" carry
+    the change in one clause; each clause is tried when the whole is not one.
+    """
+    parsed = _parse_change(user_text, user_timezone=user_timezone, now=now)
+    if parsed is not None or not user_text:
+        return parsed
+    clauses = [part.strip() for part in _CLAUSE_SPLIT.split(user_text)]
+    if len(clauses) < 2:
+        return None
+    for index, clause in enumerate(clauses):
+        parsed = _parse_change(clause, user_timezone=user_timezone, now=now)
+        if parsed is None:
+            continue
+        if parsed.use_latest:
+            context = " ".join(clauses[:index] + clauses[index + 1 :])
+            return replace(parsed, context_hint=context)
+        return parsed
+    return None
+
+
+def _parse_change(
+    user_text: str | None,
+    *,
+    user_timezone: str | None,
+    now: datetime | None,
+) -> SpokenReminderChange | None:
+    text = _checked_off(_prepare(user_text))
     if not text:
         return None
     lowered = text.lower()
@@ -140,8 +193,12 @@ def parse_spoken_reminder_change(
         ("uncheck ", "uncheck"),
         ("delete ", "delete"),
         ("remove ", "delete"),
+        ("done with ", "complete"),
         ("move ", "set_due"),
         ("reschedule ", "set_due"),
+        ("push ", "set_due"),
+        ("postpone ", "set_due"),
+        ("bump ", "set_due"),
     )
     for verb, action in verbs:
         if not lowered.startswith(verb):
@@ -152,6 +209,8 @@ def parse_spoken_reminder_change(
             if parsed is not None:
                 return parsed
             continue
+        # "Delete it, my roommate does it now": the reason is not the name.
+        rest = _CLAUSE_SPLIT.split(rest, maxsplit=1)[0]
         if action == "complete":
             rest = _strip_done_tail(rest)
         hint = _clean_title(rest)
@@ -219,6 +278,15 @@ def _parse_move(
     if not _words(hint) and not use_latest:
         return None
     after = rest[to_at + len(" to ") :]
+    title_hint = "" if use_latest else hint
+    if after.lower().startswith("next week"):
+        return SpokenReminderChange(
+            action="set_due", title_hint=title_hint, use_latest=use_latest, shift_days=7
+        )
+    following = ""
+    if after.lower().startswith("next "):
+        following = "next "
+        after = after[len(following) :]
     day_end = 0
     while day_end < len(after) and after[day_end].isalpha():
         day_end += 1
@@ -227,13 +295,20 @@ def _parse_move(
         return None
     at_rel = after.lower().find(" at ", day_end)
     if at_rel < 0:
-        return None
+        if "same time" not in after.lower():
+            return None
+        return SpokenReminderChange(
+            action="set_due",
+            title_hint=title_hint,
+            use_latest=use_latest,
+            day=following + day_name,
+        )
     clock = _parse_clock(after, at_rel + len(" at "))
     if clock is None:
         return None
     tz = time_context_service.resolve_timezone(user_timezone)
     when = now.astimezone(tz) if now is not None else _now(tz)
-    day = _due_date_for_day(day_name, when)
+    day = _due_date_for_day(following + day_name, when)
     if day is None:
         return None
     hour, minute = clock
@@ -259,12 +334,42 @@ def _repeat(tail: str) -> RecurrenceRule | None:
 
 
 def _prepare(user_text: str | None) -> str:
-    text = (user_text or "").strip()
+    """Drop "actually", "ok", "please", a trailing "instead" or emoji around the change."""
+    words = (user_text or "").split()
+    while words and not any(char.isalnum() for char in words[-1]):
+        words.pop()
+    text = " ".join(words)
     while text and text[-1] in ".!?":
         text = text[:-1].rstrip()
-    for lead in ("please ", "can you "):
-        if text.lower().startswith(lead):
-            text = text[len(lead) :].lstrip()
+    changed = True
+    while changed:
+        changed = False
+        lowered = text.lower()
+        for lead in _FILLER_LEADS:
+            if lowered.startswith(lead):
+                text = text[len(lead) :].lstrip(" ,")
+                changed = True
+                break
+        lowered = text.lower()
+        for tail in _FILLER_TAILS:
+            if lowered.endswith(tail):
+                text = text[: -len(tail)].rstrip(" ,")
+                changed = True
+                break
+    return text
+
+
+def _checked_off(text: str) -> str:
+    """ "check it off", "tick the rent off", "cross off gym" → "complete …"."""
+    lowered = text.lower()
+    for verb in ("check ", "tick ", "cross "):
+        if not lowered.startswith(verb):
+            continue
+        rest = text[len(verb) :].strip()
+        if rest.lower().startswith("off "):
+            return "complete " + rest[len("off ") :]
+        if rest.lower().endswith(" off"):
+            return "complete " + rest[: -len(" off")]
     return text
 
 
@@ -320,9 +425,11 @@ def _words(text: str) -> set[str]:
 
 
 # "Mark the dentist reminder as done" names reminders; "finish the story",
-# "delete the last paragraph" or "remove duplicates from a list" does not.
+# "delete the last paragraph", "remove duplicates from a list" or "make me a
+# study schedule" does not.
 _NAMES_REMINDERS = re.compile(
-    r"\b(?:remind(?:er|ers)?|to-?dos?|tasks?|schedule|as\s+(?:done|complete|completed|finished))\b",
+    r"\b(?:remind(?:er|ers)?|to-?dos?|tasks?|(?:my|your)\s+schedule"
+    r"|as\s+(?:done|complete|completed|finished))\b",
     re.IGNORECASE,
 )
 
@@ -332,8 +439,29 @@ def names_reminders(user_text: str | None) -> bool:
     return bool(user_text and _NAMES_REMINDERS.search(user_text))
 
 
+def match_from_context(items: Sequence[_Named], change: SpokenReminderChange) -> _Named | None:
+    """The one reminder that shares the most words with the other clause, if any."""
+    context = _words(change.context_hint)
+    if not context:
+        return None
+    scored = sorted(
+        ((len(context & _words(item.content or "")), item) for item in _pool(items, change.action)),
+        key=lambda pair: pair[0],
+        reverse=True,
+    )
+    if not scored or scored[0][0] == 0:
+        return None
+    if len(scored) > 1 and scored[0][0] == scored[1][0]:
+        return None
+    return scored[0][1]
+
+
 def resolve_spoken_target(items: Sequence[_Named], change: SpokenReminderChange) -> _Named | None:
     """The named reminder, or the latest one when they said it/this/that."""
+    if change.use_latest and change.context_hint:
+        named = match_from_context(items, change)
+        if named is not None:
+            return named
     if change.use_latest or not _words(change.title_hint):
         return latest_reminder(items, change.action)
     return match_spoken_reminder(items, change.title_hint, action=change.action)
@@ -426,10 +554,9 @@ def _parse_adjust(
 
 
 def _is_fresh_reminder(body: str) -> bool:
+    """ "Make a reminder …" or "make me a study schedule …" creates; it changes nothing."""
     lowered = body.lower()
-    return lowered.startswith(
-        ("a reminder", "a todo", "a to-do", "a task", "an alarm", "reminder ")
-    )
+    return lowered.startswith(("a ", "an ", "me ", "us ", "reminder ", "some ", "another ", "new "))
 
 
 def _subject(

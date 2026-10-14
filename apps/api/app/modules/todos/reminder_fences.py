@@ -35,10 +35,11 @@ from app.modules.todos.actions import (
 from app.modules.todos.recurrence import snap_first_due
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_add import (
-    adds_to_prior_reply,
+    about_saved_reminders,
     chat_add_needs_a_stated_time,
     due_for_add,
     due_is_past,
+    edits_prior_reply,
     parse_clock_only,
     parse_spoken_add,
     passed_time_reply,
@@ -336,16 +337,34 @@ def _last_at_separator(haystack: str, start: int) -> int:
 
 
 def _due_date_for_day(day_name: str, now: datetime) -> date | None:
+    """today, tomorrow, a weekday, "next <weekday>", or "MM-DD" (this year, else next)."""
     if day_name == "today":
         return now.date()
     if day_name == "tomorrow":
         return now.date() + timedelta(days=1)
+    if len(day_name) == 5 and day_name[2] == "-" and day_name.replace("-", "").isdigit():
+        return _next_date(int(day_name[:2]), int(day_name[3:]), now.date())
+    following = day_name.startswith("next ")
     try:
-        weekday = _WEEKDAYS.index(day_name)
+        weekday = _WEEKDAYS.index(day_name.removeprefix("next "))
     except ValueError:
         return None
     delta = (weekday - now.weekday()) % 7
+    # "Next Wednesday" said on a Wednesday is a week away, not today.
+    if following and delta == 0:
+        delta = 7
     return now.date() + timedelta(days=delta)
+
+
+def _next_date(month: int, day: int, today: date) -> date | None:
+    for year in (today.year, today.year + 1):
+        try:
+            candidate = date(year, month, day)
+        except ValueError:
+            return None
+        if candidate >= today:
+            return candidate
+    return None
 
 
 def parse_spoken_remind(
@@ -655,10 +674,11 @@ async def materialize_reminder_fences(
         stated is not None
         and not spans
         and not names_reminders(user_text)
-        and adds_to_prior_reply(stated.title, prior_assistant=prior_assistant, reply=assistant_text)
+        and edits_prior_reply(stated.title, prior_assistant=prior_assistant, reply=assistant_text)
     ):
         return assistant_text, 0
-    if stated is not None and stated.day is not None and stated.hour is not None:
+    # The model's own reminder fence, when it wrote one, keeps its cleaner title.
+    if not spans and stated is not None and stated.day is not None and stated.hour is not None:
         due = due_for_add(stated, user_timezone=user_timezone)
         if due is None or due_is_past(due, user_timezone=user_timezone):
             return passed_time_reply(), 0
@@ -674,7 +694,10 @@ async def materialize_reminder_fences(
     if not spans:
         draft = _explicit_user_remind(user_text, user_timezone)
         if draft is None:
-            return reply_when_nothing_saved(assistant_text, user_text), 0
+            # Right after a reply about saved reminders, "Moved **gym** to Sunday"
+            # with nothing moved is a false claim.
+            about = about_saved_reminders(prior_assistant)
+            return reply_when_nothing_saved(assistant_text, user_text, about_reminders=about), 0
         state = _ReminderFenceCreateState(
             session=session,
             user_id=user_id,

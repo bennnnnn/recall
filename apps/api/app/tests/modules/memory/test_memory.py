@@ -146,6 +146,10 @@ def test_forget_content_words_names_the_fact_not_the_command():
         ("don't remember my address", True, True),
         ("user: forget that I work at Hooh", True, True),
         ("stop remembering my location", True, True),
+        ("remember im allergic to peanuts 🥜", True, False),
+        ("for future chats keep in mind that i'm vegetarian", True, False),
+        ("remember my name?", False, False),
+        ("I remember my first day at school", False, False),
     ],
 )
 def test_memory_commands_are_instructions_not_talk(text, remember_or_forget, forget):

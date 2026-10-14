@@ -324,6 +324,8 @@ _EXPLANATION_CUES = frozenset(
 )
 
 _MAX_SUBJECT_WORDS = 8
+_DEICTICS = frozenset({"that", "this", "these", "those"})
+_NOT_A_NOUN = frozenset({"again", "but", "one", "part", "bit", "more", "in", "with", "please"})
 
 
 def _tokens(text: str) -> list[str]:
@@ -370,6 +372,9 @@ def _clean_subject(raw: str) -> str | None:
         return None
     folded = [_fold_token(w) for w in words]
     if not folded[0] or folded[0] in _POSSESSIVES:
+        return None
+    # "Show me that again but simpler" asks to repeat an answer.
+    if folded[0] in _DEICTICS and len(folded) > 1 and folded[1] in _NOT_A_NOUN:
         return None
     if any(w in _NON_IMAGE_WORDS or w in _EXPLANATION_CUES for w in folded):
         return None
@@ -493,6 +498,9 @@ def extract_image_lookup_query(text: str) -> str | None:
         return None
 
     tokens = _strip_polite_lead(_tokens(trimmed))
+    # "what does a gelada look like 🐒": a trailing emoji is not part of the ask.
+    while tokens and not any(char.isalnum() for char in tokens[-1]):
+        tokens = tokens[:-1]
     if not tokens:
         return None
 

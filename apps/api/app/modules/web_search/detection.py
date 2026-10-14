@@ -38,6 +38,7 @@ from app.modules.web_search.patterns import (
     has_recency,
     is_correspondence_request,
     is_weather_request,
+    looks_like_math_or_code,
 )
 from app.modules.web_search.subject import (
     _prior_searchable_topic,
@@ -133,7 +134,9 @@ _MAYBE_LIVE = re.compile(
     r"price|pricing|hotel|score|news|ceo|near\s+me|"
     # Rules, fares, schedules and results change; a model's memory of them is stale.
     r"visas?|flights?|airfares?|fares?|tickets?|this\s+weekend|open\s+now|"
-    r"sunset|sunrise|results|how\s+much\s+(?:is|are|does|do)\s+(?:an?|the))\b",
+    r"sunset|sunrise|results|how\s+much\s+(?:is|are|does|do)\s+(?:an?|the)|"
+    r"rn|exchange\s+rates?|(?:usd|eur|gbp|etb|kes)\s+(?:to|in)\s+(?:usd|eur|gbp|etb|kes|birr)|"
+    r"opening\s+hours|what\s+time\s+(?:does|do)|open\s+(?:today|tomorrow|on\s+sundays?))\b",
     re.IGNORECASE,
 )
 _TIME_SENSITIVE = re.compile(
@@ -159,7 +162,12 @@ def _continues_searchable_topic(
         return False
     if len(collapse_ws(text).split()) > _SHORT_FOLLOWUP_WORDS:
         return False
-    return _prior_searchable_topic([prior_user_messages[-1]]) is not None
+    # "And the Red Terror museum?" after "what time does the National Museum
+    # open" continues a live question; the classifier decides.
+    last = prior_user_messages[-1]
+    return _prior_searchable_topic([last]) is not None or (
+        _live_lookup_cue(collapse_ws(last)) and not looks_like_math_or_code(last)
+    )
 
 
 def web_search_fast_yes(

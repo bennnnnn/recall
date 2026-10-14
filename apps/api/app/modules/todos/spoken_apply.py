@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_change import (
     SpokenReminderChange,
+    match_from_context,
     names_reminders,
     resolve_spoken_target,
 )
@@ -54,8 +55,9 @@ async def apply_spoken_change(
     )
     from app.modules.todos.spoken_add import (
         _NEED_A_TIME,
+        about_saved_reminders,
         claims_a_reminder_change,
-        mentions_reminders,
+        edits_prior_reply,
     )
 
     state = _ReminderFenceCreateState(
@@ -65,14 +67,16 @@ async def apply_spoken_change(
         user_timezone=user_timezone,
     )
     explicit = names_reminders(user_text)
+    await _load_existing(state)
+    named_in_message = spoken.use_latest and match_from_context(state.existing, spoken) is not None
     if (
         spoken.use_latest
         and prior_assistant is not None
         and not explicit
-        and not mentions_reminders(prior_assistant)
+        and not named_in_message
+        and not about_saved_reminders(prior_assistant)
     ):
         return None
-    await _load_existing(state)
     item: Any = resolve_spoken_target(state.existing, spoken)
     # A named target must be a saved reminder; "it" was settled above.
     if (
@@ -81,6 +85,14 @@ async def apply_spoken_change(
         and user_text is not None
         and not spoken.use_latest
         and not claims_a_reminder_change(reply)
+    ):
+        return None
+    # "Remove the gym on Monday" right after a workout plan edits the plan.
+    if (
+        item is not None
+        and not explicit
+        and not spoken.use_latest
+        and edits_prior_reply(spoken.title_hint, prior_assistant=prior_assistant, reply=reply)
     ):
         return None
     if spoken.needs_time:
@@ -98,7 +110,13 @@ async def apply_spoken_change(
             ok=False,
         ), 0
     title = str(item.content).strip()
-    if spoken.topic or spoken.keep_date or (spoken.due_at is None and spoken.repeat):
+    if (
+        spoken.topic
+        or spoken.keep_date
+        or spoken.day
+        or spoken.shift_days
+        or (spoken.due_at is None and spoken.repeat)
+    ):
         line, ok = await _apply_saved_fields(
             session,
             item,
@@ -150,6 +168,19 @@ async def _apply_saved_fields(
             ), False
         fields["due_at"] = retimed
         due = retimed
+    if spoken.day or spoken.shift_days:
+        moved = _moved_due(item, spoken, user_timezone=user_timezone)
+        if moved is None:
+            return format_schedule_result(
+                action="set_due",
+                title=title,
+                due_at=None,
+                repeat=repeat,
+                user_timezone=user_timezone,
+                ok=False,
+            ), False
+        fields["due_at"] = moved
+        due = moved
     if spoken.repeat:
         if not isinstance(due, datetime):
             return format_schedule_result(
@@ -187,6 +218,26 @@ async def _apply_saved_fields(
         user_timezone=user_timezone,
         ok=True,
     ), True
+
+
+def _moved_due(
+    item: Any, spoken: SpokenReminderChange, *, user_timezone: str | None
+) -> datetime | None:
+    """The saved clock on the named day, or the same day and clock a week on."""
+    from app.modules.todos.reminder_fences import _due_date_for_day
+    from app.services import time_context as time_context_service
+
+    due = getattr(item, "due_at", None)
+    if not isinstance(due, datetime):
+        return None
+    tz = time_context_service.resolve_timezone(user_timezone)
+    local = (due if due.tzinfo else due.replace(tzinfo=UTC)).astimezone(tz)
+    if spoken.shift_days:
+        return local + timedelta(days=spoken.shift_days)
+    day = _due_date_for_day(spoken.day or "", datetime.now(tz))
+    if day is None:
+        return None
+    return local.replace(year=day.year, month=day.month, day=day.day)
 
 
 def format_reminder_reading(items: Sequence[Any], user_timezone: str | None) -> str:

@@ -15,8 +15,8 @@ from app.modules import home as home_service
 from app.modules import todos as todos_service
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.spoken_add import (
-    adds_to_prior_reply,
     claims_a_reminder_change,
+    edits_prior_reply,
     mentions_reminders,
     parse_spoken_add,
     reply_when_nothing_saved,
@@ -212,12 +212,169 @@ def test_asks_to_read_reminders(user_text, reads):
     assert asks_to_read_reminders(user_text) is reads
 
 
-def test_adds_to_prior_reply_needs_overlap_and_no_reminder_talk():
-    assert adds_to_prior_reply("a stop in Bahir Dar", prior_assistant=TRIP_PLAN, reply=TRIP_REPLY)
-    assert not adds_to_prior_reply("call mom", prior_assistant=TRIP_PLAN, reply=TRIP_REPLY)
-    assert not adds_to_prior_reply(
+def test_edits_prior_reply_needs_overlap_and_no_reminder_talk():
+    assert edits_prior_reply("a stop in Bahir Dar", prior_assistant=TRIP_PLAN, reply=TRIP_REPLY)
+    assert not edits_prior_reply("call mom", prior_assistant=TRIP_PLAN, reply=TRIP_REPLY)
+    assert not edits_prior_reply(
         "a stop in Bahir Dar", prior_assistant=TRIP_PLAN, reply="Set: a stop — Saturday, 9:00 AM."
     )
-    assert not adds_to_prior_reply(
+    assert not edits_prior_reply(
         "a stop in Bahir Dar", prior_assistant="Your reminders: Bahir Dar trip.", reply=TRIP_REPLY
     )
+
+
+WORKOUT_PLAN = (
+    "**Weekly Workout Plan**\n\n| Day | Workout |\n|---|---|\n"
+    "| **Mon** | Gym — Push |\n| **Tue** | Run — 5 km |\n| **Wed** | Gym — Pull |"
+)
+STUDENT_EMAIL = (
+    "**Subject:** Reminder: Assignment Due Friday\n\nDear students,\n\n"
+    "This is a reminder that your assignment is due this **Friday**."
+)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("user_text", "reply", "prior"),
+    [
+        # Edits of what the assistant just wrote never touch saved reminders.
+        (
+            "remove the gym on monday i have class that day",
+            "| Day | Workout |\n|---|---|\n| **Mon** | Rest (class day) |",
+            WORKOUT_PLAN,
+        ),
+        (
+            "make it 5pm friday and more friendly",
+            "**Subject:** Friendly reminder: assignment due Friday at 5 PM",
+            STUDENT_EMAIL,
+        ),
+        (
+            "add a line reminding him the rent for this month is already paid",
+            "Dear Ato Tesfaye, … P.S. This month's rent is already paid.",
+            "**Subject:** Kitchen Sink Leak\n\nDear Ato Tesfaye, the sink is leaking.",
+        ),
+        (
+            "add a stop in Hawassa on Saturday at 10am",
+            "**Saturday** — 10:00 AM Hawassa stop: Amora Gedel fish market.",
+            "**Friday** — Leave Addis\n**Saturday** — Wondo Genet → Arba Minch",
+        ),
+        (
+            "make me a study schedule for my physics exam next thursday, "
+            "i'm only free after 5pm on weekdays",
+            "| Day | Time | Focus |\n|---|---|---|\n| Thu | 5:30 PM | Kinematics |",
+            None,
+        ),
+        (
+            "add lunch with Dawit to my calendar on Thursday from 1pm to 2pm",
+            "Ready to add — confirm below.",
+            None,
+        ),
+    ],
+)
+async def test_content_edits_leave_reminders_alone(user_text, reply, prior):
+    text, applied, create, update = await _finalize(user_text, reply, prior=prior)
+    assert (text, applied) == (reply, 0)
+    create.assert_not_awaited()
+    update.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("user_text", "title"),
+    [
+        ("remind me tomorrow at 6pm to call the bank", "call the bank"),
+        ("remind me tmrw 8am buy injera", "buy injera"),
+        ("set a reminder tomorrow 11am - meet abel at tomoca", "meet abel at tomoca"),
+        (
+            "add submit the quarterly report to my reminders for tomorrow 9am",
+            "submit the quarterly report",
+        ),
+        ("can you remind me at 7pm tomorrow to water the garden", "water the garden"),
+    ],
+)
+async def test_spoken_adds_save_without_a_fence(user_text, title):
+    _, applied, create, _ = await _finalize(user_text, "Set: done.")
+    assert applied == 1
+    assert create.await_args.kwargs["content"] == title
+
+
+@pytest.mark.asyncio
+async def test_a_claimed_change_that_did_not_happen_is_not_passed_on():
+    prior = "Set: call mom — Saturday, Oct 17, 10:00 AM."
+    text, applied, _, update = await _finalize(
+        "reschedule it whenever works", "Moved **call mom** to Sunday, Oct 18.", prior=prior
+    )
+    assert (text, applied) == ("I didn't change your reminders.", 0)
+    update.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("text", "title", "day", "clock"),
+    [
+        ("reminder: renew my passport, oct 20 at 10am", "renew my passport", "10-20", (10, 0)),
+        ("remind me tonight at 9 to text selam", "text selam", "today", (21, 0)),
+        (
+            "remind me next wednesday at noon to call grandma",
+            "call grandma",
+            "next wednesday",
+            (12, 0),
+        ),
+        ("remind me to pay rent on oct 31 at 9 in the morning", "pay rent", "10-31", (9, 0)),
+        ("remind me to call mom tomorrow", "call mom", "tomorrow", (None, None)),
+    ],
+)
+def test_spoken_add_finds_the_day_and_clock_anywhere(text, title, day, clock):
+    parsed = parse_spoken_add(text)
+    assert parsed is not None
+    assert (parsed.title, parsed.day, (parsed.hour, parsed.minute)) == (title, day, clock)
+
+
+def test_a_clock_needs_am_pm_or_a_part_of_the_day():
+    from app.modules.todos.spoken_add import user_named_a_clock
+
+    assert user_named_a_clock("remind me tonight at 9")
+    assert user_named_a_clock("at 9 in the morning")
+    assert not user_named_a_clock("remind me at 9")
+    parsed = parse_spoken_add("remind me at 9 to stretch")
+    assert parsed is not None and (parsed.day, parsed.hour) == (None, None)
+
+
+def test_next_weekday_and_dates():
+    from datetime import date, datetime
+
+    from app.modules.todos.reminder_fences import _due_date_for_day
+
+    wednesday = datetime(2026, 10, 14, 10, 0)
+    assert _due_date_for_day("wednesday", wednesday) == date(2026, 10, 14)
+    assert _due_date_for_day("next wednesday", wednesday) == date(2026, 10, 21)
+    assert _due_date_for_day("next friday", wednesday) == date(2026, 10, 16)
+    assert _due_date_for_day("10-20", wednesday) == date(2026, 10, 20)
+    assert _due_date_for_day("01-05", wednesday) == date(2027, 1, 5)
+    assert _due_date_for_day("02-30", wednesday) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "fields"),
+    [
+        ("push it to next week same day", {"use_latest": True, "shift_days": 7}),
+        ("actually move it to sunday same time", {"use_latest": True, "day": "sunday"}),
+        ("i paid rent, check it off", {"action": "complete", "context_hint": "i paid rent"}),
+        ("delete it, my roommate does it now", {"action": "delete", "use_latest": True}),
+        ("done with the read reminder ✅", {"action": "complete", "title_hint": "read"}),
+        ("make it 7 instead", {"keep_date": True, "hour": 19}),
+    ],
+)
+def test_spoken_changes_in_everyday_words(text, fields):
+    from app.modules.todos.spoken_change import parse_spoken_reminder_change
+
+    parsed = parse_spoken_reminder_change(text, user_timezone="Africa/Nairobi")
+    assert parsed is not None
+    for name, value in fields.items():
+        assert getattr(parsed, name) == value, name
+
+
+@pytest.mark.asyncio
+async def test_check_it_off_finds_the_reminder_the_message_names():
+    _, applied, _, update = await _finalize("i paid rent, check it off", "Checked off.")
+    assert applied == 1
+    assert update.await_args.args[1].content == "pay rent"

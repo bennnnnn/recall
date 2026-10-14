@@ -77,6 +77,9 @@ const NON_IMAGE_WORDS = new Set([
   "price", "prices", "cost", "costs", "timeline", "agenda",
 ]);
 
+const DEICTICS = new Set(["that", "this", "these", "those"]);
+const NOT_A_NOUN = new Set(["again", "but", "one", "part", "bit", "more", "in", "with", "please"]);
+
 const EXPLANATION_CUES = new Set([
   "how", "why", "when", "where", "what", "solve", "explain", "prove",
   "calculate", "compute", "work", "works", "mean", "means", "becoming",
@@ -115,6 +118,8 @@ function cleanSubject(raw: string): string | null {
   if (!words.length || words.length > MAX_SUBJECT_WORDS) return null;
   const folded = words.map(foldToken);
   if (!folded[0] || POSSESSIVES.has(folded[0])) return null;
+  // "Show me that again but simpler" asks to repeat an answer.
+  if (DEICTICS.has(folded[0]) && folded.length > 1 && NOT_A_NOUN.has(folded[1])) return null;
   if (folded.some((w) => NON_IMAGE_WORDS.has(w) || EXPLANATION_CUES.has(w))) return null;
   return subject;
 }
@@ -219,7 +224,9 @@ export function extractImageLookupQuery(text: string): string | null {
   const trimmed = text.trim();
   if (!trimmed || trimmed.length > 200) return null;
 
-  const toks = stripPoliteLead(tokens(trimmed));
+  let toks = stripPoliteLead(tokens(trimmed));
+  // "what does a gelada look like 🐒": a trailing emoji is not part of the ask.
+  while (toks.length && !/[\p{L}\p{N}]/u.test(toks[toks.length - 1])) toks = toks.slice(0, -1);
   if (!toks.length) return null;
 
   return (

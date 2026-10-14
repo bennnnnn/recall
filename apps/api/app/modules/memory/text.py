@@ -155,6 +155,11 @@ def memory_extract_user_text(content: str) -> str:
 _MEMORY_COMMAND_MARKERS = (
     "remember this",
     "remember that",
+    "remember i'm",
+    "remember im ",
+    "remember i ",
+    "remember my ",
+    "keep in mind",
     "please remember",
     "don't forget",
     "do not forget",
@@ -182,7 +187,16 @@ _FORGET_MARKERS = (
 )
 
 
-_REMEMBER_MARKERS = frozenset({"remember this", "remember that"})
+_REMEMBER_MARKERS = frozenset(
+    {
+        "remember this",
+        "remember that",
+        "remember i'm",
+        "remember im ",
+        "remember i ",
+        "remember my ",
+    }
+)
 # Words that may come before an instruction in the same clause: "oh and",
 # "please", "can you". Anything else makes it a statement or a question about
 # remembering: "I always forget my keys", "do you remember that song?".
@@ -202,6 +216,10 @@ _POLITE_LEADS: tuple[tuple[str, ...], ...] = (
     ("make", "sure", "to"),
     ("make", "sure", "you"),
     ("go", "ahead", "and"),
+    ("for", "future", "chats"),
+    ("for", "future", "reference"),
+    ("going", "forward"),
+    ("from", "now", "on"),
 )
 _CLAUSE_BREAKS = ".!?;:,\n\u2014\u2013"
 # "Forget about the previous question" drops a turn, not a saved fact.
