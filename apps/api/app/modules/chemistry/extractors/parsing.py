@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.quantity import to_atm, to_kelvin
-from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE, FORMULA_END
 from app.modules.chemistry.species import counts_in_mass_action
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
@@ -156,7 +156,7 @@ _ASKED = re.compile(
     r"\b(?:how\s+(?:many|much)|what(?:\s+is)?(?:\s+the)?|find|calculate|determine)\s+"
     r"(?:the\s+)?"
     r"(?:(?P<unit>moles?|amount|grams?|mass|liters?|litres?|volume|molecules|particles|atoms)"
-    rf"\s+(?:of\s+)?)?(?:(?P<species>{CHEMICAL_FORMULA})(?![A-Za-z0-9]))?",
+    rf"\s+(?:of\s+)?)?(?:(?P<species>{CHEMICAL_FORMULA}){FORMULA_END})?",
     re.IGNORECASE,
 )
 

@@ -28,6 +28,7 @@ from functools import lru_cache, partial
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
+from app.modules.chemistry.input_text import HYDRATE_DOT, read_chemistry_text
 from app.modules.chemistry.laws import LAWS, ChemistryLaw
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
@@ -55,7 +56,7 @@ from app.services.law_binding.fit import (
 from app.services.law_binding.spec import VariableSpec
 
 _VERBS = re.compile(
-    r"\b(?:find|calculate|compute|determine|work\s+out|estimate|evaluate|what|convert|"
+    r"\b(?:find|calculate|compute|determine|work\s+out|estimate|evaluate|whats?|convert|"
     r"how\s+(?:long|far|fast|high|deep|much|many))\b",
     re.IGNORECASE,
 )
@@ -93,7 +94,11 @@ _SYMBOLS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
         (r"(?<![A-Za-z])R(?:f|F)(?![A-Za-z])", " r_f "),
     )
 )
-_FORMULA_TOKEN = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])")
+# A hydrate is one substance: CuSO4·5H2O, not CuSO4 beside a stray H2O.
+_FORMULA_TOKEN = re.compile(
+    rf"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*(?:{HYDRATE_DOT}\d{{0,2}}[A-Z][A-Za-z0-9()]*)*)"
+    rf"(?![A-Za-z0-9({HYDRATE_DOT}])"
+)
 # "Iron-56" and "Fe-56" are a mass number. Only a neutron question is rewritten, so a
 # half-life or a binding energy that names the same isotope still reads its own law.
 _ISOTOPE = re.compile(r"\b([A-Za-z]{1,20})-(\d{1,3})\b")
@@ -299,7 +304,7 @@ def bind_chemistry_intent(text: str) -> ChemistryIntent | None:
     The gate and extraction both ask about the same line, so it is read once and each
     caller gets its own copy.
     """
-    intent = _bind(text)
+    intent = _bind(read_chemistry_text(text))
     return None if intent is None else intent.model_copy(deep=True)
 
 

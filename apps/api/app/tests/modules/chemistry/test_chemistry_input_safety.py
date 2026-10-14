@@ -40,6 +40,11 @@ def _warm_lazy_imports() -> None:
         # Was 575 ms: a number pattern retried from every digit of the run.
         "Find the empirical formula of a compound with " + "1" * 3_800,
         "Find the empirical formula of a compound with " + ".5" * 1_900,
+        # The input reader: "=" as a balance arrow, hydrate dots, superscripts.
+        "balance " + "Al + " * 700 + "= " + "H2 + " * 700,
+        "balance " + "NaCl = " * 600,
+        "CuSO4." * 600 + "5H2O",
+        "Fe²⁺" * 1_000,
     ],
     ids=[
         "uppercase-run",
@@ -51,6 +56,10 @@ def _warm_lazy_imports() -> None:
         "repeated-cue",
         "digit-run",
         "decimal-run",
+        "equals-term-list",
+        "equals-run",
+        "hydrate-dot-run",
+        "superscript-run",
     ],
 )
 def test_hostile_input_returns_quickly(text: str) -> None:

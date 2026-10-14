@@ -108,7 +108,11 @@ ELEMENT_NAMES: dict[str, str] = {
 }
 
 # A formula as a question writes it: capitals, digits and brackets, nothing glued on.
-_FORMULA_TOKEN = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])")
+# A hydrate (CuSO4·5H2O, its dot written by ``input_text``) is one formula.
+_FORMULA_TOKEN = re.compile(
+    r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*(?:\u00b7\d{0,2}[A-Z][A-Za-z0-9()]*)*)"
+    r"(?![A-Za-z0-9(\u00b7])"
+)
 # An ion written with its charge: "Cu2+", "Fe3+".
 _ION = re.compile(r"(?<![A-Za-z0-9])([A-Z][a-z]?)(\d?)\+")
 
