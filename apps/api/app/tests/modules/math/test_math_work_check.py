@@ -41,6 +41,10 @@ def _reply(text: str, *, image: bool = False) -> str | None:
         ("check my work: x^2 = 9, x = 3 or x = -3", ("x^2 = 9", "x = 3 or x = -3")),
         ("check my work: \u22122x \u2265 6 \u2192 x \u2264 \u22123", ("-2x >= 6", "x <= -3")),
         ("where did i go wrong\nsolve for x: 4(x-2)=12\n4x-8=12", ("4(x-2)=12", "4x-8=12")),
+        # The answer before the equation.
+        ("I got x = 4 for 3x - 2 = 10, is that right?", ("3x - 2 = 10", "x = 4")),
+        ("I found x = -2 for 5x + 10 = 0. Am I right?", ("5x + 10 = 0", "x = -2")),
+        ("my answer is x = 3 for 2x + 1 = 7, is this correct?", ("2x + 1 = 7", "x = 3")),
     ],
 )
 def test_work_request_reads_the_students_lines(text: str, lines: tuple[str, ...]) -> None:
@@ -180,6 +184,11 @@ def test_lines_after_the_mistake_are_marked_carried_or_off() -> None:
     check = check_work(["2x + 3 = 11", "2x = 14", "x = 7", "x = 9"], "x")
     assert check is not None
     assert check.verdicts == ("given", "wrong", "carried", "off")
+
+
+def test_answer_before_the_equation_is_checked() -> None:
+    reply = _reply("I got x = 4 for 3x - 2 = 10, is that right?")
+    assert reply is not None and "x = 4" in reply.replace("$", "")
 
 
 def test_correct_finished_work_is_confirmed_with_a_substitution_check() -> None:
