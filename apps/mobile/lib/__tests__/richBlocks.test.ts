@@ -172,6 +172,12 @@ describe("parseSteps", () => {
   it("fails closed on unstructured prose", () => {
     expect(parseSteps("Just mix and bake until done.")).toEqual([]);
   });
+
+  it("keeps a plain line under a step as part of it", () => {
+    expect(
+      parseSteps("1. **Read `2` at index `0`**\n   We need `7`.\n   Dictionary: `{2: 0}`\n2. Read `7`"),
+    ).toEqual(["**Read `2` at index `0`**\nWe need `7`.\nDictionary: `{2: 0}`", "Read `7`"]);
+  });
 });
 
 describe("parseSocialPlatform", () => {

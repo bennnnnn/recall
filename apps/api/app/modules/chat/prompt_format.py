@@ -189,13 +189,13 @@ def _style_format_hints(
     minimal_personal_context: bool,
     compact: bool = False,
     image_generation_enabled: bool = True,
-    lesson: tuple[int, int] | None = None,
+    lesson: int | None = None,
     prior_messages: list[tuple[str, str]] | None = None,
 ) -> list[str]:
     """Clarification / day-planning / response-format hints for non-quiz turns.
 
-    ``lesson`` is the (step, total) the previous reply taught, when it was a
-    lesson step: this turn answers its check question, so the lesson goes on.
+    ``lesson`` is the number of the lesson the previous reply taught: this turn
+    answers its practice question or asks for more, so the lesson goes on.
 
     ``compact`` is for greetings and pasted fragments only — not for
     "no personal data". Ordinary questions get FORMAT_CONTRACT; math/viz
@@ -217,7 +217,7 @@ def _style_format_hints(
         # A first-person update is not an invitation to generate a guide. Keep
         # the contract small and decisive so the general rich-format pack
         # cannot turn "I work at Uber..." into an unsolicited career plan.
-        # Mid-lesson, "I'm confused" answers the check question instead.
+        # Mid-lesson, "I'm confused" answers the practice question instead.
         return [
             CLARIFICATION_HINT,
             PRIVACY_HINT,
@@ -249,10 +249,18 @@ def _style_format_hints(
         and not is_brevity_request(query_text)
         and is_teaching_request(query_text)
     )
-    # A new "teach me" starts its own lesson; otherwise the last step goes on.
+    # "Help me understand recursion" is a lesson on one idea, the same shape.
+    walkthrough = bool(
+        query_text
+        and writing is None
+        and not teaching
+        and not is_brevity_request(query_text)
+        and is_walkthrough_request(query_text)
+    )
+    # A new "teach me" starts its own lesson; otherwise the last lesson goes on.
     lesson_hint = (
-        lesson_continue_hint(*lesson)
-        if lesson and not teaching and not learning_plan and not writing
+        lesson_continue_hint(lesson)
+        if lesson and not teaching and not walkthrough and not learning_plan and not writing
         else None
     )
     writing_kind = writing_request_kind(query_text) if query_text else None
@@ -275,7 +283,7 @@ def _style_format_hints(
     if style == "short":
         parts.append(UNIVERSAL_FORMAT_BASELINE)
         # Explicit draft/prose still wins over "plain text, skip fences". A lesson
-        # keeps its step headings, only smaller.
+        # keeps its title, sections and quiz, only smaller.
         if writing:
             parts.append(writing)
         elif learning_plan:
@@ -284,6 +292,8 @@ def _style_format_hints(
             parts.append(LEARNING_PLAN_HINT)
         elif teaching:
             parts.extend([TEACHING_HINT, TEACHING_SHORT_NOTE])
+        elif walkthrough:
+            parts.extend([WALKTHROUGH_HINT, TEACHING_SHORT_NOTE])
         elif lesson_hint:
             parts.append(TEACHING_SHORT_NOTE)
         else:

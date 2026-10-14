@@ -34,6 +34,7 @@ import httpx
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "apps" / "api"))
 
+from app.modules.chat.prompt_constants import lesson_step  # noqa: E402
 from app.tests.behavior.cases import CASES, CATEGORIES, Case  # noqa: E402
 
 TIMEZONE = "Africa/Nairobi"
@@ -242,6 +243,11 @@ def check(case: Case, turn: Turn) -> list[str]:
         misses.append("no clock card")
     if expect.instant == "location" and not turn.reply.startswith(LOCATION_OFF_START):
         misses.append("did not ask for location")
+    lesson = {"teaching", "walkthrough"} & set(expect.hints)
+    if lesson and lesson_step(turn.reply) is None:
+        misses.append("no lesson title")
+    if lesson and "```quiz" not in turn.reply:
+        misses.append("no quiz card")
     if "map" in expect.hints and "```map" not in turn.reply:
         misses.append("no map card")
     if "map" in expect.no_hints and "```map" in turn.reply:

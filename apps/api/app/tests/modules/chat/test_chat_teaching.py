@@ -27,14 +27,18 @@ from app.modules.chat.prompt_constants import (
     programming_lesson_contract,
 )
 
-STEP_ONE = (
-    "We'll go one idea at a time, with a quick check after each.\n\n"
-    "1. What a dictionary is\n2. Accessing values\n3. Adding and updating\n\n"
-    "### Step 1/6 — What a dictionary is\n\n"
+LESSON_ONE = (
+    "Let's learn Python dictionaries 🐍 — the structure behind every JSON body your API returns.\n\n"
+    "### Lesson 1: Dictionaries\n\n"
+    "### 1. Understand the idea\n\n"
     "A dictionary stores key-value pairs.\n\n"
     "```python\ncar = {'brand': 'Toyota', 'year': 2024}\nprint(car['brand'])\n```\n\n"
-    "Quick check (optional): what will this print?\n\nA. Toyota\nB. brand\nC. 2024\nD. 0\n\n"
-    "You can answer, ask a question, request another example, or just say next."
+    "### 2. Your turn\n\n"
+    "```quiz\n"
+    '{"question": "What will this print?", "options": ["Toyota", "brand", "2024", "0"], '
+    '"answer": 0, "explanation": "car[\'brand\'] reads the value under the key brand."}\n'
+    "```\n\n"
+    "Once you get this, we'll move to adding, updating and looping over keys."
 )
 
 
@@ -147,22 +151,21 @@ def test_learning_plan_request_declines_non_plans(text):
 @pytest.mark.parametrize(
     "reply, expected",
     [
-        (STEP_ONE, (1, 6)),
-        ("### Step 2/6 — Accessing values\n\nWhat does it print?", (2, 6)),
-        ("**Step 3 of 5 — Loops**\n\nWhich loop runs first?", (3, 5)),
-        ("### Paso 2/4 — Acceder a valores\n\n¿Qué imprime?", (2, 4)),
-        ("### Étape 2/6 — Accès\n\nQue affiche-t-il ?", (2, 6)),
-        ("### Шаг 4/4 — Итог\n\nЧто выведет код?", (4, 4)),
-        ("### Step 1/6 — A\n\ntext\n\n### Step 2/6 — B\n\nWhich one?", (2, 6)),
-        # Plans and multi-part answers are not lessons.
-        ("### Day 1/7 — Arrive\n\nReady for day 2?", None),
-        ("### Phase 1/3 — Setup\n\nQuestions?", None),
-        ("### Part 2/4\n\nMore?", None),
-        # A how-to that numbers its steps asks nothing after the last one.
-        ("### Step 5/5 — Tighten the nuts\n\nYou're done.", None),
-        ("### 1/2 cup of sugar?", None),
-        ("Step 2/6 in prose, not a heading?", None),
-        ("### Step 7/6 — impossible?", None),
+        (LESSON_ONE, 1),
+        ("### Lesson 2: Loops\n\nWhat does it print?", 2),
+        ("**Lesson 3: Functions**\n\nWhich one returns first?", 3),
+        ("### Lección 2: Valores\n\n¿Qué imprime?", 2),
+        ("### Leçon 2 — Accès\n\nQue affiche-t-il ?", 2),
+        ("### Урок 4: Итог\n\nЧто выведет код?", 4),
+        ("### Lesson 1: A\n\ntext\n\n### Lesson 2: B\n\nWhich one?", 2),
+        ('### Lesson 5: Sets\n\n```quiz\n{"question": "Pick one", "options": ["a", "b"]}\n```', 5),
+        # Plans, parts and how-tos are not lessons.
+        ("### Day 1: Arrive\n\nReady for day 2?", None),
+        ("### Step 2/6 — Accessing values\n\nWhat does it print?", None),
+        # A lesson that ends without practice is a reference, not a step to continue.
+        ("### Lesson 5: Recap\n\nYou're done.", None),
+        ("We covered this in Lesson 2: loops?", None),
+        ("### Lesson 0: Nothing?", None),
         ("The capital of France is Paris.", None),
         (None, None),
     ],
@@ -174,45 +177,34 @@ def test_lesson_step(reply, expected):
 def test_active_lesson_step_reads_only_the_latest_assistant_reply():
     messages = [
         SimpleNamespace(role="user", content="Teach me dictionaries"),
-        SimpleNamespace(role="assistant", content=STEP_ONE),
+        SimpleNamespace(role="assistant", content=LESSON_ONE),
         SimpleNamespace(role="user", content="red"),
     ]
-    assert active_lesson_step(messages) == (1, 6)
+    assert active_lesson_step(messages) == 1
     messages.append(SimpleNamespace(role="assistant", content="That lesson is now stopped."))
     assert active_lesson_step(messages) is None
 
 
-def test_lesson_continue_hint_moves_to_the_next_step():
-    hint = lesson_continue_hint(2, 6)
-    assert "Step 2/6" in hint and "Step 3/6" in hint
-    assert "DIFFERENT way" in hint
-    assert "diagnostic, never gates" in hint
-    assert "Do not reproduce that step" in hint
+def test_lesson_continue_hint_grades_the_practice_then_teaches_the_next_lesson():
+    hint = lesson_continue_hint(2)
+    assert "ALREADY SEEN Lesson 2" in hint and "Do not repeat Lesson 2" in hint
+    assert '"Correct! 🎉"' in hint and '"Not quite"' in hint
+    assert "Then teach Lesson 3" in hint
+    assert "do not ask them to try again" in hint
 
 
-def test_lesson_continue_hint_handles_wrong_and_accidental_inputs_without_replay():
-    hint = lesson_continue_hint(1, 6)
-    assert "Plausible wrong or partial answer" in hint
-    assert "Do not require a second correct attempt" in hint
-    assert "Accidental, nonsensical, keyboard-smash" in hint
-    assert "do NOT grade it as wrong" in hint
-    assert "continue the lesson instead of restarting the step" in hint
+def test_lesson_continue_hint_handles_confusion_accidents_and_mode_switches():
+    hint = lesson_continue_hint(2)
+    assert "different way" in hint and "`### Lesson 2: ...` title" in hint
+    assert "do not grade it" in hint
+    assert "everything at once" in hint and "cheat sheet" in hint
+    assert "without a greeting or an outline" in hint
 
 
-def test_lesson_continue_hint_preserves_state_during_confusion_and_mode_switches():
-    hint = lesson_continue_hint(2, 6)
-    assert "same `### Step 2/6 — ...` heading" in hint
-    assert "lesson state survives the next turn" in hint
-    assert "Do not repeat the original lesson outline" in hint
-    assert "`### Step 3/6 — ...`" in hint
-    assert "quiz/test/practice-only mode" in hint
-    assert "Do not score or grade" in hint
-
-
-def test_lesson_continue_hint_recaps_after_the_last_step():
-    hint = lesson_continue_hint(6, 6)
-    assert "final lesson step" in hint and "recap" in hint
-    assert "Step 7/6" not in hint
+def test_lesson_continue_hint_keeps_the_lesson_shape():
+    hint = lesson_continue_hint(1)
+    assert "```quiz" in hint and "```array" in hint and "```steps" in hint
+    assert "`### Lesson N: <topic>`" in hint
 
 
 def _hints(text, *, style="balanced", lesson=None, compact=False):
@@ -256,12 +248,24 @@ def test_70_day_learning_plan_gets_complete_roadmap_policy():
     assert "make the expected outcome verifiable" in joined
 
 
-def test_programming_tutor_requires_a_tagged_code_example_each_step():
+def test_programming_lesson_requires_a_tagged_code_example():
     joined = "\n".join(_hints("Teach me Python dictionaries step by step"))
-    assert "language-tagged fence" in joined
-    assert "never make the only example inline" in joined
+    assert "language-tagged blocks" in joined
+    assert "line by line" in joined
     assert "HARD PROGRAMMING-LESSON ACCEPTANCE CHECK" in joined
     assert "```python" in joined
+
+
+@pytest.mark.parametrize("hint", [TEACHING_HINT, WALKTHROUGH_HINT])
+def test_lesson_hints_follow_the_chatgpt_lesson_shape(hint):
+    assert "### Lesson N: <topic>" in hint
+    assert "`### 1. Understand the problem`" in hint
+    assert "Your turn" in hint and "```quiz" in hint
+    assert "```array" in hint and "```steps" in hint
+    assert "$O(n^2)$" in hint
+    assert "Once you get this, we'll move to" in hint
+    assert "No course outline" in hint
+    assert "Since you already know some Python basics" in hint
 
 
 def test_named_daily_plan_gets_every_required_label_in_order():
@@ -287,7 +291,8 @@ def test_programming_lesson_contract_uses_named_language_tag():
     contract = programming_lesson_contract("Teach me TypeScript interfaces")
     assert "```typescript" in contract
     assert "inline snippet" in contract
-    assert "even when Step 1 is conceptual" in contract
+    assert "even when the lesson starts with a concept" in contract
+    assert "```quiz" in contract
 
 
 def test_teach_me_in_70_days_is_a_plan_not_an_interactive_lesson():
@@ -314,7 +319,7 @@ def test_walk_me_through_procedure_is_a_howto_not_an_interactive_lesson():
     assert TEACHING_HINT not in hints
 
 
-def test_short_style_keeps_the_lesson_with_smaller_steps():
+def test_short_style_keeps_the_lesson_smaller():
     hints = _hints("Teach me python dictionaries", style="short")
     assert TEACHING_HINT in hints and TEACHING_SHORT_NOTE in hints
     assert SHORT_RESPONSE_FORMAT_HINT not in hints
@@ -325,50 +330,49 @@ def test_brevity_request_is_not_a_lesson():
     assert TEACHING_HINT not in hints
 
 
-def test_answer_to_a_lesson_step_continues_the_lesson():
-    hints = _hints("A", lesson=(1, 6))
-    assert lesson_continue_hint(1, 6) in hints
+def test_answer_to_a_lesson_continues_the_lesson():
+    hints = _hints("A", lesson=1)
+    assert lesson_continue_hint(1) in hints
     assert TEACHING_HINT not in hints
 
 
 @pytest.mark.parametrize("answer", ["I'm confused", "I have no idea"])
 def test_confusion_mid_lesson_is_an_answer_not_a_disclosure(answer):
-    hints = _hints(answer, lesson=(2, 6))
-    assert lesson_continue_hint(2, 6) in hints
+    hints = _hints(answer, lesson=2)
+    assert lesson_continue_hint(2) in hints
     assert PERSONAL_DISCLOSURE_HINT not in hints
 
 
 def test_new_teach_request_starts_a_new_lesson():
-    hints = _hints("Teach me python sets", lesson=(3, 6))
+    hints = _hints("Teach me python sets", lesson=3)
     assert TEACHING_HINT in hints
     assert not any("A lesson is in progress" in hint for hint in hints)
 
 
 def test_full_roadmap_request_exits_an_active_lesson():
-    hints = _hints("Give me a 30-day roadmap to learn Python", lesson=(3, 6))
+    hints = _hints("Give me a 30-day roadmap to learn Python", lesson=3)
     assert LEARNING_PLAN_HINT in hints
     assert not any("A lesson is in progress" in hint for hint in hints)
 
 
 def test_random_input_mid_lesson_keeps_adaptive_continuation_policy():
-    hints = _hints("Bad bdbd head hdjjd jdjdd", lesson=(1, 6))
+    hints = _hints("Bad bdbd head hdjjd jdjdd", lesson=1)
     joined = "\n".join(hints)
-    assert "Accidental, nonsensical, keyboard-smash" in joined
-    assert "do NOT grade it as wrong" in joined
-    assert "Step 2/6" in joined
-    assert "Do not reproduce that step" in joined
+    assert "Accidental or unclear input: do not grade it" in joined
+    assert "teach Lesson 2" in joined
+    assert "Do not repeat Lesson 1" in joined
 
 
-def test_short_style_lesson_step_drops_the_no_headings_rule():
-    hints = _hints("B", style="short", lesson=(2, 6))
-    assert lesson_continue_hint(2, 6) in hints and TEACHING_SHORT_NOTE in hints
+def test_short_style_next_lesson_drops_the_no_headings_rule():
+    hints = _hints("B", style="short", lesson=2)
+    assert lesson_continue_hint(2) in hints and TEACHING_SHORT_NOTE in hints
     assert SHORT_RESPONSE_FORMAT_HINT not in hints
 
 
-def test_short_reply_to_a_lesson_step_is_not_lightweight():
-    # The options trail the question, so the "?" is far from the end.
-    assert is_lightweight_chat_turn("ok", prior_assistant=STEP_ONE) is False
-    assert is_lightweight_chat_turn("thanks", prior_assistant=STEP_ONE) is True
+def test_short_reply_to_a_lesson_is_not_lightweight():
+    # The practice is a quiz card and the reply ends on the preview, not a "?".
+    assert is_lightweight_chat_turn("ok", prior_assistant=LESSON_ONE) is False
+    assert is_lightweight_chat_turn("thanks", prior_assistant=LESSON_ONE) is True
 
 
 def _user(style="balanced"):
@@ -404,32 +408,31 @@ async def _system_prompt(recent, query):
 
 
 @pytest.mark.asyncio
-async def test_ok_after_a_lesson_step_asks_for_the_next_step():
+async def test_ok_after_a_lesson_asks_for_the_next_lesson():
     recent = [
         SimpleNamespace(id=uuid4(), role="user", content="Teach me python dictionary step by step"),
-        SimpleNamespace(id=uuid4(), role="assistant", content=STEP_ONE),
+        SimpleNamespace(id=uuid4(), role="assistant", content=LESSON_ONE),
         SimpleNamespace(id=uuid4(), role="user", content="ok"),
     ]
     system = await _system_prompt(recent, "ok")
     assert "A lesson is in progress" in system
-    assert "Step 2/6" in system
+    assert "teach Lesson 2" in system
     # "ok" would otherwise get the casual one-liner layout.
     assert COMPACT_RESPONSE_FORMAT_HINT not in system
 
 
 @pytest.mark.asyncio
-async def test_random_input_after_lesson_step_does_not_restart_or_regrade_step():
+async def test_random_input_after_a_lesson_does_not_restart_or_regrade_it():
     recent = [
         SimpleNamespace(id=uuid4(), role="user", content="Teach me python dictionary step by step"),
-        SimpleNamespace(id=uuid4(), role="assistant", content=STEP_ONE),
+        SimpleNamespace(id=uuid4(), role="assistant", content=LESSON_ONE),
         SimpleNamespace(id=uuid4(), role="user", content="Bad bdbd head hdjjd jdjdd"),
     ]
     system = await _system_prompt(recent, "Bad bdbd head hdjjd jdjdd")
     assert "A lesson is in progress" in system
-    assert "Do not reproduce that step" in system
-    assert "Accidental, nonsensical, keyboard-smash" in system
-    assert "do NOT grade it as wrong" in system
-    assert "Step 2/6" in system
+    assert "Do not repeat Lesson 1" in system
+    assert "Accidental or unclear input: do not grade it" in system
+    assert "teach Lesson 2" in system
 
 
 @pytest.mark.asyncio

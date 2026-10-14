@@ -4,6 +4,7 @@ import Svg, { Circle, Path, Rect } from "react-native-svg";
 
 import { VisualCard } from "@/components/rich/VisualCard";
 import i18n from "@/lib/i18n";
+import { isUnfinishedJson } from "@/lib/jsonFence";
 import {
   countriesIn,
   countryAt,
@@ -37,6 +38,7 @@ export function MapBlock({ content }: Props) {
   }, [fence]);
 
   if (!fence || !drawn) {
+    if (isUnfinishedJson(content)) return null;
     return (
       <View style={s.fallback}>
         <Text style={s.fallbackText}>{i18n.t("rich.map_error")}</Text>

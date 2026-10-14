@@ -33,6 +33,7 @@
 export type FenceId =
   | "answer"
   | "arithmetic"
+  | "array"
   | "callout"
   | "chart"
   | "chem_scene"
@@ -51,6 +52,7 @@ export type FenceId =
   | "molecule"
   | "molecule3d"
   | "places"
+  | "quiz"
   | "quote"
   | "simulation"
   | "social"
@@ -106,11 +108,28 @@ export const FENCES: readonly FenceSpec[] = [
     owner: "legacy",
   },
   {
+    // A lesson's trace: numbered step cards, a state line under each.
     id: "steps",
     langs: ["steps", "step"],
     structured: true,
     neverCodeBlock: false,
-    owner: "legacy",
+    owner: "model",
+  },
+  {
+    // A lesson's "Your turn": options checked on the phone, nothing sent.
+    id: "quiz",
+    langs: ["quiz"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "model",
+  },
+  {
+    // A lesson's list as boxes, each value over its index.
+    id: "array",
+    langs: ["array"],
+    structured: true,
+    neverCodeBlock: true,
+    owner: "model",
   },
   // `details`, `collapse`, and `summary` are unwrapped to markdown before
   // this table. They are not fence languages.

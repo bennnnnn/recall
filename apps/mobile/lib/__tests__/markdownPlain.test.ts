@@ -200,3 +200,23 @@ describe("markdownPlain chemistry", () => {
     expect(markdownToSpeechText(scene)).not.toContain("{");
   });
 });
+
+describe("lesson cards as text", () => {
+  const md = [
+    "Given:",
+    "",
+    "```array",
+    '{"name":"nums","values":[3,2,4]}',
+    "```",
+    "",
+    "```quiz",
+    '{"question":"What does it return?","options":["[0, 1]","[1, 2]"],"answer":1}',
+    "```",
+  ].join("\n");
+
+  it("copies the list and the question with lettered options", () => {
+    const text = markdownToCopyText(md);
+    expect(text).toContain("nums = [3, 2, 4]");
+    expect(text).toContain("What does it return?\nA) [0, 1]\nB) [1, 2]");
+  });
+});
