@@ -299,10 +299,10 @@ def _require_unknown(data: EquationInput, lhs: Any, rhs: Any) -> None:
     ``F = ma`` solved for x has no x in it, and the empty solution set was
     certified as "no solution". A contradiction such as ``x - x = 5`` keeps
     its x in the written text after SymPy cancels it, so it still reads as
-    one.
+    one, and so does ``0 = 1``, which has no letter at all.
     """
     present = {str(symbol) for symbol in lhs.free_symbols | rhs.free_symbols}
-    if any(name in present for name in data.variables):
+    if not present or any(name in present for name in data.variables):
         return
     written = f"{data.lhs} {data.rhs}"
     if any(
