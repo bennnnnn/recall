@@ -448,9 +448,8 @@ CASES: tuple[Case, ...] = (
         "teach-two-sum-understand",
         "teaching",
         "help me understand two sum in python",
-        Expect(hints=("teaching",), search="no"),
+        Expect(hints=("walkthrough",), no_hints=("teaching",), search="no"),
         "Walkthrough: the problem, brute force, the hash-map idea, code, a traced example, cost.",
-        gap="'help me understand X' is not treated as a learning request",
     ),
     Case(
         "teach-two-sum-explain",
@@ -465,7 +464,20 @@ CASES: tuple[Case, ...] = (
         "I want to know american history",
         Expect(hints=("teaching",), search="no"),
         "An overview in eras, then which era or theme to start with.",
-        gap="'I want to know <subject>' is not treated as a learning request",
+    ),
+    Case(
+        "teach-no-know-fact",
+        "teaching",
+        "I want to know if it will rain tomorrow",
+        Expect(no_hints=("teaching",)),
+        "A forecast, not a lesson.",
+    ),
+    Case(
+        "teach-walkthrough-recursion",
+        "teaching",
+        "I don't understand recursion",
+        Expect(hints=("walkthrough",), search="no"),
+        "The idea, a tiny example traced call by call, then the base case rule.",
     ),
     Case(
         "teach-history",
