@@ -1,5 +1,7 @@
 import {
   useCallback,
+  useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
@@ -7,7 +9,7 @@ import {
 } from "react";
 import { StyleSheet, View } from "react-native";
 
-import { ActionBanner } from "@/ui/feedback/ActionBanner";
+import { ActionBanner, type ActionBannerAppearance } from "@/ui/feedback/ActionBanner";
 import {
   ActionFeedbackContext,
   type ActionFeedbackApi,
@@ -31,12 +33,22 @@ const DEFAULT_ICONS: Record<ActionFeedbackTone, IconName> = {
   error: "alert-circle",
 };
 
-export function ActionFeedbackProvider({ children }: PropsWithChildren) {
+/**
+ * Owns the toast. The app root mounts one; a full-screen modal (photo, PDF or
+ * text viewer) mounts its own inside the modal, and while it is mounted every
+ * toast, from the modal or the screen under it, shows there.
+ */
+export function ActionFeedbackProvider({
+  children,
+  appearance = "default",
+}: PropsWithChildren<{ appearance?: ActionBannerAppearance }>) {
+  const parent = useContext(ActionFeedbackContext);
   const nextId = useRef(0);
+  const overlays = useRef<ActionFeedbackApi[]>([]);
   const [item, setItem] = useState<FeedbackItem | null>(null);
 
-  const dismiss = useCallback(() => setItem(null), []);
-  const show = useCallback((message: string, options: ActionFeedbackOptions = {}) => {
+  const dismissHere = useCallback(() => setItem(null), []);
+  const showHere = useCallback((message: string, options: ActionFeedbackOptions = {}) => {
     const tone = options.tone ?? "success";
     nextId.current += 1;
     setItem({
@@ -50,6 +62,25 @@ export function ActionFeedbackProvider({ children }: PropsWithChildren) {
     else notifyWarning();
   }, []);
 
+  const show = useCallback((message: string, options: ActionFeedbackOptions = {}) => {
+    const overlay = overlays.current[overlays.current.length - 1];
+    if (overlay) overlay.show(message, options);
+    else showHere(message, options);
+  }, [showHere]);
+
+  const dismiss = useCallback(() => {
+    const overlay = overlays.current[overlays.current.length - 1];
+    if (overlay) overlay.dismiss();
+    else dismissHere();
+  }, [dismissHere]);
+
+  const capture = useCallback((overlay: ActionFeedbackApi) => {
+    overlays.current = [...overlays.current, overlay];
+    return () => {
+      overlays.current = overlays.current.filter((entry) => entry !== overlay);
+    };
+  }, []);
+
   const api = useMemo<ActionFeedbackApi>(
     () => ({
       show,
@@ -58,9 +89,12 @@ export function ActionFeedbackProvider({ children }: PropsWithChildren) {
       warning: (message, options) => show(message, { ...options, tone: "warning" }),
       error: (message, options) => show(message, { ...options, tone: "error" }),
       dismiss,
+      capture,
     }),
-    [dismiss, show],
+    [capture, dismiss, show],
   );
+
+  useEffect(() => parent?.capture?.(api), [parent, api]);
 
   return (
     <ActionFeedbackContext.Provider value={api}>
@@ -72,7 +106,8 @@ export function ActionFeedbackProvider({ children }: PropsWithChildren) {
             message={item.message}
             icon={item.icon}
             tone={item.tone}
-            onDismiss={dismiss}
+            appearance={appearance}
+            onDismiss={dismissHere}
           />
         ) : null}
       </View>

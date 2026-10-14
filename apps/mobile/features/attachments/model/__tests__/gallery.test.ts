@@ -1,8 +1,15 @@
 import {
   COLUMN_THUMB_SIZE,
+  GENERATED_FILE_STEM_MAX,
+  contentTypeForFileName,
+  extensionForContentType,
+  galleryDisplayName,
   galleryEmptyKey,
   galleryFileName,
+  galleryGridLayout,
   galleryImageIndex,
+  galleryItemActions,
+  galleryNeighborImageId,
   galleryImageItems,
   galleryListCacheKey,
   galleryListParams,
@@ -79,8 +86,75 @@ describe("gallery helpers", () => {
     expect(galleryFileName("application/pdf", "folder/notes.pdf")).toBe("notes.pdf");
     expect(galleryFileName("image/png", "orange")).toBe("orange.png");
     expect(galleryFileName("application/vnd.openxmlformats-officedocument.wordprocessingml.document")).toBe(
-      "attachment.document",
+      "attachment.docx",
     );
+    expect(galleryFileName("image/jpeg", "IMG_0042")).toBe("IMG_0042.jpg");
+  });
+
+  it("keeps the type's extension when an uploaded name has a dot that is not one", () => {
+    expect(galleryFileName("image/png", "Screenshot 2026.10.14 at 3")).toBe("Screenshot 2026.10.14 at 3.png");
+    expect(galleryFileName("image/png", "chart.v2.png")).toBe("chart.v2.png");
+  });
+
+  it.each([
+    ["A cat in a hat", "image/png", "a-cat-in-a-hat.png"],
+    // A slash used to cut the name to its last part, and a dot to drop the extension.
+    ["Draw a cat w/ a hat. Make it blue.", "image/png", "draw-a-cat-w-a-hat-make-it-blue.png"],
+    ["Ein Café am Fluss", "image/jpeg", "ein-cafe-am-fluss.jpg"],
+    ["Кот в шляпе", "image/webp", "image.webp"],
+    [null, "image/png", "image.png"],
+  ])("names generated image %p as a safe file", (prompt, type, expected) => {
+    expect(galleryFileName(type, prompt, "generated")).toBe(expected);
+  });
+
+  it("cuts a long prompt at a word, at most 40 characters before the extension", () => {
+    const name = galleryFileName(
+      "image/png",
+      "A car accelerates on a straight road from rest to 75 km/h in 5 s. What is its acceleration?",
+      "generated",
+    );
+    expect(name).toBe("a-car-accelerates-on-a-straight-road.png");
+    expect(name.length - ".png".length).toBeLessThanOrEqual(GENERATED_FILE_STEM_MAX);
+  });
+
+  it("shows a generated image by its prompt and a file by its name", () => {
+    expect(galleryDisplayName({ content_type: "image/png", original_filename: " A cat\nin a hat ", source: "generated" }))
+      .toBe("A cat in a hat");
+    expect(galleryDisplayName({ content_type: "application/pdf", original_filename: "notes", source: "upload" }))
+      .toBe("notes.pdf");
+  });
+
+  it("maps content types and file names both ways", () => {
+    expect(extensionForContentType("image/jpeg")).toBe("jpg");
+    expect(extensionForContentType("text/plain; charset=utf-8")).toBe("txt");
+    expect(extensionForContentType("image/avif")).toBe("avif");
+    expect(extensionForContentType("garbage")).toBeNull();
+    expect(contentTypeForFileName("cat.JPG")).toBe("image/jpeg");
+    expect(contentTypeForFileName("notes.pdf")).toBe("application/pdf");
+    expect(contentTypeForFileName("noext")).toBeNull();
+  });
+
+  it("lays the grid out with one gap across, down and at both edges", () => {
+    const layout = galleryGridLayout(390, 16, 8);
+    expect(layout).toEqual({ thumbSize: 114, cellPadding: 4, listPadding: 12 });
+    // Three cells of (tile + 2 * cellPadding) fill the width inside the list padding.
+    const cell = (390 - 2 * layout.listPadding) / 3;
+    expect(cell - layout.thumbSize - 2 * layout.cellPadding).toBeLessThan(1);
+    // Tile edge to screen edge equals the gutter on both sides.
+    expect(layout.listPadding + layout.cellPadding).toBe(16);
+  });
+
+  it("shows the next photo after a delete, else the one before", () => {
+    const images = [{ id: "a" }, { id: "b" }, { id: "c" }];
+    expect(galleryNeighborImageId(images, "b")).toBe("c");
+    expect(galleryNeighborImageId(images, "c")).toBe("b");
+    expect(galleryNeighborImageId([{ id: "a" }], "a")).toBeNull();
+    expect(galleryNeighborImageId(images, "missing")).toBeNull();
+  });
+
+  it("offers the long-press actions in menu order, open chat only when linked", () => {
+    expect(galleryItemActions({ chat_id: "c1" })).toEqual(["use", "open_chat", "share", "delete"]);
+    expect(galleryItemActions({ chat_id: null })).toEqual(["use", "share", "delete"]);
   });
 
   it("fills the row across three columns", () => {

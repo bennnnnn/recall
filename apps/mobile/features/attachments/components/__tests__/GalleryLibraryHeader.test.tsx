@@ -37,4 +37,25 @@ describe("GalleryLibraryHeader", () => {
     await fireEvent.press(getByTestId("gallery-layout-toggle"));
     expect(onToggleLayout).toHaveBeenCalled();
   });
+
+  it("keeps the layout toggle a 44pt kit button on the chips' line", async () => {
+    const { getByTestId, getByLabelText } = await render(
+      <GalleryLibraryHeader
+        filter="all"
+        searchQuery=""
+        layout="grid"
+        onSearchChange={jest.fn()}
+        onFilterChange={jest.fn()}
+        onToggleLayout={jest.fn()}
+      />,
+    );
+    const toggle = getByTestId("gallery-layout-toggle");
+    expect(toggle).toHaveStyle({ minWidth: 44, minHeight: 44 });
+    expect(toggle.props.accessibilityLabel).toBe("gallery.layout_column_a11y");
+    // The toggle and the scrolling chip row share one row that does not wrap.
+    const row = toggle.parent!;
+    expect(row).toHaveStyle({ flexDirection: "row" });
+    expect(row).not.toHaveStyle({ flexWrap: "wrap" });
+    expect(getByLabelText("gallery.filter.files")).toBeTruthy();
+  });
 });

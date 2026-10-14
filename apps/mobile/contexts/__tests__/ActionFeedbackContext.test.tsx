@@ -44,4 +44,47 @@ describe("ActionFeedbackProvider", () => {
     expect(getByText("success:Saved")).toBeOnTheScreen();
     expect(notifySuccess).toHaveBeenCalledTimes(1);
   });
+
+  it("shows the screen's toasts in a provider mounted over it (a full-screen viewer) while it is open", async () => {
+    function Viewer() {
+      return (
+        <ActionFeedbackProvider appearance="media">
+          <Text>Viewer</Text>
+        </ActionFeedbackProvider>
+      );
+    }
+    function Screen({ viewerOpen }: { viewerOpen: boolean }) {
+      const feedback = useActionFeedback();
+      return (
+        <>
+          <Pressable accessibilityRole="button" onPress={() => feedback.error("Could not delete")}>
+            <Text>Delete</Text>
+          </Pressable>
+          {viewerOpen ? <Viewer /> : null}
+        </>
+      );
+    }
+    const view = await render(
+      <ActionFeedbackProvider>
+        <Screen viewerOpen />
+      </ActionFeedbackProvider>,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByRole("button"));
+    });
+    // One toast, drawn by the viewer's provider beside the viewer's content.
+    expect(view.getAllByText("error:Could not delete")).toHaveLength(1);
+    expect(view.getByText("error:Could not delete").parent).toBe(view.getByText("Viewer").parent);
+
+    await view.rerender(
+      <ActionFeedbackProvider>
+        <Screen viewerOpen={false} />
+      </ActionFeedbackProvider>,
+    );
+    await act(async () => {
+      fireEvent.press(view.getByRole("button"));
+    });
+    expect(view.getByText("error:Could not delete")).toBeOnTheScreen();
+    expect(view.queryByText("Viewer")).toBeNull();
+  });
 });

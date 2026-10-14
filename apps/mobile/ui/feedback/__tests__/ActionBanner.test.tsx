@@ -78,4 +78,13 @@ describe("ActionBanner", () => {
       "assertive",
     );
   });
+
+  it("is a white pill with black ink over a photo viewer", async () => {
+    const { lightTheme } = jest.requireActual("@/lib/theme") as typeof import("@/lib/theme");
+    const { getByLabelText, getByText } = await render(
+      <ActionBanner message="Saved" appearance="media" onDismiss={jest.fn()} />,
+    );
+    expect(getByLabelText("Saved")).toHaveStyle({ backgroundColor: lightTheme.onMedia });
+    expect(getByText("Saved")).toHaveStyle({ color: lightTheme.mediaScrim });
+  });
 });

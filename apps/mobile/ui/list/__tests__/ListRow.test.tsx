@@ -1,4 +1,5 @@
 import { fireEvent, render } from "@testing-library/react-native";
+import { View } from "react-native";
 
 import { lightTheme } from "@/lib/theme";
 import { ListGroup, ListSeparator } from "../ListGroup";
@@ -66,5 +67,46 @@ describe("ListRow", () => {
     );
     expect(view.getByLabelText("Plan, Pro")).toBeTruthy();
     expect(view.getByRole("button", { name: "Tone Warm" }).props.accessibilityState.expanded).toBe(true);
+  });
+
+  it("caps lines, cuts a file name in the middle and passes the touch to long press", async () => {
+    const onLongPress = jest.fn();
+    const view = await render(
+      <ListRow
+        appearance="plain"
+        title="quarterly-report-final.pdf"
+        subtitle="Trip planning"
+        numberOfLines={1}
+        ellipsizeMode="middle"
+        onPress={jest.fn()}
+        onLongPress={onLongPress}
+        accessibilityLabel="quarterly-report-final.pdf"
+        accessibilityActions={[{ name: "share", label: "Share" }]}
+      />,
+    );
+    const title = view.getByText("quarterly-report-final.pdf");
+    expect(title.props.numberOfLines).toBe(1);
+    expect(title.props.ellipsizeMode).toBe("middle");
+    expect(view.getByText("Trip planning").props.numberOfLines).toBe(1);
+    const row = view.getByRole("button", { name: "quarterly-report-final.pdf" });
+    expect(row.props.accessibilityActions).toEqual([{ name: "share", label: "Share" }]);
+    await fireEvent(row, "longPress", { nativeEvent: { pageX: 5, pageY: 6 } });
+    expect(onLongPress).toHaveBeenCalledWith({ nativeEvent: { pageX: 5, pageY: 6 } });
+  });
+});
+
+describe("ListSeparator", () => {
+  it("is a thin page-colored gap in a group and a 1pt inset line between plain rows", async () => {
+    const view = await render(
+      <View testID="separators">
+        <ListSeparator />
+        <ListSeparator appearance="plain" inset={92} />
+      </View>,
+    );
+    const [grouped, plain] = view.getByTestId("separators").children.filter(
+      (child) => typeof child !== "string",
+    );
+    expect(grouped).toHaveStyle({ height: 2, backgroundColor: lightTheme.bg });
+    expect(plain).toHaveStyle({ height: 1, marginLeft: 92, backgroundColor: lightTheme.separator });
   });
 });

@@ -43,4 +43,22 @@ describe("AttachmentTextViewer", () => {
     );
     expect(await findByText("hello notes")).toBeTruthy();
   });
+
+  it("cuts a long name in the middle, spins Share while it is prepared, and has a 1pt toolbar line", async () => {
+    jest.mocked(fetchAttachmentBytes).mockReturnValueOnce(new Promise(() => {}));
+    const { getByText, getByLabelText } = await render(
+      <AttachmentTextViewer
+        visible
+        sharing
+        onClose={jest.fn()}
+        onShare={jest.fn()}
+        attachmentId="notes"
+        fileName="a-very-long-meeting-notes-file.md"
+      />,
+    );
+    const title = getByText("a-very-long-meeting-notes-file.md");
+    expect(title.props.ellipsizeMode).toBe("middle");
+    expect(getByLabelText("preview.share").props.accessibilityState).toMatchObject({ busy: true });
+    expect(title.parent).toHaveStyle({ borderBottomWidth: 1, borderBottomColor: mockLightTheme.border });
+  });
 });

@@ -1,13 +1,12 @@
-import { useMemo, useRef } from "react";
+import { useRef } from "react";
 import { StyleSheet, View } from "react-native";
 import type { EdgeInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
+import { Button } from "@/ui/controls/Button";
 import { HeaderButton } from "@/ui/controls/HeaderButton";
 import { Menu } from "@/ui/overlay/Menu";
 import { Space } from "@/lib/space";
-import { type Theme, useTheme, withAlpha } from "@/lib/theme";
-import { Radius } from "@/lib/radius";
 
 type Props = {
   visible: boolean;
@@ -15,13 +14,9 @@ type Props = {
   insets: EdgeInsets;
   busy: "download" | "share" | null;
   canShare: boolean;
-  showOverflow: boolean;
   showUseInChat: boolean;
   showOpenChat: boolean;
   showDelete: boolean;
-  showDots: boolean;
-  pageIndex: number;
-  pageCount: number;
   onClose: () => void;
   onShare: () => void;
   onDownload: () => void;
@@ -32,19 +27,19 @@ type Props = {
   onDelete: () => void;
 };
 
+/**
+ * The photo viewer's top bar: Close on the left; More (only when it has
+ * items), Download and a white Share pill on the right. Nothing at the bottom.
+ */
 export function AttachmentLightboxChrome({
   visible,
   overflowOpen,
   insets,
   busy,
   canShare,
-  showOverflow,
   showUseInChat,
   showOpenChat,
   showDelete,
-  showDots,
-  pageIndex,
-  pageCount,
   onClose,
   onShare,
   onDownload,
@@ -55,16 +50,22 @@ export function AttachmentLightboxChrome({
   onDelete,
 }: Props) {
   const { t } = useTranslation();
-  const theme = useTheme();
-  const s = useMemo(() => makeStyles(theme), [theme]);
   const moreRef = useRef<View>(null);
+  const showOverflow = showUseInChat || showOpenChat || showDelete;
   if (!visible) return null;
 
   return (
     <>
       <View
         pointerEvents="box-none"
-        style={[s.header, { paddingTop: Math.max(insets.top, Space.xs) }]}
+        style={[
+          s.header,
+          {
+            paddingTop: Math.max(insets.top, Space.xs),
+            paddingLeft: insets.left + Space.sm,
+            paddingRight: insets.right + Space.sm,
+          },
+        ]}
       >
         <HeaderButton
           variant="media"
@@ -74,14 +75,15 @@ export function AttachmentLightboxChrome({
         />
 
         <View style={s.headerActions}>
-          <HeaderButton
-            variant="media"
-            icon="share"
-            onPress={onShare}
-            busy={busy === "share"}
-            disabled={!canShare || busy != null}
-            accessibilityLabel={t("preview.share")}
-          />
+          {showOverflow ? (
+            <HeaderButton
+              ref={moreRef}
+              variant="media"
+              icon="more-vertical"
+              onPress={onToggleOverflow}
+              accessibilityLabel={t("preview.more_a11y")}
+            />
+          ) : null}
           <HeaderButton
             variant="media"
             icon="download"
@@ -90,28 +92,18 @@ export function AttachmentLightboxChrome({
             disabled={!canShare || busy != null}
             accessibilityLabel={t("common.download")}
           />
-          {showOverflow ? (
-            <HeaderButton
-              ref={moreRef}
-              variant="media"
-              icon="more-horizontal"
-              onPress={onToggleOverflow}
-              accessibilityLabel={t("preview.more_a11y")}
-            />
-          ) : null}
+          <Button
+            variant="media"
+            title={t("preview.share")}
+            onPress={onShare}
+            loading={busy === "share"}
+            disabled={!canShare || busy === "download"}
+          />
         </View>
       </View>
 
-      {showDots ? (
-        <View style={[s.dots, { paddingBottom: Math.max(insets.bottom, Space.sm) }]}>
-          {Array.from({ length: pageCount }, (_, index) => (
-            <View key={index} style={[s.dot, index === pageIndex && s.dotActive]} />
-          ))}
-        </View>
-      ) : null}
-
       <Menu
-        visible={overflowOpen}
+        visible={overflowOpen && showOverflow}
         onClose={onCloseOverflow}
         anchorRef={moreRef}
         testID="lightbox-overflow-menu"
@@ -131,45 +123,21 @@ export function AttachmentLightboxChrome({
   );
 }
 
-function makeStyles(theme: Theme) {
-  return StyleSheet.create({
-    header: {
-      position: "absolute",
-      top: 0,
-      left: 0,
-      right: 0,
-      zIndex: 2,
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "space-between",
-      paddingHorizontal: Space.sm,
-      paddingBottom: Space.xs,
-    },
-    headerActions: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.xs,
-    },
-    dots: {
-      position: "absolute",
-      left: 0,
-      right: 0,
-      bottom: 0,
-      zIndex: 2,
-      flexDirection: "row",
-      justifyContent: "center",
-      alignItems: "center",
-      gap: Space.xs,
-      paddingTop: Space.xs,
-    },
-    dot: {
-      width: 6,
-      height: 6,
-      borderRadius: Radius.full,
-      backgroundColor: withAlpha(theme.onMedia, 0.35),
-    },
-    dotActive: {
-      backgroundColor: theme.onMedia,
-    },
-  });
-}
+const s = StyleSheet.create({
+  header: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingBottom: Space.xs,
+  },
+  headerActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Space.xs,
+  },
+});

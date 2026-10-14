@@ -16,6 +16,7 @@ Development builds show every piece in light and dark at
 | Ask before acting (delete, sign out, disconnect) | `confirmDialog()` from `overlay/dialogs` | `Alert.alert` with buttons |
 | Tell something that needs reading (permission, Expo Go) | `alertDialog()` from `overlay/dialogs` | `Alert.alert` |
 | A passing success or error | the toast: `useActionFeedback()` or `reportRecoverableError` | a dialog |
+| A toast over a full-screen viewer | mount an `ActionFeedbackProvider` inside the modal (`appearance="media"` on a black stage); while it is open every toast shows there | a dialog, or a toast hidden under the modal |
 | Actions on a thing (⋮, long-press) | `overlay/Menu`, anchored to the button or the touch point | a bottom sheet of actions |
 | Pick one of several from a row | `overlay/SelectMenu` (checked popover) | expanding options inline |
 | Pick one of two to four in place | `controls/SegmentedControl` | a row of hand-made chips |
@@ -26,14 +27,14 @@ Development builds show every piece in light and dark at
 | A date then a time | `pickers/DateTimePickerDialog` | chaining native dialogs |
 | Share a chat or a summary | `share/ShareSheet` (preview card, Share / Copy / PDF) | `Share.share` straight from a menu |
 | Back, close, menu, ⋮ in a header | `controls/HeaderButton` (`plate`, `plain` in a `HeaderButtonGroup`, `media` over photos); `StackBackButton` in stacks | a hand-styled circle |
-| A labelled action | `controls/Button` (pill; `sm` 36 / `md` 44 / `lg` 52; optional icon) | a `Pressable` styled as a button |
+| A labelled action | `controls/Button` (pill; `sm` 36 / `md` 44 / `lg` 52; optional icon; `media` is the white pill over a photo, like the viewer's Share) | a `Pressable` styled as a button |
 | An icon-only action inside content | `controls/IconButton` | a `Pressable` around `Icon` |
 | Suggestions, filters, picked values, facts | `controls/Chip` (`assist`, `filter`, `input`, `tag`) | per-feature chip styles |
-| Any list row | `list/ListRow` in a `list/ListGroup` (grouped) or on its own (plain) | per-feature row styles |
+| Any list row | `list/ListRow` in a `list/ListGroup` (grouped) or on its own (plain; `ListSeparator appearance="plain"` draws the line between plain rows) | per-feature row styles |
 | Typing text | `controls/TextField` (label, helper, red error, multiline) | a styled `TextInput` |
 | Searching a list | `controls/SearchField` | |
 | Icons and logos | `icons/Icon` (Lucide line icons; `IconSize` ladder) and `icons/brand` `BrandMark` | `@expo/vector-icons`, PNG icons |
-| Loading, empty, error | `feedback/StateView`, `feedback/SkeletonLoader` | |
+| Loading, empty, error | `feedback/StateView`, `feedback/SkeletonLoader` (`SkeletonList` for rows, `SkeletonGrid` for tiles) | |
 | Small counts and labels | `feedback/CountBadge`, `feedback/StatusPill` | |
 
 ## Folders

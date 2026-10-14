@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 
 import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { AttachmentPdfViewer } from "@/features/attachments/components/AttachmentPdfViewer";
@@ -7,37 +7,54 @@ import { GalleryItemActionsMenu } from "@/features/attachments/components/Galler
 import { useGalleryLibrary } from "@/features/attachments/hooks/useGalleryLibrary";
 import type { AttachmentListItem } from "@/lib/api";
 import {
+  galleryDisplayName,
   galleryFileName,
   galleryImageIndex,
   galleryImageItems,
   galleryPressAction,
   isReadableTextContentType,
 } from "@/features/attachments/model/gallery";
+import type { AttachmentViewerImage } from "@/features/attachments/model/imageViewer";
 import { isPdfContentType } from "@/lib/messageAttachments";
 
 type Props = {
   items: AttachmentListItem[];
   pickMode: boolean;
   library: ReturnType<typeof useGalleryLibrary>;
+  /** Loads the Library's next page when the viewer nears its last photo. */
+  onLoadMore?: () => void;
 };
 
-export function GalleryMediaModals({ items, pickMode, library }: Props) {
+export function GalleryMediaModals({ items, pickMode, library, onLoadMore }: Props) {
   const viewerItem = library.viewerItem;
   const fileItem = library.fileItem;
+  const { setViewerId } = library;
   const images = useMemo(() => galleryImageItems(items), [items]);
   const viewerImages = useMemo(
     () =>
-      images.map((item) => ({
+      images.map((item): AttachmentViewerImage => ({
         attachmentId: item.id,
         path: item.download_url,
-        fileName: galleryFileName(item.content_type, item.original_filename),
+        fileName: galleryFileName(item.content_type, item.original_filename, item.source),
+        label: galleryDisplayName(item),
         chatId: item.chat_id ?? null,
       })),
     [images],
   );
   const viewerIndex = viewerItem ? galleryImageIndex(images, viewerItem.id) : 0;
+  const fileName = fileItem
+    ? galleryFileName(fileItem.content_type, fileItem.original_filename, fileItem.source)
+    : null;
+  const sharingFile = fileItem != null && library.busyItemId === fileItem.id;
 
   const itemForId = (id?: string | null) => items.find((item) => item.id === id);
+  // The viewer follows the photo on screen, so a delete or a page load acts on it.
+  const onIndexChange = useCallback(
+    (image: AttachmentViewerImage) => {
+      if (image.attachmentId) setViewerId(image.attachmentId);
+    },
+    [setViewerId],
+  );
 
   return (
     <>
@@ -46,6 +63,8 @@ export function GalleryMediaModals({ items, pickMode, library }: Props) {
         onClose={() => library.setViewerId(null)}
         images={viewerImages}
         initialIndex={viewerIndex}
+        onIndexChange={onIndexChange}
+        onNearEnd={onLoadMore}
         onOpenChat={(image) => {
           const item = itemForId(image.attachmentId);
           library.setViewerId(null);
@@ -66,11 +85,8 @@ export function GalleryMediaModals({ items, pickMode, library }: Props) {
         onClose={() => library.setFileItem(null)}
         attachmentId={fileItem?.id}
         path={fileItem?.download_url ?? null}
-        fileName={
-          fileItem
-            ? galleryFileName(fileItem.content_type, fileItem.original_filename)
-            : "document.pdf"
-        }
+        fileName={fileName ?? "document.pdf"}
+        sharing={sharingFile}
         onShare={() => {
           if (fileItem) void library.shareFile(fileItem);
         }}
@@ -81,11 +97,8 @@ export function GalleryMediaModals({ items, pickMode, library }: Props) {
         onClose={() => library.setFileItem(null)}
         attachmentId={fileItem?.id}
         path={fileItem?.download_url ?? null}
-        fileName={
-          fileItem
-            ? galleryFileName(fileItem.content_type, fileItem.original_filename)
-            : "file.txt"
-        }
+        fileName={fileName ?? "file.txt"}
+        sharing={sharingFile}
         onShare={() => {
           if (fileItem) void library.shareFile(fileItem);
         }}

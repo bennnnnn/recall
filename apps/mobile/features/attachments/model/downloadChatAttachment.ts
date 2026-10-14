@@ -14,7 +14,43 @@ import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachm
 import { getSessionGeneration, SessionChangedError } from "@/lib/auth";
 import { recallAttachmentPath } from "@/features/attachments/model/attachmentUri";
 import { attachmentSessionGuard } from "@/features/attachments/model/attachmentSession";
+import { contentTypeForFileName } from "@/features/attachments/model/gallery";
 import { isShareCancelled } from "@/lib/exportPdf";
+
+type SharingModule = {
+  shareAsync: (url: string, options?: { mimeType?: string; UTI?: string; dialogTitle?: string }) => Promise<void>;
+};
+
+/**
+ * expo-sharing, when this build has its native module. Loaded lazily: its JS
+ * calls requireNativeModule on import, so a dev client built before it was
+ * added would otherwise crash every screen that can share.
+ */
+function loadSharing(): SharingModule | null {
+  try {
+    const { requireOptionalNativeModule } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require("expo-modules-core") as typeof import("expo-modules-core");
+    if (!requireOptionalNativeModule("ExpoSharing")) return null;
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return require("expo-sharing") as SharingModule;
+  } catch {
+    return null;
+  }
+}
+
+export type ShareRoute = "expo-sharing" | "rn-share" | "unavailable";
+
+/**
+ * How a file reaches the share sheet. expo-sharing hands over the file on
+ * both platforms. React Native's Share sends a file only on iOS (`url`);
+ * Android ignores `url` and would send the cache path as text, so Android
+ * without expo-sharing cannot share a file at all.
+ */
+export function shareRoute(platform: string, hasSharing: boolean): ShareRoute {
+  if (hasSharing) return "expo-sharing";
+  return platform === "ios" ? "rn-share" : "unavailable";
+}
 
 function safeFileName(name: string, fallback: string): string {
   const cleaned = name.replace(/[^\w.-]+/g, "_").replace(/^_+|_+$/g, "");
@@ -167,19 +203,27 @@ export async function shareChatAttachment(options: {
   uri: string;
   token?: string | null;
   fileName?: string;
+  /** MIME type for Android's share targets; guessed from the file name when missing. */
+  contentType?: string | null;
 }): Promise<void> {
-  const { uri, token = null, fileName = "attachment.jpg" } = options;
+  const { uri, token = null, fileName = "attachment.jpg", contentType } = options;
   const requireCurrent = attachmentSessionGuard(token);
   const safeName = safeFileName(fileName, `recall-${Date.now()}.jpg`);
   const localUri = await ensureLocalAttachmentFile({ uri, token, fileName: safeName });
   requireCurrent();
 
+  const sharing = loadSharing();
+  const route = shareRoute(Platform.OS, sharing != null);
+  if (route === "unavailable") {
+    throw new Error("Sharing files needs an app update.");
+  }
   try {
-    await Share.share(
-      Platform.OS === "ios"
-        ? { url: localUri, title: safeName }
-        : { message: localUri, title: safeName, url: localUri },
-    );
+    if (route === "expo-sharing" && sharing) {
+      const mimeType = contentType?.split(";")[0]?.trim() || contentTypeForFileName(safeName);
+      await sharing.shareAsync(localUri, mimeType ? { mimeType } : {});
+    } else {
+      await Share.share({ url: localUri, title: safeName });
+    }
   } catch (error) {
     if (isShareCancelled(error)) return;
     throw error;

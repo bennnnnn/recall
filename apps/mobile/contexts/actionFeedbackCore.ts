@@ -23,6 +23,12 @@ export type ActionFeedbackApi = {
   ) => void;
   error: (message: string, options?: Omit<ActionFeedbackOptions, "tone">) => void;
   dismiss: () => void;
+  /**
+   * Lets a provider mounted over this one (inside a full-screen modal) show
+   * this one's toasts while it is mounted; a toast under the modal could not
+   * be seen. Returns the release. Providers set it; test doubles may omit it.
+   */
+  capture?: (overlay: ActionFeedbackApi) => () => void;
 };
 
 export const ActionFeedbackContext = createContext<ActionFeedbackApi | null>(null);

@@ -240,3 +240,54 @@ it("offers an explicit next-page retry without discarding existing rows", async 
   expect(latest?.items.map((row) => row.id)).toEqual(["a", "b"]);
   expect(latest?.pageError).toBe(false);
 });
+
+describe("pull to refresh", () => {
+  beforeEach(() => {
+    latest = null;
+    jest.clearAllMocks();
+    invalidateGalleryCache();
+    (api.listAttachments as jest.Mock).mockReset();
+  });
+
+  it("reports a failure while it keeps the items on screen", async () => {
+    const list = api.listAttachments as jest.Mock;
+    list
+      .mockResolvedValueOnce({ items: [item("a")], has_more: false })
+      .mockRejectedValueOnce(new Error("offline"));
+
+    await act(async () => {
+      render(<Probe />);
+    });
+    await waitFor(() => {
+      expect(latest?.items.map((row) => row.id)).toEqual(["a"]);
+    });
+
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await latest?.refresh();
+    });
+    expect(ok).toBe(false);
+    expect(latest?.items.map((row) => row.id)).toEqual(["a"]);
+    expect(latest?.pullRefreshing).toBe(false);
+  });
+
+  it("reports a success", async () => {
+    const list = api.listAttachments as jest.Mock;
+    list
+      .mockResolvedValueOnce({ items: [item("a")], has_more: false })
+      .mockResolvedValueOnce({ items: [item("a"), item("b")], has_more: false });
+
+    await act(async () => {
+      render(<Probe />);
+    });
+    await waitFor(() => {
+      expect(latest?.items.map((row) => row.id)).toEqual(["a"]);
+    });
+    let ok: boolean | undefined;
+    await act(async () => {
+      ok = await latest?.refresh();
+    });
+    expect(ok).toBe(true);
+    expect(latest?.items.map((row) => row.id)).toEqual(["a", "b"]);
+  });
+});

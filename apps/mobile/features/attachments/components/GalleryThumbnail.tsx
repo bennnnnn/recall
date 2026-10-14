@@ -6,7 +6,7 @@ import { Icon } from "@/ui/icons/Icon";
 import { MediaLoadRetry } from "@/components/MediaLoadRetry";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { attachmentRecordExists } from "@/lib/api";
-import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
+import { attachmentThumbWidth, resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { Theme, useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
@@ -43,10 +43,11 @@ function GalleryThumbnailBase({
   const missingNotifiedRef = useRef(false);
   const probeGenRef = useRef(0);
 
+  // 2x for sharp tiles, capped at what the API serves (a tablet tile asks for less than 2x).
   const uri = resolveAttachmentUri({
     attachmentId,
     path: downloadUrl,
-    width: Math.max(1, Math.round(size * 2)),
+    width: attachmentThumbWidth(size * 2),
   })!;
 
   // resolveAttachmentUri prefers /file when attachmentId is set. That

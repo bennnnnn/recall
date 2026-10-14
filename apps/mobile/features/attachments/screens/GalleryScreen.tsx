@@ -7,43 +7,59 @@ import {
   Text,
   useWindowDimensions,
   View,
+  type AccessibilityActionEvent,
+  type AccessibilityActionInfo,
+  type GestureResponderEvent,
 } from "react-native";
 import { FlashList } from "@shopify/flash-list";
 import { useLocalSearchParams } from "expo-router";
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
-import { GalleryColumnRow } from "@/features/attachments/components/GalleryColumnRow";
+import {
+  GALLERY_COLUMN_SEPARATOR_INSET,
+  GalleryColumnRow,
+} from "@/features/attachments/components/GalleryColumnRow";
 import { GalleryLibraryHeader } from "@/features/attachments/components/GalleryLibraryHeader";
 import { GalleryMediaModals } from "@/features/attachments/components/GalleryMediaModals";
 import { GalleryThumbnail } from "@/features/attachments/components/GalleryThumbnail";
+import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { Icon } from "@/ui/icons/Icon";
-import { SkeletonList } from "@/ui/feedback/SkeletonLoader";
+import { ListSeparator } from "@/ui/list/ListGroup";
+import { SkeletonGrid, SkeletonList } from "@/ui/feedback/SkeletonLoader";
 import { StateView } from "@/ui/feedback/StateView";
 import { useGalleryData } from "@/features/attachments/hooks/useGalleryData";
 import { useGalleryLibrary } from "@/features/attachments/hooks/useGalleryLibrary";
 import { type AttachmentListItem } from "@/lib/api";
 import {
   GALLERY_GRID_COLUMNS,
+  galleryDisplayName,
   galleryEmptyKey,
-  galleryFileName,
+  galleryGridLayout,
+  galleryItemActions,
   galleryPressAction,
-  galleryThumbSize,
   type GalleryFilter,
+  type GalleryItemAction,
 } from "@/features/attachments/model/gallery";
+import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { IconSize } from "@/ui/icons/sizes";
 
+/** One gap between grid tiles, across and down. */
+const GRID_GAP = Space.xs;
+
 export default function GalleryScreen() {
   const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const insets = useSafeAreaInsets();
+  const feedback = useActionFeedbackOptional();
   const { width } = useWindowDimensions();
-  const thumbSize = galleryThumbSize(width - Space.md * 2, GALLERY_GRID_COLUMNS, Space.xs);
+  const grid = galleryGridLayout(width, Space.md, GRID_GAP);
+  const thumbSize = grid.thumbSize;
   const pickParam = useLocalSearchParams<{ pick?: string | string[] }>().pick;
   const pickMode = (Array.isArray(pickParam) ? pickParam[0] : pickParam) === "1";
 
@@ -63,86 +79,152 @@ export default function GalleryScreen() {
     removeItem,
   } = useGalleryData(filter, searchQuery);
   const library = useGalleryLibrary(items, removeItem);
+  const {
+    layout,
+    busyItemId,
+    attachToComposer,
+    openImage,
+    openFile,
+    openActions,
+    openChat,
+    shareFile,
+    confirmDelete,
+  } = library;
+  const isGrid = layout === "grid";
+
+  const onRefresh = useCallback(() => {
+    void refresh().then((ok) => {
+      // With items on screen the failure would only show in the list footer.
+      if (!ok && items.length > 0) reportRecoverableError(feedback, t("gallery.refresh_failed"));
+    });
+  }, [refresh, items.length, feedback, t]);
+
+  const actionLabels = useMemo<Record<GalleryItemAction, string>>(
+    () => ({
+      use: t("gallery.use_in_chat"),
+      open_chat: t("gallery.open_chat"),
+      share: t("gallery.share"),
+      delete: t("common.delete"),
+    }),
+    [t],
+  );
 
   const renderItem = useCallback(
     ({ item }: { item: AttachmentListItem }) => {
-      const fileName = galleryFileName(item.content_type, item.original_filename);
+      const name = galleryDisplayName(item);
       const isImage = galleryPressAction(item.content_type) === "view-image";
+      const busy = busyItemId === item.id;
       const onPress = () => {
         if (pickMode) {
-          void library.attachToComposer(item);
+          void attachToComposer(item);
           return;
         }
-        if (isImage) library.openImage(item);
-        else library.openFile(item);
+        if (isImage) openImage(item);
+        else void openFile(item);
       };
-      if (library.layout === "column") {
+      const onLongPress = (point: { x: number; y: number }) => {
+        if (!pickMode) openActions(item, point);
+      };
+      const hint = pickMode
+        ? t("gallery.use_in_chat")
+        : isImage
+          ? t("chat.image_view_a11y")
+          : t("gallery.open_file_a11y");
+      // The long-press menu, for screen readers.
+      const accessibilityActions: AccessibilityActionInfo[] | undefined = pickMode
+        ? undefined
+        : galleryItemActions(item).map((action) => ({ name: action, label: actionLabels[action] }));
+      const onAccessibilityAction = (event: AccessibilityActionEvent) => {
+        const action = event.nativeEvent.actionName as GalleryItemAction;
+        if (action === "use") void attachToComposer(item);
+        else if (action === "open_chat") openChat(item);
+        else if (action === "share") void shareFile(item);
+        else if (action === "delete") confirmDelete(item);
+      };
+
+      if (!isGrid) {
         return (
           <GalleryColumnRow
             item={item}
-            fileName={fileName}
+            title={name}
+            busy={busy}
             onPress={onPress}
-            onLongPress={(point) => {
-              if (!pickMode) library.openActions(item, point);
-            }}
+            onLongPress={onLongPress}
             onMissing={removeItem}
+            accessibilityHint={hint}
+            accessibilityActions={accessibilityActions}
+            onAccessibilityAction={onAccessibilityAction}
           />
         );
       }
-      if (isImage) {
-        return (
+      return (
+        <View style={s.cell}>
           <Pressable
             onPress={onPress}
-            onLongPress={(event) => {
-              if (!pickMode) {
-                library.openActions(item, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
-              }
-            }}
+            onLongPress={(event: GestureResponderEvent) =>
+              onLongPress({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })
+            }
+            disabled={busy}
             accessibilityRole="button"
-            accessibilityLabel={
-              pickMode ? t("gallery.use_in_chat") : t("chat.image_view_a11y")
-            }
+            accessibilityLabel={name}
+            accessibilityHint={hint}
+            accessibilityState={{ busy, disabled: busy }}
+            accessibilityActions={accessibilityActions}
+            onAccessibilityAction={onAccessibilityAction}
+            style={({ pressed }) => pressed && s.tilePressed}
           >
-            <GalleryThumbnail
-              attachmentId={item.id}
-              downloadUrl={item.download_url}
-              size={thumbSize}
-              onMissing={removeItem}
-            />
+            {isImage ? (
+              <GalleryThumbnail
+                attachmentId={item.id}
+                downloadUrl={item.download_url}
+                size={thumbSize}
+                onMissing={removeItem}
+              />
+            ) : (
+              <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
+                <Icon name="file" size={IconSize.xl} color={C.textTertiary} />
+                <Text style={s.fileLabel} numberOfLines={1} ellipsizeMode="middle">
+                  {name}
+                </Text>
+              </View>
+            )}
+            {busy ? (
+              <View style={[s.busy, { width: thumbSize, height: thumbSize }]} testID="gallery-item-busy">
+                <ActivityIndicator color={C.onMedia} />
+              </View>
+            ) : null}
           </Pressable>
-        );
-      }
-      return (
-        <Pressable
-          onPress={onPress}
-          onLongPress={(event) => {
-            if (!pickMode) {
-              library.openActions(item, { x: event.nativeEvent.pageX, y: event.nativeEvent.pageY });
-            }
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={
-            pickMode ? t("gallery.use_in_chat") : t("gallery.open_file_a11y")
-          }
-        >
-          <View style={[s.fileTile, { width: thumbSize, height: thumbSize }]}>
-            <Icon name="file" size={IconSize.xl} color={C.textTertiary} />
-            <Text style={s.fileLabel} numberOfLines={1}>
-              {fileName}
-            </Text>
-          </View>
-        </Pressable>
+        </View>
       );
     },
-    [t, s, C, thumbSize, library, pickMode, removeItem],
+    [
+      t,
+      s,
+      C,
+      thumbSize,
+      isGrid,
+      pickMode,
+      busyItemId,
+      actionLabels,
+      attachToComposer,
+      openImage,
+      openFile,
+      openActions,
+      openChat,
+      shareFile,
+      confirmDelete,
+      removeItem,
+    ],
   );
+
+  const listPadding = isGrid ? grid.listPadding : 0;
 
   return (
     <View style={s.root}>
       <GalleryLibraryHeader
         filter={filter}
         searchQuery={searchQuery}
-        layout={library.layout}
+        layout={layout}
         onSearchChange={setSearchQuery}
         onFilterChange={(next) => {
           library.setViewerId(null);
@@ -153,7 +235,17 @@ export default function GalleryScreen() {
       />
 
       {loading && items.length === 0 && !error ? (
-        <SkeletonList />
+        isGrid ? (
+          <SkeletonGrid
+            columns={GALLERY_GRID_COLUMNS}
+            size={thumbSize}
+            cellPadding={grid.cellPadding}
+            padding={grid.listPadding}
+            radius={Radius.sm}
+          />
+        ) : (
+          <SkeletonList />
+        )
       ) : error && items.length === 0 ? (
         <StateView
           variant="error"
@@ -163,18 +255,20 @@ export default function GalleryScreen() {
         />
       ) : (
         <FlashList
-          key={library.layout}
+          key={layout}
           data={items}
           keyExtractor={(item) => item.id}
-          numColumns={library.layout === "grid" ? GALLERY_GRID_COLUMNS : 1}
-          contentContainerStyle={[s.content, { paddingBottom: insets.bottom + Space.xl }]}
-          ItemSeparatorComponent={
-            library.layout === "grid" ? () => <View style={s.gridGap} /> : undefined
-          }
+          numColumns={isGrid ? GALLERY_GRID_COLUMNS : 1}
+          extraData={busyItemId}
+          contentContainerStyle={{
+            paddingHorizontal: listPadding,
+            paddingBottom: insets.bottom + Space.xl,
+          }}
+          ItemSeparatorComponent={isGrid ? undefined : ColumnSeparator}
           refreshControl={
             <RefreshControl
               refreshing={pullRefreshing}
-              onRefresh={refresh}
+              onRefresh={onRefresh}
               tintColor={C.primary}
             />
           }
@@ -206,18 +300,24 @@ export default function GalleryScreen() {
         />
       )}
 
-      <GalleryMediaModals items={items} pickMode={pickMode} library={library} />
+      <GalleryMediaModals items={items} pickMode={pickMode} library={library} onLoadMore={loadMore} />
     </View>
   );
+}
+
+function ColumnSeparator() {
+  return <ListSeparator appearance="plain" inset={GALLERY_COLUMN_SEPARATOR_INSET} />;
 }
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
     root: { flex: 1, backgroundColor: C.bg },
-    content: {
-      paddingHorizontal: Space.md,
+    // Half the gap around every tile: equal gaps across and down.
+    cell: {
+      padding: GRID_GAP / 2,
+      alignItems: "center",
     },
-    gridGap: { height: Space.xs },
+    tilePressed: { opacity: 0.7 },
     footer: {
       paddingVertical: Space.md,
       alignItems: "center",
@@ -225,16 +325,26 @@ function makeStyles(C: Theme) {
     fileTile: {
       borderRadius: Radius.sm,
       backgroundColor: C.surfaceAlt,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: C.border,
       alignItems: "center",
       justifyContent: "center",
       gap: Space.xs,
+      paddingHorizontal: Space.xs,
     },
     fileLabel: {
       ...Type.overline,
       ...Weight.semibold,
       color: C.textTertiary,
+    },
+    busy: {
+      position: "absolute",
+      top: 0,
+      left: 0,
+      borderRadius: Radius.sm,
+      backgroundColor: C.scrim,
+      alignItems: "center",
+      justifyContent: "center",
     },
   });
 }
