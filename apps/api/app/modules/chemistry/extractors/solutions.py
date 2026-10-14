@@ -82,6 +82,14 @@ def _dilute_to_concentration(text: str) -> ChemistryIntent | None:
     )
 
 
+# "M1 = 12 M, M2 = 1.5 M, V2 = 500 mL": both concentrations labelled in molar units name a
+# dilution without the word. A mass is never in M, so "M1 = 2 kg" stays physics'.
+_BOTH_MOLARITIES = re.compile(
+    rf"\bM1\s*=\s*{_N}{_MOLAR_VALUE}[\s\S]*\bM2\s*=\s*{_N}{_MOLAR_VALUE}"
+    rf"|\bM2\s*=\s*{_N}{_MOLAR_VALUE}[\s\S]*\bM1\s*=\s*{_N}{_MOLAR_VALUE}"
+)
+
+
 def _extract_solutions(text: str) -> ChemistryIntent | None:
     stock = _stock_volume(text)
     if stock is not None:
@@ -89,7 +97,7 @@ def _extract_solutions(text: str) -> ChemistryIntent | None:
     diluted = _dilute_to_concentration(text)
     if diluted is not None:
         return diluted
-    if re.search(r"\b(?:dilut|M1V1)\w*", text, re.IGNORECASE):
+    if re.search(r"\b(?:dilut|M1V1)\w*", text, re.IGNORECASE) or _BOTH_MOLARITIES.search(text):
         m1 = _search(rf"\bM1\s*=\s*({_N})", text)
         m2 = _search(rf"\bM2\s*=\s*({_N})", text)
         v1 = _labeled_volume(text, "V1")

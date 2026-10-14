@@ -60,7 +60,7 @@ _STRONG_CUE = re.compile(
     r"\b(?:stoichiometr\w*|molar\s+(?:mass|volume|absorptivity|concentration)|"
     r"molarity|molality|formula\s+units?|M1V1|mass\s+percent|pOH|"
     r"parts\s+per\s+(?:million|billion)|(?:ppm|ppb)(?=\s+of\b)|"
-    r"volume\s+percent|percent\s+by\s+volume|mass/volume\s+percent|"
+    r"volume\s+percent|percent(?:age)?\s+by\s+(?:volume|mass)|mass/volume\s+percent|"
     r"thermochem\w*|enthalpy|specific\s+heat|calorimet\w*|"
     r"reaction\s+quotient|equilibrium\s+(?:constant|expression)|ice\s+(?:table|equilibrium)|"
     r"rate\s+(?:constant|law)|first[- ]order|second[- ]order|zero[- ]order|arrhenius|"
@@ -141,6 +141,10 @@ _ELEMENT_IN_SAMPLE = re.compile(
     re.IGNORECASE,
 )
 _MOLAR_SOLUTION = re.compile(r"(?<![\w.])\d+(?:\.\d+)?\s*M\s+([A-Z][A-Za-z0-9()]*)")
+# A dilution's labelled concentrations: "M1 = 12 M", "C2 = 0.50 mol/L".
+_LABELLED_MOLARITY = re.compile(
+    r"(?<![A-Za-z0-9])[MC][12]\s*=\s*(?:\d+(?:\.\d+)?|\.\d+)\s*(?:M|mol/L)(?![A-Za-z])"
+)
 _VMAX = re.compile(r"(?<![A-Za-z])Vmax(?![A-Za-z])")
 _KM = re.compile(r"(?<![A-Za-z])Km(?![A-Za-z])")
 # "the shape of NH3": a shape is chemistry's only when what it is of is a real formula.
@@ -377,6 +381,8 @@ def is_chemistry_question(content: str) -> bool:
         return True
     # A concentration of a named formula: "6 M HCl".
     if any(is_formula(match.group(1)) for match in _MOLAR_SOLUTION.finditer(cleaned)):
+        return True
+    if _LABELLED_MOLARITY.search(cleaned):
         return True
     # Michaelis-Menten written by its constants alone: "Vmax = 10 μmol/min, Km = 2 mM".
     if _VMAX.search(cleaned) and _KM.search(cleaned):

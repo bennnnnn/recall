@@ -8,7 +8,10 @@ Each family is a cause, not one prompt:
 - B: a hydrate's water (``CuSO4.5H2O``, ``MgSO4·7H2O``) was dropped;
 - C: "how many oxygen atoms" counted every atom, and "moles of oxygen atoms" answered a
   particle count;
-- F: words chemistry did not read (``=`` as an arrow, a lowercase ``ph``).
+- D: a Ka question chemistry could not read went to maths, which "verified" ``x = 55555.6``
+  from the ``x`` of ``1.8 x 10^-5``;
+- F: routing that sent a chemistry question to maths (an ASCII arrow, ``=`` as an arrow,
+  a lowercase ``ph``).
 
 The right outcome is the right number or no verified answer, never a wrong one.
 """
@@ -217,7 +220,69 @@ def test_c_an_element_the_formula_does_not_hold_is_not_answered(question: str) -
         solve_chemistry(intent)
 
 
+# --- D: a Ka question is chemistry's, never a maths "x = 55555.6" -------------------------
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Find the pH of 0.10 M CH₃COOH, Ka = 1.8 x 10^-5",
+        "whats the ph of 0.10 M acetic acid, Ka = 1.8 x 10^-5",
+        "percent ionization of 0.10 M acetic acid, Ka = 1.8 x 10^-5",
+        "Ka = 1.8 x 10^-5. find the pH of 0.10 M CH₃COOH",
+        "What is the pOH of 0.20 M NH3, Kb = 1.8 x 10^-5?",
+        "Kb = 1.8 x 10^-5 for NH3. Find [OH-] in 0.15 M NH3.",
+    ],
+)
+def test_d_a_ka_question_is_never_maths(question: str) -> None:
+    assert detect_subject(question) == "chemistry"
+
+
+@pytest.mark.parametrize(
+    ("question", "expected"),
+    [
+        ("whats the ph of 0.10 M acetic acid, Ka = 1.8 x 10^-5", 2.875),
+        ("Find the pH of 0.10 M CH₃COOH, Ka = 1.8 x 10^-5", 2.875),
+        ("Ka = 1.8 x 10^-5. find the pH of 0.10 M CH₃COOH", 2.875),
+        ("percent ionization of 0.10 M acetic acid, Ka = 1.8 x 10^-5", 1.333),
+    ],
+)
+def test_d_a_ka_question_is_right_or_unverified(question: str, expected: float) -> None:
+    _right_or_declined(question, expected)
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "solve 2x + 3 = 7",
+        "x^2 - 5x + 6 = 0",
+        "simplify (x + 1)^2",
+        "solve for x: x^2 / (0.10 - x) = 1.8e-5",
+        "solve 2x + 3 = 7 and 3x - 1 = 5",
+    ],
+)
+def test_d_maths_stays_maths(question: str) -> None:
+    assert detect_subject(question) == "math"
+
+
 # --- F: routing that sent chemistry to maths ---------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "How many moles of O2 react with 3.0 mol of CH4 in CH4 + 2O2 -> CO2 + 2H2O?",
+        "How many grams of H2O form from 4.0 g of H2 and 40.0 g of O2? 2H2 + O2 -> 2H2O",
+        "How many grams of water are produced in 2H2 + O2 -> 2H2O?",
+        "Al + HCl = AlCl3 + H2 balance pls",
+        "whats the ph of 0.0025 M HCl",
+        "percent by mass of N in NH4NO3?",
+        "M1 = 12 M, M2 = 1.5 M, V2 = 500 mL. Find V1.",
+        "Find the cell potential of a Zn/Cu cell with [Zn2+] = 1.0 M and [Cu2+] = 0.010 M at 25 °C",
+    ],
+)
+def test_f_a_chemistry_question_is_not_routed_to_maths(question: str) -> None:
+    assert detect_subject(question) == "chemistry"
 
 
 @pytest.mark.parametrize(
@@ -239,9 +304,11 @@ def test_f_an_equals_sign_is_the_arrow_of_an_equation_to_balance(
         ("whats the ph of 0.0025 M HCl", "pH", 2.602),
         ("what is the ph of a 0.050 M NaOH solution", "pH", 12.70),
         ("percent by mass of N in NH4NO3?", "N in NH4NO3", 35.0),
+        # Both concentrations labelled in M name a dilution without the word "dilute".
+        ("M1 = 12 M, M2 = 1.5 M, V2 = 500 mL. Find V1.", "V1", 62.5),
     ],
 )
-def test_f_lowercase_ph_and_percent_by_mass_are_read(
+def test_f_lowercase_ph_percent_by_mass_and_labelled_dilution_are_read(
     question: str, label: str, expected: float
 ) -> None:
     result = _solve(question)
@@ -263,6 +330,7 @@ def test_f_lowercase_ph_and_percent_by_mass_are_read(
         "I have 3 M followers and want 5 M by May",
         "Dear Ms. Smith, thanks for the 2.0 update",
         "my NaCl lab got a 4.5/5, happy with that",
+        "M1 = 2 kg, M2 = 3 kg, V2 = 5 m/s. Find V1.",
         "solve x² - 5x + 6 = 0",
     ],
 )

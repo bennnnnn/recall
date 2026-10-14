@@ -58,6 +58,56 @@ def _closed_chemistry(text: str) -> bool:
     return extract_chemistry_intent(text) is not None
 
 
+# What makes a chemistry question chemistry's even when no chemistry reader closes it: a
+# symbol whose case is its meaning (pH, Ka), an amount in a chemistry unit (0.10 M, 3.0 mol,
+# 98 g/mol), or a compound's formula (CH3COOH, NaCl). Maths read "Ka = 1.8 x 10^-5" as an
+# equation in an unknown x and "verified" x = 55555.6; the question is chemistry's even when
+# chemistry can only leave it to the model.
+_CHEMISTRY_SYMBOL = re.compile(
+    r"(?<![A-Za-z0-9])(?:pH|pOH|pKa|pKb|Ka|Kb|Kw|Ksp|Kc|Kp|Qc)(?![A-Za-z])"
+)
+_CHEMISTRY_AMOUNT = re.compile(
+    r"(?<![A-Za-z])(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?\s*"
+    r"(?:M|mM|mol(?:es?)?|mmol|mol/L|g/mol|mol/kg)(?![A-Za-z])"
+)
+_FORMULA_TOKEN = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])")
+
+
+def _compound(token: str) -> bool:
+    """A compound written as a formula: two element symbols or more, and a digit or a
+    lowercase letter, so a shouted word ("NO", "HI", "OK") is not one."""
+    from app.modules.chemistry.species_facts import is_formula
+
+    return (
+        sum(char.isupper() for char in token) >= 2
+        and any(char.islower() or char.isdigit() for char in token)
+        and is_formula(token)
+    )
+
+
+def _chemistry_shaped(text: str) -> bool:
+    """A chemistry question by its symbols, amounts or formulas, solved or not."""
+    from app.modules.chemistry.input_text import read_chemistry_text
+    from app.modules.chemistry.request import is_chemistry_question
+
+    if not is_chemistry_question(text):
+        return False
+    read = read_chemistry_text(text)
+    if _CHEMISTRY_SYMBOL.search(read) or _CHEMISTRY_AMOUNT.search(read):
+        return True
+    if any(_compound(token) for token in _FORMULA_TOKEN.findall(read)):
+        return True
+    return _chemical_equation(read)
+
+
+def _chemical_equation(text: str) -> bool:
+    """A reaction of real species ("2H2 + O2 -> 2H2O"), never a mapping such as "A -> B"."""
+    from app.modules.chemistry.request import EQUATION_RE
+    from app.modules.chemistry.species import parse_reaction
+
+    return any(parse_reaction(match.group(1)) is not None for match in EQUATION_RE.finditer(text))
+
+
 def _math_curve_request(text: str) -> bool:
     from app.modules.math.tools.school.curve_points import extract_curve_point_intent
 
@@ -75,8 +125,10 @@ def detect_subject(
 
     An image math extract is math. A closed chemistry extraction wins over physics and
     math: molarity and Gibbs notation look like algebra, and a mass percent has masses
-    physics would read. Otherwise physics wins over math, and chemistry runs for a lookup
-    only when neither peer has claimed the line.
+    physics would read. Otherwise physics wins over math, and a chemistry question that
+    chemistry could not close (a pH, a Ka, a molarity, a formula or an equation) is still
+    chemistry's, never math's. Chemistry runs for a lookup only when neither peer has
+    claimed the line.
     """
     if image_math_extract is not None:
         return "math"
@@ -110,6 +162,10 @@ def detect_subject(
     # when no catalog law binds; algebra would read W and s as unknowns.
     if is_symbol_givens_request(text):
         return "physics"
+    # A pH, Ka or molarity question chemistry could not close is still not algebra: maths
+    # would read the x of "1.8 x 10^-5" as its unknown and verify nonsense.
+    if chemistry_enabled and _chemistry_shaped(text):
+        return "chemistry"
     if needs_symbolic_math(text, has_image_attachment=has_image_attachment):
         return "math"
     if not chemistry_enabled:
