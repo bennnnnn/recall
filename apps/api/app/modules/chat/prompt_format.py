@@ -369,6 +369,34 @@ def _style_format_hints(
     return parts
 
 
+def _geo_hints(query_text: str | None, prompt_location: str | None) -> list[str]:
+    """Layout and location for a nearby, distance or local-weather question."""
+    if not query_text:
+        return []
+    parts: list[str] = []
+    if web_search_service.is_ambiguous_local_places_query(query_text):
+        parts.append(web_search_service.AMBIGUOUS_NEARBY_HINT)
+    elif web_search_service.is_places_list_query(query_text):
+        parts.append(web_search_service.LOCAL_PLACES_FORMAT_HINT)
+    elif web_search_service.is_distance_query(query_text):
+        parts.append(web_search_service.GEO_DISTANCE_HINT)
+    if prompt_location and web_search_service.is_geo_query(query_text):
+        parts.append(web_search_service.GEO_ACTIVE_LOCATION_HINT)
+    return parts
+
+
+def slim_geo_hints(
+    settings: Settings, query_text: str | None, prompt_location: str | None
+) -> list[str]:
+    """A slim turn has no profile block, so it states the location the hints point to."""
+    if not settings.web_search_enabled or not query_text:
+        return []
+    if not web_search_service.is_geo_query(query_text):
+        return []
+    parts = [f"The user's current location: {prompt_location}."] if prompt_location else []
+    return parts + _geo_hints(query_text, prompt_location)
+
+
 def _integration_hints(
     *,
     settings: Settings,
@@ -390,14 +418,7 @@ def _integration_hints(
     ]
     if settings.web_search_enabled:
         parts.append(web_search_service.WEB_SEARCH_HINT)
-        if query_text and web_search_service.is_ambiguous_local_places_query(query_text):
-            parts.append(web_search_service.AMBIGUOUS_NEARBY_HINT)
-        elif query_text and web_search_service.is_places_list_query(query_text):
-            parts.append(web_search_service.LOCAL_PLACES_FORMAT_HINT)
-        elif query_text and web_search_service.is_distance_query(query_text):
-            parts.append(web_search_service.GEO_DISTANCE_HINT)
-        if prompt_location and query_text and web_search_service.is_geo_query(query_text):
-            parts.append(web_search_service.GEO_ACTIVE_LOCATION_HINT)
+        parts.extend(_geo_hints(query_text, prompt_location))
     if settings.image_search_enabled:
         parts.append(PHOTO_LOOKUP_HINT)
     if settings.google_calendar_enabled:

@@ -221,7 +221,6 @@ CASES: tuple[Case, ...] = (
         "tell me about the new tesla model",
         Expect(search="yes"),
         "The newest Tesla model by name, from a search, not from training data.",
-        gap="'new' about a product only asks a model whether to search",
     ),
     Case(
         "search-ai-news",
@@ -229,7 +228,6 @@ CASES: tuple[Case, ...] = (
         "latest news on AI",
         Expect(search="yes"),
         "A few current headlines with sources.",
-        gap="'latest news' waits for a model to decide whether to search",
     ),
     Case(
         "search-weather-city",
@@ -237,7 +235,6 @@ CASES: tuple[Case, ...] = (
         "what's the weather in Addis Ababa",
         Expect(search="yes"),
         "Current conditions and temperature, with a source.",
-        gap="weather waits for a model to decide whether to search",
     ),
     Case(
         "search-explicit",
@@ -263,6 +260,48 @@ CASES: tuple[Case, ...] = (
             ("user", "Who lived the longest?"),
             ("assistant", "Jeanne Calment, who reached 122 years and 164 days."),
         ),
+    ),
+    Case(
+        "search-newest-phone",
+        "web search",
+        "what's the newest iphone",
+        Expect(search="yes"),
+        "The current newest iPhone by name, from a search.",
+    ),
+    Case(
+        "search-no-new-to",
+        "web search",
+        "I'm new to python, where should I start?",
+        Expect(search="no"),
+        "A starting path; nothing about new products.",
+    ),
+    Case(
+        "search-no-new-year",
+        "web search",
+        "happy new year!",
+        Expect(search="no"),
+        "A warm reply.",
+    ),
+    Case(
+        "search-no-weather-concept",
+        "web search",
+        "what causes weather",
+        Expect(search="no"),
+        "Sun, air pressure, water vapor and the earth's rotation, explained simply.",
+    ),
+    Case(
+        "search-no-weather-poem",
+        "web search",
+        "write a poem about the weather",
+        Expect(search="no"),
+        "A short poem.",
+    ),
+    Case(
+        "search-no-under-the-weather",
+        "web search",
+        "I feel under the weather today",
+        Expect(search="no"),
+        "Sympathy and simple care tips; no forecast.",
     ),
     # ── Photos and maps ─────────────────────────────────────────────────────
     Case(
@@ -291,8 +330,7 @@ CASES: tuple[Case, ...] = (
         "photos and maps",
         "show me the new tesla model",
         Expect(photo_not=("new",)),
-        "A photo of the newest Tesla model, found by its current name.",
-        gap="photo search uses the words 'new tesla model' instead of the model's name",
+        "A photo of the newest Tesla model: the search asks for this year's, not 'new'.",
     ),
     Case(
         "map-where-is",
@@ -367,7 +405,6 @@ CASES: tuple[Case, ...] = (
         Expect(search="yes", hints=("local_places",)),
         "A short list of nearby coffee shops around Nairobi, with sources.",
         location="Westlands, Nairobi, Kenya",
-        gap="'near me' is a slim turn, so the local-places layout and location hints are left out",
     ),
     Case(
         "location-where-am-i",
@@ -384,7 +421,13 @@ CASES: tuple[Case, ...] = (
         Expect(search="yes"),
         "The weather in Nairobi from a search.",
         location="Westlands, Nairobi, Kenya",
-        gap="weather waits for a model to decide whether to search",
+    ),
+    Case(
+        "location-weather-unset",
+        "time and location",
+        "will it rain tomorrow",
+        Expect(instant="location"),
+        "Asks to turn on location (or name a city), since none is set.",
     ),
     # ── Teaching ────────────────────────────────────────────────────────────
     Case(

@@ -18,6 +18,8 @@ from app.modules.web_search.geo_intent import is_geo_query, is_short_letter_answ
 from app.modules.web_search.patterns import (
     _CLARIFICATION,
     _EXPLICIT_SEARCH,
+    _LATEST_NEWS,
+    _NEW_PRODUCT,
     _NEWS,
     _ONGOING,
     _PERSONAL_PLANNING,
@@ -28,11 +30,13 @@ from app.modules.web_search.patterns import (
     _SPORTS_LOOKUP,
     _TEAM_POSSESSIVE_SCORE,
     _TEAM_SCORE,
+    _WEATHER_NOT_A_FORECAST,
     _WORLD_CUP,
     _YESTERDAY,
     asks_for_prior_subject,
     collapse_ws,
     has_recency,
+    is_weather_request,
 )
 from app.modules.web_search.subject import (
     _prior_searchable_topic,
@@ -105,6 +109,9 @@ def web_search_skip(
         return True
     if _SKIP.search(cleaned):
         return True
+    # "Under the weather today", "a poem about the weather": a figure of speech.
+    if _WEATHER_NOT_A_FORECAST.search(cleaned) and not is_weather_request(cleaned):
+        return True
     if _REMINDER_TURN.search(cleaned):
         return True
     if _PERSONAL_PLANNING.search(cleaned):
@@ -118,10 +125,11 @@ def web_search_skip(
 
 # A live or time-sensitive cue is the only reason to spend a model call
 # deciding search. Schoolbook questions and chitchat have none of these, so
-# they keep the regex answer and the chat model can start immediately.
+# they keep the regex answer and the chat model can start immediately. Weather
+# is not a cue: a forecast is a fast yes and "what causes weather" needs no search.
 _MAYBE_LIVE = re.compile(
     r"\b(?:who\s+is|who\s+leads|current|latest|today|tonight|right\s+now|"
-    r"price|pricing|hotel|weather|score|news|ceo|near\s+me)\b",
+    r"price|pricing|hotel|score|news|ceo|near\s+me)\b",
     re.IGNORECASE,
 )
 _TIME_SENSITIVE = re.compile(
@@ -164,7 +172,10 @@ def web_search_fast_yes(
         return True
     if _EXPLICIT_SEARCH.search(cleaned):
         return True
-    if _NEWS.search(cleaned):
+    if _NEWS.search(cleaned) or _LATEST_NEWS.search(cleaned):
+        return True
+    # Conditions and products change after training; no model call can know them.
+    if is_weather_request(cleaned) or _NEW_PRODUCT.search(cleaned):
         return True
     if _SPORTS_LOOKUP.search(cleaned):
         return True

@@ -484,3 +484,44 @@ def extract_image_lookup_query(text: str) -> str | None:
         if matched:
             return matched
     return None
+
+
+# "New" means new now: image search ranks the year, not the word. Place names
+# that start with "new" keep it ("new york skyline").
+_RECENCY_WORDS = frozenset({"new", "newest", "latest", "current", "brand-new"})
+_NEW_PLACES = frozenset(
+    {
+        "york",
+        "zealand",
+        "delhi",
+        "jersey",
+        "mexico",
+        "orleans",
+        "hampshire",
+        "england",
+        "guinea",
+        "caledonia",
+        "brunswick",
+        "haven",
+        "south",
+    }
+)
+
+
+def dated_lookup_query(query: str, year: int) -> str:
+    """ "new tesla model" → "tesla model 2026": the photo of what is new this year."""
+    tokens = query.split()
+    kept: list[str] = []
+    dated = False
+    for index, word in enumerate(tokens):
+        folded = _fold_token(word)
+        following = _fold_token(tokens[index + 1]) if index + 1 < len(tokens) else ""
+        if folded in _RECENCY_WORDS and not (folded == "new" and following in _NEW_PLACES):
+            dated = True
+            continue
+        kept.append(word)
+    if not dated or not kept:
+        return query
+    if str(year) not in kept:
+        kept.append(str(year))
+    return " ".join(kept)
