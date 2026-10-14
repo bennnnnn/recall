@@ -131,14 +131,6 @@ export type SearchResult = {
   created_at: string;
 };
 
-export type Suggestion = {
-  id: string;
-  text: string;
-  category: string;
-  source: string;
-  created_at: string;
-};
-
 export type HomeUrgentTodo = {
   id: string;
   content: string;

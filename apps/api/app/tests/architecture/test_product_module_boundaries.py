@@ -264,9 +264,11 @@ def test_mobile_search_has_one_feature_home() -> None:
 
 def test_mobile_suggestions_has_one_feature_home() -> None:
     feature_root = MOBILE_ROOT / "features" / "suggestions"
-    assert (feature_root / "api.ts").is_file()
-    for folder in ("components", "hooks"):
+    for folder in ("components", "model"):
         assert (feature_root / folder).is_dir()
+    # Follow-ups arrive on the reply; the proactive chips and their API are gone.
+    assert not (feature_root / "api.ts").exists()
+    assert not (feature_root / "components" / "SuggestionChips.tsx").exists()
 
     assert not (MOBILE_ROOT / "hooks" / "useChatSuggestions.ts").exists()
     assert not (MOBILE_ROOT / "components" / "SuggestionChips.tsx").exists()

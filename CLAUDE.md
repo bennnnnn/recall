@@ -124,7 +124,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Memory | `modules/memory/` (HTTP `/memories`, `/memories/documents`, `/memories/instruct`) | `features/memory/`; `app/memory/` routes only (list + `[key]` page) |
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
-| Suggestions | `modules/suggestions/` (HTTP `/suggestions`) | `features/suggestions/`; follow-up chips |
+| Follow-up questions | `modules/chat/related_prompts.py` (after `done`; `modules/suggestions/` + `/suggestions` are legacy, no longer fed) | `features/suggestions/` (`RelatedPromptLines`) |
 | Todos / reminders | `modules/todos/` (HTTP `/todos`; chat changes wait for a tap: `write_log.py` + `proposals.py`, `POST /todos/proposals/{id}/confirm`) | `features/todos/` (`ReminderProposalCard`); `app/todos.tsx` route only |
 | Home | `modules/home/` (HTTP `/home`) | `features/home/`; greeting + one overdue reminder |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
@@ -180,7 +180,7 @@ New chat-loop code → `modules/chat/`. Quota + per-chat prepare lock are owned 
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)
 7. Post-stream fence finalization: math (`math/fence.py`), physics (`modules/physics/fence.py`), chemistry (`modules/chemistry/fence.py`)
 8. Persist assistant + usage in a finalize task
-9. `enqueue_post_turn_jobs` — topic, memory, todos (only with reminder cards off: it writes without a tap), compress, suggestions, attachment_index, message_index (best-effort; must not raise into the stream)
+9. `enqueue_post_turn_jobs` — topic, memory, todos (only with reminder cards off: it writes without a tap), compress, attachment_index, message_index (best-effort; must not raise into the stream)
 
 Steps 6–8 are the only ones on the user's critical path. Everything in step 9 is a durable Redis-Stream job.
 
@@ -192,7 +192,7 @@ Steps 6–8 are the only ones on the user's critical path. Everything in step 9 
 
 Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Todos/Schedule, Settings (profile, preferences, memory, models, voice, notifications, data-controls, security, about, licenses; every page builds from `features/account/components/settingsUi.tsx`). **Chat history and search are the drawer** (`components/drawer/`, `ConversationList.tsx`), not standalone screens.
 
-- Network: `lib/api.ts` barrel → `lib/api/{client,discover,connectivity,analytics,push,scan,types}.ts` plus feature slices (`features/chat/api.ts`, `features/auth/api.ts`, `features/account/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/home/api.ts`, `features/search/api.ts`, `features/suggestions/api.ts`, `features/attachments/api.ts`, `features/images/api.ts`, `features/speech/api.ts`)
+- Network: `lib/api.ts` barrel → `lib/api/{client,discover,connectivity,analytics,push,scan,types}.ts` plus feature slices (`features/chat/api.ts`, `features/auth/api.ts`, `features/account/api.ts`, `features/memory/api.ts`, `features/todos/api.ts`, `features/home/api.ts`, `features/search/api.ts`, `features/attachments/api.ts`, `features/images/api.ts`, `features/speech/api.ts`)
 - Tokens: `expo-secure-store` only
 - Chat logic: `features/chat/hooks/useChat.ts` plus focused `useChatSend` / `useChatRegenerate` / … — the screen stays thin
 - Domain libs: `lib/<domain>/` — `math/`, `chemistry/`, `api/`, `markdown/`, `cache/`, `todos/`, `i18n/`. A module belongs in its domain folder, not beside it (`math/html.ts`, not `lib/mathHtml.ts`). What stays flat in `lib/` is genuinely cross-cutting.

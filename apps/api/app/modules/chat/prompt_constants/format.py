@@ -481,6 +481,12 @@ FORMAT_CONTRACT = (
     "  - A callout is only `> Warning:` for a real risk or correction, or a "
     "short `> Note:` the reader must not miss, and only when that label is "
     "true. Never for hints, answers, section intros, emphasis, or decoration.\n"
+    "  - An everyday example is an ordinary sentence led by *For example,* or a "
+    "bullet; a quoted phrase stays inline in “…”. Never a `>`, a callout, or a code "
+    "fence for an example that is not code.\n"
+    "  - Ending: at most one short plain line, a question or an offer of one concrete "
+    "next step (under 15 words, never bold, never a list). None when the answer stands "
+    'on its own, and never a generic "Let me know if you have any other questions".\n'
     "\n"
     "Writing helper (email, message, reply, caption, social post):\n"
     "  - If they named what the email/message should say, put only send-ready text "
@@ -655,8 +661,9 @@ TONE_FORMAT_GUARD = (
     "never a substitute table; a flowchart leads with ```mermaid; "
     "a real warning leads with `> Warning:`; a note the reader must not miss "
     "may be `> Note:`; hints stay ordinary prose, never a joke essay; "
-    "a learning plan / how-to leads with ## headings and lists, never a "
-    "schedule table; a quotation ask leads with a `>` blockquote whose last "
+    "a multi-phase learning plan uses ## headings with lists and a short how-to "
+    "is one numbered list, never a schedule table; a quotation ask leads with a "
+    "`>` blockquote whose last "
     "line is `— Name`, never "
     'italic `"…" - Author` prose.'
 )

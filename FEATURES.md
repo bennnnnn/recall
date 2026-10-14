@@ -804,8 +804,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   before due). With push on, the server owns due-at (`server_todo_push_enabled` defaults
   true) and local scheduling is skipped so both do not fire. Turning push off cancels
   leftover local alerts then re-schedules them on-device.
-- ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
-  activity (best-effort; regenerated periodically); inline chips under the latest assistant reply.
+- ✅ **Follow-up questions** — up to three short questions (one line each, about 3–9 words) under the latest reply, about what the user just asked: a why, a what-if and a next step for a maths, physics, chemistry or biology problem, and the next things a person would ask for any other real question with a full answer. Small talk, drafts, personal updates, reminders and settings get none. One `memory-model` call per eligible turn after `done` (`modules/chat/related_prompts.py`), cached per message for reopen; rows in `features/suggestions/components/RelatedPromptLines.tsx`. The old proactive chips built from other chats are gone from the app, and the post-turn `suggestions` job is no longer enqueued (`/suggestions` and its table are unused).
 - 🔜 1-hour-early **email/push** nudges beyond the local lead picker.
 
 ## 15. Code execution policy

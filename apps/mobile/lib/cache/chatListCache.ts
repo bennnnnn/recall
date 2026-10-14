@@ -11,12 +11,11 @@ type CacheState = {
   fetchedAt?: number;
   pending?: { task: Promise<ChatList | null>; updates: ListUpdate[] };
   createdChat?: Chat;
-  skipCreatedSuggestions: boolean;
 };
 function newCache(): CacheState {
-  return { session: getSessionGeneration(), skipCreatedSuggestions: false };
+  return { session: getSessionGeneration() };
 }
-let cache: CacheState = { session: -1, skipCreatedSuggestions: false };
+let cache: CacheState = { session: -1 };
 function currentCache(): CacheState {
   if (cache.session !== getSessionGeneration()) cache = newCache();
   return cache;
@@ -26,20 +25,11 @@ function currentCache(): CacheState {
 export function rememberCreatedChat(chat: Chat): void {
   const state = currentCache();
   state.createdChat = chat;
-  state.skipCreatedSuggestions = true;
 }
 
 export function peekCreatedChat(id: string): Chat | undefined {
   const chat = currentCache().createdChat;
   return chat?.id === id ? chat : undefined;
-}
-
-/** True once after Home create, so the first stream-end does not GET /suggestions. */
-export function consumeCreatedSuggestionSkip(id: string): boolean {
-  const state = currentCache();
-  if (state.createdChat?.id !== id || !state.skipCreatedSuggestions) return false;
-  state.skipCreatedSuggestions = false;
-  return true;
 }
 
 export function getCachedChatList(): ChatList | undefined {
