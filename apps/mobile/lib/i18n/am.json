@@ -566,6 +566,8 @@
   "rich.graph_invalid": "ይህን አገላለጽ መሳል አልተቻለም።",
   "rich.graph_play": "አጫውት",
   "rich.graph_play_a11y": "የመንገዱን እንቅስቃሴ አጫውት",
+  "rich.map_a11y": "{{place}}ን የሚያሳይ ካርታ",
+  "rich.map_error": "ካርታውን መሳል አልተቻለም።",
   "rich.simulation_play_a11y": "የፊዚክስ እንቅስቃሴውን አጫውት",
   "rich.simulation_stop_a11y": "የፊዚክስ እንቅስቃሴውን አቁም",
   "rich.simulation_pause_a11y": "የፊዚክስ እንቅስቃሴውን ለአፍታ አቁም",

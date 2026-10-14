@@ -16,6 +16,7 @@ import {
   LazyCircularClockBlock,
   LazyFunctionGraphBlock,
   LazyGeometryBlock,
+  LazyMapBlock,
   LazyMermaidBlock,
   LazyMoleculeCard,
   LazySimulationBlock,
@@ -79,6 +80,8 @@ export function renderRichFenceById(
       return <LazyGeometryBlock key={key} content={content} />;
     case "graph":
       return <LazyFunctionGraphBlock key={key} content={content} />;
+    case "map":
+      return <LazyMapBlock key={key} content={content} />;
     case "simulation":
       return <LazySimulationBlock key={key} content={content} />;
     case "places": {

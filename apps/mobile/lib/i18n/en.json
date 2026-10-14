@@ -566,6 +566,8 @@
   "rich.graph_invalid": "Could not plot that expression.",
   "rich.graph_play": "Play",
   "rich.graph_play_a11y": "Play the trajectory animation",
+  "rich.map_a11y": "Map showing {{place}}",
+  "rich.map_error": "Could not draw that map.",
   "rich.simulation_play_a11y": "Play the physics animation",
   "rich.simulation_stop_a11y": "Stop the physics animation",
   "rich.simulation_pause_a11y": "Pause the physics animation",

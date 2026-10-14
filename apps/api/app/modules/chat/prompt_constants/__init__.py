@@ -100,10 +100,12 @@ from app.modules.chat.prompt_constants.visuals import (
     CHEMISTRY_FENCE_HINT,
     IMAGE_GEN_HONESTY_HINT,
     IMAGE_GEN_UNAVAILABLE_HINT,
+    MAP_FENCE_HINT,
     VISUALIZATION_HINTS,
     attach_chemistry_fence_hint,
     is_html_ui_question,
     is_image_generation_mention,
+    where_is_place,
 )
 from app.modules.chat.prompt_constants.writing import (
     COPY_DELIVERABLE_HINT,
@@ -163,6 +165,7 @@ __all__ = [
     "INTENT_FORMAT_HINT",
     "LEARNING_PLAN_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
+    "MAP_FENCE_HINT",
     "MARKDOWN_BOUNDARY_CONTRACT",
     "MATH_FENCE_SAFETY_HINT",
     "MATH_INTENT_HINT",
@@ -243,5 +246,6 @@ __all__ = [
     "profile_question_to_answer",
     "programming_lesson_contract",
     "recalls_earlier_conversation",
+    "where_is_place",
     "writing_request_kind",
 ]

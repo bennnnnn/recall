@@ -166,3 +166,56 @@ def is_image_generation_mention(text: str) -> bool:
         if _has_whole_word(lower, word):
             return True
     return False
+
+
+# "where is kenya" / "what country is Timbuktu in" / "show me where Nepal is".
+_WHERE_IS = re.compile(
+    r"^\s*(?:(?:hey|so|ok(?:ay)?|um+|and)[,\s]+)?(?:please\s+)?"
+    r"(?:(?:can|could)\s+you\s+(?:please\s+)?(?:tell|show)\s+me\s+|(?:tell|show)\s+me\s+"
+    r"|do\s+you\s+know\s+|i\s+(?:wonder|want\s+to\s+know)\s+)?"
+    r"(?:where(?:\s+exactly)?(?:['\u2019]?s|\s+is|\s+are)(?:\s+exactly)?\s+(?P<a>.+?)"
+    r"(?:\s+(?:located|situated|exactly|on\s+(?:the|a)\s+map|in\s+the\s+world))?"
+    r"|where\s+(?P<b>.+?)\s+(?:is|are)(?:\s+(?:located|on\s+(?:the|a)\s+map))?"
+    r"|where\s+in\s+the\s+world\s+(?:is|are)\s+(?P<c>.+?)"
+    r"|what\s+(?:country|continent|state|province|region|part\s+of\s+the\s+world)"
+    r"\s+(?:is|are)\s+(?P<d>.+?)\s+in)"
+    r"\s*[?.!]*\s*$",
+    re.IGNORECASE,
+)
+# Things people lose or look for that are not on a map.
+_NOT_A_PLACE = re.compile(
+    r"^(?:my|your|our|his|her|their|its|it|this|that|these|those|he|she|they|we|i|you|me|him"
+    r"|them|(?:every|some|any)(?:one|body|thing|where)|home|here|there|now"
+    r"|the\s+(?:rest|end|answer|catch|logic))\b"
+    r"|\b(?:near(?:est|by)?|closest|around\s+here|from\s+here|error|mistake|bug|typo|problem"
+    r"|issue|setting|button|option|menu|file|folder|function|variable|code|password"
+    r"|phone|key|wallet|remote|order|package|parcel|delivery|money|refund|chat|message"
+    r"|download|toilet|bathroom|restroom)s?\b",
+    re.IGNORECASE,
+)
+_MAX_PLACE_WORDS = 6
+
+
+def where_is_place(text: str) -> str | None:
+    """The place in "where is kenya" when the turn asks where somewhere is, else None."""
+    match = _WHERE_IS.match(text or "")
+    if match is None:
+        return None
+    place = next(group for group in match.group("a", "b", "c", "d") if group).strip()
+    if not place or len(place.split()) > _MAX_PLACE_WORDS or _NOT_A_PLACE.search(place):
+        return None
+    return place
+
+
+# The app draws the map offline from these numbers (apps/mobile/lib/map/mapFence.ts).
+MAP_FENCE_HINT = (
+    "This turn asks where a place is. Answer in 1-3 sentences: the region it is in and a "
+    "neighbour, sea or landmark that places it. Then end with one ```map fence holding "
+    'JSON: {"place": "<name>", "lat": <decimal degrees>, "lon": <decimal degrees>, '
+    '"zoom": "world" | "region" | "country" | "city"}. Use the place\'s centre. Zoom '
+    '"country" for a country, "city" for a city, town or landmark, "region" for a province, '
+    'mountain range, lake or sea, "world" for a continent or ocean. The app draws the map '
+    "from those numbers, so do not add an image, a link or a description of the map. If it "
+    "is not a real place on Earth (an object, a person, a line of code, a fictional land), "
+    "answer normally with no fence."
+)

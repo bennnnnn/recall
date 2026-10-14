@@ -242,6 +242,10 @@ def check(case: Case, turn: Turn) -> list[str]:
         misses.append("no clock card")
     if expect.instant == "location" and not turn.reply.startswith(LOCATION_OFF_START):
         misses.append("did not ask for location")
+    if "map" in expect.hints and "```map" not in turn.reply:
+        misses.append("no map card")
+    if "map" in expect.no_hints and "```map" in turn.reply:
+        misses.append("map card shown")
     return misses
 
 
