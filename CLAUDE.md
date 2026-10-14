@@ -214,8 +214,10 @@ Expo Router (`apps/mobile/app/`): Login, Onboarding, Chat (`index`), Memory, Tod
 
 `up` keeps the checkout on the latest `main` while it runs (`scripts/follow-main.sh`, every
 minute): a merged pull request arrives by itself, and the API (`--reload`) and Metro (Fast
-Refresh) reload it. It installs changed dependencies and runs new migrations, and never pulls over
-local changes or off another branch. The API log is `tmp/api.log`.
+Refresh) reload it. It installs changed dependencies and runs new migrations. It moves off a branch
+whose commits are all in `main` (a merged pull request, "Rebase and merge" included), never
+overwrites a file you edited, and stays on a branch with work `main` lacks; when it can't pull it
+says why in the terminal and as a macOS notification. The API log is `tmp/api.log`.
 
 The two-terminal way still works: `./scripts/dev.sh api`, then `./scripts/dev.sh mobile-sim` (or
 `mobile`); `./scripts/dev.sh kill-all` stops both.

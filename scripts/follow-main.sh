@@ -6,12 +6,14 @@
 # their own; this only fast-forwards main, then installs dependencies and runs
 # migrations when a pull changed them.
 #
-# It never touches work: it pulls only on main with no local changes, and
-# only as a fast-forward. Otherwise it says why once and waits.
+# It never touches work. It pulls only as a fast-forward, and git refuses
+# one that would overwrite a file you edited. On a branch whose commits are
+# all in main (a merged pull request, "Rebase and merge" included) with no
+# edits, it switches to main. Otherwise it says why (in the terminal and, on
+# macOS, as a notification) and waits.
 #
-#   follow-main.sh                 check every FOLLOW_MAIN_INTERVAL seconds (60)
-#   follow-main.sh --once          check once and exit
-#   follow-main.sh --once --switch also leave a branch already merged into main
+#   follow-main.sh          check every FOLLOW_MAIN_INTERVAL seconds (60)
+#   follow-main.sh --once   check once and exit
 #
 # Written for the bash 3.2 that macOS ships.
 set -uo pipefail
@@ -19,12 +21,11 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 INTERVAL="${FOLLOW_MAIN_INTERVAL:-60}"
 ONCE=0
-SWITCH=0
 for arg in "$@"; do
   case "$arg" in
     --once) ONCE=1 ;;
-    --switch) SWITCH=1 ;;
-    *) echo "usage: follow-main.sh [--once] [--switch]" >&2; exit 2 ;;
+    --switch) ;; # Switching off a merged branch is now always on.
+    *) echo "usage: follow-main.sh [--once]" >&2; exit 2 ;;
   esac
 done
 
@@ -32,18 +33,39 @@ cd "$ROOT" || exit 1
 
 say() { printf '\033[36m[follow-main]\033[0m %s\n' "$*"; }
 
+# Metro's output buries a terminal line; a macOS notification does not.
+notify() {
+  command -v osascript >/dev/null 2>&1 || return 0
+  local text="${1//\"/\'}"
+  osascript -e "display notification \"$text\" with title \"Recall dev\"" >/dev/null 2>&1 || true
+}
+
 LAST_NOTICE=""
 notice_once() {
   if [[ "$1" != "$LAST_NOTICE" ]]; then
     say "$1"
+    notify "$1"
     LAST_NOTICE="$1"
   fi
+}
+
+has_local_changes() {
+  [[ -n "$(git status --porcelain --untracked-files=no)" ]]
+}
+
+# Every commit on this branch is already in main. "Rebase and merge" puts
+# copies with new ids on main, so ancestry alone misses it; git cherry
+# compares the changes themselves ("-" = already upstream).
+merged_into_main() {
+  git merge-base --is-ancestor HEAD origin/main && return 0
+  ! git cherry origin/main HEAD 2>/dev/null | grep -q '^+'
 }
 
 after_pull() {
   local before="$1" changed
   changed="$(git diff --name-only "$before" HEAD)"
   say "Updated to $(git log -1 --format='%h %s')"
+  notify "Updated to $(git log -1 --format='%s')"
   if grep -qE '^apps/api/(pyproject\.toml|uv\.lock)$' <<<"$changed"; then
     say "API dependencies changed: uv sync"
     (cd apps/api && uv sync -q)
@@ -69,28 +91,31 @@ sync_once() {
     return
   fi
   branch="$(git symbolic-ref --short -q HEAD || true)"
-  if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
-    behind="$(git rev-list --count HEAD..origin/main)"
-    [[ "$behind" -gt 0 ]] && notice_once "main has new commits; not pulling over your local changes."
-    return
-  fi
   if [[ "$branch" != "main" ]]; then
-    # A branch already merged into main holds nothing main lacks.
-    if [[ "$SWITCH" -eq 1 ]] && git merge-base --is-ancestor HEAD origin/main; then
-      say "Leaving ${branch:-a detached HEAD} (already in main) for main."
-      git switch -q main || return
-    else
-      behind="$(git rev-list --count main..origin/main 2>/dev/null || echo 0)"
-      [[ "$behind" -gt 0 ]] && notice_once "main has new commits; you are on ${branch:-a detached HEAD}, so not pulling."
+    behind="$(git rev-list --count HEAD..origin/main)"
+    [[ "$behind" -eq 0 ]] && return
+    if ! merged_into_main; then
+      notice_once "main has new commits; ${branch:-a detached HEAD} has work not in main, so staying on it."
       return
     fi
+    if has_local_changes; then
+      notice_once "${branch:-This branch} is merged into main, but has unsaved edits; staying on it."
+      return
+    fi
+    # A branch whose commits are all in main holds nothing main lacks.
+    say "Leaving ${branch:-a detached HEAD} (merged into main) for main."
+    git switch -q main || { notice_once "Could not switch to main."; return; }
   fi
   behind="$(git rev-list --count HEAD..origin/main)"
   [[ "$behind" -eq 0 ]] && return
   before="$(git rev-parse HEAD)"
-  if git merge --ff-only -q origin/main; then
+  # Git refuses a fast-forward that would overwrite an edited file, so edits
+  # elsewhere no longer hold back every merged change.
+  if git merge --ff-only -q origin/main 2>/dev/null; then
     LAST_NOTICE=""
     after_pull "$before"
+  elif has_local_changes; then
+    notice_once "main changed files you have edited; not pulling over them."
   else
     notice_once "Could not fast-forward main (it has commits origin/main lacks)."
   fi
