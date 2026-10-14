@@ -755,8 +755,7 @@
   "prompt": "pics of the simien mountains pls",
   "history": [],
   "reply": "Here are the **Simien Mountains** in northern Ethiopia — dramatic cliffs, deep valleys, and high plateaus. They're home to gelada monkeys, Walia ibex, and Ethiopian wolves, and to **Ras Dashen**, Ethiopia's highest peak at about 4,550 m.",
-  "expect": "answer",
-  "gap": "Bare 'pics of X' goes to AI image generation for Pro (the shared fixture reads 'photo of a cat' that way); a real photo would fit a place better."
+  "expect": "image_gen"
  },
  {
   "id": "hi-078",
