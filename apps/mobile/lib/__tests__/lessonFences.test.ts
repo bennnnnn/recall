@@ -1,0 +1,70 @@
+import {
+  arrayText,
+  formatCell,
+  parseArrayFence,
+  parseQuizFence,
+  quizText,
+} from "@/lib/lesson/lessonFences";
+
+const QUIZ = {
+  question: "What should `two_sum(nums, target)` return?",
+  options: ["`[0, 1]`", "`[1, 2]`", "`[0, 2]`", "`[2, 4]`"],
+  answer: 1,
+  explanation: "`2 + 4 = 6`, at indexes 1 and 2.",
+};
+
+describe("parseQuizFence", () => {
+  it("reads the question, options, answer and explanation", () => {
+    expect(parseQuizFence(JSON.stringify(QUIZ))).toEqual(QUIZ);
+  });
+
+  it.each([
+    ["B", 1],
+    ["b)", 1],
+    ["2", 2],
+    ["`[0, 2]`", 2],
+  ])("reads the answer %p as option %p", (answer, index) => {
+    expect(parseQuizFence(JSON.stringify({ ...QUIZ, answer }))?.answer).toBe(index);
+  });
+
+  it.each([
+    ["not json", "{question"],
+    ["no question", JSON.stringify({ ...QUIZ, question: " " })],
+    ["one option", JSON.stringify({ ...QUIZ, options: ["only"] })],
+    ["an empty option", JSON.stringify({ ...QUIZ, options: ["a", ""] })],
+    ["answer out of range", JSON.stringify({ ...QUIZ, answer: 4 })],
+    ["unknown answer", JSON.stringify({ ...QUIZ, answer: "the second" })],
+  ])("returns null for %s", (_, content) => {
+    expect(parseQuizFence(content)).toBeNull();
+  });
+
+  it("writes the question and lettered options as text", () => {
+    expect(quizText(QUIZ)).toBe(
+      "What should `two_sum(nums, target)` return?\nA) `[0, 1]`\nB) `[1, 2]`\nC) `[0, 2]`\nD) `[2, 4]`",
+    );
+  });
+});
+
+describe("parseArrayFence", () => {
+  it("reads the name, values and highlighted indexes", () => {
+    const fence = parseArrayFence('{"name":"nums","values":[2,7,11,15],"highlight":[0,1,9]}');
+    expect(fence).toEqual({ name: "nums", values: [2, 7, 11, 15], highlight: [0, 1] });
+    expect(arrayText(fence!)).toBe("nums = [2, 7, 11, 15]");
+  });
+
+  it("quotes strings and keeps the rest as written", () => {
+    expect(formatCell("a")).toBe('"a"');
+    expect(formatCell(3.5)).toBe("3.5");
+    expect(formatCell(true)).toBe("true");
+    expect(arrayText(parseArrayFence('{"values":["a",null]}')!)).toBe('["a", null]');
+  });
+
+  it.each([
+    ["not json", "[1, 2"],
+    ["no values", '{"name":"nums"}'],
+    ["empty", '{"values":[]}'],
+    ["nested", '{"values":[[1]]}'],
+  ])("returns null for %s", (_, content) => {
+    expect(parseArrayFence(content)).toBeNull();
+  });
+});

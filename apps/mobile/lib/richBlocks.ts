@@ -133,6 +133,7 @@ export function parseKeyValue(
   return rows;
 }
 
+/** Numbered or bulleted steps. A plain line after a step continues it (a trace's state line). */
 export function parseSteps(text: string): string[] {
   const steps: string[] = [];
   for (const raw of text.split("\n")) {
@@ -142,6 +143,7 @@ export function parseSteps(text: string): string[] {
     const bulleted = line.match(/^[-*]\s+(.+)$/);
     const body = (numbered?.[1] ?? bulleted?.[1] ?? "").trim();
     if (body) steps.push(body);
+    else if (steps.length > 0) steps[steps.length - 1] += `\n${line}`;
   }
   return steps;
 }

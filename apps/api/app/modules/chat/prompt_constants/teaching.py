@@ -112,16 +112,15 @@ _LEARNING_VERBS = frozenset(
     }
 )
 
-# "### Step 2/6 — Accessing values": a heading (or bold line) with the word
-# Step in an app language, then the step and the total ("2 of 6" too). Other
-# numbered headings ("Day 1/7", "Part 2/4") are plans, not lessons.
-_STEP_WORDS = r"step|paso|[ée]tape|schritt|passo|etapa|шаг|ad[ıi]m|ደረጃ"
-_LESSON_STEP = re.compile(
-    r"^\s*(?:#{1,4}\s+|\*\*)\s*(?:" + _STEP_WORDS + r")\s+(\d{1,2})\s*(?:/|\s+of\s+)\s*"
-    r"(\d{1,2})\b",
+# "### Lesson 2: Dictionaries": a heading with the word Lesson in an app
+# language and the lesson's number. "Day 1", "Part 2" and "Step 3" are plans,
+# parts and how-tos, not lessons.
+_LESSON_WORDS = r"lesson|lecci[oó]n|le[cç]on|lektion|lezione|li[cç][aã]o|aula|урок|ders|ትምህርት"
+_LESSON_TITLE = re.compile(
+    r"^\s*(?:#{1,4}\s+|\*\*)\s*(?:" + _LESSON_WORDS + r")\s+(\d{1,2})\s*[:.\-—–]",
     re.MULTILINE | re.IGNORECASE,
 )
-_MAX_LESSON_STEPS = 20
+_QUIZ_FENCE = re.compile(r"^\s*```quiz\b", re.MULTILINE | re.IGNORECASE)
 _QUESTION_MARKS = ("?", "？", "፧")
 
 # A bounded roadmap/course request is different from an interactive teach-me
@@ -280,9 +279,9 @@ def programming_lesson_contract(text: str) -> str:
     return (
         "HARD PROGRAMMING-LESSON ACCEPTANCE CHECK: Before answering, verify the response contains "
         f"the literal opening fence ```{tag}, runnable code on following lines, and a closing ```. "
-        "This is mandatory even when Step 1 is conceptual. An inline snippet, pseudo-code, or "
+        "This is mandatory even when the lesson starts with a concept. An inline snippet, pseudo-code, or "
         "untagged fence fails the requested output. Keep the example short, then end with the "
-        "lesson's one conversational question."
+        "lesson's `Your turn` ```quiz and the one-line preview of the next lesson."
     )
 
 
@@ -309,42 +308,62 @@ def is_learning_plan_request(text: str) -> bool:
     return bool(_LEARNING_CUE.search(around_duration) or _PLAN_CUE.search(around_duration))
 
 
-TEACHING_HINT = (
-    "The user wants an adaptive conversational lesson, not a static quiz, slideshow, "
-    "roadmap, or reference sheet. Understanding is the goal; checks are diagnostic, "
-    "never gates.\n"
-    "- First reply: one short sentence on how the lesson will work, then a numbered outline "
-    "that covers the essential scope before teaching Step 1 only. Usually use 6-12 meaningful "
-    "top-level steps; group related basics instead of omitting important operations, patterns, "
-    "or real-world use just to keep the outline short. Do not dump the whole course unless the "
-    "user asks for everything at once.\n"
-    "- Each step starts with a heading like `### Step 1/6 — What a dictionary is` "
-    "(translate the word Step to the reply language). The denominator must match the number "
-    "of top-level outline steps: an 8-step outline uses Step 1/8, never a hard-coded /6. Explain one "
-    "main idea in plain language, use 2-4 short paragraphs at most, and show one small "
-    "concrete example (code for programming, a worked example otherwise). In a programming "
-    "lesson, put that example in a language-tagged fence such as ` ```python `—never make the "
-    "only example inline or use an untagged fence. Add an analogy "
-    "or visual mental model when it genuinely helps.\n"
-    "- End the step with ONE low-pressure conversational question (for example, whether "
-    "they want to answer, ask something, see another example, or continue). Keep a question "
-    "mark in that final prompt so the lesson can be recognized on the next turn. A knowledge "
-    "check is optional and should be labeled as optional/quick when used; never say they "
-    "must answer correctly before continuing.\n"
-    "- Do not force a multiple-choice question after every tiny idea. Prefer natural "
-    "predict/explain/try-it prompts; use A-D only when choices actually help.\n"
-    "- Treat mistakes as information for teaching, not failure. Never punish a wrong, "
-    "partial, accidental, or unclear response by restarting the lesson. Never replay an "
-    "already-delivered step verbatim unless the learner explicitly asks to see it again.\n"
-    "- If the learner asks for everything at once, a summary, a cheat sheet, or a full "
-    "roadmap, switch to that format immediately."
+# The lesson's shape, shared by a first lesson, a one-idea lesson and the next
+# lesson. The ```quiz, ```array and ```steps cards are drawn by the phone
+# (apps/mobile/components/rich/QuizCard.tsx, ArrayBlock.tsx, StepList.tsx).
+_LESSON_SHAPE = (
+    "- Title: `### Lesson N: <topic>` (the word Lesson in the reply language), N counting the "
+    "lessons in this chat. Then 3-5 numbered sections, each a `### 1. <title>` heading, for "
+    "example `### 1. Understand the problem`, `### 2. Solution one: Brute force`, "
+    "`### 3. Apply it to backend development`. Each section teaches one idea in two or three "
+    "short paragraphs with a concrete, real-world example (for code: an API, a table of users; "
+    "otherwise a worked example, an event, a source).\n"
+    "- Code: short language-tagged blocks such as ```python. Explain key code line by line: a "
+    "`Line 1` label, that line in its own fenced block, then one sentence on what it does. "
+    "Show what it prints under `Test it:` with an ```text output block.\n"
+    "- A list or array: show its values over their indexes with an ```array fence holding JSON "
+    '{"name": "nums", "values": [2, 7, 11, 15], "highlight": [0, 1]} (name and highlight are '
+    "optional).\n"
+    "- A trace of an algorithm or process: a ```steps fence, one numbered line per step with a "
+    "bold title, and plain lines under it for what happens and the state, for example:\n"
+    "```steps\n1. **Read `2` at index `0`**\nWe need `9 - 2 = 7`. Not seen yet, so save "
+    "`2: 0`.\nDictionary: `{2: 0}`\n```\n"
+    "- Cost in math: time $O(n^2)$, extra space $O(1)$. A key idea may be one display formula "
+    "in a ```math fence. Compare approaches in a markdown table.\n"
+    "- The last section is `### N. Your turn` (translated) with one practice question as a "
+    '```quiz fence holding JSON {"question": "...", "options": ["...", "...", "...", "..."], '
+    '"answer": <0-based index of the right option>, "explanation": "<why, in one or two '
+    'sentences>"}. Put code the question needs in a fenced block above it. Prefer "predict the '
+    'output" or "what should it return"; make the wrong options real mistakes. The app lets '
+    "the learner pick and check; never reveal the answer in the text.\n"
+    "- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, "
+    'B and C." No course outline, no table of contents, no "ready to continue?" question.\n'
+    "- Lessons are the exception to the emoji rule: one fitting emoji in the opening line "
+    "(🐍 for Python) and 🎉 after a correct answer, no others."
 )
 
-# Short style: the same lesson, smaller steps (the SHORT format bans headings).
+_LESSON_OPENING = (
+    "- A lesson is the exception to the general layout rules: it opens with a short hook "
+    "instead of the answer, and uses the app's ```quiz, ```array and ```steps cards below.\n"
+    "- Open with one or two sentences before the title: what they will learn, why it matters, "
+    'and how it fits their goal or level when the profile or memory says ("Since you already '
+    "know some Python basics, we'll build on them instead of starting with what a variable "
+    'is.").\n'
+)
+
+TEACHING_HINT = (
+    "The user wants to learn a subject. Teach Lesson 1 now, complete, in this shape:\n"
+    + _LESSON_OPENING
+    + "- Start where they are: skip what they already know and pick one meaningful first "
+    "topic (for Python basics, lists and loops), taught fully with an example tied to their "
+    "goal.\n" + _LESSON_SHAPE
+)
+
+# Short style: the same lesson, smaller (the SHORT format bans headings).
 TEACHING_SHORT_NOTE = (
-    "Response length is SHORT, so keep each step small: one or two short "
-    "paragraphs and a one-line example. Keep the step heading and one low-pressure "
-    "question/invitation so the conversation can continue naturally."
+    "Response length is SHORT, so keep the lesson small: the title, two or three sections of a "
+    "sentence or two with one short example each, then the `Your turn` quiz and the one-line "
+    "preview."
 )
 
 
@@ -359,15 +378,12 @@ _WALKTHROUGH = re.compile(
 )
 
 WALKTHROUGH_HINT = (
-    "The user wants to understand one specific idea, problem or algorithm. Explain it "
-    "completely in this reply as a walkthrough, not a multi-turn lesson:\n"
-    "- Open with the problem or idea in one or two plain sentences and a tiny concrete example.\n"
-    "- Build up to the answer: the simple or naive approach first and why it falls short, then "
-    "the key insight that leads to the better one.\n"
-    "- For code, show one language-tagged block with the final solution, then trace it on the "
-    "small example step by step (a short table of the state at each step works well).\n"
-    "- End with the cost (time and space for an algorithm, trade-offs otherwise) and when to "
-    "use it. You may offer one practice variation as an optional question."
+    "The user wants to understand one specific idea, problem or algorithm. Teach it as one "
+    "complete lesson now, in this shape:\n"
+    + _LESSON_OPENING
+    + "- Build to the answer: understand the problem with a tiny example, the simple solution "
+    "and its cost, the key insight behind the better one, a trace of it, a table comparing "
+    "the approaches, then practice.\n" + _LESSON_SHAPE
 )
 
 
@@ -421,27 +437,28 @@ def _asks_for_a_procedure(cleaned: str) -> bool:
     return action not in _LEARNING_VERBS
 
 
-def lesson_step(text: str | None) -> tuple[int, int] | None:
-    """(step, total) of the last lesson step in an assistant reply.
+def lesson_step(text: str | None) -> int | None:
+    """The number of the lesson an assistant reply taught, or None.
 
-    A lesson step ends on a low-pressure question/invitation, so a numbered
-    how-to that happens to say "Step 5/5" without asking anything is not one.
+    A lesson ends on practice: a ```quiz card or a question after its title. A
+    reply that only mentions "Lesson 2" in passing is not one.
     """
     if not text:
         return None
-    found: tuple[int, int] | None = None
+    found: int | None = None
     end = 0
-    for match in _LESSON_STEP.finditer(text):
-        step, total = int(match.group(1)), int(match.group(2))
-        if 1 <= step <= total <= _MAX_LESSON_STEPS:
-            found, end = (step, total), match.end()
-    if found is None or not any(mark in text[end:] for mark in _QUESTION_MARKS):
+    for match in _LESSON_TITLE.finditer(text):
+        found, end = int(match.group(1)), match.end()
+    if found is None or found < 1:
         return None
-    return found
+    rest = text[end:]
+    if _QUIZ_FENCE.search(rest) or any(mark in rest for mark in _QUESTION_MARKS):
+        return found
+    return None
 
 
-def active_lesson_step(messages: list[Any] | None) -> tuple[int, int] | None:
-    """Lesson state from the most recent assistant reply in an oldest-first window."""
+def active_lesson_step(messages: list[Any] | None) -> int | None:
+    """The lesson the most recent assistant reply taught, in an oldest-first window."""
     for message in reversed(messages or []):
         if getattr(message, "role", None) != "assistant":
             continue
@@ -450,51 +467,27 @@ def active_lesson_step(messages: list[Any] | None) -> tuple[int, int] | None:
     return None
 
 
-def lesson_continue_hint(step: int, total: int) -> str:
-    """Adaptive policy for the turn after a delivered lesson step."""
-    lead = (
-        f"A lesson is in progress. The learner has ALREADY SEEN Step {step}/{total}. "
-        "Do not reproduce that step, its paragraphs, its example, or its check question "
-        "verbatim. The latest message is a reaction to the lesson, not automatically an "
-        "exam answer. Checks are diagnostic, never gates.\n"
-        "Interpret the learner's intent first:\n"
-        "- Correct answer / 'got it' / 'ok' / 'next': acknowledge in one short sentence, "
-        "then continue.\n"
-        "- Plausible wrong or partial answer: correct only the specific misunderstanding "
-        "in 1-3 sentences, preferably with a FRESH tiny example, then continue to the next "
-        "step unless the learner explicitly says they are confused or wants to stay here. "
-        "Do not require a second correct attempt to unlock progress.\n"
-        "- Explicit confusion ('I don't understand', 'why?', 'show me another example', or "
-        "'no' to an understanding question): stay on the concept and begin with the exact "
-        f"same `### Step {step}/{total} — ...` heading, but explain it a DIFFERENT way with a "
-        "new analogy/example. End with one low-pressure conversational question containing "
-        "a question mark so lesson state survives the next turn. Never paste the old lesson.\n"
-        "- Accidental, nonsensical, keyboard-smash, or unclear input: do NOT grade it as "
-        "wrong. Briefly acknowledge it, give the prior check's answer if that helps close "
-        "the loop, and continue the lesson instead of restarting the step.\n"
-        "- If the learner both answers and asks a question, answer their question before "
-        "resuming progression.\n"
-        "- A coherent off-topic question: answer it normally and then resume from the "
-        "next lesson step when natural; never replay the previous step as context.\n"
-        "- Do not repeat the original lesson outline on follow-up turns.\n"
+def lesson_continue_hint(number: int) -> str:
+    """The turn after a lesson: grade the practice if answered, then the next lesson."""
+    nxt = number + 1
+    return (
+        f"A lesson is in progress. The learner has ALREADY SEEN Lesson {number}, which ended "
+        "with a practice ```quiz (they can check it in the app) and a preview of the next "
+        f"lesson. Do not repeat Lesson {number}. Read the latest message first:\n"
+        '- An answer to the practice question: if right, start with "Correct! 🎉" and say why '
+        'in one sentence; if wrong or partial, start with "Not quite", fix that one '
+        "misunderstanding in 1-3 sentences with a fresh tiny example, and do not ask them to "
+        f"try again. Then teach Lesson {nxt}.\n"
+        f"- 'next', 'ok', 'got it', 'continue' or similar: teach Lesson {nxt}.\n"
+        "- Confusion ('I don't get it', 'why?', 'another example'): stay on the same idea, "
+        f"explain it a different way with a new analogy and example under the same "
+        f"`### Lesson {number}: ...` title, and end with a fresh ```quiz.\n"
+        "- A question about the lesson: answer it first, then continue.\n"
+        "- Accidental or unclear input: do not grade it; give the practice answer in one "
+        f"sentence and teach Lesson {nxt}.\n"
+        "- A request to skip, stop, change topic, get everything at once, a summary or a "
+        "cheat sheet: do that instead of the next lesson.\n"
+        f"Lesson {nxt} covers what the preview promised, without a greeting or an outline, "
+        "in the same shape (the app's ```quiz, ```array and ```steps cards included):\n"
+        + _LESSON_SHAPE
     )
-    if step >= total:
-        nxt = (
-            f"- Step {total}/{total} was the final lesson step. Once the learner is not "
-            "asking for clarification on it, give a short 3-5 bullet recap and one optional "
-            "larger practice exercise or next topic.\n"
-        )
-    else:
-        nxt = (
-            f"- Normal progression is Step {step + 1}/{total}. Start with a heading like "
-            f"`### Step {step + 1}/{total} — ...`, teach one main idea with a fresh example, "
-            "and end with one low-pressure conversational question containing a question mark "
-            "so the lesson remains recognizable on the next turn.\n"
-        )
-    tail = (
-        "- If the learner asks to skip, stop, change topics, get everything at once, or "
-        "switch to quiz/test/practice-only mode, follow that request immediately instead of "
-        "forcing normal lesson progression. Maintain conversational continuity; optimize for "
-        "understanding, not test completion. Do not score or grade the learner unless asked."
-    )
-    return lead + nxt + tail

@@ -584,7 +584,7 @@ async def build_prompt_messages(
     if query_text and is_short_confirmation(query_text) and not lightweight:
         compact_format = True
     if lesson:
-        # "ok" / "yes" to a lesson step asks for the next step, not a casual reply.
+        # "ok" / "next" after a lesson asks for the next lesson, not a casual reply.
         compact_format = False
     if lightweight:
         system_parts.append(LIGHTWEIGHT_REPLY_HINT)

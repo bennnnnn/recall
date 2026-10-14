@@ -62,6 +62,8 @@ const LEGACY_STRUCTURED = [
   "3dmol",
   "places",
   "map",
+  "quiz",
+  "array",
   // callout langs
   "tip",
   "note",
@@ -113,6 +115,8 @@ const LEGACY_NEVER_CODE_BLOCK = [
   "sources",
   "places",
   "map",
+  "quiz",
+  "array",
   "graph",
   "simulation",
   "geometry",
@@ -204,7 +208,7 @@ describe("fence registry lookups", () => {
     }
     expect(FENCES.find((f) => f.id === "email")?.owner).toBe("model");
     expect(FENCES.find((f) => f.id === "answer")?.owner).toBe("server");
-    expect(FENCES.find((f) => f.id === "steps")?.owner).toBe("legacy");
+    expect(FENCES.find((f) => f.id === "steps")?.owner).toBe("model");
     expect(FENCES.find((f) => f.id === "molecule")?.owner).toBe("server");
     expect(fenceIdForLang("molecule")).toBe("molecule");
     expect(fenceIdForLang("molecule3d")).toBe("molecule3d");
@@ -219,6 +223,7 @@ describe("fence registry lookups", () => {
     expect(FENCES.map((spec) => spec.id).sort()).toEqual([
       "answer",
       "arithmetic",
+      "array",
       "callout",
       "chart",
       "chem_scene",
@@ -237,6 +242,7 @@ describe("fence registry lookups", () => {
       "molecule",
       "molecule3d",
       "places",
+      "quiz",
       "quote",
       // P14. Server-owned like geometry/graph: the prompt forbids it and
       // validate_math_fences replaces or strikes out anything the model
@@ -249,6 +255,7 @@ describe("fence registry lookups", () => {
     expect(
       FENCES.filter((spec) => spec.owner === "model").map((spec) => spec.id).sort(),
     ).toEqual([
+      "array",
       "chart",
       "chemistry",
       "copy",
@@ -258,7 +265,9 @@ describe("fence registry lookups", () => {
       "mermaid",
       "message",
       "places",
+      "quiz",
       "social",
+      "steps",
     ]);
   });
 
@@ -294,6 +303,8 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
       molecule3d: "component",
       places: "component",
       map: "component",
+      quiz: "component",
+      array: "component",
       callout: "component",
       social: "component",
       message: "component",

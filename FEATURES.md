@@ -105,16 +105,20 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Per-thread composer drafts** — text is saved per chat (and a separate New Chat slot).
   Opening another thread restores that draft and clears attachment and in-progress
   dictation so they cannot send into the wrong conversation.
-- ✅ **Teach-me lessons** — “teach me X”, “help me learn X”, “I want to learn X” (and
-  the teach verbs in the other app languages) run as a lesson, not a how-to list: a
-  short outline, then one step at a time (`### Step 1/6 — …`, a plain explanation,
-  one small example), each ending with one low-pressure question or optional check.
-  Checks are diagnostic, never gates: a plausible wrong answer gets a brief targeted
-  correction and then advances, explicit confusion gets a fresh explanation on the same
-  step, and accidental/random input is not graded or used to restart the lesson. The last
-  step ends with a short recap. “Everything at once” / a cheat sheet still gets the full
-  reference, and procedures (“teach me how to install Docker” / “walk me through changing
-  a tire”) keep the how-to steps. No tappable quiz chips in chat.
+- ✅ **Teach-me lessons (ChatGPT's lesson shape)** — “teach me X”, “help me learn X”,
+  “I want to learn X” (and the teach verbs in the other app languages) and “help me
+  understand two sum” / “walk me through quicksort” each get a complete lesson in one
+  reply: a one-line hook tied to the user's goal or level from memory (one fitting emoji),
+  `### Lesson 1: <topic>`, 3-5 numbered sections (`### 1. Understand the problem`, …) with
+  real-world examples, code explained line by line with its output, an `array` card for
+  values over their indexes, a trace as `steps` cards, cost in math ($O(n)$) and a
+  comparison table, then `### N. Your turn` with a `quiz` card (pick an option, **Check
+  answer**, see why; checked on the phone, nothing is sent) and one line previewing the
+  next lesson. No course outline. The next turn grades a typed answer (“Correct! 🎉” or a
+  short fix), then teaches Lesson N+1 from the preview; confusion re-explains the same
+  lesson a new way, random input is not graded, and “everything at once” / a cheat sheet
+  wins. Prompt: `modules/chat/prompt_constants/teaching.py`. Procedures (“teach me how to
+  install Docker” / “walk me through changing a tire”) keep the how-to steps.
 - ✅ **Follow-through, not templates** — a short “yes/go/sure” after an offer is
   not a greeting. A short answer (“no”, “got it”) to a question or lesson step
   loads the recent messages and continues the thread. “One sentence” / briefly beats chart, compare, and how-to
@@ -415,7 +419,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   ` ```email ` fence so Copy, follow-ups, and reopen see the same draft.
 - ✅ **Fence ownership** — [fenceRegistry.ts](apps/mobile/lib/fenceRegistry.ts) marks each
   fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
-  set (`copy` / drafts, `mermaid`, `chart`, `math`, `map`, chemistry source). Server attaches
+  set (`copy` / drafts, `mermaid`, `chart`, `math`, `map`, lesson `quiz` / `array` / `steps`,
+  chemistry source). Server attaches
   verified `answer` / `graph` / `geometry`, `sources`, and `places`. Layout fences
   (`steps`, `comparison`, `keyvalue`, `quote`, `clock`, `callout`)
   still render for history; the prompt must not choose them. A `>` quote card is

@@ -26,8 +26,13 @@ describe("MapBlock", () => {
     expect(view.getByText("0.02° N, 37.91° E")).toBeTruthy();
   });
 
+  it("draws nothing while the fence is still streaming in", async () => {
+    const view = await render(<MapBlock content='{"place": "Ken' />);
+    expect(view.toJSON()).toBeNull();
+  });
+
   it("says so instead of drawing a broken map", async () => {
-    const view = await render(<MapBlock content="{not json" />);
+    const view = await render(<MapBlock content='{"place": "Kenya", "lat": 200, "lon": 0}' />);
     expect(view.getByText("rich.map_error")).toBeTruthy();
   });
 });

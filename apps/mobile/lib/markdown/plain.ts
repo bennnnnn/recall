@@ -9,6 +9,7 @@ import {
   isMathFenceLang,
   isVisualDiagramFenceLang,
 } from "@/lib/fenceRegistry";
+import { arrayText, parseArrayFence, parseQuizFence, quizText } from "@/lib/lesson/lessonFences";
 import { teachingSpeech } from "@/lib/math/teachingBlock";
 import {
   DEGREE_RING,
@@ -420,6 +421,14 @@ function convertFence(lang: string, body: string, mode: "copy" | "speech"): stri
   if (isChartFenceLang(lang)) return mode === "speech" ? "a chart" : "";
   const id = fenceIdForLang(lang);
   if (id === "map") return mode === "speech" ? "a map" : "";
+  if (id === "quiz") {
+    const quiz = parseQuizFence(trimmed);
+    return quiz ? quizText(quiz) : "";
+  }
+  if (id === "array") {
+    const array = parseArrayFence(trimmed);
+    return array ? arrayText(array) : "";
+  }
   if (isVisualDiagramFenceLang(lang)) return mode === "speech" ? "a diagram" : "";
   if (id === "answer") {
     // A chemistry answer is text (H₂O, Fe³⁺, →); the header line only tells the renderer so.

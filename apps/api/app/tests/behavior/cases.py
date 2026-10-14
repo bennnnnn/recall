@@ -447,21 +447,22 @@ CASES: tuple[Case, ...] = (
         "teaching",
         "teach me python",
         Expect(hints=("teaching", "programming_lesson"), search="no"),
-        "Lesson 1 of a short path: one idea, a runnable example, a check question.",
+        "Lesson 1: a one-line hook, numbered sections, runnable code, a quiz card, the next lesson.",
     ),
     Case(
         "teach-python-scratch",
         "teaching",
         "I want to learn python from scratch",
         Expect(hints=("teaching",)),
-        "Same lesson shape as 'teach me python'.",
+        "Same lesson shape as 'teach me python', starting from variables and print.",
     ),
     Case(
         "teach-two-sum-understand",
         "teaching",
         "help me understand two sum in python",
         Expect(hints=("walkthrough",), no_hints=("teaching",), search="no"),
-        "Walkthrough: the problem, brute force, the hash-map idea, code, a traced example, cost.",
+        "Lesson 1: Two Sum: index boxes, brute force line by line, the dictionary idea traced in "
+        "step cards, a cost table, a quiz card.",
     ),
     Case(
         "teach-two-sum-explain",
@@ -475,7 +476,7 @@ CASES: tuple[Case, ...] = (
         "teaching",
         "I want to know american history",
         Expect(hints=("teaching",), search="no"),
-        "An overview in eras, then which era or theme to start with.",
+        "Lesson 1 on the first era: sections with dates and causes, a quiz card, the next era.",
     ),
     Case(
         "teach-no-know-fact",
@@ -489,14 +490,14 @@ CASES: tuple[Case, ...] = (
         "teaching",
         "I don't understand recursion",
         Expect(hints=("walkthrough",), search="no"),
-        "The idea, a tiny example traced call by call, then the base case rule.",
+        "Lesson 1: Recursion: the idea, a call-by-call trace in step cards, the base case, a quiz.",
     ),
     Case(
         "teach-history",
         "teaching",
         "teach me american history",
         Expect(hints=("teaching",), search="no"),
-        "Lesson 1: the eras at a glance, then the first era in short, with a check question.",
+        "Lesson 1 on the first era, in the same lesson shape, ending on a quiz card.",
     ),
     Case(
         "teach-eli10",

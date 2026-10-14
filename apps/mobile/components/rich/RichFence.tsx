@@ -6,6 +6,7 @@ import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { CalloutBlock } from "@/components/rich/CalloutBlock";
 import { parsePlacesJson } from "@/lib/placesList";
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
+import { ArrayBlock } from "@/components/rich/ArrayBlock";
 import { ArithmeticWorkBlock } from "@/components/rich/ArithmeticWorkBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
 import { EmailCard } from "@/features/integrations/components/EmailCard";
@@ -25,6 +26,7 @@ import {
 import { ChemistrySceneBlock } from "@/components/rich/ChemistrySceneBlock";
 import { MathBlock } from "@/components/rich/MathView";
 import { MessagePreview } from "@/components/rich/MessagePreview";
+import { QuizCard } from "@/components/rich/QuizCard";
 import { QuoteBlock } from "@/components/rich/QuoteBlock";
 import { SocialPostCard } from "@/components/rich/SocialPostCard";
 import { StepList } from "@/components/rich/StepList";
@@ -108,6 +110,10 @@ export function renderRichFenceById(
       if (steps.length === 0) return null;
       return <StepList key={key} steps={steps} />;
     }
+    case "quiz":
+      return <QuizCard key={key} content={content} />;
+    case "array":
+      return <ArrayBlock key={key} content={content} />;
     case "mermaid":
       return <LazyMermaidBlock key={key} content={content} />;
     case "chem_scene":
