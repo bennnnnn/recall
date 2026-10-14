@@ -1,5 +1,7 @@
 """Regressions found by the two 30-case iPhone math passes."""
 
+import pytest
+
 from app.core.config import Settings
 from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
@@ -450,3 +452,17 @@ def test_natural_mean_score_wording_stays_on_z_score_path() -> None:
     assert intent.school_op == "z_score"
     assert reply is not None
     assert r"\frac{88 - 72}{8} = 2" in reply
+
+
+@pytest.mark.parametrize("query", ["F = ma", "solve F = ma", "E = mc^2", "A = lw"])
+def test_a_formula_without_its_unknown_is_not_certified_no_solution(query: str) -> None:
+    """Solved for an x it does not contain, ``F = ma`` came back "no solution", verified."""
+    intent = extract_math_intent(query)
+    block = _build_verified_block(intent, _SETTINGS) if intent is not None else None
+    assert block is None or "no solution" not in (block.canonical_answer or "")
+
+
+@pytest.mark.parametrize("query", ["x - x = 5", "2x + 3 = 2x + 5"])
+def test_a_contradiction_in_its_unknown_is_still_no_solution(query: str) -> None:
+    _intent, block = _verified(query)
+    assert block.canonical_answer == r"\text{no solution}"

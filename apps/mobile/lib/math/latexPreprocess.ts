@@ -2,7 +2,7 @@ import { normalizeUnicodeScripts } from "@/lib/unicodeSupSub";
 
 import { repairLeakedMath } from "@/lib/math/healMathSource";
 import { CMD_REPLACEMENTS } from "@/lib/math/latexCommands";
-import { isParenthesizedArgument, readGroup } from "@/lib/math/latexGroups";
+import { braceFractionArguments, isParenthesizedArgument, readGroup } from "@/lib/math/latexGroups";
 import { rewriteSolutionSeparatorBars } from "@/lib/math/solutionBars";
 import {
   NATIVE_LITERAL_APOSTROPHE_MARKER,
@@ -237,6 +237,7 @@ export function preprocessLatex(latex: string): string {
   // them like \frac, so normalize before parsing so parseFrac catches them
   // (otherwise they leak as raw "\dfrac{a}{b}" inline).
   s = s.replace(/\\[dct]frac/g, "\\frac");
+  s = braceFractionArguments(s);
   for (const [re, rep] of CMD_REPLACEMENTS) {
     s = s.replace(re, rep);
   }

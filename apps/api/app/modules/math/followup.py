@@ -187,8 +187,9 @@ def offered_equation_problem(query: str | None, recent: Sequence[Any]) -> str | 
     ``Do it`` after ``5x^2 - 3 = -3`` has no equation of its own, and walking
     back to the previous user line re-solves the problem already finished.
     The offered line is the previous assistant message. A verified lesson
-    (an ``answer`` fence) and a message with several different equations stay
-    with the model.
+    (an ``answer`` fence), a message with several different equations, and a
+    bare formula with no number (the hint of a word problem) stay with the
+    model.
     """
     if not query or not recent or not _proceed_phrase(query):
         return None
@@ -209,6 +210,10 @@ def offered_equation_problem(query: str | None, recent: Sequence[Any]) -> str | 
     if not lhs or not rhs:
         return None
     problem = f"{lhs} = {rhs}"
+    # A formula with no number in it (``F = ma`` in a word problem's hint) is
+    # a law the problem uses, not the equation the assistant offered to solve.
+    if not any(ch.isdigit() for ch in problem):
+        return None
     if not needs_symbolic_math(problem):
         return None
     return problem

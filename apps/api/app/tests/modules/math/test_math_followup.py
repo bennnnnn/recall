@@ -414,3 +414,21 @@ def test_do_it_solves_the_equation_the_assistant_just_offered() -> None:
         )
         is None
     )
+
+
+def test_do_it_after_a_word_problem_does_not_solve_the_formula_in_its_hint() -> None:
+    """``F = ma`` in a hint is the law the problem uses, not an equation to solve.
+
+    "Do it" after the assistant set a sled problem answered a verified "no
+    solution": the hint's only equation was solved for an x it did not have.
+    """
+    problem = (
+        "**Problem:** A 5 kg sled is pulled across a frictionless ice surface by a "
+        "horizontal rope that exerts a constant force of 20 N. The sled starts from rest.\n\n"
+        "1. Find the sled's acceleration.\n2. Determine its speed after 3 seconds.\n"
+        "3. Compute the distance it travels in those 3 seconds.\n\n"
+        "*Hint:* Use $F = ma$ for (a), $v = at$ for (b), and $s = \\frac12 a t^2$ for (c)."
+    )
+    recent = [_message("user", "Give me a problem"), _message("assistant", problem)]
+    for go_ahead in ("Do it", "Solve it", "yes"):
+        assert offered_equation_problem(go_ahead, recent) is None
