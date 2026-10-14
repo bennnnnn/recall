@@ -30,6 +30,23 @@ describe("ArrayBlock", () => {
     expect(view.getByLabelText("nums = [2, 7, 11, 15]")).toBeTruthy();
   });
 
+  it("puts the title above the boxes and reads markdown in the note", async () => {
+    const view = await render(
+      <ArrayBlock
+        content={JSON.stringify({
+          title: "Think of a Python list as a row of numbered boxes.",
+          values: [18, 25, 32, 40],
+          note: "Python starts counting indexes at **0**, not 1.",
+        })}
+      />,
+    );
+    expect(
+      view.getByText("Think of a Python list as a row of numbered boxes."),
+    ).toBeTruthy();
+    expect(view.getByText("0")).toBeTruthy();
+    expect(view.getByText("Python starts counting indexes at 0, not 1.")).toBeTruthy();
+  });
+
   it("scrolls a long list sideways", async () => {
     const values = Array.from({ length: 10 }, (_, i) => i);
     const view = await render(

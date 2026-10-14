@@ -1,15 +1,22 @@
 /**
  * Lesson cards the model writes as JSON fences.
  *
- * ```quiz {"question": "...", "options": ["...", "..."], "answer": 1, "explanation": "..."}
- * ```array {"values": [2, 7, 11, 15], "highlight": [0, 1], "caption": "2 + 7 = 9",
+ * ```quiz {"label": "Exercise 1", "question": "...", "code": "...", "lang": "python",
+ *          "options": ["...", "..."], "answer": 1, "explanation": "..."}
+ * ```array {"title": "A list is a row of numbered boxes.", "values": [2, 7, 11, 15],
+ *           "highlight": [0, 1], "caption": "2 + 7 = 9",
  *           "note": "We return indexes, not the numbers."}
  *
  * Both parse to null when the fence is not usable, so the card can say so.
  */
 
 export type QuizFence = {
+  /** The pill at the top of the card, such as "Exercise 1". */
+  label: string | null;
   question: string;
+  /** Code the question is about, drawn inside the card. */
+  code: string | null;
+  codeLang: string;
   options: string[];
   /** 0-based index into `options`. */
   answer: number;
@@ -21,6 +28,8 @@ export type ArrayValue = string | number | boolean | null;
 export type ArrayFence = {
   /** The list's name, for copy and speech ("nums = [2, 7, 11, 15]"). */
   name: string | null;
+  /** A line above the boxes: "Think of a Python list as a row of numbered boxes." */
+  title: string | null;
   values: ArrayValue[];
   highlight: number[];
   /** A short line under the boxes, such as "2 + 7 = 9". */
@@ -78,7 +87,16 @@ export function parseQuizFence(content: string): QuizFence | null {
   if (options.some((option) => !option)) return null;
   const answer = answerIndex(data.answer, options);
   if (answer < 0 || answer >= options.length) return null;
-  return { question, options, answer, explanation: trimmed(data.explanation) };
+  const code = typeof data.code === "string" ? data.code.replace(/^\n+|\s+$/g, "") : "";
+  return {
+    label: trimmed(data.label) || null,
+    question,
+    code: code || null,
+    codeLang: trimmed(data.lang) || "python",
+    options,
+    answer,
+    explanation: trimmed(data.explanation),
+  };
 }
 
 function isCell(value: unknown): value is ArrayValue {
@@ -106,6 +124,7 @@ export function parseArrayFence(content: string): ArrayFence | null {
     : [];
   return {
     name: trimmed(data.name) || null,
+    title: trimmed(data.title) || null,
     values,
     highlight,
     caption: trimmed(data.caption) || null,
@@ -127,7 +146,8 @@ export function arrayText(fence: ArrayFence): string {
 /** The question and lettered options as plain text, for copy and speech. */
 export function quizText(fence: QuizFence): string {
   const options = fence.options.map((option, i) => `${LETTERS[i]}) ${option}`);
-  return [fence.question, ...options].join("\n");
+  const code = fence.code ? [fence.code] : [];
+  return [fence.question, ...code, ...options].join("\n");
 }
 
 const EXPLANATION_FENCE = /```([\w+-]*)[ \t]*\n([\s\S]*?)\n?```/g;
