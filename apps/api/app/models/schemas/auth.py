@@ -30,8 +30,6 @@ class UserOut(BaseModel):
     memory_include_sensitive: bool = False
     push_notifications_enabled: bool = True
     push_reminders_enabled: bool = True
-    push_email_suggestions_enabled: bool = True
-    push_calendar_enabled: bool = True
     tts_voice: str | None = None
     email_reminders_enabled: bool = False
     reminder_lead_minutes: int = 10
@@ -75,8 +73,6 @@ class UserUpdate(BaseModel):
     memory_include_sensitive: bool | None = None
     push_notifications_enabled: bool | None = None
     push_reminders_enabled: bool | None = None
-    push_email_suggestions_enabled: bool | None = None
-    push_calendar_enabled: bool | None = None
     # null puts the server default back.
     tts_voice: UserVoice | None = None
     email_reminders_enabled: bool | None = None

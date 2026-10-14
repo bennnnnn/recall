@@ -68,7 +68,6 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
         return _PromptContextBlocks(
             memory_block="",
             todos_section=None,
-            gmail_todos_section=None,
             recent_all=list(recent) if recent is not None else list(history),
             attachment_rag_block="",
             chat=chat,
@@ -78,13 +77,10 @@ async def test_actual_c12_how_through_prepare_context_and_prompt_builder(overlap
         attachments_enabled=False,
         attachment_rag_enabled=False,
         mcp_tool_loop_enabled=False,
-        mcp_tools_enabled=False,
         math_tools_enabled=False,
         chemistry_enabled=False,
         web_search_enabled=False,
         web_search_classifier_enabled=False,
-        gmail_enabled=False,
-        google_calendar_enabled=False,
     )
     with (
         patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=_Session()),
@@ -170,7 +166,6 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
     blocks = _PromptContextBlocks(
         memory_block="",
         todos_section=None,
-        gmail_todos_section=None,
         recent_all=history,
         attachment_rag_block="",
         chat=chat,
@@ -179,13 +174,10 @@ async def test_how_replays_code_owned_steps_instead_of_calling_the_llm(
         attachments_enabled=False,
         attachment_rag_enabled=False,
         mcp_tool_loop_enabled=False,
-        mcp_tools_enabled=False,
         math_tools_enabled=True,
         chemistry_enabled=False,
         web_search_enabled=False,
         web_search_classifier_enabled=False,
-        gmail_enabled=False,
-        google_calendar_enabled=False,
     )
     with (
         patch(

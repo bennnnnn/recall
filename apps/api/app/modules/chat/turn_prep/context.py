@@ -32,24 +32,13 @@ from app.modules.chat.prompt_builder import (
 from app.modules.chat.prompt_constants.routing import profile_question_to_answer
 from app.modules.chat.stream_status import StreamStatusFn
 from app.modules.chat.tool_gate import should_classify_tool_web_search
-from app.modules.chat.turn_prep.integrations import (
-    _load_has_calendar_write,
-    _load_prior_user_messages,
-    fetch_integration_blocks,
-    inject_integration_blocks,
-)
 from app.modules.chat.turn_prep.mode import (
     _classify_turn_mode,
-    _instant_reply_needs_db,
-    _resolve_instant_reply,
     _should_augment_web_and_tools,
-    _should_fetch_integrations,
     _TurnMode,
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chemistry.followup import chemistry_followup_problem as resolve_chemistry_followup
-from app.modules.integrations import calendar as calendar_service
-from app.modules.integrations import inbox as email_service
 from app.modules.math.followup import math_working_followup_problem, offered_equation_problem
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
@@ -60,6 +49,7 @@ from app.modules.web_search.subject import (
 )
 from app.modules.web_search.subject import last_assistant_content
 from app.repositories import chats as chats_repo
+from app.repositories import messages as messages_repo
 from app.repositories import users as users_repo
 from app.services import recurring_pay as recurring_pay_service
 from app.services import time_context as time_context_service
@@ -68,6 +58,11 @@ from app.services.subject_solving import detect_subject, maybe_direct_subject_re
 from app.services.text_normalize import collapse_ws
 
 logger = logging.getLogger(__name__)
+
+
+async def _load_prior_user_messages(chat_id: UUID) -> list[str]:
+    async with SessionLocal() as session:
+        return await messages_repo.recent_user_contents(session, chat_id)
 
 
 def _last_recent_assistant_content(recent_messages: list[Any] | None) -> str | None:
@@ -142,7 +137,7 @@ class StreamContext:
     lightweight_turn: bool = False
     # False = casual chat (skip memory/todos). Status theater
     # (preparing/remembering/thinking/composing) is never shown; activity
-    # chips remain for search, files, calendar, inbox, math, image gen.
+    # chips remain for search, files, math, image gen.
     rich_context_turn: bool = True
     # Attachment ids to index after the turn finalizes (post-turn jobs path).
     indexable_attachment_ids: list[str] = field(default_factory=list)
@@ -338,8 +333,6 @@ async def build_stream_prompt_context(
     meta: dict[str, Any] = {}
     prompt_messages: list[dict[str, str]]
     instant_reply: str | None = None
-    prior_user_messages: list[str] = []
-    has_calendar_write = False
     geo: ClientGeoContext
     local_tz: str
     max_out: int
@@ -415,11 +408,10 @@ async def build_stream_prompt_context(
     # No outer session during prompt gather (RAG/memory embeds use short-lived
     # sessions inside build_prompt_messages). Do not emit preparing/remembering
     # theater — casual chat should look like TTS: tap, then tokens. Real work
-    # (search, files, calendar, inbox, math) still emits its own activity chip.
+    # (search, files, math) still emits its own activity chip.
 
     async def _resolve_instant_reply_task() -> str | None:
-        # Time/location answers are CPU-only. Don't checkout Neon unless
-        # calendar/email needs a connection check. Skip year/date/time
+        # Time/location answers are CPU-only. Skip year/date/time
         # instant-replies when a photo is attached — vision should see it.
         if not has_image_attachment:
             now_reply = time_context_service.maybe_local_now_reply(content, local_tz, user_locale)
@@ -437,29 +429,15 @@ async def build_stream_prompt_context(
                     include_superseded=False,
                 )
             return reply_for_profile_question(asked, [row.text for row in rows])
-        reply: str | None = None
-        if _instant_reply_needs_db(content):
-            async with SessionLocal() as session:
-                reply = await _resolve_instant_reply(
-                    session,
-                    content,
-                    local_tz=local_tz,
-                    user_locale=user_locale,
-                    geo=geo,
-                    user_id=user.id,
-                    has_image_attachment=has_image_attachment,
-                )
-                await session.commit()
-        if reply is None:
-            settings_changes = extract_settings_changes(
-                content,
-                prior_assistant=_last_recent_assistant_content(recent_messages),
-            )
-            if settings_changes:
-                reply = await settings_proposal_service.materialize_settings_reply(
-                    redis, user, settings, settings_changes
-                )
-        return reply
+        settings_changes = extract_settings_changes(
+            content,
+            prior_assistant=_last_recent_assistant_content(recent_messages),
+        )
+        if not settings_changes:
+            return None
+        return await settings_proposal_service.materialize_settings_reply(
+            redis, user, settings, settings_changes
+        )
 
     async def _fallback_models() -> list[str]:
         unhealthy: set[str] = set()
@@ -538,8 +516,6 @@ async def build_stream_prompt_context(
     ):
         instant_reply = web_search_service.format_location_not_set_answer()
 
-    is_external_calendar = calendar_service.is_external_calendar_question(content)
-    is_external_email = email_service.is_external_email_question(content)
     detected_subject = detect_subject(
         content,
         has_image_attachment=has_image_attachment,
@@ -566,22 +542,10 @@ async def build_stream_prompt_context(
         minimal_personal=mode.minimal_personal,
         day_planning=mode.day_planning,
         ambiguous_nearby=geo.ambiguous_nearby,
-        is_external_calendar_question=is_external_calendar,
-        is_external_email_question=is_external_email,
         rich_context=mode.rich_context,
         needs_math=needs_math,
         needs_search=needs_search,
         needs_chem=needs_chem,
-    )
-    load_calendar = calendar_service.should_inject_calendar_block(content)
-    load_gmail = email_service.should_inject_gmail_block(content)
-    integration_gate = _should_fetch_integrations(
-        instant_reply=instant_reply,
-        lightweight=mode.lightweight,
-        minimal_personal=mode.minimal_personal,
-        rich_context=mode.rich_context,
-        load_calendar=load_calendar,
-        load_gmail=load_gmail,
     )
 
     # One high ceiling for every turn — brevity is driven by the STYLE_HINTS
@@ -594,47 +558,9 @@ async def build_stream_prompt_context(
     verified_subject: VerifiedSolveBlock | None = None
 
     # Phase B: gather independent fetches. Priors only when augmenting (web
-    # search subject). Calendar-write loads inside the integration gather
-    # when a create-event hint can apply — not as a serial barrier first.
-    integration_coro: Awaitable[list[str]] | None = None
-    if integration_gate:
-        integration_coro = fetch_integration_blocks(
-            content,
-            user,
-            redis,
-            settings,
-            instant_reply=instant_reply,
-            lightweight=mode.lightweight,
-            minimal_personal=mode.minimal_personal,
-            day_reflection=mode.day_reflection,
-            gmail_context=None,
-            on_status=on_status,
-            client_timezone=client_timezone,
-            include_email_nudge=mode.rich_context,
-        )
-
+    # search subject).
     web_coro: (
         Awaitable[
-            tuple[
-                list[str],
-                tuple[
-                    str | None,
-                    str | None,
-                    list[WebSearchHit],
-                    VerifiedSolveBlock | None,
-                    bool,
-                    str | None,
-                    str | None,
-                ],
-            ]
-        ]
-        | None
-    ) = None
-    write_coro: Awaitable[bool] | None = None
-    if augment:
-
-        async def _fetch_web_with_priors() -> tuple[
-            list[str],
             tuple[
                 str | None,
                 str | None,
@@ -643,10 +569,23 @@ async def build_stream_prompt_context(
                 bool,
                 str | None,
                 str | None,
-            ],
+            ]
+        ]
+        | None
+    ) = None
+    if augment:
+
+        async def _fetch_web_with_priors() -> tuple[
+            str | None,
+            str | None,
+            list[WebSearchHit],
+            VerifiedSolveBlock | None,
+            bool,
+            str | None,
+            str | None,
         ]:
             priors = await _load_prior_user_messages(chat.id)
-            result = await fetch_web_and_tools(
+            return await fetch_web_and_tools(
                 content,
                 settings,
                 prompt_messages=prompt_messages,
@@ -664,13 +603,9 @@ async def build_stream_prompt_context(
                 user=user,
                 redis=redis,
             )
-            return priors, result
 
         web_coro = _fetch_web_with_priors()
-        if settings.mcp_tools_enabled and calendar_service.is_calendar_create_request(content):
-            write_coro = _load_has_calendar_write(user.id)
 
-    integration_blocks: list[str] = []
     web_search_classified: bool | None = None
     web_block: str | None = None
     math_block: str | None = None
@@ -679,15 +614,9 @@ async def build_stream_prompt_context(
     direct_text: str | None = None
     fetch_jobs: list[Awaitable[Any]] = []
     fetch_keys: list[str] = []
-    if integration_coro is not None:
-        fetch_jobs.append(integration_coro)
-        fetch_keys.append("integration")
     if web_coro is not None:
         fetch_jobs.append(web_coro)
         fetch_keys.append("web")
-    if write_coro is not None:
-        fetch_jobs.append(write_coro)
-        fetch_keys.append("cal_write")
     if (
         fetch_jobs
         and not needs_math
@@ -729,42 +658,23 @@ async def build_stream_prompt_context(
             await asyncio.gather(*fetch_tasks, return_exceptions=True)
             raise
         by_key = dict(zip(fetch_keys, fetched, strict=True))
-        if "integration" in by_key:
-            integration_blocks = by_key["integration"]
         if "web" in by_key:
             (
-                prior_user_messages,
-                (
-                    web_block,
-                    math_block,
-                    search_sources,
-                    verified_subject,
-                    solver_unverified,
-                    unverified_subject,
-                    direct_text,
-                ),
+                web_block,
+                math_block,
+                search_sources,
+                verified_subject,
+                solver_unverified,
+                unverified_subject,
+                direct_text,
             ) = by_key["web"]
-        if "cal_write" in by_key:
-            has_calendar_write = by_key["cal_write"]
         if "classify" in by_key:
             web_search_classified = by_key["classify"]
 
-    # Phase C: inject in the stable order (integration -> web -> subject) so the
-    # final prompt is byte-identical to the prior serial pipeline.
-    prompt_messages = inject_integration_blocks(prompt_messages, integration_blocks)
+    # Phase C: inject in the stable order (web -> subject) so the final prompt
+    # is byte-identical to the prior serial pipeline.
     if augment:
-        prompt_messages = await inject_web_and_tools(
-            prompt_messages,
-            web_block,
-            math_block,
-            settings,
-            user_content=content,
-            user_timezone=local_tz,
-            user_location=geo.user_location,
-            prior_user_messages=prior_user_messages,
-            on_status=None,
-            has_calendar_write=has_calendar_write,
-        )
+        prompt_messages = await inject_web_and_tools(prompt_messages, web_block, math_block)
 
     if timing is not None:
         timing.mark_phase("augment_done")

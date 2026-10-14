@@ -266,13 +266,19 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("latent_heat", "L", "joule / kilogram"),
             var("m", "m", "kilogram"),
+            # "Melt 2 kg of ice at 0 °C": the temperature of the change is
+            # stated, and Q = mL does not use it.
+            var("temp_phase", "T", "kelvin", words=("at",), needs_words=True),
         ),
-        binding=bind(
-            ("heat energy", "energy", "heat"),
-            "joule",
-            "latent_heat",
-            "m",
+        binding=Binding(
+            asks=("heat energy", "energy", "heat"),
+            result=("joule",),
+            inputs=(
+                frozenset({"latent_heat", "m"}),
+                frozenset({"latent_heat", "m", "temp_phase"}),
+            ),
             cues=("melt", "boil", "freez", "evaporat", "vapori", "condens", "latent", "solidif"),
+            nonnegative=True,
         ),
     ),
     formula(

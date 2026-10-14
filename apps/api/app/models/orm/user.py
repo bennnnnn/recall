@@ -21,7 +21,6 @@ from app.core.db import Base
 
 if TYPE_CHECKING:
     from app.models.orm.chat import Chat
-    from app.modules.integrations.models import UserCalendarConnection, UserGmailConnection
     from app.modules.memory.models import Memory
 
 
@@ -68,14 +67,8 @@ class User(Base):
     push_notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )
-    # Each kind of push, under the master switch above.
+    # Reminder pushes, under the master switch above.
     push_reminders_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=True, server_default="true"
-    )
-    push_email_suggestions_enabled: Mapped[bool] = mapped_column(
-        Boolean, default=True, server_default="true"
-    )
-    push_calendar_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )
     # Read-aloud and live talk voice; None keeps the server default.
@@ -106,11 +99,3 @@ class User(Base):
 
     chats: Mapped[list[Chat]] = relationship(back_populates="user")
     memories: Mapped[list[Memory]] = relationship(back_populates="user")
-    calendar_connection: Mapped[UserCalendarConnection | None] = relationship(
-        back_populates="user",
-        uselist=False,
-    )
-    gmail_connection: Mapped[UserGmailConnection | None] = relationship(
-        back_populates="user",
-        uselist=False,
-    )

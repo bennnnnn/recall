@@ -284,6 +284,18 @@ _PERSONAL_PLANNING = re.compile(
     re.IGNORECASE,
 )
 
+# The user's own calendar or schedule. Recall cannot see it and neither can the web.
+_OWN_CALENDAR = re.compile(
+    r"\b("
+    r"google calendar|my calendar|check my calendar|connect my calendar|"
+    r"what(?:'s| is) on my calendar|calendar today|calendar tomorrow|"
+    r"meetings today|meetings tomorrow|any meetings|"
+    r"what do i have (?:on|scheduled)|what am i doing (?:today|tomorrow)|"
+    r"what(?:'s| is) my schedule|my schedule (?:today|tomorrow|this week)"
+    r")\b",
+    re.IGNORECASE,
+)
+
 # Proximity intent — any "near me / nearest / closest …" ask, not a venue-type list.
 _NEARBY_INTENT = re.compile(
     r"\b("
@@ -452,6 +464,9 @@ _MOTION_HOMEWORK = re.compile(
     # "A train leaves at 9am and travels at 60 km/h. How far has it gone?"
     r"|km\s*/\s*h|kph|mph|km\s+(?:per|an)\s+hour|miles\s+(?:per|an)\s+hour"
     r"|travel(?:s|ed|led)?\s+at|average\s+speed"
+    # "How far is the image from the lens?" is optics, not the user's location.
+    r"|lens(?:es)?|mirror|focal|echo(?:es)?|pendulum|wavelength|refract\w*"
+    r"|\d\s*(?:cm|mm)"
     r")\b",
     re.IGNORECASE,
 )

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.physics.ask import asked_dimensions
 from app.modules.physics.extractors.common import (
     _find_value_with_specific_unit,
     _strip_param_assignments,
@@ -11,6 +12,7 @@ from app.modules.physics.extractors.common import (
 from app.modules.physics.extractors.cues import (
     _has_cue,
 )
+from app.modules.physics.givens import unit_dimension
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -61,6 +63,13 @@ _FORCE_CUE_RES: tuple[re.Pattern[str], ...] = (
 )
 
 
+_F_MA_DIMENSIONS = frozenset(
+    reading[0]
+    for unit in ("newton", "kilogram", "meter / second ** 2")
+    if (reading := unit_dimension(unit)) is not None
+)
+
+
 def _extract_force_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _FORCE_CUES, _FORCE_CUE_RES):
@@ -103,6 +112,11 @@ def _extract_force_intent(cleaned: str) -> PhysicsIntent | None:
     # Need at least two of (mass, force, accel) to solve F = ma.
     known = [v for v in (mass, force, accel) if v is not None]
     if len(known) < 2:
+        return None
+    # F = ma answers a force, a mass or an acceleration. "How fast is it moving
+    # after 5 s" asks for something else, which a catalog law may answer.
+    asked = asked_dimensions(cleaned)
+    if asked and not set(asked) <= _F_MA_DIMENSIONS:
         return None
 
     params: dict[str, float] = {}

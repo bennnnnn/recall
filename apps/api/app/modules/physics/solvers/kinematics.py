@@ -126,6 +126,22 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             rf"\approx {h_val:.2f} \text{{ m}}"
         )
         quantity = QuantityResult("", h_val, "m")
+    elif op == "time_to_peak":
+        if v0 <= 0:
+            raise SolveServiceError("only an upward launch has a top to reach")
+        t_top = v0 / g
+        formula = r"t_{\text{top}} = \frac{v_0}{g}"
+        substitution = rf"t_{{\text{{top}}}} = \frac{{{_latex_num(v0)}}}{{{g:g}}}"
+        answer_latex = (
+            rf"t_{{\text{{top}}}} = \frac{{v_0}}{{g}} = \frac{{{_latex_num(v0)}}}{{{g:g}}} "
+            rf"\approx {t_top:.2f} \text{{ s}}"
+        )
+        quantity = QuantityResult("", t_top, "s")
+        # As for the peak height: the picture is the whole trip, the answer its top.
+        landed = _time_to_ground()
+        if landed is None:
+            raise SolveServiceError("no positive real time to ground")
+        t_val = landed
     elif op == "vertical_max_height":
         if v0 <= 0:
             raise SolveServiceError("maximum height for a vertical launch requires v0 > 0")

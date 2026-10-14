@@ -298,7 +298,7 @@ def test_package_import_cannot_pull_a_private_name() -> None:
         "from app.modules.attachments import service\n"
         "from app.modules.todos import snap_first_due\n"
         "from app.modules.todos import repository\n"
-        "from app.modules.integrations import calendar\n"
+        "from app.modules.billing import plan\n"
     )
     assert not _foreign_module_import_violations(public, owner="images", label="sample")
 

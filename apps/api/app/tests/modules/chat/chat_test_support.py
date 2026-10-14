@@ -32,7 +32,6 @@ def offline_session_patches():
         patch("app.modules.chat.prompt_context.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.context.SessionLocal", FakeSessionCM),
-        patch("app.modules.chat.turn_prep.integrations.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.turn_prep.prepare.SessionLocal", FakeSessionCM),
         patch("app.modules.chat.post_turn.SessionLocal", FakeSessionCM),
     )
@@ -51,11 +50,5 @@ def stream_offline_io():
         stack.enter_context(patch("app.modules.chat.stream.wait_for_pending_finalize", AsyncMock()))
         stack.enter_context(
             patch("app.modules.web_search.is_short_letter_answer", return_value=False)
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.has_write_access",
-                AsyncMock(return_value=False),
-            )
         )
         yield

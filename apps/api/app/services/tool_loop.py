@@ -36,7 +36,6 @@ from app.modules.billing import plan as plan_service
 from app.modules.chat.stream_status import StreamStatusFn, clip_status_detail
 from app.modules.images.gen_tool import bind_image_gen_context
 from app.modules.images.search_tool import bind_image_search_context
-from app.modules.integrations.tool import bind_calendar_context
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.tools import VerifiedMathBlock
 from app.modules.math.tools.extract import trig_domain_would_be_dropped
@@ -354,7 +353,7 @@ def turn_needs_tool_loop(
     non-streaming LLM round on every other turn (then discarding the answer and
     streaming a second call) is what made ordinary chat sit on typing dots for
     ~6s. Skip unless this message still looks like search, unsolved math,
-    calendar create, or Pro image gen.
+    or Pro image gen.
 
     ``web_search``: optional classifier override (None = sync heuristic).
     """
@@ -517,7 +516,6 @@ async def run_tool_rounds(
         ),
         bind_image_gen_context(user=user, redis=redis, chat_id=chat_id),
         bind_image_search_context(user=user, redis=redis, chat_id=chat_id),
-        bind_calendar_context(user=user, redis=redis, settings=settings),
     ):
         working, verified, terminal, hits = await _run_tool_rounds_bound(
             settings=settings,

@@ -210,6 +210,7 @@ The binder reads these laws, beside the extractors' own:
 | Fluids | absolute pressure; apparent weight when submerged; floating fraction; capillary rise |
 | Modern | photon momentum; threshold frequency and wavelength; stopping potential; photoelectric KE; fraction and mass remaining; decay constant; activity; mean life; net blackbody power P = εσA(T^4 − T_0^4) |
 | Upper level | hydrogen transitions (λ and ΔE); hydrogen-like levels E = −13.6 Z²/n² eV when Z is stated; Bohr radius; hydrogen-like radius n²a₀/Z; Bohr L = nℏ; L² = ℏ²ℓ(ℓ+1); L_z = mℏ; normal Zeeman shift; pair-production threshold; quantum-oscillator levels; relativistic p, E and K; E² = (pc)² + (mc²)²; velocity addition; Lorentz transformation of one coordinate and of one time; Schwarzschild radius; gravitational time-dilation factor; Boltzmann ratio; S = k ln Ω; energy-time uncertainty; an orbit's period from its height; Fermi energy; Fermi-Dirac and Bose-Einstein occupation; Planck's law as spectral radiance; rectangular-barrier tunneling probability; Drude conductivity; Hall coefficient; nuclear radius R = R₀ A^{1/3}; Hawking temperature; Hawking power; Bekenstein-Hawking entropy; stellar luminosity; flux from a stated luminosity; Hubble's law; critical density; Friedmann Hubble parameter when density, curvature, scale, and Λ are stated; virial K = −U/2; plasma frequency; Debye length; Alfvén speed; sound speed from the bulk modulus; quadratic drag force from C_D; BCS gap; Higgs mass; one-loop strong coupling |
+| Sweep additions | time to the top of a throw; a level launch off a table or cliff; echo distance vt/2; hydraulic lift with the load on the large piston; mass from F and a; average force from a speed change; terminal drag; weight along a slope; drop speed from a height; speed from kinetic energy; work against gravity; efficiency in percent; spring compression from speed; current from power; charge and energy from Q and V; point-charge field; force on a moving charge; spring constant from a hanging mass or a force; pendulum length from its period; frequency and period from a count; string tension in a horizontal circle; critical angle to air; focal length from lens power; pressure from a weight on an area; water pressure at a depth; upthrust on a fully submerged volume; surface gravity on a named planet; E = mc² |
 | One formula | physical and conical pendulum periods; torsional pendulum; thin rod about its center or one end; springs in series and in parallel; reduced mass; coefficient of restitution; gravitational fractional frequency shift; decay time from N₀ to N; speed to just complete a vertical loop; sound level; shear, bulk and Poisson; gear speed and gear ratio; Newton's law of cooling; absorbed or reflected radiation pressure; Otto efficiency |
 
 ## Numbers and units
@@ -270,6 +271,32 @@ confirmed reading. A photo with no reading gets the unverified physics note.
 - a verified answer always matches its expected value;
 - traps decline and negatives are not physics;
 - coverage never falls below `COVERAGE_FLOOR`.
+
+The **STEM sweep** (`app/tests/behavior/stem_sweep.py`) checks the whole chat path, not just
+the solver. `stem_corpus/physics/` holds 327 turns: textbook questions across 19 areas,
+everyday look-alikes, questions that must be declined, and `holdout.json`, written after the
+fixes below so the coverage number stays honest. For each turn it routes the prompt as a
+chat turn does and reads the verified answer card (1% tolerance, any unit of the same kind).
+It also checks the reply's Given / Find / Formula / Substitution / Answer order, flags
+calculator notation and an invented zero given, and validates every `simulation` and `graph`
+fence against the schema and its own bounds. `test_stem_sweep.py` fails on a wrong number, a
+misread turn (a physics question answered as math, or hijacked by a location or settings
+reply), a reply out of shape or a broken picture. It holds two floors that only go up: 265 of
+274 answered, and 47 of 76 with the picture a student would want.
+
+    uv run python -m app.tests.behavior.stem_sweep physics --show
+
+The first run found five wrong verified answers, each now in
+`test_physics_sweep_regressions.py`:
+- "how long must the runway be" was answered as a time;
+- "how long until it reaches the top" was the whole flight;
+- a ball rolling off a table was timed as d/v;
+- an echo's distance was not halved;
+- a hydraulic lift put the car's weight on the small piston.
+
+It also found 17 textbook questions the solver did not recognise; these are now catalog laws.
+The questions still left to the model are multi-step or two-body (recoil, opposing forces, a
+decibel ratio, energy over days, a frequency from d/t and λ).
 
 ## What it refuses
 

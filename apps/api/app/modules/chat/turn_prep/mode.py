@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,16 +21,10 @@ from app.modules.chat.prompt_constants import (
     needs_rich_context,
     profile_question_to_answer,
 )
-from app.modules.integrations import calendar as calendar_service
-from app.modules.integrations import inbox as email_service
 from app.modules.memory import is_food_or_diet_query
 from app.repositories import messages as messages_repo
 from app.services import day_planning as day_planning_service
-from app.services import time_context as time_context_service
 from app.services.text_normalize import collapse_ws
-
-if TYPE_CHECKING:
-    from app.modules.chat.turn_prep.context import ClientGeoContext
 
 
 def _should_augment_web_and_tools(
@@ -41,8 +34,6 @@ def _should_augment_web_and_tools(
     minimal_personal: bool,
     day_planning: bool,
     ambiguous_nearby: bool,
-    is_external_calendar_question: bool,
-    is_external_email_question: bool,
     rich_context: bool = True,
     needs_math: bool = False,
     needs_search: bool = False,
@@ -55,7 +46,7 @@ def _should_augment_web_and_tools(
 
     Slim/casual chat (not ``rich_context``) still augments when the turn
     actually needs math, web search, or chemistry — otherwise skip prior
-    messages, calendar-write, Tavily/SymPy, and PubChem.
+    messages, Tavily/SymPy, and PubChem.
     """
     if not (
         instant_reply is None
@@ -63,30 +54,9 @@ def _should_augment_web_and_tools(
         and not minimal_personal
         and not day_planning
         and not ambiguous_nearby
-        and not is_external_calendar_question
-        and not is_external_email_question
     ):
         return False
     return rich_context or needs_math or needs_search or needs_chem
-
-
-def _should_fetch_integrations(
-    *,
-    instant_reply: str | None,
-    lightweight: bool,
-    minimal_personal: bool,
-    rich_context: bool,
-    load_calendar: bool,
-    load_gmail: bool,
-) -> bool:
-    """Load calendar/gmail/nudge only for rich turns or calendar/gmail intent.
-
-    Casual coaching (Help me think) must not pay the Gmail-nudge query.
-    Calendar/gmail questions still fetch even when ``rich_context`` is false.
-    """
-    if instant_reply is not None or lightweight or minimal_personal:
-        return False
-    return rich_context or load_calendar or load_gmail
 
 
 @dataclass
@@ -113,10 +83,6 @@ def _turn_needs_rich_context(
         day_planning=day_planning,
         day_reflection=day_reflection,
     ):
-        return True
-    if calendar_service.is_external_calendar_question(content):
-        return True
-    if email_service.is_external_email_question(content):
         return True
     if todos_service.query_implies_todos(content):
         return True
@@ -214,39 +180,3 @@ async def _classify_turn_mode(
         day_reflection=day_reflection,
         advice_memory=advice_memory,
     )
-
-
-async def _resolve_instant_reply(
-    session: AsyncSession,
-    content: str,
-    *,
-    local_tz: str,
-    user_locale: str | None,
-    geo: ClientGeoContext,
-    user_id: UUID,
-    has_image_attachment: bool = False,
-) -> str | None:
-    """Time/location/calendar/email short-circuits that skip the LLM."""
-    # A photo may be the actual question (clock, calendar, document year).
-    if not has_image_attachment:
-        now_reply = time_context_service.maybe_local_now_reply(content, local_tz, user_locale)
-        if now_reply is not None:
-            return now_reply
-    if time_context_service.is_location_question(content):
-        return time_context_service.format_location_answer(geo.user_location, local_tz)
-    if calendar_service.is_external_calendar_question(content):
-        if not await calendar_service.is_connected(session, user_id):
-            return calendar_service.format_not_connected_answer()
-        return None
-    if email_service.is_external_email_question(content):
-        if not await email_service.is_connected(session, user_id):
-            return email_service.format_not_connected_answer()
-        return None
-    return None
-
-
-def _instant_reply_needs_db(content: str) -> bool:
-    """Calendar/email short-circuits need a connection check; time/location do not."""
-    return calendar_service.is_external_calendar_question(
-        content
-    ) or email_service.is_external_email_question(content)

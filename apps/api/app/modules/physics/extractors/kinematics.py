@@ -26,6 +26,7 @@ from app.modules.physics.extractors.kinematics_asks import (
     _asks_max_height,
     _asks_position,
     _asks_speed,
+    _asks_time_to_peak,
     _asks_velocity,
     _states_a_non_gravity_acceleration,
     _velocity_is_downward,
@@ -122,6 +123,7 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     asks_velocity = _asks_velocity(lower, asked)
     asks_position = _asks_position(lower)
     asks_max_height = _asks_max_height(lower)
+    asks_time_to_peak = _asks_time_to_peak(lower)
     # Defer to the equation extractor if there's an explicit "=" equation —
     # but strip "g = 1.6" parameter specs first (those are knowns, not algebra).
     # When they asked for v/speed/position at a time, ``t = 1`` is a given,
@@ -180,9 +182,15 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
         "speed",
         "acceleration",
         "time_to_ground",
+        "time_to_peak",
         "vertical_max_height",
     ] = "time_to_ground"
-    if asks_speed:
+    if asks_time_to_peak and not (asks_speed or asks_velocity or asks_position):
+        # Only an upward throw has a top to reach after release.
+        if v0 <= 0:
+            return None
+        op = "time_to_peak"
+    elif asks_speed:
         op = "speed"
     elif asks_velocity:
         op = "velocity"

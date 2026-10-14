@@ -206,4 +206,54 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # P = VI, for the current a stated power draws.
+    formula(
+        "current_from_power",
+        "circuit",
+        "Electrical power",
+        "I",
+        base_latex=r"I = \frac{P}{V}",
+        expression="power/V",
+        variables=(var("power", "P", "watt"), var("V", "V", "volt")),
+        binding=Binding(
+            asks=("current", "how much current", "what current"),
+            result=("ampere",),
+            inputs=(frozenset({"power", "V"}),),
+            nonnegative=True,
+        ),
+    ),
+    # E = QV, for the charge a stated energy moves through a voltage.
+    formula(
+        "charge_from_energy",
+        "circuit",
+        "Energy transferred by a charge",
+        "Q",
+        base_latex=r"Q = \frac{E}{V}",
+        expression="energy/V",
+        variables=(var("energy", "E", "joule"), var("V", "V", "volt")),
+        binding=Binding(
+            asks=("charge", "how much charge"),
+            result=("coulomb",),
+            inputs=(frozenset({"energy", "V"}),),
+            nonnegative=True,
+        ),
+    ),
+    # E = QV, for the energy a battery gives the charge it moves.
+    formula(
+        "energy_from_charge_voltage",
+        "circuit",
+        "Energy transferred by a charge",
+        "E",
+        base_latex=r"E = Q V",
+        expression="Q*V",
+        variables=(var("Q", "Q", "coulomb"), var("V", "V", "volt")),
+        binding=Binding(
+            asks=("energy", "how much energy", "energy transferred", "work done"),
+            result=("joule",),
+            inputs=(frozenset({"Q", "V"}),),
+            cues=("battery", "moves", "charge", "coulomb"),
+            excludes=("accelerat", "electron", "proton", "ion"),
+            nonnegative=True,
+        ),
+    ),
 )

@@ -252,4 +252,15 @@ SAMPLES: dict[str, float] = {
     "curvature": 0.0,
     "scale_factor": 1.0e26,
     "lambda_cosmo": 1.0e-52,
+    # Everyday laws: efficiency's output below its input, a spring and a count.
+    "E_in": 60.0,
+    "E_out": 9.0,
+    "count": 20.0,
+    "energy": 9000.0,
+    "k": 200.0,
+    "kinetic": 250000.0,
+    "period": 2.0,
+    "x": 0.05,
+    "temp_phase": 273.15,
+    "lens_power": 2.5,
 }

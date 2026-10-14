@@ -186,9 +186,28 @@ def test_new_catalog_operations_convert_mixed_units(query: str, answer: str) -> 
 
 
 @pytest.mark.parametrize(
+    ("query", "answer"),
+    [
+        ("A machine uses 100 J and produces 80 J. Find its efficiency.", "80 %"),
+        (
+            "A light bulb converts 60 J of electrical energy into 9 J of light. "
+            "What is its efficiency?",
+            "15 %",
+        ),
+    ],
+)
+def test_efficiency_reads_output_over_input(query: str, answer: str) -> None:
+    # Efficiency is at most 100%, so the two energies have one reading.
+    intent = extract_physics_intent(query)
+    assert isinstance(intent, PhysicsIntent)
+    verified = build_verified_physics_block(intent, _SETTINGS)
+    assert verified is not None
+    assert verified.canonical_answer == answer
+
+
+@pytest.mark.parametrize(
     "query",
     [
-        "A machine uses 100 J and produces 80 J. Find its efficiency.",
         "Find the fourth harmonic of a 0.5 m closed pipe with sound speed 340 m/s.",
         "Use Bernoulli for water with pressure 100000 Pa and speeds 2 m/s and 6 m/s.",
         "Using the first law, heat is 500 J and work is 200 J. Find internal energy.",

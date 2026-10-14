@@ -84,7 +84,6 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "app/tests/**" = ["S101", "S105", "S106", "RUF001", "RUF012", "E402", "E501"]
 "app/routers/**" = ["B008", "E501"]
 "app/modules/*/api.py" = ["B008", "E501"]
-"app/modules/integrations/gmail_api.py" = ["B008", "E501"]
 "app/modules/speech/realtime.py" = ["B008", "E501"]
 "app/modules/*/models.py" = ["E501"]
 "app/modules/*/schemas.py" = ["S105"]
@@ -95,7 +94,6 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "app/modules/learning/items_repository.py" = ["RUF005"]
 "app/modules/chat/**" = ["E501"]
 "app/modules/chat/*_api.py" = ["B008", "E501"]
-"app/modules/integrations/calendar.py" = ["E501", "RUF001"]
 "app/modules/learning/actions.py" = ["E501", "RUF001"]
 "app/modules/learning/common.py" = ["E501", "RUF001"]
 "app/modules/learning/crud.py" = ["E501", "RUF001"]
@@ -109,7 +107,6 @@ select = ["E", "F", "I", "UP", "RUF", "B", "ASYNC", "S"]
 "app/modules/learning/path_seed.py" = ["E501", "RUF001"]
 "app/modules/notifications/push.py" = ["RUF001", "RUF002", "RUF003"]
 "app/modules/notifications/transactional_email.py" = ["RUF001", "RUF002", "RUF003"]
-"app/modules/integrations/nudges.py" = ["RUF001"]
 "app/services/reminder_timing.py" = ["RUF001", "RUF002", "RUF003"]
 # Writes the scanner reading in the glyphs students use (ℤ, ×, √).
 "app/modules/math/reading.py" = ["RUF001", "RUF002", "RUF003"]
@@ -161,14 +158,8 @@ source = ["app"]
 omit = [
     "app/tests/*",
     "alembic/*",
-    # External OAuth / scheduler boundaries — covered via service-layer mocks.
-    "app/gateways/google_calendar_gateway.py",
-    "app/gateways/google_gmail_gateway.py",
-    "app/modules/integrations/scheduler.py",
-    "app/modules/integrations/jobs.py",
+    # Scheduler boundary — covered via service-layer mocks.
     "app/background/push_scheduler.py",
-    "app/modules/integrations/gmail_api.py",
-    "app/modules/integrations/api.py",
 ]
 
 [build-system]

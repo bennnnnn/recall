@@ -41,7 +41,6 @@ _WRITABLE = frozenset(
         "due_at",
         "recurrence_rule",
         "sort_order",
-        "source",
         "checked",
         "notification_sent_at",
         "email_sent_at",

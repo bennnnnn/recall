@@ -110,7 +110,6 @@ from app.modules.images.lookup_intent import (
 from app.modules.images.lookup_intent import (
     is_reference_subject as is_reference_subject,
 )
-from app.modules.integrations import calendar
 from app.modules.math import fence as math_fence
 from app.repositories import chats, messages, users
 from app.services import model_catalog as model_catalog
@@ -122,7 +121,6 @@ from app.services.conversation_reference import turns_from_rows as turns_from_ro
 chats_repo = chats
 messages_repo = messages
 users_repo = users
-calendar_service = calendar
 image_generation_service = image_generation
 image_search_service = image_search
 math_fence_service = math_fence

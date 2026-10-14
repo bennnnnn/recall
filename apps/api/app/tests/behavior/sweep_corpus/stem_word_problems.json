@@ -799,5 +799,38 @@
   ],
   "reply": "$$25\\ \\text{m/s} \\times 3.6 = 90\\ \\text{km/h}$$\n\nThe car's average speed is **90 km/h**. (Multiply by 3.6 because 1 m/s = 3600 m per hour = 3.6 km/h.)",
   "expect": "answer"
+ },
+ {
+  "id": "s2-081",
+  "area": "physics",
+  "prompt": "An object is 30 cm from a lens of focal length 10 cm. How far is the image from the lens?",
+  "history": [],
+  "reply": "**Given:** $u = 30$ cm, $f = 10$ cm\n\n$$\\frac{1}{v} = \\frac{1}{f} - \\frac{1}{u} = \\frac{1}{10} - \\frac{1}{30} = \\frac{2}{30}$$\n\n$$v = 15\\ \\text{cm}$$\n\nThe image is **15 cm** from the lens, on the other side.",
+  "expect": "answer"
+ },
+ {
+  "id": "s2-082",
+  "area": "physics",
+  "prompt": "An echo returns 0.6 s after a shout toward a cliff. If sound travels at 340 m/s, how far is the cliff?",
+  "history": [],
+  "reply": "The sound goes to the cliff and back, so it covers twice the distance.\n\n$$d = \\frac{vt}{2} = \\frac{340 \\times 0.6}{2} = 102\\ \\text{m}$$\n\nThe cliff is **102 m** away.",
+  "expect": "answer"
+ },
+ {
+  "id": "s2-083",
+  "area": "physics",
+  "prompt": "A candle stands 20 cm in front of a concave mirror with focal length 15 cm. How far away is the image?",
+  "history": [],
+  "reply": "$$\\frac{1}{v} = \\frac{1}{f} - \\frac{1}{u} = \\frac{1}{15} - \\frac{1}{20} = \\frac{1}{60}$$\n\n$$v = 60\\ \\text{cm}$$\n\nThe image forms **60 cm** in front of the mirror (real and inverted).",
+  "expect": "answer"
+ },
+ {
+  "id": "s2-084",
+  "area": "places",
+  "prompt": "How far is the closest eyeglasses store from me?",
+  "history": [],
+  "reply": "The closest eyeglasses store is **Vision Plus Optics** on Bole Road, about **1.2 km** away (5 minutes by car).",
+  "expect": "search",
+  "location": "Addis Ababa, Ethiopia"
  }
 ]

@@ -2,42 +2,6 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-from app.modules.integrations.schemas import (
-    CalendarConflictOut as CalendarConflictOut,
-)
-from app.modules.integrations.schemas import (
-    CalendarConflictsOut as CalendarConflictsOut,
-)
-from app.modules.integrations.schemas import (
-    CalendarEventProposalIn as CalendarEventProposalIn,
-)
-from app.modules.integrations.schemas import (
-    CalendarEventProposalOut as CalendarEventProposalOut,
-)
-from app.modules.integrations.schemas import (
-    GoogleCalendarConnectRequest as GoogleCalendarConnectRequest,
-)
-from app.modules.integrations.schemas import (
-    GoogleCalendarEventOut as GoogleCalendarEventOut,
-)
-from app.modules.integrations.schemas import (
-    GoogleCalendarEventsOut as GoogleCalendarEventsOut,
-)
-from app.modules.integrations.schemas import (
-    GoogleCalendarStatusOut as GoogleCalendarStatusOut,
-)
-from app.modules.integrations.schemas import (
-    GoogleGmailConnectRequest as GoogleGmailConnectRequest,
-)
-from app.modules.integrations.schemas import (
-    GoogleGmailStatusOut as GoogleGmailStatusOut,
-)
-from app.modules.integrations.schemas import (
-    SuggestedReminderOut as SuggestedReminderOut,
-)
-from app.modules.integrations.schemas import (
-    SuggestedRemindersOut as SuggestedRemindersOut,
-)
 from app.modules.speech.schemas import (
     SPEECH_MAX_AUDIO_BYTES as SPEECH_MAX_AUDIO_BYTES,
 )

@@ -582,4 +582,26 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # The magnetic force on a moving charge, F = qvB sin(theta).
+    formula(
+        "charge_magnetic_force",
+        "magnetism",
+        "Magnetic force on a moving charge",
+        "F",
+        base_latex=r"F = q v B",
+        assumptions=("the velocity is perpendicular to the field",),
+        expression="Q*v*b_field",
+        variables=(
+            var("Q", "q", "coulomb", fallback="particle_charge"),
+            var("v", "v", "meter / second"),
+            var("b_field", "B", "tesla"),
+        ),
+        binding=Binding(
+            asks=("magnetic force", "force"),
+            result=("newton",),
+            inputs=(frozenset({"Q", "v", "b_field"}),),
+            cues=("perpendicular", "right angles"),
+            nonnegative=True,
+        ),
+    ),
 )

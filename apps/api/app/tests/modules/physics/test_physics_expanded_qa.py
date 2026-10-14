@@ -5,10 +5,6 @@ from __future__ import annotations
 import pytest
 
 from app.core.config import Settings
-from app.modules.integrations.calendar import (
-    is_calendar_create_request,
-    should_inject_calendar_block,
-)
 from app.modules.physics.catalog import CATALOG
 from app.modules.physics.schemas import PhysicsIntent
 from app.tests.modules.physics.support import (
@@ -190,8 +186,6 @@ def test_audit_prompts_are_verified_instant_structured_physics(
         reply.index(heading) for heading in _HEADINGS
     )
     assert "**Formula**  \n" in reply and f" — {CATALOG[op].law_name}" in reply
-    assert not is_calendar_create_request(query)
-    assert not should_inject_calendar_block(query)
 
 
 def test_every_supported_physics_operation_has_a_named_governing_law() -> None:

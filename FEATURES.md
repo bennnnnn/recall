@@ -91,8 +91,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 ## 3. Messaging behaviour
 - ✅ **Streaming** — token-by-token over WebSocket; the reply appears as it's generated.
   Ordinary turns show typing dots only (no “loading memory / working on it” staircase).
-  Status labels are reserved for real extra work: web search, files, calendar, inbox,
-  math, and image gen. Turn start overlaps waiting for the previous reply to persist
+  Status labels are reserved for real extra work: web search, files, math, and image
+  gen. Turn start overlaps waiting for the previous reply to persist
   with user/quota load (regenerate still waits first so it does not miss that reply).
   Attachment-chunk probes run only when they can apply;
   time/location answers skip a database checkout.
@@ -170,7 +170,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   return when the draft is empty. Spoken turns are saved as normal chat
   messages (what you said + the reply) so they are in the thread when you
   close. Spoken sessions get the same stored-memory snapshot as text chat
-  plus bounded read-only memory lookup and web search (not Calendar/Gmail actions).
+  plus bounded read-only memory lookup and web search.
   Search sources use the existing reply chips. The chat header (drawer / ⋮) stays
   available. Needs `OPENAI_API_KEY` — OpenRouter has no Realtime API. Stale
   clients that still call `POST /speech/live/speak` get **410**.
@@ -292,7 +292,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the Schwarzschild radius, the Boltzmann ratio and `S = k ln Ω`, energy-time
   uncertainty, and an orbit's period from its height); see "Adding a law" in
   docs/physics.md. An answer is in the unit its like givens share (two µF capacitors
-  give µF). Mechanics:
+  give µF). The STEM sweep (`app/tests/behavior/stem_sweep.py`, 327 turns) runs
+  homework questions through the real chat path and fails CI on any wrong verified
+  number, misread turn, reply out of shape or broken picture; it answers 265 of 274.
+  Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements plus s = vt − ½at², projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar
   F=ma with resultants and components, KE / PE / work / power (including
@@ -427,8 +430,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`steps`, `comparison`, `keyvalue`, `quote`, `clock`, `callout`)
   still render for history; the prompt must not choose them. A `>` quote card is
   only a citation whose last line is `— Name`. `details` / `collapse` / `summary`
-  and HTML `<details>` unwrap to a bold title plus markdown. Calendar, reminder,
-  and settings (`settings_proposal`) control fences stay outside the registry.
+  and HTML `<details>` unwrap to a bold title plus markdown. Reminder
+  (`reminder_proposal`) and settings (`settings_proposal`) control fences stay outside the
+  registry; a leftover `calendar_proposal` in an old message is stripped for display.
   Leftover `vocab_quiz` fences in old messages are stripped for display.
 - ✅ **Answer photos** — an answer mainly about something worth seeing (a place,
   landmark, animal, plant, person, food, product) gets one real photo above the text,
@@ -462,7 +466,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   design; the composer picker was removed to keep the composer single-purpose). Respected
   per chat turn.
 - ✅ **Chat settings from natural language** — small allowlist, confirm-then-write
-  (calendar-proposal style): model (Flash / Pro / Auto, nicknames like “GPT” → GPT 5.5),
+  (the same card a reminder change gets): model (Flash / Pro / Auto, nicknames like “GPT” → GPT 5.5),
   tone (funny / professional / casual / soft), app language, and appearance
   (light / dark / system — applied on-device). Respects `enabled_models` + plan.
   No open settings tool.
@@ -528,7 +532,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (0.35). Health / legal / finance / relationship stay **stripped on casual turns** (stored
   `sensitivity` first, regex defense-in-depth) and inject only when the ask is in-domain.
   Life-domain advice ("what should I eat", "I need dinner", "plan a workout")
-  injects **memory only** — not Calendar/Gmail. Ordinary need/plan phrasing
+  injects **memory only**. Ordinary need/plan phrasing
   counts, not just "recommend" / "what should I".
 - ✅ **Semantic recall** — when `semantic_memory_enabled` (default on), the user's latest message
   is embedded and the top matching memories are selected (cosine similarity on stored embeddings;
@@ -581,8 +585,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   sharing one `AsyncSession`.
 - ✅ **Slim casual turns** — coaching / chit-chat uses a compact format + math-safety hint (not
   the full visualization/math-solver pack), keeps bounded personal memory and semantic history
-  available for continuity, and skips calendar/gmail-nudge and web/math/chem prefetch unless the
-  turn is rich or actually needs search, math, chemistry, or calendar/gmail. Exact greetings and
+  available for continuity, and skips web/math/chem prefetch unless the turn is rich or actually
+  needs search, math or chemistry. Exact greetings and
   acknowledgements stay on the zero-retrieval fast path.
 - ✅ **Prompt token budgeting UI** — Settings → Account → Usage shows how much of
   today's limit is left. The composer
@@ -629,14 +633,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   talk speak; Default keeps the server's), read-aloud speed (0.75×–1.5×, on the device,
   pitch kept) and Use on-device voice (offline device speech instead of cloud read-aloud).
 - ✅ **Memory** — on/off, Manage saved memories, clear all (`DELETE /memories`).
-- ✅ **Connected apps** — **off for launch**: `google_calendar_enabled` and `gmail_enabled`
-  default false, and Settings hides the row while the server reports neither as configured
-  (a still-connected account keeps it, so it can be removed). With a flag on, Calendar and
-  Gmail each show status and Connect / Disconnect directly on one page. Calendar permissions and Gmail sync stay in the same cards;
-  there is no provider detail page. Connect opens Google authorization directly;
-  disconnect retains confirmation because it can also disconnect the other Google service.
 - ✅ **Notifications** — push (On only if pref and OS permission) with its own switch per
-  kind under it: to-do reminders, email suggestions, calendar meetings
+  kind under it, today to-do reminders
   (`users.push_*_enabled`; the scheduler skips a kind that is off, and to-do reminders
   off also stops the on-device ones). Reminder lead, email reminders, quiet hours.
 - ✅ **Models** — Auto and model toggles. Developer diagnostics are omitted from this screen.
@@ -660,9 +658,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Settings → Appearance.
 - ✅ **Local todo reminders** — scheduled on-device notifications when a todo item is due (via
   `expo-notifications`; requires a dev build for full native support).
-- ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; todo-due,
-  email-suggestion, and **calendar meeting** notifications (requires dev build + EAS
-  project ID). Quiet hours skip push and reminder email without marking them sent.
+- ✅ **Remote push (MVP)** — Expo push tokens registered with the backend; todo-due
+  notifications (requires dev build + EAS project ID). Quiet hours skip push and reminder email without marking them sent.
 - ✅ **Email reminders** — opt-in todo-due emails (Resend); Settings
   toggle; worker scheduler only (welcome + Pro receipt unchanged).
 
@@ -778,7 +775,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   recovers missed writes from chat (dated items only). The job is off while cards are on,
   since it would write without one. Injects
   Schedule + overdue summary into the system prompt. “What time is my flight / meeting /
-  …” loads Schedule (and Calendar) on the first turn. Typed “remind me …” also classifies
+  …” loads Schedule on the first turn. Typed “remind me …” also classifies
   as a Schedule turn. Live Talk injects a compact Schedule snapshot and applies the same
   clocked “remind me … today/tomorrow at …” persist heuristic (no invented times; tools
   stay read-only).
@@ -793,10 +790,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   leftover local alerts then re-schedules them on-device.
 - ✅ **Proactive suggestions** — follow-up prompt ideas generated in the background from recent
   activity (best-effort; regenerated periodically); inline chips under the latest assistant reply.
-- 🔜 1-hour-early **email/push** nudges beyond the local lead picker (calendar-aware).
-- 🔜 **Flight-aware reminders** — parse confirmation mail (airline, flight number, departure)
-  into a suggested reminder (confirm before add, same as other Gmail suggestions). Later:
-  live status (delayed / cancelled / gate) from a flight API when the user asks. Not v1.
+- 🔜 1-hour-early **email/push** nudges beyond the local lead picker.
 
 ## 15. Code execution policy
 - ⚠️ **Sandboxed HTML/CSS/JS preview only** — `html` fences can be previewed/run in an isolated
@@ -806,121 +800,32 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - 🔒 **No other code execution** — all other code (Python, shell, etc.) is rendered/highlighted
   only, and nothing runs outside the sandboxed preview WebView. (By design.)
 
-## 16. MCP & calendar
+## 16. Model tools
 
-**Off for launch** (`google_calendar_enabled` / `gmail_enabled` default false): no prompt
-hints, no calendar tool, no nudges or Gmail sync, and Settings hides Connected apps. The
-code below stays; turning a flag on brings it back without an app release.
+**Google Calendar and Gmail are removed.** Recall does not connect to a calendar or an email
+inbox: To-do holds the user's own tasks and reminders, and the prompt tells the model to say so
+plainly rather than suggest connecting an account. Migration `0106_drop_google_integrations`
+drops `user_calendar_connections`, `user_gmail_connections` and `suggested_reminders`, the two
+push switches for email suggestions and calendar meetings, and the `gmail` to-do source. It
+deletes stored Google refresh tokens without revoking them at Google (a migration makes no
+network calls). The legacy pre-stream tool round (`mcp_tools_enabled`, `chat/tools.py`) went
+with them; it only ever carried the calendar hint. Sign-in with Google is unchanged and needs
+only `GOOGLE_CLIENT_ID`.
 
-Connect external context (starting with Google Calendar) so the assistant knows the user's schedule,
-can align todos with meetings, and eventually act via tools — **all server-side** (no MCP secrets or
-calendar tokens on the mobile app).
-
-```
-Mobile → Recall API → MCP / calendar gateway → Google Calendar
-                    ↘ memory / todos / chat (existing)
-```
-
-### Phase 1 — Calendar connect (before full MCP)
-- ✅ **Google Calendar OAuth** — separate opt-in from sign-in; scope `calendar.readonly`; refresh
-  token stored server-side only.
-- ✅ **`user_calendar_connections` table** — refresh token, granted scopes, primary calendar id.
-- ✅ **`modules/integrations/calendar.py`** — fetch events for a window (**local midnight** → +60
-  days, not `timeMin=now`); prompt inject uses 14 days; Redis cache (~5 min) so every
-  chat turn doesn't hit Google. Morning meetings stay on the Reminders day view after
-  they end.
-- ✅ **Prompt injection** — compact calendar block next to todos/memory (title, start/end, optional
-  location; minimal PII).
-- ✅ **Settings UI** — Connect / disconnect Google Calendar; shows connected email.
-- ✅ **Reminders calendar UI** — Google events on the day view alongside in-app reminders (all
-  **selected** calendars on the connected account, not primary only).
-
-Unlocks: "What's on my calendar tomorrow?", conflict checks vs todo due dates, smarter scheduling
-suggestions using existing `users.timezone` and `todo_items.due_at`.
-
-### Phase 1b — Gmail → suggested reminders
-- ✅ **Gmail OAuth** — opt-in from Settings (separate from Calendar); read-only inbox scope;
-  refresh token server-side only.
-- ✅ **`user_gmail_connections` table** — scopes, `last_sync_at`, connected email (7-day
-  inbox query; not a Gmail History API cursor).
-- ✅ **`modules/integrations/inbox.py`** — fetch recent mail, dedupe by message id, LLM extraction with Pydantic
-  validation before DB writes.
-- ✅ **Suggested reminders API** — list / dismiss / confirm → create an in-app **dated**
-  reminder (`due_at` required; undated extracts default to 18:00 local or now + 1 hour).
-- ✅ **Suggested reminders UI** — Schedule "From email" section; confirm before add
-  (no silent auto-add). Gmail chips do not appear in chat.
-- ✅ **Background sync** — periodic Gmail sync job enqueued after connect.
-- ✅ **ICS invite parsing** — folded lines, `TZID` / all-day `VALUE=DATE`, location/description
-  notes, cancelled events skipped (LLM fallback when no `.ics`).
-- ✅ **Sender templates + chat nudges** — known senders (Amazon / UPS / FedEx /
-  USPS / DHL / OpenTable / Resy / Tock / Calendly) extract without the LLM when
-  the subject looks like a delivery, reservation, or appointment. Suggestions
-  store `source_sender`. Pending items inject into regular chat turns (not only
-  inbox questions). Confirming from Schedule syncs local due notifications.
-  Flights stay a later item.
-- 🔜 **Flight confirmations** — extract airline + flight number + departure into the
-  suggested reminder (not a free-text “flight” title only). Live delay/cancel status is
-  a later flight-API step, not inbox guessing.
-
-**Privacy & UX** (unchanged intent)
-- Clear copy: what is read, how long it is kept. Disconnecting Calendar or Gmail
-  **revokes the Google grant** (they often share one refresh token) and **disconnects
-  the sibling product**. Reconnect the remaining product to grant only its scopes.
-- Minimal retention; user confirms every suggestion in v1
-
-**Out of scope for v1** (unchanged)
-- Reading mail from a **different** Google account than the one connected
-- Google Tasks / Keep reminders
-- Sending email or replying from Recall
-- Full inbox UI in the app
-
-### Phase 2 — MCP layer
-- ✅ **MCP gateway skeleton** — `gateways/mcp/` with registry + adapters (`web_search`, `calendar`).
-- ⚠️ **Pre-stream tool round** — when `MCP_TOOLS_ENABLED=true`, `chat_tools.py` invokes matching
-  adapters once before streaming (legacy; skipped when the tool loop is on).
+- ✅ **MCP gateway** — `gateways/mcp/` with registry + module-owned adapters (`web_search`,
+  `sympy`, `generate_image`, `search_image`). Tools are owned by Recall; arbitrary user MCP
+  servers stay out of scope.
 - ✅ **Full tool-calling loop** — **on by default**, but **not on every turn.**
   Ordinary chat streams immediately. Pre-stream `complete_with_tools` runs only
   when the turn still looks like web search (a live cue or a short follow-up may
   consult the LLM classifier; otherwise the regex answer stands — and heuristic
-  search did not already fill sources), unsolved math, calendar create, or Pro image gen. If that round
+  search did not already fill sources), unsolved math, or Pro image gen. If that round
   finishes without tools, the text is shown — the stream does not call the model
-  a second time. Adapters: `web_search` / `sympy` / `calendar` / `image_gen`,
-  Pydantic-validated args, bounded by `mcp_tool_loop_max_rounds`. The **calendar**
-  adapter **conflict-checks Google Calendar** (`fetch_upcoming_events`, same as
-  Reminders/chat) and may merge caller-supplied stubs (proposed times). It does
-  **not** create Google events — create stays the `calendar_proposal` fence +
-  confirm card. Heuristic SymPy + web-search inject still run so homework and
-  first-turn search do not wait on a tool call. Legacy `mcp_tools_enabled` stays off.
+  a second time. Pydantic-validated args, bounded by `mcp_tool_loop_max_rounds`.
+  Heuristic SymPy + web-search inject still run so homework and first-turn search do
+  not wait on a tool call.
 - ✅ **Golden rules preserved** — product aliases in services; structured outputs validated with
-  Pydantic before DB writes (already enforced for calendar proposals and email extraction).
-
-### Phase 3 — Smarter behavior
-- ✅ **Conflict detection** — server helper + row notes on existing reminders after events
-  load. Add/edit sheets do not call `/conflicts`.
-- ✅ **Create calendar events (confirm flow)** — user asks to schedule → model emits
-  `calendar_proposal` fence → backend stores Redis proposal + injects `proposal_id` → mobile
-  **Add to Calendar** card → confirm creates the Google event (requires calendar **write** scope).
-- ✅ **Proactive calendar nudges** — push scheduler warns before connected Google Calendar
-  events (default **15 min** lead; Redis dedupe per event). Tap opens Reminders calendar view.
-
-### Privacy & UX
-- Opt-in connect; disconnecting deletes Recall’s connection row and stops injection.
-  If Calendar and Gmail share a refresh token, disconnect **revokes at Google** and
-  **drops the sibling product** so it must reconnect with only its scopes.
-- Minimal event data in prompts; no full attendee lists unless the user asks.
-- v1 non-goals: arbitrary user-configured MCP servers, syncing every on-device calendar locally,
-  running MCP on the phone.
-
-### Suggested build order
-1. Google Calendar read-only + prompt injection ✅
-2. Settings "Connect calendar" ✅
-3. Calendar events on Reminders calendar UI ✅
-4. Calendar-aware chat answers (no MCP protocol yet) ✅
-5. **Gmail read-only → suggested reminders** ✅
-6. MCP gateway abstraction + pre-stream adapter round ⚠️
-7. Write calendar events / confirm UX ✅
-8. Full LiteLLM tool-calling loop ✅ (on by default)
-9. Email auto-add for high-confidence types (optional, post-MVP) 🔜
+  Pydantic before DB writes.
 
 ---
 
@@ -936,7 +841,7 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 
 ### Already shipped (keep for audit trail)
 - ✅ **Full MCP / multi-turn tool loop** — LiteLLM `tools=` rounds; `MCP_TOOL_LOOP_ENABLED`
-  defaults **on**. Heuristic math/search still run. See [§16](#16-mcp--calendar).
+  defaults **on**. Heuristic math/search still run. See [§16](#16-model-tools).
 - ✅ **Attachment RAG** — pgvector chunk + embed over uploaded PDF/docs **in that chat**
   (`chat_id`); top-k into later turns. **Not** a per-user file library across chats.
   Text-layer extract on prepare; vision OCR on the index job only. File chip shows
@@ -1054,9 +959,9 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 | Chats | Folders; public unauthenticated share URLs; edit arbitrary older messages |
 | Messaging | Reactions, read receipts; full duplex live voice; music generation (composer send + compact inline player) |
 | Models | User-tunable routing rules; response-cache; NL daily-goal setting |
-| Todos | 1-hour-early email/push nudges; flight-aware reminders (email parse + live status) |
+| Todos | 1-hour-early email/push nudges |
 | Attachments | **User-wide attachment RAG** (chunks are per `chat_id`; later turns in that chat only) |
-| Integrations | Google Docs, GitHub; user MCP servers; Gmail OAuth verification (prod) |
+| Integrations | Google Docs, GitHub; user MCP servers |
 | Platform | Web client; code execution beyond HTML sandbox; virus scan |
 | i18n | ~350 locale strings still English; legal privacy/terms bodies English-only |
 | Polish | App Store / Play / family plans |
@@ -1072,7 +977,7 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
   run on local fallback until `STORAGE_BACKEND=r2` + `R2_ACCOUNT_ID` / `R2_ACCESS_KEY_ID` /
   `R2_SECRET_ACCESS_KEY` / `R2_BUCKET` secrets are set. (Code done; creds pending.)
 - ⚠️ **Production env secrets** — `validate_production_settings` enforces
-  `OAUTH_TOKEN_ENCRYPTION_KEY`, `OPENROUTER_API_KEY`, `CORS_ORIGINS`,
+  `OPENROUTER_API_KEY`, `CORS_ORIGINS`,
   `REVENUECAT_WEBHOOK_AUTH` (plus DB/Redis/Google/JWT/dev-flags). `ENVIRONMENT` now
   **defaults to `production` (fail-closed)** — local `.env` / `.env.example` must set
   `ENVIRONMENT=development`.
@@ -1094,7 +999,7 @@ Infra + store steps live in Lists → **Launch** (local Dev User) and
 - 🔜 **Legal page bodies** — **future.** `/legal/privacy` and `/legal/terms` remain English-only
   markdown on the API (nav titles are localized).
 - ✅ **DB session scope in `_prepare_chat_turn`** — attachment S3 reads and web-search
-  augmentation run outside the DB session; calendar/Gmail still use a short session.
+  augmentation run outside the DB session.
 - ✅ **Background-job DLQ** — failed jobs (including unknown type / bad JSON) go to
   `recall:jobs:dlq` before ACK. Stream trim uses pending MINID so approximate maxlen
   cannot drop unacked entries.
@@ -1109,9 +1014,9 @@ Shipped after the Phase 1/2 code review (and follow-up PRs):
 
 - ✅ Fail-closed `ENVIRONMENT` default (`production`); tests set `development` via conftest
 - ✅ Job DLQ for unknown type / bad payload; pending-aware stream trim
-- ✅ Remove dead `quota.can_spend`; bulk-delete suggested reminders; parallel attachment byte deletes
+- ✅ Remove dead `quota.can_spend`; parallel attachment byte deletes
 - ✅ `attachment_index` enqueued on the post-turn jobs path (not mid `prepare_chat_turn`)
-- ✅ Token-based Redis locks for push / email / Gmail / orphan-reaper schedulers
+- ✅ Token-based Redis locks for push / email / orphan-reaper schedulers
 - ✅ WS handshake IP rate limit before `accept()`; core `user_id` FKs `ON DELETE CASCADE`
 - ✅ Alembic `transaction_per_migration` so future `CREATE INDEX CONCURRENTLY` can use
   `op.get_context().autocommit_block()`
@@ -1220,7 +1125,7 @@ Internal product snapshot for leadership, engineering, design, GTM, and App Stor
 
 ### Mission
 Recall is a **personal AI utility** — not a generic chatbot. It remembers who you are, helps you
-act (reminders, calendar, email), and teaches in ordinary chat (math, physics, chemistry,
+act (reminders, drafts, settings), and teaches in ordinary chat (math, physics, chemistry,
 programming, and “teach me…” lessons). One trusted assistant combining ChatGPT-grade conversation
 with durable memory and everyday productivity.
 
@@ -1229,14 +1134,14 @@ with durable memory and everyday productivity.
 |--------|---------|
 | Chat that feels fast | Streaming, stop/regenerate, rich answers, status while working |
 | Memory that compounds | User facts + past-chat RAG — the namesake |
-| Utility beyond chat | Schedule, integrations |
-| Trust & control | Export, delete account, opt-in integrations, quota transparency |
+| Utility beyond chat | Schedule, reminders |
+| Trust & control | Export, delete account, confirm-before-write cards, quota transparency |
 | Monetize fairly | Free tier with limits; Pro for power users |
 
 ### Release plan
 | Phase | Scope | Status |
 |-------|--------|--------|
-| MVP (mobile) | Chat + memory + Schedule + calendar/Gmail + attachments | ~95% code-complete |
+| MVP (mobile) | Chat + memory + Schedule + attachments | ~95% code-complete |
 | Launch readiness | Provisioning, store builds, landing page, OAuth verification, on-device QA, R2 secrets | 🔜 Future (owner ops) |
 | v1.1 | Remaining web slices (rich fences, Memory/settings), locale prose, legal localization | 🔜 Future |
 | Next (product) | — | Done (tool loop, scanned-PDF OCR, chat-history RAG) |
@@ -1285,17 +1190,15 @@ drawer FTS search ✅.
 ### Integrations
 | Shipped | Not done |
 |---------|----------|
-| Google Calendar read + write (confirm flow) | Google OAuth verification for Gmail (future) |
-| Gmail → suggested **dated** reminders (`last_sync_at`, 7-day query) | Gmail History API cursor; Google Docs, GitHub |
-| MCP adapters + LiteLLM tool loop **on by default** (not every turn); calendar MCP conflicts vs Google | Calendar MCP creating Google events; user MCP servers |
+| MCP adapters + LiteLLM tool loop **on by default** (not every turn) | Google Docs, GitHub; user MCP servers |
+| Google Calendar and Gmail were shipped, then **removed** (§16) | — |
 
 ### Future — launch ops (owner, not product code)
 1. Cost guards (speech, Tavily, R1 weight) ✅
 2. 🔜 Provision Neon, Redis, R2, Fly, EAS
 3. 🔜 Landing page + support URL
-4. 🔜 Google OAuth verification (Gmail)
-5. 🔜 On-device QA matrix (iOS + Android)
-6. 🔜 R2 production attachments
+4. 🔜 On-device QA matrix (iOS + Android)
+5. 🔜 R2 production attachments
 
 ### Explicitly not v1
 Multi-user teams, collaborative editing, video generation, public unauthenticated share URLs,
@@ -1303,8 +1206,8 @@ arbitrary user MCP servers, gamification (XP/badges). **OpenRouter / product ali
 
 **Next (product):** none — tool loop, scanned-PDF OCR, and chat-history RAG are done.
 
-**Future (not implementing now):** launch ops (provision, landing page, Gmail OAuth, on-device
-QA, prod R2); Google Docs + GitHub; code execution (beyond the HTML sandbox); duplex voice;
+**Future (not implementing now):** launch ops (provision, landing page, on-device QA, prod
+R2); Google Docs + GitHub; code execution (beyond the HTML sandbox); duplex voice;
 remaining web slices; locale prose + legal bodies; folders / family plans; **user-wide attachment RAG**.
 
 ---
@@ -1318,10 +1221,8 @@ weakness. No video generation. Native share is enough unless we later decide we 
 ### Done (this product pass)
 
 1. ✅ **Owned tool loop on** — `mcp_tool_loop_enabled` defaults true. Adapters:
-   `web_search`, `calendar`, `sympy` (if math on), `image_gen` (if image gen on),
-   `search_image` (if image search on).
-   The calendar adapter conflict-checks **Google Calendar** (plus optional caller
-   stubs); it does not create on Google. Heuristic SymPy still runs. Web search is
+   `web_search`, `sympy` (if math on), `image_gen` (if image gen on),
+   `search_image` (if image search on). Heuristic SymPy still runs. Web search is
    the owned tool loop (source chips + wrap); a skipped `web_search` still runs
    one cached search. Add Docs/GitHub later as owned tools — not user MCP servers.
 2. ✅ **Scanned-PDF OCR** — text-layer extract on prepare (no vision); empty PDFs
@@ -1342,12 +1243,12 @@ weakness. No video generation. Native share is enough unless we later decide we 
    Copy, “make that shorter”, and reopen agree. Not user-message edit.
 7. ✅ **Advice memory on ordinary phrasing** — “I need a quick dinner tonight”
    and “plan a workout for me” load the same memory-only path as
-   “what should I eat” / “recommend a workout”. Still not Calendar/Gmail.
+   “what should I eat” / “recommend a workout”.
 
 ### Future (not implementing now)
 
 - Launch ops: provision Neon / Redis / R2 / Fly / EAS; landing page + support URL;
-  Google OAuth verification (Gmail); on-device QA (iOS + Android); production R2 secrets.
+  on-device QA (iOS + Android); production R2 secrets.
 - Google Docs, GitHub (owned integrations).
 - **User-wide attachment RAG** — chunks stay per `chat_id`; later turns in that chat only.
 - Full duplex live voice (talk over playback without tapping).

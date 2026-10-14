@@ -18,6 +18,19 @@ def _same_unit(left: str, right: str) -> bool:
     return (unit_expression(left) or left) == (unit_expression(right) or right)
 
 
+def _in_si(value: float, unit: str, si: str) -> tuple[float, str]:
+    """The value in the SI unit ``si``; a unit Pint cannot read is refused."""
+    from app.modules.physics.givens import unit_expression
+    from app.services.units import get_unit_registry
+
+    ureg = get_unit_registry()
+    try:
+        quantity = value * ureg(unit_expression(unit) or unit)
+        return float(quantity.to(ureg(unit_expression(si) or si)).magnitude), si
+    except Exception as exc:
+        raise SolveServiceError(f"cannot convert {unit} to {si}") from exc
+
+
 def _rate_number(value: float) -> str:
     """Format a checked scalar without inventing presentation precision."""
     if not math.isfinite(value):
@@ -92,7 +105,10 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
             raise SolveServiceError("distance requires a non-negative speed and time")
         distance_unit, speed_time_unit = speed_unit.split("/", 1)
         if not _same_unit(speed_time_unit, time_unit):
-            raise SolveServiceError("speed and time units must use the same time scale")
+            # 54 km/h for 10 s: the two clocks differ, so work in m/s and s.
+            speed, speed_unit = _in_si(speed, speed_unit, "m/s")
+            duration, time_unit = _in_si(duration, time_unit, "s")
+            distance_unit = "m"
         value = speed * duration
         answer_unit = distance_unit
         formula = r"d = vt"
@@ -117,7 +133,10 @@ def _solve_distance_speed_time(intent: PhysicsIntent) -> PhysicsResult:
             raise SolveServiceError("time requires a non-negative distance and positive speed")
         speed_distance_unit, answer_unit = speed_unit.split("/", 1)
         if not _same_unit(speed_distance_unit, distance_unit):
-            raise SolveServiceError("distance and speed units must use the same length scale")
+            # 3 km at 2 m/s: the two rulers differ, so work in m and m/s.
+            distance, distance_unit = _in_si(distance, distance_unit, "m")
+            speed, speed_unit = _in_si(speed, speed_unit, "m/s")
+            answer_unit = "s"
         value = distance / speed
         formula = r"t = \frac{d}{v}"
         working = (

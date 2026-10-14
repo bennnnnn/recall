@@ -14,7 +14,6 @@ from app.models.orm import Chat, User
 from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
 from app.modules.account import profile as profile_service
-from app.modules.chat import tools as chat_tools_service
 from app.modules.chat.continuation_subject import (
     blocks_math_followup,
 )
@@ -55,7 +54,6 @@ from app.modules.chat.prompt_format import (
 )
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
 from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT, chemistry_followup_problem
-from app.modules.integrations import inbox as email_service
 from app.modules.math.followup import (
     MATH_FOLLOWUP_HINT,
     is_math_followup,
@@ -127,17 +125,13 @@ _PROFILE_EMAIL_ASK = re.compile(
 
 
 def should_include_profile_email(query_text: str | None) -> bool:
-    """True when the turn needs the account email (ask / draft / inbox / tools)."""
+    """True when the turn needs the account email (an ask or a draft)."""
     cleaned = (query_text or "").strip()
     if not cleaned:
         return False
     if _PROFILE_EMAIL_ASK.search(cleaned):
         return True
-    if is_email_or_message_request(cleaned):
-        return True
-    if email_service.should_inject_gmail_block(cleaned):
-        return True
-    return False
+    return is_email_or_message_request(cleaned)
 
 
 # The user sends the drafts Recall writes, so the sign-off is their own name.
@@ -321,35 +315,14 @@ async def inject_web_and_tools(
     prompt_messages: list[dict[str, str]],
     web_block: str | None,
     math_block: str | None,
-    settings: Settings,
-    *,
-    user_content: str,
-    user_timezone: str | None = None,
-    user_location: str | None = None,
-    prior_user_messages: list[str] | None = None,
-    on_status: StreamStatusFn | None = None,
-    has_calendar_write: bool = False,
 ) -> list[dict[str, str]]:
-    """Inject web → MCP calendar → math blocks in the historical order.
+    """Inject web → math blocks in the historical order.
 
     Mutation order is what keeps prompt shape stable; fetch order is irrelevant.
     """
     updated = prompt_messages
     if web_block:
         updated = inject_before_last_user(updated, web_block)
-
-    if settings.mcp_tools_enabled:
-        updated = await chat_tools_service.augment_prompt_with_mcp_tools(
-            updated,
-            user_content,
-            settings,
-            user_timezone=user_timezone,
-            user_location=user_location,
-            prior_user_messages=prior_user_messages,
-            on_status=on_status,
-            has_calendar_write=has_calendar_write,
-        )
-
     if math_block:
         updated = inject_before_last_user(updated, math_block)
     return updated
@@ -371,7 +344,6 @@ async def _augment_web_and_tools(
     on_status: StreamStatusFn | None = None,
     user: User | None = None,
     redis: Redis | None = None,
-    has_calendar_write: bool = False,
 ) -> tuple[list[dict[str, str]], list[WebSearchHit], VerifiedSolveBlock | None]:
     """Backward-compatible fetch + inject (used by tests). Prefer the split pair."""
     (
@@ -398,18 +370,7 @@ async def _augment_web_and_tools(
         user=user,
         redis=redis,
     )
-    updated = await inject_web_and_tools(
-        prompt_messages,
-        web_block,
-        math_block,
-        settings,
-        user_content=user_content,
-        user_timezone=user_timezone,
-        user_location=user_location,
-        prior_user_messages=prior_user_messages,
-        on_status=on_status,
-        has_calendar_write=has_calendar_write,
-    )
+    updated = await inject_web_and_tools(prompt_messages, web_block, math_block)
     return updated, search_sources, verified_math
 
 
@@ -637,7 +598,6 @@ async def build_prompt_messages(
                 memory_block=blocks.memory_block,
                 attachment_rag_block=blocks.attachment_rag_block,
                 todos_section=blocks.todos_section,
-                gmail_todos_section=blocks.gmail_todos_section,
                 summary=summary,
                 chat_history_rag_block=chat_history_rag_block,
             )

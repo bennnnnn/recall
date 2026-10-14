@@ -18,29 +18,15 @@ from app.modules.chat.turn_prep.context import (
     RegenerateBackup,
     StreamContext,
     TurnPromptBundle,
+    _load_prior_user_messages,
     await_user_message_persist,
     build_stream_prompt_context,
     resolve_client_geo,
     stream_context_from_bundle,
 )
-from app.modules.chat.turn_prep.integrations import (
-    INTEGRATION_LOAD_TIMEOUT_SECONDS,
-    _inject_integration_blocks,
-    _load_calendar_prompt_block,
-    _load_gmail_context_block,
-    _load_gmail_context_if_needed,
-    _load_gmail_prompt_block,
-    _load_has_calendar_write,
-    _load_prior_user_messages,
-    _timed_integration_load,
-    fetch_integration_blocks,
-    inject_integration_blocks,
-)
 from app.modules.chat.turn_prep.mode import (
     _classify_turn_mode,
-    _resolve_instant_reply,
     _should_augment_web_and_tools,
-    _should_fetch_integrations,
     _TurnMode,
 )
 from app.modules.chat.turn_prep.prepare import (
@@ -48,7 +34,6 @@ from app.modules.chat.turn_prep.prepare import (
 )
 
 __all__ = [
-    "INTEGRATION_LOAD_TIMEOUT_SECONDS",
     "ClientGeoContext",
     "RegenerateBackup",
     "SessionLocal",
@@ -57,23 +42,12 @@ __all__ = [
     "_AttachmentProcessResult",
     "_TurnMode",
     "_classify_turn_mode",
-    "_inject_integration_blocks",
-    "_load_calendar_prompt_block",
-    "_load_gmail_context_block",
-    "_load_gmail_context_if_needed",
-    "_load_gmail_prompt_block",
-    "_load_has_calendar_write",
     "_load_prior_user_messages",
     "_process_attachments",
-    "_resolve_instant_reply",
     "_should_augment_web_and_tools",
-    "_should_fetch_integrations",
-    "_timed_integration_load",
     "await_user_message_persist",
     "build_stream_prompt_context",
     "count_image_attachments",
-    "fetch_integration_blocks",
-    "inject_integration_blocks",
     "prepare_chat_turn",
     "resolve_client_geo",
     "stream_context_from_bundle",

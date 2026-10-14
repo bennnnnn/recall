@@ -134,60 +134,6 @@ def test_mobile_memory_has_one_feature_home_and_thin_routes() -> None:
     assert not feature_import_violations
 
 
-def test_integrations_runtime_code_has_one_owner() -> None:
-    module_root = APP_ROOT / "modules" / "integrations"
-    expected = {
-        "api.py",
-        "calendar_repository.py",
-        "gmail_api.py",
-        "gmail_repository.py",
-        "jobs.py",
-        "models.py",
-        "scheduler.py",
-        "schemas.py",
-        "suggestions_repository.py",
-        "tool.py",
-    }
-    assert expected <= {path.name for path in module_root.glob("*.py")}
-    assert (APP_ROOT / "tests" / "modules" / "integrations" / "test_gmail.py").is_file()
-
-
-def test_mobile_integrations_has_one_feature_home_and_thin_routes() -> None:
-    feature_root = MOBILE_ROOT / "features" / "integrations"
-    assert (feature_root / "api.ts").is_file()
-    assert (feature_root / "types.ts").is_file()
-    for folder in ("components", "context", "hooks", "model", "screens"):
-        assert (feature_root / folder).is_dir()
-
-    route = MOBILE_ROOT / "app" / "settings" / "integrations.tsx"
-    lines = [line for line in route.read_text().splitlines() if line.strip()]
-    assert len(lines) == 1
-    assert "features/integrations/screens/IntegrationsScreen" in lines[0]
-
-    for gone in (
-        MOBILE_ROOT / "lib" / "api" / "integrations.ts",
-        MOBILE_ROOT / "lib" / "google-calendar.ts",
-        MOBILE_ROOT / "lib" / "google-gmail.ts",
-        MOBILE_ROOT / "lib" / "google-integration-auth.ts",
-        MOBILE_ROOT / "lib" / "calendarProposal.ts",
-        MOBILE_ROOT / "lib" / "gmailAutoSync.ts",
-        MOBILE_ROOT / "lib" / "cache" / "integrationStatusCache.ts",
-        MOBILE_ROOT / "hooks" / "useSettingsIntegrations.ts",
-        MOBILE_ROOT / "hooks" / "useCalendarProposal.ts",
-        MOBILE_ROOT / "components" / "CalendarProposalCard.tsx",
-        MOBILE_ROOT / "components" / "rich" / "EmailCard.tsx",
-        MOBILE_ROOT / "contexts" / "emailDraftPersist.tsx",
-    ):
-        assert not gone.exists(), gone
-
-    feature_import_violations = [
-        str(path.relative_to(MOBILE_ROOT))
-        for path in feature_root.rglob("*.ts*")
-        if "__tests__" not in path.parts and "@/app/" in path.read_text()
-    ]
-    assert not feature_import_violations
-
-
 def test_attachments_runtime_code_has_one_owner() -> None:
     module_root = APP_ROOT / "modules" / "attachments"
     expected = {

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 
 from app.modules.physics.extractors.common import (
@@ -11,6 +12,7 @@ from app.modules.physics.extractors.common import (
 )
 from app.modules.physics.extractors.fluid_readings import _PRESSURE_PATTERN, FluidReading
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.law_binding.ask import ask_clause
 
 
 def _stokes(f: FluidReading) -> PhysicsIntent | None:
@@ -121,18 +123,54 @@ def _mass_flow(f: FluidReading) -> PhysicsIntent | None:
     )
 
 
+_SMALL_SIDE = r"small(?:er)?|narrow(?:er)?|input|first"
+_LARGE_SIDE = r"large(?:r)?|big(?:ger)?|wide(?:r)?|output|second"
+_PISTON_SIDE = re.compile(
+    rf"\b(?:on|to|at|of|by)\s+(?:the|a)\s+(?P<side>{_SMALL_SIDE}|{_LARGE_SIDE})\s+"
+    r"(?:piston|cylinder|plunger|side)\b",
+    re.IGNORECASE,
+)
+# The load a hydraulic press lifts stands on its large piston.
+_LOAD = re.compile(r"\b(?:car|truck|load|raises?|supports?|holds?\s+up)\b", re.I)
+
+
+def _known_force_on_large(f: FluidReading) -> bool | None:
+    """Whether the stated force acts on the larger piston; None when unsaid.
+
+    "What force on the small piston lifts a 10000 N car?" states the car's
+    weight, which stands on the large piston, and asks for the small one's.
+    """
+    clause = ask_clause(f.cleaned) or ""
+    asked = _PISTON_SIDE.search(clause)
+    if asked is not None:
+        return re.fullmatch(_SMALL_SIDE, asked.group("side"), re.IGNORECASE) is not None
+    stated = _PISTON_SIDE.search(f.cleaned.replace(clause, " ") if clause else f.cleaned)
+    if stated is not None:
+        return re.fullmatch(_LARGE_SIDE, stated.group("side"), re.IGNORECASE) is not None
+    if _LOAD.search(f.cleaned):
+        return True
+    return None
+
+
 def _hydraulic(f: FluidReading) -> PhysicsIntent | None:
-    """Pascal's principle: F1/A1 = F2/A2."""
+    """Pascal's principle: F1/A1 = F2/A2, with F1 the stated force on area A1."""
     if f.force is None or len(f.areas) != 2:
         return None
+    first, second = f.areas
+    on_large = _known_force_on_large(f)
+    if on_large is None:
+        known, other = first, second
+    else:
+        small, large = sorted((first, second), key=lambda area: area[0])
+        known, other = (large, small) if on_large else (small, large)
     return PhysicsIntent(
         kind="fluids",
         physics_op="hydraulic_force",
-        physics_params={"F1": f.force[0], "A1": f.areas[0][0], "A2": f.areas[1][0]},
+        physics_params={"F1": f.force[0], "A1": known[0], "A2": other[0]},
         physics_units={
             "F1": f.force[1] or "N",
-            "A1": f.areas[0][1] or "m^2",
-            "A2": f.areas[1][1] or "m^2",
+            "A1": known[1] or "m^2",
+            "A2": other[1] or "m^2",
         },
         operation="solve",
     )

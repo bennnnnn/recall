@@ -2,7 +2,7 @@
 
 The turn runs the way ``stream_entry`` runs it: the photo-lookup and image-generation
 intercepts, the turn mode, the real prompt builder and pre-solvers, then the tool-loop
-gate. Only IO is stubbed: the database, model health, integrations, the web and image
+gate. Only IO is stubbed: the database, model health, the web and image
 search providers, PubChem, and the model calls. The classifier and the tool rounds are
 recorded instead of called, so the route says whether a model would have been asked.
 """
@@ -116,13 +116,10 @@ def battery_settings() -> Settings:
         math_tools_enabled=True,
         chemistry_enabled=True,
         mcp_tool_loop_enabled=True,
-        mcp_tools_enabled=False,
         attachments_enabled=False,
         attachment_rag_enabled=False,
         chat_history_rag_enabled=False,
         semantic_memory_enabled=False,
-        google_calendar_enabled=False,
-        gmail_enabled=False,
     )
 
 
@@ -222,7 +219,6 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         return _PromptContextBlocks(
             memory_block="",
             todos_section=None,
-            gmail_todos_section=None,
             recent_all=list(rows),
             attachment_rag_block="",
             chat=chat,
@@ -242,16 +238,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stub("app.services.model_health.enrich_models_health", AsyncMock(return_value={}))
         stub("app.modules.billing.plan.chat_fallback_models", lambda *_a, **_k: [])
         stub(
-            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
-            AsyncMock(return_value=[]),
-        )
-        stub(
             "app.modules.chat.turn_prep.context._load_prior_user_messages",
             AsyncMock(return_value=prior_users),
-        )
-        stub(
-            "app.modules.chat.turn_prep.context._load_has_calendar_write",
-            AsyncMock(return_value=False),
         )
         stub("app.modules.web_search.search_cache.run_cached_search", run_search)
         stub("app.gateways.web_search_gateway.search_web", AsyncMock(return_value=[]))

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationVector
 from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
 from app.services.solving import SolveServiceError
@@ -18,7 +19,8 @@ def _lever_scene(loads: list[tuple[float, float, str, bool]]) -> list[Simulation
     reading 2 m under the wrong force would be visible rather than silent.
 
     Each load is (signed distance from the pivot, magnitude, label, is_answer).
-    A negative distance is the left arm.
+    A negative distance is the left arm. The arrows carry the magnitudes, so a
+    120 N load out-reaches a 30 N one; the renderer sets the longest's length.
     """
     if not loads:
         return []
@@ -36,11 +38,11 @@ def _lever_scene(loads: list[tuple[float, float, str, bool]]) -> list[Simulation
                 SimulationVector(
                     anchor=[distance, 0.0],
                     dx=0.0,
-                    dy=-1.0,
+                    dy=-abs(magnitude) or -1.0,
                     label=label,
                     role="result" if is_answer else "force",
                 )
-                for distance, _magnitude, label, is_answer in loads
+                for distance, magnitude, label, is_answer in loads
             ],
             x_min=-reach * 1.15,
             x_max=reach * 1.15,
@@ -48,6 +50,10 @@ def _lever_scene(loads: list[tuple[float, float, str, bool]]) -> list[Simulation
             y_max=depth,
         )
     ]
+
+
+def _given(value: float) -> str:
+    return plain_number(value, GIVEN_FIGURES)
 
 
 def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
@@ -71,8 +77,8 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
                 quantities=(QuantityResult("", f2, "N"),),
                 simulation_specs=_lever_scene(
                     [
-                        (-d1, f1, f"{f1:g} N at {d1:g} m", False),
-                        (d2, f2, f"{f2:.2f} N at {d2:g} m", True),
+                        (-d1, f1, f"{_given(f1)} N at {_given(d1)} m", False),
+                        (d2, f2, f"{plain_number(f2)} N at {_given(d2)} m", True),
                     ]
                 ),
             )
@@ -88,6 +94,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
         )
         formula = r"d_2 = \frac{m_1 d_1}{m_2}" if uses_masses else r"d_2 = \frac{F_1 d_1}{F_2}"
         substitution = rf"d_2 = \frac{{{f1:g} \cdot {d1:g}}}{{{f2:g}}}"
+        unit = "kg" if uses_masses else "N"
         return PhysicsResult(
             answer=(
                 rf"{balance_formula} = \frac{{{f1:g} \cdot {d1:g}}}{{{f2:g}}} "
@@ -100,8 +107,8 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
             # the right, so the answer is the arm you can see.
             simulation_specs=_lever_scene(
                 [
-                    (-d1, f1, f"{f1:g} {'kg' if uses_masses else 'N'} at {d1:g} m", False),
-                    (d2, f2, f"{f2:g} {'kg' if uses_masses else 'N'} at {d2:.2f} m", True),
+                    (-d1, f1, f"{_given(f1)} {unit} at {_given(d1)} m", False),
+                    (d2, f2, f"{_given(f2)} {unit} at {plain_number(d2)} m", True),
                 ]
             ),
         )
@@ -120,7 +127,7 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(rf"d = \frac{{{p['tau']:g}}}{{{force:g}}}",),
             quantities=(QuantityResult("", distance, "m"),),
             simulation_specs=_lever_scene(
-                [(distance, force, f"{force:g} N at {distance:.2f} m", True)]
+                [(distance, force, f"{_given(force)} N at {plain_number(distance)} m", True)]
             ),
         )
 
@@ -173,9 +180,12 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
             # Drawn at the angle it was given, so the sin theta in the formula
             # is the thing on screen rather than a factor to take on trust.
             direction = (math.cos(theta), -math.sin(theta))
-        scene = _lever_scene([(d, f, f"{f:g} N at {d:g} m", True)])
+        # The force is given, not asked: the torque is the answer, and it is
+        # not an arrow on the beam.
+        scene = _lever_scene([(d, f, f"{_given(f)} N at {_given(d)} m", False)])
         if scene:
-            scene[0].vectors[0].dx, scene[0].vectors[0].dy = direction
+            scene[0].vectors[0].dx = direction[0] * abs(f)
+            scene[0].vectors[0].dy = direction[1] * abs(f)
         return PhysicsResult(
             answer=answer,
             formulas=(formula,),

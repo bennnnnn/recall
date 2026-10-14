@@ -78,4 +78,25 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # The field of a point charge, by Coulomb's law.
+    formula(
+        "point_charge_field",
+        "magnetism",
+        "Coulomb's law",
+        "E",
+        base_latex=r"E = \frac{k_e q}{r^2}",
+        expression="k_e*Q/r**2",
+        variables=(
+            var("Q", "q", "coulomb", fallback="particle_charge"),
+            var("r", "r", "meter"),
+        ),
+        binding=Binding(
+            asks=("electric field strength", "field strength", "electric field"),
+            result=("volt / meter",),
+            inputs=(frozenset({"Q", "r"}),),
+            cues=("point charge", "charge"),
+            excludes=("plate", "dipole"),
+            nonnegative=True,
+        ),
+    ),
 )

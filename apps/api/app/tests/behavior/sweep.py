@@ -3,7 +3,7 @@
 Each corpus entry (``sweep_corpus/*.json``) is a user message, a reply a model
 might write, and what should happen. A turn is routed with the real turn path
 (as the battery does), then its reply goes through the real finalize step,
-with reminder, calendar and settings logic over in-memory stores. Every turn
+with reminder and settings logic over in-memory stores. Every turn
 where a rule hijacked, replaced or mangled it is listed.
 
     uv run python -m app.tests.behavior.sweep [--only id,id] [--area writing] [--show]
@@ -42,7 +42,6 @@ from app.modules import web_search as web_search_service
 from app.modules.account.settings_intent import extract_settings_changes
 from app.modules.chat.stream_pipeline import enrich_final_content
 from app.modules.chat.turn_prep import StreamContext
-from app.modules.integrations import calendar as calendar_service
 from app.modules.math import fence as math_fence_service
 from app.modules.memory import is_explicit_memory_command
 from app.modules.todos import write_log
@@ -250,7 +249,6 @@ async def run_entry(entry: Entry) -> Outcome:
     seams = SimpleNamespace(
         SessionLocal=_session,
         users_repo=SimpleNamespace(get_by_id=AsyncMock(return_value=user)),
-        calendar_service=calendar_service,
         todos_service=todos_service,
         math_fence_service=math_fence_service,
         web_search_service=web_search_service,

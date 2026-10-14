@@ -98,7 +98,7 @@ async def run_tool_loop_path(
             ctx.chat_id,
         )
         return
-    # Sync heuristic first (math / news / calendar). Classifier only when
+    # Sync heuristic first (math / news). Classifier only when
     # that gate is weak so we do not add an LLM round to already-needed turns.
     if not tool_loop_service.turn_needs_tool_loop(
         content,
@@ -332,9 +332,6 @@ async def enrich_final_content(
                 user = await seams.users_repo.get_by_id(session, ctx.user_id)
         if user is not None:
             async with seams.SessionLocal() as session:
-                assistant_text = await seams.calendar_service.materialize_calendar_proposals(
-                    session, redis, user, settings, assistant_text
-                )
                 (
                     assistant_text,
                     reminder_created,

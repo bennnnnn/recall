@@ -116,7 +116,9 @@ def solve_spring(intent: PhysicsIntent) -> PhysicsResult:
             rf"T = 2\pi\sqrt{{\frac{{L}}{{g}}}} = 2\pi\sqrt{{\frac{{{length:g}}}{{{g:g}}}}} "
             rf"\approx {t_period:.2f} \text{{ s}}"
         )
-        graph, scene = _motion(t_period, p.get("x"))
+        # No amplitude: the scene `_motion` draws is a mass on a spring, and a
+        # pendulum is not one.
+        graph, scene = _motion(t_period, None)
         return PhysicsResult(
             answer=answer,
             formulas=(r"T = 2\pi\sqrt{\frac{L}{g}}",),

@@ -1,4 +1,4 @@
-"""Confirm-then-write settings proposals (calendar-proposal style).
+"""Confirm-then-write settings proposals (a card the user taps to apply).
 
 No open settings tool — the chat path only stores a validated allowlist
 payload in Redis. Writes happen on explicit confirm.

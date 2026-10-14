@@ -617,4 +617,37 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # Total internal reflection into air: sin(theta_c) = 1 / n.
+    formula(
+        "critical_angle_to_air",
+        "optics",
+        "Critical angle",
+        r"\theta_c",
+        base_latex=r"\theta_c = \arcsin\frac{1}{n}",
+        assumptions=("the light goes from the medium into air (n = 1)",),
+        expression="asin(1/n1)*180/pi",
+        variables=(var("n1", "n", dimensionless=True, words=("n =", "index", "refractive")),),
+        binding=Binding(
+            asks=("critical angle",),
+            result=("degree",),
+            inputs=(frozenset({"n1"}),),
+            nonnegative=True,
+        ),
+    ),
+    # A lens's power in dioptres is one over its focal length in metres.
+    formula(
+        "focal_from_power",
+        "optics",
+        "Lens power",
+        "f",
+        base_latex=r"f = \frac{1}{P}",
+        expression="1/lens_power",
+        variables=(var("lens_power", "P", "1 / meter"),),
+        binding=Binding(
+            asks=("focal length",),
+            result=("meter",),
+            inputs=(frozenset({"lens_power"}),),
+            nonnegative=True,
+        ),
+    ),
 )

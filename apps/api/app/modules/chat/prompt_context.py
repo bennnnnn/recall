@@ -69,7 +69,6 @@ def _cap_slim_memory_block(block: str) -> str:
 class _PromptContextBlocks:
     memory_block: str
     todos_section: str | None
-    gmail_todos_section: str | None
     recent_all: list[Any]
     attachment_rag_block: str
     chat: Chat | None
@@ -132,7 +131,6 @@ async def _load_context_blocks(
         return _PromptContextBlocks(
             memory_block="",
             todos_section=None,
-            gmail_todos_section=None,
             recent_all=recent_all,
             attachment_rag_block="",
             chat=chat,
@@ -168,7 +166,6 @@ async def _load_context_blocks(
         return _PromptContextBlocks(
             memory_block=_cap_slim_memory_block(memory_block),
             todos_section=None,
-            gmail_todos_section=None,
             recent_all=recent_all,
             attachment_rag_block="",
             chat=chat,
@@ -179,22 +176,15 @@ async def _load_context_blocks(
         async with SessionLocal() as s:
             chat = await chats_repo.get_by_id(s, chat_id, user.id)
 
-    async def _todos_section() -> tuple[str | None, str | None]:
+    async def _todos_section() -> str | None:
         async with db_slots, SessionLocal() as s:
-            loaded = await todos_service.build_todos_system_section(
+            return await todos_service.build_todos_system_section(
                 s,
                 user,
                 settings,
                 client_timezone=client_timezone,
                 query_text=query_text,
             )
-        if loaded is None:
-            return None, None
-        if isinstance(loaded, todos_service.TodosPromptSections):
-            return loaded.own, loaded.gmail
-        if isinstance(loaded, str):
-            return loaded, None
-        return None, None
 
     async def _attachment_rag_block() -> str:
         # HTTP/embed-bound — do not hold a DB pool slot.
@@ -219,7 +209,7 @@ async def _load_context_blocks(
 
     (
         memory_block,
-        todos_payload,
+        todos_section,
         recent_all,
         attachment_rag_block,
         history_rag_query_vec,
@@ -230,7 +220,6 @@ async def _load_context_blocks(
         _attachment_rag_block(),
         _history_rag_embed(),
     )
-    todos_section, gmail_todos_section = todos_payload
     if out is not None:
         labels = set(memory_service.SECTION_LABELS.values())
         hints = [
@@ -243,7 +232,6 @@ async def _load_context_blocks(
     return _PromptContextBlocks(
         memory_block=memory_block,
         todos_section=todos_section,
-        gmail_todos_section=gmail_todos_section,
         recent_all=recent_all,
         attachment_rag_block=attachment_rag_block,
         chat=chat,

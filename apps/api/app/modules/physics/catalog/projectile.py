@@ -4,9 +4,28 @@ from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
-# A launch "horizontally" from a height states the angle (0°) without a number.
+# A launch "horizontally" from a height states the angle (0°) without a number,
+# and so does anything that rolls, slides or drives off an edge.
+_LEVEL_LAUNCH = (
+    "horizontally",
+    "rolls off",
+    "rolled off",
+    "rolling off",
+    "slides off",
+    "slid off",
+    "sliding off",
+    "runs off",
+    "ran off",
+    "drives off",
+    "drove off",
+)
 _LAUNCH = (
-    var("angle", r"\theta", dimensionless=True, implied=(("horizontally", 0.0),)),
+    var(
+        "angle",
+        r"\theta",
+        dimensionless=True,
+        implied=tuple((phrase, 0.0) for phrase in _LEVEL_LAUNCH),
+    ),
     var("g", "g", "meter / second ** 2", fallback="gravity"),
     var("h0", "h_0", "meter"),
     var("v0", "v_0", "meter / second"),
@@ -19,7 +38,7 @@ def _horizontal(asks: tuple[str, ...], result: str) -> Binding:
         asks=asks,
         result=(result,),
         inputs=_FROM_A_HEIGHT,
-        cues=("horizontally",),
+        cues=_LEVEL_LAUNCH,
         nonnegative=True,
     )
 

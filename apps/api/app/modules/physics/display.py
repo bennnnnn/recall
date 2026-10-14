@@ -117,9 +117,10 @@ _SPELLED = {
     "dioptres": "D",
     "diopter": "D",
     "diopters": "D",
+    "percent": "%",
 }
 # Solver unit spellings with a symbol of their own.
-_PLAIN_SYMBOLS = {"deg": "°", "ohm": "Ω", "degC": "°C", "D": "D", "": ""}
+_PLAIN_SYMBOLS = {"deg": "°", "ohm": "Ω", "degC": "°C", "D": "D", "%": "%", "": ""}
 _LATEX_SYMBOLS = {
     "deg": r"^\circ",
     "ohm": r"\,\Omega",

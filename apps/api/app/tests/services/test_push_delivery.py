@@ -1,6 +1,6 @@
-"""Push cycle delivery, receipts, token rebinding, and calendar nudges."""
+"""Push cycle delivery, receipts, and token rebinding."""
 
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
@@ -40,8 +40,6 @@ async def test_run_push_cycle_skips_expo_in_dev_mock():
                 ]
             ),
         ),
-        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
-        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway, "send_push_messages", AsyncMock()
         ) as send_mock,
@@ -87,8 +85,6 @@ async def test_run_push_cycle_sends_expo_in_production():
                 ]
             ),
         ),
-        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
-        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
@@ -132,8 +128,6 @@ async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok(schedule_write)
             "process_todo_reminders",
             AsyncMock(return_value=outbound),
         ),
-        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
-        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
@@ -156,7 +150,6 @@ async def test_run_push_cycle_marks_todo_sent_only_after_expo_ok(schedule_write)
 async def test_finalize_conditionally_marks_delivered_snapshot(schedule_write):
     """Persist the collected snapshot through the conditional repository write."""
     finalize_session = AsyncMock()
-    redis = AsyncMock()
     now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
     todo_id = uuid4()
     detached = MagicMock()
@@ -165,7 +158,6 @@ async def test_finalize_conditionally_marks_delivered_snapshot(schedule_write):
 
     await push_service.finalize_push_deliveries(
         finalize_session,
-        redis,
         [
             push_service.OutboundPush(
                 message={"to": "ExponentPushToken[abc]"},
@@ -186,7 +178,6 @@ async def test_finalize_conditionally_marks_delivered_snapshot(schedule_write):
 @pytest.mark.asyncio
 async def test_finalize_skips_when_delivered_snapshot_no_longer_matches(schedule_write):
     finalize_session = AsyncMock()
-    redis = AsyncMock()
     now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
     todo_id = uuid4()
     detached = MagicMock()
@@ -196,7 +187,6 @@ async def test_finalize_skips_when_delivered_snapshot_no_longer_matches(schedule
 
     await push_service.finalize_push_deliveries(
         finalize_session,
-        redis,
         [
             push_service.OutboundPush(
                 message={"to": "ExponentPushToken[abc]"},
@@ -215,7 +205,6 @@ async def test_finalize_skips_when_delivered_snapshot_no_longer_matches(schedule
 @pytest.mark.asyncio
 async def test_finalize_advances_recurring_todo_and_clears_sent(schedule_write):
     finalize_session = AsyncMock()
-    redis = AsyncMock()
     now = datetime(2026, 8, 22, 12, 0, tzinfo=UTC)
     due = datetime(2026, 8, 22, 8, 0, tzinfo=UTC)
     todo_id = uuid4()
@@ -232,7 +221,6 @@ async def test_finalize_advances_recurring_todo_and_clears_sent(schedule_write):
 
     await push_service.finalize_push_deliveries(
         finalize_session,
-        redis,
         [
             push_service.OutboundPush(
                 message={"to": "ExponentPushToken[abc]"},
@@ -251,26 +239,6 @@ async def test_finalize_advances_recurring_todo_and_clears_sent(schedule_write):
     assert fields["email_sent_at"] is None
     assert detached.due_at == due
     finalize_session.commit.assert_awaited_once()
-
-
-@pytest.mark.asyncio
-async def test_finalize_keeps_calendar_dedupe_when_any_device_succeeds():
-    session = AsyncMock()
-    redis = AsyncMock()
-    outbound = [
-        push_service.OutboundPush(
-            message={"to": "ExponentPushToken[dead]"},
-            dedupe_redis_key="cal:nudge:1",
-        ),
-        push_service.OutboundPush(
-            message={"to": "ExponentPushToken[ok]"},
-            dedupe_redis_key="cal:nudge:1",
-        ),
-    ]
-
-    await push_service.finalize_push_deliveries(session, redis, outbound, [False, True])
-
-    redis.delete.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -299,8 +267,6 @@ async def test_run_push_cycle_does_not_mark_todo_when_expo_fails():
             "process_todo_reminders",
             AsyncMock(return_value=outbound),
         ),
-        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
-        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
@@ -425,8 +391,6 @@ async def test_run_push_cycle_enqueues_receipt_tickets():
                 ]
             ),
         ),
-        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
-        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
@@ -482,8 +446,6 @@ async def test_run_push_cycle_marks_sent_on_ticket_without_receipt_poll(schedule
                 ]
             ),
         ),
-        patch.object(push_service, "process_email_suggestions", AsyncMock(return_value=[])),
-        patch.object(push_service, "process_calendar_nudges", AsyncMock(return_value=[])),
         patch.object(
             push_service.expo_push_gateway,
             "send_push_messages",
@@ -611,109 +573,3 @@ async def test_upsert_allows_cross_user_rebind_with_matching_device():
     assert row.user_id == new_user
     session.delete.assert_awaited_with(prior)
     session.commit.assert_awaited()
-
-
-@pytest.mark.asyncio
-async def test_process_calendar_nudges_sends_once_per_event():
-    from datetime import UTC, datetime
-
-    from app.gateways.google_calendar_gateway import CalendarEvent
-
-    session = AsyncMock()
-    redis = AsyncMock()
-    redis.set = AsyncMock(return_value=True)
-    user_id = uuid4()
-    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
-
-    user = MagicMock()
-    user.id = user_id
-    user.push_notifications_enabled = True
-    user.locale = "en"
-    user.timezone = "UTC"
-
-    token = MagicMock()
-    token.user_id = user_id
-    token.expo_push_token = "ExponentPushToken[cal]"
-
-    event = CalendarEvent(
-        id="evt-42",
-        title="Standup",
-        start=now + timedelta(minutes=12),
-        end=now + timedelta(minutes=42),
-    )
-
-    settings = Settings(
-        google_calendar_enabled=True, calendar_nudge_enabled=True, calendar_nudge_lead_minutes=15
-    )
-
-    session.execute = AsyncMock(
-        return_value=MagicMock(
-            scalars=MagicMock(return_value=MagicMock(all=MagicMock(return_value=[user])))
-        )
-    )
-
-    with (
-        patch.object(
-            push_service,
-            "fetch_upcoming_events",
-            AsyncMock(return_value=[event]),
-        ),
-        patch.object(
-            push_service.push_repo,
-            "list_for_users",
-            AsyncMock(return_value=[token]),
-        ),
-        patch.object(
-            push_service.google_calendar_gateway,
-            "is_configured",
-            MagicMock(return_value=True),
-        ),
-    ):
-        messages = await push_service.process_calendar_nudges(
-            session,
-            redis,
-            settings,
-            now=now,
-        )
-
-    assert len(messages) == 1
-    assert messages[0].message["title"] == "Upcoming meeting"
-    assert "Standup" in messages[0].message["body"]
-    assert messages[0].message["data"]["type"] == "calendar_nudge"
-    redis.set.assert_awaited()
-    set_args = redis.set.await_args
-    assert set_args.args[1] == "inflight"
-    assert set_args.kwargs["ex"] <= push_service.PUSH_DEDUPE_INFLIGHT_TTL_SECONDS
-    assert messages[0].dedupe_ttl_seconds is not None
-    assert messages[0].dedupe_ttl_seconds >= set_args.kwargs["ex"]
-
-
-@pytest.mark.asyncio
-async def test_finalize_replaces_inflight_calendar_dedupe_on_success():
-    session = AsyncMock()
-    redis = AsyncMock()
-    outbound = [
-        push_service.OutboundPush(
-            message={"to": "ExponentPushToken[cal]"},
-            dedupe_redis_key="recall:push:calendar:u:evt",
-            dedupe_ttl_seconds=3600,
-        )
-    ]
-    await push_service.finalize_push_deliveries(session, redis, outbound, [True])
-    redis.set.assert_awaited_with("recall:push:calendar:u:evt", "1", ex=3600)
-
-
-@pytest.mark.asyncio
-async def test_finalize_releases_inflight_calendar_dedupe_on_failure():
-    session = AsyncMock()
-    redis = AsyncMock()
-    outbound = [
-        push_service.OutboundPush(
-            message={"to": "ExponentPushToken[cal]"},
-            dedupe_redis_key="recall:push:calendar:u:evt",
-            dedupe_ttl_seconds=3600,
-        )
-    ]
-    await push_service.finalize_push_deliveries(session, redis, outbound, [False])
-    redis.delete.assert_awaited_with("recall:push:calendar:u:evt")
-    redis.set.assert_not_awaited()

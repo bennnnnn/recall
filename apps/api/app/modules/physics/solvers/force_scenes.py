@@ -17,17 +17,18 @@ def _free_body_scene(
 ) -> list[SimulationBlockSpec]:
     """A block with labelled forces on it, and nothing moving.
 
-    The picture a force question actually wants. Every arrow is drawn at the
-    length the renderer gives it rather than scaled by magnitude — a 59 N
-    tension against a 49 N weight would differ by a fifth of an arrowhead, so
-    the *labels* carry the sizes and the arrows carry the directions.
+    The picture a force question actually wants. A force's (dx, dy) is its
+    size relative to the others: the renderer draws the longest at a fixed
+    screen length, so the frame is sized by its direction alone. Only a
+    `measure` (the h in mgh) is a length in the world.
     """
-    reach = 2.0
     points = [position, *((vector.anchor[0], vector.anchor[1]) for vector in vectors)]
-    points.extend(
-        (vector.anchor[0] + vector.dx, vector.anchor[1] + vector.dy) for vector in vectors
-    )
+    points.extend(_tip(vector) for vector in vectors)
     xs, ys = [point[0] for point in points], [point[1] for point in points]
+    # The frame and the block grow with the drawing. A 300 m climb in a box two
+    # units wide was a vertical sliver with a dot on it.
+    span = max(max(xs) - min(xs), max(ys) - min(ys))
+    reach = max(2.0, 0.3 * span)
     return [
         SimulationBlockSpec(
             type="free_body",
@@ -47,12 +48,22 @@ def _free_body_scene(
     ]
 
 
-def _atwood_scene(m1: float, m2: float, accel: float, tension: float) -> list[SimulationBlockSpec]:
+def _tip(vector: SimulationVector) -> tuple[float, float]:
+    x, y = vector.anchor
+    if vector.role == "measure":
+        return x + vector.dx, y + vector.dy
+    length = math.hypot(vector.dx, vector.dy)
+    return x + vector.dx / length, y + vector.dy / length
+
+
+def _atwood_scene(m1: float, m2: float, accel: float) -> list[SimulationBlockSpec]:
     """Two masses on one rope over a pulley, the heavy one descending.
 
     An Atwood machine is a picture by definition — the name is of an apparatus
     — and "2.45 m/s^2 and 36.79 N" gives no hint that the two masses move in
-    opposite directions at the same rate, which is the whole idea.
+    opposite directions at the same rate, which is the whole idea. The tension
+    is in the answer, not on the picture: it pulls up along each rope, and an
+    arrow on the pulley pointing down said the opposite.
     """
     reach = 3.0
     m1, m2 = sorted((m1, m2), reverse=True)
@@ -84,15 +95,6 @@ def _atwood_scene(m1: float, m2: float, accel: float, tension: float) -> list[Si
                     label=f"{plain_number(m2, GIVEN_FIGURES)} kg",
                     role="secondary",
                 ),
-            ],
-            vectors=[
-                SimulationVector(
-                    anchor=[0.0, reach + 0.55],
-                    dx=0.0,
-                    dy=-1.0,
-                    label=f"T = {plain_number(tension)} N",
-                    role="result",
-                )
             ],
             x_min=-reach * 0.8,
             x_max=reach * 0.8,

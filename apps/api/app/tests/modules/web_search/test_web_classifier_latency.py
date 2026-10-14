@@ -19,6 +19,7 @@ from app.modules.chat.turn_prep.mode import _TurnMode
 from app.modules.web_search.detection import should_web_search
 
 QUESTION = "Who leads Acme Corporation?"
+_NO_WEB: tuple[object, ...] = (None, None, [], None, False, None, None)
 
 
 def _settings(**overrides):
@@ -33,10 +34,8 @@ def prompt_io():
     with ExitStack() as stack:
         for target, value in [
             ("build_prompt_messages", [{"role": "user", "content": QUESTION}]),
-            ("fetch_integration_blocks", []),
-            ("fetch_web_and_tools", (None, None, [], None, False, None, None)),
+            ("fetch_web_and_tools", _NO_WEB),
             ("_load_prior_user_messages", []),
-            ("_load_has_calendar_write", False),
         ]:
             stack.enter_context(
                 patch(f"app.modules.chat.turn_prep.context.{target}", AsyncMock(return_value=value))
@@ -46,9 +45,6 @@ def prompt_io():
         )
         stack.enter_context(patch("app.modules.billing.plan.chat_fallback_models", return_value=[]))
         stack.enter_context(patch("app.modules.billing.plan.model_pool", return_value=[]))
-        stack.enter_context(
-            patch("app.modules.chat.turn_prep.context._instant_reply_needs_db", return_value=False)
-        )
         stack.enter_context(
             patch("app.services.time_context.maybe_local_now_reply", return_value=None)
         )
@@ -82,21 +78,21 @@ def prompt_io():
 @pytest.mark.asyncio
 async def test_prefetch_overlaps_phase_b_and_preserves_negative_verdict(prompt_io):
     build, user, chat = prompt_io
-    integration_started = asyncio.Event()
+    web_started = asyncio.Event()
     classifier_started = asyncio.Event()
 
-    async def integration(*_a, **_kw):
-        integration_started.set()
+    async def web(*_a, **_kw):
+        web_started.set()
         await classifier_started.wait()
-        return []
+        return _NO_WEB
 
     async def classify(*_a, **_kw):
         classifier_started.set()
-        await integration_started.wait()
+        await web_started.wait()
         return False
 
     with (
-        patch("app.modules.chat.turn_prep.context.fetch_integration_blocks", integration),
+        patch("app.modules.chat.turn_prep.context.fetch_web_and_tools", web),
         patch(
             "app.modules.web_search.detection.should_web_search", AsyncMock(side_effect=classify)
         ) as classify_mock,
@@ -158,7 +154,7 @@ async def test_slim_turn_without_phase_b_work_defers_classification(prompt_io):
 @pytest.mark.asyncio
 async def test_cancelling_prep_cancels_both_phase_b_fetches(prompt_io):
     build, _user, _chat = prompt_io
-    started = {name: asyncio.Event() for name in ("integration", "classifier")}
+    started = {name: asyncio.Event() for name in ("web", "classifier")}
     cancelled = set()
 
     async def pending(name):
@@ -170,8 +166,8 @@ async def test_cancelling_prep_cancels_both_phase_b_fetches(prompt_io):
 
     with (
         patch(
-            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
-            lambda *_a, **_kw: pending("integration"),
+            "app.modules.chat.turn_prep.context.fetch_web_and_tools",
+            lambda *_a, **_kw: pending("web"),
         ),
         patch(
             "app.modules.web_search.detection.should_web_search",
@@ -185,7 +181,7 @@ async def test_cancelling_prep_cancels_both_phase_b_fetches(prompt_io):
             task.cancel()
         with pytest.raises(asyncio.CancelledError):
             await task
-    assert cancelled == {"integration", "classifier"}
+    assert cancelled == {"web", "classifier"}
 
 
 @pytest.mark.asyncio
@@ -196,7 +192,7 @@ async def test_failed_phase_b_fetch_cancels_classifier_before_returning(prompt_i
 
     async def fail(*_a, **_kw):
         await classifier_started.wait()
-        raise RuntimeError("integration unavailable")
+        raise RuntimeError("web search unavailable")
 
     async def classify(*_a, **_kw):
         classifier_started.set()
@@ -206,10 +202,10 @@ async def test_failed_phase_b_fetch_cancels_classifier_before_returning(prompt_i
             classifier_cancelled.set()
 
     with (
-        patch("app.modules.chat.turn_prep.context.fetch_integration_blocks", fail),
+        patch("app.modules.chat.turn_prep.context.fetch_web_and_tools", fail),
         patch("app.modules.web_search.detection.should_web_search", classify),
     ):
-        with pytest.raises(RuntimeError, match="integration unavailable"):
+        with pytest.raises(RuntimeError, match="web search unavailable"):
             await asyncio.wait_for(build(), timeout=1)
     assert classifier_cancelled.is_set()
 
