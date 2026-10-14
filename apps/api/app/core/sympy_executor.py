@@ -405,6 +405,16 @@ def set_sympy_executor(executor: BoundedSympyExecutor | None) -> None:
     _executor = executor
 
 
+def shutdown_sympy_executor() -> None:
+    """Stop the SymPy workers when the process exits.
+
+    Pool workers do not notice their parent dying: a server that exits
+    without this (``uvicorn --reload`` restarts on every change) leaves them
+    running, about 200 MB each.
+    """
+    set_sympy_executor(None)
+
+
 def reset_sympy_executor() -> None:
     """Test helper — drop the current executor so the next call creates a
     fresh default (picking up any monkeypatches, since the pool forks after

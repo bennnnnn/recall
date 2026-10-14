@@ -90,11 +90,13 @@ async def test_shutdown_process_stops_worker_before_closing_resources():
         patch("app.process_bootstrap.engine", engine),
         patch("app.process_bootstrap.get_redis_client", return_value=redis),
         patch("app.process_bootstrap.aclose_pooled_clients", AsyncMock()) as close_http,
+        patch("app.process_bootstrap.shutdown_sympy_executor") as stop_sympy,
     ):
         await process_bootstrap.shutdown_process(stop_worker=True)
 
     drain.assert_awaited_once_with(timeout_seconds=10.0)
     stop_worker.assert_awaited_once()
+    stop_sympy.assert_called_once_with()
     engine.dispose.assert_awaited_once()
     redis.aclose.assert_awaited_once()
     close_http.assert_awaited_once()

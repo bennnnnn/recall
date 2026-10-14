@@ -13,6 +13,7 @@ from app.core.db import engine, warmup_db_pool
 from app.core.logging import setup_logging
 from app.core.redis import get_redis_client
 from app.core.sentry import init_sentry
+from app.core.sympy_executor import shutdown_sympy_executor
 from app.gateways.http_client import aclose_pooled_clients
 from app.modules.attachments import reaper as attachment_orphan_reaper
 from app.modules.integrations import scheduler as gmail_periodic_sync
@@ -74,6 +75,7 @@ async def shutdown_process(
     await drain_background_tasks(timeout_seconds=10.0)
     if stop_worker and drain_before_stop:
         await stop_worker_runtime()
+    shutdown_sympy_executor()
     await engine.dispose()
     await get_redis_client().aclose()
     await aclose_pooled_clients()
