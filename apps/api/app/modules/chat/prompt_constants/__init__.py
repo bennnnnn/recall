@@ -28,6 +28,7 @@ from app.modules.chat.prompt_constants.format import (
     SEQUENCE_FORMAT_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     STATISTICS_PRESENTATION_HINT,
+    STEPS_FORMAT_HINT,
     STYLE_HINTS,
     TONE_FORMAT_GUARD,
     UNIVERSAL_FORMAT_BASELINE,
@@ -40,6 +41,7 @@ from app.modules.chat.prompt_constants.format import (
     is_quote_question,
     is_sequence_diagram_question,
     is_structured_comparison_question,
+    is_task_howto,
 )
 from app.modules.chat.prompt_constants.math import (
     GRAPH_NO_SUBSTITUTE_CLAUSE,
@@ -187,6 +189,7 @@ __all__ = [
     "SHORT_RESPONSE_FORMAT_HINT",
     "SOCIAL_DRAFT_HINT",
     "STATISTICS_PRESENTATION_HINT",
+    "STEPS_FORMAT_HINT",
     "STYLE_HINTS",
     "TEACHING_HINT",
     "TEACHING_SHORT_NOTE",
@@ -226,6 +229,7 @@ __all__ = [
     "is_short_confirmation",
     "is_short_reply",
     "is_structured_comparison_question",
+    "is_task_howto",
     "is_teaching_request",
     "is_underspecified_writing_request",
     "is_walkthrough_request",

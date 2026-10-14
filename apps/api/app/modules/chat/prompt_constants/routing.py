@@ -129,6 +129,13 @@ def prior_looks_like_offer(prior_assistant: str | None) -> bool:
     return lesson_step(prior_assistant) is not None
 
 
+# Emoji, flags and their joiners. "hi 👋" is the same greeting as "hi".
+_EMOJI = re.compile(
+    "[\U0001f1e6-\U0001f1ff\U0001f300-\U0001faff\u2600-\u27bf\u2b00-\u2bff"
+    "\ufe0f\u200d\U0001f3fb-\U0001f3ff]+"
+)
+
+
 def is_lightweight_chat_turn(
     text: str,
     *,
@@ -142,6 +149,10 @@ def is_lightweight_chat_turn(
     (follow-through, or "no" to "Understood?"), not a greeting.
     """
     cleaned = collapse_ws(text)
+    if not cleaned:
+        return True
+    # "👍" alone is an acknowledgement; "hi 👋" is "hi".
+    cleaned = collapse_ws(_EMOJI.sub(" ", cleaned))
     if not cleaned:
         return True
     # Only real greetings (hi, ok, go). A short fragment stays with the
