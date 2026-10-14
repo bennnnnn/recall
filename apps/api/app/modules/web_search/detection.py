@@ -38,6 +38,7 @@ from app.modules.web_search.patterns import (
     has_recency,
     is_correspondence_request,
     is_weather_request,
+    is_word_problem,
     looks_like_math_or_code,
 )
 from app.modules.web_search.subject import (
@@ -92,6 +93,8 @@ def web_search_skip(
     # "search", "google it": an explicit request is never chitchat.
     if search_command(cleaned) is not None:
         return False
+    if is_word_problem(cleaned) and not is_weather_request(cleaned):
+        return True
     follow_up = bool(prior_user_messages) or prior_looks_like_offer(prior_assistant)
     if len(cleaned) < 4 and not (is_short_confirmation(cleaned) and follow_up):
         return True
@@ -224,6 +227,11 @@ _DATE_ARITHMETIC = re.compile(
 )
 
 
+_TELLS = re.compile(
+    r"(?:ugh|omg|lol|haha|so|well|just|i|i'm|im|i've|my|we|we're|today\s+i)\b", re.IGNORECASE
+)
+
+
 def needs_web_search_heuristic(
     text: str,
     *,
@@ -241,7 +249,8 @@ def needs_web_search_heuristic(
             return True
     if has_recency(cleaned) and "?" in cleaned:
         return True
-    if has_recency(cleaned) and len(cleaned.split()) >= 6:
+    # "ugh forgot my umbrella today and its pouring" tells; it asks nothing.
+    if has_recency(cleaned) and len(cleaned.split()) >= 6 and not _TELLS.match(cleaned):
         return True
     return False
 

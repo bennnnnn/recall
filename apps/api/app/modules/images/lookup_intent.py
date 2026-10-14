@@ -20,6 +20,8 @@ Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
 
 from __future__ import annotations
 
+import re
+
 _ARTICLES = frozenset({"a", "an", "the"})
 _POSSESSIVES = frozenset({"my", "your", "our", "his", "her", "their", "its"})
 _REFERENCE_NOUNS = frozenset(
@@ -298,6 +300,22 @@ _NON_IMAGE_WORDS = frozenset(
         "costs",
         "timeline",
         "agenda",
+        # "Show me some love", "show me some support": not a photo.
+        "love",
+        "support",
+        "respect",
+        "kindness",
+        "appreciation",
+        "mercy",
+        # Curves the app draws as a graph: "what does a sine wave look like".
+        "sine",
+        "cosine",
+        "parabola",
+        "parabolas",
+        "hyperbola",
+        "asymptote",
+        "exponential",
+        "logarithmic",
     },
 )
 
@@ -325,6 +343,8 @@ _EXPLANATION_CUES = frozenset(
 
 _MAX_SUBJECT_WORDS = 8
 _DEICTICS = frozenset({"that", "this", "these", "those"})
+_PHOTO_ADJECTIVES = frozenset({"real", "actual", "nice", "good", "clear"})
+_REASON_CLAUSE = re.compile(r",\s*(?:i|i'm|im|so|because|since|for|to)\b", re.IGNORECASE)
 _NOT_A_NOUN = frozenset({"again", "but", "one", "part", "bit", "more", "in", "with", "please"})
 
 
@@ -360,6 +380,10 @@ def is_reference_subject(subject: str) -> bool:
 
 
 def _clean_subject(raw: str) -> str | None:
+    # "a habesha kemis, i want to describe it in my caption": the reason is not the subject.
+    reason = _REASON_CLAUSE.search(raw)
+    if reason is not None:
+        raw = raw[: reason.start()]
     subject = raw.strip().rstrip(".!?").strip()
     if not subject or len(subject) < 2:
         return None
@@ -386,6 +410,10 @@ def _strip_reference_noun_prefix(tokens: list[str]) -> list[str]:
     i = 0
     if i < len(tokens) and tokens[i].lower() in _ARTICLES:
         i += 1
+    # "a real photo of", "an actual picture of"
+    if i + 1 < len(tokens) and tokens[i].lower() in _PHOTO_ADJECTIVES:
+        if tokens[i + 1].lower() in _REFERENCE_NOUNS:
+            i += 1
     if i < len(tokens) and tokens[i].lower() in _REFERENCE_NOUNS:
         i += 1
         if i < len(tokens) and tokens[i].lower() == "of":

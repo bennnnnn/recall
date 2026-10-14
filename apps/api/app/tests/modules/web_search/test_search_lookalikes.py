@@ -95,3 +95,39 @@ def test_more_live_cues() -> None:
     assert needs_web_search("is it gonna rain tomorrow evening? i have gym at 6pm")
     assert needs_web_search("breaking news from Gaza")
     assert is_correspondence_request("add a line reminding him the rent for this month is paid")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "if today is wednesday what day is it in 100 days",
+        "whats the next number after the latest one: 2, 6, 18, 54, ...",
+        "A news report says 3/5 of the 450 students passed the exam. How many failed?",
+        "tomorrows temperature is forecast to be 24°C. what is that in fahrenheit and kelvin?",
+        "I water the plants every 3 days and go to the gym every 4 days. if I did both today, "
+        "when will I do both on the same day again?",
+        "team A scored 3 goals in the first half and twice as many in the second half. "
+        "whats the final score",
+        "what's new with you",
+        "ugh forgot my umbrella today and its pouring",
+    ],
+)
+def test_word_problems_and_small_talk_do_not_search(text: str) -> None:
+    from app.modules.web_search.detection import needs_web_search
+
+    assert not needs_web_search(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "will it rain in 3 days in addis",
+        "what's the temperature in addis in fahrenheit today",
+        "who won the game last night",
+        "what's new in the world",
+    ],
+)
+def test_live_questions_still_search(text: str) -> None:
+    from app.modules.web_search.detection import needs_web_search
+
+    assert needs_web_search(text)

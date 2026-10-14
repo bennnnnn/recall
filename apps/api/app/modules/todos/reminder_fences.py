@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
 from typing import Literal, Self
 from uuid import UUID
@@ -32,7 +32,7 @@ from app.modules.todos.actions import (
     REMINDER_TOPIC,
     apply_todo_actions,
 )
-from app.modules.todos.recurrence import snap_first_due
+from app.modules.todos.recurrence import next_recurring_due, snap_first_due
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_add import (
     about_saved_reminders,
@@ -48,6 +48,7 @@ from app.modules.todos.spoken_add import (
 )
 from app.modules.todos.spoken_apply import apply_spoken_change, format_reminder_reading
 from app.modules.todos.spoken_change import (
+    asks_about_my_reminders,
     asks_to_read_reminders,
     names_reminders,
     parse_spoken_reminder_change,
@@ -592,11 +593,13 @@ async def materialize_reminder_fences(
     user_timezone: str | None,
     user_text: str | None = None,
     prior_assistant: str | None = None,
+    prior_user: str | None = None,
 ) -> tuple[str, int]:
     """Apply To-do fences (create + mutations) and strip them from the reply.
 
     ``prior_assistant`` is the reply before this turn: "mark it done" points at
-    a reminder only after a reply about reminders.
+    a reminder only after a reply about reminders, or right after a message
+    (``prior_user``) that asked about them.
 
     Returns (updated_text, applied_count). Saves from a valid fence. If the model
     omitted the fence, or emitted an invalid one, an explicit user "remind me …
@@ -644,6 +647,7 @@ async def materialize_reminder_fences(
             spoken=spoken,
             user_text=user_text,
             prior_assistant=prior_assistant,
+            prior_user=prior_user,
             reply=assistant_text,
         )
         if applied is not None:
@@ -674,12 +678,20 @@ async def materialize_reminder_fences(
         stated is not None
         and not spans
         and not names_reminders(user_text)
+        and not asks_about_my_reminders(prior_user)
         and edits_prior_reply(stated.title, prior_assistant=prior_assistant, reply=assistant_text)
     ):
         return assistant_text, 0
+    # "At 9pm every night" starts tonight, or tomorrow once 9pm has passed.
+    if stated is not None and stated.day is None and stated.repeat and stated.hour is not None:
+        stated = replace(stated, day="today")
     # The model's own reminder fence, when it wrote one, keeps its cleaner title.
     if not spans and stated is not None and stated.day is not None and stated.hour is not None:
         due = due_for_add(stated, user_timezone=user_timezone)
+        if due is not None and stated.repeat and due_is_past(due, user_timezone=user_timezone):
+            due = next_recurring_due(
+                due, stated.repeat, now=datetime.now(UTC), timezone=user_timezone
+            )
         if due is None or due_is_past(due, user_timezone=user_timezone):
             return passed_time_reply(), 0
         return await _save_spoken_add(
@@ -696,7 +708,7 @@ async def materialize_reminder_fences(
         if draft is None:
             # Right after a reply about saved reminders, "Moved **gym** to Sunday"
             # with nothing moved is a false claim.
-            about = about_saved_reminders(prior_assistant)
+            about = about_saved_reminders(prior_assistant) or asks_about_my_reminders(prior_user)
             return reply_when_nothing_saved(assistant_text, user_text, about_reminders=about), 0
         state = _ReminderFenceCreateState(
             session=session,

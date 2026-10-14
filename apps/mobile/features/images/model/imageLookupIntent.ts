@@ -75,9 +75,16 @@ const NON_IMAGE_WORDS = new Set([
   "day", "days", "week", "weekend", "routine", "budget", "itinerary", "option",
   "options", "choices", "menu", "menus", "route", "routes", "directions",
   "price", "prices", "cost", "costs", "timeline", "agenda",
+  // "Show me some love", "show me some support": not a photo.
+  "love", "support", "respect", "kindness", "appreciation", "mercy",
+  // Curves the app draws as a graph: "what does a sine wave look like".
+  "sine", "cosine", "parabola", "parabolas", "hyperbola", "asymptote",
+  "exponential", "logarithmic",
 ]);
 
 const DEICTICS = new Set(["that", "this", "these", "those"]);
+const PHOTO_ADJECTIVES = new Set(["real", "actual", "nice", "good", "clear"]);
+const REASON_CLAUSE = /,\s*(?:i|i'm|im|so|because|since|for|to)\b/i;
 const NOT_A_NOUN = new Set(["again", "but", "one", "part", "bit", "more", "in", "with", "please"]);
 
 const EXPLANATION_CUES = new Set([
@@ -108,7 +115,10 @@ function referenceSubject(toks: string[]): string | null {
 }
 
 function cleanSubject(raw: string): string | null {
-  const subject = raw.trim().replace(/[.!?]+$/g, "").trim();
+  // "a habesha kemis, i want to describe it in my caption": the reason is not the subject.
+  const reason = REASON_CLAUSE.exec(raw);
+  const kept = reason ? raw.slice(0, reason.index) : raw;
+  const subject = kept.trim().replace(/[.!?]+$/g, "").trim();
   if (!subject || subject.length < 2) return null;
   if (
     ["×", "÷", "=", "^"].some((symbol) => subject.includes(symbol)) ||
@@ -131,6 +141,14 @@ function stripLeadingArticle(toks: string[]): string[] {
 function stripReferenceNounPrefix(toks: string[]): string[] {
   let i = 0;
   if (i < toks.length && ARTICLES.has(toks[i].toLowerCase())) i += 1;
+  // "a real photo of", "an actual picture of"
+  if (
+    i + 1 < toks.length &&
+    PHOTO_ADJECTIVES.has(toks[i].toLowerCase()) &&
+    REFERENCE_NOUNS.has(toks[i + 1].toLowerCase())
+  ) {
+    i += 1;
+  }
   if (i < toks.length && REFERENCE_NOUNS.has(toks[i].toLowerCase())) {
     i += 1;
     if (i < toks.length && toks[i].toLowerCase() === "of") i += 1;

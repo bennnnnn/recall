@@ -10,6 +10,7 @@ Matching is linear token scans — no ``\\s+`` / ``.+`` regex on user chat text
 
 from __future__ import annotations
 
+import re
 from itertools import pairwise
 from typing import Any
 
@@ -39,6 +40,12 @@ from app.modules.images.gen_intent_words import (
 )
 
 _USER_MESSAGE_PREFIX = "Generate image: "
+_PURPOSE_COLON = re.compile(
+    r"^(?:please\s+)?(?:generate|create|make|draw|design)\s+(?:me\s+)?(?:an?\s+)?"
+    r"(?:image|picture|photo|pic|illustration|drawing|poster|graphic)\s+for\s+[^:\n]{1,80}:"
+    r"\s*(?P<subject>\S[^\n]*)$",
+    re.IGNORECASE,
+)
 
 
 def _tokens(text: str) -> list[str]:
@@ -92,7 +99,25 @@ def _has_non_image_draw(subject: str) -> bool:
     # "Paint a picture with words of a morning in Addis" asks for prose.
     if "sketch of the idea" in joined or "picture with words" in joined:
         return True
+    # "A cute cartoon atom for our chemistry club poster" is art, not a diagram.
+    if any(word in _ART_WORDS for word in words):
+        return False
     return any(word in NON_IMAGE_DRAW_WORDS for word in words)
+
+
+_ART_WORDS = frozenset(
+    {
+        "cartoon",
+        "poster",
+        "sticker",
+        "logo",
+        "mascot",
+        "illustration",
+        "watercolor",
+        "avatar",
+        "cute",
+    }
+)
 
 
 def _names_no_subject(parts: list[str]) -> bool:
@@ -287,6 +312,11 @@ def extract_image_gen_prompt(text: str) -> str | None:
 
     if trimmed.lower().startswith(_USER_MESSAGE_PREFIX.lower()):
         return _clean_prompt(trimmed[len(_USER_MESSAGE_PREFIX) :])
+    # "Generate an image for my coffee shop's post: a jebena pouring coffee" —
+    # the picture is what follows the colon.
+    purpose = _PURPOSE_COLON.match(trimmed)
+    if purpose is not None:
+        return _clean_prompt(purpose.group("subject"))
 
     tokens = _strip_polite(_tokens(trimmed))
     if not tokens:

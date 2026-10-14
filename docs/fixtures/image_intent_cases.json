@@ -529,7 +529,19 @@
     {"text": "what does a gelada look like 🐒", "generate": null, "revise": null, "lookup": "gelada"},
     {"text": "can you show me that again but simpler", "generate": null, "revise": null, "lookup": null},
     {"text": "show me that", "generate": null, "revise": null, "lookup": "that"},
-    {"text": "show me this bird", "generate": null, "revise": null, "lookup": "this bird"}
+    {"text": "show me this bird", "generate": null, "revise": null, "lookup": "this bird"},
+    {"text": "what does a sine wave look like", "generate": null, "revise": null, "lookup": null},
+    {"text": "what does a parabola look like", "generate": null, "revise": null, "lookup": null},
+    {"text": "draw me a cute cartoon atom with a smiley face for our chemistry club poster", "generate": "cute cartoon atom with a smiley face for our chemistry club poster", "revise": null, "lookup": null},
+    {"text": "draw the structure of ethanol", "generate": null, "revise": "black cat, draw the structure of ethanol", "lookup": null},
+    {"text": "draw a molecule of caffeine", "generate": null, "revise": "black cat, draw a molecule of caffeine", "lookup": null},
+    {"text": "show me a real photo of a habesha kemis with a tilet border, i want to describe it right in my caption", "generate": null, "revise": null, "lookup": "habesha kemis with a tilet border"},
+    {"text": "show me some love lol", "generate": null, "revise": null, "lookup": null},
+    {"text": "show me a photo of Paris, France", "generate": null, "revise": null, "lookup": "Paris, France"},
+    {"text": "show me an actual picture of a quokka", "generate": null, "revise": null, "lookup": "quokka"},
+    {"text": "generate an image for my coffee shop's opening post: a jebena pouring coffee into small cups", "generate": "a jebena pouring coffee into small cups", "revise": null, "lookup": null},
+    {"text": "make a poster for my club: a lion reading a book", "generate": "a lion reading a book", "revise": null, "lookup": null},
+    {"text": "generate a regex for phone numbers: 09xxxx", "generate": null, "revise": null, "lookup": null}
   ],
   "threads": [
     {"text": "Image", "priors": ["Dog"], "generate": "Dog"},

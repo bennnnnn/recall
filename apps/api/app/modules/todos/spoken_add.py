@@ -11,12 +11,13 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from datetime import tzinfo as TzInfo
+from typing import cast
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.todos.schemas import RecurrenceRule
-from app.modules.todos.spoken_when import find_when, without_spans
+from app.modules.todos.spoken_when import find_repeat, find_when, without_spans
 from app.services.draft_fences import has_draft
 
 _NEED_A_TIME = "When should I remind you?"
@@ -43,7 +44,8 @@ _PROSE_CLAIM_RE = re.compile(
     r"added (?:your|it|that|a reminder|to your)|"
     r"you(?:['\u2019]ll| will)\s+now (?:get|have)|"
     r"marked as done|changed to|updated!|(?:to|on) your (?:grocery|shopping) list|"
-    r"(?:moved|marked|deleted|removed|pushed|rescheduled|postponed)\s+\**\w|checked off)",
+    r"(?:moved|marked|deleted|removed|pushed|rescheduled|postponed|reopened|unchecked)\s+\**\w"
+    r"|checked off|(?:is|are) open again|back on your list)",
     re.IGNORECASE,
 )
 _DECLINE_SAVE_RE = re.compile(
@@ -55,6 +57,8 @@ _DECLINE_NEGATION_RE = re.compile(
     re.IGNORECASE,
 )
 _CHANGE_LEADS = (
+    "cancel ",
+    "undo ",
     "make ",
     "change ",
     "set ",
@@ -72,7 +76,7 @@ _CHANGE_LEADS = (
 # "Remind me how to convert Celsius" asks to be taught, not reminded.
 _REMIND_ME_OF_A_FACT = r"(?!\s+(?:how|what|why|who|whom|whose|which|where|whether|if)\b)"
 _ADD_REQUEST_RE = re.compile(
-    r"^\s*(?:please\s+)?(?:can you\s+)?(?:add|buy|get|pick up|remind me"
+    r"^\s*(?:(?:please|pls|plz)\s+)?(?:can (?:you|u)\s+)?(?:add|buy|get|pick up|remind me"
     + _REMIND_ME_OF_A_FACT
     + r"(?:\s+to)?)\b",
     re.IGNORECASE,
@@ -132,6 +136,13 @@ _QUESTION_TITLE_RE = re.compile(
     r"(?:that|how|what|why|who|whom|whose|which|where|whether|if)\b", re.IGNORECASE
 )
 _CALENDAR_RE = re.compile(r"\bcalendar\b", re.IGNORECASE)
+_REMIND_ME_ANYWHERE_RE = re.compile(
+    r"\b(?:(?:please|pls|plz)\s+)?(?:(?:can|could|will)\s+(?:you|u)\s+)?"
+    r"remind\s+me\b(?:\s+(?:to|2)\b)?",
+    re.IGNORECASE,
+)
+_SENTENCE_END_RE = re.compile(r"[.!?]\s+|[.!?]$")
+_FILLER_RE = re.compile(r"^(?:(?:wait|ok|okay|actually|oh|no|nah|sorry|hmm)[,!.]?\s+)+")
 _ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day)\b", re.IGNORECASE)
 # A reply is about the user's reminders when it says so, or confirms a dated
 # one the way the app does ("Set: read — Monday, Oct 12, 8:00 AM.").
@@ -148,7 +159,8 @@ _SAVED_TALK_RE = re.compile(
     r"\b(?:your\s+(?:reminders?|to-?dos?|to-do\s+list|task\s+list|list|schedule)"
     r"|remind\s+you|reminder\s+(?:is\s+|was\s+)?set|(?:is|are|was)\s+set\s+for"
     r"|you\s+have\s+(?:\w+\s+)?(?:reminders?|to-?dos?|tasks?)"
-    r"|due\s+(?:today|tomorrow|tonight))\b",
+    r"|due\s+(?:today|tomorrow|tonight)|next\s+up"
+    r"|marked\s+\**[^*\n]{1,60}\**\s+as\s+(?:done|complete))\b",
     re.IGNORECASE,
 )
 # "Add a line …", "add a rest day", "add two more examples": a part of what
@@ -183,6 +195,13 @@ _TYPOS = {
     "tmrow": "tomorrow",
     "tomoro": "tomorrow",
     "tonite": "tonight",
+    "remimd": "remind",
+    "remaind": "remind",
+    "remid": "remind",
+    "rmind": "remind",
+    # Amharic "tomorrow" and "today" in an otherwise English line.
+    "\u1290\u1308": "tomorrow",
+    "\u12db\u122c": "today",
 }
 _ADD_LEADS = (
     "please remind me to ",
@@ -227,8 +246,11 @@ _REPEATS: tuple[tuple[str, RecurrenceRule], ...] = (
     ("monthly", "monthly"),
 )
 _TRAILING_FILLER = frozenset({"for", "on"})
-_TITLE_LEADS = frozenset({"to", "about", "-", "\u2013", "\u2014", ":"})
+_TITLE_LEADS = frozenset({"to", "2", "about", "-", "\u2013", "\u2014", ":"})
 _TITLE_TAILS = frozenset({"for", "on", "at", "by", "to", "-", "\u2013", "\u2014", ":"})
+_NEED_TO_RE = re.compile(
+    r"^(?:i\s+)?(?:need|have|got|gotta|must|should)\s+(?:to\s+)?", re.IGNORECASE
+)
 _LIST_PHRASE_RE = re.compile(
     r"\b(?:to|on|in)\s+my\s+(?:reminders?(?:\s+list)?|to-?dos?(?:\s+list)?|to-do\s+list|list)\b",
     re.IGNORECASE,
@@ -399,7 +421,7 @@ def _asked_to_change_or_add(user_text: str | None) -> bool:
         return False
     if _ADD_REQUEST_RE.search(user_text):
         return True
-    if user_text.strip().lower().startswith(_CHANGE_LEADS):
+    if _FILLER_RE.sub("", user_text.strip().lower()).startswith(_CHANGE_LEADS):
         return True
     from app.modules.todos.spoken_change import parse_spoken_reminder_change
 
@@ -437,10 +459,17 @@ def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
             body = text[len(lead) :].strip()
             break
     if not body:
+        body = _remind_me_body(text)
+    if not body:
         return None
     when = find_when(body)
-    repeat = _find_repeat(body)
-    title = _title_of(without_spans(body, when.spans))
+    spans = list(when.spans)
+    repeat: RecurrenceRule | None = None
+    found_repeat = find_repeat(body)
+    if found_repeat is not None:
+        repeat = cast(RecurrenceRule, found_repeat[0])
+        spans.append(found_repeat[1])
+    title = _title_of(without_spans(body, spans))
     # "Add that I'll be late" or "add a line …" adds to something, not a
     # task, "remind me how to …" asks to be taught, and "add lunch to my
     # calendar" is a calendar event.
@@ -454,6 +483,24 @@ def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
     return SpokenAdd(
         title=title[:500], day=when.day, repeat=repeat, hour=when.hour, minute=when.minute
     )
+
+
+def _remind_me_body(text: str) -> str:
+    """ "pls remind me 2 call dad at 7 tonight", "sat 9am wash the car. remind me".
+
+    The sentence that holds "remind me" is the request; when "remind me" ends
+    the message, the sentence before it is.
+    """
+    match = _REMIND_ME_ANYWHERE_RE.search(text)
+    if match is None:
+        return ""
+    before, after = text[: match.start()], text[match.end() :]
+    near = " ".join(
+        (_SENTENCE_END_RE.split(before)[-1], _SENTENCE_END_RE.split(after, maxsplit=1)[0])
+    ).strip()
+    if _WORD_RE.search(near):
+        return near
+    return " ".join((before, after)).strip(" .!?")
 
 
 async def pending_add(session: AsyncSession, chat_id: UUID, current: str) -> SpokenAdd | None:
@@ -546,17 +593,10 @@ def _replace_token(token: str) -> str:
     return fixed if fixed is not None else token
 
 
-def _find_repeat(body: str) -> RecurrenceRule | None:
-    lowered = body.lower()
-    for word, rule in _REPEATS:
-        if _word_at(lowered, word) >= 0:
-            return rule
-    return None
-
-
 def _title_of(rest: str) -> str:
     """ "to call mom", "submit the report to my reminders for", "- meet abel" → the task."""
-    words = _title_before(_LIST_PHRASE_RE.sub(" ", rest), -1).split()
+    rest = _NEED_TO_RE.sub("", _LIST_PHRASE_RE.sub(" ", rest).strip())
+    words = _title_before(rest, -1).split()
     while words and words[0].lower() in _TITLE_LEADS:
         words.pop(0)
     while words and words[-1].lower() in _TITLE_TAILS:
