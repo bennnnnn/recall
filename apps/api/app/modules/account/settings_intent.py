@@ -150,6 +150,7 @@ _REVISION_REFERENCES = frozenset(
     {"it", "this", "that", "version", "message", "email", "draft", "reply", "text"}
 )
 _POINTERS = frozenset({"it", "this", "that"})
+_SYSTEM_WORDS = frozenset({"system", "phone", "phone's", "device", "device's", "os"})
 _QUESTION_OPENERS = frozenset(
     {"is", "are", "was", "were", "does", "do", "did", "which", "what", "whats", "why", "should"}
 )
@@ -229,6 +230,15 @@ _CONTENT_TARGETS = frozenset(
         "resume",
         "cv",
         "tweet",
+        "opening",
+        "intro",
+        "introduction",
+        "ending",
+        "conclusion",
+        "greeting",
+        "closing",
+        "headline",
+        "hook",
     }
 )
 
@@ -282,10 +292,13 @@ def _persistent_language(tokens: list[str]) -> str | None:
     return None
 
 
-def _asks_a_question(tokens: list[str]) -> bool:
+def _asks_a_question(tokens: list[str], *, asked: bool = False) -> bool:
     """ "Is the pro model worth it?" or "dark mode vs light mode?" asks; it changes nothing."""
     return bool(tokens) and (
-        tokens[0] in _QUESTION_OPENERS or any(word in {"vs", "versus"} for word in tokens)
+        tokens[0] in _QUESTION_OPENERS
+        or any(word in {"vs", "versus"} for word in tokens)
+        # "light mode or dark mode for reading at night?" weighs two; it picks neither.
+        or (asked and "or" in tokens)
     )
 
 
@@ -298,6 +311,10 @@ def _window_has(tokens: list[str], left: str, right: str) -> bool:
 
 def _extract_appearance(tokens: list[str]) -> str | None:
     if _window_has(tokens, "match", "system"):
+        return "system"
+    # "Make the app theme follow my phone's setting."
+    follows = "follow" in tokens or "match" in tokens
+    if follows and _SYSTEM_WORDS & set(tokens) and {"theme", "appearance", "mode"} & set(tokens):
         return "system"
     for index, word in enumerate(tokens):
         value = _APPEARANCE_NICKNAMES.get(word)
@@ -384,7 +401,8 @@ def extract_settings_changes(
     persistent = _persistent_language(tokens)
     if persistent is not None:
         return [SettingsChange("locale", persistent)]
-    if not _looks_like_command(tokens) or _asks_a_question(tokens):
+    asked = content.rstrip().endswith("?")
+    if not _looks_like_command(tokens) or _asks_a_question(tokens, asked=asked):
         return []
     if _revises_prior_draft(tokens, prior_assistant):
         return []

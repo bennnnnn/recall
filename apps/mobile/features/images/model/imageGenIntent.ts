@@ -91,7 +91,9 @@ function hasNonImageSubject(subject: string): boolean {
 
 function hasNonImageDraw(subject: string): boolean {
   const words = tokens(subject).map(foldToken);
-  if (words.join(" ").includes("sketch of the idea")) return true;
+  const joined = words.join(" ");
+  // "Paint a picture with words of a morning in Addis" asks for prose.
+  if (joined.includes("sketch of the idea") || joined.includes("picture with words")) return true;
   return words.some((word) => NON_IMAGE_DRAW_WORDS.has(word));
 }
 

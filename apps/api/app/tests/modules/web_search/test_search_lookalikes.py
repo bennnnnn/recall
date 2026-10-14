@@ -62,3 +62,36 @@ def test_correspondence_requests() -> None:
 )
 def test_names_its_place(text: str, named: bool) -> None:
     assert names_its_place(text) is named
+
+
+def test_math_and_code_follow_ups_do_not_search() -> None:
+    from app.modules.web_search.detection import _continues_searchable_topic, needs_web_search
+
+    assert not needs_web_search("add 25 and 38 by breaking them into tens and ones")
+    assert not _continues_searchable_topic(
+        "can you add 12 and 15 the same way?", ["add 25 + 38 by breaking them into tens"]
+    )
+    assert not _continues_searchable_topic(
+        "ok move this into a function", ["scores = [78, 92, 65, 88] why does this print 80.8"]
+    )
+    assert _continues_searchable_topic(
+        "and the red terror martyrs museum?", ["what time does the national museum in addis open"]
+    )
+
+
+def test_a_train_problem_is_not_a_distance_from_the_user() -> None:
+    from app.modules.web_search.geo_intent import is_geo_query
+
+    assert not is_geo_query(
+        "A train leaves at 9am and travels at 60 km/h. How far has it gone by 11:30am?"
+    )
+    assert is_geo_query("how far is the airport")
+
+
+def test_more_live_cues() -> None:
+    from app.modules.web_search.detection import needs_web_search
+
+    assert _live_lookup_cue("usd to etb rate rn")
+    assert needs_web_search("is it gonna rain tomorrow evening? i have gym at 6pm")
+    assert needs_web_search("breaking news from Gaza")
+    assert is_correspondence_request("add a line reminding him the rent for this month is paid")

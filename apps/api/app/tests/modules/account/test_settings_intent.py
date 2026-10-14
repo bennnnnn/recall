@@ -124,3 +124,20 @@ def test_from_now_on_sets_the_language(text: str, value: str) -> None:
 @pytest.mark.parametrize("text", ["reply in Amharic", "translate this to Spanish from now on"])
 def test_one_answer_in_a_language_is_not_a_setting(text: str) -> None:
     assert extract_settings_changes(text) == []
+
+
+def test_more_questions_edits_and_system_theme() -> None:
+    assert extract_settings_changes("light mode or dark mode for reading at night?") == []
+    assert (
+        extract_settings_changes(
+            "ok i'll call mom tonight, can you make the opening softer?",
+            prior_assistant="Opening: Mom, I have news.",
+        )
+        == []
+    )
+    assert extract_settings_changes("make the app theme follow my phone's setting") == [
+        SettingsChange("appearance", "system")
+    ]
+    assert extract_settings_changes("can you switch to dark mode?") == [
+        SettingsChange("appearance", "dark")
+    ]

@@ -160,11 +160,26 @@ def _normalize_now_ask(text: str) -> str:
     # Courtesy wrappers do not change a local clock/calendar question. Strip
     # them as grammar so "please/could you tell me..." uses the same local
     # owner instead of being sent to the web classifier.
-    courtesy_prefixes = ("please ", "can you ", "could you ", "would you ")
-    for _ in range(2):
+    # "ok what time is it", "wait whats the date today": a filler first word too.
+    courtesy_prefixes = (
+        "please ",
+        "can you ",
+        "could you ",
+        "would you ",
+        "ok ",
+        "okay ",
+        "hey ",
+        "hi ",
+        "wait ",
+        "um ",
+        "so ",
+        "btw ",
+        "quick question ",
+    )
+    for _ in range(3):
         for prefix in courtesy_prefixes:
-            if normalized.startswith(prefix):
-                normalized = normalized[len(prefix) :].lstrip()
+            if normalized.startswith(prefix) or normalized.startswith(prefix.rstrip() + ", "):
+                normalized = normalized[len(prefix) :].lstrip(" ,")
                 break
         else:
             break

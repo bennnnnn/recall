@@ -12,6 +12,7 @@ from app.modules.web_search.patterns import (
     asks_for_prior_subject,
     collapse_ws,
     is_correspondence_request,
+    looks_like_math_or_code,
 )
 
 _MIN_QUERY_WORDS = 3
@@ -49,8 +50,9 @@ def _prior_searchable_topic(prior_user_messages: list[str] | None) -> str | None
         cleaned = collapse_ws(msg)
         if not cleaned or asks_for_prior_subject(cleaned):
             continue
-        # A draft request ("write a text … at 2pm today") is not a search topic.
-        if is_correspondence_request(cleaned):
+        # A draft request ("write a text … at 2pm today") is not a search topic,
+        # and neither is a sum or a code question ("scores = [78, 92]").
+        if is_correspondence_request(cleaned) or looks_like_math_or_code(cleaned):
             continue
         if (
             _topic_needs_search(cleaned)
