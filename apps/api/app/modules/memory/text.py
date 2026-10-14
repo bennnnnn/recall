@@ -182,12 +182,118 @@ _FORGET_MARKERS = (
 )
 
 
+_REMEMBER_MARKERS = frozenset({"remember this", "remember that"})
+# Words that may come before an instruction in the same clause: "oh and",
+# "please", "can you". Anything else makes it a statement or a question about
+# remembering: "I always forget my keys", "do you remember that song?".
+_CONNECTIVES = frozenset(
+    {"and", "but", "also", "so", "now", "ok", "okay", "oh", "hey", "actually", "wait"}
+)
+_POLITE_LEADS: tuple[tuple[str, ...], ...] = (
+    ("please",),
+    ("pls",),
+    ("can", "you"),
+    ("could", "you"),
+    ("would", "you"),
+    ("will", "you"),
+    ("i", "want", "you", "to"),
+    ("i", "need", "you", "to"),
+    ("i'd", "like", "you", "to"),
+    ("make", "sure", "to"),
+    ("make", "sure", "you"),
+    ("go", "ahead", "and"),
+)
+_CLAUSE_BREAKS = ".!?;:,\n\u2014\u2013"
+# "Forget about the previous question" drops a turn, not a saved fact.
+_CHAT_PARTS = frozenset(
+    {
+        "question",
+        "questions",
+        "request",
+        "prompt",
+        "problem",
+        "answer",
+        "reply",
+        "message",
+        "part",
+        "chat",
+        "conversation",
+        "topic",
+    }
+)
+_CHAT_PART_LEADS = frozenset(
+    {
+        "the",
+        "my",
+        "your",
+        "that",
+        "this",
+        "previous",
+        "last",
+        "earlier",
+        "above",
+        "first",
+        "other",
+        "whole",
+    }
+)
+
+
 def is_explicit_memory_command(text: str) -> bool:
     """True when the user asked to remember or forget a fact in this turn."""
-    lowered = (text or "").lower()
+    lowered = _fold_quotes(text)
     if not lowered:
         return False
-    return any(marker in lowered for marker in _MEMORY_COMMAND_MARKERS)
+    return any(
+        _is_command_at(lowered, marker, index)
+        for marker in _MEMORY_COMMAND_MARKERS
+        for index in _marker_positions(lowered, marker)
+    )
+
+
+def _fold_quotes(text: str | None) -> str:
+    return (text or "").lower().replace("\u2019", "'").replace("\u2018", "'")
+
+
+def _marker_positions(lowered: str, marker: str) -> list[int]:
+    positions: list[int] = []
+    start = 0
+    while (index := lowered.find(marker, start)) >= 0:
+        if index == 0 or not lowered[index - 1].isalnum():
+            positions.append(index)
+        start = index + 1
+    return positions
+
+
+def _is_command_at(lowered: str, marker: str, index: int) -> bool:
+    """The marker starts its clause, after nothing but "please", "can you" or "and"."""
+    before = lowered[:index]
+    cut = max(before.rfind(mark) for mark in _CLAUSE_BREAKS)
+    clause = before[cut + 1 :].split()
+    led = False
+    while clause:
+        if clause[0] in _CONNECTIVES:
+            clause = clause[1:]
+            continue
+        lead = next((lead for lead in _POLITE_LEADS if tuple(clause[: len(lead)]) == lead), None)
+        if lead is None:
+            break
+        clause = clause[len(lead) :]
+        led = True
+    if clause:
+        return False
+    after = lowered[index + len(marker) :].split()
+    if marker.startswith("forget") and _names_a_chat_part(after):
+        return False
+    # "Remember that song from Titanic?" asks; "can you remember that …?" tells.
+    return not (marker in _REMEMBER_MARKERS and not led and lowered.rstrip().endswith("?"))
+
+
+def _names_a_chat_part(words: list[str]) -> bool:
+    head = [word.strip(".,!?;:") for word in words[:3]]
+    while head and head[0] in _CHAT_PART_LEADS:
+        head = head[1:]
+    return bool(head) and head[0] in _CHAT_PARTS
 
 
 _FORGET_WORD_MIN_CHARS = 5
@@ -213,19 +319,14 @@ def forget_content_words(text: str) -> list[str]:
 
 def is_explicit_forget_command(text: str) -> bool:
     """True when the user asked to drop a stored fact, not to remember one."""
-    lowered = (text or "").lower().replace("\u2019", "'").replace("\u2018", "'")
+    lowered = _fold_quotes(text)
     if not lowered:
         return False
-    for marker in _FORGET_MARKERS:
-        start = 0
-        while True:
-            index = lowered.find(marker, start)
-            if index < 0:
-                break
-            if not _forget_marker_is_negated(lowered, index):
-                return True
-            start = index + 1
-    return False
+    return any(
+        not _forget_marker_is_negated(lowered, index) and _is_command_at(lowered, marker, index)
+        for marker in _FORGET_MARKERS
+        for index in _marker_positions(lowered, marker)
+    )
 
 
 def classify_memory_sensitivity(text: str) -> str:

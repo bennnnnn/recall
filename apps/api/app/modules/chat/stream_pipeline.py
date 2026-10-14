@@ -277,6 +277,15 @@ def _replace_failed_subject_fences(seams: Any, content: str, verified: Any) -> s
     return seams.math_fence_service.replace_unclosed_graph_fence_safe(content, canonical)
 
 
+def _prior_assistant_text(ctx: StreamContext) -> str:
+    """The reply before this turn ("" when none), for "mark it done"."""
+    for message in reversed(ctx.prompt_messages[:-1]):
+        if message.get("role") == "assistant":
+            content = message.get("content")
+            return content if isinstance(content, str) else ""
+    return ""
+
+
 async def _attach_answer_photo(ctx: StreamContext, text: str, was_cancelled: bool) -> str:
     """Swap the reply's ```photo fence for the photo found while it streamed."""
     from app.modules.images.answer_photo import strip_photo_fences
@@ -327,6 +336,7 @@ async def enrich_final_content(
                     assistant_text=assistant_text,
                     user_timezone=ctx.user_timezone or getattr(user, "timezone", None),
                     user_text=ctx.user_message_content,
+                    prior_assistant=_prior_assistant_text(ctx),
                 )
 
         from app.core.sympy_executor import run_sympy

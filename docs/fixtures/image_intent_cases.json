@@ -506,7 +506,18 @@
     {"text": "give me a list of dog breeds", "generate": null, "revise": null, "lookup": null},
     {"text": "can you show me my todos", "generate": null, "revise": null, "lookup": null},
     {"text": "please show me how to solve this", "generate": null, "revise": null, "lookup": null},
-    {"text": "send me the notes", "generate": null, "revise": null, "lookup": null}
+    {"text": "send me the notes", "generate": null, "revise": null, "lookup": null},
+    {"text": "What does a typical day in Tokyo look like?", "generate": null, "revise": null, "lookup": null},
+    {"text": "What does a $3,000 budget for 10 days in Italy look like?", "generate": null, "revise": null, "lookup": null},
+    {"text": "Let me see the options", "generate": null, "revise": "black cat, Let me see the options", "lookup": null},
+    {"text": "show me the menu", "generate": null, "revise": null, "lookup": null},
+    {"text": "Can I see the route on a map?", "generate": null, "revise": null, "lookup": null},
+    {"text": "what does a week of meal prep look like", "generate": null, "revise": null, "lookup": null},
+    {"text": "show me the prices", "generate": null, "revise": null, "lookup": null},
+    {"text": "show me a map of Ethiopia", "generate": null, "revise": null, "lookup": "map of Ethiopia"},
+    {"text": "make your answers shorter", "generate": null, "revise": "black cat, make your answers shorter", "lookup": null},
+    {"text": "make my code faster", "generate": null, "revise": null, "lookup": null},
+    {"text": "make my profile picture", "generate": "my profile", "revise": "black cat, make my profile picture", "lookup": null}
   ],
   "threads": [
     {"text": "Image", "priors": ["Dog"], "generate": "Dog"},

@@ -10,6 +10,7 @@ from app.modules.chat.prompt_constants.writing_kind import (
     is_writing_deliverable_request,
     writing_request_kind,
 )
+from app.services.draft_fences import DRAFT_FENCE
 from app.services.text_normalize import collapse_ws
 
 # Relative / subordinating leads that are not a complete question.
@@ -128,11 +129,7 @@ def draft_followup_hint(fence: str, *, drafted: bool) -> str:
 
 
 # The send-ready fences a reply drafts, as the mobile fence registry names them.
-_DRAFT_FENCE = re.compile(
-    r"^```(email|message|sms|reply|copy|twitter|tweet|x|linkedin|facebook|fb|instagram|"
-    r"insta|ig|tiktok|threads|caption|social)[ \t]*$",
-    re.IGNORECASE | re.MULTILINE,
-)
+_DRAFT_FENCE = DRAFT_FENCE
 _KIND_FENCE = {"email": "email", "message": "message", "social": "social"}
 # A short follow-up that changes a draft: "make it more polite", "shorter",
 # "add that I'll be back tomorrow", "another version", "translate it to Spanish",

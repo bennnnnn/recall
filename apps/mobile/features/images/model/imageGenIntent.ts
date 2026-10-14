@@ -187,6 +187,15 @@ function matchShortCreate(toks: string[]): string | null {
   if (namesNoSubject(parts)) return null;
   const subject = joinSubject(parts);
   if (verb === "make" && makeIsNotAPicture(subject)) return null;
+  // "Make your answers shorter" / "make my code faster" changes something the
+  // user already has; "make my profile picture" still names a picture.
+  if (
+    verb === "make" &&
+    POSSESSIVES.has(lower(parts[0])) &&
+    !parts.some((part) => IMAGE_NOUNS.has(lower(part)))
+  ) {
+    return null;
+  }
   if (isNonImageSubject(subject)) return null;
   return cleanPrompt(subject);
 }

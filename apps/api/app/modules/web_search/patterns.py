@@ -494,3 +494,18 @@ _GENERIC_NEWS_QUERY = re.compile(
 )
 
 _NUMBERED_VENUE_LINE = re.compile(r"^\s*\d+\.\s+")
+
+
+# A text or email the user is writing ("write a text to cancel my haircut at
+# 2pm today") mentions times for its reader; it is not a question about the news.
+_CORRESPONDENCE = re.compile(
+    r"^\s*(?:please\s+)?(?:(?:can|could)\s+you\s+)?(?:help\s+me\s+)?"
+    r"(?:write|draft|compose|send|text|reply|respond)\b(?:\s+\w+){0,4}?\s+"
+    r"(?:text|message|sms|email|e-mail|note|reply|dm|whatsapp|invite|invitation)\b",
+    re.IGNORECASE,
+)
+
+
+def is_correspondence_request(text: str) -> bool:
+    """True for "write a text / email / note …": a draft, not a search."""
+    return bool(_CORRESPONDENCE.search(text))

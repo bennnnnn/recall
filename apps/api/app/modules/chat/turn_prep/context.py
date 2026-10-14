@@ -528,8 +528,14 @@ async def build_stream_prompt_context(
     if math_followup_problem is None and chemistry_followup_problem is None:
         physics_followup = physics_followup_problem(content, followup_history)
 
-    # Geo "location not set" fallback (independent of the LLM).
-    if instant_reply is None and geo.geo_query and not geo.has_geo_fix:
+    # Geo "location not set" fallback (independent of the LLM). A question that
+    # names its own place ("best restaurant in DC") needs no location.
+    if (
+        instant_reply is None
+        and geo.geo_query
+        and not geo.has_geo_fix
+        and not web_search_service.names_its_place(content)
+    ):
         instant_reply = web_search_service.format_location_not_set_answer()
 
     is_external_calendar = calendar_service.is_external_calendar_question(content)

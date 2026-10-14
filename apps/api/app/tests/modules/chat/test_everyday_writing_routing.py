@@ -234,3 +234,19 @@ def test_drafts_leave_out_memory_trivia() -> None:
 def test_drafts_are_signed_with_the_users_name_never_a_placeholder() -> None:
     assert "never [Your Name]" in COPY_DELIVERABLE_HINT
     assert "not unrelated likes such as food or drinks" in COPY_DELIVERABLE_HINT
+
+
+@pytest.mark.parametrize(
+    ("text", "asks"),
+    [
+        ("what is my second language?", True),
+        ("where do I live?", True),
+        # A writing request that mentions the user is not a profile question.
+        ("write an email to the school saying my son is sick and my name is Bini", False),
+        ("rewrite my bio: I am a teacher and I live in Addis", False),
+    ],
+)
+def test_profile_fact_question_is_a_short_ask(text: str, asks: bool) -> None:
+    from app.modules.chat.prompt_constants.routing import is_profile_fact_question
+
+    assert is_profile_fact_question(text) is asks

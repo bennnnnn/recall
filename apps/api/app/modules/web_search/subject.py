@@ -11,6 +11,7 @@ from app.modules.web_search.patterns import (
     _WORLD_CUP,
     asks_for_prior_subject,
     collapse_ws,
+    is_correspondence_request,
 )
 
 _MIN_QUERY_WORDS = 3
@@ -47,6 +48,9 @@ def _prior_searchable_topic(prior_user_messages: list[str] | None) -> str | None
     for msg in reversed(prior_user_messages):
         cleaned = collapse_ws(msg)
         if not cleaned or asks_for_prior_subject(cleaned):
+            continue
+        # A draft request ("write a text … at 2pm today") is not a search topic.
+        if is_correspondence_request(cleaned):
             continue
         if (
             _topic_needs_search(cleaned)

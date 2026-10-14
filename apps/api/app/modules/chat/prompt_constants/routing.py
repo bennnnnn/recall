@@ -439,10 +439,28 @@ _LANGUAGE_SLOT = re.compile(
 _LANGUAGE_TOPIC = re.compile(r"\b(?:language|langauge)s?\b", re.IGNORECASE)
 
 
+_PROFILE_QUESTION_LEAD = re.compile(
+    r"^(?:what|what'?s|which|where|do you (?:know|remember)|tell me|guess)\b",
+    re.IGNORECASE,
+)
+# "My second language" is a profile ask; "write an email to the school saying
+# my son is sick" or "rewrite my bio: I'm a teacher…" is a writing request.
+_PROFILE_PHRASE_WORDS = 8
+_PROFILE_QUESTION_WORDS = 14
+
+
 def is_profile_fact_question(text: str) -> bool:
     """True when they ask for a detail their profile may already hold."""
     cleaned = collapse_ws(text)
     if not cleaned:
+        return False
+    words = len(cleaned.split())
+    asks = _PROFILE_QUESTION_LEAD.match(cleaned) or cleaned.endswith("?")
+    if words > _PROFILE_QUESTION_WORDS or (words > _PROFILE_PHRASE_WORDS and not asks):
+        return False
+    from app.modules.chat.prompt_constants.writing_kind import writing_request_kind
+
+    if writing_request_kind(cleaned) is not None:
         return False
     return bool(_PROFILE_FACT_QUESTION.search(cleaned))
 
