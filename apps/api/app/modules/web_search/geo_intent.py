@@ -16,6 +16,7 @@ from app.modules.web_search.patterns import (
     _QUALIFIED_NEARBY,
     best_near_phrase,
     distance_between_phrase,
+    is_weather_request,
     non_geographic_nearest,
 )
 
@@ -25,6 +26,24 @@ _LOCATIONLESS_WEATHER = re.compile(
     r"|(?:the\s+)?forecast(?:\s+(?:today|tomorrow|tonight))?)\s*[?.!]*\s*$",
     re.IGNORECASE,
 )
+
+
+# "weather in Paris" names its place; "weather for the weekend" and "weather
+# in my area" do not, so they use the user's location.
+_WEATHER_PLACE = re.compile(
+    r"\b(?:in|at|near|around|for)\s+"
+    r"(?!(?:here|there|today|tomorrow|tonight|now|this|next|the\s+(?:weekend|week|day|morning"
+    r"|afternoon|evening|night)|my\s+(?:area|location|city|town|place|neighbou?rhood))\b)"
+    r"[^\W\d_]",
+    re.IGNORECASE,
+)
+
+
+def is_local_weather_query(text: str) -> bool:
+    """A weather question with no place named: answered for the user's location."""
+    if _LOCATIONLESS_WEATHER.fullmatch(text) is not None:
+        return True
+    return is_weather_request(text) and _WEATHER_PLACE.search(text) is None
 
 
 def _subject_without_proximity(cleaned: str) -> str:
@@ -64,11 +83,7 @@ def is_distance_query(text: str) -> bool:
 
 def is_geo_query(text: str) -> bool:
     """Any query that needs the user's location — places OR distance. Venue-agnostic."""
-    return (
-        is_proximity_query(text)
-        or is_distance_query(text)
-        or _LOCATIONLESS_WEATHER.fullmatch(text) is not None
-    )
+    return is_proximity_query(text) or is_distance_query(text) or is_local_weather_query(text)
 
 
 def is_places_list_query(text: str) -> bool:

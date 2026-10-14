@@ -147,6 +147,57 @@ _NEWS = re.compile(
     re.IGNORECASE,
 )
 
+# "latest news on AI", "breaking news", "news about the election": always live.
+_LATEST_NEWS = re.compile(
+    r"\b(?:(?:latest|breaking|recent|today['\u2019]?s)\s+(?:news|headlines|updates?)"
+    r"|news\s+(?:on|about|from|for)\s+\w)",
+    re.IGNORECASE,
+)
+
+# Weather is always live. A figurative or written use ("under the weather",
+# "a poem about the weather") is not a forecast request.
+_WEATHER = re.compile(
+    r"\b(?:(?:what(?:['\u2019]s|\s+is|\s+will\s+be)|how(?:['\u2019]s|\s+is))\s+the\s+"
+    r"(?:weather|forecast|temperature)"
+    r"|weather\s+(?:in|for|at|near|around|like|today|tomorrow|tonight|now|this\s+(?:week|weekend)"
+    r"|forecast|report|update)"
+    r"|(?:today|tomorrow|tonight)(?:['\u2019]s)?\s+(?:weather|forecast)"
+    r"|(?:weather\s+)?forecast\s+(?:for|in|today|tomorrow|tonight|this)"
+    r"|temperature\s+(?:outside|today|tomorrow|tonight|right\s+now|in|at)"
+    r"|(?:will|is)\s+it\s+(?:going\s+to\s+)?(?:rain|snow|storm)"
+    r"|(?:how|is\s+it)\s+(?:hot|cold|warm|humid)\s+(?:is\s+it\s+)?(?:outside|today|out))\b",
+    re.IGNORECASE,
+)
+_WEATHER_NOT_A_FORECAST = re.compile(
+    r"\b(?:under\s+the\s+weather|weather\s+(?:the|this|that|a)\s+\w+"
+    r"|fair[- ]weather|weather(?:ing)?\s+(?:out|through)"
+    r"|(?:poem|story|song|essay|haiku|joke|sentence|paragraph)s?\s+(?:about|on)\s+(?:the\s+)?weather"
+    r"|(?:mean(?:s|ing)?|definition|synonyms?|spell|spelling)\b.*\bweather"
+    r"|weather\b.*\b(?:mean(?:s|ing)?|definition|synonyms?)"
+    r"|weather\s+vs\.?\s+whether|whether\s+(?:or|vs))\b",
+    re.IGNORECASE,
+)
+
+# "the new Tesla model", "the newest iPhone", "the latest Django release": what
+# is new changes after training, so the answer has to come from a search. "New"
+# needs "the" and a product word: "I'm new to Python", "happy new year" and "a
+# new way to learn" stay offline, as does "the new model I trained" (no name).
+_NEW_PRODUCT = re.compile(
+    r"\b(?:the\s+new|(?:the\s+)?(?:newest|latest|brand[- ]new))\s+"
+    r"(?:(?:[a-z0-9][\w.+-]*\s+){1,3}"
+    r"(?:models?|versions?|releases?|phones?|cars?|laptops?|consoles?|updates?|editions?"
+    r"|lineups?|chips?|series|flagships?|launch(?:es)?)"
+    r"|(?:iphone|ipad|pixel|galaxy|macbook|playstation|xbox|airpods|apple\s+watch|tesla"
+    r"|cybertruck|gpt|gemini|claude|llama)\b)",
+    re.IGNORECASE,
+)
+
+
+def is_weather_request(text: str) -> bool:
+    """A real forecast or conditions question, not a figure of speech or a writing task."""
+    return _WEATHER.search(text) is not None and _WEATHER_NOT_A_FORECAST.search(text) is None
+
+
 _SPORTS = re.compile(
     r"\b("
     r"game|games|match|matches|score|scores|result|results|fixture|standings|highlights|"

@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from contextlib import ExitStack
 from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, patch
@@ -29,7 +30,7 @@ from app.modules.chat.turn_prep.context import (
 )
 from app.modules.chat.turn_prep.mode import _classify_turn_mode
 from app.modules.images.gen_intent import extract_image_gen_prompt
-from app.modules.images.lookup_intent import extract_image_lookup_query
+from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
 from app.services.subject_solving import detect_subject
 from app.services.tool_loop import _search_before_the_model
@@ -192,7 +193,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     last_assistant = next((row for row in reversed(rows) if row.role == "assistant"), None)
     text = case.prompt
 
-    photo = extract_image_lookup_query(text) or "" if settings.image_search_enabled else ""
+    found = extract_image_lookup_query(text) if settings.image_search_enabled else None
+    photo = dated_lookup_query(found, datetime.now(UTC).year) if found else ""
     image_gen = bool(
         not photo
         and settings.image_generation_enabled

@@ -1,6 +1,7 @@
 import asyncio
 import logging
 from collections.abc import AsyncIterator, Callable
+from datetime import UTC, datetime
 from typing import Any
 from uuid import UUID
 
@@ -23,6 +24,7 @@ from app.modules.chat.turn_prep import RegenerateBackup
 from app.modules.chat.turn_prep.mode import _classify_turn_mode
 from app.modules.chat.turn_prep.regenerate_vision import inject_regenerated_image_content
 from app.modules.chat.turn_timing import TurnTimingTracker
+from app.modules.images.lookup_intent import dated_lookup_query
 from app.services.routing import last_user_turn, message_needs_thinking
 
 logger = logging.getLogger(__name__)
@@ -194,6 +196,7 @@ async def try_image_lookup_for_turn(
         )
         if not query:
             return False
+    query = dated_lookup_query(query, datetime.now(UTC).year)
     try:
         _user_msg, asst_msg = await seams.image_search_service.search_and_attach_for_chat(
             settings,

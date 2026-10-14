@@ -50,6 +50,7 @@ from app.modules.chat.prompt_context import (
 from app.modules.chat.prompt_format import (
     _integration_hints,
     _style_format_hints,
+    slim_geo_hints,
 )
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
 from app.modules.chemistry.followup import CHEMISTRY_FOLLOWUP_HINT, chemistry_followup_problem
@@ -639,22 +640,25 @@ async def build_prompt_messages(
                 chat_history_rag_block=chat_history_rag_block,
             )
         )
-    elif load_memory or recalls_shared_past:
-        if blocks.memory_block:
-            system_parts.append(wrap_untrusted("memory", blocks.memory_block, first_party=True))
-        if chat_history_rag_block:
-            system_parts.append(chat_history_rag_block)
-        if advice_memory and not (query_text and is_capabilities_question(query_text)):
-            if query_text and (
-                is_profile_fact_question(query_text) or is_profile_recall_pushback(query_text)
-            ):
-                system_parts.append(PROFILE_FACT_HINT)
-            elif query_text and is_teaching_request(query_text):
-                system_parts.append(EXAMPLE_PERSONALIZE_HINT)
-            elif query_text and is_career_personal_question(query_text):
-                system_parts.append(CAREER_PERSONALIZE_HINT)
-            else:
-                system_parts.append(ADVICE_PERSONALIZE_HINT)
+    else:
+        # "Coffee near me" is a slim turn, yet it needs the place and the places layout.
+        system_parts.extend(slim_geo_hints(settings, query_text, prompt_location))
+        if load_memory or recalls_shared_past:
+            if blocks.memory_block:
+                system_parts.append(wrap_untrusted("memory", blocks.memory_block, first_party=True))
+            if chat_history_rag_block:
+                system_parts.append(chat_history_rag_block)
+            if advice_memory and not (query_text and is_capabilities_question(query_text)):
+                if query_text and (
+                    is_profile_fact_question(query_text) or is_profile_recall_pushback(query_text)
+                ):
+                    system_parts.append(PROFILE_FACT_HINT)
+                elif query_text and is_teaching_request(query_text):
+                    system_parts.append(EXAMPLE_PERSONALIZE_HINT)
+                elif query_text and is_career_personal_question(query_text):
+                    system_parts.append(CAREER_PERSONALIZE_HINT)
+                else:
+                    system_parts.append(ADVICE_PERSONALIZE_HINT)
 
     if math_followup:
         system_parts.extend([MATH_REPLY_POLICY, MATH_FOLLOWUP_HINT])
