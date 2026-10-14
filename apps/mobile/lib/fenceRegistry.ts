@@ -44,6 +44,7 @@ export type FenceId =
   | "geometry"
   | "graph"
   | "keyvalue"
+  | "map"
   | "math"
   | "mermaid"
   | "message"
@@ -161,6 +162,15 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["chart", "vega", "vega-lite", "plot"],
     structured: true,
     neverCodeBlock: false,
+    owner: "model",
+    fallback: "visual",
+  },
+  {
+    // "Where is Kenya?": the model names the place and its point; the app draws it.
+    id: "map",
+    langs: ["map"],
+    structured: true,
+    neverCodeBlock: true,
     owner: "model",
     fallback: "visual",
   },
@@ -357,6 +367,7 @@ export function isVisualDiagramFenceLang(lang: string): boolean {
 
 export function isDiagramFenceId(id: FenceId | undefined): boolean {
   return (
+    id === "map" ||
     id === "geometry" ||
     id === "arithmetic" ||
     id === "graph" ||

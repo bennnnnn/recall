@@ -415,7 +415,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   ` ```email ` fence so Copy, follow-ups, and reopen see the same draft.
 - ✅ **Fence ownership** — [fenceRegistry.ts](apps/mobile/lib/fenceRegistry.ts) marks each
   fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
-  set (`copy` / drafts, `mermaid`, `chart`, `math`, chemistry source). Server attaches
+  set (`copy` / drafts, `mermaid`, `chart`, `math`, `map`, chemistry source). Server attaches
   verified `answer` / `graph` / `geometry`, `sources`, and `places`. Layout fences
   (`steps`, `comparison`, `keyvalue`, `quote`, `clock`, `callout`)
   still render for history; the prompt must not choose them. A `>` quote card is
@@ -423,6 +423,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and HTML `<details>` unwrap to a bold title plus markdown. Calendar, reminder,
   and settings (`settings_proposal`) control fences stay outside the registry.
   Leftover `vocab_quiz` fences in old messages are stripped for display.
+- ✅ **Place maps** — "where is kenya" gets a 1-3 sentence answer and a `map` fence
+  (`{"place", "lat", "lon", "zoom"}`; hint in `prompt_constants/visuals.py`). The app draws it
+  offline: Natural Earth 1:110m outlines (`pnpm world-map` → `lib/map/worldCountries.generated.json`),
+  the country under the point tinted, a pin on the point. Nothing is fetched; no API key.
 - ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +
   copy + Mermaid Live link; Expo Go shows source + external editor hint.
 - ✅ **PDF attachments** — uploaded PDFs show a file card + inline first-page preview (pdf.js in

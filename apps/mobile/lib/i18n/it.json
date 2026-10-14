@@ -566,6 +566,8 @@
   "rich.graph_invalid": "Impossibile tracciare questa espressione.",
   "rich.graph_play": "Riproduci",
   "rich.graph_play_a11y": "Riproduci l'animazione della traiettoria",
+  "rich.map_a11y": "Mappa di {{place}}",
+  "rich.map_error": "Impossibile disegnare la mappa.",
   "rich.simulation_play_a11y": "Riproduci l'animazione di fisica",
   "rich.simulation_stop_a11y": "Interrompi l'animazione di fisica",
   "rich.simulation_pause_a11y": "Metti in pausa l'animazione di fisica",

@@ -86,8 +86,10 @@ from app.modules.chat.prompt_constants import (
 from app.modules.chat.prompt_constants.visuals import (
     IMAGE_GEN_HONESTY_HINT,
     IMAGE_GEN_UNAVAILABLE_HINT,
+    MAP_FENCE_HINT,
     is_html_ui_question,
     is_image_generation_mention,
+    where_is_place,
 )
 from app.modules.integrations import calendar as calendar_service
 from app.modules.integrations import inbox as email_service
@@ -316,6 +318,9 @@ def _style_format_hints(
             parts.append(layout)
     if lesson_hint:
         parts.append(lesson_hint)
+    # In every account style: "where is kenya" ends on the app's map card.
+    if query_text and where_is_place(query_text):
+        parts.append(MAP_FENCE_HINT)
     if query_text and is_image_generation_mention(query_text):
         parts.append(
             IMAGE_GEN_HONESTY_HINT if image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT

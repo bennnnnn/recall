@@ -57,6 +57,7 @@ HINTS: dict[str, str] = {
     "web_search": web_search_service.WEB_SEARCH_HINT,
     "photo": pc.PHOTO_LOOKUP_HINT,
     "local_places": web_search_service.LOCAL_PLACES_FORMAT_HINT,
+    "map": pc.MAP_FENCE_HINT,
     "emoji_rule": EMOJI_RULE,
 }
 

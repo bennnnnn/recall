@@ -419,6 +419,7 @@ function convertFence(lang: string, body: string, mode: "copy" | "speech"): stri
   }
   if (isChartFenceLang(lang)) return mode === "speech" ? "a chart" : "";
   const id = fenceIdForLang(lang);
+  if (id === "map") return mode === "speech" ? "a map" : "";
   if (isVisualDiagramFenceLang(lang)) return mode === "speech" ? "a diagram" : "";
   if (id === "answer") {
     // A chemistry answer is text (H₂O, Fe³⁺, →); the header line only tells the renderer so.

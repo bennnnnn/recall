@@ -566,6 +566,8 @@
   "rich.graph_invalid": "Не удалось построить это выражение.",
   "rich.graph_play": "Воспроизвести",
   "rich.graph_play_a11y": "Воспроизвести анимацию траектории",
+  "rich.map_a11y": "Карта: {{place}}",
+  "rich.map_error": "Не удалось нарисовать карту.",
   "rich.simulation_play_a11y": "Воспроизвести физическую анимацию",
   "rich.simulation_stop_a11y": "Остановить физическую анимацию",
   "rich.simulation_pause_a11y": "Приостановить физическую анимацию",
