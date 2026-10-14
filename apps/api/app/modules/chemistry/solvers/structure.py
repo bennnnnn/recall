@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import math
+import re
 
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.coordination import CoordinationComplex, parse_complex_formula
@@ -15,20 +16,31 @@ from app.modules.chemistry.species import parse_species
 from app.modules.chemistry.structure import lewis_structure, oxidation_states
 from app.services.solving import SolveServiceError
 
+# "3s2" in the element table: a subshell and the electrons it holds.
+_SUBSHELL = re.compile(r"(?<![A-Za-z0-9])(\d[spdf])(\d{1,2})(?![A-Za-z0-9])")
+
+
+def _configuration(table_text: str) -> str:
+    """The table's ``[Ne] 3s2 3p4`` as ASCII notation, ``[Ne] 3s^2 3p^4``.
+
+    The electron count is a superscript, so ``notation.typeset`` shows ``3s² 3p⁴``.
+    """
+    return _SUBSHELL.sub(r"\1^\2", table_text)
+
 
 def solve_electron_configuration(intent: ChemistryIntent) -> ChemistryResult:
     element = BY_SYMBOL.get(intent.target or "")
     if element is None:
         raise SolveServiceError("an electron configuration needs an element")
+    configuration = _configuration(element.configuration)
     return verified(
         "Verified electron configuration",
         (f"{element.name} ({element.symbol})", f"Z = {element.number}"),
         "Ground-state electron configuration of the neutral atom",
         *stated("electron_configuration"),
         (f"{element.number} electrons",),
-        f"{element.symbol}: {element.configuration}",
-        element.configuration,
-        verbatim=True,
+        f"{element.symbol}: {configuration}",
+        configuration,
     )
 
 
