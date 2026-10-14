@@ -10,6 +10,8 @@ Each family is a cause, not one prompt:
   particle count;
 - D: a Ka question chemistry could not read went to maths, which "verified" ``x = 55555.6``
   from the ``x`` of ``1.8 x 10^-5``;
+- E: display: trailing zeros dropped, round-half-even, configurations without
+  superscripts;
 - F: routing that sent a chemistry question to maths (an ASCII arrow, ``=`` as an arrow,
   a lowercase ``ph``).
 
@@ -23,11 +25,13 @@ import re
 
 import pytest
 
+from app.modules.chemistry.block import build_verified_chemistry
+from app.modules.chemistry.direct import format_direct_chemistry_reply
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.input_text import read_chemistry_text
 from app.modules.chemistry.request import is_chemistry_question
 from app.modules.chemistry.solvers import solve_chemistry
-from app.modules.chemistry.solvers.types import ChemistryResult
+from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.services.solving import SolveServiceError
 from app.services.subject_solving import detect_subject
 
@@ -263,6 +267,52 @@ def test_d_a_ka_question_is_right_or_unverified(question: str, expected: float) 
 )
 def test_d_maths_stays_maths(question: str) -> None:
     assert detect_subject(question) == "math"
+
+
+# --- E: display --------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "figures", "shown"),
+    [
+        (62.5, 2, "63"),
+        (0.125, 2, "0.13"),
+        (2.675, 3, "2.68"),
+        (1.005, 3, "1.01"),
+        (-62.5, 2, "-63"),
+        (9.995, 3, "10.0"),
+        (0.0105, 2, "0.011"),
+    ],
+)
+def test_e_answers_round_half_up_as_a_class_does(value: float, figures: int, shown: str) -> None:
+    assert format_number(value, significant=figures, keep_zeros=True) == shown
+
+
+def test_e_dilution_rounds_62_5_up() -> None:
+    result = _solve("How many mL of 12 M HCl are needed to make 500 mL of 1.5 M HCl?")
+    assert result.answer.endswith("= 63 mL"), result.answer
+
+
+@pytest.mark.parametrize(
+    ("question", "answer"),
+    [
+        ("Calculate the percent by mass of nitrogen in NH4NO3.", "N in NH4NO3 = 35.00%"),
+        ("What is the percent composition of oxygen in MgO?", "O in MgO = 39.70%"),
+    ],
+)
+def test_e_a_formula_only_percent_keeps_its_trailing_zeros(question: str, answer: str) -> None:
+    assert _solve(question).answer == answer
+
+
+def test_e_an_electron_configuration_is_shown_with_superscripts() -> None:
+    intent = extract_chemistry_intent("electron configuration of sulfur")
+    assert intent is not None
+    verified = build_verified_chemistry(intent)
+    assert verified is not None
+    assert verified.result.answer == "S: [Ne] 3s^2 3p^4"
+    reply = format_direct_chemistry_reply(verified)
+    assert "3s² 3p⁴" in reply
+    assert "3s2" not in reply
 
 
 # --- F: routing that sent chemistry to maths ---------------------------------------------

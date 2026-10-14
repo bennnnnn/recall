@@ -138,7 +138,7 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
     (
         "What is the electron configuration of Fe?",
         "electron_configuration",
-        "Fe: [Ar] 3d6 4s2",
+        "Fe: [Ar] 3d^6 4s^2",
     ),
     (
         "Use the van 't Hoff equation. K1 = 1.00, T1 = 300 K, T2 = 350 K, "

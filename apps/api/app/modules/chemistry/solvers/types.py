@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import math
 from dataclasses import dataclass
+from decimal import ROUND_HALF_UP, Decimal
 
 from app.modules.chemistry.schemas.scene import ChemistryScene
 
@@ -18,10 +19,25 @@ INPUT_FIGURES = 6
 CONSTANT_FIGURES = 5
 
 
-def _round_significant(value: float, digits: int) -> tuple[float, int]:
-    """``value`` rounded to ``digits`` significant digits as ``(mantissa, exponent)``."""
-    mantissa, exponent = f"{value:.{digits - 1}e}".split("e")
-    return float(mantissa), int(exponent)
+def round_half_up(value: float, places: int) -> Decimal:
+    """``value`` to ``places`` decimals the way a class rounds: a 5 rounds away from zero.
+
+    The value is read as the shortest decimal that names it (62.5, 2.675), so a tie a student
+    sees is a tie: 62.5 mL to two figures is 63 mL, not the 62 that round-half-even gives.
+    """
+    return Decimal(repr(value)).quantize(Decimal(1).scaleb(-places), rounding=ROUND_HALF_UP)
+
+
+def _round_significant(value: float, digits: int) -> tuple[Decimal, int]:
+    """``value`` rounded half up to ``digits`` significant digits as ``(mantissa, exponent)``."""
+    exact = Decimal(repr(value))
+    exponent = exact.adjusted()
+    rounded = round_half_up(value, digits - 1 - exponent)
+    if rounded.adjusted() != exponent:
+        # 9.995 to three figures is 10.0: the rounding carried into a new leading digit.
+        exponent = rounded.adjusted()
+        rounded = rounded.quantize(Decimal(1).scaleb(exponent - digits + 1))
+    return rounded.scaleb(-exponent), exponent
 
 
 def _trim(text: str) -> str:
@@ -47,12 +63,13 @@ def format_number(
     # replaced with zeros is written in powers of ten: 1780 to two figures is 1.8 × 10^3,
     # since 1800 would read as measured. Zeros that are the number's own digits stay plain:
     # 200 is 200, and 110.02 g to two figures is 110 g.
-    rounded_to_zeros = exponent >= significant and round(mantissa * 10.0**exponent) != round(value)
+    rounded = mantissa.scaleb(exponent)
+    rounded_to_zeros = exponent >= significant and round(rounded) != round(value)
     tidy = (lambda text: text) if keep_zeros else _trim
     if exponent < -3 or exponent >= 6 or (keep_zeros and rounded_to_zeros):
         return f"{tidy(f'{mantissa:.{significant - 1}f}')} × 10^{exponent}"
     decimals = max(significant - 1 - exponent, 0)
-    return tidy(f"{float(f'{value:.{significant - 1}e}'):.{decimals}f}")
+    return tidy(f"{rounded:.{decimals}f}")
 
 
 def format_constant(value: float) -> str:

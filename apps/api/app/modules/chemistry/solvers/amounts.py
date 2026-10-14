@@ -15,6 +15,7 @@ from app.modules.chemistry.solvers.common_chem import (
     molar_mass_working,
     num,
     qty,
+    table_num,
     verified,
 )
 from app.modules.chemistry.solvers.constants import AVOGADRO
@@ -259,7 +260,7 @@ def solve_percent_composition(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError(f"{element} is not present in {formula}")
     total = _molar_mass(formula)
     percent = count * known.mass / total * 100
-    value = f"{num(percent)}%"
+    value = f"{table_num(percent)}%"
     whole = molar_mass_working(total)
     terms = _mass_terms(formula)
     return verified(
