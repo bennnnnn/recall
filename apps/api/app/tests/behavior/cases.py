@@ -117,9 +117,8 @@ CASES: tuple[Case, ...] = (
         "math-check-work",
         "math",
         "I got x = 4 for 3x - 2 = 10, is that right?",
-        Expect(subject="math", search="no"),
+        Expect(subject="math", solved=True, search="no"),
         "Yes: 3·4 − 2 = 10.",
-        gap="checking a student's answer does not reach the math solver",
     ),
     Case(
         "math-word-problem",

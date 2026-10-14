@@ -142,6 +142,15 @@ _ROOT_CLAIM = re.compile(
     re.IGNORECASE,
 )
 
+# "I got x = 4 for 3x - 2 = 10": the answer comes before the equation.
+_ANSWER_CLAIM = re.compile(
+    rf"\b(?:i\s+(?:got|found|get|have)|my\s+answer\s+(?:is|was)"
+    rf"|i\s+think\s+(?:it'?s|it\s+is))\s+"
+    rf"(?P<var>[A-Za-z])\s*=\s*(?P<value>{_NUMBER})"
+    rf"\s+(?:for|in|on|when\s+solving|solving)\s+(?P<equation>.+)",
+    re.IGNORECASE,
+)
+
 FUNCTION_WORDS = MATH_FUNCTION_NAMES | {"pi"}
 # Letters that name a constant somewhere in the parser, never the unknown.
 _RESERVED_LETTERS = frozenset("eEiI")
@@ -176,6 +185,8 @@ def parse_work_request(text: str) -> WorkRequest | None:
     hint_only = any(cue in lowered for cue in _HINT_CUES)
     cued = hint_only or any(cue in lowered for cue in _CHECK_CUES)
     claimed = _claimed_roots_request(normalized, hint_only=hint_only, cued=cued)
+    if claimed is None:
+        claimed = _claimed_answer_request(normalized, hint_only=hint_only, cued=cued)
     if claimed is not None:
         return claimed
     if not cued and not _uncued_shape(normalized):
@@ -245,6 +256,34 @@ def _claimed_roots_request(text: str, *, hint_only: bool, cued: bool) -> WorkReq
     if variable is None:
         return None
     answer_line = " or ".join(f"{variable} = {value}" for value in values)
+    return WorkRequest((line, answer_line), variable, hint_only, cued)
+
+
+def _equation_before_cue(raw: str) -> str:
+    """The equation in "… for 3x - 2 = 10, is that right?", without the question."""
+    lower = raw.lower()
+    for cue in _CHECK_CUES:
+        index = lower.find(cue)
+        if index > 0:
+            raw = raw[:index]
+            break
+    return raw.strip().rstrip(" .,?!")
+
+
+def _claimed_answer_request(text: str, *, hint_only: bool, cued: bool) -> WorkRequest | None:
+    """Turn “I got x = 4 for 3x - 2 = 10, is that right?” into a two-line work check."""
+    if not cued:
+        return None
+    match = _ANSWER_CLAIM.search(text)
+    if match is None:
+        return None
+    line = _math_line(_equation_before_cue(match["equation"]))
+    if not isinstance(line, str) or "=" not in line:
+        return None
+    variable = match["var"]
+    if variable in _RESERVED_LETTERS or variable not in re.findall(r"[A-Za-z]", line):
+        return None
+    answer_line = f"{variable} = {match['value'].replace(' ', '')}"
     return WorkRequest((line, answer_line), variable, hint_only, cued)
 
 
