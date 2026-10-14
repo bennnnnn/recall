@@ -566,8 +566,6 @@
   "rich.graph_invalid": "Could not plot that expression.",
   "rich.graph_play": "Play",
   "rich.graph_play_a11y": "Play the trajectory animation",
-  "rich.map_a11y": "Map showing {{place}}",
-  "rich.map_error": "Could not draw that map.",
   "rich.array_error": "Could not draw that list.",
   "rich.array_index": "Index {{index}}",
   "rich.quiz_check": "Check answer",

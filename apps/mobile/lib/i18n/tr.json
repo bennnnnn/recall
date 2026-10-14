@@ -566,8 +566,6 @@
   "rich.graph_invalid": "Bu ifade çizilemedi.",
   "rich.graph_play": "Oynat",
   "rich.graph_play_a11y": "Yörünge animasyonunu oynat",
-  "rich.map_a11y": "{{place}} haritası",
-  "rich.map_error": "Harita çizilemedi.",
   "rich.array_error": "Liste çizilemedi.",
   "rich.array_index": "İndeks {{index}}",
   "rich.quiz_check": "Cevabı kontrol et",

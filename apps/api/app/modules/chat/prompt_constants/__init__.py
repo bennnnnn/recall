@@ -97,11 +97,12 @@ from app.modules.chat.prompt_constants.teaching import (
     programming_lesson_contract,
 )
 from app.modules.chat.prompt_constants.visuals import (
+    ANSWER_PHOTO_HINT,
     CHEMISTRY_FENCE_HINT,
     IMAGE_GEN_HONESTY_HINT,
     IMAGE_GEN_UNAVAILABLE_HINT,
-    MAP_FENCE_HINT,
     VISUALIZATION_HINTS,
+    WHERE_IS_PHOTO_HINT,
     attach_chemistry_fence_hint,
     is_html_ui_question,
     is_image_generation_mention,
@@ -138,6 +139,7 @@ from app.modules.physics import (
 
 __all__ = [
     "ADVICE_PERSONALIZE_HINT",
+    "ANSWER_PHOTO_HINT",
     "BIOLOGY_PRESENTATION_HINT",
     "BREVITY_REQUEST_HINT",
     "BROAD_SELF_ANSWER_HINT",
@@ -165,7 +167,6 @@ __all__ = [
     "INTENT_FORMAT_HINT",
     "LEARNING_PLAN_HINT",
     "LIGHTWEIGHT_REPLY_HINT",
-    "MAP_FENCE_HINT",
     "MARKDOWN_BOUNDARY_CONTRACT",
     "MATH_FENCE_SAFETY_HINT",
     "MATH_INTENT_HINT",
@@ -202,6 +203,7 @@ __all__ = [
     "VERIFIED_SOLVE_SAFETY_HINT",
     "VISUALIZATION_HINTS",
     "WALKTHROUGH_HINT",
+    "WHERE_IS_PHOTO_HINT",
     "WRITING_LINE_HINT",
     "active_lesson_step",
     "attach_chemistry_fence_hint",

@@ -207,15 +207,20 @@ def where_is_place(text: str) -> str | None:
     return place
 
 
-# The app draws the map offline from these numbers (apps/mobile/lib/map/mapFence.ts).
-MAP_FENCE_HINT = (
-    "This turn asks where a place is. Answer in 1-3 sentences: the region it is in and a "
-    "neighbour, sea or landmark that places it. Then end with one ```map fence holding "
-    'JSON: {"place": "<name>", "lat": <decimal degrees>, "lon": <decimal degrees>, '
-    '"zoom": "world" | "region" | "country" | "city"}. Use the place\'s centre. Zoom '
-    '"country" for a country, "city" for a city, town or landmark, "region" for a province, '
-    'mountain range, lake or sea, "world" for a continent or ocean. The app draws the map '
-    "from those numbers, so do not add an image, a link or a description of the map. If it "
-    "is not a real place on Earth (an object, a person, a line of code, a fictional land), "
-    "answer normally with no fence."
+# A real photo above the answer (app/modules/images/answer_photo.py swaps the
+# fence for the photo while the reply streams).
+ANSWER_PHOTO_HINT = (
+    "Photos: when the reply is mainly about one thing people would want to see (a place, "
+    "landmark, animal, plant, person, food, product, vehicle or artwork), open the reply with "
+    "a ```photo fence holding one short image-search query on one line, for example "
+    "```photo\nEiffel Tower Paris\n```, then answer as usual. The app finds a real photo and "
+    "shows it above your answer. At most one, only at the very start, and never mention or "
+    "describe the photo in the text. No photo for abstract ideas, history or science "
+    "concepts, code, math, advice, how-tos, comparisons, lessons or small talk."
+)
+
+WHERE_IS_PHOTO_HINT = (
+    "This turn asks where a place is. Open the reply with "
+    "```photo\n<place> location map\n```, then answer in 1-3 sentences: the region it is "
+    "in and a neighbour, sea or landmark that places it."
 )

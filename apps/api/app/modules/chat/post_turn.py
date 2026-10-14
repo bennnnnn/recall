@@ -12,6 +12,7 @@ from app.core.config import Settings, get_settings
 from app.core.db import SessionLocal
 from app.modules import todos as todos_service
 from app.modules.attachments import lifecycle as attachment_lifecycle
+from app.modules.attachments import service as attachments_service
 from app.modules.chat.finalize_registry import clear_pending_finalize
 from app.modules.chat.turn_prep import RegenerateBackup, StreamContext
 from app.modules.memory import is_explicit_memory_command, memory_extract_user_text
@@ -178,6 +179,15 @@ async def finalize_stream_turn_db(
                 message_id=ctx.assistant_message_id,
                 commit=False,  # batch with touch + usage into one commit below
             )
+            if ctx.answer_photo_ids:
+                # The reply's photo was stored while it streamed; it belongs to this row.
+                await attachments_service.link_to_message(
+                    session,
+                    user_id=ctx.user_id,
+                    attachment_ids=ctx.answer_photo_ids,
+                    message_id=assistant_message.id,
+                    commit=False,
+                )
             if result is not None:
                 # stream_and_finalize preassigns these; direct callers also
                 # receive the flushed row's identity before commit returns.

@@ -29,11 +29,6 @@ const GeometryBlockLazy = React.lazy(() =>
   import("@/components/rich/GeometryBlock").then((m) => ({ default: m.GeometryBlock })),
 );
 
-// The world outlines (~90 KB) load with the first map, not with chat.
-const MapBlockLazy = React.lazy(() =>
-  import("@/components/rich/MapBlock").then((m) => ({ default: m.MapBlock })),
-);
-
 const FunctionGraphBlockLazy = React.lazy(() =>
   import("@/components/rich/FunctionGraphBlock").then((m) => ({ default: m.FunctionGraphBlock })),
 );
@@ -106,14 +101,6 @@ export function LazyGeometryBlock({ content }: { content: string }) {
   return (
     <Suspense fallback={<RichLoadPlaceholder height={220} />}>
       <GeometryBlockLazy content={content} />
-    </Suspense>
-  );
-}
-
-export function LazyMapBlock({ content }: { content: string }) {
-  return (
-    <Suspense fallback={<RichLoadPlaceholder height={200} />}>
-      <MapBlockLazy content={content} />
     </Suspense>
   );
 }

@@ -13,6 +13,7 @@ import logging
 from uuid import UUID
 
 import httpx
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.core.db import SessionLocal
@@ -114,6 +115,63 @@ async def _fetch_candidates(
     return fetched
 
 
+async def _find_photos(
+    settings: Settings, query: str, *, max_images: int
+) -> list[tuple[bytes, str]]:
+    """Search and fetch up to ``max_images`` usable photos. No DB session is held."""
+    hits = await image_search_gateway.search_images(
+        settings, query, max_results=settings.image_search_max_results
+    )
+    if not hits:
+        raise ImageSearchError("Could not find a reference photo", status_code=502)
+    fetched = await _fetch_candidates(settings, hits, max_images=max_images)
+    if not fetched:
+        raise ImageSearchError("Could not find a usable reference photo", status_code=502)
+    return fetched
+
+
+async def _store_photos(
+    session: AsyncSession,
+    gateway: StorageGateway,
+    user: User,
+    fetched: list[tuple[bytes, str]],
+    *,
+    label: str,
+    written_keys: list[str],
+) -> list[UUID]:
+    """Write the photos and their pending attachment rows (not yet linked); no commit."""
+    attachment_ids: list[UUID] = []
+    for data, content_type in fetched:
+        presigned = await gateway.presign_upload(
+            user_id=str(user.id),
+            content_type=content_type,
+            size_bytes=len(data),
+        )
+        attachment_id = UUID(presigned.attachment_id)
+        await gateway.write_bytes(presigned.storage_key, data)
+        written_keys.append(presigned.storage_key)
+        await attachments_repo.create_pending(
+            session,
+            attachment_id=attachment_id,
+            user_id=user.id,
+            storage_key=presigned.storage_key,
+            content_type=content_type,
+            size_bytes=len(data),
+            source="search",
+            original_filename=(label.replace("\n", " ").strip()[:255] or None),
+            library_visible=False,
+            commit=False,
+        )
+        attachment_ids.append(attachment_id)
+    return attachment_ids
+
+
+async def _mark_verified(session: AsyncSession, attachment_ids: list[UUID]) -> None:
+    for attachment_id in attachment_ids:
+        # Bytes were fetched and validated here — skip /file re-download.
+        await attachments_repo.mark_verified(session, attachment_id, commit=False)
+
+
 async def search_and_attach_for_chat(
     settings: Settings,
     *,
@@ -166,42 +224,13 @@ async def search_and_attach_for_chat(
     written_keys: list[str] = []
     try:
         # Provider HTTP (search + candidate fetches) — no DB session held.
-        hits = await image_search_gateway.search_images(
-            settings, cleaned, max_results=settings.image_search_max_results
+        fetched = await _find_photos(
+            settings, cleaned, max_images=settings.image_search_max_results
         )
-        if not hits:
-            raise ImageSearchError("Could not find a reference photo", status_code=502)
-
-        fetched = await _fetch_candidates(
-            settings, hits, max_images=settings.image_search_max_results
-        )
-        if not fetched:
-            raise ImageSearchError("Could not find a usable reference photo", status_code=502)
-
-        attachment_ids: list[UUID] = []
         async with SessionLocal() as session:
-            for data, content_type in fetched:
-                presigned = await gateway.presign_upload(
-                    user_id=str(user.id),
-                    content_type=content_type,
-                    size_bytes=len(data),
-                )
-                attachment_id = UUID(presigned.attachment_id)
-                await gateway.write_bytes(presigned.storage_key, data)
-                written_keys.append(presigned.storage_key)
-                await attachments_repo.create_pending(
-                    session,
-                    attachment_id=attachment_id,
-                    user_id=user.id,
-                    storage_key=presigned.storage_key,
-                    content_type=content_type,
-                    size_bytes=len(data),
-                    source="search",
-                    original_filename=(cleaned.replace("\n", " ").strip()[:255] or None),
-                    library_visible=False,
-                    commit=False,
-                )
-                attachment_ids.append(attachment_id)
+            attachment_ids = await _store_photos(
+                session, gateway, user, fetched, label=cleaned, written_keys=written_keys
+            )
 
             if create_user_message:
                 bubble = (user_message_content or f"{_USER_MESSAGE_PREFIX}{cleaned}").strip()
@@ -242,9 +271,7 @@ async def search_and_attach_for_chat(
             )
             if linked != len(attachment_ids):
                 raise ImageSearchError("Could not link reference photo", status_code=500)
-            for attachment_id in attachment_ids:
-                # Bytes were fetched and validated here — skip /file re-download.
-                await attachments_repo.mark_verified(session, attachment_id, commit=False)
+            await _mark_verified(session, attachment_ids)
             # Persist the turn atomically. If any link fails, session close
             # rolls back rows before byte cleanup.
             await session.commit()
@@ -263,3 +290,53 @@ async def search_and_attach_for_chat(
         logger.exception("record_global_spend failed after photo lookup")
 
     return user_message, assistant_message
+
+
+async def photos_for_answer(settings: Settings, *, user: User, query: str) -> list[UUID]:
+    """One real photo for an answer about something worth seeing, stored but not linked.
+
+    The reply's finalize links it to the assistant message. Best-effort: when
+    lookup is off, storage is missing, the daily limit is spent or nothing
+    usable is found, this returns [] and the answer goes out without a photo.
+    """
+    cleaned = " ".join(query.split())[:120]
+    if not (settings.image_search_enabled and settings.attachments_enabled and cleaned):
+        return []
+    gateway = get_storage_gateway(settings)
+    if isinstance(gateway, UnconfiguredStorageGateway):
+        return []
+    redis = get_redis_client()
+    if await quota_service.global_spend_exceeded(redis, settings):
+        return []
+    daily_limit = quota_service.image_search_limit_for_user(user, settings)
+    if not await quota_service.reserve_image_search(redis, user.id, limit=daily_limit):
+        return []
+
+    written_keys: list[str] = []
+    try:
+        fetched = await _find_photos(settings, cleaned, max_images=1)
+        async with SessionLocal() as session:
+            attachment_ids = await _store_photos(
+                session, gateway, user, fetched, label=cleaned, written_keys=written_keys
+            )
+            await _mark_verified(session, attachment_ids)
+            await session.commit()
+    except ImageSearchError:
+        await _rollback_written_bytes(gateway, written_keys)
+        await quota_service.refund_image_search(redis, user.id)
+        return []
+    except Exception:
+        logger.exception("Answer photo lookup failed")
+        await _rollback_written_bytes(gateway, written_keys)
+        await quota_service.refund_image_search(redis, user.id)
+        return []
+    except BaseException:
+        await _rollback_written_bytes(gateway, written_keys)
+        await quota_service.refund_image_search(redis, user.id)
+        raise
+
+    try:
+        await quota_service.record_global_spend(redis, quota_service.IMAGE_SEARCH_SPEND_USD)
+    except Exception:
+        logger.exception("record_global_spend failed after answer photo")
+    return attachment_ids

@@ -57,7 +57,8 @@ HINTS: dict[str, str] = {
     "web_search": web_search_service.WEB_SEARCH_HINT,
     "photo": pc.PHOTO_LOOKUP_HINT,
     "local_places": web_search_service.LOCAL_PLACES_FORMAT_HINT,
-    "map": pc.MAP_FENCE_HINT,
+    "answer_photo": pc.ANSWER_PHOTO_HINT,
+    "where_is_photo": pc.WHERE_IS_PHOTO_HINT,
     "emoji_rule": EMOJI_RULE,
 }
 
@@ -350,6 +351,8 @@ def mismatches(expect: Expect, route: Route) -> list[str]:
     check("solved", expect.solved, route.solved)
     check("instant", expect.instant, route.instant)
     check("lightweight", expect.lightweight, route.lightweight)
+    if expect.answer_photo and "answer_photo" not in route.hints:
+        out.append("answer photo: the turn never offers one")
     for hint in expect.hints:
         if hint not in route.hints:
             out.append(f"hint {hint!r} missing")

@@ -87,14 +87,14 @@ from app.services.subject_solving import (
     detect_subject,
 )
 
-_PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places", "map")
+_PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places", "photo")
 
 
 def _strip_prompt_owned_fences(content: str) -> str:
     """Drop solver/search fences from assistant history before the model sees them.
 
     Persisted messages keep the fences for the client. Re-injecting ```answer /
-    ```graph / ```sources / ```map into the recent window teaches the model to copy them.
+    ```graph / ```sources / ```photo into the recent window teaches the model to copy them.
     """
     out = content
     for lang in _PROMPT_STRIP_FENCE_LANGS:
@@ -602,6 +602,7 @@ async def build_prompt_messages(
                 minimal_personal_context=minimal_personal_context,
                 compact=compact_format,
                 image_generation_enabled=settings.image_generation_enabled,
+                image_search_enabled=settings.image_search_enabled,
                 lesson=lesson,
                 prior_messages=prior_messages,
             )

@@ -566,8 +566,6 @@
   "rich.graph_invalid": "Dieser Ausdruck konnte nicht gezeichnet werden.",
   "rich.graph_play": "Abspielen",
   "rich.graph_play_a11y": "Flugbahn-Animation abspielen",
-  "rich.map_a11y": "Karte mit {{place}}",
-  "rich.map_error": "Die Karte konnte nicht gezeichnet werden.",
   "rich.array_error": "Die Liste konnte nicht gezeichnet werden.",
   "rich.array_index": "Index {{index}}",
   "rich.quiz_check": "Antwort prüfen",

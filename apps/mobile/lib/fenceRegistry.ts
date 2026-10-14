@@ -45,7 +45,6 @@ export type FenceId =
   | "geometry"
   | "graph"
   | "keyvalue"
-  | "map"
   | "math"
   | "mermaid"
   | "message"
@@ -181,15 +180,6 @@ export const FENCES: readonly FenceSpec[] = [
     langs: ["chart", "vega", "vega-lite", "plot"],
     structured: true,
     neverCodeBlock: false,
-    owner: "model",
-    fallback: "visual",
-  },
-  {
-    // "Where is Kenya?": the model names the place and its point; the app draws it.
-    id: "map",
-    langs: ["map"],
-    structured: true,
-    neverCodeBlock: true,
     owner: "model",
     fallback: "visual",
   },
@@ -386,7 +376,6 @@ export function isVisualDiagramFenceLang(lang: string): boolean {
 
 export function isDiagramFenceId(id: FenceId | undefined): boolean {
   return (
-    id === "map" ||
     id === "geometry" ||
     id === "arithmetic" ||
     id === "graph" ||
@@ -405,7 +394,12 @@ export function isControlFenceLang(lang: string): boolean {
   const id = fenceIdForLang(lang);
   if (id === "sources" || id === "places") return true;
   const l = normalize(lang);
-  return l === "reminder" || l === "calendar_proposal" || l === "settings_proposal";
+  return (
+    l === "reminder" ||
+    l === "calendar_proposal" ||
+    l === "settings_proposal" ||
+    l === "photo"
+  );
 }
 
 /** Lift these out of list items so CommonMark treats them as real fences. */

@@ -227,13 +227,16 @@ def check(case: Case, turn: Turn) -> list[str]:
     wants_photo = bool(expect.photo) or bool(expect.photo_not)
     if wants_photo and not turn.photo:
         misses.append("no photo")
-    if expect.photo == "" and turn.photo:
+    if expect.photo == "" and turn.photo and not expect.answer_photo:
         misses.append("photo shown")
+    if expect.answer_photo and not turn.photo:
+        misses.append("no photo above the answer")
     if expect.image_gen is True and not turn.generated:
         misses.append("no generated image")
     if expect.image_gen is False and turn.generated:
         misses.append("generated an image")
-    if turn.photo or turn.generated:
+    # A lookup or generated image is the whole reply; an answer photo sits above text.
+    if (turn.photo and not expect.answer_photo) or turn.generated:
         return misses
     if expect.search == "yes" and not turn.sources:
         misses.append("did not search")

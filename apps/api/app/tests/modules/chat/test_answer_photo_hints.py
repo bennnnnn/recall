@@ -1,11 +1,15 @@
-"""'Where is kenya' ends on the app's offline ```map card."""
+"""Answers about something worth seeing open with a ```photo request for a real photo."""
 
 from __future__ import annotations
 
 import pytest
 
 from app.modules.chat.prompt_builder import _strip_prompt_owned_fences, _style_format_hints
-from app.modules.chat.prompt_constants import MAP_FENCE_HINT, where_is_place
+from app.modules.chat.prompt_constants import (
+    ANSWER_PHOTO_HINT,
+    WHERE_IS_PHOTO_HINT,
+    where_is_place,
+)
 
 
 @pytest.mark.parametrize(
@@ -65,27 +69,41 @@ def test_where_is_place_skips_things_not_on_a_map(text: str) -> None:
     assert where_is_place(text) is None
 
 
-@pytest.mark.parametrize("style", ["short", "balanced", "detailed"])
-def test_where_is_question_gets_map_hint_in_every_style(style: str) -> None:
-    parts = _style_format_hints(
-        query_text="where is kenya",
+def _hints(text: str, style: str = "balanced", *, photos: bool = True) -> list[str]:
+    return _style_format_hints(
+        query_text=text,
         style=style,
         is_day_plan=False,
         minimal_personal_context=False,
+        image_search_enabled=photos,
     )
-    assert MAP_FENCE_HINT in parts
 
 
-def test_other_questions_do_not_pay_for_the_map_hint() -> None:
-    parts = _style_format_hints(
-        query_text="tell me about kenya",
-        style="balanced",
-        is_day_plan=False,
-        minimal_personal_context=False,
-    )
-    assert MAP_FENCE_HINT not in parts
+@pytest.mark.parametrize("style", ["short", "balanced", "detailed"])
+def test_where_is_question_asks_for_a_location_map_in_every_style(style: str) -> None:
+    parts = _hints("where is kenya", style)
+    assert ANSWER_PHOTO_HINT in parts
+    assert WHERE_IS_PHOTO_HINT in parts
+    assert "<place> location map" in WHERE_IS_PHOTO_HINT
 
 
-def test_map_fence_is_dropped_from_history_so_it_is_not_copied() -> None:
-    reply = 'Kenya is in East Africa.\n\n```map\n{"place": "Kenya", "lat": 0.0, "lon": 37.9}\n```'
+def test_every_turn_may_offer_a_photo_but_only_where_is_asks_for_a_map() -> None:
+    parts = _hints("what is a capybara")
+    assert ANSWER_PHOTO_HINT in parts
+    assert WHERE_IS_PHOTO_HINT not in parts
+
+
+def test_no_photo_hints_when_photo_lookup_is_off() -> None:
+    parts = _hints("where is kenya", photos=False)
+    assert ANSWER_PHOTO_HINT not in parts
+    assert WHERE_IS_PHOTO_HINT not in parts
+
+
+def test_photo_hint_keeps_abstract_topics_and_lessons_out() -> None:
+    for word in ("abstract ideas", "code", "math", "lessons", "small talk"):
+        assert word in ANSWER_PHOTO_HINT
+
+
+def test_photo_fence_is_dropped_from_history_so_it_is_not_copied() -> None:
+    reply = "```photo\nKenya location map\n```\n\nKenya is in East Africa."
     assert _strip_prompt_owned_fences(reply).strip() == "Kenya is in East Africa."

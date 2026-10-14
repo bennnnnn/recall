@@ -74,6 +74,8 @@ export function classifyFence(lang: string, content: string): FenceDecision {
   const l = lang.trim().toLowerCase();
 
   if (isFakeImageGenFence(l)) return { kind: "hide", lang: l };
+  // The server swaps a reply's ```photo request for a real photo when it ends.
+  if (l === "photo") return { kind: "hide", lang: l };
   if (shouldUseHtmlPreview(lang, content)) return { kind: "html", lang: l };
 
   const spec = fenceSpecForLang(l);
