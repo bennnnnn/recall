@@ -8,7 +8,14 @@ import { CODE_FONT } from "@/lib/fonts";
 import { notifySuccess, notifyWarning, selection } from "@/lib/haptics";
 import i18n from "@/lib/i18n";
 import { isUnfinishedJson } from "@/lib/jsonFence";
-import { explanationParts, parseQuizFence } from "@/lib/lesson/lessonFences";
+import {
+  explanationParts,
+  type LooseQuiz,
+  looseQuiz,
+  optionLetter,
+  parseQuizFence,
+  plainFenceText,
+} from "@/lib/lesson/lessonFences";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
@@ -31,8 +38,17 @@ export function QuizCard({ content }: Props) {
   );
 
   if (!quiz) {
+    const plain = plainFenceText(content);
+    if (plain) {
+      return (
+        <ChipText style={[s.explanation, s.plain]} chip={s.chip}>
+          {plain}
+        </ChipText>
+      );
+    }
     if (isUnfinishedJson(content)) return null;
-    return <Text style={s.error}>{i18n.t("rich.quiz_error")}</Text>;
+    const loose = looseQuiz(content);
+    return loose ? <LooseQuizCard quiz={loose} s={s} /> : null;
   }
 
   const save = (next: Attempt) => {
@@ -93,20 +109,71 @@ export function QuizCard({ content }: Props) {
           <Text style={s.verdict}>
             {correct ? i18n.t("rich.quiz_correct") : i18n.t("rich.quiz_wrong")}
           </Text>
-          {explanationParts(quiz.explanation).map((part, index) =>
-            part.kind === "code" ? (
-              <CodeBlock key={index} code={part.code} lang={part.lang} />
-            ) : (
-              <ChipText key={index} style={s.explanation} chip={s.chip}>
-                {part.text}
-              </ChipText>
-            ),
-          )}
+          <Explanation text={quiz.explanation} s={s} />
         </View>
       ) : null}
     </View>
   );
 }
+
+/**
+ * A quiz whose fence did not parse: the question and lettered options as text,
+ * and the explanation behind "Show answer" so the exercise still works.
+ */
+function LooseQuizCard({ quiz, s }: { quiz: LooseQuiz; s: Styles }) {
+  const [shown, setShown] = useState(false);
+  return (
+    <View style={s.card} testID="quiz-card-text">
+      {quiz.label ? (
+        <View style={s.badge}>
+          <Text style={s.badgeText}>{quiz.label}</Text>
+        </View>
+      ) : null}
+      {quiz.question ? (
+        <ChipText style={s.question} chip={s.chip}>
+          {quiz.question}
+        </ChipText>
+      ) : null}
+      {quiz.code ? <CodeBlock code={quiz.code} lang={quiz.codeLang} /> : null}
+      {quiz.options.map((option, index) => (
+        <ChipText key={`${index}:${option}`} style={s.optionText} chip={s.chip}>
+          {`${optionLetter(index)} ${option}`}
+        </ChipText>
+      ))}
+      {quiz.explanation && !shown ? (
+        <Button
+          title={i18n.t("rich.quiz_show_answer")}
+          variant="secondary"
+          onPress={() => setShown(true)}
+        />
+      ) : null}
+      {quiz.explanation && shown ? (
+        <View style={s.result} accessibilityLiveRegion="polite">
+          <Explanation text={quiz.explanation} s={s} />
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** Prose with any fenced code drawn as a code block. */
+function Explanation({ text, s }: { text: string; s: Styles }) {
+  return (
+    <>
+      {explanationParts(text).map((part, index) =>
+        part.kind === "code" ? (
+          <CodeBlock key={index} code={part.code} lang={part.lang} />
+        ) : (
+          <ChipText key={index} style={s.explanation} chip={s.chip}>
+            {part.text}
+          </ChipText>
+        ),
+      )}
+    </>
+  );
+}
+
+type Styles = ReturnType<typeof makeStyles>;
 
 function makeStyles(t: Theme) {
   return StyleSheet.create({
@@ -172,10 +239,6 @@ function makeStyles(t: Theme) {
     },
     verdict: { ...Type.body, ...Weight.bold, color: t.text },
     explanation: { ...Type.body, color: t.text },
-    error: {
-      ...Type.secondary,
-      color: t.textSecondary,
-      marginBottom: PARAGRAPH_GAP,
-    },
+    plain: { marginBottom: PARAGRAPH_GAP },
   });
 }

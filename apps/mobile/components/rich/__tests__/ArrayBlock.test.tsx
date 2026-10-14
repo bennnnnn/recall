@@ -60,8 +60,20 @@ describe("ArrayBlock", () => {
     expect(view.toJSON()).toBeNull();
   });
 
-  it("says so instead of drawing a broken list", async () => {
+  it("draws nothing for a list with no values", async () => {
     const view = await render(<ArrayBlock content='{"values": []}' />);
-    expect(view.getByText("rich.array_error")).toBeTruthy();
+    expect(view.toJSON()).toBeNull();
+  });
+
+  it("shows a list with broken JSON as text", async () => {
+    const view = await render(
+      <ArrayBlock
+        content={'{"title": "Boxes", "values": [2, 7, "x",], "caption": "2 + 7 = 9"}'}
+      />,
+    );
+    expect(view.getByTestId("array-block-text")).toBeTruthy();
+    expect(view.getByText("Boxes")).toBeTruthy();
+    expect(view.getByText("[2, 7, x]")).toBeTruthy();
+    expect(view.getByText("2 + 7 = 9")).toBeTruthy();
   });
 });
