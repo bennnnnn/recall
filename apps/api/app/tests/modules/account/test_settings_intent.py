@@ -80,3 +80,47 @@ def test_explicit_setting_change_still_wins_after_message_draft() -> None:
     )
 
     assert changes == [SettingsChange("response_tone", "professional")]
+
+
+# Found by the behavior sweep: questions and edits of the last reply changed settings.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Is the pro model worth it?",
+        "dark mode vs light mode — which is better for your eyes?",
+        "should I use dark mode at night?",
+        "which model is faster?",
+        "rewrite this paragraph in Spanish",
+        "make the email's tone more formal",
+    ],
+)
+def test_questions_and_content_edits_are_not_settings(text: str) -> None:
+    assert extract_settings_changes(text) == []
+
+
+def test_make_it_after_any_reply_edits_that_reply() -> None:
+    prior = "Happy 60th birthday, Dad! Thank you for everything you do."
+    assert extract_settings_changes("make it funnier", prior_assistant=prior) == []
+    assert extract_settings_changes("make your replies funnier", prior_assistant=prior) == [
+        SettingsChange("response_tone", "funny")
+    ]
+    assert extract_settings_changes("switch it to dark mode", prior_assistant=prior) == [
+        SettingsChange("appearance", "dark")
+    ]
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        ("reply in Amharic from now on", "am"),
+        ("answer in Spanish from now on", "es"),
+        ("always reply in French", "fr"),
+    ],
+)
+def test_from_now_on_sets_the_language(text: str, value: str) -> None:
+    assert extract_settings_changes(text) == [SettingsChange("locale", value)]
+
+
+@pytest.mark.parametrize("text", ["reply in Amharic", "translate this to Spanish from now on"])
+def test_one_answer_in_a_language_is_not_a_setting(text: str) -> None:
+    assert extract_settings_changes(text) == []

@@ -71,6 +71,10 @@ const NON_IMAGE_WORDS = new Set([
   "compound", "compounds", "chemistry", "chemical", "smiles", "atom", "atoms",
   "bond", "bonds", "triangle", "triangles", "square", "squares", "circle",
   "circles", "rectangle", "rectangles", "geometry", "geometric",
+  // Plans and choices — "what does a typical day in Tokyo look like".
+  "day", "days", "week", "weekend", "routine", "budget", "itinerary", "option",
+  "options", "choices", "menu", "menus", "route", "routes", "directions",
+  "price", "prices", "cost", "costs", "timeline", "agenda",
 ]);
 
 const EXPLANATION_CUES = new Set([

@@ -127,6 +127,32 @@ def test_forget_content_words_names_the_fact_not_the_command():
     assert forget_content_words("Please forget that") == []
 
 
+@pytest.mark.parametrize(
+    ("text", "remember_or_forget", "forget"),
+    [
+        # Talk about remembering is not an instruction (found by the behavior sweep).
+        ("do you remember that song from Titanic?", False, False),
+        ("Remember that song from Titanic?", False, False),
+        ("I always forget my keys — any tips?", False, False),
+        ("I don't remember the formula for kinetic energy", False, False),
+        # Dropping a question is not dropping a saved fact about Canada.
+        ("Forget about the previous question — what's the capital of Canada?", False, False),
+        ("forget my last message", False, False),
+        # Instructions, with or without a polite lead.
+        ("remember that I'm vegetarian", True, False),
+        ("can you remember that I take my coffee black?", True, False),
+        ("oh and remember that my sister is Hana", True, False),
+        ("Also, please don\u2019t forget I like tea", True, False),
+        ("don't remember my address", True, True),
+        ("user: forget that I work at Hooh", True, True),
+        ("stop remembering my location", True, True),
+    ],
+)
+def test_memory_commands_are_instructions_not_talk(text, remember_or_forget, forget):
+    assert is_explicit_memory_command(text) is remember_or_forget
+    assert is_explicit_forget_command(text) is forget
+
+
 def test_is_explicit_forget_command_ignores_dont_forget():
     assert is_explicit_forget_command("Please forget that I live in Boston") is True
     assert is_explicit_forget_command("forget this: I work at Hooh") is True

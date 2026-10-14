@@ -36,6 +36,7 @@ from app.modules.web_search.patterns import (
     asks_for_prior_subject,
     collapse_ws,
     has_recency,
+    is_correspondence_request,
     is_weather_request,
 )
 from app.modules.web_search.subject import (
@@ -129,7 +130,10 @@ def web_search_skip(
 # is not a cue: a forecast is a fast yes and "what causes weather" needs no search.
 _MAYBE_LIVE = re.compile(
     r"\b(?:who\s+is|who\s+leads|current|latest|today|tonight|right\s+now|"
-    r"price|pricing|hotel|score|news|ceo|near\s+me)\b",
+    r"price|pricing|hotel|score|news|ceo|near\s+me|"
+    # Rules, fares, schedules and results change; a model's memory of them is stale.
+    r"visas?|flights?|airfares?|fares?|tickets?|this\s+weekend|open\s+now|"
+    r"sunset|sunrise|results|how\s+much\s+(?:is|are|does|do)\s+(?:an?|the))\b",
     re.IGNORECASE,
 )
 _TIME_SENSITIVE = re.compile(
@@ -197,6 +201,21 @@ def web_search_fast_yes(
     return False
 
 
+# "Current" in a circuit is amps, and "100 days from tomorrow" is counting:
+# neither is news.
+_CURRENT = re.compile(r"\bcurrent\b", re.IGNORECASE)
+_CIRCUIT = re.compile(
+    r"\bohms?\b|\u03a9|\bvolts?\b|\b\d+(?:\.\d+)?\s*k?v\b|resist|circuit|\bseries\b"
+    r"|\bparallel\b|battery|\bamps?\b|ampere|capacitor|inductor|kirchhoff",
+    re.IGNORECASE,
+)
+_DATE_ARITHMETIC = re.compile(
+    r"\b\d+\s+(?:days?|weeks?|months?|years?)\s+(?:from|after|before|ago|since|until)\b"
+    r"|\bwhat\s+day\s+(?:of\s+the\s+week\s+)?(?:will\s+it\s+be|was\s+it|is\s+it)\s+\d+",
+    re.IGNORECASE,
+)
+
+
 def needs_web_search_heuristic(
     text: str,
     *,
@@ -204,6 +223,9 @@ def needs_web_search_heuristic(
 ) -> bool:
     """Regex fallback for follow-ups and recency when the classifier is off or fails."""
     cleaned = collapse_ws(text)
+    electric = _CURRENT.search(cleaned) and _CIRCUIT.search(cleaned)
+    if electric or _DATE_ARITHMETIC.search(cleaned) or is_correspondence_request(cleaned):
+        return False
     if _CLARIFICATION.search(cleaned) and prior_user_messages:
         return _prior_searchable_topic(prior_user_messages) is not None
     if prior_user_messages and len(cleaned.split()) <= _SHORT_FOLLOWUP_WORDS:

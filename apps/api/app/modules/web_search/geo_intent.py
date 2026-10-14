@@ -39,6 +39,16 @@ _WEATHER_PLACE = re.compile(
 )
 
 
+# "Best Ethiopian restaurant in DC", "directions to Bole airport from Piassa":
+# the place is named, so the user's own location is not needed.
+_NAMED_PLACE = re.compile(r"\b(?i:in|near|around|at|from|to)\s+[A-Z](?![\s'\u2019])")
+
+
+def names_its_place(text: str) -> bool:
+    """True when the question names a place by its proper name."""
+    return _NAMED_PLACE.search(text) is not None
+
+
 def is_local_weather_query(text: str) -> bool:
     """A weather question with no place named: answered for the user's location."""
     if _LOCATIONLESS_WEATHER.fullmatch(text) is not None:

@@ -35,6 +35,7 @@ from app.modules.todos.actions import (
 from app.modules.todos.recurrence import snap_first_due
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_add import (
+    adds_to_prior_reply,
     chat_add_needs_a_stated_time,
     due_for_add,
     due_is_past,
@@ -45,8 +46,13 @@ from app.modules.todos.spoken_add import (
     reply_when_nothing_saved,
 )
 from app.modules.todos.spoken_apply import apply_spoken_change, format_reminder_reading
-from app.modules.todos.spoken_change import asks_to_read_reminders, parse_spoken_reminder_change
+from app.modules.todos.spoken_change import (
+    asks_to_read_reminders,
+    names_reminders,
+    parse_spoken_reminder_change,
+)
 from app.services import time_context as time_context_service
+from app.services.draft_fences import has_draft
 
 logger = logging.getLogger(__name__)
 
@@ -566,8 +572,12 @@ async def materialize_reminder_fences(
     assistant_text: str,
     user_timezone: str | None,
     user_text: str | None = None,
+    prior_assistant: str | None = None,
 ) -> tuple[str, int]:
     """Apply To-do fences (create + mutations) and strip them from the reply.
+
+    ``prior_assistant`` is the reply before this turn: "mark it done" points at
+    a reminder only after a reply about reminders.
 
     Returns (updated_text, applied_count). Saves from a valid fence. If the model
     omitted the fence, or emitted an invalid one, an explicit user "remind me …
@@ -588,6 +598,10 @@ async def materialize_reminder_fences(
         restraint_parts.append(assistant_text[last:])
         updated = re.sub(r"\n{3,}", "\n\n", "".join(restraint_parts)).strip()
         return reply_when_nothing_saved(updated, user_text), 0
+    # Right after a draft, "add that I'll be late tomorrow at 9am" edits the
+    # draft. Only a message that says reminder or task touches reminders.
+    if not spans and has_draft(prior_assistant) and not names_reminders(user_text):
+        return assistant_text, 0
     # A question about the schedule is answered from the saved rows. The model's
     # list is discarded, including any reminder it invented.
     if asks_to_read_reminders(user_text):
@@ -603,15 +617,18 @@ async def materialize_reminder_fences(
     # must check the row, not delete it, and the reply is only that result.
     spoken = parse_spoken_reminder_change(user_text, user_timezone=user_timezone)
     if spoken is not None:
-        if spoken.needs_time:
-            return "When should I remind you?", 0
-        return await apply_spoken_change(
+        applied = await apply_spoken_change(
             session,
             user_id=user_id,
             chat_id=chat_id,
             user_timezone=user_timezone,
             spoken=spoken,
+            user_text=user_text,
+            prior_assistant=prior_assistant,
+            reply=assistant_text,
         )
+        if applied is not None:
+            return applied
     clock = parse_clock_only(user_text)
     if clock is not None:
         pending = await pending_add(session, chat_id, user_text or "")
@@ -634,6 +651,13 @@ async def materialize_reminder_fences(
                 repeat=pending.repeat,
             )
     stated = parse_spoken_add(user_text)
+    if (
+        stated is not None
+        and not spans
+        and not names_reminders(user_text)
+        and adds_to_prior_reply(stated.title, prior_assistant=prior_assistant, reply=assistant_text)
+    ):
+        return assistant_text, 0
     if stated is not None and stated.day is not None and stated.hour is not None:
         due = due_for_add(stated, user_timezone=user_timezone)
         if due is None or due_is_past(due, user_timezone=user_timezone):
@@ -737,7 +761,7 @@ async def materialize_reminder_fences(
     if created_any:
         await home_service.invalidate_home_cache(user_id)
     if state.applied == 0:
-        updated = reply_when_nothing_saved(updated, user_text)
+        updated = reply_when_nothing_saved(updated, user_text, about_reminders=True)
     return updated, state.applied
 
 

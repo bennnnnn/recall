@@ -14,7 +14,11 @@ from uuid import UUID
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.modules.todos.schemas import RecurrenceRule
-from app.modules.todos.spoken_change import SpokenReminderChange, resolve_spoken_target
+from app.modules.todos.spoken_change import (
+    SpokenReminderChange,
+    names_reminders,
+    resolve_spoken_target,
+)
 
 _HIDDEN_TOPICS = frozenset({"", "General", "Reminders"})
 _READ_LIMIT = 30
@@ -28,7 +32,18 @@ async def apply_spoken_change(
     chat_id: UUID,
     user_timezone: str | None,
     spoken: SpokenReminderChange,
-) -> tuple[str, int]:
+    user_text: str | None = None,
+    prior_assistant: str | None = None,
+    reply: str | None = None,
+) -> tuple[str, int] | None:
+    """The saved result of a spoken change, or None when it is not about a reminder.
+
+    "Finish the story" or "delete a git branch" parse like a change but name no
+    saved reminder and say nothing about one; the model's reply stands. "It" or
+    "that" points at a reminder only after a reply about reminders. A ``reply``
+    that confirms a change in the app's own shape ("Reopened: buy milk.") is
+    about a reminder, so a missing one gets the "Could not" line, not the claim.
+    """
     from app.modules import home as home_service
     from app.modules.todos.reminder_fences import (
         _load_existing,
@@ -37,6 +52,11 @@ async def apply_spoken_change(
         _ReminderFenceCreateState,
         format_schedule_result,
     )
+    from app.modules.todos.spoken_add import (
+        _NEED_A_TIME,
+        claims_a_reminder_change,
+        mentions_reminders,
+    )
 
     state = _ReminderFenceCreateState(
         session=session,
@@ -44,8 +64,27 @@ async def apply_spoken_change(
         chat_id=chat_id,
         user_timezone=user_timezone,
     )
+    explicit = names_reminders(user_text)
+    if (
+        spoken.use_latest
+        and prior_assistant is not None
+        and not explicit
+        and not mentions_reminders(prior_assistant)
+    ):
+        return None
     await _load_existing(state)
     item: Any = resolve_spoken_target(state.existing, spoken)
+    # A named target must be a saved reminder; "it" was settled above.
+    if (
+        item is None
+        and not explicit
+        and user_text is not None
+        and not spoken.use_latest
+        and not claims_a_reminder_change(reply)
+    ):
+        return None
+    if spoken.needs_time:
+        return _NEED_A_TIME, 0
     label = spoken.title_hint or "that reminder"
     if item is None or not (getattr(item, "content", None) or "").strip():
         if spoken.topic:

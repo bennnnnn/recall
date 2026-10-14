@@ -220,6 +220,14 @@ def _match_short_create(tokens: list[str]) -> str | None:
     subject = _join_subject(subject_parts)
     if verb == "make" and _make_is_not_a_picture(subject):
         return None
+    # "Make your answers shorter" / "make my code faster" changes something the
+    # user already has; "make my profile picture" still names a picture.
+    if (
+        verb == "make"
+        and subject_parts[0].lower() in POSSESSIVES
+        and not any(part.lower() in IMAGE_NOUNS for part in subject_parts)
+    ):
+        return None
     if _has_non_image_subject(subject) or _has_non_image_draw(subject):
         return None
     return _clean_prompt(subject)

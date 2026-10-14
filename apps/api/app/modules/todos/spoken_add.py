@@ -40,7 +40,7 @@ _PROSE_CLAIM_RE = re.compile(
     r"i(?:['\u2019]ll| will)\s+add|"
     r"added (?:your|it|that|a reminder|to your)|"
     r"you(?:['\u2019]ll| will)\s+now (?:get|have)|"
-    r"marked as done|changed to|updated!|grocery list)",
+    r"marked as done|changed to|updated!|(?:to|on) your (?:grocery|shopping) list)",
     re.IGNORECASE,
 )
 _DECLINE_SAVE_RE = re.compile(
@@ -66,11 +66,40 @@ _CHANGE_LEADS = (
     "move ",
     "reschedule ",
 )
+# "Remind me how to convert Celsius" asks to be taught, not reminded.
+_REMIND_ME_OF_A_FACT = r"(?!\s+(?:how|what|why|who|whom|whose|which|where|whether|if)\b)"
 _ADD_REQUEST_RE = re.compile(
-    r"^\s*(?:please\s+)?(?:can you\s+)?(?:add|buy|get|pick up|remind me(?:\s+to)?)\b",
+    r"^\s*(?:please\s+)?(?:can you\s+)?(?:add|buy|get|pick up|remind me"
+    + _REMIND_ME_OF_A_FACT
+    + r"(?:\s+to)?)\b",
     re.IGNORECASE,
 )
+_WORD_RE = re.compile(r"[^\W\d_]{4,}")
+_COMMON_WORDS = frozenset(
+    {"about", "after", "before", "from", "into", "more", "some", "that", "this", "with"}
+)
+_QUESTION_TITLE_RE = re.compile(
+    r"(?:that|how|what|why|who|whom|whose|which|where|whether|if)\b", re.IGNORECASE
+)
 _ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day)\b", re.IGNORECASE)
+# A reply is about the user's reminders when it says so, or confirms a dated
+# one the way the app does ("Set: read — Monday, Oct 12, 8:00 AM.").
+_REMINDER_TALK_RE = re.compile(
+    r"\b(?:remind(?:er|ers)?|to-?dos?|to-do list|task list"
+    r"|your (?:grocery list|shopping list|list|schedule|calendar))\b",
+    re.IGNORECASE,
+)
+# "Quick reminder: it's 9/5 + 32" teaches a fact; it is not about saved reminders.
+_FACT_REMINDER_RE = re.compile(
+    r"\b(?:quick|friendly|gentle)\s+reminder\b\s*[\u2014\u2013:,-]", re.IGNORECASE
+)
+_CODE_BLOCK_RE = re.compile(r"```.*?(?:```|\Z)|`[^`\n]+`", re.DOTALL)
+_DATED_CLAIM_RE = re.compile(
+    r"(?:^|\n|!\s*)\s*(?:added|set|moved|scheduled|saved|created)\s*:\s+[^\n]+?\s[\u2014\u2013]\s+[^\n]*"
+    r"(?:\d|today|tomorrow|tonight|monday|tuesday|wednesday|thursday|friday|saturday|sunday"
+    r"|daily|weekly|weekdays|monthly)",
+    re.IGNORECASE,
+)
 _TYPOS = {
     "tommorrow": "tomorrow",
     "tommorow": "tomorrow",
@@ -133,16 +162,27 @@ def chat_add_needs_a_stated_time(user_text: str | None, due_at: datetime | None)
     return not user_named_a_clock(user_text)
 
 
-def reply_when_nothing_saved(text: str, user_text: str | None) -> str:
-    """The model must not confirm a reminder the server did not save."""
+def reply_when_nothing_saved(
+    text: str, user_text: str | None, *, about_reminders: bool = False
+) -> str:
+    """The model must not confirm a reminder the server did not save.
+
+    Only a reply about reminders is checked: one with a reminder fence
+    (``about_reminders``), or one that talks about reminders or confirms a
+    dated one. "Can you add 3 + 4?" answered with "3 + 4 = 7", or an answer
+    with a "Created: 1991" line, is not one.
+    """
+    if not (about_reminders or mentions_reminders(text) or _user_declined(user_text)):
+        return text
+    words = _without_code(text)
     asked = _asked_to_change_or_add(user_text)
-    colon = bool(_COLON_CLAIM_RE.search(text))
-    prose = bool(asked and _PROSE_CLAIM_RE.search(text))
+    colon = bool(_COLON_CLAIM_RE.search(words))
+    prose = bool(asked and _PROSE_CLAIM_RE.search(words))
     needs_time = bool(
         user_text and _ADD_REQUEST_RE.search(user_text) and not user_named_a_clock(user_text)
     )
     lines = text.splitlines()
-    kept = [line for line in lines if not _CLAIM_LINE_RE.match(line.strip())]
+    kept = _without_claim_lines(lines)
     changed = len(kept) != len(lines)
     cleaned = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip() if changed else text
     asks_when = bool(_ASKS_WHEN_RE.search(cleaned))
@@ -160,6 +200,58 @@ def reply_when_nothing_saved(text: str, user_text: str | None) -> str:
     if not changed:
         return text
     return cleaned
+
+
+def mentions_reminders(text: str | None) -> bool:
+    """A reply that talks about reminders or confirms a dated one.
+
+    Code is not talk: a React ``todos`` array or ``done: false`` is not a reminder.
+    """
+    if not text:
+        return False
+    words = _FACT_REMINDER_RE.sub(" ", _without_code(text))
+    return bool(_REMINDER_TALK_RE.search(words) or _DATED_CLAIM_RE.search(words))
+
+
+def claims_a_reminder_change(text: str | None) -> bool:
+    """A reply line in the app's own result shape, such as "Reopened: buy milk."."""
+    if not text:
+        return False
+    lines = _without_code(text).splitlines()
+    return len(_without_claim_lines(lines)) != len(lines)
+
+
+def adds_to_prior_reply(title: str, *, prior_assistant: str | None, reply: str | None) -> bool:
+    """ "Add a stop in Bahir Dar on Saturday at 9am" right after a trip plan edits the plan.
+
+    True when the reply before this turn and this reply say nothing about
+    reminders, and the thing to add is already part of that earlier reply.
+    The caller checks that the message itself does not say reminder or task.
+    """
+    if not prior_assistant or mentions_reminders(prior_assistant):
+        return False
+    if mentions_reminders(reply) or claims_a_reminder_change(reply):
+        return False
+    earlier = {word.lower() for word in _WORD_RE.findall(prior_assistant)}
+    named = {word.lower() for word in _WORD_RE.findall(title)} - _COMMON_WORDS
+    return bool(named & earlier)
+
+
+def _without_code(text: str) -> str:
+    return _CODE_BLOCK_RE.sub(" ", text)
+
+
+def _without_claim_lines(lines: list[str]) -> list[str]:
+    """Drop "Added: …" lines outside code fences; a ``done: false`` field stays."""
+    kept: list[str] = []
+    in_code = False
+    for line in lines:
+        if line.lstrip().startswith("```"):
+            in_code = not in_code
+        elif not in_code and _CLAIM_LINE_RE.match(line.strip()):
+            continue
+        kept.append(line)
+    return kept
 
 
 def _user_declined(user_text: str | None) -> bool:
@@ -212,7 +304,9 @@ def parse_spoken_add(user_text: str | None) -> SpokenAdd | None:
     repeat = _find_repeat(body)
     hour, minute = _clock_in(body)
     title = _title_before(body, day_at)
-    if not title:
+    # "Add that I'll be late" adds a sentence to something, not a task, and
+    # "remind me how to …" asks to be taught.
+    if not title or _QUESTION_TITLE_RE.match(title):
         return None
     return SpokenAdd(title=title[:500], day=day, repeat=repeat, hour=hour, minute=minute)
 

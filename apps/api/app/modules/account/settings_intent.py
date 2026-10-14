@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 from app.core.validation import LOCALE_NAMES
+from app.services.draft_fences import has_draft
 from app.services.response_tone import TONE_IDS
 
 SettingsField = Literal["appearance", "default_model", "response_tone", "locale"]
@@ -144,9 +145,13 @@ _PUNCT = frozenset("?!.,;:\"'`")
 
 _MAX_COMMAND_TOKENS = 12
 
-_DRAFT_FENCES = ("```message", "```email")
+_SHORT_DRAFT_EDIT = 6
 _REVISION_REFERENCES = frozenset(
     {"it", "this", "that", "version", "message", "email", "draft", "reply", "text"}
+)
+_POINTERS = frozenset({"it", "this", "that"})
+_QUESTION_OPENERS = frozenset(
+    {"is", "are", "was", "were", "does", "do", "did", "which", "what", "whats", "why", "should"}
 )
 _EXPLICIT_SETTINGS_WORDS = frozenset(
     {"setting", "settings", "default", "app", "recall", "preference", "preferences"}
@@ -185,10 +190,63 @@ def _has_settings_noun(tokens: list[str]) -> bool:
     return any(token in _SETTINGS_NOUNS for token in tokens)
 
 
+# "Change the language of this paragraph to French" or "make the email's tone
+# formal" is about a piece of text, not the app's settings.
+_CONTENT_TARGETS = frozenset(
+    {
+        "paragraph",
+        "paragraphs",
+        "sentence",
+        "sentences",
+        "text",
+        "email",
+        "message",
+        "essay",
+        "post",
+        "poem",
+        "letter",
+        "caption",
+        "story",
+        "article",
+        "reply",
+        "draft",
+        "document",
+        "doc",
+        "line",
+        "lines",
+        "word",
+        "words",
+        "title",
+        "bio",
+        "speech",
+        "lyrics",
+        "code",
+        "website",
+        "site",
+        "webpage",
+        "slide",
+        "slides",
+        "resume",
+        "cv",
+        "tweet",
+    }
+)
+
+
+def _without_possessive(token: str) -> str:
+    """ "email's" -> "email"."""
+    for suffix in ("'s", "\u2019s"):
+        if token.endswith(suffix):
+            return token[: -len(suffix)]
+    return token
+
+
 def _looks_like_command(tokens: list[str]) -> bool:
     if not tokens or len(tokens) > _MAX_COMMAND_TOKENS:
         return False
     if _has_content_request(tokens):
+        return False
+    if any(_without_possessive(token) in _CONTENT_TARGETS for token in tokens):
         return False
     return _has_change_cue(tokens) or _has_settings_noun(tokens) or len(tokens) <= 4
 
@@ -197,17 +255,38 @@ def _revises_prior_draft(tokens: list[str], prior_assistant: str | None) -> bool
     """Keep referential writing edits out of permanent app settings.
 
     ``Make it less formal`` is a settings command in isolation, but immediately
-    after a ``message``/``email`` draft, "it" refers to that artifact. Explicit
+    after a ``message``/``email`` draft, "it" refers to that artifact. After
+    any other reply, "make it funnier" still points at that reply. Explicit
     app/preference wording still opts into a persistent setting change.
     """
-    if not prior_assistant:
-        return False
-    prior = prior_assistant.casefold()
-    if not any(fence in prior for fence in _DRAFT_FENCES):
+    if not (prior_assistant or "").strip():
         return False
     if any(word in _EXPLICIT_SETTINGS_WORDS for word in tokens):
         return False
-    return any(word in _REVISION_REFERENCES for word in tokens)
+    if not has_draft(prior_assistant):
+        return not _has_settings_noun(tokens) and any(word in _POINTERS for word in tokens)
+    # "Less groveling, more casual" names no "it", yet still edits the draft.
+    return len(tokens) <= _SHORT_DRAFT_EDIT or any(word in _REVISION_REFERENCES for word in tokens)
+
+
+def _persistent_language(tokens: list[str]) -> str | None:
+    """ "Reply in Amharic from now on" sets the language; "reply in Amharic" is one answer."""
+    if len(tokens) > _MAX_COMMAND_TOKENS:
+        return None
+    if not (_window_has(tokens, "now", "on") or "always" in tokens):
+        return None
+    for index, token in enumerate(tokens[1:], start=1):
+        nick = _LANGUAGE_NICKNAMES.get(token)
+        if nick is not None and tokens[index - 1] == "in":
+            return nick
+    return None
+
+
+def _asks_a_question(tokens: list[str]) -> bool:
+    """ "Is the pro model worth it?" or "dark mode vs light mode?" asks; it changes nothing."""
+    return bool(tokens) and (
+        tokens[0] in _QUESTION_OPENERS or any(word in {"vs", "versus"} for word in tokens)
+    )
 
 
 def _window_has(tokens: list[str], left: str, right: str) -> bool:
@@ -302,7 +381,10 @@ def extract_settings_changes(
 ) -> list[SettingsChange]:
     """Return allowlisted changes, or empty if this is not a settings command."""
     tokens = _tokens(content)
-    if not _looks_like_command(tokens):
+    persistent = _persistent_language(tokens)
+    if persistent is not None:
+        return [SettingsChange("locale", persistent)]
+    if not _looks_like_command(tokens) or _asks_a_question(tokens):
         return []
     if _revises_prior_draft(tokens, prior_assistant):
         return []

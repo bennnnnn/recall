@@ -80,6 +80,8 @@ class Route:
     hints: set[str] = field(default_factory=set)
     # The ``programming_lesson`` contract is turn-specific text, not a constant.
     system_prompt: str = ""
+    # What an instant (no-model) reply said, for the sweep to read.
+    instant_text: str = ""
 
     def summary(self) -> str:
         parts = [f"search={self.search}"]
@@ -316,6 +318,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         subject=subject,
         solved=solved,
         instant=_instant_kind(bundle.instant_reply, solved=solved),
+        instant_text=bundle.instant_reply or "",
         lightweight=bool(bundle.lightweight),
         hints=_hints_in(system, case),
         system_prompt=system,

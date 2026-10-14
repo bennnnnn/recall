@@ -7,6 +7,7 @@ extractor must not run again and rewrite the row.
 
 from __future__ import annotations
 
+import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -75,6 +76,12 @@ _READ_OPENINGS = (
     "read my schedule",
 )
 
+# Openings that do not say "my": a place after them is somewhere else's schedule.
+_BARE_READS = frozenset({"what is scheduled", "whats scheduled"})
+_ELSEWHERE = re.compile(
+    r"\s+(?:at|in)\s+(?!\d|noon\b|midnight\b|the (?:morning|afternoon|evening)\b)"
+)
+
 
 class _Named(Protocol):
     content: str
@@ -105,7 +112,11 @@ def asks_to_read_reminders(user_text: str | None) -> bool:
     text = _prepare(user_text).lower().replace("'", "").replace("\u2019", "")
     if not text or text.startswith(("add ", "remind ", "make ", "delete ", "move ")):
         return False
-    return any(text.startswith(opening) for opening in _READ_OPENINGS)
+    for opening in _READ_OPENINGS:
+        if text.startswith(opening):
+            # "What's scheduled at the Hollywood Bowl" asks about a venue.
+            return opening not in _BARE_READS or not _ELSEWHERE.match(text[len(opening) :])
+    return False
 
 
 def parse_spoken_reminder_change(
@@ -306,6 +317,19 @@ def _words(text: str) -> set[str]:
         if len(word) > 2 and word not in _SKIP:
             words.add(word)
     return words
+
+
+# "Mark the dentist reminder as done" names reminders; "finish the story",
+# "delete the last paragraph" or "remove duplicates from a list" does not.
+_NAMES_REMINDERS = re.compile(
+    r"\b(?:remind(?:er|ers)?|to-?dos?|tasks?|schedule|as\s+(?:done|complete|completed|finished))\b",
+    re.IGNORECASE,
+)
+
+
+def names_reminders(user_text: str | None) -> bool:
+    """True when the message itself says it is about a reminder or task."""
+    return bool(user_text and _NAMES_REMINDERS.search(user_text))
 
 
 def resolve_spoken_target(items: Sequence[_Named], change: SpokenReminderChange) -> _Named | None:

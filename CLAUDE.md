@@ -278,6 +278,15 @@ expected failure until the gap is fixed (then delete the `gap` line). `./scripts
 sends the same prompts to the running API and writes the replies to `tmp/battery/`
 (`--category teaching`, `--only map-where-is`).
 
+**Behavior sweep:** `apps/api/app/tests/behavior/sweep_corpus/*.json` holds ~800 turns (a prompt,
+any earlier turns, a reply a model might write, and what should happen: `answer`, `save`,
+`photo`, `search`, `settings`, …). `sweep.py` routes each one and runs its reply through the real
+finalize step over in-memory reminders, and `test_sweep.py` fails on any turn a rule hijacks,
+for example "Can you add 3 + 4?" answered "When should I remind you?". Most entries are
+look-alikes: everyday messages that use reminder, settings, memory, photo or image words. When
+you add or widen a rule that reads the user's words, add its look-alikes here.
+`uv run python -m app.tests.behavior.sweep --area todo --show` prints each failing reply.
+
 **Coverage requirements**
 
 - Backend minimum 80%; critical services (quota, auth, memory) target 90%+.
