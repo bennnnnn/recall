@@ -28,9 +28,14 @@ module.exports = {
   RoundedRect: Null,
   DashPathEffect: Null,
   Text: Null,
+  Fill: Null,
+  Shader: Null,
   Skia: {
     Path: { Make: makePath },
     XYWHRect: (x, y, width, height) => ({ x, y, width, height }),
+    // A compiled shader stand-in: callers only check it is non-null.
+    RuntimeEffect: { Make: (sksl) => ({ sksl }) },
+    Color: () => new Float32Array([0, 0, 0, 1]),
   },
   useFont: () => null,
 };

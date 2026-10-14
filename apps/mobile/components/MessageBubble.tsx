@@ -434,8 +434,9 @@ export const MessageBubble = React.memo(function MessageBubble({
               </View>
             ) : showWaitingIndicator ? (
               streamStatus === "image_gen" ? (
+                // The card owns its stage line, timed to its progress estimate.
                 <View style={b.imageGenWaitingWrap}>
-                  <ImageGenPlaceholder statusText={statusLabel} />
+                  <ImageGenPlaceholder />
                 </View>
               ) : (
                 <View style={b.waitingWrap}>
@@ -561,9 +562,7 @@ function makeStyles(t: Theme) {
       paddingVertical: Space.xxs,
     },
     imageGenWaitingWrap: {
-      flexDirection: "column",
       alignItems: "flex-start",
-      gap: Space.xs,
       paddingVertical: Space.xxs,
     },
     statusLabel: {
