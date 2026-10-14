@@ -1,5 +1,5 @@
 import { StyleSheet, Text } from "react-native";
-import { render } from "@testing-library/react-native";
+import { render, within } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
@@ -367,6 +367,62 @@ describe("markdown render rules", () => {
     expect(getAllByTestId("workout-note")).toHaveLength(2);
     expect(getByText("subtract 3 from both sides")).toBeOnTheScreen();
     expect(queryByText(/\$|\\frac/)).toBeNull();
+  });
+
+  it("indents a section's work behind a rule, Given on one row and the answer in a box", async () => {
+    const content = [
+      "**Given**  ",
+      String.raw`$m = 5\ \text{kg}$  `,
+      String.raw`$F = 20\ \text{N}$`,
+      "",
+      "**Formula**  ",
+      String.raw`$a = \frac{F}{m}$ — Newton's second law`,
+      "",
+      "**Answer**  ",
+      String.raw`$a = 4\ \text{m/s}^2$`,
+    ].join("\n");
+    const { getAllByTestId, getByTestId, getByText } = await render(
+      <MarkdownContent content={content} />,
+    );
+    // The headings stay at the margin; the work sits behind a thin rule.
+    const bodies = getAllByTestId("workout-body");
+    expect(bodies).toHaveLength(3);
+    for (const body of bodies) {
+      expect(StyleSheet.flatten(body.props.style)).toMatchObject({ borderLeftWidth: 2 });
+    }
+    // Both given values share one wrapping row.
+    const given = getByTestId("workout-given");
+    expect(StyleSheet.flatten(given.props.style)).toMatchObject({
+      flexDirection: "row",
+      flexWrap: "wrap",
+    });
+    expect(within(given).getAllByTestId("workout-line")).toHaveLength(2);
+    // A move's note is pushed to the right edge.
+    const note = getByTestId("workout-note");
+    expect(StyleSheet.flatten(note.props.style)).toMatchObject({ marginLeft: "auto" });
+    expect(getByText(/second law/)).toBeOnTheScreen();
+    // A written-out answer sits in its own box.
+    expect(within(getByTestId("workout-answer")).getAllByTestId("workout-line")).toHaveLength(1);
+  });
+
+  it.each([
+    ["**(a) Acceleration**", "a", "Acceleration"],
+    ["**Part (b): Speed after 3 s**", "b", "Speed after 3 s"],
+    ["**c) Distance in those 3 seconds**", "c", "Distance in those 3 seconds"],
+  ])("labels a part of a question in parts: %s", async (content, letter, title) => {
+    const { getByTestId } = await render(<MarkdownContent content={content} />);
+    const part = getByTestId("workout-part");
+    expect(within(part).getByText(letter)).toBeOnTheScreen();
+    expect(within(getByTestId("workout-part-title")).getByText(title)).toBeOnTheScreen();
+  });
+
+  it.each([
+    "**Important**",
+    "**(a) Acceleration** is the rate of change of velocity.",
+    "**(z) Not a part letter**",
+  ])("keeps any other bold line ordinary: %s", async (content) => {
+    const { queryByTestId } = await render(<MarkdownContent content={content} />);
+    expect(queryByTestId("workout-part")).toBeNull();
   });
 
   it("keeps an older one-line Given label in the ordinary renderer", async () => {

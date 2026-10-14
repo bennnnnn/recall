@@ -30,3 +30,18 @@ export function splitWorkoutNote(line: string): { state: string; note: string | 
   }
   return { state: line, note: null };
 }
+
+// "(a) Acceleration", "Part (b): Speed after 3 s", "c) Distance": one part of
+// a question in parts, labelled by its letter and what it finds.
+const WORKOUT_PART_RE =
+  /^(?:part\s+\(?([a-h])\)?|\(([a-h])\)|([a-h])\))\s*[.:]?\s*(?:[—–-]\s*)?(\S.*)$/i;
+
+/** A part label written alone in bold, or null for any other bold line. */
+export function workoutPart(text: string): { letter: string; title: string } | null {
+  const match = WORKOUT_PART_RE.exec(text.trim());
+  if (!match) return null;
+  const letter = (match[1] ?? match[2] ?? match[3] ?? "").toLowerCase();
+  const title = (match[4] ?? "").trim();
+  return letter && title ? { letter, title } : null;
+}
+
