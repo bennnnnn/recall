@@ -83,6 +83,57 @@ def _extract_atom_economy(text: str) -> ChemistryIntent | None:
     )
 
 
+# "how many oxygen atoms", "how many atoms of oxygen", "how many moles of O atoms": the
+# element word counts that element's atoms; "moles of … atoms" asks for an amount.
+_MOLES_TO_PARTICLES = re.compile(
+    r"(?:how many|calculate|find)?\s*(?:the\s+number\s+of\s+)?"
+    r"(?:(?P<amount>moles?)\s+of\s+)?(?:(?P<element>[A-Za-z]+)\s+)?"
+    r"(?P<noun>molecules|particles|atoms|formula units)(?:\s+of\s+(?P<element_after>[A-Za-z]+))?"
+    rf"\s+(?:are\s+)?(?:there\s+)?(?:in|from)?\s*(?P<moles>{_N})\s*mol(?:e|es)?\s+(?:of\s+)?"
+    rf"(?P<formula>{SAMPLE_FORMULA}){FORMULA_END}",
+    re.IGNORECASE,
+)
+
+
+def _particles_from_moles(match: re.Match[str]) -> ChemistryIntent | None:
+    """N = n Nₐ for whole formula units or every atom; one element's atoms or their moles."""
+    noun = match.group("noun").lower()
+    moles = float(match.group("moles"))
+    formula = match.group("formula")
+    word = match.group("element") or match.group("element_after")
+    element = None if word is None else _element(word)
+    if element is not None:
+        atoms = parse_formula(formula)
+        count = atoms.get(element, 0)
+        if noun != "atoms":
+            # "oxygen molecules in O2" are the molecules; "oxygen molecules in CO2" is not a
+            # count the formula gives.
+            if set(atoms) != {element}:
+                return None
+            element = None
+        elif count == 0:
+            return None
+        else:
+            return ChemistryIntent(
+                kind="amounts",
+                chemistry_op="element_moles" if match.group("amount") else "element_atoms",
+                formula=formula,
+                target=element,
+                params={"moles": moles, "count": float(count)},
+                units={"moles": "mol"},
+            )
+    if match.group("amount"):
+        # "moles of atoms" with no element named is a ratio the question has not fixed.
+        return None
+    return ChemistryIntent(
+        kind="amounts",
+        chemistry_op="moles_to_particles",
+        params={"moles": moles},
+        units={"particle": noun},
+        formula=formula,
+    )
+
+
 def _extract_amounts(text: str) -> ChemistryIntent | None:
     economy = _extract_atom_economy(text)
     if economy is not None:
@@ -155,21 +206,9 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
             formula=moles_to_mass.group(2),
         )
 
-    moles_to_particles = re.search(
-        rf"(?:how many|calculate|find)?\s*(?P<noun>molecules|particles|atoms|formula units)\s+"
-        rf"(?:are\s+)?(?:in|from)?\s*(?P<moles>{_N})\s*mol(?:e|es)?\s+(?:of\s+)?"
-        rf"(?P<formula>{SAMPLE_FORMULA}){FORMULA_END}",
-        text,
-        re.IGNORECASE,
-    )
+    moles_to_particles = _MOLES_TO_PARTICLES.search(text)
     if moles_to_particles:
-        return ChemistryIntent(
-            kind="amounts",
-            chemistry_op="moles_to_particles",
-            params={"moles": float(moles_to_particles.group("moles"))},
-            units={"particle": moles_to_particles.group("noun").lower()},
-            formula=moles_to_particles.group("formula"),
-        )
+        return _particles_from_moles(moles_to_particles)
 
     particles_to_moles = re.search(
         rf"(?:how many|calculate|find)?\s*moles?\s+(?:are\s+)?(?:in|from)?\s*"
