@@ -1,6 +1,8 @@
 import {
+  expandBoundsForAxes,
   formatAxisNumber,
   graphAxisTicks,
+  graphBounds,
   graphTickCount,
   mapGraphPoint,
 } from "@/lib/math/graphBlock";
@@ -36,6 +38,40 @@ export type TrajectoryAxisLayout = {
   xTicks: TrajectoryAxisLabel[];
   yTicks: TrajectoryAxisLabel[];
 };
+
+/** Headroom above the highest sample and below the lowest, as a share of the range. */
+const TRAJECTORY_Y_PAD = 0.05;
+
+/**
+ * The chart's world window: the samples plus both axes, with a little room
+ * past the curve's extremes.
+ *
+ * Without it the apex of a throw, or the crest and trough of an oscillation,
+ * sits exactly on the plot edge and the clip shaves the curve flat there. A
+ * bound that is the axis itself (a throw from the ground) is left alone, so
+ * the x axis stays at the bottom of the plot.
+ */
+export function trajectoryBounds(points: [number, number][]): TrajectoryBounds {
+  const bounds = expandBoundsForAxes(graphBounds(points), { pad: false });
+  const span = bounds.yMax - bounds.yMin;
+  return {
+    ...bounds,
+    yMax: bounds.yMax > 0 ? bounds.yMax + span * TRAJECTORY_Y_PAD : bounds.yMax,
+    yMin: bounds.yMin < 0 ? bounds.yMin - span * TRAJECTORY_Y_PAD : bounds.yMin,
+  };
+}
+
+/**
+ * Where the shared "0" goes: below-left of the origin, right-aligned with the
+ * y-axis numbers and on the x-axis numbers' baseline — the corner both axes
+ * read from, clear of the first tick on either.
+ */
+export function trajectoryOriginLabelPosition(
+  origin: ScreenPoint,
+  labelWidth: number,
+): ScreenPoint {
+  return { px: Math.max(4, origin.px - 6 - Math.max(0, labelWidth)), py: origin.py + 16 };
+}
 
 /** Put the horizontal caption in its own band below the plotted motion. */
 export function trajectoryAxisCaptionPosition(
@@ -124,13 +160,4 @@ export function trajectoryPointAt(
     px: a.px + (b.px - a.px) * frac,
     py: a.py + (b.py - a.py) * frac,
   };
-}
-
-/** On-screen length of the sampled path, for the trail's dash offset. */
-export function trajectoryPathLength(points: readonly ScreenPoint[]): number {
-  let total = 0;
-  for (let i = 1; i < points.length; i += 1) {
-    total += Math.hypot(points[i].px - points[i - 1].px, points[i].py - points[i - 1].py);
-  }
-  return total;
 }

@@ -9,7 +9,7 @@ import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { ArrayBlock } from "@/components/rich/ArrayBlock";
 import { ArithmeticWorkBlock } from "@/components/rich/ArithmeticWorkBlock";
 import { ComparisonBlock } from "@/components/rich/ComparisonBlock";
-import { EmailCard } from "@/features/integrations/components/EmailCard";
+import { EmailCard } from "@/features/drafts/components/EmailCard";
 import { KeyValueBlock } from "@/components/rich/KeyValueBlock";
 import {
   LazyChartBlock,

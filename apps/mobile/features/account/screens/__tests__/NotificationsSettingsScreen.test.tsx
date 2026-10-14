@@ -287,11 +287,10 @@ it("shows each push kind under the master switch and saves it alone", async () =
   });
 
   expect(mockSwitches["settings.push_reminders"].value).toBe(true);
-  expect(mockSwitches["settings.push_calendar"].value).toBe(true);
   await act(async () => {
-    await mockSwitches["settings.push_email_suggestions"].onValueChange(false);
+    await mockSwitches["settings.push_reminders"].onValueChange(false);
   });
-  expect(mockUpdate).toHaveBeenCalledWith({ push_email_suggestions_enabled: false });
+  expect(mockUpdate).toHaveBeenCalledWith({ push_reminders_enabled: false });
 });
 
 it("hides the push kinds while push is off", async () => {

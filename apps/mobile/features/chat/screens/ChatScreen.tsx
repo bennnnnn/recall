@@ -20,7 +20,7 @@ import {
 } from "@/features/chat/components/ChatComposer";
 import { DrawerShell } from "@/components/DrawerShell";
 import { ComposerDraftProvider } from "@/contexts/ComposerDraftContext";
-import { EmailDraftPersistProvider } from "@/features/integrations/context/emailDraftPersist";
+import { EmailDraftPersistProvider } from "@/features/drafts/context/emailDraftPersist";
 import { useAuth } from "@/contexts/AuthContext";
 import { useDrawer } from "@/contexts/DrawerContext";
 import { useHome } from "@/features/home/context/HomeContext";

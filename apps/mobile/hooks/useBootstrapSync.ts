@@ -12,7 +12,7 @@ type Options = {
   setUser: Dispatch<SetStateAction<User | null>>;
 };
 
-/** Post-login side effects — timezone, location, Gmail/push sync, RevenueCat, reminders. */
+/** Post-login side effects — timezone, location, push sync, RevenueCat, reminders. */
 export function useBootstrapSync({ token, user, setUser }: Options): void {
   const userId = user?.id;
   const timezone = user?.timezone;
@@ -57,21 +57,6 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     });
     return () => { cancelled = true; };
   }, [token, userId, location, locationEnabled, setUser]);
-
-  useEffect(() => {
-    if (!token) return;
-    const generation = getSessionGeneration();
-    let cancelled = false;
-    let cleanup: (() => void) | undefined;
-    void import("@/features/integrations/model/gmailAutoSync").then(({ attachGmailForegroundSync }) => {
-      if (cancelled || generation !== getSessionGeneration()) return;
-      cleanup = attachGmailForegroundSync(token);
-    }).catch(() => {});
-    return () => {
-      cancelled = true;
-      cleanup?.();
-    };
-  }, [token]);
 
   useEffect(() => {
     if (!token || !userId) return;

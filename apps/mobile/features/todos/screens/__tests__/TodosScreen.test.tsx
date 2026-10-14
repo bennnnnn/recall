@@ -5,14 +5,13 @@ let mockSession = 1;
 let mockToken: string | null = "token-a";
 let mockFocused = true;
 let mockRouteParams: Record<string, string> = {};
-let mockSuggestedReminders: { id: string; title: string }[] = [];
 const mockRefresh = jest.fn(async () => {});
 const mockT = (key: string) => key;
 const mockNavigation = { setOptions: jest.fn() };
 let mockAdd: { onPress: () => void };
 let mockSheet: { visible: boolean; onClose: () => void };
 let mockList: { onRefresh: () => Promise<void>; refreshing: boolean; rows: unknown[] };
-let mockHeader: { onRetry: () => void; calendarNudge?: { title: string; startAt: string } };
+let mockHeader: { onRetry: () => void };
 const mockOpenTodo = jest.fn();
 const mockGetTodos = () => mockTodos;
 let mockTodos: {
@@ -83,13 +82,6 @@ jest.mock("@/features/todos/hooks/useTodosActions", () => ({ useTodosActions: (p
     handleUpdateTodo: jest.fn(),
   };
 } }));
-jest.mock("@/features/todos/hooks/useSuggestedReminders", () => ({ useSuggestedReminders: () => ({
-  reminders: mockSuggestedReminders,
-  busyIds: new Set(),
-  refresh: jest.fn(async () => {}),
-  add: jest.fn(),
-  dismiss: jest.fn(),
-}) }));
 jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ todos: mockTodos, loading: false, error: false,
   getTodos: mockGetTodos, isCurrentSession: mockCurrentSession, markSeenIds: mockMarkSeenIds,
   refresh: mockRefresh, setTodos: jest.fn(),
@@ -97,7 +89,7 @@ jest.mock("@/features/todos/context/TodosContext", () => ({ useTodos: () => ({ t
 
 beforeEach(() => {
   jest.clearAllMocks(); mockSession++; mockToken = "token-a"; mockFocused = true;
-  mockRouteParams = {}; mockSuggestedReminders = []; mockTodos = [];
+  mockRouteParams = {}; mockTodos = [];
   mockRefresh.mockResolvedValue();
 });
 
@@ -173,18 +165,6 @@ it("opens a plain to-do draft without any scheduling step", async () => {
   expect(mockSheet.visible).toBe(true);
 });
 
-it("shows the exact calendar event carried by a notification", async () => {
-  mockRouteParams = {
-    eventTitle: "Design review",
-    eventStart: "2026-09-18T17:30:00.000Z",
-  };
-  await render(<TodosScreen />);
-  expect(mockHeader.calendarNudge).toEqual({
-    title: "Design review",
-    startAt: "2026-09-18T17:30:00.000Z",
-  });
-});
-
 function todoAt(id: string, dayOffset: number) {
   const due = new Date();
   due.setDate(due.getDate() + dayOffset);
@@ -217,13 +197,4 @@ it("opens the reminder a due notification points at", async () => {
   mockRouteParams = { highlight: "todo-1" };
   await render(<TodosScreen />);
   expect(mockOpenTodo).toHaveBeenCalledWith(due);
-});
-
-it("includes pending email suggestions in the actionable To-do list", async () => {
-  mockSuggestedReminders = [{ id: "suggestion-1", title: "Reply to recruiter" }];
-  await render(<TodosScreen />);
-  expect(mockList.rows.slice(0, 2)).toMatchObject([
-    { kind: "heading", section: "suggested", count: 1 },
-    { kind: "suggestion", reminder: { id: "suggestion-1" } },
-  ]);
 });

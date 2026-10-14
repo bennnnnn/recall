@@ -41,16 +41,28 @@ export type SimulationKind =
  */
 export type SimulationVector = {
   anchor: { x: number; y: number };
+  /**
+   * How long these are on screen depends on the scene (`vectorScreenLengths`):
+   * a vector-sum part or a `measure` is drawn at its true world length, and
+   * every other vector is only *relative* — its direction, and a magnitude
+   * compared with the other vectors of its kind in the same scene.
+   */
   dx: number;
   dy: number;
   label?: string;
   /**
    * Visual weight only. `result` is the quantity the question asked for;
    * `measure` is an extent rather than a force — the h in mgh, the d in Fd —
-   * drawn as a dimension line so it does not read as another arrow pushing.
+   * drawn as a dimension line so it does not read as another arrow pushing;
+   * `motion` is a kinematic arrow (an acceleration), drawn dashed with an
+   * open head so it never reads as a force.
    */
-  role: "force" | "result" | "measure";
+  role: SimulationVectorRole;
 };
+
+export type SimulationVectorRole = "force" | "result" | "measure" | "motion";
+
+const VECTOR_ROLES: readonly SimulationVectorRole[] = ["force", "result", "measure", "motion"];
 
 export type SimulationBody = {
   label?: string;
@@ -117,7 +129,11 @@ function parseVector(raw: unknown): SimulationVector | null {
     dx,
     dy,
     label: typeof row.label === "string" && row.label ? row.label.slice(0, 24) : undefined,
-    role: row.role === "result" || row.role === "measure" ? row.role : "force",
+    // An unknown role is drawn as a plain force: the arrow still says
+    // something true about direction, and a newer server never blanks a scene.
+    role: VECTOR_ROLES.includes(row.role as SimulationVectorRole)
+      ? (row.role as SimulationVectorRole)
+      : "force",
   };
 }
 
@@ -275,6 +291,20 @@ export function parseSimulationSpec(raw: string): SimulationSpec | null {
   };
 }
 
+/** Padding inside the scene canvas, around the scene box. */
+export const SIMULATION_PAD = 24;
+/** Tallest a scene canvas grows (square and tall scenes). */
+export const SIMULATION_HEIGHT = 240;
+/** Shortest a scene canvas shrinks (wide scenes). */
+export const SIMULATION_MIN_HEIGHT = 136;
+
+/** Whether any body moves, i.e. whether the scene has anything to play. */
+export function simulationIsAnimated(spec: SimulationSpec): boolean {
+  return spec.bodies.some((body) =>
+    body.path.some((point) => point[0] !== body.path[0][0] || point[1] !== body.path[0][1]),
+  );
+}
+
 export type SimulationTransform = {
   scale: number;
   offsetX: number;
@@ -367,53 +397,60 @@ export function projectPath(path: number[][], t: SimulationTransform): ScreenPoi
   return path.map(([x, y]) => worldToScreen(x, y, t));
 }
 
-export function polylinePoints(points: readonly ScreenPoint[]): string {
-  return points.map((p) => `${p.px.toFixed(2)},${p.py.toFixed(2)}`).join(" ");
-}
-
 /**
- * The arrow as one 5-point polyline: tail → tip → one head barb → tip → the
- * other.
+ * Whether a sampled path is a loop the clock goes round: it ends where it
+ * started *and* carries straight on through that join.
  *
- * `TrajectoryChart` warns against building point strings in a worklet, and it
- * is right about a 100-point curve rebuilt every frame. Five points is a
- * different order of magnitude, and the alternative — a separate animated
- * `Polygon` head whose position has to be kept in step with an animated
- * `Line` — is more moving parts for a worse result.
+ * Both halves matter. An orbit, or a spring sampled over whole periods, ends
+ * on its first sample still travelling the same way, so the motion at t = 1
+ * is the motion at t = 0. A ball thrown straight up and caught also ends where
+ * it started, but arrives moving the opposite way — wrapping that path would
+ * average the throw with the catch and draw no velocity at all at launch.
  */
-export function arrowPolyline(
-  from: ScreenPoint,
-  dx: number,
-  dy: number,
-  length: number,
-  head: number,
-): string {
-  "worklet";
-  const len = Math.hypot(dx, dy);
-  // No direction, no arrow. A ball waiting to be hit has no velocity to draw,
-  // and an empty points string renders nothing — so the arrow simply appears
-  // at the moment of the collision, which is the moment it means something.
-  if (len === 0) return "";
-  const ux = dx / len;
-  const uy = dy / len;
-  const tipX = from.px + ux * length;
-  const tipY = from.py + uy * length;
-  // Perpendicular, for the two barbs.
-  const bx = uy * head * 0.6;
-  const by = ux * head * 0.6;
-  const leftX = tipX - ux * head + bx;
-  const leftY = tipY - uy * head - by;
-  const rightX = tipX - ux * head - bx;
-  const rightY = tipY - uy * head + by;
-  return (
-    `${from.px.toFixed(2)},${from.py.toFixed(2)} ${tipX.toFixed(2)},${tipY.toFixed(2)} ` +
-    `${leftX.toFixed(2)},${leftY.toFixed(2)} ${tipX.toFixed(2)},${tipY.toFixed(2)} ` +
-    `${rightX.toFixed(2)},${rightY.toFixed(2)}`
-  );
+export function isClosedPath(points: readonly ScreenPoint[]): boolean {
+  const last = points.length - 1;
+  if (last < 3) return false;
+  const first = points[0];
+  const end = points[last];
+  let extent = 0;
+  for (const p of points) extent = Math.max(extent, Math.hypot(p.px - first.px, p.py - first.py));
+  if (extent === 0) return false;
+  if (Math.hypot(end.px - first.px, end.py - first.py) > Math.max(0.5, extent * 0.01)) {
+    return false;
+  }
+  const outX = points[1].px - first.px;
+  const outY = points[1].py - first.py;
+  const inX = end.px - points[last - 1].px;
+  const inY = end.py - points[last - 1].py;
+  const outLength = Math.hypot(outX, outY);
+  const inLength = Math.hypot(inX, inY);
+  if (outLength === 0 || inLength === 0) return false;
+  // Coarse loops turn by 360°/n per sample, so a square still counts; a path
+  // that doubles back (≥ 120°) does not.
+  return (outX * inX + outY * inY) / (outLength * inLength) > -0.5;
 }
 
 /**
- * Direction of travel at `progress`, read from the neighbouring samples.
+ * The path at a fractional sample index in [0, last], linearly interpolated.
+ *
+ * Declared before `tangentAt` on purpose: a worklet captures the functions it
+ * calls when it is defined, so a helper declared below it is `undefined` on
+ * the UI thread.
+ */
+function samplePathAt(points: readonly ScreenPoint[], index: number): ScreenPoint {
+  "worklet";
+  const last = points.length - 1;
+  const lo = Math.floor(index);
+  const hi = lo + 1 > last ? last : lo + 1;
+  const frac = index - lo;
+  return {
+    px: points[lo].px + (points[hi].px - points[lo].px) * frac,
+    py: points[lo].py + (points[hi].py - points[lo].py) * frac,
+  };
+}
+
+/**
+ * Velocity at `progress`, as screen pixels per sample.
  *
  * Taken across a small window rather than between adjacent points: on a
  * densely sampled path two neighbours can round to the same pixel, and a
@@ -422,20 +459,674 @@ export function arrowPolyline(
  * moving — which collisions and held blocks both produce — and it is returned
  * as zero rather than papered over with a default direction that would draw a
  * velocity arrow on a stationary ball.
+ *
+ * The samples are uniform in time, so dividing by the window's span makes the
+ * length proportional to speed with no physics repeated here — including at
+ * the ends, where the window is cut in half. On a closed path
+ * (`isClosedPath`) the window wraps round the join instead, so an orbit's
+ * arrow is as tangent at t = 0 and t = 1 as anywhere else.
  */
 export function tangentAt(
   points: readonly ScreenPoint[],
   progress: number,
+  closed = false,
 ): { dx: number; dy: number } {
   "worklet";
   const last = points.length - 1;
   if (last < 1) return { dx: 0, dy: 0 };
   const clamped = progress < 0 ? 0 : progress > 1 ? 1 : progress;
   const window = Math.max(1, Math.round(last * 0.04));
-  const at = Math.round(clamped * last);
-  const lo = at - window < 0 ? 0 : at - window;
-  const hi = at + window > last ? last : at + window;
-  return { dx: points[hi].px - points[lo].px, dy: points[hi].py - points[lo].py };
+  // Read at the fractional index the body is drawn at, so the arrow turns
+  // smoothly with it instead of snapping from sample to sample.
+  const at = clamped * last;
+  const wraps = closed && last > 2 * window;
+  let lo = at - window;
+  let hi = at + window;
+  if (wraps) {
+    // The last sample repeats the first, so the loop has `last` distinct ones.
+    if (lo < 0) lo += last;
+    if (hi > last) hi -= last;
+  } else {
+    lo = lo < 0 ? 0 : lo;
+    hi = hi > last ? last : hi;
+  }
+  const span = wraps ? 2 * window : hi - lo;
+  if (span <= 0) return { dx: 0, dy: 0 };
+  const a = samplePathAt(points, lo);
+  const b = samplePathAt(points, hi);
+  return { dx: (b.px - a.px) / span, dy: (b.py - a.py) / span };
+}
+
+/** The fastest the body moves anywhere on its path, in `tangentAt`'s units. */
+export function maxTrackSpeed(points: readonly ScreenPoint[], closed = false): number {
+  const last = points.length - 1;
+  let best = 0;
+  for (let i = 0; i <= last; i += 1) {
+    const v = tangentAt(points, last > 0 ? i / last : 0, closed);
+    best = Math.max(best, Math.hypot(v.dx, v.dy));
+  }
+  return best;
+}
+
+/**
+ * Longest a relative arrow is drawn. Every non-measure vector in a scene is
+ * scaled so its largest is this long, and velocity at top speed is too.
+ */
+export const ARROW_MAX_LENGTH = 48;
+/** Shortest a relative force arrow is drawn, so a small load is still an arrow. */
+export const ARROW_MIN_LENGTH = 16;
+/** Shortest a moving body's velocity arrow is drawn. */
+export const VELOCITY_MIN_LENGTH = 12;
+export const ARROW_HEAD = 7;
+/** Room kept between an arrow's tip and the canvas edge, so its head stays in. */
+export const ARROW_EDGE_INSET = 6;
+
+/**
+ * Velocity arrow length from speed alone: proportional to how fast the body
+ * is moving now against the fastest any body moves in the scene, so the apex
+ * of a throw is visibly slower than the launch and the lighter ball visibly
+ * faster after a collision. Zero speed draws nothing.
+ */
+export function velocityArrowLength(speed: number, maxSpeed: number): number {
+  "worklet";
+  if (!(speed > 0) || !(maxSpeed > 0)) return 0;
+  const length = (ARROW_MAX_LENGTH * speed) / maxSpeed;
+  return length < VELOCITY_MIN_LENGTH
+    ? VELOCITY_MIN_LENGTH
+    : length > ARROW_MAX_LENGTH
+      ? ARROW_MAX_LENGTH
+      : length;
+}
+
+/** A vector the scene states at its true world length. */
+export function drawsAtWorldScale(spec: SimulationSpec, vector: SimulationVector): boolean {
+  return spec.type === "vector_sum" || vector.role === "measure";
+}
+
+/**
+ * On-screen length of each stated vector, in the order the scene lists them.
+ *
+ * A vector-sum part and a `measure` are geometry, so they keep their world
+ * length exactly — a 2 N component next to a 100 N one is meant to be tiny.
+ * Everything else is relative: the longest of its kind is drawn at
+ * `ARROW_MAX_LENGTH` and the rest in proportion, never shorter than
+ * `ARROW_MIN_LENGTH`. Forces and `motion` arrows are normalised separately,
+ * since newtons and m/s² share no scale. An old server sent unit vectors,
+ * which all come out at the maximum length.
+ */
+export function vectorScreenLengths(spec: SimulationSpec, scale: number): number[] {
+  const largest = { force: 0, motion: 0 };
+  for (const vector of spec.vectors) {
+    if (drawsAtWorldScale(spec, vector)) continue;
+    const family = vector.role === "motion" ? "motion" : "force";
+    largest[family] = Math.max(largest[family], Math.hypot(vector.dx, vector.dy));
+  }
+  return spec.vectors.map((vector) => {
+    const magnitude = Math.hypot(vector.dx, vector.dy);
+    if (drawsAtWorldScale(spec, vector)) return magnitude * scale;
+    const max = largest[vector.role === "motion" ? "motion" : "force"];
+    if (!(max > 0) || magnitude >= max) return ARROW_MAX_LENGTH;
+    return Math.max(ARROW_MIN_LENGTH, ARROW_MAX_LENGTH * (magnitude / max));
+  });
+}
+
+/**
+ * The longest an arrow from (`fromX`, `fromY`) along the unit direction
+ * (`ux`, `uy`) can be while its tip stays `inset` inside the canvas — at most
+ * `length`. An arrow that leaves the canvas loses its head, and a headless
+ * line reads as nothing at all.
+ */
+export function fitArrowLength(
+  fromX: number,
+  fromY: number,
+  ux: number,
+  uy: number,
+  length: number,
+  width: number,
+  height: number,
+  inset = ARROW_EDGE_INSET,
+): number {
+  "worklet";
+  let fit = length;
+  if (ux > 1e-9) fit = Math.min(fit, (width - inset - fromX) / ux);
+  else if (ux < -1e-9) fit = Math.min(fit, (inset - fromX) / ux);
+  if (uy > 1e-9) fit = Math.min(fit, (height - inset - fromY) / uy);
+  else if (uy < -1e-9) fit = Math.min(fit, (inset - fromY) / uy);
+  return fit > 0 ? fit : 0;
+}
+
+/** A head never longer than about half its arrow. */
+export function arrowHeadSize(length: number): number {
+  "worklet";
+  return Math.min(ARROW_HEAD, length * 0.45);
+}
+
+/**
+ * Where an arrow the scene derives (rather than states) is drawn this frame:
+ * from the body's edge, along a direction read off the scene, shortened to
+ * stay on the canvas. Null when there is nothing to draw — a ball at rest has
+ * no velocity, and an arrow toward a centre the body sits on has no direction.
+ *
+ * Velocity is as long as the body is fast (`velocityArrowLength`); the force
+ * arrows have no magnitude to show, so they share one length.
+ */
+export function derivedArrowGeometry(
+  kind: SimulationArrow,
+  at: ScreenPoint,
+  radius: number,
+  context: {
+    tangent: { dx: number; dy: number };
+    maxSpeed: number;
+    centre: ScreenPoint | null;
+    slope: { normal: { dx: number; dy: number }; friction: { dx: number; dy: number } } | null;
+    width: number;
+    height: number;
+  },
+): { fromX: number; fromY: number; ux: number; uy: number; length: number } | null {
+  "worklet";
+  let dx = 0;
+  let dy = 0;
+  let length = ARROW_MAX_LENGTH;
+  if (kind === "gravity") {
+    dy = 1;
+  } else if (kind === "velocity") {
+    dx = context.tangent.dx;
+    dy = context.tangent.dy;
+    length = velocityArrowLength(Math.hypot(dx, dy), context.maxSpeed);
+  } else if (kind === "centripetal" && context.centre) {
+    dx = context.centre.px - at.px;
+    dy = context.centre.py - at.py;
+    // Never past the centre it points at.
+    length = Math.min(length, Math.hypot(dx, dy) - radius - 2);
+  } else if (kind === "normal" && context.slope) {
+    dx = context.slope.normal.dx;
+    dy = context.slope.normal.dy;
+  } else if (kind === "friction" && context.slope) {
+    dx = context.slope.friction.dx;
+    dy = context.slope.friction.dy;
+  }
+  const magnitude = Math.hypot(dx, dy);
+  if (magnitude === 0 || !(length > 0)) return null;
+  const ux = dx / magnitude;
+  const uy = dy / magnitude;
+  const fromX = at.px + ux * radius;
+  const fromY = at.py + uy * radius;
+  const fit = fitArrowLength(fromX, fromY, ux, uy, length, context.width, context.height);
+  if (!(fit > 0)) return null;
+  return { fromX, fromY, ux, uy, length: fit };
+}
+
+/** The fulcrum wedge under a lever's pivot: half-width, and height below the beam. */
+export const PIVOT_SIZE = 7;
+/** Clear space kept between a load arrow and the wedge. */
+const LEVER_PIVOT_GAP = 6;
+
+/**
+ * Where a lever load's arrow starts, kept clear of the fulcrum wedge.
+ *
+ * A load 0.1 m from the pivot sits on the wedge, and the shaft plus the
+ * triangle read as a double-headed arrow. A downward load that close is moved
+ * just far enough sideways to clear the wedge; its label still states the
+ * real arm.
+ */
+export function leverLoadAnchor(
+  from: ScreenPoint,
+  uy: number,
+  pivot: ScreenPoint,
+): ScreenPoint {
+  if (uy <= 0) return from;
+  const clear = PIVOT_SIZE + LEVER_PIVOT_GAP;
+  const offset = from.px - pivot.px;
+  if (Math.abs(offset) >= clear) return from;
+  return { px: pivot.px + (offset < 0 ? -clear : clear), py: from.py };
+}
+
+// --- labels ------------------------------------------------------------------
+
+/** A label's box: left, top, width and height in canvas pixels. */
+export type LabelBox = { x: number; y: number; width: number; height: number };
+
+/** Gap between a label and the thing it names. */
+export const LABEL_GAP = 6;
+/** Skia text is drawn from its baseline, about this far down a line. */
+const LABEL_ASCENT = 0.8;
+
+/** The baseline Skia draws a label at, for a box from `vectorLabelBox`. */
+export function labelBaseline(box: LabelBox): number {
+  return box.y + box.height * LABEL_ASCENT;
+}
+
+function boxesOverlap(a: LabelBox, b: LabelBox, gap = 0): boolean {
+  return (
+    a.x < b.x + b.width + gap &&
+    b.x < a.x + a.width + gap &&
+    a.y < b.y + b.height + gap &&
+    b.y < a.y + a.height + gap
+  );
+}
+
+function clampBox(box: LabelBox, width: number, height: number, inset = 4): LabelBox {
+  const x = Math.max(inset, Math.min(width - inset - box.width, box.x));
+  const y = Math.max(inset, Math.min(height - inset - box.height, box.y));
+  return { ...box, x, y };
+}
+
+export type Segment = { x1: number; y1: number; x2: number; y2: number };
+
+/** Whether a line segment passes through a box (Liang–Barsky clip). */
+export function segmentHitsBox(segment: Segment, box: LabelBox): boolean {
+  const dx = segment.x2 - segment.x1;
+  const dy = segment.y2 - segment.y1;
+  let t0 = 0;
+  let t1 = 1;
+  const edges: [number, number][] = [
+    [-dx, segment.x1 - box.x],
+    [dx, box.x + box.width - segment.x1],
+    [-dy, segment.y1 - box.y],
+    [dy, box.y + box.height - segment.y1],
+  ];
+  for (const [p, q] of edges) {
+    if (p === 0) {
+      if (q < 0) return false;
+      continue;
+    }
+    const r = q / p;
+    if (p < 0) t0 = Math.max(t0, r);
+    else t1 = Math.min(t1, r);
+    if (t0 > t1) return false;
+  }
+  return true;
+}
+
+/** Room kept between a label and another arrow's line, in px. */
+const LINE_CLEARANCE = 4;
+
+function inflateBox(box: LabelBox, by: number): LabelBox {
+  return { x: box.x - by, y: box.y - by, width: box.width + by * 2, height: box.height + by * 2 };
+}
+
+/** Furthest a label is nudged from where it wants to be, in px. */
+const MAX_NUDGE = 48;
+const NUDGE_STEP = 2;
+
+/**
+ * Nudge labels apart, in priority order: each box keeps its place unless it
+ * overlaps a `fixed` box, one placed before it, or a line in its `avoid` list
+ * (the other arrows' shafts), and then moves the shortest way out — straight
+ * along one axis — that stays on the canvas and is clear of all three.
+ */
+export function separateLabels(
+  boxes: readonly LabelBox[],
+  fixed: readonly LabelBox[],
+  width: number,
+  height: number,
+  avoid: readonly (readonly Segment[])[] = [],
+  gap = 2,
+): LabelBox[] {
+  const placed: LabelBox[] = [...fixed];
+  return boxes.map((start, index) => {
+    const lines = avoid[index] ?? [];
+    // Lines keep a little more room than labels do: the halo is drawn
+    // outside the glyphs, and a line grazing it reads as a strike-through.
+    const clear = (box: LabelBox) =>
+      !placed.some((other) => boxesOverlap(box, other, gap)) &&
+      !lines.some((line) => segmentHitsBox(line, inflateBox(box, LINE_CLEARANCE)));
+    const home = clampBox(start, width, height);
+    let box = home;
+    if (!clear(home)) {
+      search: for (let step = NUDGE_STEP; step <= MAX_NUDGE; step += NUDGE_STEP) {
+        for (const [dx, dy] of [
+          [0, step],
+          [0, -step],
+          [step, 0],
+          [-step, 0],
+        ]) {
+          const candidate = clampBox({ ...home, x: home.x + dx, y: home.y + dy }, width, height);
+          if (clear(candidate)) {
+            box = candidate;
+            break search;
+          }
+        }
+      }
+    }
+    placed.push(box);
+    return box;
+  });
+}
+
+export type BodyLabelSide = "above" | "below" | "right" | "left";
+
+/**
+ * Where a body's label box sits relative to the body's centre (its top-left
+ * corner, as an offset). Above and below are centred on the body, so two
+ * balls side by side never print "2 kg1 kg" across each other.
+ */
+export function bodyLabelOffset(
+  side: BodyLabelSide,
+  radius: number,
+  labelWidth: number,
+  fontSize: number,
+): { dx: number; dy: number } {
+  "worklet";
+  const ascent = fontSize * LABEL_ASCENT;
+  switch (side) {
+    case "below":
+      return { dx: -labelWidth / 2, dy: radius + LABEL_GAP };
+    case "right":
+      return { dx: radius + LABEL_GAP, dy: -fontSize / 2 };
+    case "left":
+      return { dx: -(radius + LABEL_GAP + labelWidth), dy: -fontSize / 2 };
+    default:
+      // Baseline `LABEL_GAP` above the top of the body.
+      return { dx: -labelWidth / 2, dy: -(radius + LABEL_GAP) - ascent };
+  }
+}
+
+/**
+ * The first side, in the body's order of preference, where its label crosses
+ * no arrow and fits on the canvas. The primary body prefers above and a
+ * secondary body below, so a pair of bodies never shares a label line.
+ */
+export function chooseBodyLabelSide(
+  centre: ScreenPoint,
+  radius: number,
+  labelWidth: number,
+  fontSize: number,
+  role: SimulationBody["role"],
+  obstacles: readonly Segment[],
+  width: number,
+  height: number,
+): BodyLabelSide {
+  const order: BodyLabelSide[] =
+    role === "secondary" ? ["below", "above", "right", "left"] : ["above", "below", "right", "left"];
+  const fits = (side: BodyLabelSide) => {
+    const offset = bodyLabelOffset(side, radius, labelWidth, fontSize);
+    const box = {
+      x: centre.px + offset.dx - 1,
+      y: centre.py + offset.dy - 1,
+      width: labelWidth + 2,
+      height: fontSize + 2,
+    };
+    const inside = box.x >= 0 && box.y >= 0 && box.x + box.width <= width && box.y + box.height <= height;
+    return inside && !obstacles.some((segment) => segmentHitsBox(segment, box));
+  };
+  return order.find(fits) ?? order[0];
+}
+
+/**
+ * A stated vector's label box. `tip` puts it just past the arrowhead, centred
+ * on the line of the arrow; `mid` puts it beside the middle of the shaft, on
+ * `side` (+1 or −1) of it — which is how a component and a dimension line are
+ * labelled, so a component never shares the result's tip.
+ */
+export function vectorLabelBox(
+  from: ScreenPoint,
+  tip: ScreenPoint,
+  labelWidth: number,
+  fontSize: number,
+  mode: "tip" | "mid",
+  side: 1 | -1 = 1,
+): LabelBox {
+  const dx = tip.px - from.px;
+  const dy = tip.py - from.py;
+  const length = Math.hypot(dx, dy) || 1;
+  const ux = dx / length;
+  const uy = dy / length;
+  const reach = (nx: number, ny: number) =>
+    LABEL_GAP + (Math.abs(nx) * labelWidth) / 2 + (Math.abs(ny) * fontSize) / 2;
+  let cx: number;
+  let cy: number;
+  if (mode === "tip") {
+    const r = reach(ux, uy);
+    cx = tip.px + ux * r;
+    cy = tip.py + uy * r;
+  } else {
+    const nx = -uy * side;
+    const ny = ux * side;
+    const r = reach(nx, ny);
+    cx = (from.px + tip.px) / 2 + nx * r;
+    cy = (from.py + tip.py) / 2 + ny * r;
+  }
+  return { x: cx - labelWidth / 2, y: cy - fontSize / 2, width: labelWidth, height: fontSize };
+}
+
+/** How a stated vector is drawn. */
+export type VectorStroke = "force" | "motion" | "measure";
+
+export function vectorStroke(role: SimulationVectorRole): VectorStroke {
+  return role === "motion" ? "motion" : role === "measure" ? "measure" : "force";
+}
+
+export type VectorLayout = {
+  vector: SimulationVector;
+  from: ScreenPoint;
+  tip: ScreenPoint;
+  head: number;
+  label: { text: string; x: number; y: number; box: LabelBox } | null;
+};
+
+export type BodyLabelLayout = {
+  side: BodyLabelSide;
+  /** Offset from the body's centre to the label's left edge and baseline. */
+  dx: number;
+  dy: number;
+  width: number;
+};
+
+export type SceneLayout = {
+  radii: number[];
+  vectors: VectorLayout[];
+  bodyLabels: (BodyLabelLayout | null)[];
+};
+
+/** The smallest a body is drawn, so a 2 cm ball is still a dot. */
+export const MIN_BODY_RADIUS = 4;
+
+function unit(dx: number, dy: number): { ux: number; uy: number } {
+  const length = Math.hypot(dx, dy) || 1;
+  return { ux: dx / length, uy: dy / length };
+}
+
+function isStationary(body: SimulationBody): boolean {
+  const [x0, y0] = body.path[0];
+  return body.path.every(([x, y]) => x === x0 && y === y0);
+}
+
+/**
+ * Every static piece of a scene's layout, worked out once per size: stated
+ * vectors with their lengths, canvas fit and labels, and which side of each
+ * body its label goes.
+ *
+ * `measureText` is the font's width for a string. The body labels are
+ * offsets, since the body moves; the vector labels are placed outright and
+ * nudged off each other and off any still body's label.
+ */
+export function layoutSimulationScene(
+  spec: SimulationSpec,
+  transform: SimulationTransform,
+  width: number,
+  height: number,
+  measureText: (text: string) => number,
+  fontSize: number,
+): SceneLayout {
+  const radii = spec.bodies.map((body) => Math.max(body.radius * transform.scale, MIN_BODY_RADIUS));
+  const pivot = spec.pivot && spec.beam ? worldToScreen(spec.pivot.x, spec.pivot.y, transform) : null;
+  const lengths = vectorScreenLengths(spec, transform.scale);
+
+  // A body is drawn over the arrows that start at its centre, so an arrow
+  // anchored on a still body starts at its edge instead: the part you see is
+  // then the whole length, and two forces keep their proportions.
+  const stillBodies = spec.bodies.flatMap((body, index) =>
+    isStationary(body)
+      ? [{ centre: worldToScreen(body.path[0][0], body.path[0][1], transform), radius: radii[index] }]
+      : [],
+  );
+
+  const shafts = spec.vectors.map((vector, index) => {
+    // World y is up and screen y is down.
+    const { ux, uy } = unit(vector.dx, -vector.dy);
+    let from = worldToScreen(vector.anchor.x, vector.anchor.y, transform);
+    if (pivot) from = leverLoadAnchor(from, uy, pivot);
+    const body = stillBodies.find(
+      ({ centre }) => Math.hypot(centre.px - from.px, centre.py - from.py) < 0.5,
+    );
+    if (body) from = { px: from.px + ux * body.radius, py: from.py + uy * body.radius };
+    const length = fitArrowLength(from.px, from.py, ux, uy, lengths[index], width, height);
+    const tip = { px: from.px + ux * length, py: from.py + uy * length };
+    return { vector, from, tip, head: arrowHeadSize(length) };
+  });
+  const segments: Segment[] = shafts.map(({ from, tip }) => ({
+    x1: from.px,
+    y1: from.py,
+    x2: tip.px,
+    y2: tip.py,
+  }));
+
+  // Derived arrows whose direction never changes, at a body's first sample.
+  const slope = spec.inclineDeg !== undefined ? inclineDirections(spec.inclineDeg) : null;
+  const fixedDirections: { dx: number; dy: number }[] = [];
+  if (spec.arrows.includes("gravity")) fixedDirections.push({ dx: 0, dy: 1 });
+  if (slope && spec.arrows.includes("normal")) fixedDirections.push(slope.normal);
+  if (slope && spec.arrows.includes("friction")) fixedDirections.push(slope.friction);
+
+  const fixedBoxes: LabelBox[] = [];
+  const bodyLabels = spec.bodies.map((body, index) => {
+    const radius = radii[index];
+    const start = worldToScreen(body.path[0][0], body.path[0][1], transform);
+    const still = isStationary(body);
+    if (still) {
+      fixedBoxes.push({
+        x: start.px - radius,
+        y: start.py - radius,
+        width: radius * 2,
+        height: radius * 2,
+      });
+    }
+    if (!body.label) return null;
+    const labelWidth = measureText(body.label);
+    const derived = fixedDirections.map(({ dx, dy }) => {
+      const { ux, uy } = unit(dx, dy);
+      const fromX = start.px + ux * radius;
+      const fromY = start.py + uy * radius;
+      const length = fitArrowLength(fromX, fromY, ux, uy, ARROW_MAX_LENGTH, width, height);
+      return { x1: fromX, y1: fromY, x2: fromX + ux * length, y2: fromY + uy * length };
+    });
+    const side = chooseBodyLabelSide(
+      start,
+      radius,
+      labelWidth,
+      fontSize,
+      body.role,
+      [...segments, ...derived],
+      width,
+      height,
+    );
+    const offset = bodyLabelOffset(side, radius, labelWidth, fontSize);
+    if (still) {
+      fixedBoxes.push({
+        x: start.px + offset.dx,
+        y: start.py + offset.dy,
+        width: labelWidth,
+        height: fontSize,
+      });
+    }
+    return {
+      side,
+      dx: offset.dx,
+      dy: offset.dy + fontSize * LABEL_ASCENT,
+      width: labelWidth,
+    };
+  });
+
+  // The middle of the figure, so a side label goes outward rather than into
+  // the triangle the vectors make.
+  let sumX = 0;
+  let sumY = 0;
+  let count = 0;
+  for (const { from, tip } of shafts) {
+    sumX += from.px + tip.px;
+    sumY += from.py + tip.py;
+    count += 2;
+  }
+  for (const body of spec.bodies) {
+    const start = worldToScreen(body.path[0][0], body.path[0][1], transform);
+    sumX += start.px;
+    sumY += start.py;
+    count += 1;
+  }
+  const centroid = count > 0 ? { px: sumX / count, py: sumY / count } : { px: width / 2, py: height / 2 };
+
+  const wanted = shafts.map(({ vector, from, tip }) => {
+    if (!vector.label) return null;
+    const labelWidth = measureText(vector.label);
+    const beside =
+      vector.role === "measure" || (spec.type === "vector_sum" && vector.role !== "result");
+    if (!beside) return vectorLabelBox(from, tip, labelWidth, fontSize, "tip");
+    const { ux, uy } = unit(tip.px - from.px, tip.py - from.py);
+    const midX = (from.px + tip.px) / 2 - centroid.px;
+    const midY = (from.py + tip.py) / 2 - centroid.py;
+    const side = -uy * midX + ux * midY >= 0 ? 1 : -1;
+    return vectorLabelBox(from, tip, labelWidth, fontSize, "mid", side);
+  });
+  // The answer keeps its place; everything else moves out of its way.
+  const order = wanted
+    .map((box, index) => ({ box, index }))
+    .filter((entry): entry is { box: LabelBox; index: number } => entry.box !== null)
+    .sort(
+      (a, b) =>
+        Number(spec.vectors[b.index].role === "result") -
+        Number(spec.vectors[a.index].role === "result"),
+    );
+  // A label may sit on its own arrow's line of action, never across another.
+  const separated = separateLabels(
+    order.map((entry) => entry.box),
+    fixedBoxes,
+    width,
+    height,
+    order.map((entry) => segments.filter((_, i) => i !== entry.index)),
+  );
+  const placedBoxes = new Map(order.map((entry, i) => [entry.index, separated[i]]));
+
+  const vectors = shafts.map((shaft, index): VectorLayout => {
+    const box = placedBoxes.get(index);
+    return {
+      ...shaft,
+      label:
+        box && shaft.vector.label
+          ? { text: shaft.vector.label, x: box.x, y: labelBaseline(box), box }
+          : null,
+    };
+  });
+
+  return { radii, vectors, bodyLabels };
+}
+
+// --- description -------------------------------------------------------------
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+/**
+ * What a screen reader hears for the scene: its title, its bodies, the arrows
+ * it derives and the labels the solver stated — the same facts the picture
+ * shows, in the order a sighted reader takes them in.
+ */
+export function describeSimulation(spec: SimulationSpec, t: Translate): string {
+  const sentences: string[] = [spec.title ?? t("rich.simulation_title")];
+  if (spec.bodies.length > 0) {
+    sentences.push(
+      spec.bodies.map((body) => body.label ?? t("rich.simulation_a11y_body")).join(", "),
+    );
+  }
+  if (spec.inclineDeg !== undefined) {
+    sentences.push(t("rich.simulation_a11y_slope", { degrees: Math.round(spec.inclineDeg) }));
+  }
+  if (spec.arrows.length > 0) {
+    const names = spec.arrows.map((arrow) => t(`rich.simulation_arrow_${arrow}`));
+    sentences.push(t("rich.simulation_a11y_arrows", { list: names.join(", ") }));
+  }
+  const labels = spec.vectors.flatMap((vector) => (vector.label ? [vector.label] : []));
+  if (labels.length > 0) sentences.push(labels.join(", "));
+  return sentences.map((sentence) => sentence.replace(/[.\s]+$/, "")).join(". ") + ".";
 }
 
 /**

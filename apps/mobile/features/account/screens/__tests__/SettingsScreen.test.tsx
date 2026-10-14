@@ -75,14 +75,6 @@ jest.mock("@/contexts/actionFeedbackCore", () => ({
 jest.mock("@/features/memory/model/memoryListCache", () => ({
   prefetchMemories: jest.fn(),
 }));
-const mockFetchIntegrationStatus = jest.fn();
-jest.mock("@/features/integrations/model/integrationStatusCache", () => ({
-  getCachedConnectedCount: () => 0,
-  getCachedIntegrationStatus: () => null,
-  fetchIntegrationStatus: (...args: unknown[]) => mockFetchIntegrationStatus(...args),
-  connectedCountFromStatus: () => 0,
-  integrationsAvailable: (status: { available?: boolean } | null) => Boolean(status?.available),
-}));
 jest.mock("@/components/UpgradeSheet", () => ({
   UpgradeSheet: () => null,
 }));
@@ -105,7 +97,6 @@ describe("settings home", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockIsPro = true;
-    mockFetchIntegrationStatus.mockResolvedValue(null);
     mockUpdateUser.mockResolvedValue(undefined);
     mockSetPreference.mockResolvedValue(undefined);
     mockSetAccent.mockResolvedValue(undefined);
@@ -143,28 +134,6 @@ describe("settings home", () => {
     const { getByText } = await render(<SettingsScreen />);
     await fireEvent.press(getByText(title));
     expect(mockPush).toHaveBeenCalledWith(href);
-  });
-
-  it("hides Connected apps while the server has Calendar and Gmail off", async () => {
-    mockFetchIntegrationStatus.mockResolvedValue({
-      calendarConnected: false,
-      gmailConnected: false,
-      available: false,
-    });
-    const { queryByText } = await render(<SettingsScreen />);
-    await waitFor(() => expect(mockFetchIntegrationStatus).toHaveBeenCalled());
-    expect(queryByText("settings.connected_apps")).toBeNull();
-  });
-
-  it("shows Connected apps when the server offers them", async () => {
-    mockFetchIntegrationStatus.mockResolvedValue({
-      calendarConnected: false,
-      gmailConnected: false,
-      available: true,
-    });
-    const { findByText } = await render(<SettingsScreen />);
-    await fireEvent.press(await findByText("settings.connected_apps"));
-    expect(mockPush).toHaveBeenCalledWith("/settings/integrations");
   });
 
   it("reads the notification permission once per visit", async () => {

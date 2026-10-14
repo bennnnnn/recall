@@ -1,5 +1,3 @@
-import type { CalendarProposal } from "@/features/integrations/model/calendarProposal";
-import { parseCalendarProposals, stripCalendarProposalFences } from "@/features/integrations/model/calendarProposal";
 import type { SettingsProposal } from "@/lib/settingsProposal";
 import { parseSettingsProposals, stripSettingsProposalFences } from "@/lib/settingsProposal";
 import { stripReminderFences } from "@/features/todos/model/reminderFence";
@@ -39,8 +37,6 @@ export type AssistantMessageContent = {
   showLiveClock: boolean;
   clockTimezone: string;
   searchSources: SearchSource[];
-  calendarProposals: CalendarProposal[];
-  showCalendarProposals: boolean;
   settingsProposals: SettingsProposal[];
   showSettingsProposals: boolean;
   reminderProposals: ReminderProposal[];
@@ -56,9 +52,12 @@ export type AssistantMessageContent = {
   markdownResetKey: string;
 };
 
-/** Stored chats may still contain retired product fences. Drop the JSON. */
-const RETIRED_LEARNING_FENCE =
-  /```(?:vocab_quiz|vocab_card|learning_launch|job-results)\b[^\n]*\n[\s\S]*?```/g;
+/**
+ * Stored chats may still contain retired product fences (the language-learning
+ * cards and the Google Calendar event proposal). Drop the JSON.
+ */
+const RETIRED_FENCE =
+  /```(?:vocab_quiz|vocab_card|learning_launch|job-results|calendar_proposal)\b[^\n]*\n[\s\S]*?```/gi;
 
 const UNVERIFIED_RESULT_LINE =
   /[ \t]*\*?I couldn't automatically verify this result\.\*?[ \t]*/g;
@@ -68,9 +67,9 @@ function stripUnverifiedResultLine(text: string): string {
   return text.replace(UNVERIFIED_RESULT_LINE, "").replace(/\n{3,}/g, "\n\n").trim();
 }
 
-function stripRetiredLearningFences(text: string): string {
+function stripRetiredFences(text: string): string {
   if (!text.includes("```")) return text;
-  return text.replace(RETIRED_LEARNING_FENCE, "");
+  return text.replace(RETIRED_FENCE, "");
 }
 
 function buildMarkdownContent(options: {
@@ -88,11 +87,10 @@ function buildMarkdownContent(options: {
     return content.replace(/\n{3,}/g, "\n\n").trim();
   }
 
-  let text = stripRetiredLearningFences(content);
+  let text = stripRetiredFences(content);
   if (showLiveClock) text = stripTimeAnswerFences(text);
   text = stripSearchSourcesFromContent(text);
   text = stripReminderFences(text);
-  text = stripCalendarProposalFences(text);
   text = stripSettingsProposalFences(text);
   text = stripReminderProposalFences(text);
   if (showPlaces) text = stripPlacesContent(text, places);
@@ -132,10 +130,6 @@ export function deriveAssistantMessageContent(
     content,
     liveSearchSources ?? storedSearchSources,
   );
-
-  const calendarProposals =
-    !isUser && hasContent && !layoutFrozen ? parseCalendarProposals(content) : [];
-  const showCalendarProposals = calendarProposals.length > 0 && !layoutFrozen;
 
   const settingsProposals =
     !isUser && hasContent && !layoutFrozen ? parseSettingsProposals(content) : [];
@@ -179,7 +173,6 @@ export function deriveAssistantMessageContent(
     searchSources.length > 0 &&
     !layoutFrozen &&
     !showLiveClock &&
-    !showCalendarProposals &&
     !(priorUserText != null && isLocationQuestion(priorUserText));
 
   return {
@@ -189,8 +182,6 @@ export function deriveAssistantMessageContent(
     showLiveClock,
     clockTimezone,
     searchSources,
-    calendarProposals,
-    showCalendarProposals,
     settingsProposals,
     showSettingsProposals,
     reminderProposals,

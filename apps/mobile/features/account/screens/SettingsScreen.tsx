@@ -19,13 +19,6 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useModels } from "@/hooks/useModels";
 import { prefetchMemories } from "@/features/memory/model/memoryListCache";
 import { voiceLabel } from "@/features/speech/model/voices";
-import {
-  connectedCountFromStatus,
-  fetchIntegrationStatus,
-  getCachedConnectedCount,
-  getCachedIntegrationStatus,
-  integrationsAvailable,
-} from "@/features/integrations/model/integrationStatusCache";
 import { ACCENT_OPTIONS, accentSwatch } from "@/lib/accent";
 import { APPEARANCE_OPTIONS } from "@/lib/appearance";
 import { LANGUAGES } from "@/lib/i18n/languages";
@@ -44,24 +37,12 @@ export default function SettingsScreen() {
   const haptics = useHaptics();
   const action = useSettingsAction();
 
-  const [connectedCount, setConnectedCount] = useState(getCachedConnectedCount);
-  // Hidden while the server has Calendar and Gmail turned off.
-  const [showIntegrations, setShowIntegrations] = useState(() =>
-    integrationsAvailable(getCachedIntegrationStatus()),
-  );
   const [osPushGranted, setOsPushGranted] = useState<boolean | null>(null);
 
   // Focus runs on the first visit too, so the OS permission is read once per visit.
   useFocusEffect(
     useCallback(() => {
       if (!token) return;
-      void fetchIntegrationStatus(token)
-        .then((status) => {
-          if (!status) return;
-          setConnectedCount(connectedCountFromStatus(status));
-          setShowIntegrations(integrationsAvailable(status));
-        })
-        .catch(() => undefined);
       void getNotificationPermissionGranted()
         .then(setOsPushGranted)
         .catch(() => setOsPushGranted(false));
@@ -90,10 +71,6 @@ export default function SettingsScreen() {
   const modelsValue = autoEnabled
     ? t("settings.model_auto")
     : t("settings.models_enabled", { count: modelEnabledSet.size });
-  const integrationsValue =
-    connectedCount > 0
-      ? t("settings.integrations_connected", { count: connectedCount })
-      : t("settings.integration_not_connected");
   const notificationsValue =
     osPushGranted == null
       ? undefined
@@ -191,15 +168,6 @@ export default function SettingsScreen() {
           value={notificationsValue}
           href="/settings/notifications"
         />
-        {showIntegrations ? (
-          <SettingsLinkRow
-            icon="link"
-            title={t("settings.connected_apps")}
-            accessibilityHint={t("settings.connected_apps_summary")}
-            value={integrationsValue}
-            href="/settings/integrations"
-          />
-        ) : null}
       </SettingsGroup>
 
       <SettingsGroup label={t("settings.data_and_privacy")}>

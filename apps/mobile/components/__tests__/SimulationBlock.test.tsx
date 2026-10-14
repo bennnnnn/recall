@@ -2,20 +2,30 @@
  * P14: the simulation scene's render behaviour.
  *
  * Its arithmetic is asserted as pure functions in
- * `lib/__tests__/simulationScene.test.ts`. What is left here is the part only a
- * render can prove: that nothing moves until the user asks, that Reduce Motion
- * still gets a real diagram rather than an empty box, and that an arrow is
- * never drawn without the thing it points at.
+ * `lib/__tests__/simulationScene.test.ts` and `simulationLayout.test.ts`. What
+ * is left here is the part only a render can prove: when the scene moves by
+ * itself and when it waits, that Reduce Motion still gets a real diagram and a
+ * way to play it, and that an arrow is never drawn without the thing it points
+ * at.
+ *
+ * The geometry markers a test reads are hidden from screen readers, so every
+ * marker query passes `HIDDEN`.
  */
 import { fireEvent, render } from "@testing-library/react-native";
-import { StyleSheet } from "react-native";
+import { Dimensions, StyleSheet } from "react-native";
 
+import { simulationPlaceholderHeight } from "@/components/rich/LazyHeavyRich";
 import { SimulationBlock } from "@/components/rich/SimulationBlock";
+import { Space } from "@/lib/space";
 
-const mockUseReduceMotion = jest.fn(() => false);
+const HIDDEN = { includeHiddenElements: true };
+
+/** The OS setting: `null` while it is still being read. */
+const mockUseReduceMotion = jest.fn<boolean | null, []>(() => false);
 jest.mock("@/lib/motion", () => ({
   ...jest.requireActual("@/lib/motion"),
-  useReduceMotion: () => mockUseReduceMotion(),
+  useReduceMotion: () => mockUseReduceMotion() ?? false,
+  useReduceMotionSetting: () => mockUseReduceMotion(),
 }));
 
 const PROJECTILE = JSON.stringify({
@@ -97,10 +107,10 @@ describe("SimulationBlock", () => {
   it("renders a projectile scene with a body, its arrows and the ground", async () => {
     const { getByTestId, getAllByTestId } = await render(<SimulationBlock content={PROJECTILE} />);
 
-    expect(getAllByTestId("simulation-body").length).toBe(1);
-    expect(getByTestId("simulation-arrow-velocity")).toBeTruthy();
-    expect(getByTestId("simulation-arrow-gravity")).toBeTruthy();
-    expect(getByTestId("simulation-ground")).toBeTruthy();
+    expect(getAllByTestId("simulation-body", HIDDEN).length).toBe(1);
+    expect(getByTestId("simulation-arrow-velocity", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-gravity", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-ground", HIDDEN)).toBeTruthy();
   });
 
   it("renders a spring from the wall the solver stated", async () => {
@@ -109,19 +119,19 @@ describe("SimulationBlock", () => {
     );
 
     expect(getByText("Spring")).toBeTruthy();
-    expect(getByTestId("simulation-spring")).toBeTruthy();
-    expect(getByTestId("simulation-body")).toBeTruthy();
-    expect(getByTestId("simulation-ground")).toBeTruthy();
-    expect(queryByTestId("simulation-arrow-gravity")).toBeNull();
+    expect(getByTestId("simulation-spring", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-body", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-ground", HIDDEN)).toBeTruthy();
+    expect(queryByTestId("simulation-arrow-gravity", HIDDEN)).toBeNull();
   });
 
   it("renders an orbit with its centre and a centripetal arrow", async () => {
     // The kind that drew nothing at all before this ticket.
     const { getByTestId, queryByTestId } = await render(<SimulationBlock content={ORBIT} />);
 
-    expect(getByTestId("simulation-centre")).toBeTruthy();
-    expect(getByTestId("simulation-arrow-centripetal")).toBeTruthy();
-    expect(queryByTestId("simulation-ground")).toBeNull();
+    expect(getByTestId("simulation-centre", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-centripetal", HIDDEN)).toBeTruthy();
+    expect(queryByTestId("simulation-ground", HIDDEN)).toBeNull();
   });
 
   it("starts moving scenes automatically and lets the user pause or resume them", async () => {
@@ -137,17 +147,20 @@ describe("SimulationBlock", () => {
     expect(getByTestId("simulation-stop-symbol").props.name).toBe("pause");
   });
 
-  it("falls back to a static diagram under Reduce Motion", async () => {
+  it("falls back to a static diagram under Reduce Motion, with Play still offered", async () => {
     // Not a blank space: the body and its force arrows at the first sample are
-    // a free-body diagram, which is most of what the picture is for.
+    // a free-body diagram, which is most of what the picture is for. Motion
+    // the user starts is fine, so the button stays.
     mockUseReduceMotion.mockReturnValue(true);
     const { getByTestId, queryByTestId } = await render(<SimulationBlock content={PROJECTILE} />);
 
-    expect(getByTestId("simulation-static")).toBeTruthy();
-    expect(getByTestId("simulation-body")).toBeTruthy();
-    expect(getByTestId("simulation-arrow-gravity")).toBeTruthy();
-    expect(getByTestId("simulation-ground")).toBeTruthy();
-    expect(queryByTestId("simulation-control")).toBeNull();
+    expect(getByTestId("simulation-static", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-body", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-gravity", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-ground", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-control")).toBeTruthy();
+    expect(getByTestId("simulation-play-symbol").props.name).toBe("play");
+    expect(queryByTestId("simulation-stop-symbol")).toBeNull();
   });
 
   it("never draws a centripetal arrow without a centre", async () => {
@@ -156,16 +169,16 @@ describe("SimulationBlock", () => {
     const noCentre = JSON.stringify({ ...JSON.parse(ORBIT), centre: undefined });
     const { queryByTestId } = await render(<SimulationBlock content={noCentre} />);
 
-    expect(queryByTestId("simulation-arrow-centripetal")).toBeNull();
-    expect(queryByTestId("simulation-centre")).toBeNull();
+    expect(queryByTestId("simulation-arrow-centripetal", HIDDEN)).toBeNull();
+    expect(queryByTestId("simulation-centre", HIDDEN)).toBeNull();
     // The rest of the scene still renders.
-    expect(queryByTestId("simulation-arrow-velocity")).toBeTruthy();
+    expect(queryByTestId("simulation-arrow-velocity", HIDDEN)).toBeTruthy();
   });
 
   it("shows its fallback rather than half a scene when the spec is unreadable", async () => {
     const { queryByTestId } = await render(<SimulationBlock content="{ not json" />);
 
-    expect(queryByTestId("simulation-body")).toBeNull();
+    expect(queryByTestId("simulation-body", HIDDEN)).toBeNull();
     expect(queryByTestId("simulation-control")).toBeNull();
   });
 
@@ -181,7 +194,7 @@ describe("SimulationBlock", () => {
     });
     const { getAllByTestId } = await render(<SimulationBlock content={twoBodies} />);
 
-    expect(getAllByTestId("simulation-body").length).toBe(2);
+    expect(getAllByTestId("simulation-body", HIDDEN).length).toBe(2);
   });
 });
 
@@ -217,21 +230,21 @@ describe("SimulationBlock: collisions and inclines", () => {
     // about which ball ends up ahead or whether either turns around.
     const { getAllByTestId, queryByTestId } = await render(<SimulationBlock content={COLLISION} />);
 
-    expect(getAllByTestId("simulation-body").length).toBe(2);
-    expect(getAllByTestId("simulation-arrow-velocity").length).toBe(2);
-    expect(queryByTestId("simulation-ground")).toBeNull();
-    expect(queryByTestId("simulation-slope")).toBeNull();
+    expect(getAllByTestId("simulation-body", HIDDEN).length).toBe(2);
+    expect(getAllByTestId("simulation-arrow-velocity", HIDDEN).length).toBe(2);
+    expect(queryByTestId("simulation-ground", HIDDEN)).toBeNull();
+    expect(queryByTestId("simulation-slope", HIDDEN)).toBeNull();
   });
 
   it("draws the slope an incline block sits on", async () => {
     const { getByTestId, queryByTestId } = await render(<SimulationBlock content={INCLINE} />);
 
-    expect(getByTestId("simulation-slope")).toBeTruthy();
-    expect(getByTestId("simulation-arrow-normal")).toBeTruthy();
-    expect(getByTestId("simulation-arrow-friction")).toBeTruthy();
-    expect(getByTestId("simulation-arrow-gravity")).toBeTruthy();
+    expect(getByTestId("simulation-slope", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-normal", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-friction", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-gravity", HIDDEN)).toBeTruthy();
     // Not a projectile: no flat ground line under a slope.
-    expect(queryByTestId("simulation-ground")).toBeNull();
+    expect(queryByTestId("simulation-ground", HIDDEN)).toBeNull();
   });
 
   it("gives a held block its free-body diagram under Reduce Motion", async () => {
@@ -240,10 +253,10 @@ describe("SimulationBlock: collisions and inclines", () => {
     mockUseReduceMotion.mockReturnValue(true);
     const { getByTestId, queryByTestId } = await render(<SimulationBlock content={INCLINE} />);
 
-    expect(getByTestId("simulation-static")).toBeTruthy();
-    expect(getByTestId("simulation-arrow-normal")).toBeTruthy();
-    expect(getByTestId("simulation-arrow-friction")).toBeTruthy();
-    expect(getByTestId("simulation-slope")).toBeTruthy();
+    expect(getByTestId("simulation-static", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-normal", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-friction", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-slope", HIDDEN)).toBeTruthy();
     expect(queryByTestId("simulation-control")).toBeNull();
   });
 
@@ -251,11 +264,11 @@ describe("SimulationBlock: collisions and inclines", () => {
     const noSlope = JSON.stringify({ ...JSON.parse(INCLINE), incline_deg: undefined });
     const { queryByTestId } = await render(<SimulationBlock content={noSlope} />);
 
-    expect(queryByTestId("simulation-arrow-normal")).toBeNull();
-    expect(queryByTestId("simulation-arrow-friction")).toBeNull();
-    expect(queryByTestId("simulation-slope")).toBeNull();
+    expect(queryByTestId("simulation-arrow-normal", HIDDEN)).toBeNull();
+    expect(queryByTestId("simulation-arrow-friction", HIDDEN)).toBeNull();
+    expect(queryByTestId("simulation-slope", HIDDEN)).toBeNull();
     // Weight still points down whatever the surface does.
-    expect(queryByTestId("simulation-arrow-gravity")).toBeTruthy();
+    expect(queryByTestId("simulation-arrow-gravity", HIDDEN)).toBeTruthy();
   });
 });
 
@@ -295,12 +308,12 @@ describe("SimulationBlock: still figures", () => {
   it("draws a see-saw as beam, pivot and two labelled loads", async () => {
     const { getByTestId, getAllByTestId } = await render(<SimulationBlock content={LEVER} />);
 
-    expect(getByTestId("simulation-beam")).toBeTruthy();
-    expect(getByTestId("simulation-pivot")).toBeTruthy();
-    expect(getAllByTestId("simulation-vector-label").length).toBe(2);
+    expect(getByTestId("simulation-beam", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-pivot", HIDDEN)).toBeTruthy();
+    expect(getAllByTestId("simulation-vector-label", HIDDEN).length).toBe(2);
     // The arm that was the question is the one drawn in the answer's colour.
-    expect(getAllByTestId("simulation-vector-result").length).toBe(1);
-    expect(getAllByTestId("simulation-vector-force").length).toBe(1);
+    expect(getAllByTestId("simulation-vector-result", HIDDEN).length).toBe(1);
+    expect(getAllByTestId("simulation-vector-force", HIDDEN).length).toBe(1);
   });
 
   it("offers no Play on a scene with nothing to play", async () => {
@@ -314,14 +327,13 @@ describe("SimulationBlock: still figures", () => {
     // The labels carry the numbers, so the picture cannot disagree with the
     // answer pill above it.
     //
-    // Read off the accessibility label rather than with getByText: an SVG
-    // <Text> renders as a native RNSVGText whose content is not a text node a
-    // test — or a screen reader — can reach, which is why the component puts
-    // the label on the group too.
+    // Read off the accessibility label rather than with getByText: canvas
+    // text is not a text node a test — or a screen reader — can reach, which
+    // is why the scene's description carries every stated label.
     const { getByLabelText } = await render(<SimulationBlock content={FREE_BODY} />);
 
-    expect(getByLabelText("T = 59.05 N")).toBeTruthy();
-    expect(getByLabelText("W = 49.05 N")).toBeTruthy();
+    expect(getByLabelText(/T = 59\.05 N/)).toBeTruthy();
+    expect(getByLabelText(/W = 49\.05 N/)).toBeTruthy();
   });
 
   it("draws the block a free-body diagram is about", async () => {
@@ -329,11 +341,11 @@ describe("SimulationBlock: still figures", () => {
       <SimulationBlock content={FREE_BODY} />,
     );
 
-    expect(getByTestId("simulation-body")).toBeTruthy();
-    expect(getByTestId("simulation-body-label")).toBeTruthy();
-    expect(getByLabelText("5 kg")).toBeTruthy();
+    expect(getByTestId("simulation-body", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-body-label", HIDDEN)).toBeTruthy();
+    expect(getByLabelText(/5 kg/)).toBeTruthy();
     // Still figure: no beam, and nothing to play.
-    expect(queryByTestId("simulation-beam")).toBeNull();
+    expect(queryByTestId("simulation-beam", HIDDEN)).toBeNull();
     expect(queryByTestId("simulation-control")).toBeNull();
   });
 
@@ -344,20 +356,20 @@ describe("SimulationBlock: still figures", () => {
     expect(getByLabelText("rich.simulation_play_a11y")).toBeTruthy();
   });
 
-  it("keeps wide scenes close to their titles and full-height scenes spacious", async () => {
+  it("sizes wide scenes short and square scenes full, with the title always above", async () => {
+    // One title style in one place: never laid over the canvas, and the same
+    // role and colour as a graph's title.
     const projectile = await render(<SimulationBlock content={PROJECTILE} />);
     const projectileStyle = projectile.getByTestId("simulation-canvas").props.style;
     expect(projectileStyle.height).toBeLessThan(240);
-    expect(StyleSheet.flatten(projectile.getByText("Projectile").props.style).position).toBe(
-      "absolute",
-    );
+    const projectileTitle = StyleSheet.flatten(projectile.getByText("Projectile").props.style);
+    expect(projectileTitle.position).toBeUndefined();
 
     const orbit = await render(<SimulationBlock content={ORBIT} />);
     const orbitStyle = orbit.getByTestId("simulation-canvas").props.style;
     expect(orbitStyle.height).toBe(240);
-    expect(StyleSheet.flatten(orbit.getByText("Circular Motion").props.style).position).not.toBe(
-      "absolute",
-    );
+    const orbitTitle = StyleSheet.flatten(orbit.getByText("Circular Motion").props.style);
+    expect(orbitTitle).toEqual(projectileTitle);
   });
 
   it("keeps its figure under Reduce Motion", async () => {
@@ -365,7 +377,89 @@ describe("SimulationBlock: still figures", () => {
     mockUseReduceMotion.mockReturnValue(true);
     const { getByTestId, getAllByTestId } = await render(<SimulationBlock content={LEVER} />);
 
-    expect(getByTestId("simulation-beam")).toBeTruthy();
-    expect(getAllByTestId("simulation-vector-label").length).toBe(2);
+    expect(getByTestId("simulation-beam", HIDDEN)).toBeTruthy();
+    expect(getAllByTestId("simulation-vector-label", HIDDEN).length).toBe(2);
+  });
+});
+
+describe("SimulationBlock: Reduce Motion and playback", () => {
+  it("waits for the Reduce Motion setting before moving", async () => {
+    // Starting on a guess and stopping a few frames later is the flash of
+    // motion a Reduce Motion user asked not to see.
+    mockUseReduceMotion.mockReturnValue(null);
+    const view = await render(<SimulationBlock content={PROJECTILE} />);
+    expect(view.getByTestId("simulation-play-symbol").props.name).toBe("play");
+
+    mockUseReduceMotion.mockReturnValue(false);
+    await view.rerender(<SimulationBlock content={PROJECTILE} />);
+    expect(view.getByTestId("simulation-stop-symbol").props.name).toBe("pause");
+  });
+
+  it("never autoplays under Reduce Motion but plays when the user asks", async () => {
+    mockUseReduceMotion.mockReturnValue(true);
+    const { getByLabelText, getByTestId } = await render(<SimulationBlock content={PROJECTILE} />);
+
+    expect(getByTestId("simulation-play-symbol").props.name).toBe("play");
+    await fireEvent.press(getByLabelText("rich.simulation_play_a11y"));
+    expect(getByTestId("simulation-stop-symbol").props.name).toBe("pause");
+  });
+
+  it("rewinds and stops when a recycled cell is given another scene", async () => {
+    // FlashList can hand this instance new content; the old scene's playing
+    // state must not carry over to it.
+    mockUseReduceMotion.mockReturnValue(true);
+    const view = await render(<SimulationBlock content={PROJECTILE} />);
+    await fireEvent.press(view.getByLabelText("rich.simulation_play_a11y"));
+    expect(view.getByTestId("simulation-stop-symbol")).toBeTruthy();
+
+    await view.rerender(<SimulationBlock content={ORBIT} />);
+    expect(view.getByTestId("simulation-play-symbol").props.name).toBe("play");
+  });
+
+  it("uses the kit's 44 pt control rather than a hand-made circle", async () => {
+    const { getByTestId } = await render(<SimulationBlock content={PROJECTILE} />);
+    const style = StyleSheet.flatten(getByTestId("simulation-control").props.style);
+    expect(style.minWidth).toBe(Space.minTouch);
+    expect(style.minHeight).toBe(Space.minTouch);
+  });
+});
+
+describe("SimulationBlock: accessibility", () => {
+  it("is one image with a description built from the scene", async () => {
+    const { getByRole } = await render(<SimulationBlock content={FREE_BODY} />);
+    const image = getByRole("image");
+
+    expect(image.props.accessibilityLabel).toMatch(/^Free-Body Diagram\. 5 kg\./);
+    expect(image.props.accessibilityLabel).toContain("T = 59.05 N, W = 49.05 N");
+  });
+
+  it("names the arrows a moving scene derives", async () => {
+    const { getByRole } = await render(<SimulationBlock content={PROJECTILE} />);
+    expect(getByRole("image").props.accessibilityLabel).toMatch(/^Projectile\./);
+  });
+
+  it("keeps its test markers away from screen readers", async () => {
+    // A screen reader could otherwise land on invisible one-pixel dots.
+    const { queryByTestId, getByTestId } = await render(<SimulationBlock content={PROJECTILE} />);
+
+    expect(queryByTestId("simulation-body")).toBeNull();
+    expect(getByTestId("simulation-body", HIDDEN)).toBeTruthy();
+  });
+});
+
+describe("LazySimulationBlock placeholder", () => {
+  it("is as tall as the scene it stands in for", async () => {
+    // A wide scene is short, and only a moving one carries the play button.
+    const screenWidth = Dimensions.get("window").width;
+    const projectile = await render(<SimulationBlock content={PROJECTILE} />);
+    const canvas = projectile.getByTestId("simulation-canvas").props.style.height;
+    const title = 22;
+    expect(simulationPlaceholderHeight(PROJECTILE, screenWidth)).toBe(
+      Space.xs * 2 + title + canvas + Space.xxs + Space.minTouch,
+    );
+
+    const lever = await render(<SimulationBlock content={LEVER} />);
+    const leverCanvas = lever.getByTestId("simulation-canvas").props.style.height;
+    expect(simulationPlaceholderHeight(LEVER, screenWidth)).toBe(Space.xs * 2 + title + leverCanvas);
   });
 });

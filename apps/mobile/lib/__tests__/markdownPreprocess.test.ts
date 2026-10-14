@@ -155,30 +155,21 @@ describe("preprocessMarkdown", () => {
     expect(html).toContain("ok");
   });
 
-  it("does not turn a plain Calendar/Gmail connect sentence into a callout card", () => {
+  it("does not turn a plain settings sentence into a callout card", () => {
     const src =
-      "Google Calendar is not connected. Connect it in Settings → Google Calendar to see meetings.\n\n" +
-      "Gmail is not connected. Connect it in Settings → Gmail for inbox items.";
+      "Location is not turned on. Turn it on in Settings → Location to see nearby places.\n\n" +
+      "Notifications are off. Turn them on in Settings → Notifications for reminders.";
     const out = preprocessMarkdown(src);
     expect(out).not.toContain("```callout-tip");
     expect(out).not.toContain("```callout-warning");
     expect(out).not.toContain("```callout-important");
-    expect(out).toContain("Google Calendar is not connected");
-    expect(out).toContain("Gmail is not connected");
+    expect(out).toContain("Location is not turned on");
+    expect(out).toContain("Notifications are off");
   });
 
-  it("does not turn a quoted Calendar/Gmail connect sentence into a quote card", () => {
+  it("does not turn italic settings copy into a callout card", () => {
     const src =
-      "> Google Calendar and Gmail are not connected — you can link them in Settings → Google Calendar and Settings → Gmail if you'd like to see events or emails.";
-    const out = preprocessMarkdown(src);
-    expect(out.trim().startsWith(">")).toBe(false);
-    expect(out).not.toContain("```callout");
-    expect(out).toContain("Google Calendar and Gmail are not connected");
-  });
-
-  it("does not turn italic connect copy into a callout card", () => {
-    const src =
-      "*Google Calendar and Gmail are not connected. Connect them in Settings → Google Calendar / Settings → Gmail.*";
+      "*Location and notifications are off. Turn them on in Settings → Location / Settings → Notifications.*";
     const out = preprocessMarkdown(src);
     expect(out).not.toContain("```callout");
   });

@@ -3,7 +3,6 @@ import { attachmentsApi } from "@/features/attachments/api";
 import { chatsApi } from "@/features/chat/api";
 import { homeApi } from "@/features/home/api";
 import { imagesApi } from "@/features/images/api";
-import { integrationsApi } from "@/features/integrations/api";
 import { memoriesApi } from "@/features/memory/api";
 import { searchApi } from "@/features/search/api";
 import { speechApi } from "@/features/speech/api";
@@ -38,7 +37,6 @@ export const api = {
   ...suggestionsApi,
   ...discoverApi,
   ...todosApi,
-  ...integrationsApi,
   ...pushApi,
   ...attachmentsApi,
   ...imagesApi,

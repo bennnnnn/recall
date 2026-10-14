@@ -4,7 +4,6 @@ import {
   dropRedundantMolecule3dFences,
 } from "@/lib/chemistry/moleculePair";
 import { attachAnswerHeadingToFence } from "@/lib/markdown/attachAnswerHeading";
-import { flattenIntegrationConnectNotes } from "@/lib/markdown/flattenIntegrationConnectNotes";
 import {
   convertCalloutBlocks,
   promoteCalloutBlockquotes,
@@ -97,12 +96,10 @@ export function preprocessMarkdown(
   // the text, no late fence pop-in).
   out = applyOutsideFences(out, (prose) => prose.replace(/`(\$[^`\n]+?\$)`/g, "$1"));
 
-  out = flattenIntegrationConnectNotes(out);
   out = promoteCalloutBlockquotes(out);
   out = promoteQuotedAttributions(out);
   out = splitBlockquoteInlineAttribution(out);
   out = convertCalloutBlocks(out);
-  out = flattenIntegrationConnectNotes(out);
 
   out = convertDetailsBlocks(out);
 

@@ -5,9 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useTranslation } from "react-i18next";
 
 import { TodoRow } from "@/features/todos/components/TodoRow";
-import { SuggestedReminderRow } from "@/features/todos/components/SuggestedReminderRow";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
-import type { SuggestedReminder, Todo } from "@/lib/api";
+import type { Todo } from "@/lib/api";
 import { formatClockTime } from "@/lib/datetime/format";
 import { clashClusters, groupBySameTime, type ClashCluster } from "@/features/todos/model/reminderOverlap";
 import {
@@ -27,21 +26,12 @@ type Props = {
   onRefresh?: () => void;
   highlight?: string;
   busyTodoIds: ReadonlySet<string>;
-  busySuggestionIds: ReadonlySet<string>;
   onToggle: (todo: Todo) => void;
   onOpen: (todo: Todo) => void;
   onDeleteItem: (todo: Todo) => void;
-  onAddSuggestion: (reminder: SuggestedReminder) => void;
-  onDismissSuggestion: (reminder: SuggestedReminder) => void;
   selecting?: boolean;
   selectedIds?: ReadonlySet<string>;
   onSelect?: (todo: Todo) => void;
-};
-
-type SuggestionBlock = {
-  kind: "suggestions";
-  key: string;
-  reminders: SuggestedReminder[];
 };
 
 type SheetBlock = {
@@ -51,8 +41,6 @@ type SheetBlock = {
   dayKey?: string;
   todos: Todo[];
 };
-
-type ListBlock = SuggestionBlock | SheetBlock;
 
 function futureDayLabel(dayKey: string, locale: string): string {
   const date = new Date(`${dayKey}T12:00:00`);
@@ -64,8 +52,8 @@ function futureDayLabel(dayKey: string, locale: string): string {
   });
 }
 
-function blocksFromRows(rows: TodoListRow[]): ListBlock[] {
-  const blocks: ListBlock[] = [];
+function blocksFromRows(rows: TodoListRow[]): SheetBlock[] {
+  const blocks: SheetBlock[] = [];
   let sheet: SheetBlock | null = null;
   const flush = () => {
     if (sheet && sheet.todos.length) blocks.push(sheet);
@@ -74,16 +62,7 @@ function blocksFromRows(rows: TodoListRow[]): ListBlock[] {
   for (const row of rows) {
     if (row.kind === "heading") {
       flush();
-      if (row.section === "suggested") {
-        blocks.push({ kind: "suggestions", key: row.key, reminders: [] });
-      } else {
-        sheet = { kind: "sheet", key: row.key, section: row.section, dayKey: row.dayKey, todos: [] };
-      }
-      continue;
-    }
-    if (row.kind === "suggestion") {
-      const last = blocks[blocks.length - 1];
-      if (last?.kind === "suggestions") last.reminders.push(row.reminder);
+      sheet = { kind: "sheet", key: row.key, section: row.section, dayKey: row.dayKey, todos: [] };
       continue;
     }
     sheet?.todos.push(row.todo);
@@ -124,12 +103,9 @@ export function TodosScrollList({
   onRefresh,
   highlight,
   busyTodoIds,
-  busySuggestionIds,
   onToggle,
   onOpen,
   onDeleteItem,
-  onAddSuggestion,
-  onDismissSuggestion,
   selecting = false,
   selectedIds,
   onSelect,
@@ -166,24 +142,6 @@ export function TodosScrollList({
         ) : null
       }
       renderItem={({ item, index }) => {
-        if (item.kind === "suggestions") {
-          return (
-            <View>
-              <View style={[s.sectionHeader, index === 0 && s.sectionHeaderFirst]}>
-                <Text style={s.sectionHeading}>{t("chat.suggestions")}</Text>
-              </View>
-              {item.reminders.map((reminder) => (
-                <SuggestedReminderRow
-                  key={reminder.id}
-                  reminder={reminder}
-                  busy={busySuggestionIds.has(reminder.id)}
-                  onAdd={() => onAddSuggestion(reminder)}
-                  onDismiss={() => onDismissSuggestion(reminder)}
-                />
-              ))}
-            </View>
-          );
-        }
         const title = item.section === "date" && item.dayKey
           ? futureDayLabel(item.dayKey, i18n.language)
           : t(`todos.group_${item.section}`);

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useRef } from "react";
 
-import { useAssistantMessageId, useEmailDraftSave } from "@/features/integrations/context/emailDraftPersist";
-import { fullEmailText } from "@/features/integrations/model/emailCompose";
-import { registerEmailDraftFlusher } from "@/features/integrations/model/emailDraftFlush";
+import { useAssistantMessageId, useEmailDraftSave } from "@/features/drafts/context/emailDraftPersist";
+import { fullEmailText } from "@/features/drafts/model/emailCompose";
+import { registerEmailDraftFlusher } from "@/features/drafts/model/emailDraftFlush";
 import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";
 

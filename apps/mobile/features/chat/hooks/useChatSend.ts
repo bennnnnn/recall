@@ -21,7 +21,7 @@ import {
   type ComposerSendDraft,
 } from "@/features/chat/model/sendLogic";
 import { composerThreadKey, shouldRestoreFailedSend } from "@/features/chat/model/composerThreadDraft";
-import { flushEmailDrafts } from "@/features/integrations/model/emailDraftFlush";
+import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
 import {
   extractImageGenPromptFromThread,
   extractAttachedImageEditPrompt,

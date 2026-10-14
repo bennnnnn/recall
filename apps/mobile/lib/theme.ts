@@ -105,7 +105,6 @@ export type Theme = {
   brand: {
     twitter: string;
     linkedin: string;
-    gmail: string;
     /** Google "G" blue — vendor-mandated, same in light & dark. */
     google: string;
     /** The other three Google logo colors (four-color "G", Gmail "M"). */
@@ -176,7 +175,7 @@ export const lightTheme: Theme = {
   onMedia: "#FFFFFF",
   mediaScrim: "#000000",
 
-  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", googleRed: "#EA4335", googleYellow: "#FBBC05", googleGreen: "#34A853", apple: "#000000", appleInk: "#FFFFFF" },
+  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", google: "#4285F4", googleRed: "#EA4335", googleYellow: "#FBBC05", googleGreen: "#34A853", apple: "#000000", appleInk: "#FFFFFF" },
 };
 
 export const darkTheme: Theme = {
@@ -237,7 +236,7 @@ export const darkTheme: Theme = {
   onMedia: "#FFFFFF",
   mediaScrim: "#000000",
 
-  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", gmail: "#EA4335", google: "#4285F4", googleRed: "#EA4335", googleYellow: "#FBBC05", googleGreen: "#34A853", apple: "#000000", appleInk: "#FFFFFF" },
+  brand: { twitter: "#1DA1F2", linkedin: "#0A66C2", google: "#4285F4", googleRed: "#EA4335", googleYellow: "#FBBC05", googleGreen: "#34A853", apple: "#000000", appleInk: "#FFFFFF" },
 };
 
 const accented = new Map<string, Theme>();

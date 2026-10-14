@@ -42,8 +42,6 @@ export function typingPulseKindForPhase(phase?: string | null): TypingPulseKind 
     case "searching":
     case "calculating":
     case "physics":
-    case "checking_inbox":
-    case "loading_calendar":
       return "busy";
     case "thinking":
     case "composing":

@@ -47,7 +47,6 @@ async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android" || androidChannelReady) return;
   await ensureAndroidNotificationChannels({
     reminders: i18n.t("notifications.reminders_channel"),
-    inbox: i18n.t("notifications.inbox_channel"),
   });
   androidChannelReady = true;
 }

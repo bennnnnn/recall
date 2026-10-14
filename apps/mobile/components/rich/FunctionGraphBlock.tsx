@@ -6,6 +6,7 @@ import { NumberLineChart } from "@/components/rich/NumberLineChart";
 import { InequalityGraphChart } from "@/components/rich/InequalityGraphChart";
 import { InteractiveFunctionPlot } from "@/components/rich/InteractiveFunctionPlot";
 import { TrajectoryChart } from "@/components/rich/TrajectoryChart";
+import { figureTitleStyle, figureWidth } from "@/components/rich/figure";
 import { formatGraphExpr, formatInequalityExpr } from "@/lib/math/graphBlock";
 import { parseGraphSpec } from "@/lib/math/graphSpec";
 import { CODE_FONT } from "@/lib/fonts";
@@ -24,7 +25,7 @@ export function FunctionGraphBlock({ content }: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const spec = useMemo(() => parseGraphSpec(content), [content]);
   const styles = useMemo(() => makeStyles(theme), [theme]);
-  const chartWidth = Math.min(screenWidth - 48, 360);
+  const chartWidth = figureWidth(screenWidth);
 
   if (!spec) {
     return (
@@ -87,12 +88,7 @@ const makeStyles = (theme: Theme) =>
       marginVertical: Space.xs,
       alignItems: "center",
     },
-    title: {
-      ...Type.callout,
-      color: theme.text,
-      marginBottom: 2,
-      textAlign: "center",
-    },
+    title: figureTitleStyle(theme),
     legendRow: {
       flexDirection: "row",
       gap: Space.md,

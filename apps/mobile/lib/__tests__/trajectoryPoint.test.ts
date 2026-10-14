@@ -1,5 +1,7 @@
 import {
-  trajectoryPathLength,
+  trajectoryAxisLayout,
+  trajectoryBounds,
+  trajectoryOriginLabelPosition,
   trajectoryPointAt,
   type ScreenPoint,
 } from "@/lib/math/trajectory";
@@ -53,13 +55,45 @@ describe("trajectoryPointAt", () => {
   });
 });
 
-describe("trajectoryPathLength", () => {
-  it("sums the segment lengths", () => {
-    expect(trajectoryPathLength(L_SHAPE)).toBe(20);
+describe("trajectoryBounds", () => {
+  it("leaves headroom over the apex so the clip cannot flatten it", () => {
+    const bounds = trajectoryBounds([
+      [0, 0],
+      [10, 5],
+      [20, 0],
+    ]);
+    expect(bounds.yMax).toBeCloseTo(5.25, 10);
+    // The throw starts on the ground: the x axis stays the plot's bottom edge.
+    expect(bounds.yMin).toBe(0);
   });
 
-  it("is zero for fewer than two points", () => {
-    expect(trajectoryPathLength([])).toBe(0);
-    expect(trajectoryPathLength([{ px: 5, py: 5 }])).toBe(0);
+  it("pads both the crest and the trough of an oscillation", () => {
+    const bounds = trajectoryBounds([
+      [0, 2],
+      [1, -2],
+      [2, 2],
+    ]);
+    expect(bounds.yMax).toBeCloseTo(2.2, 10);
+    expect(bounds.yMin).toBeCloseTo(-2.2, 10);
+  });
+});
+
+describe("trajectoryOriginLabelPosition", () => {
+  it("sits below-left of the origin, clear of the first tick on either axis", () => {
+    const bounds = trajectoryBounds([
+      [0, 0],
+      [17.5, 5],
+      [35, 0],
+    ]);
+    const axes = trajectoryAxisLayout(bounds, 312, 220, 40);
+    const zero = trajectoryOriginLabelPosition(axes.origin, 7);
+
+    // Right-aligned with the y-axis numbers, left of the axis.
+    expect(zero.px + 7).toBeLessThan(axes.origin.px);
+    // On the x-axis numbers' baseline.
+    expect(zero.py).toBe(axes.xTicks[0].py);
+    // The first x tick label (centred on its tick) does not reach it.
+    const first = axes.xTicks[0];
+    expect(first.px - 7 / 2).toBeGreaterThan(zero.px + 7);
   });
 });
