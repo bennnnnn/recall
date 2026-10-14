@@ -165,6 +165,7 @@ async def create_realtime_session(
         safety_identifier=_safety_identifier(user),
         barge_in=body.barge_in,
         tools_enabled=body.tools_enabled,
+        voice=user.tts_voice,
     )
     if result is None:
         raise HTTPException(

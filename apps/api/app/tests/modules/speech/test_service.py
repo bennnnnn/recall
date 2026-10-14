@@ -240,6 +240,15 @@ def test_resolve_tts_voice_migrates_non_openai_voices():
     )
 
 
+@pytest.mark.parametrize(
+    "user_voice, expected",
+    [("cedar", "cedar"), (" Coral ", "coral"), (None, "marin"), ("Kore", "marin")],
+)
+def test_resolve_tts_voice_prefers_the_users_voice(user_voice, expected):
+    settings = Settings(speech_tts_voice="marin")
+    assert resolve_tts_voice(settings, "openai/gpt-4o-mini-tts", user_voice) == expected
+
+
 def test_pcm_to_wav_writes_riff_header():
     wav = pcm_to_wav(b"\x00\x00" * 8, sample_rate=24000, channels=1)
     assert wav[:4] == b"RIFF"

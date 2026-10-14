@@ -24,6 +24,12 @@ ResponseStyle = Literal["short", "balanced", "detailed"]
 
 ResponseTone = Literal["funny", "professional", "casual", "soft"]
 
+# Voices both read-aloud (gpt-4o-mini-tts) and live talk (realtime) can speak,
+# so one choice sounds the same in both.
+UserVoice = Literal[
+    "marin", "cedar", "alloy", "ash", "ballad", "coral", "echo", "sage", "shimmer", "verse"
+]
+
 MessageFeedback = Literal["up", "down"]
 
 

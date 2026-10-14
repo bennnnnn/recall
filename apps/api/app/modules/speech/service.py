@@ -90,8 +90,11 @@ def resolve_tts_model(settings: Settings, *, alias: str | None = None) -> str:
     return openrouter_slug(TTS_QUALITY_ALIAS)
 
 
-def resolve_tts_voice(settings: Settings, model: str) -> str:
-    """Reject voices left over from Gemini/Kokoro configuration."""
+def resolve_tts_voice(settings: Settings, model: str, user_voice: str | None = None) -> str:
+    """The user's voice, else the configured one; never one left from Gemini/Kokoro."""
+    chosen = (user_voice or "").strip().lower()
+    if chosen in _OPENAI_TTS_VOICES:
+        return chosen
     voice = (settings.speech_tts_voice or "").strip().lower()
     return voice if voice in _OPENAI_TTS_VOICES else "alloy"
 
@@ -137,6 +140,7 @@ async def synthesize_speech(
     *,
     language: str | None = None,
     model_alias: str | None = None,
+    voice: str | None = None,
 ) -> tuple[bytes, str] | None:
     """Return (audio_bytes, content_type) for OpenAI TTS."""
     if not settings.speech_tts_enabled:
@@ -154,12 +158,11 @@ async def synthesize_speech(
         return None
 
     model = resolve_tts_model(settings, alias=model_alias)
-    voice = resolve_tts_voice(settings, model)
     return await speech_gateway.synthesize_via_openai(
         settings,
         plain,
         model=model,
-        voice=voice,
+        voice=resolve_tts_voice(settings, model, voice),
         language=language,
     )
 
@@ -191,6 +194,7 @@ async def iter_tts_pcm(
     *,
     language: str | None = None,
     model_alias: str | None = None,
+    voice: str | None = None,
 ) -> AsyncIterator[bytes]:
     """Yield lead-sentence PCM first, then the rest (empty if synthesis fails)."""
     if not settings.speech_tts_enabled:
@@ -210,7 +214,7 @@ async def iter_tts_pcm(
         return
 
     model = resolve_tts_model(settings, alias=model_alias)
-    voice = resolve_tts_voice(settings, model)
+    voice = resolve_tts_voice(settings, model, voice)
     rest_task: asyncio.Task[list[bytes]] | None = None
     if rest:
         rest_task = asyncio.create_task(

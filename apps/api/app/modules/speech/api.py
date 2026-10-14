@@ -329,6 +329,7 @@ async def synthesize_speech(
             body.text,
             language=body.language,
             model_alias=alias,
+            voice=user.tts_voice,
         )
         if not result:
             raise HTTPException(
@@ -388,6 +389,7 @@ async def stream_speech(
                     body.text,
                     language=body.language,
                     model_alias=alias,
+                    voice=user.tts_voice,
                 )
             ):
                 got = True

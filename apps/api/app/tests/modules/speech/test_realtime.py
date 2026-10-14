@@ -72,6 +72,12 @@ def test_physical_phone_session_supports_barge_in_and_only_read_only_tools():
     assert {tool["name"] for tool in config["tools"]} == {"memory_lookup", "web_search"}
 
 
+@pytest.mark.parametrize("voice, expected", [(None, "marin"), ("cedar", "cedar")])
+def test_session_speaks_in_the_chosen_voice(voice, expected):
+    config = openai_speech_gateway.realtime_session_config(Settings(), "Recall", voice=voice)
+    assert config["audio"]["output"] == {"voice": expected}
+
+
 @pytest.mark.asyncio
 async def test_realtime_client_secret_binds_session_config_and_retries_connects():
     response = MagicMock()
@@ -406,6 +412,22 @@ def test_realtime_session_returns_ephemeral_key_and_recall_session_id():
     assert body["model"] == "gpt-realtime-2.1"
     instructions = mint.await_args.kwargs["instructions"]
     assert "UNTRUSTED CONTENT — memory" not in instructions
+
+
+def test_realtime_session_uses_the_users_voice():
+    user = _fake_user(plan="pro", tts_voice="sage")
+    settings = Settings(
+        openai_api_key="sk-test",
+        speech_live_talk_enabled=True,
+        speech_realtime_voice_enabled=True,
+        speech_rate_limit_per_minute=0,
+    )
+    mint = AsyncMock(return_value=RealtimeClientSecretResult(value="ek_test", expires_at=123))
+    client = TestClient(_realtime_app(user, settings))
+    with _session_mint_patches(mint=mint):
+        r = client.post("/speech/live/session", headers={"Authorization": "Bearer tok"}, json={})
+    assert r.status_code == 200
+    assert mint.await_args.kwargs["voice"] == "sage"
 
 
 def test_realtime_session_injects_memory_and_custom_instructions():

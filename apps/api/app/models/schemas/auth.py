@@ -11,7 +11,7 @@ from app.core.validation import (
     normalize_locale_code,
     validate_user_alias,
 )
-from app.models.schemas.common import ResponseStyle, ResponseTone
+from app.models.schemas.common import ResponseStyle, ResponseTone, UserVoice
 
 
 class UserOut(BaseModel):
@@ -29,6 +29,10 @@ class UserOut(BaseModel):
     memory_enabled: bool
     memory_include_sensitive: bool = False
     push_notifications_enabled: bool = True
+    push_reminders_enabled: bool = True
+    push_email_suggestions_enabled: bool = True
+    push_calendar_enabled: bool = True
+    tts_voice: str | None = None
     email_reminders_enabled: bool = False
     reminder_lead_minutes: int = 10
     quiet_hours_enabled: bool = False
@@ -70,6 +74,11 @@ class UserUpdate(BaseModel):
     memory_enabled: bool | None = None
     memory_include_sensitive: bool | None = None
     push_notifications_enabled: bool | None = None
+    push_reminders_enabled: bool | None = None
+    push_email_suggestions_enabled: bool | None = None
+    push_calendar_enabled: bool | None = None
+    # null puts the server default back.
+    tts_voice: UserVoice | None = None
     email_reminders_enabled: bool | None = None
     reminder_lead_minutes: int | None = Field(default=None, ge=5, le=60)
     quiet_hours_enabled: bool | None = None

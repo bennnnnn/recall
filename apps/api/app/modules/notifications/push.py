@@ -316,6 +316,7 @@ async def process_todo_reminders(
             TodoItem.due_at.isnot(None),
             TodoItem.notification_sent_at.is_(None),
             User.push_notifications_enabled.is_(True),
+            User.push_reminders_enabled.is_(True),
             (
                 (TodoItem.due_at <= window_end)
                 | ((TodoItem.due_at < now) & (TodoItem.due_at >= overdue_cutoff))
@@ -403,6 +404,7 @@ async def process_email_suggestions(
             SuggestedReminder.status == "pending",
             SuggestedReminder.notification_sent_at.is_(None),
             User.push_notifications_enabled.is_(True),
+            User.push_email_suggestions_enabled.is_(True),
             has_token,
         )
         .order_by(SuggestedReminder.user_id, SuggestedReminder.created_at.desc())
@@ -478,7 +480,10 @@ async def process_calendar_nudges(
         select(User)
         .join(UserCalendarConnection, UserCalendarConnection.user_id == User.id)
         .join(PushToken, PushToken.user_id == User.id)
-        .where(User.push_notifications_enabled.is_(True))
+        .where(
+            User.push_notifications_enabled.is_(True),
+            User.push_calendar_enabled.is_(True),
+        )
         .distinct()
     )
     users = list(result.scalars().all())

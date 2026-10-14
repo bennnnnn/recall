@@ -43,7 +43,12 @@ def page_sql():
             session.execute.side_effect = sync_session.execute
             session.commit.side_effect = sync_session.commit
             session.rollback.side_effect = sync_session.rollback
-            user = SimpleNamespace(id=uuid4(), timezone="UTC", push_notifications_enabled=True)
+            user = SimpleNamespace(
+                id=uuid4(),
+                timezone="UTC",
+                push_notifications_enabled=True,
+                push_reminders_enabled=True,
+            )
             with patch("app.modules.home.invalidate_home_cache", AsyncMock()) as invalidate:
                 yield sync_session, session, user, invalidate
     finally:
@@ -161,8 +166,11 @@ async def test_catchup_reloads_original_ids_and_keeps_empty_page_cursor(page_sql
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("push_enabled", [True, False])
-async def test_page_keeps_existing_delivery_owner_policy(page_sql, push_enabled):
+@pytest.mark.parametrize(
+    "push_enabled, reminders_enabled",
+    [(True, True), (False, True), (True, False)],
+)
+async def test_page_keeps_existing_delivery_owner_policy(page_sql, push_enabled, reminders_enabled):
     sync_session, session, user, invalidate = page_sql
     row = _seed(sync_session, user.id, count=1)[0]
     due = datetime.now(UTC) - timedelta(days=2)
@@ -170,10 +178,12 @@ async def test_page_keeps_existing_delivery_owner_policy(page_sql, push_enabled)
     row.recurrence_rule = "daily"
     row.notification_sent_at = None
     user.push_notifications_enabled = push_enabled
+    user.push_reminders_enabled = reminders_enabled
     sync_session.commit()
     items, cursor = await crud.list_todos_page(session, user)
     assert cursor is None
-    if push_enabled:
+    # Reminder pushes deliver (and advance) the occurrence only with both switches on.
+    if push_enabled and reminders_enabled:
         assert items[0].due_at == due
         session.commit.assert_not_awaited()
         invalidate.assert_not_awaited()
