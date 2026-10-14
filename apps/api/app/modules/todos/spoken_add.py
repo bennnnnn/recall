@@ -376,6 +376,8 @@ def about_saved_reminders(text: str | None) -> bool:
     """
     if not text or has_draft(text):
         return False
+    if "```reminder_proposal" in text:
+        return True
     words = _FACT_REMINDER_RE.sub(" ", _without_code(text))
     return bool(
         _SAVED_TALK_RE.search(words)

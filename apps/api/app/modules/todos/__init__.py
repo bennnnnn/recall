@@ -22,6 +22,7 @@ _EXPORTS = {
     "format_todos_block": ("prompt_context", "format_todos_block"),
     "format_todos_voice_block": ("prompt_context", "format_todos_voice_block"),
     "materialize_reminder_fences": ("reminder_fences", "materialize_reminder_fences"),
+    "reminder_cards_as_text": ("proposals", "cards_as_text"),
     "query_implies_todos": ("classification", "query_implies_todos"),
     "select_todos_for_prompt": ("prompt_context", "select_todos_for_prompt"),
     "should_inject_todos_prompt": ("prompt_context", "should_inject_todos_prompt"),

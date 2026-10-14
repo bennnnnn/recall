@@ -1,13 +1,16 @@
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
+from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.db import get_db
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_redis
 from app.models.orm import User
 from app.models.schemas import TodoCreate, TodoOut, TodoPageOut, TodoReorderBody, TodoUpdate
 from app.modules.todos import crud as todos_crud
+from app.modules.todos import proposals as reminder_proposals
 
 router = APIRouter(prefix="/todos", tags=["todos"])
 
@@ -87,6 +90,27 @@ async def reorder_todos(
     payload = [(item.id, item.sort_order, item.topic) for item in body.items]
     items = await todos_crud.reorder_todos(session, user, payload)
     return [TodoOut.model_validate(item) for item in items]
+
+
+class ReminderProposalConfirmOut(BaseModel):
+    items: list[reminder_proposals.CardItem]
+
+
+@router.post("/proposals/{proposal_id}/confirm", response_model=ReminderProposalConfirmOut)
+async def confirm_reminder_proposal(
+    proposal_id: str,
+    user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+    redis: Redis = Depends(get_redis),
+) -> ReminderProposalConfirmOut:
+    """Save the reminder change a chat card offered. A second tap is a no-op."""
+    try:
+        items = await reminder_proposals.confirm_proposal(
+            session, redis, user_id=user.id, proposal_id=proposal_id
+        )
+    except reminder_proposals.ProposalError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.detail) from exc
+    return ReminderProposalConfirmOut(items=items)
 
 
 @router.patch("/{todo_id}", response_model=TodoOut)

@@ -347,6 +347,8 @@ async def enrich_final_content(
                     user_text=ctx.user_message_content,
                     prior_assistant=_prior_assistant_text(ctx),
                     prior_user=_prior_user_text(ctx),
+                    redis=redis,
+                    confirm=settings.reminder_proposals_enabled,
                 )
 
         from app.core.sympy_executor import run_sympy

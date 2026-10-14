@@ -656,7 +656,7 @@ def test_todo_hint_does_not_promise_unapplied_changes():
     assert "pre-reply sync" not in hint
     assert "I'll delete" not in hint
     assert "I'll set" not in hint
-    assert "appends the saved result" in hint
+    assert "shows the change under your reply for the user to confirm" in hint
     assert "ask when" in hint
     assert "whole-list delete" not in hint
 

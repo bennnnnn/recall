@@ -354,11 +354,13 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
 
 
 @pytest.mark.asyncio
-async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offline_io):
-    """A reminder the model confirmed still enqueues.
+@pytest.mark.parametrize("proposals", [False, True])
+async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offline_io, proposals):
+    """A reminder the model confirmed still enqueues the background repair.
 
     "Remind me tomorrow" with no clock is not that case: the reply asks for a
-    time, and the extractor does not invent one.
+    time, and the extractor does not invent one. While reminder changes wait
+    for a tap on a card, the repair (which writes without one) stays off.
     """
     from app.modules import chat as chat_module
 
@@ -406,7 +408,11 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
         result: dict[str, str] = {}
         async for _ in chat_module.stream_chat_response(
             AsyncMock(),
-            Settings(max_output_tokens=100, mcp_tool_loop_enabled=False),
+            Settings(
+                max_output_tokens=100,
+                mcp_tool_loop_enabled=False,
+                reminder_proposals_enabled=proposals,
+            ),
             user_id=fake_user.id,
             chat_id=MagicMock(),
             content="Sounds good for tomorrow",
@@ -418,7 +424,7 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
             await finalize
 
     job_types = [call.args[1] for call in enqueue_job.call_args_list]
-    assert "todos" in job_types
+    assert ("todos" in job_types) is not proposals
     assert result.get("todos_sync") == "1"
 
 

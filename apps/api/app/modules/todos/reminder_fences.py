@@ -7,6 +7,7 @@ import logging
 import re
 from dataclasses import dataclass, field, replace
 from datetime import UTC, date, datetime, timedelta
+from functools import partial
 from typing import Literal, Self
 from uuid import UUID
 
@@ -19,12 +20,14 @@ from pydantic import (
     field_validator,
     model_validator,
 )
+from redis.asyncio import Redis
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import TodoItem
 from app.models.schemas import TodoActionItem
 from app.modules import home as home_service
+from app.modules.todos import proposals, write_log
 from app.modules.todos import repository as todos_repo
 from app.modules.todos.actions import (
     _ACTION_RELOAD_LIMIT,
@@ -85,6 +88,14 @@ _OK_PREFIX = {
     "set_due": "Moved",
     "clear_due": "Date removed",
 }
+# The app's own result lines: "Set: gym — Thursday, 6:00 PM.", "Done: gym.".
+OK_PREFIXES = tuple(f"{prefix}:" for prefix in dict.fromkeys(_OK_PREFIX.values()))
+
+
+def result_prefix(action: str) -> str:
+    """The word a result line starts with: "Set", "Done", "Moved"."""
+    return _OK_PREFIX.get(action, "Moved" if action == "move" else "Set")
+
 
 _DECLINES_REMINDER_CREATE_RE = re.compile(
     r"\b(?:do\s+not|don(?:'|\u2019)?t|dont|never)\s+"
@@ -585,6 +596,54 @@ async def _mutate_one(state: _ReminderFenceCreateState, draft: _ReminderFence) -
 
 
 async def materialize_reminder_fences(
+    session: AsyncSession,
+    *,
+    user_id: UUID,
+    chat_id: UUID,
+    assistant_text: str,
+    user_timezone: str | None,
+    user_text: str | None = None,
+    prior_assistant: str | None = None,
+    prior_user: str | None = None,
+    redis: Redis | None = None,
+    confirm: bool = False,
+) -> tuple[str, int]:
+    """Apply the turn's To-do changes, or with ``confirm`` offer them as a card.
+
+    With ``confirm`` the same rules run, but nothing is written: the reply ends
+    with a ``reminder_proposal`` card in place of the result lines, and the
+    writes wait in Redis for the user's tap. Returns (text, rows written).
+    """
+    turn = partial(
+        _materialize,
+        session,
+        user_id=user_id,
+        chat_id=chat_id,
+        assistant_text=proposals.strip_cards(assistant_text),
+        user_timezone=user_timezone,
+        user_text=user_text,
+        prior_assistant=prior_assistant,
+        prior_user=prior_user,
+    )
+    if not confirm or redis is None:
+        return await turn()
+    with write_log.recording() as writes:
+        text, _applied = await turn()
+    if not writes:
+        return text, 0
+    card = await proposals.propose(
+        redis,
+        user_id=user_id,
+        chat_id=chat_id,
+        writes=writes,
+        user_timezone=user_timezone,
+    )
+    kept = [line for line in text.split("\n") if not proposals.is_card_line(line, writes)]
+    body = re.sub(r"\n{3,}", "\n\n", "\n".join(kept)).strip()
+    return (f"{body}\n\n{card}" if body else card), 0
+
+
+async def _materialize(
     session: AsyncSession,
     *,
     user_id: UUID,

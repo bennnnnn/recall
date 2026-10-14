@@ -5,6 +5,7 @@ import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-nati
 
 import { CalendarProposalCard } from "@/features/integrations/components/CalendarProposalCard";
 import { SettingsProposalCard } from "@/components/SettingsProposalCard";
+import { ReminderProposalCard } from "@/features/todos/components/ReminderProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
 import { UserMessageContent } from "@/components/UserMessageContent";
 import { ChatMessageImageStrip } from "@/components/ChatMessageImageStrip";
@@ -353,6 +354,8 @@ export const MessageBubble = React.memo(function MessageBubble({
     showCalendarProposals,
     settingsProposals,
     showSettingsProposals,
+    reminderProposals,
+    showReminderProposals,
     places,
     showPlaces,
     images,
@@ -483,6 +486,11 @@ export const MessageBubble = React.memo(function MessageBubble({
                     proposal={proposal}
                     disabled={!isLastAssistant}
                   />
+                ))
+              : null}
+            {showReminderProposals
+              ? reminderProposals.map((proposal) => (
+                  <ReminderProposalCard key={proposal.proposalId} proposal={proposal} />
                 ))
               : null}
             {showSearchSources ? <SearchSourcesStack sources={searchSources} /> : null}

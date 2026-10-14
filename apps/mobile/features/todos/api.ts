@@ -63,4 +63,11 @@ export const todosApi = {
     }),
   deleteTodo: (token: string, id: string) =>
     request<void>(`/todos/${id}`, token, { method: "DELETE" }),
+  /** Save the reminder change a chat card offered. A second tap is a no-op. */
+  confirmReminderProposal: (token: string, proposalId: string) =>
+    request<{ items: unknown[] }>(
+      `/todos/proposals/${encodeURIComponent(proposalId)}/confirm`,
+      token,
+      { method: "POST" },
+    ),
 };
