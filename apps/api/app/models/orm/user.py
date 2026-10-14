@@ -68,6 +68,18 @@ class User(Base):
     push_notifications_enabled: Mapped[bool] = mapped_column(
         Boolean, default=True, server_default="true"
     )
+    # Each kind of push, under the master switch above.
+    push_reminders_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )
+    push_email_suggestions_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )
+    push_calendar_enabled: Mapped[bool] = mapped_column(
+        Boolean, default=True, server_default="true"
+    )
+    # Read-aloud and live talk voice; None keeps the server default.
+    tts_voice: Mapped[str | None] = mapped_column(String(16), nullable=True)
     email_reminders_enabled: Mapped[bool] = mapped_column(
         Boolean, default=False, server_default="false"
     )

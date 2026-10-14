@@ -131,7 +131,12 @@ async def test_push_enabled_list_does_not_skip_undelivered_occurrence(schedule_s
     sync_session.commit()
     listed = await crud.list_todos(
         session,
-        SimpleNamespace(id=row.user_id, timezone="UTC", push_notifications_enabled=True),
+        SimpleNamespace(
+            id=row.user_id,
+            timezone="UTC",
+            push_notifications_enabled=True,
+            push_reminders_enabled=True,
+        ),
     )
     assert listed[0].due_at == due
     session.commit.assert_not_awaited()

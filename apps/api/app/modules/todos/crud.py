@@ -29,11 +29,16 @@ class TodosError(Exception):
         super().__init__(detail)
 
 
+def _reminder_pushes_on(user: User) -> bool:
+    """Reminder pushes reach this user; when they do not, listing advances recurring ones."""
+    return bool(user.push_notifications_enabled and user.push_reminders_enabled)
+
+
 async def list_todos(
     session: AsyncSession, user: User, *, limit: int = 1000, offset: int = 0
 ) -> list[TodoItem]:
     items = await todos_repo.list_for_user(session, user.id, limit=limit, offset=offset)
-    if not user.push_notifications_enabled and await _advance_past_recurring(
+    if not _reminder_pushes_on(user) and await _advance_past_recurring(
         session, items, timezone=user.timezone
     ):
         # Reload both successful advances and concurrent edits/deletions.
@@ -57,7 +62,7 @@ async def list_todos_page(
     page_ids = [item.id for item in items]
     # Preserve this boundary even when catch-up races a deletion of the last row.
     next_cursor = page_ids[-1] if len(selected) > limit else None
-    if not user.push_notifications_enabled and await _advance_past_recurring(
+    if not _reminder_pushes_on(user) and await _advance_past_recurring(
         session, items, timezone=user.timezone
     ):
         items = await todos_repo.list_by_ids(session, user_id, page_ids)

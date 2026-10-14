@@ -19,6 +19,7 @@ _OPENAI_REALTIME_CLIENT_SECRETS_URL = "https://api.openai.com/v1/realtime/client
 _REALTIME_TIMEOUT_SECONDS = 10.0
 _REALTIME_CONNECT_RETRIES = 2
 _DEFAULT_REALTIME_MODEL = "gpt-realtime-2.1"
+_DEFAULT_REALTIME_VOICE = "marin"
 _REALTIME_INPUT_TRANSCRIBE_MODEL = "gpt-live-transcribe"
 
 
@@ -33,7 +34,12 @@ def realtime_model(settings: Settings) -> str:
 
 
 def realtime_session_config(
-    settings: Settings, instructions: str, *, barge_in: bool = False, tools_enabled: bool = False
+    settings: Settings,
+    instructions: str,
+    *,
+    barge_in: bool = False,
+    tools_enabled: bool = False,
+    voice: str | None = None,
 ) -> dict[str, object]:
     config: dict[str, object] = {
         "type": "realtime",
@@ -62,7 +68,7 @@ def realtime_session_config(
                     ),
                 },
             },
-            "output": {"voice": "marin"},
+            "output": {"voice": voice or _DEFAULT_REALTIME_VOICE},
         },
     }
     if tools_enabled:
@@ -99,6 +105,7 @@ async def create_realtime_client_secret(
     safety_identifier: str,
     barge_in: bool = False,
     tools_enabled: bool = False,
+    voice: str | None = None,
 ) -> RealtimeClientSecretResult | None:
     """Mint a short-lived key that mobile can use for direct WebRTC setup."""
     key = settings.openai_api_key.strip()
@@ -120,7 +127,11 @@ async def create_realtime_client_secret(
             },
             json={
                 "session": realtime_session_config(
-                    settings, instructions, barge_in=barge_in, tools_enabled=tools_enabled
+                    settings,
+                    instructions,
+                    barge_in=barge_in,
+                    tools_enabled=tools_enabled,
+                    voice=voice,
                 )
             },
         )
