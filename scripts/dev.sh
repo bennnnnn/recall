@@ -45,17 +45,39 @@ up() {
     *) echo "Usage: scripts/dev.sh up [sim|phone]"; exit 1 ;;
   esac
   kill_all_dev
-  "$ROOT/scripts/follow-main.sh" --once
+  RECALL_DEV_UP=starting "$ROOT/scripts/follow-main.sh" --once
   mkdir -p "$ROOT/tmp"
   (cd "$ROOT/apps/api" && exec uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000) \
     >"$ROOT/tmp/api.log" 2>&1 &
   local api_pid=$!
   report_api_start &
-  "$ROOT/scripts/follow-main.sh" &
+  RECALL_DEV_UP=running "$ROOT/scripts/follow-main.sh" &
   local follow_pid=$!
   trap 'kill '"$follow_pid"' '"$api_pid"' 2>/dev/null; lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true' EXIT
   echo "API on :8000 (log: tmp/api.log). Pulling merged changes from main every minute."
-  "$ROOT/scripts/dev.sh" "$mobile_cmd"
+  # follow-main stops Metro (and leaves this flag) when a merge changed the
+  # app's packages; start it again with them, then reload the app.
+  rm -f "$ROOT/tmp/restart-metro"
+  while true; do
+    "$ROOT/scripts/dev.sh" "$mobile_cmd" || true
+    [[ -f "$ROOT/tmp/restart-metro" ]] || break
+    rm -f "$ROOT/tmp/restart-metro"
+    echo "Restarting Metro with the new packages…"
+    reload_when_metro_is_back &
+  done
+}
+
+# Metro answers /status once it can serve the app again.
+reload_when_metro_is_back() {
+  local i
+  for i in $(seq 1 120); do
+    if curl -sf -m 2 http://127.0.0.1:8081/status >/dev/null 2>&1; then
+      sleep 3
+      node "$ROOT/scripts/reload-app.mjs"
+      return 0
+    fi
+    sleep 1
+  done
 }
 
 case "${1:-}" in

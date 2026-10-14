@@ -2,9 +2,11 @@
 # Keep this checkout on origin/main while the dev servers run, so a merged
 # pull request reaches the running app without anyone pulling by hand.
 #
-# The API (uvicorn --reload) and Metro (Fast Refresh) reload changed files on
-# their own; this only fast-forwards main, then installs dependencies and runs
-# migrations when a pull changed them.
+# The API (uvicorn --reload) reloads changed files on its own. After a pull
+# that changed the app, this reloads every app connected to Metro (Fast Refresh
+# alone misses a phone that was asleep); when the app's packages changed, it
+# installs them and, under dev.sh up, restarts Metro with them. It also runs
+# new migrations and API dependency installs.
 #
 # It never touches work. It pulls only as a fast-forward, and git refuses
 # one that would overwrite a file you edited. On a branch whose commits are
@@ -61,6 +63,26 @@ merged_into_main() {
   ! git cherry origin/main HEAD 2>/dev/null | grep -q '^+'
 }
 
+# dev.sh up sets RECALL_DEV_UP: "starting" before Metro runs, "running" after.
+restart_metro() {
+  case "${RECALL_DEV_UP:-}" in
+    starting) ;; # Metro starts next, with the new packages.
+    running)
+      say "Restarting Metro with them; the app reloads when it is back."
+      mkdir -p "$ROOT/tmp"
+      touch "$ROOT/tmp/restart-metro"
+      pkill -TERM -f "expo start" 2>/dev/null || true
+      ;;
+    *) say "Restart the app (Ctrl+C, then ./scripts/dev.sh up) to load them." ;;
+  esac
+}
+
+reload_app() {
+  [[ "${RECALL_DEV_UP:-}" == "starting" ]] && return
+  sleep 2 # Let Metro see the pulled files first.
+  node "$ROOT/scripts/reload-app.mjs" && say "Reloaded the app."
+}
+
 after_pull() {
   local before="$1" changed
   changed="$(git diff --name-only "$before" HEAD)"
@@ -77,7 +99,9 @@ after_pull() {
   if grep -qE '^apps/mobile/(package\.json|pnpm-lock\.yaml)$' <<<"$changed"; then
     say "Mobile dependencies changed: pnpm install"
     (cd apps/mobile && pnpm install --silent)
-    say "Restart the app (Ctrl+C, then ./scripts/dev.sh up) to load them."
+    restart_metro
+  elif grep -q '^apps/mobile/' <<<"$changed"; then
+    reload_app
   fi
   if grep -qE '^apps/mobile/(app\.config\.ts|plugins/)' <<<"$changed"; then
     say "The app's native config changed: restart the app to load it."
