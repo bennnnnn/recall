@@ -218,4 +218,23 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # t = d/c: light covers any stated distance at c.
+    formula(
+        "light_travel_time",
+        "kinematics",
+        "Speed of light",
+        "t",
+        base_latex=r"t = \frac{d}{c}",
+        assumptions=("light in a vacuum (or air)",),
+        expression="d/c_light",
+        variables=(var("d", "d", "meter"),),
+        binding=Binding(
+            asks=("how long", "time", "how much time"),
+            result=("second",),
+            inputs=(frozenset({"d"}),),
+            cues=("light", "laser", "radio signal", "radio wave"),
+            excludes=("light year", "light-year", "lightning", "sound", "car", "train", "runner"),
+            nonnegative=True,
+        ),
+    ),
 )

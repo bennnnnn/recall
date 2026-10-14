@@ -6,8 +6,10 @@ from __future__ import annotations
 
 import math
 
+from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import (
     PhysicsIntent,
+    SimulationAngle,
     SimulationBlockSpec,
     SimulationBody,
     SimulationVector,
@@ -106,7 +108,10 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(formula,),
             substitutions=(rf"N = {plugged}",),
             quantities=(QuantityResult("", normal, "N"),),
-            simulation_specs=_incline_scene(deg, mu=mu, held=bool(p.get("static_equilibrium"))),
+            simulation_specs=_incline_scene(
+                deg, mu=mu, held=bool(p.get("static_equilibrium")), mass=m, g=g
+            )
+            or _floor_scene(m, g, asked="normal"),
         )
 
     if op == "friction_force":
@@ -122,7 +127,7 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
                 formulas=(r"f_s = mg|\sin\theta|", r"f_s \le \mu_s N"),
                 substitutions=(rf"f_s = {m:g}\cdot {g:g}\cdot |\sin({deg:g}^\circ)|",),
                 quantities=(QuantityResult("", f_val, "N"),),
-                simulation_specs=_incline_scene(deg, mu=mu, held=f_val > 0),
+                simulation_specs=_incline_scene(deg, mu=mu, held=f_val > 0, mass=m, g=g),
             )
         answer = rf"f = \mu N = {mu:g} \cdot {normal:.2f} \approx {f_val:.2f} \text{{ N}}"
         return PhysicsResult(
@@ -130,7 +135,10 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(r"f = \mu N",),
             substitutions=(rf"f = {mu:g} \cdot {normal:.2f}",),
             quantities=(QuantityResult("", f_val, "N"),),
-            simulation_specs=_incline_scene(deg, mu=mu, uphill=p.get("motion_sign") == -1),
+            simulation_specs=_incline_scene(
+                deg, mu=mu, uphill=p.get("motion_sign") == -1, mass=m or None, g=g
+            )
+            or _floor_scene(m, g, friction=f_val, asked="friction"),
         )
 
     if op == "incline_acceleration":
@@ -160,7 +168,7 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
                 quantities=(QuantityResult("a", 0.0, "m/s^2"),),
                 # a = 0 is the answer, so the block stays put and the diagram
                 # is the free body that explains why.
-                simulation_specs=_incline_scene(deg, mu=mu),
+                simulation_specs=_incline_scene(deg, mu=mu, mass=m or None, g=g),
             )
         sign = "+" if motion < 0 else "-"
         formula = rf"a = g(\sin\theta {sign} \mu\cos\theta)"
@@ -179,8 +187,13 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             simulation_specs=_incline_scene(
                 deg,
                 mu=mu,
-                accel=a_val if not motion or p.get("released_from_rest") else None,
+                # Sliding down, it speeds up at a whatever speed it started
+                # with, so the drawing starts it from rest; sliding up, it
+                # slows, and a block shown starting from rest would go down.
+                accel=a_val if motion >= 0 or p.get("released_from_rest") else None,
                 uphill=motion < 0,
+                mass=m or None,
+                g=g,
             ),
         )
 
@@ -191,7 +204,7 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(r"\mu = \tan(\theta)",),
             substitutions=(rf"\mu = \tan({deg:.1f}^\circ)",),
             quantities=(QuantityResult("", mu_val, ""),),
-            simulation_specs=_incline_scene(deg, mu=mu_val),
+            simulation_specs=_incline_scene(deg, mu=mu_val, asked="angle"),
         )
 
     if op == "minimum_force":
@@ -204,6 +217,9 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(r"F_{min} = \mu m g",),
             substitutions=(rf"F_{{min}} = {mu:g} \cdot {m:g} \cdot {g:g}",),
             quantities=(QuantityResult("", f_val, "N"),),
+            simulation_specs=_floor_scene(m, g, friction=f_val, applied=f_val, asked="applied")
+            if m > 0
+            else [],
         )
 
     raise SolveServiceError(f"unsupported friction op: {op}")
@@ -225,16 +241,20 @@ def _incline_scene(
     accel: float | None = None,
     uphill: bool = False,
     held: bool = False,
+    mass: float | None = None,
+    g: float | None = None,
+    asked: str | None = None,
+    along: float | None = None,
 ) -> list[SimulationBlockSpec]:
     """A block on a slope with its weight, normal and friction arrows.
 
     The ticket's third named scene, and the one that is mostly a *diagram*: a
     free-body picture is what an incline question wants, and for two of the
-    three ops the block is not moving at all.
+    three ops the block is not moving at all. The arrows carry their values
+    when the mass is known, and the slope its angle. ``along`` is the
+    weight's component down the slope, drawn when that is what was asked.
 
-    A flat surface gets nothing. Weight down and normal up is a true picture
-    and an empty one, and with no slope there is no friction direction to draw
-    — the block is not going anywhere for friction to oppose.
+    A flat surface is `_floor_scene`'s.
     """
     if deg == 0:
         return []
@@ -243,6 +263,9 @@ def _incline_scene(
     # both the path and the arrows.
     down_x, down_y = math.cos(theta), -math.sin(theta)
     top_x, top_y = 0.0, _INCLINE_LENGTH * math.sin(theta)
+    size = _INCLINE_LENGTH * 0.06
+    # The box sits on the slope: its centre is half a side off the surface.
+    lift_x, lift_y = math.sin(theta) * size, math.cos(theta) * size
 
     n_points = 60
     if accel is not None and accel > 0:
@@ -258,28 +281,180 @@ def _incline_scene(
         # stays where it is and the arrows are the whole picture.
         distances = [0.0] * n_points
 
-    path = [[round(top_x + s * down_x, 4), round(top_y + s * down_y, 4)] for s in distances]
+    start = 0.12 * _INCLINE_LENGTH
+    path = [
+        [
+            round(top_x + (start + s) * down_x + lift_x, 4),
+            round(top_y + (start + s) * down_y + lift_y, 4),
+        ]
+        for s in distances
+    ]
     arrows: list[str] = ["gravity", "normal"]
     # Static friction holds a resting block whether or not μ was stated.
     if (mu > 0 or held) and not uphill:
         arrows.append("friction")
 
+    labels = {"gravity": "mg", "normal": "N", "friction": "f"}
+    if mass and g:
+        weight = mass * g
+        normal = weight * math.cos(theta)
+        labels["gravity"] = f"mg = {plain_number(weight)} N"
+        labels["normal"] = f"N = {plain_number(normal)} N"
+        if held:
+            labels["friction"] = f"f = {plain_number(weight * math.sin(theta))} N"
+        elif mu > 0:
+            labels["friction"] = f"f = {plain_number(mu * normal)} N"
+    foot = _INCLINE_LENGTH * math.cos(theta)
     margin = _INCLINE_LENGTH * 0.18
+    shown = f"{plain_number(abs(deg), GIVEN_FIGURES)}°"
     return [
         SimulationBlockSpec(
             type="incline",
             title="Inclined Plane",
-            bodies=[SimulationBody(path=path, radius=_INCLINE_LENGTH * 0.06)],
+            title_key="incline",
+            bodies=[
+                SimulationBody(
+                    path=path,
+                    radius=size,
+                    shape="box",
+                    label=f"{plain_number(mass, GIVEN_FIGURES)} kg" if mass else None,
+                )
+            ],
             x_min=-margin,
-            x_max=_INCLINE_LENGTH * math.cos(theta) + margin,
+            x_max=foot + margin,
             y_min=-margin,
             y_max=top_y + margin,
+            ground=True,
             arrows=arrows,  # type: ignore[arg-type]
+            arrow_labels={name: labels[name] for name in arrows},  # type: ignore[misc]
+            angles=[
+                SimulationAngle(
+                    vertex=[foot, 0.0],
+                    start_deg=180.0 - abs(deg),
+                    end_deg=180.0,
+                    label=shown,
+                    role="result" if asked == "angle" else "given",
+                )
+            ],
             vectors=[SimulationVector(anchor=path[0], dx=down_x, dy=down_y)]
             if uphill and mu > 0
+            else [
+                SimulationVector(
+                    anchor=[0.0, 0.0],
+                    dx=down_x,
+                    dy=down_y,
+                    label=f"mg sin θ = {plain_number(along)} N",
+                    role="result",
+                    body=0,
+                )
+            ]
+            if along is not None
             else [],
             # The angle arrived here through radians, so 30 comes back as
             # 29.999999999999996 and would ship in the fence JSON that way.
             incline_deg=round(abs(deg), 4),
+            alt=_incline_alt(shown, mass, accel, held, along=along, friction="friction" in arrows),
+        )
+    ]
+
+
+def _incline_alt(
+    shown: str,
+    mass: float | None,
+    accel: float | None,
+    held: bool,
+    *,
+    along: float | None = None,
+    friction: bool = True,
+) -> str:
+    block = f"A {plain_number(mass, GIVEN_FIGURES)} kg block" if mass else "A block"
+    if along is not None:
+        return (
+            f"{block} on a {shown} slope; its weight pulls it down the slope "
+            f"with {plain_number(along)} N."
+        )
+    if accel:
+        return f"{block} sliding down a {shown} slope at {plain_number(accel)} m/s²."
+    if held:
+        return f"{block} held at rest on a {shown} slope by friction."
+    if not friction:
+        return f"{block} on a {shown} slope, with its weight and the normal force."
+    return f"{block} on a {shown} slope, with its weight, the normal force and friction."
+
+
+def _floor_scene(
+    mass: float,
+    g: float,
+    *,
+    friction: float | None = None,
+    applied: float | None = None,
+    asked: str,
+) -> list[SimulationBlockSpec]:
+    """A box on a floor: weight, normal, friction against the push, and the push.
+
+    Each arrow carries its size, so a 100 N push against 49 N of friction is
+    visibly the longer; the asked one is the highlighted result.
+    """
+    weight = mass * g
+    size = 0.5
+    centre = [0.0, size]
+    vectors = [
+        SimulationVector(
+            anchor=[0.0, 0.0],
+            dx=0.0,
+            dy=-weight,
+            label=f"W = {plain_number(weight)} N",
+            body=0,
+        ),
+        SimulationVector(
+            anchor=[0.0, 0.0],
+            dx=0.0,
+            dy=weight,
+            label=f"N = {plain_number(weight)} N",
+            role="result" if asked == "normal" else "force",
+            body=0,
+        ),
+    ]
+    if friction:
+        vectors.append(
+            SimulationVector(
+                anchor=[-size, -size * 0.6],
+                dx=-friction,
+                dy=0.0,
+                label=f"f = {plain_number(friction)} N",
+                role="result" if asked == "friction" else "force",
+                body=0,
+            )
+        )
+    if applied:
+        vectors.append(
+            SimulationVector(
+                anchor=[size, 0.0],
+                dx=applied,
+                dy=0.0,
+                label=f"F = {plain_number(applied)} N",
+                role="result" if asked == "applied" else "force",
+                body=0,
+            )
+        )
+    box = f"{plain_number(mass, GIVEN_FIGURES)} kg"
+    pieces = [f"weight {plain_number(weight)} N"]
+    if friction:
+        pieces.append(f"friction {plain_number(friction)} N")
+    if applied:
+        pieces.append(f"a push of {plain_number(applied)} N")
+    return [
+        SimulationBlockSpec(
+            type="free_body",
+            title="Free-Body Diagram",
+            title_key="free_body",
+            bodies=[SimulationBody(path=[centre, centre], radius=size, shape="box", label=box)],
+            vectors=vectors,
+            ground=True,
+            x_min=-3.0,
+            x_max=3.0,
+            y_min=-0.5,
+            y_max=3.0,
+            alt=f"A {box} box on a floor: " + ", ".join(pieces) + ".",
         )
     ]

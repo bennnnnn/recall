@@ -6,6 +6,8 @@ Elastic: v1' = ((m1 - m2) v1 + 2 m2 v2) / (m1 + m2), and v2' by symmetry.
 
 from __future__ import annotations
 
+import math
+
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationBody
 from app.modules.physics.solvers.common import (
@@ -149,7 +151,14 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
 
 
 def _collision_scene(
-    m1: float, m2: float, v1: float, v2: float, u1: float, u2: float
+    m1: float,
+    m2: float,
+    v1: float,
+    v2: float,
+    u1: float,
+    u2: float,
+    *,
+    recoil: str | None = None,
 ) -> SimulationBlockSpec:
     """Two bodies approaching, meeting, and leaving at their new speeds.
 
@@ -161,7 +170,8 @@ def _collision_scene(
     Contact is the midpoint of the clock, so the approach and the separation
     get equal screen time whatever the speeds. Radii come from the masses (as
     cube roots, since a ball's size goes with its volume), so the heavier body
-    reads as the heavier one.
+    reads as the heavier one. ``recoil`` is the alt for two bodies pushing
+    apart from rest, which is the same picture under another name.
     """
     r1 = 0.30 * (m1 ** (1 / 3))
     r2 = 0.30 * (m2 ** (1 / 3))
@@ -176,7 +186,9 @@ def _collision_scene(
     dt = half / n_half
     path1: list[list[float]] = []
     path2: list[list[float]] = []
-    for i in range(-n_half, n_half + 1):
+    # Two bodies at rest have nothing to show before they push apart: a short
+    # pause, then the whole clock on the separation.
+    for i in range(-6 if recoil else -n_half, n_half + 1):
         t = i * dt
         if t <= 0:
             # Contact at t = 0 puts the two surfaces together: centres a
@@ -196,7 +208,6 @@ def _collision_scene(
     half_height = max((hi - lo) * 0.18, gap * 1.2)
     return SimulationBlockSpec(
         type="collision",
-        title="Collision",
         bodies=[
             SimulationBody(
                 path=path1, radius=r1, label=f"{plain_number(m1, GIVEN_FIGURES)} kg", role="primary"
@@ -213,4 +224,24 @@ def _collision_scene(
         y_min=-half_height,
         y_max=half_height,
         arrows=["velocity"],
+        arrow_labels={"velocity": "v"},
+        title="Recoil" if recoil else "Collision",
+        title_key="recoil" if recoil else "collision",
+        alt=recoil or _collision_alt(m1, m2, v1, v2, u1, u2),
+    )
+
+
+def _collision_alt(m1: float, m2: float, v1: float, v2: float, u1: float, u2: float) -> str:
+    first = f"{plain_number(m1, GIVEN_FIGURES)} kg"
+    second = f"{plain_number(m2, GIVEN_FIGURES)} kg"
+
+    def moving(speed: float) -> str:
+        return "at rest" if speed == 0 else f"at {plain_number(abs(speed))} m/s"
+
+    before = f"A {first} body {moving(v1)} meets a {second} body {moving(v2)}"
+    if math.isclose(u1, u2):
+        return f"{before}; they move off together at {plain_number(abs(u1))} m/s."
+    return (
+        f"{before}; afterwards the {first} body moves {moving(u1)} "
+        f"and the {second} body {moving(u2)}."
     )

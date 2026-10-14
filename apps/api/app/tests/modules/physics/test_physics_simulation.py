@@ -68,34 +68,38 @@ def _fence_body(text: str, reply: str = "Here you go.") -> dict | None:
 # --- what each kind now draws -----------------------------------------------
 
 
-def test_a_projectile_answer_carries_a_scene_as_well_as_its_graph() -> None:
-    """Both, not either.
+def test_a_projectile_answer_carries_one_labelled_scene() -> None:
+    """One picture, not two of the same throw.
 
-    The graph answers "what shape is the path"; the scene answers "what is
-    moving, and what is pulling on it". They are different questions and the
-    reply can afford both.
+    The scene carries what the graph used to: the range and the height as
+    measure lines and the launch angle as an arc.
     """
     intent = extract_physics_intent(PROJECTILE_Q)
     assert isinstance(intent, PhysicsIntent)
     result = solve_physics(intent)
 
-    assert len(result.graph_specs) == 1
-    assert len(result.simulation_specs) == 1
+    assert result.graph_specs == []
+    (scene,) = result.simulation_specs
+    labels = [vector.label for vector in scene.vectors]
+    assert labels == ["R = 35.3 m", "H = 5.1 m"]
+    assert [angle.label for angle in scene.angles] == ["30°"]
+    assert scene.title_key == "projectile" and scene.alt
 
 
-def test_the_scene_and_the_graph_share_one_sampled_path() -> None:
-    """So the ball can never be somewhere the curve is not.
+def test_the_scene_is_the_solved_path() -> None:
+    """So the ball can never be somewhere the answer is not.
 
-    Handing the renderer a second, separately derived path is how a picture
-    starts disagreeing with itself. The scene lifts each sample by the ball's
-    radius, so the ball rests on the ground instead of half sunk in it.
+    It lands exactly at the range the answer gives, lifted by the ball's
+    radius so it rests on the ground instead of half sunk in it.
     """
     intent = extract_physics_intent(PROJECTILE_Q)
     assert isinstance(intent, PhysicsIntent)
     result = solve_physics(intent)
     body = result.simulation_specs[0].bodies[0]
 
-    assert body.path == [[x, y + body.radius] for x, y in result.graph_specs[0].points]
+    assert body.path[0] == [0.0, body.radius]
+    assert body.path[-1][0] == pytest.approx(result.quantities[0].value)
+    assert body.path[-1][1] == pytest.approx(body.radius)
 
 
 def test_circular_motion_finally_draws_something() -> None:
@@ -500,14 +504,31 @@ def test_a_frictionless_slope_draws_no_friction_arrow() -> None:
     assert {"gravity", "normal"} <= set(scene.arrows)
 
 
-def test_a_flat_surface_gets_no_incline_scene() -> None:
-    """Weight down and normal up is a true picture and an empty one, and with
-    no slope there is no friction direction to draw — the block is not going
-    anywhere for friction to oppose."""
+def test_a_flat_surface_gets_a_floor_diagram_not_an_incline() -> None:
+    """A box on a floor: its weight and the normal force, the asked one the
+    highlighted result. No slope, so no friction direction is invented."""
     intent = extract_physics_intent("what is the normal force on a 5 kg block")
     assert isinstance(intent, PhysicsIntent)
 
-    assert solve_physics(intent).simulation_specs == []
+    (scene,) = solve_physics(intent).simulation_specs
+    assert scene.type == "free_body" and scene.ground
+    assert scene.bodies[0].shape == "box"
+    weight, normal = scene.vectors
+    assert weight.dy < 0 and normal.dy > 0
+    assert normal.role == "result" and normal.label == "N = 49.1 N"
+
+
+def test_a_floor_friction_question_draws_friction_against_the_push() -> None:
+    intent = extract_physics_intent(
+        "What minimum force is needed to start moving a 50 kg desk "
+        "if the coefficient of static friction is 0.4?"
+    )
+    assert isinstance(intent, PhysicsIntent)
+
+    (scene,) = solve_physics(intent).simulation_specs
+    friction, push = scene.vectors[2:]
+    assert friction.dx < 0 < push.dx
+    assert push.role == "result" and push.label == "F = 196 N"
 
 
 def test_the_angle_ships_without_floating_point_noise() -> None:
@@ -859,8 +880,18 @@ def test_a_given_force_is_not_the_highlighted_answer() -> None:
     assert accel.role == "motion"
 
 
-def test_the_atwood_scene_has_no_arrow_pushing_the_pulley_down() -> None:
-    assert _scene(ATWOOD_Q).vectors == []
+def test_the_atwood_scene_hangs_both_masses_from_a_pulley() -> None:
+    """A wheel, a rope to each mass, the tension pulling each one up and its
+    acceleration beside it: nothing pushes the pulley down."""
+    scene = _scene(ATWOOD_Q)
+
+    assert scene.pulley is not None
+    assert sorted(tether.body for tether in scene.tethers) == [0, 1]
+    tensions = [vector for vector in scene.vectors if vector.role == "result"]
+    assert [vector.body for vector in tensions] == [0, 1]
+    assert all(vector.dy > 0 for vector in tensions)
+    heavy, light = (vector for vector in scene.vectors if vector.role == "motion")
+    assert heavy.dy < 0 < light.dy
 
 
 def test_upthrust_is_the_highlighted_answer_and_no_weight_is_invented() -> None:
@@ -868,7 +899,7 @@ def test_upthrust_is_the_highlighted_answer_and_no_weight_is_invented() -> None:
 
     (upthrust,) = scene.vectors
     assert upthrust.role == "result" and upthrust.dy > 0
-    assert upthrust.label == "F_b = 19.6 N"
+    assert upthrust.label == "F = 19.6 N"
     assert scene.bodies[0].label is None
 
 
@@ -900,4 +931,5 @@ def test_a_pendulum_is_never_drawn_as_a_spring() -> None:
         }
     )
 
-    assert solve_physics(swinging).simulation_specs == []
+    (scene,) = solve_physics(swinging).simulation_specs
+    assert scene.type == "pendulum"

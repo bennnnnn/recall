@@ -356,13 +356,29 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   nuclear mass is supplied. A test keeps that list off the
   catalog. Every complete, single-request verified physics
   answer returns directly with Given / Find / Formula / Substitution / Answer,
-  without waiting on the language model. Trajectory ` ```graph ` fences only for
-  kinematics/SUVAT (height or velocity against time), projectile (x-y path) and
-  SHM (displacement against time); a speed/velocity ask plots `v(t)`, not
-  height. A spring with a stated amplitude is also a scene: the mass walks that
-  sampled displacement, and the coil is drawn from a wall the solver states.
-  A period with no amplitude stays a graph, so the picture does not invent a
-  length. Trajectories and simulation scenes render in native Skia and autoplay;
+  without waiting on the language model. Each answer carries one picture.
+  - Trajectory ` ```graph ` fences are for SUVAT (position or velocity against time), a speed
+    asked of a fall (`v(t)` beside the fall), and SHM.
+  - A projectile or a drop is one labelled ` ```simulation ` scene instead of a path graph. It
+    shows the ledge it leaves, R, H and θ as measure lines, and strobe ghosts.
+  - Scene schema v2 also draws:
+    - inclines that slide;
+    - free-body boxes with labelled arrows;
+    - Atwood machines on a pulley;
+    - orbits with the planet to scale;
+    - a ball on a string;
+    - pendulums;
+    - springs with an unstated amplitude, drawn at a display size;
+    - collisions and recoils;
+    - charges.
+  - Circuits, ray diagrams (lens, concave or plane mirror, refraction) and waves (travelling,
+    strings, open and closed pipes) are diagrams the phone lays out from the spec
+    (`components/rich/diagrams/`).
+  - Every picture has screen-reader alt text and a translated title.
+  - 139 of the 140 STEM-sweep questions that want a picture get one (see
+    [docs/physics.md](./docs/physics.md#pictures)).
+
+  Trajectories and simulation scenes render in native Skia and autoplay;
   `=` stops and `<` restarts playback. A dot walks the sampled points, which the
   solver spaces by uniform time, so the motion is real rather than eased.
   Reduce Motion keeps the static curve. The solver gate is the union of those extractor cues, and every

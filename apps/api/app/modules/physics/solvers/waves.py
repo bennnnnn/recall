@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from dataclasses import replace
 
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
+from app.modules.physics.solvers.wave_scenes import wave_scene
 from app.services.solving import SolveServiceError
 
 
@@ -16,7 +18,12 @@ def solve_waves(intent: PhysicsIntent) -> PhysicsResult:
     solver = _OPERATIONS.get(op)
     if solver is None:
         raise SolveServiceError(f"unsupported waves op: {op}")
-    return solver(intent, p)
+    result = solver(intent, p)
+    if result.quantities and not result.simulation_specs:
+        scene = wave_scene(op, p, result.quantities[0].value)
+        if scene:
+            result = replace(result, simulation_specs=scene)
+    return result
 
 
 def _string_wave_speed(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:

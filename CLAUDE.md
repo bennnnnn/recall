@@ -39,7 +39,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **attachment** — an uploaded image/file (R2 in production) with extracted text chunked into `attachment_chunks` for retrieval.
 - **push token** — a registered Expo device token for reminder/nudge notifications.
 
-**Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry SVG, native Skia math graphs (SVG fallback), physics scenes and free-body diagrams (`simulation`), chemistry (SMILES), lesson cards (`quiz` with Check answer, `array` index boxes, `steps` trace). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
+**Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry SVG, native Skia math graphs (SVG fallback), physics scenes, free-body diagrams, circuit schematics, ray diagrams and waves (`simulation`, schema v2: [docs/physics.md](./docs/physics.md#pictures)), chemistry (SMILES), lesson cards (`quiz` with Check answer, `array` index boxes, `steps` trace). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
 
 **Owned tool loop, on by default:** module-owned adapters (`web_search`, `sympy`, `generate_image`, `search_image`) register through `gateways/mcp/` and run via `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 
@@ -134,7 +134,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `modules/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `modules/math/` (`match/`, `tools/`, `solve/`, `fence.py`; HTTP `/math/scan/read`; the SymPy process pool is `core/sympy_executor.py`). Lessons, check my work (`work_check`), word problems (`word_problem`) | `MathText` / `MathView` / `geometry` / `graph`; scanner review `components/mathScanner/` |
-| Physics | `modules/physics/` (`catalog/`, `extractors/`, `solvers/`, `extract.py`, `solver.py`, `block.py`, `direct.py`; HTTP `/physics/scan/read`); its law-catalog engine is shared in `services/law_binding/` | same fences; `simulation` scenes; scanner read-back |
+| Physics | `modules/physics/` (`catalog/`, `extractors/`, `solvers/`, `extract.py`, `solver.py`, `block.py`, `direct.py`; HTTP `/physics/scan/read`); its law-catalog engine is shared in `services/law_binding/` | same fences; `simulation` scenes (`components/rich/SimulationBlock.tsx`) and diagrams (`components/rich/diagrams/`: circuit, rays, wave); scanner read-back |
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/` (`catalog.py` is the one operation list; `extractors/` and `solvers/` by topic, run in `registry.py` order; `binding.py` + `laws.py` on the shared `services/law_binding/`; HTTP `/chemistry/scan/read`), `modules/chemistry/schemas/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Push / email out | `modules/notifications/`, `background/*scheduler*` | notification settings |
 | Billing | `modules/billing/`, `gateways/revenuecat_gateway.py` | RevenueCat |
@@ -283,7 +283,8 @@ finalize step over in-memory reminders, and `test_sweep.py` fails on any turn a 
 for example "Can you add 3 + 4?" answered "When should I remind you?". Most entries are
 look-alikes: everyday messages that use reminder, settings, memory, photo or image words. When
 you add or widen a rule that reads the user's words, add its look-alikes here.
-`uv run python -m app.tests.behavior.sweep --area todo --show` prints each failing reply.
+`uv run python -m app.tests.behavior.sweep --area todo --show` prints each failing reply. The
+sweep runs on a frozen clock (`SWEEP_NOW`), so the time of day never changes a result.
 
 **STEM sweep:** `apps/api/app/tests/behavior/stem_corpus/<subject>/*.json` holds homework questions
 with the answer worked independently from the textbook formula, plus look-alikes and questions

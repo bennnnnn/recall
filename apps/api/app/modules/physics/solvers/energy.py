@@ -109,24 +109,7 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
     # decorative one.
     scene: list[SimulationBlockSpec] = []
     if op == "potential_energy":
-        height = p["h"]
-        scene = _free_body_scene(
-            [
-                SimulationVector(
-                    anchor=[0.0, height], dx=0.0, dy=-1.0, label=f"W = {plain_number(p['m'] * g)} N"
-                ),
-                SimulationVector(
-                    anchor=[-0.9, 0.0],
-                    dx=0.0,
-                    dy=height,
-                    label=f"h = {plain_number(height, GIVEN_FIGURES)} m",
-                    role="measure",
-                ),
-            ],
-            label=f"{plain_number(p['m'], GIVEN_FIGURES)} kg",
-            ground=True,
-            position=(0.0, height),
-        )
+        scene = height_scene(p["m"], g, p["h"])
     elif op == "work":
         distance = p["d"]
         scene = _free_body_scene(
@@ -147,6 +130,11 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
                 ),
             ],
             ground=True,
+            shape="box",
+            alt=(
+                f"A {plain_number(p['F'], GIVEN_FIGURES)} N force moves an object "
+                f"{plain_number(distance, GIVEN_FIGURES)} m."
+            ),
         )
     return PhysicsResult(
         answer=answer_latex,
@@ -154,4 +142,32 @@ def solve_energy(intent: PhysicsIntent) -> PhysicsResult:
         substitutions=(substitution,),
         quantities=(quantity,),
         simulation_specs=scene,
+    )
+
+
+def height_scene(mass: float, g: float, height: float) -> list[SimulationBlockSpec]:
+    """A mass at a height above the ground, its weight and the height it is at."""
+    shown_mass = f"{plain_number(mass, GIVEN_FIGURES)} kg"
+    return _free_body_scene(
+        [
+            SimulationVector(
+                anchor=[0.0, height], dx=0.0, dy=-1.0, label=f"W = {plain_number(mass * g)} N"
+            ),
+            SimulationVector(
+                # Clear of the body however tall the climb: the frame and
+                # the body grow with the height.
+                anchor=[-max(0.9, 0.2 * height), 0.0],
+                dx=0.0,
+                dy=height,
+                label=f"h = {plain_number(height, GIVEN_FIGURES)} m",
+                role="measure",
+            ),
+        ],
+        label=shown_mass,
+        ground=True,
+        position=(0.0, height),
+        alt=(
+            f"A {shown_mass} mass {plain_number(height, GIVEN_FIGURES)} m above the ground, "
+            f"weighing {plain_number(mass * g)} N."
+        ),
     )

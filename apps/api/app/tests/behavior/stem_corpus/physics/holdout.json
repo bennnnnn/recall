@@ -239,7 +239,8 @@
   "answer": [
    300.0,
    "kg"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "h-force-05",
@@ -271,7 +272,8 @@
   "answer": [
    20.0,
    "m/s"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "h-fric-01",
@@ -345,7 +347,8 @@
   "answer": [
    98100.0,
    "J"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "h-en-03",
@@ -375,7 +378,8 @@
   "answer": [
    1471.5,
    "J"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "h-en-06",
@@ -405,7 +409,8 @@
   "answer": [
    117.72,
    "J"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "h-mom-01",
@@ -456,7 +461,8 @@
   "answer": [
    24.0,
    "N"
-  ]
+  ],
+  "visual": "orbit"
  },
  {
   "id": "h-circ-02",
@@ -507,7 +513,8 @@
   "answer": [
    3.17187,
    "s"
-  ]
+  ],
+  "visual": "pendulum"
  },
  {
   "id": "h-osc-02",
@@ -557,7 +564,8 @@
   "answer": [
    1.32812,
    "m"
-  ]
+  ],
+  "visual": "wave"
  },
  {
   "id": "h-wave-02",
@@ -567,7 +575,8 @@
   "answer": [
    0.122367,
    "m"
-  ]
+  ],
+  "visual": "wave"
  },
  {
   "id": "h-wave-03",
@@ -597,7 +606,8 @@
   "answer": [
    22.0824,
    "deg"
-  ]
+  ],
+  "visual": "rays"
  },
  {
   "id": "h-opt-02",
@@ -607,7 +617,8 @@
   "answer": [
    24.4075,
    "deg"
-  ]
+  ],
+  "visual": "rays"
  },
  {
   "id": "h-opt-03",
@@ -617,7 +628,8 @@
   "answer": [
    16.6667,
    "cm"
-  ]
+  ],
+  "visual": "rays"
  },
  {
   "id": "h-opt-04",
@@ -637,7 +649,8 @@
   "answer": [
    4.0,
    "A"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "h-elec-02",
@@ -647,7 +660,8 @@
   "answer": [
    10.0,
    "A"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "h-elec-03",
@@ -657,7 +671,8 @@
   "answer": [
    6.0,
    "ohm"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "h-elec-04",
@@ -707,7 +722,8 @@
   "answer": [
    24.0,
    "ohm"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "h-estat-01",
@@ -717,7 +733,8 @@
   "answer": [
    3.5952,
    "N"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "h-estat-02",

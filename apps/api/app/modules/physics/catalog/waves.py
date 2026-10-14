@@ -141,11 +141,18 @@ SPECS: tuple[FormulaSpec, ...] = (
                 ),
             ),
             var("v_wave", "v", "meter / second"),
+            # Not in the formula: whether the scene draws a pipe or a string.
+            # An open pipe and a string share n·v/2L but not the picture: a
+            # pipe's open end is a displacement antinode, a string's end a node.
+            var("pipe", "pipe", dimensionless=True, visible=False, implied=(("pipe", 1.0),)),
         ),
         binding=Binding(
             asks=("fundamental frequency", "frequency"),
             result=("hertz",),
-            inputs=(frozenset({"L", "harmonic", "mode_factor", "v_wave"}),),
+            inputs=(
+                frozenset({"L", "harmonic", "mode_factor", "v_wave"}),
+                frozenset({"L", "harmonic", "mode_factor", "v_wave", "pipe"}),
+            ),
             cues=("string", "pipe"),
             nonnegative=True,
         ),
@@ -461,6 +468,54 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "broadcasts",
             ),
             nonnegative=True,
+        ),
+    ),
+    # f = v/lambda with v = d/t: a wave's speed from how far it travels.
+    formula(
+        "wave_frequency_from_travel",
+        "waves",
+        "Wave equation",
+        "f",
+        base_latex=r"f = \frac{v}{\lambda} = \frac{d}{t\,\lambda}",
+        expression="d/(t*wavelength)",
+        variables=(
+            var("d", "d", "meter", words=("travels", "travel", "moves", "covers", "goes")),
+            var("t", "t", "second"),
+            var("wavelength", r"\lambda", "meter", words=("wavelength",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("frequency",),
+            result=("hertz",),
+            inputs=(frozenset({"d", "t", "wavelength"}),),
+            cues=("travels", "travel", "moves", "covers"),
+            nonnegative=True,
+        ),
+    ),
+    # L2 = L1 + 10 log10(I2/I1): each tenfold in intensity adds 10 dB.
+    formula(
+        "sound_level_from_ratio",
+        "waves",
+        "Decibel scale",
+        "L_2",
+        base_latex=r"L_2 = L_1 + 10\log_{10}\frac{I_2}{I_1}",
+        expression="level + 10*log(ratio)/log(10)",
+        variables=(
+            var(
+                "level",
+                "L_1",
+                "dimensionless",
+                words=("db", "decibel", "decibels"),
+                needs_words=True,
+            ),
+            var("ratio", r"\frac{I_2}{I_1}", "dimensionless", words=("times",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("level", "sound level", "intensity level", "loudness", "how loud"),
+            result=("dimensionless",),
+            inputs=(frozenset({"level", "ratio"}),),
+            cues=("db", "decibel", "decibels"),
+            excludes=("quieter", "less intense", "as intense as", "fewer"),
+            shown_unit="dB",
         ),
     ),
 )

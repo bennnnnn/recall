@@ -628,7 +628,8 @@
   "answer": [
    2.4525,
    "m/s^2"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "force-11",
@@ -638,7 +639,8 @@
   "answer": [
    36.7875,
    "N"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "force-12",
@@ -670,7 +672,8 @@
   "answer": [
    25.0,
    "m/s"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "fric-01",
@@ -809,7 +812,8 @@
   "answer": [
    29.43,
    "J"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "en-03",
@@ -819,7 +823,8 @@
   "answer": [
    176580.0,
    "J"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "en-04",
@@ -829,7 +834,8 @@
   "answer": [
    200.0,
    "J"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "en-05",
@@ -839,7 +845,8 @@
   "answer": [
    692.82,
    "J"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "en-06",
@@ -869,7 +876,8 @@
   "answer": [
    9.90454,
    "m/s"
-  ]
+  ],
+  "visual": "projectile_motion"
  },
  {
   "id": "en-09",
@@ -949,7 +957,8 @@
   "answer": [
    2746.8,
    "J"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "en-17",
@@ -1002,7 +1011,8 @@
   "answer": [
    5.0,
    "m/s"
-  ]
+  ],
+  "visual": "collision"
  },
  {
   "id": "mom-05",
@@ -1042,7 +1052,8 @@
   "answer": [
    3.0,
    "m/s"
-  ]
+  ],
+  "visual": "collision"
  },
  {
   "id": "mom-09",
@@ -1169,7 +1180,8 @@
   "answer": [
    6.0,
    "N*m"
-  ]
+  ],
+  "visual": "lever"
  },
  {
   "id": "torq-02",
@@ -1190,7 +1202,8 @@
   "answer": [
    20.0,
    "N*m"
-  ]
+  ],
+  "visual": "lever"
  },
  {
   "id": "torq-04",
@@ -1211,7 +1224,8 @@
   "answer": [
    6.49519,
    "N*m"
-  ]
+  ],
+  "visual": "lever"
  },
  {
   "id": "osc-01",
@@ -1252,7 +1266,8 @@
   "answer": [
    2.45692,
    "s"
-  ]
+  ],
+  "visual": "pendulum"
  },
  {
   "id": "osc-05",
@@ -1262,7 +1277,8 @@
   "answer": [
    0.993961,
    "m"
-  ]
+  ],
+  "visual": "pendulum"
  },
  {
   "id": "osc-06",

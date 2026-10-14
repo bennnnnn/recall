@@ -267,7 +267,8 @@ def test_pipeline_all_projectile_answers_share_one_visual() -> None:
     for value in ("2.04", "5.1", "35.3"):
         assert value in block.canonical_answer
     fences = [block.canonical_fence, *block.canonical_fences]
-    assert sum(f is not None and f.get("type") == "trajectory" for f in fences) == 1
+    # One picture: the scene carries R, H and the launch angle; no graph repeats it.
+    assert sum(f is not None and f.get("type") == "trajectory" for f in fences) == 0
     assert sum(f is not None and f.get("type") == "projectile_motion" for f in fences) == 1
 
 

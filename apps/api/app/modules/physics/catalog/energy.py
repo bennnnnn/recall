@@ -174,11 +174,38 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("g", "g", "meter / second ** 2", fallback="gravity"),
             var("h", "h", "meter"),
+            # Not in the formula: whether the scene draws a straight drop. The
+            # speed is path-free, the picture is not: a roller coaster or a
+            # pendulum bob drawn falling straight down shows the wrong motion.
+            var(
+                "free_fall",
+                "free_fall",
+                dimensionless=True,
+                visible=False,
+                implied=(
+                    ("coaster", 0.0),
+                    ("ramp", 0.0),
+                    ("slide", 0.0),
+                    ("hill", 0.0),
+                    ("slope", 0.0),
+                    ("incline", 0.0),
+                    ("track", 0.0),
+                    ("pendulum", 0.0),
+                    ("swing", 0.0),
+                    ("dropped", 1.0),
+                    ("drops", 1.0),
+                    ("falls", 1.0),
+                    ("falling", 1.0),
+                    ("steps off", 1.0),
+                    ("jumps off", 1.0),
+                    ("dives", 1.0),
+                ),
+            ),
         ),
         binding=Binding(
             asks=("speed", "velocity", "how fast"),
             result=("meter / second",),
-            inputs=(frozenset({"g", "h"}),),
+            inputs=(frozenset({"g", "h"}), frozenset({"g", "h", "free_fall"})),
             cues=(
                 "dropped",
                 "released",

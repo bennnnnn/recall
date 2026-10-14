@@ -31,14 +31,16 @@ _ELECTRIC_FORCE = (
     "Two point charges of 2 microcoulombs and 3 microcoulombs are separated by 0.5 m. "
     "Find the electric force."
 )
+# The third value: the reply carries a graph. A fall and a projectile are
+# drawn as one scene; a velocity question also gets its v-t line.
 _CASES = [
-    ("A ball is dropped from a height of 20 m. Find the time to ground. Use g=10.", "2 s", True),
+    ("A ball is dropped from a height of 20 m. Find the time to ground. Use g=10.", "2 s", False),
     (_DROP.format("velocity"), "-10 m/s", True),
     (_DROP.format("speed"), "10 m/s", True),
-    (_DROP.format("height"), "15 m", True),
+    (_DROP.format("height"), "15 m", False),
     ("A ball is in free fall from 20 m. Find its acceleration. Use g=10.", "-10 m/s²", False),
-    (_PROJECTILE.format("range"), "40 m", True),
-    (_PROJECTILE.format("maximum height"), "10 m", True),
+    (_PROJECTILE.format("range"), "40 m", False),
+    (_PROJECTILE.format("maximum height"), "10 m", False),
     ("Find the force on a 5 kg object with acceleration 2 m/s^2.", "10 N", False),
     ("Find the acceleration of a 5 kg object under a force of 20 N.", "4 m/s²", False),
     ("Find the mass of an object with force 20 N and acceleration 4 m/s^2.", "5 kg", False),
@@ -73,7 +75,9 @@ def test_physics_failure_recovery_never_uses_math_graph_semantics() -> None:
 
     assert '{"type":"projectile"' not in recovered
     assert f"```answer\n{verified.display_answer}\n```" in recovered
-    assert "```graph" in recovered
+    # The solver's own scene replaces the model's broken one; there is no graph.
+    assert '```simulation\n{"type":"projectile_motion"' in recovered
+    assert "```graph" not in recovered
 
 
 def test_electric_force_uses_textbook_scientific_notation() -> None:
@@ -402,7 +406,7 @@ def test_request_cannot_reuse_another_solved_quantity_unit_or_operation() -> Non
 
 
 def test_graph_must_be_single_complete_trajectory() -> None:
-    query = _CASES[0][0]
+    query = _DROP.format("velocity")
     verified = _verified(query)
     assert verified.canonical_fence is not None
     graph = verified.canonical_fence
@@ -411,7 +415,7 @@ def test_graph_must_be_single_complete_trajectory() -> None:
         {"points": [[0, 20]]},
         {"points": [[0, 20], [1, float("nan")]]},
         {"x_max": 0},
-        {"trajectory_type": "parametric"},
+        {"trajectory_type": "position_vs_time"},
         {"type": "function"},
         {"expr2": "x"},
         {"x_max": float("inf")},
@@ -433,11 +437,8 @@ def test_graph_must_be_single_complete_trajectory() -> None:
 @pytest.mark.parametrize(
     "query,expected_type",
     [
-        (_CASES[0][0], "position_vs_time"),  # time to ground
         (_DROP.format("velocity"), "velocity_vs_time"),
         (_DROP.format("speed"), "velocity_vs_time"),
-        (_DROP.format("height"), "position_vs_time"),
-        (_PROJECTILE.format("range"), "parametric"),
     ],
 )
 def test_direct_guard_expects_the_type_the_solver_emits(query: str, expected_type: str) -> None:

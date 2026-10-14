@@ -180,3 +180,103 @@ def test_a_how_far_physics_question_is_not_a_location_lookup(text: str) -> None:
 
 def test_a_how_far_place_question_is_still_a_location_lookup() -> None:
     assert is_distance_query("How far is the closest eyeglasses store from me?")
+
+
+@pytest.mark.parametrize(
+    ("text", "op", "answer"),
+    [
+        ("How long does light take to cross 3000 km?", "light_travel_time", "0.01 s"),
+        (
+            "What is the gravitational force between Earth and a 1 kg mass at its surface?",
+            "gravitational_force_at_surface",
+            "9.82 N",
+        ),
+        ("Find the force between two 1 µC charges 5 cm apart.", "electric_force", "3.6 N"),
+        (
+            "Two identical 4 nC charges are 2 cm apart. What is the force between them?",
+            "electric_force",
+            "3.6 × 10⁻⁴ N",
+        ),
+        (
+            "A 10 kg box is pulled with 50 N to the right and 20 N to the left. "
+            "What is its acceleration?",
+            "acceleration_from_opposing_forces",
+            "3 m/s²",
+        ),
+        (
+            "A 50 g bullet is fired from a 4 kg rifle at 400 m/s. "
+            "What is the recoil speed of the rifle?",
+            "recoil_speed",
+            "5 m/s",
+        ),
+        (
+            "An ice skater of 60 kg pushes off another skater of 40 kg. "
+            "If the first moves away at 2 m/s, how fast does the second move?",
+            "push_off_speed",
+            "3 m/s",
+        ),
+        (
+            "A 50 kg girl and a 70 kg boy push off each other on ice. "
+            "If the second moves at 1 m/s, how fast does the first move?",
+            "push_off_speed_first",
+            "1.4 m/s",
+        ),
+        (
+            "A water wave travels 12 m in 4 s and its wavelength is 1.5 m. What is the frequency?",
+            "wave_frequency_from_travel",
+            "2 Hz",
+        ),
+        (
+            "A sound is 60 dB. A second sound is 100 times more intense. What is its level?",
+            "sound_level_from_ratio",
+            "80 dB",
+        ),
+        (
+            "A 100 W TV is left on for 5 hours a day for 30 days. "
+            "Electricity costs $0.15 per kWh. How much energy does it use?",
+            "energy_over_days",
+            "5.4 × 10⁷ J (15 kWh)",
+        ),
+    ],
+)
+def test_a_question_the_model_used_to_answer_alone_is_verified(
+    text: str, op: str, answer: str
+) -> None:
+    intent = extract_physics_intent(text)
+    assert intent is not None
+    assert intent.physics_op == op
+    assert _answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A price is never a law's input, and the cost is not an energy.
+        "A 2 kW heater runs for 3 hours. Electricity costs $0.20 per kWh. "
+        "How much does it cost to run?",
+        # Both pull the same way: not a difference.
+        "A 5 kg box is pulled with 30 N to the right and 10 N to the right. "
+        "What is its acceleration?",
+        # Sound is not light.
+        "How long does sound take to travel 3000 m?",
+        # The ratio is a quieter sound; the law as written is a louder one.
+        "A sound is 90 dB. Another is 1000 times less intense. What is its level?",
+    ],
+)
+def test_a_look_alike_of_a_new_law_is_not_answered_by_it(text: str) -> None:
+    assert _answer(text) is None
+
+
+def test_a_price_beside_a_motion_question_is_ignored() -> None:
+    assert (
+        _answer("A ticket costs $12 and the train travels at 30 m/s for 600 s. How far does it go?")
+        == "18000 m"
+    )
+
+
+def test_an_energy_from_watts_and_hours_also_reads_in_kilowatt_hours() -> None:
+    assert (
+        _answer("what is the energy used by a 2000 W heater in 3 hours") == "2.16 × 10⁷ J (6 kWh)"
+    )
+    # Seconds are a physics class's unit: no kWh beside them.
+    assert _answer("A 60 W bulb is on for 30 s. How much energy does it use?") == "1800 J"

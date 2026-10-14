@@ -16,7 +16,9 @@ from app.services.law_binding.units import UnitTable, unit_dimension
 
 _SENTENCE_BREAK = re.compile(r"[.;?!](?:\s|$)")
 _CONNECTOR = re.compile(
-    r"[,;:]|\b(?:and|but|while|then|is|are|was|were|it|its|to|from|at|by|into|until)\b"
+    r"[,;:]|\b(?:and|but|while|then|is|are|was|were|it|its|from|at|by|into|until)\b"
+    # "50 N to the right" is the value's direction, not a link to the next one.
+    r"|\bto\b(?!\s+the\s+(?:right|left)\b)"
 )
 # An asked phrase followed by its own value labels a given: "an acceleration of 2".
 _LABELLED = re.compile(r"\s*(?:of|=|is|:|was)?\s*[-+]?\.?\d[\d.]*(?:[eE][-+]?\d+)?")

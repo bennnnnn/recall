@@ -247,8 +247,8 @@ def test_a_speed_ask_plots_velocity_even_when_a_height_is_given() -> None:
     assert spec.points[-1][1] == pytest.approx(9.81, abs=1e-3)
 
 
-def test_a_height_ask_still_plots_height() -> None:
-    """The counterpart: a position question keeps h(t)."""
+def test_a_height_ask_draws_the_fall_to_the_instant_asked() -> None:
+    """The counterpart: a position question draws the drop, stopping at 2 s."""
     from app.modules.physics.solver import solve_physics
 
     intent = extract_physics_intent("a ball is dropped from 50 m, what is its height after 2 s")
@@ -256,13 +256,14 @@ def test_a_height_ask_still_plots_height() -> None:
 
     result = solve_physics(intent)
     assert result.answer_value == "30.4 m"
-    assert len(result.graph_specs) == 1
-    spec = result.graph_specs[0]
-    assert spec.trajectory_type == "position_vs_time"
-    # The marker is the height at 2 s (30.38 m), not a sample past that instant.
-    assert spec.x_max == pytest.approx(2.0)
-    assert spec.points[-1][0] == pytest.approx(2.0, abs=1e-4)
-    assert spec.points[-1][1] == pytest.approx(30.38, abs=1e-3)
+    assert result.graph_specs == []
+    (scene,) = result.simulation_specs
+    body = scene.bodies[0]
+    # The last frame is the height at 2 s (30.38 m) above the ground, not a
+    # sample past that instant.
+    assert scene.ground
+    assert body.path[0][1] == pytest.approx(50 + body.radius)
+    assert body.path[-1][1] == pytest.approx(30.38 + body.radius, abs=1e-3)
 
 
 def test_a_flat_height_curve_is_still_withheld() -> None:
@@ -378,5 +379,7 @@ def test_cliff_max_height_builds_and_solves() -> None:
     assert intent.physics_op == "max_height"
     assert intent.physics_params["h0"] == 20
     result = solve_physics(intent)
-    assert result.graph_specs[0].expr.startswith("y(x) = 20 + ")
+    (scene,) = result.simulation_specs
+    # The cliff is drawn: the ball does not start in mid-air.
+    assert [solid.rect[3] for solid in scene.solids] == [20]
     assert _verified_answer(text) == "25 m"

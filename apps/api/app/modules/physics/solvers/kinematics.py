@@ -16,6 +16,7 @@ from app.modules.physics.solvers.common import (
     gravity_of,
     quadratic_roots,
 )
+from app.modules.physics.solvers.motion_scenes import vertical_scene
 from app.modules.physics.solvers.rates import _RATE_OPERATIONS, _solve_distance_speed_time
 from app.modules.physics.solvers.stopping import _solve_stopping_distance
 from app.services.solving import SolveServiceError
@@ -205,11 +206,15 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
                 vi = abs(vi)
             v_points.append([round(ti, 4), round(float(vi), 4)])
         is_speed = op == "speed"
+        # The fall itself, to the instant asked about; the v-t line beside it
+        # is a different view (its slope is g), not the same path twice.
+        fall = vertical_scene(h0, v0, g, t_val, ground=impact_without_time or h0 > 0)
         return PhysicsResult(
             answer=answer_latex,
             formulas=(formula,),
             substitutions=(substitution,),
             quantities=(quantity,),
+            simulation_specs=[fall] if fall is not None else [],
             graph_specs=[
                 GraphBlockSpec(
                     type="trajectory",
@@ -226,48 +231,18 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             ],
         )
 
-    # Build trajectory graph: height vs time, from t=0 to t=t_val (ground).
-    # Skip it when neither a height nor a launch speed was given: h(t) would
-    # be entirely below ground and clamp to a flat line at zero, which reads
-    # as "it never moved". The answer is still exact.
-    if h0 <= 0 and v0 == 0:
-        return PhysicsResult(
-            answer=answer_latex,
-            formulas=(formula,),
-            substitutions=(substitution,),
-            quantities=(quantity,),
-        )
-
-    # End on the instant this answer is about. A later sample is a different
-    # height than the one just computed, so the marker disagrees with it.
-    t_max = t_val
-    dt = t_max / (n_points - 1)
-    points: list[list[float]] = []
-    for i in range(n_points):
-        ti = i * dt
-        hi = h0 + v0 * ti - 0.5 * g * ti**2
-        # Clamp negative heights (after ground) to 0 for a clean plot.
-        if hi < 0:
-            hi = 0.0
-        points.append([round(ti, 4), round(float(hi), 4)])
-
-    graph_spec = GraphBlockSpec(
-        type="trajectory",
-        expr=f"h(t) = {h0:g} + {v0:g}*t - 0.5*{g:g}*t^2",
-        variable="t",
-        x_min=0.0,
-        x_max=t_max,
-        points=points,
-        title="Height vs. Time",
-        # Trajectory-specific labels (P6).
-        x_label="Time (s)",
-        y_label="Height (m)",
-        trajectory_type="position_vs_time",
+    # One picture: the drop or the throw itself, with the ledge and the height
+    # on it. A height-time curve beside it plotted the same samples again.
+    # Skip it when neither a height nor a launch speed was given: the ball
+    # would never leave the ground, which reads as "it never moved".
+    lands = op in ("time_to_ground", "time_to_peak", "vertical_max_height")
+    scene = (
+        None if h0 <= 0 and v0 == 0 else vertical_scene(h0, v0, g, t_val, ground=lands or h0 > 0)
     )
     return PhysicsResult(
         answer=answer_latex,
         formulas=(formula,),
         substitutions=(substitution,),
         quantities=(quantity,),
-        graph_specs=[graph_spec],
+        simulation_specs=[scene] if scene is not None else [],
     )

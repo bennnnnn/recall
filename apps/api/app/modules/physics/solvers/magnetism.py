@@ -8,7 +8,7 @@ import math
 from collections.abc import Callable
 
 from app.modules.physics.display import latex_given
-from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec
 from app.modules.physics.solvers.common import (
     _COULOMB_K,
     _MU_0,
@@ -17,6 +17,7 @@ from app.modules.physics.solvers.common import (
     _latex_num,
     _params_in_si,
 )
+from app.modules.physics.solvers.field_scenes import charges_scene
 from app.services.solving import SolveServiceError
 
 
@@ -161,6 +162,19 @@ def _electric_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
             rf"\rvert}}{{{_latex_num(separation, square=True)}}}",
         ),
         quantities=(QuantityResult("", value, "N"),),
+        simulation_specs=[_charges(intent, value)],
+    )
+
+
+def _charges(intent: PhysicsIntent, force: float) -> SimulationBlockSpec:
+    """The two charges as the question wrote them: their own units and signs."""
+    given = intent.physics_params or {}
+    units = intent.physics_units or {}
+    return charges_scene(
+        (given["q1"], units.get("q1") or "C"),
+        (given["q2"], units.get("q2") or "C"),
+        (given["r"], units.get("r") or "m"),
+        force,
     )
 
 

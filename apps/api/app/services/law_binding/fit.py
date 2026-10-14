@@ -77,9 +77,18 @@ class Fit:
     strength: int
 
 
+# "$0.15 per kWh" is a price. No law takes one, so it is not a value to
+# account for: a question that asks the cost still declines on its ask.
+_PRICE = re.compile(r"(?:[$€£¥]|\bcosts?|\bprice(?:\s+of)?|\bpays?|\bcharges)\s*$", re.IGNORECASE)
+
+
 def read_givens(text: str, units: UnitTable) -> tuple[Given, ...]:
     """Stated values, a bare number taking the unit of the range it starts."""
-    givens = scan_givens(text, units)
+    givens = [
+        given
+        for given in scan_givens(text, units)
+        if given.unit or not _PRICE.search(text, 0, given.start)
+    ]
     read: list[Given] = []
     for index, given in enumerate(givens):
         following = givens[index + 1] if index + 1 < len(givens) else None

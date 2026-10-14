@@ -71,6 +71,10 @@ def _tension(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
                 ),
             ],
             label=f"{plain_number(m, GIVEN_FIGURES)} kg",
+            alt=(
+                f"A {plain_number(m, GIVEN_FIGURES)} kg mass on a rope: the tension "
+                f"{plain_number(t_val)} N pulls up against its {plain_number(m * g)} N weight."
+            ),
         ),
     )
 
@@ -135,6 +139,11 @@ def _resultant_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResul
                 label=f"{plain_number(r_val)} N",
                 role="result",
             ),
+            alt=(
+                f"Forces of {plain_number(f1, GIVEN_FIGURES)} N and "
+                f"{plain_number(f2, GIVEN_FIGURES)} N add to {plain_number(r_val)} N "
+                f"at {plain_number(theta)}°."
+            ),
         ),
     )
 
@@ -172,6 +181,10 @@ def _resolve_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
                 label=f"{plain_number(f, GIVEN_FIGURES)} N",
                 role="result",
             ),
+            alt=(
+                f"A {plain_number(f, GIVEN_FIGURES)} N force split into "
+                f"{plain_number(fx)} N across and {plain_number(fy)} N up."
+            ),
         ),
     )
 
@@ -201,7 +214,7 @@ def _atwood(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
             QuantityResult("", a_val, "m/s^2"),
             QuantityResult("", t_val, "N"),
         ),
-        simulation_specs=_atwood_scene(m1, m2, a_val),
+        simulation_specs=_atwood_scene(m1, m2, a_val, t_val),
     )
 
 
@@ -255,6 +268,11 @@ def _newton_second_law(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsRes
             ),
         ],
         label=f"{plain_number(p['m'], GIVEN_FIGURES)} kg" if "m" in p else None,
+        alt=(
+            f"A net force of {plain_number(force)} N gives an acceleration of "
+            f"{plain_number(accel)} m/s² in the same direction."
+        ),
+        shape="box",
     )
     return PhysicsResult(
         answer=answer_latex,

@@ -7,8 +7,8 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
-from app.modules.physics.display import plain_number
-from app.modules.physics.schemas import PhysicsIntent, SimulationVector
+from app.modules.physics.display import GIVEN_FIGURES, plain_number
+from app.modules.physics.schemas import PhysicsIntent, SimulationSolid, SimulationVector
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
@@ -234,13 +234,23 @@ def _upthrust(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
         simulation_specs=_free_body_scene(
             [
                 SimulationVector(
-                    anchor=[0.0, 0.0],
+                    anchor=[0.0, -1.0],
                     dx=0.0,
                     dy=1.0,
-                    label=f"F_b = {plain_number(force)} N",
+                    label=f"F = {plain_number(force)} N",
                     role="result",
                 ),
             ],
+            position=(0.0, -1.0),
+            shape="box",
+            title_key="buoyancy",
+            # The fluid it is in, surface at y = 0: the upthrust is the
+            # water's push, so the water is part of the picture.
+            solids=[SimulationSolid(rect=[-1.9, -1.95, 1.9, 0.0], kind="fluid")],
+            alt=(
+                f"An object of {plain_number(p['volume'], GIVEN_FIGURES)} m³ under water; "
+                f"the water pushes up on it with {plain_number(force)} N."
+            ),
         ),
     )
 

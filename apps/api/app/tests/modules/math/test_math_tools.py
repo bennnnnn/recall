@@ -524,15 +524,15 @@ async def test_physics_augmentation_verifies_kinematics_trajectory() -> None:
     assert note is not None and note.startswith(verified.text + "\n\n")
     assert "Physics reply policy for this request:" in note
     assert verified.canonical_answer == "2.02 s"
-    assert verified.canonical_fence is not None
-    assert verified.canonical_fence["type"] == "trajectory"
-    assert verified.canonical_fence["trajectory_type"] == "position_vs_time"
-    assert verified.canonical_fence["x_label"] == "Time (s)"
-    assert verified.canonical_fence["y_label"] == "Height (m)"
-    points = verified.canonical_fence["points"]
-    assert len(points) == 100
-    assert points[0] == [0.0, 20.0]
-    assert points[-1][1] == 0.0
+    # The drop is drawn as the fall itself, from the 20 m ledge to the ground;
+    # a height-time curve beside it would plot the same samples again.
+    (scene,) = verified.canonical_fences
+    assert scene["type"] == "projectile_motion"
+    assert scene["title_key"] == "free_fall"
+    path = scene["bodies"][0]["path"]
+    radius = scene["bodies"][0]["radius"]
+    assert path[0][1] == pytest.approx(20.0 + radius)
+    assert path[-1][1] == pytest.approx(radius)
 
 
 @pytest.mark.asyncio

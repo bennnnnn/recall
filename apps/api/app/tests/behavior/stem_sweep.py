@@ -239,6 +239,9 @@ def _in_bounds(point: list[float], spec: SimulationBlockSpec, slack: float) -> b
 def check_visuals(reply: str) -> tuple[list[str], list[Problem]]:
     kinds: list[str] = []
     problems: list[Problem] = []
+    # A height-time or x-y curve redraws the path a scene animates; a v-t graph
+    # beside a fall says something the scene does not.
+    path_graph = False
     for lang, body in fences(reply):
         if lang not in {"simulation", "graph"}:
             continue
@@ -249,6 +252,10 @@ def check_visuals(reply: str) -> tuple[list[str], list[Problem]]:
             continue
         if lang == "graph":
             kinds.append(f"graph:{data.get('type')}")
+            path_graph = path_graph or (
+                data.get("type") == "trajectory"
+                and data.get("trajectory_type") in {None, "parametric", "position_vs_time"}
+            )
             points = data.get("points") or []
             if any(not all(math.isfinite(v) for v in point) for point in points):
                 problems.append(Problem("broken_visual", "graph has a non-finite point"))
@@ -276,7 +283,7 @@ def check_visuals(reply: str) -> tuple[list[str], list[Problem]]:
                 problems.append(
                     Problem("broken_visual", f"{spec.type} body radius is {share:.1%} of the box")
                 )
-    if "projectile_motion" in kinds and "graph:trajectory" in kinds:
+    if "projectile_motion" in kinds and path_graph:
         problems.append(
             Problem("duplicate_visual", "a trajectory graph and an animation of one path")
         )
