@@ -1,15 +1,17 @@
 /**
  * Assistant Markdown presentation shared with the API.
- * Boundaries first, then one reasoning state per calculation row.
+ * REPL transcripts become code, then boundaries, then one reasoning state per
+ * calculation row.
  */
 
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
+import { fenceReplTranscripts } from "@/lib/markdown/replTranscript";
 import { normalizeImplicitMath } from "@/lib/math/normalizeImplicit";
 
 export function presentAssistantMarkdown(text: string): string {
   if (!text) return text;
-  return layoutCalculations(repairInlineTokenBoundaries(text));
+  return layoutCalculations(repairInlineTokenBoundaries(fenceReplTranscripts(text)));
 }
 
 /** Index of an unclosed `$`, `$$`, `\(`, or `\[`, or null when every opener closed. */

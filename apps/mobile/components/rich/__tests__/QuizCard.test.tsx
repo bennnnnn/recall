@@ -6,6 +6,14 @@ jest.mock("@/lib/i18n", () => ({
   __esModule: true,
   default: { t: (key: string) => key },
 }));
+jest.mock("@/components/CodeBlock", () => {
+  const { Text } = jest.requireActual("react-native");
+  return {
+    CodeBlock: ({ code, lang }: { code: string; lang: string }) => (
+      <Text>{`${lang}:${code}`}</Text>
+    ),
+  };
+});
 jest.mock("@/lib/haptics", () => ({
   selection: jest.fn(),
   notifySuccess: jest.fn(),
@@ -28,12 +36,33 @@ describe("QuizCard", () => {
     await fireEvent.press(view.getByText("[12, 16]"));
     await fireEvent.press(view.getByText("rich.quiz_check"));
     expect(view.getByText("rich.quiz_correct")).toBeTruthy();
-    expect(view.getByText("Only 6 and 8 are greater than 4.")).toBeTruthy();
-    expect(view.queryByText("rich.quiz_check")).toBeNull();
+    // The verdict opens the explanation's paragraph, as in ChatGPT.
+    expect(
+      view.getByText("rich.quiz_correct Only 6 and 8 are greater than 4."),
+    ).toBeTruthy();
+  });
+
+  it("draws code in the explanation as a code block", async () => {
+    const content = JSON.stringify({
+      question: "What does enumerate give?",
+      options: ["Only the values", "Index and value"],
+      answer: 1,
+      explanation:
+        "`enumerate()` gives both.\n\n```python\nfor i, n in enumerate([3, 3]):\n    print(i, n)\n```",
+    });
+    const view = await render(<QuizCard content={content} />);
+    await fireEvent.press(view.getByText("Only the values"));
+    await fireEvent.press(view.getByText("rich.quiz_check"));
+    expect(view.getByText("rich.quiz_wrong")).toBeTruthy();
+    expect(
+      view.getByText("python:for i, n in enumerate([3, 3]):\n    print(i, n)"),
+    ).toBeTruthy();
   });
 
   it("says a wrong answer is not quite, and a new pick tries again", async () => {
-    const view = await render(<QuizCard content={quiz("Wrong-path explanation.")} />);
+    const view = await render(
+      <QuizCard content={quiz("Wrong-path explanation.")} />,
+    );
     await fireEvent.press(view.getByText("[6, 8]"));
     await fireEvent.press(view.getByText("rich.quiz_check"));
     expect(view.getByText("rich.quiz_wrong")).toBeTruthy();
@@ -58,7 +87,9 @@ describe("QuizCard", () => {
   });
 
   it("says so instead of drawing a broken question", async () => {
-    const view = await render(<QuizCard content='{"question": "Pick", "options": ["a"]}' />);
+    const view = await render(
+      <QuizCard content='{"question": "Pick", "options": ["a"]}' />,
+    );
     expect(view.getByText("rich.quiz_error")).toBeTruthy();
   });
 });
