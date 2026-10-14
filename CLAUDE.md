@@ -40,7 +40,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 - **integration** — a connected Google account: `user_calendar_connections` and `user_gmail_connections`, feeding calendar context and `suggested_reminders`.
 - **push token** — a registered Expo device token for reminder/nudge notifications.
 
-**Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry SVG, native Skia math graphs (SVG fallback), physics scenes and free-body diagrams (`simulation`), chemistry (SMILES), offline place maps (`map`), lesson cards (`quiz` with Check answer, `array` index boxes, `steps` trace). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
+**Rich rendering:** markdown, tables, math, callouts, code highlighting, sandboxed HTML/CSS/JS preview, charts (Vega), Mermaid, geometry SVG, native Skia math graphs (SVG fallback), physics scenes and free-body diagrams (`simulation`), chemistry (SMILES), lesson cards (`quiz` with Check answer, `array` index boxes, `steps` trace). Fence identity lives in `apps/mobile/lib/fenceRegistry.ts`.
 
 **Owned tool loop, on by default:** module-owned adapters (`web_search`, `calendar`, `sympy`, `generate_image`, `search_image`) register through `gateways/mcp/` and run via `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. The legacy one-shot `mcp_tools_enabled` pre-stream round stays **off**. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 
@@ -131,7 +131,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
 | Image gen (Pro) | `modules/images/` (HTTP `/images/generate`) | `features/images/`; composer send only |
-| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`) | `features/images/`; checked before image-gen intent in `useChatSend` |
+| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`, `answer_photo`: a photo above an answer about something worth seeing) | `features/images/`; checked before image-gen intent in `useChatSend` |
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `modules/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `modules/math/` (`match/`, `tools/`, `solve/`, `fence.py`; HTTP `/math/scan/read`; the SymPy process pool is `core/sympy_executor.py`). Lessons, check my work (`work_check`), word problems (`word_problem`) | `MathText` / `MathView` / `geometry` / `graph`; scanner review `components/mathScanner/` |

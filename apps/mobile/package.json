@@ -94,10 +94,8 @@
     "jest": "^30.5.2",
     "lucide-static": "1.48.0",
     "test-renderer": "^1.2.0",
-    "topojson-client": "3.1.0",
     "ts-jest": "29.4.14",
-    "typescript": "~6.0.3",
-    "world-atlas": "2.0.2"
+    "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",
@@ -109,8 +107,7 @@
     "lint": "expo lint app components ui features hooks lib contexts",
     "test": "jest",
     "icons": "node scripts/generate-icons.mjs",
-    "oss-licenses": "node scripts/generate-licenses.mjs",
-    "world-map": "node scripts/generate-world-map.mjs"
+    "oss-licenses": "node scripts/generate-licenses.mjs"
   },
   "pnpm": {
     "overrides": {

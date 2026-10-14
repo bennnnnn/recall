@@ -566,8 +566,6 @@
   "rich.graph_invalid": "Não foi possível traçar essa expressão.",
   "rich.graph_play": "Reproduzir",
   "rich.graph_play_a11y": "Reproduzir a animação da trajetória",
-  "rich.map_a11y": "Mapa de {{place}}",
-  "rich.map_error": "Não foi possível desenhar esse mapa.",
   "rich.array_error": "Não foi possível desenhar essa lista.",
   "rich.array_index": "Índice {{index}}",
   "rich.quiz_check": "Verificar resposta",

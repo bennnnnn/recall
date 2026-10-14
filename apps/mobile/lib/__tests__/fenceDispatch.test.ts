@@ -14,8 +14,13 @@ describe("classifyFence — explicit tags win", () => {
     ["", "120", "answer"],
     ["", "x = 2 or x = -2", "answer"],
     ["image", '{"prompt":"a cat"}', "hide"],
+    ["photo", "Ethiopia location map", "hide"],
   ] as const)("%s %j → %s", (lang, body, kind) => {
     expect(classifyFence(lang, body).kind).toBe(kind);
+  });
+
+  it("hides a reply's photo request while it streams", () => {
+    expect(classifyOpenFencePreview("photo", "Ethiopia loc")).toBe("hide");
   });
 
   it("does not run the math-answer heuristic on tagged source code", () => {

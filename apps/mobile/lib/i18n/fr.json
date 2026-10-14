@@ -566,8 +566,6 @@
   "rich.graph_invalid": "Impossible de tracer cette expression.",
   "rich.graph_play": "Lire",
   "rich.graph_play_a11y": "Lire l'animation de la trajectoire",
-  "rich.map_a11y": "Carte de {{place}}",
-  "rich.map_error": "Impossible de dessiner cette carte.",
   "rich.array_error": "Impossible de dessiner cette liste.",
   "rich.array_index": "Indice {{index}}",
   "rich.quiz_check": "Vérifier la réponse",

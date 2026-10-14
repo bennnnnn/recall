@@ -84,9 +84,10 @@ from app.modules.chat.prompt_constants import (
     writing_request_kind,
 )
 from app.modules.chat.prompt_constants.visuals import (
+    ANSWER_PHOTO_HINT,
     IMAGE_GEN_HONESTY_HINT,
     IMAGE_GEN_UNAVAILABLE_HINT,
-    MAP_FENCE_HINT,
+    WHERE_IS_PHOTO_HINT,
     is_html_ui_question,
     is_image_generation_mention,
     where_is_place,
@@ -189,6 +190,7 @@ def _style_format_hints(
     minimal_personal_context: bool,
     compact: bool = False,
     image_generation_enabled: bool = True,
+    image_search_enabled: bool = False,
     lesson: int | None = None,
     prior_messages: list[tuple[str, str]] | None = None,
 ) -> list[str]:
@@ -328,9 +330,11 @@ def _style_format_hints(
             parts.append(layout)
     if lesson_hint:
         parts.append(lesson_hint)
-    # In every account style: "where is kenya" ends on the app's map card.
-    if query_text and where_is_place(query_text):
-        parts.append(MAP_FENCE_HINT)
+    # In every account style: a real photo above an answer about something to see.
+    if image_search_enabled:
+        parts.append(ANSWER_PHOTO_HINT)
+        if query_text and where_is_place(query_text):
+            parts.append(WHERE_IS_PHOTO_HINT)
     if query_text and is_image_generation_mention(query_text):
         parts.append(
             IMAGE_GEN_HONESTY_HINT if image_generation_enabled else IMAGE_GEN_UNAVAILABLE_HINT

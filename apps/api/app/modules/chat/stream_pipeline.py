@@ -212,6 +212,8 @@ async def run_llm_token_stream(
             if ctx.timing is not None and not accum.parts:
                 ctx.timing.mark_first_token()
             accum.parts.append(token)
+            if ctx.answer_photo is not None and ctx.answer_photo.watching:
+                ctx.answer_photo.feed("".join(accum.parts))
             yield token
             # Stop can land while we are parked on this yield. The consumer
             # resumes us so we halt before the next provider read and save.
@@ -275,6 +277,19 @@ def _replace_failed_subject_fences(seams: Any, content: str, verified: Any) -> s
     return seams.math_fence_service.replace_unclosed_graph_fence_safe(content, canonical)
 
 
+async def _attach_answer_photo(ctx: StreamContext, text: str, was_cancelled: bool) -> str:
+    """Swap the reply's ```photo fence for the photo found while it streamed."""
+    from app.modules.images.answer_photo import strip_photo_fences
+
+    photo = ctx.answer_photo
+    if photo is None or was_cancelled:
+        if photo is not None:
+            photo.cancel()
+        return strip_photo_fences(text)
+    text, ctx.answer_photo_ids = await photo.attach(text)
+    return text
+
+
 async def enrich_final_content(
     seams: Any,
     redis: Redis,
@@ -292,6 +307,7 @@ async def enrich_final_content(
     raw_assistant_text = assistant_text
     reminder_created = 0
     try:
+        assistant_text = await _attach_answer_photo(ctx, assistant_text, was_cancelled)
         user = ctx.user
         if user is None:
             async with seams.SessionLocal() as session:
@@ -474,6 +490,7 @@ async def enrich_final_content(
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting raw assistant text")
         assistant_text = raw_assistant_text
+        ctx.answer_photo_ids = []
         if result is not None and was_cancelled and assistant_text:
             result["final_content"] = assistant_text
         return assistant_text
@@ -663,6 +680,10 @@ async def stream_and_finalize(
                     ):
                         yield token
                 else:
+                    if settings.image_search_enabled and ctx.user is not None:
+                        from app.modules.images.answer_photo import AnswerPhoto
+
+                        ctx.answer_photo = AnswerPhoto(settings, ctx.user)
                     async for token in run_llm_token_stream(
                         seams,
                         redis,

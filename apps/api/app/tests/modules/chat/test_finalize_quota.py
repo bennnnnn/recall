@@ -219,3 +219,52 @@ async def test_finalize_success_does_not_depend_on_post_commit_refresh():
     assert result["message_id"] == str(assistant_id)
     adjust.assert_awaited_once()
     refund.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_finalize_links_the_answer_photo_to_the_reply():
+    session = AsyncMock()
+    assistant = MagicMock()
+    assistant.id = uuid4()
+    photo_id = uuid4()
+    ctx = StreamContext(
+        user_id=uuid4(),
+        chat_id=uuid4(),
+        model="free-chat",
+        prompt_messages=[{"role": "user", "content": "where is ethiopia"}],
+        run_title=False,
+        user_message_content="where is ethiopia",
+        reserved_tokens=200,
+        max_output_tokens=50,
+        skip_memory_jobs=True,
+        user=MagicMock(plan="free"),
+        answer_photo_ids=[photo_id],
+    )
+
+    link = AsyncMock(return_value=1)
+    with (
+        patch("app.modules.chat.post_turn.SessionLocal", lambda: _FakeSessionCM(session)),
+        patch(
+            "app.modules.chat.post_turn.messages_repo.create",
+            AsyncMock(return_value=assistant),
+        ),
+        patch("app.modules.chat.post_turn.attachments_service.link_to_message", link),
+        patch("app.modules.chat.post_turn.chats_repo.touch_by_id", AsyncMock()),
+        patch("app.modules.chat.post_turn.usage_repo.add_tokens", AsyncMock()),
+        patch("app.modules.chat.post_turn.quota_service.adjust_usage", AsyncMock()),
+        patch(
+            "app.modules.chat.post_turn.quota_service.daily_limit_for_user",
+            return_value=100_000,
+        ),
+        patch("app.modules.chat.post_turn.get_settings", return_value=Settings()),
+        patch("app.modules.chat.post_turn.clear_pending_finalize", AsyncMock()),
+    ):
+        await finalize_stream_turn_db(
+            AsyncMock(), ctx, "[Image: x]\n\nEthiopia.", {"input": 1, "output": 1}, result={}
+        )
+
+    link.assert_awaited_once()
+    assert link.await_args.kwargs["attachment_ids"] == [photo_id]
+    assert link.await_args.kwargs["message_id"] == assistant.id
+    assert link.await_args.kwargs["commit"] is False
+    session.commit.assert_awaited_once()

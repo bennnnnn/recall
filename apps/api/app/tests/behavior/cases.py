@@ -56,6 +56,9 @@ class Expect:
     # Prompt hints that must be present / absent (names from harness.HINTS).
     hints: tuple[str, ...] = ()
     no_hints: tuple[str, ...] = ()
+    # A real photo above the model's answer (it opened with ```photo). Routing can
+    # only check the hint that offers it; the live replay checks the photo.
+    answer_photo: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -335,22 +338,52 @@ CASES: tuple[Case, ...] = (
         "map-where-is",
         "photos and maps",
         "where is kenya",
-        Expect(hints=("map",), photo=NO_PHOTO, search="no"),
-        "East Africa on the equator, on the Indian Ocean, then a map card with Kenya marked.",
+        Expect(
+            hints=("answer_photo", "where_is_photo"), photo=NO_PHOTO, search="no", answer_photo=True
+        ),
+        "A real map of Kenya above: East Africa on the equator, on the Indian Ocean.",
     ),
     Case(
         "map-show-where",
         "photos and maps",
         "show me where nepal is",
-        Expect(hints=("map",), photo=NO_PHOTO, search="no"),
-        "Between India and China in the Himalayas, then a map card with Nepal marked.",
+        Expect(hints=("where_is_photo",), photo=NO_PHOTO, search="no", answer_photo=True),
+        "A real map of Nepal above: between India and China in the Himalayas.",
     ),
     Case(
         "map-not-a-place",
         "photos and maps",
         "where is the error in my code",
-        Expect(no_hints=("map",), photo=NO_PHOTO, search="no"),
-        "Asks for the code (none was shared); no map.",
+        Expect(no_hints=("where_is_photo",), photo=NO_PHOTO, search="no", answer_photo=False),
+        "Asks for the code (none was shared); no photo.",
+    ),
+    Case(
+        "auto-photo-animal",
+        "photos and maps",
+        "what is a capybara",
+        Expect(hints=("answer_photo",), photo=NO_PHOTO, answer_photo=True),
+        "A real capybara photo above a short answer: the largest rodent, South American.",
+    ),
+    Case(
+        "auto-photo-landmark",
+        "photos and maps",
+        "tell me about Lalibela",
+        Expect(hints=("answer_photo",), photo=NO_PHOTO, answer_photo=True),
+        "A photo of the rock-hewn churches above the answer.",
+    ),
+    Case(
+        "auto-photo-person",
+        "photos and maps",
+        "who is Haile Gebrselassie",
+        Expect(hints=("answer_photo",), photo=NO_PHOTO, answer_photo=True),
+        "A photo of him above: the Ethiopian distance runner and his records.",
+    ),
+    Case(
+        "auto-photo-none",
+        "photos and maps",
+        "what is recursion",
+        Expect(photo=NO_PHOTO, answer_photo=False),
+        "A plain explanation with a tiny example; no photo.",
     ),
     Case(
         "map-explicit",

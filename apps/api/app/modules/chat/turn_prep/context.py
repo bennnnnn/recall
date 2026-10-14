@@ -4,7 +4,7 @@ import asyncio
 import logging
 from collections.abc import Awaitable
 from dataclasses import dataclass, field, replace
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -81,6 +81,10 @@ def _last_recent_assistant_content(recent_messages: list[Any] | None) -> str | N
     return None
 
 
+if TYPE_CHECKING:
+    from app.modules.images.answer_photo import AnswerPhoto
+
+
 @dataclass
 class RegenerateBackup:
     content: str
@@ -155,6 +159,10 @@ class StreamContext:
     terminal_image_model: str | None = None
     # False sends the model's thinking-off payload. Hard jobs set this True.
     thinking: bool = False
+    # A real photo above an answer about something worth seeing: the search
+    # starts when the reply's ```photo fence closes; finalize links the ids.
+    answer_photo: AnswerPhoto | None = None
+    answer_photo_ids: list[UUID] = field(default_factory=list)
 
 
 @dataclass

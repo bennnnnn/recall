@@ -420,7 +420,6 @@ function convertFence(lang: string, body: string, mode: "copy" | "speech"): stri
   }
   if (isChartFenceLang(lang)) return mode === "speech" ? "a chart" : "";
   const id = fenceIdForLang(lang);
-  if (id === "map") return mode === "speech" ? "a map" : "";
   if (id === "quiz") {
     const quiz = parseQuizFence(trimmed);
     return quiz ? quizText(quiz) : "";

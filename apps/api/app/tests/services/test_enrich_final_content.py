@@ -75,6 +75,7 @@ def _ctx(
     ctx.user_message_content = "what's the news"
     ctx.solver_unverified = False
     ctx.unverified_subject = None
+    ctx.answer_photo = None
     return ctx
 
 
@@ -504,3 +505,66 @@ async def test_verified_chemistry_replaces_model_answer_without_math_rewrite(
     assert "notation: chemistry\npH = 3" in persisted
     assert "```smiles" not in persisted
     assert "```answer\n4\n```" not in persisted
+
+
+PHOTO_REPLY = "```photo\nEthiopia location map\n```\n\nEthiopia lies in the Horn of Africa."
+
+
+@pytest.mark.asyncio
+async def test_answer_photo_replaces_its_fence_in_final_content(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.images import answer_photo
+
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    photo_id = uuid4()
+    monkeypatch.setattr(
+        answer_photo.image_search, "photos_for_answer", AsyncMock(return_value=[photo_id])
+    )
+    ctx = _ctx()
+    ctx.answer_photo = answer_photo.AnswerPhoto(Settings(), MagicMock())
+    ctx.answer_photo.feed(PHOTO_REPLY)
+
+    result: dict[str, Any] = {}
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=PHOTO_REPLY,
+        usage={"input": 4, "output": 8},
+        result=result,
+        was_cancelled=False,
+        assistant_parts=[PHOTO_REPLY],
+        should_cancel=None,
+    )
+
+    assert persisted.startswith(f"[Image: /attachments/{photo_id}/file]\n\nEthiopia lies")
+    assert "```photo" not in persisted
+    assert result["final_content"] == persisted
+    assert ctx.answer_photo_ids == [photo_id]
+
+
+@pytest.mark.asyncio
+async def test_stopped_reply_drops_its_photo(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    ctx = _ctx()
+    ctx.answer_photo = MagicMock()
+    ctx.answer_photo_ids = []
+
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=PHOTO_REPLY,
+        usage={"input": 4, "output": 8},
+        result={},
+        was_cancelled=True,
+        assistant_parts=[PHOTO_REPLY],
+        should_cancel=None,
+    )
+
+    assert persisted == "Ethiopia lies in the Horn of Africa."
+    ctx.answer_photo.cancel.assert_called_once()
+    assert ctx.answer_photo_ids == []

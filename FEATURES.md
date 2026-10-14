@@ -419,7 +419,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   ` ```email ` fence so Copy, follow-ups, and reopen see the same draft.
 - ✅ **Fence ownership** — [fenceRegistry.ts](apps/mobile/lib/fenceRegistry.ts) marks each
   fence `model` / `server` / `legacy`. New turns: Markdown plus a small model-facing
-  set (`copy` / drafts, `mermaid`, `chart`, `math`, `map`, lesson `quiz` / `array` / `steps`,
+  set (`copy` / drafts, `mermaid`, `chart`, `math`, lesson `quiz` / `array` / `steps`,
   chemistry source). Server attaches
   verified `answer` / `graph` / `geometry`, `sources`, and `places`. Layout fences
   (`steps`, `comparison`, `keyvalue`, `quote`, `clock`, `callout`)
@@ -428,10 +428,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   and HTML `<details>` unwrap to a bold title plus markdown. Calendar, reminder,
   and settings (`settings_proposal`) control fences stay outside the registry.
   Leftover `vocab_quiz` fences in old messages are stripped for display.
-- ✅ **Place maps** — "where is kenya" gets a 1-3 sentence answer and a `map` fence
-  (`{"place", "lat", "lon", "zoom"}`; hint in `prompt_constants/visuals.py`). The app draws it
-  offline: Natural Earth 1:110m outlines (`pnpm world-map` → `lib/map/worldCountries.generated.json`),
-  the country under the point tinted, a pin on the point. Nothing is fetched; no API key.
+- ✅ **Answer photos** — an answer mainly about something worth seeing (a place,
+  landmark, animal, plant, person, food, product) gets one real photo above the text,
+  without "show me": the model opens the reply with a hidden ```photo query (“where is
+  Ethiopia” → `Ethiopia location map`), the search starts while the text streams, and the
+  finished reply carries the photo (`modules/images/answer_photo.py`). Abstract topics,
+  code, math, advice and lessons get none. Each photo uses one search from the daily photo
+  limit; a spent limit, a miss or a slow search just leaves the answer without one.
 - ✅ **Mermaid diagrams** — inline SVG render via sandboxed WebView (dev build); source toggle +
   copy + Mermaid Live link; Expo Go shows source + external editor hint.
 - ✅ **PDF attachments** — uploaded PDFs show a file card + inline first-page preview (pdf.js in
@@ -1144,6 +1147,7 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
 | Pro image generation (composer send, daily cap) | ✅ Shipped |
 | Reference-photo lookup (`show me an ear` / what-X-looks-like / "can you show me…" / "send me a photo of X"; "show me her image" reads who from the chat; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
+| Answer photos (one real photo above an answer about something worth seeing, no "show me"; the model's hidden ```photo query, searched while the text streams) | ✅ Shipped (free+Pro; same daily cap and flag) |
 | Library (drawer grid of generated + uploaded images and files; lookup photos stay on the chat) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |

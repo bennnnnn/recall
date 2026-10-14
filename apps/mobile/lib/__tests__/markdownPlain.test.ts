@@ -220,3 +220,9 @@ describe("lesson cards as text", () => {
     expect(text).toContain("What does it return?\nA) [0, 1]\nB) [1, 2]");
   });
 });
+
+it("leaves a photo request out of copy and speech", () => {
+  const md = "```photo\nEthiopia location map\n```\n\nEthiopia is in East Africa.";
+  expect(markdownToCopyText(md).trim()).toBe("Ethiopia is in East Africa.");
+  expect(markdownToSpeechText(md)).not.toContain("location map");
+});
