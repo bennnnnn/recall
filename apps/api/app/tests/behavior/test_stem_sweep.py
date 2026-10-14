@@ -26,7 +26,7 @@ from app.tests.behavior.stem_sweep import (
 )
 
 # subject -> (answered, drawn) on the current corpus
-FLOORS = {"physics": (285, 139)}
+FLOORS = {"physics": (292, 139)}
 EXPECTS = {"answer", "explain", "decline", "not_subject"}
 
 ENTRIES = [(subject, entry) for subject in FLOORS for entry in load(subject)]

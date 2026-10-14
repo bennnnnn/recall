@@ -128,10 +128,99 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("t", "t", "second"),
         ),
         binding=Binding(
-            asks=("average speed", "speed", "how fast"),
+            asks=("average speed", "average velocity", "speed", "how fast"),
             excludes=_NOT_CONSTANT_SPEED,
             result=("meter / second",),
             inputs=(frozenset({"d", "t"}),),
+            nonnegative=True,
+        ),
+    ),
+    # Two legs at two speeds: the average is the whole distance over the whole
+    # time, never the mean of the speeds. 100 km at 50 km/h then 100 km at
+    # 100 km/h is 66.7 km/h over the trip, not 75. The legs pair in the order
+    # they are written: the first distance goes with the first speed.
+    formula(
+        "average_speed_two_legs",
+        "kinematics",
+        "Average speed",
+        r"\bar{v}",
+        base_latex=r"\bar{v} = \frac{d_1 + d_2}{t_1 + t_2}",
+        variables=(
+            var("d1", "d_1", "meter"),
+            var("d2", "d_2", "meter"),
+            var("v1", "v_1", "meter / second"),
+            var("v2", "v_2", "meter / second"),
+            # "for the 200 km trip": the total, stated beside the legs.
+            var(
+                "d_total",
+                "d",
+                "meter",
+                words=("trip", "journey", "total", "whole", "entire", "altogether", "in all"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("average speed",),
+            result=("meter / second",),
+            inputs=(
+                frozenset({"d1", "d2", "v1", "v2"}),
+                frozenset({"d1", "d2", "v1", "v2", "d_total"}),
+            ),
+            interchangeable=("d1", "d2", "v1", "v2", "d_total"),
+            nonnegative=True,
+        ),
+    ),
+    # The same distance at each speed (a round trip, or two halves of the way):
+    # the harmonic mean. 60 km/h there and 40 km/h back is 48 km/h, not 50.
+    formula(
+        "average_speed_equal_distances",
+        "kinematics",
+        "Average speed",
+        r"\bar{v}",
+        base_latex=r"\bar{v} = \frac{2 v_1 v_2}{v_1 + v_2}",
+        variables=(
+            var("v1", "v_1", "meter / second"),
+            var("v2", "v_2", "meter / second"),
+        ),
+        binding=Binding(
+            asks=("average speed",),
+            result=("meter / second",),
+            inputs=(frozenset({"v1", "v2"}),),
+            cues=(
+                "half the distance",
+                "half of the distance",
+                "half the way",
+                "halfway",
+                "returns",
+                "return trip",
+                "way back",
+                "comes back",
+                "drives back",
+                "round trip",
+            ),
+            excludes=("half the time", "half of the time", "for equal times"),
+            interchangeable=("v1", "v2"),
+            nonnegative=True,
+        ),
+    ),
+    # The same time at each speed: the plain mean. 40 km/h for half the time
+    # and 60 km/h for the other half is 50 km/h.
+    formula(
+        "average_speed_equal_times",
+        "kinematics",
+        "Average speed",
+        r"\bar{v}",
+        base_latex=r"\bar{v} = \frac{v_1 + v_2}{2}",
+        variables=(
+            var("v1", "v_1", "meter / second"),
+            var("v2", "v_2", "meter / second"),
+        ),
+        binding=Binding(
+            asks=("average speed",),
+            result=("meter / second",),
+            inputs=(frozenset({"v1", "v2"}),),
+            cues=("half the time", "half of the time", "for equal times"),
+            interchangeable=("v1", "v2"),
             nonnegative=True,
         ),
     ),

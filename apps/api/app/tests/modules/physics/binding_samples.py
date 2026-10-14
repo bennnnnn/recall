@@ -13,6 +13,10 @@ SAMPLES: dict[str, float] = {
     "a": 2.0,
     "t": 3.0,
     "d": 50.0,
+    # Two legs of a trip; the stated total is their sum.
+    "d1": 100.0,
+    "d2": 300.0,
+    "d_total": 400.0,
     "m": 5.0,
     "g": 9.81,
     "F": 100.0,
