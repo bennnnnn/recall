@@ -18,6 +18,22 @@ kill_all_dev() {
   echo "All dev servers stopped."
 }
 
+# The API logs to tmp/api.log, so a failed start would show nothing here: the
+# app just could not connect. Say so in the terminal, with the log's last lines.
+report_api_start() {
+  local i
+  for i in $(seq 1 45); do
+    if curl -sf -m 2 http://127.0.0.1:8000/health >/dev/null 2>&1; then
+      echo "API is up on :8000."
+      return 0
+    fi
+    sleep 1
+  done
+  printf '\033[31mThe API did not start. Last lines of tmp/api.log:\033[0m\n'
+  tail -n 25 "$ROOT/tmp/api.log"
+  printf '\033[31mFix the error above; the API reloads when its files change.\033[0m\n'
+}
+
 # One terminal for everything: the API in the background (log in tmp/api.log),
 # the app in the foreground, and the checkout kept on origin/main so a merged
 # pull request reaches the running app by itself. Ctrl+C stops it all.
@@ -34,6 +50,7 @@ up() {
   (cd "$ROOT/apps/api" && exec uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000) \
     >"$ROOT/tmp/api.log" 2>&1 &
   local api_pid=$!
+  report_api_start &
   "$ROOT/scripts/follow-main.sh" &
   local follow_pid=$!
   trap 'kill '"$follow_pid"' '"$api_pid"' 2>/dev/null; lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true' EXIT
