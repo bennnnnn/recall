@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.orm import Chat
 from app.modules.chat.prompt_constants import (
+    could_continue_draft,
+    draft_followup,
     is_broad_self_question,
     is_capabilities_question,
     is_career_personal_question,
@@ -138,6 +140,26 @@ async def _prior_user_texts(
     return users
 
 
+# A draft three exchanges back is the one a follow-up changes.
+_DRAFT_HISTORY = 6
+
+
+async def _continues_a_draft(session: AsyncSession, chat_id: UUID, content: str) -> bool:
+    """ "Email" or "make it shorter" after a draft: one short history read decides."""
+    if not could_continue_draft(content):
+        return False
+    recent = await messages_repo.list_recent(session, chat_id, limit=_DRAFT_HISTORY + 1)
+    prior = [
+        (message.role, message.content)
+        for message in recent
+        if message.role in {"user", "assistant"} and isinstance(message.content, str)
+    ]
+    # The current line may already be stored.
+    if prior and prior[-1][0] == "user" and collapse_ws(prior[-1][1]) == collapse_ws(content):
+        prior = prior[:-1]
+    return draft_followup(content, prior) is not None
+
+
 async def _classify_turn_mode(
     session: AsyncSession,
     chat: Chat,
@@ -166,6 +188,10 @@ async def _classify_turn_mode(
         day_planning=day_planning,
         day_reflection=day_reflection,
     )
+    if not rich_context and not lightweight:
+        # A change to a draft needs what the draft had: memory for names, and
+        # the profile it is signed with. A slim turn signed it "[Your Name]".
+        rich_context = await _continues_a_draft(session, chat.id, content)
     advice_memory = (
         (
             is_personal_advice_question(content)

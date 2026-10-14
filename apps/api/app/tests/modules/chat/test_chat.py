@@ -1558,6 +1558,65 @@ async def test_classify_turn_mode_hi_is_lightweight():
 
 
 @pytest.mark.asyncio
+async def test_classify_turn_mode_draft_follow_up_gets_the_drafts_context():
+    """ "Email" after a text-message draft ran slim and signed the email "[Your Name]"."""
+    from types import SimpleNamespace
+
+    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    history = [
+        SimpleNamespace(role="user", content="A text message to my wife"),
+        SimpleNamespace(role="assistant", content="```message\nHey love, thinking of you.\n```"),
+        SimpleNamespace(role="user", content="Email"),
+    ]
+    list_recent = AsyncMock(return_value=history)
+
+    with patch("app.modules.chat.turn_prep.mode.messages_repo.list_recent", list_recent):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "Email")
+
+    list_recent.assert_awaited_once()
+    assert mode.rich_context is True
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_skips_history_for_lines_that_change_no_draft():
+    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    list_recent = AsyncMock()
+
+    with patch("app.modules.chat.turn_prep.mode.messages_repo.list_recent", list_recent):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "what is the capital of France")
+
+    list_recent.assert_not_awaited()
+    assert mode.rich_context is False
+
+
+@pytest.mark.asyncio
+async def test_classify_turn_mode_no_draft_in_history_stays_slim():
+    from types import SimpleNamespace
+
+    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+    history = [
+        SimpleNamespace(role="user", content="what is the capital of France"),
+        SimpleNamespace(role="assistant", content="Paris."),
+    ]
+    with patch(
+        "app.modules.chat.turn_prep.mode.messages_repo.list_recent",
+        AsyncMock(return_value=history),
+    ):
+        mode = await _classify_turn_mode(AsyncMock(), chat, "make it shorter")
+
+    assert mode.rich_context is False
+
+
+@pytest.mark.asyncio
 async def test_classify_turn_mode_yes_after_offer_is_not_lightweight():
     from app.modules.chat.turn_prep.mode import _classify_turn_mode
 
@@ -1969,6 +2028,9 @@ def test_format_user_name_only_block_uses_first_name():
     user.name = "Ada Lovelace"
     block = format_user_name_only_block(user)
     assert "Ada" in block
+    # A slim turn signs drafts too: "[Your Name]" came from a who-am-I-only name.
+    assert "Sign emails and messages the user will send as Ada." in block
+    assert "Lovelace" not in block
 
 
 def test_format_user_name_only_block_missing_name():
@@ -1976,3 +2038,18 @@ def test_format_user_name_only_block_missing_name():
     user.name = "   "
     block = format_user_name_only_block(user)
     assert "not on file" in block
+    assert "Never write [Your Name]" in block
+
+
+def test_format_user_profile_block_signs_drafts_with_the_first_name():
+    user = MagicMock()
+    user.name = "Ada Lovelace"
+    user.email = None
+    user.plan = "free"
+    user.age = None
+    user.country = None
+    user.job = None
+    user.location = None
+    user.location_enabled = False
+    block = format_user_profile_block(user)
+    assert "Sign emails and messages the user will send as Ada." in block

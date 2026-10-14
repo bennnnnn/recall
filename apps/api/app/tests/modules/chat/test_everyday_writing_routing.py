@@ -140,6 +140,11 @@ def test_a_proofread_is_a_writing_request_without_a_draft_fence() -> None:
         ("less formal please", _EMAIL_DRAFT, "email"),
         ("translate it to Spanish", _EMAIL_DRAFT, "email"),
         ("rewrite it", _EMAIL_DRAFT, "email"),
+        # The same draft in another form: the fence follows the form asked for.
+        ("Email", _TEXT_DRAFT, "email"),
+        ("make it an email", _TEXT_DRAFT, "email"),
+        ("as a text", _EMAIL_DRAFT, "message"),
+        ("make it a facebook post", _TEXT_DRAFT, "facebook"),
     ],
 )
 def test_a_change_to_the_previous_draft_returns_that_draft_revised(
@@ -163,6 +168,8 @@ def test_a_change_to_the_previous_draft_returns_that_draft_revised(
         # The previous reply was a list, not a draft.
         ("make it shorter", _LIST_ANSWER),
         ("tell me more about the second one", _LIST_ANSWER),
+        ("email marketing tips", _TEXT_DRAFT),
+        ("what is email", _TEXT_DRAFT),
     ],
 )
 def test_other_follow_ups_are_not_draft_revisions(text: str, prior: str) -> None:
@@ -222,3 +229,8 @@ def test_a_new_question_in_between_ends_the_draft() -> None:
 
 def test_drafts_leave_out_memory_trivia() -> None:
     assert "never for the user's tastes or trivia" in EMAIL_DRAFT_HINT
+
+
+def test_drafts_are_signed_with_the_users_name_never_a_placeholder() -> None:
+    assert "never [Your Name]" in COPY_DELIVERABLE_HINT
+    assert "not unrelated likes such as food or drinks" in COPY_DELIVERABLE_HINT

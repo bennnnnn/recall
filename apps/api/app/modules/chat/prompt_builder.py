@@ -138,6 +138,17 @@ def should_include_profile_email(query_text: str | None) -> bool:
     return False
 
 
+# The user sends the drafts Recall writes, so the sign-off is their own name.
+_SIGN_DRAFTS_WITH = (
+    "Sign emails and messages the user will send as {first}. Never write [Your Name] "
+    "or another placeholder."
+)
+_NO_NAME_TO_SIGN = (
+    "With no name on file, end emails and messages on the closing word (Love, Best,) "
+    "with no name line. Never write [Your Name] or another placeholder."
+)
+
+
 def format_user_profile_block(
     user: User,
     *,
@@ -171,19 +182,26 @@ def format_user_profile_block(
         "email or location in a general 'who am I' answer. Do not say their name is missing "
         "from memory if it is listed here."
     )
+    if user.name and user.name.strip():
+        lines.append(_SIGN_DRAFTS_WITH.format(first=user.name.strip().split()[0]))
+    else:
+        lines.append(_NO_NAME_TO_SIGN)
     return "\n".join(lines)
 
 
 def format_user_name_only_block(user: User) -> str:
-    """First name only — for broad 'who am I' turns without leaking other profile fields."""
+    """First name only: sign their drafts, answer 'who am I', share no other profile field."""
     name = (user.name or "").strip()
     if not name:
         return (
             "User name is not on file — for a 'who am I' reply, say you don't have their name yet "
-            "without inventing one."
+            f"without inventing one. {_NO_NAME_TO_SIGN}"
         )
     first = name.split()[0]
-    return f"User's first name (for a 'who am I' reply — use this name only): {first}"
+    return (
+        f"User's first name: {first}. Use it in a 'who am I' reply; share no other profile "
+        f"detail. {_SIGN_DRAFTS_WITH.format(first=first)}"
+    )
 
 
 async def fetch_web_and_tools(
