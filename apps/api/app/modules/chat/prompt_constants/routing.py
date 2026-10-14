@@ -130,9 +130,10 @@ def prior_looks_like_offer(prior_assistant: str | None) -> bool:
 
 
 # Emoji, flags and their joiners. "hi 👋" is the same greeting as "hi".
+# Skin tones (U+1F3FB-1F3FF) sit inside U+1F300-1FAFF. Escapes, not literal
+# characters, so the pattern reads the same to the regex engine and to scanners.
 _EMOJI = re.compile(
-    "[\U0001f1e6-\U0001f1ff\U0001f300-\U0001faff\u2600-\u27bf\u2b00-\u2bff"
-    "\ufe0f\u200d\U0001f3fb-\U0001f3ff]+"
+    r"[\U0001f1e6-\U0001f1ff\U0001f300-\U0001faff\u2600-\u27bf\u2b00-\u2bff\ufe0f\u200d]+"
 )
 
 
