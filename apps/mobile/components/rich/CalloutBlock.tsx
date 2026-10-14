@@ -6,7 +6,7 @@ import { CardShell } from "@/components/rich/CardShell";
 import { RichMathBody } from "@/components/rich/RichMathBody";
 import { CalloutKind } from "@/lib/richBlocks";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { Type } from "@/lib/type";
 
 function calloutMeta(
   theme: Theme,
@@ -40,22 +40,18 @@ export function CalloutBlock({ kind, content }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const meta = calloutMeta(theme, t)[kind] ?? calloutMeta(theme, t).note;
-  const lines = content.split("\n");
-  const firstLine = lines[0]?.trim() || "";
-  const hasBody = lines.length > 1 && lines.slice(1).join("\n").trim();
-  const title = hasBody ? firstLine : meta.label;
-  const body = hasBody || firstLine;
 
+  // The title is always the kind (Note, Warning); every line is body. Taking
+  // a multi-line callout's first sentence as the title hid what kind it was.
   return (
     <CardShell
       testID={`callout-${kind}`}
-      label={title}
-      labelContent={<RichMathBody content={title} style={s.title} />}
+      label={meta.label}
       icon={meta.icon}
       accentColor={meta.color}
       iconColor={meta.color}
     >
-      <RichMathBody content={body} style={s.body} />
+      <RichMathBody content={content.trim()} style={s.body} />
     </CardShell>
   );
 }
@@ -63,6 +59,5 @@ export function CalloutBlock({ kind, content }: Props) {
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     body: { ...Type.body, color: t.text },
-    title: { ...Type.compact, ...Weight.semibold, color: t.textSecondary, flexShrink: 1 },
   });
 }

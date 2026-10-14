@@ -3,8 +3,10 @@ import { render, within } from "@testing-library/react-native";
 
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { makeRenderRules } from "@/components/markdown/markdownRenderRules";
-import { makeMdStyles } from "@/components/markdown/markdownContentStyles";
+import { makeMdStyles, PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
+import { Space } from "@/lib/space";
 import { lightTheme } from "@/lib/theme";
+import { Type } from "@/lib/type";
 
 jest.mock("@/components/LinkPreviewCard", () => {
   const { Pressable, Text } = jest.requireActual("react-native") as typeof import("react-native");
@@ -532,6 +534,52 @@ $x^0=1$`}
     expect(getByText("— Prospero")).toBeOnTheScreen();
   });
 
+  it("keeps a cited quote inside its numbered list item", async () => {
+    const { getAllByTestId, getByTestId, getByText, queryByTestId } = await render(
+      <MarkdownContent
+        content={
+          "1. First point\n\n   > Stay hungry, stay foolish.\n   > — Steve Jobs\n\n2. Second point"
+        }
+      />,
+    );
+    const card = within(getByTestId("quote-card"));
+    expect(card.getByText("— Steve Jobs")).toBeOnTheScreen();
+    expect(card.getByText(/Stay hungry/)).toBeOnTheScreen();
+    expect(getAllByTestId("quote-card")).toHaveLength(1);
+    // A stray top-level quote holding only "— Steve Jobs" was the bug.
+    expect(queryByTestId("indented-prose")).toBeNull();
+    expect(getByText("Second point")).toBeOnTheScreen();
+  });
+
+  it("renders a Note inside a list item as a callout in that item", async () => {
+    const { getByTestId, getByText, queryByTestId } = await render(
+      <MarkdownContent content={"1. First point\n   > Note: check the units\n2. Second point"} />,
+    );
+    expect(within(getByTestId("callout-note")).getByText(/check the units/)).toBeOnTheScreen();
+    expect(queryByTestId("indented-prose")).toBeNull();
+    expect(getByText("Second point")).toBeOnTheScreen();
+  });
+
+  it.each([
+    ["an en dash", "> Stay hungry, stay foolish.\n> – Steve Jobs"],
+    ["a hyphen", "> Stay hungry, stay foolish.\n> - Steve Jobs"],
+  ])("renders a quote closed by %s and a name as a quote card", async (_name, content) => {
+    const { getByTestId, queryByTestId } = await render(<MarkdownContent content={content} />);
+    const card = within(getByTestId("quote-card"));
+    expect(card.getByText("— Steve Jobs")).toBeOnTheScreen();
+    expect(queryByTestId("md-list-bullet")).toBeNull();
+  });
+
+  it.each([
+    ["a bulleted list", "> Shopping:\n> - Eggs\n> - Milk"],
+    ["an en dash list", "> Options:\n> – Fast\n> – Cheap"],
+    ["a dialogue", "> — Are you coming?\n> — Yes."],
+  ])("keeps %s inside a quote as prose, not a quote card", async (_name, content) => {
+    const { getByTestId, queryByTestId } = await render(<MarkdownContent content={content} />);
+    expect(getByTestId("indented-prose")).toBeOnTheScreen();
+    expect(queryByTestId("quote-card")).toBeNull();
+  });
+
   it("renders a hint blockquote as indented prose, not a quote card", async () => {
     const { getByTestId, getByText, queryByTestId, toJSON } = await render(
       <MarkdownContent content={"> Hint: try the reciprocal"} />,
@@ -634,5 +682,82 @@ describe("reply rhythm", () => {
     const style = StyleSheet.flatten(getByTestId("indented-prose").props.style);
     expect(style.borderLeftWidth).toBeGreaterThan(0);
     expect(style.marginTop).toBe(0);
+  });
+
+  it("draws an ordinary blockquote with a visible rule and secondary ink at body size", async () => {
+    const { getByTestId, getByText } = await render(
+      <MarkdownContent
+        content={"> An aside with **weight**, `code` and [a link](https://example.com)"}
+      />,
+    );
+    const rule = StyleSheet.flatten(getByTestId("indented-prose").props.style);
+    expect(rule.borderLeftWidth).toBe(3);
+    expect(rule.borderLeftColor).toBe(lightTheme.textDisabled);
+    const prose = StyleSheet.flatten(getByText("An aside with ").props.style);
+    expect(prose.color).toBe(lightTheme.textSecondary);
+    expect(prose.fontSize).toBe(Type.body.fontSize);
+    expect(StyleSheet.flatten(getByText("weight").props.style).color).toBe(
+      lightTheme.textSecondary,
+    );
+    expect(StyleSheet.flatten(getByText("code").props.style).color).toBe(
+      lightTheme.textSecondary,
+    );
+    // A link keeps its own color inside the quote.
+    expect(StyleSheet.flatten(getByText("a link").props.style).color).toBe(lightTheme.primary);
+  });
+
+  it("outlines a quote card with a visible border and keeps its quote in body ink", async () => {
+    const { getByTestId, getByText } = await render(
+      <MarkdownContent content={"> To be or not to be.\n> — Shakespeare"} />,
+    );
+    const card = StyleSheet.flatten(getByTestId("quote-card").props.style);
+    expect(card.borderWidth).toBe(1);
+    expect(card.borderColor).toBe(lightTheme.border);
+    expect(StyleSheet.flatten(getByText("To be or not to be.").props.style).color).toBe(
+      lightTheme.assistantText,
+    );
+  });
+});
+
+describe("list rhythm", () => {
+  type Host = { parent?: unknown; props: { style?: unknown } };
+  /** The bottom margin of the list item that holds this marker. */
+  function itemGap(marker: Host): number {
+    const item = marker.parent as Host;
+    return StyleSheet.flatten(item.props.style as never)?.marginBottom ?? 0;
+  }
+
+  it("ends a list with the block gap alone", async () => {
+    const { getAllByTestId } = await render(
+      <MarkdownContent content={"- one\n- two\n- three\n\nAfter."} />,
+    );
+    const bullets = getAllByTestId("md-list-bullet");
+    expect(bullets.map((bullet) => itemGap(bullet as never))).toEqual([Space.xs, Space.xs, 0]);
+    const list = (bullets[0] as never as Host).parent as Host;
+    expect(StyleSheet.flatten((list.parent as Host).props.style as never)?.marginBottom).toBe(
+      PARAGRAPH_GAP,
+    );
+  });
+
+  it("ends a numbered list the same way", async () => {
+    const { getByText } = await render(<MarkdownContent content={"1. one\n2. two\n3. three"} />);
+    expect(["1.", "2.", "3."].map((n) => itemGap(getByText(n) as never))).toEqual([
+      Space.xs,
+      Space.xs,
+      0,
+    ]);
+  });
+
+  it("ends a nested list flush so its parent item's gap separates it", async () => {
+    const { getAllByTestId, getByTestId } = await render(
+      <MarkdownContent content={"- Parent\n  - child a\n  - child b\n- Last"} />,
+    );
+    // child a, child b (nested), then Last.
+    expect(getAllByTestId("md-list-bullet").map((b) => itemGap(b as never))).toEqual([
+      Space.xs,
+      0,
+      0,
+    ]);
+    expect(itemGap(getByTestId("md-list-bullet-spacer") as never)).toBe(Space.xs);
   });
 });

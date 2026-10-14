@@ -186,8 +186,8 @@ export function parseComparison(text: string): ComparisonDraft | null {
 }
 
 const MAX_CITATION_AUTHOR_CHARS = 80;
-/** A citation's last line: `— Name` or `-- Name`. A single hyphen is not one. */
-const CITATION_AUTHOR_RE = /^(?:\u2014|--)\s+(\S(?:.*\S)?)\s*$/u;
+/** A citation's last line: `— Name`, `– Name` or `-- Name`. A single hyphen is a bullet. */
+const CITATION_AUTHOR_RE = /^(?:\u2014|\u2013|--)\s+(\S(?:.*\S)?)\s*$/u;
 
 export function citationAuthor(line: string): string | null {
   const match = line.trim().match(CITATION_AUTHOR_RE);
@@ -202,7 +202,7 @@ export function parseQuoteAttribution(text: string): {
 } {
   const lines = text.split("\n").map((l) => l.replace(/^>\s?/, ""));
   const last = lines[lines.length - 1]?.trim() ?? "";
-  const attrMatch = last.match(/^(?:—|--|-)\s*(.+)$/);
+  const attrMatch = last.match(/^(?:—|–|--|-)\s*(.+)$/);
   if (attrMatch) {
     return {
       quote: lines.slice(0, -1).join("\n").trim(),

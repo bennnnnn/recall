@@ -80,3 +80,33 @@ describe("semantic text contrast", () => {
     expect(contrastRatio(darkTheme.textDisabled, darkTheme.surfaceAlt)).toBeLessThan(AA);
   });
 });
+
+/** A one-pixel line fainter than this disappears on a phone screen. */
+const HAIRLINE_MIN = 1.25;
+
+describe("hairline contrast", () => {
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s separator shows on every plane it divides", (_name, theme) => {
+    for (const plane of [theme.bg, theme.surface, theme.elevated]) {
+      expect(contrastRatio(theme.separator, plane)).toBeGreaterThanOrEqual(HAIRLINE_MIN);
+    }
+  });
+
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s separator stays quieter than border", (_name, theme) => {
+    expect(contrastRatio(theme.separator, theme.bg)).toBeLessThan(
+      contrastRatio(theme.border, theme.bg),
+    );
+  });
+
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s quote rule (textDisabled) reads as a line on the page", (_name, theme) => {
+    expect(contrastRatio(theme.textDisabled, theme.bg)).toBeGreaterThanOrEqual(3);
+  });
+});

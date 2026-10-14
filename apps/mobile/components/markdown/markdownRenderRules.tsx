@@ -26,6 +26,8 @@ import {
   inHeading,
   bulletDiscMetrics,
   immediateAncestorType,
+  inPlainBlockquote,
+  isLastListItem,
   listItemDisplayNumber,
   listLargestNumber,
   numberColumnWidth,
@@ -456,6 +458,8 @@ function renderTextWithMath(
     styles.body,
     inheritedStyles,
     styles.text,
+    // After the inherited bold/heading ink; a link keeps its own color.
+    inPlainBlockquote(parent) && !parentHasType(parent, "link") && styles.quoteText,
     inTableCell(parent) && mdTable.cellInline,
     inTableHeader(parent) && mdTable.headerText,
     // Ancestor styles stack in order, so strong's Bold would hide em's Italic.
@@ -741,10 +745,14 @@ function makeSharedRules(
       styles: StyleMap,
     ) => {
       const task = taskChecked(node);
+      const itemStyle = [
+        styles._VIEW_SAFE_list_item as object,
+        isLastListItem(parent, node.index) && (styles.lastListItem as object),
+      ];
       if (parentHasType(parent, "bullet_list") && task !== null) {
         if (task) {
           return (
-            <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
+            <View key={node.key} style={itemStyle}>
               <View style={[mdMath.listBullet, bulletDiscStyle()]} accessible={false} />
               <View style={verifyCheckStyles.verifyRow}>
                 <View style={verifyCheckStyles.verifyContent}>{children}</View>
@@ -754,7 +762,7 @@ function makeSharedRules(
           );
         }
         return (
-          <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
+          <View key={node.key} style={itemStyle}>
             <Icon
               name="square"
               size={IconSize.sm}
@@ -771,7 +779,7 @@ function makeSharedRules(
         const markup =
           immediateAncestorType(parent) === "ordered_list" ? (node.markup ?? ".") : ".";
         return (
-          <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
+          <View key={node.key} style={itemStyle}>
             <Text
               style={[
                 styles.ordered_list_icon as object,
@@ -789,7 +797,7 @@ function makeSharedRules(
       }
       if (immediateAncestorType(parent) === "bullet_list") {
         return (
-          <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
+          <View key={node.key} style={itemStyle}>
             {listItemHasNestedList(node) ? (
               // No disc on a parent topic, but keep its column: the label lines
               // up with its siblings' text and the sub-bullets indent under it.
@@ -812,7 +820,7 @@ function makeSharedRules(
         );
       }
       return (
-        <View key={node.key} style={styles._VIEW_SAFE_list_item as object}>
+        <View key={node.key} style={itemStyle}>
           {children}
         </View>
       );
@@ -1043,10 +1051,16 @@ function makeSharedRules(
       node: { key: string; content: string },
       _children: unknown,
       parent: unknown,
+      styles: StyleMap,
     ) => (
       <Text
         key={node.key}
-        style={[mdCodeInline, inTableCell(parent) && mdTable.cellCode, headingCodeSize(parent)]}
+        style={[
+          mdCodeInline,
+          inTableCell(parent) && mdTable.cellCode,
+          headingCodeSize(parent),
+          inPlainBlockquote(parent) && styles.quoteText,
+        ]}
         selectable
       >
         {node.content}

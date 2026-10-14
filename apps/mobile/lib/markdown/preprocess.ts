@@ -6,6 +6,7 @@ import {
 import { attachAnswerHeadingToFence } from "@/lib/markdown/attachAnswerHeading";
 import {
   convertCalloutBlocks,
+  normalizeQuoteAttributionDashes,
   promoteCalloutBlockquotes,
   promoteQuotedAttributions,
   splitBlockquoteInlineAttribution,
@@ -51,6 +52,7 @@ import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 
 export { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/inlineMath";
 export {
+  normalizeQuoteAttributionDashes,
   promoteCalloutBlockquotes,
   promoteQuotedAttributions,
   quotedAttributionToBlockquote,
@@ -98,6 +100,7 @@ export function preprocessMarkdown(
 
   out = promoteCalloutBlockquotes(out);
   out = promoteQuotedAttributions(out);
+  out = normalizeQuoteAttributionDashes(out);
   out = splitBlockquoteInlineAttribution(out);
   out = convertCalloutBlocks(out);
 
