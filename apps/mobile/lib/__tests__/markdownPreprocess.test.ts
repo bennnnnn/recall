@@ -33,6 +33,14 @@ const RESTAURANT_LIST = `Here are some top-rated restaurants in San Francisco th
 3. **State Bird Provisions** – Creative dim-sum ($$)
 4. **Tartine Manufactory** – Bakery meets Californian fare ($$)`;
 
+/** The block tokens at the top of a parsed document: one list stays one list. */
+function topLevelTypes(markdown: string): string[] {
+  return markdownItInstance
+    .parse(markdown, {})
+    .filter((token) => token.level === 0 && token.nesting === 1)
+    .map((token) => token.type);
+}
+
 describe("preprocessMarkdown", () => {
   it("BUG FIX regression: preserves a leading minus in an explicit equation", () => {
     const prepared = preprocessMarkdown("$- x = -2$");
@@ -221,6 +229,86 @@ describe("preprocessMarkdown", () => {
     expect(out).toBe(
       "> We are such stuff as dreams are made on.\n>\n> -- Prospero",
     );
+  });
+
+  it("keeps a cited quote inside its list item", () => {
+    const src =
+      "1. First point\n\n   > Stay hungry, stay foolish.\n   > — Steve Jobs\n\n2. Second point";
+    const out = preprocessMarkdown(src);
+    expect(out).toContain("   > Stay hungry, stay foolish.\n   >\n   > — Steve Jobs");
+    expect(topLevelTypes(out)).toEqual(["ordered_list_open"]);
+  });
+
+  it("keeps an inline attribution split inside its list item", () => {
+    const src =
+      "- Point\n\n  > Courage is the most important of all the virtues. — Maya Angelou\n\n- Next";
+    const out = preprocessMarkdown(src);
+    expect(out).toContain(
+      "  > Courage is the most important of all the virtues.\n  >\n  > — Maya Angelou",
+    );
+    expect(topLevelTypes(out)).toEqual(["bullet_list_open"]);
+  });
+
+  it("promotes a Note inside a list item to a callout in that item", () => {
+    const out = preprocessMarkdown("1. First point\n   > Note: check the units\n2. Second point");
+    const tokens = markdownItInstance.parse(out, {});
+    const fence = tokens.find((token) => token.type === "fence");
+    expect(fence?.info).toBe("callout-note");
+    expect(fence?.content).toBe("check the units\n");
+    expect(fence?.level).toBeGreaterThan(0);
+    expect(topLevelTypes(out)).toEqual(["ordered_list_open"]);
+    expect(tokens.filter((token) => token.type === "list_item_open")).toHaveLength(2);
+  });
+
+  it("keeps every line of an indented Warning in its callout", () => {
+    const out = preprocessMarkdown("- Item\n\n  > Warning: hot surface\n  > keep away\n- Next");
+    const fence = markdownItInstance.parse(out, {}).find((token) => token.type === "fence");
+    expect(fence?.info).toBe("callout-warning");
+    expect(fence?.content).toBe("hot surface\nkeep away\n");
+    expect(topLevelTypes(out)).toEqual(["bullet_list_open"]);
+  });
+
+  it("leaves an indented Note inside a code fence alone", () => {
+    const src = "```markdown\n- Item\n  > Note: example\n```";
+    expect(preprocessMarkdown(src)).toBe(src);
+  });
+
+  it.each([
+    ["an en dash", "> Stay hungry, stay foolish.\n> – Steve Jobs"],
+    ["a hyphen", "> Stay hungry, stay foolish.\n> - Steve Jobs"],
+    ["a hyphen after a blank quote line", "> Stay hungry, stay foolish.\n>\n> - Steve Jobs"],
+  ])("reads %s closing a quote as its attribution", (_name, src) => {
+    const out = preprocessMarkdown(src);
+    expect(out).toMatch(/>\n> — Steve Jobs$/);
+    expect(markdownItInstance.parse(out, {}).some((t) => t.type === "bullet_list_open")).toBe(
+      false,
+    );
+  });
+
+  it("reads a hyphen attribution with its source", () => {
+    const out = preprocessMarkdown(
+      "> Stay hungry, stay foolish.\n> - Steve Jobs, Stanford commencement",
+    );
+    expect(out).toContain("> — Steve Jobs, Stanford commencement");
+  });
+
+  it("normalizes a hyphen attribution inside a list item", () => {
+    const out = preprocessMarkdown(
+      "1. First point\n\n   > Stay hungry, stay foolish.\n   > - Steve Jobs\n\n2. Second point",
+    );
+    expect(out).toContain("   >\n   > — Steve Jobs");
+    expect(topLevelTypes(out)).toEqual(["ordered_list_open"]);
+  });
+
+  it.each([
+    ["several items", "> Shopping:\n> - Eggs\n> - Milk"],
+    ["items after a lead-in", "> Bring these\n> - Water\n> - Bread Rolls"],
+    ["one item after a colon", "> Remember to:\n> - Buy Milk"],
+    ["a lowercase item", "> Here is the plan\n> - buy milk"],
+    ["a question", "> Here is the plan\n> - What Next?"],
+    ["a lone item", "> - Steve Jobs"],
+  ])("keeps a bulleted list inside a quote: %s", (_name, src) => {
+    expect(preprocessMarkdown(src)).toBe(src);
   });
 
   it("still converts real display math delimiters", () => {

@@ -98,6 +98,18 @@ export function bulletDiscMetrics(fontScale: number): { size: number; top: numbe
   return { size, top: Math.max(0, Math.round((line - size) / 2)) };
 }
 
+/**
+ * The last item of its list ends flush: the list's own block gap is the space
+ * under it, so a list ends like every other block (an item gap on top of it
+ * made ~20pt).
+ */
+export function isLastListItem(parent: unknown, index: number): boolean {
+  if (!Array.isArray(parent) || parent.length === 0) return false;
+  const list = parent[0] as { children?: unknown[] };
+  const count = list.children?.length ?? 0;
+  return count > 0 && index === count - 1;
+}
+
 export function listItemDisplayNumber(parent: unknown, index: number): number {
   if (!Array.isArray(parent) || parent.length === 0) return index + 1;
   const list = parent[0] as { attributes?: { start?: number } };
@@ -134,7 +146,7 @@ export function astText(node: AstNode): string {
 
 /**
  * A blockquote is a quote card only when an earlier line is the quotation and
- * the last line is `— Name` or `-- Name`.
+ * the last line is `— Name`, `– Name` or `-- Name`.
  *
  * `author` is set when that line is its own block (QuoteBlock prints it).
  * It is null when the line already sits inside the quotation paragraph.
@@ -151,12 +163,13 @@ export function blockquoteCitation(
     }
   }
   if (last < 0) return null;
-  const lines = astTextWithBreaks(children[last]!)
-    .split("\n")
-    .map((line) => line.trim())
-    .filter((line) => line.length > 0);
+  const lines = nonBlankLines(astTextWithBreaks(children[last]!));
   const author = citationAuthor(lines[lines.length - 1] ?? "");
   if (!author) return null;
+  // Dash lines in a row are a list or a dialogue (`– fast` / `– cheap`), not a
+  // quotation and its author.
+  const quoteLines = nonBlankLines(astTextWithBreaks(node));
+  if (citationAuthor(quoteLines[quoteLines.length - 2] ?? "")) return null;
   const quoteInLast = lines.slice(0, -1).join("\n").trim();
   const prior = children
     .slice(0, last)
@@ -164,6 +177,23 @@ export function blockquoteCitation(
   if (!quoteInLast && !prior) return null;
   if (!quoteInLast) return { author, bodyCount: last };
   return { author: null, bodyCount: last + 1 };
+}
+
+function nonBlankLines(text: string): string[] {
+  return text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter((line) => line.length > 0);
+}
+
+/**
+ * Inside a blockquote drawn as indented prose: its text takes the quieter
+ * ink. A quote card (a citation) keeps body ink.
+ */
+export function inPlainBlockquote(parent: unknown): boolean {
+  if (!Array.isArray(parent)) return false;
+  const quote = parent.find((node) => (node as AstNode | undefined)?.type === "blockquote");
+  return quote ? blockquoteCitation(quote as AstNode) === null : false;
 }
 
 /** Like `astText`, but soft/hard breaks and block siblings become newlines. */

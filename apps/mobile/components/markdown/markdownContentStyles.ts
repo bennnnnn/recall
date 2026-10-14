@@ -142,7 +142,10 @@ export function makeMdStyles(t: Theme) {
     paragraphRun: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
     bullet_list: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
     ordered_list: { marginTop: 0, marginBottom: PARAGRAPH_GAP },
+    // The gap between items. The last item drops it (`lastListItem`), so the
+    // list's own gap alone ends the block.
     list_item: { marginBottom: Space.xs },
+    lastListItem: { marginBottom: 0 },
     // A list inside a list item: its item's gap already separates it.
     nestedList: { marginBottom: 0 },
     // A loose list's paragraphs: the item gap separates them, not a block gap.
@@ -212,6 +215,9 @@ export function makeMdStyles(t: Theme) {
     strong: { ...Weight.bold, color: t.text },
     em: { ...Italic.regular },
     blockquote: { marginVertical: 0, padding: 0, borderWidth: 0 },
+    // Text of an ordinary blockquote (not a quote card): quieter than the
+    // reply, same size, so the aside reads as an aside.
+    quoteText: { color: t.textSecondary },
     // Same space above (the previous block's gap) and below.
     hr: { backgroundColor: t.border, height: 1, marginTop: 0, marginBottom: PARAGRAPH_GAP },
     // Underlined, so a link never depends on color alone (WCAG 1.4.1): in dark

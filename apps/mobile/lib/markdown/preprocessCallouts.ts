@@ -1,40 +1,57 @@
 import { citationAuthor, splitTrailingAttribution } from "@/lib/richBlocks";
 
 // Title uses horizontal whitespace only; body lines are `>[^\n]*` (no ReDoS).
+// Inside a list item the marker is indented, and its body lines share that indent.
 const CALLOUT_RE =
-  /^>[ \t]*\[!(\w+)\][ \t]*([^\n]*)\n((?:>[^\n]*(?:\n|$))*)/gim;
-/** A callout card is only `> Note:` or `> Warning:`. */
+  /^([ \t]*)>[ \t]*\[!(\w+)\][ \t]*([^\n]*)\n((?:\1>[^\n]*(?:\n|$))*)/gim;
+/** A callout card is only `> Note:` or `> Warning:`, top level or inside a list item. */
 const CALLOUT_LABEL_LINE =
-  /^>[ \t]*(Note|Warning)[ \t]*:[ \t]*(.*)$/i;
+  /^([ \t]*)>[ \t]*(Note|Warning)[ \t]*:[ \t]*(.*)$/i;
 /** Any labeled blockquote ends the previous callout, even when it is not a card. */
 const LABELED_BLOCKQUOTE_LINE =
   /^>[ \t]*(Tip|Note|Warning|Important|Info|Hint)[ \t]*:/i;
 
+/** Indent every non-blank line, so a block rewritten inside a list item stays in it. */
+function indentLines(text: string, indent: string): string {
+  if (!indent) return text;
+  return text
+    .split("\n")
+    .map((line) => (line ? `${indent}${line}` : line))
+    .join("\n");
+}
+
 export function promoteCalloutBlockquotes(content: string): string {
   const lines = content.split("\n");
   const out: string[] = [];
+  let inFence = false;
   let i = 0;
   while (i < lines.length) {
-    const match = CALLOUT_LABEL_LINE.exec(lines[i] ?? "");
+    const current = lines[i] ?? "";
+    if (current.trimStart().startsWith("```")) inFence = !inFence;
+    const match = inFence ? null : CALLOUT_LABEL_LINE.exec(current);
     if (!match) {
-      out.push(lines[i] ?? "");
+      out.push(current);
       i += 1;
       continue;
     }
-    const kind = (match[1] ?? "").trim().toLowerCase();
+    // A list item's quote is indented to the item's text; every line we
+    // write keeps that indent, or markdown-it ends the list there.
+    const indent = match[1] ?? "";
+    const kind = (match[2] ?? "").trim().toLowerCase();
     const body: string[] = [];
-    const first = (match[2] ?? "").trim();
+    const first = (match[3] ?? "").trim();
     if (first) body.push(first);
     i += 1;
     while (i < lines.length) {
       const line = lines[i] ?? "";
-      if (!line.startsWith(">")) break;
-      if (LABELED_BLOCKQUOTE_LINE.test(line)) break;
-      body.push(line.replace(/^>\s?/, ""));
+      if (!line.startsWith(`${indent}>`)) break;
+      const quoted = line.slice(indent.length);
+      if (LABELED_BLOCKQUOTE_LINE.test(quoted)) break;
+      body.push(quoted.replace(/^>\s?/, ""));
       i += 1;
     }
-    out.push(`> [!${kind}]`);
-    for (const line of body) out.push(`> ${line}`);
+    out.push(`${indent}> [!${kind}]`);
+    for (const line of body) out.push(`${indent}> ${line}`);
     out.push("");
   }
   return out.join("\n");
@@ -166,6 +183,77 @@ export function promoteQuotedAttributions(content: string): string {
   return out.join("\n");
 }
 
+/** `- Name` / `– Name` on a quote line: a bullet or an en dash, then the rest. */
+const DASH_ATTRIBUTION_RE = /^[-\u2013][ \t]+(\S.*)$/u;
+/** A quote line that opens a list item: the dash line after it is the next item. */
+const LIST_ITEM_LINE_RE = /^(?:[-*+\u2013\u2014]|\d+[.)])[ \t]/u;
+const MAX_ATTRIBUTION_CHARS = 80;
+const MAX_ATTRIBUTION_NAME_WORDS = 6;
+/** Lowercase words that sit inside a capitalised name (Antoine de Saint-Exupéry). */
+const NAME_PARTICLES = new Set([
+  "al", "bin", "da", "de", "del", "della", "der", "di", "du", "ibn", "la", "le", "van", "von",
+]);
+
+/** `Steve Jobs` or `Steve Jobs, Stanford 2005`: a short capitalised name, then any source. */
+function looksLikeAttributionName(text: string): boolean {
+  if (text.length > MAX_ATTRIBUTION_CHARS) return false;
+  const name = (text.split(",")[0] ?? "").trim();
+  if (name.length < 2 || name.length > MAX_PROMOTED_AUTHOR_CHARS) return false;
+  if (/[?!:/]/.test(name)) return false;
+  const words = name.split(/\s+/);
+  if (words.length > MAX_ATTRIBUTION_NAME_WORDS) return false;
+  if (!/^\p{Lu}/u.test(words[0] ?? "")) return false;
+  return words.every((word) => !/^\p{Ll}/u.test(word) || NAME_PARTICLES.has(word));
+}
+
+/** The text after a quote line's `>` (and the one space after it). */
+function quoteLineBody(line: string, indent: string): string {
+  return line.slice(indent.length + 1).replace(/^ /, "");
+}
+
+/** The nearest non-blank line of the same quote from `from`, walking by `step`; "" past its edge. */
+function nearestQuoteText(lines: string[], from: number, step: 1 | -1, indent: string): string {
+  for (let j = from; j >= 0 && j < lines.length; j += step) {
+    const line = lines[j] ?? "";
+    if (!line.startsWith(`${indent}>`)) return "";
+    const text = quoteLineBody(line, indent).trim();
+    if (text) return text;
+  }
+  return "";
+}
+
+/**
+ * `> – Steve Jobs` / `> - Steve Jobs` closing a quote → `> — Steve Jobs`, the
+ * citation the quote card reads. markdown-it parses the hyphen form as a
+ * bullet inside the quote, so it never reached the card.
+ *
+ * Only the quote's last line, only a short capitalised name, and only after
+ * a line of quotation: a real list (`> - Eggs` / `> - Milk`, or one item
+ * after `Remember to:`) stays a list.
+ */
+export function normalizeQuoteAttributionDashes(content: string): string {
+  const lines = content.split("\n");
+  let inFence = false;
+  for (let i = 0; i < lines.length; i += 1) {
+    const line = lines[i] ?? "";
+    const trimmed = line.trimStart();
+    if (trimmed.startsWith("```")) {
+      inFence = !inFence;
+      continue;
+    }
+    if (inFence || !trimmed.startsWith(">")) continue;
+    const indent = line.slice(0, line.length - trimmed.length);
+    const dash = DASH_ATTRIBUTION_RE.exec(quoteLineBody(line, indent).trimEnd());
+    const name = dash?.[1]?.trim() ?? "";
+    if (!name || !looksLikeAttributionName(name)) continue;
+    if (nearestQuoteText(lines, i + 1, 1, indent)) continue;
+    const before = nearestQuoteText(lines, i - 1, -1, indent);
+    if (!before || before.endsWith(":") || LIST_ITEM_LINE_RE.test(before)) continue;
+    lines[i] = `${indent}> \u2014 ${name}`;
+  }
+  return lines.join("\n");
+}
+
 /** `> quote. — Author` → attribution on its own blockquote line for QuoteBlock. */
 export function splitBlockquoteInlineAttribution(content: string): string {
   const lines = content.split("\n");
@@ -182,11 +270,10 @@ export function splitBlockquoteInlineAttribution(content: string): string {
       out.push(line);
       continue;
     }
-    let prefixEnd = 0;
-    while (prefixEnd < line.length && (line[prefixEnd] === " " || line[prefixEnd] === "\t")) {
-      prefixEnd += 1;
-    }
-    prefixEnd += 1; // '>'
+    // A quote inside a list item is indented to the item's text. Lines we add
+    // keep that indent; an unindented `>` ends the list and starts a new quote.
+    const quoteMark = `${line.slice(0, line.length - trimmed.length)}>`;
+    let prefixEnd = quoteMark.length;
     if (line[prefixEnd] === " ") prefixEnd += 1;
     const body = line.slice(prefixEnd);
     if (body.startsWith("[!")) {
@@ -197,7 +284,7 @@ export function splitBlockquoteInlineAttribution(content: string): string {
     // quote. A blank line makes that citation its own author row.
     if (citationAuthor(body)) {
       const prev = out[out.length - 1]?.trim() ?? "";
-      if (prev.startsWith(">") && prev !== ">") out.push(">");
+      if (prev.startsWith(">") && prev !== ">") out.push(quoteMark);
       out.push(line);
       continue;
     }
@@ -206,9 +293,9 @@ export function splitBlockquoteInlineAttribution(content: string): string {
       out.push(line);
       continue;
     }
-    out.push(`> ${split.quote}`);
-    out.push(`>`);
-    out.push(`> — ${split.author}`);
+    out.push(`${quoteMark} ${split.quote}`);
+    out.push(quoteMark);
+    out.push(`${quoteMark} — ${split.author}`);
   }
   return out.join("\n");
 }
@@ -216,7 +303,7 @@ export function splitBlockquoteInlineAttribution(content: string): string {
 function calloutBody(title: string, body: string): string {
   const cleaned = body
     .split("\n")
-    .map((line) => line.replace(/^>\s?/, ""))
+    .map((line) => line.replace(/^[ \t]*>\s?/, ""))
     .join("\n")
     .trim();
   const heading = title.trim();
@@ -225,22 +312,22 @@ function calloutBody(title: string, body: string): string {
 }
 
 /** Tip / Important / Info / Hint alerts stay prose, not a card. */
-function plainBlockquote(text: string): string {
+function plainBlockquote(text: string, indent: string): string {
   if (!text) return "\n";
   const lines = text.split("\n").map((line) => (line.trim() ? `> ${line}` : ">"));
-  return `\n${lines.join("\n")}\n`;
+  return `\n${indentLines(lines.join("\n"), indent)}\n`;
 }
 
 export function convertCalloutBlocks(content: string): string {
   return content.replace(
     CALLOUT_RE,
-    (_match, kind: string, title: string, body: string) => {
+    (_match, indent: string, kind: string, title: string, body: string) => {
       const k = kind.trim().toLowerCase();
       const merged = calloutBody(title, body);
       if (k === "note" || k === "warning") {
-        return `\n\`\`\`callout-${k}\n${merged}\n\`\`\`\n`;
+        return `\n${indentLines(`\`\`\`callout-${k}\n${merged}\n\`\`\``, indent)}\n`;
       }
-      return plainBlockquote(merged);
+      return plainBlockquote(merged, indent);
     },
   );
 }

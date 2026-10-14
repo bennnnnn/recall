@@ -13,7 +13,6 @@ import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = {
   label: string;
-  labelContent?: ReactNode;
   copyText?: string;
   icon?: IconName;
   /** A logo or other drawing shown instead of `icon`. */
@@ -30,7 +29,6 @@ type Props = {
 
 export function CardShell({
   label,
-  labelContent,
   copyText,
   icon,
   leading,
@@ -56,7 +54,7 @@ export function CardShell({
       <View style={s.header}>
         <View style={s.labelRow}>
           {leading ?? (icon ? <Icon name={icon} size={IconSize.sm} color={iconColor} /> : null)}
-          {labelContent ?? <Text style={s.label}>{label}</Text>}
+          <Text style={s.label}>{label}</Text>
         </View>
         <View style={s.headerActions}>
           {headerActions ??

@@ -161,11 +161,14 @@ describe("MarkdownContent math rendering", () => {
     expect(queryByText(/\\sqrt|\$\\/)).toBeNull();
   });
 
-  it("typesets math in a callout title and preserves source examples in code", async () => {
+  it("typesets math on every callout line and preserves source examples in code", async () => {
     const { getAllByTestId, getByText, queryByText } = await render(
       <MarkdownContent content={'```callout-note\nExact $x^2$\nUse $\\frac{1}{2}$; code: `x_1` costs $5 and $10.\n```'} />,
     );
-    expect(getAllByTestId("rich-math-body")).toHaveLength(2);
+    // The title is the kind; both lines, math included, are the body.
+    expect(getAllByTestId("rich-math-body")).toHaveLength(1);
+    expect(getByText("Exact")).toBeOnTheScreen();
+    expect(getAllByTestId("math-script").length).toBeGreaterThanOrEqual(1);
     expect(getByText("x_1")).toBeOnTheScreen();
     expect(getByText("$5")).toBeOnTheScreen();
     expect(getByText("$10.")).toBeOnTheScreen();

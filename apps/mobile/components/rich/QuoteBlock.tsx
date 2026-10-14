@@ -41,7 +41,9 @@ function makeStyles(t: Theme) {
     wrap: {
       alignSelf: "stretch",
       backgroundColor: t.surface,
-      borderWidth: StyleSheet.hairlineWidth,
+      // A full point, not a hairline: one device pixel of `border` vanished
+      // against the page and the card read as loose text.
+      borderWidth: 1,
       borderColor: t.border,
       borderRadius: Radius.card,
       paddingHorizontal: Space.sm,

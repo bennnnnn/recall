@@ -41,7 +41,11 @@ export type Theme = {
   /** Round chrome plates — header buttons, icon wells, picker dial face. */
   control: string;
   border: string;
-  /** Hairlines between rows inside one card or menu. */
+  /**
+   * Hairlines between rows inside one card or menu. Drawn one device pixel
+   * wide, so it needs at least 1.25:1 on bg, surface and elevated to show at
+   * all; kept quieter than `border`.
+   */
   separator: string;
   /** Press feedback wash laid over any surface. */
   pressed: string;
@@ -136,7 +140,7 @@ export const lightTheme: Theme = {
   elevated: "#FFFFFF",
   control: "#F1F1F3",
   border: "#D9D9DE",
-  separator: "#EBEBED",
+  separator: "#DCDCE0",
   pressed: "rgba(17,17,19,0.06)",
 
   text: "#111113",
@@ -197,7 +201,7 @@ export const darkTheme: Theme = {
   elevated: "#242428",
   control: "#323238",
   border: "#3A3A42",
-  separator: "#2E2E34",
+  separator: "#38383F",
   pressed: "rgba(255,255,255,0.08)",
 
   text: "#F5F5F6",

@@ -1,4 +1,5 @@
 import {
+  citationAuthor,
   detectJsonRichFenceKind,
   parseEmailDraft,
   parseKeyValue,
@@ -76,6 +77,27 @@ describe("parseQuoteAttribution", () => {
       quote: "Courage is the most important of all the virtues.",
       author: "Maya Angelou",
     });
+  });
+
+  it("splits a trailing en dash line as the author", () => {
+    expect(parseQuoteAttribution("Stay hungry, stay foolish.\n– Steve Jobs")).toEqual({
+      quote: "Stay hungry, stay foolish.",
+      author: "Steve Jobs",
+    });
+  });
+});
+
+describe("citationAuthor", () => {
+  it.each([
+    ["— Steve Jobs", "Steve Jobs"],
+    ["– Steve Jobs", "Steve Jobs"],
+    ["-- Steve Jobs", "Steve Jobs"],
+  ])("reads %s as a citation", (line, author) => {
+    expect(citationAuthor(line)).toBe(author);
+  });
+
+  it("does not read a single hyphen (a bullet) as a citation", () => {
+    expect(citationAuthor("- Steve Jobs")).toBeNull();
   });
 });
 
