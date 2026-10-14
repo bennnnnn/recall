@@ -266,6 +266,9 @@ def test_lesson_hints_follow_the_chatgpt_lesson_shape(hint):
     assert "Once you get this, we'll move to" in hint
     assert "No course outline" in hint
     assert "Since you already know some Python basics" in hint
+    assert "never group lines" in hint and "Never write `>>>` prompts" in hint
+    assert "`Test it:`" in hint and "`Output:`" in hint
+    assert '"caption": "2 + 7 = 9"' in hint and "`Practice 1`" in hint
 
 
 def test_named_daily_plan_gets_every_required_label_in_order():

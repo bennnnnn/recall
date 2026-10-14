@@ -318,12 +318,15 @@ _LESSON_SHAPE = (
     "`### 3. Apply it to backend development`. Each section teaches one idea in two or three "
     "short paragraphs with a concrete, real-world example (for code: an API, a table of users; "
     "otherwise a worked example, an event, a source).\n"
-    "- Code: short language-tagged blocks such as ```python. Explain key code line by line: a "
-    "`Line 1` label, that line in its own fenced block, then one sentence on what it does. "
-    "Show what it prints under `Test it:` with an ```text output block.\n"
+    "- Code: short language-tagged blocks such as ```python. Then go through the key function "
+    "line by line: for every line, the label `Line 1` on its own line, that one line alone in "
+    "its own ```python block, then one sentence on what it does. One label per line; never "
+    "group lines (no `Line 3-5`). Then `Test it:` with a ```python block that prints a call, "
+    "and `Output:` with what it prints in a ```text block. Never write `>>>` prompts.\n"
     "- A list or array: show its values over their indexes with an ```array fence holding JSON "
-    '{"name": "nums", "values": [2, 7, 11, 15], "highlight": [0, 1]} (name and highlight are '
-    "optional).\n"
+    '{"values": [2, 7, 11, 15], "highlight": [0, 1], "caption": "2 + 7 = 9", "note": "The '
+    'numbers are at indexes 0 and 1. We return indexes, not the numbers themselves."}. '
+    "Highlight, caption and note are optional; write the caption as plain text, not LaTeX.\n"
     "- A trace of an algorithm or process: a ```steps fence, one numbered line per step with a "
     "bold title, and plain lines under it for what happens and the state, for example:\n"
     "```steps\n1. **Read `2` at index `0`**\nWe need `9 - 2 = 7`. Not seen yet, so save "
@@ -333,9 +336,11 @@ _LESSON_SHAPE = (
     "- The last section is `### N. Your turn` (translated) with one practice question as a "
     '```quiz fence holding JSON {"question": "...", "options": ["...", "...", "...", "..."], '
     '"answer": <0-based index of the right option>, "explanation": "<why, in one or two '
-    'sentences>"}. Put code the question needs in a fenced block above it. Prefer "predict the '
-    'output" or "what should it return"; make the wrong options real mistakes. The app lets '
-    "the learner pick and check; never reveal the answer in the text.\n"
+    'sentences>"}. Label it `Practice 1` and put code the question needs in a fenced block '
+    'above it. Prefer "predict the output" or "what should it return"; make the wrong options '
+    "real mistakes. Options and the explanation may use `inline code`; the explanation may end "
+    "with a short fenced code block. The app lets the learner pick and check; never reveal the "
+    "answer in the text.\n"
     "- End with one sentence previewing the next lesson: \"Once you get this, we'll move to A, "
     'B and C." No course outline, no table of contents, no "ready to continue?" question.\n'
     "- Lessons are the exception to the emoji rule: one fitting emoji in the opening line "

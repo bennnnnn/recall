@@ -5,19 +5,37 @@ import { ArrayBlock } from "@/components/rich/ArrayBlock";
 jest.mock("@/lib/i18n", () => ({
   __esModule: true,
   default: {
-    t: (key: string, args?: { index?: number }) => (args ? `${key}:${args.index}` : key),
+    t: (key: string, args?: { index?: number }) =>
+      args ? `${key}:${args.index}` : key,
   },
 }));
 
 describe("ArrayBlock", () => {
-  it("draws each value over its index", async () => {
+  it("draws each value over its index, with the caption and note under them", async () => {
     const view = await render(
-      <ArrayBlock content='{"name":"nums","values":[2,7,11,15],"highlight":[0,1]}' />,
+      <ArrayBlock
+        content={JSON.stringify({
+          name: "nums",
+          values: [2, 7, 11, 15],
+          highlight: [0, 1],
+          caption: "2 + 7 = 9",
+          note: "We return indexes, not the numbers.",
+        })}
+      />,
     );
-    expect(view.getByText("nums")).toBeTruthy();
     expect(view.getByText("11")).toBeTruthy();
     expect(view.getByText("rich.array_index:3")).toBeTruthy();
+    expect(view.getByText("2 + 7 = 9")).toBeTruthy();
+    expect(view.getByText("We return indexes, not the numbers.")).toBeTruthy();
     expect(view.getByLabelText("nums = [2, 7, 11, 15]")).toBeTruthy();
+  });
+
+  it("scrolls a long list sideways", async () => {
+    const values = Array.from({ length: 10 }, (_, i) => i);
+    const view = await render(
+      <ArrayBlock content={JSON.stringify({ values })} />,
+    );
+    expect(view.getByText("rich.array_index:9")).toBeTruthy();
   });
 
   it("draws nothing while the list is still streaming in", async () => {

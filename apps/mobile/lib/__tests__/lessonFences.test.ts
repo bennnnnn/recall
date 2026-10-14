@@ -1,5 +1,6 @@
 import {
   arrayText,
+  explanationParts,
   formatCell,
   parseArrayFence,
   parseQuizFence,
@@ -24,7 +25,9 @@ describe("parseQuizFence", () => {
     ["2", 2],
     ["`[0, 2]`", 2],
   ])("reads the answer %p as option %p", (answer, index) => {
-    expect(parseQuizFence(JSON.stringify({ ...QUIZ, answer }))?.answer).toBe(index);
+    expect(parseQuizFence(JSON.stringify({ ...QUIZ, answer }))?.answer).toBe(
+      index,
+    );
   });
 
   it.each([
@@ -47,8 +50,16 @@ describe("parseQuizFence", () => {
 
 describe("parseArrayFence", () => {
   it("reads the name, values and highlighted indexes", () => {
-    const fence = parseArrayFence('{"name":"nums","values":[2,7,11,15],"highlight":[0,1,9]}');
-    expect(fence).toEqual({ name: "nums", values: [2, 7, 11, 15], highlight: [0, 1] });
+    const fence = parseArrayFence(
+      '{"name":"nums","values":[2,7,11,15],"highlight":[0,1,9]}',
+    );
+    expect(fence).toEqual({
+      name: "nums",
+      values: [2, 7, 11, 15],
+      highlight: [0, 1],
+      caption: null,
+      note: null,
+    });
     expect(arrayText(fence!)).toBe("nums = [2, 7, 11, 15]");
   });
 
@@ -56,7 +67,9 @@ describe("parseArrayFence", () => {
     expect(formatCell("a")).toBe('"a"');
     expect(formatCell(3.5)).toBe("3.5");
     expect(formatCell(true)).toBe("true");
-    expect(arrayText(parseArrayFence('{"values":["a",null]}')!)).toBe('["a", null]');
+    expect(arrayText(parseArrayFence('{"values":["a",null]}')!)).toBe(
+      '["a", null]',
+    );
   });
 
   it.each([
@@ -66,5 +79,26 @@ describe("parseArrayFence", () => {
     ["nested", '{"values":[[1]]}'],
   ])("returns null for %s", (_, content) => {
     expect(parseArrayFence(content)).toBeNull();
+  });
+});
+
+describe("explanationParts", () => {
+  it("splits prose and fenced code in order", () => {
+    expect(
+      explanationParts(
+        "`enumerate()` gives both.\n\n```python\nprint(1)\n```\n\nThen 1 prints.",
+      ),
+    ).toEqual([
+      { kind: "text", text: "`enumerate()` gives both." },
+      { kind: "code", lang: "python", code: "print(1)" },
+      { kind: "text", text: "Then 1 prints." },
+    ]);
+  });
+
+  it("keeps plain prose whole", () => {
+    expect(explanationParts("Only 6 and 8.")).toEqual([
+      { kind: "text", text: "Only 6 and 8." },
+    ]);
+    expect(explanationParts("")).toEqual([]);
   });
 });

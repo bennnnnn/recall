@@ -1,19 +1,19 @@
-import { useMemo, useState } from "react";
+import { type ComponentProps, useMemo, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
-import { RichBodyText } from "@/components/rich/RichBodyText";
+import { CodeBlock } from "@/components/CodeBlock";
 import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
+import { CODE_FONT } from "@/lib/fonts";
 import { notifySuccess, notifyWarning, selection } from "@/lib/haptics";
 import i18n from "@/lib/i18n";
 import { isUnfinishedJson } from "@/lib/jsonFence";
-import { parseQuizFence } from "@/lib/lesson/lessonFences";
+import { explanationParts, parseQuizFence } from "@/lib/lesson/lessonFences";
+import { parseInlineMarkdown } from "@/lib/markdown/inlineMarkdown";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
-import { Type, Weight } from "@/lib/type";
+import { Italic, Type, Weight } from "@/lib/type";
 import { Button } from "@/ui/controls/Button";
-import { Icon } from "@/ui/icons/Icon";
-import { IconSize } from "@/ui/icons/sizes";
 
 type Props = { content: string };
 type Attempt = { picked: number | null; checked: boolean };
@@ -49,68 +49,119 @@ export function QuizCard({ content }: Props) {
     else notifyWarning();
     save({ ...attempt, checked: true });
   };
-  const correct = attempt.checked && attempt.picked === quiz.answer;
+  const correct = attempt.picked === quiz.answer;
+  const parts = explanationParts(quiz.explanation);
+  // The verdict opens the first paragraph: "Not quite. enumerate() gives you …"
+  const lead = parts[0]?.kind === "text" ? parts[0].text : null;
+  const rest = lead === null ? parts : parts.slice(1);
 
   return (
     <View style={s.card} testID="quiz-card">
-      <RichBodyText style={s.question}>{quiz.question}</RichBodyText>
-      <View style={s.options} accessibilityRole="radiogroup">
+      <ChipText style={s.question} chip={s.chip}>
+        {quiz.question}
+      </ChipText>
+      <View accessibilityRole="radiogroup">
         {quiz.options.map((option, index) => {
           const picked = attempt.picked === index;
-          const isAnswer = attempt.checked && index === quiz.answer;
-          const missed = attempt.checked && picked && !isAnswer;
           return (
             <Pressable
               key={`${index}:${option}`}
               onPress={() => pick(index)}
               accessibilityRole="radio"
               accessibilityState={{ checked: picked }}
-              style={({ pressed }) => [
-                s.option,
-                picked && s.optionPicked,
-                isAnswer && s.optionRight,
-                missed && s.optionWrong,
-                pressed && s.optionPressed,
-              ]}
+              style={({ pressed }) => [s.option, pressed && s.pressed]}
             >
-              <View
-                style={[
-                  s.mark,
-                  picked && s.markPicked,
-                  isAnswer && s.markRight,
-                  missed && s.markWrong,
-                ]}
-              >
-                {isAnswer ? (
-                  <Icon name="check" size={IconSize.xxs} color={theme.bg} />
-                ) : missed ? (
-                  <Icon name="close" size={IconSize.xxs} color={theme.bg} />
-                ) : null}
+              <View style={[s.radio, picked && s.radioPicked]}>
+                {picked ? <View style={s.radioDot} /> : null}
               </View>
-              <RichBodyText style={s.optionText}>{option}</RichBodyText>
+              <ChipText style={s.optionText} chip={s.chip}>
+                {option}
+              </ChipText>
             </Pressable>
           );
         })}
       </View>
+      <Button
+        title={i18n.t("rich.quiz_check")}
+        onPress={check}
+        disabled={attempt.picked === null || attempt.checked}
+      />
       {attempt.checked ? (
         <View style={s.result} accessibilityLiveRegion="polite">
-          <Text style={[s.verdict, { color: correct ? theme.success : theme.danger }]}>
-            {correct ? i18n.t("rich.quiz_correct") : i18n.t("rich.quiz_wrong")}
+          <Text style={s.explanation}>
+            <Text style={s.verdict}>
+              {correct
+                ? i18n.t("rich.quiz_correct")
+                : i18n.t("rich.quiz_wrong")}
+            </Text>
+            {lead ? " " : null}
+            {lead ? <ChipSpans text={lead} chip={s.chip} /> : null}
           </Text>
-          {quiz.explanation ? (
-            <RichBodyText style={s.explanation}>{quiz.explanation}</RichBodyText>
-          ) : null}
+          {rest.map((part, index) =>
+            part.kind === "code" ? (
+              <CodeBlock key={index} code={part.code} lang={part.lang} />
+            ) : (
+              <ChipText key={index} style={s.explanation} chip={s.chip}>
+                {part.text}
+              </ChipText>
+            ),
+          )}
         </View>
-      ) : (
-        <Button
-          title={i18n.t("rich.quiz_check")}
-          onPress={check}
-          size="sm"
-          disabled={attempt.picked === null}
-          style={s.check}
-        />
-      )}
+      ) : null}
     </View>
+  );
+}
+
+type TextStyleProp = ComponentProps<typeof Text>["style"];
+
+/** Inline markdown with `code` drawn as a gray chip, as in ChatGPT's quiz. */
+function ChipText({
+  children,
+  style,
+  chip,
+}: {
+  children: string;
+  style: TextStyleProp;
+  chip: TextStyleProp;
+}) {
+  return (
+    <Text style={style}>
+      <ChipSpans text={children} chip={chip} />
+    </Text>
+  );
+}
+
+function ChipSpans({ text, chip }: { text: string; chip: TextStyleProp }) {
+  const tokens = useMemo(() => parseInlineMarkdown(text), [text]);
+  if (tokens.length === 0) return <>{text}</>;
+  return (
+    <>
+      {tokens.map((token, index) => {
+        if (token.type === "code") {
+          // Thin spaces pad the chip; nested Text takes no padding.
+          return (
+            <Text key={index} style={chip}>
+              {` ${token.value} `}
+            </Text>
+          );
+        }
+        if (token.type === "bold") {
+          return (
+            <Text key={index} style={Weight.bold}>
+              {token.value}
+            </Text>
+          );
+        }
+        if (token.type === "italic") {
+          return (
+            <Text key={index} style={Italic.regular}>
+              {token.value}
+            </Text>
+          );
+        }
+        return token.value;
+      })}
+    </>
   );
 }
 
@@ -118,47 +169,55 @@ function makeStyles(t: Theme) {
   return StyleSheet.create({
     card: {
       marginBottom: PARAGRAPH_GAP,
-      padding: Space.md,
+      paddingHorizontal: Space.md,
+      paddingTop: Space.md,
+      paddingBottom: Space.lg,
       gap: Space.sm,
-      borderRadius: Radius.card,
+      borderRadius: Radius.menu,
       borderWidth: StyleSheet.hairlineWidth,
       borderColor: t.border,
       backgroundColor: t.bg,
     },
     question: { ...Type.body, ...Weight.semibold, color: t.text },
-    options: { gap: Space.xs },
     option: {
       flexDirection: "row",
       alignItems: "center",
       gap: Space.sm,
       minHeight: 44,
-      paddingVertical: Space.xs,
-      paddingHorizontal: Space.sm,
-      borderRadius: Radius.md,
-      borderWidth: 1,
-      borderColor: t.border,
+      paddingVertical: Space.xxs,
     },
-    optionPicked: { borderColor: t.primary, backgroundColor: t.primaryLight },
-    optionRight: { borderColor: t.success, backgroundColor: t.successLight },
-    optionWrong: { borderColor: t.danger, backgroundColor: t.dangerLight },
-    optionPressed: { opacity: 0.7 },
-    mark: {
-      width: 20,
-      height: 20,
+    pressed: { opacity: 0.6 },
+    radio: {
+      width: 22,
+      height: 22,
       borderRadius: Radius.full,
       borderWidth: 1.5,
       borderColor: t.textSecondary,
       alignItems: "center",
       justifyContent: "center",
     },
-    markPicked: { borderColor: t.primary, borderWidth: 6 },
-    markRight: { borderColor: t.success, backgroundColor: t.success, borderWidth: 0 },
-    markWrong: { borderColor: t.danger, backgroundColor: t.danger, borderWidth: 0 },
+    radioPicked: { borderColor: t.text, backgroundColor: t.text },
+    radioDot: {
+      width: 8,
+      height: 8,
+      borderRadius: Radius.full,
+      backgroundColor: t.bg,
+    },
     optionText: { flex: 1, ...Type.body, color: t.text },
-    check: { alignSelf: "flex-start" },
-    result: { gap: Space.xxs },
-    verdict: { ...Type.body, ...Weight.bold },
+    // Same size as inline code in replies, on a gray chip.
+    chip: {
+      ...Type.secondary,
+      fontFamily: CODE_FONT,
+      color: t.text,
+      backgroundColor: t.surfaceAlt,
+    },
+    result: { gap: Space.sm, paddingHorizontal: Space.xxs },
+    verdict: { ...Weight.bold, color: t.text },
     explanation: { ...Type.body, color: t.text },
-    error: { ...Type.secondary, color: t.textSecondary, marginBottom: PARAGRAPH_GAP },
+    error: {
+      ...Type.secondary,
+      color: t.textSecondary,
+      marginBottom: PARAGRAPH_GAP,
+    },
   });
 }
