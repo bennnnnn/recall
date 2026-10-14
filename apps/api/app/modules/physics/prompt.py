@@ -11,6 +11,7 @@ from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.solving import VerifiedPhysicsBlock, wrap_verified_physics
+from app.services.workout import WORKOUT_PARTS_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -23,7 +24,7 @@ def _unverified_physics_note() -> str:
         "Never end on the Answer heading. If there is no unique result, say "
         "what is missing instead of leaving Answer blank. Do not emit answer, "
         "graph, or simulation fences.\n\n"
-        f"{PHYSICS_REPLY_POLICY}\n\n"
+        f"{PHYSICS_REPLY_POLICY} {WORKOUT_PARTS_PROMPT}\n\n"
         "No verified numbers were produced for this request, so the copy-verified "
         "rule does not apply. Compute the result and write it under Answer."
     )

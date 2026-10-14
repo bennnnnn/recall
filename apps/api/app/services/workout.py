@@ -170,6 +170,16 @@ _WORKOUT_SECTION_LINES = (
     "Put each heading on its own line with its lines directly under it: one state per "
     "line, no blank line inside a section, one blank line between sections."
 )
+_WORKOUT_PARTS = (
+    "A question in parts: one **Given** for the whole question, then for each part a bold "
+    "label alone on its line naming its letter and what it finds (`**(a) Acceleration**`), "
+    "followed by that part's **Formula**, **Substitution** and **Answer**, with no **Find** "
+    "under a part; a later part may use an earlier part's answer as a given."
+)
+_WORKOUT_UNITS = (
+    "Write units upright inside math (`$m = 5\\ \\text{kg}$`), never as italic letters "
+    "(`$m = 5 kg$`)."
+)
 _WORKOUT_ONE_EXPRESSION = (
     "Trivial one-step arithmetic is one line with no headings. Write an expression once: "
     "`$\\frac{6!}{4!} = \\frac{720}{24}$`, then the result alone as the answer, never "
@@ -182,7 +192,8 @@ WORKOUT_PROMPT_RULE = (
     f"to show: {_WORKOUT_SECTIONS} or **Steps** (an equation changed one move at a time), "
     f"then **Answer**. {_WORKOUT_SECTION_LINES} Write a move as a short note after its "
     "line, e.g. `$2x = 8$ — subtract 3 from both sides`. No numbered steps, no separate "
-    f"Simplify lines, no prose between lines. {_WORKOUT_ONE_EXPRESSION}"
+    f"Simplify lines, no prose between lines. {_WORKOUT_PARTS} {_WORKOUT_UNITS} "
+    f"{_WORKOUT_ONE_EXPRESSION}"
 )
 
 # What the model is told for a maths reply it writes itself: numbered moves, as the
@@ -197,7 +208,7 @@ MATH_WORKOUT_PROMPT_RULE = (
     "then `$4x = -4$`; next `**2. Divide both sides by 4**`, "
     "`$\\frac{4x}{4} = \\frac{-4}{4}$`, then `$x = -1$`. A simplification is the last line "
     "of its move, never a number of its own. One blank line between numbered moves, no "
-    f"prose between lines. {_WORKOUT_ONE_EXPRESSION}"
+    f"prose between lines. {_WORKOUT_PARTS} {_WORKOUT_ONE_EXPRESSION}"
 )
 
 # The same rule in one sentence, for hints with a tight character budget.
@@ -206,3 +217,7 @@ WORKOUT_PROMPT_SHORT = (
     "or **Steps**, **Answer**; one state per line, the move as a short note after it "
     "(`$2x = 8$ — subtract 3`); no numbered steps."
 )
+
+# Questions in parts and upright units, for a reply the model writes with no
+# verified block to copy (the short rule above has no room for them).
+WORKOUT_PARTS_PROMPT = f"{_WORKOUT_PARTS} {_WORKOUT_UNITS}"

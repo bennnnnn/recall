@@ -55,7 +55,7 @@ import { Space } from "@/lib/space";
 import { DYNAMIC_TYPE_MAX, Italic, Type, Weight } from "@/lib/type";
 import { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/preprocess";
 import { isHeavyInlineMath } from "@/lib/math/fenceRetag";
-import { splitWorkoutNote, workoutHeading } from "@/lib/markdown/workoutSection";
+import { splitWorkoutNote, workoutHeading, workoutPart } from "@/lib/markdown/workoutSection";
 import {
   latexHasNestedMathView,
   mathRunLineHeight,
@@ -252,6 +252,142 @@ function workoutSectionParts(node: AstNode): { heading: string; lines: string[] 
     .map((line) => line.trim())
     .filter(Boolean);
   return lines.length ? { heading, lines } : null;
+}
+
+/** A part label alone on its line in bold: ``**(a) Acceleration**``. */
+function workoutPartParts(node: AstNode): { letter: string; title: string } | null {
+  const kids = unwrapSingle(node).children ?? [];
+  const strong = openingStrong(kids[0]);
+  if (!strong) return null;
+  if (kids.slice(1).some((kid) => astTextWithBreaks(kid).trim())) return null;
+  return workoutPart(astText(strong));
+}
+
+/** Prose and ``$...$`` math in one wrapping run, every piece in one colour. */
+function workoutInline(
+  text: string,
+  keyPrefix: string,
+  textStyle: StyleProp<TextStyle>,
+  color: string,
+  tickColor?: string,
+): ReactNode[] {
+  return splitInlineMath(text).map((part, i) =>
+    part.type === "math" ? (
+      <MathText scrollOverflow key={`${keyPrefix}-m-${i}`} latex={part.value} textColor={color} />
+    ) : (
+      <Text key={`${keyPrefix}-t-${i}`} style={textStyle} selectable>
+        {tickColor ? withGreenTicks(part.value, tickColor, `${keyPrefix}-${i}`) : part.value}
+      </Text>
+    ),
+  );
+}
+
+/**
+ * A worked-solution section. The heading stays at the margin; its lines are
+ * indented behind a thin rule so each section reads as one block of work.
+ * Given values share a row, a move's note sits at the right edge, and a
+ * written-out answer sits in a tinted box. A verified answer is its own
+ * ```answer card and never reaches here.
+ */
+function renderWorkoutSection(
+  key: string,
+  section: { heading: string; lines: string[] },
+  styles: StyleMap,
+  t: Theme,
+): React.ReactElement {
+  const body = [styles.body, styles.text, { color: t.assistantText }];
+  const noteStyle = [styles.text, { ...Type.secondary, color: t.textSecondary }];
+  const given = section.heading === "Given";
+  const answer = section.heading === "Answer";
+  const lines = section.lines.map((line, index) => {
+    const { state, note } = splitWorkoutNote(line);
+    const lineKey = `${key}-line-${index}`;
+    return (
+      <View
+        key={lineKey}
+        testID="workout-line"
+        style={{
+          flexDirection: "row",
+          flexWrap: "wrap",
+          alignItems: "center",
+          columnGap: Space.sm,
+          rowGap: Space.xxs,
+        }}
+      >
+        <View
+          style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center", flexShrink: 1 }}
+        >
+          {workoutInline(state, `${lineKey}-state`, body, t.assistantText, t.success)}
+        </View>
+        {note ? (
+          <View
+            testID="workout-note"
+            style={{
+              // Pushed to the right edge; on its own line when the row is full.
+              marginLeft: given ? 0 : "auto",
+              flexDirection: "row",
+              flexWrap: "wrap",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              flexShrink: 1,
+            }}
+          >
+            {workoutInline(note, `${lineKey}-note`, noteStyle, t.textSecondary, t.success)}
+          </View>
+        ) : null}
+      </View>
+    );
+  });
+  return (
+    <View key={key} testID="workout-section" style={[styles.paragraphRun, { gap: Space.xs }]}>
+      <Text
+        testID="workout-heading"
+        style={[styles.body, styles.text, { ...Weight.semibold, color: t.assistantText }]}
+      >
+        {section.heading}
+      </Text>
+      <View
+        testID="workout-body"
+        style={{
+          marginLeft: Space.xxs,
+          paddingLeft: Space.sm,
+          borderLeftWidth: 2,
+          borderLeftColor: t.separator,
+          gap: Space.xs,
+        }}
+      >
+        {answer ? (
+          <View
+            testID="workout-answer"
+            style={{
+              backgroundColor: t.accentLight,
+              borderRadius: Radius.md,
+              paddingVertical: Space.sm,
+              paddingHorizontal: Space.md,
+              gap: Space.xs,
+            }}
+          >
+            {lines}
+          </View>
+        ) : given ? (
+          <View
+            testID="workout-given"
+            style={{
+              flexDirection: "row",
+              flexWrap: "wrap",
+              alignItems: "center",
+              columnGap: Space.gutter,
+              rowGap: Space.xs,
+            }}
+          >
+            {lines}
+          </View>
+        ) : (
+          lines
+        )}
+      </View>
+    </View>
+  );
 }
 
 /**
@@ -711,57 +847,49 @@ function makeSharedRules(
       }
       const section = workoutSectionParts(node);
       if (section) {
-        const inline = (text: string, keyPrefix: string, color: string) =>
-          splitInlineMath(text).map((part, i) =>
-            part.type === "math" ? (
-              <MathText
-                scrollOverflow
-                key={`${keyPrefix}-m-${i}`}
-                latex={part.value}
-                textColor={color}
-              />
-            ) : (
-              <Text
-                key={`${keyPrefix}-t-${i}`}
-                style={[styles.body, styles.text, { color }]}
-                selectable
-              >
-                {withGreenTicks(part.value, t.success, `${keyPrefix}-${i}`)}
-              </Text>
-            ),
-          );
+        return renderWorkoutSection(node.key, section, styles, t);
+      }
+      const part = workoutPartParts(node);
+      if (part) {
         return (
-          <View key={node.key} testID="workout-section" style={[styles.paragraphRun, { gap: Space.xxs }]}>
-            <Text
-              testID="workout-heading"
-              style={[styles.body, styles.text, { ...Weight.semibold, color: t.assistantText }]}
+          <View
+            key={node.key}
+            testID="workout-part"
+            style={[
+              styles.paragraphRun,
+              { flexDirection: "row", alignItems: "center", gap: Space.xs },
+            ]}
+          >
+            <View
+              style={{
+                // A pill once large text makes the letter wider than 22pt.
+                minWidth: 22,
+                minHeight: 22,
+                paddingHorizontal: Space.xxs,
+                borderRadius: Radius.full,
+                backgroundColor: t.accentLight,
+                alignItems: "center",
+                justifyContent: "center",
+              }}
             >
-              {section.heading}
-            </Text>
-            {section.lines.map((line, index) => {
-              const { state, note } = splitWorkoutNote(line);
-              const key = `${node.key}-line-${index}`;
-              return (
-                <View
-                  key={key}
-                  testID="workout-line"
-                  style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}
-                >
-                  {inline(state, `${key}-state`, t.assistantText)}
-                  {note ? (
-                    <View
-                      testID="workout-note"
-                      style={{ flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}
-                    >
-                      <Text style={[styles.body, styles.text, { color: t.textSecondary }]}>
-                        {"  — "}
-                      </Text>
-                      {inline(note, `${key}-note`, t.textSecondary)}
-                    </View>
-                  ) : null}
-                </View>
-              );
-            })}
+              <Text
+                style={{ ...Type.caption, ...Weight.bold, color: t.accent }}
+                maxFontSizeMultiplier={DYNAMIC_TYPE_MAX}
+              >
+                {part.letter}
+              </Text>
+            </View>
+            <View
+              testID="workout-part-title"
+              style={{ flex: 1, flexDirection: "row", flexWrap: "wrap", alignItems: "center" }}
+            >
+              {workoutInline(
+                part.title,
+                `${node.key}-part`,
+                [styles.body, styles.text, { ...Weight.semibold, color: t.accent }],
+                t.accent,
+              )}
+            </View>
           </View>
         );
       }
