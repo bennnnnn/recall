@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.circuit_scenes import circuit_scene
 from app.modules.physics.solvers.common import (
     _EPSILON_0,
     _RESISTOR_KEY_RE,
@@ -22,7 +24,12 @@ def solve_circuit(intent: PhysicsIntent) -> PhysicsResult:
     solver = _OPERATIONS.get(op)
     if solver is None:
         raise SolveServiceError(f"unsupported circuit op: {op}")
-    return solver(intent, p)
+    result = solver(intent, p)
+    if result.quantities and not result.simulation_specs:
+        scene = circuit_scene(op, p, result.quantities[0].value)
+        if scene:
+            result = replace(result, simulation_specs=scene)
+    return result
 
 
 def _parallel_plate_capacitance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:

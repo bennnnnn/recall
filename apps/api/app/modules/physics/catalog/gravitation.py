@@ -4,6 +4,23 @@ from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
+# What stands on the planet: the stated mass is this, never the planet's own.
+_SMALL_BODY = (
+    "mass",
+    "object",
+    "body",
+    "person",
+    "man",
+    "woman",
+    "student",
+    "ball",
+    "rock",
+    "box",
+    "block",
+    "astronaut",
+    "apple",
+)
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "orbital_speed_radius",
@@ -217,6 +234,33 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
             result=("meter / second ** 2",),
             inputs=(frozenset({"M", "radius_body"}),),
+            nonnegative=True,
+        ),
+    ),
+    # F = GMm/R^2 at a named body's surface: the weight, from the law itself.
+    formula(
+        "gravitational_force_at_surface",
+        "gravitation",
+        "Newton's law of gravitation",
+        "F",
+        base_latex=r"F = \frac{G M m}{R^2}",
+        expression="G_grav*M*m/radius_body**2",
+        variables=(
+            var("M", "M", "kilogram", fallback="body_mass"),
+            var("radius_body", "R", "meter", fallback="body_radius"),
+            var("m", "m", "kilogram", words=_SMALL_BODY),
+        ),
+        binding=Binding(
+            asks=(
+                "gravitational force",
+                "force of gravity",
+                "gravitational pull",
+                "gravitational attraction",
+            ),
+            result=("newton",),
+            inputs=(frozenset({"M", "radius_body", "m"}),),
+            cues=("surface",),
+            excludes=("orbit", "above", "altitude", "height of"),
             nonnegative=True,
         ),
     ),

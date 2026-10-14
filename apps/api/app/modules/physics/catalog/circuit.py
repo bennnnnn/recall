@@ -256,4 +256,37 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # E = P t over a stated number of days: hours a day times days.
+    formula(
+        "energy_over_days",
+        "circuit",
+        "Electrical energy",
+        "E",
+        base_latex=r"E = P \, t_{\text{day}} \, n_{\text{days}}",
+        expression="P*t_daily*(period/86400)",
+        variables=(
+            var("P", "P", "watt"),
+            var(
+                "t_daily",
+                r"t_{\text{day}}",
+                "second",
+                words=("a day", "per day", "each day", "every day", "daily"),
+                needs_words=True,
+            ),
+            var("period", r"n_{\text{days}}", "second"),
+        ),
+        binding=Binding(
+            asks=(
+                "energy",
+                "how much energy",
+                "electrical energy",
+                "energy used",
+                "energy does it use",
+            ),
+            result=("joule",),
+            inputs=(frozenset({"P", "t_daily", "period"}),),
+            cues=("a day", "per day", "each day", "every day", "daily"),
+            nonnegative=True,
+        ),
+    ),
 )

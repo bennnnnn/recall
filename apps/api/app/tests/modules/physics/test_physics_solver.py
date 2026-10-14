@@ -30,18 +30,15 @@ def test_kinematics_time_to_ground() -> None:
     # t = sqrt(2*20/9.81) ≈ 2.02 s
     expected = math.sqrt(2 * 20 / 9.81)
     assert abs(result.quantities[0].value - expected) < 0.01
-    assert len(result.graph_specs) == 1
-    spec = result.graph_specs[0]
-    assert spec.type == "trajectory"
-    assert spec.trajectory_type == "position_vs_time"
-    assert spec.x_label == "Time (s)"
-    assert spec.y_label == "Height (m)"
-    # First point is at t=0, h=20. The last point is the landing itself,
-    # not a sample past it.
-    assert spec.points[0] == [0.0, 20.0]
-    assert spec.x_max == pytest.approx(expected)
-    assert spec.points[-1][0] == pytest.approx(expected, abs=1e-4)
-    assert spec.points[-1][1] == 0.0
+    # One picture: the drop from its ledge, not a height-time curve beside it.
+    assert result.graph_specs == []
+    (scene,) = result.simulation_specs
+    assert scene.title_key == "free_fall" and scene.ground
+    body = scene.bodies[0]
+    # From 20 m to the landing itself, not a sample past it.
+    assert body.path[0][1] == pytest.approx(20.0 + body.radius)
+    assert body.path[-1][1] == pytest.approx(body.radius)
+    assert [vector.label for vector in scene.vectors] == ["h = 20 m"]
 
 
 def test_kinematics_time_to_ground_derivation_includes_initial_velocity() -> None:
@@ -74,8 +71,9 @@ def test_kinematics_vertical_launch_maximum_height() -> None:
     assert result.answer_value == "20.4 m"
     assert r"h_{\max}" in result.answer
     assert r"\frac{20^{2}}{2 \cdot 9.81}" in result.answer
-    assert len(result.graph_specs) == 1
-    assert max(point[1] for point in result.graph_specs[0].points) == pytest.approx(20.387, 0.001)
+    (scene,) = result.simulation_specs
+    body = scene.bodies[0]
+    assert max(y for _, y in body.path) - body.radius == pytest.approx(20.387, 0.001)
 
 
 def test_kinematics_velocity_op() -> None:
@@ -206,16 +204,12 @@ def test_projectile_range_45_degrees() -> None:
     # R = v0^2 * sin(2*45) / g = 225 * 1 / 9.81 ≈ 22.94 m
     expected = 15.0**2 * math.sin(math.radians(90)) / 9.81
     assert abs(result.quantities[0].value - expected) < 0.01
-    assert len(result.graph_specs) == 1
-    spec = result.graph_specs[0]
-    assert spec.type == "trajectory"
-    assert spec.trajectory_type == "parametric"
-    assert spec.x_label == "Distance (m)"
-    assert spec.y_label == "Height (m)"
-    # First point at origin
-    assert spec.points[0] == [0.0, 0.0]
-    # Last point at ground
-    assert spec.points[-1][1] == 0.0
+    assert result.graph_specs == []
+    (scene,) = result.simulation_specs
+    body = scene.bodies[0]
+    # From the origin to the ground, resting on it.
+    assert body.path[0] == [0.0, body.radius]
+    assert body.path[-1][1] == pytest.approx(body.radius)
 
 
 def test_projectile_range_from_cliff_uses_quadratic_tof() -> None:
@@ -231,8 +225,9 @@ def test_projectile_range_from_cliff_uses_quadratic_tof() -> None:
     # Vacuum formula is ~35.31 m; cliff quadratic TOF is ~48 m.
     assert range_m > 40.0
     assert abs(range_m - 48.0) < 1.5
-    assert result.graph_specs[0].points[0][1] == 10.0
-    assert result.graph_specs[0].points[-1][1] == 0.0
+    body = result.simulation_specs[0].bodies[0]
+    assert body.path[0][1] == pytest.approx(10.0 + body.radius)
+    assert body.path[-1][1] == pytest.approx(body.radius)
 
 
 def test_projectile_max_height() -> None:

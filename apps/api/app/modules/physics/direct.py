@@ -52,7 +52,8 @@ def _expected_trajectory_type(intent: PhysicsIntent) -> str:
     drops the whole direct reply, which is the harder failure to notice.
     """
     if intent.kind == "projectile":
-        return "parametric"
+        # One labelled scene, no graph: a trajectory fence here is not the solver's.
+        return ""
     if intent.kind == "suvat":
         if intent.physics_op == "suvat_distance" or (
             intent.physics_op == "suvat_time" and "d" in (intent.physics_params or {})
@@ -61,7 +62,10 @@ def _expected_trajectory_type(intent: PhysicsIntent) -> str:
         return "velocity_vs_time"
     if intent.physics_op in ("velocity", "speed"):
         return "velocity_vs_time"
-    return "position_vs_time"
+    if intent.kind in ("spring", "oscillations"):
+        return "position_vs_time"
+    # A fall is drawn as its scene; the height-time curve is gone.
+    return ""
 
 
 def can_direct_physics(
@@ -109,7 +113,8 @@ def can_direct_physics(
             for key in ("x_min", "x_max")
         )
         and fence["x_min"] < fence["x_max"]
-        and fence.get("trajectory_type") == _expected_trajectory_type(actual)
+        and bool(expected := _expected_trajectory_type(actual))
+        and fence.get("trajectory_type") == expected
     )
 
 

@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import math
 
-from app.modules.math.schemas import GraphBlockSpec
-from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationBody
+from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
@@ -17,6 +16,7 @@ from app.modules.physics.solvers.common import (
     _params_in_si,
     gravity_of,
 )
+from app.modules.physics.solvers.motion_scenes import projectile_scene
 from app.services.solving import SolveServiceError
 
 
@@ -171,7 +171,7 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
     else:
         raise SolveServiceError(f"unsupported projectile op: {op}")
 
-    # Build trajectory graph: parametric (x(t), y(t)) from t=0 to t=t_flight.
+    # The solved path: (x(t), y(t)) from t = 0 to the landing.
     n_points = 100
     dt = t_flight / (n_points - 1)
     points: list[list[float]] = []
@@ -183,50 +183,13 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             yi = 0.0
         points.append([xi, float(yi)])
 
-    flat = f"x*tan({math.degrees(theta):.1f} deg) - g*x^2/(2*v0^2*cos^2(theta))"
-    expr = f"y(x) = {h0:g} + {flat}" if h0 > 0 else f"y(x) = {flat}"
-    graph_spec = GraphBlockSpec(
-        type="trajectory",
-        expr=expr,
-        variable="x",
-        x_min=0.0,
-        x_max=max(points[-1][0] * 1.05, max(point[1] for point in points) * 0.05, 1e-12),
-        points=points,
-        title="Projectile Trajectory",
-        x_label="Distance (m)",
-        y_label="Height (m)",
-        trajectory_type="parametric",
-    )
-
-    # The same samples, as a scene rather than a plot. The graph answers "what
-    # shape is the path"; this answers "what is moving, and what is pulling on
-    # it" — and they share one array, so the ball cannot be somewhere the
-    # curve is not.
-    peak = max(point[1] for point in points)
-    span = points[-1][0]
-    radius = max(span, peak) * 0.025 or 0.1
-    # The ball rests on the ground rather than half sunk in it: its centre
-    # rides one radius above the path the graph plots.
-    lifted = [[x, y + radius] for x, y in points]
-    scene = SimulationBlockSpec(
-        type="projectile_motion",
-        title="Projectile",
-        bodies=[SimulationBody(path=lifted, radius=radius)],
-        x_min=0.0,
-        x_max=max(span * 1.05, peak * 0.25, 1e-12),
-        y_min=0.0,
-        # Headroom so the gravity arrow at the apex is not clipped by the top.
-        # Relative to the throw: a floor of 1 m left a 2 cm flick as a smear
-        # at the bottom of an empty box.
-        y_max=max(peak * 1.25, span * 0.25) + 2 * radius,
-        arrows=["velocity", "gravity"],
-        ground=True,
-    )
+    # One picture: the arc with its range, height and launch angle on it. A
+    # trajectory graph beside it plotted the same samples a second time.
+    scene = projectile_scene(points, v0, theta, h0, t_flight)
     return PhysicsResult(
         answer=answer_latex,
         quantities=(quantity,),
         formulas=formulas,
         substitutions=substitutions,
-        graph_specs=[graph_spec],
         simulation_specs=[scene],
     )

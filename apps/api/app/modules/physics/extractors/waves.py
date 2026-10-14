@@ -120,6 +120,8 @@ def _extract_waves_intent(cleaned: str) -> PhysicsIntent | None:
             # An unnamed harmonic is not automatically the fundamental.
             return None
         mode_factor = 4.0 if "closed pipe" in lower else 2.0
+        # Only the scene reads it: a pipe draws as a tube, a string with clamped ends.
+        pipe = {"pipe": 1.0} if "pipe" in lower else {}
         return PhysicsIntent(
             kind="waves",
             physics_op="resonance_frequency",
@@ -128,12 +130,14 @@ def _extract_waves_intent(cleaned: str) -> PhysicsIntent | None:
                 "L": length[0],
                 "harmonic": harmonic,
                 "mode_factor": mode_factor,
+                **pipe,
             },
             physics_units={
                 "v_wave": speed[1] or "m/s",
                 "L": length[1] or "m",
                 "harmonic": "",
                 "mode_factor": "",
+                **dict.fromkeys(pipe, ""),
             },
             operation="solve",
         )

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import math
 from collections.abc import Callable
+from dataclasses import replace
 
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.common import (
@@ -14,6 +15,7 @@ from app.modules.physics.solvers.common import (
     QuantityResult,
     _params_in_si,
 )
+from app.modules.physics.solvers.optics_scenes import optics_scene
 from app.services.solving import SolveServiceError
 
 _REFLECTION_OPS = frozenset(
@@ -62,13 +64,21 @@ def _reflection(intent: PhysicsIntent) -> PhysicsResult:
 
 def solve_optics(intent: PhysicsIntent) -> PhysicsResult:
     op = intent.physics_op or ""
+    p: dict[str, float] = {}
     if op in _REFLECTION_OPS:
-        return _reflection(intent)
-    p = _params_in_si(intent)
-    solver = _OPERATIONS.get(op)
-    if solver is None:
-        raise SolveServiceError(f"unsupported optics op: {op}")
-    return solver(intent, p)
+        result = _reflection(intent)
+    else:
+        p = _params_in_si(intent)
+        solver = _OPERATIONS.get(op)
+        if solver is None:
+            raise SolveServiceError(f"unsupported optics op: {op}")
+        result = solver(intent, p)
+    if result.quantities and not result.simulation_specs:
+        quantity = result.quantities[0]
+        scene = optics_scene(op, p, intent.physics_params or {}, quantity.unit, quantity.value)
+        if scene:
+            result = replace(result, simulation_specs=scene)
+    return result
 
 
 def _lens_power(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:

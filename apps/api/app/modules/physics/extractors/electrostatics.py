@@ -31,8 +31,17 @@ _ELECTROSTATICS_CUES = (
 )
 
 _TWO_CHARGES_RE = re.compile(r"\btwo\s+(?:point\s+)?charges?\b", re.IGNORECASE)
+# "two 1 µC charges", "two identical 2 nC charges": one value, said of both.
+_TWO_EQUAL_CHARGES_RE = re.compile(
+    r"\btwo\s+(?:(?:identical|equal|like|similar)\s+)?"
+    r"(?:(?:identical|equal|like|similar)\s+)?"
+    r"[-+]?\d[\d.,]*(?:\s*(?:\u00d7|x|\*)\s*10\s*\^?\s*[-\u2212]?\d+)?\s*"
+    r"(?:[µμunmp]|micro|nano|milli|pico)?\s*c(?:oulombs?)?\s+(?:point\s+)?charges?\b"
+    r"|\btwo\s+(?:identical|equal)\s+(?:point\s+)?charges?\b",
+    re.IGNORECASE,
+)
 
-_ELECTROSTATICS_CUE_RES: tuple[re.Pattern[str], ...] = (_TWO_CHARGES_RE,)
+_ELECTROSTATICS_CUE_RES: tuple[re.Pattern[str], ...] = (_TWO_CHARGES_RE, _TWO_EQUAL_CHARGES_RE)
 
 
 def _extract_electrostatics_intent(cleaned: str) -> PhysicsIntent | None:
@@ -47,7 +56,10 @@ def _extract_electrostatics_intent(cleaned: str) -> PhysicsIntent | None:
     if "dipole" in lower:
         return None
     charges = _ordered_values(cleaned, _COULOMB_PATTERN)
-    if len(charges) == 1 and "each" in lower and _TWO_CHARGES_RE.search(cleaned):
+    if len(charges) == 1 and (
+        ("each" in lower and _TWO_CHARGES_RE.search(cleaned))
+        or _TWO_EQUAL_CHARGES_RE.search(cleaned)
+    ):
         charges = [charges[0], charges[0]]
     separation = _find_value_with_specific_unit(
         cleaned,

@@ -39,7 +39,9 @@ _MOMENTUM_CUE_RES: tuple[re.Pattern[str], ...] = (
 _LANDING_TARGET = r"ground|floor|water|sea|surface|deck|earth|soil|sand|roof"
 
 _COLLISION_SUBJECT_RE = re.compile(
-    r"\bcollision\b|\bcollides?\b|\bcolliding\b|\brecoils?\b"
+    # Not "recoil": a gun's recoil is two bodies pushing apart, and a ball
+    # that recoils off another has already said "hits" or "collides".
+    r"\bcollision\b|\bcollides?\b|\bcolliding\b"
     # "A golf ball is hit at 40 m/s" is a launch: the passive is the club's
     # stroke, not two bodies meeting.
     rf"|(?<!\bis )(?<!\bwas )(?<!\bgets )\bhits?\b(?!\s+the\s+(?:{_LANDING_TARGET})\b)"

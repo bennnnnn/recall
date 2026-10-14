@@ -154,8 +154,12 @@ def test_an_unstated_amplitude_is_normalised_not_invented() -> None:
     spec = result.graph_specs[0]
     assert spec.y_label == "Displacement (normalised)"
     assert max(point[1] for point in spec.points) == pytest.approx(1.0, abs=1e-3)
-    # A = 1 here is a plot scale, not a metre. A scene would draw that fiction.
-    assert result.simulation_specs == []
+    # The spring is drawn at a display size, and no number is written on the
+    # swing: neither the labels nor the description name an amplitude.
+    (scene,) = result.simulation_specs
+    assert scene.type == "spring"
+    assert all(vector.label is None for vector in scene.vectors)
+    assert scene.alt is not None and " m either side" not in scene.alt
 
 
 # --- the physics ------------------------------------------------------------
@@ -317,23 +321,21 @@ def test_a_pendulum_on_the_moon_swings_slower() -> None:
     assert float(moon.split()[0]) > float(earth.split()[0])
 
 
-def test_the_pendulum_emits_the_same_animatable_curve_as_the_spring() -> None:
-    """Shared builder, so P3's playback needs no second implementation."""
+def test_the_pendulum_is_drawn_as_a_bob_on_its_string() -> None:
+    """The bob swings on a tether of the stated length and comes back."""
     from app.modules.physics.solver import solve_physics
 
     intent = extract_physics_intent("period of a 2 m pendulum")
     assert isinstance(intent, PhysicsIntent)
 
     result = solve_physics(intent)
-    assert len(result.graph_specs) == 1
-    spec = result.graph_specs[0]
-    assert spec.trajectory_type == "position_vs_time"
-    assert spec.title == "Displacement vs. Time"
-    # One period-and-a-bit: the curve must come back to where it started.
-    assert spec.points[0][1] == pytest.approx(1.0)
-    assert spec.points[-1][1] == pytest.approx(1.0, abs=1e-3)
-    # No stated swing angle, so there is no bob path to sample.
-    assert result.simulation_specs == []
+    assert result.graph_specs == []
+    (scene,) = result.simulation_specs
+    assert scene.type == "pendulum"
+    assert [tether.anchor for tether in scene.tethers] == [[0.0, 0.0]]
+    path = scene.bodies[0].path
+    assert path[0] == pytest.approx(path[-1])
+    assert all(x * x + y * y == pytest.approx(4.0) for x, y in path)
 
 
 def test_the_spring_period_is_untouched() -> None:

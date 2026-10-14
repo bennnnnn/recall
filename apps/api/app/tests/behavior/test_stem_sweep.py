@@ -9,12 +9,16 @@ go up. Raise a floor when a change answers more.
 
 from __future__ import annotations
 
+import json
+
 import pytest
 
+from app.modules.physics.solvers.motion_scenes import vertical_scene
 from app.tests.behavior.stem_sweep import (
     SUBJECT_NAMES,
     Entry,
     answered,
+    check_visuals,
     drawn,
     load,
     run,
@@ -22,7 +26,7 @@ from app.tests.behavior.stem_sweep import (
 )
 
 # subject -> (answered, drawn) on the current corpus
-FLOORS = {"physics": (265, 47)}
+FLOORS = {"physics": (285, 139)}
 EXPECTS = {"answer", "explain", "decline", "not_subject"}
 
 ENTRIES = [(subject, entry) for subject in FLOORS for entry in load(subject)]
@@ -60,3 +64,19 @@ def test_stem_corpus_is_well_formed(subject: str) -> None:
         assert entry.expect in EXPECTS, entry.id
         assert entry.prompt.strip(), entry.id
         assert (entry.answer is not None) == (entry.expect == "answer"), entry.id
+
+
+@pytest.mark.parametrize(
+    ("trajectory_type", "duplicate"),
+    [("velocity_vs_time", False), ("position_vs_time", True), ("parametric", True)],
+)
+def test_only_a_path_graph_beside_a_fall_is_the_same_picture_twice(
+    trajectory_type: str, duplicate: bool
+) -> None:
+    """A v-t line says something the fall does not (its slope is g); a path curve does not."""
+    scene = vertical_scene(10.0, 0.0, 9.81, 1.43, ground=True)
+    assert scene is not None
+    graph = {"type": "trajectory", "trajectory_type": trajectory_type, "points": [[0, 0], [1, 1]]}
+    reply = f"```simulation\n{scene.model_dump_json()}\n```\n\n```graph\n{json.dumps(graph)}\n```"
+    _kinds, problems = check_visuals(reply)
+    assert any(problem.kind == "duplicate_visual" for problem in problems) is duplicate

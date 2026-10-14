@@ -7,7 +7,8 @@
   "answer": [
    200.0,
    "m/s"
-  ]
+  ],
+  "visual": "wave"
  },
  {
   "id": "wave-02",
@@ -17,7 +18,8 @@
   "answer": [
    0.779545,
    "m"
-  ]
+  ],
+  "visual": "wave"
  },
  {
   "id": "wave-03",
@@ -27,7 +29,8 @@
   "answer": [
    3.04365,
    "m"
-  ]
+  ],
+  "visual": "wave"
  },
  {
   "id": "wave-04",
@@ -57,7 +60,8 @@
   "answer": [
    200.0,
    "Hz"
-  ]
+  ],
+  "visual": "wave"
  },
  {
   "id": "wave-07",
@@ -67,7 +71,8 @@
   "answer": [
    2.0,
    "Hz"
-  ]
+  ],
+  "visual": "wave"
  },
  {
   "id": "wave-08",
@@ -107,7 +112,8 @@
   "answer": [
    25.374,
    "deg"
-  ]
+  ],
+  "visual": "rays"
  },
  {
   "id": "opt-02",
@@ -117,7 +123,8 @@
   "answer": [
    41.8103,
    "deg"
-  ]
+  ],
+  "visual": "rays"
  },
  {
   "id": "opt-03",
@@ -137,7 +144,8 @@
   "answer": [
    15.0,
    "cm"
-  ]
+  ],
+  "visual": "rays"
  },
  {
   "id": "opt-05",
@@ -147,7 +155,8 @@
   "answer": [
    60.0,
    "cm"
-  ]
+  ],
+  "visual": "rays"
  },
  {
   "id": "opt-06",
@@ -157,7 +166,8 @@
   "answer": [
    0.5,
    ""
-  ]
+  ],
+  "visual": "rays"
  },
  {
   "id": "opt-07",
@@ -177,7 +187,8 @@
   "answer": [
    35.0,
    "deg"
-  ]
+  ],
+  "visual": "rays"
  },
  {
   "id": "opt-09",
@@ -187,7 +198,8 @@
   "answer": [
    24.0,
    "cm"
-  ]
+  ],
+  "visual": "rays"
  },
  {
   "id": "elec-01",
@@ -197,7 +209,8 @@
   "answer": [
    0.6,
    "A"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "elec-02",
@@ -207,7 +220,8 @@
   "answer": [
    30.0,
    "ohm"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "elec-03",
@@ -217,7 +231,8 @@
   "answer": [
    30.0,
    "V"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "elec-04",
@@ -227,7 +242,8 @@
   "answer": [
    20.0,
    "ohm"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "elec-05",
@@ -237,7 +253,8 @@
   "answer": [
    2.0,
    "ohm"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "elec-06",
@@ -247,7 +264,8 @@
   "answer": [
    0.5,
    "A"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "elec-07",
@@ -257,7 +275,8 @@
   "answer": [
    2300.0,
    "W"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "elec-08",
@@ -297,7 +316,8 @@
   "answer": [
    2.0,
    "W"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "elec-12",
@@ -307,7 +327,8 @@
   "answer": [
    1.0,
    "A"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "elec-13",
@@ -327,7 +348,8 @@
   "answer": [
    12.5,
    "A"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "elec-15",
@@ -337,7 +359,8 @@
   "answer": [
    10.0,
    "W"
-  ]
+  ],
+  "visual": "circuit"
  },
  {
   "id": "estat-01",
@@ -347,7 +370,8 @@
   "answer": [
    5.3928,
    "N"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "estat-02",
@@ -597,7 +621,8 @@
   "answer": [
    19.62,
    "N"
-  ]
+  ],
+  "visual": "free_body"
  },
  {
   "id": "fluid-06",

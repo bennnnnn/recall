@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import replace
 
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.circuits import solve_circuit
@@ -136,10 +137,18 @@ PHYSICS_SOLVERS = _claim_solvers()
 
 def solve_physics(intent: PhysicsIntent) -> PhysicsResult:
     """Dispatch on the operation. The catalog id is the only key."""
+    from app.modules.physics.solvers.catalog_scenes import catalog_scene
+    from app.modules.physics.solvers.common import _params_in_si
     from app.modules.physics.working import attach_recorded_working
 
     operation = intent.physics_op or ""
     solver = PHYSICS_SOLVERS.get(operation)
     if solver is None:
         raise SolveServiceError(f"unsupported physics op: {operation}")
-    return attach_recorded_working(solver(intent), intent)
+    result = attach_recorded_working(solver(intent), intent)
+    # A law solved as arithmetic has no solver of its own to draw it.
+    if result.quantities and not result.simulation_specs and not result.graph_specs:
+        scene = catalog_scene(intent, _params_in_si(intent), result.quantities[0].value)
+        if scene:
+            result = replace(result, simulation_specs=scene)
+    return result

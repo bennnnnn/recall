@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
+_FORWARD = ("to the right", "right", "east", "eastward", "forward", "forwards", "ahead")
+_BACKWARD = ("to the left", "left", "west", "westward", "backward", "backwards", "behind")
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "lift_normal_force",
@@ -259,6 +262,46 @@ SPECS: tuple[FormulaSpec, ...] = (
             cues=("slope", "incline", "ramp"),
             excludes=("perpendicular", "normal"),
             nonnegative=True,
+        ),
+    ),
+    # Two forces pulling opposite ways: the net force is their difference.
+    formula(
+        "acceleration_from_opposing_forces",
+        "force",
+        "Newton's second law",
+        "a",
+        base_latex=r"a = \frac{F_1 - F_2}{m}",
+        assumptions=("the two forces act along one line, in opposite directions",),
+        expression="(F_forward - F_back)/m",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("F_forward", "F_1", "newton", words=_FORWARD, needs_words=True),
+            var("F_back", "F_2", "newton", words=_BACKWARD, needs_words=True),
+        ),
+        binding=Binding(
+            asks=("acceleration", "accelerate"),
+            result=("meter / second ** 2",),
+            inputs=(frozenset({"m", "F_forward", "F_back"}),),
+            negative_detail="toward the larger force",
+        ),
+    ),
+    formula(
+        "net_force_opposing",
+        "force",
+        "Resultant of two opposite forces",
+        "F_{net}",
+        base_latex=r"F_{net} = F_1 - F_2",
+        assumptions=("the two forces act along one line, in opposite directions",),
+        expression="F_forward - F_back",
+        variables=(
+            var("F_forward", "F_1", "newton", words=_FORWARD, needs_words=True),
+            var("F_back", "F_2", "newton", words=_BACKWARD, needs_words=True),
+        ),
+        binding=Binding(
+            asks=("net force", "resultant force", "resultant", "overall force", "unbalanced force"),
+            result=("newton",),
+            inputs=(frozenset({"F_forward", "F_back"}),),
+            negative_detail="toward the larger force",
         ),
     ),
 )

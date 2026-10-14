@@ -362,10 +362,16 @@ def _extract_optics_intent(cleaned: str) -> PhysicsIntent | None:
 
     if focal is None or obj is None:
         return None
+    # Only the ray diagram reads it: a concave mirror reflects, a lens transmits.
+    mirror = {"mirror": 1.0} if "mirror" in lower else {}
     return PhysicsIntent(
         kind="optics",
         physics_op="image_distance",
-        physics_params={"focal": focal[0], "d_obj": obj[0]},
-        physics_units={"focal": focal[1] or "m", "d_obj": obj[1] or "m"},
+        physics_params={"focal": focal[0], "d_obj": obj[0], **mirror},
+        physics_units={
+            "focal": focal[1] or "m",
+            "d_obj": obj[1] or "m",
+            **dict.fromkeys(mirror, ""),
+        },
         operation="solve",
     )

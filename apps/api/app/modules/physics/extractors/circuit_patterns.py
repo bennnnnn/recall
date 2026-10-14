@@ -65,7 +65,9 @@ _ELECTRICAL_ENERGY_RE = re.compile(
     re.IGNORECASE,
 )
 
-_COULOMB_PATTERN = r"uC|µC|C|microcoulombs?|coulombs?"
+_COULOMB_PATTERN = (
+    r"uC|µC|μC|nC|pC|mC|C|microcoulombs?|nanocoulombs?|picocoulombs?|millicoulombs?|coulombs?"
+)
 
 _FARAD_PATTERN = r"mF|uF|µF|nF|pF|F|farads?|microfarads?|nanofarads?|picofarads?"
 

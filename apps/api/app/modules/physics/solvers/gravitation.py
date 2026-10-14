@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import math
 
+from app.modules.physics.bodies import body_name
+from app.modules.physics.display import plain_number
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solvers.circular import _orbit_scene
 from app.modules.physics.solvers.common import (
@@ -52,7 +54,17 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(r"v = \sqrt{\frac{GM}{r}}",),
             substitutions=(rf"v = \sqrt{{\frac{{{_BIG_G:.5g} \cdot {p['M']:.4g}}}{{{r:.4g}}}}}",),
             quantities=(QuantityResult("", v_val, "m/s"),),
-            simulation_specs=[_orbit_scene(r)],
+            simulation_specs=[
+                _orbit_scene(
+                    r,
+                    planet=(p["radius_body"], body_name(p["M"], p["radius_body"])),
+                    arrow_labels={
+                        "velocity": f"v = {plain_number(v_val)} m/s",
+                        "centripetal": "gravity",
+                    },
+                    alt=_orbit_alt(p, r, v_val),
+                )
+            ],
         )
 
     if op == "escape_velocity":
@@ -92,3 +104,10 @@ def solve_gravitation(intent: PhysicsIntent) -> PhysicsResult:
         )
 
     raise SolveServiceError(f"unsupported gravitation op: {op}")
+
+
+def _orbit_alt(p: dict[str, float], r: float, speed: float) -> str:
+    name = body_name(p["M"], p["radius_body"]) or "the planet"
+    height = p.get("altitude", 0.0)
+    where = f"{plain_number(height / 1000)} km above {name}" if height else f"round {name}"
+    return f"A satellite {where}, moving at {plain_number(speed)} m/s."

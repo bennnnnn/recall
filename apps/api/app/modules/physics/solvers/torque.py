@@ -5,12 +5,22 @@ from __future__ import annotations
 import math
 
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
-from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationVector
+from app.modules.physics.schemas import (
+    PhysicsIntent,
+    SimulationAngle,
+    SimulationBlockSpec,
+    SimulationVector,
+)
 from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
 from app.services.solving import SolveServiceError
 
 
-def _lever_scene(loads: list[tuple[float, float, str, bool]]) -> list[SimulationBlockSpec]:
+def _lever_scene(
+    loads: list[tuple[float, float, str, bool]],
+    *,
+    alt: str | None = None,
+    angles: list[SimulationAngle] | None = None,
+) -> list[SimulationBlockSpec]:
     """A beam on a wedge with a labelled force hanging at each arm.
 
     The see-saw is how this topic is taught and the one picture that makes
@@ -32,6 +42,9 @@ def _lever_scene(loads: list[tuple[float, float, str, bool]]) -> list[Simulation
         SimulationBlockSpec(
             type="lever",
             title="Moments",
+            title_key="moments",
+            alt=alt,
+            angles=angles or [],
             beam=[-reach, 0.0, reach, 0.0],
             pivot=[0.0, 0.0],
             vectors=[
@@ -79,7 +92,11 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
                     [
                         (-d1, f1, f"{_given(f1)} N at {_given(d1)} m", False),
                         (d2, f2, f"{plain_number(f2)} N at {_given(d2)} m", True),
-                    ]
+                    ],
+                    alt=(
+                        f"A beam balanced on a pivot: {_given(f1)} N at {_given(d1)} m on one "
+                        f"side, {plain_number(f2)} N at {_given(d2)} m on the other."
+                    ),
                 ),
             )
         uses_masses = "m1" in p and "m2" in p
@@ -109,7 +126,11 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
                 [
                     (-d1, f1, f"{_given(f1)} {unit} at {_given(d1)} m", False),
                     (d2, f2, f"{_given(f2)} {unit} at {plain_number(d2)} m", True),
-                ]
+                ],
+                alt=(
+                    f"A beam balanced on a pivot: {_given(f1)} {unit} at {_given(d1)} m on "
+                    f"one side, {_given(f2)} {unit} at {plain_number(d2)} m on the other."
+                ),
             ),
         )
 
@@ -127,7 +148,8 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
             substitutions=(rf"d = \frac{{{p['tau']:g}}}{{{force:g}}}",),
             quantities=(QuantityResult("", distance, "m"),),
             simulation_specs=_lever_scene(
-                [(distance, force, f"{_given(force)} N at {plain_number(distance)} m", True)]
+                [(distance, force, f"{_given(force)} N at {plain_number(distance)} m", True)],
+                alt=f"A {_given(force)} N force {plain_number(distance)} m from the pivot.",
             ),
         )
 
@@ -182,7 +204,29 @@ def solve_torque(intent: PhysicsIntent) -> PhysicsResult:
             direction = (math.cos(theta), -math.sin(theta))
         # The force is given, not asked: the torque is the answer, and it is
         # not an arrow on the beam.
-        scene = _lever_scene([(d, f, f"{_given(f)} N at {_given(d)} m", False)])
+        # The torque is the answer: a curved arrow round the pivot, turning
+        # the way the force turns the beam (a downward push on the right arm
+        # is clockwise).
+        clockwise = (direction[1] < 0) == (d > 0)
+        sweep = (60.0, -30.0) if clockwise else (120.0, 210.0)
+        scene = _lever_scene(
+            [(d, f, f"{_given(f)} N at {_given(d)} m", False)],
+            alt=(
+                f"A {_given(f)} N force {_given(d)} m from the pivot turns it "
+                f"{'clockwise' if clockwise else 'anticlockwise'} with a torque of "
+                f"{plain_number(tau)} N·m."
+            ),
+            angles=[
+                SimulationAngle(
+                    vertex=[0.0, 0.0],
+                    start_deg=sweep[0],
+                    end_deg=sweep[1],
+                    label=f"τ = {plain_number(tau)} N·m",
+                    arrow=True,
+                    role="result",
+                )
+            ],
+        )
         if scene:
             scene[0].vectors[0].dx = direction[0] * abs(f)
             scene[0].vectors[0].dy = direction[1] * abs(f)

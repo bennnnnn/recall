@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import math
 
-from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec, SimulationBody
+from app.modules.physics.display import GIVEN_FIGURES, plain_number
+from app.modules.physics.schemas import (
+    PhysicsIntent,
+    SimulationBlockSpec,
+    SimulationBody,
+    SimulationPlanet,
+    SimulationTether,
+)
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
@@ -14,7 +21,14 @@ from app.modules.physics.solvers.common import (
 from app.services.solving import SolveServiceError
 
 
-def _orbit_scene(r: float) -> SimulationBlockSpec:
+def _orbit_scene(
+    r: float,
+    *,
+    planet: tuple[float, str | None] | None = None,
+    arrow_labels: dict[str, str] | None = None,
+    tether: bool = False,
+    alt: str | None = None,
+) -> SimulationBlockSpec:
     """One lap, sampled at a constant angular step.
 
     Every circular answer is a number about something going round, and going
@@ -22,6 +36,9 @@ def _orbit_scene(r: float) -> SimulationBlockSpec:
     this kind drew nothing before P14 and why it is the first scene after
     projectiles. The index is the clock here as everywhere else: a constant
     angular step is a constant speed, which is what uniform circular motion is.
+
+    ``planet`` (radius, name) draws what an orbit goes round, at true scale;
+    ``tether`` the string a ball on a string turns on.
     """
     n_points = 96
     path = [
@@ -34,14 +51,19 @@ def _orbit_scene(r: float) -> SimulationBlockSpec:
     margin = r * 1.35
     return SimulationBlockSpec(
         type="orbit",
-        title="Circular Motion",
-        bodies=[SimulationBody(path=path, radius=r * 0.08)],
+        title="Orbit" if planet else "Circular Motion",
+        title_key="satellite" if planet else "circular_motion",
+        bodies=[SimulationBody(path=path, radius=r * (0.04 if planet else 0.08))],
         x_min=-margin,
         x_max=margin,
         y_min=-margin,
         y_max=margin,
         arrows=["velocity", "centripetal"],
+        arrow_labels=arrow_labels or {},  # type: ignore[arg-type]
         centre=[0.0, 0.0],
+        central_body=SimulationPlanet(radius=planet[0], label=planet[1]) if planet else None,
+        tethers=[SimulationTether(anchor=[0.0, 0.0], body=0)] if tether else [],
+        alt=alt,
     )
 
 
@@ -148,7 +170,22 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
     if r <= 0:
         raise SolveServiceError("radius must be positive")
 
-    scene = [_orbit_scene(r)]
+    shown_r = plain_number(r, GIVEN_FIGURES)
+    shown_v = plain_number(abs(v))
+
+    def scene_with(asked: str, value: str) -> list[SimulationBlockSpec]:
+        labels = {"velocity": f"v = {shown_v} m/s", "centripetal": "toward the centre"}
+        if asked:
+            labels["centripetal"] = value
+        return [
+            _orbit_scene(
+                r,
+                arrow_labels=labels,
+                alt=f"Something going round a circle of radius {shown_r} m at {shown_v} m/s.",
+            )
+        ]
+
+    scene = scene_with("", "")
 
     if op == "orbital_period":
         if v == 0:
@@ -206,7 +243,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(law,),
             substitutions=(rf"a_c = {plugged}",),
             quantities=(QuantityResult("", a_c, "m/s^2"),),
-            simulation_specs=scene,
+            simulation_specs=scene_with("a", f"a = {plain_number(a_c)} m/s²"),
         )
 
     if op == "centripetal_force":
@@ -224,7 +261,7 @@ def solve_circular(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(law,),
             substitutions=(rf"F_c = {plugged}",),
             quantities=(QuantityResult("", f_val, "N"),),
-            simulation_specs=scene,
+            simulation_specs=scene_with("F", f"F = {plain_number(f_val)} N"),
         )
 
     raise SolveServiceError(f"unsupported circular op: {op}")

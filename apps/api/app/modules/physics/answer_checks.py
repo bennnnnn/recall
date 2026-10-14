@@ -7,6 +7,7 @@ import re
 from dataclasses import replace
 
 from app.modules.physics.ask import result_dimension, result_reading
+from app.modules.physics.display import plain_number
 from app.modules.physics.givens import unit_dimension, unit_expression
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PhysicsResult
@@ -66,6 +67,7 @@ def _in_context_units(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsRe
     if intent.asked_unit is not None:
         return result
     result = _per_gram_of_givens(intent, _per_time_of_givens(intent, result))
+    result = _kwh_of_givens(intent, result)
     written = {unit.lower() for unit in (intent.physics_units or {}).values()}
     if not written & _CHEMISTRY_GAS or written & _SI_GAS:
         return result
@@ -149,6 +151,41 @@ def _per_time_of_givens(intent: PhysicsIntent, result: PhysicsResult) -> Physics
             if item.unit == "1/s"
             else item
             for item in result.quantities
+        ),
+    )
+
+
+_POWER = "[length]^2 * [mass]^1 * [time]^-3"
+_HOURS = {"hour", "day"}
+
+
+def _kwh_of_givens(intent: PhysicsIntent, result: PhysicsResult) -> PhysicsResult:
+    """An energy from a power and a time in hours or days, also in kWh as a bill writes it.
+
+    100 W for 5 hours a day for 30 days is 5.4e7 J (15 kWh): the joules a
+    physics class works in, and the kilowatt-hours the meter counts.
+    """
+    if not any(item.unit == "J" for item in result.quantities):
+        return result
+    readings = [
+        (unit_expression(unit) or "", unit_dimension(unit_expression(unit) or ""))
+        for unit in (intent.physics_units or {}).values()
+    ]
+    has_power = any(reading and reading[0] == _POWER for _, reading in readings)
+    in_hours = any(
+        reading and reading[0] == _TIME and expression in _HOURS for expression, reading in readings
+    )
+    if not (has_power and in_hours):
+        return result
+    target = intent.model_copy(update={"asked_unit": "kWh"})
+    converted = _in_the_asked_unit(target, result)
+    return replace(
+        result,
+        quantities=tuple(
+            replace(old, detail=f"{plain_number(new.value)} kWh", detail_style="paren")
+            if old.unit == "J" and new.unit == "kWh" and old.detail is None
+            else old
+            for old, new in zip(result.quantities, converted.quantities, strict=True)
         ),
     )
 

@@ -210,6 +210,7 @@ The binder reads these laws, beside the extractors' own:
 | Fluids | absolute pressure; apparent weight when submerged; floating fraction; capillary rise |
 | Modern | photon momentum; threshold frequency and wavelength; stopping potential; photoelectric KE; fraction and mass remaining; decay constant; activity; mean life; net blackbody power P = εσA(T^4 − T_0^4) |
 | Upper level | hydrogen transitions (λ and ΔE); hydrogen-like levels E = −13.6 Z²/n² eV when Z is stated; Bohr radius; hydrogen-like radius n²a₀/Z; Bohr L = nℏ; L² = ℏ²ℓ(ℓ+1); L_z = mℏ; normal Zeeman shift; pair-production threshold; quantum-oscillator levels; relativistic p, E and K; E² = (pc)² + (mc²)²; velocity addition; Lorentz transformation of one coordinate and of one time; Schwarzschild radius; gravitational time-dilation factor; Boltzmann ratio; S = k ln Ω; energy-time uncertainty; an orbit's period from its height; Fermi energy; Fermi-Dirac and Bose-Einstein occupation; Planck's law as spectral radiance; rectangular-barrier tunneling probability; Drude conductivity; Hall coefficient; nuclear radius R = R₀ A^{1/3}; Hawking temperature; Hawking power; Bekenstein-Hawking entropy; stellar luminosity; flux from a stated luminosity; Hubble's law; critical density; Friedmann Hubble parameter when density, curvature, scale, and Λ are stated; virial K = −U/2; plasma frequency; Debye length; Alfvén speed; sound speed from the bulk modulus; quadratic drag force from C_D; BCS gap; Higgs mass; one-loop strong coupling |
+| Round 3 | light travel time; gravitational force on a body at a named planet's surface; acceleration and net force from two opposing forces; recoil speed; push-off speed of either body; wave frequency from distance, time and wavelength; sound level from an intensity ratio; energy over days from a daily use |
 | Sweep additions | time to the top of a throw; a level launch off a table or cliff; echo distance vt/2; hydraulic lift with the load on the large piston; mass from F and a; average force from a speed change; terminal drag; weight along a slope; drop speed from a height; speed from kinetic energy; work against gravity; efficiency in percent; spring compression from speed; current from power; charge and energy from Q and V; point-charge field; force on a moving charge; spring constant from a hanging mass or a force; pendulum length from its period; frequency and period from a count; string tension in a horizontal circle; critical angle to air; focal length from lens power; pressure from a weight on an area; water pressure at a depth; upthrust on a fully submerged volume; surface gravity on a named planet; E = mc² |
 | One formula | physical and conical pendulum periods; torsional pendulum; thin rod about its center or one end; springs in series and in parallel; reduced mass; coefficient of restitution; gravitational fractional frequency shift; decay time from N₀ to N; speed to just complete a vertical loop; sound level; shear, bulk and Poisson; gear speed and gear ratio; Newton's law of cooling; absorbed or reflected radiation pressure; Otto efficiency |
 
@@ -225,12 +226,62 @@ The binder reads these laws, beside the extractors' own:
   as written.
 - **Working rows** never show calculator notation: `6.6261e-34` is typeset as
   `6.6261 \times 10^{-34}`.
+- **Energy from a power and hours or days** is answered in joules with the kilowatt-hours
+  beside it, as a bill writes them: 100 W for 5 hours a day for 30 days is
+  5.4 × 10⁷ J (15 kWh).
+- **A price is not a given.** "$0.15 per kWh" or "costs 12" is read past, so it never fills a
+  variable.
 - **Scene labels** are formatted from the true values. Re-rounding a label that a solver had
   already rounded put 59.0 N on the picture beside a 59.1 N answer.
 - **Scene coordinates** retain their floating-point precision instead of rounding to fixed
   SI decimal places. Micrometre orbits keep their shape. Vertical launches receive padded
   horizontal bounds, and static scene bounds include vector anchors and endpoints in all
   quadrants. Height diagrams place the body above the ground by the stated height.
+
+## Pictures
+
+A verified answer carries at most one picture, a `simulation` fence (schema v2,
+`schemas/simulation.py`). The server samples every position and every frame. The phone walks
+the samples and never re-derives motion. Two kinds of picture exist:
+
+- **Scenes** have bodies on one clock. They cover projectiles and falls (with the ledge, R, H and
+  θ marked), inclines, free-body boxes, Atwood machines, levers, vector sums, orbits (with the
+  planet to scale), circular motion on a string, springs, pendulums, collisions, recoils and
+  charges. v2 adds:
+  - box bodies;
+  - tethers and a pulley;
+  - a central body;
+  - angle arcs;
+  - solids and fluids;
+  - labels on the derived arrows (`mg = 49.1 N`);
+  - strobe ghosts;
+  - vectors that ride on a body.
+- **Diagrams** have no bodies. The phone lays them out from the spec:
+  - `circuit`: a source and a load of parts, series or parallel groups;
+  - `rays`: lenses, mirrors and an interface, with rays traced here;
+  - `wave`: frames of displacement over fixed samples, with nodes, antinodes and the ends that
+    hold the wave.
+
+  A diagram draws only measure lines and carries no moving bodies, and the schema refuses
+  either.
+
+Every picture has an `alt` sentence for screen readers and a `title_key` the phone translates.
+An unknown key falls back to the English `title`, so a newer server never blanks an older app.
+Fields a scene does not use are left out of the JSON, so a stored v1 reply serialises as before.
+
+A solver that knows its situation draws it: `motion_scenes.py`, `force_scenes.py`,
+`circuit_scenes.py`, `optics_scenes.py`, `wave_scenes.py` and `field_scenes.py`. A catalog law
+solved as arithmetic has no solver to draw it, so `solvers/catalog_scenes.py` looks the picture
+up by operation and reuses the same builders. A string's tension is the circular scene with
+its string, and a recoil is the collision scene started from rest. An operation not listed
+draws nothing.
+
+Where one formula covers different apparatus, a hidden variable that only the picture reads
+says which one it is:
+- `pipe`: an open pipe and a string share n·v/2L, but a pipe's open end is an antinode;
+- `mirror`: a concave mirror and a lens share 1/f = 1/u + 1/v;
+- `free_fall`: the speed at the bottom is path-free, but a roller coaster drawn as a straight
+  drop shows the wrong motion.
 
 ## Clients
 
@@ -273,7 +324,7 @@ confirmed reading. A photo with no reading gets the unverified physics note.
 - coverage never falls below `COVERAGE_FLOOR`.
 
 The **STEM sweep** (`app/tests/behavior/stem_sweep.py`) checks the whole chat path, not just
-the solver. `stem_corpus/physics/` holds 327 turns: textbook questions across 19 areas,
+the solver. `stem_corpus/physics/` holds 340 turns: textbook questions across 19 areas,
 everyday look-alikes, questions that must be declined, and `holdout.json`, written after the
 fixes below so the coverage number stays honest. For each turn it routes the prompt as a
 chat turn does and reads the verified answer card (1% tolerance, any unit of the same kind).
@@ -281,8 +332,10 @@ It also checks the reply's Given / Find / Formula / Substitution / Answer order,
 calculator notation and an invented zero given, and validates every `simulation` and `graph`
 fence against the schema and its own bounds. `test_stem_sweep.py` fails on a wrong number, a
 misread turn (a physics question answered as math, or hijacked by a location or settings
-reply), a reply out of shape or a broken picture. It holds two floors that only go up: 265 of
-274 answered, and 47 of 76 with the picture a student would want.
+reply), a reply out of shape or a broken picture. It holds two floors that only go up: 285 of
+285 answered, and 139 of 140 with the picture a student would want. Only a
+`projectile_motion` scene beside a path graph (x–y or height–time) counts as the same
+picture twice; a v–t graph beside a fall says something the fall does not.
 
     uv run python -m app.tests.behavior.stem_sweep physics --show
 
@@ -295,8 +348,10 @@ The first run found five wrong verified answers, each now in
 - a hydraulic lift put the car's weight on the small piston.
 
 It also found 17 textbook questions the solver did not recognise; these are now catalog laws.
-The questions still left to the model are multi-step or two-body (recoil, opposing forces, a
-decibel ratio, energy over days, a frequency from d/t and λ).
+The nine it still left to the model (recoil, push-off, opposing forces, a decibel ratio,
+energy over days, a frequency from d/t and λ, light travel time, gravity at a planet's
+surface, two equal charges) are answered now. Their questions and look-alikes are in
+`round3.json`.
 
 ## What it refuses
 

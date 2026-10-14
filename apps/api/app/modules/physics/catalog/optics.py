@@ -14,6 +14,9 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=(
             var("d_obj", "u", "meter"),
             var("focal", "f", "meter"),
+            # Not in the formula: a lens and a concave mirror share it, and
+            # only the ray diagram tells them apart.
+            var("mirror", "mirror", dimensionless=True, visible=False),
         ),
     ),
     formula(

@@ -225,7 +225,45 @@ async def _inline(fn: Any, *args: Any, **_kwargs: Any) -> Any:
     return fn(*args)
 
 
+# 09:00 in Nairobi on a Wednesday: every "tonight" and "at 6pm today" in the
+# corpus is still ahead. On the real clock those turns failed whenever the
+# suite ran after 16:00 UTC.
+SWEEP_NOW = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
+
+
+class _AnyDateTime(type):
+    """``isinstance(value, datetime)`` stays true for a real datetime.
+
+    Patched in, the class replaces ``datetime`` in every check a module makes,
+    and a JSON encoder that asked "is this a datetime?" of a real one said no.
+    """
+
+    def __instancecheck__(cls, instance: object) -> bool:
+        return isinstance(instance, datetime)
+
+
+class _SweepDateTime(datetime, metaclass=_AnyDateTime):
+    @classmethod
+    def now(cls, tz: Any = None) -> datetime:  # type: ignore[override]
+        return SWEEP_NOW.astimezone(tz) if tz is not None else SWEEP_NOW.replace(tzinfo=None)
+
+
+@contextmanager
+def frozen_clock() -> Iterator[None]:
+    """Every app module that reads the time with ``datetime.now`` reads SWEEP_NOW."""
+    with ExitStack() as stack:
+        for name, module in list(sys.modules.items()):
+            if name.startswith("app.") and getattr(module, "datetime", None) is datetime:
+                stack.enter_context(patch.object(module, "datetime", _SweepDateTime))
+        yield
+
+
 async def run_entry(entry: Entry) -> Outcome:
+    with frozen_clock():
+        return await _run_entry(entry)
+
+
+async def _run_entry(entry: Entry) -> Outcome:
     outcome = Outcome(entry=entry)
     settings = battery_settings()
     outcome.route = await route_case(

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import math
+
 from app.services.text_match import word_index
 
 # Mass (kg) and mean radius (m) of each body a school question names.
@@ -12,6 +14,16 @@ BODY_PROPERTIES: dict[str, tuple[float, float]] = {
     "jupiter": (1.8982e27, 6.9911e7),
     "sun": (1.9885e30, 6.957e8),
 }
+
+
+def body_name(mass: float, radius: float) -> str | None:
+    """The body a mass and radius belong to, as a label: "Earth"."""
+    for name, (body_mass, body_radius) in BODY_PROPERTIES.items():
+        if math.isclose(mass, body_mass, rel_tol=1e-6) and math.isclose(
+            radius, body_radius, rel_tol=1e-6
+        ):
+            return name.title()
+    return None
 
 
 def named_body(lower: str) -> tuple[float, float] | None:

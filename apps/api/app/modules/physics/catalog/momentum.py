@@ -4,6 +4,42 @@ from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
+_SHOT = (
+    "bullet",
+    "ball",
+    "shell",
+    "cannonball",
+    "arrow",
+    "pellet",
+    "projectile",
+    "rock",
+    "stone",
+    "dart",
+    "package",
+)
+_LAUNCHER = (
+    "rifle",
+    "gun",
+    "cannon",
+    "pistol",
+    "launcher",
+    "bow",
+    "catapult",
+    "boat",
+    "skater",
+    "astronaut",
+)
+_PUSH_OFF = (
+    "pushes off",
+    "push off",
+    "pushed off",
+    "push each other",
+    "pushes away",
+    "push apart",
+    "pushes against",
+    "jumps off",
+)
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "momentum_change_rebound",
@@ -192,6 +228,86 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("dimensionless",),
             inputs=(frozenset({"v_app", "v_sep"}),),
             cues=("restitution",),
+            nonnegative=True,
+        ),
+    ),
+    # Recoil: the gun takes the bullet's momentum backwards, m v = M V.
+    formula(
+        "recoil_speed",
+        "momentum",
+        "Conservation of momentum",
+        "V",
+        base_latex=r"V = \frac{m v}{M}",
+        assumptions=("both start at rest, and nothing outside pushes",),
+        expression="m_shot*v/m_gun",
+        variables=(
+            var("m_shot", "m", "kilogram", words=_SHOT, needs_words=True),
+            var("v", "v", "meter / second"),
+            var("m_gun", "M", "kilogram", words=_LAUNCHER, needs_words=True),
+        ),
+        binding=Binding(
+            asks=("recoil speed", "recoil velocity", "speed of recoil", "recoil", "how fast"),
+            result=("meter / second",),
+            inputs=(frozenset({"m_shot", "v", "m_gun"}),),
+            cues=("recoil", "recoils", "fired", "fires", "shoots", "shot from", "launches"),
+            nonnegative=True,
+        ),
+    ),
+    # Two bodies push apart from rest: m1 v1 = m2 v2. The first named moves
+    # at the stated speed; the question asks for the other.
+    formula(
+        "push_off_speed",
+        "momentum",
+        "Conservation of momentum",
+        "v_2",
+        base_latex=r"v_2 = \frac{m_1 v_1}{m_2}",
+        assumptions=("both start at rest, and nothing outside pushes",),
+        expression="m_first*v_first/m_second",
+        variables=(
+            var("m_first", "m_1", "kilogram"),
+            var("m_second", "m_2", "kilogram"),
+            var(
+                "v_first",
+                "v_1",
+                "meter / second",
+                words=("the first", "first one", "former"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("how fast", "speed", "velocity"),
+            result=("meter / second",),
+            inputs=(frozenset({"m_first", "m_second", "v_first"}),),
+            cues=_PUSH_OFF,
+            interchangeable=("m_first", "m_second"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "push_off_speed_first",
+        "momentum",
+        "Conservation of momentum",
+        "v_1",
+        base_latex=r"v_1 = \frac{m_2 v_2}{m_1}",
+        assumptions=("both start at rest, and nothing outside pushes",),
+        expression="m_second*v_second/m_first",
+        variables=(
+            var("m_first", "m_1", "kilogram"),
+            var("m_second", "m_2", "kilogram"),
+            var(
+                "v_second",
+                "v_2",
+                "meter / second",
+                words=("the second", "second one", "latter", "the other"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("how fast", "speed", "velocity"),
+            result=("meter / second",),
+            inputs=(frozenset({"m_first", "m_second", "v_second"}),),
+            cues=_PUSH_OFF,
+            interchangeable=("m_first", "m_second"),
             nonnegative=True,
         ),
     ),
