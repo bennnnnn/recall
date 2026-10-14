@@ -77,8 +77,6 @@ export function shouldHoldStreamLayoutOnPersistedMount(options: {
   return isFreshStreamRenderKey(options.renderKey);
 }
 
-const CALENDAR_PROPOSAL_FENCE_RE = /```calendar_proposal/i;
-
 export function messageListItemType(item: {
   id: string;
   role: string;
@@ -89,7 +87,6 @@ export function messageListItemType(item: {
   // Cheap gate: proposal cards always carry a fenced block, and most messages
   // have none — skip the full-content regex scans for them.
   if (!content.includes("```")) return "assistant";
-  if (CALENDAR_PROPOSAL_FENCE_RE.test(content)) return "assistant-calendar";
   if (hasSettingsProposalFence(content)) return "assistant-settings";
   return "assistant";
 }

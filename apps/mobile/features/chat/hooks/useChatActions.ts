@@ -9,7 +9,7 @@ import { exportConversationAsPdf } from "@/lib/exportMessagePdf";
 import { isShareCancelled } from "@/lib/exportPdf";
 import { tap } from "@/lib/haptics";
 import { useChatManagementActions } from "@/features/chat/hooks/useChatManagementActions";
-import { fullEmailText } from "@/features/integrations/model/emailCompose";
+import { fullEmailText } from "@/features/drafts/model/emailCompose";
 import { replaceFirstClosedFenceBody } from "@/lib/mdFenceScan";
 import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";

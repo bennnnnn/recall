@@ -95,13 +95,14 @@ describe("messageListLayout", () => {
         content: "```vocab_card\n{\"word\":\"hola\",\"definition\":\"hello\"}\n```",
       }),
     ).toBe("assistant");
+    // Retired calendar event proposals are stripped for display: a plain row.
     expect(
       messageListItemType({
         id: "msg-cal",
         role: "assistant",
         content: '```calendar_proposal\n{"title":"Standup"}\n```',
       }),
-    ).toBe("assistant-calendar");
+    ).toBe("assistant");
   });
 
   it("prefers renderKey for FlashList identity", () => {

@@ -1,57 +1,35 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
-/** Native Skia trajectory chart with automatic UI-thread playback. */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+/** Native Skia trajectory chart; the dot walks the sampled path when played. */
+import { useCallback, useMemo } from "react";
+import { Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
-import {
-  Canvas,
-  Circle,
-  Group,
-  Path,
-  Skia,
-  Text as SkiaText,
-  useFont,
-} from "@shopify/react-native-skia";
-import {
-  cancelAnimation,
-  runOnJS,
-  useDerivedValue,
-  useSharedValue,
-  withTiming,
-} from "react-native-reanimated";
+import { Canvas, Circle, Group, Path, Skia, useFont } from "@shopify/react-native-skia";
+import { useDerivedValue } from "react-native-reanimated";
 
-import {
-  expandBoundsForAxes,
-  formatGraphExpr,
-  graphBounds,
-  mapGraphPoint,
-} from "@/lib/math/graphBlock";
+import { formatGraphExpr, mapGraphPoint } from "@/lib/math/graphBlock";
 import { type GraphSpec } from "@/lib/math/graphSpec";
-import {
-  playbackStart,
-  remainingPlaybackDuration,
-} from "@/lib/animationPlayback";
-import { Icon } from "@/ui/icons/Icon";
 import {
   trajectoryAxisLayout,
   trajectoryAxisCaptionPosition,
+  trajectoryBounds,
+  trajectoryOriginLabelPosition,
   trajectoryPointAt,
-  type ScreenPoint,
 } from "@/lib/math/trajectory";
-import { Motion, useReduceMotion } from "@/lib/motion";
+import { Motion } from "@/lib/motion";
 import { Theme } from "@/lib/theme";
-import { Radius } from "@/lib/radius";
-import { Space } from "@/lib/space";
-import { IconSize } from "@/ui/icons/sizes";
+import { PlaybackButton } from "@/components/rich/PlaybackButton";
+import { usePlayback } from "@/components/rich/usePlayback";
+import { HaloText } from "@/components/rich/skia/HaloText";
+import { pointsPath } from "@/components/rich/skia/paths";
 
 /** Changing either breaks TrajectoryGraphTicks.test.tsx, which pins tick geometry. */
 export const TRAJECTORY_PAD = 40;
 export const TRAJECTORY_CHART_HEIGHT = 220;
 
 const DOT_RADIUS = 5.5;
-const ARROW_LENGTH = 34;
-const ARROW_HEAD = 6;
+const CURVE_STROKE = 2.5;
 const TICK_FONT_SIZE = 11;
+/** Until the font loads, a rough SpaceMono advance keeps the layout sane. */
+const FALLBACK_CHAR_WIDTH = 6.7;
 
 type Props = {
   spec: GraphSpec;
@@ -60,72 +38,11 @@ type Props = {
   theme: Theme;
 };
 
-function pointsPath(points: readonly ScreenPoint[]) {
-  const path = Skia.Path.Make();
-  points.forEach((point, index) => {
-    if (index === 0) path.moveTo(point.px, point.py);
-    else path.lineTo(point.px, point.py);
-  });
-  return path;
-}
-
-function linePath(x1: number, y1: number, x2: number, y2: number) {
-  const path = Skia.Path.Make();
-  path.moveTo(x1, y1);
-  path.lineTo(x2, y2);
-  return path;
-}
-
-function arrowPath(x1: number, y1: number, x2: number, y2: number) {
-  const path = linePath(x1, y1, x2, y2);
-  const dx = x2 - x1;
-  const dy = y2 - y1;
-  const length = Math.hypot(dx, dy) || 1;
-  const ux = dx / length;
-  const uy = dy / length;
-  path.moveTo(x2, y2);
-  path.lineTo(
-    x2 - ux * ARROW_HEAD + uy * ARROW_HEAD * 0.6,
-    y2 - uy * ARROW_HEAD - ux * ARROW_HEAD * 0.6,
-  );
-  path.moveTo(x2, y2);
-  path.lineTo(
-    x2 - ux * ARROW_HEAD - uy * ARROW_HEAD * 0.6,
-    y2 - uy * ARROW_HEAD + ux * ARROW_HEAD * 0.6,
-  );
-  return path;
-}
-
-function motionArrowPaths(points: readonly ScreenPoint[]) {
-  if (points.length < 2) return [];
-  const start = points[0];
-  const next = points[Math.max(1, Math.round((points.length - 1) * 0.04))];
-  const apex = points.reduce((best, point) => (point.py < best.py ? point : best), points[0]);
-  const dx = next.px - start.px;
-  const dy = next.py - start.py;
-  const length = Math.hypot(dx, dy) || 1;
-  return [
-    arrowPath(
-      start.px,
-      start.py,
-      start.px + (dx / length) * ARROW_LENGTH,
-      start.py + (dy / length) * ARROW_LENGTH,
-    ),
-    arrowPath(apex.px, apex.py, apex.px, apex.py + ARROW_LENGTH),
-  ];
-}
-
 export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
   const { t } = useTranslation();
-  const reduceMotion = useReduceMotion();
-  const progress = useSharedValue(0);
-  const [isPlaying, setIsPlaying] = useState(false);
   const font = useFont(require("../../assets/fonts/SpaceMono-Regular.ttf"), TICK_FONT_SIZE);
 
-  const bounds = useMemo(
-    () => expandBoundsForAxes(graphBounds(spec.points), { pad: false }),
-    [spec.points],
-  );
+  const bounds = useMemo(() => trajectoryBounds(spec.points), [spec.points]);
   const screenPoints = useMemo(
     () =>
       spec.points.map(([x, y]) =>
@@ -158,57 +75,39 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
     path.lineTo(chartWidth - TRAJECTORY_PAD, axes.xAxisY);
     return path;
   }, [axes, chartWidth]);
+  // The clip keeps a wild sample off the labels; it is grown by the stroke so
+  // a curve running along the plot's edge keeps its full width.
   const clip = useMemo(
     () =>
       Skia.XYWHRect(
-        TRAJECTORY_PAD,
-        TRAJECTORY_PAD,
-        Math.max(0, chartWidth - TRAJECTORY_PAD * 2),
-        TRAJECTORY_CHART_HEIGHT - TRAJECTORY_PAD * 2,
+        TRAJECTORY_PAD - CURVE_STROKE,
+        TRAJECTORY_PAD - CURVE_STROKE,
+        Math.max(0, chartWidth - TRAJECTORY_PAD * 2 + CURVE_STROKE * 2),
+        TRAJECTORY_CHART_HEIGHT - TRAJECTORY_PAD * 2 + CURVE_STROKE * 2,
       ),
     [chartWidth],
   );
 
-  const markStopped = useCallback(() => setIsPlaying(false), []);
-  const play = useCallback(() => {
-    cancelAnimation(progress);
-    const start = playbackStart(progress.value);
-    progress.value = start;
-    setIsPlaying(true);
-    progress.value = withTiming(
-      1,
-      {
-        duration: remainingPlaybackDuration(Motion.duration.trajectory, start),
-        easing: Motion.easing.linear,
-      },
-      (finished) => {
-        if (finished) runOnJS(markStopped)();
-      },
-    );
-  }, [markStopped, progress]);
-  const pause = useCallback(() => {
-    cancelAnimation(progress);
-    setIsPlaying(false);
-  }, [progress]);
+  // Not autoplayed: a projectile or spring reply also carries a scene, which
+  // is the one moving picture. The graph plays when asked.
+  const resetKey = useMemo(() => JSON.stringify(spec.points), [spec.points]);
+  const { progress, isPlaying, play, pause } = usePlayback({
+    duration: Motion.duration.trajectory,
+    animated: screenPoints.length > 1,
+    autoplay: false,
+    loop: false,
+    resetKey,
+  });
+  const dot = useDerivedValue(() => {
+    const point = trajectoryPointAt(screenPoints, progress.value);
+    return { x: point.px, y: point.py };
+  });
 
-  useEffect(() => {
-    if (reduceMotion) return;
-    play();
-    return () => cancelAnimation(progress);
-  }, [play, progress, reduceMotion]);
-
-  const dotX = useDerivedValue(() => trajectoryPointAt(screenPoints, progress.value).px);
-  const dotY = useDerivedValue(() => trajectoryPointAt(screenPoints, progress.value).py);
   const xLabel = spec.x_label ?? "x";
   const yLabel = spec.y_label ?? "y";
   const title = formatGraphExpr(spec.title ?? "Trajectory");
-  const spatial = spec.trajectory_type === "parametric";
-  const arrowPaths = useMemo(
-    () => (spatial ? motionArrowPaths(screenPoints) : []),
-    [screenPoints, spatial],
-  );
   const measure = useCallback(
-    (value: string) => font?.measureText(value).width ?? value.length * 6.7,
+    (value: string) => font?.measureText(value).width ?? value.length * FALLBACK_CHAR_WIDTH,
     [font],
   );
   const xCaption = trajectoryAxisCaptionPosition(
@@ -217,141 +116,70 @@ export function TrajectoryChart({ spec, chartWidth, styles, theme }: Props) {
     TRAJECTORY_CHART_HEIGHT,
     TRAJECTORY_PAD,
   );
+  const showOrigin =
+    bounds.xMin <= 0 && bounds.xMax >= 0 && bounds.yMin <= 0 && bounds.yMax >= 0;
+  const originLabel = trajectoryOriginLabelPosition(axes.origin, measure("0"));
+  const label = (key: string, x: number, y: number, text: string) =>
+    font ? (
+      <HaloText
+        key={key}
+        x={x}
+        y={y}
+        text={text}
+        font={font}
+        color={theme.textSecondary}
+        halo={theme.bg}
+      />
+    ) : null;
 
   return (
     <View style={styles.wrap}>
       <Text style={styles.title}>{title}</Text>
-      <View style={{ width: chartWidth, height: TRAJECTORY_CHART_HEIGHT }}>
+      <View
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={t("rich.trajectory_a11y", { title, x: xLabel, y: yLabel })}
+        style={{ width: chartWidth, height: TRAJECTORY_CHART_HEIGHT }}
+      >
         <Canvas
           testID="trajectory-canvas"
           style={{ width: chartWidth, height: TRAJECTORY_CHART_HEIGHT }}
         >
           <Path path={gridPath} color={theme.border} style="stroke" strokeWidth={1} />
           <Path path={axesPath} color={theme.textSecondary} style="stroke" strokeWidth={1.25} />
-          {font
-            ? axes.xTicks.map((tick) => (
-                <SkiaText
-                  key={`x-${tick.value}`}
-                  x={tick.px - measure(tick.text) / 2}
-                  y={tick.py}
-                  text={tick.text}
-                  font={font}
-                  color={theme.textSecondary}
-                />
-              ))
-            : null}
-          {font
-            ? axes.yTicks.map((tick) => (
-                <SkiaText
-                  key={`y-${tick.value}`}
-                  x={Math.max(4, tick.px - measure(tick.text))}
-                  y={tick.py}
-                  text={tick.text}
-                  font={font}
-                  color={theme.textSecondary}
-                />
-              ))
-            : null}
-          {font &&
-          bounds.xMin <= 0 &&
-          bounds.xMax >= 0 &&
-          bounds.yMin <= 0 &&
-          bounds.yMax >= 0 ? (
-            <SkiaText
-              x={axes.origin.px + 10}
-              y={axes.origin.py + 16}
-              text="0"
-              font={font}
-              color={theme.textSecondary}
-            />
-          ) : null}
-          {font ? (
-            <>
-              <SkiaText
-                x={xCaption.px}
-                y={xCaption.py}
-                text={xLabel}
-                font={font}
-                color={theme.textSecondary}
-              />
-              <SkiaText
-                x={TRAJECTORY_PAD}
-                y={TRAJECTORY_PAD - 10}
-                text={yLabel}
-                font={font}
-                color={theme.textSecondary}
-              />
-            </>
-          ) : null}
           <Group clip={clip}>
             <Path
               path={curvePath}
               color={theme.primary}
               style="stroke"
-              strokeWidth={2.5}
+              strokeWidth={CURVE_STROKE}
               strokeCap="round"
               strokeJoin="round"
             />
-            {arrowPaths.map((path, index) => (
-              <Path
-                key={`arrow-${index}`}
-                path={path}
-                color={index === 0 ? theme.primary : theme.textSecondary}
-                style="stroke"
-                strokeWidth={1.5}
-              />
-            ))}
           </Group>
-          {!reduceMotion ? (
-            <>
-              <Circle cx={dotX} cy={dotY} r={DOT_RADIUS + 1.5} color={theme.bg} />
-              <Circle cx={dotX} cy={dotY} r={DOT_RADIUS} color={theme.primary} />
-            </>
-          ) : null}
-        </Canvas>
-        {spatial ? (
-          <View testID="trajectory-arrows" pointerEvents="none" style={localStyles.marker} />
-        ) : null}
-      </View>
-      {!reduceMotion ? (
-        <Pressable
-          testID="trajectory-control"
-          accessibilityRole="button"
-          accessibilityLabel={t(
-            isPlaying ? "rich.simulation_pause_a11y" : "rich.graph_play_a11y",
+          {axes.xTicks.map((tick) =>
+            label(`x-${tick.value}`, tick.px - measure(tick.text) / 2, tick.py, tick.text),
           )}
-          onPress={isPlaying ? pause : play}
-          style={({ pressed }) => [
-            localStyles.control,
-            { borderColor: theme.border, opacity: pressed ? 0.6 : 1 },
-          ]}
-        >
-          <Icon
-            testID={isPlaying ? "trajectory-stop-symbol" : "trajectory-play-symbol"}
-            name={isPlaying ? "pause" : "play"}
-            size={IconSize.sm}
-            color={theme.primary}
-          />
-        </Pressable>
+          {axes.yTicks.map((tick) =>
+            label(`y-${tick.value}`, Math.max(4, tick.px - measure(tick.text)), tick.py, tick.text),
+          )}
+          {showOrigin ? label("origin", originLabel.px, originLabel.py, "0") : null}
+          {label("x-caption", xCaption.px, xCaption.py, xLabel)}
+          {label("y-caption", TRAJECTORY_PAD, TRAJECTORY_PAD - 10, yLabel)}
+          <Circle c={dot} r={DOT_RADIUS + 1.5} color={theme.bg} />
+          <Circle c={dot} r={DOT_RADIUS} color={theme.primary} />
+        </Canvas>
+      </View>
+      {screenPoints.length > 1 ? (
+        <PlaybackButton
+          testID="trajectory"
+          isPlaying={isPlaying}
+          onPlay={play}
+          onPause={pause}
+          playLabel={t("rich.graph_play_a11y")}
+          pauseLabel={t("rich.simulation_pause_a11y")}
+        />
       ) : null}
     </View>
   );
 }
-
-const localStyles = StyleSheet.create({
-  control: {
-    marginTop: Space.xs,
-    width: 36,
-    height: 36,
-    alignItems: "center",
-    justifyContent: "center",
-    borderRadius: Radius.bubble,
-    borderWidth: StyleSheet.hairlineWidth,
-  },
-  marker: {
-    position: "absolute",
-    width: 1,
-    height: 1,
-    opacity: 0,
-  },
-});

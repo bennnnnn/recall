@@ -26,8 +26,9 @@
  * preview, and preprocess — freeze the set unless the user-visible object is
  * truly new.
  *
- * Calendar / reminder / settings control fences are parsed
- * outside this registry (see assistantMessageContent.ts).
+ * Reminder / settings control fences are parsed outside this registry (see
+ * assistantMessageContent.ts), which also strips the retired
+ * `calendar_proposal` fence that old saved replies may still carry.
  */
 
 export type FenceId =
@@ -396,6 +397,7 @@ export function isControlFenceLang(lang: string): boolean {
   const l = normalize(lang);
   return (
     l === "reminder" ||
+    // Retired (Google Calendar was removed); old saved replies may still carry it.
     l === "calendar_proposal" ||
     l === "settings_proposal" ||
     l === "reminder_proposal" ||

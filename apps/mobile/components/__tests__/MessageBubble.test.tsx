@@ -40,9 +40,6 @@ jest.mock("@/components/MarkdownContent", () => {
     ),
   };
 });
-jest.mock("@/features/integrations/components/CalendarProposalCard", () => ({
-  CalendarProposalCard: () => null,
-}));
 jest.mock("@/components/SettingsProposalCard", () => ({
   SettingsProposalCard: () => null,
 }));
@@ -78,7 +75,7 @@ jest.mock("@/components/MarkdownErrorBoundary", () => ({
 jest.mock("@/components/RecallTypingIndicator", () => ({
   RecallTypingIndicator: () => null,
 }));
-jest.mock("@/features/integrations/context/emailDraftPersist", () => ({
+jest.mock("@/features/drafts/context/emailDraftPersist", () => ({
   AssistantMessageScope: ({ children }: { children: React.ReactNode }) => children,
 }));
 jest.mock("@/contexts/AuthContext", () => ({
@@ -98,8 +95,6 @@ jest.mock("@/hooks/useAssistantMessageContent", () => ({
     actionsReady: !isUser,
     showLiveClock: mockShowLiveClock,
     clockTimezone: "America/New_York",
-    calendarProposals: [],
-    showCalendarProposals: false,
     settingsProposals: [],
     showSettingsProposals: false,
     reminderProposals: [],

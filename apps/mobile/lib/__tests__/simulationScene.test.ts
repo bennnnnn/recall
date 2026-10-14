@@ -11,10 +11,11 @@
  * the verified number printed beside it.
  */
 import {
-  arrowPolyline,
   clampCanvasLabelBaseline,
   clampCanvasLabelX,
+  derivedArrowGeometry,
   inclineDirections,
+  maxTrackSpeed,
   inclineSurface,
   parseSimulationSpec,
   projectPath,
@@ -263,10 +264,19 @@ describe("tangentAt", () => {
   });
 
   it("a zero direction draws no arrow at all", () => {
-    // The other half of the same decision: an empty points string renders
-    // nothing, so the velocity arrow appears at the moment of the collision —
-    // which is the moment it means something.
-    expect(arrowPolyline({ px: 5, py: 5 }, 0, 0, 40, 8)).toBe("");
+    // The other half of the same decision: no geometry renders nothing, so
+    // the velocity arrow appears at the moment of the collision — which is
+    // the moment it means something.
+    expect(
+      derivedArrowGeometry("velocity", { px: 5, py: 5 }, 4, {
+        tangent: { dx: 0, dy: 0 },
+        maxSpeed: 10,
+        centre: null,
+        slope: null,
+        width: 360,
+        height: 240,
+      }),
+    ).toBeNull();
   });
 
   it("clamps progress outside 0..1", () => {
@@ -276,42 +286,6 @@ describe("tangentAt", () => {
 
     expect(tangentAt(track, -3)).toEqual(tangentAt(track, 0));
     expect(tangentAt(track, 9)).toEqual(tangentAt(track, 1));
-  });
-});
-
-describe("arrowPolyline", () => {
-  it("draws shaft and both barbs as one five-point path", () => {
-    const points = arrowPolyline({ px: 0, py: 0 }, 1, 0, 40, 8)
-      .split(" ")
-      .map((pair) => pair.split(",").map(Number));
-
-    expect(points).toHaveLength(5);
-    // tail, tip, barb, back to tip, other barb
-    expect(points[0]).toEqual([0, 0]);
-    expect(points[1]).toEqual([40, 0]);
-    expect(points[3]).toEqual([40, 0]);
-    // The barbs sit behind the tip and on opposite sides of the shaft.
-    expect(points[2][0]).toBeLessThan(40);
-    expect(points[4][0]).toBeLessThan(40);
-    expect(Math.sign(points[2][1])).toBe(-Math.sign(points[4][1]));
-  });
-
-  it("has the requested length whichever way it points", () => {
-    // Coordinates are emitted at 2 dp, so the tolerance is set by the string
-    // format rather than the geometry; anything tighter tests toFixed.
-    for (const [dx, dy] of [
-      [1, 0],
-      [0, 1],
-      [-3, 4],
-      [2, -2],
-    ]) {
-      const [tip] = arrowPolyline({ px: 100, py: 100 }, dx, dy, 40, 8)
-        .split(" ")
-        .slice(1, 2)
-        .map((pair) => pair.split(",").map(Number));
-
-      expect(Math.hypot(tip[0] - 100, tip[1] - 100)).toBeCloseTo(40, 1);
-    }
   });
 });
 
@@ -378,17 +352,24 @@ describe("collision and incline scenes", () => {
 
   it("gives a ball at rest no velocity arrow until it moves", () => {
     // Body 2 sits still for the whole of this fixture. Its tangent is zero, so
-    // arrowPolyline draws nothing — the arrow appears at the collision.
+    // no arrow is drawn — the arrow appears at the collision.
     const spec = parse(COLLISION)!;
     const t = simulationTransform(spec, 360, 240, 24);
     const still = projectPath(spec.bodies[1].path, t);
     const moving = projectPath(spec.bodies[0].path, t);
+    const context = (tangent: { dx: number; dy: number }) => ({
+      tangent,
+      maxSpeed: maxTrackSpeed(moving),
+      centre: null,
+      slope: null,
+      width: 360,
+      height: 240,
+    });
 
-    const stillTangent = tangentAt(still, 0.5);
-    expect(arrowPolyline(still[1], stillTangent.dx, stillTangent.dy, 38, 7)).toBe("");
-
-    const movingTangent = tangentAt(moving, 0.5);
-    expect(arrowPolyline(moving[1], movingTangent.dx, movingTangent.dy, 38, 7)).not.toBe("");
+    expect(derivedArrowGeometry("velocity", still[1], 4, context(tangentAt(still, 0.5)))).toBeNull();
+    expect(
+      derivedArrowGeometry("velocity", moving[1], 4, context(tangentAt(moving, 0.5))),
+    ).not.toBeNull();
   });
 
   it("reads an incline with its slope angle", () => {

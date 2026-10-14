@@ -16,7 +16,6 @@ import { TodosViewMenu } from "@/features/todos/components/TodosViewMenu";
 import { makeTodosStyles } from "@/features/todos/components/todosStyles";
 import { useTodosActions } from "@/features/todos/hooks/useTodosActions";
 import { useTodosDerivedState } from "@/features/todos/hooks/useTodosDerivedState";
-import { useSuggestedReminders } from "@/features/todos/hooks/useSuggestedReminders";
 import { useAccountViewOwner } from "@/hooks/useAccountViewOwner";
 import { useAuth } from "@/contexts/AuthContext";
 import { useTodos } from "@/features/todos/context/TodosContext";
@@ -37,11 +36,9 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
   const C = useTheme();
   const s = useMemo(() => makeTodosStyles(C), [C]);
   const navigation = useNavigation();
-  const { focus, highlight, eventTitle, eventStart } = useLocalSearchParams<{
+  const { focus, highlight } = useLocalSearchParams<{
     focus?: string;
     highlight?: string;
-    eventTitle?: string;
-    eventStart?: string;
   }>();
   const {
     todos,
@@ -78,20 +75,6 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     setTodos,
     refresh,
   });
-  const {
-    reminders: suggestedReminders,
-    busyIds: busySuggestionIds,
-    refresh: refreshSuggestions,
-    add: addSuggestion,
-    dismiss: dismissSuggestion,
-  } = useSuggestedReminders({
-    token,
-    isCurrentSession,
-    isCurrentView,
-    setTodos,
-    refreshTodos: refresh,
-  });
-
   const leaveSelection = useCallback(() => {
     setSelecting(false);
     setSelectedIds([]);
@@ -200,16 +183,13 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
     refreshingRef.current = true;
     setPullRefreshing(true);
     try {
-      await Promise.all([
-        refresh({ silent: true, force: true }),
-        refreshSuggestions(),
-      ]);
+      await refresh({ silent: true, force: true });
     }
     finally {
       refreshingRef.current = false;
       if (isCurrentView()) setPullRefreshing(false);
     }
-  }, [refresh, refreshSuggestions, isCurrentView]);
+  }, [refresh, isCurrentView]);
 
   const retry = useCallback(() => {
     if (isCurrentView()) void refresh({ force: true });
@@ -220,22 +200,14 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       <TodosListHeader
         error={Boolean(error)}
         onRetry={retry}
-        showEmpty={showTodosEmptyHero && suggestedReminders.length === 0}
-        calendarNudge={
-          typeof eventTitle === "string" && typeof eventStart === "string"
-            ? { title: eventTitle, startAt: eventStart }
-            : null
-        }
+        showEmpty={showTodosEmptyHero}
       />
     ),
-    [error, retry, showTodosEmptyHero, suggestedReminders.length, eventTitle, eventStart],
+    [error, retry, showTodosEmptyHero],
   );
 
   const visibleTodos = useMemo(() => todosForView(todos, view), [todos, view]);
-  const rows = useMemo(() => {
-    const suggestions = view === "completed" ? [] : suggestedReminders;
-    return buildTodoListRows(visibleTodos, new Date(), suggestions);
-  }, [visibleTodos, view, suggestedReminders]);
+  const rows = useMemo(() => buildTodoListRows(visibleTodos, new Date()), [visibleTodos]);
   const selected = useMemo(() => new Set(selectedIds), [selectedIds]);
   if (!token) return <Redirect href="/login" />;
 
@@ -291,19 +263,16 @@ function TodosContent({ isCurrentView }: { isCurrentView: () => boolean }) {
       {detailOpen ? null : (
       <TodosScrollList
         rows={rows}
-        showEmpty={showTodosEmptyHero && suggestedReminders.length === 0}
+        showEmpty={showTodosEmptyHero}
         error={Boolean(error)}
         listHeader={listHeader}
         refreshing={pullRefreshing}
         onRefresh={onPullRefresh}
         highlight={highlight}
         busyTodoIds={actions.busyTodoIds}
-        busySuggestionIds={busySuggestionIds}
         onToggle={actions.handleToggle}
         onOpen={openTodo}
         onDeleteItem={actions.handleDeleteItem}
-        onAddSuggestion={addSuggestion}
-        onDismissSuggestion={dismissSuggestion}
         selecting={selecting}
         selectedIds={selected}
         onSelect={toggleSelected}

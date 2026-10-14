@@ -1,11 +1,11 @@
 import { act, fireEvent, render, waitFor } from "@testing-library/react-native";
-import { flushEmailDrafts } from "@/features/integrations/model/emailDraftFlush";
+import { flushEmailDrafts } from "@/features/drafts/model/emailDraftFlush";
 
-import { EmailCard } from "@/features/integrations/components/EmailCard";
+import { EmailCard } from "@/features/drafts/components/EmailCard";
 import {
   AssistantMessageScope,
   EmailDraftPersistProvider,
-} from "@/features/integrations/context/emailDraftPersist";
+} from "@/features/drafts/context/emailDraftPersist";
 
 jest.mock("expo-clipboard", () => ({ setStringAsync: jest.fn() }));
 jest.mock("expo-haptics", () => ({

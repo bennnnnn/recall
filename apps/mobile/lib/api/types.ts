@@ -30,8 +30,6 @@ export type User = {
   push_notifications_enabled: boolean;
   /** Each push kind's own switch, under the master one. */
   push_reminders_enabled?: boolean;
-  push_email_suggestions_enabled?: boolean;
-  push_calendar_enabled?: boolean;
   /** Read-aloud and live talk voice; null is the server default. */
   tts_voice?: UserVoice | null;
   email_reminders_enabled?: boolean;
@@ -198,43 +196,6 @@ export type ModelInfo = {
   healthy?: boolean;
   latency_p50_ms?: number | null;
   health_samples?: number;
-};
-
-export type GoogleCalendarStatus = {
-  connected: boolean;
-  email?: string | null;
-  configured: boolean;
-  can_write?: boolean;
-};
-
-export type GoogleCalendarEvent = {
-  id: string;
-  title: string;
-  start_at: string;
-  end_at?: string | null;
-  location?: string | null;
-  all_day: boolean;
-  calendar_name?: string | null;
-};
-
-export type GoogleGmailStatus = {
-  connected: boolean;
-  email?: string | null;
-  configured: boolean;
-  last_sync_at?: string | null;
-};
-
-export type SuggestedReminder = {
-  id: string;
-  title: string;
-  due_at: string | null;
-  notes: string | null;
-  confidence: number;
-  source_snippet: string | null;
-  source_sender: string | null;
-  status: string;
-  created_at: string;
-  gmail_message_id: string;
 };
 
 export type AuthResult = {

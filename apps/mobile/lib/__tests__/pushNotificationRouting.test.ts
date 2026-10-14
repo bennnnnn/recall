@@ -35,40 +35,16 @@ function fakeRouter() {
   return { push: jest.fn(), replace: jest.fn() };
 }
 
-describe("handlePushNotificationResponse: suggestions", () => {
-  it("routes email suggestions to To-do", async () => {
-    const router = fakeRouter();
-    await handlePushNotificationResponse(router, {
-      type: "email_suggestion",
-    });
-    expect(router.push).toHaveBeenCalledWith("/todos");
-  });
-
-  it("carries event context into To-do for calendar nudges", async () => {
-    const router = fakeRouter();
-    await handlePushNotificationResponse(router, {
-      type: "calendar_nudge",
-      event_id: "event-1",
-      event_title: "Design review",
-      event_start: "2026-09-18T17:30:00.000Z",
-    });
-    const href = router.push.mock.calls[0][0] as {
-      pathname: string;
-      params: { eventId: string; eventTitle: string; eventStart: string };
-    };
-    expect(href.pathname).toBe("/todos");
-    expect(href.params).toEqual({
-      eventId: "event-1",
-      eventTitle: "Design review",
-      eventStart: "2026-09-18T17:30:00.000Z",
-    });
-  });
-
-  it("falls back to chat for a legacy nudge with no event context", async () => {
-    const router = fakeRouter();
-    await handlePushNotificationResponse(router, { type: "calendar_nudge" });
-    expect(router.push).toHaveBeenCalledWith("/");
-  });
+describe("handlePushNotificationResponse: retired kinds", () => {
+  it.each(["email_suggestion", "calendar_nudge"])(
+    "ignores a retired %s push still in the notification tray",
+    async (type) => {
+      const router = fakeRouter();
+      await handlePushNotificationResponse(router, { type });
+      expect(router.push).not.toHaveBeenCalled();
+      expect(router.replace).not.toHaveBeenCalled();
+    },
+  );
 });
 
 describe("handlePushNotificationResponse: already on target", () => {

@@ -1,8 +1,7 @@
-import type { SuggestedReminder, Todo } from "@/lib/api";
+import type { Todo } from "@/lib/api";
 import { localDateKey } from "@/features/todos/model/dateKey";
 
 export type TodoSection =
-  | "suggested"
   | "overdue"
   | "today"
   | "tomorrow"
@@ -12,12 +11,10 @@ export type TodoSection =
 
 export type TodoListRow =
   | { kind: "heading"; section: TodoSection; key: string; dayKey?: string; count: number }
-  | { kind: "suggestion"; reminder: SuggestedReminder }
   | { kind: "todo"; todo: Todo };
 
 export function todoListRowKey(row: TodoListRow): string {
   if (row.kind === "todo") return `todo-${row.todo.id}`;
-  if (row.kind === "suggestion") return `suggestion-${row.reminder.id}`;
   return `heading-${row.key}`;
 }
 
@@ -41,11 +38,7 @@ function appendGroup(
 }
 
 /** Build one urgency-ordered list, separated into readable day groups. */
-export function buildTodoListRows(
-  todos: Todo[],
-  now = new Date(),
-  suggestions: SuggestedReminder[] = [],
-): TodoListRow[] {
+export function buildTodoListRows(todos: Todo[], now = new Date()): TodoListRow[] {
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -80,10 +73,6 @@ export function buildTodoListRows(
   }
 
   const rows: TodoListRow[] = [];
-  if (suggestions.length) {
-    rows.push({ kind: "heading", section: "suggested", key: "suggested", count: suggestions.length });
-    rows.push(...suggestions.map((reminder) => ({ kind: "suggestion" as const, reminder })));
-  }
   appendGroup(rows, "overdue", "overdue", overdue.sort(sortByDueThenCreated));
   appendGroup(rows, "today", todayKey, todayItems.sort(sortByDueThenCreated), todayKey);
   appendGroup(

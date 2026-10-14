@@ -1,7 +1,6 @@
-/* eslint-disable react-hooks/immutability -- Reanimated shared values are mutated on the UI thread by design */
 /** Native Skia renderer for verified physics simulation scenes. */
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from "react-native";
+import { useCallback, useMemo } from "react";
+import { StyleSheet, Text, useWindowDimensions, View } from "react-native";
 import { useTranslation } from "react-i18next";
 import {
   Canvas,
@@ -9,102 +8,96 @@ import {
   DashPathEffect,
   Path,
   Skia,
-  Text as SkiaText,
   useFont,
   type SkFont,
 } from "@shopify/react-native-skia";
-import {
-  cancelAnimation,
-  runOnJS,
-  useDerivedValue,
-  useSharedValue,
-  withTiming,
-  type SharedValue,
-} from "react-native-reanimated";
+import { useDerivedValue, type SharedValue } from "react-native-reanimated";
 
 import {
+  arrowHeadSize,
   clampCanvasLabelBaseline,
   clampCanvasLabelX,
+  derivedArrowGeometry,
+  describeSimulation,
   inclineDirections,
   inclineSurface,
+  isClosedPath,
+  layoutSimulationScene,
+  maxTrackSpeed,
   parseSimulationSpec,
+  PIVOT_SIZE,
   projectPath,
+  SIMULATION_HEIGHT,
+  SIMULATION_MIN_HEIGHT,
+  SIMULATION_PAD,
+  simulationIsAnimated,
   simulationTransform,
   simulationViewportHeight,
   tangentAt,
+  vectorStroke,
   worldToScreen,
+  type BodyLabelLayout,
   type SimulationArrow,
   type SimulationSpec,
   type SimulationTransform,
-  type SimulationVector,
   type ScreenPoint,
+  type VectorLayout,
 } from "@/lib/physics/simulation";
-import {
-  playbackStart,
-  remainingPlaybackDuration,
-} from "@/lib/animationPlayback";
-import { Icon } from "@/ui/icons/Icon";
 import { trajectoryPointAt } from "@/lib/math/trajectory";
-import { Motion, useReduceMotion } from "@/lib/motion";
+import { Motion } from "@/lib/motion";
 import { Theme, useTheme } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
-import { IconSize } from "@/ui/icons/sizes";
-import { Type, Weight } from "@/lib/type";
+import { Type } from "@/lib/type";
+import { figureTitleStyle, figureWidth } from "@/components/rich/figure";
+import { PlaybackButton } from "@/components/rich/PlaybackButton";
+import { usePlayback } from "@/components/rich/usePlayback";
+import { HaloText } from "@/components/rich/skia/HaloText";
+import {
+  arrowHeadPath,
+  arrowPath,
+  arrowShaftPath,
+  linePath,
+  pointsPath,
+} from "@/components/rich/skia/paths";
 
-export const SIMULATION_PAD = 24;
-export const SIMULATION_HEIGHT = 240;
-export const SIMULATION_MIN_HEIGHT = 136;
+export { SIMULATION_HEIGHT, SIMULATION_MIN_HEIGHT, SIMULATION_PAD };
 
-const ARROW_LENGTH = 38;
-const ARROW_HEAD = 7;
-const MIN_BODY_RADIUS = 4;
-const PIVOT_SIZE = 7;
-const LABEL_OFFSET = 8;
 const LABEL_FONT_SIZE = 11;
+/** Until the font loads, a rough SpaceMono advance keeps the layout sane. */
+const FALLBACK_CHAR_WIDTH = 6.7;
+const WALL_HALF_HEIGHT = 16;
+const CENTRE_DOT_RADIUS = 3;
+const ARROW_STROKE = 1.5;
+const RESULT_STROKE = 2.5;
+
+/** Periodic motion goes round again while playing; the rest hold their end. */
+const PERIODIC: readonly SimulationSpec["type"][] = ["orbit", "spring"];
+
+/**
+ * The invisible geometry markers exist for component tests, which cannot see
+ * inside a Skia canvas. They are never shipped to a screen reader.
+ */
+const RENDER_TEST_MARKERS = process.env.NODE_ENV === "test";
 
 type Props = { content: string };
-type Vector = { dx: number; dy: number };
+type Slope = ReturnType<typeof inclineDirections>;
 
-function pointsPath(points: readonly ScreenPoint[]) {
+function wallPath(point: ScreenPoint, floorY: number | null) {
   const path = Skia.Path.Make();
-  points.forEach((point, index) => {
-    if (index === 0) path.moveTo(point.px, point.py);
-    else path.lineTo(point.px, point.py);
-  });
+  path.moveTo(point.px, point.py - WALL_HALF_HEIGHT);
+  // A wall standing on the ground stops at it rather than poking through.
+  const bottom = point.py + WALL_HALF_HEIGHT;
+  path.lineTo(point.px, floorY === null ? bottom : Math.min(bottom, floorY));
   return path;
 }
 
-function linePath(x1: number, y1: number, x2: number, y2: number) {
+function pivotPath(point: ScreenPoint) {
   const path = Skia.Path.Make();
-  path.moveTo(x1, y1);
-  path.lineTo(x2, y2);
-  return path;
-}
-
-function arrowPath(
-  from: ScreenPoint,
-  dx: number,
-  dy: number,
-  length: number,
-  head: number,
-) {
-  "worklet";
-  const path = Skia.Path.Make();
-  const magnitude = Math.hypot(dx, dy);
-  if (magnitude === 0) return path;
-  const ux = dx / magnitude;
-  const uy = dy / magnitude;
-  const tipX = from.px + ux * length;
-  const tipY = from.py + uy * length;
-  const bx = uy * head * 0.6;
-  const by = ux * head * 0.6;
-  path.moveTo(from.px, from.py);
-  path.lineTo(tipX, tipY);
-  path.moveTo(tipX, tipY);
-  path.lineTo(tipX - ux * head + bx, tipY - uy * head - by);
-  path.moveTo(tipX, tipY);
-  path.lineTo(tipX - ux * head - bx, tipY - uy * head + by);
+  path.moveTo(point.px, point.py);
+  path.lineTo(point.px - PIVOT_SIZE, point.py + PIVOT_SIZE * 1.4);
+  path.lineTo(point.px + PIVOT_SIZE, point.py + PIVOT_SIZE * 1.4);
+  path.close();
   return path;
 }
 
@@ -136,32 +129,13 @@ function springPath(from: ScreenPoint, to: ScreenPoint) {
   return path;
 }
 
-function wallPath(point: ScreenPoint) {
-  const path = Skia.Path.Make();
-  path.moveTo(point.px, point.py - 16);
-  path.lineTo(point.px, point.py + 16);
-  return path;
-}
-
-function pivotPath(point: ScreenPoint) {
-  const path = Skia.Path.Make();
-  path.moveTo(point.px, point.py);
-  path.lineTo(point.px - PIVOT_SIZE, point.py + PIVOT_SIZE * 1.4);
-  path.lineTo(point.px + PIVOT_SIZE, point.py + PIVOT_SIZE * 1.4);
-  path.close();
-  return path;
-}
-
 export function SimulationBlock({ content }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const { width: screenWidth } = useWindowDimensions();
-  const reduceMotion = useReduceMotion();
-  const progress = useSharedValue(0);
-  const [isPlaying, setIsPlaying] = useState(false);
   const font = useFont(require("../../assets/fonts/SpaceMono-Regular.ttf"), LABEL_FONT_SIZE);
   const spec = useMemo(() => parseSimulationSpec(content), [content]);
-  const width = Math.min(screenWidth - 48, 360);
+  const width = figureWidth(screenWidth);
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const height = useMemo(
     () =>
@@ -184,62 +158,44 @@ export function SimulationBlock({ content }: Props) {
     () => (spec && transform ? spec.bodies.map((body) => projectPath(body.path, transform)) : []),
     [spec, transform],
   );
-  const trackPaths = useMemo(() => tracks.map(pointsPath), [tracks]);
-  const animated = useMemo(
+  const closed = useMemo(() => tracks.map(isClosedPath), [tracks]);
+  // One scale for every body, so the faster ball after a collision has the
+  // longer arrow.
+  const maxSpeed = useMemo(
     () =>
-      spec?.bodies.some((body) =>
-        body.path.some(
-          (point) => point[0] !== body.path[0][0] || point[1] !== body.path[0][1],
-        ),
-      ) ?? false,
-    [spec],
+      spec?.arrows.includes("velocity")
+        ? tracks.reduce((best, track, index) => Math.max(best, maxTrackSpeed(track, closed[index])), 0)
+        : 0,
+    [closed, spec, tracks],
   );
-  const compactTitleTop = useMemo(() => {
-    if (!spec || !transform || !animated || height >= SIMULATION_HEIGHT) return null;
-    const bodyTop = tracks.reduce((sceneTop, track, index) => {
-      const radius = Math.max(
-        spec.bodies[index].radius * transform.scale,
-        MIN_BODY_RADIUS,
-      );
-      const trackTop = track.reduce(
-        (top, point) => Math.min(top, point.py - radius),
-        Number.POSITIVE_INFINITY,
-      );
-      return Math.min(sceneTop, trackTop);
-    }, Number.POSITIVE_INFINITY);
-    if (!Number.isFinite(bodyTop)) return null;
-    return Math.max(4, bodyTop - 24);
-  }, [animated, height, spec, tracks, transform]);
+  // A spring's coil already runs along its path, so a trail would only
+  // stripe the coil.
+  const trackPaths = useMemo(
+    () => (spec?.type === "spring" ? [] : tracks.map(pointsPath)),
+    [spec, tracks],
+  );
+  const animated = useMemo(() => (spec ? simulationIsAnimated(spec) : false), [spec]);
+  const measure = useCallback(
+    (text: string) => (font ? font.measureText(text).width : text.length * FALLBACK_CHAR_WIDTH),
+    [font],
+  );
+  const layout = useMemo(
+    () =>
+      spec && transform
+        ? layoutSimulationScene(spec, transform, width, height, measure, LABEL_FONT_SIZE)
+        : null,
+    [height, measure, spec, transform, width],
+  );
+  const description = useMemo(() => (spec ? describeSimulation(spec, t) : ""), [spec, t]);
+  const { progress, isPlaying, play, pause, reduceMotion } = usePlayback({
+    duration: Motion.duration.simulation,
+    animated,
+    autoplay: true,
+    loop: spec !== null && PERIODIC.includes(spec.type),
+    resetKey: content,
+  });
 
-  const markStopped = useCallback(() => setIsPlaying(false), []);
-  const play = useCallback(() => {
-    cancelAnimation(progress);
-    const start = playbackStart(progress.value);
-    progress.value = start;
-    setIsPlaying(true);
-    progress.value = withTiming(
-      1,
-      {
-        duration: remainingPlaybackDuration(Motion.duration.simulation, start),
-        easing: Motion.easing.linear,
-      },
-      (finished) => {
-        if (finished) runOnJS(markStopped)();
-      },
-    );
-  }, [markStopped, progress]);
-  const pause = useCallback(() => {
-    cancelAnimation(progress);
-    setIsPlaying(false);
-  }, [progress]);
-
-  useEffect(() => {
-    if (!animated || reduceMotion) return;
-    play();
-    return () => cancelAnimation(progress);
-  }, [animated, play, progress, reduceMotion]);
-
-  if (!spec || !transform) {
+  if (!spec || !transform || !layout) {
     return (
       <View style={styles.fallback}>
         <Text style={styles.fallbackText}>{t("rich.simulation_error")}</Text>
@@ -262,24 +218,26 @@ export function SimulationBlock({ content }: Props) {
     spec.type === "spring" && spec.anchor
       ? worldToScreen(spec.anchor.x, spec.anchor.y, transform)
       : null;
+  const bodyColor = (role: "primary" | "secondary") =>
+    role === "primary" ? theme.primary : theme.graphSeries[1];
 
   return (
     <View style={styles.wrap}>
-      {compactTitleTop === null ? (
-        <Text style={styles.title}>{spec.title ?? t("rich.simulation_title")}</Text>
-      ) : null}
-      <View style={{ width, height }}>
-        <Canvas
-          testID="simulation-canvas"
-          style={{ width, height }}
-        >
+      <Text style={styles.title}>{spec.title ?? t("rich.simulation_title")}</Text>
+      <View
+        accessible
+        accessibilityRole="image"
+        accessibilityLabel={description}
+        style={{ width, height }}
+      >
+        <Canvas testID="simulation-canvas" style={{ width, height }}>
           {trackPaths.map((path, index) => (
             <Path
               key={`track-${index}`}
               path={path}
-              color={theme.border}
+              color={theme.textTertiary}
               style="stroke"
-              strokeWidth={1.5}
+              strokeWidth={ARROW_STROKE}
             >
               <DashPathEffect intervals={[4, 4]} />
             </Path>
@@ -289,7 +247,7 @@ export function SimulationBlock({ content }: Props) {
               path={linePath(surface.x1, surface.y1, surface.x2, surface.y2)}
               color={theme.textSecondary}
               style="stroke"
-              strokeWidth={1.5}
+              strokeWidth={ARROW_STROKE}
             />
           ) : null}
           {spec.ground ? (
@@ -297,7 +255,7 @@ export function SimulationBlock({ content }: Props) {
               path={linePath(SIMULATION_PAD / 2, groundY, width - SIMULATION_PAD / 2, groundY)}
               color={theme.textSecondary}
               style="stroke"
-              strokeWidth={1.5}
+              strokeWidth={ARROW_STROKE}
             />
           ) : null}
           {beam ? (
@@ -312,7 +270,7 @@ export function SimulationBlock({ content }: Props) {
           {pivot ? <Path path={pivotPath(pivot)} color={theme.textSecondary} /> : null}
           {anchor ? (
             <Path
-              path={wallPath(anchor)}
+              path={wallPath(anchor, spec.ground ? groundY : null)}
               color={theme.textSecondary}
               style="stroke"
               strokeWidth={2}
@@ -326,77 +284,94 @@ export function SimulationBlock({ content }: Props) {
               color={theme.textSecondary}
             />
           ) : null}
-          {spec.vectors.map((vector, index) => (
-            <StatedVector
-              key={`vector-${index}`}
-              vector={vector}
-              transform={transform}
-              theme={theme}
-              font={font}
-              canvasWidth={width}
-              canvasHeight={height}
-            />
+          {layout.vectors.map((vector, index) => (
+            <StatedVector key={`vector-${index}`} layout={vector} theme={theme} />
           ))}
-          {centre ? <Circle cx={centre.px} cy={centre.py} r={3} color={theme.textSecondary} /> : null}
+          {centre ? (
+            <Circle cx={centre.px} cy={centre.py} r={CENTRE_DOT_RADIUS} color={theme.textSecondary} />
+          ) : null}
           {spec.bodies.map((body, index) => (
             <BodyMarks
               key={`body-${index}`}
               track={tracks[index]}
-              radius={Math.max(body.radius * transform.scale, MIN_BODY_RADIUS)}
-              label={body.label}
-              role={body.role}
+              closed={closed[index]}
+              maxSpeed={maxSpeed}
+              radius={layout.radii[index]}
+              color={bodyColor(body.role)}
               arrows={spec.arrows}
               centre={centre}
               slope={slope}
               progress={progress}
               theme={theme}
-              font={font}
               canvasWidth={width}
               canvasHeight={height}
             />
           ))}
+          {/* Labels last, over every line, each with a halo so nothing strikes it through. */}
+          {font
+            ? layout.vectors.map((vector, index) =>
+                vector.label ? (
+                  <HaloText
+                    key={`vector-label-${index}`}
+                    x={vector.label.x}
+                    y={vector.label.y}
+                    text={vector.label.text}
+                    font={font}
+                    color={vectorColor(vector, theme)}
+                    halo={theme.bg}
+                  />
+                ) : null,
+              )
+            : null}
+          {font
+            ? spec.bodies.map((body, index) => {
+                const label = layout.bodyLabels[index];
+                return body.label && label ? (
+                  <BodyLabel
+                    key={`body-label-${index}`}
+                    text={body.label}
+                    layout={label}
+                    track={tracks[index]}
+                    progress={progress}
+                    font={font}
+                    theme={theme}
+                    canvasWidth={width}
+                    canvasHeight={height}
+                  />
+                ) : null;
+              })
+            : null}
         </Canvas>
-        {compactTitleTop !== null ? (
-          <Text
-            pointerEvents="none"
-            style={[styles.title, styles.titleOverlay, { top: compactTitleTop, width }]}
-          >
-            {spec.title ?? t("rich.simulation_title")}
-          </Text>
-        ) : null}
-        <SceneMarkers
-          spec={spec}
-          surface={surface !== null}
-          centre={centre !== null}
-          beam={beam !== null}
-          pivot={pivot !== null}
-          spring={anchor !== null}
-          reduceMotion={reduceMotion}
-        />
-      </View>
-      {!reduceMotion && animated ? (
-        <Pressable
-          testID="simulation-control"
-          accessibilityRole="button"
-          accessibilityLabel={t(
-            isPlaying ? "rich.simulation_pause_a11y" : "rich.simulation_play_a11y",
-          )}
-          onPress={isPlaying ? pause : play}
-          style={({ pressed }) => [
-            styles.control,
-            { borderColor: theme.border, opacity: pressed ? 0.6 : 1 },
-          ]}
-        >
-          <Icon
-            testID={isPlaying ? "simulation-stop-symbol" : "simulation-play-symbol"}
-            name={isPlaying ? "pause" : "play"}
-            size={IconSize.sm}
-            color={theme.primary}
+        {RENDER_TEST_MARKERS ? (
+          <SceneMarkers
+            spec={spec}
+            surface={surface !== null}
+            centre={centre !== null}
+            beam={beam !== null}
+            pivot={pivot !== null}
+            spring={anchor !== null}
+            reduceMotion={reduceMotion === true}
           />
-        </Pressable>
+        ) : null}
+      </View>
+      {animated ? (
+        <PlaybackButton
+          testID="simulation"
+          isPlaying={isPlaying}
+          onPlay={play}
+          onPause={pause}
+          playLabel={t("rich.simulation_play_a11y")}
+          pauseLabel={t("rich.simulation_pause_a11y")}
+        />
       ) : null}
     </View>
   );
+}
+
+function vectorColor(vector: VectorLayout, theme: Theme): string {
+  const role = vector.vector.role;
+  // Motion shares the velocity arrow's colour family; the answer is primary.
+  return role === "result" || role === "motion" ? theme.primary : theme.textSecondary;
 }
 
 function SpringCoil({
@@ -413,164 +388,213 @@ function SpringCoil({
   const path = useDerivedValue(() =>
     springPath(anchor, trajectoryPointAt(track, progress.value)),
   );
-  return <Path path={path} color={color} style="stroke" strokeWidth={1.5} />;
+  return <Path path={path} color={color} style="stroke" strokeWidth={ARROW_STROKE} />;
 }
 
 function BodyMarks({
   track,
+  closed,
+  maxSpeed,
   radius,
-  label,
-  role,
+  color,
   arrows,
   centre,
   slope,
   progress,
   theme,
-  font,
   canvasWidth,
   canvasHeight,
 }: {
   track: ScreenPoint[];
+  closed: boolean;
+  maxSpeed: number;
   radius: number;
-  label?: string;
-  role: "primary" | "secondary";
+  color: string;
   arrows: SimulationArrow[];
   centre: ScreenPoint | null;
-  slope: { normal: Vector; friction: Vector } | null;
+  slope: Slope | null;
   progress: SharedValue<number>;
   theme: Theme;
-  font: SkFont | null;
   canvasWidth: number;
   canvasHeight: number;
 }) {
-  const color = role === "primary" ? theme.primary : theme.textSecondary;
-  const at = useDerivedValue(() => trajectoryPointAt(track, progress.value));
-  const bodyX = useDerivedValue(() => at.value.px);
-  const bodyY = useDerivedValue(() => at.value.py);
-  const labelWidth = label && font ? font.measureText(label).width : 0;
-  const labelX = useDerivedValue(() => {
-    const left = at.value.px - radius - LABEL_OFFSET - labelWidth;
-    const preferred = left >= 4 ? left : at.value.px + radius + LABEL_OFFSET;
-    return clampCanvasLabelX(preferred, labelWidth, canvasWidth);
+  const at = useDerivedValue(() => {
+    const point = trajectoryPointAt(track, progress.value);
+    return { x: point.px, y: point.py };
   });
-  const labelY = useDerivedValue(() =>
-    clampCanvasLabelBaseline(at.value.py + 4, LABEL_FONT_SIZE, canvasHeight),
-  );
-  const gravity = useDerivedValue(() =>
-    arrowPath(at.value, 0, 1, ARROW_LENGTH, ARROW_HEAD),
-  );
-  const velocity = useDerivedValue(() => {
-    const tangent = tangentAt(track, progress.value);
-    return arrowPath(at.value, tangent.dx, tangent.dy, ARROW_LENGTH, ARROW_HEAD);
-  });
-  const centripetal = useDerivedValue(() =>
-    centre
-      ? arrowPath(
-          at.value,
-          centre.px - at.value.px,
-          centre.py - at.value.py,
-          ARROW_LENGTH,
-          ARROW_HEAD,
-        )
-      : Skia.Path.Make(),
-  );
-  const normal = useDerivedValue(() =>
-    slope
-      ? arrowPath(at.value, slope.normal.dx, slope.normal.dy, ARROW_LENGTH, ARROW_HEAD)
-      : Skia.Path.Make(),
-  );
-  const friction = useDerivedValue(() =>
-    slope
-      ? arrowPath(at.value, slope.friction.dx, slope.friction.dy, ARROW_LENGTH, ARROW_HEAD)
-      : Skia.Path.Make(),
-  );
 
   return (
     <>
-      {arrows.includes("gravity") ? (
-        <Path path={gravity} color={theme.textSecondary} style="stroke" strokeWidth={1.5} />
-      ) : null}
-      {arrows.includes("velocity") ? (
-        <Path path={velocity} color={color} style="stroke" strokeWidth={1.5} />
-      ) : null}
-      {centre && arrows.includes("centripetal") ? (
-        <Path path={centripetal} color={theme.textSecondary} style="stroke" strokeWidth={1.5} />
-      ) : null}
-      {slope && arrows.includes("normal") ? (
-        <Path path={normal} color={theme.textSecondary} style="stroke" strokeWidth={1.5} />
-      ) : null}
-      {slope && arrows.includes("friction") ? (
-        <Path path={friction} color={theme.textSecondary} style="stroke" strokeWidth={1.5} />
-      ) : null}
-      <Circle cx={bodyX} cy={bodyY} r={radius + 1.5} color={theme.bg} />
-      <Circle cx={bodyX} cy={bodyY} r={radius} color={color} />
-      {label && font ? (
-        <SkiaText
-          x={labelX}
-          y={labelY}
-          text={label}
-          font={font}
-          color={theme.textSecondary}
+      {/* Only the arrows this scene uses get a per-frame path. */}
+      {arrows.map((kind) => (
+        <DerivedArrow
+          key={kind}
+          kind={kind}
+          at={at}
+          track={track}
+          closed={closed}
+          maxSpeed={maxSpeed}
+          radius={radius}
+          centre={centre}
+          slope={slope}
+          progress={progress}
+          color={kind === "velocity" ? color : theme.textSecondary}
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
         />
-      ) : null}
+      ))}
+      <Circle c={at} r={radius + 1.5} color={theme.bg} />
+      <Circle c={at} r={radius} color={color} />
     </>
   );
 }
 
-function StatedVector({
-  vector,
-  transform,
-  theme,
-  font,
+function DerivedArrow({
+  kind,
+  at,
+  track,
+  closed,
+  maxSpeed,
+  radius,
+  centre,
+  slope,
+  progress,
+  color,
   canvasWidth,
   canvasHeight,
 }: {
-  vector: SimulationVector;
-  transform: SimulationTransform;
-  theme: Theme;
-  font: SkFont | null;
+  kind: SimulationArrow;
+  /** The body's centre this frame, shared with the body's disc. */
+  at: SharedValue<{ x: number; y: number }>;
+  track: ScreenPoint[];
+  closed: boolean;
+  maxSpeed: number;
+  radius: number;
+  centre: ScreenPoint | null;
+  slope: Slope | null;
+  progress: SharedValue<number>;
+  color: string;
   canvasWidth: number;
   canvasHeight: number;
 }) {
-  const from = worldToScreen(vector.anchor.x, vector.anchor.y, transform);
-  const worldLength = Math.hypot(vector.dx, vector.dy);
-  const scaled = worldLength * transform.scale;
-  const length = vector.role === "measure" || scaled > ARROW_LENGTH * 1.2 ? scaled : ARROW_LENGTH;
-  const path = arrowPath(from, vector.dx, -vector.dy, length, ARROW_HEAD);
-  const color = vector.role === "result" ? theme.primary : theme.textSecondary;
-  const tipX = from.px + (vector.dx / (worldLength || 1)) * length;
-  const tipY = from.py - (vector.dy / (worldLength || 1)) * length;
-  const labelWidth = vector.label && font ? font.measureText(vector.label).width : 0;
-  const textX = clampCanvasLabelX(
-    tipX + (vector.dx >= 0 ? LABEL_OFFSET : -LABEL_OFFSET - labelWidth),
-    labelWidth,
-    canvasWidth,
-  );
-  const textY = clampCanvasLabelBaseline(
-    tipY + (vector.dy > 0 ? -LABEL_OFFSET : LABEL_OFFSET * 1.6),
-    LABEL_FONT_SIZE,
-    canvasHeight,
-  );
-
+  const head = kind === "velocity" ? "open" : "filled";
+  const path = useDerivedValue(() => {
+    const centreNow = { px: at.value.x, py: at.value.y };
+    const arrow = derivedArrowGeometry(kind, centreNow, radius, {
+      tangent: kind === "velocity" ? tangentAt(track, progress.value, closed) : { dx: 0, dy: 0 },
+      maxSpeed,
+      centre,
+      slope,
+      width: canvasWidth,
+      height: canvasHeight,
+    });
+    if (!arrow) return Skia.Path.Make();
+    return arrowPath(
+      arrow.fromX,
+      arrow.fromY,
+      arrow.ux,
+      arrow.uy,
+      arrow.length,
+      arrowHeadSize(arrow.length),
+      head,
+    );
+  });
   return (
     <>
       <Path
         path={path}
         color={color}
         style="stroke"
-        strokeWidth={vector.role === "result" ? 2.5 : 1.5}
-      >
-        {vector.role === "measure" ? <DashPathEffect intervals={[3, 3]} /> : null}
-      </Path>
-      {vector.label && font ? (
-        <SkiaText
-          x={textX}
-          y={textY}
-          text={vector.label}
-          font={font}
+        strokeWidth={ARROW_STROKE}
+        strokeJoin="round"
+        strokeCap="round"
+      />
+      {head === "filled" ? <Path path={path} color={color} style="fill" /> : null}
+    </>
+  );
+}
+
+function BodyLabel({
+  text,
+  layout,
+  track,
+  progress,
+  font,
+  theme,
+  canvasWidth,
+  canvasHeight,
+}: {
+  text: string;
+  layout: BodyLabelLayout;
+  track: ScreenPoint[];
+  progress: SharedValue<number>;
+  font: SkFont;
+  theme: Theme;
+  canvasWidth: number;
+  canvasHeight: number;
+}) {
+  const at = useDerivedValue(() => trajectoryPointAt(track, progress.value));
+  const x = useDerivedValue(() =>
+    clampCanvasLabelX(at.value.px + layout.dx, layout.width, canvasWidth),
+  );
+  const y = useDerivedValue(() =>
+    clampCanvasLabelBaseline(at.value.py + layout.dy, LABEL_FONT_SIZE, canvasHeight),
+  );
+  return (
+    <HaloText x={x} y={y} text={text} font={font} color={theme.textSecondary} halo={theme.bg} />
+  );
+}
+
+function StatedVector({ layout, theme }: { layout: VectorLayout; theme: Theme }) {
+  const stroke = vectorStroke(layout.vector.role);
+  const color = vectorColor(layout, theme);
+  const strokeWidth = layout.vector.role === "result" ? RESULT_STROKE : ARROW_STROKE;
+  const paths = useMemo(() => {
+    const { from, tip, head } = layout;
+    const length = Math.hypot(tip.px - from.px, tip.py - from.py);
+    if (!(length > 0)) return null;
+    const ux = (tip.px - from.px) / length;
+    const uy = (tip.py - from.py) / length;
+    if (stroke === "force") {
+      return { solid: true as const, whole: arrowPath(from.px, from.py, ux, uy, length, head, "filled") };
+    }
+    // A dashed shaft with a solid end: dashing the head would break it up.
+    return {
+      solid: false as const,
+      shaft: arrowShaftPath(from.px, from.py, ux, uy, length),
+      head: arrowHeadPath(from.px, from.py, ux, uy, length, head, stroke === "motion" ? "open" : "ticks"),
+    };
+  }, [layout, stroke]);
+  if (!paths) return null;
+
+  if (paths.solid) {
+    return (
+      <>
+        <Path
+          path={paths.whole}
           color={color}
+          style="stroke"
+          strokeWidth={strokeWidth}
+          strokeJoin="round"
+          strokeCap="round"
         />
-      ) : null}
+        <Path path={paths.whole} color={color} style="fill" />
+      </>
+    );
+  }
+  return (
+    <>
+      <Path path={paths.shaft} color={color} style="stroke" strokeWidth={strokeWidth}>
+        <DashPathEffect intervals={stroke === "motion" ? [5, 3] : [3, 3]} />
+      </Path>
+      <Path
+        path={paths.head}
+        color={color}
+        style="stroke"
+        strokeWidth={strokeWidth}
+        strokeJoin="round"
+        strokeCap="round"
+      />
     </>
   );
 }
@@ -593,7 +617,12 @@ function SceneMarkers({
   reduceMotion: boolean;
 }) {
   return (
-    <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+    <View
+      pointerEvents="none"
+      accessibilityElementsHidden
+      importantForAccessibility="no-hide-descendants"
+      style={StyleSheet.absoluteFill}
+    >
       {surface ? <View testID="simulation-slope" style={markerStyle} /> : null}
       {spec.ground ? <View testID="simulation-ground" style={markerStyle} /> : null}
       {beam ? <View testID="simulation-beam" style={markerStyle} /> : null}
@@ -603,12 +632,7 @@ function SceneMarkers({
       {reduceMotion ? <View testID="simulation-static" style={markerStyle} /> : null}
       {spec.bodies.map((body, bodyIndex) => (
         <View key={`body-marker-${bodyIndex}`}>
-          <View
-            testID="simulation-body"
-            accessible={body.label !== undefined}
-            accessibilityLabel={body.label}
-            style={markerStyle}
-          />
+          <View testID="simulation-body" style={markerStyle} />
           {body.label ? <View testID="simulation-body-label" style={markerStyle} /> : null}
           {spec.arrows.map((arrow) => (
             <View
@@ -623,8 +647,6 @@ function SceneMarkers({
         <View
           key={`vector-marker-${index}`}
           testID={`simulation-vector-${vector.role}`}
-          accessible={vector.label !== undefined}
-          accessibilityLabel={vector.label}
           style={markerStyle}
         >
           {vector.label ? <View testID="simulation-vector-label" style={markerStyle} /> : null}
@@ -647,18 +669,7 @@ function makeStyles(theme: Theme) {
       marginVertical: Space.xs,
       alignItems: "center",
     },
-    title: {
-      ...Type.compact,
-      ...Weight.semibold,
-      color: theme.textSecondary,
-      marginBottom: 2,
-      textAlign: "center",
-    },
-    titleOverlay: {
-      position: "absolute",
-      left: 0,
-      zIndex: 1,
-    },
+    title: figureTitleStyle(theme),
     fallback: {
       marginVertical: Space.xs,
       padding: Space.sm,
@@ -669,15 +680,6 @@ function makeStyles(theme: Theme) {
     fallbackText: {
       ...Type.compact,
       color: theme.textSecondary,
-    },
-    control: {
-      marginTop: Space.xs,
-      width: 36,
-      height: 36,
-      alignItems: "center",
-      justifyContent: "center",
-      borderRadius: Radius.bubble,
-      borderWidth: StyleSheet.hairlineWidth,
     },
   });
 }

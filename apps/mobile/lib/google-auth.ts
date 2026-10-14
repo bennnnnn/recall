@@ -68,7 +68,7 @@ export function formatGoogleSignInError(error: unknown): string {
   return message || "generic";
 }
 
-/** Recall account sign-in — identity only (no Gmail/Calendar scopes). */
+/** Recall account sign-in — identity only (an ID token, no extra OAuth scopes). */
 async function signInWithGoogleNative(): Promise<string> {
   await ensureGoogleConfigured();
   const { GoogleSignin, statusCodes } = await loadGoogleSignIn();

@@ -12,8 +12,6 @@ export async function clearSignedOutAccount(userId: string | undefined): Promise
     import("@/features/chat/model/messageCache").then(({ clearAllCachedChatMessages }) => clearAllCachedChatMessages()),
     import("@/features/memory/model/memoryListCache").then(({ invalidateMemoriesCache }) => invalidateMemoriesCache()),
     import("@/features/attachments/model/galleryListCache").then(({ invalidateGalleryCache }) => invalidateGalleryCache()),
-    import("@/features/integrations/model/integrationStatusCache").then(({ invalidateIntegrationStatusCache }) => invalidateIntegrationStatusCache()),
-    import("@/lib/cache/suggestedRemindersCache").then(({ invalidateSuggestedRemindersCache }) => invalidateSuggestedRemindersCache()),
     import("@/lib/cache/chatListCache").then(({ invalidateChatListCache }) => invalidateChatListCache()),
     import("@/lib/cache/usageCache").then(({ invalidateUsageCache }) => invalidateUsageCache()),
     import("@/lib/purchases").then(({ signOutRevenueCat }) => signOutRevenueCat()),

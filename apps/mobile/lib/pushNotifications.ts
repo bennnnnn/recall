@@ -40,7 +40,6 @@ async function ensureAndroidChannel(): Promise<void> {
   if (Platform.OS !== "android" || androidChannelReady) return;
   await ensureAndroidNotificationChannels({
     reminders: i18n.t("notifications.reminders_channel"),
-    inbox: i18n.t("notifications.inbox_channel"),
   });
   androidChannelReady = true;
 }
@@ -166,9 +165,6 @@ type PushData = {
   todo_id?: string;
   profile_id?: string;
   topic?: string;
-  event_start?: string;
-  event_id?: string;
-  event_title?: string;
 };
 
 /** Push when the target is a different screen; replace when already on it so
@@ -195,35 +191,11 @@ export async function handlePushNotificationResponse(
   if (!data) return;
   const current = currentPathname ?? null;
 
-  if (data.type === "calendar_nudge") {
-    // The To-do screen no longer owns a calendar wall. Carry the exact event
-    // context so the notification opens a focused card instead of a dead date.
-    if (data.event_title && data.event_start) {
-      navigateToTarget(router, current, {
-        pathname: "/todos",
-        params: {
-          eventTitle: data.event_title,
-          eventStart: data.event_start,
-          ...(data.event_id ? { eventId: data.event_id } : {}),
-        },
-      });
-    } else {
-      navigateToTarget(router, current, "/");
-    }
-    return;
-  }
-
   if (data.type === "todo_due" || data.type === "todo_reminder" || data.screen === "todos") {
     navigateToTarget(router, current, {
       pathname: "/todos",
       params: data.todo_id ? { highlight: data.todo_id } : {},
     });
-    return;
-  }
-
-  // To-do renders pending Gmail suggestions with Add and Dismiss actions.
-  if (data.type === "email_suggestion") {
-    navigateToTarget(router, current, "/todos");
   }
 }
 

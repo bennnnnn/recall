@@ -1,7 +1,7 @@
 import * as Clipboard from "expo-clipboard";
 import { Linking } from "react-native";
 
-import { fullEmailText, gmailComposeCandidates } from "@/features/integrations/model/emailCompose";
+import { fullEmailText, gmailComposeCandidates } from "@/features/drafts/model/emailCompose";
 import type { EmailDraft } from "@/lib/richBlocks";
 
 export type GmailOpenResult = "app" | "web" | "copied_only";

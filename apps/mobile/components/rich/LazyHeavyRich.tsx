@@ -2,8 +2,19 @@
  * Async-split Mermaid (~3.4MB), Vega (~0.85MB), SmilesDrawer (~0.25MB),
  * Web preview, clock, and geometry/graph SVG blocks off the chat import graph.
  */
-import React, { Suspense } from "react";
-import { ActivityIndicator, View } from "react-native";
+import React, { Suspense, useMemo } from "react";
+import { ActivityIndicator, useWindowDimensions, View } from "react-native";
+
+import { FIGURE_TITLE_HEIGHT, figureWidth } from "@/components/rich/figure";
+import {
+  parseSimulationSpec,
+  SIMULATION_HEIGHT,
+  SIMULATION_MIN_HEIGHT,
+  SIMULATION_PAD,
+  simulationIsAnimated,
+  simulationViewportHeight,
+} from "@/lib/physics/simulation";
+import { Space } from "@/lib/space";
 
 const MermaidBlockLazy = React.lazy(() =>
   import("@/components/rich/MermaidBlock").then((m) => ({ default: m.MermaidBlock })),
@@ -113,9 +124,34 @@ export function LazyFunctionGraphBlock({ content }: { content: string }) {
   );
 }
 
+/**
+ * The height the scene will take once loaded — title, canvas sized to the
+ * scene's aspect, and the play button when something moves — so a list cell
+ * does not jump when the chunk arrives. Unreadable content keeps the old
+ * fixed guess; the block shows a one-line fallback for it anyway.
+ */
+export function simulationPlaceholderHeight(content: string, screenWidth: number): number {
+  const spec = parseSimulationSpec(content);
+  if (!spec) return SIMULATION_HEIGHT;
+  const canvas = simulationViewportHeight(
+    spec,
+    figureWidth(screenWidth),
+    SIMULATION_PAD,
+    SIMULATION_MIN_HEIGHT,
+    SIMULATION_HEIGHT,
+  );
+  const control = simulationIsAnimated(spec) ? Space.xxs + Space.minTouch : 0;
+  return Space.xs * 2 + FIGURE_TITLE_HEIGHT + canvas + control;
+}
+
 export function LazySimulationBlock({ content }: { content: string }) {
+  const { width: screenWidth } = useWindowDimensions();
+  const height = useMemo(
+    () => simulationPlaceholderHeight(content, screenWidth),
+    [content, screenWidth],
+  );
   return (
-    <Suspense fallback={<RichLoadPlaceholder height={240} />}>
+    <Suspense fallback={<RichLoadPlaceholder height={height} />}>
       <SimulationBlockLazy content={content} />
     </Suspense>
   );

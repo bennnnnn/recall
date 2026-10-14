@@ -3,7 +3,6 @@ import * as Clipboard from "expo-clipboard";
 import { Icon } from "@/ui/icons/Icon";
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
 
-import { CalendarProposalCard } from "@/features/integrations/components/CalendarProposalCard";
 import { SettingsProposalCard } from "@/components/SettingsProposalCard";
 import { ReminderProposalCard } from "@/features/todos/components/ReminderProposalCard";
 import { PlacesListBlock } from "@/components/PlacesListBlock";
@@ -16,7 +15,7 @@ import { LazyCircularClockBlock } from "@/components/rich/LazyHeavyRich";
 import { MarkdownContent } from "@/components/MarkdownContent";
 import { MarkdownErrorBoundary } from "@/components/MarkdownErrorBoundary";
 import { RecallTypingIndicator } from "@/components/RecallTypingIndicator";
-import { AssistantMessageScope } from "@/features/integrations/context/emailDraftPersist";
+import { AssistantMessageScope } from "@/features/drafts/context/emailDraftPersist";
 import { Message } from "@/lib/api";
 import { extractPrimaryCopyText } from "@/lib/copyBlock";
 import { notifySuccess, notifyWarning, selection, tap } from "@/lib/haptics";
@@ -350,8 +349,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     actionsReady,
     showLiveClock,
     clockTimezone,
-    calendarProposals,
-    showCalendarProposals,
     settingsProposals,
     showSettingsProposals,
     reminderProposals,
@@ -381,7 +378,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     showImages &&
     !hasMarkdown &&
     !showLiveClock &&
-    !showCalendarProposals &&
     !showSettingsProposals &&
     !showPlaces;
 
@@ -470,15 +466,6 @@ export const MessageBubble = React.memo(function MessageBubble({
               <Text style={b.stoppedFooter}>{t("chat.generation_stopped")}</Text>
             ) : null}
             {showPlaces ? <PlacesListBlock places={places} /> : null}
-            {showCalendarProposals
-              ? calendarProposals.map((proposal, index) => (
-                  <CalendarProposalCard
-                    key={`${proposal.proposal_id ?? proposal.title}-${index}`}
-                    proposal={proposal}
-                    disabled={!isLastAssistant}
-                  />
-                ))
-              : null}
             {showSettingsProposals
               ? settingsProposals.map((proposal, index) => (
                   <SettingsProposalCard

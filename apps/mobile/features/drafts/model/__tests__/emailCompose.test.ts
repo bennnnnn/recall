@@ -3,7 +3,7 @@ import {
   buildGmailComposeUrl,
   fullEmailText,
   gmailComposeCandidates,
-} from "@/features/integrations/model/emailCompose";
+} from "@/features/drafts/model/emailCompose";
 
 describe("emailCompose", () => {
   const draft = {

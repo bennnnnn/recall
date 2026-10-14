@@ -5,7 +5,7 @@
 import { Easing } from "react-native-reanimated";
 
 export { motionMs } from "@/lib/motionDuration";
-export { useReduceMotion } from "@/lib/reduceMotion";
+export { useReduceMotion, useReduceMotionSetting } from "@/lib/reduceMotion";
 
 export const Motion = {
   duration: {

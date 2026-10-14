@@ -31,8 +31,6 @@ const DEFAULT_QUIET_END = 420;
 /** Each push kind's switch, shown under the master switch while it is on. */
 const PUSH_KINDS = [
   { field: "push_reminders_enabled", title: "settings.push_reminders" },
-  { field: "push_email_suggestions_enabled", title: "settings.push_email_suggestions" },
-  { field: "push_calendar_enabled", title: "settings.push_calendar" },
 ] as const satisfies readonly { field: keyof User; title: string }[];
 type PushKindField = (typeof PUSH_KINDS)[number]["field"];
 

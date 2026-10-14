@@ -1,4 +1,4 @@
-import { sanitizeEmailDraft } from "@/features/integrations/model/emailDraftSanitize";
+import { sanitizeEmailDraft } from "@/features/drafts/model/emailDraftSanitize";
 import { fenceIdForLang } from "@/lib/fenceRegistry";
 import { parseGeometrySpec } from "@/lib/math/geometryBlock";
 import { parseGraphSpec } from "@/lib/math/graphSpec";
