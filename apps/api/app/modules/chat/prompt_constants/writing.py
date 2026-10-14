@@ -111,9 +111,10 @@ def draft_followup_hint(fence: str, *, drafted: bool) -> str:
     """
     if drafted:
         return (
-            f"This turn changes the draft you wrote earlier in this conversation (```{fence}). "
+            "This turn changes the draft you wrote earlier in this conversation. "
             "Apply the requested change (what it says, tone, length, wording, a point added or "
-            "removed, or the language) and keep every name, date, number, and commitment the "
+            "removed, the language, or the form, such as a text made into an email) and keep "
+            "every name, date, number, and commitment the "
             f"user did not change. Return the whole revised draft in one ```{fence} fence, not "
             "a list of edits or a diff. No explanation before it and at most one short line "
             "after it. Several versions only when the user asked for them."
@@ -162,12 +163,59 @@ _DRAFT_FOLLOWUP = re.compile(
     r")",
     re.IGNORECASE,
 )
+# "Email", "as a text", "make it a facebook post": the same draft in another form.
+_FORMAT_SWITCH = re.compile(
+    r"^" + _DIRECT_REQUEST_INTRO + r"(?:"
+    r"(?:make|turn|convert|change|rewrite|redo|write|send) (?:it|this|that)(?: (?:in)?to| as)? |"
+    r"(?:send it |write it )?(?:as|in(?:to)?|via|by) "
+    r")?(?:an? )?"
+    r"(e-?mail|text(?: message)?|sms|message|facebook(?: post)?|linkedin(?: post)?|"
+    r"tweet|instagram(?: caption| post)?)"
+    r"(?: (?:version|format|instead|please))?[.!?]*$",
+    re.IGNORECASE,
+)
+_FORMAT_FENCE = {
+    "email": "email",
+    "e-mail": "email",
+    "text": "message",
+    "text message": "message",
+    "sms": "message",
+    "message": "message",
+    "facebook": "facebook",
+    "facebook post": "facebook",
+    "linkedin": "linkedin",
+    "linkedin post": "linkedin",
+    "tweet": "twitter",
+    "instagram": "instagram",
+    "instagram caption": "instagram",
+    "instagram post": "instagram",
+}
 _FOLLOWUP_MAX_WORDS = 30
 # A draft three exchanges back is still the one being talked about.
 _FOLLOWUP_LOOKBACK = 6
 # A longer question, or a long answer with no draft, moves the talk on.
 _NEW_TOPIC_WORDS = 7
 _NEW_TOPIC_ANSWER_CHARS = 400
+
+
+def could_continue_draft(text: str | None) -> bool:
+    """True when *text* reads like a change to a draft ("Email", "make it shorter").
+
+    Cheap and history-free: ``draft_followup`` then checks the conversation.
+    """
+    if not text:
+        return False
+    cleaned = collapse_ws(text)
+    if not cleaned or len(cleaned.split()) > _FOLLOWUP_MAX_WORDS:
+        return False
+    if _FORMAT_SWITCH.match(cleaned):
+        return True
+    kind = writing_request_kind(cleaned)
+    if kind == "prose":
+        return False
+    if kind in _KIND_FENCE:
+        return is_underspecified_writing_request(cleaned)
+    return _DRAFT_FOLLOWUP.search(cleaned) is not None
 
 
 def draft_followup(
@@ -179,19 +227,17 @@ def draft_followup(
     post the user asked for, within the last three exchanges. A new draft request
     with its own purpose ("write a message to my mom saying...") starts over.
     """
-    if not text or not prior_messages:
+    if not prior_messages or not could_continue_draft(text):
         return None
-    cleaned = collapse_ws(text)
-    if not cleaned or len(cleaned.split()) > _FOLLOWUP_MAX_WORDS:
-        return None
-    kind = writing_request_kind(cleaned)
-    if kind == "prose":
-        return None
-    if kind in _KIND_FENCE:
-        if not is_underspecified_writing_request(cleaned):
-            return None
-    elif _DRAFT_FOLLOWUP.search(cleaned) is None:
-        return None
+    switch = _FORMAT_SWITCH.match(collapse_ws(text or ""))
+    found = _draft_in_history(prior_messages)
+    if found is None or switch is None:
+        return found
+    # "Email" after a text message: the same draft, now in an ```email fence.
+    return _FORMAT_FENCE[switch.group(1).lower()], found[1]
+
+
+def _draft_in_history(prior_messages: list[tuple[str, str]]) -> tuple[str, bool] | None:
     for role, content in reversed(prior_messages[-_FOLLOWUP_LOOKBACK:]):
         if role == "assistant":
             fences = _DRAFT_FENCE.findall(content)
@@ -255,6 +301,9 @@ COPY_DELIVERABLE_HINT = (
     "Copy blocks must be ready to paste and send as-is: complete sentences, real names "
     "and subjects from context or memory. Never invent [placeholders] or TBD, but preserve "
     "placeholders when the user explicitly asks for a reusable template. "
+    "Sign off with the user's first name from their profile, never [Your Name]; with no "
+    "name on file, end on the closing word. Use memory for names and facts the draft "
+    "needs, not unrelated likes such as food or drinks. "
     "If they already said what to write, include the fence with a full draft now. "
     "If they only asked to write an email/message with no purpose, ask one question "
     "first — do not invent a generic letter. "
