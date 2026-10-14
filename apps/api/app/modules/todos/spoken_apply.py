@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_change import (
     SpokenReminderChange,
+    asks_about_my_reminders,
     match_from_context,
     names_reminders,
     resolve_spoken_target,
@@ -35,6 +36,7 @@ async def apply_spoken_change(
     spoken: SpokenReminderChange,
     user_text: str | None = None,
     prior_assistant: str | None = None,
+    prior_user: str | None = None,
     reply: str | None = None,
 ) -> tuple[str, int] | None:
     """The saved result of a spoken change, or None when it is not about a reminder.
@@ -67,6 +69,7 @@ async def apply_spoken_change(
         user_timezone=user_timezone,
     )
     explicit = names_reminders(user_text)
+    prior_about = about_saved_reminders(prior_assistant) or asks_about_my_reminders(prior_user)
     await _load_existing(state)
     named_in_message = spoken.use_latest and match_from_context(state.existing, spoken) is not None
     if (
@@ -74,7 +77,7 @@ async def apply_spoken_change(
         and prior_assistant is not None
         and not explicit
         and not named_in_message
-        and not about_saved_reminders(prior_assistant)
+        and not prior_about
     ):
         return None
     item: Any = resolve_spoken_target(state.existing, spoken)
@@ -92,6 +95,7 @@ async def apply_spoken_change(
         item is not None
         and not explicit
         and not spoken.use_latest
+        and not prior_about
         and edits_prior_reply(spoken.title_hint, prior_assistant=prior_assistant, reply=reply)
     ):
         return None

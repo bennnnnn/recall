@@ -35,6 +35,33 @@ _DAY_RE = re.compile(
     _LEAD + r"(?P<next>next\s+)?(?P<day>today|tonight|tomorrow|" + "|".join(_WEEKDAYS) + r")\b",
     re.IGNORECASE,
 )
+# "fri 6pm", "sat 9am": a short day name counts only before a clock.
+_SHORT_DAYS = {
+    "mon": "monday",
+    "tue": "tuesday",
+    "tues": "tuesday",
+    "wed": "wednesday",
+    "thu": "thursday",
+    "thur": "thursday",
+    "thurs": "thursday",
+    "fri": "friday",
+    "sat": "saturday",
+    "sun": "sunday",
+}
+_SHORT_DAY_RE = re.compile(
+    _LEAD
+    + r"(?P<next>next\s+)?(?P<day>"
+    + "|".join(_SHORT_DAYS)
+    + r")\b\.?(?=\s*(?:at\s+|@\s*)?\d)",
+    re.IGNORECASE,
+)
+_REPEAT_RE = re.compile(
+    r"\b(?:every\s*(?P<daily>day|night|morning|evening|afternoon)|(?P<daily2>daily|everyday|nightly)"
+    r"|every\s+(?P<weekly>week|monday|tuesday|wednesday|thursday|friday|saturday|sunday)"
+    r"|(?P<weekly2>weekly)|every\s+(?P<weekdays>weekday)|(?P<weekdays2>weekdays)"
+    r"|every\s+(?P<monthly>month)|(?P<monthly2>monthly))\b",
+    re.IGNORECASE,
+)
 _DATE_RE = re.compile(
     _LEAD + r"(?:(?P<mon>" + _MONTH + r")\.?\s+(?P<d1>\d{1,2})(?:st|nd|rd|th)?"
     r"|(?P<d2>\d{1,2})(?:st|nd|rd|th)?\s+(?:of\s+)?(?P<mon2>" + _MONTH + r"))\b",
@@ -86,6 +113,14 @@ def _find_day(text: str, found: SpokenWhen) -> None:
             found.spans.append(date.span())
             return
     if day is None:
+        day = _SHORT_DAY_RE.search(text)
+        if day is None:
+            return
+        name = _SHORT_DAYS[day.group("day").lower()]
+        if day.group("next"):
+            name = f"next {name}"
+        found.day = name
+        found.spans.append(day.span())
         return
     name = day.group("day").lower()
     if name == "tonight":
@@ -132,6 +167,18 @@ def _set_clock(found: SpokenWhen, hour: int, match: re.Match[str], text: str) ->
     found.hour = hour
     found.minute = int(minute) if minute else 0
     found.spans.append(match.span())
+
+
+def find_repeat(text: str) -> tuple[str, tuple[int, int]] | None:
+    """ "every night" → daily, "every monday" → weekly, with where it was said."""
+    match = _REPEAT_RE.search(text)
+    if match is None:
+        return None
+    groups = match.groupdict()
+    for rule in ("daily", "weekly", "weekdays", "monthly"):
+        if groups.get(rule) or groups.get(f"{rule}2"):
+            return rule, match.span()
+    return None
 
 
 def without_spans(text: str, spans: list[tuple[int, int]]) -> str:

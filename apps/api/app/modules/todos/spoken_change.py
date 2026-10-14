@@ -37,7 +37,12 @@ _SKIP = frozenset(
         "item",
     }
 )
-_BULK = frozenset({"overdue", "all", "them", "everything", "these", "those"})
+_BULK = frozenset(
+    {"overdue", "all", "them", "everything", "these", "those", "first", "last", "second", "third"}
+)
+_JUST_DONE_RE = re.compile(
+    r"(?:done|did it|all done|finished it|completed it)(?!\s+with\b)(?:\s|$|[!.,])"
+)
 _PRONOUNS = frozenset({"it", "this", "that"})
 _FILLERS = frozenset({"for", "to", "at", "on", "the", "a", "an"})
 _DONE_TAILS = (" as completed", " as complete", " as done", " completed", " complete", " done")
@@ -183,6 +188,9 @@ def _parse_change(
     if not text:
         return None
     lowered = text.lower()
+    # "Done ✅ just talked to her", "did it": the reminder that was just discussed.
+    if _JUST_DONE_RE.match(lowered):
+        return SpokenReminderChange(action="complete", title_hint="", use_latest=True)
     if lowered.startswith("remove ") and _rest(text, "remove ").lower().startswith("the date"):
         return None
     verbs: tuple[tuple[str, SpokenAction], ...] = (
@@ -432,6 +440,17 @@ _NAMES_REMINDERS = re.compile(
     r"|as\s+(?:done|complete|completed|finished))\b",
     re.IGNORECASE,
 )
+
+
+_MY_REMINDERS = re.compile(
+    r"\b(?:my|your)\s+(?:reminders?|to-?dos?|to-do\s+list|tasks?|schedule)\b|\bremind\s+me\b",
+    re.IGNORECASE,
+)
+
+
+def asks_about_my_reminders(user_text: str | None) -> bool:
+    """ "Whats next on my reminders", "delete one of my reminders" — not "a todo app"."""
+    return bool(user_text and _MY_REMINDERS.search(user_text))
 
 
 def names_reminders(user_text: str | None) -> bool:

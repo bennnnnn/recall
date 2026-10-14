@@ -137,7 +137,7 @@ def has_recency(text: str) -> bool:
 
 _NEWS = re.compile(
     r"\b("
-    r"what(?:['\u2019]s| is) (?:happening|going on|new|in the news)"
+    r"what(?:['\u2019]s| is) (?:happening|going on|new(?!\s+with\s+(?:you|u|ya|yourself)\b)|in the news)"
     r"|top (?:news|stories|headlines)"
     r"|news (?:today|this week|stories)"
     r"|in the world(?: today)?"
@@ -194,8 +194,18 @@ _NEW_PRODUCT = re.compile(
 
 
 def is_weather_request(text: str) -> bool:
-    """A real forecast or conditions question, not a figure of speech or a writing task."""
-    return _WEATHER.search(text) is not None and _WEATHER_NOT_A_FORECAST.search(text) is None
+    """A real forecast or conditions question, not a figure of speech or a writing task.
+
+    "It's forecast to be 24°C. What is that in Fahrenheit?" converts a stated
+    temperature; it asks for no forecast.
+    """
+    if _WEATHER.search(text) is None or _WEATHER_NOT_A_FORECAST.search(text) is not None:
+        return False
+    return not (_STATED_TEMPERATURE.search(text) and _TEMPERATURE_UNIT.search(text))
+
+
+_STATED_TEMPERATURE = re.compile(r"\d\s*(?:°|degrees?\b)", re.IGNORECASE)
+_TEMPERATURE_UNIT = re.compile(r"\b(?:fahrenheit|celsius|kelvin)\b", re.IGNORECASE)
 
 
 _SPORTS = re.compile(
@@ -535,3 +545,21 @@ _MATH_OR_CODE = re.compile(
 
 def looks_like_math_or_code(text: str) -> bool:
     return bool(_MATH_OR_CODE.search(text))
+
+
+# Word problems borrow live words ("today", "latest", "news", "score") but are
+# solved on the page: "what day is it in 100 days", "every 3 days", "2, 6, 18,
+# 54, …", "3/5 of the 450 students", "twice as many in the second half".
+_WORD_PROBLEM = re.compile(
+    r"\b(?:in|after)\s+\d+\s+(?:days?|weeks?|months?)\b"
+    r"|\bevery\s+\d+\s+(?:days?|weeks?|hours?|minutes?)\b"
+    r"|\bwhat\s+day\s+of\s+the\s+week\b"
+    r"|\b\d+,\s+\d+,\s+\d+"
+    r"|\b\d+\s*/\s*\d+\s+of\s+(?:the\s+)?\d"
+    r"|\b(?:twice|half|(?:two|three|four|five|\d+)\s+times)\s+as\s+(?:many|much|long|fast|far)\b",
+    re.IGNORECASE,
+)
+
+
+def is_word_problem(text: str) -> bool:
+    return bool(_WORD_PROBLEM.search(text))

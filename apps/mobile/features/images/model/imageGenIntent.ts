@@ -89,11 +89,20 @@ function hasNonImageSubject(subject: string): boolean {
   return false;
 }
 
+const PURPOSE_COLON =
+  /^(?:please\s+)?(?:generate|create|make|draw|design)\s+(?:me\s+)?(?:an?\s+)?(?:image|picture|photo|pic|illustration|drawing|poster|graphic)\s+for\s+[^:\n]{1,80}:\s*(\S[^\n]*)$/i;
+
+const ART_WORDS = new Set([
+  "cartoon", "poster", "sticker", "logo", "mascot", "illustration", "watercolor", "avatar", "cute",
+]);
+
 function hasNonImageDraw(subject: string): boolean {
   const words = tokens(subject).map(foldToken);
   const joined = words.join(" ");
   // "Paint a picture with words of a morning in Addis" asks for prose.
   if (joined.includes("sketch of the idea") || joined.includes("picture with words")) return true;
+  // "A cute cartoon atom for our chemistry club poster" is art, not a diagram.
+  if (words.some((word) => ART_WORDS.has(word))) return false;
   return words.some((word) => NON_IMAGE_DRAW_WORDS.has(word));
 }
 
@@ -249,6 +258,10 @@ export function extractImageGenPrompt(text: string): string | null {
   // short image-noun heuristic would steal as a generate-image ask.
   if (isScannerCameraPrompt(trimmed)) return null;
   if (startsWithUserPrefix(trimmed)) return cleanPrompt(trimmed.slice(IMAGE_GEN_USER_PREFIX.length));
+  // "Generate an image for my coffee shop's post: a jebena pouring coffee" —
+  // the picture is what follows the colon.
+  const purpose = PURPOSE_COLON.exec(trimmed);
+  if (purpose) return cleanPrompt(purpose[1]);
 
   const toks = stripPolite(tokens(trimmed));
   if (!toks.length) return null;

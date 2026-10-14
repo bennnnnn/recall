@@ -6,6 +6,7 @@ Linear token / phrase scans only — no ``\\s+`` / ``.+`` regex on user text
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -150,6 +151,14 @@ _REVISION_REFERENCES = frozenset(
     {"it", "this", "that", "version", "message", "email", "draft", "reply", "text"}
 )
 _POINTERS = frozenset({"it", "this", "that"})
+_ASKING_WORDS = frozenset(
+    {"please", "pls", "plz", "want", "prefer", "need", "talk", "speak", "reply", "respond"}
+)
+_CLAUSE_BREAK = re.compile(r"[,;.!]\s+")
+# A letter or message written out in prose: "Dear Tsehay,", "Subject: …", "Hi team,".
+_LETTER = re.compile(
+    r"(?:\**subject:?\**\s|dear\s|hi\s+\w+,|hello\s+\w+,|hey\s+\w+,)", re.IGNORECASE
+)
 _SYSTEM_WORDS = frozenset({"system", "phone", "phone's", "device", "device's", "os"})
 _QUESTION_OPENERS = frozenset(
     {"is", "are", "was", "were", "does", "do", "did", "which", "what", "whats", "why", "should"}
@@ -258,7 +267,11 @@ def _looks_like_command(tokens: list[str]) -> bool:
         return False
     if any(_without_possessive(token) in _CONTENT_TARGETS for token in tokens):
         return False
-    return _has_change_cue(tokens) or _has_settings_noun(tokens) or len(tokens) <= 4
+    if _has_change_cue(tokens) or len(tokens) <= 4:
+        return True
+    # "The light mode on my phone hurts my eyes" talks about a mode; it asks
+    # for nothing. A longer line needs a verb, "please", or "I want".
+    return _has_settings_noun(tokens) and bool(_ASKING_WORDS & set(tokens))
 
 
 def _revises_prior_draft(tokens: list[str], prior_assistant: str | None) -> bool:
@@ -273,7 +286,7 @@ def _revises_prior_draft(tokens: list[str], prior_assistant: str | None) -> bool
         return False
     if any(word in _EXPLICIT_SETTINGS_WORDS for word in tokens):
         return False
-    if not has_draft(prior_assistant):
+    if not has_draft(prior_assistant) and not _LETTER.match((prior_assistant or "").lstrip()):
         return not _has_settings_noun(tokens) and any(word in _POINTERS for word in tokens)
     # "Less groveling, more casual" names no "it", yet still edits the draft.
     return len(tokens) <= _SHORT_DRAFT_EDIT or any(word in _REVISION_REFERENCES for word in tokens)
@@ -359,6 +372,9 @@ def _extract_tone(tokens: list[str]) -> str | None:
         nxt = tokens[index + 1] if index + 1 < len(tokens) else ""
         if prev in {"be", "more", "less", "sound", "tone"} or nxt == "tone":
             return nick
+        # "change my tone setting to warm"
+        if prev == "to" and "tone" in tokens:
+            return nick
         if token in TONE_IDS and (_has_change_cue(tokens) or nxt == "tone" or len(tokens) <= 3):
             return nick
         if token in {"funnier", "softer", "gentler", "kinder", "warmer"}:
@@ -396,7 +412,31 @@ def _extract_locale(tokens: list[str]) -> str | None:
 def extract_settings_changes(
     content: str, *, prior_assistant: str | None = None
 ) -> list[SettingsChange]:
-    """Return allowlisted changes, or empty if this is not a settings command."""
+    """Return allowlisted changes, or empty if this is not a settings command.
+
+    "Switch to dark mode pls, writing in bed and the screen is blinding" says
+    the command in its first clause; each clause is read when the whole is not.
+    """
+    found = _changes_in(content, prior_assistant)
+    if found or len(_tokens(content)) <= _MAX_COMMAND_TOKENS // 2:
+        return found
+    if content.rstrip().endswith("?") or any(
+        _without_possessive(token) in _CONTENT_TARGETS for token in _tokens(content)
+    ):
+        return []
+    for clause in _CLAUSE_BREAK.split(content):
+        # Only a clause that opens with a verb: "switch to dark mode pls, …".
+        # "Birthday wishes for my boss, professional but warm" asks for a text.
+        words = _tokens(clause)
+        if not words or words[0] not in _CHANGE_CUES:
+            continue
+        found = _changes_in(clause, prior_assistant)
+        if found:
+            return found
+    return []
+
+
+def _changes_in(content: str, prior_assistant: str | None) -> list[SettingsChange]:
     tokens = _tokens(content)
     persistent = _persistent_language(tokens)
     if persistent is not None:

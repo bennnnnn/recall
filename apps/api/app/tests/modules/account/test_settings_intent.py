@@ -141,3 +141,34 @@ def test_more_questions_edits_and_system_theme() -> None:
     assert extract_settings_changes("can you switch to dark mode?") == [
         SettingsChange("appearance", "dark")
     ]
+
+
+@pytest.mark.parametrize(
+    ("text", "prior", "expected"),
+    [
+        ("the light mode on my phone hurts my eyes", None, []),
+        ("birthday wishes for my boss, professional but warm", None, []),
+        (
+            "set the tone to warm",
+            "Dear Tsehay,\n\nThank you so much for looking after the cat!",
+            [],
+        ),
+        (
+            "switch to dark mode pls, writing in bed and the screen is blinding",
+            None,
+            [SettingsChange("appearance", "dark")],
+        ),
+        (
+            "from now on i want warmer replies, change my tone setting to warm",
+            None,
+            [SettingsChange("response_tone", "soft")],
+        ),
+        (
+            "from now on talk to me in a more casual tone",
+            None,
+            [SettingsChange("response_tone", "casual")],
+        ),
+    ],
+)
+def test_long_lines_need_an_ask_and_a_verb(text, prior, expected) -> None:
+    assert extract_settings_changes(text, prior_assistant=prior) == expected

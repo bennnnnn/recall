@@ -279,8 +279,17 @@ def _replace_failed_subject_fences(seams: Any, content: str, verified: Any) -> s
 
 def _prior_assistant_text(ctx: StreamContext) -> str:
     """The reply before this turn ("" when none), for "mark it done"."""
+    return _prior_text(ctx, "assistant")
+
+
+def _prior_user_text(ctx: StreamContext) -> str:
+    """The user's message before this one: "whats next on my reminders" then "done"."""
+    return _prior_text(ctx, "user")
+
+
+def _prior_text(ctx: StreamContext, role: str) -> str:
     for message in reversed(ctx.prompt_messages[:-1]):
-        if message.get("role") == "assistant":
+        if message.get("role") == role:
             content = message.get("content")
             return content if isinstance(content, str) else ""
     return ""
@@ -337,6 +346,7 @@ async def enrich_final_content(
                     user_timezone=ctx.user_timezone or getattr(user, "timezone", None),
                     user_text=ctx.user_message_content,
                     prior_assistant=_prior_assistant_text(ctx),
+                    prior_user=_prior_user_text(ctx),
                 )
 
         from app.core.sympy_executor import run_sympy

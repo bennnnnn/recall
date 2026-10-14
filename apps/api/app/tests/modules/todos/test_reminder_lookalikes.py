@@ -54,7 +54,7 @@ def _saved(title: str) -> MagicMock:
 
 
 async def _finalize(
-    user_text: str, reply: str, *, prior: str | None = None
+    user_text: str, reply: str, *, prior: str | None = None, prior_user: str | None = None
 ) -> tuple[str, int, AsyncMock, AsyncMock]:
     items = [_saved(title) for title in SEEDED]
     with ExitStack() as stack:
@@ -81,6 +81,7 @@ async def _finalize(
             user_timezone="Africa/Nairobi",
             user_text=user_text,
             prior_assistant=prior,
+            prior_user=prior_user,
         )
     return text, applied, create, update
 
@@ -378,3 +379,111 @@ async def test_check_it_off_finds_the_reminder_the_message_names():
     _, applied, _, update = await _finalize("i paid rent, check it off", "Checked off.")
     assert applied == 1
     assert update.await_args.args[1].content == "pay rent"
+
+
+@pytest.mark.parametrize(
+    ("text", "title", "day", "repeat", "clock"),
+    [
+        ("remimd me to pay electric bill fri 6pm", "pay electric bill", "friday", None, (18, 0)),
+        ("pls remind me 2 call dad at 7 tonight", "call dad", "today", None, (19, 0)),
+        (
+            "every monday at 8am remind me to take out the trash",
+            "take out the trash",
+            "monday",
+            "weekly",
+            (8, 0),
+        ),
+        (
+            "remind me to call Getachew \u1290\u1308 at 10am",
+            "call Getachew",
+            "tomorrow",
+            None,
+            (10, 0),
+        ),
+        ("sat 9am wash the car. remind me", "wash the car", "saturday", None, (9, 0)),
+        ("set a reminder for my meds at 9pm every night", "my meds", None, "daily", (21, 0)),
+        (
+            "perfect. can u remind me sunday 6pm to post it on insta",
+            "post it on insta",
+            "sunday",
+            None,
+            (18, 0),
+        ),
+        (
+            "i need to finish the essay by fri 5pm, remind me",
+            "finish the essay",
+            "friday",
+            None,
+            (17, 0),
+        ),
+    ],
+)
+def test_spoken_add_reads_casual_phrasing(text, title, day, repeat, clock):
+    parsed = parse_spoken_add(text)
+    assert parsed is not None
+    assert (parsed.title, parsed.day, parsed.repeat, (parsed.hour, parsed.minute)) == (
+        title,
+        day,
+        repeat,
+        clock,
+    )
+
+
+@pytest.mark.parametrize("text", ["you remind me of my sister", "this reminds me of home"])
+def test_remind_me_in_conversation_saves_nothing(text):
+    parsed = parse_spoken_add(text)
+    assert parsed is None or parsed.hour is None
+
+
+@pytest.mark.asyncio
+async def test_a_nightly_reminder_with_no_day_is_saved():
+    _, applied, create, _ = await _finalize(
+        "set a reminder for my meds at 9pm every night", "Set: meds — nightly."
+    )
+    assert applied == 1
+    assert create.await_args.kwargs["recurrence_rule"] == "daily"
+
+
+@pytest.mark.asyncio
+async def test_done_after_a_question_about_reminders_completes_it():
+    _, applied, _, update = await _finalize(
+        "done ✅ just talked to her",
+        "Marked **call mom** as done.",
+        prior="Next up: **call mom** — today at 6:00 PM.",
+        prior_user="whats next on my reminders",
+    )
+    assert applied == 1
+    update.assert_awaited()
+
+
+@pytest.mark.asyncio
+async def test_a_todo_app_is_not_a_question_about_reminders():
+    reply = "Add a button inside each item:\n\n```tsx\n<button onClick={() => remove(t.id)}>x</button>\n```"
+    text, applied, create, _ = await _finalize(
+        "Add a delete button to each task",
+        reply,
+        prior="```tsx\nexport function TodoList() {}\n```",
+        prior_user="build me a todo app in react",
+    )
+    assert (text, applied) == (reply, 0)
+    create.assert_not_awaited()
+
+
+@pytest.mark.parametrize(
+    ("text", "parsed"),
+    [
+        ("done ✅ just talked to her", ("complete", "", True)),
+        ("did it", ("complete", "", True)),
+        ("done with the read reminder", ("complete", "read", False)),
+        ("mark the first 3 as done and show whats left", None),
+    ],
+)
+def test_short_done_and_bulk_marks(text, parsed):
+    from app.modules.todos.spoken_change import parse_spoken_reminder_change
+
+    change = parse_spoken_reminder_change(text)
+    if parsed is None:
+        assert change is None
+    else:
+        assert change is not None
+        assert (change.action, change.title_hint, change.use_latest) == parsed
