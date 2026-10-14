@@ -5,7 +5,9 @@
 import React, { Suspense, useMemo } from "react";
 import { ActivityIndicator, useWindowDimensions, View } from "react-native";
 
+import { physicsDiagramPlaceholderHeight } from "@/components/rich/diagrams/placeholder";
 import { FIGURE_TITLE_HEIGHT, figureWidth } from "@/components/rich/figure";
+import { diagramKind } from "@/lib/physics/diagramKind";
 import {
   parseSimulationSpec,
   SIMULATION_HEIGHT,
@@ -17,35 +19,57 @@ import {
 import { Space } from "@/lib/space";
 
 const MermaidBlockLazy = React.lazy(() =>
-  import("@/components/rich/MermaidBlock").then((m) => ({ default: m.MermaidBlock })),
+  import("@/components/rich/MermaidBlock").then((m) => ({
+    default: m.MermaidBlock,
+  })),
 );
 
 const ChartBlockLazy = React.lazy(() =>
-  import("@/components/rich/ChartBlock").then((m) => ({ default: m.ChartBlock })),
+  import("@/components/rich/ChartBlock").then((m) => ({
+    default: m.ChartBlock,
+  })),
 );
 
 const ChemistryBlockLazy = React.lazy(() =>
-  import("@/components/rich/ChemistryBlock").then((m) => ({ default: m.ChemistryBlock })),
+  import("@/components/rich/ChemistryBlock").then((m) => ({
+    default: m.ChemistryBlock,
+  })),
 );
 
 const MoleculeCardLazy = React.lazy(() =>
-  import("@/components/rich/MoleculeCard").then((m) => ({ default: m.MoleculeCard })),
+  import("@/components/rich/MoleculeCard").then((m) => ({
+    default: m.MoleculeCard,
+  })),
 );
 
 const Molecule3DBlockLazy = React.lazy(() =>
-  import("@/components/rich/Molecule3DBlock").then((m) => ({ default: m.Molecule3DBlock })),
+  import("@/components/rich/Molecule3DBlock").then((m) => ({
+    default: m.Molecule3DBlock,
+  })),
 );
 
 const GeometryBlockLazy = React.lazy(() =>
-  import("@/components/rich/GeometryBlock").then((m) => ({ default: m.GeometryBlock })),
+  import("@/components/rich/GeometryBlock").then((m) => ({
+    default: m.GeometryBlock,
+  })),
 );
 
 const FunctionGraphBlockLazy = React.lazy(() =>
-  import("@/components/rich/FunctionGraphBlock").then((m) => ({ default: m.FunctionGraphBlock })),
+  import("@/components/rich/FunctionGraphBlock").then((m) => ({
+    default: m.FunctionGraphBlock,
+  })),
 );
 
 const SimulationBlockLazy = React.lazy(() =>
-  import("@/components/rich/SimulationBlock").then((m) => ({ default: m.SimulationBlock })),
+  import("@/components/rich/SimulationBlock").then((m) => ({
+    default: m.SimulationBlock,
+  })),
+);
+
+const PhysicsDiagramLazy = React.lazy(() =>
+  import("@/components/rich/diagrams/PhysicsDiagram").then((m) => ({
+    default: m.PhysicsDiagram,
+  })),
 );
 
 const CircularClockBlockLazy = React.lazy(() =>
@@ -130,7 +154,10 @@ export function LazyFunctionGraphBlock({ content }: { content: string }) {
  * does not jump when the chunk arrives. Unreadable content keeps the old
  * fixed guess; the block shows a one-line fallback for it anyway.
  */
-export function simulationPlaceholderHeight(content: string, screenWidth: number): number {
+export function simulationPlaceholderHeight(
+  content: string,
+  screenWidth: number,
+): number {
   const spec = parseSimulationSpec(content);
   if (!spec) return SIMULATION_HEIGHT;
   const canvas = simulationViewportHeight(
@@ -146,13 +173,22 @@ export function simulationPlaceholderHeight(content: string, screenWidth: number
 
 export function LazySimulationBlock({ content }: { content: string }) {
   const { width: screenWidth } = useWindowDimensions();
+  // A circuit, a ray diagram or a wave has no bodies to walk: its own renderer.
+  const kind = useMemo(() => diagramKind(content), [content]);
   const height = useMemo(
-    () => simulationPlaceholderHeight(content, screenWidth),
-    [content, screenWidth],
+    () =>
+      kind
+        ? physicsDiagramPlaceholderHeight(content, screenWidth)
+        : simulationPlaceholderHeight(content, screenWidth),
+    [content, kind, screenWidth],
   );
   return (
     <Suspense fallback={<RichLoadPlaceholder height={height} />}>
-      <SimulationBlockLazy content={content} />
+      {kind ? (
+        <PhysicsDiagramLazy content={content} kind={kind} />
+      ) : (
+        <SimulationBlockLazy content={content} />
+      )}
     </Suspense>
   );
 }

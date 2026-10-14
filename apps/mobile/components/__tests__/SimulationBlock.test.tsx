@@ -463,3 +463,207 @@ describe("LazySimulationBlock placeholder", () => {
     expect(simulationPlaceholderHeight(LEVER, screenWidth)).toBe(Space.xs * 2 + title + leverCanvas);
   });
 });
+
+// --- v2 scenes -------------------------------------------------------------
+
+const SWING = Array.from({ length: 61 }, (_, i) => {
+  const theta = ((15 * Math.PI) / 180) * Math.cos((2 * Math.PI * i) / 60);
+  return [Math.sin(theta), -Math.cos(theta)];
+});
+
+const PENDULUM = JSON.stringify({
+  type: "pendulum",
+  title: "Pendulum",
+  bodies: [{ label: "0.5 kg", radius: 0.06, path: SWING, role: "primary" }],
+  x_min: -0.6,
+  x_max: 0.6,
+  y_min: -1.2,
+  y_max: 0.15,
+  arrows: ["velocity", "gravity"],
+  tethers: [{ anchor: [0, 0], body: 0 }],
+  angles: [{ vertex: [0, 0], start_deg: -90, end_deg: -75, label: "15°", arrow: false, role: "given" }],
+  arrow_labels: { velocity: "v", gravity: "mg" },
+  alt: "A 1 m pendulum swinging 15° either side; period 2.01 s.",
+  title_key: "pendulum",
+});
+
+const FALL = Array.from({ length: 50 }, (_, i) => Math.min(0.5 * 2.45 * (i * 0.025) ** 2, 1.5));
+const ATWOOD = JSON.stringify({
+  type: "free_body",
+  title: "Atwood Machine",
+  bodies: [
+    { label: "5 kg", radius: 0.25, path: FALL.map((s) => [-0.5, 2.2 - s]), shape: "box" },
+    { label: "3 kg", radius: 0.21, path: FALL.map((s) => [0.5, 0.7 + s]), role: "secondary", shape: "box" },
+  ],
+  x_min: -1.6,
+  x_max: 1.6,
+  y_min: 0,
+  y_max: 3.9,
+  vectors: [
+    { anchor: [0, 0.25], dx: 0, dy: 36.8, label: "T = 36.8 N", role: "result", body: 0 },
+    { anchor: [0, 0.21], dx: 0, dy: 36.8, label: "T = 36.8 N", role: "result", body: 1 },
+    { anchor: [0.4, 0], dx: 0, dy: -2.45, label: "a = 2.45 m/s²", role: "motion", body: 0 },
+    { anchor: [0.4, 0], dx: 0, dy: 2.45, label: "a", role: "motion", body: 1 },
+  ],
+  tethers: [
+    { anchor: [-0.5, 3.2], body: 0 },
+    { anchor: [0.5, 3.2], body: 1 },
+  ],
+  pulley: { centre: [0, 3.2], radius: 0.5 },
+  title_key: "atwood",
+});
+
+const TABLE = JSON.stringify({
+  type: "projectile_motion",
+  title: "Projectile",
+  bodies: [
+    {
+      radius: 0.05,
+      path: Array.from({ length: 41 }, (_, i) => {
+        const time = (0.4946 * i) / 40;
+        return [3 * time, 1.25 - 4.905 * time * time];
+      }),
+    },
+  ],
+  x_min: -0.9,
+  x_max: 1.8,
+  y_min: -0.25,
+  y_max: 1.5,
+  arrows: ["velocity", "gravity"],
+  ground: true,
+  vectors: [{ anchor: [0, -0.12], dx: 1.484, dy: 0, label: "d = 1.48 m", role: "measure" }],
+  solids: [{ rect: [-0.6, 0, 0, 1.2], kind: "solid", label: "table" }],
+  arrow_labels: { velocity: "v", gravity: "mg" },
+  strobe: 6,
+});
+
+const SATELLITE = JSON.stringify({
+  ...JSON.parse(ORBIT),
+  central_body: { radius: 4.6, label: "Earth" },
+  arrow_labels: { centripetal: "g" },
+});
+
+const TORQUE = JSON.stringify({
+  ...JSON.parse(LEVER),
+  angles: [
+    { vertex: [0, 0], start_deg: 60, end_deg: -30, label: "τ = 15 N·m", arrow: true, role: "result" },
+  ],
+});
+
+const BUOYANCY = JSON.stringify({
+  type: "free_body",
+  title: "Free-Body Diagram",
+  bodies: [{ radius: 0.35, path: [[0, -0.8], [0, -0.8]], shape: "box" }],
+  x_min: -2.2,
+  x_max: 2.2,
+  y_min: -2.2,
+  y_max: 0.8,
+  vectors: [{ anchor: [0, -0.8], dx: 0, dy: 19.6, label: "F_b = 19.6 N", role: "result" }],
+  solids: [{ rect: [-2, -2, 2, 0], kind: "fluid", label: "water" }],
+  title_key: "buoyancy",
+});
+
+describe("SimulationBlock: v2 scenes", () => {
+  it("hangs a pendulum's bob on its string from a fixed support, with its angle", async () => {
+    const { getByTestId, getAllByTestId } = await render(<SimulationBlock content={PENDULUM} />);
+
+    expect(getAllByTestId("simulation-body", HIDDEN)).toHaveLength(1);
+    expect(getByTestId("simulation-tether", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-support", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-angle-given", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-angle-label", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-label-velocity", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-label-gravity", HIDDEN)).toBeTruthy();
+    // It swings, so it plays.
+    expect(getByTestId("simulation-control")).toBeTruthy();
+  });
+
+  it("says the server's sentence for the picture, and shows the title it can", async () => {
+    // No translation is loaded here, so the key falls back to the English title.
+    const { getByRole, getByText } = await render(<SimulationBlock content={PENDULUM} />);
+
+    expect(getByRole("image").props.accessibilityLabel).toBe(
+      "A 1 m pendulum swinging 15° either side; period 2.01 s.",
+    );
+    expect(getByText("Pendulum")).toBeTruthy();
+  });
+
+  it("keeps the generated description when there is no sentence", async () => {
+    const noAlt = JSON.stringify({ ...JSON.parse(PENDULUM), alt: undefined });
+    const { getByRole } = await render(<SimulationBlock content={noAlt} />);
+
+    expect(getByRole("image").props.accessibilityLabel).toMatch(/^Pendulum\. 0\.5 kg\./);
+  });
+
+  it("runs an Atwood machine's ropes over its pulley, with tensions riding on the masses", async () => {
+    const { getByTestId, getAllByTestId, queryByTestId } = await render(
+      <SimulationBlock content={ATWOOD} />,
+    );
+
+    expect(getByTestId("simulation-pulley", HIDDEN)).toBeTruthy();
+    expect(getAllByTestId("simulation-tether", HIDDEN)).toHaveLength(2);
+    // Both ropes leave the wheel's rim: it is their support.
+    expect(queryByTestId("simulation-support", HIDDEN)).toBeNull();
+    expect(getAllByTestId("simulation-body-box", HIDDEN)).toHaveLength(2);
+    expect(getAllByTestId("simulation-vector-attached", HIDDEN)).toHaveLength(4);
+    expect(getAllByTestId("simulation-vector-result", HIDDEN)).toHaveLength(2);
+  });
+
+  it("strobes a ball off a table, and keeps the strobe under Reduce Motion", async () => {
+    mockUseReduceMotion.mockReturnValue(true);
+    const { getByTestId, getAllByTestId } = await render(<SimulationBlock content={TABLE} />);
+
+    expect(getByTestId("simulation-static", HIDDEN)).toBeTruthy();
+    // The still frame still shows the motion: six faint copies along the path.
+    expect(getAllByTestId("simulation-strobe", HIDDEN)).toHaveLength(6);
+    expect(getByTestId("simulation-solid-solid", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-ground", HIDDEN)).toBeTruthy();
+  });
+
+  it("draws the planet an orbit goes round", async () => {
+    const { getByTestId } = await render(<SimulationBlock content={SATELLITE} />);
+
+    expect(getByTestId("simulation-planet", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-arrow-label-centripetal", HIDDEN)).toBeTruthy();
+  });
+
+  it("draws a moment as a curved arrow in the answer's colour", async () => {
+    const { getByTestId } = await render(<SimulationBlock content={TORQUE} />);
+
+    expect(getByTestId("simulation-angle-result", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-angle-arrow", HIDDEN)).toBeTruthy();
+  });
+
+  it("puts a block under water", async () => {
+    const { getByTestId, queryByTestId } = await render(<SimulationBlock content={BUOYANCY} />);
+
+    expect(getByTestId("simulation-solid-fluid", HIDDEN)).toBeTruthy();
+    expect(getByTestId("simulation-body-box", HIDDEN)).toBeTruthy();
+    expect(queryByTestId("simulation-control")).toBeNull();
+  });
+
+  it("shows its fallback for a malformed new field rather than half a scene", async () => {
+    const bad = JSON.stringify({ ...JSON.parse(PENDULUM), strobe: 40 });
+    const { queryByTestId } = await render(<SimulationBlock content={bad} />);
+
+    expect(queryByTestId("simulation-body", HIDDEN)).toBeNull();
+    expect(queryByTestId("simulation-canvas")).toBeNull();
+  });
+
+  it("stands in with a placeholder as tall as each new scene", async () => {
+    const screenWidth = Dimensions.get("window").width;
+    const title = 22;
+    for (const content of [PENDULUM, ATWOOD, TABLE, SATELLITE]) {
+      const view = await render(<SimulationBlock content={content} />);
+      const canvas = view.getByTestId("simulation-canvas").props.style.height;
+      expect(simulationPlaceholderHeight(content, screenWidth)).toBe(
+        Space.xs * 2 + title + canvas + Space.xxs + Space.minTouch,
+      );
+    }
+    for (const content of [TORQUE, BUOYANCY]) {
+      const view = await render(<SimulationBlock content={content} />);
+      const canvas = view.getByTestId("simulation-canvas").props.style.height;
+      expect(simulationPlaceholderHeight(content, screenWidth)).toBe(Space.xs * 2 + title + canvas);
+    }
+  });
+});

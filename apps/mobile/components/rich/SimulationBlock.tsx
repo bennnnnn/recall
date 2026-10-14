@@ -6,6 +6,7 @@ import {
   Canvas,
   Circle,
   DashPathEffect,
+  Group,
   Path,
   Skia,
   useFont,
@@ -18,34 +19,45 @@ import {
   clampCanvasLabelBaseline,
   clampCanvasLabelX,
   derivedArrowGeometry,
-  describeSimulation,
+  FLUID_TINT,
   inclineDirections,
   inclineSurface,
-  isClosedPath,
+  inclineWedge,
   layoutSimulationScene,
-  maxTrackSpeed,
   parseSimulationSpec,
   PIVOT_SIZE,
-  projectPath,
+  placeNudgedLabel,
+  riddenVectorGeometry,
+  sceneTitle,
   SIMULATION_HEIGHT,
   SIMULATION_MIN_HEIGHT,
   SIMULATION_PAD,
+  simulationAccessibilityLabel,
   simulationIsAnimated,
   simulationTransform,
   simulationViewportHeight,
   tangentAt,
+  tetherEnd,
+  derivedLabelOrigin,
+  vectorLabelOrigin,
   vectorStroke,
   worldToScreen,
+  type AngleLayout,
+  type ArrowLabelLayout,
   type BodyLabelLayout,
+  type PlacedLabel,
+  type SceneLayout,
   type SimulationArrow,
   type SimulationSpec,
   type SimulationTransform,
   type ScreenPoint,
+  type SolidLayout,
+  type SupportLayout,
   type VectorLayout,
 } from "@/lib/physics/simulation";
 import { trajectoryPointAt } from "@/lib/math/trajectory";
 import { Motion } from "@/lib/motion";
-import { Theme, useTheme } from "@/lib/theme";
+import { Theme, useTheme, withAlpha } from "@/lib/theme";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
@@ -53,7 +65,9 @@ import { figureTitleStyle, figureWidth } from "@/components/rich/figure";
 import { PlaybackButton } from "@/components/rich/PlaybackButton";
 import { usePlayback } from "@/components/rich/usePlayback";
 import { HaloText } from "@/components/rich/skia/HaloText";
+import { measureRuns } from "@/components/rich/skia/fontRuns";
 import {
+  appendArrowHead,
   arrowHeadPath,
   arrowPath,
   arrowShaftPath,
@@ -64,15 +78,20 @@ import {
 export { SIMULATION_HEIGHT, SIMULATION_MIN_HEIGHT, SIMULATION_PAD };
 
 const LABEL_FONT_SIZE = 11;
+/** The math faces set a size larger, so a τ stands as tall as SpaceMono's x-height beside it. */
+const FALLBACK_FONT_SIZE = 13;
 /** Until the font loads, a rough SpaceMono advance keeps the layout sane. */
 const FALLBACK_CHAR_WIDTH = 6.7;
 const WALL_HALF_HEIGHT = 16;
 const CENTRE_DOT_RADIUS = 3;
 const ARROW_STROKE = 1.5;
 const RESULT_STROKE = 2.5;
+const HUB_RADIUS = 2.5;
+/** How strongly a strobe copy shows: enough to read the spacing, never a second body. */
+const STROBE_OPACITY = 0.28;
 
 /** Periodic motion goes round again while playing; the rest hold their end. */
-const PERIODIC: readonly SimulationSpec["type"][] = ["orbit", "spring"];
+const PERIODIC: readonly SimulationSpec["type"][] = ["orbit", "spring", "pendulum"];
 
 /**
  * The invisible geometry markers exist for component tests, which cannot see
@@ -82,6 +101,7 @@ const RENDER_TEST_MARKERS = process.env.NODE_ENV === "test";
 
 type Props = { content: string };
 type Slope = ReturnType<typeof inclineDirections>;
+type Rect = { x: number; y: number; width: number; height: number };
 
 function wallPath(point: ScreenPoint, floorY: number | null) {
   const path = Skia.Path.Make();
@@ -97,6 +117,49 @@ function pivotPath(point: ScreenPoint) {
   path.moveTo(point.px, point.py);
   path.lineTo(point.px - PIVOT_SIZE, point.py + PIVOT_SIZE * 1.4);
   path.lineTo(point.px + PIVOT_SIZE, point.py + PIVOT_SIZE * 1.4);
+  path.close();
+  return path;
+}
+
+function polygonPath(points: readonly ScreenPoint[]) {
+  const path = Skia.Path.Make();
+  points.forEach((point, index) => {
+    if (index === 0) path.moveTo(point.px, point.py);
+    else path.lineTo(point.px, point.py);
+  });
+  path.close();
+  return path;
+}
+
+function rectPath(rect: Rect) {
+  return polygonPath([
+    { px: rect.x, py: rect.y },
+    { px: rect.x + rect.width, py: rect.y },
+    { px: rect.x + rect.width, py: rect.y + rect.height },
+    { px: rect.x, py: rect.y + rect.height },
+  ]);
+}
+
+function segmentsPath(segments: SupportLayout["hatches"]) {
+  const path = Skia.Path.Make();
+  for (const segment of segments) {
+    path.moveTo(segment.x1, segment.y1);
+    path.lineTo(segment.x2, segment.y2);
+  }
+  return path;
+}
+
+/** A box body: a square of side 2 * `half`, turned `angle` radians on screen. */
+function boxPath(cx: number, cy: number, half: number, angle: number) {
+  "worklet";
+  const c = Math.cos(angle) * half;
+  const s = Math.sin(angle) * half;
+  const path = Skia.Path.Make();
+  // Corners at ±along ±across, where along = (c, s) and across = (−s, c).
+  path.moveTo(cx + c - s, cy + s + c);
+  path.lineTo(cx - c - s, cy - s + c);
+  path.lineTo(cx - c + s, cy - s - c);
+  path.lineTo(cx + c + s, cy + s - c);
   path.close();
   return path;
 }
@@ -134,6 +197,11 @@ export function SimulationBlock({ content }: Props) {
   const { t } = useTranslation();
   const { width: screenWidth } = useWindowDimensions();
   const font = useFont(require("../../assets/fonts/SpaceMono-Regular.ttf"), LABEL_FONT_SIZE);
+  // SpaceMono has no Greek: τ, θ, λ and Ω come from the math faces instead,
+  // upright for units and capitals, italic for lower-case variables.
+  const upright = useFont(require("../../assets/fonts/KaTeX_Main-Regular.ttf"), FALLBACK_FONT_SIZE);
+  const italic = useFont(require("../../assets/fonts/KaTeX_Math-Italic.ttf"), FALLBACK_FONT_SIZE);
+  const fallbacks = useMemo(() => [upright, italic], [italic, upright]);
   const spec = useMemo(() => parseSimulationSpec(content), [content]);
   const width = figureWidth(screenWidth);
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -154,30 +222,13 @@ export function SimulationBlock({ content }: Props) {
     () => (spec ? simulationTransform(spec, width, height, SIMULATION_PAD) : null),
     [height, spec, width],
   );
-  const tracks = useMemo(
-    () => (spec && transform ? spec.bodies.map((body) => projectPath(body.path, transform)) : []),
-    [spec, transform],
-  );
-  const closed = useMemo(() => tracks.map(isClosedPath), [tracks]);
-  // One scale for every body, so the faster ball after a collision has the
-  // longer arrow.
-  const maxSpeed = useMemo(
-    () =>
-      spec?.arrows.includes("velocity")
-        ? tracks.reduce((best, track, index) => Math.max(best, maxTrackSpeed(track, closed[index])), 0)
-        : 0,
-    [closed, spec, tracks],
-  );
-  // A spring's coil already runs along its path, so a trail would only
-  // stripe the coil.
-  const trackPaths = useMemo(
-    () => (spec?.type === "spring" ? [] : tracks.map(pointsPath)),
-    [spec, tracks],
-  );
   const animated = useMemo(() => (spec ? simulationIsAnimated(spec) : false), [spec]);
   const measure = useCallback(
-    (text: string) => (font ? font.measureText(text).width : text.length * FALLBACK_CHAR_WIDTH),
-    [font],
+    (text: string) =>
+      font
+        ? measureRuns(text, [font, ...fallbacks.filter((face): face is SkFont => face !== null)])
+        : text.length * FALLBACK_CHAR_WIDTH,
+    [fallbacks, font],
   );
   const layout = useMemo(
     () =>
@@ -186,7 +237,14 @@ export function SimulationBlock({ content }: Props) {
         : null,
     [height, measure, spec, transform, width],
   );
-  const description = useMemo(() => (spec ? describeSimulation(spec, t) : ""), [spec, t]);
+  // A spring's coil already runs along its path, so a trail would only
+  // stripe the coil.
+  const trackPaths = useMemo(
+    () => (spec?.type === "spring" || !layout ? [] : layout.tracks.map(pointsPath)),
+    [layout, spec],
+  );
+  const description = useMemo(() => (spec ? simulationAccessibilityLabel(spec, t) : ""), [spec, t]);
+  const title = useMemo(() => (spec ? sceneTitle(spec, t) : ""), [spec, t]);
   const { progress, isPlaying, play, pause, reduceMotion } = usePlayback({
     duration: Motion.duration.simulation,
     animated,
@@ -203,9 +261,11 @@ export function SimulationBlock({ content }: Props) {
     );
   }
 
+  const { tracks, closed, maxSpeed, floorY, obstacles } = layout;
   const centre = spec.centre ? worldToScreen(spec.centre.x, spec.centre.y, transform) : null;
   const groundY = worldToScreen(0, 0, transform).py;
   const surface = inclineSurface(spec, transform);
+  const wedge = inclineWedge(spec, transform);
   const slope = spec.inclineDeg !== undefined ? inclineDirections(spec.inclineDeg) : null;
   const beam = spec.beam
     ? {
@@ -220,10 +280,15 @@ export function SimulationBlock({ content }: Props) {
       : null;
   const bodyColor = (role: "primary" | "secondary") =>
     role === "primary" ? theme.primary : theme.graphSeries[1];
+  const fluid = theme.isDark ? FLUID_TINT.dark : FLUID_TINT.light;
+  const solidFill = withAlpha(theme.textTertiary, 0.14);
+  const wheel = layout.pulley
+    ? { cx: layout.pulley.centre.px, cy: layout.pulley.centre.py, radius: layout.pulley.radius }
+    : null;
 
   return (
     <View style={styles.wrap}>
-      <Text style={styles.title}>{spec.title ?? t("rich.simulation_title")}</Text>
+      <Text style={styles.title}>{title}</Text>
       <View
         accessible
         accessibilityRole="image"
@@ -231,6 +296,38 @@ export function SimulationBlock({ content }: Props) {
         style={{ width, height }}
       >
         <Canvas testID="simulation-canvas" style={{ width, height }}>
+          {/* Solids and fluids sit behind everything else. */}
+          {layout.solids.map((solid, index) => (
+            <SolidShape
+              key={`solid-${index}`}
+              layout={solid}
+              fill={
+                solid.solid.kind === "fluid"
+                  ? withAlpha(fluid, theme.isDark ? 0.22 : 0.16)
+                  : solidFill
+              }
+              edge={solid.solid.kind === "fluid" ? fluid : theme.textTertiary}
+            />
+          ))}
+          {layout.planet ? (
+            <>
+              <Circle
+                cx={layout.planet.centre.px}
+                cy={layout.planet.centre.py}
+                r={layout.planet.radius}
+                color={planetFill(theme)}
+              />
+              <Circle
+                cx={layout.planet.centre.px}
+                cy={layout.planet.centre.py}
+                r={layout.planet.radius}
+                color={withAlpha(theme.textTertiary, 0.55)}
+                style="stroke"
+                strokeWidth={1}
+              />
+            </>
+          ) : null}
+          {wedge ? <Path path={polygonPath(wedge)} color={solidFill} /> : null}
           {trackPaths.map((path, index) => (
             <Path
               key={`track-${index}`}
@@ -284,12 +381,68 @@ export function SimulationBlock({ content }: Props) {
               color={theme.textSecondary}
             />
           ) : null}
-          {layout.vectors.map((vector, index) => (
-            <StatedVector key={`vector-${index}`} layout={vector} theme={theme} />
+          {layout.pulley ? <PulleyWheel layout={layout.pulley} theme={theme} /> : null}
+          {layout.tethers.map((tether, index) =>
+            tether.support ? (
+              <Support key={`support-${index}`} layout={tether.support} theme={theme} />
+            ) : null,
+          )}
+          {layout.angles.map((angle, index) => (
+            <AngleArc key={`angle-${index}`} layout={angle} theme={theme} />
           ))}
-          {centre ? (
+          {layout.vectors.map((vector, index) =>
+            vector.body !== null ? (
+              <RidingVector
+                key={`vector-${index}`}
+                layout={vector}
+                track={tracks[vector.body]}
+                progress={progress}
+                wheel={wheel}
+                theme={theme}
+                canvasWidth={width}
+                canvasHeight={height}
+              />
+            ) : (
+              <StatedVector key={`vector-${index}`} layout={vector} theme={theme} />
+            ),
+          )}
+          {centre && !layout.planet ? (
             <Circle cx={centre.px} cy={centre.py} r={CENTRE_DOT_RADIUS} color={theme.textSecondary} />
           ) : null}
+          {spec.bodies.map((body, index) =>
+            layout.strobes[index].map((point, copy) => (
+              <BodyShape
+                key={`strobe-${index}-${copy}`}
+                at={point}
+                radius={layout.radii[index]}
+                boxAngle={layout.boxAngles[index]}
+                color={bodyColor(body.role)}
+                opacity={STROBE_OPACITY}
+              />
+            )),
+          )}
+          {layout.restLines.map((line, index) => (
+            <Path
+              key={`rest-${index}`}
+              path={linePath(line.x1, line.y1, line.x2, line.y2)}
+              color={theme.textTertiary}
+              style="stroke"
+              strokeWidth={1}
+            >
+              <DashPathEffect intervals={[3, 3]} />
+            </Path>
+          ))}
+          {layout.tethers.map((tether, index) => (
+            <Tether
+              key={`tether-${index}`}
+              anchor={tether.anchor}
+              track={tracks[tether.body]}
+              radius={layout.radii[tether.body]}
+              boxAngle={layout.boxAngles[tether.body]}
+              progress={progress}
+              color={theme.textSecondary}
+            />
+          ))}
           {spec.bodies.map((body, index) => (
             <BodyMarks
               key={`body-${index}`}
@@ -297,10 +450,13 @@ export function SimulationBlock({ content }: Props) {
               closed={closed[index]}
               maxSpeed={maxSpeed}
               radius={layout.radii[index]}
+              boxAngle={layout.boxAngles[index]}
               color={bodyColor(body.role)}
               arrows={spec.arrows}
               centre={centre}
               slope={slope}
+              floorY={floorY}
+              obstacles={obstacles}
               progress={progress}
               theme={theme}
               canvasWidth={width}
@@ -308,43 +464,26 @@ export function SimulationBlock({ content }: Props) {
             />
           ))}
           {/* Labels last, over every line, each with a halo so nothing strikes it through. */}
-          {font
-            ? layout.vectors.map((vector, index) =>
-                vector.label ? (
-                  <HaloText
-                    key={`vector-label-${index}`}
-                    x={vector.label.x}
-                    y={vector.label.y}
-                    text={vector.label.text}
-                    font={font}
-                    color={vectorColor(vector, theme)}
-                    halo={theme.bg}
-                  />
-                ) : null,
-              )
-            : null}
-          {font
-            ? spec.bodies.map((body, index) => {
-                const label = layout.bodyLabels[index];
-                return body.label && label ? (
-                  <BodyLabel
-                    key={`body-label-${index}`}
-                    text={body.label}
-                    layout={label}
-                    track={tracks[index]}
-                    progress={progress}
-                    font={font}
-                    theme={theme}
-                    canvasWidth={width}
-                    canvasHeight={height}
-                  />
-                ) : null;
-              })
-            : null}
+          {font ? (
+            <SceneLabels
+              spec={spec}
+              layout={layout}
+              font={font}
+              fallbacks={fallbacks}
+              wheel={wheel}
+              theme={theme}
+              progress={progress}
+              centre={centre}
+              slope={slope}
+              canvasWidth={width}
+              canvasHeight={height}
+            />
+          ) : null}
         </Canvas>
         {RENDER_TEST_MARKERS ? (
           <SceneMarkers
             spec={spec}
+            layout={layout}
             surface={surface !== null}
             centre={centre !== null}
             beam={beam !== null}
@@ -368,10 +507,342 @@ export function SimulationBlock({ content }: Props) {
   );
 }
 
-function vectorColor(vector: VectorLayout, theme: Theme): string {
-  const role = vector.vector.role;
+/** The planet's muted disc, as one opaque colour so its label's halo can match it. */
+function planetFill(theme: Theme): string {
+  return mixColor(theme.bg, theme.textTertiary, 0.2);
+}
+
+/** `a` moved `amount` of the way to `b`; both `#rrggbb`. Anything else returns `b` washed. */
+function mixColor(a: string, b: string, amount: number): string {
+  const parse = (hex: string) => {
+    const match = /^#([0-9a-f]{6})$/i.exec(hex);
+    if (!match) return null;
+    const value = parseInt(match[1], 16);
+    return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+  };
+  const from = parse(a);
+  const to = parse(b);
+  if (!from || !to) return withAlpha(b, amount);
+  const mixed = from.map((channel, i) => Math.round(channel + (to[i] - channel) * amount));
+  return `rgb(${mixed[0]}, ${mixed[1]}, ${mixed[2]})`;
+}
+
+function vectorColor(role: VectorLayout["vector"]["role"], theme: Theme): string {
   // Motion shares the velocity arrow's colour family; the answer is primary.
   return role === "result" || role === "motion" ? theme.primary : theme.textSecondary;
+}
+
+function SolidShape({ layout, fill, edge }: { layout: SolidLayout; fill: string; edge: string }) {
+  const { box, solid } = layout;
+  if (solid.kind === "fluid") {
+    // A tank of water: a wash of blue with its surface drawn along the top.
+    return (
+      <>
+        <Path path={rectPath(box)} color={fill} />
+        <Path
+          path={linePath(box.x, box.y, box.x + box.width, box.y)}
+          color={edge}
+          style="stroke"
+          strokeWidth={ARROW_STROKE}
+        />
+      </>
+    );
+  }
+  return (
+    <>
+      <Path path={rectPath(box)} color={fill} />
+      <Path path={rectPath(box)} color={edge} style="stroke" strokeWidth={1} />
+    </>
+  );
+}
+
+function PulleyWheel({
+  layout,
+  theme,
+}: {
+  layout: NonNullable<SceneLayout["pulley"]>;
+  theme: Theme;
+}) {
+  const { centre, radius, rope } = layout;
+  return (
+    <>
+      {/* The bracket it hangs from, up to the top of the canvas. */}
+      <Path
+        path={linePath(centre.px, centre.py, centre.px, 0)}
+        color={theme.textSecondary}
+        style="stroke"
+        strokeWidth={2}
+      />
+      <Circle cx={centre.px} cy={centre.py} r={radius} color={theme.bg} />
+      <Circle
+        cx={centre.px}
+        cy={centre.py}
+        r={radius}
+        color={theme.textSecondary}
+        style="stroke"
+        strokeWidth={ARROW_STROKE}
+      />
+      <Circle cx={centre.px} cy={centre.py} r={HUB_RADIUS} color={theme.textSecondary} />
+      {rope ? (
+        <Path
+          path={pointsPath(rope)}
+          color={theme.textSecondary}
+          style="stroke"
+          strokeWidth={ARROW_STROKE * 1.5}
+          strokeCap="round"
+        />
+      ) : null}
+    </>
+  );
+}
+
+function Support({ layout, theme }: { layout: SupportLayout; theme: Theme }) {
+  return (
+    <>
+      <Path
+        path={segmentsPath(layout.hatches)}
+        color={theme.textTertiary}
+        style="stroke"
+        strokeWidth={1}
+      />
+      <Path
+        path={linePath(layout.bar.x1, layout.bar.y1, layout.bar.x2, layout.bar.y2)}
+        color={theme.textSecondary}
+        style="stroke"
+        strokeWidth={2}
+        strokeCap="round"
+      />
+    </>
+  );
+}
+
+function AngleArc({ layout, theme }: { layout: AngleLayout; theme: Theme }) {
+  const result = layout.angle.role === "result";
+  const color = result ? theme.primary : theme.textSecondary;
+  const strokeWidth = result ? RESULT_STROKE : ARROW_STROKE;
+  const paths = useMemo(() => {
+    const arc = pointsPath(layout.arc);
+    const head = layout.head
+      ? appendArrowHead(
+          Skia.Path.Make(),
+          layout.head.tip.px,
+          layout.head.tip.py,
+          layout.head.ux,
+          layout.head.uy,
+          layout.head.size,
+          "filled",
+        )
+      : null;
+    return { arc, head };
+  }, [layout]);
+  return (
+    <>
+      <Path
+        path={paths.arc}
+        color={color}
+        style="stroke"
+        strokeWidth={strokeWidth}
+        strokeCap="round"
+        strokeJoin="round"
+      />
+      {paths.head ? (
+        <>
+          <Path
+            path={paths.head}
+            color={color}
+            style="stroke"
+            strokeWidth={ARROW_STROKE}
+            strokeJoin="round"
+          />
+          <Path path={paths.head} color={color} style="fill" />
+        </>
+      ) : null}
+    </>
+  );
+}
+
+type Wheel = { cx: number; cy: number; radius: number } | null;
+
+/** A riding vector this frame: started where its body has carried it, refitted. */
+function ridingNow(
+  layout: VectorLayout,
+  track: ScreenPoint[],
+  progress: number,
+  wheel: Wheel,
+  canvasWidth: number,
+  canvasHeight: number,
+) {
+  "worklet";
+  const ride = layout.ride;
+  if (!ride) return null;
+  const now = trajectoryPointAt(track, progress);
+  const fromX = layout.from.px + now.px - track[0].px;
+  const fromY = layout.from.py + now.py - track[0].py;
+  const fit = riddenVectorGeometry(
+    fromX,
+    fromY,
+    ride.ux,
+    ride.uy,
+    ride.desired,
+    canvasWidth,
+    canvasHeight,
+    wheel,
+  );
+  return fit ? { fromX, fromY, ux: ride.ux, uy: ride.uy, length: fit.length } : null;
+}
+
+/** A stated vector riding on a moving body: the tension on an Atwood mass goes where it goes. */
+function RidingVector({
+  layout,
+  track,
+  progress,
+  wheel,
+  theme,
+  canvasWidth,
+  canvasHeight,
+}: {
+  layout: VectorLayout;
+  track: ScreenPoint[];
+  progress: SharedValue<number>;
+  wheel: Wheel;
+  theme: Theme;
+  canvasWidth: number;
+  canvasHeight: number;
+}) {
+  const stroke = vectorStroke(layout.vector.role);
+  const color = vectorColor(layout.vector.role, theme);
+  const strokeWidth = layout.vector.role === "result" ? RESULT_STROKE : ARROW_STROKE;
+  const shaft = useDerivedValue(() => {
+    const path = Skia.Path.Make();
+    const arrow = ridingNow(layout, track, progress.value, wheel, canvasWidth, canvasHeight);
+    if (!arrow) return path;
+    if (stroke === "force") {
+      return arrowPath(
+        arrow.fromX,
+        arrow.fromY,
+        arrow.ux,
+        arrow.uy,
+        arrow.length,
+        arrowHeadSize(arrow.length),
+        "filled",
+      );
+    }
+    path.moveTo(arrow.fromX, arrow.fromY);
+    path.lineTo(arrow.fromX + arrow.ux * arrow.length, arrow.fromY + arrow.uy * arrow.length);
+    return path;
+  });
+  const head = useDerivedValue(() => {
+    const path = Skia.Path.Make();
+    const arrow = ridingNow(layout, track, progress.value, wheel, canvasWidth, canvasHeight);
+    if (!arrow || stroke === "force") return path;
+    return appendArrowHead(
+      path,
+      arrow.fromX + arrow.ux * arrow.length,
+      arrow.fromY + arrow.uy * arrow.length,
+      arrow.ux,
+      arrow.uy,
+      arrowHeadSize(arrow.length),
+      stroke === "motion" ? "open" : "ticks",
+      arrow.length,
+    );
+  });
+  if (stroke === "force") {
+    return (
+      <>
+        <Path
+          path={shaft}
+          color={color}
+          style="stroke"
+          strokeWidth={strokeWidth}
+          strokeJoin="round"
+          strokeCap="round"
+        />
+        <Path path={shaft} color={color} style="fill" />
+      </>
+    );
+  }
+  return (
+    <>
+      <Path path={shaft} color={color} style="stroke" strokeWidth={strokeWidth}>
+        <DashPathEffect intervals={stroke === "motion" ? [5, 3] : [3, 3]} />
+      </Path>
+      <Path
+        path={head}
+        color={color}
+        style="stroke"
+        strokeWidth={strokeWidth}
+        strokeJoin="round"
+        strokeCap="round"
+      />
+    </>
+  );
+}
+
+/** A riding vector's label, set from its arrow every frame and hidden with it. */
+function RidingVectorLabel({
+  layout,
+  track,
+  progress,
+  wheel,
+  font,
+  fallbacks,
+  theme,
+  canvasWidth,
+  canvasHeight,
+}: {
+  layout: VectorLayout;
+  track: ScreenPoint[];
+  progress: SharedValue<number>;
+  wheel: Wheel;
+  font: SkFont;
+  fallbacks: readonly (SkFont | null)[];
+  theme: Theme;
+  canvasWidth: number;
+  canvasHeight: number;
+}) {
+  const spot = useDerivedValue(() => {
+    const ride = layout.ride;
+    const arrow = ridingNow(layout, track, progress.value, wheel, canvasWidth, canvasHeight);
+    if (!arrow || !ride) return { x: 0, y: 0, shown: 0 };
+    const origin = vectorLabelOrigin(
+      arrow.fromX,
+      arrow.fromY,
+      arrow.fromX + arrow.ux * arrow.length,
+      arrow.fromY + arrow.uy * arrow.length,
+      ride.labelWidth,
+      LABEL_FONT_SIZE,
+      ride.mid,
+      ride.side,
+      ride.beside,
+    );
+    const place = placeNudgedLabel(
+      origin.x,
+      origin.y,
+      ride.labelWidth,
+      LABEL_FONT_SIZE,
+      ride.dx,
+      ride.dy,
+      canvasWidth,
+      canvasHeight,
+    );
+    return { x: place.x, y: place.baseline, shown: 1 };
+  });
+  const x = useDerivedValue(() => spot.value.x);
+  const y = useDerivedValue(() => spot.value.y);
+  const opacity = useDerivedValue(() => spot.value.shown);
+  return (
+    <Group opacity={opacity}>
+      <HaloText
+        x={x}
+        y={y}
+        text={layout.vector.label ?? ""}
+        font={font}
+        fallbacks={fallbacks}
+        color={vectorColor(layout.vector.role, theme)}
+        halo={theme.bg}
+      />
+    </Group>
+  );
 }
 
 function SpringCoil({
@@ -391,15 +862,89 @@ function SpringCoil({
   return <Path path={path} color={color} style="stroke" strokeWidth={ARROW_STROKE} />;
 }
 
+function Tether({
+  anchor,
+  track,
+  radius,
+  boxAngle,
+  progress,
+  color,
+}: {
+  anchor: ScreenPoint;
+  track: ScreenPoint[];
+  radius: number;
+  boxAngle: number | null;
+  progress: SharedValue<number>;
+  color: string;
+}) {
+  const path = useDerivedValue(() => {
+    const end = tetherEnd(anchor, trajectoryPointAt(track, progress.value), radius, boxAngle);
+    const line = Skia.Path.Make();
+    if (!end) return line;
+    line.moveTo(anchor.px, anchor.py);
+    line.lineTo(end.px, end.py);
+    return line;
+  });
+  return (
+    <Path path={path} color={color} style="stroke" strokeWidth={ARROW_STROKE} strokeCap="round" />
+  );
+}
+
+/** A body's disc or box, with a halo of the background so lines behind it break around it. */
+function BodyShape({
+  at,
+  radius,
+  boxAngle,
+  color,
+  halo,
+  opacity,
+}: {
+  at: ScreenPoint | SharedValue<{ x: number; y: number }>;
+  radius: number;
+  boxAngle: number | null;
+  color: string;
+  halo?: string;
+  opacity?: number;
+}) {
+  const point = "px" in at ? at : null;
+  const live = "px" in at ? null : at;
+  const box = useDerivedValue(() => {
+    if (boxAngle === null) return Skia.Path.Make();
+    const x = live ? live.value.x : point!.px;
+    const y = live ? live.value.y : point!.py;
+    return boxPath(x, y, radius, boxAngle);
+  });
+  const c = live ?? { x: point!.px, y: point!.py };
+  if (boxAngle !== null) {
+    return (
+      <Group opacity={opacity ?? 1}>
+        {halo ? (
+          <Path path={box} color={halo} style="stroke" strokeWidth={3} strokeJoin="round" />
+        ) : null}
+        <Path path={box} color={color} />
+      </Group>
+    );
+  }
+  return (
+    <Group opacity={opacity ?? 1}>
+      {halo ? <Circle c={c} r={radius + 1.5} color={halo} /> : null}
+      <Circle c={c} r={radius} color={color} />
+    </Group>
+  );
+}
+
 function BodyMarks({
   track,
   closed,
   maxSpeed,
   radius,
+  boxAngle,
   color,
   arrows,
   centre,
   slope,
+  floorY,
+  obstacles,
   progress,
   theme,
   canvasWidth,
@@ -409,10 +954,13 @@ function BodyMarks({
   closed: boolean;
   maxSpeed: number;
   radius: number;
+  boxAngle: number | null;
   color: string;
   arrows: SimulationArrow[];
   centre: ScreenPoint | null;
   slope: Slope | null;
+  floorY: number | null;
+  obstacles: Rect[];
   progress: SharedValue<number>;
   theme: Theme;
   canvasWidth: number;
@@ -435,59 +983,68 @@ function BodyMarks({
           closed={closed}
           maxSpeed={maxSpeed}
           radius={radius}
+          boxAngle={boxAngle}
           centre={centre}
           slope={slope}
+          floorY={floorY}
+          obstacles={obstacles}
           progress={progress}
           color={kind === "velocity" ? color : theme.textSecondary}
           canvasWidth={canvasWidth}
           canvasHeight={canvasHeight}
         />
       ))}
-      <Circle c={at} r={radius + 1.5} color={theme.bg} />
-      <Circle c={at} r={radius} color={color} />
+      <BodyShape at={at} radius={radius} boxAngle={boxAngle} color={color} halo={theme.bg} />
     </>
   );
+}
+
+type ArrowContext = {
+  track: ScreenPoint[];
+  closed: boolean;
+  maxSpeed: number;
+  radius: number;
+  boxAngle: number | null;
+  centre: ScreenPoint | null;
+  slope: Slope | null;
+  floorY: number | null;
+  obstacles: Rect[];
+  canvasWidth: number;
+  canvasHeight: number;
+};
+
+function arrowNow(kind: SimulationArrow, at: ScreenPoint, progress: number, context: ArrowContext) {
+  "worklet";
+  return derivedArrowGeometry(kind, at, context.radius, {
+    tangent:
+      kind === "velocity" ? tangentAt(context.track, progress, context.closed) : { dx: 0, dy: 0 },
+    maxSpeed: context.maxSpeed,
+    centre: context.centre,
+    slope: context.slope,
+    width: context.canvasWidth,
+    height: context.canvasHeight,
+    boxAngle: context.boxAngle,
+    floorY: context.floorY,
+    solids: context.obstacles,
+  });
 }
 
 function DerivedArrow({
   kind,
   at,
-  track,
-  closed,
-  maxSpeed,
-  radius,
-  centre,
-  slope,
   progress,
   color,
-  canvasWidth,
-  canvasHeight,
+  ...context
 }: {
   kind: SimulationArrow;
   /** The body's centre this frame, shared with the body's disc. */
   at: SharedValue<{ x: number; y: number }>;
-  track: ScreenPoint[];
-  closed: boolean;
-  maxSpeed: number;
-  radius: number;
-  centre: ScreenPoint | null;
-  slope: Slope | null;
   progress: SharedValue<number>;
   color: string;
-  canvasWidth: number;
-  canvasHeight: number;
-}) {
+} & ArrowContext) {
   const head = kind === "velocity" ? "open" : "filled";
   const path = useDerivedValue(() => {
-    const centreNow = { px: at.value.x, py: at.value.y };
-    const arrow = derivedArrowGeometry(kind, centreNow, radius, {
-      tangent: kind === "velocity" ? tangentAt(track, progress.value, closed) : { dx: 0, dy: 0 },
-      maxSpeed,
-      centre,
-      slope,
-      width: canvasWidth,
-      height: canvasHeight,
-    });
+    const arrow = arrowNow(kind, { px: at.value.x, py: at.value.y }, progress.value, context);
     if (!arrow) return Skia.Path.Make();
     return arrowPath(
       arrow.fromX,
@@ -514,12 +1071,207 @@ function DerivedArrow({
   );
 }
 
+/** Every label in the scene, drawn over every line. */
+function SceneLabels({
+  spec,
+  layout,
+  font,
+  fallbacks,
+  wheel,
+  theme,
+  progress,
+  centre,
+  slope,
+  canvasWidth,
+  canvasHeight,
+}: {
+  spec: SimulationSpec;
+  layout: SceneLayout;
+  font: SkFont;
+  fallbacks: readonly (SkFont | null)[];
+  wheel: Wheel;
+  theme: Theme;
+  progress: SharedValue<number>;
+  centre: ScreenPoint | null;
+  slope: Slope | null;
+  canvasWidth: number;
+  canvasHeight: number;
+}) {
+  const fixedLabel = (label: PlacedLabel, key: string, color: string, halo = theme.bg) => (
+    <HaloText
+      key={key}
+      x={label.x}
+      y={label.y}
+      text={label.text}
+      font={font}
+      fallbacks={fallbacks}
+      color={color}
+      halo={halo}
+    />
+  );
+  const planet = layout.planet;
+  // A name inside the planet is haloed in the planet's own colour, so an
+  // arrow crossing it breaks around the word without a pale patch.
+  const planetInside =
+    planet !== null &&
+    planet.label !== null &&
+    planet.label.box.y < planet.centre.py + planet.radius;
+  return (
+    <>
+      {layout.solids.map((solid, index) =>
+        solid.label ? fixedLabel(solid.label, `solid-label-${index}`, theme.textSecondary) : null,
+      )}
+      {planet?.label
+        ? fixedLabel(
+            planet.label,
+            "planet-label",
+            theme.textSecondary,
+            planetInside ? planetFill(theme) : theme.bg,
+          )
+        : null}
+      {layout.angles.map((angle, index) =>
+        angle.label
+          ? fixedLabel(
+              angle.label,
+              `angle-label-${index}`,
+              angle.angle.role === "result" ? theme.primary : theme.textSecondary,
+            )
+          : null,
+      )}
+      {layout.vectors.map((vector, index) => {
+        if (!vector.label) return null;
+        return vector.body !== null ? (
+          <RidingVectorLabel
+            key={`vector-label-${index}`}
+            layout={vector}
+            track={layout.tracks[vector.body]}
+            progress={progress}
+            wheel={wheel}
+            font={font}
+            fallbacks={fallbacks}
+            theme={theme}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+          />
+        ) : (
+          fixedLabel(vector.label, `vector-label-${index}`, vectorColor(vector.vector.role, theme))
+        );
+      })}
+      {layout.arrowLabels.map((label, index) => (
+        <DerivedArrowLabel
+          key={`arrow-label-${index}`}
+          label={label}
+          font={font}
+          fallbacks={fallbacks}
+          theme={theme}
+          progress={progress}
+          color={
+            label.kind === "velocity" ? bodyTint(spec, label.body, theme) : theme.textSecondary
+          }
+          track={layout.tracks[label.body]}
+          closed={layout.closed[label.body]}
+          maxSpeed={layout.maxSpeed}
+          radius={layout.radii[label.body]}
+          boxAngle={layout.boxAngles[label.body]}
+          centre={centre}
+          slope={slope}
+          floorY={layout.floorY}
+          obstacles={layout.obstacles}
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
+        />
+      ))}
+      {spec.bodies.map((body, index) => {
+        const label = layout.bodyLabels[index];
+        return body.label && label ? (
+          <BodyLabel
+            key={`body-label-${index}`}
+            text={body.label}
+            layout={label}
+            track={layout.tracks[index]}
+            progress={progress}
+            font={font}
+            fallbacks={fallbacks}
+            theme={theme}
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
+          />
+        ) : null;
+      })}
+    </>
+  );
+}
+
+function bodyTint(spec: SimulationSpec, body: number, theme: Theme): string {
+  return spec.bodies[body]?.role === "secondary" ? theme.graphSeries[1] : theme.primary;
+}
+
+/** A derived arrow's label, following its tip every frame; hidden with the arrow. */
+function DerivedArrowLabel({
+  label,
+  font,
+  fallbacks,
+  theme,
+  progress,
+  color,
+  ...context
+}: {
+  label: ArrowLabelLayout;
+  font: SkFont;
+  fallbacks: readonly (SkFont | null)[];
+  theme: Theme;
+  progress: SharedValue<number>;
+  color: string;
+} & ArrowContext) {
+  const spot = useDerivedValue(() => {
+    const at = trajectoryPointAt(context.track, progress.value);
+    const arrow = arrowNow(label.kind, at, progress.value, context);
+    if (!arrow) return { x: 0, y: 0, shown: 0 };
+    const origin = derivedLabelOrigin(
+      arrow,
+      label.width,
+      LABEL_FONT_SIZE,
+      context.floorY,
+      context.obstacles,
+      label.beside,
+    );
+    const place = placeNudgedLabel(
+      origin.x,
+      origin.y,
+      label.width,
+      LABEL_FONT_SIZE,
+      label.dx,
+      label.dy,
+      context.canvasWidth,
+      context.canvasHeight,
+    );
+    return { x: place.x, y: place.baseline, shown: 1 };
+  });
+  const x = useDerivedValue(() => spot.value.x);
+  const y = useDerivedValue(() => spot.value.y);
+  const opacity = useDerivedValue(() => spot.value.shown);
+  return (
+    <Group opacity={opacity}>
+      <HaloText
+        x={x}
+        y={y}
+        text={label.text}
+        font={font}
+        fallbacks={fallbacks}
+        color={color}
+        halo={theme.bg}
+      />
+    </Group>
+  );
+}
+
 function BodyLabel({
   text,
   layout,
   track,
   progress,
   font,
+  fallbacks,
   theme,
   canvasWidth,
   canvasHeight,
@@ -529,6 +1281,7 @@ function BodyLabel({
   track: ScreenPoint[];
   progress: SharedValue<number>;
   font: SkFont;
+  fallbacks: readonly (SkFont | null)[];
   theme: Theme;
   canvasWidth: number;
   canvasHeight: number;
@@ -541,13 +1294,21 @@ function BodyLabel({
     clampCanvasLabelBaseline(at.value.py + layout.dy, LABEL_FONT_SIZE, canvasHeight),
   );
   return (
-    <HaloText x={x} y={y} text={text} font={font} color={theme.textSecondary} halo={theme.bg} />
+    <HaloText
+      x={x}
+      y={y}
+      text={text}
+      font={font}
+      fallbacks={fallbacks}
+      color={theme.textSecondary}
+      halo={theme.bg}
+    />
   );
 }
 
 function StatedVector({ layout, theme }: { layout: VectorLayout; theme: Theme }) {
   const stroke = vectorStroke(layout.vector.role);
-  const color = vectorColor(layout, theme);
+  const color = vectorColor(layout.vector.role, theme);
   const strokeWidth = layout.vector.role === "result" ? RESULT_STROKE : ARROW_STROKE;
   const paths = useMemo(() => {
     const { from, tip, head } = layout;
@@ -601,6 +1362,7 @@ function StatedVector({ layout, theme }: { layout: VectorLayout; theme: Theme })
 
 function SceneMarkers({
   spec,
+  layout,
   surface,
   centre,
   beam,
@@ -609,6 +1371,7 @@ function SceneMarkers({
   reduceMotion,
 }: {
   spec: SimulationSpec;
+  layout: SceneLayout;
   surface: boolean;
   centre: boolean;
   beam: boolean;
@@ -616,6 +1379,9 @@ function SceneMarkers({
   spring: boolean;
   reduceMotion: boolean;
 }) {
+  const marker = (testID: string, key?: string) => (
+    <View key={key ?? testID} testID={testID} style={markerStyle} />
+  );
   return (
     <View
       pointerEvents="none"
@@ -623,17 +1389,44 @@ function SceneMarkers({
       importantForAccessibility="no-hide-descendants"
       style={StyleSheet.absoluteFill}
     >
-      {surface ? <View testID="simulation-slope" style={markerStyle} /> : null}
-      {spec.ground ? <View testID="simulation-ground" style={markerStyle} /> : null}
-      {beam ? <View testID="simulation-beam" style={markerStyle} /> : null}
-      {pivot ? <View testID="simulation-pivot" style={markerStyle} /> : null}
-      {centre ? <View testID="simulation-centre" style={markerStyle} /> : null}
-      {spring ? <View testID="simulation-spring" style={markerStyle} /> : null}
-      {reduceMotion ? <View testID="simulation-static" style={markerStyle} /> : null}
+      {surface ? marker("simulation-slope") : null}
+      {spec.ground ? marker("simulation-ground") : null}
+      {beam ? marker("simulation-beam") : null}
+      {pivot ? marker("simulation-pivot") : null}
+      {centre ? marker("simulation-centre") : null}
+      {spring ? marker("simulation-spring") : null}
+      {reduceMotion ? marker("simulation-static") : null}
+      {layout.pulley ? marker("simulation-pulley") : null}
+      {layout.planet ? marker("simulation-planet") : null}
+      {layout.tethers.map((tether, index) => (
+        <View key={`tether-marker-${index}`} testID="simulation-tether" style={markerStyle}>
+          {tether.support ? marker("simulation-support") : null}
+        </View>
+      ))}
+      {layout.angles.map((angle, index) => (
+        <View
+          key={`angle-marker-${index}`}
+          testID={`simulation-angle-${angle.angle.role}`}
+          style={markerStyle}
+        >
+          {angle.head ? marker("simulation-angle-arrow") : null}
+          {angle.label ? marker("simulation-angle-label") : null}
+        </View>
+      ))}
+      {layout.solids.map((solid, index) =>
+        marker(`simulation-solid-${solid.solid.kind}`, `solid-marker-${index}`),
+      )}
+      {layout.arrowLabels.map((label, index) =>
+        marker(`simulation-arrow-label-${label.kind}`, `arrow-label-marker-${index}`),
+      )}
       {spec.bodies.map((body, bodyIndex) => (
         <View key={`body-marker-${bodyIndex}`}>
           <View testID="simulation-body" style={markerStyle} />
+          {layout.boxAngles[bodyIndex] !== null ? marker("simulation-body-box") : null}
           {body.label ? <View testID="simulation-body-label" style={markerStyle} /> : null}
+          {layout.strobes[bodyIndex].map((_, copy) =>
+            marker("simulation-strobe", `strobe-marker-${bodyIndex}-${copy}`),
+          )}
           {spec.arrows.map((arrow) => (
             <View
               key={`${bodyIndex}-${arrow}`}
@@ -643,13 +1436,14 @@ function SceneMarkers({
           ))}
         </View>
       ))}
-      {spec.vectors.map((vector, index) => (
+      {layout.vectors.map((vector, index) => (
         <View
           key={`vector-marker-${index}`}
-          testID={`simulation-vector-${vector.role}`}
+          testID={`simulation-vector-${vector.vector.role}`}
           style={markerStyle}
         >
           {vector.label ? <View testID="simulation-vector-label" style={markerStyle} /> : null}
+          {vector.body !== null ? marker("simulation-vector-attached") : null}
         </View>
       ))}
     </View>
