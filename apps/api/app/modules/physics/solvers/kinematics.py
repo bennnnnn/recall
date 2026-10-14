@@ -8,6 +8,10 @@ import math
 
 from app.modules.math.schemas import GraphBlockSpec
 from app.modules.physics.schemas import PhysicsIntent
+from app.modules.physics.solvers.average_speed import (
+    _AVERAGE_SPEED_OPERATIONS,
+    solve_average_speed,
+)
 from app.modules.physics.solvers.common import (
     PhysicsResult,
     QuantityResult,
@@ -25,6 +29,8 @@ from app.services.solving import SolveServiceError
 def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
     if intent.physics_op in _RATE_OPERATIONS:
         return _solve_distance_speed_time(intent)
+    if intent.physics_op in _AVERAGE_SPEED_OPERATIONS:
+        return solve_average_speed(intent)
     if intent.physics_op == "stopping_distance":
         return _solve_stopping_distance(intent)
     p = _params_in_si(intent)

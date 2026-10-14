@@ -280,3 +280,67 @@ def test_an_energy_from_watts_and_hours_also_reads_in_kilowatt_hours() -> None:
     )
     # Seconds are a physics class's unit: no kWh beside them.
     assert _answer("A 60 W bulb is on for 30 s. How much energy does it use?") == "1800 J"
+
+
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        (
+            # Two legs: the whole distance over the whole time, not the mean speed (75).
+            "A car travels at a constant speed of 50 km/h for 100 km. It then speeds up to "
+            "100 km/h and is driven another 100 km. What is the car's average speed for the "
+            "200 km trip?",
+            "66.7 km/h",
+        ),
+        (
+            "A car drives at 60 km/h for 120 km and then at 80 km/h for another 120 km. "
+            "What is its average speed for the 240 km trip?",
+            "68.6 km/h",
+        ),
+        (
+            # The legs pair in the order written: 2 h, then 3 h.
+            "A car travels 100 km at 50 km/h and then 300 km at 100 km/h. "
+            "What is its average speed?",
+            "80 km/h",
+        ),
+        (
+            # The same distance each way: the harmonic mean, not 25.
+            "A cyclist rides to town at 20 km/h and returns at 30 km/h. "
+            "What is her average speed for the round trip?",
+            "24 km/h",
+        ),
+        (
+            # The same time at each speed: the plain mean.
+            "A car travels at 40 km/h for half the time and 60 km/h for the other half. "
+            "What is its average speed?",
+            "50 km/h",
+        ),
+        (
+            # Mixed units are worked in m, s and m/s.
+            "A runner covers 3 km at 2 m/s and then 1 km at 4 m/s. What is her average speed?",
+            "2.29 m/s",
+        ),
+        (
+            # "Average velocity" and a clause before the question.
+            "A passenger walks 4 m forward in 8 s to take his seat on provided place forward. "
+            "What is his average velocity?",
+            "0.5 m/s",
+        ),
+    ],
+)
+def test_average_speed_over_a_trip_is_verified(text: str, answer: str) -> None:
+    assert _answer(text) == answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The legs make 240 km; the question says 250.
+        "A car drives at 60 km/h for 120 km and then at 80 km/h for another 120 km. "
+        "What is its average speed for the 250 km trip?",
+        # Two vehicles' speeds, not one trip: no average speed law fits.
+        "A car's speed is 60 km/h and a bus's speed is 40 km/h. What is their average speed?",
+    ],
+)
+def test_an_average_speed_question_without_one_answer_is_not_verified(text: str) -> None:
+    assert _answer(text) is None
