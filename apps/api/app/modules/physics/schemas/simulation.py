@@ -72,8 +72,14 @@ class SimulationVector(BaseModel):
     label: str | None = Field(default=None, max_length=24)
     # Visual weight only. `result` is the quantity the question asked for;
     # `measure` is an extent rather than a force — the h in mgh, the d in Fd —
-    # drawn as a dimension line so it does not read as another arrow pushing.
-    role: Literal["force", "result", "measure"] = "force"
+    # drawn as a dimension line so it does not read as another arrow pushing;
+    # `motion` is an acceleration, drawn so it never reads as a force.
+    #
+    # Length: a `measure`, and every arrow of a `vector_sum`, is drawn at its
+    # world length. Any other arrow's (dx, dy) is a direction and a size
+    # relative to the scene's other arrows of its kind: the renderer draws
+    # the longest at a fixed screen length and the rest in proportion.
+    role: Literal["force", "result", "measure", "motion"] = "force"
 
     @model_validator(mode="after")
     def finite_and_directed(self) -> SimulationVector:

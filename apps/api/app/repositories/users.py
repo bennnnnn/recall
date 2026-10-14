@@ -11,13 +11,10 @@ from app.models.orm import (
     Memory,
     Message,
     PushToken,
-    SuggestedReminder,
     Suggestion,
     TodoItem,
     UsageDaily,
     User,
-    UserCalendarConnection,
-    UserGmailConnection,
 )
 
 
@@ -119,10 +116,9 @@ async def delete_user(session: AsyncSession, user_id: UUID) -> None:
 
     Deletes every user-owned row explicitly before the user row so the delete
     succeeds even for tables whose FK to users.id has no ON DELETE CASCADE
-    (todos, suggestions, messages, memories). Tables
-    that do cascade (attachments, push tokens, connections, suggested reminders)
-    are deleted explicitly too — harmless if already cascaded,
-    and keeps the operation correct regardless of migration state.
+    (todos, suggestions, messages, memories). Tables that do cascade
+    (attachments, push tokens) are deleted explicitly too — harmless if already
+    cascaded, and keeps the operation correct regardless of migration state.
     """
     # Memory writers lock User before Memory; use the same order during deletion.
     await session.execute(select(User.id).where(User.id == user_id).with_for_update())
@@ -131,13 +127,8 @@ async def delete_user(session: AsyncSession, user_id: UUID) -> None:
     await session.execute(delete(UsageDaily).where(UsageDaily.user_id == user_id))
     await session.execute(delete(TodoItem).where(TodoItem.user_id == user_id))
     await session.execute(delete(Suggestion).where(Suggestion.user_id == user_id))
-    await session.execute(delete(SuggestedReminder).where(SuggestedReminder.user_id == user_id))
     await session.execute(delete(PushToken).where(PushToken.user_id == user_id))
     await session.execute(delete(Attachment).where(Attachment.user_id == user_id))
-    await session.execute(
-        delete(UserCalendarConnection).where(UserCalendarConnection.user_id == user_id)
-    )
-    await session.execute(delete(UserGmailConnection).where(UserGmailConnection.user_id == user_id))
     await session.execute(delete(Chat).where(Chat.user_id == user_id))
     user = await session.get(User, user_id)
     if user is not None:

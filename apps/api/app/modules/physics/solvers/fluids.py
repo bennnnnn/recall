@@ -227,20 +227,20 @@ def _upthrust(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
         formulas=(r"F_b = \rho V g",),
         substitutions=(rf"F_b = {p['rho']:g} \cdot {p['volume']:g} \cdot {gravity:g}",),
         quantities=(QuantityResult("", force, "N"),),
-        # The one fluids answer a free body actually draws: an upward
-        # buoyant force against the weight it opposes.
+        # The one fluids answer a free body actually draws: the upward
+        # buoyant force the question asked for. The weight is not drawn: the
+        # question does not give it, and two equal arrows would say the body
+        # floats.
         simulation_specs=_free_body_scene(
             [
                 SimulationVector(
                     anchor=[0.0, 0.0],
                     dx=0.0,
                     dy=1.0,
-                    label=f"upthrust {plain_number(force)} N",
-                    role="force",
+                    label=f"F_b = {plain_number(force)} N",
+                    role="result",
                 ),
-                SimulationVector(anchor=[0.0, 0.0], dx=0.0, dy=-1.0, label="weight", role="force"),
             ],
-            label="body",
         ),
     )
 

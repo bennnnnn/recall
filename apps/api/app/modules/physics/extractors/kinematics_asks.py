@@ -48,6 +48,19 @@ def _asks_velocity(lower: str, asked: tuple[str, ...]) -> bool:
     return re.search(r"\b(?:find|what is)\s+v\b", lower) is not None
 
 
+# "How long until it reaches the top?" asks for v0/g, not the whole flight.
+_TIME_TO_PEAK_RE = re.compile(
+    r"\b(?:how long|how much time|time|when)\b.{0,50}?\b(?:"
+    r"(?:the\s+)?top\b|(?:its\s+|the\s+)?peak\b|highest point\b|max(?:imum)?\s+height\b"
+    r"|stops?\s+(?:rising|going up|moving up)\b|momentarily\s+(?:at rest|stops?)\b)",
+    re.IGNORECASE,
+)
+
+
+def _asks_time_to_peak(lower: str) -> bool:
+    return _TIME_TO_PEAK_RE.search(lower) is not None
+
+
 def _asks_position(lower: str) -> bool:
     return "height after" in lower or "position after" in lower
 

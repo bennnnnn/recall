@@ -45,16 +45,8 @@ _DAY_REFLECTION = re.compile(
 
 
 def is_day_reflection_question(text: str) -> bool:
-    """End-of-day reflection — Schedule/calendar only; skip inbox fetch."""
+    """End-of-day reflection: what got done and what is still open."""
     cleaned = text.strip()
     if not cleaned:
         return False
     return bool(_DAY_REFLECTION.search(cleaned))
-
-
-def needs_gmail_for_day_planning(text: str) -> bool:
-    """Morning planning may use inbox; reflection turns should stay fast."""
-    cleaned = text.strip()
-    if not is_day_planning_question(cleaned):
-        return False
-    return not is_day_reflection_question(cleaned)

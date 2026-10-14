@@ -222,4 +222,29 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=False,
         ),
     ),
+    # E = mc^2, for a mass turned wholly into energy.
+    formula(
+        "mass_energy_equivalence",
+        "modern",
+        "Mass-energy equivalence",
+        "E",
+        base_latex=r"E = m c^2",
+        expression="m*c_light**2",
+        variables=(var("m", "m", "kilogram"),),
+        binding=Binding(
+            asks=("energy", "how much energy", "energy released"),
+            result=("joule",),
+            inputs=(frozenset({"m"}),),
+            cues=(
+                "converted",
+                "into energy",
+                "to energy",
+                "annihilat",
+                "e=mc",
+                "rest energy",
+                "equivalent",
+            ),
+            nonnegative=True,
+        ),
+    ),
 )

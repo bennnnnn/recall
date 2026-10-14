@@ -42,7 +42,7 @@ _CLAIM_IDLE_MS = 60_000
 # running TTL is 300s, so skip+xack acknowledged the PEL entry forever.
 _JOB_DONE_PREFIX = "jobdone:"
 _JOB_DONE_TTL_SECONDS = 86_400
-# Covers a normal handler (LLM / gmail batch). A keepalive refreshes this
+# Covers a normal handler (LLM / index batch). A keepalive refreshes this
 # while the handler runs so a slow index does not expire and double-run.
 # After a crash, the key expires and the next XAUTOCLAIM can NX-succeed.
 _JOB_DONE_CLAIM_TTL_SECONDS = 300
@@ -326,7 +326,7 @@ async def _process_one_entry(
     fields: dict[str, Any],
 ) -> None:
     """Dispatch + retry + ack a single stream entry (safe to run concurrently)."""
-    # Per-entry (and per-attempt) so a long LLM timeout / gmail batch cannot
+    # Per-entry (and per-attempt) so a long LLM timeout / index batch cannot
     # trip the 120s stale health check while this worker is still healthy.
     _touch_heartbeat()
     dedupe_key = fields.get("dedupe_key") or None

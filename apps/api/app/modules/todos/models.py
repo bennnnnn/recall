@@ -38,7 +38,7 @@ class TodoItem(Base):
         # rows lives in migration 0084 (`uq_todo_open_content_due`) so SQLite
         # `__table__.create()` fixtures are not bound to a Postgres expression.
         Index("ix_todo_user_id", "user_id", "id"),
-        CheckConstraint("source IN ('user', 'gmail')", name="ck_todo_items_source"),
+        CheckConstraint("source IN ('user')", name="ck_todo_items_source"),
     )
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)

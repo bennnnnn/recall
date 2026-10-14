@@ -1,10 +1,11 @@
 """turn_prep parallelization: fetches run concurrently and inject in stable order.
 
 Guards the refactor that split fetch from inject in ``build_stream_prompt_context``:
-- Phase A overlaps ``build_prompt_messages`` with instant-reply resolution.
-- Phase B gathers the integration fetch and the web+tools fetch concurrently.
-- Phase C injects in the stable order (integration -> web -> math) so the final
-  prompt is byte-identical to the prior serial pipeline.
+- Phase A overlaps ``build_prompt_messages`` with instant-reply and fallback-model
+  resolution.
+- Phase B gathers the web+tools fetch and the web-search classifier concurrently.
+- Phase C injects in the stable order (web -> math) so the final prompt is
+  byte-identical to the prior serial pipeline.
 """
 
 from __future__ import annotations
@@ -114,11 +115,8 @@ async def test_followup_keeps_conversation_context_instead_of_instant_clock(
             Settings(
                 _env_file=None,
                 mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
                 math_tools_enabled=False,
                 web_search_enabled=False,
-                gmail_enabled=False,
-                google_calendar_enabled=False,
             ),
             fake_redis,
             client_timezone=None,
@@ -162,11 +160,8 @@ async def test_year_date_time_instant_reply_skipped_when_image_attached(fake_red
             Settings(
                 _env_file=None,
                 mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
                 math_tools_enabled=False,
                 web_search_enabled=False,
-                gmail_enabled=False,
-                google_calendar_enabled=False,
             ),
             fake_redis,
             client_timezone=None,
@@ -230,8 +225,9 @@ async def test_recurring_pay_reply_skips_prompt_model_health_and_web_search(fake
 
 @pytest.mark.asyncio
 async def test_fetches_run_concurrently_not_serially():
-    """Phase A (build_prompt | instant_reply) and Phase B (integration | web+tools)
-    must overlap, so total time is the max of each pair -- not the sum."""
+    """Phase A (build_prompt | fallback-model health) and Phase B (web+tools |
+    web-search classifier) must overlap, so total time is the max of each pair
+    -- not the sum."""
     user = _make_user()
     chat = _make_chat()
 
@@ -241,17 +237,17 @@ async def test_fetches_run_concurrently_not_serially():
         await asyncio.sleep(0.25)
         return list(base_messages)
 
-    async def slow_instant_reply(*_a, **_kw):
+    async def slow_health(*_a, **_kw):
         await asyncio.sleep(0.25)
-        return None
-
-    async def slow_integration(*_a, **_kw):
-        await asyncio.sleep(0.30)
-        return ["INTEGRATION_BLOCK"]
+        return {}
 
     async def slow_web(*_a, **_kw):
         await asyncio.sleep(0.30)
         return (None, None, [], None, False, None, None)
+
+    async def slow_classify(*_a, **_kw):
+        await asyncio.sleep(0.30)
+        return False
 
     async def fast_inject(*_a, **_kw):
         return list(base_messages)
@@ -262,18 +258,24 @@ async def test_fetches_run_concurrently_not_serially():
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(side_effect=slow_prompt),
         ),
+        patch("app.modules.billing.plan.model_pool", return_value=[]),
+        patch("app.modules.billing.plan.chat_fallback_models", return_value=[]),
         patch(
-            "app.modules.chat.turn_prep.context._resolve_instant_reply",
-            AsyncMock(side_effect=slow_instant_reply),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
-            AsyncMock(side_effect=slow_integration),
+            "app.services.model_health.enrich_models_health",
+            AsyncMock(side_effect=slow_health),
         ),
         patch(
             "app.modules.chat.turn_prep.context.fetch_web_and_tools",
             AsyncMock(side_effect=slow_web),
         ),
+        patch(
+            "app.modules.chat.turn_prep.context.should_classify_tool_web_search",
+            return_value=True,
+        ),
+        patch(
+            "app.modules.web_search.detection.should_web_search",
+            AsyncMock(side_effect=slow_classify),
+        ) as classify,
         patch(
             "app.modules.chat.turn_prep.context.inject_web_and_tools",
             AsyncMock(side_effect=fast_inject),
@@ -281,10 +283,6 @@ async def test_fetches_run_concurrently_not_serially():
         patch(
             "app.modules.chat.turn_prep.context._load_prior_user_messages",
             AsyncMock(return_value=[]),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context._load_has_calendar_write",
-            AsyncMock(return_value=False),
         ),
         patch(
             "app.modules.chat.turn_prep.context.extract_settings_changes",
@@ -296,16 +294,14 @@ async def test_fetches_run_concurrently_not_serially():
         bundle = await build_stream_prompt_context(
             user.id,
             chat.id,
-            "explain photosynthesis",
+            "Who leads Acme Corporation?",
             "free-chat",
             Settings(
                 max_output_tokens=1000,
                 mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
                 math_tools_enabled=True,
                 web_search_enabled=True,
-                gmail_enabled=False,
-                google_calendar_enabled=False,
+                web_search_classifier_enabled=True,
             ),
             MagicMock(),
             client_timezone=None,
@@ -320,16 +316,18 @@ async def test_fetches_run_concurrently_not_serially():
 
     # Serial would be 0.25 + 0.25 (A) + 0.30 + 0.30 (B) ~= 1.10s. Parallel is
     # max(0.25, 0.25) + max(0.30, 0.30) ~= 0.55s. Allow slack for slow CI.
+    classify.assert_awaited_once()
     assert elapsed < 0.90, f"fetches ran serially (elapsed={elapsed:.2f}s)"
     assert bundle.instant_reply is None
     assert bundle.search_sources == []
+    assert bundle.web_search_classified is False
 
 
 @pytest.mark.asyncio
-async def test_injects_in_stable_order_integration_then_web_then_math():
-    """Real inject functions must place blocks in the historical order:
-    integration appended to the system message; web then math inserted
-    before the last user message — byte-identical to the serial pipeline."""
+async def test_injects_in_stable_order_web_then_math():
+    """Real inject functions must place blocks in the historical order: web
+    then math inserted before the last user message — byte-identical to the
+    serial pipeline."""
     user = _make_user()
     chat = _make_chat()
 
@@ -344,16 +342,8 @@ async def test_injects_in_stable_order_integration_then_web_then_math():
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(side_effect=fast_prompt),
         ),
-        patch(
-            "app.modules.chat.turn_prep.context._resolve_instant_reply",
-            AsyncMock(return_value=None),
-        ),
         # Only the FETCHES are mocked; the real inject functions run so we can
         # assert the final prompt shape end-to-end.
-        patch(
-            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
-            AsyncMock(return_value=["INTEGRATION_BLOCK"]),
-        ),
         patch(
             "app.modules.chat.turn_prep.context.fetch_web_and_tools",
             AsyncMock(return_value=("WEB_BLOCK", "MATH_BLOCK", [], None, False, None, None)),
@@ -361,10 +351,6 @@ async def test_injects_in_stable_order_integration_then_web_then_math():
         patch(
             "app.modules.chat.turn_prep.context._load_prior_user_messages",
             AsyncMock(return_value=[]),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context._load_has_calendar_write",
-            AsyncMock(return_value=False),
         ),
         patch(
             "app.modules.chat.turn_prep.context.extract_settings_changes",
@@ -379,11 +365,8 @@ async def test_injects_in_stable_order_integration_then_web_then_math():
             Settings(
                 max_output_tokens=1000,
                 mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
                 math_tools_enabled=True,
                 web_search_enabled=True,
-                gmail_enabled=False,
-                google_calendar_enabled=False,
             ),
             MagicMock(),
             client_timezone=None,
@@ -396,9 +379,7 @@ async def test_injects_in_stable_order_integration_then_web_then_math():
         )
 
     messages = bundle.prompt_messages
-    # Integration block appended to the system message.
-    assert messages[0]["role"] == "system"
-    assert messages[0]["content"] == "BASE\n\nINTEGRATION_BLOCK"
+    assert messages[0] == {"role": "system", "content": "BASE"}
     # Web then math inserted before the last user message (stable order).
     assert messages[1] == {"role": "system", "content": "WEB_BLOCK"}
     assert messages[2] == {"role": "system", "content": "MATH_BLOCK"}
@@ -407,14 +388,12 @@ async def test_injects_in_stable_order_integration_then_web_then_math():
 
 @pytest.mark.asyncio
 async def test_slim_coaching_turn_skips_phase_b_fetches():
-    """Help-me-think must not load gmail-nudge or web/math/chem prefetch."""
+    """Help-me-think must not load web/math/chem prefetch."""
     user = _make_user()
     chat = _make_chat()
     base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
-    fetch_integration = AsyncMock(return_value=[])
     fetch_web = AsyncMock(return_value=(None, None, [], None, False, None, None))
     load_prior = AsyncMock(return_value=[])
-    load_cal_write = AsyncMock(return_value=False)
 
     with (
         patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
@@ -423,24 +402,12 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
             AsyncMock(return_value=list(base_messages)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._resolve_instant_reply",
-            AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
-            fetch_integration,
-        ),
-        patch(
             "app.modules.chat.turn_prep.context.fetch_web_and_tools",
             fetch_web,
         ),
         patch(
             "app.modules.chat.turn_prep.context._load_prior_user_messages",
             load_prior,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context._load_has_calendar_write",
-            load_cal_write,
         ),
         patch(
             "app.modules.chat.turn_prep.context.extract_settings_changes",
@@ -455,11 +422,8 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
             Settings(
                 max_output_tokens=1000,
                 mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
                 math_tools_enabled=True,
                 web_search_enabled=True,
-                gmail_enabled=True,
-                google_calendar_enabled=True,
             ),
             MagicMock(),
             client_timezone=None,
@@ -471,106 +435,23 @@ async def test_slim_coaching_turn_skips_phase_b_fetches():
             turn_mode=_slim_turn_mode(),
         )
 
-    fetch_integration.assert_not_awaited()
     fetch_web.assert_not_awaited()
     load_prior.assert_not_awaited()
-    load_cal_write.assert_not_awaited()
 
 
 @pytest.mark.asyncio
-async def test_calendar_question_skips_prior_messages():
-    """Inbox/calendar turns must not load recent user contents for web search."""
+async def test_web_augment_loads_priors():
+    """Web/math prefetch needs the earlier user lines for the search subject."""
     user = _make_user()
     chat = _make_chat()
     base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
-    fetch_integration = AsyncMock(return_value=[])
-    fetch_web = AsyncMock(return_value=(None, None, [], None, False, None, None))
     load_prior = AsyncMock(return_value=["earlier question"])
-    load_cal_write = AsyncMock(return_value=False)
 
     with (
         patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
         patch(
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=list(base_messages)),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context._resolve_instant_reply",
-            AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
-            fetch_integration,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context.fetch_web_and_tools",
-            fetch_web,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context._load_prior_user_messages",
-            load_prior,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context._load_has_calendar_write",
-            load_cal_write,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context.extract_settings_changes",
-            return_value=[],
-        ),
-    ):
-        await build_stream_prompt_context(
-            user.id,
-            chat.id,
-            "what's on my calendar tomorrow",
-            "free-chat",
-            Settings(
-                max_output_tokens=1000,
-                mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
-                math_tools_enabled=True,
-                web_search_enabled=True,
-                gmail_enabled=True,
-                google_calendar_enabled=True,
-            ),
-            MagicMock(),
-            client_timezone=None,
-            client_location=None,
-            client_latitude=None,
-            client_longitude=None,
-            user=user,
-            chat=chat,
-            turn_mode=_rich_turn_mode(),
-        )
-
-    fetch_integration.assert_awaited()
-    fetch_web.assert_not_awaited()
-    load_prior.assert_not_awaited()
-    load_cal_write.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_web_augment_loads_priors_without_preloading_calendar_write():
-    """Web/math prefetch needs priors; the write flag is not a Phase B barrier."""
-    user = _make_user()
-    chat = _make_chat()
-    base_messages = [{"role": "system", "content": "BASE"}, {"role": "user", "content": "hi"}]
-    load_prior = AsyncMock(return_value=["earlier question"])
-    load_cal_write = AsyncMock(return_value=True)
-
-    with (
-        patch("app.modules.chat.turn_prep.context.SessionLocal", _FakeSessionCM),
-        patch(
-            "app.modules.chat.turn_prep.context.build_prompt_messages",
-            AsyncMock(return_value=list(base_messages)),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context._resolve_instant_reply",
-            AsyncMock(return_value=None),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
-            AsyncMock(return_value=[]),
         ),
         patch(
             "app.modules.chat.turn_prep.context.fetch_web_and_tools",
@@ -579,10 +460,6 @@ async def test_web_augment_loads_priors_without_preloading_calendar_write():
         patch(
             "app.modules.chat.turn_prep.context._load_prior_user_messages",
             load_prior,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context._load_has_calendar_write",
-            load_cal_write,
         ),
         patch(
             "app.modules.chat.turn_prep.context.extract_settings_changes",
@@ -597,11 +474,8 @@ async def test_web_augment_loads_priors_without_preloading_calendar_write():
             Settings(
                 max_output_tokens=1000,
                 mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
                 math_tools_enabled=True,
                 web_search_enabled=True,
-                gmail_enabled=False,
-                google_calendar_enabled=False,
             ),
             MagicMock(),
             client_timezone=None,
@@ -614,107 +488,6 @@ async def test_web_augment_loads_priors_without_preloading_calendar_write():
         )
 
     load_prior.assert_awaited()
-    load_cal_write.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_calendar_write_check_overlaps_calendar_fetch():
-    """Create-event write access must share the gather with the calendar API."""
-    from app.modules.chat.turn_prep.integrations import fetch_integration_blocks
-    from app.modules.integrations.calendar import CALENDAR_WRITE_HINT
-
-    user = _make_user()
-
-    async def slow_cal(*_a: object, **_kw: object) -> str:
-        await asyncio.sleep(0.20)
-        return "CAL"
-
-    async def slow_write(*_a: object, **_kw: object) -> bool:
-        await asyncio.sleep(0.20)
-        return True
-
-    with (
-        patch(
-            "app.modules.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
-            return_value=True,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
-            return_value=False,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.integrations._load_calendar_prompt_block",
-            AsyncMock(side_effect=slow_cal),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.integrations._load_has_calendar_write",
-            AsyncMock(side_effect=slow_write),
-        ),
-    ):
-        loop = asyncio.get_event_loop()
-        start = loop.time()
-        blocks = await fetch_integration_blocks(
-            "schedule a meeting tomorrow",
-            user,
-            MagicMock(),
-            Settings(
-                gmail_enabled=False,
-                google_calendar_enabled=True,
-                mcp_tools_enabled=False,
-            ),
-            instant_reply=None,
-            lightweight=False,
-            minimal_personal=False,
-            day_reflection=False,
-            gmail_context=None,
-            on_status=None,
-        )
-        elapsed = loop.time() - start
-
-    assert elapsed < 0.35, f"write check ran serially (elapsed={elapsed:.2f}s)"
-    assert any("CAL" in block for block in blocks)
-    assert CALENDAR_WRITE_HINT in blocks
-
-
-@pytest.mark.asyncio
-async def test_non_create_turn_skips_calendar_write_session():
-    from app.modules.chat.turn_prep.integrations import fetch_integration_blocks
-
-    user = _make_user()
-    load_write = AsyncMock(return_value=True)
-
-    with (
-        patch(
-            "app.modules.chat.turn_prep.integrations.calendar_service.should_inject_calendar_block",
-            return_value=False,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.integrations.email_service.should_inject_gmail_block",
-            return_value=False,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.integrations._load_has_calendar_write",
-            load_write,
-        ),
-        patch(
-            "app.modules.chat.turn_prep.integrations._load_pending_email_nudge",
-            AsyncMock(return_value=None),
-        ),
-    ):
-        await fetch_integration_blocks(
-            "explain photosynthesis",
-            user,
-            MagicMock(),
-            Settings(gmail_enabled=True, google_calendar_enabled=True, mcp_tools_enabled=False),
-            instant_reply=None,
-            lightweight=False,
-            minimal_personal=False,
-            day_reflection=False,
-            gmail_context=None,
-            on_status=None,
-        )
-
-    load_write.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -747,16 +520,8 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
             AsyncMock(return_value=list(messages)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._resolve_instant_reply",
-            AsyncMock(return_value=None),
-        ),
-        patch(
             "app.modules.chat.turn_prep.context.fetch_web_and_tools",
             AsyncMock(return_value=(None, "MATH_BLOCK", [], verified, False, None, None)),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
-            AsyncMock(return_value=[]),
         ),
         patch(
             "app.modules.chat.turn_prep.context._load_prior_user_messages",
@@ -779,11 +544,8 @@ async def test_verified_closed_math_sets_instant_reply(fake_redis, graph) -> Non
             model,
             Settings(
                 mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
                 math_tools_enabled=True,
                 web_search_enabled=False,
-                gmail_enabled=False,
-                google_calendar_enabled=False,
             ),
             fake_redis,
             client_timezone=None,
@@ -853,10 +615,6 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
             AsyncMock(return_value=list(messages)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._resolve_instant_reply",
-            AsyncMock(return_value=None),
-        ),
-        patch(
             "app.modules.chat.turn_prep.context.fetch_web_and_tools",
             AsyncMock(
                 return_value=(
@@ -869,10 +627,6 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
                     None,
                 )
             ),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
-            AsyncMock(return_value=[]),
         ),
         patch(
             "app.modules.chat.turn_prep.context._load_prior_user_messages",
@@ -895,12 +649,9 @@ async def test_verified_chemistry_owns_turn_over_incidental_math(fake_redis) -> 
             "free-chat",
             Settings(
                 mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
                 math_tools_enabled=True,
                 chemistry_enabled=True,
                 web_search_enabled=False,
-                gmail_enabled=False,
-                google_calendar_enabled=False,
             ),
             fake_redis,
             client_timezone=None,
@@ -940,16 +691,8 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
             AsyncMock(return_value=list(messages)),
         ),
         patch(
-            "app.modules.chat.turn_prep.context._resolve_instant_reply",
-            AsyncMock(return_value=None),
-        ),
-        patch(
             "app.modules.chat.turn_prep.context.fetch_web_and_tools",
             AsyncMock(return_value=(None, "MATH_BLOCK", [], verified, False, None, None)),
-        ),
-        patch(
-            "app.modules.chat.turn_prep.context.fetch_integration_blocks",
-            AsyncMock(return_value=[]),
         ),
         patch(
             "app.modules.chat.turn_prep.context._load_prior_user_messages",
@@ -972,11 +715,8 @@ async def test_verified_math_keeps_llm_when_user_wants_steps(fake_redis) -> None
             "free-chat",
             Settings(
                 mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
                 math_tools_enabled=True,
                 web_search_enabled=False,
-                gmail_enabled=False,
-                google_calendar_enabled=False,
             ),
             fake_redis,
             client_timezone=None,
@@ -1022,12 +762,9 @@ async def _graph_it_bundle(fake_redis, priors: list[str]):
             "free-chat",
             Settings(
                 mcp_tool_loop_enabled=False,
-                mcp_tools_enabled=False,
                 math_tools_enabled=True,
                 chemistry_enabled=False,
                 web_search_enabled=False,
-                gmail_enabled=False,
-                google_calendar_enabled=False,
             ),
             fake_redis,
             client_timezone=None,

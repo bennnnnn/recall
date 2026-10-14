@@ -149,9 +149,18 @@ def _other_sense(question: Question, asks: tuple[str, ...], produced: set[str | 
             # "specific heat of 900 J/kg/K" names the capacity. The short ask
             # "heat" is the end of that label, not the heat the question asks for.
             label = re.search(rf"(?<!specific ){re.escape(phrase)}\s*{links}\s*$", before)
-            if label is not None:
+            if label is None:
+                continue
+            # "the electric field 0.2 m from a charge" places the field; it
+            # does not label it. Only a bare value can be read that way.
+            if not label.group().rstrip().endswith(phrase) or not _PLACED.match(
+                lower, value_end(lower, given)
+            ):
                 return True
     return False
+
+
+_PLACED = re.compile(r"\s*(?:away\s+)?(?:from|above|below|beyond|behind|away)\b")
 
 
 def value_end(lower: str, given: Given) -> int:

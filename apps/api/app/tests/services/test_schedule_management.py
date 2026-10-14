@@ -192,7 +192,6 @@ async def test_stale_push_does_not_mark_changed_schedule_sent(schedule_sql, chan
     sync_session.commit()
     await push.finalize_push_deliveries(
         session,
-        AsyncMock(),
         [push.OutboundPush(message={}, todos=[snapshot])],
         [True],
         now=datetime(2026, 9, 5, 8, tzinfo=UTC),
@@ -212,7 +211,6 @@ async def test_early_recurring_push_advances_from_delivered_occurrence(schedule_
     due = row.due_at
     await push.finalize_push_deliveries(
         session,
-        AsyncMock(),
         [push.OutboundPush(message={}, todos=[row])],
         [True],
         now=due - timedelta(minutes=10),

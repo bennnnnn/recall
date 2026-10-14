@@ -125,9 +125,7 @@ class TestAugmentPromptMessagesForNewShapes:
         angle 90" silently produced a plain circle fence instead of a
         sector — same bug shape as the multi-equation system bug fixed
         earlier in this file's siblings."""
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "sector of a circle with radius 5 and angle 90"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
@@ -137,9 +135,7 @@ class TestAugmentPromptMessagesForNewShapes:
 
     @pytest.mark.asyncio
     async def test_triangle_sides_not_stolen_by_generic_triangle_extractor(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "triangle with sides 3, 4, 5"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
@@ -153,9 +149,7 @@ class TestAugmentPromptMessagesForNewShapes:
 
     @pytest.mark.asyncio
     async def test_angle_only_triangle_uses_relative_units_not_cm(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "A triangle with angles 120, 40, 20"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         out, verified = await math_tools.augment_prompt_messages(messages, text, settings)
@@ -174,9 +168,7 @@ class TestAugmentPromptMessagesForNewShapes:
 
     @pytest.mark.asyncio
     async def test_isosceles_triangle_sides_enables_median_cue(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "triangle with sides 5, 5, 6"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
@@ -187,9 +179,7 @@ class TestAugmentPromptMessagesForNewShapes:
 
     @pytest.mark.asyncio
     async def test_plain_circle_still_works(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "circle with radius 4"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         _, verified = await math_tools.augment_prompt_messages(messages, text, settings)

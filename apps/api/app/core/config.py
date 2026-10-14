@@ -13,7 +13,6 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
 
     google_client_id: str = ""
-    google_client_secret: str = ""
     apple_client_id: str = "com.recall.app"
 
     jwt_secret: str = "dev-secret-change-me"
@@ -27,34 +26,6 @@ class Settings(BaseSettings):
     # OpenRouter has no Realtime/WebRTC API, so this cannot share that hop.
     openai_api_key: str = ""
     tavily_api_key: str = ""
-
-    # Off for launch: the app is for homework and concepts; to-dos cover reminders.
-    google_calendar_enabled: bool = False
-    calendar_cache_ttl: int = 300
-    calendar_fetch_days: int = 60
-    calendar_prompt_days: int = 14
-    # A user can have many selected Google calendars (shared/subscribed);
-    # both cap how many are fetched per refresh and bound how many of those
-    # fetches run concurrently, so one user with dozens of calendars can't
-    # fan out unboundedly.
-    calendar_max_calendars: int = 10
-    calendar_fetch_concurrency: int = 5
-    calendar_nudge_enabled: bool = True
-    calendar_nudge_lead_minutes: int = 15
-
-    # Off for launch, with Calendar.
-    gmail_enabled: bool = False
-    gmail_fetch_days: int = 7
-    gmail_max_messages: int = 30
-    gmail_cache_ttl: int = 300
-    gmail_sync_interval_seconds: int = 3600
-    # Manual Settings sync (`force=true`) still cannot run more often than this.
-    gmail_force_min_interval_seconds: int = 60
-    # How many users' Gmail accounts the periodic sync cycle syncs concurrently
-    # (each has its own DB session and outbound Gmail API calls).
-    gmail_periodic_sync_concurrency: int = 5
-    # Max connections drained per 15-minute periodic cycle (SQL LIMIT).
-    gmail_periodic_sync_batch_size: int = 50
 
     attachments_enabled: bool = True
     # PDF/DOCX text extraction is sync, CPU-bound parsing; it runs on a worker
@@ -74,10 +45,9 @@ class Settings(BaseSettings):
     attachment_ocr_page_timeout_seconds: float = 12.0
     attachment_ocr_render_scale: float = 1.5
     semantic_memory_enabled: bool = True
-    mcp_tools_enabled: bool = False
     # Model-initiated LiteLLM tools= loop. Ordinary chat streams immediately;
     # the loop runs only when the turn still looks like search / unsolved math /
-    # calendar create / Pro image gen after heuristic inject.
+    # Pro image gen after heuristic inject.
     mcp_tool_loop_enabled: bool = True
     mcp_tool_loop_max_rounds: int = 2
     mcp_tool_loop_timeout_seconds: float = 8.0
@@ -387,13 +357,6 @@ class Settings(BaseSettings):
     # Per-user/IP REST requests per minute (health + webhooks excluded).
     rest_rate_limit_per_minute: int = 240
 
-    # Fernet key used to encrypt OAuth refresh tokens (Calendar/Gmail) at rest.
-    # Generate one:
-    #   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-    # When empty in development, tokens are stored plaintext (with a warning).
-    # Required in production (see validate_production_settings).
-    oauth_token_encryption_key: str = ""
-
     # Dev placeholders — disable in production.
     # ``environment`` defaults to production (fail-closed): a deploy that forgets
     # ENVIRONMENT=development boots into validate_production_settings instead of
@@ -487,8 +450,6 @@ def validate_production_settings(settings: Settings) -> None:
         errors.append("REDIS_URL is required in production")
     if not settings.google_client_id:
         errors.append("GOOGLE_CLIENT_ID is required in production")
-    if not settings.google_client_secret.strip():
-        errors.append("GOOGLE_CLIENT_SECRET is required in production (Calendar/Gmail OAuth)")
     # CORS must be explicit in production — empty CORS_ORIGINS makes
     # cors_allow_origins() fall back to ["*"], which is unsafe once a web
     # client exists. Keep the fallback and this guard in the same module.
@@ -516,28 +477,6 @@ def validate_production_settings(settings: Settings) -> None:
             "REVENUECAT_SECRET_KEY is required in production "
             "(TRANSFER webhooks sync entitlements via the REST API)"
         )
-    # OAuth refresh tokens (Calendar/Gmail) must be encrypted at rest — a DB
-    # leak shouldn't expose reusable Google OAuth tokens.
-    if not settings.oauth_token_encryption_key:
-        errors.append(
-            "OAUTH_TOKEN_ENCRYPTION_KEY is required in production "
-            '(generate with: python -c "from cryptography.fernet import Fernet; '
-            'print(Fernet.generate_key().decode())")'
-        )
-    else:
-        # Presence isn't enough — a malformed key only blows up on the first
-        # encrypt/decrypt at runtime. Validate it parses as a real Fernet key
-        # at boot so a bad deploy fails fast instead of mid-request.
-        try:
-            from cryptography.fernet import Fernet
-
-            Fernet(settings.oauth_token_encryption_key.strip().encode())
-        except Exception as exc:  # any Fernet parse failure is fatal at boot
-            errors.append(
-                "OAUTH_TOKEN_ENCRYPTION_KEY is not a valid Fernet key "
-                '(generate with: python -c "from cryptography.fernet import Fernet; '
-                f'print(Fernet.generate_key().decode())"): {exc}'
-            )
     # PROCESS_ROLE=all runs the job worker + schedulers inside the API
     # process. In production the worker runs as a separate Fly process
     # (worker_main.py); an API instance that also starts a consumer would

@@ -92,8 +92,6 @@ from app.modules.chat.prompt_constants.visuals import (
     is_image_generation_mention,
     where_is_place,
 )
-from app.modules.integrations import calendar as calendar_service
-from app.modules.integrations import inbox as email_service
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.services import time_context as time_context_service
 from app.services.day_planning import is_day_planning_question, is_day_reflection_question
@@ -277,7 +275,7 @@ def _style_format_hints(
         parts.append(DAY_PLANNING_ANSWER_HINT)
         if is_day_reflection_question(query_text):
             parts.append(
-                "This is an end-of-day reflection — keep reminders, lists, calendar, and "
+                "This is an end-of-day reflection — keep reminders, lists, and "
                 "loose ends as the main focus."
             )
     if minimal_personal_context:
@@ -437,11 +435,10 @@ def _integration_hints(
     memory_block: str,
     attachment_rag_block: str,
     todos_section: str | None,
-    gmail_todos_section: str | None = None,
     summary: str | None,
     chat_history_rag_block: str = "",
 ) -> list[str]:
-    """Time / web / calendar / gmail / memory / todos / summary hints."""
+    """Time / web / memory / todos / summary hints."""
     parts: list[str] = [
         time_context_service.format_time_context(local_tz, user_locale, location_for_context)
     ]
@@ -450,18 +447,12 @@ def _integration_hints(
         parts.extend(_geo_hints(query_text, prompt_location))
     if settings.image_search_enabled:
         parts.append(PHOTO_LOOKUP_HINT)
-    if settings.google_calendar_enabled:
-        parts.append(calendar_service.CALENDAR_HINT)
-    if settings.gmail_enabled:
-        parts.append(email_service.GMAIL_HINT)
     if memory_block:
         parts.append(wrap_untrusted("memory", memory_block, first_party=True))
     if attachment_rag_block:
         parts.append(attachment_rag_block)
     if todos_section:
         parts.append(wrap_untrusted("schedule", todos_section, first_party=True))
-    if gmail_todos_section:
-        parts.append(wrap_untrusted("gmail reminders", gmail_todos_section))
     if chat_history_rag_block:
         parts.append(chat_history_rag_block)
     return parts

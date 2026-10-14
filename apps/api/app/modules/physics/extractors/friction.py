@@ -49,7 +49,8 @@ _FRICTION_FORCE_ASK_RE = re.compile(
 _MU_RE = re.compile(
     r"(?:coefficient\s+of\s+(?:kinetic\s+|static\s+)?friction\s*(?:of|=|is)?\s*"
     r"|coefficient\s*(?:of|=|is)?\s*"
-    r"|\bmu\s+is\s+|\bmu\s*=\s*|\u03bc\s+is\s+|\u03bc\s*=\s*)"
+    r"|\bmu(?:_?[ks])?\s+is\s+|\bmu(?:_?[ks])?\s*=\s*"
+    r"|\u03bc(?:_?[ks])?\s+is\s+|\u03bc(?:_?[ks])?\s*=\s*)"
     r"(-?\d+(?:\.\d+)?)",
     re.IGNORECASE,
 )
@@ -189,10 +190,20 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
         op = "normal_force"
         if mass is None:
             return None
-        mu = mu if mu is not None else 0.0
+        # N = mg cos(theta) needs no coefficient. One that was never stated
+        # must not show as a given: "rests on a 30° incline" is not "μ = 0".
     elif wants_friction:
         op = "friction_force"
-        if mass is None or mu is None:
+        # A block at rest on a slope is held by mg sin(theta) of static
+        # friction, whatever the coefficient. Only a sliding block needs one.
+        held = (
+            mu is None
+            and angle != 0.0
+            and _REST.search(cleaned) is not None
+            and _INITIAL_REST.search(cleaned) is None
+            and _MOVING.search(cleaned) is None
+        )
+        if mass is None or (mu is None and not held):
             return None
     else:
         return None
@@ -213,6 +224,11 @@ def _extract_friction_intent(cleaned: str) -> PhysicsIntent | None:
     if mass is not None:
         params["m"] = mass[0]
         units["m"] = mass[1] or "kg"
+    if op == "normal_force" and angle != 0.0 and not frictionless:
+        # The diagram of a block resting on a slope shows what holds it there.
+        if _REST.search(cleaned) is not None and _MOVING.search(cleaned) is None:
+            params["static_equilibrium"] = 1.0
+            units["static_equilibrium"] = ""
     if op in {"friction_force", "incline_acceleration"}:
         initially_at_rest = _INITIAL_REST.search(cleaned) is not None
         at_rest = _REST.search(cleaned) is not None and not initially_at_rest

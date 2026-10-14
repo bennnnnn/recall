@@ -12,7 +12,7 @@ from app.modules.chat.prompt_builder import _augment_web_and_tools
 
 @pytest.mark.asyncio
 async def test_augment_web_and_tools_injects_math_for_solve() -> None:
-    settings = Settings(mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True)
+    settings = Settings(web_search_enabled=False, math_tools_enabled=True)
     messages = [
         {"role": "system", "content": "base"},
         {"role": "user", "content": "Solve x^2 + 2 = 6"},

@@ -60,10 +60,6 @@ async def test_start_worker_runtime_registers_before_consumer_and_schedulers():
             AsyncMock(),
         ),
         patch(
-            "app.process_bootstrap.gmail_periodic_sync.start_gmail_periodic_scheduler",
-            AsyncMock(),
-        ),
-        patch(
             "app.process_bootstrap.attachment_orphan_reaper.start_orphan_reaper",
             AsyncMock(),
         ),

@@ -30,6 +30,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Normal-force balance",
         "N",
         variables=(
+            *_STATE,
             var("angle", r"\theta", dimensionless=True),
             var("g", "g", "meter / second ** 2"),
             var("m", "m", "kilogram"),
@@ -123,6 +124,48 @@ SPECS: tuple[FormulaSpec, ...] = (
             excludes=("static", "rests", "resting", "at rest"),
             # Friction stronger than the pull leaves the body at rest, not
             # accelerating backwards.
+            nonnegative=True,
+        ),
+    ),
+    # Friction alone slows a sliding body at mu*g.
+    formula(
+        "friction_deceleration",
+        "friction",
+        "Friction law",
+        "a",
+        base_latex=r"a = \mu g",
+        assumptions=("friction is the only horizontal force",),
+        expression="mu*g",
+        variables=(
+            var("mu", r"\mu", dimensionless=True),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+        ),
+        binding=Binding(
+            asks=("maximum deceleration", "deceleration", "maximum acceleration"),
+            result=("meter / second ** 2",),
+            inputs=(frozenset({"mu", "g"}),),
+            cues=("friction", "coefficient"),
+            nonnegative=True,
+        ),
+    ),
+    formula(
+        "friction_sliding_distance",
+        "friction",
+        "Friction law",
+        "d",
+        base_latex=r"d = \frac{v^2}{2 \mu g}",
+        assumptions=("friction is the only horizontal force",),
+        expression="v**2/(2*mu*g)",
+        variables=(
+            var("v", "v", "meter / second"),
+            var("mu", r"\mu", dimensionless=True),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+        ),
+        binding=Binding(
+            asks=("how far", "distance", "stopping distance"),
+            result=("meter",),
+            inputs=(frozenset({"v", "mu", "g"}),),
+            cues=("friction", "coefficient"),
             nonnegative=True,
         ),
     ),

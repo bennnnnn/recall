@@ -22,7 +22,7 @@ def _awaited(mock: AsyncMock) -> Any:
 
 def _hints(**settings) -> str:
     parts = _integration_hints(
-        settings=Settings(google_calendar_enabled=False, gmail_enabled=False, **settings),
+        settings=Settings(**settings),
         query_text="Show me her image",
         local_tz="UTC",
         user_locale="en",

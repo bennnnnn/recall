@@ -1,6 +1,6 @@
 """Pooled, keep-alive httpx.AsyncClient shared across outbound gateway calls.
 
-Each external gateway (Tavily, Google Calendar, Gmail) used to open a fresh
+Each external gateway (Tavily, PubChem, Mathpix, speech) used to open a fresh
 httpx.AsyncClient per call, paying a new TCP+TLS handshake every time even
 for repeated calls to the same host within seconds. Gateways call
 get_pooled_client(timeout) instead, which lazily creates one client per

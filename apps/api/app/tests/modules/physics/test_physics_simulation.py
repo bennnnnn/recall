@@ -87,13 +87,15 @@ def test_the_scene_and_the_graph_share_one_sampled_path() -> None:
     """So the ball can never be somewhere the curve is not.
 
     Handing the renderer a second, separately derived path is how a picture
-    starts disagreeing with itself.
+    starts disagreeing with itself. The scene lifts each sample by the ball's
+    radius, so the ball rests on the ground instead of half sunk in it.
     """
     intent = extract_physics_intent(PROJECTILE_Q)
     assert isinstance(intent, PhysicsIntent)
     result = solve_physics(intent)
+    body = result.simulation_specs[0].bodies[0]
 
-    assert result.simulation_specs[0].bodies[0].path == result.graph_specs[0].points
+    assert body.path == [[x, y + body.radius] for x, y in result.graph_specs[0].points]
 
 
 def test_circular_motion_finally_draws_something() -> None:
@@ -626,7 +628,10 @@ def test_a_see_saw_shows_both_arms_where_they_actually_are() -> None:
     assert known.anchor[0] == pytest.approx(-2.0)
     assert answer.anchor[0] == pytest.approx(1.0)
     assert answer.role == "result"
-    assert "10 N" in (answer.label or "") and "1.00 m" in (answer.label or "")
+    # The label reads like the answer: "1 m", not "1.00 m".
+    assert answer.label == "10 N at 1 m"
+    # Each arrow carries its load, so the 10 N one out-reaches the 5 N one.
+    assert abs(answer.dy) == pytest.approx(2 * abs(known.dy))
 
 
 def test_the_two_moments_the_see_saw_draws_actually_balance() -> None:
@@ -656,9 +661,10 @@ def test_an_angled_torque_is_drawn_at_the_angle_it_was_given() -> None:
     square_on = _scene(TORQUE_Q).vectors[0]
     angled = _scene("torque of a 5 N force applied 2 m from the pivot at 30 degrees").vectors[0]
 
-    assert (square_on.dx, square_on.dy) == (0.0, -1.0)
-    assert angled.dx == pytest.approx(math.cos(math.radians(30)))
-    assert angled.dy == pytest.approx(-math.sin(math.radians(30)))
+    assert square_on.dx == 0.0 and square_on.dy < 0
+    assert math.atan2(-angled.dy, angled.dx) == pytest.approx(math.radians(30))
+    # The force is given, not asked: the torque is the answer.
+    assert angled.role == "force"
 
 
 def test_tension_is_drawn_against_the_weight_it_carries() -> None:
@@ -829,3 +835,69 @@ def test_a_measure_is_not_drawn_as_a_force() -> None:
     scene = _scene("what is the potential energy of a 2 kg object at a height of 5 m")
 
     assert [v.role for v in scene.vectors] == ["force", "measure"]
+
+
+def test_a_tension_arrow_out_reaches_the_weight_it_lifts() -> None:
+    """The arrows carry their sizes, so T > W is visible when the mass speeds up."""
+    rope, weight = _scene(TENSION_Q).vectors
+
+    assert rope.dy == pytest.approx(5 * (9.81 + 2))
+    assert weight.dy == pytest.approx(-5 * 9.81)
+
+
+def test_an_acceleration_is_never_drawn_as_a_force() -> None:
+    force, accel = _scene(FMA_Q).vectors
+
+    assert force.role == "result"
+    assert accel.role == "motion"
+
+
+def test_a_given_force_is_not_the_highlighted_answer() -> None:
+    force, accel = _scene("a 10 N force acts on a 2 kg mass, what is its acceleration").vectors
+
+    assert force.role == "force"
+    assert accel.role == "motion"
+
+
+def test_the_atwood_scene_has_no_arrow_pushing_the_pulley_down() -> None:
+    assert _scene(ATWOOD_Q).vectors == []
+
+
+def test_upthrust_is_the_highlighted_answer_and_no_weight_is_invented() -> None:
+    scene = _scene("what is the upthrust on a 0.002 m^3 object fully submerged in water")
+
+    (upthrust,) = scene.vectors
+    assert upthrust.role == "result" and upthrust.dy > 0
+    assert upthrust.label == "F_b = 19.6 N"
+    assert scene.bodies[0].label is None
+
+
+def test_a_tiny_throw_fills_its_frame() -> None:
+    """A 1 m floor left a 2 cm flick as a smear at the bottom of an empty box."""
+    scene = _scene("a coin is flicked at 0.5 m/s at 30 degrees, what is the range")
+
+    peak = max(y for _, y in scene.bodies[0].path)
+    assert scene.y_max < 1.0
+    assert peak > 0.3 * scene.y_max
+
+
+def test_a_projectile_rests_on_the_ground_rather_than_in_it() -> None:
+    scene = _scene(PROJECTILE_Q)
+    body = scene.bodies[0]
+
+    assert body.path[0][1] == pytest.approx(body.radius)
+    assert body.path[-1][1] == pytest.approx(body.radius, abs=1e-6)
+
+
+def test_a_pendulum_is_never_drawn_as_a_spring() -> None:
+    """Even handed an amplitude, which is what the spring scene is drawn from."""
+    intent = extract_physics_intent("what is the period of a pendulum of length 2 m")
+    assert isinstance(intent, PhysicsIntent)
+    swinging = intent.model_copy(
+        update={
+            "physics_params": {**(intent.physics_params or {}), "x": 0.1},
+            "physics_units": {**(intent.physics_units or {}), "x": "m"},
+        }
+    )
+
+    assert solve_physics(swinging).simulation_specs == []

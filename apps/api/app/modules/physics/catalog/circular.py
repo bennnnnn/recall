@@ -123,4 +123,42 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # A turning rate in rpm or rad/s, as the time for one turn.
+    formula(
+        "period_from_rate",
+        "circular",
+        "Period of rotation",
+        "T",
+        base_latex=r"T = \frac{2\pi}{\omega}",
+        expression="2*pi/omega",
+        variables=(var("omega", r"\omega", "radian / second"),),
+        binding=Binding(
+            asks=("period", "time for one revolution", "time for one rotation"),
+            result=("second",),
+            inputs=(frozenset({"omega"}),),
+            nonnegative=True,
+        ),
+    ),
+    # A mass whirled on a string: the tension is the centripetal force.
+    formula(
+        "circle_string_tension",
+        "circular",
+        "Centripetal force",
+        "T",
+        base_latex=r"T = \frac{m v^2}{r}",
+        assumptions=("a horizontal circle with gravity ignored",),
+        expression="m*v**2/r",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("v", "v", "meter / second"),
+            var("r", "r", "meter"),
+        ),
+        binding=Binding(
+            asks=("tension", "centripetal force"),
+            result=("newton",),
+            inputs=(frozenset({"m", "v", "r"}),),
+            cues=("circle", "circular", "swung", "whirled", "revolves"),
+            nonnegative=True,
+        ),
+    ),
 )

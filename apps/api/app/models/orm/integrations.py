@@ -8,15 +8,6 @@ from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.db import Base
-from app.modules.integrations.models import (
-    SuggestedReminder as SuggestedReminder,
-)
-from app.modules.integrations.models import (
-    UserCalendarConnection as UserCalendarConnection,
-)
-from app.modules.integrations.models import (
-    UserGmailConnection as UserGmailConnection,
-)
 
 
 class PushToken(Base):

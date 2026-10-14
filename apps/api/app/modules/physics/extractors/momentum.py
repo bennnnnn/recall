@@ -40,8 +40,10 @@ _LANDING_TARGET = r"ground|floor|water|sea|surface|deck|earth|soil|sand|roof"
 
 _COLLISION_SUBJECT_RE = re.compile(
     r"\bcollision\b|\bcollides?\b|\bcolliding\b|\brecoils?\b"
-    rf"|\bhits?\b(?!\s+the\s+(?:{_LANDING_TARGET})\b)"
-    rf"|\bstrikes?\b(?!\s+the\s+(?:{_LANDING_TARGET})\b)"
+    # "A golf ball is hit at 40 m/s" is a launch: the passive is the club's
+    # stroke, not two bodies meeting.
+    rf"|(?<!\bis )(?<!\bwas )(?<!\bgets )\bhits?\b(?!\s+the\s+(?:{_LANDING_TARGET})\b)"
+    rf"|(?<!\bis )(?<!\bwas )\bstrikes?\b(?!\s+the\s+(?:{_LANDING_TARGET})\b)"
     r"|sticks? together|stuck together",
     re.IGNORECASE,
 )

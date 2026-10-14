@@ -74,12 +74,10 @@ exact production web origin and only the headers used by presigned uploads.
 | `JWT_SECRET` | yes | ≥32 random chars |
 | `DATABASE_URL` | yes | asyncpg URL |
 | `REDIS_URL` | yes | `rediss://` |
-| `GOOGLE_CLIENT_ID` | yes | |
-| `GOOGLE_CLIENT_SECRET` | yes | Calendar/Gmail OAuth |
+| `GOOGLE_CLIENT_ID` | yes | Google Sign-In (ID-token audience) |
 | `OPENROUTER_API_KEY` | yes | Chat + composer STT (`gpt-transcribe`) |
 | `OPENAI_API_KEY` | Live Talk only | WebRTC Realtime; OpenRouter has no Realtime API |
 | `CORS_ORIGINS` | yes | Explicit origins, never `*` |
-| `OAUTH_TOKEN_ENCRYPTION_KEY` | yes | Fernet key |
 | `REVENUECAT_WEBHOOK_AUTH` | yes | Shared secret for the webhook |
 | `REVENUECAT_SECRET_KEY` | yes | REST API; TRANSFER + plan sync |
 | `TAVILY_API_KEY` | if web search | |
@@ -87,9 +85,6 @@ exact production web origin and only the headers used by presigned uploads.
 | R2 vars | yes | See §3 |
 
 ```bash
-# Generate Fernet key
-python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
-
 # Deploy
 fly deploy
 
@@ -149,11 +144,12 @@ background, and runs the new code from the next launch.
 
 ---
 
-## 6. Google OAuth verification
+## 6. Google Sign-In
 
-- [ ] OAuth consent screen published
-- [ ] Gmail scope verified for production (Calendar may work in testing mode)
-- [ ] Redirect URIs match Fly API + mobile bundle IDs
+- [ ] OAuth consent screen published (sign-in scopes only: openid, email, profile)
+- [ ] Client IDs match the mobile bundle IDs and `GOOGLE_CLIENT_ID`
+- [ ] Old deployments: unset `GOOGLE_CLIENT_SECRET` and `OAUTH_TOKEN_ENCRYPTION_KEY`
+      (`fly secrets unset ...`); Calendar/Gmail were removed in migration `0106`
 
 ---
 
@@ -249,7 +245,7 @@ These cannot be finished in a PR. Track them in the app under Lists → **Launch
 6. `fly scale count app=1 worker=1` → `fly deploy` → `GET /health/ready`
 7. EAS production builds (iOS + Android) with `EXPO_PUBLIC_API_URL=https://<api>`
 8. On-device QA — [`docs/QA_MATRIX.md`](./docs/QA_MATRIX.md)
-9. Google OAuth consent published + Gmail production verification
+9. Google OAuth consent screen published (sign-in only)
 10. Landing page + support URL + privacy/terms for store listings
 11. Optional: `SENTRY_DSN` on API + mobile EAS secrets
 
@@ -260,6 +256,5 @@ These cannot be finished in a PR. Track them in the app under Lists → **Launch
 1. Cost guards (speech, Tavily, R1 weight) — done in code
 2. Provision Neon, Redis, R2, Fly, EAS
 3. Landing page + support URL
-4. Google OAuth verification (Gmail)
-5. On-device QA matrix (iOS + Android)
-6. R2 production attachments end-to-end
+4. On-device QA matrix (iOS + Android)
+5. R2 production attachments end-to-end

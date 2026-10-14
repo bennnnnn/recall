@@ -270,7 +270,7 @@ def needs_rich_context(
 
     Systemic default: casual chat is slim. Opt in via personal/retrieval cues
     or day-planning — not via an ever-growing greeting list.
-    Callers may OR in calendar/email/todo classifiers from ``turn_prep.mode``.
+    Callers may OR in the to-do classifier from ``turn_prep.mode``.
     """
     if day_planning or day_reflection:
         return True
@@ -291,7 +291,7 @@ def needs_rich_context(
     return bool(_PERSONAL_CONTEXT_CUE.search(cleaned))
 
 
-# Advice / recommendation — load memory only (not Calendar/Gmail).
+# Advice / recommendation — load memory only (not to-dos).
 # Require a life-domain word so "what should I return" / "recommend a library"
 # stay slim. Day-planning is classified separately and supersedes this path.
 # Ordinary phrasing ("I need dinner", "plan a workout") must match too — not
@@ -539,7 +539,7 @@ def is_personal_advice_question(text: str) -> bool:
 
 LIGHTWEIGHT_REPLY_HINT = (
     "This is a short social turn (greeting / ack). Reply in one brief sentence. "
-    "Do not dig into memory, lists, calendar, or projects unless the user asked."
+    "Do not dig into memory, lists, or projects unless the user asked."
 )
 
 PERSONAL_DISCLOSURE_HINT = (

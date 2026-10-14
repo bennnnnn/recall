@@ -53,14 +53,6 @@ async def test_stream_does_not_duplicate_user_message(stream_offline_io):
         patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=1)),
         patch("app.repositories.messages.create", AsyncMock()),
         patch("app.modules.chat.turn_prep.context.build_prompt_messages", mock_build),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
@@ -113,14 +105,6 @@ async def test_memory_extraction_runs_on_later_turn(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
@@ -188,14 +172,6 @@ async def test_memory_extraction_skipped_when_memory_disabled(stream_offline_io)
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
@@ -253,14 +229,6 @@ async def test_memory_extraction_throttled_when_every_n_gt_1(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
@@ -319,14 +287,6 @@ async def test_stream_skips_pre_reply_todo_llm_sync(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.todos.extract.extract_todo_actions",
@@ -386,14 +346,6 @@ async def test_post_turn_jobs_enqueue_todos_when_transcript_matches(stream_offli
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
@@ -464,14 +416,6 @@ async def test_stream_sets_final_content_on_cancel(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
@@ -543,12 +487,6 @@ async def test_cancelled_stream_skips_model_health_sample(stream_offline_io):
         )
         stack.enter_context(patch("app.services.model_health.record_sample", record))
         stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", AsyncMock()))
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.materialize_calendar_proposals",
-                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
-            )
-        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for _ in stream_and_finalize(
             AsyncMock(),
@@ -601,12 +539,6 @@ async def test_stream_and_finalize_starts_before_user_message_persist(stream_off
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
         stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.materialize_calendar_proposals",
-                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
-            )
-        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         agen = stream_and_finalize(
             AsyncMock(),
@@ -1188,12 +1120,6 @@ async def test_hard_cancel_with_partial_reply_finalizes(stream_offline_io):
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
         stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.materialize_calendar_proposals",
-                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
-            )
-        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         tokens: list[str] = []
         async for tok in stream_and_finalize(
@@ -1254,12 +1180,6 @@ async def test_task_cancel_after_tokens_still_finalizes(stream_offline_io):
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
         stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.materialize_calendar_proposals",
-                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
-            )
-        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         task = asyncio.create_task(consume())
         for _ in range(50):
@@ -1353,12 +1273,6 @@ async def test_provider_fail_with_partial_reply_marks_interrupted(stream_offline
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
         stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.materialize_calendar_proposals",
-                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
-            )
-        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         tokens: list[str] = []
         async for tok in stream_and_finalize(
@@ -1411,12 +1325,6 @@ async def test_token_limit_finish_reason_marks_interrupted(stream_offline_io):
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
         stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.materialize_calendar_proposals",
-                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
-            )
-        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         async for _ in stream_and_finalize(
             AsyncMock(),
@@ -1470,12 +1378,6 @@ async def test_soft_cancel_mid_stream_marks_user_stop(stream_offline_io):
             patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream)
         )
         stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.materialize_calendar_proposals",
-                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
-            )
-        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         tokens: list[str] = []
         async for tok in stream_and_finalize(
@@ -1545,14 +1447,6 @@ async def test_stream_closes_llm_stream_on_cancel(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
@@ -1606,14 +1500,6 @@ async def test_stream_places_query_without_location_prompts_to_enable(stream_off
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch("app.modules.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", AsyncMock()),
@@ -1670,14 +1556,6 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch("app.modules.web_search.build_search_augmentation", augment),
         patch("app.gateways.litellm_gateway.stream_chat_completion", fake_stream),
@@ -1704,7 +1582,7 @@ async def test_stream_places_query_uses_client_location_without_profile(stream_o
 
 @pytest.mark.asyncio
 async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io):
-    """Post-stream enrichment (calendar materialize, math fences, …) must not
+    """Post-stream enrichment (reminder fences, math fences, …) must not
     abort persistence — the user already saw streamed tokens."""
     from app.modules import chat as chat_module
 
@@ -1742,33 +1620,6 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
             )
         )
         stack.enter_context(
-            patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False))
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.load_calendar_for_prompt",
-                AsyncMock(return_value=None),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.materialize_calendar_proposals",
-                AsyncMock(side_effect=RuntimeError("calendar boom")),
-            )
-        )
-        stack.enter_context(
-            patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False))
-        )
-        stack.enter_context(
-            patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None))
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.inbox.load_gmail_for_prompt",
-                AsyncMock(return_value=None),
-            )
-        )
-        stack.enter_context(
             patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[]))
         )
         stack.enter_context(
@@ -1785,6 +1636,12 @@ async def test_stream_persists_raw_text_when_enrichment_fails(stream_offline_io)
         stack.enter_context(patch("app.repositories.chats.touch_by_id", AsyncMock()))
         stack.enter_context(patch("app.core.jobs.enqueue", AsyncMock()))
         stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", finalize))
+        stack.enter_context(
+            patch(
+                "app.modules.todos.materialize_reminder_fences",
+                AsyncMock(side_effect=RuntimeError("enrichment boom")),
+            )
+        )
 
         result: dict[str, object] = {}
         collected: list[str] = []
@@ -1835,14 +1692,6 @@ async def test_stream_no_final_content_on_normal_completion(stream_offline_io):
             "app.modules.chat.turn_prep.context.build_prompt_messages",
             AsyncMock(return_value=[{"role": "system", "content": "sys"}]),
         ),
-        patch("app.modules.integrations.calendar.is_connected", AsyncMock(return_value=False)),
-        patch(
-            "app.modules.integrations.calendar.load_calendar_for_prompt",
-            AsyncMock(return_value=None),
-        ),
-        patch("app.modules.integrations.inbox.is_connected", AsyncMock(return_value=False)),
-        patch("app.modules.integrations.inbox.load_gmail_context", AsyncMock(return_value=None)),
-        patch("app.modules.integrations.inbox.load_gmail_for_prompt", AsyncMock(return_value=None)),
         patch("app.repositories.messages.recent_user_contents", AsyncMock(return_value=[])),
         patch(
             "app.modules.web_search.build_search_augmentation",
@@ -1939,12 +1788,6 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
             patch(
                 "app.modules.web_search.is_places_list_query",
                 MagicMock(return_value=False),
-            )
-        )
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.has_write_access",
-                AsyncMock(return_value=False),
             )
         )
         stack.enter_context(
@@ -2190,12 +2033,6 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         )
         stack.enter_context(
             patch(
-                "app.modules.integrations.calendar.has_write_access",
-                AsyncMock(return_value=False),
-            )
-        )
-        stack.enter_context(
-            patch(
                 "app.repositories.messages.recent_user_contents",
                 AsyncMock(return_value=[]),
             )
@@ -2283,10 +2120,6 @@ async def test_instant_reply_usage_uses_input_output_keys(stream_offline_io):
     result: dict[str, object] = {}
     with (
         patch("app.modules.chat.stream.finalize_stream_turn_db", side_effect=capture_finalize),
-        patch(
-            "app.modules.integrations.calendar.materialize_calendar_proposals",
-            AsyncMock(side_effect=lambda *_a, **_k: _a[-1] if _a else "It's 3:00 PM."),
-        ),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)),
     ):
         tokens: list[str] = []
@@ -2365,12 +2198,6 @@ async def test_web_search_tool_round_streams_final_instead_of_regenerating(
         )
         stack.enter_context(patch("app.modules.chat.stream.finalize_stream_turn_db", AsyncMock()))
         stack.enter_context(patch("app.services.model_health.record_sample", AsyncMock()))
-        stack.enter_context(
-            patch(
-                "app.modules.integrations.calendar.materialize_calendar_proposals",
-                AsyncMock(side_effect=lambda *_a, **_k: _a[-1]),
-            )
-        )
         stack.enter_context(patch("app.repositories.users.get_by_id", AsyncMock(return_value=None)))
         yielded: list[str] = []
         async for tok in stream_and_finalize(

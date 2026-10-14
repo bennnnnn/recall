@@ -69,6 +69,7 @@ _PHRASE_OP = {
     "distance": "suvat_distance",
     "displacement": "suvat_distance",
     "how far": "suvat_distance",
+    "length": "suvat_distance",
     "velocity": "suvat_velocity",
     "speed": "suvat_velocity",
     "how fast": "suvat_velocity",

@@ -1,4 +1,4 @@
-"""Periodic push scheduler for todo reminders, email suggestions, and calendar meetings."""
+"""Periodic push scheduler for todo reminders."""
 
 from __future__ import annotations
 
@@ -49,7 +49,7 @@ async def _push_cycle(settings: Settings, _lock: CycleLock) -> None:
                     logger.debug("Failed to prune push token", exc_info=True)
         if receipt_tickets:
             await push_notifications.enqueue_push_receipts(redis, receipt_tickets)
-        await push_notifications.finalize_push_deliveries(session, redis, outbound, delivered)
+        await push_notifications.finalize_push_deliveries(session, outbound, delivered)
         count = len(outbound)
         if count:
             logger.info("Push cycle sent count=%s", count)

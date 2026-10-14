@@ -35,21 +35,9 @@ def _seams() -> MagicMock:
     seams.SessionLocal = _fake_session
     seams.users_repo.get_by_id = AsyncMock(return_value=MagicMock())
 
-    async def _passthrough_calendar(
-        _session: object,
-        _redis: object,
-        _user: object,
-        _settings: object,
-        text: str,
-    ) -> str:
-        return text
-
     async def _passthrough_reminders(_session: object, **kwargs: Any) -> tuple[str, int]:
         return str(kwargs["assistant_text"]), 0
 
-    seams.calendar_service.materialize_calendar_proposals = AsyncMock(
-        side_effect=_passthrough_calendar
-    )
     seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=_passthrough_reminders)
     seams.todos_service.transcript_implies_todo_sync = MagicMock(return_value=False)
     seams.math_fence_service.validate_math_fences_worker = _passthrough_math

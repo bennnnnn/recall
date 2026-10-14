@@ -72,21 +72,6 @@ class SympyToolInput(BaseModel):
     order: int = Field(default=1, ge=1, le=4)
 
 
-class CalendarConflictEvent(BaseModel):
-    """Bounded calendar event stub for conflict checks (model-supplied)."""
-
-    start: str | None = Field(default=None, max_length=64)
-    end: str | None = Field(default=None, max_length=64)
-    title: str | None = Field(default=None, max_length=200)
-    summary: str | None = Field(default=None, max_length=200)
-
-
-class CalendarConflictsInput(BaseModel):
-    action: Literal["conflicts"] = "conflicts"
-    due_at: str = Field(min_length=1, max_length=64)
-    events: list[CalendarConflictEvent] = Field(default_factory=list, max_length=50)
-
-
 class GenerateImageToolInput(BaseModel):
     """Model-initiated image generation (Pro; tool loop only)."""
 

@@ -29,7 +29,6 @@ from app.core.redis import get_redis_client
 from app.modules.attachments import jobs as attachment_indexing
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.chat import compaction
-from app.modules.integrations import jobs as gmail_sync
 from app.modules.memory import consolidation_workflow as memory_consolidation
 from app.modules.memory import extraction_workflow as memory_extraction
 from app.modules.memory import history_scan as memory_history_scan
@@ -198,15 +197,6 @@ async def _handle_suggestions(settings: Settings, payload: dict[str, Any]) -> No
     )
 
 
-async def _handle_gmail_sync(settings: Settings, payload: dict[str, Any]) -> None:
-    async with SessionLocal() as session:
-        await gmail_sync.sync_gmail_for_user(
-            session,
-            settings,
-            user_id=UUID(payload["user_id"]),
-        )
-
-
 async def _handle_transactional_email(settings: Settings, payload: dict[str, Any]) -> None:
     """Best-effort outbound email (welcome / receipts). Re-raises transient
     failures so the worker retry loop can retry; user-not-found is a permanent
@@ -271,7 +261,6 @@ def register_all() -> None:
     register("todos", _handle_todos)
     register("compress", _handle_compress)
     register("suggestions", _handle_suggestions)
-    register("gmail_sync", _handle_gmail_sync)
     register("transactional_email", _handle_transactional_email)
     register("attachment_index", _handle_attachment_index)
     register("message_index", _handle_message_index)

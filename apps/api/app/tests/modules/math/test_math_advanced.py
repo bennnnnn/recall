@@ -234,9 +234,7 @@ class TestMathTextMatchSignals:
 class TestAugmentPromptMessagesForNewKinds:
     @pytest.mark.asyncio
     async def test_statistics_produces_verified_block(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "what is the standard deviation of 1, 3, 5, 7, 9"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
@@ -266,9 +264,7 @@ class TestAugmentPromptMessagesForNewKinds:
 
     @pytest.mark.asyncio
     async def test_combinatorics_produces_verified_block(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "how many ways can you choose 2 from 5? use C(5,2)"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
@@ -280,9 +276,7 @@ class TestAugmentPromptMessagesForNewKinds:
 
     @pytest.mark.asyncio
     async def test_number_theory_produces_answer_fence(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "gcd of 48 and 18"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
@@ -293,9 +287,7 @@ class TestAugmentPromptMessagesForNewKinds:
 
     @pytest.mark.asyncio
     async def test_number_theory_factorize_answer_fence(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "prime factorization of 60"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)
@@ -308,9 +300,7 @@ class TestAugmentPromptMessagesForNewKinds:
 
     @pytest.mark.asyncio
     async def test_matrix_produces_verified_block(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "find the determinant of [[1,2],[3,4]]"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         _updated, verified = await math_tools.augment_prompt_messages(messages, text, settings)

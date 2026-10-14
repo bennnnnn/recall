@@ -135,7 +135,21 @@ _RESISTOR_KEY_RE = re.compile(r"R[1-9]")
 
 
 # Words that count rather than measure: a dimensionless input written with one.
-_COUNT_UNITS = frozenset({"turns", "turn", "lines", "nuclei", "atoms", "microstates"})
+_COUNT_UNITS = frozenset(
+    {
+        "turns",
+        "turn",
+        "lines",
+        "nuclei",
+        "atoms",
+        "microstates",
+        "oscillations",
+        "oscillation",
+        "vibrations",
+        "cycles",
+        "swings",
+    }
+)
 
 # Units whose zero is not zero. These must be constructed as a Quantity rather
 # than multiplied, and a *difference* in them is not the same as a value: a

@@ -17,7 +17,6 @@ from app.modules import memory as memory_service
 from app.modules.account import tokens as tokens_service
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
-from app.modules.integrations import connect as google_integrations_service
 from app.repositories import users as users_repo
 
 logger = logging.getLogger(__name__)
@@ -114,19 +113,6 @@ async def delete_account(
             exc_info=True,
         )
         raise SessionPurgeError(user.id) from exc
-
-    try:
-        await google_integrations_service.revoke_all_google_tokens_for_user(
-            session,
-            settings,
-            user.id,
-        )
-    except google_integrations_service.GoogleConnectError:
-        logger.warning(
-            "Google token revoke failed during account delete; continuing wipe user_id=%s",
-            user.id,
-            exc_info=True,
-        )
 
     await attachments_service.purge_attachments_for_user(session, settings, user.id)
     user_id = user.id

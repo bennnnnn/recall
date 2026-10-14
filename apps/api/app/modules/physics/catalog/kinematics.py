@@ -4,6 +4,24 @@ from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
+# A drop from a height and a sound's trip to a wall and back are not one
+# distance covered at one speed: d = vt read "rolls off a 1.2 m high table at
+# 3 m/s" as 0.4 s, and an echo heard after 0.6 s as a wall 204 m away.
+_NOT_CONSTANT_SPEED = (
+    "high",
+    "tall",
+    "height",
+    "fall",
+    "falls",
+    "falling",
+    "dropped",
+    "rolls off",
+    "thrown",
+    "echo",
+    "echoes",
+    "sonar",
+)
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "position",
@@ -65,6 +83,18 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
     ),
     formula(
+        "time_to_peak",
+        "kinematics",
+        "Constant-acceleration equation",
+        "t_{\\text{top}}",
+        base_latex=r"t_{\text{top}} = \frac{v_0}{g}",
+        variables=(
+            var("g", "g", "meter / second ** 2"),
+            var("h0", "h_0", "meter"),
+            var("v0", "v_0", "meter / second"),
+        ),
+    ),
+    formula(
         "vertical_max_height",
         "kinematics",
         "Constant-acceleration equation",
@@ -99,6 +129,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         binding=Binding(
             asks=("average speed", "speed", "how fast"),
+            excludes=_NOT_CONSTANT_SPEED,
             result=("meter / second",),
             inputs=(frozenset({"d", "t"}),),
             nonnegative=True,
@@ -115,7 +146,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("v", "v", "meter / second"),
         ),
         binding=Binding(
-            asks=("how far", "distance"),
+            asks=("how far", "distance", "how many metres", "how many meters", "how much distance"),
+            excludes=_NOT_CONSTANT_SPEED,
             result=("meter",),
             inputs=(frozenset({"t", "v"}),),
             nonnegative=True,
@@ -133,6 +165,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         binding=Binding(
             asks=("how long", "time taken", "time"),
+            excludes=_NOT_CONSTANT_SPEED,
             result=("second",),
             inputs=(frozenset({"d", "v"}),),
             nonnegative=True,

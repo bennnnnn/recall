@@ -17,8 +17,6 @@ from app.modules.chat import ws_api as ws
 from app.modules.chemistry import api as chemistry_api
 from app.modules.home import api as home
 from app.modules.images import api as images
-from app.modules.integrations import api as integrations
-from app.modules.integrations import gmail_api as gmail_integrations
 from app.modules.math import api as math_api
 from app.modules.memory import api as memories
 from app.modules.notifications import api as users
@@ -109,8 +107,6 @@ def create_app() -> FastAPI:
     app.include_router(search.router)
     app.include_router(suggestions.router)
     app.include_router(attachments.router)
-    app.include_router(integrations.router)
-    app.include_router(gmail_integrations.router)
     app.include_router(speech.router)
     app.include_router(speech_realtime.router)
     app.include_router(images.router)

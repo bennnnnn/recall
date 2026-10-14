@@ -59,14 +59,14 @@ def _tension(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
                 SimulationVector(
                     anchor=[0.0, 0.0],
                     dx=0.0,
-                    dy=1.0,
+                    dy=t_val or 1.0,
                     label=f"T = {plain_number(t_val)} N",
                     role="result",
                 ),
                 SimulationVector(
                     anchor=[0.0, 0.0],
                     dx=0.0,
-                    dy=-1.0,
+                    dy=-(m * g),
                     label=f"W = {plain_number(m * g)} N",
                 ),
             ],
@@ -201,7 +201,7 @@ def _atwood(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
             QuantityResult("", a_val, "m/s^2"),
             QuantityResult("", t_val, "N"),
         ),
-        simulation_specs=_atwood_scene(m1, m2, a_val, t_val),
+        simulation_specs=_atwood_scene(m1, m2, a_val),
     )
 
 
@@ -232,7 +232,9 @@ def _newton_second_law(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsRes
 
     # F = ma is a push and the motion it produces, drawn the same way round.
     # Both point right by convention — the question states no direction, and
-    # inventing opposing ones would say the block is being decelerated.
+    # inventing opposing ones would say the block is being decelerated. The
+    # acceleration is a `motion` arrow: drawn like a force, it would teach
+    # that ma is one more force on the block.
     force = p.get("F", p.get("m", 0.0) * p.get("a", 0.0))
     accel = p.get("a", p.get("F", 0.0) / p["m"] if p.get("m") else 0.0)
     scene = _free_body_scene(
@@ -242,10 +244,14 @@ def _newton_second_law(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsRes
                 dx=1.0,
                 dy=0.0,
                 label=f"F = {plain_number(force)} N",
-                role="result",
+                role="result" if "F" not in p else "force",
             ),
             SimulationVector(
-                anchor=[0.0, -0.9], dx=1.0, dy=0.0, label=f"a = {plain_number(accel)} m/s²"
+                anchor=[0.0, -0.9],
+                dx=1.0,
+                dy=0.0,
+                label=f"a = {plain_number(accel)} m/s²",
+                role="motion",
             ),
         ],
         label=f"{plain_number(p['m'], GIVEN_FIGURES)} kg" if "m" in p else None,

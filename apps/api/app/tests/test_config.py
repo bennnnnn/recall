@@ -1,14 +1,9 @@
 from pathlib import Path
 
 import pytest
-from cryptography.fernet import Fernet
 
 from app.core.config import Settings, validate_production_settings
 from app.core.rate_limit import allow_request
-
-# A valid Fernet key (32 bytes, urlsafe-base64). validate_production_settings
-# now parses the key at boot, so placeholder strings like "key" no longer pass.
-_VALID_FERNET_KEY = Fernet.generate_key().decode()
 
 
 def test_example_env_keeps_long_response_ceiling_in_sync():
@@ -30,12 +25,10 @@ def test_validate_production_settings_ok():
             mock_llm_enabled=False,
             jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
             google_client_id="client-id",
-            google_client_secret="client-secret",
             cors_origins="https://app.recall.app",
             openrouter_api_key="sk-or-xxx",
             revenuecat_webhook_auth="whsec-xxx",
             revenuecat_secret_key="sk_rc_xxx",
-            oauth_token_encryption_key=_VALID_FERNET_KEY,
             storage_backend="r2",
             r2_account_id="acct",
             r2_access_key_id="key",
@@ -57,12 +50,10 @@ def test_validate_production_settings_rejects_process_role_all():
         mock_llm_enabled=False,
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
         google_client_id="client-id",
-        google_client_secret="secret",
         cors_origins="https://app.recall.app",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
         revenuecat_secret_key="sk_rc_xxx",
-        oauth_token_encryption_key=_VALID_FERNET_KEY,
         storage_backend="r2",
         r2_account_id="acct",
         r2_access_key_id="key",
@@ -119,7 +110,6 @@ def test_validate_production_settings_rejects_empty_cors_and_missing_secrets():
         mock_llm_enabled=False,
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
         google_client_id="client-id",
-        google_client_secret="secret",
     )
     with pytest.raises(RuntimeError, match="CORS_ORIGINS"):
         validate_production_settings(
@@ -158,41 +148,6 @@ def test_validate_production_settings_rejects_empty_cors_and_missing_secrets():
                 revenuecat_secret_key="",
             )
         )
-    with pytest.raises(RuntimeError, match="OAUTH_TOKEN_ENCRYPTION_KEY"):
-        validate_production_settings(
-            Settings(
-                **base,
-                cors_origins="https://app.recall.app",
-                openrouter_api_key="sk-or-xxx",
-                revenuecat_webhook_auth="whsec-xxx",
-                oauth_token_encryption_key="",
-            )
-        )
-
-
-def test_validate_production_settings_rejects_malformed_fernet_key():
-    # A non-empty but malformed key must fail at boot, not on the first
-    # encrypt at runtime.
-    base = dict(
-        environment="production",
-        dev_auth_enabled=False,
-        mock_llm_enabled=False,
-        jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
-        google_client_id="client-id",
-        google_client_secret="secret",
-        cors_origins="https://app.recall.app",
-        openrouter_api_key="sk-or-xxx",
-        revenuecat_webhook_auth="whsec-xxx",
-        storage_backend="r2",
-        r2_account_id="acct",
-        r2_access_key_id="key",
-        r2_secret_access_key="secret",
-        r2_bucket="recall",
-    )
-    with pytest.raises(RuntimeError, match="not a valid Fernet key"):
-        validate_production_settings(
-            Settings(**base, oauth_token_encryption_key="not-a-real-fernet-key")
-        )
 
 
 def test_validate_production_settings_requires_r2():
@@ -202,11 +157,9 @@ def test_validate_production_settings_requires_r2():
         mock_llm_enabled=False,
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
         google_client_id="client-id",
-        google_client_secret="secret",
         cors_origins="https://app.recall.app",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
-        oauth_token_encryption_key=_VALID_FERNET_KEY,
     )
     with pytest.raises(RuntimeError, match="STORAGE_BACKEND"):
         validate_production_settings(Settings(**base, storage_backend="local"))
@@ -232,11 +185,9 @@ def test_validate_production_settings_rejects_mock_llm_and_weak_jwt():
         environment="production",
         dev_auth_enabled=False,
         google_client_id="client-id",
-        google_client_secret="secret",
         cors_origins="https://app.recall.app",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
-        oauth_token_encryption_key=_VALID_FERNET_KEY,
         storage_backend="r2",
         r2_account_id="acct",
         r2_access_key_id="key",
@@ -262,11 +213,9 @@ def test_validate_production_settings_rejects_missing_core_urls():
         mock_llm_enabled=False,
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
         google_client_id="client-id",
-        google_client_secret="secret",
         cors_origins="https://app.recall.app",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
-        oauth_token_encryption_key=_VALID_FERNET_KEY,
         storage_backend="r2",
         r2_account_id="acct",
         r2_access_key_id="key",
@@ -289,10 +238,8 @@ def test_validate_production_settings_rejects_cors_wildcard():
         mock_llm_enabled=False,
         jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
         google_client_id="client-id",
-        google_client_secret="secret",
         openrouter_api_key="sk-or-xxx",
         revenuecat_webhook_auth="whsec-xxx",
-        oauth_token_encryption_key=_VALID_FERNET_KEY,
         storage_backend="r2",
         r2_account_id="acct",
         r2_access_key_id="key",
@@ -312,12 +259,10 @@ def test_validate_production_settings_requires_global_spend_cap():
                 mock_llm_enabled=False,
                 jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
                 google_client_id="client-id",
-                google_client_secret="secret",
                 cors_origins="https://app.recall.app",
                 openrouter_api_key="sk-or-xxx",
                 revenuecat_webhook_auth="whsec-xxx",
                 revenuecat_secret_key="sk_rc_xxx",
-                oauth_token_encryption_key=_VALID_FERNET_KEY,
                 storage_backend="r2",
                 r2_account_id="acct",
                 r2_access_key_id="key",
@@ -326,29 +271,6 @@ def test_validate_production_settings_requires_global_spend_cap():
                 daily_global_spend_usd=0,
             )
         )
-
-
-def test_validate_production_settings_requires_google_client_secret():
-    base = dict(
-        environment="production",
-        dev_auth_enabled=False,
-        mock_llm_enabled=False,
-        jwt_secret="super-secret-key-that-is-at-least-32-chars!!",
-        google_client_id="client-id",
-        cors_origins="https://app.recall.app",
-        openrouter_api_key="sk-or-xxx",
-        revenuecat_webhook_auth="whsec-xxx",
-        oauth_token_encryption_key=_VALID_FERNET_KEY,
-        storage_backend="r2",
-        r2_account_id="acct",
-        r2_access_key_id="key",
-        r2_secret_access_key="secret",
-        r2_bucket="recall",
-    )
-    with pytest.raises(RuntimeError, match="GOOGLE_CLIENT_SECRET"):
-        validate_production_settings(Settings(**base, google_client_secret=""))
-    with pytest.raises(RuntimeError, match="GOOGLE_CLIENT_SECRET"):
-        validate_production_settings(Settings(**base, google_client_secret="   "))
 
 
 @pytest.mark.asyncio

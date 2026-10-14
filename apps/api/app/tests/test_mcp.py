@@ -193,12 +193,8 @@ def test_mcp_registry_setup():
     clear()
     setup_mcp_adapters(Settings())
     assert get("web_search") is not None
-    # Calendar is off for launch, so the model is not offered its tool.
+    # Recall has no calendar integration, so the model is never offered one.
     assert get("calendar") is None
-    clear()
-
-    setup_mcp_adapters(Settings(google_calendar_enabled=True))
-    assert get("calendar") is not None
     clear()
 
 

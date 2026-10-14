@@ -1,9 +1,9 @@
-"""Build and dispatch Expo push notifications for reminders and email.
+"""Build and dispatch Expo push notifications for reminders.
 
 Delivery semantics (do not conflate ticket accept with receipt polling):
 
 - **Delivered** — set when Expo accepts a push ticket (`status: ok` on send). That is
-  when we mark todos/suggestions as sent.
+  when we mark todos as sent.
 - **Receipt polling** — deferred (see ``RECEIPT_MIN_AGE_SECONDS``) and used only to
   prune invalid device tokens. A missing or slow receipt must never block delivery
   marking or cause a resend on the next scheduler cycle.
@@ -20,25 +20,12 @@ from typing import Any
 from uuid import UUID
 
 from redis.asyncio import Redis
-from sqlalchemy import exists, func, select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.gateways import expo_push_gateway, google_calendar_gateway
-from app.models.orm import (
-    PushToken,
-    SuggestedReminder,
-    TodoItem,
-    User,
-    UserCalendarConnection,
-)
-from app.modules.integrations import (
-    calendar_nudge_redis_key,
-    events_needing_nudge,
-    fetch_upcoming_events,
-    format_calendar_nudge,
-    nudge_ttl_seconds,
-)
+from app.gateways import expo_push_gateway
+from app.models.orm import PushToken, TodoItem, User
 from app.modules.todos import (
     TodoScheduleSnapshot,
     is_recurrence_rule,
@@ -49,7 +36,6 @@ from app.modules.todos import (
     crud as todos_crud,
 )
 from app.repositories import push_tokens as push_repo
-from app.services.locale import normalize_locale_code
 from app.services.reminder_timing import (
     MAX_REMINDER_LEAD_MINUTES,
     OVERDUE_MAX_HOURS,
@@ -61,75 +47,15 @@ from app.services.reminder_timing import (
 
 logger = logging.getLogger(__name__)
 
-PUSH_DEDUPE_INFLIGHT_TTL_SECONDS = 15 * 60
 RECEIPT_PENDING_ZSET = "recall:push:receipts:pending"
-# Cap pending email-suggestion scan so one cycle cannot load the whole table.
-# Token-less users are excluded via EXISTS so rows do not recycle forever.
-EMAIL_SUGGESTION_PUSH_LIMIT = 200
 RECEIPT_MIN_AGE_SECONDS = 15 * 60
 RECEIPT_MAX_AGE_SECONDS = 24 * 60 * 60
-_MAX_EMAIL_SUGGESTION_PUSH_CHARS = 120
 
 
 @dataclass
 class OutboundPush:
     message: dict[str, Any]
     todos: list[TodoItem] = field(default_factory=list)
-    suggestions: list[SuggestedReminder] = field(default_factory=list)
-    dedupe_redis_key: str | None = None
-    dedupe_ttl_seconds: int | None = None
-
-
-_PUSH_STRINGS: dict[str, dict[str, str]] = {
-    "en": {
-        "from_inbox": "From your inbox",
-        "email_plural": "{count} reminders from your email — tap to review",
-    },
-    "es": {
-        "from_inbox": "Desde tu bandeja",
-        "email_plural": "{count} recordatorios de tu correo — toca para revisar",
-    },
-    "fr": {
-        "from_inbox": "Depuis votre boîte",
-        "email_plural": "{count} rappels de votre courriel — appuyez pour voir",
-    },
-    "de": {
-        "from_inbox": "Aus deinem Postfach",
-        "email_plural": "{count} Erinnerungen aus deiner E-Mail — tippen zum Ansehen",
-    },
-    "it": {
-        "from_inbox": "Dalla tua casella",
-        "email_plural": "{count} promemoria dalla tua email — tocca per vedere",
-    },
-    "pt": {
-        "from_inbox": "Da sua caixa de entrada",
-        "email_plural": "{count} lembretes do seu e-mail — toque para ver",
-    },
-    "ru": {
-        "from_inbox": "Из вашего ящика",
-        "email_plural": "{count} напоминаний из почты — нажмите для просмотра",
-    },
-    "tr": {
-        "from_inbox": "Gelen kutunuzdan",
-        "email_plural": "E-postanızdan {count} hatırlatma — görmek için dokunun",
-    },
-}
-
-
-def _push_strings(locale: str | None) -> dict[str, str]:
-    code = normalize_locale_code(locale)
-    return _PUSH_STRINGS.get(code, _PUSH_STRINGS["en"])
-
-
-def _sanitize_email_suggestion_body(title: str) -> str:
-    """Collapse whitespace/control chars and cap length — never raw LLM titles."""
-    cleaned = "".join(ch if ch.isprintable() else " " for ch in title)
-    cleaned = " ".join(cleaned.split())
-    if not cleaned:
-        return "New reminder from inbox"
-    if len(cleaned) > _MAX_EMAIL_SUGGESTION_PUSH_CHARS:
-        return cleaned[: _MAX_EMAIL_SUGGESTION_PUSH_CHARS - 1].rstrip() + "…"
-    return cleaned
 
 
 def _receipt_token_key(ticket_id: str) -> str:
@@ -206,8 +132,8 @@ async def poll_deferred_push_receipts(session: AsyncSession, redis: Redis) -> No
         await session.commit()
 
 
-# "split" installs created recall-reminders / inbox. "tone" installs
-# created the v2 channels that play the bundled cue. Older builds only have
+# "split" installs created recall-reminders. "tone" installs created the v2
+# channels that play the bundled cue. Older builds only have
 # recall-notifications; Expo drops a channelId the device never created.
 SPLIT_ANDROID_CHANNELS = "split"
 TONE_ANDROID_CHANNELS = "tone"
@@ -217,9 +143,6 @@ PUSH_SOUND = "recall_notify.wav"
 def android_channel_id(data: dict[str, Any], channels: str = SPLIT_ANDROID_CHANNELS) -> str:
     """Match the Android channels created in the mobile app."""
     suffix = "-v2" if channels == TONE_ANDROID_CHANNELS else ""
-    kind = data.get("type")
-    if kind == "email_suggestion":
-        return f"recall-inbox{suffix}"
     return f"recall-reminders{suffix}"
 
 
@@ -241,9 +164,6 @@ def _append_outbound(
     body: str,
     data: dict[str, Any],
     todos: list[TodoItem] | None = None,
-    suggestions: list[SuggestedReminder] | None = None,
-    dedupe_redis_key: str | None = None,
-    dedupe_ttl_seconds: int | None = None,
 ) -> None:
     seen_tokens: set[str] = set()
     for token in tokens:
@@ -264,9 +184,6 @@ def _append_outbound(
             OutboundPush(
                 message=message,
                 todos=list(todos or []),
-                suggestions=list(suggestions or []),
-                dedupe_redis_key=dedupe_redis_key,
-                dedupe_ttl_seconds=dedupe_ttl_seconds,
             )
         )
 
@@ -390,161 +307,6 @@ async def process_todo_reminders(
     return messages
 
 
-async def process_email_suggestions(
-    session: AsyncSession,
-    *,
-    now: datetime | None = None,
-) -> list[OutboundPush]:
-    when = now or datetime.now(UTC)
-    has_token = exists(select(PushToken.id).where(PushToken.user_id == SuggestedReminder.user_id))
-    result = await session.execute(
-        select(SuggestedReminder, User)
-        .join(User, User.id == SuggestedReminder.user_id)
-        .where(
-            SuggestedReminder.status == "pending",
-            SuggestedReminder.notification_sent_at.is_(None),
-            User.push_notifications_enabled.is_(True),
-            User.push_email_suggestions_enabled.is_(True),
-            has_token,
-        )
-        .order_by(SuggestedReminder.user_id, SuggestedReminder.created_at.desc())
-        .limit(EMAIL_SUGGESTION_PUSH_LIMIT)
-    )
-    rows = list(result.all())
-    if not rows:
-        return []
-
-    by_user: dict[UUID, list[SuggestedReminder]] = {}
-    users: dict[UUID, User] = {}
-    for row, user in rows:
-        by_user.setdefault(row.user_id, []).append(row)
-        users[row.user_id] = user
-
-    tokens = await push_repo.list_for_users(session, list(by_user.keys()))
-    tokens_by_user: dict[UUID, list[PushToken]] = {}
-    for token in tokens:
-        tokens_by_user.setdefault(token.user_id, []).append(token)
-
-    messages: list[OutboundPush] = []
-    for user_id, reminders in by_user.items():
-        # BUG FIX (was cycle-fatal): isolate per-user failures so one bad
-        # reminder batch doesn't drop every other user's email suggestions.
-        try:
-            if in_quiet_hours(users[user_id], now=when):
-                continue
-            user_tokens = tokens_by_user.get(user_id, [])
-            if not user_tokens:
-                # EXISTS filtered candidates; skip if tokens vanished mid-cycle.
-                continue
-            count = len(reminders)
-            strings = _push_strings(getattr(users[user_id], "locale", None))
-            if count == 1:
-                body = _sanitize_email_suggestion_body(reminders[0].title)
-            else:
-                body = strings["email_plural"].format(count=count)
-            _append_outbound(
-                messages,
-                user_tokens,
-                title=strings["from_inbox"],
-                body=body,
-                data={
-                    "type": "email_suggestion",
-                    "screen": "todos",
-                    "focus": "reminders",
-                },
-                suggestions=reminders,
-            )
-        except Exception:
-            logger.exception("Email suggestion push failed user_id=%s", user_id)
-            continue
-
-    return messages
-
-
-async def process_calendar_nudges(
-    session: AsyncSession,
-    redis: Redis,
-    settings: Settings,
-    *,
-    now: datetime | None = None,
-) -> list[OutboundPush]:
-    if not settings.calendar_nudge_enabled or not settings.google_calendar_enabled:
-        return []
-    if not google_calendar_gateway.is_configured(settings):
-        return []
-
-    now = now or datetime.now(UTC)
-    lead = max(1, settings.calendar_nudge_lead_minutes)
-
-    result = await session.execute(
-        select(User)
-        .join(UserCalendarConnection, UserCalendarConnection.user_id == User.id)
-        .join(PushToken, PushToken.user_id == User.id)
-        .where(
-            User.push_notifications_enabled.is_(True),
-            User.push_calendar_enabled.is_(True),
-        )
-        .distinct()
-    )
-    users = list(result.scalars().all())
-    if not users:
-        return []
-
-    tokens = await push_repo.list_for_users(session, [user.id for user in users])
-    tokens_by_user: dict[UUID, list[PushToken]] = {}
-    for token in tokens:
-        tokens_by_user.setdefault(token.user_id, []).append(token)
-
-    messages: list[OutboundPush] = []
-    for user in users:
-        # BUG FIX (was cycle-fatal): isolate per-user failures so one user's
-        # bad calendar data doesn't drop nudges for every other user.
-        try:
-            if in_quiet_hours(user, now=now):
-                continue
-            events = await fetch_upcoming_events(session, redis, user, settings)
-            due = events_needing_nudge(events, now=now, lead_minutes=lead)
-            if not due:
-                continue
-            user_tokens = tokens_by_user.get(user.id, [])
-            if not user_tokens:
-                continue
-
-            for event in due:
-                dedupe_key = calendar_nudge_redis_key(user.id, event.id)
-                ttl = nudge_ttl_seconds(event, now=now)
-                inflight_ttl = max(60, min(ttl, PUSH_DEDUPE_INFLIGHT_TTL_SECONDS))
-                claimed = await redis.set(dedupe_key, "inflight", nx=True, ex=inflight_ttl)
-                if not claimed:
-                    continue
-                title, body = format_calendar_nudge(
-                    event,
-                    now=now,
-                    locale=getattr(user, "locale", None),
-                )
-                _append_outbound(
-                    messages,
-                    user_tokens,
-                    title=title,
-                    body=body,
-                    data={
-                        "type": "calendar_nudge",
-                        "screen": "todos",
-                        "event_id": event.id,
-                        "event_title": event.title,
-                        # Mobile derives the local day key to focus Schedule.
-                        "event_start": event.start.isoformat(),
-                    },
-                    dedupe_redis_key=dedupe_key,
-                    dedupe_ttl_seconds=ttl,
-                )
-        except Exception:
-            logger.exception("Calendar nudge failed user_id=%s", user.id)
-            continue
-
-    return messages
-
-
 async def _mark_todo_after_successful_push(
     session: AsyncSession,
     todo: TodoItem,
@@ -568,23 +330,14 @@ async def _mark_todo_after_successful_push(
 
 async def _finalize_push_deliveries(
     session: AsyncSession,
-    redis: Redis,
     outbound: list[OutboundPush],
     delivered: list[bool],
     *,
     now: datetime,
 ) -> None:
     todos_marked: set[UUID] = set()
-    suggestions_marked: set[UUID] = set()
-    dedupe_success: dict[str, bool] = {}
-    dedupe_ttl: dict[str, int] = {}
 
     for item, ok in zip(outbound, delivered, strict=False):
-        if item.dedupe_redis_key is not None:
-            key = item.dedupe_redis_key
-            dedupe_success[key] = dedupe_success.get(key, False) or ok
-            if item.dedupe_ttl_seconds:
-                dedupe_ttl[key] = max(dedupe_ttl.get(key, 0), item.dedupe_ttl_seconds)
         if not ok:
             continue
         for todo in item.todos:
@@ -593,26 +346,8 @@ async def _finalize_push_deliveries(
                 continue
             if await _mark_todo_after_successful_push(session, todo, now=now):
                 todos_marked.add(todo_id)
-        for suggestion in item.suggestions:
-            suggestion_id = getattr(suggestion, "id", None)
-            if suggestion_id is None or suggestion_id in suggestions_marked:
-                continue
-            suggestion_row = await session.get(SuggestedReminder, suggestion_id)
-            if suggestion_row is None:
-                continue
-            suggestion_row.notification_sent_at = now
-            suggestion.notification_sent_at = now
-            suggestions_marked.add(suggestion_id)
 
-    for key, had_success in dedupe_success.items():
-        if had_success:
-            ttl = dedupe_ttl.get(key)
-            if ttl:
-                await redis.set(key, "1", ex=ttl)
-        else:
-            await redis.delete(key)
-
-    if todos_marked or suggestions_marked:
+    if todos_marked:
         await session.commit()
 
 
@@ -637,9 +372,7 @@ async def collect_push_outbound(
     todo_msgs: list[OutboundPush] = []
     if settings.server_todo_push_enabled:
         todo_msgs = await process_todo_reminders(session, now=now)
-    email_msgs = await process_email_suggestions(session, now=now)
-    calendar_msgs = await process_calendar_nudges(session, redis, settings, now=now)
-    return todo_msgs + email_msgs + calendar_msgs
+    return todo_msgs
 
 
 async def dispatch_expo(
@@ -662,15 +395,12 @@ async def dispatch_expo(
 
 async def finalize_push_deliveries(
     session: AsyncSession,
-    redis: Redis,
     outbound: list[OutboundPush],
     delivered: list[bool],
     *,
     now: datetime | None = None,
 ) -> None:
-    await _finalize_push_deliveries(
-        session, redis, outbound, delivered, now=now or datetime.now(UTC)
-    )
+    await _finalize_push_deliveries(session, outbound, delivered, now=now or datetime.now(UTC))
 
 
 async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings) -> int:
@@ -687,5 +417,5 @@ async def run_push_cycle(session: AsyncSession, redis: Redis, settings: Settings
             logger.debug("Failed to prune push token", exc_info=True)
     if receipt_tickets:
         await enqueue_push_receipts(redis, receipt_tickets)
-    await finalize_push_deliveries(session, redis, outbound, delivered)
+    await finalize_push_deliveries(session, outbound, delivered)
     return len(outbound)

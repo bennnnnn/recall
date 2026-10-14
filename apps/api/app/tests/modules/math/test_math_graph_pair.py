@@ -36,9 +36,7 @@ class TestGraphExprPairSignal:
 class TestAugmentPromptMessagesForGraphPair:
     @pytest.mark.asyncio
     async def test_produces_two_curve_canonical_fence(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "graph y=x^2 and y=2x on the same graph"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         _, verified = await math_tools.augment_prompt_messages(messages, text, settings)
@@ -51,9 +49,7 @@ class TestAugmentPromptMessagesForGraphPair:
 
     @pytest.mark.asyncio
     async def test_single_function_ask_is_unaffected(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         text = "plot sin(x) and explain it"
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
         _, verified = await math_tools.augment_prompt_messages(messages, text, settings)

@@ -106,21 +106,23 @@ def solve_friction(intent: PhysicsIntent) -> PhysicsResult:
             formulas=(formula,),
             substitutions=(rf"N = {plugged}",),
             quantities=(QuantityResult("", normal, "N"),),
-            simulation_specs=_incline_scene(deg, mu=mu),
+            simulation_specs=_incline_scene(deg, mu=mu, held=bool(p.get("static_equilibrium"))),
         )
 
     if op == "friction_force":
         f_val = mu * normal
         if p.get("static_equilibrium"):
             f_val = m * g * abs(math.sin(theta))
-            if f_val > mu * normal + 1e-12:
+            # A stated coefficient bounds what static friction can hold; with
+            # none stated, the block resting there is the statement that it can.
+            if "mu" in p and f_val > mu * normal + 1e-12:
                 raise SolveServiceError("static friction cannot hold the stated equilibrium")
             return PhysicsResult(
                 answer=rf"f_s = mg|\sin\theta| = {f_val:g} \text{{ N}}",
                 formulas=(r"f_s = mg|\sin\theta|", r"f_s \le \mu_s N"),
                 substitutions=(rf"f_s = {m:g}\cdot {g:g}\cdot |\sin({deg:g}^\circ)|",),
                 quantities=(QuantityResult("", f_val, "N"),),
-                simulation_specs=_incline_scene(deg, mu=mu if f_val else 0),
+                simulation_specs=_incline_scene(deg, mu=mu, held=f_val > 0),
             )
         answer = rf"f = \mu N = {mu:g} \cdot {normal:.2f} \approx {f_val:.2f} \text{{ N}}"
         return PhysicsResult(
@@ -222,6 +224,7 @@ def _incline_scene(
     mu: float,
     accel: float | None = None,
     uphill: bool = False,
+    held: bool = False,
 ) -> list[SimulationBlockSpec]:
     """A block on a slope with its weight, normal and friction arrows.
 
@@ -257,7 +260,8 @@ def _incline_scene(
 
     path = [[round(top_x + s * down_x, 4), round(top_y + s * down_y, 4)] for s in distances]
     arrows: list[str] = ["gravity", "normal"]
-    if mu > 0 and not uphill:
+    # Static friction holds a resting block whether or not μ was stated.
+    if (mu > 0 or held) and not uphill:
         arrows.append("friction")
 
     margin = _INCLINE_LENGTH * 0.18

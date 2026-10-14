@@ -46,9 +46,6 @@ def test_delete_account_returns_204():
     async def purge_sessions(*_a, **_k):
         order.append("purge_sessions")
 
-    async def revoke(*_a, **_k):
-        order.append("revoke")
-
     async def purge(*_a, **_k):
         order.append("purge")
 
@@ -59,11 +56,6 @@ def test_delete_account_returns_204():
         patch(
             "app.modules.account.lifecycle.tokens_service.purge_user_sessions",
             side_effect=purge_sessions,
-        ),
-        patch(
-            "app.modules.account.lifecycle.google_integrations_service."
-            "revoke_all_google_tokens_for_user",
-            side_effect=revoke,
         ),
         patch(
             "app.modules.account.lifecycle.attachments_service.purge_attachments_for_user",
@@ -78,52 +70,9 @@ def test_delete_account_returns_204():
     # Sessions must be purged first — otherwise a logged-in client keeps a
     # working access token after the row is gone, with only the (now-deleted)
     # DB user check to stop it.
-    assert order == ["purge_sessions", "revoke", "purge", "delete_user"]
+    assert order == ["purge_sessions", "purge", "delete_user"]
     enqueue_mock.assert_awaited_once()
     assert enqueue_mock.await_args.args[1] == "storage_sweep"
-
-
-def test_delete_account_continues_when_google_revoke_fails():
-    from app.modules.integrations.connect import GoogleConnectError
-
-    user = _fake_user()
-    app = _app_with_user(user)
-    order: list[str] = []
-
-    async def purge_sessions(*_a, **_k):
-        order.append("purge_sessions")
-
-    async def revoke(*_a, **_k):
-        order.append("revoke")
-        raise GoogleConnectError("bad key")
-
-    async def purge(*_a, **_k):
-        order.append("purge")
-
-    async def delete_user(*_a, **_k):
-        order.append("delete_user")
-
-    with (
-        patch(
-            "app.modules.account.lifecycle.tokens_service.purge_user_sessions",
-            side_effect=purge_sessions,
-        ),
-        patch(
-            "app.modules.account.lifecycle.google_integrations_service."
-            "revoke_all_google_tokens_for_user",
-            side_effect=revoke,
-        ),
-        patch(
-            "app.modules.account.lifecycle.attachments_service.purge_attachments_for_user",
-            side_effect=purge,
-        ),
-        patch("app.modules.account.lifecycle.users_repo.delete_user", side_effect=delete_user),
-        patch("app.modules.account.lifecycle.enqueue", AsyncMock()),
-    ):
-        client = TestClient(app)
-        r = client.delete("/auth/me", headers={"Authorization": "Bearer tok"})
-    assert r.status_code == 204
-    assert order == ["purge_sessions", "revoke", "purge", "delete_user"]
 
 
 def test_delete_account_returns_204_when_one_storage_delete_fails():
@@ -147,11 +96,6 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
     with (
         patch(
             "app.modules.account.lifecycle.tokens_service.purge_user_sessions",
-            AsyncMock(),
-        ),
-        patch(
-            "app.modules.account.lifecycle.google_integrations_service."
-            "revoke_all_google_tokens_for_user",
             AsyncMock(),
         ),
         patch(
@@ -202,13 +146,12 @@ async def test_delete_user_deletes_children_then_user():
     session.get = AsyncMock(return_value=MagicMock())
     await users_repo.delete_user(session, uuid4())
     # Every user-owned table is purged before the user row itself, so the delete
-    # never fails on an FK to users.id without ON DELETE CASCADE. 11 tables are
+    # never fails on an FK to users.id without ON DELETE CASCADE. 8 tables are
     # cleared explicitly (messages, memories, usage, todos, suggestions,
-    # suggested_reminders, push_tokens, attachments, calendar connections,
-    # gmail connections, chats). The account lock precedes every child delete
-    # to match memory writers.
+    # push_tokens, attachments, chats). The account lock precedes every child
+    # delete to match memory writers.
     statements = [call.args[0] for call in session.execute.await_args_list]
-    assert len(statements) == 12
+    assert len(statements) == 9
     assert statements[0].is_select
     assert str(statements[0]).endswith("FOR UPDATE")
     assert all(statement.is_delete for statement in statements[1:])

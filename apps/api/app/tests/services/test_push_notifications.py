@@ -10,7 +10,6 @@ from app.modules.notifications import push as push_service
 def test_android_channel_follows_push_type():
     assert push_service.android_channel_id({"type": "todo_reminder"}) == "recall-reminders"
     assert push_service.android_channel_id({"type": "digest"}) == "recall-reminders"
-    assert push_service.android_channel_id({"type": "email_suggestion"}) == "recall-inbox"
 
 
 def test_channel_id_stays_off_until_the_install_opts_in():
@@ -247,78 +246,3 @@ async def test_process_todo_reminders_skips_when_push_disabled():
 
     messages = await push_service.process_todo_reminders(session)
     assert messages == []
-
-
-@pytest.mark.asyncio
-async def test_process_email_suggestions_batches_per_user():
-    session = AsyncMock()
-    user_id = uuid4()
-    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
-
-    reminder_a = MagicMock()
-    reminder_a.user_id = user_id
-    reminder_a.title = "Flight to NYC"
-    reminder_b = MagicMock()
-    reminder_b.user_id = user_id
-    reminder_b.title = "Interview at Acme"
-    user = MagicMock()
-    user.push_notifications_enabled = True
-    token = MagicMock()
-    token.user_id = user_id
-    token.expo_push_token = "ExponentPushToken[abc]"
-    token.platform = "android"
-    token.android_channels = "split"
-
-    session.execute = AsyncMock(
-        return_value=MagicMock(all=MagicMock(return_value=[(reminder_a, user), (reminder_b, user)]))
-    )
-
-    with patch.object(
-        push_service.push_repo,
-        "list_for_users",
-        AsyncMock(return_value=[token]),
-    ):
-        messages = await push_service.process_email_suggestions(session, now=now)
-
-    assert len(messages) == 1
-    assert "2 reminders" in messages[0].message["body"]
-    assert messages[0].message["data"]["type"] == "email_suggestion"
-    assert messages[0].message["channelId"] == "recall-inbox"
-    session.commit.assert_not_awaited()
-    assert push_service.EMAIL_SUGGESTION_PUSH_LIMIT == 200
-    # Cap is applied on the select (token-less users excluded via EXISTS).
-    stmt = session.execute.await_args.args[0]
-    assert stmt._limit_clause is not None
-
-
-@pytest.mark.asyncio
-async def test_process_email_suggestions_sanitizes_single_title():
-    session = AsyncMock()
-    user_id = uuid4()
-    now = datetime(2026, 6, 28, 12, 0, tzinfo=UTC)
-    reminder = MagicMock()
-    reminder.user_id = user_id
-    reminder.title = "  Buy tickets\n\x00now  " + ("x" * 200)
-    user = MagicMock()
-    user.push_notifications_enabled = True
-    token = MagicMock()
-    token.user_id = user_id
-    token.expo_push_token = "ExponentPushToken[abc]"
-
-    session.execute = AsyncMock(
-        return_value=MagicMock(all=MagicMock(return_value=[(reminder, user)]))
-    )
-
-    with patch.object(
-        push_service.push_repo,
-        "list_for_users",
-        AsyncMock(return_value=[token]),
-    ):
-        messages = await push_service.process_email_suggestions(session, now=now)
-
-    assert len(messages) == 1
-    body = messages[0].message["body"]
-    assert "\x00" not in body
-    assert "\n" not in body
-    assert len(body) <= 120
-    assert body.startswith("Buy tickets now")

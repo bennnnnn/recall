@@ -38,6 +38,9 @@ class Given:
     si: float | None
 
 
+_SHARED_UNIT = re.compile(r"\s*(?:to|and|\u2013|-)\s*-?\d+(?:\.\d+)?(?:[eE]-?\d+)?\s*")
+
+
 def scan_givens(text: str, units: UnitTable) -> list[Given]:
     """Every stated number in normalized solver input, in written order."""
     givens: list[Given] = []
@@ -54,6 +57,11 @@ def scan_givens(text: str, units: UnitTable) -> list[Given]:
         except ValueError:
             continue
         unit = units.at(text, end)
+        if unit is None:
+            # "from 0 to 20 m/s", "between 2 and 5 m": the unit after the
+            # range's second number is the first number's too.
+            shared = _SHARED_UNIT.match(text, end)
+            unit = units.at(text, shared.end()) if shared is not None else None
         if unit is None:
             givens.append(Given(start, end, value, "", None, None))
             continue

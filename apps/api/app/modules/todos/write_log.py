@@ -44,7 +44,6 @@ _CREATE_FIELDS = (
     "due_at",
     "recurrence_rule",
     "sort_order",
-    "source",
 )
 
 

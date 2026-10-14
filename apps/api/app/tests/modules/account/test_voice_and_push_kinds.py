@@ -1,4 +1,4 @@
-"""PATCH /auth/me saves the voice and the per-kind push switches."""
+"""PATCH /auth/me saves the voice and the reminder push switch."""
 
 from unittest.mock import AsyncMock, patch
 
@@ -22,20 +22,26 @@ def test_me_reports_the_new_settings_with_defaults() -> None:
     client = TestClient(_app_with_user(_fake_user()))
     body = client.get("/auth/me", headers={"Authorization": "Bearer tok"}).json()
     assert body["push_reminders_enabled"] is True
-    assert body["push_email_suggestions_enabled"] is True
-    assert body["push_calendar_enabled"] is True
+    assert "push_email_suggestions_enabled" not in body
+    assert "push_calendar_enabled" not in body
     assert body["tts_voice"] is None
 
 
-@pytest.mark.parametrize(
-    "column",
-    ["push_reminders_enabled", "push_email_suggestions_enabled", "push_calendar_enabled"],
-)
-def test_patch_turns_one_push_kind_off(column: str) -> None:
-    response, update = _patch_me({column: False}, **{column: False})
+def test_patch_turns_reminder_pushes_off() -> None:
+    response, update = _patch_me({"push_reminders_enabled": False}, push_reminders_enabled=False)
     assert response.status_code == 200
-    assert response.json()[column] is False
-    assert update.await_args.kwargs[column] is False
+    assert response.json()["push_reminders_enabled"] is False
+    assert update.await_args.kwargs["push_reminders_enabled"] is False
+
+
+def test_patch_ignores_retired_email_and_calendar_push_switches() -> None:
+    """An older app still sends the two switches; they are dropped, not saved."""
+    response, update = _patch_me(
+        {"push_email_suggestions_enabled": False, "push_calendar_enabled": False}
+    )
+    assert response.status_code == 200
+    assert "push_email_suggestions_enabled" not in update.await_args.kwargs
+    assert "push_calendar_enabled" not in update.await_args.kwargs
 
 
 def test_patch_saves_a_voice() -> None:

@@ -28,6 +28,11 @@ _QUANTITIES: dict[str, str] = {
     "transformed time": "second",
     # Length
     "how far": "meter",
+    "how many metres": "meter",
+    "how many meters": "meter",
+    "how many kilometres": "meter",
+    "how many kilometers": "meter",
+    "how much distance": "meter",
     "how high": "meter",
     "how deep": "meter",
     "distance": "meter",
@@ -87,6 +92,8 @@ _QUANTITIES: dict[str, str] = {
     "normal force": "newton",
     "friction": "newton",
     "drag": "newton",
+    # Air resistance is a force; a resistor's resistance is in ohms.
+    "air resistance": "newton",
     "torque": "newton * meter",
     "moment": "newton * meter",
     "energy density": "joule / meter ** 3",

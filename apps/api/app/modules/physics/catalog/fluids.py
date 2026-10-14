@@ -299,4 +299,71 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # A standing person or a resting block presses with its weight.
+    formula(
+        "pressure_from_weight",
+        "fluids",
+        "Pressure",
+        "p",
+        base_latex=r"p = \frac{m g}{A}",
+        expression="m*g/area",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("area", "A", "meter ** 2"),
+        ),
+        binding=Binding(
+            asks=("pressure",),
+            result=("pascal",),
+            inputs=(frozenset({"m", "g", "area"}),),
+            cues=("stands", "standing", "rests", "resting", "exert", "exerts", "foot", "feet"),
+            nonnegative=True,
+        ),
+    ),
+    # The water's own pressure at a depth: p = rho g h, no atmosphere added.
+    formula(
+        "water_pressure_at_depth",
+        "fluids",
+        "Hydrostatic pressure",
+        "p",
+        base_latex=r"p = \rho g h",
+        assumptions=("the pressure due to the water alone, without the atmosphere",),
+        expression="rho*g*depth",
+        variables=(
+            var("rho", r"\rho", "kilogram / meter ** 3", fallback="water_density"),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("depth", "h", "meter"),
+        ),
+        binding=Binding(
+            asks=("pressure", "water pressure"),
+            result=("pascal",),
+            inputs=(frozenset({"rho", "g", "depth"}),),
+            cues=("deep", "depth", "bottom", "below the surface", "underwater"),
+            excludes=("absolute", "total", "atmospheric", "stands", "exert"),
+            nonnegative=True,
+        ),
+    ),
+    # Archimedes: the upthrust is the weight of the water pushed aside.
+    formula(
+        "upthrust_from_volume",
+        "fluids",
+        "Archimedes' principle",
+        "F_b",
+        base_latex=r"F_b = \rho g V",
+        expression="rho*g*volume",
+        variables=(
+            var("rho", r"\rho", "kilogram / meter ** 3", fallback="water_density"),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("volume", "V", "meter ** 3"),
+        ),
+        binding=Binding(
+            asks=("upthrust", "buoyant force", "buoyancy force", "buoyancy"),
+            result=("newton",),
+            inputs=(frozenset({"rho", "g", "volume"}),),
+            cues=("submerged", "immersed", "under water", "underwater", "in water", "fully"),
+            # A floating body displaces less than its own volume.
+            excludes=("floating", "floats", "float"),
+            nonnegative=True,
+        ),
+    ),
 )

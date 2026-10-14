@@ -220,16 +220,8 @@ async def _schedule_block_best_effort(user: User, settings: Settings) -> str:
         async with SessionLocal() as session:
             items = await list_owned_todos(session, user.id, limit=settings.todo_inject_limit)
         selected = todos_service.select_todos_for_prompt(items, settings, user_timezone=tz)
-        own_items = [item for item in selected if getattr(item, "source", "user") != "gmail"]
-        gmail_items = [item for item in selected if getattr(item, "source", "user") == "gmail"]
-        parts: list[str] = []
-        own_block = todos_service.format_todos_voice_block(own_items, user_timezone=tz)
-        gmail_block = todos_service.format_todos_voice_block(gmail_items, user_timezone=tz)
-        if own_block:
-            parts.append(wrap_untrusted("schedule", own_block, first_party=True))
-        if gmail_block:
-            parts.append(wrap_untrusted("schedule-gmail", gmail_block, first_party=False))
-        return "\n\n".join(parts)
+        block = todos_service.format_todos_voice_block(selected, user_timezone=tz)
+        return wrap_untrusted("schedule", block, first_party=True) if block else ""
     except Exception:
         logger.debug("Live talk schedule load failed", exc_info=True)
         return ""

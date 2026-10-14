@@ -155,7 +155,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("radius_body", "R", "meter", fallback="body_radius"),
         ),
         binding=Binding(
-            asks=("orbital period", "period"),
+            asks=("orbital period", "period", "how long"),
             result=("second",),
             inputs=(frozenset({"M", "altitude", "radius_body"}),),
             cues=("orbit",),
@@ -192,6 +192,31 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter / second",),
             inputs=(frozenset({"M", "orbit_radius", "semi_major"}),),
             cues=("vis-viva", "vis viva", "semi-major", "semimajor"),
+            nonnegative=True,
+        ),
+    ),
+    # g on a named planet or moon, from its mass and radius.
+    formula(
+        "surface_gravity_named",
+        "gravitation",
+        "Newton's law of gravitation",
+        "g",
+        base_latex=r"g = \frac{G M}{R^2}",
+        expression="G_grav*M/radius_body**2",
+        variables=(
+            var("M", "M", "kilogram", fallback="body_mass"),
+            var("radius_body", "R", "meter", fallback="body_radius"),
+        ),
+        binding=Binding(
+            asks=(
+                "acceleration due to gravity",
+                "gravitational acceleration",
+                "surface gravity",
+                "gravitational field strength",
+                "value of g",
+            ),
+            result=("meter / second ** 2",),
+            inputs=(frozenset({"M", "radius_body"}),),
             nonnegative=True,
         ),
     ),

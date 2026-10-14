@@ -156,7 +156,6 @@ async def create(
     due_at: datetime | None = None,
     recurrence_rule: str | None = None,
     sort_order: int | None = None,
-    source: str = "user",
     commit: bool = True,
 ) -> TodoItem:
     normalized_topic = topic.strip() or DEFAULT_TOPIC
@@ -171,7 +170,6 @@ async def create(
         due_at=due_at,
         recurrence_rule=recurrence_rule,
         sort_order=resolved_sort,
-        source=source if source in {"user", "gmail"} else "user",
     )
     planned = write_log.planned()
     if planned is not None:

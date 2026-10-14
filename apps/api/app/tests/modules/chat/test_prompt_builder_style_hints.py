@@ -560,8 +560,6 @@ def test_integration_hints_wraps_todos_section():
     parts = _integration_hints(
         settings=Settings(
             web_search_enabled=False,
-            google_calendar_enabled=False,
-            gmail_enabled=False,
         ),
         query_text=None,
         local_tz="UTC",
@@ -576,35 +574,6 @@ def test_integration_hints_wraps_todos_section():
     joined = "\n".join(parts)
     assert "[BEGIN UNTRUSTED CONTENT — schedule]" in joined
     assert "○ Milk" in joined
-
-
-def test_integration_hints_wraps_gmail_reminders_as_third_party():
-    from app.core.config import Settings
-    from app.modules.chat.prompt_builder import _integration_hints
-
-    parts = _integration_hints(
-        settings=Settings(
-            web_search_enabled=False,
-            google_calendar_enabled=False,
-            gmail_enabled=False,
-        ),
-        query_text=None,
-        local_tz="UTC",
-        user_locale="en",
-        location_for_context=None,
-        prompt_location=None,
-        memory_block="",
-        attachment_rag_block="",
-        todos_section="User Schedule\n### Today\n- ○ Milk at 09:00 (open, topic: Reminders)",
-        gmail_todos_section="### Today\n- ○ Pay invoice at 09:00 (open, topic: Reminders)",
-        summary=None,
-    )
-    joined = "\n".join(parts)
-    gmail_start = joined.index("[BEGIN UNTRUSTED CONTENT — gmail reminders]")
-    gmail_chunk = joined[gmail_start : gmail_start + 500]
-    assert "Pay invoice" in gmail_chunk
-    assert "external sources" in gmail_chunk
-    assert "user-saved notes" not in gmail_chunk
 
 
 def test_explain_transformers_gets_format_contract_not_compact():

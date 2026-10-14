@@ -130,9 +130,7 @@ class TestMathImageExtractSchema:
 class TestAugmentPromptMessagesFromImageExtract:
     @pytest.mark.asyncio
     async def test_system_extract_solves_full_system(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(
             kind="system",
             lhs="x+y",
@@ -151,9 +149,7 @@ class TestAugmentPromptMessagesFromImageExtract:
 
     @pytest.mark.asyncio
     async def test_inequality_extract_solves_inequality(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(
             kind="inequality", lhs="x**2-1", rhs="0", comparator=">", variables=["x"]
         )
@@ -169,9 +165,7 @@ class TestAugmentPromptMessagesFromImageExtract:
     async def test_plain_equation_extract_is_unaffected(self):
         """Backward compat: the original single-equation shape (no kind
         field set explicitly) still produces the same equation-solve path."""
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(lhs="2*x+3", rhs="7", variables=["x"])
         text = "Solve the math problem in this image step by step."
         messages = [{"role": "system", "content": "base"}, {"role": "user", "content": text}]
@@ -183,9 +177,7 @@ class TestAugmentPromptMessagesFromImageExtract:
 
     @pytest.mark.asyncio
     async def test_calculus_extract_differentiates(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(
             kind="calculus",
             operation="differentiate",
@@ -204,9 +196,7 @@ class TestAugmentPromptMessagesFromImageExtract:
 
     @pytest.mark.asyncio
     async def test_limit_extract_evaluates(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(
             kind="limit",
             expr="x**2",
@@ -227,9 +217,7 @@ class TestAugmentPromptMessagesFromImageExtract:
     @pytest.mark.asyncio
     async def test_unicode_equation_extract_solves(self):
         """OCR multiply-sign must ascii-ize through normalize so SymPy can verify."""
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(lhs="2\u00d7x+3", rhs="7", variables=["x"])
         text = "Solve the math problem in this image step by step."
         _, verified = await math_tools.augment_prompt_messages(
@@ -245,9 +233,7 @@ class TestAugmentPromptMessagesFromImageExtract:
 
     @pytest.mark.asyncio
     async def test_rectangle_extract_builds_geometry_fence(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(kind="rectangle", width=8, height=5, unit="cm")
         text = "Solve the math problem in this image step by step."
         _, verified = await math_tools.augment_prompt_messages(
@@ -263,9 +249,7 @@ class TestAugmentPromptMessagesFromImageExtract:
 
     @pytest.mark.asyncio
     async def test_definite_integral_extract_evaluates(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(
             kind="calculus",
             operation="integrate",
@@ -291,9 +275,7 @@ class TestAugmentPromptMessagesFromImageExtract:
 
     @pytest.mark.asyncio
     async def test_triangle_sides_extract_builds_geometry_fence(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(kind="triangle_sides", tri_a=3, tri_b=4, tri_c=5, unit="cm")
         text = "Solve the math problem in this image step by step."
         _, verified = await math_tools.augment_prompt_messages(
@@ -309,9 +291,7 @@ class TestAugmentPromptMessagesFromImageExtract:
 
     @pytest.mark.asyncio
     async def test_statistics_extract_computes_mean(self):
-        settings = Settings(
-            mcp_tools_enabled=False, web_search_enabled=False, math_tools_enabled=True
-        )
+        settings = Settings(web_search_enabled=False, math_tools_enabled=True)
         extract = MathImageExtract(kind="statistics", stats_op="mean", stats_numbers=[1, 3, 5, 7])
         text = "Solve the math problem in this image step by step."
         _, verified = await math_tools.augment_prompt_messages(

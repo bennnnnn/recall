@@ -46,7 +46,6 @@ async def test_production_push_cycle_collects_then_finalizes_on_separate_session
 
     async def finalize(
         session: object,
-        redis: object,
         items: list[OutboundPush],
         delivered: list[bool],
     ) -> None:

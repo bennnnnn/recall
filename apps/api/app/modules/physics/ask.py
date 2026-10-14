@@ -53,6 +53,22 @@ _ASK_REACH = 60
 _LENS = re.compile(r"\blens(?:es)?\b|\bdiopt", re.IGNORECASE)
 
 
+# "How long must the runway be?" and "how long is the rope?" ask for a length.
+# The article keeps "how long will it be before it lands" a time.
+_LENGTH_NOUNS = (
+    r"runway|track|road|rope|string|wire|ramp|pendulum|rod|bridge|cable|tube|pipe|slide"
+    r"|ladder|plank|board|strip|beam|bar|lane|path|wall|side|edge"
+)
+_HOW_LONG_IS_LENGTH = re.compile(
+    r"\bhow long\s+(?:"
+    r"(?:must|should|would|will|does|do|has\s+to|have\s+to|needs?\s+to)\s+"
+    r"(?:the|a|an|its|this|that|each)\s+(?:[\w-]+\s+){0,2}?be\b"
+    r"|(?:is|was|are|were|must|should)\s+(?:the|a|an|its|this|that|each)\s+"
+    rf"(?:[\w-]+\s+){{0,2}}?(?:{_LENGTH_NOUNS})s?\b)",
+    re.IGNORECASE,
+)
+
+
 def _labels_a_value(clause: str, noun: re.Match[str], text: str) -> bool:
     value = _VALUE_AFTER.match(clause, noun.end())
     if value is None:
@@ -97,7 +113,10 @@ def asked_phrases(text: str) -> tuple[str, ...]:
     for noun in nouns:
         if phrases and not _CONNECTOR.fullmatch(clause, previous_end, noun.start()):
             break
-        phrases.append(re.sub(r"\s+", " ", noun.group().lower()))
+        phrase = re.sub(r"\s+", " ", noun.group().lower())
+        if phrase == "how long" and _HOW_LONG_IS_LENGTH.search(clause):
+            phrase = "length"
+        phrases.append(phrase)
         previous_end = noun.end()
     return tuple(phrases)
 

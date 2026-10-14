@@ -1088,7 +1088,7 @@ async def test_build_prompt_minimal_for_who_am_i():
 
 @pytest.mark.asyncio
 async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
-    """A plain greeting must not pay for memory embed / calendar / web hints."""
+    """A plain greeting must not pay for memory embed / web hints."""
     user = MagicMock()
     user.name = "Dev User"
     user.email = "dev@example.com"
@@ -1138,8 +1138,6 @@ async def test_build_prompt_lightweight_hi_skips_memory_and_integrations():
     assert "TODOS SHOULD NOT LOAD" not in system
     assert "Fluffy" in system
     assert "[BEGIN USER PREFERENCES]" in system
-    assert "Checking your calendar" not in system
-    assert "Gmail" not in system
     assert "web_search" not in system.lower()
 
 
@@ -1205,7 +1203,7 @@ async def test_build_prompt_casual_chitchat_loads_memory_without_integrations():
 
 @pytest.mark.asyncio
 async def test_build_prompt_advice_loads_memory_not_integrations():
-    """Dinner recs retrieve memory without Calendar, Gmail, or Schedule."""
+    """Dinner recs retrieve memory without Schedule."""
     user = MagicMock()
     user.name = "Dev User"
     user.email = "dev@example.com"
@@ -1249,8 +1247,6 @@ async def test_build_prompt_advice_loads_memory_not_integrations():
     assert "[BEGIN UNTRUSTED CONTENT — memory]" in system
     assert "personal recommendation" in system
     assert "TODOS SHOULD NOT LOAD" not in system
-    assert "The user may have Google Calendar connected" not in system
-    assert "The user may have Gmail" not in system
 
 
 @pytest.mark.asyncio
@@ -1301,8 +1297,6 @@ async def test_build_prompt_teaching_uses_a_known_detail_in_examples():
     assert "country they actually have" in system
     assert "personal recommendation" not in system
     assert "TODOS SHOULD NOT LOAD" not in system
-    assert "The user may have Google Calendar connected" not in system
-    assert "The user may have Gmail" not in system
 
 
 @pytest.mark.asyncio
@@ -1351,7 +1345,7 @@ async def test_build_prompt_capabilities_overview_uses_memory_not_email_card():
     assert "personal recommendation" not in system
     assert "put only send-ready text" not in system.lower()
     assert "TODOS SHOULD NOT LOAD" not in system
-    assert "The user may have Gmail" not in system
+    assert "does not connect to calendars or email inboxes" in system
 
 
 class _FakeSessionCM:
@@ -1823,19 +1817,6 @@ async def test_classify_turn_mode_day_plan_skips_advice_memory():
     assert mode.advice_memory is False
 
 
-def test_instant_reply_needs_db_only_for_calendar_and_email():
-    """Time/location/coaching answers are CPU-only; calendar/email need Neon."""
-    from app.modules.chat.turn_prep.mode import _instant_reply_needs_db
-
-    assert _instant_reply_needs_db("check my calendar") is True
-    assert _instant_reply_needs_db("check my email") is True
-    assert _instant_reply_needs_db("what time is it") is False
-    assert _instant_reply_needs_db("what year is it") is False
-    assert _instant_reply_needs_db("what's the date") is False
-    assert _instant_reply_needs_db("help me think through this") is False
-    assert _instant_reply_needs_db("solve 2x + 3 = 7") is False
-
-
 def _augment_kwargs(**overrides: object) -> dict[str, object]:
     base: dict[str, object] = {
         "instant_reply": None,
@@ -1843,8 +1824,6 @@ def _augment_kwargs(**overrides: object) -> dict[str, object]:
         "minimal_personal": False,
         "day_planning": False,
         "ambiguous_nearby": False,
-        "is_external_calendar_question": False,
-        "is_external_email_question": False,
         "rich_context": False,
         "needs_math": False,
         "needs_search": False,
@@ -1863,39 +1842,6 @@ def test_should_augment_web_and_tools_skips_slim_casual_without_intent():
     assert _should_augment_web_and_tools(**_augment_kwargs(needs_search=True)) is True
     assert _should_augment_web_and_tools(**_augment_kwargs(needs_math=True)) is True
     assert _should_augment_web_and_tools(**_augment_kwargs(needs_chem=True)) is True
-
-
-def test_should_fetch_integrations_skips_slim_without_calendar_or_gmail():
-    from app.modules.chat.turn_prep.mode import _should_fetch_integrations
-
-    kwargs = {
-        "instant_reply": None,
-        "lightweight": False,
-        "minimal_personal": False,
-        "rich_context": False,
-        "load_calendar": False,
-        "load_gmail": False,
-    }
-    assert _should_fetch_integrations(**kwargs) is False
-    assert _should_fetch_integrations(**{**kwargs, "rich_context": True}) is True
-    assert _should_fetch_integrations(**{**kwargs, "load_calendar": True}) is True
-    assert _should_fetch_integrations(**{**kwargs, "load_gmail": True}) is True
-
-
-def test_should_fetch_integrations_false_on_advice_only():
-    from app.modules.chat.turn_prep.mode import _should_fetch_integrations
-
-    assert (
-        _should_fetch_integrations(
-            instant_reply=None,
-            lightweight=False,
-            minimal_personal=False,
-            rich_context=False,
-            load_calendar=False,
-            load_gmail=False,
-        )
-        is False
-    )
 
 
 @pytest.mark.asyncio
@@ -1999,7 +1945,7 @@ def test_format_user_profile_block_omits_email_by_default():
         ("Hi there", False),
         ("What's my email?", True),
         ("draft an email to my boss", True),
-        ("check my inbox", True),
+        ("check my inbox", False),
     ],
 )
 def test_should_include_profile_email(text, expected):

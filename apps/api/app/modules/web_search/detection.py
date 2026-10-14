@@ -8,6 +8,7 @@ import re
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
 from app.modules.chat import (
+    has_locale_cue,
     is_lightweight_chat_turn,
     is_personal_disclosure_turn,
     is_short_confirmation,
@@ -22,6 +23,7 @@ from app.modules.web_search.patterns import (
     _NEW_PRODUCT,
     _NEWS,
     _ONGOING,
+    _OWN_CALENDAR,
     _PERSONAL_PLANNING,
     _REMINDER_TURN,
     _SHORT_FOLLOWUP_WORDS,
@@ -121,11 +123,7 @@ def web_search_skip(
         return True
     if _PERSONAL_PLANNING.search(cleaned):
         return True
-    from app.modules.integrations import is_external_calendar_question
-
-    if is_external_calendar_question(cleaned):
-        return True
-    return False
+    return bool(_OWN_CALENDAR.search(cleaned)) or has_locale_cue(cleaned, "calendar")
 
 
 # A live or time-sensitive cue is the only reason to spend a model call

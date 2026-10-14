@@ -241,7 +241,6 @@ async def _prompt(
     blocks = _PromptContextBlocks(
         memory_block="",
         todos_section=None,
-        gmail_todos_section=None,
         recent_all=recent,
         attachment_rag_block="",
         chat=None,

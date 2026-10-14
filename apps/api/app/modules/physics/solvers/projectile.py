@@ -204,15 +204,21 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
     # curve is not.
     peak = max(point[1] for point in points)
     span = points[-1][0]
+    radius = max(span, peak) * 0.025 or 0.1
+    # The ball rests on the ground rather than half sunk in it: its centre
+    # rides one radius above the path the graph plots.
+    lifted = [[x, y + radius] for x, y in points]
     scene = SimulationBlockSpec(
         type="projectile_motion",
         title="Projectile",
-        bodies=[SimulationBody(path=points, radius=max(span, peak) * 0.025 or 0.1)],
+        bodies=[SimulationBody(path=lifted, radius=radius)],
         x_min=0.0,
         x_max=max(span * 1.05, peak * 0.25, 1e-12),
         y_min=0.0,
         # Headroom so the gravity arrow at the apex is not clipped by the top.
-        y_max=max(peak * 1.25, span * 0.25, 1.0),
+        # Relative to the throw: a floor of 1 m left a 2 cm flick as a smear
+        # at the bottom of an empty box.
+        y_max=max(peak * 1.25, span * 0.25) + 2 * radius,
         arrows=["velocity", "gravity"],
         ground=True,
     )

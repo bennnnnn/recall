@@ -4,8 +4,9 @@ The worker (`app/worker_main.py`) has no HTTP surface, so Fly can't tell a
 crashed worker from one whose event loop is blocked/deadlocked. This exposes a
 single `/health/ready` endpoint (on `settings.worker_health_port`) that reports
 ready only when Redis is reachable, the job-loop task is alive, AND any started
-periodic schedulers (push / email / Gmail) have not died or gone stale — letting Fly
-auto-restart a stuck worker. It is NOT mounted on the main API app.
+periodic schedulers (push / email / reaper / billing) have not died or gone
+stale — letting Fly auto-restart a stuck worker. It is NOT mounted on the main
+API app.
 """
 
 from __future__ import annotations
