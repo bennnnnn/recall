@@ -29,7 +29,7 @@ up() {
     *) echo "Usage: scripts/dev.sh up [sim|phone]"; exit 1 ;;
   esac
   kill_all_dev
-  "$ROOT/scripts/follow-main.sh" --once --switch
+  "$ROOT/scripts/follow-main.sh" --once
   mkdir -p "$ROOT/tmp"
   (cd "$ROOT/apps/api" && exec uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000) \
     >"$ROOT/tmp/api.log" 2>&1 &
