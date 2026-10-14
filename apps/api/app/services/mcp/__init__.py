@@ -11,7 +11,8 @@ from app.modules.web_search import WebSearchAdapter
 
 def setup_mcp_adapters(settings: Settings) -> None:
     register(WebSearchAdapter(settings))
-    register(CalendarAdapter())
+    if settings.google_calendar_enabled:
+        register(CalendarAdapter())
     if settings.math_tools_enabled:
         register(SympyAdapter(settings))
     if settings.image_generation_enabled:

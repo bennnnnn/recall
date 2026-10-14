@@ -13,7 +13,7 @@ export async function maybeSyncGmailOnForeground(token: string): Promise<void> {
 
   try {
     const status = await api.googleGmailStatus(token);
-    if (!status.connected) return;
+    if (!status.connected || !status.configured) return;
     await api.syncGoogleGmail(token);
   } catch {
     /* best-effort */

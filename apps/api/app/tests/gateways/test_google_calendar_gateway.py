@@ -26,6 +26,7 @@ def _event(cal_name: str) -> CalendarEvent:
 @pytest.mark.asyncio
 async def test_list_upcoming_events_caps_calendar_fanout(monkeypatch):
     settings = Settings(
+        google_calendar_enabled=True,
         google_client_id="x",
         google_client_secret="y",
         calendar_max_calendars=2,
@@ -53,6 +54,7 @@ async def test_list_upcoming_events_caps_calendar_fanout(monkeypatch):
 @pytest.mark.asyncio
 async def test_list_upcoming_events_bounds_concurrency(monkeypatch):
     settings = Settings(
+        google_calendar_enabled=True,
         google_client_id="x",
         google_client_secret="y",
         calendar_max_calendars=20,
@@ -85,6 +87,7 @@ async def test_list_upcoming_events_bounds_concurrency(monkeypatch):
 @pytest.mark.asyncio
 async def test_list_upcoming_events_reports_partial_failures(monkeypatch):
     settings = Settings(
+        google_calendar_enabled=True,
         google_client_id="x",
         google_client_secret="y",
         calendar_max_calendars=10,
@@ -118,7 +121,9 @@ async def test_list_upcoming_events_time_min_is_local_midnight_not_now():
     from datetime import UTC, datetime
     from zoneinfo import ZoneInfo
 
-    settings = Settings(google_client_id="x", google_client_secret="y")
+    settings = Settings(
+        google_calendar_enabled=True, google_client_id="x", google_client_secret="y"
+    )
     captured: dict[str, str] = {}
 
     async def fake_fetch(client, headers, *, calendar_id, calendar_name, **kwargs):

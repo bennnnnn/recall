@@ -642,7 +642,9 @@ async def test_process_calendar_nudges_sends_once_per_event():
         end=now + timedelta(minutes=42),
     )
 
-    settings = Settings(calendar_nudge_enabled=True, calendar_nudge_lead_minutes=15)
+    settings = Settings(
+        google_calendar_enabled=True, calendar_nudge_enabled=True, calendar_nudge_lead_minutes=15
+    )
 
     session.execute = AsyncMock(
         return_value=MagicMock(

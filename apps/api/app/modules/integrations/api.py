@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
+from app.gateways import google_calendar_gateway
 from app.gateways.google_calendar_gateway import GoogleCalendarError
 from app.models.orm import User
 from app.models.schemas import (
@@ -37,7 +38,7 @@ async def calendar_status(
     return GoogleCalendarStatusOut(
         connected=row is not None,
         email=row.google_email if row else None,
-        configured=bool(settings.google_client_id and settings.google_client_secret),
+        configured=google_calendar_gateway.is_configured(settings),
         can_write=calendar_service.has_write_scope(row.scopes) if row else False,
     )
 

@@ -392,7 +392,9 @@ async def test_load_calendar_for_prompt_notes_partial_failure():
     user.timezone = "UTC"
     session = AsyncMock()
     redis = AsyncMock()
-    settings = Settings(google_client_id="x", google_client_secret="y")
+    settings = Settings(
+        google_calendar_enabled=True, google_client_id="x", google_client_secret="y"
+    )
 
     with (
         patch(
@@ -436,7 +438,9 @@ async def test_load_calendar_for_prompt_fetch_error_is_not_empty_calendar():
     user.timezone = "UTC"
     session = AsyncMock()
     redis = AsyncMock()
-    settings = Settings(google_client_id="x", google_client_secret="y")
+    settings = Settings(
+        google_calendar_enabled=True, google_client_id="x", google_client_secret="y"
+    )
     connection = MagicMock(refresh_token="rt", calendar_id="primary")
 
     with (

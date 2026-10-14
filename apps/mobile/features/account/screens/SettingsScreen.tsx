@@ -23,6 +23,8 @@ import {
   connectedCountFromStatus,
   fetchIntegrationStatus,
   getCachedConnectedCount,
+  getCachedIntegrationStatus,
+  integrationsAvailable,
 } from "@/features/integrations/model/integrationStatusCache";
 import { ACCENT_OPTIONS, accentSwatch } from "@/lib/accent";
 import { APPEARANCE_OPTIONS } from "@/lib/appearance";
@@ -43,6 +45,10 @@ export default function SettingsScreen() {
   const action = useSettingsAction();
 
   const [connectedCount, setConnectedCount] = useState(getCachedConnectedCount);
+  // Hidden while the server has Calendar and Gmail turned off.
+  const [showIntegrations, setShowIntegrations] = useState(() =>
+    integrationsAvailable(getCachedIntegrationStatus()),
+  );
   const [osPushGranted, setOsPushGranted] = useState<boolean | null>(null);
 
   // Focus runs on the first visit too, so the OS permission is read once per visit.
@@ -51,7 +57,9 @@ export default function SettingsScreen() {
       if (!token) return;
       void fetchIntegrationStatus(token)
         .then((status) => {
-          if (status) setConnectedCount(connectedCountFromStatus(status));
+          if (!status) return;
+          setConnectedCount(connectedCountFromStatus(status));
+          setShowIntegrations(integrationsAvailable(status));
         })
         .catch(() => undefined);
       void getNotificationPermissionGranted()
@@ -183,13 +191,15 @@ export default function SettingsScreen() {
           value={notificationsValue}
           href="/settings/notifications"
         />
-        <SettingsLinkRow
-          icon="link"
-          title={t("settings.connected_apps")}
-          accessibilityHint={t("settings.connected_apps_summary")}
-          value={integrationsValue}
-          href="/settings/integrations"
-        />
+        {showIntegrations ? (
+          <SettingsLinkRow
+            icon="link"
+            title={t("settings.connected_apps")}
+            accessibilityHint={t("settings.connected_apps_summary")}
+            value={integrationsValue}
+            href="/settings/integrations"
+          />
+        ) : null}
       </SettingsGroup>
 
       <SettingsGroup label={t("settings.data_and_privacy")}>

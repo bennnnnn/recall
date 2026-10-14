@@ -4,6 +4,8 @@ import { StaleResourceCache } from "@/lib/cache/staleResource";
 export type IntegrationStatusSnapshot = {
   calendarConnected: boolean;
   gmailConnected: boolean;
+  /** The server offers Calendar or Gmail, or one is still connected; unset until fetched. */
+  available?: boolean;
 };
 
 const INTEGRATION_STATUS_KEY = "integration-status";
@@ -17,6 +19,12 @@ export function getCachedIntegrationStatus(): IntegrationStatusSnapshot | null {
 
 export function connectedCountFromStatus(status: IntegrationStatusSnapshot): number {
   return (status.calendarConnected ? 1 : 0) + (status.gmailConnected ? 1 : 0);
+}
+
+/** Whether Settings shows Connected apps: off when the server has both turned off. */
+export function integrationsAvailable(status: IntegrationStatusSnapshot | null): boolean {
+  if (!status) return false;
+  return status.available ?? connectedCountFromStatus(status) > 0;
 }
 
 export function getCachedConnectedCount(): number {
@@ -34,6 +42,7 @@ export function patchIntegrationStatusCache(
   resource.update(INTEGRATION_STATUS_KEY, (cached) => ({
     calendarConnected: patch.calendarConnected ?? cached?.calendarConnected ?? false,
     gmailConnected: patch.gmailConnected ?? cached?.gmailConnected ?? false,
+    ...(cached?.available !== undefined ? { available: cached.available } : {}),
   }));
 }
 
@@ -69,6 +78,10 @@ export async function fetchIntegrationStatus(
             ? gmailR.value.connected
             : (cached?.gmailConnected ?? false),
       };
+      next.available =
+        [calendarR, gmailR].some(
+          (r) => r.status === "fulfilled" && (r.value.configured || r.value.connected),
+        ) || (cached?.available ?? false);
       if (calendarR.status === "fulfilled" || gmailR.status === "fulfilled") {
         return next;
       }
