@@ -1,9 +1,9 @@
 /** Shared expo-print → native share helpers for PDF export. */
 
 import * as Print from "expo-print";
-import { Share } from "react-native";
 
 import { isShareCancelled } from "@/lib/shareCancelled";
+import { shareLocalFile } from "@/lib/shareFile";
 
 export { isShareCancelled };
 
@@ -17,13 +17,7 @@ export async function printHtmlToSharedPdf(
   const { uri } = await Print.printToFileAsync({ html });
   if (!isCurrent()) return;
   const title = fileTitle.endsWith(".pdf") ? fileTitle : `${fileTitle}.pdf`;
-  try {
-    const result = await Share.share({ url: uri, title });
-    if (result.action === Share.dismissedAction) {
-      return;
-    }
-  } catch (error) {
-    if (isShareCancelled(error)) return;
-    throw error;
-  }
+  // Through expo-sharing on Android: React Native's Share ignores `url` there
+  // and would send nothing but the title.
+  await shareLocalFile(uri, { title, mimeType: "application/pdf" });
 }

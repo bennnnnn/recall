@@ -13,7 +13,6 @@ import {
   removeCachedAttachmentFiles,
   saveChatAttachmentToLibrary,
   shareChatAttachment,
-  shareRoute,
 } from "@/features/attachments/model/downloadChatAttachment";
 
 jest.mock("expo-file-system/legacy", () => ({
@@ -46,10 +45,6 @@ jest.mock("@/features/attachments/model/fetchAttachmentBytes", () => ({
   fetchAttachmentBase64: jest.fn(async () => "AAAA"),
 }));
 
-jest.mock("@/lib/exportPdf", () => ({
-  isShareCancelled: (error: unknown) =>
-    error instanceof Error && /did not share/i.test(error.message),
-}));
 
 let mockGeneration = 0;
 let mockUuid = 0;
@@ -135,15 +130,6 @@ describe("downloadChatAttachment", () => {
       contentType: "text/markdown; charset=utf-8",
     });
     expect(shareAsync).toHaveBeenCalledWith(expect.any(String), { mimeType: "text/markdown" });
-  });
-
-  it.each([
-    ["ios", true, "expo-sharing"],
-    ["android", true, "expo-sharing"],
-    ["ios", false, "rn-share"],
-    ["android", false, "unavailable"],
-  ] as const)("on %s with expo-sharing=%s shares through %s", (platform, hasSharing, route) => {
-    expect(shareRoute(platform, hasSharing)).toBe(route);
   });
 
   it("falls back to a file url on iOS builds without expo-sharing", async () => {
