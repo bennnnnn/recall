@@ -21,6 +21,14 @@ export function attachmentRequestHeaders(uri: string, token: string | null): Rec
   return token && recallAttachmentPath(uri) ? { Authorization: `Bearer ${token}` } : {};
 }
 
+/** The API serves thumbnails up to this width (`?w=`); a larger value is rejected with 422. */
+export const MAX_ATTACHMENT_THUMB_WIDTH = 512;
+
+/** A thumbnail width the API accepts: whole pixels from 1 to MAX_ATTACHMENT_THUMB_WIDTH. */
+export function attachmentThumbWidth(width: number): number {
+  return Math.min(MAX_ATTACHMENT_THUMB_WIDTH, Math.max(1, Math.round(width)));
+}
+
 export function resolveAttachmentUri(options: {
   attachmentId?: string | null;
   localUri?: string | null;
@@ -41,7 +49,7 @@ export function resolveAttachmentUri(options: {
   const width = options.width;
   if (width && Number.isFinite(width) && width > 0 && recallAttachmentPath(uri)) {
     const url = new URL(uri);
-    url.searchParams.set("w", String(Math.round(width)));
+    url.searchParams.set("w", String(attachmentThumbWidth(width)));
     return url.toString();
   }
   return uri;

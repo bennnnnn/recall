@@ -1,9 +1,24 @@
-import { attachmentRequestHeaders, recallAttachmentPath, resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
+import {
+  MAX_ATTACHMENT_THUMB_WIDTH,
+  attachmentRequestHeaders,
+  attachmentThumbWidth,
+  recallAttachmentPath,
+  resolveAttachmentUri,
+} from "@/features/attachments/model/attachmentUri";
 jest.mock("@/lib/config", () => ({ getApiUrl: () => "https://api.test/v1/" }));
 
 it("builds one canonical API path with a configured base path and trailing slash", () => {
   expect(resolveAttachmentUri({ attachmentId: "abc", width: 300 }))
     .toBe("https://api.test/v1/attachments/abc/file?w=300");
+});
+
+it("caps a thumbnail width at what the API accepts (a tablet tile asks for more)", () => {
+  expect(MAX_ATTACHMENT_THUMB_WIDTH).toBe(512);
+  expect(attachmentThumbWidth(900)).toBe(512);
+  expect(attachmentThumbWidth(240.4)).toBe(240);
+  expect(attachmentThumbWidth(0)).toBe(1);
+  expect(resolveAttachmentUri({ attachmentId: "abc", width: 1100 }))
+    .toBe("https://api.test/v1/attachments/abc/file?w=512");
 });
 
 it("does not change signed external URLs when a thumbnail width is requested", () => {

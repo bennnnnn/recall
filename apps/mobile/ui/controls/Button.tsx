@@ -17,7 +17,8 @@ import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
-type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive";
+/** `media`: a white pill with black ink, for chrome over a photo (the viewer's Share). */
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "destructive" | "media";
 /** sm 36 (inline actions), md 44 (default), lg 52 (a screen's main action). */
 type Size = "sm" | "md" | "lg";
 
@@ -39,7 +40,7 @@ type Props = {
 };
 
 /**
- * The app's button: a pill in five variants and three sizes, with an optional
+ * The app's button: a pill in six variants and three sizes, with an optional
  * leading icon. Leave specialized controls alone (send circle, branded auth).
  */
 export function Button({
@@ -62,9 +63,17 @@ export function Button({
   const ink =
     variant === "primary" || variant === "destructive"
       ? theme.onPrimary
-      : variant === "ghost"
-        ? theme.primary
-        : theme.textSecondary;
+      : variant === "media"
+        ? theme.mediaScrim
+        : variant === "ghost"
+          ? theme.primary
+          : theme.textSecondary;
+  const spinner =
+    variant === "primary" || variant === "destructive"
+      ? theme.onPrimary
+      : variant === "media"
+        ? theme.mediaScrim
+        : theme.primary;
 
   return (
     <Pressable
@@ -76,10 +85,16 @@ export function Button({
         (variant === "secondary" || variant === "outline") && s.outline,
         variant === "ghost" && s.ghost,
         variant === "destructive" && s.destructive,
+        variant === "media" && s.media,
         blocked && s.disabled,
         pressed && !blocked && variant === "primary" && s.pressedPrimary,
-        pressed && !blocked && variant === "destructive" && s.pressedDestructive,
-        pressed && !blocked && variant !== "primary" && variant !== "destructive" && s.pressed,
+        pressed && !blocked && (variant === "destructive" || variant === "media") && s.pressedDestructive,
+        pressed &&
+          !blocked &&
+          variant !== "primary" &&
+          variant !== "destructive" &&
+          variant !== "media" &&
+          s.pressed,
         style,
       ]}
       onPress={onPress}
@@ -92,17 +107,13 @@ export function Button({
       {loading && loadingLabel ? (
         <ActionShimmer
           label={loadingLabel}
-          color={
-            variant === "primary" || variant === "destructive" ? theme.onPrimary : theme.primary
-          }
+          color={spinner}
           compact
           delayMs={220}
           textStyle={s.loadingLabel}
         />
       ) : loading ? (
-        <ActivityIndicator
-          color={variant === "primary" || variant === "destructive" ? theme.onPrimary : theme.primary}
-        />
+        <ActivityIndicator color={spinner} />
       ) : (
         <>
           {icon && iconPlacement === "start" ? <Icon name={icon} size={IconSize.sm} color={ink} /> : null}
@@ -115,6 +126,7 @@ export function Button({
               (variant === "secondary" || variant === "outline") && s.labelOutline,
               variant === "ghost" && s.labelGhost,
               variant === "destructive" && s.labelPrimary,
+              variant === "media" && s.labelMedia,
             ]}
           >
             {title}
@@ -163,6 +175,9 @@ function makeStyles(theme: Theme) {
     destructive: {
       backgroundColor: theme.danger,
     },
+    media: {
+      backgroundColor: theme.onMedia,
+    },
     disabled: {
       opacity: 0.55,
     },
@@ -183,6 +198,9 @@ function makeStyles(theme: Theme) {
     labelLarge: { ...Weight.bold },
     labelPrimary: {
       color: theme.onPrimary,
+    },
+    labelMedia: {
+      color: theme.mediaScrim,
     },
     labelOutline: {
       color: theme.textSecondary,

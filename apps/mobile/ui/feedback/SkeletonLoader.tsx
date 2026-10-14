@@ -102,6 +102,39 @@ export function SkeletonList({ count = 6 }: { count?: number }) {
   );
 }
 
+/**
+ * Square tiles for a grid's first load, laid out like the grid: `size` tiles
+ * in cells padded by `cellPadding`, the rows inset by `padding`.
+ */
+export function SkeletonGrid({
+  columns,
+  size,
+  cellPadding,
+  padding,
+  rows = 4,
+  radius = 6,
+}: {
+  columns: number;
+  size: number;
+  cellPadding: number;
+  padding: number;
+  rows?: number;
+  radius?: number;
+}) {
+  return (
+    <View
+      style={{ flexDirection: "row", flexWrap: "wrap", paddingHorizontal: padding }}
+      testID="skeleton-grid"
+    >
+      {Array.from({ length: columns * rows }, (_, i) => (
+        <View key={i} style={{ padding: cellPadding, width: `${100 / columns}%`, alignItems: "center" }}>
+          <SkeletonBlock width={size} height={size} borderRadius={radius} />
+        </View>
+      ))}
+    </View>
+  );
+}
+
 const BUBBLE_WIDTHS: { align: "left" | "right"; width: `${number}%` }[] = [
   { align: "left", width: "60%" },
   { align: "right", width: "45%" },

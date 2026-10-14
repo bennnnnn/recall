@@ -11,7 +11,15 @@ const mockBack = jest.fn();
 const mockReplace = jest.fn();
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession }));
 jest.mock("@/contexts/AuthContext", () => ({ useAuthToken: () => "token" }));
-jest.mock("@/contexts/actionFeedbackCore", () => ({ useActionFeedbackOptional: () => null }));
+const mockFeedback = { error: jest.fn(), success: jest.fn(), info: jest.fn(), warning: jest.fn(), show: jest.fn(), dismiss: jest.fn() };
+let mockFeedbackEnabled = false;
+jest.mock("@/contexts/actionFeedbackCore", () => ({
+  useActionFeedbackOptional: () => (mockFeedbackEnabled ? mockFeedback : null),
+}));
+jest.mock("@/ui/overlay/dialogs", () => ({
+  confirmDialog: jest.fn(async () => true),
+  alertDialog: jest.fn(async () => undefined),
+}));
 jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 jest.mock("expo-router", () => {
   const { useEffect } = jest.requireActual<typeof import("react")>("react");
@@ -27,7 +35,8 @@ jest.mock("@/features/attachments/model/pendingComposerAttachment", () => ({ que
 jest.mock("@/features/attachments/model/galleryLayout", () => ({ getGalleryLayout: async () => "grid", peekGalleryLayout: () => "grid", setGalleryLayout: jest.fn() }));
 jest.mock("@/features/chat/model/messageCache", () => ({ clearCachedChatMessages: jest.fn() }));
 jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({ shareChatAttachment: jest.fn() }));
-jest.mock("@/features/attachments/model/attachmentUri", () => ({ resolveAttachmentUri: () => "file://attachment" }));
+let mockUri: string | null = "file://attachment";
+jest.mock("@/features/attachments/model/attachmentUri", () => ({ resolveAttachmentUri: () => mockUri }));
 jest.mock("@/lib/haptics", () => ({ selection: jest.fn(), tap: jest.fn() }));
 const item = { id: "one", content_type: "image/png" } as AttachmentListItem;
 const pending = { localUri: "file://image.png", fileName: "image.png", kind: "image", contentType: "image/png" };
@@ -37,7 +46,7 @@ function Probe() {
   React.useLayoutEffect(() => { current = result; }, [result]);
   return <Text>Library</Text>;
 }
-beforeEach(() => { jest.clearAllMocks(); mockSession = 0; });
+beforeEach(() => { jest.clearAllMocks(); mockSession = 0; mockFeedbackEnabled = false; mockUri = "file://attachment"; });
 
 it("does not navigate or queue a Library attachment after leaving", async () => {
   let finish!: (value: unknown) => void;
@@ -104,4 +113,92 @@ it("shares a spreadsheet on tap because it cannot be previewed in-app", async ()
   await act(async () => { await current.openFile(sheet); });
   expect(shareChatAttachment).toHaveBeenCalled();
   expect(current.fileItem).toBeNull();
+});
+
+describe("the photo viewer follows the photo on screen", () => {
+  const photo = (id: string) => ({ id, content_type: "image/png", download_url: `/attachments/${id}/file` }) as AttachmentListItem;
+  const photos = [photo("a"), photo("b"), photo("c")];
+  function ViewerProbe({ items = photos, removeItem = jest.fn() }: { items?: AttachmentListItem[]; removeItem?: (id: string) => void }) {
+    const result = useGalleryLibrary(items, removeItem);
+    React.useLayoutEffect(() => { current = result; }, [result]);
+    return <Text>Library</Text>;
+  }
+
+  it("stays open on the next photo after deleting one the user swiped to", async () => {
+    const { api } = jest.requireMock("@/lib/api") as { api: { deleteAttachment: jest.Mock } };
+    api.deleteAttachment.mockResolvedValueOnce(undefined);
+    const removeItem = jest.fn();
+    await render(<ViewerProbe removeItem={removeItem} />);
+    await act(async () => { current.openImage(photos[0]); });
+    // The viewer reports the photo the user paged to.
+    await act(async () => { current.setViewerId("b"); });
+    await act(async () => { current.confirmDelete(photos[1]); });
+    await act(async () => { await Promise.resolve(); });
+    expect(api.deleteAttachment).toHaveBeenCalledWith("token", "b");
+    expect(removeItem).toHaveBeenCalledWith("b");
+    expect(current.viewerItem?.id).toBe("c");
+  });
+
+  it("closes after deleting the only photo", async () => {
+    const { api } = jest.requireMock("@/lib/api") as { api: { deleteAttachment: jest.Mock } };
+    api.deleteAttachment.mockResolvedValueOnce(undefined);
+    const only = [photo("solo")];
+    await render(<ViewerProbe items={only} />);
+    await act(async () => { current.openImage(only[0]); });
+    await act(async () => { current.confirmDelete(only[0]); });
+    await act(async () => { await Promise.resolve(); });
+    expect(current.viewerItem).toBeNull();
+  });
+
+  it("keeps the viewer on its photo when another item is deleted", async () => {
+    const { api } = jest.requireMock("@/lib/api") as { api: { deleteAttachment: jest.Mock } };
+    api.deleteAttachment.mockResolvedValueOnce(undefined);
+    await render(<ViewerProbe />);
+    await act(async () => { current.openImage(photos[2]); });
+    await act(async () => { current.confirmDelete(photos[0]); });
+    await act(async () => { await Promise.resolve(); });
+    expect(current.viewerItem?.id).toBe("c");
+  });
+});
+
+describe("visible feedback instead of silent no-ops", () => {
+  it("says so when an item has no address to share", async () => {
+    mockFeedbackEnabled = true;
+    mockUri = null;
+    const { shareChatAttachment } = jest.requireMock("@/features/attachments/model/downloadChatAttachment") as {
+      shareChatAttachment: jest.Mock;
+    };
+    await render(<Probe />);
+    await act(async () => { await current.shareFile(item); });
+    expect(shareChatAttachment).not.toHaveBeenCalled();
+    expect(mockFeedback.error).toHaveBeenCalledWith("common.share_failed");
+  });
+
+  it("marks the item busy while it is shared, and shares one at a time", async () => {
+    const { shareChatAttachment } = jest.requireMock("@/features/attachments/model/downloadChatAttachment") as {
+      shareChatAttachment: jest.Mock;
+    };
+    let finish!: () => void;
+    shareChatAttachment.mockReturnValueOnce(new Promise<void>((resolve) => { finish = resolve; }));
+    await render(<Probe />);
+    let sharing!: Promise<void>;
+    await act(async () => { sharing = current.shareFile(item); });
+    expect(current.busyItemId).toBe("one");
+    await act(async () => { await current.shareFile(item); });
+    expect(shareChatAttachment).toHaveBeenCalledTimes(1);
+    expect(shareChatAttachment).toHaveBeenCalledWith(expect.objectContaining({ contentType: "image/png" }));
+    await act(async () => { finish(); await sharing; });
+    expect(current.busyItemId).toBeNull();
+  });
+
+  it("marks the item busy while a pick is attached", async () => {
+    let finish!: (value: unknown) => void;
+    (pendingFromLibraryItem as jest.Mock).mockReturnValueOnce(new Promise((resolve) => { finish = resolve; }));
+    await render(<Probe />);
+    let selecting!: Promise<void>;
+    await act(async () => { selecting = current.attachToComposer(item); });
+    expect(current.busyItemId).toBe("one");
+    await act(async () => { finish(pending); await selecting; });
+    expect(current.busyItemId).toBeNull();
+  });
 });

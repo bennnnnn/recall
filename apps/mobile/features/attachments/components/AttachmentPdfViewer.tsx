@@ -8,6 +8,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";
@@ -31,6 +32,8 @@ type Props = {
   path?: string | null;
   fileName: string;
   onShare: () => void;
+  /** The share is being prepared: the button spins and waits. */
+  sharing?: boolean;
 };
 
 export function AttachmentPdfViewer({
@@ -41,6 +44,7 @@ export function AttachmentPdfViewer({
   path,
   fileName,
   onShare,
+  sharing = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -86,30 +90,38 @@ export function AttachmentPdfViewer({
 
   return (
     <FullScreenModal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <View style={s.toolbar}>
-          <HeaderButton icon="close" onPress={onClose} accessibilityLabel={t("chat.pdf_close_a11y")} />
-          <Text style={s.title} numberOfLines={1}>
-            {fileName}
-          </Text>
-          <HeaderButton icon="share" onPress={onShare} accessibilityLabel={t("chat.pdf_share_a11y")} />
-        </View>
-        <View style={s.body}>
-          {loading ? (
-            <ActivityIndicator color={theme.primary} size="large" />
-          ) : failed || !WebView || !html ? (
-            <Text style={s.error}>{t("chat.pdf_preview_failed")}</Text>
-          ) : (
-            <WebView
-              originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
-              source={{ html }}
-              style={s.webview}
-              javaScriptEnabled
-              onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+      {/* Toasts (a failed share) show inside the viewer, not under it. */}
+      <ActionFeedbackProvider>
+        <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+          <View style={s.toolbar}>
+            <HeaderButton icon="close" onPress={onClose} accessibilityLabel={t("chat.pdf_close_a11y")} />
+            <Text style={s.title} numberOfLines={1} ellipsizeMode="middle">
+              {fileName}
+            </Text>
+            <HeaderButton
+              icon="share"
+              onPress={onShare}
+              busy={sharing}
+              accessibilityLabel={t("chat.pdf_share_a11y")}
             />
-          )}
+          </View>
+          <View style={s.body}>
+            {loading ? (
+              <ActivityIndicator color={theme.primary} size="large" />
+            ) : failed || !WebView || !html ? (
+              <Text style={s.error}>{t("chat.pdf_preview_failed")}</Text>
+            ) : (
+              <WebView
+                originWhitelist={STATIC_HTML_ORIGIN_WHITELIST}
+                source={{ html }}
+                style={s.webview}
+                javaScriptEnabled
+                onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+              />
+            )}
+          </View>
         </View>
-      </View>
+      </ActionFeedbackProvider>
     </FullScreenModal>
   );
 }
@@ -123,7 +135,7 @@ function makeViewerStyles(t: Theme) {
       gap: Space.sm,
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: 1,
       borderBottomColor: t.border,
     },
     title: { flex: 1, ...Type.body, ...Weight.semibold, color: t.text },

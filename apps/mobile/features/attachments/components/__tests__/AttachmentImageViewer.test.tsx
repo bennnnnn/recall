@@ -1,9 +1,14 @@
 import { act, fireEvent, render } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
-import { ensureLocalAttachmentFile } from "@/features/attachments/model/downloadChatAttachment";
+import {
+  ensureLocalAttachmentFile,
+  saveChatAttachmentToLibrary,
+  shareChatAttachment,
+} from "@/features/attachments/model/downloadChatAttachment";
 import { AttachmentImageViewer } from "@/features/attachments/components/AttachmentImageViewer";
 import { lightTheme as mockLightTheme } from "@/lib/theme";
+import { alertDialog } from "@/ui/overlay/dialogs";
 
 jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "tok",
@@ -20,8 +25,16 @@ jest.mock("@/features/attachments/model/downloadChatAttachment", () => ({
   shareChatAttachment: jest.fn(),
 }));
 jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, values?: Record<string, unknown>) =>
+      values ? `${key}:${Object.values(values).join("|")}` : key,
+  }),
 }));
+jest.mock("expo-status-bar", () => {
+  const { Text } = jest.requireActual("react-native") as typeof import("react-native");
+  return { StatusBar: ({ style }: { style: string }) => <Text testID="viewer-status-bar">{style}</Text> };
+});
+jest.mock("@/ui/overlay/dialogs", () => ({ alertDialog: jest.fn(), confirmDialog: jest.fn() }));
 jest.mock("react-native-safe-area-context", () => ({
   useSafeAreaInsets: () => ({ top: 0, bottom: 0, left: 0, right: 0 }),
 }));
@@ -34,7 +47,11 @@ let mockGeneration = 0;
 jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockGeneration }));
 
 describe("AttachmentImageViewer", () => {
-  beforeEach(() => { mockGeneration = 0; jest.mocked(ensureLocalAttachmentFile).mockReset().mockImplementation(() => new Promise(() => {})); });
+  beforeEach(() => {
+    mockGeneration = 0;
+    jest.clearAllMocks();
+    jest.mocked(ensureLocalAttachmentFile).mockReset().mockImplementation(() => new Promise(() => {}));
+  });
   it("shows Retry after the image fails instead of spinning forever", async () => {
     const { getByTestId, queryByTestId } = await render(
       <AttachmentImageViewer visible attachmentId="a" />,
@@ -158,8 +175,8 @@ describe("AttachmentImageViewer", () => {
     expect(onOpenChat).toHaveBeenCalledWith(expect.objectContaining({ attachmentId: "a", chatId: "c1" }));
   });
 
-  it("keeps only share, download, and more in the header", async () => {
-    const { getByLabelText, queryByLabelText } = await render(
+  it("puts More, Download and a Share pill on the right, in that order", async () => {
+    const { getByLabelText, queryByLabelText, getByTestId } = await render(
       <AttachmentImageViewer
         visible
         images={[{ attachmentId: "a", chatId: "c1" }]}
@@ -169,11 +186,32 @@ describe("AttachmentImageViewer", () => {
       />,
     );
     expect(getByLabelText("preview.close")).toBeTruthy();
-    expect(getByLabelText("preview.share")).toBeTruthy();
-    expect(getByLabelText("common.download")).toBeTruthy();
-    expect(getByLabelText("preview.more_a11y")).toBeTruthy();
+    const header = getByLabelText("preview.more_a11y").parent!;
+    const order = header.children
+      .filter((child): child is NonNullable<typeof child> & { props: { accessibilityLabel?: string } } =>
+        typeof child !== "string")
+      .map((child) => child.props.accessibilityLabel);
+    expect(order).toEqual(["preview.more_a11y", "common.download", "preview.share"]);
     expect(queryByLabelText("gallery.use_in_chat")).toBeNull();
     expect(queryByLabelText("common.delete")).toBeNull();
+    // Nothing at the bottom: no page dots.
+    expect(getByTestId("attachment-image-viewer")).toBeTruthy();
+  });
+
+  it("hides More when it has nothing to offer (chat)", async () => {
+    const { getByLabelText, queryByLabelText } = await render(
+      <AttachmentImageViewer visible attachmentId="a" />,
+    );
+    expect(getByLabelText("preview.share")).toBeTruthy();
+    expect(getByLabelText("common.download")).toBeTruthy();
+    expect(queryByLabelText("preview.more_a11y")).toBeNull();
+  });
+
+  it("turns the status bar light while open", async () => {
+    const view = await render(<AttachmentImageViewer visible attachmentId="a" />);
+    expect(view.getByTestId("viewer-status-bar").props.children).toBe("light");
+    await view.rerender(<AttachmentImageViewer visible={false} attachmentId="a" />);
+    expect(view.queryByTestId("viewer-status-bar")).toBeNull();
   });
 
   it("hides chrome on a tap and brings it back on the next tap", async () => {
@@ -189,15 +227,29 @@ describe("AttachmentImageViewer", () => {
     expect(getByLabelText("preview.share")).toBeTruthy();
   });
 
-  it("puts each header icon on its own circular chip", async () => {
+  it("lets a screen reader toggle the controls by activating the photo", async () => {
+    const { getByTestId, queryByLabelText } = await render(
+      <AttachmentImageViewer visible attachmentId="a" fileName="cat.png" />,
+    );
+    const photo = getByTestId("attachment-viewer-tap");
+    expect(photo.props.accessibilityRole).toBe("image");
+    expect(photo.props.accessibilityLabel).toBe("cat.png");
+    await fireEvent(photo, "accessibilityAction", { nativeEvent: { actionName: "activate" } });
+    expect(queryByLabelText("preview.close")).toBeNull();
+  });
+
+  it("puts round media chips on the left and a white Share pill on the right", async () => {
     const { getByLabelText } = await render(
       <AttachmentImageViewer visible attachmentId="a" />,
     );
     const close = StyleSheet.flatten(getByLabelText("preview.close").props.style);
     expect(close.backgroundColor).toBeTruthy();
     expect(close.borderRadius).toBeGreaterThan(20);
+    const download = StyleSheet.flatten(getByLabelText("common.download").props.style);
+    expect(download.backgroundColor).toBe(close.backgroundColor);
     const share = StyleSheet.flatten(getByLabelText("preview.share").props.style);
-    expect(share.backgroundColor).toBe(close.backgroundColor);
+    expect(share.backgroundColor).toBe(mockLightTheme.onMedia);
+    expect(share.minHeight).toBe(44);
   });
 
   it("slides the lightbox so a downward pull can dismiss it", async () => {
@@ -211,5 +263,99 @@ describe("AttachmentImageViewer", () => {
       { translateY: 0 },
       { scale: 0.94 },
     ]);
+  });
+
+  it("stops paging while the photo is zoomed", async () => {
+    const view = await render(
+      <AttachmentImageViewer visible images={[{ attachmentId: "a" }, { attachmentId: "b" }]} />,
+    );
+    expect(view.getByTestId("attachment-viewer-pager").props.scrollEnabled).toBe(true);
+    const [first] = view.getAllByTestId("attachment-viewer-tap");
+    await act(async () => {
+      await fireEvent(first, "zoomChange", true);
+    });
+    expect(view.getByTestId("attachment-viewer-pager").props.scrollEnabled).toBe(false);
+    await act(async () => {
+      await fireEvent(view.getAllByTestId("attachment-viewer-tap")[0], "zoomChange", false);
+    });
+    expect(view.getByTestId("attachment-viewer-pager").props.scrollEnabled).toBe(true);
+  });
+
+  describe("paging by photo, not by position", () => {
+    const WIDTH = 750; // the jest window width
+    const photos = (...ids: string[]) => ids.map((id) => ({ attachmentId: id, fileName: `${id}.png` }));
+    const pageTo = async (view: Awaited<ReturnType<typeof render>>, index: number) => {
+      await act(async () => {
+        await fireEvent(view.getByTestId("attachment-viewer-pager"), "momentumScrollEnd", {
+          nativeEvent: { contentOffset: { x: index * WIDTH, y: 0 } },
+        });
+      });
+    };
+
+    it("deletes the photo on screen and then acts on the next one", async () => {
+      const onDelete = jest.fn();
+      const onIndexChange = jest.fn();
+      const view = await render(
+        <AttachmentImageViewer visible images={photos("a", "b", "c")} initialIndex={0} onDelete={onDelete} onIndexChange={onIndexChange} />,
+      );
+      await pageTo(view, 1);
+      expect(onIndexChange).toHaveBeenLastCalledWith(expect.objectContaining({ attachmentId: "b" }), 1);
+      await fireEvent.press(view.getByLabelText("preview.more_a11y"));
+      await fireEvent.press(view.getByLabelText("common.delete"));
+      expect(onDelete).toHaveBeenCalledWith(expect.objectContaining({ attachmentId: "b" }));
+
+      // The Library removes b and keeps the viewer open on its neighbour.
+      await view.rerender(
+        <AttachmentImageViewer visible images={photos("a", "c")} initialIndex={1} onDelete={onDelete} onIndexChange={onIndexChange} />,
+      );
+      expect(onIndexChange).toHaveBeenLastCalledWith(expect.objectContaining({ attachmentId: "c" }), 1);
+      await fireEvent.press(view.getByLabelText("preview.share"));
+      expect(shareChatAttachment).toHaveBeenCalledWith(expect.objectContaining({ uri: "http://test.local/c" }));
+    });
+
+    it("stays on the same photo when one before it is removed", async () => {
+      const view = await render(
+        <AttachmentImageViewer visible images={photos("a", "b", "c")} initialIndex={2} />,
+      );
+      await pageTo(view, 0);
+      // Deleting a elsewhere shifts every index; the viewer must keep showing what it showed.
+      await view.rerender(<AttachmentImageViewer visible images={photos("x", "a", "b", "c")} initialIndex={3} />);
+      await fireEvent.press(view.getByLabelText("preview.share"));
+      expect(shareChatAttachment).toHaveBeenLastCalledWith(expect.objectContaining({ uri: "http://test.local/a" }));
+      const labels = view.getAllByTestId("attachment-viewer-tap").map((stage) => stage.props.accessibilityLabel);
+      expect(labels).toContain("gallery.viewer_image_a11y:a.png|2|4");
+    });
+
+    it("asks for the next Library page when it nears the last loaded photo", async () => {
+      const onNearEnd = jest.fn();
+      const view = await render(
+        <AttachmentImageViewer visible images={photos("a", "b", "c", "d", "e")} initialIndex={0} onNearEnd={onNearEnd} />,
+      );
+      expect(onNearEnd).not.toHaveBeenCalled();
+      await pageTo(view, 2);
+      expect(onNearEnd).toHaveBeenCalled();
+    });
+  });
+
+  describe("feedback inside the viewer", () => {
+    it("shows Saved as a toast in the viewer instead of a blocking dialog", async () => {
+      jest.mocked(saveChatAttachmentToLibrary).mockResolvedValueOnce("saved");
+      const view = await render(<AttachmentImageViewer visible attachmentId="a" />);
+      await act(async () => {
+        await fireEvent.press(view.getByLabelText("common.download"));
+      });
+      expect(view.getByText("common.saved_to_photos")).toBeTruthy();
+      expect(alertDialog).not.toHaveBeenCalled();
+    });
+
+    it("shows a failed share as a toast in the viewer", async () => {
+      jest.mocked(shareChatAttachment).mockRejectedValueOnce(new Error("boom"));
+      const view = await render(<AttachmentImageViewer visible attachmentId="a" />);
+      await act(async () => {
+        await fireEvent.press(view.getByLabelText("preview.share"));
+      });
+      expect(view.getByText("common.share_image_error")).toBeTruthy();
+      expect(alertDialog).not.toHaveBeenCalled();
+    });
   });
 });

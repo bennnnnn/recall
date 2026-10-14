@@ -1,6 +1,7 @@
 import { writeAsStringAsync, getInfoAsync, readDirectoryAsync, deleteAsync } from "expo-file-system/legacy";
 import * as MediaLibrary from "expo-media-library";
-import { Share } from "react-native";
+import { shareAsync } from "expo-sharing";
+import { Platform, Share } from "react-native";
 
 import { fetchAttachmentBase64 } from "@/features/attachments/model/fetchAttachmentBytes";
 import {
@@ -12,6 +13,7 @@ import {
   removeCachedAttachmentFiles,
   saveChatAttachmentToLibrary,
   shareChatAttachment,
+  shareRoute,
 } from "@/features/attachments/model/downloadChatAttachment";
 
 jest.mock("expo-file-system/legacy", () => ({
@@ -32,6 +34,13 @@ jest.mock("react-native", () => ({
   Platform: { OS: "ios" },
   Share: { share: jest.fn(async () => undefined) },
 }));
+
+// expo-sharing is loaded only when its native module is in the build.
+let mockHasSharing = true;
+jest.mock("expo-modules-core", () => ({
+  requireOptionalNativeModule: (name: string) => (name === "ExpoSharing" && mockHasSharing ? {} : null),
+}));
+jest.mock("expo-sharing", () => ({ shareAsync: jest.fn(async () => undefined) }));
 
 jest.mock("@/features/attachments/model/fetchAttachmentBytes", () => ({
   fetchAttachmentBase64: jest.fn(async () => "AAAA"),
@@ -57,6 +66,8 @@ describe("downloadChatAttachment", () => {
     jest.clearAllMocks();
     resetLocalAttachmentFileCache();
     mockGeneration = 0;
+    mockHasSharing = true;
+    (Platform as { OS: string }).OS = "ios";
     jest.mocked(readDirectoryAsync).mockReset().mockResolvedValue([]);
     jest.mocked(getInfoAsync).mockResolvedValue({ exists: true, isDirectory: false, uri: "file:///cache/a", size: 1, modificationTime: 0 });
   });
@@ -104,7 +115,39 @@ describe("downloadChatAttachment", () => {
     expect(MediaLibrary.saveToLibraryAsync).toHaveBeenCalled();
   });
 
-  it("shares a local file url on iOS", async () => {
+  it("hands the file itself to the share sheet, with its type for Android", async () => {
+    (Platform as { OS: string }).OS = "android";
+    await shareChatAttachment({
+      uri: "http://127.0.0.1:8000/attachments/abc/file",
+      token: "tok",
+      fileName: "cat.png",
+    });
+    expect(shareAsync).toHaveBeenCalledWith(expect.stringMatching(/^file:\/\/.*cat\.png$/), { mimeType: "image/png" });
+    // Android's RN Share would send the cache path as text.
+    expect(Share.share).not.toHaveBeenCalled();
+  });
+
+  it("prefers the item's own content type over the file name's", async () => {
+    await shareChatAttachment({
+      uri: "http://127.0.0.1:8000/attachments/abc/file",
+      token: "tok",
+      fileName: "notes",
+      contentType: "text/markdown; charset=utf-8",
+    });
+    expect(shareAsync).toHaveBeenCalledWith(expect.any(String), { mimeType: "text/markdown" });
+  });
+
+  it.each([
+    ["ios", true, "expo-sharing"],
+    ["android", true, "expo-sharing"],
+    ["ios", false, "rn-share"],
+    ["android", false, "unavailable"],
+  ] as const)("on %s with expo-sharing=%s shares through %s", (platform, hasSharing, route) => {
+    expect(shareRoute(platform, hasSharing)).toBe(route);
+  });
+
+  it("falls back to a file url on iOS builds without expo-sharing", async () => {
+    mockHasSharing = false;
     await shareChatAttachment({
       uri: "http://127.0.0.1:8000/attachments/abc/file",
       token: "tok",
@@ -113,10 +156,19 @@ describe("downloadChatAttachment", () => {
     expect(Share.share).toHaveBeenCalledWith(
       expect.objectContaining({ url: expect.stringContaining("file://") }),
     );
+    expect(shareAsync).not.toHaveBeenCalled();
+  });
+
+  it("refuses to share a path as text on Android builds without expo-sharing", async () => {
+    mockHasSharing = false;
+    (Platform as { OS: string }).OS = "android";
+    await expect(shareChatAttachment({ uri: "http://127.0.0.1:8000/attachments/abc/file", token: "tok" }))
+      .rejects.toThrow("Sharing files needs an app update.");
+    expect(Share.share).not.toHaveBeenCalled();
   });
 
   it("does not throw when the user dismisses the share sheet", async () => {
-    jest.mocked(Share.share).mockRejectedValueOnce(new Error("User did not share"));
+    jest.mocked(shareAsync).mockRejectedValueOnce(new Error("User did not share"));
     await expect(
       shareChatAttachment({
         uri: "http://127.0.0.1:8000/attachments/abc/file",
@@ -154,6 +206,7 @@ describe("downloadChatAttachment", () => {
     jest.mocked(fetchAttachmentBase64).mockImplementationOnce(async () => { mockGeneration++; return "AAAA"; });
     await expect(shareChatAttachment({ uri: "https://api.test/attachments/abc/file", token: "tok" }))
       .rejects.toThrow("Session changed");
+    expect(shareAsync).not.toHaveBeenCalled();
     expect(Share.share).not.toHaveBeenCalled();
     expect(writeAsStringAsync).not.toHaveBeenCalled();
   });
@@ -245,11 +298,11 @@ it("keeps long filenames within native limits while preserving their extension",
 
 it("does not reopen a failed share sheet when Photos permission is denied", async () => {
   jest.mocked(MediaLibrary.requestPermissionsAsync).mockResolvedValueOnce({ granted: false } as MediaLibrary.PermissionResponse);
-  jest.mocked(Share.share).mockRejectedValueOnce(new Error("Share unavailable"));
-  const callsBefore = jest.mocked(Share.share).mock.calls.length;
+  jest.mocked(shareAsync).mockRejectedValueOnce(new Error("Share unavailable"));
+  const callsBefore = jest.mocked(shareAsync).mock.calls.length;
   await expect(saveChatAttachmentToLibrary({ uri: "https://files.test/share-failure", token: "tok" }))
     .rejects.toThrow("Share unavailable");
-  expect(Share.share).toHaveBeenCalledTimes(callsBefore + 1);
+  expect(shareAsync).toHaveBeenCalledTimes(callsBefore + 1);
 });
 
 

@@ -8,8 +8,9 @@ jest.mock("@/contexts/AuthContext", () => ({
   useAuthToken: () => "tok",
 }));
 jest.mock("@/features/attachments/model/attachmentUri", () => ({
-  resolveAttachmentUri: ({ attachmentId }: { attachmentId: string }) =>
-    `http://test.local/${attachmentId}`,
+  resolveAttachmentUri: ({ attachmentId, width }: { attachmentId: string; width?: number }) =>
+    `http://test.local/${attachmentId}${width ? `?w=${width}` : ""}`,
+  attachmentThumbWidth: (width: number) => Math.min(512, Math.max(1, Math.round(width))),
 }));
 jest.mock("@/lib/api", () => ({
   attachmentRecordExists: jest.fn(async () => true),
@@ -119,6 +120,13 @@ describe("GalleryThumbnail", () => {
     });
     expect(onMissing).toHaveBeenCalledTimes(1);
     expect(onMissing).toHaveBeenCalledWith("gone");
+  });
+
+  it("asks for a 2x thumbnail, capped at the 512px the API serves", async () => {
+    const phone = await render(<GalleryThumbnail attachmentId="a" size={120} />);
+    expect(phone.getByTestId("gallery-thumb-image").props.source.uri).toBe("http://test.local/a?w=240");
+    const tablet = await render(<GalleryThumbnail attachmentId="b" size={400} />);
+    expect(tablet.getByTestId("gallery-thumb-image").props.source.uri).toBe("http://test.local/b?w=512");
   });
 
   it("reloads the image when Retry is pressed", async () => {

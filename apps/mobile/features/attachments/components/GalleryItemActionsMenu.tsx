@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 
 import { Menu, type MenuEntry } from "@/ui/overlay/Menu";
+import { galleryItemActions, type GalleryItemAction } from "@/features/attachments/model/gallery";
 
 type Props = {
   visible: boolean;
@@ -26,16 +27,13 @@ export function GalleryItemActionsMenu({
   onDelete,
 }: Props) {
   const { t } = useTranslation();
-  const items: MenuEntry[] = [
-    { key: "use", icon: "attach", label: t("gallery.use_in_chat"), onPress: onUseInChat },
-  ];
-  if (canOpenChat) {
-    items.push({ key: "open", icon: "message", label: t("gallery.open_chat"), onPress: onOpenChat });
-  }
-  items.push(
-    { key: "share", icon: "share", label: t("gallery.share"), onPress: onShare },
-    { key: "delete", icon: "trash", label: t("common.delete"), onPress: onDelete, destructive: true },
-  );
+  const entries: Record<GalleryItemAction, MenuEntry> = {
+    use: { key: "use", icon: "attach", label: t("gallery.use_in_chat"), onPress: onUseInChat },
+    open_chat: { key: "open", icon: "message", label: t("gallery.open_chat"), onPress: onOpenChat },
+    share: { key: "share", icon: "share", label: t("gallery.share"), onPress: onShare },
+    delete: { key: "delete", icon: "trash", label: t("common.delete"), onPress: onDelete, destructive: true },
+  };
+  const items = galleryItemActions({ chat_id: canOpenChat ? "chat" : null }).map((action) => entries[action]);
 
   return (
     <Menu

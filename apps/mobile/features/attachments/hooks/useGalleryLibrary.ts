@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useFocusEffect, useLocalSearchParams, useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
@@ -10,7 +10,13 @@ import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri
 import { removeCachedGalleryItem } from "@/features/attachments/model/galleryListCache";
 import { clearCachedChatMessages } from "@/features/chat/model/messageCache";
 import { shareChatAttachment } from "@/features/attachments/model/downloadChatAttachment";
-import { galleryFileName, isReadableTextContentType, libraryOpenChatHref } from "@/features/attachments/model/gallery";
+import {
+  galleryFileName,
+  galleryImageItems,
+  galleryNeighborImageId,
+  isReadableTextContentType,
+  libraryOpenChatHref,
+} from "@/features/attachments/model/gallery";
 import { isPdfContentType } from "@/lib/messageAttachments";
 import {
   getGalleryLayout,
@@ -40,9 +46,13 @@ export function useGalleryLibrary(
   const [fileItem, setFileItem] = useState<AttachmentListItem | null>(null);
   const [actionItem, setActionItem] = useState<AttachmentListItem | null>(null);
   const [actionPoint, setActionPoint] = useState<{ x: number; y: number } | null>(null);
+  /** The item being shared or attached; its tile shows a spinner meanwhile. */
+  const [busyItemId, setBusyItemId] = useState<string | null>(null);
   const sharingRef = useRef(false);
   const attachingRef = useRef(false);
   const deletingRef = useRef(new Set<string>());
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
   const layoutEditedRef = useRef(false);
   const viewRef = useRef({ focused: true, version: 0 });
   useFocusEffect(useCallback(() => {
@@ -55,6 +65,7 @@ export function useGalleryLibrary(
     setActionItem(null);
     setViewerId(null);
     setFileItem(null);
+    setBusyItemId(null);
   }, [session]);
 
   useEffect(() => {
@@ -81,28 +92,36 @@ export function useGalleryLibrary(
   const shareFile = useCallback(
     async (item: AttachmentListItem) => {
       const version = viewRef.current.version;
-      if (!token || !isCurrent(version) || sharingRef.current) return;
+      if (!token || !isCurrent(version)) return;
+      // One share at a time; its tile already shows a spinner.
+      if (sharingRef.current) return;
       const uri = resolveAttachmentUri({
         attachmentId: item.id,
         path: item.download_url,
       });
-      if (!uri) return;
+      if (!uri) {
+        reportRecoverableError(feedback, t("common.share_failed"));
+        return;
+      }
       sharingRef.current = true;
+      setBusyItemId(item.id);
       try {
         await shareChatAttachment({
           uri,
           token,
-          fileName: galleryFileName(item.content_type, item.original_filename),
+          fileName: galleryFileName(item.content_type, item.original_filename, item.source),
+          contentType: item.content_type,
         });
         if (isCurrent(version)) setActionItem((current) => current?.id === item.id ? null : current);
       } catch (shareError) {
         if (!isCurrent(version)) return;
         reportRecoverableError(
           feedback,
-          shareError instanceof Error ? shareError.message : t("common.error"),
+          shareError instanceof Error ? shareError.message : t("common.share_failed"),
         );
       } finally {
         sharingRef.current = false;
+        setBusyItemId((current) => (current === item.id ? null : current));
       }
     },
     [t, token, feedback, isCurrent],
@@ -122,6 +141,7 @@ export function useGalleryLibrary(
       const version = viewRef.current.version;
       if (!token || !isCurrent(version) || attachingRef.current) return;
       attachingRef.current = true;
+      setBusyItemId(item.id);
       try {
         const pending = await pendingFromLibraryItem(item, token);
         if (!isCurrent(version)) return;
@@ -139,6 +159,7 @@ export function useGalleryLibrary(
         );
       } finally {
         attachingRef.current = false;
+        setBusyItemId((current) => (current === item.id ? null : current));
       }
     },
     [feedback, router, t, token, isCurrent, targetThread],
@@ -155,8 +176,11 @@ export function useGalleryLibrary(
         removeCachedGalleryItem(item.id);
         if (item.chat_id) void clearCachedChatMessages(item.chat_id);
         if (!isCurrent(version)) return;
+        // The viewer stays open on the next photo (or the one before); it
+        // closes only when the deleted photo was the last one.
+        const neighbor = galleryNeighborImageId(galleryImageItems(itemsRef.current), item.id);
         removeItem(item.id);
-        setViewerId((current) => (current === item.id ? null : current));
+        setViewerId((current) => (current === item.id ? neighbor : current));
         setFileItem((current) => (current?.id === item.id ? null : current));
         setActionItem((current) => (current?.id === item.id ? null : current));
       } catch (deleteError) {
@@ -215,22 +239,41 @@ export function useGalleryLibrary(
     [shareFile],
   );
 
-  return {
-    layout,
-    toggleLayout,
-    viewerItem,
-    setViewerId,
-    fileItem,
-    setFileItem,
-    actionItem,
-    actionPoint,
-    setActionItem,
-    shareFile,
-    openChat,
-    attachToComposer,
-    confirmDelete,
-    openActions,
-    openImage,
-    openFile,
-  };
+  return useMemo(
+    () => ({
+      layout,
+      toggleLayout,
+      viewerItem,
+      setViewerId,
+      fileItem,
+      setFileItem,
+      actionItem,
+      actionPoint,
+      setActionItem,
+      busyItemId,
+      shareFile,
+      openChat,
+      attachToComposer,
+      confirmDelete,
+      openActions,
+      openImage,
+      openFile,
+    }),
+    [
+      layout,
+      toggleLayout,
+      viewerItem,
+      fileItem,
+      actionItem,
+      actionPoint,
+      busyItemId,
+      shareFile,
+      openChat,
+      attachToComposer,
+      confirmDelete,
+      openActions,
+      openImage,
+      openFile,
+    ],
+  );
 }

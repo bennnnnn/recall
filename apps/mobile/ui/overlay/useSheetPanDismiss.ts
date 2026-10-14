@@ -24,6 +24,8 @@ export function useSheetPanDismiss(
     () =>
       Gesture.Pan()
         .enabled(enabled)
+        // One finger drags down; two belong to a pinch-zoom inside (photo viewer).
+        .maxPointers(1)
         .activeOffsetY(12)
         .failOffsetX([-32, 32])
         .onUpdate((e) => {

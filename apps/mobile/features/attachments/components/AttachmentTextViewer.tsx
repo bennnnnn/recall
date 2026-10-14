@@ -9,6 +9,7 @@ import {
 import { useTranslation } from "react-i18next";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import { ActionFeedbackProvider } from "@/contexts/ActionFeedbackContext";
 import { useAuthToken } from "@/contexts/AuthContext";
 import { resolveAttachmentUri } from "@/features/attachments/model/attachmentUri";
 import { fetchAttachmentBytes } from "@/features/attachments/model/fetchAttachmentBytes";
@@ -27,6 +28,8 @@ type Props = {
   path?: string | null;
   fileName: string;
   onShare: () => void;
+  /** The share is being prepared: the button spins and waits. */
+  sharing?: boolean;
 };
 
 export function AttachmentTextViewer({
@@ -36,6 +39,7 @@ export function AttachmentTextViewer({
   path,
   fileName,
   onShare,
+  sharing = false,
 }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
@@ -79,31 +83,39 @@ export function AttachmentTextViewer({
 
   return (
     <FullScreenModal visible={visible} animationType="slide" onRequestClose={onClose}>
-      <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <View style={s.toolbar}>
-          <HeaderButton icon="close" onPress={onClose} accessibilityLabel={t("preview.close")} />
-          <Text style={s.title} numberOfLines={1}>
-            {fileName}
-          </Text>
-          <HeaderButton icon="share" onPress={onShare} accessibilityLabel={t("preview.share")} />
+      {/* Toasts (a failed share) show inside the viewer, not under it. */}
+      <ActionFeedbackProvider>
+        <View style={[s.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+          <View style={s.toolbar}>
+            <HeaderButton icon="close" onPress={onClose} accessibilityLabel={t("preview.close")} />
+            <Text style={s.title} numberOfLines={1} ellipsizeMode="middle">
+              {fileName}
+            </Text>
+            <HeaderButton
+              icon="share"
+              onPress={onShare}
+              busy={sharing}
+              accessibilityLabel={t("preview.share")}
+            />
+          </View>
+          <View style={s.body}>
+            {loading ? (
+              <ActivityIndicator color={theme.primary} size="large" />
+            ) : failed || text == null ? (
+              <Text style={s.error}>{t("gallery.file_preview_failed")}</Text>
+            ) : (
+              <ScrollView
+                testID="attachment-text-preview"
+                contentContainerStyle={s.scroll}
+              >
+                <Text style={s.fileText} selectable>
+                  {text}
+                </Text>
+              </ScrollView>
+            )}
+          </View>
         </View>
-        <View style={s.body}>
-          {loading ? (
-            <ActivityIndicator color={theme.primary} size="large" />
-          ) : failed || text == null ? (
-            <Text style={s.error}>{t("gallery.file_preview_failed")}</Text>
-          ) : (
-            <ScrollView
-              testID="attachment-text-preview"
-              contentContainerStyle={s.scroll}
-            >
-              <Text style={s.fileText} selectable>
-                {text}
-              </Text>
-            </ScrollView>
-          )}
-        </View>
-      </View>
+      </ActionFeedbackProvider>
     </FullScreenModal>
   );
 }
@@ -117,7 +129,7 @@ function makeStyles(t: Theme) {
       gap: Space.sm,
       paddingHorizontal: Space.md,
       paddingVertical: Space.sm,
-      borderBottomWidth: StyleSheet.hairlineWidth,
+      borderBottomWidth: 1,
       borderBottomColor: t.border,
     },
     title: { flex: 1, ...Type.body, ...Weight.semibold, color: t.text },

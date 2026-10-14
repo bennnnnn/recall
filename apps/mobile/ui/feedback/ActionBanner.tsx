@@ -25,22 +25,26 @@ type Props = {
   message: string | null;
   icon?: IconName;
   tone?: ActionFeedbackTone;
+  /** `media`: a white pill with black ink, for a toast over a photo viewer's black stage. */
+  appearance?: ActionBannerAppearance;
   onDismiss: () => void;
   bottomOffset?: number;
 };
 
 export type ActionFeedbackTone = "success" | "info" | "warning" | "error";
+export type ActionBannerAppearance = "default" | "media";
 
 export function ActionBanner({
   message,
   icon = "check-circle-filled",
   tone = "success",
+  appearance = "default",
   onDismiss,
   bottomOffset = 24,
 }: Props) {
   const insets = useSafeAreaInsets();
   const theme = useTheme();
-  const s = useMemo(() => makeStyles(theme), [theme]);
+  const s = useMemo(() => makeStyles(theme, appearance), [theme, appearance]);
   const reduceMotion = useReduceMotion();
   const opacity = useSharedValue(0);
   const translateY = useSharedValue(24);
@@ -119,9 +123,11 @@ export function ActionBanner({
   );
 }
 
-function makeStyles(theme: Theme) {
-  const toastBg = theme.isDark ? theme.surfaceAlt : theme.text;
-  const toastText = theme.isDark ? theme.text : theme.onPrimary;
+function makeStyles(theme: Theme, appearance: ActionBannerAppearance) {
+  const media = appearance === "media";
+  // A dark toast vanishes on a black viewer; over media it is always the white pill.
+  const toastBg = media ? theme.onMedia : theme.isDark ? theme.surfaceAlt : theme.text;
+  const toastText = media ? theme.mediaScrim : theme.isDark ? theme.text : theme.onPrimary;
 
   return StyleSheet.create({
     host: {
@@ -148,7 +154,7 @@ function makeStyles(theme: Theme) {
       paddingHorizontal: Space.gutter,
       paddingVertical: Space.sm,
       maxWidth: 340,
-      borderWidth: theme.isDark ? StyleSheet.hairlineWidth : 0,
+      borderWidth: theme.isDark && !media ? StyleSheet.hairlineWidth : 0,
       borderColor: theme.border,
       ...shadowElevated(theme, "toast"),
     },

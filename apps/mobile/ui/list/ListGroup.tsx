@@ -38,9 +38,22 @@ export function ListGroup({
   );
 }
 
-/** The thin gap between two rows of a ListGroup. */
-export function ListSeparator() {
+/**
+ * Between two rows. `grouped` (default): the thin gap inside a ListGroup.
+ * `plain`: a 1pt line for plain rows on the page, indented by `inset` so it
+ * starts under the text rather than under the leading art.
+ */
+export function ListSeparator({
+  appearance = "grouped",
+  inset = 0,
+}: {
+  appearance?: "grouped" | "plain";
+  inset?: number;
+} = {}) {
   const theme = useTheme();
+  if (appearance === "plain") {
+    return <View style={{ height: 1, marginLeft: inset, backgroundColor: theme.separator }} />;
+  }
   return <View style={{ height: 2, backgroundColor: theme.bg }} />;
 }
 

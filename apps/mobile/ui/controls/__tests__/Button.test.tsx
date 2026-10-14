@@ -53,4 +53,15 @@ describe("Button", () => {
     const children = view.getByRole("button", { name: "Get started" }).children;
     expect(children).toHaveLength(2);
   });
+
+  it("has a media pill: white with black ink, for chrome over a photo", async () => {
+    const { lightTheme } = jest.requireActual("@/lib/theme") as typeof import("@/lib/theme");
+    const view = await render(<Button title="Share" variant="media" onPress={jest.fn()} />);
+    expect(view.getByRole("button", { name: "Share" })).toHaveStyle({
+      backgroundColor: lightTheme.onMedia,
+      minHeight: 44,
+      borderRadius: 999,
+    });
+    expect(view.getByText("Share")).toHaveStyle({ color: lightTheme.mediaScrim });
+  });
 });

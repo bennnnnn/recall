@@ -1,111 +1,104 @@
 import { useMemo } from "react";
-import { Pressable, StyleSheet, Text, View } from "react-native";
-import { useTranslation } from "react-i18next";
+import { StyleSheet, View, type AccessibilityActionEvent, type AccessibilityActionInfo } from "react-native";
 
 import { GalleryThumbnail } from "@/features/attachments/components/GalleryThumbnail";
 import { Icon } from "@/ui/icons/Icon";
+import { ListRow } from "@/ui/list/ListRow";
 import { type AttachmentListItem } from "@/lib/api";
 import { COLUMN_THUMB_SIZE, isGalleryImage } from "@/features/attachments/model/gallery";
 import { Space } from "@/lib/space";
 import { Theme, useTheme } from "@/lib/theme";
-import { Type } from "@/lib/type";
 import { Radius } from "@/lib/radius";
 import { IconSize } from "@/ui/icons/sizes";
 
+/** Where a column row's separator starts: under the text, past the thumbnail. */
+export const GALLERY_COLUMN_SEPARATOR_INSET = Space.md + COLUMN_THUMB_SIZE + Space.sm;
+
 type Props = {
   item: AttachmentListItem;
-  fileName: string;
+  /** The prompt of a generated image, else the file name. */
+  title: string;
+  /** Shared or attached right now: a spinner, and taps wait. */
+  busy?: boolean;
   onPress: () => void;
   /** `point` is where the finger was, so the item menu opens there. */
   onLongPress: (point: { x: number; y: number }) => void;
   onMissing: (attachmentId: string) => void;
+  accessibilityHint?: string;
+  accessibilityActions?: AccessibilityActionInfo[];
+  onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
 };
 
+/** One Library item in the column layout: thumbnail, name and its chat. */
 export function GalleryColumnRow({
   item,
-  fileName,
+  title,
+  busy = false,
   onPress,
   onLongPress,
   onMissing,
+  accessibilityHint,
+  accessibilityActions,
+  onAccessibilityAction,
 }: Props) {
-  const { t } = useTranslation();
   const C = useTheme();
   const s = useMemo(() => makeStyles(C), [C]);
   const isImage = isGalleryImage(item.content_type);
-  const chatTitle = item.chat_title?.trim() || null;
+  const chatTitle = item.chat_title?.trim() || undefined;
 
   return (
-    <Pressable
+    <ListRow
+      appearance="plain"
+      style={s.row}
+      title={title}
+      subtitle={chatTitle}
+      numberOfLines={1}
+      // A file name keeps its extension; a prompt reads best cut at the end.
+      ellipsizeMode={item.source === "generated" ? "tail" : "middle"}
+      busy={busy}
+      leading={
+        isImage ? (
+          <GalleryThumbnail
+            attachmentId={item.id}
+            downloadUrl={item.download_url}
+            size={COLUMN_THUMB_SIZE}
+            onMissing={onMissing}
+          />
+        ) : (
+          <View style={s.fileThumb}>
+            <Icon name="file" size={IconSize.lg} color={C.textTertiary} />
+          </View>
+        )
+      }
       onPress={onPress}
       onLongPress={(event) =>
         onLongPress({ x: event.nativeEvent.pageX, y: event.nativeEvent.pageY })
       }
-      accessibilityRole="button"
-      accessibilityLabel={
-        isImage ? t("chat.image_view_a11y") : t("gallery.open_file_a11y")
-      }
-      style={({ pressed }) => [s.row, pressed && s.rowPressed]}
-    >
-      {isImage ? (
-        <GalleryThumbnail
-          attachmentId={item.id}
-          downloadUrl={item.download_url}
-          size={COLUMN_THUMB_SIZE}
-          onMissing={onMissing}
-        />
-      ) : (
-        <View style={s.fileThumb}>
-          <Icon name="file" size={IconSize.lg} color={C.textTertiary} />
-        </View>
-      )}
-      <View style={s.meta}>
-        <Text style={s.fileName} numberOfLines={1}>
-          {fileName}
-        </Text>
-        {chatTitle ? (
-          <Text style={s.chatTitle} numberOfLines={1}>
-            {chatTitle}
-          </Text>
-        ) : null}
-      </View>
-    </Pressable>
+      accessibilityLabel={chatTitle ? `${title}, ${chatTitle}` : title}
+      accessibilityHint={accessibilityHint}
+      accessibilityActions={accessibilityActions}
+      onAccessibilityAction={onAccessibilityAction}
+    />
   );
 }
 
 function makeStyles(C: Theme) {
   return StyleSheet.create({
+    // Edge to edge, so the press highlight spans the screen.
     row: {
-      flexDirection: "row",
-      alignItems: "center",
-      gap: Space.sm,
-      minHeight: Space.minTouch,
+      borderRadius: 0,
+      paddingHorizontal: Space.md,
       paddingVertical: Space.xs,
-    },
-    rowPressed: {
-      backgroundColor: C.surfaceAlt,
     },
     fileThumb: {
       width: COLUMN_THUMB_SIZE,
       height: COLUMN_THUMB_SIZE,
       borderRadius: Radius.sm,
       backgroundColor: C.surfaceAlt,
-      borderWidth: StyleSheet.hairlineWidth,
+      borderWidth: 1,
       borderColor: C.border,
       alignItems: "center",
       justifyContent: "center",
-    },
-    meta: {
-      flex: 1,
-      minWidth: 0,
-    },
-    fileName: {
-      ...Type.body,
-      color: C.text,
-    },
-    chatTitle: {
-      ...Type.meta,
-      color: C.textSecondary,
-      marginTop: 2,
     },
   });
 }

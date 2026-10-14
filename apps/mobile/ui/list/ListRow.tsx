@@ -6,7 +6,11 @@ import {
   Switch,
   Text,
   View,
+  type AccessibilityActionEvent,
+  type AccessibilityActionInfo,
+  type GestureResponderEvent,
   type StyleProp,
+  type TextProps,
   type ViewStyle,
 } from "react-native";
 
@@ -47,7 +51,8 @@ type Props = {
   /** For a row that opens a popover: says whether it is open. */
   expanded?: boolean;
   onPress?: () => void;
-  onLongPress?: () => void;
+  /** Gets the touch, so a Menu can open where the finger is. */
+  onLongPress?: (event: GestureResponderEvent) => void;
   /**
    * `grouped`: a block in a ListGroup (Settings). `plain`: no background,
    * for sheets, pickers and detail pages.
@@ -55,8 +60,15 @@ type Props = {
   appearance?: "grouped" | "plain";
   /** Indents a row that belongs to the one above it. */
   inset?: boolean;
+  /** Caps the title and the lines under it (one line each for a file list). */
+  numberOfLines?: number;
+  /** Where a capped title is cut: `middle` keeps a file name's extension. */
+  ellipsizeMode?: TextProps["ellipsizeMode"];
   accessibilityLabel?: string;
   accessibilityHint?: string;
+  /** Screen-reader actions, e.g. what the row's long-press menu offers. */
+  accessibilityActions?: AccessibilityActionInfo[];
+  onAccessibilityAction?: (event: AccessibilityActionEvent) => void;
   style?: StyleProp<ViewStyle>;
   testID?: string;
   /** Lets a Menu or SelectMenu open from this row. */
@@ -88,8 +100,12 @@ export function ListRow({
   onLongPress,
   appearance = "grouped",
   inset = false,
+  numberOfLines,
+  ellipsizeMode,
   accessibilityLabel,
   accessibilityHint,
+  accessibilityActions,
+  onAccessibilityAction,
   style,
   testID,
   ref,
@@ -121,9 +137,15 @@ export function ListRow({
         </View>
       ) : null}
       <View style={s.body}>
-        <Text style={[s.title, tint ? { color: tint } : null]}>{title}</Text>
-        {value ? <Text style={s.secondary}>{value}</Text> : null}
-        {subtitle ? <Text style={s.secondary}>{subtitle}</Text> : null}
+        <Text
+          style={[s.title, tint ? { color: tint } : null]}
+          numberOfLines={numberOfLines}
+          ellipsizeMode={ellipsizeMode}
+        >
+          {title}
+        </Text>
+        {value ? <Text style={s.secondary} numberOfLines={numberOfLines}>{value}</Text> : null}
+        {subtitle ? <Text style={s.secondary} numberOfLines={numberOfLines}>{subtitle}</Text> : null}
       </View>
       {detail && !busy ? (
         <View style={detailStyle === "pill" ? s.pill : s.detailBox}>
@@ -215,6 +237,8 @@ export function ListRow({
         ...(accessory === "check" ? { selected: true } : null),
         ...(expanded === undefined ? null : { expanded }),
       }}
+      accessibilityActions={accessibilityActions}
+      onAccessibilityAction={onAccessibilityAction}
       testID={testID}
     >
       {body}

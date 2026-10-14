@@ -69,11 +69,12 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
     return () => clearTimeout(handle);
   }, [trimmedQuery]);
 
+  /** Resolves false when the page could not be fetched (stale or skipped loads resolve true). */
   const load = useCallback(
-    async (options: { reset?: boolean; silent?: boolean; force?: boolean } = {}) => {
-      if (!token || session !== getSessionGeneration()) return;
+    async (options: { reset?: boolean; silent?: boolean; force?: boolean } = {}): Promise<boolean> => {
+      if (!token || session !== getSessionGeneration()) return true;
       const reset = options.reset ?? true;
-      if (!reset && inFlightRef.current) return;
+      if (!reset && inFlightRef.current) return true;
 
       if (reset) genRef.current += 1;
       if (reset && !options.force && isGalleryPageFresh(filter, debouncedQuery)) {
@@ -86,7 +87,7 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
           setError(false);
           setPageError(false);
           inFlightRef.current = false;
-          return;
+          return true;
         }
       }
 
@@ -101,17 +102,18 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
         const page = reset
           ? await fetchGalleryPage(token, filter, debouncedQuery, { force: options.force })
           : await fetchGalleryNextPage(token, filter, debouncedQuery);
-        if (gen !== genRef.current || session !== getSessionGeneration()) return;
+        if (gen !== genRef.current || session !== getSessionGeneration()) return true;
         if (!page) {
           failedResetRef.current = reset;
           if (reset && !cached) setError(true);
           else setPageError(true);
-          return;
+          return false;
         }
         setItems(page.items);
         setHasMore(page.hasMore);
         setError(false);
         setPageError(false);
+        return true;
       } finally {
         if (gen === genRef.current) {
           inFlightRef.current = false;
@@ -130,12 +132,15 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
     }, [load]),
   );
 
-  const refresh = useCallback(async () => {
+  /** Pull to refresh. Resolves false when it failed and the list kept older items. */
+  const refresh = useCallback(async (): Promise<boolean> => {
     setPullRefreshing(true);
     const pending = load({ reset: true, silent: true, force: true });
     const generation = genRef.current;
-    await pending;
-    if (generation === genRef.current) setPullRefreshing(false);
+    const ok = await pending;
+    if (generation !== genRef.current) return true;
+    setPullRefreshing(false);
+    return ok;
   }, [load]);
 
   const loadMore = useCallback(() => {

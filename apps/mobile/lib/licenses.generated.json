@@ -175,6 +175,11 @@
     "license": "MIT"
   },
   {
+    "name": "expo-sharing",
+    "version": "57.0.23",
+    "license": "MIT"
+  },
+  {
     "name": "expo-speech",
     "version": "57.0.2",
     "license": "MIT"

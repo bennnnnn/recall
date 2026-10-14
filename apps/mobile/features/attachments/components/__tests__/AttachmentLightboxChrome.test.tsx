@@ -30,13 +30,9 @@ it("derives attachment chrome from media theme tokens", async () => {
     insets: { top: 0, right: 0, bottom: 0, left: 0 },
     busy: null,
     canShare: true,
-    showOverflow: true,
     showUseInChat: true,
     showOpenChat: false,
     showDelete: false,
-    showDots: false,
-    pageIndex: 0,
-    pageCount: 1,
     ...actions,
   } as const;
   const ui = await render(<AttachmentLightboxChrome {...props} />);
@@ -55,13 +51,9 @@ it("opens the overflow as the shared popover and runs the picked row", async () 
     insets: { top: 0, right: 0, bottom: 0, left: 0 },
     busy: null,
     canShare: true,
-    showOverflow: true,
     showUseInChat: true,
     showOpenChat: true,
     showDelete: true,
-    showDots: false,
-    pageIndex: 0,
-    pageCount: 1,
     ...actions,
   } as const;
   const ui = await render(<AttachmentLightboxChrome {...props} />);
@@ -73,4 +65,43 @@ it("opens the overflow as the shared popover and runs the picked row", async () 
   expect(actions.onCloseOverflow).toHaveBeenCalledTimes(1);
   expect(actions.onOpenChat).toHaveBeenCalledTimes(1);
   expect(actions.onDelete).not.toHaveBeenCalled();
+});
+
+it("drops More when it has no rows, and keeps nothing at the bottom", async () => {
+  const ui = await render(
+    <AttachmentLightboxChrome
+      visible
+      overflowOpen={false}
+      insets={{ top: 0, right: 0, bottom: 0, left: 0 }}
+      busy={null}
+      canShare
+      showUseInChat={false}
+      showOpenChat={false}
+      showDelete={false}
+      {...actions}
+    />,
+  );
+  expect(ui.queryByLabelText("preview.more_a11y")).toBeNull();
+  expect(ui.getByLabelText("common.download")).toBeTruthy();
+  expect(ui.getByRole("button", { name: "preview.share" })).toHaveStyle({
+    backgroundColor: mockLightTheme.onMedia,
+  });
+});
+
+it("spins Share while the file is prepared and blocks Download meanwhile", async () => {
+  const ui = await render(
+    <AttachmentLightboxChrome
+      visible
+      overflowOpen={false}
+      insets={{ top: 0, right: 0, bottom: 0, left: 0 }}
+      busy="share"
+      canShare
+      showUseInChat
+      showOpenChat={false}
+      showDelete
+      {...actions}
+    />,
+  );
+  expect(ui.getByRole("button", { name: "preview.share" }).props.accessibilityState).toEqual({ disabled: true, busy: true });
+  expect(ui.getByLabelText("common.download").props.accessibilityState).toMatchObject({ disabled: true });
 });

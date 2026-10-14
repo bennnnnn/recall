@@ -220,8 +220,9 @@ function Gallery() {
           </View>
           <View style={[s.row, s.media]}>
             <HeaderButton variant="media" icon="close" accessibilityLabel="Close" onPress={() => undefined} />
-            <HeaderButton variant="media" icon="share" accessibilityLabel="Share" onPress={() => undefined} />
+            <HeaderButton variant="media" icon="more-vertical" accessibilityLabel="More" onPress={() => undefined} />
             <HeaderButton variant="media" icon="download" busy accessibilityLabel="Download" onPress={() => undefined} />
+            <Button title="Share" variant="media" onPress={() => undefined} />
           </View>
         </Section>
 

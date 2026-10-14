@@ -1,14 +1,13 @@
-import { useMemo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
-import { Icon } from "@/ui/icons/Icon";
+import { IconButton } from "@/ui/controls/IconButton";
 import { SearchField } from "@/ui/controls/SearchField";
 import { tap } from "@/lib/haptics";
 import { type GalleryFilter } from "@/features/attachments/model/gallery";
 import { type GalleryLayout } from "@/features/attachments/model/galleryLayout";
 import { Space } from "@/lib/space";
-import { Theme, useTheme } from "@/lib/theme";
+import { useTheme } from "@/lib/theme";
 import { IconSize } from "@/ui/icons/sizes";
 import { Chip } from "@/ui/controls/Chip";
 
@@ -31,7 +30,6 @@ export function GalleryLibraryHeader({
 }: Props) {
   const { t } = useTranslation();
   const C = useTheme();
-  const s = useMemo(() => makeStyles(C), [C]);
   const filters: { key: GalleryFilter; label: string }[] = [
     { key: "all", label: t("gallery.filter.all") },
     { key: "generated", label: t("gallery.filter.generated") },
@@ -50,61 +48,63 @@ export function GalleryLibraryHeader({
         clearAccessibilityLabel={t("gallery.search_clear_a11y")}
         clearTestID="gallery-search-clear"
       />
-      <View style={s.tabs}>
-        {filters.map((tab) => (
-          <Chip
-            key={tab.key}
-            variant="filter"
-            accessibilityRole="radio"
-            label={tab.label}
-            selected={tab.key === filter}
-            onPress={() => {
-              tap();
-              onFilterChange(tab.key);
-            }}
-          />
-        ))}
-        <Pressable
+      {/* One line in every language: the chips scroll, the layout toggle stays put. */}
+      <View style={s.tabsRow}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={s.tabsScroll}
+          contentContainerStyle={s.tabs}
+          accessibilityRole="radiogroup"
+        >
+          {filters.map((tab) => (
+            <Chip
+              key={tab.key}
+              variant="filter"
+              accessibilityRole="radio"
+              label={tab.label}
+              selected={tab.key === filter}
+              onPress={() => {
+                tap();
+                onFilterChange(tab.key);
+              }}
+            />
+          ))}
+        </ScrollView>
+        <IconButton
+          name={layout === "grid" ? "list" : "grid"}
+          size={IconSize.md}
+          color={C.textSecondary}
           onPress={onToggleLayout}
-          accessibilityRole="button"
           accessibilityLabel={
             layout === "grid"
               ? t("gallery.layout_column_a11y")
               : t("gallery.layout_grid_a11y")
           }
-          style={s.layoutToggle}
           testID="gallery-layout-toggle"
-        >
-          <Icon
-            name={layout === "grid" ? "list" : "grid"}
-            size={IconSize.md}
-            color={C.textSecondary}
-          />
-        </Pressable>
+        />
       </View>
     </View>
   );
 }
 
-function makeStyles(C: Theme) {
-  return StyleSheet.create({
-    header: {
-      paddingHorizontal: Space.md,
-      paddingTop: Space.sm,
-      paddingBottom: Space.sm,
-    },
-    searchField: { marginBottom: Space.sm },
-    tabs: {
-      flexDirection: "row",
-      flexWrap: "wrap",
-      alignItems: "center",
-      gap: Space.xs,
-    },
-    layoutToggle: {
-      minHeight: 44,
-      minWidth: 44,
-      alignItems: "center",
-      justifyContent: "center",
-    },
-  });
-}
+const s = StyleSheet.create({
+  header: {
+    paddingHorizontal: Space.md,
+    paddingTop: Space.sm,
+    paddingBottom: Space.sm,
+  },
+  searchField: { marginBottom: Space.sm },
+  tabsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Space.xxs,
+    minHeight: Space.minTouch,
+  },
+  tabsScroll: { flex: 1 },
+  tabs: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: Space.xs,
+  },
+});
