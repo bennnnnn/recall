@@ -15,6 +15,7 @@ from app.modules.chemistry.block import VerifiedChemistry, build_verified_chemis
 from app.modules.chemistry.elements import BY_NUMBER, ELEMENTS, Element
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.extract import extract_chemistry_intent
+from app.modules.chemistry.input_text import read_chemistry_text
 from app.modules.chemistry.request import (
     EQUATION_RE,
     extract_compound_name,
@@ -250,6 +251,7 @@ async def build_chemistry_augmentation(
     stays false.
     """
     _ = settings
+    content = read_chemistry_text(content)
     iupac_smiles = _iupac_smiles(content)
     if iupac_smiles is not None:
         try:

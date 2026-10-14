@@ -155,7 +155,7 @@ STRUCTURE_AND_ANALYSIS: tuple[Case, ...] = (
     says("What is the shape of NH3?", "trigonal pyramidal"),
     says("What is the oxidation state of S in H2SO4?", "S = +6"),
     says("What is the molecular geometry of CO2?", "linear"),
-    says("What is the electron configuration of Fe?", "3d6"),
+    says("What is the electron configuration of Fe?", "3d^6"),
     q(
         "The measured value is 9.8 and the accepted value is 10.0. Find the percent error.",
         abs(9.8 - 10.0) / 10.0 * 100,

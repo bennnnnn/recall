@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.chemistry.input_text import HYDRATE_DOT, read_chemistry_text
 from app.modules.chemistry.species import ARROWS
 from app.modules.chemistry.species_facts import ELEMENT_NAMES, is_formula
 
@@ -29,6 +30,15 @@ CHEMICAL_FORMULA = (
     r"(?:[A-Z][a-z]?[0-9]*(?:\([A-Za-z0-9]+\)[0-9]?)?)*)"
     r"(?:\^(?:\{\d*[+-]\}|\d*[+-])|\d*[+-])?"
     r"(?:\((?:aq|s|l|g)\))?)"
+)
+# A formula has ended: no letter or digit follows, and no hydrate dot carries it on. A reader
+# that does not take a hydrate declines CuSO4·5H2O instead of reading the CuSO4 of it.
+FORMULA_END = rf"(?![A-Za-z0-9{HYDRATE_DOT}])"
+# A formula with the water (or second salt) of a hydrate: CuSO4·5H2O, Na2CO3·10H2O. The input
+# reader (``input_text``) writes every hydrate dot as this one character.
+SAMPLE_FORMULA = (
+    rf"{CHEMICAL_FORMULA}"
+    rf"(?-i:(?:{HYDRATE_DOT}\d{{0,2}}(?:[A-Z][a-z]?\d*|\([A-Za-z0-9]+\)\d*)+)*)"
 )
 _ARROW = "(?:" + "|".join(re.escape(arrow) for arrow in ARROWS) + ")"
 # Coefficients stop at two digits so a nuclide such as 238U is not "238 U".
@@ -50,7 +60,7 @@ _STRONG_CUE = re.compile(
     r"\b(?:stoichiometr\w*|molar\s+(?:mass|volume|absorptivity|concentration)|"
     r"molarity|molality|formula\s+units?|M1V1|mass\s+percent|pOH|"
     r"parts\s+per\s+(?:million|billion)|(?:ppm|ppb)(?=\s+of\b)|"
-    r"volume\s+percent|percent\s+by\s+volume|mass/volume\s+percent|"
+    r"volume\s+percent|percent(?:age)?\s+by\s+(?:volume|mass)|mass/volume\s+percent|"
     r"thermochem\w*|enthalpy|specific\s+heat|calorimet\w*|"
     r"reaction\s+quotient|equilibrium\s+(?:constant|expression)|ice\s+(?:table|equilibrium)|"
     r"rate\s+(?:constant|law)|first[- ]order|second[- ]order|zero[- ]order|arrhenius|"
@@ -131,6 +141,10 @@ _ELEMENT_IN_SAMPLE = re.compile(
     re.IGNORECASE,
 )
 _MOLAR_SOLUTION = re.compile(r"(?<![\w.])\d+(?:\.\d+)?\s*M\s+([A-Z][A-Za-z0-9()]*)")
+# A dilution's labelled concentrations: "M1 = 12 M", "C2 = 0.50 mol/L".
+_LABELLED_MOLARITY = re.compile(
+    r"(?<![A-Za-z0-9])[MC][12]\s*=\s*(?:\d+(?:\.\d+)?|\.\d+)\s*(?:M|mol/L)(?![A-Za-z])"
+)
 _VMAX = re.compile(r"(?<![A-Za-z])Vmax(?![A-Za-z])")
 _KM = re.compile(r"(?<![A-Za-z])Km(?![A-Za-z])")
 # "the shape of NH3": a shape is chemistry's only when what it is of is a real formula.
@@ -352,7 +366,7 @@ def _has_equation(text: str) -> bool:
 
 def is_chemistry_question(content: str) -> bool:
     """True for supported calculations or plausible compound lookup requests."""
-    cleaned = _window(content)
+    cleaned = read_chemistry_text(_window(content))
     if not cleaned:
         return False
     if _STRONG_CUE.search(cleaned) or _SYMBOL_CUE.search(cleaned):
@@ -367,6 +381,8 @@ def is_chemistry_question(content: str) -> bool:
         return True
     # A concentration of a named formula: "6 M HCl".
     if any(is_formula(match.group(1)) for match in _MOLAR_SOLUTION.finditer(cleaned)):
+        return True
+    if _LABELLED_MOLARITY.search(cleaned):
         return True
     # Michaelis-Menten written by its constants alone: "Vmax = 10 μmol/min, Km = 2 mM".
     if _VMAX.search(cleaned) and _KM.search(cleaned):

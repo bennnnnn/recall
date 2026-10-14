@@ -386,7 +386,7 @@ def test_binary_vapor_pressure_declines_when_only_one_pressure_is_stated() -> No
 
 
 def test_an_ions_electron_configuration_is_not_the_atoms() -> None:
-    assert _answer("What is the electron configuration of copper?") == "Cu: [Ar] 3d10 4s1"
+    assert _answer("What is the electron configuration of copper?") == "Cu: [Ar] 3d^10 4s^1"
     assert extract_chemistry_intent("Write the electron configuration of Fe3+.") is None
 
 
@@ -414,7 +414,7 @@ def test_a_template_never_reads_a_millimolar_value_as_molar() -> None:
 @pytest.mark.parametrize(
     ("question", "answer"),
     [
-        ("What volume of 6.0 M HCl is needed to make 500 mL of 1.5 M HCl?", "V1 = 1.2 × 10^2 mL"),
+        ("What volume of 6.0 M HCl is needed to make 500 mL of 1.5 M HCl?", "V1 = 1.3 × 10^2 mL"),
         (
             "How many liters of 18 M H2SO4 do you need to make 2.0 L of 3.0 M H2SO4?",
             "V1 = 0.33 L",
@@ -538,7 +538,7 @@ def test_hydrate_water_is_an_integer_coefficient() -> None:
         (110.02, 2, "110"),
         # Rounding that replaces a whole number's digits with zeros writes a power of ten.
         (1780.0, 2, "1.8 × 10^3"),
-        (125.0, 2, "1.2 × 10^2"),
+        (125.0, 2, "1.3 × 10^2"),
     ],
 )
 def test_a_rounded_whole_number_is_not_mistaken_for_measured_zeros(

@@ -316,6 +316,31 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             ),
             "m({target}) = ({sample_mass})({count})({atomic_mass}) / {molar_mass}",
         ),
+        # "How many oxygen atoms are in 2.0 mol of CO2?" counts the oxygen, not every atom.
+        _law(
+            "element_atoms",
+            "amounts",
+            "Avogadro relation",
+            "N(X) = n × (X atoms per formula unit) × Nₐ",
+            "Number of atoms of the element, N",
+            ("N({target})", "atoms"),
+            "moles*count*N_A",
+            (("moles", "n({formula})", "mol"), ("count", "{target} atoms per {formula}", "")),
+            "N({target}) = ({moles}) × ({count.value} {target} atoms per {formula})"
+            " × (6.0221 × 10^23 mol⁻¹)",
+        ),
+        # "How many moles of oxygen atoms are in 2.0 mol of H2SO4?" is an amount, 8.0 mol.
+        _law(
+            "element_moles",
+            "amounts",
+            "Moles of an element in a compound",
+            "n(X) = n × (X atoms per formula unit)",
+            "Amount of the element, n",
+            ("n({target})", "mol"),
+            "moles*count",
+            (("moles", "n({formula})", "mol"), ("count", "{target} atoms per {formula}", "")),
+            "n({target}) = ({moles}) × ({count.value} {target} atoms per {formula})",
+        ),
         _law(
             "vant_hoff_constant",
             "equilibrium",

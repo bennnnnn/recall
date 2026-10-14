@@ -13,6 +13,7 @@ from app.modules.chemistry.solvers.types import (
     format_constant,
     format_molar_mass,
     format_number,
+    round_half_up,
 )
 from app.services.solving import SolveServiceError
 
@@ -65,8 +66,10 @@ def verified(
 
 
 def _fixed(value: float, places: int) -> str:
-    """A value to fixed decimal places, never a negative zero (−0.00)."""
-    text = f"{value:.{places}f}"
+    """A value to fixed decimal places, rounded half up, never a negative zero (−0.00)."""
+    if not math.isfinite(value):
+        return str(value)
+    text = f"{round_half_up(value, places):.{places}f}"
     return text.removeprefix("-") if float(text) == 0 else text
 
 
@@ -78,6 +81,18 @@ def num(value: float) -> str:
     if written is not None and written.figures is not None:
         return format_number(value, significant=written.figures, keep_zeros=True)
     return format_number(value)
+
+
+def table_num(value: float) -> str:
+    """A value from the element table alone, such as a formula's percent composition.
+
+    No measured given limits it, so it has four figures, and its trailing zeros are figures
+    too: N in NH4NO3 is 35.00%, not 35%. A question that measured something uses ``num``.
+    """
+    written = sig_figs.current()
+    if written is not None and written.figures is not None:
+        return num(value)
+    return format_number(value, keep_zeros=True)
 
 
 def p_value(value: float) -> str:

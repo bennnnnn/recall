@@ -12,6 +12,7 @@ import re
 from functools import lru_cache
 
 from app.modules.chemistry.binding import bind_chemistry_intent
+from app.modules.chemistry.input_text import read_chemistry_text
 from app.modules.chemistry.registry import CHEMISTRY_EXTRACTORS, UNIT_AWARE_EXTRACTORS
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.sig_figs import written_numbers
@@ -45,7 +46,8 @@ def _extract_chemistry_intent(text: str) -> ChemistryIntent | None:
     if not text.strip() or len(text) > _MAX_TEXT_LENGTH:
         return None
     readers = UNIT_AWARE_EXTRACTORS if _TEMPLATE_UNREAD_UNIT.search(text) else EXTRACTORS
-    text = read_scientific_numbers(text)
+    # H₂SO₄, Fe³⁺, CuSO4.5H2O and a lowercase "ph" are read as the ASCII the readers know.
+    text = read_scientific_numbers(read_chemistry_text(text))
     for extractor in readers:
         try:
             intent = extractor(text)

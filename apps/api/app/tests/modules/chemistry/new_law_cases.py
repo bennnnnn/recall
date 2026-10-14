@@ -121,6 +121,16 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
     ),
     ("How many grams of oxygen are in 10.0 g of H2O?", "element_mass", "m(O) = 8.88 g"),
     (
+        "How many oxygen atoms are in 2.0 mol of CO2?",
+        "element_atoms",
+        "N(O) = 2.4 × 10^24 atoms",
+    ),
+    (
+        "How many moles of oxygen atoms are in 2.0 mol of H2SO4?",
+        "element_moles",
+        "n(O) = 8.0 mol",
+    ),
+    (
         "Chlorine has isotopes 35Cl (75.77%) and 37Cl (24.23%). Find its average atomic mass.",
         "average_atomic_mass",
         "A(Cl) = 35.45 u",
@@ -128,7 +138,7 @@ _EARLIER_CASES: tuple[tuple[str, str, str], ...] = (
     (
         "What is the electron configuration of Fe?",
         "electron_configuration",
-        "Fe: [Ar] 3d6 4s2",
+        "Fe: [Ar] 3d^6 4s^2",
     ),
     (
         "Use the van 't Hoff equation. K1 = 1.00, T1 = 300 K, T2 = 350 K, "

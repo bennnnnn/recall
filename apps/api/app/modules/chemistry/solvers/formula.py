@@ -71,7 +71,13 @@ class _Given(str):
 
 
 def _shown(name: str, value: float) -> str:
-    """A given as typed; a molar mass from the table to the table's precision (18.015)."""
+    """A given as typed; a molar mass from the table to the table's precision (18.015).
+
+    An atom count comes from the formula, not the question, so it is a whole number even
+    when the question typed the same value ("2.0 mol of CO2" holds 2 O, not 2.0).
+    """
+    if name == "count" and value.is_integer():
+        return str(int(value))
     written = sig_figs.current()
     typed = written is not None and repr(value) in written.written
     if not typed and name.startswith(_TABLE_INPUTS):
