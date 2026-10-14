@@ -62,9 +62,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   Search is a case-insensitive substring on filename, MIME type, and the **linked message
   body**. For generated images that includes the **previous user message** (the draw
   prompt) and the prompt stored on `original_filename`, not only the assistant
-  `[Image: …]` marker. Tap an image for a fullscreen viewer (swipe for the next
-  photo; each photo keeps its own size). Long-press for Use in chat / Open chat /
-  Share / Delete. Tap a file to read it (PDF and text in-app; other types open on
+  `[Image: …]` marker. Tap an image for a fullscreen viewer: black page, Close on the
+  left, More (⋮) / Download / white Share pill on the right, nothing at the bottom;
+  swipe for the next photo (it loads the next page near the end), pinch or double-tap
+  to zoom, and it follows the photo by id so a delete never acts on the wrong one.
+  Toasts show inside the viewer. Long-press (or a screen reader's actions) for Use in
+  chat / Open chat / Share / Delete. Share hands over the file through expo-sharing
+  (Android's RN Share would send only a path); generated images get a slugged file
+  name with a real extension. Tap a file to read it (PDF and text in-app; other types open on
   the device). The attach sheet also opens Library. Deleting a chat leaves
   its uploads and generated files in Library (Open chat hides when the thread is gone). Lookup
   photos stay on the chat only. Explicit Library
@@ -203,7 +208,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   cat" or "Dog" then "Image"); the user bubble keeps that wording (not rewritten to "Generate
   image: …"). Pro users get daily-limited generations stored as chat attachments. No separate
   prompt sheet, and the model must not send people to DALL-E / Midjourney. Stop
-  mid-generation keeps the user message and shows canceled/failed + Retry. Tap the result to
+  mid-generation keeps the user message and shows canceled/failed + Retry. While it works, the
+  card is a dot field with an accent wave (a Skia shader in builds with Skia; a band under a
+  dotted cover in Expo Go), a stage line ("Sketching it out" … "Almost there") and an estimated
+  percentage; tapping it starts a small dot game. Tap the result to
   view full-screen and save via the system share sheet. The phone and the server read the
   request with the same rules; `docs/fixtures/image_intent_cases.json` is asserted by both
   test suites, so "show the steps" after a picture is chat on every client.
