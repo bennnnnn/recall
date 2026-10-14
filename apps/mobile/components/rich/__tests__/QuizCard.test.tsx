@@ -100,10 +100,44 @@ describe("QuizCard", () => {
     expect(view.toJSON()).toBeNull();
   });
 
-  it("says so instead of drawing a broken question", async () => {
+  it("shows a question it cannot check as text", async () => {
     const view = await render(
       <QuizCard content='{"question": "Pick", "options": ["a"]}' />,
     );
-    expect(view.getByText("rich.quiz_error")).toBeTruthy();
+    expect(view.getByTestId("quiz-card-text")).toBeTruthy();
+    expect(view.getByText("Pick")).toBeTruthy();
+    expect(view.getByText("A) a")).toBeTruthy();
+    expect(view.queryByText("rich.quiz_show_answer")).toBeNull();
+  });
+
+  it("reads a finished fence with broken JSON and keeps the answer behind a tap", async () => {
+    const broken = [
+      "{",
+      '  "label": "Exercise 2",',
+      '  "question": "What is `len(\\"hi\\")`?",',
+      '  "code": "print(len(\\"hi\\"))",',
+      '  "options": ["1", "2", "3",],',
+      '  "answer": 1,',
+      '  "explanation": "Two letters,',
+      'so 2."',
+      "}",
+    ].join("\n");
+    const view = await render(<QuizCard content={broken} />);
+    expect(view.getByText("Exercise 2")).toBeTruthy();
+    expect(view.getByText('python:print(len("hi"))')).toBeTruthy();
+    expect(view.getByText("B) 2")).toBeTruthy();
+    expect(view.queryByText(/Two letters/)).toBeNull();
+    await fireEvent.press(view.getByText("rich.quiz_show_answer"));
+    expect(view.getByText(/Two letters/)).toBeTruthy();
+  });
+
+  it("shows a question written as plain text", async () => {
+    const view = await render(<QuizCard content="Which loop prints 1 to 5?" />);
+    expect(view.getByText("Which loop prints 1 to 5?")).toBeTruthy();
+  });
+
+  it("draws nothing for a finished fence with no question in it", async () => {
+    const view = await render(<QuizCard content='{"note": "x",}' />);
+    expect(view.toJSON()).toBeNull();
   });
 });

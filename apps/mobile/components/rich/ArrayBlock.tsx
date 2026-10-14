@@ -8,8 +8,11 @@ import i18n from "@/lib/i18n";
 import { isUnfinishedJson } from "@/lib/jsonFence";
 import {
   arrayText,
+  type LooseArray,
   formatCell,
+  looseArray,
   parseArrayFence,
+  plainFenceText,
 } from "@/lib/lesson/lessonFences";
 import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
@@ -31,8 +34,17 @@ export function ArrayBlock({ content }: Props) {
   const fence = useMemo(() => parseArrayFence(content), [content]);
 
   if (!fence) {
+    const plain = plainFenceText(content);
+    if (plain) {
+      return (
+        <ChipText style={[s.note, s.plain]} chip={s.chip}>
+          {plain}
+        </ChipText>
+      );
+    }
     if (isUnfinishedJson(content)) return null;
-    return <Text style={s.error}>{i18n.t("rich.array_error")}</Text>;
+    const loose = looseArray(content);
+    return loose ? <LooseArrayText list={loose} s={s} /> : null;
   }
 
   const fits = fence.values.length <= FIT_CELLS;
@@ -87,6 +99,28 @@ export function ArrayBlock({ content }: Props) {
   );
 }
 
+/** A list whose fence did not parse: its lines and values as plain text. */
+function LooseArrayText({ list, s }: { list: LooseArray; s: Styles }) {
+  return (
+    <View style={s.card} testID="array-block-text">
+      {list.title ? (
+        <ChipText style={s.title} chip={s.chip}>
+          {list.title}
+        </ChipText>
+      ) : null}
+      <Text style={s.values}>{`[${list.values.join(", ")}]`}</Text>
+      {list.caption ? <Text style={s.caption}>{list.caption}</Text> : null}
+      {list.note ? (
+        <ChipText style={s.note} chip={s.chip}>
+          {list.note}
+        </ChipText>
+      ) : null}
+    </View>
+  );
+}
+
+type Styles = ReturnType<typeof makeStyles>;
+
 function makeStyles(t: Theme) {
   return StyleSheet.create({
     card: {
@@ -123,10 +157,7 @@ function makeStyles(t: Theme) {
       color: t.text,
       backgroundColor: t.surfaceAlt,
     },
-    error: {
-      ...Type.secondary,
-      color: t.textSecondary,
-      marginBottom: PARAGRAPH_GAP,
-    },
+    values: { ...Type.body, fontFamily: CODE_FONT, color: t.text },
+    plain: { marginBottom: PARAGRAPH_GAP },
   });
 }

@@ -2,8 +2,12 @@ import {
   arrayText,
   explanationParts,
   formatCell,
+  looseArray,
+  looseQuiz,
+  optionLetter,
   parseArrayFence,
   parseQuizFence,
+  plainFenceText,
   quizText,
 } from "@/lib/lesson/lessonFences";
 
@@ -126,5 +130,63 @@ describe("explanationParts", () => {
       { kind: "text", text: "Only 6 and 8." },
     ]);
     expect(explanationParts("")).toEqual([]);
+  });
+});
+
+describe("looseQuiz", () => {
+  it("reads the words from JSON that does not parse", () => {
+    const broken =
+      '{"question": "Pick \\"one\\"", "options": ["a", 2, "b",], "answer": 9,\n' +
+      '"explanation": "Line one\nline two"}';
+    expect(looseQuiz(broken)).toEqual({
+      label: null,
+      question: 'Pick "one"',
+      code: null,
+      codeLang: "python",
+      options: ["a", "2", "b"],
+      explanation: "Line one\nline two",
+    });
+  });
+
+  it("is null when there is no question and no options", () => {
+    expect(looseQuiz('{"note": "x"}')).toBeNull();
+    expect(looseQuiz('{"options": []}')).toBeNull();
+  });
+
+  it("keeps options it reached when the array never closes", () => {
+    expect(looseQuiz('{"question": "Q", "options": ["a", "b"')?.options).toEqual([
+      "a",
+      "b",
+    ]);
+  });
+});
+
+describe("looseArray", () => {
+  it("reads values and lines from JSON that does not parse", () => {
+    expect(
+      looseArray('{"values": [1, "two", true, null,], "note": "n", "caption": "c",}'),
+    ).toEqual({ values: ["1", "two", "true", "null"], title: null, caption: "c", note: "n" });
+  });
+
+  it("is null without values", () => {
+    expect(looseArray('{"values": []}')).toBeNull();
+    expect(looseArray('{"title": "t"}')).toBeNull();
+  });
+});
+
+describe("plainFenceText", () => {
+  it("returns text that is not JSON", () => {
+    expect(plainFenceText("  Which loop prints 1 to 5?  ")).toBe("Which loop prints 1 to 5?");
+    expect(plainFenceText('{"question": "Q"}')).toBeNull();
+    expect(plainFenceText("[1, 2]")).toBeNull();
+    expect(plainFenceText("   ")).toBeNull();
+  });
+});
+
+describe("optionLetter", () => {
+  it("letters the first six options and numbers the rest", () => {
+    expect(optionLetter(0)).toBe("A)");
+    expect(optionLetter(5)).toBe("F)");
+    expect(optionLetter(6)).toBe("7)");
   });
 });

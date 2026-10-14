@@ -7,7 +7,8 @@
  *           "highlight": [0, 1], "caption": "2 + 7 = 9",
  *           "note": "We return indexes, not the numbers."}
  *
- * Both parse to null when the fence is not usable, so the card can say so.
+ * Both parse to null when the fence is not usable; the loose readers below
+ * then pull out whatever words it still holds.
  */
 
 export type QuizFence = {
@@ -143,9 +144,14 @@ export function arrayText(fence: ArrayFence): string {
   return fence.name ? `${fence.name} = ${list}` : list;
 }
 
+/** "A)", "B)", ... and "7)" past the sixth option. */
+export function optionLetter(index: number): string {
+  return `${LETTERS[index] ?? index + 1})`;
+}
+
 /** The question and lettered options as plain text, for copy and speech. */
 export function quizText(fence: QuizFence): string {
-  const options = fence.options.map((option, i) => `${LETTERS[i]}) ${option}`);
+  const options = fence.options.map((option, i) => `${optionLetter(i)} ${option}`);
   const code = fence.code ? [fence.code] : [];
   return [fence.question, ...code, ...options].join("\n");
 }
@@ -169,4 +175,122 @@ export function explanationParts(text: string): ExplanationPart[] {
   const rest = text.slice(last).trim();
   if (rest) parts.push({ kind: "text", text: rest });
   return parts;
+}
+
+/**
+ * A quiz fence that does not parse still has a question and options to read.
+ * The model may break the JSON (a raw newline, a trailing comma) or give an
+ * answer the options do not hold; the learner sees the words, not an error.
+ */
+export type LooseQuiz = {
+  label: string | null;
+  question: string;
+  code: string | null;
+  codeLang: string;
+  options: string[];
+  explanation: string;
+};
+
+/** A list fence that does not parse: its values as written, and its lines. */
+export type LooseArray = {
+  values: string[];
+  title: string | null;
+  caption: string | null;
+  note: string | null;
+};
+
+const JSON_STRING = /"((?:[^"\\]|\\.)*)"/y;
+const JSON_SCALAR = /-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false|null/y;
+
+function decodeJsonString(raw: string): string {
+  try {
+    return JSON.parse(`"${raw}"`) as string;
+  } catch {
+    return raw.replace(/\\n/g, "\n").replace(/\\"/g, '"');
+  }
+}
+
+function keyStart(content: string, key: string): number {
+  const at = content.search(new RegExp(`"${key}"\\s*:`));
+  if (at < 0) return -1;
+  return content.indexOf(":", at) + 1;
+}
+
+function skipBlank(content: string, index: number): number {
+  let i = index;
+  while (i < content.length && /\s/.test(content[i]!)) i += 1;
+  return i;
+}
+
+/** The string after `"key":`, read even when the JSON around it is broken. */
+function looseString(content: string, key: string): string {
+  const start = keyStart(content, key);
+  if (start <= 0) return "";
+  JSON_STRING.lastIndex = skipBlank(content, start);
+  const match = JSON_STRING.exec(content);
+  return match ? decodeJsonString(match[1]!).trim() : "";
+}
+
+/** The items of the array after `"key":`, each as text, in order. */
+function looseItems(content: string, key: string): string[] {
+  const start = keyStart(content, key);
+  if (start <= 0) return [];
+  let i = skipBlank(content, start);
+  if (content[i] !== "[") return [];
+  i += 1;
+  const items: string[] = [];
+  while (i < content.length) {
+    i = skipBlank(content, i);
+    const char = content[i];
+    if (char === "]" || char === undefined) break;
+    if (char === ",") {
+      i += 1;
+      continue;
+    }
+    if (char === '"') {
+      JSON_STRING.lastIndex = i;
+      const match = JSON_STRING.exec(content);
+      if (!match) break;
+      items.push(decodeJsonString(match[1]!));
+      i = JSON_STRING.lastIndex;
+      continue;
+    }
+    JSON_SCALAR.lastIndex = i;
+    const scalar = JSON_SCALAR.exec(content);
+    if (!scalar) break;
+    items.push(scalar[0]);
+    i = JSON_SCALAR.lastIndex;
+  }
+  return items;
+}
+
+export function looseQuiz(content: string): LooseQuiz | null {
+  const question = looseString(content, "question");
+  const options = looseItems(content, "options").map((option) => option.trim()).filter(Boolean);
+  if (!question && options.length === 0) return null;
+  return {
+    label: looseString(content, "label") || null,
+    question,
+    code: looseString(content, "code") || null,
+    codeLang: looseString(content, "lang") || "python",
+    options,
+    explanation: looseString(content, "explanation"),
+  };
+}
+
+export function looseArray(content: string): LooseArray | null {
+  const values = looseItems(content, "values");
+  if (values.length === 0) return null;
+  return {
+    values,
+    title: looseString(content, "title") || null,
+    caption: looseString(content, "caption") || null,
+    note: looseString(content, "note") || null,
+  };
+}
+
+/** Text in a lesson fence that is not JSON at all, such as a question written out. */
+export function plainFenceText(content: string): string | null {
+  const text = content.trim();
+  return text && !text.startsWith("{") && !text.startsWith("[") ? text : null;
 }
