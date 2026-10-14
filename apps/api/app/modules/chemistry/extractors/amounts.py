@@ -15,7 +15,12 @@ from app.modules.chemistry.extractors.parsing import (
 )
 from app.modules.chemistry.formula import parse_formula
 from app.modules.chemistry.isotopes import ISOTOPE_MASSES
-from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.modules.chemistry.request import (
+    CHEMICAL_FORMULA,
+    EQUATION_RE,
+    FORMULA_END,
+    SAMPLE_FORMULA,
+)
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     ELEMENT_NAMES,
@@ -83,7 +88,7 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
     if economy is not None:
         return economy
     mass_formula = re.search(
-        rf"(?:molar\s+mass|molecular\s+weight)\s+(?:of\s+)?({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"(?:molar\s+mass|molecular\s+weight)\s+(?:of\s+)?({SAMPLE_FORMULA}){FORMULA_END}",
         text,
         re.IGNORECASE,
     )
@@ -94,7 +99,7 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
 
     percent_composition = re.search(
         rf"percent(?:age)?\s+(?:composition|by mass)\s+(?:of\s+)?"
-        rf"([A-Z][a-z]?|[a-z]+)\s+(?:in|of)\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"([A-Z][a-z]?|[a-z]+)\s+(?:in|of)\s+({SAMPLE_FORMULA}){FORMULA_END}",
         text,
         re.IGNORECASE,
     )
@@ -122,7 +127,7 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
     mass_to_moles = re.search(
         rf"(?:how many|calculate|find|determine)?\s*(?:the\s+)?moles?\s+"
         rf"(?:are\s+)?(?:in|from|of)?\s*({_N})\s*g(?:rams?)?\s+(?:of\s+)?"
-        rf"({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"({SAMPLE_FORMULA}){FORMULA_END}",
         text,
         re.IGNORECASE,
     )
@@ -136,7 +141,8 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
         )
 
     moles_to_mass = re.search(
-        rf"(?:mass|grams?)\s+(?:of\s+)?({_N})\s*mol(?:e|es)?\s+(?:of\s+)?({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"(?:mass|grams?)\s+(?:of\s+)?({_N})\s*mol(?:e|es)?\s+(?:of\s+)?"
+        rf"({SAMPLE_FORMULA}){FORMULA_END}",
         text,
         re.IGNORECASE,
     )
@@ -152,7 +158,7 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
     moles_to_particles = re.search(
         rf"(?:how many|calculate|find)?\s*(?P<noun>molecules|particles|atoms|formula units)\s+"
         rf"(?:are\s+)?(?:in|from)?\s*(?P<moles>{_N})\s*mol(?:e|es)?\s+(?:of\s+)?"
-        rf"(?P<formula>{CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"(?P<formula>{SAMPLE_FORMULA}){FORMULA_END}",
         text,
         re.IGNORECASE,
     )
@@ -168,7 +174,7 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
     particles_to_moles = re.search(
         rf"(?:how many|calculate|find)?\s*moles?\s+(?:are\s+)?(?:in|from)?\s*"
         rf"({_N})\s*(?P<noun>molecules|particles|atoms|formula units)\s+(?:of\s+)?"
-        rf"({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"({SAMPLE_FORMULA}){FORMULA_END}",
         text,
         re.IGNORECASE,
     )

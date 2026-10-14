@@ -10,7 +10,7 @@ from app.modules.chemistry.extractors.parsing import (
     _N,
     _target,
 )
-from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE
+from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.half_reaction import is_single_redox_change
 from app.modules.chemistry.species import parse_reaction
@@ -26,7 +26,7 @@ def _amounts(text: str) -> dict[str, float]:
     return {
         match.group(2): float(match.group(1))
         for match in re.finditer(
-            rf"({_N})\s*mol(?:e|es)?(?:\s+of)?\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+            rf"({_N})\s*mol(?:e|es)?(?:\s+of)?\s+({CHEMICAL_FORMULA}){FORMULA_END}",
             text,
             re.IGNORECASE,
         )

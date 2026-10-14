@@ -11,7 +11,7 @@ from app.modules.chemistry.extractors.parsing import (
     asked_quantity,
 )
 from app.modules.chemistry.quantity import to_atm, to_kelvin, to_liters
-from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.request import CHEMICAL_FORMULA, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
 
 
@@ -67,7 +67,7 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
             units={"known": "g", "find": find_unit or "g"},
         )
     solution = re.search(
-        rf"({_N})\s*L\s+of\s+({_N})\s*M\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"({_N})\s*L\s+of\s+({_N})\s*M\s+({CHEMICAL_FORMULA}){FORMULA_END}",
         text,
         re.IGNORECASE,
     )
@@ -82,7 +82,7 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
             units={"known": "solution", "find": find_unit or "mol"},
         )
     gas = re.search(
-        rf"({_N})\s*(mL|L)\s+of\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])\s+at\s+"
+        rf"({_N})\s*(mL|L)\s+of\s+({CHEMICAL_FORMULA}){FORMULA_END}\s+at\s+"
         rf"({_N})\s*(kPa|Pa|mmHg|torr|atm|bar)\s+and\s+({_N})\s*(°C|C|K)\b",
         text,
     )
@@ -103,7 +103,7 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
         )
     counted = _one_amount(
         text,
-        rf"({_N})\s*mol(?:e|es)?(?:\s+of)?\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"({_N})\s*mol(?:e|es)?(?:\s+of)?\s+({CHEMICAL_FORMULA}){FORMULA_END}",
     )
     if counted is not None:
         amount, formula = counted
@@ -111,7 +111,7 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
     counted = _one_amount(
         text,
         rf"({_N})\s*(?:molecules|particles|atoms)(?:\s+of)?\s+"
-        rf"({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"({CHEMICAL_FORMULA}){FORMULA_END}",
     )
     if counted is not None:
         amount, formula = counted
@@ -157,7 +157,7 @@ def _gram_amounts(text: str) -> dict[str, float]:
     return {
         match.group(2): float(match.group(1))
         for match in re.finditer(
-            rf"({_N})\s*g(?:rams?)?(?:\s+of)?\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+            rf"({_N})\s*g(?:rams?)?(?:\s+of)?\s+({CHEMICAL_FORMULA}){FORMULA_END}",
             text,
             re.IGNORECASE,
         )

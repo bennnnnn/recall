@@ -12,7 +12,7 @@ from app.modules.chemistry.extractors.parsing import (
     _floats,
     _search,
 )
-from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.request import CHEMICAL_FORMULA, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.species_facts import (
     is_formula,
@@ -23,7 +23,7 @@ def _extract_structure(text: str) -> ChemistryIntent | None:
     # "the oxidation state of S in H2SO4" answers with every element's state, S's among them.
     oxidation = re.search(
         rf"oxidation (?:state|number)s?(?: of (?:each element|[A-Za-z]+))? in "
-        rf"({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"({CHEMICAL_FORMULA}){FORMULA_END}",
         text,
         re.IGNORECASE,
     )
@@ -33,7 +33,7 @@ def _extract_structure(text: str) -> ChemistryIntent | None:
         )
     vsepr = re.search(
         rf"\b(?:VSEPR(?: shape)?|(?:molecular |electron )?(?:shape|geometry)) of "
-        rf"({CHEMICAL_FORMULA})(?![A-Za-z0-9])",
+        rf"({CHEMICAL_FORMULA}){FORMULA_END}",
         text,
         re.IGNORECASE,
     )

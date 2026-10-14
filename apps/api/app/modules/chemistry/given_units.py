@@ -110,6 +110,7 @@ _SYMBOLS: dict[str, str] = {
     "L/(mol·cm)": "liter / mole / centimeter",
     "L/mol·cm": "liter / mole / centimeter",
     "L mol⁻¹ cm⁻¹": "liter / mole / centimeter",
+    "L mol^-1 cm^-1": "liter / mole / centimeter",
     "M⁻¹cm⁻¹": "liter / mole / centimeter",
     "M⁻¹ cm⁻¹": "liter / mole / centimeter",
     "M^-1 cm^-1": "liter / mole / centimeter",

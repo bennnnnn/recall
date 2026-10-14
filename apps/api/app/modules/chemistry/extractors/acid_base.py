@@ -9,7 +9,7 @@ from app.modules.chemistry.extractors.parsing import (
     _N,
     _search,
 )
-from app.modules.chemistry.request import CHEMICAL_FORMULA
+from app.modules.chemistry.request import CHEMICAL_FORMULA, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.services.law_binding.ask import ask_clause
 
@@ -210,7 +210,7 @@ def _extract_acid_solution(text: str) -> ChemistryIntent | None:
 
 
 def _molar_formula(text: str) -> tuple[float, str] | None:
-    match = re.search(rf"({_N})\s*M\s+({CHEMICAL_FORMULA})(?![A-Za-z0-9])", text)
+    match = re.search(rf"({_N})\s*M\s+({CHEMICAL_FORMULA}){FORMULA_END}", text)
     if match is None:
         return None
     return float(match.group(1)), match.group(2)

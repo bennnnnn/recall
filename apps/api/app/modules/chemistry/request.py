@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.chemistry.input_text import HYDRATE_DOT, read_chemistry_text
 from app.modules.chemistry.species import ARROWS
 from app.modules.chemistry.species_facts import ELEMENT_NAMES, is_formula
 
@@ -29,6 +30,15 @@ CHEMICAL_FORMULA = (
     r"(?:[A-Z][a-z]?[0-9]*(?:\([A-Za-z0-9]+\)[0-9]?)?)*)"
     r"(?:\^(?:\{\d*[+-]\}|\d*[+-])|\d*[+-])?"
     r"(?:\((?:aq|s|l|g)\))?)"
+)
+# A formula has ended: no letter or digit follows, and no hydrate dot carries it on. A reader
+# that does not take a hydrate declines CuSO4·5H2O instead of reading the CuSO4 of it.
+FORMULA_END = rf"(?![A-Za-z0-9{HYDRATE_DOT}])"
+# A formula with the water (or second salt) of a hydrate: CuSO4·5H2O, Na2CO3·10H2O. The input
+# reader (``input_text``) writes every hydrate dot as this one character.
+SAMPLE_FORMULA = (
+    rf"{CHEMICAL_FORMULA}"
+    rf"(?-i:(?:{HYDRATE_DOT}\d{{0,2}}(?:[A-Z][a-z]?\d*|\([A-Za-z0-9]+\)\d*)+)*)"
 )
 _ARROW = "(?:" + "|".join(re.escape(arrow) for arrow in ARROWS) + ")"
 # Coefficients stop at two digits so a nuclide such as 238U is not "238 U".
@@ -352,7 +362,7 @@ def _has_equation(text: str) -> bool:
 
 def is_chemistry_question(content: str) -> bool:
     """True for supported calculations or plausible compound lookup requests."""
-    cleaned = _window(content)
+    cleaned = read_chemistry_text(_window(content))
     if not cleaned:
         return False
     if _STRONG_CUE.search(cleaned) or _SYMBOL_CUE.search(cleaned):

@@ -1,0 +1,156 @@
+[
+ {
+  "id": "ci-001",
+  "area": "chemistry",
+  "prompt": "what is the molar mass of H₂SO₄",
+  "reply": "**Answer:** M(H₂SO₄) = 2(1.008) + 32.06 + 4(15.999) = **98.07 g/mol**",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-002",
+  "area": "chemistry",
+  "prompt": "molar mass of CuSO₄·5H₂O?",
+  "reply": "Copper(II) sulfate pentahydrate: 159.60 g/mol for CuSO₄ plus 5 × 18.015 g/mol of water gives **249.68 g/mol**.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-003",
+  "area": "chemistry",
+  "prompt": "What is the molar mass of CuSO4.5H2O?",
+  "reply": "The water of crystallization counts: 159.60 + 5(18.015) = **249.68 g/mol**.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-004",
+  "area": "chemistry",
+  "prompt": "whats the ph of 0.10 M acetic acid, Ka = 1.8 x 10^-5",
+  "reply": "Acetic acid is weak, so solve x²/(0.10 − x) = 1.8 × 10⁻⁵: x = 1.33 × 10⁻³ M, and **pH = 2.88**.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-005",
+  "area": "chemistry",
+  "prompt": "Find the pH of 0.10 M CH₃COOH, Ka = 1.8 x 10^-5",
+  "reply": "[H⁺] = 1.33 × 10⁻³ M from the weak-acid quadratic, so **pH = 2.88**.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-006",
+  "area": "chemistry",
+  "prompt": "how many oxygen atoms are in 2.0 mol of CO₂",
+  "reply": "Each CO₂ has 2 O atoms: N(O) = 2.0 mol × 2 × 6.022 × 10²³ mol⁻¹ = **2.4 × 10²⁴ atoms**.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-007",
+  "area": "chemistry",
+  "prompt": "how many moles of oxygen atoms are in 2.0 mol of H2SO4",
+  "reply": "Each H₂SO₄ has 4 O atoms, so n(O) = 2.0 × 4 = **8.0 mol**.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-008",
+  "area": "chemistry",
+  "prompt": "Al + HCl = AlCl3 + H2 balance pls",
+  "reply": "**2 Al + 6 HCl → 2 AlCl₃ + 3 H₂**",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-009",
+  "area": "chemistry",
+  "prompt": "the pool ph is 7.8, is that too high?",
+  "reply": "A little. Pools are usually kept between 7.2 and 7.6; at 7.8 chlorine works less well. Add a pH reducer (sodium bisulfate) and retest in a few hours.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-010",
+  "area": "chitchat",
+  "prompt": "our team has great chemistry this season",
+  "reply": "That makes a huge difference! When a team clicks, everything from passing to defense gets easier. Who's been the standout?",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-011",
+  "area": "math",
+  "prompt": "the room is 12 x 10 ft, how much paint do I need for the floor?",
+  "reply": "The floor is 12 × 10 = 120 sq ft. Floor paint covers about 300–400 sq ft per gallon, so **one gallon** is plenty for one coat.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-012",
+  "area": "chitchat",
+  "prompt": "H2O2 hair bleach tips",
+  "reply": "- Do a strand test first.\n- Use 3% for gentle lightening; stronger can damage hair.\n- Keep it off your scalp and wear gloves.\n- Deep-condition afterwards.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-013",
+  "area": "chitchat",
+  "prompt": "call me back later, my ph is 0412 555 123",
+  "reply": "I can't make calls, but I can set a reminder for you to call someone back. Want me to do that?",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-014",
+  "area": "chitchat",
+  "prompt": "PH is the country code for the Philippines, right?",
+  "reply": "Yes. PH is the ISO country code for the Philippines, and its internet domain is .ph.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-015",
+  "area": "chitchat",
+  "prompt": "Balance my week: work = gym + sleep, what am I missing?",
+  "reply": "Friends and downtime! A balanced week usually has some time for people you like and something that isn't work or recovery.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-016",
+  "area": "math",
+  "prompt": "rent = 1200 + 400 utilities, balance it against my 2500 salary",
+  "reply": "Rent and utilities are 1,600, so 2,500 − 1,600 = **900** is left each month for everything else.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-017",
+  "area": "code",
+  "prompt": "version 2.5 of the app crashes on Android, how do I get logs?",
+  "reply": "Connect the phone and run `adb logcat`, then reproduce the crash. Filter with `adb logcat *:E` to see only errors.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-018",
+  "area": "chitchat",
+  "prompt": "I have 3 M followers and want 5 M by May, any tips?",
+  "reply": "Post consistently, collaborate with creators your size, and double down on the formats that already work for you.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-019",
+  "area": "math",
+  "prompt": "solve x² - 5x + 6 = 0",
+  "reply": "Factor: (x − 2)(x − 3) = 0, so **x = 2 or x = 3**.",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-020",
+  "area": "math",
+  "prompt": "what is 3.2 x 10^4 times 2?",
+  "reply": "3.2 × 10⁴ × 2 = **6.4 × 10⁴** (64,000).",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-021",
+  "area": "chitchat",
+  "prompt": "my NaCl lab got a 4.5/5, happy with that",
+  "reply": "Nice work, 4.5 out of 5 is a great score!",
+  "expect": "answer"
+ },
+ {
+  "id": "ci-022",
+  "area": "writing",
+  "prompt": "Dear Ms. Smith, thanks for the 2.0 update. Can you make this email sound friendlier?",
+  "reply": "Hi Ms. Smith,\n\nThank you so much for the 2.0 update, it's great to see!\n\nBest,",
+  "expect": "answer"
+ }
+]

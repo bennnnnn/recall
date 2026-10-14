@@ -1,4 +1,3 @@
-# ruff: noqa: RUF001 -- superscripts include a true minus sign.
 """Species, charge, phase, and reaction terms shared by every chemistry solver.
 
 A plus sign is ionic charge only when it is glued to the formula and the next
@@ -17,6 +16,7 @@ from dataclasses import dataclass
 
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula import parse_formula
+from app.modules.chemistry.input_text import spell_scripts
 
 _PHASE_RE = re.compile(r"\s*\((aq|s|l|g)\)$", re.IGNORECASE)
 # These elements are written as molecules. ``O2-`` is superoxide, not oxide.
@@ -24,8 +24,6 @@ _DIATOMIC_ELEMENTS = frozenset({"H", "N", "O", "F", "Cl", "Br", "I"})
 _CARET_CHARGE_RE = re.compile(r"\^(?:\{(\d*)([+-])\}|(\d*)([+-]))$")
 # Longest first: "<=>" contains "=>", and "-->" and "<->" contain "->".
 ARROWS = ("<=>", "<->", "-->", "->", "→", "⇌", "⇋", "⟶", "↔", "=>")
-_SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
-_SUPERSCRIPTS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹", "0123456789")
 
 
 @dataclass(frozen=True)
@@ -61,31 +59,7 @@ class ChemicalReaction:
 
 def normalize_formula_text(text: str) -> str:
     """Turn unicode subscripts and superscripts into ASCII formula text."""
-    out: list[str] = []
-    index = 0
-    while index < len(text):
-        char = text[index]
-        if char in "⁰¹²³⁴⁵⁶⁷⁸⁹":
-            digits: list[str] = []
-            while index < len(text) and text[index] in "⁰¹²³⁴⁵⁶⁷⁸⁹":
-                digits.append(text[index].translate(_SUPERSCRIPTS))
-                index += 1
-            sign = ""
-            if index < len(text) and text[index] in "⁺⁻+−-":
-                sign = "+" if text[index] in "+⁺" else "-"
-                index += 1
-            out.append("^" + "".join(digits) + sign)
-            continue
-        if char in "⁺":
-            out.append("+")
-        elif char in "⁻−":
-            out.append("-")
-        elif char in "₀₁₂₃₄₅₆₇₈₉":
-            out.append(char.translate(_SUBSCRIPTS))
-        else:
-            out.append(char)
-        index += 1
-    return "".join(out)
+    return spell_scripts(text)
 
 
 def _is_charge_plus(text: str, index: int, buf: list[str]) -> bool:
