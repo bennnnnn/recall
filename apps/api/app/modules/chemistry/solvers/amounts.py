@@ -78,6 +78,11 @@ def _particles_per_formula(intent: ChemistryIntent, formula: str) -> tuple[int, 
     return sum(atoms.values()), "atoms"
 
 
+def _per_unit(formula: str, per_formula: int) -> tuple[str, ...]:
+    """The atom count an atom total multiplies by, named, so it is not a bare ``(3)``."""
+    return () if per_formula == 1 else (f"atoms per {formula} = {per_formula}",)
+
+
 def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
     op = intent.chemistry_op
     formula = _formula(intent)
@@ -119,13 +124,17 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
         )
         return verified(
             "Verified particle count",
-            (f"n = {inp(moles)} mol", f"Nₐ = {const(AVOGADRO)} mol⁻¹"),
+            (
+                f"n = {inp(moles)} mol",
+                f"Nₐ = {const(AVOGADRO)} mol⁻¹",
+                *_per_unit(formula, per_formula),
+            ),
             f"Number of {noun}, N",
             law_name,
             particle_formula,
             (
                 f"N = ({qty(moles, 'mol')})({const(AVOGADRO)} mol⁻¹)"
-                + ("" if per_formula == 1 else f"({per_formula})"),
+                + ("" if per_formula == 1 else f" × ({per_formula} atoms per {formula})"),
             ),
             f"N({formula}) = {value}",
             value,
@@ -140,13 +149,17 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
         )
         return verified(
             "Verified amount of substance",
-            (f"N = {inp(particles)} {noun}", f"Nₐ = {const(AVOGADRO)} mol⁻¹"),
+            (
+                f"N = {inp(particles)} {noun}",
+                f"Nₐ = {const(AVOGADRO)} mol⁻¹",
+                *_per_unit(formula, per_formula),
+            ),
             "Amount, n",
             law_name,
             amount_formula,
             (
                 f"n = {inp(particles)} / {const(AVOGADRO)} mol⁻¹"
-                + ("" if per_formula == 1 else f" / {per_formula}"),
+                + ("" if per_formula == 1 else f" / ({per_formula} atoms per {formula})"),
             ),
             f"n({formula}) = {value}",
             value,

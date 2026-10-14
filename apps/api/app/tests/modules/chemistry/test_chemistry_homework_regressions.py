@@ -6,6 +6,8 @@ Each family is a cause, not one prompt:
 - A: Unicode subscripts and superscripts (``H₂SO₄``, ``10⁻³``) cut the formula, so the
   molar mass of H₂SO₄ was the molar mass of H;
 - B: a hydrate's water (``CuSO4.5H2O``, ``MgSO4·7H2O``) was dropped;
+- C: "how many oxygen atoms" counted every atom, and "moles of oxygen atoms" answered a
+  particle count;
 - F: words chemistry did not read (``=`` as an arrow, a lowercase ``ph``).
 
 The right outcome is the right number or no verified answer, never a wrong one.
@@ -161,6 +163,58 @@ def test_b_a_hydrate_keeps_its_water(question: str, label: str, expected: float)
 )
 def test_b_no_reader_drops_the_water_of_a_hydrate(question: str, expected: float) -> None:
     _right_or_declined(question, expected)
+
+
+# --- C: "oxygen atoms" counts the oxygen; "moles of oxygen atoms" is an amount -----------
+
+
+@pytest.mark.parametrize(
+    ("question", "label", "expected"),
+    [
+        ("how many oxygen atoms are in 2.0 mol of CO2", "N(O)", 2.409e24),
+        ("how many hydrogen atoms are in 0.50 mol of H2O", "N(H)", 6.022e23),
+        ("How many O atoms are in 0.25 mol of H2SO4?", "N(O)", 6.022e23),
+        ("How many carbon atoms are in 1.5 mol of C6H12O6?", "N(C)", 5.420e24),
+        ("How many H atoms are in 3.0 mol of NH3?", "N(H)", 5.420e24),
+        ("how many atoms of oxygen are in 2.0 mol of CO2", "N(O)", 2.409e24),
+        ("how many moles of oxygen atoms are in 2.0 mol of H2SO4", "n(O)", 8.0),
+        ("How many moles of H atoms are in 0.50 mol of CH4?", "n(H)", 2.0),
+        # Every atom, and molecules, are unchanged.
+        ("how many atoms are in 2.0 mol of CO2", "N(CO2)", 3.613e24),
+        ("how many molecules are in 2.0 mol of CO2", "N(CO2)", 1.204e24),
+    ],
+)
+def test_c_the_element_word_selects_its_atoms(question: str, label: str, expected: float) -> None:
+    result = _solve(question)
+    assert result.answer.startswith(label), result.answer
+    assert math.isclose(_value(result.answer), expected, rel_tol=0.01), result.answer
+
+
+def test_c_moles_of_atoms_answer_in_moles() -> None:
+    result = _solve("how many moles of oxygen atoms are in 2.0 mol of H2SO4")
+    assert result.answer == "n(O) = 8.0 mol"
+
+
+def test_c_the_atom_count_is_explained_not_a_bare_multiplier() -> None:
+    result = _solve("how many oxygen atoms are in 2.0 mol of CO2")
+    assert any(row == "O atoms per CO2 = 2" for row in result.given), result.given
+    assert not any(row.endswith("(2)") for row in result.substitution), result.substitution
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "how many sodium atoms are in 2.0 mol of CO2",
+        "how many oxygen molecules are in 2.0 mol of CO2",
+        "how many moles of nitrogen atoms are in 1.0 mol of H2O",
+    ],
+)
+def test_c_an_element_the_formula_does_not_hold_is_not_answered(question: str) -> None:
+    intent = extract_chemistry_intent(question)
+    if intent is None:
+        return
+    with pytest.raises(SolveServiceError):
+        solve_chemistry(intent)
 
 
 # --- F: routing that sent chemistry to maths ---------------------------------------------
