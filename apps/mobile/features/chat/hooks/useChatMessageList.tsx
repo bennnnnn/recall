@@ -4,8 +4,7 @@ import { View } from "react-native";
 import { ChatMessageRow } from "@/features/chat/components/ChatMessageRow";
 import { StreamingChatMessageRow } from "@/features/chat/components/StreamingChatMessageRow";
 import { RelatedPromptLines } from "@/features/suggestions/components/RelatedPromptLines";
-import { SuggestionChips } from "@/features/suggestions/components/SuggestionChips";
-import type { Message, Suggestion } from "@/lib/api";
+import type { Message } from "@/lib/api";
 import {
   findLastAssistantId,
   isChatStreamActive,
@@ -26,9 +25,7 @@ type Options = {
   regenerateResponse: (model: string) => void | Promise<void>;
   regenerating?: boolean;
   handleFeedback: (messageId: string, next: "up" | "down" | null) => void;
-  suggestions?: Suggestion[];
   onSelectSuggestion?: (prompt: string) => void;
-  onDismissSuggestion?: (id: string) => void;
   imageGenerating?: boolean;
   onRetryImageGen?: () => void;
 };
@@ -44,9 +41,7 @@ export function useChatMessageList({
   regenerateResponse,
   regenerating = false,
   handleFeedback,
-  suggestions = [],
   onSelectSuggestion,
-  onDismissSuggestion,
   imageGenerating = false,
   onRetryImageGen,
 }: Options) {
@@ -64,7 +59,7 @@ export function useChatMessageList({
 
   const headerTitleLabel = null;
 
-  // Defer inline suggestions until post-stream layout settle (avoids list bounce).
+  // Defer follow-up questions until post-stream layout settle (avoids list bounce).
   const [suggestionsDelayed, setSuggestionsDelayed] = useState(false);
   useEffect(() => {
     if (streaming || finalizing) {
@@ -74,15 +69,6 @@ export function useChatMessageList({
     const timer = setTimeout(() => setSuggestionsDelayed(false), STREAM_LAYOUT_SETTLE_MS);
     return () => clearTimeout(timer);
   }, [streaming, finalizing]);
-
-  const showSuggestions =
-    !streaming &&
-    !finalizing &&
-    !imageGenerating &&
-    !suggestionsDelayed &&
-    suggestions.length > 0 &&
-    Boolean(onSelectSuggestion) &&
-    Boolean(onDismissSuggestion);
 
   // `regenerating` is deliberately NOT here: it flips true→false once per
   // regenerate and would change this object's identity, re-rendering every
@@ -148,7 +134,7 @@ export function useChatMessageList({
         />
       );
 
-      // Every row keeps the same root <View> so the suggestion chips appearing
+      // Every row keeps the same root <View> so the follow-up questions appearing
       // after stream end (or lastAssistantId moving to a new reply) never
       // changes the root element type — that would remount the whole bubble.
       const relatedPrompts =
@@ -162,25 +148,11 @@ export function useChatMessageList({
         !suggestionsDelayed &&
         relatedPrompts.length > 0 &&
         Boolean(onSelectSuggestion);
-      const withActivity =
-        showSuggestions &&
-        relatedPrompts.length === 0 &&
-        item.role === "assistant" &&
-        item.id === lastAssistantId &&
-        onSelectSuggestion &&
-        onDismissSuggestion;
       return (
         <View>
           {row}
           {showRelated && onSelectSuggestion ? (
             <RelatedPromptLines prompts={relatedPrompts} onSelect={onSelectSuggestion} />
-          ) : null}
-          {withActivity ? (
-            <SuggestionChips
-              suggestions={suggestions}
-              onSelect={onSelectSuggestion}
-              onDismiss={onDismissSuggestion}
-            />
           ) : null}
         </View>
       );
@@ -193,10 +165,7 @@ export function useChatMessageList({
       suggestionsDelayed,
       lastAssistantId,
       regenerating,
-      showSuggestions,
-      suggestions,
       onSelectSuggestion,
-      onDismissSuggestion,
     ],
   );
 

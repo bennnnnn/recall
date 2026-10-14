@@ -6,7 +6,6 @@ import { imagesApi } from "@/features/images/api";
 import { memoriesApi } from "@/features/memory/api";
 import { searchApi } from "@/features/search/api";
 import { speechApi } from "@/features/speech/api";
-import { suggestionsApi } from "@/features/suggestions/api";
 import { todosApi } from "@/features/todos/api";
 import { analyticsApi } from "@/lib/api/analytics";
 import { discoverApi } from "@/lib/api/discover";
@@ -34,7 +33,6 @@ export const api = {
   ...memoriesApi,
   ...homeApi,
   ...searchApi,
-  ...suggestionsApi,
   ...discoverApi,
   ...todosApi,
   ...pushApi,

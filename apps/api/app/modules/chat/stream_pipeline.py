@@ -578,6 +578,7 @@ async def register_and_enqueue_finalize(
             question=ctx.user_message_content or "",
             answer=assistant_text,
             prior=_prior_window(ctx.prompt_messages),
+            allow_general=not ctx.lightweight_turn and ctx.instant_reply is None,
         )
     await seams.mark_pending_finalize(redis, ctx.chat_id)
     finalize_db_task = seams.create_background_task(

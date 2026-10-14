@@ -32,7 +32,6 @@ import { useChatComposerState } from "@/features/chat/hooks/useChatComposerState
 import { useChatDraftWarmup } from "@/features/chat/hooks/useChatDraftWarmup";
 import { useChatLayoutMetrics } from "@/features/chat/hooks/useChatLayoutMetrics";
 import { useChatMessageList } from "@/features/chat/hooks/useChatMessageList";
-import { useChatSuggestions } from "@/features/suggestions/hooks/useChatSuggestions";
 import { useChatRegenerate } from "@/features/chat/hooks/useChatRegenerate";
 import { useChatRouteLoader } from "@/features/chat/hooks/useChatRouteLoader";
 import { useChatScroll } from "@/features/chat/hooks/useChatScroll";
@@ -259,7 +258,7 @@ function ChatScreen() {
     if (!streamActive) handleRejectedSendChange(rejectedSend?.reason ?? null);
   }, [streamActive, rejectedSend, handleRejectedSendChange]);
 
-  const { turnRefreshKey, ...quotaNudge } = useChatStreamLifecycle({
+  const quotaNudge = useChatStreamLifecycle({
     streamActive,
     dismissChatError,
     token,
@@ -449,14 +448,6 @@ function ChatScreen() {
 
   const displayMessages = messages;
 
-  const { suggestions, dismiss: dismissSuggestion } = useChatSuggestions({
-    token,
-    chatId,
-    hasMessages: displayMessages.length > 0,
-    turnBusy: streamActive || Boolean(pendingOutboundId),
-    refreshKey: turnRefreshKey,
-  });
-
   const onSelectSuggestion = useCallback(
     (prompt: string) => {
       void handleSend(prompt);
@@ -475,9 +466,7 @@ function ChatScreen() {
     regenerateResponse: handleRegenerate,
     regenerating,
     handleFeedback,
-    suggestions,
     onSelectSuggestion,
-    onDismissSuggestion: dismissSuggestion,
     imageGenerating: imageGen.generating,
     onRetryImageGen: imageGen.retry,
   });

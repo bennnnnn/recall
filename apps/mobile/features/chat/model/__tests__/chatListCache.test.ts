@@ -3,7 +3,6 @@ import {
   fetchChatList,
   getCachedChat,
   getCachedChatList,
-  consumeCreatedSuggestionSkip,
   peekCreatedChat,
   rememberCreatedChat,
   getChatListFetchedAt,
@@ -88,8 +87,6 @@ describe("chatListCache", () => {
     rememberCreatedChat(sample.today[0]);
     expect(peekCreatedChat("c1")?.title).toBe("Hello");
     expect(peekCreatedChat("other")).toBeUndefined();
-    expect(consumeCreatedSuggestionSkip("c1")).toBe(true);
-    expect(consumeCreatedSuggestionSkip("c1")).toBe(false);
     invalidateChatListCache();
     expect(peekCreatedChat("c1")).toBeUndefined();
   });
@@ -164,7 +161,6 @@ it("isolates cached rows, created chat and inflight requests by account session"
   mockSession++;
   expect(getCachedChatList()).toBeUndefined();
   expect(peekCreatedChat("c1")).toBeUndefined();
-  expect(consumeCreatedSuggestionSkip("c1")).toBe(false);
   finish(sample);
   expect(await old).toBeNull();
   expect(getCachedChatList()).toBeUndefined();

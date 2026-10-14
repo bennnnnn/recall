@@ -295,7 +295,7 @@ async def test_a_tapped_why_keeps_the_follow_ups_coming() -> None:
     followups = [
         "Why is average speed not the mean of two speeds?",
         "A car travels 120 km in 2 hours. What is its average speed?",
-        "How would the average speed change if the bike stopped for 30 minutes?",
+        "What if the bike stopped for 30 minutes?",
     ]
     with patch(
         "app.modules.chat.related_prompts.complete_structured",
@@ -311,3 +311,182 @@ async def test_a_tapped_why_keeps_the_follow_ups_coming() -> None:
     sent = complete.call_args.kwargs["messages"][1]["content"]
     assert sent.startswith(f"Problem:\n{BIKE}")
     assert f"Student question:\n{why}" in sent
+
+
+AVERAGE = "A car goes from rest to 75 km/h in 5 s. What is its average acceleration?"
+
+
+async def test_a_follow_up_is_one_short_line() -> None:
+    restated = "A car goes from rest to 90 km/h in 6 s. What is its average acceleration?"
+    too_long = "How would the acceleration change if the car took twice as long to reach 75 km/h?"
+    short = [
+        "Why convert km/h to m/s first?",
+        "What if it took 10 s instead?",
+        "How far does the car go in 5 s?",
+    ]
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        complete.return_value = RelatedQuestions(questions=[restated, too_long, *short])
+        prompts = await generate_related_questions(Settings(), AVERAGE, "a = 4.17 m/s^2")
+
+    assert prompts == short
+
+
+def test_math_counts_as_what_the_phone_shows() -> None:
+    from app.modules.chat.related_prompts import _prepare_question
+
+    fraction = r"Why is $\frac{v - v_0}{t}$ the average acceleration here?"
+    assert _prepare_question(fraction) == fraction
+    assert _prepare_question("Why is 2.5 m/s the speed here?") is not None
+
+
+SOURDOUGH = "How do I make a sourdough starter at home?"
+SOURDOUGH_REPLY = (
+    "Mix 50 g of flour with 50 g of water in a clean jar, cover it loosely and keep it "
+    "somewhere warm. Every day, discard half and feed it another 50 g of flour and 50 g "
+    "of water. After five to seven days it should double within a few hours of feeding, "
+    "smell pleasantly sour and be full of bubbles. That is when it is ready to bake with. "
+    "Whole wheat or rye flour gets it going faster than white flour."
+)
+
+
+async def test_an_everyday_question_gets_follow_ups_on_its_topic() -> None:
+    followups = [
+        "How do I know it's ready?",
+        "Can I use whole wheat flour?",
+        "What is the capital of France?",
+        "Why does my starter smell like acetone?",
+    ]
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        complete.return_value = RelatedQuestions(questions=followups)
+        prompts = await generate_related_questions(Settings(), SOURDOUGH, SOURDOUGH_REPLY)
+
+    # The capital of France left the topic.
+    assert prompts == [followups[0], followups[1], followups[3]]
+    call = complete.await_args
+    assert call is not None
+    system, user = call.kwargs["messages"]
+    assert "about exactly what they just asked" in system["content"]
+    assert user["content"].startswith(f"Question:\n{SOURDOUGH}")
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "Write an email to my landlord about the leaking sink",
+        "Remind me to feed the starter tomorrow at 9",
+        "I just started baking sourdough bread",
+        "Set my reply style to short",
+        "thanks so much",
+        "Turn on the dark theme for me please",
+    ],
+)
+async def test_drafts_reminders_updates_and_small_talk_get_no_follow_ups(
+    question: str, fake_redis
+) -> None:
+    result: dict[str, Any] = {}
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        schedule_related_prompts(
+            result,
+            fake_redis,
+            Settings(),
+            message_id="m1",
+            question=question,
+            answer=SOURDOUGH_REPLY,
+        )
+        prompts = await generate_related_questions(Settings(), question, SOURDOUGH_REPLY)
+
+    assert "_related_task" not in result
+    assert prompts == []
+    complete.assert_not_called()
+
+
+async def test_a_short_reply_or_a_greeting_turn_gets_no_everyday_follow_ups(fake_redis) -> None:
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        short = await generate_related_questions(Settings(), SOURDOUGH, "Flour and water.")
+        small_talk = await generate_related_questions(
+            Settings(), "how's your day going?", "Pretty good, thanks for asking! How about you?"
+        )
+        off = await generate_related_questions(
+            Settings(), SOURDOUGH, SOURDOUGH_REPLY, allow_general=False
+        )
+        result: dict[str, Any] = {}
+        schedule_related_prompts(
+            result,
+            fake_redis,
+            Settings(),
+            message_id="m2",
+            question=SOURDOUGH,
+            answer=SOURDOUGH_REPLY,
+            allow_general=False,
+        )
+
+    assert short == []
+    assert small_talk == []
+    assert off == []
+    assert "_related_task" not in result
+    complete.assert_not_called()
+
+
+async def test_a_subject_problem_ignores_the_everyday_switch() -> None:
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        complete.return_value = RelatedQuestions(questions=PHYSICS_FOLLOWUPS)
+        prompts = await generate_related_questions(
+            Settings(), PHYSICS, "The force is 30 newtons.", allow_general=False
+        )
+
+    assert prompts == PHYSICS_FOLLOWUPS
+
+
+async def test_the_model_may_return_no_follow_ups() -> None:
+    with patch(
+        "app.modules.chat.related_prompts.complete_structured",
+        new_callable=AsyncMock,
+    ) as complete:
+        complete.return_value = RelatedQuestions(questions=[])
+        prompts = await generate_related_questions(Settings(), SOURDOUGH, SOURDOUGH_REPLY)
+
+    assert prompts == []
+
+
+@pytest.mark.parametrize(
+    "question",
+    [
+        "How do I remember vocabulary faster?",
+        "What's the best to-do list app for students?",
+        "Why do cats turn around before lying down?",
+    ],
+)
+def test_a_question_that_only_sounds_like_a_command_still_counts(question: str) -> None:
+    from app.modules.chat.related_prompts import general_question
+
+    assert general_question(question, SOURDOUGH_REPLY)
+
+
+@pytest.mark.parametrize(
+    "command",
+    [
+        "Remember that I'm vegetarian",
+        "Add milk to my to-do list please",
+        "Set a timer for 10 minutes",
+        "Don't forget my dentist appointment on Friday",
+    ],
+)
+def test_a_reminder_or_memory_command_gets_no_follow_ups(command: str) -> None:
+    from app.modules.chat.related_prompts import general_question
+
+    assert not general_question(command, SOURDOUGH_REPLY)

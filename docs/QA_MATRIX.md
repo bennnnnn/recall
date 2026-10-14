@@ -90,7 +90,6 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 | 5.7 | Correction and forget commands update recall | ☐ | ☐ | New employer supersedes old; explicit forget removes the fact from future prompts |
 | 5.8 | Todos CRUD + reminders | ☐ | ☐ | |
 | 5.9 | Teach-me chat lesson advances one step | ☐ | ☐ | Ordinary chat, not a Learning screen |
-| 5.11 | Home suggestions load | ☐ | ☐ | |
 
 ---
 
@@ -158,7 +157,7 @@ Manual QA checklist for iOS and Android before store submission. Run against a *
 |---|------|-----|---------|-------|
 | 11.1 | Settings proposal card appears (e.g. "switch to dark mode") | ☐ | ☐ | Accept applies; reject dismisses |
 | 11.2 | Appearance change via chat (dark/light/system incl. "default") | ☐ | ☐ | "default" → system; no "could not update" error |
-| 11.3 | Suggestion chips load after a turn | ☐ | ☐ | Tappable follow-up prompts |
+| 11.3 | Follow-up questions appear under a real question's answer | ☐ | ☐ | Up to three one-line questions on the same topic; none after small talk, a draft or a reminder; tap sends it |
 | 11.4 | Custom instructions in Settings → Personalization applied to prompts | ☐ | ☐ | Verify via a prompt that reflects them |
 
 ---

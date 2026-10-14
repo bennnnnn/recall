@@ -13,6 +13,10 @@ type Props = {
   onSelect: (prompt: string) => void;
 };
 
+/**
+ * Follow-up questions under the latest reply: a short list, one tappable row
+ * per question, each opened by a 1pt rule so the rows read as a list.
+ */
 export function RelatedPromptLines({ prompts, onSelect }: Props) {
   const theme = useTheme();
   const s = makeStyles(theme);
@@ -26,26 +30,21 @@ export function RelatedPromptLines({ prompts, onSelect }: Props) {
   if (lines.length === 0) return null;
   return (
     <View style={s.wrap}>
-      {lines.map((prompt, index) => (
+      {lines.map((prompt) => (
         <View key={prompt}>
-          {index > 0 ? <View style={s.divider} testID="related-prompt-divider" /> : null}
+          <View style={s.divider} testID="related-prompt-divider" />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={prompt}
             onPress={() => onSelect(prompt)}
-            style={s.row}
+            style={({ pressed }) => [s.row, pressed && s.rowPressed]}
           >
-            <Icon
-              name="enter"
-              size={IconSize.xs}
-              color={theme.textSecondary}
-              style={s.icon}
-            />
+            <Icon name="enter" size={IconSize.xs} color={theme.textTertiary} />
             <View style={s.body}>
               <RichMathBody
                 content={wrapSuggestionMath(prompt)}
                 style={s.line}
-                textColor={theme.textSecondary}
+                textColor={theme.text}
               />
             </View>
           </Pressable>
@@ -58,29 +57,31 @@ export function RelatedPromptLines({ prompts, onSelect }: Props) {
 function makeStyles(theme: Theme) {
   return StyleSheet.create({
     wrap: {
-      paddingHorizontal: Space.md,
-      paddingTop: Space.xxs,
-      paddingBottom: Space.xs,
+      marginHorizontal: Space.md,
+      marginTop: Space.xs,
+      marginBottom: Space.xs,
     },
+    // 1pt, not a hairline: a hairline in `separator` all but vanishes on white.
     divider: {
-      height: StyleSheet.hairlineWidth,
+      height: 1,
       backgroundColor: theme.separator,
-      marginVertical: Space.xs,
     },
     row: {
       flexDirection: "row",
-      alignItems: "flex-start",
-      gap: Space.xs,
+      alignItems: "center",
+      gap: Space.sm,
+      minHeight: Space.minTouch,
+      paddingVertical: Space.xs,
     },
-    icon: {
-      marginTop: 2,
+    rowPressed: {
+      backgroundColor: theme.pressed,
     },
     body: {
       flex: 1,
     },
     line: {
       ...Type.secondary,
-      color: theme.textSecondary,
+      color: theme.text,
     },
   });
 }

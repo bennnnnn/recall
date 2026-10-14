@@ -18,10 +18,10 @@ describe("RelatedPromptLines", () => {
       <RelatedPromptLines prompts={[MATH, PHYSICS]} onSelect={onSelect} />,
     );
 
-    expect(queryByText("chat.suggestions")).toBeNull();
     expect(queryByText("X^2 = 9")).toBeNull();
     expect(getAllByRole("button")).toHaveLength(2);
-    expect(getAllByTestId("related-prompt-divider")).toHaveLength(1);
+    // A rule opens every row, the first one included.
+    expect(getAllByTestId("related-prompt-divider")).toHaveLength(2);
 
     await act(async () => {
       fireEvent.press(getByLabelText(MATH));
