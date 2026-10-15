@@ -246,5 +246,46 @@
     "history": [],
     "reply": "A 5k is about 3.1 miles.",
     "expect": "answer"
+  },
+  {
+    "id": "pi-032",
+    "area": "lookalike",
+    "prompt": "how many km is a half marathon?",
+    "history": [],
+    "reply": "A half marathon is **21.0975 km** (13.1 miles).",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-033",
+    "area": "lookalike",
+    "prompt": "how many minutes in a day?",
+    "history": [],
+    "reply": "**1,440 minutes**: 24 hours × 60 minutes.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-034",
+    "area": "lookalike",
+    "prompt": "how many miles are in 10 km?",
+    "history": [],
+    "reply": "10 km is about **6.2 miles** (1 km ≈ 0.621 miles).",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-035",
+    "area": "places",
+    "prompt": "how many miles is it to Hawassa from here?",
+    "history": [],
+    "reply": "Hawassa is about **170 miles (275 km)** south of you by road, around 4½ hours by car via the Addis–Adama expressway.",
+    "expect": "search",
+    "location": "Addis Ababa, Ethiopia"
+  },
+  {
+    "id": "pi-036",
+    "area": "places",
+    "prompt": "how many minutes is the drive to work?",
+    "history": [],
+    "reply": "I need your location to tell you that.",
+    "expect": "instant"
   }
 ]

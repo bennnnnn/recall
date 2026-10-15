@@ -14,6 +14,8 @@ from app.modules.web_search.patterns import (
     _NEARBY_INTENT,
     _PROXIMITY_PHRASES,
     _QUALIFIED_NEARBY,
+    _TIMETABLE,
+    _UNIT_CONVERSION,
     best_near_phrase,
     distance_between_phrase,
     is_weather_request,
@@ -29,19 +31,25 @@ _LOCATIONLESS_WEATHER = re.compile(
 
 
 # "weather in Paris" names its place; "weather for the weekend" and "weather
-# in my area" do not, so they use the user's location.
+# in my area" do not, so they use the user's location. "Weather on Mount Kenya"
+# names its place too; "weather on Saturday" does not.
 _WEATHER_PLACE = re.compile(
     r"\b(?:in|at|near|around|for)\s+"
     r"(?!(?:here|there|today|tomorrow|tonight|now|this|next|the\s+(?:weekend|week|day|morning"
     r"|afternoon|evening|night)|my\s+(?:area|location|city|town|place|neighbou?rhood))\b)"
-    r"[^\W\d_]",
+    r"[^\W\d_]"
+    r"|\bon\s+(?:the\s+)?(?:mount|mt\.?|lake|isle\s+of)\s+[^\W\d_]",
     re.IGNORECASE,
 )
 
 
-# "Best Ethiopian restaurant in DC", "directions to Bole airport from Piassa":
-# the place is named, so the user's own location is not needed.
-_NAMED_PLACE = re.compile(r"\b(?i:in|near|around|at|from|to)\s+[A-Z](?![\s'\u2019])")
+# "Best Ethiopian restaurant in DC", "directions to Bole airport from Piassa",
+# "walk across the Brooklyn Bridge": the place is named, so the user's own
+# location is not needed.
+_NAMED_PLACE = re.compile(
+    r"\b(?i:in|near|around|at|from|to|across|over|through|along)\s+(?:the\s+)?"
+    r"[A-Z](?![\s'\u2019])"
+)
 
 
 def names_its_place(text: str) -> bool:
@@ -83,6 +91,8 @@ def is_distance_query(text: str) -> bool:
     if not cleaned or not _DISTANCE_INTENT.search(cleaned):
         return False
     if _MOTION_HOMEWORK.search(cleaned):
+        return False
+    if _TIMETABLE.search(cleaned) or _UNIT_CONVERSION.search(cleaned):
         return False
     if distance_between_phrase(cleaned) and not _FROM_USER.search(cleaned):
         return False

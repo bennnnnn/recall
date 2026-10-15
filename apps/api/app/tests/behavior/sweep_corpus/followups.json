@@ -1545,5 +1545,57 @@
   ],
   "reply": "Moved **dentist appointment** to Thursday, Oct 22, 2:00 PM. 🦷",
   "expect": "change"
+ },
+ {
+  "id": "hf-091",
+  "area": "physics",
+  "prompt": "how far did it go?",
+  "history": [
+   [
+    "user",
+    "A 1000 kg car accelerates at 2 m/s^2. Find the force."
+   ],
+   [
+    "assistant",
+    "$$F = ma = 1000 \\times 2 = 2000\\text{ N}$$\n\nThe net force on the car is **2000 N**."
+   ]
+  ],
+  "reply": "I can't tell from what we have: the distance depends on how long the car accelerated (and how fast it started). If it started from rest and accelerated for $t$ seconds, it covers $s = \\tfrac{1}{2}(2)t^2 = t^2$ metres. Tell me the time and I'll work it out.",
+  "expect": "answer"
+ },
+ {
+  "id": "hf-092",
+  "area": "places",
+  "prompt": "thanks! how far is it to the airport from here?",
+  "history": [
+   [
+    "user",
+    "A 1000 kg car accelerates at 2 m/s^2. Find the force."
+   ],
+   [
+    "assistant",
+    "$$F = ma = 1000 \\times 2 = 2000\\text{ N}$$\n\nThe net force on the car is **2000 N**."
+   ]
+  ],
+  "reply": "Bole International Airport is about **6.8 km** from you, roughly 18 minutes by car in current traffic.",
+  "expect": "search",
+  "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "hf-093",
+  "area": "places",
+  "prompt": "thanks! how far is it to the airport from here?",
+  "history": [
+   [
+    "user",
+    "A 1000 kg car accelerates at 2 m/s^2. Find the force."
+   ],
+   [
+    "assistant",
+    "$$F = ma = 1000 \\times 2 = 2000\\text{ N}$$\n\nThe net force on the car is **2000 N**."
+   ]
+  ],
+  "reply": "I need your location to tell you that.",
+  "expect": "instant"
  }
 ]
