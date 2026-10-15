@@ -42,6 +42,8 @@ export function useVoiceInput({
   const finishRecordingRef = useRef<() => Promise<string | null>>(async () => null);
   const speechSamplesRef = useRef(0);
   const captureGenRef = useRef(0);
+  /** A start is awaiting permission or the native recorder. */
+  const startingRef = useRef(false);
   const transcribeAbortRef = useRef<AbortController | null>(null);
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
@@ -76,7 +78,13 @@ export function useVoiceInput({
   }, []);
 
   const startRecording = useCallback(async (): Promise<boolean> => {
-    if (!token || recording || transcribing) return false;
+    // `recording` only turns true once the native recorder runs, so a second
+    // tap meanwhile would open a second recorder that nothing ever stops.
+    if (!token || recording || transcribing || startingRef.current) return false;
+    startingRef.current = true;
+    // Cancel and unmount bump this; a start that resolves after either must
+    // release the mic itself, because no one is left to stop it.
+    const gen = captureGenRef.current;
     try {
       const mod = loadExpoAudio();
       if (!mod) {
@@ -84,6 +92,7 @@ export function useVoiceInput({
         return false;
       }
       const permission = await requestVoicePermission(mod);
+      if (gen !== captureGenRef.current) return false;
       if (!permission.granted) {
         void alertDialog({
           title: t("chat.voice_permission_title"),
@@ -92,6 +101,10 @@ export function useVoiceInput({
         return false;
       }
       const next = await startVoiceRecording(recordingFormat);
+      if (gen !== captureGenRef.current) {
+        if (next) void next.stop().catch(() => undefined);
+        return false;
+      }
       if (!next) {
         showUnavailable();
         return false;
@@ -111,8 +124,12 @@ export function useVoiceInput({
       }, VOICE_MAX_RECORDING_MS);
       return true;
     } catch {
-      reportRecoverableError(feedback, t("chat.voice_start_failed"));
+      if (gen === captureGenRef.current) {
+        reportRecoverableError(feedback, t("chat.voice_start_failed"));
+      }
       return false;
+    } finally {
+      startingRef.current = false;
     }
   }, [token, recording, transcribing, t, showUnavailable, recordingFormat, onTranscribeError, feedback]);
 
@@ -200,6 +217,10 @@ export function useVoiceInput({
 
   useEffect(() => {
     return () => {
+      // A start still awaiting the recorder stops it when it arrives.
+      captureGenRef.current += 1;
+      transcribeAbortRef.current?.abort();
+      transcribeAbortRef.current = null;
       if (maxTimerRef.current != null) {
         clearTimeout(maxTimerRef.current);
         maxTimerRef.current = null;
