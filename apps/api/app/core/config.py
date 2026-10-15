@@ -180,6 +180,17 @@ class Settings(BaseSettings):
     # Max in-flight jobs per worker process when draining a Redis Stream batch.
     # Keeps LLM handlers from head-of-line-blocking compress/topic/todo jobs.
     jobs_worker_concurrency: int = 8
+    # Hard ceiling on the Redis jobs stream (entries). The soft 10k trim only
+    # runs while nothing is pending; one entry left pending by a dead worker
+    # used to disable trimming entirely. Past this, the oldest jobs are
+    # dropped so Redis (quota, auth revocation, rate limits) stays healthy.
+    # Never lower than the soft cap; 0 disables the ceiling.
+    jobs_stream_max_len: int = 50_000
+    # Deadline for one attempt of one background job. A batch is awaited as a
+    # whole, so a hung handler used to stop the worker reading new jobs. An
+    # attempt that runs this long goes to the DLQ (not retried). Generous: the
+    # memory history scan reads 20 chats and resumes where it stopped.
+    job_timeout_seconds: float = 900.0
     # Port the worker process exposes a tiny /health/ready endpoint on, so Fly
     # can health-check + auto-restart a stuck worker (the worker otherwise has
     # no HTTP). 0 disables the worker health server (e.g. process_role=all dev).

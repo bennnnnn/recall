@@ -194,6 +194,8 @@ secrets or `[env]` only when you have a measured reason.
 |---------|---------|------------------|
 | `MAX_REQUEST_BODY_BYTES` | `1048576` (1 MiB) | Every HTTP body. A declared `Content-Length` over the cap gets 413 before a byte is read; a chunked body is cut off one chunk past it. `0` disables. |
 | `MAX_UPLOAD_REQUEST_BODY_BYTES` | `12582912` (12 MiB) | Photo/audio routes only: `/speech/transcribe`, `/{math,physics,chemistry}/scan/read`, `/attachments/{id}/upload`. Each route still checks its exact limit. |
+| `JOBS_STREAM_MAX_LEN` | `50000` | Hard ceiling on the `recall:jobs` Redis Stream, applied on every `XADD`. The 10k soft trim only runs while nothing is pending, so a worker that died mid-job used to leave the stream unbounded. Past the ceiling the oldest jobs are dropped (they are best-effort). `0` disables. |
+| `JOB_TIMEOUT_SECONDS` | `900` | Deadline for one attempt of one background job. An attempt that runs out goes to the DLQ without retry. An entry delivered more than 5 times without an ack (it keeps killing the worker) also goes to the DLQ on reclaim. |
 
 ---
 
