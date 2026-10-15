@@ -151,7 +151,7 @@ async def _run(prompt: str, args: dict[str, Any], answer: str) -> tuple[list[dic
     return out, verified
 
 
-async def test_a_mistyped_tool_call_is_not_the_verified_answer(web_search_registered: None) -> None:
+async def test_a_mistyped_tool_call_is_not_the_verified_answer(sympy_registered: None) -> None:
     out, verified = await _run(
         "graph y = 2x + 5 and solve 2x + 5 = 17",
         {"action": "solve", "lhs": "2*x + 5", "rhs": "19", "variables": ["x"]},
@@ -162,7 +162,7 @@ async def test_a_mistyped_tool_call_is_not_the_verified_answer(web_search_regist
     assert "does not match" in tool_message["content"]
 
 
-async def test_a_faithful_tool_call_is_the_verified_answer(web_search_registered: None) -> None:
+async def test_a_faithful_tool_call_is_the_verified_answer(sympy_registered: None) -> None:
     _out, verified = await _run(
         "graph y = 2x + 5 and solve 2x + 5 = 17",
         {"action": "solve", "lhs": "2*x + 5", "rhs": "17", "variables": ["x"]},

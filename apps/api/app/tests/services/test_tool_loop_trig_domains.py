@@ -32,7 +32,10 @@ async def _run(query: str, calls: list[dict], invoke: AsyncMock):
             model_alias="free-chat",
             messages=[{"role": "user", "content": query}],
             usage={},
-            tools=[{"type": "function", "function": {"name": "sympy"}}],
+            tools=[
+                {"type": "function", "function": {"name": "sympy"}},
+                {"type": "function", "function": {"name": "web_search"}},
+            ],
             on_status=None,
             should_cancel=None,
         )

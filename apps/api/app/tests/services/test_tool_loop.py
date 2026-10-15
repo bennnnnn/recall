@@ -206,7 +206,7 @@ async def test_tool_loop_invoke_timeout_skips_remaining(web_search_registered):
 
 
 @pytest.mark.asyncio
-async def test_tool_loop_collects_sympy_canonical_fence(web_search_registered):
+async def test_tool_loop_collects_sympy_canonical_fence(sympy_registered):
     """When sympy returns a diagram fence in ToolResult.data, surface it as
     VerifiedMathBlock so post-stream validate_math_fences can overwrite."""
     messages = [{"role": "user", "content": "graph y=x^2"}]
