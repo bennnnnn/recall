@@ -162,15 +162,45 @@ async def run_tool_loop_path(
         chat_id=ctx.chat_id,
         web_search=web_search_flag,
         user_timezone=ctx.user_timezone,
+        user_text=content,
     )
-    if tool_verified is not None and getattr(ctx.verified_subject, "subject", None) != "chemistry":
-        ctx.verified_subject = tool_verified
+    if tool_verified is not None:
+        ctx.verified_subject = _with_tool_verified(ctx.verified_subject, tool_verified)
     if terminal_image is not None:
         ctx.terminal_image_message_id = terminal_image.message_id
         ctx.terminal_image_content = terminal_image.final_content
         ctx.terminal_image_model = terminal_image.resolved_model
     if tool_search_hits and not ctx.search_sources:
         ctx.search_sources = tool_search_hits
+
+
+def _with_tool_verified(server: Any, tool: Any) -> Any:
+    """The turn's verified block after the tool loop.
+
+    A block the server built from the user's own text is never replaced by one
+    the model's tool call produced: the model may have mistyped the problem.
+    A maths block may gain a diagram the server did not draw; its answer stays.
+    """
+    from app.services.solving import VerifiedMathBlock
+
+    if server is None:
+        return tool
+    if not isinstance(server, VerifiedMathBlock) or not isinstance(tool, VerifiedMathBlock):
+        return server
+    kinds = {
+        fence.get("type") for fence in (server.canonical_fence, *server.canonical_fences) if fence
+    }
+    kinds.add("answer")
+    extra: list[dict[str, Any]] = []
+    for fence in (tool.canonical_fence, *tool.canonical_fences):
+        if fence and fence.get("type") not in kinds:
+            kinds.add(fence.get("type"))
+            extra.append(fence)
+    if not extra:
+        return server
+    from dataclasses import replace
+
+    return replace(server, canonical_fences=[*server.canonical_fences, *extra])
 
 
 async def run_llm_token_stream(
