@@ -20,6 +20,7 @@ from app.modules.math.tools.school.percentages import (
     _block_discount,
     _block_original_before_percent,
     _block_percent,
+    _block_percent_chain,
     _block_percent_change,
     _block_percent_change_from,
     _block_percent_is,
@@ -240,6 +241,8 @@ def _verified_block_arithmetic(
         and intent.percent_base is not None
     ):
         return _block_percent(intent, lines)
+    if intent.school_op == "percent_chain":
+        return _block_percent_chain(intent, lines)
     if (
         intent.school_op in {"percent_increase", "percent_decrease"}
         and intent.percent_rate is not None
