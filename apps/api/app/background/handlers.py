@@ -24,7 +24,7 @@ from app.background import (
 )
 from app.core.config import Settings
 from app.core.db import SessionLocal
-from app.core.jobs import JobDiscardError, enqueue, register
+from app.core.jobs import JobDiscardError, enqueue, purge_user_jobs, register
 from app.core.redis import get_redis_client
 from app.modules.account import lifecycle as account_lifecycle
 from app.modules.attachments import jobs as attachment_indexing
@@ -239,10 +239,13 @@ async def _handle_message_index(settings: Settings, payload: dict[str, Any]) -> 
 
 
 async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> None:
-    """GDPR residual after account wipe: leftover R2 objects and Redis keys.
+    """GDPR residual after account wipe: leftover R2 objects, Redis keys and jobs.
 
     Must not be spend-capped — leftover blobs and cached text are a privacy
-    residual, not optional enrichment.
+    residual, not optional enrichment. The user's finished and failed jobs
+    (their payloads carry chat text) leave the jobs stream and the DLQ; this
+    sweep's own entry stays, since it holds only the id and must survive a
+    worker crash to run again.
     """
     raw = payload.get("user_id")
     try:
@@ -250,7 +253,9 @@ async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> 
     except (TypeError, ValueError):
         logger.warning("storage_sweep invalid user_id=%r", raw)
         return
-    await account_lifecycle.purge_user_redis_keys(get_redis_client(), user_id)
+    redis = get_redis_client()
+    await account_lifecycle.purge_user_redis_keys(redis, user_id)
+    await purge_user_jobs(redis, user_id, keep_types=frozenset({"storage_sweep"}))
     await attachment_lifecycle.sweep_user_storage(settings, user_id)
 
 
