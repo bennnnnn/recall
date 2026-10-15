@@ -30,6 +30,13 @@ def _fast_retries():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _restore_handlers():
+    """Handlers registered here must not leak into later tests."""
+    with patch.dict(jobs._HANDLERS):
+        yield
+
+
 async def _queued_entry(redis: Any, job_type: str) -> str:
     await jobs._ensure_group(redis)
     entry_id = await redis.xadd(
@@ -81,8 +88,8 @@ async def test_heartbeat_stays_fresh_while_a_long_job_runs(fake_redis: Any) -> N
     async def handler(_settings: Settings, _payload: dict[str, Any]) -> None:
         await asyncio.sleep(0.6)
 
-    jobs.register("long_job", handler)
-    entry_id = await _queued_entry(fake_redis, "long_job")
+    jobs.register("long_running", handler)
+    entry_id = await _queued_entry(fake_redis, "long_running")
     fields = await _fields(fake_redis)
 
     alive_samples: list[bool] = []
