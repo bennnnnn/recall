@@ -87,10 +87,66 @@ def test_where_is_question_asks_for_a_location_map_in_every_style(style: str) ->
     assert "<place> location map" in WHERE_IS_PHOTO_HINT
 
 
-def test_every_turn_may_offer_a_photo_but_only_where_is_asks_for_a_map() -> None:
+def test_a_thing_worth_seeing_may_get_a_photo_but_only_where_is_asks_for_a_map() -> None:
     parts = _hints("what is a capybara")
     assert ANSWER_PHOTO_HINT in parts
     assert WHERE_IS_PHOTO_HINT not in parts
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "what is a capybara",
+        "tell me about Lalibela",
+        "who is Haile Gebrselassie",
+        "tell me about Java island",
+        "what does a ball python eat",
+    ],
+)
+@pytest.mark.parametrize("style", ["short", "balanced"])
+def test_photo_hint_stays_for_things_worth_seeing(text: str, style: str) -> None:
+    assert ANSWER_PHOTO_HINT in _hints(text, style)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Code, said in words or pasted.
+        "what is recursion",
+        "write a python function to reverse a string",
+        "Why does this code fail, and how would you fix it? numbers = [1, 2, 3] print(numbers[3])",
+        # A subject problem.
+        "solve 2x + 5 = 17",
+        "a ball is dropped from 20 m. how long until it hits the ground?",
+        "balance H2 + O2 -> H2O",
+        # A lesson.
+        "teach me american history",
+        "help me understand two sum",
+        "give me a 30 day plan to learn javascript",
+        # A standing preference.
+        "When teaching me, explain one concept at a time, use practical examples, and ask "
+        "me to solve a short exercise before moving on.",
+        # A draft, a requested chart, a pasted fragment.
+        "write an email to my landlord about a broken heater",
+        "make a bar chart of rainfall: Jan 5, Feb 3, Mar 7",
+        "Is this sentence correct: me and him goes to the market",
+    ],
+)
+@pytest.mark.parametrize("style", ["short", "balanced"])
+def test_photo_hint_stays_off_turns_that_are_not_about_one_thing(text: str, style: str) -> None:
+    assert ANSWER_PHOTO_HINT not in _hints(text, style)
+
+
+def test_photo_hint_stays_off_a_lesson_in_progress() -> None:
+    parts = _style_format_hints(
+        query_text="next",
+        style="balanced",
+        is_day_plan=False,
+        minimal_personal_context=False,
+        image_search_enabled=True,
+        lesson=1,
+    )
+    assert ANSWER_PHOTO_HINT not in parts
 
 
 def test_no_photo_hints_when_photo_lookup_is_off() -> None:

@@ -731,7 +731,7 @@ CASES: tuple[Case, ...] = (
         "code-run",
         "code",
         "run this python code: print(1+1)",
-        Expect(search="no"),
+        Expect(search="no", no_hints=("answer_photo",)),
         "Says Recall can't run Python, and that it would print 2.",
     ),
     Case(
@@ -741,7 +741,7 @@ CASES: tuple[Case, ...] = (
         "total = 0\nfor n in [2, 4, 6]:\n    total += n\nprint(total)",
         Expect(
             hints=("code_explain", "code_ink"),
-            no_hints=("walkthrough", "teaching"),
+            no_hints=("answer_photo", "walkthrough", "teaching"),
             subject=NONE,
             search="no",
             photo=NO_PHOTO,
@@ -755,7 +755,7 @@ CASES: tuple[Case, ...] = (
         "code",
         "Explain this code line by line, then show the value of total after each iteration: "
         "total = 0 for n in [2, 4, 6]: total += n print(total)",
-        Expect(hints=("code_explain",), subject=NONE, search="no"),
+        Expect(hints=("code_explain",), no_hints=("answer_photo",), subject=NONE, search="no"),
         "Same shape; the code fence puts the pasted line back on four indented lines.",
     ),
     Case(
@@ -763,7 +763,7 @@ CASES: tuple[Case, ...] = (
         "code",
         "What does this Java code print? int sum = 0; for (int i = 1; i <= 3; i++) "
         "{ sum += i; } System.out.println(sum);",
-        Expect(hints=("code_explain",), subject=NONE, search="no"),
+        Expect(hints=("code_explain",), no_hints=("answer_photo",), subject=NONE, search="no"),
         "The code in a java fence, each line explained, sum after each pass (1, 3, 6), "
         "**Output:** 6.",
     ),
@@ -774,7 +774,7 @@ CASES: tuple[Case, ...] = (
         "const doubled = nums.map(n => n * 2); console.log(doubled);",
         Expect(
             hints=("code_explain",),
-            no_hints=("walkthrough",),
+            no_hints=("answer_photo", "walkthrough"),
             subject=NONE,
             search="no",
         ),
@@ -786,7 +786,7 @@ CASES: tuple[Case, ...] = (
         "Why does this code fail, and how would you fix it? numbers = [1, 2, 3] print(numbers[3])",
         Expect(
             hints=("code_debug", "code_ink"),
-            no_hints=("code_explain",),
+            no_hints=("answer_photo", "code_explain"),
             subject=NONE,
             search="no",
         ),
@@ -798,14 +798,14 @@ CASES: tuple[Case, ...] = (
         "code",
         "I get this error, what's wrong?\nTraceback (most recent call last):\n"
         '  File "app.py", line 3, in <module>\n    print(user["name"])\nKeyError: \'name\'',
-        Expect(hints=("code_debug",), search="no"),
+        Expect(hints=("code_debug",), no_hints=("answer_photo",), search="no"),
         "KeyError: the dict has no 'name' key; why; the fix with user.get('name').",
     ),
     Case(
         "code-debug-js-undefined",
         "code",
         "why does this return undefined? function add(a, b) { a + b } console.log(add(2, 3))",
-        Expect(hints=("code_debug",), subject=NONE, search="no"),
+        Expect(hints=("code_debug",), no_hints=("answer_photo",), subject=NONE, search="no"),
         "The function has no return; the fix adds return a + b; **Output:** 5.",
     ),
     Case(
