@@ -22,6 +22,7 @@ from app.gateways.pubchem_gateway import PubChemCompound, PubChemResult
 from app.gateways.web_search_gateway import WebSearchHit
 from app.models.orm import Chat, User
 from app.modules import web_search as web_search_service
+from app.modules.billing import can_use
 from app.modules.chat import prompt_constants as pc
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.turn_prep.context import (
@@ -214,7 +215,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
     image_gen = bool(
         not photo
         and settings.image_generation_enabled
-        and case.pro
+        and can_use(user, "image_generation", settings)
         and extract_image_gen_prompt(text)
     )
 

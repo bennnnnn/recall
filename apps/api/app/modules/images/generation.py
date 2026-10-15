@@ -26,7 +26,7 @@ from app.modules.attachments.service import (
     is_image_content_type,
     normalize_content_type,
 )
-from app.modules.billing import is_pro
+from app.modules.billing import can_use
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.services import quota as quota_service
@@ -133,8 +133,10 @@ async def generate_for_chat(
         raise ImageGenerationError("Not available", status_code=404)
     if not settings.attachments_enabled:
         raise ImageGenerationError("Attachments are disabled", status_code=503)
-    if not is_pro(user):
-        raise ImageGenerationError("Image generation requires Pro", status_code=403)
+    if not can_use(user, "image_generation", settings):
+        raise ImageGenerationError(
+            quota_service.IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE, status_code=403
+        )
 
     async with SessionLocal() as session:
         chat = await chats_repo.get_by_id(session, chat_id, user.id)

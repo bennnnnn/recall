@@ -19,7 +19,7 @@ from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
 from app.models.orm import User
 from app.models.schemas.tools import GenerateImageToolInput
-from app.modules.billing import is_pro
+from app.modules.billing import can_use
 from app.modules.images import generation as image_generation_service
 
 _image_user: ContextVar[User | None] = ContextVar("mcp_image_gen_user", default=None)
@@ -87,10 +87,10 @@ class ImageGenAdapter:
             )
         if not self.settings.image_generation_enabled:
             return ToolResult(name=self.name, content="Image generation is disabled.")
-        if not is_pro(user):
+        if not can_use(user, "image_generation", self.settings):
             return ToolResult(
                 name=self.name,
-                content="Image generation requires Pro.",
+                content="Image generation is not part of this user's plan.",
             )
 
         aspect = args.get("aspect_ratio")

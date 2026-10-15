@@ -78,8 +78,10 @@ async def update_account(
 async def upgrade_to_pro_for_dev(
     session: AsyncSession,
     user: User,
+    *,
+    plan: str = "pro",
 ) -> User:
-    return await users_repo.update(session, user, plan="pro")
+    return await users_repo.update(session, user, plan=plan)
 
 
 async def logout(

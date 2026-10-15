@@ -8,11 +8,13 @@ from app.repositories import product_events as product_events_repo
 
 _ALLOWED_PROPERTIES: dict[str, dict[str, frozenset[str]]] = {
     "paywall_viewed": {
-        "source": frozenset({"quota", "model_gate", "settings", "other"}),
+        "source": frozenset({"quota", "model_gate", "settings", "voice", "live_talk", "other"}),
     },
-    "purchase_started": {},
-    "purchase_succeeded": {},
+    # Which paid plan the purchase was for (plan ids, never display names).
+    "purchase_started": {"plan": frozenset({"plus", "pro"})},
+    "purchase_succeeded": {"plan": frozenset({"plus", "pro"})},
     "purchase_failed": {
+        "plan": frozenset({"plus", "pro"}),
         "reason": frozenset({"cancelled", "error"}),
     },
     "push_permission": {

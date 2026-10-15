@@ -4,6 +4,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
@@ -30,15 +31,44 @@ def _app_with_user(user: User, *, settings: Settings | None = None):
     return app
 
 
-def test_generate_image_requires_pro():
+def test_generate_image_refused_when_the_plan_has_none():
     user = _fake_user(plan="free")
-    client = TestClient(_app_with_user(user))
+    client = TestClient(_app_with_user(user, settings=Settings(daily_image_generations=0)))
     r = client.post(
         "/images/generate",
         headers={"Authorization": "Bearer tok"},
         json={"chat_id": str(uuid4()), "prompt": "a cat"},
     )
     assert r.status_code == 403
+
+
+@pytest.mark.parametrize("plan, cap", [("free", 3), ("plus", 10), ("pro", 15)])
+def test_generate_image_stops_at_each_plans_daily_cap(plan, cap):
+    """Free gets a few a day; the endpoint enforces each plan's number."""
+    user = _fake_user(plan=plan)
+    app = _app_with_user(user, settings=Settings())
+    fake_redis = AsyncMock()
+    fake_redis.incrby = AsyncMock(return_value=cap + 1)
+    fake_redis.expire = AsyncMock()
+    with (
+        patch("app.modules.images.generation.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.images.generation.chats_repo.get_by_id",
+            AsyncMock(return_value=MagicMock()),
+        ),
+        patch(
+            "app.modules.images.generation.quota_service.global_spend_exceeded",
+            AsyncMock(return_value=False),
+        ),
+    ):
+        client = TestClient(app)
+        r = client.post(
+            "/images/generate",
+            headers={"Authorization": "Bearer tok"},
+            json={"chat_id": str(uuid4()), "prompt": "a cat"},
+        )
+    assert r.status_code == 429
+    assert ("Upgrade" in r.json()["detail"]) is (plan == "free")
 
 
 def test_generate_image_quota_exhausted():

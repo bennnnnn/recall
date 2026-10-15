@@ -387,7 +387,7 @@ async def test_tool_loop_generate_image_is_terminal():
         with (
             patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
             patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
-            patch("app.services.tool_loop.plan_service.is_pro", return_value=True),
+            patch("app.services.tool_loop.plan_service.can_use", return_value=True),
         ):
             _out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
                 settings=settings(
@@ -461,7 +461,7 @@ async def test_tool_loop_search_image_is_terminal():
         with (
             patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
             patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
-            patch("app.services.tool_loop.plan_service.is_pro", return_value=False),
+            patch("app.services.tool_loop.plan_service.can_use", return_value=False),
         ):
             _out, verified, terminal, _hits = await tool_loop.run_tool_rounds(
                 settings=settings(
@@ -495,7 +495,7 @@ async def test_tools_for_user_omits_image_gen_for_free():
     mcp_registry.clear()
     mcp_registry.register(ImageGenAdapter(settings(image_generation_enabled=True)))
     try:
-        with patch("app.services.tool_loop.plan_service.is_pro", return_value=False):
+        with patch("app.services.tool_loop.plan_service.can_use", return_value=False):
             tools = tool_loop._tools_for_user(settings(image_generation_enabled=True), MagicMock())
         names = [(t.get("function") or {}).get("name") for t in tools]
         assert "generate_image" not in names
@@ -511,7 +511,7 @@ async def test_tools_for_user_keeps_search_image_for_free():
     mcp_registry.clear()
     mcp_registry.register(ImageSearchAdapter(settings(image_search_enabled=True)))
     try:
-        with patch("app.services.tool_loop.plan_service.is_pro", return_value=False):
+        with patch("app.services.tool_loop.plan_service.can_use", return_value=False):
             tools = tool_loop._tools_for_user(settings(image_search_enabled=True), MagicMock())
         names = [(t.get("function") or {}).get("name") for t in tools]
         assert "search_image" in names

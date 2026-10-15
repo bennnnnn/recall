@@ -198,6 +198,11 @@ NON_IMAGE_WORDS = frozenset(
         "programs",
         "spreadsheet",
         "spreadsheets",
+        # Web code: "make a simple calculator in html" wants a page, not a picture.
+        "html",
+        "css",
+        "javascript",
+        "typescript",
         "recipe",
         "recipes",
         "poem",

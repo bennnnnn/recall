@@ -192,6 +192,11 @@ export const NON_IMAGE_WORDS = new Set([
   "programs",
   "spreadsheet",
   "spreadsheets",
+  // Web code: "make a simple calculator in html" wants a page, not a picture.
+  "html",
+  "css",
+  "javascript",
+  "typescript",
   "recipe",
   "recipes",
   "poem",

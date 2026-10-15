@@ -90,6 +90,7 @@
     {"text": "make a meme", "generate": "meme", "revise": "black cat, make a meme", "lookup": null},
     {"text": "make a cake", "generate": "cake", "revise": "black cat, make a cake", "lookup": null},
     {"text": "make a website", "generate": null, "revise": null, "lookup": null},
+    {"text": "make a simple calculator in html", "generate": null, "revise": null, "lookup": null},
     {"text": "create an app", "generate": null, "revise": null, "lookup": null},
     {"text": "make it", "generate": null, "revise": null, "lookup": null},
     {"text": "draw it", "generate": null, "revise": "black cat, draw it", "lookup": null},

@@ -16,6 +16,7 @@ from app.core.config import Settings
 from app.core.jobs import enqueue_purchase_receipt
 from app.core.redis_lock import acquire_lock, release_lock
 from app.modules.billing import subscription as subscription_service
+from app.modules.billing.entitlements import PAID_PLANS
 
 logger = logging.getLogger(__name__)
 
@@ -250,7 +251,7 @@ async def _dispatch_event(
     if event_type not in _RECHECK_EVENTS and event_type != "CANCELLATION":
         return True
     applied, plan = await _recheck_plan(session, settings, event_type, app_user_id)
-    if applied and plan == "pro" and event_type in _RECEIPT_EVENTS and settings.email_enabled:
+    if applied and plan in PAID_PLANS and event_type in _RECEIPT_EVENTS and settings.email_enabled:
         await receipt_enqueuer(
             redis,
             app_user_id,
