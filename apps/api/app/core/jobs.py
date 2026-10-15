@@ -427,6 +427,13 @@ async def _process_one_entry(
                     # Release so a future re-enqueue / DLQ replay can retry.
                     await _release_dedupe(redis, dedupe_key)
                     await _move_to_dlq(redis, entry_id, fields, traceback.format_exc(limit=8))
+    except asyncio.CancelledError:
+        # The worker is stopping (deploy, SIGTERM) mid-job. Leave the entry
+        # pending so a live worker's reclaim runs it again; acking here
+        # dropped every in-flight job on each deploy.
+        should_ack = False
+        await _release_dedupe(redis, dedupe_key)
+        raise
     finally:
         if keepalive is not None:
             keepalive.cancel()

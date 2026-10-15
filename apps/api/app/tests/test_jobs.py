@@ -25,6 +25,13 @@ def _patch_session():
     return patch("app.background.handlers.SessionLocal", lambda: _FakeSessionCM())
 
 
+@pytest.fixture(autouse=True)
+def _restore_handlers():
+    # Handlers registered here must not leak into later tests' registry.
+    with patch.dict(jobs._HANDLERS):
+        yield
+
+
 def test_consumer_name_includes_hostname_and_pid():
     import os
 
@@ -892,3 +899,31 @@ async def test_process_entries_done_claim_skips_and_acks(fake_redis):
     assert calls["n"] == 0
     pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
     assert _pending_count(pending) == 0
+
+
+@pytest.mark.asyncio
+async def test_process_entries_cancelled_job_stays_pending(fake_redis):
+    """A worker stopped mid-job (deploy, SIGTERM) must not ack the entry:
+    it stays pending, and its running claim is released, so a live worker's
+    reclaim runs it again instead of the job being dropped."""
+    started = asyncio.Event()
+
+    async def handler(_settings, _payload):
+        started.set()
+        await asyncio.sleep(3600)
+
+    jobs.register("shutdown-job", handler)
+    await jobs._ensure_group(fake_redis)
+    fields = {"type": "shutdown-job", "payload": "{}", "dedupe_key": "memory:1"}
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "tester", {jobs.JOBS_STREAM: ">"}, count=1)
+
+    task = asyncio.create_task(jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)]))
+    await started.wait()
+    task.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await task
+
+    pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
+    assert _pending_count(pending) == 1
+    assert await fake_redis.get(jobs.job_done_key("memory:1")) is None
