@@ -47,12 +47,36 @@ GALLERY_THUMB_MIN_EDGE = 32
 GALLERY_THUMB_MAX_EDGE = 512
 
 
-def resize_image_bytes(data: bytes, edge: int) -> tuple[bytes, str]:
-    """Downscale an image for gallery tiles. Returns (bytes, content_type)."""
+# Matches Settings.attachment_image_max_decode_pixels for direct callers.
+DEFAULT_IMAGE_MAX_DECODE_PIXELS = 16_000_000
+
+
+class ImageTooLargeError(ValueError):
+    """The image would decode to more pixels than the thumbnail budget allows."""
+
+
+def resize_image_bytes(
+    data: bytes,
+    edge: int,
+    *,
+    max_pixels: int = DEFAULT_IMAGE_MAX_DECODE_PIXELS,
+) -> tuple[bytes, str]:
+    """Downscale an image for gallery tiles. Returns (bytes, content_type).
+
+    CPU-bound: call it from a worker thread. The header is read first; JPEG
+    is set to decode at a reduced scale, then anything that would still
+    decode past ``max_pixels`` is refused. A sub-MB PNG can declare
+    13000x13000 (Pillow only warns below ~179 MP).
+    """
     from PIL import Image
 
     size = max(GALLERY_THUMB_MIN_EDGE, min(GALLERY_THUMB_MAX_EDGE, edge))
     opened = Image.open(io.BytesIO(data))
+    if opened.format == "JPEG":
+        opened.draft("RGB", (size, size))
+    width, height = opened.size
+    if max_pixels > 0 and width * height > max_pixels:
+        raise ImageTooLargeError(f"image decodes to {width}x{height}")
     opened.thumbnail((size, size))
     out = io.BytesIO()
     if opened.mode in ("RGBA", "LA", "P"):
