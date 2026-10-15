@@ -188,8 +188,15 @@ API_URL=https://your-api.fly.dev ./scripts/verify-production.sh --live
 
 ## Load and abuse limits
 
-Defaults are safe for one shared-CPU, 512 MB `app` machine. Override with Fly
-secrets or `[env]` only when you have a measured reason.
+Defaults are sized for one shared-CPU `app` machine. Override with Fly secrets
+or `[env]` only when you have a measured reason.
+
+**Memory:** the API warms `SYMPY_MAX_WORKERS` (3) SymPy workers at boot, each
+its own process. Measured PSS: the API about 270 MB at boot and 400 MB under
+load; each worker 90–150 MB (150 once a chemistry fence loads RDKit). That is
+550–850 MB, more than a 512 MB machine without swap. Give the `app` machine
+1 GB, or run `SYMPY_MAX_WORKERS=1` on 512 MB and accept that a second maths
+turn inside the 2 s slot wait gets an unverified answer.
 
 | Setting | Default | What it protects |
 |---------|---------|------------------|
