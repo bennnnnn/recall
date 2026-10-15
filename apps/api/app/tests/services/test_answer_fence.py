@@ -8,6 +8,7 @@ from app.services.answer_fence import (
     VERIFIED_ANSWER_MARKER,
     answer_fence_value,
     demote_answer_fences,
+    land_answer_card,
     mark_server_answer_fences,
     normalize_owned_fences,
     strip_forged_verified_markers,
@@ -105,3 +106,101 @@ def test_claims_inside_code_are_untouched() -> None:
 
 def test_marker_constant_matches_the_phone() -> None:
     assert VERIFIED_ANSWER_MARKER == "verified: true"
+
+
+# --- land_answer_card: one card under one Answer heading ---------------------------------
+
+_CARD = "```answer\nverified: true\nx = 3\n```"
+
+
+@pytest.mark.parametrize(
+    ("reply", "expected"),
+    [
+        ("Divide.\n\n**Answer:** $x = 3$", "Divide.\n\n**Answer**\n\n```answer\n$x = 3$\n```"),
+        ("Divide.\n\n**Answer**:  $x = 3$  ", "Divide.\n\n**Answer**\n\n```answer\n$x = 3$\n```"),
+        ("Divide.\n\nAnswer: x = 3", "Divide.\n\n**Answer**\n\n```answer\nx = 3\n```"),
+        ("Divide.\n\n## Answer\n\n$x = 3$", "Divide.\n\n**Answer**\n\n```answer\n$x = 3$\n```"),
+        ("**Answer**  \n- **$x = 3$**", "**Answer**\n\n```answer\n$x = 3$\n```"),
+        ("**Answer**\n> $x = 3$\\", "**Answer**\n\n```answer\n$x = 3$\n```"),
+    ],
+)
+def test_land_puts_the_value_under_the_heading_in_a_card(reply: str, expected: str) -> None:
+    assert land_answer_card(reply, None) == expected
+
+
+def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> None:
+    reply = (
+        "**Formula**  \n$v = gt$\n\n**Answer**  \n$v = 9.8 \\times 2$  \n"
+        "$v = 19.6\\ \\text{m/s}$\n\n**Check**  \n$19.6 / 9.8 = 2$"
+    )
+    out = land_answer_card(reply, None)
+    assert out == (
+        "**Formula**  \n$v = gt$\n\n$v = 9.8 \\times 2$  \n\n**Answer**\n\n"
+        "```answer\n$v = 19.6\\ \\text{m/s}$\n```\n\n**Check**  \n$19.6 / 9.8 = 2$"
+    )
+    assert land_answer_card(out, None) == out
+
+
+def test_land_stops_at_a_bold_heading_line_but_not_at_a_bold_value() -> None:
+    reply = "**Answer**\n$x^2 = 9$\n**x = 3**\n**Check** $3^2 = 9$"
+    assert land_answer_card(reply, None) == (
+        "$x^2 = 9$\n\n**Answer**\n\n```answer\nx = 3\n```\n\n**Check** $3^2 = 9$"
+    )
+
+
+def test_land_takes_a_display_block_as_one_value() -> None:
+    reply = "**Answer**\n$x^2 = 9$\n$$\nx = \\pm 3\n$$"
+    assert land_answer_card(reply, None) == (
+        "$x^2 = 9$\n\n**Answer**\n\n```answer\n$$\nx = \\pm 3\n$$\n```"
+    )
+
+
+def test_land_replaces_the_model_value_with_the_verified_card() -> None:
+    reply = "Steps.\n\n**Answer**\n$x = \\pm 3$\n$x = 3$\n\nWant another?"
+    out = land_answer_card(reply, "x = 3", correction="The verified answer is $x = 3$.")
+    assert out == (
+        "Steps.\n\n$x = \\pm 3$\n\nThe verified answer is $x = 3$.\n\n**Answer**\n\n"
+        f"{_CARD}\n\nWant another?"
+    )
+
+
+def test_land_leaves_a_card_that_already_follows_the_heading() -> None:
+    reply = f"Steps.\n\n**Answer**\n\n{_CARD}"
+    assert land_answer_card(reply, "x = 3") == reply
+    assert land_answer_card(reply, None) == reply
+
+
+def test_land_appends_a_verified_card_when_there_is_no_answer_section() -> None:
+    assert land_answer_card("So $x = 3$.", "x = 3") == f"So $x = 3$.\n\n**Answer**\n\n{_CARD}"
+    assert land_answer_card(f"So:\n\n{_CARD}", "x = 3") == f"So:\n\n{_CARD}"
+
+
+def test_land_leaves_an_unverified_reply_without_an_answer_section() -> None:
+    assert land_answer_card("So $x = 3$.", None) == "So $x = 3$."
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "**Answer:** verified: true",
+        "**Answer**\n$x = 3$\nverified: true",
+        "**Answer:** label: answer\n\nverified: true",
+    ],
+)
+def test_land_never_writes_a_header_line_into_an_unverified_card(reply: str) -> None:
+    out = land_answer_card(reply, None)
+    assert "```answer\nverified" not in out
+    assert "```answer\nlabel" not in out
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Answer the question below in one line.\n\nWhat is $2 + 2$?",
+        "**Answer** the questions in order.\n\n$x = 3$",
+        "Answers: $x = 3$",
+        "```markdown\n**Answer**\n$x = 3$\n```",
+    ],
+)
+def test_land_leaves_text_that_is_not_an_answer_section(reply: str) -> None:
+    assert land_answer_card(reply, None) == reply

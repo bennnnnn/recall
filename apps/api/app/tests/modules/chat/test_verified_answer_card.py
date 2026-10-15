@@ -62,8 +62,11 @@ def _ctx(
     *,
     verified: Any = None,
     instant: str | None = None,
+    unverified_subject: str | None = None,
 ) -> StreamContext:
     return StreamContext(
+        solver_unverified=unverified_subject is not None,
+        unverified_subject=unverified_subject,
         user_id=uuid4(),
         chat_id=uuid4(),
         model="free-chat",
@@ -88,13 +91,14 @@ async def _finalize(
     instant: str | None = None,
     sympy: Any = _inline,
     seams: Any = None,
+    unverified_subject: str | None = None,
 ) -> str:
     monkeypatch.setattr("app.core.sympy_executor.run_sympy", sympy)
     return await enrich_final_content(
         seams or _seams(),
         AsyncMock(),
         Settings(),
-        _ctx(prompt, verified=verified, instant=instant),
+        _ctx(prompt, verified=verified, instant=instant, unverified_subject=unverified_subject),
         assistant_text=reply,
         usage={},
         result={},
@@ -288,6 +292,57 @@ async def test_a_claim_beside_a_wrong_value_goes_on_a_verified_turn_too(
 async def test_ordinary_uses_of_verified_stay(monkeypatch: pytest.MonkeyPatch, reply: str) -> None:
     out = await _finalize(monkeypatch, reply, prompt="why can't I sign in")
     assert out.strip() == reply
+
+
+# --- 7. A final answer with no verified result still lands in a card, without the check ----
+
+
+@pytest.mark.parametrize(
+    ("reply", "unverified_subject"),
+    [
+        (
+            "**Formula**  \n$F = ma$\n\n**Answer**  \n$F = 1500 \\times 5$  \n"
+            "$F = 7500\\ \\text{N}$\n\n**Check**  \n$7500 / 1500 = 5$",
+            "physics",
+        ),
+        (
+            "**1. Subtract 5 from both sides**\n$2x = 12$\n\n**Answer:** $x = 6$",
+            None,
+        ),
+    ],
+    ids=["solver declined", "worked solution"],
+)
+async def test_an_unverified_stem_answer_lands_in_a_card_with_no_marker(
+    monkeypatch: pytest.MonkeyPatch, reply: str, unverified_subject: str | None
+) -> None:
+    out = await _finalize(
+        monkeypatch, reply, prompt="what is the force", unverified_subject=unverified_subject
+    )
+    final = "$F = 7500\\ \\text{N}$" if unverified_subject else "$x = 6$"
+    assert _cards(out) == [final]
+    assert VERIFIED_ANSWER_MARKER not in out
+    assert out.count("**Answer**") == 1
+    assert out.index("**Answer**\n\n```answer") > 0
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        "Question 1: What is the capital of France?\nAnswer: Paris",
+        "Here's your quiz.\n\n**Answer:** Paris",
+    ],
+)
+async def test_an_answer_line_in_ordinary_chat_stays_prose(
+    monkeypatch: pytest.MonkeyPatch, reply: str
+) -> None:
+    out = await _finalize(monkeypatch, reply, prompt="quiz me on capitals")
+    assert out.strip() == reply
+
+
+async def test_an_instant_reply_is_never_relanded(monkeypatch: pytest.MonkeyPatch) -> None:
+    instant = "**Steps**  \n$2x = 12$  \n$x = 6$\n\nAnswer: see the card below.\n"
+    out = await _finalize(monkeypatch, instant, instant=instant, unverified_subject="math")
+    assert "```answer" not in out
 
 
 def _scene() -> dict[str, Any]:

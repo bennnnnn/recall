@@ -1,7 +1,8 @@
 """Physics-owned reconciliation of answer, trajectory, and simulation fences.
 
-On a verified turn the model's own result fences are dropped and the solver's
-card (marked ``verified: true``) and scene are appended. A reply that answers
+On a verified turn the model's own result fences are dropped, the solver's
+card (marked ``verified: true``) lands under the reply's **Answer** heading in
+place of the model's final line, and the scene is appended. A reply that answers
 and then offers more ("Want the max height too?") keeps both; only a reply that
 asks instead of stating any result goes without. A final value in the prose
 that differs from the verified one gets one correction line above the card.
@@ -14,13 +15,8 @@ import logging
 import re
 
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
-from app.services.answer_check import (
-    asks_without_answering,
-    correction_line,
-    read_verified_value,
-    stated_verdict,
-)
-from app.services.answer_fence import verified_answer_fence
+from app.services.answer_check import asks_without_answering, correction_line, stated_verdict
+from app.services.answer_fence import land_answer_card
 from app.services.md_fence_scan import close_unclosed_fences, strip_closed_fences
 from app.services.solving import VerifiedPhysicsBlock
 
@@ -62,10 +58,10 @@ def validate_physics_fences(
     if answer and _asks_instead_of_answering(cleaned, answer):
         return cleaned
     if answer:
-        if correct and stated_verdict(cleaned, answer) == "conflict":
-            extras.append(correction_line(answer))
-        cleaned = _without_duplicated_answer(cleaned, answer)
-        extras.append(verified_answer_fence(answer))
+        conflict = correct and stated_verdict(cleaned, answer) == "conflict"
+        cleaned = land_answer_card(
+            cleaned, answer, correction=correction_line(answer) if conflict else None
+        )
     for spec in _canonical_specs(verified):
         spec_type = spec.get("type")
         if spec_type == "answer":
@@ -89,46 +85,6 @@ def _asks_instead_of_answering(content: str, answer: str) -> bool:
     normalized_content = re.sub(r"\s+", " ", content.lower())
     normalized_answer = re.sub(r"\s+", " ", answer.lower())
     return normalized_answer not in normalized_content
-
-
-def _without_duplicated_answer(content: str, answer: str) -> str:
-    """Drop a trailing Answer line that only repeats the verified fence.
-
-    The direct card ends on the heading and keeps the number in the fence.
-    A photo reply that writes the same number under Answer would show it twice.
-    """
-    match = re.search(
-        r"(?P<head>(?:^|\n)[ \t]*(?:\*\*)?Answer(?:\*\*)?[ \t]*:?[ \t]*)"
-        r"(?P<body>[^\n]*(?:\n[\s\S]*)?)?\Z",
-        content,
-        re.IGNORECASE,
-    )
-    if match is None or not match.group("body") or not match.group("body").strip():
-        return content
-    if not _restates(match.group("body"), answer):
-        return content
-    return content[: match.end("head")].rstrip()
-
-
-def _restates(body: str, answer: str) -> bool:
-    if _plain_answer(body) == _plain_answer(answer) and bool(_plain_answer(answer)):
-        return True
-    # "$R = 35.3\ \text{m}$" under Answer is the verified 35.3 m with its name.
-    stated = read_verified_value(body.strip().strip("$").strip())
-    verified = read_verified_value(answer)
-    return (
-        stated is not None
-        and verified is not None
-        and len(stated.numbers) == len(verified.numbers)
-        and stated_verdict(body, answer) == "same"
-    )
-
-
-def _plain_answer(text: str) -> str:
-    plain = re.sub(r"\\[a-zA-Z]+", " ", text)
-    plain = plain.replace(r"\,", " ")
-    plain = re.sub(r"[$\\{}_*`]", "", plain)
-    return re.sub(r"\s+", " ", plain).strip(" .").lower()
 
 
 def replace_unclosed_physics_fences_safe(

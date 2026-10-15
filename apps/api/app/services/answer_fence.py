@@ -18,6 +18,9 @@ card. Model text never keeps it:
 
 The server writes the line with ``verified_answer_fence`` (post-stream cards)
 and ``mark_server_answer_fences`` (an instant reply, once, when it is sent).
+``land_answer_card`` puts a reply's final answer in one card under one
+**Answer** heading: the verified card, or the model's own final line in a card
+with no marker.
 The fence scan here is a linear line scan, no nested regex on untrusted text.
 """
 
@@ -241,6 +244,149 @@ def demote_answer_fences(text: str) -> str:
     for lang in ANSWER_FENCE_LANGS:
         text = map_closed_fences(text, lang, demote_answer_body)
     return text
+
+
+# --- One place for the final answer ------------------------------------------------------
+
+_HEADING_LINE = "**Answer**"
+# **Answer**, **Answer:**, **Answer**:, ## Answer, Answer: — the value may follow on the
+# line. One anchored match per line; "Answer the question" has no colon, so it is prose.
+_ANSWER_HEADING = re.compile(
+    r"(?P<atx>#{1,4}[ \t]+)?(?P<bold>\*\*)?answer(?P<inner>:)?(?(bold)\*\*)(?P<outer>:)?"
+    r"(?P<rest>.*)",
+    re.IGNORECASE,
+)
+_LIST_MARKER = re.compile(r"(?:[-*+•]|\d{1,3}[.)])[ \t]+")
+
+
+def _plain_line(line: str) -> str:
+    """A line without its quote markers and trailing hard break."""
+    text = line.strip()
+    while text.startswith(">"):
+        text = text[1:].lstrip()
+    return text.rstrip("\\ \t")
+
+
+def _value_line(line: str) -> str:
+    """A value line as a card shows it: no list marker, no bold around it."""
+    text = _plain_line(line)
+    marker = _LIST_MARKER.match(text)
+    if marker is not None:
+        text = text[marker.end() :]
+    if len(text) > 4 and text.startswith("**") and text.endswith("**"):
+        text = text[2:-2].strip()
+    return text
+
+
+def _answer_heading(line: str) -> str | None:
+    """The value on an Answer heading's own line ("" for none), or None for any other line."""
+    match = _ANSWER_HEADING.fullmatch(line.strip())
+    if match is None:
+        return None
+    rest = _value_line(match.group("rest"))
+    if match.group("inner") or match.group("outer"):
+        return rest
+    return "" if not rest and (match.group("atx") or match.group("bold")) else None
+
+
+def _ends_section(line: str) -> bool:
+    """A heading line after the answer: ``**Check**``, ``**(b) Speed:** …``, ``## Notes``."""
+    text = _plain_line(line)
+    if text.startswith("#"):
+        return True
+    close = text.find("**", 2)
+    if not text.startswith("**") or close < 0:
+        return False
+    label = text[2:close].strip()
+    # A bold value (**x = 3**, **35.3 m**) is the answer, not a heading.
+    return (
+        bool(label)
+        and (label[0].isalpha() or label[0] == "(")
+        and not any(mark in label for mark in "=$\\^_{}")
+    )
+
+
+def _answer_values(lines: list[str], start: int) -> tuple[list[tuple[int, str]], int, bool]:
+    """``(first line, value)`` for each value under a heading, the last line read, and
+    whether an answer card already follows the heading.
+
+    Values run to the first blank line, fence or heading line; a ``$$`` display block is
+    one value however many lines it spans.
+    """
+    index = start
+    while index < len(lines) and not lines[index].strip():
+        index += 1
+    values: list[tuple[int, str]] = []
+    end = start - 1
+    while index < len(lines) and lines[index].strip():
+        opened = _opener(lines[index])
+        if opened is not None:
+            return values, end, fence_lang(opened[2]) in ANSWER_FENCE_LANGS
+        if _ends_section(lines[index]):
+            break
+        first, text = index, _value_line(lines[index])
+        if text.startswith("$$") and (text == "$$" or not text.endswith("$$")):
+            block = [text]
+            while index + 1 < len(lines) and lines[index + 1].strip():
+                index += 1
+                block.append(_plain_line(lines[index]))
+                if block[-1].endswith("$$"):
+                    break
+            text = "\n".join(block)
+        values.append((first, text))
+        end = index
+        index += 1
+    return values, end, False
+
+
+def land_answer_card(text: str, verified_body: str | None, *, correction: str | None = None) -> str:
+    """Put the reply's final answer in one card under one **Answer** heading.
+
+    The reply's last Answer section (``**Answer**``, ``**Answer:** $x = 3$``,
+    ``## Answer``, ``Answer:``) outside code fences becomes ``**Answer**`` and a
+    card: the server's verified card when ``verified_body`` is given, otherwise
+    the section's last value line in a card with no marker. Earlier lines under
+    the heading are working: they stay as prose above it. ``correction`` goes
+    directly above the heading.
+
+    With no Answer section, a verified card is added at the end unless the reply
+    already has one; an unverified reply is left as written.
+    """
+    lines = text.split("\n")
+    fences, inside = _scan(lines)
+    heading, same_line = -1, ""
+    for number, line in enumerate(lines):
+        found = None if number in inside else _answer_heading(line)
+        if found is not None:
+            heading, same_line = number, found
+    values: list[tuple[int, str]] = []
+    if heading < 0:
+        if verified_body is None or any(fence.lang in ANSWER_FENCE_LANGS for fence in fences):
+            return text
+        heading = end = len(lines)
+    elif same_line:
+        values, end = [(heading, same_line)], heading
+    else:
+        values, end, landed = _answer_values(lines, heading + 1)
+        if landed:
+            return text
+    if verified_body is not None:
+        card = verified_answer_fence(verified_body)
+    else:
+        value = answer_header_and_value(values[-1][1])[1] if values else ""
+        if not value:
+            return text
+        card = f"```answer\n{value}\n```"
+    steps = lines[values[0][0] : values[-1][0]] if values and values[0][0] > heading else []
+    before = lines[:heading]
+    while before and not before[-1].strip():
+        before.pop()
+    block = [*steps, *([""] if steps else []), *([correction, ""] if correction else [])]
+    block += [_HEADING_LINE, "", card]
+    after = lines[end + 1 :]
+    if after and after[0].strip():
+        after = ["", *after]
+    return "\n".join([*before, *([""] if before else []), *block, *after])
 
 
 def strip_model_simulation_fences(text: str) -> str:

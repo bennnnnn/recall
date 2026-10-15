@@ -3,9 +3,9 @@
 The card used to be withheld whenever the prose "already stated" the answer —
 by substring (``12.75`` inside ``112.75``) — or stated a *different* ``x =``
 (the conflict guard), so a reply ending ``x = 7`` beside a verified ``x = 6``
-shipped with no card at all. Now the card is withheld only when the prose
-states the same full answer, and a conflicting final value gets one short
-correction line right above the card.
+shipped with no card at all. Now the card always lands under the reply's
+**Answer** heading, and a conflicting final value gets one short correction
+line right above it.
 """
 
 from __future__ import annotations
@@ -68,9 +68,10 @@ def test_a_wrong_final_value_gets_the_card_and_one_correction_line(answer: str, 
         ("2.02 s", "The ball lands at $t = 2.02$ s."),
     ],
 )
-def test_the_same_full_answer_in_prose_needs_no_card(answer: str, prose: str) -> None:
+def test_the_same_full_answer_in_prose_still_gets_the_card_once(answer: str, prose: str) -> None:
     out = validate_math_fences(prose, verified=_verified(answer))
-    assert "```answer" not in out
+    assert out.count(_card(answer)) == 1
+    assert out.rstrip().endswith("**Answer**\n\n" + _card(answer))
     assert "The verified answer is" not in out
 
 
@@ -117,6 +118,37 @@ def test_an_unverified_model_answer_fence_demotes_to_its_value_only() -> None:
     assert "```answer" not in out
     assert "notation" not in out
     assert "pH = 2.87" in out
+
+
+def test_a_follow_up_that_states_the_answer_lands_the_card_in_its_answer_section() -> None:
+    """A follow-up ("What if the equation was 3x^2+5=4?") the model answers and the server solved.
+
+    The card used to be withheld when the prose stated the same answer, so the
+    model's own Answer section showed in a box with no check.
+    """
+    from app.core.config import Settings
+    from app.modules.math import tools as math_tools
+
+    intent = math_tools.extract_math_intent("solve 3x^2+5=4")
+    assert intent is not None
+    verified = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
+    assert verified is not None
+    answer = "x = \\pm \\frac{\\sqrt{3}}{3} i"
+    reply = (
+        "**1. Subtract 5 from both sides**\n$3x^2 = -1$\n\n"
+        "**2. Divide both sides by 3**\n$x^2 = -\\frac{1}{3}$\n\n"
+        "**Answer**\n$x = \\pm \\sqrt{-\\frac{1}{3}}$\n$x = \\pm \\frac{\\sqrt{3}}{3} i$\n\n"
+        "The roots are imaginary because $x^2$ is negative."
+    )
+    out = validate_math_fences(reply, verified=verified)
+    assert out.count(_card(answer)) == 1, out
+    assert out.count("**Answer**") == 1
+    # The model's final line is the card now, not a second copy above it.
+    assert "$x = \\pm \\frac{\\sqrt{3}}{3} i$" not in out
+    # Working under the heading stays, above it.
+    assert out.index("$x = \\pm \\sqrt{-\\frac{1}{3}}$") < out.index("**Answer**")
+    assert out.index(_card(answer)) < out.index("The roots are imaginary")
+    assert "The verified answer is" not in out
 
 
 def test_a_clarifying_question_still_gets_no_card() -> None:

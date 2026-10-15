@@ -65,8 +65,11 @@ def test_a_wrong_answer_line_is_corrected_above_the_card(projectile: VerifiedPhy
         "$R = \\frac{v_0^2 \\sin 2\\theta}{g}$\n\n**Answer**  \n$R = 20.4\\ \\text{m}$"
     )
     out = validate_physics_fences(prose, verified=projectile)
-    assert "$R = 20.4\\ \\text{m}$" in out
-    assert out.index("The verified answer is $35.3\\,\\mathrm{m}$.") < out.index(_card(projectile))
+    # The verified card takes the wrong line's place under the heading.
+    assert "$R = 20.4\\ \\text{m}$" not in out
+    assert (
+        "The verified answer is $35.3\\,\\mathrm{m}$.\n\n**Answer**\n\n" + _card(projectile)
+    ) in out
 
 
 def test_a_restated_answer_line_gives_way_to_the_card(projectile: VerifiedPhysicsBlock) -> None:
@@ -75,6 +78,25 @@ def test_a_restated_answer_line_gives_way_to_the_card(projectile: VerifiedPhysic
     assert "$R = 35.3\\ \\text{m}$" not in out
     assert "**Answer**\n\n" + _card(projectile) in out
     assert "The verified answer is" not in out
+
+
+def test_steps_under_the_answer_heading_move_above_the_card(
+    projectile: VerifiedPhysicsBlock,
+) -> None:
+    """The card used to follow the model's Answer lines, so its box held the working."""
+    prose = (
+        "**Formula**  \n$R = \\frac{v_0^2 \\sin 2\\theta}{g}$\n\n**Answer**  \n"
+        "$R = \\frac{20^2 \\sin 60^\\circ}{9.81}$  \n$R = \\frac{346.4}{9.81}$  \n"
+        "$R \\approx 35.3\\ \\text{m}$\n\nThe ball lands about 35 m away."
+    )
+    out = validate_physics_fences(prose, verified=projectile)
+    heading = out.index("**Answer**\n\n" + _card(projectile))
+    assert out.index("$R = \\frac{20^2 \\sin 60^\\circ}{9.81}$") < heading
+    assert out.index("$R = \\frac{346.4}{9.81}$") < heading
+    assert "$R \\approx 35.3\\ \\text{m}$" not in out
+    assert out.count("**Answer**") == 1
+    assert out.index("The ball lands about 35 m away.") > heading
+    assert "```simulation" in out
 
 
 def test_a_clarifying_question_with_no_result_still_gets_no_card(
