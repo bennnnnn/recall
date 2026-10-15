@@ -30,7 +30,9 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
 
 [processes]
   # `exec` so uvicorn/worker is PID 1 and receives SIGTERM cleanly.
-  app = "sh -c 'exec /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log'"
+  # --ws-max-size caps one WebSocket frame at 1 MiB (uvicorn default 16 MiB);
+  # a chat frame is at most ~130 KB. Keep in step with apps/api/Dockerfile.
+  app = "sh -c 'exec /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log --ws-max-size 1048576'"
   worker = "sh -c 'PROCESS_ROLE=worker exec /opt/venv/bin/python -m app.worker_main'"
 
 [http_service]
