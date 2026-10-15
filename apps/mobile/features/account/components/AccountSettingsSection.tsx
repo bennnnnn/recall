@@ -9,8 +9,10 @@ import {
   SettingsValueRow,
 } from "@/features/account/components/settingsUi";
 import { useAuth } from "@/contexts/AuthContext";
+import { useLiveTalkMinutes } from "@/features/account/hooks/useLiveTalkMinutes";
 import { useUsage } from "@/features/account/hooks/useUsage";
 import { type User } from "@/lib/api";
+import { hasPlanFeature, planNameKey, planOf, upgradeTargets } from "@/lib/plan";
 import { formatUsageSummary } from "@/lib/quota";
 
 function manageSubscriptionUrl(): string {
@@ -29,14 +31,19 @@ function signInLabel(
 }
 
 /**
- * Email (with how you sign in), plan and today's usage. A free plan opens
- * the upgrade sheet, which also restores a purchase; Pro manages it in the store.
+ * Email (with how you sign in), plan, live talk minutes and today's usage.
+ * Free opens the plans sheet (which also restores a purchase); a paid plan
+ * manages its subscription in the store, and Plus also gets a way up to Pro.
  */
-export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
+export function AccountSettingsSection({ isPaid }: { isPaid: boolean }) {
   const { user } = useAuth();
   const { t } = useTranslation();
   const { usage } = useUsage();
   const [upgradeVisible, setUpgradeVisible] = useState(false);
+  const plan = planOf(user);
+  const planName = t(planNameKey(plan));
+  const nextPlan = plan === "free" ? null : upgradeTargets(plan)[0] ?? null;
+  const liveTalk = useLiveTalkMinutes(hasPlanFeature(user, "live_talk"));
 
   return (
     <>
@@ -49,11 +56,11 @@ export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
             provider: signInLabel(user?.sign_in_provider, t),
           })}
         />
-        {isPro ? (
+        {plan !== "free" ? (
           <SettingsLinkRow
             icon="credit-card"
             title={t("settings.plan_label")}
-            value={t("settings.account_pro")}
+            value={planName}
             subtitle={t("settings.manage_subscription")}
             onPress={() => void Linking.openURL(manageSubscriptionUrl())}
           />
@@ -61,15 +68,34 @@ export function AccountSettingsSection({ isPro }: { isPro: boolean }) {
           <SettingsLinkRow
             icon="sparkles"
             title={t("settings.plan_label")}
-            value={t("settings.account_free")}
+            value={planName}
             onPress={() => setUpgradeVisible(true)}
             accent
           />
         )}
+        {nextPlan ? (
+          <SettingsLinkRow
+            icon="sparkles"
+            title={t("settings.plan_upgrade", { plan: t(planNameKey(nextPlan)) })}
+            subtitle={t("settings.plan_upgrade_live_talk")}
+            onPress={() => setUpgradeVisible(true)}
+            accent
+          />
+        ) : null}
+        {liveTalk ? (
+          <SettingsValueRow
+            icon="activity"
+            title={t("settings.live_talk_minutes")}
+            value={t("settings.live_talk_minutes_left", {
+              count: liveTalk.remaining,
+              limit: liveTalk.limit,
+            })}
+          />
+        ) : null}
         <SettingsValueRow
           icon="bar-chart"
           title={t("settings.usage_group")}
-          value={usage ? formatUsageSummary(usage, isPro, t) : undefined}
+          value={usage ? formatUsageSummary(usage, isPaid, t) : undefined}
         />
       </SettingsGroup>
 

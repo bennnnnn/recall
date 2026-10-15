@@ -40,7 +40,9 @@ jest.mock("react-native-purchases", () => {
 
 import {
   configurePurchases,
+  getPlanPackages,
   isPurchaseCancelled,
+  planFromCustomerInfo,
   registerPlanChangeListener,
   signOutRevenueCat,
 } from "@/lib/purchases";
@@ -60,9 +62,9 @@ describe("isPurchaseCancelled", () => {
 });
 
 describe("registerPlanChangeListener", () => {
-  it("fires onChange only when the entitlement state flips (de-dupe)", async () => {
-    const changes: boolean[] = [];
-    const cleanup = await registerPlanChangeListener((isPro) => changes.push(isPro));
+  it("fires onChange only when the plan changes (de-dupe)", async () => {
+    const changes: string[] = [];
+    const cleanup = await registerPlanChangeListener((plan) => changes.push(plan));
     expect(cleanup).toBeInstanceOf(Function);
     expect(purchasesMod.default.addCustomerInfoUpdateListener).toHaveBeenCalledTimes(1);
 
@@ -77,8 +79,10 @@ describe("registerPlanChangeListener", () => {
     purchasesMod.default.__fire({ entitlements: { active: {} } });
     // Re-activates → change recorded.
     purchasesMod.default.__fire({ entitlements: { active: { pro: {} } } });
+    // Pro → Plus at renewal → change recorded.
+    purchasesMod.default.__fire({ entitlements: { active: { plus: {} } } });
 
-    expect(changes).toEqual([true, false, true]);
+    expect(changes).toEqual(["pro", "free", "pro", "plus"]);
 
     cleanup?.();
     expect(purchasesMod.default.removeCustomerInfoUpdateListener).toHaveBeenCalledTimes(1);
@@ -91,6 +95,44 @@ describe("registerPlanChangeListener", () => {
     // — this test just documents the null path is reachable when loadPurchases
     // returns null (covered by isPurchasesConfigured() elsewhere).
     expect(typeof registerPlanChangeListener).toBe("function");
+  });
+});
+
+describe("planFromCustomerInfo", () => {
+  it("reads the highest active plan, the way the server does", () => {
+    expect(planFromCustomerInfo({ entitlements: { active: {} } })).toBe("free");
+    expect(planFromCustomerInfo({ entitlements: { active: { plus: {} } } })).toBe("plus");
+    expect(planFromCustomerInfo({ entitlements: { active: { pro: {} } } })).toBe("pro");
+    expect(planFromCustomerInfo({ entitlements: { active: { plus: {}, pro: {} } } })).toBe("pro");
+  });
+});
+
+describe("getPlanPackages", () => {
+  const pkg = (identifier: string, price: string) => ({
+    identifier,
+    product: { priceString: price, identifier: `recall_${identifier}` },
+  });
+
+  it("finds each plan's package in the current offering", async () => {
+    purchasesMod.default.getOfferings.mockResolvedValueOnce({
+      current: {
+        monthly: null,
+        availablePackages: [pkg("plus_monthly", "$7.99"), pkg("pro_monthly", "$13.99")],
+      },
+    });
+    const packages = await getPlanPackages();
+    expect(packages.plus?.priceString).toBe("$7.99");
+    expect(packages.pro?.priceString).toBe("$13.99");
+  });
+
+  it("offers a single-plan offering's monthly package as Pro", async () => {
+    const monthly = pkg("$rc_monthly", "$9.99");
+    purchasesMod.default.getOfferings.mockResolvedValueOnce({
+      current: { monthly, availablePackages: [monthly] },
+    });
+    const packages = await getPlanPackages();
+    expect(packages.plus).toBeUndefined();
+    expect(packages.pro?.priceString).toBe("$9.99");
   });
 });
 

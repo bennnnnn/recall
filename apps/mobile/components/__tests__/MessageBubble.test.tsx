@@ -79,8 +79,9 @@ jest.mock("@/components/RecallTypingIndicator", () => ({
 jest.mock("@/features/drafts/context/emailDraftPersist", () => ({
   AssistantMessageScope: ({ children }: { children: React.ReactNode }) => children,
 }));
+let mockAuthUser: { plan: string; features: string[]; locale: string } | null = null;
 jest.mock("@/contexts/AuthContext", () => ({
-  useAuth: () => ({ user: null }),
+  useAuth: () => ({ user: mockAuthUser }),
   useAuthToken: () => "token",
 }));
 jest.mock("@/contexts/actionFeedbackCore", () => ({
@@ -208,6 +209,30 @@ describe("MessageBubble copy feedback timers", () => {
   describe("read aloud", () => {
     const readingForever = () =>
       jest.mocked(speakPlainText).mockImplementationOnce(() => new Promise(() => {}));
+
+    afterEach(() => {
+      mockAuthUser = null;
+    });
+
+    it("reads with the phone's own voice when the plan has no read-aloud", async () => {
+      mockAuthUser = { plan: "free", features: ["image_generation"], locale: "en" };
+      const view = await render(<MessageBubble message={assistantMessage} />);
+      await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+      const options = jest.mocked(speakPlainText).mock.calls.at(-1)?.[2];
+      expect(options).toEqual({ token: null, preferCloud: false });
+    });
+
+    it("uses the natural voice on a plan that includes read-aloud", async () => {
+      mockAuthUser = {
+        plan: "plus",
+        features: ["all_models", "image_generation", "speech_transcription", "speech_tts"],
+        locale: "en",
+      };
+      const view = await render(<MessageBubble message={assistantMessage} />);
+      await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+      const options = jest.mocked(speakPlainText).mock.calls.at(-1)?.[2];
+      expect(options).toEqual({ token: "token", preferCloud: true });
+    });
 
     it("stops reading when the reply leaves the screen", async () => {
       readingForever();

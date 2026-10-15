@@ -21,17 +21,17 @@ function today(): string {
 /** Pure decision used by the hook — exported for unit testing. */
 export function shouldShowQuotaNudge(
   usedPct: number,
-  isPro: boolean,
+  isPaid: boolean,
   dismissedForToday: boolean,
 ): boolean {
-  if (isPro) return false;
+  if (isPaid) return false;
   if (dismissedForToday) return false;
   return usedPct >= QUOTA_NUDGE_THRESHOLD_PCT;
 }
 
 type Options = {
   token: string | null;
-  isPro: boolean;
+  isPaid: boolean;
   /** Bump to refetch (e.g. when a chat turn finishes and usage likely changed). */
   refreshKey: number;
 };
@@ -41,12 +41,12 @@ type Options = {
  * limit, go Pro" nudge. Only fires for free users at/above the threshold, and
  * only once per day until dismissed. Pro users never see it.
  */
-export function useQuotaNudge({ token, isPro, refreshKey }: Options) {
+export function useQuotaNudge({ token, isPaid, refreshKey }: Options) {
   const [show, setShow] = useState(false);
   const [usedPct, setUsedPct] = useState(0);
 
   useEffect(() => {
-    if (!token || isPro) {
+    if (!token || isPaid) {
       setShow(false);
       return;
     }
@@ -63,7 +63,7 @@ export function useQuotaNudge({ token, isPro, refreshKey }: Options) {
     return () => {
       cancelled = true;
     };
-  }, [token, isPro, refreshKey]);
+  }, [token, isPaid, refreshKey]);
 
   const dismiss = useCallback(() => {
     dismissedDate = today();

@@ -35,7 +35,7 @@ export function parseApiErrorDetail(raw: string): string | null {
 export function resolveChatError(options: {
   message: string;
   code?: string;
-  isPro: boolean;
+  isPaid: boolean;
   t: (key: string) => string;
 }): ResolvedChatError {
   const parsed = parseApiErrorDetail(options.message);
@@ -56,7 +56,7 @@ export function resolveChatError(options: {
   if (options.code === "quota_exceeded" || isQuotaErrorMessage(text)) {
     return {
       kind: "quota",
-      message: options.t(options.isPro ? "chat.quota_exceeded_pro" : "chat.quota_exceeded_free"),
+      message: options.t(options.isPaid ? "chat.quota_exceeded_pro" : "chat.quota_exceeded_free"),
     };
   }
   if (!text || text.startsWith("{") || text.startsWith("[")) {

@@ -41,7 +41,7 @@ describe("quota helpers", () => {
     const t = (key: string, opts?: Record<string, unknown>) =>
       key === "settings.usage_left"
         ? `${opts?.pct}% free left`
-        : key === "settings.usage_left_pro"
+        : key === "settings.usage_left_paid"
           ? `${opts?.pct}% pro left`
           : key;
 

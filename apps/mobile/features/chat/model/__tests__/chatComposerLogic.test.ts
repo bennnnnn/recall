@@ -160,7 +160,7 @@ describe("chatComposerLogic", () => {
       autoLabel: "Auto",
       modelEnabledSet: new Set(["free-chat", "smart-chat"]),
       models: catalog,
-      isPro: true,
+      isPaid: true,
       t,
     });
     expect(opts.map((o) => o.id)).toEqual(["auto", "free-chat"]);
@@ -175,7 +175,7 @@ describe("chatComposerLogic", () => {
       autoLabel: "Auto",
       modelEnabledSet: new Set(["free-chat"]),
       models: undefined as unknown as typeof catalog,
-      isPro: true,
+      isPaid: true,
     });
     expect(opts.map((o) => o.id)).toEqual(["auto"]);
   });
@@ -195,7 +195,7 @@ describe("chatComposerLogic", () => {
           plan_access: "pro" as const,
         },
       ],
-      isPro: false,
+      isPaid: false,
     });
     expect(opts.map((o) => o.id)).toEqual(["free-chat"]);
   });

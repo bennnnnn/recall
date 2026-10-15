@@ -7,14 +7,24 @@ import { Sheet } from "@/ui/overlay/Sheet";
 import { Button } from "@/ui/controls/Button";
 import { useSubscriptionActions } from "@/hooks/useSubscriptionActions";
 import type { IconName } from "@/ui/icons/names";
+import { api } from "@/lib/api";
 import {
-  getMonthlyProPackage,
+  getPlanPackages,
   isPurchaseCancelled,
   isPurchasesConfigured,
-  type ProPurchasePackage,
-  purchaseProPackage,
+  type PlanPackage,
+  purchasePlanPackage,
   restorePurchases,
 } from "@/lib/purchases";
+import {
+  type PaidPlanId,
+  type PlanCatalog,
+  type PlanId,
+  type PlanInfo,
+  planNameKey,
+  planOf,
+  upgradeTargets,
+} from "@/lib/plan";
 import { Space } from "@/lib/space";
 import { trackProductEvent } from "@/lib/productAnalytics";
 import { getLegalPrivacyUrl, getLegalTermsUrl } from "@/lib/legalUrls";
@@ -24,20 +34,51 @@ import { Type, Weight } from "@/lib/type";
 import { IconSize } from "@/ui/icons/sizes";
 import { Radius } from "@/lib/radius";
 
+export type UpgradeSource = "quota" | "model_gate" | "settings" | "voice" | "live_talk" | "other";
+
 type Props = {
   visible: boolean;
   onClose: () => void;
-  source?: "quota" | "model_gate" | "settings" | "other";
+  source?: UpgradeSource;
 };
+
+type Translate = (key: string, options?: Record<string, unknown>) => string;
+
+const PLAN_RANK: Record<PlanId, number> = { free: 0, plus: 1, pro: 2 };
+
+type FeatureLine = { icon: IconName; text: string };
+
+/** What a plan includes, with the server's numbers (the store owns the price). */
+export function planFeatureLines(plan: PaidPlanId, info: PlanInfo | undefined, t: Translate): FeatureLine[] {
+  const lines: FeatureLine[] = [];
+  const images = info?.allowances.daily_image_generations;
+  if (plan === "pro") {
+    lines.push({ icon: "check", text: t("upgrade.everything_in", { plan: t(planNameKey("plus")) }) });
+    const minutes = info?.allowances.monthly_live_talk_minutes;
+    lines.push({
+      icon: "activity",
+      text: minutes ? t("upgrade.feature_live_talk", { count: minutes }) : t("upgrade.feature_live_talk_plain"),
+    });
+  } else {
+    lines.push({ icon: "zap", text: t("upgrade.feature_models") });
+    lines.push({ icon: "infinity", text: t("upgrade.feature_limits") });
+    lines.push({ icon: "mic", text: t("upgrade.feature_voice") });
+  }
+  if (images) lines.push({ icon: "image", text: t("upgrade.feature_images", { count: images }) });
+  return lines;
+}
 
 export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   const { t } = useTranslation();
   const theme = useTheme();
   const s = makeStyles(theme);
-  const { token, syncSubscription, devUpgrade } = useSubscriptionActions();
-  const [pkg, setPkg] = useState<ProPurchasePackage | null>(null);
+  const { token, user, syncSubscription, devUpgrade } = useSubscriptionActions();
+  const current = planOf(user);
+  const targets = upgradeTargets(current);
+  const [packages, setPackages] = useState<Partial<Record<PaidPlanId, PlanPackage>>>({});
+  const [catalog, setCatalog] = useState<PlanCatalog | null>(null);
   const [loadingOffer, setLoadingOffer] = useState(false);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState<PaidPlanId | "restore" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const purchasesReady = isPurchasesConfigured();
   const wasVisible = useRef(false);
@@ -45,20 +86,37 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
   useEffect(() => {
     if (visible && !wasVisible.current) {
       trackProductEvent(token, "paywall_viewed", { source });
+      setError(null);
     }
     wasVisible.current = visible;
   }, [source, token, visible]);
 
   useEffect(() => {
+    if (!visible || !token) return;
+    let cancelled = false;
+    void api
+      .listPlans(token)
+      .then((next) => {
+        if (!cancelled) setCatalog(next);
+      })
+      .catch(() => {
+        // The cards still show what each plan includes, without numbers.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, token]);
+
+  useEffect(() => {
     if (!visible || !purchasesReady) {
-      setPkg(null);
+      setPackages({});
       return;
     }
     let cancelled = false;
     setLoadingOffer(true);
-    void getMonthlyProPackage()
+    void getPlanPackages()
       .then((next) => {
-        if (!cancelled) setPkg(next);
+        if (!cancelled) setPackages(next);
       })
       .finally(() => {
         if (!cancelled) setLoadingOffer(false);
@@ -74,39 +132,32 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     onClose();
   };
 
-  const tryDevUpgrade = async () => {
-    if (!token) return;
-    try {
-      if (await devUpgrade()) onClose();
-    } catch {
-      /* dev endpoint unavailable in production */
-    }
-  };
-
-  const onSubscribe = async () => {
+  const onSubscribe = async (plan: PaidPlanId) => {
+    const pkg = packages[plan];
     if (!token || !pkg || busy) return;
-    setBusy(true);
+    setBusy(plan);
     setError(null);
-    trackProductEvent(token, "purchase_started");
-    let purchased = false;
+    trackProductEvent(token, "purchase_started", { plan });
+    let purchased: PlanId = "free";
     try {
-      purchased = await purchaseProPackage(pkg);
+      purchased = await purchasePlanPackage(pkg);
     } catch (purchaseError) {
       const cancelled = isPurchaseCancelled(purchaseError);
       trackProductEvent(token, "purchase_failed", {
+        plan,
         reason: cancelled ? "cancelled" : "error",
       });
       if (!cancelled) setError(t("upgrade.purchase_failed"));
-      setBusy(false);
+      setBusy(null);
       return;
     }
-    if (!purchased) {
-      trackProductEvent(token, "purchase_failed", { reason: "error" });
+    if (PLAN_RANK[purchased] < PLAN_RANK[plan]) {
+      trackProductEvent(token, "purchase_failed", { plan, reason: "error" });
       setError(t("upgrade.purchase_failed"));
-      setBusy(false);
+      setBusy(null);
       return;
     }
-    trackProductEvent(token, "purchase_succeeded");
+    trackProductEvent(token, "purchase_succeeded", { plan });
     try {
       await syncAfterStore();
     } catch {
@@ -114,17 +165,17 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
       // listener and the webhook still land it — never say the purchase failed.
       setError(t("upgrade.sync_pending"));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
   const onRestore = async () => {
     if (!token || busy) return;
-    setBusy(true);
+    setBusy("restore");
     setError(null);
     try {
-      const ok = await restorePurchases();
-      if (!ok) {
+      const restored = await restorePurchases();
+      if (restored === "free") {
         setError(t("upgrade.restore_empty"));
         return;
       }
@@ -136,11 +187,11 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     } catch {
       setError(t("upgrade.purchase_failed"));
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
-  const priceLabel = pkg?.priceString ?? t("upgrade.price_fallback");
+  const planInfo = (plan: PaidPlanId) => catalog?.plans.find((item) => item.id === plan);
 
   return (
     <Sheet
@@ -153,29 +204,49 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
         <Icon name="sparkles" size={IconSize.lg} color={theme.primary} />
       </View>
       <Text style={s.title}>{t("upgrade.title")}</Text>
-      <Text style={s.body}>{t("upgrade.body")}</Text>
-      <View style={s.featureList}>
-        <FeatureRow icon="zap" text={t("upgrade.feature_models")} theme={theme} />
-        <FeatureRow icon="infinity" text={t("upgrade.feature_limits")} theme={theme} />
-        <FeatureRow icon="sliders" text={t("upgrade.feature_pick")} theme={theme} />
-      </View>
+      {current !== "free" ? (
+        <Text style={s.body}>{t("upgrade.current_plan", { plan: t(planNameKey(current)) })}</Text>
+      ) : (
+        <Text style={s.body}>{t("upgrade.body")}</Text>
+      )}
+      {targets.map((plan) => {
+        const pkg = packages[plan];
+        const price = pkg?.priceString;
+        return (
+          <View key={plan} style={s.card} testID={`upgrade-plan-${plan}`}>
+            <View style={s.cardHeader}>
+              <Text style={s.cardTitle}>{t(planNameKey(plan))}</Text>
+              <Text style={s.cardPrice}>
+                {price ? t("upgrade.per_month", { price }) : t("upgrade.price_fallback")}
+              </Text>
+            </View>
+            <View style={s.featureList}>
+              {planFeatureLines(plan, planInfo(plan), t).map((line) => (
+                <FeatureRow key={line.text} icon={line.icon} text={line.text} theme={theme} />
+              ))}
+            </View>
+            {purchasesReady ? (
+              <Button
+                title={t("upgrade.subscribe_plan", { plan: t(planNameKey(plan)) })}
+                onPress={() => void onSubscribe(plan)}
+                loading={busy === plan || (loadingOffer && !pkg)}
+                disabled={!pkg || (busy != null && busy !== plan)}
+                variant={plan === "pro" ? "primary" : "secondary"}
+                style={s.primaryBtn}
+              />
+            ) : null}
+          </View>
+        );
+      })}
       {error ? <Text style={s.error}>{error}</Text> : null}
       {purchasesReady ? (
-        <>
-          <Button
-            title={t("upgrade.subscribe", { price: priceLabel })}
-            onPress={() => void onSubscribe()}
-            loading={busy || loadingOffer}
-            disabled={!pkg}
-            style={s.primaryBtn}
-          />
-          <Button
-            title={t("upgrade.restore")}
-            onPress={() => void onRestore()}
-            variant="ghost"
-            disabled={busy}
-          />
-        </>
+        <Button
+          title={t("upgrade.restore")}
+          onPress={() => void onRestore()}
+          variant="ghost"
+          loading={busy === "restore"}
+          disabled={busy != null && busy !== "restore"}
+        />
       ) : (
         <Button title={t("upgrade.coming_soon")} onPress={onClose} style={s.primaryBtn} />
       )}
@@ -197,11 +268,23 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
           <Text style={s.legalLink}>{t("privacy.title")}</Text>
         </Pressable>
       </View>
-      {__DEV__ ? (
-        <Pressable style={s.devBtn} onPress={() => void tryDevUpgrade()}>
-          <Text style={s.devBtnText}>{t("upgrade.dev_enable")}</Text>
-        </Pressable>
-      ) : null}
+      {__DEV__
+        ? targets.map((plan) => (
+            <Pressable
+              key={`dev-${plan}`}
+              style={s.devBtn}
+              onPress={() => {
+                void devUpgrade(plan).then((ok) => {
+                  if (ok) onClose();
+                });
+              }}
+            >
+              <Text style={s.devBtnText}>
+                {t("upgrade.dev_enable_plan", { plan: t(planNameKey(plan)) })}
+              </Text>
+            </Pressable>
+          ))
+        : null}
     </Sheet>
   );
 }
@@ -250,7 +333,30 @@ const makeStyles = (theme: Theme) =>
       color: theme.textSecondary,
       textAlign: "center",
     },
-    featureList: { gap: Space.xs, marginVertical: Space.xs },
+    card: {
+      borderRadius: Radius.lg,
+      borderWidth: StyleSheet.hairlineWidth,
+      borderColor: theme.border,
+      backgroundColor: theme.surface,
+      padding: Space.md,
+      gap: Space.xs,
+    },
+    cardHeader: {
+      flexDirection: "row",
+      alignItems: "baseline",
+      justifyContent: "space-between",
+      gap: Space.xs,
+    },
+    cardTitle: {
+      ...Type.body,
+      ...Weight.semibold,
+      color: theme.text,
+    },
+    cardPrice: {
+      ...Type.secondary,
+      color: theme.textSecondary,
+    },
+    featureList: { gap: Space.xs, marginVertical: Space.xxs },
     error: {
       ...Type.secondary,
       color: theme.danger,

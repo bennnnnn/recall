@@ -14,6 +14,7 @@ import { useAuthOptional } from "@/contexts/AuthContext";
 import { api, type ModelInfo } from "@/lib/api";
 import { MODEL_CATALOG_FALLBACK } from "@/lib/modelCatalogFallback";
 import { shouldRefreshModels } from "@/lib/modelRefresh";
+import { hasPlanFeature } from "@/lib/plan";
 
 export const AUTO_MODEL_ID = "auto";
 
@@ -21,10 +22,10 @@ const MODEL_REFRESH_TTL_MS = 5 * 60 * 1000;
 
 export function defaultModelPreferences(
   models: ModelInfo[],
-  isPro: boolean,
+  isPaid: boolean,
 ): string[] {
   const ids = models
-    .filter((m) => m.available && (isPro || m.plan_access === "free"))
+    .filter((m) => m.available && (isPaid || m.plan_access === "free"))
     .map((m) => m.id);
   return [AUTO_MODEL_ID, ...ids];
 }
@@ -42,7 +43,7 @@ type ModelsContextValue = {
   loading: boolean;
   refresh: () => Promise<void>;
   labelFor: (id: string | null | undefined) => string;
-  isPro: boolean;
+  isPaid: boolean;
   autoEnabled: boolean;
   modelEnabledSet: Set<string>;
   enabledSet: Set<string>;
@@ -107,11 +108,12 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, [refresh, token]);
 
-  const isPro = user?.plan === "pro";
+  // Paid plans (Plus and Pro) unlock every model; the server enforces it.
+  const isPaid = hasPlanFeature(user, "all_models");
 
   const preferences = useMemo(
-    () => user?.enabled_models ?? defaultModelPreferences(models, isPro),
-    [user?.enabled_models, models, isPro],
+    () => user?.enabled_models ?? defaultModelPreferences(models, isPaid),
+    [user?.enabled_models, models, isPaid],
   );
 
   const autoEnabled = preferences.includes(AUTO_MODEL_ID);
@@ -134,7 +136,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
       loading,
       refresh,
       labelFor,
-      isPro,
+      isPaid,
       autoEnabled,
       modelEnabledSet,
       enabledSet: modelEnabledSet,
@@ -146,7 +148,7 @@ export function ModelsProvider({ children }: { children: ReactNode }) {
       loading,
       refresh,
       labelFor,
-      isPro,
+      isPaid,
       autoEnabled,
       modelEnabledSet,
       preferences,

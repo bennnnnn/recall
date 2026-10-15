@@ -21,7 +21,7 @@ describe("image generation queued state and cancellation", () => {
       token: "tok", chatId: "chat", setChatId: jest.fn(), setChatTitle: jest.fn(),
       setMessages: (update) => { updates.push(update); },
       draft: {} as never, router: {} as never, selectedModel: "free-chat", streaming: false,
-      isPro: true, isOffline: false, onOpenUpgrade: jest.fn(), onScrollToLatest: jest.fn(),
+      isPaid: true, isOffline: false, onOpenUpgrade: jest.fn(), onScrollToLatest: jest.fn(),
       newMessageCountRef: count, t: (key) => key,
     }));
     const replay = () => updates.reduce<Message[]>((rows, update) => typeof update === "function" ? update(rows) : update, []);

@@ -79,7 +79,9 @@ exact production web origin and only the headers used by presigned uploads.
 | `OPENAI_API_KEY` | Live Talk only | WebRTC Realtime; OpenRouter has no Realtime API |
 | `CORS_ORIGINS` | yes | Explicit origins, never `*` |
 | `REVENUECAT_WEBHOOK_AUTH` | yes | Shared secret for the webhook |
-| `REVENUECAT_SECRET_KEY` | yes | REST API; TRANSFER + plan sync |
+| `REVENUECAT_SECRET_KEY` | yes | REST API; every access change, TRANSFER, plan sync, hourly reconcile |
+| `REVENUECAT_ENTITLEMENT_ID` | no (default `pro`) | Top plan's entitlement; keep `pro` so earlier subscribers stay on Pro |
+| `REVENUECAT_PLUS_ENTITLEMENT_ID` | no (default `plus`) | Lower paid plan's entitlement |
 | `TAVILY_API_KEY` | if web search | |
 | `TRUST_X_FORWARDED_FOR` | yes (set in `fly.toml` `[env]`) | `true` behind Fly. Unset, every per-IP rate limit keys on Fly's proxy address and becomes one global bucket; production boot logs a warning. |
 | `DAILY_GLOBAL_SPEND_USD` | yes | UTC-day OpenRouter $ cap; must be > 0 |
@@ -96,6 +98,88 @@ curl -s https://<your-api>/health/ready
 - [ ] Health monitor: `GET /health` (liveness) and `GET /health/ready` (Postgres;
       Redis may report `degraded` without 503)
 - [ ] RevenueCat webhook → `https://<api>/webhooks/revenuecat` with `Authorization` header
+- [ ] Plans and store products set up per [§4b](#4b-plans-and-revenuecat-free-plus-pro)
+
+---
+
+## 4b. Plans and RevenueCat (Free, Plus, Pro)
+
+Three plans. "Plus" and "Pro" are working names: the app shows them from i18n
+(`plans.plus`, `plans.pro` in all nine locale files), so renaming them is a
+copy change. The server only knows the ids `free`, `plus`, `pro`.
+
+| | Free | Plus (lower paid) | Pro (top) |
+|---|---|---|---|
+| Models | free pool | all | all |
+| Tokens / day | 100k | 500k | 500k |
+| Voice input / day | — | 200 | 200 |
+| Natural read-aloud / day | — (phone voice only) | 100 | 100 |
+| AI images / day | 3 | 10 | 15 |
+| Live talk | — | — | 60 min / UTC calendar month |
+
+Every number is a `core/config.py` setting (`<NAME>`, `<NAME>_PLUS`,
+`<NAME>_PRO`; see `apps/api/.env.example`). A metered feature belongs to a plan
+when its number is above zero, so moving a feature between plans is a secret
+change, not a release. `modules/billing/entitlements.py` is the one place that
+decides; the server refuses (403) anything a plan lacks, whatever the app shows.
+
+**Prices are never in code.** Set them in App Store Connect and Play Console;
+the app shows the store's localized price from the RevenueCat offering.
+
+### What to create (owner)
+
+1. **App Store Connect** — one subscription group (e.g. "Recall") holding two
+   auto-renewable monthly subscriptions, e.g. `recall_plus_monthly` ($7.99) and
+   `recall_pro_monthly` ($13.99). Rank Pro **above** Plus in the group (level 1),
+   so Plus → Pro is an immediate upgrade and Pro → Plus takes effect at renewal.
+   If a Pro product already exists, keep it as the Pro product in that group.
+2. **Play Console** — two subscriptions (e.g. `recall_plus`, `recall_pro`), each
+   with a monthly base plan. The app replaces the Plus subscription when someone
+   buys Pro (prorated, immediate), so nobody pays for both.
+3. **RevenueCat → Entitlements** — keep `pro` (the single-plan id; existing
+   subscribers stay on Pro with nothing lost) and add `plus`. Attach the Plus
+   products to `plus` and the Pro products to `pro` (attaching Pro to both is
+   fine; the server takes the higher plan).
+4. **RevenueCat → Offerings** — the current offering holds two packages with the
+   custom identifiers **`plus_monthly`** and **`pro_monthly`**. (An offering with
+   only the old monthly package is shown as Pro, so the switch can be staged.)
+5. **RevenueCat → Project settings** — keep restore behavior **Transfer to new
+   App User ID** (the default). Two accounts on one Apple ID: the account that
+   restores gets the plan and the other drops to Free on the TRANSFER webhook.
+6. **Webhook** — unchanged URL and auth. The server re-reads the subscriber on
+   every event that can change access; BILLING_ISSUE (grace period),
+   SUBSCRIPTION_PAUSED and auto-renew-off CANCELLATION keep access until
+   EXPIRATION. The worker re-checks every paid row hourly
+   (`BILLING_RECONCILE_INTERVAL_SECONDS`).
+7. **Deploy order** — migrate (`0107_plus_plan` only widens `ck_users_plan`;
+   no rows change), deploy the API, then ship the app build with the new
+   offering. An older app build still sees Pro correctly; it does not offer Plus.
+
+### Live talk minutes
+
+The phone talks to OpenAI over WebRTC after the server mints a session, so the
+server meters at its own edges: a mint reserves `min(minutes left,
+LIVE_TALK_MAX_SESSION_SECONDS)` (refused under `LIVE_TALK_MIN_SESSION_SECONDS`),
+the session may save turns and use voice tools only for that reservation, the
+phone hangs up when it ends, and `POST /speech/live/end` settles it to the time
+the server measured (never refunding more than was reserved). A phone that
+never reports keeps the whole reservation charged. Known limit: the server
+cannot hang up the OpenAI call itself, so a modified client could keep talking
+past its reservation (nothing is saved, no tools); `DAILY_GLOBAL_SPEND_USD`
+still bounds the spend.
+
+### QA (sandbox / test track)
+
+- [ ] Free: mic and live talk open the plans; read-aloud uses the phone voice;
+      3 AI images, then the limit message
+- [ ] Buy Plus: voice input and read-aloud work, live talk opens the plans,
+      Settings shows Plus and "Upgrade to Pro"
+- [ ] Plus → Pro: one subscription in the store afterwards; live talk works and
+      Settings shows minutes left; a 2-minute call takes about 2 minutes
+- [ ] Pro → Plus (store downgrade): Pro until renewal, then Plus
+- [ ] Cancel, let it expire: back to Free on the next request
+- [ ] Refund (support): back to Free; restore on a second device; sign in as a
+      second account on the same Apple ID and restore (TRANSFER)
 
 ---
 

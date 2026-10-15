@@ -1,5 +1,6 @@
 import { fetchExportText, request } from "@/lib/api/client";
 import type { AuthSession, User } from "@/lib/api/types";
+import type { PaidPlanId, PlanCatalog } from "@/lib/plan";
 
 export type SettingsProposalApplied = {
   field: string;
@@ -26,10 +27,12 @@ export const accountApi = {
       token,
       { method: "POST" },
     ),
-  devUpgradePro: (token: string) =>
-    request<User>("/auth/me/pro-dev", token, { method: "POST" }),
+  devUpgradePro: (token: string, plan: PaidPlanId = "pro") =>
+    request<User>(`/auth/me/pro-dev?plan=${plan}`, token, { method: "POST" }),
   syncSubscription: (token: string) =>
     request<User>("/auth/me/sync-subscription", token, { method: "POST" }),
+  /** Every plan with what it includes and its numbers (prices come from the store). */
+  listPlans: (token: string) => request<PlanCatalog>("/billing/plans", token),
   exportData: (token: string) => request<unknown>("/auth/me/export", token),
   exportDataText: (token: string) => fetchExportText(token),
   deleteAccount: (token: string) =>

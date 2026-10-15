@@ -29,7 +29,7 @@ import { useTheme } from "@/lib/theme";
 export default function SettingsScreen() {
   const { token, user, signOut, updateUser } = useAuth();
   const { t } = useTranslation();
-  const { isPro, autoEnabled, modelEnabledSet } = useModels();
+  const { isPaid, autoEnabled, modelEnabledSet } = useModels();
   const theme = useTheme();
   const router = useRouter();
   const { preference, setPreference } = useAppearance();
@@ -89,7 +89,7 @@ export default function SettingsScreen() {
         />
       </View>
 
-      <AccountSettingsSection isPro={isPro} />
+      <AccountSettingsSection isPaid={isPaid} />
 
       <SettingsGroup label={t("settings.experience")}>
         <SettingsMenuRow

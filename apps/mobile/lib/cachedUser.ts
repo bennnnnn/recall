@@ -7,6 +7,7 @@ import {
 } from "expo-file-system/legacy";
 
 import type { User } from "@/lib/api/types";
+import { planOf } from "@/lib/plan";
 
 // A previous user's started write must finish before signout clears it or a
 // new account replaces it. Readers also wait to avoid observing partial files.
@@ -109,7 +110,7 @@ export async function readCachedUser(): Promise<CachedUser | null> {
       id: parsed.id,
       name: parsed.name ?? null,
       avatar_url: parsed.avatar_url ?? null,
-      plan: parsed.plan === "pro" ? "pro" : "free",
+      plan: planOf(parsed),
     };
   } catch {
     return null;
