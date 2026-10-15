@@ -65,7 +65,11 @@ def _extract_gas_laws(text: str) -> ChemistryIntent | None:
         return graham
     # Boyle, Charles and the combined and ideal gas laws are physics' (physics/catalog/gas_laws.py),
     # answered in L and atm when the question is written in them.
-    if _LISTED_PARTIALS.search(text) and not re.search(r"\bP\(", text):
+    if (
+        _LISTED_PARTIALS.search(text)
+        and not re.search(r"\bP\(", text)
+        and not _CHANGED.search(text)
+    ):
         listed = _listed_partials(text)
         if listed is not None:
             return ChemistryIntent(
@@ -74,7 +78,11 @@ def _extract_gas_laws(text: str) -> ChemistryIntent | None:
                 species=listed[0],
                 units={"pressure": listed[1]},
             )
-    total_asked = _TOTAL_ASK.search(text) is not None and not _TOTAL_STATED.search(text)
+    total_asked = (
+        _TOTAL_ASK.search(text) is not None
+        and not _TOTAL_STATED.search(text)
+        and not _CHANGED.search(text)
+    )
     if re.search(r"\bDalton\b", text, re.IGNORECASE) or total_asked:
         partials = _partial_pressures(text) or (_gas_pressures(text) if total_asked else None)
         if partials is not None and len(partials[0]) >= 2:
@@ -86,7 +94,7 @@ def _extract_gas_laws(text: str) -> ChemistryIntent | None:
             )
         if re.search(r"\bDalton\b", text, re.IGNORECASE):
             return None
-    if re.search(r"\bpartial pressure\b", text, re.IGNORECASE):
+    if re.search(r"\bpartial pressure\b", text, re.IGNORECASE) and not _CHANGED.search(text):
         partial = _partial_from_fraction(text) or _partial_from_moles(text)
         if partial is not None:
             return partial
@@ -101,7 +109,45 @@ def _extract_gas_laws(text: str) -> ChemistryIntent | None:
                 params={"total_pressure": wet, "temperature_c": temperature},
                 units={"pressure": unit.group(1)},
             )
+        return _collected_over_water(text)
     return None
+
+
+# "collected over water at 25 °C and 755 mmHg total pressure. What is the pressure of the dry
+# gas?": the one pressure is the total, the one temperature the water's, the dry gas asked.
+_DRY_ASK = re.compile(
+    r"\bdry\b|\b(?:partial\s+)?pressure\s+of\s+(?:the\s+)?(?:collected\s+)?"
+    r"(?:gas|hydrogen|oxygen|nitrogen|(?-i:[A-Z][A-Za-z0-9]*))\b",
+    re.IGNORECASE,
+)
+_CELSIUS = re.compile(rf"({_N})\s*(?:°\s*C|deg\s*C|degrees?\s+C(?:elsius)?)(?![A-Za-z])", re.I)
+
+
+# The one pressure must be the total: a stated dry pressure, or a total asked, is the reverse
+# question.
+_DRY_STATED = re.compile(rf"\bdry\b[^.?!\d]{{0,40}}{_N}\s*{_PRESSURE_UNIT}", re.IGNORECASE)
+_TOTAL_ASKED = re.compile(
+    r"\b(?:what|find|calculate|determine)\b[^.?!]*\btotal\s+pressure\b", re.IGNORECASE
+)
+
+
+def _collected_over_water(text: str) -> ChemistryIntent | None:
+    pressures = _PRESSURE.findall(text)
+    temperatures = _CELSIUS.findall(text)
+    if len(pressures) != 1 or len(temperatures) != 1 or not _DRY_ASK.search(text):
+        return None
+    if _DRY_STATED.search(text) or _TOTAL_ASKED.search(text):
+        return None
+    if re.search(r"\bvapou?r\s+pressure\b", text, re.IGNORECASE):
+        # A stated vapor pressure would be a second value this reading ignores.
+        return None
+    value, unit = pressures[0]
+    return ChemistryIntent(
+        kind="gases",
+        chemistry_op="gas_over_water",
+        params={"total_pressure": float(value), "temperature_c": float(temperatures[0])},
+        units={"pressure": _CANONICAL_PRESSURE[unit.lower()]},
+    )
 
 
 # Gases a Graham question names in words, as the molecules that effuse.
@@ -174,6 +220,13 @@ def _states_a_number(text: str) -> bool:
     return re.search(r"\d", "".join(kept)) is not None
 
 
+# A mixture whose volume, temperature or contents change is another state: its pressures are
+# not the ones stated.
+_CHANGED = re.compile(
+    r"\b(?:doubl\w*|halv\w*|tripl\w*|compress\w*|expand\w*|heat\w*|cool\w*|add\w*|"
+    r"remov\w*|transfer\w*|connect\w*|pump\w*|leak\w*|after|then|volume|temperature)\b",
+    re.IGNORECASE,
+)
 # "what's the total pressure?" asks the sum; "at a total pressure of 4.0 atm" states it.
 _TOTAL_ASK = re.compile(
     r"\b(?:find|calculate|determine|what(?:'s|\s+is)?)\s+(?:is\s+)?(?:the\s+)?total\s+pressure\b"

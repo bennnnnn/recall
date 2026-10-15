@@ -135,6 +135,27 @@ def _particles_from_moles(match: re.Match[str]) -> ChemistryIntent | None:
     )
 
 
+_MASS_UNITS = {
+    "mg": "mg",
+    "milligram": "mg",
+    "milligrams": "mg",
+    "kg": "kg",
+    "kilogram": "kg",
+    "kilograms": "kg",
+}
+_MOLES_IN_UNIT = re.compile(
+    r"\bhow\s+many\s+(?P<unit>mg|milligrams?|kg|kilograms?)\s+(?:is|are|in|of|does|do)\s+"
+    rf"(?P<moles>{_N})\s*mol(?:e|es)?\s+(?:of\s+)?(?P<formula>{SAMPLE_FORMULA}){FORMULA_END}",
+    re.IGNORECASE,
+)
+# "the molar mass of Ca(NO3)2", "the molar mass of glucose": a formula, or a compound's name.
+_MOLAR_MASS_OF = re.compile(
+    r"(?:molar\s+mass|molecular\s+weight)\s+(?:of\s+)?(?:the\s+)?"
+    rf"(?P<formula>{SAMPLE_FORMULA}{FORMULA_END}|"
+    + "|".join(rf"\b{re.escape(name)}\b" for name in sorted(NAMED_COMPOUNDS, key=len, reverse=True))
+    + ")",
+    re.IGNORECASE,
+)
 # "the percent composition of carbon in CO2", "mass percent of N in NH4NO3": the element first.
 _ELEMENT_PERCENT_IN = re.compile(
     rf"(?:percent(?:age)?\s+(?:composition|by\s+mass)|(?:mass\s+)?percent(?:age)?\s+by\s+mass"
@@ -171,14 +192,13 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
     economy = _extract_atom_economy(text)
     if economy is not None:
         return economy
-    mass_formula = re.search(
-        rf"(?:molar\s+mass|molecular\s+weight)\s+(?:of\s+)?({SAMPLE_FORMULA}){FORMULA_END}",
-        text,
-        re.IGNORECASE,
-    )
+    mass_formula = _MOLAR_MASS_OF.search(text)
     if mass_formula:
+        token = mass_formula.group("formula")
         return ChemistryIntent(
-            kind="amounts", chemistry_op="molar_mass", formula=mass_formula.group(1)
+            kind="amounts",
+            chemistry_op="molar_mass",
+            formula=NAMED_COMPOUNDS.get(token.lower(), token),
         )
 
     composition = _percent_composition(text)
@@ -224,6 +244,16 @@ def _extract_amounts(text: str) -> ChemistryIntent | None:
             params={"moles": float(moles_to_mass.group(1))},
             units={"moles": "mol"},
             formula=moles_to_mass.group(2),
+        )
+    # "How many mg is 0.0150 mol of NaOH?": the mass asked in milligrams or kilograms.
+    in_unit = _MOLES_IN_UNIT.search(text)
+    if in_unit:
+        return ChemistryIntent(
+            kind="amounts",
+            chemistry_op="moles_to_mass",
+            params={"moles": float(in_unit.group("moles"))},
+            units={"moles": "mol", "answer": _MASS_UNITS[in_unit.group("unit").lower()]},
+            formula=in_unit.group("formula"),
         )
 
     moles_to_particles = _MOLES_TO_PARTICLES.search(text)
@@ -344,7 +374,7 @@ def _extract_particle_mass(text: str) -> ChemistryIntent | None:
 def _extract_empirical(text: str) -> ChemistryIntent | None:
     percents = _percents(text)
     if len(percents) < 2:
-        return None
+        return _empirical_from_masses(text)
     if re.search(r"\bmolecular formula\b", text, re.IGNORECASE):
         molar = _search(rf"(?:molar mass|M)\s*=\s*({_N})", text)
         if molar is None:
@@ -358,6 +388,44 @@ def _extract_empirical(text: str) -> ChemistryIntent | None:
     if re.search(r"\bempirical formula\b", text, re.IGNORECASE):
         return ChemistryIntent(kind="amounts", chemistry_op="empirical_formula", species=percents)
     return None
+
+
+# "a 2.50 g sample has 1.00 g Ca, 0.300 g C and 1.20 g O": each element's grams.
+_ELEMENT_GRAMS = re.compile(rf"({_N})\s*g(?:rams?)?\s+(?:of\s+)?([A-Za-z]+)(?![A-Za-z0-9])")
+_SAMPLE_GRAMS = re.compile(
+    rf"({_N})\s*g(?:rams?)?\s+(?:sample|of\s+(?:the\s+)?(?:sample|compound))\b"
+)
+
+
+def _empirical_from_masses(text: str) -> ChemistryIntent | None:
+    """An empirical formula from each element's mass in a sample.
+
+    Every mass stated is an element's or the sample's, and a stated sample mass must be
+    their sum: masses that do not close are another compound's analysis.
+    """
+    if not _EMPIRICAL_ASK.search(text) or re.search(r"\bmolecular formula\b", text, re.I):
+        return None
+    masses: dict[str, float] = {}
+    for match in _ELEMENT_GRAMS.finditer(text):
+        word = match.group(2)
+        symbol = word if word in BY_SYMBOL else _ELEMENT_BY_NAME.get(word.lower())
+        if symbol is None:
+            continue
+        if symbol in masses:
+            return None
+        masses[symbol] = float(match.group(1))
+    samples = _SAMPLE_GRAMS.findall(text)
+    stated = len(re.findall(rf"{_N}\s*g(?:rams?)?\b", text))
+    if len(masses) < 2 or len(samples) > 1 or stated != len(masses) + len(samples):
+        return None
+    params = {"sample_mass": float(samples[0])} if samples else {}
+    return ChemistryIntent(
+        kind="amounts",
+        chemistry_op="empirical_formula",
+        species=masses,
+        params=params,
+        units={"basis": "g"},
+    )
 
 
 _ELEMENT_BY_NAME = {element.name.lower(): element.symbol for element in ELEMENTS}

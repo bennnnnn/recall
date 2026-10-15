@@ -15,7 +15,7 @@ from app.modules.chemistry.solvers.common_chem import (
 )
 from app.modules.chemistry.solvers.constants import GAS_R_J
 from app.modules.chemistry.solvers.params import require_all
-from app.modules.chemistry.solvers.types import ChemistryResult
+from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.services.solving import SolveServiceError
 
 # A rate per day or per year, not per "days".
@@ -59,6 +59,26 @@ def solve_kinetics(intent: ChemistryIntent) -> ChemistryResult:
             *stated("first_order_half_life"),
             (f"t₁/₂ = {num(math.log(2))} / {inp(rate_constant)}",),
             f"t₁/₂ = {value}",
+            value,
+        )
+    if op == "first_order_time":
+        rate_constant, remaining = require_all(intent, "rate_constant", "remaining")
+        if rate_constant <= 0 or not 0 < remaining < 1:
+            raise SolveServiceError("a first-order time needs k > 0 and a fraction left below 1")
+        time_unit = intent.units.get("rate_constant_time", "s")
+        elapsed = math.log(1 / remaining) / rate_constant
+        value = f"{num(elapsed)} {time_unit}"
+        percent = format_number(remaining * 100)
+        return verified(
+            "Verified first-order time",
+            (
+                f"k = {inp(rate_constant)} {time_unit}⁻¹",
+                f"[A]ₜ / [A]₀ = {percent}% = {inp(remaining)}",
+            ),
+            "Time, t",
+            *stated("first_order_time"),
+            (f"t = ln(1 / {inp(remaining)}) / ({inp(rate_constant)} {time_unit}⁻¹)",),
+            f"t = {value}",
             value,
         )
     if op == "first_order_concentration":

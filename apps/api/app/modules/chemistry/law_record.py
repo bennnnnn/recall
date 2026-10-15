@@ -10,6 +10,8 @@ _MOLAR = "mole / liter"
 _MOLAL = "mole / kilogram"
 _PER_SECOND = "1 / second"
 _PH_ASKS = ("p_h",)
+# A mass asked in milligrams: the law's grams are converted for the answer.
+_MILLIGRAM_ASKS = ("how many mg", "how many milligrams", "mass in mg", "mass in milligrams")
 # The words beside a solute's and a solvent's mass ("10.0 g compound in 250 g of water").
 _SOLUTE_WORDS = ("compound", "solute", "salt", "sugar")
 _SOLVENT_WORDS = ("water", "solvent")

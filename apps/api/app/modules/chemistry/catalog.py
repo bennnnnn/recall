@@ -42,6 +42,9 @@ METHODS = frozenset(
         "nmr_peak",
         "molecular_ion",
         "electron_configuration",
+        "valence_electrons",
+        "ionic_formula",
+        "ionic_name",
     }
 )
 
@@ -150,9 +153,11 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "Integrated first-order rate law",
         "[A]ₜ = [A]₀e^(−kt)",
     ),
+    ("first_order_time", "kinetics", "Integrated first-order rate law", "t = ln([A]₀/[A]ₜ) / k"),
     ("arrhenius", "kinetics", "Arrhenius equation", "k = Ae^(−Eₐ/(RT))"),
     ("cell_gibbs", "electrochemistry", "Electrochemical Gibbs relation", "ΔG° = −nFE°cell"),
     ("nernst", "electrochemistry", "Nernst equation", "E = E° − (RT/nF)ln Q"),
+    ("galvanic_nernst", "electrochemistry", "Nernst equation", "E = E° − (RT/nF)ln Q"),
     ("electrolysis_mass", "electrochemistry", "Faraday's law of electrolysis", "m = MIt / nF"),
     ("beer_lambert", "spectroscopy", "Beer–Lambert law", "A = εbc"),
     (
@@ -202,6 +207,12 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "stoichiometry",
         "Limiting reagent from amounts",
         "reaction units = available moles / coefficient",
+    ),
+    (
+        "reaction_percent_yield",
+        "stoichiometry",
+        "Percent yield from a reaction",
+        "% yield = (actual yield / theoretical yield) × 100",
     ),
     (
         "limiting_solution",
@@ -334,6 +345,14 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ),
     ("formal_charge", "structure", "Formal charge", "FC = V − N − B/2"),
     (
+        "valence_electrons",
+        "structure",
+        "Valence electrons from the group",
+        "a main-group atom has its group number of valence electrons in groups 1 and 2 and "
+        "the group number minus 10 in groups 13 to 18 (helium 2); a formula adds every atom's "
+        "and takes away its charge",
+    ),
+    (
         "functional_groups",
         "organic",
         "Functional-group patterns",
@@ -351,6 +370,20 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
         "Formula and canonical structure",
         "compare the molecular formulas, then the canonical SMILES with and without "
         "stereochemistry: identical, constitutional isomers or stereoisomers",
+    ),
+    (
+        "ionic_formula",
+        "inorganic",
+        "Ionic formula from ion charges",
+        "write the fewest cations and anions whose charges sum to zero, cation first, a "
+        "polyatomic ion in brackets when there is more than one",
+    ),
+    (
+        "ionic_name",
+        "inorganic",
+        "Ionic name from ion charges",
+        "name the cation, then the anion; a metal with more than one charge takes the charge "
+        "the anions balance, in Roman numerals",
     ),
     (
         "coordination_complex",

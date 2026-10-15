@@ -552,7 +552,14 @@ STATED_LAW_CASES: tuple[tuple[str, str, str], ...] = (
 # - 32.0 g / 16.043 g/mol × (−890 kJ/mol) = −1.78 × 10^3 kJ;
 # - 100 °C + (1)(0.512)(2.00 mol / 1.00 kg) = 101.02 °C;
 # - 0 °C − (2)(1.86)(10.0 g / 58.44 g/mol / 0.250 kg) = −2.55 °C;
-# - 5.0% × 500 g = 25 g.
+# - 5.0% × 500 g = 25 g;
+# - 0.100 M × 50.0 mL × ½ / 0.250 M = 10.0 mL (H2SO4 neutralizes two NaOH);
+# - 1.10 V − (8.314 × 298.15 / (2 × 96485)) ln(1.0 / 0.010) = 1.04 V;
+# - ln(1 / 0.25) / 0.10 min⁻¹ = 13.9 min;
+# - (46 / 46.07) / (46 / 46.07 + 54 / 18.015) = 0.250;
+# - 50.0 g / 100.09 g/mol × 56.08 g/mol = 28.0 g of CaO, and 25.0 / 28.0 = 89.2%;
+# - C has 4 valence electrons and each O 6: 4 + 2 × 6 = 16;
+# - Ca2+ and NO3-: one Ca and two NO3; Fe2(SO4)3 balances 3 × (−2) with 2 Fe, so Fe is +3.
 SWEEP_GAP_CASES: tuple[tuple[str, str, str], ...] = (
     (
         "How many molecules are in 10 g of CO2?",
@@ -580,6 +587,35 @@ SWEEP_GAP_CASES: tuple[tuple[str, str, str], ...] = (
         "solute_mass_from_percent",
         "m(solute) = 25 g",
     ),
+    (
+        "What volume of 0.250 M H2SO4 is needed to neutralize 50.0 mL of 0.100 M NaOH?",
+        "titration_volume",
+        "V₂ = 10.0 mL",
+    ),
+    (
+        "Find the cell potential of a Zn/Cu cell with [Zn2+] = 1.0 M and [Cu2+] = 0.010 M at 25 °C",
+        "galvanic_nernst",
+        "E = 1.04 V",
+    ),
+    (
+        "A first-order reaction has k = 0.10 min^-1. How long until 25% remains?",
+        "first_order_time",
+        "t = 14 min",
+    ),
+    (
+        "What is the mole fraction of ethanol in a solution of 46 g ethanol and 54 g water?",
+        "mole_fraction_mass",
+        "χ(C2H5OH) = 0.25",
+    ),
+    (
+        "In the reaction CaCO3 → CaO + CO2, heating 50.0 g of CaCO3 gave 25.0 g of CaO. "
+        "What is the percent yield?",
+        "reaction_percent_yield",
+        "Percent yield = 89.2%",
+    ),
+    ("How many valence electrons are in CO2?", "valence_electrons", "CO2: 16 valence electrons"),
+    ("what is the formula of calcium nitrate", "ionic_formula", "calcium nitrate: Ca(NO3)2"),
+    ("What's the name of Fe2(SO4)3?", "ionic_name", "Fe2(SO4)3: iron(III) sulfate"),
 )
 
 NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (

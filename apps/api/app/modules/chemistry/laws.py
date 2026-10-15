@@ -288,6 +288,15 @@ SOLUTIONS: tuple[ChemistryLaw, ...] = (
         interchangeable=("v1", "v2"),
         keep_units=("v1", "v2"),
     ),
+    # "What is the molarity of 0.25 mol of KCl in 750 mL of solution?"
+    _law(
+        "molarity",
+        "solutions",
+        ("molarity", "molar concentration", "concentration"),
+        _MOLAR,
+        (var("moles", "n", "mole"), var("volume_l", "V", "liter")),
+        excludes=("dilut",),
+    ),
     *_COLLIGATIVE,
     _law(
         "osmotic_pressure",

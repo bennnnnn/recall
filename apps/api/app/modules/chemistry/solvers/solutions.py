@@ -11,10 +11,12 @@ from app.modules.chemistry.solvers.common_chem import (
     const,
     converted_from,
     fixed,
+    given_row,
     inp,
     molar_mass_working,
     num,
     qty,
+    typed_unit,
     verified,
 )
 from app.modules.chemistry.solvers.constants import GAS_R
@@ -110,7 +112,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
         value = f"{num(molarity)} mol/L"
         return verified(
             "Verified molarity",
-            (f"n = {inp(moles)} mol", f"V = {inp(volume)} L"),
+            (f"n = {inp(moles)} mol", given_row("V", volume, "L", typed_unit(volume, _LITRES))),
             "Molarity, c",
             *stated("molarity"),
             (f"c = {qty(moles, 'mol')} / {qty(volume, 'L')}",),
@@ -224,6 +226,8 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
 
 
 _GRAMS_PER = {"g": 1.0, "mg": 1e-3, "kg": 1e3}
+# The volume units a reader converts to litres, by their size in litres.
+_LITRES = (("mL", 1e-3),)
 _CELSIUS_OFFSET = 273.15
 
 

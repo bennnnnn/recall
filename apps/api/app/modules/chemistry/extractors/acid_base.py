@@ -27,7 +27,8 @@ def _extract_ph(text: str) -> ChemistryIntent | None:
     poh = _search(rf"\bpOH\s*=\s*({_N})", text)
     if poh is not None and re.search(r"\bpH\b", text):
         return ChemistryIntent(kind="acid_base", chemistry_op="ph_from_poh", params={"poh": poh})
-    ph = _search(rf"\bpH\s*=\s*({_N})", text)
+    # "pH = 4.75", "a pH of 4.75", "pH 4.75"; never "the pH of 0.01 M HCl".
+    ph = _search(rf"\bpH\s*(?:=|of|is|:)?\s*({_N})(?!\s*(?:M|mM|mol)\b)(?![\d.])", text)
     if ph is not None and re.search(r"\[H\+?\]|hydrogen ion", text, re.IGNORECASE):
         return ChemistryIntent(kind="acid_base", chemistry_op="h_from_ph", params={"ph": ph})
     if re.search(r"\b(?:buffer|Henderson)\b", text, re.IGNORECASE):
@@ -188,8 +189,8 @@ def _extract_acid_solution(text: str) -> ChemistryIntent | None:
                 formula=pair[1],
                 params={"concentration": pair[0]},
             )
-    ka = _search(rf"\bKa\s*=\s*({_N})", text, flags=0)
-    kb = _search(rf"\bKb\s*=\s*({_N})", text, flags=0)
+    ka = _constant(text, "Ka")
+    kb = _constant(text, "Kb")
     if ka is not None and re.search(r"\bpKa\b", text):
         return ChemistryIntent(
             kind="acid_base", chemistry_op="ka_kb", target="pKa", params={"ka": ka}
@@ -214,3 +215,19 @@ def _molar_formula(text: str) -> tuple[float, str] | None:
     if match is None:
         return None
     return float(match.group(1)), match.group(2)
+
+
+def _constant(text: str, symbol: str) -> float | None:
+    """A stated Ka or Kb: "Ka = 1.8e-5", "the Kb of NH3 is 1.8e-5", "Ka for HF: 6.8e-4".
+
+    Exactly one value: a second one leaves open which constant the question means.
+    """
+    values = [
+        float(match.group(1))
+        for match in re.finditer(
+            rf"(?<![A-Za-z]){symbol}(?![A-Za-z0-9])(?:\s+(?:of|for)\s+(?:the\s+)?"
+            rf"[A-Za-z0-9()]+(?:\s+(?:acid|ion|base))?)?\s*(?:=|is|was|:)\s*({_N})",
+            text,
+        )
+    ]
+    return values[0] if len(values) == 1 else None

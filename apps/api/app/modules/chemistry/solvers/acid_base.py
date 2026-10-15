@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001
+# ruff: noqa: RUF001, RUF002
 """pH, pOH and the acid and base constants: strong, weak, polyprotic and buffered solutions."""
 
 from __future__ import annotations
@@ -15,7 +15,7 @@ from app.modules.chemistry.solvers.common_chem import (
 )
 from app.modules.chemistry.solvers.constants import KW, PKW
 from app.modules.chemistry.solvers.params import positive, require
-from app.modules.chemistry.solvers.types import ChemistryResult
+from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.modules.chemistry.species_facts import STRONG_ACIDS, STRONG_BASES
 from app.services.solving import SolveServiceError
 
@@ -139,7 +139,7 @@ def solve_strong_acid(intent: ChemistryIntent) -> ChemistryResult:
         )
     concentration = require(intent, "concentration", positive=True)
     if concentration < _DILUTE:
-        raise SolveServiceError("water's contribution is required for this dilute strong acid")
+        return _dilute_strong(intent, formula, concentration, acid=True)
     ph = ph_text(concentration)
     if intent.chemistry_op == "strong_acid_poh":
         poh = p_value(PKW + math.log10(concentration))
@@ -175,7 +175,7 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
     concentration = require(intent, "concentration", positive=True)
     hydroxide = factor * concentration
     if hydroxide < _DILUTE:
-        raise SolveServiceError("water's contribution is required for this dilute strong base")
+        return _dilute_strong(intent, formula, concentration, acid=False, factor=factor)
     poh = ph_text(hydroxide)
     ph = p_value(PKW + math.log10(hydroxide))
     hydroxide_law = "[OH-] = C" if factor == 1 else f"[OH-] = {factor}C"
@@ -205,6 +205,49 @@ def solve_strong_base(intent: ChemistryIntent) -> ChemistryResult:
         ),
         f"pH = {ph}",
         ph,
+    )
+
+
+def _dilute_strong(
+    intent: ChemistryIntent,
+    formula: str,
+    concentration: float,
+    *,
+    acid: bool,
+    factor: int = 1,
+) -> ChemistryResult:
+    """A strong acid or base too dilute for [H+] = C: water's own ions count.
+
+    Charge balance with Kw gives [H+] = C/2 + √(C²/4 + Kw) for a strong acid (and [OH-] the
+    same way for a base), so 1.0 × 10^-8 M HCl is pH 6.98, never the 8.00 of −log10(C).
+    """
+    ion, other = ("H+", "OH-") if acid else ("OH-", "H+")
+    total = factor * concentration
+    shown_c = inp(concentration) if factor == 1 else f"{factor} × {inp(concentration)}"
+    amount = total / 2 + math.sqrt(total**2 / 4 + KW)
+    own = ph_text(amount)
+    other_p = p_value(PKW + math.log10(amount))
+    ph, poh = (own, other_p) if acid else (other_p, own)
+    asked = "pOH" if intent.chemistry_op.endswith("_poh") else "pH"
+    value = poh if asked == "pOH" else ph
+    # Three figures, so the logarithm of the shown value is the shown pH.
+    amount_text = format_number(amount, significant=3)
+    working = [
+        f"[{ion}] = C/2 + √(C²/4 + Kw), C = {shown_c} mol/L, Kw = {num(KW)}",
+        f"[{ion}] = {amount_text} mol/L",
+        f"p{ion[:-1]} = −log10({amount_text}) = {own}",
+    ]
+    if asked != f"p{ion[:-1]}":
+        working.append(f"{asked} = {PKW} − {own}")
+    return verified(
+        f"Verified dilute strong-{'acid' if acid else 'base'} {asked}",
+        (f"{formula} = {inp(concentration)} mol/L", f"Kw = {num(KW)} at 25 °C"),
+        asked,
+        stated(intent.chemistry_op)[0],
+        f"[{ion}] = C/2 + √(C²/4 + Kw), with [{other}] = Kw / [{ion}]",
+        tuple(working),
+        f"{asked} = {value}",
+        value,
     )
 
 

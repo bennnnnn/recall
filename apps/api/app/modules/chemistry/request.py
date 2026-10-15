@@ -59,7 +59,7 @@ _GATE_WINDOW = 2000
 
 _STRONG_CUE = re.compile(
     r"\b(?:stoichiometr\w*|molar\s+(?:mass|volume|absorptivity|concentration)|"
-    r"molarity|molality|formula\s+units?|M1V1|mass\s+percent|pOH|"
+    r"molarity|molality|mole\s+fraction|formula\s+units?|M1V1|mass\s+percent|pOH|"
     r"parts\s+per\s+(?:million|billion)|(?:ppm|ppb)(?=\s+of\b)|"
     r"volume\s+percent|percent(?:age)?\s+by\s+(?:volume|mass)|mass/volume\s+percent|"
     r"%\s*\(?\s*(?:by\s+(?:mass|volume)|w/w|m/m|v/v|w/v|m/v)|"
@@ -96,7 +96,7 @@ _STRONG_CUE = re.compile(
     r"bond\s+enthalpy|formation\s+enthalpy|van\s*'?t\s*hoff|weak\s+(?:acid|base)|strong\s+(?:acid|base)|"
     r"boiling[- ]point\s+elevation|freezing[- ]point\s+depression|osmotic\s+pressure|raoult|"
     r"total\s+vapor\s+pressure|"
-    r"gas\s+collected\s+over\s+water|precipitation\s+reaction|stereochemistry|"
+    r"collected\s+over\s+water|precipitation\s+reaction|stereochemistry|"
     r"crystal\s+field|magnetic\s+moment|"
     r"relative\s+uncertainty|retention\s+factor|limit\s+of\s+detection|limit\s+of\s+quantitation|"
     r"LOD|LOQ|capacity\s+factor|selectivity|Rs|plate\s+number|plate\s+height|"
@@ -143,6 +143,20 @@ _ELEMENT_IN_SAMPLE = re.compile(
     re.IGNORECASE,
 )
 _MOLAR_SOLUTION = re.compile(r"(?<![\w.])\d+(?:\.\d+)?\s*M\s+([A-Z][A-Za-z0-9()]*)")
+# A stock of a stated molarity: "a 6.0 M stock solution", "12 M HCl stock". "3 M Company stock"
+# is a share price.
+_MOLAR_STOCK = re.compile(
+    r"(?<![\w.])\d+(?:\.\d+)?\s*M\s+(?:(?P<formula>[A-Z][A-Za-z0-9()]*)\s+)?stock(?P<solution>\s+solution)?\b"
+)
+
+
+def _molar_stock(text: str) -> bool:
+    return any(
+        match.group("solution") or (match.group("formula") and is_formula(match.group("formula")))
+        for match in _MOLAR_STOCK.finditer(text)
+    )
+
+
 # A dilution's labelled concentrations: "M1 = 12 M", "C2 = 0.50 mol/L".
 _LABELLED_MOLARITY = re.compile(
     r"(?<![A-Za-z0-9])[MC][12]\s*=\s*(?:\d+(?:\.\d+)?|\.\d+)\s*(?:M|mol/L)(?![A-Za-z])"
@@ -157,6 +171,8 @@ _SHAPE_OF = re.compile(
 # "Ka", "Kb", "pH", "Rf" and "Kp" are words in lowercase ("kb" file size, "ph.d.").
 _SYMBOL_CUE = re.compile(
     r"(?<![A-Za-z0-9])(?:pH|pOH|pKa|pKb|Ka|Kb|Kc|Kp|Qc|Ksp|Rf|Δ[GHS])(?![A-Za-z])"
+    # A standard potential, E° or E°cell: physics' E is an energy or a field, never E°.
+    r"|(?<![A-Za-z0-9])E\s*[°º]\s*(?:cell)?|(?<![A-Za-z0-9])Ecell\b"
 )
 _WEAK_CUE = re.compile(
     r"\b(?:acid|base|boiling|freezing|nuclear|mol(?:e|es)?|molecules?|molar|dilut\w*|buffer|"
@@ -242,6 +258,25 @@ def _gas_mixture(text: str) -> bool:
     return len(gases) >= 2
 
 
+# "What's the name of Fe2(SO4)3?": a compound written as a formula, its name asked.
+_NAME_OF_FORMULA = re.compile(
+    r"\bname\s+(?:of|for)\s+(?:the\s+)?(?:compound\s+)?([A-Z(][A-Za-z0-9()]*)"
+)
+
+
+# "the formula for iron(III) oxide": a salt the ion table names.
+_FORMULA_FOR = re.compile(
+    r"\bformula\s+(?:of|for)\s+(?:the\s+)?([A-Za-z]+(?:\s*\(\s*[IVXivx]+\s*\))?\s+[A-Za-z]+)",
+    re.IGNORECASE,
+)
+
+
+def _salt_named(text: str) -> bool:
+    from app.modules.chemistry.nomenclature import salt_from_name
+
+    return any(salt_from_name(match.group(1)) is not None for match in _FORMULA_FOR.finditer(text))
+
+
 def _element_share(text: str) -> bool:
     for match in _SHARE_OF_COMPOUND.finditer(text):
         compound, element = match.groups()
@@ -261,7 +296,7 @@ def names_compound(text: str) -> bool:
     )
 
 
-_BALANCE_CUE = re.compile(r"\b(?:balance|balanced|coefficient)\b", re.IGNORECASE)
+_BALANCE_CUE = re.compile(r"\b(?:bal+[ae]nce[ds]?|coefficient)\b", re.IGNORECASE)
 _EQUATION_WORDS = re.compile(
     r"\b(?:moles?|grams?|limiting|yield)\b|(?<![A-Za-z0-9])(?:Kc|Qc)(?![A-Za-z])",
     re.IGNORECASE,
@@ -478,7 +513,7 @@ def is_chemistry_question(content: str) -> bool:
     # A concentration of a named formula: "6 M HCl".
     if any(is_formula(match.group(1)) for match in _MOLAR_SOLUTION.finditer(cleaned)):
         return True
-    if _LABELLED_MOLARITY.search(cleaned):
+    if _LABELLED_MOLARITY.search(cleaned) or _molar_stock(cleaned):
         return True
     # Michaelis-Menten written by its constants alone: "Vmax = 10 μmol/min, Km = 2 mM".
     if _VMAX.search(cleaned) and _KM.search(cleaned):
@@ -494,6 +529,10 @@ def is_chemistry_question(content: str) -> bool:
     if _PARTICLE_WORD.search(cleaned) and names_compound(cleaned):
         return True
     if _element_share(cleaned) or _gas_mixture(cleaned):
+        return True
+    if any(names_compound(match.group(1)) for match in _NAME_OF_FORMULA.finditer(cleaned)):
+        return True
+    if _salt_named(cleaned):
         return True
     if _has_equation(cleaned) and (_BALANCE_CUE.search(cleaned) or _EQUATION_WORDS.search(cleaned)):
         return True

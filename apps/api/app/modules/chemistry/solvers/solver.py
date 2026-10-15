@@ -54,6 +54,7 @@ from app.modules.chemistry.solvers.electrochemistry import (
     solve_cell_potential,
     solve_electrochemistry,
     solve_galvanic_cell,
+    solve_galvanic_nernst,
 )
 from app.modules.chemistry.solvers.empirical import (
     solve_combustion,
@@ -89,6 +90,7 @@ from app.modules.chemistry.solvers.mass_stoichiometry import (
     solve_limiting_mass,
     solve_limiting_solution,
     solve_mass_stoichiometry,
+    solve_reaction_percent_yield,
 )
 from app.modules.chemistry.solvers.nuclear import (
     solve_mass_defect,
@@ -137,7 +139,10 @@ from app.modules.chemistry.solvers.structure import (
     solve_crystal_field,
     solve_electron_configuration,
     solve_formal_charge,
+    solve_ionic_formula,
+    solve_ionic_name,
     solve_oxidation_state,
+    solve_valence_electrons,
     solve_vsepr,
 )
 from app.modules.chemistry.solvers.thermochemistry import (
@@ -162,6 +167,7 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "gas_stoichiometry": solve_mass_stoichiometry,
     "limiting_mass": solve_limiting_mass,
     "limiting_solution": solve_limiting_solution,
+    "reaction_percent_yield": solve_reaction_percent_yield,
     "strong_acid_ph": solve_strong_acid,
     "strong_acid_poh": solve_strong_acid,
     "strong_base_ph": solve_strong_base,
@@ -198,9 +204,13 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "arrhenius_two_point": solve_arrhenius_two_point,
     "cell_potential": solve_cell_potential,
     "galvanic_cell": solve_galvanic_cell,
+    "galvanic_nernst": solve_galvanic_nernst,
     "nuclear_equation": solve_nuclear_equation,
     "oxidation_state": solve_oxidation_state,
     "vsepr": solve_vsepr,
+    "valence_electrons": solve_valence_electrons,
+    "ionic_formula": solve_ionic_formula,
+    "ionic_name": solve_ionic_name,
     "formal_charge": solve_formal_charge,
     "functional_groups": solve_functional_groups,
     "stereochemistry": solve_stereochemistry,
@@ -271,6 +281,7 @@ CHEMISTRY_SOLVERS: dict[str, Callable[[ChemistryIntent], ChemistryResult]] = {
     "reaction_quotient": solve_equilibrium,
     "first_order_half_life": solve_kinetics,
     "first_order_concentration": solve_kinetics,
+    "first_order_time": solve_kinetics,
     "arrhenius": solve_kinetics,
     "cell_gibbs": solve_electrochemistry,
     "nernst": solve_electrochemistry,

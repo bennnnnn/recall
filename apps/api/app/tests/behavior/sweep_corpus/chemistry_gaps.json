@@ -82,5 +82,33 @@
   "prompt": "I have a low boiling point today, everything annoys me",
   "reply": "Sounds like a rough day. Want to talk about what set it off?",
   "expect": "answer"
+ },
+ {
+  "id": "cg-013",
+  "area": "todos",
+  "prompt": "remind me to balence the books tomorrow at 9am",
+  "reply": "Set: Balance the books — Thursday, Oct 15, 9:00 AM.",
+  "expect": "save"
+ },
+ {
+  "id": "cg-014",
+  "area": "chitchat",
+  "prompt": "what's the formula for success?",
+  "reply": "Clear goals, small daily habits, and patience. The rest is showing up.",
+  "expect": "answer"
+ },
+ {
+  "id": "cg-015",
+  "area": "chitchat",
+  "prompt": "what's the mole fraction of my weekend spent sleeping lol",
+  "reply": "Ha, if it's anything like most weekends, it's probably the majority!",
+  "expect": "answer"
+ },
+ {
+  "id": "cg-016",
+  "area": "math",
+  "prompt": "my battery went from 100% to 25% in 3 hours, how long until it's empty at that rate?",
+  "reply": "It drops 25% an hour, so the last 25% lasts about **1 more hour**.",
+  "expect": "answer"
  }
 ]

@@ -27,6 +27,9 @@ from app.modules.chemistry.stoichiometry import (
 )
 from app.services.solving import SolveServiceError
 
+# A mass in grams, in the unit a question asks it in.
+_GRAMS_IN = {"mg": 1000.0, "kg": 0.001}
+
 
 def _molar_mass(formula: str) -> float:
     try:
@@ -105,12 +108,18 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
         moles = require(intent, "moles", non_negative=True)
         mass = moles * molar
         value = f"{num(mass)} g"
+        rows = [f"m = ({qty(moles, 'mol')})({molar_mass_working(molar)} g/mol)"]
+        asked = intent.units.get("answer")
+        if asked in _GRAMS_IN:
+            # "How many mg is 0.0150 mol of NaOH?": the grams, then the unit asked.
+            rows.append(f"m = {value} = {num(mass * _GRAMS_IN[asked])} {asked}")
+            value = f"{num(mass * _GRAMS_IN[asked])} {asked}"
         return verified(
             "Verified mass",
             (f"n = {inp(moles)} mol", f"M({formula}) = {molar_mass_working(molar)} g/mol"),
             "Mass, m",
             *stated("moles_to_mass"),
-            (f"m = ({qty(moles, 'mol')})({molar_mass_working(molar)} g/mol)",),
+            rows,
             f"m({formula}) = {value}",
             value,
         )

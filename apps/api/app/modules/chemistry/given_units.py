@@ -126,6 +126,13 @@ _SYMBOLS: dict[str, str] = {
     "h^-1": "1 / hour",
     "h⁻¹": "1 / hour",
     "yr^-1": "1 / year",
+    # The caret is often left out: "k = 1.5e-3 s-1".
+    "s-1": "1 / second",
+    "min-1": "1 / minute",
+    "h-1": "1 / hour",
+    "yr-1": "1 / year",
+    "M-1 s-1": "liter / mole / second",
+    "M-1s-1": "liter / mole / second",
     "M/s": "mole / liter / second",
     "M s^-1": "mole / liter / second",
     "M s⁻¹": "mole / liter / second",

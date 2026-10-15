@@ -11,7 +11,13 @@ from app.modules.chemistry.extractors.parsing import (
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.species_facts import NAMED_COMPOUNDS
+from app.modules.chemistry.species_facts import (
+    NAMED_COMPOUNDS,
+    formula_spans,
+    is_formula,
+    named_species,
+)
+from app.modules.chemistry.stoichiometry import molar_mass
 
 
 def _labeled_volume(text: str, label: str) -> tuple[float, str | None] | None:
@@ -40,10 +46,64 @@ _STOCK_VOLUME = re.compile(
 )
 
 
+# "I have 12 M HCl stock. How many mL do I need to make 500 mL of 1.5 M HCl?": the stock named
+# in a sentence of its own, the volume asked, and the solution to make.
+_STOCK_STATED = re.compile(
+    rf"(?P<m1>{_N}){_MOLAR_VALUE}(?:\s+[A-Za-z][A-Za-z0-9()]*)?\s+stock\b", re.IGNORECASE
+)
+_VOLUME_ASK = re.compile(
+    r"\b(?:how\s+(?:many|much)\s+(?P<asked>mL|L|milliliters?|millilitres?|liters?|litres?)\b|"
+    r"what\s+volume\b)",
+    re.IGNORECASE,
+)
+_MAKE_SOLUTION = re.compile(
+    rf"\b(?:make|prepare)\s+(?:an?\s+)?(?P<v2>{_N})\s*(?P<v2_unit>mL|L)\s+of\s+(?:an?\s+)?"
+    rf"(?P<m2>{_N}){_MOLAR_VALUE}",
+    re.IGNORECASE,
+)
+_ADDED = re.compile(r"\badd(?:s|ed|ing)?\b", re.IGNORECASE)
+
+
+def _stated_stock_volume(text: str) -> ChemistryIntent | None:
+    """V1 = M2V2 / M1 when the stock is stated apart from the question that asks its volume.
+
+    The stock, the solution to make and the volume asked are each read once, every number of
+    the text is one of the three, and one substance at most is named. Water to add is not
+    the stock's volume.
+    """
+    stocks = list(_STOCK_STATED.finditer(text))
+    makes = list(_MAKE_SOLUTION.finditer(text))
+    ask = _VOLUME_ASK.search(text)
+    if len(stocks) != 1 or len(makes) != 1 or ask is None or _ADDED.search(text):
+        return None
+    if len(named_species(text)) > 1 or len(re.findall(_N, _without_formulas(text))) != 3:
+        return None
+    stock, make = stocks[0], makes[0]
+    asked = (ask.group("asked") or make.group("v2_unit")).lower()
+    v2_unit = "mL" if make.group("v2_unit").lower() == "ml" else "L"
+    return ChemistryIntent(
+        kind="solutions",
+        chemistry_op="dilution",
+        params={
+            "m1": float(stock.group("m1")),
+            "m2": float(make.group("m2")),
+            "v2": float(make.group("v2")),
+        },
+        units={"v1": "mL" if asked.startswith(("ml", "milli")) else "L", "v2": v2_unit},
+    )
+
+
+def _without_formulas(text: str) -> str:
+    kept = list(text)
+    for start, end in formula_spans(text):
+        kept[start:end] = " " * (end - start)
+    return "".join(kept)
+
+
 def _stock_volume(text: str) -> ChemistryIntent | None:
     match = _STOCK_VOLUME.search(text)
     if match is None:
-        return None
+        return _stated_stock_volume(text)
     asked = (match.group("asked") or match.group("v2_unit")).lower()
     v1_unit = "mL" if asked.startswith(("ml", "milli")) else "L"
     return ChemistryIntent(
@@ -65,11 +125,26 @@ _DILUTE_TO = re.compile(
     rf"(?P<m2>{_N}){_MOLAR_VALUE}",
     re.IGNORECASE,
 )
+# "What is the final volume when 50 mL of 2.0 M HCl is diluted to 0.50 M?": the same, written
+# in the passive, asked as a volume.
+_DILUTED_TO = re.compile(
+    rf"(?P<v1>{_N})\s*(?P<unit>mL|L)\s+of\s+(?:an?\s+)?(?P<m1>{_N}){_MOLAR_VALUE}"
+    r"(?:\s+[A-Za-z][A-Za-z0-9()]*)?(?:\s+solution)?\s+(?:is|are|was|were|gets?|got)\s+diluted\s+to\s+"
+    rf"(?P<m2>{_N}){_MOLAR_VALUE}",
+    re.IGNORECASE,
+)
+_FINAL_VOLUME_ASK = re.compile(
+    r"\b(?:final|new|total)\s+volume\b|\bwhat\s+volume\b|\bhow\s+many\s+(?:mL|L)\b",
+    re.IGNORECASE,
+)
 
 
 def _dilute_to_concentration(text: str) -> ChemistryIntent | None:
+    """V2 = M1V1 / M2. Water to add is V2 - V1, another question, so "add" declines."""
     match = _DILUTE_TO.search(text)
-    if match is None:
+    if match is None and _FINAL_VOLUME_ASK.search(text):
+        match = _DILUTED_TO.search(text)
+    if match is None or _ADDED.search(text):
         return None
     unit = "mL" if match.group("unit").lower() == "ml" else "L"
     return ChemistryIntent(
@@ -93,6 +168,9 @@ _BOTH_MOLARITIES = re.compile(
 
 
 def _extract_solutions(text: str) -> ChemistryIntent | None:
+    mole_fraction = _extract_mole_fraction_masses(text)
+    if mole_fraction is not None:
+        return mole_fraction
     percent_solute = _extract_percent_solute(text)
     if percent_solute is not None:
         return percent_solute
@@ -206,6 +284,51 @@ def _extract_percent_solute(text: str) -> ChemistryIntent | None:
         chemistry_op="solute_mass_from_percent",
         params={"percent": percent, "solution_mass": mass * (1000 if unit == "kg" else 1)},
         units={"solution_mass": unit},
+    )
+
+
+_SUBSTANCE = rf"(?:{_NAMED}|{CHEMICAL_FORMULA}{FORMULA_END})"
+# "What is the mole fraction of ethanol in a solution of 46 g ethanol and 54 g water?"
+_MOLE_FRACTION_OF = re.compile(
+    rf"\bmole\s+fraction\s+of\s+(?P<asked>{_SUBSTANCE})\s+in\s+(?:an?\s+|the\s+)?"
+    r"(?:solution|mixture)\s+(?:of|with|containing|made\s+(?:of|from))\s+"
+    rf"(?P<mass_a>{_N})\s*g(?:rams?)?\s+(?:of\s+)?(?P<first>{_SUBSTANCE})\s+and\s+"
+    rf"(?P<mass_b>{_N})\s*g(?:rams?)?\s+(?:of\s+)?(?P<second>{_SUBSTANCE})",
+    re.IGNORECASE,
+)
+
+
+def _formula_of(token: str) -> str | None:
+    named = NAMED_COMPOUNDS.get(token.lower())
+    if named is not None:
+        return named
+    return token if is_formula(token) else None
+
+
+def _extract_mole_fraction_masses(text: str) -> ChemistryIntent | None:
+    """χ of one of two components weighed in grams, each a named compound or a formula."""
+    match = _MOLE_FRACTION_OF.search(text)
+    if match is None:
+        return None
+    asked = _formula_of(match.group("asked"))
+    first, second = _formula_of(match.group("first")), _formula_of(match.group("second"))
+    if asked is None or first is None or second is None or first == second:
+        return None
+    masses = {first: float(match.group("mass_a")), second: float(match.group("mass_b"))}
+    if asked not in masses:
+        return None
+    other = second if asked == first else first
+    return ChemistryIntent(
+        kind="solutions",
+        chemistry_op="mole_fraction_mass",
+        formula=asked,
+        target=other,
+        params={
+            "mass_a": masses[asked],
+            "molar_mass_a": molar_mass(asked),
+            "mass_b": masses[other],
+            "molar_mass_b": molar_mass(other),
+        },
     )
 
 

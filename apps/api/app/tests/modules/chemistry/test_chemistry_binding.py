@@ -206,6 +206,12 @@ _SAMPLES: dict[str, tuple[dict[str, float], str | None, dict[str, str]]] = {
         if point or suffix
     },
     "reaction_heat_mass": ({"mass": 32.0, "molar_mass": 16.043, "enthalpy": -890.0}, "CH4", {}),
+    "molarity": ({"moles": 0.25, "volume_l": 0.75}, None, {}),
+    "solution_mass_mg": (
+        {"concentration": 0.2, "volume_l": 0.015, "molar_mass": 74.55},
+        "KCl",
+        {"answer": "mg"},
+    ),
     "osmotic_pressure": ({"i": 1.0, "molarity": 0.1, "temperature": 298.15}, None, {}),
     "mass_to_moles": ({"mass": 36.0}, "H2O", {"mass": "g"}),
     "moles_to_mass": ({"moles": 2.5}, "CO2", {"moles": "mol"}),

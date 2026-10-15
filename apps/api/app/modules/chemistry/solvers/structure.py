@@ -9,6 +9,7 @@ import re
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.coordination import CoordinationComplex, parse_complex_formula
 from app.modules.chemistry.elements import BY_SYMBOL
+from app.modules.chemistry.nomenclature import Salt, salt_from_formula, salt_from_name
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.common_chem import inp, num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
@@ -294,3 +295,92 @@ def _unpaired(electrons: int, *, low_spin: bool) -> int:
     if electrons <= 8:
         return electrons - 6
     return 10 - electrons
+
+
+def _valence(symbol: str) -> int:
+    """A main-group atom's valence electrons from its group; helium has two."""
+    element = BY_SYMBOL.get(symbol)
+    if element is None or element.group is None or 3 <= element.group <= 12:
+        raise SolveServiceError(f"{symbol} is not a main-group element")
+    if symbol == "He":
+        return 2
+    return element.group if element.group <= 2 else element.group - 10
+
+
+def solve_valence_electrons(intent: ChemistryIntent) -> ChemistryResult:
+    formula = intent.formula or ""
+    species = parse_species(formula, coefficient_already_removed=True)
+    if species is None or not species.composition:
+        raise SolveServiceError("valence electrons need an element or a formula")
+    rows = []
+    total = 0
+    for symbol, count in species.composition.items():
+        each = _valence(symbol)
+        group = BY_SYMBOL[symbol].group
+        total += count * each
+        rows.append(
+            f"{symbol}: group {group}, {each} valence electrons"
+            + ("" if count == 1 else f" × {count} = {count * each}")
+        )
+    if species.charge:
+        total -= species.charge
+        rows.append(f"charge {_signed(species.charge)}: {_signed(-species.charge)} electrons")
+    if total <= 0:
+        raise SolveServiceError("that species has no valence electrons to count")
+    single = len(species.composition) == 1 and sum(species.composition.values()) == 1
+    if not single:
+        rows.append(f"total = {total}")
+    shown = f"{formula}: {total} valence electrons"
+    return verified(
+        "Verified valence electrons",
+        (f"{'Element' if single else 'Formula'} = {formula}",),
+        "Valence electrons",
+        *stated("valence_electrons"),
+        tuple(rows),
+        shown,
+        str(total),
+    )
+
+
+def _charge(value: int) -> str:
+    return f"{'+' if value > 0 else '−'}{abs(value)}"
+
+
+def _salt_rows(salt: Salt) -> tuple[str, ...]:
+    cation, anion = salt.cation, salt.anion
+    return (
+        f"cation {cation.formula} ({cation.name}): charge {_charge(cation.charge)}",
+        f"anion {anion.formula} ({anion.name}): charge {_charge(anion.charge)}",
+        f"{salt.cations} × ({_charge(cation.charge)}) + {salt.anions} × ({_charge(anion.charge)})"
+        " = 0",
+    )
+
+
+def solve_ionic_formula(intent: ChemistryIntent) -> ChemistryResult:
+    salt = salt_from_name(intent.target or "")
+    if salt is None:
+        raise SolveServiceError("that name is not a salt of the ion table")
+    return verified(
+        "Verified ionic formula",
+        (f"Name = {salt.name}",),
+        "Formula",
+        *stated("ionic_formula"),
+        _salt_rows(salt),
+        f"{salt.name}: {salt.formula}",
+        salt.formula,
+    )
+
+
+def solve_ionic_name(intent: ChemistryIntent) -> ChemistryResult:
+    salt = salt_from_formula(intent.formula or "")
+    if salt is None:
+        raise SolveServiceError("that formula is not a salt of the ion table")
+    return verified(
+        "Verified ionic name",
+        (f"Formula = {salt.formula}",),
+        "Name",
+        *stated("ionic_name"),
+        _salt_rows(salt),
+        f"{salt.formula}: {salt.name}",
+        salt.name,
+    )
