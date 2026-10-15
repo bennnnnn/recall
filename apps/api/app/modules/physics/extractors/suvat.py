@@ -6,6 +6,7 @@ import re
 from collections.abc import Sequence
 
 from app.modules.physics.ask import ask_clause, asked_phrases
+from app.modules.physics.catalog.suvat import TWO_BODIES
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
     _NUMBER,
@@ -18,6 +19,7 @@ from app.modules.physics.extractors.cues import (
     _has_cue,
 )
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.law_binding.words import word_pattern
 from app.services.text_match import has_equation
 
 _SUVAT_CUES: tuple[str, ...] = ()
@@ -168,6 +170,9 @@ _SUVAT_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
 def _extract_suvat_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _SUVAT_CUES, _SUVAT_CUE_RES):
+        return None
+    # Two moving bodies' speeds are not one body's u and v.
+    if any(word_pattern(phrase).search(lower) for phrase in TWO_BODIES):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
         return None

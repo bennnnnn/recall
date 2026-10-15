@@ -352,15 +352,18 @@ def test_projectile_wall_distance_is_not_launch_height() -> None:
         "A projectile is launched at 20 m/s at 30 degrees. The wall is 15 m away. "
         "What is its range?"
     )
-    intent = extract_physics_intent(text)
+    intent = _extract_projectile_intent(text)
     assert intent is not None
     assert intent.kind == "projectile"
     assert intent.physics_params is not None
     assert "h0" not in intent.physics_params
-    block = build_verified_physics_block(intent, Settings(math_tools_enabled=True))
-    assert block is not None
-    answer = block.canonical_answer or ""
-    assert "52.72" not in answer
+    # The wall stands 15 m away in the path of a 35 m flight. The range law does
+    # not use it, so the turn is not verified: neither 35.3 m through the wall,
+    # nor 52.72 m with the wall as a launch height.
+    verified = extract_physics_intent(text)
+    block = None if verified is None else build_verified_physics_block(verified, Settings())
+    assert block is None or "52.72" not in (block.canonical_answer or "")
+    assert verified is None
 
 
 def test_projectile_without_wall_still_verifies() -> None:

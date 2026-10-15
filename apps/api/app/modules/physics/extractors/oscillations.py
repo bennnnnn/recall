@@ -102,6 +102,12 @@ _SHM_MAX_SPEED_RE = re.compile(
 
 _SHM_CUE_RES: tuple[re.Pattern[str], ...] = (_SHM_FREQUENCY_RE, _SHM_MAX_SPEED_RE)
 
+_MOTION_ASK_RE = re.compile(
+    r"\b(?:max(?:imum)?|peak|greatest|top|highest)\s+(?:speed|velocity|acceleration)\b"
+    r"|\bhow\s+fast\b",
+    re.IGNORECASE,
+)
+
 _SHM_TIME_UNITS = r"seconds?|secs?|sec|s|milliseconds?|ms|minutes?|mins?|min"
 
 _ANGULAR_FREQ_RE = re.compile(
@@ -166,6 +172,10 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     # to solve. Without this the whole question is read as algebra — which is
     # what happened before this extractor existed.
     if has_equation(_strip_param_assignments(_SPRING_K_RE.sub("", cleaned))):
+        return None
+    # A speed or an acceleration is asked, which none of the laws below give:
+    # "oscillates with amplitude 5 cm. max speed?" was answered with the period.
+    if _MOTION_ASK_RE.search(cleaned):
         return None
 
     k_match = _find_value_with_specific_unit(cleaned, r"N/m")

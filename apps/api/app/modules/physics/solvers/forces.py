@@ -218,6 +218,31 @@ def _atwood(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     )
 
 
+def _table_pulley(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    """A block m₁ on a frictionless table pulled over a pulley by a hanging m₂."""
+    m1, m2 = p["m1"], p["m2"]
+    if m1 <= 0 or m2 <= 0:
+        raise SolveServiceError("masses must be positive")
+    g = gravity_of(p)
+    a_val = m2 * g / (m1 + m2)
+    t_val = m1 * a_val
+    a_row = rf"a = \frac{{{m2:g} \cdot {g:g}}}{{{m1:g} + {m2:g}}}"
+    t_row = rf"T = {m1:g} \cdot \frac{{{m2:g} \cdot {g:g}}}{{{m1:g} + {m2:g}}}"
+    return PhysicsResult(
+        answer=(
+            rf"a = \frac{{m_2 g}}{{m_1 + m_2}} = {a_row.split(' = ', 1)[1]} "
+            rf"\approx {a_val:.2f} \text{{ m/s}}^2, \quad "
+            rf"T = m_1 a = {t_row.split(' = ', 1)[1]} \approx {t_val:.2f} \text{{ N}}"
+        ),
+        formulas=(r"a = \frac{m_2 g}{m_1 + m_2}", r"T = m_1 a"),
+        substitutions=(a_row, t_row),
+        quantities=(
+            QuantityResult("", a_val, "m/s^2"),
+            QuantityResult("", t_val, "N"),
+        ),
+    )
+
+
 def _newton_second_law(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     if "F" in p and "m" in p and "a" not in p:
         a_val = p["F"] / p["m"]
@@ -288,4 +313,5 @@ _OPERATIONS: dict[str, Callable[[PhysicsIntent, dict[str, float]], PhysicsResult
     "resultant_force": _resultant_force,
     "resolve_force": _resolve_force,
     "atwood": _atwood,
+    "table_pulley": _table_pulley,
 }

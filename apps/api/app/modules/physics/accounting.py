@@ -42,6 +42,26 @@ _OHM = unit_dimension("ohm")
 _OHM_DIMENSION = None if _OHM is None else _OHM[0]
 
 
+def _kind(expression: str) -> str:
+    reading = unit_dimension(expression)
+    if reading is None:
+        raise RuntimeError(f"no dimension for {expression}")
+    return reading[0]
+
+
+_LENGTH = _kind("meter")
+# Kinds that set the situation itself. Left out, a law answers another question:
+# a push up an incline, a speed and a radius over a hump, a rolling body's size.
+_SITUATION_KINDS = frozenset(
+    {_kind("newton"), _kind("meter / second"), _LENGTH, ANGLE},
+)
+# "a 2 m long plank", "a 30 cm wide box": a size, not where anything is.
+_SIZE_ONLY = re.compile(
+    r"\s*(?:[a-zA-Zµμ]+\s*)?(?:long|tall|wide|thick|deep|in\s+(?:length|diameter|width))\b",
+    re.IGNORECASE,
+)
+
+
 @dataclass(frozen=True, slots=True)
 class _Param:
     dimension: str
@@ -162,8 +182,61 @@ def _derived(given: Given, others: list[Given], params: list[_Param]) -> bool:
     return False
 
 
+_COUNTS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+_COUNT_BEFORE = re.compile(
+    r"\b(two|three|four|five|six)\s+(?:identical\s+|equal\s+)?\Z", re.IGNORECASE
+)
+
+
+def _counted_network(given: Given, text: str, params: list[_Param]) -> bool:
+    """Three 9 Ω resistors are the 27 Ω or 3 Ω a network binds."""
+    if given.dimension != _OHM_DIMENSION or given.si is None:
+        return False
+    counted = _COUNT_BEFORE.search(text[max(0, given.start - 24) : given.start])
+    if counted is None:
+        return False
+    count = _COUNTS[counted.group(1).lower()]
+    return any(
+        param.si is not None
+        and (_same(param.si, given.si * count) or _same(param.si, given.si / count))
+        for param in params
+    )
+
+
+def _clearly_irrelevant(given: Given, text: str) -> bool:
+    """A length that only describes an object's size: "a 2 m long plank".
+
+    Only for a solve that uses no length at all; a length it uses is bound or
+    competing above.
+    """
+    return given.dimension == _LENGTH and _SIZE_ONLY.match(text, given.end) is not None
+
+
+def _unused_situation(given: Given, params: list[_Param], text: str) -> bool:
+    """A stated force, speed, length or angle of a kind this solve never uses.
+
+    Those change the situation: a 30 N push along a slope, a car's speed and
+    the radius of the hump it crosses, a rolling sphere's radius. A law that
+    leaves one out answers a different question. A mass, a time or a
+    temperature beside a law that needs none is still a distractor.
+    """
+    if given.dimension not in _SITUATION_KINDS:
+        return False
+    if any(param.dimension == given.dimension for param in params):
+        return False
+    if given.dimension == ANGLE and any(_same(abs(given.value), abs(p.raw)) for p in params):
+        # "by 10 degrees" read as a temperature rise: the same number, bound as
+        # the kind the extractor read it as.
+        return False
+    return not _clearly_irrelevant(given, text)
+
+
 def competing_given(intent: PhysicsIntent, text: str) -> Given | None:
-    """A stated quantity of a kind this solve uses that it neither bound nor derived."""
+    """A stated quantity of a kind this solve uses that it neither bound nor derived.
+
+    A stated force, speed, length or angle the solve does not use at all is
+    refused too (``_unused_situation``).
+    """
     params = _params(intent)
     settings = [match.span() for match in _GRAVITY_SETTING.finditer(text)]
     givens = [
@@ -173,6 +246,14 @@ def competing_given(intent: PhysicsIntent, text: str) -> Given | None:
         and not any(start <= given.start < end for start, end in settings)
     ]
     for given in givens:
+        if _unused_situation(given, params, text):
+            logger.info(
+                "physics solve declined: %s %s is of a kind op=%s never uses",
+                given.value,
+                given.unit,
+                intent.physics_op,
+            )
+            return given
         same_kind = [param for param in params if param.dimension == given.dimension]
         if not same_kind or _bound(given, same_kind):
             continue
@@ -184,7 +265,7 @@ def competing_given(intent: PhysicsIntent, text: str) -> Given | None:
         derived = [
             param for param in same_kind if not any(_bound(other, [param]) for other in others)
         ]
-        if _derived(given, others, derived):
+        if _derived(given, others, derived) or _counted_network(given, text, derived):
             continue
         logger.info(
             "physics solve declined: %s %s left unbound by op=%s",
