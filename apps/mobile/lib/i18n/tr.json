@@ -182,6 +182,7 @@
   "chat.math_scan_uncertain": "Bazı kısımlar zor okunuyordu. Çözmeden önce kontrol edin.",
   "chat.menu": "Sohbet seçenekleri",
   "chat.message_highlighted": "Search result",
+  "chat.message_render_failed": "Bu mesaj gösterilemedi.",
   "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.new_chat": "Yeni sohbet",
   "chat.offline_body": "Mesaj göndermek için internete yeniden bağlanın.",

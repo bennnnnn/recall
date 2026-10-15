@@ -182,6 +182,7 @@
   "chat.math_scan_uncertain": "የተወሰነው ክፍል ለማንበብ አስቸጋሪ ነበር። ከመፍታትዎ በፊት ያረጋግጡ።",
   "chat.menu": "የውይይት አማራጮች",
   "chat.message_highlighted": "Search result",
+  "chat.message_render_failed": "ይህን መልእክት ማሳየት አልተቻለም።",
   "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.new_chat": "አዲስ ውይይት",
   "chat.offline_body": "መልዕክት ለመላክ እንደገና በይነመረብ ይገናኙ።",

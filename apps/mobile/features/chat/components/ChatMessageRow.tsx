@@ -1,7 +1,9 @@
 import { memo, useCallback } from "react";
 
 import { MessageBubble } from "@/components/MessageBubble";
+import { MessageRowErrorBoundary } from "@/features/chat/components/MessageRowErrorBoundary";
 import type { Message } from "@/lib/api";
+import { messageListKey } from "@/lib/messageListLayout";
 
 type Props = {
   item: Message;
@@ -44,24 +46,26 @@ export const ChatMessageRow = memo(function ChatMessageRow({
   }, [onRegenerate, selectedModel]);
 
   return (
-    <MessageBubble
-      message={item}
-      priorUserText={priorUserText}
-      isGenerating={false}
-      liveContent={undefined}
-      liveSearchSources={undefined}
-      streamStatus={undefined}
-      isLastAssistant={isLastAssistant}
-      onRegenerate={
-        isLastAssistant && !streamVisualActive && !item.image_gen_failure
-          ? handleRegenerate
-          : undefined
-      }
-      regenerating={isLastAssistant && regenerating}
-      onRetryImageGen={item.image_gen_failure ? onRetryImageGen : undefined}
-      onFeedback={onFeedback}
-      highlighted={item.id === highlightedMessageId}
-      isSending={item.id === sendingMessageId}
-    />
+    <MessageRowErrorBoundary resetKey={messageListKey(item)}>
+      <MessageBubble
+        message={item}
+        priorUserText={priorUserText}
+        isGenerating={false}
+        liveContent={undefined}
+        liveSearchSources={undefined}
+        streamStatus={undefined}
+        isLastAssistant={isLastAssistant}
+        onRegenerate={
+          isLastAssistant && !streamVisualActive && !item.image_gen_failure
+            ? handleRegenerate
+            : undefined
+        }
+        regenerating={isLastAssistant && regenerating}
+        onRetryImageGen={item.image_gen_failure ? onRetryImageGen : undefined}
+        onFeedback={onFeedback}
+        highlighted={item.id === highlightedMessageId}
+        isSending={item.id === sendingMessageId}
+      />
+    </MessageRowErrorBoundary>
   );
 });

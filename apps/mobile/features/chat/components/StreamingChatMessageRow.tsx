@@ -2,7 +2,9 @@ import { memo, useCallback } from "react";
 
 import { MessageBubble } from "@/components/MessageBubble";
 import { useStreamingDraft } from "@/contexts/StreamingDraftContext";
+import { MessageRowErrorBoundary } from "@/features/chat/components/MessageRowErrorBoundary";
 import type { Message } from "@/lib/api";
+import { messageListKey } from "@/lib/messageListLayout";
 
 type Props = {
   item: Message;
@@ -48,23 +50,25 @@ export const StreamingChatMessageRow = memo(function StreamingChatMessageRow({
   }, [onRegenerate, selectedModel]);
 
   return (
-    <MessageBubble
-      message={item}
-      priorUserText={priorUserText}
-      isGenerating={streamVisualActive}
-      liveContent={liveContent}
-      liveSearchSources={streamingDraft?.search_sources}
-      streamStatus={streamStatus}
-      streamStatusDetail={streamStatusDetail}
-      isLastAssistant={isLastAssistant}
-      onRegenerate={
-        isLastAssistant && !streamVisualActive ? handleRegenerate : undefined
-      }
-      regenerating={isLastAssistant && regenerating}
-      onRetryImageGen={item.image_gen_failure ? onRetryImageGen : undefined}
-      onFeedback={onFeedback}
-      highlighted={item.id === highlightedMessageId}
-      isSending={item.id === sendingMessageId}
-    />
+    <MessageRowErrorBoundary resetKey={messageListKey(item)}>
+      <MessageBubble
+        message={item}
+        priorUserText={priorUserText}
+        isGenerating={streamVisualActive}
+        liveContent={liveContent}
+        liveSearchSources={streamingDraft?.search_sources}
+        streamStatus={streamStatus}
+        streamStatusDetail={streamStatusDetail}
+        isLastAssistant={isLastAssistant}
+        onRegenerate={
+          isLastAssistant && !streamVisualActive ? handleRegenerate : undefined
+        }
+        regenerating={isLastAssistant && regenerating}
+        onRetryImageGen={item.image_gen_failure ? onRetryImageGen : undefined}
+        onFeedback={onFeedback}
+        highlighted={item.id === highlightedMessageId}
+        isSending={item.id === sendingMessageId}
+      />
+    </MessageRowErrorBoundary>
   );
 });
