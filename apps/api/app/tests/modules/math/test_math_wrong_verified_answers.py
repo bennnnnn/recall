@@ -595,3 +595,35 @@ def test_a_maths_verb_alone_is_not_maths(text: str) -> None:
 )
 def test_a_maths_verb_with_a_maths_object_is_maths(text: str) -> None:
     assert needs_symbolic_math(text)
+
+
+# --- A rounded large value and a claim with no unknown ----------------------------------
+
+
+def test_a_large_rounded_product_keeps_scientific_notation() -> None:
+    from sympy import Float
+
+    from app.modules.math.solve.parse import format_verified_latex
+
+    assert format_verified_latex(Float(6.02e23) * 2) != "1203999999999999857393664"
+    assert "10^{24}" in format_verified_latex(Float(6.02e23) * 2)
+    assert format_verified_latex(Float(2.0)) == "2"
+
+
+@pytest.mark.parametrize(
+    "prompt",
+    ["15% of 80 = 12?", "is 15% of 80 = 12?", "50% of 10 = 5", "sqrt(16) = 4?"],
+)
+def test_a_numeric_claim_is_not_solved_as_an_equation(prompt: str) -> None:
+    # It used to get a verified "no solution" or "all real numbers".
+    from app.modules.math.tools.extract import extract_math_intent
+
+    intent = extract_math_intent(prompt)
+    assert intent is None or intent.kind != "equation"
+
+
+def test_solve_still_reads_a_contradiction() -> None:
+    from app.modules.math.tools.extract import extract_math_intent
+
+    intent = extract_math_intent("solve 0 = 1")
+    assert intent is not None and intent.kind == "equation"

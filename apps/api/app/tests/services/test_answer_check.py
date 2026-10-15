@@ -130,3 +130,12 @@ def test_correction_lines() -> None:
     assert correction_line("x = 6") == "The verified answer is $x = 6$."
     assert correction_line("notation: chemistry\npH = 2.00") == "The verified answer is pH = 2.00."
     assert correction_line("verified: true\nx = 6") == "The verified answer is $x = 6$."
+
+
+@pytest.mark.parametrize(
+    "prose",
+    ["Work it through step by step. So:", "The answer is:", "**Answer:**", "So $R =$"],
+)
+def test_a_sentence_that_ends_before_its_value_states_nothing(prose: str) -> None:
+    # An empty segment after "is:" used to raise and drop the verified card.
+    assert stated_verdict(prose, "35.3\\,\\mathrm{m}") == "absent"

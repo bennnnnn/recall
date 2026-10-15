@@ -97,8 +97,10 @@ def format_verified_latex(expr: Any) -> str:
     from sympy import latex, simplify
 
     val = simplify(expr)
-    if getattr(val, "is_Float", False) and float(val).is_integer():
+    if getattr(val, "is_Float", False) and float(val).is_integer() and abs(float(val)) < 1e15:
         # ``x = 2``, not ``x = 2.0``: a decimal input that solves to a whole number.
+        # A float this large is a rounded value (6.02e23 * 2), not an exact
+        # integer; its binary digits would print as 1203999999999999857393664.
         from sympy import Integer
 
         val = Integer(int(val))
