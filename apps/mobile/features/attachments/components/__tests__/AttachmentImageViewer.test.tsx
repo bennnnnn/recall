@@ -326,6 +326,34 @@ describe("AttachmentImageViewer", () => {
       expect(labels).toContain("gallery.viewer_image_a11y:a.png|2|4");
     });
 
+    it("loads only the photo on screen and its neighbours in a large Library", async () => {
+      const ids = Array.from({ length: 40 }, (_, index) => `p${index}`);
+      const view = await render(
+        <AttachmentImageViewer visible images={photos(...ids)} initialIndex={20} />,
+      );
+      // FlatList keeps many pages mounted (10 at first, up to 21 after
+      // layout). Each page with a photo downloads and decodes it at full
+      // size, so a Library of hundreds must not hold more than three.
+      const stages = view
+        .getAllByTestId("attachment-viewer-tap")
+        .map((stage) => stage.props.accessibilityLabel as string);
+      expect(stages.length).toBeLessThanOrEqual(3);
+      expect(stages).toContain("gallery.viewer_image_a11y:p20.png|21|40");
+      expect(view.getAllByTestId("attachment-viewer-image")).toHaveLength(stages.length);
+      // Pages further away keep their width so paging and offsets still line up.
+      for (const page of view.getAllByTestId("attachment-viewer-page-placeholder")) {
+        expect(page).toHaveStyle({ width: WIDTH });
+      }
+
+      // Paging moves the loaded window with the photo on screen.
+      await pageTo(view, 25);
+      const next = view
+        .getAllByTestId("attachment-viewer-tap")
+        .map((stage) => stage.props.accessibilityLabel as string);
+      expect(next.length).toBeLessThanOrEqual(3);
+      expect(next).not.toContain("gallery.viewer_image_a11y:p20.png|21|40");
+    });
+
     it("asks for the next Library page when it nears the last loaded photo", async () => {
       const onNearEnd = jest.fn();
       const view = await render(
