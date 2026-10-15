@@ -69,8 +69,10 @@ from app.modules.chat.prompt_constants import (
     is_chart_question,
     is_howto_question,
     is_learning_plan_request,
+    is_lightweight_chat_turn,
     is_mermaid_question,
     is_personal_disclosure_turn,
+    is_programming_turn,
     is_quote_question,
     is_sequence_diagram_question,
     is_short_confirmation,
@@ -173,6 +175,33 @@ def code_question_layout(query_text: str | None) -> str | None:
     if writing_request_kind(query_text) is not None:
         return None
     return code_question_hint(query_text)
+
+
+# Subjects whose answers are worked problems, never one thing to look at.
+_NO_PHOTO_SUBJECTS = frozenset({"math", "physics", "chemistry", "statistics"})
+
+
+def _may_offer_answer_photo(
+    query_text: str | None,
+    *,
+    subject: str | None,
+    writing_turn: bool,
+    lesson_turn: bool,
+    visual_turn: bool,
+) -> bool:
+    """Whether this turn could be about one thing worth seeing ("what is a capybara").
+
+    Code, a subject problem, a lesson, a draft, a chart or day plan, a pasted
+    fragment and small talk never are. Offering the photo there only confused the
+    reply ("I can't see the image you're referring to").
+    """
+    if not query_text or not query_text.strip():
+        return False
+    if writing_turn or lesson_turn or visual_turn or subject in _NO_PHOTO_SUBJECTS:
+        return False
+    if is_lightweight_chat_turn(query_text) or is_bare_writing_line(query_text):
+        return False
+    return not is_programming_turn(query_text)
 
 
 def _writing_format_hint(query_text: str | None) -> str | None:
@@ -370,7 +399,13 @@ def _style_format_hints(
     if lesson_hint:
         parts.append(lesson_hint)
     # In every account style: a real photo above an answer about something to see.
-    if image_search_enabled:
+    if image_search_enabled and _may_offer_answer_photo(
+        query_text,
+        subject=subject,
+        writing_turn=bool(writing or writing_kind),
+        lesson_turn=bool(teaching or walkthrough or learning_plan or lesson_hint),
+        visual_turn=viz_intent or is_day_plan,
+    ):
         parts.append(ANSWER_PHOTO_HINT)
         if query_text and where_is_place(query_text):
             parts.append(WHERE_IS_PHOTO_HINT)
