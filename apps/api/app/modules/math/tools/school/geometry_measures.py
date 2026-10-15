@@ -276,15 +276,43 @@ _ASKED_NAMED = re.compile(
 )
 
 
+# A measure the rule did not read to its end: ``10π``, ``10/3``, ``10*2``.
+_PI_AFTER = re.compile(r"\s*(?:\u03c0|\\pi\b|pi\b)(?:\s*(mm|cm|km|m|in|ft)\b)?", re.I)
+_MORE_AFTER = re.compile(r"\s*(?:[*/^\u00d7\u00b7]|\d|sqrt|\u221a)", re.I)
+_PI_OPS = {"circle_from_circumference", "circle_from_area"}
+
+
 def extract_geometry_measure_intent(cleaned: str) -> MathIntent | None:
     body = " ".join(cleaned.split()).strip().rstrip("?.!")
     if not body or len(body) > 300:
         return None
     for op, pattern in _RULES:
         found = pattern.search(body)
-        if found is not None:
-            return _intent(op, found)
+        if found is None:
+            continue
+        tail = body[found.end() :]
+        pi = _PI_AFTER.match(tail)
+        if pi is not None:
+            # "circumference 10π" is 10π, not 10; the π was once dropped.
+            return _pi_intent(op, found, pi.group(1)) if op in _PI_OPS else None
+        if _MORE_AFTER.match(tail):
+            return None
+        return _intent(op, found)
     return _sine_rule_intent(body) or _right_trig_intent(body)
+
+
+def _pi_intent(op: str, found: re.Match[str], unit: str | None) -> MathIntent | None:
+    """A circle measure given as a multiple of π: ``C = 10π``, ``A = 16π``."""
+    asked, number, _unit_before_pi = found.groups()
+    if found.group(3) is not None:
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op=f"geometry_measure:{op}_pi",
+        stats_numbers=[float(number)],
+        trial_outcome="|".join(word for word in (asked.lower(), unit) if word),
+        operation="solve",
+    )
 
 
 # The group that holds an expression, not a number or a word, for the rules that have one.
@@ -457,6 +485,80 @@ def _circle_from_circumference(numbers: list[float], words: list[str]) -> _Solve
         (math_line(f"C = {_n(c)}", "circumference"),),
         (math_line(asked[0] if asked != "area" else "A", asked),),
         (math_line(r"C = 2\pi r", "Circumference"),),
+        tuple(rows),
+        answer,
+    )
+
+
+def _fraction_tex(value: Fraction) -> str:
+    if value.denominator == 1:
+        return str(value.numerator)
+    sign = "-" if value < 0 else ""
+    return rf"{sign}\frac{{{abs(value.numerator)}}}{{{value.denominator}}}"
+
+
+def _circle_from_circumference_pi(numbers: list[float], words: list[str]) -> _Solved | None:
+    """``C = 10π``: r = 5 exactly, and the area is 25π."""
+    asked = words[0]
+    unit = words[1] if len(words) > 1 else None
+    k = Fraction(numbers[0]).limit_denominator(1000)
+    if k <= 0 or abs(float(k) - numbers[0]) > 1e-9:
+        return None
+    r = k / 2
+    rows = [
+        math_line(rf"r = \frac{{C}}{{2\pi}} = \frac{{{_pi_times(k)}}}{{2\pi}} = {_fraction_tex(r)}")
+    ]
+    if asked == "radius":
+        answer = f"{_fraction_tex(r)}{_unit(unit)}"
+    elif asked == "diameter":
+        rows.append(math_line(rf"d = 2r = {_fraction_tex(k)}"))
+        answer = f"{_fraction_tex(k)}{_unit(unit)}"
+    else:
+        rows.append(
+            math_line(rf"A = \pi r^2 = \pi\left({_fraction_tex(r)}\right)^2 = {_pi_times(r * r)}")
+        )
+        answer = _pi_answer(float(r * r), unit, 2)
+    return _Solved(
+        (math_line(f"C = {_pi_times(k)}", "circumference"),),
+        (math_line(asked[0] if asked != "area" else "A", asked),),
+        (math_line(r"C = 2\pi r", "Circumference"),),
+        tuple(rows),
+        answer,
+    )
+
+
+def _circle_from_area_pi(numbers: list[float], words: list[str]) -> _Solved | None:
+    """``A = 16π``: r = 4 exactly, and the circumference is 8π."""
+    asked = words[0]
+    unit = words[1] if len(words) > 1 else None
+    k = Fraction(numbers[0]).limit_denominator(1000)
+    if k <= 0 or abs(float(k) - numbers[0]) > 1e-9:
+        return None
+    root_num, root_den = math.isqrt(k.numerator), math.isqrt(k.denominator)
+    if root_num * root_num != k.numerator or root_den * root_den != k.denominator:
+        # r = √k is not a whole or a fraction: the decimal rules already cover it.
+        return _circle_from_area([numbers[0] * math.pi], words)
+    r = Fraction(root_num, root_den)
+    rows = [
+        math_line(
+            rf"r = \sqrt{{\frac{{A}}{{\pi}}}} = \sqrt{{\frac{{{_pi_times(k)}}}{{\pi}}}}"
+            rf" = {_fraction_tex(r)}"
+        )
+    ]
+    if asked == "radius":
+        answer = f"{_fraction_tex(r)}{_unit(unit)}"
+    elif asked == "diameter":
+        rows.append(math_line(rf"d = 2r = {_fraction_tex(2 * r)}"))
+        answer = f"{_fraction_tex(2 * r)}{_unit(unit)}"
+    else:
+        rows.append(
+            math_line(rf"C = 2\pi r = 2\pi\left({_fraction_tex(r)}\right) = {_pi_times(2 * r)}")
+        )
+        answer = _pi_answer(float(2 * r), unit, 1)
+    return _Solved(
+        (math_line(f"A = {_pi_times(k)}", "area"),),
+        (math_line("C" if asked == "circumference" else asked[0], asked),),
+        (math_line(r"A = \pi r^2", "Circle area"),),
         tuple(rows),
         answer,
     )
@@ -1063,6 +1165,8 @@ _SOLVERS: dict[str, Callable[[list[float], list[str]], _Solved | None]] = {
     "hemisphere": _hemisphere,
     "circle_from_circumference": _circle_from_circumference,
     "circle_from_area": _circle_from_area,
+    "circle_from_circumference_pi": _circle_from_circumference_pi,
+    "circle_from_area_pi": _circle_from_area_pi,
     "square_from_diagonal": _square_from_diagonal,
     "rhombus": _rhombus,
     "equilateral": _equilateral,
