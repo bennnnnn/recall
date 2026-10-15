@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
 
     google_client_id: str = ""
+    # Google sign-in fetches Google's signing certs on every verify. The
+    # google-auth default HTTP timeout is 120s; a slow fetch now fails fast
+    # as a 503 instead of holding the sign-in (and a worker thread).
+    google_auth_timeout_seconds: float = 10.0
     apple_client_id: str = "com.recall.app"
 
     jwt_secret: str = "dev-secret-change-me"
@@ -106,6 +110,12 @@ class Settings(BaseSettings):
     r2_bucket: str = ""
     r2_endpoint: str = ""  # derived from account_id if empty
     r2_presign_expiry_seconds: int = 600
+    # boto3 defaults are 60s connect + 60s read with 5 legacy attempts, all on
+    # the default thread pool (5 threads on one CPU) shared with sign-in and
+    # PDF extraction. Bounded here; "standard" retries back off with jitter.
+    r2_connect_timeout_seconds: float = 5.0
+    r2_read_timeout_seconds: float = 20.0
+    r2_max_attempts: int = 3
 
     math_tools_enabled: bool = True
     chemistry_enabled: bool = True

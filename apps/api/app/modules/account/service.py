@@ -7,7 +7,15 @@ from app.core import jobs
 from app.core.config import Settings
 from app.core.validation import normalize_display_name
 from app.gateways.apple_auth import verify_apple_id_token
-from app.gateways.google_auth import GoogleAuthError, verify_google_id_token
+from app.gateways.google_auth import (
+    GoogleAuthError,
+    verify_google_id_token,
+)
+
+# Re-exported for the account API (maps it to 503, not 401).
+from app.gateways.google_auth import (
+    GoogleAuthUnavailableError as GoogleAuthUnavailableError,
+)
 from app.models.orm import User
 from app.models.schemas import AuthResponse, UserOut
 from app.modules.account import tokens as tokens_service

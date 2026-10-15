@@ -195,6 +195,8 @@ secrets or `[env]` only when you have a measured reason.
 | `MAX_REQUEST_BODY_BYTES` | `1048576` (1 MiB) | Every HTTP body. A declared `Content-Length` over the cap gets 413 before a byte is read; a chunked body is cut off one chunk past it. `0` disables. |
 | `MAX_UPLOAD_REQUEST_BODY_BYTES` | `12582912` (12 MiB) | Photo/audio routes only: `/speech/transcribe`, `/{math,physics,chemistry}/scan/read`, `/attachments/{id}/upload`. Each route still checks its exact limit. |
 | `JOBS_STREAM_MAX_LEN` | `50000` | Hard ceiling on the `recall:jobs` Redis Stream, applied on every `XADD`. The 10k soft trim only runs while nothing is pending, so a worker that died mid-job used to leave the stream unbounded. Past the ceiling the oldest jobs are dropped (they are best-effort). `0` disables. |
+| `R2_CONNECT_TIMEOUT_SECONDS` / `R2_READ_TIMEOUT_SECONDS` / `R2_MAX_ATTEMPTS` | `5` / `20` / `3` | boto3 calls to R2 (attachment reads on the chat path, deletes, sweeps). botocore's defaults were 60s + 60s with 5 attempts, each holding a default-executor thread (5 on one CPU). Retries use botocore's `standard` mode (jittered backoff). |
+| `GOOGLE_AUTH_TIMEOUT_SECONDS` | `10` | Google cert fetch during sign-in (google-auth defaulted to 120s). A failed or slow fetch answers 503 + `Retry-After`, not 500 or 401. |
 | `JOB_TIMEOUT_SECONDS` | `900` | Deadline for one attempt of one background job. An attempt that runs out goes to the DLQ without retry. An entry delivered more than 5 times without an ack (it keeps killing the worker) also goes to the DLQ on reclaim. |
 
 ---
