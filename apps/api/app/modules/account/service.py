@@ -18,6 +18,7 @@ from app.gateways.google_auth import (
 )
 from app.models.orm import User
 from app.models.schemas import AuthResponse, UserOut
+from app.modules.account import quota_carryover
 from app.modules.account import tokens as tokens_service
 from app.repositories import users as users_repo
 
@@ -77,6 +78,9 @@ async def login_with_google(
             email=email,
             name=name,
             avatar_url=avatar_url,
+        )
+        await quota_carryover.restore_for_new_account(
+            redis, settings, user.id, provider="google", sub=google_sub
         )
     else:
         # Decide against the current locked row: a profile save may have
@@ -161,6 +165,9 @@ async def login_with_apple(
             name=name,
             avatar_url=None,
         )
+        await quota_carryover.restore_for_new_account(
+            redis, settings, user.id, provider="apple", sub=apple_sub
+        )
     else:
         if name:
             await users_repo.refresh_for_update(session, user)
@@ -212,6 +219,9 @@ async def login_dev(
             email=email,
             name=name,
             avatar_url=None,
+        )
+        await quota_carryover.restore_for_new_account(
+            redis, settings, user.id, provider="google", sub=google_sub
         )
     elif name and user.name != name:
         # Keep dev re-login in step with Google/Apple, which refresh the name

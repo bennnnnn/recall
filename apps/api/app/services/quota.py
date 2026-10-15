@@ -3,6 +3,7 @@ import math
 from datetime import UTC, date, datetime
 from uuid import UUID
 
+from pydantic import BaseModel, NonNegativeInt
 from redis.asyncio import Redis
 from redis.exceptions import RedisError, ResponseError
 
@@ -117,6 +118,20 @@ def utc_today() -> date:
 def _daily_key(prefix: str, owner: str | UUID, day: date | None = None) -> str:
     """Per-user, per-UTC-day counter key shared by every daily cap."""
     return f"{prefix}:{owner}:{(day or utc_today()).isoformat()}"
+
+
+# Every per-user daily cap's counter prefix. Account delete carries today's
+# values to a new account for the same sign-in (``read_carried_usage``), so a
+# new daily cap is listed here too (a test checks every ``_daily_key`` use).
+DAILY_COUNTER_PREFIXES: tuple[str, ...] = (
+    "usage",
+    "imgup",
+    "speech",
+    "tts",
+    "tavily",
+    "imggen",
+    "imgsearch",
+)
 
 
 def _usage_key(user_id: str, day: date) -> str:
@@ -262,13 +277,25 @@ async def clear_usage_needs_heal(
         logger.warning("clear_usage_needs_heal failed user_id=%s", user_id, exc_info=True)
 
 
-async def _heal_usage_drift_cas(redis: Redis, key: str, db_total: int) -> None:
+async def _raise_counter_cas(redis: Redis, key: str, floor: int, ttl: int) -> None:
     current = await redis.get(key)
     if current is None:
-        await redis.set(key, db_total, nx=True, ex=_DAILY_TTL)
+        await redis.set(key, floor, nx=True, ex=ttl)
         return
-    if int(current) < db_total:
-        await redis.set(key, db_total, ex=_DAILY_TTL)
+    if int(current) < floor:
+        await redis.set(key, floor, ex=ttl)
+
+
+async def _raise_counter(redis: Redis, key: str, floor: int, *, ttl: int) -> None:
+    """Raise a counter to *floor* when missing or behind; never lower it.
+
+    Atomic via Lua; GET+SET fallback when EVAL is unavailable (some fakeredis
+    setups).
+    """
+    try:
+        await redis.eval(_HEAL_USAGE_LUA, 1, key, str(floor), str(ttl))
+    except ResponseError:
+        await _raise_counter_cas(redis, key, floor, ttl)
 
 
 async def heal_usage_drift(
@@ -292,10 +319,7 @@ async def heal_usage_drift(
         return
     key = _usage_key(user_id, day or utc_today())
     try:
-        try:
-            await redis.eval(_HEAL_USAGE_LUA, 1, key, str(db_total), str(_DAILY_TTL))
-        except ResponseError:
-            await _heal_usage_drift_cas(redis, key, db_total)
+        await _raise_counter(redis, key, db_total, ttl=_DAILY_TTL)
     except RedisError:
         logger.warning("heal_usage_drift failed user_id=%s", user_id, exc_info=True)
         raise
@@ -636,6 +660,69 @@ async def settle_live_talk_session(redis: Redis, user_id: UUID, session_id: str)
     charged = min(reserved, elapsed)
     await release_live_talk_seconds(redis, user_id, seconds=reserved - charged, month=month)
     return charged
+
+
+# ── Carry-over to a new account for the same sign-in ────────────────────────
+# Counters are keyed by user id, so deleting an account and signing up again
+# with the same Google/Apple login would start every cap from zero. Account
+# delete reads today's counters and this month's live talk seconds; the new
+# account's counters are raised to them (modules/account/quota_carryover.py).
+
+
+class CarriedUsage(BaseModel):
+    """One account's used counters for one UTC day (and its month)."""
+
+    day: str
+    month: str
+    daily: dict[str, NonNegativeInt] = {}
+    live_talk_seconds: NonNegativeInt = 0
+
+    def is_empty(self) -> bool:
+        return not any(self.daily.values()) and self.live_talk_seconds <= 0
+
+
+def _counter_value(raw: object) -> int:
+    try:
+        return max(0, int(str(raw))) if raw is not None else 0
+    except ValueError:
+        return 0
+
+
+async def read_carried_usage(redis: Redis, user_id: UUID) -> CarriedUsage:
+    """Today's daily counters and this month's live talk seconds for *user_id*."""
+    day = utc_today()
+    month = utc_month()
+    keys = [_daily_key(prefix, user_id, day) for prefix in DAILY_COUNTER_PREFIXES]
+    keys.append(_live_talk_month_key(user_id, month))
+    values = [_counter_value(raw) for raw in await redis.mget(keys)]
+    daily = {
+        prefix: used
+        for prefix, used in zip(DAILY_COUNTER_PREFIXES, values[:-1], strict=True)
+        if used > 0
+    }
+    return CarriedUsage(day=day.isoformat(), month=month, daily=daily, live_talk_seconds=values[-1])
+
+
+async def apply_carried_usage(redis: Redis, user_id: UUID, carried: CarriedUsage) -> None:
+    """Raise *user_id*'s counters to what was carried: max(existing, carried).
+
+    Daily counters only on the same UTC day, live talk only in the same month;
+    anything older has already reset. Raise-only, like the DB usage heal, so
+    neither can lower the other.
+    """
+    day = utc_today()
+    if carried.day == day.isoformat():
+        for prefix, used in carried.daily.items():
+            if prefix in DAILY_COUNTER_PREFIXES and used > 0:
+                await _raise_counter(redis, _daily_key(prefix, user_id, day), used, ttl=_DAILY_TTL)
+    month = utc_month()
+    if carried.month == month and carried.live_talk_seconds > 0:
+        await _raise_counter(
+            redis,
+            _live_talk_month_key(user_id, month),
+            carried.live_talk_seconds,
+            ttl=_MONTHLY_TTL,
+        )
 
 
 # ── Global UTC-day spend kill-switch (OpenRouter $) ──────────────────────────
