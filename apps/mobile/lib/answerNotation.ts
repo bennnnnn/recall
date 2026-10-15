@@ -7,7 +7,8 @@
  * - `notation: chemistry` — the body is chemistry text, not LaTeX. Chemistry (and any
  *   later literal subject) keeps formulas, charges, and units as text; treating that
  *   body as algebra rewrites a correct result.
- * - `label: answer` — written here (attachAnswerHeading) to draw "Answer" over the card.
+ * - `label: answer` — older replies carry it; every card draws "Answer" now, so it is
+ *   read as a header and dropped.
  */
 
 export type AnswerNotation = "math" | "chemistry";
@@ -27,7 +28,6 @@ function headerLine(line: string): string | null {
 export function splitAnswerNotation(raw: string): {
   notation: AnswerNotation;
   body: string;
-  labeled: boolean;
   verified: boolean;
 } {
   const lines = raw.replace(/\r\n/g, "\n").trim().split("\n");
@@ -43,7 +43,6 @@ export function splitAnswerNotation(raw: string): {
   return {
     notation: headers.has(CHEMISTRY_ANSWER_NOTATION) ? "chemistry" : "math",
     body: lines.join("\n").trim(),
-    labeled: headers.has(ANSWER_LABEL_LINE),
     verified: headers.has(VERIFIED_ANSWER_MARKER),
   };
 }

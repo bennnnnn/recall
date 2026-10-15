@@ -55,6 +55,11 @@ describe("AnswerBlock", () => {
     expect(within(box).getByTestId("answer-success-check")).toBeOnTheScreen();
   });
 
+  it("draws the Answer heading on a bare card too", async () => {
+    const { getByTestId } = await render(<AnswerBlock content={"verified: true\n2 + 2 = 4"} />);
+    expect(getByTestId("answer-label")).toBeOnTheScreen();
+  });
+
   it("draws a model's answer in the same box, with no check", async () => {
     const { getByTestId, queryByTestId, getByText } = await render(
       <AnswerBlock content={"label: answer\nx = 0"} />,

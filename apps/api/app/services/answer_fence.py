@@ -35,8 +35,8 @@ from app.services.md_fence_scan import map_closed_fences
 
 VERIFIED_ANSWER_MARKER = "verified: true"
 CHEMISTRY_NOTATION_LINE = "notation: chemistry"
-# Header lines a client reads off the top of an answer body. The phone also
-# writes ``label: answer`` itself when it moves an **Answer** heading inside.
+# Header lines a client reads off the top of an answer body. Older phone builds
+# also wrote ``label: answer`` when they moved an **Answer** heading inside.
 ANSWER_HEADER_LINES = frozenset({VERIFIED_ANSWER_MARKER, CHEMISTRY_NOTATION_LINE, "label: answer"})
 ANSWER_FENCE_LANGS = ("answer", "result", "final")
 # Server-owned fences a model must not ship in any spelling.
@@ -259,12 +259,14 @@ _ANSWER_HEADING = re.compile(
 _LIST_MARKER = re.compile(r"(?:[-*+•]|\d{1,3}[.)])[ \t]+")
 
 
-def _plain_line(line: str) -> str:
-    """A line without its quote markers and trailing hard break."""
+def _plain_line(line: str, *, hard_break: bool = True) -> str:
+    """A line without its quote markers and (``hard_break``) its trailing ``\\`` break.
+
+    Inside a display block a trailing ``\\\\`` is a LaTeX row break and stays."""
     text = line.strip()
     while text.startswith(">"):
         text = text[1:].lstrip()
-    return text.rstrip("\\ \t")
+    return text.rstrip("\\ \t") if hard_break else text
 
 
 def _value_line(line: str) -> str:
@@ -309,14 +311,22 @@ def _ends_section(line: str) -> bool:
 _EQUATION_START = re.compile(r"[^\s=]+\s*=")
 _LATEX_COMMAND = re.compile(r"\\[A-Za-z]+")
 _WORD = re.compile(r"[A-Za-z]{3,}")
+# Display maths spanning lines: its opener and the closer that ends it.
+_DISPLAY = {"$$": "$$", "\\[": "\\]"}
+
+
+def _relations(text: str) -> str:
+    """``≈`` and ``\\approx`` read as ``=``: an approximate answer is still the answer."""
+    return text.replace("\\approx", "=").replace("\u2248", "=")
 
 
 def _is_maths(line: str) -> bool:
-    """``$…$``, or a bare equation: one name before the ``=`` (``Area = 12 cm²``) or no
-    words at all (``2x + 3 - 3 = 7 - 3``). "So x = 3 is the answer." is a sentence."""
-    text = _value_line(line)
+    """``$…$``, ``\\[…``, or a bare equation: one name before the ``=`` or ``≈``
+    (``Area = 12 cm²``) or no words at all (``2x + 3 - 3 = 7 - 3``). "So x = 3 is the
+    answer." is a sentence."""
+    text = _relations(_value_line(line))
     return (
-        text.startswith("$")
+        text.startswith(("$", "\\[", "\\("))
         or _EQUATION_START.match(text) is not None
         or ("=" in text and _WORD.search(_LATEX_COMMAND.sub("", text)) is None)
     )
@@ -328,8 +338,8 @@ def _answer_values(lines: list[str], start: int) -> tuple[list[tuple[int, str]],
 
     After the first value, only lines of maths are values: they run to a fence, a heading
     or a sentence, and past a blank line only into another line of maths, so a sentence
-    after the answer stays after it. A ``$$`` display block is one value however many
-    lines it spans.
+    after the answer stays after it. A ``$$`` or ``\\[`` display block is one value
+    however many lines it spans.
     """
     values: list[tuple[int, str]] = []
     index, end = start, start - 1
@@ -349,12 +359,14 @@ def _answer_values(lines: list[str], start: int) -> tuple[list[tuple[int, str]],
         if _ends_section(lines[index]) or (values and not _is_maths(lines[index])):
             break
         first, text = index, _value_line(lines[index])
-        if text.startswith("$$") and (text == "$$" or not text.endswith("$$")):
-            block = [text]
+        raw = _plain_line(lines[index], hard_break=False)
+        opener = next((mark for mark in _DISPLAY if raw.startswith(mark)), None)
+        if opener is not None and (raw == opener or not raw.endswith(_DISPLAY[opener])):
+            block = [raw]
             while index + 1 < len(lines) and lines[index + 1].strip():
                 index += 1
-                block.append(_plain_line(lines[index]))
-                if block[-1].endswith("$$"):
+                block.append(_plain_line(lines[index], hard_break=False))
+                if block[-1].endswith(_DISPLAY[opener]):
                     break
             text = "\n".join(block)
         values.append((first, text))
@@ -368,13 +380,15 @@ _UNIT_TEXT = re.compile(r"\\(?:text|mathrm)\{[^}]*\}")
 # Arithmetic still to do: a product, quotient, fraction, power, sum, or a minus
 # after a term (a leading minus is the value's sign).
 _ARITHMETIC = re.compile(r"\\(?:times|cdot|div|frac)|[\u00d7\u00b7*/\u00f7+^]|\S\s*[-\u2212]")
+# An exact fraction is a value, not a division still to do: x = \frac{1}{2}.
+_EXACT_FRACTION = re.compile(r"\\d?frac\{\d+\}\{\d+\}")
 
 
 def _is_final_value(value: str) -> bool:
     """``x = 2``, ``x_1 = -3``, ``v = 19.6\\ \\text{m/s}``: a name set to a value with no
     arithmetic left, unlike the working line ``v = 9.8 \\times 2`` or ``2x = 4``."""
-    left, equals, right = value.replace("$", "").partition("=")
-    right = _UNIT_TEXT.sub("", right).strip()
+    left, equals, right = _relations(value.replace("$", "")).partition("=")
+    right = _EXACT_FRACTION.sub("1", _UNIT_TEXT.sub("", right)).strip()
     return (
         bool(equals and right)
         and _BARE_SYMBOL.fullmatch(left.strip()) is not None
@@ -391,7 +405,7 @@ def _card_start(values: list[tuple[int, str]]) -> int:
     return start
 
 
-def land_answer_card(text: str, verified_body: str | None, *, correction: str | None = None) -> str:
+def land_answer_card(text: str, verified_body: str | None, *, above: str | None = None) -> str:
     """Put the reply's final answer in one card under one **Answer** heading.
 
     The reply's last Answer section (``**Answer**``, ``**Answer:** $x = 3$``,
@@ -400,7 +414,7 @@ def land_answer_card(text: str, verified_body: str | None, *, correction: str | 
     the section's last line of maths (with the plain values just before it, so
     both roots stay) in a card with no marker. Earlier lines under the heading are
     working: they stay as prose above it; a sentence after the answer stays below.
-    ``correction`` goes directly above the heading.
+    ``above`` (written working, a correction line) goes directly above the heading.
 
     With no Answer section, a verified card is added at the end unless the reply
     already has one; an unverified reply, or one whose answer is not maths, is left
@@ -434,8 +448,10 @@ def land_answer_card(text: str, verified_body: str | None, *, correction: str | 
         # Both roots read on one line (x = 2, x = -2): a card draws one line of maths.
         joined = parts[0] if len(parts) == 1 else ", ".join(" ".join(p.split()) for p in parts)
         value = answer_header_and_value(joined)[1]
+        if value.startswith("\\[") and value.endswith("\\]"):
+            value = f"$${value[2:-2]}$$"  # the card reads $$ display maths
         # A card draws maths; "Paris" under a quiz's Answer heading stays prose.
-        if "$" not in value and "=" not in value:
+        if "$" not in value and "=" not in _relations(value):
             return text
         card = f"```answer\n{value}\n```"
     steps = lines[values[0][0] : values[shown][0]] if values else []
@@ -444,7 +460,7 @@ def land_answer_card(text: str, verified_body: str | None, *, correction: str | 
     before = lines[:heading]
     while before and not before[-1].strip():
         before.pop()
-    block = [*steps, *([""] if steps else []), *([correction, ""] if correction else [])]
+    block = [*steps, *([""] if steps else []), *([above, ""] if above else [])]
     block += [_HEADING_LINE, "", card]
     after = lines[end + 1 :]
     if after and after[0].strip():

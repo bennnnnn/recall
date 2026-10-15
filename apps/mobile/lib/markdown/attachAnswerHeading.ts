@@ -1,14 +1,13 @@
-import { ANSWER_LABEL_LINE } from "@/lib/answerNotation";
-
-const ANSWER_HEADINGS = new Set(["**Answer**", "**Answer:**"]);
+// **Answer**, **Answer:**, ## Answer, Answer: — the heading written above a card.
+const ANSWER_HEADING = /^(?:#{1,4}\s+)?(?:\*\*)?answer:?(?:\*\*)?:?$/i;
 
 function isAnswerHeading(line: string): boolean {
-  return ANSWER_HEADINGS.has(line.trim());
+  return ANSWER_HEADING.test(line.trim());
 }
 
 /**
- * The server writes **Answer** as the paragraph above the answer card. Move that
- * word into the fence; the card draws it as its heading, checked or not.
+ * Every answer card draws its own "Answer" heading, checked or not. Drop the
+ * **Answer** paragraph written above one so the word shows once.
  */
 export function attachAnswerHeadingToFence(markdown: string): string {
   const lines = markdown.split("\n");
@@ -25,11 +24,7 @@ export function attachAnswerHeadingToFence(markdown: string): string {
       out.push(lines[i] ?? "");
       continue;
     }
-    out.push(opener);
-    if ((lines[fenceAt + 1] ?? "").trim() !== ANSWER_LABEL_LINE) {
-      out.push(ANSWER_LABEL_LINE);
-    }
-    i = fenceAt;
+    i = fenceAt - 1;
   }
   return out.join("\n");
 }
