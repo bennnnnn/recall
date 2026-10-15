@@ -291,6 +291,23 @@ async def list_recent_for_user(
     return list(result.scalars().all())
 
 
+async def list_assistant_ids_since(
+    session: AsyncSession,
+    user_id: UUID,
+    *,
+    since: datetime,
+) -> list[UUID]:
+    """Ids of the user's replies created at or after ``since`` (account delete)."""
+    result = await session.execute(
+        select(Message.id).where(
+            Message.user_id == user_id,
+            Message.role == "assistant",
+            Message.created_at >= since,
+        )
+    )
+    return list(result.scalars().all())
+
+
 async def get_by_id(session: AsyncSession, message_id: UUID, chat_id: UUID) -> Message | None:
     result = await session.execute(
         select(Message).where(Message.id == message_id, Message.chat_id == chat_id)
