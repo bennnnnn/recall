@@ -21,7 +21,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.core.redis import get_jobs_redis_client
 
 logger = logging.getLogger(__name__)
@@ -29,6 +29,7 @@ logger = logging.getLogger(__name__)
 JOBS_STREAM = "recall:jobs"
 JOBS_DLQ_STREAM = "recall:jobs:dlq"
 JOBS_GROUP = "workers"
+# Soft cap, applied only while nothing is pending (see _trim_jobs_stream).
 _MAXLEN = 10_000
 _DLQ_MAXLEN = 5_000
 _BLOCK_MS = 5_000
@@ -67,12 +68,18 @@ _PENDING_ALERT_THRESHOLD = 50
 _MAX_ATTEMPTS = 3
 _RETRY_BACKOFF_S = 2.0
 # How stale the worker-loop heartbeat can get before is_worker_alive() reports
-# the worker as dead even though its task hasn't crashed. Generous on purpose:
-# comfortably longer than one full retry-backoff cycle in _process_one_entry
-# (up to roughly _MAX_ATTEMPTS * _RETRY_BACKOFF_S * _MAX_ATTEMPTS seconds) plus
-# a slow handler; heartbeat is touched per attempt so a concurrent batch of
-# LLM jobs does not false-positive as "stuck".
+# the worker as dead even though its task hasn't crashed. While a batch runs,
+# a ticker touches the heartbeat every _JOB_HEARTBEAT_TICK_S, so a long but
+# healthy job (OCR index, LLM call + fallback) does not read as dead. That is
+# safe because every attempt has a deadline (``job_timeout_seconds``); the
+# heartbeat now goes stale only when the event loop itself is blocked or the
+# loop task is wedged outside a job.
 _HEARTBEAT_STALE_THRESHOLD_S = 120.0
+_JOB_HEARTBEAT_TICK_S = 15.0
+# An entry delivered this many times without being acked keeps killing the
+# process that runs it (OOM, segfault) or never finishes. Reclaim moves it to
+# the DLQ instead of starting the crash loop again.
+MAX_JOB_DELIVERIES = 5
 
 JobHandler = Callable[[Settings, dict[str, Any]], Awaitable[None]]
 _HANDLERS: dict[str, JobHandler] = {}
@@ -123,11 +130,31 @@ async def enqueue(
         if dedupe_key:
             fields["dedupe_key"] = dedupe_key
         # redis-py stubs type xadd fields as an invariant EncodedT dict; cast.
-        await redis.xadd(JOBS_STREAM, cast(Any, fields))
+        # The hard ceiling rides on XADD itself (no extra round trip) so the
+        # stream stays bounded even while a stale pending entry pins the
+        # MINID trim below — e.g. a worker that died mid-job and is down.
+        hard_cap = _hard_maxlen()
+        if hard_cap is None:
+            await redis.xadd(JOBS_STREAM, cast(Any, fields))
+        else:
+            await redis.xadd(JOBS_STREAM, cast(Any, fields), maxlen=hard_cap, approximate=True)
         await _trim_jobs_stream(redis)
     except Exception:
         logger.exception("Failed to enqueue job type=%s", job_type)
         _capture_sentry_exception(f"enqueue_failed:{job_type}")
+
+
+def _hard_maxlen() -> int | None:
+    """Ceiling on the jobs stream regardless of pending entries (None = off).
+
+    Never below the soft cap, so it only bites when a stale pending entry has
+    disabled the soft trim. Dropping the oldest jobs past it is the price of
+    keeping Redis (shared with quota, auth revocation and rate limits) alive.
+    """
+    configured = get_settings().jobs_stream_max_len
+    if configured <= 0:
+        return None
+    return max(configured, _MAXLEN)
 
 
 async def _trim_jobs_stream(redis: Redis) -> None:
@@ -354,11 +381,14 @@ async def _process_one_entry(
             return
         if dedupe_key:
             keepalive = asyncio.create_task(_refresh_running_claim_loop(redis, dedupe_key))
+        job_timeout = _job_timeout(settings)
         for attempt in range(1, _MAX_ATTEMPTS + 1):
             _touch_heartbeat()
             await _refresh_running_claim(redis, dedupe_key)
+            deadline = asyncio.timeout(job_timeout)
             try:
-                await _dispatch(settings, fields)
+                async with deadline:
+                    await _dispatch(settings, fields)
                 # Success — overwrite the short running claim so a later
                 # duplicate enqueue skips and acks. Crash before this line
                 # leaves the running TTL; reclaim must not xack until it
@@ -370,7 +400,20 @@ async def _process_one_entry(
                 await _release_dedupe(redis, dedupe_key)
                 await _move_to_dlq(redis, entry_id, fields, str(exc))
                 break
-            except Exception:
+            except Exception as exc:
+                if isinstance(exc, TimeoutError) and deadline.expired():
+                    # Not retried: a handler that ran out its whole deadline
+                    # would likely do it again, holding the batch each time.
+                    logger.error(
+                        "Job id=%s type=%s exceeded %ss; moving to DLQ",
+                        entry_id,
+                        fields.get("type"),
+                        job_timeout,
+                    )
+                    _capture_sentry_exception(f"job_timeout:{fields.get('type')}")
+                    await _release_dedupe(redis, dedupe_key)
+                    await _move_to_dlq(redis, entry_id, fields, f"timed out after {job_timeout}s")
+                    break
                 if attempt < _MAX_ATTEMPTS:
                     logger.warning(
                         "Job failed attempt=%s/%s id=%s; retrying",
@@ -401,8 +444,33 @@ async def _process_one_entry(
                 logger.debug("xack failed id=%s", entry_id, exc_info=True)
 
 
+async def _ack_trimmed_entries(
+    redis: Redis, entries: list[tuple[str, dict[str, Any] | None]]
+) -> list[tuple[str, dict[str, Any]]]:
+    """Drop entries the stream cap trimmed before they ran; ack them.
+
+    XAUTOCLAIM on Redis 6.2 returns a deleted entry as ``(id, None)`` and
+    leaves it pending. Acking removes it so it cannot fail every reclaim.
+    """
+    live: list[tuple[str, dict[str, Any]]] = []
+    for entry_id, fields in entries:
+        if fields is not None:
+            live.append((entry_id, fields))
+            continue
+        if not entry_id:
+            continue
+        logger.warning("Job id=%s was trimmed from the stream before it ran", entry_id)
+        try:
+            await redis.xack(JOBS_STREAM, JOBS_GROUP, entry_id)
+        except Exception:
+            logger.debug("xack of trimmed entry failed id=%s", entry_id, exc_info=True)
+    return live
+
+
 async def _process_entries(
-    redis: Redis, settings: Settings, entries: list[tuple[str, dict[str, Any]]]
+    redis: Redis,
+    settings: Settings,
+    entries: list[tuple[str, dict[str, Any] | None]] | list[tuple[str, dict[str, Any]]],
 ) -> None:
     """Process a stream batch with bounded concurrency.
 
@@ -413,21 +481,110 @@ async def _process_entries(
     """
     if not entries:
         return
-    concurrency = max(1, int(settings.jobs_worker_concurrency))
-    if concurrency == 1 or len(entries) == 1:
-        for entry_id, fields in entries:
-            await _process_one_entry(redis, settings, entry_id, fields)
-        _touch_heartbeat()
+    live = await _ack_trimmed_entries(redis, cast(list[tuple[str, dict[str, Any] | None]], entries))
+    if not live:
         return
+    ticker = _HeartbeatTicker()
+    ticker.start()
+    try:
+        concurrency = max(1, int(settings.jobs_worker_concurrency))
+        if concurrency == 1 or len(live) == 1:
+            for entry_id, fields in live:
+                await _process_one_entry(redis, settings, entry_id, fields)
+            return
 
-    sem = asyncio.Semaphore(concurrency)
+        sem = asyncio.Semaphore(concurrency)
 
-    async def _run(entry_id: str, fields: dict[str, Any]) -> None:
-        async with sem:
-            await _process_one_entry(redis, settings, entry_id, fields)
+        async def _run(entry_id: str, fields: dict[str, Any]) -> None:
+            async with sem:
+                await _process_one_entry(redis, settings, entry_id, fields)
 
-    await asyncio.gather(*(_run(entry_id, fields) for entry_id, fields in entries))
-    _touch_heartbeat()
+        await asyncio.gather(*(_run(entry_id, fields) for entry_id, fields in live))
+    finally:
+        ticker.stop()
+        _touch_heartbeat()
+
+
+class _HeartbeatTicker:
+    """Keep the liveness heartbeat fresh while deadline-bounded jobs run.
+
+    A loop timer rather than a sleeping task: it stops with one call (no task
+    cancellation to get wrong) and only fires while the event loop is free,
+    so a blocked loop still goes stale.
+    """
+
+    def __init__(self) -> None:
+        self._handle: asyncio.TimerHandle | None = None
+
+    def start(self) -> None:
+        self._tick()
+
+    def _tick(self) -> None:
+        _touch_heartbeat()
+        loop = asyncio.get_running_loop()
+        self._handle = loop.call_later(_JOB_HEARTBEAT_TICK_S, self._tick)
+
+    def stop(self) -> None:
+        if self._handle is not None:
+            self._handle.cancel()
+            self._handle = None
+
+
+def _job_timeout(settings: Settings) -> float | None:
+    """Per-attempt handler deadline in seconds (None = unbounded, tests only)."""
+    timeout = float(settings.job_timeout_seconds)
+    return timeout if timeout > 0 else None
+
+
+async def _times_delivered(redis: Redis, entry_id: str) -> int:
+    try:
+        rows = await redis.xpending_range(
+            JOBS_STREAM, JOBS_GROUP, min=entry_id, max=entry_id, count=1
+        )
+    except Exception:
+        logger.debug("xpending_range failed id=%s", entry_id, exc_info=True)
+        return 0
+    if not rows:
+        return 0
+    try:
+        return int(rows[0].get("times_delivered") or 0)
+    except (AttributeError, TypeError, ValueError):
+        return 0
+
+
+async def _drop_poison_entries(
+    redis: Redis, entries: list[tuple[str, dict[str, Any] | None]]
+) -> list[tuple[str, dict[str, Any] | None]]:
+    """Move reclaimed entries past MAX_JOB_DELIVERIES to the DLQ and ack them.
+
+    A handler exception is retried and dead-lettered in-process; only an entry
+    that never gets acked (the process died or was killed while running it)
+    reaches this count.
+    """
+    keep: list[tuple[str, dict[str, Any] | None]] = []
+    for entry_id, fields in entries:
+        if fields is None:
+            keep.append((entry_id, fields))
+            continue
+        delivered = await _times_delivered(redis, entry_id)
+        if delivered <= MAX_JOB_DELIVERIES:
+            keep.append((entry_id, fields))
+            continue
+        logger.error(
+            "Job id=%s type=%s delivered %s times without finishing; moving to DLQ",
+            entry_id,
+            fields.get("type"),
+            delivered,
+        )
+        _capture_sentry_exception(f"job_poison:{fields.get('type')}")
+        await _move_to_dlq(
+            redis, entry_id, fields, f"delivered {delivered} times without finishing"
+        )
+        try:
+            await redis.xack(JOBS_STREAM, JOBS_GROUP, entry_id)
+        except Exception:
+            logger.debug("xack of poison entry failed id=%s", entry_id, exc_info=True)
+    return keep
 
 
 async def _ensure_group(redis: Redis) -> None:
@@ -458,6 +615,7 @@ async def _reclaim_pending_jobs(redis: Redis, settings: Settings, consumer: str)
         )
         entries = claimed[1] if len(claimed) > 1 else []
         if entries:
+            entries = await _drop_poison_entries(redis, entries)
             await _process_entries(redis, settings, entries)
     except Exception:
         logger.debug("xautoclaim failed", exc_info=True)
@@ -669,12 +827,18 @@ async def replay_dlq(redis: Redis, *, count: int = 50, delete: bool = True) -> i
             dedupe_key = entry.get("dedupe_key") or ""
             if dedupe_key:
                 fields["dedupe_key"] = str(dedupe_key)
-            await redis.xadd(
-                JOBS_STREAM,
-                cast(Any, fields),
-                maxlen=_MAXLEN,
-                approximate=True,
-            )
+            # Same hard ceiling as enqueue: the soft cap here would trim
+            # queued and pending work whenever a backlog exists.
+            hard_cap = _hard_maxlen()
+            if hard_cap is None:
+                await redis.xadd(JOBS_STREAM, cast(Any, fields))
+            else:
+                await redis.xadd(
+                    JOBS_STREAM,
+                    cast(Any, fields),
+                    maxlen=hard_cap,
+                    approximate=True,
+                )
             if delete:
                 await redis.xdel(JOBS_DLQ_STREAM, entry["id"])
             replayed += 1
