@@ -1,6 +1,7 @@
 import json
 import logging
 from unittest.mock import MagicMock
+from uuid import uuid4
 
 from app.core.config import Settings
 from app.core.logging import (
@@ -220,8 +221,69 @@ def test_init_sentry_initializes_when_configured(monkeypatch):
     kwargs = init_mock.call_args.kwargs
     assert kwargs["before_send"] is sentry_mod.before_send
     assert kwargs["send_default_pii"] is False
+    assert kwargs["include_local_variables"] is False
     assert "WebSocketDisconnect" in kwargs["ignore_errors"]
     assert sentry_mod._initialized is True
+
+
+def test_sentry_error_events_carry_no_frame_locals(monkeypatch):
+    """A crash in the chat or token path must not upload the prompt or a token.
+
+    The SDK attaches every frame's local variables by default; its scrubber
+    only masks exact names such as ``token``, so ``refresh_token``,
+    ``access_token`` and message text went out with the stack trace.
+    """
+    import sentry_sdk
+    from sentry_sdk.transport import Transport
+
+    import app.core.sentry as sentry_mod
+
+    captured: dict = {}
+    monkeypatch.setattr(sentry_mod, "_initialized", False)
+    monkeypatch.setattr(sentry_sdk, "init", lambda **kwargs: captured.update(kwargs))
+    sentry_mod.init_sentry(Settings(sentry_dsn="https://public@example.com/1"))
+    options = {
+        key: value
+        for key, value in captured.items()
+        if key not in {"integrations", "dsn", "before_send"}
+    }
+
+    events: list[dict] = []
+
+    class _Capture(Transport):
+        def capture_envelope(self, envelope):  # type: ignore[no-untyped-def]
+            for item in envelope.items:
+                if item.type == "event":
+                    events.append(item.payload.json)
+
+    client = sentry_sdk.Client(
+        dsn="https://public@example.com/1",
+        transport=_Capture,
+        default_integrations=False,
+        **options,
+    )
+
+    # Built at runtime: the event's source-context lines must not be what
+    # carries them.
+    secret_token = "rt-" + uuid4().hex
+    secret_prompt = "my bank pin is " + uuid4().hex
+
+    def stream_turn(refresh_token: str, prompt: str) -> None:
+        raise RuntimeError("boom")
+
+    with sentry_sdk.isolation_scope() as scope:
+        scope.set_client(client)
+        try:
+            stream_turn(secret_token, secret_prompt)
+        except RuntimeError:
+            sentry_sdk.capture_exception()
+    client.flush(timeout=2)
+
+    assert events, "the exception was not captured"
+    serialized = json.dumps(events)
+    assert "stream_turn" in serialized
+    assert secret_token not in serialized
+    assert secret_prompt not in serialized
 
 
 def test_setup_logging_json_output_uses_json_formatter():
