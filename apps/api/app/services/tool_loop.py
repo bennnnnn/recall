@@ -106,6 +106,47 @@ def _last_user_content(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
+def _user_texts(messages: list[dict[str, Any]], user_text: str | None) -> list[str]:
+    """What the user wrote, newest first: this turn, then earlier turns."""
+    texts = [user_text.strip()] if user_text and user_text.strip() else []
+    earlier = [
+        msg["content"]
+        for msg in messages
+        if msg.get("role") == "user" and isinstance(msg.get("content"), str)
+    ]
+    if not texts and earlier:
+        texts.append(earlier.pop().strip())
+    elif earlier:
+        earlier.pop()  # the current turn, already first
+    texts.extend(text for text in reversed(earlier) if text.strip())
+    return texts
+
+
+_UNMATCHED_TOOL_NOTE = (
+    "\nNote: this call's input does not match the problem as the user wrote it, so this "
+    "result is not verified for the user's question. Re-read the user's problem before "
+    "using it, and do not call it verified."
+)
+
+
+async def _tool_call_matches_user(raw_args: Any, user_texts: list[str], settings: Settings) -> bool:
+    """A tool result is the verified answer only for the problem the user wrote."""
+    from app.core.sympy_executor import run_sympy
+    from app.modules.math.tool_check import tool_call_matches_user_text
+
+    try:
+        matched = await run_sympy(
+            tool_call_matches_user_text,
+            raw_args,
+            user_texts,
+            timeout=settings.math_solve_timeout_seconds,
+        )
+    except Exception:
+        logger.info("tool-call match check did not finish; result stays unverified", exc_info=True)
+        return False
+    return bool(matched)
+
+
 def _sympy_solve_drops_trig_domain(name: str, raw_args: Any, user_text: str) -> bool:
     if name != "sympy":
         return False
@@ -463,6 +504,7 @@ async def run_tool_rounds(
     chat_id: UUID | None = None,
     web_search: bool | None = None,
     user_timezone: str | None = None,
+    user_text: str | None = None,
 ) -> tuple[
     list[dict[str, Any]],
     VerifiedMathBlock | None,
@@ -474,6 +516,8 @@ async def run_tool_rounds(
     Returns ``(messages, verified_math, terminal_image, search_hits)``. Tool-call
     rounds stay non-streaming. After tools execute, the caller streams the
     user-visible answer (tools omitted) instead of a discarded leftover completion.
+    ``verified_math`` holds only tool results whose input matches ``user_text``
+    (the user's own message; the last user prompt message when omitted).
     """
     if not settings.mcp_tool_loop_enabled:
         return messages, None, None, []
@@ -525,6 +569,7 @@ async def run_tool_rounds(
             tools=tools,
             on_status=on_status,
             should_cancel=should_cancel,
+            user_texts=_user_texts(messages, user_text),
         )
         working, hits = await _force_web_search_if_needed(
             settings=settings,
@@ -549,6 +594,7 @@ async def _run_tool_rounds_bound(
     tools: list[dict[str, Any]],
     on_status: StreamStatusFn | None,
     should_cancel: Callable[[], bool] | None,
+    user_texts: list[str] | None = None,
 ) -> tuple[
     list[dict[str, Any]],
     VerifiedMathBlock | None,
@@ -556,6 +602,8 @@ async def _run_tool_rounds_bound(
     list[WebSearchHit],
 ]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
+    if user_texts is None:
+        user_texts = _user_texts(messages, None)
     user_text = _last_user_content(messages)
     max_rounds = max(1, settings.mcp_tool_loop_max_rounds)
     # Collect canonical fences across rounds keyed by type so a geometry
@@ -655,12 +703,18 @@ async def _run_tool_rounds_bound(
             result = await mcp_registry.invoke_validated(name, raw_args)
             content = result.content if result else f"Unknown tool: {name}"
             fence = _canonical_from_tool_result(result) if result else None
+            answer = _canonical_answer_from_tool_result(result) if result else None
+            if (fence is not None or answer) and not await _tool_call_matches_user(
+                raw_args, user_texts, settings
+            ):
+                # The tool solved what the model typed, not what the user asked.
+                fence, answer = None, None
+                content = f"{content}{_UNMATCHED_TOOL_NOTE}"
             if fence is not None:
                 # Merge by type so earlier rounds' fences survive later ones.
                 fence_type = str(fence.get("type") or "")
                 if fence_type:
                     canonical_by_type[fence_type] = fence
-            answer = _canonical_answer_from_tool_result(result) if result else None
             if answer:
                 canonical_answer = answer
             image = _terminal_image_from_tool_result(result) if result else None
