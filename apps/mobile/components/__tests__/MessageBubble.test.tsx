@@ -3,6 +3,7 @@ import * as Clipboard from "expo-clipboard";
 import { act, fireEvent, render } from "@testing-library/react-native";
 
 import { MessageBubble } from "@/components/MessageBubble";
+import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
 import type { Message } from "@/lib/api";
 
 let mockShowLiveClock = false;
@@ -202,6 +203,50 @@ describe("MessageBubble copy feedback timers", () => {
     });
     expect(clearSpy).toHaveBeenCalled();
     clearSpy.mockRestore();
+  });
+
+  describe("read aloud", () => {
+    const readingForever = () =>
+      jest.mocked(speakPlainText).mockImplementationOnce(() => new Promise(() => {}));
+
+    it("stops reading when the reply leaves the screen", async () => {
+      readingForever();
+      const view = await render(<MessageBubble message={assistantMessage} />);
+      await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+      expect(speakPlainText).toHaveBeenCalledTimes(1);
+      // Another chat, a regenerate or list recycling takes the stop button
+      // away; the voice must not keep reading with no way to stop it.
+      await act(async () => {
+        view.unmount();
+      });
+      expect(stopSpeaking).toHaveBeenCalledTimes(1);
+    });
+
+    it("stops reading when the row is reused for another reply", async () => {
+      readingForever();
+      const view = await render(<MessageBubble message={assistantMessage} />);
+      await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+      await view.rerender(
+        <MessageBubble message={{ ...assistantMessage, id: "assistant-2" }} />,
+      );
+      expect(stopSpeaking).toHaveBeenCalledTimes(1);
+      // The reused row starts the new reply instead of acting as Stop.
+      await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+      expect(speakPlainText).toHaveBeenCalledTimes(2);
+      expect(stopSpeaking).toHaveBeenCalledTimes(1);
+    });
+
+    it("leaves other playback alone once its own reading has finished", async () => {
+      const view = await render(<MessageBubble message={assistantMessage} />);
+      await fireEvent.press(view.getByLabelText("chat.read_aloud_a11y"));
+      await act(async () => {
+        await Promise.resolve();
+      });
+      await act(async () => {
+        view.unmount();
+      });
+      expect(stopSpeaking).not.toHaveBeenCalled();
+    });
   });
 
   it("dispatches live clocks through the lazy rich boundary", async () => {
