@@ -458,16 +458,20 @@ _MOTION_HOMEWORK = re.compile(
     r"|lever"
     r"|torque"
     r"|constant\s+(?:rate|acceleration|speed|velocity)"
-    r"|m\s*/\s*s"
     r"|metres?\s+per\s+second"
     r"|meters?\s+per\s+second"
     # "A train leaves at 9am and travels at 60 km/h. How far has it gone?"
-    r"|km\s*/\s*h|kph|mph|km\s+(?:per|an)\s+hour|miles\s+(?:per|an)\s+hour"
+    r"|km\s+(?:per|an)\s+hour|miles\s+(?:per|an)\s+hour"
     r"|travel(?:s|ed|led)?\s+at|average\s+speed"
+    # "A ball is kicked at 40° ... how far does it go?" is a launch, not a trip.
+    r"|thrown|kicked(?!\s+off)|(?:above|below)\s+the\s+(?:horizontal|ground)"
     # "How far is the image from the lens?" is optics, not the user's location.
     r"|lens(?:es)?|mirror|focal|echo(?:es)?|pendulum|wavelength|refract\w*"
-    r"|\d\s*(?:cm|mm)"
-    r")\b",
+    r")\b"
+    # A speed unit may sit right on its number: "90km/h", "5m/s". The boundary
+    # before it is the digit's, so these read without a leading \b.
+    r"|(?<![A-Za-z])(?:m\s*/\s*s|km\s*/\s*h|kph|mph)\b"
+    r"|\d\s*(?:cm|mm)\b|\d\s*°",
     re.IGNORECASE,
 )
 

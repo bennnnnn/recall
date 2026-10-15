@@ -13,6 +13,7 @@ import pytest
 from app.core.config import Settings
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
 from app.modules.physics.direct import maybe_direct_physics_reply
+from app.modules.physics.extract import needs_physics
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.web_search.geo_intent import is_distance_query
 from app.services.solving import VerifiedPhysicsBlock
@@ -836,3 +837,37 @@ def test_a_plugged_power_brackets_a_number_in_scientific_form() -> None:
     latex = to_latex("G_grav*M/radius_body**2", {}, {"M": 5.972e24, "radius_body": 6.371e6})
     assert r"(6.371 \times 10^{6})^{2}" in latex
     assert "}^{2}" not in latex.replace(r"10^{6})^{2}", "")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # 21. A glued unit is still motion homework, not a trip from the user.
+        "car doing 90km/h, how far does it go in 4 s in metres",
+        "a car going 72km/h, how far will it go in 10 s",
+        "a cyclist rides at 5m/s for 2 minutes how far does she go",
+        "A ball is kicked at 40° above the ground with speed 20m/s. how far does it go?",
+        "A ball is thrown at 30° above the horizontal. how far does it go?",
+    ],
+)
+def test_a_motion_question_with_a_glued_unit_is_not_a_location_lookup(text: str) -> None:
+    assert not is_distance_query(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "remind me to buy a 9V battery tomorrow",
+        "remind me to charge the 12V battery in the car tomorrow at 9",
+        "set a reminder at 6pm to replace the 60 W bulb in the kitchen",
+        "remind me at 7 to charge my 5000 mAh power bank",
+    ],
+)
+def test_a_reminder_with_an_electrical_unit_is_not_physics(text: str) -> None:
+    assert not needs_physics(text)
+
+
+def test_a_physics_question_that_starts_remind_me_how_is_still_physics() -> None:
+    assert needs_physics(
+        "remind me how to find the current through a 4 ohm resistor on a 12 V battery"
+    )
