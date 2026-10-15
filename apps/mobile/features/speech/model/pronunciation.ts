@@ -1,6 +1,7 @@
 /** Device TTS via expo-speech; optional cloud TTS via /speech/tts. */
 
-import { cacheDirectory, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
+import { cacheDirectory, deleteAsync, writeAsStringAsync, EncodingType } from "expo-file-system/legacy";
+import { AppState } from "react-native";
 
 import { requestRaw } from "@/lib/api/client";
 import { playbackStatusFinished } from "@/features/speech/model/cloudPlayback";
@@ -58,6 +59,21 @@ export type SpeakResult = { ok: true } | { ok: false; reason: "unavailable" | "e
 
 function isCurrentSpeak(generation: number): boolean {
   return generation === speakGeneration;
+}
+
+let backgroundStop: { remove: () => void } | null = null;
+
+/**
+ * Read-aloud ends when the app goes to the background. expo-audio pauses
+ * players there (no `shouldPlayInBackground`), and the clip queue read that
+ * pause as the end of a clip: it fetched and started the next clip in the
+ * background. One listener for the app's lifetime, added on first use.
+ */
+function stopReadingInBackground(): void {
+  if (backgroundStop) return;
+  backgroundStop = AppState.addEventListener("change", (state) => {
+    if (state === "background") stopSpeaking();
+  });
 }
 
 function stopCloudPlayer(): void {
@@ -237,7 +253,7 @@ async function playCloudBase64(
     if (!isCurrentSpeak(generation)) return { ok: true };
     const player = Audio.createAudioPlayer(path, { updateInterval: 50 }) as PlaybackHandle;
     applySpeechRate(player);
-    cloudPlayerCleanup = () => {
+    const release = () => {
       try {
         player.pause();
       } catch {
@@ -248,11 +264,19 @@ async function playCloudBase64(
       } catch {
         /* ignore */
       }
+      // Each clip is written fresh; nothing reads this file again.
+      void deleteAsync(path, { idempotent: true }).catch(() => undefined);
     };
+    cloudPlayerCleanup = release;
     player.play();
     logTtsSpeechStarted();
     await waitUntilPlaybackEnds(player, maxWaitMs ?? CLOUD_PLAYBACK_MAX_MS);
-    if (!isCurrentSpeak(generation)) return { ok: true };
+    // Release on finish, not on the next tap: a finished player keeps the
+    // audio session in playback and holds the decoder.
+    if (cloudPlayerCleanup === release) {
+      cloudPlayerCleanup = null;
+      release();
+    }
     return { ok: true };
   } catch {
     return { ok: false, reason: "error" };
@@ -276,9 +300,9 @@ async function playRemoteAudio(url: string): Promise<SpeakResult> {
   if (!Audio) return { ok: false, reason: "unavailable" };
   try {
     stopSpeaking();
-    const generation = speakGeneration;
+    stopReadingInBackground();
     const player = Audio.createAudioPlayer(url);
-    cloudPlayerCleanup = () => {
+    const release = () => {
       try {
         player.pause();
       } catch {
@@ -290,9 +314,13 @@ async function playRemoteAudio(url: string): Promise<SpeakResult> {
         /* ignore */
       }
     };
+    cloudPlayerCleanup = release;
     player.play();
     await waitUntilPlaybackEnds(player);
-    if (!isCurrentSpeak(generation)) return { ok: true };
+    if (cloudPlayerCleanup === release) {
+      cloudPlayerCleanup = null;
+      release();
+    }
     return { ok: true };
   } catch {
     return { ok: false, reason: "error" };
@@ -446,6 +474,7 @@ export async function speakPlainText(
   markTtsTap();
   logTtsLatency("tap");
   stopSpeaking();
+  stopReadingInBackground();
   const generation = speakGeneration;
   const plain = markdownToSpeechText(text).slice(0, 4000);
   if (!plain) return { ok: false, reason: "error" };
