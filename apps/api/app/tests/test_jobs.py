@@ -528,6 +528,55 @@ async def test_start_and_stop_worker():
     assert jobs._worker_task is None
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "owns_pending_entry, consumers_left",
+    [
+        (False, 0),  # clean stop: nothing of ours is pending
+        (True, 1),  # deleting it would drop the entry XAUTOCLAIM still needs
+    ],
+)
+async def test_stopped_worker_removes_its_consumer_from_the_group(
+    fake_redis, monkeypatch, owns_pending_entry, consumers_left
+):
+    """Consumers are named per process (host + pid), so every restart, deploy
+    and `--reload` added one to the group and nothing ever removed it."""
+    processed = asyncio.Event()
+
+    async def handler(settings, payload):
+        processed.set()
+
+    monkeypatch.setitem(jobs._HANDLERS, "consumer-cleanup", handler)
+    await fake_redis.xgroup_create(jobs.JOBS_STREAM, jobs.JOBS_GROUP, id="0", mkstream=True)
+    if owns_pending_entry:
+        # Delivered to this process earlier and never acked (crash mid-job).
+        await fake_redis.xadd(jobs.JOBS_STREAM, {"type": "consumer-cleanup", "payload": "{}"})
+        await fake_redis.xreadgroup(
+            jobs.JOBS_GROUP, jobs._consumer_name(), {jobs.JOBS_STREAM: ">"}, count=1
+        )
+    await fake_redis.xadd(jobs.JOBS_STREAM, {"type": "consumer-cleanup", "payload": "{}"})
+
+    # fakeredis does not block on XREADGROUP BLOCK; poll without starving the loop.
+    real_read = fake_redis.xreadgroup
+
+    async def polling_read(*args, block=None, **kwargs):
+        await asyncio.sleep(0.01)
+        return await real_read(*args, **kwargs)
+
+    fake_redis.xreadgroup = polling_read
+
+    with patch("app.core.jobs.get_jobs_redis_client", return_value=fake_redis):
+        await jobs.start_worker(Settings(jobs_worker_concurrency=1))
+        await asyncio.wait_for(processed.wait(), timeout=5)
+        await asyncio.sleep(0.05)  # let the ack land
+        await jobs.stop_worker()
+
+    consumers = await fake_redis.xinfo_consumers(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
+    assert len(consumers) == consumers_left
+    if owns_pending_entry:
+        assert consumers[0]["pending"] == 1
+
+
 # ── queue metrics / observability ────────────────────────────────────────────
 
 

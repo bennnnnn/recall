@@ -493,34 +493,55 @@ async def _worker_loop(settings: Settings) -> None:
     # picked up by a live peer within ~_CLAIM_IDLE_MS + _RECLAIM_INTERVAL_S.
     last_reclaim_at = asyncio.get_event_loop().time()
     _RECLAIM_INTERVAL_S = 30.0
-    while True:
-        _touch_heartbeat()
-        now = asyncio.get_event_loop().time()
-        if now - last_metrics_at >= _METRICS_INTERVAL_S:
-            last_metrics_at = now
-            await report_queue_metrics(redis)
-        if now - last_reclaim_at >= _RECLAIM_INTERVAL_S:
-            last_reclaim_at = now
-            await _reclaim_pending_jobs(redis, settings, consumer)
-        try:
-            resp = cast(
-                list[tuple[str, list[tuple[str, dict[str, Any]]]]],
-                await redis.xreadgroup(
-                    JOBS_GROUP, consumer, {JOBS_STREAM: ">"}, count=_BATCH, block=_BLOCK_MS
-                ),
-            )
-        except asyncio.CancelledError:
-            raise
-        except Exception:
-            logger.debug("xreadgroup failed; backing off", exc_info=True)
-            await asyncio.sleep(2)
-            continue
-
-        if not resp:
-            continue
-        for _stream, entries in resp:
-            await _process_entries(redis, settings, entries)
+    try:
+        while True:
             _touch_heartbeat()
+            now = asyncio.get_event_loop().time()
+            if now - last_metrics_at >= _METRICS_INTERVAL_S:
+                last_metrics_at = now
+                await report_queue_metrics(redis)
+            if now - last_reclaim_at >= _RECLAIM_INTERVAL_S:
+                last_reclaim_at = now
+                await _reclaim_pending_jobs(redis, settings, consumer)
+            try:
+                resp = cast(
+                    list[tuple[str, list[tuple[str, dict[str, Any]]]]],
+                    await redis.xreadgroup(
+                        JOBS_GROUP, consumer, {JOBS_STREAM: ">"}, count=_BATCH, block=_BLOCK_MS
+                    ),
+                )
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                logger.debug("xreadgroup failed; backing off", exc_info=True)
+                await asyncio.sleep(2)
+                continue
+
+            if not resp:
+                continue
+            for _stream, entries in resp:
+                await _process_entries(redis, settings, entries)
+                _touch_heartbeat()
+    finally:
+        await _forget_consumer(redis, consumer)
+
+
+async def _forget_consumer(redis: Redis, consumer: str) -> None:
+    """Remove this process's consumer from the group when its loop stops.
+
+    Consumers are named per process (host + pid), so every restart, deploy and
+    ``--reload`` added one to the group and nothing ever removed it. One that
+    still owns pending entries stays: XGROUP DELCONSUMER would drop them from
+    the pending list, and XAUTOCLAIM hands them to a live worker first.
+    """
+    try:
+        owned = await redis.xpending_range(
+            JOBS_STREAM, JOBS_GROUP, min="-", max="+", count=1, consumername=consumer
+        )
+        if not owned:
+            await redis.xgroup_delconsumer(JOBS_STREAM, JOBS_GROUP, consumer)
+    except Exception:
+        logger.debug("jobs consumer cleanup skipped consumer=%s", consumer, exc_info=True)
 
 
 _worker_task: asyncio.Task[None] | None = None
