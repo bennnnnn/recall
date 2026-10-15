@@ -6,6 +6,17 @@ import { api } from "@/lib/api";
 const INDEX_POLL_MS = 2000;
 /** Match jobs.py `_JOB_DONE_CLAIM_TTL_SECONDS` (300s) plus one poll slack. */
 export const INDEX_POLL_MAX_MS = 360_000;
+/**
+ * An attachment older than this has had its indexing job run (or give up),
+ * so its first answer is final. Well past INDEX_POLL_MAX_MS so a phone clock
+ * that runs a few minutes ahead never fails a fresh upload.
+ */
+export const INDEX_SETTLED_AGE_MS = 15 * 60_000;
+
+function settledByAge(createdAt: string | undefined): boolean {
+  const created = createdAt ? Date.parse(createdAt) : Number.NaN;
+  return Number.isFinite(created) && Date.now() - created >= INDEX_SETTLED_AGE_MS;
+}
 
 export type AttachmentIndexStatus = {
   indexed: boolean;
@@ -39,6 +50,12 @@ export function useAttachmentIndexed(
         if (cancelled) return;
         if (row.indexed !== false) {
           setResult({ attachmentId, token, indexed: true, failed: false });
+          return;
+        }
+        // A file with no extractable text stays unindexed forever. Without
+        // this, every visit to an old chat polled it for six minutes.
+        if (settledByAge(row.created_at)) {
+          setResult({ attachmentId, token, indexed: false, failed: true });
           return;
         }
         setResult({ attachmentId, token, indexed: false, failed: false });

@@ -66,6 +66,50 @@ describe("useAttachmentIndexed", () => {
     expect(failed).toBe(false);
   });
 
+  it("asks once about an old attachment that will never be indexed", async () => {
+    jest.useFakeTimers();
+    // A file with no extractable text stays `indexed: false` forever. Old
+    // chats with one polled every 2 seconds for 6 minutes, again on every
+    // visit and every time the list reused the row.
+    mockGetAttachmentUrl.mockResolvedValue({
+      indexed: false,
+      created_at: new Date(Date.now() - 60 * 60_000).toISOString(),
+    });
+    try {
+      await act(async () => {
+        render(<Probe attachmentId="old-scan" />);
+      });
+      await waitFor(() => expect(failed).toBe(true));
+      await act(async () => {
+        jest.advanceTimersByTime(60_000);
+      });
+      expect(mockGetAttachmentUrl).toHaveBeenCalledTimes(1);
+      expect(indexed).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it("keeps polling a just-uploaded attachment", async () => {
+    jest.useFakeTimers();
+    mockGetAttachmentUrl.mockResolvedValue({
+      indexed: false,
+      created_at: new Date().toISOString(),
+    });
+    try {
+      await act(async () => {
+        render(<Probe attachmentId="fresh" />);
+      });
+      await act(async () => {
+        jest.advanceTimersByTime(10_000);
+      });
+      expect(mockGetAttachmentUrl.mock.calls.length).toBeGreaterThan(1);
+      expect(failed).toBe(false);
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
   it("keeps indexing through the job claim TTL, then marks failed", async () => {
     jest.useFakeTimers();
     mockGetAttachmentUrl.mockResolvedValue({ indexed: false });
