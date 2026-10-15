@@ -7,7 +7,9 @@ silently discarded; callers only use the default real-domain forms here.
 
 from __future__ import annotations
 
-from sympy import Eq, FiniteSet, S, Symbol, latex, simplify, solveset
+from typing import Any
+
+from sympy import Complement, Eq, FiniteSet, Intersection, S, Symbol, latex, simplify, solveset
 from sympy.calculus.util import continuous_domain, function_range
 
 from app.modules.math.solve import MathServiceError, _parse_expression
@@ -51,6 +53,27 @@ def real_range(expr: str, variable: str = "x") -> str:
     return str(latex(result))
 
 
+def _candidate_set(solutions: Any) -> Any:
+    """The candidates under the real-domain conditions SymPy wraps them in.
+
+    ``e^x = t`` solves to ``Intersection({log(t)}, Reals)`` and ``(2x+1)/(x-3) = t``
+    to ``Complement(Intersection({(3t+1)/(t-2)}, Reals), {3})``: one inverse, with
+    the values it can take. ``x^2 = t`` keeps two candidates and is still refused.
+    """
+    current = solutions
+    while isinstance(current, (Intersection, Complement)):
+        if isinstance(current, Complement):
+            current = current.args[0]
+            continue
+        finite = [arg for arg in current.args if isinstance(arg, FiniteSet)]
+        if len(finite) != 1 or any(
+            arg is not S.Reals and not isinstance(arg, FiniteSet) for arg in current.args
+        ):
+            return current
+        current = finite[0]
+    return current
+
+
 def inverse_function(expr: str, variable: str = "x") -> str:
     """Return a single-valued real inverse, refusing ambiguous inverse relations.
 
@@ -62,7 +85,7 @@ def inverse_function(expr: str, variable: str = "x") -> str:
     sym = Symbol(variable, real=True)
     target = Symbol("_inverse_target", real=True)
     try:
-        solutions = solveset(Eq(parsed, target), sym, domain=S.Reals)
+        solutions = _candidate_set(solveset(Eq(parsed, target), sym, domain=S.Reals))
     except Exception as exc:
         raise MathServiceError("could not determine an inverse function") from exc
     if not isinstance(solutions, FiniteSet) or len(solutions) != 1:

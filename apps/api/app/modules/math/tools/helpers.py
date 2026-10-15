@@ -6,7 +6,12 @@ import logging
 import re
 from string import ascii_letters
 
-from app.modules.math.match.scan import ddx_cue_at, ddx_expr_after, looks_like_math_expr
+from app.modules.math.match.scan import (
+    CALC_OP_SPELLINGS,
+    ddx_cue_at,
+    ddx_expr_after,
+    looks_like_math_expr,
+)
 from app.services.text_normalize import collapse_ws
 
 logger = logging.getLogger(__name__)
@@ -81,6 +86,8 @@ _CALC_VERBS = (
     "integral",
     "factor",
     "expand",
+    # The spellings ``calc_op`` reads as one of the verbs above.
+    *CALC_OP_SPELLINGS,
 )
 
 
@@ -425,6 +432,10 @@ def _calc_expr_tail(cleaned: str) -> str | None:
         ddx = ddx_cue_at(cleaned)
         if ddx is not None and (best_at is None or ddx < best_at):
             return ddx_tail
+    # ``∫ (3x^2 + 2x) dx``: the integral sign is the verb, never part of the integrand.
+    sign_at = cleaned.find("\u222b")
+    if sign_at != -1 and (best_at is None or sign_at < best_at):
+        return cleaned[sign_at + 1 :].lstrip()
     if best_at is None:
         of_at = lower.find(" of ")
         if of_at != -1 and "'" in cleaned[:of_at]:

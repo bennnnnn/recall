@@ -32,6 +32,7 @@ from app.modules.math.tools.helpers import (
     _split_response_instruction_sentence,
     has_assignment_evaluation_request,
     math_expr_or_none,
+    peel_function_definition,
 )
 from app.modules.math.tools.keyboard_notation import (
     keyboard_bounds_read_first,
@@ -335,7 +336,8 @@ def _extract_math_intent(text: str) -> MathIntent | None:
         cleaned = f"solve {subject.group(2).strip()} for {subject.group(1)}"
     roots_match = _ROOTS_RE.search(cleaned)
     if roots_match:
-        tail = math_expr_or_none(roots_match.group(1))
+        # "zeros of f(x) = x^2 - 4x": the function's formula, not the equation f(x) = ….
+        tail = math_expr_or_none(peel_function_definition(roots_match.group(1)))
         if tail is not None and "=" not in tail:
             cleaned = f"solve {tail} = 0"
     region_question = _REGION_QUESTION_RE.search(cleaned) is not None

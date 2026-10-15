@@ -30,6 +30,10 @@ _ARITH_CUES: tuple[str, ...] = (
     "what is",
     "what's",
     "whats",
+    # Chat spelling of the same cue ("wat is 15 - 4 x 3").
+    "wat is",
+    "wat's",
+    "wats",
     "calculate",
     "compute",
     "evaluate",
@@ -71,6 +75,34 @@ _LARGEST_FACTORIAL = 170
 _MIXED_NUMBER = re.compile(r"(?<![\d.])(\d+)\s+(\d+)\s*/\s*(\d+)(?![\d.])")
 # Two numbers with only a space between them (``1 000``) are not one expression.
 _SPACED_NUMBERS = re.compile(r"\d\s+[\d.]")
+# ``456 x 23``: a letter x spaced between two numbers is "times". ``2x + 3``
+# keeps its unknown, and a glued ``8x5`` stays a dimension (like ``8 by 5``).
+_TIMES_LETTER = re.compile(r"(?<![\w.])(\d+(?:\.\d+)?)\s+[xX]\s+(?=\d)")
+# Spoken operators between numbers, read by the same whole-message grammar.
+_SPOKEN_OPERATORS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bmultiplied\s+by\b"), "*"),
+    (re.compile(r"\bdivided\s+by\b"), "/"),
+    (re.compile(r"\btimes\b"), "*"),
+    (re.compile(r"\bplus\b"), "+"),
+    (re.compile(r"\bminus\b"), "-"),
+)
+# ``log base 2 of 64`` is ``log_2(64)``: a number base, a number or a bracket.
+_SPOKEN_LOG_BASE = re.compile(
+    r"\blog\s+(?:to\s+(?:the\s+)?)?base\s+(\d+(?:\.\d+)?)\s+of\s+(\d+(?:\.\d+)?|\([^()]*\))"
+)
+
+
+def times_between_numbers(text: str) -> str:
+    """``456 x 23`` → ``456 * 23``; ``2x + 3``, ``8x5`` and ``0x10`` stay as typed."""
+    return _TIMES_LETTER.sub(r"\1 * ", text)
+
+
+def spoken_arithmetic(lower: str) -> str:
+    """Spoken operators and ``log base b of n`` in the notation the grammar reads."""
+    text = _SPOKEN_LOG_BASE.sub(r"log_\1(\2)", lower)
+    for pattern, operator in _SPOKEN_OPERATORS:
+        text = pattern.sub(f" {operator} ", text)
+    return collapse_ws(times_between_numbers(text))
 
 
 def _factorials_ok(compact: str) -> bool:
@@ -260,6 +292,7 @@ def bare_arithmetic_expr(text: str) -> str | None:
     stripped, had_cue = _strip_arith_cues(text.lower())
     if not stripped or not any(ch.isdigit() for ch in stripped):
         return None
+    stripped = spoken_arithmetic(stripped)
     from app.modules.math.solve.parse import _normalize_latex_to_sympy
 
     normalized = _normalize_latex_to_sympy(_MIXED_NUMBER.sub(r"(\1+\2/\3)", stripped))

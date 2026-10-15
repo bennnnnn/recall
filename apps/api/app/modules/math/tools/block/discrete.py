@@ -1030,7 +1030,12 @@ def _verified_block_number_theory(
     if intent.numtheory_op is None or intent.numtheory_a is None:
         return None
     result = math_solve.compute_number_theory(
-        NumberTheoryInput(operation=intent.numtheory_op, a=intent.numtheory_a, b=intent.numtheory_b)
+        NumberTheoryInput(
+            operation=intent.numtheory_op,
+            a=intent.numtheory_a,
+            b=intent.numtheory_b,
+            values=intent.numtheory_values,
+        )
     )
     lines.extend(result.steps)
     answer = _format_number_theory_answer(result)

@@ -103,9 +103,92 @@ _TEMPERATURE_WORDS = re.compile(
 )
 
 
+# "how many seconds in a day": units of one fixed size. A month or a year is not
+# one (28-31 days; 365 or 366), so those are left to the model.
+_FIXED_UNITS = {
+    "second": "second",
+    "seconds": "second",
+    "minute": "minute",
+    "minutes": "minute",
+    "hour": "hour",
+    "hours": "hour",
+    "day": "day",
+    "days": "day",
+    "week": "week",
+    "weeks": "week",
+    "millimetre": "millimeter",
+    "millimetres": "millimeter",
+    "millimeter": "millimeter",
+    "millimeters": "millimeter",
+    "centimetre": "centimeter",
+    "centimetres": "centimeter",
+    "centimeter": "centimeter",
+    "centimeters": "centimeter",
+    "metre": "meter",
+    "metres": "meter",
+    "meter": "meter",
+    "meters": "meter",
+    "kilometre": "kilometer",
+    "kilometres": "kilometer",
+    "kilometer": "kilometer",
+    "kilometers": "kilometer",
+    "inch": "inch",
+    "inches": "inch",
+    "foot": "foot",
+    "feet": "foot",
+    "yard": "yard",
+    "yards": "yard",
+    "mile": "mile",
+    "miles": "mile",
+    "gram": "gram",
+    "grams": "gram",
+    "kilogram": "kilogram",
+    "kilograms": "kilogram",
+    "ounce": "ounce",
+    "ounces": "ounce",
+    "pound": "pound",
+    "pounds": "pound",
+    "millilitre": "milliliter",
+    "millilitres": "milliliter",
+    "milliliter": "milliliter",
+    "milliliters": "milliliter",
+    "litre": "liter",
+    "litres": "liter",
+    "liter": "liter",
+    "liters": "liter",
+}
+_HOW_MANY_IN = re.compile(
+    r"how\s+many\s+(?P<to>[a-z]+)\s+(?:are\s+)?(?:there\s+)?in\s+"
+    r"(?:(?P<one>a|an|one)|(?P<n>\d+(?:\.\d+)?))\s+(?P<from>[a-z]+)\s*[?.]?",
+    re.IGNORECASE,
+)
+
+
+def extract_how_many_in_intent(cleaned: str) -> MathIntent | None:
+    """``how many seconds in a day`` is 1 day in seconds; both units of one fixed size."""
+    match = _HOW_MANY_IN.fullmatch(" ".join(cleaned.split()))
+    if match is None:
+        return None
+    dest = _FIXED_UNITS.get(match.group("to").lower())
+    src = _FIXED_UNITS.get(match.group("from").lower())
+    if dest is None or src is None or dest == src:
+        return None
+    return MathIntent(
+        kind="unit",
+        school_op="convert",
+        percent_base=1.0 if match.group("one") else float(match.group("n")),
+        unit_from=src,
+        unit_to=f"{dest}s" if dest not in {"foot", "inch"} else match.group("to").lower(),
+        operation="solve",
+    )
+
+
 def _extract_unit_intent(cleaned: str) -> MathIntent | None:
     from app.services.unit_text import QUANTITY_NUMBER
 
+    how_many = extract_how_many_in_intent(cleaned)
+    if how_many is not None:
+        return how_many
     cleaned = _TEMPERATURE_WORDS.sub(r"\1", cleaned)
     lower = cleaned.lower()
     if "convert" not in lower and " to " not in lower:

@@ -441,11 +441,20 @@ def extract_coord_formulas(cleaned: str) -> MathIntent | None:
     )
 
 
+_ANGLE_BETWEEN_VECTORS = re.compile(
+    r"\bangle\s+between\s+(?:the\s+)?(?:two\s+)?vectors\b", re.IGNORECASE
+)
+
+
 def extract_vector_formulas(cleaned: str) -> MathIntent | None:
     from app.modules.math.match.coordinate_vector import literal_math_tuples
 
     lower = cleaned.lower()
     vecs = literal_math_tuples(cleaned, "<", ">") or []
+    if not vecs and _ANGLE_BETWEEN_VECTORS.search(cleaned):
+        # "angle between the vectors (1,0) and (1,1)": named as vectors, so the
+        # round brackets are vectors, not points.
+        vecs = literal_math_tuples(cleaned, "(", ")") or []
     if not vecs:
         return None
     if "unit vector" in lower:
