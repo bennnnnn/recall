@@ -444,6 +444,87 @@ async def test_a_nightly_reminder_with_no_day_is_saved():
     assert create.await_args.kwargs["recurrence_rule"] == "daily"
 
 
+@pytest.mark.parametrize(
+    ("text", "day"),
+    [
+        # 09:00 in Nairobi: 7pm is still ahead, 6:30am has passed.
+        ("remind me to plate the dinner at 7pm", "today"),
+        ("remind me to call mom at 7pm", "today"),
+        ("remind me at 6:30am to take my pills", "tomorrow"),
+        ("set a reminder to start the oven at 6pm", "today"),
+        ("can you remind me at 8pm to take out the trash", "today"),
+        ("ok remind me to water the plants at noon", "today"),
+    ],
+)
+def test_a_bare_clock_is_the_next_one(text, day):
+    from datetime import UTC, datetime
+
+    from app.modules.todos.spoken_add import day_for_a_bare_clock
+
+    parsed = parse_spoken_add(text)
+    assert parsed is not None and parsed.day is None
+    now = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
+    dated = day_for_a_bare_clock(parsed, text, user_timezone="Africa/Nairobi", now=now)
+    assert (dated.title, dated.day, dated.hour) == (parsed.title, day, parsed.hour)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Not a request for a reminder.
+        "you forgot to remind me to take my pills at 8pm",
+        "did you remind me to plate the dinner at 7pm?",
+        "why didn't you remind me to call mom at 5pm",
+        # No clock, or no part of the day for a bare "at 7".
+        "remind me to plate the dinner",
+        "remind me to plate the dinner at 7",
+        # A day or a repeat is already said.
+        "remind me to plate the dinner tomorrow at 7pm",
+        "remind me to take my meds at 9pm every night",
+    ],
+)
+def test_a_bare_clock_needs_a_reminder_request_and_nothing_else(text):
+    from app.modules.todos.spoken_add import day_for_a_bare_clock
+
+    parsed = parse_spoken_add(text)
+    if parsed is None:
+        return
+    assert day_for_a_bare_clock(parsed, text, user_timezone="Africa/Nairobi") == parsed
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "reply",
+    ["Set: Plate the dinner — today, Oct 14, 7:00 PM.", "Sure, I'll remind you at 7 PM."],
+)
+async def test_a_reminder_with_a_clock_and_no_day_is_saved(reply):
+    """Neither "plate" nor "dinner" is read as anything; the missing day was the gap."""
+    text, applied, create, _ = await _finalize("remind me to plate the dinner at 7pm", reply)
+    assert applied == 1
+    assert create.await_args.kwargs["content"] == "plate the dinner"
+    assert not text.startswith("I didn't")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("user_text", "reply"),
+    [
+        (
+            "you forgot to remind me to take my pills at 8pm",
+            "Sorry about that! Want me to set it again for tonight?",
+        ),
+        (
+            "the recipe says to plate the dinner at 7pm sharp",
+            "Plating right at 7 keeps everything hot.",
+        ),
+    ],
+)
+async def test_a_clock_in_conversation_saves_nothing(user_text, reply):
+    text, applied, create, _ = await _finalize(user_text, reply)
+    assert (text, applied) == (reply, 0)
+    create.assert_not_awaited()
+
+
 @pytest.mark.asyncio
 async def test_done_after_a_question_about_reminders_completes_it():
     _, applied, _, update = await _finalize(

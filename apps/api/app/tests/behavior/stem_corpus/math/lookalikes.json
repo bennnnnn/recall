@@ -49,5 +49,9 @@
   {"id": "L48", "area": "lookalike", "prompt": "half of my 3/4 cup of sugar spilled, what do I do", "expect": "not_math"},
   {"id": "L49", "area": "lookalike", "prompt": "the cube root of my problems is procrastination lol", "expect": "not_math"},
   {"id": "L50", "area": "lookalike", "prompt": "find the angle between the two walls in my room for the shelf", "expect": "not_math"},
-  {"id": "L51", "area": "lookalike", "prompt": "integrate by parts of the team into the new project", "expect": "not_math"}
+  {"id": "L51", "area": "lookalike", "prompt": "integrate by parts of the team into the new project", "expect": "not_math"},
+  {"id": "L52", "area": "lookalike", "prompt": "my recipe makes 12 cookies, how many should I bake for the party?", "expect": "not_math"},
+  {"id": "L53", "area": "lookalike", "prompt": "A recipe needs 3 cups of flour for 12 cookies, is that a lot?", "expect": "not_math"},
+  {"id": "L54", "area": "lookalike", "prompt": "I booked 2 rooms for 3 nights. How many towels come with that?", "expect": "not_math"},
+  {"id": "L55", "area": "lookalike", "prompt": "what should I cook tonight?", "expect": "not_math"}
 ]

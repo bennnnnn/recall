@@ -123,6 +123,14 @@ _RELATION = re.compile(
     r"|split|equally|ages?|years\s+old|numbers?|integers?|percent)\b|%",
     re.IGNORECASE,
 )
+# A stated rate scaled to a third amount is a proportion: "3 cups of flour for
+# 12 cookies … for 30 cookies", "2 eggs make 8 pancakes", "8 litres per 100 km".
+# "2 rooms for 3 nights, how many towels?" has no third amount.
+_STATED_RATE = re.compile(
+    r"\b\d+(?:\.\d+)?\s+[a-z]+(?:\s+of\s+[a-z]+)?\s+"
+    r"(?:for|per|makes?|serves?|feeds?|to\s+make)\s+\d",
+    re.IGNORECASE,
+)
 _DIGITS = re.compile(r"\d+(?:,\d{3})*(?:\.\d+)?|\.\d+")
 _NUMBER_WORDS: dict[str, tuple[int, ...]] = {
     "zero": (0,),
@@ -233,9 +241,10 @@ def word_problem_candidate(text: str) -> bool:
         pronoun = _PRONOUN_REQUEST.search(text)
         if pronoun is None or _PRONOUN_MATH_CONTEXT.search(text[: pronoun.start()]) is None:
             return False
-    if not _RELATION.search(text):
-        return False
     digits = len(_DIGITS.findall(text))
+    scaled_rate = digits >= 3 and _STATED_RATE.search(text) is not None
+    if not (_RELATION.search(text) or scaled_rate):
+        return False
     words = sum(1 for word in _WORD.findall(text.lower()) if word in _NUMBER_WORDS)
     # At least one number in digits: "how many calories are in two eggs and
     # three slices" is a lookup, and a false positive here costs the turn a

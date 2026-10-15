@@ -18,6 +18,7 @@ from app.modules.web_search.patterns import (
     distance_between_phrase,
     is_weather_request,
     non_geographic_nearest,
+    trip_how_many_phrase,
 )
 
 _LOCATIONLESS_WEATHER = re.compile(
@@ -80,7 +81,9 @@ def is_proximity_query(text: str) -> bool:
 def is_distance_query(text: str) -> bool:
     """Distance, travel time, or directions from the user's location."""
     cleaned = text.strip()
-    if not cleaned or not _DISTANCE_INTENT.search(cleaned):
+    if not cleaned:
+        return False
+    if not (_DISTANCE_INTENT.search(cleaned) or trip_how_many_phrase(cleaned)):
         return False
     if _MOTION_HOMEWORK.search(cleaned):
         return False

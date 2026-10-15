@@ -25,5 +25,8 @@
   {"id": "il-24", "area": "lookalike", "prompt": "my 2 kW kettle takes ages, is it broken?", "expect": "not_subject"},
   {"id": "il-25", "area": "lookalike", "prompt": "how many mAh is a good power bank for a week away?", "expect": "not_subject"},
   {"id": "il-26", "area": "lookalike", "prompt": "is 75 degrees fahrenheit warm enough for the beach?", "expect": "not_subject"},
-  {"id": "il-27", "area": "lookalike", "prompt": "how many miles is a 5k run?", "expect": "not_subject"}
+  {"id": "il-27", "area": "lookalike", "prompt": "how many miles is a 5k run?", "expect": "not_subject"},
+  {"id": "il-28", "area": "lookalike", "prompt": "the half-life of my motivation is about ten minutes today", "expect": "not_subject"},
+  {"id": "il-29", "area": "lookalike", "prompt": "the pressure in my head is through the roof today", "expect": "not_subject"},
+  {"id": "il-30", "area": "lookalike", "prompt": "how many minutes in a good nap", "expect": "not_subject"}
 ]

@@ -365,7 +365,8 @@
   "area": "math",
   "prompt": "I work 9am to 5:30pm every day with a 45 min lunch. how many hours do I actually work in a 5-day week?",
   "reply": "- 9am → 5:30pm = 8.5 hours\n- Minus lunch: $8.5 - 0.75 = 7.75$ hours per day\n- Over 5 days: $7.75 \\times 5 = 38.75$ hours\n\nThat's **38 hours 45 minutes** a week.",
-  "expect": "answer"
+  "expect": "answer",
+  "gap": "'lunch' makes it a food question and the work-hours sum is not read as maths, so it gets the personal-recommendation hint."
  },
  {
   "id": "ms-035",

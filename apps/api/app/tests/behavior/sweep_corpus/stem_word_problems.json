@@ -5,7 +5,8 @@
   "prompt": "a bus leaves at 7:15am and arrives at 9:40am how long is the trip",
   "history": [],
   "reply": "The trip takes **2 hours 25 minutes**.\n\nCount it in two pieces:\n\n1. 7:15 → 9:15 is **2 hours**\n2. 9:15 → 9:40 is **25 minutes**\n\nSo 2 h + 25 min = **2 h 25 min** (that's 145 minutes in total).",
-  "expect": "answer"
+  "expect": "answer",
+  "gap": "'how long is the trip' reads as a trip from the user although it is a timetable sum, so it gets the turn-on-location reply."
  },
  {
   "id": "s2-002",
@@ -692,7 +693,8 @@
   "prompt": "whats the weather like on venus",
   "history": [],
   "reply": "Venus has the most hostile weather of any planet in the solar system 🌋\n\n- **Temperature:** about **465 °C** at the surface, day and night — hot enough to melt lead. It's hotter than Mercury even though it's farther from the Sun, because of a runaway greenhouse effect.\n- **Pressure:** about **92 times** Earth's sea-level pressure, like being 900 m deep in the ocean.\n- **Atmosphere:** ~96% carbon dioxide.\n- **Clouds:** thick layers of **sulfuric acid** droplets that cover the whole planet.\n- **Wind:** near the surface it's slow, but at cloud-top level the atmosphere \"super-rotates\" at around **360 km/h**, circling the planet in about 4 Earth days while Venus itself takes 243 days to spin once.\n\nSo: permanently overcast, crushingly heavy, and scorching.",
-  "expect": "answer"
+  "expect": "answer",
+  "gap": "Weather 'on venus' reads as local weather with no place named, so it gets the turn-on-location reply."
  },
  {
   "id": "s2-070",

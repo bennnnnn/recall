@@ -1660,6 +1660,30 @@ async def test_classify_turn_mode_hi_does_not_load_last_assistant():
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "advice"),
+    [
+        ("what should I cook tonight?", True),
+        ("what should I eat for dinner?", True),
+        ("any good recipe for a quick lunch?", True),
+        # Food words in a problem to solve: no recommendation to personalise.
+        ("A recipe needs 3 cups of flour for 12 cookies. How many cups for 30 cookies?", False),
+        ("A pancake recipe uses 2 eggs for 8 pancakes. How many eggs for 20 pancakes?", False),
+        ("How much energy does it take to heat 500 g of milk from 5 °C to 60 °C?", False),
+    ],
+)
+async def test_classify_turn_mode_food_in_a_problem_is_not_advice(text, advice):
+    from app.modules.chat.turn_prep.mode import _classify_turn_mode
+
+    chat = MagicMock()
+    chat.id = uuid4()
+
+    mode = await _classify_turn_mode(AsyncMock(), chat, text)
+
+    assert mode.advice_memory is advice
+
+
+@pytest.mark.asyncio
 async def test_classify_turn_mode_profile_field_loads_memory():
     from app.modules.chat.turn_prep.mode import _classify_turn_mode
 

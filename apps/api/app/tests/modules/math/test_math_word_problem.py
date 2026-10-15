@@ -154,6 +154,11 @@ def _gateway(payload: dict[str, Any] | None) -> Any:
         "A shop spent $5 and has $10 left. How much did it start with?",
         "Maria spent $5 and has $10 left. How much did she have before?",
         "Maria spent $5 and has $10 left. How much did she have previously?",
+        # A stated rate scaled to a third amount: a proportion.
+        "A recipe needs 3 cups of flour for 12 cookies. How many cups for 30 cookies?",
+        "A recipe needs 3 cups of flour for 12 cookies. How many cups do I need if I want to "
+        "bake 30 cookies?",
+        "2 eggs make 8 pancakes. How many eggs are in 20 pancakes?",
     ],
 )
 def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
@@ -182,6 +187,9 @@ def test_candidate_fires_for_algebra_word_problems(text: str) -> None:
         "Find 2 + 2",
         "A ball is thrown straight up at 20 m/s. How high does it go in total?",
         "What is the sum of 3 and 4? " * 40,
+        # A stated rate with no third amount to scale it to.
+        "I booked 2 rooms for 3 nights. How many towels come with that?",
+        "A recipe needs 3 cups of flour for 12 cookies, how many cups is that?",
     ],
 )
 def test_candidate_declines(text: str) -> None:

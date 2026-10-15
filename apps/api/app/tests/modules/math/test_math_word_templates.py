@@ -52,6 +52,31 @@ from app.modules.math.tools.word_templates import word_template_setup
             ["0.2*x + 0.5*10 = 0.3*(x + 10)"],
             ["x"],
         ),
+        (
+            "A recipe needs 3 cups of flour for 12 cookies. How many cups for 30 cookies?",
+            ["x/30 = 3/12"],
+            ["x"],
+        ),
+        (
+            "a recipe uses 2 cups of flour for 12 cookies. how much flour for 30 cookies",
+            ["x/30 = 2/12"],
+            ["x"],
+        ),
+        (
+            "If 3 cups of flour make 12 cookies, how many cups would I need to bake 30 cookies?",
+            ["x/30 = 3/12"],
+            ["x"],
+        ),
+        (
+            "It takes 2 eggs to make 8 pancakes. How many eggs for 20 pancakes?",
+            ["x/20 = 2/8"],
+            ["x"],
+        ),
+        (
+            "A car uses 8 litres of fuel for 100 km. How many litres for 250 km?",
+            ["x/250 = 8/100"],
+            ["x"],
+        ),
     ],
 )
 def test_word_template_setup_reads_classic_shapes(
@@ -88,6 +113,15 @@ def test_word_template_setup_reads_classic_shapes(
         # Something more rides along.
         "the sum of three consecutive integers is 72 and their product is even. find them",
         "my 3 kids are 4 years apart, the sum of their ages is 30",
+        # Workers and days scale inversely; drivers round up.
+        "A job takes 12 days for 4 workers. How many days for 6 workers?",
+        "A tour needs 2 drivers for 40 passengers. How many drivers for 90 passengers?",
+        # Something other than the stated amount is asked, or for something else.
+        "A recipe needs 3 cups of flour for 12 cookies. How many eggs for 30 cookies?",
+        "A recipe needs 3 cups of flour for 12 cookies. How many cups for 30 muffins?",
+        "A recipe needs 3 cups of flour for 12 cookies. How many cups of sugar for 30 cookies?",
+        # No question to scale.
+        "A recipe needs 3 cups of flour for 12 cookies, is that a lot?",
     ],
 )
 def test_word_template_setup_declines_what_it_cannot_read(text: str) -> None:
@@ -223,6 +257,14 @@ def test_extract_arithmetic_intent_routes_change_before_bare_arithmetic() -> Non
             "5624.32",
         ),
         ("simple interest on $1200 at 5% per year for 4 years", "240"),
+        (
+            "A recipe needs 3 cups of flour for 12 cookies. How many cups for 30 cookies?",
+            r"\frac{15}{2}\ \text{cups}",
+        ),
+        (
+            "A pancake recipe uses 2 eggs for 8 pancakes. How many eggs for 20 pancakes?",
+            r"5\ \text{eggs}",
+        ),
     ],
 )
 @pytest.mark.asyncio
@@ -241,6 +283,10 @@ async def test_build_math_augmentation_verifies_word_templates(text: str, answer
         "my 3 kids and I spent $40 at the fair",
         "our tickets cost $8 each, is that a good deal",
         "how many liters of water should I drink a day",
+        "my recipe makes 12 cookies, how many should I bake for the party?",
+        "A recipe needs 3 cups of flour for 12 cookies, is that a lot?",
+        "I booked 2 rooms for 3 nights. How many towels come with that?",
+        "we need 2 pizzas for 6 people, what toppings should we get?",
     ],
 )
 def test_needs_symbolic_math_keeps_word_template_lookalikes_out(text: str) -> None:

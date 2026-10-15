@@ -40,6 +40,7 @@ from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_add import (
     about_saved_reminders,
     chat_add_needs_a_stated_time,
+    day_for_a_bare_clock,
     due_for_add,
     due_is_past,
     edits_prior_reply,
@@ -744,6 +745,9 @@ async def _materialize(
     # "At 9pm every night" starts tonight, or tomorrow once 9pm has passed.
     if stated is not None and stated.day is None and stated.repeat and stated.hour is not None:
         stated = replace(stated, day="today")
+    # "Remind me to plate the dinner at 7pm" is the next 7pm, the same way.
+    if stated is not None:
+        stated = day_for_a_bare_clock(stated, user_text, user_timezone=user_timezone)
     # The model's own reminder fence, when it wrote one, keeps its cleaner title.
     if not spans and stated is not None and stated.day is not None and stated.hour is not None:
         due = due_for_add(stated, user_timezone=user_timezone)

@@ -2,7 +2,8 @@
 
 A few textbook shapes are closed enough to read deterministically: consecutive
 integers with a stated sum, two ages with a difference and a sum, tickets at two
-prices, and mixing two strengths to a target strength.
+prices, mixing two strengths to a target strength, and a stated rate scaled to
+another amount ("3 cups of flour for 12 cookies; how many cups for 30?").
 Each reader matches the whole message and builds the ``WordProblemSetup`` a
 model would, so the problem still goes through ``grounded`` (every number is
 stated), SymPy (exactly one solution in the domain) and the word-problem reply.
@@ -337,11 +338,94 @@ def _mixture(text: str) -> WordProblemSetup | None:
     )
 
 
+# --- a stated rate, scaled (direct proportion) ------------------------------------
+
+# "Takes 12 days for 4 workers" scales inversely, and "2 drivers for 90
+# passengers" rounds up: time and people are left to the translator.
+_NOT_SCALED = frozenset(
+    (
+        "second seconds sec secs minute minutes min mins hour hours hr hrs day days week weeks "
+        "month months year years people persons person worker workers men women staff drivers "
+        "teachers painters builders machines pumps buses cars"
+    ).split()
+)
+_SUBJECT = r"(?:(?:a|an|the|my|this|one)\s+(?:[a-z]+\s+){1,2}|it\s+)"
+_AMOUNT = rf"(?P<a>{_NUM})\s+(?P<unit>[a-z]+)(?:\s+of\s+(?P<stuff>[a-z]+))?"
+_MAKES = rf"(?P<b>{_NUM})\s+(?P<things>[a-z]+)"
+_PROPORTION_GIVEN = (
+    # "A recipe needs 3 cups of flour for 12 cookies", "it takes 2 eggs to make 8 pancakes"
+    re.compile(
+        rf"(?:if\s+)?{_SUBJECT}?(?:needs|uses|takes|requires|calls\s+for)\s+{_AMOUNT}\s+"
+        rf"(?:for|per|to\s+(?:make|bake|cook|serve|feed))\s+{_MAKES}",
+        re.IGNORECASE,
+    ),
+    # "3 cups of flour make 12 cookies"
+    re.compile(
+        rf"(?:if\s+)?{_AMOUNT}\s+(?:makes?|bakes?|serves?|feeds?|(?:is|are)\s+enough\s+for)\s+"
+        rf"{_MAKES}",
+        re.IGNORECASE,
+    ),
+)
+_PROPORTION_ASK = re.compile(
+    r"\s*[.,;]?\s*(?:so\s+|then\s+)?how\s+(?:many|much)\s+(?P<asked>[a-z]+)"
+    r"(?:\s+of\s+(?P<asked_stuff>[a-z]+))?"
+    r"(?:\s+(?:do|does|would|will)\s+(?:i|you|we|they|it|she|he)\s+need"
+    r"|\s+(?:are|is)\s+needed)?"
+    rf"\s+(?:for|to\s+(?:make|bake|cook|serve|feed))\s+(?P<c>{_NUM})(?:\s+(?P<things2>[a-z]+))?"
+    rf"{_END}",
+    re.IGNORECASE,
+)
+
+
+def _same_word(first: str | None, second: str | None) -> bool:
+    """ "cookie" and "cookies" name the same thing."""
+    if first is None or second is None:
+        return False
+    return first.lower().rstrip("s") == second.lower().rstrip("s")
+
+
+def _proportion(text: str) -> WordProblemSetup | None:
+    for given_form in _PROPORTION_GIVEN:
+        given = given_form.match(text)
+        if given is None:
+            continue
+        ask = _PROPORTION_ASK.fullmatch(text, given.end())
+        if ask is None:
+            continue
+        unit, stuff, things = given.group("unit"), given.group("stuff"), given.group("things")
+        if {unit.lower(), things.lower()} & _NOT_SCALED:
+            return None
+        if ask.group("things2") is not None and not _same_word(ask.group("things2"), things):
+            return None
+        asked, asked_stuff = ask.group("asked"), ask.group("asked_stuff")
+        if asked_stuff is not None:
+            ok = _same_word(asked, unit) and _same_word(asked_stuff, stuff)
+        else:
+            ok = _same_word(asked, unit) or _same_word(asked, stuff)
+        if not ok:
+            return None
+        a, b, c = given.group("a"), given.group("b"), ask.group("c")
+        if Fraction(b) == 0:
+            return None
+        meaning = f"{unit} of {stuff}" if stuff else unit
+        wanted = f"{meaning} for {c} {things}"[:80]
+        return WordProblemSetup(
+            found=True,
+            unknowns=[WordUnknown(symbol="x", meaning=wanted, unit=unit[:24])],
+            equations=[WordEquation(equation=f"x/{c} = {a}/{b}", source=_source(text))],
+            targets=[WordTarget(expr="x", meaning=wanted, unit=unit[:24])],
+            whole_numbers=False,
+            positive=True,
+        )
+    return None
+
+
 _TEMPLATES: tuple[Callable[[str], WordProblemSetup | None], ...] = (
     _consecutive,
     _ages,
     _tickets,
     _mixture,
+    _proportion,
 )
 
 

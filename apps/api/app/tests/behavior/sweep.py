@@ -77,6 +77,7 @@ EXPECTS = {
 }
 # Areas whose turns never need the live web.
 NO_SEARCH_AREAS = {"math", "physics", "chemistry", "writing", "code", "chitchat"}
+STEM_AREAS = {"math", "physics", "chemistry"}
 # Everyday messages that use a maths word ("differentiate between weather and
 # climate", "simplify it" about an essay), or that sound like a follow-up to the
 # physics or chemistry problem before them ("in french please", "what about the
@@ -380,6 +381,12 @@ def judge(outcome: Outcome) -> list[str]:
             problems.append("image generation took the turn")
         if route.instant == "text" and route.instant_text:
             problems.append(f"instant reply: {route.instant_text[:80]!r}")
+        # "How many minutes in a good nap" answered "Turn on Location".
+        if route.instant == "location":
+            problems.append("answered with the turn-on-location reply")
+        # "3 cups of flour for 12 cookies…" is a problem to solve, not a pick to personalise.
+        if entry.area in STEM_AREAS and "advice" in route.hints:
+            problems.append("given the personal-recommendation hint")
         if outcome.settings_changes:
             problems.append(f"read as a settings change: {outcome.settings_changes}")
         if outcome.memory_command:

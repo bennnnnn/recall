@@ -16,7 +16,7 @@ const IMPLICIT_LOCAL =
 
 /** Keep in sync with apps/api/app/services/web_search/patterns.py `_DISTANCE_INTENT`. */
 const DISTANCE_INTENT =
-  /\b(how\s+far|how\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)|distance\s+(?:to|from)|how\s+long\s+(?:to\s+get|does\s+it\s+take\s+to\s+(?:get|drive|walk|reach|arrive)|is\s+the\s+(?:drive|trip|walk))|(?:miles|km|kilometers?|kilometres?|minutes?)\s+(?:away|from\s+(?:me|here))|directions?\s+to)\b/i;
+  /\b(how\s+far|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)|distance\s+(?:to|from)|how\s+long\s+(?:to\s+get|does\s+it\s+take\s+to\s+(?:get|drive|walk|reach|arrive)|is\s+the\s+(?:drive|trip|walk))|(?:miles|km|kilometers?|kilometres?|minutes?)\s+(?:away|from\s+(?:me|here))|directions?\s+to)\b/i;
 
 /** Keep in sync with apps/api/app/modules/web_search/patterns.py `_MOTION_HOMEWORK`. */
 const MOTION_HOMEWORK = new RegExp(
@@ -39,6 +39,22 @@ const MOTION_HOMEWORK = new RegExp(
 
 const FROM_USER =
   /\b(?:from\s+(?:me|here|my\s+(?:location|place))|to\s+me|where\s+i\s+am)\b/i;
+
+/**
+ * "How many minutes to the airport?" asks about a trip; "how many minutes in a
+ * good nap" or "how many miles is a 5k run?" asks about a duration or a length.
+ * Minutes, miles and km are a trip only beside where it goes or starts, or "away".
+ * Keep in sync with apps/api/app/modules/web_search/patterns.py `_HOW_MANY_ASKED` / `_TRIP_PLACE`.
+ */
+const HOW_MANY_ASKED = /\bhow\s+many\s+(?:minutes|mins|miles|kilometers|kilometres|km)\b/i;
+const TRIP_PLACE =
+  /\b(?:away|get(?:ting)?\s+(?:there|here|home)|(?:to|from)\s+(?:here|there|home|work|school|campus|town|downtown)|(?:to|from)\s+(?:the|my|our|your)\s+(?!(?:end|start|beginning|hour|time|next|last|first)\b)[a-z]+)\b/i;
+const TRIP_NAMED_PLACE = /\b(?:[Tt]o|[Ff]rom|TO|FROM)\s+[A-Z](?![\s'\u2019])/;
+
+function tripHowManyPhrase(text: string): boolean {
+  if (!HOW_MANY_ASKED.test(text)) return false;
+  return TRIP_PLACE.test(text) || TRIP_NAMED_PLACE.test(text);
+}
 
 const DISTANCE_BETWEEN = /\bdistance\b.+\bbetween\b/i;
 
@@ -135,7 +151,8 @@ export function isProximityQuery(text: string): boolean {
 
 export function isDistanceQuery(text: string): boolean {
   const cleaned = text.trim();
-  if (!cleaned || !DISTANCE_INTENT.test(cleaned)) return false;
+  if (!cleaned) return false;
+  if (!DISTANCE_INTENT.test(cleaned) && !tripHowManyPhrase(cleaned)) return false;
   if (MOTION_HOMEWORK.test(cleaned)) return false;
   if (DISTANCE_BETWEEN.test(cleaned) && !FROM_USER.test(cleaned)) return false;
   if (FIXED_DISTANCE_FROM.test(cleaned) && !FROM_USER.test(cleaned)) return false;
