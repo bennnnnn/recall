@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { StyleSheet, Text, View, type StyleProp, type TextStyle } from "react-native";
 
+import { InlineCode } from "@/components/markdown/InlineCode";
 import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles";
 import { MathText } from "@/components/rich/MathText";
 import { MathBlock } from "@/components/rich/MathView";
@@ -33,6 +34,14 @@ export function RichMathBody({
             ? <MathBlock key={index} latex={part.value} />
             : <MathText key={index} latex={part.value} textColor={textColor ?? theme.text} />];
         }
+        if (part.type === "code") {
+          // One pill for the whole span, not a pill per word.
+          return [
+            <InlineCode key={index} style={[style, inlineCodeTextStyle(theme)]}>
+              {part.value}
+            </InlineCode>,
+          ];
+        }
         // Separate words can wrap around a sized fraction/radical. Never nest
         // those Views inside Text (iOS gives them a zero-sized attachment).
         return part.value.split(/(\n|[^\S\n]+)/).filter(Boolean).map((word, wordIndex) =>
@@ -41,7 +50,6 @@ export function RichMathBody({
               style,
               part.bold && styles.bold,
               part.italic && styles.italic,
-              part.type === "code" && inlineCodeTextStyle(theme),
             ]}>{word}</Text>
           ),
         );

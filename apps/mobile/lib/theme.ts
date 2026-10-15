@@ -92,6 +92,11 @@ export type Theme = {
   codeBg: string;
   codeText: string;
   codeLang: string;
+  /**
+   * The pill behind inline code in prose. A tint of the ink rather than a
+   * surface, so it reads on the page, a sent bubble, a callout or a card alike.
+   */
+  codeInlineBg: string;
 
   // Overlays
   /** Dims the page under dialogs and sheets. */
@@ -172,6 +177,7 @@ export const lightTheme: Theme = {
   codeBg: "#F7F7F8",
   codeText: "#111113",
   codeLang: "#5C5C64",
+  codeInlineBg: "rgba(17,17,19,0.08)",
 
   scrim: "rgba(0,0,0,0.40)",
   wash: "rgba(17,17,19,0.20)",
@@ -233,6 +239,7 @@ export const darkTheme: Theme = {
   codeBg: "#171719",
   codeText: "#F5F5F6",
   codeLang: "#8E8E96",
+  codeInlineBg: "rgba(245,245,246,0.14)",
 
   scrim: "rgba(0,0,0,0.60)",
   wash: "rgba(0,0,0,0.45)",

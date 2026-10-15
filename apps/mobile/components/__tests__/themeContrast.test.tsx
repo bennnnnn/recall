@@ -81,6 +81,27 @@ describe("semantic text contrast", () => {
   });
 });
 
+describe("inline code pill", () => {
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s code ink is AAA on the pill wherever it sits", (_name, theme) => {
+    for (const plane of [theme.bg, theme.surface, theme.userBubble]) {
+      const pill = compositeOver(theme.codeInlineBg, plane);
+      expect(contrastRatio(theme.text, pill)).toBeGreaterThanOrEqual(7);
+    }
+  });
+
+  it.each([
+    ["light", lightTheme],
+    ["dark", darkTheme],
+  ] as const)("%s pill shows on the page but stays a tint", (_name, theme) => {
+    const pill = compositeOver(theme.codeInlineBg, theme.bg);
+    expect(contrastRatio(pill, theme.bg)).toBeGreaterThanOrEqual(1.15);
+    expect(contrastRatio(pill, theme.bg)).toBeLessThan(1.6);
+  });
+});
+
 /** A one-pixel line fainter than this disappears on a phone screen. */
 const HAIRLINE_MIN = 1.25;
 

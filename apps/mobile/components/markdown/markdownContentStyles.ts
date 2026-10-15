@@ -7,19 +7,23 @@ import { Radius } from "@/lib/radius";
 import { Space } from "@/lib/space";
 
 /**
- * Nested-Text inline code. The markdown-display default is a block recipe
- * (`borderWidth: 1`, `padding: 10`); those props make iOS wrap each chip
- * onto its own line. Zero them here and keep the line box at body size.
+ * Inline code: monospace on a tinted pill, so `total` stands out from the
+ * explanation around it (drawn by `InlineCode`, which pads the ends).
+ *
+ * The markdown-display default is a block recipe (`borderWidth: 1`,
+ * `padding: 10`); those props make iOS wrap each chip onto its own line, so
+ * they stay zero. 14pt SpaceMono sits inside the 16pt body line box (its
+ * ascent and descent are both under Source Sans 3's at 16), so a line with
+ * code is no taller than one without. The radius only shows where the code
+ * is its own Text in a row; a nested span has no corners on either platform.
  */
 export function inlineCodeTextStyle(t: Theme): TextStyle {
   return {
     ...Type.secondary,
     fontFamily: CODE_FONT,
     color: t.text,
-    // No gray chip. backgroundColor on nested Text paints a box that does
-    // not follow the word, so backticks look like a random highlighter.
-    // Teaching snippets (`name = "john"`) stay monospace in the sentence.
-    backgroundColor: "transparent",
+    backgroundColor: t.codeInlineBg,
+    borderRadius: Radius.row,
     borderWidth: 0,
     borderColor: "transparent",
     padding: 0,
@@ -97,9 +101,11 @@ export function makeMdTable(t: Theme) {
     // **bold** in a cell stays bold (cellText's Regular used to win).
     cellInline: { fontSize: Type.callout.fontSize, color: t.text },
     headerText: { ...Weight.semibold, color: t.text },
+    // The cell's smaller size, still in the code face (spreading the
+    // compact role here used to put Source Sans back on table code).
     cellCode: {
       ...inlineCodeTextStyle(t),
-      ...Type.compact,
+      fontSize: Type.compact.fontSize,
     },
   });
 }

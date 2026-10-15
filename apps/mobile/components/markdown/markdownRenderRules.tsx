@@ -14,6 +14,7 @@ import {
   MarkdownTableRow,
 } from "@/components/MarkdownTable";
 import { renderBlockquote } from "@/components/markdown/blockquoteRender";
+import { InlineCode } from "@/components/markdown/InlineCode";
 import {
   type AstNode,
   type AstParent,
@@ -1056,7 +1057,7 @@ function makeSharedRules(
       parent: unknown,
       styles: StyleMap,
     ) => (
-      <Text
+      <InlineCode
         key={node.key}
         style={[
           mdCodeInline,
@@ -1064,10 +1065,9 @@ function makeSharedRules(
           headingCodeSize(parent),
           inPlainBlockquote(parent) && styles.quoteText,
         ]}
-        selectable
       >
         {node.content}
-      </Text>
+      </InlineCode>
     ),
     bullet_list: (node: AstNode, children: ReactNode, parent: unknown, styles: StyleMap) => (
       <View

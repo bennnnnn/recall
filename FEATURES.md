@@ -192,7 +192,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 4. Formatting & rendering
 - ✅ **Markdown** — headings, **bold**/*italic*, bullet & numbered lists (ink-colored
-  markers), blockquotes, links, inline code (monospace, no gray chip), horizontal rules.
+  markers), blockquotes, links, inline code (monospace on a light tinted pill, also in
+  lesson cards; code such as `x = 5` is never drawn as maths), horizontal rules.
 - ✅ **Code blocks** — a rounded card. A language-tagged fence shows that language
   in the top corner (Python, JavaScript). An untagged fence is a teaching snippet
   (`name = "john"`) and has no label and no guessed keyword colors. Copy floats in

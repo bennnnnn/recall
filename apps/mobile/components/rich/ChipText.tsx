@@ -1,6 +1,7 @@
 import { type ComponentProps, useMemo } from "react";
 import { Text } from "react-native";
 
+import { InlineCode } from "@/components/markdown/InlineCode";
 import { parseInlineMarkdown } from "@/lib/markdown/inlineMarkdown";
 import { Italic, Weight } from "@/lib/type";
 
@@ -30,11 +31,10 @@ export function ChipSpans({ text, chip }: { text: string; chip: TextStyleProp })
     <>
       {tokens.map((token, index) => {
         if (token.type === "code") {
-          // Thin spaces pad the chip; nested Text takes no padding.
           return (
-            <Text key={index} style={chip}>
-              {` ${token.value} `}
-            </Text>
+            <InlineCode key={index} style={chip}>
+              {token.value}
+            </InlineCode>
           );
         }
         if (token.type === "bold") {
