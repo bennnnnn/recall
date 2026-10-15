@@ -362,11 +362,17 @@ async def build_math_augmentation(
     # sees the original answer-only request and removes the freshly requested
     # working from “Show me” / “Do it again”.
     response_intent = classify_math_response_intent(response_intent_text or user_content)
-    verified = (
-        _withhold_hint_answer(verified, response_intent)
-        if not response_intent.reveal_answer
-        else replace(verified, response_intent=response_intent)
-    )
+    if intent.kind == "work_check":
+        # The work block applies hint mode itself: the slip as a question, no
+        # fix, no answer. When every line is right and finished, the answer
+        # it carries is the student's own, and the reply says the work is right.
+        if not response_intent.reveal_answer and verified.canonical_answer is not None:
+            response_intent = replace(response_intent, reveal_answer=True)
+        verified = replace(verified, response_intent=response_intent)
+    elif not response_intent.reveal_answer:
+        verified = _withhold_hint_answer(verified, response_intent)
+    else:
+        verified = replace(verified, response_intent=response_intent)
     # Keep presentation guidance adjacent to the result, after any worked
     # steps, so the model does not treat solver data as a tutorial request.
     # The canonical block remains data-only for direct replies/fence validation.

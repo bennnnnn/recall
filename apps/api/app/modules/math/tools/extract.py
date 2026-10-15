@@ -253,15 +253,18 @@ def _intent_from_free_standing_equation(text: str) -> MathIntent | None:
 
 def work_check_intent(text: str) -> MathIntent | None:
     """A check-my-work request with the student's lines, or a bare worked column."""
+    from app.modules.math.response_intent import classify_math_response_intent
     from app.modules.math.tools.work_request import parse_work_request
 
     request = parse_work_request(text)
     if request is None:
         return None
+    # A hint request the work grammar did not word-match is still a hint.
+    hint_only = request.hint_only or not classify_math_response_intent(text).reveal_answer
     return MathIntent(
         kind="work_check",
         work_lines=list(request.lines),
-        work_hint_only=request.hint_only,
+        work_hint_only=hint_only,
         variable=request.variable,
         operation="solve",
     )

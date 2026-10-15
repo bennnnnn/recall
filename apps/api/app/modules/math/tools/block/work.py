@@ -87,7 +87,15 @@ def format_work_check_reply(check: WorkCheck, *, hint_only: bool = False) -> str
         return render_workout(Workout(given=given, steps=tuple(steps)), check.answer)
     if hint_only:
         return _without_answer(Workout(given=given, steps=(text_line(f"Hint: {mistake.hint}"),)))
-    steps = [text_line(f"Line {mistake.line}: {mistake.explanation}")]
+    steps = []
+    if check.right_answer:
+        steps.append(
+            text_line(
+                f"Your final answer is right, but line {mistake.line} does not follow "
+                f"from line {mistake.line - 1}."
+            )
+        )
+    steps.append(text_line(f"Line {mistake.line}: {mistake.explanation}"))
     if check.steps:
         steps.append(
             text_line(
@@ -124,9 +132,13 @@ def _summary_lines(check: WorkCheck, *, hint_only: bool) -> list[str]:
         out.append(f"Mistake in line {mistake.line} ({mistake.kind}): {detail}")
         if mistake.fixed_tex and not hint_only:
             out.append(f"Corrected line {mistake.line}: {mistake.fixed_tex}")
+        if check.right_answer:
+            out.append("The final answer is right; only the slip above is wrong.")
     elif not check.finished:
         out.append("Every line is correct so far; the work is not finished.")
-    if hint_only:
+    else:
+        out.append("Every line is correct and the work is finished: tell the student so.")
+    if hint_only and not _correct_and_done(check):
         out.append(
             "The student asked for a hint only: name the wrong line and ask about the rule it "
             "breaks. Do not state a corrected line or the solution."
