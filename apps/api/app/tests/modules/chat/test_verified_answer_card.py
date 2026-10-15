@@ -330,6 +330,7 @@ async def test_an_unverified_stem_answer_lands_in_a_card_with_no_marker(
     [
         "Question 1: What is the capital of France?\nAnswer: Paris",
         "Here's your quiz.\n\n**Answer:** Paris",
+        "Here's your quiz.\n\n**Answer**\nParis",
     ],
 )
 async def test_an_answer_line_in_ordinary_chat_stays_prose(

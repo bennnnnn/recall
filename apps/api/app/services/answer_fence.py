@@ -306,31 +306,43 @@ def _ends_section(line: str) -> bool:
     )
 
 
-def _answer_values(lines: list[str], start: int) -> tuple[list[tuple[int, str]], int, bool]:
-    """``(first line, value)`` for each value under a heading, the last line read, and
-    whether an answer card already follows the heading.
+# A line of maths: ``$…$``, or a bare equation (``x = 6 / 2``, ``2x + 3 = 7``). "So x = 3
+# is the answer." and "Only the positive root counts." are sentences.
+_MATHS_LINE = re.compile(r"\$|[^\s=]+\s*=")
 
-    Values run to a fence or heading line, and past a blank line only into a line that is
-    maths alone (a sentence after the answer is not part of it); a ``$$`` display block
-    is one value however many lines it spans.
+
+def _is_maths(line: str) -> bool:
+    return _MATHS_LINE.match(_value_line(line)) is not None
+
+
+def _answer_values(
+    lines: list[str], start: int, values: list[tuple[int, str]]
+) -> tuple[list[tuple[int, str]], int, bool]:
+    """``values`` (the one on the heading's own line, if any) and each value under the
+    heading as ``(first line, value)``, the last line read, and whether an answer card
+    already follows the heading.
+
+    After the first value, only lines of maths are values: they run to a fence, a heading
+    or a sentence, and past a blank line only into another line of maths, so a sentence
+    after the answer stays after it. A ``$$`` display block is one value however many
+    lines it spans.
     """
-    index = start
-    while index < len(lines) and not lines[index].strip():
-        index += 1
-    values: list[tuple[int, str]] = []
-    end = start - 1
+    values = list(values)
+    index, end = start, start - 1
     while index < len(lines):
         if not lines[index].strip():
             follow = index + 1
             while follow < len(lines) and not lines[follow].strip():
                 follow += 1
-            if not values or follow == len(lines) or not _value_line(lines[follow]).startswith("$"):
+            if follow == len(lines) or (
+                values and _opener(lines[follow]) is None and not _is_maths(lines[follow])
+            ):
                 break
             index = follow
         opened = _opener(lines[index])
         if opened is not None:
             return values, end, fence_lang(opened[2]) in ANSWER_FENCE_LANGS
-        if _ends_section(lines[index]):
+        if _ends_section(lines[index]) or (values and not _is_maths(lines[index])):
             break
         first, text = index, _value_line(lines[index])
         if text.startswith("$$") and (text == "$$" or not text.endswith("$$")):
@@ -381,13 +393,14 @@ def land_answer_card(text: str, verified_body: str | None, *, correction: str | 
     The reply's last Answer section (``**Answer**``, ``**Answer:** $x = 3$``,
     ``## Answer``, ``Answer:``) outside code fences becomes ``**Answer**`` and a
     card: the server's verified card when ``verified_body`` is given, otherwise
-    the section's last value line (with the plain values just before it, so both
-    roots stay) in a card with no marker. Earlier lines under the heading are
-    working: they stay as prose above it. ``correction`` goes
-    directly above the heading.
+    the section's last line of maths (with the plain values just before it, so
+    both roots stay) in a card with no marker. Earlier lines under the heading are
+    working: they stay as prose above it; a sentence after the answer stays below.
+    ``correction`` goes directly above the heading.
 
     With no Answer section, a verified card is added at the end unless the reply
-    already has one; an unverified reply is left as written.
+    already has one; an unverified reply, or one whose answer is not maths, is left
+    as written.
     """
     lines = text.split("\n")
     fences, inside = _scan(lines)
@@ -401,21 +414,26 @@ def land_answer_card(text: str, verified_body: str | None, *, correction: str | 
         if verified_body is None or any(fence.lang in ANSWER_FENCE_LANGS for fence in fences):
             return text
         heading = end = len(lines)
-    elif same_line:
-        values, end = [(heading, same_line)], heading
     else:
-        values, end, landed = _answer_values(lines, heading + 1)
+        seed = [(heading, same_line)] if same_line else []
+        values, end, landed = _answer_values(lines, heading + 1, seed)
         if landed:
             return text
     shown = _card_start(values) if values else 0
     if verified_body is not None:
         card = verified_answer_fence(verified_body)
     else:
-        value = answer_header_and_value("\n".join(v for _, v in values[shown:]))[1]
-        if not value:
+        parts = [v for _, v in values[shown:]] or [""]
+        # Both roots read on one line (x = 2, x = -2): a card draws one line of maths.
+        joined = parts[0] if len(parts) == 1 else ", ".join(" ".join(p.split()) for p in parts)
+        value = answer_header_and_value(joined)[1]
+        # A card draws maths; "Paris" under a quiz's Answer heading stays prose.
+        if "$" not in value and "=" not in value:
             return text
         card = f"```answer\n{value}\n```"
-    steps = lines[values[0][0] : values[shown][0]] if values and values[0][0] > heading else []
+    steps = lines[values[0][0] : values[shown][0]] if values else []
+    if steps and values[0][0] == heading:
+        steps[0] = values[0][1]
     while steps and not steps[-1].strip():
         steps.pop()
     before = lines[:heading]
