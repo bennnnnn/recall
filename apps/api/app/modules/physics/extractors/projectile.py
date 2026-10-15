@@ -95,6 +95,13 @@ _PROJECTILE_UNKNOWN_RES: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 _RANGE_GIVEN_KEYWORDS = ("range", "travel", "reach", "cover", "land", "distance", "far")
 
+# Read right after the angle: "30° below the horizontal", "at 20 degrees downward".
+_BELOW_HORIZONTAL_RE = re.compile(
+    r"\s*(?:degrees?|deg|°)?\s*(?:below|beneath|under)\s+(?:the\s+)?horizontal\b"
+    r"|\s*(?:degrees?|deg|°)?\s*(?:down(?:wards?)?|downward)\b",
+    re.IGNORECASE,
+)
+
 
 def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
@@ -156,6 +163,10 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
         )
     if angle_m:
         angle = float(angle_m.group(1))
+        # "30° below the horizontal" is a launch downward: -30°. Read as 30°
+        # above, the ball flew 22.4 m from a 20 m building instead of 13.6 m.
+        if angle > 0 and _BELOW_HORIZONTAL_RE.match(lower, angle_m.end()):
+            angle = -angle
 
     if v0 is None:
         return None
@@ -189,6 +200,10 @@ def _extract_projectile_intent(cleaned: str) -> PhysicsIntent | None:
         )
 
     if angle is None:
+        return None
+    if angle < 0 and op == "max_height":
+        # A downward launch is highest where it starts; the upward formula
+        # would add a rise that never happens.
         return None
 
     h0: float | None = None

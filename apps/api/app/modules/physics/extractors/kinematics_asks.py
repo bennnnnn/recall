@@ -96,12 +96,31 @@ _ASKS_TIME_RE = re.compile(
     r"\b(?:how long|time to|find the time|what is the time)\b",
     re.IGNORECASE,
 )
+# "thrown straight down", "throws a ball down", "vertically downward": the launch
+# verb may sit a few words before its direction. Without these, "thrown straight
+# down at 8 m/s" was a throw upward and fell for 3.79 s instead of 2.15 s.
+_LAUNCH_VERB = (
+    r"(?:thrown|throws?|throwing|tossed|tosses|toss|launched|launches|launch|projected|"
+    r"fired|fires|shot|shoots|hurled|hurls|flung|flings|kicked|kicks|sent|sends|propelled)"
+)
 _DOWN_BEFORE_RE = re.compile(
-    r"\b(?:downward|downwards|thrown down|launched downward)\b",
+    r"\b(?:downwards?|(?:straight|vertically|directly)\s+down"
+    rf"|{_LAUNCH_VERB}\s+(?:[a-z]+\s+){{0,3}}?down)\b",
     re.IGNORECASE,
 )
 _UP_BEFORE_RE = re.compile(
-    r"\b(?:upward|upwards|thrown up|launched upward)\b",
+    r"\b(?:upwards?|(?:straight|vertically|directly)\s+up"
+    rf"|{_LAUNCH_VERB}\s+(?:[a-z]+\s+){{0,3}}?up)\b",
+    re.IGNORECASE,
+)
+
+# A launch that leaves sideways: the stated speed is horizontal, never the
+# vertical v₀ this extractor solves with. A level launch from a stated height
+# is the projectile catalog's; without a height there is no fall to time.
+HORIZONTAL_LAUNCH_RE = re.compile(
+    r"\bhorizontal(?:ly)?\b"
+    r"|\b(?:rolls?|rolled|rolling|slides?|slid|sliding|runs?|ran|running|drives?|drove|"
+    r"driven|driving|skids?|skidded|bounces?)\s+(?:straight\s+)?off\b",
     re.IGNORECASE,
 )
 
@@ -126,7 +145,9 @@ def _velocity_is_downward(text: str, value: float, unit: str) -> bool:
         if later != -1:
             after = after[:later]
         after_lower = after.lower()
-        down_after = re.search(r"\b(?:downward|downwards)\b", after_lower)
+        down_after = re.search(
+            r"\b(?:downwards?|(?:straight|vertically|directly)\s+down)\b", after_lower
+        )
         if down_after is not None:
             gap = after_lower[: down_after.start()]
             if re.search(r"\b(?:after|find|what|when)\b", gap) is None:
