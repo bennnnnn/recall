@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import replace
 from typing import Any
@@ -101,6 +102,16 @@ _BLOCK_BUILDERS: dict[str, _BlockBuilder] = {
 }
 
 
+# SymPy's complex infinity and NaN. ``5/0`` once shipped a green ``\tilde{\infty}``
+# card; a value that is undefined says so in words (``\text{undefined}``).
+_NON_FINITE = re.compile(r"\\tilde\{\\infty\}|\bNaN\b|\bnan\b|\bzoo\b")
+
+
+def _shows_non_finite(block: VerifiedMathBlock) -> bool:
+    shown = (block.canonical_answer, block.display_answer, block.direct_reply, block.worked_reply)
+    return any(_NON_FINITE.search(text) for text in shown if text)
+
+
 def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMathBlock | None:
     lines: list[str] = []
 
@@ -113,7 +124,7 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
         if builder is None:
             return None
         block = builder(intent, settings, lines)
-        if block is None:
+        if block is None or _shows_non_finite(block):
             return None
         from app.services.solving import wrap_verified_math
 

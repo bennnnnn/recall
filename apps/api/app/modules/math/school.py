@@ -75,16 +75,34 @@ _UNIT_ALIASES = {
 }
 
 
+UNDEFINED_LATEX = r"\text{undefined}"
+
+
+def _defined_value_latex(value: Any) -> str:
+    """The value, or ``\\text{undefined}`` for ``5/0``, ``0/0``, ``log 0`` and ``tan 90°``.
+
+    SymPy writes those as complex infinity or NaN; neither is an answer a
+    student can use. A real infinity is not undefined either, so it is not
+    verified at all.
+    """
+    from sympy import nan, oo, zoo
+
+    from app.modules.math.solve.parse import format_verified_latex
+
+    if value is nan or value is zoo or value.has(nan, zoo):
+        return UNDEFINED_LATEX
+    if value.has(oo, -oo):
+        raise MathServiceError("result is not a finite number")
+    return format_verified_latex(value)
+
+
 def evaluate_arithmetic(expr: str) -> str:
     parsed = _parse_expression(expr, ["x"])
     if isinstance(parsed, tuple):
         raise MathServiceError("not a numeric arithmetic expression")
     if parsed.free_symbols:
         raise MathServiceError("arithmetic expression still has variables")
-    value = simplify(parsed)
-    from app.modules.math.solve.parse import format_verified_latex
-
-    return format_verified_latex(value)
+    return _defined_value_latex(simplify(parsed))
 
 
 def percent_of(rate: float, base: float) -> str:
@@ -317,10 +335,7 @@ def evaluate_trig_degrees(func: str, degrees: float) -> str:
     table = {"sin": sin, "cos": cos, "tan": tan}
     if func not in table:
         raise MathServiceError(f"unsupported trig function {func}")
-    exact = simplify(table[func](nsimplify(degrees) * pi / 180))
-    from app.modules.math.solve.parse import format_verified_latex
-
-    return format_verified_latex(exact)
+    return _defined_value_latex(simplify(table[func](nsimplify(degrees) * pi / 180)))
 
 
 def coord_distance(x1: float, y1: float, x2: float, y2: float) -> str:
@@ -404,7 +419,10 @@ def _imaginary_unit_to_sympy(expr: str) -> str:
 
 def evaluate_complex(expr: str) -> str:
     parsed = _parse_expression(_imaginary_unit_to_sympy(expr), ["x"])
-    return str(latex(simplify(parsed)))
+    value = simplify(parsed)
+    if not getattr(value, "free_symbols", None) and _defined_value_latex(value) == UNDEFINED_LATEX:
+        return UNDEFINED_LATEX
+    return str(latex(value))
 
 
 def convert_unit(value: float, src: str, dest: str) -> str:
@@ -642,6 +660,4 @@ def evaluate_trig_expr(expr: str) -> str:
     parsed = _parse_expression(expr.replace("\u00b0", "*pi/180"), ["x"])
     if parsed.free_symbols:
         raise MathServiceError("trig evaluation still has variables")
-    from app.modules.math.solve.parse import format_verified_latex
-
-    return format_verified_latex(simplify(parsed))
+    return _defined_value_latex(simplify(parsed))
