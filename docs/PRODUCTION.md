@@ -185,6 +185,18 @@ API_URL=https://your-api.fly.dev ./scripts/verify-production.sh --live
 
 ---
 
+## Load and abuse limits
+
+Defaults are safe for one shared-CPU, 512 MB `app` machine. Override with Fly
+secrets or `[env]` only when you have a measured reason.
+
+| Setting | Default | What it protects |
+|---------|---------|------------------|
+| `MAX_REQUEST_BODY_BYTES` | `1048576` (1 MiB) | Every HTTP body. A declared `Content-Length` over the cap gets 413 before a byte is read; a chunked body is cut off one chunk past it. `0` disables. |
+| `MAX_UPLOAD_REQUEST_BODY_BYTES` | `12582912` (12 MiB) | Photo/audio routes only: `/speech/transcribe`, `/{math,physics,chemistry}/scan/read`, `/attachments/{id}/upload`. Each route still checks its exact limit. |
+
+---
+
 ## Cost telemetry dashboard queries
 
 Each finalized chat turn logs `turn_cost … est_cost_usd=…` and accumulates

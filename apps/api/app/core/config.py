@@ -356,6 +356,13 @@ class Settings(BaseSettings):
 
     # Per-user/IP REST requests per minute (health + webhooks excluded).
     rest_rate_limit_per_minute: int = 240
+    # Request body caps (core/body_limit.py). A declared Content-Length over
+    # the cap is refused before any byte is read; a chunked body is counted as
+    # it streams. JSON routes stay far below 1 MiB (chat text is 32k chars).
+    # Photo/audio routes (scan read ~10.7 MB, transcribe ~6.7 MB, local
+    # attachment upload 10 MiB) get the upload cap. 0 disables a cap.
+    max_request_body_bytes: int = 1_048_576
+    max_upload_request_body_bytes: int = 12 * 1024 * 1024
 
     # Dev placeholders — disable in production.
     # ``environment`` defaults to production (fail-closed): a deploy that forgets
