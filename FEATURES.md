@@ -303,9 +303,10 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the Schwarzschild radius, the Boltzmann ratio and `S = k ln Ω`, energy-time
   uncertainty, and an orbit's period from its height); see "Adding a law" in
   docs/physics.md. An answer is in the unit its like givens share (two µF capacitors
-  give µF). The STEM sweep (`app/tests/behavior/stem_sweep.py`, 440 turns) runs
+  give µF). The STEM sweep (`app/tests/behavior/stem_sweep.py`, 726 physics turns) runs
   homework questions through the real chat path and fails CI on any wrong verified
-  number, misread turn, reply out of shape or broken picture; it answers 356 of 364.
+  number, misread turn, reply out of shape or broken picture; it answers 468 of 597.
+  Maths (432 turns, 289 answered) and chemistry (203 turns, 106 answered) have their own sets.
   Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements plus s = vt − ½at², projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar

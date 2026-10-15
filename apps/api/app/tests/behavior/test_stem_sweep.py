@@ -4,7 +4,8 @@ The STEM sweep (``stem_sweep.py``) runs homework questions through the real
 chat path and reads the verified answer card. A wrong number, a misread turn, a
 reply out of shape or a broken picture fails its own test. Questions the solver
 declines, and pictures it does not draw, are coverage: held by floors that only
-go up. Raise a floor when a change answers more.
+go up. Raise a floor when a change answers more. A ``gap`` entry is a known
+miss: a strict expected failure, so the fix deletes its ``gap`` line.
 """
 
 from __future__ import annotations
@@ -26,16 +27,20 @@ from app.tests.behavior.stem_sweep import (
 )
 
 # subject -> (answered, drawn) on the current corpus
-FLOORS = {"physics": (356, 162)}
+FLOORS = {"physics": (468, 162), "math": (289, 0), "chemistry": (106, 0)}
 EXPECTS = {"answer", "explain", "decline", "not_subject"}
 
 ENTRIES = [(subject, entry) for subject in FLOORS for entry in load(subject)]
 
 
+def _param(subject: str, entry: Entry) -> object:
+    marks = [pytest.mark.xfail(reason=entry.gap, strict=True)] if entry.gap else []
+    return pytest.param(subject, entry, id=f"{subject}:{entry.id}", marks=marks)
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("subject", "entry"),
-    [pytest.param(subject, entry, id=f"{subject}:{entry.id}") for subject, entry in ENTRIES],
+    ("subject", "entry"), [_param(subject, entry) for subject, entry in ENTRIES]
 )
 async def test_stem_turn_is_never_wrong(
     subject: str, entry: Entry, thread_sympy_executor: None
@@ -63,7 +68,8 @@ def test_stem_corpus_is_well_formed(subject: str) -> None:
     for entry in entries:
         assert entry.expect in EXPECTS, entry.id
         assert entry.prompt.strip(), entry.id
-        assert (entry.answer is not None) == (entry.expect == "answer"), entry.id
+        assert entry.checked == (entry.expect == "answer"), entry.id
+        assert entry.shared in {None, *SUBJECT_NAMES} - {subject}, entry.id
 
 
 @pytest.mark.parametrize(

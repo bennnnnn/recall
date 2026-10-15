@@ -4,13 +4,23 @@ Each subject has a corpus in ``stem_corpus/<subject>/*.json``. An entry is a
 question a student would type, worked independently from the textbook formula
 (g = 9.81 m/s², CODATA constants), and what should happen:
 
-- ``answer``: a verified reply whose answer card holds ``answer`` = [value, unit]
-  (1% tolerance, any unit of the same kind; signs are compared as magnitudes);
+- ``answer``: a verified reply whose answer card holds the worked answer:
+  - ``answer`` = [value, unit], or ``answers`` = several right spellings, any
+    one of which may match (1% tolerance, any unit of the same kind; signs are
+    compared as magnitudes; ``abs_tol`` for a pH-like scale); ``parts`` for a
+    multi-part question, every one of which the card must hold;
+  - ``text``: words the reply must contain (a formula, a balanced equation);
+  - ``check``: a maths check judged by SymPy alone, or a regex over the reply
+    (``stem_math_judge.py``);
 - ``explain``: a question without numbers, left to the model, never "solved";
 - ``decline``: an underdetermined question, never given a number;
 - ``not_subject``: an everyday message that only sounds like the subject.
 
-Every verified reply is also checked for its shape (Given, Find, Formula,
+``history`` gives earlier turns for a follow-up. ``shared`` names the peer
+subject that owns a law both use (gases, Q = mcΔT, half-lives are physics'), so
+its claiming the turn is no misread. ``gap`` marks a known miss: a strict
+expected failure until the fix deletes the line. Every verified physics and
+chemistry reply is also checked for its shape (Given, Find, Formula,
 Substitution, Answer; no calculator notation; no invented zero given), and
 every picture it carries is validated: a ``simulation`` scene against the
 server schema and its own bounds, a ``graph`` for finite points. ``visual``
@@ -34,11 +44,13 @@ import sys
 from collections import Counter
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 import pint
 
 from app.modules.physics.schemas.simulation import SimulationBlockSpec
 from app.tests.behavior.harness import Case, Expect, Route, route_case
+from app.tests.behavior.stem_math_judge import judge_check
 
 CORPUS = Path(__file__).with_name("stem_corpus")
 EXPECTS = {"answer", "explain", "decline", "not_subject"}
@@ -49,6 +61,8 @@ CRITICAL = {"wrong", "misread", "shape", "broken_visual"}
 _UNITS = pint.UnitRegistry()
 _UNITS.define("diopter = 1 / meter = D")
 _UNITS.define("kWh = kilowatt * hour")
+# Results shown to the inputs' significant figures: 0.2 mol for 0.204 is right.
+ROUNDED = {"chemistry"}
 
 
 @dataclass(frozen=True)
@@ -57,10 +71,21 @@ class Entry:
     area: str
     prompt: str
     expect: str
-    answer: tuple[float, str] | None = None
+    answers: tuple[tuple[float, str], ...] = ()
+    parts: tuple[tuple[float, str], ...] = ()
+    text: tuple[str, ...] = ()
+    check: tuple[str, Any] | None = None
+    abs_tol: float | None = None
+    history: tuple[tuple[str, str], ...] = ()
+    shared: str | None = None
     visual: str | None = None
     note: str | None = None
     gap: str | None = None
+
+    @property
+    def checked(self) -> bool:
+        """Whether the entry says what a right answer is."""
+        return bool(self.answers or self.parts or self.text or self.check)
 
 
 @dataclass
@@ -91,14 +116,21 @@ def load(subject: str) -> list[Entry]:
     entries: list[Entry] = []
     for path in sorted((CORPUS / subject).glob("*.json")):
         for raw in json.loads(path.read_text()):
-            answer = raw.get("answer")
+            answers = [raw["answer"]] if raw.get("answer") else raw.get("answers", [])
+            check = raw.get("check")
             entries.append(
                 Entry(
                     id=raw["id"],
                     area=raw["area"],
                     prompt=raw["prompt"],
                     expect="not_subject" if raw["expect"].startswith("not_") else raw["expect"],
-                    answer=(float(answer[0]), str(answer[1])) if answer else None,
+                    answers=tuple((float(value), str(unit)) for value, unit in answers),
+                    parts=tuple((float(value), str(unit)) for value, unit in raw.get("parts", [])),
+                    text=tuple(raw.get("text", [])),
+                    check=(check[0], check[1]) if check else None,
+                    abs_tol=raw.get("abs_tol"),
+                    history=tuple((role, said) for role, said in raw.get("history", [])),
+                    shared=raw.get("shared"),
                     visual=raw.get("visual"),
                     note=raw.get("note"),
                     gap=raw.get("gap"),
@@ -132,28 +164,37 @@ def latex_to_plain(latex: str) -> str:
     return " ".join(text.split())
 
 
-_NUMBER = re.compile(r"^\s*(-?\d+(?:\.\d+)?(?:e-?\d+)?)\s*(.*)$")
+_NUMBER = re.compile(r"^\s*(-?\d+(?:\.\d+)?)(?:e(-?\d+))?\s*(.*)$")
 
 
-def read_answers(reply: str) -> list[tuple[float, str]]:
-    """Each value and unit on the reply's answer card.
+def answer_card(reply: str) -> str:
+    return next((text for lang, text in fences(reply) if lang == "answer"), "")
+
+
+def card_values(reply: str) -> list[tuple[float, str, str]]:
+    """Each value, unit and shown digits on the reply's answer card.
 
     One card can hold several results: "2.45 m/s² and 36.8 N",
     "50.0 N at 53.1°", "0 m/s and 4 m/s".
     """
-    body = next((text for lang, text in fences(reply) if lang == "answer"), None)
-    if body is None:
-        return []
-    found: list[tuple[float, str]] = []
-    for line in body.splitlines():
-        plain = latex_to_plain(line)
-        for part in re.split(r"\s+(?:and|at)\s+|;|,\s+(?=[a-zA-Z\\]*\s*=)", plain):
+    found: list[tuple[float, str, str]] = []
+    for line in answer_card(reply).splitlines():
+        plain = latex_to_plain(line.replace("\u2212", "-"))
+        for part in re.split(r"\s+(?:and|at)\s+|;|,\s+(?=[a-zA-Z\\]*\s*=)|\s+/\s+", plain):
             part = re.sub(r"^[^\d-]*=\s*", "", part.strip())  # "R = 62.7 m"
             match = _NUMBER.match(part)
+            if not match and "=" in part:  # "M(CuSO₄·5H₂O) = 249.68 g/mol"
+                match = _NUMBER.match(part.rsplit("=", 1)[1])
             if match:
-                unit = re.split(r"\s\(|,", match.group(2))[0].strip()
-                found.append((float(match.group(1)), unit))
+                shown, power, rest = match.groups()
+                # "0.4 (40%)": the bracket restates the value; "J/(kg·K)" keeps its own.
+                unit = "" if rest.startswith("(") else re.split(r"\s\(|,", rest)[0].strip()
+                found.append((float(shown + (f"e{power}" if power else "")), unit, shown))
     return found
+
+
+def read_answers(reply: str) -> list[tuple[float, str]]:
+    return [(value, unit) for value, unit, _shown in card_values(reply)]
 
 
 def read_answer(reply: str) -> tuple[float, str] | None:
@@ -173,28 +214,159 @@ def _pint_unit(unit: str) -> str:
     return text.replace("%", "percent")
 
 
-def same_quantity(got: tuple[float, str], want: tuple[float, str]) -> tuple[bool, str]:
+_SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻−", "01234567890123456789+--")
+_PARTICLES = re.compile(
+    r"^(?:molecules?|atoms?|particles?|formula\s+units?|ions?)\b|"
+    r"^[A-Z][\w()]*\s+(?:molecules?|atoms?|particles?)\b",
+    re.IGNORECASE,
+)
+
+
+def _chemistry_unit(unit: str) -> str:
+    """``g CO₂`` → ``g``; ``molecules`` → a pure number; ``°C`` → ``degC``."""
+    text = re.sub(r"\s+\(.*$", "", unit.strip().rstrip(".")).translate(_SUBSCRIPTS)
+    if not text or _PARTICLES.match(text):
+        return "dimensionless"
+    text = re.sub(r"([a-zA-Z])([23])$", r"\1**\2", text)
+    text = re.sub(r"^([a-zA-Z]+)\^?-1$", r"1/\1", text)
+    # A species after the unit: "g CO2", "mol O2", "g of water".
+    text = re.sub(
+        r"^(g|mg|kg|mol|mmol|L|mL|M|kJ|J|atm|kPa|mmHg)\s+(?:of\s+)?[A-Za-z(].*$", r"\1", text
+    )
+    if text in {"°C", "° C", "degC", "deg C", "C"}:
+        return "degC"
+    text = re.sub(r"\s*deg\s*C\b|°C", "K", text).replace(" ", "")
+    for old, new in (("·", "*"), ("µ", "u"), ("μ", "u"), ("%", "percent"), ("^", "**")):
+        text = text.replace(old, new)
+    return text
+
+
+def same_quantity(
+    got: tuple[float, str],
+    want: tuple[float, str],
+    *,
+    shown: str | None = None,
+    abs_tol: float | None = None,
+    chemistry: bool = False,
+) -> tuple[bool, str]:
+    """Whether a card value is the worked answer, in any unit of the same kind.
+
+    ``shown`` is the value's digits on the card: a result rounded to the
+    inputs' significant figures matches within half its last place.
+    """
     value, unit = got
     want_value, want_unit = want
     if want_unit == "dB" or unit == "dB":
         converted = value if unit == want_unit else math.nan
     else:
         try:
-            quantity = _UNITS.Quantity(abs(value), _pint_unit(unit))
-            converted = quantity.to(_pint_unit(want_unit)).magnitude
+            if chemistry:
+                source = _chemistry_unit(unit)
+                if want_unit == "delta_degC" and source == "degC":
+                    source = "delta_degC"
+                target_unit = (
+                    want_unit if want_unit in {"degC", "delta_degC"} else _chemistry_unit(want_unit)
+                )
+                converted = _UNITS.Quantity(value, source).to(target_unit).magnitude
+            else:
+                quantity = _UNITS.Quantity(abs(value), _pint_unit(unit))
+                converted = quantity.to(_pint_unit(want_unit)).magnitude
         except Exception as exc:  # A unit that does not convert is a wrong answer.
             return (
                 False,
                 f"{value} {unit} is not a {want_unit or 'pure number'} ({exc.__class__.__name__})",
             )
     target = abs(want_value)
-    ok = math.isclose(abs(converted), target, rel_tol=TOLERANCE, abs_tol=1e-12)
+    difference = abs(abs(converted) - target)
+    if abs_tol is not None:
+        decimals = len(shown.split(".")[1]) if shown and "." in shown else 0
+        ok = difference <= max(abs_tol, 0.55 * 10**-decimals)
+    else:
+        ok = math.isclose(abs(converted), target, rel_tol=TOLERANCE)
+        if not ok and shown and value:
+            last_place = 10 ** (math.floor(math.log10(abs(value))) - _sig_figs(shown) + 1)
+            ok = difference <= 0.55 * last_place * abs(converted / value)
     return ok, f"{value:g} {unit} = {converted:.4g} {want_unit}, want {target:.4g}"
+
+
+def _sig_figs(shown: str) -> int:
+    digits = shown.lstrip("-")
+    if "." in digits:
+        return max(len(digits.replace(".", "").lstrip("0")), 1)
+    return max(len(digits.lstrip("0").rstrip("0")), 1)
+
+
+def _normalized(text: str) -> str:
+    """Formulas and equations compared without subscripts, spacing or arrow style."""
+    plain = text.translate(_SUBSCRIPTS)
+    for arrow in ("⟶", "→", "-->", "=>", "⇌", "<=>"):
+        plain = plain.replace(arrow, "->")
+    return re.sub(r"\s+", "", plain.replace("·", ".")).lower()
+
+
+def check_answer(
+    entry: Entry, subject: str, reply: str, *, whole: bool = True
+) -> tuple[str, list[Problem]]:
+    """What the card says, and a ``wrong`` problem when it is not the worked answer.
+
+    ``whole`` is false when the model writes the reply around one verified result:
+    that result must be one of the parts, and the model writes the rest.
+    """
+    problems: list[Problem] = []
+    wanted = entry.answers if whole else (*entry.answers, *entry.parts)
+    got = ""
+    if entry.check is not None:
+        card = answer_card(reply)
+        got = " ".join(card.split())
+        if not judge_check(entry.check, card, reply):
+            problems.append(Problem("wrong", f"{got!r} is not {entry.check[1]!r}"))
+    if wanted:
+        values = card_values(reply)
+
+        def matches(want: tuple[float, str]) -> list[tuple[bool, str]]:
+            return [
+                same_quantity(
+                    (value, unit),
+                    want,
+                    shown=shown if subject in ROUNDED else None,
+                    abs_tol=entry.abs_tol,
+                    chemistry=subject == "chemistry",
+                )
+                for value, unit, shown in values
+            ]
+
+        if not values:
+            problems.append(Problem("shape", "verified reply has no readable answer card"))
+        else:
+            checks = [check for want in wanted for check in matches(want)]
+            match = next((detail for ok, detail in checks if ok), None)
+            got = match or checks[0][1]
+            if match is None:
+                problems.append(Problem("wrong", "; ".join(detail for _ok, detail in checks[:3])))
+            if whole:
+                for part in entry.parts:
+                    if not any(ok for ok, _detail in matches(part)):
+                        problems.append(Problem("wrong", f"the card drops the part {part}"))
+    for want in entry.text:
+        if _normalized(want) not in _normalized(reply):
+            problems.append(Problem("wrong", f"the reply never says {want!r}"))
+    return got, problems
 
 
 # --- judging -------------------------------------------------------------------
 
-_SECTIONS = ("**Given**", "**Find**", "**Formula**", "**Substitution**", "**Answer**")
+# The sections a verified reply carries, in order; a slot may take several names.
+_SECTIONS: dict[str, tuple[tuple[str, ...], ...]] = {
+    "physics": (("Given",), ("Find",), ("Formula",), ("Substitution",), ("Answer",)),
+    # A balanced equation or an empirical formula works in Steps, not a substitution.
+    "chemistry": (
+        ("Given",),
+        ("Find",),
+        ("Formula", "Method"),
+        ("Substitution", "Steps", "Working"),
+        ("Answer",),
+    ),
+}
 _CALCULATOR = re.compile(r"\d(?:\.\d+)?[eE][-+]?\d")
 _GIVEN_ROW = re.compile(r"^\$([^$=]+?)\s*=\s*0(?:\.0+)?(?:\\,|\s|\$)", re.MULTILINE)
 _ZERO_WORDS = re.compile(
@@ -208,11 +380,18 @@ def _prose(reply: str) -> str:
     return _FENCE.sub("", reply)
 
 
-def check_shape(entry: Entry, reply: str) -> list[Problem]:
+def _section_at(prose: str, names: tuple[str, ...]) -> int:
+    found = [at for name in names if (at := prose.find(f"**{name}**")) >= 0]
+    return min(found) if found else -1
+
+
+def check_shape(entry: Entry, reply: str, subject: str = "physics") -> list[Problem]:
+    """A worked reply's sections and notation; maths replies are checked for notation only."""
     problems: list[Problem] = []
     prose = _prose(reply)
-    positions = [prose.find(section) for section in _SECTIONS]
-    missing = [name.strip("*") for name, at in zip(_SECTIONS, positions, strict=True) if at < 0]
+    sections = _SECTIONS.get(subject, ())
+    positions = [_section_at(prose, names) for names in sections]
+    missing = [names[0] for names, at in zip(sections, positions, strict=True) if at < 0]
     if missing:
         problems.append(Problem("shape", f"reply has no {', '.join(missing)}"))
     elif positions != sorted(positions):
@@ -221,7 +400,8 @@ def check_shape(entry: Entry, reply: str) -> list[Problem]:
         problems.append(Problem("shape", f"calculator notation: {calculator.group(0)!r}"))
     if re.search(r"\b(?:nan|inf|None)\b", prose):
         problems.append(Problem("shape", "nan, inf or None in the reply"))
-    given = prose.split("**Find**")[0]
+    # An equation's "= 0" is the question, not a given.
+    given = prose.split("**Find**")[0] if subject != "math" else ""
     for symbol in _GIVEN_ROW.findall(given):
         if not _ZERO_WORDS.search(entry.prompt):
             problems.append(Problem("shape", f"invented a zero given: {symbol.strip()} = 0"))
@@ -310,7 +490,7 @@ def judge(entry: Entry, subject: str, route: Route) -> Outcome:
         return outcome
     if not route.subject:
         problems.append(Problem("missed", f"not read as a {subject} question"))
-    elif route.subject != subject and not route.solved:
+    elif route.subject not in {subject, entry.shared} and not route.solved:
         problems.append(Problem("misread", f"read as {route.subject}, not {subject}"))
     if route.search == "yes":
         problems.append(Problem("misread", "searched the web"))
@@ -325,26 +505,17 @@ def judge(entry: Entry, subject: str, route: Route) -> Outcome:
     if not route.instant_text:
         # Verified, but the model writes the reply around the verified result
         # (an image question, a law kept off the direct path). Check the result.
-        verified = _verified_answer(entry.prompt, subject)
-        if verified is None:
+        if not route.verified_answer:
             problems.append(Problem("unsolved", "no verified answer"))
-        elif entry.answer is not None:
-            ok, detail = same_quantity(verified, entry.answer)
-            outcome.got = detail
-            if not ok:
-                problems.append(Problem("wrong", detail))
+            return outcome
+        card = f"```answer\n{route.verified_answer}\n```\n\n{route.verified_text}"
+        outcome.got, answer_problems = check_answer(entry, subject, card, whole=False)
+        problems.extend(answer_problems)
         return outcome
-    answers = read_answers(route.instant_text)
-    if not answers:
-        problems.append(Problem("shape", "verified reply has no readable answer card"))
-    elif entry.answer is not None:
-        checks = [same_quantity(got, entry.answer) for got in answers]
-        match = next((detail for ok, detail in checks if ok), None)
-        outcome.got = match or checks[0][1]
-        if match is None:
-            problems.append(Problem("wrong", "; ".join(detail for _ok, detail in checks)))
+    outcome.got, answer_problems = check_answer(entry, subject, route.instant_text)
+    problems.extend(answer_problems)
     if route.subject == subject:
-        problems.extend(check_shape(entry, route.instant_text))
+        problems.extend(check_shape(entry, route.instant_text, subject))
     outcome.visuals, visual_problems = check_visuals(route.instant_text)
     problems.extend(visual_problems)
     if entry.visual and entry.visual not in outcome.visuals:
@@ -352,21 +523,9 @@ def judge(entry: Entry, subject: str, route: Route) -> Outcome:
     return outcome
 
 
-def _verified_answer(prompt: str, subject: str) -> tuple[float, str] | None:
-    if subject != "physics":
-        return None
-    from app.core.config import Settings
-    from app.modules.physics import build_verified_physics_block, extract_physics_intent
-
-    intent = extract_physics_intent(prompt)
-    block = build_verified_physics_block(intent, Settings()) if intent else None
-    if block is None or not block.display_answer:
-        return None
-    return read_answer(f"```answer\n{block.display_answer}\n```")
-
-
 async def run_entry(entry: Entry, subject: str) -> Outcome:
-    route = await route_case(Case(entry.id, entry.area, entry.prompt, Expect(), ""))
+    case = Case(entry.id, entry.area, entry.prompt, Expect(), "", history=entry.history)
+    route = await route_case(case)
     return judge(entry, subject, route)
 
 

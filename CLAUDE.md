@@ -289,12 +289,15 @@ sweep runs on a frozen clock (`SWEEP_NOW`), so the time of day never changes a r
 **STEM sweep:** `apps/api/app/tests/behavior/stem_corpus/<subject>/*.json` holds homework questions
 with the answer worked independently from the textbook formula, plus look-alikes and questions
 that must be declined. `stem_sweep.py` runs each through the real chat path, checks the verified
-answer card's number (1%, any unit of the same kind), the reply's Given/Find/Formula/Substitution/
-Answer shape, and validates every `simulation` and `graph` fence. `test_stem_sweep.py` fails on a
-wrong number, a misread turn, a reply out of shape or a broken picture, and holds coverage floors
-(questions answered, pictures drawn) that only go up: raise the floor when a change answers more.
-Physics has a corpus today (`holdout.json` is questions written after the fixes, kept honest);
-math and chemistry add a folder. `uv run python -m app.tests.behavior.stem_sweep physics --show`.
+answer card's number (1%, any unit of the same kind; maths answers are judged by SymPy alone in
+`stem_math_judge.py`), the reply's Given/Find/Formula/Substitution/Answer shape, and validates
+every `simulation` and `graph` fence. `test_stem_sweep.py` fails on a wrong number, a misread
+turn, a reply out of shape or a broken picture, and holds coverage floors (questions answered,
+pictures drawn) that only go up: raise the floor when a change answers more. Physics, maths and
+chemistry each have a folder (physics `holdout.json` is questions written after the fixes, kept
+honest). An entry with a `gap` is a strict expected failure until the fix deletes the line;
+`shared` names the peer subject that owns a law both use (gases, Q = mcΔT and half-lives are
+physics'). `uv run python -m app.tests.behavior.stem_sweep math --show`.
 
 **Coverage requirements**
 
