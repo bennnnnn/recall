@@ -407,7 +407,7 @@ def extract_coord_formulas(cleaned: str) -> MathIntent | None:
 
     lower = cleaned.lower()
     points = literal_math_tuples(cleaned, "(", ")")
-    if word_index(lower, "slope") != -1 or word_index(lower, "midpoint") != -1:
+    if any(word_index(lower, word) != -1 for word in ("slope", "gradient", "midpoint")):
         return None
     if points is not None and len(points) == 2 and all(len(pt) == 2 for pt in points):
         if word_index(lower, "distance") != -1:

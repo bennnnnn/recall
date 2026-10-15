@@ -130,6 +130,7 @@ def _closed_school_request(user_text: str, calculus_text: str) -> bool:
     from app.modules.math.tools.extractors.formulas import average_value_request
     from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
     from app.modules.math.tools.school.curve_points import extract_curve_point_intent
+    from app.modules.math.tools.school.equation_features import extract_equation_feature_intent
     from app.modules.math.tools.school.function_value import extract_function_value_intent
     from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
     from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
@@ -143,6 +144,7 @@ def _closed_school_request(user_text: str, calculus_text: str) -> bool:
         or extract_geometry_measure_intent(user_text) is not None
         or extract_number_fact_intent(user_text) is not None
         or extract_algebra_fact_intent(user_text) is not None
+        or extract_equation_feature_intent(user_text) is not None
         or counting_word_signal(user_text) is not None
         or extract_single_draw_intent(user_text) is not None
         or extract_curve_point_intent(calculus_text) is not None

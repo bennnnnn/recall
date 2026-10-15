@@ -482,7 +482,11 @@ def _named_functions(text: str) -> list[str]:
 def _plottable_graph_source(text: str) -> str | None:
     intent = extract_math_intent(text)
     if intent is None:
-        return None
+        # "what is the slope of y = 3x + 2 and y = 2x + 3" is not solved (the
+        # lines' crossing point is not their slope), but "graph it" still
+        # draws the lines it names.
+        named = _named_functions(text)
+        return " and ".join(named) if 1 <= len(named) <= 2 else None
     if intent.kind == "graph" and intent.expr and _is_plottable_expr(intent.expr):
         return intent.expr
     if intent.kind == "graph_pair" and intent.expr and intent.expr2:
