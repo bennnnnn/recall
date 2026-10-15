@@ -291,6 +291,7 @@ async def test_content_edits_leave_reminders_alone(user_text, reply, prior):
             "submit the quarterly report",
         ),
         ("can you remind me at 7pm tomorrow to water the garden", "water the garden"),
+        ("ok can you remind me to water the plants tomorrow at 5pm", "water the plants"),
     ],
 )
 async def test_spoken_adds_save_without_a_fence(user_text, title):
@@ -322,12 +323,63 @@ async def test_a_claimed_change_that_did_not_happen_is_not_passed_on():
         ),
         ("remind me to pay rent on oct 31 at 9 in the morning", "pay rent", "10-31", (9, 0)),
         ("remind me to call mom tomorrow", "call mom", "tomorrow", (None, None)),
+        # Filler before "remind me" is not part of the task.
+        (
+            "ok can you remind me to water the plants tomorrow at 5pm",
+            "water the plants",
+            "tomorrow",
+            (17, 0),
+        ),
+        (
+            "ok remind me to leave for the doctor tomorrow at 8:30am",
+            "leave for the doctor",
+            "tomorrow",
+            (8, 30),
+        ),
+        (
+            "Okay, can you remind me to call the bank tomorrow at 6pm",
+            "call the bank",
+            "tomorrow",
+            (18, 0),
+        ),
+        ("oh wait, remind me to text selam tonight at 9", "text selam", "today", (21, 0)),
+        (
+            "Thanks! Ok can you remind me to pay rent tomorrow at 9am",
+            "pay rent",
+            "tomorrow",
+            (9, 0),
+        ),
+        ("ok. sat 9am wash the car. remind me", "wash the car", "saturday", (9, 0)),
+        # The same words when they are the task.
+        (
+            "wait for the plumber, remind me at 9am tomorrow",
+            "wait for the plumber",
+            "tomorrow",
+            (9, 0),
+        ),
+        (
+            "oh, wait for the plumber, remind me at 9am tomorrow",
+            "wait for the plumber",
+            "tomorrow",
+            (9, 0),
+        ),
+        (
+            "pls remind me to say sorry to mom tomorrow at 6pm",
+            "say sorry to mom",
+            "tomorrow",
+            (18, 0),
+        ),
     ],
 )
 def test_spoken_add_finds_the_day_and_clock_anywhere(text, title, day, clock):
     parsed = parse_spoken_add(text)
     assert parsed is not None
     assert (parsed.title, parsed.day, (parsed.hour, parsed.minute)) == (title, day, clock)
+
+
+@pytest.mark.parametrize("text", ["remind me tomorrow at 5pm", "ok, remind me tomorrow at 5pm"])
+def test_filler_alone_is_not_a_task(text):
+    assert parse_spoken_add(text) is None
 
 
 def test_a_clock_needs_am_pm_or_a_part_of_the_day():

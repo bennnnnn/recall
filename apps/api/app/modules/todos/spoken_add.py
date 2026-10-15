@@ -142,7 +142,12 @@ _REMIND_ME_ANYWHERE_RE = re.compile(
     re.IGNORECASE,
 )
 _SENTENCE_END_RE = re.compile(r"[.!?]\s+|[.!?]$")
-_FILLER_RE = re.compile(r"^(?:(?:wait|ok|okay|actually|oh|no|nah|sorry|hmm)[,!.]?\s+)+")
+_FILLER_WORDS = r"(?:wait|ok|okay|actually|oh|no|nah|sorry|hmm)"
+_FILLER_RE = re.compile(rf"^(?:{_FILLER_WORDS}[,!.]?\s+)+")
+# "Ok can you remind me …": only filler before "remind me". "Oh, wait for the
+# plumber, remind me …": a comma sets "oh" off, and "wait" is the task.
+_ONLY_FILLER_RE = re.compile(rf"\s*(?:{_FILLER_WORDS}\b[,!.]*\s*)+", re.IGNORECASE)
+_SET_OFF_FILLER_RE = re.compile(rf"^\s*(?:{_FILLER_WORDS}[,!.]+\s*)+", re.IGNORECASE)
 _ASKS_WHEN_RE = re.compile(r"\b(?:when|what time|which day)\b", re.IGNORECASE)
 # A reply is about the user's reminders when it says so, or confirms a dated
 # one the way the app does ("Set: read — Monday, Oct 12, 8:00 AM.").
@@ -498,11 +503,21 @@ def _remind_me_body(text: str) -> str:
         return ""
     before, after = text[: match.start()], text[match.end() :]
     near = " ".join(
-        (_SENTENCE_END_RE.split(before)[-1], _SENTENCE_END_RE.split(after, maxsplit=1)[0])
+        (
+            _without_lead_filler(_SENTENCE_END_RE.split(before)[-1]),
+            _SENTENCE_END_RE.split(after, maxsplit=1)[0],
+        )
     ).strip()
     if _WORD_RE.search(near):
         return near
-    return " ".join((before, after)).strip(" .!?")
+    return " ".join((_without_lead_filler(before), after)).strip(" .!?")
+
+
+def _without_lead_filler(text: str) -> str:
+    """ "ok " before "can you remind me", "oh, " before the task; "wait for the bus" stays."""
+    if _ONLY_FILLER_RE.fullmatch(text):
+        return ""
+    return _SET_OFF_FILLER_RE.sub("", text)
 
 
 async def pending_add(session: AsyncSession, chat_id: UUID, current: str) -> SpokenAdd | None:
