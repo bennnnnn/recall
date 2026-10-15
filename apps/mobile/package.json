@@ -48,7 +48,7 @@
     "expo-secure-store": "^57.0.1",
     "expo-sharing": "~57.0.22",
     "expo-speech": "^57.0.2",
-    "expo-splash-screen": "~57.0.7",
+    "expo-splash-screen": "~57.0.10",
     "expo-status-bar": "~57.0.1",
     "expo-updates": "~57.0.25",
     "expo-web-browser": "~57.0.3",
@@ -93,7 +93,7 @@
     "eslint": "^9.39.4",
     "eslint-config-expo": "~57.0.0",
     "jest": "^30.5.2",
-    "lucide-static": "1.48.0",
+    "lucide-static": "1.55.0",
     "test-renderer": "^1.2.0",
     "ts-jest": "29.4.14",
     "typescript": "~6.0.3"
