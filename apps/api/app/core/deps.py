@@ -1,4 +1,3 @@
-import time
 from uuid import UUID
 
 from fastapi import Depends, HTTPException, status
@@ -12,6 +11,7 @@ from app.core import access_tokens
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.core.redis import get_redis_client
+from app.core.ttl_cache import TtlCache
 from app.exceptions import RedisUnavailableError
 from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
@@ -23,18 +23,16 @@ security = HTTPBearer()
 # runs on every send, so keep the last loaded user in this process and skip
 # that round trip. Profile edits are rare; a short TTL is enough.
 _USER_CACHE_TTL_SECONDS = 60.0
-_user_cache: dict[UUID, tuple[float, User]] = {}
+# Users seen on one process within the TTL; far above normal traffic.
+_USER_CACHE_MAX_ENTRIES = 5_000
+_user_cache: TtlCache[UUID, User] = TtlCache(
+    ttl_seconds=_USER_CACHE_TTL_SECONDS,
+    max_entries=_USER_CACHE_MAX_ENTRIES,
+)
 
 
 def _cached_user(user_id: UUID) -> User | None:
-    hit = _user_cache.get(user_id)
-    if hit is None:
-        return None
-    stored_at, user = hit
-    if time.monotonic() - stored_at > _USER_CACHE_TTL_SECONDS:
-        _user_cache.pop(user_id, None)
-        return None
-    return user
+    return _user_cache.get(user_id)
 
 
 def snapshot_user(user: User) -> User:
@@ -50,11 +48,11 @@ def snapshot_user(user: User) -> User:
 
 def remember_user(user: User) -> None:
     cached = snapshot_user(user) if isinstance(user, User) else user
-    _user_cache[user.id] = (time.monotonic(), cached)
+    _user_cache.put(user.id, cached)
 
 
 def forget_user(user_id: UUID) -> None:
-    _user_cache.pop(user_id, None)
+    _user_cache.pop(user_id)
 
 
 _REDIS_RETRY_AFTER = "5"
