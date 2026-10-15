@@ -634,7 +634,7 @@ async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
     long_text = "x" * 121
 
     with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.plan_service.can_use", return_value=True),
         patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
         patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
     ):
@@ -661,7 +661,7 @@ async def test_try_image_gen_skips_recent_lookup_for_greeting(greeting: str):
     list_recent = AsyncMock(return_value=[])
 
     with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.plan_service.can_use", return_value=True),
         patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
         patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
     ):
@@ -687,7 +687,7 @@ async def test_try_image_gen_looks_up_recent_when_text_could_be_revision():
     list_recent = AsyncMock(return_value=[])
 
     with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.plan_service.can_use", return_value=True),
         patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
         patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
     ):
@@ -713,7 +713,7 @@ async def test_try_image_gen_uses_preloaded_recent_without_lookup():
     list_recent = AsyncMock(return_value=[])
 
     with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.plan_service.can_use", return_value=True),
         patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
         patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
     ):
@@ -741,7 +741,7 @@ async def test_try_image_gen_skips_recent_lookup_for_chat_openers(text: str):
     list_recent = AsyncMock(return_value=[])
 
     with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.plan_service.can_use", return_value=True),
         patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
         patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
     ):
@@ -768,7 +768,7 @@ async def test_try_image_gen_skips_recent_lookup_on_empty_chat():
     list_recent = AsyncMock(return_value=[])
 
     with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.plan_service.can_use", return_value=True),
         patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
         patch("app.modules.chat.stream.messages_repo.list_recent", list_recent),
     ):
@@ -802,7 +802,7 @@ async def test_try_image_gen_dog_then_image_uses_prior_subject():
     dog.content = "Dog"
 
     with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.plan_service.can_use", return_value=True),
         patch("app.modules.chat.stream.extract_image_gen_prompt", return_value=None),
         patch("app.modules.chat.stream.image_generation_service.generate_for_chat", generate),
     ):
@@ -833,7 +833,7 @@ async def test_image_regen_soft_fail_keeps_prior_assistant(status_code: int):
     delete_message = AsyncMock()
 
     with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.plan_service.can_use", return_value=True),
         patch("app.modules.chat.stream.extract_image_gen_prompt", return_value="a cat"),
         patch("app.modules.chat.stream.messages_repo.delete_message", delete_message),
         patch(
@@ -885,7 +885,7 @@ async def test_image_regen_deletes_prior_assistant_only_after_success():
     get_by_id = AsyncMock(return_value=old)
 
     with (
-        patch("app.modules.chat.stream.plan_service.is_pro", return_value=True),
+        patch("app.modules.chat.stream.plan_service.can_use", return_value=True),
         patch("app.modules.chat.stream.extract_image_gen_prompt", return_value="a cat"),
         patch("app.modules.chat.stream.SessionLocal", _FakeSessionCM),
         patch("app.modules.chat.stream.messages_repo.get_by_id", get_by_id),
@@ -1772,6 +1772,11 @@ async def test_regenerate_restores_assistant_when_stream_empty(fake_redis):
         stack.enter_context(
             patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
         )
+        # Every plan can generate images now, so a short regenerate reads the
+        # thread for an image follow-up before it searches.
+        stack.enter_context(
+            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
+        )
         stack.enter_context(
             patch(
                 "app.modules.chat.turn_prep.context.build_prompt_messages",
@@ -2018,6 +2023,11 @@ async def test_regenerate_passes_client_geo_to_web_search(fake_redis):
         )
         stack.enter_context(
             patch("app.repositories.messages.count_for_chat", AsyncMock(return_value=2))
+        )
+        # Every plan can generate images now, so a short regenerate reads the
+        # thread for an image follow-up before it searches.
+        stack.enter_context(
+            patch("app.repositories.messages.list_recent", AsyncMock(return_value=[]))
         )
         stack.enter_context(
             patch(

@@ -228,11 +228,10 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
     },
     "receipt": {
         "en": {
-            "subject": "Your Recall Pro receipt",
+            "subject": "Your Recall receipt",
             "text": (
                 "Hi {name},\n\n"
-                "Thanks for subscribing to Recall Pro!\n\n"
-                "Plan: Recall Pro\n"
+                "Thanks for subscribing to Recall!\n\n"
                 "{event_line}"
                 "{expiration_line}"
                 "\nYou can review or manage your subscription anytime from Settings "
@@ -241,9 +240,8 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
             "html": (
                 "<p>Hi {name},</p>"
-                "<p>Thanks for subscribing to <strong>Recall Pro</strong>!</p>"
+                "<p>Thanks for subscribing to <strong>Recall</strong>!</p>"
                 "<p>"
-                "Plan: Recall Pro<br/>"
                 "{event_line_html}"
                 "{expiration_line_html}"
                 "</p>"
@@ -253,11 +251,10 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
         },
         "es": {
-            "subject": "Tu recibo de Recall Pro",
+            "subject": "Tu recibo de Recall",
             "text": (
                 "Hola {name},\n\n"
-                "¡Gracias por suscribirte a Recall Pro!\n\n"
-                "Plan: Recall Pro\n"
+                "¡Gracias por suscribirte a Recall!\n\n"
                 "{event_line}"
                 "{expiration_line}"
                 "\nPuedes gestionar tu suscripción cuando quieras desde Ajustes.\n\n"
@@ -265,18 +262,17 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
             "html": (
                 "<p>Hola {name},</p>"
-                "<p>¡Gracias por suscribirte a <strong>Recall Pro</strong>!</p>"
-                "<p>Plan: Recall Pro<br/>{event_line_html}{expiration_line_html}</p>"
+                "<p>¡Gracias por suscribirte a <strong>Recall</strong>!</p>"
+                "<p>{event_line_html}{expiration_line_html}</p>"
                 "<p>Gestiona tu suscripción desde Ajustes en la app.</p>"
                 "<p>Saludos,<br/>El equipo de Recall</p>"
             ),
         },
         "fr": {
-            "subject": "Votre reçu Recall Pro",
+            "subject": "Votre reçu Recall",
             "text": (
                 "Bonjour {name},\n\n"
-                "Merci pour votre abonnement à Recall Pro !\n\n"
-                "Plan : Recall Pro\n"
+                "Merci pour votre abonnement à Recall !\n\n"
                 "{event_line}"
                 "{expiration_line}"
                 "\nGérez votre abonnement à tout moment depuis les Réglages.\n\n"
@@ -284,18 +280,17 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
             "html": (
                 "<p>Bonjour {name},</p>"
-                "<p>Merci pour votre abonnement à <strong>Recall Pro</strong> !</p>"
-                "<p>Plan : Recall Pro<br/>{event_line_html}{expiration_line_html}</p>"
+                "<p>Merci pour votre abonnement à <strong>Recall</strong> !</p>"
+                "<p>{event_line_html}{expiration_line_html}</p>"
                 "<p>Gérez votre abonnement depuis les Réglages.</p>"
                 "<p>Cordialement,<br/>L'équipe Recall</p>"
             ),
         },
         "de": {
-            "subject": "Deine Recall-Pro-Quittung",
+            "subject": "Deine Recall-Quittung",
             "text": (
                 "Hallo {name},\n\n"
-                "Danke für dein Recall Pro-Abo!\n\n"
-                "Plan: Recall Pro\n"
+                "Danke für dein Recall-Abo!\n\n"
                 "{event_line}"
                 "{expiration_line}"
                 "\nVerwalte dein Abo jederzeit in den Einstellungen.\n\n"
@@ -303,18 +298,17 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
             "html": (
                 "<p>Hallo {name},</p>"
-                "<p>Danke für dein <strong>Recall Pro</strong>-Abo!</p>"
-                "<p>Plan: Recall Pro<br/>{event_line_html}{expiration_line_html}</p>"
+                "<p>Danke für dein <strong>Recall</strong>-Abo!</p>"
+                "<p>{event_line_html}{expiration_line_html}</p>"
                 "<p>Verwalte dein Abo in den Einstellungen.</p>"
                 "<p>Viele Grüße,<br/>Das Recall-Team</p>"
             ),
         },
         "it": {
-            "subject": "La tua ricevuta di Recall Pro",
+            "subject": "La tua ricevuta di Recall",
             "text": (
                 "Ciao {name},\n\n"
-                "Grazie per l'abbonamento a Recall Pro!\n\n"
-                "Piano: Recall Pro\n"
+                "Grazie per l'abbonamento a Recall!\n\n"
                 "{event_line}"
                 "{expiration_line}"
                 "\nGestisci il tuo abbonamento dalle Impostazioni.\n\n"
@@ -322,18 +316,17 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
             "html": (
                 "<p>Ciao {name},</p>"
-                "<p>Grazie per l'abbonamento a <strong>Recall Pro</strong>!</p>"
-                "<p>Piano: Recall Pro<br/>{event_line_html}{expiration_line_html}</p>"
+                "<p>Grazie per l'abbonamento a <strong>Recall</strong>!</p>"
+                "<p>{event_line_html}{expiration_line_html}</p>"
                 "<p>Gestisci l'abbonamento dalle Impostazioni.</p>"
                 "<p>Saluti,<br/>Il team di Recall</p>"
             ),
         },
         "pt": {
-            "subject": "Seu recibo do Recall Pro",
+            "subject": "Seu recibo do Recall",
             "text": (
                 "Olá {name},\n\n"
-                "Obrigado por assinar o Recall Pro!\n\n"
-                "Plano: Recall Pro\n"
+                "Obrigado por assinar o Recall!\n\n"
                 "{event_line}"
                 "{expiration_line}"
                 "\nGerencie sua assinatura a qualquer momento nos Ajustes.\n\n"
@@ -341,18 +334,17 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
             "html": (
                 "<p>Olá {name},</p>"
-                "<p>Obrigado por assinar o <strong>Recall Pro</strong>!</p>"
-                "<p>Plano: Recall Pro<br/>{event_line_html}{expiration_line_html}</p>"
+                "<p>Obrigado por assinar o <strong>Recall</strong>!</p>"
+                "<p>{event_line_html}{expiration_line_html}</p>"
                 "<p>Gerencie sua assinatura nos Ajustes.</p>"
                 "<p>Abraços,<br/>Equipe Recall</p>"
             ),
         },
         "ru": {
-            "subject": "Ваш чек Recall Pro",
+            "subject": "Ваш чек Recall",
             "text": (
                 "Здравствуйте, {name}!\n\n"
-                "Спасибо за подписку на Recall Pro!\n\n"
-                "План: Recall Pro\n"
+                "Спасибо за подписку на Recall!\n\n"
                 "{event_line}"
                 "{expiration_line}"
                 "\nУправлять подпиской можно в Настройках приложения.\n\n"
@@ -360,18 +352,17 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
             "html": (
                 "<p>Здравствуйте, {name}!</p>"
-                "<p>Спасибо за подписку на <strong>Recall Pro</strong>!</p>"
-                "<p>План: Recall Pro<br/>{event_line_html}{expiration_line_html}</p>"
+                "<p>Спасибо за подписку на <strong>Recall</strong>!</p>"
+                "<p>{event_line_html}{expiration_line_html}</p>"
                 "<p>Управлять подпиской — в Настройках.</p>"
                 "<p>С уважением,<br/>Команда Recall</p>"
             ),
         },
         "tr": {
-            "subject": "Recall Pro dekontunuz",
+            "subject": "Recall dekontunuz",
             "text": (
                 "Merhaba {name},\n\n"
-                "Recall Pro'ya abone olduğunuz için teşekkürler!\n\n"
-                "Plan: Recall Pro\n"
+                "Recall'a abone olduğunuz için teşekkürler!\n\n"
                 "{event_line}"
                 "{expiration_line}"
                 "\nAboneliğinizi Ayarlar'dan istediğiniz zaman yönetebilirsiniz.\n\n"
@@ -379,8 +370,8 @@ _TEMPLATES: dict[str, dict[str, dict[str, str]]] = {
             ),
             "html": (
                 "<p>Merhaba {name},</p>"
-                "<p><strong>Recall Pro</strong>'ya abone olduğunuz için teşekkürler!</p>"
-                "<p>Plan: Recall Pro<br/>{event_line_html}{expiration_line_html}</p>"
+                "<p><strong>Recall</strong>'a abone olduğunuz için teşekkürler!</p>"
+                "<p>{event_line_html}{expiration_line_html}</p>"
                 "<p>Aboneliğinizi Ayarlar'dan yönetin.</p>"
                 "<p>Sevgiler,<br/>Recall ekibi</p>"
             ),

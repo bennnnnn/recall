@@ -568,8 +568,8 @@ CASES: tuple[Case, ...] = (
         "image-gen-free",
         "photos and maps",
         "generate an image of a sunset over mountains",
-        Expect(image_gen=False, photo=NO_PHOTO),
-        "On the free plan: says image generation is a Pro feature, without pretending.",
+        Expect(image_gen=True, photo=NO_PHOTO),
+        "On the free plan too: a generated picture, within the free daily images.",
     ),
     # ── Time and location ───────────────────────────────────────────────────
     Case(

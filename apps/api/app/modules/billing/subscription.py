@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.gateways import revenuecat_gateway
 from app.models.orm import User
+from app.modules.billing.entitlements import PLANS, plan_from_entitlements
 from app.repositories import users as users_repo
 
 logger = logging.getLogger(__name__)
@@ -50,16 +51,22 @@ async def advance_rc_event_watermark(
 
 
 def _plan_from_revenuecat_payload(payload: dict, settings: Settings) -> str:
-    active = revenuecat_gateway.entitlement_active(
-        payload,
+    entitlement_ids = (
         settings.revenuecat_entitlement_id,
+        settings.revenuecat_plus_entitlement_id,
     )
-    return "pro" if active else "free"
+    active = {
+        entitlement_id
+        for entitlement_id in entitlement_ids
+        if entitlement_id and revenuecat_gateway.entitlement_active(payload, entitlement_id)
+    }
+    return plan_from_entitlements(active, settings)
 
 
 async def resolve_plan_from_revenuecat(settings: Settings, app_user_id: str) -> str | None:
-    """HTTP-only: return ``pro``/``free`` from the subscriber API, or None if
-    the secret is missing or the fetch failed. Never defaults to ``pro``."""
+    """HTTP-only: the plan (``pro`` / ``plus`` / ``free``) the subscriber API
+    grants now, or None if the secret is missing or the fetch failed. Never
+    defaults to a paid plan."""
     if not settings.revenuecat_secret_key.strip():
         return None
     payload = await revenuecat_gateway.fetch_subscriber(
@@ -90,6 +97,8 @@ async def apply_plan_for_app_user_id(
     *,
     plan: str,
 ) -> bool:
+    if plan not in PLANS:
+        raise ValueError(f"Unknown plan {plan!r}")
     try:
         user_id = UUID(app_user_id)
     except ValueError:
@@ -120,7 +129,7 @@ async def handle_revenuecat_transfer(
     Fetches the target's plan from the RevenueCat API *before* any writes, then
     upgrades the target and only then downgrades sources. Returns False when
     the target plan could not be resolved so the webhook is not deduped and
-    RevenueCat can retry. Never defaults the target to ``pro``.
+    RevenueCat can retry. Never defaults the target to a paid plan.
     """
     cleaned_new = new_app_user_id.strip()
     if not cleaned_new:

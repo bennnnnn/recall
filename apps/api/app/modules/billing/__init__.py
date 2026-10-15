@@ -9,10 +9,13 @@ from importlib import import_module
 from typing import Any
 
 _EXPORTS = {
-    "is_pro": ("plan", "is_pro"),
+    "allowance": ("entitlements", "allowance"),
+    "can_use": ("entitlements", "can_use"),
+    "is_paid": ("entitlements", "is_paid"),
+    "plan_of": ("entitlements", "plan_of"),
 }
 # Account reads plan policy and syncs a purchase; both are billing's to own.
-_MODULE_EXPORTS = ("plan", "subscription")
+_MODULE_EXPORTS = ("entitlements", "plan", "subscription")
 __all__ = list(_EXPORTS) + list(_MODULE_EXPORTS)
 
 

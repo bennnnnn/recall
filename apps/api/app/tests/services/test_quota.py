@@ -24,14 +24,38 @@ def _free_user() -> MagicMock:
     return user
 
 
+def _plus_user() -> MagicMock:
+    user = MagicMock()
+    user.plan = "plus"
+    return user
+
+
 def test_daily_limit_for_user(settings):
     assert quota_service.daily_limit_for_user(_free_user(), settings) == 100_000
     assert quota_service.daily_limit_for_user(_pro_user(), settings) == 500_000
 
 
 def test_quota_exceeded_message(settings):
-    assert "Pro" in quota_service.quota_exceeded_message(_free_user())
-    assert "Pro" not in quota_service.quota_exceeded_message(_pro_user())
+    """Free is told it can upgrade; paid plans are not. Plan names stay in the app."""
+    assert "Upgrade" in quota_service.quota_exceeded_message(_free_user())
+    for user in (_plus_user(), _pro_user()):
+        assert "Upgrade" not in quota_service.quota_exceeded_message(user)
+    for user in (_free_user(), _plus_user(), _pro_user()):
+        assert "Pro" not in quota_service.quota_exceeded_message(user)
+
+
+@pytest.mark.parametrize(
+    "plan, tokens, stt, tts, images",
+    [("free", 100_000, 0, 0, 3), ("plus", 500_000, 200, 100, 10), ("pro", 500_000, 200, 100, 15)],
+)
+def test_per_plan_daily_caps(plan, tokens, stt, tts, images):
+    user = MagicMock()
+    user.plan = plan
+    settings = Settings()
+    assert quota_service.daily_limit_for_user(user, settings) == tokens
+    assert quota_service.speech_transcription_limit_for_user(user, settings) == stt
+    assert quota_service.speech_tts_limit_for_user(user, settings) == tts
+    assert quota_service.image_generation_limit_for_user(user, settings) == images
 
 
 @pytest.mark.parametrize(
@@ -302,7 +326,7 @@ async def test_refund_speech_transcription(fake_redis, settings):
     from uuid import uuid4
 
     user_id = uuid4()
-    limit = quota_service.speech_transcription_limit_for_user(_free_user(), settings)
+    limit = quota_service.speech_transcription_limit_for_user(_plus_user(), settings)
     assert await quota_service.reserve_speech_transcription(fake_redis, user_id, limit=limit)
     await quota_service.refund_speech_transcription(fake_redis, user_id)
     assert await quota_service.reserve_speech_transcription(fake_redis, user_id, limit=limit)
@@ -313,7 +337,8 @@ async def test_reserve_speech_tts_enforces_limit(fake_redis, settings):
     from uuid import uuid4
 
     user_id = uuid4()
-    limit = quota_service.speech_tts_limit_for_user(_free_user(), settings)
+    limit = quota_service.speech_tts_limit_for_user(_plus_user(), settings)
+    assert limit > 0
     for _ in range(limit):
         assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit) is True
     assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit) is False
@@ -324,7 +349,7 @@ async def test_refund_speech_tts(fake_redis, settings):
     from uuid import uuid4
 
     user_id = uuid4()
-    limit = quota_service.speech_tts_limit_for_user(_free_user(), settings)
+    limit = quota_service.speech_tts_limit_for_user(_plus_user(), settings)
     assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit)
     await quota_service.refund_speech_tts(fake_redis, user_id)
     assert await quota_service.reserve_speech_tts(fake_redis, user_id, limit=limit)
@@ -389,53 +414,142 @@ async def test_refund_image_generation(fake_redis):
     assert await quota_service.reserve_image_generation(fake_redis, user_id, limit=limit)
 
 
-def test_live_talk_limit_for_user():
-    settings = Settings(daily_live_talk=0, daily_live_talk_pro=30)
-    assert quota_service.live_talk_limit_for_user(_free_user(), settings) == 0
-    assert quota_service.live_talk_limit_for_user(_pro_user(), settings) == 30
+# ── Live talk minutes ────────────────────────────────────────────────────────
 
 
-@pytest.mark.asyncio
-async def test_reserve_live_talk_blocks_free_plan(fake_redis):
-    from uuid import uuid4
+def test_live_talk_allowance_is_monthly_minutes_per_plan():
+    settings = Settings()
+    assert quota_service.live_talk_allowance_seconds(_free_user(), settings) == 0
+    assert quota_service.live_talk_allowance_seconds(_plus_user(), settings) == 0
+    assert quota_service.live_talk_allowance_seconds(_pro_user(), settings) == 60 * 60
 
-    settings = Settings(daily_live_talk=0, daily_live_talk_pro=30)
-    user_id = uuid4()
-    assert (
-        await quota_service.reserve_live_talk(
-            fake_redis,
-            user_id,
-            limit=quota_service.live_talk_limit_for_user(_free_user(), settings),
-        )
-        is False
+
+async def _reserve(redis, user_id, *, allowance=1000, max_session=600, min_session=60) -> int:
+    return await quota_service.reserve_live_talk_seconds(
+        redis,
+        user_id,
+        allowance_seconds=allowance,
+        max_session_seconds=max_session,
+        min_session_seconds=min_session,
     )
 
 
 @pytest.mark.asyncio
-async def test_live_talk_has_capacity_does_not_reserve(fake_redis):
+async def test_live_talk_reserve_caps_a_session_and_stops_at_the_allowance(fake_redis):
     from uuid import uuid4
 
     user_id = uuid4()
-    assert await quota_service.live_talk_has_capacity(fake_redis, user_id, limit=2) is True
-    assert await quota_service.live_talk_used(fake_redis, user_id) == 0
-    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=2) is True
-    assert await quota_service.live_talk_used(fake_redis, user_id) == 1
-    assert await quota_service.live_talk_has_capacity(fake_redis, user_id, limit=2) is True
-    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=2) is True
-    assert await quota_service.live_talk_has_capacity(fake_redis, user_id, limit=2) is False
+    assert await _reserve(fake_redis, user_id) == 600
+    assert await _reserve(fake_redis, user_id) == 400
+    assert await _reserve(fake_redis, user_id) == 0
+    assert await quota_service.live_talk_used_seconds(fake_redis, user_id) == 1000
 
 
 @pytest.mark.asyncio
-async def test_refund_live_talk_if_pending(fake_redis):
+async def test_live_talk_reserve_refuses_less_than_the_minimum_session(fake_redis):
     from uuid import uuid4
 
-    settings = Settings(daily_live_talk_pro=5)
     user_id = uuid4()
-    limit = quota_service.live_talk_limit_for_user(_pro_user(), settings)
-    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=limit)
-    assert await quota_service.refund_live_talk_if_pending(fake_redis, user_id) is True
-    assert await quota_service.refund_live_talk_if_pending(fake_redis, user_id) is False
-    assert await quota_service.reserve_live_talk(fake_redis, user_id, limit=limit)
+    assert await _reserve(fake_redis, user_id, allowance=650) == 600
+    assert await _reserve(fake_redis, user_id, allowance=650) == 0
+    assert await quota_service.live_talk_used_seconds(fake_redis, user_id) == 600
+
+
+@pytest.mark.asyncio
+async def test_live_talk_reserve_without_minutes_takes_nothing(fake_redis):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    assert await _reserve(fake_redis, user_id, allowance=0) == 0
+    assert await quota_service.live_talk_used_seconds(fake_redis, user_id) == 0
+
+
+@pytest.mark.asyncio
+async def test_parallel_live_talk_reserves_never_pass_the_allowance(fake_redis):
+    """Two mints read the same balance; the one that lands past it gives back."""
+    from uuid import uuid4
+
+    user_id = uuid4()
+    assert await _reserve(fake_redis, user_id) == 600
+
+    class _StaleRead:
+        """Answers GET with the balance before the first mint landed."""
+
+        def __getattr__(self, name):
+            return getattr(fake_redis, name)
+
+        async def get(self, _key):
+            return "0"
+
+    assert await _reserve(_StaleRead(), user_id) == 400
+    assert await _reserve(_StaleRead(), user_id) == 0
+    assert await quota_service.live_talk_used_seconds(fake_redis, user_id) == 1000
+
+
+async def _reserve_started(redis, user_id, session_id, *, reserved, seconds_ago, month=None):
+    from datetime import UTC, datetime
+
+    started_ms = int(datetime.now(UTC).timestamp() * 1000) - seconds_ago * 1000
+    month = month or quota_service.utc_month()
+    await redis.incrby(f"livetalk_sec:{user_id}:{month}", reserved)
+    await redis.set(f"livetalk_res:{user_id}:{session_id}", f"{reserved}:{started_ms}:{month}")
+
+
+@pytest.mark.asyncio
+async def test_live_talk_settle_charges_the_time_that_passed(fake_redis):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    await _reserve_started(fake_redis, user_id, "call-1", reserved=600, seconds_ago=90)
+    charged = await quota_service.settle_live_talk_session(fake_redis, user_id, "call-1")
+    assert charged is not None and 90 <= charged <= 92
+    assert await quota_service.live_talk_used_seconds(fake_redis, user_id) == charged
+
+
+@pytest.mark.asyncio
+async def test_live_talk_settle_never_refunds_past_the_reservation(fake_redis):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    await _reserve_started(fake_redis, user_id, "call-1", reserved=600, seconds_ago=5_000)
+    assert await quota_service.settle_live_talk_session(fake_redis, user_id, "call-1") == 600
+    assert await quota_service.live_talk_used_seconds(fake_redis, user_id) == 600
+
+
+@pytest.mark.asyncio
+async def test_live_talk_settles_once_and_unreported_sessions_stay_charged(fake_redis):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    await _reserve_started(fake_redis, user_id, "call-1", reserved=600, seconds_ago=30)
+    await _reserve_started(fake_redis, user_id, "call-2", reserved=300, seconds_ago=10)
+    first = await quota_service.settle_live_talk_session(fake_redis, user_id, "call-1")
+    assert first is not None
+    assert await quota_service.settle_live_talk_session(fake_redis, user_id, "call-1") is None
+    assert await quota_service.settle_live_talk_session(fake_redis, user_id, "unknown") is None
+    # call-2 never reported its end: the full 300 seconds stay charged.
+    assert await quota_service.live_talk_used_seconds(fake_redis, user_id) == first + 300
+
+
+@pytest.mark.asyncio
+async def test_live_talk_settle_refunds_the_month_it_was_reserved_in(fake_redis):
+    from uuid import uuid4
+
+    user_id = uuid4()
+    await _reserve_started(
+        fake_redis, user_id, "call-1", reserved=600, seconds_ago=60, month="2026-09"
+    )
+    await quota_service.settle_live_talk_session(fake_redis, user_id, "call-1")
+    september = await quota_service.live_talk_used_seconds(fake_redis, user_id, month="2026-09")
+    assert 60 <= september <= 62
+
+
+def test_live_talk_minutes_renew_on_the_first_of_the_month():
+    from datetime import UTC, datetime
+
+    december = datetime(2026, 12, 31, 23, 59, tzinfo=UTC)
+    assert quota_service.next_month_start(december) == datetime(2027, 1, 1, tzinfo=UTC)
+    assert quota_service.utc_month(december) == "2026-12"
 
 
 @pytest.mark.asyncio

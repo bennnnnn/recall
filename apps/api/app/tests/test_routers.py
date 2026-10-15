@@ -53,11 +53,12 @@ def _app_with_user(user: User):
 
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    # Pin live-talk caps so a local operator .env (e.g. DAILY_LIVE_TALK_PRO=200)
-    # cannot change Pro remaining/limit assertions.
+    # Pin live-talk minutes so a local operator .env cannot change the
+    # remaining/limit assertions.
     app.dependency_overrides[get_settings_dep] = lambda: Settings(
-        daily_live_talk=0,
-        daily_live_talk_pro=30,
+        monthly_live_talk_minutes=0,
+        monthly_live_talk_minutes_plus=0,
+        monthly_live_talk_minutes_pro=60,
     )
     return app
 
@@ -2222,7 +2223,7 @@ def test_admin_dlq_skips_malformed_entries():
 def test_speech_transcribe_ok():
     import fakeredis.aioredis
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
@@ -2246,7 +2247,7 @@ def test_speech_transcribe_global_spend_cap():
 
     from app.services.quota import VOICE_SPEND_CAP_MESSAGE
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
@@ -2275,7 +2276,7 @@ def test_speech_transcribe_json_ok():
 
     import fakeredis.aioredis
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     payload = {
         "audio_base64": base64.b64encode(b"fake-audio").decode(),
@@ -2303,7 +2304,7 @@ def test_speech_transcribe_json_forwards_language():
 
     import fakeredis.aioredis
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     payload = {
         "audio_base64": base64.b64encode(b"fake-audio").decode(),
@@ -2330,7 +2331,7 @@ def test_speech_transcribe_empty_text_ok():
     """Empty transcript is a valid no-speech result — 200 with empty text, not a 502 outage."""
     import fakeredis.aioredis
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
@@ -2352,7 +2353,7 @@ def test_speech_transcribe_empty_text_ok():
 def test_speech_transcribe_provider_failure_is_502():
     import fakeredis.aioredis
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
@@ -2375,10 +2376,12 @@ def test_speech_transcribe_daily_cap():
 
     from app.core.deps import get_current_user, get_settings_dep
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_transcriptions=1)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        daily_speech_transcriptions_plus=1
+    )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
@@ -2408,7 +2411,7 @@ def test_speech_transcribe_cancelled_refunds():
 
     import fakeredis.aioredis
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
@@ -2437,12 +2440,12 @@ def test_speech_transcribe_rate_limit():
 
     from app.core.deps import get_current_user, get_settings_dep
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[get_settings_dep] = lambda: Settings(
         speech_rate_limit_per_minute=1,
-        daily_speech_transcriptions=100,
+        daily_speech_transcriptions_plus=100,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
@@ -2468,7 +2471,7 @@ def test_speech_transcribe_rate_limit():
 
 
 def test_speech_transcribe_disabled():
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     from app.core.deps import get_current_user, get_settings_dep
 
     app = create_app()
@@ -2492,7 +2495,7 @@ def test_speech_transcribe_rejects_oversized_multipart_content_length():
 
     from app.models.schemas.integrations import SPEECH_MAX_REQUEST_BYTES
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     oversized = b"x" * (SPEECH_MAX_REQUEST_BYTES + 1)
@@ -2521,10 +2524,12 @@ def test_speech_transcribe_6mb_is_413_before_quota():
 
     from app.core.deps import get_current_user, get_settings_dep
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_transcriptions=1)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(
+        daily_speech_transcriptions_plus=1
+    )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     six_mb = b"x" * 6_000_000
@@ -2555,7 +2560,7 @@ def test_speech_tts_ok():
 
     import fakeredis.aioredis
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
@@ -2582,7 +2587,7 @@ def test_speech_tts_cancelled_refunds():
 
     import fakeredis.aioredis
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
 
@@ -2611,10 +2616,10 @@ def test_speech_tts_daily_cap():
 
     from app.core.deps import get_current_user, get_settings_dep
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts=1)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts_plus=1)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
@@ -2644,10 +2649,10 @@ def test_speech_tts_lead_allows_multiple_rest_followups():
 
     from app.core.deps import get_current_user, get_settings_dep
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts=1)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts_plus=1)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
@@ -2689,10 +2694,10 @@ def test_speech_tts_rest_wrong_lead_hash_is_billed():
 
     from app.core.deps import get_current_user, get_settings_dep
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts=1)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts_plus=1)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
@@ -2736,10 +2741,10 @@ def test_speech_tts_rest_over_char_budget_is_billed():
 
     from app.core.deps import get_current_user, get_settings_dep
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
-    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts=1)
+    app.dependency_overrides[get_settings_dep] = lambda: Settings(daily_speech_tts_plus=1)
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
     with (
@@ -2772,12 +2777,12 @@ def test_speech_tts_rate_limit_message():
 
     from app.core.deps import get_current_user, get_settings_dep
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     app = create_app()
     app.dependency_overrides[get_current_user] = lambda: user
     app.dependency_overrides[get_settings_dep] = lambda: Settings(
         speech_rate_limit_per_minute=1,
-        daily_speech_tts=100,
+        daily_speech_tts_plus=100,
     )
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     client = TestClient(app)
@@ -2804,7 +2809,7 @@ def test_speech_tts_rate_limit_message():
 
 
 def test_speech_tts_disabled():
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     from app.core.deps import get_current_user, get_settings_dep
 
     app = create_app()
@@ -2826,7 +2831,7 @@ def test_speech_tts_stream_ok():
         yield b"pcm"
         yield b"-hi"
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
@@ -2853,7 +2858,7 @@ def test_speech_tts_stream_empty_refunds():
         if False:
             yield b"x"
 
-    user = _fake_user()
+    user = _fake_user(plan="plus")
     client = TestClient(_app_with_user(user))
     fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     with (
@@ -2872,6 +2877,39 @@ def test_speech_tts_stream_empty_refunds():
     assert r.status_code == 200
     assert r.content == b""
     refund.assert_awaited()
+
+
+@pytest.mark.parametrize(
+    "path, body",
+    [
+        ("/speech/transcribe", None),
+        ("/speech/tts", {"text": "hello"}),
+        ("/speech/tts/stream", {"text": "hello"}),
+    ],
+)
+def test_free_plan_is_refused_voice_input_and_read_aloud(path, body):
+    """Called directly, the endpoints refuse a plan without the feature (403 →
+    the app opens the paywall), before any audio is read or quota is touched."""
+    user = _fake_user(plan="free")
+    client = TestClient(_app_with_user(user))
+    with (
+        patch("app.modules.speech.api.get_redis_client") as redis_client,
+        patch("app.modules.speech.api.speech_service.transcribe_audio", AsyncMock()) as stt,
+        patch("app.modules.speech.api.speech_service.synthesize_speech", AsyncMock()) as tts,
+    ):
+        if body is None:
+            r = client.post(
+                path,
+                headers={"Authorization": "Bearer tok"},
+                files={"file": ("speech.m4a", b"fake-audio", "audio/m4a")},
+            )
+        else:
+            r = client.post(path, headers={"Authorization": "Bearer tok"}, json=body)
+    assert r.status_code == 403
+    assert "Upgrade" in r.json()["detail"]
+    redis_client.assert_not_called()
+    stt.assert_not_awaited()
+    tts.assert_not_awaited()
 
 
 def test_speech_live_status_free_not_entitled():
@@ -2901,8 +2939,22 @@ def test_speech_live_status_pro_remaining():
     assert r.status_code == 200
     body = r.json()
     assert body["entitled"] is True
-    assert body["remaining"] == 30
-    assert body["limit"] == 30
+    assert body["remaining"] == 60
+    assert body["limit"] == 60
+    assert body["remaining_seconds"] == 3600
+    assert body["resets_at"].endswith("T00:00:00Z")
+
+
+def test_speech_live_status_plus_not_entitled():
+    import fakeredis.aioredis
+
+    user = _fake_user(plan="plus")
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    with patch("app.modules.speech.api.get_redis_client", return_value=fake_redis):
+        r = client.get("/speech/live", headers={"Authorization": "Bearer tok"})
+    assert r.json()["entitled"] is False
+    assert r.json()["limit"] == 0
 
 
 def test_speech_live_turn_gone():
@@ -2910,7 +2962,7 @@ def test_speech_live_turn_gone():
     client = TestClient(_app_with_user(user))
     r = client.post("/speech/live/turn", headers={"Authorization": "Bearer tok"})
     assert r.status_code == 410
-    assert "persist" in r.json()["detail"].lower()
+    assert "minutes" in r.json()["detail"].lower()
 
 
 def test_speech_live_turn_pro_also_gone():
@@ -2920,34 +2972,12 @@ def test_speech_live_turn_pro_also_gone():
     assert r.status_code == 410
 
 
-@pytest.mark.asyncio
-async def test_speech_live_refund_pending_slot():
-    import fakeredis.aioredis
-    from httpx import ASGITransport, AsyncClient
-
-    from app.services import quota as quota_service
-
+def test_speech_live_refund_is_gone():
+    """Minutes settle on /speech/live/end; a per-turn refund would double-credit."""
     user = _fake_user(plan="pro")
-    app = _app_with_user(user)
-    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
-    await quota_service.reserve_live_talk(fake_redis, user.id, limit=30)
-    with patch("app.modules.speech.api.get_redis_client", return_value=fake_redis):
-        async with AsyncClient(
-            transport=ASGITransport(app=app),
-            base_url="http://test",
-        ) as client:
-            refund = await client.post(
-                "/speech/live/refund",
-                headers={"Authorization": "Bearer tok"},
-            )
-            again = await client.post(
-                "/speech/live/refund",
-                headers={"Authorization": "Bearer tok"},
-            )
-    assert refund.status_code == 200
-    assert refund.json()["refunded"] is True
-    assert refund.json()["remaining"] == 30
-    assert again.json()["refunded"] is False
+    client = TestClient(_app_with_user(user))
+    r = client.post("/speech/live/refund", headers={"Authorization": "Bearer tok"})
+    assert r.status_code == 410
 
 
 def test_speech_live_commit_gone():

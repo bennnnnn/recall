@@ -26,7 +26,7 @@ from uuid import UUID
 
 from redis.asyncio import Redis
 
-from app.core.config import Settings
+from app.core.config import Settings, get_settings
 from app.gateways import litellm_gateway
 from app.gateways.litellm_gateway import ModelUnavailableError
 from app.gateways.mcp import registry as mcp_registry
@@ -456,7 +456,7 @@ def _needs_non_web_tool(text: str, settings: Settings | None, user: User | None)
     if (
         image_on
         and user is not None
-        and plan_service.is_pro(user)
+        and plan_service.can_use(user, "image_generation", settings or get_settings())
         and extract_image_gen_prompt(text)
     ):
         return True
@@ -485,11 +485,15 @@ def _search_before_the_model(
 
 
 def _tools_for_user(settings: Settings, user: User | None) -> list[dict[str, Any]]:
-    """OpenAI tool payloads; omit image gen for free users / when disabled."""
+    """OpenAI tool payloads; omit image gen when disabled or not in the user's plan."""
     tools = mcp_registry.build_openai_tools()
     if not settings.image_search_enabled:
         tools = [t for t in tools if (t.get("function") or {}).get("name") != "search_image"]
-    if settings.image_generation_enabled and user is not None and plan_service.is_pro(user):
+    if (
+        settings.image_generation_enabled
+        and user is not None
+        and plan_service.can_use(user, "image_generation", settings)
+    ):
         return tools
     return [t for t in tools if (t.get("function") or {}).get("name") != "generate_image"]
 

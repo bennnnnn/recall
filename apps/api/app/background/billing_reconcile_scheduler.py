@@ -1,8 +1,9 @@
-"""Periodic RevenueCat entitlement check for users currently marked Pro.
+"""Periodic RevenueCat entitlement check for users on a paid plan.
 
-A lost webhook (or exhausted retry after a non-200) can leave plan=pro after
-the store has already revoked access. App-open sync only helps if they reopen
-the app. This cycle re-verifies Pro rows against RevenueCat's REST API.
+A lost webhook (or exhausted retry after a non-200) can leave a paid plan after
+the store has already revoked or changed it. App-open sync only helps if they
+reopen the app. This cycle re-verifies every paid row (plus and pro) against
+RevenueCat's REST API, so a lapsed plan drops and a Pro -> Plus change lands.
 """
 
 from __future__ import annotations
@@ -21,6 +22,7 @@ from app.background.periodic import (
 from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.modules.billing import subscription as subscription_service
+from app.modules.billing.entitlements import PAID_PLANS, PLANS
 from app.repositories import users as users_repo
 
 logger = logging.getLogger(__name__)
@@ -37,18 +39,25 @@ def _scheduler_enabled(settings: Settings) -> bool:
 async def _billing_cycle(settings: Settings, lock: CycleLock) -> None:
     if not settings.revenuecat_secret_key.strip():
         return
+    for paid_plan in (plan for plan in PLANS if plan in PAID_PLANS):
+        if not await _reconcile_plan(settings, lock, paid_plan):
+            return
+
+
+async def _reconcile_plan(settings: Settings, lock: CycleLock, current_plan: str) -> bool:
+    """Re-check every row on *current_plan*. False when the cycle must stop."""
     after_id: UUID | None = None
     batch = max(1, settings.billing_reconcile_batch_size)
     while True:
         async with SessionLocal() as session:
             ids = await users_repo.list_ids_by_plan(
-                session, plan="pro", after_id=after_id, limit=batch
+                session, plan=current_plan, after_id=after_id, limit=batch
             )
         if not ids:
-            return
+            return True
         for user_id in ids:
             plan = await subscription_service.resolve_plan_from_revenuecat(settings, str(user_id))
-            if plan is not None and plan != "pro":
+            if plan is not None and plan != current_plan:
                 async with SessionLocal() as session:
                     await subscription_service.apply_plan_for_app_user_id(
                         session, str(user_id), plan=plan
@@ -56,7 +65,7 @@ async def _billing_cycle(settings: Settings, lock: CycleLock) -> None:
                     logger.info("Billing reconcile set plan=%s user=%s", plan, user_id)
             if not await lock.refresh():
                 logger.warning("Billing reconcile lock lost; stopping cycle")
-                return
+                return False
             await asyncio.sleep(_REST_GAP_SECONDS)
         after_id = ids[-1]
 

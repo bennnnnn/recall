@@ -9,93 +9,92 @@ from redis.exceptions import RedisError, ResponseError
 from app.core.config import Settings
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
+from app.modules.billing.entitlements import allowance, is_paid
 
 logger = logging.getLogger(__name__)
 
+# Plan names are the app's to show (i18n); server copy says "upgrade", never a
+# plan name, and never a number that config owns.
 # Shown when the daily quota is exhausted — avoid internal "token" wording.
 # Counters reset at midnight UTC (not the user's local timezone).
 QUOTA_EXCEEDED_MESSAGE_FREE = (
-    "You've used up today's free limit. Go Pro for more — or try again after midnight UTC."
+    "You've used up today's free limit. Upgrade for more — or try again after midnight UTC."
 )
-QUOTA_EXCEEDED_MESSAGE_PRO = "You've reached today's limit. Try again after midnight UTC."
+QUOTA_EXCEEDED_MESSAGE_PAID = "You've reached today's limit. Try again after midnight UTC."
 
 # Backward-compatible alias for tests and imports.
 QUOTA_EXCEEDED_MESSAGE = QUOTA_EXCEEDED_MESSAGE_FREE
 
 IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE = (
-    "You've reached today's image upload limit (5). "
-    "Go Pro for more — or try again after midnight UTC."
+    "You've reached today's image upload limit. Upgrade for more — or try again after midnight UTC."
 )
-IMAGE_LIMIT_EXCEEDED_MESSAGE_PRO = (
-    "You've reached today's image upload limit (30). Try again after midnight UTC."
+IMAGE_LIMIT_EXCEEDED_MESSAGE_PAID = (
+    "You've reached today's image upload limit. Try again after midnight UTC."
 )
 
-SPEECH_LIMIT_EXCEEDED_MESSAGE_FREE = (
-    "You've reached today's voice transcription limit. "
-    "Go Pro for more — or try again after midnight UTC."
-)
-SPEECH_LIMIT_EXCEEDED_MESSAGE_PRO = (
+SPEECH_LIMIT_EXCEEDED_MESSAGE = (
     "You've reached today's voice transcription limit. Try again after midnight UTC."
 )
+SPEECH_NOT_IN_PLAN_MESSAGE = "Voice input isn't part of your plan. Upgrade to dictate messages."
 SPEECH_RATE_LIMIT_MESSAGE = "Too many voice requests. Please wait a moment and try again."
 SPEECH_TTS_RATE_LIMIT_MESSAGE = "Too many read-aloud requests. Please wait a moment and try again."
+SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE = "Daily read-aloud limit reached. Try again tomorrow."
+SPEECH_TTS_NOT_IN_PLAN_MESSAGE = (
+    "Read aloud isn't part of your plan. Upgrade for it, or use your phone's voice."
+)
 
 IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE = (
-    "Image generation is a Pro feature. Upgrade to generate images."
+    "You've reached today's image generation limit. "
+    "Upgrade for more — or try again after midnight UTC."
 )
-IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PRO = (
+IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PAID = (
     "You've reached today's image generation limit. Try again after midnight UTC."
 )
+IMAGE_GENERATION_NOT_IN_PLAN_MESSAGE = "Image generation isn't part of your plan. Upgrade for it."
 IMAGE_GENERATION_SPEND_CAP_MESSAGE = "Image generation is temporarily unavailable. Try again later."
 
 IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_FREE = (
-    "You've reached today's photo lookup limit. Go Pro for more — or try again after midnight UTC."
+    "You've reached today's photo lookup limit. Upgrade for more — or try again after midnight UTC."
 )
-IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_PRO = (
+IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_PAID = (
     "You've reached today's photo lookup limit. Try again after midnight UTC."
 )
 IMAGE_SEARCH_SPEND_CAP_MESSAGE = "Photo lookup is temporarily unavailable. Try again later."
 
-LIVE_TALK_REQUIRES_PRO_MESSAGE = "Live talk is a Pro feature. Upgrade to talk with Recall out loud."
-LIVE_TALK_LIMIT_EXCEEDED_MESSAGE = (
-    "You've reached today's live talk limit. Try again after midnight UTC."
+LIVE_TALK_NOT_IN_PLAN_MESSAGE = (
+    "Live talk isn't part of your plan. Upgrade to talk with Recall out loud."
+)
+LIVE_TALK_MINUTES_USED_MESSAGE = (
+    "You've used this month's live talk minutes. They renew on the 1st (UTC)."
 )
 LIVE_TALK_RATE_LIMIT_MESSAGE = "Too many live talk requests. Please wait a moment and try again."
 
 
-def _plan_limit(user: User, *, free: int, pro: int) -> int:
-    return pro if user.plan == "pro" else free
-
-
-def _plan_message(user: User, *, free: str, pro: str) -> str:
-    return pro if user.plan == "pro" else free
+def _plan_message(user: User, *, free: str, paid: str) -> str:
+    return paid if is_paid(user) else free
 
 
 def quota_exceeded_message(user: User) -> str:
-    return _plan_message(user, free=QUOTA_EXCEEDED_MESSAGE_FREE, pro=QUOTA_EXCEEDED_MESSAGE_PRO)
+    return _plan_message(user, free=QUOTA_EXCEEDED_MESSAGE_FREE, paid=QUOTA_EXCEEDED_MESSAGE_PAID)
 
 
 def image_limit_exceeded_message(user: User) -> str:
     return _plan_message(
         user,
         free=IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE,
-        pro=IMAGE_LIMIT_EXCEEDED_MESSAGE_PRO,
+        paid=IMAGE_LIMIT_EXCEEDED_MESSAGE_PAID,
     )
 
 
 def speech_limit_exceeded_message(user: User) -> str:
-    return _plan_message(
-        user,
-        free=SPEECH_LIMIT_EXCEEDED_MESSAGE_FREE,
-        pro=SPEECH_LIMIT_EXCEEDED_MESSAGE_PRO,
-    )
+    return SPEECH_LIMIT_EXCEEDED_MESSAGE
 
 
 def image_generation_limit_exceeded_message(user: User) -> str:
     return _plan_message(
         user,
         free=IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_FREE,
-        pro=IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PRO,
+        paid=IMAGE_GENERATION_LIMIT_EXCEEDED_MESSAGE_PAID,
     )
 
 
@@ -103,16 +102,12 @@ def image_search_limit_exceeded_message(user: User) -> str:
     return _plan_message(
         user,
         free=IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_FREE,
-        pro=IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_PRO,
+        paid=IMAGE_SEARCH_LIMIT_EXCEEDED_MESSAGE_PAID,
     )
 
 
 def speech_tts_limit_exceeded_message(user: User) -> str:
-    return _plan_message(
-        user,
-        free="Daily read-aloud limit reached. Upgrade to Pro for more, or use device speech.",
-        pro="Daily read-aloud limit reached. Try again tomorrow.",
-    )
+    return SPEECH_TTS_LIMIT_EXCEEDED_MESSAGE
 
 
 def utc_today() -> date:
@@ -195,7 +190,7 @@ async def _refund_daily(redis: Redis, key: str, *, amount: int = 1) -> None:
 
 
 def daily_limit_for_user(user: User, settings: Settings) -> int:
-    return _plan_limit(user, free=settings.daily_token_limit, pro=settings.daily_token_limit_pro)
+    return allowance(user, "daily_tokens", settings)
 
 
 async def get_daily_usage(redis: Redis, user_id: str) -> int:
@@ -406,7 +401,7 @@ async def reset_daily_usage(redis: Redis, user_id: str, day: date | None = None)
 
 
 def image_upload_limit_for_user(user: User, settings: Settings) -> int:
-    return _plan_limit(user, free=settings.daily_image_limit, pro=settings.daily_image_limit_pro)
+    return allowance(user, "daily_image_uploads", settings)
 
 
 async def get_image_upload_count(redis: Redis, user_id: UUID) -> int:
@@ -438,11 +433,7 @@ async def refund_image_upload(redis: Redis, user_id: UUID) -> None:
 
 
 def speech_transcription_limit_for_user(user: User, settings: Settings) -> int:
-    return _plan_limit(
-        user,
-        free=settings.daily_speech_transcriptions,
-        pro=settings.daily_speech_transcriptions_pro,
-    )
+    return allowance(user, "daily_speech_transcriptions", settings)
 
 
 async def reserve_speech_transcription(redis: Redis, user_id: UUID, *, limit: int) -> bool:
@@ -454,7 +445,7 @@ async def refund_speech_transcription(redis: Redis, user_id: UUID) -> None:
 
 
 def speech_tts_limit_for_user(user: User, settings: Settings) -> int:
-    return _plan_limit(user, free=settings.daily_speech_tts, pro=settings.daily_speech_tts_pro)
+    return allowance(user, "daily_speech_tts", settings)
 
 
 async def reserve_speech_tts(redis: Redis, user_id: UUID, *, limit: int) -> bool:
@@ -469,26 +460,18 @@ async def refund_speech_tts(redis: Redis, user_id: UUID) -> None:
 
 
 def tavily_search_limit_for_user(user: User, settings: Settings) -> int:
-    return _plan_limit(
-        user,
-        free=settings.daily_tavily_searches,
-        pro=settings.daily_tavily_searches_pro,
-    )
+    return allowance(user, "daily_web_searches", settings)
 
 
 async def reserve_tavily_search(redis: Redis, user_id: UUID, *, limit: int) -> bool:
     return await _reserve_daily_slot(redis, _daily_key("tavily", user_id), limit=limit)
 
 
-# ── AI image generation caps (Pro-only via limit=0 for free) ─────────────────
+# ── AI image generation caps (per plan; 0 = not part of that plan) ──────────
 
 
 def image_generation_limit_for_user(user: User, settings: Settings) -> int:
-    return _plan_limit(
-        user,
-        free=settings.daily_image_generations,
-        pro=settings.daily_image_generations_pro,
-    )
+    return allowance(user, "daily_image_generations", settings)
 
 
 async def reserve_image_generation(redis: Redis, user_id: UUID, *, limit: int) -> bool:
@@ -508,15 +491,11 @@ IMAGE_SEARCH_SPEND_USD = 0.01
 MATH_SCAN_READ_SPEND_USD = 0.005
 
 
-# ── Reference-photo lookup caps (free + pro; not Pro-gated like generation) ──
+# ── Reference-photo lookup caps (every plan, per-plan cap) ──────────────────
 
 
 def image_search_limit_for_user(user: User, settings: Settings) -> int:
-    return _plan_limit(
-        user,
-        free=settings.daily_image_searches,
-        pro=settings.daily_image_searches_pro,
-    )
+    return allowance(user, "daily_image_searches", settings)
 
 
 async def reserve_image_search(redis: Redis, user_id: UUID, *, limit: int) -> bool:
@@ -527,68 +506,136 @@ async def refund_image_search(redis: Redis, user_id: UUID) -> None:
     await _refund_daily(redis, _daily_key("imgsearch", user_id))
 
 
-# ── Live talk turns (Pro-only via limit=0 for free) ──────────────────────────
-# One slot = one persisted user utterance, not one WebRTC session. Minting a
-# session only checks remaining capacity; persist consumes the slot. Pending
-# lets persist refund if the chat write fails after reserve.
+# ── Live talk minutes (a monthly allowance per plan) ────────────────────────
+# Live talk runs phone <-> OpenAI over WebRTC once the server mints a session,
+# so the server meters time at its own boundary: mint reserves a capped
+# session length out of this UTC month's seconds, and the end report settles
+# it to the time that actually passed (never refunding past the reservation).
+# A phone that never reports keeps the full reservation charged.
 
-_LIVE_TALK_PENDING_TTL_SECONDS = 90
 VOICE_SPEND_CAP_MESSAGE = "Voice is temporarily unavailable. Try again later."
 STT_SPEND_USD = 0.01
 TTS_SPEND_USD = 0.015
 LIVE_TALK_SESSION_SPEND_USD = 0.03
 LIVE_TALK_TURN_SPEND_USD = 0.08
+# A month counter outlives its month long enough for a late settle, then expires.
+_MONTHLY_TTL = 60 * 60 * 24 * 40
+# A reservation waits this long past its session for the phone's end report.
+_LIVE_TALK_SETTLE_GRACE_SECONDS = 15 * 60
 
 
-def live_talk_limit_for_user(user: User, settings: Settings) -> int:
-    return _plan_limit(user, free=settings.daily_live_talk, pro=settings.daily_live_talk_pro)
+def utc_month(now: datetime | None = None) -> str:
+    return (now or datetime.now(UTC)).strftime("%Y-%m")
 
 
-def live_talk_limit_exceeded_message(user: User) -> str:
-    if user.plan == "pro":
-        return LIVE_TALK_LIMIT_EXCEEDED_MESSAGE
-    return LIVE_TALK_REQUIRES_PRO_MESSAGE
+def next_month_start(now: datetime | None = None) -> datetime:
+    current = now or datetime.now(UTC)
+    if current.month == 12:
+        return datetime(current.year + 1, 1, 1, tzinfo=UTC)
+    return datetime(current.year, current.month + 1, 1, tzinfo=UTC)
 
 
-def _live_talk_pending_key(user_id: UUID) -> str:
-    return f"livetalk_pending:{user_id}"
+def _live_talk_month_key(user_id: UUID, month: str) -> str:
+    return f"livetalk_sec:{user_id}:{month}"
 
 
-async def live_talk_used(redis: Redis, user_id: UUID) -> int:
-    value = await redis.get(_daily_key("livetalk", user_id))
-    return int(value or 0)
+def _live_talk_reservation_key(user_id: UUID, session_id: str) -> str:
+    return f"livetalk_res:{user_id}:{session_id}"
 
 
-async def live_talk_has_capacity(redis: Redis, user_id: UUID, *, limit: int) -> bool:
-    """True when another utterance can still be persisted today. Does not reserve."""
-    if limit <= 0:
-        return False
-    return await live_talk_used(redis, user_id) < limit
+def live_talk_allowance_seconds(user: User, settings: Settings) -> int:
+    return allowance(user, "monthly_live_talk_minutes", settings) * 60
 
 
-async def reserve_live_talk(redis: Redis, user_id: UUID, *, limit: int) -> bool:
-    ok = await _reserve_daily_slot(redis, _daily_key("livetalk", user_id), limit=limit)
-    if ok:
-        await redis.set(_live_talk_pending_key(user_id), "1", ex=_LIVE_TALK_PENDING_TTL_SECONDS)
-    return ok
+async def live_talk_used_seconds(redis: Redis, user_id: UUID, *, month: str | None = None) -> int:
+    value = await redis.get(_live_talk_month_key(user_id, month or utc_month()))
+    return max(0, int(value or 0))
 
 
-async def refund_live_talk(redis: Redis, user_id: UUID) -> None:
-    await _refund_daily(redis, _daily_key("livetalk", user_id))
+async def reserve_live_talk_seconds(
+    redis: Redis,
+    user_id: UUID,
+    *,
+    allowance_seconds: int,
+    max_session_seconds: int,
+    min_session_seconds: int,
+) -> int:
+    """Take up to one session's seconds from this month. 0 = refused.
+
+    INCRBY-then-trim keeps parallel mints honest: whoever lands past the
+    allowance gives the excess back, and drops out entirely when what is left
+    for it is under the minimum session.
+    """
+    if allowance_seconds <= 0 or max_session_seconds <= 0:
+        return 0
+    floor = max(1, min_session_seconds)
+    key = _live_talk_month_key(user_id, utc_month())
+    try:
+        used = int(await redis.get(key) or 0)
+        grant = min(max_session_seconds, allowance_seconds - used)
+        if grant < floor:
+            return 0
+        total = await redis.incrby(key, grant)
+        if total == grant:
+            await redis.expire(key, _MONTHLY_TTL)
+        overshoot = total - allowance_seconds
+        if overshoot > 0:
+            if grant - overshoot < floor:
+                await redis.incrby(key, -grant)
+                return 0
+            await redis.incrby(key, -overshoot)
+            grant -= overshoot
+        return grant
+    except RedisError as exc:
+        logger.warning(
+            "Live talk reserve failed; Redis unavailable user=%s", user_id, exc_info=True
+        )
+        raise RedisUnavailableError() from exc
 
 
-async def refund_live_talk_if_pending(redis: Redis, user_id: UUID) -> bool:
-    """Give back the slot only if this turn never made it into a chat send."""
-    pending = await redis.get(_live_talk_pending_key(user_id))
-    if not pending:
-        return False
-    await redis.delete(_live_talk_pending_key(user_id))
-    await refund_live_talk(redis, user_id)
-    return True
+async def record_live_talk_reservation(
+    redis: Redis, user_id: UUID, session_id: str, *, reserved_seconds: int
+) -> None:
+    started_ms = int(datetime.now(UTC).timestamp() * 1000)
+    await redis.set(
+        _live_talk_reservation_key(user_id, session_id),
+        f"{reserved_seconds}:{started_ms}:{utc_month()}",
+        ex=reserved_seconds + _LIVE_TALK_SETTLE_GRACE_SECONDS,
+    )
 
 
-async def clear_live_talk_pending(redis: Redis, user_id: UUID) -> None:
-    await redis.delete(_live_talk_pending_key(user_id))
+async def release_live_talk_seconds(
+    redis: Redis, user_id: UUID, *, seconds: int, month: str | None = None
+) -> None:
+    """Give back seconds that were reserved but never became a session."""
+    if seconds <= 0:
+        return
+    await _refund_daily(redis, _live_talk_month_key(user_id, month or utc_month()), amount=seconds)
+
+
+async def settle_live_talk_session(redis: Redis, user_id: UUID, session_id: str) -> int | None:
+    """Charge the time that passed since mint; refund the rest of the reservation.
+
+    Returns the seconds charged, or None when there is nothing to settle (an
+    unknown session, a second report, or one that came after the grace window,
+    which keeps the full reservation). The server's clock decides: a phone
+    cannot shorten its own session by reporting less.
+    """
+    raw = await redis.getdel(_live_talk_reservation_key(user_id, (session_id or "").strip()))
+    if raw is None:
+        return None
+    text = raw.decode() if isinstance(raw, bytes | bytearray) else str(raw)
+    try:
+        reserved_text, started_text, month = text.split(":", 2)
+        reserved = int(reserved_text)
+        started_ms = int(started_text)
+    except ValueError:
+        return None
+    now_ms = int(datetime.now(UTC).timestamp() * 1000)
+    elapsed = math.ceil(max(0, now_ms - started_ms) / 1000)
+    charged = min(reserved, elapsed)
+    await release_live_talk_seconds(redis, user_id, seconds=reserved - charged, month=month)
+    return charged
 
 
 # ── Global UTC-day spend kill-switch (OpenRouter $) ──────────────────────────

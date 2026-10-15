@@ -102,7 +102,7 @@ def test_build_receipt_includes_event_and_optional_fields():
         product_id="recall.pro.monthly",
         expiration="2026-08-01T00:00:00+00:00",
     )
-    assert subject == "Your Recall Pro receipt"
+    assert subject == "Your Recall receipt"
     assert "INITIAL_PURCHASE" in text
     assert "app_store" in text
     assert "recall.pro.monthly" in text
@@ -159,7 +159,7 @@ async def test_send_purchase_receipt_dispatches_via_gateway():
         )
     assert ok is True
     kwargs = mocked.await_args.kwargs
-    assert kwargs["subject"] == "Your Recall Pro receipt"
+    assert kwargs["subject"] == "Your Recall receipt"
     assert "RENEWAL" in kwargs["text"]
 
 

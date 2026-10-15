@@ -17,7 +17,9 @@ from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
-from app.modules.billing import is_pro
+from app.modules.billing import can_use
+from app.modules.billing.entitlements import Feature
+from app.modules.speech import live_talk as live_talk_service
 from app.modules.speech import service as speech_service
 from app.modules.speech.schemas import (
     SPEECH_MAX_AUDIO_BYTES,
@@ -36,37 +38,25 @@ logger = logging.getLogger(__name__)
 TTS_STREAM_MEDIA_TYPE = "audio/L16;rate=24000;channels=1"
 
 
-async def _live_talk_status(
-    user: User,
-    settings: Settings,
-    *,
-    refunded: bool = False,
-) -> SpeechLiveStatusOut:
-    redis = get_redis_client()
-    limit = quota_service.live_talk_limit_for_user(user, settings)
-    used = await quota_service.live_talk_used(redis, user.id)
-    remaining = max(0, limit - used)
-    enabled = settings.speech_live_talk_enabled
-    entitled = enabled and is_pro(user)
-    return SpeechLiveStatusOut(
-        enabled=enabled,
-        entitled=entitled,
-        remaining=remaining,
-        limit=limit,
-        refunded=refunded,
-    )
-
-
 def _raise_live_talk_route_gone(settings: Settings) -> None:
     if not settings.speech_live_talk_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
     raise HTTPException(
         status_code=status.HTTP_410_GONE,
-        detail="Live talk reserves on POST /speech/live/persist",
+        detail="Live talk is metered in minutes: POST /speech/live/session, then /speech/live/end",
     )
 
 
+def _require_plan_feature(user: User, settings: Settings, feature: Feature, message: str) -> None:
+    """Refuse a feature the user's plan does not include (403 opens the paywall)."""
+    if not can_use(user, feature, settings):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message)
+
+
 async def _reserve_tts_or_raise(user: User, settings: Settings) -> None:
+    _require_plan_feature(
+        user, settings, "speech_tts", quota_service.SPEECH_TTS_NOT_IN_PLAN_MESSAGE
+    )
     redis = get_redis_client()
     if await quota_service.global_spend_exceeded(redis, settings):
         raise HTTPException(
@@ -282,6 +272,9 @@ async def synthesize_speech(
 ) -> SpeechTtsOut:
     if not settings.speech_tts_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
+    _require_plan_feature(
+        user, settings, "speech_tts", quota_service.SPEECH_TTS_NOT_IN_PLAN_MESSAGE
+    )
 
     redis = get_redis_client()
     if await quota_service.global_spend_exceeded(redis, settings):
@@ -419,6 +412,10 @@ async def transcribe_speech(
 ) -> SpeechTranscriptionOut:
     if not settings.speech_transcription_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
+    # Plan before the body: a refused user never uploads or parses audio.
+    _require_plan_feature(
+        user, settings, "speech_transcription", quota_service.SPEECH_NOT_IN_PLAN_MESSAGE
+    )
 
     # Size first — a 6MB clip used to pass the 7.5MB body cap, reserve quota,
     # then fail as 502 when the service rejected at 5MB.
@@ -510,7 +507,7 @@ async def live_talk_status(
     if not settings.speech_live_talk_enabled:
         return SpeechLiveStatusOut(enabled=False, entitled=False, remaining=0, limit=0)
     try:
-        return await _live_talk_status(user, settings)
+        return await live_talk_service.live_talk_status(get_redis_client(), user, settings)
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
 
@@ -524,19 +521,13 @@ async def live_talk_turn(
     _raise_live_talk_route_gone(settings)
 
 
-@router.post("/live/refund", response_model=SpeechLiveStatusOut)
+@router.post("/live/refund")
 async def live_talk_refund(
-    user: User = Depends(get_current_user),
+    _user: User = Depends(get_current_user),
     settings: Settings = Depends(get_settings_dep),
-) -> SpeechLiveStatusOut:
-    if not settings.speech_live_talk_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
-    redis = get_redis_client()
-    try:
-        refunded = await quota_service.refund_live_talk_if_pending(redis, user.id)
-        return await _live_talk_status(user, settings, refunded=refunded)
-    except RedisUnavailableError as exc:
-        raise redis_unavailable_http_exception(exc) from exc
+) -> None:
+    """Gone — minutes settle on POST /speech/live/end, not per turn."""
+    _raise_live_talk_route_gone(settings)
 
 
 @router.post("/live/commit")

@@ -58,7 +58,7 @@ async def try_image_gen_for_turn(
     skip_revision_lookup: bool = False,
     recent_messages: list[Any] | None = None,
 ) -> bool:
-    if not seams.plan_service.is_pro(user):
+    if not seams.plan_service.can_use(user, "image_generation", settings):
         return False
     image_prompt = seams.extract_image_gen_prompt(content)
     reference_ids = None

@@ -7,14 +7,17 @@ import json
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
-from app.core.deps import get_redis
+from app.core.deps import get_current_user, get_redis, get_settings_dep
 from app.core.jobs import enqueue_purchase_receipt
 from app.core.redis_lock import acquire_lock
+from app.models.orm import User
+from app.modules.billing import entitlements
 from app.modules.billing import revenuecat as webhook_service
 
 subscription_service = webhook_service.subscription_service
@@ -23,6 +26,34 @@ _try_claim = webhook_service._try_claim
 _expiration = webhook_service._expiration
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+plans_router = APIRouter(prefix="/billing", tags=["billing"])
+
+
+class PlanOut(BaseModel):
+    id: str
+    features: list[str]
+    allowances: dict[str, int]
+
+
+class PlansOut(BaseModel):
+    current: str
+    plans: list[PlanOut]
+
+
+@plans_router.get("/plans", response_model=PlansOut)
+async def list_plans(
+    user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+) -> PlansOut:
+    """Every plan with what it includes and its numbers, for the paywall.
+
+    Prices are not here: the app reads them, localized, from the store offering.
+    """
+    return PlansOut(
+        current=entitlements.plan_of(user),
+        plans=[PlanOut.model_validate(item) for item in entitlements.plan_catalog(settings)],
+    )
+
 
 # Cap before body parse — endpoint is rate-limit-exempt and auth runs in-handler.
 _MAX_WEBHOOK_BODY_BYTES = 64 * 1024

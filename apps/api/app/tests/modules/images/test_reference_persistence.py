@@ -36,7 +36,7 @@ async def test_image_reference_persistence_is_atomic_and_regeneration_reuses_inp
     refund = AsyncMock()
     with (
         patch("app.modules.images.generation.SessionLocal", return_value=session),
-        patch("app.modules.images.generation.is_pro", return_value=True),
+        patch("app.modules.images.generation.can_use", return_value=True),
         patch(
             "app.modules.images.generation.chats_repo.get_by_id", AsyncMock(return_value=object())
         ),
@@ -116,7 +116,7 @@ async def test_generate_for_chat_refunds_on_cancelled_error():
 
     with (
         patch("app.modules.images.generation.SessionLocal", return_value=session),
-        patch("app.modules.images.generation.is_pro", return_value=True),
+        patch("app.modules.images.generation.can_use", return_value=True),
         patch(
             "app.modules.images.generation.chats_repo.get_by_id",
             AsyncMock(return_value=object()),
@@ -156,7 +156,7 @@ async def test_generate_for_chat_skips_reserve_when_spend_capped():
 
     with (
         patch("app.modules.images.generation.SessionLocal", return_value=session),
-        patch("app.modules.images.generation.is_pro", return_value=True),
+        patch("app.modules.images.generation.can_use", return_value=True),
         patch(
             "app.modules.images.generation.chats_repo.get_by_id",
             AsyncMock(return_value=object()),
@@ -207,7 +207,7 @@ def _patched_generation(
 
     patches = (
         patch("app.modules.images.generation.SessionLocal", return_value=session),
-        patch("app.modules.images.generation.is_pro", return_value=True),
+        patch("app.modules.images.generation.can_use", return_value=True),
         patch(
             "app.modules.images.generation.chats_repo.get_by_id", AsyncMock(return_value=object())
         ),
