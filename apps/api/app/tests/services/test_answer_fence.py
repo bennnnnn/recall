@@ -153,6 +153,7 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
             "x = 6 / 2\n\n**Answer**\n\n```answer\nx = 3\n```",
         ),
         ("**Answer**\n$x = 3$\n\n", "**Answer**\n\n```answer\n$x = 3$\n```\n\n"),
+        ("**Answer**\n**x ≈ 1.5**", "**Answer**\n\n```answer\nx ≈ 1.5\n```"),
         (
             "**Answer**\nv = 9.8 × 2\nv ≈ 19.6 m/s",
             "v = 9.8 × 2\n\n**Answer**\n\n```answer\nv ≈ 19.6 m/s\n```",
@@ -201,6 +202,7 @@ def test_land_reads_only_maths_as_the_answer(reply: str, expected: str) -> None:
         "**Answer**\n2x + 3 - 3 = 7 - 3\nx = 3",
         "**Answer**\nx = 6 / 2\nx ≈ 3",
         "**Answer**\n\\[\nx = 3\n\\]",
+        "**Answer**\n**x ≈ 3**",
     ],
 )
 def test_land_keeps_a_sentence_after_the_verified_card(answer: str) -> None:
@@ -250,6 +252,7 @@ def test_land_keeps_working_split_by_blank_lines_out_of_the_card() -> None:
     [
         ("- $x = 2$\n- $x = -2$", "$x = 2$, $x = -2$"),
         ("$x = \\frac{1}{2}$\n$x = -\\frac{1}{2}$", "$x = \\frac{1}{2}$, $x = -\\frac{1}{2}$"),
+        ("$x = \\frac{-1}{2}$\n$x = \\frac{1}{2}$", "$x = \\frac{-1}{2}$, $x = \\frac{1}{2}$"),
         ("$x_1 = 2$\n$x_{2} = -2$", "$x_1 = 2$, $x_{2} = -2$"),
     ],
 )
