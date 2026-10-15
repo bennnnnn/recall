@@ -82,6 +82,9 @@ class Route:
     system_prompt: str = ""
     # What an instant (no-model) reply said, for the sweep to read.
     instant_text: str = ""
+    # The verified result handed to the model when it writes the reply itself.
+    verified_answer: str = ""
+    verified_text: str = ""
 
     def summary(self) -> str:
         parts = [f"search={self.search}"]
@@ -295,7 +298,8 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         search = "no"
 
     subject = detect_subject(text, chemistry_enabled=settings.chemistry_enabled) or ""
-    solved = bundle.verified_subject is not None
+    verified = bundle.verified_subject
+    solved = verified is not None
     system = "\n\n".join(
         str(m.get("content")) for m in bundle.prompt_messages if m.get("role") == "system"
     )
@@ -310,6 +314,10 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         lightweight=bool(bundle.lightweight),
         hints=_hints_in(system, case),
         system_prompt=system,
+        verified_answer=(verified.display_answer or verified.canonical_answer or "")
+        if verified
+        else "",
+        verified_text=verified.text if verified else "",
     )
 
 

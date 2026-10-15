@@ -236,6 +236,19 @@ proves the server still writes exactly those replies, and the mobile and web tes
 the same file to prove each client draws them (regenerate with
 `UPDATE_CHEMISTRY_FIXTURE=1`).
 
+## STEM sweep
+
+`apps/api/app/tests/behavior/stem_corpus/chemistry/` holds 203 turns: homework questions with
+answers worked independently, Unicode and typo spellings, traps, questions that must be
+declined, and look-alikes. `test_stem_sweep.py` routes each through the real chat path and fails
+on a wrong verified number (1%, any unit of the same kind; a result rounded to the inputs'
+significant figures matches within half its last place, and a pH within 0.02), a missing
+formula or balanced equation, or a misread turn. A gas law, Q = mcΔT or a half-life read as
+physics is no misread: those laws are physics'. It holds the answered floor (106 of 175).
+`gap` lines mark the misroutes still open.
+
+    uv run python -m app.tests.behavior.stem_sweep chemistry --show
+
 ## Deliberate model-only boundary
 
 The model may explain work outside the table, but must not call it verified. This
