@@ -128,6 +128,9 @@ def battery_settings() -> Settings:
         image_search_enabled=True,
         image_generation_enabled=True,
         math_tools_enabled=True,
+        # Coverage, not speed: a busy CI machine must not turn a 0.7s solve
+        # into an unanswered turn at the production 5s limit.
+        math_solve_timeout_seconds=30.0,
         chemistry_enabled=True,
         mcp_tool_loop_enabled=True,
         attachments_enabled=False,
