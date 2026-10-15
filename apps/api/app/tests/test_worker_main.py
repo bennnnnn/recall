@@ -64,6 +64,40 @@ async def test_run_worker_starts_health_server_when_port_set():
     fake_server.shutdown.assert_awaited_once()
 
 
+@pytest.mark.asyncio
+async def test_run_worker_shuts_down_on_sigterm():
+    """SIGTERM used to end the worker without running its shutdown."""
+    import asyncio
+    import os
+    import signal
+
+    settings = Settings(
+        mock_llm_enabled=True,
+        environment="development",
+        worker_health_port=0,
+    )
+    received: list[int] = []
+    previous = signal.signal(signal.SIGTERM, lambda sig, _frame: received.append(sig))
+
+    async def started(_settings):
+        asyncio.get_running_loop().call_later(0.05, os.kill, os.getpid(), signal.SIGTERM)
+
+    shutdown = AsyncMock()
+    try:
+        with (
+            patch("app.worker_main.get_settings", return_value=settings),
+            patch("app.worker_main.process_bootstrap.initialize_process", AsyncMock()),
+            patch("app.worker_main.process_bootstrap.start_worker_runtime", started),
+            patch("app.worker_main.process_bootstrap.shutdown_process", shutdown),
+        ):
+            await asyncio.wait_for(_run_worker(), timeout=5)
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+    assert received == []  # the worker handled it, not the stand-in handler
+    shutdown.assert_awaited_once_with(stop_worker=True, drain_before_stop=False)
+
+
 def test_worker_main_calls_asyncio_run():
     with patch("app.worker_main.asyncio.run") as run_mock:
         from app.worker_main import main
