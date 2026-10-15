@@ -1118,5 +1118,77 @@
   ],
   "reply": "Use `pytest.mark.skipif`:\n\n```python\nimport sys\n\nimport pytest\n\nfrom text_utils import slugify\n\n\n@pytest.mark.skipif(sys.platform == \"win32\", reason=\"path handling differs on Windows\")\ndef test_slugify_basic():\n    assert slugify(\"Hello World\") == \"hello-world\"\n```\n\nTo skip unconditionally, use `@pytest.mark.skip(reason=\"...\")`. Skipped tests show up as `s` in the output; run `pytest -rs` to see the reasons.",
   "expect": "answer"
+ },
+ {
+  "id": "cc-111",
+  "area": "code",
+  "prompt": "Explain this code line by line, then show the value of total after each iteration:\ntotal = 0\nfor n in [2, 4, 6]:\n    total += n\nprint(total)",
+  "history": [],
+  "reply": "Here's what each line does, then how `total` changes on each pass.\n\n### 1. The code\n\n```python\ntotal = 0\nfor n in [2, 4, 6]:\n    total += n\nprint(total)\n```\n\n### 2. Explain each line\n\n**Line 1:** `total = 0`\n\n- Creates a variable called `total`.\n- Sets its starting value to `0`.\n\n**Line 2:** `for n in [2, 4, 6]:`\n\n- Starts a loop over the list `[2, 4, 6]`.\n- On each pass, `n` takes the next value.\n\n**Line 3:** `total += n`\n\n- Adds `n` to `total`.\n- It is shorthand for:\n\n```python\ntotal = total + n\n```\n\n**Line 4:** `print(total)`\n\n- Runs once, after the loop ends.\n\n### 3. Value of total after each iteration\n\n```steps\n1. **Iteration 1: `n = 2`**\n`total = 0 + 2 = 2`\n2. **Iteration 2: `n = 4`**\n`total = 2 + 4 = 6`\n3. **Iteration 3: `n = 6`**\n`total = 6 + 6 = 12`\n```\n\n**Output:**\n\n```text\n12\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-112",
+  "area": "code",
+  "prompt": "Explain this code line by line, then show the value of total after each iteration: total = 0 for n in [2, 4, 6]: total += n print(total)",
+  "history": [],
+  "reply": "Here's what each line does, then how `total` changes on each pass.\n\n### 1. The code\n\n```python\ntotal = 0\nfor n in [2, 4, 6]:\n    total += n\nprint(total)\n```\n\n### 2. Explain each line\n\n**Line 1:** `total = 0`\n\n- Creates a variable called `total`.\n- Sets its starting value to `0`.\n\n**Line 2:** `for n in [2, 4, 6]:`\n\n- Starts a loop over the list `[2, 4, 6]`.\n- On each pass, `n` takes the next value.\n\n**Line 3:** `total += n`\n\n- Adds `n` to `total`.\n- It is shorthand for:\n\n```python\ntotal = total + n\n```\n\n**Line 4:** `print(total)`\n\n- Runs once, after the loop ends.\n\n### 3. Value of total after each iteration\n\n```steps\n1. **Iteration 1: `n = 2`**\n`total = 0 + 2 = 2`\n2. **Iteration 2: `n = 4`**\n`total = 2 + 4 = 6`\n3. **Iteration 3: `n = 6`**\n`total = 6 + 6 = 12`\n```\n\n**Output:**\n\n```text\n12\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-113",
+  "area": "code",
+  "prompt": "Why does this code fail, and how would you fix it? numbers = [1, 2, 3] print(numbers[3])",
+  "history": [],
+  "reply": "This code fails with an `IndexError` on line 2.\n\n### Why it fails\n\n- `numbers` has three items, at indexes `0`, `1` and `2`.\n- `numbers[3]` asks for a fourth item, which does not exist.\n\n### The fix\n\n```python\nnumbers = [1, 2, 3]\nprint(numbers[2])  # the last item is at index 2\n```\n\n- `numbers[-1]` also gets the last item, whatever the length.\n\n**Output:**\n\n```text\n3\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-114",
+  "area": "code",
+  "prompt": "What does this Java code print? int sum = 0; for (int i = 1; i <= 3; i++) { sum += i; } System.out.println(sum);",
+  "history": [],
+  "reply": "It adds `1`, `2` and `3` to `sum`, then prints it.\n\n### 1. The code\n\n```java\nint sum = 0;\nfor (int i = 1; i <= 3; i++) {\n    sum += i;\n}\nSystem.out.println(sum);\n```\n\n### 2. Explain each line\n\n**Line 1:** `int sum = 0;`\n\n- Creates `sum` and sets it to `0`.\n\n**Line 2:** `for (int i = 1; i <= 3; i++) {`\n\n- Counts `i` from `1` to `3`.\n\n**Line 3:** `sum += i;`\n\n- Adds `i` to `sum` on each pass.\n\n**Output:**\n\n```text\n6\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-115",
+  "area": "code",
+  "prompt": "I get this error, what's wrong?\nTraceback (most recent call last):\n  File \"app.py\", line 3, in <module>\n    print(user[\"name\"])\nKeyError: 'name'",
+  "history": [],
+  "reply": "`KeyError: 'name'` on line 3: the dictionary `user` has no `name` key.\n\n### Why it fails\n\n- `user[\"name\"]` only works when the key exists.\n\n### The fix\n\n```python\nprint(user.get(\"name\", \"unknown\"))  # no error when the key is missing\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-116",
+  "area": "code",
+  "prompt": "explain the code of conduct",
+  "history": [],
+  "reply": "A code of conduct is a written set of rules for how people in a group, company or community are expected to behave, and what happens when someone breaks them. It usually covers respect, harassment, conflicts of interest and how to report a problem.",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-117",
+  "area": "code",
+  "prompt": "line by line poem analysis of The Road Not Taken",
+  "history": [],
+  "reply": "**Stanza 1.** The speaker stands where a road splits in a yellow wood and regrets that he cannot travel both.\n\n**Stanza 2.** He takes the other road, which seems less worn, though both are really about the same.\n\n**Stanza 3.** He keeps the first road for another day, doubting he will ever come back.\n\n**Stanza 4.** Years later he will tell the story with a sigh and say the choice made all the difference.",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-118",
+  "area": "code",
+  "prompt": "fix my sleep schedule",
+  "history": [],
+  "reply": "1. **Pick a fixed wake time** - get up at the same time every day, weekends too.\n2. **Get morning light** - ten minutes outside soon after waking.\n3. **Move bedtime slowly** - 15 minutes earlier every few days.\n4. **Cut late caffeine** - none after early afternoon.\n5. **Dim screens at night** - the last hour stays calm.",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-119",
+  "area": "code",
+  "prompt": "why does my car fail inspection",
+  "history": [],
+  "reply": "The usual reasons are worn brakes or tyres, a lit check-engine light, emissions over the limit, broken lights, or a cracked windscreen. The inspection report lists the exact item, so start there.",
+  "expect": "answer"
  }
 ]

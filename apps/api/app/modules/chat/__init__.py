@@ -21,6 +21,7 @@ _EXPORTS = {
     "StreamContext": ("turn_prep", "StreamContext"),
     "StreamStatusFn": ("stream_status", "StreamStatusFn"),
     "clip_status_detail": ("stream_status", "clip_status_detail"),
+    "has_code_syntax": ("prompt_constants.coding", "has_code_syntax"),
     "has_locale_cue": ("prompt_constants.locale_cues", "has_locale_cue"),
     "is_lightweight_chat_turn": ("prompt_constants.routing", "is_lightweight_chat_turn"),
     "is_personal_disclosure_turn": ("prompt_constants.routing", "is_personal_disclosure_turn"),

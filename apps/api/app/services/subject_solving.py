@@ -80,6 +80,12 @@ def detect_subject(
     """
     if image_math_extract is not None:
         return "math"
+    from app.modules.chat import has_code_syntax
+
+    # Pasted code is not a problem to solve: `for (int i = 1; i <= 3; i++)` is a
+    # loop, and `n * 2` inside `nums.map` is not algebra.
+    if has_code_syntax(text):
+        return None
     from app.services.subject_scan import scanner_camera_subject
 
     # A subject's camera caption says "solve", which the math work-request

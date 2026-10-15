@@ -20,6 +20,7 @@ from app.modules.chat.continuation_subject import (
 from app.modules.chat.prompt_constants import (
     ADVICE_PERSONALIZE_HINT,
     CAREER_PERSONALIZE_HINT,
+    CODE_INK_REMINDER,
     EXAMPLE_PERSONALIZE_HINT,
     LIGHTWEIGHT_REPLY_HINT,
     MATH_FENCE_SAFETY_HINT,
@@ -50,6 +51,7 @@ from app.modules.chat.prompt_context import (
 from app.modules.chat.prompt_format import (
     _integration_hints,
     _style_format_hints,
+    code_question_layout,
     slim_geo_hints,
 )
 from app.modules.chat.stream_status import StreamStatusFn, status_phase_for_subject
@@ -665,6 +667,9 @@ async def build_prompt_messages(
         code_contract = programming_lesson_contract(query_text)
         if code_contract:
             nearby_contracts.append(code_contract)
+    # Pasted code to explain or fix: the `$...$` math rule must not reach its values.
+    if not lightweight and code_question_layout(query_text):
+        nearby_contracts.append(CODE_INK_REMINDER)
     if nearby_contracts:
         messages = inject_before_last_user(messages, "\n\n".join(nearby_contracts))
     return messages
