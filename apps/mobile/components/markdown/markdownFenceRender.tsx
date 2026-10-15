@@ -12,7 +12,6 @@ import {
   renderCopyStyleBlock,
   renderRichFenceById,
 } from "@/components/rich/RichFence";
-import { splitAnswerNotation } from "@/lib/answerNotation";
 import { copyBlockLabelKey, draftFenceProseText } from "@/lib/copyBlock";
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
@@ -76,14 +75,10 @@ function renderFenceInner(
     return <AnswerBlock key={key} content={content} settled={!streaming} />;
   }
 
-  // An ```answer fence without the server's mark shows its value as ordinary
-  // math or text: never its header lines, never the card.
-  const shown = decision.id === "answer" ? splitAnswerNotation(content).body : content;
-
   if (decision.kind === "math") {
     const mathKey =
-      tokenIndex != null ? `math:${shown}#${tokenIndex}` : `math:${shown}`;
-    return <MathBlock key={mathKey} latex={shown} />;
+      tokenIndex != null ? `math:${content}#${tokenIndex}` : `math:${content}`;
+    return <MathBlock key={mathKey} latex={content} />;
   }
 
   if (decision.kind === "clock") {
@@ -91,7 +86,7 @@ function renderFenceInner(
   }
 
   if (decision.kind === "prose") {
-    const prose = decision.id === "answer" ? shown : draftFenceProseText(content);
+    const prose = draftFenceProseText(content);
     return prose ? neverCodeBlockFallback(key, prose) : null;
   }
 

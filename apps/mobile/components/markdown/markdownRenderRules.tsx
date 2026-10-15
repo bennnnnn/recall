@@ -291,9 +291,10 @@ function workoutInline(
 /**
  * A worked-solution section. The heading stays at the margin; its lines are
  * indented behind a thin rule so each section reads as one block of work.
- * Given values share a row, a move's note sits at the right edge, and a
- * written-out answer sits in a tinted box. A verified answer is its own
- * ```answer card and never reaches here.
+ * Given values share a row, a move's note sits at the right edge, and the
+ * last line of a written-out answer sits in a tinted box (the lines before it
+ * are working). A card the server landed is its own ```answer fence and never
+ * reaches here; this draws older replies the same way.
  */
 function renderWorkoutSection(
   key: string,
@@ -363,18 +364,20 @@ function renderWorkoutSection(
         }}
       >
         {answer ? (
-          <View
-            testID="workout-answer"
-            style={{
-              backgroundColor: t.accentLight,
-              borderRadius: Radius.md,
-              paddingVertical: Space.sm,
-              paddingHorizontal: Space.md,
-              gap: Space.xs,
-            }}
-          >
-            {lines}
-          </View>
+          <>
+            {lines.slice(0, -1)}
+            <View
+              testID="workout-answer"
+              style={{
+                backgroundColor: t.accentLight,
+                borderRadius: Radius.md,
+                paddingVertical: Space.sm,
+                paddingHorizontal: Space.md,
+              }}
+            >
+              {lines[lines.length - 1]}
+            </View>
+          </>
         ) : given ? (
           <View
             testID="workout-given"

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { type ReactNode, useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { useTranslation } from "react-i18next";
 
@@ -49,55 +49,59 @@ function answerNeedsDisplayMath(text: string): boolean {
 }
 
 /**
- * Final answer — chat-canvas background, no Copy affordance.
- * Only the server's checked card reaches here (an ```answer fence whose body opens
- * with `verified: true`, see lib/answerNotation.ts); the green check also needs the
- * reply to have settled, and is never drawn for a body without the marker.
+ * The final answer, drawn like the worked layout's Answer section: the
+ * "Answer" heading, a thin rule, and the value alone in an accent-tinted box.
+ * Every ```answer fence lands here; the green check after the value is the
+ * server's (a body that opens with `verified: true`, see lib/answerNotation.ts)
+ * and needs the reply to have settled.
  *
  * Light answers stay on native `MathText`. Heavy LaTeX environments
- * (`\begin{cases|matrix|aligned|…}`) render as MathJax-SVG in the **stretch**
- * box — never `compact` + centered zero-width wrap, which used to collapse
- * into a thin vertical sliver / tall pill inside this box.
+ * (`\begin{cases|matrix|aligned|…}`) render as MathJax-SVG in a slot that
+ * fills the box — never `compact` + centered zero-width wrap, which used to
+ * collapse into a thin vertical sliver / tall pill inside this box.
  */
 export function AnswerBlock({ content, settled = true }: Props) {
   const theme = useTheme();
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const parsed = splitAnswerNotation(stripTrailingFenceCloser(content.trim()));
-  const checked = settled && parsed.verified;
-  const answerLabel = parsed.labeled ? (
-    <Text testID="answer-label" style={s.label}>
-      {t("rich.answer_label")}
-    </Text>
-  ) : null;
-  if (parsed.notation === "chemistry" && parsed.body) {
-    return (
-      <View
-        style={[s.row, parsed.labeled ? s.rowLabeled : null]}
-        accessibilityRole="text"
-        accessibilityLabel={t("rich.answer_a11y", { text: parsed.body })}
-      >
-        <View
-          testID="answer-and-check"
-          style={[s.answerAndCheck, parsed.labeled ? s.answerAndCheckLabeled : null]}
-        >
-          {answerLabel}
-          <View testID="answer-box" style={[s.box, parsed.labeled ? s.boxLabeled : null]}>
-            <Text testID="answer-literal" style={s.answer} selectable>
-              {parsed.body}
-            </Text>
-          </View>
-          {checked ? (
-            <Icon
-              testID="answer-success-check"
-              name="check-circle-filled"
-              size={IconSize.md}
-              color={theme.success}
-              style={s.successCheck}
-            />
-          ) : null}
+  const check =
+    settled && parsed.verified ? (
+      <Icon
+        testID="answer-success-check"
+        name="check-circle-filled"
+        size={IconSize.md}
+        color={theme.success}
+        style={s.successCheck}
+      />
+    ) : null;
+  const frame = (spoken: string, value: ReactNode) => (
+    <View
+      style={s.section}
+      accessibilityRole="text"
+      accessibilityLabel={t("rich.answer_a11y", { text: spoken })}
+    >
+      {parsed.labeled ? (
+        <Text testID="answer-label" style={s.label}>
+          {t("rich.answer_label")}
+        </Text>
+      ) : null}
+      <View testID="answer-rule" style={s.rule}>
+        <View testID="answer-box" style={s.box}>
+          {value}
         </View>
       </View>
+    </View>
+  );
+  if (parsed.notation === "chemistry" && parsed.body) {
+    return frame(
+      parsed.body,
+      <>
+        <Text testID="answer-literal" style={s.answer} selectable>
+          {parsed.body}
+        </Text>
+        {check}
+      </>,
     );
   }
   const text = normalizeAnswerContent(parsed.body);
@@ -125,195 +129,138 @@ export function AnswerBlock({ content, settled = true }: Props) {
         })
       : parts;
 
-  return (
-    <View
-      style={[s.row, parsed.labeled ? s.rowLabeled : null]}
-      accessibilityRole="text"
-      accessibilityLabel={t("rich.answer_a11y", {
-        text: readableLatexFallback(text),
-      })}
-    >
-      <View
-        testID="answer-and-check"
-        style={[
-          s.answerAndCheck,
-          useSvgMath || hasNestedView ? s.answerAndCheckStretch : null,
-          parsed.labeled ? s.answerAndCheckLabeled : null,
-        ]}
-      >
-        {answerLabel}
-        <View
-          testID="answer-box"
-          style={[
-            s.box,
-            useSvgMath || hasNestedView ? s.boxStretch : null,
-            parsed.labeled ? s.boxLabeled : null,
-          ]}
-        >
-          {useSvgMath ? (
-            <MathSvgView latex={text} textColor={theme.text} minHeight={48} />
-          ) : hasNestedView ? (
-            <View style={s.answerLines}>
-              {nativeLines.map((line, lineIndex) => (
-                <ScrollView
-                  key={lineIndex}
-                  testID={`answer-line-scroll-${lineIndex}`}
-                  horizontal
-                  nestedScrollEnabled
-                  showsHorizontalScrollIndicator
-                  bounces={false}
-                  style={s.lineViewport}
-                  contentContainerStyle={s.lineScroll}
-                >
-                  <View
-                    style={s.answerRow}
-                    testID={
-                      lineIndex === 0 ? "answer-row" : `answer-row-${lineIndex}`
-                    }
-                  >
-                    {hasInlineMath ? (
-                      trimmedParts.map((part, i) =>
-                        part.type === "math" ? (
-                          <MathText
-                            key={i}
-                            latex={part.value}
-                            textColor={theme.text}
-                            fontSize={ANSWER_FONT_SIZE}
-                          />
-                        ) : (
-                          <Text key={i} style={s.answer} selectable>
-                            {part.value}
-                          </Text>
-                        ),
-                      )
-                    ) : (
-                      <MathText
-                        latex={line}
-                        textColor={theme.text}
-                        fontSize={ANSWER_FONT_SIZE}
-                      />
-                    )}
-                    {checked && lineIndex === nativeLines.length - 1 ? (
-                      <Icon
-                        testID="answer-success-check"
-                        name="check-circle-filled"
-                        size={IconSize.md}
-                        color={theme.success}
-                        style={s.successCheck}
-                      />
-                    ) : null}
-                  </View>
-                </ScrollView>
-              ))}
-            </View>
-          ) : hasInlineMath ? (
-            <Text style={s.answer} selectable>
-              {parts.map((part, i) =>
-                part.type === "math" ? (
-                  <MathText
-                    key={i}
-                    latex={part.value}
-                    textColor={theme.text}
-                    fontSize={ANSWER_FONT_SIZE}
-                  />
-                ) : (
-                  <Text key={i} style={s.answer}>
-                    {part.value}
-                  </Text>
-                ),
+  if (useSvgMath) {
+    return frame(
+      readableLatexFallback(text),
+      <>
+        <View style={s.fill}>
+          <MathSvgView latex={text} textColor={theme.text} minHeight={48} />
+        </View>
+        {check}
+      </>,
+    );
+  }
+  if (hasNestedView) {
+    // The check sits on the last line's row, so it scrolls with that line.
+    return frame(
+      readableLatexFallback(text),
+      <View style={s.fill}>
+        {nativeLines.map((line, lineIndex) => (
+          <ScrollView
+            key={lineIndex}
+            testID={`answer-line-scroll-${lineIndex}`}
+            horizontal
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator
+            bounces={false}
+            style={s.lineViewport}
+            contentContainerStyle={s.lineScroll}
+          >
+            <View
+              style={s.answerRow}
+              testID={lineIndex === 0 ? "answer-row" : `answer-row-${lineIndex}`}
+            >
+              {hasInlineMath ? (
+                trimmedParts.map((part, i) =>
+                  part.type === "math" ? (
+                    <MathText
+                      key={i}
+                      latex={part.value}
+                      textColor={theme.text}
+                      fontSize={ANSWER_FONT_SIZE}
+                    />
+                  ) : (
+                    <Text key={i} style={s.answer} selectable>
+                      {part.value}
+                    </Text>
+                  ),
+                )
+              ) : (
+                <MathText latex={line} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
               )}
-            </Text>
-          ) : (
-            <Text style={s.answer} selectable>
+              {lineIndex === nativeLines.length - 1 ? check : null}
+            </View>
+          </ScrollView>
+        ))}
+      </View>,
+    );
+  }
+  return frame(
+    readableLatexFallback(text),
+    <>
+      {hasInlineMath ? (
+        <Text style={s.answer} selectable>
+          {parts.map((part, i) =>
+            part.type === "math" ? (
               <MathText
-                latex={text}
+                key={i}
+                latex={part.value}
                 textColor={theme.text}
                 fontSize={ANSWER_FONT_SIZE}
               />
-            </Text>
+            ) : (
+              <Text key={i} style={s.answer}>
+                {part.value}
+              </Text>
+            ),
           )}
-        </View>
-        {checked && !hasNestedView ? (
-          <Icon
-            testID="answer-success-check"
-            name="check-circle-filled"
-            size={IconSize.md}
-            color={theme.success}
-            style={s.successCheck}
-          />
-        ) : null}
-      </View>
-    </View>
+        </Text>
+      ) : (
+        <Text style={s.answer} selectable>
+          <MathText latex={text} textColor={theme.text} fontSize={ANSWER_FONT_SIZE} />
+        </Text>
+      )}
+      {check}
+    </>,
   );
 }
 
 const makeStyles = (t: Theme) =>
   StyleSheet.create({
-    row: {
+    // The worked layout's section: heading at the margin, the work behind a rule.
+    section: {
       alignSelf: "stretch",
-      alignItems: "center",
-      marginTop: 0,
+      gap: Space.xs,
       marginBottom: PARAGRAPH_GAP,
-    },
-    rowLabeled: {
-      alignItems: "flex-start",
     },
     label: {
       ...Type.body,
       ...Weight.semibold,
-      color: t.text,
-      marginRight: Space.sm,
+      color: t.assistantText,
     },
-    answerAndCheck: {
-      maxWidth: "100%",
+    rule: {
+      marginLeft: Space.xxs,
+      paddingLeft: Space.sm,
+      borderLeftWidth: 2,
+      borderLeftColor: t.separator,
+    },
+    // The same tinted box as a written-out answer (workout-answer), so it
+    // follows the accent colour.
+    box: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
-    },
-    answerAndCheckLabeled: {
-      alignSelf: "flex-start",
-      justifyContent: "flex-start",
-    },
-    answerAndCheckStretch: {
-      alignSelf: "stretch",
-    },
-    box: {
-      alignSelf: "center",
-      maxWidth: "100%",
+      backgroundColor: t.accentLight,
+      borderRadius: Radius.md,
       paddingVertical: Space.sm,
       paddingHorizontal: Space.md,
-      backgroundColor: t.bg,
-      borderRadius: Radius.sm,
-      alignItems: "center",
-      justifyContent: "center",
     },
-    // Full-width chrome so the MathJax-SVG view gets a real layout width
+    // Gives the MathJax-SVG view and the scrolling lines a real layout width
     // (compact + alignSelf:center was the thin-sliver bug).
-    boxLabeled: {
-      alignSelf: "auto",
-      paddingLeft: 0,
-      paddingVertical: 0,
-    },
-    boxStretch: {
+    fill: {
       flex: 1,
-      alignItems: "stretch",
-      paddingHorizontal: Space.sm,
+      minWidth: 0,
+      gap: Space.xs,
     },
     successCheck: {
       marginLeft: Space.xs,
     },
     // Hosts a nested math View (sqrt/frac) as a direct child so iOS doesn't
-    // clip it to a Text line box. Centers the run like the `answer` Text would.
+    // clip it to a Text line box.
     answerRow: {
       flexDirection: "row",
       alignItems: "center",
-      justifyContent: "center",
       flexWrap: "nowrap",
       flexShrink: 0,
-    },
-    answerLines: {
-      alignSelf: "stretch",
-      gap: Space.xs,
     },
     lineViewport: {
       alignSelf: "stretch",
@@ -322,8 +269,6 @@ const makeStyles = (t: Theme) =>
       minWidth: "100%",
       flexGrow: 1,
       alignItems: "center",
-      justifyContent: "center",
-      paddingHorizontal: Space.xxs,
     },
     answer: {
       // Source Sans Medium: a bare 500 weight drew the system font.
@@ -331,6 +276,6 @@ const makeStyles = (t: Theme) =>
       fontSize: ANSWER_FONT_SIZE,
       lineHeight: 28,
       color: t.text,
-      textAlign: "center",
+      flexShrink: 1,
     },
   });

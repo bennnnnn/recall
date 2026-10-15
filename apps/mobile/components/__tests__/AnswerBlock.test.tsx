@@ -1,9 +1,10 @@
-import { render } from "@testing-library/react-native";
+import { render, within } from "@testing-library/react-native";
 import { StyleSheet } from "react-native";
 
 import { AnswerBlock } from "@/components/rich/AnswerBlock";
 import { lightTheme } from "@/lib/theme";
 import { Space } from "@/lib/space";
+import { Weight } from "@/lib/type";
 
 const mockFormula = jest.fn((_props: Record<string, unknown>) => null);
 
@@ -32,20 +33,50 @@ describe("AnswerBlock", () => {
     mockFormula.mockClear();
   });
 
-  it("draws Answer on the same row as the equation", async () => {
+  it("draws the worked layout's Answer section: heading, rule, value in the accent box", async () => {
     const { getByTestId, getByText } = await render(
       <AnswerBlock content={"label: answer\nverified: true\nx = 0"} />,
     );
     expect(getByText("Answer")).toBeOnTheScreen();
-    const row = getByTestId("answer-and-check");
-    const rowStyle = StyleSheet.flatten(row.props.style);
-    expect(rowStyle).toMatchObject({
-      flexDirection: "row",
-      alignItems: "center",
-      justifyContent: "flex-start",
+    expect(StyleSheet.flatten(getByTestId("answer-label").props.style)).toMatchObject({
+      ...Weight.semibold,
+      color: lightTheme.assistantText,
     });
-    expect(getByTestId("answer-label")).toBeOnTheScreen();
-    expect(getByTestId("answer-success-check")).toBeOnTheScreen();
+    expect(StyleSheet.flatten(getByTestId("answer-rule").props.style)).toMatchObject({
+      borderLeftWidth: 2,
+      borderLeftColor: lightTheme.separator,
+    });
+    const box = getByTestId("answer-box");
+    expect(StyleSheet.flatten(box.props.style)).toMatchObject({
+      backgroundColor: lightTheme.accentLight,
+      flexDirection: "row",
+    });
+    // The check sits in the box, after the value.
+    expect(within(box).getByTestId("answer-success-check")).toBeOnTheScreen();
+  });
+
+  it("draws a model's answer in the same box, with no check", async () => {
+    const { getByTestId, queryByTestId, getByText } = await render(
+      <AnswerBlock content={"label: answer\nx = 0"} />,
+    );
+    expect(getByText("Answer")).toBeOnTheScreen();
+    expect(StyleSheet.flatten(getByTestId("answer-box").props.style).backgroundColor).toBe(
+      lightTheme.accentLight,
+    );
+    expect(queryByTestId("answer-success-check")).toBeNull();
+  });
+
+  it.each([
+    String.raw`\begin{cases} x = 1 \\ y = 2 \end{cases}`,
+    String.raw`\int_0^1 x^2 \, dx = \frac{1}{3}`,
+  ])("draws the check after a heavy SVG answer once verified: %s", async (latex) => {
+    const { getByTestId } = await render(<AnswerBlock content={`verified: true\n${latex}`} />);
+    expect(mockFormula).toHaveBeenCalledTimes(1);
+    expect(within(getByTestId("answer-box")).getByTestId("answer-success-check")).toBeOnTheScreen();
+    mockFormula.mockClear();
+    const unmarked = await render(<AnswerBlock content={latex} />);
+    expect(mockFormula).toHaveBeenCalledTimes(1);
+    expect(unmarked.queryByTestId("answer-success-check")).toBeNull();
   });
 
   it("keeps light finals on MathText (no display-math renderer)", async () => {
@@ -56,11 +87,11 @@ describe("AnswerBlock", () => {
     expect(mockFormula).not.toHaveBeenCalled();
   });
 
-  it("uses the chat window background instead of a gray pill", async () => {
+  it("uses the accent tint of a written-out answer, not the chat background", async () => {
     const { getByTestId } = await render(<AnswerBlock content="x = 1" />);
     expect(
       StyleSheet.flatten(getByTestId("answer-box").props.style).backgroundColor,
-    ).toBe(lightTheme.bg);
+    ).toBe(lightTheme.accentLight);
   });
 
   it("marks the verified final with a green success check", async () => {

@@ -2,12 +2,12 @@
  * Server-owned answer fences open with header lines, then the value.
  *
  * - `verified: true` — the server checked this value with a solver. It is the only
- *   thing that earns the answer card and its green check; the server strips the line
- *   from anything a model writes, so a reply cannot forge it.
+ *   thing that earns the card's green check; the server strips the line from anything
+ *   a model writes, so a reply cannot forge it.
  * - `notation: chemistry` — the body is chemistry text, not LaTeX. Chemistry (and any
  *   later literal subject) keeps formulas, charges, and units as text; treating that
  *   body as algebra rewrites a correct result.
- * - `label: answer` — written here (attachAnswerHeading) to draw "Answer" beside the card.
+ * - `label: answer` — written here (attachAnswerHeading) to draw "Answer" over the card.
  */
 
 export type AnswerNotation = "math" | "chemistry";
@@ -46,9 +46,4 @@ export function splitAnswerNotation(raw: string): {
     labeled: headers.has(ANSWER_LABEL_LINE),
     verified: headers.has(VERIFIED_ANSWER_MARKER),
   };
-}
-
-/** True when the fence body carries the server's verified marker. */
-export function isVerifiedAnswer(raw: string): boolean {
-  return splitAnswerNotation(raw).verified;
 }
