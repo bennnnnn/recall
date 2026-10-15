@@ -60,7 +60,7 @@ _CONVERTIBLE = (
 # A number as the extracted text writes it ("1.10", "0.0050", "1.8e-5"); a digit inside a
 # formula ("H2O") follows a letter and is not one. A full stop may end the sentence after it
 # ("Ka = 1.8e-5."); only a decimal point followed by a digit continues it.
-_LITERAL = re.compile(r"(?<![\w.])-?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?(?!\d|\.\d)")
+_LITERAL = re.compile(r"(?<![\w.])-?(?:\b\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?(?!\d|\.\d)")
 
 
 def figures_of(literal: str) -> int:

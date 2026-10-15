@@ -66,7 +66,7 @@ _ERRAND_RE = re.compile(
     r"^\s*(?:(?:please|hey|ok|okay|can\s+you|could\s+you)[\s,]+)*"
     r"(?:remind\s+me\s+(?:to|at|on|in|tomorrow|tonight|about|later|every|this|next)\b"
     r"|set\s+(?:a|an|me\s+a)\s+(?:reminder|alarm|timer)\b"
-    r"|add\b[^.?!\n]{0,80}\bto\s+(?:my\s+)?(?:to-?do|todo|shopping|grocery)?\s*list\b"
+    r"|add\b[^.?!\n]{0,80}\bto\s+(?:my\s+)?(?:(?:to-?do|todo|shopping|grocery)\s*)?list\b"
     r"|(?:don'?t|do\s+not)\s+let\s+me\s+forget\b)",
     re.IGNORECASE,
 )

@@ -50,7 +50,7 @@ _CONNECTOR = re.compile(
     re.IGNORECASE,
 )
 # A sentence, with a decimal point kept inside it: "I got 19.8 m/s."
-SENTENCE = re.compile(r"(?:[^.?!]|(?<=\d)\.(?=\d))+(?:[.?!]+|$)")
+SENTENCE = re.compile(r"(?:[^.?!]|(?<=\d)\.(?=\d))+[.?!]*")
 # A question asked by its quantity alone: "max speed?", "acceleration?",
 # "time to hit the ground?". The fragment after the last stop, before the "?".
 # A decimal point stays inside the question: "frequency of a 1.2 m long pendulum?".
@@ -95,7 +95,7 @@ _WHERE_IMAGE = re.compile(r"\bwhere\s+(?:is|will|does|would)\s+(?:the\s+)?image\
 # Instructions that ask without a question word: "Solve for v.", "Use Gauss's law
 # for ...", "Faraday's law for 100 turns ...", "resolve a 10 N force".
 _IMPERATIVE = re.compile(
-    r"(?:^|[.?!;:]\s+|\n)\s*(?:please\s+|now\s+)?"
+    r"(?:^\s*|[.?!;:]\s+|\n[^\S\n]*)(?:please\s+|now\s+)?"
     r"(?:solve|resolve|use|apply|convert|give|state|express|show|list|tell|derive|obtain|"
     r"predict|plot|graph|draw|get|balance|i\s+need|i\s+want)\b",
     re.IGNORECASE,
@@ -111,10 +111,10 @@ _INTERROGATIVE = re.compile(r"\b(?:where|which|whether|how)\b", re.IGNORECASE)
 # A sentence that is its quantity: "momentum of a 2 kg object at 3 m/s", "power
 # dissipated by a 4 ohm resistor". A quantity followed by a verb is a statement.
 _SENTENCE_START = re.compile(r"(?:^|[.?!;]\s+|\n)\s*", re.IGNORECASE)
-_STATEMENT_VERB = re.compile(r"\s+(?:is|are|was|were|has|have|had|equals|=)\b", re.IGNORECASE)
+_STATEMENT_VERB = re.compile(r"^\s+(?:is|are|was|were|has|have|had|equals|=)\b", re.IGNORECASE)
 
 
-_WORD = re.compile(r"[a-z'-]+\s+", re.IGNORECASE)
+_WORD = re.compile(r"^[a-z'-]+\s+", re.IGNORECASE)
 _VERB_WORD = re.compile(r"(?:is|are|was|were|has|have|had|does|do|did)\s+", re.IGNORECASE)
 
 
@@ -130,13 +130,13 @@ def _names_its_quantity(text: str) -> bool:
         for _ in range(3):
             noun = _QUANTITY.match(words, at)
             if noun is not None:
-                if not _STATEMENT_VERB.match(words, noun.end()):
+                if not _STATEMENT_VERB.match(words[noun.end() :]):
                     return True
                 break
-            word = _WORD.match(words, at)
+            word = _WORD.match(words[at:])
             if word is None or _VERB_WORD.fullmatch(word.group()):
                 break
-            at = word.end()
+            at += word.end()
     return False
 
 
@@ -278,8 +278,8 @@ _IN_UNIT = re.compile(r"\b(?:in|into)\s+(?:units?\s+of\s+)?", re.IGNORECASE)
 # The unit ends its phrase: the clause ends, or a phrase about where or when
 # follows it ("the gauge pressure in psi at a depth of 10 m").
 _CLAUSE_END = re.compile(
-    r"\s*(?:[?.!,;)]|$)"
-    r"|\s+(?:at|for|when|after|before|during|on|from|below|above|under|inside|of|if)\b",
+    r"^\s*(?:[?.!,;)]|$)"
+    r"|^\s+(?:at|for|when|after|before|during|on|from|below|above|under|inside|of|if)\b",
     re.IGNORECASE,
 )
 
@@ -308,6 +308,6 @@ def asked_unit(text: str) -> str | None:
         if unit is None:
             continue
         end = match.end() + len(unit[0]) + (1 if text[match.end() : match.end() + 1] == " " else 0)
-        if _CLAUSE_END.match(text, end):
+        if _CLAUSE_END.match(text[end:]):
             found = unit[0]
     return found
