@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import re
+
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
@@ -14,10 +16,48 @@ from app.modules.math.tools.school._parse import (
 from app.services.text_match import word_index
 
 _INTEREST_YEAR_MAX = 100
+# Only yearly compounding is modelled; any other period is declined.
+_OTHER_PERIODS = (
+    "month",
+    "months",
+    "monthly",
+    "quarter",
+    "quarterly",
+    "weekly",
+    "daily",
+    "continuous",
+    "continuously",
+    "semiannually",
+    "semi-annually",
+    "biannually",
+    "half-yearly",
+    "twice",
+)
+# Where the principal is named: "interest on $1200", "$5000 invested at 4%".
+_PRINCIPAL_WORDS = ("invested", "invest", "invests", "deposited", "deposit", "deposits")
+# The question asks for what the money grows to, not the interest earned.
+_AMOUNT_QUESTION = re.compile(
+    r"\bhow\s+much\s+(?:money\s+)?(?:will|would|do|does|did)\s+(?:i|you|we|he|she|they|it)\s+"
+    r"(?:have|get|be\s+worth|end\s+up\s+with|be)\b"
+    r"|\b(?:final|total)\s+amount\b|\bbalance\b|\bwhat\s+will\s+it\s+(?:be\s+worth|grow\s+to)\b",
+    re.IGNORECASE,
+)
+_INTEREST_QUESTION = re.compile(r"\bhow\s+much\s+interest\b|\binterest\s+earned\b", re.IGNORECASE)
+
+
+def _years_number(cleaned: str, lower: str) -> re.Match[str] | None:
+    """The number written right before "year(s)", wherever "per year" also appears."""
+    start = 0
+    while (year_at := lower.find("year", start)) != -1:
+        found = _number_immediately_before(cleaned, year_at)
+        if found is not None:
+            return found
+        start = year_at + 4
+    return None
 
 
 def _extract_interest_intent(cleaned: str, lower: str) -> MathIntent | None:
-    compound = word_index(lower, "compound") != -1
+    compound = any(word_index(lower, word) != -1 for word in ("compound", "compounded"))
     simple = word_index(lower, "simple") != -1
     if compound == simple:
         return None
@@ -27,10 +67,7 @@ def _extract_interest_intent(cleaned: str, lower: str) -> MathIntent | None:
         return None
     if _count_char(cleaned, "%") != 1:
         return None
-    if any(
-        word_index(lower, word) != -1
-        for word in ("month", "months", "weekly", "daily", "continuous")
-    ):
+    if any(word_index(lower, word) != -1 for word in _OTHER_PERIODS):
         return None
     nums = list(mtm._NUM.finditer(cleaned))
     if len(nums) != 3:
@@ -38,16 +75,30 @@ def _extract_interest_intent(cleaned: str, lower: str) -> MathIntent | None:
     on_at = word_index(lower, "on")
     if on_at == -1:
         on_at = word_index(lower, "of")
-    year_at = lower.find("year")
     pct_at = cleaned.find("%")
-    if on_at == -1 or year_at == -1 or pct_at == -1:
+    if pct_at == -1:
         return None
-    principal_m = mtm._NUM.search(cleaned, on_at + 2)
     rate_m = _number_immediately_before(cleaned, pct_at)
-    years_m = _number_immediately_before(cleaned, year_at)
-    if principal_m is None or rate_m is None or years_m is None:
+    years_m = _years_number(cleaned, lower)
+    if rate_m is None or years_m is None:
+        return None
+    if on_at != -1:
+        principal_m = mtm._NUM.search(cleaned, on_at + 2)
+    elif any(word_index(lower, word) != -1 for word in _PRINCIPAL_WORDS):
+        # "$5000 invested at 4% ... for 3 years": the one number left is the principal.
+        principal_m = next(
+            (m for m in nums if m.span() not in {rate_m.span(), years_m.span()}), None
+        )
+    else:
+        return None
+    if principal_m is None:
         return None
     if {principal_m.span(), rate_m.span(), years_m.span()} != {match.span() for match in nums}:
+        return None
+    asks_amount = _AMOUNT_QUESTION.search(cleaned) is not None
+    asks_interest = _INTEREST_QUESTION.search(cleaned) is not None
+    if asks_amount and (asks_interest or simple):
+        # Two quantities, or the simple-interest total, which is not modelled.
         return None
     principal = _finite_match_value(principal_m)
     rate = _finite_match_value(rate_m)
@@ -61,7 +112,7 @@ def _extract_interest_intent(cleaned: str, lower: str) -> MathIntent | None:
         return None
     if simple:
         op = "simple_interest"
-    elif word_index(lower, "amount") != -1 and "interest" not in lower:
+    elif asks_amount or (word_index(lower, "amount") != -1 and "interest" not in lower):
         op = "compound_amount"
     else:
         op = "compound_interest"

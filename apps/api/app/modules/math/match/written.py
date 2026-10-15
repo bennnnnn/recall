@@ -13,6 +13,7 @@ from app.modules.math.match.arithmetic import (
     _looks_like_date_or_phone,
     _strip_arith_cues,
     _unambiguous_single_slash,
+    times_between_numbers,
 )
 from app.services.text_match import word_index
 from app.services.text_normalize import collapse_ws
@@ -85,6 +86,7 @@ def _strip_written_method_cues(value: str) -> tuple[str, frozenset[str] | None]:
 _DIVISION_MODE_PHRASES: tuple[tuple[str, str], ...] = (
     ("quotient and remainder", "remainder"),
     ("with a remainder", "remainder"),
+    ("with remainder", "remainder"),
     ("as a remainder", "remainder"),
     ("as a fraction", "fraction"),
     ("fraction answer", "fraction"),
@@ -268,6 +270,7 @@ def written_arithmetic_request(text: str) -> tuple[str, str, str, str] | None:
         had_cue = True
     for phrase, _mode in _DIVISION_MODE_PHRASES:
         value = collapse_ws(value.replace(phrase, " ")).strip(" :?.!")
+    value = times_between_numbers(value)
     had_long_division_cue = "long division" in value
     for phrase in (
         "using long division to",

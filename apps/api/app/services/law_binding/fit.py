@@ -157,7 +157,8 @@ def _other_sense(question: Question, asks: tuple[str, ...], produced: set[str | 
         for phrase in asks:
             # "specific heat of 900 J/kg/K" names the capacity. The short ask
             # "heat" is the end of that label, not the heat the question asks for.
-            label = re.search(rf"(?<!specific ){re.escape(phrase)}\s*{links}\s*$", before)
+            # "to heat 1.5 kg of water" is the verb, and labels nothing.
+            label = re.search(rf"(?<!specific )(?<!\bto ){re.escape(phrase)}\s*{links}\s*$", before)
             if label is None:
                 continue
             # "the electric field 0.2 m from a charge" places the field; it
@@ -169,7 +170,10 @@ def _other_sense(question: Question, asks: tuple[str, ...], produced: set[str | 
     return False
 
 
-_PLACED = re.compile(r"\s*(?:away\s+)?(?:from|above|below|beyond|behind|away)\b")
+# "the absolute pressure 50 m deep" places the pressure too.
+_PLACED = re.compile(
+    r"\s*(?:away\s+)?(?:from|above|below|beyond|behind|away|deep|down|under|underwater|beneath)\b"
+)
 
 
 def value_end(lower: str, given: Given) -> int:

@@ -69,6 +69,39 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # What a submerged object lacks of its weight is the upthrust, rho g V: a
+    # 3 kg object that weighs 18 N under water displaces (29.4 - 18)/(rho g).
+    formula(
+        "volume_from_apparent_weight",
+        "fluids",
+        "Archimedes' principle",
+        "V",
+        base_latex=r"\rho g V = mg - W'",
+        assumptions=("the object is fully submerged",),
+        expression="(m*g - weight_app)/(rho*g)",
+        variables=(
+            var("m", "m", "kilogram"),
+            var(
+                "weight_app",
+                "W'",
+                "newton",
+                words=("weighs", "apparent weight", "reads", "scale", "weight of"),
+                needs_words=True,
+            ),
+            _G,
+            _RHO_FLUID,
+        ),
+        binding=Binding(
+            asks=("volume",),
+            result=("meter ** 3",),
+            inputs=(frozenset({"g", "m", "rho", "weight_app"}),),
+            cues=_SUBMERGED,
+            excludes=("float", "floats", "floating"),
+            nonnegative=True,
+            # Weighing more under water than in air is no upthrust.
+            requires=("m*g - weight_app",),
+        ),
+    ),
     formula(
         "floating_fraction",
         "fluids",

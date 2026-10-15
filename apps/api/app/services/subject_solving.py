@@ -70,32 +70,19 @@ _CHEMISTRY_AMOUNT = re.compile(
     r"(?<![A-Za-z])(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?\s*"
     r"(?:M|mM|mol(?:es?)?|mmol|mol/L|g/mol|mol/kg)(?![A-Za-z])"
 )
-_FORMULA_TOKEN = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])")
-
-
-def _compound(token: str) -> bool:
-    """A compound written as a formula: two element symbols or more, and a digit or a
-    lowercase letter, so a shouted word ("NO", "HI", "OK") is not one."""
-    from app.modules.chemistry.species_facts import is_formula
-
-    return (
-        sum(char.isupper() for char in token) >= 2
-        and any(char.islower() or char.isdigit() for char in token)
-        and is_formula(token)
-    )
 
 
 def _chemistry_shaped(text: str) -> bool:
     """A chemistry question by its symbols, amounts or formulas, solved or not."""
     from app.modules.chemistry.input_text import read_chemistry_text
-    from app.modules.chemistry.request import is_chemistry_question
+    from app.modules.chemistry.request import is_chemistry_question, names_compound
 
     if not is_chemistry_question(text):
         return False
     read = read_chemistry_text(text)
     if _CHEMISTRY_SYMBOL.search(read) or _CHEMISTRY_AMOUNT.search(read):
         return True
-    if any(_compound(token) for token in _FORMULA_TOKEN.findall(read)):
+    if names_compound(read):
         return True
     return _chemical_equation(read)
 

@@ -26,6 +26,14 @@ def _formula_from_counts(counts: dict[str, int]) -> str:
     return hill_formula(counts)
 
 
+def _written_order(counts: dict[str, int]) -> str:
+    """A carbon-hydrogen compound in Hill order (CH3); a salt as the question names its
+    elements, cation first: 1.00 g Ca, 0.300 g C and 1.20 g O is CaCO3, not CCaO3."""
+    if "C" in counts and "H" in counts:
+        return hill_formula(counts)
+    return "".join(f"{element}{'' if count == 1 else count}" for element, count in counts.items())
+
+
 def _integer_ratio(ratios: dict[str, float]) -> dict[str, int] | None:
     for multiplier in range(1, 9):
         scaled = {element: ratio * multiplier for element, ratio in ratios.items()}
@@ -34,11 +42,16 @@ def _integer_ratio(ratios: dict[str, float]) -> dict[str, int] | None:
     return None
 
 
-def _empirical_counts(percents: dict[str, float]) -> tuple[dict[str, int], list[str]]:
-    """Integer atom ratio and the per-element working (grams → moles → ratio)."""
+def _empirical_counts(
+    percents: dict[str, float], *, grams: bool = False
+) -> tuple[dict[str, int], list[str]]:
+    """Integer atom ratio and the per-element working (grams → moles → ratio).
+
+    ``grams`` reads the values as each element's mass in a sample, not as percentages.
+    """
     if not percents or any(value <= 0 for value in percents.values()):
         raise SolveServiceError("percent composition must be positive")
-    if abs(sum(percents.values()) - 100) > 1.5:
+    if not grams and abs(sum(percents.values()) - 100) > 1.5:
         raise SolveServiceError("percentages must add to about 100")
     masses: dict[str, float] = {}
     moles: dict[str, float] = {}
@@ -156,9 +169,34 @@ def solve_hydrate(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+# Element masses must add up to the stated sample mass within this share of it.
+_SAMPLE_CLOSURE = 0.01
+
+
 def solve_empirical(intent: ChemistryIntent) -> ChemistryResult:
-    counts, working = _empirical_counts(dict(intent.species))
+    grams = intent.units.get("basis") == "g"
+    counts, working = _empirical_counts(dict(intent.species), grams=grams)
     formula = _formula_from_counts(counts)
+    if grams:
+        formula = _written_order(counts)
+        sample = intent.params.get("sample_mass")
+        total = sum(intent.species.values())
+        if sample is not None and abs(total - sample) > _SAMPLE_CLOSURE * sample:
+            raise SolveServiceError("the element masses do not add up to the sample mass")
+        given: tuple[str, ...] = tuple(
+            f"{element} = {inp(mass)} g" for element, mass in intent.species.items()
+        )
+        if sample is not None:
+            given = (*given, f"sample = {inp(sample)} g")
+        return verified(
+            "Verified empirical formula",
+            given,
+            "Empirical formula",
+            *stated("empirical_formula"),
+            working,
+            formula,
+            formula,
+        )
     given = tuple(f"{element} = {inp(percent)}%" for element, percent in intent.species.items())
     return verified(
         "Verified empirical formula",

@@ -241,6 +241,38 @@ _FROM_GROUP = re.compile(
 )
 
 
+# "how many 4 letter arrangements of the word MATH", "how many ways can you arrange
+# the letters in the word PENCIL": the word is named as a word, or by its letters.
+_WORD_ARRANGEMENTS = re.compile(
+    r"(?:in\s+)?how\s+many\s+(?:different\s+|distinct\s+)?"
+    r"(?:ways\s+can\s+(?:you\s+|we\s+|i\s+|one\s+)?arrange|"
+    r"(?:(?P<k>\d{1,2})[\s-]+letter\s+)?(?:arrangements|permutations)\s+"
+    r"(?:can\s+be\s+(?:made|formed)\s+(?:from|with|using)|are\s+there\s+of|of|from))\s+"
+    r"(?:all\s+)?(?:the\s+)?(?:letters\s+(?:in|of)\s+(?:the\s+word\s+)?|word\s+)"
+    r"(?P<word>[A-Za-z]{2,12})\s*[?.]?",
+    re.IGNORECASE,
+)
+
+
+def word_arrangement_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] | None:
+    """Arrangements of a word's letters when every letter differs: n!, or P(n, k).
+
+    A word with a repeated letter needs n! divided by the repeats, which this
+    reader does not write, so it is declined.
+    """
+    match = _WORD_ARRANGEMENTS.fullmatch(" ".join(text.split()))
+    if match is None:
+        return None
+    letters = match.group("word").upper()
+    n = len(letters)
+    if len(set(letters)) != n:
+        return None
+    k = int(match.group("k")) if match.group("k") else n
+    if not 1 <= k <= n:
+        return None
+    return ("factorial", n, None) if k == n else ("permutations", n, k)
+
+
 def counting_word_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] | None:
     """A counting question in words.
 
@@ -248,6 +280,9 @@ def counting_word_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] |
     committee of 3 be chosen from 10 people" is C(10, 3); "... 3 of 7 runners
     finish first, second and third" is P(7, 3).
     """
+    word = word_arrangement_signal(text)
+    if word is not None:
+        return word
     if len(text) > 300 or not _COUNTING_QUESTION.search(text):
         return None
     numbers = [int(match) for match in re.findall(r"(?<![\d.])\d+(?![\d.])", text)]
@@ -301,11 +336,29 @@ def combinatorics_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] |
 _GCD_LCM_WORDS: tuple[tuple[str, NumberTheoryOp], ...] = (
     ("greatest common divisor", "gcd"),
     ("greatest common factor", "gcd"),
+    ("highest common factor", "gcd"),
     ("gcd", "gcd"),
+    ("gcf", "gcd"),
+    ("hcf", "gcd"),
     ("least common multiple", "lcm"),
+    ("lowest common multiple", "lcm"),
     ("lcm", "lcm"),
 )
-_FACTORIZE_PREFIXES = ("prime factorization of ", "prime factors of ", "factorize ")
+_FACTORIZE_PREFIXES = (
+    "prime factorization of ",
+    "prime factorisation of ",
+    "prime factors of ",
+    "factorize ",
+)
+# "factor 360" / "factorise 360" as the whole message: its prime factors. A
+# number inside a sentence ("factor 2 hours into the plan") is not this ask.
+_FACTOR_INTEGER = re.compile(
+    r"(?:(?:please|can\s+you|could\s+you)\s+)?(?:factor|factorise|factorize)\s+(\d+)"
+    r"(?:\s+(?:completely|fully|into\s+(?:its\s+)?primes?(?:\s+factors)?))?\s*[.?!]?",
+    re.IGNORECASE,
+)
+# gcd or lcm of three or more whole numbers: "lcm of 12, 18 and 30".
+MAX_GCD_LCM_VALUES = 10
 
 
 def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | None:
@@ -313,7 +366,7 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
     "<a> mod <b>". Returns (op, a, b) — b is None for factorize/is_prime."""
     lower = text.lower()
     for word, op in _GCD_LCM_WORDS:
-        idx = lower.find(word)
+        idx = word_index(lower, word)
         if idx != -1:
             nums = numeric_data_values(text[idx + len(word) :])
             if (
@@ -323,6 +376,9 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
                 and nums[1].is_integer()
             ):
                 return op, int(nums[0]), int(nums[1])
+    whole = _FACTOR_INTEGER.fullmatch(text.strip())
+    if whole is not None:
+        return "factorize", int(whole.group(1)), None
     for prefix in _FACTORIZE_PREFIXES:
         idx = lower.find(prefix)
         if idx != -1:
@@ -370,6 +426,22 @@ def number_theory_signal(text: str) -> tuple[NumberTheoryOp, int, int | None] | 
         after = _digits_immediately_after(text, idx + len(" mod "))
         if a is not None and after is not None:
             return "mod", a, after[0]
+    return None
+
+
+def gcd_lcm_list_signal(text: str) -> tuple[NumberTheoryOp, list[int]] | None:
+    """gcd or lcm of three to ten whole numbers, the whole list read after the name."""
+    lower = text.lower()
+    for word, op in _GCD_LCM_WORDS:
+        idx = word_index(lower, word)
+        if idx == -1:
+            continue
+        nums = numeric_data_values(text[idx + len(word) :])
+        if nums is None or not 3 <= len(nums) <= MAX_GCD_LCM_VALUES:
+            return None
+        if not all(value.is_integer() and 0 < value <= 100_000_000 for value in nums):
+            return None
+        return op, [int(value) for value in nums]
     return None
 
 
@@ -437,7 +509,8 @@ def bracket_matrices(text: str, limit: int = 2) -> list[list[list[float]]] | Non
 
 def _matrix_op_from_text(text: str) -> MatrixOp | None:
     lower = text.lower()
-    if "determinant" in lower or "det(" in lower.replace(" ", ""):
+    # "det [[2,3],[1,4]]": the short name, as a word, before the bracket matrix.
+    if "determinant" in lower or "det(" in lower.replace(" ", "") or word_index(lower, "det") != -1:
         return "determinant"
     if "inverse" in lower:
         return "inverse"

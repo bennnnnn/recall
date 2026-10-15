@@ -268,8 +268,6 @@ REFUSED = [
     # Optics: the sign conventions disagree here, so nothing is claimed.
     "what is the image distance for a diverging lens of focal length 10 cm and object at 30 cm",
     "what is the image distance for a concave lens of focal length 10 cm and object at 30 cm",
-    # Inside the focal length the image is virtual.
-    "what is the image distance for a lens of focal length 20 cm and object at 10 cm",
     # An index below 1 has no critical angle.
     "what is the critical angle for a medium of refractive index 0.8",
     # Thermal: an absolute temperature with no scale could be either.

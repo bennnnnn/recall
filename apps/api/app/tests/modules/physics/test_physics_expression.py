@@ -86,6 +86,8 @@ def _expressions() -> list[tuple[str, str]]:
         if spec.expression is not None:
             found.append((spec.id, spec.expression))
         found.extend((spec.id, v.expression) for v in spec.variants if v.expression is not None)
+        if spec.binding is not None:
+            found.extend((spec.id, condition) for condition in spec.binding.requires)
     return found
 
 

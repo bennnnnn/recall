@@ -16,6 +16,17 @@ _SHOT = (
     "stone",
     "dart",
     "package",
+    "wrench",
+    "spanner",
+    "hammer",
+    "tool",
+    "toolbox",
+    "camera",
+    "brick",
+    "snowball",
+    "box",
+    "bag",
+    "parcel",
 )
 _LAUNCHER = (
     "rifle",
@@ -59,6 +70,32 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("change in momentum", "change of momentum", "impulse"),
             result=("kilogram * meter / second",),
             inputs=(frozenset({"m", "v_in", "v_out"}),),
+            cues=("rebound", "rebounds", "bounces back", "bounces off", "comes back"),
+            interchangeable=("v_in", "v_out"),
+            nonnegative=True,
+        ),
+    ),
+    # The average force of that bounce: F = m(v₁ + v₂)/t. A ball into a wall
+    # at 15 m/s and back at 10 m/s in 0.05 s takes 100 N, not the 20 N of the
+    # speeds' difference.
+    formula(
+        "rebound_average_force",
+        "momentum",
+        "Impulse-momentum theorem",
+        "F",
+        base_latex=r"F = \frac{m(v_1 + v_2)}{t}",
+        assumptions=("the object comes straight back along its path",),
+        expression="m*(v_in + v_out)/t",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("v_in", "v_1", "meter / second"),
+            var("v_out", "v_2", "meter / second"),
+            var("t", "t", "second"),
+        ),
+        binding=Binding(
+            asks=("average force", "force"),
+            result=("newton",),
+            inputs=(frozenset({"m", "v_in", "v_out", "t"}),),
             cues=("rebound", "rebounds", "bounces back", "bounces off", "comes back"),
             interchangeable=("v_in", "v_out"),
             nonnegative=True,
@@ -114,6 +151,38 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("m2", "m_2", "kilogram"),
             var("v1", "v_1", "meter / second"),
             var("v2", "v_2", "meter / second"),
+        ),
+    ),
+    # The kinetic energy a sticking collision turns to heat and sound: the
+    # bodies' energy before, less the pair's energy at the common speed.
+    formula(
+        "collision_energy_lost",
+        "momentum",
+        "Perfectly inelastic collision",
+        r"\Delta KE",
+        assumptions=("the bodies stick together", "one dimension"),
+        variables=(
+            var("elastic", "elastic", dimensionless=True, visible=False),
+            var("m1", "m_1", "kilogram"),
+            var("m2", "m_2", "kilogram"),
+            var("v1", "v_1", "meter / second"),
+            var("v2", "v_2", "meter / second"),
+        ),
+    ),
+    # A body at rest bursts into two pieces: their momenta cancel, so one
+    # piece's speed gives the other's (``extractors/momentum.py``).
+    formula(
+        "explosion_speed",
+        "momentum",
+        "Conservation of momentum",
+        "v_2",
+        base_latex=r"m_1 v_1 = m_2 v_2",
+        assumptions=("the body is at rest before it bursts, and nothing outside pushes",),
+        variables=(
+            var("m_total", "M", "kilogram"),
+            var("m_moving", "m_1", "kilogram"),
+            var("m_other", "m_2", "kilogram"),
+            var("v_moving", "v_1", "meter / second"),
         ),
     ),
     formula(

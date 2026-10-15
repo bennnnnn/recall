@@ -29,6 +29,12 @@ NAMED_COMPOUNDS: dict[str, str] = {
     "sugar": "C12H22O11",
     "urea": "CO(NH2)2",
     "carbon dioxide": "CO2",
+    # A diatomic element named as the gas is its molecule.
+    "hydrogen gas": "H2",
+    "nitrogen gas": "N2",
+    "oxygen gas": "O2",
+    "fluorine gas": "F2",
+    "chlorine gas": "Cl2",
     "hydrochloric acid": "HCl",
     "hydrobromic acid": "HBr",
     "hydroiodic acid": "HI",

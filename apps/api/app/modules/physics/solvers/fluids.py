@@ -125,7 +125,28 @@ def _laplace_pressure(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResu
     )
 
 
+def _hydraulic_by_diameter(p: dict[str, float]) -> PhysicsResult:
+    """F₂ = F₁(d₂/d₁)²: an area goes with its diameter squared."""
+    from app.modules.physics.display import latex_given, latex_number
+
+    if p["d1"] <= 0 or p["d2"] <= 0:
+        raise SolveServiceError("hydraulic force needs positive piston diameters")
+    force = p["F1"] * (p["d2"] / p["d1"]) ** 2
+    substitution = (
+        rf"F_2 = {latex_given(p['F1'])} \cdot \left(\frac{{{latex_given(p['d2'])}}}"
+        rf"{{{latex_given(p['d1'])}}}\right)^2 = {latex_number(force)}"
+    )
+    return PhysicsResult(
+        answer=substitution,
+        formulas=(r"F_2 = F_1\left(\frac{d_2}{d_1}\right)^2",),
+        substitutions=(substitution,),
+        quantities=(QuantityResult("", force, "N"),),
+    )
+
+
 def _hydraulic_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    if "d1" in p and "d2" in p:
+        return _hydraulic_by_diameter(p)
     if p["A1"] <= 0 or p["A2"] <= 0:
         raise SolveServiceError("hydraulic force needs positive piston areas")
     force = p["F1"] * p["A2"] / p["A1"]
@@ -271,7 +292,28 @@ def _density(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     )
 
 
+def _continuity_by_diameter(p: dict[str, float]) -> PhysicsResult:
+    """v₂ = v₁(d₁/d₂)²: the flow is the same through both sections."""
+    from app.modules.physics.display import latex_given, latex_number
+
+    if p["d1"] <= 0 or p["d2"] <= 0 or p["v"] < 0:
+        raise SolveServiceError("continuity needs positive diameters")
+    v2 = p["v"] * (p["d1"] / p["d2"]) ** 2
+    substitution = (
+        rf"v_2 = {latex_given(p['v'])} \cdot \left(\frac{{{latex_given(p['d1'])}}}"
+        rf"{{{latex_given(p['d2'])}}}\right)^2 = {latex_number(v2)}"
+    )
+    return PhysicsResult(
+        answer=substitution,
+        formulas=(r"A_1 v_1 = A_2 v_2", r"v_2 = v_1\left(\frac{d_1}{d_2}\right)^2"),
+        substitutions=(substitution,),
+        quantities=(QuantityResult("", v2, "m/s"),),
+    )
+
+
 def _continuity_velocity(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    if "d1" in p and "d2" in p:
+        return _continuity_by_diameter(p)
     a2 = p["A2"]
     if a2 <= 0:
         raise SolveServiceError("the second area must be positive")

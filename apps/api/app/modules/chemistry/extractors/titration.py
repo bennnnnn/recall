@@ -24,7 +24,8 @@ from app.modules.chemistry.species_facts import (
 
 
 def _extract_titration(text: str) -> ChemistryIntent | None:
-    if not re.search(r"\b(?:titrat|neutrali[sz])\w*", text, re.IGNORECASE):
+    # Mixing an acid with a base is the same reaction a titration runs.
+    if not re.search(r"\b(?:titrat|neutrali[sz]|mix(?:ing|ed|es)?\b)\w*", text, re.IGNORECASE):
         return None
     ma = _search(rf"\bMa\s*=\s*({_N})", text)
     va = _search(rf"\bVa\s*=\s*({_N})\s*L", text)
@@ -144,6 +145,10 @@ def _titration_in_words(text: str) -> ChemistryIntent | None:
             stated_at.add(match.start(1))
     if len(concentration) == 1 and re.search(r"\b(?:concentration|molarity)\b", text, re.I):
         return _unknown_concentration(text, concentration, volume, typed_unit)
+    if len(concentration) == 2 and len(volume) == 1:
+        needed = _unknown_volume(text, concentration, volume, typed_unit)
+        if needed is not None:
+            return needed
     if not re.search(r"\bpH\b", text):
         return None
     acids = [
@@ -212,8 +217,16 @@ def _unknown_concentration(
             volumes[formula] = _liters(match.group(1), match.group(2))
             typed[formula] = match.group(2)
     unknown = [formula for formula in volumes if formula != known]
-    if len(unknown) != 1 or known not in volume:
+    if len(unknown) != 1:
         return None
+    if known not in volume:
+        # "... is titrated with 0.1000 M NaOH and it takes 32.45 mL to reach the endpoint":
+        # the one volume no solution owns is the titrant's.
+        titrant = _titrant_volume(text, len(volumes))
+        if titrant is None:
+            return None
+        volume[known] = _liters(*titrant)
+        typed[known] = titrant[1]
     other = unknown[0]
     acid, base = (known, other) if known in NEUTRALIZING_ACIDS else (other, known)
     if acid not in NEUTRALIZING_ACIDS or base not in NEUTRALIZING_BASES:
@@ -234,4 +247,70 @@ def _unknown_concentration(
             "known_volume": typed.get(known, "L"),
             "unknown_volume": typed.get(other, "L"),
         },
+    )
+
+
+# "it takes 32.45 mL to reach the endpoint", "32.45 mL is required": a volume of no named
+# solution, used in reaching the endpoint.
+_TITRANT_VOLUME = re.compile(
+    rf"\b(?:takes?|took|requires?|required|needs?|needed|uses?|used|consumes?|consumed)\s+"
+    rf"({_N})\s*(mL|L)\b(?!\s+of\b)",
+    re.IGNORECASE,
+)
+_ENDPOINT = re.compile(r"\b(?:end\s*point|equivalence\s+point|neutrali[sz]e)", re.IGNORECASE)
+_ANY_VOLUME = re.compile(rf"(?<![A-Za-z0-9.]){_N}\s*(?:mL|L)\b")
+
+
+def _titrant_volume(text: str, owned: int) -> tuple[str, str] | None:
+    """The titrant's volume when the question gives it apart from the titrant's name."""
+    if not _ENDPOINT.search(text):
+        return None
+    matches = list(_TITRANT_VOLUME.finditer(text))
+    # Every volume of the text is either a named solution's or this one.
+    if len(matches) != 1 or len(_ANY_VOLUME.findall(text)) != owned + 1:
+        return None
+    return matches[0].group(1), matches[0].group(2)
+
+
+# "What volume of 0.250 M H2SO4 is needed ...", "How many mL of 0.10 M NaOH ...".
+_VOLUME_OF_SOLUTION = re.compile(
+    r"\b(?:what\s+volume|how\s+many\s+(?:mL|L|milliliters?|liters?))\s+of\s+"
+    rf"(?:an?\s+|the\s+)?{_N}\s*M\s+({_SPECIES})(?![A-Za-z0-9])",
+    re.IGNORECASE,
+)
+
+
+def _unknown_volume(
+    text: str,
+    concentration: dict[str, float],
+    volume: dict[str, float],
+    typed_unit: dict[str, str],
+) -> ChemistryIntent | None:
+    """The volume that neutralizes a measured solution: V₂ = C₁V₁ · ratio / C₂.
+
+    The asked solution is the one named by concentration alone, and the question asks its
+    volume; the ratio counts protons and hydroxides as the concentration reader does.
+    """
+    asked = _VOLUME_OF_SOLUTION.search(text)
+    if asked is None or not re.search(r"\bneutrali[sz]", text, re.IGNORECASE):
+        return None
+    other = _species(asked.group(1))
+    known = next(iter(volume))
+    if other is None or other == known or other not in concentration:
+        return None
+    acid, base = (known, other) if known in NEUTRALIZING_ACIDS else (other, known)
+    if acid not in NEUTRALIZING_ACIDS or base not in NEUTRALIZING_BASES:
+        return None
+    equivalents = {acid: NEUTRALIZING_ACIDS[acid], base: NEUTRALIZING_BASES[base]}
+    return ChemistryIntent(
+        kind="acid_base",
+        chemistry_op="titration_volume",
+        formula=other,
+        params={
+            "known_concentration": concentration[known],
+            "known_volume": volume[known],
+            "unknown_concentration": concentration[other],
+            "ratio": equivalents[known] / equivalents[other],
+        },
+        units={"known_volume": typed_unit.get(known, "L")},
     )

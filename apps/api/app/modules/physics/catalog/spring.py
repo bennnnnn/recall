@@ -307,6 +307,46 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # A simple pendulum's frequency: f = (1/2π)√(g/L). 1.2 m swings at 0.455 Hz.
+    formula(
+        "pendulum_frequency",
+        "spring",
+        "Simple pendulum",
+        "f",
+        base_latex=r"f = \frac{1}{2\pi}\sqrt{\frac{g}{L}}",
+        assumptions=("small swings",),
+        expression="sqrt(g/L)/(2*pi)",
+        variables=(
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("L", "L", "meter"),
+        ),
+        binding=Binding(
+            asks=("frequency",),
+            result=("hertz",),
+            inputs=(frozenset({"g", "L"}),),
+            cues=("pendulum",),
+            excludes=("physical pendulum", "compound pendulum", "conical", "torsion", "angular"),
+            nonnegative=True,
+        ),
+    ),
+    # The mass a spring of stiffness k swings with a period T: m = k(T/2π)².
+    formula(
+        "spring_mass_from_period",
+        "spring",
+        "Mass-spring period",
+        "m",
+        base_latex=r"T = 2\pi\sqrt{\frac{m}{k}}",
+        expression="k*(period/(2*pi))**2",
+        variables=(var("k", "k", "newton / meter"), var("period", "T", "second")),
+        binding=Binding(
+            asks=("mass", "how heavy"),
+            result=("kilogram",),
+            inputs=(frozenset({"k", "period"}),),
+            cues=("spring",),
+            excludes=("pendulum",),
+            nonnegative=True,
+        ),
+    ),
     # A count of oscillations in a stated time.
     formula(
         "frequency_from_count",

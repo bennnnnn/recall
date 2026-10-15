@@ -128,6 +128,32 @@ SPECS: tuple[FormulaSpec, ...] = (
         "c_heat",
         "delta_temp",
     ),
+    # A heater's time to warm a mass: t = mcΔT/P, with no heat lost. A 2 kW
+    # kettle warms 1.5 kg of water by 80 K in 251 s.
+    formula(
+        "heating_time",
+        "thermal",
+        "Electrical heating",
+        "t",
+        base_latex=r"P t = m c \Delta T",
+        assumptions=("all the electrical energy heats the water; none is lost",),
+        expression="m*c_heat*(temp_final - temp_initial)/power",
+        variables=(
+            _MASS,
+            _C,
+            var("power", "P", "watt"),
+            var("temp_initial", "T_1", "kelvin", words=("from", "initially", "starting at")),
+            var("temp_final", "T_2", "kelvin", words=("to", "until", "reaches", "final")),
+        ),
+        binding=Binding(
+            asks=("how long", "time"),
+            result=("second",),
+            inputs=(frozenset({"c_heat", "m", "power", "temp_final", "temp_initial"}),),
+            cues=("kettle", "heater", "heating element", "immersion", "heats"),
+            excludes=_PHASE_CHANGE,
+            nonnegative=True,
+        ),
+    ),
     # Two amounts of water mixed: the heat one loses the other gains. Both
     # are water, so c cancels; any other substance named rules this out.
     formula(
@@ -152,6 +178,7 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "common temperature",
                 "resulting temperature",
                 "temperature",
+                "final temp",
             ),
             result=("kelvin",),
             inputs=(frozenset({"m1", "m2", "temp_a", "temp_b"}),),

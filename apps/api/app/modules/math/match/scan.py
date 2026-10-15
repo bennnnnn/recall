@@ -23,9 +23,23 @@ _NUM = re.compile(r"-?(?:\d+(?:\.\d+)?|\.\d+)")
 # Math keyboard / Unicode units: m/s² and m/s^{2} must match m/s^2.
 _BARE_COORD = re.compile(r"^\((?P<x>-?\d+(?:\.\d+)?),(?P<y>-?\d+(?:\.\d+)?)\)$")
 _CALC_OP = re.compile(
-    r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand|dsolve)\b",
+    r"\b(simplify|differentiate|derivative|integrate|integral|factor|expand|dsolve|"
+    r"factori[sz]e|deriv[ai]t[ai]ve|derivatve|diriv[ai]tive|intergrate|intergral)\b",
     re.IGNORECASE,
 )
+# British spellings and the misspellings students type, as the verb they mean.
+CALC_OP_SPELLINGS = {
+    "factorise": "factor",
+    "factorize": "factor",
+    "derivitive": "derivative",
+    "derivitave": "derivative",
+    "derivatave": "derivative",
+    "derivatve": "derivative",
+    "dirivative": "derivative",
+    "dirivitive": "derivative",
+    "intergrate": "integrate",
+    "intergral": "integral",
+}
 _DIM_SEPS = ("\u00d7", "by", "x", "*")
 _DIM_UNITS = ("units", "unit", "cm", "mm", "ft", "in", "m")
 
@@ -348,7 +362,45 @@ def prepare(text: str) -> str | None:
     cleaned = normalize_symbolic_request(text)
     if cleaned is None:
         return None
-    return fold_scientific_notation(fold_digit_groups(cleaned))
+    return fold_scientific_notation(fold_digit_groups(fix_leading_solve_typo(cleaned)))
+
+
+# "slove 4x - 8 = 12": the command a student meant, as the first word only.
+_SOLVE_TYPO = re.compile(r"^(?:slove|sovle|solv|slov)(?=\s)", re.IGNORECASE)
+
+
+def fix_leading_solve_typo(text: str) -> str:
+    """A misspelled leading "solve" reads as the verb, not as prose before the equation."""
+    return _SOLVE_TYPO.sub("solve", text)
+
+
+# Clauses of a typed system: "x+y=5, x-y=1", "3x+2y=12 and x-y=1".
+_SYSTEM_CLAUSE_SPLIT = re.compile(r"\s*(?:[,;]|\band\b)\s*", re.IGNORECASE)
+# An equation with a term in it, not only "x = 1".
+_EQUATION_TERM = re.compile(r"[+\-*/^]|\d\s*[a-zA-Z]")
+_MAX_BARE_SYSTEM = 4
+
+
+def bare_equation_system(text: str) -> bool:
+    """The whole message is two to four equations: ``x+y+z=6, 2x-y+z=3, x+2y-z=2``.
+
+    Each clause is one equation of maths on both sides, and at least one has
+    a term, so a list of assignments (``a=1, b=2``) is not a system.
+    """
+    if len(text) > _MAX or "=" not in text:
+        return False
+    clauses = [part for part in _SYSTEM_CLAUSE_SPLIT.split(text.strip().rstrip(".?!")) if part]
+    if not 2 <= len(clauses) <= _MAX_BARE_SYSTEM:
+        return False
+    with_term = False
+    for clause in clauses:
+        if clause.count("=") != 1:
+            return False
+        lhs, rhs = clause.split("=")
+        if not (looks_like_math_expr(lhs) and looks_like_math_expr(rhs)):
+            return False
+        with_term = with_term or _EQUATION_TERM.search(clause) is not None
+    return with_term and _STANDALONE_VAR_RE.search(text) is not None
 
 
 # ``1,200`` and ``1,234,567.5``: one number written in groups of three.

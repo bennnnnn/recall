@@ -52,7 +52,13 @@ def rate_constant(text: str, label: str = "k") -> tuple[float, str | None] | Non
     ``k`` may also be written "the rate constant is", and ``s^-1`` as ``1/s``.
     ``None`` when the label is absent or its unit is one this reader does not understand.
     """
-    name = rf"(?-i:{label})" if label != "k" else r"(?:(?-i:k)|rate\s+constant)"
+    # "the rate constant of a first-order reaction is 0.0450 s^-1" names whose constant it is.
+    name = (
+        rf"(?-i:{label})"
+        if label != "k"
+        else r"(?:(?-i:k)|rate\s+constant(?:\s+(?:of|for)\s+(?:the\s+|a\s+|an\s+|this\s+)?"
+        r"[A-Za-z][\w-]*(?:\s+[A-Za-z][\w-]*){0,3})?)"
+    )
     match = re.search(
         rf"\b{name}\s*(?:=|is)\s*({_N})\s*(?:"
         rf"(?P<unit>{TIME_UNIT_PATTERN})\s*(?:\^\s*-\s*1|⁻¹)"
@@ -177,16 +183,27 @@ def asked_quantity(text: str) -> AskedQuantity | None:
     return None
 
 
+# What is left of a reactant is its amount minus what reacts: not a mole ratio's answer.
+_LEFT_OVER = re.compile(r"\b(?:remain\w*|left(?:\s*over)?|leftover|excess|unreacted)\b", re.I)
+
+
 def _target(text: str, equation: str) -> str | None:
-    """The product the question asks about, or None when it asks about anything else."""
+    """The species the question asks about, or None when it asks about anything else.
+
+    A product it asks for ("grams of CO2 produced"), or a reactant ("moles of O2 needed",
+    "grams of KClO3 needed to produce 3.2 g of O2"). A reactant's leftover or excess is the
+    amount minus what reacts, another question, and a species the equation lacks declines.
+    """
     balanced = balance_equation(equation)
     if not balanced.balanced:
         return None
     asked = asked_quantity(text)
     if asked is not None and asked.species is not None:
-        # Asking for a reactant ("moles of O2 needed") or a species that is not in
-        # the equation is not a product yield, so it is not verified as one.
-        return asked.species if asked.species in balanced.products else None
+        if asked.species in balanced.products:
+            return asked.species
+        if asked.species in balanced.reactants and not _LEFT_OVER.search(text):
+            return asked.species
+        return None
     outside = EQUATION_RE.sub(" ", text)
     mentioned = [
         product

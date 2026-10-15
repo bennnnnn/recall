@@ -138,6 +138,18 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             non_negative=frozenset({"solute_mass"}),
             not_above=(("solute_mass", "solution_mass"),),
         ),
+        # "How many grams of NaCl are needed to make 500 g of a 5.0% by mass solution?"
+        _law(
+            "solute_mass_from_percent",
+            "solutions",
+            "Mass-percent concentration",
+            "m(solute) = (mass % / 100) × m(solution)",
+            "Mass of solute, m(solute)",
+            ("m(solute)", "g"),
+            "percent/100*solution_mass",
+            (("percent", "mass %", "%"), ("solution_mass", "m(solution)", "g")),
+            "m(solute) = ({percent.value} / 100)({solution_mass})",
+        ),
         _law(
             "volume_percent",
             "solutions",
@@ -181,6 +193,24 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             "moles_a/(moles_a + moles_b)",
             (("moles_a", "n(A)", "mol"), ("moles_b", "n(B)", "mol")),
             "χA = {moles_a} / ({moles_a} + {moles_b})",
+        ),
+        # "the mole fraction of ethanol in 46 g ethanol and 54 g water": moles from masses.
+        _law(
+            "mole_fraction_mass",
+            "solutions",
+            "Mole fraction",
+            "χA = nA / (nA + nB), n = m / M",
+            "Mole fraction, χ",
+            ("χ({formula})", ""),
+            "(mass_a/molar_mass_a)/(mass_a/molar_mass_a + mass_b/molar_mass_b)",
+            (
+                ("mass_a", "m({formula})", "g"),
+                ("molar_mass_a", "M({formula})", "g/mol"),
+                ("mass_b", "m({target})", "g"),
+                ("molar_mass_b", "M({target})", "g/mol"),
+            ),
+            "χ({formula}) = ({mass_a} / {molar_mass_a})"
+            " / [({mass_a} / {molar_mass_a}) + ({mass_b} / {molar_mass_b})]",
         ),
         _law(
             "binary_vapor_pressure",
@@ -254,6 +284,24 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             "q = ({moles})({enthalpy})",
             signed=frozenset({"enthalpy"}),
         ),
+        # "How much heat is released when 32.0 g of CH4 burns? ΔH = -890 kJ/mol": the moles
+        # come from the mass of the substance the enthalpy is per mole of.
+        _law(
+            "reaction_heat_mass",
+            "thermochemistry",
+            "Enthalpy of a reaction amount",
+            "q = (m / M)ΔH",
+            "Heat, q",
+            ("q", "kJ"),
+            "mass/molar_mass*enthalpy",
+            (
+                ("mass", "m({formula})", "g"),
+                ("molar_mass", "M({formula})", "g/mol"),
+                ("enthalpy", "ΔH", "kJ/mol"),
+            ),
+            "q = ({mass} / {molar_mass})({enthalpy})",
+            signed=frozenset({"enthalpy"}),
+        ),
         _law(
             "electrolysis_time",
             "electrochemistry",
@@ -285,6 +333,24 @@ _BUILT_IN: dict[str, FormulaLaw] = {
                 ("ratio", "mole ratio", ""),
             ),
             "C₂ = ({known_concentration})({known_volume})({ratio}) / {unknown_volume}",
+        ),
+        # "What volume of 0.250 M H2SO4 is needed to neutralize 50.0 mL of 0.100 M NaOH?"
+        _law(
+            "titration_volume",
+            "acid_base",
+            "Neutralization",
+            "V₂ = C₁V₁ × ratio / C₂",
+            "Volume needed, V₂",
+            ("V₂", "mL"),
+            "known_concentration*known_volume*ratio/unknown_concentration*1000",
+            (
+                ("known_concentration", "C₁", "mol/L"),
+                ("known_volume", "V₁", "L"),
+                ("unknown_concentration", "C₂", "mol/L"),
+                ("ratio", "mole ratio", ""),
+            ),
+            "V₂ = ({known_concentration})({known_volume})({ratio}) / {unknown_concentration}"
+            " × (1000 mL/L)",
         ),
         _law(
             "graham_ratio",

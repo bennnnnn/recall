@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001
+# ruff: noqa: RUF001, RUF002
 """Electrochemistry: cell potentials, ΔG from E°, the Nernst equation, and electrolysis."""
 
 from __future__ import annotations
@@ -218,4 +218,62 @@ def solve_galvanic_cell(intent: ChemistryIntent) -> ChemistryResult:
             potential=f"{_volts(potential)} V",
             electrons="anode to cathode",
         ),
+    )
+
+
+def solve_galvanic_nernst(intent: ChemistryIntent) -> ChemistryResult:
+    """E = E°cell − (RT/nF) ln Q for a cell of two table metals at stated ion concentrations."""
+    left, right = intent.formula or "", intent.target or ""
+    if left not in STANDARD_REDUCTION or right not in STANDARD_REDUCTION or left == right:
+        raise SolveServiceError("a cell needs two different metals from the reduction table")
+    temperature = intent.params.get("temperature")
+    if temperature is None or temperature <= 0:
+        raise SolveServiceError("temperature must be positive Kelvin")
+    (e_left, n_left), (e_right, n_right) = STANDARD_REDUCTION[left], STANDARD_REDUCTION[right]
+    if e_left == e_right:
+        raise SolveServiceError("two metals with one potential make no cell")
+    if e_left > e_right:
+        cathode, anode, ec, ea, nc, na = left, right, e_left, e_right, n_left, n_right
+    else:
+        cathode, anode, ec, ea, nc, na = right, left, e_right, e_left, n_right, n_left
+    electrons = math.lcm(nc, na)
+    anode_ion, cathode_ion = _ion(anode, na), _ion(cathode, nc)
+    anode_c = intent.species.get(anode_ion)
+    cathode_c = intent.species.get(cathode_ion)
+    if anode_c is None or cathode_c is None or anode_c <= 0 or cathode_c <= 0:
+        raise SolveServiceError("both ion concentrations must be stated and positive")
+    anode_power, cathode_power = electrons // na, electrons // nc
+    quotient = anode_c**anode_power / cathode_c**cathode_power
+    standard = ec - ea
+    potential = standard - GAS_R_J * temperature / (electrons * FARADAY) * math.log(quotient)
+
+    def power(label: str, exponent: int) -> str:
+        return f"[{label}]" if exponent == 1 else f"[{label}]^{exponent}"
+
+    def raised(value: float, exponent: int) -> str:
+        return inp(value) if exponent == 1 else f"({inp(value)})^{exponent}"
+
+    shown = f"E = {_volts(potential)} V"
+    return verified(
+        "Verified cell potential",
+        (
+            f"anode {anode}: E° = {_volts(ea)} V",
+            f"cathode {cathode}: E° = {_volts(ec)} V",
+            f"[{anode_ion}] = {inp(anode_c)} mol/L",
+            f"[{cathode_ion}] = {inp(cathode_c)} mol/L",
+            given_row("T", temperature, "K", "°C"),
+        ),
+        "Cell potential, E",
+        *stated("galvanic_nernst"),
+        (
+            f"E°cell = {_volts(ec)} − ({_volts(ea)}) = {_volts(standard)} V",
+            f"n = {electrons} electrons transferred",
+            f"Q = {power(anode_ion, anode_power)} / {power(cathode_ion, cathode_power)}"
+            f" = {raised(anode_c, anode_power)} / {raised(cathode_c, cathode_power)}"
+            f" = {num(quotient)}",
+            f"E = {_volts(standard)} V − [({const(GAS_R_J)} J/(mol·K))({used(temperature)} K) / "
+            f"(({electrons})({const(FARADAY)} C/mol))]ln({num(quotient)})",
+        ),
+        shown,
+        shown,
     )

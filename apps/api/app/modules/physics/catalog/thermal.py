@@ -210,6 +210,41 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("temp_env", "T_C", "kelvin"),
         ),
     ),
+    # A refrigerator's coefficient of performance from what it does, not its
+    # reservoirs: the heat it moves per joule of work, Q_c/W. 300 J out for
+    # 100 J of work is 3.
+    formula(
+        "refrigerator_cop_from_heat",
+        "thermal",
+        "Refrigerator coefficient of performance",
+        "COP",
+        base_latex=r"COP = \frac{Q_C}{W}",
+        expression="q_cold/work_in",
+        variables=(
+            var(
+                "q_cold",
+                "Q_C",
+                "joule",
+                words=("removes", "extracts", "takes", "from inside", "absorbs", "heat"),
+                needs_words=True,
+            ),
+            var(
+                "work_in",
+                "W",
+                "joule",
+                words=("work", "using", "uses", "consumes", "input"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("coefficient of performance", "cop"),
+            result=("dimensionless",),
+            inputs=(frozenset({"q_cold", "work_in"}),),
+            cues=("refrigerator", "fridge", "freezer", "air conditioner"),
+            excludes=("heat pump", "kelvin"),
+            nonnegative=True,
+        ),
+    ),
     formula(
         "heat_pump_cop",
         "thermal",
@@ -255,6 +290,35 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
             result=("meter",),
             inputs=(frozenset({"L0", "alpha", "delta_temp"}),),
+        ),
+    ),
+    # Linear expansion between two stated temperatures: ΔL = alpha L₀ (T₂ - T₁).
+    formula(
+        "linear_expansion_temperatures",
+        "thermal",
+        "Linear thermal-expansion law",
+        r"\Delta L",
+        base_latex=r"\Delta L = \alpha L_0 (T_2 - T_1)",
+        expression="alpha*L0*(temp_final - temp_initial)",
+        variables=(
+            var("L0", "L_0", "meter"),
+            var("alpha", r"\alpha", "1 / kelvin"),
+            var("temp_initial", "T_1", "kelvin", words=("from", "initially", "at")),
+            var("temp_final", "T_2", "kelvin", words=("to", "until", "reaches")),
+        ),
+        binding=Binding(
+            asks=(
+                "change in length",
+                "increase in length",
+                "expansion",
+                "extension",
+                "how much longer",
+                "lengthen",
+                "expand",
+            ),
+            result=("meter",),
+            inputs=(frozenset({"L0", "alpha", "temp_final", "temp_initial"}),),
+            nonnegative=True,
         ),
     ),
     formula(

@@ -558,6 +558,14 @@ _ROUND5_RIGHT: list[tuple[str, float, str]] = [
     ),
     # 20. The asked unit is the answer's unit.
     ("What is the gauge pressure in psi at a depth of 10 m in fresh water?", 14.23, "psi"),
+    # 4. A chase is now read: the chaser's speed is written before "chasing", the
+    # target's after it, and the gap closes at their difference (it was declined).
+    (
+        "A car at 30 m/s is chasing a truck doing 20 m/s that is 100 m ahead. "
+        "how long does it take to catch up?",
+        10.0,
+        "s",
+    ),
 ]
 
 
@@ -582,9 +590,6 @@ _ROUND5_DECLINED = [
     "A ball is kicked horizontally off a roof at 8 m/s. how far from the building does it land?",
     "a stone is thrown down a well at 4 m/s, how deep is the well?",
     "A ball is thrown at 25 m/s. How long is it in the air?",
-    # 4. A chase: which speed is the chaser's is not read, so it is not one subtraction.
-    "A car at 30 m/s is chasing a truck doing 20 m/s that is 100 m ahead. "
-    "how long does it take to catch up?",
     # 6. A push along an incline that cannot move the block up it has no upward acceleration.
     "A 5 kg block is pushed up a 30 degree incline with a force of 10 N parallel to the "
     "incline. μk = 0.2. find the acceleration",

@@ -54,12 +54,17 @@ from app.modules.chemistry.extractors.spectroscopy import (
     _extract_beer_lambert,
     _extract_spectrum,
 )
-from app.modules.chemistry.extractors.stoichiometry import _extract_mass_chain
+from app.modules.chemistry.extractors.stoichiometry import (
+    _extract_mass_chain,
+    _extract_reaction_yield,
+)
 from app.modules.chemistry.extractors.structure import (
     _extract_coordination,
     _extract_crystal_field,
     _extract_electron_configuration,
+    _extract_ionic_name,
     _extract_structure,
+    _extract_valence_electrons,
 )
 from app.modules.chemistry.extractors.thermochemistry import _extract_enthalpy, _extract_gibbs
 from app.modules.chemistry.extractors.titration import (
@@ -93,6 +98,7 @@ CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     _extract_hydrate,
     _extract_empirical,
     _extract_mass_chain,
+    _extract_reaction_yield,
     _extract_acid_solution,
     _extract_titration,
     _extract_buffer_addition,
@@ -113,6 +119,8 @@ CHEMISTRY_EXTRACTORS: tuple[Extractor, ...] = (
     _extract_element_mass,
     _extract_average_atomic_mass,
     _extract_electron_configuration,
+    _extract_valence_electrons,
+    _extract_ionic_name,
 )
 # A question written in mM, µM or kcal reaches only the readers that convert units.
 UNIT_AWARE_EXTRACTORS: tuple[Extractor, ...] = (_extract_michaelis,)

@@ -6,6 +6,8 @@ a planet's mass, an electron's charge, water's c), in the unit physics writes it
 
 from __future__ import annotations
 
+import re
+
 from app.modules.physics.bodies import (
     SEA_LEVEL_PRESSURE,
     WATER_DENSITY,
@@ -42,7 +44,30 @@ def fallback_value(variable: VariableSpec, text: str, lower: str) -> float | Non
         return WATER_SPECIFIC_HEAT if fallback == "water_specific_heat" else WATER_DENSITY
     if fallback == "sea_level_pressure":
         return SEA_LEVEL_PRESSURE
+    if fallback == "incident_from_air":
+        return AIR_INDEX if light_enters_from_air(lower) else None
     return None
+
+
+AIR_INDEX = 1.0
+# Light that strikes, hits or enters a medium. Read alone, it came from air.
+_ENTERS_RE = re.compile(
+    r"\b(?:strikes?|striking|hits?|hitting|incident\s+on|falls?\s+on|falling\s+on"
+    r"|enters?|entering)\b"
+)
+# Light that starts inside a medium, or comes from a named one, is not from air.
+_STARTS_INSIDE_RE = re.compile(
+    r"\b(?:inside|within|internal(?:ly)?|leaves?|leaving|emerges?|emerging|exits?|exiting"
+    r"|escapes?|escaping|out\s+of|into\s+(?:the\s+)?(?:air|vacuum)|travell?ing\s+in|moving\s+in"
+    r"|underwater|under\s+water|submerged|beneath|below\s+the\s+surface"
+    r"|from\s+(?!(?:(?:a|an|the)\s+)?(?:air|surface|boundary|interface|normal|vacuum"
+    r"|horizontal|vertical)\b)(?:a\s+|an\s+|the\s+)?[a-z]+)\b"
+)
+
+
+def light_enters_from_air(lower: str) -> bool:
+    """A ray that strikes a medium and is never said to start inside one."""
+    return _ENTERS_RE.search(lower) is not None and _STARTS_INSIDE_RE.search(lower) is None
 
 
 def si_unit(variable: VariableSpec) -> str:

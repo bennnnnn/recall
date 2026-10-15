@@ -44,6 +44,7 @@ from app.modules.math.followup import (
     math_working_followup_problem,
     offered_equation_problem,
     pronoun_math_problem,
+    restated_math_problem,
 )
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
@@ -506,9 +507,11 @@ async def build_stream_prompt_context(
     # "simplify it" works on the user's last expression. Alone, each one used
     # to be solved as typed: ``x = 6`` verified itself and "it" was ``i t``.
     if math_followup_problem is None:
-        math_followup_problem = answer_claim_problem(
-            content, followup_history, blocked=blocks_math_followup
-        ) or pronoun_math_problem(content, followup_history, blocked=blocks_math_followup)
+        math_followup_problem = (
+            answer_claim_problem(content, followup_history, blocked=blocks_math_followup)
+            or pronoun_math_problem(content, followup_history, blocked=blocks_math_followup)
+            or restated_math_problem(content, followup_history, blocked=blocks_math_followup)
+        )
     chemistry_followup_problem = None
     physics_followup = None
     if math_followup_problem is None:
@@ -519,11 +522,18 @@ async def build_stream_prompt_context(
         physics_followup = physics_followup_problem(content, followup_history)
 
     # Geo "location not set" fallback (independent of the LLM). A question that
-    # names its own place ("best restaurant in DC") needs no location.
+    # names its own place ("best restaurant in DC") needs no location, and "how far
+    # does it go?" after a physics problem asks about the car, not the user.
+    subject_followup = (
+        math_followup_problem is not None
+        or chemistry_followup_problem is not None
+        or physics_followup is not None
+    )
     if (
         instant_reply is None
         and geo.geo_query
         and not geo.has_geo_fix
+        and not subject_followup
         and not web_search_service.names_its_place(content)
     ):
         instant_reply = web_search_service.format_location_not_set_answer()

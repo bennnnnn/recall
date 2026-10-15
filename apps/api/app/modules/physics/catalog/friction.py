@@ -127,6 +127,78 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # Pulled along a level floor by a rope at an angle above the horizontal:
+    # only F cos θ pulls it along, and F sin θ lifts it, so the floor pushes
+    # back with mg - F sin θ and friction is μ times that. A push angled below
+    # the horizontal presses it down instead: mg + F sin θ. 150 N at 30° on
+    # 25 kg with μ = 0.2 is 3.83 m/s²; the level-pull law left the angle out.
+    formula(
+        "angled_pull_friction_acceleration",
+        "friction",
+        "Newton's second law with friction",
+        "a",
+        base_latex=r"F\cos\theta - \mu(mg - F\sin\theta) = ma",
+        assumptions=(
+            "a level surface, the force at θ above the horizontal",
+            "kinetic friction",
+        ),
+        expression="(F*cos(angle) - mu*(m*g - F*sin(angle)))/m",
+        variants=(
+            FormulaVariant(
+                latex=r"F\cos\theta - \mu(mg + F\sin\theta) = ma",
+                present=frozenset({"push_down"}),
+                assumptions=(
+                    "a level surface, the force at θ below the horizontal",
+                    "kinetic friction",
+                ),
+                expression="(F*cos(angle) - mu*(m*g + F*sin(angle)))/m",
+            ),
+        ),
+        variables=(
+            var("F", "F", "newton"),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("m", "m", "kilogram"),
+            var("angle", r"\theta", dimensionless=True),
+            var("mu", r"\mu", dimensionless=True, implied=(("frictionless", 0.0),)),
+            var(
+                "push_down",
+                "",
+                dimensionless=True,
+                visible=False,
+                implied=(("below the horizontal", 1.0), ("below horizontal", 1.0)),
+            ),
+        ),
+        binding=Binding(
+            asks=("acceleration",),
+            result=("meter / second ** 2",),
+            inputs=(
+                frozenset({"F", "g", "m", "angle", "mu"}),
+                frozenset({"F", "g", "m", "angle", "mu", "push_down"}),
+            ),
+            cues=(
+                "above the horizontal",
+                "above horizontal",
+                "below the horizontal",
+                "below horizontal",
+            ),
+            # An incline's angle is its slope, not the rope's; a static body
+            # does not accelerate.
+            excludes=(
+                "incline",
+                "slope",
+                "ramp",
+                "hill",
+                "static",
+                "rests",
+                "at rest",
+                "vertical",
+            ),
+            # Friction stronger than the pull leaves the body at rest.
+            nonnegative=True,
+            # A rope steep enough to lift the crate leaves no floor to press on.
+            requires=("m*g - F*sin(angle)",),
+        ),
+    ),
     # Pushed or pulled up an incline by a force along it. The incline law alone
     # left the push out: 30 N up a frictionless 25° slope gave 4.15 m/s² down
     # the slope instead of 5.85 m/s² up it.
@@ -167,6 +239,47 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
             excludes=("horizontal force", "horizontally", "down the", "static", "rests", "at rest"),
             # A push too weak to move it up the slope: it does not accelerate up.
+            nonnegative=True,
+        ),
+    ),
+    # Pushed at a steady speed: the push only balances kinetic friction, μmg.
+    formula(
+        "constant_velocity_push",
+        "friction",
+        "Friction law",
+        "F",
+        base_latex=r"F = \mu m g",
+        assumptions=("a horizontal push on a level floor", "kinetic friction"),
+        expression="mu*m*g",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("mu", r"\mu", dimensionless=True),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+        ),
+        binding=Binding(
+            asks=("horizontal force", "force", "how hard", "push", "pull"),
+            result=("newton",),
+            inputs=(frozenset({"g", "m", "mu"}),),
+            cues=(
+                "constant velocity",
+                "constant speed",
+                "steady speed",
+                "steady velocity",
+                "uniform velocity",
+                "uniform speed",
+            ),
+            excludes=(
+                "incline",
+                "slope",
+                "ramp",
+                "hill",
+                "angle",
+                "above the horizontal",
+                "below the horizontal",
+                "accelerat",
+                "static",
+                "start",
+            ),
             nonnegative=True,
         ),
     ),

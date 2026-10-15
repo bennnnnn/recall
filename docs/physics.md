@@ -30,6 +30,9 @@ flowchart LR
    - "battery", "circuit" and "resistance" need an electrical value;
    - "momentum", "collision", "impulse" and "recoil" need a mass, a velocity or a force.
 
+   A complete reading that no single law fits is a cue too: a trip in two stages, a chase
+   that closes a gap, and two legs walked at right angles.
+
    The gate runs on every chat turn, so it is linear-time, cached per text, and reads only
    the head and tail of a long message (4,000 characters in all, up to 20,000). Every
    module-level physics regex is checked for linear time against adversarial text in
@@ -44,6 +47,13 @@ flowchart LR
    topic with several named laws keeps them in a table tried in a fixed order
    (`fluid_laws.py`, `thermal_laws.py`, `modern.py`).
    Extraction reads at most 4,000 characters, and the result is cached per text.
+   A trip in two stages ("reaches 11 m/s in 2.2 s from rest and holds it to the finish",
+   "speeds up, cruises, then brakes to a stop") is read whole by `extractors/two_stage.py`;
+   no other extractor may answer its first stage alone. `extractors/relative_motion.py`
+   reads a chase (the chaser's speed is written before "chasing", the target's after it,
+   and the chaser must be the faster) and two legs along compass axes ("3 km east then
+   4 km north", answered with its bearing). An extractor's law whose catalog result is not
+   the asked quantity gives way to the binder.
    When every extractor declines, the **binder** (`binding.py`) reads the question straight
    into a catalog operation. Its engine is subject-neutral and shared
    (`services/law_binding`: the spec types, the givens scanner, the word windows, `fit`
@@ -68,7 +78,15 @@ flowchart LR
    - a speed written onto c ("0.8c") is the speed of light, so relativity binds without
      the word "relativistic", and a car at 20 m/s never gets a Lorentz factor;
    - an operation's `excludes` words rule it out: a discharge is not a charging;
-   - the filled inputs must be exactly a set the operation's solver answers from.
+   - the filled inputs must be exactly a set the operation's solver answers from;
+   - a law that holds only in a range says so in `requires`, expressions in its inputs that
+     must come out positive. A rope steep enough to lift the crate leaves no normal force
+     for friction (`m*g - F*sin(angle)`), a capacitor never discharges below zero, and an
+     electron accelerated past 2% of its rest energy is not classical. Out of range, the
+     law declines instead of answering;
+   - light that strikes, hits or enters a medium, read alone, came from air (n₁ = 1), and
+     an angle "to the surface" is 90° less than the angle of incidence. Light that starts
+     inside the glass or water does not take air's index.
 
    Anything short of one operation with one way to fill it declines. That includes a value
    no input takes, two values for one input with no word to tell them apart, a value the
@@ -160,6 +178,8 @@ catalog is also the one list of operations: every `PhysicsIntent` is checked aga
 - a `Binding`: the phrases that ask for the result, the result's unit, every set of inputs
   the solver answers from, and cue words when the numbers alone cannot show the situation
   ("horizontally", "pulley");
+- `requires`, when the law holds only for some inputs: each expression must come out
+  positive, or the law declines;
 - for a law that is plain arithmetic, an `expression` (`"(F - mu*m*g)/m"`), with a variant
   per other input set. `services/law_binding/expression.py` evaluates it by walking a checked tree, and prints
   the rearranged formula and the substitution from that same tree. Nothing is executed,
@@ -248,6 +268,7 @@ The binder reads these laws, beside the extractors' own:
 | Round 3 | light travel time; gravitational force on a body at a named planet's surface; acceleration and net force from two opposing forces; recoil speed; push-off speed of either body; wave frequency from distance, time and wavelength; sound level from an intensity ratio; energy over days from a daily use |
 | Sweep additions | time to the top of a throw; a level launch off a table or cliff; echo distance vt/2; hydraulic lift with the load on the large piston; mass from F and a; average force from a speed change; terminal drag; weight along a slope; drop speed from a height; speed from kinetic energy; work against gravity; efficiency in percent; spring compression from speed; current from power; charge and energy from Q and V; point-charge field; force on a moving charge; spring constant from a hanging mass or a force; pendulum length from its period; frequency and period from a count; string tension in a horizontal circle; critical angle to air; focal length from lens power; pressure from a weight on an area; water pressure at a depth; upthrust on a fully submerged volume; surface gravity on a named planet; E = mc² |
 | Round 5 | time for two bodies heading toward each other to meet, d/(v₁ + v₂); a block on a frictionless table pulled by a hanging mass, a = m₂g/(m₁+m₂) and T = m₁a; a force along an incline, a = F/m − g(sin θ + μ cos θ); speed on a circle from its period, 2πr/T; a rolling sphere's, cylinder's, hoop's or shell's total kinetic energy; a spring's maximum speed Aω and acceleration Aω²; g a height above a named body, GM/(R + h)²; the normal force over a hump, m(g − v²/r); a string's tension at the bottom of a vertical circle, m(v²/r + g) |
+| Investigation | a pull at an angle with kinetic friction, a = (F cos θ − μ(mg − F sin θ))/m, and a push down at an angle; a constant-velocity push μmg; the tension in a tow bar, m·a; a speed change from a force over a time; scales in a lift reading N; perpendicular velocities added, √(v₁² + v₂²) (a boat across a river, a plane in a crosswind); a two-stage trip's distance or time; a stopping distance with a braking rate; a chase's catch-up time; two legs' displacement and bearing; a level launch speed d√(g/2h); Snell with light from air and an angle to the surface; the critical angle between two media; wavelength in a medium; an image's height (inverted when real); a virtual image's distance as its size and side; a mirror image from a radius; a double slit with its words; collision energy lost; an explosion's second fragment; a rebound's average force; Torricelli's outflow; Bernoulli's pressure drop; a hydraulic lift and continuity from diameters; a volume from an apparent weight; a pendulum's frequency; a mass from a spring's period; sound intensity from a point source; the speed of sound in air at a temperature; a wave's travel time; decay time from a fraction ("1/16 of"); percent and fraction after n half-lives; a half-life from two activities; time dilation with "speed of light"; force from power and speed; lift time with an efficiency; pump power; spring launch speed; energy lost in a bounce; work-energy speed, from rest or a moving start; a pendulum's bottom speed; weight at a height; orbit radius from a period; angular momentum conservation; current with internal resistance; energy from power and time; resistance from power; capacitor discharge time to a voltage; heating time from a power; linear expansion between two temperatures; refrigerator COP from heats; photoelectric max KE; a photon's energy from its wavelength; photons per second, Pλ/(hc); de Broglie wavelength after acceleration through V, h/√(2mqV); E = mc² for mass lost in a reaction |
 | One formula | physical and conical pendulum periods; torsional pendulum; thin rod about its center or one end; springs in series and in parallel; reduced mass; coefficient of restitution; gravitational fractional frequency shift; decay time from N₀ to N; speed to just complete a vertical loop; sound level; shear, bulk and Poisson; gear speed and gear ratio; Newton's law of cooling; absorbed or reflected radiation pressure; Otto efficiency |
 
 ## Numbers and units
@@ -265,6 +286,15 @@ The binder reads these laws, beside the extractors' own:
 - **Energy from a power and hours or days** is answered in joules with the kilowatt-hours
   beside it, as a bill writes them: 100 W for 5 hours a day for 30 days is
   5.4 × 10⁷ J (15 kWh).
+- **Everyday spellings** are read before any extractor: "accelaration", "velocty" and
+  "whats"; kph and kmph as km/h; °F, whose change is worked in kelvins, never as a raw
+  °F difference; mAh and Ah; weeks; µs and ns; amu, and a bare "u" written
+  apart from its number before "of" or the end of a sentence ("0.003 u of mass"), never
+  "2u" or "u + at"; photons/s; "1/16 of" as an exact fraction (denominators of 2s and 5s
+  only); "for a week" as one week. "How many kWh" asks in kWh, but "how many moles" is a
+  count, not an asked unit.
+- **A law's own unit** ("photons/s", "Bq") is printed as the law names it, never as the
+  unit of a like given: a photon rate beside a frequency is not in Hz.
 - **A price is not a given.** "$0.15 per kWh" or "costs 12" is read past, so it never fills a
   variable.
 - **Scene labels** are formatted from the true values. Re-rounding a label that a solver had
@@ -360,16 +390,18 @@ confirmed reading. A photo with no reading gets the unverified physics note.
 - coverage never falls below `COVERAGE_FLOOR`.
 
 The **STEM sweep** (`app/tests/behavior/stem_sweep.py`) checks the whole chat path, not just
-the solver. `stem_corpus/physics/` holds 726 turns: textbook questions across 19 areas,
+the solver. `stem_corpus/physics/` holds 753 turns: textbook questions across 19 areas,
 everyday look-alikes, questions that must be declined, `holdout.json`, written after the
-fixes below so the coverage number stays honest, and `investigation.json`, the September
-investigation's 286 questions (multi-part ones list every `parts` value the card must hold). For each turn it routes the prompt as a
+fixes below so the coverage number stays honest, `investigation.json`, the September
+investigation's 286 questions (multi-part ones list every `parts` value the card must
+hold), and `investigation_lookalikes.json`, the everyday sentences its new readers must
+leave alone. For each turn it routes the prompt as a
 chat turn does and reads the verified answer card (1% tolerance, any unit of the same kind).
 It also checks the reply's Given / Find / Formula / Substitution / Answer order, flags
 calculator notation and an invented zero given, and validates every `simulation` and `graph`
 fence against the schema and its own bounds. `test_stem_sweep.py` fails on a wrong number, a
 misread turn (a physics question answered as math, or hijacked by a location or settings
-reply), a reply out of shape or a broken picture. It holds two floors that only go up: 468 of
+reply), a reply out of shape or a broken picture. It holds two floors that only go up: 574 of
 597 answered, and 162 of 163 with the picture a student would want. Only a
 `projectile_motion` scene beside a path graph (x–y or height–time) counts as the same
 picture twice; a v–t graph beside a fall says something the fall does not.
@@ -403,6 +435,25 @@ hump's normal force taken as mg, a student's own answer used as a given, a side 
 planet used for the main question, and a question in parts answered one part at a time.
 Each is in `test_physics_sweep_regressions.py`.
 
+The September investigation's four strict gaps are closed, each routed to physics and
+verified: a river crossing's resultant speed (it was searched on the web), a two-stage
+sprint, a pull at an angle with kinetic friction, and refraction with the angle given to
+the surface (maths claimed the last three). Its missed clusters are answered too:
+momentum (explosions, energy lost, rebounds, bodies named in the ask), optics, a spring's
+maximum speed and acceleration, fluids, decibels, a half-life to 1/16, time dilation,
+two-stage trips, chases and right-angle legs, and photon, de Broglie and mass-defect
+energies. The sweep went from 468 to 574 of 597 answered with no wrong number, and it
+found two wrong verified answers on the way, both now declined or answered whole: a
+two-stage trip answered as its first stage, and "how many photons per second" answered
+with one photon's energy. The laws and their near misses are in
+`test_physics_investigation_gaps.py`; the everyday look-alikes are in
+`sweep_corpus/physics_investigation.json`.
+
+Still left to the model, by design or for now: series-parallel networks, heating through
+a phase change, a lap's average velocity (zero, not d/t), Doppler with both parties
+moving, multi-part questions that need several laws, a plank balanced with its own weight
+at the pivot, and a string's tension at the top of a vertical circle.
+
 ## What it refuses
 
 A refusal is a decline to the model, labelled unverified, never a guessed number. The
@@ -414,13 +465,21 @@ pipeline refuses:
 - a statement that asks nothing, and a "what if …" that names no quantity;
 - a fall with no stated height (a horizontal throw, a roll off a table, a throw down a well),
   except a throw straight up that comes back to the hand; a throw whose direction is unsaid;
-- a chase whose chaser is not read, a series-parallel network, heating through boiling or
-  melting, the average velocity of a lap, and a downward launch's peak height;
+- a chase whose chaser is not read or is the slower, a series-parallel network, heating
+  through boiling or melting, the average velocity of a lap, and a downward launch's peak
+  height;
+- a trip in two stages answered for one stage, two legs that are not along compass axes
+  at right angles, and the total path walked, which is not a displacement;
+- a law outside its `requires`: a pull that lifts the block, a motor more than 100%
+  efficient, an electron accelerated past 2% of its rest energy;
+- a count of photons over a stated time;
 - a result whose kind is not the asked one, and a price ("find the cost"), which no law
   answers;
 - a Doppler speed with no direction, or one speed when both parties move;
 - a magnification from a virtual image's distance, or a convex mirror's focal length, whose
-  sign the conventions disagree on;
+  sign the conventions disagree on. A virtual image's distance itself is answered as a
+  size and a side ("virtual, on the object's side of the lens"), with no sign to disagree
+  on;
 - values listed "respectively" for inputs told apart by words ("primary and secondary coils
   with 100 and 500 turns respectively"); a list the law fills in order still binds;
 - every refusal listed under Physics in `FEATURES.md` (an unstated collision type, a

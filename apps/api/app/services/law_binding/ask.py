@@ -10,12 +10,12 @@ import re
 
 # A phrase naming the quantity itself ("how long"), not an ask before one.
 # "how many" names the count that follows it, the way "how long" names a time.
-_SELF_NAMING = ("how long", "how far", "how fast", "how high", "how deep", "how many")
+_SELF_NAMING = ("how long", "how far", "how fast", "how high", "how deep", "how many", "how tall")
 
 ASK_VERBS = re.compile(
     r"\b(?:find|calculate|compute|determine|work\s+out|estimate|evaluate|"
     r"what|"
-    r"how\s+(?:long|far|fast|high|deep|much|many))\b",
+    r"how\s+(?:long|far|fast|high|deep|much|many|tall))\b",
     re.IGNORECASE,
 )
 _SENTENCE_END = re.compile(r"[?!]|\.(?:\s|$)")

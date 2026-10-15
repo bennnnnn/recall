@@ -7,7 +7,13 @@ from dataclasses import dataclass
 from typing import Literal
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
-from app.modules.math.match.scan import _CALC_OP, _parse_unsigned_number, ddx_cue_at
+from app.modules.math.match.scan import (
+    _CALC_OP,
+    CALC_OP_SPELLINGS,
+    _parse_unsigned_number,
+    ddx_cue_at,
+    looks_like_math_expr,
+)
 
 
 def _skip_optional_paren_var(text: str, start: int) -> int:
@@ -132,7 +138,8 @@ def y_prime_math_cue(text: str) -> bool:
 def calc_op(text: str) -> str | None:
     m = _CALC_OP.search(text)
     if m:
-        return m.group(1).lower()
+        word = m.group(1).lower()
+        return CALC_OP_SPELLINGS.get(word, word)
     if "∫" in text:
         return "integrate"
     if ddx_cue_at(text) is not None:
@@ -231,6 +238,10 @@ def _match_limit_point(s: str) -> tuple[str, int] | None:
     for tok in ("-infinity", "infinity", "-inf", "inf", "-oo", "oo"):
         if low.startswith(tok):
             return s[: len(tok)], len(tok)
+    # The infinity sign itself, as the solver's ``oo``.
+    for glyph, point in (("-∞", "-oo"), ("+∞", "oo"), ("∞", "oo")):
+        if s.startswith(glyph):
+            return point, len(glyph)
     start = 1 if s.startswith("-") else 0
     hit = _parse_unsigned_number(s, start)
     if hit is None or (start == 1 and hit[1] == 1):
@@ -322,75 +333,105 @@ def _parse_latex_limit(text: str) -> LimitHit | None:
     return LimitHit(expr=expr, var=var, point=point, direction=direction)
 
 
+def _parse_compact_limit(text: str, lower: str) -> LimitHit | None:
+    """``lim x->0 expr`` / ``lim x→∞ expr``: the variable and arrow right after ``lim``."""
+    idx = lower.find("lim ")
+    rest = text[idx + 4 :].strip()
+    if not rest:
+        return None
+    var = rest[0]
+    if not var.isalpha():
+        return None
+    rest_l = rest[1:].lstrip()
+    for arrow in ("->", "→"):
+        if rest_l.startswith(arrow):
+            rest_l = rest_l[len(arrow) :].lstrip()
+            break
+    else:
+        return None
+    point_hit = _match_limit_point(rest_l)
+    if not point_hit:
+        return None
+    point, pend = point_hit
+    direction, expr = _limit_direction(rest_l[pend:])
+    if expr.lower().startswith("of "):
+        expr = expr[3:].strip()
+    if expr:
+        return LimitHit(expr=expr, var=var, point=point, direction=direction)
+    return None
+
+
+# Words before " as x approaches …" that leave only the limit's expression.
+_LIMIT_LEADS = (
+    "find ",
+    "evaluate ",
+    "compute ",
+    "what is ",
+    "determine ",
+    "the ",
+    "limit of ",
+    "limit ",
+    "lim of ",
+    "lim ",
+)
+
+
+def _parse_prose_limit(text: str, lower: str) -> LimitHit | None:
+    """``expr as x approaches 0``, or ``limit as x approaches 2 of expr``."""
+    as_idx = lower.find(" as ")
+    before = text[:as_idx].strip()
+    for lead in _LIMIT_LEADS:
+        if before.lower().startswith(lead):
+            before = before[len(lead) :].strip()
+    after = text[as_idx + 4 :].strip()
+    if not after or not after[0].isalpha():
+        return None
+    var = after[0]
+    # The point is read lowercased; a trailing expression keeps its case.
+    rest_cased = after[1:].lstrip()
+    rest = rest_cased.lower()
+    if len(rest) != len(rest_cased):
+        rest_cased = rest
+    for cue in ("approaches ", "goes to ", "tends to ", "->", "→", "to "):
+        if rest.startswith(cue):
+            rest = rest[len(cue) :].lstrip()
+            rest_cased = rest_cased[len(cue) :].lstrip()
+            break
+    else:
+        return None
+    # prose uses "infinity" / "inf" / number (allow longer "infinity" spelling)
+    point_hit = _match_limit_point(rest)
+    if point_hit is None:
+        for tok in ("-infinity", "infinity"):
+            if rest.startswith(tok):
+                point_hit = (tok, len(tok))
+                break
+    if not point_hit or not before:
+        return None
+    direction, tail = _limit_direction(rest_cased[point_hit[1] :])
+    if before.lower() in {"limit", "lim"}:
+        # "limit as x approaches 2 of (x^2-4)/(x-2)": the expression comes last.
+        if not tail.lower().startswith("of "):
+            return None
+        expr = tail[3:].strip().rstrip(".?!").strip()
+        if not looks_like_math_expr(expr):
+            return None
+        return LimitHit(expr=expr, var=var, point=point_hit[0], direction=direction)
+    if tail.strip(" .?!"):
+        return None
+    return LimitHit(expr=before, var=var, point=point_hit[0], direction=direction)
+
+
 def parse_limit(text: str) -> LimitHit | None:
     lower = text.lower()
-    # Compact: lim x->0 expr
+    # Compact: lim x->0 expr. "lim (1+1/n)^n as n->infinity" falls to the prose form.
     if lower.startswith("lim ") or " lim " in f" {lower} ":
-        idx = lower.find("lim ")
-        rest = text[idx + 4 :].strip()
-        # var
-        if not rest:
-            return None
-        var = rest[0]
-        if not var.isalpha():
-            return None
-        rest_l = rest[1:].lstrip()
-        for arrow in ("->", "→"):
-            if rest_l.startswith(arrow):
-                rest_l = rest_l[len(arrow) :].lstrip()
-                break
-        else:
-            return None
-        point_hit = _match_limit_point(rest_l)
-        if not point_hit:
-            return None
-        point, pend = point_hit
-        direction, expr = _limit_direction(rest_l[pend:])
-        if expr.lower().startswith("of "):
-            expr = expr[3:].strip()
-        if expr:
-            return LimitHit(expr=expr, var=var, point=point, direction=direction)
+        compact = _parse_compact_limit(text, lower)
+        if compact is not None:
+            return compact
     # Prose: ... as x approaches 0
-    as_idx = lower.find(" as ")
-    if as_idx != -1 and ("limit" in lower or "lim" in lower):
-        before = text[:as_idx].strip()
-        for lead in (
-            "find ",
-            "evaluate ",
-            "compute ",
-            "what is ",
-            "determine ",
-            "the ",
-            "limit of ",
-            "limit ",
-        ):
-            low = before.lower()
-            if low.startswith(lead):
-                before = before[len(lead) :].strip()
-        after = text[as_idx + 4 :].strip()
-        if not after or not after[0].isalpha():
-            return None
-        var = after[0]
-        rest = after[1:].lstrip().lower()
-        for cue in ("approaches ", "goes to ", "tends to ", "->", "→", "to "):
-            if rest.startswith(cue):
-                rest = rest[len(cue) :].lstrip()
-                break
-        else:
-            return None
-        # prose uses "infinity" / "inf" / number (allow longer "infinity" spelling)
-        point_hit = _match_limit_point(rest)
-        if point_hit is None:
-            for tok in ("-infinity", "infinity"):
-                if rest.startswith(tok):
-                    point_hit = (tok, len(tok))
-                    break
-        if not point_hit or not before:
-            return None
-        direction, tail = _limit_direction(rest[point_hit[1] :])
-        if tail.strip(" .?!"):
-            return None
-        return LimitHit(expr=before, var=var, point=point_hit[0], direction=direction)
+    if " as " in lower and ("limit" in lower or "lim" in lower):
+        return _parse_prose_limit(text, lower)
     return _parse_latex_limit(text)
 
 
@@ -506,11 +547,16 @@ def parse_series(text: str) -> SeriesHit | None:
         if idx == -1:
             continue
         rest = text[idx + len(head) :]
-        from_idx = rest.lower().find(" from ")
+        # "sum k^2 from k=1 to 10" or "sum k^2 for k=1 to 10".
+        joint = " from " if " from " in rest.lower() else " for "
+        from_idx = rest.lower().find(joint)
         if from_idx == -1:
             continue
         expr = rest[:from_idx].strip()
-        tail = rest[from_idx + 6 :].strip()
+        if joint == " for " and not looks_like_math_expr(expr):
+            # "sum my expenses for k=1 to 10" names no term.
+            continue
+        tail = rest[from_idx + len(joint) :].strip()
         parts = tail.replace(" ", "")
         # var=START to END — linear scan on compacted digits
         if not parts or not parts[0].isalpha():
