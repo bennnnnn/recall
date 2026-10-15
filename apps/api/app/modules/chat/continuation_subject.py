@@ -162,10 +162,14 @@ def classify_presentation_subject(text: str | None) -> str | None:
     """Subject of this text, or None when it does not name one."""
     if not text or not text.strip():
         return None
+    from app.modules.chat.prompt_constants.coding import has_code_syntax
     from app.modules.chemistry.request import is_chemistry_question
     from app.modules.math.tools.prompt import needs_symbolic_math
     from app.modules.physics.extract import needs_physics
 
+    # Pasted code gets code ink, not the maths pack: `i <= 3` is a loop bound.
+    if has_code_syntax(text):
+        return None
     if needs_physics(text):
         return "physics"
     if is_chemistry_question(text):

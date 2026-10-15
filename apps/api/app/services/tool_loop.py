@@ -434,8 +434,11 @@ def _needs_non_web_tool(text: str, settings: Settings | None, user: User | None)
 
     if leftover_math_after_verified(text):
         return True
+    from app.modules.chat import has_code_syntax
+
     math_on = settings is None or settings.math_tools_enabled
-    if math_on and needs_symbolic_math(text):
+    # A pasted traceback or loop is code to read, not an equation for SymPy.
+    if math_on and not has_code_syntax(text) and needs_symbolic_math(text):
         from app.modules.math.tools.extract import extract_math_intent
 
         # Detection without an extractor is the 7*8 trap: the sympy tool

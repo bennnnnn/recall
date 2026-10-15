@@ -58,6 +58,7 @@ from app.modules.chat.prompt_constants import (
     VISUALIZATION_HINTS,
     WALKTHROUGH_HINT,
     WRITING_LINE_HINT,
+    code_question_hint,
     draft_followup,
     draft_followup_hint,
     is_bare_writing_line,
@@ -134,6 +135,11 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return SEQUENCE_FORMAT_HINT
     if is_mermaid_question(query_text):
         return MERMAID_FORMAT_HINT
+    # Pasted code with "explain this" or "why does it fail" is about that code,
+    # line by line, even when it says "walk me through" or "teach me".
+    code_hint = code_question_hint(query_text)
+    if code_hint:
+        return code_hint
     # Explicit "teach me" intent owns the interaction shape. A topic may also
     # contain "vs" / "difference between", but the user asked for a lesson, not
     # a one-shot comparison table. Explicit visual requests above still win.
@@ -156,6 +162,15 @@ def _layout_format_hint(query_text: str | None) -> str | None:
     if is_task_howto(query_text) and detect_subject(query_text) is None:
         return STEPS_FORMAT_HINT
     return None
+
+
+def code_question_layout(query_text: str | None) -> str | None:
+    """The pasted-code contract for this turn, or None. A length cap or a draft wins."""
+    if not query_text or is_brevity_request(query_text):
+        return None
+    if writing_request_kind(query_text) is not None:
+        return None
+    return code_question_hint(query_text)
 
 
 def _writing_format_hint(query_text: str | None) -> str | None:
@@ -237,15 +252,19 @@ def _style_format_hints(
         if followup
         else _writing_format_hint(query_text)
     )
+    # Pasted code to explain or fix: its own shape, ahead of any lesson.
+    code_hint = code_question_layout(query_text) if writing is None else None
     learning_plan = bool(
         query_text
         and writing is None
+        and code_hint is None
         and not is_brevity_request(query_text)
         and is_learning_plan_request(query_text)
     )
     teaching = bool(
         query_text
         and writing is None
+        and code_hint is None
         and not is_brevity_request(query_text)
         and is_teaching_request(query_text)
     )
@@ -253,6 +272,7 @@ def _style_format_hints(
     walkthrough = bool(
         query_text
         and writing is None
+        and code_hint is None
         and not teaching
         and not is_brevity_request(query_text)
         and is_walkthrough_request(query_text)
@@ -260,7 +280,12 @@ def _style_format_hints(
     # A new "teach me" starts its own lesson; otherwise the last lesson goes on.
     lesson_hint = (
         lesson_continue_hint(lesson)
-        if lesson and not teaching and not walkthrough and not learning_plan and not writing
+        if lesson
+        and not teaching
+        and not walkthrough
+        and not learning_plan
+        and not writing
+        and not code_hint
         else None
     )
     writing_kind = writing_request_kind(query_text) if query_text else None
@@ -286,6 +311,9 @@ def _style_format_hints(
         # keeps its title, sections and quiz, only smaller.
         if writing:
             parts.append(writing)
+        elif code_hint:
+            # "Line by line" is an explicit shape; Short style keeps the bullets short.
+            parts.append(code_hint)
         elif learning_plan:
             # An explicit multi-day roadmap needs enough room to be actionable;
             # account-level short style must not collapse it into a vague paragraph.

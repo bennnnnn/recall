@@ -502,12 +502,12 @@ FORMAT_CONTRACT = (
     "language-tagged fence (```python, ```javascript). The tag is the corner label on the "
     "card. Add notes only when they help the user run, understand, or safely change it. "
     "Never put a program in an untagged fence.\n"
-    "  - Inline backticks are only a short teaching snippet with no language, such as "
-    '`name = "john"` or `nums[i]`. Do not backtick a phrase, a sentence, or a full example '
-    "line — that highlights random words. A multi-line sample is a tagged fence. An untagged "
-    "fence has no language label. Big-O and formulas stay inline math (`$O(n)$`), not backticks.\n"
-    "  - Scannable code: keywords and structure first, names in the same ink as the prose. "
-    "Do not bold or backtick ordinary words in the explanation.\n"
+    "  - Inline backticks hold code inside prose: names, values, keywords and short "
+    'expressions such as `total`, `0`, `for`, `name = "john"` or `nums[i]`. Do not backtick a '
+    "phrase or a sentence, and never bold or backtick ordinary words. A multi-line sample is "
+    "a tagged fence. An untagged fence has no language label.\n"
+    "  - Values and expressions from code stay in backticks, never `$...$` math: write "
+    "`total + n`, not $total + n$. Only Big-O may be inline math (`$O(n)$`).\n"
     "  - For a bug or snippet question, inspect the literal snippet first and lead with its "
     "concrete syntax/runtime issue. Prior conversation may explain the likely intent, but it "
     "must not replace the explicit current question or hide a more immediate bug.\n"
@@ -599,7 +599,8 @@ MARKDOWN_BOUNDARY_CONTRACT = (
 )
 
 CALCULATION_LAYOUT_CONTRACT = (
-    "Calculation layout, every subject: one logical reasoning state per math row. "
+    "Calculation layout, every subject (not code, whose values stay in `inline code`): one "
+    "logical reasoning state per math row. "
     "Keep one definition, one formula, one simple evaluation, or one relationship together, "
     "including $12 + 8 = 20\\text{ km}$, $0.6 + 0.8 = 1.4\\text{ h}$, $20 \\div 4 = 5$, and "
     "$x = \\frac{-b \\pm \\sqrt{b^2-4ac}}{2a}$ on a single row. "
