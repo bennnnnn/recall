@@ -14,7 +14,7 @@ import os
 import socket
 import time
 import traceback
-from collections.abc import Awaitable, Callable
+from collections.abc import Awaitable, Callable, Collection
 from datetime import UTC, datetime
 from typing import Any, cast
 from uuid import UUID
@@ -833,6 +833,70 @@ async def list_dlq(redis: Redis, *, count: int = 50) -> list[dict[str, Any]]:
             }
         )
     return out
+
+
+# ── account delete ───────────────────────────────────────────────────────────
+
+_PURGE_SCAN_BATCH = 500
+
+
+def _payload_user_id(fields: dict[str, Any]) -> str | None:
+    try:
+        payload = json.loads(fields.get("payload") or "{}")
+    except (TypeError, ValueError):
+        return None
+    if not isinstance(payload, dict):
+        return None
+    raw = payload.get("user_id")
+    return str(raw) if raw else None
+
+
+def _after(entry_id: str) -> str:
+    """The smallest stream id after *entry_id* (an exclusive XRANGE start)."""
+    ms, _, seq = str(entry_id).partition("-")
+    return f"{ms}-{int(seq or 0) + 1}"
+
+
+async def purge_user_jobs(
+    redis: Redis,
+    user_id: UUID | str,
+    *,
+    keep_types: Collection[str] = (),
+    batch: int = _PURGE_SCAN_BATCH,
+) -> int:
+    """XDEL every jobs-stream and DLQ entry whose payload names *user_id*.
+
+    Acked and failed entries stay in both streams until the length cap trims
+    them, and their payloads carry chat text. Walks each stream in bounded
+    XRANGE pages and deletes only entries whose payload ``user_id`` equals
+    this one; *keep_types* entries stay (the caller's own running job).
+    Worker-only (account delete's sweep): never call it on a request path.
+    """
+    needle = str(user_id)
+    page = max(1, batch)
+    removed = 0
+    for stream in (JOBS_STREAM, JOBS_DLQ_STREAM):
+        start = "-"
+        while True:
+            entries = cast(
+                list[tuple[str, dict[str, Any]]],
+                await redis.xrange(stream, min=start, max="+", count=page),
+            )
+            if not entries:
+                break
+            doomed = [
+                entry_id
+                for entry_id, fields in entries
+                if fields.get("type") not in keep_types and _payload_user_id(fields) == needle
+            ]
+            if doomed:
+                removed += int(await redis.xdel(stream, *doomed) or 0)
+            if len(entries) < page:
+                break
+            start = _after(entries[-1][0])
+    if removed:
+        logger.info("Jobs purge user_id=%s removed=%s", needle, removed)
+    return removed
 
 
 async def replay_dlq(redis: Redis, *, count: int = 50, delete: bool = True) -> int:

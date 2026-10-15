@@ -55,6 +55,7 @@ async def _keys_naming(redis, user_id) -> list[str]:
 @pytest.mark.asyncio
 async def test_delete_account_leaves_nothing_of_the_user_behind(world: World) -> None:
     from app.background.handlers import _handle_storage_sweep
+    from app.core import jobs
     from app.modules.account import tokens
 
     c, a, b, data, redis = world.client, world.a, world.b, world.a_data, world.redis
@@ -72,6 +73,12 @@ async def test_delete_account_leaves_nothing_of_the_user_behind(world: World) ->
     await redis.set(related_key, json.dumps([f"More about {data.secret_word}?"]))
     # B's cache must survive A's delete.
     await redis.set(f"memblock:{b.id}", "B's memory")
+    # Finished and failed jobs keep the turn's text in the jobs streams.
+    a_job = {"user_id": str(a.id), "chat_id": str(data.chat_id), "transcript": data.secret_word}
+    b_job = {"user_id": str(b.id), "chat_id": str(world.b_chat_id), "transcript": "B's turn"}
+    await jobs.enqueue(redis, "memory", a_job)
+    await jobs.enqueue(redis, "memory", b_job)
+    await jobs._move_to_dlq(redis, "1-0", {"type": "memory", "payload": json.dumps(a_job)}, "x")
 
     response = await c.delete("/auth/me", headers=a.headers)
     assert response.status_code == 204
@@ -88,6 +95,11 @@ async def test_delete_account_leaves_nothing_of_the_user_behind(world: World) ->
     # Only the marker that keeps A's already-issued access tokens dead stays.
     assert leftover == [f"revoked_since:{a.id}"], leftover
     assert await redis.get(f"memblock:{b.id}") == "B's memory"
+    streams = json.dumps(
+        [await redis.xrange(jobs.JOBS_STREAM), await redis.xrange(jobs.JOBS_DLQ_STREAM)]
+    )
+    assert data.secret_word not in streams
+    assert "B's turn" in streams
 
     # A's old token stops working at once; B is unaffected.
     assert (await c.get("/auth/me", headers=a.headers)).status_code == 401
