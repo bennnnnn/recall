@@ -5,10 +5,9 @@ on:
     paths:
       - "apps/api/**"
       - ".github/workflows/api-ci.yml"
+  # Every pull request, so the required checks always report. The jobs skip
+  # themselves when nothing they check changed (a skipped job counts as passed).
   pull_request:
-    paths:
-      - "apps/api/**"
-      - ".github/workflows/api-ci.yml"
 
 permissions:
   contents: read
@@ -18,7 +17,29 @@ defaults:
     working-directory: apps/api
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      run: ${{ steps.diff.outputs.run }}
+    steps:
+      - id: diff
+        working-directory: .
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          run=true
+          if [ -n "$PR" ] && files=$(gh pr diff "$PR" --repo "$GITHUB_REPOSITORY" --name-only); then
+            echo "$files" | grep -qE '^(apps/api/|\.github/workflows/api-ci\.yml$)' || run=false
+          fi
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
   test:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-22.04
     services:
       postgres:
@@ -86,6 +107,8 @@ jobs:
   # surfaces on the PR, not at deploy time. No push — build only. Layer cache
   # keeps it fast when only app code changed (the deps layer is cached).
   docker-build:
+    needs: changes
+    if: needs.changes.outputs.run == 'true'
     runs-on: ubuntu-22.04
     permissions:
       contents: read
