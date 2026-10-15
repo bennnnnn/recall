@@ -863,5 +863,45 @@
   "reply": "Here are a couple of well-rated pizza places in Addis that show as **open now** (hours from their listings — worth a quick call before you go):\n\n1. **Effoi Pizza** — Bole · wood-fired, very popular · open until about 10 PM\n2. **Castelli** — Piassa · classic Italian sit-down restaurant · open until about 10 PM\n\nWant me to look for one closer to a specific neighborhood, or places that deliver?",
   "expect": "search",
   "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "hi-091",
+  "area": "memory",
+  "prompt": "When teaching me yesterday you used a great example with lists, can you show it again?",
+  "history": [],
+  "reply": "I can't see yesterday's chat from here, but here is a list example in the same spirit:\n\n```python\nages = [18, 25, 32]\nprint(ages[0])  # 18\n```",
+  "expect": "answer"
+ },
+ {
+  "id": "hi-092",
+  "area": "lookalike",
+  "prompt": "from now on I'll wake at 6",
+  "history": [],
+  "reply": "Nice, an early start. A fixed wake time makes the rest of the day easier.",
+  "expect": "answer"
+ },
+ {
+  "id": "hi-093",
+  "area": "todo",
+  "prompt": "always remind me to drink water",
+  "history": [],
+  "reply": "How often should I remind you?",
+  "expect": "todo"
+ },
+ {
+  "id": "hi-094",
+  "area": "lookalike",
+  "prompt": "From now on, keep your answers short.",
+  "history": [],
+  "reply": "Got it, short answers from here on.",
+  "expect": "answer"
+ },
+ {
+  "id": "hi-095",
+  "area": "memory",
+  "prompt": "Please remember that I learn best with examples",
+  "history": [],
+  "reply": "Noted: examples first when I explain something.",
+  "expect": "memory"
  }
 ]

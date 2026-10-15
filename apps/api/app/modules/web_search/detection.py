@@ -13,6 +13,7 @@ from app.modules.chat import (
     is_lightweight_chat_turn,
     is_personal_disclosure_turn,
     is_short_confirmation,
+    is_standing_preference,
     prior_looks_like_offer,
 )
 from app.modules.web_search.command import search_command
@@ -107,7 +108,8 @@ def web_search_skip(
         return True
     if is_short_letter_answer(cleaned):
         return True
-    if is_personal_disclosure_turn(cleaned):
+    # "When teaching me, use examples" sets how to answer; there is nothing to look up.
+    if is_personal_disclosure_turn(cleaned) or is_standing_preference(cleaned):
         return True
     if _PERSONAL_MEMORY_QUESTION.search(cleaned):
         return True

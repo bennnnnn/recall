@@ -1190,5 +1190,54 @@
   "history": [],
   "reply": "The usual reasons are worn brakes or tyres, a lit check-engine light, emissions over the limit, broken lights, or a cracked windscreen. The inspection report lists the exact item, so start there.",
   "expect": "answer"
+ },
+ {
+  "id": "cc-120",
+  "area": "teaching",
+  "prompt": "When teaching me, explain one concept at a time, use practical examples, and ask me to solve a short exercise before moving on.",
+  "history": [],
+  "reply": "Got it. From now on I'll teach you like this:\n\n- One concept at a time\n- A practical example for each\n- A short exercise for you to solve before we move on\n\nWhat would you like to learn first?",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-121",
+  "area": "teaching",
+  "prompt": "When teaching me, explain one concept at a time, use practical examples, and ask me to solve a short exercise before moving on.",
+  "history": [
+   [
+    "user",
+    "Why does this code fail, and how would you fix it?\nnumbers = [1, 2, 3]\nprint(numbers[3])"
+   ],
+   [
+    "assistant",
+    "This code fails with an `IndexError` on line 2.\n\n### Why it fails\n\n- `numbers` has three items, at indexes `0`, `1` and `2`.\n- `numbers[3]` asks for a fourth item, which does not exist.\n\n### The fix\n\n```python\nnumbers = [1, 2, 3]\nprint(numbers[2])  # the last item is at index 2\n```\n\n- `numbers[-1]` also gets the last item, whatever the length.\n\n**Output:**\n\n```text\n3\n```"
+   ]
+  ],
+  "reply": "Got it. From now on I'll teach you like this:\n\n- One concept at a time\n- A practical example for each\n- A short exercise for you to solve before we move on\n\nWant to keep going with lists and indexes this way?",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-122",
+  "area": "teaching",
+  "prompt": "From now on, always give me a practical example before the theory.",
+  "history": [],
+  "reply": "Will do: a real example first, then the idea behind it.",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-123",
+  "area": "teaching",
+  "prompt": "I learn best when you quiz me after each step.",
+  "history": [],
+  "reply": "Got it. I'll stop after each step with a quick question for you to answer before we go on. What would you like to learn first?",
+  "expect": "answer"
+ },
+ {
+  "id": "cc-124",
+  "area": "teaching",
+  "prompt": "Don't give me the answer, give me hints.",
+  "history": [],
+  "reply": "Deal. I'll give you a hint at a time and let you work out the answer. What are you working on?",
+  "expect": "answer"
  }
 ]

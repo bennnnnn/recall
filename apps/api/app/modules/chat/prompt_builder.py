@@ -39,6 +39,7 @@ from app.modules.chat.prompt_constants import (
     is_profile_fact_question,
     is_profile_recall_pushback,
     is_short_confirmation,
+    is_standing_preference,
     is_teaching_request,
     learning_plan_daily_contract,
     programming_lesson_contract,
@@ -634,7 +635,11 @@ async def build_prompt_messages(
     # Keep the acknowledgement contract closest to the user turn. Memory and
     # integration context is appended after the style pack and can otherwise
     # tempt the model into an unsolicited plan even though no task was asked.
-    if query_text and is_personal_disclosure_turn(query_text):
+    if (
+        query_text
+        and is_personal_disclosure_turn(query_text)
+        and not is_standing_preference(query_text)
+    ):
         system_parts.append(PERSONAL_DISCLOSURE_HINT)
 
     messages: list[dict[str, str]] = [{"role": "system", "content": "\n\n".join(system_parts)}]

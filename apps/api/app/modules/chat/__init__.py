@@ -26,6 +26,7 @@ _EXPORTS = {
     "is_lightweight_chat_turn": ("prompt_constants.routing", "is_lightweight_chat_turn"),
     "is_personal_disclosure_turn": ("prompt_constants.routing", "is_personal_disclosure_turn"),
     "is_short_confirmation": ("prompt_constants.routing", "is_short_confirmation"),
+    "is_standing_preference": ("prompt_constants.teaching", "is_standing_preference"),
     "needs_generated_title": ("titles", "needs_generated_title"),
     "present_assistant_markdown": ("presentation", "present_assistant_markdown"),
     "prior_looks_like_offer": ("prompt_constants.routing", "prior_looks_like_offer"),
