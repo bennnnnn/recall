@@ -36,9 +36,9 @@ PHYSICS_REPLY_POLICY = (
     "or equation on its own short line. One reasoning state per row; do not "
     "chain several equals signs. Name the governing formula before "
     "substituting. Do not add a math lesson, tutorial bullets, or Note/Tip "
-    "cards, and do not repeat the result. Copy verified numbers and units; do "
+    "cards. Copy verified numbers and units; do "
     "not recompute them. Honor SHORT by giving less, and DETAILED by showing "
     "the working. For a hint or practice, give a focused hint without the full "
-    "solution unless the user asked for it. The Answer line must state the "
-    "result. Never end on the heading."
+    "solution unless the user asked for it. State the result once, on the "
+    "Answer line, and never end on the heading."
 )
