@@ -360,16 +360,17 @@ confirmed reading. A photo with no reading gets the unverified physics note.
 - coverage never falls below `COVERAGE_FLOOR`.
 
 The **STEM sweep** (`app/tests/behavior/stem_sweep.py`) checks the whole chat path, not just
-the solver. `stem_corpus/physics/` holds 440 turns: textbook questions across 19 areas,
-everyday look-alikes, questions that must be declined, and `holdout.json`, written after the
-fixes below so the coverage number stays honest. For each turn it routes the prompt as a
+the solver. `stem_corpus/physics/` holds 726 turns: textbook questions across 19 areas,
+everyday look-alikes, questions that must be declined, `holdout.json`, written after the
+fixes below so the coverage number stays honest, and `investigation.json`, the September
+investigation's 286 questions (multi-part ones list every `parts` value the card must hold). For each turn it routes the prompt as a
 chat turn does and reads the verified answer card (1% tolerance, any unit of the same kind).
 It also checks the reply's Given / Find / Formula / Substitution / Answer order, flags
 calculator notation and an invented zero given, and validates every `simulation` and `graph`
 fence against the schema and its own bounds. `test_stem_sweep.py` fails on a wrong number, a
 misread turn (a physics question answered as math, or hijacked by a location or settings
-reply), a reply out of shape or a broken picture. It holds two floors that only go up: 356 of
-364 answered, and 162 of 163 with the picture a student would want. Only a
+reply), a reply out of shape or a broken picture. It holds two floors that only go up: 468 of
+597 answered, and 162 of 163 with the picture a student would want. Only a
 `projectile_motion` scene beside a path graph (x–y or height–time) counts as the same
 picture twice; a v–t graph beside a fall says something the fall does not.
 

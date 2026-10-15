@@ -219,6 +219,18 @@ solver, and tests. New physics homework uses the equivalent physics-owned regist
 subject adds a branch to the other's registry. `math/tools` is a package (`extract.py` registry,
 `block/` builders, `school.py` extra kinds) — do not add a second math kind table.
 
+## STEM sweep
+
+`apps/api/app/tests/behavior/stem_corpus/math/` holds 432 turns from the September investigation:
+homework questions with answers worked independently, "find the X of …" traps, notation
+spellings, follow-ups, questions that must be declined, and everyday look-alikes. Each runs
+through the real chat path. `stem_math_judge.py` reads the answer card with SymPy alone (no
+solver code) and compares it with the worked answer: a number to 0.5%, an expression exactly,
+an antiderivative up to a constant, an inequality or interval as the same set. `test_stem_sweep.py`
+fails on a wrong verified answer or a misread turn and holds the answered floor (289 of 362).
+
+    uv run python -m app.tests.behavior.stem_sweep math --show
+
 ## Failure classes closed by the systemic procedure pass
 
 | Exposed case | Root cause | General fix and regression family |
