@@ -11,6 +11,7 @@ from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.direct_calculus import calculus_direct_request
 from app.modules.math.tools.extract import extract_math_intent
+from app.services.answer_fence import mark_server_answer_fences
 
 _CASES = [
     ("Differentiate x^3", "3 x^{2}"),
@@ -53,7 +54,10 @@ def test_complete_calculus_request_preserves_the_full_verified_answer(query, ans
     reply = maybe_direct_math_reply(block, query)
     assert reply is not None
     assert f"```answer\n{answer}\n```" in reply
-    assert validate_math_fences(reply, verified=block).strip() == reply.strip()
+    assert (
+        validate_math_fences(reply, verified=block).strip()
+        == mark_server_answer_fences(reply).strip()
+    )
 
 
 @pytest.mark.parametrize("query,answer", _CASES)
@@ -146,7 +150,10 @@ def test_nonfixture_variables_bounds_and_centers_are_preserved(query):
     reply = maybe_direct_math_reply(block, query)
     assert reply is not None
     assert f"```answer\n{block.canonical_answer}\n```" in reply
-    assert validate_math_fences(reply, verified=block).strip() == reply.strip()
+    assert (
+        validate_math_fences(reply, verified=block).strip()
+        == mark_server_answer_fences(reply).strip()
+    )
 
 
 @pytest.mark.parametrize(

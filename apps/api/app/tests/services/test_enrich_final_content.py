@@ -14,10 +14,11 @@ from app.gateways.web_search_gateway import WebSearchHit
 from app.modules import web_search as web_search_service
 from app.modules.chat.stream_pipeline import _replace_failed_subject_fences, enrich_final_content
 from app.modules.web_search.formatting import format_sources_fence
+from app.services.answer_fence import mark_server_answer_fences
 from app.services.solving import VerifiedPhysicsBlock
 
 
-def _passthrough_math(content: str, verified: object = None) -> str:
+def _passthrough_math(content: str, verified: object = None, correct: bool = True) -> str:
     return content
 
 
@@ -416,7 +417,8 @@ async def test_direct_verified_math_skips_sympy_pool_for_fence_rewrite(
         assistant_parts=[ctx.instant_reply],
         should_cancel=None,
     )
-    assert persisted == ctx.instant_reply
+    # The instant reply is the server's own text: it persists with its card marked.
+    assert persisted == mark_server_answer_fences(ctx.instant_reply)
 
 
 @pytest.mark.asyncio

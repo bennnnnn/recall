@@ -13,6 +13,7 @@ from app.modules.chat.stream_pipeline import stream_and_finalize
 from app.modules.chat.turn_prep.context import StreamContext
 from app.modules.physics.fence import replace_unclosed_physics_fences_safe
 from app.modules.physics.prompt import build_physics_augmentation as build_math_augmentation
+from app.services.answer_fence import VERIFIED_ANSWER_MARKER, mark_server_answer_fences
 from app.services.solving import VerifiedPhysicsBlock
 from app.services.tool_loop import turn_needs_tool_loop
 from app.tests.modules.physics.support import (
@@ -74,7 +75,7 @@ def test_physics_failure_recovery_never_uses_math_graph_semantics() -> None:
     recovered = replace_unclosed_physics_fences_safe(truncated, verified)
 
     assert '{"type":"projectile"' not in recovered
-    assert f"```answer\n{verified.display_answer}\n```" in recovered
+    assert f"```answer\n{VERIFIED_ANSWER_MARKER}\n{verified.display_answer}\n```" in recovered
     # The solver's own scene replaces the model's broken one; there is no graph.
     assert '```simulation\n{"type":"projectile_motion"' in recovered
     assert "```graph" not in recovered
@@ -113,9 +114,10 @@ async def test_complete_physics_request_streams_existing_answer_without_provider
     assert "Explanation" not in reply
     assert "$average speed$" not in reply
     finalized = validate_physics_fences(reply, verified=verified)
-    # Finalization may compact the blank line between the two canonical fences.
+    # Finalization may compact the blank line between the two canonical fences,
+    # and it adds only the server's verified marker to its own card.
     assert [line for line in finalized.splitlines() if line] == [
-        line for line in reply.splitlines() if line
+        line for line in mark_server_answer_fences(reply).splitlines() if line
     ]
     assert not turn_needs_tool_loop(query, settings=_SETTINGS, has_verified_math=True)
     assert not turn_needs_tool_loop(query, settings=_SETTINGS, has_instant_reply=True)

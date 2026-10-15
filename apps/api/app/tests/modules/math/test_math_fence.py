@@ -379,7 +379,7 @@ def test_rewrites_answer_fence_from_canonical() -> None:
         content,
         verified=_verified({"type": "answer", "content": "x = \\pm 2"}),
     )
-    assert "```answer\nx = \\pm 2\n```" in out
+    assert "```answer\nverified: true\nx = \\pm 2\n```" in out
     assert "x = 99" not in out
 
 
@@ -390,7 +390,7 @@ def test_result_and_final_fences_rewrite_like_answer(lang: str) -> None:
         content,
         verified=_verified({"type": "answer", "content": "x = \\pm 2"}),
     )
-    assert "```answer\nx = \\pm 2\n```" in out
+    assert "```answer\nverified: true\nx = \\pm 2\n```" in out
     assert "x = 99" not in out
     assert f"```{lang}" not in out
 
@@ -453,7 +453,7 @@ def test_rewrites_answer_fence_when_geometry_has_canonical_answer() -> None:
     out = validate_math_fences(content, verified=verified)
     assert '"diagonal":6.403' in out
     assert '"diagonal":99' not in out
-    assert "```answer\n20\n```" in out
+    assert "```answer\nverified: true\n20\n```" in out
     assert "```answer\n99\n```" not in out
 
 
@@ -627,7 +627,7 @@ def test_strips_non_graph_function_call_text() -> None:
 def test_appends_canonical_answer_when_model_omits_fence() -> None:
     verified = _verified({"type": "answer", "content": "x = 2"})
     out = validate_math_fences("The solution follows from the steps above.", verified=verified)
-    assert "```answer\nx = 2\n```" in out
+    assert "```answer\nverified: true\nx = 2\n```" in out
 
 
 def test_does_not_append_answer_when_prose_already_has_math_result() -> None:
@@ -795,7 +795,7 @@ def test_appends_answer_and_graph_for_physics() -> None:
 def test_appends_answer_when_prose_omits_verified_value() -> None:
     verified = _verified({"type": "answer", "content": "x = 12"})
     out = validate_math_fences("Worked steps follow.", verified=verified)
-    assert "```answer\nx = 12\n```" in out
+    assert "```answer\nverified: true\nx = 12\n```" in out
 
 
 def test_skips_answer_pill_when_prose_already_states_result() -> None:
@@ -804,21 +804,26 @@ def test_skips_answer_pill_when_prose_already_states_result() -> None:
     assert "```answer" not in out
 
 
-def test_skips_answer_pill_when_prose_states_a_different_x_equals() -> None:
-    """Solver parsed ``2x+3=3`` (x=0) while the steps solved ``2x+3=7`` (x=2)."""
+def test_a_different_x_equals_in_prose_keeps_the_pill_and_is_flagged() -> None:
+    """The prose's ``x = 2`` against a verified ``x = 0`` used to hide the pill.
+
+    That guard dated from a solver misread (``2x+3=3`` for ``2x+3=7``); it also
+    let every wrong model value stand unchallenged. The verified pill now always
+    shows, with one correction line, and misreads are fixed in the extractor.
+    """
     verified = _verified({"type": "answer", "content": "x = 0"})
     out = validate_math_fences(
         "The correct equation is $2x + 3 = 7$.\n\n**Solution:** $x = 2$",
         verified=verified,
     )
-    assert "```answer" not in out
     assert "x = 2" in out
+    assert "The verified answer is $x = 0$.\n\n```answer\nverified: true\nx = 0\n```" in out
 
 
 def test_intermediate_2x_equals_does_not_count_as_conflicting_x() -> None:
     verified = _verified({"type": "answer", "content": "x = 2"})
     out = validate_math_fences("First $2x = 4$. Then divide.", verified=verified)
-    assert "```answer\nx = 2\n```" in out
+    assert "```answer\nverified: true\nx = 2\n```" in out
 
 
 def test_draw_geometry_without_canonical_answer_does_not_append_pill() -> None:
@@ -842,7 +847,7 @@ def test_draw_geometry_without_canonical_answer_does_not_append_pill() -> None:
 def test_short_integer_in_exponent_does_not_suppress_answer_pill() -> None:
     verified = _verified({"type": "answer", "content": "2"})
     out = validate_math_fences("Consider $x^2$ for this problem.", verified=verified)
-    assert "```answer\n2\n```" in out
+    assert "```answer\nverified: true\n2\n```" in out
 
 
 def test_one_line_arithmetic_does_not_append_duplicate_answer() -> None:
@@ -869,7 +874,7 @@ def test_symbolic_mismatch_still_appends_canonical_chip() -> None:
     """The model's prose answer is wrong — the verified chip must win."""
     verified = _verified({"type": "answer", "content": "x = \\frac{7}{2}"})
     out = validate_math_fences("The steps give $x = 4$.", verified=verified)
-    assert "```answer\nx = \\frac{7}{2}\n```" in out
+    assert "```answer\nverified: true\nx = \\frac{7}{2}\n```" in out
 
 
 def test_symbolic_check_skipped_when_string_path_already_matched(
@@ -907,7 +912,7 @@ def test_symbolic_audit_parses_at_most_two_prose_spans(
     out = validate_math_fences(content, verified=verified)
     # 1 canonical parse + at most 2 prose-span parses, however many spans exist.
     assert len(calls) <= 3
-    assert "```answer\nx = 5\n```" in out
+    assert "```answer\nverified: true\nx = 5\n```" in out
 
 
 def test_symbolic_audit_failure_falls_back_to_append() -> None:
@@ -927,7 +932,7 @@ def test_does_not_duplicate_existing_answer_fence() -> None:
     content = "Worked steps…\n```answer\nx = 99\n```"
     out = validate_math_fences(content, verified=verified)
     assert out.count("```answer") == 1
-    assert "```answer\nx = 2\n```" in out
+    assert "```answer\nverified: true\nx = 2\n```" in out
     assert "x = 99" not in out
 
 
@@ -1027,7 +1032,7 @@ def test_a_reply_that_states_no_answer_and_asks_nothing_still_gets_both() -> Non
         "Let me set that up using the range equation.", verified=_projectile_block()
     )
 
-    assert "```answer\n35.31 m\n```" in out
+    assert "```answer\nverified: true\n35.31 m\n```" in out
     assert "```graph" in out
 
 
