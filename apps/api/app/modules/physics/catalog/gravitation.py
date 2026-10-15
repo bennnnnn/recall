@@ -27,6 +27,9 @@ _GRAVITY_ASKS = (
     "surface gravity",
     "gravitational field strength",
     "value of g",
+    # "what's g at an altitude of 300 km?"
+    "g at",
+    "g on",
 )
 
 SPECS: tuple[FormulaSpec, ...] = (
@@ -159,6 +162,30 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # Kepler's third law for the radius: an orbit of a stated period. 24 h
+    # round Earth is 4.22e7 m from its centre.
+    formula(
+        "orbit_radius_from_period",
+        "gravitation",
+        "Kepler's third law",
+        "r",
+        base_latex=r"T = 2\pi\sqrt{\frac{r^3}{GM}}",
+        assumptions=("circular orbit around a fixed central mass",),
+        expression="(G_grav*M*period**2/(4*pi**2))**(1/3)",
+        variables=(
+            var("M", "M", "kilogram", fallback="body_mass"),
+            var("period", "T", "second", words=("period", "every", "once"), needs_words=True),
+        ),
+        binding=Binding(
+            # The radius from the centre; a height above the surface is less R.
+            asks=("radius of its orbit", "radius of the orbit", "orbital radius", "orbit radius"),
+            result=("meter",),
+            inputs=(frozenset({"M", "period"}),),
+            cues=("orbit",),
+            excludes=("above", "altitude", "height"),
+            nonnegative=True,
+        ),
+    ),
     # "400 km above Earth": the orbit's radius is the planet's plus that height.
     formula(
         "kepler_period_altitude",
@@ -279,6 +306,43 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter / second ** 2",),
             inputs=(frozenset({"M", "altitude", "radius_body"}),),
             cues=("above", "altitude", "height"),
+            nonnegative=True,
+        ),
+    ),
+    # A body's weight a height above a named planet: GMm/(R + h)². A 70 kg
+    # astronaut 400 km above Earth weighs 609 N, not the 687 N of the surface.
+    formula(
+        "weight_at_height",
+        "gravitation",
+        "Newton's law of gravitation",
+        "W",
+        base_latex=r"W = \frac{G M m}{(R + h)^2}",
+        expression="G_grav*M*m/(radius_body + altitude)**2",
+        variables=(
+            var("M", "M", "kilogram", fallback="body_mass"),
+            var("m", "m", "kilogram", words=_SMALL_BODY),
+            var(
+                "altitude",
+                "h",
+                "meter",
+                words=("above", "altitude", "height"),
+                needs_words=True,
+            ),
+            var(
+                "radius_body",
+                "R",
+                "meter",
+                words=("radius",),
+                fallback="body_radius",
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("weigh", "weight", "gravitational force", "force of gravity"),
+            result=("newton",),
+            inputs=(frozenset({"M", "altitude", "m", "radius_body"}),),
+            cues=("above", "altitude"),
+            excludes=("apparent weight", "scale", "lift", "elevator"),
             nonnegative=True,
         ),
     ),

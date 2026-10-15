@@ -303,6 +303,20 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Stopping distance",
         "d",
         variants=(
+            # Braking at a stated rate: "reaction time 0.8 s, then brakes at 6 m/s²".
+            FormulaVariant(
+                present=frozenset({"decel"}),
+                lines=(
+                    r"d_r = v t_r",
+                    r"d_b = \frac{v^2}{2a}",
+                    r"d = d_r + d_b",
+                ),
+                assumptions=(
+                    "Constant speed while reacting",
+                    "Constant deceleration while braking",
+                    "Final speed is zero",
+                ),
+            ),
             FormulaVariant(
                 lines=(
                     r"d_r = v t_r",
@@ -319,8 +333,67 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         variables=(
             var("t_brake", "t_b", "second"),
+            var("decel", "a", "meter / second ** 2"),
             var("t_react", "t_r", "second"),
             var("v", "v", "meter / second"),
+        ),
+    ),
+    # Two stages from rest: speed up, then hold the speed or brake to a stop
+    # (``extractors/two_stage.py``). Stage one is any two of a₁, t₁ and the
+    # speed it reaches; stage two is a time at that speed, a braking rate or a
+    # braking time, or the rest of a stated distance at that speed.
+    *(
+        formula(
+            operation,
+            "kinematics",
+            "Two-stage motion",
+            symbol,
+            assumptions=(
+                "starts from rest",
+                "constant acceleration in each stage",
+                "the second stage starts at the first stage's final speed",
+            ),
+            variables=(
+                var("a1", "a_1", "meter / second ** 2"),
+                var("t1", "t_1", "second"),
+                var("v_top", "v", "meter / second"),
+                var("t_cruise", "t_2", "second"),
+                var("a_brake", "a_2", "meter / second ** 2"),
+                var("t_brake", "t_2", "second"),
+                var("d_total", "d", "meter"),
+            ),
+        )
+        for operation, symbol in (("two_stage_distance", "d"), ("two_stage_time", "t"))
+    ),
+    # A faster chaser closes a gap at the difference of the speeds
+    # (``extractors/relative_motion.py``): 30 m/s after 20 m/s, 100 m ahead,
+    # catches up in 10 s.
+    formula(
+        "catch_up_time",
+        "kinematics",
+        "Relative velocity",
+        "t",
+        base_latex=r"t = \frac{d}{v_1 - v_2}",
+        assumptions=("both move at constant speed along one line, the same way",),
+        variables=(
+            var("d", "d", "meter"),
+            var("v_chaser", "v_1", "meter / second"),
+            var("v_target", "v_2", "meter / second"),
+        ),
+    ),
+    # Two legs on the two compass axes: the displacement's size and direction.
+    formula(
+        "displacement_two_legs",
+        "kinematics",
+        "Displacement",
+        "d",
+        base_latex=r"d = \sqrt{d_1^2 + d_2^2}",
+        assumptions=("the two legs are at right angles",),
+        variables=(
+            var("d1", "d_1", "meter"),
+            var("d2", "d_2", "meter"),
+            var("heading1", "", dimensionless=True, visible=False),
+            var("heading2", "", dimensionless=True, visible=False),
         ),
     ),
     # How far a dropped body falls in a time: h = ½gt² from rest.
@@ -378,7 +451,14 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("v2", "v_2", "meter / second"),
         ),
         binding=Binding(
-            asks=("how long", "time", "how much time"),
+            asks=(
+                "how long",
+                "time",
+                "how much time",
+                "when do they meet",
+                "when will they meet",
+                "when do the two meet",
+            ),
             result=("second",),
             inputs=(frozenset({"d", "v1", "v2"}),),
             cues=(
@@ -390,6 +470,90 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "heading toward each other",
             ),
             excludes=("same direction", "chasing", "catch up", "overtake", "accelerat"),
+            interchangeable=("v1", "v2"),
+            nonnegative=True,
+        ),
+    ),
+    # Two velocities at right angles add as the sides of a right triangle: a
+    # boat heading straight across at 4 m/s in a 3 m/s current moves at 5 m/s
+    # over the bank, and a plane flying north into a crosswind from the west
+    # moves faster over the ground than its airspeed. A boat that aims
+    # upstream so as to land opposite, or a plane that heads into the wind to
+    # hold a course, is the other triangle, and is not this law.
+    formula(
+        "perpendicular_velocity_sum",
+        "kinematics",
+        "Relative velocity",
+        "v",
+        base_latex=r"v = \sqrt{v_1^2 + v_2^2}",
+        assumptions=("the two velocities are at right angles",),
+        expression="sqrt(v1**2 + v2**2)",
+        variables=(
+            var("v1", "v_1", "meter / second"),
+            var("v2", "v_2", "meter / second"),
+        ),
+        binding=Binding(
+            asks=(
+                "resultant speed",
+                "ground speed",
+                "speed relative to the bank",
+                "speed relative to the shore",
+                "speed relative to the ground",
+                "speed relative to the land",
+                "speed relative to the earth",
+                "speed over the ground",
+                "actual speed",
+                "true speed",
+                "overall speed",
+                "net speed",
+                "magnitude of the resultant velocity",
+                "magnitude of its resultant velocity",
+                "magnitude of the boat's resultant velocity",
+            ),
+            result=("meter / second",),
+            inputs=(frozenset({"v1", "v2"}),),
+            # The current runs along the river, so a heading across it is a
+            # right angle. "Straight across the bay" with a wind says no angle.
+            cues=(
+                "across the river",
+                "across a river",
+                "across the stream",
+                "across a stream",
+                "across the canal",
+                "perpendicular",
+                "right angles",
+                "right angle",
+                "crosswind",
+                "cross wind",
+                "crosswise",
+            ),
+            excludes=(
+                "upstream",
+                "downstream",
+                "wants to",
+                "needs to",
+                "has to",
+                "must",
+                "so that",
+                "in order to",
+                "directly opposite",
+                "straight opposite",
+                "aims",
+                "aim",
+                "heading should",
+                "which direction",
+                "what direction",
+                "what angle",
+                "same direction",
+                "opposite direction",
+                "headwind",
+                "tailwind",
+                "head wind",
+                "tail wind",
+                "against the current",
+                "with the current",
+                "accelerat",
+            ),
             interchangeable=("v1", "v2"),
             nonnegative=True,
         ),

@@ -228,14 +228,33 @@ def _magnification(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     )
 
 
+def _virtual_image_distance(obj: float, focal: float, shown: str, *, mirror: bool) -> PhysicsResult:
+    """Inside F the image is virtual: its distance, and the side it is on, in words.
+
+    The sign of a virtual image's distance is what the conventions disagree
+    about, so the answer is its size and its side: 24 cm, virtual, on the
+    object's side of the lens (or behind the mirror). No sign is certified.
+    """
+    img = obj * focal / (focal - obj)
+    side = "virtual, behind the mirror" if mirror else "virtual, on the object's side of the lens"
+    return PhysicsResult(
+        answer=(
+            rf"\frac{{1}}{{f}} = \frac{{1}}{{u}} + \frac{{1}}{{v}} \Rightarrow |v| = "
+            rf"\frac{{uf}}{{f - u}} = \frac{{{obj:g} \cdot {focal:g}}}"
+            rf"{{{focal:g} - {obj:g}}} \approx {img:.4g} \text{{ {shown}}}"
+        ),
+        formulas=(r"|v| = \frac{uf}{f - u}",),
+        substitutions=(rf"|v| = \frac{{{obj:g} \cdot {focal:g}}}{{{focal:g} - {obj:g}}}",),
+        quantities=(QuantityResult("", img, shown, detail=side),),
+    )
+
+
 def _image_distance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     focal, obj = p["focal"], p["d_obj"]
     if focal <= 0 or obj <= 0:
         raise SolveServiceError("only a converging lens with a real object is solved here")
-    if obj <= focal:
-        # Inside the focal length the image is virtual, and the sign that
-        # says so is exactly what the conventions disagree about.
-        raise SolveServiceError("an object inside the focal length forms a virtual image")
+    if math.isclose(obj, focal):
+        raise SolveServiceError("an object at the focal point forms no image")
     # The equation holds in any one length unit: distances given in cm
     # are answered in cm (30 cm, not 0.3 m).
     units = intent.physics_units or {}
@@ -245,6 +264,8 @@ def _image_distance(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
         focal, obj = given["focal"], given["d_obj"]
     else:
         shown = "m"
+    if obj < focal:
+        return _virtual_image_distance(obj, focal, shown, mirror=bool(p.get("mirror")))
     img = 1 / (1 / focal - 1 / obj)
     return PhysicsResult(
         answer=(

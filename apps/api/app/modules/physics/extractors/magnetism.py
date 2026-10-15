@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 
+from app.modules.physics.bodies import named_particle_mass
 from app.modules.physics.extractors.angles import _stated_angle
 from app.modules.physics.extractors.circuit_patterns import (
     _COULOMB_PATTERN,
@@ -47,6 +48,11 @@ _MAGNETISM_CUE_RES: tuple[re.Pattern[str], ...] = (
         rf"\d\s*(?:A|amps?|amperes?|C|coulombs?)(?![A-Za-z0-9]).{{0,80}}?"
         rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9])"
     ),
+    # A named particle in a field: "a proton at 3e6 m/s in a 0.5 T field".
+    re.compile(
+        rf"\b(?:[Pp]roton|[Ee]lectron|[Aa]lpha particle)\b.{{0,80}}?"
+        rf"\d\s*(?:{_TESLA_PATTERN})(?![A-Za-z0-9])"
+    ),
 )
 
 
@@ -82,6 +88,9 @@ def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
         # Magnetic force here is a magnitude; the sign distinguishes the
         # direction, which this scalar template intentionally does not infer.
         charge = (_ELEMENTARY_CHARGE, "C")
+    if mass is None and (particle := named_particle_mass(lower)) is not None:
+        # "a proton travels at 3e6 m/s": the particle names its mass.
+        mass = (particle, "kg")
 
     # "2000 turns per meter" is n = N/L. One metre of that winding is the
     # catalog's N and L, so B = μ0 n I. This has to run before the wire

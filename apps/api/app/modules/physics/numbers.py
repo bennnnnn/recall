@@ -42,6 +42,43 @@ _UNIT_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
         re.compile(r"\bmicrocoulombs?\b|(?<!\w)[µμ]C\b", re.IGNORECASE),
         "uC",
     ),
+    # "left on for a whole week": one week, written as a number a law can bind.
+    (
+        re.compile(
+            r"\bfor\s+(?:a|an|one)\s+(?:whole\s+|full\s+|entire\s+)?"
+            r"(second|minute|hour|day|week|year)\b",
+            re.IGNORECASE,
+        ),
+        r"for 1 \1",
+    ),
+    # "(v sound = 343 m/s)": the speed of sound, as the wave readers name it.
+    (re.compile(r"\bv[ _]?sound\b", re.IGNORECASE), "speed of sound"),
+    # "120 kph": the speed readers split a speed at its slash.
+    (re.compile(r"(?<=\d)(\s*)(?:kph|kmph|kmh)\b", re.IGNORECASE), r"\1km/h"),
+)
+
+
+# A phone keyboard's spellings of the asked word: "accelaration?" asks what
+# "acceleration?" asks. Only whole words a physics question uses, each mapped
+# to the one word it can only be.
+_SPELLING_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(
+            r"\b(?:accelaration|accleration|accelration|acceleraton|accelleration"
+            r"|acceleation|accerlation|acceration)\b",
+            re.IGNORECASE,
+        ),
+        "acceleration",
+    ),
+    (
+        re.compile(r"\b(?:acclerat|accelarat|accelerrat|accellerat)(es|ed|ing|e)\b", re.IGNORECASE),
+        r"accelerat\1",
+    ),
+    (re.compile(r"\b(?:velocty|velcity|veloctiy|volocity)\b", re.IGNORECASE), "velocity"),
+    # "whats the total distance?" asks as "what's" does.
+    (re.compile(r"\b(w)hats\b", re.IGNORECASE), r"\1hat's"),
+    # "2000 km above the earths surface" names Earth.
+    (re.compile(r"\b(e)arths\b", re.IGNORECASE), r"\1arth's"),
 )
 
 
@@ -50,12 +87,29 @@ def normalize_physics_units(text: str) -> str:
 
     This is lexical only. It deliberately does not infer a unit that the user
     did not write; it makes equivalent written forms visible to the existing
-    dimension-checked extractors and Pint conversion layer.
+    dimension-checked extractors and Pint conversion layer. A misspelt asked
+    word ("accelaration") is read as the word it can only be.
     """
     normalized = text
-    for pattern, replacement in _UNIT_NORMALIZATIONS:
+    for pattern, replacement in (*_UNIT_NORMALIZATIONS, *_SPELLING_NORMALIZATIONS):
         normalized = pattern.sub(replacement, normalized)
     return normalized
+
+
+# "only 1/16 of a sample": a fraction of something, whose denominator has only
+# twos and fives, is an exact decimal. A date or a ratio is not followed by "of".
+_FRACTION_OF = re.compile(r"(?<![\w./])(\d{1,3})\s*/\s*(\d{1,4})(?=\s+of\b)")
+
+
+def _exact_fraction(match: re.Match[str]) -> str:
+    numerator, denominator = int(match.group(1)), int(match.group(2))
+    rest = denominator
+    for factor in (2, 5):
+        while rest > 1 and rest % factor == 0:
+            rest //= factor
+    if denominator == 0 or rest != 1 or numerator >= denominator:
+        return match.group()
+    return format(Decimal(numerator) / Decimal(denominator), "f")
 
 
 def normalize_physics_numbers(text: str) -> str | None:
@@ -70,6 +124,7 @@ def normalize_physics_numbers(text: str) -> str | None:
     if len(text) > _MAX_INPUT_CHARS:
         return None
     text = normalize_physics_units(text).replace("\u2212", "-")
+    text = _FRACTION_OF.sub(_exact_fraction, text)
     text = _GROUPED_CANDIDATE.sub(
         lambda match: (
             match.group().replace(",", "")

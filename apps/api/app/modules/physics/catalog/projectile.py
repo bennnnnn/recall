@@ -82,6 +82,58 @@ SPECS: tuple[FormulaSpec, ...] = (
         variables=_LAUNCH,
         binding=_horizontal(("impact speed", "speed", "how fast", "velocity"), "meter / second"),
     ),
+    # The speed it left the edge at, from the height and where it landed:
+    # the fall sets the time, √(2h/g), and the range over that time is v₀.
+    # A marble off a 90 cm bench that lands 1.2 m out left at 2.80 m/s.
+    formula(
+        "level_launch_speed",
+        "projectile",
+        "Projectile-motion equation",
+        "v_0",
+        base_latex=r"v_0 = d\sqrt{\frac{g}{2h}}",
+        assumptions=("launched horizontally; no air resistance",),
+        expression="d*sqrt(g/(2*h0))",
+        variables=(
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var(
+                "h0",
+                "h",
+                "meter",
+                words=("high", "height", "tall", "cliff", "table", "bench", "roof", "off a"),
+                needs_words=True,
+            ),
+            var(
+                "d",
+                "d",
+                "meter",
+                words=("lands", "away", "from the", "horizontal", "out"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=(
+                "how fast was it rolling",
+                "how fast was it moving",
+                "how fast was it going",
+                "how fast was it travelling",
+                "how fast was it traveling",
+                "how fast was the",
+                "launch speed",
+                "initial speed",
+                "speed when it left",
+                "speed as it left",
+                "speed at which it left",
+                "speed off the",
+                "speed at the edge",
+            ),
+            result=("meter / second",),
+            inputs=(frozenset({"d", "g", "h0"}),),
+            cues=_LEVEL_LAUNCH,
+            # The speed at the ground is another speed.
+            excludes=("hit", "impact", "just before", "when it lands", "strikes"),
+            nonnegative=True,
+        ),
+    ),
     formula(
         "launch_angle",
         "projectile",

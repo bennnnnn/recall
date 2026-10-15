@@ -53,9 +53,10 @@ _CONNECTOR = re.compile(
 SENTENCE = re.compile(r"(?:[^.?!]|(?<=\d)\.(?=\d))+(?:[.?!]+|$)")
 # A question asked by its quantity alone: "max speed?", "acceleration?",
 # "time to hit the ground?". The fragment after the last stop, before the "?".
+# A decimal point stays inside the question: "frequency of a 1.2 m long pendulum?".
 _BARE_QUESTION = re.compile(
-    r"(?:^|[.,;:!?]\s*|\n)\s*(?P<ask>(?:(?:the|its|their|what)\s+)?"
-    rf"(?:(?:{_ADJECTIVES})\s+)*[a-z][^.,;:!?\n]{{0,60}})\?\s*$",
+    r"(?:^|(?<!\d)[.,;:!?]\s*|[.,;:!?](?!\d)\s*|\n)\s*(?P<ask>(?:(?:the|its|their|what)\s+)?"
+    rf"(?:(?:{_ADJECTIVES})\s+)*[a-z](?:[^.,;:!?\n]|(?<=\d)\.(?=\d)){{0,60}})\?\s*$",
     re.IGNORECASE,
 )
 
@@ -80,7 +81,15 @@ def ask_clause(text: str) -> str | None:
     clause = _verb_ask_clause(text)
     if clause is not None:
         return clause
+    where = _WHERE_IMAGE.search(text)
+    if where is not None:
+        end = re.search(r"[?!]|\.(?:\s|$)", text[where.start() :])
+        return text[where.start() : where.start() + end.start() if end else len(text)]
     return _bare_question(text)
+
+
+# "Where is the image?" names no question verb the shared reader knows.
+_WHERE_IMAGE = re.compile(r"\bwhere\s+(?:is|will|does|would)\s+(?:the\s+)?image\b", re.IGNORECASE)
 
 
 # Instructions that ask without a question word: "Solve for v.", "Use Gauss's law
@@ -275,9 +284,25 @@ _CLAUSE_END = re.compile(
 )
 
 
+# "How many kWh does a 60 W bulb use": the unit counted is the one asked in.
+_HOW_MANY = re.compile(r"\bhow\s+many\s+", re.IGNORECASE)
+
+
 def asked_unit(text: str) -> str | None:
     """The unit the question wants its answer in, as written; None when unsaid."""
     found: str | None = None
+    for match in _HOW_MANY.finditer(text):
+        unit = unit_at(text, match.end())
+        reading = None if unit is None else unit_dimension(unit[1])
+        # A count of things ("how many turns") asks for a number, not a unit,
+        # and "how many moles" or "how many joules" is the SI answer already.
+        if (
+            unit is not None
+            and reading is not None
+            and reading[0] != _DIMENSIONLESS
+            and not (reading[1] == 1.0 and reading[2] == 0.0)
+        ):
+            found = unit[0]
     for match in _IN_UNIT.finditer(text):
         unit = unit_at(text, match.end())
         if unit is None:

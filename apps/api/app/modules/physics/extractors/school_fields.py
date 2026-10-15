@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import re
+
 from app.modules.physics.extractors.common import (
     _LENGTH_UNIT_PATTERN,
+    _NUMBER,
     _TESLA_PATTERN,
     _ordered_values,
 )
@@ -109,6 +112,15 @@ def extract_faraday(text: str, lower: str) -> PhysicsIntent | None:
         )
     area = _one(text, r"m\^?2|cm\^?2")
     fields = _ordered_values(text, _TESLA_PATTERN)
+    if len(fields) == 1:
+        # "drops from 0.5 T to 0": the second reading shares the first's unit.
+        to_bare = re.search(
+            rf"\bfrom\s+{_NUMBER}\s*(?P<unit>{_TESLA_PATTERN})\s+to\s+(?P<to>{_NUMBER})"
+            r"(?![\d.])",
+            text,
+        )
+        if to_bare is not None:
+            fields = [fields[0], (float(to_bare.group("to")), to_bare.group("unit"))]
     if area is None or len(fields) != 2:
         return None
     return _intent(

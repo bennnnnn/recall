@@ -61,6 +61,8 @@ CRITICAL = {"wrong", "misread", "shape", "broken_visual"}
 _UNITS = pint.UnitRegistry()
 _UNITS.define("diopter = 1 / meter = D")
 _UNITS.define("kWh = kilowatt * hour")
+# "5 rev/s": Pint spells a revolution out in full.
+_UNITS.define("rev = revolution")
 # Results shown to the inputs' significant figures: 0.2 mol for 0.204 is right.
 ROUNDED = {"chemistry"}
 

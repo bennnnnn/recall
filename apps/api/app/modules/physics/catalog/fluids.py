@@ -56,9 +56,18 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Continuity equation",
         "v_2",
         base_latex="A_1v_1 = A_2v_2",
+        variants=(
+            # A pipe given by its diameters: v₂ = v₁(d₁/d₂)².
+            FormulaVariant(
+                present=frozenset({"d1", "d2"}),
+                latex=r"v_2 = v_1\left(\frac{d_1}{d_2}\right)^2",
+            ),
+        ),
         variables=(
             var("A1", "A_1", "meter ** 2"),
             var("A2", "A_2", "meter ** 2"),
+            var("d1", "d_1", "meter"),
+            var("d2", "d_2", "meter"),
             var("v", "v", "meter / second"),
         ),
     ),
@@ -78,9 +87,18 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Pascal's principle",
         "F_2",
         base_latex="\\frac{F_1}{A_1} = \\frac{F_2}{A_2}",
+        variants=(
+            # Pistons given by diameter: each area goes with its diameter squared.
+            FormulaVariant(
+                present=frozenset({"d1", "d2"}),
+                latex=r"F_2 = F_1\left(\frac{d_2}{d_1}\right)^2",
+            ),
+        ),
         variables=(
             var("A1", "A_1", "meter ** 2"),
             var("A2", "A_2", "meter ** 2"),
+            var("d1", "d_1", "meter"),
+            var("d2", "d_2", "meter"),
             var("F1", "F_1", "newton"),
         ),
     ),
@@ -109,6 +127,48 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("rho", r"\rho", "kilogram / meter ** 3"),
             var("v1", "v_1", "meter / second"),
             var("v2", "v_2", "meter / second"),
+        ),
+    ),
+    # Horizontal Bernoulli as a difference: water that speeds up from v₁ to v₂
+    # loses ½rho(v₂² - v₁²) of pressure. No pressure is stated, so the drop
+    # itself is the answer.
+    formula(
+        "bernoulli_pressure_drop",
+        "fluids",
+        "Bernoulli's equation",
+        r"\Delta P",
+        base_latex=r"P_1 - P_2 = \tfrac{1}{2}\rho(v_2^2 - v_1^2)",
+        assumptions=("horizontal, steady, incompressible flow with no viscosity",),
+        expression="rho*(v_after**2 - v_before**2)/2",
+        variables=(
+            var(
+                "rho",
+                r"\rho",
+                "kilogram / meter ** 3",
+                words=("water", "liquid", "fluid", "oil", "density"),
+                fallback="water_density",
+                needs_words=True,
+            ),
+            var("v_before", "v_1", "meter / second", words=("from", "initial", "wide", "wider")),
+            var("v_after", "v_2", "meter / second", words=("to", "final", "narrow", "narrower")),
+        ),
+        binding=Binding(
+            asks=(
+                "pressure drop",
+                "drop in pressure",
+                "pressure difference",
+                "difference in pressure",
+                "pressure change",
+                "change in pressure",
+                "fall in pressure",
+            ),
+            result=("pascal",),
+            inputs=(frozenset({"rho", "v_after", "v_before"}),),
+            # A height difference adds rho g Δh, which the horizontal form leaves out.
+            cues=("horizontal",),
+            excludes=("height", "higher", "lower", "rises", "climbs", "vertical", "uphill"),
+            # Slowing down raises the pressure: not a drop.
+            nonnegative=True,
         ),
     ),
     formula(
@@ -143,9 +203,47 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Torricelli's law",
         "v",
         base_latex="v = \\sqrt{2gh}",
+        assumptions=("a wide tank open to the air, so the surface barely moves",),
         variables=(
-            var("depth", "h", "meter"),
-            var("g", "g", "meter / second ** 2"),
+            # How far below the surface the hole is: "a hole 3 m below the surface".
+            # Only a depth under a liquid's surface: a hole 3 m deep is dug.
+            var(
+                "depth",
+                "h",
+                "meter",
+                words=(
+                    "below the surface",
+                    "below the water surface",
+                    "below the water level",
+                    "below the water's surface",
+                    "below the free surface",
+                    "beneath the surface",
+                    "under the surface",
+                    "below the top of the water",
+                ),
+                needs_words=True,
+            ),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+        ),
+        # Water leaving a hole a depth below an open surface. The hole names the
+        # law; a fall or a slide is energy conservation, not this.
+        binding=Binding(
+            asks=("how fast", "speed", "velocity", "efflux"),
+            result=("meter / second",),
+            inputs=(frozenset({"depth", "g"}),),
+            cues=("hole", "leak", "orifice", "spout", "outlet", "opening", "tap"),
+            excludes=(
+                "pump",
+                "pressure",
+                "pipe",
+                "hose",
+                "dropped",
+                "falls",
+                "thrown",
+                "dig",
+                "drill",
+            ),
+            nonnegative=True,
         ),
     ),
     formula(

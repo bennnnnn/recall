@@ -42,8 +42,11 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
         symbol = variant.result_symbol or symbol
     try:
         value = evaluate(expression, params)
+        holds = all(evaluate(condition, params) > 0 for condition in spec.binding.requires)
     except (KeyError, ValueError, OverflowError) as exc:
         raise SolveServiceError(f"{spec.id} has no real answer for these givens") from exc
+    if not holds:
+        raise SolveServiceError(f"{spec.id} does not hold for these givens")
     if not math.isfinite(value):
         raise SolveServiceError(f"{spec.id} answer is not finite")
     detail = None
@@ -62,7 +65,12 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
     unit = spec.binding.shown_unit or (
         "" if result_unit == "dimensionless" else si_symbol(result_unit)
     )
-    shown = _in_the_givens_unit(spec, intent, result_unit, value)
+    # A law that prints an SI-sized unit of its own ("photons/s", "Bq") is not
+    # answered in a like given's unit: a photon rate is not the hertz of a
+    # frequency given beside it.
+    own = unit_dimension(unit_expression(unit) or "") if spec.binding.shown_unit else None
+    own_unit = own is not None and own[1] == 1.0 and own[2] == 0.0
+    shown = None if own_unit else _in_the_givens_unit(spec, intent, result_unit, value)
     if shown is None or shown[1] == unit or math.isclose(shown[0], value):
         # No step to show: the same unit, or only its spelling ("J/kg°C" for J/(kg·K)).
         rows: tuple[str, ...] = (substitution,)
@@ -84,7 +92,14 @@ def _stated_temperature_change(intent: PhysicsIntent, params: dict[str, float]) 
     change = params["temp_final"] - params["temp_initial"]
     raw = intent.physics_params or {}
     units = intent.physics_units or {}
-    same_scale = units.get("temp_initial") == units.get("temp_final")
+    # Readings in one unit of kelvin's size (°C or K) subtract as written; a
+    # Fahrenheit difference is not the kelvins the substitution uses.
+    reading = unit_dimension(unit_expression(units.get("temp_initial", "")) or "")
+    same_scale = (
+        units.get("temp_initial") == units.get("temp_final")
+        and reading is not None
+        and math.isclose(reading[1], 1.0)
+    )
     first = raw["temp_initial"] if same_scale else params["temp_initial"]
     second = raw["temp_final"] if same_scale else params["temp_final"]
     return rf"\Delta T = T_2 - T_1 = {second:g} - {first:g} = {change:g}"

@@ -173,6 +173,42 @@ SPECS: tuple[FormulaSpec, ...] = (
             cues=("discharg",),
         ),
     ),
+    # How long a discharge takes to fall to a stated voltage: t = RC ln(V₀/V).
+    # 12 V to 3 V through 500 Ω and 1000 µF takes 0.693 s, two halvings.
+    formula(
+        "capacitor_discharge_time",
+        "circuit",
+        "RC discharge equation",
+        "t",
+        base_latex=r"V = V_0 e^{-t/RC}",
+        expression="R*capacitance*log(v_supply/v_final)",
+        variables=(
+            var("R", "R", "ohm"),
+            _CAPACITANCE,
+            var(
+                "v_supply",
+                "V_0",
+                "volt",
+                words=("charged to", "initially", "starts at", "from"),
+                needs_words=True,
+            ),
+            var(
+                "v_final",
+                "V",
+                "volt",
+                words=("drops to", "falls to", "reaches", "decreases to", "down to", "decays to"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=("how long", "time"),
+            result=("second",),
+            inputs=(frozenset({"R", "capacitance", "v_final", "v_supply"}),),
+            cues=("discharg",),
+            nonnegative=True,
+            requires=("v_supply - v_final", "v_final"),
+        ),
+    ),
     formula(
         "dielectric_parallel_plate",
         "circuit",

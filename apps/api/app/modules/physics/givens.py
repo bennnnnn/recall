@@ -43,11 +43,23 @@ def _speed_of_light_at(text: str, end: int) -> bool:
     return _FRACTION_BEFORE_RE.search(text[max(0, end - 32) : end]) is not None
 
 
-def _speed_of_light(text: str, end: int) -> tuple[str, str] | None:
-    return ("c", "speed_of_light") if _speed_of_light_at(text, end) else None
+# "0.003 u of mass is lost": an atomic mass unit, written apart from its
+# number and followed by "of" or the end of a sentence. Written onto the
+# number ("2u") or inside an equation ("u + at") it is a velocity.
+_ATOMIC_MASS_UNIT_RE = re.compile(r"[ \t]u(?=[ \t]+of\b|[ \t]*[.,;?!]|[ \t]*\Z)")
 
 
-PHYSICS_UNITS = UnitTable(_SYMBOLS, _WORDS, special=_speed_of_light, exact={"c": "speed_of_light"})
+def _special_unit(text: str, end: int) -> tuple[str, str] | None:
+    if _speed_of_light_at(text, end):
+        return ("c", "speed_of_light")
+    if _ATOMIC_MASS_UNIT_RE.match(text, end):
+        return ("u", "dalton")
+    return None
+
+
+PHYSICS_UNITS = UnitTable(
+    _SYMBOLS, _WORDS, special=_special_unit, exact={"c": "speed_of_light", "u": "dalton"}
+)
 
 
 def unit_expression(spelling: str) -> str | None:

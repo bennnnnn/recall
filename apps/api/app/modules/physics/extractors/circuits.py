@@ -34,8 +34,28 @@ from app.modules.physics.extractors.cues import (
 )
 from app.modules.physics.extractors.fluid_readings import _AREA_PATTERN
 from app.modules.physics.extractors.school_extensions import blocks_circuit
+from app.modules.physics.givens import scan_givens
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
+
+# The dimension of each Ohm's-law quantity, as the givens scan writes it.
+_ELECTRICAL_DIMENSIONS = {
+    "V": "[current]^-1 * [length]^2 * [mass]^1 * [time]^-3",
+    "I": "[current]^1",
+    "R": "[current]^-2 * [length]^2 * [mass]^1 * [time]^-3",
+}
+
+
+def _prefixed_value(cleaned: str, key: str) -> tuple[float, str] | None:
+    """The one V, I or R stated with a prefix ("2 mA", "4.7 kΩ"), with its unit."""
+    found = [
+        given
+        for given in scan_givens(cleaned)
+        if given.dimension == _ELECTRICAL_DIMENSIONS[key] and given.unit
+    ]
+    if len(found) != 1:
+        return None
+    return found[0].value, found[0].unit
 
 
 def _network_equivalent(values: list[float], *, series: bool) -> float | None:
@@ -157,15 +177,13 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
 
     params: dict[str, float] = {}
     units: dict[str, str] = {}
-    if volts:
-        params["V"] = volts[0][0]
-        units["V"] = "volt"
-    if amps:
-        params["I"] = amps[0][0]
-        units["I"] = "ampere"
-    if ohms:
-        params["R"] = ohms[0][0]
-        units["R"] = "ohm"
+    for key, found, unit in (("V", volts, "volt"), ("I", amps, "ampere"), ("R", ohms, "ohm")):
+        if found:
+            params[key] = found[0][0]
+            units[key] = unit
+        elif (prefixed := _prefixed_value(cleaned, key)) is not None:
+            # "2 mA", "4.7 kΩ": the unit is kept, and the solver works in SI.
+            params[key], units[key] = prefixed
 
     # --- terminal voltage: V = emf - I r ---------------------------------
     # Only when the question says both that there *is* an internal resistance

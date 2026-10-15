@@ -190,8 +190,9 @@ def _extract_spring_intent(cleaned: str) -> PhysicsIntent | None:
     displacement = _find_value_with_specific_unit(
         cleaned, _LENGTH_UNIT_PATTERN, _DISPLACEMENT_KEYWORDS
     )
+    # "A 250 g mass hangs on a spring" is a mass in grams.
     mass = _find_value_with_specific_unit(
-        cleaned, r"kg|mg|lb|lbs|oz", ("mass", "object", "body", "block")
+        cleaned, r"kg|mg|g|grams?|lb|lbs|oz", ("mass", "object", "body", "block")
     )
 
     # f = (1/2π)√(k/m) is the period law asked for the frequency. Returning
