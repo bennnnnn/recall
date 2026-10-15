@@ -16,6 +16,14 @@ import pytest
 from app.core import jobs
 from app.core.config import Settings
 
+
+@pytest.fixture(autouse=True)
+def _restore_handlers():
+    """Handlers registered here must not leak into later tests."""
+    with patch.dict(jobs._HANDLERS):
+        yield
+
+
 _SOFT_CAP = 100
 _HARD_CAP = 300
 # Approximate trimming may keep up to one macro node past the cap.
