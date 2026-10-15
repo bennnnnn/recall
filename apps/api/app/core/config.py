@@ -444,6 +444,13 @@ def _trusted_proxy_cidrs_ipv4_only(cidrs: str) -> bool:
 
 def _warn_proxy_trust_misconfig(settings: Settings) -> None:
     if not settings.trust_x_forwarded_for:
+        if settings.environment == "production":
+            logger.warning(
+                "TRUST_X_FORWARDED_FOR=false in production — behind Fly (or any "
+                "proxy) every per-IP rate limit (sign-in, WebSocket handshake, "
+                "anonymous REST) keys on the proxy address and becomes one "
+                "global bucket. Set TRUST_X_FORWARDED_FOR=true (fly.toml [env])."
+            )
         return
     if not settings.trusted_proxy_cidrs.strip():
         logger.warning(

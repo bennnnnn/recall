@@ -13,6 +13,11 @@ primary_region = "iad" # change to your region; Neon DB is in us-east-2
 
 [env]
   PROCESS_ROLE = "api"
+  # Fly's proxy is the TCP peer. Without this, every per-IP rate limit
+  # (sign-in, WebSocket handshake, anonymous REST) keys on the proxy address
+  # and becomes one global bucket. The default TRUSTED_PROXY_CIDRS cover Fly's
+  # private ranges; Fly-Client-IP is preferred when present.
+  TRUST_X_FORWARDED_FOR = "true"
   # Keep a second LLM call out of normal time-to-first-token. Obvious current/
   # search intents still use the deterministic web-search gates and tool loop.
   WEB_SEARCH_CLASSIFIER_ENABLED = "false"

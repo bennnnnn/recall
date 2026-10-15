@@ -81,6 +81,7 @@ exact production web origin and only the headers used by presigned uploads.
 | `REVENUECAT_WEBHOOK_AUTH` | yes | Shared secret for the webhook |
 | `REVENUECAT_SECRET_KEY` | yes | REST API; TRANSFER + plan sync |
 | `TAVILY_API_KEY` | if web search | |
+| `TRUST_X_FORWARDED_FOR` | yes (set in `fly.toml` `[env]`) | `true` behind Fly. Unset, every per-IP rate limit keys on Fly's proxy address and becomes one global bucket; production boot logs a warning. |
 | `DAILY_GLOBAL_SPEND_USD` | yes | UTC-day OpenRouter $ cap; must be > 0 |
 | R2 vars | yes | See §3 |
 
