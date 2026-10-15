@@ -39,7 +39,8 @@ class VariableSpec:
     # "body_mass" or "body_radius" (of the planet or star the question names),
     # "particle_charge" or "particle_mass" (of the particle it names),
     # "water_specific_heat" or "water_density" (when water is the only
-    # substance named), or "sea_level_pressure".
+    # substance named), "sea_level_pressure", or "incident_from_air" (a ray
+    # that strikes a medium and is never said to start inside one).
     fallback: str | None = None
     # The value must be named by one of ``words``, before or after it, even
     # when it is the only input of its kind: an object's density is not the
@@ -108,6 +109,10 @@ class Binding:
     negative_detail: str | None = None
     # A result above this is not an answer: a floating fraction above 1 sinks.
     at_most: float | None = None
+    # Expressions in the variable names that must come out positive for the
+    # law to hold at all: a rope steep enough to lift a crate off the floor
+    # leaves no normal force for friction to scale ("m*g - F*sin(angle)").
+    requires: tuple[str, ...] = ()
     # The unit the answer is printed in when it is not the SI spelling of
     # ``result[0]``: an activity in Bq, not 1/s.
     shown_unit: str | None = None

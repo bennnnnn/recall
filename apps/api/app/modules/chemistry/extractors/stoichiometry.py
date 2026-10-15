@@ -57,6 +57,12 @@ def _extract_mass_chain(text: str) -> ChemistryIntent | None:
             )
         return None
     grams = _gram_amounts(text)
+    two_reactants = _limiting_from_masses(equation, target, grams)
+    if two_reactants is not None:
+        return two_reactants
+    if target in grams:
+        # The amount asked is the amount stated: no ratio to apply.
+        return None
     if len(grams) == 1:
         return ChemistryIntent(
             kind="stoichiometry",
@@ -162,3 +168,71 @@ def _gram_amounts(text: str) -> dict[str, float]:
             re.IGNORECASE,
         )
     }
+
+
+def _limiting_from_masses(
+    equation: str, target: str, grams: dict[str, float]
+) -> ChemistryIntent | None:
+    """Two or more reactant masses and a product asked: the limiting reagent decides it.
+
+    "How many grams of H2O form from 4.0 g of H2 and 40.0 g of O2?" Every reactant's mass is
+    stated, so the product comes from whichever runs out first.
+    """
+    from app.modules.chemistry.equations import balance_equation
+
+    if len(grams) < 2:
+        return None
+    balanced = balance_equation(equation)
+    if (
+        not balanced.balanced
+        or target not in balanced.products
+        or set(grams) != set(balanced.reactants)
+    ):
+        return None
+    return ChemistryIntent(
+        kind="stoichiometry",
+        chemistry_op="limiting_mass",
+        equation=equation,
+        target=target,
+        species=grams,
+        units={"known": "g"},
+    )
+
+
+_YIELD_ASK = re.compile(r"\b(?:percent(?:age)?|%)\s+yield\b", re.IGNORECASE)
+_EXCESS = re.compile(r"\b(?:excess|plenty\s+of|enough)\b", re.IGNORECASE)
+
+
+def _extract_reaction_yield(text: str) -> ChemistryIntent | None:
+    """Percent yield when the theoretical yield comes from a written reaction.
+
+    "In CaCO3 → CaO + CO2, heating 50.0 g of CaCO3 gave 25.0 g of CaO. Percent yield?" One
+    reactant's mass gives the theoretical mass of the one product weighed. A reaction with a
+    second reactant reads only when the question says that one is in excess.
+    """
+    from app.modules.chemistry.equations import balance_equation
+
+    equation = _equation(text)
+    if equation is None or not _YIELD_ASK.search(text):
+        return None
+    if re.search(r"\btheoretical\s+yield\s+(?:is|was|=|of)\s*\d", text, re.IGNORECASE):
+        return None
+    balanced = balance_equation(equation)
+    grams = _gram_amounts(text)
+    if not balanced.balanced or len(grams) != 2:
+        return None
+    reactants = [formula for formula in grams if formula in balanced.reactants]
+    products = [formula for formula in grams if formula in balanced.products]
+    if len(reactants) != 1 or len(products) != 1:
+        return None
+    if len(balanced.reactants) > 1 and not _EXCESS.search(text):
+        return None
+    known, product = reactants[0], products[0]
+    return ChemistryIntent(
+        kind="stoichiometry",
+        chemistry_op="reaction_percent_yield",
+        equation=equation,
+        target=product,
+        species={known: grams[known]},
+        params={"actual": grams[product]},
+    )

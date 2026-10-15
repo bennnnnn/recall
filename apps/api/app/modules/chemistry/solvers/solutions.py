@@ -3,20 +3,25 @@
 
 from __future__ import annotations
 
+from app.modules.chemistry import sig_figs
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.quantity import convert, to_liters
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.common_chem import (
     const,
     converted_from,
+    fixed,
+    given_row,
     inp,
+    molar_mass_working,
     num,
     qty,
+    typed_unit,
     verified,
 )
 from app.modules.chemistry.solvers.constants import GAS_R
 from app.modules.chemistry.solvers.params import require
-from app.modules.chemistry.solvers.types import ChemistryResult
+from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.services.solving import SolveServiceError
 
 
@@ -107,7 +112,7 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
         value = f"{num(molarity)} mol/L"
         return verified(
             "Verified molarity",
-            (f"n = {inp(moles)} mol", f"V = {inp(volume)} L"),
+            (f"n = {inp(moles)} mol", given_row("V", volume, "L", typed_unit(volume, _LITRES))),
             "Molarity, c",
             *stated("molarity"),
             (f"c = {qty(moles, 'mol')} / {qty(volume, 'L')}",),
@@ -220,6 +225,67 @@ def solve_solution(intent: ChemistryIntent) -> ChemistryResult:
     raise SolveServiceError(f"unsupported solution operation: {op}")
 
 
+_GRAMS_PER = {"g": 1.0, "mg": 1e-3, "kg": 1e3}
+# The volume units a reader converts to litres, by their size in litres.
+_LITRES = (("mL", 1e-3),)
+_CELSIUS_OFFSET = 273.15
+
+
+def _solvent_kilograms(intent: ChemistryIntent) -> tuple[float, str, float]:
+    """The solvent mass as typed, its unit, and the kilograms a molality divides by."""
+    mass = require(intent, "solvent_mass", positive=True)
+    unit = intent.units.get("solvent_mass", "g")
+    grams = _GRAMS_PER.get(unit)
+    if grams is None:
+        raise SolveServiceError(f"unsupported solvent mass unit: {unit}")
+    return mass, unit, mass * grams / 1000
+
+
+def _molality(intent: ChemistryIntent) -> tuple[float, str, list[str], list[str]]:
+    """The molality, as the working writes it, with the given rows and working that find it.
+
+    A colligative question states a molality, or the solute's moles or grams (molar mass from
+    the table) and the solvent's mass.
+    """
+    stated_molality = intent.params.get("molality")
+    if stated_molality is not None:
+        if stated_molality < 0:
+            raise SolveServiceError("colligative inputs must be physically valid")
+        return stated_molality, inp(stated_molality), [f"m = {inp(stated_molality)} mol/kg"], []
+    mass, unit, kilograms = _solvent_kilograms(intent)
+    solvent = converted_from(kilograms, mass) if unit != "kg" else inp(mass)
+    given = [f"m(solvent) = {inp(mass)} {unit}"]
+    working = [] if unit == "kg" else [f"m(solvent) = {qty(mass, unit)} = {solvent} kg"]
+    moles = intent.params.get("moles")
+    if moles is not None:
+        if moles < 0:
+            raise SolveServiceError("colligative inputs must be physically valid")
+        molality = moles / kilograms
+        given.insert(0, f"n(solute) = {inp(moles)} mol")
+        working.append(f"m = {qty(moles, 'mol')} / {solvent} kg = {num(molality)} mol/kg")
+        return molality, num(molality), given, working
+    solute = require(intent, "solute_mass", positive=True)
+    molar = require(intent, "molar_mass", positive=True)
+    name = intent.formula or "solute"
+    amount = solute / molar
+    molality = amount / kilograms
+    given[:0] = [f"m({name}) = {inp(solute)} g", f"M({name}) = {molar_mass_working(molar)} g/mol"]
+    working.extend(
+        (
+            f"n = {qty(solute, 'g')} / {molar_mass_working(molar)} g/mol = {num(amount)} mol",
+            f"m = {num(amount)} mol / {solvent} kg = {num(molality)} mol/kg",
+        )
+    )
+    return molality, num(molality), given, working
+
+
+def _decimals_shown(text: str) -> int:
+    """Decimal places of a shown number, ``1.02`` two and ``1.8 × 10^-3`` four."""
+    mantissa, _, exponent = text.partition(" × 10^")
+    places = len(mantissa.split(".", 1)[1]) if "." in mantissa else 0
+    return max(places - int(exponent or 0), 0)
+
+
 def _colligative(
     intent: ChemistryIntent,
     constant_name: str,
@@ -230,21 +296,45 @@ def _colligative(
 ) -> ChemistryResult:
     factor = intent.params.get("i")
     constant = intent.params.get(constant_name)
-    molality = intent.params.get("molality")
-    if factor is None or constant is None or molality is None or factor <= 0 or molality < 0:
+    if factor is None or constant is None or factor <= 0:
         raise SolveServiceError("colligative inputs must be physically valid")
+    molality, molality_text, amount_given, working = _molality(intent)
     value = factor * constant * molality
-    shown = f"{symbol} = {num(value)} °C"
+    change = num(value)
+    # A van 't Hoff factor is a count of particles, never a measurement (1, not 1.00).
+    count = str(int(factor)) if factor.is_integer() else inp(factor)
+    given = [f"i = {count}", f"{constant_label} = {inp(constant)} °C·kg/mol", *amount_given]
+    working.append(f"{symbol} = ({count})({inp(constant)})({molality_text}) = {change} °C")
+    normal = intent.params.get("normal_point")
+    if normal is None:
+        shown = f"{symbol} = {change} °C"
+        working[-1] = f"{symbol} = ({count})({inp(constant)})({molality_text})"
+        return verified(title, given, symbol, *stated(operation), working, shown, shown)
+    # The new point is the solvent's normal point moved by the change: Tb = Tb° + ΔTb.
+    point = symbol.removeprefix("Δ")
+    written = sig_figs.current()
+    typed = None if written is None else written.converted.get(repr(normal))
+    celsius = normal - _CELSIUS_OFFSET
+    places = _decimals_shown(change)
+    if typed is not None:
+        normal_text = sig_figs.as_written(typed)
+        places = min(places, sig_figs.decimals_of(typed))
+    else:
+        normal_text = format_number(celsius)
+    rising = point == "Tb"
+    temperature = celsius + value if rising else celsius - value
+    shown = f"{point} = {fixed(temperature, places)} °C"
+    given.append(f"{point}° = {normal_text} °C" + ("" if typed is not None else " (pure water)"))
+    working.append(
+        f"{point} = {normal_text} °C {'+' if rising else '−'} {change} °C = "
+        f"{fixed(temperature, places)} °C"
+    )
     return verified(
-        title,
-        (
-            f"i = {inp(factor)}",
-            f"{constant_label} = {inp(constant)} °C·kg/mol",
-            f"m = {inp(molality)} mol/kg",
-        ),
-        symbol,
-        *stated(operation),
-        (f"{symbol} = ({inp(factor)})({inp(constant)})({inp(molality)})",),
+        f"Verified {'boiling' if rising else 'freezing'} point of a solution",
+        given,
+        f"{'Boiling' if rising else 'Freezing'} point of the solution, {point}",
+        *stated(intent.chemistry_op),
+        working,
         shown,
         shown,
     )

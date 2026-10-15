@@ -12,7 +12,7 @@ from app.modules.physics.extractors.common import (
 from app.modules.physics.extractors.cues import (
     _has_cue,
 )
-from app.modules.physics.extractors.fluid_laws import NAMED_FLUID_LAWS
+from app.modules.physics.extractors.fluid_laws import NAMED_FLUID_LAWS, pipe_sections
 from app.modules.physics.extractors.fluid_readings import (
     _AREA_PATTERN,
     _DENSITY_PATTERN,
@@ -61,6 +61,13 @@ _FLUIDS_CUE_RES: tuple[re.Pattern[str], ...] = (
     ),
     re.compile(rf"\d\s*(?:{_DENSITY_PATTERN})\b", re.IGNORECASE),
     re.compile(rf"\bpipe\b.{{0,80}}?\d\s*(?:{_AREA_PATTERN})\b", re.IGNORECASE),
+    # "a pipe of diameter 4 cm, which narrows to 2 cm"
+    re.compile(
+        r"\A(?=.*\b(?:pipe|tube|hose)s?\b)"
+        r"(?=.*\b(?:narrow(?:s|ing)?|widen(?:s|ing)?|taper(?:s|ing)?)\s+(?:\w+\s+){0,3}?to\b)"
+        r"(?=.*\d\s*(?:cm|mm|m)\b)(?=.*\d\s*(?:m/s|cm/s)(?![A-Za-z0-9]))",
+        re.IGNORECASE | re.DOTALL,
+    ),
 )
 
 _STRESS_WORDS = ("stress", "strain", "young", "modulus", "tensile")
@@ -88,6 +95,9 @@ def _extract_fluids_intent(cleaned: str) -> PhysicsIntent | None:
 
 def _general_law(f: FluidReading) -> PhysicsIntent | None:
     """Laws a fluid question states by its numbers, tried in a fixed order."""
+    # --- continuity through a pipe given by its diameters ----------------
+    if len(f.areas) < 2 and (sections := pipe_sections(f)) is not None:
+        return sections
     # --- continuity: A1 v1 = A2 v2 --------------------------------------
     if len(f.areas) >= 2 and f.speed:
         if f.areas[1][0] == 0:

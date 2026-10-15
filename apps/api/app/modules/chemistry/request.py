@@ -17,9 +17,10 @@ from __future__ import annotations
 
 import re
 
+from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.input_text import HYDRATE_DOT, read_chemistry_text
 from app.modules.chemistry.species import ARROWS
-from app.modules.chemistry.species_facts import ELEMENT_NAMES, is_formula
+from app.modules.chemistry.species_facts import ELEMENT_NAMES, NAMED_COMPOUNDS, is_formula
 
 # Formula characters are case-sensitive on purpose. Under ``re.IGNORECASE`` a
 # lowercase word such as "sodium" splits into "so" + "di" + "um" in Fibonacci-many
@@ -46,9 +47,15 @@ _TERM = rf"(?:\d{{1,2}}\s*)?{CHEMICAL_FORMULA}"
 # A match may not start inside a token ("CuSO4.5H2O" must not truncate to
 # "H2O -> …") and may not end where a bracket, hydrate dot or digit continues.
 # A period that ends a sentence ("… -> H2O.") is still allowed.
+# A side has at most this many species. Unbounded, a long "Al + Al + …" with no arrow
+# was rescanned from every term: quadratic, 0.14 s on the 4,000-character gate window.
+# A match never starts after a "+", so a longer side matches nothing rather than its
+# last few species.
+_MAX_TERMS_PER_SIDE = 24
 EQUATION_RE = re.compile(
-    rf"(?<![A-Za-z0-9·\[])(?<![A-Za-z0-9]\.)"
-    rf"((?:{_TERM}\s*\+\s*)*{_TERM}\s*{_ARROW}\s*(?:{_TERM}\s*\+\s*)*{_TERM})"
+    rf"(?<![A-Za-z0-9·\[])(?<![A-Za-z0-9]\.)(?<!\+)(?<!\+\s)(?<!\+\s\s)"
+    rf"((?:{_TERM}\s*\+\s*){{0,{_MAX_TERMS_PER_SIDE}}}{_TERM}\s*{_ARROW}\s*"
+    rf"(?:{_TERM}\s*\+\s*){{0,{_MAX_TERMS_PER_SIDE}}}{_TERM})"
     rf"(?![A-Za-z0-9·\]]|\.\d)"
 )
 
@@ -58,9 +65,10 @@ _GATE_WINDOW = 2000
 
 _STRONG_CUE = re.compile(
     r"\b(?:stoichiometr\w*|molar\s+(?:mass|volume|absorptivity|concentration)|"
-    r"molarity|molality|formula\s+units?|M1V1|mass\s+percent|pOH|"
+    r"molarity|molality|mole\s+fraction|formula\s+units?|M1V1|mass\s+percent|pOH|"
     r"parts\s+per\s+(?:million|billion)|(?:ppm|ppb)(?=\s+of\b)|"
     r"volume\s+percent|percent(?:age)?\s+by\s+(?:volume|mass)|mass/volume\s+percent|"
+    r"%\s*\(?\s*(?:by\s+(?:mass|volume)|w/w|m/m|v/v|w/v|m/v)|"
     r"thermochem\w*|enthalpy|specific\s+heat|calorimet\w*|"
     r"reaction\s+quotient|equilibrium\s+(?:constant|expression)|ice\s+(?:table|equilibrium)|"
     r"rate\s+(?:constant|law)|first[- ]order|second[- ]order|zero[- ]order|arrhenius|"
@@ -94,7 +102,7 @@ _STRONG_CUE = re.compile(
     r"bond\s+enthalpy|formation\s+enthalpy|van\s*'?t\s*hoff|weak\s+(?:acid|base)|strong\s+(?:acid|base)|"
     r"boiling[- ]point\s+elevation|freezing[- ]point\s+depression|osmotic\s+pressure|raoult|"
     r"total\s+vapor\s+pressure|"
-    r"gas\s+collected\s+over\s+water|precipitation\s+reaction|stereochemistry|"
+    r"collected\s+over\s+water|precipitation\s+reaction|stereochemistry|"
     r"crystal\s+field|magnetic\s+moment|"
     r"relative\s+uncertainty|retention\s+factor|limit\s+of\s+detection|limit\s+of\s+quantitation|"
     r"LOD|LOQ|capacity\s+factor|selectivity|Rs|plate\s+number|plate\s+height|"
@@ -141,6 +149,20 @@ _ELEMENT_IN_SAMPLE = re.compile(
     re.IGNORECASE,
 )
 _MOLAR_SOLUTION = re.compile(r"(?<![\w.])\d+(?:\.\d+)?\s*M\s+([A-Z][A-Za-z0-9()]*)")
+# A stock of a stated molarity: "a 6.0 M stock solution", "12 M HCl stock". "3 M Company stock"
+# is a share price.
+_MOLAR_STOCK = re.compile(
+    r"(?<![\w.])\d+(?:\.\d+)?\s*M\s+(?:(?P<formula>[A-Z][A-Za-z0-9()]*)\s+)?stock(?P<solution>\s+solution)?\b"
+)
+
+
+def _molar_stock(text: str) -> bool:
+    return any(
+        match.group("solution") or (match.group("formula") and is_formula(match.group("formula")))
+        for match in _MOLAR_STOCK.finditer(text)
+    )
+
+
 # A dilution's labelled concentrations: "M1 = 12 M", "C2 = 0.50 mol/L".
 _LABELLED_MOLARITY = re.compile(
     r"(?<![A-Za-z0-9])[MC][12]\s*=\s*(?:\d+(?:\.\d+)?|\.\d+)\s*(?:M|mol/L)(?![A-Za-z])"
@@ -155,6 +177,8 @@ _SHAPE_OF = re.compile(
 # "Ka", "Kb", "pH", "Rf" and "Kp" are words in lowercase ("kb" file size, "ph.d.").
 _SYMBOL_CUE = re.compile(
     r"(?<![A-Za-z0-9])(?:pH|pOH|pKa|pKb|Ka|Kb|Kc|Kp|Qc|Ksp|Rf|Δ[GHS])(?![A-Za-z])"
+    # A standard potential, E° or E°cell: physics' E is an energy or a field, never E°.
+    r"|(?<![A-Za-z0-9])E\s*[°º]\s*(?:cell)?|(?<![A-Za-z0-9])Ecell\b"
 )
 _WEAK_CUE = re.compile(
     r"\b(?:acid|base|boiling|freezing|nuclear|mol(?:e|es)?|molecules?|molar|dilut\w*|buffer|"
@@ -163,9 +187,122 @@ _WEAK_CUE = re.compile(
     r"chemical|atoms?|bond|neutrali[sz]\w*|isotopes?|diffus\w*)\b",
     re.IGNORECASE,
 )
-# An element followed by a digit ("H2O", "CO2", "Fe2") or a capital run ("NaOH").
+# An element followed by a digit ("H2O", "Fe2") or a capital run ("NaOH").
 _FORMULA_HINT = re.compile(r"\b[A-Z][a-z]?\d|\b(?:[A-Z][a-z]?){2,4}\b")
-_BALANCE_CUE = re.compile(r"\b(?:balance|balanced|coefficient)\b", re.IGNORECASE)
+# A count of particles in powers of ten is Avogadro's scale: "1.20 x 10^24 atoms of iron".
+_TIMES_TEN = r"\s*[x×*]\s*10\s*\^\s*"  # noqa: RUF001 -- a student types the multiplication sign
+_PARTICLE_COUNT = re.compile(
+    rf"(?<![\w.])(?:\d+(?:\.\d+)?{_TIMES_TEN}[-+]?\d{{1,3}}|\d+(?:\.\d+)?[eE][-+]?\d{{1,3}}"
+    r"|10\s*\^\s*\d{1,3})\s*(?:atoms?|molecules?|formula\s+units?|ions?)\s+of\s+(?:the\s+)?"
+    r"(?P<substance>[A-Za-z][A-Za-z0-9()]*)",
+    re.IGNORECASE,
+)
+# "How many atoms are in 5.0 g of Fe?": a particle count of a stated amount.
+_PARTICLES_IN_AMOUNT = re.compile(
+    r"\b(?:how\s+many|number\s+of)\s+(?:atoms|molecules|formula\s+units)\s+(?:are\s+|is\s+)?"
+    r"(?:there\s+)?in\s+(?:an?\s+)?\d",
+    re.IGNORECASE,
+)
+
+
+def _particles_of_substance(text: str) -> bool:
+    """Avogadro-scale particles of an element or a compound: "1.20 x 10^24 atoms of iron"."""
+    for match in _PARTICLE_COUNT.finditer(text):
+        word = match.group("substance")
+        if word in BY_SYMBOL or word.lower() in ELEMENT_NAMES or is_formula(word):
+            return True
+        if any(text.lower().startswith(name, match.start("substance")) for name in _NAMED):
+            return True
+    return False
+
+
+_NAMED = tuple(NAMED_COMPOUNDS)
+# Particles of a compound written as a formula: "How many molecules are in 10 g of CO2?".
+_PARTICLE_WORD = re.compile(r"\b(?:atoms?|molecules?|formula\s+units?)\b", re.IGNORECASE)
+_FORMULA_WORD = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])")
+
+
+# "What % of Fe2O3 is iron?": an element's share of a compound written as a formula.
+_SHARE_OF_COMPOUND = re.compile(
+    r"(?:%|\b[Pp]ercent(?:age)?)\s+(?:by\s+mass\s+)?of\s+(?:the\s+mass\s+of\s+)?"
+    r"([A-Z][A-Za-z0-9()]*)\s+(?:by\s+mass\s+)?is\s+(?:made\s+up\s+of\s+)?([A-Za-z]+)\b"
+)
+
+
+# Two gases of a mixture, each with its pressure: "He at 0.40 atm, Ne at 0.25 atm",
+# "P(N2) = 600 mmHg". A tank "B at 3 atm" is not a gas.
+_NOBLE_GASES = frozenset({"He", "Ne", "Ar", "Kr", "Xe", "Rn"})
+_GAS_NAMES = frozenset(
+    {
+        "hydrogen",
+        "helium",
+        "nitrogen",
+        "oxygen",
+        "fluorine",
+        "neon",
+        "chlorine",
+        "argon",
+        "krypton",
+        "xenon",
+        "radon",
+    }
+)
+_GAS_PRESSURE = re.compile(
+    r"(?<![A-Za-z0-9])(?:P\()?([A-Za-z][A-Za-z0-9]*)\)?\s*(?:at|=|:)\s*\d+(?:\.\d+)?\s*"
+    r"(?:atm|kPa|mmHg|torr|bar|Pa)(?![A-Za-z])"
+)
+
+
+def _gas_mixture(text: str) -> bool:
+    gases = {
+        match.group(1)
+        for match in _GAS_PRESSURE.finditer(text)
+        if match.group(1) in _NOBLE_GASES
+        or match.group(1).lower() in _GAS_NAMES
+        or is_formula(match.group(1))
+    }
+    return len(gases) >= 2
+
+
+# "What's the name of Fe2(SO4)3?": a compound written as a formula, its name asked.
+_NAME_OF_FORMULA = re.compile(
+    r"\bname\s+(?:of|for)\s+(?:the\s+)?(?:compound\s+)?([A-Z(][A-Za-z0-9()]*)"
+)
+
+
+# "the formula for iron(III) oxide": a salt the ion table names.
+_FORMULA_FOR = re.compile(
+    r"\bformula\s+(?:of|for)\s+(?:the\s+)?([A-Za-z]+(?:\s*\(\s*[IVXivx]+\s*\))?\s+[A-Za-z]+)",
+    re.IGNORECASE,
+)
+
+
+def _salt_named(text: str) -> bool:
+    from app.modules.chemistry.nomenclature import salt_from_name
+
+    return any(salt_from_name(match.group(1)) is not None for match in _FORMULA_FOR.finditer(text))
+
+
+def _element_share(text: str) -> bool:
+    for match in _SHARE_OF_COMPOUND.finditer(text):
+        compound, element = match.groups()
+        if names_compound(compound) and (element in BY_SYMBOL or element.lower() in ELEMENT_NAMES):
+            return True
+    return False
+
+
+def names_compound(text: str) -> bool:
+    """A compound written as a formula: two element symbols or more, and a digit or a
+    lowercase letter, so a shouted word ("NO", "HI", "OK") is not one."""
+    return any(
+        sum(char.isupper() for char in token) >= 2
+        and any(char.islower() or char.isdigit() for char in token)
+        and is_formula(token)
+        for token in _FORMULA_WORD.findall(text)
+    )
+
+
+_BALANCE_CUE = re.compile(r"\b(?:bal+[ae]nce[ds]?|coefficient)\b", re.IGNORECASE)
 _EQUATION_WORDS = re.compile(
     r"\b(?:moles?|grams?|limiting|yield)\b|(?<![A-Za-z0-9])(?:Kc|Qc)(?![A-Za-z])",
     re.IGNORECASE,
@@ -382,7 +519,7 @@ def is_chemistry_question(content: str) -> bool:
     # A concentration of a named formula: "6 M HCl".
     if any(is_formula(match.group(1)) for match in _MOLAR_SOLUTION.finditer(cleaned)):
         return True
-    if _LABELLED_MOLARITY.search(cleaned):
+    if _LABELLED_MOLARITY.search(cleaned) or _molar_stock(cleaned):
         return True
     # Michaelis-Menten written by its constants alone: "Vmax = 10 μmol/min, Km = 2 mM".
     if _VMAX.search(cleaned) and _KM.search(cleaned):
@@ -392,6 +529,16 @@ def is_chemistry_question(content: str) -> bool:
         return True
     weak = {match.group(0).lower() for match in _WEAK_CUE.finditer(cleaned)}
     if len(weak) >= 2 or (weak and _FORMULA_HINT.search(cleaned)):
+        return True
+    if _particles_of_substance(cleaned) or _PARTICLES_IN_AMOUNT.search(cleaned):
+        return True
+    if _PARTICLE_WORD.search(cleaned) and names_compound(cleaned):
+        return True
+    if _element_share(cleaned) or _gas_mixture(cleaned):
+        return True
+    if any(names_compound(match.group(1)) for match in _NAME_OF_FORMULA.finditer(cleaned)):
+        return True
+    if _salt_named(cleaned):
         return True
     if _has_equation(cleaned) and (_BALANCE_CUE.search(cleaned) or _EQUATION_WORDS.search(cleaned)):
         return True

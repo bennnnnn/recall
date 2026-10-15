@@ -4,6 +4,8 @@
 from __future__ import annotations
 
 import math
+import re
+from fractions import Fraction
 
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation
@@ -20,7 +22,7 @@ from app.modules.chemistry.solvers.common_chem import (
 from app.modules.chemistry.solvers.constants import GAS_R_J
 from app.modules.chemistry.solvers.params import require, require_all
 from app.modules.chemistry.solvers.types import ChemistryResult
-from app.modules.chemistry.species import parse_species
+from app.modules.chemistry.species import parse_species, split_equation, split_terms
 from app.services.solving import SolveServiceError
 
 # The energies a Gibbs reader converts to kJ, by their size in kJ (a calorie is 4.184 J).
@@ -97,7 +99,103 @@ def solve_calorimetry(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+def _reaction_vector(equation: str) -> dict[str, Fraction] | None:
+    """Each species' coefficient, products positive and reactants negative; fractions kept."""
+    sides = split_equation(equation)
+    if sides is None:
+        return None
+    vector: dict[str, Fraction] = {}
+    for sign, side in ((-1, sides[0]), (1, sides[1])):
+        for token in split_terms(side):
+            match = re.fullmatch(r"\s*(\d+(?:\.\d+)?)?\s*(\S.*?)\s*", token)
+            if match is None:
+                return None
+            species = parse_species(match.group(2), coefficient_already_removed=True)
+            if species is None:
+                return None
+            coefficient = Fraction(match.group(1) or "1")
+            vector[species.label] = vector.get(species.label, Fraction(0)) + sign * coefficient
+    return {label: value for label, value in vector.items() if value != 0}
+
+
+def _multipliers(steps: list[str], target: str) -> list[Fraction]:
+    """How many of each step add up to the target reaction: the one exact solution, or none."""
+    import sympy
+
+    vectors = [_reaction_vector(step) for step in steps]
+    wanted = _reaction_vector(target)
+    if wanted is None or any(vector is None for vector in vectors):
+        raise SolveServiceError("every reaction of a Hess's-law question must be readable")
+    known = [vector for vector in vectors if vector is not None]
+    labels = sorted({label for vector in (*known, wanted) for label in vector})
+    matrix = sympy.Matrix(
+        [[sympy.Rational(vector.get(label, 0)) for vector in known] for label in labels]
+    )
+    target_column = sympy.Matrix([sympy.Rational(wanted.get(label, 0)) for label in labels])
+    try:
+        solution, free = matrix.gauss_jordan_solve(target_column)
+    except ValueError as exc:
+        raise SolveServiceError("those steps do not add up to the asked reaction") from exc
+    if free.shape[0]:
+        raise SolveServiceError("those steps combine into the asked reaction more than one way")
+    found = [Fraction(int(value.p), int(value.q)) for value in solution]
+    if any(value == 0 for value in found):
+        raise SolveServiceError("a stated step is not part of the asked reaction")
+    return found
+
+
+def _fraction(value: Fraction) -> str:
+    return (
+        str(value.numerator) if value.denominator == 1 else f"{value.numerator}/{value.denominator}"
+    )
+
+
+def _solve_hess_steps(intent: ChemistryIntent) -> ChemistryResult:
+    target = intent.equation
+    if not target or not intent.steps:
+        raise SolveServiceError("Hess's law needs its steps and the asked reaction")
+    enthalpies = [intent.params.get(f"dh{index}") for index in range(1, len(intent.steps) + 1)]
+    if any(value is None for value in enthalpies):
+        raise SolveServiceError("every Hess step needs its ΔH")
+    multipliers = _multipliers(intent.steps, target)
+    unit = intent.units.get("enthalpy", "kJ")
+    values = [float(value) for value in enthalpies if value is not None]
+    total = sum(
+        float(multiplier) * value for multiplier, value in zip(multipliers, values, strict=True)
+    )
+    shown = f"ΔH = {num(total)} {unit}"
+    return verified(
+        "Verified Hess's law",
+        (
+            *(
+                f"{step}, ΔH{index} = {inp(value)} {unit}"
+                for index, (step, value) in enumerate(zip(intent.steps, values, strict=True), 1)
+            ),
+            f"Asked: {target}",
+        ),
+        f"ΔH for {target}",
+        *stated("hess"),
+        (
+            *(
+                f"step {index} × {_fraction(multiplier)}"
+                + (" (reversed)" if multiplier < 0 else "")
+                for index, multiplier in enumerate(multipliers, 1)
+            ),
+            "the scaled steps add up to the asked reaction",
+            "ΔH = "
+            + " + ".join(
+                f"({_fraction(multiplier)})({inp(value)})"
+                for multiplier, value in zip(multipliers, values, strict=True)
+            ),
+        ),
+        shown,
+        shown,
+    )
+
+
 def solve_hess(intent: ChemistryIntent) -> ChemistryResult:
+    if intent.steps:
+        return _solve_hess_steps(intent)
     total = 0.0
     given: list[str] = []
     terms: list[str] = []

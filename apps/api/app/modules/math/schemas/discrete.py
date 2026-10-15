@@ -68,6 +68,16 @@ class NumberTheoryInput(BaseModel):
     # for a single simple schema rather than a second near-identical one.
     a: int = Field(ge=-100_000_000, le=100_000_000)
     b: int | None = Field(default=None, ge=-100_000_000, le=100_000_000)
+    # gcd/lcm of three or more numbers ("lcm of 12, 18 and 30"); ``a`` and
+    # ``b`` repeat the first two.
+    values: list[int] | None = Field(default=None, min_length=3, max_length=10)
+
+    @field_validator("values")
+    @classmethod
+    def _values_in_range(cls, values: list[int] | None) -> list[int] | None:
+        if values is not None and not all(1 <= value <= 100_000_000 for value in values):
+            raise ValueError("gcd/lcm values must be whole numbers from 1 to 100000000")
+        return values
 
 
 class NumberTheoryResult(BaseModel):

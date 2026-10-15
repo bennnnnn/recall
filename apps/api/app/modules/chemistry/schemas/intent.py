@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import math
 import re
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -37,6 +37,7 @@ CrystalGeometry = Literal["octahedral", "tetrahedral", "square_planar"]
 MAX_TEXT_FIELD = 500
 MAX_SPECIES = 20
 MAX_SAMPLES = 50
+MAX_STEPS = 6
 MAX_PARAMS = 40
 # A typed number is short; anything longer was not read from a question.
 MAX_WRITTEN = 32
@@ -68,6 +69,11 @@ class ChemistryIntent(BaseModel):
     geometry: CrystalGeometry | None = None
     species: dict[str, float] = Field(default_factory=dict)
     samples: list[float] = Field(default_factory=list)
+    # Step equations a Hess's-law question combines into ``equation`` (each with its ΔH in
+    # ``params``, dh1, dh2, ...).
+    steps: list[Annotated[str, Field(max_length=MAX_TEXT_FIELD)]] = Field(
+        default_factory=list, max_length=MAX_STEPS
+    )
     # How the question wrote its numbers (chemistry.sig_figs): the answer's significant
     # figures, the decimal places of a logarithm or of a sum of the givens, and each given's
     # text as typed, keyed by repr.

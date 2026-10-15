@@ -43,6 +43,21 @@ _SECOND_REQUEST = re.compile(
     re.IGNORECASE,
 )
 _PHYSICS = Subject(units=PHYSICS_UNITS, fallback=fallback_value, unit_of=si_unit)
+_NORTH_SOUTH = re.compile(r"\b(?:north|south)(?:wards?|bound|erly)?\b")
+_EAST_WEST = re.compile(r"\b(?:east|west)(?:wards?|bound|erly)?\b")
+# A direction between the axes, a bearing or a stated angle is not a right angle.
+_NOT_ALONG_AN_AXIS = re.compile(
+    r"\b(?:north|south)[\s-]*(?:east|west)|\bbearing\b|\d\s*(?:°|degrees?\b|deg\b)"
+)
+
+
+def crosswise(lower: str) -> bool:
+    """One direction on each compass axis and nothing between them: north and east."""
+    return (
+        _NORTH_SOUTH.search(lower) is not None
+        and _EAST_WEST.search(lower) is not None
+        and _NOT_ALONG_AN_AXIS.search(lower) is None
+    )
 
 
 def bind_physics_intent(text: str) -> PhysicsIntent | None:
@@ -58,6 +73,10 @@ def bind_physics_intent(text: str) -> PhysicsIntent | None:
     lower = text.lower()
     # "0.8c" is a speed of light: the phrase relativity's cues are written as.
     cue_text = f"{lower} speed of light" if FRACTION_OF_C.search(lower) else lower
+    # "flies due north … a wind blows from west to east": one direction on each
+    # compass axis is a right angle, the cue the perpendicular laws are written with.
+    if crosswise(lower):
+        cue_text = f"{cue_text} crosswise"
     named = [
         (spec, spec, strength)
         for spec in _bindable()

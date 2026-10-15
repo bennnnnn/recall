@@ -12,6 +12,8 @@ from app.modules.chemistry.extractors.parsing import (
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA
 from app.modules.chemistry.schemas import ChemistryIntent
+from app.modules.chemistry.schemas.intent import MAX_STEPS
+from app.modules.chemistry.species import ARROWS
 
 
 def _extract_gibbs(text: str) -> ChemistryIntent | None:
@@ -76,6 +78,9 @@ def _extract_enthalpy(text: str) -> ChemistryIntent | None:
                 chemistry_op="calorimetry",
                 params={"c_cal": constant, "delta_t": delta},
             )
+    from_equations = _hess_from_equations(text)
+    if from_equations is not None:
+        return from_equations
     if re.search(r"\bHess\b", text, re.IGNORECASE):
         params: dict[str, float] = {}
         steps = set(re.findall(r"ΔH(\d+)\s*=", text))
@@ -96,6 +101,9 @@ def _extract_enthalpy(text: str) -> ChemistryIntent | None:
             params[f"m{index}"] = multiplier
         if params:
             return ChemistryIntent(kind="thermochemistry", chemistry_op="hess", params=params)
+    listed = _formation_list(text)
+    if listed is not None:
+        return listed
     if re.search(r"\bformation enthalpy\b", text, re.IGNORECASE):
         equation = _equation(text)
         values = {
@@ -119,3 +127,141 @@ def _extract_enthalpy(text: str) -> ChemistryIntent | None:
                 params={"broken": broken, "formed": formed},
             )
     return None
+
+
+# "1/2 O2" and "½ O2" are a coefficient of one half: written as 0.5 so a term reads it whole.
+_FRACTION_COEFFICIENT = re.compile(r"(?<![\w.])(\d+)\s*/\s*(\d+)(?=\s*[A-Z(])")
+_ARROW = "(?:" + "|".join(re.escape(arrow) for arrow in sorted(ARROWS, key=len, reverse=True)) + ")"
+_TERM = rf"(?:\d+(?:\.\d+)?\s*)?{CHEMICAL_FORMULA}"
+_REACTION = re.compile(
+    rf"(?<![A-Za-z0-9.\[])({_TERM}(?:\s*\+\s*{_TERM})*\s*{_ARROW}\s*{_TERM}(?:\s*\+\s*{_TERM})*)"
+    r"(?![A-Za-z0-9])"
+)
+# A step's enthalpy: "ΔH = -393.5 kJ", "ΔH1 = -283.0 kJ/mol", "delta H = ...".
+_STEP_ENTHALPY = re.compile(
+    rf"(?:Δ\s*H|\bdelta\s*H)(?:°|º)?\s*\d?\s*=\s*({_N})\s*(kJ(?:\s*/\s*mol|\s+mol\^?-1)?)",
+    re.IGNORECASE,
+)
+# Between a reaction and its ΔH: punctuation, and nothing that names another value.
+_STEP_GAP = re.compile(r"[\s,;:(]*(?:with\s+|where\s+)?")
+_ENTHALPY_ASK = re.compile(
+    r"\b(?:find|calculate|determine|compute|what\s+is)\b[^.?!]*(?:Δ\s*H|\bdelta\s*H|enthalpy)",
+    re.IGNORECASE,
+)
+
+
+def _hess_from_equations(text: str) -> ChemistryIntent | None:
+    """Hess's law from written steps: each step's ΔH follows it, and one reaction is asked.
+
+    "C + O2 → CO2, ΔH = -393.5 kJ; CO + 1/2 O2 → CO2, ΔH = -283.0 kJ. Find ΔH for
+    C + 1/2 O2 → CO." The solver finds how many of each step make the asked reaction. Every
+    number of the text is a coefficient or a step's ΔH, and the steps share one unit.
+    """
+    if not _ENTHALPY_ASK.search(text):
+        return None
+    written = _FRACTION_COEFFICIENT.sub(
+        lambda match: str(int(match.group(1)) / int(match.group(2))), text.replace("½", "0.5")
+    )
+    reactions = list(_REACTION.finditer(written))
+    enthalpies = list(_STEP_ENTHALPY.finditer(written))
+    if len(reactions) < 2 or not enthalpies or len(reactions) > MAX_STEPS + 1:
+        return None
+    steps: dict[int, re.Match[str]] = {}
+    for enthalpy in enthalpies:
+        before = [reaction for reaction in reactions if reaction.end() <= enthalpy.start()]
+        if not before:
+            return None
+        reaction = before[-1]
+        gap = written[reaction.end() : enthalpy.start()]
+        if not _STEP_GAP.fullmatch(gap) or reaction.start() in steps:
+            return None
+        steps[reaction.start()] = enthalpy
+    asked = [reaction for reaction in reactions if reaction.start() not in steps]
+    units = {" ".join(match.group(2).lower().split()) for match in enthalpies}
+    if len(asked) != 1 or len(units) != 1:
+        return None
+    # Every number is a coefficient inside a reaction or a step's ΔH.
+    blanked = list(written)
+    for match in (*reactions, *enthalpies):
+        blanked[match.start() : match.end()] = " " * (match.end() - match.start())
+    if re.search(r"\d", "".join(blanked)):
+        return None
+    ordered = sorted(steps.items())
+    unit = "kJ/mol" if "mol" in units.pop() else "kJ"
+    return ChemistryIntent(
+        kind="thermochemistry",
+        chemistry_op="hess",
+        equation=asked[0].group(1).strip(),
+        steps=[reaction_text(written, start) for start, _enthalpy in ordered],
+        params={
+            f"dh{index}": float(enthalpy.group(1))
+            for index, (_start, enthalpy) in enumerate(ordered, start=1)
+        },
+        units={"enthalpy": unit},
+    )
+
+
+def reaction_text(text: str, start: int) -> str:
+    match = _REACTION.match(text, start)
+    return "" if match is None else match.group(1).strip()
+
+
+# "using ΔHf values: CH4 = -74.8, CO2 = -393.5, H2O(l) = -285.8 kJ/mol".
+_FORMATION_CUE = re.compile(
+    r"Δ\s*H\s*(?:°\s*)?f|\bdelta\s*H\s*f\b|\b(?:heats?|enthalp(?:y|ies))\s+of\s+formation\b"
+    r"|\bformation\s+enthalp(?:y|ies)\b",
+    re.IGNORECASE,
+)
+_REACTION_ENTHALPY_ASK = re.compile(
+    r"\b(?:find|calculate|determine|compute|what\s+is)\b[^.?!]*(?:Δ\s*H|\bdelta\s*H|enthalpy)",
+    re.IGNORECASE,
+)
+
+
+def _formation_list(text: str) -> ChemistryIntent | None:
+    """ΔH°rxn from a list of formation enthalpies written "species = value".
+
+    Each compound of the equation has exactly one listed value; an element in its standard
+    state is zero (the solver's rule). A listed species the equation lacks, a value written
+    twice, or a unit other than kJ/mol declines.
+    """
+    if not _FORMATION_CUE.search(text) or not _REACTION_ENTHALPY_ASK.search(text):
+        return None
+    if re.search(r"\bkJ\s*/\s*mol\b", text) is None:
+        return None
+    equation = _equation(text)
+    if equation is None:
+        return None
+    from app.modules.chemistry.equations import balance_equation
+
+    balanced = balance_equation(equation)
+    if not balanced.balanced:
+        return None
+    labels = {*balanced.reactants, *balanced.products}
+    outside = text.replace(equation, " ", 1)
+    values: dict[str, float] = {}
+    for match in re.finditer(
+        rf"(?<![A-Za-z0-9])({CHEMICAL_FORMULA})\s*(?:=|:)\s*({_N})(?!\s*(?:K|°|M|g|mol)\b)",
+        outside,
+    ):
+        label = match.group(1)
+        if label not in labels or label in values:
+            return None
+        values[label] = float(match.group(2))
+    if not values or len(re.findall(_N, _numbers_outside_formulas(outside))) != len(values):
+        return None
+    return ChemistryIntent(
+        kind="thermochemistry",
+        chemistry_op="formation_enthalpy",
+        equation=equation,
+        species=values,
+    )
+
+
+def _numbers_outside_formulas(text: str) -> str:
+    from app.modules.chemistry.species_facts import formula_spans
+
+    kept = list(text)
+    for start, end in formula_spans(text):
+        kept[start:end] = " " * (end - start)
+    return "".join(kept)

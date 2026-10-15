@@ -15,11 +15,17 @@ from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.services.workout import Workout, math_line, render_workout
 
-ALGEBRA_FACT_OPS = frozenset({"complete_square", "cosine_rule"})
+ALGEBRA_FACT_OPS = frozenset({"complete_square", "cosine_rule", "polynomial_remainder"})
 
 _COMPLETE_SQUARE = re.compile(
     r"(?:(?:please\s+)?(?:complete|completing)\s+the\s+square\s+(?:for|of|on|in)?\s*)(?P<expr>.+)"
     r"|(?P<expr2>.+?)\s*,?\s+(?:by\s+)?(?:completing|complete)\s+the\s+square",
+    re.IGNORECASE,
+)
+# "what is the remainder when x^3 + 2x - 5 is divided by x - 2".
+_REMAINDER = re.compile(
+    r"(?:(?:what\s+is|what's|whats|find|calculate|work\s+out)\s+)?the\s+remainder\s+when\s+"
+    r"(?P<dividend>.+?)\s+is\s+divided\s+by\s+(?P<divisor>.+)",
     re.IGNORECASE,
 )
 _NUMBER = r"(\d+(?:\.\d+)?)"
@@ -47,7 +53,43 @@ def extract_algebra_fact_intent(cleaned: str) -> MathIntent | None:
         return MathIntent(
             kind="arithmetic", school_op="complete_square", expr=expr, operation="solve"
         )
+    remainder = _REMAINDER.fullmatch(body)
+    if remainder is not None:
+        return _remainder_intent(remainder["dividend"], remainder["divisor"])
     return _cosine_rule_intent(body)
+
+
+def _polynomial(text: str) -> Any | None:
+    """A polynomial in x with numeric coefficients, or None."""
+    from sympy import Poly, Symbol
+
+    from app.modules.math import solve as math_solve
+    from app.modules.math.tools.helpers import math_expr_or_none
+
+    expr = math_expr_or_none(text.strip().strip("()") if text.count("(") == 1 else text.strip())
+    if expr is None or "=" in expr:
+        return None
+    x = Symbol("x")
+    try:
+        poly = Poly(math_solve._parse_expression(expr, ["x"]), x)
+    except Exception:
+        return None
+    if poly.free_symbols - {x} or not poly.domain.is_Numerical:
+        return None
+    return poly
+
+
+def _remainder_intent(dividend: str, divisor: str) -> MathIntent | None:
+    """Both sides polynomials in x, the divisor of degree 1 or more and no larger."""
+    top, bottom = _polynomial(dividend), _polynomial(divisor)
+    if top is None or bottom is None or not 1 <= bottom.degree() <= top.degree():
+        return None
+    return MathIntent(
+        kind="arithmetic",
+        school_op="polynomial_remainder",
+        expr=f"{top.as_expr()}|{bottom.as_expr()}",
+        operation="solve",
+    )
 
 
 def _cosine_rule_intent(body: str) -> MathIntent | None:
@@ -77,7 +119,58 @@ def _cosine_rule_intent(body: str) -> MathIntent | None:
 def algebra_fact_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
     if intent.school_op == "complete_square":
         return _complete_square(intent, lines)
+    if intent.school_op == "polynomial_remainder":
+        return _polynomial_remainder(intent, lines)
     return _cosine_rule(intent, lines)
+
+
+def _polynomial_remainder(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    """The remainder of polynomial division, checked by P = Q D + R.
+
+    A divisor x - a gives the remainder theorem's line: the remainder is P(a).
+    """
+    from sympy import Poly, Symbol, UnevaluatedExpr, div, expand, latex, solve, sympify
+
+    x = Symbol("x")
+    top_text, _, bottom_text = (intent.expr or "").partition("|")
+    try:
+        top, bottom = sympify(top_text), sympify(bottom_text)
+        quotient, remainder = div(top, bottom, x)
+    except Exception:
+        return None
+    if expand(quotient * bottom + remainder - top) != 0:
+        return None
+    if Poly(remainder, x).degree() >= Poly(bottom, x).degree():
+        return None
+    answer = latex(remainder)
+    rows = [
+        math_line(
+            rf"{latex(top)} = \left({latex(quotient)}\right)\left({latex(bottom)}\right)"
+            rf" + {latex(remainder)}".replace("+ -", "- "),
+            "dividend = quotient times divisor + remainder",
+        )
+    ]
+    if Poly(bottom, x).degree() == 1:
+        root = solve(bottom, x)[0]
+        substituted = latex(top.subs(x, UnevaluatedExpr(root)), mul_symbol="times", order="rev-lex")
+        rows.insert(
+            0,
+            math_line(
+                rf"P({latex(root)}) = {substituted} = {latex(top.subs(x, root))}",
+                f"remainder theorem: put x = {latex(root)} into the dividend",
+            ),
+        )
+    lines.append(f"Remainder of ({top}) / ({bottom}) = {remainder}")
+    block = _finish_with_answer(lines, answer)
+    working = render_workout(
+        Workout(
+            given=(math_line(rf"P(x) = {latex(top)}"), math_line(rf"D(x) = {latex(bottom)}")),
+            find=(math_line(r"\text{the remainder}"),),
+            steps=tuple(rows),
+        ),
+        answer,
+    )
+    return replace(block, worked_reply=working)
 
 
 def _complete_square(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:

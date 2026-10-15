@@ -14,6 +14,7 @@ from app.modules.math.match.calculus import (
 )
 from app.modules.math.match.discrete import (
     combinatorics_signal,
+    gcd_lcm_list_signal,
     matrix_signal,
     number_theory_signal,
     stats_signal,
@@ -32,6 +33,7 @@ from app.modules.math.match.graph import (
 )
 from app.modules.math.match.literal_geometry import parse_named_rectangle_request
 from app.modules.math.match.scan import (
+    bare_equation_system,
     first_dim_pair,
     geometry_dim_context,
     has_algebraic_equation,
@@ -128,6 +130,9 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # single-letter variable so prose with an '=' ("meeting = 3pm") is excluded.
     if has_algebraic_equation(cleaned):
         return True
+    # A system typed with no verb: "3x+2y=12 and x-y=1".
+    if bare_equation_system(cleaned):
+        return True
     # Digits + operators with no leftover English — same helper the arithmetic
     # extractor uses. Without this, ``first_dim_pair`` treated ``8*2`` inside
     # ``8-8*2`` as a rectangle size, extract returned None, and the reply
@@ -183,6 +188,26 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
 
     # "probability of rolling a sum of 7 with two dice", "drawing a king from a deck".
     if extract_single_draw_intent(cleaned) is not None:
+        return True
+    from app.modules.math.tools.school.bag_draws import extract_bag_draws_intent
+
+    # "a bag has 3 red and 5 blue marbles, pick 2 without replacement, probability both red".
+    if extract_bag_draws_intent(cleaned) is not None:
+        return True
+    from app.modules.math.tools.school.probability import extract_at_least_one_intent
+
+    # "the probability of getting at least one head in 3 coin flips".
+    if extract_at_least_one_intent(cleaned) is not None:
+        return True
+    from app.modules.math.tools.school.units import extract_how_many_in_intent
+
+    # "how many seconds in a day": a conversion between two units of fixed size.
+    if extract_how_many_in_intent(cleaned) is not None:
+        return True
+    from app.modules.math.tools.school.shopping import extract_change_intent
+
+    # "I bought 3 notebooks at $2.40 each ... I paid with a $20 bill. how much change".
+    if extract_change_intent(cleaned) is not None:
         return True
     from app.modules.math.match.coordinate_vector import is_closed_coordinate_vector_request
 
@@ -297,7 +322,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     if combinatorics_signal(cleaned) is not None:
         return True
-    if number_theory_signal(cleaned) is not None:
+    if number_theory_signal(cleaned) is not None or gcd_lcm_list_signal(cleaned) is not None:
         return True
     if matrix_signal(cleaned) is not None:
         return True
@@ -364,7 +389,11 @@ def school_homework_cue(cleaned: str) -> bool:
         has_digit
         and "%" in cleaned
         and (
-            "compound interest" in lower or "simple interest" in lower or "compound amount" in lower
+            "compound interest" in lower
+            or "simple interest" in lower
+            or "compound amount" in lower
+            # "$5000 invested at 4% interest compounded annually for 3 years"
+            or ("compounded" in lower and "interest" in lower)
         )
     ):
         return True

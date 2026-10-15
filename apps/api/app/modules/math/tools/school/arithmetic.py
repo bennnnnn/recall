@@ -135,6 +135,11 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     interest = _extract_interest_intent(cleaned, lower)
     if interest is not None:
         return interest
+    from app.modules.math.tools.school.shopping import extract_change_intent
+
+    change = extract_change_intent(cleaned)
+    if change is not None:
+        return change
     sets = _extract_set_intent(cleaned, lower)
     if sets is not None:
         return sets
@@ -346,6 +351,10 @@ def _verified_block_arithmetic(
         return _block_work_together(intent, lines)
     if intent.school_op == "mixture" and intent.vec_a and intent.vec_b and len(intent.vec_a) == 2:
         return _block_mixture(intent, lines)
+    if intent.school_op == "change_from_payment":
+        from app.modules.math.tools.school.shopping import change_block
+
+        return change_block(intent, lines)
     if intent.school_op == "twice_as_many" and intent.percent_base is not None:
         return _block_twice_as_many(intent, lines)
     if not intent.expr:

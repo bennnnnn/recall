@@ -1,8 +1,10 @@
 """Replay the previous physics problem when this line only continues it.
 
-Three shapes, and each declines instead of guessing: explain the result, ask
-for another quantity of the same setup, or replace one named given. A new
-question that brings its own data is not a follow-up.
+Each shape declines instead of guessing: explain the result, ask for another
+quantity of the same setup ("how far does it go?"), give the result in another
+unit, or replace or scale one given ("and after 10 s?", "what if the mass
+doubles?"). A rewrite counts only when it verifies. A new question that brings
+its own data is not a follow-up.
 """
 
 from __future__ import annotations
@@ -20,9 +22,14 @@ from app.services.problem_followup import (
     EXPLAIN_RE,
     adjacent_problem,
     ask_replaced,
+    asked_unit,
     followup_line,
     given_name,
+    in_unit,
+    new_value,
     replace_given,
+    scaled_given,
+    scaled_value,
 )
 
 PHYSICS_FOLLOWUP_HINT = (
@@ -41,14 +48,25 @@ _CHANGED = re.compile(
     r"(?P<value>[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[-+]?\d+)?) ?"
     r"(?P<unit>[a-zμµ°/^0-9][a-zμµ°/^0-9. ]{0,16})?\??$"
 )
+# "how far does it go?" asks another quantity of the same setup.
+_HOW = re.compile(
+    r"^(?:(?:and|so|ok(?:ay)?|now|then)[ ,]+)?how (?P<word>far|long|high|fast) "
+    r"(?:does|did|will|would|is|was|can) (?:it|she|he|they|the [a-z]+) "
+    r"(?:go|travel|get|take|fall|rise|climb|move|moving|going|travelling|traveling"
+    r"|stay in the air|be in the air)"
+    r"(?: (?:for|in total|altogether|before (?:it )?(?:stops|lands|hits the ground)))?$"
+)
+_HOW_QUANTITY = {"far": "distance", "long": "time", "high": "maximum height", "fast": "speed"}
 
 
 def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | None:
     """The problem to verify again, or None when this line is not that follow-up."""
     written = followup_line(query)
-    line = None if written is None else written.lower()
     prior = adjacent_problem(recent, needs_physics)
-    if line is None or prior is None or extract_physics_intent(line) is not None:
+    if written is None or prior is None:
+        return None
+    line = written.lower()
+    if extract_physics_intent(line) is not None:
         return None
     if EXPLAIN_RE.fullmatch(line):
         return prior
@@ -60,7 +78,43 @@ def physics_followup_problem(query: str | None, recent: Sequence[Any]) -> str | 
         return _changed_given(
             prior, changed.group("name"), changed.group("value"), changed.group("unit")
         )
+    how = _HOW.fullmatch(line)
+    if how is not None:
+        return _another_quantity(prior, _HOW_QUANTITY[how.group("word")])
+    unit = asked_unit(written)
+    if unit is not None:
+        return _in_unit(prior, unit)
+    scaled = scaled_given(line)
+    if scaled is not None:
+        return _scaled_given(prior, *scaled)
+    value = new_value(written)
+    if value is not None:
+        return _changed_given(prior, None, *value)
     return None
+
+
+def _in_unit(prior: str, unit: str) -> str | None:
+    """The prior result in the asked unit, when the verified card writes that unit."""
+    if _dimension_of_unit(unit) is None:
+        return None
+    rewritten = in_unit(prior, unit)
+    display = _verified_display(rewritten)
+    if display is None or unit.replace(" ", "") not in display.replace(" ", ""):
+        return None
+    return rewritten
+
+
+def _scaled_given(prior: str, name: str, factor: float) -> str | None:
+    """``what if the mass doubles``: the one given of that kind, times the factor."""
+    named_dim = _dimension_of_phrase(given_name(name))
+    if named_dim is None:
+        return None
+    matches = [given for given in read_givens(prior, PHYSICS_UNITS) if given.dimension == named_dim]
+    if len(matches) != 1:
+        return None
+    given = matches[0]
+    rewritten = replace_given(prior, given, scaled_value(given.value, factor), given.unit)
+    return rewritten if rewritten != prior and _verifies(rewritten) else None
 
 
 def _another_quantity(prior: str, ask: str) -> str | None:
@@ -99,13 +153,21 @@ def _changed_given(prior: str, name: str | None, value: str, unit: str | None) -
 
 def _verifies(text: str) -> bool:
     """True when one operation answers this wording, including the ask guard."""
+    return _verified_display(text) is not None
+
+
+def _verified_display(text: str) -> str | None:
+    """The verified card's answer for this wording, or None when nothing verifies it."""
     intent = extract_physics_intent(text)
     if intent is None:
-        return False
+        return None
     from app.core.config import get_settings
     from app.modules.physics.block import build_verified_physics_block
 
-    return build_verified_physics_block(intent, get_settings()) is not None
+    block = build_verified_physics_block(intent, get_settings())
+    if block is None:
+        return None
+    return block.display_answer or block.canonical_answer or ""
 
 
 def _dimension_of_unit(unit: str) -> str | None:

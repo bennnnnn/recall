@@ -19,6 +19,17 @@ _BINARY = re.compile(
     re.IGNORECASE,
 )
 _MIXED = re.compile(r"(\d+)\s+(\d+)\s*/\s*(\d+)")
+# "divide 3/4 by 2/9": the operation named first.
+_DIVIDE_BY = re.compile(
+    rf"^divide\s+(?P<a>{_MIXED_OR_F})\s+by\s+(?P<b>{_MIXED_OR_F})$", re.IGNORECASE
+)
+# "half of 3/4" is 1/2 times 3/4.
+_PART_NAMES = {"half": "1/2", "third": "1/3", "quarter": "1/4", "fourth": "1/4"}
+_PART_OF_FRACTION = re.compile(
+    r"^(?:(?:find|what\s+is|what's|whats|calculate|work\s+out)\s+)?"
+    rf"(?:a|one)?\s*(?P<part>half|third|quarter|fourth)\s+of\s+(?P<a>{_MIXED_OR_F})$",
+    re.IGNORECASE,
+)
 _OF_QUANTITY = re.compile(
     rf"^(?:(?:find|what\s+is|what's|whats|calculate|work\s+out)\s+)?"
     rf"(?P<a>{_F})\s+of\s+(?P<quantity>\d+(?:\.\d+)?)$",
@@ -104,6 +115,25 @@ def extract_fraction_intent(text: str) -> MathIntent | None:
             fraction_operands=[left, right],
             # As written, so a mixed number is shown the way it was asked.
             expr=f"{_written(match['a'])} {match['op']} {_written(match['b'])}",
+            operation="solve",
+        )
+    match = _DIVIDE_BY.fullmatch(body)
+    if match:
+        return MathIntent(
+            kind="arithmetic",
+            school_op="fraction_divide",
+            fraction_operands=[_improper(match["a"]), _improper(match["b"])],
+            expr=f"{_written(match['a'])} ÷ {_written(match['b'])}",
+            operation="solve",
+        )
+    match = _PART_OF_FRACTION.fullmatch(body)
+    if match:
+        part = _PART_NAMES[match["part"].lower()]
+        return MathIntent(
+            kind="arithmetic",
+            school_op="fraction_multiply",
+            fraction_operands=[part, _improper(match["a"])],
+            expr=f"{part} \u00d7 {_written(match['a'])}",
             operation="solve",
         )
     match = _OF_QUANTITY.fullmatch(body)

@@ -123,10 +123,12 @@ def _photon_energy(cleaned: str) -> PhysicsIntent | None:
     """A photon's energy from its frequency or wavelength.
 
     A photon's momentum is not its energy: that law is the catalog binder's.
-    Planck's law is a spectrum, not one photon's energy.
+    Planck's law is a spectrum, not one photon's energy, and "how many photons
+    per second" is a count: one photon's energy would leave the power unused.
     """
     if re.search(
-        r"spectral radiance|planck(?:'s)? law|planck distribution|blackbody distribution",
+        r"spectral radiance|planck(?:'s)? law|planck distribution|blackbody distribution"
+        r"|\b(?:how\s+many|number\s+of)\s+photons\b|\bphotons\s+(?:per|each|every|a)\s",
         cleaned,
         re.IGNORECASE,
     ):

@@ -24,6 +24,9 @@ _REQUESTS = (
     ("norm of ", "(", ")", 1, "vector"),
     ("dot product of ", "(", ")", 2, "vector"),
     ("cross product of ", "(", ")", 2, "vector"),
+    # Round brackets read as vectors only when the request names them so.
+    ("angle between the vectors ", "(", ")", 2, "vector"),
+    ("angle between vectors ", "(", ")", 2, "vector"),
 )
 
 

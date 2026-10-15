@@ -120,7 +120,13 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("omega", r"\omega", "radian / second"),
         ),
         binding=Binding(
-            asks=("rotational kinetic energy", "rotational energy", "kinetic energy"),
+            asks=(
+                "rotational kinetic energy",
+                "rotational energy",
+                "kinetic energy",
+                "rotational ke",
+                "rotational k.e.",
+            ),
             result=("joule",),
             inputs=(frozenset({"inertia", "omega"}),),
             nonnegative=True,
@@ -271,10 +277,59 @@ SPECS: tuple[FormulaSpec, ...] = (
             ("omega_f", r"\omega_f"),
         ),
         variables=(
-            var("inertia_f", "I_f", "kilogram * meter ** 2"),
-            var("inertia_i", "I_i", "kilogram * meter ** 2"),
-            var("omega_f", r"\omega_f", "radian / second"),
-            var("omega_i", r"\omega_i", "radian / second"),
+            var(
+                "inertia_f",
+                "I_f",
+                "kilogram * meter ** 2",
+                words=("so", "pulls", "arms in", "tucks", "becomes", "to", "final", "after"),
+                needs_words=True,
+            ),
+            var(
+                "inertia_i",
+                "I_i",
+                "kilogram * meter ** 2",
+                words=("arms out", "initially", "initial", "at first", "first", "before", "with"),
+                needs_words=True,
+            ),
+            var(
+                "omega_f",
+                r"\omega_f",
+                "radian / second",
+                words=("new", "final"),
+                needs_words=True,
+            ),
+            var(
+                "omega_i",
+                r"\omega_i",
+                "radian / second",
+                words=("spins at", "spinning at", "initially", "at first", "rotates at"),
+            ),
+        ),
+        # A skater pulls her arms in: no outside torque, so Iω stays the same.
+        # From 2 rev/s at 4 kg·m² to 1.6 kg·m² is 5 rev/s (31.4 rad/s).
+        binding=Binding(
+            asks=(
+                "new spin rate",
+                "new angular velocity",
+                "new angular speed",
+                "new rate",
+                "spin rate",
+                "angular velocity",
+                "angular speed",
+            ),
+            result=("radian / second",),
+            inputs=(frozenset({"inertia_f", "inertia_i", "omega_i"}),),
+            cues=(
+                "pulls her arms",
+                "pulls his arms",
+                "pulls in",
+                "arms in",
+                "tucks",
+                "angular momentum",
+                "is conserved",
+            ),
+            excludes=("torque", "friction"),
+            nonnegative=True,
         ),
     ),
     formula(

@@ -152,10 +152,17 @@ def keyboard_bounds_read_first(text: str) -> bool:
     return "\\prod_{" in text
 
 
+# LaTeX pasted or typed without ``$``: the whole message is one span when it
+# opens with one of these commands (``\frac{d}{dx} x^5``, ``\int_{0}^{1} x\,dx``).
+_BARE_LATEX_START = re.compile(r"\s*\\(?:frac|dfrac|int|lim|sum|prod|binom|sqrt)(?![A-Za-z])")
+
+
 def keyboard_math_to_plain(text: str) -> str:
     """Each ``$…$`` span in the plain notation the extractors read."""
     from app.modules.math.solve.parse import _normalize_latex_to_sympy
 
+    if "$" not in text and _BARE_LATEX_START.match(text):
+        return _normalize_latex_to_sympy(_template_to_words(text)).strip()
     if "$" not in text or ("\\" not in text and "{" not in text):
         return text
 

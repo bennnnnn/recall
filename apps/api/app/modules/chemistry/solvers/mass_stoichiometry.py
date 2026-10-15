@@ -1,4 +1,4 @@
-# ruff: noqa: RUF001
+# ruff: noqa: RUF001, RUF002
 """Stoichiometry from measured amounts: grams, or a solution's or a gas's volume, via moles."""
 
 from __future__ import annotations
@@ -121,9 +121,12 @@ def _ratio(intent: ChemistryIntent) -> tuple[str, str, int, int, str]:
     balanced = balance_equation(equation)
     if not balanced.balanced:
         raise SolveServiceError(balanced.error or "equation could not be balanced")
-    if known not in balanced.reactants or target not in balanced.products:
-        raise SolveServiceError("reactant or product is not in the balanced equation")
-    return known, target, balanced.reactants[known], balanced.products[target], equation
+    # Any two species of the balanced equation: a product from a reactant, or the reactant
+    # needed for a product, or one reactant for another.
+    coefficients = {**balanced.reactants, **balanced.products}
+    if known == target or known not in coefficients or target not in coefficients:
+        raise SolveServiceError("both species must be in the balanced equation")
+    return known, target, coefficients[known], coefficients[target], equation
 
 
 def solve_mass_stoichiometry(intent: ChemistryIntent) -> ChemistryResult:
@@ -259,3 +262,40 @@ def solve_limiting_mass(intent: ChemistryIntent) -> ChemistryResult:
 
 def solve_limiting_solution(intent: ChemistryIntent) -> ChemistryResult:
     return solve_limiting_amounts(intent, unit="solution")
+
+
+def solve_reaction_percent_yield(intent: ChemistryIntent) -> ChemistryResult:
+    """% yield = actual / theoretical × 100, the theoretical mass from the reaction's ratio."""
+    known, target, reactant_coeff, product_coeff, equation = _ratio(intent)
+    amount = next(iter(intent.species.values()))
+    actual = intent.params.get("actual")
+    if actual is None or actual < 0 or amount <= 0:
+        raise SolveServiceError("percent yield needs the reactant mass and the actual yield")
+    moles, known_working = _to_moles(known, amount, "g", intent.params)
+    product_moles = moles * product_coeff / reactant_coeff
+    molar = molar_mass(target)
+    theoretical = product_moles * molar
+    if actual > theoretical * 1.0001:
+        raise SolveServiceError("the actual yield is more than the reaction can make")
+    percent = actual / theoretical * 100
+    value = f"{num(percent)}%"
+    return verified(
+        "Verified percent yield",
+        (
+            f"Balanced equation: {balanced_text(equation)}",
+            f"m({known}) = {inp(amount)} g",
+            f"actual yield of {target} = {inp(actual)} g",
+        ),
+        "Percent yield",
+        *stated("reaction_percent_yield"),
+        (
+            f"n({known}) = {known_working} = {num(moles)} mol",
+            f"n({target}) = {num(moles)} × ({product_coeff} / {reactant_coeff})"
+            f" = {num(product_moles)} mol",
+            f"theoretical m({target}) = {num(product_moles)} × {molar_mass_working(molar)}"
+            f" = {num(theoretical)} g",
+            f"% yield = ({inp(actual)} g / {num(theoretical)} g) × 100",
+        ),
+        f"Percent yield = {value}",
+        value,
+    )

@@ -156,6 +156,8 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
         0 < values["percent_transmittance"] <= 100
     ):
         raise SolveServiceError("percent transmittance must be between 0 and 100")
+    if law.op == "solute_mass_from_percent" and values["percent"] > 100:
+        raise SolveServiceError("a mass percent cannot exceed 100")
     if law.op == "van_der_waals_pressure" and values["volume"] <= values["n"] * values["b"]:
         raise SolveServiceError("volume must be greater than n b")
     if law.op == "carothers" and values["extent"] >= 1:
@@ -176,6 +178,15 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
     number = p_value(result) if _is_logarithm(law.result) else num(result)
     shown = _with_unit(number, law.unit)
     names = {"formula": intent.formula or "", "target": intent.target or ""}
+    # "How many mg ...": the law's grams, then the unit the question asked in.
+    asked_unit = intent.units.get("answer")
+    in_asked: str | None = None
+    if asked_unit and asked_unit != law.unit and law.unit:
+        try:
+            converted_value = convert_quantity(result, law.unit, asked_unit)
+        except ValueError as exc:
+            raise SolveServiceError(f"cannot answer {law.law_name} in {asked_unit}") from exc
+        in_asked = _with_unit(num(converted_value), asked_unit)
     units = {name: unit for name, _label, unit in law.given}
     typed = {name: _Given(_shown(name, value), units[name]) for name, value in values.items()}
     given = []
@@ -186,13 +197,17 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
             typed[name] = _Given(converted[1], units[name])
             row = f"{row}{converted[0]} = "
         given.append(f"{row}{typed[name]}")
+    rows = [row.format(**names, **typed) for row in law.substitution]
+    if in_asked is not None:
+        rows.append(f"{law.result.format(**names)} = {shown} = {in_asked}")
+        shown = in_asked
     return verified(
         f"Verified {law.law_name[0].lower()}{law.law_name[1:]}",
         tuple(given),
         law.find,
         law.law_name,
         law.formula,
-        tuple(row.format(**names, **typed) for row in law.substitution),
+        tuple(rows),
         f"{law.result.format(**names)} = {shown}",
         shown,
     )

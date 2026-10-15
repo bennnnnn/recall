@@ -30,6 +30,7 @@ from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.input_text import HYDRATE_DOT, read_chemistry_text
 from app.modules.chemistry.laws import LAWS, ChemistryLaw
+from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
 from app.modules.chemistry.species_facts import (
@@ -69,6 +70,9 @@ _SECOND_REQUEST = re.compile(
     re.IGNORECASE,
 )
 _STANDARD_TEMPERATURE = 298.15
+# Water's normal boiling and freezing points in kelvin, for "the boiling point" of a solution.
+_WATER_POINTS = {"solvent_boiling_point": 373.15, "solvent_freezing_point": 273.15}
+_AQUEOUS = re.compile(r"\baqueous\b", re.IGNORECASE)
 
 # Symbols whose case is their meaning, spelled out so lowercase word windows keep it.
 _SYMBOLS: tuple[tuple[re.Pattern[str], str], ...] = tuple(
@@ -244,6 +248,10 @@ def _fallback(prepared: Prepared, variable: VariableSpec, _text: str, _lower: st
         return None if factor is None else float(factor)
     if variable.fallback == "standard_temperature":
         return _STANDARD_TEMPERATURE
+    if variable.fallback in _WATER_POINTS:
+        # Water's normal point is a setting only when water is the solvent the question names.
+        aqueous = "H2O" in prepared.species or _AQUEOUS.search(prepared.original) is not None
+        return _WATER_POINTS[variable.fallback] if aqueous else None
     if variable.fallback == "species_molar_mass":
         solutes = [formula for formula in prepared.species if formula != "H2O"]
         named = solutes if len(solutes) == 1 else list(prepared.species)
@@ -298,6 +306,30 @@ def _converted(law: ChemistryLaw, filled: Fit) -> tuple[dict[str, float], dict[s
     return params, units
 
 
+# A sentence ends at ? or !, or at a full stop before a space: not inside "0.10".
+_SENTENCE_BREAK = re.compile(r"[?!]+|\.(?=\s)")
+
+
+def _verbless_ask(text: str) -> str | None:
+    """The asked part of a question with no question verb.
+
+    "pH of 0.0025 M HCl", "Freezing point of a solution with 10.0 g NaCl in 250 g of water?
+    Kf = 1.86 °C/m", "theoretical yield was 25.0 g but I got 21.3 g. percent yield?": the
+    sentence that ends in a question mark asks, and a single sentence asks for what it names.
+    """
+    stripped = text.strip()
+    marks = [match.start() for match in re.finditer(r"\?", stripped)]
+    if marks:
+        end = marks[-1]
+        breaks = [match.end() for match in _SENTENCE_BREAK.finditer(stripped, 0, end)]
+        start = breaks[-1] if breaks else 0
+        return stripped[start:end].strip() or None
+    body = stripped.rstrip(".!")
+    if _SENTENCE_BREAK.search(body):
+        return None
+    return body or None
+
+
 def bind_chemistry_intent(text: str) -> ChemistryIntent | None:
     """The one chemistry law this question states and asks for, or None.
 
@@ -313,14 +345,16 @@ def _bind(text: str) -> ChemistryIntent | None:
     if _SECOND_REQUEST.search(text):
         return None
     prepared = prepare(text)
-    clause = ask_clause(prepared.text, _VERBS)
+    clause = ask_clause(prepared.text, _VERBS) or _verbless_ask(prepared.text)
     if clause is None:
         return None
     lower = prepared.text.lower()
+    equation = EQUATION_RE.search(text) is not None
     named = [
         ((law, formula), law.spec, strength)
         for law in LAWS
         if (binding := law.spec.binding) is not None
+        and not (law.no_equation and equation)
         and (formula := _formula_for(law, prepared.species)) is not False
         and (strength := named_strength(binding, clause, lower, CHEMISTRY_UNITS))
     ]

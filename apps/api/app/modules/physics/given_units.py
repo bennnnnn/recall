@@ -88,11 +88,25 @@ _SYMBOLS: dict[str, str] = {
     "kWh": "kilowatt_hour",
     "mL": "milliliter",
     "ms": "millisecond",
+    # A battery's charge: "rated 4000 mAh".
+    "mAh": "milliampere_hour",
+    "Ah": "ampere_hour",
+    # A muon's lifetime: "2.2 µs" (micro sign or Greek mu), and a nanosecond pulse.
+    "µs": "microsecond",
+    "μs": "microsecond",
+    "ns": "nanosecond",
     "mm": "millimeter",
     "Wb": "weber",
 }
 
 _WORDS: dict[str, str] = {
+    # A nucleus's mass: "0.003 amu". A bare "u" is read in givens.py.
+    "amu": "dalton",
+    "atomic mass unit": "dalton",
+    "atomic mass units": "dalton",
+    # A count each second: "emits 1e16 photons/s".
+    "photons/s": "1 / second",
+    "photons per second": "1 / second",
     "m/s^2": "meter / second ** 2",
     "m/s2": "meter / second ** 2",
     "m/s²": "meter / second ** 2",
@@ -206,6 +220,11 @@ _WORDS: dict[str, str] = {
     "bq": "1 / second",
     "°c": "degC",
     "degc": "degC",
+    # A US textbook's water "from 68°F to 212°F".
+    "°f": "degF",
+    "degf": "degF",
+    "fahrenheit": "degF",
+    "degrees fahrenheit": "degF",
     "celsius": "degC",
     "degrees celsius": "degC",
     "kelvin": "kelvin",
@@ -250,6 +269,8 @@ _WORDS: dict[str, str] = {
     "hr": "hour",
     "days": "day",
     "day": "day",
+    "weeks": "week",
+    "week": "week",
     "years": "year",
     "year": "year",
     "newtons": "newton",

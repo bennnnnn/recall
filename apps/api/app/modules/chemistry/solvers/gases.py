@@ -44,7 +44,44 @@ def solve_dalton(intent: ChemistryIntent) -> ChemistryResult:
     )
 
 
+def _partial_from_moles(intent: ChemistryIntent) -> ChemistryResult:
+    """Pi = (ni / Σn) Ptotal, each gas of the mixture stated in moles."""
+    target = intent.target
+    total = intent.params.get("total_pressure")
+    amounts = intent.species
+    if (
+        target not in amounts
+        or len(amounts) < 2
+        or total is None
+        or total < 0
+        or any(value < 0 for value in amounts.values())
+        or sum(amounts.values()) <= 0
+    ):
+        raise SolveServiceError("a partial pressure needs every gas's moles and the total pressure")
+    unit = intent.units.get("pressure", "atm")
+    fraction = amounts[target] / sum(amounts.values())
+    shown = f"P({target}) = {num(fraction * total)} {unit}"
+    every = " + ".join(inp(value) for value in amounts.values())
+    return verified(
+        "Verified partial pressure",
+        (
+            *(f"n({gas}) = {inp(value)} mol" for gas, value in amounts.items()),
+            f"Ptotal = {inp(total)} {unit}",
+        ),
+        f"Partial pressure of {target}",
+        *stated("partial_pressure"),
+        (
+            f"X({target}) = {inp(amounts[target])} / ({every}) = {num(fraction)}",
+            f"P({target}) = ({num(fraction)})({inp(total)} {unit})",
+        ),
+        shown,
+        shown,
+    )
+
+
 def solve_partial_pressure(intent: ChemistryIntent) -> ChemistryResult:
+    if intent.species:
+        return _partial_from_moles(intent)
     fraction = intent.params.get("mole_fraction")
     total = intent.params.get("total_pressure")
     if fraction is None or total is None or not 0 <= fraction <= 1 or total < 0:

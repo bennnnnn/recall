@@ -182,6 +182,36 @@ _SAMPLES: dict[str, tuple[dict[str, float], str | None, dict[str, str]]] = {
     "dilution": ({"m1": 2.0, "v1": 50.0, "v2": 200.0}, None, {"v1": "mL", "v2": "mL"}),
     "freezing_depression": ({"i": 1.0, "kf": 1.86, "molality": 0.5}, None, {}),
     "boiling_elevation": ({"i": 2.0, "kb": 0.512, "molality": 1.0}, None, {}),
+    **{
+        f"{op}{point}{suffix}": (
+            {"i": 1.0, constant: value, **amounts, **({"normal_point": normal} if point else {})},
+            formula,
+            units,
+        )
+        for op, constant, value, normal in (
+            ("freezing_depression", "kf", 1.86, 273.15),
+            ("boiling_elevation", "kb", 0.512, 373.15),
+        )
+        for point in ("", "_point")
+        for suffix, amounts, formula, units in (
+            ("", {"molality": 0.5}, None, {}),
+            ("_moles", {"moles": 2.0, "solvent_mass": 1.0}, None, {"solvent_mass": "kg"}),
+            (
+                "_mass",
+                {"solute_mass": 10.0, "molar_mass": 58.44, "solvent_mass": 250.0},
+                "NaCl",
+                {"solvent_mass": "g"},
+            ),
+        )
+        if point or suffix
+    },
+    "reaction_heat_mass": ({"mass": 32.0, "molar_mass": 16.043, "enthalpy": -890.0}, "CH4", {}),
+    "molarity": ({"moles": 0.25, "volume_l": 0.75}, None, {}),
+    "solution_mass_mg": (
+        {"concentration": 0.2, "volume_l": 0.015, "molar_mass": 74.55},
+        "KCl",
+        {"answer": "mg"},
+    ),
     "osmotic_pressure": ({"i": 1.0, "molarity": 0.1, "temperature": 298.15}, None, {}),
     "mass_to_moles": ({"mass": 36.0}, "H2O", {"mass": "g"}),
     "moles_to_mass": ({"moles": 2.5}, "CO2", {"moles": "mol"}),

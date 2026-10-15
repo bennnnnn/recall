@@ -14,10 +14,13 @@ from __future__ import annotations
 
 from app.modules.chemistry.formula_bindings import FORMULA_LAW_BINDINGS
 from app.modules.chemistry.law_record import (
+    _ELECTROLYSIS_CUES,
     _MOLAL,
     _MOLAR,
     _PER_SECOND,
     _PH_ASKS,
+    _SOLUTE_WORDS,
+    _SOLVENT_WORDS,
     ChemistryLaw,
     _law,
 )
@@ -148,6 +151,128 @@ ACID_BASE: tuple[ChemistryLaw, ...] = (
     ),
 )
 
+
+def _van_t_hoff() -> VariableSpec:
+    return var(
+        "i",
+        "i",
+        dimensionless=True,
+        words=("i =", "van 't hoff", "van't hoff"),
+        needs_words=True,
+        fallback="van_t_hoff",
+    )
+
+
+# How a colligative question states the solute's amount: as a molality, as moles in a mass of
+# solvent, or as grams of a named solute (its molar mass from the table) in a mass of solvent.
+# The solvent mass is passed as typed; the solver shows it in kilograms.
+_SOLVENT_MASS = var("solvent_mass", "m(solvent)", "gram", words=_SOLVENT_WORDS)
+_COLLIGATIVE_AMOUNTS: tuple[tuple[str, tuple[VariableSpec, ...]], ...] = (
+    ("", (var("molality", "m", _MOLAL),)),
+    ("_moles", (var("moles", "n", "mole"), _SOLVENT_MASS)),
+    (
+        "_mass",
+        (
+            var("solute_mass", "m(solute)", "gram", words=_SOLUTE_WORDS, needs_words=True),
+            var("molar_mass", "M", "gram / mole", fallback="species_molar_mass"),
+            var("solvent_mass", "m(solvent)", "gram", words=_SOLVENT_WORDS, needs_words=True),
+        ),
+    ),
+)
+
+
+def _colligative(
+    op: str,
+    constant: str,
+    point: str,
+    change_asks: tuple[str, ...],
+    change_words: tuple[str, ...],
+) -> tuple[ChemistryLaw, ...]:
+    """ΔT = iKm for each way the amount is stated, asked as the change or as the new point.
+
+    "The boiling point elevation" is ΔTb. "The boiling point" of a solution is the solvent's
+    normal boiling point plus ΔTb: water's is a setting, another solvent's must be stated. A
+    question that asks how much the point changes is never read as the new point.
+    """
+    symbol = constant.capitalize()
+    laws: list[ChemistryLaw] = []
+    for suffix, amount in _COLLIGATIVE_AMOUNTS:
+        given = (_van_t_hoff(), var(constant, symbol, "kelvin * kilogram / mole"), *amount)
+        keep = ("solvent_mass",) if suffix else ()
+        # A solute weighed in grams is one named solute: its molar mass and its formula.
+        solute = "solute" if suffix == "_mass" else None
+        laws.append(
+            _law(
+                op,
+                "solutions",
+                change_asks,
+                "kelvin",
+                given,
+                name=f"{op}{suffix}",
+                keep_units=keep,
+                species=solute,
+            )
+        )
+        verb = "boils" if point == "boiling" else "freezes"
+        normal = var(
+            "normal_point",
+            f"normal {point} point",
+            "kelvin",
+            words=(f"normal {point} point", "pure", f"{verb} at"),
+            needs_words=True,
+            fallback=f"solvent_{point}_point",
+        )
+        laws.append(
+            _law(
+                f"solution_{point}_point",
+                "solutions",
+                (f"{point} point", f"new {point} point"),
+                "kelvin",
+                (*given, normal),
+                name=f"{op}_point{suffix}",
+                excludes=change_words,
+                keep_units=keep,
+                species=solute,
+            )
+        )
+    return tuple(laws)
+
+
+_COLLIGATIVE: tuple[ChemistryLaw, ...] = (
+    *_colligative(
+        "freezing_depression",
+        "kf",
+        "freezing",
+        (
+            "freezing point depression",
+            "depression",
+            "freezing point decrease",
+            "freezing point drop",
+            "freezing point fall",
+            "freezing point change",
+            "change in freezing point",
+            "change in the freezing point",
+        ),
+        ("depress", "lower", "decreas", "drop", "fall", "change", "how much", "differ"),
+    ),
+    *_colligative(
+        "boiling_elevation",
+        "kb",
+        "boiling",
+        (
+            "boiling point elevation",
+            "elevation",
+            "boiling point increase",
+            "boiling point rise",
+            "boiling point change",
+            "change in boiling point",
+            "change in the boiling point",
+        ),
+        ("elevat", "rais", "increas", "rise", "change", "how much", "differ", "higher"),
+    ),
+)
+
+
 SOLUTIONS: tuple[ChemistryLaw, ...] = (
     _law(
         "dilution",
@@ -163,42 +288,16 @@ SOLUTIONS: tuple[ChemistryLaw, ...] = (
         interchangeable=("v1", "v2"),
         keep_units=("v1", "v2"),
     ),
+    # "What is the molarity of 0.25 mol of KCl in 750 mL of solution?"
     _law(
-        "freezing_depression",
+        "molarity",
         "solutions",
-        ("freezing point depression", "freezing point", "depression"),
-        "kelvin",
-        (
-            var(
-                "i",
-                "i",
-                dimensionless=True,
-                words=("i =", "van 't hoff", "van't hoff"),
-                needs_words=True,
-                fallback="van_t_hoff",
-            ),
-            var("kf", "Kf", "kelvin * kilogram / mole"),
-            var("molality", "m", _MOLAL),
-        ),
+        ("molarity", "molar concentration", "concentration"),
+        _MOLAR,
+        (var("moles", "n", "mole"), var("volume_l", "V", "liter")),
+        excludes=("dilut",),
     ),
-    _law(
-        "boiling_elevation",
-        "solutions",
-        ("boiling point elevation", "boiling point", "elevation"),
-        "kelvin",
-        (
-            var(
-                "i",
-                "i",
-                dimensionless=True,
-                words=("i =", "van 't hoff", "van't hoff"),
-                needs_words=True,
-                fallback="van_t_hoff",
-            ),
-            var("kb", "Kb", "kelvin * kilogram / mole"),
-            var("molality", "m", _MOLAL),
-        ),
-    ),
+    *_COLLIGATIVE,
     _law(
         "osmotic_pressure",
         "solutions",
@@ -333,7 +432,7 @@ ELECTROCHEMISTRY: tuple[ChemistryLaw, ...] = (
                 fallback="ion_charge",
             ),
         ),
-        cues=("deposit", "electrolysis", "plated", "plating"),
+        cues=_ELECTROLYSIS_CUES,
     ),
 )
 

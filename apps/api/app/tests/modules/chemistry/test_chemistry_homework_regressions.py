@@ -1,4 +1,4 @@
-# ruff: noqa: RUF002 -- questions are typed with Unicode sub/superscripts.
+# ruff: noqa: RUF002, RUF003 -- questions are typed with Unicode sub/superscripts and ×.
 """Homework questions that used to get a wrong verified chemistry answer.
 
 Each family is a cause, not one prompt:
@@ -243,16 +243,17 @@ def test_d_a_ka_question_is_never_maths(question: str) -> None:
 
 
 @pytest.mark.parametrize(
-    ("question", "expected"),
+    ("question", "expected", "rel"),
     [
-        ("whats the ph of 0.10 M acetic acid, Ka = 1.8 x 10^-5", 2.875),
-        ("Find the pH of 0.10 M CH₃COOH, Ka = 1.8 x 10^-5", 2.875),
-        ("Ka = 1.8 x 10^-5. find the pH of 0.10 M CH₃COOH", 2.875),
-        ("percent ionization of 0.10 M acetic acid, Ka = 1.8 x 10^-5", 1.333),
+        ("whats the ph of 0.10 M acetic acid, Ka = 1.8 x 10^-5", 2.875, 0.01),
+        ("Find the pH of 0.10 M CH₃COOH, Ka = 1.8 x 10^-5", 2.875, 0.01),
+        ("Ka = 1.8 x 10^-5. find the pH of 0.10 M CH₃COOH", 2.875, 0.01),
+        # 1.333% to the two figures of 0.10 M and 1.8 × 10^-5 is 1.3%.
+        ("percent ionization of 0.10 M acetic acid, Ka = 1.8 x 10^-5", 1.333, 0.03),
     ],
 )
-def test_d_a_ka_question_is_right_or_unverified(question: str, expected: float) -> None:
-    _right_or_declined(question, expected)
+def test_d_a_ka_question_is_right_or_unverified(question: str, expected: float, rel: float) -> None:
+    _right_or_declined(question, expected, rel)
 
 
 @pytest.mark.parametrize(

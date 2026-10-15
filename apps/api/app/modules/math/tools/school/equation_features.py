@@ -34,6 +34,9 @@ FEATURE_OPS = frozenset(
         "equation_slope_intercept",
         "equation_line_through",
         "equation_parameter",
+        "equation_period",
+        "equation_amplitude",
+        "equation_solution_count",
     }
 )
 
@@ -57,6 +60,17 @@ _FEATURES: tuple[tuple[str, re.Pattern[str]], ...] = (
     ),
     ("line_through", re.compile(r"\b(?P<relation>parallel|perpendicular)\s+to\b", re.I)),
     ("slope", re.compile(r"\b(?:the\s+)?(?:slope|gradient)\b", re.I)),
+    ("period", re.compile(r"\b(?:the\s+)?period\b", re.I)),
+    ("amplitude", re.compile(r"\b(?:the\s+)?amplitude\b", re.I)),
+    # "how many real roots does x^2 + 2x + 5 = 0 have"
+    (
+        "solution_count",
+        re.compile(
+            r"\bhow\s+many\s+(?P<real>real\s+)?(?:solutions?|roots?|zeros?|zeroes?)\s+"
+            r"(?:does|do|will)\b",
+            re.I,
+        ),
+    ),
 )
 
 # "find k so that x^2 + kx + 9 = 0 has exactly one solution".
@@ -146,6 +160,8 @@ _FRAME_WORDS = frozenset(
         "and",
         "at",
         "containing",
+        "have",
+        "has",
     }
 )
 
@@ -176,6 +192,10 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
         if len(points) != 1:
             return None
         point = (float(points[0][0]), float(points[0][1]))
+    elif op in {"period", "amplitude"}:
+        # "sin(2x)" opens a bracket with a digit; only a written point is extra.
+        if _POINT.search(body):
+            return None
     elif _NUMBERED_POINT.search(body):
         return None
     sides = _one_equation(body, op)
@@ -191,7 +211,11 @@ def extract_equation_feature_intent(cleaned: str) -> MathIntent | None:
         rhs=rhs,
         point_x=point[0] if point else None,
         point_y=point[1] if point else None,
-        trial_outcome=match.group("relation").lower() if op == "line_through" else None,
+        trial_outcome=(
+            match.group("relation").lower()
+            if op == "line_through"
+            else ("real" if op == "solution_count" and match.group("real") else None)
+        ),
         operation="solve",
     )
 
@@ -738,6 +762,126 @@ def _parameter(intent: MathIntent) -> _Solved | None:
     return workout, answer, [f"Discriminant {_tex(discriminant)} {symbol} 0: {answer}"]
 
 
+def _sinusoid(intent: MathIntent) -> tuple[Any, Any, Any, Any] | None:
+    """``y = A sin(Bx + C) + D`` (or cos, tan) as (A, B, the function, F), checked exactly."""
+    from sympy import Wild, cos, simplify, sin, tan
+
+    (x,) = _symbols("x")
+    expression = _explicit(intent)
+    if expression is None or x not in expression.free_symbols:
+        return None
+    amplitude, frequency = Wild("A", exclude=[x]), Wild("B", exclude=[x])
+    phase, shift = Wild("C", exclude=[x]), Wild("D", exclude=[x])
+    for function in (sin, cos, tan):
+        found = expression.match(amplitude * function(frequency * x + phase) + shift)
+        if not found:
+            continue
+        a, b = found[amplitude], found[frequency]
+        c, d = found.get(phase, 0), found.get(shift, 0)
+        if not all(value.is_number and value.is_real for value in (a, b, c, d)):
+            return None
+        if a == 0 or b == 0:
+            return None
+        if simplify(expression - (a * function(b * x + c) + d)) != 0:
+            return None
+        return a, b, function, expression
+    return None
+
+
+def _period(intent: MathIntent) -> _Solved | None:
+    from sympy import Abs, pi, tan
+
+    found = _sinusoid(intent)
+    if found is None:
+        return None
+    _a, b, function, expression = found
+    base = pi if function is tan else 2 * pi
+    period = base / Abs(b)
+    answer = _tex(period)
+    rule = r"\frac{\pi}{|B|}" if function is tan else r"\frac{2\pi}{|B|}"
+    workout = Workout(
+        given=(math_line(f"y = {_tex(expression)}"),),
+        find=(math_line("T", "period"),),
+        formula=(math_line(rf"T = {rule}", f"period of {function.__name__}(Bx + C)"),),
+        substitution=(math_line(rf"T = \frac{{{_tex(base)}}}{{{_tex(Abs(b))}}} = {answer}"),),
+    )
+    return workout, answer, [f"Period: {period}"]
+
+
+def _amplitude(intent: MathIntent) -> _Solved | None:
+    from sympy import Abs, tan
+
+    found = _sinusoid(intent)
+    if found is None or found[2] is tan:
+        # A tangent has no amplitude.
+        return None
+    a, _b, function, expression = found
+    answer = _tex(Abs(a))
+    workout = Workout(
+        given=(math_line(f"y = {_tex(expression)}"),),
+        find=(math_line("A", "amplitude"),),
+        formula=(math_line("|A|", f"amplitude of A {function.__name__}(Bx + C) + D"),),
+        substitution=(math_line(rf"|{_tex(a)}| = {answer}"),),
+    )
+    return workout, answer, [f"Amplitude: {Abs(a)}"]
+
+
+_MAX_COUNT_DEGREE = 4
+
+
+def _solution_count(intent: MathIntent) -> _Solved | None:
+    """How many solutions one polynomial equation in x has.
+
+    Without "real", the count must be the same over the reals and the complex
+    numbers (``x^2 + 1 = 0`` has none or two, so it is declined).
+    """
+    from sympy import Poly, S, solveset
+
+    (x,) = _symbols("x")
+    lhs, rhs = _sides(intent, ["x"])
+    expression = lhs - rhs
+    if not expression.free_symbols <= {x}:
+        return None
+    poly = Poly(expression, x)
+    if poly.degree() > _MAX_COUNT_DEGREE:
+        return None
+    real = intent.trial_outcome == "real"
+    reals = solveset(expression, x, domain=S.Reals)
+    complexes = solveset(expression, x, domain=S.Complexes)
+    if reals == S.Reals:
+        if not real and complexes != S.Complexes:
+            return None
+        answer = r"\text{infinitely many}"
+        working = r"\text{true for every } x"
+    else:
+        if not hasattr(reals, "__len__") or not hasattr(complexes, "__len__"):
+            return None
+        if not real and len(reals) != len(complexes):
+            return None
+        answer = str(len(reals))
+        listed = r"\varnothing" if not len(reals) else _tex(reals)
+        working = rf"\text{{{'real ' if real else ''}solutions: }} {listed}"
+    rows: list[str] = []
+    if rhs != 0 or lhs != poly.as_expr():
+        constant = poly.degree() == 0 and poly.as_expr() != 0
+        note = "never true, whatever x is" if constant else "everything on one side"
+        rows.append(math_line(f"{_tex(poly.as_expr())} = 0", note))
+    if poly.degree() == 2:
+        a, b, c = poly.all_coeffs()
+        discriminant = b**2 - 4 * a * c
+        sign = ">" if discriminant > 0 else ("=" if discriminant == 0 else "<")
+        rows.append(
+            math_line(rf"\Delta = b^2 - 4ac = {_num(discriminant)} {sign} 0", "discriminant")
+        )
+    rows.append(math_line(working))
+    workout = Workout(
+        given=(math_line(f"{_tex(lhs)} = {_tex(rhs)}"),),
+        find=(math_line(r"\text{number of " + ("real " if real else "") + "solutions}"),),
+        steps=tuple(rows),
+    )
+    return workout, answer, [f"Number of solutions: {answer}"]
+
+
 _SOLVERS = {
     "vertex": _vertex,
     "axis": _axis,
@@ -750,4 +894,7 @@ _SOLVERS = {
     "slope_intercept": _slope_intercept,
     "line_through": _line_through,
     "parameter": _parameter,
+    "period": _period,
+    "amplitude": _amplitude,
+    "solution_count": _solution_count,
 }

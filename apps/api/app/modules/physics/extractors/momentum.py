@@ -14,6 +14,7 @@ from app.modules.physics.extractors.common import (
 from app.modules.physics.extractors.cues import (
     _has_cue,
 )
+from app.modules.physics.givens import Given, scan_givens
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
@@ -34,6 +35,20 @@ _MOMENTUM_CUE_RES: tuple[re.Pattern[str], ...] = (
         r"(?=.*\d\s*(?:kg|g|grams?|m/s|km/h|mph|cm/s|N|newtons?|N\s*[·*]?\s*s)(?![A-Za-z0-9/]))",
         re.IGNORECASE | re.DOTALL,
     ),
+    # A bullet that embeds, a car that rear-ends another: a collision only
+    # beside a speed. "Someone rear-ended my 1500 kg car" is an insurance claim.
+    re.compile(
+        r"\A(?=.*\b(?:embed(?:s|ded)?|lodge[sd]?|rear[- ]ends?|lock(?:s|ed)?\s+bumpers)\b)"
+        r"(?=.*\d\s*(?:m/s|km/h|mph|cm/s)(?![A-Za-z0-9/]))",
+        re.IGNORECASE | re.DOTALL,
+    ),
+    # A body at rest that bursts into pieces of stated mass.
+    re.compile(
+        r"\A(?=.*\b(?:explodes?|exploded|breaks?\s+apart|splits?\s+into|blows?\s+apart)\b)"
+        r"(?=.*\b(?:at\s+rest|stationary|from\s+rest)\b)"
+        r"(?=.*\d\s*(?:kg|g|grams?)(?![A-Za-z0-9/]))(?=.*\d\s*(?:m/s|km/h)(?![A-Za-z0-9/]))",
+        re.IGNORECASE | re.DOTALL,
+    ),
 )
 
 _LANDING_TARGET = r"ground|floor|water|sea|surface|deck|earth|soil|sand|roof"
@@ -46,7 +61,9 @@ _COLLISION_SUBJECT_RE = re.compile(
     # stroke, not two bodies meeting.
     rf"|(?<!\bis )(?<!\bwas )(?<!\bgets )\bhits?\b(?!\s+the\s+(?:{_LANDING_TARGET})\b)"
     rf"|(?<!\bis )(?<!\bwas )\bstrikes?\b(?!\s+the\s+(?:{_LANDING_TARGET})\b)"
-    r"|sticks? together|stuck together",
+    r"|sticks? together|stuck together"
+    r"|\bembed(?:s|ded)?\b|\blodge[sd]?\b|\brear[- ]ends?\b"
+    r"|\b(?:crash(?:es|ed)?|slams?|slammed|runs?|ran)\s+into\b",
     re.IGNORECASE,
 )
 
@@ -62,6 +79,7 @@ _ELASTIC_RE = re.compile(r"\belastic")
 _INELASTIC_RE = re.compile(
     r"\binelastic|sticks? together|stuck together|\b(?:sticks?|stuck|sticking)\s+to\b|"
     r"\bcoupled?\b|\bembed(?:s|ded)?\b|\block(?:s|ed)? together\b"
+    r"|\block(?:s|ed)?\s+bumpers\b|\blodge[sd]?\b|\bmoves?\s+off\s+together\b"
 )
 
 _MOMENTUM_TIME_UNITS = r"milliseconds?|ms|seconds?|secs?|sec|s|minutes?|mins?|min|hours?|hrs?|hr|h"
@@ -76,12 +94,97 @@ _REVERSAL_RE = re.compile(
 )
 
 
+_EXPLODES_RE = re.compile(
+    r"\b(?:explodes?|exploded|bursts?|blows?\s+apart|flies\s+apart"
+    r"|(?:breaks?|splits?)\s+(?:apart|up|in\s+two|into))\b",
+    re.IGNORECASE,
+)
+_STARTS_AT_REST_RE = re.compile(
+    r"\bat rest\b|\bstationary\b|\binitially still\b|\bfrom rest\b", re.IGNORECASE
+)
+_MASS_DIMENSION = "[mass]^1"
+_SPEED_DIMENSION = "[length]^1 * [time]^-1"
+_SENTENCE_BREAK_RE = re.compile(r"[.?!;](?:\s|$)")
+
+
+def _same_mass(left: Given, right: Given) -> bool:
+    return left.si is not None and right.si is not None and abs(left.si - right.si) < 1e-12
+
+
+def _sentence_start(text: str, at: int) -> int:
+    return max((match.end() for match in _SENTENCE_BREAK_RE.finditer(text, 0, at)), default=0)
+
+
+def _explosion_intent(cleaned: str) -> PhysicsIntent | None:
+    """A body at rest bursts into two pieces; one piece's speed gives the other's.
+
+    "A 6 kg shell at rest explodes into two pieces, 2 kg and 4 kg. The 2 kg
+    piece flies off at 30 m/s": the moving piece is the mass written just
+    before the speed, and the other piece is the other mass the shell breaks
+    into. The pieces are the two masses after the burst; a stated whole must
+    be their sum. Any other mass, a second speed, or a moving piece that is
+    neither declines.
+    """
+    burst = _EXPLODES_RE.search(cleaned)
+    if burst is None or not _STARTS_AT_REST_RE.search(cleaned, 0, burst.start()):
+        return None
+    from app.modules.physics.ask import ask_clause
+
+    clause = ask_clause(cleaned)
+    ask_start = cleaned.rfind(clause) if clause else len(cleaned)
+    givens = [given for given in scan_givens(cleaned) if given.dimension is not None]
+    masses = [given for given in givens if given.dimension == _MASS_DIMENSION]
+    speeds = [given for given in givens if given.dimension == _SPEED_DIMENSION]
+    if len(speeds) != 1 or len(givens) != len(masses) + 1 or speeds[0].start > ask_start:
+        return None
+    before = [mass for mass in masses if mass.start < burst.start()]
+    after = [mass for mass in masses if mass.start > burst.end()]
+    if len(before) > 1 or len(before) + len(after) != len(masses):
+        return None
+    burst_end = _SENTENCE_BREAK_RE.search(cleaned, burst.end())
+    pieces = [mass for mass in after if burst_end is None or mass.start < burst_end.start()]
+    if len(pieces) != 2:
+        return None
+    speed = speeds[0]
+    named = [
+        mass for mass in after if _sentence_start(cleaned, speed.start) <= mass.start < speed.start
+    ]
+    moving_piece = named[-1] if named else None
+    if moving_piece is None or not any(_same_mass(moving_piece, piece) for piece in pieces):
+        return None
+    moving = next(piece for piece in pieces if _same_mass(moving_piece, piece))
+    other = next(piece for piece in pieces if piece is not moving)
+    for mass in after:
+        if mass is moving_piece or mass in pieces:
+            continue
+        # A later mention names a piece; in the ask it must be the other one.
+        if mass.start >= ask_start:
+            if not _same_mass(mass, other) or _same_mass(mass, moving):
+                return None
+        elif not (_same_mass(mass, moving) or _same_mass(mass, other)):
+            return None
+    params = {"m_moving": moving.value, "m_other": other.value, "v_moving": speed.value}
+    units = {"m_moving": moving.unit, "m_other": other.unit, "v_moving": speed.unit}
+    if before:
+        params["m_total"] = before[0].value
+        units["m_total"] = before[0].unit
+    return PhysicsIntent(
+        kind="momentum",
+        physics_op="explosion_speed",
+        physics_params=params,
+        physics_units=units,
+        operation="solve",
+    )
+
+
 def _extract_momentum_intent(cleaned: str) -> PhysicsIntent | None:
     lower = cleaned.lower()
     if not _has_cue(lower, _MOMENTUM_CUES, _MOMENTUM_CUE_RES):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
         return None
+    if _EXPLODES_RE.search(cleaned):
+        return _explosion_intent(cleaned)
 
     masses = _ordered_values(cleaned, _MASS_UNITS)
     velocities = _ordered_values(cleaned, _VELOCITY_UNIT_PATTERN)

@@ -11,6 +11,7 @@ from app.modules.physics.extractors.common import (
     _find_value_with_specific_unit,
 )
 from app.modules.physics.extractors.fluid_readings import _PRESSURE_PATTERN, FluidReading
+from app.modules.physics.givens import scan_givens
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.law_binding.ask import ask_clause
 
@@ -152,8 +153,53 @@ def _known_force_on_large(f: FluidReading) -> bool | None:
     return None
 
 
+def two_diameters(cleaned: str) -> list[tuple[float, str]] | None:
+    """The two diameters a question states: "a diameter of 2 cm and the big one 20 cm".
+
+    Only when "diameter" is said, "radius" is not, and exactly two lengths
+    are written.
+    """
+    lower = cleaned.lower()
+    if "diameter" not in lower or "radius" in lower or "radii" in lower:
+        return None
+    lengths = [
+        (given.value, given.unit)
+        for given in scan_givens(cleaned)
+        if given.dimension == "[length]^1"
+    ]
+    return lengths if len(lengths) == 2 else None
+
+
+def _hydraulic_diameters(f: FluidReading) -> PhysicsIntent | None:
+    """Pascal's principle with pistons given by diameter; the force side as for areas."""
+    diameters = two_diameters(f.cleaned)
+    on_large = _known_force_on_large(f)
+    if f.force is None or diameters is None or on_large is None:
+        return None
+    small, large = sorted(diameters, key=lambda diameter: _in_metres(diameter))
+    if _in_metres(small) == _in_metres(large):
+        return None
+    known, other = (large, small) if on_large else (small, large)
+    return PhysicsIntent(
+        kind="fluids",
+        physics_op="hydraulic_force",
+        physics_params={"F1": f.force[0], "d1": known[0], "d2": other[0]},
+        physics_units={"F1": f.force[1] or "N", "d1": known[1], "d2": other[1]},
+        operation="solve",
+    )
+
+
+def _in_metres(length: tuple[float, str]) -> float:
+    from app.modules.physics.givens import unit_dimension, unit_expression
+
+    reading = unit_dimension(unit_expression(length[1]) or "")
+    return length[0] if reading is None else length[0] * reading[1]
+
+
 def _hydraulic(f: FluidReading) -> PhysicsIntent | None:
     """Pascal's principle: F1/A1 = F2/A2, with F1 the stated force on area A1."""
+    if f.force is not None and not f.areas:
+        return _hydraulic_diameters(f)
     if f.force is None or len(f.areas) != 2:
         return None
     first, second = f.areas
@@ -242,6 +288,68 @@ def _bernoulli(f: FluidReading) -> PhysicsIntent | None:
             "v1": f.speed[0][1] or "m/s",
             "v2": f.speed[1][1] or "m/s",
         },
+        operation="solve",
+    )
+
+
+# A pipe that changes size: the section stated first, and the one it changes to.
+_CHANGES_RE = re.compile(
+    r"\b(?P<verb>narrow(?:s|ing|ed)?|widen(?:s|ing|ed)?|taper(?:s|ing|ed)?|expand(?:s|ing|ed)?)"
+    r"\b(?:\s+(?:down|out))?(?:\s+from\b[^.?!;]{0,40}?)?\s+to\b",
+    re.IGNORECASE,
+)
+_NARROW_WORDS = re.compile(
+    r"\b(?:narrow(?:er)?|small(?:er)?|constriction|nozzle|throat|thin(?:ner)?)\b", re.IGNORECASE
+)
+_WIDE_WORDS = re.compile(r"\b(?:wide(?:r)?|large(?:r)?|big(?:ger)?|broad(?:er)?)\b", re.IGNORECASE)
+
+
+def pipe_sections(f: FluidReading) -> PhysicsIntent | None:
+    """Continuity through a pipe given by diameter: v₂ = v₁(d₁/d₂)².
+
+    "Water flows at 2 m/s in a pipe of diameter 4 cm, which narrows to 2 cm":
+    the size after "narrows to" is the second section, the other size the
+    first, and the speed is the first section's. The ask must name the second
+    section ("in the narrow part"), and a speed stated for the second section
+    is not the first's: either way round, the question is not this reading.
+    """
+    change = _CHANGES_RE.search(f.cleaned)
+    diameters = two_diameters(f.cleaned)
+    clause = ask_clause(f.cleaned)
+    if change is None or diameters is None or clause is None or len(f.speed) != 1:
+        return None
+    if len(_CHANGES_RE.findall(f.cleaned)) != 1:
+        return None
+    narrows = change.group("verb").lower().startswith(("narrow", "taper"))
+    second_words, first_words = (
+        (_NARROW_WORDS, _WIDE_WORDS) if narrows else (_WIDE_WORDS, _NARROW_WORDS)
+    )
+    if not second_words.search(clause) or first_words.search(clause):
+        return None
+    ask_start = f.cleaned.rfind(clause)
+    givens = scan_givens(f.cleaned)
+    lengths = [given for given in givens if given.dimension == "[length]^1"]
+    speeds = [given for given in givens if given.dimension == "[length]^1 * [time]^-1"]
+    second_at = [given for given in lengths if change.end() <= given.start < ask_start]
+    if len(lengths) != 2 or len(second_at) != 1 or len(speeds) != 1:
+        return None
+    second = second_at[0]
+    first = lengths[0] if lengths[1] is second else lengths[1]
+    if second.si is None or first.si is None or (second.si < first.si) != narrows:
+        return None
+    speed = speeds[0]
+    sentence_start = max(
+        (found.end() for found in re.finditer(r"[.?!;](?:\s|$)", f.cleaned[: speed.start])),
+        default=0,
+    )
+    # The speed is the first section's: never one stated for the second.
+    if speed.start >= ask_start or second_words.search(f.cleaned, sentence_start, speed.start):
+        return None
+    return PhysicsIntent(
+        kind="fluids",
+        physics_op="continuity_velocity",
+        physics_params={"v": speed.value, "d1": first.value, "d2": second.value},
+        physics_units={"v": speed.unit, "d1": first.unit, "d2": second.unit},
         operation="solve",
     )
 

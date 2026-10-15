@@ -46,6 +46,32 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("freq", "f", "hertz"),
             var("wavelength", r"\lambda", "meter"),
         ),
+        # "the energy of a 1.2 µm infrared photon": a photon named by its
+        # wavelength, without the word. The solver gives J and again eV.
+        binding=Binding(
+            asks=(
+                "energy of the photon",
+                "energy of a photon",
+                "energy of each photon",
+                "photon energy",
+                "energy",
+            ),
+            result=("joule", "joule"),
+            inputs=(frozenset({"wavelength"}), frozenset({"freq"})),
+            cues=("photon",),
+            excludes=(
+                "momentum",
+                "work function",
+                "photoelectr",
+                "kinetic",
+                "stopping",
+                "threshold",
+                "photons",
+                "per second",
+                "power",
+            ),
+            nonnegative=True,
+        ),
     ),
     formula(
         "de_broglie_wavelength",
@@ -75,6 +101,28 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("proper_time", r"\Delta t_0", "second"),
             var("v", "v", "meter / second"),
         ),
+        # "A muon at 0.98c lives 2.2 µs at rest: its lifetime in the lab?" A
+        # speed written onto c names light's speed, the cue relativity reads.
+        binding=Binding(
+            asks=(
+                "lifetime measured",
+                "lifetime in the lab",
+                "lifetime as measured",
+                "measured lifetime",
+                "observed lifetime",
+                "lifetime observed",
+                "dilated lifetime",
+                "dilated time",
+                "time measured",
+                "time in the lab",
+                "lifetime",
+            ),
+            result=("second",),
+            inputs=(frozenset({"proper_time", "v"}),),
+            cues=("speed of light",),
+            excludes=("half-life", "half life", "length", "contract"),
+            nonnegative=True,
+        ),
     ),
     formula(
         "length_contraction",
@@ -99,7 +147,14 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("work_function", r"\phi", "joule"),
         ),
         binding=Binding(
-            asks=("maximum kinetic energy", "kinetic energy", "energy of the photoelectrons"),
+            asks=(
+                "maximum kinetic energy",
+                "max kinetic energy",
+                "maximum ke",
+                "max ke",
+                "kinetic energy",
+                "energy of the photoelectrons",
+            ),
             result=("joule",),
             inputs=(frozenset({"wavelength", "work_function"}),),
             cues=("work function",),
@@ -119,7 +174,14 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         # The solver gives the energy in J and again in eV.
         binding=Binding(
-            asks=("maximum kinetic energy", "kinetic energy", "energy of the photoelectrons"),
+            asks=(
+                "maximum kinetic energy",
+                "max kinetic energy",
+                "maximum ke",
+                "max ke",
+                "kinetic energy",
+                "energy of the photoelectrons",
+            ),
             result=("joule", "joule"),
             inputs=(frozenset({"freq", "work_function"}),),
             cues=("work function",),
@@ -243,6 +305,11 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "e=mc",
                 "rest energy",
                 "equivalent",
+                # "0.003 u of mass is lost": the mass a reaction gives up.
+                "mass is lost",
+                "mass lost",
+                "mass defect",
+                "loses mass",
             ),
             nonnegative=True,
         ),
