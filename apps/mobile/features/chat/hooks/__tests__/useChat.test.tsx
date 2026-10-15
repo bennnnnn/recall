@@ -1,5 +1,5 @@
 import React from "react";
-import { AccessibilityInfo } from "react-native";
+import { AccessibilityInfo, AppState } from "react-native";
 import { act, cleanup, render } from "@testing-library/react-native";
 import { useChat } from "@/features/chat/hooks/useChat";
 import { streamChatMessageSse, streamChatRegenerateSse } from "@/features/chat/model/sse";
@@ -859,4 +859,82 @@ describe("useChat transport lifecycle", () => {
     expect(announce).toHaveBeenCalledWith("chat.reply_ready");
   });
 
+});
+
+describe("useChat socket while the app is in the background", () => {
+  const originalSocket = global.WebSocket;
+  const addListener = AppState.addEventListener as unknown as jest.Mock;
+  const defaultAddListener = addListener.getMockImplementation();
+  const appStateHandlers = new Set<(state: string) => void>();
+  const setAppState = async (state: string) => {
+    await act(async () => {
+      for (const handler of [...appStateHandlers]) handler(state);
+    });
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+    jest.clearAllMocks();
+    FakeSocket.instances = [];
+    mockSessionGeneration = 0;
+    global.WebSocket = FakeSocket as unknown as typeof WebSocket;
+    resetStreamingDraftStore();
+    appStateHandlers.clear();
+    addListener.mockImplementation((event: string, handler: (state: string) => void) => {
+      if (event !== "change") return { remove: jest.fn() };
+      appStateHandlers.add(handler);
+      return { remove: () => appStateHandlers.delete(handler) };
+    });
+  });
+  afterEach(async () => {
+    await cleanup();
+    jest.clearAllTimers();
+    jest.useRealTimers();
+    global.WebSocket = originalSocket;
+    addListener.mockImplementation(defaultAddListener);
+  });
+
+  it("closes an idle chat socket in the background and reopens it on return", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    // An idle socket left open only answers the server's keepalive pings,
+    // which wakes the radio every 20 seconds for as long as the app lives.
+    await setAppState("inactive");
+    expect(socket.close).not.toHaveBeenCalled();
+    await setAppState("background");
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    expect(FakeSocket.instances).toHaveLength(1);
+
+    await setAppState("active");
+    expect(FakeSocket.instances).toHaveLength(2);
+    const reopened = FakeSocket.instances[1];
+    expect(reopened.url).toBe("wss://test/a");
+    await act(async () => { reopened.open(); });
+    await sendAndStream(reopened, "after resume");
+    expect(reopened.send).toHaveBeenCalledWith(expect.stringContaining("\"type\":\"message\""));
+    expect(streamChatMessageSse).not.toHaveBeenCalled();
+  });
+
+  it("lets a reply in flight finish before releasing the socket", async () => {
+    await render(<Probe chatId="a" />);
+    const socket = await openSocket();
+    await sendAndStream(socket, "partial");
+    await setAppState("background");
+    expect(socket.close).not.toHaveBeenCalled();
+    await act(async () => {
+      socket.emit({ type: "token", content: " more" });
+      socket.emit({ type: "done", message_id: "saved", final_content: "partial more" });
+    });
+    expect(current.streaming).toBe(false);
+    expect(current.messages.some((message) => message.content === "partial more")).toBe(true);
+    expect(socket.close).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it("does not open a second socket when the first was never released", async () => {
+    await render(<Probe chatId="a" />);
+    await openSocket();
+    await setAppState("active");
+    expect(FakeSocket.instances).toHaveLength(1);
+  });
 });

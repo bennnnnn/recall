@@ -85,6 +85,11 @@ export class ChatWsTransport {
     return this.preferSse;
   }
 
+  /** A message or regenerate frame is still waiting for its done or error. */
+  isTurnActive(): boolean {
+    return this.turnActive;
+  }
+
   connect(): Promise<void> {
     if (this.closed || this.preferSse || this.isOpen()) {
       return Promise.resolve();
