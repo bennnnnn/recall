@@ -8,8 +8,10 @@ from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.common_chem import (
     const,
+    given_row,
     inp,
     num,
+    used,
     verified,
 )
 from app.modules.chemistry.solvers.constants import GAS_R
@@ -175,11 +177,11 @@ def solve_kc_kp(intent: ChemistryIntent) -> ChemistryResult:
         raise SolveServiceError("give Kc or Kp, not both")
     return verified(
         "Verified Kc/Kp conversion",
-        (given, f"T = {inp(temperature)} K", f"Δn = {delta_n}"),
+        (given, given_row("T", temperature, "K", "°C"), f"Δn = {delta_n}"),
         shown.split(" = ", 1)[0],
         *stated("kc_kp"),
         (
-            f"RT = ({const(GAS_R)})({inp(temperature)}) = {num(GAS_R * temperature)} L·atm/mol",
+            f"RT = ({const(GAS_R)})({used(temperature)}) = {num(GAS_R * temperature)} L·atm/mol",
             working,
         ),
         shown,

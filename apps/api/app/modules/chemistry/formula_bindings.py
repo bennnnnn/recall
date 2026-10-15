@@ -6,7 +6,16 @@ with the laws written by hand.
 
 from __future__ import annotations
 
-from app.modules.chemistry.law_record import _MOLAL, _MOLAR, ChemistryLaw, _law
+from app.modules.chemistry.law_record import (
+    _ELECTROLYSIS_CUES,
+    _MILLIGRAM_ASKS,
+    _MOLAL,
+    _MOLAR,
+    _SOLUTE_WORDS,
+    _SOLVENT_WORDS,
+    ChemistryLaw,
+    _law,
+)
 from app.services.law_binding.spec import VariableSpec, var
 
 
@@ -14,13 +23,21 @@ def _concentration() -> VariableSpec:
     return var("concentration", "C", _MOLAR)
 
 
+# STP is 0 °C and 1 atm, the school convention; a pressure or temperature stated beside it
+# has no input left to take it, so the question declines.
+def _stp_pressure() -> VariableSpec:
+    return var("pressure", "P", "atmosphere", implied=(("stp", 1.0),))
+
+
+def _stp_temperature() -> VariableSpec:
+    return var("temperature", "T", "kelvin", implied=(("stp", 273.15),))
+
+
 def _molar_mass() -> VariableSpec:
     """The molar mass of the substance the question names, unless it states one."""
     return var("molar_mass", "M", "gram / mole", fallback="species_molar_mass")
 
 
-_SOLUTE_WORDS = ("compound", "solute", "salt", "sugar")
-_SOLVENT_WORDS = ("water", "solvent")
 _GRAMS_ASKS = ("how many grams", "grams", "mass")
 
 # Laws that are one line of arithmetic (formula_laws), read from a question in its words.
@@ -33,6 +50,17 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         (var("concentration", "c", _MOLAR), var("volume_l", "V", "liter"), _molar_mass()),
         cues=("solution",),
         species="compound",
+    ),
+    _law(
+        "solution_mass",
+        "solutions",
+        _MILLIGRAM_ASKS,
+        "gram",
+        (var("concentration", "c", _MOLAR), var("volume_l", "V", "liter"), _molar_mass()),
+        name="solution_mass_mg",
+        cues=("solution",),
+        species="compound",
+        labels=(("answer", "mg"),),
     ),
     _law(
         "molality_from_mass",
@@ -225,8 +253,8 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         "gases",
         ("density",),
         "gram / liter",
-        (var("pressure", "P", "atmosphere"), _molar_mass(), var("temperature", "T", "kelvin")),
-        cues=("gas",),
+        (_stp_pressure(), _molar_mass(), _stp_temperature()),
+        cues=("gas", "stp"),
         species="compound",
     ),
     _law(
@@ -234,11 +262,7 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         "gases",
         ("molar mass",),
         "gram / mole",
-        (
-            var("density", "d", "gram / liter"),
-            var("temperature", "T", "kelvin"),
-            var("pressure", "P", "atmosphere"),
-        ),
+        (var("density", "d", "gram / liter"), _stp_temperature(), _stp_pressure()),
         cues=("gas",),
     ),
     _law(
@@ -256,6 +280,17 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         "kilojoule",
         (var("moles", "n", "mole"), var("enthalpy", "ΔH", "kilojoule / mole")),
         nonnegative=False,
+        no_equation=True,
+    ),
+    _law(
+        "reaction_heat_mass",
+        "thermochemistry",
+        ("how much heat", "heat", "energy"),
+        "kilojoule",
+        (var("mass", "m", "gram"), _molar_mass(), var("enthalpy", "ΔH", "kilojoule / mole")),
+        species="compound",
+        nonnegative=False,
+        no_equation=True,
     ),
     _law(
         "electrolysis_time",
@@ -275,7 +310,7 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
             var("current", "I", "ampere"),
             var("molar_mass", "M", "gram / mole", fallback="deposited_molar_mass"),
         ),
-        cues=("deposit", "electrolysis", "plated", "plating"),
+        cues=_ELECTROLYSIS_CUES,
     ),
     _law(
         "ionic_strength",

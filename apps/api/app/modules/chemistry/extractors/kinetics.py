@@ -54,6 +54,9 @@ def _extract_first_order(text: str) -> ChemistryIntent | None:
                 params={"half_life": float(half_life.group(1))},
                 units={"half_life_time": TIME_UNITS[half_life.group(2).lower()][0]},
             )
+    timed_fraction = _first_order_time(text)
+    if timed_fraction is not None:
+        return timed_fraction
     if re.search(r"\bfirst[- ]order\b", text, re.IGNORECASE):
         initial = _search(rf"\[A\](?:0|₀)\s*=\s*({_N})", text, flags=0)
         rate = rate_constant(text)
@@ -216,4 +219,50 @@ def _extract_michaelis(text: str) -> ChemistryIntent | None:
     }
     return ChemistryIntent(
         kind="biochemistry", chemistry_op="michaelis_menten", params=params, units=units
+    )
+
+
+# "75% of the reactant is gone": what reacted. "fall to 25% of its initial value", "25%
+# remains": what is left.
+_GONE = re.compile(
+    rf"({_N})\s*%\s*(?:of\s+(?:the\s+|its\s+)?[A-Za-z0-9]+\s+)?(?:is\s+|has\s+|have\s+|was\s+|to\s+be\s+)?"
+    r"(?:been\s+)?(?:gone|consumed|reacted|decomposed|used\s+up|converted)\b",
+    re.IGNORECASE,
+)
+_LEFT = re.compile(
+    r"\b(?:fall|falls|drop|drops|decrease|decreases|decline|declines|reduced?|go(?:es)?\s+down)"
+    rf"\s+to\s+({_N})\s*%"
+    rf"|({_N})\s*%\s*(?:of\s+(?:the\s+|its\s+)?[A-Za-z0-9]+\s+)?(?:remains?|is\s+left|left|remaining)\b",
+    re.IGNORECASE,
+)
+_TIME_ASK = re.compile(
+    r"\bhow\s+(?:long|much\s+time)\b|\b(?:what|find|calculate)\b[^.?!]*\btime\b", re.I
+)
+
+
+def _first_order_time(text: str) -> ChemistryIntent | None:
+    """t = ln([A]₀/[A]) / k for a first-order reaction to reach a stated fraction.
+
+    The fraction is what is left: "fall to 25%" leaves 0.25, "75% is gone" leaves 0.25. One
+    percentage, one reading of it, and a k with its time unit; anything else declines.
+    """
+    if not re.search(r"\bfirst[- ]order\b", text, re.IGNORECASE) or not _TIME_ASK.search(text):
+        return None
+    if re.search(r"half[- ]life", text, re.IGNORECASE) or len(re.findall(r"%", text)) != 1:
+        return None
+    gone, left = list(_GONE.finditer(text)), list(_LEFT.finditer(text))
+    if len(gone) + len(left) != 1:
+        return None
+    if gone:
+        remaining = 1 - float(gone[0].group(1)) / 100
+    else:
+        remaining = float(left[0].group(1) or left[0].group(2)) / 100
+    rate = rate_constant(text)
+    if rate is None or rate[1] is None or not 0 < remaining < 1:
+        return None
+    return ChemistryIntent(
+        kind="kinetics",
+        chemistry_op="first_order_time",
+        params={"rate_constant": rate[0], "remaining": remaining},
+        units={"rate_constant_time": rate[1]},
     )
