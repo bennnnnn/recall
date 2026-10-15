@@ -625,6 +625,36 @@ async def test_stream_chat_response_rejects_empty_content(stream_offline_io):
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "content",
+    ["draw ethanol", "A lens has focal length 15 cm. Where's the image?"],
+)
+async def test_try_image_gen_leaves_a_stem_turn_to_its_subject(content: str):
+    """A chemistry structure or an optics question is not a picture request, on any
+    plan: generation would spend an image and skip the solver and its drawing."""
+    from app.modules.chat.stream import _try_image_gen_for_turn
+
+    user = MagicMock()
+    user.id = uuid4()
+    generate = AsyncMock()
+    with (
+        patch("app.modules.chat.stream.plan_service.can_use", return_value=True),
+        patch("app.modules.chat.stream.image_generation_service.generate_for_chat", generate),
+    ):
+        handled = await _try_image_gen_for_turn(
+            Settings(),
+            user=user,
+            chat_id=uuid4(),
+            content=content,
+            result=None,
+            create_user_message=True,
+        )
+
+    assert handled is False
+    generate.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 async def test_try_image_gen_skips_recent_lookup_when_text_cannot_be_revision():
     from app.modules.chat.stream import _try_image_gen_for_turn
 

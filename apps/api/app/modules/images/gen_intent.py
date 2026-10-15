@@ -346,6 +346,21 @@ def extract_image_gen_prompt(text: str) -> str | None:
     return None
 
 
+def stem_subject_claims(text: str, *, chemistry_enabled: bool = True) -> bool:
+    """A maths, physics or chemistry turn belongs to that subject, not to image generation.
+
+    "draw ethanol" is a structure and "A lens has focal length 15 cm. Where's the
+    image?" is optics; the text rules above would read both as picture requests.
+    Used by the chat path only: the phone's composer rules stay the shared contract.
+    Art stays art: "a cute cartoon atom for our chemistry club poster" is a picture.
+    """
+    from app.services.subject_solving import detect_subject
+
+    if any(_fold_token(word) in _ART_WORDS for word in text.split()):
+        return False
+    return detect_subject(text, chemistry_enabled=chemistry_enabled) is not None
+
+
 def is_image_noun_only_message(text: str) -> bool:
     """True for a bare image ask with no subject: ``Image``, ``a pic``, ``create an image``."""
     if is_image_gen_generate_now(text):

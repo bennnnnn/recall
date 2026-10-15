@@ -60,6 +60,10 @@ async def try_image_gen_for_turn(
 ) -> bool:
     if not seams.plan_service.can_use(user, "image_generation", settings):
         return False
+    from app.modules.images.gen_intent import stem_subject_claims
+
+    if stem_subject_claims(content, chemistry_enabled=settings.chemistry_enabled):
+        return False
     image_prompt = seams.extract_image_gen_prompt(content)
     reference_ids = None
     if not image_prompt:
