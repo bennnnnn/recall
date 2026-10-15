@@ -323,11 +323,21 @@ function ViewerContent({
             initialScrollIndex={scrolledRef.current.index}
             onScrollToIndexFailed={() => undefined}
             onMomentumScrollEnd={onPageScrollEnd}
-            renderItem={({ item, index }) => (
-              <View style={{ width: screenWidth, height: "100%" }}>
-                {stage(item, index, Math.abs(index - pageIndex) <= 1)}
-              </View>
-            )}
+            renderItem={({ item, index }) =>
+              // FlatList keeps up to 21 pages mounted and the Library passes
+              // every loaded photo. Only the photo on screen and its
+              // neighbours download and decode; the rest hold their width.
+              Math.abs(index - pageIndex) <= 1 ? (
+                <View style={{ width: screenWidth, height: "100%" }}>
+                  {stage(item, index, true)}
+                </View>
+              ) : (
+                <View
+                  style={{ width: screenWidth, height: "100%" }}
+                  testID="attachment-viewer-page-placeholder"
+                />
+              )
+            }
           />
         ) : (
           stage(items[0] ?? { previewUri }, 0, true)
