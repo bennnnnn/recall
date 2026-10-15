@@ -205,6 +205,11 @@ secrets or `[env]` only when you have a measured reason.
 | `DB_CONNECT_TIMEOUT_SECONDS` / `DB_COMMAND_TIMEOUT_SECONDS` | `10` / `120` | asyncpg connect (default was 60s) and every statement (default was unbounded), including the `pool_pre_ping` on each checkout, so a half-open pooled connection can no longer hang a request. Client-side, so it works through Neon's pooler. Generous because account delete is one cascading `DELETE`. Migrations are not affected. A pool, connect or statement timeout, or a dropped connection, now answers `503` + `Retry-After: 5` instead of a bare 500. |
 | `JOB_TIMEOUT_SECONDS` | `900` | Deadline for one attempt of one background job. An attempt that runs out goes to the DLQ without retry. An entry delivered more than 5 times without an ack (it keeps killing the worker) also goes to the DLQ on reclaim. |
 
+Readiness answers inside Fly's 5s check timeout: `/health/ready` gives Postgres 3s
+(then 503) and Redis 1s (then `"redis": "degraded"`, still 200); the worker's
+probe gives Redis 3s. A stalled Redis used to time out readiness on every
+machine at once.
+
 ---
 
 ## Cost telemetry dashboard queries
