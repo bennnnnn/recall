@@ -964,6 +964,7 @@
   "upgrade.purchase_failed": "A compra não pôde ser concluída. Tente novamente.",
   "upgrade.restore": "Restaurar compras",
   "upgrade.restore_empty": "Nenhuma assinatura ativa encontrada para esta conta.",
+  "upgrade.sync_pending": "Sua assinatura está ativa. Seu plano será atualizado em instantes — reabra o app se não mudar.",
   "upgrade.subscribe": "Assinar Pro — {{price}}/mês",
   "upgrade.subscription_terms": "A assinatura é renovada automaticamente todos os meses, a menos que seja cancelada na sua conta da App Store ou do Google Play.",
   "upgrade.title": "Assinar o Pro"

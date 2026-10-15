@@ -964,6 +964,7 @@
   "upgrade.purchase_failed": "Purchase could not be completed. Try again.",
   "upgrade.restore": "Restore purchases",
   "upgrade.restore_empty": "No active subscription found for this account.",
+  "upgrade.sync_pending": "You're subscribed. Your plan will update in a moment — reopen the app if it doesn't.",
   "upgrade.subscribe": "Go Pro — {{price}}/month",
   "upgrade.subscription_terms": "Subscription renews automatically each month unless canceled in your App Store or Google Play account.",
   "upgrade.title": "Upgrade to Pro"

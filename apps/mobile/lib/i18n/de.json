@@ -964,6 +964,7 @@
   "upgrade.purchase_failed": "Kauf konnte nicht abgeschlossen werden. Erneut versuchen.",
   "upgrade.restore": "Käufe wiederherstellen",
   "upgrade.restore_empty": "Kein aktives Abo für dieses Konto gefunden.",
+  "upgrade.sync_pending": "Dein Abo ist aktiv. Dein Tarif wird gleich aktualisiert – öffne die App neu, falls nicht.",
   "upgrade.subscribe": "Pro werden — {{price}}/Monat",
   "upgrade.subscription_terms": "Das Abo verlängert sich jeden Monat automatisch, sofern es nicht im App-Store- oder Google-Play-Konto gekündigt wird.",
   "upgrade.title": "Upgrade auf Pro"

@@ -964,6 +964,7 @@
   "upgrade.purchase_failed": "Acquisto non completato. Riprova.",
   "upgrade.restore": "Ripristina acquisti",
   "upgrade.restore_empty": "Nessun abbonamento attivo per questo account.",
+  "upgrade.sync_pending": "Abbonamento attivo. Il tuo piano si aggiornerà a breve: riapri l'app se non succede.",
   "upgrade.subscribe": "Passa a Pro — {{price}}/mese",
   "upgrade.subscription_terms": "L'abbonamento si rinnova automaticamente ogni mese, salvo annullamento nell'account App Store o Google Play.",
   "upgrade.title": "Passa a Pro"

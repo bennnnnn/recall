@@ -110,9 +110,9 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
     try {
       await syncAfterStore();
     } catch {
-      // The store purchase succeeded; subscription bootstrap can retry without
-      // corrupting the purchase funnel with a false provider failure.
-      setError(t("upgrade.purchase_failed"));
+      // The store took the payment; only the server refresh failed. The plan
+      // listener and the webhook still land it — never say the purchase failed.
+      setError(t("upgrade.sync_pending"));
     } finally {
       setBusy(false);
     }
@@ -128,7 +128,11 @@ export function UpgradeSheet({ visible, onClose, source = "other" }: Props) {
         setError(t("upgrade.restore_empty"));
         return;
       }
-      await syncAfterStore();
+      try {
+        await syncAfterStore();
+      } catch {
+        setError(t("upgrade.sync_pending"));
+      }
     } catch {
       setError(t("upgrade.purchase_failed"));
     } finally {
