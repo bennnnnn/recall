@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { Text, type TextProps } from "react-native";
 
+import { InlineCode } from "@/components/markdown/InlineCode";
 import { inlineCodeTextStyle } from "@/components/markdown/markdownContentStyles";
 import { parseInlineMarkdown } from "@/lib/markdown/inlineMarkdown";
 import { useTheme } from "@/lib/theme";
@@ -44,9 +45,9 @@ export function RichBodyText(props: TextProps) {
         }
         if (token.type === "code") {
           return (
-            <Text key={i} style={inlineCodeTextStyle(theme)}>
+            <InlineCode key={i} style={inlineCodeTextStyle(theme)}>
               {token.value}
-            </Text>
+            </InlineCode>
           );
         }
         return <Text key={i}>{token.value}</Text>;

@@ -3,8 +3,10 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { CodeBlock } from "@/components/CodeBlock";
 import { ChipText } from "@/components/rich/ChipText";
-import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
-import { CODE_FONT } from "@/lib/fonts";
+import {
+  inlineCodeTextStyle,
+  PARAGRAPH_GAP,
+} from "@/components/markdown/markdownContentStyles";
 import { notifySuccess, notifyWarning, selection } from "@/lib/haptics";
 import i18n from "@/lib/i18n";
 import { isUnfinishedJson } from "@/lib/jsonFence";
@@ -223,13 +225,8 @@ function makeStyles(t: Theme) {
       backgroundColor: t.bg,
     },
     optionText: { flex: 1, ...Type.body, color: t.text },
-    // Same size as inline code in replies, on a gray chip.
-    chip: {
-      ...Type.secondary,
-      fontFamily: CODE_FONT,
-      color: t.text,
-      backgroundColor: t.surfaceAlt,
-    },
+    // The same pill as inline code in replies.
+    chip: inlineCodeTextStyle(t),
     // The verdict and why, in a gray panel under the button.
     result: {
       gap: Space.sm,

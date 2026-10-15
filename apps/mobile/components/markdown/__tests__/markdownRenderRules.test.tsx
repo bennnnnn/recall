@@ -84,7 +84,7 @@ describe("markdown render rules", () => {
     expect(inline).toMatchObject({
       borderWidth: 0,
       padding: 0,
-      backgroundColor: "transparent",
+      backgroundColor: lightTheme.codeInlineBg,
       fontSize: 14,
       paddingHorizontal: 0,
     });
@@ -92,13 +92,13 @@ describe("markdown render rules", () => {
     expect(inline.padding).not.toBe(10);
   });
 
-  it("renders a teaching snippet in monospace without a gray chip", async () => {
+  it("renders a teaching snippet in monospace on a tinted pill", async () => {
     const { getByText } = await render(
       <MarkdownContent content={'Set `name = "john"` then continue.'} />,
     );
     const snippet = getByText('name = "john"');
     const flat = StyleSheet.flatten(snippet.props.style);
-    expect(flat.backgroundColor).toBe("transparent");
+    expect(flat.backgroundColor).toBe(lightTheme.codeInlineBg);
     expect(flat.fontFamily).toBe("SpaceMono");
   });
 

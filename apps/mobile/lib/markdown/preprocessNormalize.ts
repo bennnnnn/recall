@@ -18,19 +18,22 @@ export function trimBoldDelimiterWhitespace(content: string): string {
   );
 }
 
-/** Keep a bold-only teaching label on its own visual row.
+/** Keep a bold-only teaching label, or a label and its code, on its own
+ * visual row.
  *
  * CommonMark treats one newline as a space, so ``**Substitute**\n$x=2$``
- * became one crowded line on iPhone. A blank line preserves the author's
- * intended step structure and gives tall native fractions/radicals their own
- * row. List labels and fenced examples are deliberately untouched. A workout
- * heading (Given, Find, Formula, Substitution, Steps, Answer) keeps its lines:
- * the workout renderer gives each line its own row.
+ * became one crowded line on iPhone, and a line-by-line walk-through
+ * (``**Line 1:** `total = 0` `` then its explanation) ran the explanation on
+ * after the code. A blank line preserves the author's intended step
+ * structure and gives tall native fractions/radicals their own row. List
+ * labels and fenced examples are deliberately untouched. A workout heading
+ * (Given, Find, Formula, Substitution, Steps, Answer) keeps its lines: the
+ * workout renderer gives each line its own row.
  */
 export function separateStandaloneBoldLines(content: string): string {
   return applyOutsideFences(content, (prose) =>
     prose.replace(
-      /^(\s*\*\*(?!\d+[.)]\s)(?!(?:Given|Find|Formula|Substitution|Steps|Answer):?\*\*)[^*\n]+\*\*\s*)\n(?!\n)/gm,
+      /^(\s*\*\*(?!\d+[.)]\s)(?!(?:Given|Find|Formula|Substitution|Steps|Answer):?\*\*)[^*\n]+\*\*(?:[ \t]*`[^`\n]+`)?\s*)\n(?!\n)/gm,
       "$1\n\n",
     ),
   );
