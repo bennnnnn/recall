@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
+import signal
 
 from app import process_bootstrap
 from app.core.config import get_settings
@@ -32,10 +34,21 @@ async def _run_worker() -> None:
         )
         health_task = asyncio.create_task(health_server.serve())
 
+    # SIGTERM (kill, docker stop, most supervisors) ended the worker on the
+    # spot: none of the shutdown below ran, so its jobs consumer stayed in the
+    # group and, with PROCESS_ROLE=all, its SymPy workers outlived it. SIGINT
+    # (Ctrl+C, Fly's default) already unwinds through the finally.
+    stop = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    with contextlib.suppress(NotImplementedError, RuntimeError, ValueError):
+        loop.add_signal_handler(signal.SIGTERM, stop.set)
+
     logging.getLogger(__name__).info("Recall worker started (process_role=worker)")
     try:
-        await asyncio.Event().wait()
+        await stop.wait()
     finally:
+        with contextlib.suppress(NotImplementedError, RuntimeError, ValueError):
+            loop.remove_signal_handler(signal.SIGTERM)
         if health_server is not None:
             health_server.should_exit = True
             await health_server.shutdown()
