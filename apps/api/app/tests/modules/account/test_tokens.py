@@ -207,6 +207,27 @@ async def test_purge_user_sessions_raises_on_redis_failure(fake_redis):
 
 
 @pytest.mark.asyncio
+async def test_sign_in_drops_sessions_whose_refresh_token_expired(fake_redis):
+    """refresh_user:<id> kept every refresh token a user ever signed in with.
+
+    A token that simply expires (a device not opened for 30 days, a
+    reinstall) left its member behind, and each sign-in renewed the set's TTL,
+    so for an active user the set only grew.
+    """
+    settings = Settings(jwt_secret="x" * 32)
+    user_id = uuid4()
+    _a1, expired = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
+    _a2, live = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
+    await fake_redis.delete(f"refresh:{expired}")  # its own TTL ran out
+
+    _a3, newest = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
+
+    assert await fake_redis.smembers(f"refresh_user:{user_id}") == {live, newest}
+    sessions = await tokens_service.list_sessions(fake_redis, user_id, current_session_id=None)
+    assert len(sessions) == 2
+
+
+@pytest.mark.asyncio
 async def test_issue_stores_json_session_and_legacy_plain_user_id_still_refreshes(fake_redis):
     settings = Settings(jwt_secret="x" * 32)
     from app.tests.test_routers import _fake_user

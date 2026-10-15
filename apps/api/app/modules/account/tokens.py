@@ -136,6 +136,7 @@ async def issue_token_pair(
         platform=platform,
     )
     try:
+        await _drop_expired_sessions(redis, user_set_key)
         async with redis.pipeline(transaction=True) as pipe:
             pipe.set(_refresh_key(refresh_token), payload, ex=ttl)
             pipe.sadd(user_set_key, refresh_token)
@@ -145,6 +146,25 @@ async def issue_token_pair(
         logger.warning("Token issue failed; Redis unavailable", exc_info=True)
         raise RedisUnavailableError() from exc
     return access_token, refresh_token
+
+
+async def _drop_expired_sessions(redis: Redis, user_set_key: str) -> None:
+    """Remove set members whose refresh token has expired on its own.
+
+    Logout, revoke and rotation remove their member; a token that just runs
+    out its TTL did not, and each sign-in renews the set's TTL, so the set
+    grew for as long as the user kept signing in.
+    """
+    members = [_redis_str(member) for member in await redis.smembers(user_set_key)]
+    if not members:
+        return
+    async with redis.pipeline(transaction=False) as pipe:
+        for token in members:
+            pipe.exists(_refresh_key(token))
+        live = await pipe.execute()
+    expired = [token for token, exists in zip(members, live, strict=True) if not exists]
+    if expired:
+        await redis.srem(user_set_key, *expired)
 
 
 async def _revoke_all_refresh_tokens(redis: Redis, user_id: UUID, settings: Settings) -> None:
