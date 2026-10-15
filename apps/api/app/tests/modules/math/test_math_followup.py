@@ -17,6 +17,7 @@ from app.modules.math.followup import (
     offered_equation_problem,
     open_math_problem,
     readable_standalone_answer,
+    restated_math_problem,
 )
 from app.modules.math.reply_policy import MATH_REPLY_POLICY
 
@@ -299,15 +300,15 @@ async def test_previous_nonmath_exchange_does_not_gain_policy_from_older_math() 
     prepared = await _prompt("how", recent)
     assert MATH_FOLLOWUP_HINT not in prepared[0]["content"]
     assert MATH_REPLY_POLICY not in prepared[0]["content"]
-    assert prepared[2]["content"] == ""
+    assert prepared[2]["content"] == f"Answer: {_EQUATION_RESULT}\n"
     assert prepared[-1]["content"] == "Water vapor condenses."
 
 
 @pytest.mark.asyncio
-async def test_nonreferential_question_keeps_existing_answer_fence_stripping() -> None:
+async def test_nonreferential_question_reads_the_answer_as_a_plain_line() -> None:
     prepared = await _prompt("how do I cook rice?", _exchange())
     assert MATH_FOLLOWUP_HINT not in prepared[0]["content"]
-    assert prepared[-1]["content"] == ""
+    assert prepared[-1]["content"] == f"Answer: {_EQUATION_RESULT}\n"
 
 
 @pytest.mark.asyncio
@@ -344,7 +345,7 @@ async def test_unrelated_omission_does_not_strip_an_incomplete_current_user() ->
     recent = [older, *_exchange(), _message("user", "how")]
     prepared = await _prompt("how", recent, omit_message_ids={older.id})
     assert MATH_FOLLOWUP_HINT not in prepared[0]["content"]
-    assert prepared[-2]["content"] == ""
+    assert prepared[-2]["content"] == f"Answer: {_EQUATION_RESULT}\n"
     assert prepared[-1] == {"role": "user", "content": "how"}
 
 
@@ -368,7 +369,7 @@ async def test_matching_query_without_current_turn_identity_is_not_sufficient(
     )
     prepared = await _prompt("how", recent, current_user_message_id=message_id)
     assert MATH_FOLLOWUP_HINT not in prepared[0]["content"]
-    assert prepared[-2]["content"] == ""
+    assert prepared[-2]["content"] == f"Answer: {_EQUATION_RESULT}\n"
 
 
 @pytest.mark.asyncio
@@ -432,3 +433,25 @@ def test_do_it_after_a_word_problem_does_not_solve_the_formula_in_its_hint() -> 
     recent = [_message("user", "Give me a problem"), _message("assistant", problem)]
     for go_ahead in ("Do it", "Solve it", "yes"):
         assert offered_equation_problem(go_ahead, recent) is None
+
+
+@pytest.mark.parametrize(
+    ("query", "problem"),
+    [
+        ("what if it was 2x + 5 = 21?", "2x + 5 = 21"),
+        ("what about 2x + 5 = 21", "2x + 5 = 21"),
+        ("ok now try 3x - 4 = 11", "3x - 4 = 11"),
+        # No equation after the lead, or an expression with no relation.
+        ("what about it", None),
+        ("what about 2x + 5", None),
+        # A clock time and a word are not an equation in an unknown.
+        ("what about lunch = 12", None),
+    ],
+)
+def test_restated_math_problem_reads_the_new_equation(query: str, problem: str | None) -> None:
+    assert restated_math_problem(query, _exchange()) == problem
+
+
+def test_restated_math_problem_needs_an_adjacent_math_exchange() -> None:
+    recent = [_message("user", "How are clouds made?"), _message("assistant", "Water vapor.")]
+    assert restated_math_problem("what about 2x + 5 = 21", recent) is None

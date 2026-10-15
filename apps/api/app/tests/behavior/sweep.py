@@ -78,8 +78,10 @@ EXPECTS = {
 # Areas whose turns never need the live web.
 NO_SEARCH_AREAS = {"math", "physics", "chemistry", "writing", "code", "chitchat"}
 # Everyday messages that use a maths word ("differentiate between weather and
-# climate", "simplify it" about an essay). None of them is maths.
-NOT_MATH_AREAS = {"math lookalike"}
+# climate", "simplify it" about an essay), or that sound like a follow-up to the
+# physics or chemistry problem before them ("in french please", "what about the
+# party?"). None of them is solved.
+NOT_MATH_AREAS = {"math lookalike", "followup lookalike"}
 # Reminders already saved, so "mark call mom as done" has something to find.
 SEEDED = ("call mom", "dentist appointment", "gym", "pay rent", "read", "water the plants")
 

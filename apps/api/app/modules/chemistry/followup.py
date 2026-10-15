@@ -1,7 +1,8 @@
 """Replay the previous chemistry problem when this line only continues it.
 
-Three shapes, and each declines instead of guessing: explain the result, ask
-for another quantity of the same setup, or replace one named given. A new
+Each shape declines instead of guessing: explain the result, ask for another
+quantity of the same setup ("and the pOH?"), or replace or scale one given
+("and 0.001 M?", "what if the concentration doubles?"). A new
 question that brings its own data is not a follow-up. Exact phrases such as
 ``why`` and ``explain`` stay on the shared continuation list; this resolver
 is the line that is not one of those phrases.
@@ -24,7 +25,10 @@ from app.services.problem_followup import (
     ask_replaced,
     followup_line,
     given_name,
+    new_value,
     replace_given,
+    scaled_given,
+    scaled_value,
 )
 
 CHEMISTRY_FOLLOWUP_HINT = (
@@ -66,7 +70,9 @@ _NAMED_DIMENSIONS = {
     "pressure": "atmosphere",
     "molality": "mole / kilogram",
 }
-_ABOUT = re.compile(r"^(?:and )?what about (?:the |its )?(?P<ask>[a-z][a-z' ]{0,40}?)\??$")
+_ABOUT = re.compile(
+    r"^(?:(?:and )?(?:what|how) about |and |now )(?:the |its )?(?P<ask>[a-z][a-z' ]{0,40}?)\??$"
+)
 _CHANGED = re.compile(
     r"^(?:but )?(?:what )?if "
     r"(?:it (?:was|were|is) |"
@@ -94,7 +100,27 @@ def chemistry_followup_problem(query: str | None, recent: Sequence[Any]) -> str 
         return _changed_given(
             prior, changed.group("name"), changed.group("value"), changed.group("unit")
         )
+    scaled = scaled_given(text)
+    if scaled is not None:
+        return _scaled_given(prior, *scaled)
+    value = new_value(text)
+    if value is not None:
+        return _changed_given(prior, None, *value)
     return None
+
+
+def _scaled_given(prior: str, name: str, factor: float) -> str | None:
+    """``what if the concentration doubles``: the one given of that kind, times the factor."""
+    named_dim = _dimension_of_phrase(given_name(name).lower())
+    if named_dim is None:
+        return None
+    givens = read_givens(prior, CHEMISTRY_UNITS)
+    matches = [given for given in givens if given.dimension == named_dim]
+    if len(matches) != 1:
+        return None
+    given = matches[0]
+    rewritten = replace_given(prior, given, scaled_value(given.value, factor), given.unit)
+    return rewritten if rewritten != prior and _verifies(rewritten) else None
 
 
 def _another_quantity(prior: str, ask: str) -> str | None:

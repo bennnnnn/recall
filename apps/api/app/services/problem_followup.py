@@ -2,9 +2,10 @@
 
 Physics and chemistry each replay their previous problem when a line only
 continues it: explain the result, ask for another quantity of the same setup,
-or replace one named given. Each subject keeps its own asks, units and check
-that the rewrite verifies; the message reading, the adjacent exchange, the
-"explain it" phrases and the text rewrites are the same for both and live here.
+give the result in another unit, or replace or scale one given. Each subject
+keeps its own asks, units and check that the rewrite verifies; the message
+reading, the adjacent exchange, the follow-up phrases and the text rewrites
+are the same for both and live here.
 """
 
 from __future__ import annotations
@@ -23,7 +24,55 @@ EXPLAIN_RE = re.compile(
     r"|i (?:didn't|did not|don't|do not) (?:get|understand)(?: it)?"
     r"|help me understand(?: it)?"
     r"|(?:that(?:'s| is)|this is|i(?:'m| am)) confus(?:ed|ing)"
+    r"|(?:(?:can|could) you )?(?:show|give) (?:me )?(?:the )?(?:steps|working|work|solution)"
+    r"(?: please)?"
+    r"|explain(?: (?:it|that|this|the answer))?(?: please)?"
+    r"|(?:walk me through|break down) (?:it|that|this)(?: please)?"
+    r"|step by step(?: please)?"
     r")$"
+)
+
+_LEAD = r"(?:(?:and|but|so|ok(?:ay)?|now|then|please|can you|could you)[ ,]+)*"
+
+# "in km/h", "what is that in mph", "convert it to feet please".
+_IN_UNIT = re.compile(
+    _LEAD + r"(?:(?:what(?:'s| is) (?:that|it|this|the answer)|convert (?:that|it|this|the answer)"
+    r"|give (?:it|that|me (?:that|it)|the answer)|(?:put|write|show) (?:it|that|the answer))[ ]+)?"
+    r"(?:in|into|to)[ ]+(?P<unit>[a-zμµ°/][a-zμµ°/^0-9.]{0,11})"
+    r"(?:[ ,]+(?:please|pls|instead|too))*",
+    re.IGNORECASE,
+)
+
+# "what if the mass doubles", "what if the height is halved".
+_SCALED = re.compile(
+    _LEAD + r"(?:what )?if (?:the |its |her |his |their )?(?P<name>[a-z][a-z ]{0,30}?) "
+    r"(?:(?:is|was|were|gets|got) )?"
+    r"(?P<how>doubled|doubles|double|halved|halves|tripled|triples|quadrupled|quadruples)"
+    r"(?: instead)?",
+    re.IGNORECASE,
+)
+_FACTORS = {
+    "double": 2.0,
+    "doubles": 2.0,
+    "doubled": 2.0,
+    "halves": 0.5,
+    "halved": 0.5,
+    "triples": 3.0,
+    "tripled": 3.0,
+    "quadruples": 4.0,
+    "quadrupled": 4.0,
+}
+
+# "and after 10 s", "what if it's dropped from 80 m", "and 0.001 M": one new value.
+_NEW_VALUE = re.compile(
+    _LEAD + r"(?:(?:what about|how about|what if|try|with|instead)[ ,]+)?"
+    r"(?:(?:it|she|he|they)(?:'s|'re| is| was| were| are)? )?"
+    r"(?:[a-z]+ )?"
+    r"(?:(?:after|for|from|at|with|over|of|to|in) )?"
+    r"(?P<value>[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:e[-+]?\d+)?) ?"
+    r"(?P<unit>[a-zμµ°/][a-zμµ°/^0-9.]{0,11})"
+    r"(?: instead)?",
+    re.IGNORECASE,
 )
 
 _ASK_SENTENCE = re.compile(r"\b(?:find|what|calculate|determine|how)\b", re.IGNORECASE)
@@ -61,6 +110,42 @@ def adjacent_problem(recent: Sequence[Any], is_subject: Callable[[str], bool]) -
     if not is_subject(prior):
         return None
     return prior
+
+
+def asked_unit(line: str) -> str | None:
+    """The unit a line asks the previous result in: ``in km/h please`` → ``km/h``."""
+    match = _IN_UNIT.fullmatch(line)
+    return None if match is None else match.group("unit")
+
+
+def scaled_given(line: str) -> tuple[str, float] | None:
+    """``what if the mass doubles`` → ``("mass", 2.0)``."""
+    match = _SCALED.fullmatch(line)
+    if match is None:
+        return None
+    return match.group("name"), _FACTORS[match.group("how").lower()]
+
+
+# A clock time is not a quantity: "and at 5 pm?" is never 5 picometres.
+_CLOCK_UNITS = frozenset({"am", "pm", "a.m", "p.m", "a.m.", "p.m.", "oclock", "o'clock"})
+
+
+def new_value(line: str) -> tuple[str, str] | None:
+    """``and after 10 s`` → ``("10", "s")``: one value with its unit, nothing else."""
+    match = _NEW_VALUE.fullmatch(line)
+    if match is None or match.group("unit").lower() in _CLOCK_UNITS:
+        return None
+    return match.group("value"), match.group("unit")
+
+
+def scaled_value(value: float, factor: float) -> str:
+    """The scaled number as a student would write it: 2 kg doubled is ``4``, not ``4.0``."""
+    return f"{value * factor:.6g}"
+
+
+def in_unit(prior: str, unit: str) -> str:
+    """The prior problem asking for its answer in ``unit``."""
+    return prior.rstrip() + f" Give the answer in {unit}."
 
 
 def followup_line(query: str | None) -> str | None:

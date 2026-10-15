@@ -220,6 +220,44 @@ def offered_equation_problem(query: str | None, recent: Sequence[Any]) -> str | 
     return problem
 
 
+# "what if it was 2x + 5 = 21?" restates the problem with new numbers: the lead
+# kept the equation from reading as maths at all.
+_RESTATE_LEAD = re.compile(
+    r"^(?:(?:and|ok(?:ay)?|so|now|then)[ ,]+)*"
+    r"(?:what if (?:it|this|that|the equation|the question) (?:was|were|is)"
+    r"|what about|how about|(?:now )?(?:try|do)|and)[ ,:]+",
+    re.IGNORECASE,
+)
+
+
+def restated_math_problem(
+    query: str | None,
+    recent: Sequence[Any],
+    *,
+    blocked: Callable[[str], bool] | None = None,
+) -> str | None:
+    """``what about 2x + 5 = 21`` after a solved equation is that new equation.
+
+    Only after an adjacent maths exchange, and only when what follows the lead
+    is a complete equation that reads as maths on its own.
+    """
+    if not query or len(recent) < 2:
+        return None
+    line = " ".join(query.split()).rstrip("?.! ")
+    match = _RESTATE_LEAD.match(line)
+    if match is None:
+        return None
+    problem = line[match.end() :].strip()
+    if "=" not in problem or not needs_symbolic_math(problem):
+        return None
+    prior = _last_user_text(recent[:-1]) if recent else None
+    if _message_field(recent[-1], "role") != "assistant" or prior is None:
+        return None
+    if (blocked is not None and blocked(prior)) or not needs_symbolic_math(prior):
+        return None
+    return problem
+
+
 _CLAIM_NUMBER = r"[-+]?\s*(?:\d+(?:\.\d+)?|\.\d+)(?:\s*/\s*\d+)?"
 _CLAIM_LEAD = re.compile(
     r"^(?:(?:can|could)\s+you\s+|please\s+)?"

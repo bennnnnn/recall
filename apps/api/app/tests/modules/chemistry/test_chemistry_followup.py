@@ -1,5 +1,7 @@
 """A short line after a chemistry problem replays that problem, or declines."""
 
+import pytest
+
 from app.modules.chat.continuation_subject import effective_presentation_subject
 from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.followup import chemistry_followup_problem
@@ -69,3 +71,25 @@ def test_a_new_problem_is_not_a_followup() -> None:
 def test_a_followup_after_a_non_chemistry_turn_declines() -> None:
     recent = [("user", "Solve 2x + 3 = 11"), ("assistant", "x = 4")]
     assert chemistry_followup_problem("why is it 4", recent) is None
+
+
+@pytest.mark.parametrize(
+    ("line", "answer"),
+    [
+        ("what if the concentration doubles", "pH = 1.70"),
+        ("and 0.001 M?", "pH = 3.00"),
+    ],
+)
+def test_chemistry_followup_scales_or_replaces_the_one_given(line: str, answer: str) -> None:
+    rewritten = chemistry_followup_problem(line, _recent(_ACID))
+    assert rewritten is not None
+    assert _answer(rewritten) == answer
+
+
+@pytest.mark.parametrize("line", ["show steps", "explain it", "walk me through it"])
+def test_chemistry_followup_asks_for_working_replay_the_problem(line: str) -> None:
+    assert chemistry_followup_problem(line, _recent(_ACID)) == _ACID
+
+
+def test_chemistry_followup_two_concentrations_do_not_scale() -> None:
+    assert chemistry_followup_problem("what if the concentration doubles", _recent(_TWO)) is None

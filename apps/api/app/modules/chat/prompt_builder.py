@@ -66,13 +66,14 @@ from app.modules.physics.followup import PHYSICS_FOLLOWUP_HINT, physics_followup
 from app.services import locale as locale_service
 from app.services import response_tone as response_tone_service
 from app.services import time_context as time_context_service
+from app.services.answer_fence import answer_fence_value
 from app.services.context_window import (
     estimate_tokens,
     select_recent_window,
     trim_message_for_summary,
 )
 from app.services.day_planning import is_day_planning_question
-from app.services.md_fence_scan import strip_closed_fences
+from app.services.md_fence_scan import map_closed_fences, strip_closed_fences
 from app.services.prompt_inject import inject_before_last_user
 from app.services.prompt_safety import (
     wrap_persisted_attachment_excerpts,
@@ -86,7 +87,13 @@ from app.services.subject_solving import (
     detect_subject,
 )
 
-_PROMPT_STRIP_FENCE_LANGS = ("answer", "geometry", "graph", "sources", "places", "photo")
+_PROMPT_STRIP_FENCE_LANGS = ("geometry", "graph", "sources", "places", "photo")
+
+
+def _answer_line(body: str) -> str:
+    value = " ".join(answer_fence_value(body).split())
+    # The fence took its own line break with it; the line keeps one.
+    return f"Answer: {value}\n" if value else ""
 
 
 def _strip_prompt_owned_fences(content: str) -> str:
@@ -94,8 +101,10 @@ def _strip_prompt_owned_fences(content: str) -> str:
 
     Persisted messages keep the fences for the client. Re-injecting ```answer /
     ```graph / ```sources / ```photo into the recent window teaches the model to copy them.
+    The answer card stays as a plain ``Answer:`` line: "in km/h?" or "just the answer"
+    then reads the verified value instead of working the problem again unchecked.
     """
-    out = content
+    out = map_closed_fences(content, "answer", _answer_line)
     for lang in _PROMPT_STRIP_FENCE_LANGS:
         out = strip_closed_fences(out, lang)
     return out

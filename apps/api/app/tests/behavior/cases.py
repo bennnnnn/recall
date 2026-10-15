@@ -195,6 +195,18 @@ CASES: tuple[Case, ...] = (
         history=(("user", "(x^2-1)/(x-1)"), ("assistant", "That is a rational expression in x.")),
     ),
     Case(
+        "math-restated-equation",
+        "math",
+        "what about 2x + 5 = 21",
+        # The lead kept the equation from reading as maths at all.
+        Expect(solved=True, instant="solver", search="no"),
+        "x = 8, worked the same way as the last equation.",
+        history=(
+            ("user", "solve 2x + 5 = 17"),
+            ("assistant", "```answer\nverified: true\nx = 6\n```"),
+        ),
+    ),
+    Case(
         "math-percent-thousands",
         "math",
         "what is 20% of 1,000",
@@ -243,6 +255,40 @@ CASES: tuple[Case, ...] = (
         "explain Newton's third law",
         Expect(search="no", solved=False, photo=NO_PHOTO),
         "Equal and opposite forces on two different bodies, with an everyday example.",
+    ),
+    Case(
+        "physics-followup-how-far",
+        "physics",
+        "how far does it go?",
+        # The car, not the user: never "I don't have your location".
+        Expect(solved=True, instant="", search="no"),
+        "37.5 m from s = ½at², the same car and numbers.",
+        history=(
+            ("user", "A car accelerates from rest at 3 m/s^2 for 5 s. What is its final velocity?"),
+            ("assistant", "**Answer**\n\n```answer\nverified: true\n15\\,\\mathrm{m/s}\n```"),
+        ),
+    ),
+    Case(
+        "physics-followup-unit",
+        "physics",
+        "in km/h please",
+        Expect(solved=True, instant="", search="no"),
+        "54 km/h: the verified 15 m/s converted, never worked again unchecked.",
+        history=(
+            ("user", "A car accelerates from rest at 3 m/s^2 for 5 s. What is its final velocity?"),
+            ("assistant", "**Answer**\n\n```answer\nverified: true\n15\\,\\mathrm{m/s}\n```"),
+        ),
+    ),
+    Case(
+        "physics-followup-new-time",
+        "physics",
+        "and after 10 s?",
+        Expect(solved=True, instant="", search="no"),
+        "30 m/s: the same car after 10 s.",
+        history=(
+            ("user", "A car accelerates from rest at 3 m/s^2 for 5 s. What is its final velocity?"),
+            ("assistant", "**Answer**\n\n```answer\nverified: true\n15\\,\\mathrm{m/s}\n```"),
+        ),
     ),
     # ── Chemistry ───────────────────────────────────────────────────────────
     Case(
