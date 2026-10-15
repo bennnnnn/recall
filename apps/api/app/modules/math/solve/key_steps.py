@@ -14,6 +14,7 @@ from sympy import (
     expand,
     factor,
     latex,
+    nsimplify,
     prod,
     simplify,
     solve,
@@ -264,7 +265,8 @@ def _cancelled_side_tex(side: Any, divisor: Any) -> str:
     if _expr_equal(side, divisor):
         return f"\\frac{{\\cancel{{{d_tex}}}}}{{\\cancel{{{d_tex}}}}}"
     try:
-        rest = simplify(side / divisor)
+        # ``0.4x / 0.4`` is ``1.0 x`` until its float factor is read exactly.
+        rest = nsimplify(simplify(side / divisor))
     except Exception:
         return f"\\frac{{{latex(side)}}}{{{d_tex}}}"
     if _expr_equal(rest, 1) and _expr_equal(rest * divisor, side):
@@ -294,6 +296,32 @@ def _divide_both_sides_step(
     )
 
 
+def _is_negative_term(term: Any) -> bool:
+    """``-3y`` or ``-3y - 5``: a subtracted term is added back, not subtracted twice."""
+    return bool(
+        (getattr(term, "is_Mul", False) or getattr(term, "is_Add", False))
+        and term.could_extract_minus_sign()
+    )
+
+
+def _tidy(expr: Any) -> Any:
+    """``4.0`` is ``4`` on a working line; other decimals stay as written."""
+    from sympy import Float, Integer
+
+    if not hasattr(expr, "atoms"):
+        return expr
+    whole = {value: Integer(int(value)) for value in expr.atoms(Float) if float(value).is_integer()}
+    return expr.xreplace(whole) if whole else expr
+
+
+def _grouped(term: Any) -> str:
+    """``3y + 5`` subtracted is ``- (3y + 5)``; without the brackets the line is false."""
+    tex = str(latex(term))
+    if getattr(term, "is_Add", False):
+        return rf"\left({tex}\right)"
+    return tex
+
+
 def _remove_term_step(
     cur_l: Any,
     cur_r: Any,
@@ -302,14 +330,16 @@ def _remove_term_step(
     which: str | None = None,
     branch: str | None = None,
 ) -> KeyStep:
-    if _is_negative_number(term):
+    if _is_negative_number(term) or _is_negative_term(term):
         addend = -term
+        shown = _grouped(addend)
         label = f"Add {label_tex(addend)} to both sides"
-        formula = f"{latex(cur_l)} + {latex(addend)} = {latex(cur_r)} + {latex(addend)}"
+        formula = f"{latex(cur_l)} + {shown} = {latex(cur_r)} + {shown}"
         reason = f"this cancels the subtracted {latex(addend)}"
     else:
+        shown = _grouped(term)
         label = f"Subtract {label_tex(term)} from both sides"
-        formula = f"{latex(cur_l)} - {latex(term)} = {latex(cur_r)} - {latex(term)}"
+        formula = f"{latex(cur_l)} - {shown} = {latex(cur_r)} - {shown}"
         reason = f"this removes the added {latex(term)}"
     if which is not None:
         label = f"{label} of the {which} equation"
@@ -333,16 +363,16 @@ def _linear_key_steps(lhs: Any, rhs: Any, var: Any, poly: Any) -> list[KeyStep]:
     r_dep = _dependent(cur_r, var)
     if r_dep != 0:
         steps.append(_remove_term_step(cur_l, cur_r, r_dep))
-        cur_l = simplify(cur_l - r_dep)
-        cur_r = simplify(cur_r - r_dep)
+        cur_l = _tidy(simplify(cur_l - r_dep))
+        cur_r = _tidy(simplify(cur_r - r_dep))
         if not _is_solved(cur_l, cur_r, var):
             steps.append(KeyStep(label="Simplify", formula=_eq_tex(cur_l, cur_r)))
 
     l_indep = _independent(cur_l, var)
     if l_indep != 0:
         steps.append(_remove_term_step(cur_l, cur_r, l_indep))
-        cur_l = simplify(cur_l - l_indep)
-        cur_r = simplify(cur_r - l_indep)
+        cur_l = _tidy(simplify(cur_l - l_indep))
+        cur_r = _tidy(simplify(cur_r - l_indep))
         if not _is_solved(cur_l, cur_r, var):
             steps.append(KeyStep(label="Simplify", formula=_eq_tex(cur_l, cur_r)))
 
