@@ -15,6 +15,7 @@ from app.modules.chemistry.notation import typeset, typeset_json
 from app.modules.chemistry.solvers import solve_chemistry
 from app.modules.chemistry.solvers.solver import CHEMISTRY_SOLVERS
 from app.modules.chemistry.solvers.types import ChemistryResult
+from app.services.answer_fence import mark_server_answer_fences
 from app.tests.modules.chemistry.new_law_cases import NEW_LAW_CASES
 from app.tests.modules.chemistry.test_chemistry_solver_expanded import (
     PIPELINE_CASES,
@@ -157,7 +158,8 @@ def test_a_direct_reply_is_typeset_free_of_math_delimiters_and_stable_under_fina
     assert verified is not None
     reply = format_direct_chemistry_reply(verified)
     assert "$" not in reply
-    assert validate_chemistry_fences(reply, verified=verified) == reply
+    # Finalizing adds only the server's verified marker to its own card.
+    assert validate_chemistry_fences(reply, verified=verified) == mark_server_answer_fences(reply)
 
 
 def test_every_operation_has_a_case_in_the_invariant_matrix() -> None:

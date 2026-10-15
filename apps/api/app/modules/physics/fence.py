@@ -1,4 +1,11 @@
-"""Physics-owned reconciliation of answer, trajectory, and simulation fences."""
+"""Physics-owned reconciliation of answer, trajectory, and simulation fences.
+
+On a verified turn the model's own result fences are dropped and the solver's
+card (marked ``verified: true``) and scene are appended. A reply that answers
+and then offers more ("Want the max height too?") keeps both; only a reply that
+asks instead of stating any result goes without. A final value in the prose
+that differs from the verified one gets one correction line above the card.
+"""
 
 from __future__ import annotations
 
@@ -7,6 +14,13 @@ import logging
 import re
 
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
+from app.services.answer_check import (
+    asks_without_answering,
+    correction_line,
+    read_verified_value,
+    stated_verdict,
+)
+from app.services.answer_fence import verified_answer_fence
 from app.services.md_fence_scan import close_unclosed_fences, strip_closed_fences
 from app.services.solving import VerifiedPhysicsBlock
 
@@ -25,8 +39,13 @@ def validate_physics_fences(
     content: str,
     *,
     verified: VerifiedPhysicsBlock | None = None,
+    correct: bool = True,
 ) -> str:
-    """Drop model-authored result fences and append only solver-owned data."""
+    """Drop model-authored result fences and append only solver-owned data.
+
+    ``correct`` adds a correction line above the card when the prose states a
+    different final value; the server never corrects its own (instant) text.
+    """
     had_visual_fence = any(
         f"```{language}" in content for language in ("graph", "simulation", "geometry")
     )
@@ -40,14 +59,13 @@ def validate_physics_fences(
         return cleaned
     extras: list[str] = []
     answer = (verified.display_answer or verified.canonical_answer or "").strip()
-    if answer and any(line.rstrip("*_`~ \t").endswith("?") for line in cleaned.splitlines()):
-        normalized_content = re.sub(r"\s+", " ", cleaned.lower())
-        normalized_answer = re.sub(r"\s+", " ", answer.lower())
-        if normalized_answer not in normalized_content:
-            return cleaned
+    if answer and _asks_instead_of_answering(cleaned, answer):
+        return cleaned
     if answer:
+        if correct and stated_verdict(cleaned, answer) == "conflict":
+            extras.append(correction_line(answer))
         cleaned = _without_duplicated_answer(cleaned, answer)
-        extras.append(f"```answer\n{answer}\n```")
+        extras.append(verified_answer_fence(answer))
     for spec in _canonical_specs(verified):
         spec_type = spec.get("type")
         if spec_type == "answer":
@@ -55,6 +73,22 @@ def validate_physics_fences(
         language = "simulation" if spec_type in SIMULATION_SPEC_TYPES else "graph"
         extras.append(f"```{language}\n{json.dumps(spec, separators=(',', ':'))}\n```")
     return "\n\n".join(part for part in (cleaned, *extras) if part).strip()
+
+
+def _asks_instead_of_answering(content: str, answer: str) -> bool:
+    """A question and no result of its own: no card, no scene under it.
+
+    Any stated final value, right or wrong, means the reply answered; a
+    follow-up offer after it does not take the card away.
+    """
+    numeric = asks_without_answering(content, answer)
+    if numeric is not None:
+        return numeric
+    if not any(line.rstrip("*_`~ \t").endswith("?") for line in content.splitlines()):
+        return False
+    normalized_content = re.sub(r"\s+", " ", content.lower())
+    normalized_answer = re.sub(r"\s+", " ", answer.lower())
+    return normalized_answer not in normalized_content
 
 
 def _without_duplicated_answer(content: str, answer: str) -> str:
@@ -77,7 +111,17 @@ def _without_duplicated_answer(content: str, answer: str) -> str:
 
 
 def _restates(body: str, answer: str) -> bool:
-    return _plain_answer(body) == _plain_answer(answer) and bool(_plain_answer(answer))
+    if _plain_answer(body) == _plain_answer(answer) and bool(_plain_answer(answer)):
+        return True
+    # "$R = 35.3\ \text{m}$" under Answer is the verified 35.3 m with its name.
+    stated = read_verified_value(body.strip().strip("$").strip())
+    verified = read_verified_value(answer)
+    return (
+        stated is not None
+        and verified is not None
+        and len(stated.numbers) == len(verified.numbers)
+        and stated_verdict(body, answer) == "same"
+    )
 
 
 def _plain_answer(text: str) -> str:

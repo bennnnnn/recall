@@ -261,8 +261,15 @@ async def run_llm_token_stream(
             result["fallback_used"] = "1"
 
 
-def _replace_failed_subject_fences(seams: Any, content: str, verified: Any) -> str:
-    """Keep exceptional fence recovery inside the subject that owns the data."""
+def _replace_failed_subject_fences(
+    seams: Any, content: str, verified: Any, *, server_text: bool = False
+) -> str:
+    """Keep exceptional fence recovery inside the subject that owns the data.
+
+    The maths rewrite did not run, so the model's own answer fences are
+    demoted here (no solver needed): a timed-out pool must not let a model's
+    ```answer through as a card. Wholly server text keeps its cards.
+    """
     from app.services.solving import VerifiedPhysicsBlock
 
     if isinstance(verified, VerifiedPhysicsBlock):
@@ -274,7 +281,51 @@ def _replace_failed_subject_fences(seams: Any, content: str, verified: Any) -> s
 
         return replace_unclosed_chemistry_fences_safe(content, verified)
     canonical = verified.canonical_fence if verified is not None else None
-    return seams.math_fence_service.replace_unclosed_graph_fence_safe(content, canonical)
+    content = seams.math_fence_service.replace_unclosed_graph_fence_safe(content, canonical)
+    if server_text:
+        return content
+    from app.services.answer_fence import demote_answer_fences
+
+    return demote_answer_fences(content)
+
+
+def _prepare_model_reply(text: str, verified: Any) -> str:
+    """Model text before any server card is added to it.
+
+    The model cannot forge the server's ``verified: true`` line, every spelling
+    of its answer fences is put in the one form the subject passes demote, and
+    its own "✅ Verified with SymPy" claims go: on an unverified turn they fake
+    the check, and on a verified one the card says it (a claim beside a wrong
+    value would contradict it). A ```simulation scene is solver-sampled, so the
+    model's own never ships; a verified physics turn replaces it in its pass.
+    """
+    from app.services.answer_fence import (
+        normalize_owned_fences,
+        strip_forged_verified_markers,
+        strip_model_simulation_fences,
+        strip_verification_claims,
+    )
+    from app.services.solving import VerifiedPhysicsBlock
+
+    text = normalize_owned_fences(strip_forged_verified_markers(text))
+    text = strip_verification_claims(text)
+    if not isinstance(verified, VerifiedPhysicsBlock):
+        text = strip_model_simulation_fences(text)
+    return text
+
+
+def _fallback_text(raw: str, *, server_text: bool) -> str:
+    """What persists when enrichment fails: never a check the server did not write."""
+    from app.services.answer_fence import mark_server_answer_fences, strip_forged_verified_markers
+
+    try:
+        if server_text:
+            return mark_server_answer_fences(raw)
+        return strip_forged_verified_markers(raw)
+    except Exception:
+        logger.exception("answer-card fallback failed; dropping marker lines")
+        lines = raw.split("\n")
+        return "\n".join(line for line in lines if "verified" not in line.lower())
 
 
 def _prior_assistant_text(ctx: StreamContext) -> str:
@@ -324,7 +375,11 @@ async def enrich_final_content(
 ) -> str:
     raw_assistant_text = assistant_text
     reminder_created = 0
+    # An instant reply is wholly server text: every card in it is the server's.
+    server_text = ctx.instant_reply is not None
     try:
+        if not server_text:
+            assistant_text = _prepare_model_reply(assistant_text, ctx.verified_subject)
         assistant_text = await _attach_answer_photo(ctx, assistant_text, was_cancelled)
         user = ctx.user
         if user is None:
@@ -358,20 +413,25 @@ async def enrich_final_content(
                 # treat formulas and slash-units as expressions.
                 from app.modules.chemistry.fence import validate_chemistry_fences
 
-                assistant_text = validate_chemistry_fences(assistant_text, verified=verified)
+                # The server never corrects its own text: only model prose can
+                # state a value that differs from the verified one.
+                assistant_text = validate_chemistry_fences(
+                    assistant_text, verified=verified, correct=not server_text
+                )
             elif isinstance(verified, VerifiedPhysicsBlock):
                 from app.modules.physics.fence import validate_physics_fences
 
                 assistant_text = validate_physics_fences(
                     assistant_text,
                     verified=verified,
+                    correct=not server_text,
                 )
             # Direct verified replies already carry ```answer. Running that
             # rewrite on the SymPy pool can queue behind an integral for no
             # benefit — keep it in-process.
             elif ctx.instant_reply is not None and verified is not None:
                 assistant_text = seams.math_fence_service.validate_math_fences_worker(
-                    assistant_text, verified
+                    assistant_text, verified, False
                 )
             elif ctx.instant_reply is not None:
                 # Two solved problems have no single verified subject. Their
@@ -389,13 +449,17 @@ async def enrich_final_content(
         except TimeoutError:
             logger.warning("validate_math_fences timed out; keeping raw assistant text")
             assistant_text = _replace_failed_subject_fences(
-                seams, assistant_text, ctx.verified_subject
+                seams, assistant_text, ctx.verified_subject, server_text=server_text
             )
         except Exception:
             logger.exception("validate_math_fences failed; keeping raw assistant text")
             assistant_text = _replace_failed_subject_fences(
-                seams, assistant_text, ctx.verified_subject
+                seams, assistant_text, ctx.verified_subject, server_text=server_text
             )
+        if server_text:
+            from app.services.answer_fence import mark_server_answer_fences
+
+            assistant_text = mark_server_answer_fences(assistant_text)
 
         # Every reply, checked or not. The check mark is the only signal.
         from app.modules.math.fence import append_unverified_math_note
@@ -508,9 +572,15 @@ async def enrich_final_content(
         assistant_text = correct_weekday_dates(assistant_text)
     except Exception:
         logger.exception("Post-stream enrichment failed; persisting raw assistant text")
-        assistant_text = raw_assistant_text
+        assistant_text = _fallback_text(raw_assistant_text, server_text=server_text)
         ctx.answer_photo_ids = []
-        if result is not None and was_cancelled and assistant_text:
+        # The client settles what it streamed unless done carries the text, so a
+        # stripped forged marker (or a marked instant card) must be sent back.
+        if (
+            result is not None
+            and assistant_text
+            and (was_cancelled or assistant_text != raw_assistant_text)
+        ):
             result["final_content"] = assistant_text
         return assistant_text
 

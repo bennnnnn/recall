@@ -330,7 +330,7 @@ def test_answer_only_strips_written_working() -> None:
     content = "```arithmetic\n{}\n```\n\n```answer\n834\n```"
     cleaned = validate_math_fences(content, verified=block)
     assert "```arithmetic" not in cleaned
-    assert "```answer\n834" in cleaned
+    assert "```answer\nverified: true\n834" in cleaned
 
 
 def test_written_grammar_rejects_compound_or_malformed_requests() -> None:

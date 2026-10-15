@@ -1,8 +1,11 @@
 """Does the reply already state the verified answer, or ask instead of answering?
 
 These decide whether the solver-owned answer chip is appended after the
-stream: a value already visible in the prose is not repeated, and a reply that
-asks for missing information gets no verified answer pinned under it.
+stream: the same value already visible in the prose is not repeated, and a
+reply that asks for missing information gets no verified answer pinned under
+it. A *different* value in the prose never hides the chip; plain numbers are
+compared as numbers in ``app.services.answer_check``, and the string checks
+here cover expressions that are not plain values.
 """
 
 from __future__ import annotations
@@ -11,6 +14,7 @@ import logging
 import re
 
 from app.modules.math import solve as math_solve
+from app.services.answer_check import asks_without_answering
 
 logger = logging.getLogger(__name__)
 
@@ -66,62 +70,28 @@ def _math_spans(prose: str) -> list[str]:
     return spans
 
 
+def _contains_value(haystack: str, needle: str) -> bool:
+    """``needle`` in ``haystack`` as a whole value: ``12.75`` is not in ``112.75`` or ``12.755``."""
+    start = haystack.find(needle)
+    while start >= 0:
+        end = start + len(needle)
+        before = haystack[start - 1] if start > 0 else ""
+        after = haystack[end : end + 2]
+        number_start = needle[:1].isdigit() or needle[:1] in ".-"
+        number_end = needle[-1:].isdigit()
+        clipped_before = number_start and (before.isdigit() or before == ".")
+        clipped_after = number_end and (
+            after[:1].isdigit() or (after[:1] == "." and after[1:2].isdigit())
+        )
+        if not clipped_before and not clipped_after:
+            return True
+        start = haystack.find(needle, start + 1)
+    return False
+
+
 def _span_states_short_int(span: str, core: str) -> bool:
     compact = _normalize_answer_token(span)
     return compact == core or compact.endswith("=" + core)
-
-
-def _span_var_equals_int(span: str) -> str | None:
-    """``x = 2`` / ``x=0`` → the integer core; skip ``2x = 4``."""
-    compact = _normalize_answer_token(span)
-    if len(compact) < 3 or not compact[0].isalpha() or compact[1] != "=":
-        return None
-    rest = compact[2:]
-    if rest.startswith("-"):
-        rest = rest[1:]
-    if not rest.isdigit() or len(rest) > 2:
-        return None
-    return compact[2:]
-
-
-def _compact_bare_var_equals_ints(compact: str) -> list[str]:
-    """Integer cores from ``<letter>=N`` where the letter is not ``2x=4``."""
-    found: list[str] = []
-    i = 0
-    n = len(compact)
-    while i < n - 2:
-        if (
-            compact[i].isalpha()
-            and compact[i + 1] == "="
-            and (i == 0 or not compact[i - 1].isalnum())
-        ):
-            j = i + 2
-            if j < n and compact[j] == "-":
-                j += 1
-            k = j
-            while k < n and compact[k].isdigit():
-                k += 1
-            if k > j and (k - j) <= 2:
-                found.append(compact[i + 2 : k])
-            i = k
-        else:
-            i += 1
-    return found
-
-
-def prose_states_conflicting_var_equals(content: str, answer_body: str) -> bool:
-    """True when steps already state ``x = 2`` and the solver chip would be ``x = 0``."""
-    solver = _answer_numeric_core(answer_body)
-    digits = solver[1:] if solver.startswith("-") else solver
-    if not digits.isdigit() or len(digits) > 2:
-        return False
-    stated: list[str] = []
-    for span in _math_spans(content):
-        hit = _span_var_equals_int(span)
-        if hit is not None:
-            stated.append(hit)
-    stated.extend(_compact_bare_var_equals_ints(_normalize_answer_token(content)))
-    return any(value != solver for value in stated)
 
 
 def _normalize_math_answer_expression(text: str) -> str:
@@ -163,7 +133,7 @@ def prose_already_states_answer(content: str, answer_body: str) -> bool:
     needle = _normalize_answer_token(body)
     if len(needle) < 2:
         return False
-    if r"\mathrm{" not in body and needle in _normalize_answer_token(content):
+    if r"\mathrm{" not in body and _contains_value(_normalize_answer_token(content), needle):
         return True
     # Formatting equivalence applies to complete math results only. A looser
     # substring check would find canonical x^{1} inside the different x^12.
@@ -275,9 +245,16 @@ def reply_asks_instead_of_answering(content: str, answer_body: str | None) -> bo
     a question and no stated answer, yet the diagram is exactly right. What
     makes the incident wrong is a *verified answer* being pinned to a reply that
     does not make it, so with no such answer there is nothing to withhold.
+
+    "States an answer" means any final value, right or wrong: "Subtract 5,
+    then divide: x = 7. Want to try a harder one?" answered (wrongly) and then
+    offered more, so it keeps the verified card and gets a correction.
     """
     if not answer_body:
         return False
+    numeric = asks_without_answering(content, answer_body)
+    if numeric is not None:
+        return numeric and not prose_already_states_answer(content, answer_body)
     if not any(_line_asks(line) for line in content.splitlines()):
         return False
     return not prose_already_states_answer(content, answer_body)

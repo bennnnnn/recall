@@ -9,6 +9,7 @@ from app.modules.math.response_intent import (
     classify_math_response_intent,
 )
 from app.modules.math.tools.prompt import needs_symbolic_math
+from app.services.answer_fence import answer_fence_value
 
 MATH_FOLLOWUP_HINT = (
     "This short request refers to the immediately preceding math exchange. Give only "
@@ -228,7 +229,8 @@ def readable_standalone_answer(content: str) -> str | None:
     lines = content.strip().splitlines()
     if len(lines) < 3 or lines[0] != "```answer" or lines[-1] != "```":
         return None
-    body = "\n".join(lines[1:-1]).strip()
+    # The value only: never the card's protocol lines (``verified: true``).
+    body = answer_fence_value("\n".join(lines[1:-1]))
     if not body or len(body) > 4000 or "`" in body or "$" in body:
         return None
     # JSON/tool data is not a mathematical answer. Preserve such unfamiliar

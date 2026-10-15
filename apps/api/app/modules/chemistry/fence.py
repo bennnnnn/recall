@@ -16,6 +16,12 @@ from app.modules import chemistry as chemistry_service
 from app.modules.chemistry.block import VerifiedChemistry
 from app.modules.chemistry.notation import typeset, typeset_json
 from app.modules.chemistry.schemas.scene import dump_scene
+from app.services.answer_check import correction_line, stated_verdict
+from app.services.answer_fence import (
+    ANSWER_FENCE_LANGS,
+    normalize_owned_fences,
+    verified_answer_fence,
+)
 from app.services.md_fence_scan import close_unclosed_fences, map_closed_fences, strip_closed_fences
 
 logger = logging.getLogger(__name__)
@@ -162,7 +168,8 @@ def enrich_chemistry_fences_worker(content: str) -> str:
     return enrich_chemistry_fences(content)
 
 
-# First line of a server ```answer fence whose body is chemistry text, not LaTeX.
+# Header line of a server ```answer fence whose body is chemistry text, not LaTeX
+# (after ``verified: true`` when the card is marked).
 CHEMISTRY_ANSWER_NOTATION = "notation: chemistry"
 
 # Fences the solver owns on a verified chemistry turn. A model copy is removed
@@ -181,22 +188,32 @@ _OWNED_FENCE_LANGS = (
 )
 
 
-def format_chemistry_answer_fence(answer: str, *, verbatim: bool = False) -> str:
+def _answer_body(answer: str, *, verbatim: bool) -> str:
+    body = answer.strip() if verbatim else typeset(answer.strip())
+    return f"{CHEMISTRY_ANSWER_NOTATION}\n{body}"
+
+
+def format_chemistry_answer_fence(
+    answer: str, *, verbatim: bool = False, marked: bool = False
+) -> str:
     """Answer fence the math renderer must not typeset as algebra.
 
     The answer is ASCII from the solver; the reader sees it typeset (H₂O, Fe²⁺, →) unless
-    it carries SMILES or atom labels.
+    it carries SMILES or atom labels. ``marked`` adds the server's ``verified: true``
+    line; a direct reply gets it when it is sent, the post-stream pass writes it here.
     """
-    body = answer.strip() if verbatim else typeset(answer.strip())
-    return f"```answer\n{CHEMISTRY_ANSWER_NOTATION}\n{body}\n```"
+    body = _answer_body(answer, verbatim=verbatim)
+    return verified_answer_fence(body) if marked else f"```answer\n{body}\n```"
 
 
-def _solver_fences(verified: VerifiedChemistry) -> list[str]:
+def _solver_fences(verified: VerifiedChemistry, *, marked: bool = False) -> list[str]:
     result = verified.result
     fences: list[str] = []
     answer = result.answer.strip()
     if answer:
-        fences.append(format_chemistry_answer_fence(answer, verbatim=result.verbatim))
+        fences.append(
+            format_chemistry_answer_fence(answer, verbatim=result.verbatim, marked=marked)
+        )
     if result.scene is not None:
         scene = dump_scene(result.scene)
         payload = json.dumps(scene if result.verbatim else typeset_json(scene), ensure_ascii=False)
@@ -208,7 +225,7 @@ def _solver_fences(verified: VerifiedChemistry) -> list[str]:
 
 
 def _strip_owned_fences(content: str) -> str:
-    cleaned = content
+    cleaned = normalize_owned_fences(content, ANSWER_FENCE_LANGS)
     for language in _OWNED_FENCE_LANGS:
         cleaned = strip_closed_fences(cleaned, language)
     return cleaned.strip()
@@ -250,20 +267,47 @@ def _without_one_line_answer(prose: str) -> str:
     return text[: match.end("head")].rstrip()
 
 
-def assemble_chemistry_reply(prose: str, verified: VerifiedChemistry) -> str:
-    """Prose plus the solver's answer, scene, and structure. One blank line between."""
-    parts = [prose.strip(), *_solver_fences(verified)]
+def assemble_chemistry_reply(
+    prose: str,
+    verified: VerifiedChemistry,
+    *,
+    marked: bool = False,
+    correction: str | None = None,
+) -> str:
+    """Prose plus the solver's answer, scene, and structure. One blank line between.
+
+    ``correction`` (a line saying the verified value) goes directly above the card.
+    """
+    parts = [prose.strip(), correction or "", *_solver_fences(verified, marked=marked)]
     body = "\n\n".join(part for part in parts if part).strip()
     return f"{body}\n" if body else ""
 
 
-def validate_chemistry_fences(content: str, verified: object | None = None) -> str:
-    """Drop model answer/scene/structure fences and append the solver's copies."""
+def _correction(prose: str, verified: VerifiedChemistry) -> str | None:
+    """One line when the prose's own final value differs from the verified answer."""
+    answer = verified.result.answer.strip()
+    if not answer:
+        return None
+    body = _answer_body(answer, verbatim=verified.result.verbatim)
+    if stated_verdict(prose, body) != "conflict":
+        return None
+    return correction_line(body)
+
+
+def validate_chemistry_fences(
+    content: str, verified: object | None = None, *, correct: bool = True
+) -> str:
+    """Drop model answer/scene/structure fences and append the solver's copies.
+
+    ``correct`` adds a correction line above the card when the prose states a
+    different final value; the server never corrects its own (instant) text.
+    """
     if not isinstance(verified, VerifiedChemistry):
         return content
     # An unclosed model fence would swallow the solver fences appended below it.
     prose = _without_one_line_answer(_strip_owned_fences(close_unclosed_fences(content)))
-    return assemble_chemistry_reply(prose, verified)
+    correction = _correction(prose, verified) if correct else None
+    return assemble_chemistry_reply(prose, verified, marked=True, correction=correction)
 
 
 def replace_unclosed_chemistry_fences_safe(content: str, verified: object | None) -> str:
@@ -276,7 +320,7 @@ def replace_unclosed_chemistry_fences_safe(content: str, verified: object | None
         cleaned = _strip_owned_fences(closed)
         if isinstance(verified, VerifiedChemistry) and verified.result.answer.strip():
             answer = format_chemistry_answer_fence(
-                verified.result.answer, verbatim=verified.result.verbatim
+                verified.result.answer, verbatim=verified.result.verbatim, marked=True
             )
             parts = [cleaned, answer]
             body = "\n\n".join(part for part in parts if part).strip()

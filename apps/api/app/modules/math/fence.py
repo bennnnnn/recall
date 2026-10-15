@@ -14,9 +14,11 @@ verified. Discrete point markers and vertical lines stay untouched.
 
 After rewriting any fences the model still produced, we append canonical
 fences that are missing so the client always gets the solver-owned
-diagram. An `` ```answer `` pill is appended only when the verified
-value is not already stated in the prose (so a one-line ``$3+0=3$`` is
-not duplicated as a result card).
+diagram. An `` ```answer `` pill is appended unless the prose already states
+the same full answer (so a one-line ``$3+0=3$`` is not duplicated as a result
+card). A *different* final value in the prose never hides the pill: it gets
+one correction line right above it. Every pill this module writes carries the
+server's ``verified: true`` marker; a model's own answer fence never does.
 """
 
 from __future__ import annotations
@@ -31,7 +33,6 @@ from pydantic import ValidationError
 
 from app.modules.math.fence_answer import (
     prose_already_states_answer,
-    prose_states_conflicting_var_equals,
     prose_symbolically_states_answer,
     reply_asks_instead_of_answering,
 )
@@ -40,6 +41,8 @@ from app.modules.math.schemas import (
     GraphBlockSpec,
 )
 from app.modules.math.text_plot import strip_text_plots
+from app.services.answer_check import Verdict, correction_line, stated_verdict
+from app.services.answer_fence import demote_answer_body, verified_answer_fence
 from app.services.md_fence_scan import (
     find_lang_opener,
     has_closed_fence,
@@ -330,7 +333,9 @@ def _verified_includes_graph(verified: VerifiedMathBlock) -> bool:
     return any(_spec_fence_kind(spec) == "graph" for spec in _collect_canonical_specs(verified))
 
 
-def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock | None) -> str:
+def _append_missing_canonical_fences(
+    content: str, verified: VerifiedMathBlock | None, *, correct: bool = True
+) -> str:
     """Attach solver-owned fences the model was told not to emit."""
     if verified is None:
         return content
@@ -340,14 +345,14 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
     if reply_asks_instead_of_answering(content, answer_body):
         return content
     extras: list[str] = []
-    if (
-        answer_body
-        and not any(has_closed_fence(content, lang) for lang in _ANSWER_FENCE_LANGS)
-        and not prose_already_states_answer(content, answer_body)
-        and not prose_states_conflicting_var_equals(content, answer_body)
-        and not prose_symbolically_states_answer(content, answer_body)
-    ):
-        extras.append(_markdown_fence("answer", answer_body))
+    correction: str | None = None
+    if answer_body:
+        verdict = stated_verdict(content, answer_body)
+        if verdict == "conflict" and correct:
+            correction = correction_line(answer_body)
+        has_card = any(has_closed_fence(content, lang) for lang in _ANSWER_FENCE_LANGS)
+        if not has_card and _prose_needs_answer_card(content, answer_body, verdict):
+            extras.append(verified_answer_fence(answer_body))
 
     specs = _collect_canonical_specs(verified)
     geo = next((spec for spec in specs if _spec_fence_kind(spec) == "geometry"), None)
@@ -382,6 +387,8 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
             _markdown_fence("arithmetic", json.dumps(arithmetic, separators=(",", ":"))),
         )
 
+    if correction is not None:
+        content, extras = _with_correction(content, extras, correction)
     if not extras:
         return content
     stripped = content.rstrip()
@@ -390,13 +397,46 @@ def _append_missing_canonical_fences(content: str, verified: VerifiedMathBlock |
     return "\n\n".join(extras) + "\n"
 
 
+def _prose_needs_answer_card(content: str, answer_body: str, verdict: Verdict) -> bool:
+    """Withhold the pill only when the prose states the same full answer."""
+    if verdict == "same":
+        return False
+    if verdict in {"conflict", "rounded"}:
+        return True
+    # Not a plain value, or no final value found: the string and SymPy checks
+    # decide whether the expression is already written out.
+    return not (
+        prose_already_states_answer(content, answer_body)
+        or prose_symbolically_states_answer(content, answer_body)
+    )
+
+
+def _with_correction(content: str, extras: list[str], correction: str) -> tuple[str, list[str]]:
+    """Put the correction line directly above the verified pill."""
+    pill = next(
+        (index for index, extra in enumerate(extras) if extra.startswith("```answer")), None
+    )
+    if pill is not None:
+        return content, [*extras[:pill], correction, *extras[pill:]]
+    opener = find_lang_opener(content, "answer")
+    if opener is None:
+        return content, extras
+    head = content[:opener].rstrip()
+    joined = f"{head}\n\n{correction}\n\n" if head else f"{correction}\n\n"
+    return joined + content[opener:], extras
+
+
 def _replace_answer_fence(raw: str, answer_body: str | None) -> str:
-    """Rewrite ```answer / ```result / ```final from SymPy, or demote to prose."""
+    """Rewrite ```answer / ```result / ```final from SymPy, or demote to prose.
+
+    A demoted fence keeps its value only (never a copied ``notation:`` header),
+    with a trailing newline so the next fence opener stays on its own line.
+    """
     if not answer_body:
-        body = raw.strip()
-        # Keep a trailing newline so the next fence opener stays on its own line.
-        return f"{body}\n" if body else ""
-    return f"```answer\n{answer_body}\n```"
+        return demote_answer_body(raw)
+    # The scan consumed the closer's newline; give it back so following text
+    # never lands on the closing backticks.
+    return verified_answer_fence(answer_body) + "\n"
 
 
 def _function_call_json_to_graph_fence(raw: str) -> str:
@@ -458,7 +498,14 @@ def convert_function_call_text(content: str) -> str:
     return "".join(out)
 
 
-def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = None) -> str:
+def validate_math_fences(
+    content: str, *, verified: VerifiedMathBlock | None = None, correct: bool = True
+) -> str:
+    """Rewrite solver-owned fences from ``verified`` and append the missing ones.
+
+    ``correct`` adds a correction line above the card when the prose states a
+    different final value; the server never corrects its own (instant) text.
+    """
     answer_only = bool(
         verified is not None
         and verified.response_intent is not None
@@ -497,6 +544,9 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
             lang,
             lambda body: "" if withhold_answer else _replace_answer_fence(body, answer_body),
             max_count=_MAX_ANSWER_FENCES,
+            # Past the cap a model fence is still the model's: demote it, never
+            # leave it standing as a card.
+            leftover=lambda body: "" if withhold_answer else demote_answer_body(body),
         )
     content = map_closed_fences(
         content,
@@ -554,7 +604,7 @@ def validate_math_fences(content: str, *, verified: VerifiedMathBlock | None = N
         content = strip_gfm_pipe_tables(content)
         content = strip_hand_sketch_filler(content)
         content = strip_text_plots(content)
-    return _append_missing_canonical_fences(content, scoped_verified)
+    return _append_missing_canonical_fences(content, scoped_verified, correct=correct)
 
 
 _FENCE_VALIDATE_MARKERS = (
@@ -576,9 +626,11 @@ def needs_math_fence_validate(content: str, verified: VerifiedMathBlock | None) 
     return any(marker in lower for marker in _FENCE_VALIDATE_MARKERS)
 
 
-def validate_math_fences_worker(content: str, verified: VerifiedMathBlock | None = None) -> str:
+def validate_math_fences_worker(
+    content: str, verified: VerifiedMathBlock | None = None, correct: bool = True
+) -> str:
     """Picklable entry for ``app.core.sympy_executor.run_sympy`` (positional args only)."""
-    return validate_math_fences(content, verified=verified)
+    return validate_math_fences(content, verified=verified, correct=correct)
 
 
 _UNVERIFIED_MATH_NOTE = "*I couldn't automatically verify this result.*"

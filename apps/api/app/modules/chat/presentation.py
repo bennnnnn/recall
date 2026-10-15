@@ -15,7 +15,7 @@ from app.modules.chat.repl_transcript import fence_repl_transcripts
 _WHY_QUESTION = re.compile(r"\b(?:why|explain)\b", re.IGNORECASE)
 _BARE_NUMBER_LINE = re.compile(r"\d+(?:\.\d+)?")
 _LEADING_NUMBER_FENCE = re.compile(
-    r"\A```(?:answer|result|final)\n\s*\d+(?:\.\d+)?\s*\n```\s*",
+    r"\A```(?:answer|result|final)\n(?:verified: true\n)?\s*\d+(?:\.\d+)?\s*\n```\s*",
     re.IGNORECASE,
 )
 

@@ -18,6 +18,7 @@ import re
 from dataclasses import dataclass, field
 
 from app.modules.chat.turn_prep.context import StreamContext
+from app.services.answer_fence import answer_fence_value
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +192,7 @@ def _collect_format_signals(text: str) -> list[QualitySignal]:
     for fence in fences:
         if fence.lang not in _ANSWER_LANGS or not fence.closed:
             continue
-        body = fence.body.strip()
+        body = answer_fence_value(fence.body)
         if not body:
             continue
         rest = f"{text[: fence.start]}{text[fence.end :]}"
