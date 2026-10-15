@@ -1,6 +1,7 @@
 import asyncio
 import json
 import logging
+import time
 from collections.abc import AsyncIterator, Callable
 from contextlib import suppress
 from typing import Any
@@ -51,6 +52,40 @@ _WS_HANDSHAKE_RATE_LIMIT = 60  # unauthenticated connects per IP per minute
 # Drop sockets that connect but never send the auth frame (resource leak).
 _WS_AUTH_TIMEOUT_SECONDS = 10.0
 _CHARGEABLE_WS_TYPES = frozenset({"message", "regenerate"})
+# Every frame after auth counts, chargeable or not. Only message/regenerate
+# were limited (30/min, account-wide); pings, cancels, unknown types and bad
+# JSON were unlimited, and each bad frame was parsed and answered. The app
+# sends at most a message plus a cancel per turn, so 120/min per socket is
+# far above real use. In-process: the budget belongs to one socket.
+_WS_FRAME_LIMIT = 120
+_WS_FRAME_WINDOW_SECONDS = 60.0
+_WS_FRAME_FLOOD_PAYLOAD = {
+    "type": "error",
+    "code": "rate_limited",
+    "message": "Too many messages. Reconnect in a minute.",
+}
+
+
+class _FrameBudget:
+    """Fixed-window frame counter for one socket."""
+
+    def __init__(self) -> None:
+        self._window_start = time.monotonic()
+        self._count = 0
+
+    def allow(self) -> bool:
+        now = time.monotonic()
+        if now - self._window_start >= _WS_FRAME_WINDOW_SECONDS:
+            self._window_start = now
+            self._count = 0
+        self._count += 1
+        return self._count <= _WS_FRAME_LIMIT
+
+
+async def _close_flooding_socket(websocket: WebSocket) -> None:
+    await _safe_send_json(websocket, _WS_FRAME_FLOOD_PAYLOAD)
+    with suppress(Exception):
+        await websocket.close(code=1008)
 
 
 async def _safe_send_json(websocket: WebSocket, payload: dict) -> bool:
@@ -102,6 +137,7 @@ async def _stream_over_ws(
     cancel_event: asyncio.Event,
     result: dict[str, Any],
     chat_id: UUID | None = None,
+    frame_budget: _FrameBudget | None = None,
 ) -> None:
     async def run_stream() -> None:
         sent_tokens = 0
@@ -201,8 +237,15 @@ async def _stream_over_ws(
                 except (json.JSONDecodeError, KeyError, TypeError):
                     # Keep ownership of the active producer when a bad JSON
                     # or binary frame arrives, just as the idle loop does.
+                    if frame_budget is not None and not frame_budget.allow():
+                        # The producer drains on send failure; the reply is saved.
+                        await _close_flooding_socket(websocket)
+                        break
                     await _safe_send_json(websocket, {"type": "error", "message": "Invalid JSON"})
                     continue
+                if frame_budget is not None and not frame_budget.allow():
+                    await _close_flooding_socket(websocket)
+                    break
                 # Non-dict JSON (array/primitive) must not AttributeError the
                 # dispatch loop while the producer is still streaming.
                 if not isinstance(msg, dict):
@@ -247,6 +290,7 @@ async def _run_chat_stream(
     cancel_event: asyncio.Event,
     stream_factory: Callable[[dict[str, str]], AsyncIterator[str]],
     chat_id: UUID | None = None,
+    frame_budget: _FrameBudget | None = None,
 ) -> None:
     cancel_event.clear()
     if not await _safe_send_json(websocket, build_start_event()):
@@ -259,6 +303,7 @@ async def _run_chat_stream(
             cancel_event,
             result,
             chat_id,
+            frame_budget,
         )
     except Exception as exc:
         if not isinstance(
@@ -306,6 +351,7 @@ async def _handle_regenerate(
     cancel_event: asyncio.Event,
     emit_status: Any,
     emit_reasoning: Any,
+    frame_budget: _FrameBudget | None = None,
 ) -> None:
     try:
         request = ChatMessageRequest.model_validate(payload)
@@ -334,6 +380,7 @@ async def _handle_regenerate(
         cancel_event=cancel_event,
         stream_factory=_regen_stream,
         chat_id=chat_id,
+        frame_budget=frame_budget,
     )
 
 
@@ -349,6 +396,7 @@ async def _handle_message(
     cancel_event: asyncio.Event,
     emit_status: Any,
     emit_reasoning: Any,
+    frame_budget: _FrameBudget | None = None,
 ) -> None:
     try:
         request = ChatMessageRequest.model_validate(payload)
@@ -385,6 +433,7 @@ async def _handle_message(
         cancel_event=cancel_event,
         stream_factory=_message_stream,
         chat_id=chat_id,
+        frame_budget=frame_budget,
     )
 
 
@@ -451,6 +500,7 @@ async def chat_websocket(
 
     cancel_event = asyncio.Event()
     emit_status, emit_reasoning = _status_emitters(websocket)
+    frame_budget = _FrameBudget()
 
     try:
         while True:
@@ -468,8 +518,16 @@ async def chat_websocket(
                 raise
             except (json.JSONDecodeError, KeyError, TypeError):
                 # Bad JSON, binary frames (no "text"), or other non-text payloads.
+                if not frame_budget.allow():
+                    await _close_flooding_socket(websocket)
+                    return
                 await _safe_send_json(websocket, {"type": "error", "message": "Invalid JSON"})
                 continue
+
+            if not frame_budget.allow():
+                logger.warning("WebSocket frame flood; closing chat_id=%s", chat_id)
+                await _close_flooding_socket(websocket)
+                return
 
             if not isinstance(payload, dict):
                 await _safe_send_json(websocket, {"type": "error", "message": "Invalid message"})
@@ -516,6 +574,7 @@ async def chat_websocket(
                     cancel_event=cancel_event,
                     emit_status=emit_status,
                     emit_reasoning=emit_reasoning,
+                    frame_budget=frame_budget,
                 )
                 continue
 
@@ -533,6 +592,7 @@ async def chat_websocket(
                 cancel_event=cancel_event,
                 emit_status=emit_status,
                 emit_reasoning=emit_reasoning,
+                frame_budget=frame_budget,
             )
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected chat_id=%s", chat_id)
