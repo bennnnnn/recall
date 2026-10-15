@@ -60,6 +60,17 @@ _ADVANCED_PHYSICS_RE = re.compile(
 )
 
 
+# A reminder or a to-do that names a battery or a bulb: "remind me to buy a 9V
+# battery tomorrow" is an errand, not a circuit. "remind me how ..." still asks.
+_ERRAND_RE = re.compile(
+    r"^\s*(?:(?:please|hey|ok|okay|can\s+you|could\s+you)[\s,]+)*"
+    r"(?:remind\s+me\s+(?:to|at|on|in|tomorrow|tonight|about|later|every|this|next)\b"
+    r"|set\s+(?:a|an|me\s+a)\s+(?:reminder|alarm|timer)\b"
+    r"|add\b[^.?!\n]{0,80}\bto\s+(?:my\s+)?(?:to-?do|todo|shopping|grocery)?\s*list\b"
+    r"|(?:don'?t|do\s+not)\s+let\s+me\s+forget\b)",
+    re.IGNORECASE,
+)
+
 # "What if it's dropped from 80 m?": a hypothetical that continues a thread.
 _HYPOTHETICAL_RE = re.compile(
     r"\s*(?:(?:and|but|so|ok|okay)\s+)?(?:what\s+(?:if|about)|how\s+about|suppose|imagine)\b",
@@ -99,6 +110,8 @@ def needs_physics(text: str) -> bool:
 
     if is_symbolic_physics_request(text):
         return True
+    if _ERRAND_RE.search(text) is not None:
+        return False
     if _named_symbol_request(text) is not None:
         return True
     normalized = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_SUBJECT_TEXT)

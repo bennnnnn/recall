@@ -88,6 +88,24 @@ def test_a_train_problem_is_not_a_distance_from_the_user() -> None:
     assert is_geo_query("how far is the airport")
 
 
+@pytest.mark.parametrize(
+    ("text", "geo"),
+    [
+        # A speed unit glued to its number is still a motion problem.
+        ("car doing 90km/h, how far does it go in 4 s in metres", False),
+        ("a cyclist rides at 5m/s for 2 minutes how far does she go", False),
+        ("A ball is thrown at 30° above the horizontal. how far does it go?", False),
+        # A place the season kicked off in is still a trip from the user.
+        ("how far is the stadium where they kicked off the season", True),
+        ("how far is the nearest pharmacy from me", True),
+    ],
+)
+def test_a_glued_speed_unit_is_motion_and_a_kick_off_is_a_place(text: str, geo: bool) -> None:
+    from app.modules.web_search.geo_intent import is_geo_query
+
+    assert is_geo_query(text) is geo
+
+
 def test_more_live_cues() -> None:
     from app.modules.web_search.detection import needs_web_search
 
