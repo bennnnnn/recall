@@ -345,7 +345,68 @@ def collapse_repeated_si_unit_powers(s: str) -> str:
 
 
 def prepare(text: str) -> str | None:
-    return normalize_symbolic_request(text)
+    cleaned = normalize_symbolic_request(text)
+    if cleaned is None:
+        return None
+    return fold_scientific_notation(fold_digit_groups(cleaned))
+
+
+# ``1,200`` and ``1,234,567.5``: one number written in groups of three.
+_DIGIT_GROUPS = re.compile(r"(?<![\w.,])(\d{1,3})((?:,\d{3})+)(?![\d]|,\d)")
+_BRACKET_BEFORE = re.compile(r"[(\[<{]\s*$")
+_BRACKET_AFTER = re.compile(r"^\s*[)\]>}]")
+_BARE_COMMA = re.compile(r"\d,\d")
+
+
+def fold_digit_groups(text: str) -> str:
+    """``7.5% of 1,200`` is 7.5% of 1200, not of 1 with ``,200`` left over.
+
+    A list typed without spaces (``2,4,4,5``) keeps its commas, and so does
+    any number in that message. A run that reads both ways (``100,200,300``)
+    is left alone, and so are pairs and matrices in brackets (``(1,200)``),
+    so an extractor that cannot read it declines.
+    """
+    if "," not in text:
+        return text
+    found = list(_DIGIT_GROUPS.finditer(text))
+    if not found:
+        return text
+    rest = _DIGIT_GROUPS.sub(" ", text)
+    if _BARE_COMMA.search(rest):
+        return text
+
+    def fold(match: re.Match[str]) -> str:
+        lead, groups = match.group(1), match.group(2)
+        if len(lead) == 3 and groups.count(",") >= 2:
+            return match.group(0)
+        before, after = text[: match.start()], text[match.end() :]
+        if _BRACKET_BEFORE.search(before) or _BRACKET_AFTER.match(after):
+            return match.group(0)
+        return lead + groups.replace(",", "")
+
+    return _DIGIT_GROUPS.sub(fold, text)
+
+
+# ``1.8 x 10^-5``: the x is "times", never an unknown.
+_SCIENTIFIC = re.compile(
+    r"(?<![\w.])(\d+(?:\.\d+)?)\s*[xX]\s*10\s*\^\s*"
+    r"(?:\{\s*([+\-\u2212]?\d+)\s*\}|\(\s*([+\-\u2212]?\d+)\s*\)|([+\-\u2212]?\d+))"
+    r"(?![\d.])"
+)
+
+
+def fold_scientific_notation(text: str) -> str:
+    """Write ``1.8 x 10^-5`` as ``1.8*10^(-5)``, the product it means."""
+    if "10" not in text or "^" not in text:
+        return text
+
+    def fold(match: re.Match[str]) -> str:
+        power = next(group for group in match.groups()[1:] if group is not None)
+        power = power.replace("\u2212", "-").lstrip("+")
+        exponent = f"({power})" if power.startswith("-") else power
+        return f"{match.group(1)}*10^{exponent}"
+
+    return _SCIENTIFIC.sub(fold, text)
 
 
 def geometry_dim_context(lower: str) -> bool:
