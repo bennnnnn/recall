@@ -54,6 +54,64 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("V", "V", "volt"),
         ),
     ),
+    # A battery's own resistance adds to the load's: I = ε/(R + r).
+    formula(
+        "current_with_internal_resistance",
+        "circuit",
+        "Ohm's law for the whole circuit",
+        "I",
+        base_latex=r"I = \frac{\mathcal{E}}{R + r}",
+        expression="E_emf/(R + r_int)",
+        variables=(
+            var("E_emf", r"\mathcal{E}", "volt"),
+            var(
+                "R",
+                "R",
+                "ohm",
+                words=("resistor", "load", "external", "connected to", "drives a", "lamp", "bulb"),
+                needs_words=True,
+            ),
+            var("r_int", "r", "ohm", words=("internal",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=("current",),
+            result=("ampere",),
+            inputs=(frozenset({"E_emf", "R", "r_int"}),),
+            cues=("internal resistance",),
+            excludes=("terminal", "lost volts", "parallel", "series"),
+            nonnegative=True,
+        ),
+    ),
+    # The energy a steady power uses over a time: E = Pt. 60 W for a week is
+    # 3.63e7 J, 10.1 kWh.
+    formula(
+        "energy_from_power_time",
+        "circuit",
+        "Electrical energy",
+        "E",
+        base_latex=r"E = P t",
+        expression="P*t",
+        variables=(var("P", "P", "watt"), var("t", "t", "second")),
+        binding=Binding(
+            asks=("how many kwh", "energy", "how much energy", "energy used", "electricity"),
+            result=("joule",),
+            inputs=(frozenset({"P", "t"}),),
+            cues=("bulb", "lamp", "heater", "kettle", "appliance", "device", "left on", "runs"),
+            excludes=(
+                "a day",
+                "per day",
+                "each day",
+                "every day",
+                "daily",
+                "cost",
+                "price",
+                "efficien",
+                "lift",
+                "raise",
+            ),
+            nonnegative=True,
+        ),
+    ),
     # A lamp's rating gives its resistance: R = V²/P. 60 W on 120 V is 240 Ω.
     formula(
         "resistance_from_power",

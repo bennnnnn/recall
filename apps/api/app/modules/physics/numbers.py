@@ -42,6 +42,17 @@ _UNIT_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
         re.compile(r"\bmicrocoulombs?\b|(?<!\w)[µμ]C\b", re.IGNORECASE),
         "uC",
     ),
+    # "left on for a whole week": one week, written as a number a law can bind.
+    (
+        re.compile(
+            r"\bfor\s+(?:a|an|one)\s+(?:whole\s+|full\s+|entire\s+)?"
+            r"(second|minute|hour|day|week|year)\b",
+            re.IGNORECASE,
+        ),
+        r"for 1 \1",
+    ),
+    # "(v sound = 343 m/s)": the speed of sound, as the wave readers name it.
+    (re.compile(r"\bv[ _]?sound\b", re.IGNORECASE), "speed of sound"),
     # "120 kph": the speed readers split a speed at its slash.
     (re.compile(r"(?<=\d)(\s*)(?:kph|kmph|kmh)\b", re.IGNORECASE), r"\1km/h"),
 )
@@ -66,6 +77,8 @@ _SPELLING_NORMALIZATIONS: tuple[tuple[re.Pattern[str], str], ...] = (
     (re.compile(r"\b(?:velocty|velcity|veloctiy|volocity)\b", re.IGNORECASE), "velocity"),
     # "whats the total distance?" asks as "what's" does.
     (re.compile(r"\b(w)hats\b", re.IGNORECASE), r"\1hat's"),
+    # "2000 km above the earths surface" names Earth.
+    (re.compile(r"\b(e)arths\b", re.IGNORECASE), r"\1arth's"),
 )
 
 

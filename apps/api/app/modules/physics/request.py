@@ -225,28 +225,67 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
     )
 
 
+# "(a) what is the max height (b) the range": a question in labelled parts.
+_PART_LABEL = re.compile(r"\(\s*([a-d])\s*\)")
+# What may sit beside a part's quantity: its question words and articles.
+_PART_FILLER = re.compile(
+    r"\b(?:what\s+is|what's|what\s+are|find|calculate|compute|determine|work\s+out"
+    r"|the|its|and)\b|[\s,?.!:]",
+    re.IGNORECASE,
+)
+
+
+def _labelled_quantities(text: str) -> tuple[list[re.Match[str]], int] | None:
+    """Each labelled part's one quantity, and where the parts start.
+
+    None when the text has no labelled parts, and an empty list when a part
+    asks for something this reading does not know: that part would be dropped.
+    """
+    labels = list(_PART_LABEL.finditer(text))
+    if len(labels) < 2 or [label.group(1) for label in labels] != list("abcd"[: len(labels)]):
+        return None
+    found: list[re.Match[str]] = []
+    for index, label in enumerate(labels):
+        end = labels[index + 1].start() if index + 1 < len(labels) else len(text)
+        segment = text[label.end() : end]
+        quantities = list(_QUANTITY.finditer(segment))
+        if len(quantities) != 1 or _PART_FILLER.sub("", _QUANTITY.sub("", segment)):
+            return [], labels[0].start()
+        found.append(quantities[0])
+    return found, labels[0].start()
+
+
 def _projectile_parts(text: str) -> tuple[ProjectileQuantity, ...] | None:
     """Read a question-last list; None means a recognized but incomplete list.
 
     Unsupported tail requests cannot be peeled off: 'range, maximum height,
     and kinetic energy' must not be represented as two verified quantities.
-    Other multipart question grammars remain outside this bounded extension.
+    A question in labelled parts ("(a) what is the max height (b) the range")
+    is the same list, read part by part. Other multipart question grammars
+    remain outside this bounded extension.
     """
-    requests = list(_ASK.finditer(text))
-    if not requests:
-        return None if len(list(_QUANTITY.finditer(text))) > 1 else ()
-    if len(requests) > 1 and len(list(_QUANTITY.finditer(text))) >= 2:
-        return None
-    tail_and_suffix = re.split(r"[.?!]", text[requests[-1].end() :], maxsplit=1)
-    tail = tail_and_suffix[0].strip()
-    matches = list(_QUANTITY.finditer(tail))
-    if len(matches) < 2:
-        return None if len(list(_QUANTITY.finditer(text))) > 1 else ()
-    if len(tail_and_suffix) > 1 and _QUANTITY.search(tail_and_suffix[1]):
-        return None
-    remainder = _QUANTITY.sub("", tail)
-    if re.sub(r"\b(?:the|its|and)\b|[\s,]", "", remainder, flags=re.IGNORECASE):
-        return None
+    labelled = _labelled_quantities(text)
+    if labelled is not None:
+        matches, ask_start = labelled
+        if not matches:
+            return None if len(list(_QUANTITY.finditer(text))) > 1 else ()
+    else:
+        requests = list(_ASK.finditer(text))
+        if not requests:
+            return None if len(list(_QUANTITY.finditer(text))) > 1 else ()
+        if len(requests) > 1 and len(list(_QUANTITY.finditer(text))) >= 2:
+            return None
+        tail_and_suffix = re.split(r"[.?!]", text[requests[-1].end() :], maxsplit=1)
+        tail = tail_and_suffix[0].strip()
+        matches = list(_QUANTITY.finditer(tail))
+        if len(matches) < 2:
+            return None if len(list(_QUANTITY.finditer(text))) > 1 else ()
+        if len(tail_and_suffix) > 1 and _QUANTITY.search(tail_and_suffix[1]):
+            return None
+        remainder = _QUANTITY.sub("", tail)
+        if re.sub(r"\b(?:the|its|and)\b|[\s,]", "", remainder, flags=re.IGNORECASE):
+            return None
+        ask_start = requests[-1].start()
     ops: list[ProjectileQuantity] = []
     for match in matches:
         phrase = match.group().lower()
@@ -280,7 +319,7 @@ def _projectile_parts(text: str) -> tuple[ProjectileQuantity, ...] | None:
         return None
     if lengths and not re.search(
         r"\b(?:height|cliff|ledge|platform|h0)\b",
-        text[: requests[-1].start()],
+        text[:ask_start],
         re.IGNORECASE,
     ):
         return None

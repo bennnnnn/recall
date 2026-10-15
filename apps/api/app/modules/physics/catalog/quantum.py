@@ -57,6 +57,71 @@ _LEVEL = var(
 
 
 SPECS: tuple[FormulaSpec, ...] = (
+    # "a 5 mW laser of 630 nm: how many photons per second?" The power over one
+    # photon's energy.
+    formula(
+        "photon_emission_rate",
+        "modern",
+        "Photon-energy relation",
+        r"\frac{N}{t}",
+        base_latex=r"\frac{N}{t} = \frac{P\lambda}{hc}",
+        expression="power*wavelength/(h_planck*c_light)",
+        variants=(
+            FormulaVariant(
+                present=frozenset({"freq"}),
+                latex=r"\frac{N}{t} = \frac{P}{hf}",
+                expression="power/(h_planck*freq)",
+            ),
+        ),
+        variables=(var("power", "P", "watt"), _FREQ, _WAVELENGTH),
+        binding=Binding(
+            asks=(
+                "how many photons",
+                "number of photons",
+                "photons per second",
+                "photons each second",
+                "photon emission rate",
+                "rate of photon emission",
+            ),
+            result=("1 / second",),
+            inputs=(frozenset({"power", "wavelength"}), frozenset({"power", "freq"})),
+            cues=("photon",),
+            nonnegative=True,
+            shown_unit="photons/s",
+        ),
+    ),
+    # "an electron accelerated through 150 V": qV of kinetic energy, so
+    # p = sqrt(2mqV). Past 2% of the rest energy the classical momentum is
+    # off by more than half a percent, and the law declines.
+    formula(
+        "de_broglie_from_voltage",
+        "modern",
+        "de Broglie relation",
+        r"\lambda",
+        base_latex=r"\lambda = \frac{h}{\sqrt{2mqV}}",
+        assumptions=("starts from rest; non-relativistic",),
+        expression="h_planck/sqrt(2*m*Q*V)",
+        variables=(
+            var("m", "m", "kilogram", fallback="particle_mass"),
+            var("Q", "q", "coulomb", fallback="particle_charge"),
+            var("V", "V", "volt"),
+        ),
+        binding=Binding(
+            asks=("de broglie wavelength", "wavelength"),
+            result=("meter",),
+            inputs=(frozenset({"m", "Q", "V"}),),
+            cues=(
+                "accelerated through",
+                "accelerated by",
+                "accelerated across",
+                "through a potential",
+                "potential difference",
+            ),
+            excludes=("photon",),
+            requires=("0.02*m*c_light**2 - Q*V", "V"),
+            nonnegative=True,
+        ),
+    ),
     formula(
         "photon_momentum",
         "modern",

@@ -242,6 +242,47 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # Pushed at a steady speed: the push only balances kinetic friction, μmg.
+    formula(
+        "constant_velocity_push",
+        "friction",
+        "Friction law",
+        "F",
+        base_latex=r"F = \mu m g",
+        assumptions=("a horizontal push on a level floor", "kinetic friction"),
+        expression="mu*m*g",
+        variables=(
+            var("m", "m", "kilogram"),
+            var("mu", r"\mu", dimensionless=True),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+        ),
+        binding=Binding(
+            asks=("horizontal force", "force", "how hard", "push", "pull"),
+            result=("newton",),
+            inputs=(frozenset({"g", "m", "mu"}),),
+            cues=(
+                "constant velocity",
+                "constant speed",
+                "steady speed",
+                "steady velocity",
+                "uniform velocity",
+                "uniform speed",
+            ),
+            excludes=(
+                "incline",
+                "slope",
+                "ramp",
+                "hill",
+                "angle",
+                "above the horizontal",
+                "below the horizontal",
+                "accelerat",
+                "static",
+                "start",
+            ),
+            nonnegative=True,
+        ),
+    ),
     # Friction alone slows a sliding body at mu*g.
     formula(
         "friction_deceleration",

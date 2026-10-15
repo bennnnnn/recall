@@ -365,6 +365,37 @@ SPECS: tuple[FormulaSpec, ...] = (
         )
         for operation, symbol in (("two_stage_distance", "d"), ("two_stage_time", "t"))
     ),
+    # A faster chaser closes a gap at the difference of the speeds
+    # (``extractors/relative_motion.py``): 30 m/s after 20 m/s, 100 m ahead,
+    # catches up in 10 s.
+    formula(
+        "catch_up_time",
+        "kinematics",
+        "Relative velocity",
+        "t",
+        base_latex=r"t = \frac{d}{v_1 - v_2}",
+        assumptions=("both move at constant speed along one line, the same way",),
+        variables=(
+            var("d", "d", "meter"),
+            var("v_chaser", "v_1", "meter / second"),
+            var("v_target", "v_2", "meter / second"),
+        ),
+    ),
+    # Two legs on the two compass axes: the displacement's size and direction.
+    formula(
+        "displacement_two_legs",
+        "kinematics",
+        "Displacement",
+        "d",
+        base_latex=r"d = \sqrt{d_1^2 + d_2^2}",
+        assumptions=("the two legs are at right angles",),
+        variables=(
+            var("d1", "d_1", "meter"),
+            var("d2", "d_2", "meter"),
+            var("heading1", "", dimensionless=True, visible=False),
+            var("heading2", "", dimensionless=True, visible=False),
+        ),
+    ),
     # How far a dropped body falls in a time: h = ½gt² from rest.
     formula(
         "drop_height",

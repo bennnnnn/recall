@@ -11,10 +11,13 @@ import pytest
 
 from app.core.config import Settings
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
+from app.modules.physics.ask import asked_unit
 from app.modules.physics.binding import crosswise
 from app.modules.physics.binding_values import light_enters_from_air
 from app.modules.physics.extract import needs_physics
+from app.modules.physics.givens import scan_givens
 from app.modules.physics.numbers import normalize_physics_numbers, normalize_physics_units
+from app.services.law_binding.units import unit_dimension
 from app.services.subject_solving import detect_subject
 from app.tests.modules.physics.support import answer_number
 
@@ -734,3 +737,610 @@ def test_detect_subject_gives_the_investigation_gaps_to_physics(text: str) -> No
 )
 def test_needs_physics_leaves_everyday_lookalikes(text: str) -> None:
     assert not needs_physics(text)
+
+
+# --- second pass: the investigation's other unsolved questions ------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "operation", "value", "unit"),
+    [
+        (
+            "a 70 kg man stands on bathroom scales in a lift accelerating downward at "
+            "1.2 m/s^2. what do the scales read in N?",
+            "lift_normal_force",
+            602.7,
+            "N",
+        ),
+        (
+            "what horizontal force do you need to push a 40 kg box at constant velocity if μk "
+            "is 0.35",
+            "constant_velocity_push",
+            137.3,
+            "N",
+        ),
+        (
+            "A 2000 kg truck tows an 800 kg car with a rope and they accelerate at 1.5 m/s^2. "
+            "Ignoring friction, what's the tension in the tow rope?",
+            "tow_tension",
+            1200.0,
+            "N",
+        ),
+        (
+            "what is the mass of an object whose weight on the moon is 162 N? "
+            "(g moon = 1.62 m/s^2)",
+            "mass_from_weight",
+            100.0,
+            "kg",
+        ),
+        (
+            "A cyclist going 36 km/h brakes uniformly and stops in 25 m. find the deceleration",
+            "suvat_acceleration",
+            -2.0,
+            "m/s²",
+        ),
+        (
+            "a train travels at 120 kph for 2.5 hours. how far does it go?",
+            "rate_distance",
+            300.0,
+            "km",
+        ),
+    ],
+)
+def test_force_and_motion_laws_answer(text: str, operation: str, value: float, unit: str) -> None:
+    _assert_answer(text, operation, value, unit)
+
+
+@pytest.mark.parametrize(
+    ("text", "operation", "value", "unit"),
+    [
+        (
+            "a 65 kg skier starts from rest at the top of a slope with a 40 m vertical drop. "
+            "no friction. how fast at the bottom in km/h",
+            "drop_speed",
+            100.9,
+            "km/h",
+        ),
+        (
+            "A car engine delivers 90 kW when the car travels at a steady 25 m/s. What is the "
+            "driving force?",
+            "force_from_power",
+            3600.0,
+            "N",
+        ),
+        (
+            "How much work must the brakes do to stop a 1200 kg car moving at 72 km/h?",
+            "work_energy",
+            -2.4e5,
+            "J",
+        ),
+        (
+            "A 750 W motor is 80% efficient. how long does it take to lift a 200 kg load "
+            "through 6 m?",
+            "lift_time_with_efficiency",
+            19.62,
+            "s",
+        ),
+        (
+            "A spring with k = 800 N/m is compressed by 15 cm and launches a 200 g ball. "
+            "what's the launch speed?",
+            "spring_launch_speed",
+            9.487,
+            "m/s",
+        ),
+        (
+            "A 0.5 kg ball is dropped from 2 m and bounces back up to 1.5 m. how much energy "
+            "is lost in the bounce?",
+            "bounce_energy_lost",
+            2.4525,
+            "J",
+        ),
+        (
+            "a pump lifts 500 litres of water into a tank 12 m up in 2 minutes. what power "
+            "does it need?",
+            "pump_power",
+            490.5,
+            "W",
+        ),
+        (
+            "A force of 25 N pushes a 4 kg box 6 m along a frictionless floor from rest. how "
+            "fast is it going at the end?",
+            "work_energy_speed",
+            8.660,
+            "m/s",
+        ),
+        (
+            "A roller coaster car is moving at 5 m/s at the top of a 30 m high hill. ignoring "
+            "friction, how fast is it at the bottom?",
+            "energy_speed_from_moving_start",
+            24.77,
+            "m/s",
+        ),
+        (
+            "A 2 m long pendulum is pulled back to 30° from the vertical and released. how fast "
+            "is the bob at the lowest point?",
+            "pendulum_bottom_speed",
+            2.293,
+            "m/s",
+        ),
+    ],
+)
+def test_energy_laws_answer(text: str, operation: str, value: float, unit: str) -> None:
+    _assert_answer(text, operation, value, unit)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Friction takes some of the drop's energy.
+        "Using conservation of energy, a rough 2 kg block slides from rest down a 5 m high "
+        "slope. Find its speed at the bottom.",
+        # Bouncing higher than the drop is no loss.
+        "A 0.5 kg ball is dropped from 1.5 m and bounces back up to 2 m. how much energy is "
+        "lost in the bounce?",
+        # Accelerating, the driving force is not P/v alone.
+        "A car engine delivers 90 kW while the car accelerates at 2 m/s^2 through 25 m/s. "
+        "What is the driving force?",
+    ],
+)
+def test_energy_laws_decline_outside_their_shape(text: str) -> None:
+    assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "operation", "value", "unit"),
+    [
+        (
+            "what's the orbital speed of a satellite 2000 km above the earths surface",
+            "orbital_velocity",
+            6900.0,
+            "m/s",
+        ),
+        ("whats g at an altitude of 300 km above earth?", "gravity_at_height", 8.957, "m/s²"),
+        (
+            "A satellite has an orbital period of exactly 24 hours around Earth. what is the "
+            "radius of its orbit?",
+            "orbit_radius_from_period",
+            4.224e7,
+            "m",
+        ),
+        (
+            "how much does a 70 kg astronaut weigh 400 km above the earth?",
+            "weight_at_height",
+            608.6,
+            "N",
+        ),
+        (
+            "A flywheel with I = 0.8 kg m^2 spins at 1200 rpm. What's its rotational KE?",
+            "rotational_kinetic_energy",
+            6317.0,
+            "J",
+        ),
+        (
+            "An ice skater spins at 2 rev/s with arms out (I = 4 kg·m²). She pulls her arms in "
+            "so I = 1.6 kg·m². what's her new spin rate?",
+            "angular_momentum_conservation",
+            31.42,
+            "rad/s",
+        ),
+    ],
+)
+def test_gravitation_and_rotation_laws_answer(
+    text: str, operation: str, value: float, unit: str
+) -> None:
+    _assert_answer(text, operation, value, unit)
+
+
+@pytest.mark.parametrize(
+    ("text", "operation", "value", "unit"),
+    [
+        (
+            "You drive at 25 m/s toward a stationary siren of 800 Hz. what frequency do u hear? "
+            "(v sound = 343 m/s)",
+            "doppler_frequency",
+            858.3,
+            "Hz",
+        ),
+        (
+            "A string 1.2 m long fixed at both ends has a wave speed of 240 m/s. What's the "
+            "frequency of the 3rd harmonic?",
+            "resonance_frequency",
+            300.0,
+            "Hz",
+        ),
+        (
+            "a speaker radiates 2 W of sound equally in all directions. whats the intensity 5 m "
+            "away",
+            "point_source_intensity",
+            0.006366,
+            "W/m²",
+        ),
+        ("speed of sound in air at 30 °C?", "speed_of_sound_air", 349.0, "m/s"),
+        (
+            "A wave on a rope has frequency 4 Hz and wavelength 75 cm. how long does it take to "
+            "travel 9 m?",
+            "wave_travel_time",
+            3.0,
+            "s",
+        ),
+    ],
+)
+def test_wave_laws_answer(text: str, operation: str, value: float, unit: str) -> None:
+    _assert_answer(text, operation, value, unit)
+
+
+@pytest.mark.parametrize(
+    ("text", "operation", "value", "unit"),
+    [
+        ("A 4.7 kΩ resistor carries 2 mA. what is the voltage across it?", "voltage", 9.4, "V"),
+        (
+            "an LED draws 20 mA from a 3 V supply. what power does it use?",
+            "electrical_power",
+            0.06,
+            "W",
+        ),
+        (
+            "A 60 W bulb runs on 120 V. What is its resistance?",
+            "resistance_from_power",
+            240.0,
+            "Ω",
+        ),
+        (
+            "A 12 V battery with internal resistance 0.5 ohm is connected to a 5.5 ohm "
+            "resistor. what current flows?",
+            "current_with_internal_resistance",
+            2.0,
+            "A",
+        ),
+        (
+            "how many kWh does a 60 W bulb use if it's left on for a whole week?",
+            "energy_from_power_time",
+            10.08,
+            "kWh",
+        ),
+        (
+            "A 1000 µF capacitor charged to 12 V discharges through a 500 Ω resistor. how long "
+            "until the voltage drops to 3 V?",
+            "capacitor_discharge_time",
+            0.6931,
+            "s",
+        ),
+        (
+            "a proton travels at 3e6 m/s perpendicular to a 0.5 T field. radius of its circular "
+            "path?",
+            "charged_particle_radius",
+            0.06264,
+            "m",
+        ),
+        (
+            "a coil of 200 turns, area 0.01 m^2, is in a field that drops from 0.5 T to 0 in "
+            "0.1 s. average induced emf?",
+            "faraday_emf",
+            10.0,
+            "V",
+        ),
+    ],
+)
+def test_electricity_and_magnetism_laws_answer(
+    text: str, operation: str, value: float, unit: str
+) -> None:
+    _assert_answer(text, operation, value, unit)
+
+
+@pytest.mark.parametrize(
+    ("text", "operation", "value", "unit"),
+    [
+        (
+            "a heat engine takes in 2000 J of heat and does 600 J of work per cycle. efficiency?",
+            "efficiency_percent",
+            30.0,
+            "%",
+        ),
+        (
+            "300 g of water at 90°C is mixed with 200 g of water at 20°C. what's the final temp?",
+            "water_mixture_temperature",
+            62.0,
+            "°C",
+        ),
+        (
+            "how much energy does it take to heat 1.5 kg of water from 68°F to 212°F",
+            "heat_energy",
+            5.023e5,
+            "J",
+        ),
+        (
+            "An aluminium rod 1.5 m long is heated from 20 °C to 120 °C. how much does it "
+            "lengthen? α = 23×10^-6 /K",
+            "linear_expansion_temperatures",
+            0.00345,
+            "m",
+        ),
+        (
+            "a refrigerator removes 300 J of heat from inside while using 100 J of work. "
+            "coefficient of performance?",
+            "refrigerator_cop_from_heat",
+            3.0,
+            "",
+        ),
+        (
+            "A 2 kW kettle heats 1.5 kg of water from 20 °C to 100 °C. assuming no heat loss, "
+            "how long does it take?",
+            "heating_time",
+            251.2,
+            "s",
+        ),
+    ],
+)
+def test_thermal_laws_answer(text: str, operation: str, value: float, unit: str) -> None:
+    _assert_answer(text, operation, value, unit)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A capacitor's voltage does not rise while it discharges.
+        "A 1000 µF capacitor charged to 3 V discharges through a 500 Ω resistor. how long "
+        "until the voltage drops to 12 V?",
+        # A battery's internal resistance beside a parallel network is not one loop.
+        "A 12 V battery with internal resistance 0.5 ohm drives a 5.5 ohm resistor and a "
+        "4 ohm resistor in parallel. what current flows?",
+    ],
+)
+def test_circuit_laws_decline_what_does_not_hold(text: str) -> None:
+    assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("written", "read"),
+    [
+        ("left on for a whole week", "left on for 1 week"),
+        ("for an hour", "for 1 hour"),
+        ("a train travels at 120 kph", "a train travels at 120 km/h"),
+        ("(v sound = 343 m/s)", "(speed of sound = 343 m/s)"),
+        ("above the earths surface", "above the earth's surface"),
+    ],
+)
+def test_normalize_physics_units_reads_everyday_spellings(written: str, read: str) -> None:
+    assert normalize_physics_units(written) == read
+
+
+@pytest.mark.parametrize(
+    ("text", "unit"),
+    [
+        ("how many kWh does a 60 W bulb use?", "kWh"),
+        ("how many km does it travel?", "km"),
+        # The SI unit, or a count, asks for no conversion.
+        ("How many moles of ideal gas are in the tank?", None),
+        ("how many turns does the coil need?", None),
+    ],
+)
+def test_asked_unit_reads_how_many_units(text: str, unit: str | None) -> None:
+    assert asked_unit(text) == unit
+
+
+@pytest.mark.parametrize(
+    ("expression", "written", "kelvin"),
+    [("degC", 20.0, 293.15), ("degF", 68.0, 293.15), ("degF", 212.0, 373.15)],
+)
+def test_unit_dimension_reads_offset_temperature_scales(
+    expression: str, written: float, kelvin: float
+) -> None:
+    reading = unit_dimension(expression)
+    assert reading is not None
+    _dimension, scale, offset = reading
+    assert written * scale + offset == pytest.approx(kelvin)
+
+
+@pytest.mark.parametrize(
+    ("text", "operation", "value", "unit"),
+    [
+        (
+            "A car at 30 m/s is chasing a truck doing 20 m/s that is 100 m ahead. how long to "
+            "catch up?",
+            "catch_up_time",
+            10.0,
+            "s",
+        ),
+        (
+            "I walk 3 km east then 4 km north. what's my displacement?",
+            "displacement_two_legs",
+            5.0,
+            "km (53.1° north of east)",
+        ),
+        (
+            "A hiker walks 6 km south and then 8 km west. How far is she from her starting point?",
+            "displacement_two_legs",
+            10.0,
+            "km (53.1° west of south)",
+        ),
+    ],
+)
+def test_relative_motion_readers_answer(text: str, operation: str, value: float, unit: str) -> None:
+    _assert_answer(text, operation, value, unit)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # A slower chaser never catches up.
+        "A car at 20 m/s is chasing a truck doing 30 m/s that is 100 m ahead. how long to "
+        "catch up?",
+        # Which body chases is not written before the verb.
+        "A truck doing 20 m/s is 100 m ahead of a car at 30 m/s that is chasing it. how long "
+        "to catch up?",
+        # Back along one axis: no right angle.
+        "I walk 3 km east then 4 km west. what's my displacement?",
+        # Between the axes.
+        "I walk 3 km north-east then 4 km north. what's my displacement?",
+        # The path walked, not the straight line.
+        "I walk 3 km east then 4 km north. how far did I walk in total?",
+    ],
+)
+def test_relative_motion_readers_decline_other_shapes(text: str) -> None:
+    assert _operation(text) not in {"catch_up_time", "displacement_two_legs"}
+
+
+# --- projectiles ------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        # v0 = d * sqrt(g / 2h) = 1.2 * sqrt(9.81 / 1.8)
+        (
+            "A marble rolls off a 90 cm high bench and lands 1.2 m from the bench. "
+            "how fast was it rolling?",
+            2.80,
+        ),
+        (
+            "A ball rolls off a 1.25 m high table and lands 2 m from its base. "
+            "what was its launch speed?",
+            3.96,
+        ),
+    ],
+)
+def test_level_launch_speed_reads_the_fall_and_the_landing(text: str, value: float) -> None:
+    _assert_answer(text, "level_launch_speed", value, "m/s")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # The speed at impact adds the fall's vertical speed: not the launch speed.
+        "A marble rolls off a 90 cm high bench and lands 1.2 m from the bench. "
+        "how fast was it going when it hit the floor?",
+    ],
+)
+def test_level_launch_speed_declines_the_impact_speed(text: str) -> None:
+    assert _operation(text) != "level_launch_speed"
+
+
+@pytest.mark.parametrize(
+    ("text", "values"),
+    [
+        (
+            "A ball is kicked at 25 m/s at 40 degrees. (a) what is the max height (b) the range",
+            ("13.2", "62.7"),
+        ),
+        (
+            "A ball is kicked at 25 m/s at 40 degrees. (a) what is the time of flight "
+            "(b) the range",
+            ("3.28", "62.7"),
+        ),
+    ],
+)
+def test_projectile_parts_answer_every_labelled_part(text: str, values: tuple[str, ...]) -> None:
+    answer = _answer(text)
+    assert answer is not None, text
+    for value in values:
+        assert value in answer, answer
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Part (c) is not a projectile quantity: two answers out of three is not the answer.
+        "A ball is kicked at 25 m/s at 40 degrees. (a) what is the max height (b) the range "
+        "(c) its kinetic energy",
+        # Parts out of order are not one list.
+        "A ball is kicked at 25 m/s at 40 degrees. (b) what is the max height (a) the range",
+    ],
+)
+def test_projectile_parts_decline_a_dropped_part(text: str) -> None:
+    assert _answer(text) is None
+
+
+# --- modern -----------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("text", "operation", "value", "unit"),
+    [
+        # hc/λ - φ = 4.959 eV - 4.2 eV
+        (
+            "Light of wavelength 250 nm shines on a metal with a work function of 4.2 eV. "
+            "what is the max KE of the ejected electrons in eV?",
+            "photoelectric_kinetic_energy_wavelength",
+            0.759,
+            "eV",
+        ),
+        # h / sqrt(2 m e V)
+        (
+            "What is the de Broglie wavelength of an electron accelerated through 150 V?",
+            "de_broglie_from_voltage",
+            1.0014e-10,
+            "m",
+        ),
+        (
+            "a proton is accelerated through a potential difference of 200 V. find its de "
+            "Broglie wavelength",
+            "de_broglie_from_voltage",
+            2.024e-12,
+            "m",
+        ),
+        # 0.003 u x 931.494 MeV/u
+        (
+            "In a nuclear reaction 0.003 u of mass is lost. how much energy is released in MeV?",
+            "mass_energy_equivalence",
+            2.794,
+            "MeV",
+        ),
+        (
+            "what's the energy of a 1.2 µm infrared photon in eV",
+            "photon_energy",
+            1.033,
+            "eV",
+        ),
+    ],
+)
+def test_modern_laws_answer(text: str, operation: str, value: float, unit: str) -> None:
+    _assert_answer(text, operation, value, unit)
+
+
+@pytest.mark.parametrize(
+    ("text", "value"),
+    [
+        # P * lambda / (h c): one photon's energy was answered before, the power dropped.
+        (
+            "A 5 mW laser emits light of wavelength 630 nm. how many photons per second does "
+            "it emit?",
+            1.586e16,
+        ),
+        # P / (h f): a count per second, not the hertz of the given frequency.
+        ("a 60 W bulb emits light at 5e14 Hz. how many photons does it emit per second?", 1.811e20),
+    ],
+)
+def test_photon_emission_rate_counts_photons_not_one_energy(text: str, value: float) -> None:
+    _assert_answer(text, "photon_emission_rate", value, "photons/s")
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # 50 kV is a tenth of an electron's rest energy: the classical momentum is off.
+        "An electron is accelerated through 50 kV. what is its de broglie wavelength?",
+        # A count over a stated time needs that time as an input: not the rate.
+        "A 5 mW laser emits light of wavelength 630 nm. how many photons does it emit in 10 s?",
+    ],
+)
+def test_modern_laws_decline_outside_their_reach(text: str) -> None:
+    assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "unit"),
+    [
+        ("0.003 u of mass is lost", "u"),
+        ("the mass defect is 0.0304 u.", "u"),
+        ("a mass of 4 amu", "amu"),
+        # Written onto the number, or inside an equation, u is a velocity.
+        ("show that v = 2u when t = 4", ""),
+        ("v = 3 u + 2 when a = 0", ""),
+    ],
+)
+def test_scan_givens_reads_an_atomic_mass_unit_only_where_written_as_one(
+    text: str, unit: str
+) -> None:
+    givens = scan_givens(text)
+    assert givens, text
+    assert givens[0].unit == unit, givens

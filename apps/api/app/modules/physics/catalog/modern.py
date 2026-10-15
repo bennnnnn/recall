@@ -46,6 +46,32 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("freq", "f", "hertz"),
             var("wavelength", r"\lambda", "meter"),
         ),
+        # "the energy of a 1.2 µm infrared photon": a photon named by its
+        # wavelength, without the word. The solver gives J and again eV.
+        binding=Binding(
+            asks=(
+                "energy of the photon",
+                "energy of a photon",
+                "energy of each photon",
+                "photon energy",
+                "energy",
+            ),
+            result=("joule", "joule"),
+            inputs=(frozenset({"wavelength"}), frozenset({"freq"})),
+            cues=("photon",),
+            excludes=(
+                "momentum",
+                "work function",
+                "photoelectr",
+                "kinetic",
+                "stopping",
+                "threshold",
+                "photons",
+                "per second",
+                "power",
+            ),
+            nonnegative=True,
+        ),
     ),
     formula(
         "de_broglie_wavelength",
@@ -121,7 +147,14 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("work_function", r"\phi", "joule"),
         ),
         binding=Binding(
-            asks=("maximum kinetic energy", "kinetic energy", "energy of the photoelectrons"),
+            asks=(
+                "maximum kinetic energy",
+                "max kinetic energy",
+                "maximum ke",
+                "max ke",
+                "kinetic energy",
+                "energy of the photoelectrons",
+            ),
             result=("joule",),
             inputs=(frozenset({"wavelength", "work_function"}),),
             cues=("work function",),
@@ -141,7 +174,14 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         # The solver gives the energy in J and again in eV.
         binding=Binding(
-            asks=("maximum kinetic energy", "kinetic energy", "energy of the photoelectrons"),
+            asks=(
+                "maximum kinetic energy",
+                "max kinetic energy",
+                "maximum ke",
+                "max ke",
+                "kinetic energy",
+                "energy of the photoelectrons",
+            ),
             result=("joule", "joule"),
             inputs=(frozenset({"freq", "work_function"}),),
             cues=("work function",),
@@ -265,6 +305,11 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "e=mc",
                 "rest energy",
                 "equivalent",
+                # "0.003 u of mass is lost": the mass a reaction gives up.
+                "mass is lost",
+                "mass lost",
+                "mass defect",
+                "loses mass",
             ),
             nonnegative=True,
         ),

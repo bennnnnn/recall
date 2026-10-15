@@ -126,5 +126,125 @@
     "history": [],
     "reply": "While speeding up she covers $\\tfrac{1}{2} \\cdot 11 \\cdot 2.2 = 12.1$ m. The remaining 87.9 m at 11 m/s takes 7.99 s, so the whole race takes **10.2 s**.",
     "expect": "answer"
+  },
+  {
+    "id": "pi-017",
+    "area": "lookalike",
+    "prompt": "I'm away for a week, what should I do with my plants?",
+    "history": [],
+    "reply": "Group them together out of direct sun, water them well the day before, and stand pots on a tray of wet pebbles. A self-watering spike or a friend popping in once covers a week for most houseplants.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-018",
+    "area": "lookalike",
+    "prompt": "can you plan meals for a week for 2 people on 50 dollars?",
+    "history": [],
+    "reply": "Yes: build it around rice, oats, eggs, beans, a whole chicken and seasonal veg. Cook the chicken on day one, use the bones for soup, and repeat two dinners so nothing goes to waste.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-019",
+    "area": "lookalike",
+    "prompt": "how many hours of sleep does a 30 year old need?",
+    "history": [],
+    "reply": "Most adults need 7 to 9 hours a night. If you wake without an alarm and feel alert through the afternoon, you are probably getting enough.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-020",
+    "area": "lookalike",
+    "prompt": "how many calories are in 100 g of rice?",
+    "history": [],
+    "reply": "About 130 kcal cooked, or about 360 kcal dry, for white rice. Brown rice is very similar per gram.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-021",
+    "area": "lookalike",
+    "prompt": "what's the best way to heat 2 litres of soup without burning it?",
+    "history": [],
+    "reply": "Warm it gently on a low to medium hob in a wide pan, stirring every couple of minutes and scraping the bottom. Add a splash of water if it has thickened.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-022",
+    "area": "lookalike",
+    "prompt": "my dog keeps chasing the neighbour's cat that is 20 m ahead of him, how do I stop it?",
+    "history": [],
+    "reply": "Keep him on a lead near the cat's usual spots, reward him for looking at you instead of the cat, and practise a solid recall at home first.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-023",
+    "area": "lookalike",
+    "prompt": "my 5 year old is chasing a ball at 3 m/s around the garden all day, is that normal?",
+    "history": [],
+    "reply": "Completely normal: young children have lots of energy and repeat games they enjoy. It is good exercise, just make sure they drink enough.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-024",
+    "area": "lookalike",
+    "prompt": "I walked 3 km east then 4 km north to the cafe, can you recommend a coffee?",
+    "history": [],
+    "reply": "After a walk like that a flat white or a cappuccino is a good choice; if it is warm out, try a cold brew.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-025",
+    "area": "lookalike",
+    "prompt": "we drove 200 km north and then 150 km east on holiday, which towns should we see next time?",
+    "history": [],
+    "reply": "Tell me where you started and I can suggest towns along that route. Small market towns and coastal villages are usually worth a stop.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-026",
+    "area": "lookalike",
+    "prompt": "my car got towed, the 1200 kg tow truck charged me 150 dollars, is that fair?",
+    "history": [],
+    "reply": "It depends on your area: many cities cap towing fees, often between 100 and 300 dollars. Ask for an itemised receipt and check your local rules.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-027",
+    "area": "lookalike",
+    "prompt": "how do I pump up a bike tyre to 80 psi?",
+    "history": [],
+    "reply": "Match the pump head to the valve (Presta or Schrader), open a Presta valve first, pump while watching the gauge until it reads 80 psi, then close the valve.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-028",
+    "area": "lookalike",
+    "prompt": "my 2 kW kettle takes ages, is it broken?",
+    "history": [],
+    "reply": "Probably not: limescale on the element is the usual cause. Descale it with citric acid or vinegar and only fill it with the water you need.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-029",
+    "area": "lookalike",
+    "prompt": "how many mAh is a good power bank for a week away?",
+    "history": [],
+    "reply": "10,000 mAh charges most phones two to three times; for a week without mains power, 20,000 mAh is more comfortable.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-030",
+    "area": "lookalike",
+    "prompt": "is 75 degrees fahrenheit warm enough for the beach?",
+    "history": [],
+    "reply": "Yes, 75 °F is pleasant beach weather. The sea may still feel cool, so check the water temperature if you plan to swim.",
+    "expect": "answer"
+  },
+  {
+    "id": "pi-031",
+    "area": "lookalike",
+    "prompt": "how many miles is a 5k run?",
+    "history": [],
+    "reply": "A 5k is about 3.1 miles.",
+    "expect": "answer"
   }
 ]

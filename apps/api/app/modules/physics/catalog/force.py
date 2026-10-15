@@ -56,7 +56,16 @@ SPECS: tuple[FormulaSpec, ...] = (
             ),
         ),
         binding=Binding(
-            asks=("normal force", "apparent weight", "scale reading", "reading on the scale"),
+            asks=(
+                "normal force",
+                "apparent weight",
+                "scale reading",
+                "reading on the scale",
+                "scales read",
+                "scale read",
+                "scales show",
+                "scale show",
+            ),
             result=("newton",),
             inputs=(frozenset({"g", "m", "accel"}), frozenset({"g", "m", "accel", "downward"})),
             cues=("elevator", "lift"),
@@ -202,6 +211,8 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("mass",),
             result=("kilogram",),
             inputs=(frozenset({"F", "accel"}),),
+            # A weight and a field strength are W = mg, the law the weight names.
+            excludes=("weigh",),
             nonnegative=True,
         ),
     ),
@@ -236,6 +247,43 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("newton",),
             inputs=(frozenset({"m", "u", "v", "t"}),),
             negative_detail="opposing the motion",
+        ),
+    ),
+    # A car towing another on a rope: the rope pulls only the towed one, so
+    # T = m_towed a. The tow vehicle's mass is what the engine moves too, not
+    # what the rope does.
+    formula(
+        "tow_tension",
+        "force",
+        "Newton's second law",
+        "T",
+        base_latex=r"T = m_2 a",
+        assumptions=("no friction on the towed body, and a light rope",),
+        expression="m_towed*a",
+        variables=(
+            var(
+                "m_tower",
+                "m_1",
+                "kilogram",
+                words=("truck", "tractor", "locomotive", "engine", "tow truck", "lorry"),
+                needs_words=True,
+            ),
+            var(
+                "m_towed",
+                "m_2",
+                "kilogram",
+                words=("tows a", "tows an", "towing a", "towing an", "pulls a", "trailer", "towed"),
+                needs_words=True,
+            ),
+            var("a", "a", "meter / second ** 2"),
+        ),
+        binding=Binding(
+            asks=("tension",),
+            result=("newton",),
+            inputs=(frozenset({"a", "m_towed", "m_tower"}),),
+            cues=("tows", "towing", "towed", "tow rope", "tow bar", "trailer"),
+            excludes=("incline", "slope", "hill", "pulley", "hanging", "coefficient", "rough"),
+            nonnegative=True,
         ),
     ),
     # An average force for a stated time changes a body's speed by Ft/m: a

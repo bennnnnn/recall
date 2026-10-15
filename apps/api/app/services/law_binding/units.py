@@ -37,6 +37,9 @@ def unit_dimension(expression: str) -> tuple[str, float, float] | None:
     try:
         if expression == "degC":
             return _canonical({"[temperature]": 1}), 1.0, 273.15
+        if expression == "degF":
+            # K = (°F + 459.67) * 5/9: an offset scale Pint will not multiply.
+            return _canonical({"[temperature]": 1}), 5.0 / 9.0, 459.67 * 5.0 / 9.0
         quantity = registry.Quantity(1.0, expression).to_base_units()
     except Exception:
         return None

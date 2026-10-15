@@ -284,9 +284,25 @@ _CLAUSE_END = re.compile(
 )
 
 
+# "How many kWh does a 60 W bulb use": the unit counted is the one asked in.
+_HOW_MANY = re.compile(r"\bhow\s+many\s+", re.IGNORECASE)
+
+
 def asked_unit(text: str) -> str | None:
     """The unit the question wants its answer in, as written; None when unsaid."""
     found: str | None = None
+    for match in _HOW_MANY.finditer(text):
+        unit = unit_at(text, match.end())
+        reading = None if unit is None else unit_dimension(unit[1])
+        # A count of things ("how many turns") asks for a number, not a unit,
+        # and "how many moles" or "how many joules" is the SI answer already.
+        if (
+            unit is not None
+            and reading is not None
+            and reading[0] != _DIMENSIONLESS
+            and not (reading[1] == 1.0 and reading[2] == 0.0)
+        ):
+            found = unit[0]
     for match in _IN_UNIT.finditer(text):
         unit = unit_at(text, match.end())
         if unit is None:

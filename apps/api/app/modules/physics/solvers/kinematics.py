@@ -22,6 +22,10 @@ from app.modules.physics.solvers.common import (
 )
 from app.modules.physics.solvers.motion_scenes import vertical_scene
 from app.modules.physics.solvers.rates import _RATE_OPERATIONS, _solve_distance_speed_time
+from app.modules.physics.solvers.relative_motion import (
+    RELATIVE_MOTION_OPERATIONS,
+    solve_relative_motion,
+)
 from app.modules.physics.solvers.stopping import _solve_stopping_distance
 from app.modules.physics.solvers.two_stage import TWO_STAGE_OPERATIONS, solve_two_stage
 from app.services.solving import SolveServiceError
@@ -36,6 +40,8 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         return _solve_stopping_distance(intent)
     if intent.physics_op in TWO_STAGE_OPERATIONS:
         return solve_two_stage(intent)
+    if intent.physics_op in RELATIVE_MOTION_OPERATIONS:
+        return solve_relative_motion(intent)
     p = _params_in_si(intent)
     g = gravity_of(p)
     # No stated height is not a height of zero: only a throw that comes back to

@@ -300,4 +300,18 @@ SAMPLES: dict[str, float] = {
     "activity_initial": 800.0,
     "activity_final": 200.0,
     "proper_time": 2.2e-6,
+    # A truck towing a car, a heat engine's two energies, a bounce.
+    "m_tower": 2000.0,
+    "m_towed": 800.0,
+    "efficiency": 0.8,
+    "h_drop": 2.0,
+    "h_bounce": 1.5,
+    "inertia_i": 4.0,
+    "inertia_f": 1.6,
+    "omega_i": 12.0,
+    "q_cold": 300.0,
+    "work_in": 100.0,
+    "E_emf": 12.0,
+    "r_int": 0.5,
+    "v_final": 3.0,
 }

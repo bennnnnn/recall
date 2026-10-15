@@ -139,10 +139,18 @@ def needs_physics(text: str) -> bool:
 
     if bind_physics_intent(cleaned) is not None:
         return True
-    # So is a complete reading of a trip in two stages, which no single law fits.
+    # So is a complete reading of a trip in two stages, a chase, or two legs at
+    # right angles, which no single law fits.
+    from app.modules.physics.extractors.relative_motion import (
+        extract_chase_intent,
+        extract_legs_intent,
+    )
     from app.modules.physics.extractors.two_stage import extract_two_stage_intent
 
-    return extract_two_stage_intent(cleaned) is not None
+    return any(
+        reader(cleaned) is not None
+        for reader in (extract_two_stage_intent, extract_chase_intent, extract_legs_intent)
+    )
 
 
 def extract_physics_intent(text: str) -> PhysicsIntent | None:
@@ -152,6 +160,32 @@ def extract_physics_intent(text: str) -> PhysicsIntent | None:
     """
     intent = _extract_physics_intent(text)
     return None if intent is None else intent.model_copy(deep=True)
+
+
+def _answers_another_kind(intent: PhysicsIntent) -> bool:
+    """An extractor's law whose catalog result is not what the question asks.
+
+    "A 2 kW kettle heats 1.5 kg of water from 20 °C to 100 °C. How long?"
+    names Q = mcΔT's values, and the heat it gives is not a time; the block
+    would refuse it, and the law that answers (t = mcΔT/P) was never tried.
+    Only a law whose binding states its result is checked here.
+    """
+    from app.modules.physics.catalog import formula_spec
+    from app.services.law_binding.units import dimension_of
+
+    spec = formula_spec(intent.physics_op or "")
+    # A law that solves for any of its quantities, or a list of asked parts,
+    # is checked by the block, which knows each result.
+    if (
+        spec is None
+        or spec.binding is None
+        or spec.solve_for
+        or len(intent.asked) != 1
+        or intent.requested_ops
+    ):
+        return False
+    produced = {dimension_of(unit) for unit in spec.binding.result}
+    return not set(intent.asked) <= produced
 
 
 @lru_cache(maxsize=_CACHE_SIZE)
@@ -200,7 +234,7 @@ def _extract_physics_intent(text: str) -> PhysicsIntent | None:
         intent = extractor(request.text)
         if intent is not None:
             completed = complete_physics_intent(intent, request)
-            if completed is not None:
+            if completed is not None and not _answers_another_kind(completed):
                 return completed
             # The claim was refused: a given it left unused, or a different
             # asked quantity. Its law is not the question's, but a catalog law
