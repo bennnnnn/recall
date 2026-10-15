@@ -228,7 +228,7 @@ the look-alikes added with each widened rule. Each runs
 through the real chat path. `stem_math_judge.py` reads the answer card with SymPy alone (no
 solver code) and compares it with the worked answer: a number to 0.5%, an expression exactly,
 an antiderivative up to a constant, an inequality or interval as the same set. `test_stem_sweep.py`
-fails on a wrong verified answer or a misread turn and holds the answered floor (338 of 362;
+fails on a wrong verified answer or a misread turn and holds the answered floor (339 of 362;
 289 before the everyday-spelling pass). The judge also reads the school remainder `176 R2` and a
 dollar card `\$10.95`.
 
