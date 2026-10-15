@@ -11,6 +11,7 @@ import asyncio
 import logging
 import time
 from collections.abc import Awaitable, Callable
+from contextvars import ContextVar
 from dataclasses import dataclass
 
 from redis.asyncio import Redis
@@ -29,6 +30,9 @@ _HEARTBEAT_SLEEP_CHUNK_S = 30
 
 _tasks: dict[str, asyncio.Task[None]] = {}
 _heartbeats: dict[str, float] = {}
+# Name of the periodic loop running in this task (set by _loop). Lets a cycle's
+# progress keep its own loop's heartbeat fresh without threading the name in.
+_current_loop: ContextVar[str | None] = ContextVar("periodic_loop", default=None)
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,7 +45,18 @@ class CycleLock:
     ttl_seconds: int
 
     async def refresh(self) -> bool:
-        return await refresh_lock(self.redis, self.key, self.token, self.ttl_seconds)
+        """Extend the lock; a successful refresh also counts as loop progress.
+
+        The heartbeat used to move only between cycles, so a cycle longer than
+        _HEARTBEAT_STALE_THRESHOLD_S (billing reconcile: one RevenueCat call per
+        Pro user) failed the worker's readiness. A cycle that stops refreshing
+        still goes stale.
+        """
+        refreshed = await refresh_lock(self.redis, self.key, self.token, self.ttl_seconds)
+        name = _current_loop.get()
+        if refreshed and name is not None:
+            _touch_heartbeat(name)
+        return refreshed
 
 
 CycleFn = Callable[[Settings, CycleLock], Awaitable[None]]
@@ -126,6 +141,7 @@ async def start_periodic(
         return
 
     async def _loop() -> None:
+        _current_loop.set(name)
         _touch_heartbeat(name)
         while True:
             _touch_heartbeat(name)
