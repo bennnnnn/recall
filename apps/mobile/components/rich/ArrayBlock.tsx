@@ -1,7 +1,10 @@
 import { useMemo } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
+import {
+  inlineCodeTextStyle,
+  PARAGRAPH_GAP,
+} from "@/components/markdown/markdownContentStyles";
 import { ChipText } from "@/components/rich/ChipText";
 import { CODE_FONT } from "@/lib/fonts";
 import i18n from "@/lib/i18n";
@@ -151,12 +154,7 @@ function makeStyles(t: Theme) {
     title: { ...Type.body, color: t.textSecondary },
     caption: { ...Type.h3, ...Weight.bold, color: t.text, textAlign: "center" },
     note: { ...Type.body, color: t.text },
-    chip: {
-      ...Type.secondary,
-      fontFamily: CODE_FONT,
-      color: t.text,
-      backgroundColor: t.surfaceAlt,
-    },
+    chip: inlineCodeTextStyle(t),
     values: { ...Type.body, fontFamily: CODE_FONT, color: t.text },
     plain: { marginBottom: PARAGRAPH_GAP },
   });
