@@ -29,6 +29,7 @@ from app.modules.math.tools.helpers import has_assignment_evaluation_request
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
 from app.services.prompt_inject import inject_before_last_user
 from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END
+from app.services.workout import SELF_CHECK_PROMPT_RULE
 
 logger = logging.getLogger(__name__)
 
@@ -399,7 +400,7 @@ def _unverified_math_note(kind: str) -> str:
         "Do not invent geometry/graph dimensions or point lists. "
         "NEVER substitute a markdown table of sampled points, an ASCII or text-art sketch, "
         "or a Mermaid/flowchart diagram for a function plot.\n\n"
-        f"{MATH_REPLY_POLICY}"
+        f"{MATH_REPLY_POLICY} {SELF_CHECK_PROMPT_RULE}"
     )
 
 

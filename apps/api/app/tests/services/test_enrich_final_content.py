@@ -558,3 +558,37 @@ async def test_stopped_reply_drops_its_photo(monkeypatch: pytest.MonkeyPatch) ->
     assert persisted == "Ethiopia lies in the Horn of Africa."
     ctx.answer_photo.cancel.assert_called_once()
     assert ctx.answer_photo_ids == []
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("unverified", "reply", "noted"),
+    [
+        # A worked reply the server could not verify: its slip is named.
+        (True, "**Substitution**\n$a = 3.2 \\times 4.5 = 14.8$\n\n**Answer**\n$14.8$", True),
+        # A worked solution with no subject detected is checked too.
+        (False, "**Steps**\n$12 \\times 3 = 38$\n\n**Answer**\n$38$", True),
+        # Right working, or arithmetic outside a worked solution, adds nothing.
+        (True, "**Substitution**\n$a = 3.2 \\times 4.5 = 14.4$\n\n**Answer**\n$14.4$", False),
+        (False, "Is $3 \\times 4 = 13$? No, it's 12.", False),
+    ],
+)
+async def test_unverified_working_names_its_first_slip(
+    monkeypatch: pytest.MonkeyPatch, unverified: bool, reply: str, noted: bool
+) -> None:
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
+    ctx = _ctx()
+    ctx.solver_unverified = unverified
+    persisted = await enrich_final_content(
+        _seams(),
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=reply,
+        usage={"input": 1, "output": 2},
+        result={},
+        was_cancelled=False,
+        assistant_parts=[reply],
+        should_cancel=None,
+    )
+    assert ("Check this step:" in persisted) is noted
