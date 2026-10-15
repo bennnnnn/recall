@@ -141,6 +141,45 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
     assert land_answer_card(out, None) == out
 
 
+@pytest.mark.parametrize(
+    ("reply", "expected"),
+    [
+        (
+            "**Answer**\n$x = 3$\nOnly the positive root counts.",
+            "**Answer**\n\n```answer\n$x = 3$\n```\n\nOnly the positive root counts.",
+        ),
+        (
+            "**Answer**\nx = 6 / 2\n\nx = 3",
+            "x = 6 / 2\n\n**Answer**\n\n```answer\nx = 3\n```",
+        ),
+        ("**Answer**\n$x = 3$\n\n", "**Answer**\n\n```answer\n$x = 3$\n```\n\n"),
+        ("**Answer**\n\n", "**Answer**\n\n"),
+        (
+            "**Answer:** $x = 2$\n$x = -2$",
+            "**Answer**\n\n```answer\n$x = 2$, $x = -2$\n```",
+        ),
+        (
+            "**Answer:** $x = 12 / 4$\n$x = 3$",
+            "$x = 12 / 4$\n\n**Answer**\n\n```answer\n$x = 3$\n```",
+        ),
+    ],
+)
+def test_land_reads_only_maths_as_the_answer(reply: str, expected: str) -> None:
+    assert land_answer_card(reply, None) == expected
+
+
+def test_land_keeps_a_sentence_after_the_verified_card() -> None:
+    reply = "**Answer**\n$x = 3$\nOnly the positive root counts."
+    assert land_answer_card(reply, "x = 3") == (
+        f"**Answer**\n\n{_CARD}\n\nOnly the positive root counts."
+    )
+
+
+@pytest.mark.parametrize("reply", ["**Answer**\nParis", "**Answer**\n\nA towel."])
+def test_land_leaves_an_answer_that_is_not_maths(reply: str) -> None:
+    assert land_answer_card(reply, None) == reply
+
+
 def test_land_stops_at_a_bold_heading_line_but_not_at_a_bold_value() -> None:
     reply = "**Answer**\n$x^2 = 9$\n**x = 3**\n**Check** $3^2 = 9$"
     assert land_answer_card(reply, None) == (
@@ -174,8 +213,8 @@ def test_land_keeps_working_split_by_blank_lines_out_of_the_card() -> None:
 @pytest.mark.parametrize(
     ("roots", "card"),
     [
-        ("- $x = 2$\n- $x = -2$", "$x = 2$\n$x = -2$"),
-        ("$x_1 = 2$\n$x_{2} = -2$", "$x_1 = 2$\n$x_{2} = -2$"),
+        ("- $x = 2$\n- $x = -2$", "$x = 2$, $x = -2$"),
+        ("$x_1 = 2$\n$x_{2} = -2$", "$x_1 = 2$, $x_{2} = -2$"),
     ],
 )
 def test_land_keeps_every_root_in_the_card(roots: str, card: str) -> None:
