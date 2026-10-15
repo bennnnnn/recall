@@ -24,6 +24,7 @@ from app.modules.chat.prompt_constants import (
 from app.modules.memory import is_food_or_diet_query
 from app.repositories import messages as messages_repo
 from app.services import day_planning as day_planning_service
+from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
 
 
@@ -126,6 +127,16 @@ async def _continues_a_draft(session: AsyncSession, chat_id: UUID, content: str)
     return draft_followup(content, prior) is not None
 
 
+def _asks_about_food(content: str) -> bool:
+    """Food is the topic, not the props of a problem to solve.
+
+    "A recipe needs 3 cups of flour for 12 cookies. How many cups for 30?" is a
+    proportion, and heating 500 g of milk is physics: neither asks for a pick
+    the user's tastes should shape.
+    """
+    return is_food_or_diet_query(content) and detect_subject(content) is None
+
+
 async def _classify_turn_mode(
     session: AsyncSession,
     chat: Chat,
@@ -161,7 +172,7 @@ async def _classify_turn_mode(
     advice_memory = (
         (
             is_personal_advice_question(content)
-            or is_food_or_diet_query(content)
+            or _asks_about_food(content)
             or is_capabilities_question(content)
             or is_teaching_request(content)
             or is_career_personal_question(content)

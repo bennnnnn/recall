@@ -108,6 +108,52 @@ def test_is_local_places_query():
     assert not is_proximity_query("who is my closest friend")
 
 
+@pytest.mark.parametrize(
+    "text",
+    [
+        "how many minutes to drive to the airport",
+        "how many minutes to the airport",
+        "how many mins away is the mall",
+        "how many minutes from here to the stadium",
+        "how many minutes does it take to get to work",
+        "how many minutes is the walk to the station",
+        "how many minutes to get there",
+        "how many minutes to Bole",
+        "how many miles to the airport",
+        "how many km to Adama",
+        "how many miles away is the closest gas station",
+    ],
+)
+def test_is_distance_query_reads_how_many_of_a_trip(text: str) -> None:
+    from app.modules.web_search import is_distance_query
+
+    assert is_distance_query(text)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "how many minutes in a good nap",
+        "how many minutes in an hour?",
+        "how many minutes should I boil an egg",
+        "how many minutes to boil pasta",
+        "how many minutes of exercise per day",
+        "how many minutes should I walk a day",
+        "how many minutes until midnight",
+        "how many minutes to the end of the movie",
+        "how many minutes to my next class",
+        "how many miles is a 5k run?",
+        "how many km in a mile",
+        "how many miles do I run a week",
+    ],
+)
+def test_is_distance_query_leaves_durations_and_lengths_alone(text: str) -> None:
+    from app.modules.web_search import is_distance_query, is_geo_query
+
+    assert not is_distance_query(text)
+    assert not is_geo_query(text)
+
+
 def test_is_ambiguous_local_places_query():
     from app.modules.web_search import is_ambiguous_local_places_query
 

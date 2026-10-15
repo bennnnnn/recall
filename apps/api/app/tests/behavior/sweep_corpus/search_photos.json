@@ -568,7 +568,8 @@
   "area": "places",
   "prompt": "How long does it take to walk across the Brooklyn Bridge?",
   "reply": "About **25–40 minutes** at a relaxed pace. The walkway is roughly **1.8 km (1.1 miles)**, and most people stop for photos.\n\n- Start in **Brooklyn (DUMBO)** so you face the Manhattan skyline the whole way.\n- Go early in the morning or near sunset to avoid the midday crowds.",
-  "expect": "answer"
+  "expect": "answer",
+  "gap": "'How long does it take to walk' reads as a trip from the user although it names the bridge, so it gets the turn-on-location reply."
  },
  {
   "id": "sp-065",

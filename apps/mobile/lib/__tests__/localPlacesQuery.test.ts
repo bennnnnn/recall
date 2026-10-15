@@ -40,12 +40,31 @@ describe("geo intent", () => {
     expect(isGeoQuery(prompt)).toBe(false);
   });
 
-  it.each(["how far is the airport", "how far is the stadium from here", "how long is the drive to work"])(
-    "still reads %s as a trip",
-    (prompt) => {
-      expect(isDistanceQuery(prompt)).toBe(true);
-    },
-  );
+  it.each([
+    "how far is the airport",
+    "how far is the stadium from here",
+    "how long is the drive to work",
+    "how many minutes to drive to the airport",
+    "how many mins away is the mall",
+    "how many minutes from here to the stadium",
+    "how many minutes to Bole",
+    "how many miles to the airport",
+    "how many km to Adama",
+  ])("still reads %s as a trip", (prompt) => {
+    expect(isDistanceQuery(prompt)).toBe(true);
+  });
+
+  it.each([
+    "how many minutes in a good nap",
+    "how many minutes to boil an egg",
+    "how many minutes should I walk a day",
+    "how many minutes to the end of the movie",
+    "how many miles is a 5k run?",
+    "how many km in a mile",
+  ])("reads %s as a duration or a length, not a trip, like the server", (prompt) => {
+    expect(isDistanceQuery(prompt)).toBe(false);
+    expect(isGeoQuery(prompt)).toBe(false);
+  });
 
   it("does not treat kinematics homework as a maps distance ask", () => {
     const kinematics =

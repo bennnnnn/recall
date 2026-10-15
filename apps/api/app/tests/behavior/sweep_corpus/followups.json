@@ -285,7 +285,8 @@
    ]
   ],
   "reply": "Starting from rest with constant acceleration:\n\n$$s = \\tfrac{1}{2} a t^2 = \\tfrac{1}{2}(4)(5)^2 = 50\\text{ m}$$\n\nQuick check with average speed: it goes from 0 to 20 m/s, so the average is 10 m/s, and 10 m/s × 5 s = **50 m** ✓",
-  "expect": "answer"
+  "expect": "answer",
+  "gap": "After an unverified physics reply, 'how far did it go' is not read as its follow-up, so it gets the turn-on-location reply."
  },
  {
   "id": "hf-017",

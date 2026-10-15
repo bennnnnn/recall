@@ -8,7 +8,7 @@ not earlier today.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from datetime import tzinfo as TzInfo
 from typing import cast
@@ -79,6 +79,14 @@ _ADD_REQUEST_RE = re.compile(
     r"^\s*(?:(?:please|pls|plz)\s+)?(?:can (?:you|u)\s+)?(?:add|buy|get|pick up|remind me"
     + _REMIND_ME_OF_A_FACT
     + r"(?:\s+to)?)\b",
+    re.IGNORECASE,
+)
+# The message opens by asking for a reminder: "remind me to …", "can you set a
+# reminder to …", "add a reminder for …". "You forgot to remind me …" does not.
+_REMINDER_REQUEST_RE = re.compile(
+    r"^(?:(?:please|pls|plz)\s+)?(?:(?:can|could|will|would)\s+(?:you|u)\s+)?(?:please\s+)?"
+    r"(?:remind\s+me" + _REMIND_ME_OF_A_FACT + r"|(?:set|create|add|make)\s+(?:me\s+)?"
+    r"(?:a\s+)?(?:reminder|to-?do|task)\b|reminder\b)",
     re.IGNORECASE,
 )
 # Words of three letters or more ("gym", "run") that name something in a reply.
@@ -549,6 +557,31 @@ def due_for_add(
     if day is None:
         return None
     return datetime(day.year, day.month, day.day, clock_hour, clock_minute, tzinfo=tz)
+
+
+def day_for_a_bare_clock(
+    add: SpokenAdd,
+    user_text: str | None,
+    *,
+    user_timezone: str | None,
+    now: datetime | None = None,
+) -> SpokenAdd:
+    """ "Remind me to plate the dinner at 7pm" is the next 7pm: today, or tomorrow once past.
+
+    Only for a message that opens by asking for a reminder and names a clock
+    but no day or repeat. "At 9" with no part of the day is not a clock, and
+    any other add comes back unchanged.
+    """
+    if add.day is not None or add.repeat is not None or add.hour is None:
+        return add
+    text = _FILLER_RE.sub("", _fix_typos((user_text or "").strip()).lower())
+    if not _REMINDER_REQUEST_RE.match(text):
+        return add
+    today = replace(add, day="today")
+    due = due_for_add(today, user_timezone=user_timezone, now=now)
+    if due is not None and due_is_past(due, user_timezone=user_timezone, now=now):
+        return replace(add, day="tomorrow")
+    return today
 
 
 def due_is_past(

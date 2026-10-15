@@ -66,6 +66,8 @@ HINTS: dict[str, str] = {
     "code_ink": pc.CODE_INK_REMINDER,
     "standing_preference": pc.STANDING_PREFERENCE_HINT,
     "personal_disclosure": pc.PERSONAL_DISCLOSURE_HINT,
+    # "The user is asking for a personal recommendation": tastes shape the pick.
+    "advice": pc.ADVICE_PERSONALIZE_HINT,
     # A STEM reply the model works out itself checks its own answer first.
     "self_check": SELF_CHECK_PROMPT_RULE,
 }
