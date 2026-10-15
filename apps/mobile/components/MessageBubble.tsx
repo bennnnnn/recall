@@ -151,9 +151,27 @@ function AssistantActions({
   const token = useAuthToken();
   const feedbackApi = useActionFeedbackOptional();
   const { copied, showCopied } = useCopyFeedback();
-  const [speaking, setSpeaking] = useState(false);
+  // Keyed by reply: a list row reused for another reply must not show (or
+  // act as) the Stop of the one it showed before.
+  const [speakingId, setSpeakingId] = useState<string | null>(null);
+  const speaking = speakingId === messageId;
   const speakGenRef = useRef(0);
+  const readingRef = useRef(false);
   const copyPayload = extractPrimaryCopyText(markdown);
+
+  // Stop lives on this reply. When the reply leaves (another chat, a
+  // regenerate, or the list reusing the row), stop its reading with it;
+  // otherwise the voice keeps fetching and reading with no way to stop it.
+  useEffect(
+    () => () => {
+      if (!readingRef.current) return;
+      readingRef.current = false;
+      speakGenRef.current += 1;
+      stopSpeaking();
+      setSpeakingId(null);
+    },
+    [messageId],
+  );
 
   const handleCopy = async () => {
     if (!copyPayload.trim()) return;
@@ -165,19 +183,22 @@ function AssistantActions({
   const handleSpeak = async () => {
     if (speaking) {
       speakGenRef.current += 1;
+      readingRef.current = false;
       stopSpeaking();
-      setSpeaking(false);
+      setSpeakingId(null);
       return;
     }
     const gen = ++speakGenRef.current;
     tap();
-    setSpeaking(true);
+    readingRef.current = true;
+    setSpeakingId(messageId);
     const result = await speakPlainText(markdown, speechLocale(user?.locale), {
       token,
       preferCloud: true,
     });
     if (gen !== speakGenRef.current) return;
-    setSpeaking(false);
+    readingRef.current = false;
+    setSpeakingId(null);
     if (!result.ok) {
       reportRecoverableError(
         feedbackApi,
