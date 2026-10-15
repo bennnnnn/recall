@@ -1,3 +1,7 @@
+import { deleteAsync, writeAsStringAsync } from "expo-file-system/legacy";
+
+import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
+
 type StatusListener = (status: { didJustFinish?: boolean; playing?: boolean }) => void;
 type FakePlayer = {
   play: jest.Mock;
@@ -71,10 +75,6 @@ jest.mock("@/features/speech/model/speechRate", () => ({
   getSpeechRate: async () => 1,
   currentSpeechRate: () => 1,
 }));
-
-import { deleteAsync, writeAsStringAsync } from "expo-file-system/legacy";
-
-import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
 
 async function flush(): Promise<void> {
   for (let i = 0; i < 30; i += 1) await Promise.resolve();
