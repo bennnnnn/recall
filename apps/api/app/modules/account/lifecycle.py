@@ -15,6 +15,7 @@ from app.gateways.google_auth import GoogleAuthError
 from app.models.orm import User
 from app.modules import home as home_service
 from app.modules import memory as memory_service
+from app.modules.account import quota_carryover
 from app.modules.account import tokens as tokens_service
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
@@ -128,6 +129,9 @@ async def delete_account(
         await chats_service.forget_follow_up_questions(session, redis, user_id)
     except Exception:
         logger.warning("Follow-up cache purge failed user_id=%s", user_id, exc_info=True)
+    # Before the row goes: a new account for the same Google/Apple login must
+    # not start today's limits from zero (best-effort, never fails the delete).
+    await quota_carryover.save_on_delete(redis, settings, user)
     forget_user(user_id)
     forget_user_chats(user_id)
     await users_repo.delete_user(session, user.id)
