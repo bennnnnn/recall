@@ -279,9 +279,11 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   [docs/physics.md](./docs/physics.md)). Verified operations are the
   formula catalog, one entry per `physics_op`. Answers have
   three significant figures and upright units, in the unit the question asks for
-  ("in kWh"); scientific notation is read whole (`2 × 10^-6 C`); a solve that skips
-  a stated value of a kind it uses, or answers a different quantity than the one
-  asked, is declined. A question the phrase extractors miss is read straight into a
+  ("in kWh", "in psi"); scientific notation is read whole (`2 × 10^-6 C`); a solve that skips
+  a stated value of a kind it uses, leaves out a stated force, speed, length or angle, or
+  answers a different quantity than the one asked, is declined. A student's own result
+  ("I got 19.8 m/s") is checked, never used as a given, and a planet named in a side
+  question ("would it be different on Mars?") does not replace Earth in the main one. A question the phrase extractors miss is read straight into a
   catalog law when it states the law's inputs and asks for its result (SUVAT for any
   unknown including u, d = vt in the written units, a dropped body's height, a
   horizontal launch, weight, Atwood, a pull against friction, lifting power, Kepler
@@ -300,9 +302,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   the Schwarzschild radius, the Boltzmann ratio and `S = k ln Ω`, energy-time
   uncertainty, and an orbit's period from its height); see "Adding a law" in
   docs/physics.md. An answer is in the unit its like givens share (two µF capacitors
-  give µF). The STEM sweep (`app/tests/behavior/stem_sweep.py`, 327 turns) runs
+  give µF). The STEM sweep (`app/tests/behavior/stem_sweep.py`, 440 turns) runs
   homework questions through the real chat path and fails CI on any wrong verified
-  number, misread turn, reply out of shape or broken picture; it answers 265 of 274.
+  number, misread turn, reply out of shape or broken picture; it answers 356 of 364.
   Mechanics:
   1D gravity kinematics, SUVAT in all four rearrangements plus s = vt − ½at², projectile (range,
   max height, time of flight, impact speed, launch angle from a range), scalar
@@ -347,8 +349,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   distance, a moment of inertia for a "wheel" (the shape *is* the answer), a
   planet described but not named, buoyancy without a submerged volume, a
   Bernoulli question with neither horizontal flow nor both heights, an adiabatic
-  process with no gamma, and a Kirchhoff loop that is not one battery plus
-  series resistors — all
+  process with no gamma, a Kirchhoff loop that is not one battery plus
+  series resistors, a fall with no stated height, a series-parallel network, heating
+  through boiling or melting, and a statement that asks nothing — all
   return no verified block rather than a plausible wrong number. Depth pressure
   says "gauge"; the magnetic force and flux state the perpendicular case when no
   angle is given; a pendulum period states the small-angle approximation; a
@@ -364,7 +367,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   nuclear mass is supplied. A test keeps that list off the
   catalog. Every complete, single-request verified physics
   answer returns directly with Given / Find / Formula / Substitution / Answer,
-  without waiting on the language model. Each answer carries one picture.
+  without waiting on the language model. A question in parts the result does not all
+  answer, a yes or no about a value, and a side question go to the model with the
+  verified block, so no part is dropped. Each answer carries one picture.
   - Trajectory ` ```graph ` fences are for SUVAT (position or velocity against time), a speed
     asked of a fall (`v(t)` beside the fall), and SHM.
   - A projectile or a drop is one labelled ` ```simulation ` scene instead of a path graph. It
@@ -383,7 +388,7 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
     strings, open and closed pipes) are diagrams the phone lays out from the spec
     (`components/rich/diagrams/`).
   - Every picture has screen-reader alt text and a translated title.
-  - 139 of the 140 STEM-sweep questions that want a picture get one (see
+  - 162 of the 163 STEM-sweep questions that want a picture get one (see
     [docs/physics.md](./docs/physics.md#pictures)).
 
   Trajectories and simulation scenes render in native Skia and autoplay;
