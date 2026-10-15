@@ -14,6 +14,8 @@ import re
 from typing import Any
 
 from app.modules.chat import present_assistant_markdown
+from app.modules.physics.ask import has_ask
+from app.modules.physics.bodies import side_questions
 from app.modules.physics.catalog import (
     formula_spec,
     select_formula,
@@ -21,8 +23,10 @@ from app.modules.physics.catalog import (
     variable_for,
     visible_assumptions,
 )
+from app.modules.physics.claims import claim_verdict, read_claims
 from app.modules.physics.display import is_conversion_row, latex_given, latex_unit, si_symbol
 from app.modules.physics.extract import extract_physics_intent
+from app.modules.physics.parts import asks_more_than_answered
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.schemas.simulation import SIMULATION_SPEC_TYPES
 from app.modules.physics.solvers.common import _PARAM_SI_DIMENSIONS, _to_si
@@ -68,6 +72,21 @@ def _expected_trajectory_type(intent: PhysicsIntent) -> str:
     return ""
 
 
+def _answers_every_ask(text: str, intent: PhysicsIntent) -> bool:
+    """Whether the verified result is the whole reply this text asks for.
+
+    Not when the text asks nothing (a statement), asks more parts than were
+    solved, asks the question again on another body, or asks yes or no about
+    a value: those go to the model with the verified block, so no part is
+    dropped and the yes or no is said.
+    """
+    if not has_ask(text) or asks_more_than_answered(text, intent):
+        return False
+    if side_questions(text):
+        return False
+    return not any(claim.yes_no for claim in read_claims(text))
+
+
 def can_direct_physics(
     verified: VerifiedPhysicsBlock, text: str, fences: list[dict[str, Any]]
 ) -> bool:
@@ -93,6 +112,8 @@ def can_direct_physics(
     if actual is None or _EXTRA_REQUEST.search(text):
         return False
     if actual.model_dump() != intent.model_dump():
+        return False
+    if not _answers_every_ask(text, actual):
         return False
     if fence.get("type") == "answer":
         return fence.get("type") == "answer" and fence.get("content") == answer
@@ -243,6 +264,25 @@ def format_direct_physics_working(verified: VerifiedPhysicsBlock) -> str | None:
     )
 
 
+_SUPERSCRIPT_DIGITS = str.maketrans("⁰¹²³⁴⁵⁶⁷⁸⁹⁻", "0123456789-")
+# The first value of a plain verified answer: "19.8 m/s", "3.97 × 10⁻¹⁹ J".  # noqa: RUF003
+_PLAIN_ANSWER = re.compile(
+    r"^\s*(?P<number>-?\d+(?:\.\d+)?)(?:\s*×\s*10(?P<power>[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+))?"  # noqa: RUF001
+    r"\s*(?P<unit>[^\s(;,]+)?"
+)
+
+
+def _claim_line(verified: VerifiedPhysicsBlock, user_text: str) -> str | None:
+    """Whether the student's stated result matches the verified one, in one line."""
+    match = _PLAIN_ANSWER.match(verified.canonical_answer or "")
+    if match is None or not match.group("unit"):
+        return None
+    value = float(match.group("number"))
+    if match.group("power"):
+        value *= 10.0 ** int(match.group("power").translate(_SUPERSCRIPT_DIGITS))
+    return claim_verdict(user_text, value, match.group("unit"))
+
+
 def _solver_fences(verified: VerifiedPhysicsBlock) -> list[dict[str, Any]]:
     fences: list[dict[str, Any]] = []
     for fence in (verified.canonical_fence, *verified.canonical_fences):
@@ -291,6 +331,9 @@ def maybe_direct_physics_reply(
         language = "simulation" if fence_type in SIMULATION_SPEC_TYPES else "graph"
         parts.append(f"```{language}\n{json.dumps(fence, separators=(',', ':'))}\n```")
     reply = "\n\n".join(parts) + "\n"
+    verdict = _claim_line(verified, user_text)
+    if verdict is not None:
+        reply = f"{verdict}\n\n{reply}"
     intent = verified.physics_intent
     if (
         intent is not None

@@ -1,0 +1,68 @@
+"""How many things a question asks for, so an instant reply never drops one.
+
+"A ball is dropped from 45 m. (a) How long does it take to hit the ground?
+(b) How fast is it going when it lands?" was answered (b) alone, instantly, and
+the model never saw the question, so (a) was never answered. A question whose
+asks outnumber what the verified result answers goes to the model, with the
+verified part as its block.
+"""
+
+from __future__ import annotations
+
+import re
+
+from app.modules.physics.ask import _QUANTITY, SENTENCE, ask_clause
+from app.modules.physics.claims import CHECK_ONLY
+from app.modules.physics.schemas import PhysicsIntent
+from app.services.law_binding.ask import ASK_VERBS
+
+# "(a)", "b)", "(ii)": a labelled part. Two or more distinct labels are parts.
+_PART_LABEL = re.compile(r"(?:^|[\s,;:.?!])\(?([a-h]|i{1,3}|iv)\)(?=\s)", re.IGNORECASE)
+# A second quantity joined to the first: "the deceleration and the braking force".
+_JOINED = re.compile(
+    r"\b(?:and|as\s+well\s+as|plus)\s+(?:also\s+)?(?:the\s+|its\s+|their\s+)?"
+    r"(?:[\w-]+\s+){0,2}?(" + _QUANTITY.pattern.removeprefix(r"\b") + ")",
+    re.IGNORECASE,
+)
+# "and acceleration 4 m/s^2", "and a mass of 2 kg": a given's label, not an ask.
+_LABELLED = re.compile(r"\s*(?:of|=|is|:|was)?\s*[-+]?\.?\d", re.IGNORECASE)
+
+
+def _labelled_parts(text: str) -> int:
+    labels = {match.group(1).lower() for match in _PART_LABEL.finditer(text)}
+    return len(labels) if len(labels) >= 2 else 0
+
+
+def _question_sentences(text: str) -> int:
+    count = 0
+    for sentence in SENTENCE.finditer(text):
+        body = sentence.group()
+        if CHECK_ONLY.match(body):
+            continue
+        if body.rstrip().endswith("?") or ASK_VERBS.search(body):
+            count += 1
+    return count
+
+
+def _joined_quantities(text: str) -> int:
+    clause = ask_clause(text)
+    if clause is None:
+        return 0
+    joined = [
+        match for match in _JOINED.finditer(clause) if not _LABELLED.match(clause, match.end(1))
+    ]
+    return 1 + len(joined)
+
+
+def asks_count(text: str) -> int:
+    """How many things the text asks for: labelled parts, questions, joined quantities."""
+    return max(_labelled_parts(text), _question_sentences(text), _joined_quantities(text), 1)
+
+
+def answers_count(intent: PhysicsIntent) -> int:
+    """How many asks a verified intent answers: its listed parts, or each asked kind."""
+    return max(len(intent.requested_ops), len(intent.asked), 1)
+
+
+def asks_more_than_answered(text: str, intent: PhysicsIntent) -> bool:
+    return asks_count(text) > answers_count(intent)

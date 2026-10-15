@@ -15,7 +15,7 @@ _SETTINGS = Settings(math_tools_enabled=True)
 _REACTION_STOP = (
     "A car travels at a constant speed of 15 m/s. The driver takes 1.0 second "
     "to react before applying the brakes. Once applied, the brakes slow the car "
-    "to a stop over 3.0 seconds."
+    "to a stop over 3.0 seconds. What is the total stopping distance?"
 )
 _BRAKE_ONLY = "A car at 15 m/s slows to a stop in 3.0 seconds. How far does it travel?"
 _CONSTANT_SPEED = "A car travels at 15 m/s for 3 s. How far does it travel?"
