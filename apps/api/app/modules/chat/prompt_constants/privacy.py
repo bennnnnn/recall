@@ -83,7 +83,9 @@ EXAMPLE_PERSONALIZE_HINT = (
     "a place they are from, or their job. A variable lesson can use a name and a "
     "country they actually have. One detail is enough. Skip it when nothing fits. "
     "Do not mention memory, recite where they live, or copy a tone preference "
-    "(including swearing) into the lesson."
+    "(including swearing) into the lesson. If the known facts say how they like to be "
+    "taught (one concept at a time, an exercise before moving on, hints instead of "
+    "answers), teach that way."
 )
 
 PROFILE_FACT_HINT = (

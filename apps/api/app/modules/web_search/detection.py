@@ -8,10 +8,12 @@ import re
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
 from app.modules.chat import (
+    has_code_syntax,
     has_locale_cue,
     is_lightweight_chat_turn,
     is_personal_disclosure_turn,
     is_short_confirmation,
+    is_standing_preference,
     prior_looks_like_offer,
 )
 from app.modules.web_search.command import search_command
@@ -106,7 +108,8 @@ def web_search_skip(
         return True
     if is_short_letter_answer(cleaned):
         return True
-    if is_personal_disclosure_turn(cleaned):
+    # "When teaching me, use examples" sets how to answer; there is nothing to look up.
+    if is_personal_disclosure_turn(cleaned) or is_standing_preference(cleaned):
         return True
     if _PERSONAL_MEMORY_QUESTION.search(cleaned):
         return True
@@ -239,6 +242,9 @@ def needs_web_search_heuristic(
     cleaned = collapse_ws(text)
     electric = _CURRENT.search(cleaned) and _CIRCUIT.search(cleaned)
     if electric or _DATE_ARITHMETIC.search(cleaned) or is_correspondence_request(cleaned):
+        return False
+    # "Traceback (most recent call last)" is not recency.
+    if has_code_syntax(text):
         return False
     if _CLARIFICATION.search(cleaned) and prior_user_messages:
         return _prior_searchable_topic(prior_user_messages) is not None

@@ -60,6 +60,11 @@ HINTS: dict[str, str] = {
     "answer_photo": pc.ANSWER_PHOTO_HINT,
     "where_is_photo": pc.WHERE_IS_PHOTO_HINT,
     "emoji_rule": EMOJI_RULE,
+    "code_explain": pc.CODE_EXPLAIN_HINT,
+    "code_debug": pc.CODE_DEBUG_HINT,
+    "code_ink": pc.CODE_INK_REMINDER,
+    "standing_preference": pc.STANDING_PREFERENCE_HINT,
+    "personal_disclosure": pc.PERSONAL_DISCLOSURE_HINT,
 }
 
 USER_NAME = "Bini"

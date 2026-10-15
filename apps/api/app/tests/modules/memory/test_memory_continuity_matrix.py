@@ -254,6 +254,37 @@ async def test_extractor_prompt_keeps_everyday_profile_facts_normal(
 
 
 @pytest.mark.asyncio
+async def test_extractor_prompt_keeps_how_the_user_wants_to_be_taught(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    async def fake_complete_structured(**kwargs):
+        captured.update(kwargs)
+        return None
+
+    monkeypatch.setattr(memory_llm.mock_llm, "should_mock_llm", lambda _settings: False)
+    monkeypatch.setattr(memory_llm.litellm_gateway, "complete_structured", fake_complete_structured)
+    preference = (
+        "When teaching me, explain one concept at a time, use practical examples, and ask me "
+        "to solve a short exercise before moving on."
+    )
+
+    # The line reaches the extractor at all, and its prompt files it under preferences.
+    assert is_memory_candidate(f"User: {preference}")
+    await memory_llm.revise_memory_facts(Settings(), f"User: {preference}")
+
+    messages = captured["messages"]
+    assert isinstance(messages, list)
+    system_prompt = messages[0]["content"]
+    assert isinstance(system_prompt, str)
+    assert "How they want to be taught is a preferences fact even with no topic yet" in (
+        system_prompt
+    )
+    assert "how they like to learn" in system_prompt
+
+
+@pytest.mark.asyncio
 @pytest.mark.parametrize("from_history", [False, True])
 async def test_extractor_prompt_lets_old_chats_only_fill_gaps(
     monkeypatch: pytest.MonkeyPatch, from_history: bool

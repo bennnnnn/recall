@@ -48,6 +48,7 @@ from app.modules.chat.prompt_constants import (
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     SOCIAL_DRAFT_HINT,
+    STANDING_PREFERENCE_HINT,
     STATISTICS_PRESENTATION_HINT,
     STEPS_FORMAT_HINT,
     TEACHING_HINT,
@@ -58,6 +59,7 @@ from app.modules.chat.prompt_constants import (
     VISUALIZATION_HINTS,
     WALKTHROUGH_HINT,
     WRITING_LINE_HINT,
+    code_question_hint,
     draft_followup,
     draft_followup_hint,
     is_bare_writing_line,
@@ -67,11 +69,14 @@ from app.modules.chat.prompt_constants import (
     is_chart_question,
     is_howto_question,
     is_learning_plan_request,
+    is_lightweight_chat_turn,
     is_mermaid_question,
     is_personal_disclosure_turn,
+    is_programming_turn,
     is_quote_question,
     is_sequence_diagram_question,
     is_short_confirmation,
+    is_standing_preference,
     is_structured_comparison_question,
     is_task_howto,
     is_teaching_request,
@@ -134,6 +139,11 @@ def _layout_format_hint(query_text: str | None) -> str | None:
         return SEQUENCE_FORMAT_HINT
     if is_mermaid_question(query_text):
         return MERMAID_FORMAT_HINT
+    # Pasted code with "explain this" or "why does it fail" is about that code,
+    # line by line, even when it says "walk me through" or "teach me".
+    code_hint = code_question_hint(query_text)
+    if code_hint:
+        return code_hint
     # Explicit "teach me" intent owns the interaction shape. A topic may also
     # contain "vs" / "difference between", but the user asked for a lesson, not
     # a one-shot comparison table. Explicit visual requests above still win.
@@ -156,6 +166,42 @@ def _layout_format_hint(query_text: str | None) -> str | None:
     if is_task_howto(query_text) and detect_subject(query_text) is None:
         return STEPS_FORMAT_HINT
     return None
+
+
+def code_question_layout(query_text: str | None) -> str | None:
+    """The pasted-code contract for this turn, or None. A length cap or a draft wins."""
+    if not query_text or is_brevity_request(query_text):
+        return None
+    if writing_request_kind(query_text) is not None:
+        return None
+    return code_question_hint(query_text)
+
+
+# Subjects whose answers are worked problems, never one thing to look at.
+_NO_PHOTO_SUBJECTS = frozenset({"math", "physics", "chemistry", "statistics"})
+
+
+def _may_offer_answer_photo(
+    query_text: str | None,
+    *,
+    subject: str | None,
+    writing_turn: bool,
+    lesson_turn: bool,
+    visual_turn: bool,
+) -> bool:
+    """Whether this turn could be about one thing worth seeing ("what is a capybara").
+
+    Code, a subject problem, a lesson, a draft, a chart or day plan, a pasted
+    fragment and small talk never are. Offering the photo there only confused the
+    reply ("I can't see the image you're referring to").
+    """
+    if not query_text or not query_text.strip():
+        return False
+    if writing_turn or lesson_turn or visual_turn or subject in _NO_PHOTO_SUBJECTS:
+        return False
+    if is_lightweight_chat_turn(query_text) or is_bare_writing_line(query_text):
+        return False
+    return not is_programming_turn(query_text)
 
 
 def _writing_format_hint(query_text: str | None) -> str | None:
@@ -213,6 +259,17 @@ def _style_format_hints(
             CAPABILITIES_FORMAT_HINT,
             MATH_FENCE_SAFETY_HINT,
         ]
+    if query_text and is_standing_preference(query_text):
+        # "When teaching me, explain one concept at a time…" sets how to teach;
+        # there is no topic yet. With the photo hint in the prompt the model
+        # once answered "I can't see the image you're referring to".
+        return [
+            PRIVACY_HINT,
+            NON_DRAFT_TURN_HINT,
+            UNIVERSAL_FORMAT_BASELINE,
+            STANDING_PREFERENCE_HINT,
+            MATH_FENCE_SAFETY_HINT,
+        ]
     if query_text and is_personal_disclosure_turn(query_text) and not lesson:
         # A first-person update is not an invitation to generate a guide. Keep
         # the contract small and decisive so the general rich-format pack
@@ -237,15 +294,19 @@ def _style_format_hints(
         if followup
         else _writing_format_hint(query_text)
     )
+    # Pasted code to explain or fix: its own shape, ahead of any lesson.
+    code_hint = code_question_layout(query_text) if writing is None else None
     learning_plan = bool(
         query_text
         and writing is None
+        and code_hint is None
         and not is_brevity_request(query_text)
         and is_learning_plan_request(query_text)
     )
     teaching = bool(
         query_text
         and writing is None
+        and code_hint is None
         and not is_brevity_request(query_text)
         and is_teaching_request(query_text)
     )
@@ -253,6 +314,7 @@ def _style_format_hints(
     walkthrough = bool(
         query_text
         and writing is None
+        and code_hint is None
         and not teaching
         and not is_brevity_request(query_text)
         and is_walkthrough_request(query_text)
@@ -260,7 +322,12 @@ def _style_format_hints(
     # A new "teach me" starts its own lesson; otherwise the last lesson goes on.
     lesson_hint = (
         lesson_continue_hint(lesson)
-        if lesson and not teaching and not walkthrough and not learning_plan and not writing
+        if lesson
+        and not teaching
+        and not walkthrough
+        and not learning_plan
+        and not writing
+        and not code_hint
         else None
     )
     writing_kind = writing_request_kind(query_text) if query_text else None
@@ -286,6 +353,9 @@ def _style_format_hints(
         # keeps its title, sections and quiz, only smaller.
         if writing:
             parts.append(writing)
+        elif code_hint:
+            # "Line by line" is an explicit shape; Short style keeps the bullets short.
+            parts.append(code_hint)
         elif learning_plan:
             # An explicit multi-day roadmap needs enough room to be actionable;
             # account-level short style must not collapse it into a vague paragraph.
@@ -329,7 +399,13 @@ def _style_format_hints(
     if lesson_hint:
         parts.append(lesson_hint)
     # In every account style: a real photo above an answer about something to see.
-    if image_search_enabled:
+    if image_search_enabled and _may_offer_answer_photo(
+        query_text,
+        subject=subject,
+        writing_turn=bool(writing or writing_kind),
+        lesson_turn=bool(teaching or walkthrough or learning_plan or lesson_hint),
+        visual_turn=viz_intent or is_day_plan,
+    ):
         parts.append(ANSWER_PHOTO_HINT)
         if query_text and where_is_place(query_text):
             parts.append(WHERE_IS_PHOTO_HINT)

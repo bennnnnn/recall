@@ -565,6 +565,89 @@ CASES: tuple[Case, ...] = (
         Expect(hints=("learning_plan",), search="no"),
         "Day 1 to Day 30, one line each, with phases, code examples and milestones.",
     ),
+    Case(
+        "teach-preference",
+        "teaching",
+        "When teaching me, explain one concept at a time, use practical examples, and ask me "
+        "to solve a short exercise before moving on.",
+        Expect(
+            hints=("standing_preference",),
+            no_hints=("answer_photo", "teaching", "personal_disclosure"),
+            search="no",
+            photo=NO_PHOTO,
+        ),
+        "Agrees in a sentence, lists the plan (one concept at a time, a practical example, a "
+        "short exercise first), asks what to learn first. Never mentions an image.",
+    ),
+    Case(
+        "teach-preference-after-code",
+        "teaching",
+        "When teaching me, explain one concept at a time, use practical examples, and ask me "
+        "to solve a short exercise before moving on.",
+        Expect(
+            hints=("standing_preference",),
+            no_hints=("answer_photo", "teaching", "code_debug"),
+            search="no",
+        ),
+        "Agrees, lists the plan, and offers to go on with lists and indexes that way.",
+        history=(
+            (
+                "user",
+                "Why does this code fail, and how would you fix it?\nnumbers = [1, 2, 3]\n"
+                "print(numbers[3])",
+            ),
+            (
+                "assistant",
+                "This code fails with an `IndexError`: `numbers` has indexes `0` to `2`.",
+            ),
+        ),
+    ),
+    Case(
+        "teach-preference-from-now-on",
+        "teaching",
+        "From now on, always give me a practical example before the theory.",
+        Expect(hints=("standing_preference",), no_hints=("answer_photo",), search="no"),
+        "Agrees in a sentence and says examples will come first.",
+    ),
+    Case(
+        "teach-preference-learner",
+        "teaching",
+        "I learn best when you quiz me after each step.",
+        Expect(
+            hints=("standing_preference",),
+            no_hints=("answer_photo", "personal_disclosure"),
+            search="no",
+        ),
+        "Agrees, restates it (a quick question after each step), asks what to learn first.",
+    ),
+    Case(
+        "teach-preference-hints",
+        "teaching",
+        "Don't give me the answer, give me hints.",
+        Expect(hints=("standing_preference",), no_hints=("answer_photo",), search="no"),
+        "Agrees to hint first and asks what they are working on.",
+    ),
+    Case(
+        "teach-preference-teach-by",
+        "teaching",
+        "Please teach me by asking questions instead of lecturing.",
+        Expect(hints=("standing_preference",), no_hints=("teaching", "answer_photo")),
+        "Agrees to teach through questions and asks what to learn first; no lesson yet.",
+    ),
+    Case(
+        "teach-preference-not-yesterday",
+        "teaching",
+        "When teaching me yesterday you used a great example with lists, can you show it again?",
+        Expect(no_hints=("standing_preference",)),
+        "Recalls or rebuilds the list example; not a new preference.",
+    ),
+    Case(
+        "teach-preference-not-reminder",
+        "teaching",
+        "always remind me to drink water",
+        Expect(no_hints=("standing_preference",)),
+        "A reminder (or a question for when), not a teaching preference.",
+    ),
     # ── Format ──────────────────────────────────────────────────────────────
     Case(
         "format-compare",
@@ -648,8 +731,89 @@ CASES: tuple[Case, ...] = (
         "code-run",
         "code",
         "run this python code: print(1+1)",
-        Expect(search="no"),
+        Expect(search="no", no_hints=("answer_photo",)),
         "Says Recall can't run Python, and that it would print 2.",
+    ),
+    Case(
+        "code-explain-trace",
+        "code",
+        "Explain this code line by line, then show the value of total after each iteration:\n"
+        "total = 0\nfor n in [2, 4, 6]:\n    total += n\nprint(total)",
+        Expect(
+            hints=("code_explain", "code_ink"),
+            no_hints=("answer_photo", "walkthrough", "teaching"),
+            subject=NONE,
+            search="no",
+            photo=NO_PHOTO,
+        ),
+        "One lead sentence; ### 1. The code in a python fence; ### 2. Explain each line with "
+        "**Line N:** `line` and short bullets; ### 3. a steps card or table of total per "
+        "iteration (2, 6, 12); **Output:** 12. Every value in backticks, no $ signs.",
+    ),
+    Case(
+        "code-explain-one-line",
+        "code",
+        "Explain this code line by line, then show the value of total after each iteration: "
+        "total = 0 for n in [2, 4, 6]: total += n print(total)",
+        Expect(hints=("code_explain",), no_hints=("answer_photo",), subject=NONE, search="no"),
+        "Same shape; the code fence puts the pasted line back on four indented lines.",
+    ),
+    Case(
+        "code-explain-java",
+        "code",
+        "What does this Java code print? int sum = 0; for (int i = 1; i <= 3; i++) "
+        "{ sum += i; } System.out.println(sum);",
+        Expect(hints=("code_explain",), no_hints=("answer_photo",), subject=NONE, search="no"),
+        "The code in a java fence, each line explained, sum after each pass (1, 3, 6), "
+        "**Output:** 6.",
+    ),
+    Case(
+        "code-explain-js",
+        "code",
+        "Walk me through this JavaScript: const nums = [1, 2, 3]; "
+        "const doubled = nums.map(n => n * 2); console.log(doubled);",
+        Expect(
+            hints=("code_explain",),
+            no_hints=("answer_photo", "walkthrough"),
+            subject=NONE,
+            search="no",
+        ),
+        "A javascript fence, each line explained (map makes a new array), **Output:** [2, 4, 6].",
+    ),
+    Case(
+        "code-debug-index",
+        "code",
+        "Why does this code fail, and how would you fix it? numbers = [1, 2, 3] print(numbers[3])",
+        Expect(
+            hints=("code_debug", "code_ink"),
+            no_hints=("answer_photo", "code_explain"),
+            subject=NONE,
+            search="no",
+        ),
+        "IndexError on line 2; ### Why it fails (indexes 0 to 2); ### The fix with "
+        "numbers[2] or numbers[-1] in a python fence; **Output:** 3.",
+    ),
+    Case(
+        "code-debug-traceback",
+        "code",
+        "I get this error, what's wrong?\nTraceback (most recent call last):\n"
+        '  File "app.py", line 3, in <module>\n    print(user["name"])\nKeyError: \'name\'',
+        Expect(hints=("code_debug",), no_hints=("answer_photo",), search="no"),
+        "KeyError: the dict has no 'name' key; why; the fix with user.get('name').",
+    ),
+    Case(
+        "code-debug-js-undefined",
+        "code",
+        "why does this return undefined? function add(a, b) { a + b } console.log(add(2, 3))",
+        Expect(hints=("code_debug",), no_hints=("answer_photo",), subject=NONE, search="no"),
+        "The function has no return; the fix adds return a + b; **Output:** 5.",
+    ),
+    Case(
+        "code-not-pasted",
+        "code",
+        "explain the code of conduct",
+        Expect(no_hints=("code_explain", "code_debug")),
+        "What a code of conduct is; no code layout.",
     ),
     # ── Tone and emoji ──────────────────────────────────────────────────────
     Case(
