@@ -47,9 +47,15 @@ _TERM = rf"(?:\d{{1,2}}\s*)?{CHEMICAL_FORMULA}"
 # A match may not start inside a token ("CuSO4.5H2O" must not truncate to
 # "H2O -> …") and may not end where a bracket, hydrate dot or digit continues.
 # A period that ends a sentence ("… -> H2O.") is still allowed.
+# A side has at most this many species. Unbounded, a long "Al + Al + …" with no arrow
+# was rescanned from every term: quadratic, 0.14 s on the 4,000-character gate window.
+# A match never starts after a "+", so a longer side matches nothing rather than its
+# last few species.
+_MAX_TERMS_PER_SIDE = 24
 EQUATION_RE = re.compile(
-    rf"(?<![A-Za-z0-9·\[])(?<![A-Za-z0-9]\.)"
-    rf"((?:{_TERM}\s*\+\s*)*{_TERM}\s*{_ARROW}\s*(?:{_TERM}\s*\+\s*)*{_TERM})"
+    rf"(?<![A-Za-z0-9·\[])(?<![A-Za-z0-9]\.)(?<!\+)(?<!\+\s)(?<!\+\s\s)"
+    rf"((?:{_TERM}\s*\+\s*){{0,{_MAX_TERMS_PER_SIDE}}}{_TERM}\s*{_ARROW}\s*"
+    rf"(?:{_TERM}\s*\+\s*){{0,{_MAX_TERMS_PER_SIDE}}}{_TERM})"
     rf"(?![A-Za-z0-9·\]]|\.\d)"
 )
 
