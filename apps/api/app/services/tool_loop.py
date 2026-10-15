@@ -426,9 +426,23 @@ def turn_needs_tool_loop(
     return _needs_non_web_tool(text, settings, user)
 
 
+def _user_asks_for_image(text: str, settings: Settings) -> bool:
+    """The user's own words ask for a picture (the chat image intercept's rules).
+
+    Only the user's message counts: web results, file text and other context
+    the model reads must never decide to spend the user's image allowance.
+    """
+    from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
+
+    return bool(
+        text
+        and extract_image_gen_prompt(text)
+        and not stem_subject_claims(text, chemistry_enabled=settings.chemistry_enabled)
+    )
+
+
 def _needs_non_web_tool(text: str, settings: Settings | None, user: User | None) -> bool:
     """Math, a photo lookup, or image generation still needs a tool-selection round."""
-    from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
     from app.modules.images.lookup_intent import extract_image_lookup_query
     from app.modules.math.tools import needs_symbolic_math
 
@@ -453,14 +467,12 @@ def _needs_non_web_tool(text: str, settings: Settings | None, user: User | None)
     if lookup_on and extract_image_lookup_query(text):
         return True
     image_on = settings is None or settings.image_generation_enabled
+    resolved = settings or get_settings()
     if (
         image_on
         and user is not None
-        and plan_service.can_use(user, "image_generation", settings or get_settings())
-        and extract_image_gen_prompt(text)
-        and not stem_subject_claims(
-            text, chemistry_enabled=(settings or get_settings()).chemistry_enabled
-        )
+        and plan_service.can_use(user, "image_generation", resolved)
+        and _user_asks_for_image(text, resolved)
     ):
         return True
     return False
@@ -487,8 +499,14 @@ def _search_before_the_model(
     return needs_web_search(user_text)
 
 
-def _tools_for_user(settings: Settings, user: User | None) -> list[dict[str, Any]]:
-    """OpenAI tool payloads; omit image gen when disabled or not in the user's plan."""
+def _tools_for_user(
+    settings: Settings, user: User | None, *, user_text: str = ""
+) -> list[dict[str, Any]]:
+    """OpenAI tool payloads for this turn.
+
+    Image generation is offered only when it is on, in the user's plan, and
+    *user_text* (the user's own message) asks for a picture.
+    """
     tools = mcp_registry.build_openai_tools()
     if not settings.image_search_enabled:
         tools = [t for t in tools if (t.get("function") or {}).get("name") != "search_image"]
@@ -496,6 +514,7 @@ def _tools_for_user(settings: Settings, user: User | None) -> list[dict[str, Any
         settings.image_generation_enabled
         and user is not None
         and plan_service.can_use(user, "image_generation", settings)
+        and _user_asks_for_image(user_text, settings)
     ):
         return tools
     return [t for t in tools if (t.get("function") or {}).get("name") != "generate_image"]
@@ -532,7 +551,10 @@ async def run_tool_rounds(
     if not settings.mcp_tool_loop_enabled:
         return messages, None, None, []
 
-    tools = _tools_for_user(settings, user)
+    # The caller's text is the user's own words; the prompt's last user
+    # message can also carry attached file text.
+    own_text = user_text if user_text is not None else _last_user_content(messages)
+    tools = _tools_for_user(settings, user, user_text=own_text)
     if not tools:
         return messages, None, None, []
 
@@ -612,6 +634,7 @@ async def _run_tool_rounds_bound(
     list[WebSearchHit],
 ]:
     working: list[dict[str, Any]] = [dict(m) for m in messages]
+    offered = {str((tool.get("function") or {}).get("name") or "") for tool in tools}
     if user_texts is None:
         user_texts = _user_texts(messages, None)
     user_text = _last_user_content(messages)
@@ -687,6 +710,17 @@ async def _run_tool_rounds_bound(
                         "role": "tool",
                         "tool_call_id": call_id,
                         "content": "Tool round timed out.",
+                    }
+                )
+                continue
+            if name not in offered:
+                # A provider can return a call to a tool it was not given.
+                # Never run it (e.g. generate_image the user did not ask for).
+                working.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "content": f"Tool {name or '(unnamed)'} is not available for this turn.",
                     }
                 )
                 continue
