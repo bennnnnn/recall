@@ -129,7 +129,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Home | `modules/home/` (HTTP `/home`) | `features/home/`; greeting + one overdue reminder |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
-| Image gen (every plan, daily cap) | `modules/images/` (HTTP `/images/generate`) | `features/images/`; composer send only |
+| Image gen (every plan, daily cap) | `modules/images/` (HTTP `/images/generate`; `/images/intent` says when maths, physics or chemistry owns the turn) | `features/images/`; composer send only, after asking `/images/intent` |
 | Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`, `answer_photo`: a photo above an answer about something worth seeing) | `features/images/`; checked before image-gen intent in `useChatSend` |
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `modules/web_search/`, `gateways/web_search_*.py` | source chips under replies |

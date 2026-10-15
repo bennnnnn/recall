@@ -29,6 +29,7 @@ import {
   imageGenRevisionContext,
 } from "@/features/images/model/imageGenIntent";
 import { extractImageLookupQuery } from "@/features/images/model/imageLookupIntent";
+import { stemSubjectOwnsTurn } from "@/features/images/model/stemSubjectOwnsTurn";
 import type { ClientGeo } from "@/lib/clientGeo";
 import {
   queryNeedsClientGeo,
@@ -352,11 +353,22 @@ export function useChatSend({
         const revision = queuedAttachment?.kind === "image"
           ? extractAttachedImageEditPrompt(text)
           : extractImageRevisionPrompt(text, revisionContext);
-        const imagePrompt = extractImageGenPromptFromThread(text, messages) ?? revision;
+        let imagePrompt = extractImageGenPromptFromThread(text, messages) ?? revision;
         if (imagePrompt) {
           if (imageGenerating) return;
           sendInFlightRef.current = true;
           setSendPhase("preparing");
+          const ownedBySubject = await stemSubjectOwnsTurn(token, text);
+          if (!isCurrentView()) {
+            sendInFlightRef.current = false;
+            setSendPhase("idle");
+            return;
+          }
+          // "draw ethanol" is a structure and a lens question is optics: the
+          // server leaves them to their subject, so the chat send below takes them.
+          if (ownedBySubject) imagePrompt = null;
+        }
+        if (imagePrompt) {
           const draftsPromise = flushEmailDrafts();
           setInput("");
           setPendingAttachment(null);
