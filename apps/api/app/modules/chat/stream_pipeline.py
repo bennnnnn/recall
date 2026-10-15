@@ -501,12 +501,15 @@ async def enrich_final_content(
             assistant_text = append_unverified_chemistry_note(assistant_text)
 
         # Working the model wrote with no verified result behind it: a slip in one
-        # multiplication carries into the answer, so name the first one.
+        # multiplication carries into the answer, so name the first one. Its final
+        # answer goes in the same card a verified one does, without the check.
         if not server_text and ctx.verified_subject is None and not was_cancelled:
+            from app.services.answer_fence import land_answer_card
             from app.services.working_check import is_worked_solution, working_note
 
             if ctx.solver_unverified is True or is_worked_solution(assistant_text):
                 note = working_note(assistant_text)
+                assistant_text = land_answer_card(assistant_text, None)
                 if note:
                     assistant_text = f"{assistant_text.rstrip()}\n\n{note}"
 

@@ -37,6 +37,21 @@ def test_wrong_prose_beside_the_card_gets_one_correction_line() -> None:
     assert out.index(correction) < out.index("```answer")
 
 
+def test_steps_under_the_answer_heading_move_above_the_card() -> None:
+    """The card used to follow the model's Answer lines, so its box held the working."""
+    prose = (
+        "**Formula**  \npH = −log[H⁺]\n\n**Answer**  \npH = −log(0.01)  \n"
+        "pH = −(−2)  \npH = 2.00\n\nA strong acid gives a low pH."
+    )
+    out = validate_chemistry_fences(prose, verified=_verified(_HCL))
+    heading = out.index(f"**Answer**\n\n```answer\n{VERIFIED_ANSWER_MARKER}\nnotation: chemistry")
+    assert out.index("pH = −log(0.01)") < heading
+    assert out.index("pH = −(−2)") < heading
+    assert "pH = 2.00\n\nA strong" not in out
+    assert out.count("**Answer**") == 1
+    assert out.index("A strong acid gives a low pH.") > heading
+
+
 def test_matching_prose_is_not_corrected() -> None:
     prose = "HCl is a strong acid, so [H⁺] = 0.01 M and pH = 2.00."
     out = validate_chemistry_fences(prose, verified=_verified(_HCL))

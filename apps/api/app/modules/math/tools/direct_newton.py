@@ -134,7 +134,7 @@ def format_newton_reply(verified: VerifiedMathBlock) -> str:
         ),
         steps=tuple(iterates),
     )
-    # The root is an approximation, written as the Answer line rather than an
-    # answer chip, so the fence pass has nothing to rewrite.
+    # The root is an approximation, written as the Answer line; the fence pass
+    # puts the verified root in the card in its place.
     root = math_line(rf"{variable} \approx {verified.canonical_answer}")
     return f"{render_workout(workout)}  \n{root}\n"

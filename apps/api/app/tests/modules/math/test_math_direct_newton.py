@@ -46,8 +46,11 @@ def test_exact_c17_displays_verified_recurrence_every_iterate_and_root_without_m
     assert r"$x \approx 1.41421$" in reply
     assert "0.000001" in reply
     assert "Tip" not in reply
-    assert validate_math_fences(reply, verified=block) == reply
     assert "```answer" not in reply
+    # The fence pass lands the verified root in the card under Answer.
+    landed = validate_math_fences(reply, verified=block)
+    assert landed.rstrip().endswith("**Answer**\n\n```answer\nverified: true\n1.41421\n```")
+    assert r"$x \approx 1.41421$" not in landed
 
 
 @pytest.mark.parametrize(
