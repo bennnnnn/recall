@@ -405,6 +405,9 @@ def _verified_block_arithmetic(
 
     shown = arithmetic_equation(intent.expr or "", answer)
     if shown is not None:
+        if answer == math_school.UNDEFINED_LATEX:
+            # "5 ÷ 0 is undefined", not an equation with a word on one side.
+            shown = shown.removesuffix(f" = {answer}") + r" \text{ is undefined}"
         return replace(block, display_answer=shown)
     if intent.school_op != "eval" or not intent.expr:
         return block
