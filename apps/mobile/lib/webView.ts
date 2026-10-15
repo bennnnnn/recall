@@ -5,6 +5,7 @@ import type { ComponentType } from "react";
 import { HTML_RUN_CDN_HOSTS } from "@/lib/htmlRunCdn";
 import {
   createStaticOnlyNavigationGuard,
+  isPreviewInlineDocumentUrl,
   type StaticOnlyNavigationGuard,
 } from "@/lib/staticOnlyNavigationGuard";
 
@@ -81,11 +82,38 @@ export const STATIC_HTML_ORIGIN_WHITELIST: string[] = [
   "https://127.0.0.1*",
 ];
 
-/** HTML Run may load scripts from the CDN allowlist (not open `https:`). */
-export const HTML_RUN_ORIGIN_WHITELIST: string[] = [
-  ...STATIC_HTML_ORIGIN_WHITELIST,
-  ...HTML_RUN_CDN_HOSTS.map((host) => `${host}*`),
-];
+/**
+ * HTML Run passes every navigation to {@link allowHtmlRunNavigation}.
+ *
+ * react-native-webview hands any URL that misses `originWhitelist` to
+ * `Linking.openURL` — Safari, the dialer, Messages, or a deep link into
+ * Recall — with no tap from the user. The Run tab executes model-written
+ * JavaScript, so `location = "https://…"` in a reply opened a page outside
+ * the app. Matching everything here leaves the decision to the guard, which
+ * blocks without opening anything.
+ */
+export const HTML_RUN_ORIGIN_WHITELIST: string[] = ["*"];
+
+const HTML_RUN_CDN_ORIGINS = new Set<string>(HTML_RUN_CDN_HOSTS);
+
+/**
+ * Loads the Run tab may make in its own frame: the inline document itself
+ * and the CDN allowlist (the same set the old origin whitelist let through,
+ * matched by exact origin instead of string prefix). Everything else is
+ * refused in place.
+ */
+export function allowHtmlRunNavigation(request?: unknown): boolean {
+  const url = navigationRequestUrl(request).trim();
+  const lower = url.toLowerCase();
+  if (lower.startsWith("about:") || lower.startsWith("applewebdata:")) return true;
+  if (isPreviewInlineDocumentUrl(url)) return true;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" && HTML_RUN_CDN_ORIGINS.has(parsed.origin);
+  } catch {
+    return false;
+  }
+}
 
 /** Pull URL from RN WebView's nativeEvent (or a plain `{ url }` test stub). */
 export function navigationRequestUrl(request: unknown): string {
