@@ -238,6 +238,15 @@ _CONNECTIVE = re.compile(
     re.IGNORECASE,
 )
 _SENTENCE_END = re.compile(r"(?<!\d)[.!?](?=\s|$)|(?<=\d)[.!?](?=\s|$)|\n")
+# A result said without "=": "it lands about 70.6 m out", "takes 3.2 s". The first
+# number after the verb is the value; "falls from 20 m" names a given, not a result.
+_RESULT_STATEMENT = re.compile(
+    r"\b(?:lands?|landed|travels?|travel(?:l)?ed|goes|went|reaches|reached|hits?|covers?|"
+    r"covered|rises?|rose|takes?|took|lasts?|stops?|stopped|flies|flew|ends up|"
+    r"comes to rest)\b(?P<between>[^.!?\n\d]{0,40}?)"
+    r"(?P<value>[-+]?(?:\d+\.\d+|\d+))\s*(?P<unit>[A-Za-zµμΩ°%][A-Za-zµμΩ°%/^·*\d-]*)",
+    re.IGNORECASE,
+)
 
 
 # Fences a client shows as ordinary text or math: what they say is prose too.
@@ -435,14 +444,34 @@ def _stated_values(prose: str, verified: VerifiedValue) -> tuple[list[_Number], 
             return bare, bare
     if verified.label is not None:
         # x = 6 in the working above an Answer heading the card itself follows.
-        return _labelled(body, verified.label)
+        final, every = _labelled(body, verified.label)
+        if final or region is not None:
+            return final, every
+        result = _result_statement(body, verified)
+        return result, result
     if region is not None:
         return [], []  # an Answer heading that states nothing: nothing to compare
     for sentence in reversed(_sentences(body)):
         values = _connective_values(sentence)
         if values:
             return values[-1:], values
-    return [], []
+    result = _result_statement(body, verified)
+    return (result, result) if result else ([], [])
+
+
+def _result_statement(body: str, verified: VerifiedValue) -> list[_Number]:
+    """The last "lands about 70.6 m" in the reply, in a unit the verified answer uses."""
+    units = {number.unit for number in verified.numbers if number.unit}
+    if not units:
+        return []  # a bare number in prose is too easy to misread as the result
+    for sentence in reversed(_sentences(body)):
+        for match in reversed(list(_RESULT_STATEMENT.finditer(sentence))):
+            if re.search(r"\bfrom\b", match.group("between"), re.IGNORECASE):
+                continue
+            read = _read_value(f"{match.group('value')} {match.group('unit')}")
+            if read and any(_in_one_unit(read[0], target) for target in verified.numbers):
+                return read
+    return []
 
 
 # --- Comparing -----------------------------------------------------------------------------

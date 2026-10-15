@@ -139,3 +139,30 @@ def test_correction_lines() -> None:
 def test_a_sentence_that_ends_before_its_value_states_nothing(prose: str) -> None:
     # An empty segment after "is:" used to raise and drop the verified card.
     assert stated_verdict(prose, "35.3\\,\\mathrm{m}") == "absent"
+
+
+_RANGE = "verified: true\nR = 62.7\\,\\mathrm{m}"
+_SPEED = "verified: true\nv = 19.8\\,\\mathrm{m/s}"
+
+
+@pytest.mark.parametrize(
+    ("answer", "prose", "verdict"),
+    [
+        # A result said without "=", in the verified answer's unit, is compared.
+        (_RANGE, "The ball lands about 70.6 m out.", "conflict"),
+        (_RANGE, "The ball lands about 62.7 m out.", "same"),
+        (_RANGE, "It lands 6270 cm away.", "same"),
+        (_SPEED, "The ball hits the ground at about 25 m/s.", "conflict"),
+        (_SPEED, "So it hits the ground at 19.8 m/s.", "same"),
+        # A given after "from" is not the result; the later statement is.
+        (_RANGE, "It falls from 20 m and lands about 62.7 m away.", "same"),
+        (_RANGE, "It is thrown from about 20 m high.", "absent"),
+        # Another quantity's unit, or no unit, is not this answer.
+        (_RANGE, "It takes 3.2 s to land.", "absent"),
+        ("verified: true\nx = 6", "The answer lands on 7.", "absent"),
+    ],
+)
+def test_stated_verdict_reads_a_result_said_without_equals(
+    answer: str, prose: str, verdict: str
+) -> None:
+    assert stated_verdict(prose, answer) == verdict
