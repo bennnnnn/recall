@@ -60,6 +60,12 @@ _ADVANCED_PHYSICS_RE = re.compile(
 )
 
 
+# "What if it's dropped from 80 m?": a hypothetical that continues a thread.
+_HYPOTHETICAL_RE = re.compile(
+    r"\s*(?:(?:and|but|so|ok|okay)\s+)?(?:what\s+(?:if|about)|how\s+about|suppose|imagine)\b",
+    re.IGNORECASE,
+)
+
 # A supplied nuclear mass is a chemistry mass-defect calculation. A bare
 # ``mass =`` is not that mass, so those words stay on the unverified physics path.
 _SUPPLIED_NUCLEAR_MASS_RE = re.compile(
@@ -138,11 +144,27 @@ def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     cleaned = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_PHYSICS_REQUEST)
     if not cleaned:
         return None
+    from app.modules.physics.ask import asked_phrases, has_ask
+    from app.modules.physics.bodies import main_question
+    from app.modules.physics.claims import question_without_claims
+
+    # A side question about another body is not the main question's setting
+    # ("Would it be different on Mars?"), and a student's own result is never a
+    # given ("I got 19.8 m/s"). Both are read out before anything binds a value.
+    cleaned = question_without_claims(main_question(cleaned))
     request = prepare_physics_request(cleaned)
     if request.rejected:
         return None
     if request.collision is not None:
         return complete_physics_intent(request.collision, request)
+    if not has_ask(request.text):
+        # "A ball is dropped from 80 m." asks nothing. An extractor's default
+        # (the fall time) would pick a question for the student.
+        return None
+    if _HYPOTHETICAL_RE.match(request.text) and not asked_phrases(request.text):
+        # "What if it's dropped from 80 m?" asks the thread's question again;
+        # alone it names none, and the fall time would be a guess at it.
+        return None
     for extractor in PHYSICS_EXTRACTORS:
         intent = extractor(request.text)
         if intent is not None:

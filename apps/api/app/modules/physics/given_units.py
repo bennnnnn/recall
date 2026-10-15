@@ -295,6 +295,8 @@ _WORDS: dict[str, str] = {
     "pascal": "pascal",
     "atm": "atmosphere",
     "bar": "bar",
+    # A tyre's or a US textbook's pressure: "the gauge pressure in psi".
+    "psi": "psi",
     "litres": "liter",
     "litre": "liter",
     "liters": "liter",

@@ -6,11 +6,16 @@ the solver did not recognise, so the model answered them unchecked.
 
 from __future__ import annotations
 
+import re
+
 import pytest
 
 from app.core.config import Settings
 from app.modules.physics import build_verified_physics_block, extract_physics_intent
+from app.modules.physics.direct import maybe_direct_physics_reply
 from app.modules.web_search.geo_intent import is_distance_query
+from app.services.solving import VerifiedPhysicsBlock
+from app.tests.modules.physics.support import answer_number
 
 _SETTINGS = Settings(math_tools_enabled=True)
 
@@ -21,6 +26,24 @@ def _answer(text: str) -> str | None:
         return None
     block = build_verified_physics_block(intent, _SETTINGS)
     return None if block is None else block.canonical_answer
+
+
+def _block(text: str) -> VerifiedPhysicsBlock | None:
+    intent = extract_physics_intent(text)
+    return None if intent is None else build_verified_physics_block(intent, _SETTINGS)
+
+
+def _values(text: str) -> list[tuple[float, str]]:
+    """Each value and unit of the plain verified answer: "2.8 m/s² and 14 N"."""
+    answer = _answer(text)
+    assert answer is not None, f"no verified answer for {text!r}"
+    found: list[tuple[float, str]] = []
+    for part in re.split(r" and |; ", answer):
+        part = re.sub(r"^[^\d-]*=\s*", "", part)  # "v = 20 m/s"
+        number = answer_number(part)
+        unit = re.sub(r"^-?[\d.]+(?: × 10[⁰¹²³⁴⁵⁶⁷⁸⁹⁻]+)?\s*", "", part).split(" (")[0]
+        found.append((number, unit.strip()))
+    return found
 
 
 @pytest.mark.parametrize(
@@ -344,3 +367,178 @@ def test_average_speed_over_a_trip_is_verified(text: str, answer: str) -> None:
 )
 def test_an_average_speed_question_without_one_answer_is_not_verified(text: str) -> None:
     assert _answer(text) is None
+
+
+# --- Round 5: wrong verified answers the STEM investigation found ------------------
+#
+# Every expected value below was worked by hand (g = 9.81 m/s²). Each was verified and
+# wrong before; now it is right, or it is left to the model unverified.
+
+_ROUND5_RIGHT: list[tuple[str, float, str]] = [
+    # 20. The asked unit is the answer's unit.
+    ("What is the gauge pressure in psi at a depth of 10 m in fresh water?", 14.23, "psi"),
+]
+
+
+@pytest.mark.parametrize(("text", "value", "unit"), _ROUND5_RIGHT)
+def test_a_round5_wrong_answer_is_now_right(text: str, value: float, unit: str) -> None:
+    values = _values(text)
+    assert any(
+        found_unit == unit and found == pytest.approx(value, rel=0.01)
+        for found, found_unit in values
+    ), values
+
+
+_ROUND5_DECLINED = [
+    # 16. A statement with no question asks nothing.
+    "A ball is dropped from 80 m.",
+]
+
+
+@pytest.mark.parametrize("text", _ROUND5_DECLINED)
+def test_a_round5_wrong_answer_is_now_declined(text: str) -> None:
+    assert _answer(text) is None
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit", "verdict"),
+    [
+        (
+            # 16. A student's result is never a given: the impact speed is checked.
+            "A 2 kg ball is dropped from 20 m. I got 19.8 m/s for its impact speed. Am I right?",
+            19.8,
+            "m/s",
+            "right",
+        ),
+        (
+            "A ball is dropped from 20 m. I calculated 2.02 s to hit the ground. Is that right?",
+            2.02,
+            "s",
+            "right",
+        ),
+        (
+            "A ball is thrown at 20 m/s at 30 degrees. I got a range of 20.4 m. Is that right?",
+            35.3,
+            "m",
+            "wrong",
+        ),
+        (
+            "A 12 V battery drives current through a 4 ohm resistor. I got 48 A. Is that right?",
+            3.0,
+            "A",
+            "wrong",
+        ),
+    ],
+)
+def test_a_claimed_result_is_checked_not_used_as_a_given(
+    text: str, value: float, unit: str, verdict: str
+) -> None:
+    values = _values(text)
+    assert values[0][0] == pytest.approx(value, rel=0.01)
+    assert values[0][1] == unit
+    block = _block(text)
+    assert block is not None
+    reply = maybe_direct_physics_reply(block, text)
+    assert reply is not None
+    head = reply.split("**Given**")[0]
+    if verdict == "right":
+        assert "is right" in head, head
+    else:
+        assert "is right" not in head and "not" in head, head
+    given = reply.split("**Given**")[1].split("**Find**")[0]
+    assert "19.8" not in given and "20.4" not in given and "48" not in given
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        # A yes/no about a value asks for that value, never a time.
+        ("A ball is dropped from 20 m. Does it hit the ground at 19.8 m/s?", 19.8, "m/s"),
+        (
+            "A ball is dropped from 20 m. My friend says it hits at 19.8 m/s. "
+            "How fast does it actually hit?",
+            19.8,
+            "m/s",
+        ),
+    ],
+)
+def test_a_claim_in_a_question_is_never_a_given(text: str, value: float, unit: str) -> None:
+    values = _values(text)
+    assert values[0][0] == pytest.approx(value, rel=0.01)
+    assert values[0][1] == unit
+
+
+@pytest.mark.parametrize(
+    ("text", "value", "unit"),
+    [
+        # 17. A planet in a side question does not replace Earth in the main one.
+        (
+            "A ball is dropped from 20 m. How fast does it hit the ground? "
+            "Would it be different on Mars?",
+            19.81,
+            "m/s",
+        ),
+        (
+            "A ball is thrown at 20 m/s at 30 degrees from a 10 m cliff. How far from the base "
+            "does it land? Ignore air resistance, and also tell me how this changes on the Moon.",
+            48.04,
+            "m",
+        ),
+        ("How long does a ball take to fall 20 m on Earth? Compare with Jupiter.", 2.019, "s"),
+    ],
+)
+def test_a_body_in_a_side_question_keeps_the_main_question_on_earth(
+    text: str, value: float, unit: str
+) -> None:
+    values = _values(text)
+    assert values[0][0] == pytest.approx(value, rel=0.01)
+    assert values[0][1] == unit
+    block = _block(text)
+    assert block is not None
+    # The side question is the model's to answer, beside the verified main one.
+    assert maybe_direct_physics_reply(block, text) is None
+
+
+def test_a_body_in_the_main_question_still_sets_its_gravity() -> None:
+    values = _values("A ball is dropped from 20 m on Mars. How fast does it hit the ground?")
+    assert values[0][0] == pytest.approx((2 * 3.71 * 20) ** 0.5, rel=0.01)
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # 18. A question in parts is never answered one part at a time.
+        "A ball is dropped from 45 m. (a) how long does it take to hit the ground? "
+        "(b) how fast is it going when it lands?",
+        "A 1500 kg car at 20 m/s brakes to a stop in 5 s. "
+        "Find the deceleration and the braking force.",
+        "a ball is thrown straight up at 20 m/s. (a) max height (b) time to reach the top "
+        "(c) total time in the air",
+        # A yes/no question about a value is the model's to answer, with the check.
+        "A ball is dropped from 20 m. Does it hit the ground at 19.8 m/s?",
+    ],
+)
+def test_a_question_with_parts_left_unanswered_gets_no_instant_reply(text: str) -> None:
+    block = _block(text)
+    if block is not None:
+        assert maybe_direct_physics_reply(block, text) is None
+
+
+def test_every_part_of_a_suvat_question_is_answered_in_one_reply() -> None:
+    text = (
+        "A car accelerates uniformly from rest at 2 m/s^2 for 10 s. "
+        "Find (a) its final speed and (b) the distance travelled."
+    )
+    values = _values(text)
+    assert values[0][0] == pytest.approx(20.0) and values[0][1] == "m/s"
+    assert values[1][0] == pytest.approx(100.0) and values[1][1] == "m"
+    block = _block(text)
+    assert block is not None
+    assert maybe_direct_physics_reply(block, text) is not None
+
+
+def test_a_statement_with_no_question_gets_no_instant_reply() -> None:
+    text = "a 2 kg ball at 3 m/s collides elastically with a 1 kg ball at rest"
+    block = _block(text)
+    assert block is not None
+    assert maybe_direct_physics_reply(block, text) is None

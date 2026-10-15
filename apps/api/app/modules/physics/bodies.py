@@ -3,8 +3,54 @@
 from __future__ import annotations
 
 import math
+import re
 
+from app.modules.physics.ask import SENTENCE
 from app.services.text_match import word_index
+
+_BODY_WORDS = re.compile(
+    r"\b(?:earth|moon|mars|jupiter|sun|venus|mercury|saturn|uranus|neptune|pluto)\b",
+    re.IGNORECASE,
+)
+# The same question asked again somewhere else: "Would it be different on Mars?",
+# "and also tell me how this changes on the Moon", "Compare with Jupiter."
+_SIDE_MARK = re.compile(
+    r"\b(?:different|differ\w*|chang\w*|compar\w*|versus|vs|instead|what\s+about|"
+    r"how\s+about|also|same|as\s+well|would\s+(?:it|this|that|the\s+\w+))\b",
+    re.IGNORECASE,
+)
+
+
+def side_questions(text: str) -> list[tuple[int, int]]:
+    """Spans of the sentences that ask the question again on another body.
+
+    Such a sentence names a body, marks a comparison, and states no value of its
+    own. The main question stays on Earth: "How fast does it hit the ground?
+    Would it be different on Mars?" is answered with Earth's g, and the model
+    takes the comparison.
+    """
+    return [
+        sentence.span()
+        for sentence in SENTENCE.finditer(text)
+        if _BODY_WORDS.search(sentence.group())
+        and _SIDE_MARK.search(sentence.group())
+        and not any(char.isdigit() for char in sentence.group())
+    ]
+
+
+def main_question(text: str) -> str:
+    """The text without its side questions about another body."""
+    spans = side_questions(text)
+    if not spans:
+        return text
+    pieces: list[str] = []
+    cursor = 0
+    for start, end in spans:
+        pieces.append(text[cursor:start])
+        cursor = end
+    pieces.append(text[cursor:])
+    return " ".join(piece.strip() for piece in pieces if piece.strip())
+
 
 # Mass (kg) and mean radius (m) of each body a school question names.
 BODY_PROPERTIES: dict[str, tuple[float, float]] = {
