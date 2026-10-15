@@ -111,7 +111,14 @@ def _plain_prime_factorization_request(text: str) -> bool:
             break
     if request.startswith("the "):
         request = request[4:]
-    for prefix in ("prime factorization of ", "prime factors of ", "factorize "):
+    for prefix in (
+        "prime factorization of ",
+        "prime factorisation of ",
+        "prime factors of ",
+        "factorize ",
+        "factorise ",
+        "factor ",
+    ):
         if request.startswith(prefix):
             number = request[len(prefix) :]
             if number.endswith(" please"):
@@ -129,6 +136,7 @@ def _closed_school_request(user_text: str, calculus_text: str) -> bool:
     from app.modules.math.match.discrete import counting_word_signal
     from app.modules.math.tools.extractors.formulas import average_value_request
     from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
+    from app.modules.math.tools.school.bag_draws import extract_bag_draws_intent
     from app.modules.math.tools.school.curve_points import extract_curve_point_intent
     from app.modules.math.tools.school.equation_features import extract_equation_feature_intent
     from app.modules.math.tools.school.function_value import extract_function_value_intent
@@ -147,6 +155,7 @@ def _closed_school_request(user_text: str, calculus_text: str) -> bool:
         or extract_equation_feature_intent(user_text) is not None
         or counting_word_signal(user_text) is not None
         or extract_single_draw_intent(user_text) is not None
+        or extract_bag_draws_intent(user_text) is not None
         or extract_curve_point_intent(calculus_text) is not None
     )
 

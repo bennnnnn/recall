@@ -14,6 +14,7 @@ from app.modules.math.match.calculus import (
 )
 from app.modules.math.match.discrete import (
     combinatorics_signal,
+    gcd_lcm_list_signal,
     matrix_signal,
     number_theory_signal,
     stats_signal,
@@ -32,6 +33,7 @@ from app.modules.math.match.graph import (
 )
 from app.modules.math.match.literal_geometry import parse_named_rectangle_request
 from app.modules.math.match.scan import (
+    bare_equation_system,
     first_dim_pair,
     geometry_dim_context,
     has_algebraic_equation,
@@ -128,6 +130,9 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # single-letter variable so prose with an '=' ("meeting = 3pm") is excluded.
     if has_algebraic_equation(cleaned):
         return True
+    # A system typed with no verb: "3x+2y=12 and x-y=1".
+    if bare_equation_system(cleaned):
+        return True
     # Digits + operators with no leftover English — same helper the arithmetic
     # extractor uses. Without this, ``first_dim_pair`` treated ``8*2`` inside
     # ``8-8*2`` as a rectangle size, extract returned None, and the reply
@@ -183,6 +188,11 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
 
     # "probability of rolling a sum of 7 with two dice", "drawing a king from a deck".
     if extract_single_draw_intent(cleaned) is not None:
+        return True
+    from app.modules.math.tools.school.bag_draws import extract_bag_draws_intent
+
+    # "a bag has 3 red and 5 blue marbles, pick 2 without replacement, probability both red".
+    if extract_bag_draws_intent(cleaned) is not None:
         return True
     from app.modules.math.match.coordinate_vector import is_closed_coordinate_vector_request
 
@@ -297,7 +307,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
         return True
     if combinatorics_signal(cleaned) is not None:
         return True
-    if number_theory_signal(cleaned) is not None:
+    if number_theory_signal(cleaned) is not None or gcd_lcm_list_signal(cleaned) is not None:
         return True
     if matrix_signal(cleaned) is not None:
         return True

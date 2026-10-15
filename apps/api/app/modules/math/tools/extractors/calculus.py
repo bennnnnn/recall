@@ -259,6 +259,21 @@ def _extract_double_integral_intent(cleaned: str) -> MathIntent | None:
     )
 
 
+# ``∫_0^π`` / ``∫_{0}^{2}``: one bound each, a number, π, e or infinity.
+_SCRIPT_BOUND = r"-?(?:\d+(?:\.\d+)?|π|pi|e|∞|oo|infinity)"
+_INTEGRAL_SCRIPTS = re.compile(
+    rf"_\s*(?:\{{\s*(?P<low_braced>{_SCRIPT_BOUND})\s*\}}|(?P<low>{_SCRIPT_BOUND}))\s*"
+    rf"\^\s*(?:\{{\s*(?P<high_braced>{_SCRIPT_BOUND})\s*\}}|(?P<high>{_SCRIPT_BOUND}))"
+    r"(?![\w.])",
+    re.IGNORECASE,
+)
+
+
+def _script_bound(match: re.Match[str], name: str) -> str:
+    bound = match.group(f"{name}_braced") or match.group(name)
+    return bound.replace("π", "pi").replace("∞", "oo")
+
+
 def _leading_integral_bounds(cleaned: str) -> tuple[str, str, str] | None:
     """``integral from 1 to infinity of f(x) dx`` -> expression and bounds."""
     lower = cleaned.lower()
@@ -272,6 +287,12 @@ def _leading_integral_bounds(cleaned: str) -> tuple[str, str, str] | None:
                 expr = rest[close + 1 :].strip()
                 if len(bounds) == 2 and all(part.strip() for part in bounds) and expr:
                     return expr, bounds[0].strip(), bounds[1].strip()
+        scripted = _INTEGRAL_SCRIPTS.match(rest)
+        if scripted is not None:
+            low = _script_bound(scripted, "low")
+            high = _script_bound(scripted, "high")
+            expr = rest[scripted.end() :].strip()
+            return (expr, low, high) if expr else None
     marker = "integral from "
     start = lower.find(marker)
     if start == -1:
@@ -389,6 +410,9 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
             raw, integral_lower, integral_upper = bounds
     expr = math_expr_or_none(raw)
     if expr is None:
+        return None
+    if calc_op == "factor" and expr.strip().isdigit():
+        # "factor 360" asks for its prime factors; SymPy's factor() returns 360.
         return None
     return MathIntent(
         kind="calculus",

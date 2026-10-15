@@ -134,6 +134,11 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     single = extract_single_draw_intent(cleaned)
     if single is not None:
         return single
+    from app.modules.math.tools.school.bag_draws import extract_bag_draws_intent
+
+    bag = extract_bag_draws_intent(cleaned)
+    if bag is not None:
+        return bag
     dice = _DICE_CONDITIONAL_SUM.fullmatch(cleaned)
     if dice is not None:
         relation, threshold_text, event_text = dice.groups()
@@ -264,6 +269,10 @@ def _verified_block_probability(
         from app.modules.math.tools.school.single_draw import single_draw_block
 
         return single_draw_block(intent, lines)
+    if intent.school_op in {"bag_draws", "bag_draws_with_replacement"}:
+        from app.modules.math.tools.school.bag_draws import bag_draws_block
+
+        return bag_draws_block(intent, lines)
     if (
         intent.school_op == "dice_conditional_sum"
         and intent.comparator in {"<", "<=", "=", ">=", ">"}

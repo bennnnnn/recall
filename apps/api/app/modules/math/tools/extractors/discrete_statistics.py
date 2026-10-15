@@ -96,7 +96,20 @@ def _extract_number_theory_intent(cleaned: str) -> MathIntent | None:
         )
     signal = mtm.number_theory_signal(cleaned)
     if signal is None:
-        return None
+        from app.modules.math.match.discrete import gcd_lcm_list_signal
+
+        listed = gcd_lcm_list_signal(cleaned)
+        if listed is None:
+            return None
+        list_op, values = listed
+        return MathIntent(
+            kind="number_theory",
+            numtheory_op=list_op,
+            numtheory_a=values[0],
+            numtheory_b=values[1],
+            numtheory_values=values,
+            operation="solve",
+        )
     op, a, b = signal
     return MathIntent(
         kind="number_theory", numtheory_op=op, numtheory_a=a, numtheory_b=b, operation="solve"

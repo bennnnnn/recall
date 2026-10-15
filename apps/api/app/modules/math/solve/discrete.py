@@ -5,6 +5,7 @@ from __future__ import annotations
 import math
 import re
 import statistics as _stats
+from typing import Literal
 
 from sympy import latex
 
@@ -148,11 +149,29 @@ def compute_combinatorics(data: CombinatoricsInput) -> CombinatoricsResult:
     )
 
 
+def _gcd_lcm_of_list(operation: Literal["gcd", "lcm"], values: list[int]) -> NumberTheoryResult:
+    """gcd or lcm of a list, two numbers at a time: lcm(12, 18) = 36, lcm(36, 30) = 180."""
+    combine = math.gcd if operation == "gcd" else math.lcm
+    running = values[0]
+    steps: list[str] = []
+    for value in values[1:]:
+        combined = combine(running, value)
+        steps.append(f"{operation}({running}, {value}) = {combined}")
+        running = combined
+    listed = ", ".join(str(value) for value in values)
+    steps.append(f"{operation}({listed}) = {running}")
+    return NumberTheoryResult(
+        operation=operation, a=values[0], b=values[1], result_int=running, steps=steps
+    )
+
+
 def compute_number_theory(data: NumberTheoryInput) -> NumberTheoryResult:
     """GCD / LCM / prime factorization / primality / modulo — integer-only,
     bypasses the expression parser entirely (see NumberTheoryInput's bounds
     for why factorize/is_prime stay fast even on an adversarial input)."""
     a = data.a
+    if data.operation in ("gcd", "lcm") and data.values:
+        return _gcd_lcm_of_list(data.operation, data.values)
     if data.operation in ("gcd", "lcm", "mod"):
         if data.b is None:
             raise MathServiceError(f"{data.operation} requires two integers")

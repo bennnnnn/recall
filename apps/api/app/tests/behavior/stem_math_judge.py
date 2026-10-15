@@ -8,7 +8,7 @@ compares with SymPy, so a solver bug cannot also hide in its own judge.
 check kinds:
   num       value: a SymPy number; some value on the card equals it (0.5%)
   num_any   value: several numbers; the card holds one of them
-  nums      value: several numbers; the card holds every one
+  nums      value: several numbers; the card holds every one ("176 R2" is 176 and 2)
   expr      value: a SymPy expression in x; some card piece equals it exactly
   anti      value: an antiderivative; some card piece differs by a constant
   anti_any  value: several antiderivatives; the card holds one of them
@@ -199,8 +199,10 @@ def judge_check(check: tuple[str, Any], card: str, body: str) -> bool:
     if kind == "num_any":
         return any(close(v, sympify(want)) for v in found for want in value)
     if kind == "nums":
+        # A remainder is written "176 R2" in school: the quotient and the remainder.
+        spread_card = re.sub(r"(?<=\d)\s*R\s*(?=\d)", " , ", card)
         spread = found + pieces(
-            card.replace("(", " ").replace(")", " ").replace(",", " , ").replace(":", " , ")
+            spread_card.replace("(", " ").replace(")", " ").replace(",", " , ").replace(":", " , ")
         )
         return all(any(close(v, sympify(want)) for v in spread) for want in value)
     if kind == "expr":
