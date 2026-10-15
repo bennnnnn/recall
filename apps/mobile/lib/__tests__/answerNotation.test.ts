@@ -5,13 +5,11 @@ describe("splitAnswerNotation", () => {
     expect(splitAnswerNotation("x = 2")).toEqual({
       notation: "math",
       body: "x = 2",
-      labeled: false,
       verified: false,
     });
     expect(splitAnswerNotation("\\frac{1}{2}")).toEqual({
       notation: "math",
       body: "\\frac{1}{2}",
-      labeled: false,
       verified: false,
     });
   });
@@ -20,16 +18,14 @@ describe("splitAnswerNotation", () => {
     expect(splitAnswerNotation("notation: chemistry\nM(H2O) = 18.015 g/mol")).toEqual({
       notation: "chemistry",
       body: "M(H2O) = 18.015 g/mol",
-      labeled: false,
       verified: false,
     });
   });
 
-  it("keeps a side label and a chemistry notation line", () => {
+  it("drops an old label line and keeps the chemistry notation", () => {
     expect(splitAnswerNotation("label: answer\nnotation: chemistry\nH2O")).toEqual({
       notation: "chemistry",
       body: "H2O",
-      labeled: true,
       verified: false,
     });
   });
@@ -38,7 +34,6 @@ describe("splitAnswerNotation", () => {
     expect(splitAnswerNotation("notation: chemistry is not a formula")).toEqual({
       notation: "math",
       body: "notation: chemistry is not a formula",
-      labeled: false,
       verified: false,
     });
   });
@@ -47,7 +42,6 @@ describe("splitAnswerNotation", () => {
     expect(splitAnswerNotation("verified: true\nx = 2")).toEqual({
       notation: "math",
       body: "x = 2",
-      labeled: false,
       verified: true,
     });
     expect(
@@ -55,7 +49,6 @@ describe("splitAnswerNotation", () => {
     ).toEqual({
       notation: "chemistry",
       body: "H2O",
-      labeled: true,
       verified: true,
     });
   });
@@ -71,7 +64,6 @@ describe("splitAnswerNotation", () => {
     expect(splitAnswerNotation("verified: true")).toEqual({
       notation: "math",
       body: "verified: true",
-      labeled: false,
       verified: false,
     });
   });
