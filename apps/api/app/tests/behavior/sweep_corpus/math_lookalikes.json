@@ -1,0 +1,200 @@
+[
+ {
+  "id": "ml-001",
+  "area": "math lookalike",
+  "prompt": "differentiate between weather and climate",
+  "reply": "**Weather** is what the atmosphere is doing right now or over a few days: today's rain, tomorrow's heat.\n\n**Climate** is the long-term pattern of weather in a place, usually averaged over 30 years or more.\n\nA simple way to remember it: weather is your mood, climate is your personality.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-002",
+  "area": "math lookalike",
+  "prompt": "how do I integrate Slack with Notion",
+  "reply": "You can connect them in a few minutes:\n\n1. In Notion, open **Settings → Connections** and choose **Slack**.\n2. Sign in to Slack and pick the workspace.\n3. In any Notion page, type `/slack` to choose a channel for updates.\n\nAfter that, page comments and mentions show up in the channel you picked.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-003",
+  "area": "math lookalike",
+  "prompt": "factor in the cost of shipping too",
+  "history": [
+   ["user", "I'm selling handmade candles for $18 each and each one costs me $7 to make. What's my profit per candle?"],
+   ["assistant", "Your profit per candle is **$11** ($18 − $7)."]
+  ],
+  "reply": "With shipping included, subtract that cost as well. If shipping is $4 per candle, your profit is $18 − $7 − $4 = **$7** per candle. Tell me your actual shipping cost and I'll redo it.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-004",
+  "area": "math lookalike",
+  "prompt": "expand on that",
+  "history": [
+   ["user", "why is sleep important?"],
+   ["assistant", "Sleep lets your body repair itself and your brain sort the day's memories."]
+  ],
+  "reply": "During deep sleep your body releases growth hormone, repairs muscle and tissue, and strengthens the immune system. During REM sleep the brain replays the day, moving useful memories into long-term storage and clearing out waste products that build up while you're awake.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-005",
+  "area": "math lookalike",
+  "prompt": "simplify this paragraph for a 10 year old",
+  "history": [
+   ["user", "Photosynthesis is the process by which chlorophyll-containing organisms convert light energy into chemical energy stored in glucose."],
+   ["assistant", "That's the textbook definition of photosynthesis."]
+  ],
+  "reply": "Plants are like tiny chefs. They use sunlight as their stove, take in water and air, and cook up sugar to eat. That's called photosynthesis!",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-006",
+  "area": "math lookalike",
+  "prompt": "simplify my morning routine",
+  "reply": "Try cutting it down to three anchors:\n\n1. **Wake and water**: a glass of water before your phone.\n2. **Move for 10 minutes**: a walk or a few stretches.\n3. **One priority**: write down the single most important task for the day.\n\nEverything else is optional.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-007",
+  "area": "math lookalike",
+  "prompt": "factor it into the budget",
+  "history": [
+   ["user", "the trip costs $400"],
+   ["assistant", "Got it, $400 for the trip."]
+  ],
+  "reply": "Added. With the $400 trip, set aside about $100 a month for the next four months so it doesn't squeeze any single paycheck.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-008",
+  "area": "math lookalike",
+  "prompt": "integrate it into the report",
+  "history": [
+   ["user", "here is a chart of our q3 sales"],
+   ["assistant", "Looks good. Sales grew each month of the quarter."]
+  ],
+  "reply": "Here's a paragraph for the report: \"Q3 sales grew steadily, with each month beating the one before. The chart below shows the monthly totals.\" Place the chart right after it.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-009",
+  "area": "math lookalike",
+  "prompt": "can you simplify it?",
+  "history": [
+   ["user", "Here is my essay intro: The industrial revolution changed how people lived and worked."],
+   ["assistant", "Nice intro! It reads well."]
+  ],
+  "reply": "Sure: \"The industrial revolution changed everyday life and work.\"",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-010",
+  "area": "math lookalike",
+  "prompt": "expand it",
+  "history": [
+   ["user", "my business plan has 3 sections: market, product, team"],
+   ["assistant", "Sounds good."]
+  ],
+  "reply": "Here's a fuller outline:\n\n1. **Market**: who the customers are, how big the market is, and who you compete with.\n2. **Product**: what it does, why it is better, and what it costs to build.\n3. **Team**: who is on it and why they can deliver.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-011",
+  "area": "math lookalike",
+  "prompt": "simplify it",
+  "reply": "Happy to. Paste the text you'd like me to simplify.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-012",
+  "area": "math lookalike",
+  "prompt": "x = everything I want in life lol",
+  "reply": "Ha, solving for x is easy when x is everything. What's the first thing on the list?",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-013",
+  "area": "math lookalike",
+  "prompt": "differentiate yourself from other candidates in an interview, how?",
+  "reply": "Three ways that work:\n\n1. Tell one specific story where you solved the exact problem the team has.\n2. Ask sharp questions about their roadmap.\n3. Follow up within 24 hours with something useful, not just thanks.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-014",
+  "area": "math lookalike",
+  "prompt": "how do I factor in inflation when saving for retirement",
+  "reply": "Plan in today's money, then raise your savings each year by the inflation rate. A simpler shortcut: assume a real return (your expected return minus inflation), for example 7% − 3% = 4% a year.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-015",
+  "area": "math lookalike",
+  "prompt": "can you expand on your last point",
+  "history": [
+   ["user", "how do I get better at running?"],
+   ["assistant", "Run more often at an easy pace, add one faster session a week, and rest properly."]
+  ],
+  "reply": "Rest is when you actually get fitter: muscles repair and grow back stronger between runs. Take at least one full rest day a week and sleep seven to nine hours.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-016",
+  "area": "math lookalike",
+  "prompt": "integrate these notes into one summary",
+  "history": [
+   ["user", "notes: kickoff Monday. design review Wednesday. launch Friday."],
+   ["assistant", "Got your notes."]
+  ],
+  "reply": "This week: kickoff on Monday, design review on Wednesday, and launch on Friday.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-017",
+  "area": "math lookalike",
+  "prompt": "find the vertex of the triangle on our logo and make it rounder",
+  "reply": "I can't edit the image file, but in most design tools you select the top vertex and raise its corner radius. In Figma that's the corner radius field in the right panel.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-018",
+  "area": "math lookalike",
+  "prompt": "I have 1,200 followers on Instagram, is that good for a bakery?",
+  "reply": "For a local bakery, 1,200 engaged followers is a solid start. Engagement matters more than the count: a handful of comments and saves on each post means people are paying attention.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-019",
+  "area": "math lookalike",
+  "prompt": "what's the slope of the hiking trail up to the waterfall?",
+  "reply": "I don't know which trail you mean. Tell me the trail name and I'll look up its elevation gain and length.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-020",
+  "area": "math lookalike",
+  "prompt": "simplify the wording of this email please",
+  "history": [
+   ["user", "Dear team, I am writing to inform you that the meeting which was previously scheduled for Thursday has been moved to Friday."],
+   ["assistant", "Got it."]
+  ],
+  "reply": "\"Hi team, Thursday's meeting has moved to Friday.\"",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-021",
+  "area": "math lookalike",
+  "prompt": "my answer is yes",
+  "history": [
+   ["user", "should I take the job offer?"],
+   ["assistant", "It depends on what matters most to you. Do you want the higher salary?"]
+  ],
+  "reply": "Then the offer looks like the right move. Ask for the start date and benefits in writing before you accept.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-022",
+  "area": "math lookalike",
+  "prompt": "expand on the history of the factor in the stock market",
+  "reply": "In finance a \"factor\" is a trait that explains returns, such as value, size or momentum. The idea grew from the 1960s capital asset pricing model into the Fama–French three-factor model in 1992.",
+  "expect": "answer"
+ }
+]
