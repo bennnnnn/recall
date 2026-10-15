@@ -1,3 +1,4 @@
+import { codeSpanOpensWithin, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { latexHasNestedMathView, latexHasStackedFrac, restoreMathEscapes } from "@/lib/math/text";
 
 export type InlineMathPart = { type: "text" | "math"; value: string };
@@ -8,7 +9,9 @@ function escapedAt(text: string, at: number): boolean {
   return slashes % 2 === 1;
 }
 
-/** A complete, explicit math span. Currency and escaped dollars stay literal. */
+/** A complete, explicit math span. Currency and escaped dollars stay literal,
+ * and a pair never reaches across an inline code span: markdown-it cuts the
+ * code out first, so `$` on either side of it are two lone dollars. */
 export function readInlineMathSpan(
   text: string,
   start: number,
@@ -28,6 +31,7 @@ export function readInlineMathSpan(
   if (end < 0) return null;
   const value = text.slice(start + opener.length, end);
   if (!value.trim() || (opener === "$" && value.includes("\n"))) return null;
+  if (codeSpanOpensWithin(text, start + opener.length, end)) return null;
   // "$5 and $10" contains two prices, not a math span ending before "10".
   if (opener === "$" && /^\d/.test(text.slice(end + 1))) return null;
   // Do not pair a price with a later formula's opener: "$10; $x=2$".
@@ -51,11 +55,11 @@ export function splitInlineMath(text: string): InlineMathPart[] {
   let last = 0;
   for (let i = 0; i < text.length;) {
     if (text[i] === "`") {
-      let fenceEnd = i + 1;
-      while (text[fenceEnd] === "`") fenceEnd += 1;
-      const close = text.indexOf(text.slice(i, fenceEnd), fenceEnd);
-      const markerLength = fenceEnd - i;
-      i = close < 0 ? text.length : close + markerLength;
+      // A complete code span is code. An unpaired tick is a literal tick and
+      // must not hide the maths after it.
+      let runEnd = i + 1;
+      while (text[runEnd] === "`") runEnd += 1;
+      i = readInlineCodeSpan(text, i) ?? runEnd;
       continue;
     }
     const span = readInlineMathSpan(text, i);

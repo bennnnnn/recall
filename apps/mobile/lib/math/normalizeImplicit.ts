@@ -1,6 +1,7 @@
 /** Turn model output like `( x^2 = 6 )` into renderable LaTeX. Bare `12+3`
  * and identifiers like `x2` are typeset as supplied — exponents are not invented. */
 
+import { codeSpanOpensWithin, readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { revealCurrencyDollars } from "@/lib/markdown/preprocessMathInline";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
@@ -80,6 +81,8 @@ export function isMathLike(inner: string): boolean {
   // trailing `$$` that steals the next display-math opener, leaving equations
   // as raw LaTeX and prose glued into MathBlock fences.
   if (s.includes("$")) return false;
+  // Inline code is code, even when it reads like an equation (`x = x + 1`).
+  if (s.includes("`")) return false;
   if (looksLikeProseParenthetical(s)) return false;
   if (LATEX_CMD.test(s)) return true;
   if (/\^|_[{0-9a-zA-Z]/.test(s)) return true;
@@ -261,7 +264,9 @@ function expandMathIslandLeft(seg: string, start: number): number {
  * MATH_IN_PARENS_RE re-wraps parentheticals INSIDE an existing `$...$`
  * (e.g. `$(-2 + \sqrt{3})^2 + 4(-2 + \sqrt{3}) + ...$`), producing `$$` and
  * shattering `$` pairing across the whole message — leaving `\sqrt` as raw
- * text and gluing adjacent prose into the math. */
+ * text and gluing adjacent prose into the math. Inline code spans are left
+ * untouched the same way (`range(n_items)` is not `range($n_items$)`), and a
+ * dollar pair never reaches across one. */
 function escapedDollar(text: string, index: number): boolean {
   let slashes = 0;
   for (let i = index - 1; i >= 0 && text[i] === "\\"; i -= 1) slashes += 1;
@@ -273,6 +278,14 @@ function applyOutsideInlineMath(line: string, fn: (s: string) => string): string
   let last = 0;
   let i = 0;
   while (i < line.length) {
+    const codeEnd = line[i] === "`" ? readInlineCodeSpan(line, i) : null;
+    if (codeEnd != null) {
+      if (i > last) out.push(fn(line.slice(last, i)));
+      out.push(line.slice(i, codeEnd));
+      last = codeEnd;
+      i = codeEnd;
+      continue;
+    }
     // `\$` is a currency sign. Closing on that `$` keeps only `$\$`, and
     // wrapping the rest inserts another `$`. `\$$` then becomes a math
     // fence, which is why the screen shows `\43` and `\1,720`.
@@ -289,7 +302,7 @@ function applyOutsideInlineMath(line: string, fn: (s: string) => string): string
     ) {
       close += 1;
     }
-    if (close >= line.length || line[close] !== "$") {
+    if (close >= line.length || line[close] !== "$" || codeSpanOpensWithin(line, i + 1, close)) {
       i += 1;
       continue;
     }

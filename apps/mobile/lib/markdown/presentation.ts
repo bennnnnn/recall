@@ -6,6 +6,7 @@
 
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";
 import { repairInlineTokenBoundaries } from "@/lib/markdown/inlineBoundaries";
+import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { fenceReplTranscripts } from "@/lib/markdown/replTranscript";
 import { normalizeImplicitMath } from "@/lib/math/normalizeImplicit";
 
@@ -14,7 +15,9 @@ export function presentAssistantMarkdown(text: string): string {
   return layoutCalculations(repairInlineTokenBoundaries(fenceReplTranscripts(text)));
 }
 
-/** Index of an unclosed `$`, `$$`, `\(`, or `\[`, or null when every opener closed. */
+/** Index of an unclosed `$`, `$$`, `\(`, or `\[`, or null when every opener closed.
+ * A dollar inside inline code is code, and an open `$` cannot close past a
+ * code span, so it is a lone dollar. */
 function openMathStart(prose: string): number | null {
   let inline = false;
   let display = false;
@@ -23,6 +26,15 @@ function openMathStart(prose: string): number | null {
   let openAt = -1;
   let i = 0;
   while (i < prose.length) {
+    if (prose[i] === "`" && !display && !paren && !bracket) {
+      const codeEnd = readInlineCodeSpan(prose, i);
+      if (codeEnd != null) {
+        inline = false;
+        openAt = -1;
+        i = codeEnd;
+        continue;
+      }
+    }
     if (prose.startsWith("$$", i)) {
       if (display) {
         display = false;

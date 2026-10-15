@@ -1,3 +1,4 @@
+import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { readInlineMathSpan, splitInlineMath } from "@/lib/markdown/inlineMath";
 import {
   PROTECTED_ESCAPE_MARKER,
@@ -88,6 +89,78 @@ export function protectMathEscapes(content: string): string {
     }
     return out;
   });
+}
+
+/** The `$` closing a pair that opens at `open`, and whether a complete code
+ * span sits inside the pair. Code spans are skipped whole. */
+function dollarCloser(line: string, open: number): { close: number; code: boolean } | null {
+  let code = false;
+  for (let j = open + 1; j < line.length;) {
+    if (line[j] === "\\") {
+      j += 2;
+      continue;
+    }
+    const codeEnd = line[j] === "`" ? readInlineCodeSpan(line, j) : null;
+    if (codeEnd != null) {
+      code = true;
+      j = codeEnd;
+      continue;
+    }
+    if (line[j] === "$") return line[j + 1] === "$" ? null : { close: j, code };
+    j += 1;
+  }
+  return null;
+}
+
+function unwrapDollarsAroundCodeLine(line: string): string {
+  if (!line.includes("$") || !line.includes("`")) return line;
+  let out = "";
+  for (let i = 0; i < line.length;) {
+    if (line[i] === "\\") {
+      out += line.slice(i, i + 2);
+      i += 2;
+      continue;
+    }
+    if (line[i] === "`") {
+      let runEnd = i + 1;
+      while (line[runEnd] === "`") runEnd += 1;
+      const end = readInlineCodeSpan(line, i) ?? runEnd;
+      out += line.slice(i, end);
+      i = end;
+      continue;
+    }
+    const pair = line[i] === "$" && line[i + 1] !== "$" && line[i - 1] !== "$"
+      ? dollarCloser(line, i)
+      : null;
+    if (!pair) {
+      out += line[i];
+      i += 1;
+    } else if (!pair.code) {
+      // Ordinary maths, or two prices: copy the pair whole so its closer is
+      // never read as an opener.
+      out += line.slice(i, pair.close + 1);
+      i = pair.close + 1;
+    } else if (line[i + 1] === "`" || line[pair.close - 1] === "`") {
+      out += line.slice(i + 1, pair.close).trim();
+      i = pair.close + 1;
+    } else {
+      out += line[i];
+      i += 1;
+    }
+  }
+  return out;
+}
+
+/**
+ * Code wrapped in maths dollars: "$" + "`total`" + "$", or "$" + "`total` + 2"
+ * + "$". markdown-it reads the code span first, so the dollars would paint as
+ * two stray `$` around it. Drop them when a code span touches one of them; a
+ * price on each side ("$5 and `total` is $3") keeps both.
+ */
+export function unwrapDollarsAroundCode(content: string): string {
+  return applyOutsideFences(content, (prose) =>
+    prose.split("\n").map(unwrapDollarsAroundCodeLine).join("\n"),
+  );
 }
 
 /** Consecutive calculation lines are separate steps, not wrapped prose.

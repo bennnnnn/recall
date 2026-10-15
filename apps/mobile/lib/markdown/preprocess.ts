@@ -29,6 +29,7 @@ import {
   normalizeBoldInlineMath,
   protectMathEscapes,
   separateConsecutiveMathLines,
+  unwrapDollarsAroundCode,
 } from "@/lib/markdown/preprocessMathInline";
 import {
   breakMidlineAtxHeadings,
@@ -97,6 +98,8 @@ export function preprocessMarkdown(
   // wrapped `$...$` so it renders as math inline with the prose (in sync with
   // the text, no late fence pop-in).
   out = applyOutsideFences(out, (prose) => prose.replace(/`(\$[^`\n]+?\$)`/g, "$1"));
+  // And the reverse: code the model wrapped in dollars stays code.
+  out = unwrapDollarsAroundCode(out);
 
   out = promoteCalloutBlockquotes(out);
   out = promoteQuotedAttributions(out);

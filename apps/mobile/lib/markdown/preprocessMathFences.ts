@@ -13,7 +13,7 @@ import {
   shouldRenderMathFenceInline,
   stripRedundantDollarWrap,
 } from "@/lib/math/fenceRetag";
-import { isMathLike } from "@/lib/math/normalizeImplicit";
+import { readInlineCodeSpan } from "@/lib/markdown/inlineCode";
 import { readFenceMarker, readFenceMarkerLoose } from "@/lib/mdFenceScan";
 import { isStructuredFenceLang } from "@/lib/richBlocks";
 
@@ -98,21 +98,52 @@ export function breakAttachedMathFences(content: string): string {
   return out.join("\n");
 }
 
-const MATHISH_TICK_INNER = /^[\dA-Za-z+\-*/^=().\s\\{}^_√±×÷·,]+$/;
+// Arithmetic on numbers alone; `x = 5` or `i += 1` is a line of code.
+const NUMERIC_EQUATION = /^[\d\s+\-*/×÷·.,()=^]+$/;
+const POWER_NOTATION = /^[\dA-Za-z\s+\-*/^().,={}]+$/;
+const MATH_FUNCTION = /^(?:sin|cos|tan|sec|csc|cot|log|ln|exp|sqrt)$/i;
+// Operators that only code writes: `+=`, `==`, `**`, `//`, `%`, indexing.
+const CODE_OPERATOR = /[+\-*/%<>!=]=|\*\*|\/\/|%|\[|\]/;
 
+/**
+ * Inline code is code. Only notation no program would contain leaves the
+ * span for the maths renderer: a LaTeX command (`\frac{1}{2}`), arithmetic on
+ * numbers alone (`2 + 8 + 32 = 42`), or a power over one-letter variables
+ * (`x^2 + 1`). `0`, `x = 5`, `i += 1`, `my_list`, `range(n_items)` and `$5`
+ * stay monospace.
+ */
 function backtickInnerIsMath(inner: string): boolean {
   const t = inner.trim();
-  if (!t) return false;
-  if (/\$/.test(t) || /\\[a-zA-Z]+/.test(t)) return true;
-  if (/\b[A-Za-z]{3,}\b/.test(t)) return false;
-  if (isMathLike(t)) return true;
-  return MATHISH_TICK_INNER.test(t) && /[\d=+\-*/^]/.test(t);
+  if (!t || /[$"'`;:]/.test(t)) return false;
+  if (/\\[a-zA-Z]{2,}/.test(t)) return true;
+  if (CODE_OPERATOR.test(t)) return false;
+  if (NUMERIC_EQUATION.test(t)) return /=/.test(t) && /[+\-*/×÷·^]/.test(t);
+  if (!t.includes("^") || !POWER_NOTATION.test(t)) return false;
+  const words = t.match(/[A-Za-z]+/g) ?? [];
+  return words.every((word) => word.length === 1 || MATH_FUNCTION.test(word));
+}
+
+/** Drop a backtick run left at the end of a line only when it closes no code
+ * span: `**Line 1:** \`total = 0\`` keeps its closer. */
+function stripUnpairedTrailingTicks(line: string): string {
+  const trailing = /`+\s*$/.exec(line);
+  if (!trailing) return line;
+  for (let i = line.indexOf("`"); i >= 0 && i < trailing.index; i = line.indexOf("`", i)) {
+    const end = readInlineCodeSpan(line, i);
+    if (end != null && end > trailing.index) return line;
+    if (end != null) {
+      i = end;
+      continue;
+    }
+    while (line[i] === "`") i += 1;
+  }
+  return line.slice(0, trailing.index);
 }
 
 /**
  * Models wrap arithmetic in markdown backticks (`2+8=42`) or leave a stray
  * closer tick on the check line. Those paint as a literal ` on screen.
- * Leave real ``` fences and non-math inline code alone.
+ * Leave real ``` fences and other inline code alone.
  */
 export function unwrapProseMathBackticks(content: string): string {
   const lines = content.split("\n");
@@ -137,8 +168,7 @@ export function unwrapProseMathBackticks(content: string): string {
       if (t.startsWith("$") && t.endsWith("$")) return t;
       return `$${t}$`;
     });
-    s = s.replace(/`+\s*$/, "");
-    out.push(s);
+    out.push(stripUnpairedTrailingTicks(s));
   }
   return out.join("\n");
 }

@@ -4,6 +4,7 @@
  * Fenced code, indented code, blockquotes, URLs, and math bodies stay intact.
  */
 
+import { codeSpanOpensWithin } from "@/lib/markdown/inlineCode";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
 const OPEN_PUNCT = new Set("([{\"“‘«".split(""));
@@ -77,11 +78,23 @@ function escapedDollar(text: string, index: number): boolean {
   return slashes % 2 === 1;
 }
 
+/** `$2$`: one number. Not "$5 and $10" (two prices) or "$5$10". */
+function bareNumber(body: string, next: string | undefined): boolean {
+  return /^\s*\d[\d,]*(?:\.\d+)?\s*$/.test(body) && !/\d/.test(next ?? "");
+}
+
+/**
+ * End of the `$...$` span opening at `index`. A pair never reaches across an
+ * inline code span (markdown-it reads the code first), and a bare number
+ * (`$2$`) is a span: when it was skipped as a price, its closer opened a new
+ * span with the next dollar on the line and padded `$2 $`.
+ */
 function readMath(text: string, index: number): number | null {
   if (escapedDollar(text, index)) return null;
   if (text.startsWith("$$", index)) {
     const close = text.indexOf("$$", index + 2);
     if (close < 0 || close === index + 2 || text.slice(index + 2, close).includes("\n")) return null;
+    if (codeSpanOpensWithin(text, index + 2, close)) return null;
     return close + 2;
   }
   if (text[index] !== "$" || (index > 0 && text[index - 1] === "$")) return null;
@@ -94,9 +107,12 @@ function readMath(text: string, index: number): number | null {
       continue;
     }
     if (close + 1 < text.length && text[close + 1] === "$") return null;
+    if (codeSpanOpensWithin(text, index + 1, close)) return null;
     const body = text.slice(index + 1, close);
     if (!body.trim()) return null;
-    if (/^\d/.test(body) && !/[\\=^_]/.test(body)) return null;
+    if (/^\d/.test(body) && !/[\\=^_]/.test(body) && !bareNumber(body, text[close + 1])) {
+      return null;
+    }
     return close + 1;
   }
   return null;
