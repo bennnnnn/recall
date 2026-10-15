@@ -276,11 +276,33 @@ async def test_list_and_revoke_sessions(fake_redis):
 
     with pytest.raises(tokens_service.CurrentSessionError):
         await tokens_service.revoke_session(
-            fake_redis, user_id, current_row["id"], current_session_id=current
+            fake_redis, user_id, current_row["id"], current_session_id=current, settings=settings
         )
     await tokens_service.revoke_session(
-        fake_redis, user_id, other["id"], current_session_id=current
+        fake_redis, user_id, other["id"], current_session_id=current, settings=settings
     )
     remaining = await tokens_service.list_sessions(fake_redis, user_id, current_session_id=current)
     assert len(remaining) == 1
     assert remaining[0]["current"] is True
+
+
+@pytest.mark.asyncio
+async def test_revoke_session_signs_that_device_out_now(fake_redis):
+    """Removing a device must stop its access token too, not only its refresh token."""
+    settings = Settings(jwt_secret="x" * 32)
+    user_id = uuid4()
+    mine, _ = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
+    lost_phone, _ = await tokens_service.issue_token_pair(fake_redis, user_id, settings)
+    current = tokens_service.session_id_from_access_token(mine, settings)
+    lost = tokens_service.session_id_from_access_token(lost_phone, settings)
+    assert lost is not None
+
+    await tokens_service.revoke_session(
+        fake_redis, user_id, lost, current_session_id=current, settings=settings
+    )
+
+    with pytest.raises(GoogleAuthError):
+        await tokens_service.verify_access_token(fake_redis, lost_phone, settings)
+    assert await tokens_service.verify_access_token(fake_redis, mine, settings) == user_id
+    ttl = await fake_redis.ttl(f"revoked:sid:{lost}")
+    assert 0 < ttl <= settings.jwt_expire_minutes * 60
