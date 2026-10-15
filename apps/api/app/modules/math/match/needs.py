@@ -158,6 +158,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if any(extractor(cleaned) is not None for extractor in CALCULUS_APPLICATION_EXTRACTORS):
         return True
     from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
+    from app.modules.math.tools.school.equation_features import extract_equation_feature_intent
     from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
     from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
     from app.modules.math.tools.school.number_facts import extract_number_fact_intent
@@ -171,6 +172,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
             extract_geometry_measure_intent,
             extract_number_fact_intent,
             extract_algebra_fact_intent,
+            extract_equation_feature_intent,
         )
     ):
         return True

@@ -13,6 +13,7 @@ def test_school_extractor_order_and_builder_keys() -> None:
         "extract_geometry_measure_intent",
         "extract_number_fact_intent",
         "extract_algebra_fact_intent",
+        "extract_equation_feature_intent",
         "_extract_unit_intent",
         "_extract_coord_intent",
         "_extract_vector_intent",

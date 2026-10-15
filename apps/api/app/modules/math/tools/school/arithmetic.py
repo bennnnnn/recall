@@ -184,6 +184,13 @@ def _verified_block_arithmetic(
         return number_fact_block(intent, lines)
     if intent.school_op in ALGEBRA_FACT_OPS:
         return algebra_fact_block(intent, lines)
+    from app.modules.math.tools.school.equation_features import (
+        FEATURE_OPS,
+        equation_feature_block,
+    )
+
+    if intent.school_op in FEATURE_OPS:
+        return equation_feature_block(intent, lines)
     if intent.school_op and intent.school_op.startswith("fraction_"):
         fraction_block = _block_fraction(intent, lines)
         if fraction_block is not None:
