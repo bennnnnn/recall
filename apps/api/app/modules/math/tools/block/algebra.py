@@ -365,6 +365,8 @@ def _verified_block_numerical_method(
     answer = f"{newton_result.root:g}"
     return replace(
         _finish_with_answer(lines, answer),
+        # A numerical root is an approximation of the variable; its card says so.
+        display_answer=rf"{newton_input.variable} \approx {answer}",
         newton_input=newton_input.model_copy(deep=True),
         newton_result=newton_result.model_copy(deep=True),
     )
