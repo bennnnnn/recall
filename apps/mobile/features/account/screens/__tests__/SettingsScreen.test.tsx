@@ -44,6 +44,7 @@ jest.mock("@/contexts/AuthContext", () => ({
       push_notifications_enabled: true,
       sign_in_provider: "google",
       tts_voice: "cedar",
+      plan: mockIsPro ? "pro" : "free",
     },
     signOut: mockSignOut,
     updateUser: mockUpdateUser,
@@ -51,7 +52,7 @@ jest.mock("@/contexts/AuthContext", () => ({
 }));
 jest.mock("@/hooks/useModels", () => ({
   useModels: () => ({
-    isPro: mockIsPro,
+    isPaid: mockIsPro,
     autoEnabled: false,
     modelEnabledSet: new Set(["free-chat"]),
   }),
@@ -60,6 +61,9 @@ jest.mock("@/contexts/AppearanceContext", () => ({
   useAppearance: () => ({ preference: "system", setPreference: mockSetPreference }),
   useAccent: () => ({ accent: "indigo", setAccent: mockSetAccent }),
   useHaptics: () => ({ enabled: true, setEnabled: mockSetHaptics }),
+}));
+jest.mock("@/features/account/hooks/useLiveTalkMinutes", () => ({
+  useLiveTalkMinutes: () => null,
 }));
 jest.mock("@/features/account/hooks/useUsage", () => ({
   useUsage: () => ({
@@ -110,7 +114,7 @@ describe("settings home", () => {
     expect(getByText("dev@recall.local")).toBeTruthy();
     expect(getByText("settings.signed_in_with")).toBeTruthy();
     expect(getByText("settings.manage_subscription")).toBeTruthy();
-    expect(getByText("settings.usage_left_pro")).toBeTruthy();
+    expect(getByText("settings.usage_left_paid")).toBeTruthy();
     expect(queryByText("settings.restore_purchases")).toBeNull();
     expect(queryByText("settings.sign_in_method")).toBeNull();
     expect(queryByText("settings.age_label")).toBeNull();
@@ -210,7 +214,7 @@ describe("settings home", () => {
   it("offers the upgrade on a free plan", async () => {
     mockIsPro = false;
     const { getByText, queryByText } = await render(<SettingsScreen />);
-    expect(getByText("settings.account_free")).toBeTruthy();
+    expect(getByText("plans.free")).toBeTruthy();
     expect(queryByText("settings.manage_subscription")).toBeNull();
     expect(getByText("settings.usage_left")).toBeTruthy();
   });

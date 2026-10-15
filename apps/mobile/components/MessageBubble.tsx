@@ -29,6 +29,7 @@ import { Theme, useTheme } from "@/lib/theme";
 import { Type } from "@/lib/type";
 import { speakPlainText, stopSpeaking } from "@/features/speech/model/pronunciation";
 import { speechLocale } from "@/lib/i18n/languages";
+import { hasPlanFeature } from "@/lib/plan";
 import { useAuth, useAuthToken } from "@/contexts/AuthContext";
 import { useActionFeedbackOptional } from "@/contexts/actionFeedbackCore";
 import { useTranslation } from "react-i18next";
@@ -192,9 +193,12 @@ function AssistantActions({
     tap();
     readingRef.current = true;
     setSpeakingId(messageId);
+    // The natural (cloud) voice is a paid feature the server enforces; other
+    // plans read with the phone's own voice, which never reaches the server.
+    const cloudVoice = hasPlanFeature(user, "speech_tts");
     const result = await speakPlainText(markdown, speechLocale(user?.locale), {
-      token,
-      preferCloud: true,
+      token: cloudVoice ? token : null,
+      preferCloud: cloudVoice,
     });
     if (gen !== speakGenRef.current) return;
     readingRef.current = false;

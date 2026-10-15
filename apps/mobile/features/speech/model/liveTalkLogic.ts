@@ -2,16 +2,31 @@ export type LiveTalkPhase = "idle" | "recording" | "thinking" | "speaking";
 
 export type LiveTalkGate = "ok" | "upgrade" | "limit" | "unavailable" | "offline" | "unconfigured";
 
+/** Live talk for this user: `remaining` / `limit` are whole minutes this month. */
 export type LiveTalkStatus = {
   enabled: boolean;
   entitled: boolean;
   remaining: number;
   limit: number;
   refunded?: boolean;
+  remaining_seconds?: number;
+  limit_seconds?: number;
+  /** The server refuses a session when fewer seconds than this are left. */
+  min_session_seconds?: number;
+  /** When the monthly minutes renew (ISO, UTC). */
+  resets_at?: string | null;
 };
 
-/** Cap billed OpenAI Realtime minutes; server Redis TTL matches this. */
+/** Fallback session cap when the server did not say (it reserves at mint). */
 export const LIVE_TALK_MAX_SESSION_MS = 15 * 60 * 1000;
+
+/** Hang up when the session's reserved minutes run out. */
+export function liveTalkSessionLimitMs(maxDurationSeconds: number | null | undefined): number {
+  if (typeof maxDurationSeconds === "number" && maxDurationSeconds > 0) {
+    return Math.min(maxDurationSeconds * 1000, LIVE_TALK_MAX_SESSION_MS);
+  }
+  return LIVE_TALK_MAX_SESSION_MS;
+}
 /** Local tail after `output_audio_buffer.stopped` before the mic reopens. */
 export const LIVE_TALK_PLAYBACK_TAIL_MS = 500;
 /** Ignore connect/track-start noise before the first real user utterance. */
@@ -61,7 +76,8 @@ export function liveTalkGate(status: LiveTalkStatus | null, isOffline: boolean):
   if (isOffline) return "offline";
   if (!status || !status.enabled) return "unavailable";
   if (!status.entitled || status.limit <= 0) return "upgrade";
-  if (status.remaining <= 0) return "limit";
+  const secondsLeft = status.remaining_seconds ?? status.remaining * 60;
+  if (secondsLeft <= 0 || secondsLeft < (status.min_session_seconds ?? 1)) return "limit";
   return "ok";
 }
 

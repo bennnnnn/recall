@@ -1,3 +1,4 @@
+import type { PlanFeature, PlanId } from "@/lib/plan";
 import type { SearchSource } from "@/lib/searchSources";
 
 export type { SearchSource };
@@ -21,7 +22,9 @@ export type User = {
   name: string | null;
   avatar_url: string | null;
   default_model: string;
-  plan: "free" | "pro";
+  plan: PlanId;
+  /** What the plan includes (display only; the server checks every request). */
+  features?: PlanFeature[];
   enabled_models: string[] | null;
   response_style: string;
   response_tone: string;

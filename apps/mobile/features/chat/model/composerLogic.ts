@@ -216,10 +216,10 @@ export function formatModelCostHint(
 
 export function isModelSelectableInComposer(
   model: { available: boolean; plan_access: "free" | "pro" },
-  isPro: boolean,
+  isPaid: boolean,
 ): boolean {
   if (!model.available) return false;
-  if (!isPro && model.plan_access === "pro") return false;
+  if (!isPaid && model.plan_access === "pro") return false;
   return true;
 }
 
@@ -237,7 +237,7 @@ export function buildModelOptions(options: {
     output_price_per_m?: number | null;
     quota_multiplier?: number;
   }> | undefined;
-  isPro: boolean;
+  isPaid: boolean;
   t?: TranslateFn;
 }): ModelOption[] {
   const catalog = options.models ?? [];
@@ -248,7 +248,7 @@ export function buildModelOptions(options: {
   }
   for (const id of options.modelEnabledSet) {
     const info = byId.get(id);
-    if (!info || !isModelSelectableInComposer(info, options.isPro)) {
+    if (!info || !isModelSelectableInComposer(info, options.isPaid)) {
       continue;
     }
     opts.push({

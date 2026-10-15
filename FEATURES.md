@@ -162,13 +162,18 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   or a follow-up says "she" or "it", one cheap call reads the last turns and writes the query
   (`services/conversation_reference.py`); the tool loop never searches the request's own words.
 - ✅ **Voice input (STT)** — mic in the composer records on-device (`expo-audio`, **dev build**),
-  transcribes via OpenAI `gpt-4o-mini-transcribe`, and injects the transcript as normal text. Daily caps
-  (30 free / 200 Pro). Not available in Expo Go.
+  transcribes via OpenAI `gpt-4o-mini-transcribe`, and injects the transcript as normal text. Plus
+  and Pro, **200/day**; on Free the mic opens the plans (the server refuses Free with 403). Not
+  available in Expo Go.
 - ✅ **Live talk (Pro)** — waveform on the composer opens a **WebRTC**
   speech-to-speech session (OpenAI Realtime `gpt-realtime-2.1`). Server VAD
   ends your turn; the orb never shows “Transcribing…”. Physical devices enable
-  echo cancellation and barge-in; iOS Simulator retains half-duplex. Free is blocked
-  (upgrade). Pro: **30 turns/day** (UTC). Tap the mic (next to close) to mute so Recall
+  echo cancellation and barge-in; iOS Simulator retains half-duplex. Free and Plus
+  open the plans. Pro: **60 minutes per UTC calendar month**. Each session reserves up to
+  15 minutes at mint (refused under 1 minute left), the phone hangs up when its reservation
+  ends, and `POST /speech/live/end` settles the reservation to the time the server measured
+  (a session that never reports keeps the whole reservation). Settings → Account shows the
+  minutes left. Tap the mic (next to close) to mute so Recall
   cannot hear you; it turns red. Playback is not paused. No Listening/Speaking
   labels. The normal composer stays so you can type and attach in voice mode.
   Typing a draft hides mute and close so the field uses the full row; they
@@ -183,7 +188,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   (`POST /speech/tts` lead then rest, rest bound to the lead hash so it cannot steal
   another utterance's unbilled quota) and starts playback on the first sentence.
   The legacy fast alias maps to the same OpenAI model; an explicit phone-voice choice
-  is preserved. Settings disclose AI-generated audio. Mic permission is not required.
+  is preserved. The natural (cloud) voice is Plus and Pro, **100/day**; Free reads with the
+  phone's own voice and never calls the server (which refuses Free with 403).
+  Settings disclose AI-generated audio. Mic permission is not required.
   Cloud 502 falls back to on-device `expo-speech` (a speech 502 is not an API outage).
   Cloud clip playback needs a **dev build** (`expo-audio`); Expo Go still reads aloud via
   device TTS. JSON `POST /speech/tts` remains for non-streaming clients.
@@ -205,9 +212,9 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   numbers, keywords); heuristic fallback for unknown langs.
 - ✅ **Tables** — styled (header shading, borders, cell padding).
 - ✅ **Inline images** — Markdown `![alt](url)` images render (contained, rounded).
-- ✅ **Image generation (Pro)** — Type an image request in the composer and send (e.g. "draw me a
+- ✅ **Image generation (every plan)** — Type an image request in the composer and send (e.g. "draw me a
   cat" or "Dog" then "Image"); the user bubble keeps that wording (not rewritten to "Generate
-  image: …"). Pro users get daily-limited generations stored as chat attachments. No separate
+  image: …"). Daily caps: Free **3**, Plus **10**, Pro **15**, stored as chat attachments. No separate
   prompt sheet, and the model must not send people to DALL-E / Midjourney. Stop
   mid-generation keeps the user message and shows canceled/failed + Retry. While it works, the
   card is a dot field with an accent wave (a Skia shader in builds with Skia; a band under a
@@ -632,12 +639,14 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 
 ## 9. Quotas & usage
 - ✅ **Daily token limit** — enforced in Redis with atomic **reserve → adjust → refund** (can't be
-  bypassed by parallel requests). Free tier default **100k**/day; Pro tier **500k**/day
-  (`DAILY_TOKEN_LIMIT` / `DAILY_TOKEN_LIMIT_PRO`).
-- ✅ **Plan-aware enforcement** — quota service reads the user's subscription plan before reserving.
+  bypassed by parallel requests). Free **100k**/day; Plus and Pro **500k**/day
+  (`DAILY_TOKEN_LIMIT` / `_PLUS` / `_PRO`).
+- ✅ **Plan-aware enforcement** — every cap reads the plan through
+  `modules/billing/entitlements.py` (`allowance`, `can_use`); each number is a
+  `core/config.py` setting with `_plus` / `_pro` variants.
 - ✅ **Usage meter** — the share of today's limit left, as the Usage row's value in Settings → Account.
 - ✅ **Real token accounting** — uses the provider's reported usage when available.
-- ✅ **Pro tier** — higher daily limit when entitled; see [§12 Monetization](#12-monetization).
+- ✅ **Paid plans** — higher daily limits when entitled; see [§12 Monetization](#12-monetization).
 
 ## 10. Settings & profile
 - ✅ **Account settings** — the avatar at the top of Settings opens **Profile**: a centered
@@ -726,16 +735,30 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   pill component.
 
 ## 12. Monetization
-- ✅ **Pro subscription (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`
-  (dev/production builds only; skipped in Expo Go). Restore purchases supported.
-- ✅ **Backend entitlement** — RevenueCat webhook resolves plan via REST (same as TRANSFER)
-  before stamping Pro; Redis `SET NX` claim; missing `event_id` hashes the canonical payload;
-  done-marker after success. `POST /auth/me/sync-subscription`; `users.plan`
-  drives quota limits and model access.
-- ✅ **Upgrade sheet** — locked Pro models open an upgrade sheet with subscribe/restore when RevenueCat
-  is configured.
-- ✅ **Dev Pro toggle** — Settings → tap a locked model → **Enable Pro (dev only)** in the upgrade
-  sheet (development builds only; calls a dev-only backend endpoint).
+- ✅ **Three plans** — `users.plan` is `free` | `plus` | `pro` (display names "Plus" / "Pro"
+  live in i18n only, `plans.*`). Free: every model in the free pool, 3 AI images a day, no
+  voice input, no natural read-aloud, no live talk. Plus: every model, Pro-size daily limits,
+  voice input and read-aloud, 10 images a day, no live talk. Pro: everything in Plus, 15
+  images a day and 60 live talk minutes a month. Prices live in the stores; the app shows
+  the offering's localized price. One place decides: `modules/billing/entitlements.py`.
+- ✅ **Subscriptions (RevenueCat)** — mobile purchase flow via lazy-loaded `react-native-purchases`
+  (dev/production builds only; skipped in Expo Go). Two entitlements (`plus`, `pro`; `pro`
+  keeps the single-plan id so earlier subscribers stay on the top plan), offering packages
+  `plus_monthly` / `pro_monthly`. Plus → Pro on Android replaces the Plus subscription
+  (prorated); on iOS both share one subscription group. Restore purchases supported.
+  RevenueCat is configured once per signed-in user (an account switch is a `logIn`).
+- ✅ **Backend entitlement** — every event that can change access re-reads the subscriber
+  over REST (EXPIRATION, refunds, TEMPORARY_ENTITLEMENT_GRANT, REFUND_REVERSED included); a
+  TRANSFER moves the plan to `transferred_to` and drops it from `transferred_from`;
+  BILLING_ISSUE, SUBSCRIPTION_PAUSED and auto-renew-off CANCELLATION keep access until
+  EXPIRATION. Redis `SET NX` claim; missing `event_id` hashes the canonical payload;
+  done-marker after success. `POST /auth/me/sync-subscription`; an hourly reconcile re-checks
+  every paid row. `GET /billing/plans` gives the paywall each plan's features and numbers.
+- ✅ **Plans sheet** — free sees Plus and Pro side by side; Plus sees the step up to Pro; a
+  purchase whose server refresh fails says the plan will update (never "purchase failed").
+  Settings → Account shows the plan, live talk minutes left (Pro) and "Upgrade to Pro" (Plus).
+- ✅ **Dev plan toggle** — the plans sheet shows **Enable Plus / Enable Pro (dev only)**
+  (development builds only; `POST /auth/me/pro-dev?plan=`).
 - 🔜 App Store / Play billing polish, promotional offers, family plans.
 
 ## 13. Platform, security & infrastructure
@@ -853,7 +876,7 @@ only `GOOGLE_CLIENT_ID`.
   Ordinary chat streams immediately. Pre-stream `complete_with_tools` runs only
   when the turn still looks like web search (a live cue or a short follow-up may
   consult the LLM classifier; otherwise the regex answer stands — and heuristic
-  search did not already fill sources), unsolved math, or Pro image gen. If that round
+  search did not already fill sources), unsolved math, or image gen. If that round
   finishes without tools, the text is shown — the stream does not call the model
   a second time. Pydantic-validated args, bounded by `mcp_tool_loop_max_rounds`.
   Heuristic SymPy + web-search inject still run so homework and first-turn search do
@@ -884,10 +907,10 @@ A consolidated list of what's intentionally **not** (or only partially) in this 
 - ✅ **Web search** — Tavily primary + DuckDuckGo fallback; sources on assistant messages
   (hidden on short A–D replies).
 - ✅ **Structured profile fields** — name / age / country / job (Settings + prompt injection).
-- ✅ **Vision + Pro image gen** — image attachments route to vision models; a later
+- ✅ **Vision + image gen** — image attachments route to vision models; a later
   plain-text follow-up in the same chat rehydrates the last image(s). If the file
-  is gone, the model is told not to guess from a prior caption. Pro image generation
-  from the composer on send (daily cap; no separate prompt sheet).
+  is gone, the model is told not to guess from a prior caption. Image generation
+  from the composer on send (daily cap per plan; no separate prompt sheet).
 - ✅ **Per-chat Redis prepare lock** — `chatprep:{chat_id}` around prepare + stream; concurrent
   turns get `ChatBusyError` / `code: "busy"` (#536).
 - ✅ **Math display rendering** — display math renders as MathJax-SVG (`MathSvgView`;
@@ -1101,14 +1124,14 @@ magic-byte validation, daily caps). Blobs never live in Postgres.
 |------------|--------|
 | Presigned upload + confirm + orphan reaper | ✅ Shipped (local default; R2 when `STORAGE_BACKEND=r2` + secrets). Unconfirmed original uploads reap after `attachment_pending_orphan_hours` (default **1h**) so a killed-app image slot can refund the same UTC day. Hidden clones stay until `attachment_orphan_grace_hours` (default **24h**) — that billed window is intentional, not a leak. |
 | Image upload → vision-chat routing (Gemini via OpenRouter) | ✅ Shipped |
-| Pro image generation (composer send, daily cap) | ✅ Shipped |
+| Image generation (composer send, daily cap per plan: 3 / 10 / 15) | ✅ Shipped |
 | Reference-photo lookup (`show me an ear` / what-X-looks-like / "can you show me…" / "send me a photo of X"; "show me her image" reads who from the chat; Tavily + mirrored attachment; not listed in Library) | ✅ Shipped (free+Pro; daily cap; flag `image_search_enabled`) |
 | Answer photos (one real photo above an answer about something worth seeing, no "show me"; the model's hidden ```photo query, searched while the text streams) | ✅ Shipped (free+Pro; same daily cap and flag) |
 | Library (drawer grid of generated + uploaded images and files; lookup photos stay on the chat) | ✅ Shipped (local blobs under `~/.recall/attachments`, not `/tmp`) |
 | PDF / doc upload + server text extract into prompt | ✅ Text-layer PDFs / DOCX + scanned-PDF OCR (page render → vision) |
 | PDF inline preview (pdf.js WebView, dev build) | ✅ Shipped |
 | Audio in (Whisper STT → composer) | ✅ Shipped (dev build) |
-| Live talk (speech-to-speech, Pro + daily cap) | ✅ WebRTC + OpenAI Realtime; physical-device barge-in implemented, live validation pending; Simulator half-duplex |
+| Live talk (speech-to-speech, Pro, 60 min/month) | ✅ WebRTC + OpenAI Realtime; physical-device barge-in implemented, live validation pending; Simulator half-duplex |
 | Audio out (read aloud) | ✅ Cloud TTS + device `expo-speech` fallback (no mic required; 502 ≠ API down) |
 | Music generation (composer send + compact inline player) | 🔜 Later (Pro + daily cap; not TTS) |
 | pgvector RAG over **this chat’s** attachments | ✅ Shipped (`attachment_rag`; flag on by default; not a user-wide corpus) |
@@ -1170,7 +1193,7 @@ with durable memory and everyday productivity.
 | Memory that compounds | User facts + past-chat RAG — the namesake |
 | Utility beyond chat | Schedule, reminders |
 | Trust & control | Export, delete account, confirm-before-write cards, quota transparency |
-| Monetize fairly | Free tier with limits; Pro for power users |
+| Monetize fairly | Free tier with limits; Plus for voice; Pro adds live talk |
 
 ### Release plan
 | Phase | Scope | Status |
@@ -1208,18 +1231,19 @@ drawer FTS search ✅.
 | Shipped | Not done |
 |---------|----------|
 | Record → OpenAI `gpt-4o-mini-transcribe` → composer (app-language hint, no-speech gate) | Live provider verification |
-| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 30 turns/day; server VAD, physical-device barge-in, bounded read-only tools; Schedule snapshot + clocked reminder persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
+| Live Talk WebRTC + OpenAI `gpt-realtime-2.1` (Pro, 60 min/month; server VAD, physical-device barge-in, bounded read-only tools; Schedule snapshot + clocked reminder persist off audio path). Needs `OPENAI_API_KEY`. | Physical-device echo/interruption checks; heard-word transcript alignment |
 | Device TTS + cloud TTS (`POST /speech/tts` lead/rest JSON, daily caps; `/tts/stream` stays server-ready) | — |
 
 ### Cost guards (recent)
-| Guard | Free | Pro |
-|-------|------|-----|
-| Daily tokens | 100k | 500k |
-| Speech transcriptions/day | 30 | 200 |
-| Speech TTS (read aloud)/day | 20 | 100 |
-| Live talk turns/day | 0 (Pro only) | 30 |
-| Tavily searches/day | 20 (then DDG only) | 150 |
-| R1 / smart-chat quota weight | 3.5× token charge | Same |
+| Guard | Free | Plus | Pro |
+|-------|------|------|-----|
+| Daily tokens | 100k | 500k | 500k |
+| Speech transcriptions/day | 0 (not included) | 200 | 200 |
+| Speech TTS (read aloud)/day | 0 (phone voice only) | 100 | 100 |
+| AI images/day | 3 | 10 | 15 |
+| Live talk | not included | not included | 60 min/month |
+| Tavily searches/day | 20 (then DDG only) | 150 | 150 |
+| R1 / smart-chat quota weight | 3.5× token charge | Same | Same |
 
 ### Integrations
 | Shipped | Not done |

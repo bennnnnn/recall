@@ -42,7 +42,7 @@ type Options = {
   router: ReturnType<typeof useRouter>;
   selectedModel: string;
   streaming: boolean;
-  isPro: boolean;
+  isPaid: boolean;
   isOffline: boolean;
   onOpenUpgrade: () => void;
   onOfflineBlocked?: () => void;
@@ -74,7 +74,7 @@ export function useImageGeneration({
   router,
   selectedModel,
   streaming,
-  isPro,
+  isPaid,
   isOffline,
   onOpenUpgrade,
   onOfflineBlocked,
@@ -125,7 +125,7 @@ export function useImageGeneration({
         reportRecoverableError(feedback, t("chat.busy"));
         return;
       }
-      // Don't trust client isPro alone — try the API; HTTP 403 opens upgrade.
+      // Don't trust client isPaid alone — try the API; HTTP 403 opens upgrade.
       if (isOffline) {
         notifyOfflineSendBlocked({
           warn: notifyWarning,
@@ -267,7 +267,7 @@ export function useImageGeneration({
           return;
         }
         const message = error instanceof Error ? error.message : t("common.error");
-        const resolved = resolveChatError({ message, isPro, t });
+        const resolved = resolveChatError({ message, isPaid, t });
         setMessages((prev) => applyImageGenFailure(prev, "failed", resolved.message));
       } finally {
         if (abortRef.current === abort) abortRef.current = null;
@@ -276,7 +276,7 @@ export function useImageGeneration({
       }
     },
     [
-      isPro,
+      isPaid,
       isOffline,
       onOfflineBlocked,
       ensureChatId,

@@ -134,7 +134,7 @@ const baseProps: ChatScreenBodyProps = {
     onQuotaUpgrade: noop,
     onQuotaDismiss: noop,
     chatError: null,
-    isPro: false,
+    isPaid: false,
     onUpgrade: noop,
     onRetryChatError: noop,
     onChangeModel: noop,

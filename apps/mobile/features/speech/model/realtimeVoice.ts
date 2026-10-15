@@ -39,6 +39,8 @@ type NativeWebRtc = {
 
 export type RealtimeVoiceSession = {
   callId: string | null;
+  /** Seconds the server reserved from this month's minutes; hang up by then. */
+  maxDurationSeconds: number | null;
   setMuted: (muted: boolean) => void;
   cancelResponse: () => void;
   close: () => void;
@@ -268,6 +270,7 @@ export async function createRealtimeVoiceSession(options: {
   let lastAssistantText = "";
   let closed = false;
   let callId: string | null = null;
+  let maxDurationSeconds: number | null = null;
   let connectionSettled = false;
   let resolveConnected: (() => void) | null = null;
   let rejectConnected: ((error: Error) => void) | null = null;
@@ -663,6 +666,7 @@ export async function createRealtimeVoiceSession(options: {
 
     const credential = await credentialPromise;
     callId = credential.call_id;
+    maxDurationSeconds = credential.max_duration_seconds ?? null;
     debug("client-secret-ready", {
       model: credential.model,
       expiresAt: credential.expires_at,
@@ -707,11 +711,15 @@ export async function createRealtimeVoiceSession(options: {
     } catch {
       /* best-effort */
     }
+    // The server reserved minutes at mint; a call that never connected gives
+    // them back (it is charged only the seconds since the mint).
+    if (callId) void speechApi.endRealtimeSession(options.token, callId).catch(() => {});
     throw error;
   }
 
   return {
     callId,
+    maxDurationSeconds,
     setMuted: (muted: boolean) => {
       userMuted = muted;
       syncLocalMicState();

@@ -340,7 +340,7 @@ export function useChatSend({
       const isImageLookup = !queuedAttachment && Boolean(extractImageLookupQuery(text));
 
       // Image-gen intent → /images/generate from the composer (no sheet, no LLM stub).
-      // Do not gate on client isPro — plan can be stale while the API still knows Pro;
+      // Do not gate on client isPaid — plan can be stale while the API still knows Pro;
       // submitPrompt / the API open upgrade or generate. Never let the model invent
       // "the app will attach an image shortly" without calling generate.
       if (

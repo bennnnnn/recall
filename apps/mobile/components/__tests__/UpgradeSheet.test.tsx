@@ -5,9 +5,15 @@ import { UpgradeSheet } from "@/components/UpgradeSheet";
 const mockSyncSubscription = jest.fn();
 const mockPurchase = jest.fn();
 const mockRestore = jest.fn();
+const mockListPlans = jest.fn();
+const mockTrack = jest.fn();
+let mockUser: { plan: string } = { plan: "free" };
 
 jest.mock("react-i18next", () => ({
-  useTranslation: () => ({ t: (key: string) => key }),
+  useTranslation: () => ({
+    t: (key: string, options?: Record<string, unknown>) =>
+      options ? `${key} ${JSON.stringify(options)}` : key,
+  }),
 }));
 jest.mock("@/ui/overlay/Sheet", () => {
   const { View: RNView } = jest.requireActual("react-native") as typeof import("react-native");
@@ -19,45 +25,145 @@ jest.mock("@/ui/overlay/Sheet", () => {
 jest.mock("@/hooks/useSubscriptionActions", () => ({
   useSubscriptionActions: () => ({
     token: "tok",
+    user: mockUser,
     syncSubscription: mockSyncSubscription,
     devUpgrade: jest.fn(),
   }),
 }));
-jest.mock("@/lib/productAnalytics", () => ({ trackProductEvent: jest.fn() }));
+jest.mock("@/lib/api", () => ({
+  api: { listPlans: (...args: unknown[]) => mockListPlans(...args) },
+}));
+jest.mock("@/lib/productAnalytics", () => ({
+  trackProductEvent: (...args: unknown[]) => mockTrack(...args),
+}));
 jest.mock("@/lib/purchases", () => ({
   isPurchasesConfigured: () => true,
   isPurchaseCancelled: (error: { userCancelled?: boolean }) => error?.userCancelled === true,
-  getMonthlyProPackage: jest.fn(async () => ({ priceString: "$13.99", native: {} })),
-  purchaseProPackage: (...args: unknown[]) => mockPurchase(...args),
+  getPlanPackages: jest.fn(async () => ({
+    plus: { plan: "plus", priceString: "$7.99", productId: "recall_plus", native: {} },
+    pro: { plan: "pro", priceString: "$13.99", productId: "recall_pro", native: {} },
+  })),
+  purchasePlanPackage: (...args: unknown[]) => mockPurchase(...args),
   restorePurchases: (...args: unknown[]) => mockRestore(...args),
 }));
+
+const CATALOG = {
+  current: "free",
+  plans: [
+    { id: "free", features: ["image_generation"], allowances: { daily_image_generations: 3 } },
+    {
+      id: "plus",
+      features: ["all_models", "image_generation", "speech_transcription", "speech_tts"],
+      allowances: { daily_image_generations: 10, monthly_live_talk_minutes: 0 },
+    },
+    {
+      id: "pro",
+      features: ["all_models", "image_generation", "speech_transcription", "speech_tts", "live_talk"],
+      allowances: { daily_image_generations: 15, monthly_live_talk_minutes: 60 },
+    },
+  ],
+};
+
+const SUBSCRIBE_PLUS = 'upgrade.subscribe_plan {"plan":"plans.plus"}';
+const SUBSCRIBE_PRO = 'upgrade.subscribe_plan {"plan":"plans.pro"}';
+
+async function openSheet() {
+  const screen = await render(<UpgradeSheet visible onClose={jest.fn()} source="live_talk" />);
+  await act(async () => {});
+  return screen;
+}
 
 beforeEach(() => {
   mockSyncSubscription.mockReset();
   mockPurchase.mockReset();
   mockRestore.mockReset();
+  mockTrack.mockReset();
+  mockListPlans.mockReset().mockResolvedValue(CATALOG);
+  mockUser = { plan: "free" };
+});
+
+it("offers free users both plans with store prices and server numbers", async () => {
+  const screen = await openSheet();
+  expect(screen.getByTestId("upgrade-plan-plus")).toBeOnTheScreen();
+  expect(screen.getByTestId("upgrade-plan-pro")).toBeOnTheScreen();
+  expect(screen.getByText('upgrade.per_month {"price":"$7.99"}')).toBeOnTheScreen();
+  expect(screen.getByText('upgrade.per_month {"price":"$13.99"}')).toBeOnTheScreen();
+  expect(screen.getByText('upgrade.feature_images {"count":10}')).toBeOnTheScreen();
+  expect(screen.getByText('upgrade.feature_live_talk {"count":60}')).toBeOnTheScreen();
+  expect(mockTrack).toHaveBeenCalledWith("tok", "paywall_viewed", { source: "live_talk" });
+});
+
+it("offers a Plus subscriber only the step up to Pro", async () => {
+  mockUser = { plan: "plus" };
+  const screen = await openSheet();
+  expect(screen.queryByTestId("upgrade-plan-plus")).toBeNull();
+  expect(screen.getByTestId("upgrade-plan-pro")).toBeOnTheScreen();
+  expect(screen.getByText('upgrade.current_plan {"plan":"plans.plus"}')).toBeOnTheScreen();
+});
+
+it("buys the chosen plan, then asks the server to re-read the store", async () => {
+  mockPurchase.mockResolvedValue("plus");
+  mockSyncSubscription.mockResolvedValue(true);
+  const screen = await openSheet();
+  await act(async () => {
+    fireEvent.press(screen.getByText(SUBSCRIBE_PLUS));
+  });
+  expect(mockPurchase.mock.calls[0][0].plan).toBe("plus");
+  expect(mockSyncSubscription).toHaveBeenCalledTimes(1);
+  expect(mockTrack).toHaveBeenCalledWith("tok", "purchase_succeeded", { plan: "plus" });
 });
 
 it("does not call a paid purchase failed when only the server refresh fails", async () => {
-  mockPurchase.mockResolvedValue(true);
+  mockPurchase.mockResolvedValue("pro");
   mockSyncSubscription.mockRejectedValue(new Error("503"));
-  const onClose = jest.fn();
-  const screen = await render(<UpgradeSheet visible onClose={onClose} />);
-  await act(async () => {});
+  const screen = await openSheet();
   await act(async () => {
-    fireEvent.press(screen.getByText("upgrade.subscribe"));
+    fireEvent.press(screen.getByText(SUBSCRIBE_PRO));
   });
   expect(screen.queryByText("upgrade.purchase_failed")).toBeNull();
   expect(screen.getByText("upgrade.sync_pending")).toBeOnTheScreen();
 });
 
+it("never unlocks on the client when the store did not grant the plan", async () => {
+  mockPurchase.mockResolvedValue("plus");
+  const screen = await openSheet();
+  await act(async () => {
+    fireEvent.press(screen.getByText(SUBSCRIBE_PRO));
+  });
+  expect(screen.getByText("upgrade.purchase_failed")).toBeOnTheScreen();
+  expect(mockSyncSubscription).not.toHaveBeenCalled();
+});
+
 it("shows nothing when the shopper cancels the store sheet", async () => {
   mockPurchase.mockRejectedValue({ userCancelled: true });
-  const screen = await render(<UpgradeSheet visible onClose={jest.fn()} />);
-  await act(async () => {});
+  const screen = await openSheet();
   await act(async () => {
-    fireEvent.press(screen.getByText("upgrade.subscribe"));
+    fireEvent.press(screen.getByText(SUBSCRIBE_PLUS));
   });
   expect(screen.queryByText("upgrade.purchase_failed")).toBeNull();
   expect(mockSyncSubscription).not.toHaveBeenCalled();
+  expect(mockTrack).toHaveBeenCalledWith("tok", "purchase_failed", {
+    plan: "plus",
+    reason: "cancelled",
+  });
+});
+
+it("restore with nothing to restore says so and keeps the plan", async () => {
+  mockRestore.mockResolvedValue("free");
+  const screen = await openSheet();
+  await act(async () => {
+    fireEvent.press(screen.getByText("upgrade.restore"));
+  });
+  expect(screen.getByText("upgrade.restore_empty")).toBeOnTheScreen();
+  expect(mockSyncSubscription).not.toHaveBeenCalled();
+});
+
+it("restore that finds a plan refreshes the server plan", async () => {
+  mockRestore.mockResolvedValue("pro");
+  mockSyncSubscription.mockResolvedValue(true);
+  const screen = await openSheet();
+  await act(async () => {
+    fireEvent.press(screen.getByText("upgrade.restore"));
+  });
+  expect(mockSyncSubscription).toHaveBeenCalledTimes(1);
 });

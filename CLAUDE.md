@@ -27,7 +27,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Domain concepts:**
 
-- **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `pro`) is driven by RevenueCat.
+- **user** — Google or Apple sign-in; editable profile + preferences; `plan` (`free` | `plus` | `pro`) is driven by RevenueCat. What a plan includes and its numbers are decided in one place, `modules/billing/entitlements.py` (`can_use`, `allowance`); every number is a `core/config.py` setting.
 - **chat** — a conversation; has an auto-generated title.
 - **message** — one turn (`user` | `assistant` | `system`).
 - **memory** — one retrievable fact per row (`status` `active` | `superseded` | `muted`), cap 150 active. `topic` files each fact into a Claude-style page (`modules/memory/topics.py`: You = profile, preferences; Topics = interests, tech-stack, schedule, recent-work, goals, side-projects, notes; Areas = `area:<slug>` with a title row in `memory_areas`); `type` (`profile` | `preference` | `project` | `fact` | `focus`) follows the topic and sets prompt priority. Sensitive topics are not auto-stored unless the user said “remember” or opted in. Extraction is post-turn; a one-time `memory_history_scan` reads recent chats, only adds missing facts, and skips lines older than the user's last hand edit (`users.memory_edited_at`).
@@ -43,7 +43,7 @@ Do not review or extend the app from the historical MVP screen list. Use **Domai
 
 **Owned tool loop, on by default:** module-owned adapters (`web_search`, `sympy`, `generate_image`, `search_image`) register through `gateways/mcp/` and run via `services/tool_loop.py`. `mcp_tool_loop_enabled` defaults to `true`. Heuristic SymPy + web-search inject still run. See `docs/math.md` and `FEATURES.md` §16.
 
-**Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; full duplex / interruptible voice; arbitrary user MCP servers. Attachment RAG, chat-history RAG, and live talk (Pro + daily cap) are shipped. `apps/web` is slice 1 only (login + chat SSE); remaining web surfaces are deferred.
+**Not in scope (v1):** execution of non-web code or execution outside the sandboxed preview WebView; multi-user/teams; full duplex / interruptible voice; arbitrary user MCP servers. Attachment RAG, chat-history RAG, and live talk (Pro, monthly minutes) are shipped. `apps/web` is slice 1 only (login + chat SSE); remaining web surfaces are deferred.
 
 ## Architecture
 
@@ -129,7 +129,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Home | `modules/home/` (HTTP `/home`) | `features/home/`; greeting + one overdue reminder |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
-| Image gen (Pro) | `modules/images/` (HTTP `/images/generate`) | `features/images/`; composer send only |
+| Image gen (every plan, daily cap) | `modules/images/` (HTTP `/images/generate`) | `features/images/`; composer send only |
 | Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`, `answer_photo`: a photo above an answer about something worth seeing) | `features/images/`; checked before image-gen intent in `useChatSend` |
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `modules/web_search/`, `gateways/web_search_*.py` | source chips under replies |
@@ -137,7 +137,7 @@ What exists in code today. Product caveats: FEATURES.md.
 | Physics | `modules/physics/` (`catalog/`, `extractors/`, `solvers/`, `extract.py`, `solver.py`, `block.py`, `direct.py`; HTTP `/physics/scan/read`); its law-catalog engine is shared in `services/law_binding/` | same fences; `simulation` scenes (`components/rich/SimulationBlock.tsx`) and diagrams (`components/rich/diagrams/`: circuit, rays, wave); scanner read-back |
 | Chemistry (typed solvers / RDKit / PubChem) | `modules/chemistry/` (`catalog.py` is the one operation list; `extractors/` and `solvers/` by topic, run in `registry.py` order; `binding.py` + `laws.py` on the shared `services/law_binding/`; HTTP `/chemistry/scan/read`), `modules/chemistry/schemas/`, `gateways/pubchem_gateway.py` | `lib/chemistry/` (shared with markdown); smiles-drawer 2D + native-first Skia `molecule3d` |
 | Push / email out | `modules/notifications/`, `background/*scheduler*` | notification settings |
-| Billing | `modules/billing/`, `gateways/revenuecat_gateway.py` | RevenueCat |
+| Billing | `modules/billing/` (`entitlements.py` plan policy, `revenuecat.py` webhook, `subscription.py` REST sync; HTTP `/webhooks/revenuecat`, `/billing/plans`), `gateways/revenuecat_gateway.py` | RevenueCat (`lib/purchases.ts`), `lib/plan.ts`, `components/UpgradeSheet.tsx` |
 | Product analytics | `routers/analytics.py`, `services/product_analytics.py` | `lib/api/analytics.ts` (metadata-only events; never prompts) |
 | Admin / legal / health | `routers/admin.py`, `legal.py`, `health.py` | `features/account/screens/AboutScreen.tsx`, `DataControlsScreen.tsx` |
 | Rich fences | prompt constants + post-stream fence rewrite | `lib/fenceRegistry.ts`, `components/rich/` |

@@ -8,8 +8,8 @@ import { api } from "@/lib/api";
 import type { Message } from "@/lib/api";
 import { applyLiveTalkChatEvent, type LiveTalkSpeakEvent } from "@/features/speech/model/liveTalkEvents";
 import {
-  LIVE_TALK_MAX_SESSION_MS,
   liveTalkErrorGate,
+  liveTalkSessionLimitMs,
   liveTalkGate,
   liveTalkShouldAttachSession,
   liveTalkShouldCloseOnAppState,
@@ -338,13 +338,22 @@ export function useLiveTalk({
       void finishTurn(completed);
     }
     sessionRef.current?.close();
+    // Settle this month's minutes to the time actually used (best-effort: a
+    // session never reported stays charged for its whole reservation).
+    const endedCallId = callIdRef.current;
+    if (token && endedCallId) {
+      void api
+        .endRealtimeSession(token, endedCallId)
+        .then((next) => setStatus(next))
+        .catch(() => {});
+    }
     sessionRef.current = null;
     callIdRef.current = null;
     setMuted(false);
     setPhase("idle");
     setVisible(false);
     if (shouldCueEnd) void playLiveTalkCue("end");
-  }, [captureCurrentTurn, finishTurn]);
+  }, [captureCurrentTurn, finishTurn, token]);
   closeRef.current = close;
 
   const open = useCallback(async () => {
@@ -386,6 +395,7 @@ export function useLiveTalk({
       });
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) {
         session.close();
+        if (session.callId) void api.endRealtimeSession(token, session.callId).catch(() => {});
         return;
       }
       sessionRef.current = session;
@@ -396,7 +406,7 @@ export function useLiveTalk({
       sessionLimitTimerRef.current = setTimeout(() => {
         sessionLimitTimerRef.current = null;
         closeRef.current();
-      }, LIVE_TALK_MAX_SESSION_MS);
+      }, liveTalkSessionLimitMs(session.maxDurationSeconds));
       setPhase("recording");
     } catch (error) {
       if (!liveTalkShouldAttachSession(gen, sessionGenRef.current)) return;

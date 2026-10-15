@@ -47,7 +47,7 @@ jest.mock("@/hooks/useModels", () => ({
   buildModelPreferences: (...args: [boolean, Set<string>]) => mockBuildModelPreferences(...args),
   useModels: () => ({
     models: mockModels,
-    isPro: mockIsPro,
+    isPaid: mockIsPro,
     autoEnabled: mockAutoEnabled,
     modelEnabledSet: new Set(mockEnabledModelIds),
   }),
@@ -150,7 +150,7 @@ describe("models settings", () => {
     const { getByRole, getByText } = await render(<ModelsSettingsScreen />);
     const smartSwitch = getByRole("switch", { name: "Smart" });
 
-    expect(getByText("settings.account_pro")).toBeTruthy();
+    expect(getByText("plans.plus")).toBeTruthy();
     expect(smartSwitch.props.accessibilityState.disabled).toBe(false);
     await fireEvent.press(smartSwitch);
     expect(mockUpgradeVisible).toBe(true);
