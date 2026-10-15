@@ -6,6 +6,22 @@ from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, 
 
 _FORWARD = ("to the right", "right", "east", "eastward", "forward", "forwards", "ahead")
 _BACKWARD = ("to the left", "left", "west", "westward", "backward", "backwards", "behind")
+# Where the other mass of a pulley pair rests instead of hanging.
+_RESTING_SIDE = (
+    "table",
+    "horizontal surface",
+    "level surface",
+    "smooth surface",
+    "frictionless surface",
+    "bench",
+    "desk",
+    "incline",
+    "inclined",
+    "ramp",
+    "slope",
+)
+_ON_THE_TABLE = ("block", "box", "cart", "trolley", "on a", "on the", "table", "surface")
+_HANGING = ("hanging", "hangs", "hung", "suspended", "dangling", "over the edge")
 
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
@@ -87,7 +103,31 @@ SPECS: tuple[FormulaSpec, ...] = (
             result=("meter / second ** 2", "newton"),
             inputs=(frozenset({"m1", "m2"}),),
             cues=("pulley", "atwood"),
+            # One mass on a table or a slope is not hanging: not an Atwood machine.
+            excludes=_RESTING_SIDE,
             descending=("m1", "m2"),
+        ),
+    ),
+    # A block on a level, frictionless table pulled by a hanging mass. Only the
+    # hanging weight drives both: a = m₂g/(m₁+m₂), T = m₁a. As an Atwood machine
+    # a 5 kg block and a 2 kg hanging mass gave 4.2 m/s² instead of 2.80.
+    formula(
+        "table_pulley",
+        "force",
+        "Newton's second law",
+        "a,\\ T",
+        assumptions=("a frictionless level table and a light string over a light pulley",),
+        variables=(
+            var("g", "g", "meter / second ** 2", visible=False),
+            var("m1", "m_1", "kilogram", words=_ON_THE_TABLE, needs_words=True),
+            var("m2", "m_2", "kilogram", words=_HANGING, needs_words=True),
+        ),
+        binding=Binding(
+            asks=("acceleration", "tension"),
+            result=("meter / second ** 2", "newton"),
+            inputs=(frozenset({"m1", "m2"}),),
+            cues=("table", "surface", "bench", "desk"),
+            excludes=("rough", "incline", "inclined", "ramp", "slope"),
         ),
     ),
     formula(

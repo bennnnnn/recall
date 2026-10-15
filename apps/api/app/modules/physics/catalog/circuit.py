@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, bind, formula, var
 
+# The members of a resistor network, in the order stated. Six covers "five 100 Ω
+# resistors in series" and a count word's repeats.
+_NETWORK = tuple(var(f"R{n}", f"R_{n}", "ohm") for n in range(1, 7))
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "voltage",
@@ -55,22 +59,14 @@ SPECS: tuple[FormulaSpec, ...] = (
         "circuit",
         "Series-resistance law",
         "R_s",
-        variables=(
-            var("R1", "R_1", "ohm"),
-            var("R2", "R_2", "ohm"),
-            var("R3", "R_3", "ohm"),
-        ),
+        variables=(*_NETWORK,),
     ),
     formula(
         "parallel_resistance",
         "circuit",
         "Parallel-resistance law",
         "R_p",
-        variables=(
-            var("R1", "R_1", "ohm"),
-            var("R2", "R_2", "ohm"),
-            var("R3", "R_3", "ohm"),
-        ),
+        variables=(*_NETWORK,),
     ),
     formula(
         "charge",

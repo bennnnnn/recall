@@ -6,8 +6,78 @@ from app.services.law_binding.spec import Binding, FormulaSpec, formula, var
 
 _G = var("g", "g", "meter / second ** 2", fallback="gravity")
 
+# How far a mass on a spring swings: "amplitude 5 cm", "pulled 20 cm and released".
+_AMPLITUDE = var(
+    "amplitude",
+    "A",
+    "meter",
+    words=(
+        "amplitude",
+        "pulled",
+        "displaced",
+        "stretched",
+        "compressed",
+        "pushed",
+        "released",
+    ),
+    needs_words=True,
+)
+_SPRING_SHM = ("spring", "oscillat", "simple harmonic", "shm")
+_MAX_SPEED_ASKS = (
+    "maximum speed",
+    "max speed",
+    "maximum velocity",
+    "max velocity",
+    "peak speed",
+    "greatest speed",
+    "top speed",
+)
+_MAX_ACCELERATION_ASKS = (
+    "maximum acceleration",
+    "max acceleration",
+    "peak acceleration",
+    "greatest acceleration",
+)
+
 
 SPECS: tuple[FormulaSpec, ...] = (
+    # A mass on a spring passes its centre at Aω, ω = √(k/m). Without this a
+    # "max speed?" was answered with the period, 0.314 s.
+    formula(
+        "spring_max_speed",
+        "spring",
+        "Simple-harmonic-motion equation",
+        "v_{max}",
+        base_latex=r"v_{max} = A\omega = A\sqrt{\frac{k}{m}}",
+        assumptions=("no friction or damping",),
+        expression="amplitude*sqrt(k/m)",
+        variables=(_AMPLITUDE, var("k", "k", "newton / meter"), var("m", "m", "kilogram")),
+        binding=Binding(
+            asks=_MAX_SPEED_ASKS,
+            result=("meter / second",),
+            inputs=(frozenset({"amplitude", "k", "m"}),),
+            cues=_SPRING_SHM,
+            nonnegative=True,
+        ),
+    ),
+    # And it turns at the ends with Aω² = kA/m.
+    formula(
+        "spring_max_acceleration",
+        "spring",
+        "Simple-harmonic-motion equation",
+        "a_{max}",
+        base_latex=r"a_{max} = A\omega^2 = \frac{kA}{m}",
+        assumptions=("no friction or damping",),
+        expression="k*amplitude/m",
+        variables=(_AMPLITUDE, var("k", "k", "newton / meter"), var("m", "m", "kilogram")),
+        binding=Binding(
+            asks=_MAX_ACCELERATION_ASKS,
+            result=("meter / second ** 2",),
+            inputs=(frozenset({"amplitude", "k", "m"}),),
+            cues=_SPRING_SHM,
+            nonnegative=True,
+        ),
+    ),
     formula(
         "spring_force",
         "spring",

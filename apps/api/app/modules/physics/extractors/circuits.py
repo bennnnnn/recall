@@ -13,11 +13,13 @@ from app.modules.physics.extractors.circuit_patterns import (
     _COULOMB_PATTERN,
     _ELECTRICAL_ENERGY_RE,
     _FARAD_PATTERN,
+    _MAX_COUNTED_RESISTORS,
     _MAX_NETWORK_RESISTORS,
     _TERMINAL_ASK_RE,
     _VOLT_PATTERN,
     _WATT_PATTERN,
     _resistor_values,
+    counted_resistors,
 )
 from app.modules.physics.extractors.common import (
     _AMP_PATTERN,
@@ -109,8 +111,17 @@ def _extract_circuit_intent(cleaned: str) -> PhysicsIntent | None:
 
     # --- resistor networks: two or more resistances and a stated topology ---
     network = _resistor_values(cleaned)
+    counted = counted_resistors(cleaned)
+    if counted is not None and not network:
+        # Counted resistors beside others: a network this does not read.
+        return None
+    if "series" in lower and "parallel" in lower:
+        # A series-parallel network is not one sum: 4 Ω in series with 6 Ω
+        # and 12 Ω in parallel is 8 Ω, and the all-series reading said 22 Ω.
+        return None
     if len(network) >= 2 and ("series" in lower or "parallel" in lower):
-        if len(network) > _MAX_NETWORK_RESISTORS:
+        stated = 1 if counted is not None else len(network)
+        if stated > _MAX_NETWORK_RESISTORS or len(network) > _MAX_COUNTED_RESISTORS:
             return None
         series = "series" in lower
         # "Find the current" with a supply voltage is Ohm's law on the

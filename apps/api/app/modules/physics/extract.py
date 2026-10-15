@@ -60,6 +60,23 @@ _ADVANCED_PHYSICS_RE = re.compile(
 )
 
 
+# A reminder or a to-do that names a battery or a bulb: "remind me to buy a 9V
+# battery tomorrow" is an errand, not a circuit. "remind me how ..." still asks.
+_ERRAND_RE = re.compile(
+    r"^\s*(?:(?:please|hey|ok|okay|can\s+you|could\s+you)[\s,]+)*"
+    r"(?:remind\s+me\s+(?:to|at|on|in|tomorrow|tonight|about|later|every|this|next)\b"
+    r"|set\s+(?:a|an|me\s+a)\s+(?:reminder|alarm|timer)\b"
+    r"|add\b[^.?!\n]{0,80}\bto\s+(?:my\s+)?(?:to-?do|todo|shopping|grocery)?\s*list\b"
+    r"|(?:don'?t|do\s+not)\s+let\s+me\s+forget\b)",
+    re.IGNORECASE,
+)
+
+# "What if it's dropped from 80 m?": a hypothetical that continues a thread.
+_HYPOTHETICAL_RE = re.compile(
+    r"\s*(?:(?:and|but|so|ok|okay)\s+)?(?:what\s+(?:if|about)|how\s+about|suppose|imagine)\b",
+    re.IGNORECASE,
+)
+
 # A supplied nuclear mass is a chemistry mass-defect calculation. A bare
 # ``mass =`` is not that mass, so those words stay on the unverified physics path.
 _SUPPLIED_NUCLEAR_MASS_RE = re.compile(
@@ -93,6 +110,8 @@ def needs_physics(text: str) -> bool:
 
     if is_symbolic_physics_request(text):
         return True
+    if _ERRAND_RE.search(text) is not None:
+        return False
     if _named_symbol_request(text) is not None:
         return True
     normalized = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_SUBJECT_TEXT)
@@ -138,11 +157,27 @@ def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     cleaned = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_PHYSICS_REQUEST)
     if not cleaned:
         return None
+    from app.modules.physics.ask import asked_phrases, has_ask
+    from app.modules.physics.bodies import main_question
+    from app.modules.physics.claims import question_without_claims
+
+    # A side question about another body is not the main question's setting
+    # ("Would it be different on Mars?"), and a student's own result is never a
+    # given ("I got 19.8 m/s"). Both are read out before anything binds a value.
+    cleaned = question_without_claims(main_question(cleaned))
     request = prepare_physics_request(cleaned)
     if request.rejected:
         return None
     if request.collision is not None:
         return complete_physics_intent(request.collision, request)
+    if not has_ask(request.text):
+        # "A ball is dropped from 80 m." asks nothing. An extractor's default
+        # (the fall time) would pick a question for the student.
+        return None
+    if _HYPOTHETICAL_RE.match(request.text) and not asked_phrases(request.text):
+        # "What if it's dropped from 80 m?" asks the thread's question again;
+        # alone it names none, and the fall time would be a guess at it.
+        return None
     for extractor in PHYSICS_EXTRACTORS:
         intent = extractor(request.text)
         if intent is not None:

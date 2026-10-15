@@ -23,6 +23,8 @@ from app.modules.physics.extractors.kinematics_asks import (
     _ASKS_TIME_RE,
     _H0_KEYWORDS,
     _IMPACT_RE,
+    _UP_BEFORE_RE,
+    HORIZONTAL_LAUNCH_RE,
     _asks_max_height,
     _asks_position,
     _asks_speed,
@@ -79,9 +81,41 @@ _KINEMATICS_CUE_RES: tuple[re.Pattern[str], ...] = (
     # had "thrown up", and the question went to math unanswered.
     re.compile(
         r"\b(?:thrown|tossed|launched|projected|fired|kicked|shot)\s+"
-        r"(?:straight|vertically|directly)\s+up(?:wards?)?\b"
+        r"(?:straight|vertically|directly)\s+(?:up|down)(?:wards?)?\b"
+    ),
+    # "how long till it hits the water", "how long before it lands".
+    re.compile(
+        r"\bhow long (?:till|before)\b.{0,40}?\b(?:hits?|lands?|strikes?)\s+"
+        r"(?:the\s+)?(?:ground|floor|water|bottom|surface|sea)\b"
     ),
 )
+
+
+_UPWARD_WORDS_RE = re.compile(
+    r"\b(?:rising|ascending|climbing|going\s+up|moving\s+up|vertically)\b", re.IGNORECASE
+)
+
+
+def _states_upward(text: str) -> bool:
+    """The text says the launch goes up: "thrown straight up", "rising at 5 m/s"."""
+    return _UP_BEFORE_RE.search(text) is not None or _UPWARD_WORDS_RE.search(text) is not None
+
+
+def _answerable_without_height(op: str, v0: float, time_value: float | None) -> bool:
+    """Whether this ask has one answer when no starting height was stated.
+
+    A throw straight up comes back to the hand: its flight, top and height above
+    the hand need no height. A speed at a stated time needs none either. A landing
+    anywhere else does: its time, its speed, and a fall downward all turn on a
+    height nobody gave.
+    """
+    if op in ("time_to_ground", "time_to_peak", "vertical_max_height"):
+        return v0 > 0
+    if op == "position":
+        return v0 > 0 and time_value is not None
+    if op in ("speed", "velocity"):
+        return time_value is not None
+    return op == "acceleration"
 
 
 def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
@@ -112,6 +146,11 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
     # at call time.)
     if any(rx.search(lower) for rx in _PROJECTILE_CUE_RES):
         return None
+    # A sideways launch leaves with no vertical speed. A stated speed is the
+    # horizontal one: the projectile catalog's level launch reads it, and with no
+    # height there is no fall to time ("thrown horizontally at 15 m/s, how long
+    # until it hits the ground" was a throw upward, 3.06 s).
+    sideways = HORIZONTAL_LAUNCH_RE.search(cleaned) is not None
     asked = asked_phrases(cleaned)
     if asked in {("acceleration",), ("deceleration",)} and not any(
         cue in lower for cue in _GRAVITY_MOTION_CUES
@@ -162,10 +201,16 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
             cleaned,
             ("velocity of", "speed of", "initial velocity", "velocity", "speed"),
         )
+    if sideways and vu is not None:
+        return None
     if vu is not None:
         v0, v0_unit = vu
     if vu is not None and _velocity_is_downward(cleaned, v0, v0_unit):
         v0 = -v0
+    elif v0 != 0.0 and not _states_upward(cleaned):
+        # "A ball is thrown at 25 m/s": up, down or sideways is not said, and
+        # each gives a different flight.
+        return None
 
     # If we found no height and no nonzero velocity, this isn't a solvable
     # kinematics problem — let the next extractor try. Speed and velocity at a
@@ -222,6 +267,11 @@ def _extract_kinematics_intent(cleaned: str) -> PhysicsIntent | None:
             return None
         if time_match is not None:
             time_value, time_unit = time_match
+
+    if h0 is None and not _answerable_without_height(op, v0, time_value):
+        # No height was stated, and h₀ = 0 is not one: a throw down a well or
+        # a speed at an unstated ground has no landing to solve for.
+        return None
 
     g = _detect_gravity(cleaned)
     params: dict[str, float] = {"g": g}

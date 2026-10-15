@@ -34,13 +34,15 @@ def _projectile_max_height_substitution(intent: PhysicsIntent) -> str:
     from app.modules.physics.display import latex_given
 
     params = intent.physics_params or {}
-    h0 = latex_given(params.get("h0", 0.0))
-    return (
-        rf"H_{{max}} = {h0} + "
+    rise = (
         rf"\frac{{{latex_given(params['v0'])}^2 "
         rf"\sin^2({latex_given(params['angle'])}^\circ)}}"
         rf"{{2 \cdot {latex_given(params['g'])}}}"
     )
+    # An unstated launch height is no "0 +" in the working: the rise is the answer.
+    if "h0" not in params:
+        return rf"H_{{max}} = {rise}"
+    return rf"H_{{max}} = {latex_given(params['h0'])} + {rise}"
 
 
 def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
@@ -129,7 +131,11 @@ def solve_projectile(intent: PhysicsIntent) -> PhysicsResult:
             rf"{h_val:.2f} \text{{ m}}"
         )
         quantity = QuantityResult("", h_val, "m")
-        formulas = (r"H = h_0 + \frac{v_0^2 \sin^2(\theta)}{2g}",)
+        formulas = (
+            (r"H = h_0 + \frac{v_0^2 \sin^2(\theta)}{2g}",)
+            if "h0" in (intent.physics_params or {})
+            else (r"H = \frac{v_0^2 \sin^2(\theta)}{2g}",)
+        )
         substitutions = (_projectile_max_height_substitution(intent),)
     elif op == "time_of_flight":
         # t_flight is already in hand — both branches above compute it to build

@@ -4,7 +4,70 @@ from __future__ import annotations
 
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
+# I/(mr²) of each body a question can name rolling. Longer names first: a hollow
+# sphere is not a solid one. A ball or a wheel could be either, so it names none.
+_SHAPES = (
+    ("hollow sphere", 2 / 3),
+    ("spherical shell", 2 / 3),
+    ("thin-walled sphere", 2 / 3),
+    ("hollow cylinder", 1.0),
+    ("thin-walled cylinder", 1.0),
+    ("cylindrical shell", 1.0),
+    ("hoop", 1.0),
+    ("ring", 1.0),
+    ("solid sphere", 0.4),
+    ("solid ball", 0.4),
+    ("sphere", 0.4),
+    ("solid cylinder", 0.5),
+    ("solid disc", 0.5),
+    ("solid disk", 0.5),
+    ("cylinder", 0.5),
+    ("disc", 0.5),
+    ("disk", 0.5),
+)
+_ROLLING_LINE = r"K = \tfrac{1}{2}mv^2 + \tfrac{1}{2}I\omega^2,\quad \omega = \frac{v}{r}"
+
+
+def _rolling(shape_k: float, inertia: str, total: str, expression: str) -> FormulaVariant:
+    return FormulaVariant(
+        lines=(_ROLLING_LINE, inertia, total),
+        equals=(("shape_k", shape_k),),
+        expression=expression,
+    )
+
+
 SPECS: tuple[FormulaSpec, ...] = (
+    # A body rolling without slipping carries rotational energy as well:
+    # ½mv² left out 2/7 of a rolling sphere's energy (9 J for 12.6 J).
+    formula(
+        "rolling_body_kinetic_energy",
+        "rotation",
+        "Rolling kinetic-energy formula",
+        "K",
+        base_latex=r"K = \tfrac{1}{2}mv^2 + \tfrac{1}{2}I\omega^2",
+        assumptions=("rolling without slipping, so the radius cancels",),
+        expression="m*v**2*(1 + shape_k)/2",
+        variants=(
+            _rolling(0.4, r"I = \tfrac{2}{5}mr^2", r"K = \tfrac{7}{10}mv^2", "7*m*v**2/10"),
+            _rolling(0.5, r"I = \tfrac{1}{2}mr^2", r"K = \tfrac{3}{4}mv^2", "3*m*v**2/4"),
+            _rolling(1.0, r"I = mr^2", r"K = mv^2", "m*v**2"),
+            _rolling(2 / 3, r"I = \tfrac{2}{3}mr^2", r"K = \tfrac{5}{6}mv^2", "5*m*v**2/6"),
+        ),
+        variables=(
+            var("m", "m", "kilogram"),
+            var("v", "v", "meter / second"),
+            var("r", "r", "meter", words=("radius",), needs_words=True),
+            var("shape_k", "k", dimensionless=True, visible=False, implied=_SHAPES),
+        ),
+        binding=Binding(
+            asks=("total kinetic energy", "kinetic energy", "total energy"),
+            result=("joule",),
+            inputs=(frozenset({"m", "v", "shape_k"}), frozenset({"m", "v", "r", "shape_k"})),
+            cues=("roll", "rolling"),
+            excludes=("moment of inertia", "rad/s", "slides", "sliding", "slipping and"),
+            nonnegative=True,
+        ),
+    ),
     formula(
         "angular_displacement_rate",
         "rotation",

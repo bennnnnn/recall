@@ -282,4 +282,7 @@ SAMPLES: dict[str, float] = {
     "x": 0.05,
     "temp_phase": 273.15,
     "lens_power": 2.5,
+    "amplitude": 0.05,
+    # I/(mr²) of a solid sphere.
+    "shape_k": 0.4,
 }

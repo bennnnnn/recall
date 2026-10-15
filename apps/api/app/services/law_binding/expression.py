@@ -247,6 +247,14 @@ def _latex(
         return rf"\frac{{{top}}}{{{bottom}}}"
     if isinstance(node.op, ast.Pow):
         base = _wrapped(node.left, symbols, values, 5, notation)
+        # A plugged value in scientific form carries its own power: 6.371e6
+        # squared is (6.371 \times 10^{6})^{2}, never 6.371 \times 10^{6}^{2}.
+        if (
+            _plugged(node.left, values)
+            and not base.startswith("(")
+            and ("^" in base or "\\times" in base)
+        ):
+            base = f"({base})"
         return f"{base}^{{{_latex(node.right, symbols, values, notation)}}}"
     if isinstance(node.op, ast.Mult):
         left = _wrapped(node.left, symbols, values, 2, notation)

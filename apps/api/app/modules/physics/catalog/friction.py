@@ -127,6 +127,49 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
+    # Pushed or pulled up an incline by a force along it. The incline law alone
+    # left the push out: 30 N up a frictionless 25° slope gave 4.15 m/s² down
+    # the slope instead of 5.85 m/s² up it.
+    formula(
+        "incline_push_acceleration",
+        "friction",
+        "Newton's second law along an incline",
+        "a",
+        base_latex=r"F - mg\sin\theta - \mu mg\cos\theta = ma",
+        assumptions=(
+            "the force acts along the slope, up it",
+            "kinetic friction opposes the motion up the slope",
+        ),
+        expression="(F - m*g*(sin(angle) + mu*cos(angle)))/m",
+        variables=(
+            var("F", "F", "newton"),
+            var("g", "g", "meter / second ** 2", fallback="gravity"),
+            var("m", "m", "kilogram"),
+            var("angle", r"\theta", dimensionless=True),
+            var(
+                "mu",
+                r"\mu",
+                dimensionless=True,
+                implied=(("frictionless", 0.0), ("smooth", 0.0)),
+            ),
+        ),
+        binding=Binding(
+            asks=("acceleration",),
+            result=("meter / second ** 2",),
+            inputs=(frozenset({"F", "g", "m", "angle", "mu"}),),
+            cues=(
+                "parallel to the slope",
+                "parallel to the incline",
+                "parallel to the ramp",
+                "along the slope",
+                "along the incline",
+                "along the ramp",
+            ),
+            excludes=("horizontal force", "horizontally", "down the", "static", "rests", "at rest"),
+            # A push too weak to move it up the slope: it does not accelerate up.
+            nonnegative=True,
+        ),
+    ),
     # Friction alone slows a sliding body at mu*g.
     formula(
         "friction_deceleration",

@@ -15,13 +15,15 @@ import re
 
 from app.modules.physics.ask_words import _DIMENSIONLESS, _MONEY, _QUANTITIES, _UNKNOWN
 from app.modules.physics.givens import ANGLE, unit_at, unit_dimension
-from app.services.law_binding.ask import ask_clause
+from app.services.law_binding.ask import ASK_VERBS
+from app.services.law_binding.ask import ask_clause as _verb_ask_clause
 
 __all__ = [
     "ask_clause",
     "asked_dimensions",
     "asked_phrases",
     "asked_unit",
+    "has_ask",
     "result_dimension",
     "result_reading",
 ]
@@ -32,14 +34,119 @@ _QUANTITY = re.compile(
     + r")(?![\w-])",
     re.IGNORECASE,
 )
+_ADJECTIVES = (
+    r"maximum|max|minimum|min|total|final|initial|average|horizontal|vertical|"
+    r"resultant|net|peak|new|common|equivalent|effective|kinetic|potential"
+)
+# A part label between two asked quantities: "find (a) its speed and (b) the distance".
+_PART_LABEL = r"(?:\(?(?:[a-h]|i{1,3}|iv)\)\s*)?"
 # What may sit between two asked quantities in one list: "the time of flight,
 # the maximum height and the range".
 _CONNECTOR = re.compile(
-    r"\s*,?\s*(?:and\s+|as\s+well\s+as\s+)?(?:also\s+)?(?:the\s+|its\s+|their\s+)?"
-    r"(?:(?:maximum|max|minimum|min|total|final|initial|average|horizontal|vertical|"
-    r"resultant|net|peak|new|common|equivalent|effective|kinetic|potential)\s+)*",
+    r"\s*,?\s*(?:and\s+|as\s+well\s+as\s+)?"
+    + _PART_LABEL
+    + r"(?:also\s+)?(?:the\s+|its\s+|their\s+)?"
+    rf"(?:(?:{_ADJECTIVES})\s+)*",
     re.IGNORECASE,
 )
+# A sentence, with a decimal point kept inside it: "I got 19.8 m/s."
+SENTENCE = re.compile(r"(?:[^.?!]|(?<=\d)\.(?=\d))+(?:[.?!]+|$)")
+# A question asked by its quantity alone: "max speed?", "acceleration?",
+# "time to hit the ground?". The fragment after the last stop, before the "?".
+_BARE_QUESTION = re.compile(
+    r"(?:^|[.,;:!?]\s*|\n)\s*(?P<ask>(?:(?:the|its|their|what)\s+)?"
+    rf"(?:(?:{_ADJECTIVES})\s+)*[a-z][^.,;:!?\n]{{0,60}})\?\s*$",
+    re.IGNORECASE,
+)
+
+
+def _bare_question(text: str) -> str | None:
+    match = _BARE_QUESTION.search(text)
+    if match is None:
+        return None
+    ask = match.group("ask")
+    words = re.sub(rf"^(?:(?:the|its|their)\s+)?(?:(?:{_ADJECTIVES})\s+)*", "", ask, flags=re.I)
+    if len(ask.split()) > 8 or _QUANTITY.match(words) is None:
+        return None
+    return ask
+
+
+def ask_clause(text: str) -> str | None:
+    """The last question's asked part; a bare quantity with a "?" asks too.
+
+    "A 0.5 kg mass on a spring oscillates with amplitude 5 cm. max speed?" names
+    no question verb, and read as asking nothing it was answered with the period.
+    """
+    clause = _verb_ask_clause(text)
+    if clause is not None:
+        return clause
+    return _bare_question(text)
+
+
+# Instructions that ask without a question word: "Solve for v.", "Use Gauss's law
+# for ...", "Faraday's law for 100 turns ...", "resolve a 10 N force".
+_IMPERATIVE = re.compile(
+    r"(?:^|[.?!;:]\s+|\n)\s*(?:please\s+|now\s+)?"
+    r"(?:solve|resolve|use|apply|convert|give|state|express|show|list|tell|derive|obtain|"
+    r"predict|plot|graph|draw|get|balance|i\s+need|i\s+want)\b",
+    re.IGNORECASE,
+)
+# "Use Gauss's law for ...", "Kirchhoff's junction rule: currents of 2 A and 3 A ...".
+_NAMED_LAW = re.compile(
+    r"\b(?:law|rule|equation|principle|formula|relation|theorem|effect)"
+    r"(?:\s+(?:for|to|on|with)\b|\s*:)",
+    re.IGNORECASE,
+)
+# Question words that ASK_VERBS does not list: "where is the image", "how does it move".
+_INTERROGATIVE = re.compile(r"\b(?:where|which|whether|how)\b", re.IGNORECASE)
+# A sentence that is its quantity: "momentum of a 2 kg object at 3 m/s", "power
+# dissipated by a 4 ohm resistor". A quantity followed by a verb is a statement.
+_SENTENCE_START = re.compile(r"(?:^|[.?!;]\s+|\n)\s*", re.IGNORECASE)
+_STATEMENT_VERB = re.compile(r"\s+(?:is|are|was|were|has|have|had|equals|=)\b", re.IGNORECASE)
+
+
+_WORD = re.compile(r"[a-z'-]+\s+", re.IGNORECASE)
+_VERB_WORD = re.compile(r"(?:is|are|was|were|has|have|had|does|do|did)\s+", re.IGNORECASE)
+
+
+def _names_its_quantity(text: str) -> bool:
+    for start in _SENTENCE_START.finditer(text):
+        rest = text[start.end() : start.end() + 120]
+        words = re.sub(
+            rf"^(?:(?:the|its|their|a|an)\s+)?(?:(?:{_ADJECTIVES})\s+)*", "", rest, flags=re.I
+        )
+        at = 0
+        # The quantity itself, or up to two words naming its kind first
+        # ("centripetal force on a 2 kg mass"); a verb before it is a statement.
+        for _ in range(3):
+            noun = _QUANTITY.match(words, at)
+            if noun is not None:
+                if not _STATEMENT_VERB.match(words, noun.end()):
+                    return True
+                break
+            word = _WORD.match(words, at)
+            if word is None or _VERB_WORD.fullmatch(word.group()):
+                break
+            at = word.end()
+    return False
+
+
+def has_ask(text: str) -> bool:
+    """Whether the text asks anything at all.
+
+    "A ball is dropped from 80 m." states a situation and asks nothing; answering
+    it with a fall time picks a question for the student.
+    """
+    return bool(
+        "?" in text
+        or ASK_VERBS.search(text)
+        or _IMPERATIVE.search(text)
+        or _NAMED_LAW.search(text)
+        or _INTERROGATIVE.search(text)
+        or _names_its_quantity(text)
+    )
+
+
 # "a planet of mass 6e24 kg": a quantity followed by its own value is a given.
 # "the energy equivalent of 2 kg" is still the ask: kg is not an energy.
 _VALUE_AFTER = re.compile(
@@ -159,7 +266,13 @@ def result_dimension(unit: str) -> str | None:
 
 # "How much energy does it use in kWh?", "what is its speed in km/h".
 _IN_UNIT = re.compile(r"\b(?:in|into)\s+(?:units?\s+of\s+)?", re.IGNORECASE)
-_CLAUSE_END = re.compile(r"\s*(?:[?.!,;)]|$)")
+# The unit ends its phrase: the clause ends, or a phrase about where or when
+# follows it ("the gauge pressure in psi at a depth of 10 m").
+_CLAUSE_END = re.compile(
+    r"\s*(?:[?.!,;)]|$)"
+    r"|\s+(?:at|for|when|after|before|during|on|from|below|above|under|inside|of|if)\b",
+    re.IGNORECASE,
+)
 
 
 def asked_unit(text: str) -> str | None:

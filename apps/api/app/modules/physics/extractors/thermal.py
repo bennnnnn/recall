@@ -28,6 +28,18 @@ from app.modules.physics.extractors.thermal_readings import (
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.text_match import has_equation
 
+# Warming through a change of state: boiling a liquid away, melting a solid,
+# freezing or condensing. Heating "to boiling" only reaches the boiling point.
+PHASE_CHANGE_RE = re.compile(
+    r"\bboil(?:s|ed|ing)?\s+(?:it\s+|them\s+|the\s+\w+\s+)?(?:all\s+|completely\s+)?"
+    r"(?:away|off|dry)\b"
+    r"|\b(?:completely\s+)?(?:vapori[sz]\w*|evaporat\w*|melt\w*|freez\w*|solidif\w*|"
+    r"condens\w*|thaw\w*)"
+    r"|\b(?:in)?to\s+steam\b|\bturn\w*\s+(?:it\s+)?(?:in)?to\s+(?:water|steam|ice)\b"
+    r"|\bice\b[^.?!]{0,80}?\b(?:in)?to\s+water\b",
+    re.IGNORECASE,
+)
+
 _THERMAL_CUES = (
     "specific heat",
     "heat capacity",
@@ -124,6 +136,10 @@ _STATED_CAPACITY = re.compile(
 def _heat_energy(cleaned: str) -> PhysicsIntent | None:
     """Q = mc dT, from a stated change or two readings, and a stated or water's c."""
     lower = cleaned.lower()
+    if PHASE_CHANGE_RE.search(cleaned):
+        # Boiling it away or melting it takes latent heat as well: mcΔT alone
+        # answered 83.7 kJ for the 649 kJ that warming and boiling 250 g take.
+        return None
     mass = _find_value_with_specific_unit(cleaned, _MASS_UNITS, ("mass", "of"))
     readings = _TEMPERATURE_SPAN.search(cleaned)
     rise = None if readings else _temperature_change(cleaned, ("by", "rise", "raise", "change"))

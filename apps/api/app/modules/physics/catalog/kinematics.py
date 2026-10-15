@@ -2,11 +2,13 @@
 
 from __future__ import annotations
 
+from app.modules.physics.catalog.suvat import TWO_BODIES
 from app.services.law_binding.spec import Binding, FormulaSpec, FormulaVariant, formula, var
 
 # A drop from a height and a sound's trip to a wall and back are not one
 # distance covered at one speed: d = vt read "rolls off a 1.2 m high table at
-# 3 m/s" as 0.4 s, and an echo heard after 0.6 s as a wall 204 m away.
+# 3 m/s" as 0.4 s, and an echo heard after 0.6 s as a wall 204 m away. Nor are
+# two bodies' speeds one speed, nor a radius one turn's distance.
 _NOT_CONSTANT_SPEED = (
     "high",
     "tall",
@@ -20,6 +22,41 @@ _NOT_CONSTANT_SPEED = (
     "echo",
     "echoes",
     "sonar",
+    *TWO_BODIES,
+)
+# A radius covered once a turn is 2πr, not r: "a child sits 2.5 m from the
+# centre of a merry-go-round that turns once every 6 s" moves at 2.62 m/s, not
+# 0.417 m/s. A lap that ends where it began has no displacement at all, so its
+# average velocity is not d/t.
+ONE_TURN = (
+    "revolution",
+    "rotation",
+    "rotates",
+    "rotating",
+    "once every",
+    "one turn",
+    "turn every",
+    "turns once",
+    "spins",
+    "spinning",
+    "merry-go-round",
+    "carousel",
+    "circle",
+    "circular",
+    "whirled",
+    "orbit",
+)
+CLOSED_PATH = (
+    "lap",
+    "round trip",
+    "back to",
+    "returns to",
+    "full circle",
+    "complete circle",
+    "starting point",
+    "where it started",
+    "where she started",
+    "where he started",
 )
 
 SPECS: tuple[FormulaSpec, ...] = (
@@ -129,7 +166,7 @@ SPECS: tuple[FormulaSpec, ...] = (
         ),
         binding=Binding(
             asks=("average speed", "average velocity", "speed", "how fast"),
-            excludes=_NOT_CONSTANT_SPEED,
+            excludes=(*_NOT_CONSTANT_SPEED, *ONE_TURN, *CLOSED_PATH),
             result=("meter / second",),
             inputs=(frozenset({"d", "t"}),),
             nonnegative=True,
@@ -323,6 +360,37 @@ SPECS: tuple[FormulaSpec, ...] = (
             inputs=(frozenset({"d"}),),
             cues=("light", "laser", "radio signal", "radio wave"),
             excludes=("light year", "light-year", "lightning", "sound", "car", "train", "runner"),
+            nonnegative=True,
+        ),
+    ),
+    # Two bodies heading toward each other close the gap at the sum of their speeds.
+    formula(
+        "meeting_time",
+        "kinematics",
+        "Relative velocity",
+        "t",
+        base_latex=r"t = \frac{d}{v_1 + v_2}",
+        assumptions=("both move at constant speed along one line, toward each other",),
+        expression="d/(v1 + v2)",
+        variables=(
+            var("d", "d", "meter"),
+            var("v1", "v_1", "meter / second"),
+            var("v2", "v_2", "meter / second"),
+        ),
+        binding=Binding(
+            asks=("how long", "time", "how much time"),
+            result=("second",),
+            inputs=(frozenset({"d", "v1", "v2"}),),
+            cues=(
+                "toward each other",
+                "towards each other",
+                "approach each other",
+                "approaching each other",
+                "head toward each other",
+                "heading toward each other",
+            ),
+            excludes=("same direction", "chasing", "catch up", "overtake", "accelerat"),
+            interchangeable=("v1", "v2"),
             nonnegative=True,
         ),
     ),

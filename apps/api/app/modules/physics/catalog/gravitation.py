@@ -21,6 +21,14 @@ _SMALL_BODY = (
     "apple",
 )
 
+_GRAVITY_ASKS = (
+    "acceleration due to gravity",
+    "gravitational acceleration",
+    "surface gravity",
+    "gravitational field strength",
+    "value of g",
+)
+
 SPECS: tuple[FormulaSpec, ...] = (
     formula(
         "orbital_speed_radius",
@@ -212,7 +220,9 @@ SPECS: tuple[FormulaSpec, ...] = (
             nonnegative=True,
         ),
     ),
-    # g on a named planet or moon, from its mass and radius.
+    # g on a named planet or moon, from its mass and radius. A stated length is
+    # the radius only when it is called one: "a height of 300 km above Earth's
+    # surface" read as R gave 4430 m/s² for 8.96.
     formula(
         "surface_gravity_named",
         "gravitation",
@@ -222,18 +232,53 @@ SPECS: tuple[FormulaSpec, ...] = (
         expression="G_grav*M/radius_body**2",
         variables=(
             var("M", "M", "kilogram", fallback="body_mass"),
-            var("radius_body", "R", "meter", fallback="body_radius"),
+            var(
+                "radius_body",
+                "R",
+                "meter",
+                words=("radius",),
+                fallback="body_radius",
+                needs_words=True,
+            ),
         ),
         binding=Binding(
-            asks=(
-                "acceleration due to gravity",
-                "gravitational acceleration",
-                "surface gravity",
-                "gravitational field strength",
-                "value of g",
-            ),
+            asks=_GRAVITY_ASKS,
             result=("meter / second ** 2",),
             inputs=(frozenset({"M", "radius_body"}),),
+            nonnegative=True,
+        ),
+    ),
+    # g a height above a named body's surface: the distance to its centre is R + h.
+    formula(
+        "gravity_at_height",
+        "gravitation",
+        "Newton's law of gravitation",
+        "g",
+        base_latex=r"g = \frac{G M}{(R + h)^2}",
+        expression="G_grav*M/(radius_body + altitude)**2",
+        variables=(
+            var("M", "M", "kilogram", fallback="body_mass"),
+            var(
+                "altitude",
+                "h",
+                "meter",
+                words=("above", "altitude", "height"),
+                needs_words=True,
+            ),
+            var(
+                "radius_body",
+                "R",
+                "meter",
+                words=("radius",),
+                fallback="body_radius",
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=_GRAVITY_ASKS,
+            result=("meter / second ** 2",),
+            inputs=(frozenset({"M", "altitude", "radius_body"}),),
+            cues=("above", "altitude", "height"),
             nonnegative=True,
         ),
     ),

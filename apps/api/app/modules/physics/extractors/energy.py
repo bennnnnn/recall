@@ -74,6 +74,14 @@ _ENERGY_CUE_RES: tuple[re.Pattern[str], ...] = (
 )
 
 
+_ROLLING_BODY_RE = re.compile(
+    r"\bwithout\s+slipping\b"
+    r"|\b(?:sphere|ball|marble|cylinder|disc|disk|hoop|ring|wheel|tyre|tire|can|pipe)s?\b"
+    r"[^.?!]{0,80}?\broll(?:s|ed|ing)?\b(?!\s+off\b)",
+    re.IGNORECASE,
+)
+
+
 def _unstated_work_angle(text: str) -> bool:
     """An angle is mentioned, but no number was given to put in cos θ."""
     has_words = re.search(r"\bat an angle\b", text, re.IGNORECASE) is not None
@@ -90,6 +98,9 @@ def _extract_energy_intent(cleaned: str) -> PhysicsIntent | None:
     if not _has_cue_either_case(cleaned, _ENERGY_CUES, _ENERGY_CUE_RES):
         return None
     if has_equation(_strip_param_assignments(cleaned)):
+        return None
+    if _ROLLING_BODY_RE.search(cleaned):
+        # A rolling sphere, cylinder or hoop also spins: ½mv² is not its energy.
         return None
     closed = extract_closed_energy(cleaned)
     if closed is not None:
