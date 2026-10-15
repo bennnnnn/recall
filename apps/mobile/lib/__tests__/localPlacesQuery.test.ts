@@ -29,6 +29,24 @@ describe("geo intent", () => {
     expect(isPlacesListQuery("how far is the airport")).toBe(false);
   });
 
+  it.each([
+    "car doing 90km/h, how far does it go in 4 s in metres",
+    "a cyclist rides at 5m/s for 2 minutes how far does she go",
+    "A ball is kicked at 40° with a speed of 20m/s. how far does it go?",
+    "A ball is thrown at 30° above the horizontal. how far does it go?",
+    "How far is the image from the lens?",
+  ])("reads %s as homework, like the server", (prompt) => {
+    expect(isDistanceQuery(prompt)).toBe(false);
+    expect(isGeoQuery(prompt)).toBe(false);
+  });
+
+  it.each(["how far is the airport", "how far is the stadium from here", "how long is the drive to work"])(
+    "still reads %s as a trip",
+    (prompt) => {
+      expect(isDistanceQuery(prompt)).toBe(true);
+    },
+  );
+
   it("does not treat kinematics homework as a maps distance ask", () => {
     const kinematics =
       "A car starts from rest and accelerates at a constant rate of 1.2 m/s^2. How long does it take the car to travel a distance of 500 meters?";
