@@ -273,7 +273,7 @@ def assemble_chemistry_reply(
     answer = verified.result.answer.strip()
     if marked and answer:
         body = _answer_body(answer, verbatim=verified.result.verbatim)
-        prose = land_answer_card(prose.strip(), body, correction=correction)
+        prose = land_answer_card(prose.strip(), body, above=correction)
         fences, correction = fences[1:], None  # the card is the first solver fence
     parts = [prose.strip(), correction or "", *fences]
     body = "\n\n".join(part for part in parts if part).strip()

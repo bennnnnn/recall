@@ -154,6 +154,18 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
         ),
         ("**Answer**\n$x = 3$\n\n", "**Answer**\n\n```answer\n$x = 3$\n```\n\n"),
         (
+            "**Answer**\nv = 9.8 × 2\nv ≈ 19.6 m/s",
+            "v = 9.8 × 2\n\n**Answer**\n\n```answer\nv ≈ 19.6 m/s\n```",
+        ),
+        (
+            "**Answer**\n\\[\nx = 3\n\\]\nOnly the positive root counts.",
+            "**Answer**\n\n```answer\n$$\nx = 3\n$$\n```\n\nOnly the positive root counts.",
+        ),
+        (
+            "**Answer**\n$$\n\\begin{cases} x = 1 \\\\\ny = 2\n\\end{cases}\n$$",
+            "**Answer**\n\n```answer\n$$\n\\begin{cases} x = 1 \\\\\ny = 2\n\\end{cases}\n$$\n```",
+        ),
+        (
             "**Answer**\nA = 3 × 4\nArea = 12 cm²\nSo the area is 12 square centimetres.",
             "A = 3 × 4\n\n**Answer**\n\n```answer\nArea = 12 cm²\n```\n\n"
             "So the area is 12 square centimetres.",
@@ -187,12 +199,15 @@ def test_land_reads_only_maths_as_the_answer(reply: str, expected: str) -> None:
         "**Answer**\n$x = 3$",
         "**Answer:** $$\nx = 3\n$$",
         "**Answer**\n2x + 3 - 3 = 7 - 3\nx = 3",
+        "**Answer**\nx = 6 / 2\nx ≈ 3",
+        "**Answer**\n\\[\nx = 3\n\\]",
     ],
 )
 def test_land_keeps_a_sentence_after_the_verified_card(answer: str) -> None:
     out = land_answer_card(f"{answer}\nOnly the positive root counts.", "x = 3")
     assert out.endswith(f"**Answer**\n\n{_CARD}\n\nOnly the positive root counts.")
     assert out.count("$$") == 0
+    assert "\\[" not in out and "\\]" not in out
 
 
 @pytest.mark.parametrize("reply", ["**Answer**\nParis", "**Answer**\n\nA towel."])
@@ -216,7 +231,7 @@ def test_land_takes_a_display_block_as_one_value() -> None:
 
 def test_land_replaces_the_model_value_with_the_verified_card() -> None:
     reply = "Steps.\n\n**Answer**\n$x^2 = 9$\n$x = \\pm 3$\n$x = 3$\n\nWant another?"
-    out = land_answer_card(reply, "x = 3", correction="The verified answer is $x = 3$.")
+    out = land_answer_card(reply, "x = 3", above="The verified answer is $x = 3$.")
     assert out == (
         "Steps.\n\n$x^2 = 9$\n\nThe verified answer is $x = 3$.\n\n**Answer**\n\n"
         f"{_CARD}\n\nWant another?"
@@ -234,6 +249,7 @@ def test_land_keeps_working_split_by_blank_lines_out_of_the_card() -> None:
     ("roots", "card"),
     [
         ("- $x = 2$\n- $x = -2$", "$x = 2$, $x = -2$"),
+        ("$x = \\frac{1}{2}$\n$x = -\\frac{1}{2}$", "$x = \\frac{1}{2}$, $x = -\\frac{1}{2}$"),
         ("$x_1 = 2$\n$x_{2} = -2$", "$x_1 = 2$, $x_{2} = -2$"),
     ],
 )

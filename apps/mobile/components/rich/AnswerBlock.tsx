@@ -81,11 +81,9 @@ export function AnswerBlock({ content, settled = true }: Props) {
       accessibilityRole="text"
       accessibilityLabel={t("rich.answer_a11y", { text: spoken })}
     >
-      {parsed.labeled ? (
-        <Text testID="answer-label" style={s.label}>
-          {t("rich.answer_label")}
-        </Text>
-      ) : null}
+      <Text testID="answer-label" style={s.label}>
+        {t("rich.answer_label")}
+      </Text>
       <View testID="answer-rule" style={s.rule}>
         <View testID="answer-box" style={s.box}>
           {value}

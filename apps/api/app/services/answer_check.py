@@ -190,7 +190,7 @@ def read_verified_value(answer_body: str) -> VerifiedValue | None:
     _headers, value = answer_header_and_value(answer_body)
     if not value or "\n" in value:
         return None
-    text = _clean(value)
+    text = _clean(value).replace("\u2248", "=")  # x ≈ 1.41421 is Newton's x = 1.41421
     parts = [part for part in re.split(r"\s+or\s+|\s+and\s+|;|,\s*(?=[A-Za-z]\s*=)", text) if part]
     label: str | None = None
     numbers: list[_Number] = []

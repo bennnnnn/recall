@@ -60,7 +60,7 @@ def validate_physics_fences(
     if answer:
         conflict = correct and stated_verdict(cleaned, answer) == "conflict"
         cleaned = land_answer_card(
-            cleaned, answer, correction=correction_line(answer) if conflict else None
+            cleaned, answer, above=correction_line(answer) if conflict else None
         )
     for spec in _canonical_specs(verified):
         spec_type = spec.get("type")

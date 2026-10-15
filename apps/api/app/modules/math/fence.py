@@ -377,17 +377,20 @@ def _append_missing_canonical_fences(
         and verified.response_intent.mode != "answer_only"
         and verified.response_intent.wants_explanation
     )
+    working: str | None = None
     if show_working and arithmetic is not None and not has_closed_fence(content, "arithmetic"):
-        # Written working reads before the answer card.
         working = _markdown_fence("arithmetic", json.dumps(arithmetic, separators=(",", ":")))
-        content = _with_extras(content, [working])
 
     if answer_body and any(has_closed_fence(content, lang) for lang in _ANSWER_FENCE_LANGS):
         # The model's own card, rewritten to the verified one in place.
         if correction is not None:
             content = _with_correction(content, correction)
     elif answer_body:
-        content = land_answer_card(content, answer_body, correction=correction)
+        # Written working, then any correction, right above the answer card.
+        above = "\n\n".join(part for part in (working, correction) if part) or None
+        content, working = land_answer_card(content, answer_body, above=above), None
+    if working is not None:
+        extras.insert(0, working)
     return _with_extras(content, extras)
 
 
