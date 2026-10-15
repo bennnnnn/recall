@@ -285,4 +285,19 @@ SAMPLES: dict[str, float] = {
     "amplitude": 0.05,
     # I/(mr²) of a solid sphere.
     "shape_k": 0.4,
+    # Total internal reflection goes from the denser medium.
+    "n_dense": 1.5,
+    "n_rare": 1.33,
+    "push_down": 1.0,
+    # A water pipe that speeds up, and a lens image outside F.
+    "v_before": 2.0,
+    "v_after": 8.0,
+    "h_obj": 0.04,
+    # A 5 kg object that weighs 30 N under water.
+    "weight_app": 30.0,
+    "fraction_left": 0.25,
+    "n_halves": 3.0,
+    "activity_initial": 800.0,
+    "activity_final": 200.0,
+    "proper_time": 2.2e-6,
 }

@@ -46,7 +46,11 @@ def _circuit_pair(first: str, second: str) -> re.Pattern[str]:
     out forms carry their own case classes. `_has_cue_either_case` is what
     makes this reachable from the pre-filter.
     """
-    return re.compile(rf"\d\s*(?:{first})(?![A-Za-z0-9]).{{0,80}}?\d\s*(?:{second})(?![A-Za-z0-9])")
+    # A prefix stays the unit's: "20 mA from a 3 V supply", "a 4.7 kΩ resistor".
+    prefix = "(?:k|m|M|µ|μ)?"
+    return re.compile(
+        rf"\d\s*{prefix}(?:{first})(?![A-Za-z0-9]).{{0,80}}?\d\s*{prefix}(?:{second})(?![A-Za-z0-9])"
+    )
 
 
 _CHARGE_FLOW_RE = re.compile(

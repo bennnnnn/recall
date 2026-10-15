@@ -26,14 +26,22 @@ _QUANTITIES: dict[str, str] = {
     "duration": "second",
     "time": "second",
     "transformed time": "second",
+    # "Two cars 300 m apart drive toward each other … when do they meet?"
+    "when do they meet": "second",
+    "when will they meet": "second",
     # Length
     "how far": "meter",
+    # "Where is the image?" asks for its distance from the lens or mirror.
+    "where is the image": "meter",
+    "where will the image": "meter",
+    "where does the image": "meter",
     "how many metres": "meter",
     "how many meters": "meter",
     "how many kilometres": "meter",
     "how many kilometers": "meter",
     "how much distance": "meter",
     "how high": "meter",
+    "how tall": "meter",
     "how deep": "meter",
     "distance": "meter",
     "displacement": "meter",

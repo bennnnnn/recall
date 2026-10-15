@@ -88,6 +88,10 @@ _SYMBOLS: dict[str, str] = {
     "kWh": "kilowatt_hour",
     "mL": "milliliter",
     "ms": "millisecond",
+    # A muon's lifetime: "2.2 µs" (micro sign or Greek mu), and a nanosecond pulse.
+    "µs": "microsecond",
+    "μs": "microsecond",
+    "ns": "nanosecond",
     "mm": "millimeter",
     "Wb": "weber",
 }

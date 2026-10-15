@@ -147,7 +147,89 @@ def solve_momentum(intent: PhysicsIntent) -> PhysicsResult:
             simulation_specs=[_collision_scene(m1, m2, v1, v2, u1, u2)],
         )
 
+    if op == "collision_energy_lost":
+        return _collision_energy_lost(intent, p)
+
+    if op == "explosion_speed":
+        return _explosion_speed(p)
+
     raise SolveServiceError(f"unsupported momentum op: {op}")
+
+
+def _explosion_speed(p: dict[str, float]) -> PhysicsResult:
+    """v₂ = m₁v₁/m₂, the pieces moving apart; a stated whole must be their sum."""
+    from app.modules.physics.display import latex_given, latex_number
+
+    m1, m2, v1 = p["m_moving"], p["m_other"], p["v_moving"]
+    if m1 <= 0 or m2 <= 0 or v1 <= 0:
+        raise SolveServiceError("an explosion needs two pieces and a speed")
+    total = p.get("m_total")
+    if total is not None and not math.isclose(total, m1 + m2, rel_tol=1e-6):
+        raise SolveServiceError("the pieces do not add up to the whole")
+    v2 = m1 * v1 / m2
+    substitution = (
+        rf"v_2 = \frac{{{latex_given(m1)}\cdot {latex_given(v1)}}}{{{latex_given(m2)}}}"
+        rf" = {latex_number(v2)}"
+    )
+    first, second = plain_number(m1, GIVEN_FIGURES), plain_number(m2, GIVEN_FIGURES)
+    return PhysicsResult(
+        answer=substitution,
+        formulas=(r"0 = m_1 v_1 - m_2 v_2", r"v_2 = \frac{m_1 v_1}{m_2}"),
+        substitutions=(substitution,),
+        quantities=(QuantityResult("", v2, "m/s"),),
+        simulation_specs=[
+            _collision_scene(
+                m2,
+                m1,
+                0.0,
+                0.0,
+                -v2,
+                v1,
+                recoil=(
+                    f"A body at rest bursts: the {first} kg piece flies off at "
+                    f"{plain_number(v1)} m/s and the {second} kg piece the other way "
+                    f"at {plain_number(v2)} m/s."
+                ),
+            )
+        ],
+    )
+
+
+def _collision_energy_lost(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
+    """Kinetic energy before, less the stuck pair's after: ½m₁v₁² + ½m₂v₂² - ½(m₁+m₂)v_f²."""
+    from app.modules.physics.display import latex_given, latex_number
+
+    m1, m2, v1, v2 = p["m1"], p["m2"], p["v1"], p["v2"]
+    total = m1 + m2
+    if m1 <= 0 or m2 <= 0 or p.get("elastic", 0.0) >= 0.5:
+        raise SolveServiceError("energy lost needs two masses that stick together")
+    vf = (m1 * v1 + m2 * v2) / total
+    before = 0.5 * m1 * v1 * v1 + 0.5 * m2 * v2 * v2
+    after = 0.5 * total * vf * vf
+    lost = before - after
+    if not math.isfinite(lost) or lost < 0:
+        raise SolveServiceError("energy lost is not a real loss")
+    g1, g2, s1, s2 = (latex_given(value) for value in (m1, m2, v1, v2))
+    substitutions = (
+        rf"v_f = \frac{{{g1}\cdot {s1} + {g2}\cdot {s2}}}{{{g1}+{g2}}} = {latex_number(vf)}",
+        rf"KE_i = \tfrac{{1}}{{2}}\cdot {g1}\cdot {_latex_num(v1, square=True)} + "
+        rf"\tfrac{{1}}{{2}}\cdot {g2}\cdot {_latex_num(v2, square=True)} = {latex_number(before)}",
+        rf"KE_f = \tfrac{{1}}{{2}}\cdot {latex_number(total)}\cdot "
+        rf"{_latex_num(vf, square=True)} = {latex_number(after)}",
+        rf"\Delta KE = {latex_number(before)} - {latex_number(after)} = {latex_number(lost)}",
+    )
+    return PhysicsResult(
+        answer=substitutions[-1],
+        formulas=(
+            r"v_f = \frac{m_1 v_1 + m_2 v_2}{m_1 + m_2}",
+            r"KE_i = \tfrac{1}{2} m_1 v_1^2 + \tfrac{1}{2} m_2 v_2^2",
+            r"KE_f = \tfrac{1}{2}(m_1 + m_2) v_f^2",
+            r"\Delta KE = KE_i - KE_f",
+        ),
+        substitutions=substitutions,
+        quantities=(QuantityResult("", lost, "J"),),
+        simulation_specs=[_collision_scene(m1, m2, v1, v2, vf, vf)],
+    )
 
 
 def _collision_scene(

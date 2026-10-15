@@ -42,8 +42,11 @@ def solve_expression(intent: PhysicsIntent) -> PhysicsResult:
         symbol = variant.result_symbol or symbol
     try:
         value = evaluate(expression, params)
+        holds = all(evaluate(condition, params) > 0 for condition in spec.binding.requires)
     except (KeyError, ValueError, OverflowError) as exc:
         raise SolveServiceError(f"{spec.id} has no real answer for these givens") from exc
+    if not holds:
+        raise SolveServiceError(f"{spec.id} does not hold for these givens")
     if not math.isfinite(value):
         raise SolveServiceError(f"{spec.id} answer is not finite")
     detail = None

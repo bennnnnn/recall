@@ -102,7 +102,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("power",),
             result=("1 / meter",),
             inputs=(frozenset({"focal"}),),
-            cues=("lens",),
+            cues=("lens", "magnifying glass", "magnifier", "spectacles", "eyeglass"),
         ),
     ),
     formula(
@@ -111,10 +111,42 @@ SPECS: tuple[FormulaSpec, ...] = (
         "Double-slit interference",
         "\\Delta y",
         base_latex="\\Delta y = \\frac{\\lambda L}{d}",
+        assumptions=("the screen is far from the slits compared with their separation",),
+        # Three lengths, each named: the slits' separation, the screen's
+        # distance, and the light's wavelength.
         variables=(
-            var("L", "L", "meter"),
-            var("d", "d", "meter"),
-            var("wavelength", r"\lambda", "meter"),
+            var(
+                "L",
+                "L",
+                "meter",
+                words=("screen", "to the screen", "away"),
+                needs_words=True,
+            ),
+            var(
+                "d",
+                "d",
+                "meter",
+                words=("slits", "slit separation", "apart", "separated by"),
+                needs_words=True,
+            ),
+            var("wavelength", r"\lambda", "meter", words=("wavelength", "light"), needs_words=True),
+        ),
+        binding=Binding(
+            asks=(
+                "fringe spacing",
+                "fringe separation",
+                "fringe width",
+                "spacing between the fringes",
+                "spacing between fringes",
+                "distance between the fringes",
+                "distance between adjacent",
+                "separation of the fringes",
+                "spacing of the fringes",
+            ),
+            result=("meter",),
+            inputs=(frozenset({"L", "d", "wavelength"}),),
+            cues=("double slit", "double-slit", "two slits", "young"),
+            nonnegative=True,
         ),
     ),
     formula(
@@ -186,14 +218,31 @@ SPECS: tuple[FormulaSpec, ...] = (
                     ("grazing angle", 1.0),
                 ),
             ),
+            # "Light strikes a glass block (n = 1.5)" comes from air: the one
+            # index stated is the medium it enters. Light that starts inside a
+            # medium ("leaves", "inside", "from glass") never takes air's.
             var(
                 "n1",
                 "n_1",
                 dimensionless=True,
                 words=("from", "leaves", "travelling in", "traveling in"),
                 implied=(("from air", 1.0), ("in air", 1.0), ("from a vacuum", 1.0)),
+                fallback="incident_from_air",
             ),
-            var("n2", "n_2", dimensionless=True, words=("into", "enters", "entering")),
+            var(
+                "n2",
+                "n_2",
+                dimensionless=True,
+                words=(
+                    "into",
+                    "enters",
+                    "entering",
+                    "strikes",
+                    "hits",
+                    "incident on",
+                    "falls on",
+                ),
+            ),
         ),
         binding=Binding(
             asks=("angle of refraction", "refraction angle", "refracted angle"),
@@ -235,7 +284,7 @@ SPECS: tuple[FormulaSpec, ...] = (
                     ("third-order", 3.0),
                 ),
             ),
-            var("wavelength", r"\lambda", "meter", words=("wavelength",)),
+            var("wavelength", r"\lambda", "meter", words=("wavelength", "light")),
         ),
         binding=Binding(
             asks=("angle",),
@@ -634,6 +683,163 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("critical angle",),
             result=("degree",),
             inputs=(frozenset({"n1"}),),
+            nonnegative=True,
+        ),
+    ),
+    # The image's height from a converging lens or a concave mirror: the
+    # magnification is v/u = f/(u - f). A real image (the object outside F) is
+    # inverted, so the signed result is negative and shown as its size,
+    # inverted. Inside F the image is virtual, and the sign conventions part.
+    formula(
+        "image_height",
+        "optics",
+        "Magnification",
+        "h_i",
+        base_latex=r"h_i = -h_o\frac{v}{u} = -h_o\frac{f}{u - f}",
+        assumptions=("a thin converging lens or a concave mirror, the object outside F",),
+        expression="-h_obj*focal/(d_obj - focal)",
+        variables=(
+            var(
+                "h_obj",
+                "h_o",
+                "meter",
+                words=("tall", "high", "height", "object height"),
+                needs_words=True,
+            ),
+            var(
+                "d_obj",
+                "u",
+                "meter",
+                words=("in front", "from the", "away", "object is", "placed", "object distance"),
+                needs_words=True,
+            ),
+            var("focal", "f", "meter", words=("focal",), needs_words=True),
+        ),
+        binding=Binding(
+            asks=(
+                "how tall is the image",
+                "height of the image",
+                "image height",
+                "size of the image",
+                "image size",
+                "how big is the image",
+                "how high is the image",
+            ),
+            result=("meter",),
+            inputs=(frozenset({"d_obj", "focal", "h_obj"}),),
+            cues=("converging lens", "convex lens", "concave mirror", "converging mirror"),
+            excludes=("diverging", "convex mirror", "concave lens", "virtual"),
+            negative_detail="inverted",
+            requires=("d_obj - focal",),
+        ),
+    ),
+    # A concave mirror given by its radius of curvature: f = R/2, then the
+    # mirror equation. 40 cm and an object 30 cm away put the image 60 cm out.
+    formula(
+        "mirror_image_from_radius",
+        "optics",
+        "Mirror equation",
+        "v",
+        base_latex=r"\frac{1}{u} + \frac{1}{v} = \frac{2}{R}",
+        assumptions=("a concave mirror, rays near the axis, the object outside F",),
+        expression="1/(2/radius_curvature - 1/d_obj)",
+        variables=(
+            var(
+                "radius_curvature",
+                "R",
+                "meter",
+                words=("radius of curvature", "radius"),
+                needs_words=True,
+            ),
+            var(
+                "d_obj",
+                "u",
+                "meter",
+                words=("object", "placed", "in front", "away", "from the mirror"),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=(
+                "where is the image",
+                "where will the image",
+                "where does the image",
+                "image distance",
+                "distance of the image",
+                "image position",
+                "position of the image",
+                "location of the image",
+                "how far from the mirror is the image",
+            ),
+            result=("meter",),
+            inputs=(frozenset({"d_obj", "radius_curvature"}),),
+            cues=("concave mirror", "converging mirror"),
+            excludes=("convex", "diverging", "virtual", "lens"),
+            nonnegative=True,
+            # Inside F the image is virtual: behind the mirror, a sign the
+            # conventions disagree on.
+            requires=("2*d_obj - radius_curvature",),
+        ),
+    ),
+    # Total internal reflection between two media: sin(theta_c) = n2 / n1,
+    # from the denser medium. Glass into water is 62.5 degrees, not glass's
+    # 41.8 degrees into air.
+    formula(
+        "critical_angle_between",
+        "optics",
+        "Critical angle",
+        r"\theta_c",
+        base_latex=r"\theta_c = \arcsin\frac{n_2}{n_1}",
+        assumptions=("the light goes from the denser medium (n₁) into the less dense (n₂)",),
+        expression="asin(n_rare/n_dense)*180/pi",
+        variables=(
+            var("n_dense", "n_1", dimensionless=True, words=("from", "leaves", "leaving")),
+            var("n_rare", "n_2", dimensionless=True, words=("into", "to")),
+        ),
+        binding=Binding(
+            asks=("critical angle",),
+            result=("degree",),
+            inputs=(frozenset({"n_dense", "n_rare"}),),
+            nonnegative=True,
+        ),
+    ),
+    # Light keeps its frequency in a medium and slows by n, so its wavelength
+    # shrinks by n: 650 nm red light is 433 nm inside glass of n = 1.5.
+    formula(
+        "wavelength_in_medium",
+        "optics",
+        "Wavelength in a medium",
+        r"\lambda_n",
+        base_latex=r"\lambda_n = \frac{\lambda}{n}",
+        assumptions=("the wavelength stated is the one in a vacuum (or air)",),
+        expression="wavelength/n_index",
+        variables=(
+            var("wavelength", r"\lambda", "meter"),
+            var(
+                "n_index",
+                "n",
+                dimensionless=True,
+                words=("refractive index", "index of refraction", "n =", "n="),
+                needs_words=True,
+            ),
+        ),
+        binding=Binding(
+            asks=(
+                "wavelength in",
+                "wavelength inside",
+                "inside glass",
+                "inside the glass",
+                "inside water",
+                "inside the water",
+                "inside the medium",
+                "in the glass",
+                "in the water",
+                "in the medium",
+            ),
+            result=("meter",),
+            inputs=(frozenset({"n_index", "wavelength"}),),
+            cues=("wavelength",),
+            excludes=("frequency", "speed", "thickness", "film", "slit", "grating"),
             nonnegative=True,
         ),
     ),

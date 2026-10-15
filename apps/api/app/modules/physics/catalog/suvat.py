@@ -63,7 +63,16 @@ _V = var(
     "v",
     _SPEED,
     words=_FINAL,
-    implied=(("to rest", 0.0), ("to a stop", 0.0), ("to a halt", 0.0)),
+    # "brakes uniformly and stops in 25 m": the stop is the final speed.
+    implied=(
+        ("to rest", 0.0),
+        ("to a stop", 0.0),
+        ("to a halt", 0.0),
+        ("stops in", 0.0),
+        ("stops within", 0.0),
+        ("stopping in", 0.0),
+        ("stopped in", 0.0),
+    ),
 )
 _A = var("a", "a", _ACCELERATION, negating=_SLOWING)
 _D = var("d", "s", "meter")

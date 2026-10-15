@@ -42,15 +42,36 @@ _STICKING = re.compile(
     r"|\bsticks? together\b|\bstuck together\b|\bcoupled?\b"
     # "collides with and sticks to a stationary 1 kg cart"
     r"|\b(?:sticks?|stuck|sticking)\s+to\b"
-    r"|\bembed(?:s|ded)?\b|\blocks? together\b",
+    r"|\bembed(?:s|ded)?\b|\blocks? together\b|\block(?:s|ed)?\s+bumpers\b"
+    r"|\blodge[sd]?\b|\bmoves?\s+off\s+together\b",
     re.IGNORECASE,
 )
-# Direction words and restitution introduce conditions the old two-body
-# extractor does not bind. Do not silently drop them or a negated rest state.
+# Restitution and a negated rest state introduce conditions the two-body
+# reading does not bind. Do not silently drop them.
 _COLLISION_QUALIFIER = re.compile(
-    r"\b(?:not|never|neither|without|left|right|east|west|opposite|restitution|"
-    r"energy|impulse|momentum|force|friction)\b"
-    r"|\btowards? each other\b|\baway from each other\b",
+    r"\b(?:not|never|neither|without|restitution|energy|impulse|momentum|force|friction)\b"
+    r"|\baway from each other\b",
+    re.IGNORECASE,
+)
+# A body's direction along the line: "a 0.5 kg puck moving east at 4 m/s".
+_DIRECTION = re.compile(r"\b(east|west|north|south|left|right)(?:wards?)?\b", re.IGNORECASE)
+_AXIS_SIGN = {
+    "east": ("east-west", 1),
+    "west": ("east-west", -1),
+    "north": ("north-south", 1),
+    "south": ("north-south", -1),
+    "right": ("left-right", 1),
+    "left": ("left-right", -1),
+}
+# Both moving, each toward the other: the second speed points back along the line.
+_OPPOSED = re.compile(
+    r"\btowards? each other\b|\bin\s+(?:the\s+)?opposite\s+directions?\b|\bhead[- ]on\s+toward",
+    re.IGNORECASE,
+)
+# "How much kinetic energy is lost?": the energy a sticking collision turns to heat.
+_ENERGY_LOST = re.compile(
+    r"\b(?:kinetic\s+energy|energy|ke)\b[^.?!]{0,40}?\b(?:lost|loss|dissipated|converted|wasted)\b"
+    r"|\b(?:loss|lost)\s+(?:of|in)\s+(?:the\s+)?(?:kinetic\s+energy|energy|ke)\b",
     re.IGNORECASE,
 )
 _ASK = re.compile(r"\b(?:find|calculate|compute|determine|what\s+are)\s+", re.IGNORECASE)
@@ -90,33 +111,80 @@ def _accounted_for(text: str, quantities: list[re.Match[str]]) -> bool:
     )
 
 
+def _body_names(masses: list[re.Match[str]], ask_start: int) -> list[re.Match[str]] | None:
+    """The two bodies; a mass in the asked clause that repeats one names that body.
+
+    "What is the velocity of the 4 kg ball after?" asks about the second body;
+    it states no third mass. None when the ask names a mass no body has.
+    """
+    stated = [mass for mass in masses if mass.start() < ask_start]
+    for mass in masses[len(stated) :]:
+        if not any(
+            float(mass[1]) == float(body[1]) and mass[2].lower() == body[2].lower()
+            for body in stated
+        ):
+            return None
+    return stated
+
+
+# A body said to move two ways at once ("east ... north").
+_TWO_WAYS = ("", 0)
+
+
+def _direction(clause: str) -> tuple[str, int] | None:
+    """The one direction a body's clause gives; ``_TWO_WAYS`` when it gives two."""
+    found = {_AXIS_SIGN[match[1].lower()] for match in _DIRECTION.finditer(clause)}
+    if len(found) > 1:
+        return _TWO_WAYS
+    return next(iter(found), None)
+
+
 def _collision_intent(text: str) -> PhysicsIntent | None:
-    """Accept exactly two explicitly specified bodies and a supported model."""
-    masses = list(_MASS.finditer(text))
-    if len(masses) != 2 or _TWO_DIMENSIONAL_RE.search(text) or _COLLISION_QUALIFIER.search(text):
+    """Accept exactly two explicitly specified bodies and a supported model.
+
+    Speeds are signed along the first body's motion. A second body moving the
+    other way ("moving west" after "moving east", or "toward each other")
+    carries a negative speed; a direction that is not on the first body's
+    line is two-dimensional and declines.
+    """
+    from app.modules.physics.ask import ask_clause
+
+    clause = ask_clause(text)
+    ask_start = text.rfind(clause) if clause else len(text)
+    all_masses = list(_MASS.finditer(text))
+    masses = _body_names(all_masses, ask_start)
+    if masses is None or len(masses) != 2 or _TWO_DIMENSIONAL_RE.search(text):
         return None
-    if not _accounted_for(text, [*masses, *_SPEED.finditer(text)]):
+    energy_lost = clause is not None and _ENERGY_LOST.search(clause) is not None
+    # The energy the ask names is the question, not a condition on the collision.
+    if _COLLISION_QUALIFIER.search(text[:ask_start] if energy_lost else text):
+        return None
+    if not _accounted_for(text, [*all_masses, *_SPEED.finditer(text)]):
         return None
     elastic = _ELASTIC.search(text) is not None
     sticking = _STICKING.search(text) is not None
-    if elastic == sticking:
-        # Generic 'inelastic' does not say that the objects stick together.
+    if elastic == sticking or (energy_lost and not sticking):
+        # Generic 'inelastic' does not say that the objects stick together, and
+        # an elastic collision loses no kinetic energy to be asked about.
+        return None
+    if _DIRECTION.search(text[: masses[0].start()]) or _DIRECTION.search(text[ask_start:]):
         return None
     params: dict[str, float] = {"elastic": float(elastic)}
     units: dict[str, str] = {"elastic": ""}
     consumed_speeds = 0
+    directions: list[tuple[str, int] | None] = []
     leading_rest = _REST_BEFORE_MASS.search(text[: masses[0].start()]) is not None
     for index, mass in enumerate(masses, start=1):
         value = float(mass[1])
         if value <= 0:
             return None
-        end = masses[index].start() if index < len(masses) else len(text)
-        clause = text[mass.end() : end]
-        trailing = _REST_BEFORE_MASS.search(clause) if index < len(masses) else None
+        end = masses[index].start() if index < len(masses) else ask_start
+        body_clause = text[mass.end() : end]
+        trailing = _REST_BEFORE_MASS.search(body_clause) if index < len(masses) else None
         if trailing is not None:
-            clause = clause[: trailing.start()]
-        velocities = list(_SPEED.finditer(clause))
-        at_rest = leading_rest or _REST.search(clause) is not None
+            body_clause = body_clause[: trailing.start()]
+        velocities = list(_SPEED.finditer(body_clause))
+        at_rest = leading_rest or _REST.search(body_clause) is not None
         leading_rest = trailing is not None
         if len(velocities) > 1 or (not velocities and not at_rest):
             return None
@@ -125,13 +193,35 @@ def _collision_intent(text: str) -> PhysicsIntent | None:
         )
         if at_rest and velocity != 0:
             return None
+        direction = _direction(body_clause)
+        if direction == _TWO_WAYS:
+            return None
+        directions.append(direction if velocity != 0 else None)
         consumed_speeds += len(velocities)
         params.update({f"m{index}": value, f"v{index}": velocity})
         units.update({f"m{index}": mass[2], f"v{index}": velocity_unit})
     if consumed_speeds != len(list(_SPEED.finditer(text))):
         return None
+    first, second = directions
+    moving = params["v1"] != 0 and params["v2"] != 0
+    opposed = _OPPOSED.search(text) is not None
+    if first is not None and second is not None:
+        if first[0] != second[0] or opposed:
+            return None
+        if first[1] != second[1]:
+            params["v2"] = -params["v2"]
+    elif (first is not None or second is not None) and moving:
+        # One body's direction and the other's unsaid: the line's sense is unknown.
+        return None
+    elif opposed:
+        if not moving:
+            return None
+        params["v2"] = -params["v2"]
     return PhysicsIntent(
-        kind="momentum", physics_op="final_velocity", physics_params=params, physics_units=units
+        kind="momentum",
+        physics_op="collision_energy_lost" if energy_lost else "final_velocity",
+        physics_params=params,
+        physics_units=units,
     )
 
 

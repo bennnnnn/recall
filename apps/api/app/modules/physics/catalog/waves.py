@@ -371,11 +371,16 @@ SPECS: tuple[FormulaSpec, ...] = (
                 "I_0",
                 "watt / meter ** 2",
                 words=("reference",),
+                # A sound level in dB is measured against the threshold of
+                # hearing by definition, so naming it names I₀.
                 implied=(
                     ("threshold of hearing", 1.0e-12),
                     ("hearing threshold", 1.0e-12),
                     ("decibel", 1.0e-12),
                     ("decibels", 1.0e-12),
+                    ("sound level", 1.0e-12),
+                    ("intensity level", 1.0e-12),
+                    ("in db", 1.0e-12),
                 ),
                 needs_words=True,
             ),
@@ -384,7 +389,7 @@ SPECS: tuple[FormulaSpec, ...] = (
             asks=("sound level", "intensity level"),
             result=("dimensionless",),
             inputs=(frozenset({"i_ref", "intensity"}),),
-            cues=("decibel", "sound level"),
+            cues=("decibel", "sound level", "intensity level", "in db"),
             shown_unit="dB",
         ),
     ),

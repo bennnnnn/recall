@@ -238,6 +238,36 @@ SPECS: tuple[FormulaSpec, ...] = (
             negative_detail="opposing the motion",
         ),
     ),
+    # An average force for a stated time changes a body's speed by Ft/m: a
+    # racket's 240 N for 5 ms on a 58 g ball is 20.7 m/s.
+    formula(
+        "speed_change_from_force",
+        "force",
+        "Impulse-momentum theorem",
+        r"\Delta v",
+        base_latex=r"F t = m \Delta v",
+        assumptions=("the force is the net force on the body, along its motion",),
+        expression="F*t/m",
+        variables=(var("F", "F", "newton"), var("t", "t", "second"), var("m", "m", "kilogram")),
+        binding=Binding(
+            asks=(
+                "change in speed",
+                "change in the speed",
+                "change in its speed",
+                "change in velocity",
+                "change in the velocity",
+                "change in its velocity",
+                "change in the ball's speed",
+                "change in the ball's velocity",
+                "change in the object's speed",
+                "change in the object's velocity",
+            ),
+            result=("meter / second",),
+            inputs=(frozenset({"F", "t", "m"}),),
+            excludes=("friction", "incline", "slope", "ramp"),
+            nonnegative=True,
+        ),
+    ),
     # A net force acting from rest for a stated time: v = Ft/m.
     formula(
         "speed_from_net_force",

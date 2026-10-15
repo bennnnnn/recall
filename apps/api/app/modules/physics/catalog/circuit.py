@@ -54,6 +54,23 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("V", "V", "volt"),
         ),
     ),
+    # A lamp's rating gives its resistance: R = V²/P. 60 W on 120 V is 240 Ω.
+    formula(
+        "resistance_from_power",
+        "circuit",
+        "Electrical-power formula",
+        "R",
+        base_latex=r"P = \frac{V^2}{R}",
+        assumptions=("the device runs at its rated power on that voltage",),
+        expression="V**2/power",
+        variables=(var("V", "V", "volt"), var("power", "P", "watt")),
+        binding=Binding(
+            asks=("resistance",),
+            result=("ohm",),
+            inputs=(frozenset({"V", "power"}),),
+            nonnegative=True,
+        ),
+    ),
     formula(
         "series_resistance",
         "circuit",

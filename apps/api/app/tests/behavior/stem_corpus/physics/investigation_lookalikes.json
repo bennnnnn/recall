@@ -1,0 +1,14 @@
+[
+  {"id": "il-01", "area": "lookalike", "prompt": "I need to dig a hole 3 m deep in the garden, how fast can two people do it?", "expect": "not_subject"},
+  {"id": "il-02", "area": "lookalike", "prompt": "the water tank is 3 m below the roof, how fast does it fill from the mains?", "expect": "not_subject"},
+  {"id": "il-03", "area": "lookalike", "prompt": "my 2 kg cake exploded in the oven lol, what went wrong?", "expect": "not_subject"},
+  {"id": "il-04", "area": "lookalike", "prompt": "someone rear-ended my 1500 kg car at the lights, what do I tell insurance?", "expect": "not_subject"},
+  {"id": "il-05", "area": "lookalike", "prompt": "my boat heads straight across the bay tomorrow, what should I pack?", "expect": "not_subject"},
+  {"id": "il-06", "area": "lookalike", "prompt": "how fast is my wifi", "expect": "not_subject"},
+  {"id": "il-07", "area": "lookalike", "prompt": "I'm recovering from rest days then going back to the gym at 6, any tips?", "expect": "not_subject"},
+  {"id": "il-08", "area": "lookalike", "prompt": "the road narrows to one lane after the bridge, how long is the delay usually?", "expect": "not_subject"},
+  {"id": "il-09", "area": "lookalike", "prompt": "the river current is strong today, is it safe to swim across?", "expect": "not_subject"},
+  {"id": "il-10", "area": "lookalike", "prompt": "we fly north to Oslo and then east to Helsinki, what's the ground speed of a typical A320?", "expect": "not_subject"},
+  {"id": "il-11", "area": "lookalike", "prompt": "my phone battery drops from 80% to 20% in 3 hours, what's the half-life of my battery lol", "expect": "not_subject"},
+  {"id": "il-12", "area": "lookalike", "prompt": "whats the pressure drop I should expect on a long flight for my ears?", "expect": "not_subject"}
+]

@@ -169,7 +169,10 @@ def _other_sense(question: Question, asks: tuple[str, ...], produced: set[str | 
     return False
 
 
-_PLACED = re.compile(r"\s*(?:away\s+)?(?:from|above|below|beyond|behind|away)\b")
+# "the absolute pressure 50 m deep" places the pressure too.
+_PLACED = re.compile(
+    r"\s*(?:away\s+)?(?:from|above|below|beyond|behind|away|deep|down|under|underwater|beneath)\b"
+)
 
 
 def value_end(lower: str, given: Given) -> int:

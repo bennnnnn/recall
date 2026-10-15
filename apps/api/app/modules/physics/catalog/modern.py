@@ -75,6 +75,28 @@ SPECS: tuple[FormulaSpec, ...] = (
             var("proper_time", r"\Delta t_0", "second"),
             var("v", "v", "meter / second"),
         ),
+        # "A muon at 0.98c lives 2.2 µs at rest: its lifetime in the lab?" A
+        # speed written onto c names light's speed, the cue relativity reads.
+        binding=Binding(
+            asks=(
+                "lifetime measured",
+                "lifetime in the lab",
+                "lifetime as measured",
+                "measured lifetime",
+                "observed lifetime",
+                "lifetime observed",
+                "dilated lifetime",
+                "dilated time",
+                "time measured",
+                "time in the lab",
+                "lifetime",
+            ),
+            result=("second",),
+            inputs=(frozenset({"proper_time", "v"}),),
+            cues=("speed of light",),
+            excludes=("half-life", "half life", "length", "contract"),
+            nonnegative=True,
+        ),
     ),
     formula(
         "length_contraction",

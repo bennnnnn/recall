@@ -115,6 +115,7 @@ from app.modules.physics.extractors.torque import (
     _TORQUE_CUES,
     _extract_torque_intent,
 )
+from app.modules.physics.extractors.two_stage import extract_two_stage_intent
 from app.modules.physics.extractors.waves import _WAVE_CUE_RES, _WAVE_CUES, _extract_waves_intent
 from app.modules.physics.schemas import PhysicsIntent
 
@@ -127,6 +128,9 @@ PHYSICS_EXTRACTORS: tuple[Callable[[str], PhysicsIntent | None], ...] = (
     # Before the constant-speed rate law. A reaction interval plus a later
     # brake-to-stop is not d = vt, and the rate extractor only sees two numbers.
     extract_stopping_distance,
+    # Before the rate law and SUVAT: speeding up, then holding the speed or
+    # braking, is two intervals. Each of those reads one.
+    extract_two_stage_intent,
     extract_rate_intent,
     _extract_kinematics_intent,
     # After kinematics, not before: free fall is a constant acceleration too,
