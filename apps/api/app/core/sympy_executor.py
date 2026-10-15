@@ -59,6 +59,8 @@ _MAX_SYMPY_WORKERS = 8
 # share the 2s interactive wait.
 _SPAWN_WAIT_SECONDS = 20.0
 _QUEUE_POLL_SECONDS = 0.01
+# How often a worker re-checks its parent pid (see _exit_with_parent).
+_PARENT_POLL_SECONDS = 1.0
 
 
 def _clamp_workers(max_workers: int) -> int:
@@ -74,15 +76,20 @@ def _exit_with_parent() -> None:
     worker then ran on at about 250 MB, keeping the resource tracker and its
     semaphores alive too. The parent sentinel is a pipe whose write end only
     the parent holds, so it reads as closed the moment the parent is gone, on
-    Linux and macOS alike.
+    Linux and macOS alike. The parent pid is checked every second as well: a
+    worker whose parent died is re-parented, so it still exits if any other
+    process ever keeps that pipe's write end open (once seen on CI).
     """
     parent = mp.parent_process()
     if parent is None:
         return
     sentinel = parent.sentinel
+    parent_pid = parent.pid
 
     def watch() -> None:
-        mp_connection.wait([sentinel])
+        while not mp_connection.wait([sentinel], timeout=_PARENT_POLL_SECONDS):
+            if os.getppid() != parent_pid:
+                break
         os._exit(0)
 
     threading.Thread(target=watch, name="sympy-parent-watch", daemon=True).start()
