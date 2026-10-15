@@ -428,7 +428,7 @@ def turn_needs_tool_loop(
 
 def _needs_non_web_tool(text: str, settings: Settings | None, user: User | None) -> bool:
     """Math, a photo lookup, or image generation still needs a tool-selection round."""
-    from app.modules.images.gen_intent import extract_image_gen_prompt
+    from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
     from app.modules.images.lookup_intent import extract_image_lookup_query
     from app.modules.math.tools import needs_symbolic_math
 
@@ -458,6 +458,9 @@ def _needs_non_web_tool(text: str, settings: Settings | None, user: User | None)
         and user is not None
         and plan_service.can_use(user, "image_generation", settings or get_settings())
         and extract_image_gen_prompt(text)
+        and not stem_subject_claims(
+            text, chemistry_enabled=(settings or get_settings()).chemistry_enabled
+        )
     ):
         return True
     return False

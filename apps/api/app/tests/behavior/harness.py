@@ -30,7 +30,7 @@ from app.modules.chat.turn_prep.context import (
     stream_context_from_bundle,
 )
 from app.modules.chat.turn_prep.mode import _classify_turn_mode
-from app.modules.images.gen_intent import extract_image_gen_prompt
+from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject_claims
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
 from app.services.subject_solving import detect_subject
@@ -217,6 +217,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         and settings.image_generation_enabled
         and can_use(user, "image_generation", settings)
         and extract_image_gen_prompt(text)
+        and not stem_subject_claims(text, chemistry_enabled=settings.chemistry_enabled)
     )
 
     searched: list[Any] = []
