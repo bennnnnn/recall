@@ -30,6 +30,9 @@ import asyncio
 import errno
 import logging
 import multiprocessing as mp
+import multiprocessing.connection as mp_connection
+import os
+import threading
 import time
 from collections.abc import Callable
 from concurrent.futures import Future, ProcessPoolExecutor, ThreadPoolExecutor
@@ -60,6 +63,29 @@ _QUEUE_POLL_SECONDS = 0.01
 
 def _clamp_workers(max_workers: int) -> int:
     return max(1, min(max_workers, _MAX_SYMPY_WORKERS))
+
+
+def _exit_with_parent() -> None:
+    """Pool initializer: end this worker as soon as its parent process dies.
+
+    A worker blocked on its call queue never notices its parent dying.
+    ``shutdown_sympy_executor`` covers a clean exit, but ``kill -9`` (what
+    ``dev.sh kill-all`` sent), a crash or the OOM killer skip it, and each
+    worker then ran on at about 250 MB, keeping the resource tracker and its
+    semaphores alive too. The parent sentinel is a pipe whose write end only
+    the parent holds, so it reads as closed the moment the parent is gone, on
+    Linux and macOS alike.
+    """
+    parent = mp.parent_process()
+    if parent is None:
+        return
+    sentinel = parent.sentinel
+
+    def watch() -> None:
+        mp_connection.wait([sentinel])
+        os._exit(0)
+
+    threading.Thread(target=watch, name="sympy-parent-watch", daemon=True).start()
 
 
 def _sympy_worker[T](fn: Callable[..., T], *args: Any) -> T:
@@ -162,7 +188,11 @@ class ProcessPoolSympyExecutor(BoundedSympyExecutor):
         pool = self._slots[slot]
         if pool is None:
             try:
-                pool = ProcessPoolExecutor(max_workers=1, mp_context=_MP_CONTEXT)
+                pool = ProcessPoolExecutor(
+                    max_workers=1,
+                    mp_context=_MP_CONTEXT,
+                    initializer=_exit_with_parent,
+                )
             except OSError as exc:
                 if exc.errno != errno.ENOSPC:
                     raise
@@ -408,9 +438,9 @@ def set_sympy_executor(executor: BoundedSympyExecutor | None) -> None:
 def shutdown_sympy_executor() -> None:
     """Stop the SymPy workers when the process exits.
 
-    Pool workers do not notice their parent dying: a server that exits
-    without this (``uvicorn --reload`` restarts on every change) leaves them
-    running, about 200 MB each.
+    A server that exits without this (``uvicorn --reload`` restarts on every
+    change) left them running, about 200 MB each. Workers now also exit when
+    their parent dies (``_exit_with_parent``); this stops them right away.
     """
     set_sympy_executor(None)
 
