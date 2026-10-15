@@ -55,6 +55,14 @@ describe("physical-phone Realtime turns", () => {
     return session;
   }
 
+  it("leaves no timer behind once a connected session closes", async () => {
+    const session = await createRealtimeVoiceSession({ token: "tok", chatId: "chat-1", onEvent: () => {} });
+    session.close();
+    // The connect deadline raced the open data channel and was never
+    // cleared, so it outlived every successful connect by ten seconds.
+    expect(jest.getTimerCount()).toBe(0);
+  });
+
   it("uses AEC, keeps listening during playback, and ignores the cancelled reply's late events", async () => {
     const session = await connect();
     expect(webRtcMicConstraints().echoCancellation).toBe(true);

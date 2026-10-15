@@ -685,15 +685,20 @@ export async function createRealtimeVoiceSession(options: {
       }
     }
 
-    await Promise.race([
-      connectedPromise,
-      new Promise<never>((_, reject) =>
-        setTimeout(
-          () => reject(new Error("Realtime voice connection timed out")),
-          CONNECTION_TIMEOUT_MS,
-        ),
-      ),
-    ]);
+    let connectDeadline: ReturnType<typeof setTimeout> | undefined;
+    try {
+      await Promise.race([
+        connectedPromise,
+        new Promise<never>((_, reject) => {
+          connectDeadline = setTimeout(
+            () => reject(new Error("Realtime voice connection timed out")),
+            CONNECTION_TIMEOUT_MS,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(connectDeadline);
+    }
   } catch (error) {
     closed = true;
     tearDownAudio();
