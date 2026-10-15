@@ -120,12 +120,13 @@ async def login_with_apple(
     redis: Redis,
     *,
     name: str | None = None,
+    nonce: str | None = None,
     device_label: str | None = None,
     platform: str | None = None,
 ) -> AuthResponse:
     # L1: validate the client-supplied display name (trim, collapse, length)
     name = normalize_display_name(name)
-    payload = await verify_apple_id_token(id_token, settings)
+    payload = await verify_apple_id_token(id_token, settings, nonce=nonce)
     apple_sub = payload["sub"]
     email = payload.get("email")
     # Apple sends `email_verified` as the string "true"/"false" (not a bool),

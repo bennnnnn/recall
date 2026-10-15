@@ -122,6 +122,7 @@ async def apple_login(
             body.id_token,
             redis,
             name=body.name,
+            nonce=body.nonce,
             device_label=body.device_label,
             platform=body.platform,
         )

@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
+import hmac
 import logging
 import time
 from typing import Any
@@ -64,7 +66,22 @@ async def _public_key_for_kid(kid: str) -> Any:
     raise GoogleAuthError("Apple signing key not found")
 
 
-async def verify_apple_id_token(id_token_str: str, settings: Settings) -> dict[str, Any]:
+def _nonce_matches(raw_nonce: str | None, token_nonce: object) -> bool:
+    """The app sends SHA-256(raw) to Apple and the raw value to us.
+
+    Apple echoes the hashed value in the token's ``nonce`` claim, so a token
+    is only accepted alongside the secret from the same sign-in request: a
+    token lifted from elsewhere (a log, another device) cannot be replayed.
+    """
+    if not raw_nonce or not isinstance(token_nonce, str) or not token_nonce:
+        return False
+    expected = hashlib.sha256(raw_nonce.encode("utf-8")).hexdigest()
+    return hmac.compare_digest(expected.encode("ascii"), token_nonce.lower().encode("utf-8"))
+
+
+async def verify_apple_id_token(
+    id_token_str: str, settings: Settings, *, nonce: str | None
+) -> dict[str, Any]:
     client_id = settings.apple_client_id.strip()
     if not client_id:
         raise GoogleAuthError("Apple Sign-In is not configured on this server")
@@ -78,6 +95,8 @@ async def verify_apple_id_token(id_token_str: str, settings: Settings) -> dict[s
             algorithms=["RS256"],
             audience=client_id,
             issuer=APPLE_ISSUER,
+            # PyJWT checks exp only when present; Apple always sends it.
+            options={"require": ["exp", "iat", "sub"]},
         )
     except (jwt.PyJWTError, KeyError, httpx.HTTPError) as exc:
         logger.warning("Apple ID token verification failed: %s", exc)
@@ -85,6 +104,9 @@ async def verify_apple_id_token(id_token_str: str, settings: Settings) -> dict[s
 
     sub = payload.get("sub")
     if not sub:
+        raise GoogleAuthError("Invalid Apple ID token")
+    if not _nonce_matches(nonce, payload.get("nonce")):
+        logger.warning("Apple ID token rejected: nonce missing or not from this sign-in")
         raise GoogleAuthError("Invalid Apple ID token")
 
     return payload

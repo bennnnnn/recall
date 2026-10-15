@@ -185,6 +185,8 @@ class GoogleAuthRequest(DeviceSessionIn):
 class AppleAuthRequest(DeviceSessionIn):
     id_token: str
     name: str | None = None
+    # The raw nonce; the app gave Apple its SHA-256, which the token carries.
+    nonce: str | None = Field(default=None, max_length=256)
 
 
 class DevAuthRequest(DeviceSessionIn):
