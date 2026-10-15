@@ -31,9 +31,9 @@ describe("attachAnswerHeadingToFence", () => {
     );
   });
 
-  it("leaves Answer in place over an unmarked fence, which renders as plain math", () => {
-    const source = "**Answer**\n\n```answer\nx = 0\n```";
-    expect(attachAnswerHeadingToFence(source)).toBe(source);
+  it("moves Answer onto an unmarked card too: the same card, without the check", () => {
+    const source = "**Answer:**\n\n```answer\nx = 0\n```";
+    expect(attachAnswerHeadingToFence(source)).toBe("```answer\nlabel: answer\nx = 0\n```");
   });
 
   it("leaves Answer in place when no answer fence follows", () => {

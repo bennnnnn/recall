@@ -407,6 +407,27 @@ describe("markdown render rules", () => {
     expect(within(getByTestId("workout-answer")).getAllByTestId("workout-line")).toHaveLength(1);
   });
 
+  it("puts only the last line of a written-out answer in the box; the lines above are working", async () => {
+    const content = [
+      "**Answer**  ",
+      String.raw`$R = \frac{20^2 \sin 60^\circ}{9.81}$  `,
+      String.raw`$R = \frac{346.4}{9.81}$  `,
+      String.raw`$R \approx 35.3\ \text{m}$`,
+    ].join("\n");
+    const { getByTestId } = await render(<MarkdownContent content={content} />);
+    const body = getByTestId("workout-body");
+    expect(within(body).getAllByTestId("workout-line")).toHaveLength(3);
+    const box = getByTestId("workout-answer");
+    expect(StyleSheet.flatten(box.props.style)).toMatchObject({
+      backgroundColor: lightTheme.accentLight,
+    });
+    const boxed = within(box).getAllByTestId("workout-line");
+    expect(boxed).toHaveLength(1);
+    expect(boxed[0]).toHaveTextContent(/R ≈ 35\.3/);
+    expect(box).not.toHaveTextContent(/346\.4/);
+    expect(within(body).getByLabelText(/346\.4/)).toBeOnTheScreen();
+  });
+
   it.each([
     ["**(a) Acceleration**", "a", "Acceleration"],
     ["**Part (b): Speed after 3 s**", "b", "Speed after 3 s"],

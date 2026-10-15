@@ -8,7 +8,6 @@
  *   4. Soft langs (untagged / copy / text / plain) → content heuristics
  */
 
-import { splitAnswerNotation } from "@/lib/answerNotation";
 import { shouldUseHtmlPreview } from "@/lib/codeHighlight";
 import {
   isExplicitCodeLang,
@@ -84,14 +83,9 @@ export function classifyFence(lang: string, content: string): FenceDecision {
     if (isStructuredDraftLang(l) && !looksLikeExplicitDraftContent(content)) {
       return { kind: "prose", lang: l, id: spec.id };
     }
-    if (spec.id === "answer") {
-      // The card and its check are the server's: only a body that opens with
-      // `verified: true`. Anything else answer-shaped (a model's fence, an old
-      // unmarked card) is ordinary math, or text for a chemistry body.
-      const parsed = splitAnswerNotation(content);
-      if (parsed.verified) return { kind: "answer", lang: l, id: spec.id };
-      return { kind: parsed.notation === "chemistry" ? "prose" : "math", lang: l, id: spec.id };
-    }
+    // Every final answer is the one card; AnswerBlock draws the check only for
+    // the server's `verified: true` body.
+    if (spec.id === "answer") return { kind: "answer", lang: l, id: spec.id };
     if (spec.id === "math") return { kind: "math", lang: l, id: spec.id };
     if (spec.id === "clock") return { kind: "clock", lang: l, id: spec.id };
     return { kind: "rich", lang: l, id: spec.id };
