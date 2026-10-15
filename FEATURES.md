@@ -672,7 +672,8 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Models** — Auto and model toggles. Developer diagnostics are omitted from this screen.
 - ✅ **Data controls** — archived chats, archive all, delete all chats (Library stays),
   export, delete account.
-- ✅ **Security** — session list + revoke + sign out of all devices. No MFA.
+- ✅ **Security** — session list + revoke + sign out of all devices. Removing a device stops its
+  access token at once (the session id is revoked), not when the token expires. No MFA.
 - ✅ **Help & about** — Contact support (only when `EXPO_PUBLIC_SUPPORT_EMAIL` is set),
   Report a problem / Send feedback via the OS share sheet (version, plan, locale),
   Privacy, Terms, Open-source licenses (`lib/licenses.generated.json`, rebuilt by
@@ -680,11 +681,13 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
 - ✅ **Sidebar controls** — search uses a translucent white surface and border; the
   user's profile photo or initials open Settings beside New chat.
 - ✅ **Sign out** — asks first.
-- ✅ **Data export** — exports profile, chats and their messages, memories, todos,
-  attachments, and product events as JSON via the native share sheet
-  (`GET /auth/me/export`). Shows a progress screen while the archive builds.
+- ✅ **Data export** — exports profile and settings, chats and their messages, every memory row
+  and memory area, todos, attachments, suggestions, daily usage, push devices (no token) and
+  product events as JSON via the native share sheet (`GET /auth/me/export`). Shows a progress
+  screen while the archive builds.
 - ✅ **Account deletion** — permanently deletes the account and all its data (`DELETE /auth/me`),
-  then signs out.
+  then signs out: rows, stored files, and (in the worker's `storage_sweep`) every Redis key
+  that names the user.
 - ✅ **Language / i18n** — `react-i18next` with English, Spanish, French, Amharic, German, Italian, Portuguese, Russian, and Turkish.
 - ✅ **Dark / light theme** — screens use `useTheme()` with system or manual appearance in
   Settings → Appearance.
