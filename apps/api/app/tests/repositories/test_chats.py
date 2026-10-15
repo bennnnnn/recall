@@ -230,3 +230,27 @@ def test_group_by_recency_uses_user_timezone():
     assert utc_groups["yesterday"] == []
     assert len(la_groups["yesterday"]) == 1
     assert la_groups["today"] == []
+
+
+def test_recent_chat_cache_forgets_chats_nobody_reads_again(monkeypatch):
+    """A created chat used to stay in the process for good: its entry left only
+    when that same chat was read again after the TTL, so the cache grew by one
+    chat (about 1.5 KB) per chat ever created."""
+    import time
+
+    from app.models.orm import Chat
+    from app.repositories import chats as chats_repo
+
+    chats_repo._chat_cache.clear()
+    now = [time.monotonic()]
+    monkeypatch.setattr(time, "monotonic", lambda: now[0])
+    for _ in range(50):
+        chats_repo._remember_chat(Chat(id=uuid4(), user_id=uuid4(), model="auto"))
+    now[0] += chats_repo._CHAT_CACHE_TTL_SECONDS + 1
+    fresh = Chat(id=uuid4(), user_id=uuid4(), model="auto")
+    chats_repo._remember_chat(fresh)
+
+    assert len(chats_repo._chat_cache) == 1
+    assert chats_repo.peek_recent_chat(fresh.id, fresh.user_id) is fresh
+    assert chats_repo.peek_recent_chat(fresh.id, uuid4()) is None
+    chats_repo._chat_cache.clear()

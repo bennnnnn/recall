@@ -365,7 +365,23 @@ def write_report(results: list[tuple[Case, Turn]], out_dir: Path, api: str) -> P
         )
         + "\n"
     )
+    _prune_old_reports(out_dir)
     return report
+
+
+# Each run adds about 80 KB, and nothing removed old runs.
+_KEEP_REPORTS = 20
+
+
+def _prune_old_reports(out_dir: Path) -> None:
+    """Keep the newest reports; only names this script writes are touched."""
+    stamps = sorted(
+        (path.stem for path in out_dir.glob("*.md") if re.fullmatch(r"\d{8}-\d{6}", path.stem)),
+        reverse=True,
+    )
+    for stamp in stamps[_KEEP_REPORTS:]:
+        for suffix in (".md", ".json"):
+            (out_dir / f"{stamp}{suffix}").unlink(missing_ok=True)
 
 
 def main() -> int:

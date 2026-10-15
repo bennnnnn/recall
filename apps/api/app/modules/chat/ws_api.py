@@ -9,6 +9,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from pydantic import ValidationError
+from starlette.websockets import WebSocketState
 
 from app.core import access_tokens
 from app.core.background_tasks import create_background_task
@@ -511,8 +512,13 @@ async def chat_websocket(
                 return
             except RuntimeError as exc:
                 # Disconnect already consumed by the stream loop (New chat
-                # closes the socket while tokens are still being generated).
-                if "disconnect" in str(exc).lower():
+                # closes the socket while tokens are still being generated),
+                # or a send to a client that vanished without a close frame
+                # already marked the socket closed.
+                if (
+                    "disconnect" in str(exc).lower()
+                    or websocket.application_state == WebSocketState.DISCONNECTED
+                ):
                     logger.info("WebSocket disconnected chat_id=%s", chat_id)
                     return
                 raise

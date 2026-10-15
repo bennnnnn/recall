@@ -89,6 +89,53 @@ async def test_ws_disconnect_before_auth_is_a_normal_close():
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
+    "error, socket_closed, ends_quietly",
+    [
+        # The stream loop already received the client's disconnect.
+        (
+            RuntimeError('Cannot call "receive" once a disconnect message has been received.'),
+            False,
+            True,
+        ),
+        # A send to the dropped client already marked the socket closed.
+        (
+            RuntimeError('WebSocket is not connected. Need to call "accept" first.'),
+            True,
+            True,
+        ),
+        (RuntimeError("something else broke"), False, False),
+    ],
+)
+async def test_ws_receive_after_client_dropped_mid_stream(error, socket_closed, ends_quietly):
+    """A client that vanishes mid-reply (no close frame) used to end in an
+    unhandled RuntimeError: every abrupt disconnect logged an ASGI traceback."""
+    from starlette.websockets import WebSocketState
+
+    from app.modules.chat.ws_api import chat_websocket
+
+    socket = AsyncMock()
+    socket.application_state = (
+        WebSocketState.DISCONNECTED if socket_closed else WebSocketState.CONNECTED
+    )
+    socket.receive_json.side_effect = [{"token": "t"}, error]
+    with (
+        patch("app.modules.chat.ws_api._ws_handshake_rate_limit", AsyncMock(return_value=True)),
+        patch("app.modules.chat.ws_api._ws_connect_rate_limit", AsyncMock(return_value=True)),
+        patch("app.modules.chat.ws_api.get_redis_client", return_value=AsyncMock()),
+        patch(
+            "app.modules.chat.ws_api.access_tokens.verify_access_token",
+            AsyncMock(return_value=uuid4()),
+        ),
+    ):
+        if ends_quietly:
+            await chat_websocket(socket, uuid4())
+        else:
+            with pytest.raises(RuntimeError, match="something else broke"):
+                await chat_websocket(socket, uuid4())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
     "invalid_frame", [json.JSONDecodeError("bad JSON", "{", 1), KeyError("text")]
 )
 async def test_ws_invalid_frame_during_stream_keeps_producer_owned(invalid_frame):
