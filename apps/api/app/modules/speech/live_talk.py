@@ -16,6 +16,7 @@ from app.core.db import SessionLocal
 from app.models.orm import Message, User
 from app.modules import todos as todos_service
 from app.modules.chat import needs_generated_title
+from app.modules.memory import memory_extract_user_text
 from app.modules.speech.service import LIVE_TALK_ALIAS
 from app.modules.todos.service import list_owned_todos
 from app.repositories import chats as chats_repo
@@ -383,20 +384,34 @@ async def _enqueue_live_talk_jobs(
                 f"topic:{chat_id}",
             )
         )
-    if user.memory_enabled and user_text:
+    # Same rule as a typed turn: memory learns from the user's own words. The
+    # spoken reply may repeat a web result (the voice web_search tool), and an
+    # assistant line must never become a durable fact about the user.
+    memory_user_text = memory_extract_user_text(user_text)
+    if user.memory_enabled and memory_user_text:
         specs.append(
             (
                 "memory",
                 {
                     "user_id": str(user.id),
                     "chat_id": str(chat_id),
-                    "transcript": cap_text_head_tail(transcript, _MEMORY_TRANSCRIPT_MAX_CHARS),
+                    "transcript": cap_text_head_tail(
+                        f"User: {memory_user_text}", _MEMORY_TRANSCRIPT_MAX_CHARS
+                    ),
                     "assistant_message_id": turn_key,
                 },
                 f"memory:{turn_key}",
             )
         )
-    if reminder_applied <= 0 and todos_service.should_recover_todo_writes(user_text, transcript):
+    # The background repair reads the spoken reply too and writes without a
+    # card, so it stays off while reminder changes wait for the user's tap
+    # (as in chat's post_turn). A reminder the user said with a clock is
+    # still applied from their own words in persist_live_talk_turn.
+    if (
+        not settings.reminder_proposals_enabled
+        and reminder_applied <= 0
+        and todos_service.should_recover_todo_writes(user_text, transcript)
+    ):
         specs.append(
             (
                 "todos",
