@@ -11,7 +11,7 @@ from app.modules.physics.extract import extract_physics_intent, needs_physics
 from app.modules.physics.reply_policy import PHYSICS_REPLY_POLICY
 from app.modules.physics.schemas import PhysicsIntent
 from app.services.solving import VerifiedPhysicsBlock, wrap_verified_physics
-from app.services.workout import WORKOUT_PARTS_PROMPT
+from app.services.workout import SELF_CHECK_PROMPT_RULE, WORKOUT_PARTS_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -26,7 +26,8 @@ def _unverified_physics_note() -> str:
         "graph, or simulation fences.\n\n"
         f"{PHYSICS_REPLY_POLICY} {WORKOUT_PARTS_PROMPT}\n\n"
         "No verified numbers were produced for this request, so the copy-verified "
-        "rule does not apply. Compute the result and write it under Answer."
+        "rule does not apply. Compute the result and write it under Answer. "
+        f"{SELF_CHECK_PROMPT_RULE}"
     )
 
 

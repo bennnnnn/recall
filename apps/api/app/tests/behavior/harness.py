@@ -34,6 +34,7 @@ from app.modules.images.lookup_intent import dated_lookup_query, extract_image_l
 from app.modules.web_search.detection import needs_web_search
 from app.services.subject_solving import detect_subject
 from app.services.tool_loop import _search_before_the_model
+from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
 
 EMOJI_RULE = "Do not decorate with emoji unless the user used them."
@@ -65,6 +66,8 @@ HINTS: dict[str, str] = {
     "code_ink": pc.CODE_INK_REMINDER,
     "standing_preference": pc.STANDING_PREFERENCE_HINT,
     "personal_disclosure": pc.PERSONAL_DISCLOSURE_HINT,
+    # A STEM reply the model works out itself checks its own answer first.
+    "self_check": SELF_CHECK_PROMPT_RULE,
 }
 
 USER_NAME = "Bini"
