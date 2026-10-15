@@ -13,7 +13,11 @@ from app.modules.math.reply_policy import MATH_REPLY_POLICY
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import augment_prompt_messages, needs_symbolic_math
 from app.services.tool_loop import run_tool_rounds
-from app.services.workout import MATH_WORKOUT_PROMPT_RULE, WORKOUT_PROMPT_RULE
+from app.services.workout import (
+    MATH_WORKOUT_PROMPT_RULE,
+    SELF_CHECK_PROMPT_RULE,
+    WORKOUT_PROMPT_RULE,
+)
 
 
 def _messages(query: str, style: str = "balanced") -> list[dict[str, Any]]:
@@ -109,7 +113,8 @@ async def test_failed_solver_ends_with_concise_guidance_and_preserves_honesty() 
     content = prepared[-2]["content"]
     assert "Do NOT claim the answer was verified" in content
     assert "show your work" not in content
-    assert content.endswith(MATH_REPLY_POLICY)
+    # Unverified working checks itself before its Answer.
+    assert content.endswith(f"{MATH_REPLY_POLICY} {SELF_CHECK_PROMPT_RULE}")
 
 
 @pytest.mark.asyncio

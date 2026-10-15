@@ -22,6 +22,7 @@ from app.modules.chemistry.request import (
     is_chemistry_question,
 )
 from app.modules.chemistry.smiles import MAX_SMILES_LENGTH
+from app.services.workout import SELF_CHECK_PROMPT_RULE, WORKOUT_PROMPT_RULE
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +226,8 @@ def unverified_chemistry_note() -> str:
     return (
         "Chemistry note: a chemistry calculation was detected, but no complete "
         "verified result is available. Do not claim verification or invent the "
-        "missing value. Do not emit answer, smiles, or chem_scene fences."
+        "missing value. Do not emit answer, smiles, or chem_scene fences.\n\n"
+        f"For a calculation: {WORKOUT_PROMPT_RULE} {SELF_CHECK_PROMPT_RULE}"
     )
 
 

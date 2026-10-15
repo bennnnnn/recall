@@ -500,6 +500,16 @@ async def enrich_final_content(
 
             assistant_text = append_unverified_chemistry_note(assistant_text)
 
+        # Working the model wrote with no verified result behind it: a slip in one
+        # multiplication carries into the answer, so name the first one.
+        if not server_text and ctx.verified_subject is None and not was_cancelled:
+            from app.services.working_check import is_worked_solution, working_note
+
+            if ctx.solver_unverified is True or is_worked_solution(assistant_text):
+                note = working_note(assistant_text)
+                if note:
+                    assistant_text = f"{assistant_text.rstrip()}\n\n{note}"
+
         # A graph drawn in text characters on a graph turn: the prompt forbids
         # it, and the phone shows it as broken rows of symbols.
         from app.modules.math.text_plot import strip_text_plots_on_graph_turn

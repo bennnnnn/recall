@@ -10,6 +10,7 @@ from app.modules.physics.reply_policy import (
     PHYSICS_REPLY_POLICY,
     PHYSICS_SHORT_HINT,
 )
+from app.services.workout import SELF_CHECK_PROMPT_RULE
 
 
 def test_physics_prompt_names_its_subject_and_not_math() -> None:
@@ -37,7 +38,9 @@ def test_unverified_physics_note_must_finish_the_answer() -> None:
     assert "finish under Answer" in note
     assert "Never end on the Answer heading" in note
     assert "solve only one fragment" not in note
-    assert note.rstrip().endswith("Compute the result and write it under Answer.")
+    assert "Compute the result and write it under Answer." in note
+    # Unverified working checks itself before its Answer.
+    assert note.rstrip().endswith(SELF_CHECK_PROMPT_RULE)
 
 
 def test_physics_working_contract_is_explicit_and_ordered() -> None:

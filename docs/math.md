@@ -219,6 +219,26 @@ solver, and tests. New physics homework uses the equivalent physics-owned regist
 subject adds a branch to the other's registry. `math/tools` is a package (`extract.py` registry,
 `block/` builders, `school.py` extra kinds) — do not add a second math kind table.
 
+## When no verified result stands behind the reply
+
+Maths, physics and chemistry share one contract for a reply the model works out itself
+(`services/workout.py`):
+- **Layout:** the same headings as a verified reply (Given, Find, Formula, Substitution or
+  numbered moves, Answer).
+- **Self-check:** `SELF_CHECK_PROMPT_RULE` tells it to check the result before **Answer**: put it
+  back into the formula, redo each multiplication, and check the units and size. It may add a
+  one-line **Check**, never a ✓.
+
+The server then recomputes the working (`services/working_check.py`):
+- **What it checks:** every `$...$` equality whose two sides are plain numbers once units are
+  dropped, on unverified STEM turns and on any worked solution.
+- **What it reports:** the first step off by more than its rounding and 1% gets one line under
+  the reply, "Check this step: $3.2 \times 4.5 = 14.4$, not $14.8$."
+- **What it leaves alone:** variables, unit conversions, prefix steps (≈ 4.5 MJ), percents and
+  degrees.
+- **Measured:** on 5,896 corpus replies it raised no false alarm, and it caught every slip
+  injected into server-written working.
+
 ## STEM sweep
 
 `apps/api/app/tests/behavior/stem_corpus/math/` holds 458 turns: the 432 from the September

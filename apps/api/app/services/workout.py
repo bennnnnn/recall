@@ -221,3 +221,15 @@ WORKOUT_PROMPT_SHORT = (
 # Questions in parts and upright units, for a reply the model writes with no
 # verified block to copy (the short rule above has no room for them).
 WORKOUT_PARTS_PROMPT = f"{_WORKOUT_PARTS} {_WORKOUT_UNITS}"
+
+# A reply the model works out itself has no server check behind it, so it checks
+# its own answer before writing it, and shows that check when one line can.
+SELF_CHECK_PROMPT_RULE = (
+    "No server check stands behind this answer, so check it yourself before you write "
+    "**Answer**: put the result back into the formula or the original equation, redo "
+    "every multiplication and division, and check the units and that the size makes "
+    "sense. If a check fails, fix the working first; never show a line you know is "
+    "wrong. When one line can show the check, add **Check** after **Answer** with that "
+    "line (`$2(8) + 5 = 21$`); otherwise leave it out. Never mark the check with ✓ and "
+    "never call the result verified."
+)

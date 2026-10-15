@@ -290,6 +290,24 @@ CASES: tuple[Case, ...] = (
             ("assistant", "**Answer**\n\n```answer\nverified: true\n15\\,\\mathrm{m/s}\n```"),
         ),
     ),
+    Case(
+        "physics-unverified-self-check",
+        "physics",
+        "Two 6 ohm resistors in parallel are in series with a 3 ohm resistor across a 12 V "
+        "battery. Find the current from the battery.",
+        # Series-parallel networks stay with the model: it uses the same layout and
+        # checks its own answer, since no server check stands behind it.
+        Expect(subject="physics", solved=False, hints=("self_check",)),
+        "Given/Find/Formula/Substitution/Answer: R = 3 + 3 = 6 Ω, I = 12/6 = 2 A, then a "
+        "one-line Check. Never a ✓ and never 'verified'.",
+    ),
+    Case(
+        "physics-verified-no-self-check",
+        "physics",
+        "a ball is dropped from 45 m. how long until it hits the ground?",
+        Expect(subject="physics", solved=True, no_hints=("self_check",)),
+        "About 3.03 s from t = √(2h/g), copied from the verified card.",
+    ),
     # ── Chemistry ───────────────────────────────────────────────────────────
     Case(
         "chem-balance",
@@ -325,6 +343,14 @@ CASES: tuple[Case, ...] = (
         "show me the structure of caffeine",
         Expect(subject="chemistry", photo=NO_PHOTO),
         "The caffeine molecule drawn from its SMILES, not a stock photo.",
+    ),
+    Case(
+        "chemistry-unverified-self-check",
+        "chemistry",
+        "Balance the redox reaction MnO4- + Fe2+ -> Mn2+ + Fe3+ in acidic solution.",
+        Expect(subject="chemistry", solved=False, hints=("self_check",)),
+        "Half-reactions, electrons balanced, then a Check that atoms and charge match on "
+        "both sides. Never a ✓.",
     ),
     # ── Web search ──────────────────────────────────────────────────────────
     Case(
