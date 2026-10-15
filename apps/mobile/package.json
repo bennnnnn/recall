@@ -85,7 +85,7 @@
     "@jest/globals": "^30.5.0",
     "@react-native/jest-preset": "0.86.0",
     "@react-native/metro-config": "0.86.0",
-    "@testing-library/react-native": "^14.0.1",
+    "@testing-library/react-native": "^14.1.0",
     "@types/jest": "^30.0.0",
     "@types/markdown-it": "^14.1.2",
     "@types/prismjs": "^1.26.6",
