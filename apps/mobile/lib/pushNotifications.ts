@@ -115,34 +115,72 @@ export async function registerRemotePushToken(
  * continues sending them notifications. Best-effort: a network failure here
  * doesn't block the pref change (the next foreground sync retries).
  */
-export async function unregisterRemotePushToken(apiToken: string): Promise<void> {
-  if (Platform.OS === "web") return;
+export async function unregisterRemotePushToken(apiToken: string): Promise<boolean> {
+  if (Platform.OS === "web") return true;
   const expoPushToken = await resolveExpoPushToken();
-  if (!expoPushToken) return;
+  if (!expoPushToken) return false;
   try {
     await api.unregisterPushToken(apiToken, { expo_push_token: expoPushToken });
+    return true;
   } catch {
     /* best-effort */
+    return false;
   }
 }
 
+/**
+ * The background sync runs on launch, on every access-token refresh (the
+ * effect re-attaches hourly) and on every return to the app. Each run asked
+ * Expo's push service for the token and posted it to our API. After a sync
+ * succeeds for this sign-in and setting, later runs only re-check the OS
+ * permission (local) until this long has passed; a failure retries next time.
+ */
+const PUSH_RESYNC_INTERVAL_MS = 12 * 60 * 60_000;
+let lastPushSync: { session: number; enabled: boolean; at: number } | null = null;
+
+function pushSyncIsFresh(session: number | undefined, enabled: boolean): boolean {
+  return (
+    session !== undefined &&
+    lastPushSync != null &&
+    lastPushSync.session === session &&
+    lastPushSync.enabled === enabled &&
+    Date.now() - lastPushSync.at < PUSH_RESYNC_INTERVAL_MS
+  );
+}
+
+/**
+ * `session` is the caller's session generation. Another account signing in
+ * on this device rebinds the token, so a sync never counts across sign-ins;
+ * without it every run syncs.
+ */
 export function attachPushForegroundSync(
   apiToken: string | null,
   pushNotificationsEnabled: boolean,
   onPushPrefChange?: (enabled: boolean) => void,
+  session?: number,
 ): () => void {
   if (!apiToken) return () => {};
 
-  const sync = () => {
-    if (pushNotificationsEnabled) {
-      void registerRemotePushToken(apiToken, true)
-        .then((result) => {
-          if (result === "disabled_permission") onPushPrefChange?.(false);
-        })
-        .catch(() => {});
-    } else {
-      void unregisterRemotePushToken(apiToken);
+  const syncNow = async () => {
+    const enabled = pushNotificationsEnabled;
+    if (pushSyncIsFresh(session, enabled)) {
+      // Turning the permission off in Settings must still reach the server.
+      if (!enabled || (await getNotificationPermissionGranted())) return;
     }
+    lastPushSync = null;
+    const remember = () => {
+      if (session !== undefined) lastPushSync = { session, enabled, at: Date.now() };
+    };
+    if (enabled) {
+      const result = await registerRemotePushToken(apiToken, true);
+      if (result === "registered") remember();
+      if (result === "disabled_permission") onPushPrefChange?.(false);
+    } else if (await unregisterRemotePushToken(apiToken)) {
+      remember();
+    }
+  };
+  const sync = () => {
+    void syncNow().catch(() => {});
   };
 
   // Register when enabled, unregister when disabled — so toggling the pref
