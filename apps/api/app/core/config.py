@@ -48,6 +48,16 @@ class Settings(BaseSettings):
     attachment_ocr_index_timeout_seconds: float = 120.0
     attachment_ocr_page_timeout_seconds: float = 12.0
     attachment_ocr_render_scale: float = 1.5
+    # Pixel budget per rendered PDF page. The scale above applied to any page
+    # size, so a 435-byte PDF with one 14400x14400 pt page rendered a ~2 GB
+    # bitmap (5.1 GB peak RSS locally) on a 512 MB machine. Oversized pages
+    # are scaled down to this budget; a letter page at 1.5x is ~1.1 MP.
+    attachment_ocr_max_page_pixels: int = 4_000_000
+    # Largest image (pixels actually decoded) a gallery thumbnail will decode.
+    # JPEG decodes at a reduced scale first, so big photos still work; a
+    # lossless image past this is refused (422) instead of decoding hundreds
+    # of MB from a sub-MB file. 0 disables.
+    attachment_image_max_decode_pixels: int = 16_000_000
     semantic_memory_enabled: bool = True
     # Model-initiated LiteLLM tools= loop. Ordinary chat streams immediately;
     # the loop runs only when the turn still looks like search / unsolved math /

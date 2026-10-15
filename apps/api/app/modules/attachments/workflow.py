@@ -1,5 +1,6 @@
 """Attachment gallery, upload verification, and download policy."""
 
+import asyncio
 import logging
 from collections.abc import AsyncIterator
 from dataclasses import dataclass
@@ -304,7 +305,13 @@ async def get_file_access(
             await _drop_row_for_missing_file(session, row.id)
             raise AttachmentWorkflowError(404, "File missing")
         try:
-            body, content_type = resize_image_bytes(data, edge)
+            # Decoding is CPU-bound and can take seconds; keep it off the loop.
+            body, content_type = await asyncio.to_thread(
+                resize_image_bytes,
+                data,
+                edge,
+                max_pixels=settings.attachment_image_max_decode_pixels,
+            )
         except Exception:
             logger.exception("Thumbnail resize failed attachment_id=%s", attachment_id)
             raise AttachmentWorkflowError(422, "Could not resize image") from None
