@@ -336,6 +336,7 @@ async def revoke_session(
             user.id,
             session_id,
             current_session_id=current_id,
+            settings=settings,
         )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc

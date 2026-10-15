@@ -24,6 +24,7 @@ from app.core.access_tokens import create_access_token
 from app.core.access_tokens import is_access_revoked as is_access_revoked
 from app.core.access_tokens import redis_str as _redis_str
 from app.core.access_tokens import revoked_key as _revoked_key
+from app.core.access_tokens import revoked_session_key as _revoked_session_key
 from app.core.access_tokens import revoked_since_key as _revoked_since_key
 from app.core.access_tokens import verify_access_token as verify_access_token
 from app.core.config import Settings
@@ -399,7 +400,15 @@ async def revoke_session(
     session_id: str,
     *,
     current_session_id: str | None,
+    settings: Settings,
 ) -> None:
+    """Sign one other device out: its refresh token and its live access token.
+
+    Deleting only the refresh token left that device signed in until its
+    access token expired (up to ``jwt_expire_minutes``). Access tokens carry
+    the session id (``sid``), so the session is revoked by id for as long as
+    any of its access tokens can still be valid.
+    """
     if current_session_id and session_id == current_session_id:
         raise CurrentSessionError("Cannot revoke the current session")
     sessions = await list_sessions(redis, user_id, current_session_id=current_session_id)
@@ -407,4 +416,13 @@ async def revoke_session(
     if match is None:
         raise SessionNotFoundError("Session not found")
     refresh_token = str(match["_refresh_token"])
+    try:
+        await redis.set(
+            _revoked_session_key(session_id),
+            "1",
+            ex=max(60, settings.jwt_expire_minutes * 60),
+        )
+    except RedisError as exc:
+        logger.warning("Session revoke failed; Redis unavailable", exc_info=True)
+        raise RedisUnavailableError() from exc
     await revoke_refresh_token(redis, refresh_token)
