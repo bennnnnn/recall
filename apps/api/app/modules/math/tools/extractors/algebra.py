@@ -314,9 +314,37 @@ def oversized_system(text: str) -> bool:
     return len(math_solve.guess_variables(all_text)) >= 2
 
 
+_LONE_LETTER = re.compile(r"\s*[A-Za-z]\s*")
+_PLAIN_NUMBER = re.compile(
+    r"\s*[-+\u2212]?\s*(?:\d+(?:\.\d+)?|\.\d+)(?:\s*/\s*(?:\d+(?:\.\d+)?|\.\d+))?\s*"
+)
+# ``Ka``, ``pH``, ``Ksp``: a named constant is one quantity, not ``K`` times ``a``.
+_NAMED_CONSTANT = re.compile(r"\s*(?:[A-Z][a-z]{1,2}|p[A-Z][a-z]?|p[A-Z]{1,2})\s*")
+
+
+def already_solved(lhs: str, rhs: str) -> bool:
+    """``x = 6`` (or ``6 = x``) states a value; solving it certifies the claim.
+
+    A student's own answer typed back must be checked against the problem it
+    answers, never "verified" by solving it again.
+    """
+    return bool(
+        (_LONE_LETTER.fullmatch(lhs) and _PLAIN_NUMBER.fullmatch(rhs))
+        or (_LONE_LETTER.fullmatch(rhs) and _PLAIN_NUMBER.fullmatch(lhs))
+    )
+
+
+def _names_a_constant(lhs: str, rhs: str) -> bool:
+    return bool(_NAMED_CONSTANT.fullmatch(lhs) or _NAMED_CONSTANT.fullmatch(rhs))
+
+
 def _extract_system_intent(cleaned: str) -> MathIntent | None:
     eq_pairs = math_solve.try_extract_equations_from_text(cleaned)
     if len(eq_pairs) < 2:
+        return None
+    # ``x = 3, y = 1`` lists values. Nothing is left to solve, and solving
+    # it would certify whatever the values are.
+    if all(already_solved(lhs, rhs) for lhs, rhs in eq_pairs):
         return None
     # BUG FIX (most severe correctness bug found in the audit): this
     # used to fall through to the single-equation branch below, which
@@ -383,6 +411,8 @@ def _extract_equation_intent(cleaned: str) -> MathIntent | None:
     from app.modules.math.tools.helpers import math_expr_or_none
 
     if math_expr_or_none(lhs) is None or math_expr_or_none(rhs) is None:
+        return None
+    if already_solved(lhs, rhs) or _names_a_constant(lhs, rhs):
         return None
     if _leftover_prose_blocks_solve(probe, lhs, rhs):
         return None

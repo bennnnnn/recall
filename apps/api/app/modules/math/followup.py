@@ -219,6 +219,219 @@ def offered_equation_problem(query: str | None, recent: Sequence[Any]) -> str | 
     return problem
 
 
+_CLAIM_NUMBER = r"[-+]?\s*(?:\d+(?:\.\d+)?|\.\d+)(?:\s*/\s*\d+)?"
+_CLAIM_LEAD = re.compile(
+    r"^(?:(?:can|could)\s+you\s+|please\s+)?"
+    r"(?:(?:check|verify|mark)\s+(?:my|this|the)\s+(?:answer|solution|result|work)\s*[:,-]?\s*"
+    r"|my\s+answer\s+(?:is|was)\s*:?\s*|i\s+(?:got|get|found|have)\s*:?\s*"
+    r"|answer\s*:\s*|is\s+it\s+|is\s+|so\s+)",
+    re.IGNORECASE,
+)
+_CLAIM_TAIL = re.compile(
+    r"[,\s]*(?:is\s+(?:that|this|it)\s+(?:right|correct)|am\s+i\s+(?:right|correct)"
+    r"|right|correct)?\s*[?.!]*\s*$",
+    re.IGNORECASE,
+)
+_CLAIM = re.compile(
+    rf"(?P<var>[A-Za-z])\s*=\s*(?P<first>{_CLAIM_NUMBER})"
+    rf"(?P<more>(?:\s*(?:,|\bor\b|\band\b)\s*(?:(?P=var)\s*=\s*)?{_CLAIM_NUMBER})*)",
+)
+_MORE_VALUES = re.compile(_CLAIM_NUMBER)
+
+
+def _claimed_values(query: str) -> tuple[str, list[str]] | None:
+    """``check my answer: x = 6`` → ``("x", ["6"])``; anything more is not a bare claim."""
+    text = " ".join(query.split())
+    text = _CLAIM_LEAD.sub("", text, count=1)
+    text = _CLAIM_TAIL.sub("", text, count=1)
+    match = _CLAIM.fullmatch(text)
+    if match is None or match["var"] in {"e", "E", "i", "I"}:
+        return None
+    rest = re.sub(rf"(?:\b{match['var']}\s*=)", " ", match["more"] or "")
+    values = [match["first"], *_MORE_VALUES.findall(rest)]
+    cleaned = [value.replace(" ", "") for value in values]
+    if len(cleaned) > 4:
+        return None
+    return match["var"], cleaned
+
+
+def _markdown_free(text: str) -> str:
+    return text.replace("**", " ").replace("__", " ").replace("$", " ")
+
+
+def _one_equation_in(text: str, variable: str) -> tuple[str, str] | None:
+    """The single equation in one unknown that ``text`` states, or None."""
+    from app.modules.math.solve import guess_variables
+    from app.modules.math.solve.extract_eq import try_extract_equations_from_text
+    from app.modules.math.tools.extractors.algebra import already_solved
+
+    pairs = {
+        (lhs.strip(" *:"), rhs.strip(" *:."))
+        for lhs, rhs in try_extract_equations_from_text(_markdown_free(text))
+    }
+    if len(pairs) != 1:
+        return None
+    lhs, rhs = next(iter(pairs))
+    if not lhs or not rhs or already_solved(lhs, rhs):
+        return None
+    if guess_variables(f"{lhs} {rhs}") != [variable]:
+        return None
+    return lhs, rhs
+
+
+def answer_claim_problem(
+    query: str | None,
+    recent: Sequence[Any],
+    *,
+    blocked: Callable[[str], bool] | None = None,
+) -> str | None:
+    """A typed answer (``x = 6``) checked against the problem still open in the thread.
+
+    Solving ``x = 6`` on its own certified whatever the student typed. The
+    problem is the one equation the assistant just offered (a practice
+    problem), or else the equation in the user's last message. With no single
+    such equation the claim is not checked here; the model answers.
+    """
+    if not query or not recent:
+        return None
+    claim = _claimed_values(query)
+    if claim is None:
+        return None
+    variable, values = claim
+    assistant = _last_assistant_text(recent)
+    problem: tuple[str, str] | None = None
+    if assistant is not None and "```answer" not in assistant:
+        problem = _one_equation_in(assistant, variable)
+    if problem is None:
+        prior = _last_user_text(recent)
+        if prior is None or (blocked is not None and blocked(prior)):
+            return None
+        problem = _one_equation_in(prior, variable)
+    if problem is None:
+        return None
+    answer = " or ".join(f"{variable} = {value}" for value in values)
+    return f"check my work:\n{problem[0]} = {problem[1]}\n{answer}"
+
+
+def _last_user_text(recent: Sequence[Any]) -> str | None:
+    for message in reversed(recent):
+        if _message_field(message, "role") != "user":
+            continue
+        content = _message_field(message, "content")
+        if isinstance(content, str) and content.strip():
+            return content
+        return None
+    return None
+
+
+_PRONOUN_VERBS = {
+    "simplify": "simplify",
+    "factor": "factor",
+    "factorise": "factor",
+    "factorize": "factor",
+    "expand": "expand",
+    "differentiate": "differentiate",
+    "derive": "differentiate",
+    "integrate": "integrate",
+}
+_PRONOUN_REQUEST = re.compile(
+    r"^(?:(?:ok(?:ay)?|so|and|then|now|please|can\s+you|could\s+you|pls)[,\s]+)*"
+    r"(?:(?P<verb>simplify|factori[sz]e|factor|expand|differentiate|derive|integrate)\s+"
+    r"|(?:find\s+|what(?:'s|\s+is)\s+)?the\s+(?P<noun>derivative|integral)\s+of\s+)"
+    r"(?:it|this|that|this\s+expression|that\s+expression|the\s+expression|the\s+result)"
+    r"(?P<wrt>\s+(?:with\s+respect\s+to|wrt)\s+[a-z])?"
+    r"(?:[,\s]+(?:now|please|pls|too|again))*\s*[?.!]*$",
+    re.IGNORECASE,
+)
+_EXPRESSION_LEADS = re.compile(
+    r"^(?:(?:what|how)\s+about|what\s+is|what'?s|consider|take|here'?s|here\s+is|now|and|"
+    r"ok(?:ay)?|so)(?![a-z])[\s:,]*",
+    re.IGNORECASE,
+)
+
+
+def is_pronoun_math_request(query: str) -> bool:
+    """``simplify it`` / ``now integrate it``: an operation whose object is in the thread."""
+    return _PRONOUN_REQUEST.fullmatch(" ".join(query.split())) is not None
+
+
+# Operations that keep the value of what they act on. After "derivative of
+# x^3" (answer 3x^2), "integrate it" could mean either, so it is not resolved.
+_SAME_VALUE_OPERATIONS = frozenset({"simplify", "expand", "factor"})
+
+
+def _expression_in(text: str) -> str | None:
+    """The one expression a message is about: ``expand (x+1)^2`` → ``(x+1)^2``."""
+    from app.modules.math.tools.extract import extract_math_intent
+    from app.modules.math.tools.helpers import math_expr_or_none
+
+    if "=" in text or "<" in text or ">" in text:
+        return None
+    intent = extract_math_intent(text)
+    if intent is not None:
+        if intent.kind not in {"calculus", "arithmetic"} or not intent.expr:
+            return None
+        if intent.integral_lower is not None or intent.evaluation_point is not None:
+            return None
+        if intent.kind == "calculus" and (
+            intent.school_op is not None or intent.operation not in _SAME_VALUE_OPERATIONS
+        ):
+            return None
+        return intent.expr
+    body = " ".join(text.split()).strip().rstrip("?.!")
+    while True:
+        stripped = _EXPRESSION_LEADS.sub("", body, count=1)
+        if stripped == body:
+            break
+        body = stripped
+    expression = math_expr_or_none(body)
+    if expression is None or not re.search(r"[A-Za-z0-9]", expression):
+        return None
+    return expression if re.search(r"[-+*/^()]", expression) else None
+
+
+def pronoun_math_problem(
+    query: str | None,
+    recent: Sequence[Any],
+    *,
+    blocked: Callable[[str], bool] | None = None,
+) -> str | None:
+    """``simplify it`` → ``simplify (x^2-1)/(x-1)``, from the user's last expression.
+
+    Read alone, "it" was the product ``i t`` and got a verified card. With no
+    expression in the user's last message the request is not resolved, and
+    the model answers it.
+    """
+    if not query:
+        return None
+    match = _PRONOUN_REQUEST.fullmatch(" ".join(query.split()))
+    if match is None:
+        return None
+    verb_word = match["verb"]
+    if verb_word is not None:
+        verb = _PRONOUN_VERBS[verb_word.lower()]
+    else:
+        verb = "differentiate" if match["noun"].lower() == "derivative" else "integrate"
+    prior: str | None = None
+    for message in reversed(recent):
+        if _message_field(message, "role") != "user":
+            continue
+        content = _message_field(message, "content")
+        if not isinstance(content, str) or not content.strip():
+            return None
+        if is_pronoun_math_request(content):
+            # "simplify it" then "now factor it": the same expression.
+            continue
+        prior = content
+        break
+    if prior is None or (blocked is not None and blocked(prior)):
+        return None
+    expression = _expression_in(prior)
+    if expression is None:
+        return None
+    return f"{verb} {expression}{match['wrt'] or ''}"
+
+
 def readable_standalone_answer(content: str) -> str | None:
     """Keep only a complete, standalone owned answer as math, never fenced payloads.
 
