@@ -168,8 +168,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return current() ? loginWithGoogle(idToken) : null;
   }), [signIn]);
   const signInWithApple = useCallback(() => signIn(async (current) => {
-    const { idToken, name } = await signInWithAppleCredentials();
-    return current() ? loginWithApple(idToken, name) : null;
+    const { idToken, name, nonce } = await signInWithAppleCredentials();
+    return current() ? loginWithApple(idToken, name, nonce) : null;
   }), [signIn]);
   const signInWithDev = useCallback(() => signIn(() => loginWithDev()), [signIn]);
 
