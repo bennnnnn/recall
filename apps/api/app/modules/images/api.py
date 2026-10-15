@@ -5,7 +5,13 @@ from app.core.deps import get_current_user, get_settings_dep
 from app.models.orm import User
 from app.models.schemas.chats import MessageOut
 from app.modules.images import generation as image_generation_service
-from app.modules.images.schemas import ImageGenerateIn, ImageGenerateOut
+from app.modules.images.gen_intent import stem_subject
+from app.modules.images.schemas import (
+    ImageGenerateIn,
+    ImageGenerateOut,
+    ImageIntentIn,
+    ImageIntentOut,
+)
 
 ImageGenerateOut.model_rebuild(_types_namespace={"MessageOut": MessageOut})
 
@@ -36,3 +42,19 @@ async def generate_image(
         user_message=MessageOut.model_validate(user_message),
         assistant_message=MessageOut.model_validate(assistant_message),
     )
+
+
+@router.post("/intent", response_model=ImageIntentOut)
+async def image_intent(
+    body: ImageIntentIn,
+    _user: User = Depends(get_current_user),
+    settings: Settings = Depends(get_settings_dep),
+) -> ImageIntentOut:
+    """Whether maths, physics or chemistry owns text the phone would send to ``/generate``.
+
+    The phone's composer rules read "draw ethanol" as a picture and intercept it
+    before the chat path; it asks here first so it leaves the same turns to their
+    subject as the chat path's image intercept does.
+    """
+    subject = stem_subject(body.text, chemistry_enabled=settings.chemistry_enabled)
+    return ImageIntentOut(subject=subject)
