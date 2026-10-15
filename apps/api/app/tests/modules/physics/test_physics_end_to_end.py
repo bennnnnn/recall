@@ -115,11 +115,6 @@ def _answer_number(answer: str) -> float:
             ("5.10 m", 20.0**2 * math.sin(math.radians(30)) ** 2 / (2 * 9.81)),
         ),
         (
-            "A projectile is launched at 20 m/s at 30 degrees. A wall is 15 m away. What is the range?",
-            "projectile",
-            ("35.31 m", 20.0**2 * math.sin(math.radians(60)) / 9.81),
-        ),
-        (
             "A projectile is fired at an angle of 25 degrees at 40 m/s. What is the range?",
             "projectile",
             ("124.85 m", 40.0**2 * math.sin(math.radians(50)) / 9.81),

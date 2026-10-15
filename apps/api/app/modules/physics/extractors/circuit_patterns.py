@@ -111,8 +111,38 @@ _RESISTOR_LIST_RE = re.compile(
 )
 
 
+_COUNT_WORDS = {"two": 2, "three": 3, "four": 4, "five": 5, "six": 6}
+# "three 9 Ω resistors", "two identical 10 ohm resistors": one value, stated once.
+_COUNTED_RESISTORS_RE = re.compile(
+    r"\b(two|three|four|five|six)\s+(?:identical\s+|equal\s+)?"
+    r"(\d+(?:\.\d+)?)\s*(?:ohms?|Ω)\s+resistors\b",
+    re.IGNORECASE,
+)
+_MAX_COUNTED_RESISTORS = 6
+
+
+def counted_resistors(text: str) -> tuple[int, float] | None:
+    """(count, value) of identical resistors named by a count word, or None."""
+    found = list(_COUNTED_RESISTORS_RE.finditer(text))
+    if len(found) != 1:
+        return None
+    return _COUNT_WORDS[found[0].group(1).lower()], float(found[0].group(2))
+
+
 def _resistor_values(text: str) -> list[float]:
-    """Every resistance in a network, however the units are distributed."""
+    """Every resistance in a network, however the units are distributed.
+
+    A count word repeats its value: "three 9 Ω resistors" are 9, 9 and 9 Ω.
+    Read as one 9 Ω resistor, a parallel bank across 6 V drew 0.667 A, not 2 A.
+    """
+    counted = counted_resistors(text)
+    if counted is not None:
+        count, value = counted
+        others = _ordered_values(text, _OHM_PATTERN)
+        if len(others) != 1:
+            # Other resistors beside the counted ones: a network this does not read.
+            return []
+        return [value] * count
     listed = _RESISTOR_LIST_RE.search(text)
     if listed is not None:
         return [float(n) for n in re.findall(r"\d+(?:\.\d+)?", listed.group(1))]

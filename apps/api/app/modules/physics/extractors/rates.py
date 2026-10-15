@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import re
 
+from app.modules.physics.catalog.kinematics import CLOSED_PATH, ONE_TURN
+from app.modules.physics.catalog.suvat import TWO_BODIES
 from app.modules.physics.schemas import PhysicsIntent
+from app.services.law_binding.words import word_pattern
 from app.services.unit_text import LENGTH_UNITS, QUANTITY_NUMBER, TIME_UNITS, unit_after_quantity
+
+_VELOCITY_ASK_RE = re.compile(r"\bvelocit(?:y|ies)\b")
 
 _RATE_CUES = (
     "average speed",
@@ -29,6 +34,15 @@ def extract_rate_intent(cleaned: str) -> PhysicsIntent | None:
     if _STOP_OR_BRAKE_RE.search(cleaned):
         return None
     lower = cleaned.lower()
+    # A length covered once a turn is a radius, not the distance (2πr), and two
+    # bodies' speeds are not one speed. Neither is d = vt.
+    if any(word_pattern(phrase).search(lower) for phrase in (*ONE_TURN, *TWO_BODIES)):
+        return None
+    # A lap ends where it began: its average velocity is zero, not d/t.
+    if _VELOCITY_ASK_RE.search(lower) and any(
+        word_pattern(phrase).search(lower) for phrase in CLOSED_PATH
+    ):
+        return None
     if not any(word in lower for word in ("speed", "velocity", "distance", "how far", "how long")):
         return None
 
