@@ -405,7 +405,7 @@ def peel_function_definition(expr: str) -> str:
 
 
 # "simplify it": a pronoun, not the product ``i t``.
-_PRONOUN_EXPR = re.compile(r"\s*(?:it|its|it's)\s*[.?!]*\s*", re.IGNORECASE)
+_PRONOUN_EXPR = re.compile(r"^\s*(?:it|its|it's)\s*(?:[.?!]+\s*)?", re.IGNORECASE)
 
 
 def math_expr_or_none(expr: str) -> str | None:

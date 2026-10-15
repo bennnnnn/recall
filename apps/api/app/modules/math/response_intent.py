@@ -384,7 +384,7 @@ def strip_math_response_wrappers(text: str) -> str:
     # ("answer; no graph and no steps" -> "; and ."). Remove that tail as
     # presentation debris, not as part of the mathematical expression.
     result = re.sub(
-        r"(?:\s*[ :;,.?]+\s*)?\b(?:and|then)\s*[ :;,.?]*$",
+        r"\b(?:and|then)[ :;,.?]*$",
         "",
         result,
         flags=re.IGNORECASE,

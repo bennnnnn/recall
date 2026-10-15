@@ -60,7 +60,7 @@ _ASK = re.compile(
     re.IGNORECASE,
 )
 _PREFIX = re.compile(r"^\s*(?:given\s*:?\s*)?", re.IGNORECASE)
-_SEPARATOR = re.compile(r"^[\s,;]*(?:and\s+)?[\s,;]*$|^[\s,;.]*$", re.IGNORECASE)
+_SEPARATOR = re.compile(r"^[\s,;]*(?:and\s[\s,;]*)?$|^[\s,;.]*$", re.IGNORECASE)
 _MAX_GIVENS = 6
 
 

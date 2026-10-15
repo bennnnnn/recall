@@ -139,7 +139,7 @@ def _salt(cation: Ion, anion: Ion) -> Salt:
 def salt_from_name(name: str) -> Salt | None:
     """ "calcium nitrate" → Ca(NO3)2; "iron(III) sulfate" → Fe2(SO4)3. None off the table."""
     words = " ".join(_ALIASES.get(word, word) for word in name.lower().split())
-    words = re.sub(r"\s*\(\s*([ivx]+)\s*\)", lambda match: f"({match.group(1).upper()})", words)
+    words = re.sub(r"\s?\(\s*([ivx]+)\s*\)", lambda match: f"({match.group(1).upper()})", words)
     for anion in sorted(_ANIONS, key=lambda ion: len(ion.name), reverse=True):
         if not words.endswith(" " + anion.name):
             continue
@@ -147,7 +147,7 @@ def salt_from_name(name: str) -> Salt | None:
         fixed = next((ion for ion in _FIXED_CATIONS if ion.name == head), None)
         if fixed is not None:
             return _salt(fixed, anion)
-        match = re.fullmatch(r"([a-z]+)\(([IVX]+)\)", head)
+        match = re.fullmatch(r"^([a-z]+)\(([IVX]+)\)", head)
         if match is None:
             return None
         symbol = next(

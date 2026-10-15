@@ -375,7 +375,7 @@ def fix_leading_solve_typo(text: str) -> str:
 
 
 # Clauses of a typed system: "x+y=5, x-y=1", "3x+2y=12 and x-y=1".
-_SYSTEM_CLAUSE_SPLIT = re.compile(r"\s*(?:[,;]|\band\b)\s*", re.IGNORECASE)
+_SYSTEM_CLAUSE_SPLIT = re.compile(r"(?:[,;]|\band\b)\s*", re.IGNORECASE)
 # An equation with a term in it, not only "x = 1".
 _EQUATION_TERM = re.compile(r"[+\-*/^]|\d\s*[a-zA-Z]")
 _MAX_BARE_SYSTEM = 4
@@ -441,7 +441,7 @@ def fold_digit_groups(text: str) -> str:
 
 # ``1.8 x 10^-5``: the x is "times", never an unknown.
 _SCIENTIFIC = re.compile(
-    r"(?<![\w.])(\d+(?:\.\d+)?)\s*[xX]\s*10\s*\^\s*"
+    r"\b(?<!\.)(\d+(?:\.\d+)?)\s*[xX]\s*10\s*\^\s*"
     r"(?:\{\s*([+\-\u2212]?\d+)\s*\}|\(\s*([+\-\u2212]?\d+)\s*\)|([+\-\u2212]?\d+))"
     r"(?![\d.])"
 )

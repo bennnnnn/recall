@@ -144,7 +144,7 @@ def _power_exponent(token: str) -> int | None:
     lower = token.lower()
     if lower in _POWER_ORDINALS:
         return _POWER_ORDINALS[lower]
-    ordinal = re.fullmatch(r"(\d+)(?:st|nd|rd|th)", lower)
+    ordinal = re.fullmatch(r"^(\d+)(?:st|nd|rd|th)", lower)
     raw = ordinal.group(1) if ordinal is not None else lower
     if not raw.isdigit():
         return None

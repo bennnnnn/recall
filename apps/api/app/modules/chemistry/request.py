@@ -68,7 +68,7 @@ _STRONG_CUE = re.compile(
     r"molarity|molality|mole\s+fraction|formula\s+units?|M1V1|mass\s+percent|pOH|"
     r"parts\s+per\s+(?:million|billion)|(?:ppm|ppb)(?=\s+of\b)|"
     r"volume\s+percent|percent(?:age)?\s+by\s+(?:volume|mass)|mass/volume\s+percent|"
-    r"%\s*\(?\s*(?:by\s+(?:mass|volume)|w/w|m/m|v/v|w/v|m/v)|"
+    r"%\s*(?:\(\s*)?(?:by\s+(?:mass|volume)|w/w|m/m|v/v|w/v|m/v)|"
     r"thermochem\w*|enthalpy|specific\s+heat|calorimet\w*|"
     r"reaction\s+quotient|equilibrium\s+(?:constant|expression)|ice\s+(?:table|equilibrium)|"
     r"rate\s+(?:constant|law)|first[- ]order|second[- ]order|zero[- ]order|arrhenius|"
@@ -148,11 +148,11 @@ _ELEMENT_IN_SAMPLE = re.compile(
     + r")\s+(?:(?:is|are)\s+)?(?:there\s+)?(?:present\s+|contained\s+)?in\b",
     re.IGNORECASE,
 )
-_MOLAR_SOLUTION = re.compile(r"(?<![\w.])\d+(?:\.\d+)?\s*M\s+([A-Z][A-Za-z0-9()]*)")
+_MOLAR_SOLUTION = re.compile(r"\b(?<!\.)\d+(?:\.\d+)?\s*M\s+([A-Z][A-Za-z0-9()]*)")
 # A stock of a stated molarity: "a 6.0 M stock solution", "12 M HCl stock". "3 M Company stock"
 # is a share price.
 _MOLAR_STOCK = re.compile(
-    r"(?<![\w.])\d+(?:\.\d+)?\s*M\s+(?:(?P<formula>[A-Z][A-Za-z0-9()]*)\s+)?stock(?P<solution>\s+solution)?\b"
+    r"\b(?<!\.)\d+(?:\.\d+)?\s*M\s+(?:(?P<formula>[A-Z][A-Za-z0-9()]*)\s+)?stock(?P<solution>\s+solution)?\b"
 )
 
 
@@ -219,7 +219,7 @@ def _particles_of_substance(text: str) -> bool:
 _NAMED = tuple(NAMED_COMPOUNDS)
 # Particles of a compound written as a formula: "How many molecules are in 10 g of CO2?".
 _PARTICLE_WORD = re.compile(r"\b(?:atoms?|molecules?|formula\s+units?)\b", re.IGNORECASE)
-_FORMULA_WORD = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])")
+_FORMULA_WORD = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)")
 
 
 # "What % of Fe2O3 is iron?": an element's share of a compound written as a formula.
@@ -248,7 +248,7 @@ _GAS_NAMES = frozenset(
     }
 )
 _GAS_PRESSURE = re.compile(
-    r"(?<![A-Za-z0-9])(?:P\()?([A-Za-z][A-Za-z0-9]*)\)?\s*(?:at|=|:)\s*\d+(?:\.\d+)?\s*"
+    r"(?:\b|\B(?<![A-Za-z0-9]))(?:P\()?([A-Za-z][A-Za-z0-9]*)\)?\s*(?:at|=|:)\s*\d+(?:\.\d+)?\s*"
     r"(?:atm|kPa|mmHg|torr|bar|Pa)(?![A-Za-z])"
 )
 
@@ -556,7 +556,7 @@ def is_chemistry_question(content: str) -> bool:
 
 def _clean_name(raw: str) -> str | None:
     name = raw.strip().lower()
-    name = re.sub(r"\s+(?:the|a|an|of|for|with)$", "", name).strip()
+    name = re.sub(r"\s(?:the|a|an|of|for|with)$", "", name).strip()
     name = re.sub(r"^(?:the\s+)?(?:lewis\s+)?structure\s+of\s+", "", name).strip()
     name = re.sub(r"^(?:molecule|compound)\s+", "", name).strip()
     if not name or name in _FALSE_POSITIVES or not 3 <= len(name) <= 40:

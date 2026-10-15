@@ -71,11 +71,12 @@ _EXTREME = re.compile(
 )
 _DEFINED = re.compile(
     r"(?<![A-Za-z])(?P<name>[a-zA-Z])(?:\s*\(\s*(?P<var>[a-z])\s*\))?\s*=\s*"
-    r"(?P<expr>[^,;=]+?)(?=\s*(?:,|;|\.\s|\bfind\b|\bwhat\b|\bwhen\b|$))",
+    r"(?P<expr>[^,;=\s](?:[^,;=]*?[^,;=\s])??|\s(?=\S|\Z))"
+    r"(?=\s*(?:,|;|\.\s|\bfind\b|\bwhat\b|\bwhen\b|$))",
 )
 _SUM_PRODUCT = re.compile(
     r"\btwo\s+(?:positive\s+|real\s+)?numbers\s+(?:add|sum|add\s+up)\s+to\s+(?P<sum>\d+(?:\.\d+)?)"
-    r".*?\b(?:maximum|largest|greatest|biggest)\s+(?:possible\s+)?product\b",
+    r"[^\d\n].*?\b(?:maximum|largest|greatest|biggest)\s+(?:possible\s+)?product\b",
     re.IGNORECASE,
 )
 _LEAD = re.compile(

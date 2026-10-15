@@ -118,8 +118,8 @@ def format_verified_latex(expr: Any) -> str:
 # Shallow LaTeX → SymPy-ish text. Nested \frac needs repeated passes (capped).
 _LATEX_FRAC_RE = re.compile(r"\\frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}")
 _LATEX_ABS_LEFT_RIGHT_RE = re.compile(
-    r"\\(?:left|lvert)\s*\|\s*(.*?)\s*\\(?:right|rvert)\s*\|",
-    re.DOTALL,
+    # The bars may sit on different lines: [^\x00] crosses newlines, as "." did under DOTALL.
+    r"\\(?:left|lvert)\s*\|\s*(?:(\S(?:[^\x00]*?\S)??)\s*)??\\(?:right|rvert)\s*\|"
 )
 _LATEX_ABS_VERT_RE = re.compile(r"\\(?:lvert|rvert)\b")
 _LATEX_SYMBOL_SUBS: list[tuple[re.Pattern[str], str]] = [
@@ -710,7 +710,7 @@ def _normalize_expr(text: str) -> str:
 # quotes, braces, semicolons, and every other punctuation a Python-eval
 # gadget would need to reach beyond a plain arithmetic/algebraic expression.
 _SAFE_EXPR_CHARS = re.compile(r"^[\w\s+\-*/().,=<>!]*$")
-_DECIMAL_NUMBER = re.compile(r"\d+\.\d+|\.\d+|\d+\.")
+_DECIMAL_NUMBER = re.compile(r"\d+(?:\.\d*)?|\.\d+")
 
 
 def _reject_unsafe_expr(normalized: str) -> None:
@@ -751,7 +751,7 @@ def _reject_unsafe_expr(normalized: str) -> None:
 _FUNCTION_WORDS = names_longest_first(MATH_FUNCTION_NAMES)
 # A unit after a number is not a product of variables: ``5 kg`` is not 5*k*g.
 _UNIT_AFTER_NUMBER_RE = re.compile(
-    r"(?<=\d)\s*(?:kg|km|cm|mm|mg|mL|ml|ms|mol|kJ|kN|kW|kPa|hPa|Pa|Hz|hrs?|min|mph)\b"
+    r"\d\s*(?:kg|km|cm|mm|mg|mL|ml|ms|mol|kJ|kN|kW|kPa|hPa|Pa|Hz|hrs?|min|mph)\b"
 )
 _LETTER_RUN_RE = re.compile(r"[^\W\d_]+")
 

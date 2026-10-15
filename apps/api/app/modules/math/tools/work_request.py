@@ -133,12 +133,12 @@ _ISOLATED = re.compile(
 _EQUALS_VALUE = re.compile(rf"^\s*(?P<var>[A-Za-z])\s*=\s*(?P<value>{_NUMBER})\s*$")
 _BARE_VALUE = re.compile(rf"^\s*(?P<value>{_NUMBER})\s*$")
 _PLUS_MINUS = re.compile(rf"^\s*(?P<var>[A-Za-z])\s*=\s*(?:\+-|\+/-)\s*(?P<value>{_NUMBER})\s*$")
-_OR_SPLIT = re.compile(r"\s+(?:or|and)\s+", re.IGNORECASE)
-_AND_SPLIT = re.compile(r"\s+and\s+", re.IGNORECASE)
+_OR_SPLIT = re.compile(r"\s(?:or|and)\s+", re.IGNORECASE)
+_AND_SPLIT = re.compile(r"\sand\s+", re.IGNORECASE)
 _ORDER = re.compile(r"[<>]")
 _ROOT_CLAIM = re.compile(
     r"\b(?:i\s+(?:got|found)|i\s+think|my)\s+(?:the\s+)?roots?"
-    r"(?:\s+(?:are|is))?\s+(.+?)\s+for\s+(.+)",
+    r"(?:\s+(?:are|is))?\s+(\S(?:.*?\S)??)\s+for\s+(.+)",
     re.IGNORECASE,
 )
 
@@ -231,7 +231,7 @@ def _claimed_roots_request(text: str, *, hint_only: bool, cued: bool) -> WorkReq
     if match is None:
         return None
     raw_values, raw_equation = match.group(1), match.group(2)
-    value_parts = re.split(r"\s*(?:,|\band\b|\bor\b)\s*", raw_values, flags=re.IGNORECASE)
+    value_parts = re.split(r"(?:,|\band\b|\bor\b)\s*", raw_values, flags=re.IGNORECASE)
     values: list[str] = []
     for part in value_parts:
         parsed = _BARE_VALUE.fullmatch(part.strip())

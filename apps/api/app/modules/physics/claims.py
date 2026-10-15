@@ -66,7 +66,7 @@ CHECK_ONLY = re.compile(
     r"^\s*(?:(?:am|are)\s+(?:i|we)\s+(?:right|correct)|is\s+(?:that|this|it|my\s+answer|"
     r"my\s+working)\s+(?:right|correct|ok|okay)|(?:is\s+(?:that|this)\s+)?(?:right|correct)|"
     r"did\s+(?:i|we)\s+get\s+it\s+right|(?:can\s+you\s+)?check\s+(?:it|this|that|my\s+\w+)|"
-    r"yes\s+or\s+no)\s*[?.!]*\s*$",
+    r"yes\s+or\s+no)\s*(?:[?.!]+\s*)?$",
     re.IGNORECASE,
 )
 # A yes/no question that asks how, not whether a value is right.
@@ -77,7 +77,8 @@ _NOT_A_CHECK = re.compile(
 )
 # A trailing check glued to the claim: "I got 4 m/s^2, correct?".
 _TRAILING_CHECK = re.compile(
-    r",?\s*(?:(?:is\s+(?:that|this|it)\s+)?(?:right|correct)|am\s+i\s+right)\s*(?=[?.!]|$)",
+    r"(?:,|\b|\B(?<!\s))\s*(?:(?:is\s+(?:that|this|it)\s+)?(?:right|correct)|am\s+i\s+right)"
+    r"\s*(?=[?.!]|$)",
     re.IGNORECASE,
 )
 
@@ -182,7 +183,7 @@ def read_claims(text: str) -> list[Claim]:
 
 
 # A word before the quantity that is part of its name: "impact speed", "total resistance".
-_QUALIFIER = re.compile(r"([a-z]+)\s+\Z", re.IGNORECASE)
+_QUALIFIER = re.compile(r"(?:\b|\B(?<![a-z]))([a-z]+)\s+\Z", re.IGNORECASE)
 _NOT_A_QUALIFIER = frozenset(
     {"a", "an", "the", "its", "his", "her", "their", "my", "our", "for", "of", "got", "get"}
 )
