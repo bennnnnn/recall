@@ -55,12 +55,22 @@ async function loadPurchases(): Promise<PurchasesModule | null> {
   }
 }
 
+/** App user id RevenueCat is set up for in this process (configure runs once). */
+let configuredAppUserId: string | null = null;
+
 export async function configurePurchases(appUserId: string): Promise<void> {
   const mod = await loadPurchases();
   const apiKey = revenueCatApiKey();
   if (!mod || !apiKey) return;
-  mod.default.setLogLevel(__DEV__ ? mod.LOG_LEVEL.DEBUG : mod.LOG_LEVEL.WARN);
-  await mod.default.configure({ apiKey, appUserID: appUserId });
+  if (configuredAppUserId === appUserId) return;
+  if (configuredAppUserId == null) {
+    mod.default.setLogLevel(__DEV__ ? mod.LOG_LEVEL.DEBUG : mod.LOG_LEVEL.WARN);
+    await mod.default.configure({ apiKey, appUserID: appUserId });
+  } else {
+    // A second configure is unsupported; switching accounts is a logIn.
+    await mod.default.logIn(appUserId);
+  }
+  configuredAppUserId = appUserId;
 }
 
 export async function getMonthlyProPackage(): Promise<ProPurchasePackage | null> {
@@ -108,6 +118,8 @@ export async function signOutRevenueCat(): Promise<void> {
   } catch {
     // best-effort — local token clear is what matters
   }
+  // logOut leaves an anonymous id; the next sign-in logs in by app user id.
+  if (configuredAppUserId != null) configuredAppUserId = "";
 }
 
 /**

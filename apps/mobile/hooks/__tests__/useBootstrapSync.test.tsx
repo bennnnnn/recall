@@ -78,3 +78,13 @@ it("merges only the synced timezone into the current account", async () => {
   expect(applyUpdate(userB)).toEqual(userB);
   expect(applyUpdate(null)).toBeNull();
 });
+
+it("keeps one RevenueCat setup across an access-token refresh", async () => {
+  const { configurePurchases } = jest.requireMock("@/lib/purchases") as { configurePurchases: jest.Mock };
+  const rendered = await render(<Probe user={{ ...userA, timezone: userB.timezone }} token="a" />);
+  await act(async () => {});
+  await rendered.rerender(<Probe user={{ ...userA, timezone: userB.timezone }} token="a-refreshed" />);
+  await act(async () => {});
+  expect(configurePurchases).toHaveBeenCalledTimes(1);
+  expect(registerPlanChangeListener).toHaveBeenCalledTimes(1);
+});

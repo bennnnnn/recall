@@ -1,4 +1,4 @@
-import { useEffect, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, type Dispatch, type SetStateAction } from "react";
 
 import { getDeviceTimezone } from "@/lib/deviceTimezone";
 import { getDeviceLocationLabel } from "@/lib/deviceLocation";
@@ -98,8 +98,13 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
     return () => { cancelled = true; };
   }, [userId, reminderLeadMinutes]);
 
+  // The access token refreshes hourly; RevenueCat is set up once per signed-in
+  // user, and the plan sync reads the newest token from this ref.
+  const tokenRef = useRef(token);
+  tokenRef.current = token;
+  const signedIn = Boolean(token);
   useEffect(() => {
-    if (!token || !userId) return;
+    if (!signedIn || !userId) return;
     const generation = getSessionGeneration();
     let cancelled = false;
     const active = () => !cancelled && generation === getSessionGeneration();
@@ -120,8 +125,10 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
           // user object and bypasses the generation guard in updateUser,
           // so a slow sync can overwrite an in-flight profile patch (e.g.
           // timezone toggle snaps back).
+          const current = tokenRef.current;
+          if (!current) return;
           void api
-            .syncSubscription(token)
+            .syncSubscription(current)
             .then((updated) => {
               if (!active()) return;
               setUser((prev) => prev?.id === userId
@@ -138,5 +145,5 @@ export function useBootstrapSync({ token, user, setUser }: Options): void {
       cancelled = true;
       cleanup?.();
     };
-  }, [token, userId, setUser]);
+  }, [signedIn, userId, setUser]);
 }

@@ -11,6 +11,8 @@ jest.mock("react-native-purchases", () => {
     LOG_LEVEL: { DEBUG: 0, WARN: 1 },
     setLogLevel: jest.fn(),
     configure: jest.fn(),
+    logIn: jest.fn(async () => ({})),
+    logOut: jest.fn(async () => ({})),
     getOfferings: jest.fn(),
     purchasePackage: jest.fn(),
     restorePurchases: jest.fn(),
@@ -36,7 +38,12 @@ jest.mock("react-native-purchases", () => {
   return { ...api, default: api };
 });
 
-import { isPurchaseCancelled, registerPlanChangeListener } from "@/lib/purchases";
+import {
+  configurePurchases,
+  isPurchaseCancelled,
+  registerPlanChangeListener,
+  signOutRevenueCat,
+} from "@/lib/purchases";
 
 // Force the purchases module to be "configured" (API key present + not Expo Go).
 process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "test-ios-key";
@@ -84,5 +91,20 @@ describe("registerPlanChangeListener", () => {
     // — this test just documents the null path is reachable when loadPurchases
     // returns null (covered by isPurchasesConfigured() elsewhere).
     expect(typeof registerPlanChangeListener).toBe("function");
+  });
+});
+
+describe("configurePurchases", () => {
+  it("configures once, then switches accounts with logIn", async () => {
+    (globalThis as { __DEV__?: boolean }).__DEV__ = false;
+    await configurePurchases("user-a");
+    await configurePurchases("user-a");
+    expect(purchasesMod.default.configure).toHaveBeenCalledTimes(1);
+    expect(purchasesMod.default.logIn).not.toHaveBeenCalled();
+
+    await signOutRevenueCat();
+    await configurePurchases("user-b");
+    expect(purchasesMod.default.configure).toHaveBeenCalledTimes(1);
+    expect(purchasesMod.default.logIn).toHaveBeenCalledWith("user-b");
   });
 });

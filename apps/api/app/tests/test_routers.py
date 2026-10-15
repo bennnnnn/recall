@@ -1153,10 +1153,16 @@ def test_revenuecat_webhook_cancellation_with_past_expiry_downgrades():
         }
     }
 
-    with patch(
-        "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
-        AsyncMock(return_value=True),
-    ) as apply_plan:
+    with (
+        patch(
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="free"),
+        ),
+        patch(
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_plan,
+    ):
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
@@ -1336,10 +1342,16 @@ def test_revenuecat_webhook_expiration_still_downgrades():
 
     payload = {"event": {"type": "EXPIRATION", "app_user_id": str(uid)}}
 
-    with patch(
-        "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
-        AsyncMock(return_value=True),
-    ) as apply_plan:
+    with (
+        patch(
+            "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
+            AsyncMock(return_value="free"),
+        ),
+        patch(
+            "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
+            AsyncMock(return_value=True),
+        ) as apply_plan,
+    ):
         client = TestClient(app)
         r = client.post("/webhooks/revenuecat", json=payload)
 
@@ -1448,7 +1460,7 @@ def test_revenuecat_webhook_newer_expiration_still_applies_after_purchase():
     with (
         patch(
             "app.modules.billing.api.subscription_service.resolve_plan_from_revenuecat",
-            AsyncMock(return_value="pro"),
+            AsyncMock(side_effect=["pro", "free"]),
         ),
         patch(
             "app.modules.billing.api.subscription_service.apply_plan_for_app_user_id",
