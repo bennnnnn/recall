@@ -294,8 +294,21 @@ def grounded(setup: WordProblemSetup, text: str) -> bool:
 
 
 async def word_problem_intent(text: str, settings: Settings) -> MathIntent | None:
-    """Translate on independent bounded routes, then accept only verified input."""
-    if not settings.math_word_problems_enabled or not word_problem_candidate(text):
+    """Translate on independent bounded routes, then accept only verified input.
+
+    A classic shape one closed template reads whole (``word_templates``) needs
+    no model call; its setup is checked the same way.
+    """
+    if not settings.math_word_problems_enabled:
+        return None
+    from app.modules.math.tools.word_templates import word_template_setup
+
+    template = word_template_setup(text)
+    if template is not None:
+        intent = MathIntent(kind="word_problem", word_problem=template, operation="solve")
+        if request_consumption_complete(text, intent):
+            return intent
+    if not word_problem_candidate(text):
         return None
     aliases = [_TRANSLATOR_MODEL_ALIAS]
     fallback = settings.memory_fallback_model_alias.strip()

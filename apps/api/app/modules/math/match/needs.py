@@ -194,6 +194,11 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # "a bag has 3 red and 5 blue marbles, pick 2 without replacement, probability both red".
     if extract_bag_draws_intent(cleaned) is not None:
         return True
+    from app.modules.math.tools.school.shopping import extract_change_intent
+
+    # "I bought 3 notebooks at $2.40 each ... I paid with a $20 bill. how much change".
+    if extract_change_intent(cleaned) is not None:
+        return True
     from app.modules.math.match.coordinate_vector import is_closed_coordinate_vector_request
 
     # "magnitude of the vector (3, 4)", "dot product of (1, 2, 3) and (4, 5, 6)".
@@ -374,7 +379,11 @@ def school_homework_cue(cleaned: str) -> bool:
         has_digit
         and "%" in cleaned
         and (
-            "compound interest" in lower or "simple interest" in lower or "compound amount" in lower
+            "compound interest" in lower
+            or "simple interest" in lower
+            or "compound amount" in lower
+            # "$5000 invested at 4% interest compounded annually for 3 years"
+            or ("compounded" in lower and "interest" in lower)
         )
     ):
         return True

@@ -143,6 +143,7 @@ def _closed_school_request(user_text: str, calculus_text: str) -> bool:
     from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
     from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
     from app.modules.math.tools.school.number_facts import extract_number_fact_intent
+    from app.modules.math.tools.school.shopping import extract_change_intent
     from app.modules.math.tools.school.single_draw import extract_single_draw_intent
 
     return (
@@ -156,6 +157,7 @@ def _closed_school_request(user_text: str, calculus_text: str) -> bool:
         or counting_word_signal(user_text) is not None
         or extract_single_draw_intent(user_text) is not None
         or extract_bag_draws_intent(user_text) is not None
+        or extract_change_intent(user_text) is not None
         or extract_curve_point_intent(calculus_text) is not None
     )
 

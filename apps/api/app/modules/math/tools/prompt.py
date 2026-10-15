@@ -129,7 +129,11 @@ def needs_symbolic_math(text: str, *, has_image_attachment: bool = False) -> boo
         return True
     # An algebra word problem states no equation; the translation is tried
     # only after every extractor has passed on it.
-    return not has_image_attachment and word_problem_candidate(text)
+    if has_image_attachment:
+        return False
+    from app.modules.math.tools.word_templates import word_template_setup
+
+    return word_problem_candidate(text) or word_template_setup(text) is not None
 
 
 def _intent_from_image_extract(extract: MathImageExtract) -> MathIntent | None:

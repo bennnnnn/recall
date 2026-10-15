@@ -64,6 +64,8 @@ _NAMES: dict[str, Any] = {
 def latex_plain(text: str) -> str:
     """``\\frac{3}{2} \\cdot x^{2}`` → ``((3)/(2)) * x**(2)``."""
     t = text.replace("\\left", "").replace("\\right", "")
+    # "\$10.95": the dollar sign is the unit, not maths.
+    t = re.sub(r"\\?\$(?=\s*-?\d)", " ", t)
     for space in ("\\,", "\\;", "\\ "):
         t = t.replace(space, " ")
     t = t.replace("\\quad", " ; ").replace("\\approx", "=")

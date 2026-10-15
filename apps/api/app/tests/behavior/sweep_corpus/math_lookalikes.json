@@ -196,5 +196,124 @@
   "prompt": "expand on the history of the factor in the stock market",
   "reply": "In finance a \"factor\" is a trait that explains returns, such as value, size or momentum. The idea grew from the 1960s capital asset pricing model into the Fama–French three-factor model in 1992.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-023",
+  "area": "math lookalike",
+  "prompt": "is a 1920 x 1080 monitor good for gaming",
+  "reply": "Yes for most games. 1920 × 1080 (1080p) is easy for mid-range graphics cards to run at high frame rates, so it suits fast shooters. On a screen larger than 24 inches it can look a little soft; 1440p is the usual step up.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-024",
+  "area": "math lookalike",
+  "prompt": "I need 2 x 4 lumber for the deck, what length should I buy",
+  "reply": "For deck framing, 2×4s usually come in 8, 10 and 12 foot lengths. Buy the length that spans your joists with the fewest cuts, and get a few extra for mistakes.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-025",
+  "area": "math lookalike",
+  "prompt": "factor 2 hours into the plan for the move",
+  "reply": "Done: I added a 2-hour buffer for loading the truck, so the move now runs from 9 am to 3 pm.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-026",
+  "area": "math lookalike",
+  "prompt": "factorise my reading list by topic",
+  "reply": "Here is your list grouped by topic:\n\n- **History:** SPQR, The Guns of August\n- **Science:** The Gene, Cosmos\n- **Fiction:** Middlemarch",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-027",
+  "area": "math lookalike",
+  "prompt": "the derivitive market crashed again, what happened",
+  "reply": "Derivatives such as options and futures fell sharply after a surprise rate rise. Leveraged positions had to be sold at once, which pushed prices down further.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-028",
+  "area": "math lookalike",
+  "prompt": "what is 0x10 in decimal",
+  "reply": "`0x10` is hexadecimal for **16** in decimal: the 1 is in the sixteens place.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-029",
+  "area": "math lookalike",
+  "prompt": "the speed limit as you approach the school is 20, right?",
+  "reply": "Usually, yes: many school zones are 20 mph while the signs are flashing. Check the posted sign, because the limit and the hours vary by town.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-030",
+  "area": "math lookalike",
+  "prompt": "slove this riddle: what has keys but cant open locks",
+  "reply": "A **piano**: it has keys, but none of them open a lock.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-031",
+  "area": "math lookalike",
+  "prompt": "take it 3 times a day with food?",
+  "reply": "Yes, three times a day with meals is the usual way to take it. Follow the label or your pharmacist if they say something different.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-032",
+  "area": "math lookalike",
+  "prompt": "my bag has 3 red and 5 blue scarves, which should I wear",
+  "reply": "With a navy coat, wear one of the red scarves: it adds colour. With a red top, pick a blue one so the colours don't clash.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-033",
+  "area": "math lookalike",
+  "prompt": "I bought 3 shirts and paid with my card, can I return one without the receipt",
+  "reply": "Most shops can find a card purchase without the receipt. Bring the card you paid with and the shirt with its tags on.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-034",
+  "area": "math lookalike",
+  "prompt": "how many liters of water should I drink a day",
+  "reply": "A common guide is about 2 to 3 litres a day, more in hot weather or when you exercise. Pale yellow urine is a good sign you're drinking enough.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-035",
+  "area": "math lookalike",
+  "prompt": "hcf meeting moved to 3pm, what should I bring",
+  "reply": "Bring the latest figures, your notes from last time and any questions for the agenda.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-036",
+  "area": "math lookalike",
+  "prompt": "det is short for detective in old films, right?",
+  "reply": "Yes. In old films and police dramas \"Det.\" is the usual short form of **Detective**, as in Det. Sergeant.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-037",
+  "area": "math lookalike",
+  "prompt": "my 4 x 4 truck needs new tires, which brand",
+  "reply": "For a 4×4 that sees some off-road use, all-terrain tires such as the BFGoodrich KO2 or Falken Wildpeak are popular choices.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-038",
+  "area": "math lookalike",
+  "prompt": "tickets cost $8 for adults at the zoo, is that a good deal",
+  "reply": "Yes, $8 for an adult ticket is cheaper than most zoos, which often charge $15 to $25.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-039",
+  "area": "math lookalike",
+  "prompt": "Sam is 4 years older than Ana but acts younger, any advice",
+  "reply": "Age gaps matter less than temperament. Talk to Sam about what you notice, and give examples instead of labels.",
+  "expect": "answer"
  }
 ]

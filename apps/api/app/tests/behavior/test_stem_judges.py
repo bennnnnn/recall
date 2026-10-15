@@ -23,6 +23,8 @@ from app.tests.behavior.stem_sweep import Entry, card_values, check_answer, same
         (("nums", ["160", "200"]), "180:180", False),
         (("nums", ["176", "2"]), "1234 ÷ 7 = 176 R2", True),
         (("nums", ["176", "2"]), "1234 ÷ 7 = 176 R3", False),
+        (("num", "10.95"), r"\$10.95", True),
+        (("num", "10.95"), r"\$11.95", False),
         (("expr", "(1-log(x))/x**2"), r"\frac{1 - \ln{\left(x \right)}}{x^{2}}", True),
         (("expr", "5 - x/2"), r"y = -\frac{1}{2}x + 5", True),
         (("expr", "5 - x/2"), r"y = -2x + 11", False),
