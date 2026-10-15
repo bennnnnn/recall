@@ -241,6 +241,38 @@ _FROM_GROUP = re.compile(
 )
 
 
+# "how many 4 letter arrangements of the word MATH", "how many ways can you arrange
+# the letters in the word PENCIL": the word is named as a word, or by its letters.
+_WORD_ARRANGEMENTS = re.compile(
+    r"(?:in\s+)?how\s+many\s+(?:different\s+|distinct\s+)?"
+    r"(?:ways\s+can\s+(?:you\s+|we\s+|i\s+|one\s+)?arrange|"
+    r"(?:(?P<k>\d{1,2})[\s-]+letter\s+)?(?:arrangements|permutations)\s+"
+    r"(?:can\s+be\s+(?:made|formed)\s+(?:from|with|using)|are\s+there\s+of|of|from))\s+"
+    r"(?:all\s+)?(?:the\s+)?(?:letters\s+(?:in|of)\s+(?:the\s+word\s+)?|word\s+)"
+    r"(?P<word>[A-Za-z]{2,12})\s*[?.]?",
+    re.IGNORECASE,
+)
+
+
+def word_arrangement_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] | None:
+    """Arrangements of a word's letters when every letter differs: n!, or P(n, k).
+
+    A word with a repeated letter needs n! divided by the repeats, which this
+    reader does not write, so it is declined.
+    """
+    match = _WORD_ARRANGEMENTS.fullmatch(" ".join(text.split()))
+    if match is None:
+        return None
+    letters = match.group("word").upper()
+    n = len(letters)
+    if len(set(letters)) != n:
+        return None
+    k = int(match.group("k")) if match.group("k") else n
+    if not 1 <= k <= n:
+        return None
+    return ("factorial", n, None) if k == n else ("permutations", n, k)
+
+
 def counting_word_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] | None:
     """A counting question in words.
 
@@ -248,6 +280,9 @@ def counting_word_signal(text: str) -> tuple[CombinatoricsOp, int, int | None] |
     committee of 3 be chosen from 10 people" is C(10, 3); "... 3 of 7 runners
     finish first, second and third" is P(7, 3).
     """
+    word = word_arrangement_signal(text)
+    if word is not None:
+        return word
     if len(text) > 300 or not _COUNTING_QUESTION.search(text):
         return None
     numbers = [int(match) for match in re.findall(r"(?<![\d.])\d+(?![\d.])", text)]

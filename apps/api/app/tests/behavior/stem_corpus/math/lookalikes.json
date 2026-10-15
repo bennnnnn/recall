@@ -40,5 +40,14 @@
   {"id": "L39", "area": "lookalike", "prompt": "det is short for detective in old films, right?", "expect": "not_math"},
   {"id": "L40", "area": "lookalike", "prompt": "my 4 x 4 truck needs new tires, which brand", "expect": "not_math"},
   {"id": "L41", "area": "lookalike", "prompt": "tickets cost $8 for adults at the zoo, is that a good deal", "expect": "not_math"},
-  {"id": "L42", "area": "lookalike", "prompt": "Sam is 4 years older than Ana but acts younger, any advice", "expect": "not_math"}
+  {"id": "L42", "area": "lookalike", "prompt": "Sam is 4 years older than Ana but acts younger, any advice", "expect": "not_math"},
+  {"id": "L43", "area": "lookalike", "prompt": "how many days in a year", "expect": "not_math"},
+  {"id": "L44", "area": "lookalike", "prompt": "how many calories in a banana", "expect": "not_math"},
+  {"id": "L45", "area": "lookalike", "prompt": "how many arrangements of flowers for a wedding", "expect": "not_math"},
+  {"id": "L46", "area": "lookalike", "prompt": "how many factors affect house prices", "expect": "not_math"},
+  {"id": "L47", "area": "lookalike", "prompt": "what are the odds of at least one sunny day this week", "expect": "not_math"},
+  {"id": "L48", "area": "lookalike", "prompt": "half of my 3/4 cup of sugar spilled, what do I do", "expect": "not_math"},
+  {"id": "L49", "area": "lookalike", "prompt": "the cube root of my problems is procrastination lol", "expect": "not_math"},
+  {"id": "L50", "area": "lookalike", "prompt": "find the angle between the two walls in my room for the shelf", "expect": "not_math"},
+  {"id": "L51", "area": "lookalike", "prompt": "integrate by parts of the team into the new project", "expect": "not_math"}
 ]

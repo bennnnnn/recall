@@ -315,5 +315,68 @@
   "prompt": "Sam is 4 years older than Ana but acts younger, any advice",
   "reply": "Age gaps matter less than temperament. Talk to Sam about what you notice, and give examples instead of labels.",
   "expect": "answer"
+ },
+ {
+  "id": "ml-040",
+  "area": "math lookalike",
+  "prompt": "how many days in a year",
+  "reply": "365, or 366 in a leap year. Leap years come every 4 years, except century years not divisible by 400.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-041",
+  "area": "math lookalike",
+  "prompt": "how many calories in a banana",
+  "reply": "A medium banana has about 105 calories, mostly from carbohydrates.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-042",
+  "area": "math lookalike",
+  "prompt": "how many arrangements of flowers for a wedding",
+  "reply": "Most weddings need a bridal bouquet, bridesmaid bouquets, buttonholes and two to four table centrepieces.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-043",
+  "area": "math lookalike",
+  "prompt": "how many factors affect house prices",
+  "reply": "The big ones are location, interest rates, local supply, the size and condition of the home, and the job market nearby.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-044",
+  "area": "math lookalike",
+  "prompt": "what are the odds of at least one sunny day this week",
+  "reply": "Good: the forecast shows sun on Thursday and Saturday.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-045",
+  "area": "math lookalike",
+  "prompt": "half of my 3/4 cup of sugar spilled, what do I do",
+  "reply": "You have about 3/8 cup left. Top it up with sugar to 3/4 cup, or halve the rest of the recipe to match.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-046",
+  "area": "math lookalike",
+  "prompt": "the cube root of my problems is procrastination lol",
+  "reply": "Ha, a relatable root cause. Try a 10-minute start: it's usually enough to get going.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-047",
+  "area": "math lookalike",
+  "prompt": "find the angle between the two walls in my room for the shelf",
+  "reply": "Use a protractor or an angle finder in the corner. Most rooms are 90°, but older houses often aren't, so measure before cutting the shelf.",
+  "expect": "answer"
+ },
+ {
+  "id": "ml-048",
+  "area": "math lookalike",
+  "prompt": "integrate by parts of the team into the new project",
+  "reply": "Bring people in gradually: start with one person from each team on the kickoff, then add the rest as tasks open up.",
+  "expect": "answer"
  }
 ]

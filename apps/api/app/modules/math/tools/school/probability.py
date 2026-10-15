@@ -77,10 +77,89 @@ _TRIALS_SETUP = re.compile(
 )
 
 
+# "probability of at least one head in 3 coin flips": 1 - P(none).
+_AT_LEAST_ONE = re.compile(
+    r"(?:what(?:'s|\s+is)\s+)?(?:the\s+)?(?:probability|chance|likelihood)\s+(?:of\s+)?"
+    r"(?:getting\s+|rolling\s+|flipping\s+|tossing\s+)?at\s+least\s+(?:one|1|a)\s+"
+    rf"(head|tail|six)s?\s+(?:in|from|out\s+of|with)\s+{_COUNT}\s+(?:fair\s+)?"
+    r"(?:coin\s+|die\s+|dice\s+)?(flips|tosses|throws|rolls)"
+    r"(?:\s+of\s+an?\s+(?:fair\s+)?(?:coin|die))?\s*[?.]?",
+    re.IGNORECASE,
+)
+# "expected value of a fair die roll": the mean of the faces 1 to 6.
+_FAIR_DIE_EXPECTATION = re.compile(
+    r"(?:what(?:'s|\s+is)\s+|find\s+|calculate\s+)?(?:the\s+)?expected\s+value\s+"
+    r"(?:of\s+|when\s+(?:you\s+)?)?(?:rolling\s+|roll\s+)?(?:a\s+|one\s+|the\s+)?(?:single\s+)?"
+    r"(?:roll\s+of\s+a\s+)?(?:fair\s+)?(?:six-sided\s+|6-sided\s+|standard\s+)?die"
+    r"(?:\s+roll)?\s*[?.]?",
+    re.IGNORECASE,
+)
+
+
+def extract_at_least_one_intent(cleaned: str) -> MathIntent | None:
+    match = _AT_LEAST_ONE.fullmatch(" ".join(cleaned.split()))
+    if match is None:
+        return None
+    outcome, n, trial = match.group(1).lower(), _count(match.group(2)), match.group(3).lower()
+    die = outcome == "six"
+    if (die and trial in {"flips", "tosses"}) or (not die and trial == "rolls"):
+        return None
+    if not 1 <= n <= 100:
+        return None
+    return MathIntent(
+        kind="probability",
+        school_op="binomial_at_least_one",
+        combo_n=n,
+        percent_base=1 / 6 if die else 1 / 2,
+        trial_outcome={"head": "heads", "tail": "tails", "six": "sixes"}[outcome],
+        operation="solve",
+    )
+
+
+def _at_least_one_block(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock:
+    """``P(at least one) = 1 - (1 - p)^n``: everything but none at all."""
+    from app.modules.math.tools.school.single_draw import probability_answer
+
+    n = intent.combo_n or 0
+    p = Fraction(intent.percent_base or 0).limit_denominator(6)
+    none = (1 - p) ** n
+    probability = 1 - none
+    outcome = intent.trial_outcome or "successes"
+    trials = "rolls" if p == Fraction(1, 6) else "flips"
+    answer = probability_answer(probability)
+    q_tex = _fraction_tex(1 - p)
+    lines.append(f"P(at least one) = 1 - ({1 - p})^{n} = {probability}")
+    direct = render_workout(
+        Workout(
+            given=(
+                math_line(f"n = {n}", trials),
+                math_line(f"q = {q_tex}", f"no {outcome} on one {trials[:-1]}"),
+            ),
+            find=(math_line(r"P(\text{at least one})"),),
+            formula=(
+                math_line(r"P(\text{at least one}) = 1 - q^{n}", f"1 minus no {outcome} at all"),
+            ),
+            substitution=(
+                math_line(
+                    rf"P = 1 - \left({q_tex}\right)^{{{n}}} = 1 - {_fraction_tex(none)}"
+                    rf" = {_fraction_tex(probability)}"
+                ),
+            ),
+        ),
+        answer,
+    )
+    return replace(_finish_with_answer(lines, answer), worked_reply=direct)
+
+
 def binomial_trials_direct_request(text: str) -> bool:
     """A coin or die question and nothing else, so the worked reply may stand alone."""
     request = " ".join(text.split()).strip()
-    return bool(_TRIALS_QUESTION.fullmatch(request) or _TRIALS_SETUP.fullmatch(request))
+    return bool(
+        _TRIALS_QUESTION.fullmatch(request)
+        or _TRIALS_SETUP.fullmatch(request)
+        or _AT_LEAST_ONE.fullmatch(request)
+        or _FAIR_DIE_EXPECTATION.fullmatch(request)
+    )
 
 
 def _count(text: str) -> int:
@@ -129,6 +208,16 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     trials = _trials_intent(cleaned)
     if trials is not None:
         return trials
+    at_least_one = extract_at_least_one_intent(cleaned)
+    if at_least_one is not None:
+        return at_least_one
+    if _FAIR_DIE_EXPECTATION.fullmatch(" ".join(cleaned.split())):
+        return MathIntent(
+            kind="probability",
+            school_op="expected",
+            stats_numbers=[1.0, 2.0, 3.0, 4.0, 5.0, 6.0],
+            operation="solve",
+        )
     from app.modules.math.tools.school.single_draw import extract_single_draw_intent
 
     single = extract_single_draw_intent(cleaned)
@@ -346,6 +435,12 @@ def _verified_block_probability(
         and intent.percent_base is not None
     ):
         return _binomial_trials_block(intent, lines)
+    if (
+        intent.school_op == "binomial_at_least_one"
+        and intent.combo_n is not None
+        and intent.percent_base is not None
+    ):
+        return _at_least_one_block(intent, lines)
     if (
         intent.school_op == "binomial"
         and intent.combo_n is not None

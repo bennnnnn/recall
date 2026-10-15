@@ -194,6 +194,16 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # "a bag has 3 red and 5 blue marbles, pick 2 without replacement, probability both red".
     if extract_bag_draws_intent(cleaned) is not None:
         return True
+    from app.modules.math.tools.school.probability import extract_at_least_one_intent
+
+    # "the probability of getting at least one head in 3 coin flips".
+    if extract_at_least_one_intent(cleaned) is not None:
+        return True
+    from app.modules.math.tools.school.units import extract_how_many_in_intent
+
+    # "how many seconds in a day": a conversion between two units of fixed size.
+    if extract_how_many_in_intent(cleaned) is not None:
+        return True
     from app.modules.math.tools.school.shopping import extract_change_intent
 
     # "I bought 3 notebooks at $2.40 each ... I paid with a $20 bill. how much change".

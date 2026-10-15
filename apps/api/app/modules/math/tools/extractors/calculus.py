@@ -33,6 +33,11 @@ _DERIVATIVE_AT_POINT = re.compile(
 _PRIME_AT_NUMBER = re.compile(
     r"(?<![A-Za-z])[a-zA-Z]'{1,3}\(\s*([+-]?(?:\d+(?:\.\d+)?|\.\d+))\s*\)"
 )
+_BY_PARTS = re.compile(
+    r"^\s*(?:by|using)\s+(?:integration\s+by\s+)?parts\s+"
+    r"|\s*,?\s+(?:by|using)\s+(?:integration\s+by\s+)?parts\s*[.?!]?\s*$",
+    re.IGNORECASE,
+)
 _UNICODE_SIGMA_EXPR = re.compile(
     r"Σ\s*(.+?)(?=\s+(?:converges?|diverges?)\b|[?;]|$)",
     re.IGNORECASE,
@@ -402,6 +407,10 @@ def _extract_calculus_intent(cleaned: str) -> MathIntent | None:
             raw = pairs[0][0]
     integral_lower: str | None = leading_bounds[1] if leading_bounds is not None else None
     integral_upper: str | None = leading_bounds[2] if leading_bounds is not None else None
+    if calc_op == "integrate":
+        # "integrate by parts x e^x" / "integrate x e^x by parts": the method is
+        # how to teach it, as in "use integration by parts to integrate x e^x".
+        raw = _BY_PARTS.sub("", raw).strip()
     raw_with_differential = raw
     if calc_op == "integrate":
         raw = _strip_trailing_differential(raw)
