@@ -288,13 +288,22 @@ function workoutInline(
   );
 }
 
+/** The last line holding maths; the last line when none does. */
+function lastMathLine(lines: string[]): number {
+  for (let index = lines.length - 1; index >= 0; index -= 1) {
+    if (/[$=≈]/.test(lines[index] ?? "")) return index;
+  }
+  return lines.length - 1;
+}
+
 /**
  * A worked-solution section. The heading stays at the margin; its lines are
  * indented behind a thin rule so each section reads as one block of work.
  * Given values share a row, a move's note sits at the right edge, and the
- * last line of a written-out answer sits in a tinted box (the lines before it
- * are working). A card the server landed is its own ```answer fence and never
- * reaches here; this draws older replies the same way.
+ * last line of maths in a written-out answer sits in a tinted box (the lines
+ * before it are working, a sentence after it stays below). A card the server
+ * landed is its own ```answer fence and never reaches here; this draws older
+ * replies the same way.
  */
 function renderWorkoutSection(
   key: string,
@@ -306,6 +315,7 @@ function renderWorkoutSection(
   const noteStyle = [styles.text, { ...Type.secondary, color: t.textSecondary }];
   const given = section.heading === "Given";
   const answer = section.heading === "Answer";
+  const boxed = answer ? lastMathLine(section.lines) : -1;
   const lines = section.lines.map((line, index) => {
     const { state, note } = splitWorkoutNote(line);
     const lineKey = `${key}-line-${index}`;
@@ -365,7 +375,7 @@ function renderWorkoutSection(
       >
         {answer ? (
           <>
-            {lines.slice(0, -1)}
+            {lines.slice(0, boxed)}
             <View
               testID="workout-answer"
               style={{
@@ -375,8 +385,9 @@ function renderWorkoutSection(
                 paddingHorizontal: Space.md,
               }}
             >
-              {lines[lines.length - 1]}
+              {lines[boxed]}
             </View>
+            {lines.slice(boxed + 1)}
           </>
         ) : given ? (
           <View

@@ -304,7 +304,7 @@ def _ends_section(line: str) -> bool:
     return (
         bool(label)
         and (label[0].isalpha() or label[0] == "(")
-        and not any(mark in label for mark in "=$\\^_{}")
+        and not any(mark in label for mark in "=\u2248$\\^_{}")
     )
 
 
@@ -381,7 +381,7 @@ _UNIT_TEXT = re.compile(r"\\(?:text|mathrm)\{[^}]*\}")
 # after a term (a leading minus is the value's sign).
 _ARITHMETIC = re.compile(r"\\(?:times|cdot|div|frac)|[\u00d7\u00b7*/\u00f7+^]|\S\s*[-\u2212]")
 # An exact fraction is a value, not a division still to do: x = \frac{1}{2}.
-_EXACT_FRACTION = re.compile(r"\\d?frac\{\d+\}\{\d+\}")
+_EXACT_FRACTION = re.compile(r"\\d?frac\{-?\d+\}\{-?\d+\}")
 
 
 def _is_final_value(value: str) -> bool:

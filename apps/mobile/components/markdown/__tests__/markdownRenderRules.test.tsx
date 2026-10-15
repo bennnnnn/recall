@@ -428,6 +428,14 @@ describe("markdown render rules", () => {
     expect(within(body).getByLabelText(/346\.4/)).toBeOnTheScreen();
   });
 
+  it("keeps a sentence after the answer below the box", async () => {
+    const content = "**Answer**  \n$x = 3$  \nOnly the positive root counts.";
+    const { getByTestId } = await render(<MarkdownContent content={content} />);
+    const box = getByTestId("workout-answer");
+    expect(box).toHaveTextContent(/x = 3/);
+    expect(box).not.toHaveTextContent(/positive root/);
+  });
+
   it.each([
     ["**(a) Acceleration**", "a", "Acceleration"],
     ["**Part (b): Speed after 3 s**", "b", "Speed after 3 s"],
