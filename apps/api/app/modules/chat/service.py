@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
 from redis.asyncio import Redis
@@ -16,7 +17,11 @@ from app.models.orm import Chat, Message, User
 from app.models.schemas import ChatListOut, ChatOut, MessageOut, MessagePageOut, UsageOut
 from app.modules.chat import finalize_registry
 from app.modules.chat.email_fence import rewrite_first_email_fence
-from app.modules.chat.related_prompts import load_related_prompts
+from app.modules.chat.related_prompts import (
+    RELATED_PROMPTS_TTL_SECONDS,
+    forget_related_prompts,
+    load_related_prompts,
+)
 from app.modules.chat.titles import sanitize_manual_chat_title
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
@@ -238,6 +243,18 @@ async def list_messages_page(
     if before is None:
         await _attach_cached_related_prompts(redis, outs)
     return MessagePageOut(messages=outs, has_more=has_more)
+
+
+async def forget_follow_up_questions(session: AsyncSession, redis: Redis, user_id: UUID) -> int:
+    """Drop the cached follow-up questions under the user's replies.
+
+    They are written from the conversation and keyed by message id, so an
+    account delete would otherwise leave them in Redis for up to a week.
+    Call before the user's messages are deleted.
+    """
+    since = datetime.now(UTC) - timedelta(seconds=RELATED_PROMPTS_TTL_SECONDS)
+    message_ids = await messages_repo.list_assistant_ids_since(session, user_id, since=since)
+    return await forget_related_prompts(redis, [str(message_id) for message_id in message_ids])
 
 
 async def _attach_cached_related_prompts(redis: Redis, messages: list[MessageOut]) -> None:

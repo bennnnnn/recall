@@ -7,6 +7,7 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.access_tokens import REVOKED_SINCE_PREFIX
 from app.core.config import Settings
 from app.core.jobs import enqueue
 from app.core.validation import normalize_avatar_url
@@ -17,6 +18,7 @@ from app.modules import memory as memory_service
 from app.modules.account import tokens as tokens_service
 from app.modules.attachments import service as attachments_service
 from app.modules.billing import plan as plan_service
+from app.modules.chat import service as chats_service
 from app.repositories import users as users_repo
 
 logger = logging.getLogger(__name__)
@@ -119,9 +121,16 @@ async def delete_account(
     from app.core.deps import forget_user
     from app.repositories.chats import forget_user_chats
 
+    try:
+        # Keyed by reply id, not user id, so only the rows can find them.
+        await chats_service.forget_follow_up_questions(session, redis, user_id)
+    except Exception:
+        logger.warning("Follow-up cache purge failed user_id=%s", user_id, exc_info=True)
     forget_user(user_id)
     forget_user_chats(user_id)
     await users_repo.delete_user(session, user.id)
+    # The worker sweeps leftover storage objects and every Redis key that
+    # names the user (caches, cards, usage); see purge_user_redis_keys.
     await enqueue(
         redis,
         "storage_sweep",
@@ -130,11 +139,46 @@ async def delete_account(
     )
 
 
+# Kept after a delete: the cutoff that keeps the deleted account's already
+# issued access tokens rejected (it expires with them), and job markers.
+_KEEP_AFTER_DELETE_PREFIXES = (REVOKED_SINCE_PREFIX, "jobdone:")
+_PURGE_SCAN_COUNT = 1000
+_PURGE_BATCH = 500
+
+
+async def purge_user_redis_keys(redis: Redis, user_id: UUID) -> int:
+    """Delete every Redis key that names a deleted user. Returns the count.
+
+    Memory and home caches, reminder and settings cards, web-search and voice
+    lookups, usage counters and history-scan state are all keyed by user id.
+    One SCAN pass covers them, including key families added later. Runs in
+    the worker (``storage_sweep``): a full keyspace scan does not belong on
+    the request path.
+    """
+    needle = str(user_id)
+    batch: list[str] = []
+    removed = 0
+    async for raw in redis.scan_iter(match=f"*{needle}*", count=_PURGE_SCAN_COUNT):
+        key = raw.decode() if isinstance(raw, bytes) else str(raw)
+        if key.startswith(_KEEP_AFTER_DELETE_PREFIXES) or needle not in key:
+            continue
+        batch.append(key)
+        if len(batch) >= _PURGE_BATCH:
+            removed += int(await redis.unlink(*batch) or 0)
+            batch = []
+    if batch:
+        removed += int(await redis.unlink(*batch) or 0)
+    if removed:
+        logger.info("Account Redis purge user_id=%s removed=%s", user_id, removed)
+    return removed
+
+
 __all__ = [
     "GoogleAuthError",
     "SessionPurgeError",
     "delete_account",
     "logout",
+    "purge_user_redis_keys",
     "update_account",
     "upgrade_to_pro_for_dev",
 ]

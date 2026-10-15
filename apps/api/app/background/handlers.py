@@ -26,6 +26,7 @@ from app.core.config import Settings
 from app.core.db import SessionLocal
 from app.core.jobs import JobDiscardError, enqueue, register
 from app.core.redis import get_redis_client
+from app.modules.account import lifecycle as account_lifecycle
 from app.modules.attachments import jobs as attachment_indexing
 from app.modules.attachments import lifecycle as attachment_lifecycle
 from app.modules.chat import compaction
@@ -238,10 +239,10 @@ async def _handle_message_index(settings: Settings, payload: dict[str, Any]) -> 
 
 
 async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> None:
-    """GDPR residual: prefix-delete leftover R2 objects after account wipe.
+    """GDPR residual after account wipe: leftover R2 objects and Redis keys.
 
-    Must not be spend-capped — leftover blobs are a privacy residual, not
-    optional enrichment.
+    Must not be spend-capped — leftover blobs and cached text are a privacy
+    residual, not optional enrichment.
     """
     raw = payload.get("user_id")
     try:
@@ -249,6 +250,7 @@ async def _handle_storage_sweep(settings: Settings, payload: dict[str, Any]) -> 
     except (TypeError, ValueError):
         logger.warning("storage_sweep invalid user_id=%r", raw)
         return
+    await account_lifecycle.purge_user_redis_keys(get_redis_client(), user_id)
     await attachment_lifecycle.sweep_user_storage(settings, user_id)
 
 

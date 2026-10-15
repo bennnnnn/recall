@@ -36,6 +36,7 @@ _ANSWER_CHARS = 800
 _QUESTION_CHARS = 500
 _MAX_QUESTIONS = 3
 _KEY = "related_prompts:{message_id}"
+_FORGET_BATCH = 500
 _NUMBER = re.compile(r"\d+(?:\.\d+)?")
 _WORD = re.compile(r"[A-Za-z]{2,}")
 _MATH_SPAN = re.compile(r"\$([^$\n]+)\$")
@@ -578,6 +579,15 @@ async def store_related_prompts(redis: Redis, message_id: str, prompts: list[str
         json.dumps(prompts),
         ex=RELATED_PROMPTS_TTL_SECONDS,
     )
+
+
+async def forget_related_prompts(redis: Redis, message_ids: Sequence[str]) -> int:
+    """Drop cached questions for these replies. Returns how many keys went."""
+    removed = 0
+    keys = [_cache_key(message_id) for message_id in message_ids]
+    for start in range(0, len(keys), _FORGET_BATCH):
+        removed += int(await redis.unlink(*keys[start : start + _FORGET_BATCH]) or 0)
+    return removed
 
 
 async def load_related_prompts(redis: Redis, message_id: str) -> list[str]:
