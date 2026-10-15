@@ -9,7 +9,14 @@ functions so the callables can cross the subprocess boundary.
 from __future__ import annotations
 
 import asyncio
+import contextlib
+import os
+import select
+import signal
+import subprocess
+import sys
 import time
+from pathlib import Path
 
 import pytest
 
@@ -323,3 +330,75 @@ async def test_timeout_does_not_kill_sibling_slot():
         assert await run_sympy(_add, 4, 1, timeout=10) == 5
     finally:
         executor.shutdown()
+
+
+_PARENT_SCRIPT = """
+import asyncio, os
+from app.core.sympy_executor import ProcessPoolSympyExecutor
+
+async def main():
+    executor = ProcessPoolSympyExecutor(max_workers=2)
+    pids = await asyncio.gather(*(executor.run(os.getpid, timeout=30) for _ in range(2)))
+    print(" ".join(map(str, pids)), flush=True)
+    await asyncio.sleep(120)
+
+asyncio.run(main())
+"""
+
+
+def _alive(pid: int) -> bool:
+    """True for a running process; a zombie waiting to be reaped counts as gone."""
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    stat = Path(f"/proc/{pid}/stat")
+    try:
+        return stat.read_text().rsplit(")", 1)[1].split()[0] != "Z"
+    except OSError:
+        # No /proc (macOS): the signal probe above is all there is.
+        return not stat.parent.parent.exists()
+
+
+@pytest.mark.parametrize(
+    "sig",
+    [pytest.param(signal.SIGKILL, id="SIGKILL"), pytest.param(signal.SIGTERM, id="SIGTERM")],
+)
+def test_workers_exit_when_the_parent_dies_without_cleanup(sig: signal.Signals):
+    """A killed API must not leave its SymPy workers running.
+
+    ``shutdown_sympy_executor`` runs only on a clean exit. ``dev.sh kill-all``
+    (``kill -9``), a crash or the OOM killer skip it, and a pool worker blocked
+    on its call queue never noticed: each one stayed at about 250 MB.
+    """
+    parent = subprocess.Popen(  # noqa: S603 - fixed argv: this interpreter and a literal script
+        [sys.executable, "-c", _PARENT_SCRIPT],
+        cwd=Path(__file__).resolve().parents[3],
+        stdout=subprocess.PIPE,
+        text=True,
+    )
+    worker_pids: list[int] = []
+    try:
+        assert parent.stdout is not None
+        ready, _, _ = select.select([parent.stdout], [], [], 60)
+        assert ready, "the parent never started its workers"
+        worker_pids = [int(pid) for pid in parent.stdout.readline().split()]
+        assert len(set(worker_pids)) == 2
+        assert all(_alive(pid) for pid in worker_pids)
+
+        parent.send_signal(sig)
+        parent.wait(timeout=10)
+
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and any(_alive(pid) for pid in worker_pids):
+            time.sleep(0.1)
+        assert [pid for pid in worker_pids if _alive(pid)] == []
+    finally:
+        for pid in worker_pids:
+            with contextlib.suppress(OSError):
+                os.kill(pid, signal.SIGKILL)
+        if parent.poll() is None:
+            parent.kill()
+            parent.wait()
