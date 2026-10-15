@@ -142,6 +142,7 @@ class R2StorageGateway:
 
     def __init__(self, settings: Settings) -> None:
         import boto3  # local import — keeps dev (no boto3 hot path) light
+        from botocore.config import Config
 
         endpoint = settings.r2_endpoint or (
             f"https://{settings.r2_account_id}.r2.cloudflarestorage.com"
@@ -154,6 +155,18 @@ class R2StorageGateway:
             region_name="auto",  # R2 ignores region but boto3 requires one
             aws_access_key_id=settings.r2_access_key_id,
             aws_secret_access_key=settings.r2_secret_access_key,
+            # Every call below runs on a default-executor thread. botocore's
+            # defaults (60s + 60s, 5 legacy attempts) let a stalled R2 hold
+            # those threads for minutes.
+            config=Config(
+                connect_timeout=settings.r2_connect_timeout_seconds,
+                read_timeout=settings.r2_read_timeout_seconds,
+                # total_max_attempts counts the first try (max_attempts would not).
+                retries={
+                    "total_max_attempts": max(1, settings.r2_max_attempts),
+                    "mode": "standard",
+                },
+            ),
         )
 
     async def presign_upload(
