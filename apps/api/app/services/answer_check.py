@@ -131,7 +131,8 @@ def _read_value(segment: str) -> list[_Number] | None:
         text = _FILLER.sub("", text).strip()
     sign = 1
     both = False
-    if text[:1] in "+-±":
+    # "" is in every string: a segment that ends on "is:" or "$R =$" holds no value.
+    if text and text[0] in "+-±":
         both = text[0] == "±"
         sign = -1 if text[0] == "-" else 1
         text = text[1:].lstrip()

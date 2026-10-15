@@ -157,7 +157,35 @@ def _closed_math_syntax(text: str) -> bool:
     return match is not None and math_expr_or_none(match["expr"]) is not None
 
 
+_FUNCTION_NAMES = re.compile(
+    r"\b(?:sqrt|cbrt|sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|exp|abs|pi)\b",
+    re.IGNORECASE,
+)
+
+
+def _numeric_statement(text: str, intent: MathIntent) -> bool:
+    """``15% of 80 = 12?`` or ``sqrt(16) = 4?`` is a claim to check, not an equation.
+
+    Neither side has an unknown, so solving it can only answer "no solution"
+    or "all real numbers", which is wrong or meaningless to a student. A
+    typed ``solve 0 = 1`` still reads as the contradiction it is.
+    """
+    if intent.kind != "equation" or intent.system_equations:
+        return False
+    sides = _FUNCTION_NAMES.sub(" ", f"{intent.lhs or ''} {intent.rhs or ''}")
+    if re.search(r"[A-Za-z]", sides):
+        return False
+    return re.search(r"\bsolve\b", text, re.IGNORECASE) is None
+
+
 def extract_math_intent(text: str) -> MathIntent | None:
+    intent = _extract_math_intent_any(text)
+    if intent is not None and _numeric_statement(text, intent):
+        return None
+    return intent
+
+
+def _extract_math_intent_any(text: str) -> MathIntent | None:
     # iOS smart punctuation turns derivative primes into curly apostrophes.
     # Normalize them before every extractor while retaining the original
     # request text for whole-request direct-reply checks.
