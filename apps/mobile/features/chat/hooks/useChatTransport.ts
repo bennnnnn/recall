@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import { AppState } from "react-native";
 
 import { chatWebSocketUrl } from "@/lib/api";
 import type { ClientGeo } from "@/lib/clientGeo";
@@ -48,6 +49,8 @@ export function useChatTransport({
   const onFallbackRef = useRef(onFallback);
   const onSendFailureRef = useRef(onSendFailure);
   const onRegenerateFailureRef = useRef(onRegenerateFailure);
+  const backgroundedRef = useRef(false);
+  const releasedInBackgroundRef = useRef(false);
   isCurrentViewRef.current = isCurrentView;
   ttftTurnIdRef.current = ttftTurnId;
   onPayloadRef.current = onPayload;
@@ -65,6 +68,17 @@ export function useChatTransport({
     return controller.signal;
   }, [chatId]);
 
+  /** In the background an idle socket only answers the server's keepalive
+   * pings, which wakes the radio every 20 seconds. A turn in flight keeps it
+   * until its done or error; the next send or foreground opens a new one. */
+  const releaseIdleInBackground = useCallback(() => {
+    const transport = wsTransportRef.current;
+    if (!backgroundedRef.current || !transport || transport.isTurnActive()) return;
+    wsTransportRef.current = null;
+    releasedInBackgroundRef.current = true;
+    transport.close();
+  }, []);
+
   const connect = useCallback((): Promise<void> => {
     if (!token || !chatId || !isCurrentViewRef.current()) return Promise.resolve();
     let transport = wsTransportRef.current;
@@ -76,13 +90,14 @@ export function useChatTransport({
         onPayload: (payload) => {
           if (wsTransportRef.current !== transport) return;
           onPayloadRef.current(chatId, payload, ttftTurnIdRef.current());
+          releaseIdleInBackground();
         },
         onFallback: (signal) => onFallbackRef.current(transport!, signal),
       });
       wsTransportRef.current = transport;
     }
     return transport.connect();
-  }, [token, chatId]);
+  }, [token, chatId, releaseIdleInBackground]);
 
   // Handshake overlaps reading. Debounced so flicking the chat list does not
   // open a socket per glance (each handshake counts against the connect limit).
@@ -101,6 +116,23 @@ export function useChatTransport({
       transport?.close();
     };
   }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener("change", (state) => {
+      if (state === "background") {
+        backgroundedRef.current = true;
+        releaseIdleInBackground();
+        return;
+      }
+      if (state !== "active") return;
+      backgroundedRef.current = false;
+      if (!releasedInBackgroundRef.current) return;
+      releasedInBackgroundRef.current = false;
+      // Same head start as opening the chat: the handshake overlaps reading.
+      void connect();
+    });
+    return () => sub.remove();
+  }, [connect, releaseIdleInBackground]);
 
   const sendViaSse = useCallback(
     async (content: string, options?: SendSseOptions) => {
