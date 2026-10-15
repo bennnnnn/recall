@@ -39,7 +39,11 @@ import {
 import { CODE_FONT } from "@/lib/fonts";
 import { Space } from "@/lib/space";
 import { Radius } from "@/lib/radius";
-import { getPreviewWebView, HTML_RUN_ORIGIN_WHITELIST } from "@/lib/webView";
+import {
+  allowHtmlRunNavigation,
+  getPreviewWebView,
+  HTML_RUN_ORIGIN_WHITELIST,
+} from "@/lib/webView";
 import { FullScreenModal } from "@/ui/overlay/FullScreenModal";
 
 const EMPTY_CHECK_SCRIPT =
@@ -145,10 +149,13 @@ function makeTagStyles(theme: Theme) {
 /**
  * Sandboxed HTML Run tab (RNC WebView only).
  *
- * Keep this path as close as charts: `source={{ html }}`, no baseUrl, no
- * onShouldStartLoadWithRequest. CDN is allowed by PREVIEW_CSP_LIVE; leave-page
- * is blocked by an in-document script (click/submit/location/open), stripping
- * meta-refresh, form-action 'none', and `domStorageEnabled={false}`.
+ * Keep this path as close as charts: `source={{ html }}`, no baseUrl. CDN is
+ * allowed by PREVIEW_CSP_LIVE; leave-page is blocked by an in-document script
+ * (click/submit/location/open), stripping meta-refresh, form-action 'none',
+ * and `domStorageEnabled={false}`. Page script can still assign `location`,
+ * so every navigation also goes through allowHtmlRunNavigation, which keeps
+ * the same loads as before and refuses the rest without handing them to the
+ * OS (react-native-webview opens a URL outside originWhitelist externally).
  */
 function LiveWebPreview({
   html,
@@ -209,6 +216,7 @@ function LiveWebPreview({
         style={s.webview}
         scrollEnabled
         originWhitelist={HTML_RUN_ORIGIN_WHITELIST}
+        onShouldStartLoadWithRequest={allowHtmlRunNavigation}
         javaScriptEnabled
         domStorageEnabled={false}
         allowsInlineMediaPlayback
