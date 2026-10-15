@@ -24,7 +24,6 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from app.core.config import Settings
-from app.gateways import litellm_gateway
 from app.modules.math.schemas import MathIntent
 
 logger = logging.getLogger(__name__)
@@ -141,6 +140,10 @@ async def llm_extract_math_intent(text: str, settings: Settings) -> MathIntent |
     cleaned = text.strip()
     if not cleaned:
         return None
+    # Imported here, not at module top: SymPy pool workers import this package
+    # to solve, and litellm alone added about 190 MB to each of them.
+    from app.gateways import litellm_gateway
+
     try:
         parsed = await litellm_gateway.complete_structured(
             settings=settings,
