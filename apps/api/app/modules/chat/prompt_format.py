@@ -48,6 +48,7 @@ from app.modules.chat.prompt_constants import (
     SHORT_MATH_SAFETY_HINT,
     SHORT_RESPONSE_FORMAT_HINT,
     SOCIAL_DRAFT_HINT,
+    STANDING_PREFERENCE_HINT,
     STATISTICS_PRESENTATION_HINT,
     STEPS_FORMAT_HINT,
     TEACHING_HINT,
@@ -73,6 +74,7 @@ from app.modules.chat.prompt_constants import (
     is_quote_question,
     is_sequence_diagram_question,
     is_short_confirmation,
+    is_standing_preference,
     is_structured_comparison_question,
     is_task_howto,
     is_teaching_request,
@@ -226,6 +228,17 @@ def _style_format_hints(
             PRIVACY_HINT,
             UNIVERSAL_FORMAT_BASELINE,
             CAPABILITIES_FORMAT_HINT,
+            MATH_FENCE_SAFETY_HINT,
+        ]
+    if query_text and is_standing_preference(query_text):
+        # "When teaching me, explain one concept at a time…" sets how to teach;
+        # there is no topic yet. With the photo hint in the prompt the model
+        # once answered "I can't see the image you're referring to".
+        return [
+            PRIVACY_HINT,
+            NON_DRAFT_TURN_HINT,
+            UNIVERSAL_FORMAT_BASELINE,
+            STANDING_PREFERENCE_HINT,
             MATH_FENCE_SAFETY_HINT,
         ]
     if query_text and is_personal_disclosure_turn(query_text) and not lesson:

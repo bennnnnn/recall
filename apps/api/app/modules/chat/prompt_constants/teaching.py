@@ -431,7 +431,171 @@ def is_teaching_request(text: str) -> bool:
         return False
     if is_learning_plan_request(cleaned):
         return False
+    # "Teach me by asking questions" says how, not what: no lesson yet.
+    if is_standing_preference(cleaned):
+        return False
     return not _asks_for_a_procedure(cleaned)
+
+
+# How the user wants to be taught or answered from now on, with no question of
+# its own yet: "When teaching me, explain one concept at a time…", "From now on,
+# use examples", "I learn best by doing", "Don't give me the answer, give hints".
+# Read sentence by sentence on the collapsed, lower-cased text.
+_PREF_LEAD = (
+    r"^(?:(?:ok(?:ay)?|hey|hi|hello|so|also|and|btw|one\s+more\s+thing|quick\s+note|note)"
+    r"[,!:.]?\s+)?(?:please\s+)?"
+)
+# What an instruction about replies starts with.
+_PREF_DO = (
+    r"(?:(?:please|just|only)\s+)?(?:(?:always|never|don't|do\s+not)\s+)?"
+    r"(?:explain|teach|tutor|give|show|use|ask|quiz|test|answer|reply|respond|keep|start|begin|"
+    r"end|finish|break|walk|include|add|check|let\s+me|make|write|focus|avoid|stop|wait|pause|"
+    r"stick|limit|define|summari[sz]e|repeat|correct|challenge|guide|offer|provide|format|skip|"
+    r"number|label|cite|speak|talk|tell|go\s+(?:one|step|slow|slowly|through|over)|"
+    r"be\s+(?:more|less|concise|brief|direct|honest|clear|patient|simple|short|detailed|blunt|"
+    r"gentle|critical|thorough|specific|shorter|longer|simpler|clearer))\b"
+)
+_PREF_SENTENCE: tuple[re.Pattern[str], ...] = (
+    # "When teaching me, …" / "When you explain things to me, …"
+    re.compile(
+        _PREF_LEAD
+        + r"when(?:ever)?\s+(?:you(?:'re|\s+are)?\s+)?(?:teach|teaching|tutor|tutoring|explain|"
+        r"explaining|help|helping|answer|answering|reply|replying|respond|responding|show|showing|"
+        r"giv(?:e|ing))\s+(?:me|us|things|stuff|concepts|topics|something|anything)\b"
+        r"(?:\s*,\s*|(?:\s+[\w']+){0,3}\s*,\s*|\s+)"
+        r"(?:" + _PREF_DO + r"|i\s+(?:prefer|like|love|want|need|learn)\b|"
+        r"you\s+(?:should|must|can|could)\b|(?:can|could|would|will)\s+you\b|try\s+to\b|"
+        r"make\s+sure\b)"
+    ),
+    # "When I ask you for code, always add comments"
+    re.compile(
+        _PREF_LEAD + r"when(?:ever)?\s+i\s+ask\s+(?:you\s+)?(?:for|about|to|a|an|anything|"
+        r"something|questions?)\b[^,.;?!]{0,60},\s*" + _PREF_DO
+    ),
+    # "From now on, …" / "Going forward, your answers should …"
+    re.compile(
+        _PREF_LEAD + r"(?:from\s+now\s+on|going\s+forward|moving\s+forward|from\s+here\s+on"
+        r"(?:\s+out)?|in\s+(?:the\s+)?future|for\s+future\s+(?:answers|replies|lessons|chats|"
+        r"questions))\s*,?\s+(?:(?:you(?:'ll|\s+will|\s+should|\s+must|\s+can)?|your\s+"
+        r"(?:answers|replies|responses|explanations|lessons|examples)\s+(?:should|must|"
+        r"need\s+to|will)|i\s+(?:want|need|'d\s+like|would\s+like)\s+you\s+to)\s+)?" + _PREF_DO
+    ),
+    # "Use simple words from now on."
+    re.compile(
+        _PREF_LEAD + _PREF_DO + r"[^.?!]{0,160}\b(?:from\s+now\s+on|going\s+forward|"
+        r"from\s+here\s+on(?:\s+out)?|in\s+(?:the\s+)?future)\s*[.!]?$"
+    ),
+    # "Always explain …" / "Can you always give examples?"
+    re.compile(
+        _PREF_LEAD + r"(?:(?:can|could|would|will)\s+you\s+(?:please\s+)?|i\s+(?:want|need|'d\s+"
+        r"like|would\s+like)\s+you\s+to\s+)?(?:always|never)\s+(?:please\s+)?(?:explain|teach|"
+        r"give|show|use|ask|quiz|test|answer|reply|respond|include|start|begin|end|break|walk|"
+        r"check|define|summari[sz]e|cite|add|keep|write|tell|go\s+(?:one|step|slow|slowly|"
+        r"through|over)|be\s+(?:more|less|concise|brief|direct|honest|clear|patient|simple|"
+        r"short|detailed|blunt|gentle|critical|thorough|specific|shorter|simpler|clearer))\b"
+    ),
+    # "I want you to explain one concept at a time"
+    re.compile(
+        _PREF_LEAD + r"i\s+(?:want|need|'d\s+like|would\s+like)\s+you\s+to\s+(?:always\s+|only\s+)?"
+        r"(?:explain|teach)\s+(?:me\s+)?(?:things\s+|concepts\s+|everything\s+)?(?:one\s+"
+        r"(?:concept|thing|step|idea|topic)\s+at\s+a\s+time|step\s+by\s+step|slowly|simply|"
+        r"with\s+(?:examples|analogies)|using\s+examples|like\s+(?:a|i'm|im))\b"
+    ),
+    # "I learn best by doing" / "I'm a visual learner"
+    re.compile(_PREF_LEAD + r"i\s+learn\s+(?:best|better|most|faster|more\s+easily|well)\b"),
+    re.compile(
+        _PREF_LEAD + r"i(?:'m|\s+am)\s+an?\s+(?:visual|hands[- ]on|auditory|kinesthetic|"
+        r"practical|slow|fast|reading)\s+learner\b"
+    ),
+    re.compile(
+        _PREF_LEAD + r"i\s+(?:prefer|like|love|want|need)\s+to\s+(?:learn|be\s+taught|study)\s+"
+        r"(?:by|with|through|using|one|step|slowly|in\s+small|from\s+examples)\b"
+    ),
+    re.compile(
+        _PREF_LEAD + r"i\s+(?:prefer|like|love|need|want)\s+(?:it\s+)?when\s+you\s+(?:explain|"
+        r"teach|give|use|show|ask|quiz|test|keep|break|walk|go|start|include|check)\b"
+    ),
+    re.compile(
+        _PREF_LEAD + r"i\s+(?:prefer|like|want|need)\s+(?:short|shorter|brief|briefer|concise|"
+        r"detailed|simple|simpler|step[- ]by[- ]step|practical|real[- ]world|lots\s+of|more|"
+        r"fewer|less|plain|clear)\s+(?:answers|replies|responses|explanations|examples|"
+        r"exercises|lessons|steps|hints|analogies|language|words)\b(?!\s+(?:of|about|on)\b)"
+    ),
+    # "Teach me by asking questions" / "teach me one concept at a time"
+    re.compile(
+        _PREF_LEAD + r"(?:(?:can|could|would|will)\s+you\s+)?teach\s+me\s+(?:by|using|with|"
+        r"through|via|one\s+(?:concept|thing|step|idea|topic|lesson)\s+at\s+a\s+time|step\s+by\s+"
+        r"step|slowly|in\s+small\s+steps|like\s+(?:a|i'm|im|i\s+am))\b"
+    ),
+    # "Don't give me the answer, give hints" / "Only give me hints"
+    re.compile(
+        _PREF_LEAD + r"(?:just\s+)?(?:don't|do\s+not|never|stop)\s+(?:just\s+)?(?:give|giving|"
+        r"tell|telling|show|showing)\s+me\s+(?:the\s+)?(?:full\s+|final\s+|whole\s+)?"
+        r"(?:answers?|solutions?)\b"
+    ),
+    re.compile(
+        _PREF_LEAD + r"(?:just\s+|only\s+)?give\s+me\s+(?:only\s+)?(?:hints|clues|a\s+hint|"
+        r"nudges)\s+(?:instead|first|rather|not|only)\b"
+    ),
+    re.compile(_PREF_LEAD + r"(?:only\s+(?:give\s+me\s+)?hints|hints?\s+only)\b"),
+)
+# A reminder ("always remind me to drink water"), a memory command ("keep in
+# mind that I'm vegetarian") or a problem to work on is not a preference about
+# replies.
+_PREF_NOT = re.compile(
+    r"\b(?:remind|reminders?|alarm|notify|notifications?|wake\s+me|ping\s+me|alert\s+me|"
+    r"remember|forget|keep\s+in\s+mind)\b|\d\s*[-+*/=^×÷]\s*\d|=|```",
+    re.IGNORECASE,
+)
+# A second sentence that asks for the topic now: "Teach me Python." / "Let's start."
+_PREF_TOPIC_NOW = re.compile(
+    r"\blet'?s\s+(?:start|begin|learn|study|do|go|talk)\b|\bstart\s+with\s+(?!an?\s)"
+    r"|\bi\s+(?:want|need|'d\s+like|would\s+like)\s+to\s+(?:learn|know|understand|study)\b"
+    r"|\b(?:topic|subject)\s+is\b"
+)
+# "Teach me by examples about cooking" names a topic after all.
+_PREF_NAMES_TOPIC = re.compile(r"\b(?:how\s+to|how\s+do|about|what\s+is|what\s+are)\b|:\s*\S")
+
+
+def _preference_sentence(sentence: str) -> bool:
+    if not any(pattern.search(sentence) for pattern in _PREF_SENTENCE):
+        return False
+    teach_by = re.search(r"\bteach\s+me\s+(?:by|using|with|through|via|like)\b", sentence)
+    return not (teach_by and _PREF_NAMES_TOPIC.search(sentence[teach_by.end() :]))
+
+
+def is_standing_preference(text: str) -> bool:
+    """True when the user says how to teach or answer them from now on, and asks nothing yet.
+
+    "When teaching me yesterday you…", "from now on I'll wake at 6" and "always
+    remind me to drink water" are not: a memory, a plan of their own, a reminder.
+    """
+    cleaned = collapse_ws(text or "").replace("’", "'").casefold()
+    if not cleaned or len(cleaned) > 400 or _PREF_NOT.search(cleaned):
+        return False
+    sentences = [part for part in re.split(r"(?<=[.!?])\s", cleaned) if part.strip()]
+    found = False
+    for sentence in sentences:
+        if _preference_sentence(sentence):
+            found = True
+            continue
+        # Any other sentence is context; a question or a topic makes it a request.
+        if "?" in sentence or _PREF_TOPIC_NOW.search(sentence) or _TEACH_TURN.search(sentence):
+            return False
+    return found
+
+
+STANDING_PREFERENCE_HINT = (
+    "The user is telling you how to teach or answer them from now on; there is no question "
+    "to answer yet. Do not start a lesson, answer a topic, or mention photos, images or "
+    "files. Reply with one or two sentences agreeing, then a short bullet list restating "
+    "what you will do in their terms (for example: one concept at a time; a practical "
+    "example for each; a short exercise for them to solve before moving on), then one "
+    "question asking what they want to learn first. If this chat already has a topic or "
+    "lesson, offer to continue it that way instead. For a preference about answers rather "
+    "than teaching (shorter replies, no emoji), one sentence is enough. Keep to it in later "
+    "replies."
+)
 
 
 def _asks_for_a_procedure(cleaned: str) -> bool:

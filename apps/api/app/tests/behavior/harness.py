@@ -63,6 +63,8 @@ HINTS: dict[str, str] = {
     "code_explain": pc.CODE_EXPLAIN_HINT,
     "code_debug": pc.CODE_DEBUG_HINT,
     "code_ink": pc.CODE_INK_REMINDER,
+    "standing_preference": pc.STANDING_PREFERENCE_HINT,
+    "personal_disclosure": pc.PERSONAL_DISCLOSURE_HINT,
 }
 
 USER_NAME = "Bini"

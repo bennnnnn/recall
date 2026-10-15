@@ -565,6 +565,89 @@ CASES: tuple[Case, ...] = (
         Expect(hints=("learning_plan",), search="no"),
         "Day 1 to Day 30, one line each, with phases, code examples and milestones.",
     ),
+    Case(
+        "teach-preference",
+        "teaching",
+        "When teaching me, explain one concept at a time, use practical examples, and ask me "
+        "to solve a short exercise before moving on.",
+        Expect(
+            hints=("standing_preference",),
+            no_hints=("answer_photo", "teaching", "personal_disclosure"),
+            search="no",
+            photo=NO_PHOTO,
+        ),
+        "Agrees in a sentence, lists the plan (one concept at a time, a practical example, a "
+        "short exercise first), asks what to learn first. Never mentions an image.",
+    ),
+    Case(
+        "teach-preference-after-code",
+        "teaching",
+        "When teaching me, explain one concept at a time, use practical examples, and ask me "
+        "to solve a short exercise before moving on.",
+        Expect(
+            hints=("standing_preference",),
+            no_hints=("answer_photo", "teaching", "code_debug"),
+            search="no",
+        ),
+        "Agrees, lists the plan, and offers to go on with lists and indexes that way.",
+        history=(
+            (
+                "user",
+                "Why does this code fail, and how would you fix it?\nnumbers = [1, 2, 3]\n"
+                "print(numbers[3])",
+            ),
+            (
+                "assistant",
+                "This code fails with an `IndexError`: `numbers` has indexes `0` to `2`.",
+            ),
+        ),
+    ),
+    Case(
+        "teach-preference-from-now-on",
+        "teaching",
+        "From now on, always give me a practical example before the theory.",
+        Expect(hints=("standing_preference",), no_hints=("answer_photo",), search="no"),
+        "Agrees in a sentence and says examples will come first.",
+    ),
+    Case(
+        "teach-preference-learner",
+        "teaching",
+        "I learn best when you quiz me after each step.",
+        Expect(
+            hints=("standing_preference",),
+            no_hints=("answer_photo", "personal_disclosure"),
+            search="no",
+        ),
+        "Agrees, restates it (a quick question after each step), asks what to learn first.",
+    ),
+    Case(
+        "teach-preference-hints",
+        "teaching",
+        "Don't give me the answer, give me hints.",
+        Expect(hints=("standing_preference",), no_hints=("answer_photo",), search="no"),
+        "Agrees to hint first and asks what they are working on.",
+    ),
+    Case(
+        "teach-preference-teach-by",
+        "teaching",
+        "Please teach me by asking questions instead of lecturing.",
+        Expect(hints=("standing_preference",), no_hints=("teaching", "answer_photo")),
+        "Agrees to teach through questions and asks what to learn first; no lesson yet.",
+    ),
+    Case(
+        "teach-preference-not-yesterday",
+        "teaching",
+        "When teaching me yesterday you used a great example with lists, can you show it again?",
+        Expect(no_hints=("standing_preference",)),
+        "Recalls or rebuilds the list example; not a new preference.",
+    ),
+    Case(
+        "teach-preference-not-reminder",
+        "teaching",
+        "always remind me to drink water",
+        Expect(no_hints=("standing_preference",)),
+        "A reminder (or a question for when), not a teaching preference.",
+    ),
     # ── Format ──────────────────────────────────────────────────────────────
     Case(
         "format-compare",
