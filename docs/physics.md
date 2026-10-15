@@ -75,17 +75,39 @@ flowchart LR
    words mark as the asked result ("reaches 18 m/s" when the speed is asked), and an asked
    word that labels a value of another kind ("my weight is 70 kg"). A binding fit is also a
    physics cue for the gate.
+   Before any extractor reads the question, two kinds of sentence are read out of it:
+   - **A claimed result is never a given** (`claims.py`). "I got 19.8 m/s for its impact
+     speed", "my friend says it hits at 19.8 m/s" and "Does it hit the ground at 19.8 m/s?"
+     state a value to check. Read as v₀, the first was answered 28 m/s; the student was
+     right. The claimed value is taken out, and when the claim was the only ask it becomes
+     one: the quantity it names ("What is the impact speed?"), or the kind of its unit
+     ("I got 48 A" asks for a current).
+   - **A side question keeps the main one on Earth** (`bodies.side_questions`). "Would it
+     be different on Mars?" and "also tell me how this changes on the Moon" name a body,
+     mark a comparison and state no value. Read as the setting, Mars's g answered the
+     Earth question 12.2 m/s for 19.8. A body named in the main question still sets g.
+
+   A text that asks nothing ("A ball is dropped from 80 m.") is not solved: an extractor's
+   default would pick the question. Nor is a bare "what if it's dropped from 80 m?", which
+   asks the thread's question again. A collision stated alone still has its one outcome.
 4. **Complete** (`request.complete_physics_intent`). Every intent passes two checks before it
    is solved:
    - **Numeric accountability** (`accounting.py`). `givens.scan_givens` lists every stated number with
      its unit and dimension. A solve is refused when it leaves a stated value unbound whose
      dimension it uses — "a KE at 3 m/s and at 4 m/s" binds one speed and would answer half
-     the question. A value of another kind is a distractor and stays allowed (a ball's mass
-     in free fall). So are values the extractor derived by adding or subtracting givens
-     (ΔT = 80 − 20), a direction sign, and a stated g.
+     the question. A stated force, speed, length or angle of a kind the solve never uses is
+     refused too: those set the situation. A 30 N push up a slope, a car's speed and the
+     radius of the hump it crosses, a rolling sphere's radius were each left out by a law
+     that answered another question. A length that only gives an object's size ("a 1.8 m
+     tall man") is the exception. A value of any other kind is a distractor and stays
+     allowed (a ball's mass in free fall). So are values the extractor derived by adding or
+     subtracting givens (ΔT = 80 − 20), a count of identical resistors ("three 9 Ω
+     resistors" are the 3 Ω a parallel bank binds), a direction sign, and a stated g.
    - **Asked quantity** (`ask.py`). The question's ask is read independently of the
-     extractor, as dimensions, and kept on `PhysicsIntent.asked`. So is the unit the answer
-     is wanted in ("in kWh"), kept on `asked_unit`.
+     extractor, as dimensions, and kept on `PhysicsIntent.asked`. A quantity asked alone
+     ("… amplitude 5 cm. max speed?") is an ask: unread, it was answered with the period.
+     So is the unit the answer is wanted in ("in kWh", "the gauge pressure in psi at a
+     depth of 10 m"), kept on `asked_unit`.
 5. **Solve** (`solver.py`, `solvers/`, one module per topic). Pure arithmetic in SI, through
    Pint (`_params_in_si`). Quadratics use the cancellation-free closed form; there is no SymPy on
    the request path.
@@ -109,8 +131,15 @@ flowchart LR
 7. **Respond** (`direct.py`). A complete verified request returns Given / Find / Formula /
    Substitution / Answer without waiting for the model. A given not in SI is followed by the
    value the substitution uses (`λ = 500 nm`, then `λ = 5 × 10⁻⁷ m`). A solver that works
-   in the written units (150 km in 2 h) gets no conversion row. Image questions stay on the
-   model path.
+   in the written units (150 km in 2 h) gets no conversion row. A stated result gets one
+   line above the working: "Your 19.8 m/s is right." Image questions stay on the model
+   path, and so does a reply the verified result is only part of (`parts.py`): a question
+   in labelled parts or several questions the result does not all answer ("(a) how long …
+   (b) how fast …"), a second joined quantity ("the deceleration and the braking force"),
+   a side question on another body, a yes or no about a value, and a statement with no
+   question. The model writes those around the verified block, so no part is dropped.
+   An instant reply that answered (b) alone left (a) unanswered. A SUVAT question in parts
+   ("find (a) its final speed and (b) the distance") is answered whole.
 8. **Finalize** (`fence.py`). The model's answer and visual fences are dropped, and the
    solver's are appended.
 
@@ -212,6 +241,7 @@ The binder reads these laws, beside the extractors' own:
 | Upper level | hydrogen transitions (λ and ΔE); hydrogen-like levels E = −13.6 Z²/n² eV when Z is stated; Bohr radius; hydrogen-like radius n²a₀/Z; Bohr L = nℏ; L² = ℏ²ℓ(ℓ+1); L_z = mℏ; normal Zeeman shift; pair-production threshold; quantum-oscillator levels; relativistic p, E and K; E² = (pc)² + (mc²)²; velocity addition; Lorentz transformation of one coordinate and of one time; Schwarzschild radius; gravitational time-dilation factor; Boltzmann ratio; S = k ln Ω; energy-time uncertainty; an orbit's period from its height; Fermi energy; Fermi-Dirac and Bose-Einstein occupation; Planck's law as spectral radiance; rectangular-barrier tunneling probability; Drude conductivity; Hall coefficient; nuclear radius R = R₀ A^{1/3}; Hawking temperature; Hawking power; Bekenstein-Hawking entropy; stellar luminosity; flux from a stated luminosity; Hubble's law; critical density; Friedmann Hubble parameter when density, curvature, scale, and Λ are stated; virial K = −U/2; plasma frequency; Debye length; Alfvén speed; sound speed from the bulk modulus; quadratic drag force from C_D; BCS gap; Higgs mass; one-loop strong coupling |
 | Round 3 | light travel time; gravitational force on a body at a named planet's surface; acceleration and net force from two opposing forces; recoil speed; push-off speed of either body; wave frequency from distance, time and wavelength; sound level from an intensity ratio; energy over days from a daily use |
 | Sweep additions | time to the top of a throw; a level launch off a table or cliff; echo distance vt/2; hydraulic lift with the load on the large piston; mass from F and a; average force from a speed change; terminal drag; weight along a slope; drop speed from a height; speed from kinetic energy; work against gravity; efficiency in percent; spring compression from speed; current from power; charge and energy from Q and V; point-charge field; force on a moving charge; spring constant from a hanging mass or a force; pendulum length from its period; frequency and period from a count; string tension in a horizontal circle; critical angle to air; focal length from lens power; pressure from a weight on an area; water pressure at a depth; upthrust on a fully submerged volume; surface gravity on a named planet; E = mc² |
+| Round 5 | time for two bodies heading toward each other to meet, d/(v₁ + v₂); a block on a frictionless table pulled by a hanging mass, a = m₂g/(m₁+m₂) and T = m₁a; a force along an incline, a = F/m − g(sin θ + μ cos θ); speed on a circle from its period, 2πr/T; a rolling sphere's, cylinder's, hoop's or shell's total kinetic energy; a spring's maximum speed Aω and acceleration Aω²; g a height above a named body, GM/(R + h)²; the normal force over a hump, m(g − v²/r); a string's tension at the bottom of a vertical circle, m(v²/r + g) |
 | One formula | physical and conical pendulum periods; torsional pendulum; thin rod about its center or one end; springs in series and in parallel; reduced mass; coefficient of restitution; gravitational fractional frequency shift; decay time from N₀ to N; speed to just complete a vertical loop; sound level; shear, bulk and Poisson; gear speed and gear ratio; Newton's law of cooling; absorbed or reflected radiation pressure; Otto efficiency |
 
 ## Numbers and units
@@ -324,7 +354,7 @@ confirmed reading. A photo with no reading gets the unverified physics note.
 - coverage never falls below `COVERAGE_FLOOR`.
 
 The **STEM sweep** (`app/tests/behavior/stem_sweep.py`) checks the whole chat path, not just
-the solver. `stem_corpus/physics/` holds 340 turns: textbook questions across 19 areas,
+the solver. `stem_corpus/physics/` holds 440 turns: textbook questions across 19 areas,
 everyday look-alikes, questions that must be declined, and `holdout.json`, written after the
 fixes below so the coverage number stays honest. For each turn it routes the prompt as a
 chat turn does and reads the verified answer card (1% tolerance, any unit of the same kind).
@@ -332,8 +362,8 @@ It also checks the reply's Given / Find / Formula / Substitution / Answer order,
 calculator notation and an invented zero given, and validates every `simulation` and `graph`
 fence against the schema and its own bounds. `test_stem_sweep.py` fails on a wrong number, a
 misread turn (a physics question answered as math, or hijacked by a location or settings
-reply), a reply out of shape or a broken picture. It holds two floors that only go up: 285 of
-285 answered, and 139 of 140 with the picture a student would want. Only a
+reply), a reply out of shape or a broken picture. It holds two floors that only go up: 356 of
+364 answered, and 162 of 163 with the picture a student would want. Only a
 `projectile_motion` scene beside a path graph (x–y or height–time) counts as the same
 picture twice; a v–t graph beside a fall says something the fall does not.
 
@@ -353,13 +383,32 @@ energy over days, a frequency from d/t and λ, light travel time, gravity at a p
 surface, two equal charges) are answered now. Their questions and look-alikes are in
 `round3.json`.
 
+A fifth round (`round5.json`) put 286 fresh questions through the chat path and found 37
+verified answers that were wrong, numbers given to questions that must decline, or parts
+dropped. 28 are answered right now and nine declined; none is wrong. Among them: a throw
+"straight down" read as up, "30° below the horizontal" read as above, a horizontal throw
+with no height timed as a throw up, two trains' speeds read as one train's u and v, a block
+on a table solved as an Atwood machine, a push up an incline left out, a radius taken as a
+turn's distance, a rolling sphere's spin left out, a spring's "max speed?" answered with its
+period, series and parallel resistors summed as series, "three 9 Ω resistors" read as one,
+boiling water answered with its warming alone, a height above Earth read as its radius, a
+hump's normal force taken as mg, a student's own answer used as a given, a side question's
+planet used for the main question, and a question in parts answered one part at a time.
+Each is in `test_physics_sweep_regressions.py`.
+
 ## What it refuses
 
 A refusal is a decline to the model, labelled unverified, never a guessed number. The
 pipeline refuses:
 - a question longer than 4,000 characters (it still gets the physics note);
 - a number it cannot read whole;
-- a stated value of a kind the solve uses, left unbound;
+- a stated value of a kind the solve uses, left unbound, and a stated force, speed, length
+  or angle of a kind it never uses;
+- a statement that asks nothing, and a "what if …" that names no quantity;
+- a fall with no stated height (a horizontal throw, a roll off a table, a throw down a well),
+  except a throw straight up that comes back to the hand; a throw whose direction is unsaid;
+- a chase whose chaser is not read, a series-parallel network, heating through boiling or
+  melting, the average velocity of a lap, and a downward launch's peak height;
 - a result whose kind is not the asked one, and a price ("find the cost"), which no law
   answers;
 - a Doppler speed with no direction, or one speed when both parties move;
