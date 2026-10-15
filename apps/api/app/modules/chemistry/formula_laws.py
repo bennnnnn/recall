@@ -138,6 +138,18 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             non_negative=frozenset({"solute_mass"}),
             not_above=(("solute_mass", "solution_mass"),),
         ),
+        # "How many grams of NaCl are needed to make 500 g of a 5.0% by mass solution?"
+        _law(
+            "solute_mass_from_percent",
+            "solutions",
+            "Mass-percent concentration",
+            "m(solute) = (mass % / 100) × m(solution)",
+            "Mass of solute, m(solute)",
+            ("m(solute)", "g"),
+            "percent/100*solution_mass",
+            (("percent", "mass %", "%"), ("solution_mass", "m(solution)", "g")),
+            "m(solute) = ({percent.value} / 100)({solution_mass})",
+        ),
         _law(
             "volume_percent",
             "solutions",
@@ -252,6 +264,24 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             "moles*enthalpy",
             (("moles", "n", "mol"), ("enthalpy", "ΔH", "kJ/mol")),
             "q = ({moles})({enthalpy})",
+            signed=frozenset({"enthalpy"}),
+        ),
+        # "How much heat is released when 32.0 g of CH4 burns? ΔH = -890 kJ/mol": the moles
+        # come from the mass of the substance the enthalpy is per mole of.
+        _law(
+            "reaction_heat_mass",
+            "thermochemistry",
+            "Enthalpy of a reaction amount",
+            "q = (m / M)ΔH",
+            "Heat, q",
+            ("q", "kJ"),
+            "mass/molar_mass*enthalpy",
+            (
+                ("mass", "m({formula})", "g"),
+                ("molar_mass", "M({formula})", "g/mol"),
+                ("enthalpy", "ΔH", "kJ/mol"),
+            ),
+            "q = ({mass} / {molar_mass})({enthalpy})",
             signed=frozenset({"enthalpy"}),
         ),
         _law(

@@ -6,7 +6,15 @@ with the laws written by hand.
 
 from __future__ import annotations
 
-from app.modules.chemistry.law_record import _MOLAL, _MOLAR, ChemistryLaw, _law
+from app.modules.chemistry.law_record import (
+    _ELECTROLYSIS_CUES,
+    _MOLAL,
+    _MOLAR,
+    _SOLUTE_WORDS,
+    _SOLVENT_WORDS,
+    ChemistryLaw,
+    _law,
+)
 from app.services.law_binding.spec import VariableSpec, var
 
 
@@ -19,8 +27,6 @@ def _molar_mass() -> VariableSpec:
     return var("molar_mass", "M", "gram / mole", fallback="species_molar_mass")
 
 
-_SOLUTE_WORDS = ("compound", "solute", "salt", "sugar")
-_SOLVENT_WORDS = ("water", "solvent")
 _GRAMS_ASKS = ("how many grams", "grams", "mass")
 
 # Laws that are one line of arithmetic (formula_laws), read from a question in its words.
@@ -256,6 +262,17 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
         "kilojoule",
         (var("moles", "n", "mole"), var("enthalpy", "ΔH", "kilojoule / mole")),
         nonnegative=False,
+        no_equation=True,
+    ),
+    _law(
+        "reaction_heat_mass",
+        "thermochemistry",
+        ("how much heat", "heat", "energy"),
+        "kilojoule",
+        (var("mass", "m", "gram"), _molar_mass(), var("enthalpy", "ΔH", "kilojoule / mole")),
+        species="compound",
+        nonnegative=False,
+        no_equation=True,
     ),
     _law(
         "electrolysis_time",
@@ -275,7 +292,7 @@ FORMULA_LAW_BINDINGS: tuple[ChemistryLaw, ...] = (
             var("current", "I", "ampere"),
             var("molar_mass", "M", "gram / mole", fallback="deposited_molar_mass"),
         ),
-        cues=("deposit", "electrolysis", "plated", "plating"),
+        cues=_ELECTROLYSIS_CUES,
     ),
     _law(
         "ionic_strength",

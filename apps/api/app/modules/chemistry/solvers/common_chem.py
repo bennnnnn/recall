@@ -73,6 +73,11 @@ def _fixed(value: float, places: int) -> str:
     return text.removeprefix("-") if float(text) == 0 else text
 
 
+def fixed(value: float, places: int) -> str:
+    """A value to fixed decimal places: a sum keeps the fewest places of its terms."""
+    return _fixed(value, places)
+
+
 def num(value: float) -> str:
     """A computed value, to the significant figures the question's data carry."""
     written = sig_figs.current()

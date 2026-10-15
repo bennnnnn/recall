@@ -17,9 +17,10 @@ from __future__ import annotations
 
 import re
 
+from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.input_text import HYDRATE_DOT, read_chemistry_text
 from app.modules.chemistry.species import ARROWS
-from app.modules.chemistry.species_facts import ELEMENT_NAMES, is_formula
+from app.modules.chemistry.species_facts import ELEMENT_NAMES, NAMED_COMPOUNDS, is_formula
 
 # Formula characters are case-sensitive on purpose. Under ``re.IGNORECASE`` a
 # lowercase word such as "sodium" splits into "so" + "di" + "um" in Fibonacci-many
@@ -61,6 +62,7 @@ _STRONG_CUE = re.compile(
     r"molarity|molality|formula\s+units?|M1V1|mass\s+percent|pOH|"
     r"parts\s+per\s+(?:million|billion)|(?:ppm|ppb)(?=\s+of\b)|"
     r"volume\s+percent|percent(?:age)?\s+by\s+(?:volume|mass)|mass/volume\s+percent|"
+    r"%\s*\(?\s*(?:by\s+(?:mass|volume)|w/w|m/m|v/v|w/v|m/v)|"
     r"thermochem\w*|enthalpy|specific\s+heat|calorimet\w*|"
     r"reaction\s+quotient|equilibrium\s+(?:constant|expression)|ice\s+(?:table|equilibrium)|"
     r"rate\s+(?:constant|law)|first[- ]order|second[- ]order|zero[- ]order|arrhenius|"
@@ -163,8 +165,102 @@ _WEAK_CUE = re.compile(
     r"chemical|atoms?|bond|neutrali[sz]\w*|isotopes?|diffus\w*)\b",
     re.IGNORECASE,
 )
-# An element followed by a digit ("H2O", "CO2", "Fe2") or a capital run ("NaOH").
+# An element followed by a digit ("H2O", "Fe2") or a capital run ("NaOH").
 _FORMULA_HINT = re.compile(r"\b[A-Z][a-z]?\d|\b(?:[A-Z][a-z]?){2,4}\b")
+# A count of particles in powers of ten is Avogadro's scale: "1.20 x 10^24 atoms of iron".
+_TIMES_TEN = r"\s*[x×*]\s*10\s*\^\s*"  # noqa: RUF001 -- a student types the multiplication sign
+_PARTICLE_COUNT = re.compile(
+    rf"(?<![\w.])(?:\d+(?:\.\d+)?{_TIMES_TEN}[-+]?\d{{1,3}}|\d+(?:\.\d+)?[eE][-+]?\d{{1,3}}"
+    r"|10\s*\^\s*\d{1,3})\s*(?:atoms?|molecules?|formula\s+units?|ions?)\s+of\s+(?:the\s+)?"
+    r"(?P<substance>[A-Za-z][A-Za-z0-9()]*)",
+    re.IGNORECASE,
+)
+# "How many atoms are in 5.0 g of Fe?": a particle count of a stated amount.
+_PARTICLES_IN_AMOUNT = re.compile(
+    r"\b(?:how\s+many|number\s+of)\s+(?:atoms|molecules|formula\s+units)\s+(?:are\s+|is\s+)?"
+    r"(?:there\s+)?in\s+(?:an?\s+)?\d",
+    re.IGNORECASE,
+)
+
+
+def _particles_of_substance(text: str) -> bool:
+    """Avogadro-scale particles of an element or a compound: "1.20 x 10^24 atoms of iron"."""
+    for match in _PARTICLE_COUNT.finditer(text):
+        word = match.group("substance")
+        if word in BY_SYMBOL or word.lower() in ELEMENT_NAMES or is_formula(word):
+            return True
+        if any(text.lower().startswith(name, match.start("substance")) for name in _NAMED):
+            return True
+    return False
+
+
+_NAMED = tuple(NAMED_COMPOUNDS)
+# Particles of a compound written as a formula: "How many molecules are in 10 g of CO2?".
+_PARTICLE_WORD = re.compile(r"\b(?:atoms?|molecules?|formula\s+units?)\b", re.IGNORECASE)
+_FORMULA_WORD = re.compile(r"(?<![A-Za-z0-9])([A-Z][A-Za-z0-9()]*)(?![A-Za-z0-9(])")
+
+
+# "What % of Fe2O3 is iron?": an element's share of a compound written as a formula.
+_SHARE_OF_COMPOUND = re.compile(
+    r"(?:%|\b[Pp]ercent(?:age)?)\s+(?:by\s+mass\s+)?of\s+(?:the\s+mass\s+of\s+)?"
+    r"([A-Z][A-Za-z0-9()]*)\s+(?:by\s+mass\s+)?is\s+(?:made\s+up\s+of\s+)?([A-Za-z]+)\b"
+)
+
+
+# Two gases of a mixture, each with its pressure: "He at 0.40 atm, Ne at 0.25 atm",
+# "P(N2) = 600 mmHg". A tank "B at 3 atm" is not a gas.
+_NOBLE_GASES = frozenset({"He", "Ne", "Ar", "Kr", "Xe", "Rn"})
+_GAS_NAMES = frozenset(
+    {
+        "hydrogen",
+        "helium",
+        "nitrogen",
+        "oxygen",
+        "fluorine",
+        "neon",
+        "chlorine",
+        "argon",
+        "krypton",
+        "xenon",
+        "radon",
+    }
+)
+_GAS_PRESSURE = re.compile(
+    r"(?<![A-Za-z0-9])(?:P\()?([A-Za-z][A-Za-z0-9]*)\)?\s*(?:at|=|:)\s*\d+(?:\.\d+)?\s*"
+    r"(?:atm|kPa|mmHg|torr|bar|Pa)(?![A-Za-z])"
+)
+
+
+def _gas_mixture(text: str) -> bool:
+    gases = {
+        match.group(1)
+        for match in _GAS_PRESSURE.finditer(text)
+        if match.group(1) in _NOBLE_GASES
+        or match.group(1).lower() in _GAS_NAMES
+        or is_formula(match.group(1))
+    }
+    return len(gases) >= 2
+
+
+def _element_share(text: str) -> bool:
+    for match in _SHARE_OF_COMPOUND.finditer(text):
+        compound, element = match.groups()
+        if names_compound(compound) and (element in BY_SYMBOL or element.lower() in ELEMENT_NAMES):
+            return True
+    return False
+
+
+def names_compound(text: str) -> bool:
+    """A compound written as a formula: two element symbols or more, and a digit or a
+    lowercase letter, so a shouted word ("NO", "HI", "OK") is not one."""
+    return any(
+        sum(char.isupper() for char in token) >= 2
+        and any(char.islower() or char.isdigit() for char in token)
+        and is_formula(token)
+        for token in _FORMULA_WORD.findall(text)
+    )
+
+
 _BALANCE_CUE = re.compile(r"\b(?:balance|balanced|coefficient)\b", re.IGNORECASE)
 _EQUATION_WORDS = re.compile(
     r"\b(?:moles?|grams?|limiting|yield)\b|(?<![A-Za-z0-9])(?:Kc|Qc)(?![A-Za-z])",
@@ -392,6 +488,12 @@ def is_chemistry_question(content: str) -> bool:
         return True
     weak = {match.group(0).lower() for match in _WEAK_CUE.finditer(cleaned)}
     if len(weak) >= 2 or (weak and _FORMULA_HINT.search(cleaned)):
+        return True
+    if _particles_of_substance(cleaned) or _PARTICLES_IN_AMOUNT.search(cleaned):
+        return True
+    if _PARTICLE_WORD.search(cleaned) and names_compound(cleaned):
+        return True
+    if _element_share(cleaned) or _gas_mixture(cleaned):
         return True
     if _has_equation(cleaned) and (_BALANCE_CUE.search(cleaned) or _EQUATION_WORDS.search(cleaned)):
         return True

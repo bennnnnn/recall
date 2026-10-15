@@ -10,6 +10,12 @@ _MOLAR = "mole / liter"
 _MOLAL = "mole / kilogram"
 _PER_SECOND = "1 / second"
 _PH_ASKS = ("p_h",)
+# The words beside a solute's and a solvent's mass ("10.0 g compound in 250 g of water").
+_SOLUTE_WORDS = ("compound", "solute", "salt", "sugar")
+_SOLVENT_WORDS = ("water", "solvent")
+# A metal deposited by a current: "plate 5.00 g of silver", "electroplating", "is deposited".
+# A cue matches from a word's start, so "plate" also reads "plated" and "plates".
+_ELECTROLYSIS_CUES = ("deposit", "electrolysis", "electroplat", "plate", "plating")
 
 
 @dataclass(frozen=True, slots=True)
@@ -25,6 +31,9 @@ class ChemistryLaw:
     keep_units: tuple[str, ...] = ()
     # Units the solver reads off the intent, as the converted inputs are in.
     labels: tuple[tuple[str, str], ...] = ()
+    # A per-mole value (ΔH in kJ/mol) is per mole of the substance only when no equation is
+    # written: "2H2 + O2 -> 2H2O, ΔH = -572 kJ/mol" is per mole of that reaction, two of H2.
+    no_equation: bool = False
 
 
 def _law(
@@ -43,6 +52,7 @@ def _law(
     keep_units: tuple[str, ...] = (),
     labels: tuple[tuple[str, str], ...] = (),
     nonnegative: bool = True,
+    no_equation: bool = False,
 ) -> ChemistryLaw:
     names = frozenset(variable.name for variable in variables)
     binding = Binding(
@@ -62,4 +72,4 @@ def _law(
         variables=variables,
         binding=binding,
     )
-    return ChemistryLaw(op, kind, spec, species, keep_units, labels)
+    return ChemistryLaw(op, kind, spec, species, keep_units, labels, no_equation)

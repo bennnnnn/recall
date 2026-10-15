@@ -140,6 +140,31 @@ def solve_amount(intent: ChemistryIntent) -> ChemistryResult:
             f"N({formula}) = {value}",
             value,
         )
+    if op == "mass_to_particles":
+        mass = require(intent, "mass", non_negative=True)
+        moles = mass / molar
+        particles = moles * AVOGADRO * per_formula
+        law_name, base_formula = stated("mass_to_particles")
+        value = f"{num(particles)} {noun}"
+        return verified(
+            "Verified particle count",
+            (
+                f"m = {inp(mass)} g",
+                f"M({formula}) = {molar_mass_working(molar)} g/mol",
+                f"Nₐ = {const(AVOGADRO)} mol⁻¹",
+                *_per_unit(formula, per_formula),
+            ),
+            f"Number of {noun}, N",
+            law_name,
+            base_formula if per_formula == 1 else "N = (m / M)Nₐ × (atoms per formula unit)",
+            (
+                f"n = {qty(mass, 'g')} / {molar_mass_working(molar)} g/mol = {num(moles)} mol",
+                f"N = ({num(moles)} mol)({const(AVOGADRO)} mol⁻¹)"
+                + ("" if per_formula == 1 else f" × ({per_formula} atoms per {formula})"),
+            ),
+            f"N({formula}) = {value}",
+            value,
+        )
     if op == "particles_to_moles":
         particles = require(intent, "particles", non_negative=True)
         moles = particles / AVOGADRO / per_formula

@@ -9,7 +9,9 @@ from app.modules.chemistry.extractors.parsing import (
     _floats,
     _search,
 )
+from app.modules.chemistry.request import CHEMICAL_FORMULA, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
+from app.modules.chemistry.species_facts import NAMED_COMPOUNDS
 
 
 def _labeled_volume(text: str, label: str) -> tuple[float, str | None] | None:
@@ -91,6 +93,9 @@ _BOTH_MOLARITIES = re.compile(
 
 
 def _extract_solutions(text: str) -> ChemistryIntent | None:
+    percent_solute = _extract_percent_solute(text)
+    if percent_solute is not None:
+        return percent_solute
     stock = _stock_volume(text)
     if stock is not None:
         return stock
@@ -153,6 +158,55 @@ def _extract_solutions(text: str) -> ChemistryIntent | None:
                 params={"moles": moles, "volume_l": volume},
             )
     return None
+
+
+_NAMED = "|".join(re.escape(name) for name in sorted(NAMED_COMPOUNDS, key=len, reverse=True))
+# What the asked grams are of: a named compound, a formula, or the solute by a common noun.
+_SOLUTE = rf"(?:{_NAMED}|solute|salt|sugar|{CHEMICAL_FORMULA}{FORMULA_END})"
+# "How many grams of NaCl are needed to make 500 g of a 5.0% by mass solution?", "What mass of
+# glucose is in 250 g of a 10.0% (w/w) glucose solution?": m(solute) = (mass % / 100) m(solution).
+_PERCENT_SOLUTE = re.compile(
+    r"\b(?:how\s+many\s+(?:grams|g)\s+of|how\s+much|what\s+mass\s+of|"
+    r"(?:find|calculate|determine|what\s+is)\s+the\s+mass\s+of)\s+(?:the\s+)?"
+    rf"(?P<solute>{_SOLUTE})\s+(?:(?:is|are|would\s+be|will\s+be)\s+)?"
+    r"(?:(?:needed|required|used|dissolved|present|contained)\s+)?"
+    r"(?:to\s+(?:make|prepare)|in|for)\s+"
+    rf"(?P<mass>{_N})\s*(?P<unit>g|grams?|kg)\s+of\s+(?:an?\s+)?(?P<percent>{_N})\s*%\s*"
+    r"(?P<basis>\(?\s*(?:by\s+(?:mass|weight|volume)|w/w|m/m|v/v|w/v|m/v)\s*\)?\s*)?"
+    rf"(?:(?P<named>{_NAMED}|{CHEMICAL_FORMULA}{FORMULA_END})\s+)?(?:aqueous\s+)?solution\b",
+    re.IGNORECASE,
+)
+
+
+def _extract_percent_solute(text: str) -> ChemistryIntent | None:
+    """The solute's mass in a mass of solution of a stated mass percent.
+
+    A percent of a solution weighed in grams is by mass; one written by volume (v/v, w/v)
+    is another law and declines. The asked grams must be the solute's: the grams of water
+    for the same solution are the rest of it, not this.
+    """
+    match = _PERCENT_SOLUTE.search(text)
+    if match is None:
+        return None
+    basis = (match.group("basis") or "").lower()
+    if "vol" in basis or "v" in basis.replace("by", ""):
+        return None
+    solute = match.group("solute")
+    named = match.group("named")
+    formula = NAMED_COMPOUNDS.get(solute.lower(), solute)
+    if formula == "H2O" or (named and NAMED_COMPOUNDS.get(named.lower(), named) != formula):
+        return None
+    percent = float(match.group("percent"))
+    if not 0 < percent <= 100:
+        return None
+    mass = float(match.group("mass"))
+    unit = "g" if match.group("unit").lower().startswith("g") else "kg"
+    return ChemistryIntent(
+        kind="solutions",
+        chemistry_op="solute_mass_from_percent",
+        params={"percent": percent, "solution_mass": mass * (1000 if unit == "kg" else 1)},
+        units={"solution_mass": unit},
+    )
 
 
 def _extract_colligative(text: str) -> ChemistryIntent | None:

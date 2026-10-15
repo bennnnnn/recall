@@ -70,6 +70,7 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ("moles_to_mass", "amounts", "Mass–mole relation", "m = nM"),
     ("moles_to_particles", "amounts", "Avogadro relation", "N = nNₐ"),
     ("particles_to_moles", "amounts", "Avogadro relation", "n = N / Nₐ"),
+    ("mass_to_particles", "amounts", "Avogadro relation", "N = (m / M)Nₐ"),
     (
         "percent_composition",
         "amounts",
@@ -359,6 +360,18 @@ _ROWS: tuple[tuple[str, str, str, str], ...] = (
     ),
     ("boiling_elevation", "solutions", "Boiling-point elevation", "ΔTb = i Kb m"),
     ("freezing_depression", "solutions", "Freezing-point depression", "ΔTf = i Kf m"),
+    (
+        "solution_boiling_point",
+        "solutions",
+        "Boiling point of a solution",
+        "Tb = Tb° + ΔTb, where ΔTb = i Kb m",
+    ),
+    (
+        "solution_freezing_point",
+        "solutions",
+        "Freezing point of a solution",
+        "Tf = Tf° − ΔTf, where ΔTf = i Kf m",
+    ),
     ("osmotic_pressure", "solutions", "van 't Hoff equation", "Π = iMRT"),
     ("raoult", "solutions", "Raoult's law", "P = X P°"),
     ("henry", "solutions", "Henry's law", "C = kH × P"),

@@ -1,4 +1,4 @@
-# ruff: noqa: RUF002 -- worked answers use the multiplication sign.
+# ruff: noqa: RUF002, RUF003 -- worked answers use the multiplication and minus signs.
 """One school question per law added after the original catalog, with its worked answer.
 
 Each answer was checked by hand to the figures the question's data carry:
@@ -547,4 +547,43 @@ STATED_LAW_CASES: tuple[tuple[str, str, str], ...] = (
     ),
 )
 
-NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (*_EARLIER_CASES, *STATED_LAW_CASES)
+# Laws added for questions the STEM sweep found unanswered (``stem_corpus/chemistry``):
+# - 10 g / 44.009 g/mol × 6.022 × 10^23 = 1.4 × 10^23 molecules;
+# - 32.0 g / 16.043 g/mol × (−890 kJ/mol) = −1.78 × 10^3 kJ;
+# - 100 °C + (1)(0.512)(2.00 mol / 1.00 kg) = 101.02 °C;
+# - 0 °C − (2)(1.86)(10.0 g / 58.44 g/mol / 0.250 kg) = −2.55 °C;
+# - 5.0% × 500 g = 25 g.
+SWEEP_GAP_CASES: tuple[tuple[str, str, str], ...] = (
+    (
+        "How many molecules are in 10 g of CO2?",
+        "mass_to_particles",
+        "N(CO2) = 1.4 × 10^23 particles",
+    ),
+    (
+        "How much heat is released when 32.0 g of CH4 burns? ΔH = -890 kJ/mol",
+        "reaction_heat_mass",
+        "q = -1.78 × 10^3 kJ",
+    ),
+    (
+        "What is the boiling point of a solution made by dissolving 2.00 mol of glucose in "
+        "1.00 kg of water? Kb = 0.512 °C/m",
+        "solution_boiling_point",
+        "Tb = 101.02 °C",
+    ),
+    (
+        "What is the freezing point of a solution of 10.0 g NaCl in 250 g of water? Kf = 1.86 °C/m",
+        "solution_freezing_point",
+        "Tf = -2.55 °C",
+    ),
+    (
+        "How many grams of NaCl are needed to make 500 g of a 5.0% by mass solution?",
+        "solute_mass_from_percent",
+        "m(solute) = 25 g",
+    ),
+)
+
+NEW_LAW_CASES: tuple[tuple[str, str, str], ...] = (
+    *_EARLIER_CASES,
+    *STATED_LAW_CASES,
+    *SWEEP_GAP_CASES,
+)

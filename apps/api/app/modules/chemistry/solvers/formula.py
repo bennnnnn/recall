@@ -156,6 +156,8 @@ def solve_formula_law(intent: ChemistryIntent) -> ChemistryResult:
         0 < values["percent_transmittance"] <= 100
     ):
         raise SolveServiceError("percent transmittance must be between 0 and 100")
+    if law.op == "solute_mass_from_percent" and values["percent"] > 100:
+        raise SolveServiceError("a mass percent cannot exceed 100")
     if law.op == "van_der_waals_pressure" and values["volume"] <= values["n"] * values["b"]:
         raise SolveServiceError("volume must be greater than n b")
     if law.op == "carothers" and values["extent"] >= 1:

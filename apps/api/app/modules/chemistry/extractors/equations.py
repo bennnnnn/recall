@@ -9,6 +9,7 @@ from app.modules.chemistry.equations import balance_equation
 from app.modules.chemistry.extractors.parsing import (
     _N,
     _target,
+    asked_quantity,
 )
 from app.modules.chemistry.request import CHEMICAL_FORMULA, EQUATION_RE, FORMULA_END
 from app.modules.chemistry.schemas import ChemistryIntent
@@ -80,7 +81,7 @@ def _extract_equations(text: str) -> ChemistryIntent | None:
             return ChemistryIntent(
                 kind="equilibrium", chemistry_op=op, equation=equation, species=normalized
             )
-    if re.search(
+    if _asks_amount(text) and re.search(
         r"\b(?:how much|how many|moles? of|limiting reagent|stoichiometr)\b", text, re.IGNORECASE
     ):
         amounts = _amounts(text)
@@ -112,6 +113,24 @@ def _extract_equations(text: str) -> ChemistryIntent | None:
                 species=known,
             )
     return None
+
+
+# "How much heat is released when 3.0 mol of H2 burns?" names a mole amount but asks for an
+# energy: the mole ratio answers a different question.
+_OTHER_ASK = re.compile(
+    r"\b(?:how\s+much|what|find|calculate|determine)\s+(?:is\s+)?(?:the\s+)?"
+    r"(?:heat|energy|enthalpy|work|temperature|pressure|volume|concentration|molarity|time)\b"
+    r"|\bhow\s+(?:long|hot|fast)\b",
+    re.IGNORECASE,
+)
+
+
+def _asks_amount(text: str) -> bool:
+    """The question asks for an amount a mole ratio gives, not a heat or a volume."""
+    if _OTHER_ASK.search(text):
+        return False
+    asked = asked_quantity(text)
+    return asked is None or asked.unit in {None, "mol"}
 
 
 def _half_reaction(text: str, equation: str) -> ChemistryIntent | None:
