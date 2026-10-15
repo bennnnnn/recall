@@ -36,6 +36,7 @@ from app.modules.memory.consolidation import (
 from app.modules.memory.consolidation import (
     sections_need_consolidation as sections_need_consolidation,
 )
+from app.modules.memory.repository import list_areas as list_areas
 from app.modules.memory.repository import list_for_user as list_for_user
 from app.modules.memory.repository import list_range as list_range
 from app.modules.memory.selection import (

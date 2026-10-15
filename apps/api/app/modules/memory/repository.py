@@ -91,13 +91,17 @@ async def list_range(
     *,
     offset: int,
     limit: int,
+    include_superseded: bool = False,
 ) -> list[Memory]:
     if limit <= 0:
         return []
+    filters = [Memory.user_id == user_id]
+    if not include_superseded:
+        filters.append(Memory.status.in_((ACTIVE_STATUS, MUTED_STATUS)))
     result = await session.execute(
         select(Memory)
-        .where(Memory.user_id == user_id, Memory.status.in_((ACTIVE_STATUS, MUTED_STATUS)))
-        .order_by(Memory.type.asc(), Memory.last_confirmed_at.desc())
+        .where(*filters)
+        .order_by(Memory.type.asc(), Memory.last_confirmed_at.desc(), Memory.id.asc())
         .offset(offset)
         .limit(limit)
     )

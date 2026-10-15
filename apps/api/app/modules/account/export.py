@@ -1,4 +1,9 @@
-"""Assemble a user's data export (profile, chats, memories, todos, attachments)."""
+"""Assemble a user's data export: everything Recall stores about them.
+
+Profile and settings, chats and messages, every memory row and memory area,
+to-dos, attachments, suggestions, daily usage, push devices (no token) and
+product events. Every query is scoped to the caller's user id.
+"""
 
 from __future__ import annotations
 
@@ -6,9 +11,11 @@ import json
 import logging
 from collections.abc import AsyncIterator, Callable
 from contextlib import AbstractAsyncContextManager
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
+from decimal import Decimal
 from types import SimpleNamespace
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,10 +32,13 @@ from app.models.orm import (
 )
 from app.modules import memory as memory_service
 from app.modules.attachments import service as attachments_service
+from app.modules.suggestions import service as suggestions_service
 from app.modules.todos import repository as todos_repo
 from app.repositories import chats as chats_repo
 from app.repositories import messages as messages_repo
 from app.repositories import product_events as product_events_repo
+from app.repositories import push_tokens as push_tokens_repo
+from app.repositories import usage as usage_repo
 
 logger = logging.getLogger(__name__)
 
@@ -36,20 +46,70 @@ logger = logging.getLogger(__name__)
 EXPORT_MAX_CHATS = 500
 EXPORT_MAX_MESSAGES_PER_CHAT = 2_000
 EXPORT_MESSAGE_PAGE_SIZE = 200
-EXPORT_MEMORY_PAGE_SIZE = 50
-EXPORT_MAX_MEMORIES = 50
+EXPORT_MEMORY_PAGE_SIZE = 200
+# Every row: up to 150 active facts plus muted ones and superseded history.
+# The old cap of 50 cut most users' memory out of their own export.
+EXPORT_MAX_MEMORIES = 5_000
 EXPORT_MAX_TODOS = 2_000
 EXPORT_TODO_PAGE_SIZE = 200
 EXPORT_MAX_ATTACHMENTS = 2_000
 EXPORT_MAX_PRODUCT_EVENTS = 2_000
+EXPORT_MAX_SUGGESTIONS = 2_000
+EXPORT_MAX_USAGE_DAYS = 3_660
+
+# Profile and settings the user entered or chose. Sign-in subject ids and
+# billing bookkeeping are identifiers for other systems, not user content.
+_PROFILE_FIELDS = (
+    "email",
+    "name",
+    "avatar_url",
+    "plan",
+    "default_model",
+    "enabled_models",
+    "response_style",
+    "response_tone",
+    "custom_instructions",
+    "locale",
+    "timezone",
+    "location",
+    "location_enabled",
+    "age",
+    "country",
+    "job",
+    "memory_enabled",
+    "memory_include_sensitive",
+    "push_notifications_enabled",
+    "push_reminders_enabled",
+    "email_reminders_enabled",
+    "reminder_lead_minutes",
+    "quiet_hours_enabled",
+    "quiet_hours_start_minute",
+    "quiet_hours_end_minute",
+    "tts_voice",
+    "created_at",
+    "updated_at",
+)
+
+
+def _json_safe(value: Any) -> Any:
+    """JSON value for one column. An odd type becomes None, never a broken stream."""
+    if value is None or isinstance(value, bool | int | float | str):
+        return value
+    if isinstance(value, datetime | date):
+        return value.isoformat()
+    if isinstance(value, UUID):
+        return str(value)
+    if isinstance(value, list | tuple):
+        return [_json_safe(item) for item in value]
+    if isinstance(value, dict):
+        return {str(key): _json_safe(item) for key, item in value.items()}
+    if isinstance(value, Decimal):
+        return float(value)
+    return None
 
 
 def _user_payload(user: User) -> dict[str, Any]:
-    return {
-        "email": user.email,
-        "name": user.name,
-        "created_at": user.created_at.isoformat(),
-    }
+    return {name: _json_safe(getattr(user, name, None)) for name in _PROFILE_FIELDS}
 
 
 def _chat_header(chat: Chat) -> dict[str, Any]:
@@ -58,6 +118,9 @@ def _chat_header(chat: Chat) -> dict[str, Any]:
         "title": chat.title,
         "model": chat.model,
         "pinned": chat.pinned,
+        "archived": _json_safe(getattr(chat, "archived", None)),
+        # Rolling summary of older messages kept for the model's context.
+        "summary": _json_safe(getattr(chat, "summary", None)),
         "created_at": chat.created_at.isoformat(),
         "updated_at": chat.updated_at.isoformat(),
     }
@@ -68,6 +131,7 @@ def _message_payload(message: Message) -> dict[str, Any]:
         "role": message.role,
         "content": message.content,
         "model": message.model,
+        "feedback": _json_safe(getattr(message, "feedback", None)),
         "created_at": message.created_at.isoformat(),
     }
 
@@ -75,10 +139,41 @@ def _message_payload(message: Message) -> dict[str, Any]:
 def _memory_payload(memory: Memory) -> dict[str, Any]:
     return {
         "type": memory.type,
+        "topic": _json_safe(getattr(memory, "topic", None)),
+        "status": _json_safe(getattr(memory, "status", None)),
+        "sensitivity": _json_safe(getattr(memory, "sensitivity", None)),
         "text": memory.text,
         "confidence": float(memory.confidence) if memory.confidence is not None else None,
         "created_at": memory.created_at.isoformat(),
+        "updated_at": _json_safe(getattr(memory, "updated_at", None)),
     }
+
+
+def _memory_area_payload(area: Any) -> dict[str, Any]:
+    return {"key": area.key, "title": area.title, "summary": area.summary}
+
+
+def _suggestion_payload(suggestion: Any) -> dict[str, Any]:
+    return {
+        "text": suggestion.text,
+        "category": _json_safe(suggestion.category),
+        "dismissed": _json_safe(suggestion.dismissed),
+        "created_at": _json_safe(suggestion.created_at),
+        "expires_at": _json_safe(suggestion.expires_at),
+    }
+
+
+def _usage_payload(row: Any) -> dict[str, Any]:
+    return {
+        "day": _json_safe(row.date),
+        "input_tokens": _json_safe(row.input_tokens),
+        "output_tokens": _json_safe(row.output_tokens),
+    }
+
+
+def _push_device_payload(row: Any) -> dict[str, Any]:
+    # The Expo token is a delivery credential for the device; leave it out.
+    return {"platform": _json_safe(row.platform), "updated_at": _json_safe(row.updated_at)}
 
 
 def _todo_payload(todo: TodoItem) -> dict[str, Any]:
@@ -88,6 +183,7 @@ def _todo_payload(todo: TodoItem) -> dict[str, Any]:
         "topic": todo.topic,
         "checked": todo.checked,
         "due_at": todo.due_at.isoformat() if todo.due_at is not None else None,
+        "recurrence_rule": _json_safe(getattr(todo, "recurrence_rule", None)),
         "chat_id": str(todo.chat_id) if todo.chat_id is not None else None,
         "sort_order": todo.sort_order,
         "created_at": todo.created_at.isoformat(),
@@ -140,6 +236,7 @@ async def _attachment_payload(
         "content_type": attachment.content_type,
         "size_bytes": attachment.size_bytes,
         "source": attachment.source,
+        "original_filename": _json_safe(getattr(attachment, "original_filename", None)),
         "created_at": attachment.created_at.isoformat(),
         "download_url": download_url,
         "download_url_expires_in_seconds": settings.r2_presign_expiry_seconds,
@@ -234,6 +331,7 @@ async def _iter_export_json(
                 user.id,
                 offset=memory_offset,
                 limit=page_size,
+                include_superseded=True,
             )
             memory_chunks = [json.dumps(_memory_payload(memory)) for memory in memories]
         if not memory_chunks:
@@ -246,6 +344,14 @@ async def _iter_export_json(
         memory_offset += len(memory_chunks)
         if len(memory_chunks) < page_size:
             break
+
+    yield '],"memory_areas":['
+    async with session_factory() as session:
+        area_chunks = [
+            json.dumps(_memory_area_payload(area))
+            for area in await memory_service.list_areas(session, user.id)
+        ]
+    yield ",".join(area_chunks)
 
     yield '],"todos":['
     todo_offset = 0
@@ -287,6 +393,7 @@ async def _iter_export_json(
                 content_type=attachment.content_type,
                 size_bytes=attachment.size_bytes,
                 source=attachment.source,
+                original_filename=attachment.original_filename,
                 created_at=attachment.created_at,
             )
             for attachment in attachments
@@ -296,6 +403,32 @@ async def _iter_export_json(
         if attachment_index:
             yield ","
         yield json.dumps(await _attachment_payload(attachment, settings=settings, gateway=gateway))
+
+    yield '],"suggestions":['
+    async with session_factory() as session:
+        suggestion_chunks = [
+            json.dumps(_suggestion_payload(item))
+            for item in await suggestions_service.list_for_export(
+                session, user.id, limit=EXPORT_MAX_SUGGESTIONS
+            )
+        ]
+    yield ",".join(suggestion_chunks)
+
+    yield '],"usage":['
+    async with session_factory() as session:
+        usage_chunks = [
+            json.dumps(_usage_payload(row))
+            for row in await usage_repo.list_for_user(session, user.id, limit=EXPORT_MAX_USAGE_DAYS)
+        ]
+    yield ",".join(usage_chunks)
+
+    yield '],"push_devices":['
+    async with session_factory() as session:
+        device_chunks = [
+            json.dumps(_push_device_payload(row))
+            for row in await push_tokens_repo.list_for_user(session, user.id)
+        ]
+    yield ",".join(device_chunks)
 
     yield '],"product_events":['
     async with session_factory() as session:
