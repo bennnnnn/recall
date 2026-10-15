@@ -26,6 +26,7 @@ from app.modules.math.tools.school.coordinate import (
     _extract_coord_intent,
     _verified_block_coord,
 )
+from app.modules.math.tools.school.equation_features import extract_equation_feature_intent
 from app.modules.math.tools.school.function_value import extract_function_value_intent
 from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
 from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
@@ -59,6 +60,9 @@ SCHOOL_EXTRACTORS: list[Callable[[str], MathIntent | None]] = [
     extract_geometry_measure_intent,
     extract_number_fact_intent,
     extract_algebra_fact_intent,
+    # Before an equation is solved for x: "find the vertex of y = ..." asks
+    # for the vertex.
+    extract_equation_feature_intent,
     _extract_unit_intent,
     _extract_coord_intent,
     _extract_vector_intent,

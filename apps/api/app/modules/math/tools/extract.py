@@ -253,15 +253,18 @@ def _intent_from_free_standing_equation(text: str) -> MathIntent | None:
 
 def work_check_intent(text: str) -> MathIntent | None:
     """A check-my-work request with the student's lines, or a bare worked column."""
+    from app.modules.math.response_intent import classify_math_response_intent
     from app.modules.math.tools.work_request import parse_work_request
 
     request = parse_work_request(text)
     if request is None:
         return None
+    # A hint request the work grammar did not word-match is still a hint.
+    hint_only = request.hint_only or not classify_math_response_intent(text).reveal_answer
     return MathIntent(
         kind="work_check",
         work_lines=list(request.lines),
-        work_hint_only=request.hint_only,
+        work_hint_only=hint_only,
         variable=request.variable,
         operation="solve",
     )
@@ -482,7 +485,11 @@ def _named_functions(text: str) -> list[str]:
 def _plottable_graph_source(text: str) -> str | None:
     intent = extract_math_intent(text)
     if intent is None:
-        return None
+        # "what is the slope of y = 3x + 2 and y = 2x + 3" is not solved (the
+        # lines' crossing point is not their slope), but "graph it" still
+        # draws the lines it names.
+        named = _named_functions(text)
+        return " and ".join(named) if 1 <= len(named) <= 2 else None
     if intent.kind == "graph" and intent.expr and _is_plottable_expr(intent.expr):
         return intent.expr
     if intent.kind == "graph_pair" and intent.expr and intent.expr2:

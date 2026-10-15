@@ -45,6 +45,9 @@ class WorkCheck:
     # unfinished correct work, from the last line.
     steps: tuple[KeyStep, ...] = field(default_factory=tuple)
     check: str | None = None
+    # The last line states the problem's solution although an earlier line
+    # has a slip (the slip is still named).
+    right_answer: bool = False
 
 
 def check_work(raw_lines: list[str] | tuple[str, ...], variable: str) -> WorkCheck | None:
@@ -72,6 +75,12 @@ def check_work(raw_lines: list[str] | tuple[str, ...], variable: str) -> WorkChe
                 continue
             wrong = index
             verdicts.append("wrong")
+            continue
+        # A later line is graded against the problem too: ``4x+2=10, 4x=12,
+        # x=2`` reaches the right answer, and its last line is right even
+        # though the line before it is not.
+        if line.solutions == first.solutions:
+            verdicts.append("ok")
             continue
         follows = line.solutions == lines[index - 1].solutions
         verdicts.append("carried" if follows else "off")
@@ -105,6 +114,7 @@ def check_work(raw_lines: list[str] | tuple[str, ...], variable: str) -> WorkChe
         mistake=mistake,
         finished=False,
         steps=tuple(steps),
+        right_answer=verdicts[-1] == "ok" and states_solution(lines[-1], var),
     )
 
 

@@ -97,6 +97,11 @@ def format_verified_latex(expr: Any) -> str:
     from sympy import latex, simplify
 
     val = simplify(expr)
+    if getattr(val, "is_Float", False) and float(val).is_integer():
+        # ``x = 2``, not ``x = 2.0``: a decimal input that solves to a whole number.
+        from sympy import Integer
+
+        val = Integer(int(val))
     tex = str(latex(val))
     # A derivative or antiderivative stays exact: ``0.434294 x`` is not ``x / ln 10``.
     if len(tex) <= _EXACT_LATEX_DECIMAL_THRESHOLD or getattr(val, "free_symbols", None):

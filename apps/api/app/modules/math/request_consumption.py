@@ -118,6 +118,26 @@ _SIGNED_OUTPUT_RESTRICTION = re.compile(
     rf"(?:(?:not|never|{_LINK_ADVERB})\s+)?{_DOMAIN_ADJECTIVE}\b",
     re.IGNORECASE,
 )
+# A feature of the equation was asked for, not its solutions. Solving
+# "find the vertex of y = x^2 - 6x + 5" for x answered a different question
+# with a verified card; the feature rules in ``school/equation_features``
+# read these, and anything they decline stays with the model.
+_EQUATION_FEATURE_REQUEST = re.compile(
+    r"\b(?:vertex|vertices|turning\s+points?|(?:axis|line)\s+of\s+symmetry|intercepts?|"
+    r"discriminant|(?:sum|product)\s+of\s+(?:the\s+|its\s+)?(?:roots|zeros|zeroes|solutions)|"
+    r"slope|gradient|parallel|perpendicular|tangent|normal\s+to|asymptotes?|"
+    r"maximum|minimum|range|domain|period|amplitude|ph|poh)\b",
+    re.IGNORECASE,
+)
+# "... has exactly one solution": a condition on the equation, not the equation.
+_SOLUTION_COUNT_CONDITION = re.compile(
+    r"\b(?:has|have|having)\s+(?:exactly\s+|only\s+)?(?:one|two|no|1|2|a\s+single|a\s+repeated|"
+    r"a\s+double|equal|repeated|distinct|real|infinitely\s+many)\b[^.?!]{0,30}"
+    r"\b(?:solutions?|roots?|zeros?|zeroes?)\b",
+    re.IGNORECASE,
+)
+# Inequalities keep "the range of values of x for which ..." as a solve.
+_SOLVED_EQUATION_KINDS = frozenset({"equation", "system"})
 _DOMAIN_BLIND_KINDS = frozenset(
     {"equation", "system", "inequality", "calculus", "limit", "graph", "graph_pair"}
 )
@@ -204,6 +224,10 @@ def audit_math_request(text: str, intent: MathIntent) -> ConsumptionAudit:
         # A graph intent has no typed roots result and a roots intent has no
         # graph result. Never certify whichever extractor happened to run first.
         leftovers.append("multiple requested function outputs")
+    if intent.kind in _SOLVED_EQUATION_KINDS and (
+        _EQUATION_FEATURE_REQUEST.search(text) or _SOLUTION_COUNT_CONDITION.search(text)
+    ):
+        leftovers.append("a feature of the equation, not its solutions")
     has_unrepresented_domain = bool(_NONDEFAULT_DOMAIN.search(text))
     if _linked_equality_would_be_dropped(text, intent):
         has_unrepresented_domain = True

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import re
 from dataclasses import replace
 
@@ -22,28 +23,100 @@ _PERCENT_INCREASE_WORDS = ("increase", "increased", "increasing", "markup", "mar
 _PERCENT_DECREASE_WORDS = ("decrease", "decreased", "decreasing")
 
 
+_PERCENT_OF = re.compile(r"\s*%\s*of\s+", re.IGNORECASE)
+_CHAIN_NUMBER = re.compile(
+    r"\s*(?:(?:the|a\s+total\s+of)\s+)?\$?\s*(-?(?:\d+(?:\.\d+)?|\.\d+))", re.IGNORECASE
+)
+_CHAIN_ADDEND = re.compile(
+    r"\s*(plus|minus|\+|-|\u2212)\s*\$?\s*((?:\d+(?:\.\d+)?|\.\d+))", re.IGNORECASE
+)
+# Words that ask for more arithmetic than "a% of b": "plus tax of 8%",
+# "and then double it". A unit or a noun after the base ("dollars",
+# "of the students") is not another operation.
+_MORE_ARITHMETIC = re.compile(
+    r"[\d%+\-*/^=\u00d7\u00f7\u2212]|\b(?:plus|minus|times|divided|add|added|subtract|"
+    r"subtracted|tax|tip|discount|off|increase[sd]?|decrease[sd]?|more|less|then|and|"
+    r"twice|double|half|square[sd]?|cube[sd]?|percent|rounded|round)\b",
+    re.IGNORECASE,
+)
+_OPERATION_BEFORE = re.compile(
+    r"(?:[+\-*/^\u00d7\u00f7\u2212]|\b(?:plus|minus|times|divided\s+by|add|subtract))\s*$",
+    re.IGNORECASE,
+)
+
+
 def _extract_percent_of(cleaned: str) -> MathIntent | None:
+    """``a% of b``, ``a% of b% of c`` and ``a% of b plus c``: the whole request or nothing.
+
+    "25% of 80 plus 10" used to verify 20 and "10% of 10% of 500" verified 1:
+    the first ``a% of b`` was taken and the rest of the sentence dropped.
+    """
     lower = cleaned.lower()
     pct = lower.find("% of ")
     if pct == -1:
         return None
-    rate_m = None
-    for match in mtm._NUM.finditer(cleaned[:pct]):
-        rate_m = match
-    base_m = mtm._NUM.search(cleaned, pct + 5)
-    if rate_m is None or base_m is None:
+    rate_m = _number_immediately_before(cleaned, pct)
+    if rate_m is None:
+        return None
+    if _OPERATION_BEFORE.search(cleaned[: rate_m.start()]):
+        # "5 + 20% of 80": the percent is one term of a larger sum.
         return None
     rate = _finite_match_value(rate_m)
-    base = _finite_match_value(base_m)
-    if rate is None or base is None:
+    if rate is None:
         return None
+    rates = [rate]
+    position = rate_m.end()
+    base: float | None = None
+    while True:
+        link = _PERCENT_OF.match(cleaned, position)
+        if link is None:
+            break
+        number = _CHAIN_NUMBER.match(cleaned, link.end())
+        if number is None:
+            return None
+        value = _finite_match_value_group(number)
+        if value is None:
+            return None
+        position = number.end()
+        if _PERCENT_OF.match(cleaned, position):
+            rates.append(value)
+            continue
+        base = value
+        break
+    if base is None or len(rates) > 4:
+        return None
+    addend: float | None = None
+    added = _CHAIN_ADDEND.match(cleaned, position)
+    if added is not None:
+        amount = float(added.group(2))
+        addend = -amount if added.group(1).lower() in {"minus", "-", "\u2212"} else amount
+        position = added.end()
+    if _MORE_ARITHMETIC.search(cleaned[position:]):
+        return None
+    if len(rates) == 1 and addend is None:
+        return MathIntent(
+            kind="arithmetic",
+            school_op="percent",
+            percent_rate=rate,
+            percent_base=base,
+            operation="solve",
+        )
     return MathIntent(
         kind="arithmetic",
-        school_op="percent",
-        percent_rate=rate,
+        school_op="percent_chain",
+        stats_numbers=rates,
         percent_base=base,
+        x2=addend,
         operation="solve",
     )
+
+
+def _finite_match_value_group(match: re.Match[str]) -> float | None:
+    try:
+        value = float(match.group(1))
+    except ValueError:
+        return None
+    return value if math.isfinite(value) else None
 
 
 def _extract_percent_change(cleaned: str, lower: str) -> MathIntent | None:
@@ -142,6 +215,36 @@ def _block_percent(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | 
     answer = math_school.percent_of(intent.percent_rate, intent.percent_base)
     lines.append(f"{intent.percent_rate:g}% of {intent.percent_base:g} = {answer}")
     return _finish_with_answer(lines, answer)
+
+
+def _block_percent_chain(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:
+    """``10% of 10% of 500`` and ``25% of 80 plus 10``, worked left to right."""
+    from fractions import Fraction
+
+    rates = intent.stats_numbers or []
+    if not rates or intent.percent_base is None:
+        return None
+    base = Fraction(str(intent.percent_base))
+    value = base
+    for rate in reversed(rates):
+        value = Fraction(str(rate)) / 100 * value
+    words = r" \text{ of } ".join(f"{rate:g}\\%" for rate in rates)
+    shown = [f"{words} \\text{{ of }} {intent.percent_base:g}"]
+    factors = r" \times ".join(f"{float(Fraction(str(rate)) / 100):g}" for rate in rates)
+    product = f"{factors} \\times {intent.percent_base:g}"
+    if intent.x2 is not None:
+        addend = Fraction(str(intent.x2))
+        sign = "-" if addend < 0 else "+"
+        shown[0] += f" {sign} {abs(intent.x2):g}"
+        product += f" {sign} {abs(intent.x2):g}"
+        partial = f"{float(value):g} {sign} {abs(intent.x2):g}"
+        value += addend
+        steps = [shown[0], product, partial]
+    else:
+        steps = [shown[0], product]
+    answer = math_school._format_school_number(float(value))
+    working = " = ".join([*steps, answer])
+    return _with_working(lines, working, answer)
 
 
 def _block_percent_change(intent: MathIntent, lines: list[str]) -> VerifiedMathBlock | None:

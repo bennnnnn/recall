@@ -54,11 +54,13 @@ def test_a_buried_solve_word_is_not_an_equation() -> None:
     solved = math_tools.extract_math_intent("I solved 2x+3=7")
     assert solved is not None
     assert solved.kind == "equation"
-    intent = math_tools.extract_math_intent("solve x=1")
+    intent = math_tools.extract_math_intent("solve 2x=1")
     assert intent is not None
     assert intent.kind == "equation"
-    assert intent.lhs == "x"
+    assert intent.lhs == "2x"
     assert intent.rhs == "1"
+    # A value already stated is not solved again: that certified what was typed.
+    assert math_tools.extract_math_intent("solve x=1") is None
 
 
 def test_extract_equation_intent() -> None:
@@ -104,10 +106,10 @@ def test_paragraph_is_not_a_graph_keyword() -> None:
 
 
 def test_glued_please_is_equation_not_graph() -> None:
-    intent = math_tools.extract_math_intent("X=6please")
+    intent = math_tools.extract_math_intent("2X=6please")
     assert intent is not None
     assert intent.kind == "equation"
-    assert intent.lhs == "X"
+    assert intent.lhs == "2X"
     assert intent.rhs == "6"
 
 
@@ -307,15 +309,15 @@ def test_let_x_then_evaluate_is_not_solve_x_equals_five() -> None:
     assert intent is not None
     assert intent.kind == "arithmetic"
     assert intent.expr is not None
-    assert intent.expr.replace(" ", "") == "5+2"
+    # Evaluated with x = 5 substituted (the given-values rule writes the working).
+    assert intent.school_op == "expression_value" and intent.evaluation_point == "5"
     block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
     assert block.canonical_answer is not None
     assert "7" in block.canonical_answer
     assert "x = 5" not in block.canonical_answer.replace(" ", "")
-    bare = math_tools.extract_math_intent("let x = 5")
-    assert bare is not None
-    assert bare.kind == "equation"
+    # A bare given is not a problem to solve; "x = 5" would only certify itself.
+    assert math_tools.extract_math_intent("let x = 5") is None
 
 
 def test_chained_equals_is_not_collapsed_into_one_equation() -> None:

@@ -6,6 +6,7 @@ import re
 
 from app.modules.math.match.arithmetic import bare_arithmetic_expr
 from app.modules.math.match.calculus import (
+    calc_object,
     calc_op,
     parse_limit,
     parse_series,
@@ -147,7 +148,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # "if f(x) = 3x + 1, what is f(2)": a function's value at a number.
     if extract_function_value_intent(cleaned) is not None:
         return True
-    if _COMPLEX_ARITHMETIC.fullmatch(lower) and re.search(r"\d\s*i\b|\bi\s*\)", lower):
+    if _COMPLEX_ARITHMETIC.fullmatch(lower) and re.search(r"\d\s*i\b|\bi\s*[)^]", lower):
         # "(2 + 3i)(1 - i)": numbers, operators, brackets and i, nothing else.
         return True
     from app.modules.math.tools.extractors.calculus_applications import (
@@ -158,6 +159,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     if any(extractor(cleaned) is not None for extractor in CALCULUS_APPLICATION_EXTRACTORS):
         return True
     from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
+    from app.modules.math.tools.school.equation_features import extract_equation_feature_intent
     from app.modules.math.tools.school.geometry_facts import extract_geometry_fact_intent
     from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
     from app.modules.math.tools.school.number_facts import extract_number_fact_intent
@@ -171,6 +173,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
             extract_geometry_measure_intent,
             extract_number_fact_intent,
             extract_algebra_fact_intent,
+            extract_equation_feature_intent,
         )
     ):
         return True
@@ -249,7 +252,9 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
 
         if _extract_function_analysis_intent(cleaned) is not None:
             return True
-    if calc_op(cleaned) is not None:
+    # The verb alone is English too: "differentiate between weather and
+    # climate", "integrate Slack with Notion", "simplify it".
+    if calc_op(cleaned) is not None and calc_object(cleaned):
         return True
     if any(cue in lower for cue in ("critical point", "extrema", "local max", "local min")):
         from app.modules.math.tools.extractors.calculus import _extract_critical_points_intent

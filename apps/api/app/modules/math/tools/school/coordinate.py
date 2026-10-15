@@ -25,7 +25,8 @@ def _extract_coord_intent(cleaned: str) -> MathIntent | None:
         op = "distance"
     elif "midpoint" in lower:
         op = "midpoint"
-    elif "slope" in lower:
+    elif "slope" in lower or re.search(r"\bgradient\b", lower):
+        # "gradient of the line joining (-1, 4) and (3, -4)" is its slope.
         op = "slope"
     if op is None:
         return None

@@ -54,11 +54,18 @@ def test_valid_substitution_still_returns_requested_value(query: str, answer: st
     assert verified.canonical_answer == answer
 
 
-@pytest.mark.parametrize("query", ["Let x=-5", "Solve x=5", "Evaluate x+1=3", "Solve x+y=5; x-y=1"])
+@pytest.mark.parametrize("query", ["Evaluate x+1=3", "Solve x+y=5; x-y=1", "Solve 2x=10"])
 def test_equations_without_a_later_evaluation_are_preserved(query: str) -> None:
     assert not has_assignment_evaluation_request(query)
     intent = extract_math_intent(query)
     assert intent is not None and intent.kind in {"equation", "system"}
+
+
+@pytest.mark.parametrize("query", ["Let x=-5", "Solve x=5"])
+def test_a_value_already_stated_is_not_solved_again(query: str) -> None:
+    # "x = 5" solved is "x = 5": a verified card for it certifies whatever was typed.
+    assert not has_assignment_evaluation_request(query)
+    assert extract_math_intent(query) is None
 
 
 def test_assignment_detector_is_bounded() -> None:
