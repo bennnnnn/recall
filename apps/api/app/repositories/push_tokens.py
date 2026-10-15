@@ -81,7 +81,12 @@ async def upsert(
                 "device_id is required to move a push token to another account."
             )
         prior_device = _normalize_device_id(row.device_id)
-        if prior_device is not None and prior_device != incoming_device:
+        if prior_device is None:
+            # A row from before device ids has no install to match, so any
+            # device id would pass. It stays with its owner; the owner's next
+            # registration records the device and later moves follow the rule.
+            raise PushTokenBindError("Push token is bound to another account.")
+        if prior_device != incoming_device:
             raise PushTokenBindError("Push token is bound to a different device.")
         prior_user_id = row.user_id
         await session.delete(row)

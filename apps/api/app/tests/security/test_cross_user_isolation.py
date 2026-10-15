@@ -300,6 +300,52 @@ async def test_push_token_of_another_user_cannot_be_removed_or_taken(world: Worl
     assert owners == [a.id]
 
 
+async def _push_token_rows(token: str) -> list[tuple[object, str | None]]:
+    async with SessionLocal() as session:
+        rows = await session.execute(
+            select(PushToken.user_id, PushToken.device_id).where(PushToken.expo_push_token == token)
+        )
+        return [(user_id, device_id) for user_id, device_id in rows.all()]
+
+
+@pytest.mark.asyncio
+async def test_push_token_without_device_id_cannot_move_to_another_account(world: World) -> None:
+    # A's row predates device ids. Knowing the token string and naming any
+    # device must not move it (and A's reminders) to B.
+    c, a, b, data = world.client, world.a, world.b, world.a_data
+    body = {"expo_push_token": data.push_token, "platform": "ios", "device_id": "b-device"}
+    taken = await c.post("/users/push-token", json=body, headers=b.headers)
+    assert taken.status_code == 403
+    assert await _push_token_rows(data.push_token) == [(a.id, None)]
+
+    # A re-registering the same token still works, and records the device.
+    again = await c.post(
+        "/users/push-token",
+        json={**body, "device_id": "a-device"},
+        headers=a.headers,
+    )
+    assert again.status_code == 204
+    assert await _push_token_rows(data.push_token) == [(a.id, "a-device")]
+
+
+@pytest.mark.asyncio
+async def test_push_token_with_device_id_moves_only_on_the_same_device(world: World) -> None:
+    c, a, b, data = world.client, world.a, world.b, world.a_data
+    body = {"expo_push_token": data.push_token, "platform": "ios", "device_id": "a-device"}
+    assert (await c.post("/users/push-token", json=body, headers=a.headers)).status_code == 204
+
+    other_device = await c.post(
+        "/users/push-token", json={**body, "device_id": "b-device"}, headers=b.headers
+    )
+    assert other_device.status_code == 403
+    assert await _push_token_rows(data.push_token) == [(a.id, "a-device")]
+
+    # The same install signing into B (account switch on one phone) still moves it.
+    same_device = await c.post("/users/push-token", json=body, headers=b.headers)
+    assert same_device.status_code == 204
+    assert await _push_token_rows(data.push_token) == [(b.id, "a-device")]
+
+
 @pytest.mark.asyncio
 async def test_search_home_and_export_only_show_the_callers_data(world: World) -> None:
     c, a, b, data = world.client, world.a, world.b, world.a_data

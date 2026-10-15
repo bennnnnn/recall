@@ -552,6 +552,32 @@ async def test_upsert_rejects_cross_user_rebind_with_mismatched_device():
 
 
 @pytest.mark.asyncio
+async def test_upsert_rejects_cross_user_rebind_of_a_row_without_device_id():
+    """A row from before device ids has no install to prove: it stays with its owner."""
+    from app.exceptions import PushTokenBindError
+    from app.repositories import push_tokens as repo
+
+    session = AsyncMock()
+    owner = uuid4()
+    prior = MagicMock()
+    prior.user_id = owner
+    prior.device_id = None
+    session.execute.return_value = MagicMock(scalar_one_or_none=MagicMock(return_value=prior))
+
+    with pytest.raises(PushTokenBindError):
+        await repo.upsert(
+            session,
+            user_id=uuid4(),
+            expo_push_token="ExponentPushToken[legacy]",
+            platform="ios",
+            device_id="any-device",
+        )
+    session.delete.assert_not_awaited()
+    session.commit.assert_not_awaited()
+    assert prior.user_id == owner
+
+
+@pytest.mark.asyncio
 async def test_upsert_allows_cross_user_rebind_with_matching_device():
     from app.repositories import push_tokens as repo
 
