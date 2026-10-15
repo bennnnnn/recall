@@ -10,6 +10,10 @@ from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 
+# ``i^23`` is a power of the imaginary unit, as in ``(1 + i)/(1 - i)``; read as a
+# letter it was left unsimplified behind a verified card.
+_POWER_OF_I = re.compile(r"(?<![a-z])i\s*\^\s*\(?\s*-?\d")
+
 
 def _extract_complex_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
@@ -17,14 +21,25 @@ def _extract_complex_intent(cleaned: str) -> MathIntent | None:
 
     op = extract_complex_op(cleaned)
     if op is None:
-        has_complex_token = "complex" in lower or "i)" in lower or "+ i" in lower or "- i" in lower
+        has_complex_token = (
+            "complex" in lower
+            or "i)" in lower
+            or "+ i" in lower
+            or "- i" in lower
+            or _POWER_OF_I.search(lower) is not None
+        )
         if not has_complex_token and "imaginary" not in lower:
             return None
     if mtm.has_equation(cleaned) and "solve" in lower:
         return None
-    expr = cleaned.strip()
+    expr = cleaned.strip().rstrip("?.!").rstrip()
     while True:
         for prefix in (
+            "what is",
+            "what's",
+            "whats",
+            "find",
+            "calculate",
             "simplify",
             "evaluate",
             "compute",

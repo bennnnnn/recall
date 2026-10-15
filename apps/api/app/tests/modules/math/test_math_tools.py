@@ -309,7 +309,8 @@ def test_let_x_then_evaluate_is_not_solve_x_equals_five() -> None:
     assert intent is not None
     assert intent.kind == "arithmetic"
     assert intent.expr is not None
-    assert intent.expr.replace(" ", "") == "5+2"
+    # Evaluated with x = 5 substituted (the given-values rule writes the working).
+    assert intent.school_op == "expression_value" and intent.evaluation_point == "5"
     block = math_tools._build_verified_block(intent, Settings(math_tools_enabled=True))
     assert block is not None
     assert block.canonical_answer is not None

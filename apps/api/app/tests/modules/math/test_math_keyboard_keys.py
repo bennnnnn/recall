@@ -127,8 +127,8 @@ def test_keyboard_latex_reads_as_plain_notation(typed: str, plain: str) -> None:
         (r"$\arcsin(\frac{1}{2})$", r"\frac{\pi}{6}"),
         (r"$\cot^{-1}(1)$", r"\frac{\pi}{4}"),
         (r"$\sinh(0)$", "0"),
-        # A typed i is still a variable, as an index usually is.
-        ("simplify i^2", "i^{2}"),
+        # A typed i among numbers is the imaginary unit, as in (1 + i)/(1 - i).
+        ("simplify i^2", "-1"),
     ],
 )
 @pytest.mark.asyncio

@@ -148,7 +148,7 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
     # "if f(x) = 3x + 1, what is f(2)": a function's value at a number.
     if extract_function_value_intent(cleaned) is not None:
         return True
-    if _COMPLEX_ARITHMETIC.fullmatch(lower) and re.search(r"\d\s*i\b|\bi\s*\)", lower):
+    if _COMPLEX_ARITHMETIC.fullmatch(lower) and re.search(r"\d\s*i\b|\bi\s*[)^]", lower):
         # "(2 + 3i)(1 - i)": numbers, operators, brackets and i, nothing else.
         return True
     from app.modules.math.tools.extractors.calculus_applications import (
