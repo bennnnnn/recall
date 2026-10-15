@@ -12,6 +12,7 @@ import {
   renderCopyStyleBlock,
   renderRichFenceById,
 } from "@/components/rich/RichFence";
+import { splitAnswerNotation } from "@/lib/answerNotation";
 import { copyBlockLabelKey, draftFenceProseText } from "@/lib/copyBlock";
 import { parseFenceLang } from "@/lib/codeHighlight";
 import { isNeverCodeBlockLang } from "@/lib/fenceRegistry";
@@ -61,6 +62,7 @@ function renderFenceInner(
   lang: string,
   content: string,
   tokenIndex?: number,
+  streaming = false,
 ) {
   const decision = classifyFence(lang, content);
 
@@ -71,13 +73,17 @@ function renderFenceInner(
   }
 
   if (decision.kind === "answer") {
-    return <AnswerBlock key={key} content={content} />;
+    return <AnswerBlock key={key} content={content} settled={!streaming} />;
   }
+
+  // An ```answer fence without the server's mark shows its value as ordinary
+  // math or text: never its header lines, never the card.
+  const shown = decision.id === "answer" ? splitAnswerNotation(content).body : content;
 
   if (decision.kind === "math") {
     const mathKey =
-      tokenIndex != null ? `math:${content}#${tokenIndex}` : `math:${content}`;
-    return <MathBlock key={mathKey} latex={content} />;
+      tokenIndex != null ? `math:${shown}#${tokenIndex}` : `math:${shown}`;
+    return <MathBlock key={mathKey} latex={shown} />;
   }
 
   if (decision.kind === "clock") {
@@ -85,7 +91,7 @@ function renderFenceInner(
   }
 
   if (decision.kind === "prose") {
-    const prose = draftFenceProseText(content);
+    const prose = decision.id === "answer" ? shown : draftFenceProseText(content);
     return prose ? neverCodeBlockFallback(key, prose) : null;
   }
 
@@ -116,13 +122,23 @@ function renderFenceInner(
   );
 }
 
-export function renderFence(node: FenceNode) {
+/** Render rule for a settled reply (the markdown library passes more arguments). */
+export function renderSettledFence(node: FenceNode) {
+  return renderFence(node);
+}
+
+/** Render rule for a reply that is still streaming: never an answer check. */
+export function renderStreamingFence(node: FenceNode) {
+  return renderFence(node, { streaming: true });
+}
+
+export function renderFence(node: FenceNode, options: { streaming?: boolean } = {}) {
   const lang = parseFenceLang(node.sourceInfo?.trim() || "");
   const content = node.content.replace(/\n$/, "").trim();
   if (!content) return null;
 
   try {
-    return renderFenceInner(node.key, lang, content, node.tokenIndex);
+    return renderFenceInner(node.key, lang, content, node.tokenIndex, options.streaming);
   } catch (error) {
     if (__DEV__) {
       console.warn("[MarkdownContent] fence render failed", error);
