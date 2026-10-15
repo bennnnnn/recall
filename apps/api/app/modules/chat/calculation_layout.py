@@ -8,6 +8,7 @@ transformations, or two independent equations, becomes separate rows.
 
 from __future__ import annotations
 
+from app.modules.chat.inline_code import code_span_opens_within, is_bare_number
 from app.modules.chat.markdown_regions import leave_prose_line, read_fence_marker, rewrite_fenced
 
 _MATH_FENCE_LANGS = {"math", "latex", "tex", "equation"}
@@ -293,6 +294,8 @@ def _read_math_span(text: str, index: int) -> tuple[str, str, int] | None:
         close = text.find("$$", index + 2)
         if close < 0 or close == index + 2 or "\n" in text[index + 2 : close]:
             return None
+        if code_span_opens_within(text, index + 2, close):
+            return None
         return "$$", text[index + 2 : close].strip(), close + 2
     if text[index] != "$":
         return None
@@ -301,10 +304,18 @@ def _read_math_span(text: str, index: int) -> tuple[str, str, int] | None:
         return None
     if close + 1 < len(text) and text[close + 1] == "$":
         return None
+    # A pair never reaches across an inline code span, or splitting the
+    # "chain" at its = signs rewrites the code between the dollars.
+    if code_span_opens_within(text, index + 1, close):
+        return None
     inner = text[index + 1 : close]
     if not inner.strip():
         return None
-    if inner[0].isdigit() and not any(char in inner for char in "\\=^_"):
+    if (
+        inner[0].isdigit()
+        and not any(char in inner for char in "\\=^_")
+        and not is_bare_number(inner, text[close + 1 : close + 2])
+    ):
         return None
     return "$", inner.strip(), close + 1
 

@@ -7,6 +7,7 @@ fences, indented code, blockquotes, URLs, math bodies, or punctuation.
 
 from __future__ import annotations
 
+from app.modules.chat.inline_code import code_span_opens_within, is_bare_number
 from app.modules.chat.markdown_regions import leave_prose_line, map_prose_outside_fences
 
 _OPEN_PUNCT = set('([{"' + "\u201c\u2018\u00ab")
@@ -108,6 +109,8 @@ def _read_math(text: str, index: int) -> int | None:
         close = text.find("$$", index + 2)
         if close < 0 or "\n" in text[index + 2 : close] or close == index + 2:
             return None
+        if code_span_opens_within(text, index + 2, close):
+            return None
         return close + 2
     if text[index] != "$" or (index > 0 and text[index - 1] == "$"):
         return None
@@ -121,11 +124,21 @@ def _read_math(text: str, index: int) -> int | None:
             continue
         if close + 1 < len(text) and text[close + 1] == "$":
             return None
+        # A pair never reaches across an inline code span: markdown-it reads
+        # the code first, so this would pad dollars inside the code.
+        if code_span_opens_within(text, index + 1, close):
+            return None
         body = text[index + 1 : close]
         if not body.strip():
             return None
-        # "$5 and $10" is currency, not a math span.
-        if body[0].isdigit() and not any(char in body for char in "\\=^_"):
+        # "$5 and $10" is currency, not a math span. "$2$" is one number: when
+        # it was skipped as a price, its closer opened a span with the next
+        # dollar on the line and padded "$2 $".
+        if (
+            body[0].isdigit()
+            and not any(char in body for char in "\\=^_")
+            and not is_bare_number(body, text[close + 1 : close + 2])
+        ):
             return None
         return close + 1
     return None
