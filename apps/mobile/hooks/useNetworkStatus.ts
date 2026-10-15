@@ -15,6 +15,9 @@ export function useNetworkStatus(): {
   status: ConnectivityStatus;
 } {
   const [status, setStatus] = useState<ConnectivityStatus>("online");
+  // The degraded-state loop is for the banner on screen; it pauses in the
+  // background and the return to "active" probes straight away.
+  const [inBackground, setInBackground] = useState(false);
   // Bump to ignore in-flight probes after unmount or a newer event.
   const probeGen = useRef(0);
 
@@ -45,6 +48,7 @@ export function useNetworkStatus(): {
     const unsubscribe = NetInfo.addEventListener(onNetInfo);
 
     const onAppState = (next: AppStateStatus) => {
+      setInBackground(next === "background");
       if (next === "active") runProbe();
     };
     const appSub = AppState.addEventListener("change", onAppState);
@@ -57,9 +61,9 @@ export function useNetworkStatus(): {
   }, []);
 
   // While degraded, keep probing so a reconnect clears the banner even when
-  // NetInfo never emits an "online" event.
+  // NetInfo never emits an "online" event. Each probe is two requests.
   useEffect(() => {
-    if (status === "online") return;
+    if (status === "online" || inBackground) return;
     let cancelled = false;
     let probeInFlight = false;
     const tick = async () => {
@@ -78,7 +82,7 @@ export function useNetworkStatus(): {
       cancelled = true;
       clearInterval(id);
     };
-  }, [status]);
+  }, [status, inBackground]);
 
   return { isOffline: status !== "online", status };
 }
