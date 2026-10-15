@@ -306,28 +306,32 @@ def _ends_section(line: str) -> bool:
     )
 
 
-# A line of maths: ``$…$``, or a bare equation (``x = 6 / 2``, ``2x + 3 = 7``). "So x = 3
-# is the answer." and "Only the positive root counts." are sentences.
-_MATHS_LINE = re.compile(r"\$|[^\s=]+\s*=")
+_EQUATION_START = re.compile(r"[^\s=]+\s*=")
+_LATEX_COMMAND = re.compile(r"\\[A-Za-z]+")
+_WORD = re.compile(r"[A-Za-z]{3,}")
 
 
 def _is_maths(line: str) -> bool:
-    return _MATHS_LINE.match(_value_line(line)) is not None
+    """``$…$``, or a bare equation: one name before the ``=`` (``Area = 12 cm²``) or no
+    words at all (``2x + 3 - 3 = 7 - 3``). "So x = 3 is the answer." is a sentence."""
+    text = _value_line(line)
+    return (
+        text.startswith("$")
+        or _EQUATION_START.match(text) is not None
+        or ("=" in text and _WORD.search(_LATEX_COMMAND.sub("", text)) is None)
+    )
 
 
-def _answer_values(
-    lines: list[str], start: int, values: list[tuple[int, str]]
-) -> tuple[list[tuple[int, str]], int, bool]:
-    """``values`` (the one on the heading's own line, if any) and each value under the
-    heading as ``(first line, value)``, the last line read, and whether an answer card
-    already follows the heading.
+def _answer_values(lines: list[str], start: int) -> tuple[list[tuple[int, str]], int, bool]:
+    """``(first line, value)`` for each value from ``start``, the last line read, and
+    whether an answer card already follows the heading.
 
     After the first value, only lines of maths are values: they run to a fence, a heading
     or a sentence, and past a blank line only into another line of maths, so a sentence
     after the answer stays after it. A ``$$`` display block is one value however many
     lines it spans.
     """
-    values = list(values)
+    values: list[tuple[int, str]] = []
     index, end = start, start - 1
     while index < len(lines):
         if not lines[index].strip():
@@ -415,10 +419,13 @@ def land_answer_card(text: str, verified_body: str | None, *, correction: str | 
             return text
         heading = end = len(lines)
     else:
-        seed = [(heading, same_line)] if same_line else []
-        values, end, landed = _answer_values(lines, heading + 1, seed)
+        if same_line:
+            # The value on the heading's own line is the section's first line.
+            lines[heading] = same_line
+        values, end, landed = _answer_values(lines, heading if same_line else heading + 1)
         if landed:
             return text
+        end = max(end, heading)
     shown = _card_start(values) if values else 0
     if verified_body is not None:
         card = verified_answer_fence(verified_body)
@@ -432,8 +439,6 @@ def land_answer_card(text: str, verified_body: str | None, *, correction: str | 
             return text
         card = f"```answer\n{value}\n```"
     steps = lines[values[0][0] : values[shown][0]] if values else []
-    if steps and values[0][0] == heading:
-        steps[0] = values[0][1]
     while steps and not steps[-1].strip():
         steps.pop()
     before = lines[:heading]

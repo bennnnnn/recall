@@ -153,6 +153,19 @@ def test_land_moves_steps_above_the_heading_and_keeps_only_the_final_line() -> N
             "x = 6 / 2\n\n**Answer**\n\n```answer\nx = 3\n```",
         ),
         ("**Answer**\n$x = 3$\n\n", "**Answer**\n\n```answer\n$x = 3$\n```\n\n"),
+        (
+            "**Answer**\nA = 3 × 4\nArea = 12 cm²\nSo the area is 12 square centimetres.",
+            "A = 3 × 4\n\n**Answer**\n\n```answer\nArea = 12 cm²\n```\n\n"
+            "So the area is 12 square centimetres.",
+        ),
+        (
+            "**Answer**\n2x + 3 = 7\n2x + 3 - 3 = 7 - 3\nx = 2",
+            "2x + 3 = 7\n2x + 3 - 3 = 7 - 3\n\n**Answer**\n\n```answer\nx = 2\n```",
+        ),
+        (
+            "**Answer:** $$\nx = 3\n$$\nOnly the positive root counts.",
+            "**Answer**\n\n```answer\n$$\nx = 3\n$$\n```\n\nOnly the positive root counts.",
+        ),
         ("**Answer**\n\n", "**Answer**\n\n"),
         (
             "**Answer:** $x = 2$\n$x = -2$",
@@ -168,11 +181,18 @@ def test_land_reads_only_maths_as_the_answer(reply: str, expected: str) -> None:
     assert land_answer_card(reply, None) == expected
 
 
-def test_land_keeps_a_sentence_after_the_verified_card() -> None:
-    reply = "**Answer**\n$x = 3$\nOnly the positive root counts."
-    assert land_answer_card(reply, "x = 3") == (
-        f"**Answer**\n\n{_CARD}\n\nOnly the positive root counts."
-    )
+@pytest.mark.parametrize(
+    "answer",
+    [
+        "**Answer**\n$x = 3$",
+        "**Answer:** $$\nx = 3\n$$",
+        "**Answer**\n2x + 3 - 3 = 7 - 3\nx = 3",
+    ],
+)
+def test_land_keeps_a_sentence_after_the_verified_card(answer: str) -> None:
+    out = land_answer_card(f"{answer}\nOnly the positive root counts.", "x = 3")
+    assert out.endswith(f"**Answer**\n\n{_CARD}\n\nOnly the positive root counts.")
+    assert out.count("$$") == 0
 
 
 @pytest.mark.parametrize("reply", ["**Answer**\nParis", "**Answer**\n\nA towel."])
