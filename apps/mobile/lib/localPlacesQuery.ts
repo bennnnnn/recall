@@ -18,9 +18,24 @@ const IMPLICIT_LOCAL =
 const DISTANCE_INTENT =
   /\b(how\s+far|how\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)|distance\s+(?:to|from)|how\s+long\s+(?:to\s+get|does\s+it\s+take\s+to\s+(?:get|drive|walk|reach|arrive)|is\s+the\s+(?:drive|trip|walk))|(?:miles|km|kilometers?|kilometres?|minutes?)\s+(?:away|from\s+(?:me|here))|directions?\s+to)\b/i;
 
-/** Keep in sync with apps/api/app/services/web_search/patterns.py `_MOTION_HOMEWORK`. */
-const MOTION_HOMEWORK =
-  /\b(?:accelerat(?:e|es|ed|ing|ion)|decelerat(?:e|es|ed|ing|ion)|from\s+rest|kinematics|projectile|free\s*falls?|pivot|fulcrum|lever|torque|constant\s+(?:rate|acceleration|speed|velocity)|m\s*\/\s*s|metres?\s+per\s+second|meters?\s+per\s+second)\b/i;
+/** Keep in sync with apps/api/app/modules/web_search/patterns.py `_MOTION_HOMEWORK`. */
+const MOTION_HOMEWORK = new RegExp(
+  [
+    String.raw`\b(?:accelerat(?:e|es|ed|ing|ion)|decelerat(?:e|es|ed|ing|ion)|from\s+rest|kinematics`,
+    String.raw`|projectile|free\s*falls?|pivot|fulcrum|lever|torque`,
+    String.raw`|constant\s+(?:rate|acceleration|speed|velocity)|metres?\s+per\s+second|meters?\s+per\s+second`,
+    // "A train leaves at 9am and travels at 60 km/h. How far has it gone?"
+    String.raw`|km\s+(?:per|an)\s+hour|miles\s+(?:per|an)\s+hour|travel(?:s|ed|led)?\s+at|average\s+speed`,
+    // "A ball is kicked at 40° ... how far does it go?" is a launch, not a trip.
+    String.raw`|thrown|kicked(?!\s+off)|(?:above|below)\s+the\s+(?:horizontal|ground)`,
+    // "How far is the image from the lens?" is optics, not the user's location.
+    String.raw`|lens(?:es)?|mirror|focal|echo(?:es)?|pendulum|wavelength|refract\w*)\b`,
+    // A speed unit may sit right on its number: "90km/h", "5m/s".
+    String.raw`|(?<![A-Za-z])(?:m\s*\/\s*s|km\s*\/\s*h|kph|mph)\b`,
+    String.raw`|\d\s*(?:cm|mm)\b|\d\s*°`,
+  ].join(""),
+  "i",
+);
 
 const FROM_USER =
   /\b(?:from\s+(?:me|here|my\s+(?:location|place))|to\s+me|where\s+i\s+am)\b/i;
