@@ -3,6 +3,7 @@
  * Mirrors apps/api/app/services/chat/calculation_layout.py.
  */
 
+import { codeSpanOpensWithin } from "@/lib/markdown/inlineCode";
 import { readFenceMarker } from "@/lib/mdFenceScan";
 
 const MATH_LANGS = new Set(["math", "latex", "tex", "equation"]);
@@ -263,6 +264,12 @@ function readCodeEnd(text: string, index: number): number | null {
   return close + length;
 }
 
+/**
+ * The `$...$` span opening at `index`. A pair never reaches across an inline
+ * code span, or splitting the "chain" at its `=` signs rewrites the code
+ * between the dollars. A bare number (`$2$`) is a span, so its closer cannot
+ * open a new one with the next dollar on the line.
+ */
 function readMathSpan(
   text: string,
   index: number,
@@ -270,15 +277,18 @@ function readMathSpan(
   if (text.startsWith("$$", index)) {
     const close = text.indexOf("$$", index + 2);
     if (close < 0 || close === index + 2 || text.slice(index + 2, close).includes("\n")) return null;
+    if (codeSpanOpensWithin(text, index + 2, close)) return null;
     return { delim: "$$", inner: text.slice(index + 2, close).trim(), end: close + 2 };
   }
   if (text[index] !== "$") return null;
   const close = text.indexOf("$", index + 1);
   if (close < 0 || text.slice(index + 1, close).includes("\n")) return null;
   if (text[close + 1] === "$") return null;
+  if (codeSpanOpensWithin(text, index + 1, close)) return null;
   const inner = text.slice(index + 1, close);
   if (!inner.trim()) return null;
-  if (/^\d/.test(inner) && !/[\\=^_]/.test(inner)) return null;
+  const bareNumber = /^\s*\d[\d,]*(?:\.\d+)?\s*$/.test(inner) && !/\d/.test(text[close + 1] ?? "");
+  if (/^\d/.test(inner) && !/[\\=^_]/.test(inner) && !bareNumber) return null;
   return { delim: "$", inner: inner.trim(), end: close + 1 };
 }
 
