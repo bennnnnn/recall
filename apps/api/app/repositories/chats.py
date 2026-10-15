@@ -1,4 +1,3 @@
-import time
 from datetime import UTC, datetime, timedelta
 from typing import Any, cast
 from uuid import UUID
@@ -8,25 +7,30 @@ from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.timezone import resolve_timezone
+from app.core.ttl_cache import TtlCache
 from app.models.orm import Chat, Message
 
 # Same process just created this chat. The send that follows should not pay
 # another Neon round trip to prove the caller owns it.
 _CHAT_CACHE_TTL_SECONDS = 120.0
-_chat_cache: dict[UUID, tuple[float, Chat]] = {}
+# Chats created on one process within the TTL; far above normal traffic.
+_CHAT_CACHE_MAX_ENTRIES = 10_000
+_chat_cache: TtlCache[UUID, Chat] = TtlCache(
+    ttl_seconds=_CHAT_CACHE_TTL_SECONDS,
+    max_entries=_CHAT_CACHE_MAX_ENTRIES,
+)
 
 
 def _remember_chat(chat: Chat) -> None:
-    _chat_cache[chat.id] = (time.monotonic(), chat)
+    _chat_cache.put(chat.id, chat)
 
 
 def _cached_chat(chat_id: UUID, user_id: UUID) -> Chat | None:
-    hit = _chat_cache.get(chat_id)
-    if hit is None:
+    chat = _chat_cache.get(chat_id)
+    if chat is None:
         return None
-    stored_at, chat = hit
-    if time.monotonic() - stored_at > _CHAT_CACHE_TTL_SECONDS or chat.user_id != user_id:
-        _chat_cache.pop(chat_id, None)
+    if chat.user_id != user_id:
+        _chat_cache.pop(chat_id)
         return None
     return chat
 
@@ -57,15 +61,11 @@ def peek_recent_chat(chat_id: UUID, user_id: UUID) -> Chat | None:
 
 
 def forget_chat(chat_id: UUID) -> None:
-    _chat_cache.pop(chat_id, None)
+    _chat_cache.pop(chat_id)
 
 
 def forget_user_chats(user_id: UUID) -> None:
-    stale = [
-        chat_id for chat_id, (_stored_at, chat) in _chat_cache.items() if chat.user_id == user_id
-    ]
-    for chat_id in stale:
-        _chat_cache.pop(chat_id, None)
+    _chat_cache.drop_where(lambda chat: chat.user_id == user_id)
 
 
 async def get_by_id(session: AsyncSession, chat_id: UUID, user_id: UUID) -> Chat | None:
