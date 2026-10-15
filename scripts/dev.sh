@@ -7,10 +7,45 @@ kill_metro() {
   "$ROOT/scripts/kill-metro.sh" || true
 }
 
+# The API processes: whatever listens on :8000 (the reloader and its server
+# with --reload), and uv/uvicorn running app.main.
+api_pids() {
+  {
+    lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null
+    pgrep -f "uvicorn app.main" 2>/dev/null
+  } | sort -u
+}
+
+# Running, and not a zombie that only waits for its parent to reap it.
+is_running() {
+  local stat
+  stat="$(ps -o stat= -p "$1" 2>/dev/null)" || return 1
+  [[ -n "$stat" && "$stat" != Z* ]]
+}
+
+# SIGTERM first, so the API runs its shutdown: it stops its SymPy workers
+# (about 250 MB each), finishes saving replies and closes its connections.
+# `kill -9` skipped all of that. SIGKILL only what is still there after 15s.
+stop_api() {
+  local pids alive pid i
+  pids="$(api_pids)"
+  [[ -z "$pids" ]] && return 0
+  kill $pids 2>/dev/null || true
+  for i in $(seq 1 30); do
+    alive=""
+    for pid in $pids; do
+      is_running "$pid" && alive="$alive $pid"
+    done
+    [[ -z "$alive" ]] && return 0
+    sleep 0.5
+  done
+  echo "API still running after 15s; killing it."
+  kill -9 $alive 2>/dev/null || true
+}
+
 kill_all_dev() {
   echo "Stopping API, Metro, and Expo…"
-  lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null | xargs kill -9 2>/dev/null || true
-  pkill -9 -f "uvicorn app.main" 2>/dev/null || true
+  stop_api
   kill_metro
   pkill -9 -f "expo start" 2>/dev/null || true
   pkill -9 -f "expo/bin/cli" 2>/dev/null || true
@@ -34,6 +69,25 @@ report_api_start() {
   printf '\033[31mFix the error above; the API reloads when its files change.\033[0m\n'
 }
 
+# Past API_LOG_MAX_MB (default 20), a log moves to <log>.1, replacing the one
+# before, and starts again empty.
+rotate_if_big() {
+  local log="$1" size
+  size=$(wc -c <"$log" 2>/dev/null || echo 0)
+  if (( size > ${API_LOG_MAX_MB:-20} * 1024 * 1024 )); then
+    cp "$log" "$log.1" && : >"$log"
+  fi
+}
+
+# The API writes tmp/api.log for as long as `up` runs, which is days when
+# follow-main keeps it current, and the log grew without limit. The API
+# appends, so after a rotation its next line lands at the start of the file.
+cap_api_log() {
+  while sleep 30; do
+    rotate_if_big "$ROOT/tmp/api.log"
+  done
+}
+
 # One terminal for everything: the API in the background (log in tmp/api.log),
 # the app in the foreground, and the checkout kept on origin/main so a merged
 # pull request reaches the running app by itself. Ctrl+C stops it all.
@@ -47,13 +101,16 @@ up() {
   kill_all_dev
   RECALL_DEV_UP=starting "$ROOT/scripts/follow-main.sh" --once
   mkdir -p "$ROOT/tmp"
+  : >"$ROOT/tmp/api.log"
   (cd "$ROOT/apps/api" && exec uv run uvicorn app.main:app --reload --host 0.0.0.0 --port 8000) \
-    >"$ROOT/tmp/api.log" 2>&1 &
+    >>"$ROOT/tmp/api.log" 2>&1 &
   local api_pid=$!
+  cap_api_log &
+  local cap_pid=$!
   report_api_start &
   RECALL_DEV_UP=running "$ROOT/scripts/follow-main.sh" &
   local follow_pid=$!
-  trap 'kill '"$follow_pid"' '"$api_pid"' 2>/dev/null; lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true' EXIT
+  trap 'kill '"$follow_pid"' '"$cap_pid"' '"$api_pid"' 2>/dev/null; lsof -tiTCP:8000 -sTCP:LISTEN 2>/dev/null | xargs kill 2>/dev/null || true' EXIT
   echo "API on :8000 (log: tmp/api.log). Pulling merged changes from main every minute."
   # follow-main stops Metro (and leaves this flag) when a merge changed the
   # app's packages; start it again with them, then reload the app.
@@ -95,6 +152,7 @@ case "${1:-}" in
   watch-errors)
     mkdir -p "$ROOT/tmp"
     SAVE="$ROOT/tmp/http-errors.log"
+    rotate_if_big "$SAVE"
     echo "API on :8000 — 4xx/5xx highlighted on stderr, copied to $SAVE"
     echo "Success responses (200/201/204) stay in the normal log. Ctrl+C stops the API."
     cd "$ROOT/apps/api"
