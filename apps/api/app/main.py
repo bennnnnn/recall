@@ -9,6 +9,7 @@ from app.core.config import cors_allow_origins, get_settings
 from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
+from app.core.unavailable import register_unavailable_handlers
 from app.modules.account import api as auth
 from app.modules.attachments import api as attachments
 from app.modules.billing import api as webhooks
@@ -99,6 +100,7 @@ def create_app() -> FastAPI:
         SecurityHeadersMiddleware,
         enable_hsts=settings.environment == "production",
     )
+    register_unavailable_handlers(app)
 
     app.include_router(health.router)
     app.include_router(legal.router)

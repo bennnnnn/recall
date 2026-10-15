@@ -1,5 +1,8 @@
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
+
+if TYPE_CHECKING:
+    from app.core.config import Settings
 
 # asyncpg rejects libpq-style query params passed as connect() kwargs
 _STRIP_QUERY_KEYS = frozenset({"sslmode", "channel_binding"})
@@ -40,6 +43,22 @@ def prepare_asyncpg_url(
     clean = urlunparse(parsed._replace(query=urlencode(kept)))
     connect_args = {"ssl": "require"} if ssl_required else {}
     return clean, connect_args
+
+
+def engine_connect_args(settings: "Settings", base: dict[str, Any]) -> dict[str, Any]:
+    """asyncpg connect kwargs for the app engine: ``base`` plus bounded waits.
+
+    ``timeout`` bounds opening a connection (asyncpg default 60s).
+    ``command_timeout`` bounds every statement, including ``pool_pre_ping``;
+    asyncpg cancels the query and raises ``TimeoutError``. Client-side, so it
+    works through Neon's PgBouncer pooler. Not used by Alembic migrations.
+    """
+    args = dict(base)
+    if settings.db_connect_timeout_seconds > 0:
+        args["timeout"] = settings.db_connect_timeout_seconds
+    if settings.db_command_timeout_seconds > 0:
+        args["command_timeout"] = settings.db_command_timeout_seconds
+    return args
 
 
 def pool_recycle_seconds_for_url(url: str) -> int:
