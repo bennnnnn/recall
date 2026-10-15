@@ -25,7 +25,7 @@ import { PARAGRAPH_GAP } from "@/components/markdown/markdownContentStyles";
 
 type Props = {
   content: string;
-  /** A closed fence. An open stream must not show the success check yet. */
+  /** A settled reply. A streaming one must not show the success check yet. */
   settled?: boolean;
 };
 
@@ -50,7 +50,9 @@ function answerNeedsDisplayMath(text: string): boolean {
 
 /**
  * Final answer — chat-canvas background, no Copy affordance.
- * (```answer / short numeric or simplified-expression finals only.)
+ * Only the server's checked card reaches here (an ```answer fence whose body opens
+ * with `verified: true`, see lib/answerNotation.ts); the green check also needs the
+ * reply to have settled, and is never drawn for a body without the marker.
  *
  * Light answers stay on native `MathText`. Heavy LaTeX environments
  * (`\begin{cases|matrix|aligned|…}`) render as MathJax-SVG in the **stretch**
@@ -62,6 +64,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
   const { t } = useTranslation();
   const s = useMemo(() => makeStyles(theme), [theme]);
   const parsed = splitAnswerNotation(stripTrailingFenceCloser(content.trim()));
+  const checked = settled && parsed.verified;
   const answerLabel = parsed.labeled ? (
     <Text testID="answer-label" style={s.label}>
       {t("rich.answer_label")}
@@ -84,7 +87,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
               {parsed.body}
             </Text>
           </View>
-          {settled ? (
+          {checked ? (
             <Icon
               testID="answer-success-check"
               name="check-circle-filled"
@@ -190,7 +193,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
                         fontSize={ANSWER_FONT_SIZE}
                       />
                     )}
-                    {settled && lineIndex === nativeLines.length - 1 ? (
+                    {checked && lineIndex === nativeLines.length - 1 ? (
                       <Icon
                         testID="answer-success-check"
                         name="check-circle-filled"
@@ -230,7 +233,7 @@ export function AnswerBlock({ content, settled = true }: Props) {
             </Text>
           )}
         </View>
-        {settled && !hasNestedView ? (
+        {checked && !hasNestedView ? (
           <Icon
             testID="answer-success-check"
             name="check-circle-filled"

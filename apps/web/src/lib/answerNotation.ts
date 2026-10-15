@@ -1,4 +1,4 @@
-/** First line of a server answer fence. Absent means the body is LaTeX. */
+/** A header line of a server answer fence (after `verified: true`). Absent means the body is LaTeX. */
 
 export const CHEMISTRY_ANSWER_NOTATION = "notation: chemistry";
 
@@ -40,11 +40,19 @@ export function readableLatexAnswer(latex: string): string {
     .trim();
 }
 
+/** The server's mark on a card it checked; the phone draws it as a check, never as text. */
+export const VERIFIED_ANSWER_MARKER = "verified: true";
+
 export function visibleAnswerBody(raw: string): string {
-  const text = raw.replace(/\r\n/g, "\n").trim();
-  const newline = text.indexOf("\n");
-  if (newline > 0 && text.slice(0, newline).trim() === CHEMISTRY_ANSWER_NOTATION) {
-    return text.slice(newline + 1).trim();
+  const lines = raw.replace(/\r\n/g, "\n").trim().split("\n");
+  let chemistry = false;
+  while (lines.length > 1) {
+    const header = lines[0]!.trim();
+    if (header === CHEMISTRY_ANSWER_NOTATION) chemistry = true;
+    else if (header !== VERIFIED_ANSWER_MARKER) break;
+    lines.shift();
   }
+  const text = lines.join("\n").trim();
+  if (chemistry) return text;
   return text.includes("\\") ? readableLatexAnswer(text) : text;
 }

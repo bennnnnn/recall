@@ -46,7 +46,10 @@ import {
   type MdMathStyles,
   type MdTableStyles,
 } from "@/components/markdown/markdownContentStyles";
-import { renderFence } from "@/components/markdown/markdownFenceRender";
+import {
+  renderSettledFence,
+  renderStreamingFence,
+} from "@/components/markdown/markdownFenceRender";
 import { VerifyCheckmark } from "@/components/markdown/VerifyCheckmark";
 import { isGenericSearchUrl } from "@/lib/placesList";
 import { openPlaceLink } from "@/lib/openPlaceLink";
@@ -1154,10 +1157,12 @@ export function makeRenderRules(t: Theme, streaming = false) {
   const mdTable = makeMdTable(t);
   const mdImg = makeMdImg(t);
   const mdStyles = makeMdStyles(t);
+  // A streaming reply is not yet the server's final text: no answer check in it.
+  const fence = streaming ? renderStreamingFence : renderSettledFence;
   const rules = {
     ...makeSharedRules(t, mdTable, mdMath, mdImg, mdStyles.code_inline, streaming),
-    fence: renderFence,
-    code_block: renderFence,
+    fence,
+    code_block: fence,
   };
   return { rules, mdStyles };
 }
