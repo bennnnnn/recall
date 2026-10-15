@@ -182,6 +182,7 @@
   "chat.math_scan_uncertain": "Parte era difícil de leer. Revísalo antes de resolver.",
   "chat.menu": "Opciones del chat",
   "chat.message_highlighted": "Search result",
+  "chat.message_render_failed": "No se puede mostrar este mensaje.",
   "chat.model_unavailable": "That model isn't responding right now. Pick a different model and try again.",
   "chat.new_chat": "Nuevo chat",
   "chat.offline_body": "Conéctate a internet para enviar mensajes.",
