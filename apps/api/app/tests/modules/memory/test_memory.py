@@ -929,8 +929,8 @@ async def test_get_memory_block_query_cache(fake_redis):
 
 @pytest.mark.asyncio
 async def test_invalidate_memory_block_bumps_generation_and_clears_block_keys(fake_redis):
-    """INCR + memblock DEL. Query keys are not SCAN-deleted — generation fold
-    makes them unreachable; they expire via memory_query_cache_ttl."""
+    """New generation + memblock DEL. Query keys are not SCAN-deleted — generation
+    fold makes them unreachable; they expire via memory_query_cache_ttl."""
     from app.modules.memory import (
         _memory_block_key,
         _memory_generation_key,
@@ -959,8 +959,9 @@ async def test_invalidate_memory_block_bumps_generation_and_clears_block_keys(fa
 
         assert await fake_redis.exists(_memory_block_key(user.id)) == 0
         gen = await fake_redis.get(_memory_generation_key(user.id))
-        assert gen is not None
-        assert int(gen) >= 1
+        assert gen not in (None, "0")
+        # One key per user: it must expire instead of staying forever.
+        assert await fake_redis.ttl(_memory_generation_key(user.id)) > 0
 
         load_mock.reset_mock()
         await get_memory_block(session, user, settings, query_text="outdoor hobbies")

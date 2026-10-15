@@ -3,6 +3,7 @@ import logging
 from typing import Any
 from uuid import UUID
 
+from app.core.cache_generation import bump_generation
 from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
@@ -55,7 +56,7 @@ async def invalidate_memory_block(seams: Any, user_id: UUID) -> None:
     """Bump the query generation and drop every scoped block-cache key."""
     try:
         redis = seams.get_redis_client()
-        await redis.incr(memory_generation_key(user_id))
+        await bump_generation(redis, memory_generation_key(user_id))
         block_key = memory_block_key(user_id)
         await redis.delete(
             block_key,

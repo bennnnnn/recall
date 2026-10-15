@@ -10,6 +10,7 @@ from zoneinfo import ZoneInfo
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.cache_generation import bump_generation
 from app.core.config import Settings
 from app.core.redis import get_redis_client
 from app.models.orm import User
@@ -98,7 +99,7 @@ async def invalidate_home_cache(user_id: UUID) -> None:
     """Bump the home cache generation so all tz/day-seed keys miss."""
     try:
         redis = get_redis_client()
-        await redis.incr(_home_generation_key(user_id))
+        await bump_generation(redis, _home_generation_key(user_id))
     except Exception:
         logger.debug("Home cache invalidation failed", exc_info=True)
 
