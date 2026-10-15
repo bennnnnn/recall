@@ -275,7 +275,7 @@ def _value_line(line: str) -> str:
         text = text[marker.end() :]
     if len(text) > 4 and text.startswith("**") and text.endswith("**"):
         text = text[2:-2].strip()
-    return text
+    return text.removesuffix(".") if text.endswith("$.") else text
 
 
 def _answer_heading(line: str) -> str | None:
@@ -310,15 +310,23 @@ def _answer_values(lines: list[str], start: int) -> tuple[list[tuple[int, str]],
     """``(first line, value)`` for each value under a heading, the last line read, and
     whether an answer card already follows the heading.
 
-    Values run to the first blank line, fence or heading line; a ``$$`` display block is
-    one value however many lines it spans.
+    Values run to a fence or heading line, and past a blank line only into a line that is
+    maths alone (a sentence after the answer is not part of it); a ``$$`` display block
+    is one value however many lines it spans.
     """
     index = start
     while index < len(lines) and not lines[index].strip():
         index += 1
     values: list[tuple[int, str]] = []
     end = start - 1
-    while index < len(lines) and lines[index].strip():
+    while index < len(lines):
+        if not lines[index].strip():
+            follow = index + 1
+            while follow < len(lines) and not lines[follow].strip():
+                follow += 1
+            if not values or follow == len(lines) or not _value_line(lines[follow]).startswith("$"):
+                break
+            index = follow
         opened = _opener(lines[index])
         if opened is not None:
             return values, end, fence_lang(opened[2]) in ANSWER_FENCE_LANGS
@@ -339,14 +347,43 @@ def _answer_values(lines: list[str], start: int) -> tuple[list[tuple[int, str]],
     return values, end, False
 
 
+_BARE_SYMBOL = re.compile(r"[A-Za-z](?:_\{?\w+\}?)?")
+_UNIT_TEXT = re.compile(r"\\(?:text|mathrm)\{[^}]*\}")
+# Arithmetic still to do: a product, quotient, fraction, power, sum, or a minus
+# after a term (a leading minus is the value's sign).
+_ARITHMETIC = re.compile(r"\\(?:times|cdot|div|frac)|[\u00d7\u00b7*/\u00f7+^]|\S\s*[-\u2212]")
+
+
+def _is_final_value(value: str) -> bool:
+    """``x = 2``, ``x_1 = -3``, ``v = 19.6\\ \\text{m/s}``: a name set to a value with no
+    arithmetic left, unlike the working line ``v = 9.8 \\times 2`` or ``2x = 4``."""
+    left, equals, right = value.replace("$", "").partition("=")
+    right = _UNIT_TEXT.sub("", right).strip()
+    return (
+        bool(equals and right)
+        and _BARE_SYMBOL.fullmatch(left.strip()) is not None
+        and _ARITHMETIC.search(right) is None
+    )
+
+
+def _card_start(values: list[tuple[int, str]]) -> int:
+    """Where the card's values begin: the last one, and the final values just before it
+    (both roots, ``x = 2`` and ``x = -2``); earlier lines are working."""
+    start = len(values) - 1
+    while start > 0 and all(_is_final_value(values[i][1]) for i in (start - 1, start)):
+        start -= 1
+    return start
+
+
 def land_answer_card(text: str, verified_body: str | None, *, correction: str | None = None) -> str:
     """Put the reply's final answer in one card under one **Answer** heading.
 
     The reply's last Answer section (``**Answer**``, ``**Answer:** $x = 3$``,
     ``## Answer``, ``Answer:``) outside code fences becomes ``**Answer**`` and a
     card: the server's verified card when ``verified_body`` is given, otherwise
-    the section's last value line in a card with no marker. Earlier lines under
-    the heading are working: they stay as prose above it. ``correction`` goes
+    the section's last value line (with the plain values just before it, so both
+    roots stay) in a card with no marker. Earlier lines under the heading are
+    working: they stay as prose above it. ``correction`` goes
     directly above the heading.
 
     With no Answer section, a verified card is added at the end unless the reply
@@ -370,14 +407,17 @@ def land_answer_card(text: str, verified_body: str | None, *, correction: str | 
         values, end, landed = _answer_values(lines, heading + 1)
         if landed:
             return text
+    shown = _card_start(values) if values else 0
     if verified_body is not None:
         card = verified_answer_fence(verified_body)
     else:
-        value = answer_header_and_value(values[-1][1])[1] if values else ""
+        value = answer_header_and_value("\n".join(v for _, v in values[shown:]))[1]
         if not value:
             return text
         card = f"```answer\n{value}\n```"
-    steps = lines[values[0][0] : values[-1][0]] if values and values[0][0] > heading else []
+    steps = lines[values[0][0] : values[shown][0]] if values and values[0][0] > heading else []
+    while steps and not steps[-1].strip():
+        steps.pop()
     before = lines[:heading]
     while before and not before[-1].strip():
         before.pop()

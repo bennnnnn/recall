@@ -156,11 +156,32 @@ def test_land_takes_a_display_block_as_one_value() -> None:
 
 
 def test_land_replaces_the_model_value_with_the_verified_card() -> None:
-    reply = "Steps.\n\n**Answer**\n$x = \\pm 3$\n$x = 3$\n\nWant another?"
+    reply = "Steps.\n\n**Answer**\n$x^2 = 9$\n$x = \\pm 3$\n$x = 3$\n\nWant another?"
     out = land_answer_card(reply, "x = 3", correction="The verified answer is $x = 3$.")
     assert out == (
-        "Steps.\n\n$x = \\pm 3$\n\nThe verified answer is $x = 3$.\n\n**Answer**\n\n"
+        "Steps.\n\n$x^2 = 9$\n\nThe verified answer is $x = 3$.\n\n**Answer**\n\n"
         f"{_CARD}\n\nWant another?"
+    )
+
+
+def test_land_keeps_working_split_by_blank_lines_out_of_the_card() -> None:
+    reply = "**Answer**\n\n$2x = 4$\n\n$x = 2$.\n\nWant another one?"
+    assert land_answer_card(reply, None) == (
+        "$2x = 4$\n\n**Answer**\n\n```answer\n$x = 2$\n```\n\nWant another one?"
+    )
+
+
+@pytest.mark.parametrize(
+    ("roots", "card"),
+    [
+        ("- $x = 2$\n- $x = -2$", "$x = 2$\n$x = -2$"),
+        ("$x_1 = 2$\n$x_{2} = -2$", "$x_1 = 2$\n$x_{2} = -2$"),
+    ],
+)
+def test_land_keeps_every_root_in_the_card(roots: str, card: str) -> None:
+    reply = f"**Answer**\n$x^2 = 4$\n{roots}\n\n**Check**\n$2^2 = 4$"
+    assert land_answer_card(reply, None) == (
+        f"$x^2 = 4$\n\n**Answer**\n\n```answer\n{card}\n```\n\n**Check**\n$2^2 = 4$"
     )
 
 
