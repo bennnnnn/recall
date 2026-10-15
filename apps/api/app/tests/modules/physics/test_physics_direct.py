@@ -177,10 +177,12 @@ def test_projectile_working_substitutes_givens_without_redundant_zeros() -> None
     assert reply is not None
     working = reply.split("```", 1)[0]
     assert "5.10" not in working
+    # No launch height was stated: the working shows no "0 +" for one.
     assert (
         "**Substitution**  \n"
-        r"$H_{max} = 0 + \frac{20^2 \sin^2(30^\circ)}{2 \cdot 9.81}$"
+        r"$H_{max} = \frac{20^2 \sin^2(30^\circ)}{2 \cdot 9.81}$"
     ) in working
+    assert "0 +" not in working
     assert "```answer\n5.1\\,\\mathrm{m}\n```" in reply
 
 

@@ -375,6 +375,51 @@ def test_an_average_speed_question_without_one_answer_is_not_verified(text: str)
 # wrong before; now it is right, or it is left to the model unverified.
 
 _ROUND5_RIGHT: list[tuple[str, float, str]] = [
+    # 1. "Thrown straight down" and "throws a ball down" point down, not up.
+    (
+        "A ball is thrown straight down at 8 m/s from the top of a 40 m building. "
+        "how long does it take to hit the ground?",
+        2.154,
+        "s",
+    ),
+    (
+        "someone throws a ball down at 6 m/s from a 20 m balcony, time to hit the ground?",
+        1.498,
+        "s",
+    ),
+    (
+        "a ball is thrown straight down at 10 m/s from a 50 m cliff. how long to reach the ground",
+        2.332,
+        "s",
+    ),
+    (
+        "A ball is thrown straight down at 8 m/s from the top of a 40 m building. "
+        "what is its height after 1 s?",
+        27.1,
+        "m",
+    ),
+    (
+        "a rock is thrown vertically down at 12 m/s from a 60 m bridge. "
+        "how long till it hits the water?",
+        2.482,
+        "s",
+    ),
+    # The control: straight up still points up.
+    (
+        "A ball is thrown straight up at 8 m/s from the top of a 40 m building. "
+        "how long does it take to hit the ground?",
+        3.785,
+        "s",
+    ),
+    # 2. Below the horizontal is a negative launch angle.
+    (
+        "A ball is thrown at 10 m/s at 30° below the horizontal from the top of a 20 m "
+        "building. how far from the base does it land?",
+        13.62,
+        "m",
+    ),
+    # 3. Straight up and back to the hand needs no height.
+    ("A ball is thrown straight up at 20 m/s. How long is it in the air?", 4.077, "s"),
     # 20. The asked unit is the answer's unit.
     ("What is the gauge pressure in psi at a depth of 10 m in fresh water?", 14.23, "psi"),
 ]
@@ -390,6 +435,17 @@ def test_a_round5_wrong_answer_is_now_right(text: str, value: float, unit: str) 
 
 
 _ROUND5_DECLINED = [
+    # 2. A downward launch peaks where it starts: not the upward formula.
+    "A ball is thrown at 10 m/s at 30° below the horizontal from a 20 m cliff. "
+    "what is its maximum height?",
+    # 3. No height: there is no fall time to give, and h₀ = 0 is not stated.
+    "A rock is thrown horizontally off a cliff at 12 m/s. how long until it lands?",
+    "A ball is thrown horizontally at 15 m/s. how long until it hits the ground?",
+    "A ball rolls off a table at 3 m/s. how long until it hits the floor?",
+    "A stone is thrown horizontally from a cliff at 20 m/s. what's its speed when it lands?",
+    "A ball is kicked horizontally off a roof at 8 m/s. how far from the building does it land?",
+    "a stone is thrown down a well at 4 m/s, how deep is the well?",
+    "A ball is thrown at 25 m/s. How long is it in the air?",
     # 16. A statement with no question asks nothing.
     "A ball is dropped from 80 m.",
 ]
@@ -398,6 +454,15 @@ _ROUND5_DECLINED = [
 @pytest.mark.parametrize("text", _ROUND5_DECLINED)
 def test_a_round5_wrong_answer_is_now_declined(text: str) -> None:
     assert _answer(text) is None
+
+
+def test_an_upward_throw_with_no_height_invents_no_zero_in_its_working() -> None:
+    block = _block("A ball is thrown straight up at 20 m/s. How long is it in the air?")
+    assert block is not None
+    for row in block.physics_formulas:
+        assert "h_0" not in row, row
+    for row in block.physics_substitutions:
+        assert re.search(r"(?<![\d._{])0(?![\d.}])", row) is None, row
 
 
 @pytest.mark.parametrize(

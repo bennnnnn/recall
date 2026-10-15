@@ -35,11 +35,21 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         return _solve_stopping_distance(intent)
     p = _params_in_si(intent)
     g = gravity_of(p)
+    # No stated height is not a height of zero: only a throw that comes back to
+    # the hand is answered without one, and its working never shows an h₀.
+    stated_height = "h0" in (intent.physics_params or {})
     h0 = p.get("h0", 0.0)
     v0 = p.get("v0", 0.0)
     op = intent.physics_op or "time_to_ground"
     if g <= 0:
         raise SolveServiceError("gravity must be positive")
+    if not stated_height and op != "acceleration":
+        if op in ("time_to_ground", "time_to_peak", "vertical_max_height") and v0 <= 0:
+            raise SolveServiceError("no stated height for a fall")
+        if op == "position" and v0 <= 0:
+            raise SolveServiceError("no stated height for a fall")
+        if op in ("speed", "velocity") and p.get("t") is None:
+            raise SolveServiceError("no stated height to land from")
 
     def _time_to_ground() -> float | None:
         # h0 + v0·t - ½g·t² = 0; the first moment after release it is 0.
@@ -60,16 +70,18 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             raise SolveServiceError("no positive real time to ground")
         t_val = landed
         v0_sq = _latex_num(v0, square=True)
-        formula = r"t = \frac{v_0 + \sqrt{v_0^2 + 2 g h_0}}{g}"
-        substitution = (
-            rf"t = \frac{{{_latex_num(v0)} + \sqrt{{{v0_sq} + 2 \cdot {g:g} \cdot {h0:g}}}}}"
-            rf"{{{g:g}}}"
-        )
+        if stated_height:
+            formula = r"t = \frac{v_0 + \sqrt{v_0^2 + 2 g h_0}}{g}"
+            substitution = (
+                rf"t = \frac{{{_latex_num(v0)} + \sqrt{{{v0_sq} + 2 \cdot {g:g} \cdot {h0:g}}}}}"
+                rf"{{{g:g}}}"
+            )
+        else:
+            # Up and back to the launch height: twice the time to the top.
+            formula = r"t = \frac{2 v_0}{g}"
+            substitution = rf"t = \frac{{2 \cdot {_latex_num(v0)}}}{{{g:g}}}"
         answer_latex = (
-            r"t = \frac{v_0 + \sqrt{v_0^2 + 2 g h_0}}{g} = "
-            rf"\frac{{{_latex_num(v0)} + \sqrt{{{v0_sq} + 2 \cdot {g:g} \cdot {h0:g}}}}}"
-            rf"{{{g:g}}} "
-            rf"\approx {t_val:.2f} \text{{ s}}"
+            rf"{formula} = {substitution.split(' = ', 1)[1]} \approx {t_val:.2f} \text{{ s}}"
         )
         quantity = QuantityResult("", t_val, "s")
     elif op in ("velocity", "speed"):
@@ -121,16 +133,21 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
             raise SolveServiceError("position requires a time t")
         t_val = float(t_param)
         h_val = float(h0 + v0 * t_val - 0.5 * g * t_val**2)
-        formula = r"h = h_0 + v_0 t - \frac{1}{2} g t^2"
-        substitution = (
-            rf"h = {h0:g} + {_latex_num(v0)} \cdot {t_val:g} - "
-            rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {_latex_num(t_val, square=True)}"
-        )
+        if stated_height:
+            formula = r"h = h_0 + v_0 t - \frac{1}{2} g t^2"
+            substitution = (
+                rf"h = {h0:g} + {_latex_num(v0)} \cdot {t_val:g} - "
+                rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {_latex_num(t_val, square=True)}"
+            )
+        else:
+            # The height above the launch point.
+            formula = r"h = v_0 t - \frac{1}{2} g t^2"
+            substitution = (
+                rf"h = {_latex_num(v0)} \cdot {t_val:g} - "
+                rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {_latex_num(t_val, square=True)}"
+            )
         answer_latex = (
-            rf"h = h_0 + v_0 t - \frac{{1}}{{2}} g t^2 = "
-            rf"{h0:g} + {_latex_num(v0)} \cdot {t_val:g} - "
-            rf"\frac{{1}}{{2}} \cdot {g:g} \cdot {_latex_num(t_val, square=True)} "
-            rf"\approx {h_val:.2f} \text{{ m}}"
+            rf"{formula} = {substitution.split(' = ', 1)[1]} \approx {h_val:.2f} \text{{ m}}"
         )
         quantity = QuantityResult("", h_val, "m")
     elif op == "time_to_peak":
@@ -153,14 +170,16 @@ def solve_kinematics(intent: PhysicsIntent) -> PhysicsResult:
         if v0 <= 0:
             raise SolveServiceError("maximum height for a vertical launch requires v0 > 0")
         h_val = h0 + v0**2 / (2 * g)
-        formula = r"h_{\max} = h_0 + \frac{v_0^2}{2g}"
-        substitution = (
-            rf"h_{{\max}} = {h0:g} + \frac{{{_latex_num(v0, square=True)}}}{{2 \cdot {g:g}}}"
-        )
+        rise = rf"\frac{{{_latex_num(v0, square=True)}}}{{2 \cdot {g:g}}}"
+        if stated_height:
+            formula = r"h_{\max} = h_0 + \frac{v_0^2}{2g}"
+            substitution = rf"h_{{\max}} = {h0:g} + {rise}"
+        else:
+            # The rise above the launch point.
+            formula = r"h_{\max} = \frac{v_0^2}{2g}"
+            substitution = rf"h_{{\max}} = {rise}"
         answer_latex = (
-            r"h_{\max} = h_0 + \frac{v_0^2}{2g} = "
-            rf"{h0:g} + \frac{{{_latex_num(v0, square=True)}}}{{2 \cdot {g:g}}} "
-            rf"\approx {h_val:.2f} \text{{ m}}"
+            rf"{formula} = {substitution.split(' = ', 1)[1]} \approx {h_val:.2f} \text{{ m}}"
         )
         quantity = QuantityResult("", h_val, "m")
         # The visual shows the complete trip back to the landing plane while
