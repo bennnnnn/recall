@@ -397,10 +397,14 @@ def peel_function_definition(expr: str) -> str:
     return s
 
 
+# "simplify it": a pronoun, not the product ``i t``.
+_PRONOUN_EXPR = re.compile(r"\s*(?:it|its|it's)\s*[.?!]*\s*", re.IGNORECASE)
+
+
 def math_expr_or_none(expr: str) -> str | None:
     """Return ``expr`` only when it looks like math, not leftover English."""
     stripped = rewrite_english_powers(_strip_expr_leadins(expr))
-    if not looks_like_math_expr(stripped):
+    if not looks_like_math_expr(stripped) or _PRONOUN_EXPR.fullmatch(stripped):
         return None
     return stripped
 

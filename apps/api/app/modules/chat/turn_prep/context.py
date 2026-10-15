@@ -39,7 +39,12 @@ from app.modules.chat.turn_prep.mode import (
 )
 from app.modules.chat.turn_timing import TurnTimingTracker
 from app.modules.chemistry.followup import chemistry_followup_problem as resolve_chemistry_followup
-from app.modules.math.followup import math_working_followup_problem, offered_equation_problem
+from app.modules.math.followup import (
+    answer_claim_problem,
+    math_working_followup_problem,
+    offered_equation_problem,
+    pronoun_math_problem,
+)
 from app.modules.math.schemas import MathImageExtract
 from app.modules.math.tools.extract import is_graph_followup
 from app.modules.memory.profile_reply import reply_for_profile_question
@@ -497,6 +502,13 @@ async def build_stream_prompt_context(
     # re-solve the user's earlier line. Solve the offered equation instead.
     if math_followup_problem is None:
         math_followup_problem = offered_equation_problem(content, followup_history)
+    # "check my answer: x = 6" is checked against the open problem, and
+    # "simplify it" works on the user's last expression. Alone, each one used
+    # to be solved as typed: ``x = 6`` verified itself and "it" was ``i t``.
+    if math_followup_problem is None:
+        math_followup_problem = answer_claim_problem(
+            content, followup_history, blocked=blocks_math_followup
+        ) or pronoun_math_problem(content, followup_history, blocked=blocks_math_followup)
     chemistry_followup_problem = None
     physics_followup = None
     if math_followup_problem is None:

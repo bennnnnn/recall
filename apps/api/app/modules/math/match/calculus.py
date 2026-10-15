@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from typing import Literal
 
@@ -139,6 +140,89 @@ def calc_op(text: str) -> str | None:
     if _lagrange_derivative_cue(text):
         return "derivative"
     return None
+
+
+# Notation only maths writes: an operator, a power, a root or integral sign, a
+# number glued to a letter (``2x``), a function name, ``d/dx``.
+_STRONG_MATH = re.compile(
+    r"[+*/^=\u221a\u222b\u00b2\u00b3\u03c0\\]|(?<![A-Za-z])-|-(?![A-Za-z])"
+    r"|\d\s*[a-z]\b|\d\s*[:%]|\b(?:sin|cos|tan|sec|csc|cot|sinh|cosh|tanh|arcsin|arccos|"
+    r"arctan|ln|log|exp|sqrt|squared|cubed)\b|\bd\s*/\s*d[a-z]\b",
+    re.IGNORECASE,
+)
+_CALC_OBJECT_TOKEN = re.compile(r"[A-Za-z]+|\d+(?:\.\d+)?")
+# Words a request around a bare letter or number may use: "integrate x from
+# 0 to 3", "differentiate y with respect to x", "factor 360".
+_CALC_OBJECT_WORDS = frozenset(
+    {
+        "of",
+        "the",
+        "this",
+        "following",
+        "expression",
+        "function",
+        "polynomial",
+        "number",
+        "fraction",
+        "ratio",
+        "completely",
+        "fully",
+        "out",
+        "for",
+        "me",
+        "please",
+        "now",
+        "again",
+        "from",
+        "to",
+        "with",
+        "respect",
+        "wrt",
+        "dx",
+        "dy",
+        "dt",
+        "dz",
+        "du",
+        "and",
+        "between",
+        "at",
+        "over",
+        "as",
+        "approaches",
+        "infinity",
+        "pi",
+        "by",
+        "parts",
+        "substitution",
+        "using",
+        "in",
+        "terms",
+    }
+)
+
+
+def calc_object(text: str) -> bool:
+    """A calculus verb has something to act on, not "differentiate between weather and climate".
+
+    Maths notation anywhere is enough. Without it the words after the verb
+    must name a letter or a number ("integrate x from 0 to 3", "factor 360")
+    and nothing that is not maths: "it", "this paragraph", "Slack with
+    Notion" and "on that" are not objects.
+    """
+    if _STRONG_MATH.search(text):
+        return True
+    match = _CALC_OP.search(text)
+    if match is None:
+        # The integral sign and d/dx matched above; a bare Lagrange prime is notation.
+        return True
+    tokens = _CALC_OBJECT_TOKEN.findall(text[match.end() :])
+    operands = [
+        piece for piece in tokens if piece[0].isdigit() or (len(piece) == 1 and piece not in "aAiI")
+    ]
+    words = [piece.lower() for piece in tokens if piece[0].isalpha() and len(piece) > 1]
+    return bool(operands) and all(
+        word in _CALC_OBJECT_WORDS or word in MATH_FUNCTION_NAMES for word in words
+    )
 
 
 def _match_limit_point(s: str) -> tuple[str, int] | None:

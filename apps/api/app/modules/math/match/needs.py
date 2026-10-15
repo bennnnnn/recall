@@ -6,6 +6,7 @@ import re
 
 from app.modules.math.match.arithmetic import bare_arithmetic_expr
 from app.modules.math.match.calculus import (
+    calc_object,
     calc_op,
     parse_limit,
     parse_series,
@@ -251,7 +252,9 @@ def needs_symbolic(text: str, *, has_image_attachment: bool = False) -> bool:
 
         if _extract_function_analysis_intent(cleaned) is not None:
             return True
-    if calc_op(cleaned) is not None:
+    # The verb alone is English too: "differentiate between weather and
+    # climate", "integrate Slack with Notion", "simplify it".
+    if calc_op(cleaned) is not None and calc_object(cleaned):
         return True
     if any(cue in lower for cue in ("critical point", "extrema", "local max", "local min")):
         from app.modules.math.tools.extractors.calculus import _extract_critical_points_intent
