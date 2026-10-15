@@ -66,7 +66,7 @@
     "react-native-markdown-display": "^7.0.2",
     "react-native-nitro-image": "0.15.2",
     "react-native-nitro-modules": "0.37.0",
-    "react-native-purchases": "^10.4.4",
+    "react-native-purchases": "^10.13.0",
     "react-native-reanimated": "4.5.1",
     "react-native-render-html": "^6.3.4",
     "react-native-safe-area-context": "~5.9.1",
