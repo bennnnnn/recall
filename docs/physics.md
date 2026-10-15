@@ -141,7 +141,13 @@ flowchart LR
    An instant reply that answered (b) alone left (a) unanswered. A SUVAT question in parts
    ("find (a) its final speed and (b) the distance") is answered whole.
 8. **Finalize** (`fence.py`). The model's answer and visual fences are dropped, and the
-   solver's are appended.
+   solver's are appended; the card carries the server's `verified: true` line, the only
+   thing the phone draws a green check for. A reply that answers and then offers more
+   ("Want the max height too?") keeps the card and scene; only a reply that asks instead
+   of stating any result goes without. A final value in the prose that differs from the
+   verified one (`R = 20.4 m` against `35.3 m`) gets one line above the card: "The
+   verified answer is …". A model-written `simulation` is never shown on a turn without
+   a verified physics block.
 
 ## Adding a law
 

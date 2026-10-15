@@ -70,12 +70,15 @@ chemistry. The mobile app renders the result; it does not solve chemistry on-dev
    or one it files under another kind.
 4. **Respond** (`direct.py`) — a complete typed calculation returns the exact compact
    five-section answer without waiting for model prose. The value is a server
-   ` ```answer ` fence whose first line is `notation: chemistry`, so the client
-   draws it as text instead of LaTeX. Image questions remain on the vision/model
+   ` ```answer ` fence with the header line `notation: chemistry` (after the server's
+   `verified: true`, added when the reply is sent), so the client draws it as text
+   instead of LaTeX, with the green check. Image questions remain on the vision/model
    path because OCR text was not the typed extractor input. Substitution is the
    formula with the numbers put in, never a repeat of the answer.
 5. **Finalize** (`fence.py`) — a verified result drops model answer, scene, and
-   structure fences and appends the solver's copies. An unclosed model fence is closed
+   structure fences and appends the solver's copies (the card marked `verified: true`).
+   Prose whose own final value differs (`pH = 1.00` against `2.00`) gets one line above
+   the card: "The verified answer is …". An unclosed model fence is closed
    first, so it cannot swallow the fences the server appends. Closed `smiles` /
    `chemistry` fences are then validated. The server appends `molecule3d` SDF for the
    first two valid structures, at most 120 heavy atoms each, so the client never has to

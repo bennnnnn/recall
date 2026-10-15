@@ -135,19 +135,18 @@ describe("copyBlock heuristics", () => {
     expect(looksLikeMathAnswer("Copy")).toBe(false);
   });
 
-  it("BUG FIX regression: open ```answer fences preview as AnswerBlock, not a code card", () => {
+  it("BUG FIX regression: open ```answer fences preview as math, never a code card", () => {
     // Live: the final box flashed `x = -2 \quad \text{or} \quad x = 2` in a
-    // CodeBlock (lang badge "answer") until the fence closed, then swapped
-    // to the gray AnswerBlock with the numbers.
-    expect(
-      shouldPreviewOpenFenceAsAnswer(
-        "answer",
-        String.raw`x = -2 \quad \text{or} \quad x = 2`,
-      ),
-    ).toBe(true);
+    // CodeBlock (lang badge "answer") until the fence closed. A server card
+    // (marked) previews as the card; anything else answer-shaped as math.
+    const roots = String.raw`x = -2 \quad \text{or} \quad x = 2`;
+    expect(shouldPreviewOpenFenceAsAnswer("answer", `verified: true\n${roots}`)).toBe(true);
+    expect(shouldPreviewOpenFenceAsAnswer("answer", roots)).toBe(false);
+    expect(shouldPreviewOpenFenceAsMath("answer", roots)).toBe(true);
     expect(shouldPreviewOpenFenceAsAnswer("python", "print(1)")).toBe(false);
     expect(shouldPreviewOpenFenceAsAnswer("python", "x = 2")).toBe(false);
-    expect(shouldPreviewOpenFenceAsAnswer("", "x = 2 or x = -2")).toBe(true);
+    expect(shouldPreviewOpenFenceAsAnswer("", "x = 2 or x = -2")).toBe(false);
+    expect(shouldPreviewOpenFenceAsMath("", "x = 2 or x = -2")).toBe(true);
   });
 
   it("BUG FIX regression: open ```math fences preview as math, not a code card", () => {

@@ -16,6 +16,7 @@ from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import build_math_augmentation
+from app.services.answer_fence import mark_server_answer_fences
 from app.services.solving import VerifiedMathBlock
 
 _CASES = [
@@ -77,7 +78,7 @@ async def test_complete_shape_measurement_emits_without_model(
         == verified.canonical_fence
     )
     assert [part.strip() for part in finalized.split("```") if part.strip()] == [
-        part.strip() for part in reply.split("```") if part.strip()
+        part.strip() for part in mark_server_answer_fences(reply).split("```") if part.strip()
     ]
     ctx = StreamContext(
         user_id=uuid4(),

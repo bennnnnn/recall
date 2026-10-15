@@ -295,17 +295,30 @@ describe("renderFence edge cases", () => {
     expect(queryByLabelText(/Answer:/)).toBeNull();
   });
 
-  it("routes a short numeric final (including mis-tagged ```copy) to AnswerBlock, not Copy", async () => {
-    const { getByLabelText, queryByText } = await render(
+  it("routes a short numeric final (including mis-tagged ```copy) to math, not Copy or a card", async () => {
+    // Only the server's marked ```answer earns the answer card and its check.
+    const { getByText, queryByLabelText, queryByText } = await render(
       <>{renderFence(node("120", "copy"))}</>,
     );
-    expect(getByLabelText("Answer: 120")).toBeOnTheScreen();
+    expect(getByText(/120/)).toBeOnTheScreen();
+    expect(queryByLabelText(/Answer:/)).toBeNull();
     expect(queryByText("Copy")).toBeNull();
   });
 
-  it("routes an explicit ```answer fence to AnswerBlock", async () => {
-    const { getByLabelText } = await render(<>{renderFence(node("120", "answer"))}</>);
+  it("routes the server's marked ```answer fence to AnswerBlock", async () => {
+    const { getByLabelText } = await render(
+      <>{renderFence(node("verified: true\n120", "answer"))}</>,
+    );
     expect(getByLabelText("Answer: 120")).toBeOnTheScreen();
+  });
+
+  it("shows an unmarked ```answer fence as ordinary math, without its header lines", async () => {
+    const { getByText, queryByLabelText, queryByText } = await render(
+      <>{renderFence(node("label: answer\n120", "answer"))}</>,
+    );
+    expect(getByText(/120/)).toBeOnTheScreen();
+    expect(queryByLabelText(/Answer:/)).toBeNull();
+    expect(queryByText(/label/)).toBeNull();
   });
 
   it("routes a factorial definition (mis-tagged ```copy) to MathBlock without Copy", async () => {
@@ -316,14 +329,15 @@ describe("renderFence edge cases", () => {
     expect(queryByText("Copy")).toBeNull();
   });
 
-  it("BUG FIX regression: routes a bare simplified expression with no lang tag or ```copy to AnswerBlock, not Copy", async () => {
+  it("BUG FIX regression: routes a bare simplified expression with no lang tag or ```copy to math, not Copy", async () => {
     // Reported live: "2c^2" (a simplified final result, no "=") fell through
     // every existing looksLikeMathAnswer branch and landed on the generic
     // CodeBlock fallback, which shows a "Copy" button.
-    const { getByLabelText, queryByText } = await render(
+    const { getByTestId, queryByLabelText, queryByText } = await render(
       <>{renderFence(node("2c^2", "copy"))}</>,
     );
-    expect(getByLabelText("Answer: 2c^2")).toBeOnTheScreen();
+    expect(getByTestId("math-script")).toHaveTextContent("2");
+    expect(queryByLabelText(/Answer:/)).toBeNull();
     expect(queryByText("Copy")).toBeNull();
   });
 
@@ -342,19 +356,20 @@ describe("renderFence edge cases", () => {
     // with each term wrapped in $...$ and sometimes mis-tagged ```copy. The
     // literal `$` chars used to fail every detector and drop it onto the
     // fallback CodeBlock — raw `$` signs, syntax-highlighted numbers, and a
-    // Copy button. It must render as the AnswerBlock (gray box, no Copy).
-    const { getByLabelText, queryByText } = await render(
+    // Copy button. It must render as math (no Copy), and not as the server's
+    // checked answer card, which only a marked ```answer fence gets.
+    const { queryByLabelText, queryByText } = await render(
       <>{renderFence(node("$x = 2$ or $x = -2$", "copy"))}</>,
     );
-    expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
+    expect(queryByLabelText(/Answer:/)).toBeNull();
     expect(queryByText("Copy")).toBeNull();
   });
 
-  it("BUG FIX regression: an untagged multi-solution final (x = 2 or x = -2, no $ wraps) routes to AnswerBlock", async () => {
-    const { getByLabelText, queryByText } = await render(
+  it("BUG FIX regression: an untagged multi-solution final (x = 2 or x = -2, no $ wraps) routes to math", async () => {
+    const { queryByLabelText, queryByText } = await render(
       <>{renderFence(node("x = 2 or x = -2"))}</>,
     );
-    expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
+    expect(queryByLabelText(/Answer:/)).toBeNull();
     expect(queryByText("Copy")).toBeNull();
   });
 
@@ -367,7 +382,7 @@ describe("renderFence edge cases", () => {
     // a value followed by a trailing unit ("cm") as answer-shaped. Confirmed
     // via a live console.log of the real node shape from react-native-markdown-display.
     const { getByLabelText, queryByText } = await render(
-      <>{renderFence(node("$c \\approx 7.21$ cm", "answer"))}</>,
+      <>{renderFence(node("verified: true\n$c \\approx 7.21$ cm", "answer"))}</>,
     );
     expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
     expect(queryByText("Copy")).toBeNull();
@@ -375,7 +390,7 @@ describe("renderFence edge cases", () => {
 
   it("BUG FIX regression: an explicit ```answer fence with a leading currency sign ($30, no closing $) routes to AnswerBlock", async () => {
     const { getByLabelText, queryByText } = await render(
-      <>{renderFence(node("$30", "answer"))}</>,
+      <>{renderFence(node("verified: true\n$30", "answer"))}</>,
     );
     expect(getByLabelText(/Answer:/)).toBeOnTheScreen();
     expect(queryByText("Copy")).toBeNull();

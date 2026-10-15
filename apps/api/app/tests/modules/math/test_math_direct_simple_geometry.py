@@ -16,6 +16,7 @@ from app.modules.math.tools.block import _build_verified_block
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import build_math_augmentation
+from app.services.answer_fence import mark_server_answer_fences
 from app.services.solving import VerifiedMathBlock
 
 _CASES = [
@@ -63,7 +64,7 @@ async def test_complete_geometry_reaches_first_token_without_model(
         == verified.canonical_fence
     )
     assert [p.strip() for p in finalized.split("```") if p.strip()] == [
-        p.strip() for p in reply.split("```") if p.strip()
+        p.strip() for p in mark_server_answer_fences(reply).split("```") if p.strip()
     ]
     ctx = StreamContext(
         user_id=uuid4(),

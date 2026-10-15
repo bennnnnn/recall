@@ -48,6 +48,18 @@ describe("prepareAssistantMarkdown answers", () => {
     assert.match(out, /x = 2/);
     assert.equal(out.includes("notation:"), false);
   });
+
+  it("never shows the server's verified marker as text", () => {
+    const math = prepareAssistantMarkdown("```answer\nverified: true\nx = 2\n```");
+    assert.equal(math.includes("verified"), false);
+    assert.match(math, /x = 2/);
+    const chemistry = prepareAssistantMarkdown(
+      "```answer\nverified: true\nnotation: chemistry\npH = 2.00\n```",
+    );
+    assert.equal(chemistry.includes("verified"), false);
+    assert.equal(chemistry.includes("notation:"), false);
+    assert.match(chemistry, /pH = 2\.00/);
+  });
 });
 
 describe("prepareAssistantMarkdown drafts and tables", () => {

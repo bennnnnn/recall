@@ -5,14 +5,24 @@ describe("classifyFence — explicit tags win", () => {
     ["python", "x = 2", "code"],
     ["javascript", "const x = 2", "code"],
     ["rust", "let x = 2;", "code"],
-    ["answer", "x = 2", "answer"],
+    // Only the server's marked card is an answer card; any other answer-shaped
+    // block (an unmarked ```answer, a bare number in a soft fence) is plain math.
+    ["answer", "verified: true\nx = 2", "answer"],
+    ["answer", "label: answer\nverified: true\nx = 2", "answer"],
+    ["answer", "verified: true\nnotation: chemistry\npH = 2.00", "answer"],
+    ["answer", "x = 2", "math"],
+    ["result", "x = 2", "math"],
+    ["answer", "notation: chemistry\npH = 2.87", "prose"],
+    ["answer", "Verified: TRUE\nx = 7", "math"],
     ["math", "x^2 + 1", "math"],
     ["latex", String.raw`\frac{x^2}{2}`, "math"],
     ["geometry", '{"type":"square"}', "rich"],
     ["smiles", "CCO", "rich"],
-    ["copy", "120", "answer"],
-    ["", "120", "answer"],
-    ["", "x = 2 or x = -2", "answer"],
+    ["copy", "120", "math"],
+    ["", "120", "math"],
+    ["", "x = 2 or x = -2", "math"],
+    ["text", String.raw`\boxed{29.9}`, "math"],
+    ["plain", "x = 2 or x = -3", "math"],
     ["image", '{"prompt":"a cat"}', "hide"],
     ["photo", "Ethiopia location map", "hide"],
   ] as const)("%s %j → %s", (lang, body, kind) => {
@@ -27,7 +37,9 @@ describe("classifyFence — explicit tags win", () => {
     expect(classifyOpenFencePreview("python", "x = 2")).toBe("code");
     expect(classifyOpenFencePreview("javascript", "x = 2")).toBe("code");
     expect(classifyOpenFencePreview("math", String.raw`\frac{x^2}{2}`)).toBe("math");
-    expect(classifyOpenFencePreview("", "x = 2")).toBe("answer");
+    // An answer-shaped open fence streams as math: never a card mid-stream.
+    expect(classifyOpenFencePreview("", "x = 2")).toBe("math");
+    expect(classifyOpenFencePreview("answer", "x = 7")).toBe("math");
   });
 
   it("demotes leaked drafting instructions to normal prose", () => {

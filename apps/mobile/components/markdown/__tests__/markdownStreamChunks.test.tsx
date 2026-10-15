@@ -20,12 +20,17 @@ describe("MarkdownContent streaming chunks", () => {
     expect(view.getByText(/The live tail/)).toBeOnTheScreen();
   });
 
-  it("holds the success check until the answer fence closes", async () => {
-    const open = "```answer\nx =\n";
+  it("holds the success check until the reply settles", async () => {
+    // Streamed text is not yet the server's final reply: a closed fence mid-stream
+    // could still be a model's forgery the server strips on done.
+    const open = "```answer\nverified: true\nx =\n";
     const view = await render(<MarkdownContent content={open} streaming />);
     expect(view.getByText("x =")).toBeOnTheScreen();
     expect(view.queryByTestId("answer-success-check")).toBeNull();
-    await view.rerender(<MarkdownContent content={`${open}\`\`\`\n`} streaming />);
+    const closed = `${open}\`\`\`\n`;
+    await view.rerender(<MarkdownContent content={closed} streaming />);
+    expect(view.queryByTestId("answer-success-check")).toBeNull();
+    await view.rerender(<MarkdownContent content={closed} />);
     expect(view.getByTestId("answer-success-check")).toBeOnTheScreen();
   });
 });

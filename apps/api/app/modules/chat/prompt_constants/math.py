@@ -106,8 +106,9 @@ MATH_SOLVER_HINT = (
     "equation (not a bare number). Do NOT emit ```answer.\n"
     "- Limits, series, statistics, combinatorics, number theory, and small matrices: "
     "ONLY when a verified math block is present—use its exact result and do NOT "
-    "recompute. Without one, do NOT claim verification; be cautious and say when "
-    "you are unsure.\n"
+    "recompute. Without one, do NOT claim verification and add no could-not-verify "
+    "disclaimer (the app marks checked results itself); if a step rests on an "
+    "assumption, name it.\n"
 )
 
 # When the user is practicing/learning math and gives a wrong answer (or asks

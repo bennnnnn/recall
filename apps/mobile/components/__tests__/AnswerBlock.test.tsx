@@ -34,7 +34,7 @@ describe("AnswerBlock", () => {
 
   it("draws Answer on the same row as the equation", async () => {
     const { getByTestId, getByText } = await render(
-      <AnswerBlock content={"label: answer\nx = 0"} />,
+      <AnswerBlock content={"label: answer\nverified: true\nx = 0"} />,
     );
     expect(getByText("Answer")).toBeOnTheScreen();
     const row = getByTestId("answer-and-check");
@@ -64,15 +64,24 @@ describe("AnswerBlock", () => {
   });
 
   it("marks the verified final with a green success check", async () => {
-    const { getByTestId } = await render(<AnswerBlock content="20" />);
+    const { getByTestId } = await render(<AnswerBlock content={"verified: true\n20"} />);
     expect(getByTestId("answer-success-check").props.color).toBe(
       lightTheme.success,
     );
   });
 
+  it("draws no check for a value the server did not mark, or while streaming", async () => {
+    const unmarked = await render(<AnswerBlock content="20" />);
+    expect(unmarked.queryByTestId("answer-success-check")).toBeNull();
+    const streaming = await render(
+      <AnswerBlock content={"verified: true\n20"} settled={false} />,
+    );
+    expect(streaming.queryByTestId("answer-success-check")).toBeNull();
+  });
+
   it("keeps the success check beside a fractional final instead of at the screen edge", async () => {
     const { getByTestId } = await render(
-      <AnswerBlock content={String.raw`x = \frac{1}{2}`} />,
+      <AnswerBlock content={"verified: true\n" + String.raw`x = \frac{1}{2}`} />,
     );
     const row = getByTestId("answer-row");
     const check = getByTestId("answer-success-check");

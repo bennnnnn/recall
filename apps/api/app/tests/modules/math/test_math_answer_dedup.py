@@ -59,4 +59,4 @@ def test_different_grouping_or_partial_expression_keeps_canonical_answer(
 ) -> None:
     verified = VerifiedMathBlock(text="unused", canonical_answer=answer)
     result = validate_math_fences(prose, verified=verified)
-    assert f"```answer\n{answer}\n```" in result
+    assert f"```answer\nverified: true\n{answer}\n```" in result

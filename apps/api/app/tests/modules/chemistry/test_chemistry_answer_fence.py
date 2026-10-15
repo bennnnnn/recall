@@ -11,6 +11,7 @@ from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.fence import validate_chemistry_fences
 from app.modules.chemistry.notation import typeset_json
 from app.modules.chemistry.schemas.scene import dump_scene
+from app.services.answer_fence import mark_server_answer_fences
 
 
 def _verified(question: str):
@@ -24,7 +25,10 @@ def _verified(question: str):
 def test_direct_reply_is_idempotent_under_chemistry_finalization() -> None:
     verified = _verified("Find pH when [H+] = 0.001")
     reply = format_direct_chemistry_reply(verified)
-    assert validate_chemistry_fences(reply, verified=verified) == reply
+    # Finalizing adds only the server's verified marker, and only once.
+    once = validate_chemistry_fences(reply, verified=verified)
+    assert once == mark_server_answer_fences(reply)
+    assert validate_chemistry_fences(once, verified=verified) == once
 
 
 def test_model_answer_and_structure_are_replaced_by_the_solver() -> None:
@@ -74,7 +78,7 @@ def test_solver_scene_survives_and_is_not_duplicated() -> None:
     fence = f"```chem_scene\n{payload}\n```"
     assert reply.count("```chem_scene") == 1
     assert reply.rstrip().endswith(fence)
-    assert validate_chemistry_fences(reply, verified=verified) == reply
+    assert validate_chemistry_fences(reply, verified=verified) == mark_server_answer_fences(reply)
 
 
 def test_answer_fence_body_is_not_rewritten_as_a_calculation_chain() -> None:

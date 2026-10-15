@@ -68,4 +68,18 @@ describe("server chemistry replies", () => {
     expect(fenceBodies(out, "answer")).toHaveLength(fenceBodies(entry.reply, "answer").length);
     expect(fenceBodies(out, "chem_scene")).toEqual(fenceBodies(entry.reply, "chem_scene"));
   });
+
+  it.each(replies)("%s: as sent, the card is checked and the marker is never read", (_name, entry) => {
+    // The server marks a direct reply's cards when it sends them.
+    const sent = entry.reply.replaceAll("```answer\n", "```answer\nverified: true\n");
+    for (const raw of fenceBodies(preprocessMarkdown(sent), "answer")) {
+      const parsed = splitAnswerNotation(raw);
+      expect(parsed.verified).toBe(true);
+      expect(parsed.notation).toBe("chemistry");
+    }
+    for (const text of [markdownToCopyText(sent), markdownToSpeechText(sent)]) {
+      expect(text).not.toContain("verified");
+      expect(text).not.toContain("notation");
+    }
+  });
 });

@@ -41,6 +41,17 @@ describe("server physics replies", () => {
     }
   });
 
+  it.each(replies)("%s: as sent, the card is checked and the marker is never read", (_name, entry) => {
+    // The server marks a direct reply's cards when it sends them.
+    const sent = entry.reply.replaceAll("```answer\n", "```answer\nverified: true\n");
+    const parsed = splitAnswerNotation(answerCard(sent));
+    expect(parsed.verified).toBe(true);
+    expect(parsed.body).toBe(splitAnswerNotation(answerCard(entry.reply)).body);
+    for (const text of [markdownToCopyText(sent), markdownToSpeechText(sent)]) {
+      expect(text).not.toContain("verified");
+    }
+  });
+
   it("reads degrees as degrees, not as a power", () => {
     const { reply } = contract.replies.launch_angles!;
     expect(markdownToCopyText(reply)).toContain("23.7° or 66.3°");

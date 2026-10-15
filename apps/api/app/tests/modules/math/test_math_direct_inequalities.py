@@ -12,6 +12,7 @@ from app.modules.math.fence import validate_math_fences
 from app.modules.math.schemas import GraphBlockSpec, NumberLineInterval
 from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.prompt import build_math_augmentation
+from app.services.answer_fence import mark_server_answer_fences
 from app.services.solving import VerifiedMathBlock
 
 
@@ -52,7 +53,7 @@ async def test_whole_inequality_returns_only_one_answer_and_verified_number_line
     assert finalized.count("```answer") == finalized.count("```graph") == 1
     # Finalization normalizes spacing between fences, without changing data.
     assert [part.strip() for part in finalized.split("```") if part.strip()] == [
-        part.strip() for part in reply.split("```") if part.strip()
+        part.strip() for part in mark_server_answer_fences(reply).split("```") if part.strip()
     ]
 
 

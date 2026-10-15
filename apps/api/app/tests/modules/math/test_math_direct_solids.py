@@ -16,6 +16,7 @@ from app.modules.math.tools.direct import maybe_direct_math_reply
 from app.modules.math.tools.direct_solids import solid_direct_request
 from app.modules.math.tools.extract import extract_math_intent
 from app.modules.math.tools.prompt import build_math_augmentation
+from app.services.answer_fence import mark_server_answer_fences
 from app.services.solving import VerifiedMathBlock
 
 _MATRIX = [
@@ -56,7 +57,10 @@ async def test_each_closed_solid_emits_one_exact_answer_without_model(
     )
     assert reply.endswith(f"```answer\n{expected}\n```\n")
     assert reply.count("```answer") == 1
-    assert validate_math_fences(reply, verified=verified).strip() == reply.strip()
+    assert (
+        validate_math_fences(reply, verified=verified).strip()
+        == mark_server_answer_fences(reply).strip()
+    )
     ctx = StreamContext(
         user_id=uuid4(),
         chat_id=uuid4(),

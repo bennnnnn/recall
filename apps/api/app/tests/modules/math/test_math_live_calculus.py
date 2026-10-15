@@ -39,7 +39,7 @@ def test_requested_algebra_form_reaches_the_canonical_answer(prompt: str, expect
     verified = _verified(prompt)
     assert verified.canonical_answer == expected
     final = math_fence.validate_math_fences("", verified=verified)
-    assert f"```answer\n{expected}\n```" in final
+    assert f"```answer\nverified: true\n{expected}\n```" in final
 
 
 @pytest.mark.parametrize(
