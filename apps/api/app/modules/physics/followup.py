@@ -54,7 +54,8 @@ _HOW = re.compile(
     r"(?:does|did|will|would|is|was|can) (?:it|she|he|they|the [a-z]+) "
     r"(?:go|travel|get|take|fall|rise|climb|move|moving|going|travelling|traveling"
     r"|stay in the air|be in the air)"
-    r"(?: (?:for|in total|altogether|before (?:it )?(?:stops|lands|hits the ground)))?$"
+    r"(?: (?:for|in total|altogether|(?:in|during|over) (?:that|this|the same) time"
+    r"|before (?:it )?(?:stops|lands|hits the ground)))?$"
 )
 _HOW_QUANTITY = {"far": "distance", "long": "time", "high": "maximum height", "fast": "speed"}
 

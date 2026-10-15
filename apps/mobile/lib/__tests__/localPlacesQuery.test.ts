@@ -47,6 +47,39 @@ describe("geo intent", () => {
     },
   );
 
+  it.each([
+    // How far something moved: the car of the problem before, not the user.
+    "how far did it go in that time",
+    "how far will the ball travel",
+    // A walk across or around something takes that thing's length.
+    "How long does it take to walk across the Brooklyn Bridge?",
+    "how long does it take to walk around Central Park",
+    "how long is the walk across the Golden Gate Bridge",
+    // Departure and arrival times make the trip length a sum.
+    "a bus leaves at 7:15am and arrives at 9:40am how long is the trip",
+    "my flight leaves at 11pm and lands at 6:30am, how long is the flight",
+    // A stated amount converted to another unit.
+    "how many miles is a 5k run?",
+    "how many km is a half marathon",
+    "how many minutes are in 2.5 hours",
+    "how many minutes in a day",
+  ])("reads %s as no trip from the user, like the server", (prompt) => {
+    expect(isDistanceQuery(prompt)).toBe(false);
+    expect(isGeoQuery(prompt)).toBe(false);
+  });
+
+  it.each([
+    "how far is it to the airport",
+    "how long does it take to walk to the station",
+    "how long does it take to walk over to my friend's place",
+    "I leave at 5pm and need to arrive by 7pm, how long is the drive?",
+    "how long is the trip",
+    "how many miles is it to Hawassa",
+    "how many minutes is the drive to work",
+  ])("still reads %s as a trip from the user", (prompt) => {
+    expect(isDistanceQuery(prompt)).toBe(true);
+  });
+
   it("does not treat kinematics homework as a maps distance ask", () => {
     const kinematics =
       "A car starts from rest and accelerates at a constant rate of 1.2 m/s^2. How long does it take the car to travel a distance of 500 meters?";

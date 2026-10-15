@@ -14,9 +14,70 @@ const BEST_NEAR = /\bbest\b.+\b(?:in|near|around|by)\b/i;
 const IMPLICIT_LOCAL =
   /\b(where\s+(?:should|can|do)\s+(?:I|we)\s+(?:eat|get|find|go|stay|park)|where\s+to\s+(?:eat|go|get|stay|park)|what(?:'s| is)\s+(?:good|open)\s+(?:around|near|nearby))\b/i;
 
-/** Keep in sync with apps/api/app/services/web_search/patterns.py `_DISTANCE_INTENT`. */
-const DISTANCE_INTENT =
-  /\b(how\s+far|how\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)|distance\s+(?:to|from)|how\s+long\s+(?:to\s+get|does\s+it\s+take\s+to\s+(?:get|drive|walk|reach|arrive)|is\s+the\s+(?:drive|trip|walk))|(?:miles|km|kilometers?|kilometres?|minutes?)\s+(?:away|from\s+(?:me|here))|directions?\s+to)\b/i;
+// A walk or drive across, around or along something ("walk across the Brooklyn
+// Bridge") takes that thing's length, wherever the user is. "Walk over to
+// Sara's" is still a trip from the user.
+const ALONG_A_PLACE = String.raw`(?!\s+(?:(?:across|around|over|through|along)\b(?!\s+to\b)|the\s+length\s+of\b))`;
+
+// "How far did it go in that time?" asks how far something moved: the car of
+// the problem before it, a ball, a friend. A trip from the user is "how far is".
+const HOW_FAR_IT_MOVED = [
+  String.raw`(?!\s+(?:does|did|do|will|would|can|could|has|had|have)\s+`,
+  String.raw`(?:it|she|he|they|we|you|(?:the|this|that)\s+[a-z]+)\s+`,
+  String.raw`(?:go|goes|gone|went|get|got|travel\w*|fall\w*|fell|move\w*|fly|flies|flew|flown`,
+  String.raw`|roll\w*|slide|slid|drift\w*|run|ran|swim|swam|jump\w*|cover\w*)\b)`,
+].join("");
+
+/** Keep in sync with apps/api/app/modules/web_search/patterns.py `_DISTANCE_INTENT`. */
+const DISTANCE_INTENT = new RegExp(
+  [
+    String.raw`\b(how\s+far${HOW_FAR_IT_MOVED}|how\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)`,
+    String.raw`|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)|distance\s+(?:to|from)`,
+    String.raw`|how\s+long\s+(?:to\s+get`,
+    String.raw`|does\s+it\s+take\s+to\s+(?:get|reach|arrive|(?:drive|walk)${ALONG_A_PLACE})`,
+    String.raw`|is\s+the\s+(?:trip|(?:drive|walk)${ALONG_A_PLACE}))`,
+    String.raw`|(?:miles|km|kilometers?|kilometres?|minutes?)\s+(?:away|from\s+(?:me|here))`,
+    String.raw`|directions?\s+to)\b`,
+  ].join(""),
+  "i",
+);
+
+const CLOCK_TIME = String.raw`(?:\d{1,2}(?::[0-5]\d)?\s*[ap]\.?m\b\.?|\d{1,2}:[0-5]\d\b|noon\b|midnight\b)`;
+
+/**
+ * "A bus leaves at 7:15am and arrives at 9:40am. How long is the trip?" is a
+ * sum over the two times it states. "Arrive by 7pm" is a deadline and stays a
+ * trip from the user.
+ * Keep in sync with apps/api/app/modules/web_search/patterns.py `_TIMETABLE`.
+ */
+const TIMETABLE = new RegExp(
+  [
+    String.raw`\b(?:leaves?|left|leaving|departs?|departed|departing|sets?\s+off)\b`,
+    String.raw`(?:\s+\S+){0,3}?\s+${CLOCK_TIME}`,
+    String.raw`.{0,80}?`,
+    String.raw`\b(?:arrives?|arrived|arriving|reaches|reached|lands?|landed|gets\s+in|got\s+in)\b`,
+    String.raw`(?:\s+(?!by\b)\S+){0,3}?\s+${CLOCK_TIME}`,
+  ].join(""),
+  "i",
+);
+
+/**
+ * "How many miles is a 5k?" and "how many minutes in an hour?" convert a stated
+ * amount. "How many miles is it to Hawassa?" is still a trip from the user.
+ * Keep in sync with apps/api/app/modules/web_search/patterns.py `_UNIT_CONVERSION`.
+ */
+const UNIT_CONVERSION = new RegExp(
+  [
+    String.raw`\bhow\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)\s+`,
+    String.raw`(?:(?:is|are)(?:\s+there)?(?:\s+in)?|in|makes?|equals?)\s+`,
+    String.raw`(?:(?:a|an|one)\s+)?`,
+    String.raw`(?:\d[\d,.]*\s*(?:k|km|kilomet(?:er|re)s?|mi|miles?|m|meters?|metres?|ft|feet|yards?`,
+    String.raw`|h|hrs?|hours?|days?|weeks?|laps?|steps?)`,
+    String.raw`|(?:half[\s-]?)?marathons?|kilomet(?:er|re)s?|miles?|hours?|days?|weeks?|months?`,
+    String.raw`|years?|laps?)\b`,
+  ].join(""),
+  "i",
+);
 
 /** Keep in sync with apps/api/app/modules/web_search/patterns.py `_MOTION_HOMEWORK`. */
 const MOTION_HOMEWORK = new RegExp(
@@ -137,6 +198,7 @@ export function isDistanceQuery(text: string): boolean {
   const cleaned = text.trim();
   if (!cleaned || !DISTANCE_INTENT.test(cleaned)) return false;
   if (MOTION_HOMEWORK.test(cleaned)) return false;
+  if (TIMETABLE.test(cleaned) || UNIT_CONVERSION.test(cleaned)) return false;
   if (DISTANCE_BETWEEN.test(cleaned) && !FROM_USER.test(cleaned)) return false;
   if (FIXED_DISTANCE_FROM.test(cleaned) && !FROM_USER.test(cleaned)) return false;
   return true;

@@ -941,5 +941,42 @@
   ],
   "reply": "**Step 4:** Add the chicken pieces — rinsed and soaked in lemon water first — to the berbere sauce, and simmer covered for about **30 minutes**, turning them now and then so they soak up the color.\n\nNext is step 5: the peeled hard-boiled eggs go in for the last 10 minutes.",
   "expect": "answer"
+ },
+ {
+  "id": "sp-101",
+  "area": "places",
+  "prompt": "How long does it take to walk around Central Park?",
+  "reply": "The full loop along the park's edge is about **10 km (6.1 miles)**, so **2 to 2½ hours** at an easy pace. The inner Drive loop is a little shorter, about 6 miles, if you'd rather stay inside the park.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-102",
+  "area": "places",
+  "prompt": "how long is the walk across the Golden Gate Bridge?",
+  "reply": "The bridge is about **2.7 km (1.7 miles)** long, so one way takes **30–45 minutes** with photo stops. Bring a jacket: it's windy and often foggy up there.",
+  "expect": "answer"
+ },
+ {
+  "id": "sp-103",
+  "area": "places",
+  "prompt": "how long does it take to walk to the stadium from here?",
+  "reply": "Addis Ababa Stadium is about **2.4 km** from you, so roughly **30 minutes** on foot via Churchill Avenue.",
+  "expect": "search",
+  "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "sp-104",
+  "area": "places",
+  "prompt": "how long does it take to drive to the airport?",
+  "reply": "I need your location to tell you that.",
+  "expect": "instant"
+ },
+ {
+  "id": "sp-105",
+  "area": "places",
+  "prompt": "I leave at 5pm and need to arrive by 7pm, how long is the drive to the airport?",
+  "reply": "From you the drive to **Bole International Airport** is about **20 minutes** without traffic, but after 5 PM it often takes **35–45 minutes**. Leaving at 5 you'll make 7 PM comfortably.",
+  "expect": "search",
+  "location": "Addis Ababa, Ethiopia"
  }
 ]

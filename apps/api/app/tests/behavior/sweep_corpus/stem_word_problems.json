@@ -832,5 +832,62 @@
   "reply": "The closest eyeglasses store is **Vision Plus Optics** on Bole Road, about **1.2 km** away (5 minutes by car).",
   "expect": "search",
   "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "s2-085",
+  "area": "math",
+  "prompt": "the train departs at 08:10 and arrives in Adama at 10:25. how long is the journey?",
+  "history": [],
+  "reply": "The journey takes **2 hours 15 minutes**.\n\n1. 08:10 → 10:10 is **2 hours**\n2. 10:10 → 10:25 is **15 minutes**\n\nSo 2 h + 15 min = **2 h 15 min** (135 minutes).",
+  "expect": "answer"
+ },
+ {
+  "id": "s2-086",
+  "area": "math",
+  "prompt": "my flight leaves at 11pm and lands at 6:30am, how long is the flight? same time zone",
+  "history": [],
+  "reply": "The flight takes **7 hours 30 minutes**.\n\n1. 11:00 PM → midnight is **1 hour**\n2. Midnight → 6:30 AM is **6 hours 30 minutes**\n\nSo 1 h + 6 h 30 min = **7 h 30 min**.",
+  "expect": "answer"
+ },
+ {
+  "id": "s2-087",
+  "area": "physics",
+  "prompt": "what's the temperature on the moon during the day?",
+  "history": [],
+  "reply": "In direct sunlight near the equator the Moon's surface reaches about **120 °C (250 °F)**. With no atmosphere to hold heat, it drops to around **−130 °C (−208 °F)** at night, and colder still in permanently shadowed craters.",
+  "expect": "answer"
+ },
+ {
+  "id": "s2-088",
+  "area": "physics",
+  "prompt": "is the weather on mars anything like earth's?",
+  "history": [],
+  "reply": "Only a little. Mars has weather — wind, frost, clouds and huge dust storms — but its air is about **1% as thick** as Earth's and mostly carbon dioxide. Average temperatures sit around **−60 °C**, and a dust storm can cover the whole planet for weeks.",
+  "expect": "answer"
+ },
+ {
+  "id": "s2-089",
+  "area": "places",
+  "prompt": "what's the weather like on Mount Kenya this weekend? planning a hike",
+  "history": [],
+  "reply": "Expect **dry mornings and afternoon cloud** on Mount Kenya this weekend: around 12 °C at the Met Station and below freezing near Point Lenana overnight. Start early and pack a warm layer and rain shell.",
+  "expect": "search"
+ },
+ {
+  "id": "s2-090",
+  "area": "study",
+  "prompt": "what's the weather like on saturday? we have an outdoor study group",
+  "history": [],
+  "reply": "Saturday in Addis looks **mostly sunny, 22 °C**, with a small chance of a shower after 3 PM. A morning session outside should be fine.",
+  "expect": "search",
+  "location": "Addis Ababa, Ethiopia"
+ },
+ {
+  "id": "s2-091",
+  "area": "study",
+  "prompt": "what's the weather on the weekend?",
+  "history": [],
+  "reply": "I need your location to tell you that.",
+  "expect": "instant"
  }
 ]

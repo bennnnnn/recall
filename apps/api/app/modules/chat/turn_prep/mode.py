@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from uuid import UUID
 
@@ -24,6 +25,7 @@ from app.modules.chat.prompt_constants import (
 from app.modules.memory import is_food_or_diet_query
 from app.repositories import messages as messages_repo
 from app.services import day_planning as day_planning_service
+from app.services.subject_solving import detect_subject
 from app.services.text_normalize import collapse_ws
 
 
@@ -57,6 +59,40 @@ def _should_augment_web_and_tools(
     ):
         return False
     return rich_context or needs_math or needs_search or needs_chem
+
+
+# "I work 9am to 5:30pm with a 45 min lunch. How many hours do I work in a
+# 5-day week?" works a number out of the ones it states, and lunch is one of
+# them. "How many liters of water should I drink a day?" asks for advice.
+_SUM_ASK = re.compile(
+    r"\bhow\s+many\s+(?:hours|minutes|mins|seconds|days|weeks|months|years)\b"
+    r"|\bhow\s+(?:many|much)\b[^.?!]{0,60}\b(?:left|remain(?:s|ing)?|in\s+total|total"
+    r"|altogether|(?:a|per|each)\s+(?:week|month|year))\b"
+    r"|\bwhat\s+(?:fraction|percent(?:age)?)\b",
+    re.IGNORECASE,
+)
+_ADVICE_WORD = re.compile(
+    r"\b(?:should|recommend\w*|suggest\w*|need|enough|healthy|safe)\b"
+    r"|\b(?:is|are)\s+(?:it|that|this|they)\s+(?:ok(?:ay)?|fine|good|bad)\b",
+    re.IGNORECASE,
+)
+_STATED_NUMBER = re.compile(r"\d+(?:[.:]\d+)?")
+
+
+def _works_out_a_sum(content: str) -> bool:
+    """A number asked of at least two the line states, with no advice asked."""
+    if _SUM_ASK.search(content) is None or _ADVICE_WORD.search(content) is not None:
+        return False
+    return len(_STATED_NUMBER.findall(content)) >= 2
+
+
+def _asks_about_food(content: str) -> bool:
+    """Eating, cooking or diet: not homework or a sum that names a meal."""
+    if not is_food_or_diet_query(content):
+        return False
+    if detect_subject(content) is not None:
+        return False
+    return not _works_out_a_sum(content)
 
 
 @dataclass
@@ -161,7 +197,7 @@ async def _classify_turn_mode(
     advice_memory = (
         (
             is_personal_advice_question(content)
-            or is_food_or_diet_query(content)
+            or _asks_about_food(content)
             or is_capabilities_question(content)
             or is_teaching_request(content)
             or is_career_personal_question(content)

@@ -174,7 +174,12 @@ _WEATHER_NOT_A_FORECAST = re.compile(
     r"|(?:poem|story|song|essay|haiku|joke|sentence|paragraph)s?\s+(?:about|on)\s+(?:the\s+)?weather"
     r"|(?:mean(?:s|ing)?|definition|synonyms?|spell|spelling)\b.*\bweather"
     r"|weather\b.*\b(?:mean(?:s|ing)?|definition|synonyms?)"
-    r"|weather\s+vs\.?\s+whether|whether\s+(?:or|vs))\b",
+    r"|weather\s+vs\.?\s+whether|whether\s+(?:or|vs)"
+    # "What's the weather like on Venus?" is planetary science: no forecast,
+    # and nothing to do with where the user is.
+    r"|(?:weather|forecast|temperature)(?:\s+[\w'\u2019]+){0,3}?\s+on\s+(?:the\s+)?"
+    r"(?:mercury|venus|mars|jupiter|saturn|uranus|neptune|pluto|moon|sun|titan|europa|io"
+    r"|other\s+planets?|another\s+planet|exoplanets?))\b",
     re.IGNORECASE,
 )
 
@@ -429,17 +434,58 @@ _QUIZ_ANSWER = re.compile(r"^[A-D]\.?$", re.IGNORECASE)
 # Keep in sync with apps/mobile/lib/localPlacesQuery.ts DISTANCE_INTENT.
 # ``does it take`` must require a commute verb (get/drive/walk/reach/arrive).
 # Bare ``how long does it take the car to travel`` is kinematics, not maps.
+# A walk or drive across, around or along something ("walk across the Brooklyn
+# Bridge") takes that thing's length, wherever the user is. "Walk over to
+# Sara's" is still a trip from the user.
+_ALONG_A_PLACE = r"(?!\s+(?:(?:across|around|over|through|along)\b(?!\s+to\b)|the\s+length\s+of\b))"
+# "How far did it go in that time?" asks how far something moved: the car of
+# the problem before it, a ball, a friend. A trip from the user is "how far is".
+_HOW_FAR_IT_MOVED = (
+    r"(?!\s+(?:does|did|do|will|would|can|could|has|had|have)\s+"
+    r"(?:it|she|he|they|we|you|(?:the|this|that)\s+[a-z]+)\s+"
+    r"(?:go|goes|gone|went|get|got|travel\w*|fall\w*|fell|move\w*|fly|flies|flew|flown"
+    r"|roll\w*|slide|slid|drift\w*|run|ran|swim|swam|jump\w*|cover\w*)\b)"
+)
 _DISTANCE_INTENT = re.compile(
     r"\b("
-    r"how\s+far"
+    rf"how\s+far{_HOW_FAR_IT_MOVED}"
     r"|how\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)"
     r"|(?:walking|driving|drive|travel|commute)\s+(?:distance|time)"
     r"|distance\s+(?:to|from)"
-    r"|how\s+long\s+(?:to\s+get|does\s+it\s+take\s+to\s+(?:get|drive|walk|reach|arrive)"
-    r"|is\s+the\s+(?:drive|trip|walk))"
+    r"|how\s+long\s+(?:to\s+get"
+    rf"|does\s+it\s+take\s+to\s+(?:get|reach|arrive|(?:drive|walk){_ALONG_A_PLACE})"
+    rf"|is\s+the\s+(?:trip|(?:drive|walk){_ALONG_A_PLACE}))"
     r"|(?:miles|km|kilometers?|kilometres?|minutes?)\s+(?:away|from\s+(?:me|here))"
     r"|directions?\s+to"
     r")\b",
+    re.IGNORECASE,
+)
+
+# "A bus leaves at 7:15am and arrives at 9:40am. How long is the trip?" is a sum
+# over the two times it states. "I leave at 5pm and need to arrive by 7pm" sets
+# a deadline, not an arrival time, and stays a trip from the user.
+# Keep in sync with apps/mobile/lib/localPlacesQuery.ts TIMETABLE.
+_CLOCK_TIME = r"(?:\d{1,2}(?::[0-5]\d)?\s*[ap]\.?m\b\.?|\d{1,2}:[0-5]\d\b|noon\b|midnight\b)"
+_TIMETABLE = re.compile(
+    r"\b(?:leaves?|left|leaving|departs?|departed|departing|sets?\s+off)\b"
+    rf"(?:\s+\S+){{0,3}}?\s+{_CLOCK_TIME}"
+    r".{0,80}?"
+    r"\b(?:arrives?|arrived|arriving|reaches|reached|lands?|landed|gets\s+in|got\s+in)\b"
+    rf"(?:\s+(?!by\b)\S+){{0,3}}?\s+{_CLOCK_TIME}",
+    re.IGNORECASE,
+)
+
+# "How many miles is a 5k?" and "how many minutes in an hour?" convert a stated
+# amount. "How many miles is it to Hawassa?" is still a trip from the user.
+# Keep in sync with apps/mobile/lib/localPlacesQuery.ts UNIT_CONVERSION.
+_UNIT_CONVERSION = re.compile(
+    r"\bhow\s+many\s+(?:miles|kilometers|kilometres|km|minutes|mins)\s+"
+    r"(?:(?:is|are)(?:\s+there)?(?:\s+in)?|in|makes?|equals?)\s+"
+    r"(?:(?:a|an|one)\s+)?"
+    r"(?:\d[\d,.]*\s*(?:k|km|kilomet(?:er|re)s?|mi|miles?|m|meters?|metres?|ft|feet|yards?"
+    r"|h|hrs?|hours?|days?|weeks?|laps?|steps?)"
+    r"|(?:half[\s-]?)?marathons?|kilomet(?:er|re)s?|miles?|hours?|days?|weeks?|months?"
+    r"|years?|laps?)\b",
     re.IGNORECASE,
 )
 
