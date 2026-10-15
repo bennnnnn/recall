@@ -6,6 +6,14 @@ export type ImageGenerateResult = {
   assistant_message: Message;
 };
 
+/** The subject that owns a composer turn; `null` leaves it to image generation. */
+export type ImageIntentResult = {
+  subject: "math" | "physics" | "chemistry" | null;
+};
+
+/** A slow answer must not hold a picture request for long; see `stemSubjectOwnsTurn`. */
+const IMAGE_INTENT_TIMEOUT_MS = 5_000;
+
 export const imagesApi = {
   generateImage: (
     token: string,
@@ -28,5 +36,17 @@ export const imagesApi = {
       },
       true,
       120_000,
+    ),
+  imageIntent: (token: string, text: string, init?: RequestInit) =>
+    request<ImageIntentResult>(
+      "/images/intent",
+      token,
+      {
+        method: "POST",
+        body: JSON.stringify({ text }),
+        ...init,
+      },
+      true,
+      IMAGE_INTENT_TIMEOUT_MS,
     ),
 };

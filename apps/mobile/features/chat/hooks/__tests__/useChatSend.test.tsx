@@ -59,8 +59,12 @@ jest.mock("@/features/attachments/model/attachments", () => ({
   },
 }));
 const mockReadScan = jest.fn();
+const mockImageIntent = jest.fn();
 jest.mock("@/lib/api", () => ({
-  api: { readScan: (...args: unknown[]) => mockReadScan(...args) },
+  api: {
+    readScan: (...args: unknown[]) => mockReadScan(...args),
+    imageIntent: (...args: unknown[]) => mockImageIntent(...args),
+  },
 }));
 jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
@@ -140,6 +144,7 @@ describe("useChatSend", () => {
     mockThreadKey = "new";
     needsGeo.mockReturnValue(false);
     resolveGeo.mockResolvedValue({ ok: true, clientGeo: null });
+    mockImageIntent.mockResolvedValue({ subject: null });
   });
 
   it("keeps the draft and surfaces the offline callback", async () => {
@@ -160,6 +165,7 @@ describe("useChatSend", () => {
     await act(async () => {
       await current.handleSend();
     });
+    expect(mockImageIntent).toHaveBeenCalledWith("token", "Generate an image of a lighthouse");
     expect(onGenerateImage).toHaveBeenCalledWith(
       "a lighthouse",
       "Generate an image of a lighthouse",
@@ -169,6 +175,82 @@ describe("useChatSend", () => {
         onFailure: expect.any(Function),
       }),
     );
+  });
+
+  it.each([
+    ["draw ethanol", "chemistry"],
+    ["A lens has focal length 15 cm. Where's the image?", "physics"],
+  ])("leaves %j to its subject as chat, not generation", async (text, subject) => {
+    inputRef.current = text;
+    mockImageIntent.mockResolvedValue({ subject });
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      await current.handleSend();
+    });
+    expect(mockImageIntent).toHaveBeenCalledWith("token", text);
+    expect(onGenerateImage).not.toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledWith(text, expect.anything());
+    expect(current.sendPhase).toBe("idle");
+  });
+
+  it("generates as before when the server cannot say whose turn it is", async () => {
+    inputRef.current = "draw me a cat";
+    mockImageIntent.mockRejectedValue(new Error("offline"));
+    const sendMessage = jest.fn();
+    await act(async () => {
+      render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    });
+    await act(async () => {
+      await current.handleSend();
+    });
+    expect(onGenerateImage).toHaveBeenCalledWith(
+      "cat",
+      "draw me a cat",
+      undefined,
+      expect.anything(),
+    );
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("asks the server only about turns the phone would draw", async () => {
+    inputRef.current = "hello";
+    await act(async () => {
+      render(<Probe chatId="chat-1" />);
+    });
+    await act(async () => {
+      await current.handleSend();
+    });
+    expect(mockImageIntent).not.toHaveBeenCalled();
+  });
+
+  it("neither draws nor sends when the chat changes during the check", async () => {
+    mockThreadKey = "chat-1";
+    inputRef.current = "draw ethanol";
+    let answer!: (value: { subject: string | null }) => void;
+    mockImageIntent.mockReturnValue(new Promise((resolve) => { answer = resolve; }));
+    const sendMessage = jest.fn();
+    const view = await render(
+      <Probe chatId="chat-1" routeChatId="chat-1" sendMessage={sendMessage} />,
+    );
+    let sending!: Promise<void>;
+    await act(async () => {
+      sending = current.handleSend();
+      await Promise.resolve();
+    });
+    expect(current.sendPhase).toBe("preparing");
+    mockThreadKey = "chat-2";
+    await view.rerender(<Probe chatId="chat-2" routeChatId="chat-2" sendMessage={sendMessage} />);
+    await act(async () => {
+      answer({ subject: "chemistry" });
+      await sending;
+    });
+    expect(onGenerateImage).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(mockSetInput).not.toHaveBeenCalledWith("");
+    expect(current.sendPhase).toBe("idle");
   });
 
   it("clears image requests before the email draft flush settles", async () => {

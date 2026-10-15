@@ -6,6 +6,9 @@
  * so a phrase the phone sends as chat is never generated on the server (and the
  * reverse). Each helper below has a same-named Python twin; change both, and the
  * shared cases in docs/fixtures/image_intent_cases.json, together.
+ *
+ * These rules read "draw ethanol" as a picture. Whether maths, physics or
+ * chemistry owns a turn is the server's call alone (stemSubjectOwnsTurn).
  */
 
 import { parseMessageImages } from "@/lib/messageAttachments";
