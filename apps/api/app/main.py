@@ -4,10 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app import process_bootstrap
+from app.core.body_limit import RequestBodyLimitMiddleware
 from app.core.config import cors_allow_origins, get_settings
 from app.core.request_id import RequestIdMiddleware
 from app.core.rest_rate_limit import RestRateLimitMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
+from app.core.unavailable import register_unavailable_handlers
 from app.modules.account import api as auth
 from app.modules.attachments import api as attachments
 from app.modules.billing import api as webhooks
@@ -33,6 +35,16 @@ from app.routers import (
     legal,
     link_preview,
     models,
+)
+
+# Routes that take a photo or audio clip in the body. Everything else gets
+# the small JSON cap (``max_request_body_bytes``); these get
+# ``max_upload_request_body_bytes``. Each route still enforces its own exact
+# limit — this only stops a body from being buffered past the cap.
+UPLOAD_BODY_PATHS = (
+    r"/speech/transcribe",
+    r"/(math|physics|chemistry)/scan/read",
+    r"/attachments/[^/]+/upload",
 )
 
 
@@ -64,7 +76,9 @@ def create_app() -> FastAPI:
     cors_origins = cors_allow_origins(settings)
     # Middleware is outermost-last: rate-limit must sit *inside* CORS so a 429
     # still gets Access-Control-* headers (browsers otherwise report a network
-    # error). Security headers wrap the whole stack last.
+    # error). Security headers wrap the whole stack last. The body cap is
+    # innermost so its 413 still carries CORS / request-id / security headers.
+    app.add_middleware(RequestBodyLimitMiddleware, upload_paths=UPLOAD_BODY_PATHS)
     app.add_middleware(RestRateLimitMiddleware)
     app.add_middleware(RequestIdMiddleware)
     app.add_middleware(
@@ -86,6 +100,7 @@ def create_app() -> FastAPI:
         SecurityHeadersMiddleware,
         enable_hsts=settings.environment == "production",
     )
+    register_unavailable_handlers(app)
 
     app.include_router(health.router)
     app.include_router(legal.router)

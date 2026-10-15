@@ -5,7 +5,11 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.orm import DeclarativeBase
 
 from app.core.config import get_settings
-from app.core.database_url import pool_recycle_seconds_for_url, prepare_asyncpg_url
+from app.core.database_url import (
+    engine_connect_args,
+    pool_recycle_seconds_for_url,
+    prepare_asyncpg_url,
+)
 
 
 class Base(DeclarativeBase):
@@ -13,10 +17,11 @@ class Base(DeclarativeBase):
 
 
 settings = get_settings()
-_db_url, _connect_args = prepare_asyncpg_url(
+_db_url, _url_connect_args = prepare_asyncpg_url(
     settings.database_url,
     prefer_neon_pooler=settings.database_prefer_neon_pooler,
 )
+_connect_args = engine_connect_args(settings, _url_connect_args)
 engine = create_async_engine(
     _db_url,
     echo=False,

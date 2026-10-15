@@ -44,4 +44,6 @@ EXPOSE 8000
 # Local/docker-run: migrate then exec uvicorn as PID 1 (SIGTERM-friendly).
 # On Fly, migrations run once via `release_command` (see fly.toml) so multiple
 # app machines do not race `alembic upgrade head` on boot.
-CMD ["sh", "-c", "/opt/venv/bin/alembic upgrade head && exec /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log"]
+# --ws-max-size: largest WebSocket frame (uvicorn default 16 MiB). A chat frame
+# is at most ~130 KB (32k chars); keep in step with fly.toml.
+CMD ["sh", "-c", "/opt/venv/bin/alembic upgrade head && exec /opt/venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log --ws-max-size 1048576"]

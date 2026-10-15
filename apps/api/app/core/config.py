@@ -13,6 +13,10 @@ class Settings(BaseSettings):
     redis_url: str = "redis://localhost:6379"
 
     google_client_id: str = ""
+    # Google sign-in fetches Google's signing certs on every verify. The
+    # google-auth default HTTP timeout is 120s; a slow fetch now fails fast
+    # as a 503 instead of holding the sign-in (and a worker thread).
+    google_auth_timeout_seconds: float = 10.0
     apple_client_id: str = "com.recall.app"
 
     jwt_secret: str = "dev-secret-change-me"
@@ -44,6 +48,16 @@ class Settings(BaseSettings):
     attachment_ocr_index_timeout_seconds: float = 120.0
     attachment_ocr_page_timeout_seconds: float = 12.0
     attachment_ocr_render_scale: float = 1.5
+    # Pixel budget per rendered PDF page. The scale above applied to any page
+    # size, so a 435-byte PDF with one 14400x14400 pt page rendered a ~2 GB
+    # bitmap (5.1 GB peak RSS locally) on a 512 MB machine. Oversized pages
+    # are scaled down to this budget; a letter page at 1.5x is ~1.1 MP.
+    attachment_ocr_max_page_pixels: int = 4_000_000
+    # Largest image (pixels actually decoded) a gallery thumbnail will decode.
+    # JPEG decodes at a reduced scale first, so big photos still work; a
+    # lossless image past this is refused (422) instead of decoding hundreds
+    # of MB from a sub-MB file. 0 disables.
+    attachment_image_max_decode_pixels: int = 16_000_000
     semantic_memory_enabled: bool = True
     # Model-initiated LiteLLM tools= loop. Ordinary chat streams immediately;
     # the loop runs only when the turn still looks like search / unsolved math /
@@ -106,6 +120,12 @@ class Settings(BaseSettings):
     r2_bucket: str = ""
     r2_endpoint: str = ""  # derived from account_id if empty
     r2_presign_expiry_seconds: int = 600
+    # boto3 defaults are 60s connect + 60s read with 5 legacy attempts, all on
+    # the default thread pool (5 threads on one CPU) shared with sign-in and
+    # PDF extraction. Bounded here; "standard" retries back off with jitter.
+    r2_connect_timeout_seconds: float = 5.0
+    r2_read_timeout_seconds: float = 20.0
+    r2_max_attempts: int = 3
 
     math_tools_enabled: bool = True
     chemistry_enabled: bool = True
@@ -180,6 +200,17 @@ class Settings(BaseSettings):
     # Max in-flight jobs per worker process when draining a Redis Stream batch.
     # Keeps LLM handlers from head-of-line-blocking compress/topic/todo jobs.
     jobs_worker_concurrency: int = 8
+    # Hard ceiling on the Redis jobs stream (entries). The soft 10k trim only
+    # runs while nothing is pending; one entry left pending by a dead worker
+    # used to disable trimming entirely. Past this, the oldest jobs are
+    # dropped so Redis (quota, auth revocation, rate limits) stays healthy.
+    # Never lower than the soft cap; 0 disables the ceiling.
+    jobs_stream_max_len: int = 50_000
+    # Deadline for one attempt of one background job. A batch is awaited as a
+    # whole, so a hung handler used to stop the worker reading new jobs. An
+    # attempt that runs this long goes to the DLQ (not retried). Generous: the
+    # memory history scan reads 20 chats and resumes where it stopped.
+    job_timeout_seconds: float = 900.0
     # Port the worker process exposes a tiny /health/ready endpoint on, so Fly
     # can health-check + auto-restart a stuck worker (the worker otherwise has
     # no HTTP). 0 disables the worker health server (e.g. process_role=all dev).
@@ -267,6 +298,12 @@ class Settings(BaseSettings):
     db_pool_size: int = 20
     db_max_overflow: int = 10
     db_pool_timeout_seconds: float = 5.0
+    # asyncpg connect timeout (default 60s) and per-statement timeout (default
+    # none). pool_pre_ping runs a statement on every checkout, so without a
+    # statement timeout one half-open pooled connection hung a request
+    # forever. Generous: account delete is one cascading DELETE. 0 disables.
+    db_connect_timeout_seconds: float = 10.0
+    db_command_timeout_seconds: float = 120.0
     # Cap concurrent DB checkouts inside the context gather so one turn cannot
     # grab all five pool slots at once.
     context_db_concurrency: int = 3
@@ -356,6 +393,13 @@ class Settings(BaseSettings):
 
     # Per-user/IP REST requests per minute (health + webhooks excluded).
     rest_rate_limit_per_minute: int = 240
+    # Request body caps (core/body_limit.py). A declared Content-Length over
+    # the cap is refused before any byte is read; a chunked body is counted as
+    # it streams. JSON routes stay far below 1 MiB (chat text is 32k chars).
+    # Photo/audio routes (scan read ~10.7 MB, transcribe ~6.7 MB, local
+    # attachment upload 10 MiB) get the upload cap. 0 disables a cap.
+    max_request_body_bytes: int = 1_048_576
+    max_upload_request_body_bytes: int = 12 * 1024 * 1024
 
     # Dev placeholders — disable in production.
     # ``environment`` defaults to production (fail-closed): a deploy that forgets
@@ -400,6 +444,13 @@ def _trusted_proxy_cidrs_ipv4_only(cidrs: str) -> bool:
 
 def _warn_proxy_trust_misconfig(settings: Settings) -> None:
     if not settings.trust_x_forwarded_for:
+        if settings.environment == "production":
+            logger.warning(
+                "TRUST_X_FORWARDED_FOR=false in production — behind Fly (or any "
+                "proxy) every per-IP rate limit (sign-in, WebSocket handshake, "
+                "anonymous REST) keys on the proxy address and becomes one "
+                "global bucket. Set TRUST_X_FORWARDED_FOR=true (fly.toml [env])."
+            )
         return
     if not settings.trusted_proxy_cidrs.strip():
         logger.warning(

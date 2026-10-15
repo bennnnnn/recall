@@ -6,6 +6,7 @@ import asyncio
 import base64
 import io
 import logging
+import math
 from typing import Any
 
 from app.core.config import Settings
@@ -23,6 +24,8 @@ _OCR_PROMPT = (
 
 _JPEG_QUALITY = 70
 _OCR_CONCURRENCY = 2
+# Matches Settings.attachment_ocr_max_page_pixels for direct callers.
+DEFAULT_MAX_PAGE_PIXELS = 4_000_000
 
 
 def render_pdf_pages(
@@ -30,9 +33,12 @@ def render_pdf_pages(
     *,
     max_pages: int,
     scale: float,
+    max_pixels: int = DEFAULT_MAX_PAGE_PIXELS,
 ) -> list[tuple[str, bytes]]:
     """Render PDF pages to JPEG bytes. Never raises."""
-    pages, _total = render_pdf_pages_and_count(data, max_pages=max_pages, scale=scale)
+    pages, _total = render_pdf_pages_and_count(
+        data, max_pages=max_pages, scale=scale, max_pixels=max_pixels
+    )
     return pages
 
 
@@ -41,10 +47,13 @@ def render_pdf_pages_and_count(
     *,
     max_pages: int,
     scale: float,
+    max_pixels: int = DEFAULT_MAX_PAGE_PIXELS,
 ) -> tuple[list[tuple[str, bytes]], int]:
     """Render pages and the document's page count (0 if unknown). Never raises."""
     try:
-        rendered, total = _render_with_pdfium(data, max_pages=max_pages, scale=scale)
+        rendered, total = _render_with_pdfium(
+            data, max_pages=max_pages, scale=scale, max_pixels=max_pixels
+        )
         if rendered:
             return rendered, total
     except Exception:
@@ -56,11 +65,26 @@ def render_pdf_pages_and_count(
         return [], 0
 
 
+def _page_scale(width_pt: float, height_pt: float, scale: float, max_pixels: int) -> float:
+    """``scale``, reduced so the rendered page stays within ``max_pixels``.
+
+    The page size comes from the (untrusted) PDF, so a tiny file can declare
+    a page that renders to gigabytes at a fixed scale.
+    """
+    area = width_pt * height_pt
+    if max_pixels <= 0 or area <= 0:
+        return scale
+    if area * scale * scale <= max_pixels:
+        return scale
+    return math.sqrt(max_pixels / area)
+
+
 def _render_with_pdfium(
     data: bytes,
     *,
     max_pages: int,
     scale: float,
+    max_pixels: int = DEFAULT_MAX_PAGE_PIXELS,
 ) -> tuple[list[tuple[str, bytes]], int]:
     import pypdfium2 as pdfium
 
@@ -71,7 +95,8 @@ def _render_with_pdfium(
         page_count = min(total, max_pages)
         for index in range(page_count):
             page = pdf[index]
-            bitmap = page.render(scale=scale)
+            width_pt, height_pt = page.get_size()
+            bitmap = page.render(scale=_page_scale(width_pt, height_pt, scale, max_pixels))
             try:
                 image = bitmap.to_pil().convert("RGB")
                 buf = io.BytesIO()
@@ -190,6 +215,7 @@ async def ocr_scanned_pdf(
                 data,
                 max_pages=pages_limit,
                 scale=settings.attachment_ocr_render_scale,
+                max_pixels=settings.attachment_ocr_max_page_pixels,
             )
             if not pages:
                 return None

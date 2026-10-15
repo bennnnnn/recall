@@ -94,6 +94,13 @@ async def google_login(
         )
     except RedisUnavailableError as exc:
         raise redis_unavailable_http_exception(exc) from exc
+    except auth_service.GoogleAuthUnavailableError as exc:
+        # Google's certs could not be fetched: retry, don't sign the user out.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+            headers={"Retry-After": "5"},
+        ) from exc
     except auth_service.GoogleAuthError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
     return web_session.auth_json_response(request, settings, auth)

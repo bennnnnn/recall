@@ -81,6 +81,7 @@ exact production web origin and only the headers used by presigned uploads.
 | `REVENUECAT_WEBHOOK_AUTH` | yes | Shared secret for the webhook |
 | `REVENUECAT_SECRET_KEY` | yes | REST API; TRANSFER + plan sync |
 | `TAVILY_API_KEY` | if web search | |
+| `TRUST_X_FORWARDED_FOR` | yes (set in `fly.toml` `[env]`) | `true` behind Fly. Unset, every per-IP rate limit keys on Fly's proxy address and becomes one global bucket; production boot logs a warning. |
 | `DAILY_GLOBAL_SPEND_USD` | yes | UTC-day OpenRouter $ cap; must be > 0 |
 | R2 vars | yes | See §3 |
 
@@ -182,6 +183,32 @@ API_URL=https://your-api.fly.dev ./scripts/qa-smoke.sh --live
 ./scripts/verify-production.sh
 API_URL=https://your-api.fly.dev ./scripts/verify-production.sh --live
 ```
+
+---
+
+## Load and abuse limits
+
+Defaults are safe for one shared-CPU, 512 MB `app` machine. Override with Fly
+secrets or `[env]` only when you have a measured reason.
+
+| Setting | Default | What it protects |
+|---------|---------|------------------|
+| `MAX_REQUEST_BODY_BYTES` | `1048576` (1 MiB) | Every HTTP body. A declared `Content-Length` over the cap gets 413 before a byte is read; a chunked body is cut off one chunk past it. `0` disables. |
+| `MAX_UPLOAD_REQUEST_BODY_BYTES` | `12582912` (12 MiB) | Photo/audio routes only: `/speech/transcribe`, `/{math,physics,chemistry}/scan/read`, `/attachments/{id}/upload`. Each route still checks its exact limit. |
+| `ATTACHMENT_OCR_MAX_PAGE_PIXELS` | `4000000` | Pixel budget per rendered PDF page (scanned-PDF OCR, chat path and index job). The page size comes from the file: a 435-byte PDF with one 14400x14400 pt page peaked at 5.1 GB RSS before; now 259 MB. A letter page at the default 1.5x scale (~1.1 MP) is unaffected. |
+| `ATTACHMENT_IMAGE_MAX_DECODE_PIXELS` | `16000000` | Largest decode for a gallery thumbnail (`GET /attachments/{id}/file?w=`), which now runs off the event loop. JPEG decodes at a reduced scale first, so phone photos work; a lossless image past the budget gets 422. A 505 KiB 13000x13000 PNG used to add ~650 MB RSS and block the loop 1.4s. `0` disables. |
+| `JOBS_STREAM_MAX_LEN` | `50000` | Hard ceiling on the `recall:jobs` Redis Stream, applied on every `XADD`. The 10k soft trim only runs while nothing is pending, so a worker that died mid-job used to leave the stream unbounded. Past the ceiling the oldest jobs are dropped (they are best-effort). `0` disables. |
+| uvicorn `--ws-max-size` (in `fly.toml` and `apps/api/Dockerfile`) | `1048576` (1 MiB) | Largest WebSocket frame (uvicorn default 16 MiB). A chat frame is at most ~130 KB. Change both files together. |
+| WebSocket frame budget (`modules/chat/ws_api.py`) | 120 frames/min per socket | Every frame after auth counts, including pings, cancels and invalid JSON (only message/regenerate were limited). Over budget the server sends `{"code": "rate_limited"}` and closes with 1008; a reply in progress is still saved. |
+| `R2_CONNECT_TIMEOUT_SECONDS` / `R2_READ_TIMEOUT_SECONDS` / `R2_MAX_ATTEMPTS` | `5` / `20` / `3` | boto3 calls to R2 (attachment reads on the chat path, deletes, sweeps). botocore's defaults were 60s + 60s with 5 attempts, each holding a default-executor thread (5 on one CPU). Retries use botocore's `standard` mode (jittered backoff). |
+| `GOOGLE_AUTH_TIMEOUT_SECONDS` | `10` | Google cert fetch during sign-in (google-auth defaulted to 120s). A failed or slow fetch answers 503 + `Retry-After`, not 500 or 401. |
+| `DB_CONNECT_TIMEOUT_SECONDS` / `DB_COMMAND_TIMEOUT_SECONDS` | `10` / `120` | asyncpg connect (default was 60s) and every statement (default was unbounded), including the `pool_pre_ping` on each checkout, so a half-open pooled connection can no longer hang a request. Client-side, so it works through Neon's pooler. Generous because account delete is one cascading `DELETE`. Migrations are not affected. A pool, connect or statement timeout, or a dropped connection, now answers `503` + `Retry-After: 5` instead of a bare 500. |
+| `JOB_TIMEOUT_SECONDS` | `900` | Deadline for one attempt of one background job. An attempt that runs out goes to the DLQ without retry. An entry delivered more than 5 times without an ack (it keeps killing the worker) also goes to the DLQ on reclaim. |
+
+Readiness answers inside Fly's 5s check timeout: `/health/ready` gives Postgres 3s
+(then 503) and Redis 1s (then `"redis": "degraded"`, still 200); the worker's
+probe gives Redis 3s. A stalled Redis used to time out readiness on every
+machine at once.
 
 ---
 
