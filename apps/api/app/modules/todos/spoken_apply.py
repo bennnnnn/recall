@@ -228,7 +228,7 @@ def _moved_due(
     item: Any, spoken: SpokenReminderChange, *, user_timezone: str | None
 ) -> datetime | None:
     """The saved clock on the named day, or the same day and clock a week on."""
-    from app.modules.todos.reminder_fences import _due_date_for_day
+    from app.modules.todos.spoken_when import date_for_day
     from app.services import time_context as time_context_service
 
     due = getattr(item, "due_at", None)
@@ -238,7 +238,7 @@ def _moved_due(
     local = (due if due.tzinfo else due.replace(tzinfo=UTC)).astimezone(tz)
     if spoken.shift_days:
         return local + timedelta(days=spoken.shift_days)
-    day = _due_date_for_day(spoken.day or "", datetime.now(tz))
+    day = date_for_day(spoken.day or "", datetime.now(tz))
     if day is None:
         return None
     return local.replace(year=day.year, month=day.month, day=day.day)
