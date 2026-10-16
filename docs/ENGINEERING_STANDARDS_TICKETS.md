@@ -643,6 +643,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-23 — Replace the `stream.py` seam module with explicit dependencies
 
+- **Status:** done. `stream.py` is gone (a retired path now). `chat/turn_deps.py` has a frozen `ChatTurnDeps` of 15 typed fields (each a protocol the real module satisfies, checked by mypy) and `default_deps()`, which `ws_api` and `stream_api` pass to `stream_entry`. `stream_chat_response` (240 lines) is 114, most of them its parameters and the `prepare_chat_turn` call: `turn_load.py` reads the user, chat, quota and history, `turn_intercepts.py` holds the photo and image intercepts, and `turn_resources` keeps the lock and quota; `stream_entry.py` is 337 lines. The 11 test files that patched the module, and 12 more that passed a seam object or patched the transports' `chat_service`, build a `ChatTurnDeps` instead (`chat_test_support.turn_deps`); `test_turn_deps.py` checks the default wiring and that both transports pass it. A capture of 5,718 WebSocket, SSE and regenerate turns (battery, sweep and edge cases) is byte-identical before and after.
 - **Problem:** `chat/stream.py:138` `_seams()` returns `sys.modules[__name__]`. `stream_entry.py`
   (79 uses), `stream_pipeline.py` (29) and `turn_resources.py` (20) reach every repository,
   service and gateway as `seams.<name>` through a parameter typed `Any`, "so existing

@@ -120,7 +120,7 @@ What exists in code today. Product caveats: FEATURES.md.
 |--------|-----|--------|
 | Auth / account | `modules/account/` (HTTP `/auth`: sign-in, sessions, profile, settings proposals, export, delete); per-request token check in `core/access_tokens.py` | `features/auth/` (login, onboarding), `features/account/` (settings screens); `app/login.tsx`, `onboarding.tsx`, `app/settings/*` routes only |
 | Chat history | `modules/chat/` (HTTP `/chats`) | drawer history; `features/chat/api.ts` |
-| Chat stream | `modules/chat/` (`ws_api.py` WebSocket, `stream_api.py` SSE; `stream.py`, `turn_prep/`, `stream_pipeline.py`, `stream_paths.py`, `finalize_passes.py`, `post_turn.py`) | `features/chat/` (`screens/ChatScreen.tsx`, `hooks/useChat*.ts`, `components/`, `model/` stream, socket and cache); `app/index.tsx` route only |
+| Chat stream | `modules/chat/` (`ws_api.py` WebSocket, `stream_api.py` SSE; `stream_entry.py`, `turn_deps.py`, `turn_prep/`, `stream_pipeline.py`, `stream_paths.py`, `finalize_passes.py`, `post_turn.py`) | `features/chat/` (`screens/ChatScreen.tsx`, `hooks/useChat*.ts`, `components/`, `model/` stream, socket and cache); `app/index.tsx` route only |
 | Memory | `modules/memory/` (HTTP `/memories`, `/memories/documents`, `/memories/instruct`) | `features/memory/`; `app/memory/` routes only (list + `[key]` page) |
 | Models / quota | `routers/models.py`, `model_catalog.py`, `quota.py`, `routing.py` | composer picker, `features/account/screens/ModelsSettingsScreen.tsx` |
 | Search | `modules/search/` (HTTP `/search`) | `features/search/`; drawer search |
@@ -170,7 +170,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 
 ## The chat loop
 
-New chat-loop code → `modules/chat/`. Quota + per-chat prepare lock are owned by `async with turn_resources(...)` in `stream.py` (do not re-introduce hand-managed `owns_lock` / `pre_reserved` flags).
+New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` with `turn_deps.default_deps()`: a frozen `ChatTurnDeps` holds what a turn uses outside chat (repositories, quota, plan, locks, LiteLLM, image services, todos, web search, the maths fence), and tests pass one with fakes instead of patching. Quota + per-chat prepare lock are owned by `async with turn_resources(...)` (`turn_resources.py`; do not re-introduce hand-managed `owns_lock` / `pre_reserved` flags); `turn_load.py` reads the turn and `turn_intercepts.py` holds the photo and image intercepts.
 
 1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
 2. Check + reserve daily quota (Redis)
