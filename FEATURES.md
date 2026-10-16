@@ -220,13 +220,15 @@ Neon Postgres + Upstash Redis + LiteLLM (OpenRouter).
   card is a dot field with an accent wave (a Skia shader in builds with Skia; a band under a
   dotted cover in Expo Go), a stage line ("Sketching it out" … "Almost there") and an estimated
   percentage; tapping it starts a small dot game. Tap the result to
-  view full-screen and save via the system share sheet. The phone and the server read the
-  request with the same rules; `docs/fixtures/image_intent_cases.json` is asserted by both
-  test suites, so "show the steps" after a picture is chat on every client. A maths, physics or
-  chemistry turn is never a picture: "draw ethanol" gets the structure and "A lens has focal
-  length 15 cm. Where's the image?" gets the optics. Only the server can tell (`stem_subject`), so
-  the phone asks `POST /images/intent` before it generates; art ("a cartoon atom for our
-  chemistry club poster") still draws, and if the server can't answer the phone generates.
+  view full-screen and save via the system share sheet. Only the server reads the request:
+  when a send might be a picture or a photo, the composer asks `POST /images/intent`, which
+  answers with the chat turn's own reading of the text and the chat's recent turns
+  (`docs/fixtures/image_intent_cases.json`), and draws what it answers, so "show the steps"
+  after a picture is chat. A maths, physics or chemistry turn is never a picture: "draw
+  ethanol" gets the structure and "A lens has focal length 15 cm. Where's the image?" gets the
+  optics; art ("a cartoon atom for our chemistry club poster") still draws. If the server
+  can't answer within 3 seconds the send goes to chat, and the chat turn still draws a typed
+  picture request.
 - 🔜 **Music generation** — same composer-send path as image gen (no prompt sheet): user asks
   to generate a track, we generate a clip, store it as an audio attachment, and show a **compact
   inline player** on the assistant message (play/pause + scrub + duration — not a full-screen
