@@ -16,7 +16,7 @@ from app.core.db import SessionLocal
 from app.models.orm import Message, User
 from app.modules import todos as todos_service
 from app.modules.billing import can_use
-from app.modules.chat import needs_generated_title
+from app.modules.chat import needs_generated_title, present_assistant_markdown
 from app.modules.memory import memory_extract_user_text
 from app.modules.speech.schemas import SpeechLiveStatusOut
 from app.modules.speech.service import LIVE_TALK_ALIAS
@@ -317,7 +317,8 @@ async def persist_live_talk_turn(
     saved the user line so cancel-during-STS does not drop what they said.
     """
     user_content = (user_text or "").strip()
-    assistant_content = (assistant_text or "").strip()
+    # Saved presented, like every other assistant row: the phone shows it as saved.
+    assistant_content = present_assistant_markdown((assistant_text or "").strip())
     if not user_content and not assistant_content:
         return None, None
 
