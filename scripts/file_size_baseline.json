@@ -173,14 +173,6 @@
       "lines": 545,
       "why": "Over 500 before the standards; tracked in ES-15"
     },
-    "apps/api/app/modules/math/tools/extractors/calculus.py": {
-      "lines": 522,
-      "why": "Over 500 before the standards; tracked in ES-13"
-    },
-    "apps/api/app/modules/math/tools/extractors/formulas.py": {
-      "lines": 927,
-      "why": "Over 500 before the standards; split in ES-13"
-    },
     "apps/api/app/modules/math/tools/extractors/geometry.py": {
       "lines": 604,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
@@ -197,12 +189,8 @@
       "lines": 1221,
       "why": "Over 500 before the standards; split in ES-30"
     },
-    "apps/api/app/modules/math/tools/school/probability.py": {
-      "lines": 572,
-      "why": "Over 500 before the standards; tracked in ES-13"
-    },
     "apps/api/app/modules/math/tools/school/trig.py": {
-      "lines": 533,
+      "lines": 526,
       "why": "Over 500 before the standards; tracked in ES-37"
     },
     "apps/api/app/modules/memory/text.py": {

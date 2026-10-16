@@ -55,6 +55,19 @@ def _number_immediately_before(text: str, idx: int) -> re.Match[str] | None:
     return found
 
 
+def _exactly_n_numbers(cleaned: str, count: int) -> list[float] | None:
+    matches = list(mtm._NUM.finditer(cleaned))
+    if len(matches) != count:
+        return None
+    values: list[float] = []
+    for match in matches:
+        value = _finite_match_value(match)
+        if value is None:
+            return None
+        values.append(value)
+    return values
+
+
 def _colon_ratio_parts(text: str) -> tuple[list[float], list[tuple[int, int]]] | None:
     """First ``a:b`` / ``a:b:c`` group. Linear scan, no nested regex."""
     search_from = 0

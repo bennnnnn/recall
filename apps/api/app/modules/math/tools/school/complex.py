@@ -9,17 +9,28 @@ from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.services.text_match import word_index
 
 # ``i^23`` is a power of the imaginary unit, as in ``(1 + i)/(1 - i)``; read as a
 # letter it was left unsimplified behind a verified card.
 _POWER_OF_I = re.compile(r"(?<![a-z])i\s*\^\s*\(?\s*-?\d")
 
 
+def _complex_op(lower: str) -> str | None:
+    if word_index(lower, "modulus") != -1 or word_index(lower, "magnitude") != -1:
+        return "modulus"
+    if word_index(lower, "argument") != -1 or word_index(lower, "arg") != -1:
+        return "argument"
+    if word_index(lower, "conjugate") != -1:
+        return "conjugate"
+    if "polar" in lower:
+        return "polar"
+    return None
+
+
 def _extract_complex_intent(cleaned: str) -> MathIntent | None:
     lower = cleaned.lower()
-    from app.modules.math.tools.extractors.formulas import extract_complex_op
-
-    op = extract_complex_op(cleaned)
+    op = _complex_op(lower)
     if op is None:
         has_complex_token = (
             "complex" in lower

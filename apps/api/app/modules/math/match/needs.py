@@ -451,7 +451,7 @@ def school_homework_cue(cleaned: str) -> bool:
     ):
         return True
     if has_digit:
-        from app.modules.math.tools.extractors.formulas import extract_arithmetic_formulas
+        from app.modules.math.tools.school.arithmetic import extract_arithmetic_formulas
 
         # Percent change from 40 to 50, the price before a 20% discount, ...
         if extract_arithmetic_formulas(cleaned) is not None:

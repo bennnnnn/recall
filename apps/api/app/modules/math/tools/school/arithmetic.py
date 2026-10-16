@@ -15,6 +15,7 @@ from app.modules.math.tools.school.interest import (
     _block_interest,
     _block_present_value,
     _extract_interest_intent,
+    extract_present_value,
 )
 from app.modules.math.tools.school.percentages import (
     _block_discount,
@@ -27,6 +28,10 @@ from app.modules.math.tools.school.percentages import (
     _extract_percent_change,
     _extract_percent_is,
     _extract_percent_of,
+    extract_discount,
+    extract_original_before_percent,
+    extract_percent_change_from,
+    extract_with_percent_total,
 )
 from app.modules.math.tools.school.rates import (
     _block_mixture,
@@ -40,11 +45,14 @@ from app.modules.math.tools.school.ratios import (
     _block_ratio_split,
     _extract_colon_ratio,
     _extract_ratio_split,
+    extract_proportion,
 )
+from app.modules.math.tools.school.rounding import ROUNDING_OPS, extract_rounding, rounding_block
 from app.modules.math.tools.school.sequences import (
     _block_infinite_gp,
     _block_sequence,
     _extract_sequence_intent,
+    extract_infinite_geometric,
 )
 from app.modules.math.tools.school.sets import _block_sets, _extract_set_intent
 from app.modules.math.tools.school.statistics import _block_z_score
@@ -68,6 +76,27 @@ def _extract_percent_or_ratio(cleaned: str) -> MathIntent | None:
     if split is not None:
         return split
     return _extract_colon_ratio(cleaned, lower)
+
+
+# Closed school formulas, tried in this order after "a% of b" and ratios.
+_FORMULA_READERS = (
+    extract_original_before_percent,
+    extract_discount,
+    extract_with_percent_total,
+    extract_percent_change_from,
+    extract_present_value,
+    extract_proportion,
+    extract_rounding,
+)
+
+
+def extract_arithmetic_formulas(cleaned: str) -> MathIntent | None:
+    lower = cleaned.lower()
+    for reader in _FORMULA_READERS:
+        intent = reader(cleaned, lower)
+        if intent is not None:
+            return intent
+    return None
 
 
 def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
@@ -123,11 +152,6 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     percent = _extract_percent_or_ratio(cleaned)
     if percent is not None:
         return percent
-    from app.modules.math.tools.extractors.formulas import (
-        extract_arithmetic_formulas,
-        extract_infinite_geometric,
-    )
-
     formulas = extract_arithmetic_formulas(cleaned)
     if formulas is not None:
         return formulas
@@ -284,25 +308,11 @@ def _verified_block_arithmetic(
     if intent.school_op in {"direct_proportion", "inverse_proportion"} and intent.stats_numbers:
         return _block_proportion(intent, lines)
     if (
-        intent.school_op == "round_decimal"
+        intent.school_op in ROUNDING_OPS
         and intent.percent_base is not None
         and intent.combo_n is not None
     ):
-        from app.modules.math import formulas as math_formulas
-
-        answer = math_formulas.round_decimal_places(intent.percent_base, intent.combo_n)
-        lines.append(f"Rounded: {answer}")
-        return _finish_with_answer(lines, answer)
-    if (
-        intent.school_op == "round_sigfigs"
-        and intent.percent_base is not None
-        and intent.combo_n is not None
-    ):
-        from app.modules.math import formulas as math_formulas
-
-        answer = math_formulas.round_significant_figures(intent.percent_base, intent.combo_n)
-        lines.append(f"Rounded: {answer}")
-        return _finish_with_answer(lines, answer)
+        return rounding_block(intent, lines)
     if intent.school_op == "infinite_gp" and intent.stats_numbers:
         return _block_infinite_gp(intent, lines)
     if (

@@ -134,7 +134,7 @@ def _closed_school_request(user_text: str, calculus_text: str) -> bool:
     tangent lines or stationary points.
     """
     from app.modules.math.match.discrete import counting_word_signal
-    from app.modules.math.tools.extractors.formulas import average_value_request
+    from app.modules.math.tools.extractors.calculus_methods import average_value_request
     from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
     from app.modules.math.tools.school.bag_draws import extract_bag_draws_intent
     from app.modules.math.tools.school.curve_points import extract_curve_point_intent

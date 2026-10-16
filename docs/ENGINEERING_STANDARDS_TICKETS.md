@@ -277,14 +277,15 @@ families below were found by reading the code. Two of them are verified bugs tod
   - Files: `math/tools/direct_calculus.py:13`, `direct_units.py:10`, `direct_newton.py:14`,
     `direct_statistics.py:11`, `work_request.py:128`, `followup.py:261`, `word_templates.py:29`,
     `school/_parse.py:11,14` (two identical), `school/geometry_facts.py:17`,
-    `school/algebra_facts.py:31`, `school/curve_points.py:31`, `extractors/formulas.py:49`,
-    `match/discrete.py:41`, `physics/symbol_givens.py:55`, `physics/extractors/common.py:18`.
+    `school/algebra_facts.py:31`, `school/curve_points.py:31`,
+    `school/probability_formulas.py:19`, `match/discrete.py:41`, `physics/symbol_givens.py:55`,
+    `physics/extractors/common.py:18`.
   - Math also keeps its own scientific-notation folder (`match/scan.py:432-450`, only `x` and
     `^`). Physics and chemistry use `services/number_text.read_scientific_numbers`, which also
     reads `×`, `·`, `\times`, `**` and superscripts.
   - `mtm._NUM` (private) is imported across 9 math files.
-  - `_finite_match_value` and `_number_immediately_before` are copied verbatim in
-    `extractors/formulas.py:14-34` and `school/_parse.py:29-51`. jscpd found this one.
+  - `_finite_match_value` and `_number_immediately_before` live in `school/_parse.py:29-48`
+    (ES-13 deleted the verbatim copy in `extractors/formulas.py`).
 - **Change:**
   - Give `services/number_text.py` named public patterns: `SIGNED_DECIMAL`, `SIGNED_DECIMAL_SCI`,
     `FRACTION_OR_DECIMAL` and `bounded_decimal(max_digits)`.
@@ -383,6 +384,14 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-13 — One owner per math school operation (dissolve `extractors/formulas.py`, 927 lines)
 
+- **Status:** done. Each reader sits beside its block: percent in `school/percentages.py`,
+  present value in `interest.py`, proportion in `ratios.py`, rounding in `rounding.py`, the sum to
+  infinity in `sequences.py`, coordinates and SAS area in `coordinate.py`, vectors and complex
+  numbers in theirs. `probability.py` and `extractors/calculus.py` were at their size ceilings, so
+  geometric, Poisson, Bayes and complement went to `school/probability_formulas.py`, and calculus
+  to `extractors/multivariable.py` (one `_named_axis_bounds`, with the double integral) and
+  `extractors/calculus_methods.py`. Registry order is unchanged; 24,864 prompts extract, build and
+  reply byte-identically.
 - **Problem:** `math/tools/extractors/formulas.py` is a grab bag:
   - percent, discount, proportion, rounding and present value (125-338)
   - coordinates, vectors and SAS area (382-520)
@@ -940,7 +949,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 | Function | Lines | Mixes | Split | Pinned by |
 |---|---|---|---|---|
 | `math/tools/school/arithmetic.py:161` `_verified_block_arithmetic` | 278 | an `if school_op ==` ladder over 29 operations | `_ARITHMETIC_BLOCKS: dict[str, Callable]`, like `school/__init__.py:79` | `test_math_written_arithmetic.py`, math sweep |
-| `math/tools/school/trig.py:281` `_verified_block_trig` | 253 | trig equations, bounded intervals, identities, and the geometry op `sas_area` (misplaced) | dispatch by op; move `sas_area` to `school/coordinate.py` with ES-13 | math sweep `homework.json` |
+| `math/tools/school/trig.py:281` `_verified_block_trig` | 253 | trig equations, bounded intervals and identities (`sas_area` hands off to `school/coordinate.py` since ES-13) | dispatch by op | math sweep `homework.json` |
 | `physics/solvers/kinematics.py:34` `solve_kinematics` | 249 | routing to five sub-solvers, then vertical-motion ops, then graph and scene building | `_VERTICAL_OPS: dict[op, fn]`; scenes → `solvers/motion_scenes.py` | `tests/modules/physics/test_physics_solver.py` |
 | `physics/extractors/optics.py:140` `_extract_optics_intent` | 238 | 12 law branches (Malus, Brewster, slits, Snell, lens power, magnification, …) | one reader per law in `extractors/optics/`, dispatched by cue | `test_physics_em_waves_optics.py`, `test_physics_waves_optics_thermal.py` |
 | `chat/turn_prep/attachments.py:83` `_process_attachment_inputs` | 231 | load, download once, format and OCR, persist markers, camera-math OCR | `load_turn_attachments` → `format_attachment_lines` → `camera_math_extract` | `tests/modules/attachments/test_acceptance.py`, `test_turn_prep_attachments.py` |

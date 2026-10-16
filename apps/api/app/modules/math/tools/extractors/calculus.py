@@ -6,7 +6,18 @@ import re
 from typing import Literal
 
 from app.modules.math.schemas import MathIntent
-from app.modules.math.tools.extractors.formulas import FORMULA_CALCULUS_EXTRACTORS
+from app.modules.math.tools.extractors.calculus_methods import (
+    extract_average_value_intent,
+    extract_implicit_intent,
+    extract_linear_approx_intent,
+)
+from app.modules.math.tools.extractors.multivariable import (
+    extract_directional_intent,
+    extract_div_curl_intent,
+    extract_double_integral_intent,
+    extract_gradient_intent,
+    extract_triple_integral_intent,
+)
 from app.modules.math.tools.helpers import (
     _calc_expr_tail,
     _normalize_latex_expr,
@@ -194,73 +205,6 @@ def _extract_identity_intent(cleaned: str) -> MathIntent | None:
         rhs=rhs or "",
         expr=f"({lhs or '0'})-({rhs or '0'})",
         variable="x",
-    )
-
-
-def _named_axis_bounds(text: str, var: str) -> tuple[str, str] | None:
-    """Linear scan for ``var=LO to HI`` — no regex."""
-    lower = text.lower()
-    needle = f"{var}="
-    idx = lower.find(needle)
-    if idx == -1:
-        needle = f"{var} ="
-        idx = lower.find(needle)
-        if idx == -1:
-            return None
-    rest = text[idx + len(needle) :]
-    to_at = rest.lower().find(" to ")
-    if to_at == -1:
-        return None
-    lo = rest[:to_at].strip().rstrip(",")
-    hi_part = rest[to_at + 4 :].strip()
-    end = 0
-    while end < len(hi_part) and not hi_part[end].isspace() and hi_part[end] not in ",;":
-        end += 1
-    hi = hi_part[:end].strip()
-    if not lo or not hi:
-        return None
-    return lo, hi
-
-
-def _extract_double_integral_intent(cleaned: str) -> MathIntent | None:
-    """Intercept ``double integral of … from x=a to b and y=c to d``."""
-    lower = cleaned.lower()
-    x_bounds = _named_axis_bounds(cleaned, "x")
-    y_bounds = _named_axis_bounds(cleaned, "y")
-    if x_bounds is None or y_bounds is None:
-        return None
-    if _named_axis_bounds(cleaned, "z") is not None:
-        return None
-    if "triple" in cleaned.lower():
-        return None
-    start = lower.find("double integral")
-    if start != -1:
-        rest = cleaned[start + len("double integral") :]
-    else:
-        start = lower.find("integral")
-        if start == -1:
-            return None
-        rest = cleaned[start + len("integral") :]
-    rest = rest.lstrip()
-    if rest.lower().startswith("of "):
-        rest = rest[3:]
-    from_at = rest.lower().find(" from ")
-    if from_at == -1:
-        return None
-    expr = math_expr_or_none(_normalize_latex_expr(rest[:from_at].strip()))
-    if expr is None:
-        return None
-    return MathIntent(
-        kind="calculus",
-        operation="integrate",
-        school_op="double_integral",
-        expr=expr,
-        variable="x",
-        variable2="y",
-        integral_lower=x_bounds[0],
-        integral_upper=x_bounds[1],
-        integral_lower2=y_bounds[0],
-        integral_upper2=y_bounds[1],
     )
 
 
@@ -514,8 +458,14 @@ def _extract_series_intent(cleaned: str) -> MathIntent | None:
 CALCULUS_EXTRACTORS = (
     _extract_critical_points_intent,
     _extract_identity_intent,
-    *FORMULA_CALCULUS_EXTRACTORS,
-    _extract_double_integral_intent,
+    extract_implicit_intent,
+    extract_triple_integral_intent,
+    extract_average_value_intent,
+    extract_linear_approx_intent,
+    extract_gradient_intent,
+    extract_directional_intent,
+    extract_div_curl_intent,
+    extract_double_integral_intent,
     _extract_calculus_intent,
     _extract_limit_intent,
     _extract_series_intent,

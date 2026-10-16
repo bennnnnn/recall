@@ -12,6 +12,10 @@ from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.school._parse import _PROB_NUMBER
+from app.modules.math.tools.school.probability_formulas import (
+    extract_probability_formulas,
+    probability_formula_block,
+)
 from app.services.workout import Workout, math_line, render_workout
 
 _BINOMIAL_PARAM = re.compile(
@@ -200,8 +204,6 @@ def _trials_intent(cleaned: str) -> MathIntent | None:
 
 
 def _extract_probability_intent(cleaned: str) -> MathIntent | None:
-    from app.modules.math.tools.extractors.formulas import extract_probability_formulas
-
     extra = extract_probability_formulas(cleaned)
     if extra is not None:
         return extra
@@ -476,97 +478,4 @@ def _verified_block_probability(
         answer = math_school.expected_value(intent.stats_numbers, probabilities)
         lines.append(f"E[X] = {answer}")
         return _finish_with_answer(lines, answer)
-    from app.modules.math import formulas as math_formulas
-
-    if (
-        intent.school_op == "geometric"
-        and intent.combo_k is not None
-        and intent.percent_base is not None
-    ):
-        answer = math_formulas.geometric_pmf(intent.combo_k, intent.percent_base)
-        lines.append(f"P(X={intent.combo_k}) = {answer}")
-        return _finish_with_answer(lines, answer)
-    if (
-        intent.school_op == "poisson"
-        and intent.combo_k is not None
-        and intent.percent_base is not None
-    ):
-        answer = math_formulas.poisson_pmf(intent.combo_k, intent.percent_base)
-        lines.append(f"P(X={intent.combo_k}) = {answer}")
-        return _finish_with_answer(lines, answer)
-    if intent.school_op == "complement" and intent.percent_base is not None:
-        answer = math_formulas.complement_probability(intent.percent_base)
-        lines.append(f"1-P = {answer}")
-        return _finish_with_answer(lines, answer)
-    if intent.school_op == "bayes" and intent.vec_a and len(intent.vec_a) == 3:
-        prior, hit, false_positive = intent.vec_a
-        posterior = math_formulas.bayes_probability(prior, hit, false_positive)
-        evidence = hit * prior + false_positive * (1.0 - prior)
-        request_text = getattr(intent, "_request_text", "").lower()
-        medical = all(name in request_text for name in ("sensitivity", "specificity", "prevalence"))
-        if medical:
-            answer = f"{float(posterior) * 100:.6g}\\%"
-            direct = render_workout(
-                Workout(
-                    given=(
-                        math_line(f"P(D) = {prior:g}", "prevalence"),
-                        math_line(f"P(+\\mid D) = {hit:g}", "sensitivity"),
-                        math_line(f"P(-\\mid \\neg D) = {1.0 - false_positive:g}", "specificity"),
-                    ),
-                    find=(math_line("P(D\\mid +)"),),
-                    formula=(
-                        math_line("P(D\\mid +) = \\frac{P(+\\mid D)P(D)}{P(+)}", "Bayes' theorem"),
-                    ),
-                    substitution=(
-                        math_line(
-                            f"P(+\\mid \\neg D) = 1 - {1.0 - false_positive:g}"
-                            f" = {false_positive:g}",
-                            "false-positive rate",
-                        ),
-                        math_line(
-                            f"P(+\\cap D) = ({hit:g})({prior:g}) = {hit * prior:g}",
-                            "true positives",
-                        ),
-                        math_line(
-                            f"P(+) = ({hit:g})({prior:g}) + ({false_positive:g})(1-{prior:g})"
-                            f" = {evidence:g}",
-                            "every positive result",
-                        ),
-                        math_line(
-                            f"P(D\\mid +) = \\frac{{({hit:g})({prior:g})}}{{{evidence:g}}}"
-                            f" = {posterior}"
-                        ),
-                        math_line(f"\\approx {answer}"),
-                    ),
-                ),
-                answer,
-            )
-        else:
-            answer = posterior
-            direct = render_workout(
-                Workout(
-                    given=(
-                        math_line(f"P(A) = {prior:g}"),
-                        math_line(f"P(B\\mid A) = {hit:g}"),
-                        math_line(f"P(B\\mid \\neg A) = {false_positive:g}"),
-                    ),
-                    find=(math_line("P(A\\mid B)"),),
-                    formula=(
-                        math_line(
-                            "P(A\\mid B)=\\frac{P(B\\mid A)P(A)}"
-                            "{P(B\\mid A)P(A)+P(B\\mid \\neg A)P(\\neg A)}",
-                            "Bayes' theorem",
-                        ),
-                    ),
-                    substitution=(
-                        math_line(
-                            f"P(A\\mid B)=\\frac{{({hit:g})({prior:g})}}"
-                            f"{{({hit:g})({prior:g})+({false_positive:g})(1-{prior:g})}}={posterior}"
-                        ),
-                    ),
-                ),
-                answer,
-            )
-        lines.append(f"P(A|B) = {posterior}")
-        return replace(_finish_with_answer(lines, answer), direct_reply=direct)
-    return None
+    return probability_formula_block(intent, lines)

@@ -13,6 +13,7 @@ from app.modules.math.schemas import EquationInput, MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.helpers import math_expr_or_none
 from app.modules.math.tools.school._parse import _LABELED_NUMBER
+from app.modules.math.tools.school.coordinate import extract_sas_area, sas_area_block
 from app.modules.math.tools.school.teaching import _attach_picture
 from app.services.workout import Workout, math_line, render_workout, text_line
 
@@ -91,8 +92,6 @@ def _unmarked_degree_bounds(lower: str, upper: str) -> bool:
 
 
 def _extract_trig_intent(cleaned: str) -> MathIntent | None:
-    from app.modules.math.tools.extractors.formulas import extract_sas_area
-
     sas = extract_sas_area(cleaned)
     if sas is not None:
         return sas
@@ -437,13 +436,7 @@ def _verified_block_trig(
         and intent.percent_rate is not None
         and intent.point_x is not None
     ):
-        from app.modules.math import formulas as math_formulas
-
-        answer = math_formulas.sas_triangle_area(
-            intent.percent_base, intent.percent_rate, intent.point_x
-        )
-        lines.append(f"SAS area = {answer}")
-        return _finish_with_answer(lines, answer)
+        return sas_area_block(intent, lines)
     if intent.school_op and intent.percent_base is not None:
         answer = math_school.evaluate_trig_degrees(intent.school_op, intent.percent_base)
         if "exact" in (intent._request_text or "").lower() and intent.expr:

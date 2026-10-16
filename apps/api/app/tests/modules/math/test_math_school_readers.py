@@ -9,7 +9,6 @@ from app.modules.math.function_analysis import inverse_function
 from app.modules.math.match.discrete import word_arrangement_signal
 from app.modules.math.solve import MathServiceError
 from app.modules.math.tools.extract import extract_math_intent
-from app.modules.math.tools.extractors.formulas import extract_vector_formulas
 from app.modules.math.tools.extractors.fractions import extract_fraction_intent
 from app.modules.math.tools.prompt import build_math_augmentation, needs_symbolic_math
 from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
@@ -20,6 +19,7 @@ from app.modules.math.tools.school.probability import (
     extract_at_least_one_intent,
 )
 from app.modules.math.tools.school.units import extract_how_many_in_intent
+from app.modules.math.tools.school.vectors import extract_vector_formulas
 
 
 @pytest.mark.parametrize(
