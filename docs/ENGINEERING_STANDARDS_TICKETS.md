@@ -60,6 +60,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-01 — One school-rounding rule (verified wrong answers today)
 
+- **Status:** done (#1811).
 - **Problem:** "Round 2.675 to 2 decimal places" is extracted (`school_op="round_decimal"`) and
   answered **2.67** with a verified check. The textbook answer is 2.68. The same path gives 0.12
   for 0.125 and **"1"** for "round 1.005 to 2 decimal places". The cause is that the rounding rule
@@ -102,6 +103,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-02 — Photo lookup steals "show me the html / regex / recipe"
 
+- **Status:** done (#1812).
 - **Problem:** `lookup_intent.py:89` `_NON_IMAGE_WORDS` says it "extends image_gen_intent's
   non-image denylist", but it is a hand copy that has drifted. It lacks 109 words of
   `gen_intent_words.py:47` `NON_IMAGE_WORDS`, including html, css, sql, regex, json, website,
@@ -151,6 +153,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-04 — Delete the phone's "what time is it?" classifier (already drifted)
 
+- **Status:** done (the clock card reads the reply; IANA zones only).
 - **Problem:** `lib/timeQuestion.ts:2-30` copies `services/time_context.py:13-40` and
   `is_time_question` (:497). The copies have drifted: the server normalizes curly apostrophes and
   courtesy prefixes first (`_normalize_now_ask`, :151), and the phone does not. The server answers
