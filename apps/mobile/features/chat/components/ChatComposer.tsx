@@ -85,8 +85,6 @@ export function composerAttachmentExtra(attachment: PendingAttachment | null): n
 
 type Props = {
   visible: boolean;
-  bottom?: number;
-  paddingBottom?: number;
   animatedContainerStyle?: AnimatedStyle<ViewStyle>;
   /** Tests pass these; production reads ComposerDraftContext. */
   input?: string;
@@ -118,8 +116,6 @@ type Props = {
     onMutePress: () => void;
     onYield: () => void;
   } | null;
-  /** When true, parent owns absolute bottom positioning (e.g. math keypad). */
-  docked?: boolean;
   onOpenMathScanner?: () => void;
   onMathChromeHeightChange?: (height: number) => void;
   /** Extra field height past one line, so the thread moves up with the pill. */
@@ -128,8 +124,6 @@ type Props = {
 
 export const ChatComposer = memo(function ChatComposer({
   visible,
-  bottom,
-  paddingBottom,
   animatedContainerStyle,
   input: inputProp,
   onChangeInput: onChangeInputProp,
@@ -153,7 +147,6 @@ export const ChatComposer = memo(function ChatComposer({
   onCancelVoice,
   onLiveTalkPress,
   liveTalkChrome = null,
-  docked = false,
   onOpenMathScanner,
   onMathChromeHeightChange,
   onInputFrameExtraChange,
@@ -326,13 +319,13 @@ export const ChatComposer = memo(function ChatComposer({
   const fieldOverflows = Boolean(input) && frameNow.overflows;
   const singleLineComposer = !composerExpanded && fieldHeight <= field.min;
 
-  const blockStyle = docked ? s.composerDocked : s.composerBlock;
+  const blockStyle = s.composerBlock;
   const expandedBlockStyle = composerExpanded
     ? [s.composerBlockExpanded, { top: insets.top + Space.xs }]
     : null;
   const containerStyle = animatedContainerStyle
     ? [blockStyle, animatedContainerStyle, expandedBlockStyle]
-    : [blockStyle, { bottom, paddingBottom }, expandedBlockStyle];
+    : [blockStyle, expandedBlockStyle];
   const showExpandControl = fieldOverflows || composerExpanded;
 
   return (

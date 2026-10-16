@@ -25,14 +25,13 @@ type ChatMessageImageStripItem = {
 
 type Props = {
   images: ChatMessageImageStripItem[];
-  animatedReveal?: boolean;
 };
 
 /**
  * One chat thumb stays the existing left-aligned size. Two or more sit in a
  * horizontal strip: one large tile plus a peek of the next, swipe for the rest.
  */
-export function ChatMessageImageStrip({ images, animatedReveal = true }: Props) {
+export function ChatMessageImageStrip({ images }: Props) {
   const { width: screenWidth } = useWindowDimensions();
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
@@ -48,7 +47,6 @@ export function ChatMessageImageStrip({ images, animatedReveal = true }: Props) 
         path={image.path}
         localUri={image.localUri}
         fileName={image.fileName}
-        animatedReveal={animatedReveal}
       />
     );
   }
@@ -84,7 +82,6 @@ export function ChatMessageImageStrip({ images, animatedReveal = true }: Props) 
               path={image.path}
               localUri={image.localUri}
               fileName={image.fileName}
-              animatedReveal={animatedReveal}
               width={tileWidth}
               height={tileHeight}
               onOpen={() => setOpenIndex(index)}
