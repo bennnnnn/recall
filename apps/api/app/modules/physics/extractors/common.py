@@ -6,7 +6,7 @@ import logging
 import re
 from bisect import bisect_left, bisect_right
 
-from app.modules.physics.bodies import ELECTRON_MASS, ELEMENTARY_CHARGE, SCHOOL_GRAVITY
+from app.modules.physics.bodies import SCHOOL_GRAVITY
 from app.services.text_match import word_index
 
 logger = logging.getLogger(__name__)
@@ -36,10 +36,6 @@ _OHM_PATTERN = r"ohms?|\u03a9"
 _TESLA_PATTERN = r"T|tesla|teslas|mT|millitesla"
 
 _G_DEFAULT = SCHOOL_GRAVITY["earth"]
-
-_ELECTRON_MASS = ELECTRON_MASS
-
-_ELEMENTARY_CHARGE = ELEMENTARY_CHARGE
 
 _VALUE_UNIT_RE = re.compile(
     rf"({_NUMBER})\s*"

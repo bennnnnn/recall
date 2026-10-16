@@ -8,13 +8,9 @@ import math
 from collections.abc import Callable
 from dataclasses import replace
 
+from app.modules.physics.constants import SPEED_OF_LIGHT
 from app.modules.physics.schemas import PhysicsIntent
-from app.modules.physics.solvers.common import (
-    _SPEED_OF_LIGHT,
-    PhysicsResult,
-    QuantityResult,
-    _params_in_si,
-)
+from app.modules.physics.solvers.common import PhysicsResult, QuantityResult, _params_in_si
 from app.modules.physics.solvers.optics_scenes import optics_scene
 from app.services.solving import SolveServiceError
 
@@ -184,14 +180,14 @@ def _refractive_index(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResu
     if "v_wave" in p:
         if p["v_wave"] <= 0:
             raise SolveServiceError("light speed in a medium must be positive")
-        n = _SPEED_OF_LIGHT / p["v_wave"]
+        n = SPEED_OF_LIGHT / p["v_wave"]
         return PhysicsResult(
             answer=(
-                rf"n = \frac{{c}}{{v}} = \frac{{{_SPEED_OF_LIGHT:.0f}}}"
+                rf"n = \frac{{c}}{{v}} = \frac{{{SPEED_OF_LIGHT:.0f}}}"
                 rf"{{{p['v_wave']:g}}} \approx {n:.3g}"
             ),
             formulas=(r"n = \frac{c}{v}",),
-            substitutions=(rf"n = \frac{{{_SPEED_OF_LIGHT:.0f}}}{{{p['v_wave']:g}}}",),
+            substitutions=(rf"n = \frac{{{SPEED_OF_LIGHT:.0f}}}{{{p['v_wave']:g}}}",),
             quantities=(QuantityResult("", n, ""),),
         )
     t1, t2 = p["angle"], p["angle2"]

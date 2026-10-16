@@ -323,6 +323,8 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-11 — Physical constants and offsets come from one place per subject
 
+- **Status:** done. One home each: `services/units.CELSIUS_OFFSET_K`, Pint's values in
+  `physics/constants.py`, and chemistry rows that name `{N_A}`, `{R_J}`, `{R_atm}` and `{F}`.
 - **Problem:**
   - The Celsius offset 273.15 is a named constant three times in chemistry (`sig_figs.py:49`,
     `solvers/common_chem.py:137`, `solvers/solutions.py:231`). It also appears as six literals:
@@ -1076,7 +1078,7 @@ in this list grows logic beyond its table, it leaves the list.
 | `modules/physics/catalog/energy.py` | 587 | Law catalog; all data |
 | `modules/physics/catalog/quantum.py` | 569 | Law catalog; 93% data |
 | `modules/physics/catalog/kinematics.py` | 561 | Law catalog; all data |
-| `modules/chemistry/formula_laws.py` | 812 | One row per one-line law, by design ("a new law of this kind is one entry"); stays once ES-11 removes the constant literals |
+| `modules/chemistry/formula_laws.py` | 754 | One row per one-line law, by design ("a new law of this kind is one entry") |
 | `modules/chemistry/stated_bindings.py` | 566 | Binding catalog; all data |
 | `modules/chemistry/catalog.py` | 537 | The one operation list (CLAUDE.md names it so) |
 | `modules/chemistry/stated_laws.py` | 534 | Law catalog; all data |

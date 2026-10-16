@@ -7,11 +7,10 @@ from __future__ import annotations
 import math
 from collections.abc import Callable
 
+from app.modules.physics.constants import COULOMB_K, MU_0
 from app.modules.physics.display import latex_given
 from app.modules.physics.schemas import PhysicsIntent, SimulationBlockSpec
 from app.modules.physics.solvers.common import (
-    _COULOMB_K,
-    _MU_0,
     PhysicsResult,
     QuantityResult,
     _latex_num,
@@ -41,16 +40,16 @@ def solve_magnetism(intent: PhysicsIntent) -> PhysicsResult:
 def _electric_field(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     if p["r"] <= 0:
         raise SolveServiceError("distance from the point charge must be positive")
-    value = _COULOMB_K * abs(p["Q"]) / p["r"] ** 2
+    value = COULOMB_K * abs(p["Q"]) / p["r"] ** 2
     return PhysicsResult(
         answer=(
-            rf"E = k_e\frac{{\lvert Q\rvert}}{{r^2}} = {_COULOMB_K:.7g} \cdot "
+            rf"E = k_e\frac{{\lvert Q\rvert}}{{r^2}} = {COULOMB_K:.7g} \cdot "
             rf"\frac{{\lvert {p['Q']:g}\rvert}}{{{p['r']:g}^2}} "
             rf"\approx {value:.4g} \text{{ N/C}}"
         ),
         formulas=(r"E = k_e\frac{\lvert Q\rvert}{r^2}",),
         substitutions=(
-            rf"E = {_COULOMB_K:.7g} \cdot \frac{{\lvert {p['Q']:g}\rvert}}{{{p['r']:g}^2}}",
+            rf"E = {COULOMB_K:.7g} \cdot \frac{{\lvert {p['Q']:g}\rvert}}{{{p['r']:g}^2}}",
         ),
         quantities=(QuantityResult("", value, "N/C"),),
     )
@@ -59,14 +58,14 @@ def _electric_field(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
 def _electric_potential(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     if p["r"] <= 0:
         raise SolveServiceError("distance from the point charge must be positive")
-    value = _COULOMB_K * p["Q"] / p["r"]
+    value = COULOMB_K * p["Q"] / p["r"]
     return PhysicsResult(
         answer=(
-            rf"V = k_e\frac{{Q}}{{r}} = {_COULOMB_K:.7g} \cdot "
+            rf"V = k_e\frac{{Q}}{{r}} = {COULOMB_K:.7g} \cdot "
             rf"\frac{{{p['Q']:g}}}{{{p['r']:g}}} \approx {value:.4g} \text{{ V}}"
         ),
         formulas=(r"V = k_e\frac{Q}{r}",),
-        substitutions=(rf"V = {_COULOMB_K:.7g} \cdot \frac{{{p['Q']:g}}}{{{p['r']:g}}}",),
+        substitutions=(rf"V = {COULOMB_K:.7g} \cdot \frac{{{p['Q']:g}}}{{{p['r']:g}}}",),
         quantities=(QuantityResult("", value, "V"),),
     )
 
@@ -74,16 +73,16 @@ def _electric_potential(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsRe
 def _electric_potential_energy(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     if p["r"] <= 0:
         raise SolveServiceError("charge separation must be positive")
-    value = _COULOMB_K * p["q1"] * p["q2"] / p["r"]
+    value = COULOMB_K * p["q1"] * p["q2"] / p["r"]
     return PhysicsResult(
         answer=(
-            rf"U = k_e\frac{{q_1q_2}}{{r}} = {_COULOMB_K:.7g} \cdot "
+            rf"U = k_e\frac{{q_1q_2}}{{r}} = {COULOMB_K:.7g} \cdot "
             rf"\frac{{{p['q1']:g} \cdot {p['q2']:g}}}{{{p['r']:g}}} "
             rf"\approx {value:.4g} \text{{ J}}"
         ),
         formulas=(r"U = k_e\frac{q_1q_2}{r}",),
         substitutions=(
-            rf"U = {_COULOMB_K:.7g} \cdot \frac{{{p['q1']:g} \cdot {p['q2']:g}}}{{{p['r']:g}}}",
+            rf"U = {COULOMB_K:.7g} \cdot \frac{{{p['q1']:g} \cdot {p['q2']:g}}}{{{p['r']:g}}}",
         ),
         quantities=(QuantityResult("", value, "J"),),
     )
@@ -128,15 +127,15 @@ def _motional_emf(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
 def _magnetic_field_wire(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult:
     if p["r"] <= 0:
         raise SolveServiceError("distance from the wire must be positive")
-    value = _MU_0 * p["I"] / (2 * math.pi * p["r"])
+    value = MU_0 * p["I"] / (2 * math.pi * p["r"])
     return PhysicsResult(
         answer=(
             rf"B = \frac{{\mu_0 I}}{{2\pi r}} = "
-            rf"\frac{{{_MU_0:.7g} \cdot {p['I']:g}}}{{2\pi \cdot {p['r']:g}}} "
+            rf"\frac{{{MU_0:.7g} \cdot {p['I']:g}}}{{2\pi \cdot {p['r']:g}}} "
             rf"\approx {value:.4g} \text{{ T}}"
         ),
         formulas=(r"B = \frac{\mu_0 I}{2\pi r}",),
-        substitutions=(rf"B = \frac{{{_MU_0:.7g} \cdot {p['I']:g}}}{{2\pi \cdot {p['r']:g}}}",),
+        substitutions=(rf"B = \frac{{{MU_0:.7g} \cdot {p['I']:g}}}{{2\pi \cdot {p['r']:g}}}",),
         quantities=(QuantityResult("", value, "T"),),
     )
 
@@ -145,11 +144,11 @@ def _electric_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
     separation = p["r"]
     if separation <= 0:
         raise SolveServiceError("charge separation must be positive")
-    value = _COULOMB_K * abs(p["q1"] * p["q2"]) / separation**2
+    value = COULOMB_K * abs(p["q1"] * p["q2"]) / separation**2
     return PhysicsResult(
         answer=(
             rf"F_e = k_e \frac{{\lvert q_1q_2\rvert}}{{r^2}} = "
-            rf"{latex_given(_COULOMB_K)} \cdot "
+            rf"{latex_given(COULOMB_K)} \cdot "
             rf"\frac{{\lvert {latex_given(p['q1'])} \cdot "
             rf"{latex_given(p['q2'])}"
             rf"\rvert}}{{{_latex_num(separation, square=True)}}} "
@@ -157,7 +156,7 @@ def _electric_force(intent: PhysicsIntent, p: dict[str, float]) -> PhysicsResult
         ),
         formulas=(r"F_e = k_e \frac{\lvert q_1q_2\rvert}{r^2}",),
         substitutions=(
-            rf"F_e = {latex_given(_COULOMB_K)} \cdot \frac{{\lvert "
+            rf"F_e = {latex_given(COULOMB_K)} \cdot \frac{{\lvert "
             rf"{latex_given(p['q1'])} \cdot {latex_given(p['q2'])}"
             rf"\rvert}}{{{_latex_num(separation, square=True)}}}",
         ),

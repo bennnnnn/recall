@@ -10,23 +10,10 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.modules.physics.block import _solve_requested_quantities
-from app.modules.physics.bodies import ELECTRON_MASS, ELEMENTARY_CHARGE, SCHOOL_GRAVITY
 from app.modules.physics.catalog import CATALOG, select_formula
 from app.modules.physics.schemas import PhysicsIntent
 from app.modules.physics.solver import PHYSICS_SOLVERS, solve_physics
 from app.modules.physics.solvers.common import (
-    _BIG_G,
-    _COULOMB_K,
-    _ELECTRON_MASS,
-    _ELEMENTARY_CHARGE,
-    _EPSILON_0,
-    _GAS_CONSTANT,
-    _HBAR,
-    _MU_0,
-    _PLANCK_H,
-    _SPEED_OF_LIGHT,
-    _STEFAN_BOLTZMANN,
-    _WIEN_B,
     PhysicsResult,
     QuantityResult,
     render_chip,
@@ -221,19 +208,3 @@ def test_visible_symbols_are_notation() -> None:
 
 def test_every_catalog_operation_has_one_solver() -> None:
     assert set(PHYSICS_SOLVERS) == set(CATALOG)
-
-
-def test_codata_constants_stay_at_the_pinned_registry_values() -> None:
-    assert _GAS_CONSTANT == 8.314462618153241
-    assert _BIG_G == 6.6743e-11
-    assert _PLANCK_H == 6.626070150000001e-34
-    assert _SPEED_OF_LIGHT == 299792458.0
-    assert _ELEMENTARY_CHARGE == ELEMENTARY_CHARGE == 1.602176634e-19
-    assert _EPSILON_0 == 8.854187812764727e-12
-    assert _MU_0 == 1.2566370621250601e-06
-    assert _HBAR == 1.0545718176461565e-34
-    assert _ELECTRON_MASS == ELECTRON_MASS == 9.1093837015e-31
-    assert SCHOOL_GRAVITY["earth"] == 9.81
-    assert _STEFAN_BOLTZMANN == 5.670374419184431e-08
-    assert _WIEN_B == 0.002897771955185173
-    assert _COULOMB_K == 8987551792.296976

@@ -6,7 +6,7 @@ different values of the same constant.
 
 from __future__ import annotations
 
-from app.services.units import constant
+from app.services.units import CELSIUS_OFFSET_K, constant
 
 # CODATA values from the shared unit registry, in the units chemistry works in. A test pins
 # each, so a Pint upgrade cannot move an answer.
@@ -20,6 +20,8 @@ PROTON_U = constant("proton_mass", "u")
 NEUTRON_U = constant("neutron_mass", "u")
 # The energy equivalent of 1 u.
 MEV_PER_U = constant("atomic_mass_constant * speed_of_light ** 2", "MeV")
+# 25 °C, the temperature standard values (E°, ΔG°, Kw) are tabulated at.
+STANDARD_TEMPERATURE_K = CELSIUS_OFFSET_K + 25
 # Water's ion product at 25 °C is a tabulated value, not a constant of nature.
 KW = 1.0e-14
 PKW = 14  # -log10(KW), so pH + pOH

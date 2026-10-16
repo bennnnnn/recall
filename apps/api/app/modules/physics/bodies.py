@@ -6,6 +6,12 @@ import math
 import re
 
 from app.modules.physics.ask import SENTENCE
+from app.modules.physics.constants import (
+    ELECTRON_MASS,
+    ELEMENTARY_CHARGE,
+    NEUTRON_MASS,
+    PROTON_MASS,
+)
 from app.services.text_match import word_index
 
 _BODY_WORDS = re.compile(
@@ -94,7 +100,6 @@ def names_body_without_school_gravity(lower: str) -> bool:
 
 
 # Charge magnitude (C) of each particle a question names; e is exact in SI.
-ELEMENTARY_CHARGE = 1.602176634e-19
 PARTICLE_CHARGES: dict[str, float] = {
     "electron": ELEMENTARY_CHARGE,
     "proton": ELEMENTARY_CHARGE,
@@ -108,12 +113,12 @@ def named_particle_charge(lower: str) -> float | None:
     return named[0] if len(named) == 1 else None
 
 
-# Rest mass (kg) of each particle a question names (CODATA 2018).
-ELECTRON_MASS = 9.1093837015e-31
+# Rest mass (kg) of each particle a question names. Pint has no alpha-particle mass, so it is
+# the CODATA 2018 value Pint's other masses come from.
 PARTICLE_MASSES: dict[str, float] = {
     "electron": ELECTRON_MASS,
-    "proton": 1.67262192369e-27,
-    "neutron": 1.67492749804e-27,
+    "proton": PROTON_MASS,
+    "neutron": NEUTRON_MASS,
     "alpha particle": 6.6446573357e-27,
 }
 

@@ -4,7 +4,8 @@
 A row is the whole operation: its catalog identity (law name and formula), the arithmetic,
 and how its answer reads (the given rows and the substitution). The arithmetic is a
 ``services.law_binding`` expression in the solver's parameter names, which may name
-``R_atm``, ``F`` and ``N_A``; nothing is executed. One generic solver (``solvers/formula.py``)
+``R_atm``, ``R_J``, ``F`` and ``N_A``; nothing is executed. A substitution row names a constant
+the same way (``{R_J}``), never types its number. One generic solver (``solvers/formula.py``)
 answers every row, so a new law of this kind is one entry.
 """
 
@@ -126,7 +127,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             ("m", "g"),
             "particles/N_A*molar_mass",
             (("particles", "N", ""), ("molar_mass", "M({formula})", "g/mol")),
-            "m = [{particles} / (6.022 × 10^23 mol⁻¹)]({molar_mass})",
+            "m = [{particles} / ({N_A})]({molar_mass})",
         ),
         _law(
             "mole_fraction",
@@ -187,7 +188,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
                 ("molar_mass", "M({formula})", "g/mol"),
                 ("temperature", "T", "K"),
             ),
-            "d = ({pressure})({molar_mass}) / [(0.082057 L·atm/(mol·K))({temperature})]",
+            "d = ({pressure})({molar_mass}) / [({R_atm})({temperature})]",
         ),
         _law(
             "molar_mass_from_density",
@@ -202,7 +203,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
                 ("temperature", "T", "K"),
                 ("pressure", "P", "atm"),
             ),
-            "M = ({density})(0.082057 L·atm/(mol·K))({temperature}) / {pressure}",
+            "M = ({density})({R_atm})({temperature}) / {pressure}",
         ),
         _law(
             "percent_ionization",
@@ -261,7 +262,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
                 ("current", "I", "A"),
                 ("molar_mass", "M", "g/mol"),
             ),
-            "t = ({mass})({electrons})(96485 C/mol) / [({current})({molar_mass})]",
+            "t = ({mass})({electrons})({F}) / [({current})({molar_mass})]",
         ),
         _law(
             "titration_concentration",
@@ -337,8 +338,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             ("N({target})", "atoms"),
             "moles*count*N_A",
             (("moles", "n({formula})", "mol"), ("count", "{target} atoms per {formula}", "")),
-            "N({target}) = ({moles}) × ({count.value} {target} atoms per {formula})"
-            " × (6.0221 × 10^23 mol⁻¹)",
+            "N({target}) = ({moles}) × ({count.value} {target} atoms per {formula}) × ({N_A})",
         ),
         # "How many moles of oxygen atoms are in 2.0 mol of H2SO4?" is an amount, 8.0 mol.
         _law(
@@ -366,7 +366,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
                 ("t2", "T2", "K"),
                 ("enthalpy", "ΔH°", "kJ/mol"),
             ),
-            "K2 = {k1.value} × exp[−({enthalpy.value} × 10^3) / (8.314 J/(mol·K))"
+            "K2 = {k1.value} × exp[−({enthalpy.value} × 10^3) / ({R_J})"
             " × (1/{t2.value} − 1/{t1.value})]",
             signed=frozenset({"enthalpy"}),
         ),
@@ -384,8 +384,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
                 ("k2", "K2", ""),
                 ("t2", "T2", "K"),
             ),
-            "ΔH° = [−(8.314 J/(mol·K)) ln({k2.value}/{k1.value})"
-            " / (1/{t2.value} − 1/{t1.value})] / 1000",
+            "ΔH° = [−({R_J}) ln({k2.value}/{k1.value}) / (1/{t2.value} − 1/{t1.value})] / 1000",
         ),
         _law(
             "gibbs_from_equilibrium",
@@ -396,7 +395,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             ("ΔG°", "kJ/mol"),
             "-(R_J*temperature*log(k))/1000",
             (("k", "K", ""), ("temperature", "T", "K")),
-            "ΔG° = −(8.314 J/(mol·K))({temperature.value}) ln({k.value}) / 1000",
+            "ΔG° = −({R_J})({temperature.value}) ln({k.value}) / 1000",
         ),
         _law(
             "equilibrium_from_gibbs",
@@ -407,7 +406,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
             ("K", ""),
             "exp(-gibbs*1000/(R_J*temperature))",
             (("gibbs", "ΔG°", "kJ/mol"), ("temperature", "T", "K")),
-            "K = exp[−({gibbs.value} × 10^3)/((8.314 J/(mol·K))({temperature.value}))]",
+            "K = exp[−({gibbs.value} × 10^3)/(({R_J})({temperature.value}))]",
             signed=frozenset({"gibbs"}),
         ),
         _law(
@@ -569,7 +568,7 @@ _BUILT_IN: dict[str, FormulaLaw] = {
                 ("temperature", "T", "K"),
                 ("quotient", "Q", ""),
             ),
-            "ΔG = {gibbs_standard.value} + (8.314 J/(mol·K))({temperature.value})"
+            "ΔG = {gibbs_standard.value} + ({R_J})({temperature.value})"
             " ln({quotient.value}) / 1000",
             signed=frozenset({"gibbs_standard"}),
         ),

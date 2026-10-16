@@ -2,18 +2,19 @@
 
 from __future__ import annotations
 
-from app.modules.physics.solvers.common import _COULOMB_K, _EPSILON_0, PhysicsResult, QuantityResult
+from app.modules.physics.constants import COULOMB_K, EPSILON_0
+from app.modules.physics.solvers.common import PhysicsResult, QuantityResult
 from app.modules.physics.solvers.school_common import positive, result
 from app.services.solving import SolveServiceError
 
 
 def _gauss_outside(params: dict[str, float]) -> PhysicsResult:
     positive(params, "r")
-    value = _COULOMB_K * abs(params["Q"]) / params["r"] ** 2
+    value = COULOMB_K * abs(params["Q"]) / params["r"] ** 2
     return result(
         "E",
         r"k\frac{|Q|}{r^2}",
-        rf"{_COULOMB_K:.6g}\cdot\frac{{{abs(params['Q']):g}}}{{{params['r']:g}^2}}",
+        rf"{COULOMB_K:.6g}\cdot\frac{{{abs(params['Q']):g}}}{{{params['r']:g}^2}}",
         value,
         "N/C",
     )
@@ -36,11 +37,11 @@ def _gauss_sphere(params: dict[str, float]) -> PhysicsResult:
     if params["r"] < 0 or params["r"] >= params["radius_body"]:
         raise SolveServiceError("the point is not inside the sphere")
     radius = params["radius_body"]
-    value = _COULOMB_K * abs(params["Q"]) * params["r"] / radius**3
+    value = COULOMB_K * abs(params["Q"]) * params["r"] / radius**3
     return result(
         "E",
         r"k\frac{|Q|r}{R^3}",
-        rf"{_COULOMB_K:.6g}\cdot\frac{{{abs(params['Q']):g}\cdot {params['r']:g}}}{{{radius:g}^3}}",
+        rf"{COULOMB_K:.6g}\cdot\frac{{{abs(params['Q']):g}\cdot {params['r']:g}}}{{{radius:g}^3}}",
         value,
         "N/C",
     )
@@ -48,22 +49,22 @@ def _gauss_sphere(params: dict[str, float]) -> PhysicsResult:
 
 def _gauss_line(params: dict[str, float]) -> PhysicsResult:
     positive(params, "r")
-    value = 2 * _COULOMB_K * abs(params["lambda_line"]) / params["r"]
+    value = 2 * COULOMB_K * abs(params["lambda_line"]) / params["r"]
     return result(
         "E",
         r"\frac{2k|\lambda|}{r}",
-        rf"\frac{{2\cdot {_COULOMB_K:.6g}\cdot {abs(params['lambda_line']):g}}}{{{params['r']:g}}}",
+        rf"\frac{{2\cdot {COULOMB_K:.6g}\cdot {abs(params['lambda_line']):g}}}{{{params['r']:g}}}",
         value,
         "N/C",
     )
 
 
 def _gauss_plane(params: dict[str, float]) -> PhysicsResult:
-    value = abs(params["sigma_charge"]) / (2 * _EPSILON_0)
+    value = abs(params["sigma_charge"]) / (2 * EPSILON_0)
     return result(
         "E",
         r"\frac{|\sigma|}{2\epsilon_0}",
-        rf"\frac{{{abs(params['sigma_charge']):g}}}{{2\cdot {_EPSILON_0:.6g}}}",
+        rf"\frac{{{abs(params['sigma_charge']):g}}}{{2\cdot {EPSILON_0:.6g}}}",
         value,
         "N/C",
     )

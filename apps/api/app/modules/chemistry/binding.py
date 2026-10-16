@@ -32,7 +32,7 @@ from app.modules.chemistry.input_text import HYDRATE_DOT, read_chemistry_text
 from app.modules.chemistry.laws import LAWS, ChemistryLaw
 from app.modules.chemistry.request import EQUATION_RE
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION
+from app.modules.chemistry.solvers.constants import STANDARD_REDUCTION, STANDARD_TEMPERATURE_K
 from app.modules.chemistry.species_facts import (
     CONJUGATE_SALTS,
     ELEMENT_NAMES,
@@ -55,6 +55,7 @@ from app.services.law_binding.fit import (
     read_question,
 )
 from app.services.law_binding.spec import VariableSpec
+from app.services.units import CELSIUS_OFFSET_K
 
 _VERBS = re.compile(
     r"\b(?:find|calculate|compute|determine|work\s+out|estimate|evaluate|whats?|convert|"
@@ -69,9 +70,11 @@ _SECOND_REQUEST = re.compile(
     r"(?:tell|explain|show|write|give|draw|plot|describe)\b",
     re.IGNORECASE,
 )
-_STANDARD_TEMPERATURE = 298.15
 # Water's normal boiling and freezing points in kelvin, for "the boiling point" of a solution.
-_WATER_POINTS = {"solvent_boiling_point": 373.15, "solvent_freezing_point": 273.15}
+_WATER_POINTS = {
+    "solvent_boiling_point": CELSIUS_OFFSET_K + 100,
+    "solvent_freezing_point": CELSIUS_OFFSET_K,
+}
 _AQUEOUS = re.compile(r"\baqueous\b", re.IGNORECASE)
 
 # Symbols whose case is their meaning, spelled out so lowercase word windows keep it.
@@ -247,7 +250,7 @@ def _fallback(prepared: Prepared, variable: VariableSpec, _text: str, _lower: st
         factor = VAN_T_HOFF.get(solutes[0]) if len(solutes) == 1 else None
         return None if factor is None else float(factor)
     if variable.fallback == "standard_temperature":
-        return _STANDARD_TEMPERATURE
+        return STANDARD_TEMPERATURE_K
     if variable.fallback in _WATER_POINTS:
         # Water's normal point is a setting only when water is the solvent the question names.
         aqueous = "H2O" in prepared.species or _AQUEOUS.search(prepared.original) is not None

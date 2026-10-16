@@ -28,7 +28,7 @@ SpecialUnit = Callable[[str, int], tuple[str, str] | None]
 @lru_cache(maxsize=256)
 def unit_dimension(expression: str) -> tuple[str, float, float] | None:
     """(dimension, scale, offset) of one Pint expression, angles kept apart."""
-    from app.services.units import get_unit_registry
+    from app.services.units import CELSIUS_OFFSET_K, get_unit_registry
 
     if expression in _ANGLE_UNITS:
         scale = 1.0 if expression == "radian" else 0.017453292519943295
@@ -36,7 +36,7 @@ def unit_dimension(expression: str) -> tuple[str, float, float] | None:
     registry = get_unit_registry()
     try:
         if expression == "degC":
-            return _canonical({"[temperature]": 1}), 1.0, 273.15
+            return _canonical({"[temperature]": 1}), 1.0, CELSIUS_OFFSET_K
         if expression == "degF":
             # K = (°F + 459.67) * 5/9: an offset scale Pint will not multiply.
             return _canonical({"[temperature]": 1}), 5.0 / 9.0, 459.67 * 5.0 / 9.0

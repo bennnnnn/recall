@@ -5,13 +5,13 @@ from __future__ import annotations
 import re
 
 from app.modules.physics.bodies import named_particle_mass
+from app.modules.physics.constants import ELEMENTARY_CHARGE
 from app.modules.physics.extractors.angles import _stated_angle
 from app.modules.physics.extractors.circuit_patterns import (
     _COULOMB_PATTERN,
 )
 from app.modules.physics.extractors.common import (
     _AMP_PATTERN,
-    _ELEMENTARY_CHARGE,
     _LENGTH_UNIT_PATTERN,
     _MASS_UNITS,
     _NUMBER,
@@ -87,7 +87,7 @@ def _extract_magnetism_intent(cleaned: str) -> PhysicsIntent | None:
     if charge is None and re.search(r"\b(?:proton|electron)\b", cleaned, re.IGNORECASE):
         # Magnetic force here is a magnitude; the sign distinguishes the
         # direction, which this scalar template intentionally does not infer.
-        charge = (_ELEMENTARY_CHARGE, "C")
+        charge = (ELEMENTARY_CHARGE, "C")
     if mass is None and (particle := named_particle_mass(lower)) is not None:
         # "a proton travels at 3e6 m/s": the particle names its mass.
         mass = (particle, "kg")

@@ -16,6 +16,7 @@ from app.modules.chemistry.solvers.types import (
 )
 from app.services.school_rounding import round_places
 from app.services.solving import SolveServiceError
+from app.services.units import CELSIUS_OFFSET_K
 
 # Below this an ion concentration is comparable to the 1e-7 M that water supplies itself.
 _DILUTE_ION = 1.0e-6
@@ -134,9 +135,6 @@ def _typed_literal(value: float) -> str | None:
     return None if written is None else written.converted.get(repr(value))
 
 
-_CELSIUS_OFFSET = 273.15
-
-
 def used(value: float) -> str:
     """A given as the arithmetic uses it.
 
@@ -147,7 +145,7 @@ def used(value: float) -> str:
     literal = _typed_literal(value)
     if literal is None:
         return inp(value)
-    if math.isclose(value - float(literal), _CELSIUS_OFFSET, abs_tol=1e-9):
+    if math.isclose(value - float(literal), CELSIUS_OFFSET_K, abs_tol=1e-9):
         # The offset is exact, so the working shows the kelvin it adds: 37 °C is 310.15 K.
         return f"{value:.{max(sig_figs.decimals_of(literal), 2)}f}"
     return converted(value, literal)
@@ -251,8 +249,8 @@ def water_vapor_mmhg(temperature_c: float) -> float | None:
         return None
     for (left_t, left_p), (right_t, right_p) in pairwise(points):
         if left_t <= temperature_c <= right_t:
-            left_inv = 1 / (left_t + 273.15)
-            right_inv = 1 / (right_t + 273.15)
-            span = (1 / (temperature_c + 273.15) - left_inv) / (right_inv - left_inv)
+            left_inv = 1 / (left_t + CELSIUS_OFFSET_K)
+            right_inv = 1 / (right_t + CELSIUS_OFFSET_K)
+            span = (1 / (temperature_c + CELSIUS_OFFSET_K) - left_inv) / (right_inv - left_inv)
             return math.exp(math.log(left_p) + span * (math.log(right_p) - math.log(left_p)))
     return None
