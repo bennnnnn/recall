@@ -209,7 +209,7 @@ export function useChatIncomingEvents({
           firstReplyRef.current = true;
           onFirstReplyRef.current?.();
         }
-        if (payload.todos_sync === "1") {
+        if (payload.todos_changed) {
           onTodosSyncRef.current?.();
           // Background Schedule extract can lag; refresh again so Schedule catches up.
           // Tracked so they're cancelled on chat switch / unmount (no firing on the
