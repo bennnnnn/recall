@@ -22,6 +22,7 @@ from sympy import (
 
 from app.modules.math.school import _format_school_number, _progression
 from app.modules.math.solve import MathServiceError, _parse_expression, format_verified_latex
+from app.modules.math.solve.calculus import _parse_infinity_aware_point
 from app.services.school_rounding import round_figures, round_places
 
 
@@ -253,15 +254,23 @@ def sas_triangle_area(side_a: float, side_b: float, angle_deg: float) -> str:
 
 
 def average_value(expr: str, variable: str, lower: str, upper: str) -> str:
-    from sympy import integrate
+    from sympy import AccumBounds, Integral, Limit, integrate, nan, oo, zoo
 
     parsed = _parse_expression(expr, [variable])
-    lo = _parse_expression(lower, [variable])
-    hi = _parse_expression(upper, [variable])
+    # "infinity" is oo, not the letters i, n, f, t and y; and an average needs
+    # a finite interval (sin over [0, oo) was <0, 2> / oo = 0).
+    lo = _parse_infinity_aware_point(lower)
+    hi = _parse_infinity_aware_point(upper)
+    if lo.is_finite is False or hi.is_finite is False:
+        raise MathServiceError("average value needs a finite interval")
     width = simplify(hi - lo)
     if width == 0:
         raise MathServiceError("average value needs a nonempty interval")
     total = integrate(parsed, (Symbol(variable), lo, hi))
+    # 1/x^2 on [-1, 1] diverges; x^x is left unevaluated.
+    unsettled = total.has(AccumBounds, Integral, Limit, nan, zoo, oo, -oo)
+    if unsettled or total.is_extended_real is False:
+        raise MathServiceError("average value needs an integral with a finite value")
     return format_verified_latex(simplify(total / width))
 
 

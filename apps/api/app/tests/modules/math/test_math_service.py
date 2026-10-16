@@ -663,6 +663,73 @@ def test_compute_limit_negative_infinity_point() -> None:
     assert result.is_infinite is True
 
 
+@pytest.mark.parametrize(
+    "expr, variable, point, direction",
+    [
+        # SymPy's accumulation bounds, <-1, 1>: they bound the values near the
+        # point, and are no proof the limit is missing either.
+        ("sin(1/x)", "x", "0", "+-"),
+        ("cos(1/x)", "x", "0", "+-"),
+        ("sin(1/x)", "x", "0", "+"),
+        ("cos(x)", "x", "oo", "+-"),
+        ("tan(1/x)", "x", "0", "+-"),
+        # The identity is 1, but SymPy bounds each term apart: <0, 2>.
+        ("sin(1/x)**2 + cos(1/x)**2", "x", "0", "+-"),
+        # The bounds inside a larger expression: |<-1, 1>|, oo*sign(<-1, 1>).
+        ("Abs(sin(1/x))", "x", "0", "+-"),
+        ("x*sin(x)", "x", "oo", "+-"),
+        ("sin(1/x)/x", "x", "0", "+"),
+        # NaN.
+        ("(-1)**n", "n", "oo", "+-"),
+        # Limit(...) handed back unevaluated.
+        ("sin(x)**x", "x", "oo", "+-"),
+        # A complex value: a school limit is over the reals.
+        ("sqrt(x)", "x", "-1", "+-"),
+        ("log(x)", "x", "-1", "+-"),
+        # Complex infinity where no two sides were compared: at infinity, or
+        # where neither one-sided limit exists.
+        ("(-2)**n", "n", "oo", "+-"),
+        ("sin(1/x)/x", "x", "0", "+-"),
+    ],
+)
+def test_compute_limit_refuses_a_value_sympy_did_not_establish(
+    expr: str, variable: str, point: str, direction: str
+) -> None:
+    with pytest.raises(MathServiceError):
+        math_solve.compute_limit(expr, variable, point, direction)
+
+
+@pytest.mark.parametrize(
+    "expr, point, direction, expected",
+    [
+        ("1/x", "0", "+-", "zoo"),  # -oo from the left, oo from the right
+        ("Abs(x)/x", "0", "+-", "zoo"),  # -1 and 1
+        ("exp(1/x)", "0", "+-", "zoo"),  # 0 and oo
+        ("1/x**2", "0", "+-", "oo"),
+        ("-1/x**2", "0", "+-", "-oo"),
+        ("1/x", "0", "+", "oo"),
+        ("x*sin(1/x)", "0", "+-", "0"),
+        ("sin(x)/x", "oo", "+-", "0"),
+    ],
+)
+def test_compute_limit_keeps_disagreeing_sides_and_signed_infinities(
+    expr: str, point: str, direction: str, expected: str
+) -> None:
+    assert math_solve.compute_limit(expr, "x", point, direction).result == expected
+
+
+@pytest.mark.parametrize(
+    "expr, start, end",
+    [("1/n", "0", "5"), ("1/n", "0", "oo"), ("1/n**2", "0", "oo"), ("1/(n**2 - 1)", "1", "oo")],
+)
+def test_evaluate_series_sum_refuses_a_sum_with_an_undefined_term(
+    expr: str, start: str, end: str
+) -> None:
+    """``1/n`` from ``n = 0``: SymPy sums to complex infinity, ``\\tilde{\\infty}``."""
+    with pytest.raises(MathServiceError):
+        math_solve.evaluate_series_sum(expr, "n", start, end)
+
+
 def test_evaluate_series_sum_convergent() -> None:
     result = math_solve.evaluate_series_sum("1/n**2", "n", "1", "infinity")
     assert result.is_convergent is True
