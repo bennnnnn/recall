@@ -15,18 +15,6 @@ StreamStatusPhase = Literal[
     "composing",
 ]
 
-STREAM_STATUS_PHASES: tuple[StreamStatusPhase, ...] = (
-    "preparing",
-    "remembering",
-    "reading_files",
-    "searching",
-    "calculating",
-    "physics",
-    "chemistry",
-    "thinking",
-    "composing",
-)
-
 _SUBJECT_STATUS_PHASE: dict[Literal["math", "physics", "chemistry"], StreamStatusPhase] = {
     "math": "calculating",
     "physics": "physics",

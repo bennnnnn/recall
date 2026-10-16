@@ -116,11 +116,6 @@ def _subject_viz_intent(query_text: str | None) -> tuple[str | None, bool]:
     return subject, viz_intent
 
 
-def _physics_turn(query_text: str | None) -> bool:
-    """Compatibility helper for callers/tests; detection is subject-neutral."""
-    return bool(query_text and detect_subject(query_text) == "physics")
-
-
 def _layout_format_hint(query_text: str | None) -> str | None:
     """Turn-specific layout that must win over compact prose."""
     if not query_text:

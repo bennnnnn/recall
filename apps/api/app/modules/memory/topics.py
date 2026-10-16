@@ -84,23 +84,11 @@ def parse_topic(raw: str | None) -> str | None:
     return None
 
 
-def normalize_topic(raw: str | None, *, memory_type: str) -> str:
-    """A valid topic for a fact: the one named, else the default for its type."""
-    return parse_topic(raw) or TYPE_DEFAULT_TOPIC.get(memory_type, "notes")
-
-
 def topic_memory_type(topic: str) -> str:
     if is_area(topic):
         return "project"
     spec = STANDARD_BY_KEY.get(topic)
     return spec.memory_type if spec else "fact"
-
-
-def topic_group(topic: str) -> TopicGroup:
-    if is_area(topic):
-        return "areas"
-    spec = STANDARD_BY_KEY.get(topic)
-    return spec.group if spec else "topics"
 
 
 def fact_topic(memory: Any) -> str:

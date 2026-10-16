@@ -113,11 +113,6 @@ async def resolve_external_host(url: str) -> tuple[str, str]:
     return hostname, public_ips[0]
 
 
-async def validate_external_url(url: str) -> None:
-    """Resolve URL hostname and validate all resulting IPs are external."""
-    await resolve_external_host(url)
-
-
 async def read_stream_capped(response: httpx.Response, max_body_bytes: int) -> bytes:
     """Read at most *max_body_bytes* from a streaming response body."""
     if max_body_bytes <= 0:

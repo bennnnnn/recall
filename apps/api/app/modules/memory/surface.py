@@ -30,12 +30,6 @@ from app.modules.memory.consolidation import (
 from app.modules.memory.consolidation import (
     facts_need_consolidation as facts_need_consolidation,
 )
-from app.modules.memory.consolidation import (
-    section_needs_consolidation as section_needs_consolidation,
-)
-from app.modules.memory.consolidation import (
-    sections_need_consolidation as sections_need_consolidation,
-)
 from app.modules.memory.repository import list_areas as list_areas
 from app.modules.memory.repository import list_for_user as list_for_user
 from app.modules.memory.repository import list_range as list_range
@@ -103,16 +97,10 @@ from app.modules.memory.text import (
     merge_diet_facts as merge_diet_facts,
 )
 from app.modules.memory.text import (
-    merge_explicit_remember_fact as merge_explicit_remember_fact,
-)
-from app.modules.memory.text import (
     normalize_memory_text as normalize_memory_text,
 )
 from app.modules.memory.text import (
     split_memory_facts as split_memory_facts,
-)
-from app.modules.memory.text import (
-    stamp_memory_as_of as stamp_memory_as_of,
 )
 from app.modules.memory.text import (
     strip_memory_as_of as strip_memory_as_of,

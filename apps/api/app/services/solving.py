@@ -166,6 +166,3 @@ def strip_verified_solve_markers(text: str) -> str:
     for marker in _VERIFIED_MARKERS:
         stripped = stripped.replace(marker, "")
     return re.sub(r"\n{3,}", "\n\n", stripped).strip()
-
-
-strip_verified_math_markers = strip_verified_solve_markers

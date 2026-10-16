@@ -9,7 +9,6 @@ from app.modules.billing import plan as plan_service
 from app.services import model_catalog, routing
 from app.services.routing import (
     message_needs_thinking,
-    resolve_alias,
     resolve_alias_in_pool,
     route_chat_model,
 )
@@ -209,10 +208,10 @@ def test_route_chat_model_does_not_treat_short_text_as_a_lesson_without_state() 
     assert route_chat_model("red") == "gemini-flash"
 
 
-def test_last_user_content_returns_newest_user_line() -> None:
+def test_last_user_turn_returns_newest_user_line() -> None:
     from types import SimpleNamespace
 
-    from app.services.routing import last_user_content, last_user_turn
+    from app.services.routing import last_user_turn
 
     recent = [
         SimpleNamespace(role="user", content="debug this algorithm", model="smart-chat"),
@@ -220,10 +219,7 @@ def test_last_user_content_returns_newest_user_line() -> None:
         SimpleNamespace(role="user", content=""),
         SimpleNamespace(role="assistant", content="ok"),
     ]
-    assert last_user_content(recent) == "debug this algorithm"
     assert last_user_turn(recent) == ("debug this algorithm", "smart-chat")
-    assert last_user_content([]) is None
-    assert last_user_content(None) is None
     assert last_user_turn([]) == (None, None)
 
 
@@ -326,7 +322,8 @@ def test_prompt_weighted_reserve_tokens_uses_full_prompt() -> None:
     ],
 )
 def test_resolve_alias(alias: str, content: str, expected: str) -> None:
-    assert resolve_alias(alias, content) == expected
+    pool = [model.id for model in model_catalog.selectable_models()]
+    assert resolve_alias_in_pool(alias, content, pool) == expected
 
 
 def test_auto_hard_question_picks_strongest_when_smart_tier_absent() -> None:

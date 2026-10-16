@@ -7,9 +7,7 @@ from app.modules.memory.topics import (
     TYPE_DEFAULT_TOPIC,
     area_key,
     fact_topic,
-    normalize_topic,
     parse_topic,
-    topic_group,
     topic_memory_type,
 )
 
@@ -32,12 +30,6 @@ def test_parse_topic_accepts_standard_keys_and_areas_only(raw, expected):
     assert parse_topic(raw) == expected
 
 
-def test_normalize_topic_falls_back_to_the_type_default():
-    assert normalize_topic("hobbies", memory_type="preference") == "preferences"
-    assert normalize_topic(None, memory_type="project") == "side-projects"
-    assert normalize_topic("area:africana", memory_type="fact") == "area:africana"
-
-
 def test_area_key_slugs_and_caps_the_name():
     assert area_key("Africana — diaspora app") == "area:africana-diaspora-app"
     long_key = area_key("x" * 100)
@@ -46,19 +38,18 @@ def test_area_key_slugs_and_caps_the_name():
 
 
 @pytest.mark.parametrize(
-    "topic,memory_type,group",
+    "topic,memory_type",
     [
-        ("profile", "profile", "you"),
-        ("preferences", "preference", "you"),
-        ("tech-stack", "fact", "topics"),
-        ("recent-work", "focus", "topics"),
-        ("side-projects", "project", "topics"),
-        ("area:recall", "project", "areas"),
+        ("profile", "profile"),
+        ("preferences", "preference"),
+        ("tech-stack", "fact"),
+        ("recent-work", "focus"),
+        ("side-projects", "project"),
+        ("area:recall", "project"),
     ],
 )
-def test_topic_decides_type_and_group(topic, memory_type, group):
+def test_topic_decides_type(topic, memory_type):
     assert topic_memory_type(topic) == memory_type
-    assert topic_group(topic) == group
 
 
 def test_every_type_default_is_a_standard_topic_of_that_type():

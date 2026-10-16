@@ -14,7 +14,7 @@ def _mock_response(status=200, headers=None):
     return m
 
 
-# ── resolve_external_host / validate_external_url (real function, no mock) ──
+# ── resolve_external_host (real function, no mock) ──
 
 
 @pytest.mark.asyncio
@@ -50,9 +50,9 @@ async def test_resolve_external_host_literal_public_ip():
 
 
 @pytest.mark.asyncio
-async def test_validate_external_url_no_hostname():
+async def test_resolve_external_host_no_hostname():
     with pytest.raises(ValueError, match="URL has no hostname"):
-        await safe_fetch.validate_external_url("http:///no-host")
+        await safe_fetch.resolve_external_host("http:///no-host")
 
 
 # ── pin_url / host_header ──────────────────────────────────────────────────

@@ -121,7 +121,7 @@ async def test_build_home_greeting_uses_name():
 
 def test_client_timezone_overrides_profile():
     user = _user(timezone="UTC")
-    tz = home_service._resolve_home_tz(user, "America/New_York")
+    tz = home_service.resolve_home_tz(user, "America/New_York")
     assert str(tz) == "America/New_York"
 
 
@@ -137,7 +137,7 @@ def test_urgent_subtitle_single_uses_time_not_topic():
             minutes_until=30,
         )
     ]
-    subtitle = home_service._urgent_subtitle(user, urgent)
+    subtitle = home_service.urgent_subtitle(user, urgent)
     assert subtitle is not None
     assert "Walk" in subtitle
     assert "(Walk)" not in subtitle
@@ -163,7 +163,7 @@ def test_urgent_subtitle_multiple_counts():
             minutes_until=10,
         ),
     ]
-    assert home_service._urgent_subtitle(user, urgent) == "2 reminders in the next hour."
+    assert home_service.urgent_subtitle(user, urgent) == "2 reminders in the next hour."
 
 
 @pytest.mark.asyncio

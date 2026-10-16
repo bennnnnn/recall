@@ -220,12 +220,6 @@ def last_user_turn(messages: list[Any] | None) -> tuple[str | None, str | None]:
     return None, None
 
 
-def last_user_content(messages: list[Any] | None) -> str | None:
-    """Last user line already in the recent window (oldest-first)."""
-    content, _ = last_user_turn(messages)
-    return content
-
-
 def _strip_followup_token(token: str) -> str:
     while token and token[0] in ".,!?;:'\"":
         token = token[1:]
@@ -498,26 +492,6 @@ def _verified_math_stays_fast(content: str) -> bool:
     # harder question must not keep the turn on the fast model.
     return (
         bare_arithmetic_expr(cleaned) is not None or written_arithmetic_request(cleaned) is not None
-    )
-
-
-def resolve_alias(
-    alias: str,
-    content: str,
-    *,
-    prior_user: str | None = None,
-    prior_model: str | None = None,
-    lesson_active: bool = False,
-) -> str:
-    """Resolve ``auto`` / ``fast`` / ``smart`` without a pool (legacy/tests)."""
-    all_ids = [m.id for m in model_catalog.selectable_models()]
-    return resolve_alias_in_pool(
-        alias,
-        content,
-        all_ids,
-        prior_user=prior_user,
-        prior_model=prior_model,
-        lesson_active=lesson_active,
     )
 
 

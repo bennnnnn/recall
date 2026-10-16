@@ -23,9 +23,6 @@ QUOTA_EXCEEDED_MESSAGE_FREE = (
 )
 QUOTA_EXCEEDED_MESSAGE_PAID = "You've reached today's limit. Try again after midnight UTC."
 
-# Backward-compatible alias for tests and imports.
-QUOTA_EXCEEDED_MESSAGE = QUOTA_EXCEEDED_MESSAGE_FREE
-
 IMAGE_LIMIT_EXCEEDED_MESSAGE_FREE = (
     "You've reached today's image upload limit. Upgrade for more — or try again after midnight UTC."
 )

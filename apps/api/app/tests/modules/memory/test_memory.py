@@ -17,13 +17,9 @@ from app.modules.memory import (
     is_food_or_diet_query,
     is_memory_candidate,
     is_sensitive_memory_text,
-    merge_explicit_remember_fact,
     normalize_memory_text,
-    section_needs_consolidation,
-    sections_need_consolidation,
     select_memories_for_prompt,
     select_memories_semantic,
-    stamp_memory_as_of,
     strip_memory_as_of,
 )
 
@@ -67,14 +63,8 @@ def test_normalize_memory_text_strips_trailing_period():
     assert normalize_memory_text("User's name is Bini.") == "User's name is Bini"
 
 
-def test_stamp_memory_as_of_prefixes_and_replaces():
-    from datetime import date
-
-    stamped = stamp_memory_as_of("Name is Sam", as_of=date(2026, 7, 20))
-    assert stamped == "As of 2026-07-20: Name is Sam"
-    restamped = stamp_memory_as_of(stamped, as_of=date(2026, 8, 1))
-    assert restamped == "As of 2026-08-01: Name is Sam"
-    assert strip_memory_as_of(restamped) == "Name is Sam"
+def test_strip_memory_as_of_removes_the_stamp():
+    assert strip_memory_as_of("As of 2026-08-01: Name is Sam") == "Name is Sam"
 
 
 def test_is_explicit_memory_command_detects_remember_and_forget():
@@ -82,16 +72,6 @@ def test_is_explicit_memory_command_detects_remember_and_forget():
     assert is_explicit_memory_command("Please forget that I live in Boston") is True
     assert is_explicit_memory_command("I remember when we first met") is False
     assert is_explicit_memory_command("I'm allergic to peanuts") is False
-
-
-def test_merge_explicit_remember_fact_keeps_prior_and_adds_new():
-    prior = (
-        "As of 2026-08-20: Bini prefers varied learning formats for English "
-        "vocabulary sessions, alternating between teach, use, and multiple-choice"
-    )
-    merged = merge_explicit_remember_fact(prior, "Drinks oat milk")
-    assert "varied learning formats" in merged
-    assert "oat milk" in merged.lower()
 
 
 def test_accept_memory_section_rewrite_rejects_short_preference_alone():
@@ -271,30 +251,6 @@ def test_filter_surface_memories_keeps_allergy_on_food_query():
     )
     assert allergy not in weather
     assert salary not in weather
-
-
-def test_section_needs_consolidation_detects_repetition():
-    text = (
-        "User's name is Binalfew. User's name is Bini. User is a software engineer. "
-        "User is a developer."
-    )
-    assert section_needs_consolidation(text) is True
-
-
-def test_section_needs_consolidation_accepts_short_summary():
-    assert section_needs_consolidation("Bini is a software engineer at Hooh.") is False
-
-
-def test_section_needs_consolidation_accepts_long_clean_summary():
-    text = (
-        "Bini prefers short answers, turn-by-turn vocabulary quizzes, and dark glass-morphism UI. "
-        "He enjoys Python, clean code, and learning English grammar through practice."
-    )
-    assert section_needs_consolidation(text) is False
-
-
-def test_sections_need_consolidation_any_section():
-    assert sections_need_consolidation({"profile": "Short.", "preference": "Also short."}) is False
 
 
 def test_extract_consolidation_anchors_names_and_orgs():
