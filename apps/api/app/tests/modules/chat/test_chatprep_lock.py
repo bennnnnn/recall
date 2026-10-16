@@ -285,7 +285,12 @@ async def test_turn_resources_refreshes_lock_while_held():
     deps = _held_lock_deps(acquire=AsyncMock(return_value="tok"), release=release, refresh=refresh)
     with patch.object(turn_resources, "CHATPREP_LOCK_REFRESH_INTERVAL_SECONDS", 0.05):
         async with turn_resources.turn_resources(deps, redis, user_id=uuid4(), chat_id=uuid4()):
-            await asyncio.sleep(0.14)
+            # Wait for the refreshes rather than a fixed sleep, so a busy CI runner
+            # that delays the refresh task does not fail the test.
+            for _ in range(100):
+                if refresh.await_count >= 2:
+                    break
+                await asyncio.sleep(0.02)
 
     assert refresh.await_count >= 2
     release.assert_awaited_once()
