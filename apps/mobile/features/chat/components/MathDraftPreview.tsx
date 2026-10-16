@@ -1,4 +1,4 @@
-import { memo, useMemo, useRef } from "react";
+import { memo, useMemo, useRef, type ReactElement } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { DraftRadical } from "@/features/chat/components/DraftRadical";
@@ -356,230 +356,153 @@ function ScriptStack({
   );
 }
 
-function DraftPiece({
-  node,
-  input,
-  caret,
-  before,
-  after,
-  onMoveCaret,
-}: {
-  node: DraftNode;
+type PieceProps = {
   input: string;
   caret: number;
   before: number;
   after: number;
   onMoveCaret?: (pos: number) => void;
-}) {
-  const theme = useTheme();
-  const s = useMemo(() => makeStyles(theme), [theme]);
+};
 
-  if (node.kind === "text") {
-    const display = composerTextLabel(input.slice(node.start, node.end));
-    if (!display) return null;
-    let start = node.start;
-    if (input[start] === "$") start += 1;
-    let end = node.end;
-    if (input[end - 1] === "$") end -= 1;
-    return (
-      <Pressable
-        testID="math-slot-text"
-        onPress={(e) => {
-          const x = e.nativeEvent.locationX;
-          onMoveCaret?.(x < 8 ? start : end);
-        }}
-        style={s.textHit}
-        accessibilityRole="button"
-      >
-        <View style={s.slotRow}>
-          {caret === start && start > before ? (
-            <MathComposerCaret testID="math-slot-text-caret-start" />
-          ) : null}
-          {/\\/.test(display) ? (
-            <MathText latex={display} textColor={theme.text} />
-          ) : (
-            <Text style={s.prose}>{display}</Text>
-          )}
-          {caret === end && end < after ? <MathComposerCaret testID="math-slot-text-caret" /> : null}
-        </View>
-      </Pressable>
-    );
-  }
+/** What a piece draws with: the draft and caret, the styles, and its slots' shared props. */
+type PieceKit = PieceProps & {
+  s: ReturnType<typeof makeStyles>;
+  theme: Theme;
+  slot: { text: string; caret: number; before: number; after: number; onMoveCaret?: (pos: number) => void };
+};
 
-  if (node.kind === "frac") {
-    return (
-      <View style={s.frac} testID="math-frac">
-        <EditSlot
-          text={input}
-          group={node.num}
-          caret={caret}
-          before={before}
-          after={after}
-          testID="math-slot-num"
-          onMoveCaret={onMoveCaret}
-        />
-        <View style={s.vinculum} testID="math-vinculum" />
-        <EditSlot
-          text={input}
-          group={node.den}
-          caret={caret}
-          before={before}
-          after={after}
-          testID="math-slot-den"
-          onMoveCaret={onMoveCaret}
-        />
+type PieceRenderer<K extends DraftNode["kind"]> = (
+  node: Extract<DraftNode, { kind: K }>,
+  kit: PieceKit,
+) => ReactElement | null;
+
+/** A run of plain draft text; a tap near its front puts the caret there, else at its end. */
+const textPiece: PieceRenderer<"text"> = (node, { input, caret, before, after, onMoveCaret, s, theme }) => {
+  const display = composerTextLabel(input.slice(node.start, node.end));
+  if (!display) return null;
+  let start = node.start;
+  if (input[start] === "$") start += 1;
+  let end = node.end;
+  if (input[end - 1] === "$") end -= 1;
+  return (
+    <Pressable
+      testID="math-slot-text"
+      onPress={(e) => {
+        const x = e.nativeEvent.locationX;
+        onMoveCaret?.(x < 8 ? start : end);
+      }}
+      style={s.textHit}
+      accessibilityRole="button"
+    >
+      <View style={s.slotRow}>
+        {caret === start && start > before ? (
+          <MathComposerCaret testID="math-slot-text-caret-start" />
+        ) : null}
+        {/\\/.test(display) ? (
+          <MathText latex={display} textColor={theme.text} />
+        ) : (
+          <Text style={s.prose}>{display}</Text>
+        )}
+        {caret === end && end < after ? <MathComposerCaret testID="math-slot-text-caret" /> : null}
       </View>
-    );
-  }
+    </Pressable>
+  );
+};
 
-  if (node.kind === "sqrt") {
-    return (
-      <DraftRadical
-        color={theme.text}
-        index={
-          node.index ? (
-            <EditSlot
-              text={input}
-              group={node.index}
-              caret={caret}
-              before={before}
-              after={after}
-              testID="math-slot-nroot-index"
-              onMoveCaret={onMoveCaret}
-              fontSize={12}
-              compact
-            />
-          ) : null
-        }
-      >
-        <EditSlot
-          text={input}
-          group={node.body}
-          caret={caret}
-          before={before}
-          after={after}
-          testID="math-slot-sqrt"
-          onMoveCaret={onMoveCaret}
-          compact
-        />
-      </DraftRadical>
-    );
-  }
+const fracPiece: PieceRenderer<"frac"> = (node, { s, slot }) => (
+  <View style={s.frac} testID="math-frac">
+    <EditSlot {...slot} group={node.num} testID="math-slot-num" />
+    <View style={s.vinculum} testID="math-vinculum" />
+    <EditSlot {...slot} group={node.den} testID="math-slot-den" />
+  </View>
+);
 
-  if (node.kind === "script") {
-    const sub = node.mark === "_";
-    return (
-      <View style={s.inline} testID={sub ? "math-sub" : "math-sup"}>
-        <View style={sub ? s.sub : s.sup}>
-          <EditSlot
-            text={input}
-            group={node.body}
-            caret={caret}
-            before={before}
-            after={after}
-            testID={sub ? "math-slot-sub" : "math-slot-sup"}
-            onMoveCaret={onMoveCaret}
-          />
-        </View>
+const sqrtPiece: PieceRenderer<"sqrt"> = (node, { theme, slot }) => (
+  <DraftRadical
+    color={theme.text}
+    index={
+      node.index ? (
+        <EditSlot {...slot} group={node.index} testID="math-slot-nroot-index" fontSize={12} compact />
+      ) : null
+    }
+  >
+    <EditSlot {...slot} group={node.body} testID="math-slot-sqrt" compact />
+  </DraftRadical>
+);
+
+const scriptPiece: PieceRenderer<"script"> = (node, { s, slot }) => {
+  const sub = node.mark === "_";
+  return (
+    <View style={s.inline} testID={sub ? "math-sub" : "math-sup"}>
+      <View style={sub ? s.sub : s.sup}>
+        <EditSlot {...slot} group={node.body} testID={sub ? "math-slot-sub" : "math-slot-sup"} />
       </View>
-    );
-  }
+    </View>
+  );
+};
 
-  if (node.kind === "brace") {
-    return (
-      <View style={s.inline} testID="math-brace">
-        <EditSlot
-          text={input}
-          group={node.body}
-          caret={caret}
-          before={before}
-          after={after}
-          testID="math-slot-brace"
-          onMoveCaret={onMoveCaret}
-        />
-      </View>
-    );
-  }
+const bracePiece: PieceRenderer<"brace"> = (node, { s, slot }) => (
+  <View style={s.inline} testID="math-brace">
+    <EditSlot {...slot} group={node.body} testID="math-slot-brace" />
+  </View>
+);
 
-  if (node.kind === "abs") {
-    return (
-      <View style={s.inline} testID="math-abs">
-        <Text style={s.prose}>|</Text>
-        <EditSlot
-          text={input}
-          group={node.body}
-          caret={caret}
-          before={before}
-          after={after}
-          testID="math-slot-abs"
-          onMoveCaret={onMoveCaret}
-        />
-        <Text style={s.prose}>|</Text>
-      </View>
-    );
-  }
+const absPiece: PieceRenderer<"abs"> = (node, { s, slot }) => (
+  <View style={s.inline} testID="math-abs">
+    <Text style={s.prose}>|</Text>
+    <EditSlot {...slot} group={node.body} testID="math-slot-abs" />
+    <Text style={s.prose}>|</Text>
+  </View>
+);
 
-  if (node.kind === "binom") {
-    return (
-      <View style={s.inline} testID="math-binom">
-        <Text style={s.prose}>C(</Text>
-        <EditSlot
-          text={input}
-          group={node.n}
-          caret={caret}
-          before={before}
-          after={after}
-          testID="math-slot-binom-n"
-          onMoveCaret={onMoveCaret}
-        />
-        <Text style={s.prose}>,</Text>
-        <EditSlot
-          text={input}
-          group={node.k}
-          caret={caret}
-          before={before}
-          after={after}
-          testID="math-slot-binom-k"
-          onMoveCaret={onMoveCaret}
-        />
-        <Text style={s.prose}>)</Text>
-      </View>
-    );
-  }
+const binomPiece: PieceRenderer<"binom"> = (node, { s, slot }) => (
+  <View style={s.inline} testID="math-binom">
+    <Text style={s.prose}>C(</Text>
+    <EditSlot {...slot} group={node.n} testID="math-slot-binom-n" />
+    <Text style={s.prose}>,</Text>
+    <EditSlot {...slot} group={node.k} testID="math-slot-binom-k" />
+    <Text style={s.prose}>)</Text>
+  </View>
+);
 
-  if (node.kind === "vec") {
-    return (
-      <View style={s.vec} testID="math-vec">
-        <Text style={s.vecArrow}>→</Text>
-        <EditSlot
-          text={input}
-          group={node.body}
-          caret={caret}
-          before={before}
-          after={after}
-          testID="math-slot-vec"
-          onMoveCaret={onMoveCaret}
-        />
-      </View>
-    );
-  }
+const vecPiece: PieceRenderer<"vec"> = (node, { s, slot }) => (
+  <View style={s.vec} testID="math-vec">
+    <Text style={s.vecArrow}>→</Text>
+    <EditSlot {...slot} group={node.body} testID="math-slot-vec" />
+  </View>
+);
 
+/** `\sin(x)`, `[a]`, `\{1,2\}`: the opening text as typed, the slot, the close. */
+const groupPiece: PieceRenderer<"group"> = (node, { input, s, slot }) => {
   const prefix = `${input.slice(node.start, node.body.open).replace(/\\/g, "")}${node.open}`;
   return (
     <View style={s.inline} testID="math-group">
       <Text style={s.prose}>{prefix}</Text>
-      <EditSlot
-        text={input}
-        group={node.body}
-        caret={caret}
-        before={before}
-        after={after}
-        testID="math-slot-group"
-        onMoveCaret={onMoveCaret}
-      />
+      <EditSlot {...slot} group={node.body} testID="math-slot-group" />
       <Text style={s.prose}>{node.close}</Text>
     </View>
   );
+};
+
+/** One renderer per draft node kind. */
+const DRAFT_PIECES: { [K in DraftNode["kind"]]: PieceRenderer<K> } = {
+  text: textPiece,
+  frac: fracPiece,
+  sqrt: sqrtPiece,
+  script: scriptPiece,
+  brace: bracePiece,
+  abs: absPiece,
+  binom: binomPiece,
+  vec: vecPiece,
+  group: groupPiece,
+};
+
+function DraftPiece({ node, input, caret, before, after, onMoveCaret }: PieceProps & { node: DraftNode }) {
+  const theme = useTheme();
+  const s = useMemo(() => makeStyles(theme), [theme]);
+  const slot = { text: input, caret, before, after, onMoveCaret };
+  const render = DRAFT_PIECES[node.kind] as PieceRenderer<DraftNode["kind"]>;
+  return render(node, { input, caret, before, after, onMoveCaret, s, theme, slot });
 }
 
 function EditSlot({
