@@ -25,7 +25,7 @@ from typing import TYPE_CHECKING, Any, Literal
 # makes them lazy strings), so no runtime import is needed at all.
 if TYPE_CHECKING:
     from app.modules.math.response_intent import MathResponseIntent
-    from app.modules.math.schemas import NewtonMethodInput, NewtonMethodResult
+    from app.modules.math.schemas import GeometryRequest, NewtonMethodInput, NewtonMethodResult
     from app.modules.math.solve.key_steps import KeyStep
     from app.modules.physics.schemas import PhysicsIntent
     from app.modules.physics.schemas.symbolic import SymbolicPhysicsRequest
@@ -112,6 +112,10 @@ class VerifiedMathBlock(VerifiedSolveBlock):
     # routing, prompt guidance, and final fence attachment. In particular,
     # ``reveal_answer=False`` is a hard policy boundary for tutoring hints.
     response_intent: MathResponseIntent | None = None
+    # What the question asked, copied from the intent so presentation never
+    # reads the question again. Server-side only: no reply or record holds it.
+    geometry_request: GeometryRequest | None = None
+    plot_point: tuple[float, float] | None = None
 
 
 @dataclass(frozen=True)

@@ -128,10 +128,14 @@ def _build_verified_block(intent: MathIntent, settings: Settings) -> VerifiedMat
             return None
         from app.services.solving import wrap_verified_math
 
+        # A rendered reply and a literal plot are bound to the request they read.
+        bound = block.direct_reply is not None or intent.plot_point is not None
         return replace(
             block,
             text=wrap_verified_math(block.text),
-            direct_request_text=(intent._request_text if block.direct_reply is not None else None),
+            geometry_request=intent.geometry_request,
+            plot_point=intent.plot_point,
+            direct_request_text=intent._request_text if bound else None,
             direct_requires_calculus_guard=bool(
                 block.direct_reply is not None
                 and intent.kind == "calculus"

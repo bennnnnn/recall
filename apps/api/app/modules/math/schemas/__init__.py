@@ -64,6 +64,7 @@ from app.modules.math.schemas.geometry import (
     TriangleSidesInput,
     TriangleSidesResult,
 )
+from app.modules.math.schemas.geometry_request import GeometryRequest
 from app.modules.math.schemas.graph import (
     GraphBlockSpec,
     GraphSampleInput,
@@ -90,6 +91,7 @@ __all__ = [
     "FractionStep",
     "FractionWorkSpec",
     "GeometryBlockSpec",
+    "GeometryRequest",
     "GraphBlockSpec",
     "GraphSampleInput",
     "GraphSampleResult",

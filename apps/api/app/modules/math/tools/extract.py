@@ -6,6 +6,7 @@ import re
 from collections.abc import Callable, Sequence
 
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
+from app.modules.math.match.literal_plot import literal_plot_point
 from app.modules.math.request_consumption import request_consumption_complete
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.extractors.algebra import (
@@ -28,6 +29,7 @@ from app.modules.math.tools.extractors.geometry_graph import (
     GEOMETRY_GRAPH_EXTRACTORS,
     SOLID_EXTRACTOR,
 )
+from app.modules.math.tools.extractors.geometry_request import finish_geometry_intent
 from app.modules.math.tools.helpers import (
     _split_response_instruction_sentence,
     has_assignment_evaluation_request,
@@ -162,8 +164,10 @@ def _numeric_statement(text: str, intent: MathIntent) -> bool:
 
 def extract_math_intent(text: str) -> MathIntent | None:
     intent = _extract_math_intent_any(text)
-    if intent is not None and _numeric_statement(text, intent):
+    if intent is None or _numeric_statement(text, intent):
         return None
+    if intent.kind == "point":
+        intent.plot_point = literal_plot_point(text)
     return intent
 
 
@@ -344,40 +348,7 @@ def _extract_math_intent(text: str) -> MathIntent | None:
                 f"{intent.lhs or ''} {intent.rhs or ''}", text
             ):
                 return None
-            if intent.kind in {
-                "rectangle",
-                "square",
-                "triangle",
-                "right_triangle",
-                "triangle_sides",
-                "circle",
-                "trapezoid",
-                "parallelogram",
-                "sector",
-            }:
-                # A natural-language measurement must not inherit the public
-                # structured-input schema's legacy centimetre default. AAA
-                # triangles already carry relative side lengths in generic units.
-                from app.modules.math.match.literal_geometry import (
-                    parse_named_rectangle_request,
-                )
-                from app.modules.math.match.units import solid_length_unit
-
-                if intent.kind != "triangle_sides" or intent.unit != "units":
-                    named_rectangle = (
-                        parse_named_rectangle_request(cleaned)
-                        if intent.kind == "rectangle"
-                        else None
-                    )
-                    unit = (
-                        named_rectangle.unit
-                        if named_rectangle is not None
-                        else solid_length_unit(cleaned)
-                    )
-                    if unit is None:
-                        return None
-                    intent = intent.model_copy(update={"unit": unit})
-            return intent
+            return finish_geometry_intent(intent, cleaned)
     return None
 
 
