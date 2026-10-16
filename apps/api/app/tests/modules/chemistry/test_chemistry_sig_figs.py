@@ -16,7 +16,7 @@ from app.modules.chemistry.extract import extract_chemistry_intent
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.sig_figs import as_written, decimals_of, figures_of
 from app.modules.chemistry.solvers import solve_chemistry
-from app.modules.chemistry.solvers.common_chem import num, p_value
+from app.modules.chemistry.solvers.display import num, p_value
 from app.modules.chemistry.solvers.types import ChemistryResult
 
 

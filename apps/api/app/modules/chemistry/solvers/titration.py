@@ -10,8 +10,8 @@ from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers.acid_base import (
     ph_text,
 )
-from app.modules.chemistry.solvers.common_chem import inp, num, p_value, verified, weak_dissociation
-from app.modules.chemistry.solvers.constants import KW, PKW
+from app.modules.chemistry.solvers.constants import KW, PKW, weak_dissociation
+from app.modules.chemistry.solvers.display import inp, num, p_value, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.titration_curve import half_equivalence_ion, with_titration_scene
 from app.modules.chemistry.solvers.types import ChemistryResult

@@ -7,13 +7,8 @@ import math
 
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
-    inp,
-    num,
-    p_value,
-    verified,
-)
 from app.modules.chemistry.solvers.constants import KW, PKW
+from app.modules.chemistry.solvers.display import inp, num, p_value, verified
 from app.modules.chemistry.solvers.params import positive, require
 from app.modules.chemistry.solvers.types import ChemistryResult, format_number
 from app.modules.chemistry.species_facts import STRONG_ACIDS, STRONG_BASES

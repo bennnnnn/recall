@@ -8,7 +8,7 @@ from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.organic import group_pattern, isomer_relationship, organic_facts
 from app.modules.chemistry.reactions import named_product
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import verified
+from app.modules.chemistry.solvers.display import verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.services.solving import SolveServiceError
 

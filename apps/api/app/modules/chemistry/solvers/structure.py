@@ -11,7 +11,7 @@ from app.modules.chemistry.coordination import CoordinationComplex, parse_comple
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.nomenclature import Salt, salt_from_formula, salt_from_name
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import inp, num, verified
+from app.modules.chemistry.solvers.display import inp, num, verified
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species
 from app.modules.chemistry.structure import lewis_structure, oxidation_states

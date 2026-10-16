@@ -6,7 +6,7 @@ from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.elements import BY_SYMBOL
 from app.modules.chemistry.formula import hill_formula, parse_formula
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
+from app.modules.chemistry.solvers.display import (
     atomic_mass,
     inp,
     molar_mass_working,

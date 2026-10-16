@@ -6,12 +6,7 @@ from __future__ import annotations
 from app.modules.chemistry.catalog import stated
 from app.modules.chemistry.equations import balance_equation, format_balanced
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
-    inp,
-    num,
-    qty,
-    verified,
-)
+from app.modules.chemistry.solvers.display import inp, num, qty, verified
 from app.modules.chemistry.solvers.params import require
 from app.modules.chemistry.solvers.types import ChemistryResult
 from app.modules.chemistry.species import parse_species

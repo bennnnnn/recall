@@ -10,14 +10,6 @@ import app.modules.chemistry.sig_figs as sig_figs
 from app.modules.chemistry.formula_laws import FORMULA_LAWS
 from app.modules.chemistry.given_units import CHEMISTRY_UNITS
 from app.modules.chemistry.schemas import ChemistryIntent
-from app.modules.chemistry.solvers.common_chem import (
-    converted,
-    inp,
-    molar_mass_working,
-    num,
-    p_value,
-    verified,
-)
 from app.modules.chemistry.solvers.constants import (
     AVOGADRO,
     BOLTZMANN,
@@ -25,6 +17,14 @@ from app.modules.chemistry.solvers.constants import (
     GAS_R,
     GAS_R_J,
     PLANCK,
+)
+from app.modules.chemistry.solvers.display import (
+    converted,
+    inp,
+    molar_mass_working,
+    num,
+    p_value,
+    verified,
 )
 from app.modules.chemistry.solvers.types import ChemistryResult, format_constant
 from app.services.law_binding.expression import Notation, evaluate

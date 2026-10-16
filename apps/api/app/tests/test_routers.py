@@ -456,14 +456,6 @@ def test_revenuecat_webhook_503_when_no_auth_and_no_dev_opt_in():
 
 
 def test_revenuecat_webhook_rejects_oversized_body():
-    from fastapi import HTTPException
-
-    from app.modules.billing import api as webhooks_mod
-
-    with pytest.raises(HTTPException) as exc:
-        webhooks_mod._reject_oversized_webhook_body(str(200_000), 0)
-    assert exc.value.status_code == 413
-
     app = create_app()
     from app.core.deps import get_settings
 

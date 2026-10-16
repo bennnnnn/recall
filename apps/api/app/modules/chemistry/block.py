@@ -8,7 +8,7 @@ from typing import Literal
 
 from app.modules.chemistry.schemas import ChemistryIntent
 from app.modules.chemistry.solvers import ChemistryResult, solve_chemistry
-from app.modules.chemistry.solvers.common_chem import verified
+from app.modules.chemistry.solvers.display import verified
 from app.services.solving import SolveServiceError, VerifiedSolveBlock
 from app.services.workout import WORKOUT_PROMPT_RULE
 

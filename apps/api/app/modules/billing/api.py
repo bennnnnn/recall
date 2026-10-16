@@ -15,6 +15,7 @@ from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
 from app.core.redis_lock import acquire_lock
+from app.core.request_limits import reject_oversized
 from app.models.orm import User
 from app.modules.billing import entitlements
 from app.modules.billing import revenuecat as webhook_service
@@ -91,23 +92,6 @@ def _verify_auth(authorization: str | None, settings: Settings) -> None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
-def _reject_oversized_webhook_body(content_length: str | None, body_len: int) -> None:
-    if content_length is not None:
-        try:
-            if int(content_length) > _MAX_WEBHOOK_BODY_BYTES:
-                raise HTTPException(
-                    status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-                    detail="Webhook payload too large",
-                )
-        except ValueError:
-            pass
-    if body_len > _MAX_WEBHOOK_BODY_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_CONTENT_TOO_LARGE,
-            detail="Webhook payload too large",
-        )
-
-
 @router.post("/revenuecat", status_code=status.HTTP_200_OK)
 async def revenuecat_webhook(
     request: Request,
@@ -118,9 +102,9 @@ async def revenuecat_webhook(
     # Auth + size before JSON parse — unauthenticated body work is a DoS vector
     # (this path is exempt from the global REST rate limiter).
     _verify_auth(request.headers.get("Authorization"), settings)
-    _reject_oversized_webhook_body(request.headers.get("content-length"), 0)
+    reject_oversized(request, b"", _MAX_WEBHOOK_BODY_BYTES, "Webhook payload too large")
     body = await request.body()
-    _reject_oversized_webhook_body(None, len(body))
+    reject_oversized(request, body, _MAX_WEBHOOK_BODY_BYTES, "Webhook payload too large")
     try:
         parsed: Any = json.loads(body)
     except json.JSONDecodeError as exc:

@@ -15,6 +15,7 @@ from app.core.config import Settings
 from app.core.deps import get_current_user, get_settings_dep, redis_unavailable_http_exception
 from app.core.rate_limit import allow_request_fail_closed
 from app.core.redis import get_redis_client
+from app.core.request_limits import reject_oversized
 from app.exceptions import RedisUnavailableError
 from app.models.orm import User
 from app.modules.billing import can_use
@@ -217,23 +218,6 @@ async def _try_consume_tts_followup(
         return await _try_consume_tts_followup_plain(redis, key, char_count, lead_hash)
 
 
-def _reject_oversized_speech_body(content_length: str | None, body_len: int) -> None:
-    if content_length is not None:
-        try:
-            if int(content_length) > SPEECH_MAX_REQUEST_BYTES:
-                raise HTTPException(
-                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-                    detail="Audio payload too large",
-                )
-        except ValueError:
-            pass
-    if body_len > SPEECH_MAX_REQUEST_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Audio payload too large",
-        )
-
-
 def _reject_oversized_audio(data: bytes) -> None:
     if len(data) > SPEECH_MAX_AUDIO_BYTES:
         raise HTTPException(
@@ -421,10 +405,10 @@ async def transcribe_speech(
     content_type = request.headers.get("content-type", "")
     language: str | None = None
     if "application/json" in content_type:
-        _reject_oversized_speech_body(request.headers.get("content-length"), 0)
+        reject_oversized(request, b"", SPEECH_MAX_REQUEST_BYTES, "Audio payload too large")
         try:
             raw = await request.body()
-            _reject_oversized_speech_body(None, len(raw))
+            reject_oversized(request, raw, SPEECH_MAX_REQUEST_BYTES, "Audio payload too large")
             payload = SpeechTranscriptionIn.model_validate(json.loads(raw))
             data = base64.b64decode(payload.audio_base64, validate=True)
         except (ValueError, binascii.Error) as exc:
@@ -437,7 +421,7 @@ async def transcribe_speech(
         language = payload.language
     else:
         # Multipart: check Content-Length BEFORE request.form() parses the body.
-        _reject_oversized_speech_body(request.headers.get("content-length"), 0)
+        reject_oversized(request, b"", SPEECH_MAX_REQUEST_BYTES, "Audio payload too large")
         form = await request.form()
         upload = form.get("file")
         if upload is None or not hasattr(upload, "read"):

@@ -11,7 +11,7 @@ from __future__ import annotations
 import math
 from collections.abc import Sequence
 
-from app.modules.chemistry.solvers.common_chem import const, inp
+from app.modules.chemistry.solvers.display import const, inp
 from app.services.solving import SolveServiceError
 
 
