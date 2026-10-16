@@ -129,8 +129,8 @@ What exists in code today. Product caveats: FEATURES.md.
 | Home | `modules/home/` (HTTP `/home`) | `features/home/`; greeting + one overdue reminder |
 | Attachments + RAG | `modules/attachments/` (HTTP `/attachments`) | `features/attachments/`; `app/gallery.tsx` route only |
 | Chat-history RAG | `chat_history_rag.py`, `message_chunks`, `background/message_indexing.py` | (prompt inject only; no extra UI) |
-| Image gen (every plan, daily cap) | `modules/images/` (HTTP `/images/generate`; `/images/intent` says when maths, physics or chemistry owns the turn) | `features/images/`; composer send only, after asking `/images/intent` |
-| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`, `answer_photo`: a photo above an answer about something worth seeing) | `features/images/`; checked before image-gen intent in `useChatSend` |
+| Image gen (every plan, daily cap) | `modules/images/` (HTTP `/images/generate`; `/images/intent` answers what a composer send is, read by `intent.py`, the chat turn's own reader) | `features/images/`; composer send only, when `/images/intent` answers a picture (`imageIntentPrefilter.ts` only decides whether to ask) |
+| Reference-photo lookup (free+Pro) | `gateways/image_search_gateway.py` (Tavily), `modules/images/` (`search`, `lookup_intent`, `search_tool`, `answer_photo`: a photo above an answer about something worth seeing) | `features/images/`; a lookup is a chat send, read before image-gen intent by `images/intent.py` |
 | Speech STT/TTS + live talk | `modules/speech/` (HTTP `/speech`) | `features/speech/`; composer mic and live talk |
 | Web search | `modules/web_search/`, `gateways/web_search_*.py` | source chips under replies |
 | Math (SymPy) | `modules/math/` (`match/`, `tools/`, `solve/`, `fence.py`; HTTP `/math/scan/read`; the SymPy process pool is `core/sympy_executor.py`). Lessons, check my work (`work_check`), word problems (`word_problem`) | `MathText` / `MathView` / `geometry` / `graph`; scanner review `components/mathScanner/` |
@@ -174,7 +174,7 @@ New chat-loop code → `modules/chat/`. Both transports call `stream_entry.py` w
 
 1. Auth + per-chat prepare lock; wait for the previous turn's pending finalize (`chat/finalize_registry.py`)
 2. Check + reserve daily quota (Redis)
-3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation
+3. Reference-photo lookup (free+Pro), then image-generation intent interception (Pro) — either may return without an LLM turn; lookup is checked first so "show me an ear" never gets claimed by generation. `modules/images/intent.py` reads both; the phone's composer asks it too (`POST /images/intent`)
 4. `turn_prep/`: memory + recent window, attachments/RAG, chat-history RAG, web search, SymPy pre-solve, physics and chemistry context
 5. Owned MCP tool loop (`mcp_tool_loop_enabled`, default on)
 6. Stream via LiteLLM (`gateways/litellm_gateway.py`)

@@ -177,6 +177,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-05 — The server is the only image-intent reader
 
+- **Status:** done. `POST /images/intent` returns the whole verdict (`subject`, `lookup_query`, `generate_prompt`, `revision`, `reference_attachment_ids`) from `text`, the user's own `chat_id` and `image_attached`; old `{text}` phones still read `subject`. `modules/images/intent.py` reads it, and the chat turn's intercept now shares it. The phone keeps an 80-line prefilter (17 word starts from the server's lists, the edit verbs with an image attached, and two thread signals) that only decides whether to ask; the four readers (1,273 lines, 1,772 with tests) are gone. Parity over 9,883 sends: 574 disagreements of five kinds. The phone was right on one (the chat turn drew "a picture of that car" literally; now the car named earlier) and the server on the rest (a new picture after a picture no longer takes the old one as its reference; a two-image reply passes both; a pronoun after a generated picture edits it, as the chat turn already did; an emoji or a follow-up over eight words stays chat). Prefilter: 0 misses on 2,644 server lookups and pictures; it asks for 19% of the sweep's turns.
 - **Problem:** image generation and photo lookup intent exist twice: in the API
   (`modules/images/gen_intent.py` 682, `gen_intent_words.py` 491, `lookup_intent.py` 586) and on
   the phone (`features/images/model/imageGenIntent.ts` 516, `imageGenIntentWords.ts` 469,
@@ -1180,8 +1181,8 @@ in this list grows logic beyond its table, it leaves the list.
 
 Not exceptions:
 
-- `modules/images/gen_intent.py`, `lookup_intent.py` and the phone `imageGenIntent*.ts`: ES-02
-  and ES-05.
+- `modules/images/gen_intent.py`: since ES-02 and ES-05 the only image-intent reader (the phone
+  copy is gone); it is next in line.
 - `lib/markdown/calculationLayout.ts`: ES-06.
 - Every other file over 500 lines: it either has a ticket above, or it is next in line after
   them. Next in line: `services/time_context.py` 627, `chat/related_prompts.py` 670,
