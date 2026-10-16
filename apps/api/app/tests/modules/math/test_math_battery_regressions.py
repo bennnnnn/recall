@@ -577,3 +577,88 @@ def test_geometry_measures_leave_other_questions_alone(text: str) -> None:
     from app.modules.math.tools.school.geometry_measures import extract_geometry_measure_intent
 
     assert extract_geometry_measure_intent(text) is None
+
+
+# The triangle laws, computed once (ES-10). The two-sides-and-an-angle cosine rule knew exact
+# cosines only from a hand table of 60°, 120° and 90°; SymPy knows 30°, 45° and 150° too.
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "answer"),
+    [
+        # Pinned before the move.
+        ("in triangle ABC, a = 6, b = 10, C = 72 degrees, find c", "9.946"),
+        ("in triangle ABC, a = 3, b = 4, C = 90 degrees, find c", "5"),
+        ("a triangle has sides 7, 8 and 9, find the smallest angle", r"\approx 48.2^\circ"),
+        ("area of a triangle with sides 5, 6 and 7", "14.6969"),
+        ("find the angles of a triangle with sides 5, 6 and 7", "44.4°, 57.1°, 78.5°"),
+        ("draw a triangle with angles 120, 40 and 20", "120°, 40°, 20°"),
+        # Decimals before: exact surds now.
+        (
+            "in triangle ABC, a = 5, b = 8, C = 30 degrees, find c",
+            r"\sqrt{89 - 40 \sqrt{3}} \approx 4.44",
+        ),
+        (
+            "in triangle ABC, a = 4, b = 6, C = 45 degrees, find c",
+            r"\sqrt{52 - 24 \sqrt{2}} \approx 4.25",
+        ),
+        (
+            "in triangle ABC, a = 3, b = 5, C = 150 degrees, find c",
+            r"\sqrt{34 + 15 \sqrt{3}} \approx 7.745",
+        ),
+        (
+            "in triangle ABC, b = 4, c = 6, A = 135 degrees, find a",
+            r"\sqrt{52 + 24 \sqrt{2}} \approx 9.27",
+        ),
+        # \sqrt{75} and \sqrt{8} before: the surd is simplified.
+        ("in triangle ABC, a = 5, b = 5, C = 120 degrees, find c", r"5 \sqrt{3} \approx 8.66"),
+        ("in triangle ABC, a = 2, b = 2, C = 90 degrees, find c", r"2 \sqrt{2} \approx 2.828"),
+        # "\approx" before an exact angle or side.
+        ("a triangle has sides 3, 5 and 7, find the largest angle", r"120^\circ"),
+        ("a triangle has sides 3, 4 and 5, find the largest angle", r"90^\circ"),
+        ("in triangle ABC, A = 30 degrees, B = 90 degrees, a = 5, find b", "10"),
+        (
+            "in triangle ABC, A = 45 degrees, B = 30 degrees, a = 8, find b",
+            r"4\sqrt{2} \approx 5.66",
+        ),
+    ],
+)
+async def test_triangle_laws_answer(text: str, answer: str) -> None:
+    canonical, _ = await _reply(text)
+    assert canonical == answer
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("text", "row"),
+    [
+        ("in triangle ABC, a = 7, b = 9, C = 60 degrees, find c", "$c^2 = 49 + 81 - 63 = 67$"),
+        # Was "9 + 16 - 1.46958e-15": cos 90° read from the float, not the table.
+        ("in triangle ABC, a = 3, b = 4, C = 90 degrees, find c", "$c^2 = 9 + 16 - 0 = 25$"),
+        (
+            "in triangle ABC, a = 5, b = 8, C = 30 degrees, find c",
+            r"$c^2 = 25 + 64 - 40 \sqrt{3} = 89 - 40 \sqrt{3}$",
+        ),
+        # Was "9 + 25 - -25.9808": an obtuse angle's negative cosine adds.
+        (
+            "in triangle ABC, a = 3, b = 5, C = 150 degrees, find c",
+            r"$c^2 = 9 + 25 + 15 \sqrt{3} = 34 + 15 \sqrt{3}$",
+        ),
+        ("in triangle ABC, a = 3, b = 5, C = 100 degrees, find c", "$c^2 = 9 + 25 + 5.20945"),
+        # Was -68/175: the float's nearest small fraction, written as if exact.
+        (
+            "a triangle has sides 2.31, 3.77 and 5.13, find the largest angle",
+            r"$C = \cos^{-1}\left(\frac{-67679}{174174}\right)$",
+        ),
+    ],
+)
+async def test_triangle_laws_working(text: str, row: str) -> None:
+    _, reply = await _reply(text)
+    assert reply is not None and row in reply
+
+
+@pytest.mark.asyncio
+async def test_triangle_laws_decline_impossible_sides() -> None:
+    canonical, _ = await _reply("a triangle has sides 1, 1 and 10, find the largest angle")
+    assert canonical is None
