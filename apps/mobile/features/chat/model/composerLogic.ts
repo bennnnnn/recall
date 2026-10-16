@@ -12,14 +12,13 @@ export const CHAT_COMPOSER_MIN_BOTTOM_PAD = 10;
 /**
  * One-line composer row. Shorter than the 44 pt touch minimum; the buttons
  * add hitSlop so the placeholder, +, mic, and live talk stay on one line.
+ * Also the input's minimum height, so the placeholder shares the controls' midline.
  */
 export const COMPOSER_CONTROL_SIZE = 36;
-/** Matches the + / mic / live controls so the placeholder shares their midline. */
-export const COMPOSER_INPUT_MIN_HEIGHT = COMPOSER_CONTROL_SIZE;
 /** Extra Returns grow by one text line, not another full control. */
 export const COMPOSER_INPUT_LINE_HEIGHT = Space.lg;
 export const COMPOSER_INPUT_MAX_HEIGHT =
-  COMPOSER_INPUT_MIN_HEIGHT + COMPOSER_INPUT_LINE_HEIGHT * 5;
+  COMPOSER_CONTROL_SIZE + COMPOSER_INPUT_LINE_HEIGHT * 5;
 /** Cap on the field at large text sizes: fewer than six lines when six would pass it. */
 const COMPOSER_INPUT_MAX_FRAME = 240;
 
@@ -41,7 +40,7 @@ type ComposerInputMetrics = {
  */
 export function composerInputMetrics(fontScale = 1): ComposerInputMetrics {
   const line = COMPOSER_INPUT_LINE_HEIGHT * (fontScale > 0 ? fontScale : 1);
-  const min = Math.max(COMPOSER_INPUT_MIN_HEIGHT, line);
+  const min = Math.max(COMPOSER_CONTROL_SIZE, line);
   const extraLines = Math.max(
     1,
     Math.min(5, Math.floor((COMPOSER_INPUT_MAX_FRAME - min) / line)),
