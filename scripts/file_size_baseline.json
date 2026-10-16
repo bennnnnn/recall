@@ -249,12 +249,8 @@
       "lines": 548,
       "why": "Over 500 before the standards; tracked in ES-40"
     },
-    "apps/api/app/modules/todos/reminder_fences.py": {
-      "lines": 793,
-      "why": "Over 500 before the standards; tracked in ES-12"
-    },
     "apps/api/app/modules/todos/spoken_add.py": {
-      "lines": 655,
+      "lines": 654,
       "why": "Over 500 before the standards; tracked in ES-12"
     },
     "apps/api/app/modules/todos/spoken_change.py": {

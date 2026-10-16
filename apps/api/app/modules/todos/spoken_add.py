@@ -16,6 +16,7 @@ from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.modules.todos.reminder_fence_parse import explicitly_declines_reminder_creation
 from app.modules.todos.schemas import RecurrenceRule
 from app.modules.todos.spoken_when import (
     due_on_day,
@@ -312,7 +313,11 @@ def reply_when_nothing_saved(
     dated one. "Can you add 3 + 4?" answered with "3 + 4 = 7", or an answer
     with a "Created: 1991" line, is not one.
     """
-    if not (about_reminders or mentions_reminders(text) or _user_declined(user_text)):
+    if not (
+        about_reminders
+        or mentions_reminders(text)
+        or explicitly_declines_reminder_creation(user_text)
+    ):
         return text
     words = _without_code(text)
     asked = _asked_to_change_or_add(user_text)
@@ -333,7 +338,7 @@ def reply_when_nothing_saved(
         if asks_when and not colon and not prose:
             return cleaned
         return _NEED_A_TIME
-    if _user_declined(user_text) and _DECLINE_SAVE_RE.search(cleaned):
+    if explicitly_declines_reminder_creation(user_text) and _DECLINE_SAVE_RE.search(cleaned):
         if not _DECLINE_NEGATION_RE.search(cleaned):
             return "I didn't set a reminder."
     if colon or prose:
@@ -424,12 +429,6 @@ def _without_claim_lines(lines: list[str]) -> list[str]:
             continue
         kept.append(line)
     return kept
-
-
-def _user_declined(user_text: str | None) -> bool:
-    from app.modules.todos.reminder_fences import explicitly_declines_reminder_creation
-
-    return explicitly_declines_reminder_creation(user_text)
 
 
 def _asked_to_change_or_add(user_text: str | None) -> bool:

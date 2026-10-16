@@ -174,7 +174,7 @@ def transcript_implies_todo_sync(transcript: str) -> bool:
         return False
     user_body = _first_user_line_body(text)
     if user_body is not None:
-        from app.modules.todos.reminder_fences import explicitly_declines_reminder_creation
+        from app.modules.todos.reminder_fence_parse import explicitly_declines_reminder_creation
 
         if explicitly_declines_reminder_creation(user_body):
             return False

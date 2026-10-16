@@ -352,7 +352,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-12 — Reminders: one clock-and-day reader (and the todo God files)
 
-- **Status:** reader done; split pending.
+- **Status:** done.
 - **Problem:** four readers of the same words, with different rules:
   - `todos/reminder_fences.py:289-383` (`_parse_ampm`, `_parse_clock`, `_due_date_for_day`,
     `_next_date`)
