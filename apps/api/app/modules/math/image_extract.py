@@ -9,7 +9,6 @@ import logging
 from app.core.config import Settings
 from app.gateways import litellm_gateway, mock_llm
 from app.modules.math.schemas import MathImageExtract
-from app.services.subject_scan import MATH_CAMERA_PROMPT
 
 logger = logging.getLogger(__name__)
 
@@ -60,13 +59,6 @@ _EXTRACT_PROMPT = (
 
 _SOLVE_KINDS = frozenset({"equation", "system", "inequality"})
 _OCR_HINT_MAX = 2000
-
-
-def is_math_camera_prompt(text: str) -> bool:
-    stripped = text.strip()
-    folded = stripped.casefold()
-    prompt = MATH_CAMERA_PROMPT.casefold()
-    return folded == prompt or folded.startswith(prompt + "\n")
 
 
 def camera_math_user_suffix(extracted: MathImageExtract) -> str | None:

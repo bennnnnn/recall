@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import ast
+from collections import deque
+from collections.abc import Iterable
+from functools import cache
 from pathlib import Path
 
 APP_ROOT = Path(__file__).resolve().parents[2]
@@ -129,6 +132,170 @@ def _production_python() -> list[Path]:
         for path in APP_ROOT.rglob("*.py")
         if "tests" not in path.parts and "__pycache__" not in path.parts
     ]
+
+
+def _module_name(path: Path) -> str:
+    parts = path.relative_to(APP_ROOT.parent).with_suffix("").parts
+    return ".".join(parts[:-1] if parts[-1] == "__init__" else parts)
+
+
+def _is_type_checking(test: ast.expr) -> bool:
+    return (isinstance(test, ast.Name) and test.id == "TYPE_CHECKING") or (
+        isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+    )
+
+
+def _load_time_imports(nodes: Iterable[ast.AST]) -> list[ast.Import | ast.ImportFrom]:
+    """Imports that run when the module loads: not in a function or ``if TYPE_CHECKING``."""
+    found: list[ast.Import | ast.ImportFrom] = []
+    for node in nodes:
+        if isinstance(node, ast.Import | ast.ImportFrom):
+            found.append(node)
+        elif isinstance(node, ast.If) and _is_type_checking(node.test):
+            found.extend(_load_time_imports(node.orelse))
+        elif isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
+            continue
+        elif isinstance(node, ast.stmt | ast.excepthandler | ast.match_case):
+            # A block's statements, a class body's too; an expression holds no import.
+            found.extend(_load_time_imports(ast.iter_child_nodes(node)))
+    return found
+
+
+@cache
+def _module_imports(*, load_time: bool) -> dict[str, set[str]]:
+    """Production module -> every module name its imports name, made absolute.
+
+    ``from pkg import name`` names ``pkg`` and ``pkg.name``; a package is its ``__init__``.
+    With ``load_time`` only imports that run when the module loads count: deferring an
+    import into a function is the accepted way to break a load-order cycle.
+    """
+    imports: dict[str, set[str]] = {}
+    for path in _production_python():
+        name = _module_name(path)
+        package = name if path.name == "__init__.py" else name.rpartition(".")[0]
+        tree = ast.parse(path.read_text(), filename=str(path))
+        nodes = (
+            _load_time_imports(tree.body)
+            if load_time
+            else [node for node in ast.walk(tree) if isinstance(node, ast.Import | ast.ImportFrom)]
+        )
+        targets: set[str] = set()
+        for node in nodes:
+            if isinstance(node, ast.Import):
+                targets.update(alias.name for alias in node.names)
+                continue
+            base = node.module or ""
+            if node.level:
+                anchor = package.rsplit(".", node.level - 1)[0]
+                base = f"{anchor}.{base}" if base else anchor
+            targets.add(base)
+            targets.update(f"{base}.{alias.name}" for alias in node.names)
+        imports[name] = targets
+    return imports
+
+
+def _import_graph(imports: dict[str, set[str]]) -> dict[str, set[str]]:
+    """Each production module -> the production modules it imports."""
+    return {name: (targets & imports.keys()) - {name} for name, targets in imports.items()}
+
+
+def _import_cycles(graph: dict[str, set[str]]) -> list[list[str]]:
+    """Strongly connected components with more than one module (iterative Tarjan)."""
+    index: dict[str, int] = {}
+    low: dict[str, int] = {}
+    stack: list[str] = []
+    on_stack: set[str] = set()
+    cycles: list[list[str]] = []
+    for root in sorted(graph):
+        if root in index:
+            continue
+        work = [(root, iter(sorted(graph[root])))]
+        index[root] = low[root] = len(index)
+        stack.append(root)
+        on_stack.add(root)
+        while work:
+            node, children = work[-1]
+            child = next(children, None)
+            if child is None:
+                work.pop()
+                if work:
+                    low[work[-1][0]] = min(low[work[-1][0]], low[node])
+                if low[node] == index[node]:
+                    component: list[str] = []
+                    while True:
+                        member = stack.pop()
+                        on_stack.discard(member)
+                        component.append(member)
+                        if member == node:
+                            break
+                    if len(component) > 1:
+                        cycles.append(sorted(component))
+            elif child not in index:
+                index[child] = low[child] = len(index)
+                stack.append(child)
+                on_stack.add(child)
+                work.append((child, iter(sorted(graph[child]))))
+            elif child in on_stack:
+                low[node] = min(low[node], index[child])
+    return cycles
+
+
+# What talks to a database, a cache, the network or the web framework. An ``app.core``
+# module that wraps one (``redis_lock``, ``jobs``) is caught by the import it makes.
+INFRASTRUCTURE: tuple[str, ...] = (
+    "fastapi",
+    "httpx",
+    "litellm",
+    "redis",
+    "sqlalchemy",
+    "starlette",
+    "app.core.db",
+    "app.core.redis",
+    "app.gateways",
+    "app.models.orm",
+    "app.repositories",
+)
+
+
+def _infrastructure(names: Iterable[str]) -> list[str]:
+    """The ``INFRASTRUCTURE`` roots these module names fall under."""
+    return [
+        root
+        for root in INFRASTRUCTURE
+        if any(name == root or name.startswith(f"{root}.") for name in names)
+    ]
+
+
+def _infrastructure_reached(packages: tuple[str, ...]) -> list[str]:
+    """Each infrastructure import the packages reach, with the chain of modules to it.
+
+    Every import counts, deferred and ``TYPE_CHECKING`` ones too: calling the function
+    that holds a deferred import loads it.
+    """
+    imports = _module_imports(load_time=False)
+    graph = _import_graph(imports)
+    via: dict[str, str | None] = {
+        name: None
+        for name in sorted(graph)
+        if any(name == package or name.startswith(f"{package}.") for package in packages)
+    }
+    queue = deque(via)
+    while queue:
+        name = queue.popleft()
+        for child in sorted(graph[name]):
+            if child not in via and not _infrastructure([child]):
+                via[child] = name
+                queue.append(child)
+    violations: list[str] = []
+    for name in via:
+        reached = _infrastructure(imports[name])
+        if not reached:
+            continue
+        chain = [name]
+        while (step := via[chain[-1]]) is not None:
+            chain.append(step)
+        violations.append(f"{' -> '.join(reversed(chain))} imports {', '.join(reached)}")
+    return violations
 
 
 _PUBLIC_MODULE_TAILS = frozenset({"api", "schemas", "service", "crud"})
