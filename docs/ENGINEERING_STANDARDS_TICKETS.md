@@ -949,6 +949,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-36 — `features/speech/model/realtimeVoice.ts`: pull the state machine out of a 523-line closure
 
+- **Status:** done. `createRealtimeVoiceSession` (802 → 166 lines in the file) now wires `realtimeTurnState.ts` (a pure reducer: data-channel messages, mute, stop, close, timers and lookups in; sends, emits, mic, timer, lookup and log commands out), `realtimePeer.ts` (WebRTC, mic, peer, data channel, SDP, connect deadline) and `realtimeMicGate.ts` (mic tracks, warmup and playback timers), and the Simulator check uses `lib/expoRuntime.isPhysicalDevice`. Session tests pinned barge-in, echo drop and the turn rules on the old closure first; a seeded capture of 4,000 scripted sessions (418,052 recorded sends, mic changes, timers, listener events and dev logs) is byte-identical before and after and catches four mutants. Device QA is still owed before release (`docs/QA_MATRIX.md` has no live talk rows yet).
 - **Problem:** `createRealtimeVoiceSession` (:227, 523 lines) holds 20 mutable `let`s (`turnEpoch`,
   `userMuted`, `assistantSpeaking`, `suppressCurrentInputTurn`, …), two timers and a 195-line
   data-channel `onmessage` handler. WebRTC setup, mic gating, the echo and barge-in policy and the
