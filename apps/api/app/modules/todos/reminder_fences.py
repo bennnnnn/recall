@@ -6,7 +6,7 @@ import json
 import logging
 import re
 from dataclasses import dataclass, field, replace
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, datetime
 from functools import partial
 from typing import Literal, Self
 from uuid import UUID
@@ -44,7 +44,6 @@ from app.modules.todos.spoken_add import (
     due_for_add,
     due_is_past,
     edits_prior_reply,
-    parse_clock_only,
     parse_spoken_add,
     passed_time_reply,
     pending_add,
@@ -57,22 +56,13 @@ from app.modules.todos.spoken_change import (
     names_reminders,
     parse_spoken_reminder_change,
 )
+from app.modules.todos.spoken_when import DAY_NAMES, due_on_day, parse_clock_only, read_clock
 from app.services import time_context as time_context_service
 from app.services.draft_fences import has_draft
 
 logger = logging.getLogger(__name__)
 
 _INVALID_FENCE = "*Could not save that to-do — the format was invalid.*"
-_WEEKDAYS = (
-    "monday",
-    "tuesday",
-    "wednesday",
-    "thursday",
-    "friday",
-    "saturday",
-    "sunday",
-)
-_DAY_NAMES = frozenset(("today", "tomorrow", *_WEEKDAYS))
 _FAIL_VERB = {
     "add": "set",
     "delete": "delete",
@@ -286,57 +276,6 @@ def _skip_spaces(text: str, index: int) -> int:
     return index
 
 
-def _parse_ampm(text: str, index: int) -> tuple[str, int] | None:
-    length = len(text)
-    index = _skip_spaces(text, index)
-    if index >= length:
-        return None
-    letter = text[index].lower()
-    if letter not in ("a", "p"):
-        return None
-    index += 1
-    if index < length and text[index] == ".":
-        index += 1
-    if index >= length or text[index].lower() != "m":
-        return None
-    index += 1
-    if index < length and text[index] == ".":
-        index += 1
-    return letter, index
-
-
-def _parse_clock(text: str, index: int) -> tuple[int, int] | None:
-    """Parse ``H[:MM] am/pm`` starting at ``index``. Linear digit walk, no regex."""
-    length = len(text)
-    index = _skip_spaces(text, index)
-    if index >= length or not text[index].isdigit():
-        return None
-    hour = 0
-    digits = 0
-    while index < length and text[index].isdigit() and digits < 2:
-        hour = hour * 10 + (ord(text[index]) - 48)
-        index += 1
-        digits += 1
-    minute = 0
-    if index < length and text[index] == ":":
-        index += 1
-        if index + 1 >= length or not (text[index].isdigit() and text[index + 1].isdigit()):
-            return None
-        minute = (ord(text[index]) - 48) * 10 + (ord(text[index + 1]) - 48)
-        index += 2
-    parsed = _parse_ampm(text, index)
-    if parsed is None:
-        return None
-    meridiem, _end = parsed
-    if hour == 12:
-        hour = 0 if meridiem == "a" else 12
-    elif meridiem == "p":
-        hour += 12
-    if hour > 23 or minute > 59:
-        return None
-    return hour, minute
-
-
 def _last_at_separator(haystack: str, start: int) -> int:
     """Index of the last `` at `` separator at or after ``start``, or -1."""
     last = -1
@@ -347,37 +286,6 @@ def _last_at_separator(haystack: str, start: int) -> int:
             return last
         last = idx
         pos = idx + 1
-
-
-def _due_date_for_day(day_name: str, now: datetime) -> date | None:
-    """today, tomorrow, a weekday, "next <weekday>", or "MM-DD" (this year, else next)."""
-    if day_name == "today":
-        return now.date()
-    if day_name == "tomorrow":
-        return now.date() + timedelta(days=1)
-    if len(day_name) == 5 and day_name[2] == "-" and day_name.replace("-", "").isdigit():
-        return _next_date(int(day_name[:2]), int(day_name[3:]), now.date())
-    following = day_name.startswith("next ")
-    try:
-        weekday = _WEEKDAYS.index(day_name.removeprefix("next "))
-    except ValueError:
-        return None
-    delta = (weekday - now.weekday()) % 7
-    # "Next Wednesday" said on a Wednesday is a week away, not today.
-    if following and delta == 0:
-        delta = 7
-    return now.date() + timedelta(days=delta)
-
-
-def _next_date(month: int, day: int, today: date) -> date | None:
-    for year in (today.year, today.year + 1):
-        try:
-            candidate = date(year, month, day)
-        except ValueError:
-            return None
-        if candidate >= today:
-            return candidate
-    return None
 
 
 def parse_spoken_remind(
@@ -407,7 +315,7 @@ def parse_spoken_remind(
     last_at = _last_at_separator(lowered, title_start)
     if last_at < 0:
         return None
-    clock = _parse_clock(user_text, last_at + len(" at "))
+    clock = read_clock(user_text, last_at + len(" at "))
     if clock is None:
         return None
     before = user_text[title_start:last_at].rstrip()
@@ -416,18 +324,16 @@ def parse_spoken_remind(
     split = before.rfind(" ")
     day_raw = before[split + 1 :] if split >= 0 else before
     day_token = day_raw.strip().strip("\"'").rstrip(".,;:").lower()
-    if day_token not in _DAY_NAMES:
+    if day_token not in DAY_NAMES:
         return None
     title = (before[:split] if split >= 0 else "").strip().strip("\"'").rstrip(".,;:")
     if not title:
         return None
     tz = time_context_service.resolve_timezone(user_timezone)
     when = now.astimezone(tz) if now is not None else datetime.now(tz)
-    day = _due_date_for_day(day_token, when)
-    if day is None:
+    due = due_on_day(day_token, clock.hour, clock.minute, when)
+    if due is None:
         return None
-    hour, minute = clock
-    due = datetime(day.year, day.month, day.day, hour, minute, tzinfo=tz)
     return title[:500], due
 
 
