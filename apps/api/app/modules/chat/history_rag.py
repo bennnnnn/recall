@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import logging
 from uuid import UUID
 
@@ -17,7 +16,6 @@ from app.services.prompt_safety import text_before_attachment_markers, wrap_untr
 
 logger = logging.getLogger(__name__)
 
-_EMBED_CONCURRENCY = 8
 _RAG_EMBED_TIMEOUT_SECONDS = 2.0
 _MIN_INDEX_CHARS = 20
 _BACKFILL_LIMIT = 40
@@ -33,20 +31,6 @@ def prepare_message_text(role: str, content: str) -> str | None:
         return None
     label = "User" if role == "user" else "Assistant"
     return f"{label}: {cleaned}"
-
-
-async def _embed_pieces(
-    settings: Settings,
-    pieces: list[str],
-) -> list[tuple[int, str, list[float] | None]]:
-    sem = asyncio.Semaphore(_EMBED_CONCURRENCY)
-
-    async def _one(index: int, piece: str) -> tuple[int, str, list[float] | None]:
-        async with sem:
-            vec = await embedding_gateway.embed_text(settings, piece)
-        return index, piece, vec
-
-    return list(await asyncio.gather(*(_one(i, piece) for i, piece in enumerate(pieces))))
 
 
 async def index_message(
@@ -68,7 +52,10 @@ async def index_message(
     )[: settings.chat_history_rag_max_chunks_per_message]
     if not pieces:
         return 0
-    embedded = await _embed_pieces(settings, pieces)
+    vectors = await embedding_gateway.embed_many(
+        settings, pieces, concurrency=settings.embedding_concurrency
+    )
+    embedded = list(zip(range(len(pieces)), pieces, vectors, strict=True))
     async with SessionLocal() as session:
         await chunks_repo.replace_chunks(
             session,

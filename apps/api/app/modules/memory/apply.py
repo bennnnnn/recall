@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from typing import Any
@@ -84,13 +83,9 @@ async def apply_memory_facts(
         await _invalidate_memory_caches(user_id)
         return
 
-    semaphore = asyncio.Semaphore(max(1, settings.memory_embed_concurrency))
-
-    async def _embed(text: str) -> list[float] | None:
-        async with semaphore:
-            return await embedding_gateway.embed_text(settings, text)
-
-    vectors = await asyncio.gather(*(_embed(text) for _, text in embed_needed))
+    vectors = await embedding_gateway.embed_many(
+        settings, [text for _, text in embed_needed], concurrency=settings.embedding_concurrency
+    )
     to_write: list[tuple[UUID, str, list[float], str, str]] = []
     for (memory_id, text), vec in zip(embed_needed, vectors, strict=True):
         if vec:

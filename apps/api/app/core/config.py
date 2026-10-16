@@ -326,8 +326,6 @@ class Settings(BaseSettings):
     memory_min_confidence: float = 0.4
     memory_inject_limit: int = 15
     memory_active_fact_cap: int = 150
-    # Bound provider embedding fan-out after extract or a migrate backfill.
-    memory_embed_concurrency: int = 6
     # Untouched stale vectors embedded per apply pass. Touched rows always
     # embed; leftover NULLs wait for a later pass instead of bursting 150
     # HTTP calls on the first write after migration.
@@ -350,6 +348,8 @@ class Settings(BaseSettings):
     # codebase lives in Settings, so don't reintroduce an inline magic number
     # here — change this constant instead.
     embedding_input_max_chars: int = 8000
+    # Provider calls in flight per embed_many batch (attachment/chat-history index, memory).
+    embedding_concurrency: int = 8
     link_preview_cache_ttl: int = 3600
     home_cache_ttl: int = 120
     todo_inject_limit: int = 100
