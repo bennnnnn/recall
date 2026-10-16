@@ -233,10 +233,6 @@
       "lines": 605,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
-    "apps/mobile/components/rich/InteractiveFunctionPlot.tsx": {
-      "lines": 748,
-      "why": "Over 500 before the standards; tracked in ES-38"
-    },
     "apps/mobile/components/rich/mathText/render.tsx": {
       "lines": 653,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
@@ -250,8 +246,8 @@
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
     },
     "apps/mobile/features/chat/components/MathDraftPreview.tsx": {
-      "lines": 792,
-      "why": "Over 500 before the standards; tracked in ES-38"
+      "lines": 715,
+      "why": "Over 500 before the standards; ES-38 split DraftPiece; split by responsibility after the ticketed files"
     },
     "apps/mobile/features/chat/hooks/useChat.ts": {
       "lines": 593,
