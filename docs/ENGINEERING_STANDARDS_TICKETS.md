@@ -449,6 +449,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-15 — Math detection does not run the extractors twice
 
+- **Status:** done. `needs_symbolic` asks 25 named lexical `NEED_SIGNALS` (`match/need_signals.py`, `match/homework_cues.py`) before any extractor, then a chosen few (`tools/extractors/detection.py`). Every extractor reads a line through `tools/extractors/readings.read`, an LRU keyed on the extractor and the text (extraction reads no settings, clock or user) that gives each caller its own copy. The gate, the registry walk in `tools/extract.py` and the extractors that call one another share it, so a turn runs each extractor on a line once. The gate is not `extract_math_intent`: the registry reads 291 test strings the gate declines ("compare React and Vue" as two curves, `<b>Ada</b>` as an inequality) and costs about twice the gate on a line that is not maths. Over 29,841 strings (the STEM, sweep and battery corpora and every test literal) both gates' verdicts and the intent are byte-identical. Extractor runs per maths turn 63.5 → 53.1 (the gate's 8.9 → 1.3); through the real turn path 101 → 50. `needs.py` 547 → 62 lines, out of the size baseline.
 - **Problem:** `math/match/needs.py:67` `needs_symbolic` (265 lines) decides "is this math?" by
   calling about 15 extractors in order: `extract_fraction_intent`,
   `extract_function_value_intent`, `CALCULUS_APPLICATION_EXTRACTORS`,

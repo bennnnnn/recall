@@ -11,6 +11,7 @@ from app.core.config import Settings
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.extractors.readings import read
 from app.modules.math.tools.school.probability_formulas import (
     extract_probability_formulas,
     probability_formula_block,
@@ -210,7 +211,7 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
     trials = _trials_intent(cleaned)
     if trials is not None:
         return trials
-    at_least_one = extract_at_least_one_intent(cleaned)
+    at_least_one = read(extract_at_least_one_intent, cleaned)
     if at_least_one is not None:
         return at_least_one
     if _FAIR_DIE_EXPECTATION.fullmatch(" ".join(cleaned.split())):
@@ -222,12 +223,12 @@ def _extract_probability_intent(cleaned: str) -> MathIntent | None:
         )
     from app.modules.math.tools.school.single_draw import extract_single_draw_intent
 
-    single = extract_single_draw_intent(cleaned)
+    single = read(extract_single_draw_intent, cleaned)
     if single is not None:
         return single
     from app.modules.math.tools.school.bag_draws import extract_bag_draws_intent
 
-    bag = extract_bag_draws_intent(cleaned)
+    bag = read(extract_bag_draws_intent, cleaned)
     if bag is not None:
         return bag
     dice = _DICE_CONDITIONAL_SUM.fullmatch(cleaned)

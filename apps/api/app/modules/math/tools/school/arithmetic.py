@@ -9,6 +9,7 @@ from app.modules.math import match as mtm
 from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
+from app.modules.math.tools.extractors.readings import read
 from app.modules.math.tools.helpers import substituted_eval_expr
 from app.modules.math.tools.school.fractions import _block_fraction
 from app.modules.math.tools.school.interest import (
@@ -152,7 +153,7 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
     percent = _extract_percent_or_ratio(cleaned)
     if percent is not None:
         return percent
-    formulas = extract_arithmetic_formulas(cleaned)
+    formulas = read(extract_arithmetic_formulas, cleaned)
     if formulas is not None:
         return formulas
     lower = cleaned.lower()
@@ -161,7 +162,7 @@ def _extract_arithmetic_intent(cleaned: str) -> MathIntent | None:
         return interest
     from app.modules.math.tools.school.shopping import extract_change_intent
 
-    change = extract_change_intent(cleaned)
+    change = read(extract_change_intent, cleaned)
     if change is not None:
         return change
     sets = _extract_set_intent(cleaned, lower)

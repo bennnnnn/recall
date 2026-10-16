@@ -11,6 +11,7 @@ from app.modules.math import school as math_school
 from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.block.common import format_quantity
+from app.modules.math.tools.extractors.readings import read
 from app.services.number_text import SIGNED_DECIMAL
 from app.services.workout import Workout, math_line, render_workout
 
@@ -186,7 +187,7 @@ def extract_how_many_in_intent(cleaned: str) -> MathIntent | None:
 def _extract_unit_intent(cleaned: str) -> MathIntent | None:
     from app.services.unit_text import QUANTITY_NUMBER
 
-    how_many = extract_how_many_in_intent(cleaned)
+    how_many = read(extract_how_many_in_intent, cleaned)
     if how_many is not None:
         return how_many
     cleaned = _TEMPERATURE_WORDS.sub(r"\1", cleaned)
