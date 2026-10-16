@@ -112,6 +112,7 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.services.sympy_executor",
     "app.services.todos",
     "app.services.tokens",
+    "app.services.tool_loop",
     "app.services.web_search",
     "app.services.web_session",
 )

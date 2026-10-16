@@ -3,7 +3,7 @@
 Distinct from ``ImageGenAdapter``: this returns a *real* photo (Tavily image
 search, mirrored into Recall's storage), never AI-generated art. Persists
 the attachment + assistant ``[Image: …]`` marker and signals a terminal turn
-via ``ToolResult.data`` — same terminal-image contract ``tool_loop.py``
+via ``ToolResult.data`` — same terminal-image contract the chat tool loop
 already understands, so the stream skips the visible LLM pass and the
 mobile client renders it with zero new code (never trust the model to
 invent attachment URLs).

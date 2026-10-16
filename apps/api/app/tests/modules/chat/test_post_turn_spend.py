@@ -216,7 +216,7 @@ async def test_tool_loop_path_skips_when_spend_capped():
     ctx.chat_id = uuid4()
     ctx.prompt_messages = []
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=True)})
-    with patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run:
+    with patch("app.modules.chat.tool_loop.run_tool_rounds", AsyncMock()) as run:
         await run_tool_loop_path(
             deps,
             AsyncMock(),
@@ -247,7 +247,7 @@ async def test_tool_loop_path_skips_when_heuristic_math_already_verified():
     ctx.chat_id = uuid4()
     ctx.prompt_messages = []
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
-    with patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run:
+    with patch("app.modules.chat.tool_loop.run_tool_rounds", AsyncMock()) as run:
         await run_tool_loop_path(
             deps,
             AsyncMock(),
@@ -275,7 +275,7 @@ async def test_tool_loop_path_skips_ordinary_explain_turn():
     ctx.chat_id = uuid4()
     ctx.prompt_messages = []
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
-    with patch("app.services.tool_loop.run_tool_rounds", AsyncMock()) as run:
+    with patch("app.modules.chat.tool_loop.run_tool_rounds", AsyncMock()) as run:
         await run_tool_loop_path(
             deps,
             AsyncMock(),
@@ -310,7 +310,7 @@ async def test_tool_loop_path_does_not_dump_leftover_as_instant_reply():
     deps = turn_deps(quota={"global_spend_exceeded": AsyncMock(return_value=False)})
     with (
         patch(
-            "app.services.tool_loop.run_tool_rounds",
+            "app.modules.chat.tool_loop.run_tool_rounds",
             AsyncMock(return_value=(tool_messages, None, None, [])),
         ) as run,
     ):

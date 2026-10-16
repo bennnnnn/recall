@@ -26,6 +26,7 @@ from app.modules.billing import can_use
 from app.modules.chat import prompt_constants as pc
 from app.modules.chat.prompt_context import _PromptContextBlocks
 from app.modules.chat.stream_paths import run_tool_loop_path
+from app.modules.chat.tool_loop.selection import _search_before_the_model
 from app.modules.chat.turn_deps import default_deps
 from app.modules.chat.turn_prep.context import (
     build_stream_prompt_context,
@@ -37,7 +38,6 @@ from app.modules.images.gen_intent import extract_image_gen_prompt, stem_subject
 from app.modules.images.lookup_intent import dated_lookup_query, extract_image_lookup_query
 from app.modules.web_search.detection import needs_web_search
 from app.services.subject_solving import detect_subject
-from app.services.tool_loop import _search_before_the_model
 from app.services.workout import SELF_CHECK_PROMPT_RULE
 from app.tests.behavior.cases import Case, Expect
 
@@ -267,7 +267,7 @@ async def route_case(case: Case, settings: Settings | None = None) -> Route:
         stub("app.gateways.pubchem_gateway.lookup_by_name", _pubchem_lookup)
         stub("app.gateways.pubchem_gateway.lookup_iupac_name", AsyncMock(return_value=None))
         stub("app.modules.web_search.detection.classify_web_search", classifier)
-        stub("app.services.tool_loop.run_tool_rounds", tool_rounds)
+        stub("app.modules.chat.tool_loop.run_tool_rounds", tool_rounds)
         stub("app.services.quota.global_spend_exceeded", AsyncMock(return_value=False))
 
         turn_mode = await _classify_turn_mode(AsyncMock(), chat, text)

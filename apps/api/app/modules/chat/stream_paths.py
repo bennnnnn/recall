@@ -16,6 +16,7 @@ from redis.asyncio import Redis
 
 from app.core.background_tasks import create_background_task
 from app.core.config import Settings
+from app.modules.chat import tool_loop
 from app.modules.chat.prompt_builder import StreamReasoningFn, StreamStatusFn
 from app.modules.chat.stream_events import clear_task_cancellation
 from app.modules.chat.tool_gate import should_classify_tool_web_search
@@ -24,7 +25,6 @@ from app.modules.chat.turn_prep import StreamContext
 from app.modules.web_search import detection as web_search_detection
 from app.modules.web_search.subject import collect_prior_user_messages, last_assistant_content
 from app.services import model_health as model_health_service
-from app.services import tool_loop as tool_loop_service
 from app.services.solving import VerifiedMathBlock
 
 logger = logging.getLogger(__name__)
@@ -107,7 +107,7 @@ async def run_tool_loop_path(
         return
     # Sync heuristic first (math / news). Classifier only when
     # that gate is weak so we do not add an LLM round to already-needed turns.
-    if not tool_loop_service.turn_needs_tool_loop(
+    if not tool_loop.turn_needs_tool_loop(
         content,
         lightweight=lightweight,
         has_instant_reply=has_instant,
@@ -135,7 +135,7 @@ async def run_tool_loop_path(
                     prior_user_messages=collect_prior_user_messages(prompt, content) or None,
                     prior_assistant=last_assistant_content(prompt),
                 )
-        if not tool_loop_service.turn_needs_tool_loop(
+        if not tool_loop.turn_needs_tool_loop(
             content,
             lightweight=lightweight,
             has_instant_reply=has_instant,
@@ -151,7 +151,7 @@ async def run_tool_loop_path(
         tool_verified,
         terminal_image,
         tool_search_hits,
-    ) = await tool_loop_service.run_tool_rounds(
+    ) = await tool_loop.run_tool_rounds(
         settings=settings,
         model_alias=ctx.model,
         messages=ctx.prompt_messages,
