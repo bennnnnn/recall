@@ -83,9 +83,8 @@ module.exports = defineConfig([
         "error",
         { paths: [...REPLACED_BY_UI_KIT, ...POPUPS_OWNED_BY_UI_KIT, ...CONTROLS_OWNED_BY_UI_KIT] },
       ],
-      // `@/` resolves through eslint-config-expo's typescript resolver.
-      // Type-only imports are ignored: they vanish at runtime.
-      "import/no-cycle": "error",
+      // Import cycles are caught by lib/__tests__/importCycles.test.ts, which,
+      // unlike import/no-cycle, also sees type-only imports.
       "@typescript-eslint/no-explicit-any": "error",
     },
   },
