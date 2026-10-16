@@ -50,7 +50,7 @@
       "why": "Over 500 before the standards; tracked in ES-02"
     },
     "apps/api/app/modules/chat/stream_pipeline.py": {
-      "lines": 908,
+      "lines": 882,
       "why": "Over 500 before the standards; split in ES-22"
     },
     "apps/api/app/modules/chat/turn_prep/context.py": {
@@ -98,7 +98,7 @@
       "why": "Over 500 before the standards; tracked in ES-05"
     },
     "apps/api/app/modules/images/lookup_intent.py": {
-      "lines": 586,
+      "lines": 522,
       "why": "Over 500 before the standards; tracked in ES-02"
     },
     "apps/api/app/modules/math/fence.py": {
@@ -270,7 +270,7 @@
       "why": "Exception: Regex pattern table plus thin predicates; the phone twin is under ES-07"
     },
     "apps/api/app/services/answer_check.py": {
-      "lines": 601,
+      "lines": 597,
       "why": "Over 500 before the standards; tracked in ES-01"
     },
     "apps/api/app/services/answer_fence.py": {
