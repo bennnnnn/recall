@@ -1,4 +1,5 @@
 import { ApiRequestError } from "@/lib/api/client";
+import type { Message } from "@/lib/api";
 import { getSessionGeneration } from "@/lib/auth";
 import React, { useLayoutEffect } from "react";
 import { Text } from "react-native";
@@ -7,6 +8,7 @@ import { act, render } from "@testing-library/react-native";
 import { useChatSend } from "@/features/chat/hooks/useChatSend";
 import { pickDocument, uploadChatAttachment } from "@/features/attachments/model/attachments";
 import { registerEmailDraftFlusher } from "@/features/drafts/model/emailDraftFlush";
+import { notifyWarning, tap } from "@/lib/haptics";
 import {
   queryNeedsClientGeo,
   resolveClientGeoForQuery,
@@ -22,6 +24,7 @@ const inputRef = { current: "hello" };
 const mockSetInput = jest.fn();
 const mockSetParams = jest.fn();
 const mockSetChatId = jest.fn();
+const mockSetChatTitle = jest.fn();
 const mockFeedbackError = jest.fn();
 const mockSwitchThread = jest.fn();
 const mockAdoptComposerThread = jest.fn();
@@ -70,6 +73,8 @@ jest.mock("@/lib/haptics", () => ({
   tap: jest.fn(),
   notifyWarning: jest.fn(),
 }));
+const mockTap = tap as jest.Mock;
+const mockNotifyWarning = notifyWarning as jest.Mock;
 jest.mock("@/lib/resolveClientGeoForQuery", () => ({
   queryNeedsClientGeo: jest.fn(() => false),
   resolveClientGeoForQuery: jest.fn(async () => ({ ok: true, clientGeo: null })),
@@ -95,6 +100,12 @@ function Probe({
   sendMessage = jest.fn(),
   prepareDraftChat = jest.fn(),
   setMessages = jest.fn(),
+  streaming = false,
+  onStreamBusy,
+  messages = [],
+  imageGenerating,
+  onBeforeSend,
+  draft,
 }: {
   offline?: boolean;
   chatLoading?: boolean;
@@ -104,6 +115,12 @@ function Probe({
   sendMessage?: jest.Mock;
   prepareDraftChat?: jest.Mock;
   setMessages?: jest.Mock;
+  streaming?: boolean;
+  onStreamBusy?: jest.Mock;
+  messages?: Message[];
+  imageGenerating?: boolean;
+  onBeforeSend?: jest.Mock;
+  draft?: Record<string, unknown>;
 }) {
   const result = useChatSend({
     token,
@@ -111,27 +128,30 @@ function Probe({
     chatLoading,
     routeChatId,
     setChatId: mockSetChatId,
-    setChatTitle: jest.fn(),
+    setChatTitle: mockSetChatTitle,
     router: { setParams: mockSetParams } as never,
-    draft: {
+    draft: (draft ?? {
       draftChatIdRef: { current: null },
       skipLoadForChatIdRef: { current: null },
       creatingRef: { current: false },
       prepareDraftChat,
       setDraftChatId: jest.fn(),
       discardEmptyChat: jest.fn(),
-    } as never,
+    }) as never,
     scroll: { newMessageCountRef: { current: 0 } } as never,
-    streaming: false,
+    streaming,
     sendMessage,
     setMessages,
-    messages: [],
+    messages,
     selectedModel: "free-chat",
     updateUser: jest.fn(),
     t: (key) => key,
+    onStreamBusy,
     isOffline: offline,
     onOfflineBlocked,
+    onBeforeSend,
     onGenerateImage,
+    imageGenerating,
   });
   useLayoutEffect(() => { current = result; });
   return <Text>send</Text>;
@@ -979,3 +999,326 @@ describe("useChatSend math scans", () => {
   });
 });
 
+
+describe("useChatSend send steps", () => {
+  const image = { localUri: "file://pic.jpg", contentType: "image/jpeg", fileName: "pic.jpg", kind: "image" as const };
+  const file = { localUri: "file://report.pdf", contentType: "application/pdf", fileName: "report.pdf", kind: "file" as const };
+  const lastImage: Message[] = [
+    { id: "u1", role: "user", content: "Generate image: black cat", model: null, created_at: "t" },
+    { id: "a1", role: "assistant", content: "[Image: /attachments/aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee/file]", model: null, created_at: "t" },
+  ];
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    inputRef.current = "hello";
+    mockThreadKey = "chat-1";
+    needsGeo.mockReturnValue(false);
+    resolveGeo.mockResolvedValue({ ok: true, clientGeo: null });
+    mockImageIntent.mockResolvedValue({ subject: null });
+  });
+
+  async function send() {
+    await act(async () => { await current.handleSend(); });
+  }
+
+  it("asks the user to wait while a reply streams, and keeps the draft", async () => {
+    const onStreamBusy = jest.fn();
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" streaming onStreamBusy={onStreamBusy} sendMessage={sendMessage} />);
+    await send();
+    expect(onStreamBusy).toHaveBeenCalledTimes(1);
+    expect(mockTap).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(mockSetInput).not.toHaveBeenCalled();
+  });
+
+  it("ignores an empty tap while a reply streams", async () => {
+    const onStreamBusy = jest.fn();
+    inputRef.current = "   ";
+    await render(<Probe chatId="chat-1" streaming onStreamBusy={onStreamBusy} />);
+    await send();
+    expect(onStreamBusy).not.toHaveBeenCalled();
+    expect(mockTap).not.toHaveBeenCalled();
+  });
+
+  it("reports offline before the stream-busy guard", async () => {
+    const onStreamBusy = jest.fn();
+    await render(<Probe chatId="chat-1" offline streaming onStreamBusy={onStreamBusy} />);
+    await send();
+    expect(mockNotifyWarning).toHaveBeenCalledTimes(1);
+    expect(onOfflineBlocked).toHaveBeenCalledTimes(1);
+    expect(onStreamBusy).not.toHaveBeenCalled();
+    expect(mockTap).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["an empty composer", "  ", "token"],
+    ["no session", "hello", null],
+  ])("sends nothing with %s", async (_label, text, token) => {
+    inputRef.current = text;
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" token={token} sendMessage={sendMessage} />);
+    await send();
+    expect(mockTap).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("does not send while a new chat is being created", async () => {
+    const sendMessage = jest.fn();
+    const draft = {
+      draftChatIdRef: { current: null }, skipLoadForChatIdRef: { current: null }, creatingRef: { current: true },
+      prepareDraftChat: jest.fn(), setDraftChatId: jest.fn(), discardEmptyChat: jest.fn(),
+    };
+    await render(<Probe chatId="chat-1" draft={draft} sendMessage={sendMessage} />);
+    await send();
+    expect(mockTap).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("lets onBeforeSend take the turn after the tap", async () => {
+    const onBeforeSend = jest.fn(() => true);
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" onBeforeSend={onBeforeSend} sendMessage={sendMessage} />);
+    await send();
+    expect(mockTap).toHaveBeenCalledTimes(1);
+    expect(onBeforeSend).toHaveBeenCalledWith("hello");
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(mockSetInput).not.toHaveBeenCalled();
+  });
+
+  it("never asks the server about a photo lookup", async () => {
+    inputRef.current = "show me an ear";
+    await render(<Probe chatId="chat-1" />);
+    await send();
+    expect(mockImageIntent).not.toHaveBeenCalled();
+    expect(onGenerateImage).not.toHaveBeenCalled();
+  });
+
+  it("drops a draw request while an image is still generating", async () => {
+    inputRef.current = "draw me a cat";
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" imageGenerating sendMessage={sendMessage} />);
+    await send();
+    expect(mockTap).toHaveBeenCalledTimes(1);
+    expect(mockImageIntent).not.toHaveBeenCalled();
+    expect(onGenerateImage).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(mockSetInput).not.toHaveBeenCalled();
+    expect(current.sendPhase).toBe("idle");
+  });
+
+  it("edits an attached image instead of sending it", async () => {
+    inputRef.current = "make it blue";
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    await act(async () => { current.setPendingAttachment(image); });
+    await send();
+    expect(onGenerateImage).toHaveBeenCalledWith("make it blue", "make it blue", { attachment: image }, expect.anything());
+    expect(current.pendingAttachment).toBeNull();
+    expect(uploadAttachment).not.toHaveBeenCalled();
+    expect(sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("sends a draw request with a file attached as chat", async () => {
+    inputRef.current = "draw me a cat";
+    uploadAttachment.mockResolvedValue("att-1");
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" sendMessage={sendMessage} />);
+    await act(async () => { current.setPendingAttachment(file); });
+    await send();
+    expect(mockImageIntent).not.toHaveBeenCalled();
+    expect(onGenerateImage).not.toHaveBeenCalled();
+    expect(sendMessage).toHaveBeenCalledWith("draw me a cat", expect.objectContaining({ attachmentIds: ["att-1"] }));
+  });
+
+  it("revises the last generated image from its attachment", async () => {
+    inputRef.current = "make it blue";
+    await render(<Probe chatId="chat-1" messages={lastImage} />);
+    await send();
+    expect(onGenerateImage).toHaveBeenCalledWith(
+      "black cat, blue",
+      "make it blue",
+      { ids: ["aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee"] },
+      expect.anything(),
+    );
+  });
+
+  it("restores a failed image request on another thread by stashing it", async () => {
+    inputRef.current = "draw me a cat";
+    await render(<Probe chatId="chat-1" routeChatId="chat-1" />);
+    await send();
+    const persistence = onGenerateImage.mock.calls[0][3];
+    mockThreadKey = "chat-2";
+    await act(async () => { persistence.onFailure(); });
+    expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("chat-1", "draw me a cat");
+  });
+
+  it("refuses to restore a failed image request over a newer draft", async () => {
+    inputRef.current = "draw me a cat";
+    await render(<Probe chatId="chat-1" routeChatId="chat-1" />);
+    await send();
+    const persistence = onGenerateImage.mock.calls[0][3];
+    inputRef.current = "something newer";
+    mockSetInput.mockClear();
+    await act(async () => { persistence.onFailure(); });
+    expect(mockSetInput).not.toHaveBeenCalled();
+    expect(mockFeedbackError).toHaveBeenCalledWith("chat.restore_draft_blocked");
+  });
+
+  it("restores a plain send when the email draft flush fails", async () => {
+    const setMessages = jest.fn();
+    const sendMessage = jest.fn();
+    const unregisterFlush = registerEmailDraftFlusher(() => Promise.resolve(false));
+    try {
+      await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
+      await send();
+    } finally {
+      unregisterFlush();
+    }
+    const rows = setMessages.mock.calls.reduce(
+      (prev: Message[], [update]) => (typeof update === "function" ? update(prev) : update),
+      [],
+    );
+    expect(rows).toEqual([]);
+    expect(setMessages).toHaveBeenCalledTimes(2);
+    expect(mockSetInput).toHaveBeenNthCalledWith(1, "");
+    expect(mockSetInput).toHaveBeenLastCalledWith("hello");
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(current.pendingOutboundId).toBeNull();
+    expect(current.sendPhase).toBe("idle");
+  });
+
+  it.each([
+    [new Error("upload failed"), "upload failed"],
+    ["not an error", "chat.attach_failed"],
+  ])("restores the draft and reports a failed upload (%p)", async (error, message) => {
+    uploadAttachment.mockRejectedValueOnce(error);
+    const setMessages = jest.fn();
+    const sendMessage = jest.fn();
+    await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
+    await act(async () => { current.setPendingAttachment(file); });
+    await send();
+    expect(uploadAttachment).toHaveBeenCalledWith("token", file);
+    expect(mockFeedbackError).toHaveBeenCalledWith(message);
+    expect(mockSetInput).toHaveBeenLastCalledWith("hello");
+    expect(current.pendingAttachment).toEqual(file);
+    expect(setMessages).toHaveBeenCalledTimes(2);
+    expect(sendMessage).not.toHaveBeenCalled();
+    expect(current.sendPhase).toBe("idle");
+  });
+
+  it("restores the draft when the server makes no new chat", async () => {
+    const prepareDraftChat = jest.fn().mockResolvedValue(null);
+    await render(<Probe prepareDraftChat={prepareDraftChat} />);
+    await send();
+    expect(prepareDraftChat).toHaveBeenCalledWith("free-chat");
+    expect(mockFeedbackError).toHaveBeenCalledWith("chat.error_generic");
+    expect(mockSetInput).toHaveBeenLastCalledWith("hello");
+    expect(mockSetChatId).not.toHaveBeenCalled();
+    expect(current.sendPhase).toBe("idle");
+  });
+
+  it("makes a new draft chat the open one, then routes to it", async () => {
+    const draft = {
+      draftChatIdRef: { current: "created-1" as string | null }, skipLoadForChatIdRef: { current: null as string | null },
+      creatingRef: { current: false }, prepareDraftChat: jest.fn(), setDraftChatId: jest.fn(), discardEmptyChat: jest.fn(),
+    };
+    let creatingDuringPrepare: boolean | null = null;
+    draft.prepareDraftChat.mockImplementation(async () => {
+      creatingDuringPrepare = draft.creatingRef.current;
+      return "created-1";
+    });
+    mockThreadKey = "new";
+    await render(<Probe draft={draft} />);
+    await send();
+    expect(creatingDuringPrepare).toBe(true);
+    expect(draft.creatingRef.current).toBe(false);
+    expect(draft.skipLoadForChatIdRef.current).toBe("created-1");
+    expect(draft.draftChatIdRef.current).toBeNull();
+    const order = [mockSetChatTitle, mockSetChatId, draft.setDraftChatId, mockAdoptComposerThread, mockSetParams]
+      .map((fn) => fn.mock.invocationCallOrder[0]);
+    expect(order).toEqual([...order].sort((a, b) => a - b));
+    expect(mockSetChatTitle).toHaveBeenCalledWith(null);
+    expect(mockSetChatId).toHaveBeenCalledWith("created-1");
+    expect(draft.setDraftChatId).toHaveBeenCalledWith(null);
+    expect(mockSetParams).toHaveBeenCalledWith({ chatId: "created-1" });
+    expect(current.sendPhase).toBe("creating");
+    expect(current.pendingOutboundId).toMatch(/^local-/);
+  });
+
+  it("discards a draft chat created for a view the user left", async () => {
+    let finishCreate!: (id: string) => void;
+    const draft = {
+      draftChatIdRef: { current: null as string | null }, skipLoadForChatIdRef: { current: null },
+      creatingRef: { current: false }, setDraftChatId: jest.fn(), discardEmptyChat: jest.fn(),
+      prepareDraftChat: jest.fn(() => new Promise<string>((resolve) => { finishCreate = resolve; })),
+    };
+    mockThreadKey = "new";
+    const view = await render(<Probe draft={draft} />);
+    let sending!: Promise<void>;
+    await act(async () => {
+      sending = current.handleSend();
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+    draft.draftChatIdRef.current = "created-1";
+    mockThreadKey = "chat-2";
+    await view.rerender(<Probe chatId="chat-2" routeChatId="chat-2" draft={draft} />);
+    await act(async () => { finishCreate("created-1"); await sending; });
+    expect(draft.draftChatIdRef.current).toBeNull();
+    expect(draft.setDraftChatId).toHaveBeenCalledWith(null);
+    expect(draft.discardEmptyChat).toHaveBeenCalledWith("created-1");
+    expect(mockStashFailedDraftForThread).toHaveBeenCalledWith("new", "hello");
+    expect(draft.creatingRef.current).toBe(false);
+  });
+
+  it("dispatches the turn with everything the transport needs", async () => {
+    const setMessages = jest.fn();
+    const sendMessage = jest.fn();
+    const clientGeo = { latitude: 1, longitude: 2 };
+    inputRef.current = "  coffee near me ";
+    needsGeo.mockReturnValue(true);
+    resolveGeo.mockResolvedValue({ ok: true, clientGeo });
+    await render(<Probe chatId="chat-1" setMessages={setMessages} sendMessage={sendMessage} />);
+    await send();
+    expect(resolveGeo).toHaveBeenCalledWith("token", "coffee near me", expect.any(Function), expect.any(Function));
+    const [bubble] = setMessages.mock.calls[0][0]([]);
+    expect(bubble).toMatchObject({ id: expect.stringMatching(/^local-/), role: "user", content: "coffee near me" });
+    expect(sendMessage).toHaveBeenCalledWith("coffee near me", {
+      text: "coffee near me",
+      composerDraft: { text: "  coffee near me ", attachment: null },
+      skipUserBubble: true,
+      trackSendingMessageId: bubble.id,
+      attachmentIds: undefined,
+      localImageUri: null,
+      localFileUri: null,
+      localFileName: null,
+      localFileContentType: null,
+      clientGeo,
+      model: "free-chat",
+    });
+    expect(mockSetInput).toHaveBeenCalledWith("");
+    expect(current.pendingOutboundId).toBeNull();
+    expect(current.sendPhase).toBe("idle");
+  });
+
+  it("moves from locating to uploading for a geo question with a photo", async () => {
+    let finishGeo!: (value: { ok: true; clientGeo: null }) => void;
+    let finishUpload!: (id: string) => void;
+    needsGeo.mockReturnValue(true);
+    resolveGeo.mockReturnValue(new Promise((resolve) => { finishGeo = resolve; }));
+    uploadAttachment.mockReturnValue(new Promise((resolve) => { finishUpload = resolve; }));
+    inputRef.current = "where is this near me";
+    await render(<Probe chatId="chat-1" />);
+    await act(async () => { current.setPendingAttachment(image); });
+    let sending!: Promise<void>;
+    await act(async () => { sending = current.handleSend(); });
+    expect(current.sendPhase).toBe("locating");
+    expect(current.pendingAttachment).toEqual(image);
+    await act(async () => { finishGeo({ ok: true, clientGeo: null }); });
+    expect(current.sendPhase).toBe("uploading");
+    expect(current.pendingAttachment).toBeNull();
+    await act(async () => { finishUpload("att-1"); await sending; });
+    expect(current.sendPhase).toBe("idle");
+  });
+});
