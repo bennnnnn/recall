@@ -4,13 +4,15 @@ One picture per question. The arc carries its range and height as measure
 lines and its launch angle as an arc, so the trajectory graph it used to sit
 beside said nothing the scene does not; a fall carries the ledge it leaves and
 the height it drops. Every coordinate is a sample of the solved motion, so the
-ball is never somewhere the answer says it is not.
+ball is never somewhere the answer says it is not. A question about a fall's
+speed also gets its v-t line, a different view of it (`fall_speed_pictures`).
 """
 
 from __future__ import annotations
 
 import math
 
+from app.modules.math.schemas import GraphBlockSpec
 from app.modules.physics.display import GIVEN_FIGURES, plain_number
 from app.modules.physics.schemas import (
     SimulationAngle,
@@ -202,6 +204,66 @@ def vertical_scene(
         strobe=_STROBE,
         ground=ground,
         alt=alt,
+    )
+
+
+def fall_scenes(
+    h0: float, v0: float, g: float, t_end: float, *, ground: bool
+) -> list[SimulationBlockSpec]:
+    """One picture: the drop or the throw itself, with the ledge and the height on it.
+
+    A height-time curve beside it plotted the same samples again. None when
+    neither a height nor a launch speed was given: the ball would never leave
+    the ground, which reads as "it never moved".
+    """
+    scene = None if h0 <= 0 and v0 == 0 else vertical_scene(h0, v0, g, t_end, ground=ground)
+    return [scene] if scene is not None else []
+
+
+def fall_speed_pictures(
+    h0: float, v0: float, g: float, t_end: float, *, speed: bool, ground: bool
+) -> tuple[list[SimulationBlockSpec], list[GraphBlockSpec]]:
+    """A "how fast after 1 s" ask gets v(t), not h(t), beside the fall itself.
+
+    Plotting height against a question about speed answers a different question
+    than the one asked, and `velocity_vs_time` has been declared on both sides of
+    the wire — and emitted by nothing — since the type was introduced.
+    """
+    # No h0/v0 guard here: v(t) = v0 - g*t is a real line even for a drop
+    # from an unstated height, which is exactly the case h(t) cannot plot.
+    # Only a zero-length window is degenerate.
+    if t_end <= 0:
+        return [], []
+    # The fall itself, to the instant asked about; the v-t line beside it
+    # is a different view (its slope is g), not the same path twice.
+    fall = vertical_scene(h0, v0, g, t_end, ground=ground)
+    return ([fall] if fall is not None else []), [_velocity_time_graph(v0, g, t_end, speed)]
+
+
+def _velocity_time_graph(v0: float, g: float, t_end: float, speed: bool) -> GraphBlockSpec:
+    n_points = 100
+    # End on the instant this answer is about. A later sample is a
+    # different velocity than the one just computed.
+    t_max = t_end
+    dt = t_max / (n_points - 1)
+    v_points: list[list[float]] = []
+    for i in range(n_points):
+        ti = i * dt
+        vi = v0 - g * ti
+        if speed:
+            vi = abs(vi)
+        v_points.append([round(ti, 4), round(float(vi), 4)])
+    return GraphBlockSpec(
+        type="trajectory",
+        expr=(f"v(t) = |{v0:g} - {g:g}*t|" if speed else f"v(t) = {v0:g} - {g:g}*t"),
+        variable="t",
+        x_min=0.0,
+        x_max=t_max,
+        points=v_points,
+        title="Speed vs. Time" if speed else "Velocity vs. Time",
+        x_label="Time (s)",
+        y_label="Speed (m/s)" if speed else "Velocity (m/s)",
+        trajectory_type="velocity_vs_time",
     )
 
 
