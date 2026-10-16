@@ -924,6 +924,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-35 — Phone chat send path: `useChatSend` (622-line hook), `handleChatPayload`, `submitPrompt`
 
+- **Status:** done. `handleSend` is the step order over `canSend` (`model/sendGuards.ts`), `resolveSendIntercept` (`model/sendIntercept.ts`, today's phone intercept wrapped unchanged, so ES-05 swaps in the server verdict), `useSendAttachment` and `ensureChatId` (`useEnsureChatId`), whose upload and chat-creation steps image generation now shares; `handleChatPayload` is `CHAT_EVENT_HANDLERS` in `model/chatEvents.ts` with the to-do waits named. A capture of 12,500 seeded send, image, incoming-event and `useChat` scenarios is byte-identical before and after.
 - **Problem:**
   - `features/chat/hooks/useChatSend.ts:295` `handleSend` (262 lines) mixes guards (offline,
     streaming, double send), the composer intercept, photo lookup, image-generation intent and

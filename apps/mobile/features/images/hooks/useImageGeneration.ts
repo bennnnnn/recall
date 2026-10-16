@@ -19,7 +19,9 @@ import {
 } from "@/features/images/model/imageGenTurn";
 import { notifyOfflineSendBlocked } from "@/lib/offlineSendFeedback";
 import { invalidateGalleryCache } from "@/features/attachments/model/galleryListCache";
-import { uploadChatAttachment, type PendingAttachment } from "@/features/attachments/model/attachments";
+import type { PendingAttachment } from "@/features/attachments/model/attachments";
+import { useEnsureChatId } from "@/features/chat/hooks/useEnsureChatId";
+import { uploadSendAttachment } from "@/features/chat/hooks/useSendAttachment";
 import type { useDraftChat } from "@/hooks/useDraftChat";
 
 type Options = {
@@ -87,24 +89,7 @@ export function useImageGeneration({
   streamingRef.current = streaming;
   tokenRef.current = token;
 
-  const { creatingRef, prepareDraftChat, skipLoadForChatIdRef, draftChatIdRef, setDraftChatId } = draft;
-  const ensureChatId = useCallback(async (): Promise<string | null> => {
-    if (chatId) return chatId;
-    creatingRef.current = true;
-    try {
-      const id = await prepareDraftChat(selectedModel);
-      if (!id) throw new Error("Could not create chat");
-      skipLoadForChatIdRef.current = id;
-      setChatTitle(null);
-      setChatId(id);
-      draftChatIdRef.current = null;
-      setDraftChatId(null);
-      router.setParams({ chatId: id });
-      return id;
-    } finally {
-      creatingRef.current = false;
-    }
-  }, [chatId, creatingRef, prepareDraftChat, skipLoadForChatIdRef, draftChatIdRef, setDraftChatId, router, selectedModel, setChatId, setChatTitle]);
+  const ensureChatId = useEnsureChatId({ chatId, selectedModel, draft, setChatId, setChatTitle, router });
 
   const submitPrompt = useCallback(
     async (input: ImageGenSubmit) => {
@@ -213,7 +198,7 @@ export function useImageGeneration({
           return;
         }
         const referenceIds = input.referenceAttachment
-          ? [await uploadChatAttachment(authToken, input.referenceAttachment)]
+          ? (await uploadSendAttachment(authToken, input.referenceAttachment)).ids
           : input.referenceAttachmentIds;
         // Retry the same upload/reference, not whatever image is newest later.
         lastSubmitRef.current = {

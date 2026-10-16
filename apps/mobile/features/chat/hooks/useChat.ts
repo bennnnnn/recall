@@ -7,12 +7,7 @@ import { createStreamCueGate } from "@/features/chat/model/streamFeedback";
 import { clientGeoWsFields, type ClientGeo } from "@/lib/clientGeo";
 import { getSessionGeneration } from "@/lib/auth";
 import { useChatTransport } from "@/features/chat/hooks/useChatTransport";
-import {
-  useChatIncomingEvents,
-  type PendingSend,
-  type RejectedSend,
-  type SendMessageOptions,
-} from "@/features/chat/hooks/useChatIncoming";
+import { useChatIncomingEvents } from "@/features/chat/hooks/useChatIncoming";
 import {
   publishStreamingDraft,
   type StreamingDraft,
@@ -22,7 +17,12 @@ import {
   restoreAssistantMessage,
 } from "@/features/chat/model/regenerateLogic";
 import type { ChatWsFallbackSignal, ChatWsTransport } from "@/features/chat/model/wsTransport";
-import type { ComposerSendDraft } from "@/features/chat/model/sendLogic";
+import type {
+  ComposerSendDraft,
+  PendingSend,
+  RejectedSend,
+  SendMessageOptions,
+} from "@/features/chat/model/sendLogic";
 
 type UseChatOptions = {
   /** Called with the new title when the server sends one after first reply */
