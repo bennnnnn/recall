@@ -936,3 +936,57 @@ async def test_process_entries_cancelled_job_stays_pending(fake_redis):
     pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
     assert _pending_count(pending) == 1
     assert await fake_redis.get(jobs.job_done_key("memory:1")) is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "held, ttl, pending_after_reclaim",
+    [
+        # Another worker is running the job: the entry waits for that run.
+        (dedupe._DEDUPE_RUNNING, dedupe._JOB_DONE_CLAIM_TTL_SECONDS, 1),
+        # Another worker finished it: the duplicate is acked.
+        (dedupe._DEDUPE_DONE, dedupe._JOB_DONE_TTL_SECONDS, 0),
+    ],
+)
+async def test_cancel_after_losing_the_claim_keeps_the_other_runs_key(
+    fake_redis, held, ttl, pending_after_reclaim
+):
+    """A worker stopped while it reads why it lost the claim must not release
+    the claim: it never owned it. Deleting another run's key (or the done
+    marker) let the next reclaim win SET NX and run the job a second time."""
+    calls = []
+
+    async def handler(_settings, _payload):
+        calls.append(1)
+
+    jobs.register("lost-claim-job", handler)
+    await worker._ensure_group(fake_redis)
+    fields = {"type": "lost-claim-job", "payload": "{}", "dedupe_key": "memory:2"}
+    entry_id = await fake_redis.xadd(jobs.JOBS_STREAM, fields)
+    await fake_redis.xreadgroup(jobs.JOBS_GROUP, "w2", {jobs.JOBS_STREAM: ">"}, count=1)
+    key = jobs.job_done_key("memory:2")
+    await fake_redis.set(key, held, ex=ttl)
+
+    reading = asyncio.Event()
+
+    async def stalled_get(_name):
+        # The state read after a lost SET NX is in flight when the deploy cancels.
+        reading.set()
+        await asyncio.Event().wait()
+
+    with patch.object(fake_redis, "get", stalled_get):
+        task = asyncio.create_task(
+            worker._process_entries(fake_redis, Settings(), [(entry_id, fields)])
+        )
+        await reading.wait()
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+
+    after_cancel = await fake_redis.get(key)
+    with patch.object(worker, "_CLAIM_IDLE_MS", 0):
+        await worker._reclaim_pending_jobs(fake_redis, Settings(), "w3")
+    assert after_cancel == held, f"claim key after the cancel: {after_cancel!r}"
+    assert calls == [], f"the reclaim ran the job {len(calls)} more time(s)"
+    pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)
+    assert _pending_count(pending) == pending_after_reclaim

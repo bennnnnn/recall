@@ -70,21 +70,26 @@ async def _process_one_entry(
     else:
         dedupe_key = None
     should_ack = True
+    owns_claim = False
     keepalive: asyncio.Task[None] | None = None
     try:
         claim = await _claim_entry(redis, entry_id, dedupe_key)
         if claim != "run":
             should_ack = claim == "done"
             return
+        owns_claim = True
         if dedupe_key:
             keepalive = asyncio.create_task(_refresh_running_claim_loop(redis, dedupe_key))
         await _dispatch_with_retries(redis, settings, entry_id, fields, dedupe_key)
     except asyncio.CancelledError:
         # The worker is stopping (deploy, SIGTERM) mid-job. Leave the entry
         # pending so a live worker's reclaim runs it again; acking here
-        # dropped every in-flight job on each deploy.
+        # dropped every in-flight job on each deploy. Release only a claim
+        # this run took: the key a lost SET NX found is another run's claim
+        # or done marker, and deleting it let a reclaim run the job twice.
         should_ack = False
-        await _release_dedupe(redis, dedupe_key)
+        if owns_claim:
+            await _release_dedupe(redis, dedupe_key)
         raise
     finally:
         if keepalive is not None:
