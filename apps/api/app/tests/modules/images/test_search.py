@@ -8,7 +8,11 @@ import pytest
 from app.core.config import Settings
 from app.gateways.image_search_gateway import ImageSearchHit
 from app.gateways.storage_gateway import PresignedUpload, UnconfiguredStorageGateway
-from app.modules.images.search import ImageSearchError, search_and_attach_for_chat
+from app.modules.images.search import (
+    ImageSearchError,
+    photos_for_answer,
+    search_and_attach_for_chat,
+)
 
 PNG_BYTES = b"\x89PNG\r\n\x1a\n" + b"0" * 32
 _HIT = ImageSearchHit(
@@ -134,6 +138,42 @@ async def test_no_hits_refunds_quota_and_raises_502():
             await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
     assert exc.value.status_code == 502
     refund.assert_awaited_once()
+
+
+async def _chat_lookup(settings, user):
+    with pytest.raises(ImageSearchError, match=r"(?i)photo|image"):
+        await search_and_attach_for_chat(settings, user=user, chat_id=uuid4(), query="an ear")
+
+
+async def _answer_photo(settings, user):
+    assert await photos_for_answer(settings, user=user, query="an ear") == []
+
+
+@pytest.mark.parametrize("lookup", [_chat_lookup, _answer_photo])
+@pytest.mark.asyncio
+async def test_photo_lookup_refunds_the_day_it_reserved(fake_redis, quota_clock, lookup):
+    """A lookup reserved before UTC midnight that finds nothing after it refunds the first day."""
+    settings = Settings(image_search_enabled=True, daily_image_searches=10)
+    user = MagicMock(id=uuid4(), plan="free")
+
+    async def nothing_after_midnight(*_args, **_kwargs):
+        quota_clock.day = quota_clock.next_day
+        return []
+
+    with (
+        patch(
+            "app.modules.images.search.chats_repo.get_by_id", AsyncMock(return_value=MagicMock())
+        ),
+        patch("app.modules.images.search.get_storage_gateway", return_value=_fake_gateway()),
+        patch("app.modules.images.search.get_redis_client", return_value=fake_redis),
+        patch(
+            "app.modules.images.search.image_search_gateway.search_images",
+            nothing_after_midnight,
+        ),
+    ):
+        await lookup(settings, user)
+    keys = [f"imgsearch:{user.id}:2026-10-{n}" for n in (16, 17)]
+    assert await fake_redis.mget(keys) == ["0", None]
 
 
 @pytest.mark.asyncio

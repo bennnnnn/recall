@@ -2872,6 +2872,46 @@ def test_speech_tts_stream_empty_refunds():
 
 
 @pytest.mark.parametrize(
+    "path, provider, prefix, status_code",
+    [
+        ("/speech/transcribe", "transcribe_audio", "speech", 502),
+        ("/speech/tts", "synthesize_speech", "tts", 502),
+        ("/speech/tts/stream", "iter_tts_pcm", "tts", 200),
+    ],
+)
+def test_speech_refunds_the_day_it_reserved(quota_clock, path, provider, prefix, status_code):
+    """A clip reserved before UTC midnight that fails after it refunds the first day."""
+    import asyncio
+
+    import fakeredis.aioredis
+
+    async def fails_after_midnight(*_args, **_kwargs):
+        quota_clock.day = quota_clock.next_day
+
+    async def no_audio_after_midnight(*_args, **_kwargs):
+        quota_clock.day = quota_clock.next_day
+        if False:
+            yield b"x"
+
+    user = _fake_user(plan="plus")
+    client = TestClient(_app_with_user(user))
+    fake_redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    fake = no_audio_after_midnight if provider == "iter_tts_pcm" else fails_after_midnight
+    with (
+        patch("app.modules.speech.api.get_redis_client", return_value=fake_redis),
+        patch(f"app.modules.speech.api.speech_service.{provider}", fake),
+    ):
+        if path == "/speech/transcribe":
+            files = {"file": ("speech.m4a", b"fake-audio", "audio/m4a")}
+            r = client.post(path, headers={"Authorization": "Bearer tok"}, files=files)
+        else:
+            r = client.post(path, headers={"Authorization": "Bearer tok"}, json={"text": "hello"})
+        keys = [f"{prefix}:{user.id}:2026-10-{n}" for n in (16, 17)]
+        assert asyncio.run(fake_redis.mget(keys)) == ["0", None]
+    assert r.status_code == status_code
+
+
+@pytest.mark.parametrize(
     "path, body",
     [
         ("/speech/transcribe", None),

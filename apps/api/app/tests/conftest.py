@@ -1,4 +1,6 @@
 import os
+from datetime import date
+from types import SimpleNamespace
 from unittest.mock import patch
 
 import fakeredis.aioredis
@@ -14,6 +16,18 @@ async def fake_redis():
     client = fakeredis.aioredis.FakeRedis(decode_responses=True)
     yield client
     await client.aclose()
+
+
+@pytest.fixture
+def quota_clock():
+    """The UTC day the daily counters see, 2026-10-16 until a test sets ``.day``.
+
+    A provider fake that sets ``quota_clock.day = quota_clock.next_day`` makes
+    its request run past UTC midnight.
+    """
+    clock = SimpleNamespace(day=date(2026, 10, 16), next_day=date(2026, 10, 17))
+    with patch("app.services.quota.counters.utc_today", side_effect=lambda: clock.day):
+        yield clock
 
 
 @pytest.fixture(autouse=True)

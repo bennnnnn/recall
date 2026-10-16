@@ -304,15 +304,38 @@ def _today_key(prefix, user_id):
 
 @pytest.mark.parametrize("counter, prefix", _COUNTER_KEYS)
 @pytest.mark.asyncio
-async def test_counter_reserve_stops_at_the_plan_cap(fake_redis, counter, prefix):
+async def test_counter_reserve_stops_at_the_plan_cap(fake_redis, quota_clock, counter, prefix):
     user = _pro_user()
     user.id = uuid4()
     settings = _capped(counter, 2)
-    assert await counters.reserve(counter, fake_redis, user, settings) is True
-    assert await counters.reserve(counter, fake_redis, user, settings) is True
-    assert await counters.reserve(counter, fake_redis, user, settings) is False
-    key = _today_key(prefix, user.id)
+    # A reserve returns the day it charged, for a refund of that slot to pass back.
+    assert await counters.reserve(counter, fake_redis, user, settings) == quota_clock.day
+    assert await counters.reserve(counter, fake_redis, user, settings) == quota_clock.day
+    assert await counters.reserve(counter, fake_redis, user, settings) is None
+    key = f"{prefix}:{user.id}:2026-10-16"
     assert await fake_redis.get(key) == "2"
+    assert await fake_redis.ttl(key) == 48 * 60 * 60
+
+
+@pytest.mark.parametrize("counter, prefix", _COUNTER_KEYS)
+@pytest.mark.parametrize("left_without_ttl", [None, "1"])
+@pytest.mark.asyncio
+async def test_counter_reserve_always_leaves_a_ttl(
+    fake_redis, quota_clock, counter, prefix, left_without_ttl
+):
+    """INCR and EXPIRE are one transaction: no failed EXPIRE can leave a charge forever.
+
+    The standalone EXPIRE a reserve used to send fails here, and a counter
+    an older reserve left without a TTL gets one.
+    """
+    user = _pro_user()
+    user.id = uuid4()
+    key = f"{prefix}:{user.id}:2026-10-16"
+    if left_without_ttl is not None:
+        await fake_redis.set(key, left_without_ttl)
+    fake_redis.expire = AsyncMock(side_effect=RedisConnectionError("blip"))
+    assert await counters.reserve(counter, fake_redis, user, _capped(counter, 5)) == quota_clock.day
+    assert await fake_redis.get(key) == str(int(left_without_ttl or 0) + 1)
     assert await fake_redis.ttl(key) == 48 * 60 * 60
 
 
@@ -322,7 +345,7 @@ async def test_counter_reserve_refuses_a_plan_without_it(counter):
     user = _free_user()
     user.id = uuid4()
     redis = AsyncMock()
-    assert await counters.reserve(counter, redis, user, _capped(counter, 0, "free")) is False
+    assert await counters.reserve(counter, redis, user, _capped(counter, 0, "free")) is None
     assert redis.mock_calls == []
 
 
@@ -332,31 +355,95 @@ async def test_counter_refund_gives_the_slot_back(fake_redis, counter, prefix):
     user = _pro_user()
     user.id = uuid4()
     settings = _capped(counter, 1)
-    assert await counters.reserve(counter, fake_redis, user, settings) is True
-    await counters.refund(counter, fake_redis, user.id)
+    day = await counters.reserve(counter, fake_redis, user, settings)
+    assert day
+    await counters.refund(counter, fake_redis, user.id, day=day)
     assert await fake_redis.get(_today_key(prefix, user.id)) == "0"
-    assert await counters.reserve(counter, fake_redis, user, settings) is True
+    assert await counters.reserve(counter, fake_redis, user, settings)
 
 
+@pytest.mark.parametrize("counter, prefix", _REFUNDABLE)
+@pytest.mark.parametrize("next_day_uses", [0, 1])
+@pytest.mark.asyncio
+async def test_counter_refund_after_midnight_returns_the_slot_to_its_day(
+    fake_redis, quota_clock, counter, prefix, next_day_uses
+):
+    """A request reserved at 23:59 that fails after midnight refunds the day it was charged.
+
+    Refunding the next day instead gave a free use there (when it had uses)
+    or created it at -1 and floored it to a 0 with no TTL (when it had none).
+    """
+    user = _pro_user()
+    user.id = uuid4()
+    settings = _capped(counter, 5)
+    day = await counters.reserve(counter, fake_redis, user, settings)
+    quota_clock.day = quota_clock.next_day
+    for _ in range(next_day_uses):
+        assert await counters.reserve(counter, fake_redis, user, settings)
+    await counters.refund(counter, fake_redis, user.id, day=day)
+    day_key, next_key = (f"{prefix}:{user.id}:2026-10-{n}" for n in (16, 17))
+    assert await fake_redis.get(day_key) == "0"
+    assert 0 < await fake_redis.ttl(day_key) <= 48 * 60 * 60
+    assert await fake_redis.get(next_key) == (str(next_day_uses) if next_day_uses else None)
+
+
+@pytest.mark.parametrize("counter, prefix", _REFUNDABLE)
 @pytest.mark.parametrize(
-    "counter, prefix, left",
+    "reserves, expired, refunds, left",
     [
-        # Uploads only decrement a counter above zero, so a stray refund leaves no key.
-        ("image_upload", "imgup", None),
-        ("speech_transcription", "speech", "0"),
-        ("speech_tts", "tts", "0"),
-        ("image_generation", "imggen", "0"),
-        ("image_search", "imgsearch", "0"),
+        (0, False, 2, None),  # a refund without its reserve creates nothing
+        (1, True, 1, None),  # the day's counter expired: nothing to give back
+        (1, False, 2, "0"),  # a double refund floors at 0
+        (2, False, 1, "1"),
     ],
 )
 @pytest.mark.asyncio
-async def test_counter_refund_without_a_reserve_never_goes_negative(
-    fake_redis, counter, prefix, left
+async def test_counter_refund_only_lowers_a_live_counter(
+    fake_redis, quota_clock, counter, prefix, reserves, expired, refunds, left
 ):
+    user = _pro_user()
+    user.id = uuid4()
+    key = f"{prefix}:{user.id}:2026-10-16"
+    for _ in range(reserves):
+        assert await counters.reserve(counter, fake_redis, user, _capped(counter, 5))
+    if expired:
+        await fake_redis.delete(key)
+    for _ in range(refunds):
+        await counters.refund(counter, fake_redis, user.id, day=quota_clock.day)
+    assert await fake_redis.get(key) == left
+    if left is not None:
+        assert 0 < await fake_redis.ttl(key) <= 48 * 60 * 60
+
+
+@pytest.mark.parametrize(
+    "refund",
+    [
+        lambda r, uid: counters.refund("speech_tts", r, uid),
+        lambda r, uid: counters.refund("image_upload", r, uid),
+        lambda r, uid: quota_service.refund_usage(r, str(uid), 50),
+        lambda r, uid: quota_service.release_live_talk_seconds(r, uid, seconds=60),
+    ],
+    ids=["daily counter", "upload counter", "token budget", "live talk month"],
+)
+@pytest.mark.asyncio
+async def test_no_refund_creates_a_counter(fake_redis, refund):
+    """Each refund path leaves a missing counter missing, never a 0 with no TTL."""
     user_id = uuid4()
-    await counters.refund(counter, fake_redis, user_id)
-    await counters.refund(counter, fake_redis, user_id)
-    assert await fake_redis.get(_today_key(prefix, user_id)) == left
+    await refund(fake_redis, user_id)
+    await refund(fake_redis, user_id)
+    assert await fake_redis.keys("*") == []
+
+
+@pytest.mark.asyncio
+async def test_counter_refund_is_one_script_when_redis_runs_lua():
+    """Real Redis checks, lowers and floors in one EVAL; nothing else is sent."""
+    redis = AsyncMock()
+    user_id = uuid4()
+    await counters.refund("image_search", redis, user_id, day=date(2026, 10, 16))
+    script, numkeys, key, amount = redis.eval.await_args.args
+    assert (numkeys, key, amount) == (1, f"imgsearch:{user_id}:2026-10-16", "1")
+    assert "EXISTS" in script and "KEEPTTL" in script
+    assert [call[0] for call in redis.mock_calls] == ["eval"]
 
 
 @pytest.mark.parametrize("counter, prefix", _REFUNDABLE)
@@ -402,13 +489,17 @@ def test_counter_limit_message_offers_upgrade_only_on_free(counter, free_upgrade
 @pytest.mark.parametrize("counter, prefix", _COUNTER_KEYS)
 @pytest.mark.asyncio
 async def test_counter_reserve_fails_closed_when_redis_is_down(counter, prefix):
-    redis = AsyncMock()
-    redis.incrby.side_effect = RedisConnectionError("down")
+    pipe = MagicMock()
+    pipe.execute = AsyncMock(side_effect=RedisConnectionError("down"))
+    redis = MagicMock()
+    redis.pipeline.return_value.__aenter__.return_value = pipe
     user = _pro_user()
     user.id = uuid4()
     with pytest.raises(RedisUnavailableError):
         await counters.reserve(counter, redis, user, _capped(counter, 5))
-    redis.incrby.assert_awaited_once_with(_today_key(prefix, user.id), 1)
+    redis.pipeline.assert_called_once_with(transaction=True)
+    pipe.incrby.assert_called_once_with(_today_key(prefix, user.id), 1)
+    pipe.expire.assert_called_once_with(_today_key(prefix, user.id), 48 * 60 * 60, nx=True)
 
 
 # ── Live talk minutes ────────────────────────────────────────────────────────

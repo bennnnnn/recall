@@ -5,6 +5,7 @@ import hashlib
 import json
 import logging
 from collections.abc import AsyncIterator
+from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
@@ -55,7 +56,8 @@ def _require_plan_feature(user: User, settings: Settings, feature: Feature, mess
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=message)
 
 
-async def _reserve_tts_or_raise(user: User, settings: Settings) -> None:
+async def _reserve_tts_or_raise(user: User, settings: Settings) -> date:
+    """Every TTS gate, then today's slot; returns the day it charged."""
     _require_plan_feature(
         user, settings, "speech_tts", quota_service.SPEECH_TTS_NOT_IN_PLAN_MESSAGE
     )
@@ -79,11 +81,13 @@ async def _reserve_tts_or_raise(user: User, settings: Settings) -> None:
                 detail=quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
             )
 
-    if not await counters.reserve("speech_tts", redis, user, settings):
+    day = await counters.reserve("speech_tts", redis, user, settings)
+    if not day:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=counters.limit_message("speech_tts", user),
         )
+    return day
 
 
 async def _aiter_nonempty(chunks: AsyncIterator[bytes]) -> AsyncIterator[bytes]:
@@ -268,7 +272,7 @@ async def synthesize_speech(
         )
     rate_limit = settings.speech_rate_limit_per_minute
     part = _normalize_tts_part(body.part)
-    reserved_quota = False
+    reserved_day: date | None = None
     followup_key = _tts_followup_key(user.id)
     consumed_followup = False
     lead_hash = (body.lead_hash or "").strip()
@@ -291,12 +295,12 @@ async def synthesize_speech(
                 detail=quota_service.SPEECH_TTS_RATE_LIMIT_MESSAGE,
             )
     if billed:
-        if not await counters.reserve("speech_tts", redis, user, settings):
+        reserved_day = await counters.reserve("speech_tts", redis, user, settings)
+        if not reserved_day:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=counters.limit_message("speech_tts", user),
             )
-        reserved_quota = True
 
     try:
         alias = speech_service.normalize_tts_alias(body.model)
@@ -330,16 +334,12 @@ async def synthesize_speech(
             lead_hash=_tts_lead_hash(body.text) if part == "lead" else None,
         )
     except HTTPException as exc:
-        if reserved_quota and exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
-            await counters.refund("speech_tts", redis, user.id)
+        if reserved_day and exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
+            await counters.refund("speech_tts", redis, user.id, day=reserved_day)
         raise
-    except asyncio.CancelledError:
-        if reserved_quota:
-            await counters.refund("speech_tts", redis, user.id)
-        raise
-    except Exception:
-        if reserved_quota:
-            await counters.refund("speech_tts", redis, user.id)
+    except (asyncio.CancelledError, Exception):
+        if reserved_day:
+            await counters.refund("speech_tts", redis, user.id, day=reserved_day)
         raise
 
 
@@ -352,7 +352,7 @@ async def stream_speech(
     if not settings.speech_tts_enabled:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Not available")
 
-    await _reserve_tts_or_raise(user, settings)
+    day = await _reserve_tts_or_raise(user, settings)
     redis = get_redis_client()
     alias = speech_service.normalize_tts_alias(body.model)
 
@@ -372,7 +372,7 @@ async def stream_speech(
                 yield chunk
         finally:
             if not got:
-                await counters.refund("speech_tts", redis, user.id)
+                await counters.refund("speech_tts", redis, user.id, day=day)
             else:
                 await quota_service.record_voice_spend(redis, quota_service.TTS_SPEND_USD)
 
@@ -459,7 +459,8 @@ async def transcribe_speech(
                 detail=quota_service.SPEECH_RATE_LIMIT_MESSAGE,
             )
 
-    if not await counters.reserve("speech_transcription", redis, user, settings):
+    day = await counters.reserve("speech_transcription", redis, user, settings)
+    if not day:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail=counters.limit_message("speech_transcription", user),
@@ -471,13 +472,10 @@ async def transcribe_speech(
         return result
     except HTTPException as exc:
         if exc.status_code != status.HTTP_429_TOO_MANY_REQUESTS:
-            await counters.refund("speech_transcription", redis, user.id)
+            await counters.refund("speech_transcription", redis, user.id, day=day)
         raise
-    except asyncio.CancelledError:
-        await counters.refund("speech_transcription", redis, user.id)
-        raise
-    except Exception:
-        await counters.refund("speech_transcription", redis, user.id)
+    except (asyncio.CancelledError, Exception):
+        await counters.refund("speech_transcription", redis, user.id, day=day)
         raise
 
 

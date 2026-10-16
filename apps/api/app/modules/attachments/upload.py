@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import date
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -67,14 +68,14 @@ async def create_presigned_upload(
         )
 
     redis = get_redis_client()
-    image_reserved = False
+    reserved_day: date | None = None
     if normalized in IMAGE_CONTENT_TYPES:
-        if not await counters.reserve("image_upload", redis, user, settings):
+        reserved_day = await counters.reserve("image_upload", redis, user, settings)
+        if not reserved_day:
             raise AttachmentUploadError(
                 counters.limit_message("image_upload", user),
                 status_code=429,
             )
-        image_reserved = True
 
     try:
         presigned = await gateway.presign_upload(
@@ -95,8 +96,8 @@ async def create_presigned_upload(
         )
         await session.commit()
     except Exception:
-        if image_reserved:
-            await counters.refund("image_upload", redis, user.id)
+        if reserved_day:
+            await counters.refund("image_upload", redis, user.id, day=reserved_day)
         raise
 
     return AttachmentPresignOut(
