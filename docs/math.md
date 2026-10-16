@@ -94,7 +94,10 @@ A bare `log` (and `lg`) is base 10, as on a school calculator; `ln` is the natur
 `log2(…)`, `\log_{b}` and `log(x, b)` keep their written base. The parser
 (`solve/parse.py`), the symbolic physics grammar, the phone's graph resampler
 (`lib/math/graphExpr.ts`), the extraction prompts, and the chat prompt all agree;
-`docs/fixtures/graph_expr_cases.json` holds the resampler to the parser's SymPy values.
+`docs/fixtures/graph_expr_cases.json` holds the resampler to the parser's SymPy values. The
+graph fence's `expr` is the parser's reading printed in the resampler's grammar
+(`solve/graph_expr_text.py`): `sin x` arrives as `sin(x)`, `|x|` as `abs(x)`, a base-10 log as
+`log(x)` and a natural one as `ln(x)`, so the phone resamples exactly the curve SymPy plotted.
 SymPy's `log` is natural, so `core/sympy_notation.py` prints it as `\ln` and prints a change of
 base `ln(x)/ln(10)` as `\log_{10} x`. An answer that still has a variable stays exact
 (`\frac{1}{x \ln 10}`, never `0.434294/x`).
