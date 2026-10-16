@@ -475,6 +475,36 @@ describe("parseSimpleLatex", () => {
   });
 });
 
+describe("parseSimpleLatex: which commands take an argument", () => {
+  it.each([
+    // A root and a fraction are read by their prefix: `\sqrtx` is the root of x.
+    [String.raw`\sqrtx`, [{ type: "sqrt", body: [{ type: "text", value: "x" }] }]],
+    [String.raw`\sqrtab+1`, [{ type: "sqrt", body: [{ type: "text", value: "ab" }] }, { type: "text", value: "+1" }]],
+    [String.raw`\fracture`, [{ type: "text", value: "fracture" }]],
+    [String.raw`\cancelled`, [{ type: "text", value: "cancelled" }]],
+    [String.raw`\cancelto{0}{x}`, [{ type: "text", value: "cancelto(0)x" }]],
+    // An accent is read only as its whole word.
+    [String.raw`\hatx`, [{ type: "text", value: "hatx" }]],
+    [String.raw`\overlinex`, [{ type: "text", value: "overlinex" }]],
+    [String.raw`\dotx`, [{ type: "text", value: "dotx" }]],
+    [String.raw`\hat x`, [{ type: "accent", kind: "hat", span: false, body: [{ type: "text", value: "x" }] }]],
+    [String.raw`\ddot{x}`, [{ type: "accent", kind: "ddot", span: false, body: [{ type: "text", value: "x" }] }]],
+    [String.raw`\vec\text{v}`, [{ type: "accent", kind: "vec", span: false, body: [{ type: "upright", value: "v" }] }]],
+    // Without its argument a command is its name, and an object method is not a command.
+    [String.raw`\sqrt`, [{ type: "text", value: "sqrt" }]],
+    [String.raw`\sqrt[3`, [{ type: "text", value: "sqrt[3" }]],
+    [String.raw`\cancel`, [{ type: "text", value: "cancel" }]],
+    [String.raw`\bar`, [{ type: "text", value: "bar" }]],
+    [String.raw`\frac{1}`, [{ type: "text", value: "frac(1)" }]],
+    [String.raw`\constructor`, [{ type: "text", value: "constructor" }]],
+    [String.raw`\toString{x}`, [{ type: "text", value: "toString(x)" }]],
+    [String.raw`\hasOwnProperty{x}`, [{ type: "text", value: "hasOwnProperty(x)" }]],
+    ["x^", [{ type: "text", value: "x" }]],
+  ])("parses %s", (latex, segments) => {
+    expect(parseSimpleLatex(latex)).toEqual(segments);
+  });
+});
+
 describe("splitMathLines", () => {
   it("splits a multi-equation fence body into separate lines", () => {
     expect(splitMathLines("x^2 = 5 - 1\nx^2 = 4")).toEqual(["x^2 = 5 - 1", "x^2 = 4"]);

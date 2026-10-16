@@ -165,3 +165,35 @@ describe("native math layout invariants", () => {
     expect(isHeavyInlineMath(String.raw`\overline{AB}`)).toBe(false);
   });
 });
+
+/** The box each segment kind measures to at 16 px, so a refactor cannot move one. */
+const BOXES: [string, number, number, [string, number, number, number][]][] = [
+  ["x + 1", 39.36, 25, [["run", 39.36, 25, 0]]],
+  [String.raw`\frac{x^2}{y_1}`, 22.66, 50.84, [["frac", 16.66, 50.84, 6]]],
+  [String.raw`\sqrt[3]{x^2}`, 32, 33.32, [["sqrt", 28, 33.32, 4]]],
+  [String.raw`\sqrt[n+1]{x}`, 36.48, 27.56, [["sqrt", 32.48, 27.56, 4]]],
+  [String.raw`\overline{AB}`, 24.32, 28.52, [["accent", 24.32, 28.52, 0]]],
+  [String.raw`\widehat{x}`, 8.96, 28.52, [["accent", 8.96, 28.52, 0]]],
+  [String.raw`\hat{x}`, 8.32, 28.52, [["accent", 8.32, 28.52, 0]]],
+  [String.raw`\cancel{3}x`, 16.32, 25, [["cancel", 8, 25, 0], ["run", 8.32, 25, 0]]],
+  ["x_i^2", 13.92, 34.72, [["run", 8.32, 25, 0], ["script", 5.6, 34.72, 0]]],
+  ["x^{1/2}", 17.056, 34.16, [["run", 8.32, 25, 0], ["script", 8.736, 34.16, 0]]],
+  [String.raw`x^{\frac{1}{2}}`, 20.556, 36.16, [["run", 8.32, 25, 0], ["script", 12.236, 30.4, 0]]],
+  [String.raw`\frac{\sqrt{x}}{\hat{y}}`, 37.08, 48.32, [["frac", 31.08, 48.32, 6]]],
+];
+
+describe("native math layout boxes", () => {
+  it.each(BOXES)("measures %s to its box", (latex, width, height, children) => {
+    const layout = layoutMath(parseSimpleLatex(latex), 16);
+    expect(layout.width).toBeCloseTo(width, 3);
+    expect(layout.height).toBeCloseTo(height, 3);
+    expect(layout.children).toHaveLength(children.length);
+    layout.children.forEach((child, index) => {
+      const [kind, w, h, outer] = children[index];
+      expect(child.kind).toBe(kind);
+      expect(child.width).toBeCloseTo(w, 3);
+      expect(child.height).toBeCloseTo(h, 3);
+      expect(child.outer).toBeCloseTo(outer, 3);
+    });
+  });
+});
