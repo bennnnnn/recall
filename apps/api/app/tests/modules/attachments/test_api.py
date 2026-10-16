@@ -705,7 +705,6 @@ def test_serve_file_missing_local_drops_row():
 
     gateway = MagicMock(spec=LocalStorageGateway)
     gateway.resolve_local_path = MagicMock(return_value=None)
-    delete_chunks = AsyncMock(return_value=0)
     delete_rows = AsyncMock(return_value=1)
 
     with (
@@ -714,10 +713,6 @@ def test_serve_file_missing_local_drops_row():
             AsyncMock(return_value=row),
         ),
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
-        patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            delete_chunks,
-        ),
         patch(
             "app.modules.attachments.workflow.attachments_repo.delete_rows",
             delete_rows,
@@ -732,7 +727,6 @@ def test_serve_file_missing_local_drops_row():
 
     assert r.status_code == 404
     assert r.json()["detail"] == "File missing"
-    delete_chunks.assert_not_awaited()
     delete_rows.assert_awaited_once()
 
 
@@ -1346,7 +1340,6 @@ def test_list_attachments_omits_local_rows_whose_blob_is_gone():
     gateway.resolve_local_path.side_effect = lambda key: (
         None if key == "user/gone" else Path("/recall-present.png")
     )
-    delete_chunks = AsyncMock(return_value=0)
     delete_rows = AsyncMock(return_value=1)
 
     with (
@@ -1355,10 +1348,6 @@ def test_list_attachments_omits_local_rows_whose_blob_is_gone():
             AsyncMock(return_value=([gone, present], False)),
         ),
         patch("app.modules.attachments.workflow.get_storage_gateway", return_value=gateway),
-        patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            delete_chunks,
-        ),
         patch(
             "app.modules.attachments.workflow.attachments_repo.delete_rows",
             delete_rows,

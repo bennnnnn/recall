@@ -389,9 +389,6 @@ def estimate_cost_usd(
     return (input_tokens / 1_000_000.0) * input_price + (output_tokens / 1_000_000.0) * output_price
 
 
-MODEL_MODES = frozenset({"auto"})
-
-
 def validate_user_alias(alias: str, *, allow_auto: bool = False) -> None:
     from app.core.validation import validate_user_alias as _validate
 

@@ -347,12 +347,6 @@ def _symbols(*names: str) -> tuple[Any, ...]:
     return tuple(Symbol(name) for name in names)
 
 
-def _by_name(expr: Any, name: str) -> Any:
-    from sympy import Symbol
-
-    return next((s for s in expr.free_symbols if str(s) == name), Symbol(name))
-
-
 def _plain(expr: Any) -> Any:
     """The same expression over plain symbols, whatever assumptions the parser set."""
     from sympy import Symbol

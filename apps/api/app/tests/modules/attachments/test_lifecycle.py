@@ -41,10 +41,6 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
             side_effect=delete_rows,
         ),
         patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            AsyncMock(),
-        ) as chunks,
-        patch(
             "app.modules.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
@@ -54,7 +50,6 @@ async def test_purge_attachments_for_messages_deletes_bytes_and_rows():
         )
 
     assert deleted == 1
-    chunks.assert_not_awaited()
     assert order == ["rows", "bytes:user/file"]
 
 
@@ -88,10 +83,6 @@ async def test_purge_attachments_for_user_deletes_bytes_before_rows():
             side_effect=delete_rows,
         ),
         patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            AsyncMock(),
-        ) as chunks,
-        patch(
             "app.modules.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
@@ -99,7 +90,6 @@ async def test_purge_attachments_for_user_deletes_bytes_before_rows():
         deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
 
     assert deleted == 1
-    chunks.assert_not_awaited()
     assert order == [f"bytes:{row.storage_key}", f"rows:{row.id}"]
 
 
@@ -154,10 +144,6 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
             AsyncMock(return_value=1),
         ) as delete_rows,
         patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            AsyncMock(),
-        ) as chunks,
-        patch(
             "app.modules.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),
@@ -169,7 +155,6 @@ async def test_purge_attachments_for_user_continues_when_one_delete_fails():
         deleted = await attachment_lifecycle.purge_attachments_for_user(session, settings, user_id)
 
     assert deleted == 1
-    chunks.assert_not_awaited()
     assert deleted_keys == ["user/ok"]
     delete_rows.assert_awaited_once()
     assert delete_rows.await_args.args[1] == [ok.id]

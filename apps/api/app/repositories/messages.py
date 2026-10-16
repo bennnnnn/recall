@@ -104,21 +104,6 @@ async def list_user_contents_since(
     return rows
 
 
-async def list_all(
-    session: AsyncSession,
-    chat_id: UUID,
-    *,
-    limit: int = 200,
-) -> list[Message]:
-    result = await session.execute(
-        select(Message)
-        .where(Message.chat_id == chat_id)
-        .order_by(Message.created_at.asc())
-        .limit(limit)
-    )
-    return list(result.scalars().all())
-
-
 async def list_page(
     session: AsyncSession,
     chat_id: UUID,

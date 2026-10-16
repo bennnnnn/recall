@@ -29,8 +29,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass(frozen=True)
 class _Pair:
-    keep_id: UUID
-    drop_id: UUID
     keep_text: str
     drop_text: str
     memory_type: str
@@ -57,8 +55,6 @@ def _duplicate_pairs(facts: list) -> list[_Pair]:
             used.add(extra.id)
             pairs.append(
                 _Pair(
-                    keep_id=keeper.id,
-                    drop_id=extra.id,
                     keep_text=keeper.text,
                     drop_text=extra.text,
                     memory_type=keeper.type,
@@ -78,8 +74,6 @@ def _duplicate_pairs(facts: list) -> list[_Pair]:
             claimed.add(right.id)
             pairs.append(
                 _Pair(
-                    keep_id=left.id,
-                    drop_id=right.id,
                     keep_text=left.text,
                     drop_text=right.text,
                     memory_type=left.type,

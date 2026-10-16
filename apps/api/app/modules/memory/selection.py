@@ -24,11 +24,6 @@ from app.modules.memory.facts import (
 )
 from app.modules.memory.text import is_food_or_diet_memory_text, is_food_or_diet_query
 
-# Always useful identity/style context — a tiny core, not every profile/preference row.
-_ALWAYS_INJECT_TYPES = frozenset({"profile", "preference"})
-# Topic-sensitive sections — only inject when cosine similarity clears the bar.
-_SIMILARITY_GATED_TYPES = frozenset({"project", "fact", "focus"})
-
 
 def _confidence_value(memory: Memory) -> float:
     if memory.confidence is None:

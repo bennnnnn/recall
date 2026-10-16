@@ -620,7 +620,6 @@ def validate_math_fences_worker(
     return validate_math_fences(content, verified=verified, correct=correct)
 
 
-_UNVERIFIED_MATH_NOTE = "*I couldn't automatically verify this result.*"
 # The disclaimer, italic or plain, alone or at the end of the answer.
 _UNVERIFIED_PHRASE = re.compile(
     r"(?i)[ \t]*\*?[ \t]*"

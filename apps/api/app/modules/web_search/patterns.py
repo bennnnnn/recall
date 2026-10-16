@@ -423,8 +423,6 @@ _PROXIMITY_PHRASES = (
     r"\bbest\b",
 )
 
-_QUIZ_ANSWER = re.compile(r"^[A-D]\.?$", re.IGNORECASE)
-
 # Distance / travel from the user's location — venue-agnostic.
 # Keep in sync with apps/mobile/lib/localPlacesQuery.ts DISTANCE_INTENT.
 # ``does it take`` must require a commute verb (get/drive/walk/reach/arrive).

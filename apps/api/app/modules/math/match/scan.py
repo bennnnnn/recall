@@ -9,12 +9,10 @@ from app.services.symbolic_text import (
     collapse_repeated_si_unit_powers as _collapse_repeated_si_unit_powers,
 )
 from app.services.symbolic_text import (
-    fold_numeric_superscripts,
     normalize_symbolic_request,
     strip_inline_math_delimiters,
 )
 from app.services.text_match import has_equation, word_index
-from app.services.text_normalize import collapse_ws
 
 _MAX = 1000
 # Keep a leading decimal point (and its sign) in the numeric token. Skipping
@@ -340,15 +338,6 @@ def strip_inline_math_delims(text: str) -> str:
     return strip_inline_math_delimiters(text)
 
 
-def fold_match_superscripts(s: str) -> str:
-    """Turn ``m/s²`` / ``m/s^{2}`` into ``m/s^2`` so unit scanners can bind.
-
-    Linear scan — math-keyboard superscripts used to miss F=ma extract, then
-    the reply still said *Couldn't verify this with SymPy.*
-    """
-    return fold_numeric_superscripts(s)
-
-
 def collapse_repeated_si_unit_powers(s: str) -> str:
     """Stacked math-keyboard ``$^2$`` inserts: ``m/s^2^2.^2`` → ``m/s^2``.
 
@@ -564,37 +553,6 @@ def has_math_keyword(lower: str) -> bool:
 # letter (every letter sits inside a multi-letter word), so prose with an '='
 # is not pulled into SymPy.
 _STANDALONE_VAR_RE = re.compile(r"(?<![a-zA-Z])[a-zA-Z](?![a-zA-Z])")
-_EQ_SIDE_LEADINS = (
-    "let ",
-    "set ",
-    "given ",
-    "if ",
-    "when ",
-    "where ",
-    "and ",
-    "so ",
-    "then ",
-)
-
-
-def _math_equation_side(side: str) -> bool:
-    """True when one side of ``=`` is an expression, not leftover English."""
-    s = collapse_ws(side)
-    if not s:
-        return False
-    prev = None
-    while prev != s:
-        prev = s
-        lower = s.lower()
-        for prefix in _EQ_SIDE_LEADINS:
-            if lower.startswith(prefix):
-                s = s[len(prefix) :].strip()
-                break
-        else:
-            break
-    return looks_like_math_expr(s)
-
-
 _ATTACHMENT_MARKER_HEADS = ("[File:", "[Image:", "[File attached:", "[File (")
 
 
