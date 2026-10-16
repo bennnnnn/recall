@@ -99,5 +99,6 @@
   {"id": "v6", "area": "trap", "prompt": "numerically solve the nonlinear equation cos(x) = x with guess 0.5", "expect": "answer", "check": ["num", "0.739085"], "note": "\"near\" inside \"nonlinear\" was read as the guess label"},
   {"id": "v7", "area": "trap", "prompt": "use newton's method to solve the linear equation 2x - 3 = 0 with guess 4", "expect": "answer", "check": ["num", "3/2"], "note": "\"near\" inside \"linear\" took the guess 2 and cut the equation off"},
   {"id": "v8", "area": "trap", "prompt": "find the supplement of 35°", "expect": "answer", "check": ["num", "145"], "note": "the degree sign never met the word boundary after it"},
-  {"id": "v9", "area": "trap", "prompt": "What is the complement of 28°?", "expect": "answer", "check": ["num", "62"], "note": "read as a probability complement and declined before"}
+  {"id": "v9", "area": "trap", "prompt": "What is the complement of 28°?", "expect": "answer", "check": ["num", "62"], "note": "read as a probability complement and declined before"},
+  {"id": "v10", "area": "trap", "prompt": "Centre and radius of the circle y^2 + x^2 = z.", "expect": "decline", "note": "a letter for r squared is no numeric radius; it once raised a TypeError"}
 ]
