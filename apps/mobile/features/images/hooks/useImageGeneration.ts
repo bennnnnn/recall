@@ -10,7 +10,7 @@ import { reportRecoverableError } from "@/lib/reportRecoverableError";
 import {
   IMAGE_GEN_FAILED_ASSISTANT_ID,
   IMAGE_GEN_PENDING_ASSISTANT_ID,
-} from "@/features/images/model/imageGenIntent";
+} from "@/features/images/model/imageGenMessages";
 import {
   applyImageGenFailure,
   hasImageGenFailedAssistant,

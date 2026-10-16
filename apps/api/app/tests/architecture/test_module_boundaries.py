@@ -222,6 +222,11 @@ def test_mobile_images_has_one_feature_home() -> None:
         MOBILE_ROOT / "hooks" / "useImageGeneration.ts",
         MOBILE_ROOT / "components" / "ImageGenPlaceholder.tsx",
         MOBILE_ROOT / "components" / "ImageGenPromptSheet.tsx",
+        # Only the server reads image intent (POST /images/intent, ES-05).
+        feature_root / "model" / "imageGenIntent.ts",
+        feature_root / "model" / "imageGenIntentWords.ts",
+        feature_root / "model" / "imageLookupIntent.ts",
+        feature_root / "model" / "stemSubjectOwnsTurn.ts",
     ):
         assert not gone.exists(), gone
     assert (MOBILE_ROOT / "lib" / "images" / "imageUriPolicy.ts").is_file()

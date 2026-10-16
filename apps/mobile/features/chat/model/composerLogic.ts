@@ -1,4 +1,4 @@
-import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenMessages";
 import { Space } from "@/lib/space";
 import { Type } from "@/lib/type";
 

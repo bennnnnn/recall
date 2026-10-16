@@ -6,13 +6,28 @@ type ImageGenerateResult = {
   assistant_message: Message;
 };
 
-/** The subject that owns a composer turn; `null` leaves it to image generation. */
-type ImageIntentResult = {
-  subject: "math" | "physics" | "chemistry" | null;
+/** A composer send, before it is sent; `chat_id` is null for a draft chat with no turns. */
+export type ImageIntentRequest = {
+  text: string;
+  chat_id: string | null;
+  image_attached: boolean;
 };
 
-/** A slow answer must not hold a picture request for long; see `stemSubjectOwnsTurn`. */
-const IMAGE_INTENT_TIMEOUT_MS = 5_000;
+/**
+ * The server's reading of a send (POST /images/intent), the one the chat turn
+ * makes too. `generate_prompt` set: draw it from the composer, from the attached
+ * image or `reference_attachment_ids`. Unset: an ordinary chat send.
+ */
+export type ImageIntentVerdict = {
+  subject: "math" | "physics" | "chemistry" | null;
+  lookup_query: string | null;
+  generate_prompt: string | null;
+  revision: boolean;
+  reference_attachment_ids: string[];
+};
+
+/** A slow answer must not hold the composer: the send goes to chat instead. */
+const IMAGE_INTENT_TIMEOUT_MS = 3_000;
 
 export const imagesApi = {
   generateImage: (
@@ -37,13 +52,13 @@ export const imagesApi = {
       true,
       120_000,
     ),
-  imageIntent: (token: string, text: string, init?: RequestInit) =>
-    request<ImageIntentResult>(
+  imageIntent: (token: string, body: ImageIntentRequest, init?: RequestInit) =>
+    request<ImageIntentVerdict>(
       "/images/intent",
       token,
       {
         method: "POST",
-        body: JSON.stringify({ text }),
+        body: JSON.stringify(body),
         ...init,
       },
       true,

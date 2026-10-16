@@ -1,13 +1,7 @@
 import type { Message } from "@/lib/api";
 import type { PendingAttachment } from "@/features/attachments/model/attachments";
-import {
-  extractImageGenPromptFromThread,
-  extractAttachedImageEditPrompt,
-  extractImageRevisionPrompt,
-  imageGenRevisionContext,
-} from "@/features/images/model/imageGenIntent";
-import { extractImageLookupQuery } from "@/features/images/model/imageLookupIntent";
-import { stemSubjectOwnsTurn } from "@/features/images/model/stemSubjectOwnsTurn";
+import { readImageTurn } from "@/features/images/model/imageGenTurn";
+import { mightBeImageTurn } from "@/features/images/model/imageIntentPrefilter";
 
 export type ImageReference = { attachment?: PendingAttachment; ids?: string[] };
 
@@ -24,6 +18,8 @@ export type SendIntercept =
 type InterceptInput = {
   text: string;
   attachment: PendingAttachment | null;
+  /** The chat the send goes to; null for a draft chat with no turns yet. */
+  chatId: string | null;
   messages: Message[];
   canGenerate: boolean;
   imageGenerating: boolean;
@@ -35,44 +31,36 @@ type InterceptInput = {
 
 /**
  * What the composer makes of a send before chat sees it: a photo lookup, an image to
- * generate, or a normal send. Synchronous unless it asks the server, so a plain send
- * claims its double-send guard in the same tick. ES-05 replaces the inside with the
- * server's verdict.
+ * generate, or a normal send. Only the server reads image intent (POST /images/intent);
+ * the phone asks it when the send might be one, and a send that cannot be one stays
+ * synchronous, so a plain send claims its double-send guard in the same tick.
  */
 export function resolveSendIntercept(input: InterceptInput): SendIntercept | Promise<SendIntercept> {
-  const { text, attachment, messages } = input;
-  // Reference-photo lookup ("show me an ear") wants a real photo, not AI
-  // art — checked first so generation's bare colloquial fallback can't
-  // misclassify "show me a picture of X" as a draw request.
-  if (!attachment && extractImageLookupQuery(text)) return { kind: "lookup" };
-
-  // Image-gen intent → /images/generate from the composer (no sheet, no LLM stub).
+  const { text, attachment, token } = input;
   // Do not gate on client isPaid — plan can be stale while the API still knows Pro;
-  // submitPrompt / the API open upgrade or generate. Never let the model invent
-  // "the app will attach an image shortly" without calling generate.
-  if (!input.canGenerate || (attachment && attachment.kind !== "image")) return { kind: "send" };
-  const revisionContext = imageGenRevisionContext(messages);
-  const revision = attachment?.kind === "image"
-    ? extractAttachedImageEditPrompt(text)
-    : extractImageRevisionPrompt(text, revisionContext);
-  const prompt = extractImageGenPromptFromThread(text, messages) ?? revision;
-  if (!prompt) return { kind: "send" };
-  if (input.imageGenerating) return { kind: "drop" };
-  const reference = attachment ? { attachment }
-    : revision && revisionContext.referenceAttachmentId
-      ? { ids: [revisionContext.referenceAttachmentId] } : undefined;
+  // submitPrompt / the API open upgrade or generate. A file attachment is never a
+  // picture to draw.
+  if (!input.canGenerate || !token || (attachment && attachment.kind !== "image")) return { kind: "send" };
+  const imageAttached = attachment?.kind === "image";
+  if (!mightBeImageTurn(text, input.messages, imageAttached)) return { kind: "send" };
   input.onServerCheck();
-  return askServer(input, prompt, reference);
+  return askServer(input, token, imageAttached);
 }
 
 async function askServer(
   input: InterceptInput,
-  prompt: string,
-  reference: ImageReference | undefined,
+  token: string,
+  imageAttached: boolean,
 ): Promise<SendIntercept> {
-  const ownedBySubject = await stemSubjectOwnsTurn(input.token, input.text);
+  const reading = await readImageTurn(token, {
+    text: input.text,
+    chatId: input.chatId,
+    imageAttached,
+  });
   if (!input.isCurrentView()) return { kind: "stale" };
-  // "draw ethanol" is a structure and a lens question is optics: the
-  // server leaves them to their subject, so the chat send takes them.
-  return ownedBySubject ? { kind: "send" } : { kind: "generate", prompt, reference };
+  if (reading.kind !== "generate") return reading;
+  if (input.imageGenerating) return { kind: "drop" };
+  const reference = input.attachment ? { attachment: input.attachment }
+    : reading.referenceIds.length ? { ids: reading.referenceIds } : undefined;
+  return { kind: "generate", prompt: reading.prompt, reference };
 }
