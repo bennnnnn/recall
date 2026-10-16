@@ -115,6 +115,18 @@ describe("deriveAssistantMessageContent", () => {
     expect(result.showSearchSources).toBe(false);
   });
 
+  it("shows the live clock for the server's time answer, whatever the ask's punctuation", () => {
+    const result = deriveAssistantMessageContent({
+      ...base,
+      priorUserText: "What’s the time?",
+      content: "```clock\n```",
+    });
+
+    expect(result.showLiveClock).toBe(true);
+    expect(result.clockTimezone).toBe("");
+    expect(result.markdownContent).toBe("");
+  });
+
   it("keeps a contextual follow-up's prose without injecting a clock", () => {
     const result = deriveAssistantMessageContent({
       ...base,

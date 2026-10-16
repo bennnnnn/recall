@@ -1,32 +1,19 @@
-/** Matches simple "what time is it?" style questions (mirrors backend). */
-const TIME_QUESTION =
-  /^\s*(?:what(?:'s| is) the time(?:\s+now)?|what time is it(?:\s+now)?|what time(?:\s+now)?|tell me the (?:current )?time|current time\??|do you know the time\??|time(?:\s+please)?\??)\s*[.!?]*\s*$/i;
-
-/** "What time is it in Tokyo / DC / …" — not the user's local clock. */
-const REMOTE_TIME_QUESTION =
-  /^\s*(?:what(?:'s| is) the time(?:\s+now)?\s+in\b.+|what time is it(?:\s+now)?\s+in\b.+|what time(?:\s+now)?\s+in\b.+|current time\s+in\b.+|time(?:\s+please)?\s+in\b.+)\s*[.!?]*\s*$/i;
-
-const SCHEDULED_EVENT =
-  /\b(meeting|appointment|flight|event|class|call|interview|game|train|bus)\b/i;
+/**
+ * Time answers as the reply carries them. The server decides what a time
+ * question is (`is_time_question` in apps/api/app/services/time_context.py)
+ * and answers a local one with an empty ```clock fence; the phone only reads
+ * the reply, never the user's words.
+ */
 
 const DIGITAL_TIME_ONLY =
   /^\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?$/i;
 
 const IANA_TIMEZONE_ONLY = /^[A-Za-z_+\-]+\/[A-Za-z_+\-]+(?:\/[A-Za-z_+\-]+)?$/;
 
-export function isRemoteTimeQuestion(text: string): boolean {
-  return REMOTE_TIME_QUESTION.test(text.trim());
-}
+/** A ```clock opener; `[ \t]` keeps "```\nclock speed…" from matching. */
+const CLOCK_FENCE_OPEN = /```[ \t]*clock\s/i;
 
-export function isTimeQuestion(text: string): boolean {
-  const cleaned = text.trim();
-  if (!cleaned) return false;
-  if (isRemoteTimeQuestion(cleaned)) return false;
-  if (TIME_QUESTION.test(cleaned)) {
-    return !SCHEDULED_EVENT.test(cleaned);
-  }
-  return false;
-}
+const FIRST_FENCE = /```[^\n]*\n([\s\S]*?)```/;
 
 export function isDigitalTimeOnly(text: string): boolean {
   const t = text.trim().replace(/^\*\*|\*\*$/g, "").trim();
@@ -54,26 +41,19 @@ export function stripTimeAnswerFences(markdown: string): string {
 }
 
 export function extractClockTimezone(markdown: string): string {
-  const match = markdown.match(/```[^\n]*\n([\s\S]*?)```/);
+  const match = markdown.match(FIRST_FENCE);
   if (!match) return "";
   const body = match[1].trim();
   return isIanaTimezoneOnly(body) ? body : "";
 }
 
-/** True when the assistant reply is mainly a time answer (clock widget should show). */
-export function assistantReplyIsTimeAnswer(
-  content: string,
-  priorUserText: string | null,
-): boolean {
-  const tz = extractClockTimezone(content);
-  // City/place questions: only show the widget when a timezone was pinned.
-  // An empty ```clock``` would wrongly render the user's local time.
-  if (priorUserText && isRemoteTimeQuestion(priorUserText)) {
-    return Boolean(tz);
-  }
-  if (priorUserText && isTimeQuestion(priorUserText)) return true;
-  if (/```\s*clock[\s\n]/i.test(content)) return true;
-  const fence = content.match(/```[^\n]*\n([\s\S]*?)```/);
-  if (fence && isClockFenceBody(fence[1])) return true;
-  return false;
+/**
+ * True when the reply is a time answer, so the live clock card shows: a
+ * ```clock fence, or a first fence holding only a clock reading or a timezone.
+ */
+export function assistantReplyIsTimeAnswer(content: string): boolean {
+  if (CLOCK_FENCE_OPEN.test(content)) return true;
+  const fence = content.match(FIRST_FENCE);
+  if (!fence) return false;
+  return isDigitalTimeOnly(fence[1]) || isIanaTimezoneOnly(fence[1]);
 }

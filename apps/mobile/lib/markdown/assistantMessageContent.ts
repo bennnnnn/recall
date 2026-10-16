@@ -123,7 +123,7 @@ export function deriveAssistantMessageContent(
     !isUser &&
     hasContent &&
     !layoutFrozen &&
-    assistantReplyIsTimeAnswer(content, priorUserText);
+    assistantReplyIsTimeAnswer(content);
 
   const clockTimezone = showLiveClock ? extractClockTimezone(content) : "";
   const searchSources = resolveSearchSources(
