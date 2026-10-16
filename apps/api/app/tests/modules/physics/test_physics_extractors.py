@@ -562,6 +562,96 @@ def test_energy_power_routes_from_work_and_time_not_subject_noun(subject: str) -
 
 
 @pytest.mark.parametrize(
+    ("text", "op", "params", "units"),
+    [
+        (
+            "A machine has an input of 500 J and an output of 400 J. What is its mechanical "
+            "efficiency?",
+            "mechanical_efficiency",
+            {"E_out": 400.0, "E_in": 500.0},
+            {"E_out": "J", "E_in": "J"},
+        ),
+        (
+            "A motor takes in 2 kJ and gives 1.5 kJ useful output. What is the machine efficiency?",
+            "mechanical_efficiency",
+            {"E_out": 1.5, "E_in": 2.0},
+            {"E_out": "kJ", "E_in": "kJ"},
+        ),
+        # "energy of" names no law: the givens choose one.
+        (
+            "What is the energy of a 2 kg ball moving at 3 m/s?",
+            "kinetic_energy",
+            {"m": 2.0, "v": 3.0},
+            {"m": "kg", "v": "m/s"},
+        ),
+        (
+            "What is the energy of a 2 kg ball held at a height of 5 m?",
+            "potential_energy",
+            {"m": 2.0, "h": 5.0, "g": 9.81},
+            {"m": "kg", "h": "m", "g": "m/s^2"},
+        ),
+        (
+            "What is the energy of a 20 N force applied over a distance of 3 m?",
+            "work",
+            {"F": 20.0, "d": 3.0},
+            {"F": "N", "d": "m"},
+        ),
+        (
+            "A crane does 6 kJ of work in 2 minutes. What is the power?",
+            "power",
+            {"W": 6.0, "t": 2.0},
+            {"W": "kJ", "t": "minutes"},
+        ),
+        (
+            "A force of 50 N at 30 degrees pulls a cart at 2 m/s. What is the power?",
+            "power",
+            {"v": 2.0, "F": 50.0, "angle": 30.0},
+            {"v": "m/s", "F": "N", "angle": "deg"},
+        ),
+        (
+            "What is the potential energy of a 3 kg rock 10 m above the ground on the Moon?",
+            "potential_energy",
+            {"m": 3.0, "h": 10.0, "g": 1.62},
+            {"m": "kg", "h": "m", "g": "m/s^2"},
+        ),
+        (
+            "What is the KE of a 500 g ball moving at 36 km/h?",
+            "kinetic_energy",
+            {"m": 500.0, "v": 36.0},
+            {"m": "g", "v": "km/h"},
+        ),
+    ],
+)
+def test_energy_reads_each_law(
+    text: str, op: str, params: dict[str, float], units: dict[str, str]
+) -> None:
+    intent = _extract_energy_intent(text)
+
+    assert intent is not None
+    assert (intent.kind, intent.physics_op) == ("energy", op)
+    # Insertion order too: the working lists the givens in this order.
+    assert list(intent.physics_params or {}) == list(params)
+    assert intent.physics_params == params
+    assert intent.physics_units == units
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        # Unlabelled energies, and a heat engine's efficiency (thermal's), are not read.
+        "A machine is supplied 500 J and does 400 J. What is its efficiency?",
+        "A heat engine has an input of 500 J and an output of 400 J. What is its efficiency?",
+        "What is the energy of a 20 N force applied at an angle over a distance of 3 m?",
+        # An angle belongs to F v cos θ, not to W / t.
+        "A force of 50 N at 30 degrees does 300 J of work in 6 s. What is the power?",
+        "A 2 kg sphere rolls without slipping at 3 m/s. What is its kinetic energy?",
+    ],
+)
+def test_energy_declines(text: str) -> None:
+    assert _extract_energy_intent(text) is None
+
+
+@pytest.mark.parametrize(
     "text, unit_prefix",
     [
         ("5 miles", "mile"),
