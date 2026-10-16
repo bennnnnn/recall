@@ -71,6 +71,31 @@ async def test_tool_and_heuristic_canonical_answers_agree(question, args, answer
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "args",
+    [
+        {"action": "limit", "expr": "sin(1/x)", "point": "0"},  # <-1, 1>
+        {"action": "limit", "expr": "cos(x)", "point": "oo"},  # <-1, 1>
+        {"action": "limit", "expr": "(-1)^n", "variable": "n", "point": "oo"},  # NaN
+        {"action": "limit", "expr": "(-2)^n", "variable": "n", "point": "oo"},  # zoo, no sides
+        {"action": "series", "expr": "1/n", "variable": "n", "start": "0", "end": "5"},  # zoo
+    ],
+)
+async def test_tool_attaches_no_answer_sympy_did_not_establish(args):
+    """The tool loop lands ``canonical_answer`` on the verified card, unchecked for NaN."""
+
+    async def compute_locally(fn, *values, **_options):
+        return fn(*values)
+
+    adapter = SympyAdapter(Settings(_env_file=None))
+    with patch("app.core.sympy_executor.run_sympy", side_effect=compute_locally):
+        result = await adapter.invoke(args, tool_context())
+    assert result.data is None
+    assert "one-sided limits disagree" not in result.content
+    assert "sides disagree" not in result.content
+
+
+@pytest.mark.asyncio
 async def test_unsolved_tool_series_does_not_attach_an_answer():
     adapter = SympyAdapter(Settings(_env_file=None))
     with patch.object(

@@ -5,7 +5,9 @@ from __future__ import annotations
 from typing import Any
 
 from sympy import (
+    AccumBounds,
     Integral,
+    Limit,
     Mul,
     Sum,
     Symbol,
@@ -13,6 +15,7 @@ from sympy import (
     integrate,
     latex,
     limit,
+    nan,
     oo,
     simplify,
     zoo,
@@ -283,6 +286,20 @@ def _parse_infinity_aware_point(raw: str) -> Any:
     return _parse_expression(raw)
 
 
+def _is_limit_value(value: Any) -> bool:
+    """A real number or a signed infinity: a limit SymPy established.
+
+    Accumulation bounds only bound the values near the point (``sin(1/x)`` at 0
+    is ``<-1, 1>``), and prove nothing either way: ``sin(1/x)^2 + cos(1/x)^2``
+    gets ``<0, 2>``, though it is 1. NaN, complex infinity inside an answer, an
+    unevaluated ``Limit`` and a complex value (``sqrt(x)`` at -1 is ``i``) are
+    no real limit either.
+    """
+    if value in (oo, -oo):
+        return True
+    return not value.has(AccumBounds, Limit, nan, zoo) and value.is_extended_real is not False
+
+
 def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -> MathLimitResult:
     # School limits are over a real input unless another domain is stated.
     # Real assumptions are required for piecewise/absolute-value behavior:
@@ -298,14 +315,24 @@ def compute_limit(expr: str, variable: str, point: str, direction: str = "+-") -
         try:
             left = limit(parsed, sym, point_val, dir="-")
             right = limit(parsed, sym, point_val, dir="+")
-            result = left if simplify(left - right) == 0 else zoo
         except Exception as side_exc:
             raise MathServiceError(f"Could not compute limit of: {expr}") from side_exc
+        if not (_is_limit_value(left) and _is_limit_value(right)):
+            # sin(1/x)/x at 0: neither side has a limit, so they cannot disagree.
+            raise MathServiceError(f"Could not compute limit of: {expr}") from exc
+        result = left if simplify(left - right) == 0 else zoo
     except Exception as exc:
         raise MathServiceError(f"Could not compute limit of: {expr}") from exc
     # A limit can legitimately evaluate to oo/-oo (diverges) or zoo (the
     # two-sided limit doesn't exist because the two sides disagree). Keep
     # the symbolic result so presentation can distinguish these statuses.
+    # zoo says that only for a two-sided limit at a point: at infinity there
+    # are no two sides, and (-2)^n is unbounded both ways.
+    if result == zoo:
+        if direction != "+-" or point_val.is_finite is not True:
+            raise MathServiceError(f"Could not compute limit of: {expr}")
+    elif not _is_limit_value(result):
+        raise MathServiceError(f"Could not compute limit of: {expr}")
     return MathLimitResult(
         result=str(result), latex=latex(result), is_infinite=bool(result.is_infinite)
     )
@@ -329,6 +356,9 @@ def evaluate_series_sum(expr: str, variable: str, start: str, end: str) -> MathS
         result = series.doit()
     except Exception as exc:
         raise MathServiceError(f"Could not evaluate series: {expr}") from exc
+    if result.has(AccumBounds, nan, zoo):
+        # 1/n from n = 0: a term is undefined, and the sum is complex infinity.
+        raise MathServiceError(f"Could not evaluate series: {expr}")
     return MathSeriesResult(
         result=str(result),
         latex=latex(result),
