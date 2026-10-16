@@ -1,21 +1,21 @@
-"""Trigonometry extractor and verified block."""
+"""Trigonometry extractor and verified block: interval equations, angles and expressions."""
 
 from __future__ import annotations
 
 import re
 from dataclasses import replace
-from typing import Any
 
 from app.core.config import Settings
 from app.modules.math import match as mtm
 from app.modules.math import school as math_school
-from app.modules.math.schemas import EquationInput, MathIntent
+from app.modules.math.schemas import MathIntent
 from app.modules.math.tools.block import VerifiedMathBlock, _finish_with_answer
 from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.school.coordinate import extract_sas_area, sas_area_block
 from app.modules.math.tools.school.teaching import _attach_picture
+from app.modules.math.tools.school.trig_equations import bounded_equation_block
 from app.services.number_text import DECIMAL_LITERAL, SIGNED_DECIMAL
-from app.services.workout import Workout, math_line, render_workout, text_line
+from app.services.workout import Workout, math_line, render_workout
 
 _TRIG_FUNCS = ("sine", "cosine", "tangent", "sin", "cos", "tan")
 _TRIG_CANON = {"sine": "sin", "cosine": "cos", "tangent": "tan"}
@@ -56,26 +56,6 @@ _BOUNDED_RADIAN_DOMAIN = re.compile(
     rf"([a-zA-Z])\s*(<=|<|≤)\s*({_RADIAN_BOUND})(?=\s|[.?!]|$)",
     re.IGNORECASE,
 )
-
-
-def _exact_decimals(side: Any) -> Any:
-    """``-0.5`` -> ``-1/2``, so the angles solve exactly instead of as floats."""
-    from sympy import Float, nsimplify
-
-    return nsimplify(side, rational=True) if side.has(Float) else side
-
-
-def _degrees_in_k(expr: Any, k: Any) -> str:
-    """``90 + 180 k`` (degrees) -> ``90^\\circ + 180^\\circ k``."""
-    from sympy import expand, latex
-
-    expr = expand(expr)
-    constant = expr.subs(k, 0)
-    step = expr.coeff(k)
-    parts = [f"{latex(constant)}^\\circ"] if constant != 0 else []
-    if step != 0:
-        parts.append(f"{latex(step)}^\\circ k")
-    return " + ".join(parts) or "0^\\circ"
 
 
 def _unmarked_degree_bounds(lower: str, upper: str) -> bool:
@@ -287,148 +267,13 @@ def _verified_block_trig(
         and intent.integral_lower is not None
         and intent.integral_upper is not None
     ):
-        from sympy import (
-            Eq,
-            FiniteSet,
-            Interval,
-            Symbol,
-            cos,
-            latex,
-            nsimplify,
-            pi,
-            simplify,
-            sin,
-            solve,
-            solveset,
-            tan,
-        )
-
-        from app.modules.math import solve as math_solve
-        from app.modules.math.solve.parse import parse_equation
-
-        _, lhs, rhs = parse_equation(
-            EquationInput(lhs=intent.lhs, rhs=intent.rhs, variables=[intent.variable])
-        )
-        # ``cos(x) = -0.5``: a decimal value is read exactly, or the angles
-        # come back as floats and print as ``376.99/pi`` degrees.
-        lhs, rhs = _exact_decimals(lhs), _exact_decimals(rhs)
-        symbols = getattr(lhs, "free_symbols", set()) | getattr(rhs, "free_symbols", set())
-        variable = next(
-            (symbol for symbol in symbols if str(symbol) == intent.variable),
-            Symbol(intent.variable, real=True),
-        )
-        degrees = intent.school_op == "bounded_degree_equation"
-        if degrees:
-            low = nsimplify(intent.integral_lower, rational=True) * pi / 180
-            high = nsimplify(intent.integral_upper, rational=True) * pi / 180
-        else:
-            low = math_solve._parse_expression(intent.integral_lower, [])
-            high = math_solve._parse_expression(intent.integral_upper, [])
-        domain = Interval(
-            low,
-            high,
-            left_open=intent.comparator == "<",
-            right_open=intent.comparator_upper == "<",
-        )
-        solved = solveset(Eq(lhs, rhs), variable, domain=domain)
-        if not isinstance(solved, FiniteSet):
-            return None
-        radian_values = sorted(solved, key=lambda value: float(value))
-        display_values = (
-            [simplify(value * 180 / pi) for value in radian_values] if degrees else radian_values
-        )
-        # ``asin(3/10)`` in degrees has no exact school form: two decimals.
-        approximate = degrees and not all(value.is_Rational for value in display_values)
-        if not display_values:
-            answer = r"\text{no solution}"
-        else:
-            suffix = "^\\circ" if degrees else ""
-            joined = r",\;".join(
-                f"{float(value):.2f}{suffix}" if approximate else f"{latex(value)}{suffix}"
-                for value in display_values
-            )
-            relation = r"\approx" if approximate else "="
-            answer = f"{intent.variable} {relation} {joined}"
-        degree_suffix = "^\\circ" if degrees else ""
-        left_comparator = r"\le" if intent.comparator == "<=" else "<"
-        right_comparator = r"\le" if intent.comparator_upper == "<=" else "<"
-        # In degrees the domain reads as written: ``0^\circ \le x \le 360^\circ``.
-        shown_low = latex(low * 180 / pi) if degrees else latex(low)
-        shown_high = latex(high * 180 / pi) if degrees else latex(high)
-        domain_tex = (
-            f"{shown_low}{degree_suffix} {left_comparator} {intent.variable} "
-            f"{right_comparator} {shown_high}{degree_suffix}"
-        )
-        periodic: tuple[str, ...] | None = None
-        if rhs == 0 and getattr(lhs, "func", None) in {sin, cos, tan} and len(lhs.args) == 1:
-            integer = Symbol("k", integer=True)
-            angle = lhs.args[0]
-            if lhs.func == cos:
-                angle_solution = pi / 2 + integer * pi
-                zero_law = r"\cos(\theta)=0 \Rightarrow \theta=\frac{\pi}{2}+k\pi"
-            else:
-                angle_solution = integer * pi
-                function_name = "sin" if lhs.func == sin else "tan"
-                zero_law = rf"\{function_name}(\theta)=0 \Rightarrow \theta=k\pi"
-            solved_general = solve(Eq(angle, angle_solution), variable)
-            if len(solved_general) == 1:
-                general = simplify(solved_general[0])
-                k_values: list[str] = []
-                for value in radian_values:
-                    candidates = solve(Eq(general, value), integer)
-                    if len(candidates) == 1 and candidates[0].is_integer:
-                        rendered = latex(candidates[0])
-                        if rendered not in k_values:
-                            k_values.append(rendered)
-                joined_k = r",\;".join(k_values)
-                interval_step = (
-                    math_line(
-                        f"k = {joined_k}", f"the values that keep ${intent.variable}$ in range"
-                    )
-                    if k_values
-                    else text_line(
-                        f"Keep the values of $k$ that place ${intent.variable}$ in ${domain_tex}$."
-                    )
-                )
-                if degrees:
-                    # The same law in degrees: ``\sin\theta = 0 \Rightarrow \theta = 180^\circ k``.
-                    zero_law = zero_law.replace(r"\frac{\pi}{2}", r"90^\circ").replace(
-                        r"k\pi", r"180^\circ k"
-                    )
-                    angle_shown = _degrees_in_k(angle_solution * 180 / pi, integer)
-                    general_shown = _degrees_in_k(general * 180 / pi, integer)
-                else:
-                    angle_shown, general_shown = latex(angle_solution), latex(general)
-                periodic = (
-                    math_line(f"{zero_law}, \\quad k\\in\\mathbb{{Z}}", "periodic zero law"),
-                    math_line(f"{latex(angle)} = {angle_shown}", "substitute the angle"),
-                    math_line(f"{intent.variable} = {general_shown}", "solve"),
-                    interval_step,
-                )
-        direct = render_workout(
-            Workout(
-                given=(
-                    math_line(f"{latex(lhs)} = {latex(rhs)}"),
-                    math_line(domain_tex, "domain"),
-                ),
-                find=(math_line(intent.variable),),
-                steps=(*(periodic or ()), math_line(answer, "solutions in the domain")),
-            ),
-            answer,
-        )
-        lines.extend(
-            [
-                f"Equation: {latex(lhs)} = {latex(rhs)}",
-                f"Domain: {domain_tex}",
-                f"Solutions in the domain: {answer}",
-            ]
-        )
-        block = _finish_with_answer(lines, answer)
-        return VerifiedMathBlock(
-            text=block.text,
-            canonical_fence=block.canonical_fence,
-            canonical_answer=block.canonical_answer,
-            direct_reply=direct,
+        return bounded_equation_block(
+            intent,
+            lines,
+            lhs_text=intent.lhs,
+            rhs_text=intent.rhs,
+            lower=intent.integral_lower,
+            upper=intent.integral_upper,
         )
     if (
         intent.school_op == "sas_area"
@@ -438,89 +283,98 @@ def _verified_block_trig(
     ):
         return sas_area_block(intent, lines)
     if intent.school_op and intent.percent_base is not None:
-        answer = math_school.evaluate_trig_degrees(intent.school_op, intent.percent_base)
-        if "exact" in (intent._request_text or "").lower() and intent.expr:
-            from sympy import latex, simplify, together
-
-            from app.modules.math import solve as math_solve
-
-            answer = latex(together(simplify(math_solve._parse_expression(intent.expr, []))))
-        lines.append(f"{intent.school_op}({intent.percent_base:g}°) = {answer}")
-        block = _finish_with_answer(lines, answer)
-        if intent.school_op in {"sin", "cos", "tan"} and float(intent.percent_base).is_integer():
-            from app.modules.math.solve.teaching_algebra import standard_degrees, unit_circle_spec
-
-            angle = int(intent.percent_base)
-            if standard_degrees(angle) is not None and abs(angle) <= 360:
-                circle = unit_circle_spec(angle, answer)
-                fields = (
-                    {"sin": circle.sine, "cos": circle.cosine, "tan": circle.tangent}
-                    if circle
-                    else {}
-                )
-                if circle is not None and fields.get(intent.school_op) == answer:
-                    return _attach_picture(block, circle, intent, direct=True)
-        if intent.school_op in {"sin", "cos"} and float(intent.percent_base).is_integer():
-            from sympy import cos, latex, pi, simplify, sin, together
-
-            angle = int(intent.percent_base)
-            standards = (-90, -60, -45, -30, 30, 45, 60, 90)
-            pair = next(
-                (
-                    (first, second)
-                    for first in standards
-                    for second in standards
-                    if first + second == angle
-                ),
-                None,
-            )
-            if pair is not None:
-                first, second = pair
-                trig = cos if intent.school_op == "cos" else sin
-                sign = "-" if intent.school_op == "cos" else "+"
-                left_first = "cos" if intent.school_op == "cos" else "sin"
-                left_second = "cos"
-                right_first = "sin" if intent.school_op == "cos" else "cos"
-                right_second = "sin"
-                complementary = sin if intent.school_op == "cos" else cos
-                components = (
-                    trig(first * pi / 180),
-                    cos(second * pi / 180),
-                    complementary(first * pi / 180),
-                    sin(second * pi / 180),
-                )
-                signed_second = (
-                    simplify(components[0] * components[1] - components[2] * components[3])
-                    if intent.school_op == "cos"
-                    else simplify(components[0] * components[1] + components[2] * components[3])
-                )
-                op = intent.school_op
-                direct = render_workout(
-                    Workout(
-                        given=(math_line(f"{angle}^\\circ = {first}^\\circ + {second}^\\circ"),),
-                        find=(math_line(f"\\{op}({angle}^\\circ)"),),
-                        formula=(
-                            math_line(
-                                f"\\{op}(A + B) = \\{left_first} A\\,\\{left_second} B "
-                                f"{sign} \\{right_first} A\\,\\{right_second} B",
-                                "Angle-sum identity",
-                            ),
-                        ),
-                        # One short value per line stays readable on a narrow phone.
-                        substitution=(
-                            math_line(f"\\{left_first}({first}^\\circ)={latex(components[0])}"),
-                            math_line(f"\\{left_second}({second}^\\circ)={latex(components[1])}"),
-                            math_line(f"\\{right_first}({first}^\\circ)={latex(components[2])}"),
-                            math_line(f"\\{right_second}({second}^\\circ)={latex(components[3])}"),
-                            math_line(f"\\{op}({angle}^\\circ) = {latex(signed_second)}"),
-                        ),
-                    ),
-                    answer,
-                )
-                return replace(block, direct_reply=direct)
-        return block
+        return _angle_value_block(intent, intent.school_op, intent.percent_base, lines)
     if intent.expr:
         answer = math_school.evaluate_trig_expr(intent.expr)
         lines.append(f"Result: {answer}")
         return _finish_with_answer(lines, answer)
+    return None
+
+
+def _angle_value_block(
+    intent: MathIntent, op: str, degrees: float, lines: list[str]
+) -> VerifiedMathBlock:
+    """``sin 30°``: the exact value, on the unit circle or by the angle-sum identity."""
+    answer = math_school.evaluate_trig_degrees(op, degrees)
+    if "exact" in (intent._request_text or "").lower() and intent.expr:
+        from sympy import latex, simplify, together
+
+        from app.modules.math import solve as math_solve
+
+        answer = latex(together(simplify(math_solve._parse_expression(intent.expr, []))))
+    lines.append(f"{op}({degrees:g}°) = {answer}")
+    block = _finish_with_answer(lines, answer)
+    if op in {"sin", "cos", "tan"} and float(degrees).is_integer():
+        from app.modules.math.solve.teaching_algebra import standard_degrees, unit_circle_spec
+
+        angle = int(degrees)
+        if standard_degrees(angle) is not None and abs(angle) <= 360:
+            circle = unit_circle_spec(angle, answer)
+            fields = (
+                {"sin": circle.sine, "cos": circle.cosine, "tan": circle.tangent} if circle else {}
+            )
+            if circle is not None and fields.get(op) == answer:
+                return _attach_picture(block, circle, intent, direct=True)
+    if op in {"sin", "cos"} and float(degrees).is_integer():
+        identity = _angle_sum_identity(block, op, degrees, answer)
+        if identity is not None:
+            return identity
+    return block
+
+
+def _angle_sum_identity(
+    block: VerifiedMathBlock, op: str, degrees: float, answer: str
+) -> VerifiedMathBlock | None:
+    """``sin 75° = sin(45° + 30°)``, worked by the angle-sum identity over two standard angles."""
+    from sympy import cos, latex, pi, simplify, sin
+
+    angle = int(degrees)
+    standards = (-90, -60, -45, -30, 30, 45, 60, 90)
+    pair = next(
+        ((first, second) for first in standards for second in standards if first + second == angle),
+        None,
+    )
+    if pair is not None:
+        first, second = pair
+        trig = cos if op == "cos" else sin
+        sign = "-" if op == "cos" else "+"
+        left_first = "cos" if op == "cos" else "sin"
+        left_second = "cos"
+        right_first = "sin" if op == "cos" else "cos"
+        right_second = "sin"
+        complementary = sin if op == "cos" else cos
+        components = (
+            trig(first * pi / 180),
+            cos(second * pi / 180),
+            complementary(first * pi / 180),
+            sin(second * pi / 180),
+        )
+        signed_second = (
+            simplify(components[0] * components[1] - components[2] * components[3])
+            if op == "cos"
+            else simplify(components[0] * components[1] + components[2] * components[3])
+        )
+        direct = render_workout(
+            Workout(
+                given=(math_line(f"{angle}^\\circ = {first}^\\circ + {second}^\\circ"),),
+                find=(math_line(f"\\{op}({angle}^\\circ)"),),
+                formula=(
+                    math_line(
+                        f"\\{op}(A + B) = \\{left_first} A\\,\\{left_second} B "
+                        f"{sign} \\{right_first} A\\,\\{right_second} B",
+                        "Angle-sum identity",
+                    ),
+                ),
+                # One short value per line stays readable on a narrow phone.
+                substitution=(
+                    math_line(f"\\{left_first}({first}^\\circ)={latex(components[0])}"),
+                    math_line(f"\\{left_second}({second}^\\circ)={latex(components[1])}"),
+                    math_line(f"\\{right_first}({first}^\\circ)={latex(components[2])}"),
+                    math_line(f"\\{right_second}({second}^\\circ)={latex(components[3])}"),
+                    math_line(f"\\{op}({angle}^\\circ) = {latex(signed_second)}"),
+                ),
+            ),
+            answer,
+        )
+        return replace(block, direct_reply=direct)
     return None
