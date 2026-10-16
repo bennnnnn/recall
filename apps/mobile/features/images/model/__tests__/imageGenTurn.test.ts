@@ -1,11 +1,40 @@
-import { IMAGE_GEN_FAILED_ASSISTANT_ID, IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
+import {
+  IMAGE_GEN_FAILED_ASSISTANT_ID,
+  IMAGE_GEN_PENDING_ASSISTANT_ID,
+  isImageOnlyAssistantContent,
+} from "@/features/images/model/imageGenMessages";
 import {
   applyImageGenFailure,
   hasImageGenFailedAssistant,
   imageGenUserBubble,
+  readImageTurn,
   restoreImageGenPending,
 } from "@/features/images/model/imageGenTurn";
 import type { Message } from "@/lib/api";
+
+const mockImageIntent = jest.fn();
+jest.mock("@/lib/api", () => ({
+  api: { imageIntent: (...args: unknown[]) => mockImageIntent(...args) },
+}));
+
+const IMAGE_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+
+function verdict(fields: Partial<{
+  subject: "math" | "physics" | "chemistry" | null;
+  lookup_query: string | null;
+  generate_prompt: string | null;
+  revision: boolean;
+  reference_attachment_ids: string[];
+}>) {
+  return {
+    subject: null,
+    lookup_query: null,
+    generate_prompt: null,
+    revision: false,
+    reference_attachment_ids: [],
+    ...fields,
+  };
+}
 
 function row(id: string, role: Message["role"], content: string): Message {
   return {
@@ -47,5 +76,73 @@ describe("image gen failure card", () => {
     expect(next[0]?.content).toBe("create a cat image");
     expect(next[1]?.id).toBe(IMAGE_GEN_PENDING_ASSISTANT_ID);
     expect(next[1]?.image_gen_failure).toBeUndefined();
+  });
+});
+
+describe("isImageOnlyAssistantContent", () => {
+  it("is true only for a bubble that is nothing but pictures", () => {
+    expect(isImageOnlyAssistantContent(`[Image: /attachments/${IMAGE_ID}/file]`)).toBe(true);
+    expect(isImageOnlyAssistantContent(`Here you go\n[Image: /attachments/${IMAGE_ID}/file]`)).toBe(false);
+    expect(isImageOnlyAssistantContent("Here you go")).toBe(false);
+  });
+});
+
+describe("readImageTurn", () => {
+  const send = { text: "make it blue", chatId: "chat-1", imageAttached: false };
+
+  beforeEach(() => mockImageIntent.mockReset());
+
+  it("asks the server about the text, the chat and an attached image", async () => {
+    mockImageIntent.mockResolvedValue(verdict({}));
+    await readImageTurn("token", { text: "make it blue", chatId: null, imageAttached: true });
+    expect(mockImageIntent).toHaveBeenCalledWith("token", {
+      text: "make it blue",
+      chat_id: null,
+      image_attached: true,
+    });
+  });
+
+  it("draws the server's prompt from the picture an edit starts from", async () => {
+    mockImageIntent.mockResolvedValue(verdict({
+      generate_prompt: "dog, blue",
+      revision: true,
+      reference_attachment_ids: [IMAGE_ID],
+    }));
+    await expect(readImageTurn("token", send)).resolves.toEqual({
+      kind: "generate",
+      prompt: "dog, blue",
+      referenceIds: [IMAGE_ID],
+    });
+  });
+
+  it("draws a new picture with no reference", async () => {
+    mockImageIntent.mockResolvedValue(verdict({ generate_prompt: "fox" }));
+    await expect(readImageTurn("token", { ...send, text: "draw a fox" })).resolves.toEqual({
+      kind: "generate",
+      prompt: "fox",
+      referenceIds: [],
+    });
+  });
+
+  it("sends a photo lookup as chat, where the server attaches the photo", async () => {
+    mockImageIntent.mockResolvedValue(verdict({ lookup_query: "ear" }));
+    await expect(readImageTurn("token", { ...send, text: "show me an ear" })).resolves.toEqual({ kind: "lookup" });
+  });
+
+  it.each([
+    ["a maths, physics or chemistry turn", verdict({ subject: "chemistry" })],
+    ["ordinary chat", verdict({})],
+  ])("sends %s as chat", async (_label, answer) => {
+    mockImageIntent.mockResolvedValue(answer);
+    await expect(readImageTurn("token", send)).resolves.toEqual({ kind: "send" });
+  });
+
+  it.each([
+    ["offline", new TypeError("Network request failed")],
+    ["a server error", Object.assign(new Error("500"), { status: 500 })],
+    ["a slow answer", Object.assign(new Error("Aborted"), { name: "AbortError" })],
+  ])("sends as chat when the server cannot answer (%s)", async (_label, error) => {
+    mockImageIntent.mockRejectedValue(error);
+    await expect(readImageTurn("token", send)).resolves.toEqual({ kind: "send" });
   });
 });

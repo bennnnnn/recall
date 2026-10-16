@@ -16,7 +16,7 @@ import {
   isComposerMenuOverlayOpen,
   shouldReserveComposerActionGap,
 } from "@/features/chat/model/composerLogic";
-import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenIntent";
+import { IMAGE_GEN_PENDING_ASSISTANT_ID } from "@/features/images/model/imageGenMessages";
 
 describe("composerInputFrameHeight", () => {
   it("grows one line per Return and caps at the field max", () => {

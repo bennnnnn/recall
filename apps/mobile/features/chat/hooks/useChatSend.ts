@@ -99,7 +99,7 @@ type Options = {
   streaming: boolean;
   sendMessage: SendMessageFn;
   setMessages: React.Dispatch<React.SetStateAction<Message[]>>;
-  /** Current transcript — used to treat short follow-ups after image replies as revisions. */
+  /** Current transcript — a short follow-up after a picture is worth asking the server about. */
   messages: Message[];
   selectedModel: string;
   updateUser: (patch: Partial<import("@/lib/api").User>) => Promise<void>;
@@ -405,6 +405,7 @@ export function useChatSend({
       const deciding = resolveSendIntercept({
         text,
         attachment: turn.attachment,
+        chatId,
         messages,
         canGenerate: Boolean(onGenerateImage),
         imageGenerating,
@@ -416,8 +417,7 @@ export function useChatSend({
         },
       });
       const intercept = deciding instanceof Promise ? await deciding : deciding;
-      if (intercept.kind === "drop") return;
-      if (intercept.kind === "stale") {
+      if (intercept.kind === "drop" || intercept.kind === "stale") {
         sendInFlightRef.current = false;
         setSendPhase("idle");
         return;

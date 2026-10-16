@@ -1,5 +1,5 @@
 {
-  "about": "Composer image intent: the cases for apps/api/app/modules/images/{gen_intent,lookup_intent,intent}.py. phrases, threads and revision_contexts pin the word rules; composer pins POST /images/intent, the verdict the chat turn and the phone's composer share (app/tests/modules/images/test_intent_contract.py).",
+  "about": "Composer image intent: the cases for apps/api/app/modules/images/{gen_intent,lookup_intent,intent}.py, its only reader. phrases, threads and revision_contexts pin the word rules; composer pins POST /images/intent, the verdict the chat turn and the phone's composer share (app/tests/modules/images/test_intent_contract.py). The phone reads no intent: its prefilter test (features/images/model/__tests__/imageIntentPrefilter.test.ts) checks only that every case here the server draws or looks up is worth asking the server about.",
   "revise_previous_subject": "black cat",
   "phrases": [
     {"text": "Create a cat pic", "generate": "cat", "revise": "black cat, Create a cat pic", "lookup": null},
