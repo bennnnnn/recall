@@ -235,6 +235,11 @@ async def _inline(fn: Any, *args: Any, **_kwargs: Any) -> Any:
 # corpus is still ahead. On the real clock those turns failed whenever the
 # suite ran after 16:00 UTC.
 SWEEP_NOW = datetime(2026, 10, 14, 6, 0, tzinfo=UTC)
+# The real class, under a name the frozen clock leaves alone. Imported as
+# app.tests.behavior.sweep (under pytest), this module's own ``datetime`` is
+# frozen too: a check against that name skipped every module imported after
+# this one, and the isinstance hook below recursed.
+_REAL_DATETIME = datetime
 
 
 class _AnyDateTime(type):
@@ -245,7 +250,7 @@ class _AnyDateTime(type):
     """
 
     def __instancecheck__(cls, instance: object) -> bool:
-        return isinstance(instance, datetime)
+        return isinstance(instance, _REAL_DATETIME)
 
 
 class _SweepDateTime(datetime, metaclass=_AnyDateTime):
@@ -259,7 +264,7 @@ def frozen_clock() -> Iterator[None]:
     """Every app module that reads the time with ``datetime.now`` reads SWEEP_NOW."""
     with ExitStack() as stack:
         for name, module in list(sys.modules.items()):
-            if name.startswith("app.") and getattr(module, "datetime", None) is datetime:
+            if name.startswith("app.") and getattr(module, "datetime", None) is _REAL_DATETIME:
                 stack.enter_context(patch.object(module, "datetime", _SweepDateTime))
         yield
 
