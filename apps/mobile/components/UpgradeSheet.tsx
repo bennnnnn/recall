@@ -49,7 +49,7 @@ const PLAN_RANK: Record<PlanId, number> = { free: 0, plus: 1, pro: 2 };
 type FeatureLine = { icon: IconName; text: string };
 
 /** What a plan includes, with the server's numbers (the store owns the price). */
-export function planFeatureLines(plan: PaidPlanId, info: PlanInfo | undefined, t: Translate): FeatureLine[] {
+function planFeatureLines(plan: PaidPlanId, info: PlanInfo | undefined, t: Translate): FeatureLine[] {
   const lines: FeatureLine[] = [];
   const images = info?.allowances.daily_image_generations;
   if (plan === "pro") {

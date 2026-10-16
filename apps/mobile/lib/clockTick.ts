@@ -12,7 +12,7 @@
  * subscribe/publish.
  */
 
-export type ClockTickListener = () => void;
+type ClockTickListener = () => void;
 
 const TICK_INTERVAL_MS = 1000;
 

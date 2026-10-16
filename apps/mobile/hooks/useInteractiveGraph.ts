@@ -18,10 +18,10 @@ import {
   type GraphView,
 } from "@/lib/math/graphViewport";
 
-export const MAX_GRAPH_SERIES = 4;
+const MAX_GRAPH_SERIES = 4;
 const SCATTER_MAX_POINTS = 20;
 
-export type SampledCurve = {
+type SampledCurve = {
   points: [number, number][];
   segments?: [number, number][][];
   cmp?: GraphCmp;
@@ -45,7 +45,7 @@ export type DrawnSeries = GraphSeriesState & {
   cmp: GraphCmp;
 };
 
-export function sampleInView(
+function sampleInView(
   expr: string,
   variable: string,
   bounds: GraphView,

@@ -57,7 +57,7 @@ export type VoiceRecorder = {
 };
 
 /** Map expo-audio dB metering (-160…0) to a 0–1 visual level. */
-export function normalizeMetering(db?: number): number {
+function normalizeMetering(db?: number): number {
   if (db == null || db <= -160) return 0.12;
   const clamped = Math.max(-60, Math.min(0, db));
   return 0.1 + ((clamped + 60) / 60) * 0.9;

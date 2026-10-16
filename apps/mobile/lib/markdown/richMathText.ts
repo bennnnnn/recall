@@ -1,6 +1,6 @@
 import { readInlineMathSpan } from "@/lib/markdown/inlineMath";
 
-export type RichMathPart = {
+type RichMathPart = {
   type: "text" | "code" | "math";
   value: string;
   bold?: boolean;

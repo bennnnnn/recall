@@ -1,7 +1,7 @@
 import { speechApi } from "@/features/speech/api";
 import type { SearchSource } from "@/lib/api/types";
 
-export type RealtimeFunctionCall = { type: "function_call"; name: string; call_id: string; arguments: string };
+type RealtimeFunctionCall = { type: "function_call"; name: string; call_id: string; arguments: string };
 
 export function realtimeFunctionCalls(response: unknown): RealtimeFunctionCall[] {
   if (!response || typeof response !== "object") return [];

@@ -36,7 +36,7 @@ export const NATIVE_LITERAL_LEFT_BRACE_MARKER = String.fromCharCode(0xe008);
 export const NATIVE_LITERAL_RIGHT_BRACE_MARKER = String.fromCharCode(0xe009);
 // `\textit` and `\operatorname*` belong with `\text`. Leaving them out let a
 // bare `_` keep the backslash and print the command name beside the word.
-export const UPRIGHT_TEXT_COMMANDS =
+const UPRIGHT_TEXT_COMMANDS =
   "text|textrm|textsf|texttt|textnormal|textbf|textit|textup|emph|mbox|hbox|mathrm|operatorname";
 export const UPRIGHT_TEXT_COMMAND_RE = new RegExp(
   `^\\\\(?:${UPRIGHT_TEXT_COMMANDS})\\*?(?![A-Za-z])`,

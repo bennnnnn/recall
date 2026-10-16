@@ -45,8 +45,8 @@ export function closeDrawer() {
 
 // Shared "start a new chat" action — registered by the chat screen so the
 // drawer can trigger it without prop drilling or fragile route params.
-export type StartNewChatOptions = { force?: boolean };
-export type StartNewChatFn = (opts?: StartNewChatOptions) => void;
+type StartNewChatOptions = { force?: boolean };
+type StartNewChatFn = (opts?: StartNewChatOptions) => void;
 
 const newChatHandlers = createInstanceStack<StartNewChatFn>();
 
@@ -96,7 +96,7 @@ export function abandonActiveChatIfDeleted(deletedIds: readonly string[]) {
 }
 
 /** Patch a chat row in the drawer list (e.g. when auto-title arrives). */
-export type ChatListPatch = Partial<Chat>;
+type ChatListPatch = Partial<Chat>;
 
 const chatPatchers = createInstanceStack<(chatId: string, patch: ChatListPatch) => void>();
 

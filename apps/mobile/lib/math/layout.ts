@@ -23,12 +23,12 @@ export const FRAC_LINE_AT_16 = 18;
 export const SQRT_LINE_AT_16 = 20;
 export const BODY_LINE_AT_16 = 25;
 /** Total vinculum overhang (both sides) as a fraction of the side em. */
-export const FRAC_PAD_RATIO = 0.32;
+const FRAC_PAD_RATIO = 0.32;
 export const SCRIPT_RATIO = 0.7;
-export const SCRIPT_RAISE_RATIO = 0.36;
-export const SCRIPT_DROP_RATIO = 0.2;
-export const RADICAL_LEAD_RATIO = 0.78;
-export const RADICAL_OVERHANG_RATIO = 0.1;
+const SCRIPT_RAISE_RATIO = 0.36;
+const SCRIPT_DROP_RATIO = 0.2;
+const RADICAL_LEAD_RATIO = 0.78;
+const RADICAL_OVERHANG_RATIO = 0.1;
 
 export type MathLayout = {
   kind: "row" | "run" | "frac" | "sqrt" | "accent" | "script" | "cancel";
@@ -78,7 +78,7 @@ function isCombiningMark(ch: string): boolean {
 }
 
 /** Em advance for one glyph. Unknown characters still take positive space. */
-export function glyphAdvanceEm(ch: string): number {
+function glyphAdvanceEm(ch: string): number {
   if (isCombiningMark(ch)) return 0;
   if (ch === " " || ch === "\u00a0" || ch === "\u2009") return 0.33;
   if (ch >= "0" && ch <= "9") return 0.5;
@@ -139,7 +139,7 @@ function glyphPadEm(
   };
 }
 
-export type OperatorPiece = { text: string; leftEm: number; rightEm: number };
+type OperatorPiece = { text: string; leftEm: number; rightEm: number };
 
 /** Split a run so binary/relation operators can take math space without
  * changing the characters copy and tests read back. */
@@ -169,7 +169,7 @@ export function measureRunWidth(text: string, em: number, leadingAtom: boolean):
 }
 
 /** A formula wider than the chat column scrolls; it is not shrunk. */
-export const INLINE_SCROLL_GUTTER = 64;
+const INLINE_SCROLL_GUTTER = 64;
 
 export function inlineMathNeedsScroll(contentWidth: number, windowWidth: number): boolean {
   if (!Number.isFinite(contentWidth) || contentWidth <= 0) return false;
@@ -514,7 +514,7 @@ export function radicalStroke(node: MathLayout): { d: string; barLength: number 
   return { d, barLength: Math.max(0, barEnd - barStart) };
 }
 
-export function walkLayout(node: MathLayout, visit: (node: MathLayout) => void): void {
+function walkLayout(node: MathLayout, visit: (node: MathLayout) => void): void {
   visit(node);
   for (const child of node.children) walkLayout(child, visit);
 }

@@ -9,12 +9,9 @@ import {
   type StaticOnlyNavigationGuard,
 } from "@/lib/staticOnlyNavigationGuard";
 
-export { createStaticOnlyNavigationGuard };
-export type { StaticOnlyNavigationGuard };
+type PreviewWebViewMode = "rnc" | "expo-dom";
 
-export type PreviewWebViewMode = "rnc" | "expo-dom";
-
-export type PreviewWebViewResult = {
+type PreviewWebViewResult = {
   Component: ComponentType<Record<string, unknown>>;
   mode: PreviewWebViewMode;
 };
@@ -116,7 +113,7 @@ export function allowHtmlRunNavigation(request?: unknown): boolean {
 }
 
 /** Pull URL from RN WebView's nativeEvent (or a plain `{ url }` test stub). */
-export function navigationRequestUrl(request: unknown): string {
+function navigationRequestUrl(request: unknown): string {
   if (request == null || typeof request !== "object") return "";
   const rec = request as { url?: unknown; nativeEvent?: { url?: unknown } };
   if (typeof rec.url === "string") return rec.url;
@@ -125,7 +122,7 @@ export function navigationRequestUrl(request: unknown): string {
 }
 
 /** Top-frame flag from RN WebView request (defaults true when unknown). */
-export function navigationRequestIsTopFrame(request: unknown): boolean {
+function navigationRequestIsTopFrame(request: unknown): boolean {
   if (request == null || typeof request !== "object") return true;
   const rec = request as {
     isTopFrame?: unknown;
@@ -138,7 +135,7 @@ export function navigationRequestIsTopFrame(request: unknown): boolean {
   return true;
 }
 
-export function navigationRequestType(request: unknown): string {
+function navigationRequestType(request: unknown): string {
   if (request == null || typeof request !== "object") return "other";
   const rec = request as {
     navigationType?: unknown;

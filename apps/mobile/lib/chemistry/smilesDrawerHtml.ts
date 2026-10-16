@@ -6,15 +6,15 @@ import { escapeForInlineJsTemplate, injectPreviewCsp, inlineScript } from "@/lib
 import type { Theme } from "@/lib/theme";
 import { SMILES_DRAWER_MIN_JS } from "@/lib/vendor/smilesDrawerMinJs";
 
-export type SmilesDrawerTheme = Pick<Theme, "bg" | "isDark">;
+type SmilesDrawerTheme = Pick<Theme, "bg" | "isDark">;
 
 /** Why the page could not draw. The native side owns the wording (i18n), not the page. */
 export type SmilesDrawerError = "unavailable" | "render";
 
 export const SMILES_DRAWER_ERROR_KIND = "chemistry-error";
 
-export const DRAW_WIDTH = 240;
-export const DRAW_HEIGHT = 140;
+const DRAW_WIDTH = 240;
+const DRAW_HEIGHT = 140;
 
 /**
  * A SMILES is a JS template literal in the page. On top of the shared escape, `<!--` is broken

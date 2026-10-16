@@ -84,7 +84,7 @@ let refreshInFlight: { generation: number; promise: Promise<string | null> } | n
 
 /** Share refresh within one session. Only an absent/rejected refresh credential
  * returns null; outages and secure storage failures must not sign the user out. */
-export async function refreshAccessToken(): Promise<string | null> {
+async function refreshAccessToken(): Promise<string | null> {
   const generation = getSessionGeneration();
   if (refreshInFlight?.generation === generation) return refreshInFlight.promise;
   const promise = (async () => {

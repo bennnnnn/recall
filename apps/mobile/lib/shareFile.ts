@@ -26,7 +26,7 @@ function loadSharing(): SharingModule | null {
   }
 }
 
-export type ShareRoute = "expo-sharing" | "rn-share" | "unavailable";
+type ShareRoute = "expo-sharing" | "rn-share" | "unavailable";
 
 /**
  * How a file reaches the share sheet. expo-sharing hands over the file on

@@ -4,7 +4,7 @@ import { loadExpoAudio } from "@/lib/speech/voiceAudio";
 type Player = ReturnType<NonNullable<ReturnType<typeof loadExpoAudio>>["createAudioPlayer"]>;
 let active: object | null = null;
 
-export type LessonSound = boolean | "complete";
+type LessonSound = boolean | "complete";
 
 const GRADE_HOLD_MS = 380;
 const COMPLETE_HOLD_MS = 800;

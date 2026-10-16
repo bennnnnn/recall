@@ -19,7 +19,7 @@ export { attachmentRecordExists } from "@/features/attachments/api";
 export type { AttachmentListItem } from "@/features/attachments/types";
 export { loginWithApple, loginWithDev, loginWithGoogle } from "@/features/auth/api";
 export { transcribeSpeech } from "@/features/speech/api";
-export { chatWebSocketUrl, checkHealth } from "@/lib/api/connectivity";
+export { chatWebSocketUrl } from "@/lib/api/connectivity";
 export {
   logoutSession,
   setTokenRefreshHandler,

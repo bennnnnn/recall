@@ -35,7 +35,7 @@ import {
   isIanaTimezoneOnly,
 } from "@/lib/timeQuestion";
 
-export type FenceRenderKind =
+type FenceRenderKind =
   | "hide"
   | "html"
   | "rich"
@@ -46,13 +46,13 @@ export type FenceRenderKind =
   | "copy"
   | "prose";
 
-export type FenceDecision = {
+type FenceDecision = {
   kind: FenceRenderKind;
   id?: FenceId;
   lang: string;
 };
 
-export function isFakeImageGenFence(lang: string): boolean {
+function isFakeImageGenFence(lang: string): boolean {
   const l = lang.trim().toLowerCase();
   return l === "image" || l === "img" || l === "image-gen" || l === "imagen";
 }

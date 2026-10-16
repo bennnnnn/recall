@@ -139,7 +139,7 @@ function niceStepW(raw: number): number {
 }
 
 /** Enough ticks that a ±6 window still labels every integer. */
-export function tickCountW(min: number, max: number): number {
+function tickCountW(min: number, max: number): number {
   "worklet";
   const span = max - min;
   if (!(span > 0) || !Number.isFinite(span)) return 7;

@@ -18,7 +18,7 @@ import {
   stripTimeAnswerFences,
 } from "@/lib/timeQuestion";
 
-export type AssistantMessageContentInput = {
+type AssistantMessageContentInput = {
   content: string;
   layoutFrozen: boolean;
   isUser: boolean;

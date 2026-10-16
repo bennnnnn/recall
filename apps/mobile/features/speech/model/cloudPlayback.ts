@@ -1,11 +1,11 @@
 /** Duration-accurate cloud clip wait so live-talk splices do not click or stall. */
 
-export const PLAYBACK_WAIT_SLACK_MS = 400;
-export const PLAYBACK_WAIT_MIN_MS = 250;
+const PLAYBACK_WAIT_SLACK_MS = 400;
+const PLAYBACK_WAIT_MIN_MS = 250;
 /** Failed duration must not stall the clip queue (~20s × N ≈ a minute of silence). */
-export const PLAYBACK_WAIT_UNKNOWN_MS = 2_000;
+const PLAYBACK_WAIT_UNKNOWN_MS = 2_000;
 /** Live-talk clips are 0.5–1.5s; never wait a whole utterance on one splice. */
-export const PLAYBACK_WAIT_CLIP_MAX_MS = 2_500;
+const PLAYBACK_WAIT_CLIP_MAX_MS = 2_500;
 const LIVE_TALK_BYTE_RATE = 24000 * 2;
 
 export function wavDurationMsFromBase64(b64: string): number | null {

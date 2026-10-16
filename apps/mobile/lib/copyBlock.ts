@@ -2,7 +2,7 @@ import { fenceIdForLang, isNeverCodeBlockLang } from "@/lib/fenceRegistry";
 import { markdownToCopyText } from "@/lib/markdown/plain";
 import { looksLikeMathFenceBody, stripEmbeddedDollarWraps } from "@/lib/math/fenceRetag";
 
-export const COPY_LANGS = new Set([
+const COPY_LANGS = new Set([
   "copy",
   "text",
   "message",
@@ -16,7 +16,7 @@ export function isCopyLang(lang: string): boolean {
 }
 
 /** Fences with no real language tag — usually plain text from the model. */
-export function isProseLang(lang: string): boolean {
+function isProseLang(lang: string): boolean {
   const l = lang.trim().toLowerCase();
   return !l || l === "clike" || l === "text" || l === "plain";
 }
@@ -91,7 +91,7 @@ export function shouldRenderAsCodeBlock(
 }
 
 /** Educational / explanatory prose — not a copy-and-send deliverable. */
-export function looksLikeExplanatoryProse(content: string): boolean {
+function looksLikeExplanatoryProse(content: string): boolean {
   const sample = content.slice(0, 1600).trim();
   if (/^\s*>/m.test(sample)) return true;
   if (/^#{1,6}\s/m.test(sample)) return true;
@@ -222,7 +222,7 @@ export function looksLikeSendDeliverable(content: string): boolean {
 }
 
 /** True when content reads like plain prose (not code). */
-export function looksLikeProse(content: string): boolean {
+function looksLikeProse(content: string): boolean {
   if (looksLikeCode(content)) return false;
   const sample = content.slice(0, 600);
   if (
@@ -237,7 +237,7 @@ export function looksLikeProse(content: string): boolean {
 }
 
 /** Assistant follow-up / disclaimer — not something the user would copy and send. */
-export function looksLikeAssistantMeta(content: string): boolean {
+function looksLikeAssistantMeta(content: string): boolean {
   const sample = content.slice(0, 800).trim();
   if (
     /^(I (used|assumed|went with|inferred|based|picked|chose|included)|Based on your (answer|response|input|reply)|If you('d| would) prefer|just tell me (and )?I('ll| will)|let me know if|double-check|feel free to (ask|tell)|happy to (revise|update|adjust)|I can (revise|update|adjust)|Note:|Also, (double-check|if ))/i.test(

@@ -96,7 +96,7 @@ function mathSpanAt(text: string, caret: number): { start: number; end: number }
   return null;
 }
 
-export function caretStops(text: string, caret: number): number[] {
+function caretStops(text: string, caret: number): number[] {
   const span = mathSpanAt(text, caret);
   if (!span) return [];
   const tokens = tokenize(text, span.start, span.end);

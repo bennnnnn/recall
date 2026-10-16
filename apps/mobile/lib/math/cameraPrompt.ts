@@ -20,7 +20,7 @@ export function composerTextAfterMathScan(existing: string, scanPrompt: string =
 }
 
 /** The steps ask a confirmed scan is sent with; the API lessons read it. */
-export const MATH_SCAN_SOLVE_PREFIX = "Show steps:";
+const MATH_SCAN_SOLVE_PREFIX = "Show steps:";
 
 const RELATION = /[=<>\u2264\u2265]/;
 

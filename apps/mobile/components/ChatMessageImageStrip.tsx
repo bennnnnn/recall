@@ -16,7 +16,7 @@ const IMAGE_STRIP_GAP = Space.xs;
 /** Landscape 4:3 card. Cover-crops the same thumbs; tap still opens full size. */
 const STRIP_HEIGHT_RATIO = 3 / 4;
 
-export type ChatMessageImageStripItem = {
+type ChatMessageImageStripItem = {
   attachmentId?: string | null;
   path?: string | null;
   localUri?: string | null;

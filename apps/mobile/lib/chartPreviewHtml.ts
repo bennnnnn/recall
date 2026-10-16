@@ -14,7 +14,7 @@ import { VEGA_EMBED_MIN_JS } from "@/lib/vendor/vegaEmbedMinJs";
 import { VEGA_LITE_MIN_JS } from "@/lib/vendor/vegaLiteMinJs";
 import { VEGA_MIN_JS } from "@/lib/vendor/vegaMinJs";
 
-export type ChartPreviewTheme = Pick<
+type ChartPreviewTheme = Pick<
   Theme,
   "bg" | "text" | "textSecondary" | "border" | "danger" | "isDark"
 >;
@@ -55,7 +55,7 @@ function applyNominalSort(encoding: Record<string, unknown>, key: string): void 
  * Named categories on x become unreadable on a phone (labels clip under the
  * plot). ChatGPT-shaped: months/items on y, values on x.
  */
-export function preferHorizontalCategoryBars(spec: Record<string, unknown>): void {
+function preferHorizontalCategoryBars(spec: Record<string, unknown>): void {
   if (!markIsBar(spec.mark)) return;
   const encoding = spec.encoding;
   if (!encoding || typeof encoding !== "object" || Array.isArray(encoding)) return;

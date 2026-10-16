@@ -5,7 +5,7 @@ import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
 import { isContextFresh } from "@/lib/cache/contextRefresh";
 import { getTodoMutationState, type TodoMutationState } from "@/features/todos/model/todoMutationState";
 
-export type TodosRefreshOptions = { silent?: boolean; force?: boolean; afterPending?: boolean };
+type TodosRefreshOptions = { silent?: boolean; force?: boolean; afterPending?: boolean };
 type Update = (rows: Todo[]) => Todo[];
 type Pending = { task: Promise<void>; updates: Update[] };
 

@@ -33,7 +33,7 @@ export function shouldShowAppleSignInButton(): boolean {
   return extra?.appleSignIn !== false;
 }
 
-export type AppleSignInResult = {
+type AppleSignInResult = {
   idToken: string;
   name: string | null;
   /** Raw nonce for the server; Apple's token carries its SHA-256. */

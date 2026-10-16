@@ -1,6 +1,6 @@
 /** Parse a server-owned ```chem_scene fence. Invalid JSON draws nothing. */
 
-export type BalanceRow = { element: string; left: number; right: number };
+type BalanceRow = { element: string; left: number; right: number };
 
 export type BalanceScene = {
   kind: "balance";

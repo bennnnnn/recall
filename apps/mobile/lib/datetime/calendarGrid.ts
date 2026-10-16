@@ -6,12 +6,12 @@
 type Locale = string | string[] | undefined;
 
 /** 0 = Sunday … 6 = Saturday, like `Date.getDay()`. */
-export type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+type Weekday = 0 | 1 | 2 | 3 | 4 | 5 | 6;
 
 export type YearMonth = { year: number; month: number };
 
 /** Every grid has six weeks so the dialog keeps its height between months. */
-export const GRID_WEEKS = 6;
+const GRID_WEEKS = 6;
 
 /** Regions whose week starts on Sunday or Saturday (CLDR week data). The rest start Monday. */
 const SUNDAY_REGIONS = new Set(

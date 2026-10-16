@@ -74,8 +74,8 @@ function gapFadeColors(bg: string): [string, string] {
 // 36 pt row + 4 pt card padding above and below + 6 pt shell air above and below.
 export const COMPOSER_HEIGHT = 56;
 // Attachment extras mirror the rendered preview sizes instead of under-reserving the thread.
-export const COMPOSER_IMAGE_PREVIEW_EXTRA = 120;
-export const COMPOSER_FILE_PREVIEW_EXTRA = 56;
+const COMPOSER_IMAGE_PREVIEW_EXTRA = 120;
+const COMPOSER_FILE_PREVIEW_EXTRA = 56;
 const COMPOSER_STATUS_LINE_HEIGHT = 18;
 
 export function composerAttachmentExtra(attachment: PendingAttachment | null): number {

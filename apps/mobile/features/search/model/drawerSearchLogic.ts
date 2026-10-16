@@ -2,9 +2,9 @@ import type { SearchResult } from "@/lib/api";
 
 export const DRAWER_SEARCH_DEBOUNCE_MS = 300;
 export const DRAWER_SEARCH_PAGE_SIZE = 20;
-export const DRAWER_SEARCH_MIN_LENGTH = 2;
-export const DRAWER_SEARCH_MAX_LENGTH = 200;
-export const DRAWER_SEARCH_MAX_OFFSET = 10_000;
+const DRAWER_SEARCH_MIN_LENGTH = 2;
+const DRAWER_SEARCH_MAX_LENGTH = 200;
+const DRAWER_SEARCH_MAX_OFFSET = 10_000;
 
 /** Python's request bounds count Unicode code points, not UTF-16 code units. */
 export function isValidDrawerSearchQuery(query: string): boolean {

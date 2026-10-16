@@ -4,7 +4,7 @@ import { Linking } from "react-native";
 import { fullEmailText, gmailComposeCandidates } from "@/features/drafts/model/emailCompose";
 import type { EmailDraft } from "@/lib/richBlocks";
 
-export type GmailOpenResult = "app" | "web" | "copied_only";
+type GmailOpenResult = "app" | "web" | "copied_only";
 
 async function tryOpenUrl(url: string): Promise<boolean> {
   try {

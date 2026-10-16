@@ -109,7 +109,7 @@ function hasUnclosedStreamingStructure(text: string): boolean {
 }
 
 /** True when the last complete line is a GFM pipe-table row (still growing). */
-export function endsWithOpenPipeTable(text: string): boolean {
+function endsWithOpenPipeTable(text: string): boolean {
   const lines = text.split("\n");
   let i = lines.length - 1;
   if (i >= 0 && lines[i] === "") i -= 1;

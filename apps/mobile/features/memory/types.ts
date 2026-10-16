@@ -1,7 +1,6 @@
 import type { Memory } from "@/lib/api/types";
 
 export type { Memory } from "@/lib/api/types";
-export type { MemoryPatch } from "@/features/memory/api";
 
 export type MemoryDocumentGroup = "you" | "topics" | "areas";
 

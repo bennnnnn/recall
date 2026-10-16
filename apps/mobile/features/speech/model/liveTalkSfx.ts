@@ -3,7 +3,7 @@ import { EncodingType, cacheDirectory, writeAsStringAsync } from "expo-file-syst
 import { notifySuccess, tap } from "@/lib/haptics";
 import { loadExpoAudio } from "@/lib/speech/voiceAudio";
 
-export type LiveTalkCue = "start" | "end";
+type LiveTalkCue = "start" | "end";
 
 /** Rising open / falling close. Open must finish and release before WebRTC. */
 export const LIVE_TALK_CUE_TONES: Record<LiveTalkCue, readonly { hz: number; ms: number }[]> = {
@@ -22,7 +22,7 @@ const AMPLITUDE = 0.22;
 const GAP_MS = 24;
 const CUE_RELEASE_PAD_MS = 80;
 
-export function liveTalkCueDurationMs(kind: LiveTalkCue): number {
+function liveTalkCueDurationMs(kind: LiveTalkCue): number {
   const tones = LIVE_TALK_CUE_TONES[kind];
   return tones.reduce((sum, tone) => sum + tone.ms, 0) + GAP_MS * Math.max(0, tones.length - 1);
 }

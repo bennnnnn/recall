@@ -7,13 +7,13 @@ import type { PaidPlanId, PlanId } from "@/lib/plan";
  * RevenueCat entitlement per paid plan. "pro" keeps the single-plan id, so
  * existing subscribers stay on the top plan; the server maps the same ids.
  */
-export const PLAN_ENTITLEMENT_IDS: Record<PaidPlanId, string> = { plus: "plus", pro: "pro" };
+const PLAN_ENTITLEMENT_IDS: Record<PaidPlanId, string> = { plus: "plus", pro: "pro" };
 
 /**
  * Package identifier per plan in the current RevenueCat offering. An offering
  * from the single-plan era (only a monthly package) is offered as Pro.
  */
-export const PLAN_PACKAGE_IDS: Record<PaidPlanId, string> = {
+const PLAN_PACKAGE_IDS: Record<PaidPlanId, string> = {
   plus: "plus_monthly",
   pro: "pro_monthly",
 };

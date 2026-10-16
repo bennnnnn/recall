@@ -6,7 +6,7 @@ import { registerEmailDraftFlusher } from "@/features/drafts/model/emailDraftFlu
 import type { EmailDraft } from "@/lib/richBlocks";
 import { isServerMessageId } from "@/lib/serverMessageId";
 
-export const EMAIL_DRAFT_PERSIST_DEBOUNCE_MS = 600;
+const EMAIL_DRAFT_PERSIST_DEBOUNCE_MS = 600;
 
 export function useEmailCardPersist(currentDraft: EmailDraft, editing: boolean) {
   const save = useEmailDraftSave();

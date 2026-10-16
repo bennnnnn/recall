@@ -68,12 +68,12 @@ export function applyOutsideFences(text: string, fn: (prose: string) => string):
   return out.join("\n");
 }
 
-export function isFenceCloser(line: string): boolean {
+function isFenceCloser(line: string): boolean {
   const stripped = line.trim();
   return stripped.length >= 3 && stripped === "`".repeat(stripped.length);
 }
 
-export function nextFenceMarkerLine(
+function nextFenceMarkerLine(
   text: string,
   fromIndex: number,
 ): { start: number; after: number; stripped: string } | null {

@@ -53,24 +53,13 @@ import { repairBrokenMarkdownLinks } from "@/lib/placesList";
 
 export { markdownHasNestedMathView, splitInlineMath } from "@/lib/markdown/inlineMath";
 export {
-  normalizeQuoteAttributionDashes,
-  promoteCalloutBlockquotes,
-  promoteQuotedAttributions,
-  quotedAttributionToBlockquote,
-  splitBlockquoteInlineAttribution,
-} from "@/lib/markdown/preprocessCallouts";
-export {
   breakAttachedMathFences,
-  dedentMisindentedMarkdownSteps,
-  inlineShortMathFences,
-  liftMathFencesOutOfLists,
   unwrapProseMathBackticks,
 } from "@/lib/markdown/preprocessMathFences";
 export { layoutCheckVerificationLines } from "@/lib/markdown/preprocessMathChecks";
 export { normalizeBoldInlineMath } from "@/lib/markdown/preprocessMathInline";
 export {
   breakMidlineAtxHeadings,
-  looksLikeMarkdownListProse,
   mergeStrandedColons,
   separateStandaloneBoldLines,
   stripBoldListLabelContinuationColons,

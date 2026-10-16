@@ -51,7 +51,7 @@ type Options = {
   t: (key: string) => string;
 };
 
-export type ImageGenSubmit = {
+type ImageGenSubmit = {
   prompt: string;
   userMessage: string;
   aspectRatio?: string | null;

@@ -228,5 +228,3 @@ export function useChatTransport({
     cancelSocket,
   };
 }
-
-export type { ChatWsFallbackSignal };

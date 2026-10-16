@@ -35,7 +35,7 @@ function writeAscii(view: DataView, offset: number, text: string): void {
 }
 
 /** A quiet 96 ms frequency sweep: tactile enough to register, never alarm-like. */
-export function buildScannerSwitchCueBase64(direction: SwitchDirection): string {
+function buildScannerSwitchCueBase64(direction: SwitchDirection): string {
   const sampleCount = Math.round((DURATION_MS / 1000) * SAMPLE_RATE);
   const dataBytes = sampleCount * 2;
   const buffer = new ArrayBuffer(44 + dataBytes);

@@ -24,7 +24,7 @@ type ChatWsAuthFrame = {
   client_timezone: string;
 };
 
-export type ChatWsMessageFrame = {
+type ChatWsMessageFrame = {
   type: "message";
   content: string;
   attachment_ids: string[];
@@ -34,7 +34,7 @@ export type ChatWsMessageFrame = {
   client_longitude: number | null;
 };
 
-export type ChatWsRegenerateFrame = {
+type ChatWsRegenerateFrame = {
   type: "regenerate";
   model: string | null;
   client_location: string | null;
@@ -52,7 +52,7 @@ export type ChatWsFallbackSignal =
     }
   | { reason: "first_event_timeout"; duringTurn: true };
 
-export type ChatWsTransportOptions = {
+type ChatWsTransportOptions = {
   url: string;
   token: string;
   clientTimezone: string;

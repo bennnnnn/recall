@@ -37,7 +37,7 @@ export const MATH_DRAFT_PREVIEW_HEIGHT = 48;
  * Note: `UserMessageContent` uses its own check (only `$`) for sent messages;
  * this broader check is for the live composer draft only.
  */
-export function draftShowsMathPreview(input: string): boolean {
+function draftShowsMathPreview(input: string): boolean {
   const s = input.trim();
   if (s.length === 0) return false;
   if (isMostlyProsePaste(s)) return false;

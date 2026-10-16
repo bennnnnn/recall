@@ -10,7 +10,7 @@ import { Space } from "@/lib/space";
 import { type Theme, useTheme } from "@/lib/theme";
 import { Type, Weight } from "@/lib/type";
 
-export type Segment<K extends string> = { key: K; label: string };
+type Segment<K extends string> = { key: K; label: string };
 
 type Props<K extends string> = {
   segments: readonly Segment<K>[];

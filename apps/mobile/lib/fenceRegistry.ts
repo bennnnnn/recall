@@ -59,9 +59,9 @@ export type FenceId =
   | "sources"
   | "steps";
 
-export type FenceOwner = "model" | "server" | "legacy";
+type FenceOwner = "model" | "server" | "legacy";
 
-export type FallbackKind =
+type FallbackKind =
   | "callout"
   | "geometry"
   | "graph"
@@ -70,7 +70,7 @@ export type FallbackKind =
   | "places"
   | "visual";
 
-export type FenceSpec = {
+type FenceSpec = {
   id: FenceId;
   /** Every language tag that resolves to this fence. */
   langs: readonly string[];

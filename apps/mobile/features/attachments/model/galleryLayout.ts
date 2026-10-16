@@ -14,7 +14,7 @@ function filePath(): string | null {
   return prefFilePath(FILE_NAME);
 }
 
-export function normalizeGalleryLayout(raw: string | null | undefined): GalleryLayout {
+function normalizeGalleryLayout(raw: string | null | undefined): GalleryLayout {
   return raw === "column" ? "column" : "grid";
 }
 

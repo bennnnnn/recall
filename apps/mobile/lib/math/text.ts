@@ -61,7 +61,7 @@ export function latexHasStackedFrac(latex: string): boolean {
   return /\\(?:d|t|c)?frac/.test(restoreMathEscapes(latex));
 }
 
-export type ScriptAttachment = {
+type ScriptAttachment = {
   segment: MathSegment;
   index: number;
   sup: Extract<MathSegment, { type: "sup" }> | null;
