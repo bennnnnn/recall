@@ -291,11 +291,11 @@
     },
     "apps/mobile/lib/math/latexParse.ts": {
       "lines": 510,
-      "why": "Exception: One parser; the file stays and its one long function splits (ES-38)"
+      "why": "Exception: One parser; ES-38 split its one long function"
     },
     "apps/mobile/lib/math/layout.ts": {
       "lines": 533,
-      "why": "Exception: One layout algorithm; the file stays and `measureSegment` splits (ES-38)"
+      "why": "Exception: One layout algorithm; ES-38 split `measureSegment` and moved the tree checks out"
     },
     "apps/mobile/lib/physics/circuit.ts": {
       "lines": 511,
