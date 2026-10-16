@@ -1,4 +1,4 @@
-import { mergeDoneIntoMessages, appendToken, buildDoneMergeInput, applyRelatedPrompts, applyStreamEndModel, parseChatWsPayload, relatedPromptsFromEvent, shouldIgnoreStoppedStreamEvent } from "@/features/chat/model/socketReduce";
+import { mergeDoneIntoMessages, buildDoneMergeInput, applyRelatedPrompts, applyStreamEndModel, parseChatWsPayload, relatedPromptsFromEvent, shouldIgnoreStoppedStreamEvent } from "@/features/chat/model/socketReduce";
 import type { Message } from "@/lib/api";
 
 describe("chatSocketReduce", () => {
@@ -8,11 +8,6 @@ describe("chatSocketReduce", () => {
       content: "hi",
     });
     expect(parseChatWsPayload("not-json")).toBeNull();
-  });
-
-  it("appendToken concatenates stream chunks", () => {
-    expect(appendToken("Hi", " there")).toBe("Hi there");
-    expect(appendToken("Hi", undefined)).toBe("Hi");
   });
 
   it("mergeDoneIntoMessages replaces streaming placeholder", () => {

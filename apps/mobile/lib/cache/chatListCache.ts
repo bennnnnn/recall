@@ -99,8 +99,3 @@ export async function fetchChatList(
   try { return await task; }
   finally { if (state.pending === pending) state.pending = undefined; }
 }
-
-/** Warm GET /chats so the drawer can paint titles without a spinner. */
-export function prefetchChatList(token: string): void {
-  void fetchChatList(token);
-}

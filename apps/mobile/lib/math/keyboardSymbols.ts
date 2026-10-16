@@ -5,7 +5,6 @@ export {
   SYMBOL_A11Y,
   converterResultSpec,
   isCursorInsideInlineMath,
-  spliceBackspace,
   spliceMathInsert,
   symbolA11yLabel,
   type MathKeyboardGroup,

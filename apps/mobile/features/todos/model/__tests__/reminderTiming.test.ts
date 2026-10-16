@@ -1,7 +1,6 @@
 import {
   DEFAULT_REMINDER_LEAD_MINUTES,
   IMMINENT_NOTIFY_DELAY_MS,
-  isWithinReminderLeadWindow,
   leadMsFromMinutes,
   normalizeReminderLeadMinutes,
   reminderNotifyDate,
@@ -47,13 +46,5 @@ describe("reminderTiming", () => {
       const notify = reminderNotifyDate(due, now, leadMsFromMinutes(minutes));
       expect(notify?.getTime()).toBe(due.getTime() - leadMsFromMinutes(minutes));
     }
-  });
-
-  it("detects lead windows for push scheduling", () => {
-    const dueSoon = new Date("2026-06-28T12:04:00.000Z");
-    const dueLater = new Date("2026-06-28T12:25:00.000Z");
-    expect(isWithinReminderLeadWindow(dueSoon, now, 5)).toBe(true);
-    expect(isWithinReminderLeadWindow(dueLater, now, 5)).toBe(false);
-    expect(isWithinReminderLeadWindow(dueLater, now, 30)).toBe(true);
   });
 });

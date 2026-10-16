@@ -4,7 +4,7 @@ import { api } from "@/lib/api";
 import { usageUsedPercent } from "@/lib/quota";
 
 // Show the upgrade nudge once the free user has used this much of today's quota.
-export const QUOTA_NUDGE_THRESHOLD_PCT = 80;
+const QUOTA_NUDGE_THRESHOLD_PCT = 80;
 
 // In-memory per-day dismissal. Resets when the app restarts — acceptable for a
 // conversion nudge (it just re-shows once the next session of the same day).
@@ -16,17 +16,6 @@ function today(): string {
   // A local-date slice would dismiss the nudge across a midnight boundary
   // that the server hasn't crossed yet.
   return new Date().toISOString().slice(0, 10);
-}
-
-/** Pure decision used by the hook — exported for unit testing. */
-export function shouldShowQuotaNudge(
-  usedPct: number,
-  isPaid: boolean,
-  dismissedForToday: boolean,
-): boolean {
-  if (isPaid) return false;
-  if (dismissedForToday) return false;
-  return usedPct >= QUOTA_NUDGE_THRESHOLD_PCT;
 }
 
 type Options = {

@@ -72,11 +72,6 @@ jest.mock("expo-linear-gradient", () => {
   return { LinearGradient: "LinearGradient" };
 });
 
-jest.mock("@/lib/lastPhotoThumbnail", () => ({
-  loadLastPhotoUri: jest.fn(async () => null),
-  useLastPhotoThumb: () => null,
-}));
-
 jest.mock("@/features/attachments/model/attachments", () => ({
   pickImageDocument: jest.fn(async () => null),
   HeicUnsupportedError: class extends Error {},

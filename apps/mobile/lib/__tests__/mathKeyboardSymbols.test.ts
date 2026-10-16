@@ -17,7 +17,6 @@ import {
   PAD_ROWS,
   pageKeyIds,
   padRows,
-  spliceBackspace,
   spliceMathInsert,
   SYMBOL_A11Y,
   SYMBOL_PAGES,
@@ -407,19 +406,6 @@ describe("slot navigation", () => {
     expect(tapAdvancesToNextSlot(afterTwo.text, afterTwo.selection.start, "logn")).toBe(
       findLognSlots(afterTwo.text)[0]!.arg.close,
     );
-  });
-});
-
-describe("spliceBackspace", () => {
-  it("deletes the selection or the previous character", () => {
-    expect(spliceBackspace("abc", { start: 3, end: 3 })).toEqual({
-      text: "ab",
-      selection: { start: 2, end: 2 },
-    });
-    expect(spliceBackspace("abc", { start: 1, end: 3 })).toEqual({
-      text: "a",
-      selection: { start: 1, end: 1 },
-    });
   });
 });
 

@@ -1,5 +1,4 @@
 import {
-  formatJoinedDate,
   getDisplayName,
   getInitials,
   sanitizeDisplayName,
@@ -21,10 +20,5 @@ describe("profile helpers", () => {
     expect(getInitials("Ada Lovelace")).toBe("AL");
     expect(getInitials("Cher")).toBe("C");
     expect(getInitials(null)).toBe("?");
-  });
-
-  it("formatJoinedDate localizes when possible", () => {
-    expect(formatJoinedDate("2024-06-15T12:00:00.000Z", "en-US")).toMatch(/2024/);
-    expect(formatJoinedDate("not-a-date", "en")).toBe("");
   });
 });

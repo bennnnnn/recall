@@ -1317,51 +1317,6 @@ function inflateBox(box: LabelBox, by: number): LabelBox {
 const MAX_NUDGE = 48;
 const NUDGE_STEP = 2;
 
-/**
- * Nudge labels apart, in priority order: each box keeps its place unless it
- * overlaps a `fixed` box, one placed before it, or a line in its `avoid` list
- * (the other arrows' shafts), and then moves the shortest way out — straight
- * along one axis — that stays on the canvas and is clear of all three.
- */
-export function separateLabels(
-  boxes: readonly LabelBox[],
-  fixed: readonly LabelBox[],
-  width: number,
-  height: number,
-  avoid: readonly (readonly Segment[])[] = [],
-  gap = 2,
-): LabelBox[] {
-  const placed: LabelBox[] = [...fixed];
-  return boxes.map((start, index) => {
-    const lines = avoid[index] ?? [];
-    // Lines keep a little more room than labels do: the halo is drawn
-    // outside the glyphs, and a line grazing it reads as a strike-through.
-    const clear = (box: LabelBox) =>
-      !placed.some((other) => boxesOverlap(box, other, gap)) &&
-      !lines.some((line) => segmentHitsBox(line, inflateBox(box, LINE_CLEARANCE)));
-    const home = clampBox(start, width, height);
-    let box = home;
-    if (!clear(home)) {
-      search: for (let step = NUDGE_STEP; step <= MAX_NUDGE; step += NUDGE_STEP) {
-        for (const [dx, dy] of [
-          [0, step],
-          [0, -step],
-          [step, 0],
-          [-step, 0],
-        ]) {
-          const candidate = clampBox({ ...home, x: home.x + dx, y: home.y + dy }, width, height);
-          if (clear(candidate)) {
-            box = candidate;
-            break search;
-          }
-        }
-      }
-    }
-    placed.push(box);
-    return box;
-  });
-}
-
 export type BodyLabelSide =
   | "above"
   | "below"
@@ -1976,13 +1931,14 @@ const NUDGE_PER_FRAME = 8;
 const ALTERNATE_HOME = 1.5;
 
 /**
- * `separateLabels` across time. Each label, in priority order, tries the same
+ * Nudge labels apart across time, straight along one axis and on the canvas.
+ * Each label, in priority order, tries the same
  * nudges in the same order and keeps the cheapest: a clash with anything
  * placed before it, or with a line it must avoid, costs a lot in the first
  * frame (the still picture) and one point in any later frame, and every
  * `NUDGE_PER_FRAME` px of nudge costs a point. A label riding on a body thus
  * stays at its arrow's tip and only gives way where it would be covered for
- * much of the motion. With one frame this is exactly `separateLabels`.
+ * much of the motion.
  */
 function separateAcrossFrames(
   labels: readonly FrameLabel[],

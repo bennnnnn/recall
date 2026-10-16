@@ -5,12 +5,6 @@
 
 export const TTS_LEAD_MIN_CHARS = 120;
 export const TTS_LEAD_MAX_CHARS = 160;
-/** Do not warm cloud TTS until the user taps speak. */
-export const TTS_PREFETCH_CHUNK_LIMIT = 0;
-
-export function shouldPrefetchTtsChunk(index: number): boolean {
-  return index >= 0 && index < TTS_PREFETCH_CHUNK_LIMIT;
-}
 const SENTENCE_ENDS = new Set([".", "!", "?", "。", "！", "？", "።"]);
 
 function isSentenceEnd(text: string, index: number): boolean {

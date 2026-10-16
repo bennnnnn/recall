@@ -10,7 +10,6 @@ import {
   monthYearLabel,
   weekdayLabels,
   withDay,
-  withYearMonth,
   yearRange,
 } from "@/lib/datetime/calendarGrid";
 
@@ -68,13 +67,8 @@ describe("month and day arithmetic", () => {
     expect(compareDays(new Date(2027, 0, 1), new Date(2026, 11, 31))).toBeGreaterThan(0);
   });
 
-  it("keeps the time and shortens the day when the month is shorter", () => {
+  it("keeps the time when picking a day", () => {
     const date = new Date(2026, 0, 31, 9, 30);
-    const next = withYearMonth(date, { year: 2026, month: 1 });
-    expect([next.getFullYear(), next.getMonth(), next.getDate()]).toEqual([2026, 1, 28]);
-    expect([next.getHours(), next.getMinutes()]).toEqual([9, 30]);
-    const leap = withYearMonth(new Date(2024, 1, 29), { year: 2025, month: 1 });
-    expect(leap.getDate()).toBe(28);
     const picked = withDay(date, { year: 2026, month: 8 }, 26);
     expect([picked.getMonth(), picked.getDate(), picked.getHours()]).toEqual([8, 26, 9]);
   });

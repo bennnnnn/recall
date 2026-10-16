@@ -1,5 +1,4 @@
 import type { AttachmentListItem } from "@/lib/api";
-import { isContextFresh } from "@/lib/cache/contextRefresh";
 
 export const GALLERY_SEARCH_DEBOUNCE_MS = 300;
 export const GALLERY_PAGE_SIZE = 30;
@@ -87,15 +86,6 @@ export function galleryListParams(filter: GalleryFilter): GalleryListParams {
 
 export function galleryListCacheKey(filter: GalleryFilter, query: string): string {
   return `${filter}:${query.trim()}`;
-}
-
-export function shouldSkipGalleryFocusReload(opts: {
-  lastFetchedAt: number | undefined;
-  force?: boolean;
-  now?: number;
-}): boolean {
-  if (opts.force) return false;
-  return isContextFresh(opts.lastFetchedAt, opts.now);
 }
 
 /** File extensions for the types Library holds; anything else uses its MIME subtype. */

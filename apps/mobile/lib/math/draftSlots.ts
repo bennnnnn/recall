@@ -203,10 +203,6 @@ export function findDraftNodes(text: string): DraftNode[] {
   return nodes;
 }
 
-export function hasTappableDraftSlot(nodes: DraftNode[]): boolean {
-  return nodes.some((n) => n.kind !== "text");
-}
-
 /** Caret just after an opening `$` so the next insert/delete is at the front. */
 export function caretBeforeExpression(text: string): number {
   return text.startsWith("$") ? 1 : 0;

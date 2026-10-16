@@ -6,7 +6,6 @@ import {
   fallbackKindForLang,
   isMathFenceLang,
   isMathDiagramLang,
-  isAnswerFenceLang,
   isChartFenceLang,
   isControlFenceLang,
   isVisualDiagramFenceLang,
@@ -313,7 +312,6 @@ describe("fence registry round-trip (render, copy, fallback)", () => {
 
   it("copy/speech routing derives from the registry, not parallel lang lists", () => {
     expect(isChartFenceLang("vega-lite")).toBe(true);
-    expect(isAnswerFenceLang("result")).toBe(true);
     expect(isVisualDiagramFenceLang("smiles")).toBe(true);
     expect(isVisualDiagramFenceLang("chart")).toBe(false);
     expect(isControlFenceLang("sources")).toBe(true);

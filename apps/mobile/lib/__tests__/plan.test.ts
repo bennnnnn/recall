@@ -1,12 +1,10 @@
-import { hasPlanFeature, isPaidPlan, planNameKey, planOf, upgradeTargets } from "@/lib/plan";
+import { hasPlanFeature, planNameKey, planOf, upgradeTargets } from "@/lib/plan";
 
 describe("plan helpers", () => {
   it("treats anything unknown as free, never as paid", () => {
     expect(planOf(null)).toBe("free");
     expect(planOf({ plan: "enterprise" })).toBe("free");
     expect(planOf({ plan: "plus" })).toBe("plus");
-    expect(isPaidPlan({ plan: "pro" })).toBe(true);
-    expect(isPaidPlan({ plan: "free" })).toBe(false);
   });
 
   it("reads features from the server when it lists them", () => {

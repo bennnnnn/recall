@@ -42,10 +42,6 @@ export function planOf(holder: PlanHolder): PlanId {
   return plan === "plus" || plan === "pro" ? plan : "free";
 }
 
-export function isPaidPlan(holder: PlanHolder): boolean {
-  return planOf(holder) !== "free";
-}
-
 /** Before the server lists features (an older cached user), assume the defaults. */
 function fallbackFeatures(plan: PlanId): PlanFeature[] {
   if (plan === "free") return ["image_generation"];

@@ -24,7 +24,6 @@ import {
   PIVOT_SIZE,
   projectPath,
   segmentHitsBox,
-  separateLabels,
   simulationTransform,
   simulationViewportHeight,
   tangentAt,
@@ -457,14 +456,6 @@ describe("vector labels", () => {
     const line = { x1: height.from.px, y1: height.from.py, x2: height.tip.px, y2: height.tip.py };
     expect(segmentHitsBox(line, weight.label!.box)).toBe(false);
     expect(overlaps(weight.label!.box, height.label!.box)).toBe(false);
-  });
-
-  it("nudges an overlapping box the shortest way out", () => {
-    const fixed = [{ x: 100, y: 100, width: 40, height: 11 }];
-    const [moved] = separateLabels([{ x: 120, y: 104, width: 40, height: 11 }], fixed, 300, 240);
-    expect(overlaps(moved, fixed[0])).toBe(false);
-    // Down by a few points rather than sideways by thirty.
-    expect(moved.x).toBe(120);
   });
 });
 

@@ -1,5 +1,4 @@
 import {
-  extractPlacesFromMarkdownList,
   googleMapsSearchUrl,
   isGenericSearchUrl,
   parsePlacesFence,
@@ -8,7 +7,6 @@ import {
   resolvePlaceLinkUrl,
   resolvePlaces,
   stripPlacesContent,
-  stripPlacesFence,
 } from "@/lib/placesList";
 
 describe("placesList", () => {
@@ -26,7 +24,6 @@ describe("placesList", () => {
         price: "$$",
       },
     ]);
-    expect(stripPlacesFence(content)).toBe("Here are salons:");
   });
 
   it("repairs broken markdown links with dollar delimiters", () => {
@@ -86,21 +83,6 @@ describe("placesList", () => {
 
   it("builds maps url from name when address missing", () => {
     expect(googleMapsSearchUrl("CODE Salon")).toContain("CODE%20Salon");
-  });
-
-  it("extracts legacy markdown restaurant lists into places", () => {
-    const content = `Here are top spots:
-
-1. **Benu** – 3-Michelin stars, modern Asian fusion ($$$)
-2. **Atelier Crenn** – Poetic, French-inspired ($$$)
-
-Want a reservation?`;
-
-    const places = extractPlacesFromMarkdownList(content);
-    expect(places).toHaveLength(2);
-    expect(places[0].name).toBe("Benu");
-    expect(places[0].price).toBe("$$$");
-    expect(places[0].url).toContain("google.com/maps");
   });
 
   it("resolvePlaces ignores plain numbered lists (math, steps, etc.)", () => {

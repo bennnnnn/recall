@@ -19,7 +19,6 @@ import {
   isReadableTextContentType,
   libraryOpenChatHref,
   mergeGalleryItems,
-  shouldSkipGalleryFocusReload,
 } from "@/features/attachments/model/gallery";
 
 describe("gallery helpers", () => {
@@ -177,15 +176,7 @@ describe("gallery helpers", () => {
     ]);
   });
 
-  it("skips a fresh gallery focus reload for the same filter and query", () => {
+  it("keys the gallery cache by filter and trimmed query", () => {
     expect(galleryListCacheKey("all", "  cat ")).toBe("all:cat");
-    const now = Date.now();
-    expect(shouldSkipGalleryFocusReload({ lastFetchedAt: now, now })).toBe(true);
-    expect(shouldSkipGalleryFocusReload({ lastFetchedAt: now, force: true, now })).toBe(
-      false,
-    );
-    expect(
-      shouldSkipGalleryFocusReload({ lastFetchedAt: now - 21_000, now }),
-    ).toBe(false);
   });
 });

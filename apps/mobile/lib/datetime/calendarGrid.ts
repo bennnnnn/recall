@@ -88,17 +88,6 @@ export function clampDay(date: Date, min?: Date | null, max?: Date | null): Date
   return new Date(date.getTime());
 }
 
-/**
- * `date` moved to another year and month, keeping the day when it exists
- * (Jan 31 → Feb 28) and keeping the time of day.
- */
-export function withYearMonth(date: Date, at: YearMonth): Date {
-  const next = new Date(date.getTime());
-  const day = Math.min(date.getDate(), daysInMonth(at.year, at.month));
-  next.setFullYear(at.year, at.month, day);
-  return next;
-}
-
 /** `date` on another calendar day, keeping the time of day. */
 export function withDay(date: Date, at: YearMonth, day: number): Date {
   const next = new Date(date.getTime());

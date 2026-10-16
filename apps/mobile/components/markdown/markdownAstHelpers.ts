@@ -24,15 +24,6 @@ export function immediateAncestorType(parent: unknown): string | undefined {
   return typeof first?.type === "string" ? first.type : undefined;
 }
 
-export function ancestorTypeCount(parent: unknown, type: string): number {
-  if (!Array.isArray(parent)) return 0;
-  let n = 0;
-  for (const node of parent) {
-    if (node && (node as { type?: string }).type === type) n += 1;
-  }
-  return n;
-}
-
 /** Numbers carry order/rank semantics; nested unordered items stay bullets. */
 export function shouldNumberListItem(parent: unknown): boolean {
   return immediateAncestorType(parent) === "ordered_list";

@@ -1,7 +1,6 @@
 import {
   formatAssistantMathExpr,
   formatMathExpr,
-  formatMathMessage,
 } from "@/lib/math/formatInput";
 
 describe("formatMathExpr", () => {
@@ -98,15 +97,12 @@ describe("formatMathExpr", () => {
     });
     it("keeps 9\\sqrt{9} as 9 times square root, not a 9th root", () => {
       expect(formatMathExpr("9\\sqrt{9}")).toBe("9 \\times \\sqrt{9}");
-      expect(formatMathMessage("$9\\sqrt{9}$")).toBe("$9 \\times \\sqrt{9}$");
-      expect(formatMathMessage("$9\\sqrt{9}$")).not.toContain("\\sqrt[");
     });
     it("does not insert times between \\pm and a square root", () => {
       expect(formatMathExpr("x = \\pm\\sqrt{4}")).toBe("x = \\pm\\sqrt{4}");
     });
     it("leaves an nth-root \\sqrt[n]{x} unchanged", () => {
       expect(formatMathExpr("\\sqrt[9]{9}")).toBe("\\sqrt[9]{9}");
-      expect(formatMathMessage("$\\sqrt[9]{9}$")).toBe("$\\sqrt[9]{9}$");
     });
     it("returns empty for empty input", () => {
       expect(formatMathExpr("")).toBe("");
@@ -174,20 +170,5 @@ describe("formatAssistantMathExpr", () => {
   it("leaves already-correct LaTeX alone (idempotent)", () => {
     expect(formatAssistantMathExpr("x = \\frac{2}{3}")).toBe("x = \\frac{2}{3}");
     expect(formatAssistantMathExpr("\\sqrt{49}")).toBe("\\sqrt{49}");
-  });
-});
-
-describe("formatMathMessage", () => {
-  it("wraps a bare equation and spaces equals", () => {
-    expect(formatMathMessage("x=4")).toBe("$x = 4$");
-  });
-  it("formats inside existing $...$", () => {
-    expect(formatMathMessage("$x=4$")).toBe("$x = 4$");
-  });
-  it("formats a math fence body", () => {
-    expect(formatMathMessage("```math\nx=4\n```")).toBe("```math\nx = 4\n```");
-  });
-  it("leaves ordinary chat alone", () => {
-    expect(formatMathMessage("I'm going later")).toBe("I'm going later");
   });
 });

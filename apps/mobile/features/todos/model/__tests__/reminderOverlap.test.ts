@@ -1,7 +1,6 @@
 import type { Todo } from "@/lib/api";
 import {
   REMINDER_OVERLAP_MS,
-  buildReminderOverlapNotes,
   clashClusters,
   findOverlappingReminder,
   groupBySameTime,
@@ -54,26 +53,6 @@ describe("findOverlappingReminder", () => {
         due,
       ),
     ).toBeNull();
-  });
-});
-
-describe("buildReminderOverlapNotes", () => {
-  it("maps both sides of a pair", () => {
-    const t = new Date("2026-06-27T10:00:00.000Z");
-    const a = todo({
-      id: "a",
-      content: "Walk",
-      due_at: t.toISOString(),
-    });
-    const b = todo({
-      id: "b",
-      content: "Stretch",
-      due_at: new Date(t.getTime() + 5 * 60_000).toISOString(),
-    });
-
-    const notes = buildReminderOverlapNotes([a, b]);
-    expect(notes.get("a")).toBe("Stretch");
-    expect(notes.get("b")).toBe("Walk");
   });
 });
 
