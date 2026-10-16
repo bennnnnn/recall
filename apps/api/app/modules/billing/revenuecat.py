@@ -13,10 +13,10 @@ from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.core.jobs import enqueue_purchase_receipt
 from app.core.redis_lock import acquire_lock, release_lock
 from app.modules.billing import subscription as subscription_service
 from app.modules.billing.entitlements import PAID_PLANS
+from app.modules.notifications import enqueue_purchase_receipt
 
 logger = logging.getLogger(__name__)
 

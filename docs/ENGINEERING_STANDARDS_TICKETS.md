@@ -840,6 +840,8 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-32 — Split `core/jobs.py` (939) and move product payloads out of `core`
 
+- **Status:** done. `core/jobs/` is `queue.py` (handler registry, enqueue, dispatch, trim), `dedupe.py`, `worker.py` (`_process_one_entry`, 44 lines, is `_claim_entry` → `_dispatch_with_retries` → `_dead_letter` or `_ack_entry`; loop, reclaim, poison, liveness) and `admin.py` (metrics, DLQ, purge), all logging as `app.core.jobs`; the two `transactional_email` enqueuers are `modules/notifications/jobs.py`, exported by the notifications package. A recording-fakeredis capture of 1,392 events (every Redis command, handler call, sleep, heartbeat, Sentry call and log record) is byte-identical before and after, and four mutants change it.
+
 - **Problem:** the file holds:
   - enqueue and stream trim
   - product-specific enqueuers in `core`: `enqueue_welcome_email` (:184),

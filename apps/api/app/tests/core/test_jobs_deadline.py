@@ -22,23 +22,24 @@ import pytest
 
 from app.core import jobs
 from app.core.config import Settings
+from app.core.jobs import queue, worker
 
 
 @pytest.fixture(autouse=True)
 def _fast_retries():
-    with patch.object(jobs, "_RETRY_BACKOFF_S", 0.0):
+    with patch.object(worker, "_RETRY_BACKOFF_S", 0.0):
         yield
 
 
 @pytest.fixture(autouse=True)
 def _restore_handlers():
     """Handlers registered here must not leak into later tests."""
-    with patch.dict(jobs._HANDLERS):
+    with patch.dict(queue._HANDLERS):
         yield
 
 
 async def _queued_entry(redis: Any, job_type: str) -> str:
-    await jobs._ensure_group(redis)
+    await worker._ensure_group(redis)
     entry_id = await redis.xadd(
         jobs.JOBS_STREAM, {"type": job_type, "payload": json.dumps({"n": 1})}
     )
@@ -50,7 +51,7 @@ async def _queued_entry(redis: Any, job_type: str) -> str:
     "behaviour, expected_calls, expected_dlq",
     [
         ("hangs", 1, 1),
-        ("inner_timeout", jobs._MAX_ATTEMPTS, 1),
+        ("inner_timeout", worker._MAX_ATTEMPTS, 1),
         ("ok", 1, 0),
     ],
 )
@@ -71,7 +72,7 @@ async def test_job_deadline_moves_a_hung_job_to_the_dlq(
     entry_id = await _queued_entry(fake_redis, f"deadline_{behaviour}")
     settings = Settings(job_timeout_seconds=0.1)
     started = time.monotonic()
-    await jobs._process_entries(fake_redis, settings, [(entry_id, await _fields(fake_redis))])
+    await worker._process_entries(fake_redis, settings, [(entry_id, await _fields(fake_redis))])
     assert time.monotonic() - started < 5
     assert len(calls) == expected_calls
     assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == expected_dlq
@@ -101,12 +102,12 @@ async def test_heartbeat_stays_fresh_while_a_long_job_runs(fake_redis: Any) -> N
             alive_samples.append(jobs.is_worker_alive())
 
     with (
-        patch.object(jobs, "_worker_task", fake_task),
-        patch.object(jobs, "_HEARTBEAT_STALE_THRESHOLD_S", 0.25),
-        patch.object(jobs, "_JOB_HEARTBEAT_TICK_S", 0.05),
+        patch.object(worker, "_worker_task", fake_task),
+        patch.object(worker, "_HEARTBEAT_STALE_THRESHOLD_S", 0.25),
+        patch.object(worker, "_JOB_HEARTBEAT_TICK_S", 0.05),
     ):
         await asyncio.gather(
-            jobs._process_entries(fake_redis, Settings(), [(entry_id, fields)]),
+            worker._process_entries(fake_redis, Settings(), [(entry_id, fields)]),
             sample(),
         )
     fake_task.cancel()
@@ -137,8 +138,8 @@ async def test_reclaim_drops_an_entry_that_keeps_killing_the_worker(
     # delivery counter); simulate the earlier deliveries.
     for _ in range(earlier_deliveries - 1):
         await fake_redis.xclaim(jobs.JOBS_STREAM, jobs.JOBS_GROUP, "w1", 0, [entry_id])
-    with patch.object(jobs, "_CLAIM_IDLE_MS", 0):
-        await jobs._reclaim_pending_jobs(fake_redis, Settings(), "w2")
+    with patch.object(worker, "_CLAIM_IDLE_MS", 0):
+        await worker._reclaim_pending_jobs(fake_redis, Settings(), "w2")
     assert len(calls) == expected_calls
     assert await fake_redis.xlen(jobs.JOBS_DLQ_STREAM) == expected_dlq
     pending = await fake_redis.xpending(jobs.JOBS_STREAM, jobs.JOBS_GROUP)

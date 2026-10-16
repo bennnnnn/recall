@@ -11,9 +11,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy import CheckConstraint
 
 from app.background import handlers
-from app.core import jobs
 from app.core.config import Settings
 from app.core.db import Base
+from app.core.jobs import queue
 from app.main import app
 from app.modules.chat.prompt_constants import (
     CAPABILITIES_FORMAT_HINT,
@@ -85,7 +85,7 @@ def test_integration_http_routes_are_absent() -> None:
 
 def test_no_gmail_job_type_is_registered() -> None:
     handlers.register_all()
-    assert "gmail_sync" not in jobs._HANDLERS
+    assert "gmail_sync" not in queue._HANDLERS
 
 
 def test_settings_have_no_integration_flags() -> None:

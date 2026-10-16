@@ -14,6 +14,7 @@ from uuid import uuid4
 import pytest
 
 from app.core import jobs
+from app.core.jobs import admin
 
 
 async def _enqueue_turn_jobs(redis: Any, user_id: str, secret: str) -> None:
@@ -47,7 +48,7 @@ async def _fail_into_dlq(redis: Any, user_id: str, secret: str) -> None:
         "payload": json.dumps({"user_id": user_id, "chat_id": "c", "transcript": secret}),
         "dedupe_key": f"memory:{uuid4()}",
     }
-    await jobs._move_to_dlq(redis, f"{uuid4().int % 10**6}-0", fields, "boom")
+    await admin._move_to_dlq(redis, f"{uuid4().int % 10**6}-0", fields, "boom")
 
 
 async def _entries(redis: Any, stream: str) -> list[tuple[str, dict[str, str]]]:
