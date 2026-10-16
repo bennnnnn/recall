@@ -58,6 +58,41 @@ async def test_persist_live_talk_turn_writes_both_roles_and_enqueues_topic():
 
 
 @pytest.mark.asyncio
+async def test_persist_live_talk_turn_saves_the_presented_reply():
+    user = MagicMock()
+    user.id = uuid4()
+    user.memory_enabled = False
+    session = AsyncMock()
+    session.__aenter__ = AsyncMock(return_value=session)
+    session.__aexit__ = AsyncMock(return_value=None)
+
+    with (
+        patch("app.modules.speech.live_talk.SessionLocal", return_value=session),
+        patch(
+            "app.modules.speech.live_talk.chats_repo.get_by_id",
+            AsyncMock(return_value=MagicMock()),
+        ),
+        patch(
+            "app.modules.speech.live_talk.messages_repo.create",
+            AsyncMock(side_effect=[MagicMock(id=uuid4()), MagicMock(id=uuid4())]),
+        ) as create,
+        patch("app.modules.speech.live_talk.jobs.enqueue", AsyncMock()),
+    ):
+        await persist_live_talk_turn(
+            user=user,
+            chat_id=uuid4(),
+            user_text="How fast?",
+            assistant_text="It goes at**40 km/h**, so $v = d/t = 80/2 = 40$.",
+            untitled=False,
+            settings=MagicMock(chat_history_rag_enabled=False),
+            redis=AsyncMock(),
+        )
+
+    saved = create.await_args_list[1].kwargs["content"]
+    assert saved == "It goes at **40 km/h**, so\n$v = d/t$  \n$v = 80/2$  \n$v = 40$."
+
+
+@pytest.mark.asyncio
 async def test_persist_live_talk_turn_titles_when_assistant_transcript_missing():
     user = MagicMock()
     user.id = uuid4()
