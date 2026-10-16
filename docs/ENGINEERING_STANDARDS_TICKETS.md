@@ -249,6 +249,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-08 — The phone stops carrying a copy of the model catalog
 
+- **Status:** done (the last /models response is cached per account; the fallback is free-chat alone).
 - **Problem:** `lib/modelCatalogFallback.ts:7` hard-codes every selectable model with prices and
   `quota_multiplier`, "mirrors backend `model_catalog.selectable_models()`". It seeds
   `contexts/ModelsContext.tsx:60`. Its test (`lib/__tests__/modelCatalogFallback.test.ts`) pins
