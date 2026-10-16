@@ -9,7 +9,7 @@ import pytest
 
 from app.core.config import Settings
 from app.models.schemas import WebSearchClassification
-from app.modules.chat.stream_pipeline import run_tool_loop_path
+from app.modules.chat.stream_paths import run_tool_loop_path
 from app.modules.chat.turn_prep.context import (
     StreamContext,
     build_stream_prompt_context,

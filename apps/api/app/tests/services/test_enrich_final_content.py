@@ -16,7 +16,7 @@ from app.core.config import Settings
 from app.gateways.web_search_gateway import WebSearchHit
 from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
-from app.modules.chat.stream_pipeline import _replace_failed_subject_fences, enrich_final_content
+from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.todos import repository as todos_repo
 from app.modules.web_search.formatting import format_sources_fence
 from app.repositories import chats as chats_repo
@@ -34,7 +34,7 @@ def _fail_mermaid_pass(monkeypatch: pytest.MonkeyPatch) -> None:
     def _boom(_text: str) -> str:
         raise RuntimeError("mermaid sanitizer failed")
 
-    monkeypatch.setattr("app.services.mermaid_sanitize.sanitize_mermaid_fences", _boom)
+    monkeypatch.setattr("app.modules.chat.finalize_text.sanitize_mermaid_fences", _boom)
 
 
 def _passthrough_math(content: str, verified: object = None, correct: bool = True) -> str:
@@ -87,10 +87,32 @@ def _ctx(
     return ctx
 
 
-def test_exception_fallback_dispatches_to_chemistry_owner() -> None:
+async def _finalize_failed_subject_pass(seams: MagicMock, verified: object, reply: str) -> str:
+    ctx = _ctx()
+    ctx.verified_subject = verified
+    return await enrich_final_content(
+        seams,
+        MagicMock(),
+        Settings(chemistry_enabled=False),
+        ctx,
+        assistant_text=reply,
+        usage={"input": 4, "output": 8},
+        result={},
+        was_cancelled=False,
+        assistant_parts=[reply],
+        should_cancel=None,
+    )
+
+
+@pytest.mark.asyncio
+async def test_exception_fallback_dispatches_to_chemistry_owner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.modules.chemistry import fence as chemistry_fence
     from app.modules.chemistry.block import build_verified_chemistry
     from app.modules.chemistry.extract import extract_chemistry_intent
 
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     seams = _seams()
     math_safe = MagicMock(return_value="math-safe")
     seams.math_fence_service.replace_unclosed_graph_fence_safe = math_safe
@@ -98,28 +120,46 @@ def test_exception_fallback_dispatches_to_chemistry_owner() -> None:
     assert intent is not None
     verified = build_verified_chemistry(intent)
     assert verified is not None
+    validate = chemistry_fence.validate_chemistry_fences
+    calls: list[str] = []
 
-    result = _replace_failed_subject_fences(seams, "```answer\n4\n```", verified)
+    def fail_the_pass(content: str, *args: Any, **kwargs: Any) -> str:
+        """The chemistry pass fails; its recovery's own check runs for real."""
+        calls.append(content)
+        if len(calls) == 1:
+            raise RuntimeError("chemistry fence pass failed")
+        return validate(content, *args, **kwargs)
 
+    monkeypatch.setattr(chemistry_fence, "validate_chemistry_fences", fail_the_pass)
+
+    result = await _finalize_failed_subject_pass(seams, verified, "```answer\n4\n```")
+
+    assert len(calls) == 2
     assert "notation: chemistry\npH = 3" in result
     assert "```answer\n4\n```" not in result
     math_safe.assert_not_called()
 
 
-def test_exception_fallback_dispatches_to_physics_owner(
+@pytest.mark.asyncio
+async def test_exception_fallback_dispatches_to_physics_owner(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    monkeypatch.setattr("app.core.sympy_executor.run_sympy", _run_sympy_inline)
     seams = _seams()
     math_safe = MagicMock(return_value="math-safe")
     seams.math_fence_service.replace_unclosed_graph_fence_safe = math_safe
     verified = VerifiedPhysicsBlock(text="verified", canonical_answer="10 N")
+    monkeypatch.setattr(
+        "app.modules.physics.fence.validate_physics_fences",
+        MagicMock(side_effect=RuntimeError("physics fence pass failed")),
+    )
     safe = MagicMock(return_value="physics-safe")
     monkeypatch.setattr(
         "app.modules.physics.fence.replace_unclosed_physics_fences_safe",
         safe,
     )
 
-    result = _replace_failed_subject_fences(seams, "raw", verified)
+    result = await _finalize_failed_subject_pass(seams, verified, "raw")
 
     assert result == "physics-safe"
     safe.assert_called_once_with("raw", verified)
@@ -258,7 +298,6 @@ async def test_truncated_turn_closes_unclosed_fence(
         was_cancelled=False,
         assistant_parts=[open_fence],
         should_cancel=None,
-        completion="interrupted",
     )
 
     assert persisted.rstrip().endswith("```")
@@ -285,7 +324,6 @@ async def test_normal_completion_also_closes_provider_unclosed_fence(
         was_cancelled=False,
         assistant_parts=[open_fence],
         should_cancel=None,
-        completion="complete",
     )
 
     assert persisted.rstrip().endswith("```")

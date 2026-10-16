@@ -173,7 +173,7 @@ async def test_a_faithful_tool_call_is_the_verified_answer(sympy_registered: Non
 
 
 async def _tool_loop_path(ctx_verified: Any, tool_verified: Any) -> Any:
-    from app.modules.chat.stream_pipeline import run_tool_loop_path
+    from app.modules.chat.stream_paths import run_tool_loop_path
 
     ctx = MagicMock()
     ctx.user_message_content = "solve 2x + 5 = 17 and also graph y = 2x + 5"

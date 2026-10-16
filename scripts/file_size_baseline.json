@@ -49,10 +49,6 @@
       "lines": 650,
       "why": "Over 500 before the standards; tracked in ES-02"
     },
-    "apps/api/app/modules/chat/stream_pipeline.py": {
-      "lines": 882,
-      "why": "Over 500 before the standards; split in ES-22"
-    },
     "apps/api/app/modules/chat/ws_api.py": {
       "lines": 618,
       "why": "Over 500 before the standards; tracked in ES-24"

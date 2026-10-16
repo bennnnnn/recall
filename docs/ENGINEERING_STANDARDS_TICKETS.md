@@ -601,6 +601,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-22 — Finalization as an ordered list of passes; split `stream_pipeline.py` (908)
 
+- **Status:** done. `chat/finalize_passes.py` runs 20 `FinalizePass`es in one declared order, each with its `on_error`, then the reminder pass; chemistry, physics and maths each have a fence pass that recovers its own fences. The stream paths are in `chat/stream_paths.py`, and `stream_pipeline.py` (297 lines) keeps `stream_and_finalize` and registration. The function-local imports there are module imports now.
 - **Problem:** `enrich_final_content` (246 lines, `stream_pipeline.py:392`) is about 25 passes in
   one `try`:
   - prepare model reply
