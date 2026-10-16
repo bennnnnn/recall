@@ -249,6 +249,13 @@ def test_format_time_answer_uses_clock_fence():
     assert answer == "```clock\n```"
 
 
+@pytest.mark.parametrize("text", ["what’s the time?", "What’s the time", "ok what’s the time now?"])
+def test_curly_apostrophe_time_ask_gets_the_clock_fence(text: str) -> None:
+    # iOS smart punctuation types U+2019. The phone's clock card reads this reply, not the ask.
+    assert is_time_question(text) is True
+    assert maybe_local_now_reply(text, "UTC") == format_time_answer("UTC") == "```clock\n```"
+
+
 def test_is_location_question():
     assert is_location_question("location")
     assert is_location_question("Where am I?")
