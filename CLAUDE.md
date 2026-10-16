@@ -155,7 +155,7 @@ Add or delete at these boundaries. If a change needs eight unrelated files, the 
 |---------|------|----------------|---------------|
 | HTTP/WS endpoint | module `api.py` or legacy `routers/` + `main.py` | Thin API → module/service | Drop registration + tests |
 | External API | `gateways/` | One gateway module; mock in tests | Delete gateway; keep service behind a flag if needed |
-| MCP / model tools | module `tool.py` or legacy `services/mcp/`; `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter` | Unregister; `mcp_tool_loop_enabled` defaults **on** |
+| MCP / model tools | module `tool.py` or legacy `services/mcp/`; `gateways/mcp/` registry | `register(Adapter)` implementing `ToolAdapter`; `invoke(args, ctx: ToolContext)` gets the turn as an argument | Unregister; `mcp_tool_loop_enabled` defaults **on** |
 | Background job | module `jobs.py` or legacy `background/handlers.py`; `core/jobs.py` queue | Register handler; enqueue off the stream path | Unregister + stop enqueue |
 | Feature flag | `core/config.py` `*_enabled` | One Settings field; gate service entry | Default false; then delete path |
 | Model | `services/model_catalog.py` | Catalog entry + OpenRouter slug | Remove alias; don’t leave provider names in app code |
