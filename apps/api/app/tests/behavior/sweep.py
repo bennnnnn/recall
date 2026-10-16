@@ -40,7 +40,7 @@ from app.models.orm import User
 from app.modules import todos as todos_service
 from app.modules import web_search as web_search_service
 from app.modules.account.settings_intent import extract_settings_changes
-from app.modules.chat.stream_pipeline import enrich_final_content
+from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.math import fence as math_fence_service
 from app.modules.memory import is_explicit_memory_command

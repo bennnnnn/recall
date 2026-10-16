@@ -1,8 +1,9 @@
 """Compatibility facade for chat turn orchestration.
 
-Focused implementations live in ``turn_resources``, ``stream_entry``, and
-``stream_pipeline``. They receive this module as a seam provider so existing
-imports and ``app.modules.chat.stream.*`` monkeypatches remain effective.
+Focused implementations live in ``turn_resources``, ``stream_entry``,
+``stream_pipeline`` and ``stream_paths``. They receive this module as a seam
+provider so existing imports and ``app.modules.chat.stream.*`` monkeypatches
+remain effective.
 """
 
 import sys
@@ -34,6 +35,7 @@ from app.modules.attachments import (  # noqa: F401 - stream_entry reaches this 
 )
 from app.modules.billing import plan
 from app.modules.chat import stream_entry as _entry
+from app.modules.chat import stream_paths as _paths
 from app.modules.chat import stream_pipeline as _pipeline
 from app.modules.chat import turn_resources as _resources
 from app.modules.chat.finalize_registry import (
@@ -416,7 +418,7 @@ async def _run_tool_loop_path(
     should_cancel: Callable[[], bool] | None,
 ) -> None:
     """Compatibility wrapper for focused pipeline tests and callers."""
-    await _pipeline.run_tool_loop_path(
+    await _paths.run_tool_loop_path(
         _seams(),
         redis,
         settings,

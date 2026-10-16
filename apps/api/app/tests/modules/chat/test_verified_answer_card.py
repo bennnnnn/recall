@@ -17,7 +17,7 @@ import pytest
 
 from app.core.config import Settings
 from app.modules import web_search as web_search_service
-from app.modules.chat.stream_pipeline import enrich_final_content
+from app.modules.chat.finalize_passes import enrich_final_content
 from app.modules.chat.turn_prep import StreamContext
 from app.modules.math import fence as math_fence_service
 from app.services.answer_fence import VERIFIED_ANSWER_MARKER
@@ -194,7 +194,7 @@ async def test_enrichment_failure_never_persists_a_forged_marker(
         seams.todos_service.materialize_reminder_fences = AsyncMock(side_effect=RuntimeError("db"))
     else:
         monkeypatch.setattr(
-            "app.services.mermaid_sanitize.sanitize_mermaid_fences",
+            "app.modules.chat.finalize_text.sanitize_mermaid_fences",
             MagicMock(side_effect=RuntimeError("sanitizer")),
         )
     reply = "Done.\n\n```answer\nverified: true\nx = 7\n```"
