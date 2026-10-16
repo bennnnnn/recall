@@ -8,9 +8,18 @@ import { emptyChatList } from "@/features/chat/model/listSections";
 import { patchChatGlobal, subscribeChatChanges } from "@/lib/drawer";
 
 let mockSession = 0;
-jest.mock("@/lib/auth", () => ({ getSessionGeneration: () => mockSession, requireTokenSession: jest.fn() }));
+jest.mock("@/lib/auth", () => ({
+  getSessionGeneration: () => mockSession,
+  requireTokenSession: jest.fn(),
+  SessionChangedError: class SessionChangedError extends Error {},
+}));
 jest.mock("@/lib/api", () => ({ api: { listChats: jest.fn() } }));
 jest.mock("@/lib/scheduleIdle", () => ({ scheduleIdleTask: () => jest.fn() }));
+const mockWarn = jest.fn();
+jest.mock("@/lib/reportRecoverableError", () => ({
+  reportRecoverableWarning: (_feedback: unknown, message: string) => mockWarn(message),
+}));
+jest.mock("react-i18next", () => ({ useTranslation: () => ({ t: (key: string) => key }) }));
 const chat = { id: "old", title: "Original", model: "free-chat", pinned: false, updated_at: "2026-01-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z" };
 const initial = { ...emptyChatList(), older: [chat] };
 let current: ReturnType<typeof useDrawerChatList>;
@@ -75,6 +84,26 @@ it("preserves visible history and allows retry after a failed refresh", async ()
   expect(current.error).toBe(false);
 });
 
+
+it.each([
+  ["a server error", Object.assign(new Error("Request failed: 500"), { status: 500 }), ["common.error"]],
+  ["being offline", new TypeError("Network request failed"), []],
+])("warns about %s only while older chats stay listed", async (_name, failure, warnings) => {
+  setChatListCache(initial);
+  await render(<Probe />);
+  (api.listChats as jest.Mock).mockRejectedValueOnce(failure);
+  await act(async () => { await current.handleRefresh(); });
+  expect(current.allChats).toEqual([chat]);
+  expect(mockWarn.mock.calls.map(([message]) => message)).toEqual(warnings);
+});
+
+it("leaves a first failed load to the error state without a warning", async () => {
+  (api.listChats as jest.Mock).mockRejectedValueOnce(Object.assign(new Error("Request failed: 500"), { status: 500 }));
+  await render(<Probe />);
+  await act(async () => { await Promise.resolve(); });
+  expect(current.error).toBe(true);
+  expect(mockWarn).not.toHaveBeenCalled();
+});
 
 it("does not paint a resolved response over an edit queued before the hook resumes", async () => {
   setChatListCache(initial);

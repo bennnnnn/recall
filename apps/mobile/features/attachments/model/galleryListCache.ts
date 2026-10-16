@@ -1,126 +1,133 @@
 import { api, type AttachmentListItem } from "@/lib/api";
-import { getSessionGeneration } from "@/lib/auth";
 import { CONTEXT_REFRESH_STALE_MS } from "@/lib/cache/contextRefresh";
+import { asError, SessionResourceCache, sessionChanged, type ResourceResult } from "@/lib/cache/sessionResource";
 import { GALLERY_PAGE_SIZE, galleryListCacheKey, galleryListParams, mergeGalleryItems, type GalleryFilter } from "@/features/attachments/model/gallery";
 
 export type GalleryPage = { items: AttachmentListItem[]; hasMore: boolean };
-type Entry = {
-  page?: GalleryPage;
-  fetchedAt: number;
-  nextOffset: number;
-  revision: number;
-  first?: Promise<GalleryPage | null>;
-  next?: Promise<GalleryPage | null>;
+/** The rows shown, how many server rows they consumed, and which first page they grew from. */
+type GalleryEntry = { page: GalleryPage; nextOffset: number; lineage: number };
+type NextPageRead = { lineage: number; task: Promise<ResourceResult<GalleryPage>> };
+type GallerySession = {
+  /** Deleted this session; an earlier read must not bring them back. */
+  removed: Set<string>;
+  next: Map<string, NextPageRead>;
+  lineages: number;
 };
-function newCache() {
-  return { session: getSessionGeneration(), entries: new Map<string, Entry>(), removed: new Set<string>() };
+type ListResponse = { items: AttachmentListItem[]; has_more: boolean };
+
+const resource = new SessionResourceCache<string, GalleryEntry, GallerySession>({
+  staleMs: CONTEXT_REFRESH_STALE_MS,
+  sessionState: () => ({ removed: new Set(), next: new Map(), lineages: 0 }),
+});
+
+function firstEntry(page: GalleryPage): GalleryEntry {
+  return { page, nextOffset: page.items.length, lineage: ++resource.state().lineages };
 }
-let cache = newCache();
-function currentCache() {
-  if (cache.session !== getSessionGeneration()) cache = newCache();
-  return cache;
+function keptRows(response: ListResponse): AttachmentListItem[] {
+  const { removed } = resource.state();
+  return response.items.filter((row) => !removed.has(row.id));
 }
-function getEntry(filter: GalleryFilter, query: string): Entry {
-  const state = currentCache();
-  const key = galleryListCacheKey(filter, query);
-  let entry = state.entries.get(key);
-  if (!entry) {
-    entry = { fetchedAt: 0, nextOffset: 0, revision: 0 };
-    state.entries.set(key, entry);
-  }
-  return entry;
+function readRows(token: string, filter: GalleryFilter, query: string, offset: number): Promise<ListResponse> {
+  return api.listAttachments(token, {
+    ...galleryListParams(filter), ...(query ? { q: query } : {}), limit: GALLERY_PAGE_SIZE, offset,
+  });
 }
+function pageResult(result: ResourceResult<GalleryEntry>): ResourceResult<GalleryPage> {
+  return result.error
+    ? { data: result.data?.page ?? null, error: result.error }
+    : { data: result.data.page, error: null };
+}
+function withoutItem(entry: GalleryEntry, id: string): GalleryEntry {
+  const items = entry.page.items.filter((item) => item.id !== id);
+  const dropped = entry.page.items.length - items.length;
+  if (!dropped) return entry;
+  return { ...entry, page: { ...entry.page, items }, nextOffset: Math.max(0, entry.nextOffset - dropped) };
+}
+
 export function getCachedGalleryPage(filter: GalleryFilter, query: string): GalleryPage | undefined {
-  return getEntry(filter, query).page;
+  return resource.get(galleryListCacheKey(filter, query))?.page;
 }
 export function isGalleryPageFresh(filter: GalleryFilter, query: string): boolean {
-  const entry = getEntry(filter, query);
-  return Boolean(entry.page && Date.now() - entry.fetchedAt < CONTEXT_REFRESH_STALE_MS);
+  return resource.isFresh(galleryListCacheKey(filter, query));
 }
 export function setGalleryPage(filter: GalleryFilter, query: string, page: GalleryPage): void {
-  const entry = getEntry(filter, query);
-  entry.revision++;
-  entry.page = page;
-  entry.fetchedAt = Date.now();
-  entry.nextOffset = page.items.length;
-  entry.first = undefined;
-  entry.next = undefined;
+  resource.set(galleryListCacheKey(filter, query), firstEntry(page));
 }
 export function invalidateGalleryCache(): void {
-  // Replace the owner so an already-running request cannot refill a cleared cache.
-  cache = newCache();
+  resource.invalidate();
 }
 export function removeCachedGalleryItem(id: string): void {
-  const state = currentCache();
-  state.removed.add(id);
-  for (const entry of state.entries.values()) {
-    if (!entry.page) continue;
-    const items = entry.page.items.filter((item) => item.id !== id);
-    entry.nextOffset = Math.max(0, entry.nextOffset - (entry.page.items.length - items.length));
-    entry.page = { ...entry.page, items };
-  }
+  resource.state().removed.add(id);
+  resource.updateEach((entry) => withoutItem(entry, id));
 }
+
 export async function fetchGalleryPage(
   token: string, filter: GalleryFilter, query: string, opts?: { force?: boolean },
-): Promise<GalleryPage | null> {
-  const state = currentCache();
-  const entry = getEntry(filter, query);
-  if (!opts?.force && isGalleryPageFresh(filter, query)) return entry.page!;
-  if (!opts?.force && entry.first) return entry.first;
-  const revision = ++entry.revision;
-  entry.next = undefined;
-  const task = (async () => {
-    try {
-      const response = await api.listAttachments(token, {
-        ...galleryListParams(filter), ...(query ? { q: query } : {}), limit: GALLERY_PAGE_SIZE, offset: 0,
-      });
-      if (currentCache() !== state || revision !== entry.revision) return null;
-      const items = response.items.filter((row) => !state.removed.has(row.id));
-      entry.page = { items, hasMore: response.has_more };
-      entry.nextOffset = items.length;
-      entry.fetchedAt = Date.now();
-      return entry.page;
-    } catch {
-      return null;
-    }
-  })();
-  entry.first = task;
-  try { return await task; }
-  finally { if (entry.first === task) entry.first = undefined; }
+): Promise<ResourceResult<GalleryPage>> {
+  const result = await resource.fetch(galleryListCacheKey(filter, query), token, async () => {
+    const response = await readRows(token, filter, query, 0);
+    return firstEntry({ items: keptRows(response), hasMore: response.has_more });
+  }, opts);
+  return pageResult(result);
 }
-export async function fetchGalleryNextPage(token: string, filter: GalleryFilter, query: string): Promise<GalleryPage | null> {
-  const state = currentCache();
-  const entry = getEntry(filter, query);
-  if (entry.first) return entry.first;
-  if (!entry.page) return fetchGalleryPage(token, filter, query);
-  if (!entry.page.hasMore) return entry.page;
-  if (entry.next) return entry.next;
-  const revision = entry.revision;
-  const task = (async () => {
-    try {
-      while (true) {
-        const offset = entry.nextOffset;
-        const response = await api.listAttachments(token, {
-          ...galleryListParams(filter), ...(query ? { q: query } : {}), limit: GALLERY_PAGE_SIZE, offset,
-        });
-        if (currentCache() !== state || revision !== entry.revision) return null;
-        // A confirmed deletion can shift the server's rows before this query
-        // runs. Fetch the corrected offset so the file at that boundary is not skipped.
-        if (offset !== entry.nextOffset) continue;
-        const incoming = response.items.filter((row) => !state.removed.has(row.id));
-        entry.page = { items: mergeGalleryItems(entry.page?.items ?? [], incoming, false), hasMore: response.has_more };
+
+export async function fetchGalleryNextPage(
+  token: string, filter: GalleryFilter, query: string,
+): Promise<ResourceResult<GalleryPage>> {
+  const key = galleryListCacheKey(filter, query);
+  const first = resource.inflight(key);
+  if (first) return pageResult(await first);
+  const entry = resource.get(key);
+  if (!entry) return fetchGalleryPage(token, filter, query);
+  if (!entry.page.hasMore) return { data: entry.page, error: null };
+  const { next } = resource.state();
+  const running = next.get(key);
+  if (running?.lineage === entry.lineage) return running.task;
+  const task = readNextPage(token, filter, query, entry.lineage);
+  next.set(key, { lineage: entry.lineage, task });
+  try { return await task; }
+  finally { if (next.get(key)?.task === task) next.delete(key); }
+}
+
+async function readNextPage(
+  token: string, filter: GalleryFilter, query: string, lineage: number,
+): Promise<ResourceResult<GalleryPage>> {
+  const key = galleryListCacheKey(filter, query);
+  const isCurrent = resource.lease();
+  // A first-page read that started or landed since makes this page's offset meaningless.
+  const replaced = () => resource.inflight(key) !== undefined || resource.get(key)?.lineage !== lineage;
+  try {
+    while (true) {
+      const offset = resource.get(key)?.nextOffset ?? 0;
+      const response = await readRows(token, filter, query, offset);
+      if (!isCurrent()) return sessionChanged();
+      if (replaced()) return currentPage(key);
+      // A confirmed deletion can shift the server's rows before this query
+      // runs. Fetch the corrected offset so the file at that boundary is not skipped.
+      if (offset !== resource.get(key)?.nextOffset) continue;
+      const incoming = keptRows(response);
+      const grown = resource.update(key, (current) => ({
+        ...current,
+        page: { items: mergeGalleryItems(current.page.items, incoming, false), hasMore: response.has_more },
         // Track consumed rows, including duplicate rows from a shifting offset page.
-        entry.nextOffset += incoming.length;
-        return entry.page;
-      }
-    } catch {
-      return null;
+        nextOffset: current.nextOffset + incoming.length,
+      }));
+      return currentPage(key, grown);
     }
-  })();
-  entry.next = task;
-  try { return await task; }
-  finally { if (entry.next === task) entry.next = undefined; }
+  } catch (caught) {
+    if (!isCurrent()) return sessionChanged();
+    return { data: resource.get(key)?.page ?? null, error: asError(caught) };
+  }
 }
+
+async function currentPage(key: string, entry = resource.get(key)): Promise<ResourceResult<GalleryPage>> {
+  const first = resource.inflight(key);
+  if (first) return pageResult(await first);
+  return entry
+    ? { data: entry.page, error: null }
+    : { data: null, error: new Error("The Library page was replaced.") };
+}
+
 /** Warm All so Library can paint without a skeleton. */
 export function prefetchGallery(token: string): void {
   void fetchGalleryPage(token, "all", "");

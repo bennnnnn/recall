@@ -97,18 +97,18 @@ export function useGalleryData(filter: GalleryFilter, searchQuery: string) {
         else if (!reset) setLoadingMore(true);
       }
       try {
-        const page = reset
+        const result = reset
           ? await fetchGalleryPage(token, filter, debouncedQuery, { force: options.force })
           : await fetchGalleryNextPage(token, filter, debouncedQuery);
         if (gen !== genRef.current || session !== getSessionGeneration()) return true;
-        if (!page) {
+        if (result.error) {
           failedResetRef.current = reset;
           if (reset && !cached) setError(true);
           else setPageError(true);
           return false;
         }
-        setItems(page.items);
-        setHasMore(page.hasMore);
+        setItems(result.data.items);
+        setHasMore(result.data.hasMore);
         setError(false);
         setPageError(false);
         return true;

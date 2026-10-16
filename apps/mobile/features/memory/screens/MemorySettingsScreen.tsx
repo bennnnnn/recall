@@ -52,10 +52,10 @@ function MemorySettingsContent({ isCurrentView }: { isCurrentView: () => boolean
     if (!token || !isCurrentView()) return;
     const request = ++requestRef.current;
     setLoadError(false);
-    const memories = await fetchMemories(token, { force });
+    const result = await fetchMemories(token, { force });
     if (!isCurrentView() || request !== requestRef.current) return;
-    if (memories) setMemCount((getCachedMemories() ?? memories).length);
-    else setLoadError(true);
+    if (result.error) setLoadError(true);
+    else setMemCount((getCachedMemories() ?? result.data).length);
   }, [token, isCurrentView]);
 
   useEffect(() => subscribeMemoriesCache(() => {
