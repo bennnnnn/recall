@@ -1,4 +1,4 @@
-import { assistantReplyIsTimeAnswer, extractClockTimezone } from "@/lib/timeQuestion";
+import { assistantReplyIsTimeAnswer, extractClockTimezone, isIanaTimezoneOnly } from "@/lib/timeQuestion";
 
 /**
  * The server's whole reply to a local "what time is it?" (`format_time_answer`
@@ -43,5 +43,19 @@ describe("assistantReplyIsTimeAnswer", () => {
     ["a code fence whose first word is clock", "```\nclock speed: 3.2 GHz\n```"],
   ])("does not treat %s as a time answer", (_label, reply) => {
     expect(assistantReplyIsTimeAnswer(reply)).toBe(false);
+  });
+});
+
+describe("isIanaTimezoneOnly", () => {
+  it.each(["America/New_York", "America/Argentina/Buenos_Aires", "Etc/GMT+5", "Asia/Tokyo"])(
+    "reads %s as a timezone",
+    (zone) => {
+      expect(isIanaTimezoneOnly(zone)).toBe(true);
+    },
+  );
+
+  it.each(["TCP/IP", "and/or", "input/output", "km/h"])("does not read %s as a timezone", (text) => {
+    expect(isIanaTimezoneOnly(text)).toBe(false);
+    expect(assistantReplyIsTimeAnswer("```\n" + text + "\n```")).toBe(false);
   });
 });

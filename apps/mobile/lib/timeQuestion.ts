@@ -8,7 +8,9 @@
 const DIGITAL_TIME_ONLY =
   /^\d{1,2}:\d{2}(?::\d{2})?(?:\s*(?:AM|PM))?$/i;
 
-const IANA_TIMEZONE_ONLY = /^[A-Za-z_+\-]+\/[A-Za-z_+\-]+(?:\/[A-Za-z_+\-]+)?$/;
+/** An IANA zone name ("America/New_York", "Etc/GMT+5"), not any word/word ("TCP/IP"). */
+const IANA_TIMEZONE_ONLY =
+  /^(?:Africa|America|Antarctica|Arctic|Asia|Atlantic|Australia|Europe|Indian|Pacific|Etc)\/[A-Za-z0-9_+\-]+(?:\/[A-Za-z_\-]+)?$/;
 
 /** A ```clock opener; `[ \t]` keeps "```\nclock speed…" from matching. */
 const CLOCK_FENCE_OPEN = /```[ \t]*clock\s/i;
