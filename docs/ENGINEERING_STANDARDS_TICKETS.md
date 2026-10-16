@@ -989,6 +989,27 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-38 — The remaining long phone functions in the top 10
 
+- **Status:** done. `parseSimpleLatex` 192 → 8 lines: `LATEX_HANDLERS` (`\frac`, `\sqrt` and the
+  cancels read by prefix, the twelve accents by whole word through one `accent(kind, span)` reader)
+  and `readCommand`, `readBraceGroup`, `readUprightRun`, `readScript` and `readEscape` over one parse
+  state. `measureSegment` 142 → 18: a switch over `measureFrac`, `measureSqrt`, `measureAccent`,
+  `measureCancel`, `measureSupSub` and `measureRun`; `findLayouts` and `layoutProblems`, which only
+  tests read, moved to `lib/math/layoutChecks.ts`. The ray scene memo (152) is
+  `lib/physics/rayScene.ts` `layoutRayScene` (53, with `layoutElement`, `placeLabels` and
+  `layoutMedia`), beside `optics.ts` because that file is at its size limit; `RayDiagram` only builds
+  paths (`scenePaths`, 22). `advanceStreamBlocks` 117 → 16: `scanClosedBlocks` (with
+  `trackBlockLine`) and `cutChunks`. `DraftPiece` 225 → 7: `DRAFT_PIECES`, nine render functions.
+  `InteractiveFunctionPlot` 226 → 104: `useFunctionPlotState` (`useHoleMarkers`, `useCardPlot`,
+  `useExplorerPlot`), `ExplorerModal.tsx` (moved as it was) and `skia/SkiaGraphCanvasLazy.ts` (one
+  lazy instance for the card and the explorer). New `RayDiagram` (Skia recorder) and
+  `InteractiveFunctionPlot` tests, plus per-kind draft-preview, command-prefix, layout-box and
+  chunk-cut cases, pinned the old code first; `rayScene.test.ts` now tests the scene directly. Seeded
+  captures are byte-identical before and after: 53,223 LaTeX strings parsed and laid out at two
+  sizes, 10,000 markdown streams (1,172,557 advances), 5,000 ray scenes, 11,435 draft-preview
+  renders with 71,028 taps, and 500 function-plot scenarios (2,784 trees); a mutant in each function
+  changes its capture. `latexParse.ts` 563 → 510, `layout.ts` 597 → 533, `MathDraftPreview.tsx`
+  792 → 715, `InteractiveFunctionPlot.tsx` 748 → 364 (out of the size baseline).
+
 Style factories (`makeTodosStyles` 189 lines, `makeConversationListStyles` 181, `makeStyles` in
 `LoginScreen.tsx` 155, `makeChatComposerStyles` 154, …) are `StyleSheet` tables, not logic, and are
 not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
@@ -1173,8 +1194,8 @@ in this list grows logic beyond its table, it leaves the list.
 | `core/config.py` | 581 | `Settings`: one field per flag, the seam CLAUDE.md names |
 | `lib/math/keyboardCatalog.ts` (phone) | 553 | Key and accessibility tables (321 lines of data) |
 | `lib/codeTokenize.ts` (phone) | 517 | Prism grammar registration: Metro needs about 47 literal `require`s in one module |
-| `lib/math/latexParse.ts` (phone) | 563 | One parser; the file stays and its one long function splits (ES-38) |
-| `lib/math/layout.ts` (phone) | 597 | One layout algorithm; the file stays and `measureSegment` splits (ES-38) |
+| `lib/math/latexParse.ts` (phone) | 510 | One parser; ES-38 split its one long function |
+| `lib/math/layout.ts` (phone) | 533 | One layout algorithm; ES-38 split `measureSegment` and moved the tree checks out |
 | `lib/math/draftSlots.ts` (phone) | 566 | One draft-node parser and editor |
 | `lib/physics/optics.ts` (phone) | 649 | One diagram's parsing and pure geometry; tested by `optics.test.ts` |
 | `lib/physics/circuit.ts` (phone) | 511 | One diagram's parsing and layout; tested by `circuit.test.ts` |
