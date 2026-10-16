@@ -13,7 +13,7 @@ Code: `apps/api/app/modules/physics/`. Math hands physics over at subject detect
 ```mermaid
 flowchart LR
   message[User message] --> gate[needs_physics]
-  gate --> read[read_scientific_numbers + normalise]
+  gate --> read[fold_scientific + normalise]
   read --> prepare[prepare_physics_request]
   prepare --> extract[Extractor chain]
   extract --> complete[complete_physics_intent: accountability + asked quantity]

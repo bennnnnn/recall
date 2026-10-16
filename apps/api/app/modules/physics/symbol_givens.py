@@ -20,6 +20,7 @@ from collections.abc import Callable
 from functools import lru_cache
 
 from app.modules.physics.givens import unit_at, unit_dimension
+from app.services.number_text import SIGNED_DECIMAL_SCI
 
 # Symbol → (quantity name, SI unit) in order of preference.
 _SYMBOLS: dict[str, tuple[tuple[str, str], ...]] = {
@@ -52,8 +53,7 @@ _SYMBOLS: dict[str, tuple[tuple[str, str], ...]] = {
     "A": (("area", "m^2"),),
 }
 _SYMBOL = "(?:KE|PE|[A-Za-z\u03bb\u03c1])"
-_NUMBER = r"[-+]?(?:\d+(?:\.\d+)?|\.\d+)(?:[eE][-+]?\d+)?"
-_GIVEN = re.compile(rf"(?P<symbol>{_SYMBOL})\s*=\s*(?P<number>{_NUMBER})")
+_GIVEN = re.compile(rf"(?P<symbol>{_SYMBOL})\s*=\s*(?P<number>{SIGNED_DECIMAL_SCI})")
 _ASK = re.compile(
     rf"(?:find|calculate|compute|determine|what\s+is|solve\s+for)\s+(?:the\s+)?"
     rf"(?P<symbol>{_SYMBOL})\s*[.?!]*\s*$",

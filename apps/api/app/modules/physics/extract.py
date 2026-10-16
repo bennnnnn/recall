@@ -12,7 +12,7 @@ from app.modules.physics.registry import (
     has_supported_physics_cue,
 )
 from app.modules.physics.schemas import PhysicsIntent
-from app.services.number_text import read_scientific_numbers
+from app.services.number_text import fold_scientific
 from app.services.symbolic_text import (
     _MAX_PHYSICS_REQUEST,
     _MAX_SUBJECT_TEXT,
@@ -114,7 +114,7 @@ def needs_physics(text: str) -> bool:
         return False
     if _named_symbol_request(text) is not None:
         return True
-    normalized = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_SUBJECT_TEXT)
+    normalized = normalize_symbolic_request(fold_scientific(text), limit=_MAX_SUBJECT_TEXT)
     if not normalized:
         return False
     from app.modules.physics.numbers import normalize_physics_units
@@ -196,7 +196,7 @@ def _extract_physics_intent(text: str) -> PhysicsIntent | None:
     if named is not None:
         return _extract_physics_intent(named)
 
-    cleaned = normalize_symbolic_request(read_scientific_numbers(text), limit=_MAX_PHYSICS_REQUEST)
+    cleaned = normalize_symbolic_request(fold_scientific(text), limit=_MAX_PHYSICS_REQUEST)
     if not cleaned:
         return None
     from app.modules.physics.ask import asked_phrases, has_ask
