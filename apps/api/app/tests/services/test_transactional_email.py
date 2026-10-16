@@ -288,10 +288,11 @@ async def test_enqueue_welcome_email_xadds_to_jobs_stream():
     import fakeredis.aioredis
 
     from app.core import jobs
+    from app.modules.notifications import enqueue_welcome_email
 
     redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     uid = uuid4()
-    await jobs.enqueue_welcome_email(redis, uid)
+    await enqueue_welcome_email(redis, uid)
     entries = await redis.xrange(jobs.JOBS_STREAM)
     assert len(entries) == 1
     _, fields = entries[0]
@@ -310,10 +311,11 @@ async def test_enqueue_purchase_receipt_payload_shape():
     import fakeredis.aioredis
 
     from app.core import jobs
+    from app.modules.notifications import enqueue_purchase_receipt
 
     redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
     uid = uuid4()
-    await jobs.enqueue_purchase_receipt(
+    await enqueue_purchase_receipt(
         redis,
         uid,
         event_type="RENEWAL",
@@ -483,7 +485,7 @@ async def test_login_dev_enqueues_welcome_for_new_user():
             AsyncMock(return_value=("tok", "refresh")),
         ),
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
-        patch("app.modules.account.service.jobs.enqueue_welcome_email", AsyncMock()) as enq,
+        patch("app.modules.account.service.enqueue_welcome_email", AsyncMock()) as enq,
     ):
         await auth_service.login_dev(
             AsyncMock(), settings, email="dev@test.local", name="Dev", redis=redis
@@ -520,7 +522,7 @@ async def test_login_dev_does_not_enqueue_for_existing_user():
             AsyncMock(return_value=("tok", "refresh")),
         ),
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
-        patch("app.modules.account.service.jobs.enqueue_welcome_email", AsyncMock()) as enq,
+        patch("app.modules.account.service.enqueue_welcome_email", AsyncMock()) as enq,
     ):
         await auth_service.login_dev(
             AsyncMock(), settings, email="dev@test.local", name="Dev", redis=redis
@@ -561,7 +563,7 @@ async def test_login_dev_refreshes_name_on_relogin():
             AsyncMock(return_value=("tok", "refresh")),
         ),
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
-        patch("app.modules.account.service.jobs.enqueue_welcome_email", AsyncMock()),
+        patch("app.modules.account.service.enqueue_welcome_email", AsyncMock()),
     ):
         session = AsyncMock()
         await auth_service.login_dev(
@@ -603,7 +605,7 @@ async def test_login_dev_keeps_name_when_unchanged():
             AsyncMock(return_value=("tok", "refresh")),
         ),
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
-        patch("app.modules.account.service.jobs.enqueue_welcome_email", AsyncMock()),
+        patch("app.modules.account.service.enqueue_welcome_email", AsyncMock()),
     ):
         await auth_service.login_dev(
             AsyncMock(), settings, email="dev@test.local", name="Bini", redis=redis
@@ -646,7 +648,7 @@ async def test_login_dev_skips_enqueue_when_email_disabled():
             AsyncMock(return_value=("tok", "refresh")),
         ),
         patch("app.modules.account.service.UserOut.model_validate", return_value=fake_user_out),
-        patch("app.modules.account.service.jobs.enqueue_welcome_email", AsyncMock()) as enq,
+        patch("app.modules.account.service.enqueue_welcome_email", AsyncMock()) as enq,
     ):
         await auth_service.login_dev(
             AsyncMock(), settings, email="dev@test.local", name="Dev", redis=redis

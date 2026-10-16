@@ -14,11 +14,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings, get_settings
 from app.core.db import get_db
 from app.core.deps import get_current_user, get_redis, get_settings_dep
-from app.core.jobs import enqueue_purchase_receipt
 from app.core.redis_lock import acquire_lock
 from app.models.orm import User
 from app.modules.billing import entitlements
 from app.modules.billing import revenuecat as webhook_service
+from app.modules.notifications import enqueue_purchase_receipt
 
 subscription_service = webhook_service.subscription_service
 _already_processed = webhook_service._already_processed

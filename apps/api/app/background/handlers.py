@@ -1,6 +1,6 @@
 """Job-type → handler registration for the durable job queue.
 
-`app/core/jobs.py` owns the queue mechanics (stream, retries, DLQ, metrics)
+`app/core/jobs/` owns the queue mechanics (stream, retries, DLQ, metrics)
 and exposes `register`; the domain bodies live here, next to the background
 modules they call. Keeping this out of `core/` means the lowest layer no
 longer imports `app.background` / `app.services`, so importing the queue
@@ -54,7 +54,7 @@ async def _handle_topic(settings: Settings, payload: dict[str, Any]) -> None:
 
 
 _MEMORY_LOCK_MAX_RETRIES = 3
-# Match core.jobs._RETRY_BACKOFF_S. Instant re-enqueue cannot outlast a lock
+# Match core.jobs.worker._RETRY_BACKOFF_S. Instant re-enqueue cannot outlast a lock
 # held for an LLM round-trip; the worker is not latency-sensitive.
 _MEMORY_LOCK_RETRY_BACKOFF_S = 2.0
 

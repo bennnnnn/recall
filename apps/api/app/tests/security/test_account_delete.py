@@ -56,6 +56,7 @@ async def _keys_naming(redis, user_id) -> list[str]:
 async def test_delete_account_leaves_nothing_of_the_user_behind(world: World) -> None:
     from app.background.handlers import _handle_storage_sweep
     from app.core import jobs
+    from app.core.jobs import admin
     from app.modules.account import tokens
 
     c, a, b, data, redis = world.client, world.a, world.b, world.a_data, world.redis
@@ -78,7 +79,7 @@ async def test_delete_account_leaves_nothing_of_the_user_behind(world: World) ->
     b_job = {"user_id": str(b.id), "chat_id": str(world.b_chat_id), "transcript": "B's turn"}
     await jobs.enqueue(redis, "memory", a_job)
     await jobs.enqueue(redis, "memory", b_job)
-    await jobs._move_to_dlq(redis, "1-0", {"type": "memory", "payload": json.dumps(a_job)}, "x")
+    await admin._move_to_dlq(redis, "1-0", {"type": "memory", "payload": json.dumps(a_job)}, "x")
 
     response = await c.delete("/auth/me", headers=a.headers)
     assert response.status_code == 204

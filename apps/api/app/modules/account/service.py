@@ -3,7 +3,6 @@ from uuid import UUID
 from redis.asyncio import Redis
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core import jobs
 from app.core.config import Settings
 from app.core.validation import normalize_display_name
 from app.gateways.apple_auth import verify_apple_id_token
@@ -20,6 +19,7 @@ from app.models.orm import User
 from app.models.schemas import AuthResponse, UserOut
 from app.modules.account import quota_carryover
 from app.modules.account import tokens as tokens_service
+from app.modules.notifications import enqueue_welcome_email
 from app.repositories import users as users_repo
 
 
@@ -101,7 +101,7 @@ async def login_with_google(
 
     if is_new_user and settings.email_enabled:
         # Best-effort: never let a welcome email block signup.
-        await jobs.enqueue_welcome_email(redis, user.id)
+        await enqueue_welcome_email(redis, user.id)
 
     access_token, refresh_token = await tokens_service.issue_token_pair(
         redis,
@@ -180,7 +180,7 @@ async def login_with_apple(
             user = await users_repo.update(session, user, commit=True, **updates)
 
     if is_new_user and settings.email_enabled:
-        await jobs.enqueue_welcome_email(redis, user.id)
+        await enqueue_welcome_email(redis, user.id)
 
     access_token, refresh_token = await tokens_service.issue_token_pair(
         redis,
@@ -230,7 +230,7 @@ async def login_dev(
         user = await users_repo.update(session, user, name=name)
 
     if is_new_user and settings.email_enabled:
-        await jobs.enqueue_welcome_email(redis, user.id)
+        await enqueue_welcome_email(redis, user.id)
 
     access_token, refresh_token = await tokens_service.issue_token_pair(
         redis,

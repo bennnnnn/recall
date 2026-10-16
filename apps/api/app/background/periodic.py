@@ -22,9 +22,9 @@ from app.core.redis_lock import acquire_lock, refresh_lock, release_lock
 
 logger = logging.getLogger(__name__)
 
-# Same idea as jobs._HEARTBEAT_STALE_THRESHOLD_S: a started loop that is still
-# "running" but no longer checking in is treated as dead. Sleep between ticks
-# is chunked so a long interval does not look stale.
+# Same idea as core.jobs.worker._HEARTBEAT_STALE_THRESHOLD_S: a started loop
+# that is still "running" but no longer checking in is treated as dead. Sleep
+# between ticks is chunked so a long interval does not look stale.
 _HEARTBEAT_STALE_THRESHOLD_S = 120.0
 _HEARTBEAT_SLEEP_CHUNK_S = 30
 

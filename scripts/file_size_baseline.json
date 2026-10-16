@@ -5,10 +5,6 @@
       "lines": 581,
       "why": "Exception: `Settings`: one field per flag, the seam CLAUDE.md names"
     },
-    "apps/api/app/core/jobs.py": {
-      "lines": 938,
-      "why": "Over 500 before the standards; split in ES-32"
-    },
     "apps/api/app/gateways/litellm_gateway.py": {
       "lines": 552,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
