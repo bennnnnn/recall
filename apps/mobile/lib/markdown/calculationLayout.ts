@@ -6,6 +6,7 @@
 
 import { codeSpanOpensWithin } from "@/lib/markdown/inlineCode";
 import { leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
+import { charAt, LETTER } from "@/lib/markdown/unicodeChars";
 import { readFenceMarker } from "@/lib/mdFenceScan";
 
 const MATH_LANGS = new Set(["math", "latex", "tex", "equation"]);
@@ -142,14 +143,11 @@ function segmentBlocksChain(segment: string): boolean {
       index = end;
       continue;
     }
-    if (/[A-Za-z]/.test(segment[index])) {
-      const start = index;
-      index += 1;
-      while (index < segment.length && /[A-Za-z]/.test(segment[index])) index += 1;
-      if (CHAIN_STOP_WORDS.has(segment.slice(start, index).toLowerCase())) return true;
-      continue;
-    }
-    index += 1;
+    // A word (in any script) is read whole; only "or" and "and" stop a chain.
+    const start = index;
+    while (LETTER.test(charAt(segment, index))) index += charAt(segment, index).length;
+    if (CHAIN_STOP_WORDS.has(segment.slice(start, index).toLowerCase())) return true;
+    if (index === start) index += charAt(segment, index).length;
   }
   return false;
 }
@@ -163,14 +161,15 @@ function isSimpleNumeric(segment: string): boolean {
         // A unit or label is a different quantity, not a factorial expansion.
         return false;
       }
-      if (NUMERIC_COMMANDS.has(name) || !/[A-Za-z]/.test(name)) {
+      if (NUMERIC_COMMANDS.has(name) || !LETTER.test(name)) {
         index = end;
         continue;
       }
       return false;
     }
-    if (/[A-Za-z]/.test(segment[index])) return false;
-    index += 1;
+    const char = charAt(segment, index);
+    if (LETTER.test(char)) return false;
+    index += char.length;
   }
   return true;
 }
@@ -245,7 +244,7 @@ function soleMath(stripped: string): { delim: string; inner: string; punct: stri
 function hasLongWord(text: string): boolean {
   let run = 0;
   for (const char of text) {
-    if (/[A-Za-z]/.test(char)) {
+    if (LETTER.test(char)) {
       run += 1;
       if (run >= 4) return true;
     } else {

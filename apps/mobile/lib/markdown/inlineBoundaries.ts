@@ -7,26 +7,31 @@
 
 import { codeSpanOpensWithin } from "@/lib/markdown/inlineCode";
 import { leaveProseLine } from "@/lib/markdown/markdownRegions";
+import { ALNUM, charAt, LETTER, lastChar } from "@/lib/markdown/unicodeChars";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
 const OPEN_PUNCT = new Set("([{\"“‘«".split(""));
 const CLOSE_PUNCT = new Set(".,;:!?)]}\"”’»…—–/%".split(""));
 
 function isCjk(char: string): boolean {
-  const code = char.charCodeAt(0);
+  const code = char.codePointAt(0) ?? 0;
   return (
     (code >= 0x3040 && code <= 0x30ff) ||
     (code >= 0x3400 && code <= 0x9fff) ||
     (code >= 0xac00 && code <= 0xd7af) ||
     (code >= 0x0e00 && code <= 0x0e7f) ||
-    (code >= 0xf900 && code <= 0xfaff)
+    (code >= 0xf900 && code <= 0xfaff) ||
+    (code >= 0x20000 && code <= 0x3ffff)
   );
 }
 
+/** Letters and digits in scripts that separate words with spaces (Ethiopic and
+ * Arabic as much as Latin), so not only the scripts with a letter case. */
 function needsWordSpace(char: string): boolean {
   if (!char || /\s/.test(char) || isCjk(char)) return false;
-  return char.toLowerCase() !== char.toUpperCase() || /\d/.test(char);
+  return ALNUM.test(char);
 }
+
 
 function glueBefore(previous: string): boolean {
   if (!previous || /\s/.test(previous) || OPEN_PUNCT.has(previous)) return false;
@@ -80,9 +85,9 @@ function escapedDollar(text: string, index: number): boolean {
   return slashes % 2 === 1;
 }
 
-/** `$2$`: one number. Not "$5 and $10" (two prices) or "$5$10". */
+/** `$2$` (or `$2.$`): one number. Not "$5 and $10" (two prices) or "$5$10". */
 function bareNumber(body: string, next: string | undefined): boolean {
-  return /^\s*\d[\d,]*(?:\.\d+)?\s*$/.test(body) && !/\d/.test(next ?? "");
+  return /^\s*\d[\d,]*(?:\.\d*)?\s*$/.test(body) && !/\d/.test(next ?? "");
 }
 
 /**
@@ -156,14 +161,14 @@ function readEmphasis(text: string, index: number): number | null {
   if (close < 0 || text.startsWith("**", close)) return null;
   const inner = text.slice(index + 1, close);
   if (!inner || inner.includes("\n")) return null;
-  if (![...inner].some((char) => /[A-Za-z]/.test(char) && !isCjk(char))) return null;
+  if (![...inner].some((char) => LETTER.test(char) && !isCjk(char))) return null;
   return close + 1;
 }
 
 function emit(out: string[], span: string, next: string): void {
-  if (out.length > 0 && glueBefore(out[out.length - 1].slice(-1))) out.push(" ");
+  if (out.length > 0 && glueBefore(lastChar(out[out.length - 1]))) out.push(" ");
   out.push(span);
-  if (glueAfter(next.slice(0, 1))) out.push(" ");
+  if (glueAfter(charAt(next, 0))) out.push(" ");
 }
 
 function repairLine(line: string): string {
@@ -187,7 +192,7 @@ function repairLine(line: string): string {
     for (const reader of readers) {
       const end = reader(line, index);
       if (end == null) continue;
-      emit(out, line.slice(index, end), line.slice(end, end + 1));
+      emit(out, line.slice(index, end), line.slice(end, end + 2));
       index = end;
       matched = true;
       break;
@@ -202,8 +207,9 @@ function repairLine(line: string): string {
         continue;
       }
     }
-    out.push(line[index]);
-    index += 1;
+    const char = charAt(line, index);
+    out.push(char);
+    index += char.length;
   }
   return out.join("");
 }
