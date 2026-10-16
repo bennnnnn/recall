@@ -32,10 +32,6 @@ async def test_delete_library_attachment_strips_message_and_does_not_refund():
             AsyncMock(return_value=message),
         ),
         patch(
-            "app.modules.attachments.workflow.chunks_repo.delete_for_attachment_ids",
-            AsyncMock(),
-        ) as chunks,
-        patch(
             "app.modules.attachments.workflow.attachments_repo.delete_rows",
             AsyncMock(return_value=1),
         ),
@@ -63,7 +59,6 @@ async def test_delete_library_attachment_strips_message_and_does_not_refund():
     assert message.content == "Keep this"
     session.delete.assert_not_called()
     session.commit.assert_awaited_once()
-    chunks.assert_not_awaited()
     storage.assert_awaited_once_with(settings, ["user/key"])
 
 
@@ -89,10 +84,6 @@ async def test_delete_library_attachment_deletes_empty_message():
         patch(
             "app.modules.attachments.workflow.messages_repo.get_for_user",
             AsyncMock(return_value=message),
-        ),
-        patch(
-            "app.modules.attachments.workflow.chunks_repo.delete_for_attachment_ids",
-            AsyncMock(),
         ),
         patch(
             "app.modules.attachments.workflow.attachments_repo.delete_rows",

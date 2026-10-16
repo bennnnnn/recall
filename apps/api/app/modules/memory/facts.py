@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import Any
-from uuid import UUID
 
 from app.models.orm import Memory
 from app.modules.memory.ops import (
@@ -142,7 +141,3 @@ def pack_memories(memories: list[Any], *, max_chars: int) -> list[Any]:
             continue
         packed.append(memory)
     return packed
-
-
-def expected_facts_from_rows(facts: list[Memory]) -> dict[UUID, str]:
-    return {fact.id: fact.text for fact in facts}

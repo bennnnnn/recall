@@ -362,10 +362,6 @@ def classify_memory_sensitivity(text: str) -> str:
     return "normal"
 
 
-def is_highly_sensitive_text(text: str) -> bool:
-    return classify_memory_sensitivity(text) == "highly_sensitive"
-
-
 def is_memory_candidate(text: str) -> bool:
     """Run extraction for every substantive user line.
 

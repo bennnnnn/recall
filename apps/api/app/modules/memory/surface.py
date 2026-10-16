@@ -40,12 +40,6 @@ from app.modules.memory.repository import list_areas as list_areas
 from app.modules.memory.repository import list_for_user as list_for_user
 from app.modules.memory.repository import list_range as list_range
 from app.modules.memory.selection import (
-    _ALWAYS_INJECT_TYPES as _ALWAYS_INJECT_TYPES,
-)
-from app.modules.memory.selection import (
-    _SIMILARITY_GATED_TYPES as _SIMILARITY_GATED_TYPES,
-)
-from app.modules.memory.selection import (
     SECTION_LABELS as SECTION_LABELS,
 )
 from app.modules.memory.selection import (
@@ -92,9 +86,6 @@ from app.modules.memory.text import (
 )
 from app.modules.memory.text import (
     is_food_or_diet_query as is_food_or_diet_query,
-)
-from app.modules.memory.text import (
-    is_highly_sensitive_text as is_highly_sensitive_text,
 )
 from app.modules.memory.text import (
     is_memory_candidate as is_memory_candidate,

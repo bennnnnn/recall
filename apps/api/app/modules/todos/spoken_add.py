@@ -670,20 +670,6 @@ def _title_before(body: str, day_at: int) -> str:
     return " ".join(words).strip()
 
 
-def _word_at(haystack: str, word: str) -> int:
-    start = 0
-    while True:
-        found = haystack.find(word, start)
-        if found < 0:
-            return -1
-        before = found == 0 or not haystack[found - 1].isalpha()
-        after_at = found + len(word)
-        after = after_at >= len(haystack) or not haystack[after_at].isalpha()
-        if before and after:
-            return found
-        start = found + 1
-
-
 def _clock_uses_the_whole_message(text: str) -> bool:
     """True when nothing but a clock remains. '6pm tomorrow' is not clock-only."""
     from app.modules.todos.reminder_fences import _parse_clock

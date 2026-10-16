@@ -125,10 +125,6 @@ def test_delete_account_returns_204_when_one_storage_delete_fails():
             AsyncMock(return_value=2),
         ),
         patch(
-            "app.modules.attachments.chunks_repository.delete_for_attachment_ids",
-            AsyncMock(),
-        ),
-        patch(
             "app.modules.attachments.lifecycle.get_storage_gateway",
             return_value=gateway,
         ),

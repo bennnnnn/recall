@@ -218,7 +218,6 @@ def _target(text: str, equation: str) -> str | None:
 
 
 _PRESSURE_UNIT = r"(?:kPa|Pa|mmHg|torr|atm|bar)"
-_VOLUME_UNIT = r"(?:mL|liters?|litres?|L)"
 _TEMPERATURE_UNIT = r"(?:°\s*C|deg\s*C|celsius|(?-i:K)|(?-i:C))"
 _CANONICAL_PRESSURE = {
     "kpa": "kPa",

@@ -118,10 +118,6 @@ async def search_conversations(
     return results, total
 
 
-# Backwards-compatible alias for tests/imports that still reference this name.
-search_messages = search_conversations
-
-
 def _snippet(content: str, query: str, max_len: int = 120) -> str:
     """Extract a short snippet around the first match of query."""
     idx = content.lower().find(query.lower())

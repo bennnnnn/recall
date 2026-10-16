@@ -106,11 +106,6 @@ def is_places_list_query(text: str) -> bool:
     return is_proximity_query(text)
 
 
-def is_local_places_query(text: str) -> bool:
-    """Backward-compatible alias — prefer is_geo_query / is_places_list_query."""
-    return is_proximity_query(text)
-
-
 def is_ambiguous_local_places_query(text: str) -> bool:
     """Nearby intent but missing sale/rent/address/etc. — ask before web search."""
     cleaned = text.strip()

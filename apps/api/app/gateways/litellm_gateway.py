@@ -58,10 +58,6 @@ _CHAT_MODEL_UNAVAILABLE_MSG = (
 )
 
 
-def resolve_model(alias: str) -> str:
-    return model_catalog.get(alias).model
-
-
 async def _acompletion_with_fallback(
     settings: Settings,
     primary_alias: str,

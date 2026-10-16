@@ -139,25 +139,6 @@ _SOLVED_REGION_OPS = {
 # ``f(x)``, ``g(t)``: a single-letter function of a single-letter variable.
 _FUNCTION_NOTATION = re.compile(r"(?<![A-Za-z\\])[a-zA-Z]\s*\(\s*[a-zA-Z]\s*\)")
 
-_LAGRANGE_REQUEST = re.compile(
-    r"(?P<name>[a-zA-Z])\(\s*(?P<var>[a-zA-Z])\s*\)\s*=\s*(?P<expr>.+),\s*"
-    r"(?:find|calculate|compute|determine)\s+(?P=name)'{1,3}\(\s*(?P=var)\s*\)[.?]?",
-    re.IGNORECASE,
-)
-
-
-def _closed_math_syntax(text: str) -> bool:
-    """A whole math request is not invalid merely under physics's number grammar."""
-    from app.modules.math.tools.direct_statistics import statistics_direct_request
-
-    if len(text) > 1000:
-        return False
-    if statistics_direct_request(text) is True:
-        return True
-    match = _LAGRANGE_REQUEST.fullmatch(text.strip())
-    return match is not None and math_expr_or_none(match["expr"]) is not None
-
-
 _FUNCTION_NAMES = re.compile(
     r"\b(?:sqrt|cbrt|sin|cos|tan|cot|sec|csc|arcsin|arccos|arctan|log|ln|exp|abs|pi)\b",
     re.IGNORECASE,

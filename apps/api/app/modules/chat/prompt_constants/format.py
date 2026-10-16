@@ -532,8 +532,7 @@ FORMAT_CONTRACT = (
     "the user explicitly requested a compact table."
 )
 
-# Compat aliases — one contract, two historical names.
-INTENT_FORMAT_HINT = FORMAT_CONTRACT
+# Compat alias for the contract's historical name.
 RESPONSE_FORMAT_HINT = FORMAT_CONTRACT
 
 STYLE_HINTS = {

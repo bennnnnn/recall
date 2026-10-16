@@ -199,12 +199,3 @@ def _anion_part(text: str) -> tuple[Ion, int] | None:
         if bare is not None and (not anion.polyatomic or not bare.group(1)):
             return anion, int(bare.group(1) or 1)
     return None
-
-
-def cation_names() -> tuple[str, ...]:
-    """Every cation name the table holds, for a reader's pattern."""
-    return (*(ion.name for ion in _FIXED_CATIONS), *(word for word, _ in _VARIABLE_METALS.values()))
-
-
-def anion_names() -> tuple[str, ...]:
-    return tuple(ion.name for ion in _ANIONS)

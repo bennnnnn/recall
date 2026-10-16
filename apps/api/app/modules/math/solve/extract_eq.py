@@ -321,10 +321,6 @@ def free_standing_equation(text: str) -> tuple[str, str, str] | None:
     return None
 
 
-def has_free_standing_equation(text: str) -> bool:
-    return free_standing_equation(text) is not None
-
-
 def _is_equal_chain(pairs: list[tuple[str, str]]) -> bool:
     """Adjacent pairs form a chain when the previous RHS is the next LHS.
 
