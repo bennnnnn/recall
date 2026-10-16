@@ -178,6 +178,8 @@ export type Usage = {
   recent_message_window?: number;
 };
 
+/** One entry of GET /models. The server also sends prices and quota
+ * multipliers; the phone neither shows nor keeps them, so it leaves them out. */
 export type ModelInfo = {
   id: string;
   label: string;
@@ -185,9 +187,6 @@ export type ModelInfo = {
   tier: string;
   plan_access: "free" | "pro";
   available: boolean;
-  input_price_per_m: number | null;
-  output_price_per_m: number | null;
-  quota_multiplier: number;
   healthy?: boolean;
   latency_p50_ms?: number | null;
   health_samples?: number;
