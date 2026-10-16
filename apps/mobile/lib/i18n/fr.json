@@ -378,6 +378,7 @@
   "memory.empty_body": "Discutez avec Recall et il apprendra automatiquement ce qui compte pour vous.",
   "memory.empty_title": "Aucun souvenir",
   "memory.title": "Mémoire",
+  "notifications.push_unavailable": "Les notifications push ne fonctionnent pas sur cet appareil pour le moment.",
   "notifications.reminders_channel": "Rappels",
   "notifications.todo_reminder_body": "{{content}} — dû à {{time}}",
   "notifications.todo_reminder_title": "Tâches",

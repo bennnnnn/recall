@@ -8,7 +8,7 @@ import pytest
 
 from app.core.config import Settings
 from app.gateways.mcp.base import ToolResult
-from app.modules.speech.live_talk_tools import execute_tool, search_sources_for_turn
+from app.modules.speech.live_talk_tools import _key, execute_tool, search_sources_for_turn
 
 
 @pytest.mark.asyncio
@@ -67,3 +67,42 @@ async def test_tools_fail_closed_if_reservation_store_is_down():
         )
     assert "unavailable" in result["content"]
     search.assert_not_awaited()
+
+
+async def _sources_with(redis, caplog, user_id):
+    with caplog.at_level("WARNING", logger="app.modules.speech.live_talk_tools"):
+        sources = await search_sources_for_turn(redis, user_id, "call", "turn")
+    return sources, [r for r in caplog.records if r.levelname == "WARNING"]
+
+
+@pytest.mark.asyncio
+async def test_turn_sources_redis_error_logs_and_saves_the_turn_without_sources(caplog):
+    redis = AsyncMock()
+    redis.get = AsyncMock(side_effect=ConnectionError("redis down"))
+    sources, warnings = await _sources_with(redis, caplog, uuid4())
+    assert sources == []
+    assert len(warnings) == 1
+    assert "ConnectionError" in warnings[0].getMessage()
+
+
+@pytest.mark.parametrize("cached", ["{not json", '["a list, not an object"]'])
+@pytest.mark.asyncio
+async def test_turn_sources_unreadable_cache_logs_and_saves_the_turn_without_sources(
+    caplog, cached
+):
+    redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    user_id = uuid4()
+    await redis.set(_key(user_id, "call", "turn", "web_search"), cached)
+    sources, warnings = await _sources_with(redis, caplog, user_id)
+    assert sources == []
+    assert len(warnings) == 1
+    # Names the failure only: never the cached search results.
+    assert cached not in warnings[0].getMessage()
+
+
+@pytest.mark.asyncio
+async def test_turn_sources_without_a_search_are_quietly_empty(caplog):
+    redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    sources, warnings = await _sources_with(redis, caplog, uuid4())
+    assert sources == []
+    assert warnings == []

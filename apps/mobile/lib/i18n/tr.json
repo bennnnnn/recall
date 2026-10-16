@@ -378,6 +378,7 @@
   "memory.empty_body": "Recall ile sohbet et; tercihlerini, öğrenme konularını ve hakkındaki bilgileri otomatik olarak öğrenir.",
   "memory.empty_title": "Henüz hatıra yok",
   "memory.title": "Hafıza",
+  "notifications.push_unavailable": "Anlık bildirimler şu anda bu cihazda çalışmıyor.",
   "notifications.reminders_channel": "Anımsatıcılar",
   "notifications.todo_reminder_body": "{{content}} — saat {{time}}",
   "notifications.todo_reminder_title": "Yapılacaklar",

@@ -589,8 +589,9 @@ async def test_stopped_worker_removes_its_consumer_from_the_group(
 
 @pytest.mark.asyncio
 async def test_collect_queue_metrics_empty(fake_redis):
+    await jobs._ensure_group(fake_redis)
     metrics = await jobs.collect_queue_metrics(fake_redis)
-    assert metrics == {"dlq_depth": 0, "pending_entries": 0}
+    assert metrics == {"dlq_depth": 0, "pending_entries": 0, "metrics_error": None}
 
 
 @pytest.mark.asyncio
@@ -603,12 +604,13 @@ async def test_collect_queue_metrics_counts_dlq_depth(fake_redis):
 
 
 @pytest.mark.asyncio
-async def test_collect_queue_metrics_tolerates_redis_errors():
+async def test_collect_queue_metrics_redis_error_is_unknown_not_zero():
+    """Never raises into the worker loop, but a count it could not read is None."""
     redis = AsyncMock()
     redis.xlen = AsyncMock(side_effect=RuntimeError("redis down"))
     redis.xpending = AsyncMock(side_effect=RuntimeError("redis down"))
     metrics = await jobs.collect_queue_metrics(redis)
-    assert metrics == {"dlq_depth": 0, "pending_entries": 0}
+    assert metrics == {"dlq_depth": None, "pending_entries": None, "metrics_error": "RuntimeError"}
 
 
 @pytest.mark.asyncio
@@ -624,6 +626,7 @@ async def test_report_queue_metrics_warns_when_dlq_exceeds_threshold():
                 return_value={
                     "dlq_depth": jobs._DLQ_ALERT_THRESHOLD,
                     "pending_entries": 0,
+                    "metrics_error": None,
                 }
             ),
         ),
@@ -649,6 +652,7 @@ async def test_report_queue_metrics_warns_when_pending_exceeds_threshold():
                 return_value={
                     "dlq_depth": 0,
                     "pending_entries": jobs._PENDING_ALERT_THRESHOLD,
+                    "metrics_error": None,
                 }
             ),
         ),
@@ -672,6 +676,7 @@ async def test_report_queue_metrics_quiet_below_thresholds():
                 return_value={
                     "dlq_depth": jobs._DLQ_ALERT_THRESHOLD - 1,
                     "pending_entries": jobs._PENDING_ALERT_THRESHOLD - 1,
+                    "metrics_error": None,
                 }
             ),
         ),
@@ -702,6 +707,7 @@ async def test_report_queue_metrics_noop_without_sentry():
                 return_value={
                     "dlq_depth": jobs._DLQ_ALERT_THRESHOLD,
                     "pending_entries": 0,
+                    "metrics_error": None,
                 }
             ),
         ):
