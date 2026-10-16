@@ -68,7 +68,7 @@ async def test_prepare_chat_turn_refunds_image_quota_when_r2_bytes_invalid():
 
     with (
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch(
             "app.modules.attachments.repository.get_by_ids",
@@ -169,7 +169,7 @@ async def test_prepare_chat_turn_threads_image_math_extract_to_prompt_context(li
 
     with (
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
         patch(
@@ -307,7 +307,7 @@ async def _run_prepare_chat_turn_with_caption(caption: str) -> AsyncMock:
 
     with (
         patch("app.modules.chat.turn_prep.attachments.SessionLocal", return_value=SessionCM()),
-        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
         patch("app.repositories.users.get_by_id", AsyncMock(return_value=user)),
         patch("app.repositories.chats.get_by_id", AsyncMock(return_value=chat)),
         patch(
@@ -729,7 +729,7 @@ async def test_prepare_overlap_returns_before_persist_commit():
             return None
 
     with (
-        patch("app.modules.chat.turn_prep.prepare.SessionLocal", return_value=SessionCM()),
+        patch("app.modules.chat.turn_prep.persist.SessionLocal", return_value=SessionCM()),
         patch("app.repositories.messages.create", side_effect=slow_create),
         patch(
             "app.modules.chat.turn_prep.prepare.build_stream_prompt_context",

@@ -1,0 +1,157 @@
+"""Save the user's message for a new turn, in one transaction this module owns.
+
+The row, its attachment links and the indexable-attachment read share one session:
+they commit together, and a failed write rolls them all back.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any
+from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.core.config import Settings
+from app.core.db import SessionLocal
+from app.exceptions import ChatBusyError, ChatNotFoundError
+from app.models.orm import Chat, User
+from app.modules.attachments import rag as attachment_rag
+from app.modules.attachments import service as attachments_service
+from app.modules.billing import plan as plan_service
+from app.modules.chat.turn_prep.mode import _classify_turn_mode, _TurnMode
+from app.modules.chat.turn_prep.vision import uses_vision_model
+from app.modules.chat.turn_timing import TurnTimingTracker
+from app.repositories import chats as chats_repo
+from app.repositories import messages as messages_repo
+from app.repositories import users as users_repo
+from app.services.context_window import estimate_tokens
+from app.services.routing import last_user_turn
+
+
+@dataclass(kw_only=True)
+class UserTurn:
+    """The message one turn saves, and who sends it.
+
+    The caller sets what it has already read; ``persist_user_turn`` reads the rest
+    in its session and fills it in. Run beside the prompt build, the persist reads
+    ``model`` when it inserts the row, so the row keeps the model the turn has
+    settled on by then.
+    """
+
+    user_id: UUID
+    chat_id: UUID
+    message_id: UUID
+    # What the model is asked: a camera photo's equation is added to the text.
+    content: str
+    # What the chat shows: the text and the attachment markers.
+    stored_content: str
+    attachment_ids: list[UUID] | None
+    has_image_attachment: bool
+    model_alias: str | None
+    recent_messages: list[Any] | None
+    lesson_active: bool
+    user: User | None = None
+    chat: Chat | None = None
+    model: str | None = None
+    prior_count: int | None = None
+    turn_mode: _TurnMode | None = None
+
+
+def turn_model(turn: UserTurn, user: User, settings: Settings) -> str:
+    """The model already chosen, else the user's pick for this text; photos need vision."""
+    model = turn.model
+    if model is None:
+        prior_user, prior_model = last_user_turn(turn.recent_messages)
+        model = plan_service.resolve_user_model_override(
+            user,
+            turn.model_alias,
+            turn.content,
+            settings,
+            prior_user=prior_user,
+            prior_model=prior_model,
+            lesson_active=turn.lesson_active,
+        )
+    if uses_vision_model(
+        settings=settings,
+        has_image_attachment=turn.has_image_attachment,
+        recent_messages=turn.recent_messages,
+    ):
+        model = "vision-chat"
+    return model
+
+
+async def persist_user_turn(
+    turn: UserTurn, settings: Settings, timing: TurnTimingTracker | None
+) -> list[str]:
+    """Insert the user's row and link its attachments; commit once, or roll back.
+
+    Returns the attachment ids to index once the turn finalizes.
+    """
+    if timing is not None:
+        timing.mark_phase("persist_start")
+    async with SessionLocal() as session:
+        user = await _read_missing(session, turn, settings)
+        try:
+            indexable = await _insert_and_link(session, turn, user, settings)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+    if timing is not None:
+        timing.mark_phase("persist_done")
+    return indexable
+
+
+async def _read_missing(session: AsyncSession, turn: UserTurn, settings: Settings) -> User:
+    user = turn.user
+    if user is None:
+        user = await users_repo.get_by_id(session, turn.user_id)
+        if user is None:
+            raise ChatNotFoundError("User not found.")
+        turn.user = user
+    chat = turn.chat
+    if chat is None:
+        chat = await chats_repo.get_by_id(session, turn.chat_id, turn.user_id)
+        if chat is None:
+            raise ChatNotFoundError("Chat not found.")
+        turn.chat = chat
+    turn.model = turn_model(turn, user, settings)
+    if turn.prior_count is None:
+        turn.prior_count = await messages_repo.count_for_chat(session, turn.chat_id)
+    if turn.turn_mode is None:
+        turn.turn_mode = await _classify_turn_mode(session, chat, turn.content)
+    return user
+
+
+async def _insert_and_link(
+    session: AsyncSession, turn: UserTurn, user: User, settings: Settings
+) -> list[str]:
+    """The row and its links, uncommitted. Returns the attachment ids to index."""
+    message = await messages_repo.create(
+        session,
+        chat_id=turn.chat_id,
+        user_id=user.id,
+        role="user",
+        content=turn.stored_content,
+        model=turn.model,
+        input_tokens=estimate_tokens(turn.stored_content),
+        commit=False,
+        message_id=turn.message_id,
+    )
+    attachment_ids = turn.attachment_ids
+    if not attachment_ids or not settings.attachments_enabled:
+        return []
+    linked = await attachments_service.link_to_message(
+        session,
+        user_id=user.id,
+        attachment_ids=attachment_ids,
+        message_id=message.id,
+        commit=False,
+    )
+    if linked != len(set(attachment_ids)):
+        raise ChatBusyError("An attached file changed while sending. Please retry shortly.")
+    if not settings.attachment_rag_enabled:
+        return []
+    rows = await attachments_service.get_by_ids(session, attachment_ids, user.id)
+    return [str(row.id) for row in rows if attachment_rag.is_indexable_attachment(row)]
