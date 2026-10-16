@@ -667,6 +667,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-24 — A typed turn outcome instead of `result: dict[str, Any]`
 
+- **Status:** done (stage 1). `chat/turn_outcome.py` `TurnOutcome` (13 typed fields, the three task handles among them) replaces the dict, and `schedule_related_prompts` returns its task. `stream_end` and `done` are Pydantic models in `stream_events.py` (`StreamEndEvent`, `DoneEvent`) built from it for both transports; their serializer still writes today's wire (`search_sources` as JSON text, `todos_sync: "1"`), and a capture of 5,770 WebSocket, SSE and regenerate turns is byte-identical. The phone reads `search_sources` as text or an array and `todos_sync: "1"` or `todos_changed: true`, in one place (`parseChatWsPayload`). Sending the typed fields is ES-45.
 - **Problem:** a mutable `result` dict threads through `stream_entry`, `stream_pipeline`,
   `related_prompts`, `ws_api` and `stream_api`:
   - 14 string keys, including private task handles (`_finalize_task`, `_finalize_db_task`,
@@ -1106,6 +1107,26 @@ not counted. ES-27 covers `layoutSimulationScene` and `readScene`, ES-36 covers
 - **Tests:** contract rows in `docs/fixtures/image_intent_cases.json`, plus sweep look-alikes
   with coding history.
 - **Risk:** low. **Size:** S.
+
+### ES-45 — `done` sends `search_sources` as an array and `todos_changed` as a boolean
+
+- **Problem:** since ES-24 the `done` event is a typed model (`stream_events.DoneEvent`), but its
+  serializer still writes the shape installed phones read: `search_sources` is JSON text inside
+  the JSON event and the to-do flag is the string `todos_sync: "1"`. Phones with the ES-24 reader
+  (`features/chat/model/socketReduce.ts` `parseChatWsPayload`, `lib/searchSources.ts`
+  `searchSourcesFromField`) accept both shapes. The web slice (`apps/web/src/hooks/useChat.ts`)
+  still reads `search_sources` only as text. `recalled`, `memory_hints` and `context_summarized`
+  go out as strings too; no client reads them.
+- **Change:**
+  - Once phone builds with the ES-24 reader are what users run, and the web slice reads both
+    shapes, `DoneEvent` sends `search_sources` as an array of `{title, url, snippet}` and
+    `todos_changed: true` instead of `todos_sync`.
+  - One release later, delete the phone's text and `"1"` branches (`parseSearchSourcesJson` stays
+    for the ```sources fence).
+- **Tests:** `test_stream_event_parity.py` (`test_done_is_the_shape_installed_phones_read` takes
+  the new shape), `chatSocketReduce.test.ts` and `chatSse.test.ts`.
+- **Risk:** medium (wire contract: ship it only after the tolerant clients).
+- **Size:** S.
 
 ---
 
