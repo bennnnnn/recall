@@ -15,12 +15,8 @@ from app.modules.math.tools.extractors.algebra import (
     oversized_system,
 )
 from app.modules.math.tools.extractors.calculus import CALCULUS_EXTRACTORS
-from app.modules.math.tools.extractors.calculus_applications import (
-    CALCULUS_APPLICATION_EXTRACTORS,
-)
-from app.modules.math.tools.extractors.discrete_statistics import (
-    DISCRETE_STATISTICS_EXTRACTORS,
-)
+from app.modules.math.tools.extractors.calculus_applications import CALCULUS_APPLICATION_EXTRACTORS
+from app.modules.math.tools.extractors.discrete_statistics import DISCRETE_STATISTICS_EXTRACTORS
 from app.modules.math.tools.extractors.functions import (
     FUNCTION_EXTRACTORS,
     function_analysis_constraint_would_be_dropped,
@@ -30,6 +26,7 @@ from app.modules.math.tools.extractors.geometry_graph import (
     SOLID_EXTRACTOR,
 )
 from app.modules.math.tools.extractors.geometry_request import finish_geometry_intent
+from app.modules.math.tools.extractors.readings import read
 from app.modules.math.tools.helpers import (
     _split_response_instruction_sentence,
     has_assignment_evaluation_request,
@@ -327,7 +324,8 @@ def _extract_math_intent(text: str) -> MathIntent | None:
             cleaned = f"solve {tail} = 0"
     region_question = _REGION_QUESTION_RE.search(cleaned) is not None
     for extractor in _INTENT_EXTRACTORS:
-        intent = extractor(cleaned)
+        # The math gate may have read the line already: its reads are reused.
+        intent = read(extractor, cleaned)
         if intent is not None:
             if region_question and intent.school_op not in _SOLVED_REGION_OPS:
                 # A region question the application extractors declined must

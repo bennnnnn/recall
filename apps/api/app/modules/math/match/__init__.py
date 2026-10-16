@@ -43,10 +43,7 @@ from app.modules.math.match.graph import (
     plot_point,
     vertical_line_x,
 )
-from app.modules.math.match.needs import (
-    needs_symbolic,
-    school_homework_cue,
-)
+from app.modules.math.match.needs import needs_symbolic
 from app.modules.math.match.scan import (
     first_dim_pair,
     first_dim_triple,
@@ -107,7 +104,6 @@ __all__ = [
     "parse_solid",
     "plot_point",
     "prepare",
-    "school_homework_cue",
     "solid_homework_cue",
     "spoken_power_request",
     "stats_signal",
