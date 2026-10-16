@@ -130,6 +130,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-03 — Enrichment failure throws away a reminder card the user was already offered
 
+- **Status:** done. The reminder pass runs last (`modules/chat/finalize_reminders.py`); a failed text pass falls back to the last committed text.
 - **Problem:** `chat/stream_pipeline.py:392` `enrich_final_content` runs the side-effecting step
   first. It calls `materialize_reminder_fences` (around line 418), which with proposals on (the
   default) stores a proposal in Redis and puts its card in the text, and with proposals off writes
