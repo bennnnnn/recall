@@ -228,7 +228,7 @@ def _no_equals_ok(body: str) -> bool:
 
 def _one_equation(body: str, op: str) -> tuple[str, str] | None:
     from app.modules.math.solve.extract_eq import try_extract_equations_from_text
-    from app.modules.math.tools.helpers import math_expr_or_none
+    from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
     found = try_extract_equations_from_text(_without_point(body))
     pairs = {(lhs.strip(), rhs.strip()) for lhs, rhs in found}

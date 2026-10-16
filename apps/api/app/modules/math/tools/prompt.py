@@ -25,7 +25,7 @@ from app.modules.math.tools.extract import (
     resolve_graph_followup,
     trig_domain_would_be_dropped,
 )
-from app.modules.math.tools.helpers import has_assignment_evaluation_request
+from app.modules.math.tools.function_def import has_assignment_evaluation_request
 from app.modules.math.tools.llm_extract import llm_extract_math_intent
 from app.services.prompt_inject import inject_before_last_user
 from app.services.solving import VERIFIED_MATH_BEGIN, VERIFIED_MATH_END

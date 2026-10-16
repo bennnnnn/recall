@@ -7,8 +7,9 @@ import re
 from app.modules.math.function_names import MATH_FUNCTION_NAMES
 from app.modules.math.match import calc_op
 from app.modules.math.schemas import MathIntent
+from app.modules.math.tools.expr_rewrite import math_expr_or_none
 from app.modules.math.tools.extract import extract_math_intent
-from app.modules.math.tools.helpers import _split_response_instruction_sentence, math_expr_or_none
+from app.modules.math.tools.request_text import _split_response_instruction_sentence
 from app.services.number_text import bounded_decimal
 
 _NUMBER = bounded_decimal(12)

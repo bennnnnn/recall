@@ -401,8 +401,8 @@ _SAME_VALUE_OPERATIONS = frozenset({"simplify", "expand", "factor"})
 
 def _expression_in(text: str) -> str | None:
     """The one expression a message is about: ``expand (x+1)^2`` → ``(x+1)^2``."""
+    from app.modules.math.tools.expr_rewrite import math_expr_or_none
     from app.modules.math.tools.extract import extract_math_intent
-    from app.modules.math.tools.helpers import math_expr_or_none
 
     if "=" in text or "<" in text or ">" in text:
         return None

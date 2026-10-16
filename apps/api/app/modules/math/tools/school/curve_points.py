@@ -87,7 +87,7 @@ _LEAD = re.compile(
 
 
 def _expression(raw: str) -> str | None:
-    from app.modules.math.tools.helpers import math_expr_or_none
+    from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
     text = raw.strip().rstrip(".?!").strip()
     return math_expr_or_none(text) if text else None

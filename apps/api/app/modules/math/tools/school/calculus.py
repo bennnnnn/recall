@@ -28,7 +28,7 @@ def _ode_equation(cleaned: str) -> str | None:
     derivative and the ``=`` must be math: ``Find dy/dx if y = x^2`` is a
     derivative ask, not an ODE, and the word ``if`` is what says so.
     """
-    from app.modules.math.tools.helpers import _strip_trailing_filler
+    from app.modules.math.tools.request_text import _strip_trailing_filler
 
     match = _ODE_START_RE.search(cleaned)
     if match is None:
@@ -90,7 +90,7 @@ def _extract_taylor_or_ode(cleaned: str) -> MathIntent | None:
                 if sidx != -1:
                     rest = rest[:sidx]
             expr = rest.strip()
-        from app.modules.math.tools.helpers import math_expr_or_none
+        from app.modules.math.tools.expr_rewrite import math_expr_or_none
 
         # Leftover words ("up to") would become variables in the series.
         if math_expr_or_none(expr) is None:

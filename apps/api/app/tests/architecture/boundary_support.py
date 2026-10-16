@@ -41,6 +41,8 @@ RETIRED_LEGACY_MODULES: tuple[str, ...] = (
     "app.modules.home.legacy_alias",
     "app.modules.math.legacy_alias",
     "app.modules.math.sympy_executor",
+    # Split by job: ``request_text``, ``expr_rewrite``, ``function_def``, ``direct_newton`` (ES-34).
+    "app.modules.math.tools.helpers",
     "app.modules.notifications.legacy_alias",
     "app.modules.physics.legacy_alias",
     "app.modules.web_search.legacy_alias",

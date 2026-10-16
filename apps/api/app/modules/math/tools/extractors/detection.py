@@ -17,7 +17,7 @@ from app.modules.math.tools.extractors.fractions import extract_fraction_intent
 from app.modules.math.tools.extractors.functions import _extract_function_analysis_intent
 from app.modules.math.tools.extractors.geometry import _extract_square_intent
 from app.modules.math.tools.extractors.readings import Reader, read
-from app.modules.math.tools.helpers import substituted_eval_expr
+from app.modules.math.tools.function_def import substituted_eval_expr
 from app.modules.math.tools.school.algebra_facts import extract_algebra_fact_intent
 from app.modules.math.tools.school.arithmetic import extract_arithmetic_formulas
 from app.modules.math.tools.school.bag_draws import extract_bag_draws_intent
