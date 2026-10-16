@@ -334,11 +334,6 @@ class Settings(BaseSettings):
     memory_embed_backfill_per_pass: int = 16
     # Hard cap on formatted memory block chars injected into the system prompt.
     memory_inject_max_chars: int = 1500
-    # Hard cap on formatted quiz exclusion-list chars injected into the system
-    # prompt. Item-count caps don't bound tokens when trivia questions are long;
-    # this is the quiz analogue of memory_inject_max_chars. Keep it generous —
-    # repeat-suppression is why the list exists — but it must be a char budget.
-    quiz_exclusion_max_chars: int = 4000
     memory_cache_ttl: int = 300
     memory_query_cache_ttl: int = 120
     # Run memory extraction every N completed assistant turns (always on turn 1,
@@ -362,8 +357,6 @@ class Settings(BaseSettings):
     # done, move, delete). Off: chat writes to-dos as soon as it reads them.
     reminder_proposals_enabled: bool = True
     todo_prompt_limit: int = 48
-    project_inject_limit: int = 50
-    project_item_inject_limit: int = 300
 
     # History compression — keep recent turns verbatim within a token budget,
     # summarise everything older.
