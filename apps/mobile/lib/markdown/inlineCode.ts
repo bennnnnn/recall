@@ -5,6 +5,7 @@
  * cuts it out before our `$...$` maths split ever sees the text. Every
  * string-level pass that pairs dollars must agree, or it pairs a `$` with a
  * dollar on the far side of a code span and rewrites the code between them.
+ * The API's twin is apps/api/app/modules/chat/inline_code.py.
  */
 
 function escapedAt(text: string, at: number): boolean {

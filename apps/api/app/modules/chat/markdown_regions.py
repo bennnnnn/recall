@@ -1,4 +1,7 @@
-"""Copy fenced regions byte-for-byte while rewriting the prose between them."""
+"""Copy fenced regions byte-for-byte while rewriting the prose between them.
+
+The phone's twin is apps/mobile/lib/markdown/markdownRegions.ts.
+"""
 
 from __future__ import annotations
 

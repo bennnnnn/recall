@@ -1,7 +1,9 @@
-"""Assistant Markdown presentation: boundaries, then calculation rows.
+"""Assistant Markdown presentation: REPL transcripts, boundaries, then calculation rows.
 
-Server persist, direct replies, and the mobile preprocessor share this
-contract. The mobile copy lives in ``lib/markdown/presentation.ts``.
+The finalize pass and the direct replies run it before a reply is saved, so a
+persisted assistant row is already presented. The phone's twin is
+``apps/mobile/lib/markdown/presentation.ts``; docs/fixtures/presentation_cases.json
+holds both to the same output.
 """
 
 from __future__ import annotations
