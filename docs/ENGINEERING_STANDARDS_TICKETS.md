@@ -467,6 +467,13 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-17 — Phone: one session-fenced resource cache, with failures that say so
 
+- **Status:** done. `lib/cache/sessionResource.ts` `SessionResourceCache` (values and timestamps
+  in `StaleResourceCache`) owns the session fence, one request per key, replay of edits made
+  during a read, subscribers, and `fetch()` → `{ data: previous ?? null, error }`. The four
+  caches are ports onto it, and `lib/__tests__/sessionResourceCache.test.ts` runs one contract
+  against all four. A server-side failure while older rows stay on screen (drawer, memory
+  pages) warns once through `reportRecoverableWarning`; offline and sign-out never do. A memory
+  page whose read failed now says so instead of "This memory is gone".
 - **Problem:** four hand-rolled caches implement the same protocol: a session-generation fence,
   in-flight dedupe, replay of updates made during a fetch, and `catch { return null }`:
   - `lib/cache/chatListCache.ts:75-101`

@@ -15,6 +15,8 @@ let mockLink: { onPress: () => void; value?: string };
 let mockRetry: () => void;
 let mockCached: unknown[] | undefined;
 const mockCacheListeners = new Set<() => void>();
+const loaded = (rows: unknown[]) => ({ data: rows, error: null });
+const failed = { data: null, error: new Error("Request failed: 500") };
 jest.mock("@/lib/api", () => ({
   api: { clearMemories: jest.fn() },
 }));
@@ -53,15 +55,15 @@ jest.mock("expo-router", () => ({
 beforeEach(() => {
   jest.clearAllMocks(); mockSession = 1; mockToken = "token-a"; mockFocused = true;
   mockCached = undefined;
-  mockFetch.mockResolvedValue([]); mockUpdate.mockResolvedValue(undefined);
+  mockFetch.mockResolvedValue(loaded([])); mockUpdate.mockResolvedValue(undefined);
 });
 
 it("does not put an old account's count in the next account", async () => {
-  let resolve!: (rows: unknown[]) => void;
+  let resolve!: (result: ReturnType<typeof loaded>) => void;
   mockFetch.mockReturnValueOnce(new Promise((done) => { resolve = done; }));
   const ui = await render(<MemorySettingsScreen />);
   mockSession++; mockToken = "token-b"; await ui.rerender(<MemorySettingsScreen />);
-  await act(async () => { resolve([{}, {}, {}]); });
+  await act(async () => { resolve(loaded([{}, {}, {}])); });
   expect(mockLink.value).toBeUndefined();
 });
 
@@ -123,7 +125,7 @@ it.each(["blur-refocus", "unmount-remount"])("keeps a pending toggle exclusive a
 });
 
 it("refreshes the saved count when returning from the memory screen", async () => {
-  mockFetch.mockResolvedValueOnce([{}, {}]).mockResolvedValueOnce([{}]);
+  mockFetch.mockResolvedValueOnce(loaded([{}, {}])).mockResolvedValueOnce(loaded([{}]));
   const ui = await render(<MemorySettingsScreen />);
   expect(mockLink.value).toBe("2 saved");
   mockFocused = false; await ui.rerender(<MemorySettingsScreen />);
@@ -132,7 +134,7 @@ it("refreshes the saved count when returning from the memory screen", async () =
 });
 
 it("offers retry when the memory count cannot load", async () => {
-  mockFetch.mockResolvedValueOnce(null).mockResolvedValueOnce([{}]);
+  mockFetch.mockResolvedValueOnce(failed).mockResolvedValueOnce(loaded([{}]));
   await render(<MemorySettingsScreen />);
   expect(mockRetry).toEqual(expect.any(Function));
   await act(() => { mockRetry(); });
@@ -141,7 +143,7 @@ it("offers retry when the memory count cannot load", async () => {
 });
 
 it("updates the displayed count when a pending deletion rolls back after navigation", async () => {
-  mockFetch.mockResolvedValueOnce([]);
+  mockFetch.mockResolvedValueOnce(loaded([]));
   await render(<MemorySettingsScreen />);
   expect(mockLink.value).toBeUndefined();
   await act(() => { mockCached = [{}]; mockCacheListeners.forEach((notify) => notify()); });

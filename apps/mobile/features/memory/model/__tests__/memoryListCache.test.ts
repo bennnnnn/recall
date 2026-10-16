@@ -21,7 +21,11 @@ let mockSession = 0;
 jest.mock("@/lib/auth", () => ({
   getSessionGeneration: () => mockSession,
   requireTokenSession: jest.fn(),
+  SessionChangedError: class SessionChangedError extends Error {},
 }));
+
+const ok = <T>(data: T) => ({ data, error: null });
+const failed = <T>(data: T | null = null) => ({ data, error: expect.any(Error) });
 
 const listMemories = api.listMemories as jest.Mock;
 
@@ -56,7 +60,7 @@ describe("memoryListCache", () => {
     expect(getCachedMemories()).toEqual(sample);
 
     const result = await fetchMemories("token");
-    expect(result).toEqual(sample);
+    expect(result).toEqual(ok(sample));
     expect(listMemories).not.toHaveBeenCalled();
   });
 
@@ -73,8 +77,8 @@ describe("memoryListCache", () => {
     resolveFetch(sample);
 
     const [a, b] = await Promise.all([first, second]);
-    expect(a).toEqual(sample);
-    expect(b).toEqual(sample);
+    expect(a).toEqual(ok(sample));
+    expect(b).toEqual(ok(sample));
     expect(listMemories).toHaveBeenCalledTimes(1);
   });
 
@@ -90,9 +94,9 @@ describe("memoryListCache", () => {
     prefetchMemories("token");
     const load = fetchMemories("refreshed-token", { force: true });
     read.resolve(sample);
-    expect(await load).toEqual(sample);
+    expect(await load).toEqual(ok(sample));
     expect(listMemories).toHaveBeenCalledTimes(1);
-    expect(await fetchMemories("refreshed-token")).toEqual(sample);
+    expect(await fetchMemories("refreshed-token")).toEqual(ok(sample));
     expect(listMemories).toHaveBeenCalledTimes(1);
   });
 
@@ -106,7 +110,7 @@ describe("memoryListCache", () => {
   it("rejects an old account token before returning a fresh cache or prefetching", async () => {
     setMemoriesCache(sample);
     jest.mocked(requireTokenSession).mockImplementation(() => { throw new Error("old account"); });
-    expect(await fetchMemories("old-token")).toBeNull();
+    expect(await fetchMemories("old-token")).toEqual(failed());
     prefetchMemories("old-token");
     expect(listMemories).not.toHaveBeenCalled();
     expect(getCachedMemories()).toEqual(sample);
@@ -122,13 +126,13 @@ describe("memoryListCache", () => {
     else invalidateMemoriesCache();
     const newLoad = fetchMemories("new-token");
     oldRead.resolve(sample);
-    expect(await oldLoad).toBeNull();
+    expect(await oldLoad).toEqual(failed());
     expect(getCachedMemories()).toBeUndefined();
     const joinedLoad = fetchMemories("new-token", { force: true });
     const incoming = [{ ...sample[0], id: "new-account" }];
     newRead.resolve(incoming);
-    expect(await newLoad).toEqual(incoming);
-    expect(await joinedLoad).toEqual(incoming);
+    expect(await newLoad).toEqual(ok(incoming));
+    expect(await joinedLoad).toEqual(ok(incoming));
     expect(getCachedMemories()).toEqual(incoming);
     expect(listMemories).toHaveBeenCalledTimes(2);
   });
@@ -143,7 +147,7 @@ describe("memoryListCache", () => {
     updateMemoriesCache((rows) => rows.map((row) => row.id === "m2" ? { ...row, text: "Edited fact" } : row));
     const unseen = { ...sample[0], id: "m3" };
     read.resolve([...sample, second, unseen]);
-    expect(await load).toEqual([{ ...second, text: "Edited fact" }, unseen]);
+    expect(await load).toEqual(ok([{ ...second, text: "Edited fact" }, unseen]));
     expect(getCachedMemories()).toEqual([{ ...second, text: "Edited fact" }, unseen]);
   });
 
@@ -156,7 +160,7 @@ describe("memoryListCache", () => {
     const load = fetchMemories("token", { force: true });
     updateMemoriesCache(remove);
     read.resolve(sample);
-    expect(await load).toEqual([]);
+    expect(await load).toEqual(ok([]));
   });
 
   it("ignores mutations retained from an old account", () => {
@@ -175,10 +179,10 @@ describe("memoryListCache", () => {
     updateMemoriesCache(() => sample);
     expect(isMemoriesFresh()).toBe(false);
     listMemories.mockRejectedValueOnce(new Error("offline")).mockResolvedValueOnce(sample);
-    expect(await fetchMemories("token")).toBeNull();
+    expect(await fetchMemories("token")).toEqual(failed(sample));
     expect(getCachedMemories()).toEqual(sample);
     expect(isMemoriesFresh()).toBe(false);
-    expect(await fetchMemories("token")).toEqual(sample);
+    expect(await fetchMemories("token")).toEqual(ok(sample));
     expect(isMemoriesFresh()).toBe(true);
     expect(listMemories).toHaveBeenCalledTimes(2);
   });
@@ -208,9 +212,9 @@ describe("memoryListCache", () => {
       invalidateMemoriesCache();
       expect(changed).toHaveBeenCalledTimes(1);
       read.resolve(sample);
-      expect(await oldLoad).toBeNull();
+      expect(await oldLoad).toEqual(failed());
       expect(changed).toHaveBeenCalledTimes(1);
-      expect(await fetchMemories("token")).toEqual(sample);
+      expect(await fetchMemories("token")).toEqual(ok(sample));
       expect(changed).toHaveBeenCalledTimes(2);
     } finally {
       unsubscribe();
@@ -249,8 +253,8 @@ describe("memory mutation recovery", () => {
     const recovery = fetchMemories("token", { force: true, afterPending: true });
     expect(listMemories).toHaveBeenCalledTimes(1);
     read.resolve([]);
-    expect(await oldLoad).toEqual(sample);
-    expect(await recovery).toEqual([]);
+    expect(await oldLoad).toEqual(ok(sample));
+    expect(await recovery).toEqual(ok([]));
     expect(getCachedMemories()).toEqual([]);
     expect(listMemories).toHaveBeenCalledTimes(2);
   });
@@ -265,8 +269,8 @@ describe("memory mutation recovery", () => {
     const current = [{ ...sample[0], id: "current" }];
     setMemoriesCache(current);
     read.resolve(sample);
-    expect(await oldLoad).toBeNull();
-    expect(await recovery).toBeNull();
+    expect(await oldLoad).toEqual(failed());
+    expect(await recovery).toEqual(failed());
     expect(getCachedMemories()).toEqual(current);
     expect(listMemories).toHaveBeenCalledTimes(1);
   });

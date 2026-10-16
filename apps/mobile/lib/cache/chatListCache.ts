@@ -1,39 +1,34 @@
 import { api, type Chat, type ChatList } from "@/lib/api";
-import { getSessionGeneration, requireTokenSession } from "@/lib/auth";
 import { clearKnownAssistantChats } from "@/features/chat/model/draftLogic";
 import { allChatsFromGroups, emptyChatList } from "@/features/chat/model/listSections";
+import {
+  SessionResourceCache,
+  type FailureReporter,
+  type ResourceResult,
+  type ResourceUpdate,
+} from "@/lib/cache/sessionResource";
 import { CHAT_LIST_STALE_MS } from "@/lib/drawerChatList";
 
-type ListUpdate = (groups: ChatList) => ChatList;
-type CacheState = {
-  session: number;
-  data?: ChatList;
-  fetchedAt?: number;
-  pending?: { task: Promise<ChatList | null>; updates: ListUpdate[] };
-  createdChat?: Chat;
-};
-function newCache(): CacheState {
-  return { session: getSessionGeneration() };
-}
-let cache: CacheState = { session: -1 };
-function currentCache(): CacheState {
-  if (cache.session !== getSessionGeneration()) cache = newCache();
-  return cache;
-}
+const LIST = "chats";
+const resource = new SessionResourceCache<typeof LIST, ChatList, { createdChat?: Chat }>({
+  staleMs: CHAT_LIST_STALE_MS,
+  // The first chat is inserted before the first full read and must not count as one.
+  empty: emptyChatList,
+  sessionState: () => ({}),
+});
 
 /** POST /chats body — first reply inserts the drawer row without GET /chats/{id}. */
 export function rememberCreatedChat(chat: Chat): void {
-  const state = currentCache();
-  state.createdChat = chat;
+  resource.state().createdChat = chat;
 }
 
 export function peekCreatedChat(id: string): Chat | undefined {
-  const chat = currentCache().createdChat;
+  const chat = resource.state().createdChat;
   return chat?.id === id ? chat : undefined;
 }
 
 export function getCachedChatList(): ChatList | undefined {
-  return currentCache().data;
+  return resource.get(LIST);
 }
 
 /** Drawer row already has title / pin / class id — skip GET /chats/{id}. */
@@ -43,59 +38,33 @@ export function getCachedChat(id: string): Chat | undefined {
 }
 
 export function getChatListFetchedAt(): number | undefined {
-  return currentCache().fetchedAt;
+  return resource.fetchedAt(LIST);
 }
 
 export function isChatListFresh(): boolean {
-  const state = currentCache();
-  return state.data != null && state.fetchedAt != null && Date.now() - state.fetchedAt < CHAT_LIST_STALE_MS;
+  return resource.isFresh(LIST);
 }
 
 export function setChatListCache(data: ChatList): void {
-  const state = currentCache();
-  state.data = data;
-  state.fetchedAt = Date.now();
-  state.pending?.updates.push(() => data);
+  resource.set(LIST, data);
 }
 
 /** Replay edits over an already-running read so it cannot restore a deleted/old row. */
-export function updateChatListCache(update: ListUpdate): ChatList {
-  const state = currentCache();
-  state.data = update(state.data ?? emptyChatList());
-  state.pending?.updates.push(update);
-  return state.data;
+export function updateChatListCache(update: ResourceUpdate<ChatList>): ChatList {
+  return resource.update(LIST, update) ?? emptyChatList();
 }
 
 export function invalidateChatListCache(): void {
-  // Replacing ownership fences reads already in flight, including prefetches.
-  cache = newCache();
+  resource.invalidate();
   clearKnownAssistantChats();
 }
 
-export async function fetchChatList(
+export function fetchChatList(
   token: string,
-  opts?: { force?: boolean },
-): Promise<ChatList | null> {
-  try { requireTokenSession(token); } catch { return null; }
-  const state = currentCache();
-  if (!opts?.force && isChatListFresh()) return state.data!;
-  if (state.pending) return state.pending.task;
-  const updates: ListUpdate[] = [];
-  const task = (async () => {
-    try {
-      const data = await api.listChats(token);
-      if (currentCache() !== state) return null;
-      state.data = updates.reduce((groups, update) => update(groups), {
-        ...data, archived: data.archived ?? [],
-      });
-      state.fetchedAt = Date.now();
-      return state.data;
-    } catch {
-      return null;
-    }
-  })();
-  const pending = { task, updates };
-  state.pending = pending;
-  try { return await task; }
-  finally { if (state.pending === pending) state.pending = undefined; }
+  opts?: { force?: boolean; report?: FailureReporter },
+): Promise<ResourceResult<ChatList>> {
+  return resource.fetch(LIST, token, async () => {
+    const data = await api.listChats(token);
+    return { ...data, archived: data.archived ?? [] };
+  }, opts);
 }
