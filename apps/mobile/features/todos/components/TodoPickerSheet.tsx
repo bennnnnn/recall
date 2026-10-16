@@ -1,6 +1,6 @@
 /**
  * Floating choice popup for the to-do editor (centered card): a category
- * list, or the date and time wheels passed as children.
+ * list.
  */
 import { useMemo, type ReactNode } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
@@ -20,16 +20,10 @@ type Props = {
   options?: Option[];
   selectedKey?: string;
   disabled?: boolean;
-  /** Optional; some Settings screens pass a sheet title. The card itself is unlabeled. */
-  title?: string;
-  busy?: boolean;
   /** Extra row under the choices, such as naming a new category. */
   footer?: ReactNode;
-  /** Replaces the choice list. Date and time wheels use the same window. */
-  children?: ReactNode;
   keyboardAvoiding?: boolean;
   onClose: () => void;
-  onDismiss?: () => void;
   onSelect?: (key: string) => void;
 };
 
@@ -37,17 +31,13 @@ function PickerBody({
   options = [],
   selectedKey = "",
   disabled,
-  busy,
   footer,
-  children,
   onClose,
   onSelect,
-}: Omit<Props, "visible" | "title" | "keyboardAvoiding" | "onDismiss">) {
+}: Omit<Props, "visible" | "keyboardAvoiding">) {
   const theme = useTheme();
   const s = useMemo(() => makeStyles(theme), [theme]);
-  const locked = Boolean(disabled || busy);
-
-  if (children) return children;
+  const locked = Boolean(disabled);
 
   return (
     <ScrollView
@@ -89,10 +79,8 @@ function PickerBody({
 
 export function TodoPickerSheet({
   visible,
-  title: _title,
   keyboardAvoiding = false,
   onClose,
-  onDismiss,
   ...rest
 }: Props) {
   const theme = useTheme();
@@ -102,7 +90,6 @@ export function TodoPickerSheet({
     <Sheet
       visible={visible}
       onClose={onClose}
-      onDismiss={onDismiss}
       variant="center"
       withHandle={false}
       keyboardAvoiding={keyboardAvoiding}
