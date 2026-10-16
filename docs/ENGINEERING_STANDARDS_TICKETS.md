@@ -766,6 +766,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-28 — Split `components/rich/SimulationBlock.tsx` (1476)
 
+- **Status:** done. `components/rich/simulation/` takes all but the entry: `paths.ts` (the path builders, now unit-tested), `parts.tsx` (solids, pulley, supports, angle arcs, spring, strings, bodies), `vectors.tsx` (stated, riding and derived arrows with their per-frame worklets), `labels.tsx` (`SceneLabels` and the moving labels it draws), `markers.tsx`, and `useSimulationScene.ts` (fonts, parse, size, layout and the playback clock, hooks in the same order), leaving `SimulationBlock.tsx` at 292 lines. A capture of the whole React tree (every fiber's props, hook types and hook state) for ES-27's 1,616 distinct scenes at six fake-timer frames, plus no-font, dark, Reduce Motion, play/pause and recycled-cell runs, is byte-identical with the same 22 worklets and captured names, and `SimulationBlockSnapshot.test.tsx` pins one scene of each kind.
 - **Problem:** the file holds:
   - SVG path builders (103-191)
   - the 314-line component (192-506): playback clock, layout memo and render

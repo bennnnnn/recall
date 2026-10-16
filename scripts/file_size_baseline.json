@@ -253,10 +253,6 @@
       "lines": 748,
       "why": "Over 500 before the standards; tracked in ES-38"
     },
-    "apps/mobile/components/rich/SimulationBlock.tsx": {
-      "lines": 1476,
-      "why": "Over 500 before the standards; split in ES-28"
-    },
     "apps/mobile/components/rich/mathText/render.tsx": {
       "lines": 653,
       "why": "Over 500 before the standards; split by responsibility after the ticketed files"
