@@ -8,6 +8,17 @@ import {
   sampleGraphExpr,
 } from "@/lib/math/graphExpr";
 
+import fixture from "../../../../docs/fixtures/graph_expr_cases.json";
+
+type GraphCase = {
+  expr: string;
+  x?: number[];
+  y?: (number | null)[];
+  refused?: boolean;
+  phone_gap?: string;
+};
+type Contract = { variable: string; cases: GraphCase[] };
+
 describe("graphExpr", () => {
   it("evaluates 4x^2-5x-12 at the vertex and origin", () => {
     const node = parseGraphExpr("4x^2-5x-12");
@@ -92,4 +103,59 @@ describe("graphExpr", () => {
     ]);
     expect(inequalityFillPoints(curve, -3, 5, "=")).toEqual([]);
   });
+});
+
+/**
+ * docs/fixtures/graph_expr_cases.json is shared with the API test
+ * (app/tests/modules/math/test_math_graph_expr_contract.py), which recomputes
+ * every y with SymPy through the server's own reading of the expression. The
+ * phone re-reads the verified expression to resample on zoom, so it must land
+ * on the same curve.
+ */
+describe("graph expression contract", () => {
+  const contract: Contract = fixture;
+  // Within 1e-9, relative once |y| is above 1.
+  const TOLERANCE = 1e-9;
+  const read = contract.cases.filter((c) => !c.refused && c.phone_gap == null);
+  const refused = contract.cases.filter((c) => c.refused);
+  const gaps = contract.cases.filter((c) => c.phone_gap != null);
+
+  /** NaN and the infinities draw no point, which the fixture writes as null. */
+  const phoneY = (expr: string, x: number): number | null | "unread" => {
+    const node = parseGraphExpr(expr, contract.variable);
+    if (node == null) return "unread";
+    const y = evalGraphExpr(node, x);
+    return Number.isFinite(y) ? y : null;
+  };
+
+  const agrees = (got: number | null | "unread", want: number | null): boolean => {
+    if (want == null) return got === null;
+    if (typeof got !== "number") return false;
+    return Math.abs(got - want) <= TOLERANCE * Math.max(1, Math.abs(want));
+  };
+
+  it.each(read.map((c) => [c.expr, c] as const))("%s samples as SymPy does", (_expr, c) => {
+    const misses = (c.x ?? []).flatMap((x, i) => {
+      const want = c.y?.[i] ?? null;
+      const got = phoneY(c.expr, x);
+      return agrees(got, want) ? [] : [{ x, phone: got, sympy: want }];
+    });
+    expect(misses).toEqual([]);
+  });
+
+  it.each(refused.map((c) => [c.expr] as const))("%s is refused, as on the server", (expr) => {
+    expect(parseGraphExpr(expr, contract.variable)).toBeNull();
+  });
+
+  for (const c of gaps) {
+    it.skip(`${c.expr} parity skipped, known phone gap: ${c.phone_gap}`, () => {});
+  }
+
+  it.each(gaps.map((c) => [c.expr] as const))(
+    "%s is a known phone gap: refused, so the server's samples stay on screen",
+    (expr) => {
+      // When the phone learns this form, delete its phone_gap line so parity is checked.
+      expect(parseGraphExpr(expr, contract.variable)).toBeNull();
+    },
+  );
 });

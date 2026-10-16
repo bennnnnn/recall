@@ -1,6 +1,7 @@
 /**
  * Plot-only expression eval (not a solver). Whitelisted AST — no eval/Function.
  * Used so pinch-zoom and live edits can resample y=f(x) on device.
+ * docs/fixtures/graph_expr_cases.json holds it to the server's SymPy reading.
  */
 
 type GraphExprNode =
