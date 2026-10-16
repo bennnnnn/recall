@@ -1,13 +1,15 @@
 """Tool-loop rounds, image tools, and per-user tool lists."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
+from uuid import uuid4
 
 import pytest
 
 from app.gateways.mcp import registry as mcp_registry
-from app.gateways.mcp.base import ToolResult
+from app.gateways.mcp.base import ToolContext, ToolResult
 from app.gateways.web_search_gateway import WebSearchHit
 from app.services import tool_loop
+from app.tests.tool_context import tool_context
 
 from .tool_loop_support import settings
 
@@ -105,6 +107,58 @@ async def test_tool_loop_single_web_search_round(web_search_registered):
     assert verified is None
     assert terminal is None
     assert hits == [WebSearchHit(title="Example", url="https://example.com", snippet="snippet")]
+
+
+@pytest.mark.asyncio
+async def test_tool_loop_gives_every_call_and_the_forced_search_one_turn_context(
+    sympy_registered,
+):
+    """One ToolContext per turn: its user, chat and Tavily budget reach every tool call."""
+    user, redis, chat_id = MagicMock(), MagicMock(), uuid4()
+    text = "solve 2x + 5 = 17 and what's the latest news today?"
+    calls = [
+        {
+            "id": f"s{i}",
+            "type": "function",
+            "function": {"name": "sympy", "arguments": '{"action": "solve", "lhs": "2*x + 5"}'},
+        }
+        for i in range(2)
+    ]
+    complete = AsyncMock(return_value={"content": None, "tool_calls": calls})
+    invoke = AsyncMock(return_value=ToolResult(name="sympy", content="ok"))
+    forced = AsyncMock(return_value=([], []))
+
+    with (
+        patch("app.services.tool_loop.litellm_gateway.complete_with_tools", complete),
+        patch("app.services.tool_loop.mcp_registry.invoke_validated", invoke),
+        patch("app.modules.web_search.search_cache.run_cached_search", forced),
+        patch("app.services.tool_loop.plan_service.can_use", return_value=False),
+    ):
+        await tool_loop.run_tool_rounds(
+            settings=settings(mcp_tool_loop_enabled=True, web_search_enabled=True),
+            model_alias="free-chat",
+            messages=[{"role": "user", "content": text}],
+            usage={},
+            user=user,
+            redis=redis,
+            chat_id=chat_id,
+            # The classifier said no, so the model picks the tools; the news
+            # heuristic still forces a search after the round.
+            web_search=False,
+            user_timezone="Africa/Nairobi",
+        )
+
+    contexts = [call.args[2] for call in invoke.await_args_list]
+    assert len(contexts) == 2
+    assert contexts[0] is contexts[1]
+    ctx = contexts[0]
+    assert isinstance(ctx, ToolContext)
+    assert (ctx.user, ctx.redis, ctx.chat_id) == (user, redis, chat_id)
+    assert (ctx.user_timezone, ctx.user_query) == ("Africa/Nairobi", text)
+    # The search the loop runs itself spends the same turn budget as the tools.
+    forced.assert_awaited_once()
+    assert forced.await_args.kwargs["budget"] is ctx.tavily_budget
+    assert forced.await_args.kwargs["user"] is user
 
 
 @pytest.mark.asyncio
@@ -328,14 +382,14 @@ def test_first_unanswered_assistant_idx_detects_partial_tools():
 
 @pytest.mark.asyncio
 async def test_invoke_validated_rejects_bad_json(web_search_registered):
-    result = await mcp_registry.invoke_validated("web_search", "{not-json")
+    result = await mcp_registry.invoke_validated("web_search", "{not-json", tool_context())
     assert result is not None
     assert "Invalid JSON" in result.content
 
 
 @pytest.mark.asyncio
 async def test_invoke_validated_rejects_empty_query(web_search_registered):
-    result = await mcp_registry.invoke_validated("web_search", '{"query": ""}')
+    result = await mcp_registry.invoke_validated("web_search", '{"query": ""}', tool_context())
     assert result is not None
     assert "Invalid arguments" in result.content
 

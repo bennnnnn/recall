@@ -8,7 +8,7 @@ from typing import Any
 
 from pydantic import BaseModel, ValidationError
 
-from app.gateways.mcp.base import ToolAdapter, ToolResult
+from app.gateways.mcp.base import ToolAdapter, ToolContext, ToolResult
 
 logger = logging.getLogger(__name__)
 
@@ -30,13 +30,6 @@ def list_adapters() -> list[ToolAdapter]:
 def clear() -> None:
     """Test helper — wipe registered adapters."""
     _REGISTRY.clear()
-
-
-async def invoke(name: str, args: dict) -> ToolResult | None:
-    adapter = get(name)
-    if adapter is None:
-        return None
-    return await adapter.invoke(args)
 
 
 def build_openai_tools() -> list[dict[str, Any]]:
@@ -63,8 +56,10 @@ def build_openai_tools() -> list[dict[str, Any]]:
     return tools
 
 
-async def invoke_validated(name: str, raw_args: str | dict[str, Any]) -> ToolResult | None:
-    """Validate tool args with the adapter's Pydantic schema when present."""
+async def invoke_validated(
+    name: str, raw_args: str | dict[str, Any], ctx: ToolContext
+) -> ToolResult | None:
+    """Validate tool args with the adapter's Pydantic schema, then run it in *ctx*'s turn."""
     adapter = get(name)
     if adapter is None:
         return ToolResult(name=name or "unknown", content=f"Unknown tool: {name}")
@@ -92,4 +87,4 @@ async def invoke_validated(name: str, raw_args: str | dict[str, Any]) -> ToolRes
     else:
         args = payload if isinstance(payload, dict) else {}
 
-    return await adapter.invoke(args)
+    return await adapter.invoke(args, ctx)

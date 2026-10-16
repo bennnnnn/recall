@@ -683,6 +683,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-25 — Tools get their turn context as an argument, not from 14 ContextVars
 
+- **Status:** done. `ToolAdapter.invoke(args, ctx)` takes a frozen `ToolContext` (`gateways/mcp/base.py`: `user`, `redis`, `chat_id`, `user_timezone`, `user_query`, `tavily_budget`, and `first_results`, which is where web search keeps its one search per turn). `registry.invoke_validated` passes it through; the unused `registry.invoke` is gone. The tool loop builds one per turn and hands its budget to the forced search as well; live talk builds one per lookup. All 14 ContextVars and the four `bind_*` helpers are deleted, and `tool_loop.py` no longer imports `modules.images`. `TavilyBudget` is a protocol in the gateway, so `gateways/` still imports no module; `web_search.TurnTavilyBudget` implements it, and the search cache now takes the budget as an argument. The capture is byte-identical: 45 tool-loop, live-talk and adapter turns (all four tools, Pro and free image generation, Tavily exhaustion, cache hits, repeat calls in one round). `tool_loop.py` went from 839 to 834 lines.
 - **Problem:** `gateways/mcp/base.py` `ToolAdapter.invoke(args)` has no context parameter, so
   adapters read per-turn state from module ContextVars:
   - `modules/web_search/tool.py:56-62` (7)

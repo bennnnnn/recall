@@ -33,6 +33,22 @@ async def test_voice_search_reserves_once_for_duplicate_tool_calls_and_keeps_sou
 
 
 @pytest.mark.asyncio
+async def test_voice_search_runs_in_its_own_turn_context():
+    redis = fakeredis.aioredis.FakeRedis(decode_responses=True)
+    user = SimpleNamespace(id=uuid4(), memory_enabled=True, timezone="Africa/Nairobi")
+    invoke = AsyncMock(return_value=ToolResult(name="web_search", content="Score", data=None))
+    with patch("app.modules.speech.live_talk_tools.WebSearchAdapter.invoke", invoke):
+        await execute_tool(
+            Settings(), redis, user=user, call_id="c", turn_id="t", name="web_search", query="score"
+        )
+    args, ctx = invoke.await_args.args
+    assert args == {"query": "score"}
+    assert (ctx.user, ctx.redis, ctx.chat_id) == (user, redis, None)
+    assert (ctx.user_timezone, ctx.user_query) == ("Africa/Nairobi", "score")
+    assert ctx.first_results == {}
+
+
+@pytest.mark.asyncio
 async def test_memory_disabled_does_not_call_memory_service():
     user = SimpleNamespace(id=uuid4(), memory_enabled=False)
     with patch(
