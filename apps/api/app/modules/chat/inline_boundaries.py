@@ -2,7 +2,8 @@
 
 Models sometimes emit ``at**40 km/h**``. CommonMark then draws ``at40``.
 This repairs that boundary in assistant prose. It does not rewrite code
-fences, indented code, blockquotes, URLs, math bodies, or punctuation.
+fences, indented code, blockquotes, URLs, math bodies, or punctuation. The
+phone's twin is apps/mobile/lib/markdown/inlineBoundaries.ts.
 """
 
 from __future__ import annotations

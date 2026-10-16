@@ -1,9 +1,9 @@
-"""One logical reasoning state per math row.
+"""One logical reasoning state per math row, for every subject's reply before it is saved.
 
-This is the only calculation-layout implementation. Math, physics, chemistry,
-statistics, and later subjects all call it. A row stays together when it is
-one formula, one substitution, or one simple evaluation. A chain of
-transformations, or two independent equations, becomes separate rows.
+The phone's twin is apps/mobile/lib/markdown/calculationLayout.ts; the shared corpus
+docs/fixtures/presentation_cases.json holds both to one output. A row stays together when it
+is one formula, one substitution, or one simple evaluation. A chain of transformations, or
+two independent equations, becomes separate rows.
 """
 
 from __future__ import annotations

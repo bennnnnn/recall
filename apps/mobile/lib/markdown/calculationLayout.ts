@@ -1,9 +1,11 @@
 /**
  * One logical reasoning state per math row.
- * Mirrors apps/api/app/services/chat/calculation_layout.py.
+ * The API's twin is apps/api/app/modules/chat/calculation_layout.py;
+ * docs/fixtures/presentation_cases.json holds both to the same output.
  */
 
 import { codeSpanOpensWithin } from "@/lib/markdown/inlineCode";
+import { leaveProseLine, rewriteFenced } from "@/lib/markdown/markdownRegions";
 import { readFenceMarker } from "@/lib/mdFenceScan";
 
 const MATH_LANGS = new Set(["math", "latex", "tex", "equation"]);
@@ -393,11 +395,6 @@ function listPrefix(line: string): { prefix: string; body: string } {
   return { prefix: "", body: line };
 }
 
-function leaveProseLine(line: string): boolean {
-  if (line.startsWith("    ") || line.startsWith("\t")) return true;
-  return line.trimStart().startsWith(">");
-}
-
 function layoutLine(line: string): string {
   if (leaveProseLine(line)) return line;
   const stripped = line.trimStart();
@@ -533,50 +530,7 @@ function rewriteMathFence(opener: string, body: string): string | null {
   return joinRows(rows, "$");
 }
 
-function rewriteFenced(text: string): string {
-  if (!text) return layoutProse(text);
-  const lines = text.split("\n");
-  const out: string[] = [];
-  let prose: string[] = [];
-  let open: { char: "`" | "~"; len: number } | null = null;
-  let opener = "";
-  let body: string[] = [];
-  const flush = () => {
-    if (prose.length === 0) return;
-    out.push(layoutProse(prose.join("\n")));
-    prose = [];
-  };
-  for (const line of lines) {
-    const marker = readFenceMarker(line);
-    if (open) {
-      if (marker && marker.char === open.char && marker.len >= open.len && marker.info === "") {
-        const replacement = rewriteMathFence(opener, body.join("\n"));
-        if (replacement == null) {
-          out.push(opener, ...body, line);
-        } else {
-          out.push(replacement);
-        }
-        open = null;
-        body = [];
-      } else {
-        body.push(line);
-      }
-      continue;
-    }
-    if (marker && !marker.info.includes("|")) {
-      flush();
-      open = { char: marker.char, len: marker.len };
-      opener = line;
-      continue;
-    }
-    prose.push(line);
-  }
-  flush();
-  if (open) out.push(opener, ...body);
-  return out.join("\n");
-}
-
 export function layoutCalculations(text: string): string {
   if (!text) return text;
-  return rewriteFenced(text);
+  return rewriteFenced(text, layoutProse, rewriteMathFence);
 }

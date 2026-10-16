@@ -1,7 +1,9 @@
 /**
- * Assistant Markdown presentation shared with the API.
+ * Assistant Markdown presentation, the contract the API applies before a
+ * reply is saved (apps/api/app/modules/chat/presentation.py).
  * REPL transcripts become code, then boundaries, then one reasoning state per
- * calculation row.
+ * calculation row. docs/fixtures/presentation_cases.json holds both sides to
+ * the same output.
  */
 
 import { layoutCalculations } from "@/lib/markdown/calculationLayout";

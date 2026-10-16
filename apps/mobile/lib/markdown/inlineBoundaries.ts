@@ -1,10 +1,12 @@
 /**
  * Put a visible word space outside closed inline Markdown tokens.
- * Mirrors apps/api/app/services/chat/inline_boundaries.py.
+ * The API's twin is apps/api/app/modules/chat/inline_boundaries.py;
+ * docs/fixtures/presentation_cases.json holds both to the same output.
  * Fenced code, indented code, blockquotes, URLs, and math bodies stay intact.
  */
 
 import { codeSpanOpensWithin } from "@/lib/markdown/inlineCode";
+import { leaveProseLine } from "@/lib/markdown/markdownRegions";
 import { applyOutsideFences } from "@/lib/mdFenceScan";
 
 const OPEN_PUNCT = new Set("([{\"“‘«".split(""));
@@ -162,11 +164,6 @@ function emit(out: string[], span: string, next: string): void {
   if (out.length > 0 && glueBefore(out[out.length - 1].slice(-1))) out.push(" ");
   out.push(span);
   if (glueAfter(next.slice(0, 1))) out.push(" ");
-}
-
-function leaveProseLine(line: string): boolean {
-  if (line.startsWith("    ") || line.startsWith("\t")) return true;
-  return line.trimStart().startsWith(">");
 }
 
 function repairLine(line: string): string {
