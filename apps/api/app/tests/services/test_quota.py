@@ -585,3 +585,130 @@ async def test_record_voice_spend_counts_toward_global_cap(fake_redis):
     assert await quota_service.global_spend_exceeded(fake_redis, settings) is False
     await quota_service.record_voice_spend(fake_redis, 0.08)
     assert await quota_service.global_spend_exceeded(fake_redis, settings) is True
+
+
+# ── Nothing to count, and Redis outages ──────────────────────────────────────
+
+
+def _down_redis():
+    redis = AsyncMock()
+    for name in ("get", "set", "exists", "delete", "incrby", "expire", "eval"):
+        getattr(redis, name).side_effect = RedisConnectionError("down")
+    return redis
+
+
+@pytest.mark.parametrize(
+    "call, expected",
+    [
+        (lambda r: quota_service.reserve_usage(r, "u1", 0, daily_limit=10), True),
+        (lambda r: quota_service.refund_usage(r, "u1", 0), None),
+        (lambda r: quota_service.heal_usage_drift(r, "u1", 0), None),
+        (lambda r: quota_service.release_live_talk_seconds(r, uuid4(), seconds=0), None),
+    ],
+)
+@pytest.mark.asyncio
+async def test_nothing_to_count_never_touches_redis(call, expected):
+    redis = AsyncMock()
+    assert await call(redis) == expected
+    assert redis.mock_calls == []
+
+
+@pytest.mark.parametrize(
+    "call, expected",
+    [
+        (lambda r: quota_service.mark_usage_needs_heal(r, "u1"), None),
+        (lambda r: quota_service.usage_needs_heal(r, "u1"), False),
+        (lambda r: quota_service.clear_usage_needs_heal(r, "u1"), None),
+        (lambda r: quota_service.record_voice_spend(r, 0.01), None),
+    ],
+)
+@pytest.mark.asyncio
+async def test_bookkeeping_survives_a_redis_outage(call, expected):
+    assert await call(_down_redis()) == expected
+
+
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda r: quota_service.reserve_usage(r, "u1", 10, daily_limit=100),
+        lambda r: quota_service.reserve_live_talk_seconds(
+            r, uuid4(), allowance_seconds=600, max_session_seconds=60, min_session_seconds=1
+        ),
+    ],
+)
+@pytest.mark.asyncio
+async def test_reserves_fail_closed_when_redis_is_down(call):
+    with pytest.raises(RedisUnavailableError):
+        await call(_down_redis())
+
+
+@pytest.mark.asyncio
+async def test_heal_usage_drift_reraises_a_redis_outage():
+    with pytest.raises(RedisConnectionError):
+        await quota_service.heal_usage_drift(_down_redis(), "u1", 500)
+
+
+@pytest.mark.parametrize("failed_rollbacks, refused", [(1, True), (2, False)])
+@pytest.mark.asyncio
+async def test_reserve_usage_retries_a_failed_over_limit_rollback(
+    fake_redis, failed_rollbacks, refused
+):
+    key = _usage_key("u1", quota_service.utc_today())
+    await fake_redis.set(key, 950)
+    incrby = fake_redis.incrby
+    left = [failed_rollbacks]
+
+    async def flaky(name, amount):
+        if amount < 0 and left[0]:
+            left[0] -= 1
+            raise RedisConnectionError("blip")
+        return await incrby(name, amount)
+
+    fake_redis.incrby = flaky
+    if refused:
+        assert await quota_service.reserve_usage(fake_redis, "u1", 100, daily_limit=1000) is False
+        assert await fake_redis.get(key) == "950"
+    else:
+        with pytest.raises(RedisUnavailableError):
+            await quota_service.reserve_usage(fake_redis, "u1", 100, daily_limit=1000)
+        assert await fake_redis.get(key) == "1050"
+
+
+@pytest.mark.asyncio
+async def test_record_usage_never_goes_below_zero(fake_redis):
+    await quota_service.record_usage(fake_redis, "u1", 50)
+    assert await quota_service.record_usage(fake_redis, "u1", -80) == 0
+    assert await quota_service.get_daily_usage(fake_redis, "u1") == 0
+
+
+@pytest.mark.asyncio
+async def test_reset_daily_usage_clears_todays_counter(fake_redis):
+    await quota_service.record_usage(fake_redis, "u1", 50)
+    await quota_service.reset_daily_usage(fake_redis, "u1")
+    assert await quota_service.has_daily_usage_key(fake_redis, "u1") is False
+
+
+@pytest.mark.parametrize("raw", ["garbage", "600:abc:2026-03", "600:123"])
+@pytest.mark.asyncio
+async def test_live_talk_settle_ignores_a_malformed_reservation(fake_redis, raw):
+    user_id = uuid4()
+    await fake_redis.set(f"livetalk_res:{user_id}:call-1", raw)
+    assert await quota_service.settle_live_talk_session(fake_redis, user_id, "call-1") is None
+    assert await fake_redis.get(f"livetalk_res:{user_id}:call-1") is None
+
+
+@pytest.mark.parametrize("usd", [0, -1.0])
+@pytest.mark.asyncio
+async def test_record_global_spend_of_nothing_only_reads_the_total(fake_redis, usd):
+    await quota_service.record_global_spend(fake_redis, 0.002)
+    assert await quota_service.record_global_spend(fake_redis, usd) == 2000
+
+
+@pytest.mark.asyncio
+async def test_read_carried_usage_skips_an_unreadable_counter(fake_redis):
+    user_id = uuid4()
+    today = quota_service.utc_today().isoformat()
+    await fake_redis.set(f"tavily:{user_id}:{today}", "abc")
+    await fake_redis.set(f"imgup:{user_id}:{today}", 2)
+    carried = await quota_service.read_carried_usage(fake_redis, user_id)
+    assert carried.daily == {"imgup": 2}

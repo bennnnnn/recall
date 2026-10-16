@@ -871,6 +871,7 @@ families below were found by reading the code. Two of them are verified bugs tod
 
 ### ES-33 — `services/quota.py` (789): one counter table instead of 15 wrappers
 
+- **Status:** done. `services/quota/` replaces the 789-line module: `tokens.py`, `counters.py` (`COUNTERS`, six `CounterSpec`s of key prefix, plan allowance, free and paid message and refund rule, behind `reserve`, `refund` and `limit_message`), `live_talk.py`, `carryover.py`, `spend.py` and `messages.py`; the 23 per-feature wrappers are gone and their 8 callers use `counters.reserve("image_search", …)`. A capture of every public function and counter (each plan, day and month boundaries, Redis faults, logs) and the ES-24 capture of 5,770 chat turns are byte-identical before and after, and quota coverage is 99% (was 90%).
 - **Problem:** the file holds:
   - the daily token budget (reserve, refund, heal, seed)
   - per-feature daily counters written as 15 two-line wrappers (`reserve_speech_tts`,
